@@ -369,6 +369,14 @@ type ApplicationState interface {
 
 	// GetDeviceConstraints returns the device constraints for an application.
 	GetDeviceConstraints(ctx context.Context, appID coreapplication.ID) (map[string]devices.Constraints, error)
+
+	// ShouldAllowCharmUpgradeOnError indicates if the units of an application
+	// should upgrade to the latest version of the application charm even if
+	// they are in error state.
+	//
+	// An error satisfying [applicationerrors.ApplicationNotFoundError]
+	// is returned if the application doesn't exist.
+	ShouldAllowCharmUpgradeOnError(ctx context.Context, appName string) (bool, error)
 }
 
 func validateCharmAndApplicationParams(
@@ -898,6 +906,21 @@ func (s *Service) GetApplicationScale(ctx context.Context, appName string) (int,
 		return -1, errors.Errorf("getting scaling state for %q: %w", appName, err)
 	}
 	return scaleState.Scale, nil
+}
+
+// ShouldAllowCharmUpgradeOnError indicates if the units of an application should
+// upgrade to the latest version of the application charm even if they are in
+// error state.
+//
+// An error satisfying [applicationerrors.ApplicationNotFoundError]
+// is returned if the application doesn't exist.
+func (s *Service) ShouldAllowCharmUpgradeOnError(ctx context.Context, appName string) (bool, error) {
+	ok, err := s.st.ShouldAllowCharmUpgradeOnError(ctx, appName)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return ok, nil
 }
 
 // ChangeApplicationScale alters the existing scale by the provided change amount, returning the new amount.
