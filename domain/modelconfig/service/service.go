@@ -31,10 +31,10 @@ type State interface {
 	ProviderState
 	SpaceValidatorState
 
-	// AgentVersion returns the current models agent version. If no agent
-	// version has been set for the current model then a error satisfying
-	// [errors.NotFound] is returned.
-	AgentVersion(context.Context) (string, error)
+	// GetModelAgentVersionAndStream returns the current models set agent
+	// version and stream. If no agent version or stream has ben set then an
+	// error satisfying [github.com/juju/juju/core/errors.NotFound] is returned.
+	GetModelAgentVersionAndStream(context.Context) (ver string, stream string, err error)
 
 	// ModelConfigHasAttributes returns the set of attributes that model config
 	// currently has set out of the list supplied.
@@ -101,17 +101,19 @@ func (s *Service) ModelConfig(ctx context.Context) (*config.Config, error) {
 		return nil, errors.Errorf("getting model config from state: %w", err)
 	}
 
-	agentVersion, err := s.st.AgentVersion(ctx)
+	agentVersion, agentStream, err := s.st.GetModelAgentVersionAndStream(ctx)
 	if err != nil {
-		return nil, errors.Errorf("getting model agent version for model config: %w", err)
+		return nil, errors.Errorf("getting agent version and stream for model config: %w", err)
 	}
 
 	altConfig := transform.Map(stConfig, func(k, v string) (string, any) { return k, v })
 
-	// We add the agent version to model config here. Over time we need to
-	// remove uses of agent version from model config. We prefer to augment
-	// config with this value on read rather then persisting on writing.
+	// We add the agent version and stream to model config here. Over time we need
+	// to remove uses of agent version and stream from model config. We prefer
+	// to augment config with this value on read rather then persisting on
+	// writing.
 	altConfig[config.AgentVersionKey] = agentVersion
+	altConfig[config.AgentStreamKey] = agentStream
 	return config.New(config.NoDefaults, altConfig)
 }
 
@@ -356,6 +358,7 @@ func (s *Service) validatorForUpdateModelConfig(
 ) config.Validator {
 	agg := &config.AggregateValidator{
 		Validators: []config.Validator{
+			validators.AgentStreamChange(),
 			validators.AgentVersionChange(),
 			validators.CharmhubURLChange(),
 			validators.SpaceChecker(&spaceValidator{
