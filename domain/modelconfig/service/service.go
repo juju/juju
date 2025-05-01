@@ -192,6 +192,10 @@ func (s *Service) reconcileRemovedAttributes(
 	ctx context.Context,
 	removeAttrs []string,
 ) (map[string]any, error) {
+	if len(removeAttrs) == 0 {
+		return map[string]any{}, nil
+	}
+
 	updates := map[string]any{}
 	hasAttrs, err := s.st.ModelConfigHasAttributes(ctx, removeAttrs)
 	if err != nil {
@@ -265,6 +269,7 @@ func (s *Service) SetModelConfig(
 //
 // The following validations on model config are run by default:
 // - Agent version is not change between updates.
+// - Agent stream is not changed between updates.
 // - Charmhub url is not changed between updates.
 // - The networking space chosen is valid and can be used.
 // - The secret backend is valid and can be used.
@@ -298,17 +303,29 @@ func (s *Service) UpdateModelConfig(
 		return errors.Errorf("making updated model configuration: %w", err)
 	}
 
-	_, err = s.validatorForUpdateModelConfig().Validate(ctx, newCfg, currCfg)
+	validatedCfg, err := s.validatorForUpdateModelConfig().Validate(ctx, newCfg, currCfg)
 	if err != nil {
 		return errors.Errorf("validating updated model configuration: %w", err)
 	}
 
-	rawCfg, err := CoerceConfigForStorage(updateAttrs)
+	// We need to walk through all of the updates and potentially find any
+	// changes that were made by the validators.
+	validatedUpdates := make(map[string]any, len(updates))
+	validatedCfgAttrs := validatedCfg.AllAttrs()
+	for k, _ := range updates {
+		validatedCfgVal, exists := validatedCfgAttrs[k]
+		if !exists {
+			continue
+		}
+		validatedUpdates[k] = validatedCfgVal
+	}
+
+	rawCfgUpdate, err := CoerceConfigForStorage(validatedUpdates)
 	if err != nil {
 		return errors.Errorf("coercing new configuration for persistence: %w", err)
 	}
 
-	err = s.st.UpdateModelConfig(ctx, rawCfg, removeAttrs)
+	err = s.st.UpdateModelConfig(ctx, rawCfgUpdate, removeAttrs)
 	if err != nil {
 		return errors.Errorf("updating model config: %w", err)
 	}
