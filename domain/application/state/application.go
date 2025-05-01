@@ -2352,6 +2352,44 @@ func (st *State) GetApplicationIDByName(ctx context.Context, name string) (corea
 	return id, nil
 }
 
+// ShouldAllowCharmUpgradeOnError indicates if the units of an application
+// should upgrade to the latest version of the application charm even if they
+// are in error state.
+//
+// An error satisfying [applicationerrors.ApplicationNotFoundError]
+// is returned if the application doesn't exist.
+func (st *State) ShouldAllowCharmUpgradeOnError(ctx context.Context, appName string) (bool, error) {
+	db, err := st.DB()
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	arg := getCharmUpgradeOnError{
+		Name: appName,
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &getCharmUpgradeOnError.*
+FROM   application
+WHERE  name = $getCharmUpgradeOnError.name
+`, arg)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, arg).Get(&arg)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.ApplicationNotFound
+		}
+		return errors.Capture(err)
+	}); err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return arg.CharmUpgradeOnError, nil
+}
+
 // getApplicationName returns the application name. If no application is found,
 // an error satisfying [applicationerrors.ApplicationNotFound] is returned.
 func (st *State) getApplicationName(
