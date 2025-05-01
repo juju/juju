@@ -155,6 +155,11 @@ WHERE application_uuid = $applicationID.uuid
 	return exportUnits, nil
 }
 
+// InsertMigratingApplication inserts a migrating application. Returns as
+// error satisfying [applicationerrors.ApplicationAlreadyExists] if the
+// application already exists. If returns as error satisfying
+// [applicationerrors.CharmNotFound] if the charm for the application is
+// not found.
 func (st *State) InsertMigratingApplication(ctx context.Context, name string, args application.InsertApplicationArgs) (coreapplication.ID, error) {
 	db, err := st.DB()
 	if err != nil {

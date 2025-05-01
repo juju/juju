@@ -447,6 +447,8 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 			return nil
 		})
 	} else {
+		s.state.EXPECT().SetDesiredApplicationScale(gomock.Any(), id, 1).Return(nil)
+		s.state.EXPECT().SetApplicationScalingState(gomock.Any(), "ubuntu", 42, true).Return(nil)
 		s.state.EXPECT().InsertMigratingCAASUnits(gomock.Any(), id, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.ImportUnitArg) error {
 			receivedUnitArgs = args
 			return nil
@@ -510,8 +512,6 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 
 	s.state.EXPECT().SetApplicationConstraints(gomock.Any(), id, domainconstraints.DecodeConstraints(cons)).Return(nil)
 
-	s.state.EXPECT().SetDesiredApplicationScale(gomock.Any(), id, 1).Return(nil)
-	s.state.EXPECT().SetApplicationScalingState(gomock.Any(), "ubuntu", 42, true).Return(nil)
 	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "ubuntu").Return(charmUUID, nil)
 	s.state.EXPECT().MergeExposeSettings(gomock.Any(), id, map[string]application.ExposedEndpoint{
 		"": {
