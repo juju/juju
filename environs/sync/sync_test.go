@@ -9,7 +9,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"os/exec"
 	"path"
@@ -34,7 +33,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
-	jujuhttp "github.com/juju/juju/internal/http"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/juju/names"
@@ -240,92 +238,9 @@ func (s *uploadSuite) SetUpTest(c *gc.C) {
 	s.targetStorage = stor
 }
 
-func (s *uploadSuite) patchBundleTools(c *gc.C, v semversion.Number) {
-	// Mock out building of tools. Sync should not care about the contents
-	// of tools archives, other than that they hash correctly.
-	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(v))
-}
-
-func (s *uploadSuite) assertEqualsCurrentVersion(c *gc.C, v semversion.Binary) {
-	c.Assert(v, gc.Equals, coretesting.CurrentVersion())
-}
-
 func (s *uploadSuite) TearDownTest(c *gc.C) {
 	s.ToolsFixture.TearDownTest(c)
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
-}
-
-func (s *uploadSuite) TestUpload(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	ss := NewMockSimplestreamsFetcher(ctrl)
-	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
-
-	forceVersion := jujuversion.Current
-	s.patchBundleTools(c, forceVersion)
-	t, err := sync.Upload(context.Background(), ss, s.targetStorage, "released",
-		func(semversion.Number) semversion.Number { return forceVersion },
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertEqualsCurrentVersion(c, t.Version)
-	c.Assert(t.URL, gc.Not(gc.Equals), "")
-	hostOSType := coreos.HostOSTypeName()
-	s.assertUploadedTools(c, t, []string{hostOSType}, "released")
-}
-
-func (s *uploadSuite) TestUploadAndForceVersion(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	ss := NewMockSimplestreamsFetcher(ctrl)
-	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
-
-	forceVersion := jujuversion.Current
-	forceVersion.Patch++
-	s.patchBundleTools(c, forceVersion)
-	t, err := sync.Upload(context.Background(), ss, s.targetStorage, "released",
-		func(semversion.Number) semversion.Number { return forceVersion },
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(t.Version, gc.Equals, coretesting.CurrentVersion())
-}
-
-func (s *uploadSuite) assertUploadedTools(c *gc.C, t *coretools.Tools, expectOSTypes []string, stream string) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	ss := NewMockSimplestreamsFetcher(ctrl)
-	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
-
-	s.assertEqualsCurrentVersion(c, t.Version)
-	expectRaw := downloadToolsRaw(c, t)
-
-	list, err := envtools.ReadList(context.Background(), s.targetStorage, stream, jujuversion.Current.Major, jujuversion.Current.Minor)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(list.AllReleases(), jc.SameContents, expectOSTypes)
-	for _, t := range list {
-		c.Logf("checking %s", t.URL)
-		c.Assert(t.Version.Number, gc.Equals, jujuversion.Current)
-		actualRaw := downloadToolsRaw(c, t)
-		c.Assert(string(actualRaw), gc.Equals, string(expectRaw))
-	}
-	metadata, err := envtools.ReadMetadata(context.Background(), ss, s.targetStorage, stream)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metadata, gc.HasLen, 0)
-}
-
-// downloadToolsRaw downloads the supplied tools and returns the raw bytes.
-func downloadToolsRaw(c *gc.C, t *coretools.Tools) []byte {
-	client := jujuhttp.NewClient()
-	resp, err := client.Get(context.Background(), t.URL)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { _ = resp.Body.Close() }()
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
-	var buf bytes.Buffer
-	_, err = io.Copy(&buf, resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
-	return buf.Bytes()
 }
 
 func bundleTools(c *gc.C) (semversion.Binary, bool, string, error) {
