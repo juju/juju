@@ -126,9 +126,26 @@ func CreateGlobalModelRecord(
 	}
 }
 
-// CreateLocalModelRecord creates a new model within the model database with
-// all of its associated metadata.
+// CreateLocalModelRecord creates a new model within the model database with all
+// of its associated metadata. This variant defaults the agent stream to
+// [coreagentbinary.AgentStreamReleased].
 func CreateLocalModelRecord(
+	id coremodel.UUID,
+	controllerUUID uuid.UUID,
+	agentVersion semversion.Number,
+) internaldatabase.BootstrapOpt {
+	return CreateLocalModelRecordWithAgentStream(
+		id,
+		controllerUUID,
+		agentVersion,
+		coreagentbinary.AgentStreamReleased,
+	)
+}
+
+// CreateLocalModelRecordWithAgentStream creates a new model within the model
+// database with all of its associated metadata. This variant allows the caller
+// to also specify a model agent stream that the model is to use.
+func CreateLocalModelRecordWithAgentStream(
 	id coremodel.UUID,
 	controllerUUID uuid.UUID,
 	agentVersion semversion.Number,
