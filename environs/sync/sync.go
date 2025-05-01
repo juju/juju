@@ -229,29 +229,6 @@ type UploadFunc func(
 	func(vers semversion.Number) semversion.Number,
 ) (*coretools.Tools, error)
 
-// Upload is exported for testing.
-var Upload UploadFunc = upload
-
-// upload builds whatever version of github.com/juju/juju is in $GOPATH,
-// uploads it to the given storage, and returns a Tools instance describing
-// them. If forceVersion is not nil, the uploaded tools bundle will report
-// the given version number.
-func upload(
-	ctx context.Context,
-	ss envtools.SimplestreamsFetcher, store storage.Storage, stream string,
-	f func(vers semversion.Number) semversion.Number,
-) (*coretools.Tools, error) {
-	if f == nil {
-		f = func(vers semversion.Number) semversion.Number { return vers }
-	}
-	builtTools, err := BuildAgentTarball(true, stream, f)
-	if err != nil {
-		return nil, err
-	}
-	defer os.RemoveAll(builtTools.Dir)
-	return syncBuiltTools(ctx, ss, store, stream, builtTools)
-}
-
 // generateAgentMetadata copies the built tools tarball into a tarball for the specified
 // stream and series and generates corresponding metadata.
 func generateAgentMetadata(ctx context.Context, ss envtools.SimplestreamsFetcher, toolsInfo *BuiltAgent, stream string) error {
@@ -367,41 +344,6 @@ func buildAgentTarball(
 		StorageName: storageName,
 		Size:        size,
 		Sha256Hash:  sha256Hash,
-	}, nil
-}
-
-// syncBuiltTools copies to storage a tools tarball and cloned copies for each series.
-func syncBuiltTools(ctx context.Context, ss envtools.SimplestreamsFetcher, store storage.Storage, stream string, builtTools *BuiltAgent) (*coretools.Tools, error) {
-	if err := generateAgentMetadata(ctx, ss, builtTools, stream); err != nil {
-		return nil, err
-	}
-	syncContext := &SyncContext{
-		Source:            builtTools.Dir,
-		TargetToolsFinder: StorageToolsFinder{store},
-		TargetToolsUploader: StorageToolsUploader{
-			Fetcher:       ss,
-			Storage:       store,
-			WriteMetadata: false,
-			WriteMirrors:  false,
-		},
-		AllVersions:   true,
-		Stream:        stream,
-		ChosenVersion: builtTools.Version.Number,
-	}
-	logger.Debugf(ctx, "uploading agent binaries to cloud storage")
-	err := SyncTools(ctx, syncContext)
-	if err != nil {
-		return nil, err
-	}
-	url, err := store.URL(builtTools.StorageName)
-	if err != nil {
-		return nil, err
-	}
-	return &coretools.Tools{
-		Version: builtTools.Version,
-		URL:     url,
-		Size:    builtTools.Size,
-		SHA256:  builtTools.Sha256Hash,
 	}, nil
 }
 

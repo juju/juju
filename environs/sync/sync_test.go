@@ -291,46 +291,6 @@ func (s *uploadSuite) TestUploadAndForceVersion(c *gc.C) {
 	c.Assert(t.Version, gc.Equals, coretesting.CurrentVersion())
 }
 
-func (s *uploadSuite) TestSyncTools(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	ss := NewMockSimplestreamsFetcher(ctrl)
-	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
-
-	forceVersion := jujuversion.Current
-	forceVersion.Patch++
-	s.patchBundleTools(c, forceVersion)
-	builtTools, err := sync.BuildAgentTarball(true, "released",
-		func(semversion.Number) semversion.Number { return forceVersion },
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	t, err := sync.SyncBuiltTools(context.Background(), ss, s.targetStorage, "released", builtTools)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertEqualsCurrentVersion(c, t.Version)
-	c.Assert(t.URL, gc.Not(gc.Equals), "")
-}
-
-func (s *uploadSuite) TestSyncAndForceVersion(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	ss := NewMockSimplestreamsFetcher(ctrl)
-	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
-
-	forceVersion := jujuversion.Current
-	forceVersion.Patch++
-	s.patchBundleTools(c, forceVersion)
-	builtTools, err := sync.BuildAgentTarball(true, "released",
-		func(semversion.Number) semversion.Number { return forceVersion },
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	t, err := sync.SyncBuiltTools(context.Background(), ss, s.targetStorage, "released", builtTools)
-	c.Assert(err, jc.ErrorIsNil)
-	// Reported version from build call matches the real jujud version.
-	c.Assert(t.Version, gc.Equals, coretesting.CurrentVersion())
-}
-
 func (s *uploadSuite) assertUploadedTools(c *gc.C, t *coretools.Tools, expectOSTypes []string, stream string) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
