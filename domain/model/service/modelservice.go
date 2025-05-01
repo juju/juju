@@ -195,7 +195,10 @@ func (s *ModelService) CreateModelForVersion(
 
 	argAgentStream, err := modelagent.AgentStreamFromCoreAgentStream(agentStream)
 	if err != nil {
-		return errors.Errorf("validating agent stream %q when creating new model: %w", err)
+		return errors.Errorf(
+			"validating agent stream %q when creating new model: %w",
+			agentStream, err,
+		)
 	}
 
 	if err := validateAgentVersion(agentVersion, s.agentBinaryFinder); err != nil {
