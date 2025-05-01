@@ -496,7 +496,7 @@ func bootstrapIAAS(
 			return errors.Annotate(err, "cannot package bootstrap agent binary")
 		}
 		builtTools, err = args.BuildAgentTarball(
-			args.BuildAgent, cfg.AgentStream(),
+			args.BuildAgent, "bootstrap",
 			func(semversion.Number) semversion.Number { return forceVersion },
 		)
 		if err != nil {
