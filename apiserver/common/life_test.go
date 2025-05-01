@@ -41,7 +41,7 @@ func (*lifeSuite) TestLife(c *gc.C) {
 			u("x/3"): &fakeLifer{fetchError: "x3 error"},
 		},
 	}
-	getCanRead := func() (common.AuthFunc, error) {
+	getCanRead := func(ctx context.Context) (common.AuthFunc, error) {
 		x0 := u("x/0")
 		x2 := u("x/2")
 		x3 := u("x/3")
@@ -67,7 +67,7 @@ func (*lifeSuite) TestLife(c *gc.C) {
 }
 
 func (*lifeSuite) TestLifeError(c *gc.C) {
-	getCanRead := func() (common.AuthFunc, error) {
+	getCanRead := func(ctx context.Context) (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
 	lg := common.NewLifeGetter(&fakeState{}, getCanRead)
@@ -76,7 +76,7 @@ func (*lifeSuite) TestLifeError(c *gc.C) {
 }
 
 func (*lifeSuite) TestLifeNoArgsNoError(c *gc.C) {
-	getCanRead := func() (common.AuthFunc, error) {
+	getCanRead := func(ctx context.Context) (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
 	lg := common.NewLifeGetter(&fakeState{}, getCanRead)

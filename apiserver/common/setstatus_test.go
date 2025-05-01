@@ -42,7 +42,7 @@ func (s *statusSetterSuite) setupMocks(c *gc.C) *gomock.Controller {
 	clock := mocks.NewMockClock(ctrl)
 	clock.EXPECT().Now().Return(s.now).AnyTimes()
 
-	s.setter = common.NewStatusSetter(s.entityFinder, func() (common.AuthFunc, error) {
+	s.setter = common.NewStatusSetter(s.entityFinder, func(ctx context.Context) (common.AuthFunc, error) {
 		return s.authFunc, nil
 	}, clock)
 	return ctrl

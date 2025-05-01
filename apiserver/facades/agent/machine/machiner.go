@@ -97,7 +97,7 @@ func NewMachinerAPIForState(
 		return nil, apiservererrors.ErrPerm
 	}
 
-	getCanAccess := func() (common.AuthFunc, error) {
+	getCanAccess := func(context.Context) (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
 
@@ -142,7 +142,7 @@ func (api *MachinerAPI) SetMachineAddresses(ctx context.Context, args params.Set
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.MachineAddresses)),
 	}
-	canModify, err := api.getCanModify()
+	canModify, err := api.getCanModify(ctx)
 	if err != nil {
 		return results, err
 	}
@@ -248,7 +248,7 @@ func (api *MachinerAPI) RecordAgentStartTime(ctx context.Context, args params.En
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
-	canModify, err := api.getCanModify()
+	canModify, err := api.getCanModify(ctx)
 	if err != nil {
 		return results, err
 	}
@@ -272,7 +272,7 @@ func (api *MachinerAPI) RecordAgentStartInformation(ctx context.Context, args pa
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
-	canModify, err := api.getCanModify()
+	canModify, err := api.getCanModify(ctx)
 	if err != nil {
 		return results, err
 	}

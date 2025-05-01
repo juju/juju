@@ -30,7 +30,7 @@ var _ = gc.Suite(&facadeSuite{})
 func (s *facadeSuite) SetUpTest(c *gc.C) {
 	s.backend = new(mockBackend)
 	s.authorizer = new(apiservertesting.FakeAuthorizer)
-	facade, err := hostkeyreporter.New(s.backend, nil, s.authorizer)
+	facade, err := hostkeyreporter.New(s.backend, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }
@@ -55,12 +55,12 @@ func (s *facadeSuite) TestReportKeys(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{nil},
+			{Error: nil},
 		},
 	})
 	s.backend.stub.CheckCalls(c, []jujutesting.StubCall{{
-		"SetSSHHostKeys",
-		[]interface{}{
+		FuncName: "SetSSHHostKeys",
+		Args: []interface{}{
 			names.NewMachineTag("1"),
 			state.SSHHostKeys{"rsa1", "dsa1"},
 		},

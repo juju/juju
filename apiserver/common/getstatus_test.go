@@ -35,7 +35,7 @@ func (s *statusGetterSuite) SetUpTest(c *gc.C) {
 func (s *statusGetterSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.entityFinder = mocks.NewMockEntityFinder(ctrl)
-	s.getter = common.NewStatusGetter(s.entityFinder, func() (common.AuthFunc, error) {
+	s.getter = common.NewStatusGetter(s.entityFinder, func(ctx context.Context) (common.AuthFunc, error) {
 		return s.authFunc, nil
 	})
 	return ctrl

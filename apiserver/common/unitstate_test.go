@@ -47,7 +47,7 @@ func (s *unitStateSuite) assertBackendApi(c *gc.C) *gomock.Controller {
 	s.controllerConfigGetter = mocks.NewMockControllerConfigService(ctrl)
 	s.unitStateService = mocks.NewMockUnitStateService(ctrl)
 
-	unitAuthFunc := func() (common.AuthFunc, error) {
+	unitAuthFunc := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			if tag.Id() == s.unitTag1.Id() {
 				return true

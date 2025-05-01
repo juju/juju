@@ -205,7 +205,7 @@ func (m *ModelOperatorSuite) expectControllerConfig() {
 
 }
 
-func alwaysAllow() (common.AuthFunc, error) {
+func alwaysAllow(ctx context.Context) (common.AuthFunc, error) {
 	return func(tag names.Tag) bool {
 		return true
 	}, nil

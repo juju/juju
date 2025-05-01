@@ -64,7 +64,7 @@ func (s *StatusGetter) Status(ctx context.Context, args params.Entities) (params
 	result := params.StatusResults{
 		Results: make([]params.StatusResult, len(args.Entities)),
 	}
-	canAccess, err := s.getCanAccess()
+	canAccess, err := s.getCanAccess(ctx)
 	if err != nil {
 		return params.StatusResults{}, err
 	}

@@ -250,7 +250,7 @@ func (s *newLxdProfileSuite) newAPI(c *gc.C) *uniter.LXDProfileAPIv2 {
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag: s.unitTag1,
 	}
-	unitAuthFunc := func() (common.AuthFunc, error) {
+	unitAuthFunc := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			if tag.Id() == s.unitTag1.Id() {
 				return true

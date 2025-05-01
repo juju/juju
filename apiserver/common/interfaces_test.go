@@ -4,6 +4,8 @@
 package common_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v6"
 	coretesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -45,7 +47,7 @@ func (s *AuthFuncSuite) TestAuthFuncForMachineAgent(c *gc.C) {
 
 	authFunc := common.AuthFuncForMachineAgent(s.authorizer)
 
-	fn, err := authFunc()
+	fn, err := authFunc(context.Background())
 	c.Assert(err, gc.IsNil)
 	c.Assert(fn(machineTag), jc.IsTrue)
 }
@@ -58,7 +60,7 @@ func (s *AuthFuncSuite) TestAuthFuncForMachineAgentInvalidMachineTag(c *gc.C) {
 	authFunc := common.AuthFuncForMachineAgent(s.authorizer)
 	invalidTag := names.NewUserTag("user-bob@foo")
 
-	fn, err := authFunc()
+	fn, err := authFunc(context.Background())
 	c.Assert(err, gc.IsNil)
 	c.Assert(fn(invalidTag), jc.IsFalse)
 }
@@ -71,7 +73,7 @@ func (s *AuthFuncSuite) TestAuthFuncForMachineAgentInvalidAuthTag(c *gc.C) {
 	authFunc := common.AuthFuncForMachineAgent(s.authorizer)
 	machineTag := names.NewMachineTag("machine-test/0")
 
-	fn, err := authFunc()
+	fn, err := authFunc(context.Background())
 	c.Assert(err, gc.IsNil)
 	c.Assert(fn(machineTag), jc.IsFalse)
 }

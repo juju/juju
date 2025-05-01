@@ -136,7 +136,7 @@ func NewAgentAPI(
 	applicationService ApplicationService,
 	watcherRegistry facade.WatcherRegistry,
 ) *AgentAPI {
-	getCanChange := func() (common.AuthFunc, error) {
+	getCanChange := func(context.Context) (common.AuthFunc, error) {
 		return auth.AuthOwner, nil
 	}
 

@@ -49,7 +49,7 @@ func (s *agentEntityWatcherSuite) TestWatch(c *gc.C) {
 			u("x/2"): &fakeAgentEntityWatcher{},
 		},
 	}
-	getCanWatch := func() (common.AuthFunc, error) {
+	getCanWatch := func(ctx context.Context) (common.AuthFunc, error) {
 		x0 := u("x/0")
 		x1 := u("x/1")
 		return func(tag names.Tag) bool {
@@ -75,7 +75,7 @@ func (s *agentEntityWatcherSuite) TestWatch(c *gc.C) {
 }
 
 func (*agentEntityWatcherSuite) TestWatchError(c *gc.C) {
-	getCanWatch := func() (common.AuthFunc, error) {
+	getCanWatch := func(ctx context.Context) (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
 	a := common.NewAgentEntityWatcher(
@@ -88,7 +88,7 @@ func (*agentEntityWatcherSuite) TestWatchError(c *gc.C) {
 }
 
 func (*agentEntityWatcherSuite) TestWatchNoArgsNoError(c *gc.C) {
-	getCanWatch := func() (common.AuthFunc, error) {
+	getCanWatch := func(ctx context.Context) (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
 	a := common.NewAgentEntityWatcher(

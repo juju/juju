@@ -169,7 +169,7 @@ func (f *Facade) Life(ctx context.Context, args params.Entities) (params.LifeRes
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canRead, err := f.accessUnit()
+	canRead, err := f.accessUnit(ctx)
 	if err != nil {
 		return params.LifeResults{}, errors.Trace(err)
 	}

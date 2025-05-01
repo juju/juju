@@ -48,7 +48,7 @@ func (ig *InstanceIdGetter) InstanceId(ctx context.Context, args params.Entities
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.Entities)),
 	}
-	canRead, err := ig.getCanRead()
+	canRead, err := ig.getCanRead(ctx)
 	if err != nil {
 		return result, err
 	}

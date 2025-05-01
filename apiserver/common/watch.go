@@ -57,7 +57,7 @@ func (a *AgentEntityWatcher) Watch(ctx context.Context, args params.Entities) (p
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canWatch, err := a.getCanWatch()
+	canWatch, err := a.getCanWatch(ctx)
 	if err != nil {
 		return params.NotifyWatchResults{}, errors.Trace(err)
 	}

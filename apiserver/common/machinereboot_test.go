@@ -37,7 +37,7 @@ func (s *MachineRebootTestSuite) setup(c *gc.C) *gomock.Controller {
 func (s *MachineRebootTestSuite) TestRebootRequestedNoEntity(c *gc.C) {
 	// Arrange
 	defer s.setup(c).Finish()
-	canAccess := func() (common.AuthFunc, error) {
+	canAccess := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(names.Tag) bool {
 			return true
 		}, nil
@@ -59,7 +59,7 @@ func (s *MachineRebootTestSuite) TestRebootRequestedAuthError(c *gc.C) {
 	// Arrange
 	defer s.setup(c).Finish()
 	authError := errors.New("Oh nooo!!!")
-	canAccess := func() (common.AuthFunc, error) {
+	canAccess := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			return true
 		}, authError // THis cause an auth error
@@ -77,7 +77,7 @@ func (s *MachineRebootTestSuite) TestRebootRequestedAuthError(c *gc.C) {
 func (s *MachineRebootTestSuite) TestRebootRequested(c *gc.C) {
 	// Arrange
 	defer s.setup(c).Finish()
-	canAccess := func() (common.AuthFunc, error) {
+	canAccess := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			// will authorize only machine starting with "42"
 			return strings.HasPrefix(tag.Id(), "42")
@@ -110,11 +110,11 @@ func (s *MachineRebootTestSuite) TestRebootRequested(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 			{Error: &params.Error{Message: `find machine uuid for machine "42/nouuid/0": machine not found`}},
 			{Error: &params.Error{Message: `requires reboot for machine "42/requestfailed/0" (requestfailed-uuid): request failed`}},
-			{nil},
+			{Error: nil},
 		},
 	})
 }
@@ -122,7 +122,7 @@ func (s *MachineRebootTestSuite) TestRebootRequested(c *gc.C) {
 func (s *MachineRebootTestSuite) TestRebootActionGetNoEntity(c *gc.C) {
 	// Arrange
 	defer s.setup(c).Finish()
-	canAccess := func() (common.AuthFunc, error) {
+	canAccess := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(names.Tag) bool {
 			return true
 		}, nil
@@ -144,7 +144,7 @@ func (s *MachineRebootTestSuite) TestRebootActionGetAuthError(c *gc.C) {
 	// Arrange
 	defer s.setup(c).Finish()
 	authError := errors.New("Oh nooo!!!")
-	canAccess := func() (common.AuthFunc, error) {
+	canAccess := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			return true
 		}, authError // THis cause an auth error
@@ -162,7 +162,7 @@ func (s *MachineRebootTestSuite) TestRebootActionGetAuthError(c *gc.C) {
 func (s *MachineRebootTestSuite) TestRebootActionGet(c *gc.C) {
 	// Arrange
 	defer s.setup(c).Finish()
-	canAccess := func() (common.AuthFunc, error) {
+	canAccess := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			// will authorize only machine starting with "42"
 			return strings.HasPrefix(tag.Id(), "42")
@@ -217,7 +217,7 @@ func (s *MachineRebootTestSuite) TestRebootActionGet(c *gc.C) {
 func (s *MachineRebootTestSuite) TestRebootClearedNoEntity(c *gc.C) {
 	// Arrange
 	defer s.setup(c).Finish()
-	canAccess := func() (common.AuthFunc, error) {
+	canAccess := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(names.Tag) bool {
 			return true
 		}, nil
@@ -239,7 +239,7 @@ func (s *MachineRebootTestSuite) TestRebootClearedAuthError(c *gc.C) {
 	// Arrange
 	defer s.setup(c).Finish()
 	authError := errors.New("Oh nooo!!!")
-	canAccess := func() (common.AuthFunc, error) {
+	canAccess := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			return true
 		}, authError // THis cause an auth error
@@ -257,7 +257,7 @@ func (s *MachineRebootTestSuite) TestRebootClearedAuthError(c *gc.C) {
 func (s *MachineRebootTestSuite) TestRebootCleared(c *gc.C) {
 	// Arrange
 	defer s.setup(c).Finish()
-	canAccess := func() (common.AuthFunc, error) {
+	canAccess := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			// will authorize only machine starting with "42"
 			return strings.HasPrefix(tag.Id(), "42")
@@ -290,11 +290,11 @@ func (s *MachineRebootTestSuite) TestRebootCleared(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 			{Error: &params.Error{Message: `find machine uuid for machine "42/nouuid/0": machine not found`}},
 			{Error: &params.Error{Message: `clear reboot flag for machine "42/requestfailed/0" (requestfailed-uuid): request failed`}},
-			{nil},
+			{Error: nil},
 		},
 	})
 }

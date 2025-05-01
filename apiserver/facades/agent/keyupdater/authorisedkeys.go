@@ -57,7 +57,7 @@ func (api *KeyUpdaterAPI) WatchAuthorisedKeys(ctx context.Context, arg params.En
 		return params.NotifyWatchResults{Results: results}, nil
 	}
 
-	canRead, err := api.getCanRead()
+	canRead, err := api.getCanRead(ctx)
 	if err != nil {
 		return params.NotifyWatchResults{}, fmt.Errorf(
 			"checking can read status for key updater watch authorised keys: %w",
@@ -149,7 +149,7 @@ func (api *KeyUpdaterAPI) AuthorisedKeys(
 	}
 	results := make([]params.StringsResult, len(arg.Entities))
 
-	canRead, err := api.getCanRead()
+	canRead, err := api.getCanRead(ctx)
 	if err != nil {
 		return params.StringsResults{}, fmt.Errorf(
 			"checking can read for authorised keys: %w",

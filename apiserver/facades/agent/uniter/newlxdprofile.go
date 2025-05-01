@@ -76,7 +76,6 @@ func NewLXDProfileAPIv2(
 	modelInfoService ModelInfoService,
 	applicationService ApplicationService,
 ) *LXDProfileAPIv2 {
-	logger.Tracef(context.TODO(), "LXDProfileAPIv2 called with %s", authorizer.GetAuthTag())
 	return &LXDProfileAPIv2{
 		backend:            backend,
 		machineService:     machineService,
@@ -133,13 +132,13 @@ func NewExternalLXDProfileAPIv2(
 // WatchInstanceData returns a NotifyWatcher for observing
 // changes to the lxd profile for one unit.
 func (u *LXDProfileAPIv2) WatchInstanceData(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
-	u.logger.Tracef(context.TODO(), "Starting WatchInstanceData with %+v", args)
+	u.logger.Tracef(ctx, "Starting WatchInstanceData with %+v", args)
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
-		u.logger.Tracef(context.TODO(), "WatchInstanceData error %+v", err)
+		u.logger.Tracef(ctx, "WatchInstanceData error %+v", err)
 		return params.NotifyWatchResults{}, err
 	}
 	for i, entity := range args.Entities {
@@ -174,7 +173,7 @@ func (u *LXDProfileAPIv2) WatchInstanceData(ctx context.Context, args params.Ent
 		result.Results[i].NotifyWatcherId = watcherId
 
 	}
-	u.logger.Tracef(context.TODO(), "WatchInstanceData returning %+v", result)
+	u.logger.Tracef(ctx, "WatchInstanceData returning %+v", result)
 	return result, nil
 }
 
@@ -194,11 +193,11 @@ func (u *LXDProfileAPIv2) watchOneInstanceData(ctx context.Context, machineID st
 // LXDProfileName returns the name of the lxd profile applied to the unit's
 // machine for the current charm version.
 func (u *LXDProfileAPIv2) LXDProfileName(ctx context.Context, args params.Entities) (params.StringResults, error) {
-	u.logger.Tracef(context.TODO(), "Starting LXDProfileName with %+v", args)
+	u.logger.Tracef(ctx, "Starting LXDProfileName with %+v", args)
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.Entities)),
 	}
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.StringResults{}, err
 	}
@@ -246,7 +245,7 @@ func (u *LXDProfileAPIv2) LXDProfileName(ctx context.Context, args params.Entiti
 func (u *LXDProfileAPIv2) getOneLXDProfileName(ctx context.Context, unit LXDProfileUnitV2, machineUUID string) (string, error) {
 	profileNames, err := u.machineService.AppliedLXDProfileNames(ctx, machineUUID)
 	if err != nil {
-		u.logger.Errorf(context.TODO(), "unable to retrieve LXD profiles for machine %q: %v", machineUUID, err)
+		u.logger.Errorf(ctx, "unable to retrieve LXD profiles for machine %q: %v", machineUUID, err)
 		return "", err
 	}
 	appName := unit.ApplicationName()
@@ -258,11 +257,11 @@ func (u *LXDProfileAPIv2) getOneLXDProfileName(ctx context.Context, unit LXDProf
 //   - the unit is not on a manual machine,
 //   - the provider type is "lxd" or it's an lxd container.
 func (u *LXDProfileAPIv2) CanApplyLXDProfile(ctx context.Context, args params.Entities) (params.BoolResults, error) {
-	u.logger.Tracef(context.TODO(), "Starting CanApplyLXDProfile with %+v", args)
+	u.logger.Tracef(ctx, "Starting CanApplyLXDProfile with %+v", args)
 	result := params.BoolResults{
 		Results: make([]params.BoolResult, len(args.Entities)),
 	}
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.BoolResults{}, errors.Trace(err)
 	}
@@ -321,7 +320,7 @@ func (u *LXDProfileAPIv2) getOneCanApplyLXDProfile(machine LXDProfileMachineV2, 
 
 // LXDProfileRequired returns true if charm has an lxd profile in it.
 func (u *LXDProfileAPIv2) LXDProfileRequired(ctx context.Context, args params.CharmURLs) (params.BoolResults, error) {
-	u.logger.Tracef(context.TODO(), "Starting LXDProfileRequired with %+v", args)
+	u.logger.Tracef(ctx, "Starting LXDProfileRequired with %+v", args)
 	result := params.BoolResults{
 		Results: make([]params.BoolResult, len(args.URLs)),
 	}

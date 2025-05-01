@@ -564,17 +564,17 @@ func (s *uniterLegacySuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 		"unit-mysql-1": {
 			{
 				Endpoint:   "server",
-				PortRanges: []params.PortRange{{3306, 3306, "tcp"}},
+				PortRanges: []params.PortRange{{FromPort: 3306, ToPort: 3306, Protocol: "tcp"}},
 			},
 		},
 		"unit-wordpress-0": {
 			{
 				Endpoint:   "",
-				PortRanges: []params.PortRange{{100, 200, "tcp"}},
+				PortRanges: []params.PortRange{{FromPort: 100, ToPort: 200, Protocol: "tcp"}},
 			},
 			{
 				Endpoint:   "monitoring-port",
-				PortRanges: []params.PortRange{{10, 20, "udp"}},
+				PortRanges: []params.PortRange{{FromPort: 10, ToPort: 20, Protocol: "udp"}},
 			},
 		},
 	}

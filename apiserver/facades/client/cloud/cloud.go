@@ -84,7 +84,7 @@ func NewCloudAPI(
 	}
 	isAdmin := err == nil
 	authUser, _ := authorizer.GetAuthTag().(names.UserTag)
-	getUserAuthFunc := func() (common.AuthFunc, error) {
+	getUserAuthFunc := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			userTag, ok := tag.(names.UserTag)
 			if !ok {
@@ -326,7 +326,7 @@ func (api *CloudAPI) UserCredentials(ctx context.Context, args params.UserClouds
 	results := params.StringsResults{
 		Results: make([]params.StringsResult, len(args.UserClouds)),
 	}
-	authFunc, err := api.getCredentialsAuthFunc()
+	authFunc, err := api.getCredentialsAuthFunc(ctx)
 	if err != nil {
 		return results, err
 	}
@@ -372,7 +372,7 @@ func (api *CloudAPI) AddCredentials(ctx context.Context, args params.TaggedCrede
 		Results: make([]params.ErrorResult, len(args.Credentials)),
 	}
 
-	authFunc, err := api.getCredentialsAuthFunc()
+	authFunc, err := api.getCredentialsAuthFunc(ctx)
 	if err != nil {
 		return results, err
 	}
@@ -420,7 +420,7 @@ func (api *CloudAPI) UpdateCredentialsCheckModels(ctx context.Context, args para
 		}
 	}
 
-	authFunc, err := api.getCredentialsAuthFunc()
+	authFunc, err := api.getCredentialsAuthFunc(ctx)
 	if err != nil {
 		return params.UpdateCredentialResults{}, err
 	}
@@ -478,7 +478,7 @@ func (api *CloudAPI) RevokeCredentialsCheckModels(ctx context.Context, args para
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Credentials)),
 	}
-	authFunc, err := api.getCredentialsAuthFunc()
+	authFunc, err := api.getCredentialsAuthFunc(ctx)
 	if err != nil {
 		return results, err
 	}
@@ -508,7 +508,7 @@ func (api *CloudAPI) Credential(ctx context.Context, args params.Entities) (para
 	results := params.CloudCredentialResults{
 		Results: make([]params.CloudCredentialResult, len(args.Entities)),
 	}
-	authFunc, err := api.getCredentialsAuthFunc()
+	authFunc, err := api.getCredentialsAuthFunc(ctx)
 	if err != nil {
 		return results, err
 	}

@@ -121,7 +121,7 @@ func (a *InstancePollerAPI) SetProviderNetworkConfig(
 		Results: make([]params.SetProviderNetworkConfigResult, len(req.Args)),
 	}
 
-	canAccess, err := a.accessMachine()
+	canAccess, err := a.accessMachine(ctx)
 	if err != nil {
 		return result, err
 	}
@@ -283,7 +283,7 @@ func (a *InstancePollerAPI) InstanceStatus(ctx context.Context, args params.Enti
 	result := params.StatusResults{
 		Results: make([]params.StatusResult, len(args.Entities)),
 	}
-	canAccess, err := a.accessMachine()
+	canAccess, err := a.accessMachine(ctx)
 	if err != nil {
 		return result, err
 	}
@@ -310,7 +310,7 @@ func (a *InstancePollerAPI) SetInstanceStatus(ctx context.Context, args params.S
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
-	canAccess, err := a.accessMachine()
+	canAccess, err := a.accessMachine(ctx)
 	if err != nil {
 		return result, err
 	}
@@ -343,7 +343,7 @@ func (a *InstancePollerAPI) AreManuallyProvisioned(ctx context.Context, args par
 	result := params.BoolResults{
 		Results: make([]params.BoolResult, len(args.Entities)),
 	}
-	canAccess, err := a.accessMachine()
+	canAccess, err := a.accessMachine(ctx)
 	if err != nil {
 		return result, err
 	}

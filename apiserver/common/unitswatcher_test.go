@@ -64,7 +64,7 @@ func (*unitsWatcherSuite) TestWatchUnits(c *gc.C) {
 			u("x/2"): &fakeUnitsWatcher{},
 		},
 	}
-	getCanWatch := func() (common.AuthFunc, error) {
+	getCanWatch := func(ctx context.Context) (common.AuthFunc, error) {
 		x0 := u("x/0")
 		x1 := u("x/1")
 		return func(tag names.Tag) bool {
@@ -89,7 +89,7 @@ func (*unitsWatcherSuite) TestWatchUnits(c *gc.C) {
 }
 
 func (*unitsWatcherSuite) TestWatchUnitsError(c *gc.C) {
-	getCanWatch := func() (common.AuthFunc, error) {
+	getCanWatch := func(ctx context.Context) (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
 	resources := common.NewResources()
@@ -103,7 +103,7 @@ func (*unitsWatcherSuite) TestWatchUnitsError(c *gc.C) {
 }
 
 func (*unitsWatcherSuite) TestWatchNoArgsNoError(c *gc.C) {
-	getCanWatch := func() (common.AuthFunc, error) {
+	getCanWatch := func(ctx context.Context) (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
 	resources := common.NewResources()

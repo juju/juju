@@ -52,7 +52,7 @@ func NewRebootAPI(
 		return nil, errors.Errorf("Expected names.MachineTag, got %T", auth.GetAuthTag())
 	}
 
-	canAccess := func() (common.AuthFunc, error) {
+	canAccess := func(context.Context) (common.AuthFunc, error) {
 		return auth.AuthOwner, nil
 	}
 

@@ -82,7 +82,7 @@ func NewNetworkConfigAPI(
 // This config is merged with the new network config supplied in the
 // same args and updated if it has changed.
 func (api *NetworkConfigAPI) SetObservedNetworkConfig(ctx context.Context, args params.SetMachineNetworkConfig) error {
-	m, err := api.getMachineForSettingNetworkConfig(args.Tag)
+	m, err := api.getMachineForSettingNetworkConfig(ctx, args.Tag)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -102,8 +102,8 @@ func (api *NetworkConfigAPI) SetObservedNetworkConfig(ctx context.Context, args 
 	return errors.Trace(api.st.ApplyOperation(api.getModelOp(m, devs)))
 }
 
-func (api *NetworkConfigAPI) getMachineForSettingNetworkConfig(machineTag string) (LinkLayerMachine, error) {
-	canModify, err := api.getCanModify()
+func (api *NetworkConfigAPI) getMachineForSettingNetworkConfig(ctx context.Context, machineTag string) (LinkLayerMachine, error) {
+	canModify, err := api.getCanModify(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

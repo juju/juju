@@ -106,8 +106,8 @@ func (ctxt *httpContext) stateForRequestAuthenticated(r *http.Request) (
 
 // checkPermissions verifies that given tag passes authentication check.
 // For example, if only user tags are accepted, all other tags will be denied access.
-func checkPermissions(tag names.Tag, acceptFunc common.GetAuthFunc) (bool, error) {
-	accept, err := acceptFunc()
+func checkPermissions(ctx context.Context, tag names.Tag, acceptFunc common.GetAuthFunc) (bool, error) {
+	accept, err := acceptFunc(ctx)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -191,7 +191,7 @@ func (ctxt *httpContext) stateForRequestAuthenticatedTag(r *http.Request, kinds 
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	if ok, err := checkPermissions(entity.Tag(), common.AuthAny(funcs...)); !ok {
+	if ok, err := checkPermissions(r.Context(), entity.Tag(), common.AuthAny(funcs...)); !ok {
 		st.Release()
 		return nil, nil, err
 	}

@@ -29,7 +29,7 @@ func newDiskManagerAPI(ctx facade.ModelContext) (*DiskManagerAPI, error) {
 	}
 
 	authEntityTag := authorizer.GetAuthTag()
-	getAuthFunc := func() (common.AuthFunc, error) {
+	getAuthFunc := func(context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			// A machine agent can always access its own machine.
 			return tag == authEntityTag

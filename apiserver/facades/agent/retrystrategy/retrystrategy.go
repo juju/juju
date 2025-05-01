@@ -53,7 +53,9 @@ func NewRetryStrategyAPI(
 	}
 
 	return &RetryStrategyAPI{
-		canAccess:          func() (common.AuthFunc, error) { return authorizer.AuthOwner, nil },
+		canAccess: func(context.Context) (common.AuthFunc, error) {
+			return authorizer.AuthOwner, nil
+		},
 		modelConfigService: modelConfigService,
 		watcherRegistry:    watcherRegistry,
 	}, nil
@@ -65,7 +67,7 @@ func (h *RetryStrategyAPI) RetryStrategy(ctx context.Context, args params.Entiti
 	results := params.RetryStrategyResults{
 		Results: make([]params.RetryStrategyResult, len(args.Entities)),
 	}
-	canAccess, err := h.canAccess()
+	canAccess, err := h.canAccess(ctx)
 	if err != nil {
 		return params.RetryStrategyResults{}, errors.Trace(err)
 	}
@@ -104,7 +106,7 @@ func (h *RetryStrategyAPI) WatchRetryStrategy(ctx context.Context, args params.E
 	results := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
-	canAccess, err := h.canAccess()
+	canAccess, err := h.canAccess(ctx)
 	if err != nil {
 		return params.NotifyWatchResults{}, errors.Trace(err)
 	}

@@ -30,7 +30,7 @@ func (d *DiskManagerAPI) SetMachineBlockDevices(ctx context.Context, args params
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.MachineBlockDevices)),
 	}
-	canAccess, err := d.getAuthFunc()
+	canAccess, err := d.getAuthFunc(ctx)
 	if err != nil {
 		return result, err
 	}

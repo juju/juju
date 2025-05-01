@@ -48,7 +48,7 @@ func (*deadEnsurerSuite) TestEnsureDead(c *gc.C) {
 			u("x/4"): &fakeDeadEnsurer{fetchError: "x4 error"},
 		},
 	}
-	getCanModify := func() (common.AuthFunc, error) {
+	getCanModify := func(ctx context.Context) (common.AuthFunc, error) {
 		x0 := u("x/0")
 		x1 := u("x/1")
 		x2 := u("x/2")
@@ -79,7 +79,7 @@ func (*deadEnsurerSuite) TestEnsureDead(c *gc.C) {
 }
 
 func (*deadEnsurerSuite) TestEnsureDeadError(c *gc.C) {
-	getCanModify := func() (common.AuthFunc, error) {
+	getCanModify := func(ctx context.Context) (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
 	ctrl := gomock.NewController(c)
@@ -90,7 +90,7 @@ func (*deadEnsurerSuite) TestEnsureDeadError(c *gc.C) {
 }
 
 func (*deadEnsurerSuite) TestEnsureDeadNoArgsNoError(c *gc.C) {
-	getCanModify := func() (common.AuthFunc, error) {
+	getCanModify := func(ctx context.Context) (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
 	ctrl := gomock.NewController(c)

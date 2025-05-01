@@ -36,7 +36,7 @@ func makeKeyUpdaterAPI(
 		return nil, apiservererrors.ErrPerm
 	}
 	// No-one else except the machine itself can only read a machine's own credentials.
-	getCanRead := func() (common.AuthFunc, error) {
+	getCanRead := func(context.Context) (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
 	return newKeyUpdaterAPI(

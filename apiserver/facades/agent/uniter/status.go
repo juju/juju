@@ -56,7 +56,7 @@ func (s *StatusAPI) SetStatus(ctx context.Context, args params.SetStatus) (param
 // SetAgentStatus will set status for agents of Units passed in args, if one
 // of the args is not an Unit it will fail.
 func (s *StatusAPI) SetAgentStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
-	canModify, err := s.getCanModify()
+	canModify, err := s.getCanModify(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -108,7 +108,7 @@ func (s *StatusAPI) SetApplicationStatus(ctx context.Context, args params.SetSta
 		return result, nil
 	}
 
-	canModify, err := s.getCanModify()
+	canModify, err := s.getCanModify(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -159,7 +159,7 @@ func (s *StatusAPI) ApplicationStatus(ctx context.Context, args params.Entities)
 	result := params.ApplicationStatusResults{
 		Results: make([]params.ApplicationStatusResult, len(args.Entities)),
 	}
-	canAccess, err := s.getCanModify()
+	canAccess, err := s.getCanModify(ctx)
 	if err != nil {
 		return params.ApplicationStatusResults{}, err
 	}

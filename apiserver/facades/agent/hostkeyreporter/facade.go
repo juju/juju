@@ -27,10 +27,10 @@ type Facade struct {
 }
 
 // New returns a new API facade for the hostkeyreporter worker.
-func New(backend Backend, _ facade.Resources, authorizer facade.Authorizer) (*Facade, error) {
+func New(backend Backend, authorizer facade.Authorizer) (*Facade, error) {
 	return &Facade{
 		backend: backend,
-		getCanModify: func() (common.AuthFunc, error) {
+		getCanModify: func(context.Context) (common.AuthFunc, error) {
 			return authorizer.AuthOwner, nil
 		},
 	}, nil
@@ -42,7 +42,7 @@ func (facade *Facade) ReportKeys(ctx context.Context, args params.SSHHostKeySet)
 		Results: make([]params.ErrorResult, len(args.EntityKeys)),
 	}
 
-	canModify, err := facade.getCanModify()
+	canModify, err := facade.getCanModify(ctx)
 	if err != nil {
 		return results, err
 	}

@@ -104,7 +104,7 @@ func (s *passwordSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func alwaysAllow() (common.AuthFunc, error) {
+func alwaysAllow(ctx context.Context) (common.AuthFunc, error) {
 	return func(tag names.Tag) bool {
 		return true
 	}, nil

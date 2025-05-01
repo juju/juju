@@ -456,7 +456,7 @@ func (s *uniterSuite) setupMocks(c *gc.C) *gomock.Controller {
 		applicationService: s.applicationService,
 		machineService:     s.machineService,
 		resolveService:     s.resolveService,
-		accessUnit: func() (common.AuthFunc, error) {
+		accessUnit: func(ctx context.Context) (common.AuthFunc, error) {
 			return func(tag names.Tag) bool {
 				return tag != s.badTag
 			}, nil
@@ -1192,9 +1192,9 @@ func (s *uniterRelationSuite) TestEnterScopeErrUnauthorized(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 }
@@ -1274,10 +1274,10 @@ func (s *uniterRelationSuite) TestLeaveScopeFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
-			{&params.Error{Message: `"application-wordpress" is not a valid unit tag`}},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: &params.Error{Message: `"application-wordpress" is not a valid unit tag`}},
 		},
 	})
 }
@@ -1330,7 +1330,7 @@ func (s *uniterRelationSuite) TestWatchRelationUnits(c *gc.C) {
 
 	// act
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
-		{relTag.String(), s.wordpressUnitTag.String()}},
+		{Relation: relTag.String(), Unit: s.wordpressUnitTag.String()}},
 	}
 	result, err := s.uniter.WatchRelationUnits(context.Background(), args)
 
@@ -1440,13 +1440,13 @@ func (s *uniterRelationSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.statusService = NewMockStatusService(ctrl)
 	s.watcherRegistry = NewMockWatcherRegistry(ctrl)
 
-	unitAuthFunc := func() (common.AuthFunc, error) {
+	unitAuthFunc := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			return tag.Id() == s.wordpressUnitTag.Id()
 		}, nil
 	}
 
-	appAuthFunc := func() (common.AuthFunc, error) {
+	appAuthFunc := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			return tag.Id() == s.wordpressAppTag.Id()
 		}, nil

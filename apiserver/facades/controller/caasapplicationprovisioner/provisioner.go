@@ -186,7 +186,7 @@ func (a *APIGroup) Life(ctx context.Context, args params.Entities) (params.LifeR
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canRead, err := a.lifeCanRead()
+	canRead, err := a.lifeCanRead(ctx)
 	if err != nil {
 		return params.LifeResults{}, errors.Trace(err)
 	}
@@ -290,7 +290,7 @@ func (a *API) Remove(ctx context.Context, args params.Entities) (params.ErrorRes
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canModify, err := common.AuthFuncForTagKind(names.UnitTagKind)()
+	canModify, err := common.AuthFuncForTagKind(names.UnitTagKind)(ctx)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
