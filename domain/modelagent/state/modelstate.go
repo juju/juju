@@ -19,6 +19,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/domain/modelagent"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -824,6 +825,47 @@ WHERE unit_uuid = $unitUUIDRef.unit_uuid
 	}, nil
 }
 
+// GetModelAgentStream gets the currently set agent stream for the model.
+func (st *State) GetModelAgentStream(
+	ctx context.Context,
+) (modelagent.AgentStream, error) {
+	// NOTE (tlm): This function is written on purpose to assume that an agent
+	// version record has been established for the model. We assume that this is
+	// always done on model creation.
+	db, err := st.DB()
+	if err != nil {
+		return modelagent.AgentStream(-1), errors.Capture(err)
+	}
+
+	dbVal := agentVersionStream{}
+	stmt, err := st.Prepare(`
+SELECT &agentVersionStream.* FROM agent_version
+`, dbVal)
+	if err != nil {
+		return modelagent.AgentStream(-1), errors.Capture(err)
+	}
+
+	rval := modelagent.AgentStream(-1)
+	return rval, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).Get(&dbVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// This should never happen but we write a specific error for the
+			// case here to lead us back to the source if something ever goes a
+			// miss.
+			return errors.New(
+				"agent version record has not been set for the model",
+			)
+		} else if err != nil {
+			return errors.Errorf(
+				"getting agent version stream for model: %w", err,
+			)
+		}
+
+		rval = modelagent.AgentStream(dbVal.StreamID)
+		return nil
+	})
+}
+
 // GetModelTargetAgentVersion returns the agent version for the model.
 // If the agent_version table has no data,
 // [modelagenterrors.AgentVersionNotFound] is returned.
@@ -969,6 +1011,44 @@ UPDATE SET version = excluded.version, architecture_id = excluded.architecture_i
 	}
 
 	return nil
+}
+
+// SetModelAgentStream is responsible for setting the agent stream that is in
+// use by the current model.
+func (st *State) SetModelAgentStream(
+	ctx context.Context,
+	agentStream modelagent.AgentStream,
+) error {
+	// NOTE (tlm): This function is written on purpose to ignore the fact that
+	// if an agent version record does not exist in the database that this func
+	// will blow up. This is on purpose as the caller should reasonably be able
+	// to expect that this work has been done. It is not an error that the
+	// caller can realisticly handle either so it makes no sense to have a
+	// specific case for this. The agent_version table is a singleton table as
+	// well.
+
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	streamSet := agentVersionStream{StreamID: int(agentStream)}
+	stmt, err := st.Prepare(`
+UPDATE agent_version SET stream_id = $agentVersionStream.stream_id
+`, streamSet)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, streamSet).Run()
+		if err != nil {
+			return errors.Errorf(
+				"setting model agent stream to %q: %w", agentStream, err,
+			)
+		}
+		return nil
+	})
 }
 
 // SetUnitRunningAgentBinaryVersion sets the running agent binary version for

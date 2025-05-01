@@ -10,6 +10,12 @@ import (
 	"github.com/juju/juju/domain/life"
 )
 
+// agentVersionStream represents the stream id that is in use by the record
+// in the agent_version table.
+type agentVersionStream struct {
+	StreamID int `db:"stream_id"`
+}
+
 // dbAgentVersion represents the target agent version from the model table.
 type dbAgentVersion struct {
 	TargetAgentVersion string `db:"target_version"`

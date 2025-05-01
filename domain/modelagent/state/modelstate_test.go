@@ -1142,3 +1142,33 @@ func (s *modelStateSuite) TestGetUnitAgentBinaryMetadataMissingAgentBinary(c *gc
 	c.Check(err, jc.ErrorIs, modelagenterrors.MissingAgentBinaries)
 	c.Check(len(data), gc.Equals, 0)
 }
+
+// TestSetAgentVersionStream asserts that setting the agent version stream for
+// a model correctly updates the database value and is what gets returned when
+// asking what is the value that has been set.
+func (s *modelStateSuite) TestSetAgentVersionStream(c *gc.C) {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		insertStmt := `
+INSERT INTO agent_version (stream_id, target_version) VALUES (1, '4.1.1')
+`
+		_, err := tx.ExecContext(ctx, insertStmt)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory())
+	err = st.SetModelAgentStream(context.Background(), modelagent.AgentStreamTesting)
+	c.Check(err, jc.ErrorIsNil)
+
+	agentStream, err := st.GetModelAgentStream(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(agentStream, gc.Equals, modelagent.AgentStreamTesting)
+
+	// One more change for good measure.
+	err = st.SetModelAgentStream(context.Background(), modelagent.AgentStreamProposed)
+	c.Check(err, jc.ErrorIsNil)
+
+	agentStream, err = st.GetModelAgentStream(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(agentStream, gc.Equals, modelagent.AgentStreamProposed)
+}
