@@ -56,8 +56,6 @@ func OperationBlockedError(msg string) error {
 }
 
 var singletonErrorCodes = map[errors.ConstError]string{
-	stateerrors.ErrCannotEnterScopeYet:           params.CodeCannotEnterScopeYet,
-	stateerrors.ErrCannotEnterScope:              params.CodeCannotEnterScope,
 	stateerrors.ErrUnitHasSubordinates:           params.CodeUnitHasSubordinates,
 	stateerrors.ErrDead:                          params.CodeDead,
 	stateerrors.ErrApplicationShouldNotHaveUnits: params.CodeAppShouldNotHaveUnits,

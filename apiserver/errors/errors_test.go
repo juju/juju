@@ -80,16 +80,6 @@ var errorTransformTests = []struct {
 	status:     http.StatusUnauthorized,
 	helperFunc: params.IsCodeUnauthorized,
 }, {
-	err:        stateerrors.ErrCannotEnterScopeYet,
-	code:       params.CodeCannotEnterScopeYet,
-	status:     http.StatusInternalServerError,
-	helperFunc: params.IsCodeCannotEnterScopeYet,
-}, {
-	err:        stateerrors.ErrCannotEnterScope,
-	code:       params.CodeCannotEnterScope,
-	status:     http.StatusInternalServerError,
-	helperFunc: params.IsCodeCannotEnterScope,
-}, {
 	err:        stateerrors.ErrDead,
 	code:       params.CodeDead,
 	status:     http.StatusInternalServerError,

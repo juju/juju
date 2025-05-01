@@ -46,6 +46,12 @@ type State interface {
 
 	// NeedsSubordinateUnit checks if there is a subordinate application
 	// related to the principal unit that needs a subordinate unit created.
+	//
+	// The following errors can be return:
+	//   - [relationerrors.CannotEnterScopeNotAlive] if the unit or relation is not
+	//     alive.
+	//   - [relationerrors.CannotEnterScopeSubordinateNotAlive] if a subordinate unit
+	//     already exists, but is not alive.
 	NeedsSubordinateUnit(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
@@ -533,6 +539,10 @@ func (s *Service) ApplicationRelationsInfo(
 //     scope is a subordinate and the endpoint scope is charm.ScopeContainer
 //     where the other application is a principal, but not in the current
 //     relation.
+//   - [relationerrors.CannotEnterScopeNotAlive] if the unit or relation is not
+//     alive.
+//   - [relationerrors.CannotEnterScopeSubordinateNotAlive] if a subordinate
+//     unit is needed but already exists and is not alive.
 func (s *Service) EnterScope(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
@@ -549,8 +559,7 @@ func (s *Service) EnterScope(
 	}
 
 	// Enter the unit into the relation scope.
-	err := s.st.EnterScope(ctx, relationUUID, unitName, settings)
-	if err != nil {
+	if err := s.st.EnterScope(ctx, relationUUID, unitName, settings); err != nil {
 		return errors.Capture(err)
 	}
 

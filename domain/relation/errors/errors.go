@@ -34,6 +34,15 @@ const (
 	// exceeding the defined quota limits for an endpoint.
 	EndpointQuotaLimitExceeded = errors.ConstError("quota limit exceeded")
 
+	// CannotEnterScopeNotAlive indicates that a relation unit failed to enter
+	// its scope due to either the unit or the relation not being Alive.
+	CannotEnterScopeNotAlive = errors.ConstError("cannot enter scope, unit or relation not alive")
+
+	// CannotEnterScopeSubordinateNotAlive indicates that a relation unit failed
+	// to enter its scope due to a required and pre-existing subordinate unit
+	// that is not Alive.
+	CannotEnterScopeSubordinateNotAlive = errors.ConstError("cannot enter scope, subordinate unit exists but is not alive")
+
 	// PotentialRelationUnitNotValid describes an error that occurs during
 	// EnterScope pre-checks to ensure the created relation unit will be valid.
 	//

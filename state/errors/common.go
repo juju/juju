@@ -13,15 +13,6 @@ import (
 )
 
 const (
-	// ErrCannotEnterScope indicates that a relation unit failed to enter its scope
-	// due to either the unit or the relation not being Alive.
-	ErrCannotEnterScope = errors.ConstError("cannot enter scope")
-
-	// ErrCannotEnterScopeYet indicates that a relation unit failed to enter its
-	// scope due to a required and pre-existing subordinate unit that is not Alive.
-	// Once that subordinate has been removed, a new one can be created.
-	ErrCannotEnterScopeYet = errors.ConstError("cannot enter scope yet")
-
 	// ErrCharmRevisionAlreadyModified is returned when a pending or
 	// placeholder charm is no longer pending or a placeholder, signaling
 	// the charm is available in state with its full information.
