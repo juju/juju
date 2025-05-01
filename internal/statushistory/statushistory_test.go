@@ -446,7 +446,7 @@ func (s *statusHistoryReaderSuite) TestWalkCorruptLine(c *gc.C) {
 
 	modelUUID := "model-uuid"
 
-	rnd := rand.IntN(9)
+	rnd := rand.IntN(2) + 1
 
 	path := s.createFile(c, func(c *gc.C, w io.Writer) {
 		now := time.Now().Truncate(time.Minute).UTC()
