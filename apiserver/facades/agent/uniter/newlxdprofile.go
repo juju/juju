@@ -19,14 +19,15 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/unit"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
 type LXDProfileBackendV2 interface {
 	Machine(string) (LXDProfileMachineV2, error)
-	Unit(string) (LXDProfileUnitV2, error)
 }
 
 // LXDProfileMachineV2 describes machine-receiver state methods
@@ -34,22 +35,6 @@ type LXDProfileBackendV2 interface {
 type LXDProfileMachineV2 interface {
 	ContainerType() instance.ContainerType
 	IsManual() (bool, error)
-}
-
-// LXDProfileUnitV2 describes unit-receiver state methods
-// for executing a lxd profile upgrade.
-type LXDProfileUnitV2 interface {
-	ApplicationName() string
-	AssignedMachineId() (string, error)
-	CharmURL() *string
-	Name() string
-	Tag() names.Tag
-}
-
-// LXDProfileCharmV2 describes charm-receiver state methods
-// for executing a lxd profile upgrade.
-type LXDProfileCharmV2 interface {
-	LXDProfile() lxdprofile.Profile
 }
 
 type LXDProfileAPIv2 struct {
@@ -96,10 +81,6 @@ type LXDProfileStateV2 struct {
 func (s LXDProfileStateV2) Machine(id string) (LXDProfileMachineV2, error) {
 	m, err := s.st.Machine(id)
 	return &lxdProfileMachineV2{m}, err
-}
-
-func (s LXDProfileStateV2) Unit(id string) (LXDProfileUnitV2, error) {
-	return s.st.Unit(id)
 }
 
 type lxdProfileMachineV2 struct {
@@ -151,7 +132,7 @@ func (u *LXDProfileAPIv2) WatchInstanceData(ctx context.Context, args params.Ent
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		unit, err := u.backend.Unit(tag.Id())
+		unitName, err := unit.NewName(tag.Id())
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -159,12 +140,12 @@ func (u *LXDProfileAPIv2) WatchInstanceData(ctx context.Context, args params.Ent
 		// TODO(nvinuesa): we could save this call if we move the lxd profile
 		// watcher to the unit domain. Then, the watcher would be already
 		// notifying for changes on the unit directly.
-		machineID, err := unit.AssignedMachineId()
+		machineUUID, err := u.applicationService.GetUnitMachineUUID(ctx, unitName)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		watcherId, err := u.watchOneInstanceData(ctx, machineID)
+		watcherId, err := u.watchOneInstanceData(ctx, machineUUID.String())
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -177,11 +158,7 @@ func (u *LXDProfileAPIv2) WatchInstanceData(ctx context.Context, args params.Ent
 	return result, nil
 }
 
-func (u *LXDProfileAPIv2) watchOneInstanceData(ctx context.Context, machineID string) (string, error) {
-	machineUUID, err := u.machineService.GetMachineUUID(ctx, coremachine.Name(machineID))
-	if err != nil {
-		return "", errors.Trace(err)
-	}
+func (u *LXDProfileAPIv2) watchOneInstanceData(ctx context.Context, machineUUID string) (string, error) {
 	watcher, err := u.machineService.WatchLXDProfiles(ctx, machineUUID)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -212,25 +189,19 @@ func (u *LXDProfileAPIv2) LXDProfileName(ctx context.Context, args params.Entiti
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		unit, _, err := u.getLXDProfileUnitMachineV2(tag)
+		unitName, err := unit.NewName(tag.Id())
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-
-		machineTagID, err := unit.AssignedMachineId()
+		machineUUID, err := u.applicationService.GetUnitMachineUUID(ctx, unitName)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		machineUUID, err := u.machineService.GetMachineUUID(ctx, coremachine.Name(machineTagID))
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		name, err := u.getOneLXDProfileName(ctx, unit, machineUUID)
+		name, err := u.getOneLXDProfileName(ctx, unitName.Application(), machineUUID)
 		if errors.Is(err, machineerrors.NotProvisioned) {
-			result.Results[i].Error = apiservererrors.ServerError(errors.NotProvisionedf("machine %q", machineTagID))
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotProvisionedf("machine %q", machineUUID))
 		} else if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -242,13 +213,12 @@ func (u *LXDProfileAPIv2) LXDProfileName(ctx context.Context, args params.Entiti
 	return result, nil
 }
 
-func (u *LXDProfileAPIv2) getOneLXDProfileName(ctx context.Context, unit LXDProfileUnitV2, machineUUID string) (string, error) {
-	profileNames, err := u.machineService.AppliedLXDProfileNames(ctx, machineUUID)
+func (u *LXDProfileAPIv2) getOneLXDProfileName(ctx context.Context, appName string, machineUUID coremachine.UUID) (string, error) {
+	profileNames, err := u.machineService.AppliedLXDProfileNames(ctx, machineUUID.String())
 	if err != nil {
 		u.logger.Errorf(ctx, "unable to retrieve LXD profiles for machine %q: %v", machineUUID, err)
 		return "", err
 	}
-	appName := unit.ApplicationName()
 	return lxdprofile.MatchProfileNameByAppName(profileNames, appName)
 }
 
@@ -283,24 +253,33 @@ func (u *LXDProfileAPIv2) CanApplyLXDProfile(ctx context.Context, args params.En
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		machine, err := u.getLXDProfileMachineV2(tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		name, err := u.getOneCanApplyLXDProfile(machine, modelInfo.CloudType)
+
+		name, err := u.getOneCanApplyLXDProfile(ctx, tag, modelInfo.CloudType)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
 		result.Results[i].Result = name
-
 	}
 	return result, nil
 }
 
-func (u *LXDProfileAPIv2) getOneCanApplyLXDProfile(machine LXDProfileMachineV2, providerType string) (bool, error) {
+func (u *LXDProfileAPIv2) getOneCanApplyLXDProfile(ctx context.Context, tag names.Tag, providerType string) (bool, error) {
+	unitName, err := unit.NewName(tag.Id())
+	if err != nil {
+		return false, internalerrors.Capture(err)
+	}
+
+	machineName, err := u.applicationService.GetUnitMachineName(ctx, unitName)
+	if err != nil {
+		return false, internalerrors.Capture(err)
+	}
+
+	machine, err := u.backend.Machine(machineName.String())
+	if err != nil {
+		return false, err
+	}
 	if manual, err := machine.IsManual(); err != nil {
 		return false, err
 	} else if manual {
@@ -346,26 +325,4 @@ func (u *LXDProfileAPIv2) getOneLXDProfileRequired(ctx context.Context, curl str
 		return false, err
 	}
 	return !lxdProfile.Empty(), nil
-}
-
-func (u *LXDProfileAPIv2) getLXDProfileMachineV2(tag names.Tag) (LXDProfileMachineV2, error) {
-	_, machine, err := u.getLXDProfileUnitMachineV2(tag)
-	return machine, err
-}
-
-func (u *LXDProfileAPIv2) getLXDProfileUnitMachineV2(tag names.Tag) (LXDProfileUnitV2, LXDProfileMachineV2, error) {
-	var id string
-	if tag.Kind() != names.UnitTagKind {
-		return nil, nil, errors.Errorf("not a unit tag")
-	}
-	unit, err := u.backend.Unit(tag.Id())
-	if err != nil {
-		return nil, nil, err
-	}
-	id, err = unit.AssignedMachineId()
-	if err != nil {
-		return nil, nil, err
-	}
-	machine, err := u.backend.Machine(id)
-	return unit, machine, err
 }
