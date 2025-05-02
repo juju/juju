@@ -4,8 +4,8 @@
 package k8s
 
 import (
-	"context"
 	"io"
+	"sync"
 
 	"github.com/creack/pty"
 	"github.com/gliderlabs/ssh"
@@ -22,9 +22,6 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 		_, _ = session.Stderr().Write([]byte(err.Error() + "\n"))
 		_ = session.Exit(1)
 	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	unitName, _ := h.destination.Unit()
 	res, err := h.resolver.ResolveK8sExecInfo(params.SSHK8sExecArg{
 		UnitName:  unitName,
@@ -53,10 +50,10 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 			handleError(errors.Annotate(err, "failed to open pty"))
 			return
 		}
-		defer func() { _ = ptmx.Close() }()
-		defer func() { _ = tty.Close() }()
+		wg := &sync.WaitGroup{}
+		wg.Add(2)
+		defer wg.Wait()
 
-		// Set the terminal size
 		err = pty.Setsize(ptmx, &pty.Winsize{
 			Rows: uint16(ptyReq.Window.Height),
 			Cols: uint16(ptyReq.Window.Width),
@@ -66,7 +63,8 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 			return
 		}
 
-		// Listen for window size changes
+		// Listen for window size changes. When the session is closed,
+		// the channel will be closed as well.
 		go func() {
 			for win := range winCh {
 				_ = pty.Setsize(ptmx, &pty.Winsize{
@@ -77,9 +75,15 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 		}()
 
 		go func() {
+			defer wg.Done()
+			defer ptmx.Close()
+			defer tty.Close()
 			_, _ = io.Copy(ptmx, session)
 		}()
 		go func() {
+			defer wg.Done()
+			defer ptmx.Close()
+			defer tty.Close()
 			_, _ = io.Copy(session, ptmx)
 		}()
 
@@ -99,7 +103,7 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 			TTY:           ptyRequested,
 			Env:           session.Environ(),
 		},
-		ctx.Done(),
+		session.Context().Done(),
 	)
 	if err != nil {
 		handleError(errors.Annotate(err, "failed to execute command in k8s pod"))

@@ -183,7 +183,6 @@ func (p *sshJump) getSSHOptions(pty bool, targets ...*resolvedTarget) (*ssh.Opti
 	var options ssh.Options
 	if pty {
 		options.EnablePTY()
-
 	}
 	// -o ProxyCommand is a substitute for the -J option.
 	// Due to a limitation in the github.com/juju/utils/v3/ssh pkg.
