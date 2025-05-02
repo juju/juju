@@ -235,3 +235,9 @@ UPDATE SET version = excluded.version, architecture_id = excluded.architecture_i
 
 	return nil
 }
+
+// NamespaceForWatchControllerNodes returns the namespace for watching
+// controller nodes.
+func (st *State) NamespaceForWatchControllerNodes() string {
+	return "controller_node"
+}

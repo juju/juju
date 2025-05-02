@@ -7,7 +7,10 @@ import (
 	"context"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
+	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -15,10 +18,72 @@ import (
 // State describes retrieval and persistence
 // methods for controller node concerns.
 type State interface {
+	// CurateNodes accepts slices of controller IDs to insert
+	// and delete from the controller node table.
 	CurateNodes(context.Context, []string, []string) error
+
+	// UpdateDqliteNode sets the Dqlite node ID and bind address for the input
+	// controller ID. It is a no-op if they are already set to the same values.
 	UpdateDqliteNode(context.Context, string, uint64, string) error
+
+	// SelectDatabaseNamespace is responsible for selecting and returning the
+	// database namespace specified by namespace. If no namespace is registered an
+	// error satisfying [errors.NotFound] is returned.
 	SelectDatabaseNamespace(context.Context, string) (string, error)
+
+	// SetRunningAgentBinaryVersion sets the running agent binary version for the
+	// provided controllerID. Any previously set values for this controllerID will
+	// be overwritten by this call.
+	//
+	// The following errors can be expected:
+	// - [controllernodeerrors.NotFound] if the controller node does not exist.
+	// - [coreerrors.NotSupported] if the architecture is unknown.
 	SetRunningAgentBinaryVersion(context.Context, string, coreagentbinary.Version) error
+
+	// NamespaceForWatchControllerNodes returns the namespace for watching
+	// controller nodes.
+	NamespaceForWatchControllerNodes() string
+}
+
+// WatcherFactory instances return watchers for a given namespace and UUID.
+type WatcherFactory interface {
+	// NewNotifyWatcher returns a new watcher that filters changes from the input
+	// base watcher's db/queue. A single filter option is required, though
+	// additional filter options can be provided.
+	NewNotifyWatcher(
+		filterOption eventsource.FilterOption,
+		filterOptions ...eventsource.FilterOption,
+	) (watcher.NotifyWatcher, error)
+}
+
+// WatchableService provides the API for working with controller nodes and the
+// ability to create watchers.
+type WatchableService struct {
+	*Service
+	watcherFactory WatcherFactory
+}
+
+// NewWatchableService returns a new service reference wrapping the input state.
+func NewWatchableService(
+	st State,
+	watcherFactory WatcherFactory,
+) *WatchableService {
+	return &WatchableService{
+		Service:        &Service{st},
+		watcherFactory: watcherFactory,
+	}
+}
+
+// WatchControllerNodes returns a watcher that observes changes to the
+// controller nodes.
+func (s *WatchableService) WatchControllerNodes() (watcher.NotifyWatcher, error) {
+	return s.watcherFactory.NewNotifyWatcher(
+		eventsource.PredicateFilter(
+			s.st.NamespaceForWatchControllerNodes(),
+			changestream.All,
+			eventsource.AlwaysPredicate,
+		),
+	)
 }
 
 // Service provides the API for working with controller nodes.
