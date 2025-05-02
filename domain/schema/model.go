@@ -147,7 +147,7 @@ func ModelDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForRelationStatus("relation_uuid",
 			tableRelationStatus),
 		triggers.ChangeLogTriggersForRelationUnit("unit_uuid", tableRelationUnit),
-		triggers.ChangeLogTriggersForIpAddress("uuid", tableIpAddress),
+		triggers.ChangeLogTriggersForIpAddress("net_node_uuid", tableIpAddress),
 		triggers.ChangeLogTriggersForApplicationEndpoint("application_uuid", tableApplicationEndpoint),
 	)
 

@@ -589,6 +589,21 @@ func (s *WatchableService) WatchApplicationExposed(ctx context.Context, name str
 	)
 }
 
+// WatchNetNodeAddress watches for changes to the specified net nodes
+// addresses.
+// This notifies on any changes to the net nodes addresses. It is up to the
+// caller to determine if the addresses they're interested in has changed.
+func (s *WatchableService) WatchNetNodeAddress(ctx context.Context, netNodeUUIDs ...string) (watcher.NotifyWatcher, error) {
+
+	return s.watcherFactory.NewNotifyWatcher(
+		eventsource.PredicateFilter(
+			s.st.NamespaceForWatchNetNodeAddress(),
+			changestream.All,
+			eventsource.ContainsPredicate(netNodeUUIDs),
+		),
+	)
+}
+
 // WatchUnitForUniterChanged watches for some specific changes to the unit with
 // the given name. The watcher will emit a notification when there is a change to
 // the unit's inherent properties, it's subordinates or it's resolved mode.

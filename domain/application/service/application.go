@@ -339,6 +339,10 @@ type ApplicationState interface {
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationEndpointBindings(context.Context, coreapplication.ID) (map[string]string, error)
 
+	// NamespaceForWatchNetNodeAddress returns the namespace identifier for
+	// net node address changes, which is the ip_address table.
+	NamespaceForWatchNetNodeAddress() string
+
 	// GetExposedEndpoints returns map where keys are endpoint names (or the ""
 	// value which represents all endpoints) and values are ExposedEndpoint
 	// instances that specify which sources (spaces or CIDRs) can access the

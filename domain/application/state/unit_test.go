@@ -1350,13 +1350,13 @@ func (s *unitStateSuite) TestGetUnitAddressesIncludingK8sService(c *tc.C) {
 		if err != nil {
 			return err
 		}
-		insertIPAddress0 := `INSERT INTO ip_address (uuid, device_uuid, address_value, type_id, scope_id, origin_id, config_type_id, subnet_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-		_, err = tx.ExecContext(ctx, insertIPAddress0, "ip-address0-uuid", "lld0-uuid", "10.0.0.1", 0, 3, 0, 1, "subnet-uuid")
+		insertIPAddress0 := `INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, type_id, scope_id, origin_id, config_type_id, subnet_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertIPAddress0, "ip-address0-uuid", "lld0-uuid", "10.0.0.1", "pod-net-node-uuid", 0, 3, 0, 1, "subnet-uuid")
 		if err != nil {
 			return err
 		}
-		insertIPAddress1 := `INSERT INTO ip_address (uuid, device_uuid, address_value, type_id, scope_id, origin_id, config_type_id, subnet_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-		_, err = tx.ExecContext(ctx, insertIPAddress1, "ip-address1-uuid", "lld1-uuid", "10.0.0.2", 0, 1, 1, 1, "subnet-uuid")
+		insertIPAddress1 := `INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, type_id, scope_id, origin_id, config_type_id, subnet_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertIPAddress1, "ip-address1-uuid", "lld1-uuid", "10.0.0.2", "svc-net-node-uuid", 0, 1, 1, 1, "subnet-uuid")
 		if err != nil {
 			return err
 		}
@@ -1423,8 +1423,8 @@ func (s *unitStateSuite) TestGetUnitAddressesWithoutK8sService(c *tc.C) {
 		if err != nil {
 			return err
 		}
-		insertIPAddress0 := `INSERT INTO ip_address (uuid, device_uuid, address_value, type_id, scope_id, origin_id, config_type_id, subnet_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-		_, err = tx.ExecContext(ctx, insertIPAddress0, "ip-address0-uuid", "lld0-uuid", "10.0.0.1", 0, 3, 1, 1, "subnet-uuid")
+		insertIPAddress0 := `INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, type_id, scope_id, origin_id, config_type_id, subnet_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertIPAddress0, "ip-address0-uuid", "lld0-uuid", "10.0.0.1", "machine-net-node-uuid", 0, 3, 1, 1, "subnet-uuid")
 		if err != nil {
 			return err
 		}
@@ -1446,6 +1446,75 @@ func (s *unitStateSuite) TestGetUnitAddressesWithoutK8sService(c *tc.C) {
 			},
 		},
 	})
+}
+
+func (s *unitStateSuite) TestGetUnitNetNodesNotFound(c *gc.C) {
+	_, err := s.state.GetUnitNetNodes(context.Background(), "unknown-unit-uuid")
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitStateSuite) TestGetUnitNetNodesK8s(c *gc.C) {
+	appID := s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/0",
+	})
+	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), "foo/0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		insertNetNode0 := `INSERT INTO net_node (uuid) VALUES (?)`
+		_, err := tx.ExecContext(ctx, insertNetNode0, "pod-net-node-uuid")
+		if err != nil {
+			return err
+		}
+		insertNetNode1 := `INSERT INTO net_node (uuid) VALUES (?)`
+		_, err = tx.ExecContext(ctx, insertNetNode1, "svc-net-node-uuid")
+		if err != nil {
+			return err
+		}
+		updateUnit := `UPDATE unit SET net_node_uuid = ? WHERE name = ?`
+		_, err = tx.ExecContext(ctx, updateUnit, "pod-net-node-uuid", "foo/0")
+		if err != nil {
+			return err
+		}
+		insertSvc := `INSERT INTO k8s_service (uuid, net_node_uuid, application_uuid, provider_id) VALUES (?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertSvc, "svc-uuid", "svc-net-node-uuid", appID, "provider-id")
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	netNodeUUID, err := s.state.GetUnitNetNodes(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(netNodeUUID, jc.SameContents, []string{"svc-net-node-uuid", "pod-net-node-uuid"})
+}
+
+func (s *unitStateSuite) TestGetUnitNetNodesMachine(c *gc.C) {
+	_ = s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/0",
+	})
+	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), "foo/0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		insertNetNode0 := `INSERT INTO net_node (uuid) VALUES (?)`
+		_, err := tx.ExecContext(ctx, insertNetNode0, "machine-net-node-uuid")
+		if err != nil {
+			return err
+		}
+		updateUnit := `UPDATE unit SET net_node_uuid = ? WHERE name = ?`
+		_, err = tx.ExecContext(ctx, updateUnit, "machine-net-node-uuid", "foo/0")
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	netNodeUUID, err := s.state.GetUnitNetNodes(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(netNodeUUID, jc.SameContents, []string{"machine-net-node-uuid"})
 }
 
 type applicationSpace struct {
