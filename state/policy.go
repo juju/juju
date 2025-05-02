@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -30,7 +29,7 @@ type NewPolicyFunc func(*State) Policy
 // in the use of the policy.
 type Policy interface {
 	// ConstraintsValidator returns a constraints.Validator or an error.
-	ConstraintsValidator(envcontext.ProviderCallContext) (constraints.Validator, error)
+	ConstraintsValidator(context.Context) (constraints.Validator, error)
 
 	// StorageServices returns a StoragePoolGetter, storage.ProviderRegistry or an error.
 	StorageServices() (StoragePoolGetter, error)
@@ -42,7 +41,7 @@ func (st *State) constraintsValidator() (constraints.Validator, error) {
 	var validator constraints.Validator
 	if st.policy != nil {
 		var err error
-		validator, err = st.policy.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(context.Background()))
+		validator, err = st.policy.ConstraintsValidator(context.Background())
 		if errors.Is(err, errors.NotImplemented) {
 			validator = constraints.NewValidator()
 		} else if err != nil {

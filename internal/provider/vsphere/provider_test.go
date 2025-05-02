@@ -120,7 +120,7 @@ func (s *pingSuite) TestPingInvalidHost(c *gc.C) {
 		"http://foo.test:77",
 	}
 	for _, t := range tests {
-		err := s.provider.Ping(s.callCtx, t)
+		err := s.provider.Ping(context.Background(), t)
 		if err == nil {
 			c.Errorf("ping %q: expected error, but got nil.", t)
 			continue
@@ -133,12 +133,12 @@ func (s *pingSuite) TestPingInvalidHost(c *gc.C) {
 }
 
 func (s *pingSuite) TestPingInvalidURL(c *gc.C) {
-	err := s.provider.Ping(s.callCtx, "abc%sdef")
+	err := s.provider.Ping(context.Background(), "abc%sdef")
 	c.Assert(err, gc.ErrorMatches, "Invalid endpoint format, please give a full url or IP/hostname.")
 }
 
 func (s *pingSuite) TestPingInvalidScheme(c *gc.C) {
-	err := s.provider.Ping(s.callCtx, "gopher://abcdef.com")
+	err := s.provider.Ping(context.Background(), "gopher://abcdef.com")
 	c.Assert(err, gc.ErrorMatches, "Invalid endpoint format, please use an http or https URL.")
 }
 
@@ -146,7 +146,7 @@ func (s *pingSuite) TestPingLoginSucceeded(c *gc.C) {
 	// This test shows that when - against all odds - the
 	// login succeeds, Ping returns nil.
 
-	err := s.provider.Ping(s.callCtx, "testing.invalid")
+	err := s.provider.Ping(context.Background(), "testing.invalid")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.dialStub.CheckCallNames(c, "Dial")

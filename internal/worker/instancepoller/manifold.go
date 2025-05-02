@@ -19,9 +19,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/internal/worker/common"
 )
 
 // facadeShim wraps an instancepoller API instance and allows us to provide
@@ -50,7 +48,7 @@ func (e environWithoutNetworking) Instances(ctx context.Context, ids []instance.
 	return e.env.Instances(ctx, ids)
 }
 
-func (e environWithoutNetworking) NetworkInterfaces(envcontext.ProviderCallContext, []instance.Id) ([]network.InterfaceInfos, error) {
+func (e environWithoutNetworking) NetworkInterfaces(context.Context, []instance.Id) ([]network.InterfaceInfos, error) {
 	return nil, errNetworkingNotSupported
 }
 
@@ -60,8 +58,6 @@ type ManifoldConfig struct {
 	ClockName     string
 	EnvironName   string
 	Logger        logger.Logger
-
-	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
 }
 
 func (config ManifoldConfig) start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
@@ -86,19 +82,13 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
-	credentialAPI, err := config.NewCredentialValidatorFacade(apiCaller)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	w, err := NewWorker(Config{
 		Clock: clock,
 		Facade: facadeShim{
 			api: instancepoller.NewAPI(apiCaller),
 		},
-		Environ:       netEnv,
-		Logger:        config.Logger,
-		CredentialAPI: credentialAPI,
+		Environ: netEnv,
+		Logger:  config.Logger,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

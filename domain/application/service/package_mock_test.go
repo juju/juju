@@ -35,7 +35,6 @@ import (
 	constraints0 "github.com/juju/juju/domain/constraints"
 	life "github.com/juju/juju/domain/life"
 	storage0 "github.com/juju/juju/domain/storage"
-	envcontext "github.com/juju/juju/environs/envcontext"
 	storage1 "github.com/juju/juju/internal/storage"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -4522,7 +4521,7 @@ func (m *MockProvider) EXPECT() *MockProviderMockRecorder {
 }
 
 // ConstraintsValidator mocks base method.
-func (m *MockProvider) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {
+func (m *MockProvider) ConstraintsValidator(ctx context.Context) (constraints.Validator, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConstraintsValidator", ctx)
 	ret0, _ := ret[0].(constraints.Validator)
@@ -4549,13 +4548,13 @@ func (c *MockProviderConstraintsValidatorCall) Return(arg0 constraints.Validator
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockProviderConstraintsValidatorCall) Do(f func(envcontext.ProviderCallContext) (constraints.Validator, error)) *MockProviderConstraintsValidatorCall {
+func (c *MockProviderConstraintsValidatorCall) Do(f func(context.Context) (constraints.Validator, error)) *MockProviderConstraintsValidatorCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockProviderConstraintsValidatorCall) DoAndReturn(f func(envcontext.ProviderCallContext) (constraints.Validator, error)) *MockProviderConstraintsValidatorCall {
+func (c *MockProviderConstraintsValidatorCall) DoAndReturn(f func(context.Context) (constraints.Validator, error)) *MockProviderConstraintsValidatorCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

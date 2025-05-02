@@ -4,6 +4,8 @@
 package vsphere
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
@@ -12,7 +14,6 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/provider/common"
 )
@@ -37,7 +38,7 @@ func (inst *environInstance) Id() instance.Id {
 }
 
 // Status implements instances.Instance.
-func (inst *environInstance) Status(ctx envcontext.ProviderCallContext) instance.Status {
+func (inst *environInstance) Status(ctx context.Context) instance.Status {
 	instanceStatus := instance.Status{
 		Status:  status.Empty,
 		Message: string(inst.base.Runtime.PowerState),
@@ -50,7 +51,7 @@ func (inst *environInstance) Status(ctx envcontext.ProviderCallContext) instance
 }
 
 // Addresses implements instances.Instance.
-func (inst *environInstance) Addresses(ctx envcontext.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
+func (inst *environInstance) Addresses(ctx context.Context) (corenetwork.ProviderAddresses, error) {
 	if inst.base.Guest == nil {
 		return nil, nil
 	}
@@ -67,19 +68,19 @@ func (inst *environInstance) Addresses(ctx envcontext.ProviderCallContext) (core
 
 // OpenPorts opens the given ports on the instance, which
 // should have been started with the given machine id.
-func (inst *environInstance) OpenPorts(ctx envcontext.ProviderCallContext, machineID string, rules firewall.IngressRules) error {
+func (inst *environInstance) OpenPorts(ctx context.Context, machineID string, rules firewall.IngressRules) error {
 	return inst.changeIngressRules(ctx, true, rules)
 }
 
 // ClosePorts closes the given ports on the instance, which
 // should have been started with the given machine id.
-func (inst *environInstance) ClosePorts(ctx envcontext.ProviderCallContext, machineID string, rules firewall.IngressRules) error {
+func (inst *environInstance) ClosePorts(ctx context.Context, machineID string, rules firewall.IngressRules) error {
 	return inst.changeIngressRules(ctx, false, rules)
 }
 
 // IngressRules returns the set of ports open on the instance, which
 // should have been started with the given machine id.
-func (inst *environInstance) IngressRules(ctx envcontext.ProviderCallContext, machineID string) (firewall.IngressRules, error) {
+func (inst *environInstance) IngressRules(ctx context.Context, machineID string) (firewall.IngressRules, error) {
 	_, client, err := inst.getInstanceConfigurator(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -87,7 +88,7 @@ func (inst *environInstance) IngressRules(ctx envcontext.ProviderCallContext, ma
 	return client.FindIngressRules()
 }
 
-func (inst *environInstance) changeIngressRules(ctx envcontext.ProviderCallContext, insert bool, rules firewall.IngressRules) error {
+func (inst *environInstance) changeIngressRules(ctx context.Context, insert bool, rules firewall.IngressRules) error {
 	if inst.env.ecfg.externalNetwork() == "" {
 		// Open/Close port without an externalNetwork defined is treated as a no-op.
 		// We don't firewall the internal network, and without an external network we don't have any iptables rules
@@ -113,7 +114,7 @@ func (inst *environInstance) changeIngressRules(ctx envcontext.ProviderCallConte
 }
 
 func (inst *environInstance) getInstanceConfigurator(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 ) ([]corenetwork.ProviderAddress, common.InstanceConfigurator, error) {
 	addresses, err := inst.Addresses(ctx)
 	if err != nil {

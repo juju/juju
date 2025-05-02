@@ -4,6 +4,8 @@
 package azure_test
 
 import (
+	"context"
+
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 	jc "github.com/juju/testing/checkers"
@@ -41,7 +43,7 @@ func (s *environSuite) TestSubnetsSuccessOld(c *gc.C) {
 	netEnv, ok := environs.SupportsNetworking(env)
 	c.Assert(ok, jc.IsTrue)
 
-	subs, err := netEnv.Subnets(s.callCtx, nil)
+	subs, err := netEnv.Subnets(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(subs, gc.HasLen, 1)
@@ -78,7 +80,7 @@ func (s *environSuite) TestSubnetsSuccessNew(c *gc.C) {
 	netEnv, ok := environs.SupportsNetworking(env)
 	c.Assert(ok, jc.IsTrue)
 
-	subs, err := netEnv.Subnets(s.callCtx, nil)
+	subs, err := netEnv.Subnets(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(subs, gc.HasLen, 1)
@@ -195,7 +197,7 @@ func (s *environSuite) TestNetworkInterfacesSuccess(c *gc.C) {
 	netEnv, ok := environs.SupportsNetworking(env)
 	c.Assert(ok, jc.IsTrue)
 
-	res, err := netEnv.NetworkInterfaces(s.callCtx, []instance.Id{"machine-0"})
+	res, err := netEnv.NetworkInterfaces(context.Background(), []instance.Id{"machine-0"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(res, gc.HasLen, 1)
@@ -271,7 +273,7 @@ func (s *environSuite) TestNetworkInterfacesPartialMatch(c *gc.C) {
 	netEnv, ok := environs.SupportsNetworking(env)
 	c.Assert(ok, jc.IsTrue)
 
-	res, err := netEnv.NetworkInterfaces(s.callCtx, []instance.Id{"machine-0", "bogus-0"})
+	res, err := netEnv.NetworkInterfaces(context.Background(), []instance.Id{"machine-0", "bogus-0"})
 	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
 
 	c.Assert(res, gc.HasLen, 2)

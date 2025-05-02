@@ -21,7 +21,6 @@ import (
 	relation "github.com/juju/juju/core/relation"
 	watcher "github.com/juju/juju/core/watcher"
 	config "github.com/juju/juju/environs/config"
-	envcontext "github.com/juju/juju/environs/envcontext"
 	instances "github.com/juju/juju/environs/instances"
 	firewaller0 "github.com/juju/juju/internal/worker/firewaller"
 	params "github.com/juju/juju/rpc/params"
@@ -939,7 +938,7 @@ func (m *MockEnvironFirewaller) EXPECT() *MockEnvironFirewallerMockRecorder {
 }
 
 // ClosePorts mocks base method.
-func (m *MockEnvironFirewaller) ClosePorts(arg0 envcontext.ProviderCallContext, arg1 firewall.IngressRules) error {
+func (m *MockEnvironFirewaller) ClosePorts(arg0 context.Context, arg1 firewall.IngressRules) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ClosePorts", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -965,19 +964,19 @@ func (c *MockEnvironFirewallerClosePortsCall) Return(arg0 error) *MockEnvironFir
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockEnvironFirewallerClosePortsCall) Do(f func(envcontext.ProviderCallContext, firewall.IngressRules) error) *MockEnvironFirewallerClosePortsCall {
+func (c *MockEnvironFirewallerClosePortsCall) Do(f func(context.Context, firewall.IngressRules) error) *MockEnvironFirewallerClosePortsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockEnvironFirewallerClosePortsCall) DoAndReturn(f func(envcontext.ProviderCallContext, firewall.IngressRules) error) *MockEnvironFirewallerClosePortsCall {
+func (c *MockEnvironFirewallerClosePortsCall) DoAndReturn(f func(context.Context, firewall.IngressRules) error) *MockEnvironFirewallerClosePortsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // IngressRules mocks base method.
-func (m *MockEnvironFirewaller) IngressRules(arg0 envcontext.ProviderCallContext) (firewall.IngressRules, error) {
+func (m *MockEnvironFirewaller) IngressRules(arg0 context.Context) (firewall.IngressRules, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IngressRules", arg0)
 	ret0, _ := ret[0].(firewall.IngressRules)
@@ -1004,19 +1003,19 @@ func (c *MockEnvironFirewallerIngressRulesCall) Return(arg0 firewall.IngressRule
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockEnvironFirewallerIngressRulesCall) Do(f func(envcontext.ProviderCallContext) (firewall.IngressRules, error)) *MockEnvironFirewallerIngressRulesCall {
+func (c *MockEnvironFirewallerIngressRulesCall) Do(f func(context.Context) (firewall.IngressRules, error)) *MockEnvironFirewallerIngressRulesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockEnvironFirewallerIngressRulesCall) DoAndReturn(f func(envcontext.ProviderCallContext) (firewall.IngressRules, error)) *MockEnvironFirewallerIngressRulesCall {
+func (c *MockEnvironFirewallerIngressRulesCall) DoAndReturn(f func(context.Context) (firewall.IngressRules, error)) *MockEnvironFirewallerIngressRulesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // OpenPorts mocks base method.
-func (m *MockEnvironFirewaller) OpenPorts(arg0 envcontext.ProviderCallContext, arg1 firewall.IngressRules) error {
+func (m *MockEnvironFirewaller) OpenPorts(arg0 context.Context, arg1 firewall.IngressRules) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "OpenPorts", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -1042,13 +1041,13 @@ func (c *MockEnvironFirewallerOpenPortsCall) Return(arg0 error) *MockEnvironFire
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockEnvironFirewallerOpenPortsCall) Do(f func(envcontext.ProviderCallContext, firewall.IngressRules) error) *MockEnvironFirewallerOpenPortsCall {
+func (c *MockEnvironFirewallerOpenPortsCall) Do(f func(context.Context, firewall.IngressRules) error) *MockEnvironFirewallerOpenPortsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockEnvironFirewallerOpenPortsCall) DoAndReturn(f func(envcontext.ProviderCallContext, firewall.IngressRules) error) *MockEnvironFirewallerOpenPortsCall {
+func (c *MockEnvironFirewallerOpenPortsCall) DoAndReturn(f func(context.Context, firewall.IngressRules) error) *MockEnvironFirewallerOpenPortsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1077,7 +1076,7 @@ func (m *MockEnvironModelFirewaller) EXPECT() *MockEnvironModelFirewallerMockRec
 }
 
 // CloseModelPorts mocks base method.
-func (m *MockEnvironModelFirewaller) CloseModelPorts(arg0 envcontext.ProviderCallContext, arg1 firewall.IngressRules) error {
+func (m *MockEnvironModelFirewaller) CloseModelPorts(arg0 context.Context, arg1 firewall.IngressRules) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CloseModelPorts", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -1103,19 +1102,19 @@ func (c *MockEnvironModelFirewallerCloseModelPortsCall) Return(arg0 error) *Mock
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockEnvironModelFirewallerCloseModelPortsCall) Do(f func(envcontext.ProviderCallContext, firewall.IngressRules) error) *MockEnvironModelFirewallerCloseModelPortsCall {
+func (c *MockEnvironModelFirewallerCloseModelPortsCall) Do(f func(context.Context, firewall.IngressRules) error) *MockEnvironModelFirewallerCloseModelPortsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockEnvironModelFirewallerCloseModelPortsCall) DoAndReturn(f func(envcontext.ProviderCallContext, firewall.IngressRules) error) *MockEnvironModelFirewallerCloseModelPortsCall {
+func (c *MockEnvironModelFirewallerCloseModelPortsCall) DoAndReturn(f func(context.Context, firewall.IngressRules) error) *MockEnvironModelFirewallerCloseModelPortsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ModelIngressRules mocks base method.
-func (m *MockEnvironModelFirewaller) ModelIngressRules(arg0 envcontext.ProviderCallContext) (firewall.IngressRules, error) {
+func (m *MockEnvironModelFirewaller) ModelIngressRules(arg0 context.Context) (firewall.IngressRules, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelIngressRules", arg0)
 	ret0, _ := ret[0].(firewall.IngressRules)
@@ -1142,19 +1141,19 @@ func (c *MockEnvironModelFirewallerModelIngressRulesCall) Return(arg0 firewall.I
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockEnvironModelFirewallerModelIngressRulesCall) Do(f func(envcontext.ProviderCallContext) (firewall.IngressRules, error)) *MockEnvironModelFirewallerModelIngressRulesCall {
+func (c *MockEnvironModelFirewallerModelIngressRulesCall) Do(f func(context.Context) (firewall.IngressRules, error)) *MockEnvironModelFirewallerModelIngressRulesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockEnvironModelFirewallerModelIngressRulesCall) DoAndReturn(f func(envcontext.ProviderCallContext) (firewall.IngressRules, error)) *MockEnvironModelFirewallerModelIngressRulesCall {
+func (c *MockEnvironModelFirewallerModelIngressRulesCall) DoAndReturn(f func(context.Context) (firewall.IngressRules, error)) *MockEnvironModelFirewallerModelIngressRulesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // OpenModelPorts mocks base method.
-func (m *MockEnvironModelFirewaller) OpenModelPorts(arg0 envcontext.ProviderCallContext, arg1 firewall.IngressRules) error {
+func (m *MockEnvironModelFirewaller) OpenModelPorts(arg0 context.Context, arg1 firewall.IngressRules) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "OpenModelPorts", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -1180,13 +1179,13 @@ func (c *MockEnvironModelFirewallerOpenModelPortsCall) Return(arg0 error) *MockE
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockEnvironModelFirewallerOpenModelPortsCall) Do(f func(envcontext.ProviderCallContext, firewall.IngressRules) error) *MockEnvironModelFirewallerOpenModelPortsCall {
+func (c *MockEnvironModelFirewallerOpenModelPortsCall) Do(f func(context.Context, firewall.IngressRules) error) *MockEnvironModelFirewallerOpenModelPortsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockEnvironModelFirewallerOpenModelPortsCall) DoAndReturn(f func(envcontext.ProviderCallContext, firewall.IngressRules) error) *MockEnvironModelFirewallerOpenModelPortsCall {
+func (c *MockEnvironModelFirewallerOpenModelPortsCall) DoAndReturn(f func(context.Context, firewall.IngressRules) error) *MockEnvironModelFirewallerOpenModelPortsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1277,7 +1276,7 @@ func (m *MockEnvironInstance) EXPECT() *MockEnvironInstanceMockRecorder {
 }
 
 // Addresses mocks base method.
-func (m *MockEnvironInstance) Addresses(arg0 envcontext.ProviderCallContext) (network.ProviderAddresses, error) {
+func (m *MockEnvironInstance) Addresses(arg0 context.Context) (network.ProviderAddresses, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Addresses", arg0)
 	ret0, _ := ret[0].(network.ProviderAddresses)
@@ -1304,19 +1303,19 @@ func (c *MockEnvironInstanceAddressesCall) Return(arg0 network.ProviderAddresses
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockEnvironInstanceAddressesCall) Do(f func(envcontext.ProviderCallContext) (network.ProviderAddresses, error)) *MockEnvironInstanceAddressesCall {
+func (c *MockEnvironInstanceAddressesCall) Do(f func(context.Context) (network.ProviderAddresses, error)) *MockEnvironInstanceAddressesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockEnvironInstanceAddressesCall) DoAndReturn(f func(envcontext.ProviderCallContext) (network.ProviderAddresses, error)) *MockEnvironInstanceAddressesCall {
+func (c *MockEnvironInstanceAddressesCall) DoAndReturn(f func(context.Context) (network.ProviderAddresses, error)) *MockEnvironInstanceAddressesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ClosePorts mocks base method.
-func (m *MockEnvironInstance) ClosePorts(arg0 envcontext.ProviderCallContext, arg1 string, arg2 firewall.IngressRules) error {
+func (m *MockEnvironInstance) ClosePorts(arg0 context.Context, arg1 string, arg2 firewall.IngressRules) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ClosePorts", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -1342,13 +1341,13 @@ func (c *MockEnvironInstanceClosePortsCall) Return(arg0 error) *MockEnvironInsta
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockEnvironInstanceClosePortsCall) Do(f func(envcontext.ProviderCallContext, string, firewall.IngressRules) error) *MockEnvironInstanceClosePortsCall {
+func (c *MockEnvironInstanceClosePortsCall) Do(f func(context.Context, string, firewall.IngressRules) error) *MockEnvironInstanceClosePortsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockEnvironInstanceClosePortsCall) DoAndReturn(f func(envcontext.ProviderCallContext, string, firewall.IngressRules) error) *MockEnvironInstanceClosePortsCall {
+func (c *MockEnvironInstanceClosePortsCall) DoAndReturn(f func(context.Context, string, firewall.IngressRules) error) *MockEnvironInstanceClosePortsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1392,7 +1391,7 @@ func (c *MockEnvironInstanceIdCall) DoAndReturn(f func() instance.Id) *MockEnvir
 }
 
 // IngressRules mocks base method.
-func (m *MockEnvironInstance) IngressRules(arg0 envcontext.ProviderCallContext, arg1 string) (firewall.IngressRules, error) {
+func (m *MockEnvironInstance) IngressRules(arg0 context.Context, arg1 string) (firewall.IngressRules, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IngressRules", arg0, arg1)
 	ret0, _ := ret[0].(firewall.IngressRules)
@@ -1419,19 +1418,19 @@ func (c *MockEnvironInstanceIngressRulesCall) Return(arg0 firewall.IngressRules,
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockEnvironInstanceIngressRulesCall) Do(f func(envcontext.ProviderCallContext, string) (firewall.IngressRules, error)) *MockEnvironInstanceIngressRulesCall {
+func (c *MockEnvironInstanceIngressRulesCall) Do(f func(context.Context, string) (firewall.IngressRules, error)) *MockEnvironInstanceIngressRulesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockEnvironInstanceIngressRulesCall) DoAndReturn(f func(envcontext.ProviderCallContext, string) (firewall.IngressRules, error)) *MockEnvironInstanceIngressRulesCall {
+func (c *MockEnvironInstanceIngressRulesCall) DoAndReturn(f func(context.Context, string) (firewall.IngressRules, error)) *MockEnvironInstanceIngressRulesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // OpenPorts mocks base method.
-func (m *MockEnvironInstance) OpenPorts(arg0 envcontext.ProviderCallContext, arg1 string, arg2 firewall.IngressRules) error {
+func (m *MockEnvironInstance) OpenPorts(arg0 context.Context, arg1 string, arg2 firewall.IngressRules) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "OpenPorts", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -1457,19 +1456,19 @@ func (c *MockEnvironInstanceOpenPortsCall) Return(arg0 error) *MockEnvironInstan
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockEnvironInstanceOpenPortsCall) Do(f func(envcontext.ProviderCallContext, string, firewall.IngressRules) error) *MockEnvironInstanceOpenPortsCall {
+func (c *MockEnvironInstanceOpenPortsCall) Do(f func(context.Context, string, firewall.IngressRules) error) *MockEnvironInstanceOpenPortsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockEnvironInstanceOpenPortsCall) DoAndReturn(f func(envcontext.ProviderCallContext, string, firewall.IngressRules) error) *MockEnvironInstanceOpenPortsCall {
+func (c *MockEnvironInstanceOpenPortsCall) DoAndReturn(f func(context.Context, string, firewall.IngressRules) error) *MockEnvironInstanceOpenPortsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Status mocks base method.
-func (m *MockEnvironInstance) Status(arg0 envcontext.ProviderCallContext) instance.Status {
+func (m *MockEnvironInstance) Status(arg0 context.Context) instance.Status {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Status", arg0)
 	ret0, _ := ret[0].(instance.Status)
@@ -1495,13 +1494,13 @@ func (c *MockEnvironInstanceStatusCall) Return(arg0 instance.Status) *MockEnviro
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockEnvironInstanceStatusCall) Do(f func(envcontext.ProviderCallContext) instance.Status) *MockEnvironInstanceStatusCall {
+func (c *MockEnvironInstanceStatusCall) Do(f func(context.Context) instance.Status) *MockEnvironInstanceStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockEnvironInstanceStatusCall) DoAndReturn(f func(envcontext.ProviderCallContext) instance.Status) *MockEnvironInstanceStatusCall {
+func (c *MockEnvironInstanceStatusCall) DoAndReturn(f func(context.Context) instance.Status) *MockEnvironInstanceStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

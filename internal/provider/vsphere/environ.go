@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	callcontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/provider/common"
 )
 
@@ -145,23 +144,21 @@ var Bootstrap = common.Bootstrap
 // Bootstrap is part of the environs.Environ interface.
 func (env *environ) Bootstrap(
 	ctx environs.BootstrapContext,
-	callCtx callcontext.ProviderCallContext,
 	args environs.BootstrapParams,
 ) (result *environs.BootstrapResult, err error) {
 	// NOTE(axw) we must not pass a sessionEnviron to common.Bootstrap,
 	// as the Environ will be used during instance finalization after
 	// the Bootstrap method returns, and the session will be invalid.
-	if err := env.withSession(callCtx, func(senv *sessionEnviron) error {
-		return senv.ensureVMFolder(args.ControllerConfig.ControllerUUID(), callCtx)
+	if err := env.withSession(ctx, func(senv *sessionEnviron) error {
+		return senv.ensureVMFolder(args.ControllerConfig.ControllerUUID(), ctx)
 	}); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return Bootstrap(ctx, env, callCtx, args)
+	return Bootstrap(ctx, env, args)
 }
 
 func (senv *sessionEnviron) Bootstrap(
 	ctx environs.BootstrapContext,
-	callCtx callcontext.ProviderCallContext,
 	args environs.BootstrapParams,
 ) (result *environs.BootstrapResult, err error) {
 	return nil, errors.Errorf("sessionEnviron.Bootstrap should never be called")
@@ -179,7 +176,7 @@ func (senv *sessionEnviron) ensureVMFolder(controllerUUID string, ctx context.Co
 var DestroyEnv = common.Destroy
 
 // AdoptResources is part of the Environ interface.
-func (env *environ) AdoptResources(ctx callcontext.ProviderCallContext, controllerUUID string, fromVersion semversion.Number) error {
+func (env *environ) AdoptResources(ctx context.Context, controllerUUID string, fromVersion semversion.Number) error {
 	// Move model folder into the controller's folder.
 	return env.withSession(ctx, func(senv *sessionEnviron) error {
 		return senv.AdoptResources(ctx, controllerUUID, fromVersion)
@@ -187,7 +184,7 @@ func (env *environ) AdoptResources(ctx callcontext.ProviderCallContext, controll
 }
 
 // AdoptResources is part of the Environ interface.
-func (senv *sessionEnviron) AdoptResources(ctx callcontext.ProviderCallContext, controllerUUID string, fromVersion semversion.Number) error {
+func (senv *sessionEnviron) AdoptResources(ctx context.Context, controllerUUID string, fromVersion semversion.Number) error {
 	err := senv.client.MoveVMFolderInto(senv.ctx,
 		path.Join(senv.getVMFolder(), controllerFolderName(controllerUUID)),
 		path.Join(senv.getVMFolder(), controllerFolderName("*"), senv.modelFolderName()),
@@ -196,14 +193,14 @@ func (senv *sessionEnviron) AdoptResources(ctx callcontext.ProviderCallContext, 
 }
 
 // Destroy is part of the environs.Environ interface.
-func (env *environ) Destroy(ctx callcontext.ProviderCallContext) error {
+func (env *environ) Destroy(ctx context.Context) error {
 	return env.withSession(ctx, func(senv *sessionEnviron) error {
 		return senv.Destroy(ctx)
 	})
 }
 
 // Destroy is part of the environs.Environ interface.
-func (senv *sessionEnviron) Destroy(ctx callcontext.ProviderCallContext) error {
+func (senv *sessionEnviron) Destroy(ctx context.Context) error {
 	if err := DestroyEnv(senv, ctx); err != nil {
 		// We don't need to worry about handling credential errors
 		// here - this is implemented in terms of common operations
@@ -218,14 +215,14 @@ func (senv *sessionEnviron) Destroy(ctx callcontext.ProviderCallContext) error {
 }
 
 // DestroyController implements the Environ interface.
-func (env *environ) DestroyController(ctx callcontext.ProviderCallContext, controllerUUID string) error {
+func (env *environ) DestroyController(ctx context.Context, controllerUUID string) error {
 	return env.withSession(ctx, func(senv *sessionEnviron) error {
 		return senv.DestroyController(ctx, controllerUUID)
 	})
 }
 
 // DestroyController implements the Environ interface.
-func (senv *sessionEnviron) DestroyController(ctx callcontext.ProviderCallContext, controllerUUID string) error {
+func (senv *sessionEnviron) DestroyController(ctx context.Context, controllerUUID string) error {
 	if err := senv.Destroy(ctx); err != nil {
 		return errors.Trace(err)
 	}
@@ -245,7 +242,7 @@ func (senv *sessionEnviron) getVMFolder() string {
 	return senv.environ.cloud.Credential.Attributes()[credAttrVMFolder]
 }
 
-func (senv *sessionEnviron) accessibleDatastores(ctx callcontext.ProviderCallContext) ([]mo.Datastore, error) {
+func (senv *sessionEnviron) accessibleDatastores(ctx context.Context) ([]mo.Datastore, error) {
 	datastores, err := senv.client.Datastores(senv.ctx)
 	if err != nil {
 		return nil, senv.handleCredentialError(ctx, err)

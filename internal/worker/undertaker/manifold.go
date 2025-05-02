@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/internal/worker/common"
 )
 
 // ManifoldConfig holds the names of the resources used by, and the
@@ -22,12 +21,11 @@ import (
 type ManifoldConfig struct {
 	APICallerName string
 
-	Logger                       logger.Logger
-	Clock                        clock.Clock
-	NewFacade                    func(base.APICaller) (Facade, error)
-	NewWorker                    func(Config) (worker.Worker, error)
-	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
-	NewCloudDestroyerFunc        func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (environs.CloudDestroyer, error)
+	Logger                logger.Logger
+	Clock                 clock.Clock
+	NewFacade             func(base.APICaller) (Facade, error)
+	NewWorker             func(Config) (worker.Worker, error)
+	NewCloudDestroyerFunc func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (environs.CloudDestroyer, error)
 }
 
 func (config ManifoldConfig) start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
@@ -41,14 +39,8 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
-	credentialAPI, err := config.NewCredentialValidatorFacade(apiCaller)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	worker, err := config.NewWorker(Config{
 		Facade:                facade,
-		CredentialAPI:         credentialAPI,
 		Logger:                config.Logger,
 		Clock:                 config.Clock,
 		NewCloudDestroyerFunc: config.NewCloudDestroyerFunc,

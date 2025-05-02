@@ -4,9 +4,10 @@
 package gce
 
 import (
+	"context"
+
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/provider/gce/google"
@@ -42,7 +43,7 @@ func GlobalFirewallName(env *environ) string {
 	return env.globalFirewallName()
 }
 
-func ParsePlacement(env *environ, ctx envcontext.ProviderCallContext, placement string) (*instPlacement, error) {
+func ParsePlacement(env *environ, ctx context.Context, placement string) (*instPlacement, error) {
 	return env.parsePlacement(ctx, placement)
 }
 
@@ -59,11 +60,11 @@ func FindInstanceSpec(
 	return env.findInstanceSpec(ic, imageMetadata, instanceTypes)
 }
 
-func BuildInstanceSpec(env *environ, ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
+func BuildInstanceSpec(env *environ, ctx context.Context, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
 	return env.buildInstanceSpec(ctx, args)
 }
 
-func NewRawInstance(env *environ, ctx envcontext.ProviderCallContext, args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
+func NewRawInstance(env *environ, ctx context.Context, args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
 	return env.newRawInstance(ctx, args, spec)
 }
 
@@ -71,6 +72,6 @@ func GetHardwareCharacteristics(env *environ, spec *instances.InstanceSpec, inst
 	return env.getHardwareCharacteristics(spec, inst)
 }
 
-func GetInstances(env *environ, ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
+func GetInstances(env *environ, ctx context.Context) ([]instances.Instance, error) {
 	return env.instances(ctx)
 }

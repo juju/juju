@@ -64,7 +64,6 @@ import (
 	"github.com/juju/juju/internal/worker/certupdater"
 	"github.com/juju/juju/internal/worker/changestream"
 	"github.com/juju/juju/internal/worker/changestreampruner"
-	"github.com/juju/juju/internal/worker/common"
 	lxdbroker "github.com/juju/juju/internal/worker/containerbroker"
 	"github.com/juju/juju/internal/worker/containerprovisioner"
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
@@ -1078,11 +1077,10 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// (deprovisioning), and attachment (detachment) of first-class
 		// volumes and filesystems.
 		storageProvisionerName: ifNotMigrating(ifCredentialValid(storageprovisioner.MachineManifold(storageprovisioner.MachineManifoldConfig{
-			AgentName:                    agentName,
-			APICallerName:                apiCallerName,
-			Clock:                        config.Clock,
-			Logger:                       internallogger.GetLogger("juju.worker.storageprovisioner"),
-			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			Clock:         config.Clock,
+			Logger:        internallogger.GetLogger("juju.worker.storageprovisioner"),
 		}))),
 		brokerTrackerName: ifNotMigrating(lxdbroker.Manifold(lxdbroker.ManifoldConfig{
 			APICallerName: apiCallerName,
@@ -1108,12 +1106,11 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:         internallogger.GetLogger("juju.worker.machinesetup"),
 		})),
 		lxdContainerProvisioner: ifNotMigrating(containerprovisioner.Manifold(containerprovisioner.ManifoldConfig{
-			AgentName:                    agentName,
-			APICallerName:                apiCallerName,
-			Logger:                       internallogger.GetLogger("juju.worker.lxdprovisioner"),
-			MachineLock:                  config.MachineLock,
-			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
-			ContainerType:                instance.LXD,
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			Logger:        internallogger.GetLogger("juju.worker.lxdprovisioner"),
+			MachineLock:   config.MachineLock,
+			ContainerType: instance.LXD,
 		})),
 		// isNotControllerFlagName is only used for the stateconverter,
 		isNotControllerFlagName: util.IsControllerFlagManifold(stateConfigWatcherName, false),

@@ -17,9 +17,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
-	environscontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/worker"
-	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -38,7 +36,6 @@ type Facade interface {
 // undertaker worker.
 type Config struct {
 	Facade                Facade
-	CredentialAPI         common.CredentialAPI
 	Logger                logger.Logger
 	Clock                 clock.Clock
 	NewCloudDestroyerFunc func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (environs.CloudDestroyer, error)
@@ -49,9 +46,6 @@ type Config struct {
 func (config Config) Validate() error {
 	if config.Facade == nil {
 		return errors.NotValidf("nil Facade")
-	}
-	if config.CredentialAPI == nil {
-		return errors.NotValidf("nil CredentialAPI")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -352,12 +346,12 @@ func (u *Undertaker) environ(ctx context.Context) (environs.CloudDestroyer, erro
 	return environ, nil
 }
 
-func (u *Undertaker) invokeDestroyEnviron(callCtx environscontext.ProviderCallContext) error {
-	environ, err := u.environ(callCtx)
+func (u *Undertaker) invokeDestroyEnviron(ctx context.Context) error {
+	environ, err := u.environ(ctx)
 	if err != nil {
 		return err
 	}
-	return environ.Destroy(callCtx)
+	return environ.Destroy(ctx)
 }
 
 func (u *Undertaker) destroyEnviron(ctx context.Context, info params.UndertakerModelInfo, retryStrategy retry.Strategy) error {
@@ -365,7 +359,6 @@ func (u *Undertaker) destroyEnviron(ctx context.Context, info params.UndertakerM
 	// Now the model is known to be hosted and dying, we can tidy up any
 	// provider resources it might have used.
 
-	callCtx := common.NewCloudCallContextFunc(u.config.CredentialAPI)(ctx)
 	errChan := make(chan error)
 	done := make(chan struct{})
 	defer close(done)
@@ -384,7 +377,7 @@ out:
 		go func() {
 			u.config.Logger.Tracef(ctx, "environ destroy enter")
 			defer u.config.Logger.Tracef(ctx, "environ destroy leave")
-			err := u.invokeDestroyEnviron(callCtx)
+			err := u.invokeDestroyEnviron(ctx)
 			select {
 			case errChan <- err:
 			case <-done:

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
@@ -28,7 +27,7 @@ import (
 
 // StartInstance implements environs.InstanceBroker.
 func (env *environ) StartInstance(
-	ctx envcontext.ProviderCallContext, args environs.StartInstanceParams,
+	ctx context.Context, args environs.StartInstanceParams,
 ) (*environs.StartInstanceResult, error) {
 	logger.Debugf(ctx, "StartInstance: %q, %s", args.InstanceConfig.MachineId, args.InstanceConfig.Base)
 
@@ -87,7 +86,7 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) (str
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
 func (env *environ) newContainer(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	args environs.StartInstanceParams,
 	arch string,
 	virtType instance.VirtType,
@@ -343,7 +342,7 @@ func (env *environ) assignContainerNICs(instStartParams environs.StartInstancePa
 // directive in the start-up start-up arguments. If so, a server for the
 // specific node is returned.
 func (env *environ) getTargetServer(
-	ctx envcontext.ProviderCallContext, args environs.StartInstanceParams,
+	ctx context.Context, args environs.StartInstanceParams,
 ) (Server, error) {
 	p, err := env.parsePlacement(ctx, args.Placement)
 	if err != nil {
@@ -360,7 +359,7 @@ type lxdPlacement struct {
 	nodeName string
 }
 
-func (env *environ) parsePlacement(ctx envcontext.ProviderCallContext, placement string) (*lxdPlacement, error) {
+func (env *environ) parsePlacement(ctx context.Context, placement string) (*lxdPlacement, error) {
 	if placement == "" {
 		return &lxdPlacement{}, nil
 	}
@@ -433,7 +432,7 @@ func (env *environ) AllRunningInstances(ctx context.Context) ([]instances.Instan
 }
 
 // StopInstances implements environs.InstanceBroker.
-func (env *environ) StopInstances(ctx envcontext.ProviderCallContext, instances ...instance.Id) error {
+func (env *environ) StopInstances(ctx context.Context, instances ...instance.Id) error {
 	prefix := env.namespace.Prefix()
 	var names []string
 	for _, id := range instances {

@@ -34,7 +34,6 @@ import (
 	"github.com/juju/juju/core/workerpool"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
@@ -45,7 +44,6 @@ import (
 	"github.com/juju/juju/internal/storage"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/wrench"
 	"github.com/juju/juju/rpc/params"
 )
@@ -136,7 +134,6 @@ type TaskConfig struct {
 	Broker                       environs.InstanceBroker
 	ImageStream                  string
 	RetryStartInstanceStrategy   RetryStrategy
-	CloudCallContextFunc         common.CloudCallContextFunc
 	NumProvisionWorkers          int
 	EventProcessedCb             func(string)
 }
@@ -170,7 +167,6 @@ func NewProvisionerTask(cfg TaskConfig) (ProvisionerTask, error) {
 		availabilityZoneMachines:     make([]*AvailabilityZoneMachine, 0),
 		imageStream:                  cfg.ImageStream,
 		retryStartInstanceStrategy:   cfg.RetryStartInstanceStrategy,
-		cloudCallCtxFunc:             cfg.CloudCallContextFunc,
 		wp:                           workerpool.NewWorkerPool(cfg.Logger, cfg.NumProvisionWorkers),
 		wpSizeChan:                   make(chan int, 1),
 		eventProcessedCb:             cfg.EventProcessedCb,
@@ -220,7 +216,6 @@ type provisionerTask struct {
 	machinesStopDeferred     map[string]bool                              // machine IDs which were set as dead while starting. They will be stopped once they are online.
 	availabilityZoneMachines []*AvailabilityZoneMachine
 	instances                map[instance.Id]instances.Instance // instanceID -> instance
-	cloudCallCtxFunc         common.CloudCallContextFunc
 
 	// A worker pool for starting/stopping instances in parallel.
 	wp         *workerpool.WorkerPool
@@ -264,7 +259,6 @@ func (task *provisionerTask) loop() (taskErr error) {
 	// When the watcher is started, it will have the initial changes be all
 	// the machines that are relevant. Also, since this is available straight
 	// away, we know there will be some changes right off the bat.
-	providerContext := task.cloudCallCtxFunc(context.Background())
 	for {
 		select {
 		case ids, ok := <-task.machineChanges:
@@ -272,7 +266,7 @@ func (task *provisionerTask) loop() (taskErr error) {
 				return errors.New("machine watcher closed channel")
 			}
 
-			if err := task.processMachines(ctx, providerContext, ids); err != nil {
+			if err := task.processMachines(ctx, ids); err != nil {
 				return errors.Annotate(err, "processing updated machines")
 			}
 
@@ -303,13 +297,13 @@ func (task *provisionerTask) loop() (taskErr error) {
 			task.notifyEventProcessedCallback(eventTypeHarvestModeChanged)
 			if harvestMode.HarvestUnknown() {
 				task.logger.Infof(context.TODO(), "harvesting unknown machines")
-				if err := task.processMachines(ctx, providerContext, nil); err != nil {
+				if err := task.processMachines(ctx, nil); err != nil {
 					return errors.Annotate(err, "processing machines after safe mode disabled")
 				}
 				task.notifyEventProcessedCallback(eventTypeProcessedMachines)
 			}
 		case <-task.retryChanges:
-			if err := task.processMachinesWithTransientErrors(ctx, providerContext); err != nil {
+			if err := task.processMachinesWithTransientErrors(ctx); err != nil {
 				return errors.Annotate(err, "processing machines with transient errors")
 			}
 			task.notifyEventProcessedCallback(eventTypeRetriedMachinesWithErrors)
@@ -347,7 +341,7 @@ func (task *provisionerTask) SetNumProvisionWorkers(numWorkers int) {
 	}
 }
 
-func (task *provisionerTask) processMachinesWithTransientErrors(ctx context.Context, providerContext envcontext.ProviderCallContext) error {
+func (task *provisionerTask) processMachinesWithTransientErrors(ctx context.Context) error {
 	results, err := task.machinesAPI.MachinesWithTransientErrors(ctx)
 	if err != nil || len(results) == 0 {
 		return nil
@@ -377,19 +371,19 @@ func (task *provisionerTask) processMachinesWithTransientErrors(ctx context.Cont
 		task.machinesMutex.Unlock()
 		pending = append(pending, machine)
 	}
-	return task.queueStartMachines(ctx, providerContext, pending)
+	return task.queueStartMachines(ctx, pending)
 }
 
-func (task *provisionerTask) processMachines(ctx context.Context, providerContext envcontext.ProviderCallContext, ids []string) error {
+func (task *provisionerTask) processMachines(ctx context.Context, ids []string) error {
 	task.logger.Debugf(context.TODO(), "processing machines %v", ids)
 
 	// Populate the tasks maps of current instances and machines.
-	if err := task.populateMachineMaps(providerContext, ids); err != nil {
+	if err := task.populateMachineMaps(ctx, ids); err != nil {
 		return errors.Trace(err)
 	}
 
 	// Maintain zone-machine distributions.
-	err := task.updateAvailabilityZoneMachines(ctx, providerContext)
+	err := task.updateAvailabilityZoneMachines(ctx)
 	if err != nil && !errors.Is(err, errors.NotImplemented) {
 		return errors.Annotate(err, "updating AZ distributions")
 	}
@@ -402,12 +396,12 @@ func (task *provisionerTask) processMachines(ctx context.Context, providerContex
 
 	// Queue removal of any dead machines that are not already being
 	// stopped or flagged for deferred stopping once they are online.
-	if err := task.filterAndQueueRemovalOfDeadMachines(providerContext, dead); err != nil {
+	if err := task.filterAndQueueRemovalOfDeadMachines(ctx, dead); err != nil {
 		return errors.Trace(err)
 	}
 
 	// Queue start requests for any other pending instances.
-	return errors.Trace(task.queueStartMachines(ctx, providerContext, pending))
+	return errors.Trace(task.queueStartMachines(ctx, pending))
 }
 
 func instanceIds(instances []instances.Instance) []string {
@@ -420,7 +414,7 @@ func instanceIds(instances []instances.Instance) []string {
 
 // populateMachineMaps updates task.instances. Also updates task.machines map
 // if a list of IDs is given.
-func (task *provisionerTask) populateMachineMaps(ctx envcontext.ProviderCallContext, ids []string) error {
+func (task *provisionerTask) populateMachineMaps(ctx context.Context, ids []string) error {
 	allInstances, err := task.broker.AllRunningInstances(ctx)
 	if err != nil {
 		return errors.Annotate(err, "getting all instances from broker")
@@ -611,7 +605,7 @@ func (task *provisionerTask) findUnknownInstances(ctx context.Context, stopping 
 //     stop flag set.
 //   - Marks the remaining machines as stopping and queues a request for them to
 //     be cleaned up.
-func (task *provisionerTask) filterAndQueueRemovalOfDeadMachines(ctx envcontext.ProviderCallContext, dead []apiprovisioner.MachineProvisioner) error {
+func (task *provisionerTask) filterAndQueueRemovalOfDeadMachines(ctx context.Context, dead []apiprovisioner.MachineProvisioner) error {
 	// Flag any machines in the dead list that are still being started so
 	// they will be stopped once they come online.
 	task.deferStopForNotYetStartedMachines(dead)
@@ -638,7 +632,7 @@ func (task *provisionerTask) filterAndQueueRemovalOfDeadMachines(ctx envcontext.
 }
 
 func (task *provisionerTask) queueRemovalOfDeadMachines(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	dead []apiprovisioner.MachineProvisioner,
 ) error {
 	// Collect the instances for all provisioned machines that are dead.
@@ -791,7 +785,7 @@ func (task *provisionerTask) instancesForDeadMachines(ctx context.Context, dead 
 	return deadInstances
 }
 
-func (task *provisionerTask) doStopInstances(ctx envcontext.ProviderCallContext, instances []instances.Instance) error {
+func (task *provisionerTask) doStopInstances(ctx context.Context, instances []instances.Instance) error {
 	// Although calling StopInstance with an empty slice should produce no change in the
 	// provider, environs like dummy do not consider this a noop.
 	if len(instances) == 0 {
@@ -1040,7 +1034,7 @@ func (az *AvailabilityZoneMachine) MatchesConstraints(cons constraints.Value) bo
 // updateAvailabilityZoneMachines maintains a mapping of AZs to machines
 // running in each zone.
 // If the provider does not implement the ZonedEnviron interface, return nil.
-func (task *provisionerTask) updateAvailabilityZoneMachines(ctx context.Context, providerContext envcontext.ProviderCallContext) error {
+func (task *provisionerTask) updateAvailabilityZoneMachines(ctx context.Context) error {
 	zonedEnv, ok := task.broker.(providercommon.ZonedEnviron)
 	if !ok {
 		return nil
@@ -1052,11 +1046,11 @@ func (task *provisionerTask) updateAvailabilityZoneMachines(ctx context.Context,
 	// Only populate from the provider if we have no data.
 	// Otherwise, just check that we know all the current AZs.
 	if len(task.availabilityZoneMachines) == 0 {
-		if err := task.populateAvailabilityZoneMachines(ctx, providerContext, zonedEnv); err != nil {
+		if err := task.populateAvailabilityZoneMachines(ctx, zonedEnv); err != nil {
 			return errors.Trace(err)
 		}
 	} else {
-		if err := task.checkProviderAvailabilityZones(providerContext, zonedEnv); err != nil {
+		if err := task.checkProviderAvailabilityZones(ctx, zonedEnv); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -1075,9 +1069,9 @@ func (task *provisionerTask) updateAvailabilityZoneMachines(ctx context.Context,
 // machines running in that zone, according to the provider.
 func (task *provisionerTask) populateAvailabilityZoneMachines(
 	ctx context.Context,
-	providerContext envcontext.ProviderCallContext, zonedEnv providercommon.ZonedEnviron,
+	zonedEnv providercommon.ZonedEnviron,
 ) error {
-	availabilityZoneInstances, err := providercommon.AvailabilityZoneAllocations(zonedEnv, providerContext, []instance.Id{})
+	availabilityZoneInstances, err := providercommon.AvailabilityZoneAllocations(zonedEnv, ctx, []instance.Id{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1117,7 +1111,7 @@ func (task *provisionerTask) populateAvailabilityZoneMachines(
 // check whether we have machines there.
 // If so, log a warning, otherwise we can delete them safely.
 func (task *provisionerTask) checkProviderAvailabilityZones(
-	ctx envcontext.ProviderCallContext, zonedEnv providercommon.ZonedEnviron,
+	ctx context.Context, zonedEnv providercommon.ZonedEnviron,
 ) error {
 	azs, err := zonedEnv.AvailabilityZones(ctx)
 	if err != nil {
@@ -1277,7 +1271,7 @@ done:
 // machine status and immediately return with an error if that operation fails.
 // Any provisioning-related errors are reported asynchronously by the worker
 // pool.
-func (task *provisionerTask) queueStartMachines(ctx context.Context, providerContext envcontext.ProviderCallContext, machines []apiprovisioner.MachineProvisioner) error {
+func (task *provisionerTask) queueStartMachines(ctx context.Context, machines []apiprovisioner.MachineProvisioner) error {
 	if len(machines) == 0 {
 		return nil
 	}
@@ -1335,7 +1329,7 @@ func (task *provisionerTask) queueStartMachines(ctx context.Context, providerCon
 			Process: func() error {
 				machID := machine.Id()
 
-				if provisionErr := task.doStartMachine(ctx, providerContext, machine, distGroup, pInfoMap[machID]); provisionErr != nil {
+				if provisionErr := task.doStartMachine(ctx, machine, distGroup, pInfoMap[machID]); provisionErr != nil {
 					return provisionErr
 				}
 
@@ -1352,7 +1346,7 @@ func (task *provisionerTask) queueStartMachines(ctx context.Context, providerCon
 
 				if stopDeferred {
 					task.logger.Debugf(context.TODO(), "triggering deferred stop of machine %q", machID)
-					return task.queueRemovalOfDeadMachines(providerContext, []apiprovisioner.MachineProvisioner{
+					return task.queueRemovalOfDeadMachines(ctx, []apiprovisioner.MachineProvisioner{
 						machine,
 					})
 				}
@@ -1387,7 +1381,6 @@ func (task *provisionerTask) setErrorStatus(ctx context.Context, msg string, mac
 
 func (task *provisionerTask) doStartMachine(
 	ctx context.Context,
-	providerContext envcontext.ProviderCallContext,
 	machine apiprovisioner.MachineProvisioner,
 	distributionGroupMachineIds []string,
 	pInfoResult params.ProvisioningInfoResult,
@@ -1418,7 +1411,7 @@ func (task *provisionerTask) doStartMachine(
 		return errors.Trace(err)
 	}
 
-	startInstanceParams, err := task.setupToStartMachine(providerContext, machine, v, pInfoResult)
+	startInstanceParams, err := task.setupToStartMachine(ctx, machine, v, pInfoResult)
 	if err != nil {
 		return errors.Trace(task.setErrorStatus(ctx, "%v %v", machine, err))
 	}
@@ -1426,7 +1419,7 @@ func (task *provisionerTask) doStartMachine(
 	// Figure out if the zones available to use for a new instance are
 	// restricted based on placement, and if so exclude those machines
 	// from being started in any other zone.
-	if err := task.populateExcludedMachines(providerContext, machine.Id(), startInstanceParams); err != nil {
+	if err := task.populateExcludedMachines(ctx, machine.Id(), startInstanceParams); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1451,7 +1444,7 @@ func (task *provisionerTask) doStartMachine(
 				machine, startInstanceParams.AvailabilityZone)
 		}
 
-		attemptResult, err := task.broker.StartInstance(providerContext, startInstanceParams)
+		attemptResult, err := task.broker.StartInstance(ctx, startInstanceParams)
 		if err == nil {
 			result = attemptResult
 			break
@@ -1548,7 +1541,7 @@ func (task *provisionerTask) doStartMachine(
 		if err2 := task.setErrorStatus(ctx, "cannot register instance for machine %v: %v", machine, err); err2 != nil {
 			task.logger.Errorf(context.TODO(), "%v", errors.Annotate(err2, "setting machine status"))
 		}
-		if err2 := task.broker.StopInstances(providerContext, instanceID); err2 != nil {
+		if err2 := task.broker.StopInstances(ctx, instanceID); err2 != nil {
 			task.logger.Errorf(context.TODO(), "%v", errors.Annotate(err2, "after failing to set instance info"))
 		}
 		return errors.Annotate(err, "setting instance info")
@@ -1619,7 +1612,7 @@ func (task *provisionerTask) setupToStartMachine(
 // populateExcludedMachines, translates the results of DeriveAvailabilityZones
 // into availabilityZoneMachines.ExcludedMachineIds for machines not to be used
 // in the given zone.
-func (task *provisionerTask) populateExcludedMachines(ctx envcontext.ProviderCallContext, machineId string, startInstanceParams environs.StartInstanceParams) error {
+func (task *provisionerTask) populateExcludedMachines(ctx context.Context, machineId string, startInstanceParams environs.StartInstanceParams) error {
 	zonedEnv, ok := task.broker.(providercommon.ZonedEnviron)
 	if !ok {
 		return nil

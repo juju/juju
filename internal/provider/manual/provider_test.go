@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/provider/manual"
@@ -153,7 +152,7 @@ func (s *providerSuite) testBootstrap(c *gc.C, args testBootstrapArgs) (environs
 		return nil, err
 	}
 	ctx := envtesting.BootstrapContext(context.Background(), c)
-	_, err = env.Bootstrap(ctx, envcontext.ProviderCallContext{}, args.params)
+	_, err = env.Bootstrap(ctx, args.params)
 	return ctx, err
 }
 
@@ -222,7 +221,7 @@ func (s *providerSuite) TestPingEndpointWithUser(c *gc.C) {
 	})
 	p, err := environs.Provider("manual")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p.Ping(envcontext.WithoutCredentialInvalidator(context.Background()), endpoint), jc.ErrorIsNil)
+	c.Assert(p.Ping(context.Background(), endpoint), jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -241,7 +240,7 @@ func (s *providerSuite) TestPingIP(c *gc.C) {
 	})
 	p, err := environs.Provider("manual")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p.Ping(envcontext.WithoutCredentialInvalidator(context.Background()), endpoint), jc.ErrorIsNil)
+	c.Assert(p.Ping(context.Background(), endpoint), jc.ErrorIsNil)
 	// Expect the call to be made twice.
 	c.Assert(called, gc.Equals, 1)
 }

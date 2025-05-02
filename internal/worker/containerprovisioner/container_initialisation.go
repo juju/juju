@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/container/broker"
 	"github.com/juju/juju/internal/container/lxd"
-	workercommon "github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -48,8 +47,7 @@ type ContainerSetup struct {
 	machineLock             machinelock.Lock
 	managerConfig           container.ManagerConfig
 
-	credentialAPI workercommon.CredentialAPI
-	getNetConfig  func(network.ConfigSource) (network.InterfaceInfos, error)
+	getNetConfig func(network.ConfigSource) (network.InterfaceInfos, error)
 }
 
 // ContainerSetupParams are used to initialise a container setup worker.
@@ -61,7 +59,6 @@ type ContainerSetupParams struct {
 	Provisioner   *apiprovisioner.Client
 	Config        agent.Config
 	MachineLock   machinelock.Lock
-	CredentialAPI workercommon.CredentialAPI
 	GetNetConfig  func(network.ConfigSource) (network.InterfaceInfos, error)
 }
 
@@ -80,7 +77,6 @@ func NewContainerSetup(params ContainerSetupParams) *ContainerSetup {
 		machineZone:             params.MachineZone,
 		config:                  params.Config,
 		machineLock:             params.MachineLock,
-		credentialAPI:           params.CredentialAPI,
 		getNetConfig:            params.GetNetConfig,
 	}
 }
@@ -200,7 +196,6 @@ func (cs *ContainerSetup) initialiseContainerProvisioner(ctx context.Context) (P
 		instanceBroker,
 		cs.toolsFinder,
 		cs.distributionGroupFinder,
-		cs.credentialAPI,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)

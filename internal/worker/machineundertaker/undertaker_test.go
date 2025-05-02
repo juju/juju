@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/machineundertaker"
 )
@@ -36,7 +35,7 @@ func (s *undertakerSuite) TestErrorWatching(c *gc.C) {
 	api := s.makeAPIWithWatcher()
 	api.SetErrors(errors.New("blam"))
 	w, err := machineundertaker.NewWorker(
-		api, &fakeEnviron{}, &fakeCredentialAPI{}, loggertesting.WrapCheckLog(c))
+		api, &fakeEnviron{}, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
 	c.Check(err, gc.ErrorMatches, "blam")
@@ -47,7 +46,7 @@ func (s *undertakerSuite) TestErrorGettingRemovals(c *gc.C) {
 	api := s.makeAPIWithWatcher()
 	api.SetErrors(nil, errors.New("explodo"))
 	w, err := machineundertaker.NewWorker(
-		api, &fakeEnviron{}, &fakeCredentialAPI{}, loggertesting.WrapCheckLog(c))
+		api, &fakeEnviron{}, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
 	c.Check(err, gc.ErrorMatches, "explodo")
@@ -102,9 +101,6 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_NoAddresses(c *gc.C) {
 		API:      &api,
 		Releaser: &releaser,
 		Logger:   loggertesting.WrapCheckLog(c),
-		CallContextFunc: func(ctx context.Context) envcontext.ProviderCallContext {
-			return envcontext.WithoutCredentialInvalidator(ctx)
-		},
 	}
 	err := u.MaybeReleaseAddresses(context.Background(), names.NewMachineTag("4/lxd/4"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -126,9 +122,6 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_NotSupported(c *gc.C) {
 		API:      &api,
 		Releaser: &releaser,
 		Logger:   loggertesting.WrapCheckLog(c),
-		CallContextFunc: func(ctx context.Context) envcontext.ProviderCallContext {
-			return envcontext.WithoutCredentialInvalidator(ctx)
-		},
 	}
 	err := u.MaybeReleaseAddresses(context.Background(), names.NewMachineTag("4/lxd/4"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -152,9 +145,6 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_ErrorReleasing(c *gc.C) {
 		API:      &api,
 		Releaser: &releaser,
 		Logger:   loggertesting.WrapCheckLog(c),
-		CallContextFunc: func(ctx context.Context) envcontext.ProviderCallContext {
-			return envcontext.WithoutCredentialInvalidator(ctx)
-		},
 	}
 	err := u.MaybeReleaseAddresses(context.Background(), names.NewMachineTag("4/lxd/4"))
 	c.Assert(err, gc.ErrorMatches, "something unexpected")
@@ -177,9 +167,6 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_Success(c *gc.C) {
 		API:      &api,
 		Releaser: &releaser,
 		Logger:   loggertesting.WrapCheckLog(c),
-		CallContextFunc: func(ctx context.Context) envcontext.ProviderCallContext {
-			return envcontext.WithoutCredentialInvalidator(ctx)
-		},
 	}
 	err := u.MaybeReleaseAddresses(context.Background(), names.NewMachineTag("4/lxd/4"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -203,9 +190,6 @@ func (*undertakerSuite) TestHandle_CompletesRemoval(c *gc.C) {
 		API:      &api,
 		Releaser: &releaser,
 		Logger:   loggertesting.WrapCheckLog(c),
-		CallContextFunc: func(ctx context.Context) envcontext.ProviderCallContext {
-			return envcontext.WithoutCredentialInvalidator(ctx)
-		},
 	}
 	err := u.Handle(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -234,9 +218,6 @@ func (*undertakerSuite) TestHandle_NoRemovalOnErrorReleasing(c *gc.C) {
 		API:      &api,
 		Releaser: &releaser,
 		Logger:   loggertesting.WrapCheckLog(c),
-		CallContextFunc: func(ctx context.Context) envcontext.ProviderCallContext {
-			return envcontext.WithoutCredentialInvalidator(ctx)
-		},
 	}
 	err := u.Handle(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -303,7 +284,7 @@ type fakeReleaser struct {
 	*testing.Stub
 }
 
-func (r *fakeReleaser) ReleaseContainerAddresses(ctx envcontext.ProviderCallContext, interfaces []network.ProviderInterfaceInfo) error {
+func (r *fakeReleaser) ReleaseContainerAddresses(ctx context.Context, interfaces []network.ProviderInterfaceInfo) error {
 	r.Stub.AddCall("ReleaseContainerAddresses", interfaces)
 	return r.Stub.NextErr()
 }

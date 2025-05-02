@@ -4,6 +4,8 @@
 package maas
 
 import (
+	"context"
+
 	"github.com/juju/gomaasapi/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -73,7 +75,7 @@ func (s *maasInstanceSuite) TestAddresses(c *gc.C) {
 		machines: []gomaasapi.Machine{machine},
 	}
 	instance := &maasInstance{machine: machine, environ: s.makeEnviron(c, controller)}
-	addresses, err := instance.Addresses(s.callCtx)
+	addresses, err := instance.Addresses(context.Background())
 
 	expectedAddresses := network.ProviderAddresses{newAddressOnSpaceWithId(
 		"freckles", "4567", "192.168.10.1", network.WithCIDR(subnet.cidr), network.WithConfigType(network.ConfigStatic),
@@ -94,14 +96,14 @@ func (s *maasInstanceSuite) TestZone(c *gc.C) {
 func (s *maasInstanceSuite) TestStatusSuccess(c *gc.C) {
 	machine := &fakeMachine{statusMessage: "Wexler", statusName: "Deploying"}
 	thing := &maasInstance{machine: machine}
-	result := thing.Status(s.callCtx)
+	result := thing.Status(context.Background())
 	c.Assert(result, jc.DeepEquals, instance.Status{status.Allocating, "Deploying: Wexler"})
 }
 
 func (s *maasInstanceSuite) TestStatusError(c *gc.C) {
 	machine := &fakeMachine{statusMessage: "", statusName: ""}
 	thing := &maasInstance{machine: machine}
-	result := thing.Status(s.callCtx)
+	result := thing.Status(context.Background())
 	c.Assert(result, jc.DeepEquals, instance.Status{"", "error in getting status"})
 }
 

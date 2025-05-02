@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
@@ -63,7 +62,7 @@ func templateDirectoryName(controllerFolderName string) string {
 }
 
 // StartInstance implements environs.InstanceBroker.
-func (env *environ) StartInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (result *environs.StartInstanceResult, err error) {
+func (env *environ) StartInstance(ctx context.Context, args environs.StartInstanceParams) (result *environs.StartInstanceResult, err error) {
 	err = env.withSession(ctx, func(senv *sessionEnviron) error {
 		result, err = senv.StartInstance(ctx, args)
 		return err
@@ -81,7 +80,7 @@ func (env *environ) Region() (simplestreams.CloudSpec, error) {
 }
 
 // StartInstance implements environs.InstanceBroker.
-func (senv *sessionEnviron) StartInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (senv *sessionEnviron) StartInstance(ctx context.Context, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	vm, hw, err := senv.newRawInstance(ctx, args)
 	if err != nil {
 		_ = args.StatusCallback(ctx, status.ProvisioningError, fmt.Sprint(err), nil)
@@ -118,7 +117,7 @@ func (senv *sessionEnviron) finishMachineConfig(args environs.StartInstanceParam
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
 func (senv *sessionEnviron) newRawInstance(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	args environs.StartInstanceParams,
 ) (_ *mo.VirtualMachine, _ *instance.HardwareCharacteristics, err error) {
 	// Obtain the final constraints by merging with defaults.
@@ -326,14 +325,14 @@ func (senv *sessionEnviron) AllRunningInstances(ctx context.Context) ([]instance
 }
 
 // StopInstances implements environs.InstanceBroker.
-func (env *environ) StopInstances(ctx envcontext.ProviderCallContext, ids ...instance.Id) error {
+func (env *environ) StopInstances(ctx context.Context, ids ...instance.Id) error {
 	return env.withSession(ctx, func(senv *sessionEnviron) error {
 		return senv.StopInstances(ctx, ids...)
 	})
 }
 
 // StopInstances implements environs.InstanceBroker.
-func (senv *sessionEnviron) StopInstances(ctx envcontext.ProviderCallContext, ids ...instance.Id) error {
+func (senv *sessionEnviron) StopInstances(ctx context.Context, ids ...instance.Id) error {
 	modelFolderPath := path.Join(senv.getVMFolder(), controllerFolderName("*"), senv.modelFolderName())
 	results := make([]error, len(ids))
 	var wg sync.WaitGroup

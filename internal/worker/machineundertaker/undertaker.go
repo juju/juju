@@ -14,8 +14,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
-	"github.com/juju/juju/internal/worker/common"
 )
 
 // Facade defines the interface we require from the machine undertaker
@@ -30,29 +28,27 @@ type Facade interface {
 // AddressReleaser defines the interface we need from the environment
 // networking.
 type AddressReleaser interface {
-	ReleaseContainerAddresses(envcontext.ProviderCallContext, []network.ProviderInterfaceInfo) error
+	ReleaseContainerAddresses(context.Context, []network.ProviderInterfaceInfo) error
 }
 
 // Undertaker is responsible for doing any provider-level
 // cleanup needed and then removing the machine.
 type Undertaker struct {
-	API             Facade
-	Releaser        AddressReleaser
-	CallContextFunc common.CloudCallContextFunc
-	Logger          logger.Logger
+	API      Facade
+	Releaser AddressReleaser
+	Logger   logger.Logger
 }
 
 // NewWorker returns a machine undertaker worker that will watch for
 // machines that need to be removed and remove them, cleaning up any
 // necessary provider-level resources first.
-func NewWorker(api Facade, env environs.Environ, credentialAPI common.CredentialAPI, logger logger.Logger) (worker.Worker, error) {
+func NewWorker(api Facade, env environs.Environ, logger logger.Logger) (worker.Worker, error) {
 	envNetworking, _ := environs.SupportsNetworking(env)
 	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
 		Handler: &Undertaker{
-			API:             api,
-			Releaser:        envNetworking,
-			CallContextFunc: common.NewCloudCallContextFunc(credentialAPI),
-			Logger:          logger,
+			API:      api,
+			Releaser: envNetworking,
+			Logger:   logger,
 		},
 	})
 	if err != nil {
@@ -114,7 +110,7 @@ func (u *Undertaker) MaybeReleaseAddresses(ctx context.Context, machine names.Ma
 		u.Logger.Debugf(ctx, "%s has no addresses to release", machine)
 		return nil
 	}
-	err = u.Releaser.ReleaseContainerAddresses(u.CallContextFunc(context.Background()), interfaceInfos)
+	err = u.Releaser.ReleaseContainerAddresses(ctx, interfaceInfos)
 	// Some providers say they support networking but don't
 	// actually support container addressing; don't freak out
 	// about those.

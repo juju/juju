@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/filestorage"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -69,7 +68,7 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
 	envtesting.UploadFakeTools(c, stor, cfg.AgentStream(), cfg.AgentStream())
-	err = bootstrap.Bootstrap(ctx, env, envcontext.WithoutCredentialInvalidator(ctx), bootstrap.BootstrapParams{
+	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{
 		ControllerConfig:        controllerCfg,
 		AdminSecret:             "admin-secret",
 		CAPrivateKey:            testing.CAKey,
@@ -139,7 +138,7 @@ func (*OpenSuite) TestNew(c *gc.C) {
 		Config: cfg,
 	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = e.ControllerInstances(envcontext.WithoutCredentialInvalidator(ctx), "uuid")
+	_, err = e.ControllerInstances(ctx, "uuid")
 	c.Assert(err, gc.ErrorMatches, "model is not prepared")
 }
 
@@ -168,13 +167,12 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	_, err = store.ControllerByName("controller-name")
 	c.Assert(err, jc.ErrorIsNil)
 
-	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
-	err = environs.Destroy("controller-name", e, callCtx, store)
+	err = environs.Destroy("controller-name", e, context.Background(), store)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the environment has actually been destroyed
 	// and that the controller details been removed too.
-	_, err = e.ControllerInstances(callCtx, controllerCfg.ControllerUUID())
+	_, err = e.ControllerInstances(context.Background(), controllerCfg.ControllerUUID())
 	c.Assert(err, gc.ErrorMatches, "model is not prepared")
 	_, err = store.ControllerByName("controller-name")
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -183,7 +181,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 func (*OpenSuite) TestDestroyNotFound(c *gc.C) {
 	var env destroyControllerEnv
 	store := jujuclient.NewMemStore()
-	err := environs.Destroy("fnord", &env, envcontext.WithoutCredentialInvalidator(context.Background()), store)
+	err := environs.Destroy("fnord", &env, context.Background(), store)
 	c.Assert(err, jc.ErrorIsNil)
 	env.CheckCallNames(c) // no controller details, no call
 }
@@ -193,7 +191,7 @@ type destroyControllerEnv struct {
 	jujutesting.Stub
 }
 
-func (e *destroyControllerEnv) DestroyController(ctx envcontext.ProviderCallContext, uuid string) error {
+func (e *destroyControllerEnv) DestroyController(ctx context.Context, uuid string) error {
 	e.MethodCall(e, "DestroyController", ctx, uuid)
 	return e.NextErr()
 }

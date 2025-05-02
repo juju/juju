@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/machineundertaker"
 )
 
@@ -86,11 +85,8 @@ func makeManifold(c *gc.C, workerResult worker.Worker, workerError error) depend
 		APICallerName: "the-caller",
 		EnvironName:   "the-environ",
 		Logger:        loggertesting.WrapCheckLog(c),
-		NewWorker: func(machineundertaker.Facade, environs.Environ, common.CredentialAPI, logger.Logger) (worker.Worker, error) {
+		NewWorker: func(machineundertaker.Facade, environs.Environ, logger.Logger) (worker.Worker, error) {
 			return workerResult, workerError
-		},
-		NewCredentialValidatorFacade: func(base.APICaller) (common.CredentialAPI, error) {
-			return &fakeCredentialAPI{}, nil
 		},
 	})
 }

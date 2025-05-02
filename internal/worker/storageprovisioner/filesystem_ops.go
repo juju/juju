@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/status"
-	environscontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/wrench"
 	"github.com/juju/juju/rpc/params"
@@ -59,7 +58,7 @@ func createFilesystems(ctx context.Context, deps *dependencies, ops map[names.Fi
 		if len(filesystemParams) == 0 {
 			continue
 		}
-		results, err := filesystemSource.CreateFilesystems(deps.config.CloudCallContextFunc(context.Background()), filesystemParams)
+		results, err := filesystemSource.CreateFilesystems(ctx, filesystemParams)
 		if err != nil {
 			return errors.Annotatef(err, "creating filesystems from source %q", sourceName)
 		}
@@ -143,7 +142,7 @@ func attachFilesystems(ctx context.Context, deps *dependencies, ops map[params.M
 	for sourceName, filesystemAttachmentParams := range paramsBySource {
 		deps.config.Logger.Debugf(ctx, "attaching filesystems: %+v", filesystemAttachmentParams)
 		filesystemSource := filesystemSources[sourceName]
-		results, err := filesystemSource.AttachFilesystems(deps.config.CloudCallContextFunc(context.Background()), filesystemAttachmentParams)
+		results, err := filesystemSource.AttachFilesystems(ctx, filesystemAttachmentParams)
 		if err != nil {
 			return errors.Annotatef(err, "attaching filesystems from source %q", sourceName)
 		}
@@ -218,11 +217,11 @@ func removeFilesystems(ctx context.Context, deps *dependencies, ops map[names.Fi
 	var remove []names.Tag
 	var reschedule []scheduleOp
 	var statuses []params.EntityStatusArgs
-	removeFilesystems := func(tags []names.FilesystemTag, ids []string, f func(environscontext.ProviderCallContext, []string) ([]error, error)) error {
+	removeFilesystems := func(tags []names.FilesystemTag, ids []string, f func(context.Context, []string) ([]error, error)) error {
 		if len(ids) == 0 {
 			return nil
 		}
-		errs, err := f(deps.config.CloudCallContextFunc(context.Background()), ids)
+		errs, err := f(ctx, ids)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -316,7 +315,7 @@ func detachFilesystems(ctx context.Context, deps *dependencies, ops map[params.M
 		if !ok && deps.isApplicationKind() {
 			continue
 		}
-		errs, err := filesystemSource.DetachFilesystems(deps.config.CloudCallContextFunc(context.Background()), filesystemAttachmentParams)
+		errs, err := filesystemSource.DetachFilesystems(ctx, filesystemAttachmentParams)
 		if err != nil {
 			return errors.Annotatef(err, "detaching filesystems from source %q", sourceName)
 		}

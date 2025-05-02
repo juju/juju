@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
@@ -188,16 +187,16 @@ func (e *unknownError) Error() string {
 
 // BootstrapEndpointAddresses returns the addresses of the bootstrapped instance.
 func BootstrapEndpointAddresses(
-	environ environs.InstanceBroker, callContext envcontext.ProviderCallContext,
+	environ environs.InstanceBroker, ctx context.Context,
 ) ([]network.ProviderAddress, error) {
-	instances, err := environ.AllRunningInstances(callContext)
+	instances, err := environ.AllRunningInstances(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if n := len(instances); n != 1 {
 		return nil, errors.Errorf("expected one instance, got %d", n)
 	}
-	netAddrs, err := instances[0].Addresses(callContext)
+	netAddrs, err := instances[0].Addresses(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to get bootstrap instance addresses")
 	}

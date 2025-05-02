@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs/envcontext"
 )
 
 type networkingSuite struct {
@@ -141,7 +140,7 @@ func (s *networkingSuite) TestNetworkInterfaces(c *gc.C) {
 
 	s.setupNetworkInterfacesExpectations(vnicID, vcnID)
 
-	infoList, err := s.env.NetworkInterfaces(envcontext.WithoutCredentialInvalidator(context.Background()), []instance.Id{instance.Id(s.testInstanceID)})
+	infoList, err := s.env.NetworkInterfaces(context.Background(), []instance.Id{instance.Id(s.testInstanceID)})
 	c.Assert(err, gc.IsNil)
 	c.Assert(infoList, gc.HasLen, 1)
 	info := infoList[0]
@@ -169,12 +168,12 @@ func (s *networkingSuite) TestSubnets(c *gc.C) {
 	lookFor := []network.Id{
 		network.Id("fakeSubnetId"),
 	}
-	info, err := s.env.Subnets(envcontext.WithoutCredentialInvalidator(context.Background()), lookFor)
+	info, err := s.env.Subnets(context.Background(), lookFor)
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.HasLen, 1)
 	c.Assert(info[0].CIDR, gc.Equals, "1.0.0.0/8")
 
 	lookFor = []network.Id{"IDontExist"}
-	_, err = s.env.Subnets(envcontext.WithoutCredentialInvalidator(context.Background()), lookFor)
+	_, err = s.env.Subnets(context.Background(), lookFor)
 	c.Check(err, gc.ErrorMatches, "failed to find the following subnet ids:.*IDontExist.*")
 }

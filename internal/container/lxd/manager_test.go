@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/container/lxd"
@@ -181,7 +180,7 @@ func (s *managerSuite) TestContainerCreateDestroy(c *gc.C) {
 	c.Check(hc.Arch, gc.NotNil)
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 
-	instanceStatus := instance.Status(envcontext.WithoutCredentialInvalidator(context.Background()))
+	instanceStatus := instance.Status(context.Background())
 	c.Check(instanceStatus.Status, gc.Equals, status.Running)
 	c.Check(*hc.AvailabilityZone, gc.Equals, "test-availability-zone")
 

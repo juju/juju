@@ -4,7 +4,8 @@
 package storageprovisioner
 
 import (
-	environscontext "github.com/juju/juju/environs/envcontext"
+	"context"
+
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -20,26 +21,26 @@ func (s *noopFilesystemSource) ValidateFilesystemParams(params storage.Filesyste
 }
 
 // CreateFilesystems is defined on storage.FilesystemSource.
-func (s *noopFilesystemSource) CreateFilesystems(ctx environscontext.ProviderCallContext, args []storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error) {
+func (s *noopFilesystemSource) CreateFilesystems(_ context.Context, args []storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error) {
 	return nil, nil
 }
 
 // DestroyFilesystems is defined on storage.FilesystemSource.
-func (s *noopFilesystemSource) DestroyFilesystems(ctx environscontext.ProviderCallContext, filesystemIds []string) ([]error, error) {
+func (s *noopFilesystemSource) DestroyFilesystems(_ context.Context, filesystemIds []string) ([]error, error) {
 	return make([]error, len(filesystemIds)), nil
 }
 
 // ReleaseFilesystems is defined on storage.FilesystemSource.
-func (s *noopFilesystemSource) ReleaseFilesystems(ctx environscontext.ProviderCallContext, filesystemIds []string) ([]error, error) {
+func (s *noopFilesystemSource) ReleaseFilesystems(_ context.Context, filesystemIds []string) ([]error, error) {
 	return make([]error, len(filesystemIds)), nil
 }
 
 // AttachFilesystems is defined on storage.FilesystemSource.
-func (s *noopFilesystemSource) AttachFilesystems(ctx environscontext.ProviderCallContext, args []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
+func (s *noopFilesystemSource) AttachFilesystems(_ context.Context, args []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
 	return nil, nil
 }
 
 // DetachFilesystems is defined on storage.FilesystemSource.
-func (s *noopFilesystemSource) DetachFilesystems(ctx environscontext.ProviderCallContext, args []storage.FilesystemAttachmentParams) ([]error, error) {
+func (s *noopFilesystemSource) DetachFilesystems(_ context.Context, args []storage.FilesystemAttachmentParams) ([]error, error) {
 	return make([]error, len(args)), nil
 }

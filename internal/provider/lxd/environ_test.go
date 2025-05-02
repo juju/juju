@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	environscmd "github.com/juju/juju/environs/cmd"
-	"github.com/juju/juju/environs/envcontext"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -31,22 +30,9 @@ var errTestUnAuth = errors.New("not authorized")
 
 type environSuite struct {
 	lxd.BaseSuite
-
-	callCtx envcontext.ProviderCallContext
 }
 
 var _ = gc.Suite(&environSuite{})
-
-func (s *environSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
-		return nil
-	})
-}
-
-func (s *environSuite) TearDownTest(c *gc.C) {
-	s.BaseSuite.TearDownTest(c)
-}
 
 func (s *environSuite) TestName(c *gc.C) {
 	defer s.SetupMocks(c).Finish()
@@ -103,7 +89,7 @@ func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 		ControllerConfig:        coretesting.FakeControllerConfig(),
 		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 	}
-	result, err := s.Env.Bootstrap(environscmd.BootstrapContext(context.Background(), ctx), s.callCtx, params)
+	result, err := s.Env.Bootstrap(environscmd.BootstrapContext(context.Background(), ctx), params)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(result.Arch, gc.Equals, "amd64")
@@ -123,15 +109,13 @@ func (s *environSuite) TestBootstrapAPI(c *gc.C) {
 		ControllerConfig:        coretesting.FakeControllerConfig(),
 		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 	}
-	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
-	_, err := s.Env.Bootstrap(ctx, callCtx, params)
+	_, err := s.Env.Bootstrap(ctx, params)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCalls(c, []jujutesting.StubCall{{
 		FuncName: "Bootstrap",
 		Args: []interface{}{
 			ctx,
-			callCtx,
 			params,
 		},
 	}})
@@ -154,7 +138,7 @@ func (s *environSuite) TestDestroy(c *gc.C) {
 		}},
 	}
 
-	callCtx := envcontext.WithoutCredentialInvalidator(context.Background())
+	callCtx := context.Background()
 	err := s.Env.Destroy(callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -174,7 +158,7 @@ func (s *environSuite) TestDestroyInvalidCredentials(c *gc.C) {
 	s.Invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(nil)
 
 	s.Client.Stub.SetErrors(errTestUnAuth)
-	err := s.Env.Destroy(s.callCtx)
+	err := s.Env.Destroy(context.Background())
 	c.Assert(err, gc.ErrorMatches, "not authorized")
 }
 
@@ -194,7 +178,7 @@ func (s *environSuite) TestDestroyInvalidCredentialsDestroyingFileSystems(c *gc.
 			},
 		}},
 	}
-	err := s.Env.Destroy(s.callCtx)
+	err := s.Env.Destroy(context.Background())
 	c.Assert(err, gc.ErrorMatches, ".* not authorized")
 	// Nil the call context as if fails DeepEquals.
 	calls := s.Stub.Calls()
@@ -249,7 +233,7 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 
 	s.Client.Containers = append(s.Client.Containers, *machine0, *machine1, *machine2)
 
-	callCtx := envcontext.WithoutCredentialInvalidator(context.Background())
+	callCtx := context.Background()
 	err := s.Env.DestroyController(callCtx, s.Config.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -298,7 +282,7 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsHostedModels(c *gc
 	// RemoveContainers will error not-auth.
 	s.Client.Stub.SetErrors(nil, nil, nil, nil, nil, errTestUnAuth)
 
-	err := s.Env.DestroyController(s.callCtx, s.Config.UUID())
+	err := s.Env.DestroyController(context.Background(), s.Config.UUID())
 	c.Assert(err, gc.ErrorMatches, "not authorized")
 
 	// Nil the call context as if fails DeepEquals.
@@ -353,7 +337,7 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsDestroyFilesystem(
 	// RemoveContainers will error not-auth.
 	s.Client.Stub.SetErrors(nil, nil, nil, nil, nil, nil, nil, nil, errTestUnAuth)
 
-	err := s.Env.DestroyController(s.callCtx, s.Config.UUID())
+	err := s.Env.DestroyController(context.Background(), s.Config.UUID())
 	c.Assert(err, gc.ErrorMatches, ".*not authorized")
 
 	// Nil the call context as if fails DeepEquals.
@@ -382,7 +366,7 @@ func (s *environSuite) TestAvailabilityZonesInvalidCredentials(c *gc.C) {
 
 	// GetClusterMembers will return un-auth error
 	s.Client.Stub.SetErrors(errTestUnAuth)
-	_, err := s.Env.AvailabilityZones(s.callCtx)
+	_, err := s.Env.AvailabilityZones(context.Background())
 	c.Assert(err, gc.ErrorMatches, ".*not authorized")
 
 	s.Stub.CheckCalls(c, []jujutesting.StubCall{
@@ -400,7 +384,7 @@ func (s *environSuite) TestInstanceAvailabilityZoneNamesInvalidCredentials(c *gc
 	s.Client.Stub.SetErrors(errTestUnAuth)
 
 	// the call to Instances takes care of updating invalid credential details
-	_, err := s.Env.InstanceAvailabilityZoneNames(s.callCtx, []instance.Id{"not-valid"})
+	_, err := s.Env.InstanceAvailabilityZoneNames(context.Background(), []instance.Id{"not-valid"})
 	c.Assert(err, gc.ErrorMatches, ".*not authorized")
 
 	s.Stub.CheckCalls(c, []jujutesting.StubCall{

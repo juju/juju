@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/tags"
 )
@@ -64,7 +63,7 @@ func (senv *sessionEnviron) Instances(ctx context.Context, ids []instance.Id) ([
 }
 
 // ControllerInstances is part of the environs.Environ interface.
-func (env *environ) ControllerInstances(ctx envcontext.ProviderCallContext, controllerUUID string) (ids []instance.Id, err error) {
+func (env *environ) ControllerInstances(ctx context.Context, controllerUUID string) (ids []instance.Id, err error) {
 	err = env.withSession(ctx, func(senv *sessionEnviron) error {
 		ids, err = senv.ControllerInstances(ctx, controllerUUID)
 		return err
@@ -73,7 +72,7 @@ func (env *environ) ControllerInstances(ctx envcontext.ProviderCallContext, cont
 }
 
 // ControllerInstances is part of the environs.Environ interface.
-func (senv *sessionEnviron) ControllerInstances(ctx envcontext.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
+func (senv *sessionEnviron) ControllerInstances(ctx context.Context, controllerUUID string) ([]instance.Id, error) {
 	instances, err := senv.AllRunningInstances(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -104,7 +103,7 @@ func (senv *sessionEnviron) ControllerInstances(ctx envcontext.ProviderCallConte
 // parsePlacement extracts the availability zone from the placement
 // string and returns it. If no zone is found there then an error is
 // returned.
-func (senv *sessionEnviron) parsePlacement(ctx envcontext.ProviderCallContext, placement string) (*vmwareAvailZone, error) {
+func (senv *sessionEnviron) parsePlacement(ctx context.Context, placement string) (*vmwareAvailZone, error) {
 	if placement == "" {
 		return nil, nil
 	}

@@ -10,7 +10,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/provider/azure/internal/armtemplates"
 )
 
@@ -55,7 +54,7 @@ func (env *azureEnviron) createDeployment(
 }
 
 func (env *azureEnviron) createSubscriptionDeployment(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	location string,
 	deploymentName string,
 	params any,

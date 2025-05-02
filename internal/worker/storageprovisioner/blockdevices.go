@@ -124,7 +124,7 @@ func machineBlockDevicesChanged(ctx context.Context, deps *dependencies) error {
 		return nil
 	}
 	deps.config.Logger.Debugf(ctx, "refreshing mounted filesystems: %#v", toUpdate)
-	_, err = deps.managedFilesystemSource.AttachFilesystems(deps.config.CloudCallContextFunc(context.Background()), toUpdate)
+	_, err = deps.managedFilesystemSource.AttachFilesystems(ctx, toUpdate)
 	return err
 }
 

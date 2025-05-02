@@ -82,7 +82,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 		ControllerConfig:        testing.FakeControllerConfig(),
 		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 	}
-	result, err := s.Env.Bootstrap(ctx, s.CallCtx, params)
+	result, err := s.Env.Bootstrap(ctx, params)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(result.Arch, gc.Equals, "amd64")
@@ -98,7 +98,7 @@ func (s *environSuite) TestBootstrapInvalidCredentialError(c *gc.C) {
 		ControllerConfig:        testing.FakeControllerConfig(),
 		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 	}
-	_, err := s.Env.Bootstrap(envtesting.BootstrapTestContext(c), s.CallCtx, params)
+	_, err := s.Env.Bootstrap(envtesting.BootstrapTestContext(c), params)
 	c.Check(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
@@ -126,7 +126,7 @@ func (s *environSuite) checkAPIPorts(c *gc.C, config controller.Config, expected
 		ControllerConfig:        config,
 		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 	}
-	_, err := s.Env.Bootstrap(ctx, s.CallCtx, params)
+	_, err := s.Env.Bootstrap(ctx, params)
 	c.Assert(err, jc.ErrorIsNil)
 
 	called, calls := s.FakeConn.WasCalled("OpenPorts")
@@ -155,7 +155,7 @@ func (s *environSuite) TestBootstrapCommon(c *gc.C) {
 		ControllerConfig:        testing.FakeControllerConfig(),
 		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 	}
-	_, err := s.Env.Bootstrap(ctx, s.CallCtx, params)
+	_, err := s.Env.Bootstrap(ctx, params)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.FakeCommon.CheckCalls(c, []gce.FakeCall{{
@@ -171,19 +171,19 @@ func (s *environSuite) TestBootstrapCommon(c *gc.C) {
 func (s *environSuite) TestDestroyInvalidCredentialError(c *gc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
-	err := s.Env.Destroy(s.CallCtx)
+	err := s.Env.Destroy(context.Background())
 	c.Check(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
 
 func (s *environSuite) TestDestroy(c *gc.C) {
-	err := s.Env.Destroy(s.CallCtx)
+	err := s.Env.Destroy(context.Background())
 
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *environSuite) TestDestroyAPI(c *gc.C) {
-	err := s.Env.Destroy(s.CallCtx)
+	err := s.Env.Destroy(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)

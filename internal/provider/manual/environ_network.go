@@ -4,12 +4,13 @@
 package manual
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 )
 
 var _ environs.NetworkingEnviron = &manualEnviron{}
@@ -20,13 +21,13 @@ func (e *manualEnviron) SupportsSpaces() (bool, error) {
 }
 
 // Subnets implements environs.NetworkingEnviron.
-func (e *manualEnviron) Subnets(envcontext.ProviderCallContext, []network.Id) ([]network.SubnetInfo, error) {
+func (e *manualEnviron) Subnets(context.Context, []network.Id) ([]network.SubnetInfo, error) {
 	return nil, errors.NotSupportedf("subnets")
 }
 
 // NetworkInterfaces implements environs.NetworkingEnviron.
 func (e *manualEnviron) NetworkInterfaces(
-	envcontext.ProviderCallContext, []instance.Id,
+	context.Context, []instance.Id,
 ) ([]network.InterfaceInfos, error) {
 	return nil, errors.NotSupportedf("network interfaces")
 }

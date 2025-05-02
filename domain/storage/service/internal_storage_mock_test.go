@@ -13,7 +13,6 @@ import (
 	context "context"
 	reflect "reflect"
 
-	envcontext "github.com/juju/juju/environs/envcontext"
 	storage "github.com/juju/juju/internal/storage"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -510,7 +509,7 @@ func (m *MockVolumeSource) EXPECT() *MockVolumeSourceMockRecorder {
 }
 
 // AttachVolumes mocks base method.
-func (m *MockVolumeSource) AttachVolumes(arg0 envcontext.ProviderCallContext, arg1 []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
+func (m *MockVolumeSource) AttachVolumes(arg0 context.Context, arg1 []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AttachVolumes", arg0, arg1)
 	ret0, _ := ret[0].([]storage.AttachVolumesResult)
@@ -537,19 +536,19 @@ func (c *MockVolumeSourceAttachVolumesCall) Return(arg0 []storage.AttachVolumesR
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockVolumeSourceAttachVolumesCall) Do(f func(envcontext.ProviderCallContext, []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error)) *MockVolumeSourceAttachVolumesCall {
+func (c *MockVolumeSourceAttachVolumesCall) Do(f func(context.Context, []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error)) *MockVolumeSourceAttachVolumesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockVolumeSourceAttachVolumesCall) DoAndReturn(f func(envcontext.ProviderCallContext, []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error)) *MockVolumeSourceAttachVolumesCall {
+func (c *MockVolumeSourceAttachVolumesCall) DoAndReturn(f func(context.Context, []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error)) *MockVolumeSourceAttachVolumesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // CreateVolumes mocks base method.
-func (m *MockVolumeSource) CreateVolumes(arg0 envcontext.ProviderCallContext, arg1 []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {
+func (m *MockVolumeSource) CreateVolumes(arg0 context.Context, arg1 []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateVolumes", arg0, arg1)
 	ret0, _ := ret[0].([]storage.CreateVolumesResult)
@@ -576,19 +575,19 @@ func (c *MockVolumeSourceCreateVolumesCall) Return(arg0 []storage.CreateVolumesR
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockVolumeSourceCreateVolumesCall) Do(f func(envcontext.ProviderCallContext, []storage.VolumeParams) ([]storage.CreateVolumesResult, error)) *MockVolumeSourceCreateVolumesCall {
+func (c *MockVolumeSourceCreateVolumesCall) Do(f func(context.Context, []storage.VolumeParams) ([]storage.CreateVolumesResult, error)) *MockVolumeSourceCreateVolumesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockVolumeSourceCreateVolumesCall) DoAndReturn(f func(envcontext.ProviderCallContext, []storage.VolumeParams) ([]storage.CreateVolumesResult, error)) *MockVolumeSourceCreateVolumesCall {
+func (c *MockVolumeSourceCreateVolumesCall) DoAndReturn(f func(context.Context, []storage.VolumeParams) ([]storage.CreateVolumesResult, error)) *MockVolumeSourceCreateVolumesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // DescribeVolumes mocks base method.
-func (m *MockVolumeSource) DescribeVolumes(arg0 envcontext.ProviderCallContext, arg1 []string) ([]storage.DescribeVolumesResult, error) {
+func (m *MockVolumeSource) DescribeVolumes(arg0 context.Context, arg1 []string) ([]storage.DescribeVolumesResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DescribeVolumes", arg0, arg1)
 	ret0, _ := ret[0].([]storage.DescribeVolumesResult)
@@ -615,19 +614,19 @@ func (c *MockVolumeSourceDescribeVolumesCall) Return(arg0 []storage.DescribeVolu
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockVolumeSourceDescribeVolumesCall) Do(f func(envcontext.ProviderCallContext, []string) ([]storage.DescribeVolumesResult, error)) *MockVolumeSourceDescribeVolumesCall {
+func (c *MockVolumeSourceDescribeVolumesCall) Do(f func(context.Context, []string) ([]storage.DescribeVolumesResult, error)) *MockVolumeSourceDescribeVolumesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockVolumeSourceDescribeVolumesCall) DoAndReturn(f func(envcontext.ProviderCallContext, []string) ([]storage.DescribeVolumesResult, error)) *MockVolumeSourceDescribeVolumesCall {
+func (c *MockVolumeSourceDescribeVolumesCall) DoAndReturn(f func(context.Context, []string) ([]storage.DescribeVolumesResult, error)) *MockVolumeSourceDescribeVolumesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // DestroyVolumes mocks base method.
-func (m *MockVolumeSource) DestroyVolumes(arg0 envcontext.ProviderCallContext, arg1 []string) ([]error, error) {
+func (m *MockVolumeSource) DestroyVolumes(arg0 context.Context, arg1 []string) ([]error, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DestroyVolumes", arg0, arg1)
 	ret0, _ := ret[0].([]error)
@@ -654,19 +653,19 @@ func (c *MockVolumeSourceDestroyVolumesCall) Return(arg0 []error, arg1 error) *M
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockVolumeSourceDestroyVolumesCall) Do(f func(envcontext.ProviderCallContext, []string) ([]error, error)) *MockVolumeSourceDestroyVolumesCall {
+func (c *MockVolumeSourceDestroyVolumesCall) Do(f func(context.Context, []string) ([]error, error)) *MockVolumeSourceDestroyVolumesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockVolumeSourceDestroyVolumesCall) DoAndReturn(f func(envcontext.ProviderCallContext, []string) ([]error, error)) *MockVolumeSourceDestroyVolumesCall {
+func (c *MockVolumeSourceDestroyVolumesCall) DoAndReturn(f func(context.Context, []string) ([]error, error)) *MockVolumeSourceDestroyVolumesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // DetachVolumes mocks base method.
-func (m *MockVolumeSource) DetachVolumes(arg0 envcontext.ProviderCallContext, arg1 []storage.VolumeAttachmentParams) ([]error, error) {
+func (m *MockVolumeSource) DetachVolumes(arg0 context.Context, arg1 []storage.VolumeAttachmentParams) ([]error, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DetachVolumes", arg0, arg1)
 	ret0, _ := ret[0].([]error)
@@ -693,19 +692,19 @@ func (c *MockVolumeSourceDetachVolumesCall) Return(arg0 []error, arg1 error) *Mo
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockVolumeSourceDetachVolumesCall) Do(f func(envcontext.ProviderCallContext, []storage.VolumeAttachmentParams) ([]error, error)) *MockVolumeSourceDetachVolumesCall {
+func (c *MockVolumeSourceDetachVolumesCall) Do(f func(context.Context, []storage.VolumeAttachmentParams) ([]error, error)) *MockVolumeSourceDetachVolumesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockVolumeSourceDetachVolumesCall) DoAndReturn(f func(envcontext.ProviderCallContext, []storage.VolumeAttachmentParams) ([]error, error)) *MockVolumeSourceDetachVolumesCall {
+func (c *MockVolumeSourceDetachVolumesCall) DoAndReturn(f func(context.Context, []storage.VolumeAttachmentParams) ([]error, error)) *MockVolumeSourceDetachVolumesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ListVolumes mocks base method.
-func (m *MockVolumeSource) ListVolumes(arg0 envcontext.ProviderCallContext) ([]string, error) {
+func (m *MockVolumeSource) ListVolumes(arg0 context.Context) ([]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListVolumes", arg0)
 	ret0, _ := ret[0].([]string)
@@ -732,19 +731,19 @@ func (c *MockVolumeSourceListVolumesCall) Return(arg0 []string, arg1 error) *Moc
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockVolumeSourceListVolumesCall) Do(f func(envcontext.ProviderCallContext) ([]string, error)) *MockVolumeSourceListVolumesCall {
+func (c *MockVolumeSourceListVolumesCall) Do(f func(context.Context) ([]string, error)) *MockVolumeSourceListVolumesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockVolumeSourceListVolumesCall) DoAndReturn(f func(envcontext.ProviderCallContext) ([]string, error)) *MockVolumeSourceListVolumesCall {
+func (c *MockVolumeSourceListVolumesCall) DoAndReturn(f func(context.Context) ([]string, error)) *MockVolumeSourceListVolumesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ReleaseVolumes mocks base method.
-func (m *MockVolumeSource) ReleaseVolumes(arg0 envcontext.ProviderCallContext, arg1 []string) ([]error, error) {
+func (m *MockVolumeSource) ReleaseVolumes(arg0 context.Context, arg1 []string) ([]error, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReleaseVolumes", arg0, arg1)
 	ret0, _ := ret[0].([]error)
@@ -771,13 +770,13 @@ func (c *MockVolumeSourceReleaseVolumesCall) Return(arg0 []error, arg1 error) *M
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockVolumeSourceReleaseVolumesCall) Do(f func(envcontext.ProviderCallContext, []string) ([]error, error)) *MockVolumeSourceReleaseVolumesCall {
+func (c *MockVolumeSourceReleaseVolumesCall) Do(f func(context.Context, []string) ([]error, error)) *MockVolumeSourceReleaseVolumesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockVolumeSourceReleaseVolumesCall) DoAndReturn(f func(envcontext.ProviderCallContext, []string) ([]error, error)) *MockVolumeSourceReleaseVolumesCall {
+func (c *MockVolumeSourceReleaseVolumesCall) DoAndReturn(f func(context.Context, []string) ([]error, error)) *MockVolumeSourceReleaseVolumesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -906,7 +905,7 @@ func (m *MockFilesystemSource) EXPECT() *MockFilesystemSourceMockRecorder {
 }
 
 // AttachFilesystems mocks base method.
-func (m *MockFilesystemSource) AttachFilesystems(arg0 envcontext.ProviderCallContext, arg1 []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
+func (m *MockFilesystemSource) AttachFilesystems(arg0 context.Context, arg1 []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AttachFilesystems", arg0, arg1)
 	ret0, _ := ret[0].([]storage.AttachFilesystemsResult)
@@ -933,19 +932,19 @@ func (c *MockFilesystemSourceAttachFilesystemsCall) Return(arg0 []storage.Attach
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFilesystemSourceAttachFilesystemsCall) Do(f func(envcontext.ProviderCallContext, []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error)) *MockFilesystemSourceAttachFilesystemsCall {
+func (c *MockFilesystemSourceAttachFilesystemsCall) Do(f func(context.Context, []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error)) *MockFilesystemSourceAttachFilesystemsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFilesystemSourceAttachFilesystemsCall) DoAndReturn(f func(envcontext.ProviderCallContext, []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error)) *MockFilesystemSourceAttachFilesystemsCall {
+func (c *MockFilesystemSourceAttachFilesystemsCall) DoAndReturn(f func(context.Context, []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error)) *MockFilesystemSourceAttachFilesystemsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // CreateFilesystems mocks base method.
-func (m *MockFilesystemSource) CreateFilesystems(arg0 envcontext.ProviderCallContext, arg1 []storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error) {
+func (m *MockFilesystemSource) CreateFilesystems(arg0 context.Context, arg1 []storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateFilesystems", arg0, arg1)
 	ret0, _ := ret[0].([]storage.CreateFilesystemsResult)
@@ -972,19 +971,19 @@ func (c *MockFilesystemSourceCreateFilesystemsCall) Return(arg0 []storage.Create
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFilesystemSourceCreateFilesystemsCall) Do(f func(envcontext.ProviderCallContext, []storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error)) *MockFilesystemSourceCreateFilesystemsCall {
+func (c *MockFilesystemSourceCreateFilesystemsCall) Do(f func(context.Context, []storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error)) *MockFilesystemSourceCreateFilesystemsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFilesystemSourceCreateFilesystemsCall) DoAndReturn(f func(envcontext.ProviderCallContext, []storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error)) *MockFilesystemSourceCreateFilesystemsCall {
+func (c *MockFilesystemSourceCreateFilesystemsCall) DoAndReturn(f func(context.Context, []storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error)) *MockFilesystemSourceCreateFilesystemsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // DestroyFilesystems mocks base method.
-func (m *MockFilesystemSource) DestroyFilesystems(arg0 envcontext.ProviderCallContext, arg1 []string) ([]error, error) {
+func (m *MockFilesystemSource) DestroyFilesystems(arg0 context.Context, arg1 []string) ([]error, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DestroyFilesystems", arg0, arg1)
 	ret0, _ := ret[0].([]error)
@@ -1011,19 +1010,19 @@ func (c *MockFilesystemSourceDestroyFilesystemsCall) Return(arg0 []error, arg1 e
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFilesystemSourceDestroyFilesystemsCall) Do(f func(envcontext.ProviderCallContext, []string) ([]error, error)) *MockFilesystemSourceDestroyFilesystemsCall {
+func (c *MockFilesystemSourceDestroyFilesystemsCall) Do(f func(context.Context, []string) ([]error, error)) *MockFilesystemSourceDestroyFilesystemsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFilesystemSourceDestroyFilesystemsCall) DoAndReturn(f func(envcontext.ProviderCallContext, []string) ([]error, error)) *MockFilesystemSourceDestroyFilesystemsCall {
+func (c *MockFilesystemSourceDestroyFilesystemsCall) DoAndReturn(f func(context.Context, []string) ([]error, error)) *MockFilesystemSourceDestroyFilesystemsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // DetachFilesystems mocks base method.
-func (m *MockFilesystemSource) DetachFilesystems(arg0 envcontext.ProviderCallContext, arg1 []storage.FilesystemAttachmentParams) ([]error, error) {
+func (m *MockFilesystemSource) DetachFilesystems(arg0 context.Context, arg1 []storage.FilesystemAttachmentParams) ([]error, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DetachFilesystems", arg0, arg1)
 	ret0, _ := ret[0].([]error)
@@ -1050,19 +1049,19 @@ func (c *MockFilesystemSourceDetachFilesystemsCall) Return(arg0 []error, arg1 er
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFilesystemSourceDetachFilesystemsCall) Do(f func(envcontext.ProviderCallContext, []storage.FilesystemAttachmentParams) ([]error, error)) *MockFilesystemSourceDetachFilesystemsCall {
+func (c *MockFilesystemSourceDetachFilesystemsCall) Do(f func(context.Context, []storage.FilesystemAttachmentParams) ([]error, error)) *MockFilesystemSourceDetachFilesystemsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFilesystemSourceDetachFilesystemsCall) DoAndReturn(f func(envcontext.ProviderCallContext, []storage.FilesystemAttachmentParams) ([]error, error)) *MockFilesystemSourceDetachFilesystemsCall {
+func (c *MockFilesystemSourceDetachFilesystemsCall) DoAndReturn(f func(context.Context, []storage.FilesystemAttachmentParams) ([]error, error)) *MockFilesystemSourceDetachFilesystemsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ReleaseFilesystems mocks base method.
-func (m *MockFilesystemSource) ReleaseFilesystems(arg0 envcontext.ProviderCallContext, arg1 []string) ([]error, error) {
+func (m *MockFilesystemSource) ReleaseFilesystems(arg0 context.Context, arg1 []string) ([]error, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReleaseFilesystems", arg0, arg1)
 	ret0, _ := ret[0].([]error)
@@ -1089,13 +1088,13 @@ func (c *MockFilesystemSourceReleaseFilesystemsCall) Return(arg0 []error, arg1 e
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFilesystemSourceReleaseFilesystemsCall) Do(f func(envcontext.ProviderCallContext, []string) ([]error, error)) *MockFilesystemSourceReleaseFilesystemsCall {
+func (c *MockFilesystemSourceReleaseFilesystemsCall) Do(f func(context.Context, []string) ([]error, error)) *MockFilesystemSourceReleaseFilesystemsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFilesystemSourceReleaseFilesystemsCall) DoAndReturn(f func(envcontext.ProviderCallContext, []string) ([]error, error)) *MockFilesystemSourceReleaseFilesystemsCall {
+func (c *MockFilesystemSourceReleaseFilesystemsCall) DoAndReturn(f func(context.Context, []string) ([]error, error)) *MockFilesystemSourceReleaseFilesystemsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

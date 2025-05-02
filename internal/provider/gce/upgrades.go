@@ -4,15 +4,16 @@
 package gce
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/tags"
 )
 
 // UpgradeOperations is part of the upgrades.OperationSource interface.
-func (env *environ) UpgradeOperations(ctx envcontext.ProviderCallContext, args environs.UpgradeOperationsParams) []environs.UpgradeOperation {
+func (env *environ) UpgradeOperations(ctx context.Context, args environs.UpgradeOperationsParams) []environs.UpgradeOperation {
 	return []environs.UpgradeOperation{{
 		providerVersion1,
 		[]environs.UpgradeStep{
@@ -34,7 +35,7 @@ func (diskLabelsUpgradeStep) Description() string {
 }
 
 // Run is part of the environs.UpgradeStep interface.
-func (step diskLabelsUpgradeStep) Run(ctx envcontext.ProviderCallContext) error {
+func (step diskLabelsUpgradeStep) Run(ctx context.Context) error {
 	env := step.env
 	disks, err := env.gce.Disks()
 	if err != nil {

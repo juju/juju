@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/environs/models"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/apicaller"
-	"github.com/juju/juju/internal/worker/common"
 )
 
 // ManifoldConfig describes the resources used by the firewaller worker.
@@ -37,11 +36,10 @@ type ManifoldConfig struct {
 	EnvironName        string
 	Logger             logger.Logger
 
-	NewControllerConnection      apicaller.NewExternalControllerConnectionFunc
-	NewRemoteRelationsFacade     func(base.APICaller) *remoterelations.Client
-	NewFirewallerFacade          func(base.APICaller) (FirewallerAPI, error)
-	NewFirewallerWorker          func(Config) (worker.Worker, error)
-	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
+	NewControllerConnection  apicaller.NewExternalControllerConnectionFunc
+	NewRemoteRelationsFacade func(base.APICaller) *remoterelations.Client
+	NewFirewallerFacade      func(base.APICaller) (FirewallerAPI, error)
+	NewFirewallerWorker      func(Config) (worker.Worker, error)
 }
 
 // Manifold returns a Manifold that encapsulates the firewaller worker.
@@ -82,9 +80,6 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.NewFirewallerWorker == nil {
 		return errors.NotValidf("nil NewFirewallerWorker")
-	}
-	if cfg.NewCredentialValidatorFacade == nil {
-		return errors.NotValidf("nil NewCredentialValidatorFacade")
 	}
 	return nil
 }
@@ -137,17 +132,11 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		return nil, errors.Trace(err)
 	}
 
-	credentialAPI, err := cfg.NewCredentialValidatorFacade(apiConn)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	// Check if the env supports IPV6 CIDRs for firewall ingress rules.
 	var envIPV6CIDRSupport bool
 	if featQuerier, ok := environ.(environs.FirewallFeatureQuerier); ok {
 		var err error
-		cloudCtx := common.NewCloudCallContextFunc(credentialAPI)(ctx)
-		if envIPV6CIDRSupport, err = featQuerier.SupportsRulesWithIPV6CIDRs(cloudCtx); err != nil {
+		if envIPV6CIDRSupport, err = featQuerier.SupportsRulesWithIPV6CIDRs(ctx); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
@@ -165,7 +154,6 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		EnvironIPV6CIDRSupport:  envIPV6CIDRSupport,
 		Mode:                    mode,
 		NewCrossModelFacadeFunc: crossmodelFirewallerFacadeFunc(cfg.NewControllerConnection),
-		CredentialAPI:           credentialAPI,
 		Logger:                  cfg.Logger,
 	})
 	if err != nil {

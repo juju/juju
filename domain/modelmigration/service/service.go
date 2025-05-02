@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/modelmigration"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/errors"
 )
@@ -37,7 +36,7 @@ type ResourceProvider interface {
 	// provided for backwards compatibility - if the technique used to
 	// tag items changes, the version number can be used to decide how
 	// to remove the old tags correctly.
-	AdoptResources(envcontext.ProviderCallContext, string, semversion.Number) error
+	AdoptResources(context.Context, string, semversion.Number) error
 }
 
 // Service provides the means for supporting model migration actions between
@@ -105,7 +104,7 @@ func (s *Service) AdoptResources(
 	}
 
 	err = provider.AdoptResources(
-		envcontext.WithoutCredentialInvalidator(ctx),
+		ctx,
 		controllerUUID,
 		sourceControllerVersion,
 	)

@@ -4,12 +4,12 @@
 package provider
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 )
 
 // PrecheckInstance performs a preflight check on the specified
@@ -20,7 +20,7 @@ import (
 // all invalid parameters. If PrecheckInstance returns nil, it is not
 // guaranteed that the constraints are valid; if a non-nil error is
 // returned, then the constraints are definitely invalid.
-func (k *kubernetesClient) PrecheckInstance(ctx envcontext.ProviderCallContext, params environs.PrecheckInstanceParams) error {
+func (k *kubernetesClient) PrecheckInstance(ctx context.Context, params environs.PrecheckInstanceParams) error {
 	// Ensure there are no unsupported constraints.
 	// Clouds generally don't enforce this but we will
 	// for Kubernetes deployments.

@@ -4,8 +4,6 @@
 package storageprovisioner_test
 
 import (
-	"context"
-
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -14,7 +12,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
@@ -139,9 +136,6 @@ func almostValidConfig() storageprovisioner.Config {
 	// gofmt doesn't seem to want to let me one-line any of these
 	// except the last one, so I'm standardising on multi-line.
 	return storageprovisioner.Config{
-		CloudCallContextFunc: func(ctx context.Context) envcontext.ProviderCallContext {
-			return envcontext.WithoutCredentialInvalidator(ctx)
-		},
 		Volumes: struct {
 			storageprovisioner.VolumeAccessor
 		}{},

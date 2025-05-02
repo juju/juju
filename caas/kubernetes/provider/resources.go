@@ -4,19 +4,19 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/core/semversion"
-	jujucontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/tags"
 )
 
 // AdoptResources is called when the model is moved from one
 // controller to another using model migration.
-func (k *kubernetesClient) AdoptResources(ctx jujucontext.ProviderCallContext, controllerUUID string, fromVersion semversion.Number) error {
+func (k *kubernetesClient) AdoptResources(ctx context.Context, controllerUUID string, fromVersion semversion.Number) error {
 	if k.namespace == "" {
 		return errNoNamespace
 	}

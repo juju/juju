@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/storage"
-	jujucontext "github.com/juju/juju/environs/envcontext"
 	jujustorage "github.com/juju/juju/internal/storage"
 )
 
@@ -106,13 +105,13 @@ type volumeSource struct {
 var _ jujustorage.VolumeSource = (*volumeSource)(nil)
 
 // CreateVolumes is specified on the jujustorage.VolumeSource interface.
-func (v *volumeSource) CreateVolumes(ctx jujucontext.ProviderCallContext, params []jujustorage.VolumeParams) (_ []jujustorage.CreateVolumesResult, err error) {
+func (v *volumeSource) CreateVolumes(ctx context.Context, params []jujustorage.VolumeParams) (_ []jujustorage.CreateVolumesResult, err error) {
 	// noop
 	return nil, nil
 }
 
 // ListVolumes is specified on the jujustorage.VolumeSource interface.
-func (v *volumeSource) ListVolumes(ctx jujucontext.ProviderCallContext) ([]string, error) {
+func (v *volumeSource) ListVolumes(ctx context.Context) ([]string, error) {
 	pVolumes := v.client.client().CoreV1().PersistentVolumes()
 	vols, err := pVolumes.List(ctx, v1.ListOptions{})
 	if err != nil {
@@ -126,7 +125,7 @@ func (v *volumeSource) ListVolumes(ctx jujucontext.ProviderCallContext) ([]strin
 }
 
 // DescribeVolumes is specified on the jujustorage.VolumeSource interface.
-func (v *volumeSource) DescribeVolumes(ctx jujucontext.ProviderCallContext, volIds []string) ([]jujustorage.DescribeVolumesResult, error) {
+func (v *volumeSource) DescribeVolumes(ctx context.Context, volIds []string) ([]jujustorage.DescribeVolumesResult, error) {
 	pVolumes := v.client.client().CoreV1().PersistentVolumes()
 	vols, err := pVolumes.List(ctx, v1.ListOptions{
 		// TODO(caas) - filter on volumes for the current model
@@ -156,7 +155,7 @@ func (v *volumeSource) DescribeVolumes(ctx jujucontext.ProviderCallContext, volI
 }
 
 // DestroyVolumes is specified on the jujustorage.VolumeSource interface.
-func (v *volumeSource) DestroyVolumes(ctx jujucontext.ProviderCallContext, volIds []string) ([]error, error) {
+func (v *volumeSource) DestroyVolumes(ctx context.Context, volIds []string) ([]error, error) {
 	logger.Debugf(context.TODO(), "destroy k8s volumes: %v", volIds)
 	pVolumes := v.client.client().CoreV1().PersistentVolumes()
 	return foreachVolume(volIds, func(volumeId string) error {
@@ -184,7 +183,7 @@ func (v *volumeSource) DestroyVolumes(ctx jujucontext.ProviderCallContext, volId
 }
 
 // ReleaseVolumes is specified on the jujustorage.VolumeSource interface.
-func (v *volumeSource) ReleaseVolumes(ctx jujucontext.ProviderCallContext, volIds []string) ([]error, error) {
+func (v *volumeSource) ReleaseVolumes(ctx context.Context, volIds []string) ([]error, error) {
 	// noop
 	return make([]error, len(volIds)), nil
 }
@@ -196,13 +195,13 @@ func (v *volumeSource) ValidateVolumeParams(params jujustorage.VolumeParams) err
 }
 
 // AttachVolumes is specified on the jujustorage.VolumeSource interface.
-func (v *volumeSource) AttachVolumes(ctx jujucontext.ProviderCallContext, attachParams []jujustorage.VolumeAttachmentParams) ([]jujustorage.AttachVolumesResult, error) {
+func (v *volumeSource) AttachVolumes(ctx context.Context, attachParams []jujustorage.VolumeAttachmentParams) ([]jujustorage.AttachVolumesResult, error) {
 	// noop
 	return nil, nil
 }
 
 // DetachVolumes is specified on the jujustorage.VolumeSource interface.
-func (v *volumeSource) DetachVolumes(ctx jujucontext.ProviderCallContext, attachParams []jujustorage.VolumeAttachmentParams) ([]error, error) {
+func (v *volumeSource) DetachVolumes(ctx context.Context, attachParams []jujustorage.VolumeAttachmentParams) ([]error, error) {
 	// noop
 	return make([]error, len(attachParams)), nil
 }

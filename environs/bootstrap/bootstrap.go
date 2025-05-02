@@ -25,7 +25,6 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
@@ -246,7 +245,6 @@ func withDefaultCAASControllerConstraints(cons constraints.Value) constraints.Va
 func bootstrapCAAS(
 	ctx environs.BootstrapContext,
 	environ environs.BootstrapEnviron,
-	callCtx envcontext.ProviderCallContext,
 	args BootstrapParams,
 	bootstrapParams environs.BootstrapParams,
 ) error {
@@ -260,7 +258,7 @@ func bootstrapCAAS(
 		return errors.NotSupportedf("--bootstrap-series or --bootstrap-base when bootstrapping a k8s controller")
 	}
 
-	constraintsValidator, err := environ.ConstraintsValidator(callCtx)
+	constraintsValidator, err := environ.ConstraintsValidator(ctx)
 	if err != nil {
 		return err
 	}
@@ -273,7 +271,7 @@ func bootstrapCAAS(
 	bootstrapConstraints = withDefaultCAASControllerConstraints(bootstrapConstraints)
 	bootstrapParams.BootstrapConstraints = bootstrapConstraints
 
-	result, err := environ.Bootstrap(ctx, callCtx, bootstrapParams)
+	result, err := environ.Bootstrap(ctx, bootstrapParams)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -309,7 +307,6 @@ func bootstrapCAAS(
 func bootstrapIAAS(
 	ctx environs.BootstrapContext,
 	environ environs.BootstrapEnviron,
-	callCtx envcontext.ProviderCallContext,
 	args BootstrapParams,
 	bootstrapParams environs.BootstrapParams,
 ) error {
@@ -422,7 +419,7 @@ func bootstrapIAAS(
 	}
 	bootstrapParams.ImageMetadata = imageMetadata
 
-	constraintsValidator, err := environ.ConstraintsValidator(callCtx)
+	constraintsValidator, err := environ.ConstraintsValidator(ctx)
 	if err != nil {
 		return err
 	}
@@ -570,11 +567,11 @@ func bootstrapIAAS(
 			}
 		}
 		instanceRoleEnviron, ok := environ.(environs.InstanceRole)
-		if !ok || !instanceRoleEnviron.SupportsInstanceRoles(callCtx) {
+		if !ok || !instanceRoleEnviron.SupportsInstanceRoles(ctx) {
 			return errors.NewNotSupported(nil, "instance role constraint for provider")
 		}
 
-		bootstrapParams, err = finaliseInstanceRole(callCtx, instanceRoleEnviron, bootstrapParams)
+		bootstrapParams, err = finaliseInstanceRole(ctx, instanceRoleEnviron, bootstrapParams)
 		if err != nil {
 			return errors.Annotate(err, "finalising instance role for provider")
 		}
@@ -582,7 +579,7 @@ func bootstrapIAAS(
 
 	ctx.Verbosef("Starting new instance for initial controller")
 
-	result, err := environ.Bootstrap(ctx, callCtx, bootstrapParams)
+	result, err := environ.Bootstrap(ctx, bootstrapParams)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -672,7 +669,7 @@ func bootstrapIAAS(
 }
 
 func finaliseInstanceRole(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	ir environs.InstanceRole,
 	args environs.BootstrapParams,
 ) (environs.BootstrapParams, error) {
@@ -691,7 +688,6 @@ func finaliseInstanceRole(
 func Bootstrap(
 	ctx environs.BootstrapContext,
 	environ environs.BootstrapEnviron,
-	callCtx envcontext.ProviderCallContext,
 	args BootstrapParams,
 ) error {
 	if err := args.Validate(); err != nil {
@@ -718,7 +714,7 @@ func Bootstrap(
 		doBootstrap = bootstrapCAAS
 	}
 
-	if err := doBootstrap(ctx, environ, callCtx, args, bootstrapParams); err != nil {
+	if err := doBootstrap(ctx, environ, args, bootstrapParams); err != nil {
 		return errors.Trace(err)
 	}
 	if IsContextDone(ctx) {

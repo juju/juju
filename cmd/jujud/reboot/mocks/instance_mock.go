@@ -10,11 +10,11 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	instance "github.com/juju/juju/core/instance"
 	network "github.com/juju/juju/core/network"
-	envcontext "github.com/juju/juju/environs/envcontext"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -42,7 +42,7 @@ func (m *MockInstance) EXPECT() *MockInstanceMockRecorder {
 }
 
 // Addresses mocks base method.
-func (m *MockInstance) Addresses(arg0 envcontext.ProviderCallContext) (network.ProviderAddresses, error) {
+func (m *MockInstance) Addresses(arg0 context.Context) (network.ProviderAddresses, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Addresses", arg0)
 	ret0, _ := ret[0].(network.ProviderAddresses)
@@ -69,13 +69,13 @@ func (c *MockInstanceAddressesCall) Return(arg0 network.ProviderAddresses, arg1 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockInstanceAddressesCall) Do(f func(envcontext.ProviderCallContext) (network.ProviderAddresses, error)) *MockInstanceAddressesCall {
+func (c *MockInstanceAddressesCall) Do(f func(context.Context) (network.ProviderAddresses, error)) *MockInstanceAddressesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockInstanceAddressesCall) DoAndReturn(f func(envcontext.ProviderCallContext) (network.ProviderAddresses, error)) *MockInstanceAddressesCall {
+func (c *MockInstanceAddressesCall) DoAndReturn(f func(context.Context) (network.ProviderAddresses, error)) *MockInstanceAddressesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -119,7 +119,7 @@ func (c *MockInstanceIdCall) DoAndReturn(f func() instance.Id) *MockInstanceIdCa
 }
 
 // Status mocks base method.
-func (m *MockInstance) Status(arg0 envcontext.ProviderCallContext) instance.Status {
+func (m *MockInstance) Status(arg0 context.Context) instance.Status {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Status", arg0)
 	ret0, _ := ret[0].(instance.Status)
@@ -145,13 +145,13 @@ func (c *MockInstanceStatusCall) Return(arg0 instance.Status) *MockInstanceStatu
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockInstanceStatusCall) Do(f func(envcontext.ProviderCallContext) instance.Status) *MockInstanceStatusCall {
+func (c *MockInstanceStatusCall) Do(f func(context.Context) instance.Status) *MockInstanceStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockInstanceStatusCall) DoAndReturn(f func(envcontext.ProviderCallContext) instance.Status) *MockInstanceStatusCall {
+func (c *MockInstanceStatusCall) DoAndReturn(f func(context.Context) instance.Status) *MockInstanceStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

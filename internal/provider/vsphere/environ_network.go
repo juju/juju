@@ -4,13 +4,14 @@
 package vsphere
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 )
 
 // OpenPorts is part of the environs.Firewaller interface.
@@ -36,6 +37,6 @@ func (*environ) IngressRules() (firewall.IngressRules, error) {
 // we can assume that the network configuration returned by the machine agent
 // represents the knowable link-layer data for each VM - there is no
 // elaboration available from the provider.
-func (env *environ) NetworkInterfaces(_ envcontext.ProviderCallContext, _ []instance.Id) ([]network.InterfaceInfos, error) {
+func (env *environ) NetworkInterfaces(_ context.Context, _ []instance.Id) ([]network.InterfaceInfos, error) {
 	return nil, environs.ErrNoInstances
 }

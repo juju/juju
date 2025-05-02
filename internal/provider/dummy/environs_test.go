@@ -15,7 +15,6 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/jujutest"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -42,8 +41,6 @@ func init() {
 type suite struct {
 	testing.BaseSuite
 	jujutest.Tests
-
-	callCtx envcontext.ProviderCallContext
 }
 
 func (s *suite) SetUpSuite(c *gc.C) {
@@ -55,7 +52,6 @@ func (s *suite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
 	s.Tests.SetUpTest(c)
-	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
 func (s *suite) TearDownTest(c *gc.C) {
@@ -83,7 +79,7 @@ func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
 	c.Assert(supported, jc.IsTrue)
 
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(context.Background(), c), netenv,
-		envcontext.WithoutCredentialInvalidator(context.Background()), bootstrap.BootstrapParams{
+		bootstrap.BootstrapParams{
 			ControllerConfig: testing.FakeControllerConfig(),
 			Cloud: cloud.Cloud{
 				Name:      "dummy",
@@ -101,11 +97,11 @@ func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
 func (s *suite) TestAvailabilityZone(c *gc.C) {
 	e := s.bootstrapTestEnviron(c)
 	defer func() {
-		err := e.Destroy(s.callCtx)
+		err := e.Destroy(context.Background())
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
-	inst, hwc := jujutesting.AssertStartInstance(c, e, s.callCtx, s.ControllerUUID, "0")
+	inst, hwc := jujutesting.AssertStartInstance(c, e, s.ControllerUUID, "0")
 	c.Assert(inst, gc.NotNil)
 	c.Check(hwc.Arch, gc.NotNil)
 }
@@ -113,7 +109,7 @@ func (s *suite) TestAvailabilityZone(c *gc.C) {
 func (s *suite) TestSupportsSpaces(c *gc.C) {
 	e := s.bootstrapTestEnviron(c)
 	defer func() {
-		err := e.Destroy(s.callCtx)
+		err := e.Destroy(context.Background())
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
@@ -140,7 +136,7 @@ func (s *suite) TestSupportsSpaces(c *gc.C) {
 func (s *suite) TestSupportsSpaceDiscovery(c *gc.C) {
 	e := s.bootstrapTestEnviron(c)
 	defer func() {
-		err := e.Destroy(s.callCtx)
+		err := e.Destroy(context.Background())
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 

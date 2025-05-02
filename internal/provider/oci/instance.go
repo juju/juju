@@ -17,7 +17,6 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/provider/common"
 )
@@ -91,7 +90,7 @@ func (o *ociInstance) Id() instance.Id {
 }
 
 // Status implements instances.Instance
-func (o *ociInstance) Status(ctx envcontext.ProviderCallContext) instance.Status {
+func (o *ociInstance) Status(ctx context.Context) instance.Status {
 	if err := o.refresh(); err != nil {
 		_ = o.env.HandleCredentialError(ctx, err)
 		return instance.Status{}
@@ -159,7 +158,7 @@ func (o *ociInstance) getAddresses() ([]corenetwork.ProviderAddress, error) {
 }
 
 // Addresses implements instances.Instance
-func (o *ociInstance) Addresses(ctx envcontext.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
+func (o *ociInstance) Addresses(ctx context.Context) (corenetwork.ProviderAddresses, error) {
 	addresses, err := o.getAddresses()
 	return addresses, o.env.HandleCredentialError(ctx, err)
 }
@@ -173,7 +172,7 @@ func (o *ociInstance) isTerminating() bool {
 	return false
 }
 
-func (o *ociInstance) waitForPublicIP(ctx envcontext.ProviderCallContext) error {
+func (o *ociInstance) waitForPublicIP(ctx context.Context) error {
 	iteration := 0
 	startTime := time.Now()
 	for {
@@ -199,7 +198,7 @@ func (o *ociInstance) waitForPublicIP(ctx envcontext.ProviderCallContext) error 
 	return errors.NotFoundf("failed to find public IP for instance: %s", *o.raw.Id)
 }
 
-func (o *ociInstance) deleteInstance(ctx envcontext.ProviderCallContext) error {
+func (o *ociInstance) deleteInstance(ctx context.Context) error {
 	err := o.refresh()
 	if errors.Is(err, errors.NotFound) {
 		return nil
@@ -320,7 +319,7 @@ func (o *ociInstance) refresh() error {
 
 // OpenPorts (InstanceFirewaller) ensures that the input ingress rule is
 // permitted for machine with the input ID.
-func (o *ociInstance) OpenPorts(ctx envcontext.ProviderCallContext, _ string, rules firewall.IngressRules) error {
+func (o *ociInstance) OpenPorts(ctx context.Context, _ string, rules firewall.IngressRules) error {
 	client, err := o.getInstanceConfigurator(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -330,7 +329,7 @@ func (o *ociInstance) OpenPorts(ctx envcontext.ProviderCallContext, _ string, ru
 
 // OpenPorts (InstanceFirewaller) ensures that the input ingress rule is
 // restricted for machine with the input ID.
-func (o *ociInstance) ClosePorts(ctx envcontext.ProviderCallContext, _ string, rules firewall.IngressRules) error {
+func (o *ociInstance) ClosePorts(ctx context.Context, _ string, rules firewall.IngressRules) error {
 	client, err := o.getInstanceConfigurator(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -340,7 +339,7 @@ func (o *ociInstance) ClosePorts(ctx envcontext.ProviderCallContext, _ string, r
 
 // IngressRules (InstanceFirewaller) returns the ingress rules that have been
 // applied to the input machine ID.
-func (o *ociInstance) IngressRules(ctx envcontext.ProviderCallContext, _ string) (firewall.IngressRules, error) {
+func (o *ociInstance) IngressRules(ctx context.Context, _ string) (firewall.IngressRules, error) {
 	client, err := o.getInstanceConfigurator(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -351,7 +350,7 @@ func (o *ociInstance) IngressRules(ctx envcontext.ProviderCallContext, _ string)
 }
 
 func (o *ociInstance) getInstanceConfigurator(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 ) (common.InstanceConfigurator, error) {
 	addresses, err := o.Addresses(ctx)
 	if err != nil {

@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/modelconfig"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -57,7 +56,7 @@ type Provider interface {
 	// SupportsContainerAddresses returns true if the provider is able to
 	// allocate addresses for containers. It may return false or an
 	// [errors.NotSupported] if container addresses are not supported.
-	SupportsContainerAddresses(ctx envcontext.ProviderCallContext) (bool, error)
+	SupportsContainerAddresses(ctx context.Context) (bool, error)
 }
 
 // Service is an agent provisioner service that can be used by the provisioner
@@ -156,7 +155,7 @@ func (s *Service) ContainerNetworkingMethod(ctx context.Context) (containermanag
 
 	}
 
-	supports, err := provider.SupportsContainerAddresses(envcontext.WithoutCredentialInvalidator(ctx))
+	supports, err := provider.SupportsContainerAddresses(ctx)
 	if errors.Is(err, coreerrors.NotSupported) {
 		return containermanager.NetworkingMethodLocal, nil
 	} else if err != nil {

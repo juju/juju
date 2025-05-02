@@ -4,6 +4,7 @@
 package openstack
 
 import (
+	"context"
 	"regexp"
 
 	"github.com/go-goose/goose/v5/neutron"
@@ -15,7 +16,6 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	envstorage "github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/internal/provider/common"
@@ -66,7 +66,7 @@ func (fakeNamespace) Value(s string) string {
 	return "juju-" + s
 }
 
-func EnsureGroup(e environs.Environ, ctx envcontext.ProviderCallContext, name string, isModelGroup bool) (neutron.SecurityGroupV2, error) {
+func EnsureGroup(e environs.Environ, ctx context.Context, name string, isModelGroup bool) (neutron.SecurityGroupV2, error) {
 	switching := &neutronFirewaller{firewallerBase: firewallerBase{environ: e.(*Environ)}}
 	return switching.ensureGroup(name, isModelGroup)
 }
@@ -81,7 +81,7 @@ func MachineGroupName(e environs.Environ, controllerUUID, machineId string) stri
 	return switching.machineGroupName(controllerUUID, machineId)
 }
 
-func MatchingGroup(e environs.Environ, ctx envcontext.ProviderCallContext, nameRegExp string) (neutron.SecurityGroupV2, error) {
+func MatchingGroup(e environs.Environ, ctx context.Context, nameRegExp string) (neutron.SecurityGroupV2, error) {
 	switching := &neutronFirewaller{firewallerBase: firewallerBase{environ: e.(*Environ)}}
 	return switching.matchingGroup(ctx, nameRegExp)
 }

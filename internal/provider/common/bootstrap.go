@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/models"
@@ -56,10 +55,9 @@ var logger = internallogger.GetLogger("juju.provider.common")
 func Bootstrap(
 	ctx environs.BootstrapContext,
 	env environs.Environ,
-	callCtx envcontext.ProviderCallContext,
 	args environs.BootstrapParams,
 ) (*environs.BootstrapResult, error) {
-	result, base, finalizer, err := BootstrapInstance(ctx, env, callCtx, args)
+	result, base, finalizer, err := BootstrapInstance(ctx, env, args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -82,7 +80,6 @@ func Bootstrap(
 func BootstrapInstance(
 	bootstrapContext environs.BootstrapContext,
 	env environs.Environ,
-	callCtx envcontext.ProviderCallContext,
 	args environs.BootstrapParams,
 ) (_ *environs.StartInstanceResult, resultBase *corebase.Base, _ environs.CloudBootstrapFinalizer, err error) {
 	// TODO make safe in the case of racing Bootstraps
@@ -231,13 +228,13 @@ func BootstrapInstance(
 		}
 	}
 
-	zones, err := startInstanceZones(env, callCtx, startInstanceArgs)
+	zones, err := startInstanceZones(env, bootstrapContext, startInstanceArgs)
 	if errors.Is(err, errors.NotImplemented) {
 		// No zone support, so just call StartInstance with
 		// a blank StartInstanceParams.AvailabilityZone.
 		zones = []string{""}
 		if args.BootstrapConstraints.HasZones() {
-			logger.Debugf(callCtx, "environ doesn't support zones: ignoring bootstrap zone constraints")
+			logger.Debugf(bootstrapContext, "environ doesn't support zones: ignoring bootstrap zone constraints")
 		}
 	} else if err != nil {
 		return nil, nil, nil, errors.Annotate(err, "cannot start bootstrap instance")
@@ -267,7 +264,7 @@ func BootstrapInstance(
 	zoneErrors := []error{} // is a collection of errors we encounter for each zone.
 	for i, zone := range zones {
 		startInstanceArgs.AvailabilityZone = zone
-		result, err = env.StartInstance(callCtx, startInstanceArgs)
+		result, err = env.StartInstance(bootstrapContext, startInstanceArgs)
 		if err == nil {
 			break
 		}
@@ -285,7 +282,7 @@ func BootstrapInstance(
 
 		if i < len(zones)-1 {
 			// Try the next zone.
-			logger.Debugf(callCtx, "failed to start instance in availability zone %q: %s", zone, err)
+			logger.Debugf(bootstrapContext, "failed to start instance in availability zone %q: %s", zone, err)
 			continue
 		}
 		// This is the last zone in the list, error.
@@ -299,7 +296,7 @@ func BootstrapInstance(
 	}
 	modelFw, ok := env.(models.ModelFirewaller)
 	if ok {
-		if err := openControllerModelPorts(callCtx, modelFw, args.ControllerConfig, env.Config()); err != nil {
+		if err := openControllerModelPorts(bootstrapContext, modelFw, args.ControllerConfig, env.Config()); err != nil {
 			return nil, nil, nil, errors.Annotate(err, "cannot open SSH")
 		}
 	}
@@ -332,12 +329,12 @@ func BootstrapInstance(
 		if err := instancecfg.FinishInstanceConfig(icfg, envConfig); err != nil {
 			return err
 		}
-		return FinishBootstrap(ctx, client, env, callCtx, result.Instance, icfg, opts)
+		return FinishBootstrap(bootstrapContext, client, env, result.Instance, icfg, opts)
 	}
 	return result, &requestedBootstrapBase, finalizer, nil
 }
 
-func startInstanceZones(env environs.Environ, ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {
+func startInstanceZones(env environs.Environ, ctx context.Context, args environs.StartInstanceParams) ([]string, error) {
 	zonedEnviron, ok := env.(ZonedEnviron)
 	if !ok {
 		return nil, errors.NotImplementedf("ZonedEnviron")
@@ -371,7 +368,7 @@ func startInstanceZones(env environs.Environ, ctx envcontext.ProviderCallContext
 // openControllerModelPorts opens port 22 and apiports on the controller to the configured allow list.
 // This is all that is required for the bootstrap to continue. Further configured
 // rules will be opened by the firewaller, Once it has started
-func openControllerModelPorts(callCtx envcontext.ProviderCallContext,
+func openControllerModelPorts(bootstrapContext context.Context,
 	modelFw models.ModelFirewaller, controllerConfig controller.Config, cfg *config.Config) error {
 	rules := firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("22"), cfg.SSHAllow()...),
@@ -393,7 +390,7 @@ func openControllerModelPorts(callCtx envcontext.ProviderCallContext,
 		)
 	}
 
-	return modelFw.OpenModelPorts(callCtx, rules)
+	return modelFw.OpenModelPorts(bootstrapContext, rules)
 }
 
 func formatHardware(hw *instance.HardwareCharacteristics) string {
@@ -433,7 +430,6 @@ var FinishBootstrap = func(
 	ctx environs.BootstrapContext,
 	client ssh.Client,
 	env environs.Environ,
-	callCtx envcontext.ProviderCallContext,
 	inst instances.Instance,
 	instanceConfig *instancecfg.InstanceConfig,
 	opts environs.BootstrapDialOpts,
@@ -449,7 +445,6 @@ var FinishBootstrap = func(
 		client,
 		GetCheckNonceCommand(instanceConfig),
 		&RefreshableInstance{inst, env},
-		callCtx,
 		opts,
 		hostSSHOptions,
 	)
@@ -620,16 +615,16 @@ func hostBootstrapSSHOptions(
 // for waiting for SSH access to become available.
 type InstanceRefresher interface {
 	// Refresh refreshes the addresses for the instance.
-	Refresh(ctx envcontext.ProviderCallContext) error
+	Refresh(ctx context.Context) error
 
 	// Addresses returns the addresses for the instance.
 	// To ensure that the results are up to date, call
 	// Refresh first.
-	Addresses(ctx envcontext.ProviderCallContext) (network.ProviderAddresses, error)
+	Addresses(ctx context.Context) (network.ProviderAddresses, error)
 
 	// Status returns the provider-specific status for the
 	// instance.
-	Status(ctx envcontext.ProviderCallContext) instance.Status
+	Status(ctx context.Context) instance.Status
 }
 
 type RefreshableInstance struct {
@@ -638,7 +633,7 @@ type RefreshableInstance struct {
 }
 
 // Refresh refreshes the addresses for the instance.
-func (i *RefreshableInstance) Refresh(ctx envcontext.ProviderCallContext) error {
+func (i *RefreshableInstance) Refresh(ctx context.Context) error {
 	instances, err := i.Env.Instances(ctx, []instance.Id{i.Id()})
 	if err != nil {
 		return errors.Trace(err)
@@ -793,7 +788,6 @@ func WaitSSH(
 	client ssh.Client,
 	checkHostScript string,
 	inst InstanceRefresher,
-	callCtx envcontext.ProviderCallContext,
 	opts environs.BootstrapDialOpts,
 	hostSSHOptions HostSSHOptionsFunc,
 ) (addr string, err error) {
@@ -820,17 +814,17 @@ func WaitSSH(
 		select {
 		case <-pollAddresses.C:
 			pollAddresses.Reset(opts.AddressesDelay)
-			if err := inst.Refresh(callCtx); err != nil {
+			if err := inst.Refresh(ctx); err != nil {
 				return "", fmt.Errorf("refreshing addresses: %v", err)
 			}
-			instanceStatus := inst.Status(callCtx)
+			instanceStatus := inst.Status(ctx)
 			if instanceStatus.Status == status.ProvisioningError {
 				if instanceStatus.Message != "" {
 					return "", errors.Errorf("instance provisioning failed (%v)", instanceStatus.Message)
 				}
 				return "", errors.Errorf("instance provisioning failed")
 			}
-			addresses, err := inst.Addresses(callCtx)
+			addresses, err := inst.Addresses(ctx)
 			if err != nil {
 				return "", fmt.Errorf("getting addresses: %v", err)
 			}

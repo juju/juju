@@ -68,7 +68,7 @@ func (s *environAZSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
 
 	id := instance.Id("spam")
 	ids := []instance.Id{id}
-	zones, err := s.Env.InstanceAvailabilityZoneNames(s.CallCtx, ids)
+	zones, err := s.Env.InstanceAvailabilityZoneNames(context.Background(), ids)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(zones, jc.DeepEquals, map[instance.Id]string{
@@ -80,7 +80,7 @@ func (s *environAZSuite) TestInstanceAvailabilityZoneNamesAPIs(c *gc.C) {
 	s.FakeEnviron.Insts = []instances.Instance{s.Instance}
 
 	ids := []instance.Id{instance.Id("spam")}
-	_, err := s.Env.InstanceAvailabilityZoneNames(s.CallCtx, ids)
+	_, err := s.Env.InstanceAvailabilityZoneNames(context.Background(), ids)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.FakeEnviron.CheckCalls(c, []gce.FakeCall{{
@@ -92,7 +92,7 @@ func (s *environAZSuite) TestDeriveAvailabilityZonesInvalidCredentialError(c *gc
 	s.StartInstArgs.Placement = "zone=test-available"
 	s.FakeConn.Err = gce.InvalidCredentialError
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
-	_, err := s.Env.DeriveAvailabilityZones(s.CallCtx, s.StartInstArgs)
+	_, err := s.Env.DeriveAvailabilityZones(context.Background(), s.StartInstArgs)
 	c.Check(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
@@ -102,7 +102,7 @@ func (s *environAZSuite) TestDeriveAvailabilityZones(c *gc.C) {
 	s.FakeConn.Zones = []google.AvailabilityZone{
 		google.NewZone("test-available", google.StatusUp, "", ""),
 	}
-	zones, err := s.Env.DeriveAvailabilityZones(s.CallCtx, s.StartInstArgs)
+	zones, err := s.Env.DeriveAvailabilityZones(context.Background(), s.StartInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zones, gc.DeepEquals, []string{"test-available"})
 }
@@ -115,7 +115,7 @@ func (s *environAZSuite) TestDeriveAvailabilityZonesVolumeNoPlacement(c *gc.C) {
 	s.StartInstArgs.VolumeAttachments = []storage.VolumeAttachmentParams{{
 		VolumeId: "az2--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
 	}}
-	zones, err := s.Env.DeriveAvailabilityZones(s.CallCtx, s.StartInstArgs)
+	zones, err := s.Env.DeriveAvailabilityZones(context.Background(), s.StartInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zones, gc.DeepEquals, []string{"az2"})
 }
@@ -125,14 +125,14 @@ func (s *environAZSuite) TestDeriveAvailabilityZonesUnavailable(c *gc.C) {
 	s.FakeConn.Zones = []google.AvailabilityZone{
 		google.NewZone("test-unavailable", google.StatusDown, "", ""),
 	}
-	zones, err := s.Env.DeriveAvailabilityZones(s.CallCtx, s.StartInstArgs)
+	zones, err := s.Env.DeriveAvailabilityZones(context.Background(), s.StartInstArgs)
 	c.Check(err, gc.ErrorMatches, `.*availability zone "test-unavailable" is DOWN`)
 	c.Assert(zones, gc.HasLen, 0)
 }
 
 func (s *environAZSuite) TestDeriveAvailabilityZonesUnknown(c *gc.C) {
 	s.StartInstArgs.Placement = "zone=test-unknown"
-	zones, err := s.Env.DeriveAvailabilityZones(s.CallCtx, s.StartInstArgs)
+	zones, err := s.Env.DeriveAvailabilityZones(context.Background(), s.StartInstArgs)
 	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown" not found`)
 	c.Assert(zones, gc.HasLen, 0)
 }
@@ -146,7 +146,7 @@ func (s *environAZSuite) TestDeriveAvailabilityZonesConflictsVolume(c *gc.C) {
 	s.StartInstArgs.VolumeAttachments = []storage.VolumeAttachmentParams{{
 		VolumeId: "az2--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
 	}}
-	zones, err := s.Env.DeriveAvailabilityZones(s.CallCtx, s.StartInstArgs)
+	zones, err := s.Env.DeriveAvailabilityZones(context.Background(), s.StartInstArgs)
 	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=az1": cannot create instance in zone "az1", as this will prevent attaching the requested disks in zone "az2"`)
 	c.Assert(zones, gc.HasLen, 0)
 }
@@ -156,7 +156,7 @@ func (s *environAZSuite) TestDeriveAvailabilityZonesVolumeAttachments(c *gc.C) {
 		VolumeId: "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
 	}}
 
-	zones, err := s.Env.DeriveAvailabilityZones(s.CallCtx, s.StartInstArgs)
+	zones, err := s.Env.DeriveAvailabilityZones(context.Background(), s.StartInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zones, gc.DeepEquals, []string{"home-zone"})
 }
@@ -168,6 +168,6 @@ func (s *environAZSuite) TestDeriveAvailabilityZonesVolumeAttachmentsDifferentZo
 		VolumeId: "away-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
 	}}
 
-	_, err := s.Env.DeriveAvailabilityZones(s.CallCtx, s.StartInstArgs)
+	_, err := s.Env.DeriveAvailabilityZones(context.Background(), s.StartInstArgs)
 	c.Assert(err, gc.ErrorMatches, `cannot attach volumes from multiple availability zones: home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4 is in home-zone, away-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4 is in away-zone`)
 }

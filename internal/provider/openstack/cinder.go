@@ -21,7 +21,6 @@ import (
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/storage"
@@ -232,7 +231,7 @@ var _ storage.VolumeSource = (*cinderVolumeSource)(nil)
 
 // CreateVolumes implements storage.VolumeSource.
 func (s *cinderVolumeSource) CreateVolumes(
-	ctx envcontext.ProviderCallContext, args []storage.VolumeParams,
+	ctx context.Context, args []storage.VolumeParams,
 ) ([]storage.CreateVolumesResult, error) {
 	results := make([]storage.CreateVolumesResult, len(args))
 	for i, arg := range args {
@@ -251,7 +250,7 @@ func (s *cinderVolumeSource) CreateVolumes(
 }
 
 func (s *cinderVolumeSource) createVolume(
-	ctx envcontext.ProviderCallContext, arg storage.VolumeParams) (*storage.Volume, error) {
+	ctx context.Context, arg storage.VolumeParams) (*storage.Volume, error) {
 	cinderConfig, err := newCinderConfig(arg.Attributes)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -297,7 +296,7 @@ func (s *cinderVolumeSource) createVolume(
 }
 
 func (s *cinderVolumeSource) availabilityZoneForVolume(
-	ctx envcontext.ProviderCallContext, volName string, attachment *storage.VolumeAttachmentParams,
+	ctx context.Context, volName string, attachment *storage.VolumeAttachmentParams,
 ) (string, error) {
 	// If this volume is being attached to an instance, attempt to provision
 	// the storage in the same availability zone.
@@ -354,7 +353,7 @@ func (s *cinderVolumeSource) availabilityZoneForVolume(
 }
 
 // ListVolumes is specified on the storage.VolumeSource interface.
-func (s *cinderVolumeSource) ListVolumes(ctx envcontext.ProviderCallContext) ([]string, error) {
+func (s *cinderVolumeSource) ListVolumes(ctx context.Context) ([]string, error) {
 	cinderVolumes, err := modelCinderVolumes(s.storageAdaptor, s.modelUUID)
 	if err != nil {
 		return nil, s.credentialInvalidator.HandleCredentialError(ctx, err)
@@ -400,7 +399,7 @@ func volumeInfoToVolumeIds(volumes []storage.VolumeInfo) []string {
 }
 
 // DescribeVolumes implements storage.VolumeSource.
-func (s *cinderVolumeSource) DescribeVolumes(ctx envcontext.ProviderCallContext, volumeIds []string) ([]storage.DescribeVolumesResult, error) {
+func (s *cinderVolumeSource) DescribeVolumes(ctx context.Context, volumeIds []string) ([]storage.DescribeVolumesResult, error) {
 	// In most cases, it is quicker to get all volumes and loop
 	// locally than to make several round-trips to the provider.
 	cinderVolumes, err := s.storageAdaptor.GetVolumesDetail()
@@ -425,12 +424,12 @@ func (s *cinderVolumeSource) DescribeVolumes(ctx envcontext.ProviderCallContext,
 }
 
 // DestroyVolumes implements storage.VolumeSource.
-func (s *cinderVolumeSource) DestroyVolumes(ctx envcontext.ProviderCallContext, volumeIds []string) ([]error, error) {
+func (s *cinderVolumeSource) DestroyVolumes(ctx context.Context, volumeIds []string) ([]error, error) {
 	return foreachVolume(ctx, s.credentialInvalidator, s.storageAdaptor, volumeIds, destroyVolume), nil
 }
 
 // ReleaseVolumes implements storage.VolumeSource.
-func (s *cinderVolumeSource) ReleaseVolumes(ctx envcontext.ProviderCallContext, volumeIds []string) ([]error, error) {
+func (s *cinderVolumeSource) ReleaseVolumes(ctx context.Context, volumeIds []string) ([]error, error) {
 	return foreachVolume(ctx, s.credentialInvalidator, s.storageAdaptor, volumeIds, releaseVolume), nil
 }
 
@@ -538,7 +537,7 @@ func (s *cinderVolumeSource) ValidateVolumeParams(params storage.VolumeParams) e
 }
 
 // AttachVolumes implements storage.VolumeSource.
-func (s *cinderVolumeSource) AttachVolumes(ctx envcontext.ProviderCallContext, args []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
+func (s *cinderVolumeSource) AttachVolumes(ctx context.Context, args []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
 	results := make([]storage.AttachVolumesResult, len(args))
 	for i, arg := range args {
 		attachment, err := s.attachVolume(arg)
@@ -631,7 +630,7 @@ func waitVolume(
 }
 
 // DetachVolumes implements storage.VolumeSource.
-func (s *cinderVolumeSource) DetachVolumes(ctx envcontext.ProviderCallContext, args []storage.VolumeAttachmentParams) ([]error, error) {
+func (s *cinderVolumeSource) DetachVolumes(ctx context.Context, args []storage.VolumeAttachmentParams) ([]error, error) {
 	return detachVolumes(ctx, s.credentialInvalidator, s.storageAdaptor, args), nil
 }
 

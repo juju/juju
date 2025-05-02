@@ -4,10 +4,11 @@
 package instances
 
 import (
+	"context"
+
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/environs/envcontext"
 )
 
 // Instance represents the the realization of a machine in state.
@@ -16,22 +17,22 @@ type Instance interface {
 	Id() instance.Id
 
 	// Status returns the provider-specific status for the instance.
-	Status(envcontext.ProviderCallContext) instance.Status
+	Status(context.Context) instance.Status
 
 	// Addresses returns a list of hostnames or ip addresses
 	// associated with the instance.
-	Addresses(envcontext.ProviderCallContext) (corenetwork.ProviderAddresses, error)
+	Addresses(ctx context.Context) (corenetwork.ProviderAddresses, error)
 }
 
 // InstanceFirewaller provides instance-level firewall functionality
 type InstanceFirewaller interface {
 	// OpenPorts opens the given port ranges on the instance, which
 	// should have been started with the given machine id.
-	OpenPorts(ctx envcontext.ProviderCallContext, machineId string, rules firewall.IngressRules) error
+	OpenPorts(ctx context.Context, machineId string, rules firewall.IngressRules) error
 
 	// ClosePorts closes the given port ranges on the instance, which
 	// should have been started with the given machine id.
-	ClosePorts(ctx envcontext.ProviderCallContext, machineId string, rules firewall.IngressRules) error
+	ClosePorts(ctx context.Context, machineId string, rules firewall.IngressRules) error
 
 	// IngressRules returns the set of ingress rules for the instance,
 	// which should have been applied to the given machine id. The
@@ -39,5 +40,5 @@ type InstanceFirewaller interface {
 	// It is expected that there be only one ingress rule result for a given
 	// port range - the rule's SourceCIDRs will contain all applicable source
 	// address rules for that port range.
-	IngressRules(ctx envcontext.ProviderCallContext, machineId string) (firewall.IngressRules, error)
+	IngressRules(ctx context.Context, machineId string) (firewall.IngressRules, error)
 }

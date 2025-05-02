@@ -15,7 +15,6 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/provider/common/mocks"
 	"github.com/juju/juju/internal/provider/oci"
@@ -51,7 +50,7 @@ func (s *instanceSuite) TestStatus(c *gc.C) {
 	inst, err := oci.NewInstance(*s.ociInstance, s.env)
 	c.Assert(err, gc.IsNil)
 
-	instStatus := inst.Status(envcontext.WithoutCredentialInvalidator(context.Background()))
+	instStatus := inst.Status(context.Background())
 	expectedStatus := instance.Status{
 		Status:  status.Running,
 		Message: strings.ToLower(string(ociCore.InstanceLifecycleStateRunning)),
@@ -65,7 +64,7 @@ func (s *instanceSuite) TestStatus(c *gc.C) {
 	inst, err = oci.NewInstance(*s.ociInstance, s.env)
 	c.Assert(err, gc.IsNil)
 
-	instStatus = inst.Status(envcontext.WithoutCredentialInvalidator(context.Background()))
+	instStatus = inst.Status(context.Background())
 	expectedStatus = instance.Status{
 		Status:  status.Running,
 		Message: strings.ToLower(string(ociCore.InstanceLifecycleStateTerminating)),
@@ -94,7 +93,7 @@ func (s *instanceSuite) TestStatusNilRawInstanceResponse(c *gc.C) {
 	inst, err := oci.NewInstance(*s.ociInstance, s.env)
 	c.Assert(err, gc.IsNil)
 
-	instStatus := inst.Status(envcontext.WithoutCredentialInvalidator(context.Background()))
+	instStatus := inst.Status(context.Background())
 	expectedStatus := instance.Status{
 		Status:  status.Running,
 		Message: strings.ToLower(string(ociCore.InstanceLifecycleStateRunning)),
@@ -150,7 +149,7 @@ func (s *instanceSuite) TestAddresses(c *gc.C) {
 	inst, err := oci.NewInstance(*s.ociInstance, s.env)
 	c.Assert(err, gc.IsNil)
 
-	addresses, err := inst.Addresses(envcontext.WithoutCredentialInvalidator(context.Background()))
+	addresses, err := inst.Addresses(context.Background())
 	c.Assert(err, gc.IsNil)
 	c.Check(addresses, gc.HasLen, 2)
 	c.Check(addresses[0].Scope, gc.Equals, corenetwork.ScopeCloudLocal)
@@ -167,7 +166,7 @@ func (s *instanceSuite) TestAddressesNoPublicIP(c *gc.C) {
 	inst, err := oci.NewInstance(*s.ociInstance, s.env)
 	c.Assert(err, gc.IsNil)
 
-	addresses, err := inst.Addresses(envcontext.WithoutCredentialInvalidator(context.Background()))
+	addresses, err := inst.Addresses(context.Background())
 	c.Assert(err, gc.IsNil)
 	c.Check(addresses, gc.HasLen, 2)
 	c.Check(addresses[0].Scope, gc.Equals, corenetwork.ScopeCloudLocal)
@@ -199,5 +198,5 @@ func (s *instanceSuite) TestInstanceConfiguratorUsesPublicAddress(c *gc.C) {
 
 	inst, err := oci.NewInstanceWithConfigurator(*s.ociInstance, s.env, factory)
 	c.Assert(err, gc.IsNil)
-	c.Assert(inst.OpenPorts(envcontext.WithoutCredentialInvalidator(context.Background()), "", rules), gc.IsNil)
+	c.Assert(inst.OpenPorts(context.Background(), "", rules), gc.IsNil)
 }

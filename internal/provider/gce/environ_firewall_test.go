@@ -4,6 +4,8 @@
 package gce_test
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -26,20 +28,20 @@ func (s *environFirewallSuite) TestGlobalFirewallName(c *gc.C) {
 func (s *environFirewallSuite) TestOpenPortsInvalidCredentialError(c *gc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
-	err := s.Env.OpenPorts(s.CallCtx, s.Rules)
+	err := s.Env.OpenPorts(context.Background(), s.Rules)
 	c.Check(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
 
 func (s *environFirewallSuite) TestOpenPorts(c *gc.C) {
-	err := s.Env.OpenPorts(s.CallCtx, s.Rules)
+	err := s.Env.OpenPorts(context.Background(), s.Rules)
 
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *environFirewallSuite) TestOpenPortsAPI(c *gc.C) {
 	fwname := gce.GlobalFirewallName(s.Env)
-	err := s.Env.OpenPorts(s.CallCtx, s.Rules)
+	err := s.Env.OpenPorts(context.Background(), s.Rules)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
@@ -49,7 +51,7 @@ func (s *environFirewallSuite) TestOpenPortsAPI(c *gc.C) {
 }
 
 func (s *environFirewallSuite) TestClosePorts(c *gc.C) {
-	err := s.Env.ClosePorts(s.CallCtx, s.Rules)
+	err := s.Env.ClosePorts(context.Background(), s.Rules)
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -57,14 +59,14 @@ func (s *environFirewallSuite) TestClosePorts(c *gc.C) {
 func (s *environFirewallSuite) TestClosePortsInvalidCredentialError(c *gc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
-	err := s.Env.ClosePorts(s.CallCtx, s.Rules)
+	err := s.Env.ClosePorts(context.Background(), s.Rules)
 	c.Check(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
 
 func (s *environFirewallSuite) TestClosePortsAPI(c *gc.C) {
 	fwname := gce.GlobalFirewallName(s.Env)
-	err := s.Env.ClosePorts(s.CallCtx, s.Rules)
+	err := s.Env.ClosePorts(context.Background(), s.Rules)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
@@ -76,7 +78,7 @@ func (s *environFirewallSuite) TestClosePortsAPI(c *gc.C) {
 func (s *environFirewallSuite) TestPorts(c *gc.C) {
 	s.FakeConn.Rules = s.Rules
 
-	ports, err := s.Env.IngressRules(s.CallCtx)
+	ports, err := s.Env.IngressRules(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(ports, jc.DeepEquals, s.Rules)
@@ -85,14 +87,14 @@ func (s *environFirewallSuite) TestPorts(c *gc.C) {
 func (s *environFirewallSuite) TestIngressRulesInvalidCredentialError(c *gc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
-	_, err := s.Env.IngressRules(s.CallCtx)
+	_, err := s.Env.IngressRules(context.Background())
 	c.Check(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
 
 func (s *environFirewallSuite) TestPortsAPI(c *gc.C) {
 	fwname := gce.GlobalFirewallName(s.Env)
-	_, err := s.Env.IngressRules(s.CallCtx)
+	_, err := s.Env.IngressRules(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)

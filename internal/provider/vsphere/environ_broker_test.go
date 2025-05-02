@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/provider/vsphere"
@@ -129,7 +128,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstance(c *gc.C) {
 		"k1": "v1",
 	}
 
-	result, err := s.env.StartInstance(s.callCtx, startInstArgs)
+	result, err := s.env.StartInstance(context.Background(), startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 	c.Assert(result.Instance, gc.NotNil)
@@ -186,7 +185,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceNetwork(c *gc.C) {
 	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := env.StartInstance(s.callCtx, s.createStartInstanceArgs(c))
+	result, err := env.StartInstance(context.Background(), s.createStartInstanceArgs(c))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 
@@ -206,7 +205,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningMissingModel
 	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := env.StartInstance(s.callCtx, s.createStartInstanceArgs(c))
+	result, err := env.StartInstance(context.Background(), s.createStartInstanceArgs(c))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 
@@ -225,7 +224,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningDefaultOptio
 	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := env.StartInstance(s.callCtx, s.createStartInstanceArgs(c))
+	result, err := env.StartInstance(context.Background(), s.createStartInstanceArgs(c))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 
@@ -244,7 +243,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningThinDisk(c *
 	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := env.StartInstance(s.callCtx, s.createStartInstanceArgs(c))
+	result, err := env.StartInstance(context.Background(), s.createStartInstanceArgs(c))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 
@@ -263,7 +262,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningThickDisk(c 
 	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := env.StartInstance(s.callCtx, s.createStartInstanceArgs(c))
+	result, err := env.StartInstance(context.Background(), s.createStartInstanceArgs(c))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 
@@ -282,7 +281,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningThickEagerZe
 	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := env.StartInstance(s.callCtx, s.createStartInstanceArgs(c))
+	result, err := env.StartInstance(context.Background(), s.createStartInstanceArgs(c))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 
@@ -301,7 +300,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceLongModelName(c *gc.C) {
 	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 	startInstArgs := s.createStartInstanceArgs(c)
-	_, err = env.StartInstance(s.callCtx, startInstArgs)
+	_, err = env.StartInstance(context.Background(), startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	call := s.client.Calls()[8]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
@@ -323,7 +322,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskUUIDDisabled(c *gc.C) {
 	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := env.StartInstance(s.callCtx, s.createStartInstanceArgs(c))
+	result, err := env.StartInstance(context.Background(), s.createStartInstanceArgs(c))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 
@@ -335,7 +334,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskUUIDDisabled(c *gc.C) {
 func (s *legacyEnvironBrokerSuite) TestStartInstanceWithUnsupportedConstraints(c *gc.C) {
 	startInstArgs := s.createStartInstanceArgs(c)
 	startInstArgs.Tools[0].Version.Arch = "someArch"
-	_, err := s.env.StartInstance(s.callCtx, startInstArgs)
+	_, err := s.env.StartInstance(context.Background(), startInstArgs)
 	c.Assert(err, gc.ErrorMatches, "no matching images found for given constraints: .*")
 	c.Assert(err, jc.ErrorIs, environs.ErrAvailabilityZoneIndependent)
 }
@@ -350,7 +349,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c 
 	c.Assert(err, jc.ErrorIsNil)
 
 	startInstArgs := s.createStartInstanceArgs(c)
-	res, err := s.env.StartInstance(s.callCtx, startInstArgs)
+	res, err := s.env.StartInstance(context.Background(), startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var (
@@ -380,7 +379,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceCustomConstraintsApplied(c *
 	startInstArgs.Constraints.RootDisk = &rootDisk
 	startInstArgs.Constraints.RootDiskSource = &source
 
-	res, err := s.env.StartInstance(s.callCtx, startInstArgs)
+	res, err := s.env.StartInstance(context.Background(), startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	defaultArch := arch.DefaultArchitecture
@@ -399,7 +398,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceCallsFinishMachineConfig(c *
 	s.PatchValue(&vsphere.FinishInstanceConfig, func(mcfg *instancecfg.InstanceConfig, cfg *config.Config) (err error) {
 		return errors.New("FinishMachineConfig called")
 	})
-	_, err := s.env.StartInstance(s.callCtx, startInstArgs)
+	_, err := s.env.StartInstance(context.Background(), startInstArgs)
 	c.Assert(err, gc.ErrorMatches, "FinishMachineConfig called")
 }
 
@@ -407,7 +406,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDefaultDiskSizeIsUsedForSmal
 	startInstArgs := s.createStartInstanceArgs(c)
 	rootDisk := uint64(1000)
 	startInstArgs.Constraints.RootDisk = &rootDisk
-	res, err := s.env.StartInstance(s.callCtx, startInstArgs)
+	res, err := s.env.StartInstance(context.Background(), startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*res.Hardware.RootDisk, gc.Equals, common.MinRootDiskSizeGiB(ostype.Ubuntu)*uint64(1024))
 }
@@ -415,7 +414,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDefaultDiskSizeIsUsedForSmal
 func (s *legacyEnvironBrokerSuite) TestStartInstanceSelectZone(c *gc.C) {
 	startInstArgs := s.createStartInstanceArgs(c)
 	startInstArgs.AvailabilityZone = "z2"
-	_, err := s.env.StartInstance(s.callCtx, startInstArgs)
+	_, err := s.env.StartInstance(context.Background(), startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.client.CheckCallNames(c, "Folders", "ComputeResources", "ResourcePools", "ResourcePools", "GetTargetDatastore", "ListVMTemplates", "EnsureVMFolder", "CreateTemplateVM", "CreateVirtualMachine", "Close")
@@ -431,7 +430,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceSelectZone(c *gc.C) {
 func (s *legacyEnvironBrokerSuite) TestStartInstanceFailsWithAvailabilityZone(c *gc.C) {
 	s.client.SetErrors(nil, nil, nil, nil, errors.New("nope"))
 	startInstArgs := s.createStartInstanceArgs(c)
-	_, err := s.env.StartInstance(s.callCtx, startInstArgs)
+	_, err := s.env.StartInstance(context.Background(), startInstArgs)
 	c.Assert(err, gc.Not(jc.ErrorIs), environs.ErrAvailabilityZoneIndependent)
 
 	s.client.CheckCallNames(c, "Folders", "ComputeResources", "ResourcePools", "ResourcePools", "GetTargetDatastore", "Close")
@@ -449,7 +448,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDatastoreDefault(c *gc.C) {
 	err = s.env.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.env.StartInstance(s.callCtx, s.createStartInstanceArgs(c))
+	_, err = s.env.StartInstance(context.Background(), s.createStartInstanceArgs(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	call := s.client.Calls()[4]
@@ -469,7 +468,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceRootDiskSource(c *gc.C) {
 	args := s.createStartInstanceArgs(c)
 	datastore := "zebras"
 	args.Constraints.RootDiskSource = &datastore
-	result, err := s.env.StartInstance(s.callCtx, args)
+	result, err := s.env.StartInstance(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*result.Hardware.RootDiskSource, gc.Equals, "zebras")
 
@@ -483,7 +482,6 @@ type environBrokerSuite struct {
 
 	mockClient *mocks.MockClient
 	provider   environs.CloudEnvironProvider
-	callCtx    envcontext.ProviderCallContext
 	env        environs.Environ
 
 	imageServerURL string
@@ -494,7 +492,6 @@ var _ = gc.Suite(&environBrokerSuite{})
 func (s *environBrokerSuite) setUpClient(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 	s.mockClient = mocks.NewMockClient(ctrl)
 	s.provider = vsphere.NewEnvironProvider(vsphere.EnvironProviderConfig{
 		Dial: func(_ context.Context, _ *url.URL, _ string) (vsphere.Client, error) {
@@ -524,7 +521,7 @@ func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 		Return(nil)
 	s.mockClient.EXPECT().Close(gomock.Any()).Return(nil)
 
-	err := s.env.StopInstances(s.callCtx, "vm-0", "vm-1")
+	err := s.env.StopInstances(context.Background(), "vm-0", "vm-1")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -543,7 +540,7 @@ func (s *environBrokerSuite) TestStopInstancesOneFailure(c *gc.C) {
 		After(failedRemoveVM.Call).Return(nil, nil) // only do find folder check if the RemoveVirtualMachines failed.
 	s.mockClient.EXPECT().Close(gomock.Any()).Return(nil)
 
-	err := s.env.StopInstances(s.callCtx, "vm-0", "vm-1")
+	err := s.env.StopInstances(context.Background(), "vm-0", "vm-1")
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("failed to stop instance %s: bah", "vm-0"))
 }
 
@@ -568,7 +565,7 @@ func (s *environBrokerSuite) TestStopInstancesMultipleFailures(c *gc.C) {
 		After(failedRemoveVM2.Call).Return(nil, nil)
 	s.mockClient.EXPECT().Close(gomock.Any()).Return(nil)
 
-	err := s.env.StopInstances(s.callCtx, "vm-0", "vm-1")
+	err := s.env.StopInstances(context.Background(), "vm-0", "vm-1")
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
 		`failed to stop instances \[vm-0 vm-1\]: \[%s %s\]`,
 		err1, err2,
@@ -580,27 +577,27 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceLoginErrorInvalidatesCreds(c
 		Code:   "ServerFaultCode",
 		String: "You passed an incorrect user name or password, bucko.",
 	}))
-	_, err := s.env.StartInstance(s.callCtx, s.createStartInstanceArgs(c))
+	_, err := s.env.StartInstance(context.Background(), s.createStartInstanceArgs(c))
 	c.Assert(err, gc.ErrorMatches, "dialing client: ServerFaultCode: You passed an incorrect user name or password, bucko.")
 	c.Assert(s.client.invalidReason, gc.Equals, "cloud denied access: ServerFaultCode: You passed an incorrect user name or password, bucko.")
 }
 
 func (s *legacyEnvironBrokerSuite) TestStartInstancePermissionError(c *gc.C) {
-	AssertInvalidatesCredential(c, s.client, func(ctx envcontext.ProviderCallContext) error {
+	AssertInvalidatesCredential(c, s.client, func(ctx context.Context) error {
 		_, err := s.env.StartInstance(ctx, s.createStartInstanceArgs(c))
 		return err
 	})
 }
 
 func (s *legacyEnvironBrokerSuite) TestStopInstancesPermissionError(c *gc.C) {
-	AssertInvalidatesCredential(c, s.client, func(ctx envcontext.ProviderCallContext) error {
+	AssertInvalidatesCredential(c, s.client, func(ctx context.Context) error {
 		return s.env.StopInstances(ctx, "vm-0")
 	})
 }
 
 func (s *legacyEnvironBrokerSuite) TestStartInstanceNoDatastoreSetting(c *gc.C) {
 	startInstArgs := s.createStartInstanceArgs(c)
-	res, err := s.env.StartInstance(s.callCtx, startInstArgs)
+	res, err := s.env.StartInstance(context.Background(), startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.client.CheckCallNames(c, "Folders", "ComputeResources", "ResourcePools", "ResourcePools", "GetTargetDatastore", "ListVMTemplates", "EnsureVMFolder", "CreateTemplateVM", "CreateVirtualMachine", "Close")
@@ -644,7 +641,7 @@ func (s *legacyEnvironBrokerSuite) TestNotBootstrapping(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	startInstArgs.InstanceConfig = nonBootstrapInstance
 
-	result, err := s.env.StartInstance(s.callCtx, startInstArgs)
+	result, err := s.env.StartInstance(context.Background(), startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 	c.Assert(result.Instance, gc.NotNil)

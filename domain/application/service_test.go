@@ -33,7 +33,6 @@ import (
 	domainsecret "github.com/juju/juju/domain/secret"
 	secretstate "github.com/juju/juju/domain/secret/state"
 	domaintesting "github.com/juju/juju/domain/testing"
-	"github.com/juju/juju/environs/envcontext"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -726,6 +725,6 @@ type serviceProvider struct {
 	service.SupportedFeatureProvider
 }
 
-func (serviceProvider) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {
+func (serviceProvider) ConstraintsValidator(ctx context.Context) (constraints.Validator, error) {
 	return nil, nil
 }

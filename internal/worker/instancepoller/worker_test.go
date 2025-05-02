@@ -71,11 +71,10 @@ func (s *configSuite) TestConfigValidation(c *gc.C) {
 	defer ctrl.Finish()
 
 	origCfg := Config{
-		Clock:         testclock.NewClock(time.Now()),
-		Facade:        newMockFacadeAPI(ctrl, nil),
-		Environ:       mocks.NewMockEnviron(ctrl),
-		Logger:        loggertesting.WrapCheckLog(c),
-		CredentialAPI: mocks.NewMockCredentialAPI(ctrl),
+		Clock:   testclock.NewClock(time.Now()),
+		Facade:  newMockFacadeAPI(ctrl, nil),
+		Environ: mocks.NewMockEnviron(ctrl),
+		Logger:  loggertesting.WrapCheckLog(c),
 	}
 	c.Assert(origCfg.Validate(), jc.ErrorIsNil)
 
@@ -94,10 +93,6 @@ func (s *configSuite) TestConfigValidation(c *gc.C) {
 	testCfg = origCfg
 	testCfg.Logger = nil
 	c.Assert(testCfg.Validate(), gc.ErrorMatches, "nil Logger.*")
-
-	testCfg = origCfg
-	testCfg.CredentialAPI = nil
-	c.Assert(testCfg.Validate(), gc.ErrorMatches, "nil CredentialAPI.*")
 }
 
 type pollGroupEntrySuite struct{}
@@ -625,11 +620,10 @@ func (s *workerSuite) startWorker(c *gc.C, ctrl *gomock.Controller) (worker.Work
 	}
 
 	w, err := NewWorker(Config{
-		Clock:         mocked.clock,
-		Facade:        mocked.facadeAPI,
-		Environ:       mocked.environ,
-		CredentialAPI: mocks.NewMockCredentialAPI(ctrl),
-		Logger:        loggertesting.WrapCheckLog(c),
+		Clock:   mocked.clock,
+		Facade:  mocked.facadeAPI,
+		Environ: mocked.environ,
+		Logger:  loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	providercommon "github.com/juju/juju/internal/provider/common"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -416,7 +415,7 @@ type StubNetworkingEnviron struct {
 var _ environs.NetworkingEnviron = (*StubNetworkingEnviron)(nil)
 
 func (se *StubNetworkingEnviron) Subnets(
-	ctx envcontext.ProviderCallContext, subIds []network.Id,
+	ctx context.Context, subIds []network.Id,
 ) ([]network.SubnetInfo, error) {
 	se.MethodCall(se, "Subnets", ctx, subIds)
 	if err := se.NextErr(); err != nil {
@@ -454,7 +453,7 @@ func (se *StubZonedNetworkingEnviron) GoString() string {
 	return "&StubZonedNetworkingEnviron{}"
 }
 
-func (se *StubZonedNetworkingEnviron) SupportsSpaces(ctx envcontext.ProviderCallContext) (bool, error) {
+func (se *StubZonedNetworkingEnviron) SupportsSpaces(ctx context.Context) (bool, error) {
 	se.MethodCall(se, "SupportsSpaces", ctx)
 	if err := se.NextErr(); err != nil {
 		return false, err
@@ -462,7 +461,7 @@ func (se *StubZonedNetworkingEnviron) SupportsSpaces(ctx envcontext.ProviderCall
 	return true, nil
 }
 
-func (se *StubZonedNetworkingEnviron) SupportsSpaceDiscovery(ctx envcontext.ProviderCallContext) (bool, error) {
+func (se *StubZonedNetworkingEnviron) SupportsSpaceDiscovery(ctx context.Context) (bool, error) {
 	se.MethodCall(se, "SupportsSpaceDiscovery", ctx)
 	if err := se.NextErr(); err != nil {
 		return false, err
@@ -471,7 +470,7 @@ func (se *StubZonedNetworkingEnviron) SupportsSpaceDiscovery(ctx envcontext.Prov
 }
 
 func (se *StubZonedNetworkingEnviron) Subnets(
-	ctx envcontext.ProviderCallContext, instId instance.Id, subIds []network.Id,
+	ctx context.Context, instId instance.Id, subIds []network.Id,
 ) ([]network.SubnetInfo, error) {
 	se.MethodCall(se, "Subnets", ctx, instId, subIds)
 	if err := se.NextErr(); err != nil {

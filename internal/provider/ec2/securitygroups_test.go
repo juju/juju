@@ -17,7 +17,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/provider/ec2"
 	coretesting "github.com/juju/juju/internal/testing"
 )
@@ -25,9 +24,8 @@ import (
 type SecurityGroupSuite struct {
 	coretesting.BaseSuite
 
-	clientStub   *stubClient
-	deleteFunc   func(context.Context, ec2.SecurityGroupCleaner, types.GroupIdentifier, clock.Clock) error
-	cloudCallCtx envcontext.ProviderCallContext
+	clientStub *stubClient
+	deleteFunc func(context.Context, ec2.SecurityGroupCleaner, types.GroupIdentifier, clock.Clock) error
 }
 
 var _ = gc.Suite(&SecurityGroupSuite{})
@@ -45,7 +43,6 @@ func (s *SecurityGroupSuite) SetUpTest(c *gc.C) {
 			return nil, nil
 		},
 	}
-	s.cloudCallCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
 func (s *SecurityGroupSuite) TestDeleteSecurityGroupSuccess(c *gc.C) {

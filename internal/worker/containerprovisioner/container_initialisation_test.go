@@ -122,7 +122,6 @@ func (s *containerSetupSuite) setUpContainerSetup(c *gc.C, containerType instanc
 		Provisioner:   pState,
 		Config:        cfg,
 		MachineLock:   s.machineLock,
-		CredentialAPI: &credentialAPIForTest{},
 		GetNetConfig: func(_ network.ConfigSource) (network.InterfaceInfos, error) {
 			return nil, nil
 		},
@@ -159,12 +158,6 @@ func (s *containerSetupSuite) expectContainerManagerConfig(cType instance.Contai
 		gomock.Any(),
 		"Provisioner", 666, "", "ContainerManagerConfig", params.ContainerManagerConfigParams{Type: cType}, gomock.Any(),
 	).SetArg(6, resultSource).MinTimes(1)
-}
-
-type credentialAPIForTest struct{}
-
-func (*credentialAPIForTest) InvalidateModelCredential(_ context.Context, reason string) error {
-	return nil
 }
 
 type fakeMachineLock struct {

@@ -4,6 +4,7 @@
 package lxd
 
 import (
+	"context"
 	"fmt"
 
 	lxd "github.com/canonical/lxd/client"
@@ -14,7 +15,6 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 )
 
@@ -34,12 +34,12 @@ func (*lxdInstance) Refresh() error {
 	return nil
 }
 
-func (lxd *lxdInstance) Addresses(ctx envcontext.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
+func (lxd *lxdInstance) Addresses(ctx context.Context) (corenetwork.ProviderAddresses, error) {
 	return nil, errors.NotImplementedf("lxdInstance.Addresses")
 }
 
 // Status implements instances.Instance.Status.
-func (lxd *lxdInstance) Status(ctx envcontext.ProviderCallContext) instance.Status {
+func (lxd *lxdInstance) Status(ctx context.Context) instance.Status {
 	instStatus, _, err := lxd.server.GetInstanceState(lxd.id)
 	if err != nil {
 		return instance.Status{
@@ -65,17 +65,17 @@ func (lxd *lxdInstance) Status(ctx envcontext.ProviderCallContext) instance.Stat
 }
 
 // OpenPorts implements instances.Instance.OpenPorts.
-func (lxd *lxdInstance) OpenPorts(ctx envcontext.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
+func (lxd *lxdInstance) OpenPorts(ctx context.Context, machineId string, rules firewall.IngressRules) error {
 	return fmt.Errorf("not implemented")
 }
 
 // ClosePorts implements instances.Instance.ClosePorts.
-func (lxd *lxdInstance) ClosePorts(ctx envcontext.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
+func (lxd *lxdInstance) ClosePorts(ctx context.Context, machineId string, rules firewall.IngressRules) error {
 	return fmt.Errorf("not implemented")
 }
 
 // IngressRules implements instances.Instance.IngressRules.
-func (lxd *lxdInstance) IngressRules(ctx envcontext.ProviderCallContext, machineId string) (firewall.IngressRules, error) {
+func (lxd *lxdInstance) IngressRules(ctx context.Context, machineId string) (firewall.IngressRules, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

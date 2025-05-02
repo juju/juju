@@ -38,7 +38,6 @@ import (
 	controllerdomain "github.com/juju/juju/domain/controller"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/cloudconfig"
@@ -386,17 +385,16 @@ func getAddressesForMongo(
 		return network.NewMachineAddresses([]string{"localhost"}).AsProviderAddresses(), nil
 	}
 
-	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
 	instanceLister, ok := env.(environs.InstanceLister)
 	if !ok {
 		// this should never happened.
 		return nil, errors.NotValidf("InstanceLister missing for IAAS controller provider")
 	}
-	instances, err := instanceLister.Instances(callCtx, []instance.Id{args.BootstrapMachineInstanceId})
+	instances, err := instanceLister.Instances(ctx, []instance.Id{args.BootstrapMachineInstanceId})
 	if err != nil {
 		return nil, errors.Annotate(err, "getting bootstrap instance")
 	}
-	addrs, err := instances[0].Addresses(callCtx)
+	addrs, err := instances[0].Addresses(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting bootstrap instance addresses")
 	}

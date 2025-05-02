@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -126,21 +125,14 @@ endpoint: http://foo.com/openstack
 
 type MaasPingSuite struct {
 	testing.BaseSuite
-
-	callCtx envcontext.ProviderCallContext
 }
 
 var _ = gc.Suite(&MaasPingSuite{})
 
-func (s *MaasPingSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
-}
-
 func (s *MaasPingSuite) TestPingNoEndpoint(c *gc.C) {
 	endpoint := "https://foo.com/MAAS"
 	var serverURLs []string
-	err := ping(c, s.callCtx, endpoint,
+	err := ping(c, endpoint,
 		func(ctx context.Context, client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
 			serverURLs = append(serverURLs, client.URL().String())
 			c.Assert(serverURL, gc.Equals, endpoint)
@@ -156,7 +148,7 @@ func (s *MaasPingSuite) TestPingNoEndpoint(c *gc.C) {
 func (s *MaasPingSuite) TestPingOK(c *gc.C) {
 	endpoint := "https://foo.com/MAAS"
 	var serverURLs []string
-	err := ping(c, s.callCtx, endpoint,
+	err := ping(c, endpoint,
 		func(ctx context.Context, client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
 			serverURLs = append(serverURLs, client.URL().String())
 			c.Assert(serverURL, gc.Equals, endpoint)
@@ -172,7 +164,7 @@ func (s *MaasPingSuite) TestPingOK(c *gc.C) {
 func (s *MaasPingSuite) TestPingVersionURLOK(c *gc.C) {
 	endpoint := "https://foo.com/MAAS/api/10.1/"
 	var serverURLs []string
-	err := ping(c, s.callCtx, endpoint,
+	err := ping(c, endpoint,
 		func(ctx context.Context, client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
 			serverURLs = append(serverURLs, client.URL().String())
 			c.Assert(serverURL, gc.Equals, "https://foo.com/MAAS/")
@@ -188,7 +180,7 @@ func (s *MaasPingSuite) TestPingVersionURLOK(c *gc.C) {
 func (s *MaasPingSuite) TestPingVersionURLBad(c *gc.C) {
 	endpoint := "https://foo.com/MAAS/api/10.1/"
 	var serverURLs []string
-	err := ping(c, s.callCtx, endpoint,
+	err := ping(c, endpoint,
 		func(ctx context.Context, client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
 			serverURLs = append(serverURLs, client.URL().String())
 			c.Assert(serverURL, gc.Equals, "https://foo.com/MAAS/")
@@ -201,11 +193,11 @@ func (s *MaasPingSuite) TestPingVersionURLBad(c *gc.C) {
 	})
 }
 
-func ping(c *gc.C, callCtx envcontext.ProviderCallContext, endpoint string, getCapabilities Capabilities) error {
+func ping(c *gc.C, endpoint string, getCapabilities Capabilities) error {
 	p, err := environs.Provider("maas")
 	c.Assert(err, jc.ErrorIsNil)
 	m, ok := p.(EnvironProvider)
 	c.Assert(ok, jc.IsTrue)
 	m.GetCapabilities = getCapabilities
-	return m.Ping(callCtx, endpoint)
+	return m.Ping(context.Background(), endpoint)
 }

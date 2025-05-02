@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/undertaker"
 	"github.com/juju/juju/rpc/params"
@@ -107,7 +106,7 @@ type mockDestroyer struct {
 	stub *testing.Stub
 }
 
-func (mock *mockDestroyer) Destroy(ctx envcontext.ProviderCallContext) error {
+func (mock *mockDestroyer) Destroy(ctx context.Context) error {
 	mock.stub.AddCall("Destroy", ctx)
 	// A small delay to allow any timeout to expire.
 	time.Sleep(100 * time.Millisecond)
@@ -151,10 +150,9 @@ func (fix *fixture) run(c *gc.C, test func(worker.Worker)) *testing.Stub {
 	facade.modelChanges <- struct{}{}
 	stub.SetErrors(fix.errors...)
 	w, err := undertaker.NewUndertaker(undertaker.Config{
-		Facade:        facade,
-		CredentialAPI: &fakeCredentialAPI{},
-		Logger:        loggertesting.WrapCheckLog(c),
-		Clock:         fix.clock,
+		Facade: facade,
+		Logger: loggertesting.WrapCheckLog(c),
+		Clock:  fix.clock,
 		NewCloudDestroyerFunc: func(ctx context.Context, op environs.OpenParams, _ environs.CredentialInvalidator) (environs.CloudDestroyer, error) {
 			return &mockDestroyer{stub: stub}, nil
 		},

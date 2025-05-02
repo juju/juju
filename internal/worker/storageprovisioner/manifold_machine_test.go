@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/model"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
 	"github.com/juju/juju/rpc/params"
 )
@@ -46,11 +45,10 @@ func (s *MachineManifoldSuite) SetUpTest(c *gc.C) {
 	)
 	config := enginetest.AgentAPIManifoldTestConfig()
 	s.config = storageprovisioner.MachineManifoldConfig{
-		AgentName:                    config.AgentName,
-		APICallerName:                config.APICallerName,
-		Clock:                        testclock.NewClock(defaultClockStart),
-		Logger:                       loggertesting.WrapCheckLog(c),
-		NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
+		AgentName:     config.AgentName,
+		APICallerName: config.APICallerName,
+		Clock:         testclock.NewClock(defaultClockStart),
+		Logger:        loggertesting.WrapCheckLog(c),
 	}
 }
 

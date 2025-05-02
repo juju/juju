@@ -4,20 +4,20 @@
 package common
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 )
 
 // Destroy is a common implementation of the Destroy method defined on
 // environs.Environ; we strongly recommend that this implementation be
 // used when writing a new provider.
-func Destroy(env environs.Environ, ctx envcontext.ProviderCallContext) error {
+func Destroy(env environs.Environ, ctx context.Context) error {
 	logger.Infof(ctx, "destroying model %q", env.Config().Name())
 	if err := destroyInstances(env, ctx); err != nil {
 		return errors.Annotate(err, "destroying instances")
@@ -28,7 +28,7 @@ func Destroy(env environs.Environ, ctx envcontext.ProviderCallContext) error {
 	return nil
 }
 
-func destroyInstances(env environs.Environ, ctx envcontext.ProviderCallContext) error {
+func destroyInstances(env environs.Environ, ctx context.Context) error {
 	logger.Infof(ctx, "destroying instances")
 	instances, err := env.AllInstances(ctx)
 	switch err {
@@ -52,7 +52,7 @@ func destroyInstances(env environs.Environ, ctx envcontext.ProviderCallContext) 
 // to destroy persistent storage. Trying to include it in the storage
 // source abstraction doesn't work well with dynamic, non-persistent
 // storage like tmpfs, rootfs, etc.
-func destroyStorage(env environs.Environ, ctx envcontext.ProviderCallContext) error {
+func destroyStorage(env environs.Environ, ctx context.Context) error {
 	logger.Infof(ctx, "destroying storage")
 	storageProviderTypes, err := env.StorageProviderTypes()
 	if err != nil {
@@ -90,7 +90,7 @@ func destroyStorage(env environs.Environ, ctx envcontext.ProviderCallContext) er
 	return nil
 }
 
-func destroyVolumes(volumeSource storage.VolumeSource, ctx envcontext.ProviderCallContext) error {
+func destroyVolumes(volumeSource storage.VolumeSource, ctx context.Context) error {
 	volumeIds, err := volumeSource.ListVolumes(ctx)
 	if err != nil {
 		return errors.Annotate(err, "listing volumes")

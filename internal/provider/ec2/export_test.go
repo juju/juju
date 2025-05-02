@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	jujustorage "github.com/juju/juju/internal/storage"
 )
@@ -39,18 +38,18 @@ func InstanceSDKEC2(inst instances.Instance) types.Instance {
 }
 
 func TerminatedInstances(e environs.Environ) ([]instances.Instance, error) {
-	return e.(*environ).allInstancesByState(envcontext.WithoutCredentialInvalidator(context.Background()), "shutting-down", "terminated")
+	return e.(*environ).allInstancesByState(context.Background(), "shutting-down", "terminated")
 }
 
-func InstanceSecurityGroups(e environs.Environ, ctx envcontext.ProviderCallContext, ids []instance.Id, states ...string) ([]types.GroupIdentifier, error) {
+func InstanceSecurityGroups(e environs.Environ, ctx context.Context, ids []instance.Id, states ...string) ([]types.GroupIdentifier, error) {
 	return e.(*environ).instanceSecurityGroups(ctx, ids, states...)
 }
 
-func AllModelVolumes(e environs.Environ, ctx envcontext.ProviderCallContext) ([]string, error) {
+func AllModelVolumes(e environs.Environ, ctx context.Context) ([]string, error) {
 	return e.(*environ).allModelVolumes(ctx, true)
 }
 
-func AllModelGroups(e environs.Environ, ctx envcontext.ProviderCallContext) ([]string, error) {
+func AllModelGroups(e environs.Environ, ctx context.Context) ([]string, error) {
 	groups, err := e.(*environ).modelSecurityGroups(ctx)
 	if err != nil {
 		return nil, err

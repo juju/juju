@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/internal/storage"
@@ -261,7 +260,7 @@ func (*Suite) TestSupportsSpaceDiscovery(c *gc.C) {
 }
 
 func (*Suite) TestSupportsContainerAddresses(c *gc.C) {
-	callCtx := envcontext.WithoutCredentialInvalidator(context.Background())
+	callCtx := context.Background()
 	env := new(environ)
 	supported, err := env.SupportsContainerAddresses(callCtx)
 	c.Assert(err, jc.ErrorIsNil)

@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/environs"
 	environscmd "github.com/juju/juju/environs/cmd"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -30,7 +29,6 @@ func DisableFinishBootstrap() func() {
 		environs.BootstrapContext,
 		ssh.Client,
 		environs.Environ,
-		envcontext.ProviderCallContext,
 		instances.Instance,
 		*instancecfg.InstanceConfig,
 		environs.BootstrapDialOpts,

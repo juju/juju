@@ -4,6 +4,7 @@
 package gce
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -14,7 +15,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 )
 
@@ -23,7 +23,7 @@ type networkMap map[string]*compute.Network
 
 // Subnets implements environs.NetworkingEnviron.
 func (e *environ) Subnets(
-	ctx envcontext.ProviderCallContext, subnetIds []corenetwork.Id,
+	ctx context.Context, subnetIds []corenetwork.Id,
 ) ([]corenetwork.SubnetInfo, error) {
 	// In GCE all the subnets are in all AZs.
 	zones, err := e.zoneNames(ctx)
@@ -44,7 +44,7 @@ func (e *environ) Subnets(
 	return results, nil
 }
 
-func (e *environ) zoneNames(ctx envcontext.ProviderCallContext) ([]string, error) {
+func (e *environ) zoneNames(ctx context.Context) ([]string, error) {
 	zones, err := e.AvailabilityZones(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -56,7 +56,7 @@ func (e *environ) zoneNames(ctx envcontext.ProviderCallContext) ([]string, error
 	return names, nil
 }
 
-func (e *environ) networksByURL(ctx envcontext.ProviderCallContext) (networkMap, error) {
+func (e *environ) networksByURL(ctx context.Context) (networkMap, error) {
 	networks, err := e.gce.Networks()
 	if err != nil {
 		return nil, e.HandleCredentialError(ctx, err)
@@ -69,7 +69,7 @@ func (e *environ) networksByURL(ctx envcontext.ProviderCallContext) (networkMap,
 }
 
 func (e *environ) getMatchingSubnets(
-	ctx envcontext.ProviderCallContext, subnetIds IncludeSet, zones []string,
+	ctx context.Context, subnetIds IncludeSet, zones []string,
 ) ([]corenetwork.SubnetInfo, error) {
 	allSubnets, err := e.gce.Subnetworks(e.cloud.Region)
 	if err != nil {
@@ -109,7 +109,7 @@ func (e *environ) getMatchingSubnets(
 }
 
 // NetworkInterfaces implements environs.NetworkingEnviron.
-func (e *environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]corenetwork.InterfaceInfos, error) {
+func (e *environ) NetworkInterfaces(ctx context.Context, ids []instance.Id) ([]corenetwork.InterfaceInfos, error) {
 	if len(ids) == 0 {
 		return nil, environs.ErrNoInstances
 	}
@@ -259,7 +259,7 @@ func findNetworkDetails(iface compute.NetworkInterface, subnets subnetMap, netwo
 	return result, nil
 }
 
-func (e *environ) subnetsByURL(ctx envcontext.ProviderCallContext, urls []string, networks networkMap, zones []string) (subnetMap, error) {
+func (e *environ) subnetsByURL(ctx context.Context, urls []string, networks networkMap, zones []string) (subnetMap, error) {
 	if len(urls) == 0 {
 		return make(map[string]corenetwork.SubnetInfo), nil
 	}

@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
 	networkerrors "github.com/juju/juju/domain/network/errors"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -133,8 +132,6 @@ func NewProviderService(
 
 // ReloadSpaces loads spaces and subnets from the provider into state.
 func (s *ProviderService) ReloadSpaces(ctx context.Context) error {
-	callContext := envcontext.WithoutCredentialInvalidator(ctx)
-
 	networkProvider, err := s.providerWithNetworking(ctx)
 	if errors.Is(err, coreerrors.NotSupported) {
 		return errors.Errorf("spaces discovery in a non-networking environ %w", coreerrors.NotSupported)
@@ -149,7 +146,7 @@ func (s *ProviderService) ReloadSpaces(ctx context.Context) error {
 	}
 
 	if canDiscoverSpaces {
-		spaces, err := networkProvider.Spaces(callContext)
+		spaces, err := networkProvider.Spaces(ctx)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -171,7 +168,7 @@ func (s *ProviderService) ReloadSpaces(ctx context.Context) error {
 	}
 
 	s.Service.logger.Debugf(ctx, "environ does not support space discovery, falling back to subnet discovery")
-	subnets, err := networkProvider.Subnets(callContext, nil)
+	subnets, err := networkProvider.Subnets(ctx, nil)
 	if err != nil {
 		return errors.Capture(err)
 	}

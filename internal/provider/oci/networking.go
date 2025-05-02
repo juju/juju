@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/tags"
 )
 
@@ -382,7 +381,7 @@ func (e *Environ) createSubnet(
 }
 
 func (e *Environ) ensureSubnets(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	vcn ociCore.Vcn,
 	secList ociCore.SecurityList,
 	controllerUUID string,
@@ -436,7 +435,7 @@ func (e *Environ) ensureSubnets(
 // ensureNetworksAndSubnets creates VCNs, security lists and subnets that will
 // be used throughout the life-cycle of this juju deployment.
 func (e *Environ) ensureNetworksAndSubnets(
-	ctx envcontext.ProviderCallContext, controllerUUID, modelUUID string,
+	ctx context.Context, controllerUUID, modelUUID string,
 ) (map[string][]ociCore.Subnet, error) {
 	// if we have the subnets field populated, it means we already checked/created
 	// the necessary resources. Simply return.
@@ -911,7 +910,7 @@ func (e *Environ) allSubnetsAsMap(modelUUID string) (map[string]ociCore.Subnet, 
 
 // Subnets is defined on the environs.Networking interface.
 func (e *Environ) Subnets(
-	ctx envcontext.ProviderCallContext, subnets []network.Id,
+	ctx context.Context, subnets []network.Id,
 ) ([]network.SubnetInfo, error) {
 	var results []network.SubnetInfo
 	subIdSet := set.NewStrings()
@@ -969,7 +968,7 @@ func makeSubnetInfo(subnet ociCore.Subnet) (network.SubnetInfo, error) {
 	return info, nil
 }
 
-func (e *Environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]network.InterfaceInfos, error) {
+func (e *Environ) NetworkInterfaces(ctx context.Context, ids []instance.Id) ([]network.InterfaceInfos, error) {
 	var (
 		infos = make([]network.InterfaceInfos, len(ids))
 		err   error
@@ -984,7 +983,7 @@ func (e *Environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []in
 	return infos, nil
 }
 
-func (e *Environ) networkInterfacesForInstance(ctx envcontext.ProviderCallContext, instId instance.Id) (network.InterfaceInfos, error) {
+func (e *Environ) networkInterfacesForInstance(ctx context.Context, instId instance.Id) (network.InterfaceInfos, error) {
 	oInst, err := e.getOCIInstance(ctx, instId)
 	if err != nil {
 		return nil, e.HandleCredentialError(ctx, err)

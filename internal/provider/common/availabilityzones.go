@@ -10,7 +10,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 )
 
 // ZonedEnviron is an environs.Environ that has support for availability zones.
@@ -23,7 +22,7 @@ type ZonedEnviron interface {
 	// InstanceAvailabilityZoneNames returns the names of the availability
 	// zones for the specified instances. The error returned follows the same
 	// rules as Environ.Instances.
-	InstanceAvailabilityZoneNames(ctx envcontext.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error)
+	InstanceAvailabilityZoneNames(ctx context.Context, ids []instance.Id) (map[instance.Id]string, error)
 
 	// DeriveAvailabilityZones attempts to derive availability zones from
 	// the specified StartInstanceParams.
@@ -34,7 +33,7 @@ type ZonedEnviron interface {
 	// there is no such restriction, then DeriveAvailabilityZones should
 	// return an empty string slice to indicate that the caller should
 	// choose an availability zone.
-	DeriveAvailabilityZones(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) ([]string, error)
+	DeriveAvailabilityZones(ctx context.Context, args environs.StartInstanceParams) ([]string, error)
 }
 
 // AvailabilityZoneInstances describes an availability zone and
@@ -75,7 +74,7 @@ func (b byPopulationThenName) Swap(i, j int) {
 // If the specified group is empty, then it will behave as if the result of
 // AllRunningInstances were provided.
 func AvailabilityZoneAllocations(
-	env ZonedEnviron, ctx envcontext.ProviderCallContext, group []instance.Id,
+	env ZonedEnviron, ctx context.Context, group []instance.Id,
 ) ([]AvailabilityZoneInstances, error) {
 	if len(group) == 0 {
 		instances, err := env.AllRunningInstances(ctx)

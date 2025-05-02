@@ -10,7 +10,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/provider/lxd"
 )
 
@@ -45,7 +44,7 @@ func (s *instanceSuite) TestStatus(c *gc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
-	instanceStatus := s.Instance.Status(envcontext.WithoutCredentialInvalidator(context.Background()))
+	instanceStatus := s.Instance.Status(context.Background())
 
 	c.Check(instanceStatus.Message, gc.Equals, "Running")
 	s.CheckNoAPI(c)
@@ -55,7 +54,7 @@ func (s *instanceSuite) TestAddresses(c *gc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
-	addresses, err := s.Instance.Addresses(envcontext.WithoutCredentialInvalidator(context.Background()))
+	addresses, err := s.Instance.Addresses(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(addresses, jc.DeepEquals, s.Addresses)

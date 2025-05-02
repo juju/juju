@@ -10,11 +10,9 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/containerprovisioner"
 )
 
@@ -56,7 +54,7 @@ func (s *containerManifoldSuite) TestConfigValidateMachineLock(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "missing MachineLock not valid")
 }
 
-func (s *containerManifoldSuite) TestConfigValidateCredentialValidatorFacade(c *gc.C) {
+func (s *containerManifoldSuite) TestConfigValidateContainerType(c *gc.C) {
 	cfg := containerprovisioner.ManifoldConfig{
 		AgentName:     "testing",
 		APICallerName: "another string",
@@ -64,29 +62,16 @@ func (s *containerManifoldSuite) TestConfigValidateCredentialValidatorFacade(c *
 		MachineLock:   &fakeMachineLock{},
 	}
 	err := cfg.Validate()
-	c.Assert(err, gc.ErrorMatches, "missing NewCredentialValidatorFacade not valid")
-}
-
-func (s *containerManifoldSuite) TestConfigValidateContainerType(c *gc.C) {
-	cfg := containerprovisioner.ManifoldConfig{
-		AgentName:                    "testing",
-		APICallerName:                "another string",
-		Logger:                       loggertesting.WrapCheckLog(c),
-		MachineLock:                  &fakeMachineLock{},
-		NewCredentialValidatorFacade: func(base.APICaller) (common.CredentialAPI, error) { return nil, nil },
-	}
-	err := cfg.Validate()
 	c.Assert(err, gc.ErrorMatches, "missing Container Type not valid")
 }
 
 func (s *containerManifoldSuite) TestConfigValidateSuccess(c *gc.C) {
 	cfg := containerprovisioner.ManifoldConfig{
-		AgentName:                    "testing",
-		APICallerName:                "another string",
-		Logger:                       loggertesting.WrapCheckLog(c),
-		MachineLock:                  &fakeMachineLock{},
-		NewCredentialValidatorFacade: func(base.APICaller) (common.CredentialAPI, error) { return nil, nil },
-		ContainerType:                instance.LXD,
+		AgentName:     "testing",
+		APICallerName: "another string",
+		Logger:        loggertesting.WrapCheckLog(c),
+		MachineLock:   &fakeMachineLock{},
+		ContainerType: instance.LXD,
 	}
 	err := cfg.Validate()
 	c.Assert(err, jc.ErrorIsNil)

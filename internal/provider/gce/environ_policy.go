@@ -4,16 +4,17 @@
 package gce
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 )
 
 // PrecheckInstance verifies that the provided series and constraints
 // are valid for use in creating an instance in this environment.
-func (env *environ) PrecheckInstance(ctx envcontext.ProviderCallContext, args environs.PrecheckInstanceParams) error {
+func (env *environ) PrecheckInstance(ctx context.Context, args environs.PrecheckInstanceParams) error {
 	volumeAttachmentsZone, err := volumeAttachmentsZone(args.VolumeAttachments)
 	if err != nil {
 		return errors.Trace(err)
@@ -50,7 +51,7 @@ var instanceTypeConstraints = []string{
 
 // ConstraintsValidator returns a Validator value which is used to
 // validate and merge constraints.
-func (env *environ) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {
+func (env *environ) ConstraintsValidator(ctx context.Context) (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 
 	validator.RegisterConflicts(
@@ -78,6 +79,6 @@ func (env *environ) ConstraintsValidator(ctx envcontext.ProviderCallContext) (co
 
 // SupportNetworks returns whether the environment has support to
 // specify networks for applications and machines.
-func (env *environ) SupportNetworks(ctx envcontext.ProviderCallContext) bool {
+func (env *environ) SupportNetworks(ctx context.Context) bool {
 	return false
 }

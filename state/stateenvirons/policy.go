@@ -4,6 +4,7 @@
 package stateenvirons
 
 import (
+	"context"
 	"sync"
 
 	"github.com/juju/errors"
@@ -12,7 +13,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/state"
 )
 
@@ -96,7 +96,7 @@ func (p *environStatePolicy) getDeployChecker() (deployChecker, error) {
 }
 
 // ConstraintsValidator implements state.Policy.
-func (p *environStatePolicy) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {
+func (p *environStatePolicy) ConstraintsValidator(ctx context.Context) (constraints.Validator, error) {
 	checker, err := p.getDeployChecker()
 	if err != nil {
 		return nil, errors.Trace(err)

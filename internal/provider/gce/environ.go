@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	jujuhttp "github.com/juju/juju/internal/http"
@@ -236,7 +235,7 @@ func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controlle
 // available tools. The series and arch are returned along with a func
 // that must be called to finalize the bootstrap process by transferring
 // the tools and installing the initial juju controller.
-func (env *environ) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.ProviderCallContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	// Ensure the API server port is open (globally for all instances
 	// on the network, not just for the specific node of the state
 	// server). See LP bug #1436191 for details.
@@ -257,12 +256,12 @@ func (env *environ) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.
 	if err := env.gce.OpenPorts(env.globalFirewallName(), rules); err != nil {
 		return nil, env.HandleCredentialError(ctx, err)
 	}
-	return bootstrap(ctx, env, callCtx, params)
+	return bootstrap(ctx, env, params)
 }
 
 // Destroy shuts down all known machines and destroys the rest of the
 // known environment.
-func (env *environ) Destroy(ctx envcontext.ProviderCallContext) error {
+func (env *environ) Destroy(ctx context.Context) error {
 	err := destroyEnv(env, ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -275,7 +274,7 @@ func (env *environ) Destroy(ctx envcontext.ProviderCallContext) error {
 }
 
 // DestroyController implements the Environ interface.
-func (env *environ) DestroyController(ctx envcontext.ProviderCallContext, controllerUUID string) error {
+func (env *environ) DestroyController(ctx context.Context, controllerUUID string) error {
 	// TODO(wallyworld): destroy hosted model resources
 	return env.Destroy(ctx)
 }

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/schema"
 
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/provider/azure/internal/errorutils"
 	"github.com/juju/juju/internal/storage"
 )
@@ -141,7 +140,7 @@ type azureVolumeSource struct {
 }
 
 // CreateVolumes is specified on the storage.VolumeSource interface.
-func (v *azureVolumeSource) CreateVolumes(ctx envcontext.ProviderCallContext, params []storage.VolumeParams) (_ []storage.CreateVolumesResult, err error) {
+func (v *azureVolumeSource) CreateVolumes(ctx context.Context, params []storage.VolumeParams) (_ []storage.CreateVolumesResult, err error) {
 	results := make([]storage.CreateVolumesResult, len(params))
 	for i, p := range params {
 		if err := v.ValidateVolumeParams(p); err != nil {
@@ -154,7 +153,7 @@ func (v *azureVolumeSource) CreateVolumes(ctx envcontext.ProviderCallContext, pa
 }
 
 // createManagedDiskVolumes creates volumes with associated managed disks.
-func (v *azureVolumeSource) createManagedDiskVolumes(ctx envcontext.ProviderCallContext, params []storage.VolumeParams, results []storage.CreateVolumesResult) {
+func (v *azureVolumeSource) createManagedDiskVolumes(ctx context.Context, params []storage.VolumeParams, results []storage.CreateVolumesResult) {
 	for i, p := range params {
 		if results[i].Error != nil {
 			continue
@@ -169,7 +168,7 @@ func (v *azureVolumeSource) createManagedDiskVolumes(ctx envcontext.ProviderCall
 }
 
 // createManagedDiskVolume creates a managed disk.
-func (v *azureVolumeSource) createManagedDiskVolume(ctx envcontext.ProviderCallContext, p storage.VolumeParams) (*storage.Volume, error) {
+func (v *azureVolumeSource) createManagedDiskVolume(ctx context.Context, p storage.VolumeParams) (*storage.Volume, error) {
 	cfg, err := newAzureStorageConfig(p.Attributes)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -219,11 +218,11 @@ func (v *azureVolumeSource) createManagedDiskVolume(ctx envcontext.ProviderCallC
 }
 
 // ListVolumes is specified on the storage.VolumeSource interface.
-func (v *azureVolumeSource) ListVolumes(ctx envcontext.ProviderCallContext) ([]string, error) {
+func (v *azureVolumeSource) ListVolumes(ctx context.Context) ([]string, error) {
 	return v.listManagedDiskVolumes(ctx)
 }
 
-func (v *azureVolumeSource) listManagedDiskVolumes(ctx envcontext.ProviderCallContext) ([]string, error) {
+func (v *azureVolumeSource) listManagedDiskVolumes(ctx context.Context) ([]string, error) {
 	disks, err := v.env.disksClient()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -247,11 +246,11 @@ func (v *azureVolumeSource) listManagedDiskVolumes(ctx envcontext.ProviderCallCo
 }
 
 // DescribeVolumes is specified on the storage.VolumeSource interface.
-func (v *azureVolumeSource) DescribeVolumes(ctx envcontext.ProviderCallContext, volumeIds []string) ([]storage.DescribeVolumesResult, error) {
+func (v *azureVolumeSource) DescribeVolumes(ctx context.Context, volumeIds []string) ([]storage.DescribeVolumesResult, error) {
 	return v.describeManagedDiskVolumes(ctx, volumeIds)
 }
 
-func (v *azureVolumeSource) describeManagedDiskVolumes(ctx envcontext.ProviderCallContext, volumeIds []string) ([]storage.DescribeVolumesResult, error) {
+func (v *azureVolumeSource) describeManagedDiskVolumes(ctx context.Context, volumeIds []string) ([]storage.DescribeVolumesResult, error) {
 	results := make([]storage.DescribeVolumesResult, len(volumeIds))
 	var wg sync.WaitGroup
 	for i, volumeId := range volumeIds {
@@ -283,11 +282,11 @@ func (v *azureVolumeSource) describeManagedDiskVolumes(ctx envcontext.ProviderCa
 }
 
 // DestroyVolumes is specified on the storage.VolumeSource interface.
-func (v *azureVolumeSource) DestroyVolumes(ctx envcontext.ProviderCallContext, volumeIds []string) ([]error, error) {
+func (v *azureVolumeSource) DestroyVolumes(ctx context.Context, volumeIds []string) ([]error, error) {
 	return v.destroyManagedDiskVolumes(ctx, volumeIds)
 }
 
-func (v *azureVolumeSource) destroyManagedDiskVolumes(ctx envcontext.ProviderCallContext, volumeIds []string) ([]error, error) {
+func (v *azureVolumeSource) destroyManagedDiskVolumes(ctx context.Context, volumeIds []string) ([]error, error) {
 	return foreachVolume(volumeIds, func(volumeId string) error {
 		disks, err := v.env.disksClient()
 		if err != nil {
@@ -321,7 +320,7 @@ func foreachVolume(volumeIds []string, f func(string) error) []error {
 }
 
 // ReleaseVolumes is specified on the storage.VolumeSource interface.
-func (v *azureVolumeSource) ReleaseVolumes(ctx envcontext.ProviderCallContext, volumeIds []string) ([]error, error) {
+func (v *azureVolumeSource) ReleaseVolumes(ctx context.Context, volumeIds []string) ([]error, error) {
 	// Releasing volumes is not supported, see azureStorageProvider.Releasable.
 	//
 	// When managed disks can be moved between resource groups, we may want to
@@ -343,7 +342,7 @@ func (v *azureVolumeSource) ValidateVolumeParams(params storage.VolumeParams) er
 }
 
 // AttachVolumes is specified on the storage.VolumeSource interface.
-func (v *azureVolumeSource) AttachVolumes(ctx envcontext.ProviderCallContext, attachParams []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
+func (v *azureVolumeSource) AttachVolumes(ctx context.Context, attachParams []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
 	results := make([]storage.AttachVolumesResult, len(attachParams))
 	instanceIds := make([]instance.Id, len(attachParams))
 	for i, p := range attachParams {
@@ -484,7 +483,7 @@ func (v *azureVolumeSource) addDataDisk(
 }
 
 // DetachVolumes is specified on the storage.VolumeSource interface.
-func (v *azureVolumeSource) DetachVolumes(ctx envcontext.ProviderCallContext, attachParams []storage.VolumeAttachmentParams) ([]error, error) {
+func (v *azureVolumeSource) DetachVolumes(ctx context.Context, attachParams []storage.VolumeAttachmentParams) ([]error, error) {
 	results := make([]error, len(attachParams))
 	instanceIds := make([]instance.Id, len(attachParams))
 	for i, p := range attachParams {
@@ -582,7 +581,7 @@ type maybeVirtualMachine struct {
 
 // virtualMachines returns a mapping of instance IDs to VirtualMachines and
 // errors, for each of the specified instance IDs.
-func (v *azureVolumeSource) virtualMachines(ctx envcontext.ProviderCallContext, instanceIds []instance.Id) (map[instance.Id]*maybeVirtualMachine, error) {
+func (v *azureVolumeSource) virtualMachines(ctx context.Context, instanceIds []instance.Id) (map[instance.Id]*maybeVirtualMachine, error) {
 	compute, err := v.env.computeClient()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -614,7 +613,7 @@ func (v *azureVolumeSource) virtualMachines(ctx envcontext.ProviderCallContext, 
 // through the list of instance IDs in order, and updating each corresponding
 // virtual machine at most once.
 func (v *azureVolumeSource) updateVirtualMachines(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	virtualMachines map[instance.Id]*maybeVirtualMachine, instanceIds []instance.Id,
 ) ([]error, error) {
 	compute, err := v.env.computeClient()

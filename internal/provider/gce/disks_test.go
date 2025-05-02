@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/provider/gce"
 	"github.com/juju/juju/internal/provider/gce/google"
 	"github.com/juju/juju/internal/storage"
@@ -69,8 +68,6 @@ type volumeSourceSuite struct {
 	params           []storage.VolumeParams
 	instId           instance.Id
 	attachmentParams *storage.VolumeAttachmentParams
-
-	callCtx envcontext.ProviderCallContext
 }
 
 var _ = gc.Suite(&volumeSourceSuite{})
@@ -102,11 +99,10 @@ func (s *volumeSourceSuite) SetUpTest(c *gc.C) {
 		Provider:   "gce",
 		Attachment: s.attachmentParams,
 	}}
-	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
 func (s *volumeSourceSuite) TestCreateVolumesNoInstance(c *gc.C) {
-	res, err := s.source.CreateVolumes(s.callCtx, s.params)
+	res, err := s.source.CreateVolumes(context.Background(), s.params)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(res, gc.HasLen, 1)
 	expectedErr := "cannot obtain \"spam\" from instance cache: cannot attach to non-running instance spam"
@@ -116,7 +112,7 @@ func (s *volumeSourceSuite) TestCreateVolumesNoInstance(c *gc.C) {
 
 func (s *volumeSourceSuite) TestCreateVolumesNoDiskCreated(c *gc.C) {
 	s.FakeConn.Insts = []google.Instance{*s.BaseInstance}
-	res, err := s.source.CreateVolumes(s.callCtx, s.params)
+	res, err := s.source.CreateVolumes(context.Background(), s.params)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(res, gc.HasLen, 1)
 	c.Assert(res[0].Error, gc.ErrorMatches, "unexpected number of disks created: 0")
@@ -126,7 +122,7 @@ func (s *volumeSourceSuite) TestCreateVolumesNoDiskCreated(c *gc.C) {
 func (s *volumeSourceSuite) TestCreateVolumesInvalidCredentialError(c *gc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
-	_, err := s.source.CreateVolumes(s.callCtx, s.params)
+	_, err := s.source.CreateVolumes(context.Background(), s.params)
 	c.Check(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
@@ -140,7 +136,7 @@ func (s *volumeSourceSuite) TestCreateVolumes(c *gc.C) {
 		DeviceName: "home-zone-1234567",
 		Mode:       "READ_WRITE",
 	}
-	res, err := s.source.CreateVolumes(s.callCtx, s.params)
+	res, err := s.source.CreateVolumes(context.Background(), s.params)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(res, gc.HasLen, 1)
 	// Volume was created
@@ -182,13 +178,13 @@ func (s *volumeSourceSuite) TestCreateVolumes(c *gc.C) {
 func (s *volumeSourceSuite) TestDestroyVolumesInvalidCredentialError(c *gc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
-	_, err := s.source.DestroyVolumes(s.callCtx, []string{"a--volume-name"})
+	_, err := s.source.DestroyVolumes(context.Background(), []string{"a--volume-name"})
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
 
 func (s *volumeSourceSuite) TestDestroyVolumes(c *gc.C) {
-	errs, err := s.source.DestroyVolumes(s.callCtx, []string{"a--volume-name"})
+	errs, err := s.source.DestroyVolumes(context.Background(), []string{"a--volume-name"})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(errs, gc.HasLen, 1)
 	c.Assert(errs[0], jc.ErrorIsNil)
@@ -203,7 +199,7 @@ func (s *volumeSourceSuite) TestDestroyVolumes(c *gc.C) {
 func (s *volumeSourceSuite) TestReleaseVolumesInvalidCredentialError(c *gc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
-	_, err := s.source.ReleaseVolumes(s.callCtx, []string{s.BaseDisk.Name})
+	_, err := s.source.ReleaseVolumes(context.Background(), []string{s.BaseDisk.Name})
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
@@ -211,7 +207,7 @@ func (s *volumeSourceSuite) TestReleaseVolumesInvalidCredentialError(c *gc.C) {
 func (s *volumeSourceSuite) TestReleaseVolumes(c *gc.C) {
 	s.FakeConn.GoogleDisk = s.BaseDisk
 
-	errs, err := s.source.ReleaseVolumes(s.callCtx, []string{s.BaseDisk.Name})
+	errs, err := s.source.ReleaseVolumes(context.Background(), []string{s.BaseDisk.Name})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(errs, gc.HasLen, 1)
 	c.Assert(errs[0], jc.ErrorIsNil)
@@ -231,7 +227,7 @@ func (s *volumeSourceSuite) TestImportVolumesInvalidCredentialError(c *gc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
 	_, err := s.source.(storage.VolumeImporter).ImportVolume(
-		s.callCtx,
+		context.Background(),
 		s.BaseDisk.Name, map[string]string{
 			"juju-model-uuid":      "foo",
 			"juju-controller-uuid": "bar",
@@ -246,7 +242,7 @@ func (s *volumeSourceSuite) TestImportVolume(c *gc.C) {
 
 	c.Assert(s.source, gc.Implements, new(storage.VolumeImporter))
 	volumeInfo, err := s.source.(storage.VolumeImporter).ImportVolume(
-		s.callCtx,
+		context.Background(),
 		s.BaseDisk.Name, map[string]string{
 			"juju-model-uuid":      "foo",
 			"juju-controller-uuid": "bar",
@@ -288,14 +284,14 @@ func (s *volumeSourceSuite) TestImportVolumeNotReady(c *gc.C) {
 func (s *volumeSourceSuite) TestListVolumesInvalidCredentialError(c *gc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
-	_, err := s.source.ListVolumes(s.callCtx)
+	_, err := s.source.ListVolumes(context.Background())
 	c.Check(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
 
 func (s *volumeSourceSuite) TestListVolumes(c *gc.C) {
 	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk}
-	vols, err := s.source.ListVolumes(s.callCtx)
+	vols, err := s.source.ListVolumes(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(vols, gc.HasLen, 1)
 
@@ -317,7 +313,7 @@ func (s *volumeSourceSuite) TestListVolumesOnlyListsCurrentModelUUID(c *gc.C) {
 		},
 	}
 	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk, otherDisk}
-	vols, err := s.source.ListVolumes(s.callCtx)
+	vols, err := s.source.ListVolumes(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(vols, gc.HasLen, 1)
 }
@@ -332,7 +328,7 @@ func (s *volumeSourceSuite) TestListVolumesIgnoresNamesFormatteDifferently(c *gc
 		Description: "",
 	}
 	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk, otherDisk}
-	vols, err := s.source.ListVolumes(s.callCtx)
+	vols, err := s.source.ListVolumes(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(vols, gc.HasLen, 1)
 }
@@ -341,7 +337,7 @@ func (s *volumeSourceSuite) TestDescribeVolumesInvalidCredentialError(c *gc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
 	volName := "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4"
-	_, err := s.source.DescribeVolumes(s.callCtx, []string{volName})
+	_, err := s.source.DescribeVolumes(context.Background(), []string{volName})
 	c.Check(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
@@ -349,7 +345,7 @@ func (s *volumeSourceSuite) TestDescribeVolumesInvalidCredentialError(c *gc.C) {
 func (s *volumeSourceSuite) TestDescribeVolumes(c *gc.C) {
 	s.FakeConn.GoogleDisk = s.BaseDisk
 	volName := "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4"
-	res, err := s.source.DescribeVolumes(s.callCtx, []string{volName})
+	res, err := s.source.DescribeVolumes(context.Background(), []string{volName})
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(res, gc.HasLen, 1)
 	c.Assert(res[0].VolumeInfo.Size, gc.Equals, uint64(1024))
@@ -370,7 +366,7 @@ func (s *volumeSourceSuite) TestAttachVolumes(c *gc.C) {
 		DeviceName: "home-zone-1234567",
 		Mode:       "READ_WRITE",
 	}
-	res, err := s.source.AttachVolumes(s.callCtx, attachments)
+	res, err := s.source.AttachVolumes(context.Background(), attachments)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(res, gc.HasLen, 1)
 	c.Assert(res[0].VolumeAttachment.Volume.String(), gc.Equals, "volume-0")
@@ -391,7 +387,7 @@ func (s *volumeSourceSuite) TestAttachVolumes(c *gc.C) {
 func (s *volumeSourceSuite) TestAttachVolumesInvalidCredentialError(c *gc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
-	_, err := s.source.AttachVolumes(s.callCtx, []storage.VolumeAttachmentParams{*s.attachmentParams})
+	_, err := s.source.AttachVolumes(context.Background(), []storage.VolumeAttachmentParams{*s.attachmentParams})
 	c.Check(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
@@ -399,7 +395,7 @@ func (s *volumeSourceSuite) TestAttachVolumesInvalidCredentialError(c *gc.C) {
 func (s *volumeSourceSuite) TestDetachVolumes(c *gc.C) {
 	volName := "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4"
 	attachments := []storage.VolumeAttachmentParams{*s.attachmentParams}
-	errs, err := s.source.DetachVolumes(s.callCtx, attachments)
+	errs, err := s.source.DetachVolumes(context.Background(), attachments)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(errs, gc.HasLen, 1)
 	c.Assert(errs[0], jc.ErrorIsNil)
@@ -416,7 +412,7 @@ func (s *volumeSourceSuite) TestDetachVolumes(c *gc.C) {
 func (s *volumeSourceSuite) TestDetachVolumesInvalidCredentialError(c *gc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
-	_, err := s.source.DetachVolumes(s.callCtx, []storage.VolumeAttachmentParams{*s.attachmentParams})
+	_, err := s.source.DetachVolumes(context.Background(), []storage.VolumeAttachmentParams{*s.attachmentParams})
 	c.Check(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }

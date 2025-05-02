@@ -10,7 +10,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 )
 
 var (
@@ -22,7 +21,7 @@ var _ = gc.Suite(&environWhiteboxSuite{})
 type environWhiteboxSuite struct{}
 
 func (s *environWhiteboxSuite) TestSupportsContainerAddresses(c *gc.C) {
-	callCtx := envcontext.WithoutCredentialInvalidator(context.Background())
+	callCtx := context.Background()
 
 	env := new(environ)
 	supported, err := env.SupportsContainerAddresses(callCtx)

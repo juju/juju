@@ -16,7 +16,6 @@ import (
 	constraints "github.com/juju/juju/core/constraints"
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
-	envcontext "github.com/juju/juju/environs/envcontext"
 	storage "github.com/juju/juju/internal/storage"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -45,18 +44,18 @@ func (m *MockBootstrapEnviron) EXPECT() *MockBootstrapEnvironMockRecorder {
 }
 
 // Bootstrap mocks base method.
-func (m *MockBootstrapEnviron) Bootstrap(arg0 environs.BootstrapContext, arg1 envcontext.ProviderCallContext, arg2 environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (m *MockBootstrapEnviron) Bootstrap(arg0 environs.BootstrapContext, arg1 environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Bootstrap", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "Bootstrap", arg0, arg1)
 	ret0, _ := ret[0].(*environs.BootstrapResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Bootstrap indicates an expected call of Bootstrap.
-func (mr *MockBootstrapEnvironMockRecorder) Bootstrap(arg0, arg1, arg2 any) *MockBootstrapEnvironBootstrapCall {
+func (mr *MockBootstrapEnvironMockRecorder) Bootstrap(arg0, arg1 any) *MockBootstrapEnvironBootstrapCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Bootstrap", reflect.TypeOf((*MockBootstrapEnviron)(nil).Bootstrap), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Bootstrap", reflect.TypeOf((*MockBootstrapEnviron)(nil).Bootstrap), arg0, arg1)
 	return &MockBootstrapEnvironBootstrapCall{Call: call}
 }
 
@@ -72,13 +71,13 @@ func (c *MockBootstrapEnvironBootstrapCall) Return(arg0 *environs.BootstrapResul
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockBootstrapEnvironBootstrapCall) Do(f func(environs.BootstrapContext, envcontext.ProviderCallContext, environs.BootstrapParams) (*environs.BootstrapResult, error)) *MockBootstrapEnvironBootstrapCall {
+func (c *MockBootstrapEnvironBootstrapCall) Do(f func(environs.BootstrapContext, environs.BootstrapParams) (*environs.BootstrapResult, error)) *MockBootstrapEnvironBootstrapCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBootstrapEnvironBootstrapCall) DoAndReturn(f func(environs.BootstrapContext, envcontext.ProviderCallContext, environs.BootstrapParams) (*environs.BootstrapResult, error)) *MockBootstrapEnvironBootstrapCall {
+func (c *MockBootstrapEnvironBootstrapCall) DoAndReturn(f func(environs.BootstrapContext, environs.BootstrapParams) (*environs.BootstrapResult, error)) *MockBootstrapEnvironBootstrapCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -122,7 +121,7 @@ func (c *MockBootstrapEnvironConfigCall) DoAndReturn(f func() *config.Config) *M
 }
 
 // ConstraintsValidator mocks base method.
-func (m *MockBootstrapEnviron) ConstraintsValidator(arg0 envcontext.ProviderCallContext) (constraints.Validator, error) {
+func (m *MockBootstrapEnviron) ConstraintsValidator(arg0 context.Context) (constraints.Validator, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConstraintsValidator", arg0)
 	ret0, _ := ret[0].(constraints.Validator)
@@ -149,19 +148,19 @@ func (c *MockBootstrapEnvironConstraintsValidatorCall) Return(arg0 constraints.V
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockBootstrapEnvironConstraintsValidatorCall) Do(f func(envcontext.ProviderCallContext) (constraints.Validator, error)) *MockBootstrapEnvironConstraintsValidatorCall {
+func (c *MockBootstrapEnvironConstraintsValidatorCall) Do(f func(context.Context) (constraints.Validator, error)) *MockBootstrapEnvironConstraintsValidatorCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBootstrapEnvironConstraintsValidatorCall) DoAndReturn(f func(envcontext.ProviderCallContext) (constraints.Validator, error)) *MockBootstrapEnvironConstraintsValidatorCall {
+func (c *MockBootstrapEnvironConstraintsValidatorCall) DoAndReturn(f func(context.Context) (constraints.Validator, error)) *MockBootstrapEnvironConstraintsValidatorCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Destroy mocks base method.
-func (m *MockBootstrapEnviron) Destroy(arg0 envcontext.ProviderCallContext) error {
+func (m *MockBootstrapEnviron) Destroy(arg0 context.Context) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Destroy", arg0)
 	ret0, _ := ret[0].(error)
@@ -187,19 +186,19 @@ func (c *MockBootstrapEnvironDestroyCall) Return(arg0 error) *MockBootstrapEnvir
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockBootstrapEnvironDestroyCall) Do(f func(envcontext.ProviderCallContext) error) *MockBootstrapEnvironDestroyCall {
+func (c *MockBootstrapEnvironDestroyCall) Do(f func(context.Context) error) *MockBootstrapEnvironDestroyCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBootstrapEnvironDestroyCall) DoAndReturn(f func(envcontext.ProviderCallContext) error) *MockBootstrapEnvironDestroyCall {
+func (c *MockBootstrapEnvironDestroyCall) DoAndReturn(f func(context.Context) error) *MockBootstrapEnvironDestroyCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // DestroyController mocks base method.
-func (m *MockBootstrapEnviron) DestroyController(arg0 envcontext.ProviderCallContext, arg1 string) error {
+func (m *MockBootstrapEnviron) DestroyController(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DestroyController", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -225,13 +224,13 @@ func (c *MockBootstrapEnvironDestroyControllerCall) Return(arg0 error) *MockBoot
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockBootstrapEnvironDestroyControllerCall) Do(f func(envcontext.ProviderCallContext, string) error) *MockBootstrapEnvironDestroyControllerCall {
+func (c *MockBootstrapEnvironDestroyControllerCall) Do(f func(context.Context, string) error) *MockBootstrapEnvironDestroyControllerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBootstrapEnvironDestroyControllerCall) DoAndReturn(f func(envcontext.ProviderCallContext, string) error) *MockBootstrapEnvironDestroyControllerCall {
+func (c *MockBootstrapEnvironDestroyControllerCall) DoAndReturn(f func(context.Context, string) error) *MockBootstrapEnvironDestroyControllerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
