@@ -271,3 +271,9 @@ WHERE controller_id = $dbControllerNode.controller_id`, controllerNode, dbContro
 	}
 	return result.Count == 1, nil
 }
+
+// NamespaceForWatchControllerNodes returns the namespace for watching
+// controller nodes.
+func (st *State) NamespaceForWatchControllerNodes() string {
+	return "controller_node"
+}

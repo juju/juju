@@ -127,11 +127,19 @@ type WatcherFactory interface {
 		namespace string, changeMask changestream.ChangeType,
 	) (watcher.StringsWatcher, error)
 
+	// NewNotifyWatcher returns a new watcher that filters changes from the input
+	// base watcher's db/queue. A single filter option is required, though
+	// additional filter options can be provided.
 	NewNotifyWatcher(
 		filterOption eventsource.FilterOption,
 		filterOptions ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error)
 
+	// NewNotifyMapperWatcher returns a new watcher that receives changes from the
+	// input base watcher's db/queue. A single filter option is required, though
+	// additional filter options can be provided. Filtering of values is done first
+	// by the filter, and then subsequently by the mapper. Based on the mapper's
+	// logic a subset of them (or none) may be emitted.
 	NewNotifyMapperWatcher(
 		mapper eventsource.Mapper,
 		filter eventsource.FilterOption,
