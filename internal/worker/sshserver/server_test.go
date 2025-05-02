@@ -177,6 +177,7 @@ func (s *sshServerSuite) TestSSHServerNoAuth(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.facadeClient.EXPECT().VirtualHostKey(gomock.Any()).Return(s.hostKey, nil)
+	s.facadeClient.EXPECT().ValidateVirtualHostname(gomock.Any()).Return(nil)
 
 	listener := bufconn.Listen(1024)
 	defer listener.Close()
@@ -292,6 +293,7 @@ func (s *sshServerSuite) TestPublicKeyHandler(c *gc.C) {
 				return nil, errors.NotFound
 			})
 		s.facadeClient.EXPECT().CheckSSHAccess(gomock.Any(), gomock.Any()).Return(true, nil)
+		s.facadeClient.EXPECT().ValidateVirtualHostname(gomock.Any()).Return(nil)
 		if test.expectSuccess {
 			s.facadeClient.EXPECT().VirtualHostKey(gomock.Any()).Return(s.hostKey, nil)
 		}
@@ -380,6 +382,7 @@ func (s *sshServerSuite) TestPasswordHandler(c *gc.C) {
 		defer listener.Close()
 
 		s.jwtParser.EXPECT().Parse(gomock.Any(), "password").Return(token, nil)
+		s.facadeClient.EXPECT().ValidateVirtualHostname(gomock.Any()).Return(nil)
 		s.facadeClient.EXPECT().VirtualHostKey(gomock.Any()).Return(s.hostKey, nil).AnyTimes()
 
 		server, err := NewServerWorker(s.newServerWorkerConfig(listener, func(swc *ServerWorkerConfig) {
@@ -470,6 +473,7 @@ func (s *sshServerSuite) TestProxyFactoryError(c *gc.C) {
 	listener := bufconn.Listen(1024)
 	defer listener.Close()
 
+	s.facadeClient.EXPECT().ValidateVirtualHostname(gomock.Any()).Return(nil)
 	s.proxyFactory.EXPECT().New(gomock.Any()).Return(nil, errors.New("factory error"))
 
 	server, err := NewServerWorker(s.newServerWorkerConfig(listener, nil))
@@ -494,6 +498,8 @@ func (s *sshServerSuite) TestHostKeyForTarget(c *gc.C) {
 	defer listener.Close()
 
 	s.facadeClient.EXPECT().VirtualHostKey(gomock.Any()).Return(s.hostKey, nil)
+	s.facadeClient.EXPECT().ValidateVirtualHostname(gomock.Any()).Return(nil)
+
 	server, err := NewServerWorker(s.newServerWorkerConfig(listener, nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, server)
@@ -519,6 +525,7 @@ func (s *sshServerSuite) TestHostKeyForTarget(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// we now test that the connection is closed when the controller cannot fetch the unit's host key.
+	s.facadeClient.EXPECT().ValidateVirtualHostname(gomock.Any()).Return(nil)
 	s.facadeClient.EXPECT().VirtualHostKey(gomock.Any()).Return(nil, errors.New("an error"))
 	client = inMemoryDial(c, listener, &gossh.ClientConfig{
 		HostKeyCallback: gossh.InsecureIgnoreHostKey(),
@@ -531,6 +538,7 @@ func (s *sshServerSuite) TestSSHServerMaxConnections(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.facadeClient.EXPECT().VirtualHostKey(gomock.Any()).Return(s.hostKey, nil).AnyTimes()
+	s.facadeClient.EXPECT().ValidateVirtualHostname(gomock.Any()).Return(nil).AnyTimes()
 
 	listener := bufconn.Listen(1024)
 	defer listener.Close()
