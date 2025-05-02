@@ -22,13 +22,13 @@ var logger = internallogger.GetLogger("juju.apiserver.crossmodelrelations")
 // WatchEgressAddressesForRelations creates a watcher that notifies when addresses, from which
 // connections will originate for the relation, change.
 // Each event contains the entire set of addresses which are required for ingress for the relation.
-func WatchEgressAddressesForRelations(resources facade.Resources, st State, modelConfigService ModelConfigService, relations params.Entities) (params.StringsWatchResults, error) {
+func WatchEgressAddressesForRelations(ctx context.Context, resources facade.Resources, st State, modelConfigService ModelConfigService, relations params.Entities) (params.StringsWatchResults, error) {
 	results := params.StringsWatchResults{
-		make([]params.StringsWatchResult, len(relations.Entities)),
+		Results: make([]params.StringsWatchResult, len(relations.Entities)),
 	}
 
-	one := func(tag string) (id string, changes []string, _ error) {
-		logger.Debugf(context.TODO(), "Watching egress addresses for %+v", tag)
+	one := func(ctx context.Context, tag string) (id string, changes []string, _ error) {
+		logger.Debugf(ctx, "Watching egress addresses for %+v", tag)
 
 		relationTag, err := names.ParseRelationTag(tag)
 		if err != nil {
@@ -51,7 +51,7 @@ func WatchEgressAddressesForRelations(resources facade.Resources, st State, mode
 		//filter := func(id interface{}) bool {
 		//	include, err := includeAsIngressSubnet(id.(string))
 		//	if err != nil {
-		//		logger.Warningf(context.TODO(), "invalid CIDR %q", id)
+		//		logger.Warningf(ctx, "invalid CIDR %q", id)
 		//	}
 		//	return include
 		//}
@@ -65,7 +65,7 @@ func WatchEgressAddressesForRelations(resources facade.Resources, st State, mode
 	}
 
 	for i, e := range relations.Entities {
-		watcherId, changes, err := one(e.Tag)
+		watcherId, changes, err := one(ctx, e.Tag)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue

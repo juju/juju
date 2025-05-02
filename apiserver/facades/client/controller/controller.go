@@ -310,7 +310,7 @@ func (c *ControllerAPI) ListBlockedModels(ctx context.Context) (params.ModelBloc
 
 		blocks, err := blockService.GetBlocks(ctx)
 		if err != nil {
-			c.logger.Debugf(context.TODO(), "Unable to get blocks for controller: %s", err)
+			c.logger.Debugf(ctx, "Unable to get blocks for controller: %s", err)
 			return results, errors.Trace(err)
 		}
 		blockTypes := set.NewStrings()

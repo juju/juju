@@ -140,7 +140,7 @@ func newMachineLXDProfileWatcher(ctx context.Context, config MachineLXDProfileWa
 	}
 	close(w.initialized)
 
-	config.logger.Debugf(context.TODO(), "started MachineLXDProfileWatcher for machine-%s with %#v", w.machine.Id(), w.applications)
+	config.logger.Debugf(ctx, "started MachineLXDProfileWatcher for machine-%s with %#v", w.machine.Id(), w.applications)
 	return w, nil
 }
 
@@ -180,14 +180,14 @@ func (w *machineLXDProfileWatcher) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case apps := <-appWatcher.Changes():
-			w.logger.Tracef(context.TODO(), "application charm changes: %v", apps)
+			w.logger.Tracef(ctx, "application charm changes: %v", apps)
 			for _, appName := range apps {
 				if err := w.applicationCharmURLChange(ctx, appName); err != nil {
 					return errors.Annotatef(err, "processing change for application %q", appName)
 				}
 			}
 		case charms := <-charmWatcher.Changes():
-			w.logger.Tracef(context.TODO(), "charm changes: %v", charms)
+			w.logger.Tracef(ctx, "charm changes: %v", charms)
 			for _, chURL := range charms {
 				if err := w.charmChange(ctx, chURL); err != nil {
 					return errors.Annotatef(err, "processing change for charm %q", chURL)
@@ -197,7 +197,7 @@ func (w *machineLXDProfileWatcher) loop() error {
 			// TODO(units) - use service to read unit info
 			// We could read life from dqlite but don't yet
 			// support getting all the other attributes.
-			w.logger.Debugf(context.TODO(), "unit changes on %v: %v", w.machine.Id(), units)
+			w.logger.Debugf(ctx, "unit changes on %v: %v", w.machine.Id(), units)
 			for _, unitName := range units {
 				u, err := w.backend.Unit(unitName)
 				unitLife := state.Dead
@@ -207,7 +207,7 @@ func (w *machineLXDProfileWatcher) loop() error {
 					return errors.Annotatef(err, "processing change for unit %q", unitName)
 				}
 				if unitLife == state.Dead {
-					if err := w.removeUnit(unitName); err != nil {
+					if err := w.removeUnit(ctx, unitName); err != nil {
 						return errors.Annotatef(err, "processing change for unit %q", unitName)
 					}
 				} else {
@@ -218,7 +218,7 @@ func (w *machineLXDProfileWatcher) loop() error {
 			}
 		case <-instanceWatcher.Changes():
 			id := w.machine.Id()
-			w.logger.Tracef(context.TODO(), "instance changes machine-%s", id)
+			w.logger.Tracef(ctx, "instance changes machine-%s", id)
 			if err := w.provisionedChange(ctx); err != nil {
 				return errors.Annotatef(err, "processing change for machine-%s", id)
 			}
@@ -226,26 +226,26 @@ func (w *machineLXDProfileWatcher) loop() error {
 	}
 }
 
-func (w *machineLXDProfileWatcher) unitMachineID(u Unit) (string, error) {
+func (w *machineLXDProfileWatcher) unitMachineID(ctx context.Context, u Unit) (string, error) {
 	principalName, isSubordinate := u.PrincipalName()
 	machineID, err := u.AssignedMachineId()
 	if err == nil || !errors.Is(err, errors.NotAssigned) {
 		return machineID, errors.Trace(err)
 	}
 	if !isSubordinate {
-		w.logger.Warningf(context.TODO(), "unit %s has no machine id, start watching when machine id assigned.", u.Name())
+		w.logger.Warningf(ctx, "unit %s has no machine id, start watching when machine id assigned.", u.Name())
 		return machineID, errors.Trace(err)
 	}
 	principal, err := w.backend.Unit(principalName)
 	if errors.Is(err, errors.NotFound) {
-		w.logger.Warningf(context.TODO(), "unit %s is subordinate, principal %s not found", u.Name(), principalName)
+		w.logger.Warningf(ctx, "unit %s is subordinate, principal %s not found", u.Name(), principalName)
 		return "", errors.NotFoundf("principal unit %q", principalName)
 	} else if err != nil {
 		return "", errors.Trace(err)
 	}
 	machineID, err = principal.AssignedMachineId()
 	if errors.Is(err, errors.NotAssigned) {
-		w.logger.Warningf(context.TODO(), "principal unit %s has no machine id, start watching when machine id assigned.", principalName)
+		w.logger.Warningf(ctx, "principal unit %s has no machine id, start watching when machine id assigned.", principalName)
 	}
 	return machineID, errors.Trace(err)
 }
@@ -273,7 +273,7 @@ func (w *machineLXDProfileWatcher) init(ctx context.Context) error {
 			// to what is watched when the machineId is assigned.
 			// Otherwise return an error.
 			if _, err := unit.AssignedMachineId(); errors.Is(err, errors.NotAssigned) {
-				w.logger.Warningf(context.TODO(), "unit %s has no application, nor machine id, start watching when machine id assigned.", unitName)
+				w.logger.Warningf(ctx, "unit %s has no application, nor machine id, start watching when machine id assigned.", unitName)
 				continue
 			} else if err != nil {
 				return errors.Trace(err)
@@ -329,7 +329,7 @@ func (w *machineLXDProfileWatcher) applicationCharmURLChange(ctx context.Context
 
 	app, err := w.backend.Application(appName)
 	if errors.Is(err, errors.NotFound) {
-		w.logger.Debugf(context.TODO(), "not watching removed %s on machine-%s", appName, w.machine.Id())
+		w.logger.Debugf(ctx, "not watching removed %s on machine-%s", appName, w.machine.Id())
 		return nil
 	} else if err != nil {
 		return errors.Trace(err)
@@ -349,7 +349,7 @@ func (w *machineLXDProfileWatcher) applicationCharmURLChange(ctx context.Context
 		}
 		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(ctx, locator)
 		if errors.Is(err, applicationerrors.CharmNotFound) {
-			w.logger.Debugf(context.TODO(), "not watching %s with removed charm %s on machine-%s", appName, *charmURLStr, w.machine.Id())
+			w.logger.Debugf(ctx, "not watching %s with removed charm %s on machine-%s", appName, *charmURLStr, w.machine.Id())
 			return nil
 		} else if err != nil {
 			return errors.Annotatef(err, "error getting charm %s to evaluate for lxd profile notification", *charmURLStr)
@@ -359,19 +359,19 @@ func (w *machineLXDProfileWatcher) applicationCharmURLChange(ctx context.Context
 		// 1. the prior charm had a profile and the new one does not.
 		// 2. the new profile is not empty.
 		if (!info.charmProfile.Empty() && lxdProfile.Empty()) || !lxdProfile.Empty() {
-			w.logger.Debugf(context.TODO(), "notifying due to change of charm lxd profile for app %s, machine-%s", appName, w.machine.Id())
+			w.logger.Debugf(ctx, "notifying due to change of charm lxd profile for app %s, machine-%s", appName, w.machine.Id())
 			notify = true
 		} else {
-			w.logger.Debugf(context.TODO(), "no notification of charm lxd profile needed for %s, machine-%s", appName, w.machine.Id())
+			w.logger.Debugf(ctx, "no notification of charm lxd profile needed for %s, machine-%s", appName, w.machine.Id())
 		}
 
 		info.charmProfile = lxdProfile
 		info.charmURL = *charmURLStr
 		w.applications[appName] = info
 	} else {
-		w.logger.Tracef(context.TODO(), "not watching %s on machine-%s", appName, w.machine.Id())
+		w.logger.Tracef(ctx, "not watching %s on machine-%s", appName, w.machine.Id())
 	}
-	w.logger.Tracef(context.TODO(), "end of application charm url change %#v", w.applications)
+	w.logger.Tracef(ctx, "end of application charm url change %#v", w.applications)
 	return nil
 }
 
@@ -409,7 +409,7 @@ func (w *machineLXDProfileWatcher) charmChange(ctx context.Context, chURL string
 		}
 		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(ctx, locator)
 		if errors.Is(err, applicationerrors.CharmNotFound) {
-			w.logger.Debugf(context.TODO(), "charm %s removed for %s on machine-%s", chURL, appName, w.machine.Id())
+			w.logger.Debugf(ctx, "charm %s removed for %s on machine-%s", chURL, appName, w.machine.Id())
 			continue
 		} else if err != nil {
 			return errors.Trace(err)
@@ -418,17 +418,17 @@ func (w *machineLXDProfileWatcher) charmChange(ctx context.Context, chURL string
 		// 1. the prior charm had a profile and the new one does not.
 		// 2. the new profile is not empty.
 		if (!info.charmProfile.Empty() && lxdProfile.Empty()) || !lxdProfile.Empty() {
-			w.logger.Debugf(context.TODO(), "notifying due to change of charm lxd profile for charm %s, machine-%s", chURL, w.machine.Id())
+			w.logger.Debugf(ctx, "notifying due to change of charm lxd profile for charm %s, machine-%s", chURL, w.machine.Id())
 			notify = true
 		} else {
-			w.logger.Debugf(context.TODO(), "no notification of charm lxd profile needed for %s, machine-%s", appName, w.machine.Id())
+			w.logger.Debugf(ctx, "no notification of charm lxd profile needed for %s, machine-%s", appName, w.machine.Id())
 		}
 
 		info.charmProfile = lxdProfile
 		info.charmURL = chURL
 		w.applications[appName] = info
 	}
-	w.logger.Tracef(context.TODO(), "end of charm metadata change")
+	w.logger.Tracef(ctx, "end of charm metadata change")
 	return nil
 }
 
@@ -446,29 +446,29 @@ func (w *machineLXDProfileWatcher) addUnit(ctx context.Context, unit Unit) error
 	var notify bool
 	defer func(notify *bool) {
 		if *notify {
-			w.logger.Debugf(context.TODO(), "notifying due to add unit requires lxd profile change machine-%s", w.machine.Id())
+			w.logger.Debugf(ctx, "notifying due to add unit requires lxd profile change machine-%s", w.machine.Id())
 			w.notify()
 		}
 	}(&notify)
 
 	unitName := unit.Name()
-	unitMachineId, err := w.unitMachineID(unit)
+	unitMachineId, err := w.unitMachineID(ctx, unit)
 	if errors.Is(err, errors.NotAssigned) || errors.Is(err, errors.NotFound) {
 		return nil
 	} else if err != nil {
 		return errors.Annotatef(err, "finding assigned machine for unit %q", unitName)
 	}
 	if unitMachineId != w.machine.Id() {
-		w.logger.Debugf(context.TODO(), "ignoring unit change on machine-%s as it is not machine-%s", unitMachineId, w.machine.Id())
+		w.logger.Debugf(ctx, "ignoring unit change on machine-%s as it is not machine-%s", unitMachineId, w.machine.Id())
 		return nil
 	}
-	w.logger.Debugf(context.TODO(), "start watching %q on machine-%s", unitName, w.machine.Id())
+	w.logger.Debugf(ctx, "start watching %q on machine-%s", unitName, w.machine.Id())
 	notify, err = w.add(ctx, unit)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	w.logger.Tracef(context.TODO(), "end of unit change %#v", w.applications)
+	w.logger.Tracef(ctx, "end of unit change %#v", w.applications)
 	return nil
 }
 
@@ -483,7 +483,7 @@ func (w *machineLXDProfileWatcher) add(ctx context.Context, unit Unit) (bool, er
 			// this happens for new units to existing machines.
 			app, err := unit.Application()
 			if errors.Is(err, errors.NotFound) {
-				w.logger.Debugf(context.TODO(), "failed to process new unit %s for %s on machine-%s; application removed", unitName, appName, w.machine.Id())
+				w.logger.Debugf(ctx, "failed to process new unit %s for %s on machine-%s; application removed", unitName, appName, w.machine.Id())
 				return false, nil
 			} else if err != nil {
 				return false, errors.Annotatef(err, "failed to get application %s for machine-%s", appName, w.machine.Id())
@@ -497,7 +497,7 @@ func (w *machineLXDProfileWatcher) add(ctx context.Context, unit Unit) (bool, er
 		}
 		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(ctx, locator)
 		if errors.Is(err, applicationerrors.CharmNotFound) {
-			w.logger.Debugf(context.TODO(), "charm %s removed for %s on machine-%s", locator.Name, unitName, w.machine.Id())
+			w.logger.Debugf(ctx, "charm %s removed for %s on machine-%s", locator.Name, unitName, w.machine.Id())
 			return false, nil
 		} else if err != nil {
 			return false, errors.Annotatef(err, "failed to get charm %q for %s on machine-%s", locator.Name, appName, w.machine.Id())
@@ -531,7 +531,7 @@ func (w *machineLXDProfileWatcher) add(ctx context.Context, unit Unit) (bool, er
 // removeUnit modifies the map of applications being watched when a unit is
 // removed from the machine.  Notification is sent if a unit being removed
 // has a profile and other units exist on the machine.
-func (w *machineLXDProfileWatcher) removeUnit(unitName string) error {
+func (w *machineLXDProfileWatcher) removeUnit(ctx context.Context, unitName string) error {
 	// We don't want to respond to any events until we have been fully initialized.
 	select {
 	case <-w.initialized:
@@ -541,7 +541,7 @@ func (w *machineLXDProfileWatcher) removeUnit(unitName string) error {
 	var notify bool
 	defer func(notify *bool) {
 		if *notify {
-			w.logger.Debugf(context.TODO(), "notifying due to remove unit requires lxd profile change machine-%s", w.machine.Id())
+			w.logger.Debugf(ctx, "notifying due to remove unit requires lxd profile change machine-%s", w.machine.Id())
 			w.notify()
 		}
 	}(&notify)
@@ -556,7 +556,7 @@ func (w *machineLXDProfileWatcher) removeUnit(unitName string) error {
 		// actual fact you can bump into this more often than not in legitimate
 		// circumstances. So instead of being an error, this should just be a
 		// debug log.
-		w.logger.Debugf(context.TODO(), "unit removed before being added, application name not found")
+		w.logger.Debugf(ctx, "unit removed before being added, application name not found")
 		return nil
 	}
 	if !app.units.Contains(unitName) {
@@ -598,14 +598,14 @@ func (w *machineLXDProfileWatcher) provisionedChange(ctx context.Context) error 
 	}
 	_, err = w.machineService.InstanceID(ctx, machineUUID)
 	if errors.Is(err, errors.NotProvisioned) {
-		w.logger.Debugf(context.TODO(), "machine-%s not provisioned yet", w.machine.Id())
+		w.logger.Debugf(ctx, "machine-%s not provisioned yet", w.machine.Id())
 		return nil
 	} else if err != nil {
 		return err
 	}
 	w.provisioned = true
 
-	w.logger.Debugf(context.TODO(), "notifying due to machine-%s now provisioned", w.machine.Id())
+	w.logger.Debugf(ctx, "notifying due to machine-%s now provisioned", w.machine.Id())
 	w.notify()
 	return nil
 }

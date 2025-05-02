@@ -70,7 +70,7 @@ func NewNetworkConfigAPI(
 	}
 
 	return &NetworkConfigAPI{
-		st:             &linkLayerState{st},
+		st:             &linkLayerState{State: st},
 		networkService: networkService,
 		getCanModify:   getCanModify,
 		getModelOp:     getModelOp,
@@ -88,9 +88,9 @@ func (api *NetworkConfigAPI) SetObservedNetworkConfig(ctx context.Context, args 
 	}
 
 	observedConfig := args.Config
-	logger.Tracef(context.TODO(), "observed network config of machine %q: %+v", m.Id(), observedConfig)
+	logger.Tracef(ctx, "observed network config of machine %q: %+v", m.Id(), observedConfig)
 	if len(observedConfig) == 0 {
-		logger.Infof(context.TODO(), "not updating machine %q network config: no observed network config found", m.Id())
+		logger.Infof(ctx, "not updating machine %q network config: no observed network config found", m.Id())
 		return nil
 	}
 
@@ -180,22 +180,24 @@ func (o *updateMachineLinkLayerOp) Build(_ int) ([]txn.Op, error) {
 
 	o.noteObservedParentDevices()
 
+	ctx := context.TODO()
+
 	var ops []txn.Op
 	for _, existingDev := range o.ExistingDevices() {
-		devOps, err := o.processExistingDevice(existingDev)
+		devOps, err := o.processExistingDevice(ctx, existingDev)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		ops = append(ops, devOps...)
 	}
 
-	addOps, err := o.processNewDevices()
+	addOps, err := o.processNewDevices(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, addOps...)
 
-	ops = append(ops, o.processRemovalCandidates()...)
+	ops = append(ops, o.processRemovalCandidates(ctx)...)
 
 	return ops, nil
 }
@@ -215,11 +217,11 @@ func (o *updateMachineLinkLayerOp) noteObservedParentDevices() {
 	}
 }
 
-func (o *updateMachineLinkLayerOp) processExistingDevice(dev LinkLayerDevice) ([]txn.Op, error) {
+func (o *updateMachineLinkLayerOp) processExistingDevice(ctx context.Context, dev LinkLayerDevice) ([]txn.Op, error) {
 	incomingDev := o.MatchingIncoming(dev)
 
 	if incomingDev == nil {
-		ops, err := o.processExistingDeviceNotObserved(dev)
+		ops, err := o.processExistingDeviceNotObserved(ctx, dev)
 		return ops, errors.Trace(err)
 	}
 
@@ -228,14 +230,14 @@ func (o *updateMachineLinkLayerOp) processExistingDevice(dev LinkLayerDevice) ([
 	incomingAddrs := o.MatchingIncomingAddrs(dev.Name())
 
 	for _, addr := range o.DeviceAddresses(dev) {
-		existingAddrOps, err := o.processExistingDeviceAddress(dev, addr, incomingAddrs)
+		existingAddrOps, err := o.processExistingDeviceAddress(ctx, dev, addr, incomingAddrs)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		ops = append(ops, existingAddrOps...)
 	}
 
-	newAddrOps, err := o.processExistingDeviceNewAddresses(dev, incomingAddrs)
+	newAddrOps, err := o.processExistingDeviceNewAddresses(ctx, dev, incomingAddrs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -249,7 +251,7 @@ func (o *updateMachineLinkLayerOp) processExistingDevice(dev LinkLayerDevice) ([
 // longer observes locally.
 // The device itself is not marked for deletion now, but for later processing
 // to ensure it is not a parent of other observed devices.
-func (o *updateMachineLinkLayerOp) processExistingDeviceNotObserved(dev LinkLayerDevice) ([]txn.Op, error) {
+func (o *updateMachineLinkLayerOp) processExistingDeviceNotObserved(ctx context.Context, dev LinkLayerDevice) ([]txn.Op, error) {
 	addrs := o.DeviceAddresses(dev)
 
 	var ops []txn.Op
@@ -258,7 +260,7 @@ func (o *updateMachineLinkLayerOp) processExistingDeviceNotObserved(dev LinkLaye
 		// If the machine is the authority for this address,
 		// we can delete it; otherwise leave it alone.
 		if addr.Origin() == network.OriginMachine {
-			logger.Debugf(context.TODO(), "machine %q: removing address %q from device %q", o.machine.Id(), addr.Value(), dev.Name())
+			logger.Debugf(ctx, "machine %q: removing address %q from device %q", o.machine.Id(), addr.Value(), dev.Name())
 			ops = append(ops, addr.RemoveOps()...)
 			removing++
 		}
@@ -277,6 +279,7 @@ func (o *updateMachineLinkLayerOp) processExistingDeviceNotObserved(dev LinkLaye
 }
 
 func (o *updateMachineLinkLayerOp) processExistingDeviceAddress(
+	ctx context.Context,
 	dev LinkLayerDevice, addr LinkLayerAddress, incomingAddrs []state.LinkLayerDeviceAddress,
 ) ([]txn.Op, error) {
 	addrValue := addr.Value()
@@ -295,7 +298,7 @@ func (o *updateMachineLinkLayerOp) processExistingDeviceAddress(
 
 	// Otherwise if we are the authority, delete it.
 	if addr.Origin() == network.OriginMachine {
-		logger.Infof(context.TODO(), "machine %q: removing address %q from device %q", o.machine.Id(), addrValue, addr.DeviceName())
+		logger.Infof(ctx, "machine %q: removing address %q from device %q", o.machine.Id(), addrValue, addr.DeviceName())
 		return addr.RemoveOps(), nil
 	}
 
@@ -307,12 +310,13 @@ func (o *updateMachineLinkLayerOp) processExistingDeviceAddress(
 // If there are new address to add then also the subnets are processed
 // to make sure they are updated on the state as well.
 func (o *updateMachineLinkLayerOp) processExistingDeviceNewAddresses(
+	ctx context.Context,
 	dev LinkLayerDevice, incomingAddrs []state.LinkLayerDeviceAddress,
 ) ([]txn.Op, error) {
 	var ops []txn.Op
 	for _, addr := range incomingAddrs {
 		if !o.IsAddrProcessed(dev.Name(), addr.CIDRAddress) {
-			logger.Infof(context.TODO(), "machine %q: adding address %q to device %q", o.machine.Id(), addr.CIDRAddress, dev.Name())
+			logger.Infof(ctx, "machine %q: adding address %q to device %q", o.machine.Id(), addr.CIDRAddress, dev.Name())
 
 			addOps, err := dev.AddAddressOps(addr)
 			if err != nil {
@@ -323,7 +327,7 @@ func (o *updateMachineLinkLayerOp) processExistingDeviceNewAddresses(
 			// Since this is a new address, ensure that we have
 			// discovered all the subnets for the device.
 			if o.discoverSubnets {
-				if err := o.processSubnets(dev.Name()); err != nil {
+				if err := o.processSubnets(ctx, dev.Name()); err != nil {
 					return nil, errors.Trace(err)
 				}
 			}
@@ -336,7 +340,7 @@ func (o *updateMachineLinkLayerOp) processExistingDeviceNewAddresses(
 
 // processNewDevices handles incoming devices that
 // did not match any we already have in state.
-func (o *updateMachineLinkLayerOp) processNewDevices() ([]txn.Op, error) {
+func (o *updateMachineLinkLayerOp) processNewDevices(ctx context.Context) ([]txn.Op, error) {
 	var ops []txn.Op
 	for _, dev := range o.Incoming() {
 		if o.IsDevProcessed(dev) {
@@ -349,7 +353,7 @@ func (o *updateMachineLinkLayerOp) processNewDevices() ([]txn.Op, error) {
 			addrValues[i] = addr.CIDRAddress
 		}
 
-		logger.Infof(context.TODO(), "machine %q: adding new device %q (%s) with addresses %v",
+		logger.Infof(ctx, "machine %q: adding new device %q (%s) with addresses %v",
 			o.machine.Id(), dev.InterfaceName, dev.MACAddress, addrValues)
 
 		addOps, err := o.machine.AddLinkLayerDeviceOps(
@@ -362,7 +366,7 @@ func (o *updateMachineLinkLayerOp) processNewDevices() ([]txn.Op, error) {
 		// Since this is a new device, ensure that we have
 		// discovered all the subnets it is connected to.
 		if o.discoverSubnets {
-			if err := o.processSubnets(dev.InterfaceName); err != nil {
+			if err := o.processSubnets(ctx, dev.InterfaceName); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
@@ -375,7 +379,7 @@ func (o *updateMachineLinkLayerOp) processNewDevices() ([]txn.Op, error) {
 // processSubnets takes an incoming NIC hardware address and ensures that the
 // subnets of addresses on the device are present in state.
 // Loopback subnets are ignored.
-func (o *updateMachineLinkLayerOp) processSubnets(name string) error {
+func (o *updateMachineLinkLayerOp) processSubnets(ctx context.Context, name string) error {
 	// Accrue all incoming CIDRs matching the input device.
 	cidrSet := set.NewStrings()
 	var isVLAN bool
@@ -393,11 +397,11 @@ func (o *updateMachineLinkLayerOp) processSubnets(name string) error {
 	cidrs := cidrSet.SortedValues()
 
 	if isVLAN {
-		logger.Warningf(context.TODO(), "ignoring VLAN tag for incoming device subnets: %v", cidrs)
+		logger.Warningf(ctx, "ignoring VLAN tag for incoming device subnets: %v", cidrs)
 	}
 
 	for _, cidr := range cidrs {
-		_, err := o.networkService.AddSubnet(context.TODO(), network.SubnetInfo{CIDR: cidr})
+		_, err := o.networkService.AddSubnet(ctx, network.SubnetInfo{CIDR: cidr})
 		if err != nil {
 			if errors.Is(err, errors.AlreadyExists) {
 				continue
@@ -414,14 +418,14 @@ func (o *updateMachineLinkLayerOp) processSubnets(name string) error {
 // or if all of its children are also candidates for deletion.
 // Any device considered here will already have ops generated
 // for removing its addresses.
-func (o *updateMachineLinkLayerOp) processRemovalCandidates() []txn.Op {
+func (o *updateMachineLinkLayerOp) processRemovalCandidates(ctx context.Context) []txn.Op {
 	var ops []txn.Op
 	for _, dev := range o.removalCandidates {
 		if o.observedParentDevices.Contains(dev.Name()) {
-			logger.Warningf(context.TODO(), "machine %q: device %q (%s) not removed; it has incoming child devices",
+			logger.Warningf(ctx, "machine %q: device %q (%s) not removed; it has incoming child devices",
 				o.machine.Id(), dev.Name(), dev.MACAddress())
 		} else {
-			logger.Infof(context.TODO(), "machine %q: removing device %q (%s)", o.machine.Id(), dev.Name(), dev.MACAddress())
+			logger.Infof(ctx, "machine %q: removing device %q (%s)", o.machine.Id(), dev.Name(), dev.MACAddress())
 			ops = append(ops, dev.RemoveOps()...)
 		}
 	}

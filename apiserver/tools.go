@@ -251,7 +251,7 @@ func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	st, err := h.ctxt.stateForRequestUnauthenticated(r.Context())
 	if err != nil {
 		if err := sendError(w, err); err != nil {
-			logger.Errorf(context.TODO(), "%v", err)
+			logger.Errorf(r.Context(), "%v", err)
 		}
 		return
 	}
@@ -261,19 +261,19 @@ func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	case "GET":
 		reader, size, err := h.getToolsForRequest(r, st.State)
 		if err != nil {
-			logger.Errorf(context.TODO(), "GET(%s) failed: %v", r.URL, err)
+			logger.Errorf(r.Context(), "GET(%s) failed: %v", r.URL, err)
 			if err := sendError(w, errors.NewBadRequest(err, "")); err != nil {
-				logger.Errorf(context.TODO(), "%v", err)
+				logger.Errorf(r.Context(), "%v", err)
 			}
 			return
 		}
 		defer reader.Close()
 		if err := h.sendTools(w, reader, size); err != nil {
-			logger.Errorf(context.TODO(), "%v", err)
+			logger.Errorf(r.Context(), "%v", err)
 		}
 	default:
 		if err := sendError(w, errors.MethodNotAllowedf("unsupported method: %q", r.Method)); err != nil {
-			logger.Errorf(context.TODO(), "%v", err)
+			logger.Errorf(r.Context(), "%v", err)
 		}
 	}
 }
@@ -309,7 +309,7 @@ func (h *toolsDownloadHandler) getToolsForRequest(r *http.Request, st *state.Sta
 	if err != nil {
 		return nil, 0, errors.Annotate(err, "error parsing version")
 	}
-	logger.Debugf(context.TODO(), "request for agent binaries: %s", vers)
+	logger.Debugf(r.Context(), "request for agent binaries: %s", vers)
 
 	store, err := h.ctxt.controllerObjectStoreForRequest(r.Context())
 	if err != nil {
@@ -335,7 +335,7 @@ func (h *toolsDownloadHandler) getToolsForRequest(r *http.Request, st *state.Sta
 		// Tools could not be found in tools storage,
 		// so look for them in simplestreams,
 		// fetch them and cache in tools storage.
-		logger.Infof(context.TODO(), "%v agent binaries not found locally, fetching", vers)
+		logger.Infof(r.Context(), "%v agent binaries not found locally, fetching", vers)
 		err = h.fetchAndCacheTools(r.Context(), vers, st, storage, store)
 		if err != nil {
 			err = errors.Annotate(err, "error fetching agent binaries")
@@ -443,7 +443,7 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(
 	}
 
 	// No need to verify the server's identity because we verify the SHA-256 hash.
-	logger.Infof(context.TODO(), "fetching %v agent binaries from %v", v, exactTools.URL)
+	logger.Infof(ctx, "fetching %v agent binaries from %v", v, exactTools.URL)
 	client := jujuhttp.NewClient(jujuhttp.WithSkipHostnameVerification(true))
 	resp, err := client.Get(ctx, exactTools.URL)
 	if err != nil {

@@ -4,7 +4,6 @@
 package resources
 
 import (
-	"context"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -51,7 +50,7 @@ func (h *resourcesMigrationUploadHandler) ServeHTTP(w http.ResponseWriter, r *ht
 	}
 	if err != nil {
 		if err := internalhttp.SendError(w, internalerrors.Capture(err), h.logger); err != nil {
-			h.logger.Errorf(context.TODO(), "cannot return error to user: %v", err)
+			h.logger.Errorf(r.Context(), "cannot return error to user: %v", err)
 		}
 	}
 }

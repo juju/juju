@@ -4,7 +4,6 @@
 package resources
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -47,7 +46,7 @@ func (h *UnitResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Req
 	case "GET":
 		if err := h.serveGet(resp, req); err != nil {
 			if err := internalhttp.SendError(resp, err, h.logger); err != nil {
-				h.logger.Errorf(context.TODO(), "%v", err)
+				h.logger.Errorf(req.Context(), "%v", err)
 			}
 		}
 	default:
@@ -56,7 +55,7 @@ func (h *UnitResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Req
 			errors.MethodNotAllowedf("unsupported method: %q", req.Method),
 			h.logger,
 		); err != nil {
-			h.logger.Errorf(context.TODO(), "%v", err)
+			h.logger.Errorf(req.Context(), "%v", err)
 		}
 	}
 }
@@ -70,7 +69,7 @@ func (h *UnitResourcesHandler) serveGet(resp http.ResponseWriter, req *http.Requ
 	name := req.URL.Query().Get(":resource")
 	opened, err := opener.OpenResource(req.Context(), name)
 	if err != nil {
-		h.logger.Errorf(context.TODO(), "cannot fetch resource reader: %v", err)
+		h.logger.Errorf(req.Context(), "cannot fetch resource reader: %v", err)
 		return err
 	}
 	defer opened.Close()
@@ -84,20 +83,20 @@ func (h *UnitResourcesHandler) serveGet(resp http.ResponseWriter, req *http.Requ
 	var bytesWritten int64
 	if bytesWritten, err = io.Copy(resp, opened); err != nil {
 		// We cannot use SendHTTPError here, so we log the error and move on.
-		h.logger.Warningf(context.TODO(), "unable to complete stream for resource, %d bytes streamed: %v out of %v",
+		h.logger.Warningf(req.Context(), "unable to complete stream for resource, %d bytes streamed: %v out of %v",
 			bytesWritten, opened.Size, err)
 		return nil
 	}
 
 	if bytesWritten != opened.Size {
-		h.logger.Warningf(context.TODO(), "resource streamed to unit had unexpected size: got %v, expected %v",
+		h.logger.Warningf(req.Context(), "resource streamed to unit had unexpected size: got %v, expected %v",
 			bytesWritten, opened.Size)
 	}
 
 	// Mark the downloaded resource as in use on the unit.
 	err = opener.SetResourceUsed(req.Context(), name)
 	if err != nil {
-		h.logger.Warningf(context.TODO(), "setting resource %s as in use: %w", name, err)
+		h.logger.Warningf(req.Context(), "setting resource %s as in use: %w", name, err)
 	}
 
 	return nil

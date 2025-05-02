@@ -142,7 +142,7 @@ func (m *ModelUpgraderAPI) AbortModelUpgrade(ctx context.Context, arg params.Mod
 
 // UpgradeModel upgrades a model.
 func (m *ModelUpgraderAPI) UpgradeModel(ctx context.Context, arg params.UpgradeModelParams) (result params.UpgradeModelResult, err error) {
-	m.logger.Tracef(context.TODO(), "UpgradeModel arg %#v", arg)
+	m.logger.Tracef(ctx, "UpgradeModel arg %#v", arg)
 	targetVersion := arg.TargetVersion
 	defer func() {
 		if err == nil {
@@ -210,7 +210,7 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx context.Context, arg params.UpgradeM
 		}
 	}
 	if !useControllerVersion {
-		m.logger.Debugf(context.TODO(), "deciding target version for model upgrade, from %q to %q for stream %q", currentVersion, targetVersion, arg.AgentStream)
+		m.logger.Debugf(ctx, "deciding target version for model upgrade, from %q to %q for stream %q", currentVersion, targetVersion, arg.AgentStream)
 		args := common.FindAgentsParams{
 			AgentStream:   arg.AgentStream,
 			ControllerCfg: controllerCfg,
@@ -311,7 +311,7 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 		}
 
 		if stModel.Life() != state.Alive {
-			m.logger.Tracef(context.TODO(), "skipping upgrade check for dying/dead model %s", modelUUID)
+			m.logger.Tracef(ctx, "skipping upgrade check for dying/dead model %s", modelUUID)
 			continue
 		}
 

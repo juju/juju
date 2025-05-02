@@ -90,6 +90,9 @@ func NewEgressAddressWatcher(backend State, modelConfigService ModelConfigServic
 func (w *EgressAddressWatcher) loop() error {
 	defer close(w.out)
 
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	ruw, err := w.rel.WatchUnits(w.appName)
 	if errors.Is(err, errors.NotFound) {
 		return nil
@@ -183,7 +186,7 @@ func (w *EgressAddressWatcher) loop() error {
 			}
 			haveInitialModelConfig = true
 			if !setEquals(egress, w.knownModelEgress) {
-				logger.Debugf(context.TODO(),
+				logger.Debugf(ctx,
 					"model config egress subnets changed to %s (was %s)",
 					egress.SortedValues(),
 					w.knownModelEgress.SortedValues(),
@@ -203,7 +206,7 @@ func (w *EgressAddressWatcher) loop() error {
 			// Get the new set of addresses resulting from that
 			// change, and if different to what we know, send the change.
 			haveInitialRelationUnits = true
-			addressesChanged, err := w.processUnitChanges(c)
+			addressesChanged, err := w.processUnitChanges(ctx, c)
 			if err != nil {
 				return err
 			}
@@ -213,7 +216,7 @@ func (w *EgressAddressWatcher) loop() error {
 			if !ok {
 				continue
 			}
-			addressesChanged, err := w.processMachineAddresses(machineId)
+			addressesChanged, err := w.processMachineAddresses(ctx, machineId)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -241,24 +244,24 @@ func (w *EgressAddressWatcher) getEgressSubnets() (set.Strings, error) {
 	return set.NewStrings(cfg.EgressSubnets()...), nil
 }
 
-func (w *EgressAddressWatcher) unitAddress(unit Unit) (string, bool, error) {
+func (w *EgressAddressWatcher) unitAddress(ctx context.Context, unit Unit) (string, bool, error) {
 	addr, err := unit.PublicAddress()
 	if errors.Is(err, errors.NotAssigned) {
-		logger.Debugf(context.TODO(), "unit %s is not assigned to a machine, can't get address", unit.Name())
+		logger.Debugf(ctx, "unit %s is not assigned to a machine, can't get address", unit.Name())
 		return "", false, nil
 	}
 	if network.IsNoAddressError(err) {
-		logger.Debugf(context.TODO(), "unit %s has no public address", unit.Name())
+		logger.Debugf(ctx, "unit %s has no public address", unit.Name())
 		return "", false, nil
 	}
 	if err != nil {
 		return "", false, err
 	}
-	logger.Debugf(context.TODO(), "unit %q has public address %q", unit.Name(), addr.Value)
+	logger.Debugf(ctx, "unit %q has public address %q", unit.Name(), addr.Value)
 	return addr.Value, true, nil
 }
 
-func (w *EgressAddressWatcher) processUnitChanges(c watcher.RelationUnitsChange) (bool, error) {
+func (w *EgressAddressWatcher) processUnitChanges(ctx context.Context, c watcher.RelationUnitsChange) (bool, error) {
 	changed := false
 	for name := range c.Changed {
 
@@ -270,14 +273,14 @@ func (w *EgressAddressWatcher) processUnitChanges(c watcher.RelationUnitsChange)
 			return false, err
 		}
 
-		if err := w.trackUnit(u); err != nil {
+		if err := w.trackUnit(ctx, u); err != nil {
 			return false, errors.Trace(err)
 		}
 
 		// We need to know whether to look at the public or cloud local address.
 		// For now, we'll use the public address and later if needed use a watcher
 		// parameter to look at the cloud local address.
-		addr, ok, err := w.unitAddress(u)
+		addr, ok, err := w.unitAddress(ctx, u)
 		if err != nil {
 			return false, err
 		}
@@ -290,7 +293,7 @@ func (w *EgressAddressWatcher) processUnitChanges(c watcher.RelationUnitsChange)
 		}
 	}
 	for _, name := range c.Departed {
-		if err := w.untrackUnit(name); err != nil {
+		if err := w.untrackUnit(ctx, name); err != nil {
 			return false, errors.Trace(err)
 		}
 		// If the unit is departing and we have seen its address,
@@ -316,10 +319,10 @@ func (w *EgressAddressWatcher) processUnitChanges(c watcher.RelationUnitsChange)
 	return changed, nil
 }
 
-func (w *EgressAddressWatcher) trackUnit(unit Unit) error {
+func (w *EgressAddressWatcher) trackUnit(ctx context.Context, unit Unit) error {
 	machine, err := w.assignedMachine(unit)
 	if errors.Is(err, errors.NotAssigned) {
-		logger.Errorf(context.TODO(), "unit %q entered scope without a machine assigned - addresses will not be tracked", unit)
+		logger.Errorf(ctx, "unit %q entered scope without a machine assigned - addresses will not be tracked", unit)
 		return nil
 	}
 	if err != nil {
@@ -349,17 +352,17 @@ func (w *EgressAddressWatcher) trackUnit(unit Unit) error {
 	return nil
 }
 
-func (w *EgressAddressWatcher) untrackUnit(unitName string) error {
+func (w *EgressAddressWatcher) untrackUnit(ctx context.Context, unitName string) error {
 	machineId, ok := w.unitToMachine[unitName]
 	if !ok {
-		logger.Errorf(context.TODO(), "missing machine id for unit %q", unitName)
+		logger.Errorf(ctx, "missing machine id for unit %q", unitName)
 		return nil
 	}
 	delete(w.unitToMachine, unitName)
 
 	mData, ok := w.machines[machineId]
 	if !ok {
-		logger.Debugf(context.TODO(), "missing machine data for machine %q (hosting unit %q)", machineId, unitName)
+		logger.Debugf(ctx, "missing machine data for machine %q (hosting unit %q)", machineId, unitName)
 		return nil
 	}
 	mData.units.Remove(unitName)
@@ -389,7 +392,7 @@ func (w *EgressAddressWatcher) assignedMachine(unit Unit) (Machine, error) {
 	return machine, nil
 }
 
-func (w *EgressAddressWatcher) processMachineAddresses(machineId string) (changed bool, err error) {
+func (w *EgressAddressWatcher) processMachineAddresses(ctx context.Context, machineId string) (changed bool, err error) {
 	mData, ok := w.machines[machineId]
 	if !ok {
 		return false, errors.Errorf("missing machineData for machine %q", machineId)
@@ -402,7 +405,7 @@ func (w *EgressAddressWatcher) processMachineAddresses(machineId string) (change
 		if err != nil {
 			return false, errors.Trace(err)
 		}
-		address, _, err := w.unitAddress(unit)
+		address, _, err := w.unitAddress(ctx, unit)
 		if err != nil {
 			return false, errors.Trace(err)
 		}

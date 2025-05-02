@@ -5,9 +5,6 @@ package charms
 
 import (
 	"context"
-	"net/http"
-	"net/url"
-	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
@@ -146,7 +143,7 @@ func (a *API) getDownloadInfo(ctx context.Context, arg params.CharmURLAndOrigin)
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
 
-	charmOrigin, err := normalizeCharmOrigin(arg.Origin, defaultArch, a.logger)
+	charmOrigin, err := normalizeCharmOrigin(ctx, arg.Origin, defaultArch, a.logger)
 	if err != nil {
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
@@ -594,7 +591,7 @@ func (a *API) listOneCharmResources(ctx context.Context, arg params.CharmURLAndO
 		return nil, apiservererrors.ServerError(err)
 	}
 
-	charmOrigin, err := normalizeCharmOrigin(arg.Origin, defaultArch, a.logger)
+	charmOrigin, err := normalizeCharmOrigin(ctx, arg.Origin, defaultArch, a.logger)
 	if err != nil {
 		return nil, apiservererrors.ServerError(err)
 	}
@@ -620,28 +617,19 @@ func (a *API) listOneCharmResources(ctx context.Context, arg params.CharmURLAndO
 	return results, nil
 }
 
-type noopRequestRecorder struct{}
-
-// Record an outgoing request which produced an http.Response.
-func (noopRequestRecorder) Record(method string, url *url.URL, res *http.Response, rtt time.Duration) {
-}
-
-// Record an outgoing request which returned back an error.
-func (noopRequestRecorder) RecordError(method string, url *url.URL, err error) {}
-
-func normalizeCharmOrigin(origin params.CharmOrigin, fallbackArch string, logger corelogger.Logger) (params.CharmOrigin, error) {
+func normalizeCharmOrigin(ctx context.Context, origin params.CharmOrigin, fallbackArch string, logger corelogger.Logger) (params.CharmOrigin, error) {
 	// If the series is set to all, we need to ensure that we remove that, so
 	// that we can attempt to derive it at a later stage. Juju itself doesn't
 	// know nor understand what "all" means, so we need to ensure it doesn't leak
 	// out.
 	o := origin
 	if origin.Base.Name == "all" || origin.Base.Channel == "all" {
-		logger.Warningf(context.TODO(), "Release all detected, removing all from the origin. %s", origin.ID)
+		logger.Warningf(ctx, "Release all detected, removing all from the origin. %s", origin.ID)
 		o.Base = params.Base{}
 	}
 
 	if origin.Architecture == "all" || origin.Architecture == "" {
-		logger.Warningf(context.TODO(), "Architecture not in expected state, found %q, using fallback architecture %q. %s", origin.Architecture, fallbackArch, origin.ID)
+		logger.Warningf(ctx, "Architecture not in expected state, found %q, using fallback architecture %q. %s", origin.Architecture, fallbackArch, origin.ID)
 		o.Architecture = fallbackArch
 	}
 

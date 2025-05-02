@@ -135,7 +135,7 @@ func (u *LocalUserAuthenticator) Authenticate(
 	// isn't disabled or deleted.
 	user, err := u.UserService.GetUserByAuth(ctx, coreuser.NameFromTag(userTag), auth.NewPassword(authParams.Credentials))
 	if errors.Is(err, usererrors.UserNotFound) || errors.Is(err, usererrors.UserUnauthorized) {
-		logger.Debugf(context.TODO(), "user %s not found", userTag.String())
+		logger.Debugf(ctx, "user %s not found", userTag.String())
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
 	} else if err != nil {
 		return nil, errors.Trace(err)
@@ -151,7 +151,7 @@ func (u *LocalUserAuthenticator) authenticateMacaroons(ctx context.Context, user
 	// Check for a valid request macaroon.
 	if logger.IsLevelEnabled(corelogger.TRACE) {
 		mac, _ := json.Marshal(authParams.Macaroons)
-		logger.Tracef(context.TODO(), "authentication macaroons for %s: %s", userTag, mac)
+		logger.Tracef(ctx, "authentication macaroons for %s: %s", userTag, mac)
 	}
 
 	// Attempt to authenticate the user using the macaroons provided.
@@ -163,7 +163,7 @@ func (u *LocalUserAuthenticator) authenticateMacaroons(ctx context.Context, user
 		return nil, u.handleDischargeRequiredError(ctx, userTag, authParams.BakeryVersion, ErrInvalidLoginMacaroon)
 	}
 
-	logger.Tracef(context.TODO(), "authenticated conditions: %v", macaroonAuthInfo.Conditions())
+	logger.Tracef(ctx, "authenticated conditions: %v", macaroonAuthInfo.Conditions())
 
 	// Locate the user name from the macaroon.
 	index := macaroonAuthInfo.OpIndexes[identchecker.LoginOp]
@@ -183,7 +183,7 @@ func (u *LocalUserAuthenticator) authenticateMacaroons(ctx context.Context, user
 	// We've got a valid macaroon, so we can return the user.
 	user, err := u.UserService.GetUserByName(ctx, coreuser.NameFromTag(userTag))
 	if errors.Is(err, usererrors.UserNotFound) || errors.Is(err, usererrors.UserUnauthorized) {
-		logger.Debugf(context.TODO(), "user %s not found", userTag.String())
+		logger.Debugf(ctx, "user %s not found", userTag.String())
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
 	} else if err != nil {
 		return nil, errors.Trace(err)
@@ -196,7 +196,7 @@ func (u *LocalUserAuthenticator) authenticateMacaroons(ctx context.Context, user
 }
 
 func (u *LocalUserAuthenticator) handleDischargeRequiredError(ctx context.Context, userTag names.UserTag, bakeryVersion bakery.Version, cause error) error {
-	logger.Debugf(context.TODO(), "local-login macaroon authentication failed: %v", cause)
+	logger.Debugf(ctx, "local-login macaroon authentication failed: %v", cause)
 
 	// The root keys for these macaroons are stored in MongoDB.
 	// Expire the documents after a set amount of time.
@@ -272,7 +272,7 @@ func (m *ExternalMacaroonAuthenticator) Authenticate(ctx context.Context, authPa
 		return nil, errors.Trace(identErr)
 	}
 	username := ai.Identity.Id()
-	logger.Debugf(context.TODO(), "authenticated external user %q", username)
+	logger.Debugf(ctx, "authenticated external user %q", username)
 	var tag names.UserTag
 	if names.IsValidUserName(username) {
 		// The name is a local name without an explicit @local suffix.
@@ -378,7 +378,7 @@ func CheckLocalLoginRequest(
 	if err != nil {
 		return errors.Annotatef(err, "local login request failed: %v", req.Header[httpbakery.MacaroonsHeader])
 	}
-	logger.Tracef(context.TODO(), "authenticated conditions: %v", ai.Conditions())
+	logger.Tracef(ctx, "authenticated conditions: %v", ai.Conditions())
 	if len(ai.Conditions()) == 0 {
 		return &bakery.VerificationError{Reason: errors.New("no caveats available")}
 	}

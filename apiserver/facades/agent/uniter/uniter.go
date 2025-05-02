@@ -2297,7 +2297,7 @@ func (u *UniterAPI) goalStateRelations(
 			if err == nil {
 				key = app.Name()
 			} else if errors.Is(err, errors.NotFound) {
-				u.logger.Debugf(context.TODO(), "application %q must be a remote application.", e.ApplicationName)
+				u.logger.Debugf(ctx, "application %q must be a remote application.", e.ApplicationName)
 				remoteApplication, err := u.cmrBackend.RemoteApplication(e.ApplicationName)
 				if err != nil {
 					return nil, err
@@ -2556,7 +2556,7 @@ func (u *UniterAPI) CommitHookChanges(ctx context.Context, args params.CommitHoo
 		if err := u.commitHookChangesForOneUnit(ctx, unitTag, arg, canAccessUnit, canAccessApp); err != nil {
 			// Log quota-related errors to aid operators
 			if errors.Is(err, errors.QuotaLimitExceeded) {
-				u.logger.Errorf(context.TODO(), "%s: %v", unitTag, err)
+				u.logger.Errorf(ctx, "%s: %v", unitTag, err)
 			}
 			res[i].Error = apiservererrors.ServerError(err)
 		}

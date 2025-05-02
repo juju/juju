@@ -123,7 +123,7 @@ func (s *SecretsDrainAPI) getSecretContent(ctx context.Context, arg params.GetSe
 	if err != nil {
 		return nil, nil, false, errors.Trace(err)
 	}
-	logger.Debugf(context.TODO(), "getting secret content for: %s", uri)
+	logger.Debugf(ctx, "getting secret content for: %s", uri)
 
 	md, err := s.secretService.GetSecret(ctx, uri)
 	if err != nil {

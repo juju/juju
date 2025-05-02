@@ -997,7 +997,7 @@ func (api *APIBase) applicationSetCharm(
 			return errors.Trace(err)
 		}
 
-		api.logger.Warningf(context.TODO(), "proceeding with upgrade of application %q even though the charm feature requirements could not be met as --force was specified", params.AppName)
+		api.logger.Warningf(ctx, "proceeding with upgrade of application %q even though the charm feature requirements could not be met as --force was specified", params.AppName)
 	}
 
 	force := params.Force
@@ -1432,7 +1432,7 @@ func (api *APIBase) DestroyUnit(ctx context.Context, args params.DestroyUnitsPar
 			return nil, errors.Trace(err)
 		}
 		if len(op.Errors) != 0 {
-			api.logger.Warningf(context.TODO(), "operational errors destroying unit %v: %v", unit.Name(), op.Errors)
+			api.logger.Warningf(ctx, "operational errors destroying unit %v: %v", unit.Name(), op.Errors)
 		}
 		return &info, nil
 	}
@@ -1549,7 +1549,7 @@ func (api *APIBase) DestroyApplication(ctx context.Context, args params.DestroyA
 			return nil, err
 		}
 		if len(op.Errors) != 0 {
-			api.logger.Warningf(context.TODO(), "operational errors destroying application %v: %v", tag.Id(), op.Errors)
+			api.logger.Warningf(ctx, "operational errors destroying application %v: %v", tag.Id(), op.Errors)
 		}
 
 		// TODO(units) - remove when destroy is fully implemented.

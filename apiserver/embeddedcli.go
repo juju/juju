@@ -47,14 +47,14 @@ type embeddedCLIHandler struct {
 // ServeHTTP implements the http.Handler interface.
 func (h *embeddedCLIHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	handler := func(socket *websocket.Conn) {
-		h.logger.Tracef(context.TODO(), "start of *embeddedCLIHandler.ServeHTTP")
+		h.logger.Tracef(req.Context(), "start of *embeddedCLIHandler.ServeHTTP")
 		defer socket.Close()
 
 		// If we get to here, no more errors to report, so we report a nil
 		// error.  This way the first line of the socket is always a json
 		// formatted simple error.
 		if sendErr := socket.SendInitialErrorV0(nil); sendErr != nil {
-			h.logger.Errorf(context.TODO(), "closing websocket, %v", sendErr)
+			h.logger.Errorf(req.Context(), "closing websocket, %v", sendErr)
 			return
 		}
 
@@ -71,7 +71,7 @@ func (h *embeddedCLIHandler) ServeHTTP(w http.ResponseWriter, req *http.Request)
 
 		modelUUID, valid := httpcontext.RequestModelUUID(req.Context())
 		if !valid {
-			h.logger.Errorf(context.TODO(), "invalid model UUID")
+			h.logger.Errorf(req.Context(), "invalid model UUID")
 			return
 		}
 		commandCh := h.receiveCommands(socket)
@@ -84,21 +84,21 @@ func (h *embeddedCLIHandler) ServeHTTP(w http.ResponseWriter, req *http.Request)
 				if err := socket.WriteControl(gorillaws.PingMessage, []byte{}, deadline); err != nil {
 					// This error is expected if the other end goes away. By
 					// returning we close the socket through the defer call.
-					h.logger.Debugf(context.TODO(), "failed to write ping: %s", err)
+					h.logger.Debugf(req.Context(), "failed to write ping: %s", err)
 					return
 				}
 			case jujuCmd := <-commandCh:
-				h.logger.Debugf(context.TODO(), "running embedded commands: %#v", jujuCmd)
+				h.logger.Debugf(req.Context(), "running embedded commands: %#v", jujuCmd)
 				cmdErr := h.runEmbeddedCommands(req.Context(), socket, modelUUID, jujuCmd)
 				// Only developers need this for debugging.
 				if cmdErr != nil && featureflag.Enabled(featureflag.DeveloperMode) {
-					h.logger.Debugf(context.TODO(), "command exec error: %v", cmdErr)
+					h.logger.Debugf(req.Context(), "command exec error: %v", cmdErr)
 				}
 				if err := socket.WriteJSON(params.CLICommandStatus{
 					Done:  true,
 					Error: apiservererrors.ServerError(cmdErr),
 				}); err != nil {
-					h.logger.Errorf(context.TODO(), "sending command result to caller: %v", err)
+					h.logger.Errorf(req.Context(), "sending command result to caller: %v", err)
 				}
 			}
 		}
@@ -207,7 +207,7 @@ done:
 			if err := ws.WriteJSON(params.CLICommandStatus{
 				Output: []string{line},
 			}); err != nil {
-				h.logger.Warningf(context.TODO(), "error writing CLI output: %v", err)
+				h.logger.Warningf(ctx, "error writing CLI output: %v", err)
 				cmdErr = err
 				break done
 			}

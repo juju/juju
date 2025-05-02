@@ -147,7 +147,7 @@ func (o *JaaSOfferBakery) refreshBakery(ctx context.Context, accessEndpoint stri
 	thirdPartyInfo, err := httpbakery.ThirdPartyInfoForLocation(
 		ctx, &http.Client{Transport: DefaultTransport}, accessEndpoint,
 	)
-	logger.Tracef(context.TODO(), "got third party info %#v from %q", thirdPartyInfo, accessEndpoint)
+	logger.Tracef(ctx, "got third party info %#v from %q", thirdPartyInfo, accessEndpoint)
 	if err != nil {
 		return errors.Trace(err)
 	}

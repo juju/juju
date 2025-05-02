@@ -855,7 +855,7 @@ func (a *API) devicesParams(ctx context.Context, appName string) ([]params.Kuber
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	a.logger.Debugf(context.TODO(), "getting device constraints from state: %#v", devices)
+	a.logger.Debugf(ctx, "getting device constraints from state: %#v", devices)
 	var devicesParams []params.KubernetesDeviceParams
 	for _, d := range devices {
 		devicesParams = append(devicesParams, params.KubernetesDeviceParams{
@@ -929,7 +929,7 @@ func (a *API) ApplicationOCIResources(ctx context.Context, args params.Entities)
 			imageResources.Images[v.Name] = rsc
 			err = resourceClient.SetResourceUsed(ctx, v.Name)
 			if err != nil {
-				a.logger.Errorf(context.TODO(), "setting resource %s of application %s as in use: %w", v.Name, appName, err)
+				a.logger.Errorf(ctx, "setting resource %s of application %s as in use: %w", v.Name, appName, err)
 				res.Results[i].Error = apiservererrors.ServerError(err)
 				break
 			}
@@ -985,7 +985,7 @@ func (a *API) UpdateApplicationsUnits(ctx context.Context, args params.UpdateApp
 		}
 		if app.Life() != state.Alive {
 			// We ignore any updates for dying applications.
-			a.logger.Debugf(context.TODO(), "ignoring unit updates for dying application: %v", app.Name())
+			a.logger.Debugf(ctx, "ignoring unit updates for dying application: %v", app.Name())
 			continue
 		}
 
@@ -1041,7 +1041,7 @@ type volumeInfo struct {
 }
 
 func (a *API) updateUnitsFromCloud(ctx context.Context, app Application, unitUpdates []params.ApplicationUnitParams) ([]params.ApplicationUnitInfo, error) {
-	a.logger.Debugf(context.TODO(), "unit updates: %#v", unitUpdates)
+	a.logger.Debugf(ctx, "unit updates: %#v", unitUpdates)
 
 	m, err := a.state.Model()
 	if err != nil {
@@ -1090,7 +1090,7 @@ func (a *API) updateUnitsFromCloud(ctx context.Context, app Application, unitUpd
 		}
 
 		for storageName, infos := range filesystemInfoByName {
-			a.logger.Debugf(context.TODO(), "updating storage %v for %v", storageName, unitTag)
+			a.logger.Debugf(ctx, "updating storage %v for %v", storageName, unitTag)
 			if len(infos) == 0 {
 				continue
 			}
@@ -1106,7 +1106,7 @@ func (a *API) updateUnitsFromCloud(ctx context.Context, app Application, unitUpd
 			for _, sa := range unitStorage {
 				si, err := a.storage.StorageInstance(sa.StorageInstance())
 				if errors.Is(err, errors.NotFound) {
-					a.logger.Warningf(context.TODO(), "ignoring non-existent storage instance %v for unit %v", sa.StorageInstance(), unitTag.Id())
+					a.logger.Warningf(ctx, "ignoring non-existent storage instance %v for unit %v", sa.StorageInstance(), unitTag.Id())
 					continue
 				}
 				if err != nil {
@@ -1179,7 +1179,7 @@ func (a *API) updateUnitsFromCloud(ctx context.Context, app Application, unitUpd
 	for _, unitParams := range unitUpdates {
 		unit, ok := unitByProviderID[unitParams.ProviderId]
 		if !ok {
-			a.logger.Warningf(context.TODO(), "ignoring non-existent unit with provider id %q", unitParams.ProviderId)
+			a.logger.Warningf(ctx, "ignoring non-existent unit with provider id %q", unitParams.ProviderId)
 			continue
 		}
 
@@ -1213,16 +1213,16 @@ func (a *API) updateUnitsFromCloud(ctx context.Context, app Application, unitUpd
 	// side and so any previously attached filesystems become orphaned and need to
 	// be cleaned up.
 	appName := app.Name()
-	if err := a.cleanupOrphanedFilesystems(processedFilesystemIds); err != nil {
+	if err := a.cleanupOrphanedFilesystems(ctx, processedFilesystemIds); err != nil {
 		return nil, errors.Annotatef(err, "deleting orphaned filesystems for %v", appName)
 	}
 
 	// First do the volume updates as volumes need to be attached before the filesystem updates.
-	if err := a.updateVolumeInfo(volumeUpdates, volumeStatus); err != nil {
+	if err := a.updateVolumeInfo(ctx, volumeUpdates, volumeStatus); err != nil {
 		return nil, errors.Annotatef(err, "updating volume information for %v", appName)
 	}
 
-	if err := a.updateFilesystemInfo(filesystemUpdates, filesystemStatus); err != nil {
+	if err := a.updateFilesystemInfo(ctx, filesystemUpdates, filesystemStatus); err != nil {
 		return nil, errors.Annotatef(err, "updating filesystem information for %v", appName)
 	}
 
@@ -1236,7 +1236,7 @@ func (a *API) updateUnitsFromCloud(ctx context.Context, app Application, unitUpd
 	return appUnitInfo, nil
 }
 
-func (a *API) cleanupOrphanedFilesystems(processedFilesystemIds set.Strings) error {
+func (a *API) cleanupOrphanedFilesystems(ctx context.Context, processedFilesystemIds set.Strings) error {
 	// TODO(caas) - record unit id on the filesystem so we can query by unit
 	allFilesystems, err := a.storage.AllFilesystems()
 	if err != nil {
@@ -1274,7 +1274,7 @@ func (a *API) cleanupOrphanedFilesystems(processedFilesystemIds set.Strings) err
 			continue
 		}
 
-		a.logger.Debugf(context.TODO(), "found orphaned filesystem %v", fs.FilesystemTag())
+		a.logger.Debugf(ctx, "found orphaned filesystem %v", fs.FilesystemTag())
 		// TODO (anastasiamac 2019-04-04) We can now force storage removal
 		// but for now, while we have not an arg passed in, just hardcode.
 		err = a.storage.DestroyStorageInstance(storageTag, false, false, time.Duration(0))
@@ -1289,7 +1289,7 @@ func (a *API) cleanupOrphanedFilesystems(processedFilesystemIds set.Strings) err
 	return nil
 }
 
-func (a *API) updateVolumeInfo(volumeUpdates map[string]volumeInfo, volumeStatus map[string]status.StatusInfo) error {
+func (a *API) updateVolumeInfo(ctx context.Context, volumeUpdates map[string]volumeInfo, volumeStatus map[string]status.StatusInfo) error {
 	// Do it in sorted order so it's deterministic for tests.
 	var volTags []string
 	for tag := range volumeUpdates {
@@ -1297,7 +1297,7 @@ func (a *API) updateVolumeInfo(volumeUpdates map[string]volumeInfo, volumeStatus
 	}
 	sort.Strings(volTags)
 
-	a.logger.Debugf(context.TODO(), "updating volume data: %+v", volumeUpdates)
+	a.logger.Debugf(ctx, "updating volume data: %+v", volumeUpdates)
 	for _, tagString := range volTags {
 		volTag, _ := names.ParseVolumeTag(tagString)
 		volData := volumeUpdates[tagString]
@@ -1338,7 +1338,7 @@ func (a *API) updateVolumeInfo(volumeUpdates map[string]volumeInfo, volumeStatus
 	}
 	sort.Strings(volTags)
 
-	a.logger.Debugf(context.TODO(), "updating volume status: %+v", volumeStatus)
+	a.logger.Debugf(ctx, "updating volume status: %+v", volumeStatus)
 	for _, tagString := range volTags {
 		volTag, _ := names.ParseVolumeTag(tagString)
 		volStatus := volumeStatus[tagString]
@@ -1361,7 +1361,7 @@ func (a *API) updateVolumeInfo(volumeUpdates map[string]volumeInfo, volumeStatus
 	return nil
 }
 
-func (a *API) updateFilesystemInfo(filesystemUpdates map[string]filesystemInfo, filesystemStatus map[string]status.StatusInfo) error {
+func (a *API) updateFilesystemInfo(ctx context.Context, filesystemUpdates map[string]filesystemInfo, filesystemStatus map[string]status.StatusInfo) error {
 	// Do it in sorted order so it's deterministic for tests.
 	var fsTags []string
 	for tag := range filesystemUpdates {
@@ -1369,7 +1369,7 @@ func (a *API) updateFilesystemInfo(filesystemUpdates map[string]filesystemInfo, 
 	}
 	sort.Strings(fsTags)
 
-	a.logger.Debugf(context.TODO(), "updating filesystem data: %+v", filesystemUpdates)
+	a.logger.Debugf(ctx, "updating filesystem data: %+v", filesystemUpdates)
 	for _, tagString := range fsTags {
 		fsTag, _ := names.ParseFilesystemTag(tagString)
 		fsData := filesystemUpdates[tagString]
@@ -1411,7 +1411,7 @@ func (a *API) updateFilesystemInfo(filesystemUpdates map[string]filesystemInfo, 
 	}
 	sort.Strings(fsTags)
 
-	a.logger.Debugf(context.TODO(), "updating filesystem status: %+v", filesystemStatus)
+	a.logger.Debugf(ctx, "updating filesystem status: %+v", filesystemStatus)
 	for _, tagString := range fsTags {
 		fsTag, _ := names.ParseFilesystemTag(tagString)
 		fsStatus := filesystemStatus[tagString]

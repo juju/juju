@@ -73,7 +73,7 @@ func (h *ResourceHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request)
 	tag, err := h.authFunc(req, names.UserTagKind, names.MachineTagKind, names.ControllerAgentTagKind, names.ApplicationTagKind)
 	if err != nil {
 		if err := internalhttp.SendError(resp, err, h.logger); err != nil {
-			h.logger.Errorf(context.TODO(), "%v", err)
+			h.logger.Errorf(req.Context(), "%v", err)
 		}
 		return
 	}
@@ -81,7 +81,7 @@ func (h *ResourceHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request)
 	resourceService, err := h.resourceServiceGetter.Resource(req)
 	if err != nil {
 		if err := internalhttp.SendError(resp, err, h.logger); err != nil {
-			h.logger.Errorf(context.TODO(), "returning error to user: %v", err)
+			h.logger.Errorf(req.Context(), "returning error to user: %v", err)
 		}
 		return
 	}
@@ -91,7 +91,7 @@ func (h *ResourceHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request)
 		reader, size, err := h.download(resourceService, req)
 		if err != nil {
 			if err := internalhttp.SendError(resp, err, h.logger); err != nil {
-				h.logger.Errorf(context.TODO(), "%v", err)
+				h.logger.Errorf(req.Context(), "%v", err)
 			}
 			return
 		}
@@ -101,19 +101,19 @@ func (h *ResourceHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request)
 		header.Set("Content-Length", fmt.Sprint(size))
 		resp.WriteHeader(http.StatusOK)
 		if _, err := io.Copy(resp, reader); err != nil {
-			h.logger.Errorf(context.TODO(), "resource download failed: %v", err)
+			h.logger.Errorf(req.Context(), "resource download failed: %v", err)
 		}
 	case "PUT":
 		if err := h.changeAllowedFunc(req.Context()); err != nil {
 			if err := internalhttp.SendError(resp, err, h.logger); err != nil {
-				h.logger.Errorf(context.TODO(), "%v", err)
+				h.logger.Errorf(req.Context(), "%v", err)
 			}
 			return
 		}
 		response, err := h.upload(resourceService, req, tagToUsername(tag))
 		if err != nil {
 			if err := internalhttp.SendError(resp, err, h.logger); err != nil {
-				h.logger.Errorf(context.TODO(), "%v", err)
+				h.logger.Errorf(req.Context(), "%v", err)
 			}
 			return
 		}
@@ -122,7 +122,7 @@ func (h *ResourceHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request)
 		}
 	default:
 		if err := internalhttp.SendError(resp, jujuerrors.MethodNotAllowedf("unsupported method: %q", req.Method), h.logger); err != nil {
-			h.logger.Errorf(context.TODO(), "%v", err)
+			h.logger.Errorf(req.Context(), "%v", err)
 		}
 	}
 }

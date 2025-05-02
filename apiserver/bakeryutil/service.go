@@ -69,10 +69,10 @@ func (s *ExpirableStorageBakery) Auth(ctx context.Context, mss ...macaroon.Slice
 			ops, conditions, err := s.Oven.VerifyMacaroon(ctx, ms)
 			if err != nil {
 				mac, _ := json.Marshal(ms)
-				logger.Tracef(context.TODO(), "verify macaroon err: %v\nfor\n%s", err, mac)
+				logger.Tracef(ctx, "verify macaroon err: %v\nfor\n%s", err, mac)
 				continue
 			}
-			logger.Tracef(context.TODO(), "macaroon %d: %+v : %v", i, ops, conditions)
+			logger.Tracef(ctx, "macaroon %d: %+v : %v", i, ops, conditions)
 		}
 	}
 	return s.Checker.Auth(mss...)

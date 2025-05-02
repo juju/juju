@@ -1286,6 +1286,7 @@ func (s *StorageProvisionerAPIv4) oneVolumeBlockDevice(
 		return params.BlockDevice{}, err
 	}
 	bd, ok := storagecommon.MatchingFilesystemBlockDevice(
+		ctx,
 		blockDevices,
 		volumeInfo,
 		volumeAttachmentInfo,
@@ -1636,7 +1637,7 @@ func (s *StorageProvisionerAPIv4) Remove(ctx context.Context, args params.Entiti
 			return s.sb.RemoveVolume(tag)
 		default:
 			// should have been picked up by canAccess
-			s.logger.Debugf(context.TODO(), "unexpected %v tag", tag.Kind())
+			s.logger.Debugf(ctx, "unexpected %v tag", tag.Kind())
 			return apiservererrors.ErrPerm
 		}
 	}

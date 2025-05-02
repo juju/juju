@@ -598,7 +598,7 @@ func (api *CloudAPI) AddCloud(ctx context.Context, cloudArgs params.AddCloudArgs
 			if cloudArgs.Force == nil || !*cloudArgs.Force {
 				return apiservererrors.ServerError(params.Error{Code: params.CodeIncompatibleClouds, Message: err.Error()})
 			}
-			api.logger.Infof(context.TODO(), "force adding cloud %q of type %q to controller bootstrapped on cloud type %q", cloudArgs.Name, cloudArgs.Cloud.Type, controllerCloud.Type)
+			api.logger.Infof(ctx, "force adding cloud %q of type %q to controller bootstrapped on cloud type %q", cloudArgs.Name, cloudArgs.Cloud.Type, controllerCloud.Type)
 		}
 	}
 

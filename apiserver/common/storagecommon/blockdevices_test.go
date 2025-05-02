@@ -4,6 +4,8 @@
 package storagecommon_test
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -32,7 +34,7 @@ func (s *BlockDeviceSuite) TestBlockDeviceMatchingSerialID(c *gc.C) {
 	}
 	atachmentInfo := state.VolumeAttachmentInfo{}
 	planBlockInfo := blockdevice.BlockDevice{}
-	blockDeviceInfo, ok := storagecommon.MatchingVolumeBlockDevice(blockDevices, volumeInfo, atachmentInfo, planBlockInfo)
+	blockDeviceInfo, ok := storagecommon.MatchingVolumeBlockDevice(context.Background(), blockDevices, volumeInfo, atachmentInfo, planBlockInfo)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(blockDeviceInfo, jc.DeepEquals, &blockdevice.BlockDevice{
 		DeviceName: "sdb",
@@ -55,7 +57,7 @@ func (s *BlockDeviceSuite) TestBlockDeviceMatchingHardwareID(c *gc.C) {
 	}
 	atachmentInfo := state.VolumeAttachmentInfo{}
 	planBlockInfo := blockdevice.BlockDevice{}
-	blockDeviceInfo, ok := storagecommon.MatchingVolumeBlockDevice(blockDevices, volumeInfo, atachmentInfo, planBlockInfo)
+	blockDeviceInfo, ok := storagecommon.MatchingVolumeBlockDevice(context.Background(), blockDevices, volumeInfo, atachmentInfo, planBlockInfo)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(blockDeviceInfo, jc.DeepEquals, &blockdevice.BlockDevice{
 		DeviceName: "sdb",
@@ -64,7 +66,7 @@ func (s *BlockDeviceSuite) TestBlockDeviceMatchingHardwareID(c *gc.C) {
 }
 
 func (s *BlockDeviceSuite) TestBlockDevicesAWS(c *gc.C) {
-	blockDeviceInfo, ok := storagecommon.MatchingVolumeBlockDevice(awsTestBlockDevices, awsTestVolumeInfo, awsTestAttachmentInfo, awsTestPlanBlockInfo)
+	blockDeviceInfo, ok := storagecommon.MatchingVolumeBlockDevice(context.Background(), awsTestBlockDevices, awsTestVolumeInfo, awsTestAttachmentInfo, awsTestPlanBlockInfo)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(blockDeviceInfo, jc.DeepEquals, &blockdevice.BlockDevice{
 		DeviceName: "nvme0n1",
@@ -80,14 +82,85 @@ func (s *BlockDeviceSuite) TestBlockDevicesAWS(c *gc.C) {
 }
 
 var (
-	awsTestBlockDevices   = []blockdevice.BlockDevice{{DeviceName: "loop0", SizeMiB: 0x59, FilesystemType: "squashfs", InUse: true, MountPoint: "/snap/core/7713"}, {DeviceName: "loop1", SizeMiB: 0x11, FilesystemType: "squashfs", InUse: true, MountPoint: "/snap/amazon-ssm-agent/1480"}, {DeviceName: "nvme0n1", DeviceLinks: []string{"/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol091bc356f4cc7661c", "/dev/disk/by-id/nvme-nvme.1d0f-766f6c3039316263333536663463633736363163-416d617a6f6e20456c617374696320426c6f636b2053746f7265-00000001", "/dev/disk/by-path/pci-0000:00:1f.0-nvme-1"}, WWN: "nvme.1d0f-766f6c3039316263333536663463633736363163-416d617a6f6e20456c617374696320426c6f636b2053746f7265-00000001", SizeMiB: 0x800, SerialId: "Amazon Elastic Block Store_vol091bc356f4cc7661c"}, {DeviceName: "nvme1n1", DeviceLinks: []string{"/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol04aa6a883e0e79a77", "/dev/disk/by-id/nvme-nvme.1d0f-766f6c3034616136613838336530653739613737-416d617a6f6e20456c617374696320426c6f636b2053746f7265-00000001", "/dev/disk/by-path/pci-0000:00:04.0-nvme-1"}, WWN: "nvme.1d0f-766f6c3034616136613838336530653739613737-416d617a6f6e20456c617374696320426c6f636b2053746f7265-00000001", SizeMiB: 0x2000, InUse: true, SerialId: "Amazon Elastic Block Store_vol04aa6a883e0e79a77"}, {DeviceName: "nvme1n1p1", DeviceLinks: []string{"/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol04aa6a883e0e79a77-part1", "/dev/disk/by-id/nvme-nvme.1d0f-766f6c3034616136613838336530653739613737-416d617a6f6e20456c617374696320426c6f636b2053746f7265-00000001-part1", "/dev/disk/by-label/cloudimg-rootfs", "/dev/disk/by-partuuid/eeaf5908-01", "/dev/disk/by-path/pci-0000:00:04.0-nvme-1-part1", "/dev/disk/by-uuid/651cda91-e465-4685-b697-67aa07181279"}, Label: "cloudimg-rootfs", UUID: "651cda91-e465-4685-b697-67aa07181279", WWN: "nvme.1d0f-766f6c3034616136613838336530653739613737-416d617a6f6e20456c617374696320426c6f636b2053746f7265-00000001", SizeMiB: 0x1ffe, FilesystemType: "ext4", InUse: true, MountPoint: "/", SerialId: "Amazon Elastic Block Store_vol04aa6a883e0e79a77"}, {DeviceName: "nvme2n1", DeviceLinks: []string{"/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol08a1b32d17fdda355", "/dev/disk/by-id/nvme-nvme.1d0f-766f6c3038613162333264313766646461333535-416d617a6f6e20456c617374696320426c6f636b2053746f7265-00000001", "/dev/disk/by-path/pci-0000:00:1e.0-nvme-1"}, WWN: "nvme.1d0f-766f6c3038613162333264313766646461333535-416d617a6f6e20456c617374696320426c6f636b2053746f7265-00000001", SizeMiB: 0xc00, SerialId: "Amazon Elastic Block Store_vol08a1b32d17fdda355"}, {DeviceName: "nvme3n1", DeviceLinks: []string{"/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol0389eb49d7a7ab355", "/dev/disk/by-id/nvme-nvme.1d0f-766f6c3033383965623439643761376162333535-416d617a6f6e20456c617374696320426c6f636b2053746f7265-00000001", "/dev/disk/by-path/pci-0000:00:1d.0-nvme-1"}, WWN: "nvme.1d0f-766f6c3033383965623439643761376162333535-416d617a6f6e20456c617374696320426c6f636b2053746f7265-00000001", SizeMiB: 0x800, SerialId: "Amazon Elastic Block Store_vol0389eb49d7a7ab355"}}
+	awsTestBlockDevices = []blockdevice.BlockDevice{{
+		DeviceName:     "loop0",
+		SizeMiB:        0x59,
+		FilesystemType: "squashfs",
+		InUse:          true,
+		MountPoint:     "/snap/core/7713",
+	}, {
+		DeviceName:     "loop1",
+		SizeMiB:        0x11,
+		FilesystemType: "squashfs",
+		InUse:          true,
+		MountPoint:     "/snap/amazon-ssm-agent/1480",
+	}, {
+		DeviceName: "nvme0n1",
+		DeviceLinks: []string{
+			"/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol091bc356f4cc7661c",
+			"/dev/disk/by-id/nvme-nvme.1d0f-766f6c3039316263333536663463633736363163-416d617a6f6e20456c617374696320426c6f636b2053746f7265-00000001",
+			"/dev/disk/by-path/pci-0000:00:1f.0-nvme-1",
+		},
+		WWN:      "nvme.1d0f-766f6c3039316263333536663463633736363163-416d617a6f6e20456c617374696320426c6f636b2053746f7265-00000001",
+		SizeMiB:  0x800,
+		SerialId: "Amazon Elastic Block Store_vol091bc356f4cc7661c",
+	}, {
+		DeviceName: "nvme1n1",
+		DeviceLinks: []string{
+			"/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol04aa6a883e0e79a77",
+			"/dev/disk/by-id/nvme-nvme.1d0f-766f6c3034616136613838336530653739613737-416d617a6f6e20456c617374696320426c6f636b2053746f7265-00000001",
+			"/dev/disk/by-path/pci-0000:00:04.0-nvme-1",
+		},
+		WWN:      "nvme.1d0f-766f6c3034616136613838336530653739613737-416d617a6f6e20456c617374696320426c6f636b2053746f7265-00000001",
+		SizeMiB:  0x2000,
+		InUse:    true,
+		SerialId: "Amazon Elastic Block Store_vol04aa6a883e0e79a77",
+	}, {
+		DeviceName: "nvme1n1p1",
+		DeviceLinks: []string{
+			"/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol04aa6a883e0e79a77-part1",
+			"/dev/disk/by-id/nvme-nvme.1d0f-766f6c3034616136613838336530653739613737-416d617a6f6e20456c617374696320426c6f636b2053746f7265-00000001-part1",
+			"/dev/disk/by-label/cloudimg-rootfs",
+			"/dev/disk/by-partuuid/eeaf5908-01",
+			"/dev/disk/by-path/pci-0000:00:04.0-nvme-1-part1",
+			"/dev/disk/by-uuid/651cda91-e465-4685-b697-67aa07181279",
+		},
+		Label:          "cloudimg-rootfs",
+		UUID:           "651cda91-e465-4685-b697-67aa07181279",
+		WWN:            "nvme.1d0f-766f6c3034616136613838336530653739613737-416d617a6f6e20456c617374696320426c6f636b2053746f7265-00000001",
+		SizeMiB:        0x1ffe,
+		FilesystemType: "ext4",
+		InUse:          true,
+		MountPoint:     "/",
+		SerialId:       "Amazon Elastic Block Store_vol04aa6a883e0e79a77",
+	}, {
+		DeviceName: "nvme2n1",
+		DeviceLinks: []string{
+			"/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol08a1b32d17fdda355",
+			"/dev/disk/by-id/nvme-nvme.1d0f-766f6c3038613162333264313766646461333535-416d617a6f6e20456c617374696320426c6f636b2053746f7265-00000001",
+			"/dev/disk/by-path/pci-0000:00:1e.0-nvme-1",
+		},
+		WWN:      "nvme.1d0f-766f6c3038613162333264313766646461333535-416d617a6f6e20456c617374696320426c6f636b2053746f7265-00000001",
+		SizeMiB:  0xc00,
+		SerialId: "Amazon Elastic Block Store_vol08a1b32d17fdda355",
+	}, {
+		DeviceName: "nvme3n1",
+		DeviceLinks: []string{
+			"/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol0389eb49d7a7ab355",
+			"/dev/disk/by-id/nvme-nvme.1d0f-766f6c3033383965623439643761376162333535-416d617a6f6e20456c617374696320426c6f636b2053746f7265-00000001",
+			"/dev/disk/by-path/pci-0000:00:1d.0-nvme-1",
+		},
+		WWN:      "nvme.1d0f-766f6c3033383965623439643761376162333535-416d617a6f6e20456c617374696320426c6f636b2053746f7265-00000001",
+		SizeMiB:  0x800,
+		SerialId: "Amazon Elastic Block Store_vol0389eb49d7a7ab355",
+	}}
 	awsTestPlanBlockInfo  = blockdevice.BlockDevice{}
 	awsTestVolumeInfo     = state.VolumeInfo{Size: 0x800, Pool: "ebs", VolumeId: "vol-091bc356f4cc7661c", Persistent: true}
 	awsTestAttachmentInfo = state.VolumeAttachmentInfo{DeviceName: "xvdf", DeviceLink: "/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol091bc356f4cc7661c"}
 )
 
 func (s *BlockDeviceSuite) TestBlockDevicesGCE(c *gc.C) {
-	blockDeviceInfo, ok := storagecommon.MatchingVolumeBlockDevice(gceTestBlockDevices, gceTestVolumeInfo, gceTestAttachmentInfo, gceTestPlanBlockInfo)
+	blockDeviceInfo, ok := storagecommon.MatchingVolumeBlockDevice(context.Background(), gceTestBlockDevices, gceTestVolumeInfo, gceTestAttachmentInfo, gceTestPlanBlockInfo)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(blockDeviceInfo, jc.DeepEquals, &blockdevice.BlockDevice{
 		DeviceName: "sdd",
@@ -104,7 +177,7 @@ func (s *BlockDeviceSuite) TestBlockDevicesGCE(c *gc.C) {
 }
 
 func (s *BlockDeviceSuite) TestBlockDevicesGCEPreferUUID(c *gc.C) {
-	blockDeviceInfo, ok := storagecommon.MatchingFilesystemBlockDevice(gceTestBlockDevices, gceTestVolumeInfo, gceTestAttachmentInfoForUUID, gceTestPlanBlockInfo)
+	blockDeviceInfo, ok := storagecommon.MatchingFilesystemBlockDevice(context.Background(), gceTestBlockDevices, gceTestVolumeInfo, gceTestAttachmentInfoForUUID, gceTestPlanBlockInfo)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(blockDeviceInfo, jc.DeepEquals, &blockdevice.BlockDevice{
 		DeviceName: "sda1",
@@ -137,7 +210,7 @@ var (
 )
 
 func (s *BlockDeviceSuite) TestBlockDevicesOpenStack(c *gc.C) {
-	blockDeviceInfo, ok := storagecommon.MatchingVolumeBlockDevice(osTestBlockDevices, osTestVolumeInfo, osTestAttachmentInfo, osTestPlanBlockInfo)
+	blockDeviceInfo, ok := storagecommon.MatchingVolumeBlockDevice(context.Background(), osTestBlockDevices, osTestVolumeInfo, osTestAttachmentInfo, osTestPlanBlockInfo)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(blockDeviceInfo, jc.DeepEquals, &blockdevice.BlockDevice{
 		DeviceName: "vdd",
@@ -159,7 +232,7 @@ var (
 )
 
 func (s *BlockDeviceSuite) TestBlockDevicesOCI(c *gc.C) {
-	blockDeviceInfo, ok := storagecommon.MatchingVolumeBlockDevice(ociTestBlockDevices, ociTestVolumeInfo, ociTestAttachmentInfo, ociTestPlanBlockInfo)
+	blockDeviceInfo, ok := storagecommon.MatchingVolumeBlockDevice(context.Background(), ociTestBlockDevices, ociTestVolumeInfo, ociTestAttachmentInfo, ociTestPlanBlockInfo)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(blockDeviceInfo, jc.DeepEquals, &blockdevice.BlockDevice{
 		DeviceName: "loop2",
@@ -175,7 +248,7 @@ var (
 )
 
 func (s *BlockDeviceSuite) TestBlockDevicesVSphere(c *gc.C) {
-	blockDeviceInfo, ok := storagecommon.MatchingVolumeBlockDevice(vsphereTestBlockDevices, vsphereTestVolumeInfo, vsphereTestAttachmentInfo, vsphereTestPlanBlockInfo)
+	blockDeviceInfo, ok := storagecommon.MatchingVolumeBlockDevice(context.Background(), vsphereTestBlockDevices, vsphereTestVolumeInfo, vsphereTestAttachmentInfo, vsphereTestPlanBlockInfo)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(blockDeviceInfo, jc.DeepEquals, &blockdevice.BlockDevice{
 		DeviceName: "loop0",
