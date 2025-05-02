@@ -22,7 +22,6 @@ import (
 	internalhttp "github.com/juju/juju/apiserver/internal/http"
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	coreerrors "github.com/juju/juju/core/errors"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
 	agentbinaryerrors "github.com/juju/juju/domain/agentbinary/errors"
@@ -427,7 +426,7 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(
 	}
 
 	newEnviron := stateenvirons.GetNewEnvironFunc(environs.New)
-	domainServices, err := h.ctxt.srv.shared.domainServicesGetter.ServicesForModel(ctx, coremodel.UUID(st.ModelUUID()))
+	domainServices, err := h.ctxt.domainServicesForRequest(ctx)
 	if err != nil {
 		return err
 	}

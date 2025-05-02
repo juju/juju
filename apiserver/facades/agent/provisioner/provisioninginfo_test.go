@@ -24,14 +24,11 @@ import (
 )
 
 func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
-	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c))
-
 	st := s.ControllerModel(c).State()
-	svc, err := domainServicesGetter.ServicesForModel(context.Background(), model.UUID(st.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
+	svc := s.ControllerDomainServices(c)
 	storageService := svc.Storage()
 
-	err = storageService.CreateStoragePool(context.Background(), "static-pool", "static", map[string]any{"foo": "bar"})
+	err := storageService.CreateStoragePool(context.Background(), "static-pool", "static", map[string]any{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("cores=123 mem=8G")
@@ -127,15 +124,11 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 }
 
 func (s *withoutControllerSuite) TestProvisioningInfoRootDiskVolume(c *gc.C) {
-	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c))
-
 	st := s.ControllerModel(c).State()
-
-	svc, err := domainServicesGetter.ServicesForModel(context.Background(), model.UUID(st.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
+	svc := s.ControllerDomainServices(c)
 	storageService := svc.Storage()
 
-	err = storageService.CreateStoragePool(context.Background(), "static-pool", "static", map[string]any{"foo": "bar"})
+	err := storageService.CreateStoragePool(context.Background(), "static-pool", "static", map[string]any{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 	template := state.MachineTemplate{
 		Base:        state.UbuntuBase("12.10"),
@@ -226,7 +219,7 @@ func (s *withControllerSuite) TestStub(c *gc.C) {
 - ProvisioningInfo for endpoint bindings to multiple spaces.
   In particular the EndpointBindings and ProvisioningNetworkTopology should be
   populated and included relevant space, subnet and zone data.
-- ProvisioningInfo where there are endpoint bindings, but the alpha space has no 
+- ProvisioningInfo where there are endpoint bindings, but the alpha space has no
   subnets/zones, which causes an error saying it cannot be used as a deployment
   target due to having no subnets.
 - ProvisioningInfo where a negative space constraint conflicts with endpoint

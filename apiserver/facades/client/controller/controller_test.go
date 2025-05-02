@@ -365,8 +365,7 @@ func (s *controllerSuite) TestHostedModelConfigs_CanOpenEnviron(c *gc.C) {
 
 func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-
-	otherDomainServices := s.ModelDomainServices(c, s.DomainServicesSuite.DefaultModelUUID)
+	otherDomainServices := s.DefaultModelDomainServices(c)
 	otherBlockCommands := otherDomainServices.BlockCommand()
 	otherBlockCommands.SwitchBlockOn(context.Background(), blockcommand.ChangeBlock, "ChangeBlock")
 	otherBlockCommands.SwitchBlockOn(context.Background(), blockcommand.DestroyBlock, "DestroyBlock")
@@ -456,7 +455,7 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
 func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	otherDomainServices := s.ModelDomainServices(c, s.DomainServicesSuite.DefaultModelUUID)
+	otherDomainServices := s.ModelDomainServices(c, s.DefaultModelUUID)
 	otherBlockCommands := otherDomainServices.BlockCommand()
 	otherBlockCommands.SwitchBlockOn(context.Background(), blockcommand.ChangeBlock, "TestChangeBlock")
 	otherBlockCommands.SwitchBlockOn(context.Background(), blockcommand.DestroyBlock, "TestChangeBlock")
@@ -467,7 +466,7 @@ func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
 
 	s.mockModelService.EXPECT().ListModelIDs(gomock.Any()).Return(
 		[]model.UUID{
-			s.DomainServicesSuite.DefaultModelUUID,
+			s.DefaultModelUUID,
 		}, nil,
 	)
 	err = s.controller.RemoveBlocks(context.Background(), params.RemoveBlocksArgs{All: true})
@@ -706,9 +705,7 @@ func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *gc.C) {
 	// in both places for the test to work. Necessary after model config
 	// was move to the domain services.
 	defer s.setupMocks(c).Finish()
-	modelUUID, err := uuid.UUIDFromString(s.DefaultModelUUID.String())
-	c.Assert(err, jc.ErrorIsNil)
-	st := s.Factory.MakeModel(c, &factory.ModelParams{UUID: &modelUUID})
+	st := s.Factory.MakeModel(c, &factory.ModelParams{UUID: s.DefaultModelUUID})
 	defer st.Close()
 
 	controller.SetPrecheckResult(s, errors.New("boom"))

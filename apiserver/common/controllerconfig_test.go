@@ -173,9 +173,7 @@ func (s *controllerInfoSuite) TestControllerInfoMigratedController(c *gc.C) {
 	// part in a service domain, a model with the same uuid is required
 	// in both places for the test to work. Necessary after model config
 	// was move to the domain services.
-	modelUUID, err := uuid.UUIDFromString(s.DefaultModelUUID.String())
-	c.Assert(err, jc.ErrorIsNil)
-	modelState := f.MakeModel(c, &factory.ModelParams{UUID: &modelUUID})
+	modelState := f.MakeModel(c, &factory.ModelParams{UUID: s.DefaultModelUUID})
 	model, err := modelState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 

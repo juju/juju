@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs"
@@ -52,10 +51,10 @@ var _ = gc.Suite(&iaasProvisionerSuite{})
 
 func (s *iaasProvisionerSuite) TestStub(c *gc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
-- TestRemoveVolumeParams: creates an app that will create a storage instance, 
+- TestRemoveVolumeParams: creates an app that will create a storage instance,
 so we can release the storage and show the effects on the RemoveVolumeParams.
 - TestRemoveFilesystemParams: creates an application that will create a storage
-instance, so we can release the storage and show the effects on the 
+instance, so we can release the storage and show the effects on the
 RemoveFilesystemParams.
 `)
 }
@@ -82,9 +81,7 @@ func (s *iaasProvisionerSuite) newApi(c *gc.C, blockDeviceService storageprovisi
 	c.Assert(err, jc.ErrorIsNil)
 	registry := storageprovider.NewStorageProviderRegistry(env)
 	s.st = s.ControllerModel(c).State()
-	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c))
-	svc, err := domainServicesGetter.ServicesForModel(context.Background(), model.UUID(s.st.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
+	svc := s.ControllerDomainServices(c)
 	storageService := svc.Storage()
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
@@ -116,7 +113,7 @@ func (s *iaasProvisionerSuite) newApi(c *gc.C, blockDeviceService storageprovisi
 }
 
 func (s *iaasProvisionerSuite) setupVolumes(c *gc.C) {
-	f, release := s.NewFactory(c, s.st.ModelUUID())
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
 	machineService := s.ControllerDomainServices(c).Machine()
@@ -179,7 +176,7 @@ func (s *iaasProvisionerSuite) setupVolumes(c *gc.C) {
 }
 
 func (s *iaasProvisionerSuite) setupFilesystems(c *gc.C) {
-	f, release := s.NewFactory(c, s.st.ModelUUID())
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
 	machineService := s.ControllerDomainServices(c).Machine()
@@ -776,7 +773,7 @@ func (s *iaasProvisionerSuite) TestWatchVolumes(c *gc.C) {
 	// Only IAAS models support block storage right now.
 	s.setupVolumes(c)
 
-	f, release := s.NewFactory(c, s.st.ModelUUID())
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
 	f.MakeMachine(c, nil)
@@ -784,7 +781,7 @@ func (s *iaasProvisionerSuite) TestWatchVolumes(c *gc.C) {
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},
-		{Tag: names.NewModelTag(s.st.ModelUUID()).String()},
+		{Tag: names.NewModelTag(s.ControllerModelUUID()).String()},
 		{Tag: "environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
 		{Tag: "machine-1"},
 		{Tag: "machine-42"}},
@@ -821,7 +818,7 @@ func (s *iaasProvisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
 	// Only IAAS models support block storage right now.
 	s.setupVolumes(c)
 
-	f, release := s.NewFactory(c, s.st.ModelUUID())
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
 	f.MakeMachine(c, nil)
@@ -829,7 +826,7 @@ func (s *iaasProvisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},
-		{Tag: names.NewModelTag(s.st.ModelUUID()).String()},
+		{Tag: names.NewModelTag(s.ControllerModelUUID()).String()},
 		{Tag: "environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
 		{Tag: "machine-1"},
 		{Tag: "machine-42"}},
@@ -890,7 +887,7 @@ func (s *iaasProvisionerSuite) TestWatchFilesystems(c *gc.C) {
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},
-		{Tag: names.NewModelTag(s.st.ModelUUID()).String()},
+		{Tag: names.NewModelTag(s.ControllerModelUUID()).String()},
 		{Tag: "environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
 		{Tag: "machine-1"},
 		{Tag: "machine-42"}},
@@ -935,7 +932,7 @@ func (s *iaasProvisionerSuite) TestWatchFilesystemAttachments(c *gc.C) {
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},
-		{Tag: names.NewModelTag(s.st.ModelUUID()).String()},
+		{Tag: names.NewModelTag(s.ControllerModelUUID()).String()},
 		{Tag: "environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
 		{Tag: "machine-1"},
 		{Tag: "machine-42"}},
@@ -988,7 +985,7 @@ func (s *iaasProvisionerSuite) TestWatchFilesystemAttachments(c *gc.C) {
 }
 
 func (s *iaasProvisionerSuite) TestWatchBlockDevices(c *gc.C) {
-	f, release := s.NewFactory(c, s.st.ModelUUID())
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
 	f.MakeMachine(c, nil)
@@ -1034,7 +1031,7 @@ func (s *iaasProvisionerSuite) TestWatchBlockDevices(c *gc.C) {
 func (s *iaasProvisionerSuite) TestVolumeBlockDevices(c *gc.C) {
 	s.setupVolumes(c)
 
-	f, release := s.NewFactory(c, s.st.ModelUUID())
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
 	f.MakeMachine(c, nil)
@@ -1088,7 +1085,7 @@ func (s *iaasProvisionerSuite) TestVolumeBlockDevices(c *gc.C) {
 func (s *iaasProvisionerSuite) TestVolumeBlockDevicesPlanBlockInfoSet(c *gc.C) {
 	s.setupVolumes(c)
 
-	f, release := s.NewFactory(c, s.st.ModelUUID())
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
 	f.MakeMachine(c, nil)

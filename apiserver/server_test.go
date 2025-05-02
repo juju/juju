@@ -36,7 +36,6 @@ import (
 	jujuhttp "github.com/juju/juju/internal/http"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
-	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -384,10 +383,8 @@ func (s *serverSuite) TestAPIHandlerTeardownOtherModel(c *gc.C) {
 	modelUUID := testing.GenModelUUID(c)
 	name := makeModel(c, s.TxnRunnerFactory(), s.AdminUserUUID, modelUUID, "another-model")
 
-	stModelUUID, err := uuid.UUIDFromString(modelUUID.String())
-	c.Assert(err, jc.ErrorIsNil)
 	otherState := f.MakeModel(c, &factory.ModelParams{
-		UUID: ptr(stModelUUID),
+		UUID: modelUUID,
 		Name: name,
 	})
 	defer otherState.Close()
@@ -404,11 +401,13 @@ func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	otherState := f.MakeModel(c, nil)
+	otherState := f.MakeModel(c, &factory.ModelParams{
+		UUID: s.DefaultModelUUID,
+	})
 	defer otherState.Close()
 
 	// Ensure the model's in the pool but not referenced.
-	m, release := s.Model(c, otherState.ModelUUID())
+	m, release := s.Model(c, s.DefaultModelUUID.String())
 	release()
 
 	// Make a request for the model API to check it releases
@@ -422,7 +421,7 @@ func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
 	// Don't make an assertion about whether the remove call returns
 	// true - that's dependent on whether the server has reacted to
 	// the connection being closed yet, so it's racy.
-	_, err = s.StatePool().Remove(otherState.ModelUUID())
+	_, err = s.StatePool().Remove(s.DefaultModelUUID.String())
 	c.Assert(err, jc.ErrorIsNil)
 	assertStateBecomesClosed(c, m.State())
 }

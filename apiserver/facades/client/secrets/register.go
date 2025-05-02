@@ -52,7 +52,7 @@ func newSecretsAPI(stdCtx context.Context, ctx facade.ModelContext) (*SecretsAPI
 		authorizer:           ctx.Auth(),
 		authTag:              ctx.Auth().GetAuthTag(),
 		controllerUUID:       ctx.ControllerUUID(),
-		modelUUID:            ctx.State().ModelUUID(),
+		modelUUID:            ctx.ModelUUID().String(),
 		modelName:            modelInfo.Name,
 		secretService:        secretService,
 		secretBackendService: backendService,
