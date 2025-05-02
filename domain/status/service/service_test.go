@@ -1366,6 +1366,22 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatuses(c *gc.C) {
 	})
 }
 
+func (s *serviceSuite) TestGetApplicationAndUnitModelStatuses(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetApplicationAndUnitModelStatuses(gomock.Any()).Return(
+		map[string]int{
+			"foo": 2,
+		}, nil,
+	)
+
+	statuses, err := s.service.GetApplicationAndUnitModelStatuses(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(statuses, gc.DeepEquals, map[string]int{
+		"foo": 2,
+	})
+}
+
 func (s *serviceSuite) TestGetApplicationAndUnitStatusesInvalidLXDProfile(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
