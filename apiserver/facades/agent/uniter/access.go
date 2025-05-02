@@ -13,23 +13,21 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/unit"
-	"github.com/juju/juju/state"
 )
 
-func applicationAccessor(authorizer facade.Authorizer, st *state.State) common.GetAuthFunc {
-	return func(context.Context) (common.AuthFunc, error) {
+func applicationAccessor(authorizer facade.Authorizer) common.GetAuthFunc {
+	return func(ctx context.Context) (common.AuthFunc, error) {
 		switch tag := authorizer.GetAuthTag().(type) {
 		case names.ApplicationTag:
 			return func(applicationTag names.Tag) bool {
 				return tag == applicationTag
 			}, nil
 		case names.UnitTag:
-			entity, err := st.Unit(tag.Id())
+			unitName, err := unit.NewName(tag.Id())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			applicationName := entity.ApplicationName()
-			applicationTag := names.NewApplicationTag(applicationName)
+			applicationTag := names.NewApplicationTag(unitName.Application())
 			return func(tag names.Tag) bool {
 				return tag == applicationTag
 			}, nil
@@ -39,8 +37,8 @@ func applicationAccessor(authorizer facade.Authorizer, st *state.State) common.G
 	}
 }
 
-func machineAccessor(authorizer facade.Authorizer, st *state.State) common.GetAuthFunc {
-	return func(context.Context) (common.AuthFunc, error) {
+func machineAccessor(authorizer facade.Authorizer, applicationService ApplicationService) common.GetAuthFunc {
+	return func(ctx context.Context) (common.AuthFunc, error) {
 		switch tag := authorizer.GetAuthTag().(type) {
 		// Application agents can't access machines.
 		case names.ApplicationTag:
@@ -48,15 +46,15 @@ func machineAccessor(authorizer facade.Authorizer, st *state.State) common.GetAu
 				return false
 			}, nil
 		case names.UnitTag:
-			entity, err := st.Unit(tag.Id())
+			unitName, err := unit.NewName(tag.Id())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			machineId, err := entity.AssignedMachineId()
+			machineID, err := applicationService.GetUnitMachineName(ctx, unitName)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			machineTag := names.NewMachineTag(machineId)
+			machineTag := names.NewMachineTag(machineID.String())
 			return func(tag names.Tag) bool {
 				return tag == machineTag
 			}, nil

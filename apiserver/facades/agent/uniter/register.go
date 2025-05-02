@@ -94,8 +94,8 @@ func newUniterAPIWithServices(
 	}
 
 	accessUnit := unitcommon.UnitAccessor(authorizer, services.ApplicationService)
-	accessApplication := applicationAccessor(authorizer, st)
-	accessMachine := machineAccessor(authorizer, st)
+	accessApplication := applicationAccessor(authorizer)
+	accessMachine := machineAccessor(authorizer, services.ApplicationService)
 	accessCloudSpec := cloudSpecAccessor(authorizer, services.ApplicationService)
 	accessUnitOrApplication := common.AuthAny(accessUnit, accessApplication)
 
