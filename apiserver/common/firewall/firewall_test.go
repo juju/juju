@@ -48,7 +48,7 @@ func (s *FirewallSuite) SetUpTest(c *gc.C) {
 		Controller: true,
 	}
 
-	s.st = newMockState(coretesting.ModelTag.Id())
+	s.st = newMockState()
 }
 
 func (s *FirewallSuite) setupMocks(c *gc.C) *gomock.Controller {

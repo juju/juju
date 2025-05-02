@@ -29,7 +29,6 @@ type mockState struct {
 	state.ModelMachinesWatcher
 
 	testing.Stub
-	modelUUID      string
 	remoteEntities map[names.Tag]string
 	macaroons      map[names.Tag]*macaroon.Macaroon
 	applications   map[string]*mockApplication
@@ -42,9 +41,8 @@ type mockState struct {
 	configAttrs    map[string]interface{}
 }
 
-func newMockState(modelUUID string) *mockState {
+func newMockState() *mockState {
 	return &mockState{
-		modelUUID:      modelUUID,
 		relations:      make(map[string]*mockRelation),
 		applications:   make(map[string]*mockApplication),
 		units:          make(map[string]*mockUnit),
@@ -88,10 +86,6 @@ func (st *mockState) GetMacaroon(model names.ModelTag, entity names.Tag) (*macar
 		return nil, errors.NotFoundf("macaroon for %v", entity)
 	}
 	return mac, nil
-}
-
-func (st *mockState) ModelUUID() string {
-	return st.modelUUID
 }
 
 func (st *mockState) Application(id string) (firewall.Application, error) {
