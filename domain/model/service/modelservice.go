@@ -245,10 +245,13 @@ func (s *ModelService) CreateModelWithAgentVersionStream(
 	}
 
 	argAgentStream, err := modelagent.AgentStreamFromCoreAgentStream(agentStream)
-	if err != nil {
+	if errors.Is(err, coreerrors.NotValid) {
+		return errors.New(
+			"agent stream %q is not a valid agent stream identifier for a model",
+		).Add(modelerrors.AgentStreamNotValid)
+	} else if err != nil {
 		return errors.Errorf(
-			"validating agent stream %q when creating new model: %w",
-			agentStream, err,
+			"converting agent stream core type to domain type: %w", err,
 		)
 	}
 

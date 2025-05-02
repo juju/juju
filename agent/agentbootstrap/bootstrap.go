@@ -13,11 +13,11 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/agent"
-	coreagentbinary "github.com/juju/juju/agent/binary"
 	"github.com/juju/juju/caas"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	coreagent "github.com/juju/juju/core/agent"
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/credential"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/instance"

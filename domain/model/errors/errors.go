@@ -6,6 +6,10 @@ package errors
 import "github.com/juju/juju/internal/errors"
 
 const (
+	// AgentStreamNotValid describes an error that occurs when the agent
+	// stream being set for a model is not valid or understood.
+	AgentStreamNotValid = errors.ConstError("agent stream not valid")
+
 	// AgentVersionNotSupported describes an error that occurs when then agent
 	// version chosen for model is not supported with respect to the currently
 	// running controller.
