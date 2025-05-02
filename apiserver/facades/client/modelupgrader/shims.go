@@ -39,7 +39,6 @@ type Model interface {
 
 	Owner() names.UserTag
 	Name() string
-	MigrationMode() state.MigrationMode
 	Type() state.ModelType
 	Life() state.Life
 }
@@ -53,13 +52,7 @@ func (s statePoolShim) ControllerModel() (Model, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return modelShim{
-		Model: model,
-	}, nil
+	return st.Model()
 }
 
 func (s statePoolShim) Get(uuid string) (State, error) {
@@ -86,13 +79,7 @@ type stateShim struct {
 }
 
 func (s stateShim) Model() (Model, error) {
-	model, err := s.PooledState.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return modelShim{
-		Model: model,
-	}, nil
+	return s.PooledState.Model()
 }
 
 func (s stateShim) MachineCountForBase(base ...state.Base) (map[string]int, error) {
@@ -128,16 +115,4 @@ func (s stateShim) MongoCurrentStatus() (*replicaset.Status, error) {
 		s.mgosession = s.PooledState.MongoSession()
 	}
 	return replicaset.CurrentStatus(s.mgosession)
-}
-
-type modelShim struct {
-	*state.Model
-}
-
-func (s modelShim) IsControllerModel() bool {
-	return s.Model.IsControllerModel()
-}
-
-func (s modelShim) MigrationMode() state.MigrationMode {
-	return s.Model.MigrationMode()
 }

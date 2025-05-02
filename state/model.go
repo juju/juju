@@ -481,22 +481,26 @@ func (m *Model) CloudCredentialTag() (names.CloudCredentialTag, bool) {
 }
 
 // MigrationMode returns whether the model is active or being migrated.
-func (m *Model) MigrationMode() MigrationMode {
-	return m.doc.MigrationMode
+func (st *State) MigrationMode() (MigrationMode, error) {
+	m, err := st.Model()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return m.doc.MigrationMode, nil
 }
 
 // SetMigrationMode updates the migration mode of the model.
-func (m *Model) SetMigrationMode(mode MigrationMode) error {
+func (st *State) SetMigrationMode(mode MigrationMode) error {
 	ops := []txn.Op{{
 		C:      modelsC,
-		Id:     m.doc.UUID,
+		Id:     st.ModelUUID(),
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"migration-mode", mode}}}},
 	}}
-	if err := m.st.db().RunTransaction(ops); err != nil {
+	if err := st.db().RunTransaction(ops); err != nil {
 		return errors.Trace(err)
 	}
-	return m.Refresh()
+	return nil
 }
 
 // Life returns whether the model is Alive, Dying or Dead.
@@ -1353,7 +1357,7 @@ func checkModelUsable(st *State, validLife func(Life) bool) error {
 		return errors.Errorf("model %q is %s", model.Name(), model.Life().String())
 	}
 
-	if model.MigrationMode() != MigrationModeNone {
+	if model.doc.MigrationMode != MigrationModeNone {
 		return errors.Errorf("model %q is being migrated", model.Name())
 	}
 

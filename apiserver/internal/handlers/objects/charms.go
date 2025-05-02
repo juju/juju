@@ -50,7 +50,7 @@ const (
 
 // StateGetter is an interface for getting the model state.
 type StateGetter interface {
-	GetState(*http.Request) (ModelState, error)
+	GetState(*http.Request) (State, error)
 }
 
 // ApplicationService is an interface for the application domain service.
@@ -192,7 +192,7 @@ func (h *ObjectsCharmHTTPHandler) ServePut(w http.ResponseWriter, r *http.Reques
 	return errors.Capture(sendStatusAndHeadersAndJSON(w, http.StatusOK, headers, &params.CharmsResponse{CharmURL: charmURL.String()}))
 }
 
-func (h *ObjectsCharmHTTPHandler) processPut(ctx context.Context, r *http.Request, st ModelState, applicationService ApplicationService) (*charm.URL, error) {
+func (h *ObjectsCharmHTTPHandler) processPut(ctx context.Context, r *http.Request, st State, applicationService ApplicationService) (*charm.URL, error) {
 	name, shaFromQuery, err := splitNameAndSHAFromQuery(r.URL.Query())
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -333,23 +333,18 @@ func sendJSONError(w http.ResponseWriter, err error) error {
 	}))
 }
 
-// ModelState is an interface for getting the model state.
-type ModelState interface {
-	Model() (Model, error)
+// State is an interface for getting the model migration mode.
+type State interface {
+	MigrationMode() (state.MigrationMode, error)
 	Release() bool
 }
 
-// Model is an interface for getting the model migration mode.
-type Model interface {
-	MigrationMode() state.MigrationMode
-}
-
-func modelIsImporting(st ModelState) (bool, error) {
-	model, err := st.Model()
+func modelIsImporting(st State) (bool, error) {
+	mode, err := st.MigrationMode()
 	if err != nil {
 		return false, errors.Capture(err)
 	}
-	return model.MigrationMode() == state.MigrationModeImporting, nil
+	return mode == state.MigrationModeImporting, nil
 }
 
 func convertSource(source applicationcharm.CharmSource) (string, error) {

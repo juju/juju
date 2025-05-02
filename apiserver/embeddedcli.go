@@ -27,7 +27,6 @@ import (
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 func newEmbeddedCLIHandler(
@@ -149,17 +148,16 @@ func (h *embeddedCLIHandler) runEmbeddedCommands(
 	// Figure out what model to run the commands on.
 	resolvedModelUUID := modelUUID
 	if resolvedModelUUID == "" {
-		systemState, err := h.ctxt.srv.shared.statePool.SystemState()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		resolvedModelUUID = systemState.ModelUUID()
+		resolvedModelUUID = h.ctxt.srv.shared.controllerModelUUID.String()
 	}
-	m, closer, err := h.ctxt.srv.shared.statePool.GetModel(resolvedModelUUID)
+	modelServices, err := h.ctxt.srv.shared.domainServicesGetter.ServicesForModel(ctx, model.UUID(resolvedModelUUID))
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer closer.Release()
+	modelInfo, err := modelServices.ModelInfo().GetModelInfo(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	// TODO (stickupkid): This is actually terrible. We should refactor
 	// this out, so we can just pass an interface the handler, that hides
@@ -172,7 +170,7 @@ func (h *embeddedCLIHandler) runEmbeddedCommands(
 
 	// Make a pipe to stream the stdout/stderr of the commands.
 	errCh := make(chan error, 1)
-	in, err := runCLICommands(ctx, controllerConfigService, m, errCh, commands, h.ctxt.srv.execEmbeddedCommand)
+	in, err := runCLICommands(ctx, controllerConfigService, modelInfo, errCh, commands, h.ctxt.srv.execEmbeddedCommand)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -245,7 +243,7 @@ type ExecEmbeddedCommandFunc func(ctx *cmd.Context, store jujuclient.ClientStore
 
 // runCLICommands creates a CLI command instance with an in-memory copy of the controller,
 // model, and account details and runs the command against the host controller.
-func runCLICommands(ctx context.Context, controllerConfigService ControllerConfigService, m *state.Model, errCh chan<- error, commands params.CLICommands, execEmbeddedCommand ExecEmbeddedCommandFunc) (io.Reader, error) {
+func runCLICommands(ctx context.Context, controllerConfigService ControllerConfigService, m model.ModelInfo, errCh chan<- error, commands params.CLICommands, execEmbeddedCommand ExecEmbeddedCommandFunc) (io.Reader, error) {
 	if commands.User == "" {
 		return nil, errors.NotSupportedf("CLI command for anonymous user")
 	}
@@ -275,12 +273,12 @@ func runCLICommands(ctx context.Context, controllerConfigService ControllerConfi
 	}
 	store.CurrentControllerName = controllerName
 
-	qualifiedModelName := jujuclient.JoinOwnerModelName(m.Owner(), m.Name())
+	qualifiedModelName := jujuclient.JoinOwnerModelName(names.NewUserTag(m.CredentialOwner.Name()), m.Name)
 	store.Models[controllerName] = &jujuclient.ControllerModels{
 		Models: map[string]jujuclient.ModelDetails{
 			qualifiedModelName: {
-				ModelUUID: m.UUID(),
-				ModelType: model.ModelType(m.Type()),
+				ModelUUID: m.UUID.String(),
+				ModelType: m.Type,
 			},
 		},
 		CurrentModel: qualifiedModelName,

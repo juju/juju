@@ -1998,3 +1998,45 @@ func (s *stateSuite) TestGetModelLifeNotActivated(c *gc.C) {
 	_, err := st.GetModelLife(context.Background(), modelUUID)
 	c.Assert(err, jc.ErrorIs, modelerrors.NotActivated)
 }
+
+func (s *stateSuite) TestCheckModelExists(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	exists, err := st.CheckModelExists(context.Background(), s.uuid)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(exists, jc.IsTrue)
+}
+
+func (s *stateSuite) TestCheckModelDoesNotExist(c *gc.C) {
+	uuid := modeltesting.GenModelUUID(c)
+	st := NewState(s.TxnRunnerFactory())
+	exists, err := st.CheckModelExists(context.Background(), uuid)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(exists, jc.IsFalse)
+}
+
+func (s *stateSuite) TestCheckModelExistsNotActivated(c *gc.C) {
+	modelUUID := modeltesting.GenModelUUID(c)
+	modelSt := NewState(s.TxnRunnerFactory())
+	err := modelSt.Create(
+		context.Background(),
+		modelUUID,
+		coremodel.IAAS,
+		model.GlobalModelCreationArgs{
+			Cloud:       "my-cloud",
+			CloudRegion: "my-region",
+			Credential: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: usertesting.GenNewName(c, "test-user"),
+				Name:  "foobar",
+			},
+			Name:          "my-amazing-model",
+			Owner:         s.userUUID,
+			SecretBackend: juju.BackendName,
+		},
+	)
+	c.Check(err, jc.ErrorIsNil)
+
+	exists, err := modelSt.CheckModelExists(context.Background(), modelUUID)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(exists, jc.IsFalse)
+}

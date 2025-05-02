@@ -129,17 +129,12 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		maxDuration := h.ctxt.srv.shared.maxDebugLogDuration()
 
 		logTailerFunc := func(p logtailer.LogTailerParams) (logtailer.LogTailer, error) {
-			m, err := st.Model()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-
 			// TODO (stickupkid): This should come from the logsink directly, to
 			// prevent unfettered access.
 			var modelUUID string
 			logFile := filepath.Join(h.logDir, "logsink.log")
 			if !p.Firehose {
-				modelUUID = m.UUID()
+				modelUUID = st.ModelUUID()
 			}
 
 			return logtailer.NewLogTailer(modelUUID, logFile, p)

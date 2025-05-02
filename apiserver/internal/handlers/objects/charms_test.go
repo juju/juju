@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
@@ -34,8 +34,7 @@ type objectsCharmHandlerSuite struct {
 
 	// These will move to the model service.
 	stateGetter *MockStateGetter
-	modelState  *MockModelState
-	model       *MockModel
+	state       *MockState
 
 	mux *apiserverhttp.Mux
 	srv *httptest.Server
@@ -253,7 +252,6 @@ func (s *objectsCharmHandlerSuite) TestServePut(c *gc.C) {
 
 	s.expectApplicationService()
 	s.expectModelState()
-	s.expectModel()
 
 	s.mux.AddHandler("PUT", charmsObjectsRoutePrefix, handlers)
 	defer s.mux.RemoveHandler("PUT", charmsObjectsRoutePrefix)
@@ -338,13 +336,9 @@ func (s *objectsCharmHandlerSuite) expectApplicationService() {
 }
 
 func (s *objectsCharmHandlerSuite) expectModelState() {
-	s.stateGetter.EXPECT().GetState(gomock.Any()).Return(s.modelState, nil)
-	s.modelState.EXPECT().Release().Return(true)
-}
-
-func (s *objectsCharmHandlerSuite) expectModel() {
-	s.modelState.EXPECT().Model().Return(s.model, nil)
-	s.model.EXPECT().MigrationMode().Return(state.MigrationModeNone)
+	s.stateGetter.EXPECT().GetState(gomock.Any()).Return(s.state, nil)
+	s.state.EXPECT().Release().Return(true)
+	s.state.EXPECT().MigrationMode().Return(state.MigrationModeNone, nil).AnyTimes()
 }
 
 func (s *objectsCharmHandlerSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -355,8 +349,7 @@ func (s *objectsCharmHandlerSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	// These should be on the model service!
 	s.stateGetter = NewMockStateGetter(ctrl)
-	s.modelState = NewMockModelState(ctrl)
-	s.model = NewMockModel(ctrl)
+	s.state = NewMockState(ctrl)
 
 	return ctrl
 }

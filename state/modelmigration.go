@@ -763,7 +763,7 @@ func (st *State) LatestMigration() (ModelMigration, error) {
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if model != nil && model.MigrationMode() == MigrationModeNone {
+		if model != nil && model.doc.MigrationMode == MigrationModeNone {
 			return nil, errors.NotFoundf("migration")
 		}
 	}

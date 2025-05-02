@@ -166,10 +166,15 @@ func TargetPrecheck(
 		}
 		defer release()
 
+		mode, err := model.MigrationMode()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
 		// If the model is importing then it's probably left behind
 		// from a previous migration attempt. It will be removed
 		// before the next import.
-		if model.UUID() == modelInfo.UUID && model.MigrationMode() != state.MigrationModeImporting {
+		if model.UUID() == modelInfo.UUID && mode != state.MigrationModeImporting {
 			return errors.Errorf("model with same UUID already exists (%s)", modelInfo.UUID)
 		}
 		if model.Name() == modelInfo.Name && model.Owner() == modelInfo.Owner {
@@ -421,7 +426,11 @@ func (ctx *precheckSource) checkModel(stdCtx context.Context) error {
 	if model.Life() != state.Alive {
 		return errors.Errorf("model is %s", model.Life())
 	}
-	if model.MigrationMode() == state.MigrationModeImporting {
+	mode, err := model.MigrationMode()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if mode == state.MigrationModeImporting {
 		return errors.New("model is being imported as part of another migration")
 	}
 	if credTag, found := model.CloudCredentialTag(); found {

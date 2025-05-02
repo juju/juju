@@ -44,6 +44,38 @@ func NewState(
 	}
 }
 
+// CheckModelExists is a check that allows the caller to find out if a model
+// exists and is active within the controller. True or false is returned
+// indicating if the model exists.
+func (s *State) CheckModelExists(
+	ctx context.Context,
+	modelUUID coremodel.UUID,
+) (bool, error) {
+	db, err := s.DB()
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	dbModelUUID := dbModelUUID{UUID: modelUUID.String()}
+
+	stmt, err := s.Prepare(`
+SELECT &dbModelUUID.* FROM v_model WHERE uuid = $dbModelUUID.uuid
+`, dbModelUUID)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	exists := false
+	return exists, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, dbModelUUID).Get(&dbModelUUID)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("checking model %q exists: %w", modelUUID, err)
+		}
+		exists = !errors.Is(err, sqlair.ErrNoRows)
+		return nil
+	})
+}
+
 // CloudType is responsible for reporting the type for a given cloud name. If no
 // cloud exists for the provided name then an error of [clouderrors.NotFound]
 // will be returned.
@@ -324,7 +356,7 @@ func (s *State) GetControllerModelUUID(ctx context.Context) (coremodel.UUID, err
 
 	controllerModelUUID := dbModelUUIDRef{}
 	stmt, err := s.Prepare(`
-SELECT &dbModelUUIDRef.model_uuid 
+SELECT &dbModelUUIDRef.model_uuid
 FROM   controller
 `, controllerModelUUID)
 	if err != nil {
@@ -360,7 +392,7 @@ func (s *State) GetControllerModel(ctx context.Context) (coremodel.Model, error)
 
 	controllerModelUUID := dbModelUUIDRef{}
 	stmt, err := s.Prepare(`
-SELECT &dbModelUUIDRef.model_uuid 
+SELECT &dbModelUUIDRef.model_uuid
 FROM   controller
 `, controllerModelUUID)
 	if err != nil {
@@ -556,7 +588,7 @@ SELECT &dbUUID.uuid from secret_backend WHERE name = $dbName.name
 	}
 
 	stmt, err := preparer.Prepare(`
-INSERT INTO model_secret_backend (*) VALUES ($dbModelSecretBackend.*) 
+INSERT INTO model_secret_backend (*) VALUES ($dbModelSecretBackend.*)
 `, modelSecretBackend)
 	if err != nil {
 		return errors.Capture(err)
@@ -667,10 +699,10 @@ func createModel(
 		            life_id,
 		            name,
 		            owner_uuid)
-		SELECT  $dbInitialModel.uuid, 
-				$dbInitialModel.cloud_uuid, 
-				model_type.id, 
-				$dbInitialModel.life_id, 
+		SELECT  $dbInitialModel.uuid,
+				$dbInitialModel.cloud_uuid,
+				model_type.id,
+				$dbInitialModel.life_id,
 				$dbInitialModel.name,
 				$dbInitialModel.owner_uuid
 		FROM model_type
@@ -1088,8 +1120,8 @@ func (s *State) ListModelSummariesForUser(ctx context.Context, userName user.Nam
 	}
 
 	q := `
-SELECT    (p.access_type, m.uuid, m.name, m.cloud_name, m.cloud_region_name, 
-          m.model_type, m.cloud_type, m.owner_name, m.cloud_credential_name, 
+SELECT    (p.access_type, m.uuid, m.name, m.cloud_name, m.cloud_region_name,
+          m.model_type, m.cloud_type, m.owner_name, m.cloud_credential_name,
           m.cloud_credential_cloud_name, m.cloud_credential_owner_name,
           m.life, mll.time, m.is_controller_model, m.controller_uuid) AS (&dbModelSummary.*)
 FROM      v_user_auth u
@@ -1144,11 +1176,11 @@ func (s *State) ListAllModelSummaries(ctx context.Context) ([]coremodel.ModelSum
 	}
 
 	modelStmt, err := s.Prepare(`
-SELECT    (m.uuid, m.name, m.cloud_name, m.cloud_region_name, 
-          m.model_type, m.cloud_type, m.owner_name, m.cloud_credential_name, 
+SELECT    (m.uuid, m.name, m.cloud_name, m.cloud_region_name,
+          m.model_type, m.cloud_type, m.owner_name, m.cloud_credential_name,
           m.cloud_credential_cloud_name, m.cloud_credential_owner_name,
           m.life, m.is_controller_model, m.controller_uuid) AS (&dbModelSummary.*)
-FROM      v_model m 
+FROM      v_model m
 `, dbModelSummary{})
 	if err != nil {
 		return nil, errors.Capture(err)

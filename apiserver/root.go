@@ -52,7 +52,6 @@ type objectKey struct {
 // uses to dispatch API calls appropriately.
 type apiHandler struct {
 	state   *state.State
-	model   *state.Model
 	rpcConn *rpc.Conn
 
 	// TODO (stickupkid): The "shared" concept is an abomination, we should
@@ -148,18 +147,20 @@ func newAPIHandler(
 	connectionID uint64,
 	serverHost string,
 ) (*apiHandler, error) {
-	m, err := st.Model()
+	// We return a core errors NotFound because we are still mixing
+	// mongo State and domain service calls and this is easier till
+	// we fully convert across.
+	exists, err := domainServices.Model().CheckModelExists(ctx, modelUUID)
 	if err != nil {
-		if !errors.Is(err, errors.NotFound) {
-			return nil, errors.Trace(err)
-		}
-
+		return nil, errors.Trace(err)
+	}
+	if !exists {
 		// If this model used to be hosted on this controller but got
 		// migrated allow clients to connect and wait for a login
 		// request to decide whether the users should be redirected to
 		// the new controller for this model or not.
 		if _, migErr := st.CompletedMigration(); migErr != nil {
-			return nil, errors.Trace(err) // return original NotFound error
+			return nil, errors.NotFoundf("model %q", modelUUID) // return errors.NotFound on any error
 		}
 	}
 
@@ -176,7 +177,6 @@ func newAPIHandler(
 		objectStore:           objectStore,
 		objectStoreGetter:     objectStoreGetter,
 		controllerObjectStore: controllerObjectStore,
-		model:                 m,
 		resources:             common.NewResources(),
 		watcherRegistry:       registry,
 		shared:                srv.shared,
@@ -522,14 +522,15 @@ func newAPIRoot(
 func restrictAPIRoot(
 	srv *Server,
 	apiRoot rpc.Root,
-	model *state.Model,
+	migrationMode state.MigrationMode,
+	modelType model.ModelType,
 	auth authResult,
 ) (rpc.Root, error) {
 	if !auth.controllerMachineLogin {
 		// Controller agents are allowed to
 		// connect even during maintenance.
 		restrictedRoot, err := restrictAPIRootDuringMaintenance(
-			srv, apiRoot, model, auth.tag,
+			srv, apiRoot, migrationMode, auth.tag,
 		)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -540,7 +541,7 @@ func restrictAPIRoot(
 		apiRoot = restrictRoot(apiRoot, controllerFacadesOnly)
 	} else {
 		apiRoot = restrictRoot(apiRoot, modelFacadesOnly)
-		if model.Type() == state.ModelTypeCAAS {
+		if modelType == model.CAAS {
 			apiRoot = restrictRoot(apiRoot, caasModelFacadesOnly)
 		}
 	}
@@ -553,7 +554,7 @@ func restrictAPIRoot(
 func restrictAPIRootDuringMaintenance(
 	srv *Server,
 	apiRoot rpc.Root,
-	model *state.Model,
+	migrationMode state.MigrationMode,
 	authTag names.Tag,
 ) (rpc.Root, error) {
 	describeLogin := func() string {
@@ -575,7 +576,7 @@ func restrictAPIRootDuringMaintenance(
 
 	// For user logins, we limit access during migrations.
 	if _, ok := authTag.(names.UserTag); ok {
-		switch model.MigrationMode() {
+		switch migrationMode {
 		case state.MigrationModeImporting:
 			// The user is not able to access a model that is currently being
 			// imported until the model has been activated.

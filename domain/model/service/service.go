@@ -52,6 +52,11 @@ type ModelTypeState interface {
 type State interface {
 	ModelTypeState
 
+	// CheckModelExists is a check that allows the caller to find out if a model
+	// exists and is active within the controller. True or false is returned
+	// indicating if the model exists.
+	CheckModelExists(context.Context, coremodel.UUID) (bool, error)
+
 	// Create creates a new model with all of its associated metadata.
 	Create(context.Context, coremodel.UUID, coremodel.ModelType, model.GlobalModelCreationArgs) error
 
@@ -240,6 +245,12 @@ func NewWatchableService(st State,
 		},
 		watcherFactory: watcherFactory,
 	}
+}
+
+// CheckModelExists checks if a model exists within the controller. True or
+// false is returned indiciating of the model exists.
+func (s *Service) CheckModelExists(ctx context.Context, modelUUID coremodel.UUID) (bool, error) {
+	return s.st.CheckModelExists(ctx, modelUUID)
 }
 
 // DefaultModelCloudNameAndCredential returns the default cloud name and

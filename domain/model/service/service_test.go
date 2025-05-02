@@ -172,12 +172,21 @@ func (s *serviceSuite) TestModelCreation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(activator(context.Background()), jc.ErrorIsNil)
 
-	_, exists := s.state.models[id]
+	exists, err := svc.CheckModelExists(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(exists, jc.IsTrue)
 
 	modelList, err := svc.ListModelIDs(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(len(modelList), gc.Equals, 2)
+}
+
+func (s *serviceSuite) TestCheckExistsNoModel(c *gc.C) {
+	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
+	id := modeltesting.GenModelUUID(c)
+	exists, err := svc.CheckModelExists(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(exists, jc.IsFalse)
 }
 
 // TestModelCreationSecretBackendNotFound is asserting that if we try and add a

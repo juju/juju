@@ -574,26 +574,26 @@ func (w logsinkMetricsCollectorWrapper) LogReadCount(modelUUID, state string) pr
 // essentials for the http request recorder.
 type httpRequestRecorderWrapper struct {
 	collector *Collector
-	modelUUID string
+	modelUUID coremodel.UUID
 }
 
 // Record an outgoing request which produced an http.Response.
 func (w httpRequestRecorderWrapper) Record(method string, url *url.URL, res *http.Response, rtt time.Duration) {
 	// Note: Do not log url.Path as REST queries _can_ include the name of the
 	// entities (charms, architectures, etc).
-	w.collector.TotalRequests.WithLabelValues(w.modelUUID, url.Host, strconv.FormatInt(int64(res.StatusCode), 10)).Inc()
+	w.collector.TotalRequests.WithLabelValues(w.modelUUID.String(), url.Host, strconv.FormatInt(int64(res.StatusCode), 10)).Inc()
 	if res.StatusCode >= 400 {
-		w.collector.TotalRequestErrors.WithLabelValues(w.modelUUID, url.Host).Inc()
+		w.collector.TotalRequestErrors.WithLabelValues(w.modelUUID.String(), url.Host).Inc()
 	}
-	w.collector.TotalRequestsDuration.WithLabelValues(w.modelUUID, url.Host).Observe(rtt.Seconds())
+	w.collector.TotalRequestsDuration.WithLabelValues(w.modelUUID.String(), url.Host).Observe(rtt.Seconds())
 }
 
 // RecordError records an outgoing request that returned back an error.
 func (w httpRequestRecorderWrapper) RecordError(method string, url *url.URL, err error) {
 	// Note: Do not log url.Path as REST queries _can_ include the name of the
 	// entities (charms, architectures, etc).
-	w.collector.TotalRequests.WithLabelValues(w.modelUUID, url.Host, "unknown").Inc()
-	w.collector.TotalRequestErrors.WithLabelValues(w.modelUUID, url.Host).Inc()
+	w.collector.TotalRequests.WithLabelValues(w.modelUUID.String(), url.Host, "unknown").Inc()
+	w.collector.TotalRequestErrors.WithLabelValues(w.modelUUID.String(), url.Host).Inc()
 }
 
 // loop is the main loop for the server.
@@ -1206,7 +1206,7 @@ type stateGetter struct {
 	authFunc func(*http.Request) (*state.PooledState, error)
 }
 
-func (s *stateGetter) GetState(r *http.Request) (objects.ModelState, error) {
+func (s *stateGetter) GetState(r *http.Request) (objects.State, error) {
 	st, err := s.authFunc(r)
 	if err != nil {
 		return nil, internalerrors.Capture(err)
@@ -1222,8 +1222,8 @@ type stateGetterModel struct {
 	st          *state.State
 }
 
-func (s *stateGetterModel) Model() (objects.Model, error) {
-	return s.st.Model()
+func (s *stateGetterModel) MigrationMode() (state.MigrationMode, error) {
+	return s.st.MigrationMode()
 }
 
 func (s *stateGetterModel) Release() bool {

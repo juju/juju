@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication/jwt"
 	"github.com/juju/juju/apiserver/errors"
 	apitesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
@@ -35,6 +36,7 @@ import (
 	jujuhttp "github.com/juju/juju/internal/http"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
+	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -378,7 +380,16 @@ func (s *serverSuite) TestAPIHandlerTeardownInitialModel(c *gc.C) {
 func (s *serverSuite) TestAPIHandlerTeardownOtherModel(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	otherState := f.MakeModel(c, nil)
+
+	modelUUID := testing.GenModelUUID(c)
+	name := makeModel(c, s.TxnRunnerFactory(), s.AdminUserUUID, modelUUID, "another-model")
+
+	stModelUUID, err := uuid.UUIDFromString(modelUUID.String())
+	c.Assert(err, jc.ErrorIsNil)
+	otherState := f.MakeModel(c, &factory.ModelParams{
+		UUID: ptr(stModelUUID),
+		Name: name,
+	})
 	defer otherState.Close()
 	s.checkAPIHandlerTeardown(c, otherState)
 }

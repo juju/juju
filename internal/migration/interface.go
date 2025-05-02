@@ -92,7 +92,7 @@ type PrecheckModel interface {
 	Type() state.ModelType
 	Owner() names.UserTag
 	Life() state.Life
-	MigrationMode() state.MigrationMode
+	MigrationMode() (state.MigrationMode, error)
 	CloudCredentialTag() (names.CloudCredentialTag, bool)
 }
 

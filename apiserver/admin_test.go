@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -28,8 +29,10 @@ import (
 	"github.com/juju/juju/api/client/modelconfig"
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
@@ -37,9 +40,12 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/access"
 	accessservice "github.com/juju/juju/domain/access/service"
+	"github.com/juju/juju/domain/model"
+	modelstate "github.com/juju/juju/domain/model/state"
 	"github.com/juju/juju/internal/auth"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/password"
+	"github.com/juju/juju/internal/secrets/provider/juju"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/internal/uuid"
@@ -582,16 +588,56 @@ func (s *loginSuite) TestControllerAgentLoginDuringMaintenance(c *gc.C) {
 	c.Assert(st.Close(), jc.ErrorIsNil)
 }
 
+var index uint32
+
+func uniqueInteger() int {
+	return int(atomic.AddUint32(&index, 1))
+}
+
+func uniqueModelName(name string) string {
+	return fmt.Sprintf("%s-%d", name, uniqueInteger())
+}
+
+func makeModel(
+	c *gc.C, txnRunnerFactory database.TxnRunnerFactory, ownerUUID user.UUID, modelUUID coremodel.UUID, name string,
+) string {
+	uniqueName := uniqueModelName(name)
+	domainModelSt := modelstate.NewState(txnRunnerFactory)
+	err := domainModelSt.Create(context.Background(), modelUUID, coremodel.IAAS, model.GlobalModelCreationArgs{
+		Cloud:         "dummy",
+		CloudRegion:   "dummy-region",
+		Name:          uniqueName,
+		Owner:         ownerUUID,
+		SecretBackend: juju.BackendName,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = domainModelSt.Activate(context.Background(), modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	return uniqueName
+}
+
 func (s *loginSuite) TestMigratedModelLogin(c *gc.C) {
 	info := s.ControllerModelApiInfo()
 	f, release := s.NewFactory(c, info.ModelTag.Id())
 	defer release()
 
+	// The migration info is still read from mongo state.
+	// So for this test we need to mirror the model creation
+	// and deletion in both mongo and dqlite.
+
+	modelUUID := testing.GenModelUUID(c)
+	name := makeModel(c, s.TxnRunnerFactory(), s.AdminUserUUID, modelUUID, "another-model")
+
+	stModelUUID, err := uuid.UUIDFromString(modelUUID.String())
+	c.Assert(err, jc.ErrorIsNil)
 	ownerName := usertesting.GenNewName(c, "modelOwner")
 	modelState := f.MakeModel(c, &factory.ModelParams{
+		UUID:  ptr(stModelUUID),
+		Name:  name,
 		Owner: names.NewUserTag(ownerName.Name()),
 	})
 	defer modelState.Close()
+
 	model, err := modelState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -615,6 +661,10 @@ func (s *loginSuite) TestMigratedModelLogin(c *gc.C) {
 	}
 	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 	c.Assert(modelState.RemoveDyingModel(), jc.ErrorIsNil)
+
+	domainModelSt := modelstate.NewState(s.TxnRunnerFactory())
+	err = domainModelSt.Delete(context.Background(), modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
 
 	info.ModelTag = model.ModelTag()
 
@@ -854,13 +904,18 @@ func (s *loginSuite) TestOtherModelFromController(c *gc.C) {
 		Jobs: []state.MachineJob{state.JobManageModel},
 	})
 
-	defer release()
-	modelState := f.MakeModel(c, nil)
-	defer modelState.Close()
-	model, err := modelState.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	modelUUID := testing.GenModelUUID(c)
+	name := makeModel(c, s.TxnRunnerFactory(), s.AdminUserUUID, modelUUID, "another-model")
 
-	info := s.ModelApiInfo(model.UUID())
+	stModelUUID, err := uuid.UUIDFromString(modelUUID.String())
+	c.Assert(err, jc.ErrorIsNil)
+	modelState := f.MakeModel(c, &factory.ModelParams{
+		UUID: ptr(stModelUUID),
+		Name: name,
+	})
+	defer modelState.Close()
+
+	info := s.ModelApiInfo(modelUUID.String())
 	info.Tag = nil
 	info.Password = ""
 	info.Macaroons = nil
@@ -915,14 +970,18 @@ func (s *loginSuite) TestOtherModelWhenNotController(c *gc.C) {
 	defer release()
 	machine, pass := f.MakeMachineReturningPassword(c, nil)
 
-	modelState := f.MakeModel(c, nil)
+	modelUUID := testing.GenModelUUID(c)
+	name := makeModel(c, s.TxnRunnerFactory(), s.AdminUserUUID, modelUUID, "another-model")
+
+	stModelUUID, err := uuid.UUIDFromString(modelUUID.String())
+	c.Assert(err, jc.ErrorIsNil)
+	modelState := f.MakeModel(c, &factory.ModelParams{
+		UUID: ptr(stModelUUID),
+		Name: name,
+	})
 	defer modelState.Close()
 
-	model, err := modelState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	st := s.openModelAPIWithoutLogin(c, model.UUID())
-
+	st := s.openModelAPIWithoutLogin(c, modelUUID.String())
 	err = st.Login(context.Background(), machine.Tag(), pass, "nonce", nil)
 	assertInvalidEntityPassword(c, err)
 }
@@ -1118,9 +1177,7 @@ func (s *migrationSuite) TestImportingModel(c *gc.C) {
 	defer release()
 	m, pass := f.MakeMachineReturningPassword(c, &factory.MachineParams{Nonce: "nonce"})
 
-	model, err := s.ControllerModel(c).State().Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = model.SetMigrationMode(state.MigrationModeImporting)
+	err := s.ControllerModel(c).State().SetMigrationMode(state.MigrationModeImporting)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Users should be able to log in but RPC requests should fail.
@@ -1136,9 +1193,7 @@ func (s *migrationSuite) TestImportingModel(c *gc.C) {
 }
 
 func (s *migrationSuite) TestExportingModel(c *gc.C) {
-	model, err := s.ControllerModel(c).State().Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = model.SetMigrationMode(state.MigrationModeExporting)
+	err := s.ControllerModel(c).State().SetMigrationMode(state.MigrationModeExporting)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Users should be able to log in but RPC requests should fail.

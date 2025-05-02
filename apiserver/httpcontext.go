@@ -136,16 +136,16 @@ func (ctxt *httpContext) stateForMigration(
 			migrationSt.Release()
 		}
 	}()
-	model, err := migrationSt.Model()
+	mode, err := migrationSt.MigrationMode()
 	if errors.Is(err, errors.NotFound) {
 		return nil, fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, modelUUID)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if model.MigrationMode() != requiredMode {
+	if mode != requiredMode {
 		return nil, errors.BadRequestf(
-			"model migration mode is %q instead of %q", model.MigrationMode(), requiredMode)
+			"model migration mode is %q instead of %q", mode, requiredMode)
 	}
 	return migrationSt, nil
 }

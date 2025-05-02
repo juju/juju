@@ -52,6 +52,7 @@ type ModelManagerBackend interface {
 	ExportPartial(state.ExportConfig, objectstore.ObjectStore) (description.Model, error)
 	ConstraintsBySpaceName(string) ([]*state.Constraints, error)
 
+	MigrationMode() (state.MigrationMode, error)
 	LatestMigration() (state.ModelMigration, error)
 	Close() error
 	HAPrimaryMachine() (names.MachineTag, error)
@@ -85,7 +86,6 @@ type Model interface {
 	CloudCredentialTag() (names.CloudCredentialTag, bool)
 	CloudRegion() string
 	Destroy(state.DestroyModelParams) error
-	MigrationMode() state.MigrationMode
 	Name() string
 	UUID() string
 	// TODO(aflynn): ControllerUUID is only here because the EnvironConfigGetter

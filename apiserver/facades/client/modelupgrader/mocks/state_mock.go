@@ -441,44 +441,6 @@ func (c *MockModelLifeCall) DoAndReturn(f func() state.Life) *MockModelLifeCall 
 	return c
 }
 
-// MigrationMode mocks base method.
-func (m *MockModel) MigrationMode() state.MigrationMode {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MigrationMode")
-	ret0, _ := ret[0].(state.MigrationMode)
-	return ret0
-}
-
-// MigrationMode indicates an expected call of MigrationMode.
-func (mr *MockModelMockRecorder) MigrationMode() *MockModelMigrationModeCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MigrationMode", reflect.TypeOf((*MockModel)(nil).MigrationMode))
-	return &MockModelMigrationModeCall{Call: call}
-}
-
-// MockModelMigrationModeCall wrap *gomock.Call
-type MockModelMigrationModeCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelMigrationModeCall) Return(arg0 state.MigrationMode) *MockModelMigrationModeCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelMigrationModeCall) Do(f func() state.MigrationMode) *MockModelMigrationModeCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelMigrationModeCall) DoAndReturn(f func() state.MigrationMode) *MockModelMigrationModeCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Name mocks base method.
 func (m *MockModel) Name() string {
 	m.ctrl.T.Helper()
