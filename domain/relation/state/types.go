@@ -263,6 +263,15 @@ func (e Endpoint) toRelationEndpoint() relation.Endpoint {
 	}
 }
 
+// roEndpointIdentifier returns an EndpointIdentifier type for given
+// CandidateEndpointIdentifier.
+func (e Endpoint) toEndpointIdentifier() corerelation.EndpointIdentifier {
+	return corerelation.EndpointIdentifier{
+		ApplicationName: e.ApplicationName,
+		EndpointName:    e.EndpointName,
+	}
+}
+
 type relationEndpoint struct {
 	// UUID is a unique identifier for the relation endpoint
 	UUID corerelation.EndpointUUID `db:"uuid"`

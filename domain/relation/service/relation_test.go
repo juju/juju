@@ -1363,6 +1363,77 @@ func (s *relationServiceSuite) TestIsPeerRelation(c *gc.C) {
 	c.Check(obtained, jc.IsTrue)
 }
 
+// TestInferRelationUUIDByEndpoints verifies the behavior of the
+// InferRelationUUIDByEndpoints method for finding a relation uuid.
+func (s *relationServiceSuite) TestInferRelationUUIDByEndpoints(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	endpoint1 := "application-1"
+	endpoint2 := "application-2:endpoint-2"
+
+	expectedRelUUID := corerelationtesting.GenRelationUUID(c)
+
+	s.state.EXPECT().InferRelationUUIDByEndpoints(gomock.Any(), relation.CandidateEndpointIdentifier{
+		ApplicationName: "application-1",
+	}, relation.CandidateEndpointIdentifier{
+		ApplicationName: "application-2",
+		EndpointName:    "endpoint-2",
+	}).Return(expectedRelUUID, nil)
+
+	// Act
+	obtainedRelUUID, err := s.service.InferRelationUUIDByEndpoints(context.Background(), endpoint1, endpoint2)
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtainedRelUUID, gc.Equals, expectedRelUUID)
+}
+
+// TestAddRelationFirstMalformed verifies that InferRelationUUIDByEndpoints
+// returns an appropriate error when the first endpoint is malformed.
+func (s *relationServiceSuite) TestInferRelationUUIDByEndpointsFirstMalformed(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	endpoint1 := "app:ep:is:malformed"
+	endpoint2 := "application-2:endpoint-2"
+
+	// Act
+	_, err := s.service.InferRelationUUIDByEndpoints(context.Background(), endpoint1, endpoint2)
+
+	// Assert
+	c.Assert(err, gc.ErrorMatches, "parsing endpoint identifier \"app:ep:is:malformed\": expected endpoint of form <application-name>:<endpoint-name> or <application-name>")
+}
+
+// TestAddRelationFirstMalformed verifies that InferRelationUUIDByEndpoints
+// returns an appropriate error when the second endpoint is malformed.
+func (s *relationServiceSuite) TestInferRelationUUIDByEndpointsSecondMalformed(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	endpoint1 := "application-1:endpoint-1"
+	endpoint2 := "app:ep:is:malformed"
+
+	// Act
+	_, err := s.service.InferRelationUUIDByEndpoints(context.Background(), endpoint1, endpoint2)
+
+	// Assert
+	c.Assert(err, gc.ErrorMatches, "parsing endpoint identifier \"app:ep:is:malformed\": expected endpoint of form <application-name>:<endpoint-name> or <application-name>")
+}
+
+// TestAddRelationStateError validates the InferRelationUUIDByEndpoints method
+// handles and returns the correct error when state addition fails.
+func (s *relationServiceSuite) TestInferRelationUUIDByEndpointsStateError(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	expectedError := errors.New("state error")
+
+	s.state.EXPECT().InferRelationUUIDByEndpoints(gomock.Any(), gomock.Any(), gomock.Any()).Return("", expectedError)
+
+	// Act
+	_, err := s.service.InferRelationUUIDByEndpoints(context.Background(), "app1", "app2")
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, expectedError)
+}
+
 func (s *relationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

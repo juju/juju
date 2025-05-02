@@ -1099,6 +1099,45 @@ func (c *MockStateGetRelationsStatusForUnitCall) DoAndReturn(f func(context.Cont
 	return c
 }
 
+// InferRelationUUIDByEndpoints mocks base method.
+func (m *MockState) InferRelationUUIDByEndpoints(arg0 context.Context, arg1, arg2 relation0.CandidateEndpointIdentifier) (relation.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InferRelationUUIDByEndpoints", arg0, arg1, arg2)
+	ret0, _ := ret[0].(relation.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// InferRelationUUIDByEndpoints indicates an expected call of InferRelationUUIDByEndpoints.
+func (mr *MockStateMockRecorder) InferRelationUUIDByEndpoints(arg0, arg1, arg2 any) *MockStateInferRelationUUIDByEndpointsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InferRelationUUIDByEndpoints", reflect.TypeOf((*MockState)(nil).InferRelationUUIDByEndpoints), arg0, arg1, arg2)
+	return &MockStateInferRelationUUIDByEndpointsCall{Call: call}
+}
+
+// MockStateInferRelationUUIDByEndpointsCall wrap *gomock.Call
+type MockStateInferRelationUUIDByEndpointsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateInferRelationUUIDByEndpointsCall) Return(arg0 relation.UUID, arg1 error) *MockStateInferRelationUUIDByEndpointsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateInferRelationUUIDByEndpointsCall) Do(f func(context.Context, relation0.CandidateEndpointIdentifier, relation0.CandidateEndpointIdentifier) (relation.UUID, error)) *MockStateInferRelationUUIDByEndpointsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateInferRelationUUIDByEndpointsCall) DoAndReturn(f func(context.Context, relation0.CandidateEndpointIdentifier, relation0.CandidateEndpointIdentifier) (relation.UUID, error)) *MockStateInferRelationUUIDByEndpointsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // InitialWatchLifeSuspendedStatus mocks base method.
 func (m *MockState) InitialWatchLifeSuspendedStatus(arg0 application.ID) (string, string, eventsource.NamespaceQuery) {
 	m.ctrl.T.Helper()

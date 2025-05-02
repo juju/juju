@@ -261,6 +261,16 @@ type State interface {
 	//     unit is not part of the relation.
 	GetRelationUnitSettings(ctx context.Context, relationUnitUUID corerelation.UnitUUID) (map[string]string, error)
 
+	// InferRelationUUIDByEndpoints infers the relation based on two endpoints.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.RelationNotFound] is returned if endpoints cannot be
+	//     found.
+	InferRelationUUIDByEndpoints(
+		ctx context.Context,
+		epIdentifier1, epIdentifier2 relation.CandidateEndpointIdentifier,
+	) (corerelation.UUID, error)
+
 	// InitialWatchLifeSuspendedStatus returns the two tables to watch for
 	// a relation's Life and Suspended status when the relation contains
 	// the provided application and the initial namespace query.
@@ -945,6 +955,25 @@ func (s *Service) GetRelationApplicationSettings(
 	}
 
 	return settings, nil
+}
+
+// InferRelationUUIDByEndpoints infers the relation based on two endpoint
+// strings. Unlike with GetRelationUUIDByKey, the endpoints may not be
+// fully qualified and come from a user.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] is returned if endpoints cannot be
+//     found.
+func (s *Service) InferRelationUUIDByEndpoints(ctx context.Context, ep1, ep2 string) (corerelation.UUID, error) {
+	idep1, err := relation.NewCandidateEndpointIdentifier(ep1)
+	if err != nil {
+		return "", errors.Errorf("parsing endpoint identifier %q: %w", ep1, err)
+	}
+	idep2, err := relation.NewCandidateEndpointIdentifier(ep2)
+	if err != nil {
+		return "", errors.Errorf("parsing endpoint identifier %q: %w", ep2, err)
+	}
+	return s.st.InferRelationUUIDByEndpoints(ctx, idep1, idep2)
 }
 
 // IsRelationSuspended returns a boolean to indicate if the given

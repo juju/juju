@@ -126,6 +126,55 @@ func (st *State) AddRelation(ctx context.Context, epIdentifier1, epIdentifier2 r
 	})
 }
 
+// InferRelationUUIDByEndpoints infers the relation based on two endpoints.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] is returned if endpoints cannot be
+//     found.
+func (st *State) InferRelationUUIDByEndpoints(
+	ctx context.Context,
+	epIdentifier1, epIdentifier2 relation.CandidateEndpointIdentifier,
+) (corerelation.UUID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var potentialUUIDs []relationUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		ep1, ep2, err := st.inferEndpoints(ctx, tx, epIdentifier1, epIdentifier2)
+		if errors.Is(err, relationerrors.CompatibleEndpointsNotFound) ||
+			errors.Is(err, relationerrors.RelationEndpointNotFound) ||
+			errors.Is(err, relationerrors.AmbiguousRelation) {
+			return relationerrors.RelationNotFound
+		} else if err != nil {
+			return errors.Errorf("inferring endpoints: %w", err)
+		}
+
+		potentialUUIDs, err = st.getRegularRelationUUIDByEndpointIdentifiers(
+			ctx,
+			tx,
+			ep1.toEndpointIdentifier(),
+			ep2.toEndpointIdentifier(),
+		)
+		if err != nil {
+			return errors.Errorf("getting uuid for %q, %q: %w",
+				ep1.String(), ep2.String(), err)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	if len(potentialUUIDs) > 1 {
+		// This should never happen.
+		return "", errors.Errorf("found multiple relations for endpoint pair")
+	}
+
+	return potentialUUIDs[0].UUID, nil
+}
+
 // SetRelationWithID establishes a relation between two endpoints identified
 // by ep1 and ep2 and returns the relation UUID. Used for migration
 // import.
@@ -1008,6 +1057,33 @@ func (st *State) GetRegularRelationUUIDByEndpointIdentifiers(
 		return "", errors.Capture(err)
 	}
 
+	var uuid []relationUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		uuid, err = st.getRegularRelationUUIDByEndpointIdentifiers(
+			ctx,
+			tx,
+			endpoint1,
+			endpoint2,
+		)
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	if len(uuid) > 1 {
+		return "", errors.Errorf("found multiple relations for endpoint pair")
+	}
+
+	return uuid[0].UUID, nil
+}
+
+func (st *State) getRegularRelationUUIDByEndpointIdentifiers(
+	ctx context.Context,
+	tx *sqlair.TX,
+	endpoint1, endpoint2 corerelation.EndpointIdentifier,
+) ([]relationUUID, error) {
+	var uuid []relationUUID
 	type endpointIdentifier1 endpointIdentifier
 	type endpointIdentifier2 endpointIdentifier
 	e1 := endpointIdentifier1{
@@ -1030,26 +1106,13 @@ AND    e2.application_name = $endpointIdentifier2.application_name
 AND    e2.endpoint_name    = $endpointIdentifier2.endpoint_name
 `, relationUUID{}, e1, e2)
 	if err != nil {
-		return "", errors.Capture(err)
+		return uuid, errors.Capture(err)
 	}
-
-	var uuid []relationUUID
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt, e1, e2).GetAll(&uuid)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return relationerrors.RelationNotFound
-		}
-		return errors.Capture(err)
-	})
-	if err != nil {
-		return "", errors.Capture(err)
+	err = tx.Query(ctx, stmt, e1, e2).GetAll(&uuid)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return uuid, relationerrors.RelationNotFound
 	}
-
-	if len(uuid) > 1 {
-		return "", errors.Errorf("found multiple relations for endpoint pair")
-	}
-
-	return uuid[0].UUID, nil
+	return uuid, errors.Capture(err)
 }
 
 // GetPeerRelationUUIDByEndpointIdentifiers gets the UUID of a peer
