@@ -183,13 +183,14 @@ SELECT
     re.uuid AS &relationEndpoint.uuid,
     ae.application_uuid AS &relationEndpoint.application_uuid
 FROM relation_endpoint AS re
-JOIN application_endpoint AS ae 
-  ON  re.endpoint_uuid = ae.uuid
-  AND re.relation_uuid = $getRelationUnit.relation_uuid
-JOIN application AS a ON ae.application_uuid = a.uuid
-WHERE ae.application_uuid NOT IN (SELECT application_uuid
-                                 FROM unit
-                                 WHERE name =  $getRelationUnit.name)
+JOIN application_endpoint AS ae ON  re.endpoint_uuid = ae.uuid
+LEFT JOIN unit AS u 
+  ON ae.application_uuid = u.application_uuid 
+  AND u.name = $getRelationUnit.name
+-- All units except the current one will have a NULL uuid due to the 
+-- left join on unit table, filtered by the current unit name.
+WHERE u.uuid IS NULL
+AND re.relation_uuid = $getRelationUnit.relation_uuid
 `, relationEndpoint{}, getRelationUnit{})
 	if err != nil {
 		return relationEndpoint{}, errors.Capture(err)
