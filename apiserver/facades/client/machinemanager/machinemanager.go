@@ -27,6 +27,8 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	coreunit "github.com/juju/juju/core/unit"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/blockcommand"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs"
@@ -112,6 +114,15 @@ type MachineService interface {
 	HardwareCharacteristics(ctx context.Context, machineUUID string) (*instance.HardwareCharacteristics, error)
 }
 
+// ApplicationService is the interface that is used to interact with
+// applications and units.
+type ApplicationService interface {
+	// GetUnitNamesOnMachine returns a slice of the unit names on the given machine.
+	// The following errors may be returned:
+	// - [applicationerrors.MachineNotFound] if the machine does not exist
+	GetUnitNamesOnMachine(context.Context, coremachine.Name) ([]coreunit.Name, error)
+}
+
 // CharmhubClient represents a way for querying the charmhub api for information
 // about the application charm.
 type CharmhubClient interface {
@@ -158,6 +169,7 @@ type MachineManagerAPI struct {
 
 	keyUpdaterService  KeyUpdaterService
 	machineService     MachineService
+	applicationService ApplicationService
 	networkService     NetworkService
 	modelConfigService ModelConfigService
 	agentBinaryService AgentBinaryService
@@ -172,6 +184,7 @@ func NewMachineManagerAPI(
 	backend Backend,
 	cloudService CloudService,
 	machineService MachineService,
+	applicationService ApplicationService,
 	store, controllerStore objectstore.ObjectStore,
 	storageAccess StorageInterface,
 	pool Pool,
@@ -191,6 +204,7 @@ func NewMachineManagerAPI(
 		st:                      backend,
 		cloudService:            cloudService,
 		machineService:          machineService,
+		applicationService:      applicationService,
 		store:                   store,
 		controllerStore:         controllerStore,
 		pool:                    pool,
@@ -534,15 +548,16 @@ func (mm *MachineManagerAPI) destroyMachine(ctx context.Context, args params.Ent
 			fail(err)
 			continue
 		}
+		machineName := coremachine.Name(machineTag.Id())
 
 		if keep {
-			mm.logger.Infof(context.TODO(), "destroy machine %v but keep instance", machineTag.Id())
-			if err := mm.machineService.SetKeepInstance(ctx, coremachine.Name(machineTag.Id()), keep); err != nil {
+			mm.logger.Infof(ctx, "destroy machine %v but keep instance", machineName)
+			if err := mm.machineService.SetKeepInstance(ctx, machineName, keep); err != nil {
 				if !force {
 					fail(err)
 					continue
 				}
-				mm.logger.Warningf(context.TODO(), "could not keep instance for machine %v: %v", machineTag.Id(), err)
+				mm.logger.Warningf(ctx, "could not keep instance for machine %v: %v", machineName, err)
 			}
 		}
 		info := params.DestroyMachineInfo{
@@ -567,22 +582,27 @@ func (mm *MachineManagerAPI) destroyMachine(ctx context.Context, args params.Ent
 			}
 		}
 
-		units, err := machine.Units()
-		if err != nil {
+		unitNames, err := mm.applicationService.GetUnitNamesOnMachine(ctx, machineName)
+		if errors.Is(err, applicationerrors.MachineNotFound) {
+			fail(errors.NotFoundf("machine %s", machineName))
+			continue
+		} else if err != nil {
 			fail(err)
 			continue
 		}
-		for _, unit := range units {
-			info.DestroyedUnits = append(info.DestroyedUnits, params.Entity{Tag: unit.UnitTag().String()})
+
+		for _, unitName := range unitNames {
+			unitTag := names.NewUnitTag(unitName.String())
+			info.DestroyedUnits = append(info.DestroyedUnits, params.Entity{Tag: unitTag.String()})
 		}
 
-		info.DestroyedStorage, info.DetachedStorage, err = mm.classifyDetachedStorage(units)
+		info.DestroyedStorage, info.DetachedStorage, err = mm.classifyDetachedStorage(unitNames)
 		if err != nil {
 			if !force {
 				fail(err)
 				continue
 			}
-			mm.logger.Warningf(context.TODO(), "could not deal with units' storage on machine %v: %v", machineTag.Id(), err)
+			mm.logger.Warningf(ctx, "could not deal with units' storage on machine %v: %v", machineName, err)
 		}
 
 		if dryRun {
@@ -623,11 +643,11 @@ func (mm *MachineManagerAPI) destroyMachine(ctx context.Context, args params.Ent
 		// CLI, is to remove the raft logs manually.
 		unpinResults, err := mm.leadership.UnpinApplicationLeadersByName(ctx, machineTag, applicationNames)
 		if err != nil {
-			mm.logger.Warningf(context.TODO(), "could not unpin application leaders for machine %s with error %v", machineTag.Id(), err)
+			mm.logger.Warningf(ctx, "could not unpin application leaders for machine %s with error %v", machineTag.Id(), err)
 		}
 		for _, result := range unpinResults.Results {
 			if result.Error != nil {
-				mm.logger.Warningf(context.TODO(),
+				mm.logger.Warningf(ctx,
 					"could not unpin application leaders for machine %s with error %v", machineTag.Id(), result.Error)
 			}
 		}
@@ -649,17 +669,18 @@ func (mm *MachineManagerAPI) destroyContainer(ctx context.Context, containers []
 	return results.Results, err
 }
 
-func (mm *MachineManagerAPI) classifyDetachedStorage(units []Unit) (destroyed, detached []params.Entity, _ error) {
+func (mm *MachineManagerAPI) classifyDetachedStorage(unitNames []coreunit.Name) (destroyed, detached []params.Entity, _ error) {
 	var storageErrors []params.ErrorResult
 	storageError := func(e error) {
 		storageErrors = append(storageErrors, params.ErrorResult{Error: apiservererrors.ServerError(e)})
 	}
 
 	storageSeen := names.NewSet()
-	for _, unit := range units {
-		storage, err := storagecommon.UnitStorage(mm.storageAccess, unit.UnitTag())
+	for _, unitName := range unitNames {
+		unitTag := names.NewUnitTag(unitName.String())
+		storage, err := storagecommon.UnitStorage(mm.storageAccess, unitTag)
 		if err != nil {
-			storageError(errors.Annotatef(err, "getting storage for unit %v", unit.UnitTag().Id()))
+			storageError(errors.Annotatef(err, "getting storage for unit %v", unitName))
 			continue
 		}
 
@@ -680,7 +701,7 @@ func (mm *MachineManagerAPI) classifyDetachedStorage(units []Unit) (destroyed, d
 			mm.storageAccess.VolumeAccess(), mm.storageAccess.FilesystemAccess(), storage,
 		)
 		if err != nil {
-			storageError(errors.Annotatef(err, "classifying storage for destruction for unit %v", unit.UnitTag().Id()))
+			storageError(errors.Annotatef(err, "classifying storage for destruction for unit %v", unitName))
 			continue
 		}
 		destroyed = append(destroyed, unitDestroyed...)
