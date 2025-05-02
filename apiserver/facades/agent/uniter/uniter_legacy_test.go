@@ -241,11 +241,6 @@ func (s *uniterLegacySuite) TestGetPrincipal(c *gc.C) {
 	// Now try as subordinate's agent.
 }
 
-func (s *uniterLegacySuite) TestHasSubordinates(c *gc.C) {
-	// Try first without any subordinates for wordpressUnit.
-	// Add two subordinates to wordpressUnit and try again.
-}
-
 func (s *uniterLegacySuite) TestDestroy(c *gc.C) {
 	// Verify wordpressUnit is destroyed and removed.
 }

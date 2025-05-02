@@ -838,25 +838,25 @@ func (st *State) GetUnitSubordinates(ctx context.Context, unitName coreunit.Name
 		return nil, errors.Capture(err)
 	}
 
-	type subordinateName struct {
-		Name string `db:"name"`
+	type subName struct {
+		Name coreunit.Name `db:"name"`
 	}
 	type principalName struct {
-		Name string `db:"name"`
+		Name coreunit.Name `db:"name"`
 	}
-	pName := principalName{Name: unitName.String()}
+	pName := principalName{Name: unitName}
 	stmt, err := st.Prepare(`
-SELECT sub.name AS &subordinateName.*
+SELECT sub.name AS &subName.*
 FROM   unit AS sub
 JOIN   unit_principal AS up ON sub.uuid = up.unit_uuid
 JOIN   unit AS principal ON up.principal_uuid = principal.uuid
 WHERE  principal.name = $principalName.name
-`, pName, subordinateName{})
+`, pName, subName{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var subNames []subordinateName
+	var subNames []subName
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkUnitExistsByName(ctx, tx, unitName); err != nil {
 			return errors.Errorf("checking unit exists: %w", err)
@@ -875,9 +875,7 @@ WHERE  principal.name = $principalName.name
 		return nil, errors.Capture(err)
 	}
 
-	return transform.Slice(subNames, func(s subordinateName) coreunit.Name {
-		return coreunit.Name(s.Name)
-	}), nil
+	return transform.Slice(subNames, func(s subName) coreunit.Name { return s.Name }), nil
 
 }
 

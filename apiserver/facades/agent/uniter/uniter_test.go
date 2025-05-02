@@ -573,6 +573,34 @@ func (s *uniterSuite) TestConfigSettings(c *gc.C) {
 	})
 }
 
+func (s *uniterSuite) TestHasSubordinates(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-subordinate-0"},
+		{Tag: "unit-foo-42"},
+	}}
+
+	s.badTag = names.NewUnitTag("mysql/0")
+	s.expectGetHasSubordinates(c, "wordpress/0", []coreunit.Name{"sub0/0", "sub1/0"}, nil)
+	s.expectGetHasSubordinates(c, "subordinate/0", nil, nil)
+	boom := internalerrors.New("boom")
+	s.expectGetHasSubordinates(c, "foo/42", nil, boom)
+
+	result, err := s.uniter.HasSubordinates(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.BoolResults{
+		Results: []params.BoolResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Result: true},
+			{Result: false},
+			{Error: apiservererrors.ServerError(boom)},
+		},
+	})
+}
+
 func (s *uniterSuite) expectedGetConfigSettings(unitName coreunit.Name, settings map[string]any, err error) {
 	s.applicationService.EXPECT().GetApplicationIDByUnitName(gomock.Any(), unitName).Return(coreapplication.ID(unitName.Application()), err)
 	if err == nil {
@@ -596,6 +624,10 @@ func (s *uniterSuite) expectGetUnitMachineName(unitName coreunit.Name, machineNa
 
 func (s *uniterSuite) expectedGetAvailabilityZone(machineUUID coremachine.UUID, az string, err error) {
 	s.machineService.EXPECT().AvailabilityZone(gomock.Any(), machineUUID).Return(az, err)
+}
+
+func (s *uniterSuite) expectGetHasSubordinates(c *gc.C, unitName coreunit.Name, subordinateNames []coreunit.Name, err error) {
+	s.applicationService.EXPECT().GetUnitSubordinates(gomock.Any(), unitName).Return(subordinateNames, err)
 }
 
 func (s *uniterSuite) setupMocks(c *gc.C) *gomock.Controller {
