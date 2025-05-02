@@ -113,8 +113,8 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 	// Upload tools to both release and devel streams since config will dictate that we
 	// end up looking in both places.
 	versions := defaultVersions(coretesting.CurrentVersion().Number)
-	envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", versions...)
-	envtesting.AssertUploadFakeToolsVersions(c, stor, "devel", "devel", versions...)
+	envtesting.AssertUploadFakeToolsVersions(c, stor, "released", versions...)
+	envtesting.AssertUploadFakeToolsVersions(c, stor, "devel", versions...)
 	s.agentStorage = stor
 
 	// Restart failed workers much faster for the tests.
@@ -249,7 +249,7 @@ func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, cur
 	newVers := coretesting.CurrentVersion()
 	newVers.Patch++
 	newTools := envtesting.AssertUploadFakeToolsVersions(
-		c, s.agentStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), newVers)[0]
+		c, s.agentStorage, "released", newVers)[0]
 
 	// Set a new agent version
 	// Currently we have to dual-write, because the actual agent version is

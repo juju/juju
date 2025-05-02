@@ -86,7 +86,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
-	envtesting.UploadFakeTools(c, stor, "released", "released")
+	envtesting.UploadFakeTools(c, stor, "released")
 }
 
 func (s *bootstrapSuite) TearDownTest(c *gc.C) {
@@ -435,7 +435,7 @@ func (s *bootstrapSuite) TestBootstrapImage(c *gc.C) {
 	metadataDir, metadata := createImageMetadata(c)
 	stor, err := filestorage.NewFileStorageWriter(metadataDir)
 	c.Assert(err, jc.ErrorIsNil)
-	envtesting.UploadFakeTools(c, stor, "released", "released")
+	envtesting.UploadFakeTools(c, stor, "released")
 
 	env := bootstrapEnvironWithRegion{
 		newEnviron("foo", useDefaultKeys, nil),
@@ -519,7 +519,7 @@ func (s *bootstrapSuite) setupImageMetadata(c *gc.C) testImageMetadata {
 	metadataDir, metadata := createImageMetadataForArch(c, testArch)
 	stor, err := filestorage.NewFileStorageWriter(metadataDir)
 	c.Assert(err, jc.ErrorIsNil)
-	envtesting.UploadFakeTools(c, stor, "released", "released")
+	envtesting.UploadFakeTools(c, stor, "released")
 
 	return testImageMetadata{testArch, metadataDir, metadata}
 }
@@ -633,7 +633,7 @@ func (s *bootstrapSuite) TestBootstrapImageMetadataFromAllSources(c *gc.C) {
 	metadataDir, _ := createImageMetadata(c)
 	stor, err := filestorage.NewFileStorageWriter(metadataDir)
 	c.Assert(err, jc.ErrorIsNil)
-	envtesting.UploadFakeTools(c, stor, "released", "released")
+	envtesting.UploadFakeTools(c, stor, "released")
 
 	env := bootstrapEnvironWithRegion{
 		newEnviron("foo", useDefaultKeys, nil),
@@ -1013,7 +1013,7 @@ func (s *bootstrapSuite) TestBootstrapMetadata(c *gc.C) {
 	metadataDir, metadata := createImageMetadata(c)
 	stor, err := filestorage.NewFileStorageWriter(metadataDir)
 	c.Assert(err, jc.ErrorIsNil)
-	envtesting.UploadFakeTools(c, stor, "released", "released")
+	envtesting.UploadFakeTools(c, stor, "released")
 
 	ctx, ss := bootstrapContext(c)
 	env := newEnviron("foo", useDefaultKeys, nil)
@@ -1109,7 +1109,7 @@ func (s *bootstrapSuite) TestBootstrapMetadataToolsNoImages(c *gc.C) {
 	metadataDir := c.MkDir()
 	stor, err := filestorage.NewFileStorageWriter(metadataDir)
 	c.Assert(err, jc.ErrorIsNil)
-	envtesting.UploadFakeTools(c, stor, "released", "released")
+	envtesting.UploadFakeTools(c, stor, "released")
 
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
@@ -1243,7 +1243,7 @@ func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {
 	noImagesDir := c.MkDir()
 	stor, err := filestorage.NewFileStorageWriter(noImagesDir)
 	c.Assert(err, jc.ErrorIsNil)
-	envtesting.UploadFakeTools(c, stor, "released", "released")
+	envtesting.UploadFakeTools(c, stor, "released")
 
 	ctx, ss := bootstrapContext(c)
 
@@ -1292,7 +1292,7 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *gc.C, clientMajor, cli
 		stream = "devel"
 		currentVersion.Tag = toolsVersion.Tag
 	}
-	_, err := envtesting.UploadFakeToolsVersions(env.storage, stream, stream, toolsBinaries...)
+	_, err := envtesting.UploadFakeToolsVersions(env.storage, stream, toolsBinaries...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	env.checkToolsFunc = func(t tools.List) {
@@ -1456,7 +1456,7 @@ func (s *bootstrapSuite) TestTargetSeriesAndArchOverridePriority(c *gc.C) {
 	s.PatchValue(&envtools.DefaultBaseURL, metadataDir)
 	stor, err := filestorage.NewFileStorageWriter(metadataDir)
 	c.Assert(err, jc.ErrorIsNil)
-	envtesting.UploadFakeTools(c, stor, "released", "released")
+	envtesting.UploadFakeTools(c, stor, "released")
 
 	env := newBootstrapEnvironWithHardwareDetection("foo", corebase.MustParseBaseFromString("ubuntu@17.04"), "riscv", useDefaultKeys, nil)
 	err = bootstrap.Bootstrap(envtesting.BootstrapTestContext(c), env,

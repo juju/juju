@@ -455,7 +455,7 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 	})
 
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
-	envtesting.UploadFakeTools(c, s.toolsStorage, cfg.AgentStream(), cfg.AgentStream())
+	envtesting.UploadFakeTools(c, s.toolsStorage, "released")
 	inst, _, _, err := jujutesting.StartInstance(env, testing.FakeControllerConfig().ControllerUUID(), "0")
 	c.Assert(err, jc.ErrorIsNil)
 

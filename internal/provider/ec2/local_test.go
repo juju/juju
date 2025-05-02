@@ -3113,7 +3113,7 @@ func (t *localServerSuite) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	toolsStorage, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
 	possibleTools := coretools.List(envtesting.AssertUploadFakeToolsVersions(
-		c, toolsStorage, "released", "released", semversion.MustParseBinary("5.4.5-ubuntu-amd64"),
+		c, toolsStorage, "released", semversion.MustParseBinary("5.4.5-ubuntu-amd64"),
 	))
 	params := environs.StartInstanceParams{
 		ControllerUUID: coretesting.ControllerTag.Id(),

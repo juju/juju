@@ -2469,7 +2469,7 @@ func (s *localServerSuite) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	possibleTools := coretools.List(envtesting.AssertUploadFakeToolsVersions(
-		c, s.toolsMetadataStorage, "released", "released", semversion.MustParseBinary("5.4.5-ubuntu-amd64"),
+		c, s.toolsMetadataStorage, "released", semversion.MustParseBinary("5.4.5-ubuntu-amd64"),
 	))
 	fakeCallback := func(_ context.Context, _ status.Status, _ string, _ map[string]interface{}) error {
 		return nil
@@ -3649,7 +3649,7 @@ func (s *localServerSuite) ensureAMDImages(c *gc.C) environs.Environ {
 		Release: corebase.UbuntuOS,
 	}
 	envtesting.AssertUploadFakeToolsVersions(
-		c, s.toolsMetadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream(), amd64Version)
+		c, s.toolsMetadataStorage, "released", amd64Version)
 
 	// Destroy the old Environ
 	err := environs.Destroy(s.env.Config().Name(), s.env, context.Background(), s.ControllerStore)

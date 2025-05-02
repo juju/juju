@@ -125,8 +125,8 @@ For now, we're going to skip these tests.
 	// Upload tools to both release and devel streams since config will dictate that we
 	// end up looking in both places.
 	versions := defaultVersions(coretesting.CurrentVersion().Number)
-	envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", versions...)
-	envtesting.AssertUploadFakeToolsVersions(c, stor, "devel", "devel", versions...)
+	envtesting.AssertUploadFakeToolsVersions(c, stor, "released", versions...)
+	envtesting.AssertUploadFakeToolsVersions(c, stor, "devel", versions...)
 	s.agentStorage = stor
 
 	// Restart failed workers much faster for the tests.

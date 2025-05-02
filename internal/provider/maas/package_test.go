@@ -45,7 +45,7 @@ func (s *baseProviderSuite) setupFakeTools(c *gc.C) {
 	storageDir := c.MkDir()
 	toolsDir := filepath.Join(storageDir, "tools")
 	s.PatchValue(&envtools.DefaultBaseURL, utils.MakeFileURL(toolsDir))
-	s.UploadFakeToolsToDirectory(c, storageDir, "released", "released")
+	s.UploadFakeToolsToDirectory(c, storageDir, "released")
 }
 
 func (s *baseProviderSuite) SetUpSuite(c *gc.C) {
