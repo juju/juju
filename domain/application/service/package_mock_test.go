@@ -2770,6 +2770,45 @@ func (c *MockStateGetUnitRefreshAttributesCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// GetUnitSubordinates mocks base method.
+func (m *MockState) GetUnitSubordinates(ctx context.Context, unitName unit.Name) ([]unit.Name, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitSubordinates", ctx, unitName)
+	ret0, _ := ret[0].([]unit.Name)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitSubordinates indicates an expected call of GetUnitSubordinates.
+func (mr *MockStateMockRecorder) GetUnitSubordinates(ctx, unitName any) *MockStateGetUnitSubordinatesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitSubordinates", reflect.TypeOf((*MockState)(nil).GetUnitSubordinates), ctx, unitName)
+	return &MockStateGetUnitSubordinatesCall{Call: call}
+}
+
+// MockStateGetUnitSubordinatesCall wrap *gomock.Call
+type MockStateGetUnitSubordinatesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetUnitSubordinatesCall) Return(arg0 []unit.Name, arg1 error) *MockStateGetUnitSubordinatesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetUnitSubordinatesCall) Do(f func(context.Context, unit.Name) ([]unit.Name, error)) *MockStateGetUnitSubordinatesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetUnitSubordinatesCall) DoAndReturn(f func(context.Context, unit.Name) ([]unit.Name, error)) *MockStateGetUnitSubordinatesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetUnitUUIDByName mocks base method.
 func (m *MockState) GetUnitUUIDByName(arg0 context.Context, arg1 unit.Name) (unit.UUID, error) {
 	m.ctrl.T.Helper()

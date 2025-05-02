@@ -154,6 +154,10 @@ type UnitState interface {
 
 	// GetUnitWorkloadVersion returns the workload version for the given unit.
 	GetUnitWorkloadVersion(ctx context.Context, unitName coreunit.Name) (string, error)
+
+	// GetUnitSubordinates returns the names of all the subordinate units of the
+	// given principal unit.
+	GetUnitSubordinates(ctx context.Context, unitName coreunit.Name) ([]coreunit.Name, error)
 }
 
 func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg, constraints constraints.Constraints) ([]application.AddUnitArg, error) {
@@ -611,4 +615,17 @@ func (s *Service) GetUnitPrivateAddress(ctx context.Context, unitName coreunit.N
 	sort.Slice(matchedAddrs, matchedAddrs.Less)
 
 	return matchedAddrs[0], nil
+}
+
+// GetUnitSubordinates returns the names of all the subordinate units of the
+// given principal unit.
+//
+// If the principal unit cannot be found, [applicationerrors.UnitNotFound] is
+// returned.
+func (s *Service) GetUnitSubordinates(ctx context.Context, unitName coreunit.Name) ([]coreunit.Name, error) {
+	if err := unitName.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return s.st.GetUnitSubordinates(ctx, unitName)
 }
