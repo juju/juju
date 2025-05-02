@@ -63,8 +63,13 @@ type ModelImportService interface {
 // ModelDetailService defines a service for interacting with the
 // model information found in a model database.
 type ModelDetailService interface {
-	// CreateModelWithAgentVersionStream is responsible for adding the details
-	// of the model that is being imported.
+	// within the model database using the specified agent version and agent stream.
+	//
+	// The following error types can be expected to be returned:
+	// - [modelerrors.AlreadyExists] when the model uuid is already in use.
+	// - [modelerrors.AgentVersionNotSupported] when the agent version is not
+	// supported.
+	// - [coreerrors.NotValid] when the agent stream is not valid.
 	CreateModelWithAgentVersionStream(context.Context, semversion.Number, agentbinary.AgentStream) error
 
 	// DeleteModel is responsible for removing a read only model from the system.
