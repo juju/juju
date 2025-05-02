@@ -455,8 +455,8 @@ func (srv *Server) Dead() <-chan struct{} {
 // Stop stops the server and returns when all running requests
 // have completed.
 func (srv *Server) Stop() error {
-	srv.catacomb.Kill(nil)
-	return srv.catacomb.Wait()
+	srv.Kill()
+	return srv.Wait()
 }
 
 // Kill implements worker.Worker.Kill.
@@ -466,7 +466,16 @@ func (srv *Server) Kill() {
 
 // Wait implements worker.Worker.Wait.
 func (srv *Server) Wait() error {
-	return srv.catacomb.Wait()
+	// If the server was killed, and in turn any watchers associated with the
+	// catacomb are cancelled whilst a request is being processed, it will
+	// return context.Canceled. This is expected and should not be treated as an
+	// error.
+	if err := srv.catacomb.Wait(); errors.Is(err, context.Canceled) {
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func (srv *Server) updateAgentRateLimiter(cfg controller.Config) {
@@ -596,11 +605,6 @@ func (srv *Server) loop(ready chan struct{}) error {
 		}
 	}
 
-	close(ready)
-	srv.mu.Lock()
-	srv.healthStatus = "running"
-	srv.mu.Unlock()
-
 	controllerConfigService := srv.shared.controllerConfigService
 	controllerConfigWatcher, err := controllerConfigService.WatchControllerConfig()
 	if err != nil {
@@ -611,6 +615,14 @@ func (srv *Server) loop(ready chan struct{}) error {
 		return errors.Trace(err)
 	}
 
+	close(ready)
+
+	srv.mu.Lock()
+	srv.healthStatus = "running"
+	srv.mu.Unlock()
+
+	ctx := srv.catacomb.Context(context.Background())
+
 	for {
 		select {
 		case <-srv.catacomb.Dying():
@@ -619,10 +631,9 @@ func (srv *Server) loop(ready chan struct{}) error {
 			srv.mu.Unlock()
 
 			srv.wg.Wait() // wait for any outstanding requests to complete.
-			return srv.catacomb.ErrDying()
+			return errors.Trace(err)
 
 		case <-controllerConfigWatcher.Changes():
-			ctx := srv.catacomb.Context(context.Background())
 			controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
 			if err != nil {
 				logger.Errorf(ctx, "failed to get controller config: %v", err)
@@ -1009,27 +1020,27 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 // is shutting down.
 //
 // Note: It is only safe to use trackRequests with API handlers which
-// are interruptible (i.e. they pay attention to the apiserver tomb)
+// are interruptible (i.e. they pay attention to the apiserver catacomb)
 // or are guaranteed to be short-lived. If it's used with long running
-// API handlers which don't watch the apiserver's tomb, apiserver
+// API handlers which don't watch the apiserver's catacomb, apiserver
 // shutdown will be blocked until the API handler returns.
 func (srv *Server) trackRequests(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Care must be taken to not increment the waitgroup count
 		// after the listener has closed.
 		//
-		// First we check to see if the tomb has not yet been killed
-		// because the closure of the listener depends on the tomb being
+		// First we check to see if the catacomb has not yet been killed
+		// because the closure of the listener depends on the catacomb being
 		// killed to trigger the defer block in srv.run.
 		select {
 		case <-srv.catacomb.Dying():
 			// This request was accepted before the listener was closed
-			// but after the tomb was killed. As we're in the process of
+			// but after the catacomb was killed. As we're in the process of
 			// shutting down, do not consider this request as in progress,
 			// just send a 503 and return.
 			http.Error(w, "apiserver shutdown in progress", http.StatusServiceUnavailable)
 		default:
-			// If we get here then the tomb was not killed therefore the
+			// If we get here then the catacomb was not killed therefore the
 			// listener is still open. It is safe to increment the
 			// wg counter as wg.Wait in srv.run has not yet been called.
 			srv.wg.Add(1)
