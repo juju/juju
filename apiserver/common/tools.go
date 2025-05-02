@@ -152,7 +152,7 @@ func (t *ToolsGetter) Tools(ctx context.Context, args params.Entities) (params.T
 	result := params.ToolsResults{
 		Results: make([]params.ToolsResult, len(args.Entities)),
 	}
-	canRead, err := t.getCanRead()
+	canRead, err := t.getCanRead(ctx)
 	if err != nil {
 		return result, err
 	}

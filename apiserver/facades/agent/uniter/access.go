@@ -17,7 +17,7 @@ import (
 )
 
 func applicationAccessor(authorizer facade.Authorizer, st *state.State) common.GetAuthFunc {
-	return func() (common.AuthFunc, error) {
+	return func(context.Context) (common.AuthFunc, error) {
 		switch tag := authorizer.GetAuthTag().(type) {
 		case names.ApplicationTag:
 			return func(applicationTag names.Tag) bool {
@@ -40,7 +40,7 @@ func applicationAccessor(authorizer facade.Authorizer, st *state.State) common.G
 }
 
 func machineAccessor(authorizer facade.Authorizer, st *state.State) common.GetAuthFunc {
-	return func() (common.AuthFunc, error) {
+	return func(context.Context) (common.AuthFunc, error) {
 		switch tag := authorizer.GetAuthTag().(type) {
 		// Application agents can't access machines.
 		case names.ApplicationTag:

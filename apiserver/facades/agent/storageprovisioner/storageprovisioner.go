@@ -51,7 +51,7 @@ type StorageProvisionerAPIv4 struct {
 	getStorageEntityAuthFunc common.GetAuthFunc
 	getMachineAuthFunc       common.GetAuthFunc
 	getBlockDevicesAuthFunc  common.GetAuthFunc
-	getAttachmentAuthFunc    func() (func(names.Tag, names.Tag) bool, error)
+	getAttachmentAuthFunc    func(context.Context) (func(names.Tag, names.Tag) bool, error)
 	logger                   logger.Logger
 
 	controllerUUID string
@@ -95,7 +95,7 @@ func NewStorageProvisionerAPIv4(
 		// machine as a parent are accessible by it.
 		return names.NewMachineTag(parentId) == authEntityTag
 	}
-	getScopeAuthFunc := func() (common.AuthFunc, error) {
+	getScopeAuthFunc := func(context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			switch tag := tag.(type) {
 			case names.ModelTag:
@@ -162,17 +162,17 @@ func NewStorageProvisionerAPIv4(
 			return false
 		}
 	}
-	getStorageEntityAuthFunc := func() (common.AuthFunc, error) {
+	getStorageEntityAuthFunc := func(context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			return canAccessStorageEntity(tag, false)
 		}, nil
 	}
-	getLifeAuthFunc := func() (common.AuthFunc, error) {
+	getLifeAuthFunc := func(context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			return canAccessStorageEntity(tag, true)
 		}, nil
 	}
-	getAttachmentAuthFunc := func() (func(names.Tag, names.Tag) bool, error) {
+	getAttachmentAuthFunc := func(context.Context) (func(names.Tag, names.Tag) bool, error) {
 		// getAttachmentAuthFunc returns a function that validates
 		// access by the authenticated user to an attachment.
 		return func(hostTag names.Tag, attachmentTag names.Tag) bool {
@@ -207,7 +207,7 @@ func NewStorageProvisionerAPIv4(
 			return !hasMachineScope || machineScope == authorizer.GetAuthTag()
 		}, nil
 	}
-	getMachineAuthFunc := func() (common.AuthFunc, error) {
+	getMachineAuthFunc := func(context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			if tag, ok := tag.(names.MachineTag); ok {
 				return canAccessStorageMachine(tag, true)
@@ -215,7 +215,7 @@ func NewStorageProvisionerAPIv4(
 			return false
 		}, nil
 	}
-	getBlockDevicesAuthFunc := func() (common.AuthFunc, error) {
+	getBlockDevicesAuthFunc := func(context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			if tag, ok := tag.(names.MachineTag); ok {
 				return canAccessStorageMachine(tag, false)
@@ -267,7 +267,7 @@ func (s *StorageProvisionerAPIv4) WatchApplications(ctx context.Context) (params
 
 // WatchBlockDevices watches for changes to the specified machines' block devices.
 func (s *StorageProvisionerAPIv4) WatchBlockDevices(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
-	canAccess, err := s.getBlockDevicesAuthFunc()
+	canAccess, err := s.getBlockDevicesAuthFunc(ctx)
 	if err != nil {
 		return params.NotifyWatchResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
@@ -304,7 +304,7 @@ func (s *StorageProvisionerAPIv4) WatchBlockDevices(ctx context.Context, args pa
 
 // WatchMachines watches for changes to the specified machines.
 func (s *StorageProvisionerAPIv4) WatchMachines(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
-	canAccess, err := s.getMachineAuthFunc()
+	canAccess, err := s.getMachineAuthFunc(ctx)
 	if err != nil {
 		return params.NotifyWatchResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
@@ -344,26 +344,30 @@ func (s *StorageProvisionerAPIv4) WatchMachines(ctx context.Context, args params
 // WatchVolumes watches for changes to volumes scoped to the
 // entity with the tag passed to NewState.
 func (s *StorageProvisionerAPIv4) WatchVolumes(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
-	return s.watchStorageEntities(args, s.sb.WatchModelVolumes, s.sb.WatchMachineVolumes, nil)
+	return s.watchStorageEntities(ctx, args, s.sb.WatchModelVolumes, s.sb.WatchMachineVolumes, nil)
 }
 
 // WatchFilesystems watches for changes to filesystems scoped
 // to the entity with the tag passed to NewState.
 func (s *StorageProvisionerAPIv4) WatchFilesystems(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
 	w := filesystemwatcher.Watchers{Backend: s.sb}
-	return s.watchStorageEntities(args,
+	return s.watchStorageEntities(
+		ctx,
+		args,
 		w.WatchModelManagedFilesystems,
 		w.WatchMachineManagedFilesystems,
-		w.WatchUnitManagedFilesystems)
+		w.WatchUnitManagedFilesystems,
+	)
 }
 
 func (s *StorageProvisionerAPIv4) watchStorageEntities(
+	ctx context.Context,
 	args params.Entities,
 	watchEnvironStorage func() state.StringsWatcher,
 	watchMachineStorage func(names.MachineTag) state.StringsWatcher,
 	watchApplicationStorage func(tag names.ApplicationTag) state.StringsWatcher,
 ) (params.StringsWatchResults, error) {
-	canAccess, err := s.getScopeAuthFunc()
+	canAccess, err := s.getScopeAuthFunc(ctx)
 	if err != nil {
 		return params.StringsWatchResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
@@ -410,6 +414,7 @@ func (s *StorageProvisionerAPIv4) watchStorageEntities(
 // the entity with the tag passed to NewState.
 func (s *StorageProvisionerAPIv4) WatchVolumeAttachments(ctx context.Context, args params.Entities) (params.MachineStorageIdsWatchResults, error) {
 	return s.watchAttachments(
+		ctx,
 		args,
 		s.sb.WatchModelVolumeAttachments,
 		s.sb.WatchMachineVolumeAttachments,
@@ -423,6 +428,7 @@ func (s *StorageProvisionerAPIv4) WatchVolumeAttachments(ctx context.Context, ar
 func (s *StorageProvisionerAPIv4) WatchFilesystemAttachments(ctx context.Context, args params.Entities) (params.MachineStorageIdsWatchResults, error) {
 	w := filesystemwatcher.Watchers{Backend: s.sb}
 	return s.watchAttachments(
+		ctx,
 		args,
 		w.WatchModelManagedFilesystemAttachments,
 		w.WatchMachineManagedFilesystemAttachments,
@@ -434,7 +440,7 @@ func (s *StorageProvisionerAPIv4) WatchFilesystemAttachments(ctx context.Context
 // WatchVolumeAttachmentPlans watches for changes to volume attachments for a machine for the purpose of allowing
 // that machine to run any initialization needed, for that volume to actually appear as a block device (ie: iSCSI)
 func (s *StorageProvisionerAPIv4) WatchVolumeAttachmentPlans(ctx context.Context, args params.Entities) (params.MachineStorageIdsWatchResults, error) {
-	canAccess, err := s.getMachineAuthFunc()
+	canAccess, err := s.getMachineAuthFunc(ctx)
 	if err != nil {
 		return params.MachineStorageIdsWatchResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
@@ -477,7 +483,7 @@ func (s *StorageProvisionerAPIv4) WatchVolumeAttachmentPlans(ctx context.Context
 }
 
 func (s *StorageProvisionerAPIv4) RemoveVolumeAttachmentPlan(ctx context.Context, args params.MachineStorageIds) (params.ErrorResults, error) {
-	canAccess, err := s.getMachineAuthFunc()
+	canAccess, err := s.getMachineAuthFunc(ctx)
 	if err != nil {
 		return params.ErrorResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
@@ -509,13 +515,14 @@ func (s *StorageProvisionerAPIv4) RemoveVolumeAttachmentPlan(ctx context.Context
 }
 
 func (s *StorageProvisionerAPIv4) watchAttachments(
+	ctx context.Context,
 	args params.Entities,
 	watchEnvironAttachments func() state.StringsWatcher,
 	watchMachineAttachments func(names.MachineTag) state.StringsWatcher,
 	watchUnitAttachments func(names.ApplicationTag) state.StringsWatcher,
 	parseAttachmentIds func([]string) ([]params.MachineStorageId, error),
 ) (params.MachineStorageIdsWatchResults, error) {
-	canAccess, err := s.getScopeAuthFunc()
+	canAccess, err := s.getScopeAuthFunc(ctx)
 	if err != nil {
 		return params.MachineStorageIdsWatchResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
@@ -562,7 +569,7 @@ func (s *StorageProvisionerAPIv4) watchAttachments(
 
 // Volumes returns details of volumes with the specified tags.
 func (s *StorageProvisionerAPIv4) Volumes(ctx context.Context, args params.Entities) (params.VolumeResults, error) {
-	canAccess, err := s.getStorageEntityAuthFunc()
+	canAccess, err := s.getStorageEntityAuthFunc(ctx)
 	if err != nil {
 		return params.VolumeResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
@@ -597,7 +604,7 @@ func (s *StorageProvisionerAPIv4) Volumes(ctx context.Context, args params.Entit
 
 // Filesystems returns details of filesystems with the specified tags.
 func (s *StorageProvisionerAPIv4) Filesystems(ctx context.Context, args params.Entities) (params.FilesystemResults, error) {
-	canAccess, err := s.getStorageEntityAuthFunc()
+	canAccess, err := s.getStorageEntityAuthFunc(ctx)
 	if err != nil {
 		return params.FilesystemResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
@@ -634,7 +641,7 @@ func (s *StorageProvisionerAPIv4) Filesystems(ctx context.Context, args params.E
 func (s *StorageProvisionerAPIv4) VolumeAttachmentPlans(ctx context.Context, args params.MachineStorageIds) (params.VolumeAttachmentPlanResults, error) {
 	// NOTE(gsamfira): Containers will probably not be a concern for this at the moment
 	// revisit this if containers should be treated
-	canAccess, err := s.getMachineAuthFunc()
+	canAccess, err := s.getMachineAuthFunc(ctx)
 	if err != nil {
 		return params.VolumeAttachmentPlanResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
@@ -663,7 +670,7 @@ func (s *StorageProvisionerAPIv4) VolumeAttachmentPlans(ctx context.Context, arg
 
 // VolumeAttachments returns details of volume attachments with the specified IDs.
 func (s *StorageProvisionerAPIv4) VolumeAttachments(ctx context.Context, args params.MachineStorageIds) (params.VolumeAttachmentResults, error) {
-	canAccess, err := s.getAttachmentAuthFunc()
+	canAccess, err := s.getAttachmentAuthFunc(ctx)
 	if err != nil {
 		return params.VolumeAttachmentResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
@@ -693,7 +700,7 @@ func (s *StorageProvisionerAPIv4) VolumeAttachments(ctx context.Context, args pa
 // VolumeBlockDevices returns details of the block devices corresponding to the
 // volume attachments with the specified IDs.
 func (s *StorageProvisionerAPIv4) VolumeBlockDevices(ctx context.Context, args params.MachineStorageIds) (params.BlockDeviceResults, error) {
-	canAccess, err := s.getAttachmentAuthFunc()
+	canAccess, err := s.getAttachmentAuthFunc(ctx)
 	if err != nil {
 		return params.BlockDeviceResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
@@ -715,7 +722,7 @@ func (s *StorageProvisionerAPIv4) VolumeBlockDevices(ctx context.Context, args p
 
 // FilesystemAttachments returns details of filesystem attachments with the specified IDs.
 func (s *StorageProvisionerAPIv4) FilesystemAttachments(ctx context.Context, args params.MachineStorageIds) (params.FilesystemAttachmentResults, error) {
-	canAccess, err := s.getAttachmentAuthFunc()
+	canAccess, err := s.getAttachmentAuthFunc(ctx)
 	if err != nil {
 		return params.FilesystemAttachmentResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
@@ -745,7 +752,7 @@ func (s *StorageProvisionerAPIv4) FilesystemAttachments(ctx context.Context, arg
 // VolumeParams returns the parameters for creating or destroying
 // the volumes with the specified tags.
 func (s *StorageProvisionerAPIv4) VolumeParams(ctx context.Context, args params.Entities) (params.VolumeParamsResults, error) {
-	canAccess, err := s.getStorageEntityAuthFunc()
+	canAccess, err := s.getStorageEntityAuthFunc(ctx)
 	if err != nil {
 		return params.VolumeParamsResults{}, err
 	}
@@ -839,7 +846,7 @@ func (s *StorageProvisionerAPIv4) VolumeParams(ctx context.Context, args params.
 // RemoveVolumeParams returns the parameters for destroying
 // or releasing the volumes with the specified tags.
 func (s *StorageProvisionerAPIv4) RemoveVolumeParams(ctx context.Context, args params.Entities) (params.RemoveVolumeParamsResults, error) {
-	canAccess, err := s.getStorageEntityAuthFunc()
+	canAccess, err := s.getStorageEntityAuthFunc(ctx)
 	if err != nil {
 		return params.RemoveVolumeParamsResults{}, err
 	}
@@ -895,7 +902,7 @@ func (s *StorageProvisionerAPIv4) RemoveVolumeParams(ctx context.Context, args p
 // FilesystemParams returns the parameters for creating the filesystems
 // with the specified tags.
 func (s *StorageProvisionerAPIv4) FilesystemParams(ctx context.Context, args params.Entities) (params.FilesystemParamsResults, error) {
-	canAccess, err := s.getStorageEntityAuthFunc()
+	canAccess, err := s.getStorageEntityAuthFunc(ctx)
 	if err != nil {
 		return params.FilesystemParamsResults{}, err
 	}
@@ -949,7 +956,7 @@ func (s *StorageProvisionerAPIv4) FilesystemParams(ctx context.Context, args par
 // RemoveFilesystemParams returns the parameters for destroying or
 // releasing the filesystems with the specified tags.
 func (s *StorageProvisionerAPIv4) RemoveFilesystemParams(ctx context.Context, args params.Entities) (params.RemoveFilesystemParamsResults, error) {
-	canAccess, err := s.getStorageEntityAuthFunc()
+	canAccess, err := s.getStorageEntityAuthFunc(ctx)
 	if err != nil {
 		return params.RemoveFilesystemParamsResults{}, err
 	}
@@ -1008,7 +1015,7 @@ func (s *StorageProvisionerAPIv4) VolumeAttachmentParams(
 	ctx context.Context,
 	args params.MachineStorageIds,
 ) (params.VolumeAttachmentParamsResults, error) {
-	canAccess, err := s.getAttachmentAuthFunc()
+	canAccess, err := s.getAttachmentAuthFunc(ctx)
 	if err != nil {
 		return params.VolumeAttachmentParamsResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
@@ -1093,7 +1100,7 @@ func (s *StorageProvisionerAPIv4) FilesystemAttachmentParams(
 	ctx context.Context,
 	args params.MachineStorageIds,
 ) (params.FilesystemAttachmentParamsResults, error) {
-	canAccess, err := s.getAttachmentAuthFunc()
+	canAccess, err := s.getAttachmentAuthFunc(ctx)
 	if err != nil {
 		return params.FilesystemAttachmentParamsResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
@@ -1247,7 +1254,7 @@ func (s *StorageProvisionerAPIv4) oneVolumeBlockDevice(
 	if err != nil {
 		return params.BlockDevice{}, err
 	}
-	planCanAccess, err := s.getMachineAuthFunc()
+	planCanAccess, err := s.getMachineAuthFunc(ctx)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return params.BlockDevice{}, err
 	}
@@ -1334,8 +1341,8 @@ func (s *StorageProvisionerAPIv4) oneFilesystemAttachment(
 }
 
 // SetVolumeInfo records the details of newly provisioned volumes.
-func (s *StorageProvisionerAPIv4) SetVolumeInfo(args params.Volumes) (params.ErrorResults, error) {
-	canAccessVolume, err := s.getStorageEntityAuthFunc()
+func (s *StorageProvisionerAPIv4) SetVolumeInfo(ctx context.Context, args params.Volumes) (params.ErrorResults, error) {
+	canAccessVolume, err := s.getStorageEntityAuthFunc(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -1364,7 +1371,7 @@ func (s *StorageProvisionerAPIv4) SetVolumeInfo(args params.Volumes) (params.Err
 
 // SetFilesystemInfo records the details of newly provisioned filesystems.
 func (s *StorageProvisionerAPIv4) SetFilesystemInfo(ctx context.Context, args params.Filesystems) (params.ErrorResults, error) {
-	canAccessFilesystem, err := s.getStorageEntityAuthFunc()
+	canAccessFilesystem, err := s.getStorageEntityAuthFunc(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -1392,7 +1399,7 @@ func (s *StorageProvisionerAPIv4) SetFilesystemInfo(ctx context.Context, args pa
 }
 
 func (s *StorageProvisionerAPIv4) CreateVolumeAttachmentPlans(ctx context.Context, args params.VolumeAttachmentPlans) (params.ErrorResults, error) {
-	canAccess, err := s.getAttachmentAuthFunc()
+	canAccess, err := s.getAttachmentAuthFunc(ctx)
 	if err != nil {
 		return params.ErrorResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
@@ -1429,7 +1436,7 @@ func (s *StorageProvisionerAPIv4) CreateVolumeAttachmentPlans(ctx context.Contex
 }
 
 func (s *StorageProvisionerAPIv4) SetVolumeAttachmentPlanBlockInfo(ctx context.Context, args params.VolumeAttachmentPlans) (params.ErrorResults, error) {
-	canAccess, err := s.getAttachmentAuthFunc()
+	canAccess, err := s.getAttachmentAuthFunc(ctx)
 	if err != nil {
 		return params.ErrorResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
@@ -1471,7 +1478,7 @@ func (s *StorageProvisionerAPIv4) SetVolumeAttachmentInfo(
 	ctx context.Context,
 	args params.VolumeAttachments,
 ) (params.ErrorResults, error) {
-	canAccess, err := s.getAttachmentAuthFunc()
+	canAccess, err := s.getAttachmentAuthFunc(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -1517,7 +1524,7 @@ func (s *StorageProvisionerAPIv4) SetFilesystemAttachmentInfo(
 	ctx context.Context,
 	args params.FilesystemAttachments,
 ) (params.ErrorResults, error) {
-	canAccess, err := s.getAttachmentAuthFunc()
+	canAccess, err := s.getAttachmentAuthFunc(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -1560,7 +1567,7 @@ func (s *StorageProvisionerAPIv4) SetFilesystemAttachmentInfo(
 // AttachmentLife returns the lifecycle state of each specified machine
 // storage attachment.
 func (s *StorageProvisionerAPIv4) AttachmentLife(ctx context.Context, args params.MachineStorageIds) (params.LifeResults, error) {
-	canAccess, err := s.getAttachmentAuthFunc()
+	canAccess, err := s.getAttachmentAuthFunc(ctx)
 	if err != nil {
 		return params.LifeResults{}, err
 	}
@@ -1607,7 +1614,7 @@ func (s *StorageProvisionerAPIv4) AttachmentLife(ctx context.Context, args param
 
 // Remove removes volumes and filesystems from state.
 func (s *StorageProvisionerAPIv4) Remove(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
-	canAccess, err := s.getStorageEntityAuthFunc()
+	canAccess, err := s.getStorageEntityAuthFunc(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -1643,7 +1650,7 @@ func (s *StorageProvisionerAPIv4) Remove(ctx context.Context, args params.Entiti
 // RemoveAttachment removes the specified machine storage attachments
 // from state.
 func (s *StorageProvisionerAPIv4) RemoveAttachment(ctx context.Context, args params.MachineStorageIds) (params.ErrorResults, error) {
-	canAccess, err := s.getAttachmentAuthFunc()
+	canAccess, err := s.getAttachmentAuthFunc(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}

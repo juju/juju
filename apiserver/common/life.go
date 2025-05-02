@@ -51,7 +51,7 @@ func (lg *LifeGetter) Life(ctx context.Context, args params.Entities) (params.Li
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canRead, err := lg.getCanRead()
+	canRead, err := lg.getCanRead(ctx)
 	if err != nil {
 		return params.LifeResults{}, errors.Trace(err)
 	}

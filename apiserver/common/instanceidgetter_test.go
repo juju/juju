@@ -35,7 +35,7 @@ func (s *instanceIdGetterSuite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *instanceIdGetterSuite) TestInstanceId(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	getCanRead := func() (common.AuthFunc, error) {
+	getCanRead := func(ctx context.Context) (common.AuthFunc, error) {
 		x0 := u("x/0")
 		x2 := u("x/2")
 		x3 := u("x/3")
@@ -67,7 +67,7 @@ func (s *instanceIdGetterSuite) TestInstanceId(c *gc.C) {
 }
 
 func (s *instanceIdGetterSuite) TestInstanceIdError(c *gc.C) {
-	getCanRead := func() (common.AuthFunc, error) {
+	getCanRead := func(ctx context.Context) (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
 	ig := common.NewInstanceIdGetter(s.machineService, getCanRead)

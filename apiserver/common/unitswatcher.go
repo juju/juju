@@ -68,7 +68,7 @@ func (u *UnitsWatcher) WatchUnits(ctx context.Context, args params.Entities) (pa
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canWatch, err := u.getCanWatch()
+	canWatch, err := u.getCanWatch(ctx)
 	if err != nil {
 		return params.StringsWatchResults{}, errors.Trace(err)
 	}

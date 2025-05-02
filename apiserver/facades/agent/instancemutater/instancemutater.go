@@ -138,7 +138,7 @@ func (api *InstanceMutaterAPI) CharmProfilingInfo(ctx context.Context, arg param
 	result := params.CharmProfilingInfoResult{
 		ProfileChanges: make([]params.ProfileInfoResult, 0),
 	}
-	canAccess, err := api.getAuthFunc()
+	canAccess, err := api.getAuthFunc(ctx)
 	if err != nil {
 		return params.CharmProfilingInfoResult{}, errors.Trace(err)
 	}
@@ -172,7 +172,7 @@ func (api *InstanceMutaterAPI) CharmProfilingInfo(ctx context.Context, arg param
 // ContainerType returns the container type of a machine.
 func (api *InstanceMutaterAPI) ContainerType(ctx context.Context, arg params.Entity) (params.ContainerTypeResult, error) {
 	result := params.ContainerTypeResult{}
-	canAccess, err := api.getAuthFunc()
+	canAccess, err := api.getAuthFunc(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -201,7 +201,7 @@ func (api *InstanceMutaterAPI) SetModificationStatus(ctx context.Context, args p
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
-	canAccess, err := api.getAuthFunc()
+	canAccess, err := api.getAuthFunc(ctx)
 	if err != nil {
 		api.logger.Errorf(context.TODO(), "failed to get an authorisation function: %v", err)
 		return result, errors.Trace(err)
@@ -216,7 +216,7 @@ func (api *InstanceMutaterAPI) SetModificationStatus(ctx context.Context, args p
 // SetCharmProfiles records the given slice of charm profile names.
 func (api *InstanceMutaterAPI) SetCharmProfiles(ctx context.Context, args params.SetProfileArgs) (params.ErrorResults, error) {
 	results := make([]params.ErrorResult, len(args.Args))
-	canAccess, err := api.getAuthFunc()
+	canAccess, err := api.getAuthFunc(ctx)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -273,7 +273,7 @@ func (api *InstanceMutaterAPI) WatchModelMachines(ctx context.Context) (params.S
 // machine.
 func (api *InstanceMutaterAPI) WatchContainers(ctx context.Context, arg params.Entity) (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
-	canAccess, err := api.getAuthFunc()
+	canAccess, err := api.getAuthFunc(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -304,7 +304,7 @@ func (api *InstanceMutaterAPI) WatchLXDProfileVerificationNeeded(ctx context.Con
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canAccess, err := api.getAuthFunc()
+	canAccess, err := api.getAuthFunc(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

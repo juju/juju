@@ -49,7 +49,7 @@ func (s *authorisedKeysSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *authorisedKeysSuite) getCanRead() (common.AuthFunc, error) {
+func (s *authorisedKeysSuite) getCanRead(context.Context) (common.AuthFunc, error) {
 	return s.authorizer.AuthOwner, nil
 }
 

@@ -71,7 +71,7 @@ func newUpgraderFacade(ctx facade.ModelContext) (Upgrader, error) {
 	}
 
 	controllerConfigGetter := domainServices.ControllerConfig()
-	getCanReadWrite := func() (common.AuthFunc, error) {
+	getCanReadWrite := func(ctx context.Context) (common.AuthFunc, error) {
 		return auth.AuthOwner, nil
 	}
 

@@ -4,6 +4,8 @@
 package lifeflag
 
 import (
+	"context"
+
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
@@ -23,7 +25,7 @@ func NewFacade(backend Backend, watcherRegistry facade.WatcherRegistry, authoriz
 	if !authorizer.AuthUnitAgent() && authorizer.AuthApplicationAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
-	getCanAccess := func() (common.AuthFunc, error) {
+	getCanAccess := func(context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			return authorizer.AuthOwner(tag)
 		}, nil

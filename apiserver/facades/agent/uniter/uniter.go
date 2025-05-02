@@ -121,7 +121,7 @@ func (u *UniterAPI) EnsureDead(ctx context.Context, args params.Entities) (param
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canModify, err := u.accessUnit()
+	canModify, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -153,7 +153,7 @@ func (u *UniterAPI) OpenedMachinePortRangesByEndpoint(ctx context.Context, args 
 	result := params.OpenPortRangesByEndpointResults{
 		Results: make([]params.OpenPortRangesByEndpointResult, len(args.Entities)),
 	}
-	canAccess, err := u.accessMachine()
+	canAccess, err := u.accessMachine(ctx)
 	if err != nil {
 		return params.OpenPortRangesByEndpointResults{}, err
 	}
@@ -261,7 +261,7 @@ func (u *UniterAPI) AssignedMachine(ctx context.Context, args params.Entities) (
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.Entities)),
 	}
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.StringResults{}, err
 	}
@@ -302,7 +302,7 @@ func (u *UniterAPI) PublicAddress(ctx context.Context, args params.Entities) (pa
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.Entities)),
 	}
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.StringResults{}, err
 	}
@@ -336,7 +336,7 @@ func (u *UniterAPI) PrivateAddress(ctx context.Context, args params.Entities) (p
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.Entities)),
 	}
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.StringResults{}, err
 	}
@@ -369,7 +369,7 @@ func (u *UniterAPI) PrivateAddress(ctx context.Context, args params.Entities) (p
 func (u *UniterAPI) AvailabilityZone(ctx context.Context, args params.Entities) (params.StringResults, error) {
 	var results params.StringResults
 
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -425,7 +425,7 @@ func (u *UniterAPI) AvailabilityZone(ctx context.Context, args params.Entities) 
 // WatchUnitResolveMode starts a NotifyWatcher that will send notifications
 // when the reolve mode of the specified unit changes.
 func (u *UniterAPI) WatchUnitResolveMode(ctx context.Context, entity params.Entity) (params.NotifyWatchResult, error) {
-	canWatch, err := u.accessUnit()
+	canWatch, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.NotifyWatchResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}, nil
 	}
@@ -463,7 +463,7 @@ func (u *UniterAPI) Resolved(ctx context.Context, args params.Entities) (params.
 	result := params.ResolvedModeResults{
 		Results: make([]params.ResolvedModeResult, len(args.Entities)),
 	}
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return result, err
 	}
@@ -508,7 +508,7 @@ func (u *UniterAPI) ClearResolved(ctx context.Context, args params.Entities) (pa
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -545,7 +545,7 @@ func (u *UniterAPI) GetPrincipal(ctx context.Context, args params.Entities) (par
 	result := params.StringBoolResults{
 		Results: make([]params.StringBoolResult, len(args.Entities)),
 	}
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.StringBoolResults{}, err
 	}
@@ -582,7 +582,7 @@ func (u *UniterAPI) Destroy(ctx context.Context, args params.Entities) (params.E
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -629,7 +629,7 @@ func (u *UniterAPI) DestroyAllSubordinates(ctx context.Context, args params.Enti
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -657,7 +657,7 @@ func (u *UniterAPI) HasSubordinates(ctx context.Context, args params.Entities) (
 	result := params.BoolResults{
 		Results: make([]params.BoolResult, len(args.Entities)),
 	}
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.BoolResults{}, err
 	}
@@ -689,7 +689,7 @@ func (u *UniterAPI) CharmModifiedVersion(ctx context.Context, args params.Entiti
 	}
 
 	accessUnitOrApplication := common.AuthAny(u.accessUnit, u.accessApplication)
-	canAccess, err := accessUnitOrApplication()
+	canAccess, err := accessUnitOrApplication(ctx)
 	if err != nil {
 		return results, err
 	}
@@ -755,7 +755,7 @@ func (u *UniterAPI) CharmURL(ctx context.Context, args params.Entities) (params.
 		Results: make([]params.StringBoolResult, len(args.Entities)),
 	}
 	accessUnitOrApplication := common.AuthAny(u.accessUnit, u.accessApplication)
-	canAccess, err := accessUnitOrApplication()
+	canAccess, err := accessUnitOrApplication(ctx)
 	if err != nil {
 		return params.StringBoolResults{}, err
 	}
@@ -801,7 +801,7 @@ func (u *UniterAPI) SetCharmURL(ctx context.Context, args params.EntitiesCharmUR
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -829,7 +829,7 @@ func (u *UniterAPI) WorkloadVersion(ctx context.Context, args params.Entities) (
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.Entities)),
 	}
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.StringResults{}, err
 	}
@@ -864,7 +864,7 @@ func (u *UniterAPI) SetWorkloadVersion(ctx context.Context, args params.EntityWo
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -898,7 +898,7 @@ func (u *UniterAPI) SetWorkloadVersion(ctx context.Context, args params.EntityWo
 func (u *UniterAPI) WatchActionNotifications(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
 	tagToActionReceiver := common.TagToActionReceiverFn(u.st.FindEntity)
 	watchOne := common.WatchOneActionReceiverNotifications(tagToActionReceiver, u.resources.Register)
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.StringsWatchResults{}, err
 	}
@@ -911,7 +911,7 @@ func (u *UniterAPI) ConfigSettings(ctx context.Context, args params.Entities) (p
 	result := params.ConfigSettingsResults{
 		Results: make([]params.ConfigSettingsResult, len(args.Entities)),
 	}
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.ConfigSettingsResults{}, err
 	}
@@ -991,7 +991,7 @@ func (u *UniterAPIv19) Relation(ctx context.Context, args params.RelationUnits) 
 	result := params.RelationResults{
 		Results: make([]params.RelationResult, len(args.RelationUnits)),
 	}
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.RelationResults{}, err
 	}
@@ -1019,7 +1019,7 @@ func (u *UniterAPI) Relation(ctx context.Context, args params.RelationUnits) (pa
 	result := params.RelationResultsV2{
 		Results: make([]params.RelationResultV2, len(args.RelationUnits)),
 	}
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.RelationResultsV2{}, err
 	}
@@ -1035,7 +1035,7 @@ func (u *UniterAPI) Relation(ctx context.Context, args params.RelationUnits) (pa
 
 // ActionStatus returns the status of Actions by Tags passed in.
 func (u *UniterAPI) ActionStatus(ctx context.Context, args params.Entities) (params.StringResults, error) {
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.StringResults{}, err
 	}
@@ -1060,7 +1060,7 @@ func (u *UniterAPI) ActionStatus(ctx context.Context, args params.Entities) (par
 // Actions returns the Actions by Tags passed and ensures that the Unit asking
 // for them is the same Unit that has the Actions.
 func (u *UniterAPI) Actions(ctx context.Context, args params.Entities) (params.ActionResults, error) {
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.ActionResults{}, err
 	}
@@ -1071,7 +1071,7 @@ func (u *UniterAPI) Actions(ctx context.Context, args params.Entities) (params.A
 
 // BeginActions marks the actions represented by the passed in Tags as running.
 func (u *UniterAPI) BeginActions(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -1082,7 +1082,7 @@ func (u *UniterAPI) BeginActions(ctx context.Context, args params.Entities) (par
 
 // FinishActions saves the result of a completed Action
 func (u *UniterAPI) FinishActions(ctx context.Context, args params.ActionExecutionResults) (params.ErrorResults, error) {
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -1093,7 +1093,7 @@ func (u *UniterAPI) FinishActions(ctx context.Context, args params.ActionExecuti
 
 // LogActionsMessages records the log messages against the specified actions.
 func (u *UniterAPI) LogActionsMessages(ctx context.Context, args params.ActionMessageParams) (params.ErrorResults, error) {
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -1167,7 +1167,7 @@ func (u *UniterAPI) RelationsStatus(ctx context.Context, args params.Entities) (
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canRead, err := u.accessUnit()
+	canRead, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.RelationUnitStatusResults{}, err
 	}
@@ -1215,7 +1215,7 @@ func (u *UniterAPI) Life(ctx context.Context, args params.Entities) (params.Life
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canRead, err := u.accessUnitOrApplication()
+	canRead, err := u.accessUnitOrApplication(ctx)
 	if err != nil {
 		return params.LifeResults{}, errors.Trace(err)
 	}
@@ -1267,7 +1267,7 @@ func (u *UniterAPI) Refresh(ctx context.Context, args params.Entities) (params.U
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canRead, err := u.accessUnit()
+	canRead, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.UnitRefreshResults{}, err
 	}
@@ -1383,7 +1383,7 @@ func (u *UniterAPI) EnterScope(ctx context.Context, args params.RelationUnits) (
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.RelationUnits)),
 	}
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -1470,7 +1470,7 @@ func (u *UniterAPI) LeaveScope(ctx context.Context, args params.RelationUnits) (
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.RelationUnits)),
 	}
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -1516,7 +1516,7 @@ func (u *UniterAPI) ReadSettings(ctx context.Context, args params.RelationUnits)
 	result := params.SettingsResults{
 		Results: make([]params.SettingsResult, len(args.RelationUnits)),
 	}
-	canAccessUnit, err := u.accessUnit()
+	canAccessUnit, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.SettingsResults{}, errors.Trace(err)
 	}
@@ -1673,7 +1673,7 @@ func (u *UniterAPI) readLocalApplicationSettings(
 	appTag names.ApplicationTag,
 	unitName coreunit.Name,
 ) (map[string]string, error) {
-	canAccessApp, err := u.accessApplication()
+	canAccessApp, err := u.accessApplication(ctx)
 	if err != nil {
 		return nil, internalerrors.Capture(err)
 	}
@@ -1704,7 +1704,7 @@ func (u *UniterAPI) ReadRemoteSettings(ctx context.Context, args params.Relation
 	result := params.SettingsResults{
 		Results: make([]params.SettingsResult, len(args.RelationUnitPairs)),
 	}
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.SettingsResults{}, err
 	}
@@ -1812,7 +1812,7 @@ func (u *UniterAPI) WatchRelationUnits(ctx context.Context, args params.Relation
 	result := params.RelationUnitsWatchResults{
 		Results: make([]params.RelationUnitsWatchResult, len(args.RelationUnits)),
 	}
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.RelationUnitsWatchResults{}, err
 	}
@@ -2066,7 +2066,7 @@ func (u *UniterAPI) destroySubordinates(ctx context.Context, principal *state.Un
 
 // NetworkInfo returns network interfaces/addresses for specified bindings.
 func (u *UniterAPI) NetworkInfo(ctx context.Context, args params.NetworkInfoParams) (params.NetworkInfoResults, error) {
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.NetworkInfoResults{}, err
 	}
@@ -2110,7 +2110,7 @@ func (u *UniterAPI) WatchUnitRelations(ctx context.Context, args params.Entities
 	result := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.StringsWatchResults{}, err
 	}
@@ -2200,7 +2200,7 @@ func (u *UniterAPI) GoalStates(ctx context.Context, args params.Entities) (param
 		Results: make([]params.GoalStateResult, len(args.Entities)),
 	}
 
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.GoalStateResults{}, err
 	}
@@ -2470,7 +2470,7 @@ func (u *UniterAPI) watchHashes(ctx context.Context, args params.Entities, getWa
 	result := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.StringsWatchResults{}, err
 	}
@@ -2533,7 +2533,7 @@ func (u *UniterAPI) UpdateNetworkInfo(ctx context.Context, args params.Entities)
 // a set of changes after a hook successfully completes and executes them in a
 // single transaction.
 func (u *UniterAPI) CommitHookChanges(ctx context.Context, args params.CommitHookChangesArgs) (params.ErrorResults, error) {
-	canAccessUnit, err := u.accessUnit()
+	canAccessUnit, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -2807,7 +2807,7 @@ func (u *UniterAPI) APIAddresses(ctx context.Context) (result params.StringsResu
 // changes to an application. This facade endpoint was added in 21, which has not
 // been released yet so we can remove it without worry.
 func (u *UniterAPI) WatchApplication(ctx context.Context, entity params.Entity) (params.NotifyWatchResult, error) {
-	canWatch, err := u.accessApplication()
+	canWatch, err := u.accessApplication(ctx)
 	if err != nil {
 		return params.NotifyWatchResult{}, errors.Trace(err)
 	}
@@ -2840,7 +2840,7 @@ func (u *UniterAPI) WatchApplication(ctx context.Context, entity params.Entity) 
 // has not yet been released. We should not watch for _all_ (how do we define 'all')
 // changes to an entity. Instead, we should watch for specific changes.
 func (u *UniterAPI) WatchUnit(ctx context.Context, entity params.Entity) (params.NotifyWatchResult, error) {
-	canWatch, err := u.accessUnit()
+	canWatch, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.NotifyWatchResult{}, errors.Trace(err)
 	}
@@ -2876,7 +2876,7 @@ func (u *UniterAPIv20) Watch(ctx context.Context, args params.Entities) (params.
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canWatch, err := u.accessUnitOrApplication()
+	canWatch, err := u.accessUnitOrApplication(ctx)
 	if err != nil {
 		return params.NotifyWatchResults{}, errors.Trace(err)
 	}

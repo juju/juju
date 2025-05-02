@@ -105,7 +105,7 @@ func (s *deployerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func alwaysAllow() (common.AuthFunc, error) {
+func alwaysAllow(context.Context) (common.AuthFunc, error) {
 	return func(tag names.Tag) bool {
 		return true
 	}, nil

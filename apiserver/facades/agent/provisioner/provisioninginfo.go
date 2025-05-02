@@ -41,7 +41,7 @@ func (api *ProvisionerAPI) ProvisioningInfo(ctx context.Context, args params.Ent
 	result := params.ProvisioningInfoResults{
 		Results: make([]params.ProvisioningInfoResult, len(args.Entities)),
 	}
-	canAccess, err := api.getAuthFunc()
+	canAccess, err := api.getAuthFunc(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

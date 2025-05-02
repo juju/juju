@@ -55,7 +55,7 @@ func (pc *PasswordChanger) SetPasswords(ctx context.Context, args params.EntityP
 	if len(args.Changes) == 0 {
 		return result, nil
 	}
-	canChange, err := pc.getCanChange()
+	canChange, err := pc.getCanChange(ctx)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}

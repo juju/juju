@@ -75,7 +75,7 @@ func (d *DeadEnsurer) EnsureDead(ctx context.Context, args params.Entities) (par
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canModify, err := d.getCanModify()
+	canModify, err := d.getCanModify(ctx)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}

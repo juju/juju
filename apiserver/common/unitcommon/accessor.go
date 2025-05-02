@@ -4,51 +4,37 @@
 package unitcommon
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/core/application"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 )
 
-// ApplicationGetter provides a method
-// to determine if an application exists.
-type ApplicationGetter interface {
-	ApplicationExists(string) error
-}
-
-type stateApplicationGetter interface {
-	Application(string) (*state.Application, error)
-}
-
-// Backend returns an application abstraction for a
-// given state.State instance.
-func Backend(st stateApplicationGetter) ApplicationGetter {
-	return backend{st}
-}
-
-type backend struct {
-	stateApplicationGetter
-}
-
-// ApplicationExists implements ApplicationGetter.
-func (b backend) ApplicationExists(name string) error {
-	_, err := b.stateApplicationGetter.Application(name)
-	return err
+// ApplicationService describes the ability to check if an
+// application exists in the model.
+type ApplicationService interface {
+	// GetApplicationIDByName returns nil if the application exists.
+	// Otherwise, it returns an error.
+	GetApplicationIDByName(ctx context.Context, name string) (application.ID, error)
 }
 
 // UnitAccessor returns an auth function which determines if the
 // authenticated entity can access a unit or application.
-func UnitAccessor(authorizer facade.Authorizer, st ApplicationGetter) common.GetAuthFunc {
-	return func() (common.AuthFunc, error) {
+func UnitAccessor(authorizer facade.Authorizer, applicationService ApplicationService) common.GetAuthFunc {
+	return func(ctx context.Context) (common.AuthFunc, error) {
 		switch authTag := authorizer.GetAuthTag().(type) {
 		case names.ApplicationTag:
 			// If called by an application agent, any of the units
 			// belonging to that application can be accessed.
 			appName := authTag.Name
-			err := st.ApplicationExists(appName)
-			if err != nil {
+			if _, err := applicationService.GetApplicationIDByName(ctx, appName); errors.Is(err, applicationerrors.ApplicationNotFound) {
+				return nil, errors.NotFoundf("application %q", appName)
+			} else if err != nil {
 				return nil, errors.Trace(err)
 			}
 			return func(tag names.Tag) bool {
@@ -61,6 +47,7 @@ func UnitAccessor(authorizer facade.Authorizer, st ApplicationGetter) common.Get
 				}
 				return unitApp == appName
 			}, nil
+
 		case names.UnitTag:
 			return func(tag names.Tag) bool {
 				if tag.Kind() == names.ApplicationTagKind {

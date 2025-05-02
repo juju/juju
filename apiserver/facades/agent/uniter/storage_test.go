@@ -30,7 +30,7 @@ var _ = gc.Suite(&storageSuite{})
 
 func (s *storageSuite) TestWatchUnitStorageAttachments(c *gc.C) {
 	resources := common.NewResources()
-	getCanAccess := func() (common.AuthFunc, error) {
+	getCanAccess := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(names.Tag) bool {
 			return true
 		}, nil
@@ -50,8 +50,8 @@ func (s *storageSuite) TestWatchUnitStorageAttachments(c *gc.C) {
 
 	storage, err := uniter.NewStorageAPI(st, st, blockDeviceService, resources, getCanAccess)
 	c.Assert(err, jc.ErrorIsNil)
-	watches, err := storage.WatchUnitStorageAttachments(params.Entities{
-		Entities: []params.Entity{{unitTag.String()}},
+	watches, err := storage.WatchUnitStorageAttachments(context.Background(), params.Entities{
+		Entities: []params.Entity{{Tag: unitTag.String()}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(watches, gc.DeepEquals, params.StringsWatchResults{
@@ -65,7 +65,7 @@ func (s *storageSuite) TestWatchUnitStorageAttachments(c *gc.C) {
 
 func (s *storageSuite) TestWatchStorageAttachmentVolume(c *gc.C) {
 	resources := common.NewResources()
-	getCanAccess := func() (common.AuthFunc, error) {
+	getCanAccess := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(names.Tag) bool {
 			return true
 		}, nil
@@ -155,7 +155,7 @@ func (s *storageSuite) TestIAASWatchStorageAttachmentFilesystem(c *gc.C) {
 
 func (s *storageSuite) assertWatchStorageAttachmentFilesystem(c *gc.C, assignedMachine string) {
 	resources := common.NewResources()
-	getCanAccess := func() (common.AuthFunc, error) {
+	getCanAccess := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(names.Tag) bool {
 			return true
 		}, nil
@@ -230,7 +230,7 @@ func (s *storageSuite) assertWatchStorageAttachmentFilesystem(c *gc.C, assignedM
 
 func (s *storageSuite) TestDestroyUnitStorageAttachments(c *gc.C) {
 	resources := common.NewResources()
-	getCanAccess := func() (common.AuthFunc, error) {
+	getCanAccess := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(names.Tag) bool {
 			return true
 		}, nil
@@ -248,7 +248,7 @@ func (s *storageSuite) TestDestroyUnitStorageAttachments(c *gc.C) {
 
 	storage, err := uniter.NewStorageAPI(st, st, blockDeviceService, resources, getCanAccess)
 	c.Assert(err, jc.ErrorIsNil)
-	destroyErrors, err := storage.DestroyUnitStorageAttachments(params.Entities{
+	destroyErrors, err := storage.DestroyUnitStorageAttachments(context.Background(), params.Entities{
 		Entities: []params.Entity{{
 			Tag: unitTag.String(),
 		}},
@@ -256,7 +256,7 @@ func (s *storageSuite) TestDestroyUnitStorageAttachments(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(calls, jc.DeepEquals, []string{"DestroyUnitStorageAttachments"})
 	c.Assert(destroyErrors, jc.DeepEquals, params.ErrorResults{
-		[]params.ErrorResult{{}},
+		Results: []params.ErrorResult{{}},
 	})
 }
 
@@ -271,7 +271,7 @@ func (s *storageSuite) TestRemoveStorageAttachments(c *gc.C) {
 	storageTag1 := names.NewStorageTag("data/1")
 
 	resources := common.NewResources()
-	getCanAccess := func() (common.AuthFunc, error) {
+	getCanAccess := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			return tag == unitTag0
 		}, nil
@@ -289,7 +289,7 @@ func (s *storageSuite) TestRemoveStorageAttachments(c *gc.C) {
 
 	storage, err := uniter.NewStorageAPI(st, st, blockDeviceService, resources, getCanAccess)
 	c.Assert(err, jc.ErrorIsNil)
-	removeErrors, err := storage.RemoveStorageAttachments(params.StorageAttachmentIds{
+	removeErrors, err := storage.RemoveStorageAttachments(context.Background(), params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{{
 			StorageTag: storageTag0.String(),
 			UnitTag:    unitTag0.String(),
@@ -310,11 +310,11 @@ func (s *storageSuite) TestRemoveStorageAttachments(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(removeErrors, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{nil},
-			{&params.Error{Message: "badness"}},
-			{&params.Error{Code: params.CodeUnauthorized, Message: "permission denied"}},
-			{&params.Error{Message: `"unit-mysql-0" is not a valid storage tag`}},
-			{&params.Error{Message: `"storage-data-0" is not a valid unit tag`}},
+			{Error: nil},
+			{Error: &params.Error{Message: "badness"}},
+			{Error: &params.Error{Code: params.CodeUnauthorized, Message: "permission denied"}},
+			{Error: &params.Error{Message: `"unit-mysql-0" is not a valid storage tag`}},
+			{Error: &params.Error{Message: `"storage-data-0" is not a valid unit tag`}},
 		},
 	})
 }

@@ -38,7 +38,7 @@ func (s *statusBaseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	clock := NewMockClock(ctrl)
 	clock.EXPECT().Now().Return(s.now).AnyTimes()
 
-	auth := func() (common.AuthFunc, error) {
+	auth := func(ctx context.Context) (common.AuthFunc, error) {
 		return s.authFunc, nil
 	}
 	s.api = NewStatusAPI(s.statusService, auth, nil, clock)

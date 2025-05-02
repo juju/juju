@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -41,7 +43,7 @@ func (s *lxdProfileSuite) assertBackendAPI(c *gc.C, tag names.Tag) (*uniter.LXDP
 	ctrl := gomock.NewController(c)
 	mockBackend := NewMockLXDProfileBackend(ctrl)
 
-	unitAuthFunc := func() (common.AuthFunc, error) {
+	unitAuthFunc := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			return tag.Id() == s.unitTag1.Id()
 		}, nil
@@ -79,7 +81,7 @@ func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotifications(c *gc.C) {
 		},
 		ApplicationName: "foo-bar",
 	}
-	watches, err := api.WatchLXDProfileUpgradeNotifications(args)
+	watches, err := api.WatchLXDProfileUpgradeNotifications(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(watches, gc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
@@ -110,7 +112,7 @@ func (s *lxdProfileSuite) TestWatchUnitLXDProfileUpgradeNotifications(c *gc.C) {
 			{Tag: names.NewMachineTag("2").String()},
 		},
 	}
-	watches, err := api.WatchUnitLXDProfileUpgradeNotifications(args)
+	watches, err := api.WatchUnitLXDProfileUpgradeNotifications(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(watches, gc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{

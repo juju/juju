@@ -90,7 +90,7 @@ func NewDeployerAPI(
 	systemState *state.State,
 	clock clock.Clock,
 ) (*DeployerAPI, error) {
-	getAuthFunc := func() (common.AuthFunc, error) {
+	getAuthFunc := func(context.Context) (common.AuthFunc, error) {
 		// Get all units of the machine and cache them.
 		thisMachineTag := authorizer.GetAuthTag()
 		units, err := getAllUnits(st, thisMachineTag)
@@ -109,10 +109,10 @@ func NewDeployerAPI(
 			return false
 		}, nil
 	}
-	getCanWatch := func() (common.AuthFunc, error) {
+	getCanWatch := func(context.Context) (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
-	auth, err := getAuthFunc()
+	auth, err := getAuthFunc(context.TODO())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

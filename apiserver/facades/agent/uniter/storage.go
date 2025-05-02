@@ -50,8 +50,8 @@ func newStorageAPI(
 }
 
 // UnitStorageAttachments returns the IDs of storage attachments for a collection of units.
-func (s *StorageAPI) UnitStorageAttachments(args params.Entities) (params.StorageAttachmentIdsResults, error) {
-	canAccess, err := s.accessUnit()
+func (s *StorageAPI) UnitStorageAttachments(ctx context.Context, args params.Entities) (params.StorageAttachmentIdsResults, error) {
+	canAccess, err := s.accessUnit(ctx)
 	if err != nil {
 		return params.StorageAttachmentIdsResults{}, err
 	}
@@ -62,7 +62,7 @@ func (s *StorageAPI) UnitStorageAttachments(args params.Entities) (params.Storag
 		storageAttachmentIds, err := s.getOneUnitStorageAttachmentIds(canAccess, entity.Tag)
 		if err == nil {
 			result.Results[i].Result = params.StorageAttachmentIds{
-				storageAttachmentIds,
+				Ids: storageAttachmentIds,
 			}
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
@@ -93,8 +93,8 @@ func (s *StorageAPI) getOneUnitStorageAttachmentIds(canAccess common.AuthFunc, u
 
 // DestroyUnitStorageAttachments marks each storage attachment of the
 // specified units as Dying.
-func (s *StorageAPI) DestroyUnitStorageAttachments(args params.Entities) (params.ErrorResults, error) {
-	canAccess, err := s.accessUnit()
+func (s *StorageAPI) DestroyUnitStorageAttachments(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
+	canAccess, err := s.accessUnit(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -120,7 +120,7 @@ func (s *StorageAPI) DestroyUnitStorageAttachments(args params.Entities) (params
 
 // StorageAttachments returns the storage attachments with the specified tags.
 func (s *StorageAPI) StorageAttachments(ctx context.Context, args params.StorageAttachmentIds) (params.StorageAttachmentResults, error) {
-	canAccess, err := s.accessUnit()
+	canAccess, err := s.accessUnit(ctx)
 	if err != nil {
 		return params.StorageAttachmentResults{}, err
 	}
@@ -139,8 +139,8 @@ func (s *StorageAPI) StorageAttachments(ctx context.Context, args params.Storage
 
 // StorageAttachmentLife returns the lifecycle state of the storage attachments
 // with the specified tags.
-func (s *StorageAPI) StorageAttachmentLife(args params.StorageAttachmentIds) (params.LifeResults, error) {
-	canAccess, err := s.accessUnit()
+func (s *StorageAPI) StorageAttachmentLife(ctx context.Context, args params.StorageAttachmentIds) (params.LifeResults, error) {
+	canAccess, err := s.accessUnit(ctx)
 	if err != nil {
 		return params.LifeResults{}, err
 	}
@@ -209,20 +209,20 @@ func (s *StorageAPI) fromStateStorageAttachment(ctx context.Context, stateStorag
 		ownerTag = owner.String()
 	}
 	return params.StorageAttachment{
-		stateStorageAttachment.StorageInstance().String(),
-		ownerTag,
-		stateStorageAttachment.Unit().String(),
-		params.StorageKind(stateStorageInstance.Kind()),
-		info.Location,
-		life.Value(stateStorageAttachment.Life().String()),
+		StorageTag: stateStorageAttachment.StorageInstance().String(),
+		OwnerTag:   ownerTag,
+		UnitTag:    stateStorageAttachment.Unit().String(),
+		Kind:       params.StorageKind(stateStorageInstance.Kind()),
+		Location:   info.Location,
+		Life:       life.Value(stateStorageAttachment.Life().String()),
 	}, nil
 }
 
 // WatchUnitStorageAttachments creates watchers for a collection of units,
 // each of which can be used to watch for lifecycle changes to the corresponding
 // unit's storage attachments.
-func (s *StorageAPI) WatchUnitStorageAttachments(args params.Entities) (params.StringsWatchResults, error) {
-	canAccess, err := s.accessUnit()
+func (s *StorageAPI) WatchUnitStorageAttachments(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
+	canAccess, err := s.accessUnit(ctx)
 	if err != nil {
 		return params.StringsWatchResults{}, err
 	}
@@ -259,7 +259,7 @@ func (s *StorageAPI) watchOneUnitStorageAttachments(tag string, canAccess func(n
 // attachments, each of which can be used to watch changes to storage
 // attachment info.
 func (s *StorageAPI) WatchStorageAttachments(ctx context.Context, args params.StorageAttachmentIds) (params.NotifyWatchResults, error) {
-	canAccess, err := s.accessUnit()
+	canAccess, err := s.accessUnit(ctx)
 	if err != nil {
 		return params.NotifyWatchResults{}, err
 	}
@@ -321,8 +321,8 @@ func (s *StorageAPI) watchOneStorageAttachment(ctx context.Context, id params.St
 
 // RemoveStorageAttachments removes the specified storage
 // attachments from state.
-func (s *StorageAPI) RemoveStorageAttachments(args params.StorageAttachmentIds) (params.ErrorResults, error) {
-	canAccess, err := s.accessUnit()
+func (s *StorageAPI) RemoveStorageAttachments(ctx context.Context, args params.StorageAttachmentIds) (params.ErrorResults, error) {
+	canAccess, err := s.accessUnit(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}

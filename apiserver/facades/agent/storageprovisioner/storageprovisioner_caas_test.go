@@ -289,7 +289,7 @@ func (s *caasProvisionerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.resources = NewMockResources(ctrl)
 
 	s.api = &StorageProvisionerAPIv4{
-		LifeGetter: common.NewLifeGetter(s.entityFinder, func() (common.AuthFunc, error) {
+		LifeGetter: common.NewLifeGetter(s.entityFinder, func(context.Context) (common.AuthFunc, error) {
 			return func(names.Tag) bool {
 				return true
 			}, nil
@@ -297,7 +297,7 @@ func (s *caasProvisionerSuite) setupMocks(c *gc.C) *gomock.Controller {
 		sb:        s.storageBackend,
 		st:        s.backend,
 		resources: s.resources,
-		getAttachmentAuthFunc: func() (func(names.Tag, names.Tag) bool, error) {
+		getAttachmentAuthFunc: func(context.Context) (func(names.Tag, names.Tag) bool, error) {
 			return func(names.Tag, names.Tag) bool { return true }, nil
 		},
 	}

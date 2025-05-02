@@ -53,7 +53,7 @@ func (s *getToolsSuite) setup(c *gc.C) *gomock.Controller {
 func (s *getToolsSuite) TestTools(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	getCanRead := func() (common.AuthFunc, error) {
+	getCanRead := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			return tag == names.NewMachineTag("0") || tag == names.NewMachineTag("42")
 		}, nil
@@ -106,7 +106,7 @@ func (s *getToolsSuite) TestTools(c *gc.C) {
 func (s *getToolsSuite) TestToolsError(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	getCanRead := func() (common.AuthFunc, error) {
+	getCanRead := func(ctx context.Context) (common.AuthFunc, error) {
 		return nil, fmt.Errorf("splat")
 	}
 	tg := common.NewToolsGetter(

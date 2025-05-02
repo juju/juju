@@ -4,6 +4,8 @@
 package lifeflag
 
 import (
+	"context"
+
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
@@ -22,7 +24,7 @@ func NewFacade(backend Backend, watcherRegistry facade.WatcherRegistry, authoriz
 		return nil, apiservererrors.ErrPerm
 	}
 	expect := names.NewModelTag(backend.ModelUUID())
-	getCanAccess := func() (common.AuthFunc, error) {
+	getCanAccess := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			return tag == expect
 		}, nil

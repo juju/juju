@@ -154,7 +154,7 @@ func (f *FirewallerAPI) Life(ctx context.Context, args params.Entities) (params.
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canRead, err := f.accessUnitApplicationOrMachineOrRelation()
+	canRead, err := f.accessUnitApplicationOrMachineOrRelation(ctx)
 	if err != nil {
 		return params.LifeResults{}, errors.Errorf("getting auth function: %w", err)
 	}
@@ -249,7 +249,7 @@ func (f *FirewallerAPI) GetAssignedMachine(ctx context.Context, args params.Enti
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.Entities)),
 	}
-	canAccess, err := f.accessUnit()
+	canAccess, err := f.accessUnit(ctx)
 	if err != nil {
 		return params.StringResults{}, err
 	}
@@ -360,7 +360,7 @@ func (f *FirewallerAPI) AreManuallyProvisioned(ctx context.Context, args params.
 	result := params.BoolResults{
 		Results: make([]params.BoolResult, len(args.Entities)),
 	}
-	canAccess, err := f.accessMachine()
+	canAccess, err := f.accessMachine(ctx)
 	if err != nil {
 		return result, err
 	}
@@ -382,7 +382,7 @@ func (f *FirewallerAPI) AreManuallyProvisioned(ctx context.Context, args params.
 // GetExposeInfo returns the expose flag and per-endpoint expose settings
 // for the specified applications.
 func (f *FirewallerAPI) GetExposeInfo(ctx context.Context, args params.Entities) (params.ExposeInfoResults, error) {
-	canAccess, err := f.accessApplication()
+	canAccess, err := f.accessApplication(ctx)
 	if err != nil {
 		return params.ExposeInfoResults{}, err
 	}
