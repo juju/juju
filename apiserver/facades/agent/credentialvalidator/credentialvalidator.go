@@ -27,7 +27,7 @@ type CredentialService interface {
 	// CloudCredential returns the cloud credential for the given tag.
 	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
 
-	// InvalidateCredential marks the cloud credential for the given name, cloud, owner as invalid.
+	// InvalidateCredential marks the cloud credential for the given key as invalid.
 	InvalidateCredential(ctx context.Context, key credential.Key, reason string) error
 }
 

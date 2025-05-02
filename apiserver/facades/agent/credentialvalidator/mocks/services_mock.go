@@ -244,45 +244,6 @@ func (c *MockCredentialServiceInvalidateCredentialCall) DoAndReturn(f func(conte
 	return c
 }
 
-// WatchCredential mocks base method.
-func (m *MockCredentialService) WatchCredential(arg0 context.Context, arg1 credential.Key) (watcher.Watcher[struct{}], error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchCredential", arg0, arg1)
-	ret0, _ := ret[0].(watcher.Watcher[struct{}])
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// WatchCredential indicates an expected call of WatchCredential.
-func (mr *MockCredentialServiceMockRecorder) WatchCredential(arg0, arg1 any) *MockCredentialServiceWatchCredentialCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchCredential", reflect.TypeOf((*MockCredentialService)(nil).WatchCredential), arg0, arg1)
-	return &MockCredentialServiceWatchCredentialCall{Call: call}
-}
-
-// MockCredentialServiceWatchCredentialCall wrap *gomock.Call
-type MockCredentialServiceWatchCredentialCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCredentialServiceWatchCredentialCall) Return(arg0 watcher.Watcher[struct{}], arg1 error) *MockCredentialServiceWatchCredentialCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCredentialServiceWatchCredentialCall) Do(f func(context.Context, credential.Key) (watcher.Watcher[struct{}], error)) *MockCredentialServiceWatchCredentialCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCredentialServiceWatchCredentialCall) DoAndReturn(f func(context.Context, credential.Key) (watcher.Watcher[struct{}], error)) *MockCredentialServiceWatchCredentialCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // MockCloudService is a mock of CloudService interface.
 type MockCloudService struct {
 	ctrl     *gomock.Controller

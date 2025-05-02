@@ -154,7 +154,7 @@ func (s *serviceSuite) TestInvalidateCloudCredentialInvalidID(c *gc.C) {
 
 	key := corecredential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred")}
 	err := s.service(c).InvalidateCredential(context.Background(), key, "nope")
-	c.Assert(err, gc.ErrorMatches, "invalid id invalidating cloud credential.*")
+	c.Assert(err, gc.ErrorMatches, "invalidating cloud credential with invalid key.*")
 }
 
 func (s *serviceSuite) TestAllCloudCredentials(c *gc.C) {
@@ -196,7 +196,7 @@ func (s *serviceSuite) TestWatchCredentialInvalidID(c *gc.C) {
 
 	key := corecredential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred")}
 	_, err := s.service(c).WatchCredential(context.Background(), key)
-	c.Assert(err, gc.ErrorMatches, "invalid id watching cloud credential.*")
+	c.Assert(err, gc.ErrorMatches, "watching cloud credential with invalid key.*")
 }
 
 func (s *serviceSuite) TestCheckAndUpdateCredentialsNoModelsFound(c *gc.C) {
