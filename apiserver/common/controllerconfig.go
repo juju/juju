@@ -128,7 +128,7 @@ func (s *ControllerConfigAPI) getModelControllerInfo(ctx context.Context, model 
 		return params.ControllerAPIInfoResult{}, errors.Trace(err)
 	}
 
-	logger.Debugf(context.TODO(), "found migrated model on another controller, saving the information")
+	logger.Debugf(ctx, "found migrated model on another controller, saving the information")
 	err = s.externalControllerService.UpdateExternalController(ctx, crossmodel.ControllerInfo{
 		ControllerUUID: target.ControllerTag.Id(),
 		Alias:          target.ControllerAlias,

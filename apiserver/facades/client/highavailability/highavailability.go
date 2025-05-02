@@ -142,7 +142,7 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 		return params.ControllersChanges{}, err
 	}
 
-	referenceMachine, err := getReferenceController(st, controllerIds, api.logger)
+	referenceMachine, err := getReferenceController(ctx, st, controllerIds, api.logger)
 	if err != nil {
 		return params.ControllersChanges{}, errors.Trace(err)
 	}
@@ -236,14 +236,14 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 }
 
 // getReferenceController looks up the ideal controller to use as a reference for Constraints and Release
-func getReferenceController(st *state.State, controllerIds []string, logger corelogger.Logger) (*state.Machine, error) {
+func getReferenceController(ctx context.Context, st *state.State, controllerIds []string, logger corelogger.Logger) (*state.Machine, error) {
 	// Sort the controller IDs from low to high and take the first.
 	// This will typically give the initial bootstrap machine.
 	var controllerNumbers []int
 	for _, id := range controllerIds {
 		idNum, err := strconv.Atoi(id)
 		if err != nil {
-			logger.Warningf(context.TODO(), "ignoring non numeric controller id %v", id)
+			logger.Warningf(ctx, "ignoring non numeric controller id %v", id)
 			continue
 		}
 		controllerNumbers = append(controllerNumbers, idNum)

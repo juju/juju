@@ -110,7 +110,7 @@ func (api *AgentToolsAPI) updateToolsAvailability(ctx context.Context) error {
 		return errors.Annotate(err, "cannot get latest version")
 	}
 	if ver == semversion.Zero {
-		api.logger.Debugf(context.TODO(), "The lookup of agent binaries returned version Zero. This should only happen during bootstrap.")
+		api.logger.Debugf(ctx, "The lookup of agent binaries returned version Zero. This should only happen during bootstrap.")
 		return nil
 	}
 

@@ -134,7 +134,7 @@ func destroyModel(
 		if notForcing {
 			return errors.Trace(err)
 		}
-		logger.Warningf(context.TODO(), "failed destroying model %v: %v", model.UUID(), err)
+		logger.Warningf(ctx, "failed destroying model %v: %v", model.UUID(), err)
 		if err := filterNonCriticalErrorForForce(err); err != nil {
 			return errors.Trace(err)
 		}

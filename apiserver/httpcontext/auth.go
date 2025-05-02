@@ -47,7 +47,7 @@ func (h *AuthHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		var httpError apiservererrors.HTTPWritableError
 		if errors.As(err, &httpError) {
 			if err := httpError.SendError(w); err != nil {
-				logger.Warningf(context.TODO(), "failed sending http error %v", err)
+				logger.Warningf(req.Context(), "failed sending http error %v", err)
 			}
 		} else {
 			http.Error(w,

@@ -72,26 +72,28 @@ func NetworkInterfacesToStateArgs(devs network.InterfaceInfos) (
 	var devicesArgs []state.LinkLayerDeviceArgs
 	var devicesAddrs []state.LinkLayerDeviceAddress
 
-	logger.Tracef(context.TODO(), "transforming network interface list to state args: %+v", devs)
+	ctx := context.TODO()
+
+	logger.Tracef(ctx, "transforming network interface list to state args: %+v", devs)
 	seenDeviceNames := set.NewStrings()
 	for _, dev := range devs {
-		logger.Tracef(context.TODO(), "transforming device %q", dev.InterfaceName)
+		logger.Tracef(ctx, "transforming device %q", dev.InterfaceName)
 		if !seenDeviceNames.Contains(dev.InterfaceName) {
 			// First time we see this, add it to devicesArgs.
 			seenDeviceNames.Add(dev.InterfaceName)
 
 			args := networkDeviceToStateArgs(dev)
-			logger.Tracef(context.TODO(), "state device args for device: %+v", args)
+			logger.Tracef(ctx, "state device args for device: %+v", args)
 			devicesArgs = append(devicesArgs, args)
 		}
 
 		if dev.PrimaryAddress().Value == "" {
 			continue
 		}
-		devicesAddrs = append(devicesAddrs, networkAddressesToStateArgs(dev, dev.Addresses)...)
+		devicesAddrs = append(devicesAddrs, networkAddressesToStateArgs(ctx, dev, dev.Addresses)...)
 	}
-	logger.Tracef(context.TODO(), "seen devices: %+v", seenDeviceNames.SortedValues())
-	logger.Tracef(context.TODO(), "network interface list transformed to state args:\n%+v\n%+v", devicesArgs, devicesAddrs)
+	logger.Tracef(ctx, "seen devices: %+v", seenDeviceNames.SortedValues())
+	logger.Tracef(ctx, "network interface list transformed to state args:\n%+v\n%+v", devicesArgs, devicesAddrs)
 	return devicesArgs, devicesAddrs
 }
 
@@ -119,20 +121,21 @@ func networkDeviceToStateArgs(dev network.InterfaceInfo) state.LinkLayerDeviceAr
 // with a duplicated device for each address.
 // This is a normalisation that returns state args for all
 // addresses of interfaces with the input name.
-func networkAddressStateArgsForDevice(devs network.InterfaceInfos, name string) []state.LinkLayerDeviceAddress {
+func networkAddressStateArgsForDevice(ctx context.Context, devs network.InterfaceInfos, name string) []state.LinkLayerDeviceAddress {
 	var res []state.LinkLayerDeviceAddress
 
 	for _, dev := range devs.GetByName(name) {
 		if dev.PrimaryAddress().Value == "" {
 			continue
 		}
-		res = append(res, networkAddressesToStateArgs(dev, dev.Addresses)...)
+		res = append(res, networkAddressesToStateArgs(ctx, dev, dev.Addresses)...)
 	}
 
 	return res
 }
 
 func networkAddressesToStateArgs(
+	ctx context.Context,
 	dev network.InterfaceInfo, addrs []network.ProviderAddress,
 ) []state.LinkLayerDeviceAddress {
 	var res []state.LinkLayerDeviceAddress
@@ -140,7 +143,7 @@ func networkAddressesToStateArgs(
 	for _, addr := range addrs {
 		cidrAddress, err := addr.ValueWithMask()
 		if err != nil {
-			logger.Infof(context.TODO(), "ignoring address %q for device %q: %v", addr.Value, dev.InterfaceName, err)
+			logger.Infof(ctx, "ignoring address %q for device %q: %v", addr.Value, dev.InterfaceName, err)
 			continue
 		}
 

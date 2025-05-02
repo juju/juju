@@ -456,13 +456,13 @@ func (s *SecretsManagerAPI) getRemoteSecretContent(ctx context.Context, uri *cor
 		}
 		return nil, nil, false, errors.Trace(err)
 	}
-	s.logger.Debugf(context.TODO(), "secret %q scope token for %v: %s", uri.String(), token, scopeToken)
+	s.logger.Debugf(ctx, "secret %q scope token for %v: %s", uri.String(), token, scopeToken)
 
 	scopeEntity, err := s.crossModelState.GetRemoteEntity(scopeToken)
 	if err != nil {
 		return nil, nil, false, errors.Annotatef(err, "getting remote entity for %q", scopeToken)
 	}
-	s.logger.Debugf(context.TODO(), "secret %q scope for %v: %s", uri.String(), scopeToken, scopeEntity)
+	s.logger.Debugf(ctx, "secret %q scope for %v: %s", uri.String(), scopeToken, scopeEntity)
 
 	mac, err := s.crossModelState.GetMacaroon(scopeEntity)
 	if err != nil {
@@ -571,7 +571,7 @@ func (s *SecretsManagerAPI) getSecretContent(ctx context.Context, arg params.Get
 		return nil, nil, false, errors.Trace(err)
 	}
 
-	s.logger.Debugf(context.TODO(), "getting secret content for: %s", uri)
+	s.logger.Debugf(ctx, "getting secret content for: %s", uri)
 
 	if !uri.IsLocal(s.modelUUID) {
 		return s.getRemoteSecretContent(ctx, uri, arg.Refresh, arg.Peek, labelToUpdate)

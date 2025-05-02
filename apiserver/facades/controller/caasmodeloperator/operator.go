@@ -152,7 +152,7 @@ func (a *API) ModelOperatorProvisioningInfo(ctx context.Context) (params.ModelOp
 		return result, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
 	}
 	imageInfo := params.NewDockerImageInfo(docker.ConvertToResourceImageDetails(imageRepoDetails), registryPath)
-	a.logger.Tracef(context.TODO(), "image info %v", imageInfo)
+	a.logger.Tracef(ctx, "image info %v", imageInfo)
 
 	result = params.ModelOperatorInfo{
 		APIAddresses: apiAddresses.Result,

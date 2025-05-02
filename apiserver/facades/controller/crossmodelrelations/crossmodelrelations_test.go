@@ -83,7 +83,7 @@ func (s *crossmodelRelationsSuite) setupAPI(c *gc.C) {
 
 	s.st = newMockState()
 	fw := &mockFirewallState{}
-	egressAddressWatcher := func(_ facade.Resources, fws firewall.State, modelConfigService firewall.ModelConfigService, relations params.Entities) (params.StringsWatchResults, error) {
+	egressAddressWatcher := func(ctx context.Context, _ facade.Resources, fws firewall.State, modelConfigService firewall.ModelConfigService, relations params.Entities) (params.StringsWatchResults, error) {
 		c.Assert(fw, gc.Equals, fws)
 		s.watchedRelations = relations
 		return params.StringsWatchResults{Results: make([]params.StringsWatchResult, len(relations.Entities))}, nil
@@ -172,7 +172,7 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, lifeVa
 			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
 			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
 			checkers.DeclaredCaveat("username", "mary"),
-		}, bakery.Op{"db2:db django:db", "relate"})
+		}, bakery.Op{Entity: "db2:db django:db", Action: "relate"})
 
 	c.Assert(err, jc.ErrorIsNil)
 	suspended := true
@@ -198,10 +198,10 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, lifeVa
 	err = results.Combine()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []testing.StubCall{
-		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
-		{"GetRemoteEntity", []interface{}{"token-db2"}},
-		{"ApplicationOfferForUUID", []interface{}{"f47ac10b-58cc-4372-a567-0e02b2c3d479"}},
-		{"KeyRelation", []interface{}{"db2:db django:db"}},
+		{FuncName: "GetRemoteEntity", Args: []interface{}{"token-db2:db django:db"}},
+		{FuncName: "GetRemoteEntity", Args: []interface{}{"token-db2"}},
+		{FuncName: "ApplicationOfferForUUID", Args: []interface{}{"f47ac10b-58cc-4372-a567-0e02b2c3d479"}},
+		{FuncName: "KeyRelation", Args: []interface{}{"db2:db django:db"}},
 	}
 	if lifeValue == life.Alive {
 		c.Assert(rel.status, gc.Equals, status.Suspending)
@@ -217,39 +217,39 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, lifeVa
 	s.st.CheckCalls(c, expected)
 	if forceCleanup {
 		ru1.CheckCalls(c, []testing.StubCall{
-			{"LeaveScope", []interface{}{}},
+			{FuncName: "LeaveScope", Args: []interface{}{}},
 		})
 		rel.CheckCalls(c, []testing.StubCall{
-			{"Suspended", []interface{}{}},
-			{"AllRemoteUnits", []interface{}{"db2"}},
-			{"DestroyWithForce", []interface{}{true}},
+			{FuncName: "Suspended", Args: []interface{}{}},
+			{FuncName: "AllRemoteUnits", Args: []interface{}{"db2"}},
+			{FuncName: "DestroyWithForce", Args: []interface{}{true}},
 		})
 	} else {
 		ru1.CheckCalls(c, []testing.StubCall{
-			{"InScope", []interface{}{}},
-			{"EnterScope", []interface{}{map[string]interface{}{"foo": "bar"}}},
+			{FuncName: "InScope", Args: []interface{}{}},
+			{FuncName: "EnterScope", Args: []interface{}{map[string]interface{}{"foo": "bar"}}},
 		})
 		if lifeValue == life.Alive {
 			rel.CheckCalls(c, []testing.StubCall{
-				{"Suspended", []interface{}{}},
-				{"SetSuspended", []interface{}{}},
-				{"SetStatus", []interface{}{}},
-				{"Tag", []interface{}{}},
-				{"RemoteUnit", []interface{}{"db2/2"}},
-				{"RemoteUnit", []interface{}{"db2/1"}},
+				{FuncName: "Suspended", Args: []interface{}{}},
+				{FuncName: "SetSuspended", Args: []interface{}{}},
+				{FuncName: "SetStatus", Args: []interface{}{}},
+				{FuncName: "Tag", Args: []interface{}{}},
+				{FuncName: "RemoteUnit", Args: []interface{}{"db2/2"}},
+				{FuncName: "RemoteUnit", Args: []interface{}{"db2/1"}},
 			})
 		} else {
 			rel.CheckCalls(c, []testing.StubCall{
-				{"Suspended", []interface{}{}},
-				{"Destroy", []interface{}{}},
-				{"Tag", []interface{}{}},
-				{"RemoteUnit", []interface{}{"db2/2"}},
-				{"RemoteUnit", []interface{}{"db2/1"}},
+				{FuncName: "Suspended", Args: []interface{}{}},
+				{FuncName: "Destroy", Args: []interface{}{}},
+				{FuncName: "Tag", Args: []interface{}{}},
+				{FuncName: "RemoteUnit", Args: []interface{}{"db2/2"}},
+				{FuncName: "RemoteUnit", Args: []interface{}{"db2/1"}},
 			})
 		}
 	}
 	ru2.CheckCalls(c, []testing.StubCall{
-		{"LeaveScope", []interface{}{}},
+		{FuncName: "LeaveScope", Args: []interface{}{}},
 	})
 }
 

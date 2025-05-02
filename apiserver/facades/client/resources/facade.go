@@ -127,7 +127,7 @@ func (a *API) ListResources(ctx context.Context, args params.ListResourcesArgs) 
 	r.Results = make([]params.ResourcesResult, len(args.Entities))
 
 	for i, e := range args.Entities {
-		a.logger.Tracef(context.TODO(), "Listing resources for %q", e.Tag)
+		a.logger.Tracef(ctx, "Listing resources for %q", e.Tag)
 		tag, apierr := parseApplicationTag(e.Tag)
 		if apierr != nil {
 			r.Results[i] = params.ResourcesResult{

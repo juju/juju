@@ -47,7 +47,7 @@ func (m *ModelUpgraderAPI) decideVersion(
 		}
 		var targetVersion semversion.Number
 		targetVersion, packagedAgents = packagedAgents.Newest()
-		m.logger.Debugf(context.TODO(), "target version %q is the best version, packagedAgents %v", targetVersion, packagedAgents)
+		m.logger.Debugf(ctx, "target version %q is the best version, packagedAgents %v", targetVersion, packagedAgents)
 		return targetVersion, nil
 	}
 
@@ -63,7 +63,7 @@ func (m *ModelUpgraderAPI) decideVersion(
 			return semversion.Zero, errUpToDate
 		}
 		if newestCurrent.Compare(currentVersion) > 0 {
-			m.logger.Debugf(context.TODO(), "found more recent agent version %s", newestCurrent)
+			m.logger.Debugf(ctx, "found more recent agent version %s", newestCurrent)
 			return newestCurrent, nil
 		}
 	}
@@ -84,7 +84,7 @@ func (m *ModelUpgraderAPI) findAgents(
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
-	return m.agentVersionsForCAAS(args, list)
+	return m.agentVersionsForCAAS(ctx, args, list)
 }
 
 // The default available agents come directly from streams metadata.
@@ -97,6 +97,7 @@ func toolListToVersions(streamsVersions coretools.List) coretools.Versions {
 }
 
 func (m *ModelUpgraderAPI) agentVersionsForCAAS(
+	ctx context.Context,
 	args common.FindAgentsParams,
 	streamsAgents coretools.List,
 ) (coretools.Versions, error) {
@@ -120,7 +121,7 @@ func (m *ModelUpgraderAPI) agentVersionsForCAAS(
 	for _, a := range streamsAgents {
 		streamsVersions.Add(a.Version.Number.String())
 	}
-	m.logger.Tracef(context.TODO(), "versions from simplestreams %v", streamsVersions)
+	m.logger.Tracef(ctx, "versions from simplestreams %v", streamsVersions)
 	imageName := podcfg.JujudOCIName
 	tags, err := reg.Tags(imageName)
 	if err != nil {

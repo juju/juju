@@ -194,7 +194,7 @@ func (u *UpgraderAPI) DesiredVersion(ctx context.Context, args params.Entities) 
 			if !isNewerVersion || u.entityIsManager(tag) {
 				results[i].Version = &agentVersion
 			} else {
-				u.logger.Debugf(context.TODO(), "desired version is %s, but current version is %s and agent is not a manager node", agentVersion, jujuversion.Current)
+				u.logger.Debugf(ctx, "desired version is %s, but current version is %s and agent is not a manager node", agentVersion, jujuversion.Current)
 				results[i].Version = &jujuversion.Current
 			}
 			err = nil

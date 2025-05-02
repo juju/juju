@@ -52,7 +52,7 @@ type CrossModelAuthorizer struct{}
 
 // AuthorizeOps implements OpsAuthorizer.AuthorizeOps.
 func (CrossModelAuthorizer) AuthorizeOps(ctx context.Context, authorizedOp bakery.Op, queryOps []bakery.Op) ([]bool, []checkers.Caveat, error) {
-	authlogger.Debugf(context.TODO(), "authorize cmr query ops check for %#v: %#v", authorizedOp, queryOps)
+	authlogger.Debugf(ctx, "authorize cmr query ops check for %#v: %#v", authorizedOp, queryOps)
 	allowed := make([]bool, len(queryOps))
 	for i := range allowed {
 		allowed[i] = queryOps[i].Action == consumeOp || queryOps[i].Action == relateOp
@@ -152,7 +152,7 @@ func (a *AuthContext) CheckOfferAccessCaveat(caveat string) (*offerPermissionChe
 // verification failed. If the macaroon is valid, CheckLocalAccessRequest
 // returns a list of caveats to add to the discharge macaroon.
 func (a *AuthContext) CheckLocalAccessRequest(ctx context.Context, details *offerPermissionCheck) ([]checkers.Caveat, error) {
-	authlogger.Debugf(context.TODO(), "authenticate local offer access: %+v", details)
+	authlogger.Debugf(ctx, "authenticate local offer access: %+v", details)
 	if err := a.checkOfferAccess(
 		ctx, a.accessService.ReadUserAccessLevelForTarget,
 		details.User, details.OfferUUID); err != nil {

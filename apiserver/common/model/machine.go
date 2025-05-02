@@ -40,7 +40,7 @@ func ModelMachineInfo(ctx context.Context, st ModelManagerBackend, machineServic
 		// get machine info even if we could not get HA Primary determined.
 		// Also on some non-HA setups, i.e. where mongo was not run with --replSet,
 		// this call will return an error.
-		logger.Warningf(context.TODO(), "could not determine if there is a primary HA machine: %v", err)
+		logger.Warningf(ctx, "could not determine if there is a primary HA machine: %v", err)
 	}
 	if len(controllerNodes) > 1 {
 		primaryID = primaryHA.Id()

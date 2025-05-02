@@ -154,6 +154,7 @@ func volumeStorageAttachmentInfo(
 		return nil, errors.Annotate(err, "getting block devices")
 	}
 	blockDevice, ok := MatchingVolumeBlockDevice(
+		ctx,
 		blockDevices,
 		volumeInfo,
 		volumeAttachmentInfo,

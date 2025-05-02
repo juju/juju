@@ -108,7 +108,7 @@ func NewExternalLXDProfileAPI(
 // WatchUnitLXDProfileUpgradeNotifications returns a StringsWatcher for observing
 // changes to the lxd profile changes for one unit.
 func (u *LXDProfileAPI) WatchUnitLXDProfileUpgradeNotifications(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
-	u.logger.Tracef(context.TODO(), "Starting WatchUnitLXDProfileUpgradeNotifications with %+v", args)
+	u.logger.Tracef(ctx, "WatchUnitLXDProfileUpgradeNotifications with %+v", args)
 	result := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
@@ -161,7 +161,7 @@ func (u *LXDProfileAPI) watchOneChangeUnitLXDProfileUpgradeNotifications(unit LX
 //
 // NOTE: can be removed in juju version 3.
 func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications(ctx context.Context, args params.LXDProfileUpgrade) (params.StringsWatchResults, error) {
-	u.logger.Tracef(context.TODO(), "Starting WatchLXDProfileUpgradeNotifications with %+v", args)
+	u.logger.Tracef(ctx, "WatchLXDProfileUpgradeNotifications with %+v", args)
 	result := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}

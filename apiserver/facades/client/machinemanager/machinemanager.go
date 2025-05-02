@@ -431,7 +431,7 @@ func (mm *MachineManagerAPI) ProvisioningScript(ctx context.Context, args params
 	} else {
 		config, err := mm.modelConfigService.ModelConfig(ctx)
 		if err != nil {
-			mm.logger.Errorf(context.TODO(),
+			mm.logger.Errorf(ctx,
 				"cannot getting model config for provisioning machine %q: %v",
 				args.MachineId, err,
 			)
@@ -658,7 +658,7 @@ func (mm *MachineManagerAPI) destroyMachine(ctx context.Context, args params.Ent
 }
 
 func (mm *MachineManagerAPI) destroyContainer(ctx context.Context, containers []string, force, keep, dryRun bool, maxWait time.Duration) ([]params.DestroyMachineResult, error) {
-	if containers == nil || len(containers) == 0 {
+	if len(containers) == 0 {
 		return nil, nil
 	}
 	entities := params.Entities{Entities: make([]params.Entity, len(containers))}

@@ -103,7 +103,7 @@ func newAffectedNetworks(
 // looking at the subnets they are connected to.
 // Any machines connected to a moving subnet have their unit networks
 // included for for later verification.
-func (n *affectedNetworks) processMachines(machines []Machine) error {
+func (n *affectedNetworks) processMachines(ctx context.Context, machines []Machine) error {
 	for _, machine := range machines {
 		addresses, err := machine.AllAddresses()
 		if err != nil {
@@ -129,7 +129,7 @@ func (n *affectedNetworks) processMachines(machines []Machine) error {
 			}
 		}
 
-		if err = n.includeMachine(machine, machineSubnets, includesMover); err != nil {
+		if err = n.includeMachine(ctx, machine, machineSubnets, includesMover); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -176,9 +176,9 @@ func (n *affectedNetworks) addressSubnet(addr Address) (network.SubnetInfo, erro
 // of subnet connectedness are included as networks to be validated.
 // The collection they are placed into depends on whether they are connected to
 // a moving subnet, indicated by the netChange argument.
-func (n *affectedNetworks) includeMachine(machine Machine, subnets network.SubnetInfos, netChange bool) error {
+func (n *affectedNetworks) includeMachine(ctx context.Context, machine Machine, subnets network.SubnetInfos, netChange bool) error {
 	machineName := coremachine.Name(machine.Id())
-	unitNames, err := n.applicationService.GetUnitNamesOnMachine(context.TODO(), machineName)
+	unitNames, err := n.applicationService.GetUnitNamesOnMachine(ctx, machineName)
 	if errors.Is(err, applicationerrors.MachineNotFound) {
 		return errors.NotFoundf("machine %q", machineName)
 	} else if err != nil {
@@ -219,18 +219,18 @@ func (n *affectedNetworks) includeMachine(machine Machine, subnets network.Subne
 
 // ensureConstraintIntegrity checks that moving subnets to the new space does
 // not violate any application space constraints.
-func (n *affectedNetworks) ensureConstraintIntegrity(cons map[string]set.Strings) error {
+func (n *affectedNetworks) ensureConstraintIntegrity(ctx context.Context, cons map[string]set.Strings) error {
 	for appName, spaces := range cons {
 		if _, ok := n.changingNetworks[appName]; !ok {
 			// The constraint is for an application not affected by the move.
 			continue
 		}
 
-		if err := n.ensureNegativeConstraintIntegrity(appName, spaces); err != nil {
+		if err := n.ensureNegativeConstraintIntegrity(ctx, appName, spaces); err != nil {
 			return errors.Trace(err)
 		}
 
-		if err := n.ensurePositiveConstraintIntegrity(appName, spaces); err != nil {
+		if err := n.ensurePositiveConstraintIntegrity(ctx, appName, spaces); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -240,7 +240,7 @@ func (n *affectedNetworks) ensureConstraintIntegrity(cons map[string]set.Strings
 
 // ensureNegativeConstraintIntegrity checks that the input application does not
 // have a negative space constraint for the proposed destination space.
-func (n *affectedNetworks) ensureNegativeConstraintIntegrity(appName string, spaceConstraints set.Strings) error {
+func (n *affectedNetworks) ensureNegativeConstraintIntegrity(ctx context.Context, appName string, spaceConstraints set.Strings) error {
 	if spaceConstraints.Contains("^" + n.newSpace) {
 		msg := fmt.Sprintf("moving subnet(s) to space %q violates space constraints "+
 			"for application %q: %s", n.newSpace, appName, strings.Join(spaceConstraints.SortedValues(), ", "))
@@ -248,7 +248,7 @@ func (n *affectedNetworks) ensureNegativeConstraintIntegrity(appName string, spa
 		if !n.force {
 			return errors.New(msg)
 		}
-		n.logger.Warningf(context.TODO(), msg)
+		n.logger.Warningf(ctx, msg)
 	}
 
 	return nil
@@ -257,7 +257,7 @@ func (n *affectedNetworks) ensureNegativeConstraintIntegrity(appName string, spa
 // ensurePositiveConstraintIntegrity checks that for each positive space
 // constraint, comparing the input application's unit subnet connectivity to
 // the target topology determines the constraint to be satisfied.
-func (n *affectedNetworks) ensurePositiveConstraintIntegrity(appName string, spaceConstraints set.Strings) error {
+func (n *affectedNetworks) ensurePositiveConstraintIntegrity(ctx context.Context, appName string, spaceConstraints set.Strings) error {
 	unitNets := n.changingNetworks[appName]
 
 	for _, spaceName := range spaceConstraints.Values() {
@@ -287,7 +287,7 @@ func (n *affectedNetworks) ensurePositiveConstraintIntegrity(appName string, spa
 			if !n.force {
 				return errors.New(msg)
 			}
-			n.logger.Warningf(context.TODO(), msg)
+			n.logger.Warningf(ctx, msg)
 		}
 	}
 
@@ -300,16 +300,16 @@ func (n *affectedNetworks) ensurePositiveConstraintIntegrity(appName string, spa
 //  1. Bound spaces remain unchanged by subnet relocation.
 //  2. We successfully change affected bindings to a new space that
 //     preserves consistency across all units of an application.
-func (n *affectedNetworks) ensureBindingsIntegrity(allBindings map[string]Bindings) error {
+func (n *affectedNetworks) ensureBindingsIntegrity(ctx context.Context, allBindings map[string]Bindings) error {
 	for appName, bindings := range allBindings {
-		if err := n.ensureApplicationBindingsIntegrity(appName, bindings); err != nil {
+		if err := n.ensureApplicationBindingsIntegrity(ctx, appName, bindings); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	return nil
 }
 
-func (n *affectedNetworks) ensureApplicationBindingsIntegrity(appName string, appBindings Bindings) error {
+func (n *affectedNetworks) ensureApplicationBindingsIntegrity(ctx context.Context, appName string, appBindings Bindings) error {
 	unitNets, ok := n.changingNetworks[appName]
 	if !ok {
 		return nil
@@ -350,7 +350,7 @@ func (n *affectedNetworks) ensureApplicationBindingsIntegrity(appName string, ap
 			if !n.force {
 				return errors.New(msg)
 			}
-			n.logger.Warningf(context.TODO(), msg)
+			n.logger.Warningf(ctx, msg)
 		}
 	}
 

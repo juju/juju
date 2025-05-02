@@ -4,6 +4,8 @@
 package firewall_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
@@ -111,6 +113,7 @@ func (s *FirewallSuite) TestWatchEgressAddressesForRelations(c *gc.C) {
 	s.st.applications["django"] = app
 
 	result, err := firewall.WatchEgressAddressesForRelations(
+		context.Background(),
 		s.resources, s.st, s.modelConfigService,
 		params.Entities{Entities: []params.Entity{{
 			Tag: names.NewRelationTag("remote-db2:db django:db").String(),
@@ -171,6 +174,7 @@ func (s *FirewallSuite) TestWatchEgressAddressesForRelationsIgnoresProvider(c *g
 	s.st.remoteEntities[names.NewRelationTag("remote-db2:db django:db")] = "token-db2:db django:db"
 
 	result, err := firewall.WatchEgressAddressesForRelations(
+		context.Background(),
 		s.resources, s.st, s.modelConfigService,
 		params.Entities{Entities: []params.Entity{{
 			Tag: names.NewRelationTag("remote-db2:db django:db").String(),

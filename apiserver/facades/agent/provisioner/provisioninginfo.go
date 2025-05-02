@@ -393,7 +393,7 @@ func (api *ProvisionerAPI) machineSpaceTopology(
 			// space, so no subnet should be processed more than once.
 			// Log a warning if this happens.
 			if _, ok := topology.SpaceSubnets[sID]; ok {
-				api.logger.Warningf(context.TODO(), "subnet with provider ID %q found is present in multiple spaces", sID)
+				api.logger.Warningf(ctx, "subnet with provider ID %q found is present in multiple spaces", sID)
 			}
 			topology.SubnetAZs[sID] = zones
 			subnetIDs = append(subnetIDs, sID)
@@ -429,7 +429,7 @@ func (api *ProvisionerAPI) subnetsAndZonesForSpace(
 
 		providerID := subnet.ProviderId
 		if providerID == "" {
-			api.logger.Warningf(context.TODO(), warningPrefix+"no ProviderId set")
+			api.logger.Warningf(ctx, warningPrefix+"no ProviderId set")
 			continue
 		}
 
@@ -443,7 +443,7 @@ func (api *ProvisionerAPI) subnetsAndZonesForSpace(
 			// TODO (manadart 2022-11-10): Bring this condition under testing
 			// when we cut machine handling over to Dqlite.
 			if cloudType != "azure" && cloudType != "openstack" {
-				api.logger.Warningf(context.TODO(), warningPrefix+"no availability zone(s) set")
+				api.logger.Warningf(ctx, warningPrefix+"no availability zone(s) set")
 				continue
 			}
 		}
@@ -465,7 +465,7 @@ func (api *ProvisionerAPI) machineLXDProfileNames(
 ) ([]string, error) {
 	profileEnv, ok := env.(environs.LXDProfiler)
 	if !ok {
-		api.logger.Tracef(context.TODO(), "LXDProfiler not implemented by environ")
+		api.logger.Tracef(ctx, "LXDProfiler not implemented by environ")
 		return nil, nil
 	}
 
@@ -585,7 +585,7 @@ func (api *ProvisionerAPI) availableImageMetadata(
 	sort.Slice(data, func(i, j int) bool {
 		return data[i].Priority < data[j].Priority
 	})
-	api.logger.Debugf(context.TODO(), "available image metadata for provisioning: %v", data)
+	api.logger.Debugf(ctx, "available image metadata for provisioning: %v", data)
 	return data, nil
 }
 
@@ -644,9 +644,9 @@ func (api *ProvisionerAPI) findImageMetadata(
 	if err != nil {
 		// look into simple stream if for some reason metadata can't be got from the service
 		// so do not exit on error.
-		api.logger.Infof(context.TODO(), "could not get image metadata from controller: %v", err)
+		api.logger.Infof(ctx, "could not get image metadata from controller: %v", err)
 	}
-	api.logger.Debugf(context.TODO(), "got from controller %d metadata", len(serviceMetadata))
+	api.logger.Debugf(ctx, "got from controller %d metadata", len(serviceMetadata))
 	// No need to look in data sources if found through service.
 	if len(serviceMetadata) != 0 {
 		return serviceMetadata, nil
@@ -662,7 +662,7 @@ func (api *ProvisionerAPI) findImageMetadata(
 			return nil, errors.Trace(err)
 		}
 	}
-	api.logger.Debugf(context.TODO(), "got from data sources %d metadata", len(dsMetadata))
+	api.logger.Debugf(ctx, "got from data sources %d metadata", len(dsMetadata))
 
 	return dsMetadata, nil
 }
@@ -746,11 +746,11 @@ func (api *ProvisionerAPI) imageMetadataFromDataSources(
 
 	var metadata []cloudimagemetadata.Metadata
 	for _, source := range sources {
-		api.logger.Debugf(context.TODO(), "looking in data source %v", source.Description())
+		api.logger.Debugf(ctx, "looking in data source %v", source.Description())
 		found, info, err := imagemetadata.Fetch(ctx, fetcher, []simplestreams.DataSource{source}, constraint)
 		if errors.Is(err, errors.NotFound) || errors.Is(err, errors.Unauthorized) {
 			// Do not stop looking in other data sources if there is an issue here.
-			api.logger.Warningf(context.TODO(), "encountered %v while getting published images metadata from %v", err, source.Description())
+			api.logger.Warningf(ctx, "encountered %v while getting published images metadata from %v", err, source.Description())
 			continue
 		} else if err != nil {
 			// When we get an actual protocol/unexpected error, we need to stop.
@@ -764,7 +764,7 @@ func (api *ProvisionerAPI) imageMetadataFromDataSources(
 	if len(metadata) > 0 {
 		if err := api.cloudImageMetadataService.SaveMetadata(ctx, metadata); err != nil {
 			// No need to react here, just take note
-			api.logger.Warningf(context.TODO(), "failed to save published image metadata: %v", err)
+			api.logger.Warningf(ctx, "failed to save published image metadata: %v", err)
 		}
 	}
 
