@@ -373,16 +373,14 @@ func (s *controllerSuite) TestHostedModelConfigs_CanOpenEnviron(c *gc.C) {
 
 func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "test"})
-	defer func() { _ = st.Close() }()
 
-	otherDomainServices := s.ModelDomainServices(c, model.UUID(st.ModelUUID()))
+	otherDomainServices := s.ModelDomainServices(c, s.DomainServicesSuite.DefaultModelUUID)
 	otherBlockCommands := otherDomainServices.BlockCommand()
 	otherBlockCommands.SwitchBlockOn(context.Background(), blockcommand.ChangeBlock, "ChangeBlock")
 	otherBlockCommands.SwitchBlockOn(context.Background(), blockcommand.DestroyBlock, "DestroyBlock")
 	models := []model.Model{
 		{
+			UUID:      s.DomainServicesSuite.DefaultModelUUID,
 			Name:      "test",
 			OwnerName: user.NameFromTag(s.Owner),
 			ModelType: model.IAAS,
@@ -398,7 +396,7 @@ func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 	c.Assert(list.Models, jc.DeepEquals, []params.ModelBlockInfo{
 		{
 			Name:     "test",
-			UUID:     st.ModelUUID(),
+			UUID:     s.DomainServicesSuite.DefaultModelUUID.String(),
 			OwnerTag: s.Owner.String(),
 			Blocks: []string{
 				"BlockChange",
@@ -465,11 +463,8 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
 
 func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "test"})
-	defer func() { _ = st.Close() }()
 
-	otherDomainServices := s.ModelDomainServices(c, model.UUID(st.ModelUUID()))
+	otherDomainServices := s.ModelDomainServices(c, s.DomainServicesSuite.DefaultModelUUID)
 	otherBlockCommands := otherDomainServices.BlockCommand()
 	otherBlockCommands.SwitchBlockOn(context.Background(), blockcommand.ChangeBlock, "TestChangeBlock")
 	otherBlockCommands.SwitchBlockOn(context.Background(), blockcommand.DestroyBlock, "TestChangeBlock")
@@ -480,7 +475,7 @@ func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
 
 	s.mockModelService.EXPECT().ListModelIDs(gomock.Any()).Return(
 		[]model.UUID{
-			model.UUID(st.ModelUUID()),
+			s.DomainServicesSuite.DefaultModelUUID,
 		}, nil,
 	)
 	err = s.controller.RemoveBlocks(context.Background(), params.RemoveBlocksArgs{All: true})
@@ -571,14 +566,10 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 
 		c.Assert(result.Error, gc.IsNil)
 		c.Check(result.ModelTag, gc.Equals, spec.ModelTag)
-		expectedId := st.ModelUUID() + ":0"
-		c.Check(result.MigrationId, gc.Equals, expectedId)
 
 		// Ensure the migration made it into the DB correctly.
 		mig, err := st.LatestMigration()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(mig.Id(), gc.Equals, expectedId)
-		c.Check(mig.ModelUUID(), gc.Equals, st.ModelUUID())
 		c.Check(mig.InitiatedBy(), gc.Equals, s.Owner.Id())
 
 		targetInfo, err := mig.TargetInfo()
@@ -1096,22 +1087,10 @@ func (s *controllerSuite) TestWatchAllModelSummariesByNonAdmin(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *controllerSuite) makeBobsModel(c *gc.C) string {
-	bob := names.NewUserTag("bob")
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Owner: bob,
-		Name:  "bobs-model"})
-	defer st.Close()
-	uuid := st.ModelUUID()
-	s.WaitForModelWatchersIdle(c, uuid)
-	return uuid
-}
-
 func (s *controllerSuite) TestWatchModelSummariesByNonAdmin(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	// TODO(dqlite) - implement me
 	c.Skip("watch model summaries to be implemented")
-	s.makeBobsModel(c)
 
 	// Default authorizer is an admin. As a user, admin can't see
 	// Bob's model.

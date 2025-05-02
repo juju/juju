@@ -501,10 +501,9 @@ func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
 func (s *userManagerSuite) TestModelUsersInfo(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
-	model := s.ControllerModel(c)
 	owner := names.NewUserTag("owner")
 
-	s.modelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(model.UUID())).Return(
+	s.modelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.ApiServerSuite.ControllerModelUUID())).Return(
 		[]coremodel.ModelUserInfo{{
 			Name:           coreuser.NameFromTag(owner),
 			DisplayName:    owner.Name(),
@@ -533,43 +532,45 @@ func (s *userManagerSuite) TestModelUsersInfo(c *gc.C) {
 		}}, nil,
 	)
 
+	controllerModelTag := names.NewModelTag(s.ApiServerSuite.ControllerModelUUID())
+
 	results, err := s.api.ModelUserInfo(context.Background(), params.Entities{Entities: []params.Entity{{
-		Tag: model.ModelTag().String(),
+		Tag: controllerModelTag.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := params.ModelUserInfoResults{
 		Results: []params.ModelUserInfoResult{{
 			Result: &params.ModelUserInfo{
-				ModelTag:    model.ModelTag().String(),
+				ModelTag:    controllerModelTag.String(),
 				UserName:    owner.Name(),
 				DisplayName: owner.Name(),
 				Access:      "admin",
 			},
 		}, {
 			Result: &params.ModelUserInfo{
-				ModelTag:    model.ModelTag().String(),
+				ModelTag:    controllerModelTag.String(),
 				UserName:    "ralphdoe",
 				DisplayName: "Ralph Doe",
 				Access:      "admin",
 			},
 		}, {
 			Result: &params.ModelUserInfo{
-				ModelTag:    model.ModelTag().String(),
+				ModelTag:    controllerModelTag.String(),
 				UserName:    "samsmith",
 				DisplayName: "Sam Smith",
 				Access:      "admin",
 			},
 		}, {
 			Result: &params.ModelUserInfo{
-				ModelTag:    model.ModelTag().String(),
+				ModelTag:    controllerModelTag.String(),
 				UserName:    "bobjohns@ubuntuone",
 				DisplayName: "Bob Johns",
 				Access:      "write",
 			},
 		}, {
 			Result: &params.ModelUserInfo{
-				ModelTag:    model.ModelTag().String(),
+				ModelTag:    controllerModelTag.String(),
 				UserName:    "nicshaw@idprovider",
 				DisplayName: "Nic Shaw",
 				Access:      "write",

@@ -204,7 +204,7 @@ func (s *controllerInfoSuite) TestControllerInfoMigratedController(c *gc.C) {
 	c.Assert(modelState.RemoveDyingModel(), jc.ErrorIsNil)
 
 	externalControllerInfo, err := controllerConfig.ControllerAPIInfoForModels(context.Background(), params.Entities{
-		Entities: []params.Entity{{Tag: names.NewModelTag(model.UUID()).String()}}})
+		Entities: []params.Entity{{Tag: names.NewModelTag(s.DefaultModelUUID.String()).String()}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(externalControllerInfo.Results), gc.Equals, 1)
 	c.Assert(externalControllerInfo.Results[0].Addresses[0], gc.Equals, controllerIP)

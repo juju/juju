@@ -22,12 +22,12 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
+	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type offerAccessSuite struct {
@@ -100,32 +100,30 @@ func (s *offerAccessSuite) revoke(user names.UserTag, access params.OfferAccessP
 	return s.modifyAccess(user, params.RevokeOfferAccess, access, offerURL)
 }
 
-func (s *offerAccessSuite) setupOffer(modelUUID, modelName, owner, offerName string) string {
-	m := &mockModel{uuid: modelUUID, name: modelName, owner: owner, modelType: state.ModelTypeIAAS}
+func (s *offerAccessSuite) setupOffer(c *gc.C, modelUUID, modelName, owner, offerName string) string {
+	ownerName := usertesting.GenNewName(c, owner)
+
 	s.mockModelService.EXPECT().ListAllModels(gomock.Any()).Return(
 		[]coremodel.Model{
 			{
-				Name:      m.name,
-				OwnerName: coreuser.NameFromTag(names.NewUserTag(m.owner)),
-				UUID:      coremodel.UUID(m.uuid),
-				ModelType: coremodel.ModelType(m.modelType),
+				Name:      modelName,
+				OwnerName: ownerName,
+				UUID:      coremodel.UUID(modelUUID),
+				ModelType: coremodel.IAAS,
 			},
 		}, nil,
 	).AnyTimes()
-	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), m.name, coreuser.NameFromTag(m.Owner())).Return(
+	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), modelName, ownerName).Return(
 		coremodel.Model{
-			Name:      m.name,
-			OwnerName: coreuser.NameFromTag(m.Owner()),
-			UUID:      coremodel.UUID(m.uuid),
-			ModelType: coremodel.ModelType(m.modelType),
+			Name:      modelName,
+			OwnerName: ownerName,
+			UUID:      coremodel.UUID(modelUUID),
+			ModelType: coremodel.IAAS,
 		}, nil,
 	).AnyTimes()
 
-	s.mockState.allmodels = []applicationoffers.Model{m}
 	st := &mockState{
-		modelUUID:         modelUUID,
 		applicationOffers: make(map[string]jujucrossmodel.ApplicationOffer),
-		model:             m,
 	}
 	s.mockStatePool.st[modelUUID] = st
 	uuid := uuid.MustNewUUID().String()
@@ -137,7 +135,7 @@ func (s *offerAccessSuite) TestGrantMissingUserFails(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	offerUUID := s.setupOffer("uuid", "test", "admin", "someoffer")
+	offerUUID := s.setupOffer(c, "uuid", "test", "admin", "someoffer")
 	user := names.NewUserTag("foobar")
 
 	s.mockAccessService.EXPECT().UpdatePermission(gomock.Any(), access.UpdatePermissionArgs{
@@ -155,7 +153,7 @@ func (s *offerAccessSuite) TestGrantMissingOfferFails(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	s.setupOffer("uuid", "test", "admin", "differentoffer")
+	s.setupOffer(c, "uuid", "test", "admin", "differentoffer")
 	user := names.NewUserTag("foobar")
 	err := s.grant(user, params.OfferReadAccess, "test.someoffer")
 	expectedErr := `.*application offer "someoffer" not found`
@@ -166,7 +164,7 @@ func (s *offerAccessSuite) TestRevokePermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	offerUUID := s.setupOffer("uuid", "test", "admin", "someoffer")
+	offerUUID := s.setupOffer(c, "uuid", "test", "admin", "someoffer")
 	user := names.NewUserTag("foobar")
 	userName := coreuser.NameFromTag(user)
 	s.mockAccessService.EXPECT().UpdatePermission(gomock.Any(), access.UpdatePermissionArgs{
@@ -183,7 +181,7 @@ func (s *offerAccessSuite) TestGrantPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	offerUUID := s.setupOffer("uuid", "test", "admin", "someoffer")
+	offerUUID := s.setupOffer(c, "uuid", "test", "admin", "someoffer")
 
 	user := names.NewUserTag("foobar")
 	userName := coreuser.NameFromTag(user)
@@ -202,7 +200,7 @@ func (s *offerAccessSuite) TestGrantPermissionAddRemoteUser(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	offerUUID := s.setupOffer("uuid", "test", "superuser-bob", "someoffer")
+	offerUUID := s.setupOffer(c, "uuid", "test", "superuser-bob", "someoffer")
 
 	apiUser := names.NewUserTag("superuser-bob")
 	s.authorizer.Tag = apiUser
@@ -220,7 +218,7 @@ func (s *offerAccessSuite) TestGrantPermissionAddRemoteUser(c *gc.C) {
 }
 
 func (s *offerAccessSuite) assertGrantToOffer(c *gc.C, userAccess permission.Access) {
-	offerUUID := s.setupOffer("uuid", "test", "bob@remote", "someoffer")
+	offerUUID := s.setupOffer(c, "uuid", "test", "bob@remote", "someoffer")
 
 	user := names.NewUserTag("bob@remote")
 	s.authorizer.Tag = user
@@ -260,7 +258,7 @@ func (s *offerAccessSuite) TestGrantToOfferAdminAccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	offerUUID := s.setupOffer("uuid", "test", "foobar", "someoffer")
+	offerUUID := s.setupOffer(c, "uuid", "test", "foobar", "someoffer")
 
 	user := names.NewUserTag("foobar")
 	s.authorizer.Tag = user
@@ -286,7 +284,7 @@ func (s *offerAccessSuite) TestGrantOfferInvalidUserTag(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	s.setupOffer("uuid", "test", "admin", "someoffer")
+	s.setupOffer(c, "uuid", "test", "admin", "someoffer")
 	for _, testParam := range []struct {
 		tag      string
 		validTag bool
@@ -357,7 +355,7 @@ func (s *offerAccessSuite) TestModifyOfferAccessEmptyArgs(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	s.setupOffer("uuid", "test", "admin", "someoffer")
+	s.setupOffer(c, "uuid", "test", "admin", "someoffer")
 	args := params.ModifyOfferAccessRequest{
 		Changes: []params.ModifyOfferAccess{{OfferURL: "test.someoffer"}}}
 
@@ -371,7 +369,7 @@ func (s *offerAccessSuite) TestModifyOfferAccessInvalidAction(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	s.setupOffer("uuid", "test", "admin", "someoffer")
+	s.setupOffer(c, "uuid", "test", "admin", "someoffer")
 
 	var dance params.OfferAction = "dance"
 	args := params.ModifyOfferAccessRequest{
@@ -391,10 +389,10 @@ func (s *offerAccessSuite) TestModifyOfferAccessInvalidAction(c *gc.C) {
 // TestModifyOfferAccessForModelAdminPermission tests modifying offer access when authorized as model admin.
 // It validates bugfix https://bugs.launchpad.net/juju/+bug/2082494
 func (s *offerAccessSuite) TestModifyOfferAccessForModelAdminPermission(c *gc.C) {
-	modelUUID := uuid.MustNewUUID().String()
-	s.setupOffer(modelUUID, "test", "admin", "someoffer")
+	modelUUID := modeltesting.GenModelUUID(c)
+	s.setupOffer(c, modelUUID.String(), "test", "admin", "someoffer")
 
-	s.authorizer.Tag = names.NewUserTag("admin-model-" + modelUUID)
+	s.authorizer.Tag = names.NewUserTag("admin-model-" + modelUUID.String())
 	args := params.ModifyOfferAccessRequest{
 		Changes: []params.ModifyOfferAccess{{
 			UserTag:  "user-luke",
