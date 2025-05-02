@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/instance"
@@ -80,8 +81,28 @@ type ModelConfigService interface {
 
 // ModelService defines an interface for interacting with the model service.
 type ModelService interface {
+	// ControllerModel returns the model used for housing the Juju controller.
+	// Should no model exist for the controller an error of [modelerrors.NotFound]
+	// will be returned.
+	ControllerModel(ctx context.Context) (coremodel.Model, error)
+
 	// CreateModel creates a model returning the resultant model's new ID.
 	CreateModel(context.Context, model.GlobalModelCreationArgs) (coremodel.UUID, func(context.Context) error, error)
+
+	// UpdateCredential is responsible for updating the cloud credential
+	// associated with a model. The cloud credential must be of the same cloud type
+	// as that of the model.
+	// The following error types can be expected to be returned:
+	// - modelerrors.NotFound: When the model does not exist.
+	// - errors.NotFound: When the cloud or credential cannot be found.
+	// - errors.NotValid: When the cloud credential is not of the same cloud as the
+	// model or the model uuid is not valid.
+	UpdateCredential(ctx context.Context, uuid coremodel.UUID, key credential.Key) error
+
+	// Model returns the model associated with the provided uuid.
+	// The following error types can be expected to be returned:
+	// - [modelerrors.NotFound]: When the model does not exist.
+	Model(ctx context.Context, uuid coremodel.UUID) (coremodel.Model, error)
 
 	// DefaultModelCloudNameAndCredential returns the default cloud name and
 	// credential that should be used for newly created models that haven't had
@@ -224,6 +245,11 @@ type ModelAgentService interface {
 	// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model
 	// does not exist.
 	GetModelTargetAgentVersion(ctx context.Context) (semversion.Number, error)
+
+	// SetModelAgentStream is responsible for setting the agent stream that is in
+	// use for the current model. If the agent stream supplied is not a recognised
+	// value an error satisfying [coreerrors.NotValid] is returned.
+	SetModelAgentStream(ctx context.Context, agentStream agentbinary.AgentStream) error
 }
 
 // NetworkService is the interface that is used to interact with the
@@ -301,6 +327,9 @@ type Services struct {
 	// ApplicationService is an interface for interacting with the application
 	// service.
 	ApplicationService ApplicationService
+	// ModelAgentService is an interface for interacting with the model agent
+	// service.
+	ModelAgentService ModelAgentService
 }
 
 // BlockCommandService defines methods for interacting with block commands.

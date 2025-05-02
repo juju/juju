@@ -226,7 +226,7 @@ func (s *modelManagerSuite) setUpAPI(c *gc.C) *gomock.Controller {
 	cred := cloud.NewEmptyCredential()
 	api, err := modelmanager.NewModelManagerAPI(
 		context.Background(),
-		s.st, modelExporter(s.modelExporter), s.ctlrSt,
+		s.st, modelExporter(s.modelExporter),
 		s.controllerUUID,
 		modelmanager.Services{
 			DomainServicesGetter: s.domainServicesGetter,
@@ -246,7 +246,7 @@ func (s *modelManagerSuite) setUpAPI(c *gc.C) *gomock.Controller {
 	caasCred := cloud.NewCredential(cloud.UserPassAuthType, nil)
 	caasApi, err := modelmanager.NewModelManagerAPI(
 		context.Background(),
-		s.caasSt, modelExporter(s.modelExporter), s.ctlrSt,
+		s.caasSt, modelExporter(s.modelExporter),
 		s.controllerUUID,
 		modelmanager.Services{
 			DomainServicesGetter: s.domainServicesGetter,
@@ -279,7 +279,7 @@ func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
 	mm, err := modelmanager.NewModelManagerAPI(
 		context.Background(),
-		s.st, modelExporter(s.modelExporter), s.ctlrSt,
+		s.st, modelExporter(s.modelExporter),
 		s.controllerUUID,
 		modelmanager.Services{
 			DomainServicesGetter: s.domainServicesGetter,
@@ -772,7 +772,7 @@ func (s *modelManagerSuite) TestDumpModel(c *gc.C) {
 
 	api, err := modelmanager.NewModelManagerAPI(
 		context.Background(),
-		s.st, modelExporter(s.modelExporter), s.ctlrSt,
+		s.st, modelExporter(s.modelExporter),
 		s.controllerUUID,
 		modelmanager.Services{
 			DomainServicesGetter: s.domainServicesGetter,
@@ -975,7 +975,7 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	toolsFinder := common.NewToolsFinder(s.controllerConfigService, st, urlGetter, s.store, nil)
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		context.Background(),
-		mockCredentialShim{ModelManagerBackend: st}, nil, ctlrSt,
+		mockCredentialShim{ModelManagerBackend: st}, nil,
 		s.controllerUUID,
 		modelmanager.Services{
 			DomainServicesGetter: s.domainServicesGetter,
@@ -1098,7 +1098,6 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 		context.Background(),
 		mockCredentialShim{st},
 		nil,
-		commonmodel.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
 		s.controllerUUID,
 		modelmanager.Services{
 			DomainServicesGetter: s.domainServicesGetter,
@@ -1319,7 +1318,6 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 		context.Background(),
 		mockCredentialShim{ModelManagerBackend: backend},
 		nil,
-		commonmodel.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
 		s.controllerUUID,
 		modelmanager.Services{
 			DomainServicesGetter: s.domainServicesGetter,
@@ -1386,7 +1384,6 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 		context.Background(),
 		mockCredentialShim{backend},
 		nil,
-		commonmodel.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
 		s.controllerUUID,
 		modelmanager.Services{
 			DomainServicesGetter: s.domainServicesGetter,
@@ -1440,7 +1437,6 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 		context.Background(),
 		mockCredentialShim{backend},
 		nil,
-		commonmodel.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
 		s.controllerUUID,
 		modelmanager.Services{
 			DomainServicesGetter: s.domainServicesGetter,
@@ -1543,7 +1539,6 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 		context.Background(),
 		mockCredentialShim{st},
 		nil,
-		commonmodel.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
 		s.controllerUUID,
 		modelmanager.Services{
 			DomainServicesGetter: s.domainServicesGetter,

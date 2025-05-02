@@ -84,7 +84,7 @@ func (s *ListModelsWithInfoSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	api, err := modelmanager.NewModelManagerAPI(
 		context.Background(),
-		s.st, nil, &mockState{},
+		s.st, nil,
 		s.controllerUUID,
 		modelmanager.Services{
 			DomainServicesGetter: nil,
@@ -121,7 +121,7 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		context.Background(),
-		s.st, nil, &mockState{},
+		s.st, nil,
 		s.controllerUUID,
 		modelmanager.Services{
 			DomainServicesGetter: nil,

@@ -15,6 +15,7 @@ import (
 	time "time"
 
 	modelmanager "github.com/juju/juju/apiserver/facades/client/modelmanager"
+	agentbinary "github.com/juju/juju/core/agentbinary"
 	assumes "github.com/juju/juju/core/assumes"
 	credential "github.com/juju/juju/core/credential"
 	instance "github.com/juju/juju/core/instance"
@@ -355,6 +356,45 @@ func NewMockModelService(ctrl *gomock.Controller) *MockModelService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockModelService) EXPECT() *MockModelServiceMockRecorder {
 	return m.recorder
+}
+
+// ControllerModel mocks base method.
+func (m *MockModelService) ControllerModel(arg0 context.Context) (model.Model, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllerModel", arg0)
+	ret0, _ := ret[0].(model.Model)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ControllerModel indicates an expected call of ControllerModel.
+func (mr *MockModelServiceMockRecorder) ControllerModel(arg0 any) *MockModelServiceControllerModelCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerModel", reflect.TypeOf((*MockModelService)(nil).ControllerModel), arg0)
+	return &MockModelServiceControllerModelCall{Call: call}
+}
+
+// MockModelServiceControllerModelCall wrap *gomock.Call
+type MockModelServiceControllerModelCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelServiceControllerModelCall) Return(arg0 model.Model, arg1 error) *MockModelServiceControllerModelCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelServiceControllerModelCall) Do(f func(context.Context) (model.Model, error)) *MockModelServiceControllerModelCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelServiceControllerModelCall) DoAndReturn(f func(context.Context) (model.Model, error)) *MockModelServiceControllerModelCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // CreateModel mocks base method.
@@ -710,6 +750,83 @@ func (c *MockModelServiceListModelsForUserCall) Do(f func(context.Context, user.
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelServiceListModelsForUserCall) DoAndReturn(f func(context.Context, user.UUID) ([]model.Model, error)) *MockModelServiceListModelsForUserCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// Model mocks base method.
+func (m *MockModelService) Model(arg0 context.Context, arg1 model.UUID) (model.Model, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Model", arg0, arg1)
+	ret0, _ := ret[0].(model.Model)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Model indicates an expected call of Model.
+func (mr *MockModelServiceMockRecorder) Model(arg0, arg1 any) *MockModelServiceModelCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Model", reflect.TypeOf((*MockModelService)(nil).Model), arg0, arg1)
+	return &MockModelServiceModelCall{Call: call}
+}
+
+// MockModelServiceModelCall wrap *gomock.Call
+type MockModelServiceModelCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelServiceModelCall) Return(arg0 model.Model, arg1 error) *MockModelServiceModelCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelServiceModelCall) Do(f func(context.Context, model.UUID) (model.Model, error)) *MockModelServiceModelCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelServiceModelCall) DoAndReturn(f func(context.Context, model.UUID) (model.Model, error)) *MockModelServiceModelCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// UpdateCredential mocks base method.
+func (m *MockModelService) UpdateCredential(arg0 context.Context, arg1 model.UUID, arg2 credential.Key) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateCredential", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateCredential indicates an expected call of UpdateCredential.
+func (mr *MockModelServiceMockRecorder) UpdateCredential(arg0, arg1, arg2 any) *MockModelServiceUpdateCredentialCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCredential", reflect.TypeOf((*MockModelService)(nil).UpdateCredential), arg0, arg1, arg2)
+	return &MockModelServiceUpdateCredentialCall{Call: call}
+}
+
+// MockModelServiceUpdateCredentialCall wrap *gomock.Call
+type MockModelServiceUpdateCredentialCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelServiceUpdateCredentialCall) Return(arg0 error) *MockModelServiceUpdateCredentialCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelServiceUpdateCredentialCall) Do(f func(context.Context, model.UUID, credential.Key) error) *MockModelServiceUpdateCredentialCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelServiceUpdateCredentialCall) DoAndReturn(f func(context.Context, model.UUID, credential.Key) error) *MockModelServiceUpdateCredentialCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1931,6 +2048,44 @@ func (c *MockModelAgentServiceGetModelTargetAgentVersionCall) Do(f func(context.
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelAgentServiceGetModelTargetAgentVersionCall) DoAndReturn(f func(context.Context) (semversion.Number, error)) *MockModelAgentServiceGetModelTargetAgentVersionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetModelAgentStream mocks base method.
+func (m *MockModelAgentService) SetModelAgentStream(arg0 context.Context, arg1 agentbinary.AgentStream) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetModelAgentStream", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetModelAgentStream indicates an expected call of SetModelAgentStream.
+func (mr *MockModelAgentServiceMockRecorder) SetModelAgentStream(arg0, arg1 any) *MockModelAgentServiceSetModelAgentStreamCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModelAgentStream", reflect.TypeOf((*MockModelAgentService)(nil).SetModelAgentStream), arg0, arg1)
+	return &MockModelAgentServiceSetModelAgentStreamCall{Call: call}
+}
+
+// MockModelAgentServiceSetModelAgentStreamCall wrap *gomock.Call
+type MockModelAgentServiceSetModelAgentStreamCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelAgentServiceSetModelAgentStreamCall) Return(arg0 error) *MockModelAgentServiceSetModelAgentStreamCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelAgentServiceSetModelAgentStreamCall) Do(f func(context.Context, agentbinary.AgentStream) error) *MockModelAgentServiceSetModelAgentStreamCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelAgentServiceSetModelAgentStreamCall) DoAndReturn(f func(context.Context, agentbinary.AgentStream) error) *MockModelAgentServiceSetModelAgentStreamCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

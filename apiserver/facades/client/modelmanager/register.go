@@ -27,30 +27,12 @@ func Register(registry facade.FacadeRegistry) {
 
 // newFacadeV10 is used for API registration.
 func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelManagerAPI, error) {
-	st := ctx.State()
-	pool := ctx.StatePool()
-	ctlrSt, err := pool.SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	auth := ctx.Auth()
-
 	// Since we know this is a user tag (because AuthClient is true),
 	// we just do the type assertion to the UserTag.
 	if !auth.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
-
-	controllerUUID, err := uuid.UUIDFromString(ctx.ControllerUUID())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	modelUUID := model.UUID()
 
 	systemState, err := ctx.StatePool().SystemState()
 	if err != nil {
@@ -58,15 +40,12 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 	}
 
 	domainServices := ctx.DomainServices()
-
-	ctrlModel, err := ctlrSt.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	controllerConfigService := domainServices.ControllerConfig()
 
-	urlGetter := common.NewToolsURLGetter(modelUUID, systemState)
+	st := ctx.State()
+	pool := ctx.StatePool()
+
+	urlGetter := common.NewToolsURLGetter(ctx.ModelUUID().String(), systemState)
 	toolsFinder := common.NewToolsFinder(
 		controllerConfigService, st, urlGetter,
 		ctx.ControllerObjectStore(),
@@ -74,26 +53,36 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 	)
 
 	apiUser, _ := auth.GetAuthTag().(names.UserTag)
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	backend := commonmodel.NewUserAwareModelManagerBackend(model, pool, apiUser)
 
-	secretBackendService := domainServices.SecretBackend()
+	controllerUUID, err := uuid.UUIDFromString(ctx.ControllerUUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return NewModelManagerAPI(
 		stdCtx,
 		backend,
 		func(c context.Context, modelUUID coremodel.UUID, legacyState facade.LegacyStateExporter) (ModelExporter, error) {
 			return ctx.ModelExporter(c, modelUUID, legacyState)
 		},
-		commonmodel.NewModelManagerBackend(ctrlModel, pool),
+		// commonmodel.NewModelManagerBackend(ctrlModel, pool),
 		controllerUUID,
+		// controllerModelUUID,
 		Services{
 			DomainServicesGetter: domainServicesGetter{ctx: ctx},
 			CloudService:         domainServices.Cloud(),
 			CredentialService:    domainServices.Credential(),
 			ModelService:         domainServices.Model(),
+			ModelAgentService:    domainServices.Agent(),
 			ModelDefaultsService: domainServices.ModelDefaults(),
 			AccessService:        domainServices.Access(),
 			ObjectStore:          ctx.ObjectStore(),
-			SecretBackendService: secretBackendService,
+			SecretBackendService: domainServices.SecretBackend(),
 			NetworkService:       domainServices.Network(),
 			MachineService:       domainServices.Machine(),
 			ApplicationService:   domainServices.Application(),

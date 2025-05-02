@@ -239,7 +239,7 @@ func (s *modelInfoSuite) getAPIWithoutModelInfo(c *gc.C) (*modelmanager.ModelMan
 	cred := cloud.NewEmptyCredential()
 	api, err := modelmanager.NewModelManagerAPI(
 		context.Background(),
-		s.st, nil, s.ctlrSt,
+		s.st, nil,
 		s.controllerUUID,
 		modelmanager.Services{
 			DomainServicesGetter: s.mockDomainServicesGetter,
@@ -281,7 +281,7 @@ func (s *modelInfoSuite) getAPIWithUser(c *gc.C, user names.UserTag) (*modelmana
 	cred := cloud.NewEmptyCredential()
 	api, err := modelmanager.NewModelManagerAPI(
 		context.Background(),
-		s.st, nil, s.ctlrSt,
+		s.st, nil,
 		s.controllerUUID,
 		modelmanager.Services{
 			DomainServicesGetter: s.mockDomainServicesGetter,
