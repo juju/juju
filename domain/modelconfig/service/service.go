@@ -31,9 +31,11 @@ type State interface {
 	ProviderState
 	SpaceValidatorState
 
-	// GetModelAgentVersionAndStream returns the current models set agent
-	// version and stream. If no agent version or stream has ben set then an
-	// error satisfying [github.com/juju/juju/core/errors.NotFound] is returned.
+	// GetModelAgentVersionAndStream returns the current model's set agent
+	// version and stream.
+	// The following errors can be expected:
+	// - [github.com/juju/juju/core/errors.NotFound] if no agent version or
+	// stream has been set.
 	GetModelAgentVersionAndStream(context.Context) (ver string, stream string, err error)
 
 	// ModelConfigHasAttributes returns the set of attributes that model config
