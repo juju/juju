@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
@@ -32,6 +33,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	corerelation "github.com/juju/juju/core/relation"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/semversion"
@@ -86,6 +88,7 @@ type APIBase struct {
 	networkService     NetworkService
 	portService        PortService
 	relationService    RelationService
+	removalService     RemovalService
 	resourceService    ResourceService
 	storageService     StorageService
 
@@ -177,6 +180,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 			ResolveService:     domainServices.Resolve(),
 			PortService:        domainServices.Port(),
 			RelationService:    domainServices.Relation(),
+			RemovalService:     domainServices.Removal(),
 			ResourceService:    domainServices.Resource(),
 			StorageService:     storageService,
 		},
@@ -255,6 +259,7 @@ func NewAPIBase(
 		networkService:     services.NetworkService,
 		portService:        services.PortService,
 		relationService:    services.RelationService,
+		removalService:     services.RemovalService,
 		resourceService:    services.ResourceService,
 		storageService:     services.StorageService,
 
@@ -1772,7 +1777,65 @@ func (api *APIBase) DestroyRelation(ctx context.Context, args params.DestroyRela
 		return internalerrors.Capture(err)
 	}
 
-	return internalerrors.Errorf("destroying relations is not yet supported%w", errors.NotImplemented)
+	relUUID, err := api.relationUUIDAndKeyForDestroyRelation(ctx, args)
+	if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	force := false
+	if args.Force != nil {
+		force = *args.Force
+	}
+
+	var maxWait time.Duration
+	if args.MaxWait != nil {
+		maxWait = *args.MaxWait
+	}
+	removalUUID, err := api.removalService.RemoveRelation(ctx, relUUID, force, maxWait)
+	if err == nil {
+		var msg string
+		if len(args.Endpoints) == 2 {
+			msg = fmt.Sprintf("%q, %q", args.Endpoints[0], args.Endpoints[1])
+		} else {
+			msg = fmt.Sprintf("%d", args.RelationId)
+		}
+		api.logger.Debugf(ctx, "removal uuid %q for relation %q", removalUUID, msg)
+	}
+	return internalerrors.Capture(err)
+}
+
+func (api *APIBase) relationUUIDAndKeyForDestroyRelation(
+	ctx context.Context,
+	args params.DestroyRelation,
+) (corerelation.UUID, error) {
+	var (
+		relUUID corerelation.UUID
+		err     error
+	)
+	switch len(args.Endpoints) {
+	case 2:
+		relUUID, err = api.relationService.InferRelationUUIDByEndpoints(ctx, args.Endpoints[0], args.Endpoints[1])
+		if err != nil {
+			return relUUID, internalerrors.Errorf("getting relation uuid: %w", err)
+		}
+	case 1:
+		return relUUID, internalerrors.Errorf("cannot remove a peer relation")
+	case 0:
+		relUUID, err = api.relationService.GetRelationUUIDByID(ctx, args.RelationId)
+		if err != nil {
+			return relUUID, internalerrors.Errorf("finding relation uuid for id %d: %w", args.RelationId, err)
+		}
+		ok, err := api.relationService.IsPeerRelation(ctx, relUUID)
+		if err != nil {
+			return relUUID, internalerrors.Errorf("checking if peer relation: %w", err)
+		}
+		if ok {
+			return relUUID, internalerrors.Errorf("cannot remove a peer relation")
+		}
+	default:
+		return relUUID, internalerrors.Errorf("invalid endpoint length: %d, must be 2 or 0 with relation ID provided", len(args.Endpoints))
+	}
+	return relUUID, nil
 }
 
 // SetRelationsSuspended sets the suspended status of the specified relations.

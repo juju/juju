@@ -6,6 +6,7 @@ package application
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -20,6 +21,8 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	corerelation "github.com/juju/juju/core/relation"
+	relationtesting "github.com/juju/juju/core/relation/testing"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/resource/testing"
 	coreunit "github.com/juju/juju/core/unit"
@@ -27,6 +30,8 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/relation"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
+	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/domain/resolve"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -1055,14 +1060,155 @@ func (s *applicationSuite) TestResolveUnitErrorsUnitNotFound(c *gc.C) {
 	c.Assert(res.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
 }
 
-func (s *applicationSuite) TestDestroyRelationStub(c *gc.C) {
-	c.Skip("Destroy relation isn't implemented yet.\n" +
-		"Once it will be implemented, the following tests should be added:\n" +
-		"- TestDestroyRelation\n" +
-		"- TestDestroyPeerRelation\n" +
-		"- TestDestroyRelationUnknown\n" +
-		"- TestDestroyPeerRelationUnknown\n" +
-		"- TestDestroyRelationWithForce")
+func (s *applicationSuite) TestDestroyRelationByEndpoints(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+	relUUID := s.expectInferRelationUUIDByEndpoints(c, "foo:require", "bar:provide", nil)
+	s.expectRemoveRelation(relUUID, false, 0, nil)
+
+	arg := params.DestroyRelation{
+		Endpoints: []string{"foo:require", "bar:provide"},
+	}
+
+	// Act
+	err := s.api.DestroyRelation(context.Background(), arg)
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *applicationSuite) TestDestroyRelationByEndpointsRelationNotFound(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+	_ = s.expectInferRelationUUIDByEndpoints(c, "foo:require", "bar:provide", relationerrors.RelationNotFound)
+	arg := params.DestroyRelation{
+		Endpoints: []string{"foo:require", "bar:provide"},
+	}
+
+	// Act
+	err := s.api.DestroyRelation(context.Background(), arg)
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+}
+
+func (s *applicationSuite) TestDestroyRelationByID(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+	relID, relUUID := s.expectGetRelationUUIDByID(c, nil)
+	s.expectIsPeerRelation(relUUID, false, nil)
+	s.expectRemoveRelation(relUUID, false, 0, nil)
+
+	arg := params.DestroyRelation{
+		RelationId: relID,
+	}
+
+	// Act
+	err := s.api.DestroyRelation(context.Background(), arg)
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *applicationSuite) TestDestroyRelationWithForceMaxWait(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+	relID, relUUID := s.expectGetRelationUUIDByID(c, nil)
+	s.expectIsPeerRelation(relUUID, false, nil)
+	maxWait := time.Second
+	s.expectRemoveRelation(relUUID, true, maxWait, nil)
+
+	arg := params.DestroyRelation{
+		RelationId: relID,
+		Force:      ptr(true),
+		MaxWait:    &maxWait,
+	}
+
+	// Act
+	err := s.api.DestroyRelation(context.Background(), arg)
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *applicationSuite) TestDestroyRelationByIDRelationNotFound(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+	relID, _ := s.expectGetRelationUUIDByID(c, relationerrors.RelationNotFound)
+
+	arg := params.DestroyRelation{
+		RelationId: relID,
+	}
+
+	// Act
+	err := s.api.DestroyRelation(context.Background(), arg)
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+}
+
+func (s *applicationSuite) TestDestroyRelationByEndpointsPeerRelation(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+	arg := params.DestroyRelation{
+		Endpoints: []string{"foo:peer"},
+	}
+
+	// Act
+	err := s.api.DestroyRelation(context.Background(), arg)
+
+	// Assert
+	c.Assert(err, gc.Not(jc.ErrorIsNil))
+}
+
+func (s *applicationSuite) TestDestroyRelationByIDPeerRelation(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+	relID, relUUID := s.expectGetRelationUUIDByID(c, nil)
+	s.expectIsPeerRelation(relUUID, true, nil)
+
+	arg := params.DestroyRelation{
+		RelationId: relID,
+	}
+
+	// Act
+	err := s.api.DestroyRelation(context.Background(), arg)
+
+	// Assert
+	c.Assert(err, gc.Not(jc.ErrorIsNil))
+}
+
+func (s *applicationSuite) TestDestroyRelationByIDPeerRelationNotFound(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+	relID, relUUID := s.expectGetRelationUUIDByID(c, nil)
+	s.expectIsPeerRelation(relUUID, true, relationerrors.RelationNotFound)
+
+	arg := params.DestroyRelation{
+		RelationId: relID,
+	}
+
+	// Act
+	err := s.api.DestroyRelation(context.Background(), arg)
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
 }
 
 func (s *applicationSuite) TestSetRelationsSuspendedStub(c *gc.C) {
@@ -1259,4 +1405,25 @@ func (s *applicationSuite) expectSetCharmWithTrust(c *gc.C) {
 	s.application.EXPECT().UpdateApplicationConfig(map[string]any{
 		"trust": true,
 	}, nil, appSchema, appDefaults).Return(nil)
+}
+
+func (s *applicationSuite) expectInferRelationUUIDByEndpoints(c *gc.C, ep1, ep2 string, err error) corerelation.UUID {
+	relUUID := relationtesting.GenRelationUUID(c)
+	s.relationService.EXPECT().InferRelationUUIDByEndpoints(context.Background(), ep1, ep2).Return(relUUID, err)
+	return relUUID
+}
+
+func (s *applicationSuite) expectRemoveRelation(uuid corerelation.UUID, force bool, maxWait time.Duration, err error) {
+	rUUID, _ := removal.NewUUID()
+	s.removalService.EXPECT().RemoveRelation(context.Background(), uuid, force, maxWait).Return(rUUID, err)
+}
+
+func (s *applicationSuite) expectGetRelationUUIDByID(c *gc.C, err error) (int, corerelation.UUID) {
+	relUUID := relationtesting.GenRelationUUID(c)
+	s.relationService.EXPECT().GetRelationUUIDByID(context.Background(), 7).Return(relUUID, err)
+	return 7, relUUID
+}
+
+func (s *applicationSuite) expectIsPeerRelation(uuid corerelation.UUID, answer bool, err error) {
+	s.relationService.EXPECT().IsPeerRelation(context.Background(), uuid).Return(answer, err)
 }

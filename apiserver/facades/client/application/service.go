@@ -5,6 +5,7 @@ package application
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -19,6 +20,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	corerelation "github.com/juju/juju/core/relation"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
@@ -26,6 +28,7 @@ import (
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/relation"
+	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/domain/resolve"
 	"github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -41,6 +44,7 @@ type Services struct {
 	NetworkService     NetworkService
 	PortService        PortService
 	RelationService    RelationService
+	RemovalService     RemovalService
 	ResourceService    ResourceService
 	StorageService     StorageService
 }
@@ -73,6 +77,9 @@ func (s Services) Validate() error {
 	}
 	if s.RelationService == nil {
 		return errors.NotValidf("empty RelationService")
+	}
+	if s.RemovalService == nil {
+		return errors.NotValidf("empty RemovalService")
 	}
 	return nil
 }
@@ -325,4 +332,45 @@ type RelationService interface {
 
 	// ApplicationRelationsInfo returns all EndpointRelationData for an application.
 	ApplicationRelationsInfo(ctx context.Context, applicationID coreapplication.ID) ([]relation.EndpointRelationData, error)
+
+	// GetRelationUUIDByID returns the relation UUID based on the relation ID.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.RelationNotFound] is returned if the relation UUID
+	//     relating to the relation ID cannot be found.
+	GetRelationUUIDByID(ctx context.Context, relationID int) (corerelation.UUID, error)
+
+	// InferRelationUUIDByEndpoints infers the relation based on two endpoint
+	// strings. Unlike with GetRelationUUIDByKey, the endpoints may not be
+	// fully qualified and come from a user.
+	InferRelationUUIDByEndpoints(
+		ctx context.Context,
+		epIdentifier1, epIdentifier2 string,
+	) (corerelation.UUID, error)
+
+	// IsPeerRelation returns a boolean to indicate if the given
+	// relation UUID is for a peer relation.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.RelationNotFound] if the relation cannot be found.
+	IsPeerRelation(ctx context.Context, relUUID corerelation.UUID) (bool, error)
+}
+
+// RemovalService defines operations for removing juju entities.
+type RemovalService interface {
+	// RemoveRelation checks if a relation with the input UUID exists.
+	// If it does, the relation is guaranteed after this call to be:
+	// - No longer alive.
+	// - Removed or scheduled to be removed with the input force qualification.
+	// The input wait duration is the time that we will give for the normal
+	// life-cycle advancement and removal to finish before forcefully removing the
+	// relation. This duration is ignored if the force argument is false.
+	// The UUID for the scheduled removal job is returned.
+	// [relationerrors.RelationNotFound] is returned if no such relation exists.
+	RemoveRelation(
+		ctx context.Context,
+		relUUID corerelation.UUID,
+		force bool,
+		wait time.Duration,
+	) (removal.UUID, error)
 }
