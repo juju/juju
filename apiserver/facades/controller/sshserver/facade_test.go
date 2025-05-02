@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/rpc/params"
+	state "github.com/juju/juju/state"
 )
 
 var _ = gc.Suite(&sshserverSuite{})
@@ -269,4 +270,133 @@ func (s *sshserverSuite) TestCheckSSHAccessNoAccess(c *gc.C) {
 	result := f.CheckSSHAccess(arg)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.Result, gc.Equals, false)
+}
+
+func (s *sshserverSuite) TestValidateMachineHostname(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	machineID := "0"
+	modelUUID := uuid.NewString()
+
+	s.ctxMock.EXPECT().Resources()
+
+	f := sshserver.NewFacade(s.ctxMock, s.backendMock)
+
+	destination, err := virtualhostname.NewInfoMachineTarget(modelUUID, machineID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	arg := params.ValidateVirtualHostnameArg{
+		Hostname: destination.String(),
+	}
+
+	s.backendMock.EXPECT().MachineExists(modelUUID, machineID).Return(true, nil)
+
+	result := f.ValidateVirtualHostname(arg)
+	c.Assert(result.Error, gc.IsNil)
+
+	s.backendMock.EXPECT().MachineExists(modelUUID, machineID).Return(false, nil)
+
+	result = f.ValidateVirtualHostname(arg)
+	c.Assert(result.Error, gc.ErrorMatches, `failed to validate destination: machine with ID 0 not found`)
+
+	s.backendMock.EXPECT().MachineExists(modelUUID, machineID).Return(false, errors.New("some error"))
+
+	result = f.ValidateVirtualHostname(arg)
+	c.Assert(result.Error, gc.ErrorMatches, `failed to validate destination: some error`)
+}
+
+func (s *sshserverSuite) TestValidateMachineUnitHostname(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	unitName := "nginx/0"
+	modelUUID := uuid.NewString()
+
+	s.ctxMock.EXPECT().Resources()
+
+	f := sshserver.NewFacade(s.ctxMock, s.backendMock)
+
+	destination, err := virtualhostname.NewInfoUnitTarget(modelUUID, unitName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	arg := params.ValidateVirtualHostnameArg{
+		Hostname: destination.String(),
+	}
+
+	s.backendMock.EXPECT().UnitExists(modelUUID, unitName).Return(true, nil)
+	s.backendMock.EXPECT().ModelType(modelUUID).Return(state.ModelTypeIAAS, nil)
+
+	result := f.ValidateVirtualHostname(arg)
+	c.Assert(result.Error, gc.IsNil)
+
+	s.backendMock.EXPECT().UnitExists(modelUUID, unitName).Return(false, nil)
+	s.backendMock.EXPECT().ModelType(modelUUID).Return(state.ModelTypeIAAS, nil)
+
+	result = f.ValidateVirtualHostname(arg)
+	c.Assert(result.Error, gc.ErrorMatches, `failed to validate destination: unit "nginx/0" not found`)
+
+	s.backendMock.EXPECT().UnitExists(modelUUID, unitName).Return(false, errors.New("some error"))
+	s.backendMock.EXPECT().ModelType(modelUUID).Return(state.ModelTypeIAAS, nil)
+
+	result = f.ValidateVirtualHostname(arg)
+	c.Assert(result.Error, gc.ErrorMatches, `failed to validate destination: some error`)
+}
+
+func (s *sshserverSuite) TestInvalidContainerHostname(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	unitName := "nginx/0"
+	modelUUID := uuid.NewString()
+
+	s.ctxMock.EXPECT().Resources()
+
+	f := sshserver.NewFacade(s.ctxMock, s.backendMock)
+
+	destination, err := virtualhostname.NewInfoUnitTarget(modelUUID, unitName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	arg := params.ValidateVirtualHostnameArg{
+		Hostname: destination.String(),
+	}
+
+	s.backendMock.EXPECT().ModelType(modelUUID).Return(state.ModelTypeCAAS, nil)
+
+	result := f.ValidateVirtualHostname(arg)
+	c.Assert(result.Error, gc.ErrorMatches, `failed to validate destination: missing container name for a K8s unit not valid`)
+}
+
+func (s *sshserverSuite) TestValidateContainerHostname(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	container := "charm"
+	unitName := "nginx/0"
+	modelUUID := uuid.NewString()
+
+	s.ctxMock.EXPECT().Resources()
+
+	f := sshserver.NewFacade(s.ctxMock, s.backendMock)
+
+	destination, err := virtualhostname.NewInfoContainerTarget(modelUUID, unitName, container)
+	c.Assert(err, jc.ErrorIsNil)
+
+	arg := params.ValidateVirtualHostnameArg{
+		Hostname: destination.String(),
+	}
+
+	s.backendMock.EXPECT().UnitExists(modelUUID, unitName).Return(true, nil)
+	s.backendMock.EXPECT().ModelType(modelUUID).Return(state.ModelTypeCAAS, nil)
+
+	result := f.ValidateVirtualHostname(arg)
+	c.Assert(result.Error, gc.IsNil)
+
+	s.backendMock.EXPECT().UnitExists(modelUUID, unitName).Return(false, nil)
+	s.backendMock.EXPECT().ModelType(modelUUID).Return(state.ModelTypeCAAS, nil)
+
+	result = f.ValidateVirtualHostname(arg)
+	c.Assert(result.Error, gc.ErrorMatches, `failed to validate destination: unit "nginx/0" not found`)
+
+	s.backendMock.EXPECT().UnitExists(modelUUID, unitName).Return(false, errors.New("some error"))
+	s.backendMock.EXPECT().ModelType(modelUUID).Return(state.ModelTypeCAAS, nil)
+
+	result = f.ValidateVirtualHostname(arg)
+	c.Assert(result.Error, gc.ErrorMatches, `failed to validate destination: some error`)
 }

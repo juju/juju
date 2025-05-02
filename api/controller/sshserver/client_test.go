@@ -206,3 +206,24 @@ func (s *sshserverSuite) TestCheckSSHAccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, true)
 }
+
+func (s *sshserverSuite) TestValidateDestination(c *gc.C) {
+	client, err := newClient(
+		func(objType string, version int, id, request string, arg, result interface{}) error {
+			c.Check(objType, gc.Equals, "SSHServer")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "ValidateVirtualHostname")
+			c.Assert(arg, gc.FitsTypeOf, params.ValidateVirtualHostnameArg{})
+			c.Assert(result, gc.FitsTypeOf, &params.ErrorResult{})
+
+			*(result.(*params.ErrorResult)) = params.ErrorResult{
+				Error: nil,
+			}
+			return nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = client.ValidateVirtualHostname(virtualhostname.Info{})
+	c.Assert(err, jc.ErrorIsNil)
+}

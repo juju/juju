@@ -312,6 +312,12 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 		return
 	}
 
+	err = s.config.FacadeClient.ValidateVirtualHostname(destination)
+	if err != nil {
+		s.config.Logger.Errorf("failed to validate destination: %v", err)
+		s.rejectChannel(newChan, gossh.ConnectionFailed, fmt.Sprintf("failed to validate destination: %v", err))
+	}
+
 	if !s.config.disableAuth {
 		if !s.authorizer.authorize(ctx, destination) {
 			s.rejectChannel(newChan, gossh.Prohibited, "unauthorized")

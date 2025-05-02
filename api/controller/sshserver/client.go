@@ -122,3 +122,21 @@ func (c *Client) CheckSSHAccess(user string, destination virtualhostname.Info) (
 	}
 	return result.Result, nil
 }
+
+// ValidateVirtualHostname validates that all the components
+// of the destination virtual hostname exist.
+func (c *Client) ValidateVirtualHostname(destination virtualhostname.Info) error {
+	arg := params.ValidateVirtualHostnameArg{
+		Hostname: destination.String(),
+	}
+	var result params.ErrorResult
+	err := c.facade.FacadeCall("ValidateVirtualHostname", arg, &result)
+	if err != nil {
+		return err
+	}
+	if result.Error != nil {
+		err := apiservererrors.RestoreError(result.Error)
+		return err
+	}
+	return nil
+}
