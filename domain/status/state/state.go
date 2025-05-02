@@ -1591,3 +1591,41 @@ ORDER BY u.name;
 
 	return result, nil
 }
+
+// GetApplicationAndUnitModelStatuses returns the application name and unit
+// count for each model for the model status request.
+func (st *State) GetApplicationAndUnitModelStatuses(ctx context.Context) (map[string]int, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	query, err := st.Prepare(`
+SELECT application.name AS &applicationNameUnitCount.name,
+	   COUNT(u.uuid) AS &applicationNameUnitCount.unit_count
+FROM application
+LEFT JOIN unit AS u ON u.application_uuid = application.uuid
+GROUP BY u.application_uuid, application.name;
+`, applicationNameUnitCount{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var statuses []applicationNameUnitCount
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, query).GetAll(&statuses)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	ret := make(map[string]int)
+	for _, s := range statuses {
+		ret[s.Name] = s.UnitCount
+	}
+	return ret, nil
+}

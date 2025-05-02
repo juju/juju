@@ -197,3 +197,8 @@ type relationStatusAndID struct {
 	Reason       string            `db:"suspended_reason"`
 	Since        *time.Time        `db:"updated_at"`
 }
+
+type applicationNameUnitCount struct {
+	Name      string `db:"name"`
+	UnitCount int    `db:"unit_count"`
+}
