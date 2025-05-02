@@ -152,7 +152,7 @@ func (s *integrationSuite) TestWorkerSetsNodeIDAndAddress(c *gc.C) {
 		addr   string
 	)
 	err = db.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		row := tx.QueryRowContext(ctx, "SELECT dqlite_node_id, bind_address FROM controller_node WHERE controller_id = '0'")
+		row := tx.QueryRowContext(ctx, "SELECT dqlite_node_id, dqlite_bind_address FROM controller_node WHERE controller_id = '0'")
 		if err := row.Scan(&nodeID, &addr); err != nil {
 			return err
 		}

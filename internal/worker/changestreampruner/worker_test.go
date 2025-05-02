@@ -520,7 +520,7 @@ func (s *workerSuite) newPrunerWithLogger(c *gc.C, logger logger.Logger) *Pruner
 
 func (s *workerSuite) insertControllerNodes(c *gc.C, amount int) {
 	query, err := sqlair.Prepare(`
-INSERT INTO controller_node (controller_id, dqlite_node_id, bind_address)
+INSERT INTO controller_node (controller_id, dqlite_node_id, dqlite_bind_address)
 VALUES ($M.ctrl_id, $M.node_id, $M.addr)
 			`, sqlair.M{})
 	c.Assert(err, jc.ErrorIsNil)
