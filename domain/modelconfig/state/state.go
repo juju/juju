@@ -46,8 +46,8 @@ func (st *State) GetModelAgentVersionAndStream(
 
 	stmt, err := st.Prepare(`
 SELECT &dbAgentVersionAndStream.*
-FROM agent_version
-JOIN agent_stream ON agent_version.stream_id = agent_stream.id
+FROM   agent_version
+JOIN   agent_stream ON agent_version.stream_id = agent_stream.id
 `, rval)
 	if err != nil {
 		return "", "", errors.Capture(err)
