@@ -27,14 +27,12 @@ type mockFacade struct {
 	credential *base.StoredCredential
 	exists     bool
 
-	watcher      *watchertest.MockNotifyWatcher
 	modelWatcher *watchertest.MockNotifyWatcher
 }
 
 func (m *mockFacade) setupModelHasNoCredential() {
 	m.credential.CloudCredential = ""
 	m.exists = false
-	m.watcher = nil
 }
 
 // ModelCredential is part of the credentialvalidator.Facade interface.
@@ -44,15 +42,6 @@ func (m *mockFacade) ModelCredential(context.Context) (base.StoredCredential, bo
 		return base.StoredCredential{}, false, err
 	}
 	return *m.credential, m.exists, nil
-}
-
-// WatchCredential is part of the credentialvalidator.Facade interface.
-func (mock *mockFacade) WatchCredential(_ context.Context, id string) (watcher.NotifyWatcher, error) {
-	mock.AddCall("WatchCredential", id)
-	if err := mock.NextErr(); err != nil {
-		return nil, err
-	}
-	return mock.watcher, nil
 }
 
 // WatchModelCredential is part of the credentialvalidator.Facade interface.

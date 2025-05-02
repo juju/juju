@@ -103,6 +103,14 @@ type CredentialAttribute struct {
 	Value string `db:"value"`
 }
 
+type credentialUUID struct {
+	UUID string `db:"uuid"`
+}
+
+type modelCredentialUUID struct {
+	UUID string `db:"cloud_credential_uuid"`
+}
+
 // dbCloudName represents the name of a cloud.
 type dbCloudName struct {
 	Name string `db:"name"`

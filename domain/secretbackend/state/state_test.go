@@ -202,7 +202,7 @@ func (s *stateSuite) createModelWithName(c *gc.C, modelType coremodel.ModelType,
 	}
 
 	credSt := credentialstate.NewState(s.TxnRunnerFactory())
-	_, err = credSt.UpsertCloudCredential(
+	err = credSt.UpsertCloudCredential(
 		context.Background(), corecredential.Key{
 			Cloud: "my-cloud",
 			Owner: usertesting.GenNewName(c, "test-user"),

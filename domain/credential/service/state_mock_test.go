@@ -279,12 +279,11 @@ func (c *MockStateRemoveCloudCredentialCall) DoAndReturn(f func(context.Context,
 }
 
 // UpsertCloudCredential mocks base method.
-func (m *MockState) UpsertCloudCredential(arg0 context.Context, arg1 credential.Key, arg2 credential0.CloudCredentialInfo) (*bool, error) {
+func (m *MockState) UpsertCloudCredential(arg0 context.Context, arg1 credential.Key, arg2 credential0.CloudCredentialInfo) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpsertCloudCredential", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // UpsertCloudCredential indicates an expected call of UpsertCloudCredential.
@@ -300,19 +299,19 @@ type MockStateUpsertCloudCredentialCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateUpsertCloudCredentialCall) Return(arg0 *bool, arg1 error) *MockStateUpsertCloudCredentialCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockStateUpsertCloudCredentialCall) Return(arg0 error) *MockStateUpsertCloudCredentialCall {
+	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateUpsertCloudCredentialCall) Do(f func(context.Context, credential.Key, credential0.CloudCredentialInfo) (*bool, error)) *MockStateUpsertCloudCredentialCall {
+func (c *MockStateUpsertCloudCredentialCall) Do(f func(context.Context, credential.Key, credential0.CloudCredentialInfo) error) *MockStateUpsertCloudCredentialCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateUpsertCloudCredentialCall) DoAndReturn(f func(context.Context, credential.Key, credential0.CloudCredentialInfo) (*bool, error)) *MockStateUpsertCloudCredentialCall {
+func (c *MockStateUpsertCloudCredentialCall) DoAndReturn(f func(context.Context, credential.Key, credential0.CloudCredentialInfo) error) *MockStateUpsertCloudCredentialCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

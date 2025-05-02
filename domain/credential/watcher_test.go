@@ -83,8 +83,7 @@ func (s *watcherSuite) TestWatchCloud(c *gc.C) {
 			Label:   "foobar",
 		}
 		err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-			_, err := st.UpsertCloudCredential(ctx, key, credInfo)
-			return err
+			return st.UpsertCloudCredential(ctx, key, credInfo)
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
@@ -140,7 +139,7 @@ func (s *watcherSuite) createCloudCredential(c *gc.C, st *state.State, key corec
 		AuthType:   string(authType),
 		Attributes: attributes,
 	}
-	_, err := st.UpsertCloudCredential(context.Background(), key, credInfo)
+	err := st.UpsertCloudCredential(context.Background(), key, credInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	return credInfo
 }

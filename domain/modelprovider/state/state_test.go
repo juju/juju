@@ -89,7 +89,7 @@ func (s *stateSuite) setupModel(c *gc.C) coremodel.UUID {
 		AuthType:   string(authType),
 		Attributes: attributes,
 	}
-	_, err = credentialstate.NewState(s.TxnRunnerFactory()).UpsertCloudCredential(ctx, key, credInfo)
+	err = credentialstate.NewState(s.TxnRunnerFactory()).UpsertCloudCredential(ctx, key, credInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelUUID := modeltesting.GenModelUUID(c)

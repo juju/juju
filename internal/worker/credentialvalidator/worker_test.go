@@ -46,7 +46,6 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		Stub:         &testing.Stub{},
 		credential:   s.credential,
 		exists:       s.exists,
-		watcher:      watchertest.NewMockNotifyWatcher(s.credentialChanges),
 		modelWatcher: watchertest.NewMockNotifyWatcher(s.modelCredentialChanges),
 	}
 
@@ -64,11 +63,9 @@ func (s *WorkerSuite) TestStartStop(c *gc.C) {
 
 	err = workertest.CheckKilled(c, w)
 	c.Assert(err, jc.ErrorIsNil)
-	err = workertest.CheckKilled(c, s.facade.watcher)
-	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, s.facade.modelWatcher)
 	c.Assert(err, jc.ErrorIsNil)
-	s.facade.CheckCallNames(c, "ModelCredential", "WatchModelCredential", "WatchCredential")
+	s.facade.CheckCallNames(c, "ModelCredential", "WatchModelCredential")
 }
 
 func (s *WorkerSuite) TestStartStopNoCredential(c *gc.C) {
@@ -80,7 +77,6 @@ func (s *WorkerSuite) TestStartStopNoCredential(c *gc.C) {
 
 	err = workertest.CheckKilled(c, w)
 	c.Assert(err, jc.ErrorIsNil)
-	workertest.CheckNilOrKill(c, s.facade.watcher)
 	err = workertest.CheckKilled(c, s.facade.modelWatcher)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade.CheckCallNames(c, "ModelCredential", "WatchModelCredential")
@@ -108,14 +104,13 @@ func (s *WorkerSuite) TestModelCredentialWatcherError(c *gc.C) {
 
 func (s *WorkerSuite) TestWatchError(c *gc.C) {
 	s.facade.SetErrors(nil, // ModelCredential call
-		nil,                      // WatchModelCredential call
-		errors.New("watch fail"), // WatchCredential call
+		errors.New("watch fail"), // WatchModelCredential call
 	)
 
 	worker, err := testWorker(context.Background(), s.config)
 	c.Assert(err, gc.ErrorMatches, "watch fail")
 	c.Assert(worker, gc.IsNil)
-	s.facade.CheckCallNames(c, "ModelCredential", "WatchModelCredential", "WatchCredential")
+	s.facade.CheckCallNames(c, "ModelCredential", "WatchModelCredential")
 }
 
 func (s *WorkerSuite) TestModelCredentialNotNeeded(c *gc.C) {
@@ -137,7 +132,7 @@ func (s *WorkerSuite) TestCredentialChangeToInvalid(c *gc.C) {
 
 	err = workertest.CheckKilled(c, worker)
 	c.Check(err, gc.Equals, credentialvalidator.ErrValidityChanged)
-	s.facade.CheckCallNames(c, "ModelCredential", "WatchModelCredential", "WatchCredential", "ModelCredential")
+	s.facade.CheckCallNames(c, "ModelCredential", "WatchModelCredential", "ModelCredential")
 }
 
 func (s *WorkerSuite) TestCredentialChangeFromInvalid(c *gc.C) {
@@ -150,7 +145,7 @@ func (s *WorkerSuite) TestCredentialChangeFromInvalid(c *gc.C) {
 
 	err = workertest.CheckKilled(c, worker)
 	c.Check(err, gc.Equals, credentialvalidator.ErrValidityChanged)
-	s.facade.CheckCallNames(c, "ModelCredential", "WatchModelCredential", "WatchCredential", "ModelCredential")
+	s.facade.CheckCallNames(c, "ModelCredential", "WatchModelCredential", "ModelCredential")
 }
 
 func (s *WorkerSuite) TestNoRelevantCredentialChange(c *gc.C) {
@@ -162,18 +157,18 @@ func (s *WorkerSuite) TestNoRelevantCredentialChange(c *gc.C) {
 
 	workertest.CheckAlive(c, worker)
 	workertest.CleanKill(c, worker)
-	s.facade.CheckCallNames(c, "ModelCredential", "WatchModelCredential", "WatchCredential", "ModelCredential", "ModelCredential")
+	s.facade.CheckCallNames(c, "ModelCredential", "WatchModelCredential", "ModelCredential", "ModelCredential")
 }
 
 func (s *WorkerSuite) TestModelCredentialNoChanged(c *gc.C) {
 	worker, err := testWorker(context.Background(), s.config)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.sendModelChange(c)
+	s.sendChange(c)
 
 	workertest.CheckAlive(c, worker)
 	workertest.CleanKill(c, worker)
-	s.facade.CheckCallNames(c, "ModelCredential", "WatchModelCredential", "WatchCredential", "ModelCredential")
+	s.facade.CheckCallNames(c, "ModelCredential", "WatchModelCredential", "ModelCredential")
 }
 
 func (s *WorkerSuite) TestModelCredentialChanged(c *gc.C) {
@@ -181,26 +176,18 @@ func (s *WorkerSuite) TestModelCredentialChanged(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.facade.credential.CloudCredential = names.NewCloudCredentialTag("cloud/anotheruser/credential").String()
-	s.sendModelChange(c)
+	s.sendChange(c)
 
 	err = workertest.CheckKilled(c, worker)
 	c.Check(err, gc.Equals, credentialvalidator.ErrModelCredentialChanged)
-	s.facade.CheckCallNames(c, "ModelCredential", "WatchModelCredential", "WatchCredential", "ModelCredential")
-}
-
-func (s *WorkerSuite) sendModelChange(c *gc.C) {
-	select {
-	case s.modelCredentialChanges <- struct{}{}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending model credential change")
-	}
+	s.facade.CheckCallNames(c, "ModelCredential", "WatchModelCredential", "ModelCredential")
 }
 
 func (s *WorkerSuite) sendChange(c *gc.C) {
 	select {
-	case s.credentialChanges <- struct{}{}:
+	case s.modelCredentialChanges <- struct{}{}:
 	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending credential change")
+		c.Fatal("timed out sending model credential change")
 	}
 }
 

@@ -9,8 +9,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/names/v6"
-
 	"github.com/juju/juju/cloud"
 	corecredential "github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -40,8 +38,7 @@ type State interface {
 	ProviderState
 
 	// UpsertCloudCredential adds or updates a cloud credential with the given name, cloud, owner.
-	// If the credential already exists, the existing credential's value of Invalid is returned.
-	UpsertCloudCredential(ctx context.Context, key corecredential.Key, credential credential.CloudCredentialInfo) (*bool, error)
+	UpsertCloudCredential(ctx context.Context, key corecredential.Key, credential credential.CloudCredentialInfo) error
 
 	// InvalidateCloudCredential marks the cloud credential for the given name, cloud, owner as invalid.
 	InvalidateCloudCredential(ctx context.Context, key corecredential.Key, reason string) error
@@ -68,10 +65,6 @@ type ValidationContextGetter func(ctx context.Context, modelUUID coremodel.UUID)
 type Service struct {
 	st     State
 	logger logger.Logger
-
-	// TODO(wallyworld) - remove when models are out of mongo
-	legacyUpdater func(tag names.CloudCredentialTag) error
-	legacyRemover func(tag names.CloudCredentialTag) error
 }
 
 // NewService returns a new service reference wrapping the input state.
@@ -80,22 +73,6 @@ func NewService(st State, logger logger.Logger) *Service {
 		st:     st,
 		logger: logger,
 	}
-}
-
-// WithLegacyUpdater configures the service to use the specified function
-// to update credential details in mongo.
-// TODO(wallyworld) - remove when models are out of mongo
-func (s *Service) WithLegacyUpdater(updater func(tag names.CloudCredentialTag) error) *Service {
-	s.legacyUpdater = updater
-	return s
-}
-
-// WithLegacyRemover configures the service to use the specified function
-// to remove credential details from mongo.
-// TODO(wallyworld) - remove when models are out of mongo
-func (s *Service) WithLegacyRemover(remover func(tag names.CloudCredentialTag) error) *Service {
-	s.legacyRemover = remover
-	return s
 }
 
 // CloudCredential returns the cloud credential for the given tag.
@@ -146,8 +123,7 @@ func (s *Service) UpdateCloudCredential(ctx context.Context, key corecredential.
 	if err := key.Validate(); err != nil {
 		return errors.Errorf("invalid id updating cloud credential: %w", err)
 	}
-	_, err := s.st.UpsertCloudCredential(ctx, key, credentialInfoFromCloudCredential(cred))
-	return err
+	return s.st.UpsertCloudCredential(ctx, key, credentialInfoFromCloudCredential(cred))
 }
 
 // RemoveCloudCredential removes a cloud credential with the given tag.
@@ -216,31 +192,12 @@ func (s *Service) CheckAndUpdateCredential(ctx context.Context, key corecredenti
 		return modelsResult, credentialerrors.CredentialModelValidation
 	}
 
-	existingInvalid, err := s.st.UpsertCloudCredential(ctx, key, credentialInfoFromCloudCredential(cred))
+	err = s.st.UpsertCloudCredential(ctx, key, credentialInfoFromCloudCredential(cred))
 	if err != nil {
 		if errors.Is(err, coreerrors.NotFound) {
 			err = errors.Errorf("%w %q for credential %q", credentialerrors.UnknownCloud, key.Name, key.Cloud)
 		}
 		return nil, errors.Capture(err)
-	}
-	if s.legacyUpdater == nil || cred.Invalid {
-		return modelsResult, nil
-	}
-
-	// Credential is valid - revoke the suspended status of any relevant models.
-
-	// TODO(wallyworld) - we still manage models in mongo.
-	// This can be removed after models are in dqlite.
-	// Existing credential will become valid after this call, and
-	// the model status of all models that use it will be reverted.
-	if existingInvalid != nil && *existingInvalid {
-		tag, err := key.Tag()
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-		if err := s.legacyUpdater(tag); err != nil {
-			return nil, errors.Capture(err)
-		}
 	}
 	return modelsResult, nil
 }
@@ -275,17 +232,8 @@ func (s *Service) CheckAndRevokeCredential(ctx context.Context, key corecredenti
 		}
 	}
 	err = s.st.RemoveCloudCredential(ctx, key)
-	if err != nil || s.legacyRemover == nil {
+	if err != nil {
 		return errors.Capture(err)
-	} else {
-		// If credential was successfully removed, we also want to clear all references to it from the models.
-		tag, err := key.Tag()
-		if err != nil {
-			return errors.Capture(err)
-		}
-		if err := s.legacyRemover(tag); err != nil {
-			return errors.Capture(err)
-		}
 	}
 	return nil
 }
@@ -315,22 +263,6 @@ func (s *WatchableService) WatchCredential(ctx context.Context, key corecredenti
 		return nil, errors.Errorf("invalid id watching cloud credential: %w", err)
 	}
 	return s.st.WatchCredential(ctx, s.watcherFactory.NewNotifyWatcher, key)
-}
-
-// WithLegacyUpdater configures the service to use the specified function
-// to update credential details in mongo.
-// TODO(wallyworld) - remove when models are out of mongo
-func (s *WatchableService) WithLegacyUpdater(updater func(tag names.CloudCredentialTag) error) *WatchableService {
-	s.legacyUpdater = updater
-	return s
-}
-
-// WithLegacyRemover configures the service to use the specified function
-// to remove credential details from mongo.
-// TODO(wallyworld) - remove when models are out of mongo
-func (s *WatchableService) WithLegacyRemover(remover func(tag names.CloudCredentialTag) error) *WatchableService {
-	s.legacyRemover = remover
-	return s
 }
 
 func cloudCredentialFromCredentialResult(credInfo credential.CloudCredentialResult) cloud.Credential {

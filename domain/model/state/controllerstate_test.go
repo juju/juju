@@ -131,7 +131,7 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 	}
 
 	credSt := credentialstate.NewState(m.TxnRunnerFactory())
-	_, err = credSt.UpsertCloudCredential(
+	err = credSt.UpsertCloudCredential(
 		context.Background(), corecredential.Key{
 			Cloud: "my-cloud",
 			Owner: usertesting.GenNewName(c, "test-user"),
@@ -146,7 +146,7 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 			Scan(&m.credentialUUID)
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = credSt.UpsertCloudCredential(
+	err = credSt.UpsertCloudCredential(
 		context.Background(), corecredential.Key{
 			Cloud: "other-cloud",
 			Owner: usertesting.GenNewName(c, "test-user"),
@@ -746,7 +746,7 @@ func (m *stateSuite) TestUpdateCredentialForDifferentCloud(c *gc.C) {
 	}
 
 	credSt := credentialstate.NewState(m.TxnRunnerFactory())
-	_, err = credSt.UpsertCloudCredential(
+	err = credSt.UpsertCloudCredential(
 		context.Background(), corecredential.Key{
 			Cloud: "my-cloud2",
 			Owner: usertesting.GenNewName(c, "test-user"),
@@ -794,7 +794,7 @@ func (m *stateSuite) TestSetModelCloudCredentialWithoutRegion(c *gc.C) {
 	}
 
 	credSt := credentialstate.NewState(m.TxnRunnerFactory())
-	_, err = credSt.UpsertCloudCredential(
+	err = credSt.UpsertCloudCredential(
 		context.Background(), corecredential.Key{
 			Cloud: "minikube",
 			Owner: usertesting.GenNewName(c, "test-user"),
