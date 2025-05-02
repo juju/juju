@@ -311,10 +311,3 @@ func AssertHasPermission(c *gc.C, handler *apiHandler, access permission.Access,
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
-
-// TODO (stickupkid): This purely used for testing and should be removed.
-func (c *sharedServerContext) featureEnabled(flag string) bool {
-	c.configMutex.RLock()
-	defer c.configMutex.RUnlock()
-	return c.features.Contains(flag)
-}
