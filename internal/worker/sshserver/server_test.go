@@ -230,7 +230,6 @@ func inMemoryDial(c *gc.C, listener *bufconn.Listener, config *gossh.ClientConfi
 }
 
 func (s *sshServerSuite) TestSSHWorkerReport(c *gc.C) {
-	c.Skip("this test is flaky, skipping until it is fixed")
 	defer s.SetUpMocks(c).Finish()
 
 	// Firstly, start the server on an in-memory listener
@@ -253,9 +252,12 @@ func (s *sshServerSuite) TestSSHWorkerReport(c *gc.C) {
 	})
 
 	// Dial the in-memory listener
-	conn, err := listener.Dial()
-	c.Assert(err, jc.ErrorIsNil)
-	defer conn.Close()
+	// By the time the SSH handshake is done, the server will have
+	// incremented the concurrent connections counter.
+	client := inMemoryDial(c, listener, &gossh.ClientConfig{
+		HostKeyCallback: gossh.InsecureIgnoreHostKey(),
+	})
+	defer client.Close()
 
 	report = worker.(*ServerWorker).Report()
 	c.Assert(report, gc.DeepEquals, map[string]interface{}{
