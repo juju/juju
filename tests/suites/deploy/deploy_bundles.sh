@@ -147,12 +147,12 @@ run_deploy_exported_charmhub_bundle_with_fixed_revisions() {
 	# check the export.
 	echo "Compare export-bundle with telegraf_bundle"
 
-# TODO(gfouillet) - recover from 3.6, delete whenever export bundle is restored or deleted
-    got=$(juju export-bundle 2>&1 1>/dev/null)
-    if [[ "$got" != *"not implemented"* ]]; then
-        echo "ERROR: export-bundle should return 'not implemented'."
-        exit 1
-    fi
+	# TODO(gfouillet) - recover from 3.6, delete whenever export bundle is restored or deleted
+	got=$(juju export-bundle 2>&1 1>/dev/null)
+	if [[ $got != *"not implemented"* ]]; then
+		echo "ERROR: export-bundle should return 'not implemented'."
+		exit 1
+	fi
 
 	destroy_model "test-export-bundles-deploy-with-fixed-revisions"
 }
@@ -224,12 +224,12 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
 	# everything is done deploying
 	echo "Compare export-bundle with telegraf_bundle_with_revisions"
 
-# TODO(gfouillet) - recover from 3.6, delete whenever export bundle is restored or deleted
-    got=$(juju export-bundle 2>&1 1>/dev/null)
-    if [[ "$got" != *"not implemented"* ]]; then
-        echo "ERROR: export-bundle should return 'not implemented'."
-        exit 1
-    fi
+	# TODO(gfouillet) - recover from 3.6, delete whenever export bundle is restored or deleted
+	got=$(juju export-bundle 2>&1 1>/dev/null)
+	if [[ $got != *"not implemented"* ]]; then
+		echo "ERROR: export-bundle should return 'not implemented'."
+		exit 1
+	fi
 
 	destroy_model "test-export-bundles-deploy-with-float-revisions"
 }

@@ -11,14 +11,12 @@ run_relation_list_app() {
 	ensure "${model_name}" "${file}"
 
 	echo "Deploy 2 departer instances"
-	# shellcheck disable=SC2046
-	juju deploy $(pack_charm ./testcharms/charms/dummy-sink)
-	# shellcheck disable=SC2046
-	juju deploy $(pack_charm ./testcharms/charms/dummy-source)
+
+	juju deploy juju-qa-dummy-sink
+	juju deploy juju-qa-dummy-source --config token=becomegreen
 
 	echo "Establish relation"
 	juju relate dummy-sink dummy-source
-	juju config dummy-source token=becomegreen
 
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink" 0 0)"
 	wait_for "dummy-source" "$(idle_condition "dummy-source" 1 0)"

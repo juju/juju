@@ -20,12 +20,12 @@ run_schema() {
 
 	if [ "${CUR_SHA}" != "${NEW_SHA}" ]; then
 		(echo >&2 "\\nError: client facades schema is not in sync. Run 'make rebuild-schema' and commit source.")
-		(>&2 diff "${TMP_ORIG}/schema.json" "${TMP}/schema.json")
+		(diff >&2 "${TMP_ORIG}/schema.json" "${TMP}/schema.json")
 		exit 1
 	fi
 	if [ "${CUR_AGENT_SHA}" != "${NEW_AGENT_SHA}" ]; then
 		(echo >&2 "\\nError: agent facades schema is not in sync. Run 'make rebuild-schema' and commit source.")
-		(>&2 diff "${TMP_ORIG}/agent-schema.json" "${TMP}/agent-schema.json")
+		(diff >&2 "${TMP_ORIG}/agent-schema.json" "${TMP}/agent-schema.json")
 		exit 1
 	fi
 }
