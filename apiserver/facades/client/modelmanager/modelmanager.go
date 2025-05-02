@@ -117,9 +117,16 @@ func NewModelManagerAPI(
 		}
 		return svc.Machine(), nil
 	}
+	statusServiceGetter := func(ctx context.Context, modelUUID coremodel.UUID) (commonmodel.StatusService, error) {
+		svc, err := services.DomainServicesGetter.DomainServicesForModel(ctx, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Status(), nil
+	}
 
 	return &ModelManagerAPI{
-		ModelStatusAPI:       commonmodel.NewModelStatusAPI(st, machineServiceGetter, authorizer, apiUser),
+		ModelStatusAPI:       commonmodel.NewModelStatusAPI(st, machineServiceGetter, statusServiceGetter, authorizer, apiUser),
 		state:                st,
 		domainServicesGetter: services.DomainServicesGetter,
 		modelExporter:        modelExporter,

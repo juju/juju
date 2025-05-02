@@ -49,10 +49,15 @@ type ModelDomainServices interface {
 
 	// Network returns the space service.
 	Network() NetworkService
+
+	// BlockCommand returns the block command service.
 	BlockCommand() BlockCommandService
 
 	// Machine returns the machine service.
 	Machine() MachineService
+
+	// Status returns the status service.
+	Status() StatusService
 }
 
 // DomainServicesGetter is a factory for creating model services.
@@ -248,6 +253,13 @@ type MachineService interface {
 	HardwareCharacteristics(ctx context.Context, machineUUID string) (*instance.HardwareCharacteristics, error)
 }
 
+// StatusService returns the status of a applications, and units and machines.
+type StatusService interface {
+	// GetApplicationAndUnitModelStatuses returns the application name and unit
+	// count for each model for the model status request.
+	GetApplicationAndUnitModelStatuses(ctx context.Context) (map[string]int, error)
+}
+
 // SecretBackendService is an interface for interacting with secret backend service.
 type SecretBackendService interface {
 	// BackendSummaryInfoForModel returns a summary of the secret backends for a model.
@@ -326,7 +338,9 @@ func (s domainServices) Config() ModelConfigService {
 	return s.domainServices.Config()
 }
 
-func (s domainServices) ModelInfo() ModelInfoService { return s.domainServices.ModelInfo() }
+func (s domainServices) ModelInfo() ModelInfoService {
+	return s.domainServices.ModelInfo()
+}
 
 func (s domainServices) Network() NetworkService {
 	return s.domainServices.Network()
@@ -338,4 +352,8 @@ func (s domainServices) Machine() MachineService {
 
 func (s domainServices) BlockCommand() BlockCommandService {
 	return s.domainServices.BlockCommand()
+}
+
+func (s domainServices) Status() StatusService {
+	return s.domainServices.Status()
 }

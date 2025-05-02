@@ -102,6 +102,9 @@ type StatusService interface {
 	// CheckUnitStatusesReadyForMigration returns true is the statuses of all units
 	// in the model indicate they can be migrated.
 	CheckUnitStatusesReadyForMigration(context.Context) error
+	// GetApplicationAndUnitModelStatuses returns the application name and unit
+	// count for each model for the model status request.
+	GetApplicationAndUnitModelStatuses(ctx context.Context) (map[string]int, error)
 }
 
 // ProxyService provides access to the proxy service.

@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -35,18 +34,14 @@ import (
 type modelStatusSuite struct {
 	statetesting.StateSuite
 
-	resources      *common.Resources
-	authorizer     apiservertesting.FakeAuthorizer
+	resources  *common.Resources
+	authorizer apiservertesting.FakeAuthorizer
+
 	machineService *MockMachineService
+	statusService  *MockStatusService
 }
 
 var _ = gc.Suite(&modelStatusSuite{})
-
-func (s *modelStatusSuite) setupMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-	s.machineService = NewMockMachineService(ctrl)
-	return ctrl
-}
 
 func (s *modelStatusSuite) SetUpTest(c *gc.C) {
 	// Initial config needs to be set before the StateSuite SetUpTest.
@@ -65,8 +60,6 @@ func (s *modelStatusSuite) SetUpTest(c *gc.C) {
 		Tag:      s.Owner,
 		AdminTag: s.Owner,
 	}
-
-	loggo.GetLogger("juju.apiserver.controller").SetLogLevel(loggo.TRACE)
 }
 
 func (s *modelStatusSuite) TestStub(c *gc.C) {
@@ -88,6 +81,7 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
 	api := model.NewModelStatusAPI(
 		model.NewModelManagerBackend(s.Model, s.StatePool),
 		s.machineServiceGetter,
+		s.statusServiceGetter,
 		anAuthoriser,
 		anAuthoriser.GetAuthTag().(names.UserTag),
 	)
@@ -114,6 +108,7 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 	api := model.NewModelStatusAPI(
 		model.NewModelManagerBackend(s.Model, s.StatePool),
 		s.machineServiceGetter,
+		s.statusServiceGetter,
 		anAuthoriser,
 		anAuthoriser.GetAuthTag().(names.UserTag),
 	)
@@ -129,6 +124,10 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 
 func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
+	s.statusService.EXPECT().GetApplicationAndUnitModelStatuses(gomock.Any()).Return(
+		map[string]int{}, nil,
+	)
 
 	req := params.Entities{
 		Entities: []params.Entity{
@@ -151,6 +150,7 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
 	modelStatusAPI := model.NewModelStatusAPI(
 		model.NewModelManagerBackend(s.Model, s.StatePool),
 		s.machineServiceGetter,
+		s.statusServiceGetter,
 		s.authorizer,
 		s.authorizer.GetAuthTag().(names.UserTag),
 	)
@@ -161,6 +161,19 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
 
 func (s *modelStatusSuite) machineServiceGetter(ctx context.Context, uuid coremodel.UUID) (model.MachineService, error) {
 	return s.machineService, nil
+}
+
+func (s *modelStatusSuite) statusServiceGetter(ctx context.Context, uuid coremodel.UUID) (model.StatusService, error) {
+	return s.statusService, nil
+}
+
+func (s *modelStatusSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.machineService = NewMockMachineService(ctrl)
+	s.statusService = NewMockStatusService(ctrl)
+
+	return ctrl
 }
 
 type noopStoragePoolGetter struct{}

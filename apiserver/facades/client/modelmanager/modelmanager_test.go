@@ -81,6 +81,7 @@ type modelManagerSuite struct {
 	domainServices       *mocks.MockModelDomainServices
 	applicationService   *mocks.MockApplicationService
 	blockCommandService  *mocks.MockBlockCommandService
+	statusService        *mocks.MockStatusService
 	authoriser           apiservertesting.FakeAuthorizer
 	api                  *modelmanager.ModelManagerAPI
 	caasApi              *modelmanager.ModelManagerAPI
@@ -102,6 +103,7 @@ func (s *modelManagerSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	s.applicationService = mocks.NewMockApplicationService(ctrl)
 	s.blockCommandService = mocks.NewMockBlockCommandService(ctrl)
 	s.machineService = mocks.NewMockMachineService(ctrl)
+	s.statusService = mocks.NewMockStatusService(ctrl)
 	s.domainServices = mocks.NewMockModelDomainServices(ctrl)
 
 	return ctrl
@@ -1594,6 +1596,9 @@ func (s *modelManagerSuite) TestModelStatus(c *gc.C) {
 
 	s.domainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(s.domainServices, nil).AnyTimes()
 	s.domainServices.EXPECT().Machine().Return(s.machineService).AnyTimes()
+	s.domainServices.EXPECT().Status().Return(s.statusService).AnyTimes()
+
+	s.statusService.EXPECT().GetApplicationAndUnitModelStatuses(gomock.Any()).Return(map[string]int{}, nil).AnyTimes()
 
 	// Check that we don't err out immediately if a model errs.
 	results, err := s.api.ModelStatus(context.Background(), params.Entities{Entities: []params.Entity{{
