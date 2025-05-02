@@ -18,6 +18,7 @@ import (
 
 	agenterrors "github.com/juju/juju/agent/errors"
 	agenttools "github.com/juju/juju/agent/tools"
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/semversion"
@@ -238,6 +239,10 @@ func UploadFakeTools(c *gc.C, stor storage.Storage, toolsDir, stream string, arc
 	if len(arches) == 0 {
 		arches = []string{arch.HostArch()}
 	}
+	if stream == "" {
+		stream = coreagentbinary.AgentStreamReleased.String()
+	}
+
 	toolsOS := set.NewStrings("ubuntu")
 	toolsOS.Add(coreos.HostOSTypeName())
 	var versions []semversion.Binary
