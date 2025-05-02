@@ -729,20 +729,11 @@ func (test configTest) check(c *gc.C) {
 	}
 
 	// assertions for deprecated tools-stream attribute used with new agent-stream
-	agentStreamValue := cfg.AgentStream()
-	oldTstToolsStreamAttr, oldTstOk := test.attrs["tools-stream"]
 	expectedAgentStreamAttr := test.attrs["agent-stream"]
-
-	// When no agent-stream provided, look for tools-stream
-	if expectedAgentStreamAttr == nil {
-		if oldTstOk {
-			expectedAgentStreamAttr = oldTstToolsStreamAttr
-		} else {
-			// If it's still nil, then hard-coded default is used
-			expectedAgentStreamAttr = "released"
-		}
+	if expectedAgentStreamAttr != nil {
+		expectedStr := expectedAgentStreamAttr.(string)
+		c.Assert(cfg.AgentStream(), gc.Equals, expectedStr)
 	}
-	c.Assert(agentStreamValue, gc.Equals, expectedAgentStreamAttr)
 
 	containerURL, urlPresent := cfg.ContainerImageMetadataURL()
 	if v, _ := test.attrs["container-image-metadata-url"].(string); v != "" {
