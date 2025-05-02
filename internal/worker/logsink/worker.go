@@ -112,12 +112,6 @@ func (w *LogSink) GetLoggerContext(ctx context.Context, modelUUID model.UUID) (l
 	return sink, nil
 }
 
-// Close closes all the log writers.
-func (w *LogSink) Close() error {
-	w.catacomb.Kill(nil)
-	return w.catacomb.Wait()
-}
-
 // Kill implements Worker.Kill()
 func (w *LogSink) Kill() {
 	w.catacomb.Kill(nil)

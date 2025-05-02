@@ -770,11 +770,6 @@ func (ctx *facadeContext) WatcherRegistry() facade.WatcherRegistry {
 	return ctx.r.watcherRegistry
 }
 
-// Hub implements facade.ModelContext.
-func (ctx *facadeContext) Hub() facade.Hub {
-	return ctx.r.shared.centralHub
-}
-
 // State is part of the facade.ModelContext interface.
 func (ctx *facadeContext) State() *state.State {
 	return ctx.r.state

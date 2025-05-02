@@ -593,44 +593,6 @@ func (m *MockModelLogger) EXPECT() *MockModelLoggerMockRecorder {
 	return m.recorder
 }
 
-// Close mocks base method.
-func (m *MockModelLogger) Close() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Close")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Close indicates an expected call of Close.
-func (mr *MockModelLoggerMockRecorder) Close() *MockModelLoggerCloseCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockModelLogger)(nil).Close))
-	return &MockModelLoggerCloseCall{Call: call}
-}
-
-// MockModelLoggerCloseCall wrap *gomock.Call
-type MockModelLoggerCloseCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelLoggerCloseCall) Return(arg0 error) *MockModelLoggerCloseCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelLoggerCloseCall) Do(f func() error) *MockModelLoggerCloseCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelLoggerCloseCall) DoAndReturn(f func() error) *MockModelLoggerCloseCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetLogWriter mocks base method.
 func (m *MockModelLogger) GetLogWriter(arg0 context.Context, arg1 model.UUID) (logger.LogWriter, error) {
 	m.ctrl.T.Helper()

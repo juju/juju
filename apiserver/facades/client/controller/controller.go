@@ -41,7 +41,6 @@ import (
 	"github.com/juju/juju/internal/docker"
 	interrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/migration"
-	"github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -65,7 +64,6 @@ type ControllerAPI struct {
 	authorizer                facade.Authorizer
 	apiUser                   names.UserTag
 	resources                 facade.Resources
-	hub                       facade.Hub
 	credentialService         CredentialService
 	upgradeService            UpgradeService
 	controllerConfigService   ControllerConfigService
@@ -99,7 +97,6 @@ func NewControllerAPI(
 	pool *state.StatePool,
 	authorizer facade.Authorizer,
 	resources facade.Resources,
-	hub facade.Hub,
 	logger corelogger.Logger,
 	controllerConfigService ControllerConfigService,
 	externalControllerService common.ExternalControllerService,
@@ -152,7 +149,6 @@ func NewControllerAPI(
 		authorizer:                authorizer,
 		apiUser:                   apiUser,
 		resources:                 resources,
-		hub:                       hub,
 		logger:                    logger,
 		controllerConfigService:   controllerConfigService,
 		credentialService:         credentialService,
@@ -749,18 +745,6 @@ func (c *ControllerAPI) ConfigSet(ctx context.Context, args params.ControllerCon
 
 	// Write Controller Config to DQLite.
 	if err := c.controllerConfigService.UpdateControllerConfig(ctx, args.Config, nil); err != nil {
-		return errors.Trace(err)
-	}
-	// TODO(thumper): add a version to controller config to allow for
-	// simultaneous updates and races in publishing, potentially across
-	// HA servers.
-	cfg, err := c.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if _, err := c.hub.Publish(
-		controller.ConfigChanged,
-		controller.ConfigChangedMessage{Config: cfg}); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

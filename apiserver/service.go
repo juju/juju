@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
+	"github.com/juju/juju/core/watcher"
 	userservice "github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/proxy"
 )
@@ -22,6 +23,9 @@ import (
 type ControllerConfigService interface {
 	// ControllerConfig returns the config values for the controller.
 	ControllerConfig(context.Context) (controller.Config, error)
+
+	// WatchControllerConfig watches the controller config for changes.
+	WatchControllerConfig() (watcher.StringsWatcher, error)
 }
 
 // ProxyService defines the methods required to get proxy details.

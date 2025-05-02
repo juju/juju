@@ -97,13 +97,11 @@ func (s *sharedServerContextSuite) TestValidConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// Normally you wouldn't directly access features.
 	c.Assert(ctx.features, gc.HasLen, 0)
-	ctx.Close()
 }
 
 func (s *sharedServerContextSuite) newContext(c *gc.C) *sharedServerContext {
 	ctx, err := newSharedServerContext(s.config)
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { ctx.Close() })
 	return ctx
 }
 

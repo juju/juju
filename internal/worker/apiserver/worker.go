@@ -192,6 +192,7 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		DBGetter:                      config.DBGetter,
 		DBDeleter:                     config.DBDeleter,
 		DomainServicesGetter:          config.DomainServicesGetter,
+		ControllerConfigService:       config.ControllerConfigService,
 		TracerGetter:                  config.TracerGetter,
 		ObjectStoreGetter:             config.ObjectStoreGetter,
 	}

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
-	"github.com/juju/pubsub/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -49,7 +48,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/docker"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	pscontroller "github.com/juju/juju/internal/pubsub/controller"
 	internalservices "github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
@@ -70,7 +68,6 @@ type controllerSuite struct {
 	resources        *common.Resources
 	watcherRegistry  facade.WatcherRegistry
 	authorizer       apiservertesting.FakeAuthorizer
-	hub              *pubsub.StructuredHub
 	context          facadetest.MultiModelContext
 	leadershipReader leadership.Reader
 	mockModelService *mocks.MockModelService
@@ -112,8 +109,6 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	domainServiceGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c))
 	jujujujutesting.SeedDatabase(c, s.ControllerSuite.TxnRunner(), domainServiceGetter(s.ControllerModelUUID), controllerCfg)
 
-	s.hub = pubsub.NewStructuredHub(nil)
-
 	var err error
 	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
 	c.Assert(err, jc.ErrorIsNil)
@@ -135,7 +130,6 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 			Resources_:        s.resources,
 			WatcherRegistry_:  s.watcherRegistry,
 			Auth_:             s.authorizer,
-			Hub_:              s.hub,
 			DomainServices_:   s.ControllerDomainServices(c),
 			Logger_:           loggertesting.WrapCheckLog(c),
 			LeadershipReader_: s.leadershipReader,
@@ -161,7 +155,6 @@ func (s *controllerSuite) controllerAPI(c *gc.C) *controller.ControllerAPI {
 		authorizer     = ctx.Auth()
 		pool           = ctx.StatePool()
 		resources      = ctx.Resources()
-		hub            = ctx.Hub()
 		domainServices = ctx.DomainServices()
 	)
 
@@ -228,7 +221,6 @@ func (s *controllerSuite) controllerAPI(c *gc.C) *controller.ControllerAPI {
 		pool,
 		authorizer,
 		resources,
-		hub,
 		ctx.Logger().Child("controller"),
 		domainServices.ControllerConfig(),
 		domainServices.ExternalController(),
@@ -897,30 +889,6 @@ func (s *controllerSuite) TestConfigSetRequiresSuperUser(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *controllerSuite) TestConfigSetPublishesEvent(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	done := make(chan struct{})
-	var config corecontroller.Config
-	s.hub.Subscribe(pscontroller.ConfigChanged, func(topic string, data pscontroller.ConfigChangedMessage, err error) {
-		c.Check(err, jc.ErrorIsNil)
-		config = data.Config
-		close(done)
-	})
-
-	err := s.controller.ConfigSet(context.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
-		"features": "foo,bar",
-	}})
-	c.Assert(err, jc.ErrorIsNil)
-
-	select {
-	case <-done:
-	case <-time.After(testing.LongWait):
-		c.Fatal("no event sent}")
-	}
-
-	c.Assert(config.Features().SortedValues(), jc.DeepEquals, []string{"bar", "foo"})
-}
-
 func (s *controllerSuite) TestConfigSetCAASImageRepo(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	// TODO(dqlite): move this test when ConfigSet CAASImageRepo logic moves.
@@ -1185,7 +1153,6 @@ func (s *accessSuite) controllerAPI(c *gc.C) *controller.ControllerAPI {
 		s.StatePool,
 		s.authorizer,
 		s.resources,
-		nil,
 		loggertesting.WrapCheckLog(c),
 		nil,
 		nil,
