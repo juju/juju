@@ -197,10 +197,13 @@ type ipAddress struct {
 }
 
 type spaceAddress struct {
-	Value     string         `db:"address_value"`
-	TypeID    int            `db:"type_id"`
-	ScopeID   int            `db:"scope_id"`
-	SpaceUUID sql.NullString `db:"space_uuid"`
+	Value        string         `db:"address_value"`
+	ConfigTypeID int            `db:"config_type_id"`
+	TypeID       int            `db:"type_id"`
+	OriginID     int            `db:"origin_id"`
+	ScopeID      int            `db:"scope_id"`
+	DeviceID     string         `db:"device_uuid"`
+	SpaceUUID    sql.NullString `db:"space_uuid"`
 }
 
 // These structs represent the persistent charm schema in the database.
