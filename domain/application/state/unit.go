@@ -827,6 +827,60 @@ WHERE  a.uuid = $getSubordinate.application_uuid
 	return subordinate.Subordinate, nil
 }
 
+// GetUnitSubordinates returns the names of all the subordinate units of the
+// given principal unit.
+//
+// If the principal unit cannot be found, [applicationerrors.UnitNotFound] is
+// returned.
+func (st *State) GetUnitSubordinates(ctx context.Context, unitName coreunit.Name) ([]coreunit.Name, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	type subordinateName struct {
+		Name string `db:"name"`
+	}
+	type principalName struct {
+		Name string `db:"name"`
+	}
+	pName := principalName{Name: unitName.String()}
+	stmt, err := st.Prepare(`
+SELECT sub.name AS &subordinateName.*
+FROM   unit AS sub
+JOIN   unit_principal AS up ON sub.uuid = up.unit_uuid
+JOIN   unit AS principal ON up.principal_uuid = principal.uuid
+WHERE  principal.name = $principalName.name
+`, pName, subordinateName{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var subNames []subordinateName
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.checkUnitExistsByName(ctx, tx, unitName); err != nil {
+			return errors.Errorf("checking unit exists: %w", err)
+		}
+
+		err := tx.Query(ctx, stmt, pName).GetAll(&subNames)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Errorf("getting unit subordinates: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return transform.Slice(subNames, func(s subordinateName) coreunit.Name {
+		return coreunit.Name(s.Name)
+	}), nil
+
+}
+
 // SetRunningAgentBinaryVersion sets the running agent binary version for the
 // provided unit uuid. Any previously set values for this unit uuid will
 // be overwritten by this call.
