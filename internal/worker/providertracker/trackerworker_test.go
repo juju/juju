@@ -9,7 +9,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
@@ -40,6 +40,10 @@ func (s *trackerWorkerSuite) TestWorkerStartup(c *gc.C) {
 	s.expectCloudSpec(c, cfg)
 	s.expectConfigWatcher(c)
 
+	// We call InvalidateCredential in the mock setup
+	// to ensure it's wired up.
+	s.expectInvalidateCredential(c)
+
 	// Create the worker.
 
 	w, err := s.newWorker(c, s.environ)
@@ -66,6 +70,10 @@ func (s *trackerWorkerSuite) TestWorkerStartupWithCloudSpec(c *gc.C) {
 	s.expectCloudWatcher(c)
 	s.expectCredentialWatcher(c)
 
+	// We call InvalidateCredential in the mock setup
+	// to ensure it's wired up.
+	s.expectInvalidateCredential(c)
+
 	// Create the worker.
 
 	w, err := s.newWorker(c, s.newCloudSpecEnviron())
@@ -86,6 +94,10 @@ func (s *trackerWorkerSuite) TestWorkerModelConfigUpdatesEnviron(c *gc.C) {
 	s.expectCloudSpec(c, cfg)
 	ch := s.expectConfigWatcher(c)
 	s.expectEnvironSetConfig(c, cfg)
+
+	// We call InvalidateCredential in the mock setup
+	// to ensure it's wired up.
+	s.expectInvalidateCredential(c)
 
 	// Create the worker.
 
@@ -120,6 +132,10 @@ func (s *trackerWorkerSuite) TestWorkerCloudUpdatesEnviron(c *gc.C) {
 
 	ch := s.expectCloudWatcher(c)
 	s.expectCredentialWatcher(c)
+
+	// We call InvalidateCredential in the mock setup
+	// to ensure it's wired up.
+	s.expectInvalidateCredential(c)
 
 	// This will cause the cloud spec to be updated.
 	s.expectEnvironSetSpecUpdate(c)
@@ -158,6 +174,10 @@ func (s *trackerWorkerSuite) TestWorkerCredentialUpdatesEnviron(c *gc.C) {
 	s.expectCloudWatcher(c)
 	ch := s.expectCredentialWatcher(c)
 
+	// We call InvalidateCredential in the mock setup
+	// to ensure it's wired up.
+	s.expectInvalidateCredential(c)
+
 	// This will cause the cloud spec to be updated.
 	s.expectEnvironSetSpecUpdate(c)
 
@@ -186,7 +206,12 @@ func (s *trackerWorkerSuite) getConfig(c *gc.C, environ environs.Environ) Tracke
 		ConfigService:     s.configService,
 		CredentialService: s.credentialService,
 		GetProviderForType: getProviderForType(
-			IAASGetProvider(func(_ context.Context, _ environs.OpenParams, _ environs.CredentialInvalidator) (environs.Environ, error) {
+			IAASGetProvider(func(_ context.Context, _ environs.OpenParams, invalidator environs.CredentialInvalidator) (environs.Environ, error) {
+				c.Assert(invalidator, gc.Not(gc.IsNil))
+				err := invalidator.InvalidateCredentials(context.Background(), "bad")
+				if err != nil {
+					return nil, err
+				}
 				return environ, nil
 			}),
 			CAASGetProvider(func(_ context.Context, _ environs.OpenParams, _ environs.CredentialInvalidator) (caas.Broker, error) {
@@ -226,6 +251,14 @@ func (s *trackerWorkerSuite) newCloudSpec(c *gc.C) *config.Config {
 	}).Return(cloud.Credential{}, nil)
 
 	return cfg
+}
+
+func (s *trackerWorkerSuite) expectInvalidateCredential(c *gc.C) {
+	s.credentialService.EXPECT().InvalidateCredential(gomock.Any(), credential.Key{
+		Cloud: "cloud",
+		Owner: usertesting.GenNewName(c, "owner"),
+		Name:  "name",
+	}, "bad")
 }
 
 func (s *trackerWorkerSuite) expectCloudSpec(c *gc.C, cfg *config.Config) {

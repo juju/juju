@@ -40,9 +40,6 @@ type State interface {
 	// UpsertCloudCredential adds or updates a cloud credential with the given name, cloud, owner.
 	UpsertCloudCredential(ctx context.Context, key corecredential.Key, credential credential.CloudCredentialInfo) error
 
-	// InvalidateCloudCredential marks the cloud credential for the given name, cloud, owner as invalid.
-	InvalidateCloudCredential(ctx context.Context, key corecredential.Key, reason string) error
-
 	// CloudCredentialsForOwner returns the owner's cloud credentials for a given cloud,
 	// keyed by credential name.
 	CloudCredentialsForOwner(ctx context.Context, owner user.Name, cloudName string) (map[string]credential.CloudCredentialResult, error)
@@ -134,10 +131,10 @@ func (s *Service) RemoveCloudCredential(ctx context.Context, key corecredential.
 	return s.st.RemoveCloudCredential(ctx, key)
 }
 
-// InvalidateCredential marks the cloud credential for the given name, cloud, owner as invalid.
+// InvalidateCredential marks the cloud credential for the given key as invalid.
 func (s *Service) InvalidateCredential(ctx context.Context, key corecredential.Key, reason string) error {
 	if err := key.Validate(); err != nil {
-		return errors.Errorf("invalid id invalidating cloud credential: %w", err)
+		return errors.Errorf("invalidating cloud credential with invalid key: %w", err)
 	}
 	return s.st.InvalidateCloudCredential(ctx, key, reason)
 }
@@ -260,7 +257,7 @@ func NewWatchableService(st State, watcherFactory WatcherFactory, logger logger.
 // credential.
 func (s *WatchableService) WatchCredential(ctx context.Context, key corecredential.Key) (watcher.NotifyWatcher, error) {
 	if err := key.Validate(); err != nil {
-		return nil, errors.Errorf("invalid id watching cloud credential: %w", err)
+		return nil, errors.Errorf("watching cloud credential with invalid key: %w", err)
 	}
 	return s.st.WatchCredential(ctx, s.watcherFactory.NewNotifyWatcher, key)
 }

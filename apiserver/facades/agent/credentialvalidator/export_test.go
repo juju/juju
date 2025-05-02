@@ -17,12 +17,11 @@ func NewCredentialValidatorAPIForTest(
 	c *gc.C,
 	cloudService CloudService,
 	credentialService CredentialService,
-	authorizer facade.Authorizer,
 	modelService ModelService,
 	modelInfoService ModelInfoService,
 	modelCredentialWatcher func(ctx context.Context) (watcher.NotifyWatcher, error),
 	watcherRegistry facade.WatcherRegistry,
-) (*CredentialValidatorAPI, error) {
-	return internalNewCredentialValidatorAPI(cloudService, credentialService, authorizer, modelService, modelInfoService, modelCredentialWatcher, watcherRegistry, loggertesting.WrapCheckLog(c))
+) *CredentialValidatorAPI {
+	return internalNewCredentialValidatorAPI(cloudService, credentialService, modelService, modelInfoService, modelCredentialWatcher, watcherRegistry, loggertesting.WrapCheckLog(c))
 
 }

@@ -26,7 +26,6 @@ type WorkerSuite struct {
 
 	facade                 *mockFacade
 	config                 credentialvalidator.Config
-	credentialChanges      chan struct{}
 	modelCredentialChanges chan struct{}
 
 	credential *base.StoredCredential
@@ -39,7 +38,6 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.credential = &base.StoredCredential{CloudCredential: credentialTag, Valid: true}
-	s.credentialChanges = make(chan struct{})
 	s.exists = true
 	s.modelCredentialChanges = make(chan struct{})
 	s.facade = &mockFacade{

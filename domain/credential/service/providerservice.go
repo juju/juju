@@ -16,8 +16,11 @@ import (
 
 // ProviderState describes retrieval and persistence methods for storage.
 type ProviderState interface {
-	// CloudCredential returns the cloud credential for the given name, cloud, owner.
+	// CloudCredential returns the cloud credential for the given key.
 	CloudCredential(ctx context.Context, key corecredential.Key) (credential.CloudCredentialResult, error)
+
+	// InvalidateCloudCredential marks the cloud credential for the given key as invalid.
+	InvalidateCloudCredential(ctx context.Context, key corecredential.Key, reason string) error
 
 	// WatchCredential returns a new NotifyWatcher watching for changes to the specified credential.
 	WatchCredential(
@@ -39,13 +42,6 @@ type ProviderService struct {
 	st ProviderState
 }
 
-// NewProviderService returns a new service reference wrapping the input state.
-func NewProviderService(st ProviderState) *ProviderService {
-	return &ProviderService{
-		st: st,
-	}
-}
-
 // CloudCredential returns the cloud credential for the given tag.
 func (s *ProviderService) CloudCredential(ctx context.Context, key corecredential.Key) (cloud.Credential, error) {
 	if err := key.Validate(); err != nil {
@@ -59,6 +55,14 @@ func (s *ProviderService) CloudCredential(ctx context.Context, key corecredentia
 	cred.Invalid = credInfo.Invalid
 	cred.InvalidReason = credInfo.InvalidReason
 	return cred, nil
+}
+
+// InvalidateCredential marks the cloud credential for the given key as invalid.
+func (s *ProviderService) InvalidateCredential(ctx context.Context, key corecredential.Key, reason string) error {
+	if err := key.Validate(); err != nil {
+		return errors.Errorf("invalidating cloud credential with invalid key: %w", err)
+	}
+	return s.st.InvalidateCloudCredential(ctx, key, reason)
 }
 
 // WatchableProviderService provides the API for working with credentials and
@@ -83,7 +87,7 @@ func NewWatchableProviderService(st ProviderState, watcherFactory WatcherFactory
 // credential.
 func (s *WatchableProviderService) WatchCredential(ctx context.Context, key corecredential.Key) (watcher.NotifyWatcher, error) {
 	if err := key.Validate(); err != nil {
-		return nil, errors.Errorf("invalid id watching cloud credential: %w", err)
+		return nil, errors.Errorf("watching cloud credential with invalid key: %w", err)
 	}
 	return s.st.WatchCredential(ctx, s.watcherFactory.NewNotifyWatcher, key)
 }

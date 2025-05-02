@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/testing"
 )
@@ -362,10 +363,10 @@ func (s *providerWorkerSuite) newWorker(c *gc.C, trackerType TrackerType) worker
 	w, err := newWorker(Config{
 		TrackerType:          trackerType,
 		DomainServicesGetter: s.domainServicesGetter,
-		GetIAASProvider: func(ctx context.Context, pcg ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
+		GetIAASProvider: func(ctx context.Context, pcg ProviderConfigGetter, invalidator environs.CredentialInvalidator) (Provider, cloudspec.CloudSpec, error) {
 			return s.environ, cloudspec.CloudSpec{}, nil
 		},
-		GetCAASProvider: func(ctx context.Context, pcg ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
+		GetCAASProvider: func(ctx context.Context, pcg ProviderConfigGetter, invalidator environs.CredentialInvalidator) (Provider, cloudspec.CloudSpec, error) {
 			c.Fatalf("unexpected call to GetCAASProvider")
 			return nil, cloudspec.CloudSpec{}, nil
 		},

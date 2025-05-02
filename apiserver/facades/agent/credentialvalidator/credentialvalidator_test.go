@@ -15,7 +15,6 @@ import (
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/credentialvalidator"
 	"github.com/juju/juju/apiserver/facades/agent/credentialvalidator/mocks"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -34,7 +33,6 @@ var credentialTag = names.NewCloudCredentialTag("cloud/user/credential")
 type CredentialValidatorSuite struct {
 	coretesting.BaseSuite
 
-	authorizer                   apiservertesting.FakeAuthorizer
 	cloudService                 *mocks.MockCloudService
 	credentialService            *mocks.MockCredentialService
 	modelService                 *mocks.MockModelService
@@ -48,10 +46,6 @@ type CredentialValidatorSuite struct {
 
 var _ = gc.Suite(&CredentialValidatorSuite{})
 
-func (s *CredentialValidatorSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-}
-
 func (s *CredentialValidatorSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -62,12 +56,7 @@ func (s *CredentialValidatorSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
 	s.modelCredentialWatcher = mocks.NewMockNotifyWatcher(ctrl)
 
-	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: names.NewMachineTag("0"),
-	}
-	api, err := credentialvalidator.NewCredentialValidatorAPIForTest(c, s.cloudService, s.credentialService, s.authorizer, s.modelService, s.modelInfoService, s.modelCredentialWatcherGetter, s.watcherRegistry)
-	c.Assert(err, jc.ErrorIsNil)
-	s.api = api
+	s.api = credentialvalidator.NewCredentialValidatorAPIForTest(c, s.cloudService, s.credentialService, s.modelService, s.modelInfoService, s.modelCredentialWatcherGetter, s.watcherRegistry)
 	return ctrl
 }
 
@@ -118,102 +107,6 @@ func (s *CredentialValidatorSuite) TestModelCredentialNotNeeded(c *gc.C) {
 	result, err := s.api.ModelCredential(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ModelCredential{Model: names.NewModelTag(modelUUID.String()).String(), Valid: true})
-}
-
-func (s *CredentialValidatorSuite) TestWatchCredential(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
-	modelUUID := modeltesting.GenModelUUID(c)
-	modelInfo := model.ModelInfo{
-		UUID:            modelUUID,
-		CredentialName:  credentialTag.Name(),
-		Cloud:           "cloud",
-		CredentialOwner: usertesting.GenNewName(c, "user"),
-	}
-	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(modelInfo, nil)
-	modelCredentialKey := credential.Key{
-		Cloud: modelInfo.Cloud,
-		Owner: modelInfo.CredentialOwner,
-		Name:  modelInfo.CredentialName,
-	}
-
-	ch := make(chan struct{}, 1)
-	ch <- struct{}{}
-
-	s.modelCredentialWatcher.EXPECT().Changes().Return(ch)
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
-	s.credentialService.EXPECT().WatchCredential(gomock.Any(), modelCredentialKey).Return(s.modelCredentialWatcher, nil)
-
-	modelCredentialTag, err := modelCredentialKey.Tag()
-	c.Assert(err, jc.ErrorIsNil)
-	result, err := s.api.WatchCredential(context.Background(), params.Entity{Tag: modelCredentialTag.String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{NotifyWatcherId: "1", Error: nil})
-}
-
-func (s *CredentialValidatorSuite) TestWatchCredentialNotUsedInThisModel(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
-	modelUUID := modeltesting.GenModelUUID(c)
-	modelInfo := model.ModelInfo{
-		UUID:            modelUUID,
-		CredentialName:  "not-tag-credential",
-		Cloud:           "cloud",
-		CredentialOwner: usertesting.GenNewName(c, "user"),
-	}
-	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(modelInfo, nil)
-	_, err := s.api.WatchCredential(context.Background(), params.Entity{"cloudcred-cloud_fred_default"})
-	c.Assert(err, gc.ErrorMatches, apiservererrors.ErrPerm.Error())
-}
-
-func (s *CredentialValidatorSuite) TestWatchCredentialInvalidTag(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
-	_, err := s.api.WatchCredential(context.Background(), params.Entity{"my-tag"})
-	c.Assert(err, gc.ErrorMatches, `"my-tag" is not a valid tag`)
-}
-
-func (s *CredentialValidatorSuite) TestInvalidateModelCredential(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
-	modelUUID := modeltesting.GenModelUUID(c)
-	modelInfo := model.ModelInfo{
-		UUID:            modelUUID,
-		CredentialName:  credentialTag.Name(),
-		Cloud:           "cloud",
-		CredentialOwner: usertesting.GenNewName(c, "user"),
-	}
-	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(modelInfo, nil)
-	modelCredentialKey := credential.Key{
-		Cloud: modelInfo.Cloud,
-		Owner: modelInfo.CredentialOwner,
-		Name:  modelInfo.CredentialName,
-	}
-	reason := "not again"
-	s.credentialService.EXPECT().InvalidateCredential(gomock.Any(), modelCredentialKey, reason).Return(nil)
-
-	result, err := s.api.InvalidateModelCredential(context.Background(), params.InvalidateCredentialArg{Reason: reason})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResult{})
-}
-
-func (s *CredentialValidatorSuite) TestInvalidateModelCredentialError(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
-	modelUUID := modeltesting.GenModelUUID(c)
-	modelInfo := model.ModelInfo{
-		UUID:            modelUUID,
-		CredentialName:  credentialTag.Name(),
-		Cloud:           "cloud",
-		CredentialOwner: usertesting.GenNewName(c, "user"),
-	}
-	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(modelInfo, nil)
-	modelCredentialKey := credential.Key{
-		Cloud: modelInfo.Cloud,
-		Owner: modelInfo.CredentialOwner,
-		Name:  modelInfo.CredentialName,
-	}
-	reason := "not again"
-	s.credentialService.EXPECT().InvalidateCredential(gomock.Any(), modelCredentialKey, reason).Return(coreerrors.NotValid)
-
-	result, err := s.api.InvalidateModelCredential(context.Background(), params.InvalidateCredentialArg{Reason: reason})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: apiservererrors.ServerError(coreerrors.NotValid)})
 }
 
 func (s *CredentialValidatorSuite) TestWatchModelCredential(c *gc.C) {

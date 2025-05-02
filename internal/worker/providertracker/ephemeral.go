@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/uuid"
@@ -69,7 +70,7 @@ func NewEphemeralProvider(ctx context.Context, config EphemeralConfig) (Provider
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	provider, _, err := newProviderType(ctx, getter)
+	provider, _, err := newProviderType(ctx, getter, environs.NoopCredentialInvalidator())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

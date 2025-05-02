@@ -190,7 +190,7 @@ type CloudService interface {
 type CredentialService interface {
 	// CloudCredential returns the cloud credential for the given key.
 	CloudCredential(ctx context.Context, id credential.Key) (jujucloud.Credential, error)
-	// InvalidateCredential marks the cloud credential for the given name, cloud, owner as invalid.
+	// InvalidateCredential marks the cloud credential for the given key as invalid.
 	InvalidateCredential(ctx context.Context, id credential.Key, reason string) error
 }
 

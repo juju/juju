@@ -78,6 +78,12 @@ func NewTrackerWorker(ctx context.Context, config TrackerConfig) (worker.Worker,
 	return newTrackerWorker(ctx, config, nil)
 }
 
+type invalidateCredentialFunc func(context.Context, environs.CredentialInvalidReason) error
+
+func (f invalidateCredentialFunc) InvalidateCredentials(ctx context.Context, reason environs.CredentialInvalidReason) error {
+	return f(ctx, reason)
+}
+
 func newTrackerWorker(ctx context.Context, config TrackerConfig, internalStates chan string) (*trackerWorker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -99,7 +105,17 @@ func newTrackerWorker(ctx context.Context, config TrackerConfig, internalStates 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	provider, spec, err := newProviderType(ctx, getter)
+
+	// invalidateCredential will invalidate the credential used to create the provider
+	// served by this tracker worker.
+	var invalidateCredential invalidateCredentialFunc = func(ctx context.Context, reason environs.CredentialInvalidReason) error {
+		return config.CredentialService.InvalidateCredential(ctx, credential.Key{
+			Cloud: model.Cloud,
+			Owner: model.CredentialOwner,
+			Name:  model.CredentialName,
+		}, string(reason))
+	}
+	provider, spec, err := newProviderType(ctx, getter, invalidateCredential)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -337,7 +353,7 @@ func (g trackerProviderGetter) ControllerUUID() uuid.UUID {
 	return g.model.ControllerUUID
 }
 
-// ModelUUID returns the model UUID.
+// ModelConfig returns the model config.
 func (g trackerProviderGetter) ModelConfig(ctx context.Context) (*config.Config, error) {
 	return g.configService.ModelConfig(ctx)
 }

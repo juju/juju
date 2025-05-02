@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/api/agent/credentialvalidator"
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -95,42 +94,6 @@ var (
 	credentialID  = "cloud/user/credential"
 	credentialTag = names.NewCloudCredentialTag(credentialID)
 )
-
-func (s *CredentialValidatorSuite) TestInvalidateModelCredential(c *gc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "CredentialValidator")
-		c.Check(request, gc.Equals, "InvalidateModelCredential")
-		c.Assert(arg, gc.Equals, params.InvalidateCredentialArg{Reason: "auth fail"})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResult{})
-		*(result.(*params.ErrorResult)) = params.ErrorResult{}
-		return nil
-	})
-
-	client := credentialvalidator.NewFacade(apiCaller)
-	err := client.InvalidateModelCredential(context.Background(), "auth fail")
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *CredentialValidatorSuite) TestInvalidateModelCredentialBackendFailure(c *gc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		*(result.(*params.ErrorResult)) = params.ErrorResult{Error: apiservererrors.ServerError(errors.New("boom"))}
-		return nil
-	})
-
-	client := credentialvalidator.NewFacade(apiCaller)
-	err := client.InvalidateModelCredential(context.Background(), "")
-	c.Assert(err, gc.ErrorMatches, "boom")
-}
-
-func (s *CredentialValidatorSuite) TestInvalidateModelCredentialError(c *gc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		return errors.New("foo")
-	})
-
-	client := credentialvalidator.NewFacade(apiCaller)
-	err := client.InvalidateModelCredential(context.Background(), "")
-	c.Assert(err, gc.ErrorMatches, "foo")
-}
 
 func (s *CredentialValidatorSuite) TestWatchModelCredentialError(c *gc.C) {
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {

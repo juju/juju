@@ -17,11 +17,11 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
-	caas "github.com/juju/juju/caas"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/environs"
-	cloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/services"
-	storage "github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/storage"
 )
 
 type manifoldSuite struct {
@@ -87,10 +87,10 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		NewEphemeralProvider: func(ctx context.Context, cfg EphemeralConfig) (Provider, error) {
 			return nil, nil
 		},
-		GetIAASProvider: func(ctx context.Context, pcg ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
+		GetIAASProvider: func(ctx context.Context, pcg ProviderConfigGetter, invalidator environs.CredentialInvalidator) (Provider, cloudspec.CloudSpec, error) {
 			return s.environ, cloudspec.CloudSpec{}, nil
 		},
-		GetCAASProvider: func(ctx context.Context, pcg ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
+		GetCAASProvider: func(ctx context.Context, pcg ProviderConfigGetter, invalidator environs.CredentialInvalidator) (Provider, cloudspec.CloudSpec, error) {
 			return s.broker, cloudspec.CloudSpec{}, nil
 		},
 		GetProviderServicesGetter: func(getter dependency.Getter, name string) (DomainServicesGetter, error) {
@@ -128,10 +128,10 @@ func (s *manifoldSuite) TestIAASManifoldOutput(c *gc.C) {
 	w, err := newWorker(Config{
 		TrackerType:          SingularType("hunter2"),
 		DomainServicesGetter: s.domainServicesGetter,
-		GetIAASProvider: func(ctx context.Context, pcg ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
+		GetIAASProvider: func(ctx context.Context, pcg ProviderConfigGetter, invalidator environs.CredentialInvalidator) (Provider, cloudspec.CloudSpec, error) {
 			return s.environ, cloudspec.CloudSpec{}, nil
 		},
-		GetCAASProvider: func(ctx context.Context, pcg ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
+		GetCAASProvider: func(ctx context.Context, pcg ProviderConfigGetter, invalidator environs.CredentialInvalidator) (Provider, cloudspec.CloudSpec, error) {
 			return s.broker, cloudspec.CloudSpec{}, nil
 		},
 		NewTrackerWorker: func(ctx context.Context, cfg TrackerConfig) (worker.Worker, error) {
@@ -184,10 +184,10 @@ func (s *manifoldSuite) TestCAASManifoldOutput(c *gc.C) {
 	w, err := newWorker(Config{
 		TrackerType:          SingularType("hunter2"),
 		DomainServicesGetter: s.domainServicesGetter,
-		GetIAASProvider: func(ctx context.Context, pcg ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
+		GetIAASProvider: func(ctx context.Context, pcg ProviderConfigGetter, invalidator environs.CredentialInvalidator) (Provider, cloudspec.CloudSpec, error) {
 			return s.environ, cloudspec.CloudSpec{}, nil
 		},
-		GetCAASProvider: func(ctx context.Context, pcg ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
+		GetCAASProvider: func(ctx context.Context, pcg ProviderConfigGetter, invalidator environs.CredentialInvalidator) (Provider, cloudspec.CloudSpec, error) {
 			return s.broker, cloudspec.CloudSpec{}, nil
 		},
 		NewTrackerWorker: func(ctx context.Context, cfg TrackerConfig) (worker.Worker, error) {
