@@ -1,4 +1,4 @@
-// Copyright 2018 Canonical Ltd.
+// Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package uniter
@@ -12,60 +12,63 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/apiserver/internal"
+	"github.com/juju/juju/apiserver/internal/charms"
+	"github.com/juju/juju/core/instance"
+	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/lxdprofile"
+	coremachine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/unit"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
 )
-
-// NOTE:
-// This file is for backward compatibility only!  The approach taken here for
-// charms with lxd profiles is completely different from the approach in
-// NewLXDProfileAPI.
 
 type LXDProfileBackend interface {
 	Machine(string) (LXDProfileMachine, error)
-	Unit(string) (LXDProfileUnit, error)
 }
 
 // LXDProfileMachine describes machine-receiver state methods
 // for executing a lxd profile upgrade.
 type LXDProfileMachine interface {
-	WatchLXDProfileUpgradeNotifications(string) (state.StringsWatcher, error)
-}
-
-// LXDProfileUnit describes unit-receiver state methods
-// for executing a lxd profile upgrade.
-type LXDProfileUnit interface {
-	AssignedMachineId() (string, error)
-	Name() string
-	Tag() names.Tag
-	WatchLXDProfileUpgradeNotifications() (state.StringsWatcher, error)
+	ContainerType() instance.ContainerType
+	IsManual() (bool, error)
 }
 
 type LXDProfileAPI struct {
-	backend   LXDProfileBackend
-	resources facade.Resources
+	backend         LXDProfileBackend
+	machineService  MachineService
+	watcherRegistry facade.WatcherRegistry
 
-	logger     logger.Logger
+	logger     corelogger.Logger
 	accessUnit common.GetAuthFunc
+
+	modelInfoService   ModelInfoService
+	applicationService ApplicationService
 }
 
 // NewLXDProfileAPI returns a new LXDProfileAPI. Currently both
 // GetAuthFuncs can used to determine current permissions.
 func NewLXDProfileAPI(
 	backend LXDProfileBackend,
-	resources facade.Resources,
+	machineService MachineService,
+	watcherRegistry facade.WatcherRegistry,
 	authorizer facade.Authorizer,
 	accessUnit common.GetAuthFunc,
-	logger logger.Logger,
+	logger corelogger.Logger,
+	modelInfoService ModelInfoService,
+	applicationService ApplicationService,
 ) *LXDProfileAPI {
-	logger.Tracef(context.TODO(), "NewLXDProfileAPI called with %s", authorizer.GetAuthTag())
 	return &LXDProfileAPI{
-		backend:    backend,
-		resources:  resources,
-		accessUnit: accessUnit,
-		logger:     logger,
+		backend:            backend,
+		machineService:     machineService,
+		watcherRegistry:    watcherRegistry,
+		accessUnit:         accessUnit,
+		logger:             logger,
+		modelInfoService:   modelInfoService,
+		applicationService: applicationService,
 	}
 }
 
@@ -80,10 +83,6 @@ func (s LXDProfileState) Machine(id string) (LXDProfileMachine, error) {
 	return &lxdProfileMachine{m}, err
 }
 
-func (s LXDProfileState) Unit(id string) (LXDProfileUnit, error) {
-	return s.st.Unit(id)
-}
-
 type lxdProfileMachine struct {
 	*state.Machine
 }
@@ -91,30 +90,93 @@ type lxdProfileMachine struct {
 // NewExternalLXDProfileAPI can be used for API registration.
 func NewExternalLXDProfileAPI(
 	st *state.State,
-	resources facade.Resources,
+	machineService MachineService,
+	watcherRegistry facade.WatcherRegistry,
 	authorizer facade.Authorizer,
 	accessUnit common.GetAuthFunc,
-	logger logger.Logger,
+	logger corelogger.Logger,
+	modelInfoService ModelInfoService,
+	applicationService ApplicationService,
 ) *LXDProfileAPI {
 	return NewLXDProfileAPI(
 		LXDProfileState{st},
-		resources,
+		machineService,
+		watcherRegistry,
 		authorizer,
 		accessUnit,
 		logger,
+		modelInfoService,
+		applicationService,
 	)
 }
 
-// WatchUnitLXDProfileUpgradeNotifications returns a StringsWatcher for observing
-// changes to the lxd profile changes for one unit.
-func (u *LXDProfileAPI) WatchUnitLXDProfileUpgradeNotifications(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
-	u.logger.Tracef(ctx, "WatchUnitLXDProfileUpgradeNotifications with %+v", args)
-	result := params.StringsWatchResults{
-		Results: make([]params.StringsWatchResult, len(args.Entities)),
+// WatchInstanceData returns a NotifyWatcher for observing
+// changes to the lxd profile for one unit.
+func (u *LXDProfileAPI) WatchInstanceData(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
+	u.logger.Tracef(ctx, "Starting WatchInstanceData with %+v", args)
+	result := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
 	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
-		return params.StringsWatchResults{}, err
+		u.logger.Tracef(ctx, "WatchInstanceData error %+v", err)
+		return params.NotifyWatchResults{}, err
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		if !canAccess(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		unitName, err := unit.NewName(tag.Id())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		// TODO(nvinuesa): we could save this call if we move the lxd profile
+		// watcher to the unit domain. Then, the watcher would be already
+		// notifying for changes on the unit directly.
+		machineUUID, err := u.applicationService.GetUnitMachineUUID(ctx, unitName)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		watcherId, err := u.watchOneInstanceData(ctx, machineUUID.String())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		result.Results[i].NotifyWatcherId = watcherId
+
+	}
+	u.logger.Tracef(ctx, "WatchInstanceData returning %+v", result)
+	return result, nil
+}
+
+func (u *LXDProfileAPI) watchOneInstanceData(ctx context.Context, machineUUID string) (string, error) {
+	watcher, err := u.machineService.WatchLXDProfiles(ctx, machineUUID)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	watcherID, _, err := internal.EnsureRegisterWatcher[struct{}](ctx, u.watcherRegistry, watcher)
+	return watcherID, err
+}
+
+// LXDProfileName returns the name of the lxd profile applied to the unit's
+// machine for the current charm version.
+func (u *LXDProfileAPI) LXDProfileName(ctx context.Context, args params.Entities) (params.StringResults, error) {
+	u.logger.Tracef(ctx, "Starting LXDProfileName with %+v", args)
+	result := params.StringResults{
+		Results: make([]params.StringResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit(ctx)
+	if err != nil {
+		return params.StringResults{}, err
 	}
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
@@ -127,47 +189,58 @@ func (u *LXDProfileAPI) WatchUnitLXDProfileUpgradeNotifications(ctx context.Cont
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		unit, err := u.getLXDProfileUnit(tag)
+		unitName, err := unit.NewName(tag.Id())
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		watcherId, initial, err := u.watchOneChangeUnitLXDProfileUpgradeNotifications(unit)
+		machineUUID, err := u.applicationService.GetUnitMachineUUID(ctx, unitName)
 		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		name, err := u.getOneLXDProfileName(ctx, unitName.Application(), machineUUID)
+		if errors.Is(err, machineerrors.NotProvisioned) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotProvisionedf("machine %q", machineUUID))
+		} else if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
-		result.Results[i].StringsWatcherId = watcherId
-		result.Results[i].Changes = initial
+		result.Results[i].Result = name
+
 	}
 	return result, nil
 }
 
-func (u *LXDProfileAPI) watchOneChangeUnitLXDProfileUpgradeNotifications(unit LXDProfileUnit) (string, []string, error) {
-	watch, err := unit.WatchLXDProfileUpgradeNotifications()
+func (u *LXDProfileAPI) getOneLXDProfileName(ctx context.Context, appName string, machineUUID coremachine.UUID) (string, error) {
+	profileNames, err := u.machineService.AppliedLXDProfileNames(ctx, machineUUID.String())
 	if err != nil {
-		return "", nil, errors.Trace(err)
+		u.logger.Errorf(ctx, "unable to retrieve LXD profiles for machine %q: %v", machineUUID, err)
+		return "", err
 	}
-
-	if changes, ok := <-watch.Changes(); ok {
-		return u.resources.Register(watch), changes, nil
-	}
-	return "", nil, watcher.EnsureErr(watch)
+	return lxdprofile.MatchProfileNameByAppName(profileNames, appName)
 }
 
-// WatchLXDProfileUpgradeNotifications returns a StringsWatcher for observing
-// changes to the lxd profile changes.
-//
-// NOTE: can be removed in juju version 3.
-func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications(ctx context.Context, args params.LXDProfileUpgrade) (params.StringsWatchResults, error) {
-	u.logger.Tracef(ctx, "WatchLXDProfileUpgradeNotifications with %+v", args)
-	result := params.StringsWatchResults{
-		Results: make([]params.StringsWatchResult, len(args.Entities)),
+// CanApplyLXDProfile returns true if
+//   - this is an IAAS model,
+//   - the unit is not on a manual machine,
+//   - the provider type is "lxd" or it's an lxd container.
+func (u *LXDProfileAPI) CanApplyLXDProfile(ctx context.Context, args params.Entities) (params.BoolResults, error) {
+	u.logger.Tracef(ctx, "Starting CanApplyLXDProfile with %+v", args)
+	result := params.BoolResults{
+		Results: make([]params.BoolResult, len(args.Entities)),
 	}
 	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
-		return params.StringsWatchResults{}, err
+		return params.BoolResults{}, errors.Trace(err)
+	}
+	modelInfo, err := u.modelInfoService.GetModelInfo(ctx)
+	if err != nil {
+		return params.BoolResults{}, errors.Trace(err)
+	}
+	if modelInfo.Type != model.IAAS {
+		return result, nil
 	}
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
@@ -180,63 +253,76 @@ func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications(ctx context.Context,
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		machine, err := u.getLXDProfileMachine(tag)
+
+		name, err := u.getOneCanApplyLXDProfile(ctx, tag, modelInfo.CloudType)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
-		watcherId, initial, err := u.watchOneChangeLXDProfileUpgradeNotifications(machine, args.ApplicationName)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		result.Results[i].StringsWatcherId = watcherId
-		result.Results[i].Changes = initial
+		result.Results[i].Result = name
 	}
 	return result, nil
 }
 
-func (u *LXDProfileAPI) watchOneChangeLXDProfileUpgradeNotifications(machine LXDProfileMachine, applicationName string) (string, []string, error) {
-	watch, err := machine.WatchLXDProfileUpgradeNotifications(applicationName)
+func (u *LXDProfileAPI) getOneCanApplyLXDProfile(ctx context.Context, tag names.Tag, providerType string) (bool, error) {
+	unitName, err := unit.NewName(tag.Id())
 	if err != nil {
-		return "", nil, errors.Trace(err)
+		return false, internalerrors.Capture(err)
 	}
 
-	if changes, ok := <-watch.Changes(); ok {
-		return u.resources.Register(watch), changes, nil
+	machineName, err := u.applicationService.GetUnitMachineName(ctx, unitName)
+	if err != nil {
+		return false, internalerrors.Capture(err)
 	}
-	return "", nil, watcher.EnsureErr(watch)
+
+	machine, err := u.backend.Machine(machineName.String())
+	if err != nil {
+		return false, err
+	}
+	if manual, err := machine.IsManual(); err != nil {
+		return false, err
+	} else if manual {
+		// We do no know what type of machine a manual one is, so we do not
+		// manage lxd profiles on it.
+		return false, nil
+	}
+	if providerType == "lxd" {
+		return true, nil
+	}
+	switch machine.ContainerType() {
+	case instance.LXD:
+		return true, nil
+	}
+	return false, nil
 }
 
-// RemoveUpgradeCharmProfileData is intended to clean up the LXDProfile status
-// to ensure that we start from a clean slate.
-func (u *LXDProfileAPI) RemoveUpgradeCharmProfileData(args params.Entities) (params.ErrorResults, error) {
-	// This is a canned response for V9 of the API, so that clients will still
-	// be supported and the error for each params entity is nil, along with the
-	// call.
-	return params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Entities)),
-	}, nil
+// LXDProfileRequired returns true if charm has an lxd profile in it.
+func (u *LXDProfileAPI) LXDProfileRequired(ctx context.Context, args params.CharmURLs) (params.BoolResults, error) {
+	u.logger.Tracef(ctx, "Starting LXDProfileRequired with %+v", args)
+	result := params.BoolResults{
+		Results: make([]params.BoolResult, len(args.URLs)),
+	}
+	for i, arg := range args.URLs {
+		required, err := u.getOneLXDProfileRequired(ctx, arg.URL)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		result.Results[i].Result = required
+	}
+	return result, nil
 }
 
-func (u *LXDProfileAPI) getLXDProfileMachine(tag names.Tag) (LXDProfileMachine, error) {
-	var id string
-	if tag.Kind() != names.UnitTagKind {
-		return nil, errors.Errorf("not a unit tag")
-	}
-	unit, err := u.backend.Unit(tag.Id())
+func (u *LXDProfileAPI) getOneLXDProfileRequired(ctx context.Context, curl string) (bool, error) {
+	locator, err := charms.CharmLocatorFromURL(curl)
 	if err != nil {
-		return nil, err
+		return false, errors.Trace(err)
 	}
-	id, err = unit.AssignedMachineId()
+	lxdProfile, _, err := u.applicationService.GetCharmLXDProfile(ctx, locator)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-	return u.backend.Machine(id)
-}
-
-func (u *LXDProfileAPI) getLXDProfileUnit(tag names.Tag) (LXDProfileUnit, error) {
-	return u.backend.Unit(tag.Id())
+	return !lxdProfile.Empty(), nil
 }

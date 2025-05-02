@@ -62,7 +62,7 @@ type UniterAPI struct {
 	modelUUID model.UUID
 	modelType model.ModelType
 
-	lxdProfileAPI           *LXDProfileAPIv2
+	lxdProfileAPI           *LXDProfileAPI
 	st                      *state.State
 	clock                   clock.Clock
 	auth                    facade.Authorizer
@@ -2760,22 +2760,22 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 	return u.st.ApplyOperation(state.ComposeModelOperations(modelOps...))
 }
 
-// WatchInstanceData is a shim to call the LXDProfileAPIv2 version of this method.
+// WatchInstanceData is a shim to call the LXDProfileAPI version of this method.
 func (u *UniterAPI) WatchInstanceData(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
 	return u.lxdProfileAPI.WatchInstanceData(ctx, args)
 }
 
-// LXDProfileName is a shim to call the LXDProfileAPIv2 version of this method.
+// LXDProfileName is a shim to call the LXDProfileAPI version of this method.
 func (u *UniterAPI) LXDProfileName(ctx context.Context, args params.Entities) (params.StringResults, error) {
 	return u.lxdProfileAPI.LXDProfileName(ctx, args)
 }
 
-// LXDProfileRequired is a shim to call the LXDProfileAPIv2 version of this method.
+// LXDProfileRequired is a shim to call the LXDProfileAPI version of this method.
 func (u *UniterAPI) LXDProfileRequired(ctx context.Context, args params.CharmURLs) (params.BoolResults, error) {
 	return u.lxdProfileAPI.LXDProfileRequired(ctx, args)
 }
 
-// CanApplyLXDProfile is a shim to call the LXDProfileAPIv2 version of this method.
+// CanApplyLXDProfile is a shim to call the LXDProfileAPI version of this method.
 func (u *UniterAPI) CanApplyLXDProfile(ctx context.Context, args params.Entities) (params.BoolResults, error) {
 	return u.lxdProfileAPI.CanApplyLXDProfile(ctx, args)
 }

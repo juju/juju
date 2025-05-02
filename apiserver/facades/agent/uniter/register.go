@@ -128,7 +128,7 @@ func newUniterAPIWithServices(
 		logger,
 	)
 
-	extLXDProfile := NewExternalLXDProfileAPIv2(
+	extLXDProfile := NewExternalLXDProfileAPI(
 		st,
 		services.MachineService,
 		context.WatcherRegistry(),
