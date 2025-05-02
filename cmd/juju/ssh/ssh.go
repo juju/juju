@@ -195,7 +195,7 @@ func (c *sshCommand) SetFlags(f *gnuflag.FlagSet) {
 	// jump is a feature in development. And it is only allowed when the
 	// feature flag is enabled.
 	if featureflag.Enabled(feature.SSHJump) {
-		f.BoolVar(&c.jump, "jump", false, "Jump through the controller")
+		f.BoolVar(&c.jump, "jump", false, "Proxy SSH through the Juju controller")
 	}
 	// the container flag is top-level because it has to be propagated to
 	// both sshContainer and sshJump provider.
@@ -222,6 +222,8 @@ func (c *sshCommand) Init(args []string) (err error) {
 	if c.modelType, err = c.ModelType(); err != nil {
 		return err
 	}
+	// The jump provider is transparent to the model type.
+	// However, the container flag must be propagated.
 	if c.jump {
 		c.provider = &c.sshJump
 		c.sshJump.container = c.container

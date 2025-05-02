@@ -13,27 +13,27 @@ import (
 )
 
 type sshJumpSuite struct {
-	sshClient *mocks.MockSSHAPIClientJump
+	sshAPIJump *mocks.MockSSHAPIJump
 }
 
 var _ = gc.Suite(&sshJumpSuite{})
 
 func (s *sshJumpSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.sshClient = mocks.NewMockSSHAPIClientJump(ctrl)
+	s.sshAPIJump = mocks.NewMockSSHAPIJump(ctrl)
 	return ctrl
 }
 
 func (s *sshJumpSuite) TestResolveTarget(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.sshClient.EXPECT().VirtualHostname(gomock.Any(), gomock.Any()).Return("resolved-target", nil)
-	s.sshClient.EXPECT().PublicHostKeyForTarget(gomock.Any()).Return(params.PublicSSHHostKeyResult{
+	s.sshAPIJump.EXPECT().VirtualHostname(gomock.Any(), gomock.Any()).Return("resolved-target", nil)
+	s.sshAPIJump.EXPECT().PublicHostKeyForTarget(gomock.Any()).Return(params.PublicSSHHostKeyResult{
 		PublicKey: []byte("host-key"),
 	}, nil)
 	controllerAddress := "1.0.0.1"
 	sshJump := sshJump{
-		sshClient:            s.sshClient,
+		sshClient:            s.sshAPIJump,
 		controllersAddresses: []string{"1.0.0.1", "1.0.0.2"},
 		hostChecker: &fakeHostChecker{
 			acceptedAddresses: set.NewStrings("1.0.0.1"),

@@ -1,6 +1,10 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// This is the provider servicing the SSH jump implementation.
+// the connection is transparently proxied to the target machine
+// via the controller.
+
 package ssh
 
 import (
@@ -25,8 +29,8 @@ import (
 const jumpUser = "ubuntu"
 const finalDestinationUser = "ubuntu"
 
-// SSHAPIClientJump is an interface for the SSH API client used in the SSH jump provider.
-type SSHAPIClientJump interface {
+// SSHAPIJump is an interface for the SSH API client used in the SSH jump provider.
+type SSHAPIJump interface {
 	VirtualHostname(target string, container *string) (string, error)
 	PublicHostKeyForTarget(virtualHostname string) (params.PublicSSHHostKeyResult, error)
 	Close() error
@@ -41,7 +45,7 @@ type sshJump struct {
 	container              string
 	target                 string
 	args                   []string
-	sshClient              SSHAPIClientJump
+	sshClient              SSHAPIJump
 	controllerClient       SSHControllerAPI
 	hostChecker            jujussh.ReachableChecker
 	publicKeyRetryStrategy retry.CallArgs
@@ -131,8 +135,8 @@ func (p *sshJump) resolveTarget(target string) (*resolvedTarget, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	usable := network.NewMachineHostPorts(p.jumpHostPort, p.controllersAddresses...).HostPorts()
-	best, err := p.hostChecker.FindHost(usable, []string{string(hostKeys.JumpServerPublicKey)})
+	availableAddresses := network.NewMachineHostPorts(p.jumpHostPort, p.controllersAddresses...).HostPorts()
+	address, err := p.hostChecker.FindHost(availableAddresses, []string{string(hostKeys.JumpServerPublicKey)})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -141,7 +145,7 @@ func (p *sshJump) resolveTarget(target string) (*resolvedTarget, error) {
 		host: virtualHostname,
 		via: &resolvedTarget{
 			user: jumpUser,
-			host: best.Host(),
+			host: address.Host(),
 		},
 	}, nil
 }
@@ -169,7 +173,8 @@ func (p *sshJump) getKeysWithRetry(virtualHostname string) (params.PublicSSHHost
 	return hostKeysResult, nil
 }
 
-// maybePopulateTargetViaField populates the target using a provided function.
+// maybePopulateTargetViaField is here to satisfy the interface.
+// It is not implemented for the SSH jump provider.
 func (p *sshJump) maybePopulateTargetViaField(target *resolvedTarget, fetchStatus func(*client.StatusArgs) (*params.FullStatus, error)) error {
 	return errors.Errorf("not implemented for ssh jump provider.")
 }
