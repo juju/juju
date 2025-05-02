@@ -176,20 +176,13 @@ func (t *trackerWorker) loop() (err error) {
 
 	// Empty channels block forever, so we can just return them here, then
 	// the caller can ignore them.
-	var (
-		cloudChanges      <-chan struct{}
-		credentialChanges <-chan struct{}
-	)
+	var cloudSpecChanges <-chan struct{}
 
 	// Not every provider supports updating the cloud spec, we only want
 	// to get the cloud and credential watchers if the provider supports it.
 	cloudSpecSetter, ok := any(t.provider).(environs.CloudSpecSetter)
 	if ok {
-		cloudChanges, err = t.watchCloudChanges(ctx)
-		if err != nil {
-			return errors.Annotate(err, "watching cloud")
-		}
-		credentialChanges, err = t.watchCredentialChanges(ctx)
+		cloudSpecChanges, err = t.watchCloudSpecChanges(ctx)
 		if err != nil {
 			return errors.Annotate(err, "watching credential")
 		}
@@ -221,17 +214,7 @@ func (t *trackerWorker) loop() (err error) {
 				return errors.Annotate(err, "updating provider config")
 			}
 
-		case _, ok := <-cloudChanges:
-			if !ok {
-				return errors.New("cloud watch closed")
-			}
-			logger.Debugf(ctx, "reloading cloud")
-
-			if err := t.updateCloudSpec(ctx, cloudSpecSetter); err != nil {
-				return errors.Annotate(err, "updating cloud spec")
-			}
-
-		case _, ok := <-credentialChanges:
+		case _, ok := <-cloudSpecChanges:
 			if !ok {
 				return errors.New("credential watch closed")
 			}
@@ -260,30 +243,10 @@ func (t *trackerWorker) reportInternalState(state string) {
 	}
 }
 
-func (t *trackerWorker) watchCloudChanges(ctx context.Context) (<-chan struct{}, error) {
-	cloudWatcher, err := t.config.CloudService.WatchCloud(ctx, t.model.Cloud)
+func (t *trackerWorker) watchCloudSpecChanges(ctx context.Context) (<-chan struct{}, error) {
+	credentialWatcher, err := t.config.ModelService.WatchModelCloudCredential(ctx, t.model.UUID)
 	if err != nil {
-		return nil, errors.Annotate(err, "watching cloud")
-	}
-	if err := t.addNotifyWatcher(ctx, cloudWatcher); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return cloudWatcher.Changes(), nil
-}
-
-func (t *trackerWorker) watchCredentialChanges(ctx context.Context) (<-chan struct{}, error) {
-	credentialName := t.model.CredentialName
-	if credentialName == "" {
-		return nil, nil
-	}
-
-	credentialWatcher, err := t.config.CredentialService.WatchCredential(ctx, credential.Key{
-		Cloud: t.model.Cloud,
-		Owner: t.model.CredentialOwner,
-		Name:  t.model.CredentialName,
-	})
-	if err != nil {
-		return nil, errors.Annotate(err, "watching credential")
+		return nil, errors.Annotate(err, "watching model credential")
 	}
 	if err := t.addNotifyWatcher(ctx, credentialWatcher); err != nil {
 		return nil, errors.Trace(err)
