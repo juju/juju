@@ -11,19 +11,24 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/state"
 )
 
 type Backend interface {
-	ModelUUID() string
 	state.EntityFinder
 }
 
-func NewFacade(backend Backend, watcherRegistry facade.WatcherRegistry, authorizer facade.Authorizer) (*Facade, error) {
+func NewFacade(
+	modelUUID coremodel.UUID,
+	backend Backend,
+	watcherRegistry facade.WatcherRegistry,
+	authorizer facade.Authorizer,
+) (*Facade, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
-	expect := names.NewModelTag(backend.ModelUUID())
+	expect := names.NewModelTag(modelUUID.String())
 	getCanAccess := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			return tag == expect

@@ -14,16 +14,23 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/controller/lifeflag"
 	"github.com/juju/juju/core/life"
+	coremodel "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
 type FacadeSuite struct {
 	testing.IsolationSuite
 
+	modelUUID       coremodel.UUID
 	watcherRegistry *MockWatcherRegistry
 }
 
 var _ = gc.Suite(&FacadeSuite{})
+
+func (s *FacadeSuite) SetUpTest(c *gc.C) {
+	s.modelUUID = modeltesting.GenModelUUID(c)
+}
 
 func (s *FacadeSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
@@ -31,15 +38,15 @@ func (s *FacadeSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (*FacadeSuite) TestFacadeAuthFailure(c *gc.C) {
-	facade, err := lifeflag.NewFacade(nil, nil, auth(false))
+func (s *FacadeSuite) TestFacadeAuthFailure(c *gc.C) {
+	facade, err := lifeflag.NewFacade(s.modelUUID, nil, nil, auth(false))
 	c.Check(facade, gc.IsNil)
 	c.Check(err, gc.Equals, apiservererrors.ErrPerm)
 }
 
-func (*FacadeSuite) TestLifeBadEntity(c *gc.C) {
+func (s *FacadeSuite) TestLifeBadEntity(c *gc.C) {
 	backend := &mockBackend{}
-	facade, err := lifeflag.NewFacade(backend, nil, auth(true))
+	facade, err := lifeflag.NewFacade(s.modelUUID, backend, nil, auth(true))
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := facade.Life(context.Background(), entities("archibald snookums"))
@@ -53,9 +60,9 @@ func (*FacadeSuite) TestLifeBadEntity(c *gc.C) {
 	c.Check(result.Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (*FacadeSuite) TestLifeAuthFailure(c *gc.C) {
+func (s *FacadeSuite) TestLifeAuthFailure(c *gc.C) {
 	backend := &mockBackend{}
-	facade, err := lifeflag.NewFacade(backend, nil, auth(true))
+	facade, err := lifeflag.NewFacade(s.modelUUID, backend, nil, auth(true))
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := facade.Life(context.Background(), entities("unit-foo-1"))
@@ -66,9 +73,9 @@ func (*FacadeSuite) TestLifeAuthFailure(c *gc.C) {
 	c.Check(result.Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (*FacadeSuite) TestLifeNotFound(c *gc.C) {
+func (s *FacadeSuite) TestLifeNotFound(c *gc.C) {
 	backend := &mockBackend{}
-	facade, err := lifeflag.NewFacade(backend, nil, auth(true))
+	facade, err := lifeflag.NewFacade(s.modelUUID, backend, nil, auth(true))
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := facade.Life(context.Background(), modelEntity())
@@ -79,9 +86,9 @@ func (*FacadeSuite) TestLifeNotFound(c *gc.C) {
 	c.Check(result.Error, jc.Satisfies, params.IsCodeNotFound)
 }
 
-func (*FacadeSuite) TestLifeSuccess(c *gc.C) {
+func (s *FacadeSuite) TestLifeSuccess(c *gc.C) {
 	backend := &mockBackend{exist: true}
-	facade, err := lifeflag.NewFacade(backend, nil, auth(true))
+	facade, err := lifeflag.NewFacade(s.modelUUID, backend, nil, auth(true))
 	c.Check(err, jc.ErrorIsNil)
 
 	results, err := facade.Life(context.Background(), modelEntity())
@@ -91,9 +98,9 @@ func (*FacadeSuite) TestLifeSuccess(c *gc.C) {
 	})
 }
 
-func (*FacadeSuite) TestWatchBadEntity(c *gc.C) {
+func (s *FacadeSuite) TestWatchBadEntity(c *gc.C) {
 	backend := &mockBackend{}
-	facade, err := lifeflag.NewFacade(backend, nil, auth(true))
+	facade, err := lifeflag.NewFacade(s.modelUUID, backend, nil, auth(true))
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := facade.Watch(context.Background(), entities("archibald snookums"))
@@ -107,9 +114,9 @@ func (*FacadeSuite) TestWatchBadEntity(c *gc.C) {
 	c.Check(result.Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (*FacadeSuite) TestWatchAuthFailure(c *gc.C) {
+func (s *FacadeSuite) TestWatchAuthFailure(c *gc.C) {
 	backend := &mockBackend{}
-	facade, err := lifeflag.NewFacade(backend, nil, auth(true))
+	facade, err := lifeflag.NewFacade(s.modelUUID, backend, nil, auth(true))
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := facade.Watch(context.Background(), entities("unit-foo-1"))
@@ -120,9 +127,9 @@ func (*FacadeSuite) TestWatchAuthFailure(c *gc.C) {
 	c.Check(result.Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (*FacadeSuite) TestWatchNotFound(c *gc.C) {
+func (s *FacadeSuite) TestWatchNotFound(c *gc.C) {
 	backend := &mockBackend{}
-	facade, err := lifeflag.NewFacade(backend, nil, auth(true))
+	facade, err := lifeflag.NewFacade(s.modelUUID, backend, nil, auth(true))
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := facade.Watch(context.Background(), modelEntity())
@@ -137,7 +144,7 @@ func (s *FacadeSuite) TestWatchBadWatcher(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	backend := &mockBackend{exist: true}
-	facade, err := lifeflag.NewFacade(backend, s.watcherRegistry, auth(true))
+	facade, err := lifeflag.NewFacade(s.modelUUID, backend, s.watcherRegistry, auth(true))
 	c.Check(err, jc.ErrorIsNil)
 
 	results, err := facade.Watch(context.Background(), modelEntity())
@@ -153,7 +160,7 @@ func (s *FacadeSuite) TestWatchSuccess(c *gc.C) {
 
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
 	backend := &mockBackend{exist: true, watch: true}
-	facade, err := lifeflag.NewFacade(backend, s.watcherRegistry, auth(true))
+	facade, err := lifeflag.NewFacade(s.modelUUID, backend, s.watcherRegistry, auth(true))
 	c.Check(err, jc.ErrorIsNil)
 
 	results, err := facade.Watch(context.Background(), modelEntity())

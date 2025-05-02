@@ -34,10 +34,6 @@ type mockBackend struct {
 	watch bool
 }
 
-func (mock *mockBackend) ModelUUID() string {
-	return coretesting.ModelTag.Id()
-}
-
 func (mock *mockBackend) FindEntity(tag names.Tag) (state.Entity, error) {
 	if tag != coretesting.ModelTag {
 		panic("should never happen -- bad auth somewhere")
