@@ -59,7 +59,7 @@ func (s *trackerWorkerSuite) TestWorkerStartupWithCloudSpec(c *gc.C) {
 
 	// Ensure we can startup with the cloud spec setter and environ.
 
-	s.expectModel(c)
+	uuid := s.expectModel(c)
 	cfg := s.newCloudSpec(c)
 	s.expectCloudSpec(c, cfg)
 	s.expectConfigWatcher(c)
@@ -67,8 +67,7 @@ func (s *trackerWorkerSuite) TestWorkerStartupWithCloudSpec(c *gc.C) {
 	// Now we've got the cloud spec setter, we need to ensure we watch the
 	// cloud and credentials.
 
-	s.expectCloudWatcher(c)
-	s.expectCredentialWatcher(c)
+	s.expectModelCloudCredentialWatcher(c, uuid)
 
 	// We call InvalidateCredential in the mock setup
 	// to ensure it's wired up.
@@ -122,7 +121,7 @@ func (s *trackerWorkerSuite) TestWorkerCloudUpdatesEnviron(c *gc.C) {
 
 	// Ensure we can startup with a normal environ.
 
-	s.expectModel(c)
+	uuid := s.expectModel(c)
 	cfg := s.newCloudSpec(c)
 	s.expectCloudSpec(c, cfg)
 	s.expectConfigWatcher(c)
@@ -130,8 +129,7 @@ func (s *trackerWorkerSuite) TestWorkerCloudUpdatesEnviron(c *gc.C) {
 	// Now we've got the cloud spec setter, we need to ensure we watch the
 	// cloud and credentials.
 
-	ch := s.expectCloudWatcher(c)
-	s.expectCredentialWatcher(c)
+	ch := s.expectModelCloudCredentialWatcher(c, uuid)
 
 	// We call InvalidateCredential in the mock setup
 	// to ensure it's wired up.
@@ -163,7 +161,7 @@ func (s *trackerWorkerSuite) TestWorkerCredentialUpdatesEnviron(c *gc.C) {
 
 	// Ensure we can startup with a normal environ.
 
-	s.expectModel(c)
+	uuid := s.expectModel(c)
 	cfg := s.newCloudSpec(c)
 	s.expectCloudSpec(c, cfg)
 	s.expectConfigWatcher(c)
@@ -171,8 +169,7 @@ func (s *trackerWorkerSuite) TestWorkerCredentialUpdatesEnviron(c *gc.C) {
 	// Now we've got the cloud spec setter, we need to ensure we watch the
 	// cloud and credentials.
 
-	s.expectCloudWatcher(c)
-	ch := s.expectCredentialWatcher(c)
+	ch := s.expectModelCloudCredentialWatcher(c, uuid)
 
 	// We call InvalidateCredential in the mock setup
 	// to ensure it's wired up.
@@ -300,7 +297,7 @@ func (s *trackerWorkerSuite) expectConfigWatcher(c *gc.C) chan []string {
 	return ch
 }
 
-func (s *trackerWorkerSuite) expectCloudWatcher(c *gc.C) chan struct{} {
+func (s *trackerWorkerSuite) expectModelCloudCredentialWatcher(c *gc.C, uuid coremodel.UUID) chan struct{} {
 	ch := make(chan struct{})
 	// Seed the initial event.
 	go func() {
@@ -313,29 +310,7 @@ func (s *trackerWorkerSuite) expectCloudWatcher(c *gc.C) chan struct{} {
 
 	watcher := watchertest.NewMockNotifyWatcher(ch)
 
-	s.cloudService.EXPECT().WatchCloud(gomock.Any(), "cloud").Return(watcher, nil)
-
-	return ch
-}
-
-func (s *trackerWorkerSuite) expectCredentialWatcher(c *gc.C) chan struct{} {
-	ch := make(chan struct{})
-	// Seed the initial event.
-	go func() {
-		select {
-		case ch <- struct{}{}:
-		case <-time.After(testing.LongWait):
-			c.Fatalf("timed out seeding initial event")
-		}
-	}()
-
-	watcher := watchertest.NewMockNotifyWatcher(ch)
-
-	s.credentialService.EXPECT().WatchCredential(gomock.Any(), credential.Key{
-		Cloud: "cloud",
-		Owner: usertesting.GenNewName(c, "owner"),
-		Name:  "name",
-	}).Return(watcher, nil)
+	s.modelService.EXPECT().WatchModelCloudCredential(gomock.Any(), uuid).Return(watcher, nil)
 
 	return ch
 }

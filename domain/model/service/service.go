@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
-	corecloud "github.com/juju/juju/core/cloud"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/life"
@@ -51,6 +50,7 @@ type ModelTypeState interface {
 // State is the model state required by this service.
 type State interface {
 	ModelTypeState
+	ProviderControllerState
 
 	// CheckModelExists is a check that allows the caller to find out if a model
 	// exists and is active within the controller. True or false is returned
@@ -99,14 +99,6 @@ type State interface {
 	// for a model identified by the model uuid. If no model exists for the
 	// provided name and user a [modelerrors.NotFound] error is returned.
 	GetModelCloudNameAndCredential(context.Context, coremodel.UUID) (string, credential.Key, error)
-
-	// GetModelCloudAndCredential returns the cloud and credential UUID for the model.
-	// The following errors can be expected:
-	// - [modelerrors.NotFound] if the model is not found.
-	GetModelCloudAndCredential(
-		ctx context.Context,
-		modelUUID coremodel.UUID,
-	) (corecloud.UUID, credential.UUID, error)
 
 	// Delete removes a model and all of it's associated data from Juju.
 	Delete(context.Context, coremodel.UUID) error
@@ -748,12 +740,18 @@ func (s WatchableService) WatchModel(ctx context.Context, modelUUID coremodel.UU
 // The following errors can be expected:
 // - [modelerrors.NotFound] when the model is not found.
 func (s *WatchableService) WatchModelCloudCredential(ctx context.Context, modelUUID coremodel.UUID) (watcher.NotifyWatcher, error) {
+	return watchModelCloudCredential(ctx, s.st, s.watcherFactory, modelUUID)
+}
+
+func watchModelCloudCredential(
+	ctx context.Context, st ProviderControllerState, watcherFactory WatcherFactory, modelUUID coremodel.UUID,
+) (watcher.NotifyWatcher, error) {
 	if err := modelUUID.Validate(); err != nil {
 		return nil, errors.Errorf("invalid model UUID watching model cloud credential: %w", err)
 	}
 
 	// Get the model's cloud and credential UUID to use in the watcher filters.
-	cloudUUID, credentialUUID, err := s.st.GetModelCloudAndCredential(ctx, modelUUID)
+	cloudUUID, credentialUUID, err := st.GetModelCloudAndCredential(ctx, modelUUID)
 	if err != nil {
 		return nil, errors.Errorf("getting model cloud and credential: %w", err)
 	}
@@ -764,7 +762,7 @@ func (s *WatchableService) WatchModelCloudCredential(ctx context.Context, modelU
 	// The mapper is used to filter out any model events where the credential UUID has not changed.
 	mapper := func(ctx context.Context, txnRunner database.TxnRunner, events []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		// Get the current model credential UUID.
-		_, currentModelCredentialUUID, err := s.st.GetModelCloudAndCredential(ctx, modelUUID)
+		_, currentModelCredentialUUID, err := st.GetModelCloudAndCredential(ctx, modelUUID)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
@@ -790,7 +788,7 @@ func (s *WatchableService) WatchModelCloudCredential(ctx context.Context, modelU
 		return out, nil
 	}
 
-	result, err := s.watcherFactory.NewNotifyMapperWatcher(
+	result, err := watcherFactory.NewNotifyMapperWatcher(
 		mapper,
 		eventsource.PredicateFilter("model", changestream.Changed, eventsource.EqualsPredicate(modelUUID.String())),
 		eventsource.PredicateFilter("cloud", changestream.Changed, eventsource.EqualsPredicate(cloudUUID.String())),

@@ -36,14 +36,15 @@ type DomainServices interface {
 type ModelService interface {
 	// Model returns information for the current model.
 	Model(ctx context.Context) (model.ModelInfo, error)
+	// WatchModelCloudCredential returns a new NotifyWatcher watching for changes that
+	// result in the cloud spec for a model changing.
+	WatchModelCloudCredential(ctx context.Context, modelUUID model.UUID) (watcher.NotifyWatcher, error)
 }
 
 // CloudService represents the cloud service provided by the provider.
 type CloudService interface {
 	// Cloud returns the named cloud.
 	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
-	// WatchCloud returns a watcher that observes changes to the specified cloud.
-	WatchCloud(ctx context.Context, name string) (watcher.NotifyWatcher, error)
 }
 
 // ConfigService represents the config service provided by the provider.
@@ -60,9 +61,6 @@ type ConfigService interface {
 type CredentialService interface {
 	// CloudCredential returns the cloud credential for the given tag.
 	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
-	// WatchCredential returns a watcher that observes changes to the specified
-	// credential.
-	WatchCredential(ctx context.Context, key credential.Key) (watcher.NotifyWatcher, error)
 	// InvalidateCredential marks the cloud credential for the given key as invalid.
 	InvalidateCredential(ctx context.Context, key credential.Key, reason string) error
 }
