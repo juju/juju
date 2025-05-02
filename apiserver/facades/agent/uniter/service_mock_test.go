@@ -831,6 +831,84 @@ func (c *MockApplicationServiceWatchApplicationCall) DoAndReturn(f func(context.
 	return c
 }
 
+// WatchApplicationConfigHash mocks base method.
+func (m *MockApplicationService) WatchApplicationConfigHash(arg0 context.Context, arg1 string) (watcher.Watcher[[]string], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchApplicationConfigHash", arg0, arg1)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchApplicationConfigHash indicates an expected call of WatchApplicationConfigHash.
+func (mr *MockApplicationServiceMockRecorder) WatchApplicationConfigHash(arg0, arg1 any) *MockApplicationServiceWatchApplicationConfigHashCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplicationConfigHash", reflect.TypeOf((*MockApplicationService)(nil).WatchApplicationConfigHash), arg0, arg1)
+	return &MockApplicationServiceWatchApplicationConfigHashCall{Call: call}
+}
+
+// MockApplicationServiceWatchApplicationConfigHashCall wrap *gomock.Call
+type MockApplicationServiceWatchApplicationConfigHashCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceWatchApplicationConfigHashCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockApplicationServiceWatchApplicationConfigHashCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceWatchApplicationConfigHashCall) Do(f func(context.Context, string) (watcher.Watcher[[]string], error)) *MockApplicationServiceWatchApplicationConfigHashCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceWatchApplicationConfigHashCall) DoAndReturn(f func(context.Context, string) (watcher.Watcher[[]string], error)) *MockApplicationServiceWatchApplicationConfigHashCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// WatchUnitAddressesHash mocks base method.
+func (m *MockApplicationService) WatchUnitAddressesHash(arg0 context.Context, arg1 unit.Name) (watcher.Watcher[[]string], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchUnitAddressesHash", arg0, arg1)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchUnitAddressesHash indicates an expected call of WatchUnitAddressesHash.
+func (mr *MockApplicationServiceMockRecorder) WatchUnitAddressesHash(arg0, arg1 any) *MockApplicationServiceWatchUnitAddressesHashCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchUnitAddressesHash", reflect.TypeOf((*MockApplicationService)(nil).WatchUnitAddressesHash), arg0, arg1)
+	return &MockApplicationServiceWatchUnitAddressesHashCall{Call: call}
+}
+
+// MockApplicationServiceWatchUnitAddressesHashCall wrap *gomock.Call
+type MockApplicationServiceWatchUnitAddressesHashCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceWatchUnitAddressesHashCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockApplicationServiceWatchUnitAddressesHashCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceWatchUnitAddressesHashCall) Do(f func(context.Context, unit.Name) (watcher.Watcher[[]string], error)) *MockApplicationServiceWatchUnitAddressesHashCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceWatchUnitAddressesHashCall) DoAndReturn(f func(context.Context, unit.Name) (watcher.Watcher[[]string], error)) *MockApplicationServiceWatchUnitAddressesHashCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // WatchUnitForLegacyUniter mocks base method.
 func (m *MockApplicationService) WatchUnitForLegacyUniter(arg0 context.Context, arg1 unit.Name) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
