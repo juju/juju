@@ -1787,17 +1787,17 @@ WHERE  re.relation_uuid = $relationUUID.uuid
 // 1. The relation has scope container.
 // 2. The unit entering scope is a subordinate.
 // 3. The other application is not a subordinate.
-// Then the subordinate unit cannot enter a relation unless its principle
+// Then the subordinate unit cannot enter a relation unless its principal
 // application is the one in the relation. In this case, the error
 // [relationerrors.PotentialRelationUnitNotValid] is returned.
 //
 // The above scenario can happen when a subordinate application is deployed then
-// related to multiple principle applications. The units of the single
-// subordinate application can have different principle applications depending
+// related to multiple principal applications. The units of the single
+// subordinate application can have different principal applications depending
 // on which machine they are on. When the subordinate application is related to
-// a new principle application, watchers will trigger for all of its units, and
+// a new principal application, watchers will trigger for all of its units, and
 // they will all try to enter the relation scope. They should only succeed if
-// they are the units of the new principle application, otherwise the error is
+// they are the units of the new principal application, otherwise the error is
 // returned.
 func (st *State) checkSubordinateUnitCanEnterScope(
 	ctx context.Context,
@@ -1824,15 +1824,15 @@ func (st *State) checkSubordinateUnitCanEnterScope(
 		return nil
 	}
 
-	// Check that the principle application of the unit is the other application
+	// Check that the principal application of the unit is the other application
 	// in the relation the unit is trying to enter scope in.
-	principleAppID, err := st.getPrincipalApplicationOfUnit(ctx, tx, unitUUID)
+	principalAppID, err := st.getPrincipalApplicationOfUnit(ctx, tx, unitUUID)
 	if err != nil {
 		return errors.Errorf("getting principal application of unit: %w", err)
 	}
-	if principleAppID != otherApplication {
+	if principalAppID != otherApplication {
 		return errors.Errorf(
-			"unit cannot enter scope: principle application not in relation: %w",
+			"unit cannot enter scope: principal application not in relation: %w",
 			relationerrors.PotentialRelationUnitNotValid,
 		)
 	}
@@ -1923,8 +1923,8 @@ WHERE  a.uuid = $getSubordinate.application_uuid
 	return subordinate.Subordinate, nil
 }
 
-// getPrincipalApplicationOfUnit returns the UUID of the principle application
-// of a unit. If the unit has no principle application, then the error
+// getPrincipalApplicationOfUnit returns the UUID of the principal application
+// of a unit. If the unit has no principal application, then the error
 // [relationerrors.UnitPrincipalNotFound] is returned (this means the error is
 // always returned when the unit is not a subordinate).
 func (st *State) getPrincipalApplicationOfUnit(
@@ -2670,7 +2670,7 @@ func (st *State) GetPrincipalSubordinateApplicationIDs(
 		return "", "", errors.Capture(err)
 	}
 
-	var principleAppID, subordinateAppID application.ID
+	var principalAppID, subordinateAppID application.ID
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if alive, err := st.checkLife(ctx, tx, "unit", unitUUID.String(), life.IsAlive); err != nil {
@@ -2679,7 +2679,7 @@ func (st *State) GetPrincipalSubordinateApplicationIDs(
 			return errors.Errorf("unit %s is not alive", unitUUID).Add(relationerrors.UnitNotAlive)
 		}
 		var principalUnit bool
-		principleAppID, err = st.getPrincipalApplicationOfUnit(ctx, tx, unitUUID)
+		principalAppID, err = st.getPrincipalApplicationOfUnit(ctx, tx, unitUUID)
 		if errors.Is(err, relationerrors.UnitPrincipalNotFound) {
 			principalUnit = true
 		} else if err != nil {
@@ -2692,13 +2692,13 @@ func (st *State) GetPrincipalSubordinateApplicationIDs(
 		}
 
 		if principalUnit {
-			principleAppID = unitApplicationID
+			principalAppID = unitApplicationID
 		} else {
 			subordinateAppID = unitApplicationID
 		}
 		return err
 	})
-	return principleAppID, subordinateAppID, errors.Capture(err)
+	return principalAppID, subordinateAppID, errors.Capture(err)
 }
 
 // InitialWatchLifeSuspendedStatus returns the two tables to watch for

@@ -1852,7 +1852,7 @@ func (s *relationSuite) TestEnterScopeIdempotent(c *gc.C) {
 }
 
 // TestEnterScopeSubordinate checks that a subordinate unit can enter scope to
-// with its principle application.
+// with its principal application.
 func (s *relationSuite) TestEnterScopeSubordinate(c *gc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
 	s.addCharmMetadata(c, s.fakeCharmUUID1, true)
@@ -1948,7 +1948,7 @@ func (s *relationSuite) TestEnterScopePotentialRelationUnitNotValidSubordinate(c
 	s.setUnitSubordinate(c, unitUUID1, unitUUID2)
 
 	// Arrange: Add application 3 which is an instance of charm 2, so also
-	// a principle,
+	// a principal,
 	applicationName3 := "application-name-3"
 	applicationUUID3 := s.addApplication(c, s.fakeCharmUUID2, applicationName3)
 
