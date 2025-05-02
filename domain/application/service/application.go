@@ -319,6 +319,10 @@ type ApplicationState interface {
 	// third is the namespace for the unit's resolved mode.
 	NamespaceForWatchUnitForLegacyUniter() (string, string, string)
 
+	// NamespaceForWatchNetNodeAddress returns the namespace identifier for
+	// net node address changes, which is the ip_address table.
+	NamespaceForWatchNetNodeAddress() string
+
 	// GetExposedEndpoints returns map where keys are endpoint names (or the ""
 	// value which represents all endpoints) and values are ExposedEndpoint
 	// instances that specify which sources (spaces or CIDRs) can access the

@@ -154,6 +154,15 @@ type UnitState interface {
 
 	// GetUnitWorkloadVersion returns the workload version for the given unit.
 	GetUnitWorkloadVersion(ctx context.Context, unitName coreunit.Name) (string, error)
+
+	// GetUnitNetNodes returns the net node UUIDs associated with the specified
+	// unit. The net nodes are selected in the same way as in GetUnitAddresses, i.e.
+	// the union of the net nodes of the cloud service (if any) and the net node
+	// of the unit.
+	//
+	// The following errors may be returned:
+	// - [uniterrors.UnitNotFound] if the unit does not exist
+	GetUnitNetNodes(ctx context.Context, uuid coreunit.UUID) ([]string, error)
 }
 
 func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg, constraints constraints.Constraints) ([]application.AddUnitArg, error) {
@@ -611,4 +620,24 @@ func (s *Service) GetUnitPrivateAddress(ctx context.Context, unitName coreunit.N
 	sort.Slice(matchedAddrs, matchedAddrs.Less)
 
 	return matchedAddrs[0], nil
+}
+
+// GetUnitNetNodes returns the net node UUIDs associated with the specified
+// unit. The net nodes are selected in the same way as in GetUnitAddresses, i.e.
+// the union of the net nodes of the cloud service (if any) and the net node
+// of the unit.
+//
+// The following errors may be returned:
+// - [uniterrors.UnitNotFound] if the unit does not exist
+func (s *Service) GetUnitNetNodes(ctx context.Context, unitName coreunit.Name) ([]string, error) {
+	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	netNodeUUIDs, err := s.st.GetUnitNetNodes(ctx, unitUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return netNodeUUIDs, nil
 }
