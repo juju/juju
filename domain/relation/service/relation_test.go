@@ -1347,6 +1347,22 @@ func (s *relationServiceSuite) TestExportRelationsStateError(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, boom)
 }
 
+func (s *relationServiceSuite) TestIsPeerRelation(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange:
+	boom := errors.New("boom")
+	relUUID := corerelationtesting.GenRelationUUID(c)
+	s.state.EXPECT().IsPeerRelation(gomock.Any(), relUUID).Return(true, boom)
+
+	// Act: test that IsPeerRelation calls thru to state
+	// and returns any error received.
+	obtained, err := s.service.IsPeerRelation(context.Background(), relUUID)
+
+	// Assert:
+	c.Check(err, jc.ErrorIs, boom)
+	c.Check(obtained, jc.IsTrue)
+}
+
 func (s *relationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

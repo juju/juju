@@ -266,6 +266,13 @@ type State interface {
 	// the provided application and the initial namespace query.
 	InitialWatchLifeSuspendedStatus(id application.ID) (string, string, eventsource.NamespaceQuery)
 
+	// IsPeerRelation returns a boolean to indicate if the given
+	// relation UUID is for a peer relation.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.RelationNotFound] if the relation cannot be found.
+	IsPeerRelation(ctx context.Context, relationUUID corerelation.UUID) (bool, error)
+
 	// LeaveScope updates the given relation to indicate it is not in scope.
 	//
 	// The following error types can be expected to be returned:
@@ -944,6 +951,12 @@ func (s *Service) GetRelationApplicationSettings(
 // relation UUID is suspended.
 func (s *Service) IsRelationSuspended(ctx context.Context, relationUUID corerelation.UUID) bool {
 	return false
+}
+
+// IsPeerRelation returns a boolean to indicate if the given
+// relation UUID is for a peer relation.
+func (s *Service) IsPeerRelation(ctx context.Context, relationUUID corerelation.UUID) (bool, error) {
+	return s.st.IsPeerRelation(ctx, relationUUID)
 }
 
 // LeaveScope updates the given relation to indicate it is not in scope.

@@ -1333,6 +1333,44 @@ AND    re.relation_uuid = $getRelationUnit.relation_uuid`, args)
 	return args.RelationUnitUUID, args.UnitUUID, nil
 }
 
+// IsPeerRelation returns a boolean to indicate if the given
+// relation UUID is for a peer relation.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] if the relation cannot be found.
+func (st *State) IsPeerRelation(ctx context.Context, relUUID corerelation.UUID) (bool, error) {
+	db, err := st.DB()
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	countStmt, err := st.Prepare(`
+SELECT count(*) AS &rows.count
+FROM   relation_endpoint
+WHERE  relation_uuid = $relationUUID.uuid`, rows{}, relationUUID{})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	var found rows
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err = tx.Query(ctx, countStmt, relationUUID{UUID: relUUID}).Get(&found); err != nil {
+			return errors.Errorf("querying relation endpoints for uuid %q: %w", relUUID, err)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	if found.Count == 0 {
+		err = relationerrors.RelationNotFound
+	}
+
+	return found.Count == 1, err
+}
+
 // EnterScope indicates that the provided unit has joined the relation.
 //
 // The following error types can be expected to be returned:
@@ -3008,17 +3046,15 @@ WHERE  uuid = $search.uuid
 // checkEndpointCapacity validates whether adding a new relation to the given
 // endpoint exceeds its defined capacity limit.
 func (st *State) checkEndpointCapacity(ctx context.Context, tx *sqlair.TX, ep Endpoint) error {
-	type related struct {
-		Count int `db:"count"`
-	}
+
 	countStmt, err := st.Prepare(`
-SELECT count(*) AS &related.count
+SELECT count(*) AS &rows.count
 FROM   relation_endpoint
-WHERE  endpoint_uuid = $Endpoint.application_endpoint_uuid`, related{}, ep)
+WHERE  endpoint_uuid = $Endpoint.application_endpoint_uuid`, rows{}, ep)
 	if err != nil {
 		return errors.Capture(err)
 	}
-	var found related
+	var found rows
 	if err = tx.Query(ctx, countStmt, ep).Get(&found); err != nil {
 		return errors.Errorf("querying relation linked to endpoint %q: %w", ep, err)
 	}

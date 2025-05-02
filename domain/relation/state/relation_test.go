@@ -4026,6 +4026,78 @@ func (s *relationSuite) TestExportRelations(c *gc.C) {
 	}})
 }
 
+func (s *relationSuite) TestIsPeerRelation(c *gc.C) {
+	// Arrange: add peer relation.
+	peerEndpoint := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-3",
+			Role:      charm.RolePeer,
+			Interface: "peer",
+			Scope:     charm.ScopeContainer,
+		},
+	}
+	charmRelationUUID3 := s.addCharmRelation(c, s.fakeCharmUUID1, peerEndpoint.Relation)
+	applicationEndpointUUID3 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID3)
+	peerRelationUUID := s.addRelation(c)
+	_ = s.addRelationEndpoint(c, peerRelationUUID, applicationEndpointUUID3)
+
+	// Act
+	obtained, err := s.state.IsPeerRelation(context.Background(), peerRelationUUID)
+
+	// Assert
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(obtained, jc.IsTrue)
+}
+
+func (s *relationSuite) TestIsPeerRelationNotPeer(c *gc.C) {
+	// Arrange: add application endpoints for the 2 default applications.
+	appEndpoint1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, s.fakeCharmRelationProvidesUUID)
+	charm2RelationUUID := s.addCharmRelationWithDefaults(c, s.fakeCharmUUID2)
+	appEndpoint2 := s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charm2RelationUUID)
+
+	// Add a third application with 2 units, this is the one tested.
+	charm3 := s.addCharm(c)
+	appName3 := "three"
+	app3 := s.addApplication(c, charm3, appName3)
+	relationName3 := "relation"
+	charm3RelationUUID := s.addCharmRelation(c, charm3, charm.Relation{
+		Name:  relationName3,
+		Role:  charm.RoleRequirer,
+		Scope: charm.ScopeGlobal,
+	})
+	appEndpoint3 := s.addApplicationEndpoint(c, app3, charm3RelationUUID)
+
+	// Relate applications 1 and 3.
+	relUUID1 := s.addRelation(c)
+	_ = s.addRelationEndpoint(c, relUUID1, appEndpoint1)
+	_ = s.addRelationEndpoint(c, relUUID1, appEndpoint3)
+
+	// Relate applications 2 and 3.
+	relUUID2 := s.addRelation(c)
+	_ = s.addRelationEndpoint(c, relUUID2, appEndpoint2)
+	_ = s.addRelationEndpoint(c, relUUID2, appEndpoint3)
+
+	// Act
+	obtained, err := s.state.IsPeerRelation(context.Background(), relUUID1)
+
+	// Assert
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(obtained, jc.IsFalse)
+}
+
+func (s *relationSuite) TestIsPeerRelationNotFound(c *gc.C) {
+	// Arrange
+	relUUID := corerelationtesting.GenRelationUUID(c)
+
+	// Act
+	obtained, err := s.state.IsPeerRelation(context.Background(), relUUID)
+
+	// Assert
+	c.Check(err, jc.ErrorIs, relationerrors.RelationNotFound)
+	c.Check(obtained, jc.IsFalse)
+}
+
 // addRelationUnitSetting inserts a relation unit setting into the database
 // using the provided relationUnitUUID.
 func (s *relationSuite) addRelationUnitSetting(c *gc.C, relationUnitUUID corerelation.UnitUUID, key, value string) {

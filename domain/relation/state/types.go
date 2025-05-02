@@ -309,3 +309,8 @@ type applicationIDAndName struct {
 	ID   application.ID `db:"uuid"`
 	Name string         `db:"name"`
 }
+
+// rows is used to count the number of rows found.
+type rows struct {
+	Count int `db:"count"`
+}
