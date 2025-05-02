@@ -5,7 +5,6 @@ package storage
 
 var (
 	EnsureStoragePoolFilter = (*StorageAPI).ensureStoragePoolFilter
-	NewStorageAPIForTest    = NewStorageAPI
 )
 
 type (

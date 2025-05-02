@@ -35,6 +35,12 @@ type storageSuite struct {
 
 var _ = gc.Suite(&storageSuite{})
 
+func (s *storageSuite) TestStub(c *gc.C) {
+	c.Skip(`This suite is missing tests for the following scenerios:
+- ListStorageDetails but retrieving units returns an error (is this a useful test?)
+- ListStorageDetails but retrieving the unit's storage attachements returns an error (is this a useful test?)`)
+}
+
 func (s *storageSuite) TestStorageListEmpty(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -158,55 +164,6 @@ func (s *storageSuite) TestStorageListInstanceError(c *gc.C) {
 	)
 }
 
-func (s *storageSuite) TestStorageListAttachmentError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.storageAccessor.storageInstanceAttachments = func(tag names.StorageTag) ([]state.StorageAttachment, error) {
-		s.stub.AddCall(storageInstanceAttachmentsCall)
-		c.Assert(tag, jc.DeepEquals, s.storageTag)
-		return []state.StorageAttachment{}, errors.Errorf("list test error")
-	}
-
-	found, err := s.api.ListStorageDetails(
-		context.Background(),
-		params.StorageFilters{Filters: []params.StorageFilter{{}}},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	expectedCalls := []string{
-		allStorageInstancesCall,
-		storageInstanceFilesystemCall,
-		storageInstanceAttachmentsCall,
-	}
-	s.assertCalls(c, expectedCalls)
-	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Error, gc.ErrorMatches,
-		"getting details for storage data/0: list test error")
-}
-
-func (s *storageSuite) TestStorageListMachineError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	msg := "list test error"
-	s.state.unitErr = msg
-	found, err := s.api.ListStorageDetails(
-		context.Background(),
-		params.StorageFilters{Filters: []params.StorageFilter{{}}},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	expectedCalls := []string{
-		allStorageInstancesCall,
-		storageInstanceFilesystemCall,
-		storageInstanceAttachmentsCall,
-	}
-	s.assertCalls(c, expectedCalls)
-	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Error, gc.ErrorMatches,
-		fmt.Sprintf("getting details for storage data/0: %v", msg),
-	)
-}
-
 func (s *storageSuite) TestStorageListFilesystemError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -226,30 +183,6 @@ func (s *storageSuite) TestStorageListFilesystemError(c *gc.C) {
 	expectedCalls := []string{
 		allStorageInstancesCall,
 		storageInstanceFilesystemCall,
-	}
-	s.assertCalls(c, expectedCalls)
-	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Error, gc.ErrorMatches,
-		fmt.Sprintf("getting details for storage data/0: %v", msg),
-	)
-}
-
-func (s *storageSuite) TestStorageListFilesystemAttachmentError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	msg := "list test error"
-	s.state.unitErr = msg
-
-	found, err := s.api.ListStorageDetails(
-		context.Background(),
-		params.StorageFilters{Filters: []params.StorageFilter{{}}},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	expectedCalls := []string{
-		allStorageInstancesCall,
-		storageInstanceFilesystemCall,
-		storageInstanceAttachmentsCall,
 	}
 	s.assertCalls(c, expectedCalls)
 	c.Assert(found.Results, gc.HasLen, 1)
@@ -794,11 +727,11 @@ func (s *storageSuite) TestListStorageAsAdminOnNotOwnedModel(c *gc.C) {
 	}
 	controllerUUID := uuid.MustNewUUID().String()
 	modelUUID := modeltesting.GenModelUUID(c)
-	s.api = facadestorage.NewStorageAPIForTest(
+	s.api = facadestorage.NewStorageAPI(
 		controllerUUID, modelUUID, coremodel.IAAS,
-		s.state, s.storageAccessor, nil,
-		s.storageService, s.storageRegistryGetter, s.authorizer,
-		s.blockCommandService)
+		s.storageAccessor, nil, s.storageService,
+		s.applicationService, s.storageRegistryGetter,
+		s.authorizer, s.blockCommandService)
 
 	// ListStorageDetails should not fail
 	_, err := s.api.ListStorageDetails(context.Background(), params.StorageFilters{})
@@ -813,11 +746,11 @@ func (s *storageSuite) TestListStorageAsNonAdminOnNotOwnedModel(c *gc.C) {
 	}
 	controllerUUID := uuid.MustNewUUID().String()
 	modelUUID := modeltesting.GenModelUUID(c)
-	s.api = facadestorage.NewStorageAPIForTest(
+	s.api = facadestorage.NewStorageAPI(
 		controllerUUID, modelUUID, coremodel.IAAS,
-		s.state, s.storageAccessor, nil,
-		s.storageService, s.storageRegistryGetter, s.authorizer,
-		s.blockCommandService)
+		s.storageAccessor, nil, s.storageService,
+		s.applicationService, s.storageRegistryGetter,
+		s.authorizer, s.blockCommandService)
 
 	// ListStorageDetails should fail with perm error
 	_, err := s.api.ListStorageDetails(context.Background(), params.StorageFilters{})

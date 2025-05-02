@@ -142,6 +142,7 @@ func (s *volumeSuite) TestListVolumesVolumeInfo(c *gc.C) {
 	found, err := s.api.ListVolumes(context.Background(), params.VolumeFilters{[]params.VolumeFilter{{}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
+	c.Assert(found.Results[0].Error, gc.IsNil)
 	c.Assert(found.Results[0].Result, gc.HasLen, 1)
 	c.Assert(found.Results[0].Result[0], jc.DeepEquals, expected)
 }
@@ -153,7 +154,6 @@ func (s *volumeSuite) TestListVolumesAttachmentInfo(c *gc.C) {
 		DeviceName: "xvdf1",
 		ReadOnly:   true,
 	}
-	s.state.assignedMachine = s.machineTag.Id()
 	expected := s.expectedVolumeDetails()
 	expected.MachineAttachments[s.machineTag.String()] = params.VolumeAttachmentDetails{
 		VolumeAttachmentInfo: params.VolumeAttachmentInfo{

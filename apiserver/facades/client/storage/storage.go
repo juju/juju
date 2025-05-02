@@ -16,12 +16,15 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/unit"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	"github.com/juju/juju/environs/tags"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -36,14 +39,19 @@ type StorageService interface {
 	GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error)
 }
 
+// ApplicationService defines apis on the application service.
+type ApplicationService interface {
+	GetUnitMachineName(ctx context.Context, unitName unit.Name) (machine.Name, error)
+}
+
 type storageRegistryGetter func(context.Context) (storage.ProviderRegistry, error)
 
 // StorageAPI implements the latest version (v6) of the Storage API.
 type StorageAPI struct {
-	backend               backend
 	storageAccess         storageAccess
 	blockDeviceGetter     blockDeviceGetter
 	storageService        StorageService
+	applicationService    ApplicationService
 	storageRegistryGetter storageRegistryGetter
 	authorizer            facade.Authorizer
 	blockCommandService   common.BlockCommandService
@@ -57,10 +65,10 @@ func NewStorageAPI(
 	controllerUUID string,
 	modelUUID coremodel.UUID,
 	modelType coremodel.ModelType,
-	backend backend,
 	storageAccess storageAccess,
 	blockDeviceGetter blockDeviceGetter,
 	storageService StorageService,
+	applicationService ApplicationService,
 	storageRegistryGetter storageRegistryGetter,
 	authorizer facade.Authorizer,
 	blockCommandService common.BlockCommandService,
@@ -68,11 +76,11 @@ func NewStorageAPI(
 	return &StorageAPI{
 		controllerUUID:        controllerUUID,
 		modelUUID:             modelUUID,
-		backend:               backend,
 		modelType:             modelType,
 		storageAccess:         storageAccess,
 		blockDeviceGetter:     blockDeviceGetter,
 		storageService:        storageService,
+		applicationService:    applicationService,
 		storageRegistryGetter: storageRegistryGetter,
 		authorizer:            authorizer,
 		blockCommandService:   blockCommandService,
@@ -253,6 +261,7 @@ func (a *StorageAPI) ListVolumes(ctx context.Context, filters params.VolumeFilte
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
+
 		details, err := a.createVolumeDetailsList(ctx, volumes, volumeAttachments)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
@@ -796,14 +805,14 @@ func (a *StorageAPI) UpdatePool(ctx context.Context, p params.StoragePoolArgs) (
 // unitAssignedMachine returns the tag of the machine that the unit
 // is assigned to, or an error if the unit cannot be obtained or is
 // not assigned to a machine.
-func (a *StorageAPI) unitAssignedMachine(tag names.UnitTag) (names.MachineTag, error) {
-	unit, err := a.backend.Unit(tag.Id())
+func (a *StorageAPI) unitAssignedMachine(ctx context.Context, tag names.UnitTag) (names.MachineTag, error) {
+	unitName, err := unit.NewName(tag.Id())
 	if err != nil {
 		return names.MachineTag{}, errors.Trace(err)
 	}
-	mid, err := unit.AssignedMachineId()
+	machineName, err := a.applicationService.GetUnitMachineName(ctx, unitName)
 	if err != nil {
-		return names.MachineTag{}, errors.Trace(err)
+		return names.MachineTag{}, internalerrors.Errorf("getting machine name for unit %v: %w", unitName, err)
 	}
-	return names.NewMachineTag(mid), nil
+	return names.NewMachineTag(machineName.String()), nil
 }

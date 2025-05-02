@@ -1312,7 +1312,7 @@ func (c *statusContext) processApplicationRelations(
 	return related, subordSet.SortedValues(), nil
 }
 
-func (c *statusContext) unitToMachine(unitTag names.UnitTag) (names.MachineTag, error) {
+func (c *statusContext) unitToMachine(ctx context.Context, unitTag names.UnitTag) (names.MachineTag, error) {
 	unit, ok := c.unitByName(coreunit.Name(unitTag.Id()))
 	if !ok || unit.MachineName == nil {
 		return names.MachineTag{}, internalerrors.Errorf("unit %v: %w", unitTag, errors.NotFound)

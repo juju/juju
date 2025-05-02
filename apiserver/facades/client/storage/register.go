@@ -22,10 +22,8 @@ func Register(registry facade.FacadeRegistry) {
 
 // newStorageAPI returns a new storage API facade.
 func newStorageAPI(stdCtx context.Context, ctx facade.ModelContext) (*StorageAPI, error) {
-	st := ctx.State()
-
 	domainServices := ctx.DomainServices()
-	storageAccessor, err := getStorageAccessor(st)
+	storageAccessor, err := getStorageAccessor(ctx.State())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting backend")
 	}
@@ -45,8 +43,11 @@ func newStorageAPI(stdCtx context.Context, ctx facade.ModelContext) (*StorageAPI
 		ctx.ControllerUUID(),
 		ctx.ModelUUID(),
 		modelInfo.Type,
-		stateShim{st},
-		storageAccessor, domainServices.BlockDevice(), storageService,
-		storageService.GetStorageRegistry, authorizer,
+		storageAccessor,
+		domainServices.BlockDevice(),
+		storageService,
+		domainServices.Application(),
+		storageService.GetStorageRegistry,
+		authorizer,
 		domainServices.BlockCommand()), nil
 }

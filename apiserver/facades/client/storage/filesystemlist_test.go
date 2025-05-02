@@ -141,7 +141,6 @@ func (s *filesystemSuite) TestListFilesystemsAttachmentInfo(c *gc.C) {
 		MountPoint: "/tmp",
 		ReadOnly:   true,
 	}
-	s.state.assignedMachine = s.machineTag.Id()
 	expected := s.expectedFilesystemDetails()
 	expected.MachineAttachments[s.machineTag.String()] = params.FilesystemAttachmentDetails{
 		FilesystemAttachmentInfo: params.FilesystemAttachmentInfo{
