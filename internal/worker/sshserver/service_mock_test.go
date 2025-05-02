@@ -504,6 +504,44 @@ func (c *MockProxyHandlersDirectTCPIPHandlerCall) DoAndReturn(f func() ssh.Chann
 	return c
 }
 
+// SFTPHandler mocks base method.
+func (m *MockProxyHandlers) SFTPHandler() ssh.SubsystemHandler {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SFTPHandler")
+	ret0, _ := ret[0].(ssh.SubsystemHandler)
+	return ret0
+}
+
+// SFTPHandler indicates an expected call of SFTPHandler.
+func (mr *MockProxyHandlersMockRecorder) SFTPHandler() *MockProxyHandlersSFTPHandlerCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SFTPHandler", reflect.TypeOf((*MockProxyHandlers)(nil).SFTPHandler))
+	return &MockProxyHandlersSFTPHandlerCall{Call: call}
+}
+
+// MockProxyHandlersSFTPHandlerCall wrap *gomock.Call
+type MockProxyHandlersSFTPHandlerCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockProxyHandlersSFTPHandlerCall) Return(arg0 ssh.SubsystemHandler) *MockProxyHandlersSFTPHandlerCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockProxyHandlersSFTPHandlerCall) Do(f func() ssh.SubsystemHandler) *MockProxyHandlersSFTPHandlerCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockProxyHandlersSFTPHandlerCall) DoAndReturn(f func() ssh.SubsystemHandler) *MockProxyHandlersSFTPHandlerCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SessionHandler mocks base method.
 func (m *MockProxyHandlers) SessionHandler(arg0 ssh.Session) {
 	m.ctrl.T.Helper()

@@ -10,8 +10,8 @@ import (
 
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/core/virtualhostname"
-	"github.com/juju/juju/internal/worker/sshserver/k8s"
-	"github.com/juju/juju/internal/worker/sshserver/machine"
+	"github.com/juju/juju/internal/worker/sshserver/handlers/k8s"
+	"github.com/juju/juju/internal/worker/sshserver/handlers/machine"
 )
 
 type proxyFactory struct {

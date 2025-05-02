@@ -202,11 +202,13 @@ func (w *sshSessionWorker) pipeConnectionToSSHD(ctx context.Context, ctrlAddress
 	if err != nil {
 		return errors.Trace(err)
 	}
-	wg := sync.WaitGroup{}
-	wg.Add(2)
-	// We make sure to close the connections when the context is done.
+
+	// We close the connections when the context is done
+	// or, if the connections finish first, we signal the
+	// routine to exit with the done channel.
 	doneChan := make(chan struct{})
 	defer close(doneChan)
+
 	go func() {
 		select {
 		case <-ctx.Done():
@@ -215,6 +217,9 @@ func (w *sshSessionWorker) pipeConnectionToSSHD(ctx context.Context, ctrlAddress
 		case <-doneChan:
 		}
 	}()
+
+	wg := sync.WaitGroup{}
+	wg.Add(2)
 
 	go func() {
 		defer wg.Done()
