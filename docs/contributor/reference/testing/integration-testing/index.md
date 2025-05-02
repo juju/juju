@@ -8,7 +8,7 @@
 *
 ```
 
-> See also: [How to write a integration test](/doc/dev/how-to/write-an-integration-test.md)
+> See also: {ref}`write-an-integration-test`
 
 Integration testing `juju` currently relies on a series of custom-made `bash` scripts. All these scripts live
 in [test folder](/tests). This directory includes two subdirectories, one containing

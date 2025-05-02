@@ -122,9 +122,9 @@ The mongodb databases run on machines we refer to as *controllers*, and are only
 accessed by agents running on those machines; it's important to keep it locked down
 (and, honestly, to lock it down further and better than we currently have).
 
-There's some documentation on how to work with [the state package](hacking-state.md);
-and plenty more on the [state entities](lifecycles.md) and the details of their
-[creation](entity-creation.md) and [destruction](death-and-destruction.md) from various
+There's some documentation on how to work with the state package;
+and plenty more on the [state entities](#entity-lifecycle) and the details of their
+[creation](#entity-creation) and [destruction](#entity-death-and-destruction) from various
 perspectives; but there's not a lot more to say in this context.
 
 It *is* important to understand that the transaction-log watching is not an ideal
