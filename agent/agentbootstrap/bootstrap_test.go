@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/model"
+	coremodel "github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	jujuversion "github.com/juju/juju/core/version"
 	domainconstraints "github.com/juju/juju/domain/constraints"
@@ -52,6 +52,7 @@ var _ = gc.Suite(&bootstrapSuite{})
 
 func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+
 	// Don't use MgoSuite, because we need to ensure
 	// we have a fresh mongo for each test case.
 	s.mgoInst.EnableAuth = true
@@ -63,6 +64,19 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 func (s *bootstrapSuite) TearDownTest(c *gc.C) {
 	s.mgoInst.Destroy()
 	s.BaseSuite.TearDownTest(c)
+}
+
+func getModelAssertion(c *gc.C, modelUUID coremodel.UUID) database.BootstrapOpt {
+	return func(ctx context.Context, controller, model coredatabase.TxnRunner) error {
+		modelState := modelstate.NewModelState(func() (coredatabase.TxnRunner, error) {
+			return model, nil
+		}, loggertesting.WrapCheckLog(c))
+
+		info, err := modelState.GetModel(ctx)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(info.UUID, gc.Equals, modelUUID)
+		return nil
+	}
 }
 
 func getModelConstraintAssertion(c *gc.C, cons constraints.Value) database.BootstrapOpt {
@@ -136,6 +150,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	modelCfg, err := config.New(config.NoDefaults, modelAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	controllerCfg := testing.FakeControllerConfig()
+	controllerModelUUID := coremodel.UUID(modelCfg.UUID())
 
 	controllerInheritedConfig := map[string]interface{}{
 		"apt-mirror": "http://mirror",
@@ -182,10 +197,11 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 			StateInitializationParams: stateInitParams,
 			MongoDialOpts:             mongotest.DialOpts(),
 			BootstrapMachineAddresses: initialAddrs,
-			BootstrapMachineJobs:      []model.MachineJob{model.JobManageModel},
+			BootstrapMachineJobs:      []coremodel.MachineJob{coremodel.JobManageModel},
 			SharedSecret:              "abc123",
 			StorageProviderRegistry:   registry,
 			BootstrapDqlite: getBootstrapDqliteWithDummyCloudTypeWithAssertions(c,
+				getModelAssertion(c, controllerModelUUID),
 				getModelConstraintAssertion(c, expectModelConstraints),
 			),
 			Provider: func(t string) (environs.EnvironProvider, error) {
@@ -206,21 +222,10 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	err = cfg.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Check that the model has been set up.
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(model.UUID(), gc.Equals, modelCfg.UUID())
-	c.Check(model.EnvironVersion(), gc.Equals, 666)
-
 	// Check that initial admin user has been set up correctly.
-	modelTag := model.Tag().(names.ModelTag)
+	modelTag := names.NewModelTag(controllerModelUUID.String())
 	controllerTag := names.NewControllerTag(controllerCfg.ControllerUUID())
 	s.assertCanLogInAsAdmin(c, modelTag, controllerTag, testing.DefaultMongoPassword)
-
-	// Check that controller model configuration has been added, and
-	// model constraints set.
-	model, err = st.Model()
-	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the bootstrap machine looks correct.
 	m, err := st.Machine("0")
@@ -357,7 +362,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 			AdminUser:                 adminUser,
 			StateInitializationParams: args,
 			MongoDialOpts:             mongotest.DialOpts(),
-			BootstrapMachineJobs:      []model.MachineJob{model.JobManageModel},
+			BootstrapMachineJobs:      []coremodel.MachineJob{coremodel.JobManageModel},
 			SharedSecret:              "abc123",
 			StorageProviderRegistry:   provider.CommonStorageProviders(),
 			BootstrapDqlite:           getBootstrapDqliteWithDummyCloudTypeWithAssertions(c),
@@ -395,14 +400,14 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 
 func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {
 	var tests = []struct {
-		name model.MachineJob
+		name coremodel.MachineJob
 		want state.MachineJob
 		err  string
 	}{{
-		name: model.JobHostUnits,
+		name: coremodel.JobHostUnits,
 		want: state.JobHostUnits,
 	}, {
-		name: model.JobManageModel,
+		name: coremodel.JobManageModel,
 		want: state.JobManageModel,
 	}, {
 		name: "invalid",
@@ -477,7 +482,7 @@ func getBootstrapDqliteWithDummyCloudTypeWithAssertions(c *gc.C,
 	return func(
 		ctx context.Context,
 		mgr database.BootstrapNodeManager,
-		modelUUID model.UUID,
+		modelUUID coremodel.UUID,
 		logger logger.Logger,
 		opts ...database.BootstrapOpt,
 	) error {
