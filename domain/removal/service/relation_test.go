@@ -37,12 +37,12 @@ func (s *relationSuite) TestRemoveRelationNoForceSuccess(c *gc.C) {
 	exp.EnsureRelationNotAlive(gomock.Any(), rUUID.String()).Return(nil)
 	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), rUUID.String(), false, when.UTC()).Return(nil)
 
-	jobUUID, err := s.newService(c).RemoveRelation(context.Background(), rUUID, false)
+	jobUUID, err := s.newService(c).RemoveRelation(context.Background(), rUUID, false, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(jobUUID.Validate(), jc.ErrorIsNil)
 }
 
-func (s *relationSuite) TestRemoveRelationForceSuccess(c *gc.C) {
+func (s *relationSuite) TestRemoveRelationForceNoWaitSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rUUID := newRelUUID(c)
@@ -55,7 +55,30 @@ func (s *relationSuite) TestRemoveRelationForceSuccess(c *gc.C) {
 	exp.EnsureRelationNotAlive(gomock.Any(), rUUID.String()).Return(nil)
 	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), rUUID.String(), true, when.UTC()).Return(nil)
 
-	jobUUID, err := s.newService(c).RemoveRelation(context.Background(), rUUID, true)
+	jobUUID, err := s.newService(c).RemoveRelation(context.Background(), rUUID, true, 0)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), jc.ErrorIsNil)
+}
+
+func (s *relationSuite) TestRemoveRelationForceWaitSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rUUID := newRelUUID(c)
+
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when).MinTimes(1)
+
+	exp := s.state.EXPECT()
+	exp.RelationExists(gomock.Any(), rUUID.String()).Return(true, nil)
+	exp.EnsureRelationNotAlive(gomock.Any(), rUUID.String()).Return(nil)
+
+	// The first normal removal scheduled immediately.
+	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), rUUID.String(), false, when.UTC()).Return(nil)
+
+	// The forced removal scheduled after the wait duration.
+	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), rUUID.String(), true, when.UTC().Add(time.Minute)).Return(nil)
+
+	jobUUID, err := s.newService(c).RemoveRelation(context.Background(), rUUID, true, time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(jobUUID.Validate(), jc.ErrorIsNil)
 }
@@ -67,7 +90,7 @@ func (s *relationSuite) TestRemoveRelationNotFound(c *gc.C) {
 
 	s.state.EXPECT().RelationExists(gomock.Any(), rUUID.String()).Return(false, nil)
 
-	_, err := s.newService(c).RemoveRelation(context.Background(), rUUID, true)
+	_, err := s.newService(c).RemoveRelation(context.Background(), rUUID, false, 0)
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
 }
 
