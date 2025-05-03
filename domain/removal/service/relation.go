@@ -85,16 +85,6 @@ func (s *Service) RemoveRelation(ctx context.Context, relUUID corerelation.UUID,
 	return jobUUID, nil
 }
 
-// WatchRemovals watches for scheduled removal jobs.
-// The returned watcher emits the UUIDs of any inserted or updated jobs.
-func (s *WatchableService) WatchRemovals() (watcher.StringsWatcher, error) {
-	w, err := s.watcherFactory.NewUUIDsWatcher(s.st.NamespaceForWatchRemovals(), changestream.Changed)
-	if err != nil {
-		return nil, errors.Errorf("creating watcher for removals: %w", err)
-	}
-	return w, nil
-}
-
 // processRelationRemovalJob deletes a relation if it is dying, and there are no
 // units in scope.
 // If force is true, the units are forcefully departed by deleting the
