@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
@@ -17,6 +16,7 @@ import (
 	coreagent "github.com/juju/juju/core/agent"
 	"github.com/juju/juju/core/logger"
 	coretrace "github.com/juju/juju/core/trace"
+	"github.com/juju/juju/internal/services"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/trace"
 )
@@ -24,11 +24,15 @@ import (
 // ManifoldConfig provides the dependencies for the
 // agent config updater manifold.
 type ManifoldConfig struct {
-	AgentName      string
-	APICallerName  string
-	CentralHubName string
-	TraceName      string
-	Logger         logger.Logger
+	AgentName          string
+	DomainServicesName string
+	TraceName          string
+	Logger             logger.Logger
+
+	// TODO (stickupkid): This is only required to know if it's a controller
+	// or not. Along with getting the state serving info. This is all available
+	// in dqlite already.
+	APICallerName string
 }
 
 // Manifold defines a simple start function which
@@ -40,7 +44,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.AgentName,
 			config.APICallerName,
-			config.CentralHubName,
+			config.DomainServicesName,
 			config.TraceName,
 		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
@@ -75,6 +79,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, dependency.ErrUninstall
 			}
 
+			var controllerServices services.ControllerDomainServices
+			if err := getter.Get(config.DomainServicesName, &controllerServices); err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			controllerConfigService := controllerServices.ControllerConfig()
+
 			// Get the tracer from the context.
 			var tracerGetter trace.TracerGetter
 			if err := getter.Get(config.TraceName, &tracerGetter); err != nil {
@@ -86,19 +97,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				tracer = coretrace.NoopTracer{}
 			}
 
-			// Do the initial state serving info and mongo profile checks
-			// before attempting to get the central hub. The central hub is only
-			// running when the agent is a controller. If the agent isn't a controller
-			// but should be, the agent config will not have any state serving info
-			// but the database will think that we should be. In those situations
-			// we need to update the local config and restart.
-			apiState, err := apiagent.NewClient(apiCaller, apiagent.WithTracer(tracer))
+			controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
 			if err != nil {
 				return nil, errors.Trace(err)
-			}
-			controllerConfig, err := apiState.ControllerConfig(ctx)
-			if err != nil {
-				return nil, errors.Annotate(err, "getting controller config")
 			}
 
 			agentsJujuDBSnapChannel := currentConfig.JujuDBSnapChannel()
@@ -141,6 +142,16 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			configObjectStoreType := controllerConfig.ObjectStoreType()
 			objectStoreTypeChanged := agentsObjectStoreType != configObjectStoreType
 
+			// Do the initial state serving info and mongo profile checks
+			// before attempting to get the central hub. The central hub is only
+			// running when the agent is a controller. If the agent isn't a controller
+			// but should be, the agent config will not have any state serving info
+			// but the database will think that we should be. In those situations
+			// we need to update the local config and restart.
+			apiState, err := apiagent.NewClient(apiCaller, apiagent.WithTracer(tracer))
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			info, err := apiState.StateServingInfo(ctx)
 			if err != nil {
 				return nil, errors.Annotate(err, "getting state serving info")
@@ -239,17 +250,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, jworker.ErrRestartAgent
 			}
 
-			// Only get the hub if we are a controller and we haven't updated
-			// the memory profile.
-			var hub *pubsub.StructuredHub
-			if err := getter.Get(config.CentralHubName, &hub); err != nil {
-				logger.Tracef(ctx, "hub dependency not available")
-				return nil, err
-			}
-
 			return NewWorker(WorkerConfig{
 				Agent:                              agent,
-				Hub:                                hub,
+				ControllerConfigService:            controllerConfigService,
 				JujuDBSnapChannel:                  configJujuDBSnapChannel,
 				QueryTracingEnabled:                configQueryTracingEnabled,
 				QueryTracingThreshold:              configQueryTracingThreshold,
