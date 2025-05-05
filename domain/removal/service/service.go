@@ -103,3 +103,13 @@ func NewWatchableService(
 		watcherFactory: watcherFactory,
 	}
 }
+
+// WatchRemovals watches for scheduled removal jobs.
+// The returned watcher emits the UUIDs of any inserted or updated jobs.
+func (s *WatchableService) WatchRemovals() (watcher.StringsWatcher, error) {
+	w, err := s.watcherFactory.NewUUIDsWatcher(s.st.NamespaceForWatchRemovals(), changestream.Changed)
+	if err != nil {
+		return nil, errors.Errorf("creating watcher for removals: %w", err)
+	}
+	return w, nil
+}

@@ -7,9 +7,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/juju/core/changestream"
 	corerelation "github.com/juju/juju/core/relation"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/life"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
@@ -55,9 +53,13 @@ type RelationState interface {
 // If it does, the relation is guaranteed after this call to be:
 // - No longer alive.
 // - Removed or scheduled to be removed with the input force qualification.
+// The input wait duration is the time that we will give for the normal
+// life-cycle advancement and removal to finish before forcefully removing the
+// relation. This duration is ignored if the force argument is false.
 // The UUID for the scheduled removal job is returned.
 // [relationerrors.RelationNotFound] is returned if no such relation exists.
-func (s *Service) RemoveRelation(ctx context.Context, relUUID corerelation.UUID, force bool) (removal.UUID, error) {
+func (s *Service) RemoveRelation(
+	ctx context.Context, relUUID corerelation.UUID, force bool, wait time.Duration) (removal.UUID, error) {
 	exists, err := s.st.RelationExists(ctx, relUUID.String())
 	if err != nil {
 		return "", errors.Errorf("checking if relation %q exists: %w", relUUID, err)
@@ -70,29 +72,45 @@ func (s *Service) RemoveRelation(ctx context.Context, relUUID corerelation.UUID,
 		return "", errors.Errorf("relation %q: %w", relUUID, err)
 	}
 
+	var jUUID removal.UUID
+
+	if force {
+		if wait > 0 {
+			// If we have been supplied with the force flag *and* a wait time,
+			// schedule a normal removal job immediately. This will cause the
+			// earliest removal of the relation if the normal destruction
+			// workflows complete within the the wait duration.
+			if _, err := s.relationScheduleRemoval(ctx, relUUID, false, 0); err != nil {
+				return jUUID, errors.Capture(err)
+			}
+		}
+	} else {
+		if wait > 0 {
+			s.logger.Infof(ctx, "ignoring wait duration for non-forced removal of relation %q", relUUID.String())
+			wait = 0
+		}
+	}
+
+	jUUID, err = s.relationScheduleRemoval(ctx, relUUID, force, wait)
+	return jUUID, errors.Capture(err)
+}
+
+func (s *Service) relationScheduleRemoval(
+	ctx context.Context, relUUID corerelation.UUID, force bool, wait time.Duration,
+) (removal.UUID, error) {
 	jobUUID, err := removal.NewUUID()
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
 	if err := s.st.RelationScheduleRemoval(
-		ctx, jobUUID.String(), relUUID.String(), force, s.clock.Now().UTC(),
+		ctx, jobUUID.String(), relUUID.String(), force, s.clock.Now().UTC().Add(wait),
 	); err != nil {
 		return "", errors.Errorf("relation %q: %w", relUUID, err)
 	}
 
 	s.logger.Infof(ctx, "scheduled removal job %q for relation %q", jobUUID, relUUID)
 	return jobUUID, nil
-}
-
-// WatchRemovals watches for scheduled removal jobs.
-// The returned watcher emits the UUIDs of any inserted or updated jobs.
-func (s *WatchableService) WatchRemovals() (watcher.StringsWatcher, error) {
-	w, err := s.watcherFactory.NewUUIDsWatcher(s.st.NamespaceForWatchRemovals(), changestream.Changed)
-	if err != nil {
-		return nil, errors.Errorf("creating watcher for removals: %w", err)
-	}
-	return w, nil
 }
 
 // processRelationRemovalJob deletes a relation if it is dying, and there are no
