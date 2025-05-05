@@ -50,6 +50,7 @@ type ListModelsWithInfoSuite struct {
 	mockAccessService       *mocks.MockAccessService
 	mockModelService        *mocks.MockModelService
 	mockBlockCommandService *mocks.MockBlockCommandService
+	mockModelStatusAPI      *mocks.MockModelStatusAPI
 
 	api *modelmanager.ModelManagerAPI
 
@@ -81,10 +82,15 @@ func (s *ListModelsWithInfoSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.mockAccessService = mocks.NewMockAccessService(ctrl)
 	s.mockModelService = mocks.NewMockModelService(ctrl)
 	s.mockBlockCommandService = mocks.NewMockBlockCommandService(ctrl)
+	s.mockModelStatusAPI = mocks.NewMockModelStatusAPI(ctrl)
 
-	api, err := modelmanager.NewModelManagerAPI(
+	s.api = modelmanager.NewModelManagerAPI(
 		context.Background(),
-		s.st, nil,
+		s.st,
+		true,
+		s.adminUser,
+		s.mockModelStatusAPI,
+		nil,
 		s.controllerUUID,
 		modelmanager.Services{
 			DomainServicesGetter: nil,
@@ -100,8 +106,7 @@ func (s *ListModelsWithInfoSuite) setupMocks(c *gc.C) *gomock.Controller {
 		nil,
 		common.NewBlockChecker(s.mockBlockCommandService), s.authoriser,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	s.api = api
+
 	return ctrl
 }
 
@@ -119,9 +124,17 @@ func (s *ListModelsWithInfoSuite) createModel(c *gc.C, user names.UserTag) *mock
 
 func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
-	modelmanager, err := modelmanager.NewModelManagerAPI(
+	isAdmin := s.authoriser.HasPermission(context.Background(),
+		permission.SuperuserAccess, names.NewControllerTag(s.controllerUUID.String()),
+	) == nil
+
+	s.api = modelmanager.NewModelManagerAPI(
 		context.Background(),
-		s.st, nil,
+		s.st,
+		isAdmin,
+		user,
+		s.mockModelStatusAPI,
+		nil,
 		s.controllerUUID,
 		modelmanager.Services{
 			DomainServicesGetter: nil,
@@ -137,8 +150,6 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		nil,
 		common.NewBlockChecker(s.mockBlockCommandService), s.authoriser,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	s.api = modelmanager
 }
 
 func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {

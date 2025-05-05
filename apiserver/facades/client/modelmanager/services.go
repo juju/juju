@@ -104,10 +104,10 @@ type ModelService interface {
 	// - [modelerrors.NotFound]: When the model does not exist.
 	Model(ctx context.Context, uuid coremodel.UUID) (coremodel.Model, error)
 
-	// DefaultModelCloudNameAndCredential returns the default cloud name and
+	// DefaultModelCloudInfoAndCredential returns the default cloud name, region name and
 	// credential that should be used for newly created models that haven't had
 	// either cloud or credential specified.
-	DefaultModelCloudNameAndCredential(context.Context) (string, credential.Key, error)
+	DefaultModelCloudInfoAndCredential(context.Context) (string, string, credential.Key, error)
 
 	// DeleteModel deletes the give model.
 	DeleteModel(context.Context, coremodel.UUID, ...model.DeleteModelOption) error

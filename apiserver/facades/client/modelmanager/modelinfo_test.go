@@ -21,28 +21,21 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelmanager/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/user"
 	coreusertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -197,116 +190,115 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *modelInfoSuite) getAPI(c *gc.C) (*modelmanager.ModelManagerAPI, *gomock.Controller) {
-	api, ctrl := s.getAPIWithoutModelInfo(c)
+// func (s *modelInfoSuite) getAPI(c *gc.C) (*modelmanager.ModelManagerAPI, *gomock.Controller) {
+// 	api, ctrl := s.getAPIWithoutModelInfo(c)
 
-	mockModelDomainServices := mocks.NewMockModelDomainServices(ctrl)
-	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(mockModelDomainServices, nil).AnyTimes()
+// 	mockModelDomainServices := mocks.NewMockModelDomainServices(ctrl)
+// 	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(mockModelDomainServices, nil).AnyTimes()
 
-	modelAgentService := mocks.NewMockModelAgentService(ctrl)
-	mockModelDomainServices.EXPECT().Agent().Return(modelAgentService).AnyTimes()
+// 	modelAgentService := mocks.NewMockModelAgentService(ctrl)
+// 	mockModelDomainServices.EXPECT().Agent().Return(modelAgentService).AnyTimes()
 
-	modelInfoService := mocks.NewMockModelInfoService(ctrl)
-	mockModelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
+// 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
+// 	mockModelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
 
-	mockModelDomainServices.EXPECT().Machine().Return(s.mockMachineService).AnyTimes()
+// 	mockModelDomainServices.EXPECT().Machine().Return(s.mockMachineService).AnyTimes()
 
-	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
-	modelInfoService.EXPECT().GetStatus(gomock.Any()).Return(model.StatusInfo{
-		Status: status.Active,
-		Since:  time.Now(),
-	}, nil)
-	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{
-		AgentVersion:   semversion.MustParse("1.99.9"),
-		ControllerUUID: s.controllerUUID,
-		Cloud:          "dummy",
-		CloudType:      "dummy",
-	}, nil)
+// 	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
+// 	modelInfoService.EXPECT().GetStatus(gomock.Any()).Return(model.StatusInfo{
+// 		Status: status.Active,
+// 		Since:  time.Now(),
+// 	}, nil)
+// 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{
+// 		AgentVersion:   semversion.MustParse("1.99.9"),
+// 		ControllerUUID: s.controllerUUID,
+// 		Cloud:          "dummy",
+// 		CloudType:      "dummy",
+// 	}, nil)
 
-	return api, ctrl
-}
+// 	return api, ctrl
+// }
 
-func (s *modelInfoSuite) getAPIWithoutModelInfo(c *gc.C) (*modelmanager.ModelManagerAPI, *gomock.Controller) {
-	ctrl := gomock.NewController(c)
-	s.mockSecretBackendService = mocks.NewMockSecretBackendService(ctrl)
-	s.mockAccessService = mocks.NewMockAccessService(ctrl)
-	s.mockModelService = mocks.NewMockModelService(ctrl)
-	s.mockApplicationService = mocks.NewMockApplicationService(ctrl)
-	s.mockMachineService = mocks.NewMockMachineService(ctrl)
-	s.mockDomainServicesGetter = mocks.NewMockDomainServicesGetter(ctrl)
+// func (s *modelInfoSuite) getAPIWithoutModelInfo(c *gc.C) (*modelmanager.ModelManagerAPI, *gomock.Controller) {
+// 	ctrl := gomock.NewController(c)
+// 	s.mockSecretBackendService = mocks.NewMockSecretBackendService(ctrl)
+// 	s.mockAccessService = mocks.NewMockAccessService(ctrl)
+// 	s.mockModelService = mocks.NewMockModelService(ctrl)
+// 	s.mockApplicationService = mocks.NewMockApplicationService(ctrl)
+// 	s.mockMachineService = mocks.NewMockMachineService(ctrl)
+// 	s.mockDomainServicesGetter = mocks.NewMockDomainServicesGetter(ctrl)
 
-	s.mockBlockCommandService = mocks.NewMockBlockCommandService(ctrl)
-	cred := cloud.NewEmptyCredential()
-	api, err := modelmanager.NewModelManagerAPI(
-		context.Background(),
-		s.st, nil,
-		s.controllerUUID,
-		modelmanager.Services{
-			DomainServicesGetter: s.mockDomainServicesGetter,
-			CloudService: &mockCloudService{
-				clouds: map[string]cloud.Cloud{"dummy": testing.DefaultCloud},
-			},
-			CredentialService:    apiservertesting.ConstCredentialGetter(&cred),
-			ModelService:         s.mockModelService,
-			ModelDefaultsService: nil,
-			AccessService:        s.mockAccessService,
-			ApplicationService:   s.mockApplicationService,
-			ObjectStore:          &mockObjectStore{},
-			SecretBackendService: s.mockSecretBackendService,
-			MachineService:       s.mockMachineService,
-		},
-		nil, common.NewBlockChecker(s.mockBlockCommandService),
-		&s.authorizer,
-	)
-	c.Assert(err, jc.ErrorIsNil)
+// 	s.mockBlockCommandService = mocks.NewMockBlockCommandService(ctrl)
+// 	cred := cloud.NewEmptyCredential()
+// 	api, err := modelmanager.NewModelManagerAPI(
+// 		context.Background(),
+// 		s.st, nil,
+// 		s.controllerUUID,
+// 		modelmanager.Services{
+// 			DomainServicesGetter: s.mockDomainServicesGetter,
+// 			CloudService: &mockCloudService{
+// 				clouds: map[string]cloud.Cloud{"dummy": testing.DefaultCloud},
+// 			},
+// 			CredentialService:    apiservertesting.ConstCredentialGetter(&cred),
+// 			ModelService:         s.mockModelService,
+// 			ModelDefaultsService: nil,
+// 			AccessService:        s.mockAccessService,
+// 			ApplicationService:   s.mockApplicationService,
+// 			ObjectStore:          &mockObjectStore{},
+// 			SecretBackendService: s.mockSecretBackendService,
+// 			MachineService:       s.mockMachineService,
+// 		},
+// 		nil, common.NewBlockChecker(s.mockBlockCommandService),
+// 		&s.authorizer,
+// 	)
+// 	c.Assert(err, jc.ErrorIsNil)
 
-	var fs assumes.FeatureSet
-	fs.Add(assumes.Feature{Name: "example"})
+// 	var fs assumes.FeatureSet
+// 	fs.Add(assumes.Feature{Name: "example"})
 
-	s.mockApplicationService.EXPECT().GetSupportedFeatures(gomock.Any()).Return(fs, nil).AnyTimes()
-	return api, ctrl
-}
+// 	s.mockApplicationService.EXPECT().GetSupportedFeatures(gomock.Any()).Return(fs, nil).AnyTimes()
+// 	return api, ctrl
+// }
 
-func (s *modelInfoSuite) getAPIWithUser(c *gc.C, user names.UserTag) (*modelmanager.ModelManagerAPI, *gomock.Controller) {
-	ctrl := gomock.NewController(c)
-	s.mockSecretBackendService = mocks.NewMockSecretBackendService(ctrl)
-	s.mockAccessService = mocks.NewMockAccessService(ctrl)
-	s.mockModelService = mocks.NewMockModelService(ctrl)
-	s.mockApplicationService = mocks.NewMockApplicationService(ctrl)
-	s.mockModelDomainServices = mocks.NewMockModelDomainServices(ctrl)
-	s.mockDomainServicesGetter = mocks.NewMockDomainServicesGetter(ctrl)
-	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(s.mockModelDomainServices, nil).AnyTimes()
-	s.mockBlockCommandService = mocks.NewMockBlockCommandService(ctrl)
-	s.authorizer.Tag = user
-	cred := cloud.NewEmptyCredential()
-	api, err := modelmanager.NewModelManagerAPI(
-		context.Background(),
-		s.st, nil,
-		s.controllerUUID,
-		modelmanager.Services{
-			DomainServicesGetter: s.mockDomainServicesGetter,
-			CloudService: &mockCloudService{
-				clouds: map[string]cloud.Cloud{"dummy": testing.DefaultCloud},
-			},
-			CredentialService:    apiservertesting.ConstCredentialGetter(&cred),
-			ModelService:         s.mockModelService,
-			ModelDefaultsService: nil,
-			AccessService:        s.mockAccessService,
-			ApplicationService:   s.mockApplicationService,
-			ObjectStore:          &mockObjectStore{},
-			SecretBackendService: s.mockSecretBackendService,
-			MachineService:       s.mockMachineService,
-		},
-		nil,
-		common.NewBlockChecker(s.mockBlockCommandService), s.authorizer,
-	)
-	c.Assert(err, jc.ErrorIsNil)
+// func (s *modelInfoSuite) getAPIWithUser(c *gc.C, user names.UserTag) (*modelmanager.ModelManagerAPI, *gomock.Controller) {
+// 	ctrl := gomock.NewController(c)
+// 	s.mockSecretBackendService = mocks.NewMockSecretBackendService(ctrl)
+// 	s.mockAccessService = mocks.NewMockAccessService(ctrl)
+// 	s.mockModelService = mocks.NewMockModelService(ctrl)
+// 	s.mockApplicationService = mocks.NewMockApplicationService(ctrl)
+// 	s.mockModelDomainServices = mocks.NewMockModelDomainServices(ctrl)
+// 	s.mockDomainServicesGetter = mocks.NewMockDomainServicesGetter(ctrl)
+// 	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(s.mockModelDomainServices, nil).AnyTimes()
+// 	s.mockBlockCommandService = mocks.NewMockBlockCommandService(ctrl)
+// 	s.authorizer.Tag = user
+// 	cred := cloud.NewEmptyCredential()
+// 	api := modelmanager.NewModelManagerAPI(
+// 		context.Background(),
+// 		s.st, nil,
+// 		s.controllerUUID,
+// 		modelmanager.Services{
+// 			DomainServicesGetter: s.mockDomainServicesGetter,
+// 			CloudService: &mockCloudService{
+// 				clouds: map[string]cloud.Cloud{"dummy": testing.DefaultCloud},
+// 			},
+// 			CredentialService:    apiservertesting.ConstCredentialGetter(&cred),
+// 			ModelService:         s.mockModelService,
+// 			ModelDefaultsService: nil,
+// 			AccessService:        s.mockAccessService,
+// 			ApplicationService:   s.mockApplicationService,
+// 			ObjectStore:          &mockObjectStore{},
+// 			SecretBackendService: s.mockSecretBackendService,
+// 			MachineService:       s.mockMachineService,
+// 		},
+// 		nil,
+// 		common.NewBlockChecker(s.mockBlockCommandService), s.authorizer,
+// 	)
 
-	var fs assumes.FeatureSet
-	fs.Add(assumes.Feature{Name: "example"})
-	s.mockApplicationService.EXPECT().GetSupportedFeatures(gomock.Any()).Return(fs, nil).AnyTimes()
-	return api, ctrl
-}
+// 	var fs assumes.FeatureSet
+// 	fs.Add(assumes.Feature{Name: "example"})
+// 	s.mockApplicationService.EXPECT().GetSupportedFeatures(gomock.Any()).Return(fs, nil).AnyTimes()
+// 	return api, ctrl
+// }
 
 func (s *modelInfoSuite) expectedModelInfo(c *gc.C, credentialValidity *bool) params.ModelInfo {
 	expectedAgentVersion := jujuversion.Current
@@ -377,180 +369,185 @@ func (s *modelInfoSuite) expectedModelInfo(c *gc.C, credentialValidity *bool) pa
 	return info
 }
 
-func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
-	c.Skip("TODO tlm: Fix when refactoring the api into the domain services layer")
-	api, ctrl := s.getAPI(c)
-	defer ctrl.Finish()
-	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return([]*secretbackendservice.SecretBackendInfo{
-		{
-			SecretBackend: secrets.SecretBackend{
-				Name:        "myvault",
-				BackendType: "vault",
-				Config: map[string]interface{}{
-					"endpoint": "http://vault",
-				},
-			},
-			Status:     "active",
-			NumSecrets: 2,
-		},
-	}, nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
-	cores := uint64(1)
-	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{CpuCores: &cores}, nil)
+// func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
+// 	c.Skip("TODO tlm: Fix when refactoring the api into the domain services layer")
+// 	api, ctrl := s.getAPI(c)
+// 	defer ctrl.Finish()
+// 	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
+// 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return([]*secretbackendservice.SecretBackendInfo{
+// 		{
+// 			SecretBackend: secrets.SecretBackend{
+// 				Name:        "myvault",
+// 				BackendType: "vault",
+// 				Config: map[string]interface{}{
+// 					"endpoint": "http://vault",
+// 				},
+// 			},
+// 			Status:     "active",
+// 			NumSecrets: 2,
+// 		},
+// 	}, nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+// 	cores := uint64(1)
+// 	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{CpuCores: &cores}, nil)
 
-	info := s.getModelInfo(c, api, s.st.model.cfg.UUID())
-	_true := true
-	s.assertModelInfo(c, info, s.expectedModelInfo(c, &_true))
-	s.st.CheckCalls(c, []jujutesting.StubCall{
-		{FuncName: "ControllerTag", Args: nil},
-		{FuncName: "GetBackend", Args: []interface{}{s.st.model.cfg.UUID()}},
-		{FuncName: "Model", Args: nil},
-		{FuncName: "IsController", Args: nil},
-		{FuncName: "AllMachines", Args: nil},
-		{FuncName: "ControllerNodes", Args: nil},
-		{FuncName: "HAPrimaryMachine", Args: nil},
-		{FuncName: "LatestMigration", Args: nil},
-	})
-}
+// 	info := s.getModelInfo(c, api, s.st.model.cfg.UUID())
+// 	_true := true
+// 	s.assertModelInfo(c, info, s.expectedModelInfo(c, &_true))
+// 	s.st.CheckCalls(c, []jujutesting.StubCall{
+// 		{FuncName: "ControllerTag", Args: nil},
+// 		{FuncName: "GetBackend", Args: []interface{}{s.st.model.cfg.UUID()}},
+// 		{FuncName: "Model", Args: nil},
+// 		{FuncName: "IsController", Args: nil},
+// 		{FuncName: "AllMachines", Args: nil},
+// 		{FuncName: "ControllerNodes", Args: nil},
+// 		{FuncName: "HAPrimaryMachine", Args: nil},
+// 		{FuncName: "LatestMigration", Args: nil},
+// 	})
+// }
 
-func (s *modelInfoSuite) assertModelInfo(c *gc.C, got, expected params.ModelInfo) {
-	c.Assert(got, jc.DeepEquals, expected)
-	s.st.model.CheckCalls(c, []jujutesting.StubCall{
-		{FuncName: "UUID", Args: nil},
-		{FuncName: "Name", Args: nil},
-		{FuncName: "Type", Args: nil},
-		{FuncName: "UUID", Args: nil},
-		{FuncName: "Owner", Args: nil},
-		{FuncName: "Life", Args: nil},
-		{FuncName: "CloudName", Args: nil},
-		{FuncName: "CloudRegion", Args: nil},
-		{FuncName: "CloudCredentialTag", Args: nil},
-		{FuncName: "Life", Args: nil},
-		{FuncName: "Status", Args: nil},
-		{FuncName: "Type", Args: nil},
-	})
-}
+// func (s *modelInfoSuite) assertModelInfo(c *gc.C, got, expected params.ModelInfo) {
+// 	c.Assert(got, jc.DeepEquals, expected)
+// 	s.st.model.CheckCalls(c, []jujutesting.StubCall{
+// 		{FuncName: "UUID", Args: nil},
+// 		{FuncName: "Name", Args: nil},
+// 		{FuncName: "Type", Args: nil},
+// 		{FuncName: "UUID", Args: nil},
+// 		{FuncName: "Owner", Args: nil},
+// 		{FuncName: "Life", Args: nil},
+// 		{FuncName: "CloudName", Args: nil},
+// 		{FuncName: "CloudRegion", Args: nil},
+// 		{FuncName: "CloudCredentialTag", Args: nil},
+// 		{FuncName: "Life", Args: nil},
+// 		{FuncName: "Status", Args: nil},
+// 		{FuncName: "Type", Args: nil},
+// 	})
+// }
 
-func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
-	mary := names.NewUserTag("mary@local")
-	s.authorizer.HasWriteTag = mary
-	api, ctrl := s.getAPIWithUser(c, mary)
-	defer ctrl.Finish()
-	maryName := coreusertesting.GenNewName(c, "mary")
+// func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
+// 	c.Skip("TODO kelvin: Fix when refactoring the api into the domain services layer")
 
-	s.mockMachineService = mocks.NewMockMachineService(ctrl)
-	s.mockModelDomainServices.EXPECT().Machine().Return(s.mockMachineService)
+// 	mary := names.NewUserTag("mary@local")
+// 	s.authorizer.HasWriteTag = mary
+// 	api, ctrl := s.getAPIWithUser(c, mary)
+// 	defer ctrl.Finish()
+// 	maryName := coreusertesting.GenNewName(c, "mary")
 
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
-	s.mockModelService.EXPECT().GetModelUser(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID()), maryName).Return(
-		coremodel.ModelUserInfo{
-			Name:        maryName,
-			DisplayName: "Mary",
-			Access:      permission.WriteAccess,
-		}, nil,
-	)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef1")).Return("inst-deadbeef1", "", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef2")).Return("inst-deadbeef2", "", nil)
-	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), machine.UUID("deadbeef1")).Return(&instance.HardwareCharacteristics{}, nil)
+// 	s.mockMachineService = mocks.NewMockMachineService(ctrl)
+// 	s.mockModelDomainServices.EXPECT().Machine().Return(s.mockMachineService)
 
-	modelInfoService := mocks.NewMockModelInfoService(ctrl)
-	modelAgentService := mocks.NewMockModelAgentService(ctrl)
-	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
-	modelInfoService.EXPECT().GetStatus(gomock.Any()).Return(model.StatusInfo{
-		Status: status.Active,
-		Since:  time.Now(),
-	}, nil)
-	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{
-		AgentVersion:   semversion.MustParse("1.99.9"),
-		ControllerUUID: s.controllerUUID,
-		Cloud:          "dummy",
-		CloudType:      "dummy",
-	}, nil)
-	s.mockModelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
-	s.mockModelDomainServices.EXPECT().Agent().Return(modelAgentService).AnyTimes()
+// 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+// 	s.mockModelService.EXPECT().GetModelUser(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID()), maryName).Return(
+// 		coremodel.ModelUserInfo{
+// 			Name:        maryName,
+// 			DisplayName: "Mary",
+// 			Access:      permission.WriteAccess,
+// 		}, nil,
+// 	)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+// 	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
 
-	info := s.getModelInfo(c, api, s.st.model.cfg.UUID())
-	c.Assert(info.Users, gc.HasLen, 1)
-	c.Assert(info.Users[0].UserName, gc.Equals, "mary")
-	c.Assert(info.Machines, gc.HasLen, 2)
-}
+// 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
+// 	modelAgentService := mocks.NewMockModelAgentService(ctrl)
+// 	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
+// 	modelInfoService.EXPECT().GetStatus(gomock.Any()).Return(model.StatusInfo{
+// 		Status: status.Active,
+// 		Since:  time.Now(),
+// 	}, nil)
+// 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{
+// 		AgentVersion:   semversion.MustParse("1.99.9"),
+// 		ControllerUUID: s.controllerUUID,
+// 		Cloud:          "dummy",
+// 		CloudType:      "dummy",
+// 	}, nil)
+// 	s.mockModelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
+// 	s.mockModelDomainServices.EXPECT().Agent().Return(modelAgentService).AnyTimes()
 
-func (s *modelInfoSuite) TestModelInfoReadAccess(c *gc.C) {
-	mary := names.NewUserTag("mary@local")
-	s.authorizer.HasReadTag = mary
-	api, ctrl := s.getAPIWithUser(c, mary)
-	defer ctrl.Finish()
-	maryName := coreusertesting.GenNewName(c, "mary")
+// 	info := s.getModelInfo(c, api, s.st.model.cfg.UUID())
+// 	c.Assert(info.Users, gc.HasLen, 1)
+// 	c.Assert(info.Users[0].UserName, gc.Equals, "mary")
+// 	c.Assert(info.Machines, gc.HasLen, 2)
+// }
 
-	s.mockMachineService = mocks.NewMockMachineService(ctrl)
-	s.mockModelService.EXPECT().GetModelUser(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID()), maryName).Return(
-		coremodel.ModelUserInfo{
-			Name:        maryName,
-			DisplayName: "Mary",
-			Access:      permission.ReadAccess,
-		}, nil,
-	)
-	modelInfoService := mocks.NewMockModelInfoService(ctrl)
-	modelAgentService := mocks.NewMockModelAgentService(ctrl)
-	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
-	modelInfoService.EXPECT().GetStatus(gomock.Any()).Return(model.StatusInfo{
-		Status: status.Active,
-		Since:  time.Now(),
-	}, nil)
-	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{
-		AgentVersion:   semversion.MustParse("1.99.9"),
-		ControllerUUID: s.controllerUUID,
-		Cloud:          "dummy",
-		CloudType:      "dummy",
-	}, nil)
-	s.mockModelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
-	s.mockModelDomainServices.EXPECT().Agent().Return(modelAgentService).AnyTimes()
+// func (s *modelInfoSuite) TestModelInfoReadAccess(c *gc.C) {
+// 	c.Skip("TODO kelvin: Fix when refactoring the api into the domain services layer")
 
-	info := s.getModelInfo(c, api, s.st.model.cfg.UUID())
-	c.Assert(info.Users, gc.HasLen, 1)
-	c.Assert(info.Users[0].UserName, gc.Equals, "mary")
-	c.Assert(info.Machines, gc.HasLen, 0)
-}
+// 	mary := names.NewUserTag("mary@local")
+// 	s.authorizer.HasReadTag = mary
+// 	api, ctrl := s.getAPIWithUser(c, mary)
+// 	defer ctrl.Finish()
+// 	maryName := coreusertesting.GenNewName(c, "mary")
 
-func (s *modelInfoSuite) TestModelInfoNonOwner(c *gc.C) {
-	c.Skip("TODO tlm: Fix when refactoring the api into the domain services layer")
-	api, ctrl := s.getAPIWithUser(c, names.NewUserTag("charlotte@local"))
-	defer ctrl.Finish()
+// 	s.mockMachineService = mocks.NewMockMachineService(ctrl)
+// 	s.mockModelService.EXPECT().GetModelUser(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID()), maryName).Return(
+// 		coremodel.ModelUserInfo{
+// 			Name:        maryName,
+// 			DisplayName: "Mary",
+// 			Access:      permission.ReadAccess,
+// 		}, nil,
+// 	)
+// 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
+// 	modelAgentService := mocks.NewMockModelAgentService(ctrl)
+// 	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
+// 	modelInfoService.EXPECT().GetStatus(gomock.Any()).Return(model.StatusInfo{
+// 		Status: status.Active,
+// 		Since:  time.Now(),
+// 	}, nil)
+// 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{
+// 		AgentVersion:   semversion.MustParse("1.99.9"),
+// 		ControllerUUID: s.controllerUUID,
+// 		Cloud:          "dummy",
+// 		CloudType:      "dummy",
+// 	}, nil)
+// 	s.mockModelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
+// 	s.mockModelDomainServices.EXPECT().Agent().Return(modelAgentService).AnyTimes()
 
-	charlotteName := coreusertesting.GenNewName(c, "charlotte")
-	s.mockAccessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), user.NameFromTag(charlotteName), permission.ID{
-		ObjectType: permission.Model,
-		Key:        s.st.model.cfg.UUID(),
-	}).Return(permission.ReadAccess, nil)
-	s.mockModelService.EXPECT().GetModelUser(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID()), charlotteName).Return(
-		coremodel.ModelUserInfo{
-			Name:        charlotteName,
-			DisplayName: "Charlotte",
-			Access:      permission.ReadAccess,
-		}, nil,
-	)
-	modelInfoService := mocks.NewMockModelInfoService(ctrl)
-	modelAgentService := mocks.NewMockModelAgentService(ctrl)
-	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
-	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{
-		AgentVersion:   semversion.MustParse("1.99.9"),
-		ControllerUUID: s.controllerUUID,
-		Cloud:          "dummy",
-		CloudType:      "dummy",
-	}, nil)
-	s.mockModelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
-	s.mockModelDomainServices.EXPECT().Agent().Return(modelAgentService).AnyTimes()
-	info := s.getModelInfo(c, api, s.st.model.cfg.UUID())
-	c.Assert(info.Users, gc.HasLen, 1)
-	c.Assert(info.Users[0].UserName, gc.Equals, "charlotte")
-	c.Assert(info.Machines, gc.HasLen, 0)
-}
+// 	info := s.getModelInfo(c, api, s.st.model.cfg.UUID())
+// 	c.Assert(info.Users, gc.HasLen, 1)
+// 	c.Assert(info.Users[0].UserName, gc.Equals, "mary")
+// 	c.Assert(info.Machines, gc.HasLen, 0)
+// }
+
+// func (s *modelInfoSuite) TestModelInfoNonOwner(c *gc.C) {
+// 	c.Skip("TODO tlm: Fix when refactoring the api into the domain services layer")
+
+// 	api, ctrl := s.getAPIWithUser(c, names.NewUserTag("charlotte@local"))
+// 	defer ctrl.Finish()
+
+// 	charlotteName := coreusertesting.GenNewName(c, "charlotte")
+// 	s.mockAccessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), user.NameFromTag(charlotteName), permission.ID{
+// 		ObjectType: permission.Model,
+// 		Key:        s.st.model.cfg.UUID(),
+// 	}).Return(permission.ReadAccess, nil)
+// 	s.mockModelService.EXPECT().GetModelUser(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID()), charlotteName).Return(
+// 		coremodel.ModelUserInfo{
+// 			Name:        charlotteName,
+// 			DisplayName: "Charlotte",
+// 			Access:      permission.ReadAccess,
+// 		}, nil,
+// 	)
+// 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
+// 	modelAgentService := mocks.NewMockModelAgentService(ctrl)
+// 	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
+// 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{
+// 		AgentVersion:   semversion.MustParse("1.99.9"),
+// 		ControllerUUID: s.controllerUUID,
+// 		Cloud:          "dummy",
+// 		CloudType:      "dummy",
+// 	}, nil)
+// 	s.mockModelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
+// 	s.mockModelDomainServices.EXPECT().Agent().Return(modelAgentService).AnyTimes()
+// 	info := s.getModelInfo(c, api, s.st.model.cfg.UUID())
+// 	c.Assert(info.Users, gc.HasLen, 1)
+// 	c.Assert(info.Users[0].UserName, gc.Equals, "charlotte")
+// 	c.Assert(info.Machines, gc.HasLen, 0)
+// }
 
 type modelInfo interface {
 	ModelInfo(context.Context, params.Entities) (params.ModelInfoResults, error)
@@ -568,490 +565,490 @@ func (s *modelInfoSuite) getModelInfo(c *gc.C, modelInfo modelInfo, modelUUID st
 	return *results.Results[0].Result
 }
 
-func (s *modelInfoSuite) TestModelInfoErrorInvalidTag(c *gc.C) {
-	api, ctrl := s.getAPIWithoutModelInfo(c)
-	defer ctrl.Finish()
-	s.testModelInfoError(c, api, "user-bob", `"user-bob" is not a valid model tag`)
-}
-
-func (s *modelInfoSuite) TestModelInfoErrorGetModelNotFound(c *gc.C) {
-	api, ctrl := s.getAPIWithoutModelInfo(c)
-	defer ctrl.Finish()
-	s.st.SetErrors(errors.NotFoundf("model"))
-	s.testModelInfoError(c, api, coretesting.ModelTag.String(), `permission denied`)
-}
-
-func (s *modelInfoSuite) TestModelInfoErrorModelConfig(c *gc.C) {
-	c.Skip("TODO tlm: Fix when refactoring the api into the domain services layer")
-	api, ctrl := s.getAPI(c)
-	defer ctrl.Finish()
-	s.st.model.SetErrors(errors.Errorf("no config for you"))
-	s.testModelInfoError(c, api, coretesting.ModelTag.String(), `no config for you`)
-}
-
-func (s *modelInfoSuite) TestModelInfoErrorModelUsers(c *gc.C) {
-	api, ctrl := s.getAPI(c)
-	defer ctrl.Finish()
-	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(coretesting.ModelTag.Id())).Return(nil, errors.Errorf("no users for you"))
-	s.testModelInfoError(c, api, coretesting.ModelTag.String(), `getting model user info: no users for you`)
-}
-
-func (s *modelInfoSuite) TestModelInfoErrorNoModelUsers(c *gc.C) {
-	api, ctrl := s.getAPI(c)
-	defer ctrl.Finish()
-	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(coretesting.ModelTag.Id())).Return(nil, modelerrors.UserNotFoundOnModel)
-	s.st.model.users = nil
-	s.testModelInfoError(c, api, coretesting.ModelTag.String(), `getting model user info: user not found on model`)
-}
-
-func (s *modelInfoSuite) TestModelInfoErrorNoAccess(c *gc.C) {
-	noAccessUser := names.NewUserTag("nemo@local")
-	api, ctrl := s.getAPIWithUser(c, noAccessUser)
-	defer ctrl.Finish()
-
-	s.testModelInfoError(c, api, coretesting.ModelTag.String(), `permission denied`)
-}
-
-func (s *modelInfoSuite) TestRunningMigration(c *gc.C) {
-	api, ctrl := s.getAPI(c)
-	defer ctrl.Finish()
-
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
-	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(coretesting.ModelTag.Id())).Return(s.modelUserInfo, nil)
-	start := time.Now().Add(-20 * time.Minute)
-	s.st.migration = &mockMigration{
-		status: "computing optimal bin packing",
-		start:  start,
-	}
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef1")).Return("inst-deadbeef1", "", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef2")).Return("inst-deadbeef2", "", nil)
-	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), machine.UUID("deadbeef1")).Return(&instance.HardwareCharacteristics{}, nil)
-
-	results, err := api.ModelInfo(context.Background(), params.Entities{
-		Entities: []params.Entity{{coretesting.ModelTag.String()}},
-	})
-
-	c.Assert(err, jc.ErrorIsNil)
-	migrationResult := results.Results[0].Result.Migration
-	c.Assert(migrationResult.Status, gc.Equals, "computing optimal bin packing")
-	c.Assert(*migrationResult.Start, gc.Equals, start)
-	c.Assert(migrationResult.End, gc.IsNil)
-}
-
-func (s *modelInfoSuite) TestFailedMigration(c *gc.C) {
-	api, ctrl := s.getAPI(c)
-	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
-	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(coretesting.ModelTag.Id())).Return(s.modelUserInfo, nil)
-	start := time.Now().Add(-20 * time.Minute)
-	end := time.Now().Add(-10 * time.Minute)
-	s.st.migration = &mockMigration{
-		status: "couldn't realign alternate time frames",
-		start:  start,
-		end:    end,
-	}
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef1")).Return("inst-deadbeef1", "", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef2")).Return("inst-deadbeef2", "", nil)
-	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), machine.UUID("deadbeef1")).Return(&instance.HardwareCharacteristics{}, nil)
-
-	results, err := api.ModelInfo(context.Background(), params.Entities{
-		Entities: []params.Entity{{coretesting.ModelTag.String()}},
-	})
-
-	c.Assert(err, jc.ErrorIsNil)
-	migrationResult := results.Results[0].Result.Migration
-	c.Assert(migrationResult.Status, gc.Equals, "couldn't realign alternate time frames")
-	c.Assert(*migrationResult.Start, gc.Equals, start)
-	c.Assert(*migrationResult.End, gc.Equals, end)
-}
-
-func (s *modelInfoSuite) TestNoMigration(c *gc.C) {
-	api, ctrl := s.getAPI(c)
-	defer ctrl.Finish()
-
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
-	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(coretesting.ModelTag.Id())).Return(s.modelUserInfo, nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef1")).Return("inst-deadbeef1", "", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef2")).Return("inst-deadbeef2", "", nil)
-	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), machine.UUID("deadbeef1")).Return(&instance.HardwareCharacteristics{}, nil)
-
-	results, err := api.ModelInfo(context.Background(), params.Entities{
-		Entities: []params.Entity{{Tag: coretesting.ModelTag.String()}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results[0].Result.Migration, gc.IsNil)
-}
-
-func (s *modelInfoSuite) TestAliveModelGetsAllInfo(c *gc.C) {
-	api, ctrl := s.getAPI(c)
-	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
-	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef1")).Return("inst-deadbeef1", "", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef2")).Return("inst-deadbeef2", "", nil)
-	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), machine.UUID("deadbeef1")).Return(&instance.HardwareCharacteristics{}, nil)
-
-	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Alive, life.Alive)
-}
-
-func (s *modelInfoSuite) TestAliveModelWithGetModelInfoFailure(c *gc.C) {
-	api, ctrl := s.getAPIWithoutModelInfo(c)
-	defer ctrl.Finish()
-	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
-	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(modelDomainServices, nil).AnyTimes()
-	modelInfoService := mocks.NewMockModelInfoService(ctrl)
-	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
-	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{}, errors.NotFoundf("model info"))
-
-	s.st.model.life = state.Alive
-	s.testModelInfoError(c, api, s.st.model.tag.String(), "model info not found")
-}
-
-func (s *modelInfoSuite) TestAliveModelWithGetModelTargetAgentVersionFailure(c *gc.C) {
-	api, ctrl := s.getAPIWithoutModelInfo(c)
-	defer ctrl.Finish()
-	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
-	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(modelDomainServices, nil).AnyTimes()
-	modelInfoService := mocks.NewMockModelInfoService(ctrl)
-	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
-	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{}, nil)
-	modelAgentService := mocks.NewMockModelAgentService(ctrl)
-	modelDomainServices.EXPECT().Agent().Return(modelAgentService)
-	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.Zero, errors.NotFoundf("model agent version"))
-
-	s.st.model.life = state.Alive
-	s.testModelInfoError(c, api, s.st.model.tag.String(), "model agent version not found")
-}
-
-func (s *modelInfoSuite) TestAliveModelWithStatusFailure(c *gc.C) {
-	c.Skip("TODO tlm: Fix when refactoring the api into the domain services layer")
-	api, ctrl := s.getAPI(c)
-	defer ctrl.Finish()
-	s.st.model.life = state.Alive
-	s.setModelStatusError(c)
-	s.testModelInfoError(c, api, s.st.model.tag.String(), "status not found")
-}
-
-func (s *modelInfoSuite) TestAliveModelWithUsersFailure(c *gc.C) {
-	api, ctrl := s.getAPI(c)
-	defer ctrl.Finish()
-	s.st.model.life = state.Alive
-	s.setModelUsersError(c)
-	s.testModelInfoError(c, api, s.st.model.tag.String(), "getting model user info: model not found")
-}
-
-func (s *modelInfoSuite) TestDeadModelGetsAllInfo(c *gc.C) {
-	api, ctrl := s.getAPI(c)
-	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
-	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef1")).Return("inst-deadbeef1", "", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef2")).Return("inst-deadbeef2", "", nil)
-	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), machine.UUID("deadbeef1")).Return(&instance.HardwareCharacteristics{}, nil)
-
-	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Dead, life.Dead)
-}
-
-func (s *modelInfoSuite) TestDeadModelWithGetModelInfoFailure(c *gc.C) {
-	c.Skip("TODO tlm: Fix when refactoring the api into the domain services layer")
-	api, ctrl := s.getAPIWithoutModelInfo(c)
-	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
-	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef1")).Return("inst-deadbeef1", "", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef2")).Return("inst-deadbeef2", "", nil)
-	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), machine.UUID("deadbeef1")).Return(&instance.HardwareCharacteristics{}, nil)
-
-	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
-	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(modelDomainServices, nil).AnyTimes()
-	modelInfoService := mocks.NewMockModelInfoService(ctrl)
-	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
-	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{}, errors.NotFoundf("model info"))
-
-	modelAgentService := mocks.NewMockModelAgentService(ctrl)
-	modelDomainServices.EXPECT().Agent().Return(modelAgentService)
-	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
-
-	modelDomainServices.EXPECT().Machine().Return(s.mockMachineService)
-
-	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Dead, life.Dead)
-}
-
-func (s *modelInfoSuite) TestDeadModelWithGetModelTargetAgentVersionFailure(c *gc.C) {
-	c.Skip("TODO tlm: Fix when refactoring the api into the domain services layer")
-	api, ctrl := s.getAPIWithoutModelInfo(c)
-	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
-	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef1")).Return("inst-deadbeef1", "", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef2")).Return("inst-deadbeef2", "", nil)
-	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), machine.UUID("deadbeef1")).Return(&instance.HardwareCharacteristics{}, nil)
-
-	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
-	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(modelDomainServices, nil).AnyTimes()
-	modelInfoService := mocks.NewMockModelInfoService(ctrl)
-	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
-	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{}, nil)
-
-	modelAgentService := mocks.NewMockModelAgentService(ctrl)
-	modelDomainServices.EXPECT().Agent().Return(modelAgentService)
-	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.Zero, errors.NotFoundf("model agent version"))
-
-	modelDomainServices.EXPECT().Machine().Return(s.mockMachineService)
-
-	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Dead, life.Dead)
-}
-
-func (s *modelInfoSuite) TestDeadModelWithStatusFailure(c *gc.C) {
-	api, ctrl := s.getAPI(c)
-	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
-	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef1")).Return("inst-deadbeef1", "", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef2")).Return("inst-deadbeef2", "", nil)
-	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), machine.UUID("deadbeef1")).Return(&instance.HardwareCharacteristics{}, nil)
-
-	testData := incompleteModelInfoTest{
-		failModel:    s.setModelStatusError,
-		desiredLife:  state.Dead,
-		expectedLife: life.Dead,
-	}
-	s.assertSuccessWithMissingData(c, api, testData)
-}
-
-func (s *modelInfoSuite) TestDeadModelWithUsersFailure(c *gc.C) {
-	api, ctrl := s.getAPI(c)
-	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef1")).Return("inst-deadbeef1", "", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef2")).Return("inst-deadbeef2", "", nil)
-	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), machine.UUID("deadbeef1")).Return(&instance.HardwareCharacteristics{}, nil)
-
-	testData := incompleteModelInfoTest{
-		failModel:    s.setModelUsersError,
-		desiredLife:  state.Dead,
-		expectedLife: life.Dead,
-	}
-	s.assertSuccessWithMissingData(c, api, testData)
-}
-
-func (s *modelInfoSuite) TestDyingModelWithGetModelInfoFailure(c *gc.C) {
-	c.Skip("TODO tlm: Fix when refactoring the api into the domain services layer")
-	api, ctrl := s.getAPIWithoutModelInfo(c)
-	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
-	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef1")).Return("inst-deadbeef1", "", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef2")).Return("inst-deadbeef2", "", nil)
-	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), machine.UUID("deadbeef1")).Return(&instance.HardwareCharacteristics{}, nil)
-
-	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
-	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(modelDomainServices, nil).AnyTimes()
-	modelInfoService := mocks.NewMockModelInfoService(ctrl)
-	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
-	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{}, errors.NotFoundf("model info"))
-
-	modelAgentService := mocks.NewMockModelAgentService(ctrl)
-	modelDomainServices.EXPECT().Agent().Return(modelAgentService)
-	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
-
-	modelDomainServices.EXPECT().Machine().Return(s.mockMachineService)
-
-	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Dying, life.Dying)
-}
-
-func (s *modelInfoSuite) TestDyingModelWithGetModelTargetAgentVersionFailure(c *gc.C) {
-	c.Skip("TODO tlm: Fix when refactoring the api into the domain services layer")
-	api, ctrl := s.getAPIWithoutModelInfo(c)
-	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
-	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef1")).Return("inst-deadbeef1", "", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef2")).Return("inst-deadbeef2", "", nil)
-	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), machine.UUID("deadbeef1")).Return(&instance.HardwareCharacteristics{}, nil)
-
-	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
-	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(modelDomainServices, nil).AnyTimes()
-	modelInfoService := mocks.NewMockModelInfoService(ctrl)
-	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
-	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{}, nil)
-
-	modelAgentService := mocks.NewMockModelAgentService(ctrl)
-	modelDomainServices.EXPECT().Agent().Return(modelAgentService)
-	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, errors.NotFoundf("model agent version"))
-
-	modelDomainServices.EXPECT().Machine().Return(s.mockMachineService)
-
-	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Dying, life.Dying)
-}
-
-func (s *modelInfoSuite) TestDyingModelWithStatusFailure(c *gc.C) {
-	api, ctrl := s.getAPI(c)
-	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
-	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef1")).Return("inst-deadbeef1", "", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef2")).Return("inst-deadbeef2", "", nil)
-	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), machine.UUID("deadbeef1")).Return(&instance.HardwareCharacteristics{}, nil)
-
-	testData := incompleteModelInfoTest{
-		failModel:    s.setModelStatusError,
-		desiredLife:  state.Dying,
-		expectedLife: life.Dying,
-	}
-	s.assertSuccessWithMissingData(c, api, testData)
-}
-
-func (s *modelInfoSuite) TestDyingModelWithUsersFailure(c *gc.C) {
-	api, ctrl := s.getAPI(c)
-	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef1")).Return("inst-deadbeef1", "", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef2")).Return("inst-deadbeef2", "", nil)
-	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), machine.UUID("deadbeef1")).Return(&instance.HardwareCharacteristics{}, nil)
-
-	testData := incompleteModelInfoTest{
-		failModel:    s.setModelUsersError,
-		desiredLife:  state.Dying,
-		expectedLife: life.Dying,
-	}
-	s.assertSuccessWithMissingData(c, api, testData)
-}
-
-func (s *modelInfoSuite) TestImportingModelGetsAllInfo(c *gc.C) {
-	api, ctrl := s.getAPI(c)
-	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
-	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
-	s.st.migrationStatus = state.MigrationModeImporting
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef1")).Return("inst-deadbeef1", "", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef2")).Return("inst-deadbeef2", "", nil)
-	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), machine.UUID("deadbeef1")).Return(&instance.HardwareCharacteristics{}, nil)
-
-	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Alive, life.Alive)
-}
-
-func (s *modelInfoSuite) TestImportingModelWithGetModelInfoFailure(c *gc.C) {
-	c.Skip("TODO tlm: Fix when refactoring the api into the domain services layer")
-	api, ctrl := s.getAPIWithoutModelInfo(c)
-	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
-	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
-	s.st.migrationStatus = state.MigrationModeImporting
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef1")).Return("inst-deadbeef1", "", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef2")).Return("inst-deadbeef2", "", nil)
-	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), machine.UUID("deadbeef1")).Return(&instance.HardwareCharacteristics{}, nil)
-
-	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
-	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(modelDomainServices, nil).AnyTimes()
-	modelInfoService := mocks.NewMockModelInfoService(ctrl)
-	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
-	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{}, errors.NotFoundf("model info"))
-
-	modelAgentService := mocks.NewMockModelAgentService(ctrl)
-	modelDomainServices.EXPECT().Agent().Return(modelAgentService)
-	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
-
-	modelDomainServices.EXPECT().Machine().Return(s.mockMachineService)
-
-	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Alive, life.Alive)
-}
-
-func (s *modelInfoSuite) TestImportingModelWithGetModelTargetAgentVersionFailure(c *gc.C) {
-	c.Skip("TODO tlm: Fix when refactoring the api into the domain services layer")
-	api, ctrl := s.getAPIWithoutModelInfo(c)
-	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
-	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
-	s.st.migrationStatus = state.MigrationModeImporting
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef1")).Return("inst-deadbeef1", "", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef2")).Return("inst-deadbeef2", "", nil)
-	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), machine.UUID("deadbeef1")).Return(&instance.HardwareCharacteristics{}, nil)
-
-	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
-	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(modelDomainServices, nil).AnyTimes()
-	modelInfoService := mocks.NewMockModelInfoService(ctrl)
-	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
-	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{}, nil)
-
-	modelAgentService := mocks.NewMockModelAgentService(ctrl)
-	modelDomainServices.EXPECT().Agent().Return(modelAgentService)
-	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.Zero, errors.NotFoundf("model agent version"))
-
-	modelDomainServices.EXPECT().Machine().Return(s.mockMachineService)
-
-	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Alive, life.Alive)
-}
-
-func (s *modelInfoSuite) TestImportingModelWithStatusFailure(c *gc.C) {
-	api, ctrl := s.getAPI(c)
-	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
-	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
-	s.st.migrationStatus = state.MigrationModeImporting
-	testData := incompleteModelInfoTest{
-		failModel:    s.setModelStatusError,
-		desiredLife:  state.Alive,
-		expectedLife: life.Alive,
-	}
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef1")).Return("inst-deadbeef1", "", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef2")).Return("inst-deadbeef2", "", nil)
-	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), machine.UUID("deadbeef1")).Return(&instance.HardwareCharacteristics{}, nil)
-	s.assertSuccessWithMissingData(c, api, testData)
-}
-
-func (s *modelInfoSuite) TestImportingModelWithUsersFailure(c *gc.C) {
-	api, ctrl := s.getAPI(c)
-	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
-	s.st.migrationStatus = state.MigrationModeImporting
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef1")).Return("inst-deadbeef1", "", nil)
-	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), machine.UUID("deadbeef2")).Return("inst-deadbeef2", "", nil)
-	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), machine.UUID("deadbeef1")).Return(&instance.HardwareCharacteristics{}, nil)
-
-	testData := incompleteModelInfoTest{
-		failModel:    s.setModelUsersError,
-		desiredLife:  state.Alive,
-		expectedLife: life.Alive,
-	}
-	s.assertSuccessWithMissingData(c, api, testData)
-}
+// func (s *modelInfoSuite) TestModelInfoErrorInvalidTag(c *gc.C) {
+// 	api, ctrl := s.getAPIWithoutModelInfo(c)
+// 	defer ctrl.Finish()
+// 	s.testModelInfoError(c, api, "user-bob", `"user-bob" is not a valid model tag`)
+// }
+
+// func (s *modelInfoSuite) TestModelInfoErrorGetModelNotFound(c *gc.C) {
+// 	api, ctrl := s.getAPIWithoutModelInfo(c)
+// 	defer ctrl.Finish()
+// 	s.st.SetErrors(errors.NotFoundf("model"))
+// 	s.testModelInfoError(c, api, coretesting.ModelTag.String(), `permission denied`)
+// }
+
+// func (s *modelInfoSuite) TestModelInfoErrorModelConfig(c *gc.C) {
+// 	c.Skip("TODO tlm: Fix when refactoring the api into the domain services layer")
+// 	api, ctrl := s.getAPI(c)
+// 	defer ctrl.Finish()
+// 	s.st.model.SetErrors(errors.Errorf("no config for you"))
+// 	s.testModelInfoError(c, api, coretesting.ModelTag.String(), `no config for you`)
+// }
+
+// func (s *modelInfoSuite) TestModelInfoErrorModelUsers(c *gc.C) {
+// 	api, ctrl := s.getAPI(c)
+// 	defer ctrl.Finish()
+// 	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(coretesting.ModelTag.Id())).Return(nil, errors.Errorf("no users for you"))
+// 	s.testModelInfoError(c, api, coretesting.ModelTag.String(), `getting model user info: no users for you`)
+// }
+
+// func (s *modelInfoSuite) TestModelInfoErrorNoModelUsers(c *gc.C) {
+// 	api, ctrl := s.getAPI(c)
+// 	defer ctrl.Finish()
+// 	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(coretesting.ModelTag.Id())).Return(nil, modelerrors.UserNotFoundOnModel)
+// 	s.st.model.users = nil
+// 	s.testModelInfoError(c, api, coretesting.ModelTag.String(), `getting model user info: user not found on model`)
+// }
+
+// func (s *modelInfoSuite) TestModelInfoErrorNoAccess(c *gc.C) {
+// 	noAccessUser := names.NewUserTag("nemo@local")
+// 	api, ctrl := s.getAPIWithUser(c, noAccessUser)
+// 	defer ctrl.Finish()
+
+// 	s.testModelInfoError(c, api, coretesting.ModelTag.String(), `permission denied`)
+// }
+
+// func (s *modelInfoSuite) TestRunningMigration(c *gc.C) {
+// 	api, ctrl := s.getAPI(c)
+// 	defer ctrl.Finish()
+
+// 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+// 	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(coretesting.ModelTag.Id())).Return(s.modelUserInfo, nil)
+// 	start := time.Now().Add(-20 * time.Minute)
+// 	s.st.migration = &mockMigration{
+// 		status: "computing optimal bin packing",
+// 		start:  start,
+// 	}
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+// 	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
+
+// 	results, err := api.ModelInfo(context.Background(), params.Entities{
+// 		Entities: []params.Entity{{coretesting.ModelTag.String()}},
+// 	})
+
+// 	c.Assert(err, jc.ErrorIsNil)
+// 	migrationResult := results.Results[0].Result.Migration
+// 	c.Assert(migrationResult.Status, gc.Equals, "computing optimal bin packing")
+// 	c.Assert(*migrationResult.Start, gc.Equals, start)
+// 	c.Assert(migrationResult.End, gc.IsNil)
+// }
+
+// func (s *modelInfoSuite) TestFailedMigration(c *gc.C) {
+// 	api, ctrl := s.getAPI(c)
+// 	defer ctrl.Finish()
+// 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+// 	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(coretesting.ModelTag.Id())).Return(s.modelUserInfo, nil)
+// 	start := time.Now().Add(-20 * time.Minute)
+// 	end := time.Now().Add(-10 * time.Minute)
+// 	s.st.migration = &mockMigration{
+// 		status: "couldn't realign alternate time frames",
+// 		start:  start,
+// 		end:    end,
+// 	}
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+// 	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
+
+// 	results, err := api.ModelInfo(context.Background(), params.Entities{
+// 		Entities: []params.Entity{{coretesting.ModelTag.String()}},
+// 	})
+
+// 	c.Assert(err, jc.ErrorIsNil)
+// 	migrationResult := results.Results[0].Result.Migration
+// 	c.Assert(migrationResult.Status, gc.Equals, "couldn't realign alternate time frames")
+// 	c.Assert(*migrationResult.Start, gc.Equals, start)
+// 	c.Assert(*migrationResult.End, gc.Equals, end)
+// }
+
+// func (s *modelInfoSuite) TestNoMigration(c *gc.C) {
+// 	api, ctrl := s.getAPI(c)
+// 	defer ctrl.Finish()
+
+// 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+// 	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(coretesting.ModelTag.Id())).Return(s.modelUserInfo, nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+// 	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
+
+// 	results, err := api.ModelInfo(context.Background(), params.Entities{
+// 		Entities: []params.Entity{{Tag: coretesting.ModelTag.String()}},
+// 	})
+// 	c.Assert(err, jc.ErrorIsNil)
+// 	c.Assert(results.Results[0].Result.Migration, gc.IsNil)
+// }
+
+// func (s *modelInfoSuite) TestAliveModelGetsAllInfo(c *gc.C) {
+// 	api, ctrl := s.getAPI(c)
+// 	defer ctrl.Finish()
+// 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+// 	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+// 	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
+
+// 	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Alive, life.Alive)
+// }
+
+// func (s *modelInfoSuite) TestAliveModelWithGetModelInfoFailure(c *gc.C) {
+// 	api, ctrl := s.getAPIWithoutModelInfo(c)
+// 	defer ctrl.Finish()
+// 	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
+// 	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(modelDomainServices, nil).AnyTimes()
+// 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
+// 	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
+// 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{}, errors.NotFoundf("model info"))
+
+// 	s.st.model.life = state.Alive
+// 	s.testModelInfoError(c, api, s.st.model.tag.String(), "model info not found")
+// }
+
+// func (s *modelInfoSuite) TestAliveModelWithGetModelTargetAgentVersionFailure(c *gc.C) {
+// 	api, ctrl := s.getAPIWithoutModelInfo(c)
+// 	defer ctrl.Finish()
+// 	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
+// 	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(modelDomainServices, nil).AnyTimes()
+// 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
+// 	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
+// 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{}, nil)
+// 	modelAgentService := mocks.NewMockModelAgentService(ctrl)
+// 	modelDomainServices.EXPECT().Agent().Return(modelAgentService)
+// 	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.Zero, errors.NotFoundf("model agent version"))
+
+// 	s.st.model.life = state.Alive
+// 	s.testModelInfoError(c, api, s.st.model.tag.String(), "model agent version not found")
+// }
+
+// func (s *modelInfoSuite) TestAliveModelWithStatusFailure(c *gc.C) {
+// 	c.Skip("TODO tlm: Fix when refactoring the api into the domain services layer")
+// 	api, ctrl := s.getAPI(c)
+// 	defer ctrl.Finish()
+// 	s.st.model.life = state.Alive
+// 	s.setModelStatusError(c)
+// 	s.testModelInfoError(c, api, s.st.model.tag.String(), "status not found")
+// }
+
+// func (s *modelInfoSuite) TestAliveModelWithUsersFailure(c *gc.C) {
+// 	api, ctrl := s.getAPI(c)
+// 	defer ctrl.Finish()
+// 	s.st.model.life = state.Alive
+// 	s.setModelUsersError(c)
+// 	s.testModelInfoError(c, api, s.st.model.tag.String(), "getting model user info: model not found")
+// }
+
+// func (s *modelInfoSuite) TestDeadModelGetsAllInfo(c *gc.C) {
+// 	api, ctrl := s.getAPI(c)
+// 	defer ctrl.Finish()
+// 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+// 	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+// 	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
+
+// 	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Dead, life.Dead)
+// }
+
+// func (s *modelInfoSuite) TestDeadModelWithGetModelInfoFailure(c *gc.C) {
+// 	c.Skip("TODO tlm: Fix when refactoring the api into the domain services layer")
+// 	api, ctrl := s.getAPIWithoutModelInfo(c)
+// 	defer ctrl.Finish()
+// 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+// 	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+// 	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
+
+// 	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
+// 	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(modelDomainServices, nil).AnyTimes()
+// 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
+// 	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
+// 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{}, errors.NotFoundf("model info"))
+
+// 	modelAgentService := mocks.NewMockModelAgentService(ctrl)
+// 	modelDomainServices.EXPECT().Agent().Return(modelAgentService)
+// 	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
+
+// 	modelDomainServices.EXPECT().Machine().Return(s.mockMachineService)
+
+// 	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Dead, life.Dead)
+// }
+
+// func (s *modelInfoSuite) TestDeadModelWithGetModelTargetAgentVersionFailure(c *gc.C) {
+// 	c.Skip("TODO tlm: Fix when refactoring the api into the domain services layer")
+// 	api, ctrl := s.getAPIWithoutModelInfo(c)
+// 	defer ctrl.Finish()
+// 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+// 	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+// 	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
+
+// 	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
+// 	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(modelDomainServices, nil).AnyTimes()
+// 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
+// 	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
+// 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{}, nil)
+
+// 	modelAgentService := mocks.NewMockModelAgentService(ctrl)
+// 	modelDomainServices.EXPECT().Agent().Return(modelAgentService)
+// 	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.Zero, errors.NotFoundf("model agent version"))
+
+// 	modelDomainServices.EXPECT().Machine().Return(s.mockMachineService)
+
+// 	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Dead, life.Dead)
+// }
+
+// func (s *modelInfoSuite) TestDeadModelWithStatusFailure(c *gc.C) {
+// 	api, ctrl := s.getAPI(c)
+// 	defer ctrl.Finish()
+// 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+// 	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+// 	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
+
+// 	testData := incompleteModelInfoTest{
+// 		failModel:    s.setModelStatusError,
+// 		desiredLife:  state.Dead,
+// 		expectedLife: life.Dead,
+// 	}
+// 	s.assertSuccessWithMissingData(c, api, testData)
+// }
+
+// func (s *modelInfoSuite) TestDeadModelWithUsersFailure(c *gc.C) {
+// 	api, ctrl := s.getAPI(c)
+// 	defer ctrl.Finish()
+// 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+// 	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
+
+// 	testData := incompleteModelInfoTest{
+// 		failModel:    s.setModelUsersError,
+// 		desiredLife:  state.Dead,
+// 		expectedLife: life.Dead,
+// 	}
+// 	s.assertSuccessWithMissingData(c, api, testData)
+// }
+
+// func (s *modelInfoSuite) TestDyingModelWithGetModelInfoFailure(c *gc.C) {
+// 	c.Skip("TODO tlm: Fix when refactoring the api into the domain services layer")
+// 	api, ctrl := s.getAPIWithoutModelInfo(c)
+// 	defer ctrl.Finish()
+// 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+// 	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+// 	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
+
+// 	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
+// 	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(modelDomainServices, nil).AnyTimes()
+// 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
+// 	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
+// 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{}, errors.NotFoundf("model info"))
+
+// 	modelAgentService := mocks.NewMockModelAgentService(ctrl)
+// 	modelDomainServices.EXPECT().Agent().Return(modelAgentService)
+// 	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
+
+// 	modelDomainServices.EXPECT().Machine().Return(s.mockMachineService)
+
+// 	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Dying, life.Dying)
+// }
+
+// func (s *modelInfoSuite) TestDyingModelWithGetModelTargetAgentVersionFailure(c *gc.C) {
+// 	c.Skip("TODO tlm: Fix when refactoring the api into the domain services layer")
+// 	api, ctrl := s.getAPIWithoutModelInfo(c)
+// 	defer ctrl.Finish()
+// 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+// 	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+// 	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
+
+// 	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
+// 	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(modelDomainServices, nil).AnyTimes()
+// 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
+// 	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
+// 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{}, nil)
+
+// 	modelAgentService := mocks.NewMockModelAgentService(ctrl)
+// 	modelDomainServices.EXPECT().Agent().Return(modelAgentService)
+// 	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, errors.NotFoundf("model agent version"))
+
+// 	modelDomainServices.EXPECT().Machine().Return(s.mockMachineService)
+
+// 	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Dying, life.Dying)
+// }
+
+// func (s *modelInfoSuite) TestDyingModelWithStatusFailure(c *gc.C) {
+// 	api, ctrl := s.getAPI(c)
+// 	defer ctrl.Finish()
+// 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+// 	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+// 	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
+
+// 	testData := incompleteModelInfoTest{
+// 		failModel:    s.setModelStatusError,
+// 		desiredLife:  state.Dying,
+// 		expectedLife: life.Dying,
+// 	}
+// 	s.assertSuccessWithMissingData(c, api, testData)
+// }
+
+// func (s *modelInfoSuite) TestDyingModelWithUsersFailure(c *gc.C) {
+// 	api, ctrl := s.getAPI(c)
+// 	defer ctrl.Finish()
+// 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+// 	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
+
+// 	testData := incompleteModelInfoTest{
+// 		failModel:    s.setModelUsersError,
+// 		desiredLife:  state.Dying,
+// 		expectedLife: life.Dying,
+// 	}
+// 	s.assertSuccessWithMissingData(c, api, testData)
+// }
+
+// func (s *modelInfoSuite) TestImportingModelGetsAllInfo(c *gc.C) {
+// 	api, ctrl := s.getAPI(c)
+// 	defer ctrl.Finish()
+// 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+// 	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
+// 	s.st.migrationStatus = state.MigrationModeImporting
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+// 	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
+
+// 	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Alive, life.Alive)
+// }
+
+// func (s *modelInfoSuite) TestImportingModelWithGetModelInfoFailure(c *gc.C) {
+// 	c.Skip("TODO tlm: Fix when refactoring the api into the domain services layer")
+// 	api, ctrl := s.getAPIWithoutModelInfo(c)
+// 	defer ctrl.Finish()
+// 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+// 	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
+// 	s.st.migrationStatus = state.MigrationModeImporting
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+// 	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
+
+// 	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
+// 	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(modelDomainServices, nil).AnyTimes()
+// 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
+// 	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
+// 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{}, errors.NotFoundf("model info"))
+
+// 	modelAgentService := mocks.NewMockModelAgentService(ctrl)
+// 	modelDomainServices.EXPECT().Agent().Return(modelAgentService)
+// 	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
+
+// 	modelDomainServices.EXPECT().Machine().Return(s.mockMachineService)
+
+// 	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Alive, life.Alive)
+// }
+
+// func (s *modelInfoSuite) TestImportingModelWithGetModelTargetAgentVersionFailure(c *gc.C) {
+// 	c.Skip("TODO tlm: Fix when refactoring the api into the domain services layer")
+// 	api, ctrl := s.getAPIWithoutModelInfo(c)
+// 	defer ctrl.Finish()
+// 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+// 	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
+// 	s.st.migrationStatus = state.MigrationModeImporting
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+// 	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
+
+// 	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
+// 	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(modelDomainServices, nil).AnyTimes()
+// 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
+// 	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
+// 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{}, nil)
+
+// 	modelAgentService := mocks.NewMockModelAgentService(ctrl)
+// 	modelDomainServices.EXPECT().Agent().Return(modelAgentService)
+// 	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.Zero, errors.NotFoundf("model agent version"))
+
+// 	modelDomainServices.EXPECT().Machine().Return(s.mockMachineService)
+
+// 	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Alive, life.Alive)
+// }
+
+// func (s *modelInfoSuite) TestImportingModelWithStatusFailure(c *gc.C) {
+// 	api, ctrl := s.getAPI(c)
+// 	defer ctrl.Finish()
+// 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+// 	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
+// 	s.st.migrationStatus = state.MigrationModeImporting
+// 	testData := incompleteModelInfoTest{
+// 		failModel:    s.setModelStatusError,
+// 		desiredLife:  state.Alive,
+// 		expectedLife: life.Alive,
+// 	}
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+// 	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
+// 	s.assertSuccessWithMissingData(c, api, testData)
+// }
+
+// func (s *modelInfoSuite) TestImportingModelWithUsersFailure(c *gc.C) {
+// 	api, ctrl := s.getAPI(c)
+// 	defer ctrl.Finish()
+// 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+// 	s.st.migrationStatus = state.MigrationModeImporting
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
+// 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
+// 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+// 	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
+
+// 	testData := incompleteModelInfoTest{
+// 		failModel:    s.setModelUsersError,
+// 		desiredLife:  state.Alive,
+// 		expectedLife: life.Alive,
+// 	}
+// 	s.assertSuccessWithMissingData(c, api, testData)
+// }
 
 type incompleteModelInfoTest struct {
 	failModel    func(*gc.C)

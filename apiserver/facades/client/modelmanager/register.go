@@ -10,11 +10,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -33,6 +35,16 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 	if !auth.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
+	// Pretty much all of the user manager methods have special casing for admin
+	// users, so look once when we start and remember if the user is an admin.
+	err := auth.HasPermission(stdCtx, permission.SuperuserAccess, names.NewControllerTag(ctx.ControllerUUID()))
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+		return nil, errors.Trace(err)
+	}
+	isAdmin := err == nil
+	// Since we know this is a user tag (because AuthClient is true),
+	// we just do the type assertion to the UserTag.
+	apiUser, _ := auth.GetAuthTag().(names.UserTag)
 
 	systemState, err := ctx.StatePool().SystemState()
 	if err != nil {
@@ -52,7 +64,6 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 		domainServices.AgentBinary(),
 	)
 
-	apiUser, _ := auth.GetAuthTag().(names.UserTag)
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -63,18 +74,35 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	domainServicesGetter := domainServicesGetter{ctx: ctx}
+
+	machineServiceGetter := func(ctx context.Context, modelUUID coremodel.UUID) (commonmodel.MachineService, error) {
+		svc, err := domainServicesGetter.DomainServicesForModel(ctx, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Machine(), nil
+	}
+	statusServiceGetter := func(ctx context.Context, modelUUID coremodel.UUID) (commonmodel.StatusService, error) {
+		svc, err := domainServicesGetter.DomainServicesForModel(ctx, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Status(), nil
+	}
 
 	return NewModelManagerAPI(
 		stdCtx,
 		backend,
+		isAdmin,
+		apiUser,
+		commonmodel.NewModelStatusAPI(backend, machineServiceGetter, statusServiceGetter, auth, apiUser),
 		func(c context.Context, modelUUID coremodel.UUID, legacyState facade.LegacyStateExporter) (ModelExporter, error) {
 			return ctx.ModelExporter(c, modelUUID, legacyState)
 		},
-		// commonmodel.NewModelManagerBackend(ctrlModel, pool),
 		controllerUUID,
-		// controllerModelUUID,
 		Services{
-			DomainServicesGetter: domainServicesGetter{ctx: ctx},
+			DomainServicesGetter: domainServicesGetter,
 			CloudService:         domainServices.Cloud(),
 			CredentialService:    domainServices.Credential(),
 			ModelService:         domainServices.Model(),
@@ -90,5 +118,5 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 		toolsFinder,
 		common.NewBlockChecker(domainServices.BlockCommand()),
 		auth,
-	)
+	), nil
 }
