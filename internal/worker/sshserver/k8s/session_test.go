@@ -19,7 +19,6 @@ import (
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
 )
 
 type k8sSessionSuite struct {
@@ -95,15 +94,6 @@ func (s *k8sSessionSuite) TestSessionHandlerPty(c *gc.C) {
 		PodName:   "test-pod",
 		Namespace: "test-namespace",
 	}, nil)
-	s.executor.EXPECT().Exec(gomock.Any(), gomock.Any()).DoAndReturn(func(params k8sexec.ExecParams, opts <-chan struct{}) error {
-		c.Assert(params.PodName, gc.Equals, "test-pod")
-		c.Assert(params.ContainerName, gc.Equals, "test-container")
-
-		// Simulate a write
-		_, err := params.Stdout.Write([]byte("test output"))
-		c.Assert(err, jc.ErrorIsNil)
-		return nil
-	})
 
 	virtualHostame, err := virtualhostname.NewInfoContainerTarget(uuid.New().String(), "test/0", "test-container")
 	c.Assert(err, jc.ErrorIsNil)
@@ -121,19 +111,29 @@ func (s *k8sSessionSuite) TestSessionHandlerPty(c *gc.C) {
 	s.session.EXPECT().Command()
 	s.context.EXPECT().Done()
 	s.session.EXPECT().Context().Return(s.context)
+	closed := make(chan struct{})
 	mockSession := userSession{
 		Session: s.session,
 		isPty:   true,
+		closed:  closed,
 	}
-	// Simulate the user closing the session.
-	go func() {
-		time.Sleep(testing.ShortWait)
-		mockSession.Close()
-	}()
+	s.executor.EXPECT().Exec(gomock.Any(), gomock.Any()).DoAndReturn(func(params k8sexec.ExecParams, opts <-chan struct{}) error {
+		c.Assert(params.PodName, gc.Equals, "test-pod")
+		c.Assert(params.ContainerName, gc.Equals, "test-container")
+
+		_, err := params.Stdout.Write([]byte("test output"))
+		c.Assert(err, jc.ErrorIsNil)
+
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			closed <- struct{}{}
+		}()
+		return nil
+	})
 	k8sHandlers.SessionHandler(&mockSession)
 	c.Assert(err, jc.ErrorIsNil)
 	// we can't use Equals because the pty device generates a lot of characters.
-	c.Assert(mockSession.stdout.String(), jc.Contains, "test output")
+	c.Assert(mockSession.stdout.String(), gc.Equals, "test output")
 	c.Assert(mockSession.stderr.String(), gc.Equals, "")
 	c.Assert(mockSession.stdin.String(), gc.Equals, "")
 }
@@ -144,7 +144,7 @@ type userSession struct {
 	stdout bytes.Buffer
 	stderr bytes.Buffer
 	isPty  bool
-	closed bool
+	closed chan struct{}
 }
 
 func (u *userSession) Write(p []byte) (n int, err error) {
@@ -153,11 +153,10 @@ func (u *userSession) Write(p []byte) (n int, err error) {
 
 // Read is not returning EOF to similate an interactive session.
 func (u *userSession) Read(p []byte) (n int, err error) {
-	if u.closed {
+	select {
+	case <-u.closed:
 		return 0, io.EOF
 	}
-	p = []byte("command")
-	return len(p), nil
 }
 
 func (u *userSession) Stderr() io.ReadWriter {
@@ -165,10 +164,7 @@ func (u *userSession) Stderr() io.ReadWriter {
 }
 
 func (u *userSession) Pty() (ssh.Pty, <-chan ssh.Window, bool) {
-	return ssh.Pty{Window: ssh.Window{Width: 10, Height: 10}}, nil, u.isPty
-}
-
-func (u *userSession) Close() error {
-	u.closed = true
-	return nil
+	windowChan := make(chan ssh.Window)
+	close(windowChan)
+	return ssh.Pty{Window: ssh.Window{Width: 10, Height: 10}}, windowChan, u.isPty
 }

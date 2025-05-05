@@ -4,6 +4,7 @@
 package k8s
 
 import (
+	"fmt"
 	"io"
 	"sync"
 
@@ -41,18 +42,17 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 
 	var stdin io.Reader = session
 	var stdout, stderr io.Writer = session, session.Stderr()
+	wg := &sync.WaitGroup{}
 
+	ptmx, tty, err := pty.Open()
 	if ptyRequested {
 		// If pty is requested we need to simulate a terminal device, passing
 		// the pty file descriptor to the executor. And pipe it back to the session.
-		ptmx, tty, err := pty.Open()
 		if err != nil {
 			handleError(errors.Annotate(err, "failed to open pty"))
 			return
 		}
-		wg := &sync.WaitGroup{}
 		wg.Add(2)
-		defer wg.Wait()
 
 		err = pty.Setsize(ptmx, &pty.Winsize{
 			Rows: uint16(ptyReq.Window.Height),
@@ -78,13 +78,17 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 			defer wg.Done()
 			defer ptmx.Close()
 			defer tty.Close()
-			_, _ = io.Copy(ptmx, session)
+			_, err = io.Copy(ptmx, session)
+			fmt.Print(err)
 		}()
+
 		go func() {
 			defer wg.Done()
 			defer ptmx.Close()
 			defer tty.Close()
-			_, _ = io.Copy(session, ptmx)
+			_, err = io.Copy(session, ptmx)
+			fmt.Print(err)
+
 		}()
 
 		stdin = tty
@@ -108,5 +112,11 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 	if err != nil {
 		handleError(errors.Annotate(err, "failed to execute command in k8s pod"))
 		return
+	}
+	if ptyRequested {
+		err := ptmx.Close()
+		fmt.Print(err)
+		wg.Wait()
+		fmt.Print("")
 	}
 }
