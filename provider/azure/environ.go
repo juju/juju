@@ -921,7 +921,7 @@ func (env *azureEnviron) createVirtualMachine(
 		if env.cloud.Credential.AuthType() == cloud.ManagedIdentityAuthType {
 			// Add a new controller after bootstrap (enable-ha).
 			managedIdentity = env.cloud.Credential.Attributes()[credManagedIdentity]
-		} else if instanceConfig.Bootstrap.BootstrapMachineConstraints.HasInstanceRole() {
+		} else if instanceConfig.Bootstrap != nil && instanceConfig.Bootstrap.BootstrapMachineConstraints.HasInstanceRole() {
 			// Bootstrap.
 			managedIdentity = *instanceConfig.Bootstrap.BootstrapMachineConstraints.InstanceRole
 		}
