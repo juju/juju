@@ -5,7 +5,6 @@ package k8s
 
 import (
 	"io"
-	"sync"
 
 	"github.com/creack/pty"
 	"github.com/gliderlabs/ssh"
@@ -41,7 +40,6 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 
 	var stdin io.Reader = session
 	var stdout, stderr io.Writer = session, session.Stderr()
-	wg := &sync.WaitGroup{}
 
 	if ptyRequested {
 		ptmx, tty, err := pty.Open()
@@ -53,7 +51,6 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 			handleError(errors.Annotate(err, "failed to open pty"))
 			return
 		}
-		wg.Add(2)
 
 		err = pty.Setsize(ptmx, &pty.Winsize{
 			Rows: uint16(ptyReq.Window.Height),
@@ -79,10 +76,10 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 		// They can't leak because the session is always closed when this
 		// function returns.
 		go func() {
-			_, err = io.Copy(ptmx, session)
+			_, _ = io.Copy(ptmx, session)
 		}()
 		go func() {
-			_, err = io.Copy(session, ptmx)
+			_, _ = io.Copy(session, ptmx)
 		}()
 
 		stdin = tty

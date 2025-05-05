@@ -55,12 +55,3 @@ func (s *sshJumpSuite) TestResolveTarget(c *gc.C) {
 		via:  &via,
 	})
 }
-
-func (s *sshJumpSuite) TestShowCommand(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.sshAPIJump.EXPECT().VirtualHostname(gomock.Any(), gomock.Any()).Return("resolved-target", nil)
-	s.sshAPIJump.EXPECT().PublicHostKeyForTarget(gomock.Any()).Return(params.PublicSSHHostKeyResult{
-		PublicKey: []byte("host-key"),
-	}, nil)
-	controllerAddress := "
