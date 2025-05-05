@@ -63,13 +63,25 @@ func (fix *fixture) Guest(c *gc.C) (out fortress.Guest) {
 func (fix *fixture) startBlockingVisit(c *gc.C) chan<- struct{} {
 	err := fix.Guard(c).Unlock(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
+
 	visitStarted := make(chan struct{}, 1)
 	defer close(visitStarted)
+
 	unblockVisit := make(chan struct{}, 1)
 	go func() {
 		err := fix.Guest(c).Visit(context.Background(), func() error {
-			visitStarted <- struct{}{}
-			<-unblockVisit
+			select {
+			case visitStarted <- struct{}{}:
+			case <-time.After(coretesting.LongWait):
+				c.Fatalf("visit never started sending")
+			}
+
+			// Block until the test closes the channel.
+			select {
+			case <-unblockVisit:
+			case <-time.After(coretesting.LongWait):
+				c.Fatalf("visit never unblocked - did you forget to close the channel?")
+			}
 			return nil
 		})
 		c.Check(err, jc.ErrorIsNil)
@@ -77,8 +89,9 @@ func (fix *fixture) startBlockingVisit(c *gc.C) chan<- struct{} {
 	select {
 	case <-visitStarted:
 	case <-time.After(coretesting.LongWait):
-		c.Fatalf("visit never started")
+		c.Fatalf("visit never started reading")
 	}
+
 	return unblockVisit
 }
 

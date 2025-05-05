@@ -61,7 +61,15 @@ func (f *fortress) Visit(ctx context.Context, visit Visit) error {
 		visit:  visit,
 		result: result,
 	}:
-		return <-result
+		// Ensure that we don't block indefinitely when waiting for the result.
+		select {
+		case <-ctx.Done():
+			return ErrAborted
+		case <-f.tomb.Dying():
+			return ErrShutdown
+		case err := <-result:
+			return err
+		}
 	}
 }
 
@@ -76,7 +84,16 @@ func (f *fortress) allowGuests(ctx context.Context, allowGuests bool) error {
 		allowGuests: allowGuests,
 		result:      result,
 	}:
-		return <-result
+
+		// Ensure that we don't block indefinitely when waiting for the result.
+		select {
+		case <-ctx.Done():
+			return ErrAborted
+		case <-f.tomb.Dying():
+			return ErrShutdown
+		case err := <-result:
+			return err
+		}
 	}
 }
 
