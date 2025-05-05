@@ -78,6 +78,45 @@ func (c *MockStateCurateNodesCall) DoAndReturn(f func(context.Context, []string,
 	return c
 }
 
+// IsControllerNode mocks base method.
+func (m *MockState) IsControllerNode(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsControllerNode", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsControllerNode indicates an expected call of IsControllerNode.
+func (mr *MockStateMockRecorder) IsControllerNode(arg0, arg1 any) *MockStateIsControllerNodeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsControllerNode", reflect.TypeOf((*MockState)(nil).IsControllerNode), arg0, arg1)
+	return &MockStateIsControllerNodeCall{Call: call}
+}
+
+// MockStateIsControllerNodeCall wrap *gomock.Call
+type MockStateIsControllerNodeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateIsControllerNodeCall) Return(arg0 bool, arg1 error) *MockStateIsControllerNodeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateIsControllerNodeCall) Do(f func(context.Context, string) (bool, error)) *MockStateIsControllerNodeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateIsControllerNodeCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockStateIsControllerNodeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SelectDatabaseNamespace mocks base method.
 func (m *MockState) SelectDatabaseNamespace(arg0 context.Context, arg1 string) (string, error) {
 	m.ctrl.T.Helper()
