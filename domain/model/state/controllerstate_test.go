@@ -1631,9 +1631,9 @@ func (s *stateSuite) TestGetModelStateInvalidCredentials(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	credentialSt := credentialstate.NewState(s.TxnRunnerFactory())
-	err = credentialSt.InvalidateCloudCredential(
+	err = credentialSt.InvalidateModelCloudCredential(
 		context.Background(),
-		m.Credential,
+		m.UUID,
 		"test-invalid",
 	)
 	c.Assert(err, jc.ErrorIsNil)
