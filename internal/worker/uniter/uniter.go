@@ -489,7 +489,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				Watcher:       watcher,
 				Executor:      u.operationExecutor,
 				Factory:       u.operationFactory,
-				Abort:         u.catacomb.Dying(),
 				OnIdle:        onIdle,
 				CharmDirGuard: u.charmDirGuard,
 				CharmDir:      u.paths.State.CharmDir,

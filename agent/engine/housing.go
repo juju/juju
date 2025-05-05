@@ -90,7 +90,7 @@ func occupyStart(inner dependency.StartFunc, name string) dependency.StartFunc {
 		task := func() (worker.Worker, error) {
 			return inner(ctx, getter)
 		}
-		worker, err := fortress.Occupy(guest, task, ctx.Done())
+		worker, err := fortress.Occupy(ctx, guest, task)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
