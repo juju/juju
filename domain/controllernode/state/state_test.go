@@ -6,6 +6,8 @@ package state
 import (
 	"context"
 	"database/sql"
+	"net"
+	"strconv"
 
 	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
@@ -207,4 +209,156 @@ func (s *stateSuite) TestSetRunningAgentBinaryVersionArchNotSupported(c *gc.C) {
 		ver,
 	)
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+}
+
+func (s *stateSuite) TestSetAPIAddressNew(c *gc.C) {
+	controllerID := "1"
+	host := "192.168.0.1"
+	port := 17070
+	address := net.JoinHostPort(host, strconv.Itoa(port))
+
+	err := s.state.CurateNodes(context.Background(), []string{controllerID}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetAPIAddress(
+		context.Background(),
+		controllerID,
+		address,
+		true,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var (
+		obtainedAddress string
+		isAgent         bool
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT address, is_agent FROM controller_api_address WHERE controller_id = ?", controllerID).Scan(&obtainedAddress, &isAgent)
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtainedAddress, gc.Equals, address)
+	c.Check(isAgent, jc.IsTrue)
+}
+
+func (s *stateSuite) TestSetAPIAddressControllerNodeExists(c *gc.C) {
+	controllerID := "1"
+	host := "192.168.0.1"
+	port := 17070
+	address := net.JoinHostPort(host, strconv.Itoa(port))
+
+	err := s.state.CurateNodes(context.Background(), []string{controllerID}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetAPIAddress(
+		context.Background(),
+		controllerID,
+		address,
+		true,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var (
+		obtainedAddress string
+		isAgent         bool
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT address, is_agent FROM controller_api_address WHERE controller_id = ?", controllerID).Scan(&obtainedAddress, &isAgent)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtainedAddress, gc.Equals, address)
+	c.Check(isAgent, jc.IsTrue)
+
+	// Update api address.
+	host = "10.0.0.1"
+	port = 17070
+	address = net.JoinHostPort(host, strconv.Itoa(port))
+	err = s.state.SetAPIAddress(
+		context.Background(),
+		controllerID,
+		address,
+		true,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT address, is_agent FROM controller_api_address WHERE controller_id = ?", controllerID).Scan(&obtainedAddress, &isAgent)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtainedAddress, gc.Equals, address)
+	c.Check(isAgent, jc.IsTrue)
+}
+
+func (s *stateSuite) TestSetAPIAddressControllerNodeExistsChangeAgentVisibility(c *gc.C) {
+	controllerID := "1"
+	host := "192.168.0.1"
+	port := 17070
+	address := net.JoinHostPort(host, strconv.Itoa(port))
+
+	err := s.state.CurateNodes(context.Background(), []string{controllerID}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetAPIAddress(
+		context.Background(),
+		controllerID,
+		address,
+		true,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var (
+		obtainedAddress string
+		isAgent         bool
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT address, is_agent FROM controller_api_address WHERE controller_id = ?", controllerID).Scan(&obtainedAddress, &isAgent)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtainedAddress, gc.Equals, address)
+	c.Check(isAgent, jc.IsTrue)
+
+	// Update api address.
+	host = "192.168.0.1"
+	port = 17070
+	address = net.JoinHostPort(host, strconv.Itoa(port))
+	err = s.state.SetAPIAddress(
+		context.Background(),
+		controllerID,
+		address,
+		false,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT address, is_agent FROM controller_api_address WHERE controller_id = ?", controllerID).Scan(&obtainedAddress, &isAgent)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtainedAddress, gc.Equals, address)
+	c.Check(isAgent, jc.IsFalse)
+}
+
+func (s *stateSuite) TestSetAPIAddressControllerNodeNotFound(c *gc.C) {
+	controllerID := "1"
+	address := "192.168.5.60"
+
+	err := s.state.CurateNodes(context.Background(), []string{controllerID}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetAPIAddress(
+		context.Background(),
+		controllerID,
+		address,
+		true,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestGetControllerIDs(c *gc.C) {
+	err := s.state.CurateNodes(context.Background(), []string{"1", "2"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerIDs, err := s.state.GetControllerIDs(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(controllerIDs, gc.HasLen, 3)
+	c.Check(controllerIDs, gc.DeepEquals, []string{"0", "1", "2"})
 }

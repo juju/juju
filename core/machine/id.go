@@ -9,10 +9,10 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-// UUID represents a charm unique identifier.
+// UUID represents a machine unique identifier.
 type UUID string
 
-// NewUUID is a convince function for generating a new charm uuid.
+// NewUUID is a convince function for generating a new machine uuid.
 func NewUUID() (UUID, error) {
 	uuid, err := uuid.NewUUID()
 	if err != nil {
