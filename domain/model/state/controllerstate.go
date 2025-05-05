@@ -1198,16 +1198,16 @@ FROM      v_model m
 	return modelSummaries, nil
 }
 
-// GetModelCloudNameAndCredential returns the cloud name and credential id for a
+// GetModelCloudInfoAndCredential returns the cloud name, cloud region name and credential id for a
 // model identified by uuid. If no model exists for the provided uuid a
 // [modelerrors.NotFound] error is returned.
-func (s *State) GetModelCloudNameAndCredential(
+func (s *State) GetModelCloudInfoAndCredential(
 	ctx context.Context,
 	uuid coremodel.UUID,
-) (string, credential.Key, error) {
+) (string, string, credential.Key, error) {
 	db, err := s.DB()
 	if err != nil {
-		return "", credential.Key{}, errors.Capture(err)
+		return "", "", credential.Key{}, errors.Capture(err)
 	}
 
 	args := dbModelUUID{
@@ -1220,11 +1220,12 @@ FROM v_model
 WHERE uuid = $dbModelUUID.uuid
 `, dbCloudCredential{}, args)
 	if err != nil {
-		return "", credential.Key{}, errors.Capture(err)
+		return "", "", credential.Key{}, errors.Capture(err)
 	}
 
 	var (
 		cloudName       string
+		cloudRegionName string
 		credentialKey   credential.Key
 		credentialOwner sql.NullString
 	)
@@ -1238,6 +1239,7 @@ WHERE uuid = $dbModelUUID.uuid
 		}
 
 		cloudName = result.Name
+		cloudRegionName = result.CloudRegionName
 		credentialKey = credential.Key{
 			Name:  result.CredentialName.String,
 			Cloud: result.CredentialCloudName,
@@ -1246,7 +1248,7 @@ WHERE uuid = $dbModelUUID.uuid
 		return nil
 	})
 	if err != nil {
-		return "", credential.Key{}, errors.Errorf(
+		return "", "", credential.Key{}, errors.Errorf(
 			"getting model %q cloud name and credential: %w", uuid, err,
 		)
 	}
@@ -1254,12 +1256,12 @@ WHERE uuid = $dbModelUUID.uuid
 	if credentialOwner.Valid && credentialOwner.String != "" {
 		ownerName, err := user.NewName(credentialOwner.String)
 		if err != nil {
-			return "", credential.Key{}, errors.Errorf("credential owner: %w", err)
+			return "", "", credential.Key{}, errors.Errorf("credential owner: %w", err)
 		}
 		credentialKey.Owner = ownerName
 	}
 
-	return cloudName, credentialKey, nil
+	return cloudName, cloudRegionName, credentialKey, nil
 }
 
 // GetModelCloudAndCredential returns the cloud and credential UUID for the model.

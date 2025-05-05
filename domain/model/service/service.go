@@ -91,10 +91,10 @@ type State interface {
 	// [modelerrors.NotFound] is returned.
 	GetControllerModelUUID(context.Context) (coremodel.UUID, error)
 
-	// GetModelCloudNameAndCredential returns the cloud name and credential id
+	// GetModelCloudInfoAndCredential returns the cloud name, cloud region name and credential id
 	// for a model identified by the model uuid. If no model exists for the
 	// provided name and user a [modelerrors.NotFound] error is returned.
-	GetModelCloudNameAndCredential(context.Context, coremodel.UUID) (string, credential.Key, error)
+	GetModelCloudInfoAndCredential(context.Context, coremodel.UUID) (string, string, credential.Key, error)
 
 	// Delete removes a model and all of it's associated data from Juju.
 	Delete(context.Context, coremodel.UUID) error
@@ -241,7 +241,7 @@ func (s *Service) CheckModelExists(ctx context.Context, modelUUID coremodel.UUID
 	return s.st.CheckModelExists(ctx, modelUUID)
 }
 
-// DefaultModelCloudNameAndCredential returns the default cloud name and
+// DefaultModelCloudInfoAndCredential returns the default cloud name, region name and
 // credential that should be used for newly created models that haven't had
 // either cloud or credential specified. If no default credential is available
 // the zero value of [credential.UUID] will be returned.
@@ -249,24 +249,24 @@ func (s *Service) CheckModelExists(ctx context.Context, modelUUID coremodel.UUID
 // The defaults that are sourced come from the controller's default model. If
 // there is a no controller model a [modelerrors.NotFound] error will be
 // returned.
-func (s *Service) DefaultModelCloudNameAndCredential(
+func (s *Service) DefaultModelCloudInfoAndCredential(
 	ctx context.Context,
-) (string, credential.Key, error) {
+) (string, string, credential.Key, error) {
 	ctrlUUID, err := s.st.GetControllerModelUUID(ctx)
 	if err != nil {
-		return "", credential.Key{}, errors.Errorf(
+		return "", "", credential.Key{}, errors.Errorf(
 			"getting controller model uuid: %w", err,
 		)
 	}
-	cloudName, cred, err := s.st.GetModelCloudNameAndCredential(ctx, ctrlUUID)
+	cloudName, regionName, cred, err := s.st.GetModelCloudInfoAndCredential(ctx, ctrlUUID)
 
 	if err != nil {
-		return "", credential.Key{}, errors.Errorf(
+		return "", "", credential.Key{}, errors.Errorf(
 			"getting controller model %q cloud name and credential: %w",
 			ctrlUUID, err,
 		)
 	}
-	return cloudName, cred, nil
+	return cloudName, regionName, cred, nil
 }
 
 // CreateModel is responsible for creating a new model from start to finish with
