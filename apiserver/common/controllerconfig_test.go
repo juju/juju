@@ -170,23 +170,19 @@ func (s *controllerInfoSuite) TestControllerInfoMigratedController(c *gc.C) {
 	domainServices := s.ControllerDomainServices(c)
 	controllerConfig := common.NewControllerConfigAPI(s.localState, domainServices.ControllerConfig(), domainServices.ExternalController())
 
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
 	// For the test to run properly with part of the model in mongo and
 	// part in a service domain, a model with the same uuid is required
 	// in both places for the test to work. Necessary after model config
 	// was move to the domain services.
-	modelState := f.MakeModel(c, &factory.ModelParams{UUID: s.DefaultModelUUID})
-	model, err := modelState.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	//modelState := f.MakeModel(c, &factory.ModelParams{UUID: s.DefaultModelUUID})
+	model := s.localModel.State()
 
 	targetControllerTag := names.NewControllerTag(uuid.MustNewUUID().String())
-	defer modelState.Close()
+	defer model.Close()
 
 	// Migrate the model and delete it from the state
 	controllerIP := "1.2.3.4:5555"
-	mig, err := modelState.CreateMigration(state.MigrationSpec{
+	mig, err := model.CreateMigration(state.MigrationSpec{
 		InitiatedBy: names.NewUserTag("admin"),
 		TargetInfo: migration.TargetInfo{
 			ControllerTag:   targetControllerTag,
@@ -202,8 +198,8 @@ func (s *controllerInfoSuite) TestControllerInfoMigratedController(c *gc.C) {
 		c.Assert(mig.SetPhase(phase), jc.ErrorIsNil)
 	}
 
-	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
-	c.Assert(modelState.RemoveDyingModel(), jc.ErrorIsNil)
+	c.Assert(s.localModel.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(model.RemoveDyingModel(), jc.ErrorIsNil)
 
 	externalControllerInfo, err := controllerConfig.ControllerAPIInfoForModels(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: names.NewModelTag(s.DefaultModelUUID.String()).String()}}})

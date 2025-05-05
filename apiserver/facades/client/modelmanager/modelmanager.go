@@ -45,7 +45,6 @@ var (
 // StateBackend represents the mongo backend.
 type StateBackend interface {
 	commonmodel.ModelManagerBackend
-	InvalidateModelCredential(string) error
 }
 
 // ModelManagerAPI implements the model manager interface and is

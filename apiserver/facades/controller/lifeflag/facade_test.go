@@ -6,6 +6,7 @@ package lifeflag_test
 import (
 	"context"
 
+	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -74,11 +75,11 @@ func (s *FacadeSuite) TestLifeAuthFailure(c *gc.C) {
 }
 
 func (s *FacadeSuite) TestLifeNotFound(c *gc.C) {
-	backend := &mockBackend{}
+	backend := &mockBackend{entity: names.NewModelTag(s.modelUUID.String())}
 	facade, err := lifeflag.NewFacade(s.modelUUID, backend, nil, auth(true))
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := facade.Life(context.Background(), modelEntity())
+	results, err := facade.Life(context.Background(), modelEntity(s.modelUUID))
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
@@ -87,11 +88,11 @@ func (s *FacadeSuite) TestLifeNotFound(c *gc.C) {
 }
 
 func (s *FacadeSuite) TestLifeSuccess(c *gc.C) {
-	backend := &mockBackend{exist: true}
+	backend := &mockBackend{exist: true, entity: names.NewModelTag(s.modelUUID.String())}
 	facade, err := lifeflag.NewFacade(s.modelUUID, backend, nil, auth(true))
 	c.Check(err, jc.ErrorIsNil)
 
-	results, err := facade.Life(context.Background(), modelEntity())
+	results, err := facade.Life(context.Background(), modelEntity(s.modelUUID))
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(results, jc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{{Life: life.Dying}},
@@ -128,11 +129,11 @@ func (s *FacadeSuite) TestWatchAuthFailure(c *gc.C) {
 }
 
 func (s *FacadeSuite) TestWatchNotFound(c *gc.C) {
-	backend := &mockBackend{}
+	backend := &mockBackend{exist: false, watch: true, entity: names.NewModelTag(s.modelUUID.String())}
 	facade, err := lifeflag.NewFacade(s.modelUUID, backend, nil, auth(true))
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := facade.Watch(context.Background(), modelEntity())
+	results, err := facade.Watch(context.Background(), modelEntity(s.modelUUID))
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
@@ -143,11 +144,11 @@ func (s *FacadeSuite) TestWatchNotFound(c *gc.C) {
 func (s *FacadeSuite) TestWatchBadWatcher(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
-	backend := &mockBackend{exist: true}
+	backend := &mockBackend{exist: true, watch: false, entity: names.NewModelTag(s.modelUUID.String())}
 	facade, err := lifeflag.NewFacade(s.modelUUID, backend, s.watcherRegistry, auth(true))
 	c.Check(err, jc.ErrorIsNil)
 
-	results, err := facade.Watch(context.Background(), modelEntity())
+	results, err := facade.Watch(context.Background(), modelEntity(s.modelUUID))
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
@@ -159,11 +160,11 @@ func (s *FacadeSuite) TestWatchSuccess(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
-	backend := &mockBackend{exist: true, watch: true}
+	backend := &mockBackend{exist: true, watch: true, entity: names.NewModelTag(s.modelUUID.String())}
 	facade, err := lifeflag.NewFacade(s.modelUUID, backend, s.watcherRegistry, auth(true))
 	c.Check(err, jc.ErrorIsNil)
 
-	results, err := facade.Watch(context.Background(), modelEntity())
+	results, err := facade.Watch(context.Background(), modelEntity(s.modelUUID))
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(results, jc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{{NotifyWatcherId: "1"}},

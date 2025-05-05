@@ -240,8 +240,8 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesAll(c *gc.C) {
 				Result: &params.ModelSummary{
 					Name:               "testmodel",
 					OwnerTag:           s.adminUser.String(),
-					UUID:               s.st.ModelUUID(),
-					Type:               modelUUID.String(),
+					UUID:               modelUUID.String(),
+					Type:               coremodel.IAAS.String(),
 					ProviderType:       "ec2",
 					ControllerUUID:     s.controllerUUID.String(),
 					IsController:       true,
