@@ -15,6 +15,7 @@ import (
 	corecredential "github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
@@ -22,6 +23,7 @@ import (
 	dbcloud "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
 	credentialerrors "github.com/juju/juju/domain/credential/errors"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/model/state/testing"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	"github.com/juju/juju/internal/errors"
@@ -359,7 +361,7 @@ func (s *credentialSuite) TestRemoveCredentials(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = st.CloudCredential(ctx, key)
-	c.Assert(err, jc.ErrorIs, credentialerrors.CredentialNotFound)
+	c.Assert(err, jc.ErrorIs, credentialerrors.NotFound)
 
 	models, err = st.ModelsUsingCloudCredential(ctx, key)
 	c.Assert(err, jc.ErrorIsNil)
@@ -419,10 +421,12 @@ func (s *credentialSuite) TestInvalidateCloudCredential(c *gc.C) {
 	key := corecredential.Key{Cloud: "stratus", Owner: s.userName, Name: "foobar"}
 	one := s.createCloudCredential(c, st, key)
 	c.Assert(one.Invalid, jc.IsFalse)
+	uuid, err := st.CredentialUUIDForKey(context.Background(), key)
+	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := context.Background()
 	reason := "testing, testing 1,2,3"
-	err := st.InvalidateCloudCredential(ctx, key, reason)
+	err = st.InvalidateCloudCredential(ctx, uuid, reason)
 	c.Assert(err, jc.ErrorIsNil)
 
 	updated, err := st.CloudCredential(ctx, key)
@@ -434,10 +438,10 @@ func (s *credentialSuite) TestInvalidateCloudCredential(c *gc.C) {
 func (s *credentialSuite) TestInvalidateCloudCredentialNotFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	key := corecredential.Key{Cloud: "stratus", Owner: s.userName, Name: "foobar"}
+	badUUID := corecredential.UUID("not valid")
 	ctx := context.Background()
-	err := st.InvalidateCloudCredential(ctx, key, "reason")
-	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
+	err := st.InvalidateCloudCredential(ctx, badUUID, "reason")
+	c.Assert(err, jc.ErrorIs, credentialerrors.NotFound)
 }
 
 func (s *credentialSuite) TestNoModelsUsingCloudCredential(c *gc.C) {
@@ -585,4 +589,60 @@ func (s *credentialSuite) createCloudCredential(c *gc.C, st *State, key corecred
 	err := st.UpsertCloudCredential(context.Background(), key, credInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	return credInfo
+}
+
+func (s *credentialSuite) TestInvalidateModelCloudCredential(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	key := corecredential.Key{Cloud: "stratus", Owner: s.userName, Name: "foobar"}
+	s.createCloudCredential(c, st, key)
+
+	insertOne := func(ctx context.Context, tx *sql.Tx, modelUUID coremodel.UUID, name string) error {
+		result, err := tx.ExecContext(ctx, `
+INSERT INTO model (uuid, name, owner_uuid, life_id, model_type_id, activated, cloud_uuid, cloud_credential_uuid)
+SELECT ?, ?, ?, 0, 0, true,
+	(SELECT uuid FROM cloud WHERE cloud.name="stratus"),
+	(SELECT uuid FROM cloud_credential cc WHERE cc.name="foobar")
+			`,
+			modelUUID, name, s.userUUID,
+		)
+		if err != nil {
+			return err
+		}
+		numRows, err := result.RowsAffected()
+		if err != nil {
+			return err
+		}
+		c.Assert(numRows, gc.Equals, int64(1))
+
+		return nil
+	}
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := insertOne(ctx, tx, modelUUID, "mymodel"); err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.InvalidateModelCloudCredential(context.Background(), modelUUID, "test reason")
+	c.Check(err, jc.ErrorIsNil)
+
+	updated, err := st.CloudCredential(context.Background(), key)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(updated.Invalid, jc.IsTrue)
+	c.Assert(updated.InvalidReason, gc.Equals, "test reason")
+}
+
+// TestInvalidateModelCloudCredentialNotFound is testing the case where we try
+// to cancel the cloud credential for a model that does not exist. In this case
+// we should get back an error satisfying [modelerrors.NotFound].
+func (s *credentialSuite) TestInvalidateModelCloudCredentialNotFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	err := st.InvalidateModelCloudCredential(context.Background(), modelUUID, "test reason")
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }

@@ -4,6 +4,8 @@
 package state
 
 import (
+	"database/sql"
+
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/internal/errors"
 )
@@ -103,12 +105,16 @@ type CredentialAttribute struct {
 	Value string `db:"value"`
 }
 
+type credentialInvalidReason struct {
+	Reason string `db:"invalid_reason"`
+}
+
 type credentialUUID struct {
 	UUID string `db:"uuid"`
 }
 
 type modelCredentialUUID struct {
-	UUID string `db:"cloud_credential_uuid"`
+	UUID sql.NullString `db:"cloud_credential_uuid"`
 }
 
 // dbCloudName represents the name of a cloud.
@@ -192,4 +198,8 @@ type ownerName struct {
 type ownerAndCloudName struct {
 	OwnerName string `db:"owner_name"`
 	CloudName string `db:"cloud_name"`
+}
+
+type modelUUID struct {
+	UUID string `db:"uuid"`
 }
