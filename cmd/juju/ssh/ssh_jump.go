@@ -11,9 +11,12 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
+	"text/template"
 
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/retry"
 	"github.com/juju/utils/v3"
 	utilsssh "github.com/juju/utils/v3/ssh"
@@ -31,6 +34,8 @@ import (
 
 const jumpUser = "admin"
 const finalDestinationUser = "ubuntu"
+
+const openSSHTemplate = `ssh -o "ProxyCommand=ssh -W %h:%p -p {{.JumpPort}} {{.JumpUser}}@{{.JumpHost}}" {{.DestinationUser}}@{{.VirtualHostname}} {{.Args}}`
 
 type hostKeys struct {
 	jumpHostKey     string
@@ -61,6 +66,13 @@ type sshJump struct {
 	hostChecker            jujussh.ReachableChecker
 	publicKeyRetryStrategy retry.CallArgs
 	jumpHostPort           int
+	showCommand            bool
+
+	outputTemplate *template.Template
+}
+
+func (p *sshJump) SetFlags(f *gnuflag.FlagSet) {
+	f.BoolVar(&p.showCommand, "show-command", false, "Print the OpenSSH command instead of executing it. This flag is only enabled with the --jump flag.")
 }
 
 // initRun initializes the SSH proxy for a model command.
@@ -90,6 +102,10 @@ func (p *sshJump) initRun(cmd ModelCommand) error {
 		return errors.Trace(err)
 	}
 	p.modelType = modelDetails.ModelType
+	p.outputTemplate, err = template.New("output").Parse(openSSHTemplate)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
@@ -271,11 +287,23 @@ func (p *sshJump) ssh(ctx Context, enablePty bool, target *resolvedTarget) error
 	if len(p.args) == 0 && p.modelType == model.CAAS {
 		p.args = []string{"exec", "sh"}
 	}
-	cmd := utilsssh.Command(target.userHost(), p.args, options)
-	cmd.Stdin = ctx.GetStdin()
-	cmd.Stdout = ctx.GetStdout()
-	cmd.Stderr = ctx.GetStderr()
-	return cmd.Run()
+	if p.showCommand {
+		templateInput := map[string]string{
+			"JumpPort":        fmt.Sprint(p.jumpHostPort),
+			"JumpUser":        target.via.user,
+			"JumpHost":        target.via.host,
+			"DestinationUser": target.user,
+			"VirtualHostname": target.host,
+			"Args":            strings.Join(p.args, " "),
+		}
+		return p.outputTemplate.Execute(ctx.GetStdout(), templateInput)
+	} else {
+		cmd := utilsssh.Command(target.userHost(), p.args, options)
+		cmd.Stdin = ctx.GetStdin()
+		cmd.Stdout = ctx.GetStdout()
+		cmd.Stderr = ctx.GetStderr()
+		return cmd.Run()
+	}
 }
 
 // copy performs a copy operation using the SSH proxy.
