@@ -20,7 +20,4 @@ const (
 
 	// UserNotFound describes an error that occurs when a user is not found.
 	UserNotFound = errors.ConstError("user not found")
-
-	// CredentialNotFound describes an error that occurs when a credential is not found.
-	CredentialNotFound = errors.ConstError("credential not found")
 )

@@ -48,6 +48,14 @@ type State interface {
 	// for a given owner.
 	AllCloudCredentialsForOwner(ctx context.Context, owner user.Name) (map[corecredential.Key]credential.CloudCredentialResult, error)
 
+	// InvalidateModelCloudCredential marks the cloud credential for the given
+	// model as invalid for the specified model uuid. If the model does not have
+	// any cloud credential set then no operation is performed.
+	// The following erros can be expected:
+	// - [github.com/juju/juju/domain/model/errors.NotFound] when the model does
+	// not exist.
+	InvalidateModelCloudCredential(ctx context.Context, modelUUID coremodel.UUID, reason string) error
+
 	// RemoveCloudCredential removes a cloud credential with the given name, cloud, owner.
 	RemoveCloudCredential(ctx context.Context, key corecredential.Key) error
 
@@ -132,11 +140,36 @@ func (s *Service) RemoveCloudCredential(ctx context.Context, key corecredential.
 }
 
 // InvalidateCredential marks the cloud credential for the given key as invalid.
+// The following errors can be expected:
+// - [github.com/juju/juju/domain/credential/errors.NotFound] when the
+// credential specified by key does not exist.
 func (s *Service) InvalidateCredential(ctx context.Context, key corecredential.Key, reason string) error {
 	if err := key.Validate(); err != nil {
 		return errors.Errorf("invalidating cloud credential with invalid key: %w", err)
 	}
-	return s.st.InvalidateCloudCredential(ctx, key, reason)
+	uuid, err := s.st.CredentialUUIDForKey(ctx, key)
+	if err != nil {
+		return errors.Errorf("getting credential uuid for key %q: %w", key, err)
+	}
+	return s.st.InvalidateCloudCredential(ctx, uuid, reason)
+}
+
+// InvalidateModelCredential marks the cloud credential that is in use for by
+// the model identified by modelUUID as invalid. This will affect all models
+// that are using the credential.
+// The following errors can be expected:
+// - [coreerrors.NotValid] when the modelUUID is not valid.
+// - [github.com/juju/juju/domain/model/errors.NotFound] when the model does not
+// exist.
+func (s *Service) InvalidateModelCredential(
+	ctx context.Context,
+	modelUUID coremodel.UUID,
+	reason string,
+) error {
+	if err := modelUUID.Validate(); err != nil {
+		return err
+	}
+	return s.st.InvalidateModelCloudCredential(ctx, modelUUID, reason)
 }
 
 func (s *Service) modelsUsingCredential(ctx context.Context, key corecredential.Key) (map[coremodel.UUID]string, error) {

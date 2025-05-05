@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	corecredential "github.com/juju/juju/core/credential"
+	credentialtesting "github.com/juju/juju/core/credential/testing"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/credential"
@@ -79,8 +80,10 @@ func (s *providerServiceSuite) TestWatchCredentialInvalidKey(c *gc.C) {
 func (s *providerServiceSuite) TestInvalidateCredential(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	uuid := credentialtesting.GenCredentialUUID(c)
 	key := corecredential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred"), Name: "foo"}
-	s.state.EXPECT().InvalidateCloudCredential(gomock.Any(), key, "bad")
+	s.state.EXPECT().CredentialUUIDForKey(gomock.Any(), key).Return(uuid, nil)
+	s.state.EXPECT().InvalidateCloudCredential(gomock.Any(), uuid, "bad")
 
 	err := s.service().InvalidateCredential(context.Background(), key, "bad")
 	c.Assert(err, jc.ErrorIsNil)
