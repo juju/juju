@@ -795,6 +795,34 @@ func (s *ModelState) GetModelCloudType(ctx context.Context) (string, error) {
 	return m.CloudType, nil
 }
 
+// GetModelType returns the [coremodel.ModelType] for the current model.
+// The following errors can be expected:
+// - [modelerrors.NotFound] when no read only model has been established in the
+// model's state layer.
+func (s *ModelState) GetModelType(ctx context.Context) (coremodel.ModelType, error) {
+	db, err := s.DB()
+	if err != nil {
+		return coremodel.ModelType(""), errors.Capture(err)
+	}
+
+	m := dbModelType{}
+	stmt, err := s.Prepare(`SELECT &dbModelType.* FROM model`, m)
+	if err != nil {
+		return coremodel.ModelType(""), errors.Capture(err)
+	}
+
+	return coremodel.ModelType(m.Type),
+		db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			err := tx.Query(ctx, stmt).Get(&m)
+			if errors.Is(err, sql.ErrNoRows) {
+				return errors.New("model does not exist").Add(modelerrors.NotFound)
+			} else if err != nil {
+				return errors.Errorf("querying model type: %w", err)
+			}
+			return nil
+		})
+}
+
 // GetModelCloudRegionAndCredential returns the cloud name, region name and
 // credential key for a  model identified by uuid.
 // The following errors can be returned:
