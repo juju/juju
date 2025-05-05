@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"fmt"
+	"time"
 
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
@@ -171,7 +172,6 @@ func (s *sshServerSuite) TestSSHServer(c *gc.C) {
 }
 
 func (s *sshServerSuite) TestSSHServerMaxConnections(c *gc.C) {
-	c.Skip("this test is flaky, skipping until it is fixed")
 	// Firstly, start the server on an in-memory listener
 	listener := bufconn.Listen(1024)
 	worker, err := NewServerWorker(ServerWorkerConfig{
@@ -185,6 +185,28 @@ func (s *sshServerSuite) TestSSHServerMaxConnections(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, worker)
+
+	srv := worker.(*ServerWorker)
+
+	// Check server side that the connection count matches the expected value
+	// otherwise we face a race condition in tests where the server hasn't yet
+	// decreased the connection count.
+	checkConnCount := func(c *gc.C, expected int32) {
+		done := time.After(200 * time.Millisecond)
+		for {
+			connCount := srv.concurrentConnections.Load()
+			if connCount == expected {
+				return
+			}
+			select {
+			case <-time.After(10 * time.Millisecond):
+			case <-done:
+				c.Error("timeout waiting for expected connection count")
+				return
+			}
+		}
+	}
+
 	// the reason we repeat this test 2 times is to make sure that closing the connections on
 	// the first iteration completely resets the counter on the ssh server side.
 	for i := range 2 {
@@ -197,25 +219,27 @@ func (s *sshServerSuite) TestSSHServerMaxConnections(c *gc.C) {
 				gossh.PublicKeys(s.userSigner),
 			},
 		}
+		checkConnCount(c, 0)
 		for range maxConcurrentConnections {
 			client := inMemoryDial(c, listener, config)
-			_, err := client.Dial("tcp", fmt.Sprintf("%s:0", testVirtualHostname))
-			c.Assert(err, jc.ErrorIsNil)
 			clients = append(clients, client)
 		}
+		checkConnCount(c, maxConcurrentConnections)
 		jumpServerConn, err := listener.Dial()
 		c.Assert(err, jc.ErrorIsNil)
 
 		_, _, _, err = gossh.NewClientConn(jumpServerConn, "", config)
-		c.Assert(err, gc.ErrorMatches, ".*handshake failed: EOF.*")
+		c.Assert(err, gc.ErrorMatches, ".*handshake failed:.*")
 
 		// close the connections
 		for _, client := range clients {
 			client.Close()
 		}
+		checkConnCount(c, 0)
 		// check the next connection is accepted
 		client := inMemoryDial(c, listener, config)
 		client.Close()
+		checkConnCount(c, 0)
 	}
 }
 
