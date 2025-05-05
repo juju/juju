@@ -816,3 +816,49 @@ func (s *modelServiceSuite) TestIsControllerModelNotFound(c *gc.C) {
 	_, err := svc.IsControllerModel(context.Background())
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }
+
+// GetModelType asserts the happy path of getting the models current
+// [coremodel.ModelType]. We are looking to see here that the service correctly
+// passes along the information recieved from the state layer.
+func (s *modelServiceSuite) GetModelType(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.mockModelState.EXPECT().GetModelType(gomock.Any()).Return(coremodel.IAAS, nil)
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
+	)
+
+	modelType, err := svc.GetModelType(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(modelType, gc.Equals, coremodel.IAAS)
+}
+
+// GetModelTypeNotFound is asserting that if we ask for the model type of the
+// current model but it doesn't exist in the state layer we correctly pass only
+// the [modelerrors.NotFound] error recieved. This fulfills the contract defined
+// for [ModelService.GetModelType].
+func (s *modelServiceSuite) GetModelTypeNotFound(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.mockModelState.EXPECT().GetModelType(gomock.Any()).Return(coremodel.ModelType(""), modelerrors.NotFound)
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
+	)
+
+	_, err := svc.GetModelType(context.Background())
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+}
