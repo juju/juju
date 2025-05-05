@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/permission"
-	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -55,13 +54,7 @@ func NewLeadershipPinningFromContext(ctx facade.ModelContext) (*LeadershipPinnin
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	modelTag, err := names.ParseModelTag(ctx.ModelUUID().String())
-	if err != nil {
-		return nil, internalerrors.Errorf(
-			"parsing model uuid %q to new model tag: %w",
-			ctx.ModelUUID(), err,
-		)
-	}
+	modelTag := names.NewModelTag(ctx.ModelUUID().String())
 	return NewLeadershipPinning(
 		leadershipPinningBackend{st},
 		modelTag,
