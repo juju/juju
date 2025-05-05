@@ -129,7 +129,11 @@ func (p *sshJump) getTarget() string {
 
 // resolveTarget resolves the target for the SSH proxy.
 func (p *sshJump) resolveTarget(target string) (*resolvedTarget, error) {
-	resolvedTargetName, err := p.maybeResolveLeaderUnit(target)
+	user, entity := splitUserTarget(target)
+	if user == "" {
+		user = jumpUser
+	}
+	resolvedTargetName, err := p.maybeResolveLeaderUnit(entity)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -170,7 +174,7 @@ func (p *sshJump) resolveTarget(target string) (*resolvedTarget, error) {
 		user: finalDestinationUser,
 		host: virtualHostname,
 		via: &resolvedTarget{
-			user: jumpUser,
+			user: user,
 			host: address.Host(),
 		},
 	}, nil
