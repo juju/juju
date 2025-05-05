@@ -1,7 +1,7 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package credentialvalidator_test
+package credentialvalidator
 
 import (
 	"context"
@@ -13,100 +13,87 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
-	"github.com/juju/juju/apiserver/facades/agent/credentialvalidator"
-	"github.com/juju/juju/apiserver/facades/agent/credentialvalidator/mocks"
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
-	"github.com/juju/juju/core/model"
+	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/core/watcher"
-	coretesting "github.com/juju/juju/internal/testing"
+	credentialerrors "github.com/juju/juju/domain/credential/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
-// credentialTag is the credential tag we're using in the tests.
-// needs to fit fmt.Sprintf("%s/%s/%s", cloudName, userName, credentialName)
-var credentialTag = names.NewCloudCredentialTag("cloud/user/credential")
-
 type CredentialValidatorSuite struct {
-	coretesting.BaseSuite
+	modelUUID coremodel.UUID
 
-	cloudService                 *mocks.MockCloudService
-	credentialService            *mocks.MockCredentialService
-	modelService                 *mocks.MockModelService
-	modelInfoService             *mocks.MockModelInfoService
-	modelCredentialWatcher       *mocks.MockNotifyWatcher
+	credentialService      *MockModelCredentialService
+	modelCredentialWatcher *MockNotifyWatcher
+
 	modelCredentialWatcherGetter func(ctx context.Context) (watcher.NotifyWatcher, error)
 	watcherRegistry              *facademocks.MockWatcherRegistry
 
-	api *credentialvalidator.CredentialValidatorAPI
+	api *CredentialValidatorAPI
 }
 
 var _ = gc.Suite(&CredentialValidatorSuite{})
 
+func (s *CredentialValidatorSuite) SetupTest(c *gc.C) {
+	s.modelUUID = modeltesting.GenModelUUID(c)
+}
+
 func (s *CredentialValidatorSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.cloudService = mocks.NewMockCloudService(ctrl)
-	s.credentialService = mocks.NewMockCredentialService(ctrl)
-	s.modelService = mocks.NewMockModelService(ctrl)
-	s.modelInfoService = mocks.NewMockModelInfoService(ctrl)
+	s.credentialService = NewMockModelCredentialService(ctrl)
 	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
-	s.modelCredentialWatcher = mocks.NewMockNotifyWatcher(ctrl)
+	s.modelCredentialWatcher = NewMockNotifyWatcher(ctrl)
 
-	s.api = credentialvalidator.NewCredentialValidatorAPIForTest(c, s.cloudService, s.credentialService, s.modelService, s.modelInfoService, s.modelCredentialWatcherGetter, s.watcherRegistry)
+	s.api = NewCredentialValidatorAPI(
+		s.modelUUID,
+		s.credentialService,
+		s.modelCredentialWatcherGetter,
+		s.watcherRegistry,
+	)
 	return ctrl
 }
 
 func (s *CredentialValidatorSuite) TestModelCredential(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
-	modelUUID := modeltesting.GenModelUUID(c)
-	modelInfo := model.ModelInfo{
-		UUID:            modelUUID,
-		CredentialName:  credentialTag.Name(),
-		Cloud:           "cloud",
-		CredentialOwner: usertesting.GenNewName(c, "user"),
-	}
-	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(modelInfo, nil)
 	modelCredentialKey := credential.Key{
-		Cloud: modelInfo.Cloud,
-		Owner: modelInfo.CredentialOwner,
-		Name:  modelInfo.CredentialName,
+		Cloud: "cloud",
+		Owner: usertesting.GenNewName(c, "user"),
+		Name:  "credential",
 	}
-	s.credentialService.EXPECT().CloudCredential(gomock.Any(), modelCredentialKey).Return(cloud.Credential{
-		Invalid: false,
-	}, nil)
+	s.credentialService.EXPECT().GetModelCredentialStatus(gomock.Any()).Return(
+		modelCredentialKey, true, nil,
+	)
+	credTag := names.NewCloudCredentialTag("cloud/user/credential")
 
 	result, err := s.api.ModelCredential(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ModelCredential{
-		Model:           names.NewModelTag(modelUUID.String()).String(),
+		Model:           names.NewModelTag(s.modelUUID.String()).String(),
 		Exists:          true,
-		CloudCredential: credentialTag.String(),
+		CloudCredential: credTag.String(),
 		Valid:           true,
 	})
 }
 
-func (s *CredentialValidatorSuite) TestModelCredentialNotNeeded(c *gc.C) {
+// TestModelCredentialNotSet is testing that when no credential has been set for
+// the model we get back a valid results with exists set to false.
+func (s *CredentialValidatorSuite) TestModelCredentialNotSet(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
-	modelUUID := modeltesting.GenModelUUID(c)
-	modelInfo := model.ModelInfo{
-		UUID:            modelUUID,
-		Cloud:           "cloud",
-		CredentialOwner: usertesting.GenNewName(c, "user"),
-	}
-	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(modelInfo, nil)
-
-	s.cloudService.EXPECT().Cloud(gomock.Any(), modelInfo.Cloud).Return(&cloud.Cloud{
-		Name:      modelInfo.Cloud,
-		AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},
-	}, nil)
+	s.credentialService.EXPECT().GetModelCredentialStatus(gomock.Any()).Return(
+		credential.Key{}, false, credentialerrors.ModelCredentialNotSet,
+	)
 
 	result, err := s.api.ModelCredential(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ModelCredential{Model: names.NewModelTag(modelUUID.String()).String(), Valid: true})
+	c.Assert(result, gc.DeepEquals, params.ModelCredential{
+		Model:  names.NewModelTag(s.modelUUID.String()).String(),
+		Exists: false,
+		Valid:  true,
+	})
 }
 
 func (s *CredentialValidatorSuite) TestWatchModelCredential(c *gc.C) {
