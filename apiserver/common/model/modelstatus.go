@@ -71,6 +71,7 @@ func (c *ModelStatusAPI) ModelStatus(ctx context.Context, req params.Entities) (
 
 func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.ModelStatus, error) {
 	var status params.ModelStatus
+	// Use Model(ctx context.Context, uuid coremodel.UUID) impl for all model related properties below
 	modelTag, err := names.ParseModelTag(tag)
 	if err != nil {
 		return status, errors.Trace(err)
@@ -85,6 +86,7 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 		st = otherSt
 	}
 
+	// Use Model controllerUUID and modelUUID for tags
 	model, err := st.Model()
 	if err != nil {
 		return status, errors.Trace(err)
@@ -102,6 +104,7 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 		return status, errors.Trace(err)
 	}
 
+	// check for how many machines with isController=true in machine table
 	hostedMachineCount := 0
 	for _, m := range machines {
 		if !m.IsManager() {
@@ -109,6 +112,8 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 		}
 	}
 
+	// use table applications for application names
+	// use dbModelMetrics (v_model_metrics) for unit count
 	applications, err := st.AllApplications()
 	if err != nil {
 		return status, errors.Trace(err)
@@ -122,6 +127,9 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 	if err != nil {
 		return status, errors.Trace(err)
 	}
+
+	// use func (s *Service) HardwareCharacteristics(ctx context.Context, machineUUID string) (*instance.HardwareCharacteristics, error) {
+	// refer to func (st *State) SetMachineCloudInstance(...) to get all the info, but some properties like status, vote and message still missing
 	modelMachines, err := ModelMachineInfo(ctx, st, svc)
 	if err != nil {
 		return status, errors.Trace(err)
@@ -140,6 +148,7 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 	if err != nil {
 		return status, errors.Trace(err)
 	}
+	// Use info from TABLE storage_volume (
 	modelVolumes := ModelVolumeInfo(volumes)
 
 	filesystems, err := st.AllFilesystems()
@@ -149,17 +158,17 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 	modelFilesystems := ModelFilesystemInfo(filesystems)
 
 	result := params.ModelStatus{
-		ModelTag:           tag,
-		OwnerTag:           model.Owner().String(),
-		Life:               life.Value(model.Life().String()),
-		Type:               string(model.Type()),
-		HostedMachineCount: hostedMachineCount,
-		ApplicationCount:   len(modelApplications),
-		UnitCount:          unitCount,
-		Applications:       modelApplications,
-		Machines:           modelMachines,
-		Volumes:            modelVolumes,
-		Filesystems:        modelFilesystems,
+		ModelTag:           tag,                               // use domain Model()
+		OwnerTag:           model.Owner().String(),            // use domain Model()
+		Life:               life.Value(model.Life().String()), // use domain Model()
+		Type:               string(model.Type()),              // use domain Model()
+		HostedMachineCount: hostedMachineCount,                // Use machines table and check for how many machines with isController=true
+		ApplicationCount:   len(modelApplications),            // Use dbModelMetrics (v_model_metrics)
+		UnitCount:          unitCount,                         // Use dbModelMetrics (v_model_metrics)
+		Applications:       modelApplications,                 // Use table applications for application names
+		Machines:           modelMachines,                     // Refer to services in machine_cloud_instance.go
+		Volumes:            modelVolumes,                      // use info from TABLE storage_volume to create state & service
+		Filesystems:        modelFilesystems,                  // TBD - look at block_device?
 	}
 
 	return result, nil
