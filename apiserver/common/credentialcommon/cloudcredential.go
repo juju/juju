@@ -22,7 +22,8 @@ type StateBackend interface {
 }
 
 // CredentialService exposes State methods needed by credential manager.
-type CredentialService interface {
+// ModelCredentialService expo
+type ModelCredentialService interface {
 	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
 	InvalidateCredential(ctx context.Context, key credential.Key, reason string) error
 }
