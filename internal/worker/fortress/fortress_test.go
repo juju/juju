@@ -49,7 +49,7 @@ func (s *FortressSuite) TestStoppedUnlock(c *gc.C) {
 	fix := newFixture(c)
 	fix.TearDown(c)
 
-	err := fix.Guard(c).Unlock()
+	err := fix.Guard(c).Unlock(context.Background())
 	c.Check(err, gc.Equals, fortress.ErrShutdown)
 }
 
@@ -57,7 +57,7 @@ func (s *FortressSuite) TestStoppedLockdown(c *gc.C) {
 	fix := newFixture(c)
 	fix.TearDown(c)
 
-	err := fix.Guard(c).Lockdown(nil)
+	err := fix.Guard(c).Lockdown(context.Background())
 	c.Check(err, gc.Equals, fortress.ErrShutdown)
 }
 
@@ -65,7 +65,7 @@ func (s *FortressSuite) TestStoppedVisit(c *gc.C) {
 	fix := newFixture(c)
 	fix.TearDown(c)
 
-	err := fix.Guest(c).Visit(nil, nil)
+	err := fix.Guest(c).Visit(context.Background(), nil)
 	c.Check(err, gc.Equals, fortress.ErrShutdown)
 }
 
@@ -80,7 +80,7 @@ func (s *FortressSuite) TestInitialLockdown(c *gc.C) {
 	fix := newFixture(c)
 	defer fix.TearDown(c)
 
-	err := fix.Guard(c).Lockdown(nil)
+	err := fix.Guard(c).Lockdown(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	AssertLocked(c, fix.Guest(c))
 }
@@ -89,7 +89,7 @@ func (s *FortressSuite) TestInitialUnlock(c *gc.C) {
 	fix := newFixture(c)
 	defer fix.TearDown(c)
 
-	err := fix.Guard(c).Unlock()
+	err := fix.Guard(c).Unlock(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	AssertUnlocked(c, fix.Guest(c))
 }
@@ -99,10 +99,10 @@ func (s *FortressSuite) TestDoubleUnlock(c *gc.C) {
 	defer fix.TearDown(c)
 
 	guard := fix.Guard(c)
-	err := guard.Unlock()
+	err := guard.Unlock(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 
-	err = guard.Unlock()
+	err = guard.Unlock(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	AssertUnlocked(c, fix.Guest(c))
 }
@@ -112,12 +112,12 @@ func (s *FortressSuite) TestDoubleLockdown(c *gc.C) {
 	defer fix.TearDown(c)
 
 	guard := fix.Guard(c)
-	err := guard.Unlock()
+	err := guard.Unlock(context.Background())
 	c.Check(err, jc.ErrorIsNil)
-	err = guard.Lockdown(nil)
+	err = guard.Lockdown(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 
-	err = guard.Lockdown(nil)
+	err = guard.Lockdown(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	AssertLocked(c, fix.Guest(c))
 }
@@ -135,7 +135,7 @@ func (s *FortressSuite) TestWorkersIndependent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Unlock the separate worker; check the original worker is unaffected.
-	err = guard2.Unlock()
+	err = guard2.Unlock(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	AssertLocked(c, fix.Guest(c))
 }
@@ -143,27 +143,27 @@ func (s *FortressSuite) TestWorkersIndependent(c *gc.C) {
 func (s *FortressSuite) TestVisitError(c *gc.C) {
 	fix := newFixture(c)
 	defer fix.TearDown(c)
-	err := fix.Guard(c).Unlock()
+	err := fix.Guard(c).Unlock(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 
-	err = fix.Guest(c).Visit(badVisit, nil)
+	err = fix.Guest(c).Visit(context.Background(), badVisit)
 	c.Check(err, gc.ErrorMatches, "bad!")
 }
 
 func (s *FortressSuite) TestVisitSuccess(c *gc.C) {
 	fix := newFixture(c)
 	defer fix.TearDown(c)
-	err := fix.Guard(c).Unlock()
+	err := fix.Guard(c).Unlock(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 
-	err = fix.Guest(c).Visit(func() error { return nil }, nil)
+	err = fix.Guest(c).Visit(context.Background(), func() error { return nil })
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *FortressSuite) TestConcurrentVisit(c *gc.C) {
 	fix := newFixture(c)
 	defer fix.TearDown(c)
-	err := fix.Guard(c).Unlock()
+	err := fix.Guard(c).Unlock(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	guest := fix.Guest(c)
 
@@ -180,7 +180,7 @@ func (s *FortressSuite) TestConcurrentVisit(c *gc.C) {
 				<-unblocked
 				return nil
 			}
-			err := guest.Visit(visit, nil)
+			err := guest.Visit(context.Background(), visit)
 			c.Check(err, jc.ErrorIsNil)
 			finishes <- i
 
@@ -214,7 +214,7 @@ func (s *FortressSuite) TestUnlockUnblocksVisit(c *gc.C) {
 	// Start a Visit on a locked fortress, and check it's blocked.
 	visited := make(chan error, 1)
 	go func() {
-		visited <- fix.Guest(c).Visit(badVisit, nil)
+		visited <- fix.Guest(c).Visit(context.Background(), badVisit)
 	}()
 	select {
 	case err := <-visited:
@@ -223,7 +223,7 @@ func (s *FortressSuite) TestUnlockUnblocksVisit(c *gc.C) {
 	}
 
 	// Unlock the fortress, and check the Visit is unblocked.
-	err := fix.Guard(c).Unlock()
+	err := fix.Guard(c).Unlock(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	select {
 	case err := <-visited:
@@ -244,7 +244,7 @@ func (s *FortressSuite) TestVisitUnblocksLockdown(c *gc.C) {
 	// Start a Lockdown call, and check that nothing progresses...
 	locked := make(chan error, 1)
 	go func() {
-		locked <- fix.Guard(c).Lockdown(nil)
+		locked <- fix.Guard(c).Lockdown(context.Background())
 	}()
 	select {
 	case err := <-locked:
@@ -275,9 +275,11 @@ func (s *FortressSuite) TestAbortedLockdownStillLocks(c *gc.C) {
 
 	// Start a Lockdown call, and check that nothing progresses...
 	locked := make(chan error, 1)
-	abort := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	go func() {
-		locked <- fix.Guard(c).Lockdown(abort)
+		locked <- fix.Guard(c).Lockdown(ctx)
 	}()
 	select {
 	case err := <-locked:
@@ -286,7 +288,7 @@ func (s *FortressSuite) TestAbortedLockdownStillLocks(c *gc.C) {
 	}
 
 	// ...then abort the lockdown.
-	close(abort)
+	cancel()
 	select {
 	case err := <-locked:
 		c.Check(err, gc.Equals, fortress.ErrAborted)
@@ -307,15 +309,15 @@ func (s *FortressSuite) TestAbortedLockdownUnlock(c *gc.C) {
 	defer close(unblockVisit)
 
 	// Start and abort a Lockdown.
-	abort := make(chan struct{})
-	close(abort)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
 	guard := fix.Guard(c)
-	err := guard.Lockdown(abort)
+	err := guard.Lockdown(ctx)
 	c.Assert(err, gc.Equals, fortress.ErrAborted)
 
 	// Unlock the fortress again, leaving the original visit running, and
 	// check that new Visits are immediately accepted.
-	err = guard.Unlock()
+	err = guard.Unlock(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	AssertUnlocked(c, fix.Guest(c))
 }

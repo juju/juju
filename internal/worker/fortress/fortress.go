@@ -4,6 +4,7 @@
 package fortress
 
 import (
+	"context"
 	"sync"
 
 	"gopkg.in/tomb.v2"
@@ -39,35 +40,42 @@ func (f *fortress) Wait() error {
 }
 
 // Unlock is part of the Guard interface.
-func (f *fortress) Unlock() error {
-	return f.allowGuests(true, nil)
+func (f *fortress) Unlock(ctx context.Context) error {
+	return f.allowGuests(ctx, true)
 }
 
 // Lockdown is part of the Guard interface.
-func (f *fortress) Lockdown(abort Abort) error {
-	return f.allowGuests(false, abort)
+func (f *fortress) Lockdown(ctx context.Context) error {
+	return f.allowGuests(ctx, false)
 }
 
 // Visit is part of the Guest interface.
-func (f *fortress) Visit(visit Visit, abort Abort) error {
+func (f *fortress) Visit(ctx context.Context, visit Visit) error {
 	result := make(chan error)
 	select {
 	case <-f.tomb.Dying():
 		return ErrShutdown
-	case <-abort:
+	case <-ctx.Done():
 		return ErrAborted
-	case f.guestTickets <- guestTicket{visit, result}:
+	case f.guestTickets <- guestTicket{
+		visit:  visit,
+		result: result,
+	}:
 		return <-result
 	}
 }
 
 // allowGuests communicates Guard-interface requests to the main loop.
-func (f *fortress) allowGuests(allowGuests bool, abort Abort) error {
+func (f *fortress) allowGuests(ctx context.Context, allowGuests bool) error {
 	result := make(chan error)
 	select {
 	case <-f.tomb.Dying():
 		return ErrShutdown
-	case f.guardTickets <- guardTicket{allowGuests, abort, result}:
+	case f.guardTickets <- guardTicket{
+		abort:       ctx.Done(),
+		allowGuests: allowGuests,
+		result:      result,
+	}:
 		return <-result
 	}
 }
@@ -76,6 +84,8 @@ func (f *fortress) allowGuests(allowGuests bool, abort Abort) error {
 // parallel until a Guard locks it down again; at which point, it waits for all
 // outstanding visits to complete, and reverts to its original state.
 func (f *fortress) loop() error {
+	ctx := f.tomb.Context(context.Background())
+
 	var active sync.WaitGroup
 	defer active.Wait()
 
@@ -87,7 +97,7 @@ func (f *fortress) loop() error {
 			return tomb.ErrDying
 		case ticket := <-guestTickets:
 			active.Add(1)
-			go ticket.complete(active.Done)
+			go ticket.complete(ctx, active.Done)
 		case ticket := <-f.guardTickets:
 			// guard ticket requests are idempotent; it's not worth building
 			// the extra mechanism needed to (1) complain about abuse but
@@ -98,7 +108,7 @@ func (f *fortress) loop() error {
 			} else {
 				guestTickets = nil
 			}
-			go ticket.complete(active.Wait)
+			go ticket.complete(ctx, active.Wait)
 		}
 	}
 }
@@ -106,17 +116,20 @@ func (f *fortress) loop() error {
 // guardTicket communicates between the Guard interface and the main loop.
 type guardTicket struct {
 	allowGuests bool
-	abort       Abort
+	abort       <-chan struct{}
 	result      chan<- error
 }
 
 // complete unconditionally sends a single value on ticket.result; either nil
 // (when the desired state is reached) or ErrAborted (when the ticket's Abort
 // is closed). It should be called on its own goroutine.
-func (ticket guardTicket) complete(waitLockedDown func()) {
+func (ticket guardTicket) complete(ctx context.Context, waitLockedDown func()) {
 	var result error
 	defer func() {
-		ticket.result <- result
+		select {
+		case <-ctx.Done():
+		case ticket.result <- result:
+		}
 	}()
 
 	done := make(chan struct{})
@@ -143,7 +156,11 @@ type guestTicket struct {
 
 // complete unconditionally sends any error returned from the Visit func, then
 // calls the finished func. It should be called on its own goroutine.
-func (ticket guestTicket) complete(finished func()) {
+func (ticket guestTicket) complete(ctx context.Context, finished func()) {
 	defer finished()
-	ticket.result <- ticket.visit()
+
+	select {
+	case <-ctx.Done():
+	case ticket.result <- ticket.visit():
+	}
 }
