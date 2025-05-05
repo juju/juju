@@ -512,20 +512,6 @@ func (s *Service) AddRelation(ctx context.Context, ep1, ep2 string) (relation.En
 	return s.st.AddRelation(ctx, idep1, idep2)
 }
 
-// ApplicationRelationEndpointNames returns a slice of names of the given application's
-// relation endpoints.
-// Note: Replaces the functionality in CharmRelations method of the application facade.
-func (s *Service) ApplicationRelationEndpointNames(ctx context.Context, id application.ID) ([]string, error) {
-	return nil, coreerrors.NotImplemented
-}
-
-// ApplicationRelations returns relation UUIDs for the given
-// application ID.
-func (s *Service) ApplicationRelations(ctx context.Context, id application.ID) (
-	[]corerelation.UUID, error) {
-	return []corerelation.UUID{}, coreerrors.NotImplemented
-}
-
 // ApplicationRelationsInfo returns all EndpointRelationData for an application.
 //
 // The following error types can be expected to be returned:

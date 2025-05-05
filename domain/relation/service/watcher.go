@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
@@ -475,15 +474,6 @@ func (w *subordinateLifeSuspendedStatusWatcher) GetFirstFilterOption() eventsour
 // calls to the Mapper.
 func (w *subordinateLifeSuspendedStatusWatcher) GetFilterOptions() []eventsource.FilterOption {
 	return []eventsource.FilterOption{eventsource.NamespaceFilter(w.suspendedNameSpace, changestream.All)}
-}
-
-// WatchUnitScopes returns a watcher which notifies of counterpart units
-// entering and leaving the unit's scope.
-func (s *WatchableService) WatchUnitScopes(
-	ctx context.Context,
-	relationUnit corerelation.UnitUUID,
-) (relation.RelationScopeWatcher, error) {
-	return relation.RelationScopeWatcher{}, coreerrors.NotImplemented
 }
 
 // WatchRelatedUnits returns a watcher that notifies of changes to counterpart units in
