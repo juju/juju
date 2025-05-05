@@ -4,6 +4,8 @@
 package fortress
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 )
@@ -21,8 +23,7 @@ type StartFunc func() (worker.Worker, error)
 // "responsible for" a single worker's lifetime -- and Fortress itself would
 // have to grow new concerns, of understanding and managing worker.Workers --
 // and that scenario ends up much worse.
-func Occupy(fortress Guest, start StartFunc, abort Abort) (worker.Worker, error) {
-
+func Occupy(ctx context.Context, fortress Guest, start StartFunc) (worker.Worker, error) {
 	// Create two channels to communicate success and failure of worker
 	// creation; and a worker-running func that sends on exactly one
 	// of them, and returns only when (1) a value has been sent and (2)
@@ -47,7 +48,7 @@ func Occupy(fortress Guest, start StartFunc, abort Abort) (worker.Worker, error)
 	// therefore return the failure without waiting further.
 	finished := make(chan error, 1)
 	go func() {
-		finished <- fortress.Visit(task, abort)
+		finished <- fortress.Visit(ctx, task)
 	}()
 
 	// Watch all these channels to figure out what happened and inform
@@ -55,6 +56,8 @@ func Occupy(fortress Guest, start StartFunc, abort Abort) (worker.Worker, error)
 	// be some value waiting on one of the other channels.
 	for {
 		select {
+		case <-ctx.Done():
+			return nil, ErrAborted
 		case err := <-finished:
 			if err != nil {
 				return nil, errors.Trace(err)
