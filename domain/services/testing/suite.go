@@ -102,7 +102,7 @@ func (s *DomainServicesSuite) ControllerDomainServices(c *gc.C) services.DomainS
 // DefaultModelDomainServices conveniently constructs a domain services for the
 // default model.
 func (s *DomainServicesSuite) DefaultModelDomainServices(c *gc.C) services.DomainServices {
-	return s.DomainServicesGetter(c, TestingObjectStore{}, TestingLeaseManager{})(s.ControllerModelUUID)
+	return s.DomainServicesGetter(c, TestingObjectStore{}, TestingLeaseManager{})(s.DefaultModelUUID)
 }
 
 // ModelDomainServices conveniently constructs a domain services for the

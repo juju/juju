@@ -367,8 +367,10 @@ func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	otherDomainServices := s.DefaultModelDomainServices(c)
 	otherBlockCommands := otherDomainServices.BlockCommand()
-	otherBlockCommands.SwitchBlockOn(context.Background(), blockcommand.ChangeBlock, "ChangeBlock")
-	otherBlockCommands.SwitchBlockOn(context.Background(), blockcommand.DestroyBlock, "DestroyBlock")
+	err := otherBlockCommands.SwitchBlockOn(context.Background(), blockcommand.ChangeBlock, "ChangeBlock")
+	c.Assert(err, jc.ErrorIsNil)
+	err = otherBlockCommands.SwitchBlockOn(context.Background(), blockcommand.DestroyBlock, "DestroyBlock")
+	c.Assert(err, jc.ErrorIsNil)
 	models := []model.Model{
 		{
 			UUID:      s.DomainServicesSuite.DefaultModelUUID,
