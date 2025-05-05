@@ -6,7 +6,7 @@ package k8s
 import (
 	"bytes"
 	"errors"
-	time "time"
+	"io"
 
 	"github.com/gliderlabs/ssh"
 	"github.com/google/uuid"
@@ -112,24 +112,17 @@ func (s *k8sSessionSuite) TestSessionHandlerPty(c *gc.C) {
 	s.session.EXPECT().Context().Return(s.context)
 	s.session.EXPECT().Stderr()
 
-	closed := make(chan struct{})
-
 	mockSession := userSession{
 		Session: s.session,
 		isPty:   true,
-		closed:  closed,
 	}
 	s.executor.EXPECT().Exec(gomock.Any(), gomock.Any()).DoAndReturn(func(params k8sexec.ExecParams, opts <-chan struct{}) error {
-		c.Assert(params.PodName, gc.Equals, "test-pod")
-		c.Assert(params.ContainerName, gc.Equals, "test-container")
+		c.Check(params.PodName, gc.Equals, "test-pod")
+		c.Check(params.ContainerName, gc.Equals, "test-container")
 
 		_, err = params.Stdout.Write([]byte("test output"))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Check(err, jc.ErrorIsNil)
 
-		// we need to let the copying goroutines finish.
-		// This is ok to do because the Exec function is blocking, and will return
-		// when the k8s session is closed.
-		time.Sleep(100 * time.Millisecond)
 		return nil
 	})
 	k8sHandlers.SessionHandler(&mockSession)
@@ -138,10 +131,8 @@ func (s *k8sSessionSuite) TestSessionHandlerPty(c *gc.C) {
 
 type userSession struct {
 	ssh.Session
-	stdin  bytes.Buffer
 	stdout bytes.Buffer
 	isPty  bool
-	closed chan struct{}
 }
 
 func (u *userSession) Write(p []byte) (n int, err error) {
@@ -150,7 +141,7 @@ func (u *userSession) Write(p []byte) (n int, err error) {
 
 // Read is not returning EOF to similate an interactive session.
 func (u *userSession) Read(p []byte) (n int, err error) {
-	return u.stdin.Read(p)
+	return 0, io.EOF
 }
 
 func (u *userSession) Pty() (ssh.Pty, <-chan ssh.Window, bool) {

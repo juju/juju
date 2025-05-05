@@ -5,6 +5,8 @@ package k8s
 
 import (
 	"io"
+	"os"
+	"sync"
 
 	"github.com/creack/pty"
 	"github.com/gliderlabs/ssh"
@@ -41,16 +43,20 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 	var stdin io.Reader = session
 	var stdout, stderr io.Writer = session, session.Stderr()
 
+	wg := &sync.WaitGroup{}
+	var tty, ptmx *os.File
+
 	if ptyRequested {
-		ptmx, tty, err := pty.Open()
-		defer ptmx.Close()
-		defer tty.Close()
+		ptmx, tty, err = pty.Open()
 		// If pty is requested we need to simulate a terminal device, passing
 		// the pty file descriptor to the executor. And pipe it back to the session.
 		if err != nil {
 			handleError(errors.Annotate(err, "failed to open pty"))
 			return
 		}
+
+		defer ptmx.Close()
+		defer tty.Close()
 
 		err = pty.Setsize(ptmx, &pty.Winsize{
 			Rows: uint16(ptyReq.Window.Height),
@@ -72,14 +78,17 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 			}
 		}()
 
+		wg.Add(2)
 		// These goroutines will copy data between the pty and the session.
 		// They can't leak because the session is always closed when this
 		// function returns.
 		go func() {
-			_, _ = io.Copy(ptmx, session)
+			defer wg.Done()
+			_, err = io.Copy(ptmx, session)
 		}()
 		go func() {
-			_, _ = io.Copy(session, ptmx)
+			defer wg.Done()
+			_, err = io.Copy(session, ptmx)
 		}()
 
 		stdin = tty
@@ -100,8 +109,15 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 		},
 		session.Context().Done(),
 	)
+	if tty != nil {
+		tty.Close()
+	}
 	if err != nil {
 		handleError(errors.Annotate(err, "failed to execute command in k8s pod"))
 		return
+	}
+	if ptyRequested {
+		// Wait for the goroutines to finish copying data.
+		wg.Wait()
 	}
 }
