@@ -116,6 +116,7 @@ Guide](https://docs.ubuntu.com/styleguide/en), the modular structure, the
 cross-referencing pattern, [MyST
 Markdown](https://canonical-documentation-with-sphinx-and-readthedocscom.readthedocs-hosted.com/style-guide-myst/),
 etc.
+[Coding style guide](STYLE.md), the coding style guidelines used in the Juju codebase.
 
 ### Testing
 
@@ -164,32 +165,9 @@ go get -u github.com/the/dependency@v1.2.3
 go mod tidy
 ```
 
-### Code formatting
+### Standards
 
-To format your code, run `go fmt`.
-
-> Note: Your editor may do this automatically.
-
-
-### Imports
-
-Import statements are grouped into 3 sections: standard library, 3rd party
-libraries, juju imports. The tool "go fmt" can be used to ensure each
-group is alphabetically sorted. eg:
-
-```go
-    import (
-        "fmt"
-        "time"
-
-        "labix.org/v2/mgo"
-        "github.com/juju/loggo"
-        gc "gopkg.in/check.v1"
-
-        "github.com/juju/juju/state"
-        "github.com/juju/worker/v3"
-    )
-```
+See the project's [coding style guide](STYLE.md), the coding style guidelines used in the Juju codebase.
 
 ### Testing
 
