@@ -206,6 +206,14 @@ func (f *Facade) ValidateVirtualHostname(arg params.ValidateVirtualHostnameArg) 
 }
 
 func (f *Facade) validateMachineTarget(destination virtualhostname.Info) error {
+	modelType, err := f.backend.ModelType(destination.ModelUUID())
+	if err != nil {
+		return err
+	}
+	if modelType != state.ModelTypeIAAS {
+		return errors.NotValidf("attempting to connect to a machine in a %q model", modelType)
+	}
+
 	machineID, _ := destination.Machine()
 	ok, err := f.backend.MachineExists(destination.ModelUUID(), strconv.Itoa(machineID))
 	if err != nil {
@@ -223,28 +231,33 @@ func (f *Facade) validateUnitTarget(destination virtualhostname.Info) error {
 		return err
 	}
 
-	if modelType == state.ModelTypeCAAS {
+	switch modelType {
+	case state.ModelTypeIAAS:
+		break
+	case state.ModelTypeCAAS:
 		return errors.NotValidf("missing container name for a K8s unit")
-	}
-
-	if modelType != state.ModelTypeIAAS {
+	default:
 		return errors.NotValidf("unknown model type %q", modelType)
 	}
 
-	unitName, _ := destination.Unit()
-	ok, err := f.backend.UnitExists(destination.ModelUUID(), unitName)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return errors.NotFoundf("unit %q", unitName)
-	}
-	return nil
+	return f.unitExists(destination)
 }
 
 func (f *Facade) validateContainerTarget(destination virtualhostname.Info) error {
+	modelType, err := f.backend.ModelType(destination.ModelUUID())
+	if err != nil {
+		return err
+	}
+	if modelType != state.ModelTypeCAAS {
+		return errors.NotValidf("attempting to connect to a container in a %q model", modelType)
+	}
+
 	// We don't validate the container name since that's
 	// a bit more work and will be handled by the K8s executor.
+	return f.unitExists(destination)
+}
+
+func (f *Facade) unitExists(destination virtualhostname.Info) error {
 	unitName, _ := destination.Unit()
 	ok, err := f.backend.UnitExists(destination.ModelUUID(), unitName)
 	if err != nil {

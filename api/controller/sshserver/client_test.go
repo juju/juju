@@ -227,3 +227,30 @@ func (s *sshserverSuite) TestValidateDestination(c *gc.C) {
 	err = client.ValidateVirtualHostname(virtualhostname.Info{})
 	c.Assert(err, jc.ErrorIsNil)
 }
+
+func (s *sshserverSuite) TestValidateDestinationError(c *gc.C) {
+	// Test an API error from the controller is propagated.
+	client, err := newClient(
+		func(objType string, version int, id, request string, arg, result interface{}) error {
+			*(result.(*params.ErrorResult)) = params.ErrorResult{
+				Error: apiservererrors.ServerError(errors.New("error-from-controller")),
+			}
+			return nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = client.ValidateVirtualHostname(virtualhostname.Info{})
+	c.Assert(err, gc.ErrorMatches, "error-from-controller")
+
+	// Test an error from the client.
+	client, err = newClient(
+		func(objType string, version int, id, request string, arg, result interface{}) error {
+			return errors.New("error-from-client")
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = client.ValidateVirtualHostname(virtualhostname.Info{})
+	c.Assert(err, gc.ErrorMatches, "error-from-client")
+}
