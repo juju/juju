@@ -819,7 +819,7 @@ func (s *modelServiceSuite) TestIsControllerModelNotFound(c *gc.C) {
 
 // GetModelType asserts the happy path of getting the models current
 // [coremodel.ModelType]. We are looking to see here that the service correctly
-// passes along the information recieved from the state layer.
+// passes along the information received from the state layer.
 func (s *modelServiceSuite) GetModelType(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
@@ -842,7 +842,7 @@ func (s *modelServiceSuite) GetModelType(c *gc.C) {
 
 // GetModelTypeNotFound is asserting that if we ask for the model type of the
 // current model but it doesn't exist in the state layer we correctly pass only
-// the [modelerrors.NotFound] error recieved. This fulfills the contract defined
+// the [modelerrors.NotFound] error received. This fulfills the contract defined
 // for [ModelService.GetModelType].
 func (s *modelServiceSuite) GetModelTypeNotFound(c *gc.C) {
 	ctrl := s.setupMocks(c)
