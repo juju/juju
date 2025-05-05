@@ -16,6 +16,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
@@ -89,6 +90,77 @@ AND    cloud_name = $credentialKey.cloud_name
 		return "", errors.Errorf("fetching cloud credential %q: %w", key, err)
 	}
 	return corecredential.UUID(result.UUID), nil
+}
+
+// GetModelCredentialStatus returns the credential key and validity status for
+// the credential that is in use for the model. This func will only work with
+// models that are active. True is returned for credentials that are valid and
+// false for credentials that are considered invalid.
+// The following errors can be expected:
+// - [modelerrors.NotFound] if no model exists for the provided uuid.
+// - [credentialerrors.ModelCredentialNotSet] when the model does not have a
+// credential set. This is common when the cloud supports empty auth type.
+func (st *State) GetModelCredentialStatus(
+	ctx context.Context,
+	uuid coremodel.UUID,
+) (corecredential.Key, bool, error) {
+	db, err := st.DB()
+	if err != nil {
+		return corecredential.Key{}, false, errors.Capture(err)
+	}
+
+	modelUUID := modelUUID{UUID: uuid.String()}
+	vals := modelCredentialStatus{}
+	stmt, err := st.Prepare(`
+SELECT &modelCredentialStatus.*
+FROM   v_model
+WHERE  uuid = $modelUUID.uuid`,
+		modelUUID, vals,
+	)
+	if err != nil {
+		return corecredential.Key{}, false, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, modelUUID).Get(&vals)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"model %q does not exist", uuid,
+			).Add(modelerrors.NotFound)
+		} else if err != nil {
+			return errors.Errorf(
+				"getting model %q credential status: %w", uuid, err,
+			)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return corecredential.Key{}, false, errors.Capture(err)
+	}
+
+	if !vals.CredentialName.Valid ||
+		!vals.CloudName.Valid ||
+		!vals.OwnerName.Valid {
+		return corecredential.Key{}, false, errors.Errorf(
+			"model %q does not have a credential set", uuid,
+		).Add(credentialerrors.ModelCredentialNotSet)
+	}
+
+	owner, err := coreuser.NewName(vals.OwnerName.String)
+	if err != nil {
+		return corecredential.Key{}, false, errors.Errorf(
+			"parsing owner name %q for model %q cloud credential: %w",
+			vals.OwnerName.String, uuid, err,
+		)
+	}
+	credKey := corecredential.Key{
+		Name:  vals.CredentialName.String,
+		Cloud: vals.CloudName.String,
+		Owner: owner,
+	}
+
+	return credKey, !vals.Invalid.Bool, nil
 }
 
 // UpsertCloudCredential adds or updates a cloud credential with the given name,
