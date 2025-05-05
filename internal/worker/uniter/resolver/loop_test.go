@@ -61,7 +61,6 @@ func (s *LoopSuite) loop(c *gc.C) (resolver.LocalState, error) {
 		Factory:       s.opFactory,
 		Watcher:       s.watcher,
 		Executor:      s.executor,
-		Abort:         s.abort,
 		OnIdle:        s.onIdle,
 		CharmDir:      s.charmDir,
 		CharmDirGuard: &mockCharmDirGuard{},

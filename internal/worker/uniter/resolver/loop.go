@@ -35,7 +35,6 @@ type LoopConfig struct {
 	Watcher       remotestate.Watcher
 	Executor      operation.Executor
 	Factory       operation.Factory
-	Abort         <-chan struct{}
 	OnIdle        func() error
 	CharmDirGuard fortress.Guard
 	CharmDir      string
@@ -65,7 +64,7 @@ func Loop(ctx context.Context, cfg LoopConfig, localState *LocalState) error {
 	rf := &resolverOpFactory{Factory: cfg.Factory, LocalState: localState}
 
 	// Initialize charmdir availability before entering the loop in case we're recovering from a restart.
-	err := updateCharmDir(ctx, cfg.Executor.State(), cfg.CharmDirGuard, cfg.Abort, cfg.Logger)
+	err := updateCharmDir(ctx, cfg.Executor.State(), cfg.CharmDirGuard, cfg.Logger)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -143,7 +142,7 @@ func Loop(ctx context.Context, cfg LoopConfig, localState *LocalState) error {
 			rf.RemoteState = cfg.Watcher.Snapshot()
 			rf.LocalState.State = cfg.Executor.State()
 
-			err = updateCharmDir(ctx, rf.LocalState.State, cfg.CharmDirGuard, cfg.Abort, cfg.Logger)
+			err = updateCharmDir(ctx, rf.LocalState.State, cfg.CharmDirGuard, cfg.Logger)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -167,7 +166,7 @@ func Loop(ctx context.Context, cfg LoopConfig, localState *LocalState) error {
 		}
 
 		select {
-		case <-cfg.Abort:
+		case <-ctx.Done():
 			return ErrLoopAborted
 		case <-cfg.Watcher.RemoteStateChanged():
 		case <-fire:
@@ -217,7 +216,7 @@ func maybeAgentShutdown(cfg LoopConfig) bool {
 
 // updateCharmDir sets charm directory availability for sharing among
 // concurrent workers according to local operation state.
-func updateCharmDir(ctx context.Context, opState operation.State, guard fortress.Guard, abort fortress.Abort, logger logger.Logger) error {
+func updateCharmDir(ctx context.Context, opState operation.State, guard fortress.Guard, logger logger.Logger) error {
 	var changing bool
 
 	// Determine if the charm content is changing.
@@ -231,9 +230,9 @@ func updateCharmDir(ctx context.Context, opState operation.State, guard fortress
 	logger.Tracef(ctx, "charmdir: available=%v opState: started=%v stopped=%v changing=%v",
 		available, opState.Started, opState.Stopped, changing)
 	if available {
-		return guard.Unlock()
+		return guard.Unlock(ctx)
 	} else {
-		return guard.Lockdown(abort)
+		return guard.Lockdown(ctx)
 	}
 }
 

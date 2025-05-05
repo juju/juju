@@ -320,13 +320,15 @@ type guest struct {
 }
 
 // Visit is part of the fortress.Guest interface.
-func (guest guest) Visit(visit fortress.Visit, abort fortress.Abort) error {
+func (guest guest) Visit(ctx context.Context, visit fortress.Visit) error {
 	defer close(guest.done)
 	if guest.unlocked {
 		return visit()
 	}
-	<-abort
-	return fortress.ErrAborted
+	select {
+	case <-ctx.Done():
+		return fortress.ErrAborted
+	}
 }
 
 // flag implements engine.Flag.
