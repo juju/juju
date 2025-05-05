@@ -81,9 +81,6 @@ type State interface {
 	// [modelerrors.NotFound] will be returned.
 	GetModelByName(context.Context, coreuser.Name, string) (coremodel.Model, error)
 
-	// GetModelType returns the model type for a model with the provided uuid.
-	GetModelType(context.Context, coremodel.UUID) (coremodel.ModelType, error)
-
 	// GetControllerModel returns the model the controller is running in.
 	// If no controller model exists then an error satisfying
 	// [modelerrors.NotFound] is returned.
@@ -441,16 +438,6 @@ func (s *Service) Model(ctx context.Context, uuid coremodel.UUID) (coremodel.Mod
 	}
 
 	return s.st.GetModel(ctx, uuid)
-}
-
-// ModelType returns the current model type based on the cloud name being used
-// for the model.
-func (s *Service) ModelType(ctx context.Context, uuid coremodel.UUID) (coremodel.ModelType, error) {
-	if err := uuid.Validate(); err != nil {
-		return "", errors.Errorf("model type uuid: %w", err)
-	}
-
-	return s.st.GetModelType(ctx, uuid)
 }
 
 // DeleteModel is responsible for removing a model from Juju and all of it's
