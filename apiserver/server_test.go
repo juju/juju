@@ -414,7 +414,7 @@ func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
 	// state back into the pool once the connection is closed.
 	info := s.ControllerModelApiInfo()
 	addr := fmt.Sprintf("localhost:%d", info.Ports()[0])
-	conn, err := dialWebsocket(c, addr, fmt.Sprintf("/model/%s/api", m.UUID()))
+	conn, err := dialWebsocket(c, addr, fmt.Sprintf("/model/%s/api", s.DefaultModelUUID.String()))
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
 

@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
@@ -142,7 +143,7 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 
 func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-
+	modelUUID := modeltesting.GenModelUUID(c)
 	lastLoginTime := time.Now()
 	s.mockModelService.EXPECT().ListModelSummariesForUser(gomock.Any(), coreuser.AdminUserName).Return([]coremodel.UserModelSummary{{
 		UserLastConnection: &lastLoginTime,
@@ -150,7 +151,7 @@ func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {
 		ModelSummary: coremodel.ModelSummary{
 			Name:           "testmodel",
 			OwnerName:      coreuser.AdminUserName,
-			UUID:           coremodel.UUID(testing.ModelTag.Id()),
+			UUID:           modelUUID,
 			ModelType:      coremodel.IAAS,
 			CloudType:      "ec2",
 			ControllerUUID: s.controllerUUID.String(),
@@ -178,7 +179,7 @@ func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {
 				Result: &params.ModelSummary{
 					Name:               "testmodel",
 					OwnerTag:           s.adminUser.String(),
-					UUID:               s.st.ModelUUID(),
+					UUID:               modelUUID.String(),
 					Type:               string(state.ModelTypeIAAS),
 					ProviderType:       "ec2",
 					ControllerUUID:     s.controllerUUID.String(),
@@ -205,11 +206,11 @@ func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {
 
 func (s *ListModelsWithInfoSuite) TestListModelSummariesAll(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-
+	modelUUID := modeltesting.GenModelUUID(c)
 	s.mockModelService.EXPECT().ListAllModelSummaries(gomock.Any()).Return([]coremodel.ModelSummary{{
 		Name:           "testmodel",
 		OwnerName:      coreuser.AdminUserName,
-		UUID:           coremodel.UUID(testing.ModelTag.Id()),
+		UUID:           modelUUID,
 		ModelType:      coremodel.IAAS,
 		CloudType:      "ec2",
 		ControllerUUID: s.controllerUUID.String(),
@@ -240,7 +241,7 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesAll(c *gc.C) {
 					Name:               "testmodel",
 					OwnerTag:           s.adminUser.String(),
 					UUID:               s.st.ModelUUID(),
-					Type:               string(state.ModelTypeIAAS),
+					Type:               modelUUID.String(),
 					ProviderType:       "ec2",
 					ControllerUUID:     s.controllerUUID.String(),
 					IsController:       true,
