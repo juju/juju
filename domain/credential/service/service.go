@@ -37,6 +37,15 @@ type WatcherFactory interface {
 type State interface {
 	ProviderState
 
+	// GetModelCredentialStatus returns the credential key that is in use by the
+	// model and also if the credential is considered valid or not.
+	// The following errors can be expected:
+	// - [github.com/juju/juju/domain/model/errors.NotFound] when the model does
+	// not exist.
+	// - [credentialerrors.ModelCredentialNotSet] when the model does not have a
+	// credential set.
+	GetModelCredentialStatus(context.Context, coremodel.UUID) (corecredential.Key, bool, error)
+
 	// UpsertCloudCredential adds or updates a cloud credential with the given name, cloud, owner.
 	UpsertCloudCredential(ctx context.Context, key corecredential.Key, credential credential.CloudCredentialInfo) error
 
@@ -121,6 +130,24 @@ func (s *Service) CloudCredentialsForOwner(ctx context.Context, owner user.Name,
 		result[name] = cloudCredentialFromCredentialResult(credInfoResult)
 	}
 	return result, nil
+}
+
+// GetModelCredentialStatus returns the credential key that is in use by the
+// model and also a bool indicating of the credential is considered valid.
+// The following errors can be expected:
+// - [credentialerrors.ModelCredentialNotSet] when the model does not have any
+// credential set.
+// - [github.com/juju/juju/domain/model/errors.NotFound] when the model does not
+// exist.
+func (s *Service) GetModelCredentialStatus(
+	ctx context.Context,
+	modelUUID coremodel.UUID,
+) (corecredential.Key, bool, error) {
+	if err := modelUUID.Validate(); err != nil {
+		return corecredential.Key{}, false, errors.Errorf("invalid model uuid: %w", err)
+	}
+
+	return s.st.GetModelCredentialStatus(ctx, modelUUID)
 }
 
 // UpdateCloudCredential adds or updates a cloud credential with the given tag.

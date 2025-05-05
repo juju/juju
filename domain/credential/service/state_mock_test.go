@@ -202,6 +202,46 @@ func (c *MockStateCredentialUUIDForKeyCall) DoAndReturn(f func(context.Context, 
 	return c
 }
 
+// GetModelCredentialStatus mocks base method.
+func (m *MockState) GetModelCredentialStatus(arg0 context.Context, arg1 model.UUID) (credential.Key, bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelCredentialStatus", arg0, arg1)
+	ret0, _ := ret[0].(credential.Key)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetModelCredentialStatus indicates an expected call of GetModelCredentialStatus.
+func (mr *MockStateMockRecorder) GetModelCredentialStatus(arg0, arg1 any) *MockStateGetModelCredentialStatusCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelCredentialStatus", reflect.TypeOf((*MockState)(nil).GetModelCredentialStatus), arg0, arg1)
+	return &MockStateGetModelCredentialStatusCall{Call: call}
+}
+
+// MockStateGetModelCredentialStatusCall wrap *gomock.Call
+type MockStateGetModelCredentialStatusCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetModelCredentialStatusCall) Return(arg0 credential.Key, arg1 bool, arg2 error) *MockStateGetModelCredentialStatusCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetModelCredentialStatusCall) Do(f func(context.Context, model.UUID) (credential.Key, bool, error)) *MockStateGetModelCredentialStatusCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetModelCredentialStatusCall) DoAndReturn(f func(context.Context, model.UUID) (credential.Key, bool, error)) *MockStateGetModelCredentialStatusCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // InvalidateCloudCredential mocks base method.
 func (m *MockState) InvalidateCloudCredential(arg0 context.Context, arg1 credential.UUID, arg2 string) error {
 	m.ctrl.T.Helper()
