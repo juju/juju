@@ -84,11 +84,11 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 		// function returns.
 		go func() {
 			defer wg.Done()
-			_, err = io.Copy(ptmx, session)
+			_, _ = io.Copy(ptmx, session)
 		}()
 		go func() {
 			defer wg.Done()
-			_, err = io.Copy(session, ptmx)
+			_, _ = io.Copy(session, ptmx)
 		}()
 
 		stdin = tty
