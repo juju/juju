@@ -10,7 +10,6 @@ import (
 	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/application"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
@@ -999,12 +998,6 @@ func (s *Service) GetRelationApplicationSettings(
 	return settings, nil
 }
 
-// IsRelationSuspended returns a boolean to indicate if the given
-// relation UUID is suspended.
-func (s *Service) IsRelationSuspended(ctx context.Context, relationUUID corerelation.UUID) bool {
-	return false
-}
-
 // LeaveScope updates the given relation to indicate it is not in scope.
 //
 // The following error types can be expected to be returned:
@@ -1016,18 +1009,6 @@ func (s *Service) LeaveScope(ctx context.Context, relationUnitUUID corerelation.
 			"%w:%w", relationerrors.RelationUUIDNotValid, err)
 	}
 	return s.st.LeaveScope(ctx, relationUnitUUID)
-}
-
-// ReestablishRelation brings the given relation back to normal after
-// suspension, any reason given for the suspension is cleared.
-func (s *Service) ReestablishRelation(ctx context.Context, relationUUID corerelation.UUID) error {
-	return coreerrors.NotImplemented
-}
-
-// RelationSuspendedReason returns the reason a relation was suspended if
-// provided by the user.
-func (s *Service) RelationSuspendedReason(ctx context.Context, relationUUID corerelation.UUID) string {
-	return ""
 }
 
 // RelationUnitInScopeByID returns a boolean to indicate whether the given
@@ -1042,16 +1023,6 @@ func (s *Service) RelationUnitInScopeByID(ctx context.Context, relationID int, u
 		return false, errors.Capture(err)
 	}
 	return true, nil
-}
-
-// SetRelationSuspended marks the given relation as suspended. Providing a
-// reason is optional.
-func (s *Service) SetRelationSuspended(
-	ctx context.Context,
-	relationUUID corerelation.UUID,
-	reason string,
-) error {
-	return coreerrors.NotImplemented
 }
 
 // SetRelationUnitSettings records settings for a specific unit
