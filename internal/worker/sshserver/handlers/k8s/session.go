@@ -84,10 +84,16 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 		// function returns.
 		go func() {
 			defer wg.Done()
+			// If the user's session ends, close the ptmx because
+			// there is no one listening anymore.
+			defer ptmx.Close()
 			_, _ = io.Copy(ptmx, session)
 		}()
 		go func() {
 			defer wg.Done()
+			// If the ptmx ends, close the session because
+			// there is no more data to send.
+			defer session.Close()
 			_, _ = io.Copy(session, ptmx)
 		}()
 
