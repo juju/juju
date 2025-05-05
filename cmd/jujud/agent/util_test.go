@@ -161,7 +161,7 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers se
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a machine and ensure it is provisioned.
-	inst, md := jujutesting.AssertStartInstance(c, s.Environ, s.ControllerModel(c).ControllerUUID(), machineId)
+	inst, md := jujutesting.AssertStartInstance(c, s.Environ, s.ControllerUUID, machineId)
 	c.Assert(m.SetProvisioned(inst.Id(), "", agent.BootstrapNonce, md), jc.ErrorIsNil)
 	// Double write to machine domain.
 	machineService := s.ControllerDomainServices(c).Machine()

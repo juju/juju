@@ -89,7 +89,6 @@ type Model interface {
 	// TODO(aflynn): ControllerUUID is only here because the EnvironConfigGetter
 	// needs a Model with this model. Once this is gone ControllerUUID can be
 	// removed from this interface.
-	ControllerUUID() string
 	SetCloudCredential(tag names.CloudCredentialTag) (bool, error)
 }
 
