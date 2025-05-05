@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -41,27 +42,31 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 	backend := &stateShim{
 		State: st,
 	}
-	storageAccess, err := getStorageState(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	pool := &poolShim{ctx.StatePool()}
 
 	var leadership Leadership
-	leadership, err = common.NewLeadershipPinningFromContext(ctx)
+	leadership, err := common.NewLeadershipPinningFromContext(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	logger := ctx.Logger().Child("machinemanager")
 
-	model, err := ctx.DomainServices().ModelInfo().GetModelInfo(stdCtx)
+	modelType, err := ctx.DomainServices().ModelInfo().GetModelType(stdCtx)
 	if err != nil {
-		return nil, fmt.Errorf("getting model information for constructing machine manager facade: %w", err)
+		return nil, internalerrors.Errorf(
+			"getting model type for constructing machine manager facade: %w",
+			err,
+		)
+	}
+
+	storageAccess, err := getStorageState(st, modelType)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	return NewMachineManagerAPI(
-		model,
+		ctx.ModelUUID(),
 		domainServices.ControllerConfig(),
 		backend,
 		domainServices.Cloud(),
@@ -72,7 +77,7 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 		storageAccess,
 		pool,
 		ModelAuthorizer{
-			ModelTag:   names.NewModelTag(model.UUID.String()),
+			ModelTag:   names.NewModelTag(ctx.ModelUUID().String()),
 			Authorizer: ctx.Auth(),
 		},
 		ctx.Resources(),

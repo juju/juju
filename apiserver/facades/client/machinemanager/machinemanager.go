@@ -155,6 +155,7 @@ type CloudService interface {
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
 	model                   coremodel.ModelInfo
+	modelUUID               coremodel.UUID
 	controllerConfigService ControllerConfigService
 	st                      Backend
 	cloudService            CloudService
@@ -179,7 +180,7 @@ type MachineManagerAPI struct {
 
 // NewMachineManagerAPI creates a new server-side MachineManager API facade.
 func NewMachineManagerAPI(
-	model coremodel.ModelInfo,
+	modelUUID coremodel.UUID,
 	controllerConfigService ControllerConfigService,
 	backend Backend,
 	cloudService CloudService,
@@ -199,7 +200,7 @@ func NewMachineManagerAPI(
 	agentBinaryService AgentBinaryService,
 ) *MachineManagerAPI {
 	api := &MachineManagerAPI{
-		model:                   model,
+		modelUUID:               modelUUID,
 		controllerConfigService: controllerConfigService,
 		st:                      backend,
 		cloudService:            cloudService,
@@ -293,7 +294,7 @@ func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMach
 
 	var placementDirective string
 	if p.Placement != nil {
-		if p.Placement.Scope != mm.model.UUID.String() {
+		if p.Placement.Scope != mm.modelUUID.String() {
 			return nil, fmt.Errorf("invalid model id %q", p.Placement.Scope)
 		}
 		placementDirective = p.Placement.Directive
@@ -409,7 +410,7 @@ func (mm *MachineManagerAPI) ProvisioningScript(ctx context.Context, args params
 
 	icfg, err := InstanceConfig(
 		ctx,
-		mm.model.UUID,
+		mm.modelUUID,
 		mm.machineService.GetBootstrapEnviron,
 		st,
 		mm.st, services, args.MachineId, args.Nonce, args.DataDir)

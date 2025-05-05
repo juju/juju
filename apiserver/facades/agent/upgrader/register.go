@@ -13,13 +13,14 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/state"
+	coremodel "github.com/juju/juju/core/model"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Upgrader", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return newUpgraderFacade(ctx)
+		return newUpgraderFacade(stdCtx, ctx)
 	}, reflect.TypeOf((*Upgrader)(nil)).Elem())
 }
 
@@ -30,7 +31,7 @@ func Register(registry facade.FacadeRegistry) {
 // do not depend on who is currently connected.
 
 // newUpgraderFacade provides the signature required for facade registration.
-func newUpgraderFacade(ctx facade.ModelContext) (Upgrader, error) {
+func newUpgraderFacade(stdCtx context.Context, ctx facade.ModelContext) (Upgrader, error) {
 	auth := ctx.Auth()
 
 	if !auth.AuthMachineAgent() &&
@@ -49,14 +50,16 @@ func newUpgraderFacade(ctx facade.ModelContext) (Upgrader, error) {
 	}
 
 	st := ctx.State()
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	domainServices := ctx.DomainServices()
+	modelType, err := domainServices.ModelInfo().GetModelType(stdCtx)
+	if err != nil {
+		return nil, internalerrors.Errorf(
+			"getting current model type to construct correct upgrader api: %w", err,
+		)
+	}
 
-	if tag.Kind() == names.UnitTagKind && model.Type() != state.ModelTypeCAAS {
+	if tag.Kind() == names.UnitTagKind && modelType != coremodel.CAAS {
 		return NewUnitUpgraderAPI(
 			st,
 			auth,

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
@@ -116,11 +117,7 @@ type StorageInterface interface {
 	FilesystemAccess() storagecommon.FilesystemAccess
 }
 
-var getStorageState = func(st *state.State) (StorageInterface, error) {
-	m, err := st.Model()
-	if err != nil {
-		return nil, err
-	}
+var getStorageState = func(st *state.State, modelType coremodel.ModelType) (StorageInterface, error) {
 	sb, err := state.NewStorageBackend(st)
 	if err != nil {
 		return nil, err
@@ -131,7 +128,7 @@ var getStorageState = func(st *state.State) (StorageInterface, error) {
 		fa:            sb,
 	}
 	// CAAS models don't support volume storage yet.
-	if m.Type() == state.ModelTypeCAAS {
+	if modelType == coremodel.CAAS {
 		storageAccess.va = nil
 	}
 	return storageAccess, nil

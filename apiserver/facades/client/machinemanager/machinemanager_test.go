@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
+	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -41,7 +42,7 @@ import (
 
 type AddMachineManagerSuite struct {
 	authorizer    *apiservertesting.FakeAuthorizer
-	model         model.ModelInfo
+	modelUUID     coremodel.UUID
 	st            *MockBackend
 	storageAccess *MockStorageInterface
 	pool          *MockPool
@@ -62,9 +63,7 @@ var _ = gc.Suite(&AddMachineManagerSuite{})
 
 func (s *AddMachineManagerSuite) SetUpTest(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
-	s.model = model.ModelInfo{
-		UUID: modeltesting.GenModelUUID(c),
-	}
+	s.modelUUID = modeltesting.GenModelUUID(c)
 }
 
 func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
@@ -88,7 +87,7 @@ func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.agentBinaryService = NewMockAgentBinaryService(ctrl)
 
 	s.api = NewMachineManagerAPI(
-		s.model,
+		s.modelUUID,
 		s.controllerConfigService,
 		s.st,
 		s.cloudService,
@@ -203,7 +202,7 @@ type DestroyMachineManagerSuite struct {
 	store         *MockObjectStore
 	cloudService  *commonmocks.MockCloudService
 	api           *MachineManagerAPI
-	model         model.ModelInfo
+	modelUUID     coremodel.UUID
 
 	controllerConfigService *MockControllerConfigService
 	machineService          *MockMachineService
@@ -220,9 +219,7 @@ func (s *DestroyMachineManagerSuite) SetUpTest(c *gc.C) {
 	s.CleanupSuite.SetUpTest(c)
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
 	s.PatchValue(&ClassifyDetachedStorage, mockedClassifyDetachedStorage)
-	s.model = model.ModelInfo{
-		UUID: modeltesting.GenModelUUID(c),
-	}
+	s.modelUUID = modeltesting.GenModelUUID(c)
 }
 
 func (s *DestroyMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -249,7 +246,7 @@ func (s *DestroyMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.agentBinaryService = NewMockAgentBinaryService(ctrl)
 
 	s.api = NewMachineManagerAPI(
-		s.model,
+		s.modelUUID,
 		s.controllerConfigService,
 		s.st,
 		s.cloudService,
@@ -723,7 +720,7 @@ type ProvisioningMachineManagerSuite struct {
 	store        *MockObjectStore
 	cloudService *commonmocks.MockCloudService
 	api          *MachineManagerAPI
-	model        model.ModelInfo
+	modelUUID    coremodel.UUID
 
 	controllerConfigService *MockControllerConfigService
 	machineService          *MockMachineService
@@ -745,9 +742,7 @@ func (s *ProvisioningMachineManagerSuite) SetUpTest(c *gc.C) {
 func (s *ProvisioningMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.model = model.ModelInfo{
-		UUID: modeltesting.GenModelUUID(c),
-	}
+	s.modelUUID = modeltesting.GenModelUUID(c)
 
 	s.st = NewMockBackend(ctrl)
 
@@ -776,7 +771,7 @@ func (s *ProvisioningMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller
 	s.agentBinaryService = NewMockAgentBinaryService(ctrl)
 
 	s.api = NewMachineManagerAPI(
-		s.model,
+		s.modelUUID,
 		s.controllerConfigService,
 		s.st,
 		s.cloudService,
