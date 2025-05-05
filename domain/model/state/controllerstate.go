@@ -324,27 +324,6 @@ SELECT &dbModelState.* FROM v_model_state WHERE uuid = $dbModelUUID.uuid
 	}, nil
 }
 
-// GetModelType returns the model type for the provided model uuid. If the model
-// does not exist then an error satisfying [modelerrors.NotFound] will be
-// returned.
-func (s *State) GetModelType(ctx context.Context, uuid coremodel.UUID) (coremodel.ModelType, error) {
-	db, err := s.DB()
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	var modelType coremodel.ModelType
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
-		modelType, err = GetModelType(ctx, s, tx, uuid)
-		return err
-	})
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-	return modelType, nil
-}
-
 // GetControllerModelUUID returns the model uuid for the controller model.
 // If no controller model exists then an error satisfying [modelerrors.NotFound]
 // is returned.
