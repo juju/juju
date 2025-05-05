@@ -4,7 +4,6 @@
 package k8s
 
 import (
-	"fmt"
 	"io"
 	"sync"
 
@@ -44,8 +43,10 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 	var stdout, stderr io.Writer = session, session.Stderr()
 	wg := &sync.WaitGroup{}
 
-	ptmx, tty, err := pty.Open()
 	if ptyRequested {
+		ptmx, tty, err := pty.Open()
+		defer ptmx.Close()
+		defer tty.Close()
 		// If pty is requested we need to simulate a terminal device, passing
 		// the pty file descriptor to the executor. And pipe it back to the session.
 		if err != nil {
@@ -74,21 +75,14 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 			}
 		}()
 
+		// These goroutines will copy data between the pty and the session.
+		// They can't leak because the session is always closed when this
+		// function returns.
 		go func() {
-			defer wg.Done()
-			defer ptmx.Close()
-			defer tty.Close()
 			_, err = io.Copy(ptmx, session)
-			fmt.Print(err)
 		}()
-
 		go func() {
-			defer wg.Done()
-			defer ptmx.Close()
-			defer tty.Close()
 			_, err = io.Copy(session, ptmx)
-			fmt.Print(err)
-
 		}()
 
 		stdin = tty
@@ -112,11 +106,5 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 	if err != nil {
 		handleError(errors.Annotate(err, "failed to execute command in k8s pod"))
 		return
-	}
-	if ptyRequested {
-		err := ptmx.Close()
-		fmt.Print(err)
-		wg.Wait()
-		fmt.Print("")
 	}
 }

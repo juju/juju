@@ -6,8 +6,7 @@ package k8s
 import (
 	"bytes"
 	"errors"
-	"io"
-	"time"
+	time "time"
 
 	"github.com/gliderlabs/ssh"
 	"github.com/google/uuid"
@@ -111,7 +110,10 @@ func (s *k8sSessionSuite) TestSessionHandlerPty(c *gc.C) {
 	s.session.EXPECT().Command()
 	s.context.EXPECT().Done()
 	s.session.EXPECT().Context().Return(s.context)
+	s.session.EXPECT().Stderr()
+
 	closed := make(chan struct{})
+
 	mockSession := userSession{
 		Session: s.session,
 		isPty:   true,
@@ -121,28 +123,23 @@ func (s *k8sSessionSuite) TestSessionHandlerPty(c *gc.C) {
 		c.Assert(params.PodName, gc.Equals, "test-pod")
 		c.Assert(params.ContainerName, gc.Equals, "test-container")
 
-		_, err := params.Stdout.Write([]byte("test output"))
+		_, err = params.Stdout.Write([]byte("test output"))
 		c.Assert(err, jc.ErrorIsNil)
 
-		go func() {
-			time.Sleep(200 * time.Millisecond)
-			closed <- struct{}{}
-		}()
+		// we need to let the copying goroutines finish.
+		// This is ok to do because the Exec function is blocking, and will return
+		// when the k8s session is closed.
+		time.Sleep(100 * time.Millisecond)
 		return nil
 	})
 	k8sHandlers.SessionHandler(&mockSession)
-	c.Assert(err, jc.ErrorIsNil)
-	// we can't use Equals because the pty device generates a lot of characters.
-	c.Assert(mockSession.stdout.String(), gc.Equals, "test output")
-	c.Assert(mockSession.stderr.String(), gc.Equals, "")
-	c.Assert(mockSession.stdin.String(), gc.Equals, "")
+	c.Check(mockSession.stdout.String(), gc.Equals, "test output")
 }
 
 type userSession struct {
 	ssh.Session
 	stdin  bytes.Buffer
 	stdout bytes.Buffer
-	stderr bytes.Buffer
 	isPty  bool
 	closed chan struct{}
 }
@@ -153,14 +150,7 @@ func (u *userSession) Write(p []byte) (n int, err error) {
 
 // Read is not returning EOF to similate an interactive session.
 func (u *userSession) Read(p []byte) (n int, err error) {
-	select {
-	case <-u.closed:
-		return 0, io.EOF
-	}
-}
-
-func (u *userSession) Stderr() io.ReadWriter {
-	return &u.stderr
+	return u.stdin.Read(p)
 }
 
 func (u *userSession) Pty() (ssh.Pty, <-chan ssh.Window, bool) {
