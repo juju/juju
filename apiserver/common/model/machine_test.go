@@ -319,13 +319,6 @@ type mockState struct {
 	haPrimaryMachineF func() (names.MachineTag, error)
 }
 
-func (st *mockState) Machine(id string) (model.Machine, error) {
-	if m, ok := st.machines[id]; ok {
-		return m, nil
-	}
-	return nil, errors.Errorf("machine %s does not exist", id)
-}
-
 func (st *mockState) AllMachines() (machines []model.Machine, _ error) {
 	// Ensure we get machines in id order.
 	var ids []string
