@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/domain/controllernode"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
@@ -221,4 +222,170 @@ func (s *stateSuite) TestIsControllerNode(c *tc.C) {
 	isControllerNode, err = s.state.IsControllerNode(c.Context(), "99")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isControllerNode, tc.Equals, false)
+}
+
+func (s *stateSuite) TestSetAPIAddressesNew(c *gc.C) {
+	controllerID := "1"
+
+	err := s.state.CurateNodes(context.Background(), []string{controllerID}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	addrs := []controllernode.APIAddress{
+		{Address: "10.0.0.1:17070", IsAgent: true},
+		{Address: "192.168.0.1:17070", IsAgent: false},
+	}
+
+	err = s.state.SetAPIAddresses(
+		context.Background(),
+		controllerID,
+		addrs,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var (
+		resultAddresses []string
+		isAgent         []bool
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, "SELECT address, is_agent FROM controller_api_address WHERE controller_id = ?", controllerID)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rows.Close() }()
+
+		for rows.Next() {
+			var (
+				addressVal string
+				isAgentVal bool
+			)
+			if err := rows.Scan(&addressVal, &isAgentVal); err != nil {
+				return err
+			}
+			resultAddresses = append(resultAddresses, addressVal)
+			isAgent = append(isAgent, isAgentVal)
+		}
+		return rows.Err()
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(resultAddresses, gc.HasLen, 2)
+	c.Check(resultAddresses[0], gc.Equals, addrs[0].Address)
+	c.Check(isAgent[0], gc.Equals, addrs[0].IsAgent)
+	c.Check(resultAddresses[1], gc.Equals, addrs[1].Address)
+	c.Check(isAgent[1], gc.Equals, addrs[1].IsAgent)
+}
+
+func (s *stateSuite) TestSetAPIAddressControllerNodeExists(c *gc.C) {
+	controllerID := "1"
+
+	err := s.state.CurateNodes(context.Background(), []string{controllerID}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	addrs := []controllernode.APIAddress{
+		{Address: "10.0.0.1:17070", IsAgent: true},
+		{Address: "192.168.0.1:17070", IsAgent: false},
+	}
+
+	err = s.state.SetAPIAddresses(
+		context.Background(),
+		controllerID,
+		addrs,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var (
+		resultAddresses []string
+		isAgent         []bool
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, "SELECT address, is_agent FROM controller_api_address WHERE controller_id = ?", controllerID)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rows.Close() }()
+
+		for rows.Next() {
+			var (
+				addressVal string
+				isAgentVal bool
+			)
+			if err := rows.Scan(&addressVal, &isAgentVal); err != nil {
+				return err
+			}
+			resultAddresses = append(resultAddresses, addressVal)
+			isAgent = append(isAgent, isAgentVal)
+		}
+		return rows.Err()
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(resultAddresses, gc.HasLen, 2)
+	c.Check(resultAddresses[0], gc.Equals, addrs[0].Address)
+	c.Check(isAgent[0], gc.Equals, addrs[0].IsAgent)
+	c.Check(resultAddresses[1], gc.Equals, addrs[1].Address)
+	c.Check(isAgent[1], gc.Equals, addrs[1].IsAgent)
+
+	// Update api address.
+	newAddrs := []controllernode.APIAddress{
+		{Address: "10.0.255.255:17070", IsAgent: true},
+		{Address: "192.168.255.255:17070", IsAgent: false},
+	}
+
+	err = s.state.SetAPIAddresses(
+		context.Background(),
+		controllerID,
+		newAddrs,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var (
+		updatedResultAddresses []string
+		updatedIsAgent         []bool
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, "SELECT address, is_agent FROM controller_api_address WHERE controller_id = ?", controllerID)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rows.Close() }()
+
+		for rows.Next() {
+			var (
+				addressVal string
+				isAgentVal bool
+			)
+			if err := rows.Scan(&addressVal, &isAgentVal); err != nil {
+				return err
+			}
+			updatedResultAddresses = append(updatedResultAddresses, addressVal)
+			updatedIsAgent = append(updatedIsAgent, isAgentVal)
+		}
+		return rows.Err()
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(updatedResultAddresses, gc.HasLen, 2)
+	c.Check(updatedResultAddresses[0], gc.Equals, newAddrs[0].Address)
+	c.Check(updatedIsAgent[0], gc.Equals, newAddrs[0].IsAgent)
+	c.Check(updatedResultAddresses[1], gc.Equals, newAddrs[1].Address)
+	c.Check(updatedIsAgent[1], gc.Equals, newAddrs[1].IsAgent)
+}
+
+func (s *stateSuite) TestSetAPIAddressControllerNodeNotFound(c *gc.C) {
+	err := s.state.SetAPIAddresses(
+		context.Background(),
+		"unknown-controller-id",
+		[]controllernode.APIAddress{},
+	)
+	c.Assert(err, gc.ErrorMatches, "controller node .* does not exist")
+}
+
+func (s *stateSuite) TestGetControllerIDs(c *gc.C) {
+	err := s.state.CurateNodes(context.Background(), []string{"1", "2"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerIDs, err := s.state.GetControllerIDs(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(controllerIDs, gc.HasLen, 3)
+	c.Check(controllerIDs, gc.DeepEquals, []string{"0", "1", "2"})
 }

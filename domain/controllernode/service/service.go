@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"net"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/changestream"
@@ -44,6 +45,13 @@ type State interface {
 	// NamespaceForWatchControllerNodes returns the namespace for watching
 	// controller nodes.
 	NamespaceForWatchControllerNodes() string
+
+	// SetAPIAddress adds the provided address to the controller api address table,
+	// associated with the provided controllerID.
+	//
+	// The following errors can be expected:
+	// - [controllernodeerrors.NotFound] if the controller node does not exist.
+	SetAPIAddress(context.Context, string, string, bool) error
 }
 
 // WatcherFactory instances return watchers for a given namespace and UUID.
@@ -178,4 +186,19 @@ func (s *Service) IsControllerNode(ctx context.Context, nodeID string) (bool, er
 		return false, errors.Errorf("checking is controller node: %w", err)
 	}
 	return isController, nil
+}
+
+// SetAPIAddress sets the provided address associated with the provided
+// controller ID.
+//
+// The following errors can be expected:
+// - [controllernodeerrors.NotFound] if the controller node does not exist.
+// - [controllernodeerrors.ControllerAddressNotValid] if the address is not
+// valid.
+func (s *Service) SetAPIAddress(ctx context.Context, controllerID string, address string, isAvailabeForAgents bool) error {
+	if _, _, err := net.SplitHostPort(address); err != nil {
+		return errors.Errorf("%q: %w", address, controllernodeerrors.ControllerAddressNotValid)
+	}
+
+	return s.st.SetAPIAddress(ctx, controllerID, address, isAvailabeForAgents)
 }

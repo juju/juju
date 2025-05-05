@@ -194,6 +194,44 @@ func (c *MockStateSelectDatabaseNamespaceCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
+// SetAPIAddress mocks base method.
+func (m *MockState) SetAPIAddress(arg0 context.Context, arg1, arg2 string, arg3 bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetAPIAddress", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetAPIAddress indicates an expected call of SetAPIAddress.
+func (mr *MockStateMockRecorder) SetAPIAddress(arg0, arg1, arg2, arg3 any) *MockStateSetAPIAddressCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAPIAddress", reflect.TypeOf((*MockState)(nil).SetAPIAddress), arg0, arg1, arg2, arg3)
+	return &MockStateSetAPIAddressCall{Call: call}
+}
+
+// MockStateSetAPIAddressCall wrap *gomock.Call
+type MockStateSetAPIAddressCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateSetAPIAddressCall) Return(arg0 error) *MockStateSetAPIAddressCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateSetAPIAddressCall) Do(f func(context.Context, string, string, bool) error) *MockStateSetAPIAddressCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateSetAPIAddressCall) DoAndReturn(f func(context.Context, string, string, bool) error) *MockStateSetAPIAddressCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetRunningAgentBinaryVersion mocks base method.
 func (m *MockState) SetRunningAgentBinaryVersion(arg0 context.Context, arg1 string, arg2 agentbinary.Version) error {
 	m.ctrl.T.Helper()

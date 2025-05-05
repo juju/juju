@@ -277,3 +277,58 @@ WHERE controller_id = $dbControllerNode.controller_id`, controllerNode, dbContro
 func (st *State) NamespaceForWatchControllerNodes() string {
 	return "controller_node"
 }
+
+// SetAPIAddress adds the provided address to the controller api address table,
+// associated with the provided controllerID.
+//
+// The following errors can be expected:
+// - [controllernodeerrors.NotFound] if the controller node does not exist.
+func (st *State) SetAPIAddress(ctx context.Context, controllerID string, address string, isAvailabeForAgents bool) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	controllerAPIAddress := controllerAPIAddress{
+		ControllerID: controllerID,
+		Address:      address,
+		IsAgent:      isAvailabeForAgents,
+	}
+
+	checkControllerExistsStmt, err := st.Prepare(`
+SELECT COUNT(*) AS &countResult.count 
+FROM controller_node 
+WHERE controller_id = $controllerAPIAddress.controller_id
+`, countResult{}, controllerAPIAddress)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertAddrStmt, err := st.Prepare(`
+INSERT INTO controller_api_address (*) VALUES ($controllerAPIAddress.*)
+ON CONFLICT (controller_id, address) DO
+UPDATE SET 
+    address = excluded.address,
+    is_agent = excluded.is_agent
+`, controllerAPIAddress)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var countResult countResult
+		err := tx.Query(ctx, checkControllerExistsStmt, controllerAPIAddress).Get(&countResult)
+		if err != nil {
+			return errors.Errorf("checking if controller node %q exists: %w", controllerID, err)
+		}
+		if countResult.Count == 0 {
+			return errors.Errorf("controller node %q does not exist", controllerID).Add(controllernodeerrors.NotFound)
+		}
+
+		err = tx.Query(ctx, insertAddrStmt, controllerAPIAddress).Run()
+		if err != nil {
+			return errors.Errorf("setting api address for controller node %q: %w", controllerID, err)
+		}
+		return nil
+	}))
+}

@@ -9,4 +9,8 @@ const (
 	// NotFound describes an error that occurs when a controller cannot be
 	// found.
 	NotFound = errors.ConstError("controller not found")
+
+	// ControllerAddressNotValid describes an error that occurs when a
+	// controller address is not valid.
+	ControllerAddressNotValid = errors.ConstError("controller address not valid")
 )

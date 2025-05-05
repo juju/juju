@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -172,4 +173,75 @@ func (s *serviceSuite) TestIsControllerNodeNotValid(c *tc.C) {
 	is, err := svc.IsControllerNode(c.Context(), controllerID)
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Check(is, tc.IsFalse)
+}
+
+func (s *serviceSuite) TestSetAPIAddressNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state)
+
+	controllerID := "1"
+	address := "1:2:3"
+
+	err := svc.SetAPIAddress(context.Background(), controllerID, address, true)
+	c.Assert(err, jc.ErrorIs, controllernodeerrors.ControllerAddressNotValid)
+}
+
+func (s *serviceSuite) TestSetAPIAddressNotValidIPv4MissingPort(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state)
+
+	controllerID := "1"
+	address := "1.2.3.4"
+
+	err := svc.SetAPIAddress(context.Background(), controllerID, address, true)
+	c.Assert(err, jc.ErrorIs, controllernodeerrors.ControllerAddressNotValid)
+}
+
+func (s *serviceSuite) TestSetAPIAddressNotValidIPv6MissingPort(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state)
+
+	controllerID := "1"
+	address := "[1:2:3:4:5:6:7:8]"
+
+	err := svc.SetAPIAddress(context.Background(), controllerID, address, true)
+	c.Assert(err, jc.ErrorIs, controllernodeerrors.ControllerAddressNotValid)
+}
+
+func (s *serviceSuite) TestSetAPIAddressStateError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state)
+
+	controllerID := "1"
+	address := "1.2.3.4:1234"
+
+	s.state.EXPECT().SetAPIAddress(gomock.Any(), controllerID, address, true).Return(internalerrors.New("boom"))
+
+	err := svc.SetAPIAddress(context.Background(), controllerID, address, true)
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *serviceSuite) TestSetAPIAddressState(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state)
+
+	controllerID := "1"
+	address := "1.2.3.4:1234"
+
+	s.state.EXPECT().SetAPIAddress(gomock.Any(), controllerID, address, true).Return(nil)
+
+	err := svc.SetAPIAddress(context.Background(), controllerID, address, true)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestGetControllerIDs(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state)
+
+	s.state.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"1", "2"}, nil)
+
+	controllerIDs, err := svc.GetControllerIDs(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(controllerIDs, gc.HasLen, 2)
+	c.Check(controllerIDs, gc.DeepEquals, []string{"1", "2"})
 }

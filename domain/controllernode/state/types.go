@@ -30,9 +30,23 @@ type architecture struct {
 	Name string `db:"name"`
 }
 
-// controllerNodeAgentVersion is the database representation of a controller node agent version.
+// controllerNodeAgentVersion is the database representation of a controller
+// node agent version.
 type controllerNodeAgentVersion struct {
 	ControllerID   string `db:"controller_id"`
 	Version        string `db:"version"`
 	ArchitectureID int    `db:"architecture_id"`
+}
+
+// controllerAPIAddress is the database representation of a controller api
+// address.
+type controllerAPIAddress struct {
+	ControllerID string `db:"controller_id"`
+	Address      string `db:"address"`
+	IsAgent      bool   `db:"is_agent"`
+}
+
+// countResult is the database representation of a count result.
+type countResult struct {
+	Count int `db:"count"`
 }

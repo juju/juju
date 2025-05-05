@@ -844,6 +844,113 @@ func (s *unitServiceSuite) TestGetPublicAddressMatchingAddressOneProviderOtherUn
 	c.Check(addr, tc.DeepEquals, matchingScopeAddrs[2])
 }
 
+func (s *unitServiceSuite) TestGetPublicAddresses(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/0")
+
+	unitAddresses := network.SpaceAddresses{
+		{
+			SpaceID: network.AlphaSpaceId,
+			MachineAddress: network.MachineAddress{
+				Value:      "10.0.0.1",
+				ConfigType: network.ConfigStatic,
+				Type:       network.IPv4Address,
+				Scope:      network.ScopePublic,
+			},
+		},
+		{
+			SpaceID: network.AlphaSpaceId,
+			MachineAddress: network.MachineAddress{
+				Value:      "10.0.0.2",
+				ConfigType: network.ConfigDHCP,
+				Type:       network.IPv4Address,
+				Scope:      network.ScopePublic,
+			},
+		},
+		{
+			SpaceID: network.AlphaSpaceId,
+			MachineAddress: network.MachineAddress{
+				Value:      "54.32.1.2",
+				ConfigType: network.ConfigDHCP,
+				Type:       network.IPv4Address,
+				Scope:      network.ScopeMachineLocal,
+			},
+		},
+		{
+			SpaceID: network.AlphaSpaceId,
+			MachineAddress: network.MachineAddress{
+				Value:      "54.32.1.3",
+				ConfigType: network.ConfigDHCP,
+				Type:       network.IPv4Address,
+				Scope:      network.ScopeCloudLocal,
+			},
+		},
+	}
+
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(coreunit.UUID("foo"), nil)
+	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo")).Return(unitAddresses, nil)
+
+	addrs, err := s.service.GetUnitPublicAddresses(context.Background(), unitName)
+	c.Assert(err, jc.ErrorIsNil)
+	// The two public addresses should be returned.
+	c.Check(addrs, gc.DeepEquals, unitAddresses[0:2])
+}
+
+func (s *unitServiceSuite) TestGetPublicAddressesCloudLocal(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/0")
+
+	unitAddresses := network.SpaceAddresses{
+		{
+			SpaceID: network.AlphaSpaceId,
+			MachineAddress: network.MachineAddress{
+				Value:      "10.0.0.1",
+				ConfigType: network.ConfigStatic,
+				Type:       network.IPv4Address,
+				Scope:      network.ScopeCloudLocal,
+			},
+		},
+		{
+			SpaceID: network.AlphaSpaceId,
+			MachineAddress: network.MachineAddress{
+				Value:      "10.0.0.2",
+				ConfigType: network.ConfigDHCP,
+				Type:       network.IPv4Address,
+				Scope:      network.ScopeCloudLocal,
+			},
+		},
+		{
+			SpaceID: network.AlphaSpaceId,
+			MachineAddress: network.MachineAddress{
+				Value:      "54.32.1.2",
+				ConfigType: network.ConfigDHCP,
+				Type:       network.IPv4Address,
+				Scope:      network.ScopeMachineLocal,
+			},
+		},
+		{
+			SpaceID: network.AlphaSpaceId,
+			MachineAddress: network.MachineAddress{
+				Value:      "54.32.1.3",
+				ConfigType: network.ConfigDHCP,
+				Type:       network.IPv4Address,
+				Scope:      network.ScopeMachineLocal,
+			},
+		},
+	}
+
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(coreunit.UUID("foo"), nil)
+	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo")).Return(unitAddresses, nil)
+
+	addrs, err := s.service.GetUnitPublicAddresses(context.Background(), unitName)
+	c.Assert(err, jc.ErrorIsNil)
+	// The two cloud-local addresses should be returned because there are no
+	// public ones.
+	c.Check(addrs, gc.DeepEquals, unitAddresses[0:2])
+}
+
 func (s *unitServiceSuite) TestGetPrivateAddressUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -994,4 +1101,30 @@ func (s *unitServiceSuite) TestGetUnitSubordinatesError(c *tc.C) {
 
 	_, err := s.service.GetUnitSubordinates(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIs, boom)
+}
+
+func (s *serviceSuite) TestGetUnitNetNodesNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/0")
+
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/0")).Return("", applicationerrors.UnitNotFound)
+
+	_, err := s.service.GetUnitNetNodes(context.Background(), unitName)
+	c.Assert(err, gc.ErrorMatches, "unit not found")
+}
+
+func (s *serviceSuite) TestGetUnitNetNodes(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/0")
+
+	netNodeUUIDs := []string{"foo-uuid", "bar-uuid"}
+
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/0")).Return(coreunit.UUID("foo-uuid"), nil)
+	s.state.EXPECT().GetUnitNetNodes(gomock.Any(), coreunit.UUID("foo-uuid")).Return(netNodeUUIDs, nil)
+
+	netNodes, err := s.service.GetUnitNetNodes(context.Background(), unitName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(netNodes, gc.DeepEquals, netNodeUUIDs)
 }

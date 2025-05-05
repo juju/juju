@@ -29,6 +29,8 @@ CREATE TABLE controller_api_address (
     -- The value of the configured IP address with the port appended.
     -- e.g. 192.168.1.2:17070 or [2001:db8:0000:0000:0000:0000:0000:00001]:17070.
     address TEXT NOT NULL,
+    -- Represents whether the API address is available for agents usage.
+    is_agent BOOLEAN DEFAULT FALSE,
     CONSTRAINT fk_controller_api_address_controller
     FOREIGN KEY (controller_id)
     REFERENCES controller_node (controller_id),
