@@ -328,3 +328,24 @@ type ExportEndpoint struct {
 	ApplicationSettings map[string]any
 	AllUnitSettings     map[string]map[string]any
 }
+
+// GetRelationUUIDForRemovalArgs holds the data necessary find the relation
+// UUID to remove the relation.
+type GetRelationUUIDForRemovalArgs struct {
+	Endpoints  []string
+	RelationID int
+}
+
+// Validate ensures this GetRelationUUIDForRemovalArgs data is correct for
+// removing a relation by a user. Either 2 endpoints are provided, or a
+// relation ID. If there are no endpoints, it's assumed the relation ID
+// should be used.
+func (d GetRelationUUIDForRemovalArgs) Validate() error {
+	if len(d.Endpoints) == 1 {
+		return errors.Errorf("cannot remove a peer relation")
+	}
+	if len(d.Endpoints) > 2 {
+		return errors.Errorf("invalid endpoint length: %d, must be 2 or 0 with relation ID provided", len(d.Endpoints))
+	}
+	return nil
+}

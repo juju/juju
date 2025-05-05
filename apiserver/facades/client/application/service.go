@@ -333,27 +333,18 @@ type RelationService interface {
 	// ApplicationRelationsInfo returns all EndpointRelationData for an application.
 	ApplicationRelationsInfo(ctx context.Context, applicationID coreapplication.ID) ([]relation.EndpointRelationData, error)
 
-	// GetRelationUUIDByID returns the relation UUID based on the relation ID.
+	// GetRelationUUIDForRemoval returns the relation UUID, of the relation
+	// represented in GetRelationUUIDForRemovalArgs, with the understanding
+	// this relation will be removed by an end user. Peer relations cannot be
+	// removed by an end user.
 	//
 	// The following error types can be expected to be returned:
-	//   - [relationerrors.RelationNotFound] is returned if the relation UUID
-	//     relating to the relation ID cannot be found.
-	GetRelationUUIDByID(ctx context.Context, relationID int) (corerelation.UUID, error)
-
-	// InferRelationUUIDByEndpoints infers the relation based on two endpoint
-	// strings. Unlike with GetRelationUUIDByKey, the endpoints may not be
-	// fully qualified and come from a user.
-	InferRelationUUIDByEndpoints(
+	//   - [relationerrors.RelationNotFound] is returned if endpoints cannot be
+	//     found.
+	GetRelationUUIDForRemoval(
 		ctx context.Context,
-		epIdentifier1, epIdentifier2 string,
+		args relation.GetRelationUUIDForRemovalArgs,
 	) (corerelation.UUID, error)
-
-	// IsPeerRelation returns a boolean to indicate if the given
-	// relation UUID is for a peer relation.
-	//
-	// The following error types can be expected to be returned:
-	//   - [relationerrors.RelationNotFound] if the relation cannot be found.
-	IsPeerRelation(ctx context.Context, relUUID corerelation.UUID) (bool, error)
 }
 
 // RemovalService defines operations for removing juju entities.

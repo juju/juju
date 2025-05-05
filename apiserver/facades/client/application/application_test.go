@@ -1065,7 +1065,10 @@ func (s *applicationSuite) TestDestroyRelationByEndpoints(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
-	relUUID := s.expectInferRelationUUIDByEndpoints(c, "foo:require", "bar:provide", nil)
+	getUUIDArgs := relation.GetRelationUUIDForRemovalArgs{
+		Endpoints: []string{"foo:require", "bar:provide"},
+	}
+	relUUID := s.expectGetRelationUUIDForRemoval(c, getUUIDArgs, nil)
 	s.expectRemoveRelation(relUUID, false, 0, nil)
 
 	arg := params.DestroyRelation{
@@ -1079,12 +1082,15 @@ func (s *applicationSuite) TestDestroyRelationByEndpoints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *applicationSuite) TestDestroyRelationByEndpointsRelationNotFound(c *gc.C) {
+func (s *applicationSuite) TestDestroyRelationRelationNotFound(c *gc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
-	_ = s.expectInferRelationUUIDByEndpoints(c, "foo:require", "bar:provide", relationerrors.RelationNotFound)
+	getUUIDArgs := relation.GetRelationUUIDForRemovalArgs{
+		Endpoints: []string{"foo:require", "bar:provide"},
+	}
+	_ = s.expectGetRelationUUIDForRemoval(c, getUUIDArgs, relationerrors.RelationNotFound)
 	arg := params.DestroyRelation{
 		Endpoints: []string{"foo:require", "bar:provide"},
 	}
@@ -1101,12 +1107,15 @@ func (s *applicationSuite) TestDestroyRelationByID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
-	relID, relUUID := s.expectGetRelationUUIDByID(c, nil)
-	s.expectIsPeerRelation(relUUID, false, nil)
+	getUUIDArgs := relation.GetRelationUUIDForRemovalArgs{
+		RelationID: 7,
+	}
+	relUUID := s.expectGetRelationUUIDForRemoval(c, getUUIDArgs, nil)
+
 	s.expectRemoveRelation(relUUID, false, 0, nil)
 
 	arg := params.DestroyRelation{
-		RelationId: relID,
+		RelationId: getUUIDArgs.RelationID,
 	}
 
 	// Act
@@ -1121,13 +1130,15 @@ func (s *applicationSuite) TestDestroyRelationWithForceMaxWait(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
-	relID, relUUID := s.expectGetRelationUUIDByID(c, nil)
-	s.expectIsPeerRelation(relUUID, false, nil)
+	getUUIDArgs := relation.GetRelationUUIDForRemovalArgs{
+		RelationID: 7,
+	}
+	relUUID := s.expectGetRelationUUIDForRemoval(c, getUUIDArgs, nil)
 	maxWait := time.Second
 	s.expectRemoveRelation(relUUID, true, maxWait, nil)
 
 	arg := params.DestroyRelation{
-		RelationId: relID,
+		RelationId: getUUIDArgs.RelationID,
 		Force:      ptr(true),
 		MaxWait:    &maxWait,
 	}
@@ -1137,78 +1148,6 @@ func (s *applicationSuite) TestDestroyRelationWithForceMaxWait(c *gc.C) {
 
 	// Assert
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *applicationSuite) TestDestroyRelationByIDRelationNotFound(c *gc.C) {
-	// Arrange
-	defer s.setupMocks(c).Finish()
-
-	s.setupAPI(c)
-	relID, _ := s.expectGetRelationUUIDByID(c, relationerrors.RelationNotFound)
-
-	arg := params.DestroyRelation{
-		RelationId: relID,
-	}
-
-	// Act
-	err := s.api.DestroyRelation(context.Background(), arg)
-
-	// Assert
-	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
-}
-
-func (s *applicationSuite) TestDestroyRelationByEndpointsPeerRelation(c *gc.C) {
-	// Arrange
-	defer s.setupMocks(c).Finish()
-
-	s.setupAPI(c)
-	arg := params.DestroyRelation{
-		Endpoints: []string{"foo:peer"},
-	}
-
-	// Act
-	err := s.api.DestroyRelation(context.Background(), arg)
-
-	// Assert
-	c.Assert(err, gc.Not(jc.ErrorIsNil))
-}
-
-func (s *applicationSuite) TestDestroyRelationByIDPeerRelation(c *gc.C) {
-	// Arrange
-	defer s.setupMocks(c).Finish()
-
-	s.setupAPI(c)
-	relID, relUUID := s.expectGetRelationUUIDByID(c, nil)
-	s.expectIsPeerRelation(relUUID, true, nil)
-
-	arg := params.DestroyRelation{
-		RelationId: relID,
-	}
-
-	// Act
-	err := s.api.DestroyRelation(context.Background(), arg)
-
-	// Assert
-	c.Assert(err, gc.Not(jc.ErrorIsNil))
-}
-
-func (s *applicationSuite) TestDestroyRelationByIDPeerRelationNotFound(c *gc.C) {
-	// Arrange
-	defer s.setupMocks(c).Finish()
-
-	s.setupAPI(c)
-	relID, relUUID := s.expectGetRelationUUIDByID(c, nil)
-	s.expectIsPeerRelation(relUUID, true, relationerrors.RelationNotFound)
-
-	arg := params.DestroyRelation{
-		RelationId: relID,
-	}
-
-	// Act
-	err := s.api.DestroyRelation(context.Background(), arg)
-
-	// Assert
-	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
 }
 
 func (s *applicationSuite) TestSetRelationsSuspendedStub(c *gc.C) {
@@ -1407,23 +1346,13 @@ func (s *applicationSuite) expectSetCharmWithTrust(c *gc.C) {
 	}, nil, appSchema, appDefaults).Return(nil)
 }
 
-func (s *applicationSuite) expectInferRelationUUIDByEndpoints(c *gc.C, ep1, ep2 string, err error) corerelation.UUID {
+func (s *applicationSuite) expectGetRelationUUIDForRemoval(c *gc.C, args relation.GetRelationUUIDForRemovalArgs, err error) corerelation.UUID {
 	relUUID := relationtesting.GenRelationUUID(c)
-	s.relationService.EXPECT().InferRelationUUIDByEndpoints(context.Background(), ep1, ep2).Return(relUUID, err)
+	s.relationService.EXPECT().GetRelationUUIDForRemoval(context.Background(), args).Return(relUUID, err)
 	return relUUID
 }
 
 func (s *applicationSuite) expectRemoveRelation(uuid corerelation.UUID, force bool, maxWait time.Duration, err error) {
 	rUUID, _ := removal.NewUUID()
 	s.removalService.EXPECT().RemoveRelation(context.Background(), uuid, force, maxWait).Return(rUUID, err)
-}
-
-func (s *applicationSuite) expectGetRelationUUIDByID(c *gc.C, err error) (int, corerelation.UUID) {
-	relUUID := relationtesting.GenRelationUUID(c)
-	s.relationService.EXPECT().GetRelationUUIDByID(context.Background(), 7).Return(relUUID, err)
-	return 7, relUUID
-}
-
-func (s *applicationSuite) expectIsPeerRelation(uuid corerelation.UUID, answer bool, err error) {
-	s.relationService.EXPECT().IsPeerRelation(context.Background(), uuid).Return(answer, err)
 }
