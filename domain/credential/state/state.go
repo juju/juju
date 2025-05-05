@@ -15,7 +15,6 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/user"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -511,7 +510,7 @@ WHERE uuid = $modelUUID.uuid`,
 
 // CloudCredentialsForOwner returns the owner's cloud credentials for a given
 // cloud, keyed by credential name.
-func (st *State) CloudCredentialsForOwner(ctx context.Context, owner user.Name, cloudName string) (map[string]credential.CloudCredentialResult, error) {
+func (st *State) CloudCredentialsForOwner(ctx context.Context, owner coreuser.Name, cloudName string) (map[string]credential.CloudCredentialResult, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -711,7 +710,7 @@ WHERE  uuid = $M.id
 
 // AllCloudCredentialsForOwner returns all cloud credentials stored on the controller
 // for a given owner.
-func (st *State) AllCloudCredentialsForOwner(ctx context.Context, owner user.Name) (map[corecredential.Key]credential.CloudCredentialResult, error) {
+func (st *State) AllCloudCredentialsForOwner(ctx context.Context, owner coreuser.Name) (map[corecredential.Key]credential.CloudCredentialResult, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)

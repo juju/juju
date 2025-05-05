@@ -13,7 +13,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
-	"github.com/juju/juju/core/credential"
 	corecredential "github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
@@ -67,7 +66,7 @@ type ModelCredentialService interface {
 	// any credential set.
 	// - [github.com/juju/juju/domain/model/errors.NotFound] when the model does
 	// not exist.
-	GetModelCredentialStatus(context.Context) (credential.Key, bool, error)
+	GetModelCredentialStatus(context.Context) (corecredential.Key, bool, error)
 
 	// InvalidateModelCredential marks the cloud credential that is in use for
 	// by the model as invalid. This will affect all models that are using the
@@ -104,7 +103,7 @@ type CredentialValidatorAPI struct {
 // Implements [ModelCredentialService].
 func (s *credentialServiceShim) GetModelCredentialStatus(
 	ctx context.Context,
-) (credential.Key, bool, error) {
+) (corecredential.Key, bool, error) {
 	return s.Service.GetModelCredentialStatus(ctx, s.ModelUUID)
 }
 
