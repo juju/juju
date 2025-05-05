@@ -114,7 +114,9 @@ func (s *controllerInfoSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	s.localState = f.MakeModel(c, nil)
+	s.localState = f.MakeModel(c, &factory.ModelParams{
+		UUID: s.DefaultModelUUID,
+	})
 	s.AddCleanup(func(*gc.C) {
 		s.localState.Close()
 	})
@@ -128,7 +130,9 @@ func (s *controllerInfoSuite) TestControllerInfoLocalModel(c *gc.C) {
 	controllerConfig := common.NewControllerConfigAPI(s.localState, domainServices.ControllerConfig(), domainServices.ExternalController())
 
 	results, err := controllerConfig.ControllerAPIInfoForModels(context.Background(), params.Entities{
-		Entities: []params.Entity{{Tag: s.localModel.ModelTag().String()}}})
+		Entities: []params.Entity{{
+			Tag: names.NewModelTag(s.DefaultModelUUID.String()).String(),
+		}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 

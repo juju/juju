@@ -228,7 +228,7 @@ func (s *AgentSuite) PrimeStateAgentVersion(c *gc.C, tag names.Tag, password str
 	if !ok {
 		c.Fatalf("no api port in controller config")
 	}
-	conf := s.WriteStateAgentConfig(c, tag, password, vers, s.ControllerModel(c).ModelTag(), apiPort)
+	conf := s.WriteStateAgentConfig(c, tag, password, vers, names.NewModelTag(s.ControllerModelUUID()), apiPort)
 	s.primeAPIHostPorts(c)
 
 	err = database.BootstrapDqlite(

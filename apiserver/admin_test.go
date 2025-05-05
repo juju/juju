@@ -750,7 +750,7 @@ func (s *loginSuite) TestControllerModel(c *gc.C) {
 	err := st.Login(context.Background(), jujutesting.AdminUser, jujutesting.AdminSecret, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertRemoteModel(c, st, s.ControllerModel(c).ModelTag())
+	s.assertRemoteModel(c, st, names.NewModelTag(s.ControllerModelUUID()))
 }
 
 func (s *loginSuite) TestControllerModelBadCreds(c *gc.C) {

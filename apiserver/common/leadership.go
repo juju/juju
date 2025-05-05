@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/permission"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -50,15 +51,23 @@ func (s leadershipPinningBackend) Machine(name string) (LeadershipMachine, error
 // This signature is suitable for facade registration.
 func NewLeadershipPinningFromContext(ctx facade.ModelContext) (*LeadershipPinning, error) {
 	st := ctx.State()
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	pinner, err := ctx.LeadershipPinner()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewLeadershipPinning(leadershipPinningBackend{st}, model.ModelTag(), pinner, ctx.Auth())
+	modelTag, err := names.ParseModelTag(ctx.ModelUUID().String())
+	if err != nil {
+		return nil, internalerrors.Errorf(
+			"parsing model uuid %q to new model tag: %w",
+			ctx.ModelUUID(), err,
+		)
+	}
+	return NewLeadershipPinning(
+		leadershipPinningBackend{st},
+		modelTag,
+		pinner,
+		ctx.Auth(),
+	)
 }
 
 // NewLeadershipPinning creates and returns a new leadership API from the
