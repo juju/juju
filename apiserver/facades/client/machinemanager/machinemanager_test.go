@@ -23,7 +23,6 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/model"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
@@ -121,7 +120,7 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *gc.C) {
 	for i := range apiParams {
 		apiParams[i] = params.AddMachineParams{
 			Base: &params.Base{Name: "ubuntu", Channel: "22.04"},
-			Jobs: []model.MachineJob{model.JobHostUnits},
+			Jobs: []coremodel.MachineJob{coremodel.JobHostUnits},
 		}
 	}
 	apiParams[0].Disks = []storage.Directive{{Size: 1, Count: 2}, {Size: 2, Count: 1}}

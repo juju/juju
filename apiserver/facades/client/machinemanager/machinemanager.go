@@ -154,7 +154,6 @@ type CloudService interface {
 
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
-	model                   coremodel.ModelInfo
 	modelUUID               coremodel.UUID
 	controllerConfigService ControllerConfigService
 	st                      Backend
