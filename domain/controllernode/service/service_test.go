@@ -158,7 +158,7 @@ func (s *serviceSuite) TestIsControllerNode(c *gc.C) {
 	svc := NewService(s.state)
 
 	is, err := svc.IsControllerNode(context.Background(), fakeID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIs, controllernodeerrors.NotFound)
 	c.Check(is, jc.IsFalse)
 
 	is, err = svc.IsControllerNode(context.Background(), controllerID)
