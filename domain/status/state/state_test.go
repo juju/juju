@@ -1893,6 +1893,71 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesWithMultipleRelations(c *g
 	})
 }
 
+func (s *stateSuite) TestGetApplicationAndUnitModelStatuses(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	u2 := application.AddUnitArg{
+		UnitName: "foo/667",
+	}
+	now := time.Now()
+
+	appStatus := s.appStatus(now)
+	s.createApplication(c, "foo", life.Alive, false, appStatus, u1, u2)
+
+	appUnitCount, err := s.state.GetApplicationAndUnitModelStatuses(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(appUnitCount, gc.DeepEquals, map[string]int{
+		"foo": 2,
+	})
+}
+
+func (s *stateSuite) TestGetApplicationAndUnitModelStatusesMultiple(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	u2 := application.AddUnitArg{
+		UnitName: "foo/667",
+	}
+	u3 := application.AddUnitArg{
+		UnitName: "bar/666",
+	}
+	now := time.Now()
+
+	appStatus := s.appStatus(now)
+	s.createApplication(c, "foo", life.Alive, false, appStatus, u1, u2)
+	s.createApplication(c, "bar", life.Alive, false, appStatus, u3)
+
+	appUnitCount, err := s.state.GetApplicationAndUnitModelStatuses(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(appUnitCount, gc.DeepEquals, map[string]int{
+		"foo": 2,
+		"bar": 1,
+	})
+}
+
+func (s *stateSuite) TestGetApplicationAndUnitModelStatusesNoApplication(c *gc.C) {
+	appUnitCount, err := s.state.GetApplicationAndUnitModelStatuses(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(appUnitCount, gc.DeepEquals, map[string]int{})
+}
+
+func (s *stateSuite) TestGetApplicationAndUnitModelStatusesNoUnits(c *gc.C) {
+	now := time.Now()
+	appStatus := s.appStatus(now)
+	s.createApplication(c, "foo", life.Alive, false, appStatus)
+
+	appUnitCount, err := s.state.GetApplicationAndUnitModelStatuses(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(appUnitCount, gc.DeepEquals, map[string]int{
+		"foo": 0,
+	})
+}
+
 func (s *stateSuite) appStatus(now time.Time) *status.StatusInfo[status.WorkloadStatusType] {
 	return &status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,

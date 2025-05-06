@@ -144,6 +144,9 @@ func NewControllerAPI(
 		ModelStatusAPI: commonmodel.NewModelStatusAPI(
 			commonmodel.NewModelManagerBackend(model, pool),
 			machineServiceGetter,
+			func(ctx context.Context, uuid coremodel.UUID) (commonmodel.StatusService, error) {
+				return statusServiceGetter(ctx, uuid)
+			},
 			authorizer,
 			apiUser,
 		),

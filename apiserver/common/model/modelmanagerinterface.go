@@ -44,7 +44,6 @@ type ModelManagerBackend interface {
 	Name() string
 	ModelTag() names.ModelTag
 	AllMachines() (machines []Machine, err error)
-	AllApplications() (applications []Application, err error)
 	AllFilesystems() ([]state.Filesystem, error)
 	AllVolumes() ([]state.Volume, error)
 	ControllerTag() names.ControllerTag
@@ -106,6 +105,13 @@ type MachineService interface {
 	// HardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
 	HardwareCharacteristics(ctx context.Context, machineUUID string) (*instance.HardwareCharacteristics, error)
+}
+
+// StatusService returns the status of a applications, and units and machines.
+type StatusService interface {
+	// GetApplicationAndUnitModelStatuses returns the application name and unit
+	// count for each model for the model status request.
+	GetApplicationAndUnitModelStatuses(ctx context.Context) (map[string]int, error)
 }
 
 var _ ModelManagerBackend = (*modelManagerStateShim)(nil)

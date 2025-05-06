@@ -6,7 +6,6 @@ package model
 import (
 	"context"
 
-	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
@@ -18,6 +17,14 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
+
+// MachineServiceGetter is a function that returns a MachineService for the
+// given model UUID.
+type MachineServiceGetter = func(context.Context, coremodel.UUID) (MachineService, error)
+
+// StatusServiceGetter is a function that returns a StatusService for the
+// given model UUID.
+type StatusServiceGetter = func(context.Context, coremodel.UUID) (StatusService, error)
 
 // ModelInfoService defines domain service methods for managing a model.
 type ModelInfoService interface {
@@ -32,25 +39,24 @@ type ModelStatusAPI struct {
 	authorizer        facade.Authorizer
 	apiUser           names.UserTag
 	backend           ModelManagerBackend
-	getMachineService func(context.Context, coremodel.UUID) (MachineService, error)
-}
-
-// ModelApplicationInfo returns information about applications.
-func ModelApplicationInfo(applications []Application) ([]params.ModelApplicationInfo, error) {
-	applicationInfo := transform.Slice(applications, func(app Application) params.ModelApplicationInfo {
-		return params.ModelApplicationInfo{Name: app.Name()}
-	})
-	return applicationInfo, nil
+	getMachineService MachineServiceGetter
+	getStatusService  StatusServiceGetter
 }
 
 // NewModelStatusAPI creates an implementation providing the ModelStatus() API.
-func NewModelStatusAPI(backend ModelManagerBackend, getMachineService func(context.Context, coremodel.UUID) (MachineService, error),
-	authorizer facade.Authorizer, apiUser names.UserTag) *ModelStatusAPI {
+func NewModelStatusAPI(
+	backend ModelManagerBackend,
+	getMachineService MachineServiceGetter,
+	getStatusService StatusServiceGetter,
+	authorizer facade.Authorizer,
+	apiUser names.UserTag,
+) *ModelStatusAPI {
 	return &ModelStatusAPI{
 		authorizer:        authorizer,
 		apiUser:           apiUser,
 		backend:           backend,
 		getMachineService: getMachineService,
+		getStatusService:  getStatusService,
 	}
 }
 
@@ -109,29 +115,31 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 		}
 	}
 
-	applications, err := st.AllApplications()
+	modelUUID := coremodel.UUID(modelTag.Id())
+
+	statusService, err := c.getStatusService(ctx, modelUUID)
 	if err != nil {
 		return status, errors.Trace(err)
 	}
+	applications, err := statusService.GetApplicationAndUnitModelStatuses(ctx)
+	if err != nil {
+		return status, errors.Trace(err)
+	}
+
+	modelApplications := make([]params.ModelApplicationInfo, 0, len(applications))
 	var unitCount int
-	for _, app := range applications {
-		unitCount += app.UnitCount()
+	for name, units := range applications {
+		modelApplications = append(modelApplications, params.ModelApplicationInfo{
+			Name: name,
+		})
+		unitCount += units
 	}
 
-	svc, err := c.getMachineService(ctx, coremodel.UUID(modelTag.Id()))
+	machineService, err := c.getMachineService(ctx, modelUUID)
 	if err != nil {
 		return status, errors.Trace(err)
 	}
-	modelMachines, err := ModelMachineInfo(ctx, st, svc)
-	if err != nil {
-		return status, errors.Trace(err)
-	}
-
-	// TODO (Anvial): we need to think about common parameter list (maybe "st") to all these functions:
-	// ModelMachineInfo, ModelApplicationInfo, ModelVolumeInfo, ModelFilesystemInfo. Looks like better to do in
-	// ModelMachineInfo style and optimize st.*() calls.
-
-	modelApplications, err := ModelApplicationInfo(applications)
+	modelMachines, err := ModelMachineInfo(ctx, st, machineService)
 	if err != nil {
 		return status, errors.Trace(err)
 	}
@@ -154,7 +162,7 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 		Life:               life.Value(model.Life().String()),
 		Type:               string(model.Type()),
 		HostedMachineCount: hostedMachineCount,
-		ApplicationCount:   len(modelApplications),
+		ApplicationCount:   len(applications),
 		UnitCount:          unitCount,
 		Applications:       modelApplications,
 		Machines:           modelMachines,

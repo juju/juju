@@ -152,6 +152,10 @@ type State interface {
 	// GetApplicationAndUnitStatuses returns the application statuses of all the
 	// applications in the model, indexed by application name.
 	GetApplicationAndUnitStatuses(ctx context.Context) (map[string]status.Application, error)
+
+	// GetApplicationAndUnitModelStatuses returns the application name and unit
+	// count for each model for the model status request.
+	GetApplicationAndUnitModelStatuses(ctx context.Context) (map[string]int, error)
 }
 
 // Service provides the API for working with the statuses of applications and
@@ -465,6 +469,12 @@ func (s *Service) GetApplicationAndUnitStatuses(ctx context.Context) (map[string
 	}
 
 	return results, nil
+}
+
+// GetApplicationAndUnitModelStatuses returns the application name and unit
+// count for each model for the model status request.
+func (s *Service) GetApplicationAndUnitModelStatuses(ctx context.Context) (map[string]int, error) {
+	return s.st.GetApplicationAndUnitModelStatuses(ctx)
 }
 
 // ImportRelationStatus sets the status of the relation to the status provided.
