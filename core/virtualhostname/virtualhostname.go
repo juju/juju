@@ -209,6 +209,9 @@ func Parse(hostname string) (Info, error) {
 	if err != nil {
 		return Info{}, errors.Annotatef(err, "failed to parse unit/machine number")
 	}
+	if result["containername"] != "" && result["appname"] == "" {
+		return Info{}, errors.Errorf("container name specified without an application name")
+	}
 
 	res := Info{}
 	appName := result["appname"]
