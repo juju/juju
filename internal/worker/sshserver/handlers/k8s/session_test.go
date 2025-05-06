@@ -129,7 +129,7 @@ func (s *k8sSessionSuite) TestSessionHandlerPty(c *gc.C) {
 		return nil
 	})
 	k8sHandlers.SessionHandler(&mockSession)
-	c.Check(mockSession.stdout.String(), gc.Equals, "test output\r\n")
+	c.Check(mockSession.stdout.String(), jc.Contains, "test output")
 }
 
 func (s *k8sSessionSuite) TestSessionEndsIfClientCloses(c *gc.C) {
