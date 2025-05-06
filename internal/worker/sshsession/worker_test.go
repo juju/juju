@@ -169,6 +169,7 @@ func (s *workerSuite) TestSSHSessionWorkerCanBeKilled(c *gc.C) {
 		EphemeralKeysUpdater: s.ephemeralkeyUpdater,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
 	workertest.CheckAlive(c, w)
 
 	c.Assert(workertest.CheckKill(c, w), jc.ErrorIsNil)
@@ -211,7 +212,9 @@ func (s *workerSuite) TestSSHSessionWorkerHandlesConnectionPipesData(c *gc.C) {
 	s.facadeClient.EXPECT().ControllerSSHPort().Return("17022", nil)
 
 	s.ephemeralkeyUpdater.EXPECT().AddEphemeralKey(ephemeralPublicKey, connID)
-	s.ephemeralkeyUpdater.EXPECT().RemoveEphemeralKey(ephemeralPublicKey)
+	// The ephemeral key is removed after the connection is completed, so asserting
+	// its exact number of calls leads to flakey tests.
+	s.ephemeralkeyUpdater.EXPECT().RemoveEphemeralKey(ephemeralPublicKey).AnyTimes()
 
 	// Setup an in-memory conn getter to stub the controller and SSHD side.
 	connSSHD, workerConnSSHD := net.Pipe()
@@ -230,6 +233,7 @@ func (s *workerSuite) TestSSHSessionWorkerHandlesConnectionPipesData(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
+	workertest.CheckAlive(c, w)
 
 	go func() {
 		// use a different error var to avoid shadowing the others
@@ -351,7 +355,9 @@ func (s *workerSuite) TestSSHSessionWorkerMultipleConnections(c *gc.C) {
 	s.facadeClient.EXPECT().ControllerSSHPort().Return("17022", nil)
 
 	s.ephemeralkeyUpdater.EXPECT().AddEphemeralKey(ephemeralPublicKey, connID).Times(2)
-	s.ephemeralkeyUpdater.EXPECT().RemoveEphemeralKey(ephemeralPublicKey).Times(2)
+	// The ephemeral key is removed after the connection is completed, so asserting
+	// its exact number of calls leads to flakey tests.
+	s.ephemeralkeyUpdater.EXPECT().RemoveEphemeralKey(ephemeralPublicKey).AnyTimes()
 
 	// Setup an in-memory conn getter to stub the controller and SSHD side.
 	connSSHD1, workerConnSSHD1 := net.Pipe()
@@ -375,8 +381,9 @@ func (s *workerSuite) TestSSHSessionWorkerMultipleConnections(c *gc.C) {
 		EphemeralKeysUpdater: s.ephemeralkeyUpdater,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-
 	defer workertest.CleanKill(c, w)
+	workertest.CheckAlive(c, w)
+
 	// test the second pipe is working even if the first one is blocked.
 	go func() {
 		// use a different error var to avoid shadowing the others

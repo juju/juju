@@ -198,10 +198,12 @@ func (w *sshSessionWorker) pipeConnectionToSSHD(ctx context.Context, ctrlAddress
 	if err != nil {
 		return errors.Trace(err)
 	}
+	defer controllerConn.Close()
 	sshdConn, err := w.connectionGetter.GetSSHDConnection()
 	if err != nil {
 		return errors.Trace(err)
 	}
+	defer sshdConn.Close()
 
 	// We close the connections when the context is done
 	// or, if the connections finish first, we signal the
@@ -223,7 +225,7 @@ func (w *sshSessionWorker) pipeConnectionToSSHD(ctx context.Context, ctrlAddress
 
 	go func() {
 		defer wg.Done()
-		// sshd -> conn
+		// conn -> sshd
 		defer controllerConn.Close()
 		defer sshdConn.Close()
 		_, _ = io.Copy(sshdConn, controllerConn)
@@ -232,7 +234,7 @@ func (w *sshSessionWorker) pipeConnectionToSSHD(ctx context.Context, ctrlAddress
 
 	go func() {
 		defer wg.Done()
-		// conn -> sshd
+		// sshd -> conn
 		defer controllerConn.Close()
 		defer sshdConn.Close()
 		_, _ = io.Copy(controllerConn, sshdConn)
