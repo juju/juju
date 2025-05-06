@@ -117,6 +117,9 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 	)
 	if tty != nil {
 		tty.Close()
+		// Send a new line to the session to end the master
+		// side of the pty.
+		_, _ = ptmx.WriteString("\n")
 	}
 	if err != nil {
 		handleError(errors.Annotate(err, "failed to execute command in k8s pod"))
