@@ -19,6 +19,7 @@ import (
 	life "github.com/juju/juju/core/life"
 	machine "github.com/juju/juju/core/machine"
 	model "github.com/juju/juju/core/model"
+	network "github.com/juju/juju/core/network"
 	relation "github.com/juju/juju/core/relation"
 	status "github.com/juju/juju/core/status"
 	unit "github.com/juju/juju/core/unit"
@@ -633,6 +634,84 @@ func (c *MockApplicationServiceGetUnitPrincipalCall) Do(f func(context.Context, 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationServiceGetUnitPrincipalCall) DoAndReturn(f func(context.Context, unit.Name) (unit.Name, bool, error)) *MockApplicationServiceGetUnitPrincipalCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetUnitPrivateAddress mocks base method.
+func (m *MockApplicationService) GetUnitPrivateAddress(arg0 context.Context, arg1 unit.Name) (network.SpaceAddress, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitPrivateAddress", arg0, arg1)
+	ret0, _ := ret[0].(network.SpaceAddress)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitPrivateAddress indicates an expected call of GetUnitPrivateAddress.
+func (mr *MockApplicationServiceMockRecorder) GetUnitPrivateAddress(arg0, arg1 any) *MockApplicationServiceGetUnitPrivateAddressCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitPrivateAddress", reflect.TypeOf((*MockApplicationService)(nil).GetUnitPrivateAddress), arg0, arg1)
+	return &MockApplicationServiceGetUnitPrivateAddressCall{Call: call}
+}
+
+// MockApplicationServiceGetUnitPrivateAddressCall wrap *gomock.Call
+type MockApplicationServiceGetUnitPrivateAddressCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetUnitPrivateAddressCall) Return(arg0 network.SpaceAddress, arg1 error) *MockApplicationServiceGetUnitPrivateAddressCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetUnitPrivateAddressCall) Do(f func(context.Context, unit.Name) (network.SpaceAddress, error)) *MockApplicationServiceGetUnitPrivateAddressCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetUnitPrivateAddressCall) DoAndReturn(f func(context.Context, unit.Name) (network.SpaceAddress, error)) *MockApplicationServiceGetUnitPrivateAddressCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetUnitPublicAddress mocks base method.
+func (m *MockApplicationService) GetUnitPublicAddress(arg0 context.Context, arg1 unit.Name) (network.SpaceAddress, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitPublicAddress", arg0, arg1)
+	ret0, _ := ret[0].(network.SpaceAddress)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitPublicAddress indicates an expected call of GetUnitPublicAddress.
+func (mr *MockApplicationServiceMockRecorder) GetUnitPublicAddress(arg0, arg1 any) *MockApplicationServiceGetUnitPublicAddressCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitPublicAddress", reflect.TypeOf((*MockApplicationService)(nil).GetUnitPublicAddress), arg0, arg1)
+	return &MockApplicationServiceGetUnitPublicAddressCall{Call: call}
+}
+
+// MockApplicationServiceGetUnitPublicAddressCall wrap *gomock.Call
+type MockApplicationServiceGetUnitPublicAddressCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetUnitPublicAddressCall) Return(arg0 network.SpaceAddress, arg1 error) *MockApplicationServiceGetUnitPublicAddressCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetUnitPublicAddressCall) Do(f func(context.Context, unit.Name) (network.SpaceAddress, error)) *MockApplicationServiceGetUnitPublicAddressCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetUnitPublicAddressCall) DoAndReturn(f func(context.Context, unit.Name) (network.SpaceAddress, error)) *MockApplicationServiceGetUnitPublicAddressCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
