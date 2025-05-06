@@ -497,7 +497,9 @@ WHERE  uuid = $modelUUID.uuid`,
 			)
 		}
 
-		// The model doesn't have a credential set so there is nothing to do.
+		// The model doesn't have a credential set so we return a
+		// [credentialerrors.ModelCredentialNotSet] error to let the caller
+		// decide what this implies.
 		if !modelCredentialUUID.UUID.Valid {
 			return errors.Errorf(
 				"model %q does not have a cloud credential set", uuid,

@@ -802,13 +802,13 @@ func (s *ModelState) GetModelCloudType(ctx context.Context) (string, error) {
 func (s *ModelState) GetModelType(ctx context.Context) (coremodel.ModelType, error) {
 	db, err := s.DB()
 	if err != nil {
-		return coremodel.ModelType(""), errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	m := dbModelType{}
 	stmt, err := s.Prepare(`SELECT &dbModelType.* FROM model`, m)
 	if err != nil {
-		return coremodel.ModelType(""), errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	return coremodel.ModelType(m.Type),

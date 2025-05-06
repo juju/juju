@@ -254,7 +254,7 @@ func (api *CredentialValidatorAPIV2) InvalidateModelCredential(ctx context.Conte
 				"model does not exist",
 			),
 		}, nil
-	// We don't care if the model has not credential set. We just ignore the
+	// We don't care if the model has no credential set. We just ignore the
 	// error and treat this as a noop.
 	case errors.Is(err, credentialerrors.ModelCredentialNotSet):
 		return params.ErrorResult{}, nil
