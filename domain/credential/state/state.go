@@ -461,6 +461,8 @@ func (st *State) InvalidateCloudCredential(ctx context.Context, uuid corecredent
 // This function will only work with models that are active.
 // The following errors can be expected:
 // - [modelerrors.NotFound] if the no model exists for the provided uuid.
+// - [credentialerrors.ModelCredentialNotSet] when the model does not have a
+// cloud credential set.
 func (st *State) InvalidateModelCloudCredential(
 	ctx context.Context,
 	uuid coremodel.UUID,
@@ -497,7 +499,9 @@ WHERE  uuid = $modelUUID.uuid`,
 
 		// The model doesn't have a credential set so there is nothing to do.
 		if !modelCredentialUUID.UUID.Valid {
-			return nil
+			return errors.Errorf(
+				"model %q does not have a cloud credential set", uuid,
+			).Add(credentialerrors.ModelCredentialNotSet)
 		}
 		return st.invalidateCloudCredential(
 			ctx,

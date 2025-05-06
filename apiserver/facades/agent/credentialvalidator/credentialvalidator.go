@@ -114,6 +114,8 @@ func (s *credentialServiceShim) GetModelCredentialStatus(
 // valid.
 // - [github.com/juju/juju/domain/model/errors.NotFound] when the model does
 // not exist.
+// - [github.com/juju/juju/domain/credential/errors.ModelCredentialNotSet] when
+// the model has no cloud credential set.
 //
 // Implements [ModelCredentialService].
 func (s *credentialServiceShim) InvalidateModelCredential(
@@ -252,6 +254,10 @@ func (api *CredentialValidatorAPIV2) InvalidateModelCredential(ctx context.Conte
 				"model does not exist",
 			),
 		}, nil
+	// We don't care if the model has not credential set. We just ignore the
+	// error and treat this as a noop.
+	case errors.Is(err, credentialerrors.ModelCredentialNotSet):
+		return params.ErrorResult{}, nil
 	case err != nil:
 		return params.ErrorResult{}, err
 	}

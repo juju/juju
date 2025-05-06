@@ -647,6 +647,50 @@ func (s *credentialSuite) TestInvalidateModelCloudCredentialNotFound(c *gc.C) {
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
+// TestInvalidateModelCloudCredentialNotSet is testing the case where we try to
+// invalidate the cloud credential of a model but the model does not have a
+// cloud credential set. In this case we should get back an error satisfying
+// [credentialerrors.ModelCredentialNotSet].
+func (s *credentialSuite) TestInvalidateModelCloudCredentialNotSet(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	key := corecredential.Key{Cloud: "stratus", Owner: s.userName, Name: "foobar"}
+	s.createCloudCredential(c, st, key)
+
+	insertOne := func(ctx context.Context, tx *sql.Tx, modelUUID coremodel.UUID, name string) error {
+		result, err := tx.ExecContext(ctx, `
+INSERT INTO model (uuid, name, owner_uuid, life_id, model_type_id, activated, cloud_uuid, cloud_credential_uuid)
+SELECT ?, ?, ?, 0, 0, true,
+	(SELECT uuid FROM cloud WHERE cloud.name="stratus"),
+	NULL
+`,
+			modelUUID, name, s.userUUID,
+		)
+		if err != nil {
+			return err
+		}
+		numRows, err := result.RowsAffected()
+		if err != nil {
+			return err
+		}
+		c.Assert(numRows, gc.Equals, int64(1))
+
+		return nil
+	}
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := insertOne(ctx, tx, modelUUID, "mymodel"); err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.InvalidateModelCloudCredential(context.Background(), modelUUID, "test reason")
+	c.Check(err, jc.ErrorIs, credentialerrors.ModelCredentialNotSet)
+}
+
 // Testis testing that if we ask for the
 // credential and status of a model and the model does not exist we get back an
 // error satisfying [modelerrors.NotFound].

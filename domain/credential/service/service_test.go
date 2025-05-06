@@ -403,6 +403,27 @@ func (s *serviceSuite) TestInvalidateModelCloudCredentialNotFound(c *gc.C) {
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
+// TestInvalidateModelCloudCredentialNotSet is asserting that if we try to
+// invalidate the cloud credential for a model and the model has no cloud
+// credential set then we get back an error satisfying
+// [credentialerrors.ModelCredentialNotSet].
+func (s *serviceSuite) TestInvalidateModelCloudCredentialNotSet(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	modelUUID := modeltesting.GenModelUUID(c)
+
+	s.state.EXPECT().InvalidateModelCloudCredential(
+		gomock.Any(),
+		modelUUID,
+		gomock.Any(),
+	).Return(credentialerrors.ModelCredentialNotSet)
+	err := s.service(c).InvalidateModelCredential(
+		context.Background(),
+		modelUUID,
+		"some reason",
+	)
+	c.Check(err, jc.ErrorIs, credentialerrors.ModelCredentialNotSet)
+}
+
 // TestInvalidateModelCloudCredenntialInvalidModelUUID is asserting that if we
 // try to invalidate the cloud credential associated with a model and the model
 // model uuid provided is invalid no operation is performed and the error we get

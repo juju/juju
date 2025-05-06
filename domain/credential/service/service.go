@@ -58,11 +58,12 @@ type State interface {
 	AllCloudCredentialsForOwner(ctx context.Context, owner user.Name) (map[corecredential.Key]credential.CloudCredentialResult, error)
 
 	// InvalidateModelCloudCredential marks the cloud credential for the given
-	// model as invalid for the specified model uuid. If the model does not have
-	// any cloud credential set then no operation is performed.
+	// model as invalid for the specified model uuid.
 	// The following erros can be expected:
 	// - [github.com/juju/juju/domain/model/errors.NotFound] when the model does
 	// not exist.
+	// - [credentialerrors.ModelCredentialNotSet] when the model does not have a
+	// cloud credential set.
 	InvalidateModelCloudCredential(ctx context.Context, modelUUID coremodel.UUID, reason string) error
 
 	// RemoveCloudCredential removes a cloud credential with the given name, cloud, owner.
@@ -188,6 +189,8 @@ func (s *Service) InvalidateCredential(ctx context.Context, key corecredential.K
 // - [coreerrors.NotValid] when the modelUUID is not valid.
 // - [github.com/juju/juju/domain/model/errors.NotFound] when the model does not
 // exist.
+// - [credentialerrors.ModelCredentialNotSet] when the model does not have a
+// cloud credential set.
 func (s *Service) InvalidateModelCredential(
 	ctx context.Context,
 	modelUUID coremodel.UUID,
