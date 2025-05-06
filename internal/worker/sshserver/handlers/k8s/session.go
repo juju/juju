@@ -5,6 +5,8 @@ package k8s
 
 import (
 	"io"
+	"os"
+	"sync"
 
 	"github.com/creack/pty"
 	"github.com/gliderlabs/ssh"
@@ -41,16 +43,23 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 	var stdin io.Reader = session
 	var stdout, stderr io.Writer = session, session.Stderr()
 
+	wg := &sync.WaitGroup{}
+	var tty, ptmx *os.File
+
+	// If pty is requested we need to simulate a terminal device, passing
+	// the pty file descriptor to the executor. And pipe it back to the session.
+	// NOTE: we are not sure this is needed, but the bare session is not enough
+	// because the file descriptor is not a tty. And when the executor checks for
+	// it, it returns an error.
 	if ptyRequested {
-		ptmx, tty, err := pty.Open()
-		defer ptmx.Close()
-		defer tty.Close()
-		// If pty is requested we need to simulate a terminal device, passing
-		// the pty file descriptor to the executor. And pipe it back to the session.
+		ptmx, tty, err = pty.Open()
 		if err != nil {
 			handleError(errors.Annotate(err, "failed to open pty"))
 			return
 		}
+
+		defer ptmx.Close()
+		defer tty.Close()
 
 		err = pty.Setsize(ptmx, &pty.Winsize{
 			Rows: uint16(ptyReq.Window.Height),
@@ -72,13 +81,22 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 			}
 		}()
 
+		wg.Add(2)
 		// These goroutines will copy data between the pty and the session.
 		// They can't leak because the session is always closed when this
 		// function returns.
 		go func() {
+			defer wg.Done()
+			// If the user's session ends, close the ptmx because
+			// there is no one listening anymore.
+			defer ptmx.Close()
 			_, _ = io.Copy(ptmx, session)
 		}()
 		go func() {
+			defer wg.Done()
+			// If the ptmx ends, close the session because
+			// there is no more data to send.
+			defer session.Close()
 			_, _ = io.Copy(session, ptmx)
 		}()
 
@@ -100,8 +118,18 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 		},
 		session.Context().Done(),
 	)
+	if tty != nil {
+		tty.Close()
+		// Send a new line to the session to end the master
+		// side of the pty.
+		_, _ = ptmx.WriteString("\n")
+	}
 	if err != nil {
 		handleError(errors.Annotate(err, "failed to execute command in k8s pod"))
 		return
+	}
+	if ptyRequested {
+		// Wait for the goroutines to finish copying data.
+		wg.Wait()
 	}
 }
