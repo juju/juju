@@ -103,7 +103,6 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 		controllerUUID,
 		Services{
 			DomainServicesGetter: domainServicesGetter,
-			CloudService:         domainServices.Cloud(),
 			CredentialService:    domainServices.Credential(),
 			ModelService:         domainServices.Model(),
 			ModelAgentService:    domainServices.Agent(),

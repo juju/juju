@@ -302,10 +302,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		return result, errors.Annotatef(err, "reloading spaces for model %q", creationArgs.Name)
 	}
 
-	modelTag, err := names.ParseModelTag(modelUUID.String())
-	if err != nil {
-		return result, errors.Trace(err)
-	}
+	modelTag := names.NewModelTag(modelUUID.String())
 
 	newConfig, err := modelDomainServices.Config().ModelConfig(ctx)
 	if err != nil {
@@ -857,7 +854,7 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 		UUID:           modelUUID.String(),
 		ControllerUUID: m.controllerUUID.String(),
 		IsController:   modelInfo.IsControllerModel,
-		OwnerTag:       model.Owner.String(),
+		OwnerTag:       names.NewUserTag(model.OwnerName.Name()).String(),
 		Life:           model.Life,
 		CloudTag:       names.NewCloudTag(model.Cloud).String(),
 		CloudRegion:    model.CloudRegion,
@@ -891,20 +888,16 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 		Since: &status.Since,
 	}
 
+	if status.Status == corestatus.Busy {
+		info.Migration = &params.ModelMigrationStatus{
+			Status: status.Message,
+			Start:  &status.Since,
+		}
+	}
+
 	info.Users, err = commonmodel.ModelUserInfo(ctx, m.modelService, tag, user.NameFromTag(m.apiUser), adminAccess)
 	if err != nil {
 		return params.ModelInfo{}, errors.Annotate(err, "getting model user info")
-	}
-
-	mStatus, err := modelInfoService.GetStatus(ctx)
-	if err != nil {
-		return params.ModelInfo{}, errors.Trace(err)
-	}
-	if mStatus.Status == corestatus.Busy {
-		info.Migration = &params.ModelMigrationStatus{
-			Status: mStatus.Message,
-			Start:  &mStatus.Since,
-		}
 	}
 
 	fs, err := m.applicationService.GetSupportedFeatures(ctx)

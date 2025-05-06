@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/description/v9"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/agentbinary"
@@ -204,13 +203,6 @@ type ModelExporter interface {
 	ExportModelPartial(context.Context, state.ExportConfig, objectstore.ObjectStore) (description.Model, error)
 }
 
-// CloudService provides access to clouds.
-type CloudService interface {
-	common.CloudService
-	// ListAll return all clouds.
-	ListAll(ctx context.Context) ([]jujucloud.Cloud, error)
-}
-
 // CredentialService exposes State methods needed by credential manager.
 type CredentialService interface {
 	// CloudCredential returns the cloud credential for the given key.
@@ -302,8 +294,6 @@ type Services struct {
 	// DomainServicesGetter is an interface for interacting with a factory for
 	// creating model services.
 	DomainServicesGetter DomainServicesGetter
-	// CloudServices is an interface for interacting with the cloud service.
-	CloudService CloudService
 	// CredentialService is an interface for interacting with the credential
 	// service.
 	CredentialService CredentialService

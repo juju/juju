@@ -34,7 +34,6 @@ import (
 	_ "github.com/juju/juju/internal/provider/openstack"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
-	jtesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -94,9 +93,6 @@ func (s *ListModelsWithInfoSuite) setupMocks(c *gc.C) *gomock.Controller {
 		s.controllerUUID,
 		modelmanager.Services{
 			DomainServicesGetter: nil,
-			CloudService: &mockCloudService{
-				clouds: map[string]cloud.Cloud{"dummy": jtesting.DefaultCloud},
-			},
 			CredentialService:    apiservertesting.ConstCredentialGetter(&s.cred),
 			ModelService:         s.mockModelService,
 			ModelDefaultsService: nil,
@@ -138,9 +134,6 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		s.controllerUUID,
 		modelmanager.Services{
 			DomainServicesGetter: nil,
-			CloudService: &mockCloudService{
-				clouds: map[string]cloud.Cloud{"dummy": jtesting.DefaultCloud},
-			},
 			CredentialService:    apiservertesting.ConstCredentialGetter(&s.cred),
 			ModelService:         s.mockModelService,
 			ModelDefaultsService: nil,
