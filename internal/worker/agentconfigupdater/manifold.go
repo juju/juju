@@ -171,14 +171,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			// If the machine needs Client, grab the state serving info
 			// over the API and write it to the agent configuration.
-
-			// Do the initial state serving info and mongo profile checks before
-			// attempting to get the central hub. The central hub is only
-			// running when the agent is a controller. If the agent isn't a
-			// controller but should be, the agent config will not have any
-			// state serving info but the database will think that we should be.
-			// In those situations we need to update the local config and
-			// restart.
 			info, err := apiState.StateServingInfo(ctx)
 			if err != nil {
 				return nil, errors.Annotate(err, "getting state serving info")
