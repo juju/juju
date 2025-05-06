@@ -28,13 +28,11 @@ check_ssh_using_openssh() {
 	test_file="test-ssh.txt"
 
 	# Check that we can write a file on the remote host then read it back.
-	ssh_no_hostkey_check -J admin@"$controller_address":17022 ubuntu@"$virtual_hostname" "echo hello > $test_file"
-	output=$(ssh_no_hostkey_check -J admin@"$controller_address":17022 ubuntu@"$virtual_hostname" "cat $test_file")
+	jump_host=admin@"$controller_address"
+	
+	ssh_wrapper_with_proxy "$jump_host" ubuntu@"$virtual_hostname" "echo hello > $test_file"
+	output=$(ssh_wrapper_with_proxy "$jump_host" ubuntu@"$virtual_hostname" "cat $test_file")
 	check_contains "$output" hello
-}
-
-ssh_no_hostkey_check() {
-	ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$@"
 }
 
 test_ssh() {
