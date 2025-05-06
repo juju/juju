@@ -1213,7 +1213,7 @@ func (srv *Server) GetAuditConfig() auditlog.Config {
 }
 
 // GetCentralHub returns the central hub for the server.
-// TODO (stickupkid): Remove me. This is only used for testsing.
+// TODO (stickupkid): Remove me. This is only used for testing.
 func (srv *Server) GetCentralHub() *pubsub.StructuredHub {
 	return srv.shared.centralHub.(*pubsub.StructuredHub)
 }

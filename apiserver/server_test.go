@@ -78,7 +78,7 @@ func (s *serverSuite) TestStop(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.Server.Stop()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIs, apiserver.ErrAPIServerDying)
 
 	_, err = apimachiner.NewClient(conn).Machine(context.Background(), machine.MachineTag())
 	// The client has not necessarily seen the server shutdown yet, so there
@@ -88,7 +88,7 @@ func (s *serverSuite) TestStop(c *gc.C) {
 
 	// Check it can be stopped twice.
 	err = s.Server.Stop()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIs, apiserver.ErrAPIServerDying)
 
 	// nil Server to prevent connection cleanup during teardown complaining due
 	// to connection close errors.
