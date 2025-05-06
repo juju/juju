@@ -324,7 +324,10 @@ func (m *stateSuite) TestGetModel(c *gc.C) {
 	})
 }
 
-func (m *stateSuite) TestGetModelInfoNotActivated(c *gc.C) {
+// TestGetModelSeedInformationNotActivated tests that
+// [State.GetModelSeedInformation] return information about a model that is not
+// yet activated.
+func (m *stateSuite) TestGetModelSeedInformationNotActivated(c *gc.C) {
 	runner := m.TxnRunnerFactory()
 
 	modelUUID := modeltesting.GenModelUUID(c)
@@ -354,7 +357,7 @@ func (m *stateSuite) TestGetModelInfoNotActivated(c *gc.C) {
 	userName, err := user.NewName("test-user")
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelInfo, err := modelSt.GetModelInfo(context.Background(), modelUUID)
+	modelInfo, err := modelSt.GetModelSeedInformation(context.Background(), modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(modelInfo, gc.Equals, coremodel.ModelInfo{
 		UUID:            modelUUID,
@@ -369,7 +372,9 @@ func (m *stateSuite) TestGetModelInfoNotActivated(c *gc.C) {
 	})
 }
 
-func (m *stateSuite) TestGetModelInfoActivated(c *gc.C) {
+// TestGetModelInfoActivated tests that [State.GetModelSeedInformation] returns
+// information about a model when it is activated.
+func (m *stateSuite) TestGetModelSeedInformationActivated(c *gc.C) {
 	runner := m.TxnRunnerFactory()
 
 	userName, err := user.NewName("test-user")
@@ -379,7 +384,7 @@ func (m *stateSuite) TestGetModelInfoActivated(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelSt := NewState(runner)
-	modelInfo, err := modelSt.GetModelInfo(context.Background(), m.uuid)
+	modelInfo, err := modelSt.GetModelSeedInformation(context.Background(), m.uuid)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(modelInfo, gc.Equals, coremodel.ModelInfo{
 		UUID:            m.uuid,
@@ -394,11 +399,15 @@ func (m *stateSuite) TestGetModelInfoActivated(c *gc.C) {
 	})
 }
 
-func (m *stateSuite) TestGetModelInfoNotFound(c *gc.C) {
+// TestGetModelSeedInformationNotFound tests that when asking for seed
+// information on a model that does not exist not just non activated we get an
+// error satisfying [modelerrors.NotFound] back.
+func (m *stateSuite) TestGetModelSeedInformationNotFound(c *gc.C) {
 	runner := m.TxnRunnerFactory()
 
+	modelUUID := modeltesting.GenModelUUID(c)
 	modelSt := NewState(runner)
-	_, err := modelSt.GetModelInfo(context.Background(), "foo")
+	_, err := modelSt.GetModelSeedInformation(context.Background(), modelUUID)
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 

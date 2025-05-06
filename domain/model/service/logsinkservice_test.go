@@ -19,7 +19,7 @@ type dummyLogSinkState struct {
 	model *coremodel.ModelInfo
 }
 
-func (d *dummyLogSinkState) GetModelInfo(ctx context.Context, modelUUID coremodel.UUID) (coremodel.ModelInfo, error) {
+func (d *dummyLogSinkState) GetModelSeedInformation(ctx context.Context, modelUUID coremodel.UUID) (coremodel.ModelInfo, error) {
 	if d.model != nil && d.model.UUID == modelUUID {
 		return *d.model, nil
 	}
