@@ -17,17 +17,18 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/rpc/params"
+	state "github.com/juju/juju/state"
 )
 
-var _ = gc.Suite(&sshserverSuite{})
+var _ = gc.Suite(&sshServerSuite{})
 
-type sshserverSuite struct {
+type sshServerSuite struct {
 	ctxMock       *MockContext
 	backendMock   *MockBackend
 	resourcesMock *MockResources
 }
 
-func (s *sshserverSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *sshServerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.ctxMock = NewMockContext(ctrl)
 	s.backendMock = NewMockBackend(ctrl)
@@ -35,7 +36,7 @@ func (s *sshserverSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *sshserverSuite) TestAuth(c *gc.C) {
+func (s *sshServerSuite) TestAuth(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -48,7 +49,7 @@ func (s *sshserverSuite) TestAuth(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `permission denied`)
 }
 
-func (s *sshserverSuite) TestControllerConfig(c *gc.C) {
+func (s *sshServerSuite) TestControllerConfig(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -65,7 +66,7 @@ func (s *sshserverSuite) TestControllerConfig(c *gc.C) {
 	c.Assert(cfg, gc.DeepEquals, params.ControllerConfigResult{Config: params.ControllerConfig{"hi": "bye"}})
 }
 
-func (s *sshserverSuite) TestWatchControllerConfig(c *gc.C) {
+func (s *sshServerSuite) TestWatchControllerConfig(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -90,7 +91,7 @@ func (s *sshserverSuite) TestWatchControllerConfig(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "An error")
 }
 
-func (s *sshserverSuite) TestSSHServerHostKey(c *gc.C) {
+func (s *sshServerSuite) TestSSHServerHostKey(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -104,7 +105,7 @@ func (s *sshserverSuite) TestSSHServerHostKey(c *gc.C) {
 	c.Assert(key, gc.Equals, params.StringResult{Result: "hostkey"})
 }
 
-func (s *sshserverSuite) TestHostKeyForTarget(c *gc.C) {
+func (s *sshServerSuite) TestHostKeyForTarget(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -118,7 +119,7 @@ func (s *sshserverSuite) TestHostKeyForTarget(c *gc.C) {
 	c.Assert(key, gc.DeepEquals, params.SSHHostKeyResult{HostKey: []byte("hostkey")})
 }
 
-func (s *sshserverSuite) TestAuthorizedKeysForModel(c *gc.C) {
+func (s *sshServerSuite) TestAuthorizedKeysForModel(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -163,7 +164,7 @@ func (s *sshserverSuite) TestAuthorizedKeysForModel(c *gc.C) {
 	}
 }
 
-func (s *sshserverSuite) TestResolveK8sExecInfo(c *gc.C) {
+func (s *sshServerSuite) TestResolveK8sExecInfo(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -184,7 +185,7 @@ func (s *sshserverSuite) TestResolveK8sExecInfo(c *gc.C) {
 	c.Assert(result.PodName, gc.Equals, "pod-name")
 }
 
-func (s *sshserverSuite) TestCheckSSHAccess(c *gc.C) {
+func (s *sshServerSuite) TestCheckSSHAccess(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	userTag := names.NewUserTag("alice")
@@ -208,7 +209,7 @@ func (s *sshserverSuite) TestCheckSSHAccess(c *gc.C) {
 	c.Assert(result.Result, gc.Equals, true)
 }
 
-func (s *sshserverSuite) TestCheckSSHAccessViaControllerAccess(c *gc.C) {
+func (s *sshServerSuite) TestCheckSSHAccessViaControllerAccess(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	userTag := names.NewUserTag("alice")
@@ -245,7 +246,7 @@ func (s *sshserverSuite) TestCheckSSHAccessViaControllerAccess(c *gc.C) {
 	c.Assert(result.Result, gc.Equals, true)
 }
 
-func (s *sshserverSuite) TestCheckSSHAccessNoAccess(c *gc.C) {
+func (s *sshServerSuite) TestCheckSSHAccessNoAccess(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	userTag := names.NewUserTag("alice")
@@ -269,4 +270,144 @@ func (s *sshserverSuite) TestCheckSSHAccessNoAccess(c *gc.C) {
 	result := f.CheckSSHAccess(arg)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.Result, gc.Equals, false)
+}
+
+func (s *sshServerSuite) TestValidateVirtualHostname(c *gc.C) {
+	container := "charm"
+	unitName := "nginx/0"
+	machineID := "0"
+	modelUUID := uuid.NewString()
+
+	machineDestination, err := virtualhostname.NewInfoMachineTarget(modelUUID, machineID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	unitDestination, err := virtualhostname.NewInfoUnitTarget(modelUUID, unitName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	containerDestination, err := virtualhostname.NewInfoContainerTarget(modelUUID, unitName, container)
+	c.Assert(err, jc.ErrorIsNil)
+
+	testCases := []struct {
+		desc        string
+		destination string
+		setupMocks  func()
+		expectedErr string
+	}{
+		{
+			desc:        "Valid machine hostname",
+			destination: machineDestination.String(),
+			setupMocks: func() {
+				s.backendMock.EXPECT().MachineExists(modelUUID, machineID).Return(true, nil)
+				s.backendMock.EXPECT().ModelType(modelUUID).Return(state.ModelTypeIAAS, nil)
+			},
+		},
+		{
+			desc:        "Invalid model type",
+			destination: machineDestination.String(),
+			setupMocks: func() {
+				s.backendMock.EXPECT().ModelType(modelUUID).Return(state.ModelTypeCAAS, nil)
+			},
+			expectedErr: `failed to validate destination: attempting to connect to a machine in a "caas" model not valid`,
+		},
+		{
+			desc:        "Machine doesn't exist",
+			destination: machineDestination.String(),
+			setupMocks: func() {
+				s.backendMock.EXPECT().MachineExists(modelUUID, machineID).Return(false, nil)
+				s.backendMock.EXPECT().ModelType(modelUUID).Return(state.ModelTypeIAAS, nil)
+			},
+			expectedErr: `failed to validate destination: machine with ID 0 not found`,
+		},
+		{
+			desc:        "Failed to check if machine exists",
+			destination: machineDestination.String(),
+			setupMocks: func() {
+				s.backendMock.EXPECT().MachineExists(modelUUID, machineID).Return(false, errors.New("some error"))
+				s.backendMock.EXPECT().ModelType(modelUUID).Return(state.ModelTypeIAAS, nil)
+			},
+			expectedErr: `failed to validate destination: some error`,
+		},
+		{
+			desc:        "Valid unit hostname",
+			destination: unitDestination.String(),
+			setupMocks: func() {
+				s.backendMock.EXPECT().UnitExists(modelUUID, unitName).Return(true, nil)
+				s.backendMock.EXPECT().ModelType(modelUUID).Return(state.ModelTypeIAAS, nil)
+			},
+		},
+		{
+			desc:        "Unit doesn't exist",
+			destination: unitDestination.String(),
+			setupMocks: func() {
+				s.backendMock.EXPECT().UnitExists(modelUUID, unitName).Return(false, nil)
+				s.backendMock.EXPECT().ModelType(modelUUID).Return(state.ModelTypeIAAS, nil)
+			},
+			expectedErr: `failed to validate destination: unit "nginx/0" not found`,
+		},
+		{
+			desc:        "Failed to check if unit exists",
+			destination: unitDestination.String(),
+			setupMocks: func() {
+				s.backendMock.EXPECT().UnitExists(modelUUID, unitName).Return(false, errors.New("some error"))
+				s.backendMock.EXPECT().ModelType(modelUUID).Return(state.ModelTypeIAAS, nil)
+			},
+			expectedErr: `failed to validate destination: some error`,
+		},
+		{
+			desc:        "Valid container hostname",
+			destination: containerDestination.String(),
+			setupMocks: func() {
+				s.backendMock.EXPECT().UnitExists(modelUUID, unitName).Return(true, nil)
+				s.backendMock.EXPECT().ModelType(modelUUID).Return(state.ModelTypeCAAS, nil)
+			},
+		},
+		{
+			desc:        "Invalid model type",
+			destination: containerDestination.String(),
+			setupMocks: func() {
+				s.backendMock.EXPECT().ModelType(modelUUID).Return(state.ModelTypeIAAS, nil)
+			},
+			expectedErr: `failed to validate destination: attempting to connect to a container in a "iaas" model not valid`,
+		},
+		{
+			desc:        "Container unit doesn't exist",
+			destination: containerDestination.String(),
+			setupMocks: func() {
+				s.backendMock.EXPECT().UnitExists(modelUUID, unitName).Return(false, nil)
+				s.backendMock.EXPECT().ModelType(modelUUID).Return(state.ModelTypeCAAS, nil)
+			},
+			expectedErr: `failed to validate destination: unit "nginx/0" not found`,
+		},
+		{
+			desc:        "Failed to check if container unit exists",
+			destination: containerDestination.String(),
+			setupMocks: func() {
+				s.backendMock.EXPECT().UnitExists(modelUUID, unitName).Return(false, errors.New("some error"))
+				s.backendMock.EXPECT().ModelType(modelUUID).Return(state.ModelTypeCAAS, nil)
+			},
+			expectedErr: `failed to validate destination: some error`,
+		},
+	}
+	for i, tC := range testCases {
+		c.Logf("test %d: %s", i, tC.desc)
+		testFunc := func() {
+			// Use an anonymous function to enable deferring the mock controller
+			// setup so that each subtest can have its own controller.
+			ctrl := s.setupMocks(c)
+			defer ctrl.Finish()
+
+			s.ctxMock.EXPECT().Resources()
+			f := sshserver.NewFacade(s.ctxMock, s.backendMock)
+
+			tC.setupMocks()
+			arg := params.ValidateVirtualHostnameArg{Hostname: tC.destination}
+			result := f.ValidateVirtualHostname(arg)
+			if tC.expectedErr != "" {
+				c.Assert(result.Error, gc.ErrorMatches, tC.expectedErr)
+			} else {
+				c.Assert(result.Error, gc.IsNil)
+			}
+		}
+		testFunc()
+	}
 }

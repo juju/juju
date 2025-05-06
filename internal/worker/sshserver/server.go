@@ -320,6 +320,14 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 		}
 	}
 
+	// validate the destination after authorization
+	// to avoid leaking information about state.
+	err = s.config.FacadeClient.ValidateVirtualHostname(destination)
+	if err != nil {
+		s.config.Logger.Errorf("failed to validate destination: %v", err)
+		s.rejectChannel(newChan, gossh.ConnectionFailed, fmt.Sprintf("failed to validate destination: %v", err))
+	}
+
 	server, err := s.newTerminatingSSHServer(ctx, destination)
 	if err != nil {
 		s.config.Logger.Errorf("failed to create embedded server: %v", err)

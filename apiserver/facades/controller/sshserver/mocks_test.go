@@ -119,6 +119,21 @@ func (mr *MockBackendMockRecorder) K8sNamespaceAndPodName(arg0, arg1 any) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "K8sNamespaceAndPodName", reflect.TypeOf((*MockBackend)(nil).K8sNamespaceAndPodName), arg0, arg1)
 }
 
+// MachineExists mocks base method.
+func (m *MockBackend) MachineExists(arg0, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MachineExists", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MachineExists indicates an expected call of MachineExists.
+func (mr *MockBackendMockRecorder) MachineExists(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachineExists", reflect.TypeOf((*MockBackend)(nil).MachineExists), arg0, arg1)
+}
+
 // ModelAccess mocks base method.
 func (m *MockBackend) ModelAccess(arg0 names.UserTag, arg1 string) (permission.UserAccess, error) {
 	m.ctrl.T.Helper()
@@ -134,6 +149,21 @@ func (mr *MockBackendMockRecorder) ModelAccess(arg0, arg1 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelAccess", reflect.TypeOf((*MockBackend)(nil).ModelAccess), arg0, arg1)
 }
 
+// ModelType mocks base method.
+func (m *MockBackend) ModelType(arg0 string) (state.ModelType, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModelType", arg0)
+	ret0, _ := ret[0].(state.ModelType)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ModelType indicates an expected call of ModelType.
+func (mr *MockBackendMockRecorder) ModelType(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelType", reflect.TypeOf((*MockBackend)(nil).ModelType), arg0)
+}
+
 // SSHServerHostKey mocks base method.
 func (m *MockBackend) SSHServerHostKey() (string, error) {
 	m.ctrl.T.Helper()
@@ -147,6 +177,21 @@ func (m *MockBackend) SSHServerHostKey() (string, error) {
 func (mr *MockBackendMockRecorder) SSHServerHostKey() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SSHServerHostKey", reflect.TypeOf((*MockBackend)(nil).SSHServerHostKey))
+}
+
+// UnitExists mocks base method.
+func (m *MockBackend) UnitExists(arg0, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UnitExists", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UnitExists indicates an expected call of UnitExists.
+func (mr *MockBackendMockRecorder) UnitExists(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitExists", reflect.TypeOf((*MockBackend)(nil).UnitExists), arg0, arg1)
 }
 
 // WatchControllerConfig mocks base method.

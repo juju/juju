@@ -241,6 +241,44 @@ func (c *MockFacadeClientSSHServerHostKeyCall) DoAndReturn(f func() (string, err
 	return c
 }
 
+// ValidateVirtualHostname mocks base method.
+func (m *MockFacadeClient) ValidateVirtualHostname(arg0 virtualhostname.Info) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ValidateVirtualHostname", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ValidateVirtualHostname indicates an expected call of ValidateVirtualHostname.
+func (mr *MockFacadeClientMockRecorder) ValidateVirtualHostname(arg0 any) *MockFacadeClientValidateVirtualHostnameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateVirtualHostname", reflect.TypeOf((*MockFacadeClient)(nil).ValidateVirtualHostname), arg0)
+	return &MockFacadeClientValidateVirtualHostnameCall{Call: call}
+}
+
+// MockFacadeClientValidateVirtualHostnameCall wrap *gomock.Call
+type MockFacadeClientValidateVirtualHostnameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockFacadeClientValidateVirtualHostnameCall) Return(arg0 error) *MockFacadeClientValidateVirtualHostnameCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockFacadeClientValidateVirtualHostnameCall) Do(f func(virtualhostname.Info) error) *MockFacadeClientValidateVirtualHostnameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockFacadeClientValidateVirtualHostnameCall) DoAndReturn(f func(virtualhostname.Info) error) *MockFacadeClientValidateVirtualHostnameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // VirtualHostKey mocks base method.
 func (m *MockFacadeClient) VirtualHostKey(arg0 params.SSHVirtualHostKeyRequestArg) ([]byte, error) {
 	m.ctrl.T.Helper()

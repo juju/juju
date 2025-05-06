@@ -293,6 +293,7 @@ func (s *workerSuite) TestContextCancelledIsPropagated(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
+	workertest.CheckAlive(c, w)
 
 	sessionWorker, ok := w.(*sshSessionWorker)
 	c.Assert(ok, gc.Equals, true)

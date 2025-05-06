@@ -124,3 +124,51 @@ func (b backend) ControllerAccess(userTag names.UserTag) (permission.UserAccess,
 	}
 	return state.ControllerAccess(st, userTag)
 }
+
+// MachineExists checks if the machine in the specified model exists.
+func (b backend) MachineExists(modelUUID, machineID string) (bool, error) {
+	model, p, err := b.GetModel(modelUUID)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	defer p.Release()
+
+	_, err = model.State().Machine(machineID)
+	if err != nil {
+		if errors.Is(err, errors.NotFound) {
+			return false, nil
+		}
+		return false, errors.Trace(err)
+	}
+
+	return true, nil
+}
+
+// UnitExists checks if the unit in the specified model exists.
+func (b backend) UnitExists(modelUUID, unitName string) (bool, error) {
+	model, p, err := b.GetModel(modelUUID)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	defer p.Release()
+
+	_, err = model.State().Unit(unitName)
+	if err != nil {
+		if errors.Is(err, errors.NotFound) {
+			return false, nil
+		}
+		return false, errors.Trace(err)
+	}
+
+	return true, nil
+}
+
+// ModelType returns the type of the model.
+func (b backend) ModelType(modelUUID string) (state.ModelType, error) {
+	model, p, err := b.GetModel(modelUUID)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	defer p.Release()
+	return model.Type(), nil
+}

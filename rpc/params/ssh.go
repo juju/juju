@@ -177,3 +177,9 @@ type CheckSSHAccessArg struct {
 	User        string `json:"user"`
 	Destination string `json:"destination"`
 }
+
+// ValidateVirtualHostname is used to check if
+// the components of a virtual hostname exist.
+type ValidateVirtualHostnameArg struct {
+	Hostname string `json:"hostname"`
+}

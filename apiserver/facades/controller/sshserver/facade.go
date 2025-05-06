@@ -4,6 +4,8 @@
 package sshserver
 
 import (
+	"strconv"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
@@ -27,6 +29,9 @@ type Backend interface {
 	K8sNamespaceAndPodName(modelUUID string, unitName string) (string, string, error)
 	ModelAccess(userTag names.UserTag, uuid string) (permission.UserAccess, error)
 	ControllerAccess(userTag names.UserTag) (permission.UserAccess, error)
+	MachineExists(modelUUID, machineID string) (bool, error)
+	UnitExists(modelUUID, unitName string) (bool, error)
+	ModelType(modelUUID string) (state.ModelType, error)
 }
 
 // Facade allows model config manager clients to watch controller config changes and fetch controller config.
@@ -171,4 +176,95 @@ func (f *Facade) CheckSSHAccess(arg params.CheckSSHAccessArg) params.BoolResult 
 	}
 
 	return result
+}
+
+// ValidateVirtualHostname validates that the components
+// of the destination virtual hostname exist.
+func (f *Facade) ValidateVirtualHostname(arg params.ValidateVirtualHostnameArg) params.ErrorResult {
+	result := params.ErrorResult{}
+	destination, err := virtualhostname.Parse(arg.Hostname)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result
+	}
+
+	switch destination.Target() {
+	case virtualhostname.MachineTarget:
+		err = f.validateMachineTarget(destination)
+	case virtualhostname.UnitTarget:
+		err = f.validateUnitTarget(destination)
+	case virtualhostname.ContainerTarget:
+		err = f.validateContainerTarget(destination)
+	default:
+		err = errors.NotValidf("target %q", destination.Target())
+	}
+
+	if err != nil {
+		result.Error = apiservererrors.ServerError(errors.Annotate(err, "failed to validate destination"))
+	}
+	return result
+}
+
+func (f *Facade) validateMachineTarget(destination virtualhostname.Info) error {
+	modelType, err := f.backend.ModelType(destination.ModelUUID())
+	if err != nil {
+		return err
+	}
+	if modelType != state.ModelTypeIAAS {
+		return errors.NotValidf("attempting to connect to a machine in a %q model", modelType)
+	}
+
+	machineID, _ := destination.Machine()
+	ok, err := f.backend.MachineExists(destination.ModelUUID(), strconv.Itoa(machineID))
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return errors.NotFoundf("machine with ID %d", machineID)
+	}
+	return nil
+}
+
+func (f *Facade) validateUnitTarget(destination virtualhostname.Info) error {
+	modelType, err := f.backend.ModelType(destination.ModelUUID())
+	if err != nil {
+		return err
+	}
+
+	switch modelType {
+	case state.ModelTypeIAAS:
+		break
+	case state.ModelTypeCAAS:
+		return errors.NotValidf("missing container name for a K8s unit")
+	default:
+		return errors.NotValidf("unknown model type %q", modelType)
+	}
+
+	return f.unitExists(destination)
+}
+
+func (f *Facade) validateContainerTarget(destination virtualhostname.Info) error {
+	modelType, err := f.backend.ModelType(destination.ModelUUID())
+	if err != nil {
+		return err
+	}
+	if modelType != state.ModelTypeCAAS {
+		return errors.NotValidf("attempting to connect to a container in a %q model", modelType)
+	}
+
+	// We don't validate the container name since that's
+	// a bit more work and will be handled by the K8s executor.
+	return f.unitExists(destination)
+}
+
+func (f *Facade) unitExists(destination virtualhostname.Info) error {
+	unitName, _ := destination.Unit()
+	ok, err := f.backend.UnitExists(destination.ModelUUID(), unitName)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return errors.NotFoundf("unit %q", unitName)
+	}
+	return nil
 }
