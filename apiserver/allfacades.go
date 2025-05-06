@@ -43,10 +43,11 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/backups"           // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/block"             // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/bundle"
-	"github.com/juju/juju/apiserver/facades/client/charms"           // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/client"           // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/cloud"            // ModelUser Read
-	"github.com/juju/juju/apiserver/facades/client/controller"       // ModelUser Admin (although some methods check for read only)
+	"github.com/juju/juju/apiserver/facades/client/charms"     // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/client/client"     // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/client/cloud"      // ModelUser Read
+	"github.com/juju/juju/apiserver/facades/client/controller" // ModelUser Admin (although some methods check for read only)
+	"github.com/juju/juju/apiserver/facades/client/credentialmanager"
 	"github.com/juju/juju/apiserver/facades/client/highavailability" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/imagemetadatamanager"
 	"github.com/juju/juju/apiserver/facades/client/keymanager"     // ModelUser Write
@@ -188,6 +189,7 @@ func AllFacades() *facade.Registry {
 	crossmodelsecrets.Register(registry)
 	crosscontroller.Register(registry)
 	credentialvalidator.Register(registry)
+	credentialmanager.Register(registry)
 	externalcontrollerupdater.Register(registry)
 	deployer.Register(registry)
 	diskmanager.Register(registry)
