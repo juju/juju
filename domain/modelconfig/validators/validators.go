@@ -30,6 +30,37 @@ func CharmhubURLChange() config.ValidatorFunc {
 	}
 }
 
+// AgentStreamChange returns a config validator that will check to make sure the
+// agent stream does not change and also remove it from config so that it does
+// not get committed back to state.
+//
+// Agent stream is an ongoing value that is being actively removed from model
+// config. Until we can finish removing all uses of agent version from model
+// config this validator will keep removing it from the new config so that it
+// does not get persisted to state.
+func AgentStreamChange() config.ValidatorFunc {
+	return func(ctx context.Context, cfg, old *config.Config) (*config.Config, error) {
+		if v := cfg.AgentStream(); v != "" {
+			oldStream := old.AgentStream()
+			if oldStream == "" {
+				return cfg, nil
+			}
+			if v != oldStream {
+				return cfg, &config.ValidationError{
+					InvalidAttrs: []string{config.AgentStreamKey},
+					Reason:       "agent-stream cannot be changed",
+				}
+			}
+		}
+
+		cfg, err := cfg.Remove([]string{config.AgentStreamKey})
+		if err != nil {
+			return cfg, errors.Errorf("removing agent stream key from model config: %w", err)
+		}
+		return cfg, nil
+	}
+}
+
 // AgentVersionChange returns a config validator that will check to make sure
 // the agent version does not change and also remove it from config so that it
 // does not get committed back to state.

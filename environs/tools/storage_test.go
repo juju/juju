@@ -43,7 +43,7 @@ func (s *StorageSuite) TestReadList(c *gc.C) {
 	v101 := semversion.MustParseBinary("1.0.1-ubuntu-amd64")
 	v111 := semversion.MustParseBinary("1.1.1-ubuntu-amd64")
 	v201 := semversion.MustParseBinary("2.0.1-ubuntu-amd64")
-	agentTools := envtesting.AssertUploadFakeToolsVersions(c, stor, "proposed", "proposed", v100, v101, v111, v201)
+	agentTools := envtesting.AssertUploadFakeToolsVersions(c, stor, "proposed", v100, v101, v111, v201)
 	t100 := agentTools[0]
 	t101 := agentTools[1]
 	t111 := agentTools[2]

@@ -31,10 +31,12 @@ type State interface {
 	ProviderState
 	SpaceValidatorState
 
-	// AgentVersion returns the current models agent version. If no agent
-	// version has been set for the current model then a error satisfying
-	// [errors.NotFound] is returned.
-	AgentVersion(context.Context) (string, error)
+	// GetModelAgentVersionAndStream returns the current model's set agent
+	// version and stream.
+	// The following errors can be expected:
+	// - [github.com/juju/juju/core/errors.NotFound] if no agent version or
+	// stream has been set.
+	GetModelAgentVersionAndStream(context.Context) (ver string, stream string, err error)
 
 	// ModelConfigHasAttributes returns the set of attributes that model config
 	// currently has set out of the list supplied.
@@ -101,17 +103,19 @@ func (s *Service) ModelConfig(ctx context.Context) (*config.Config, error) {
 		return nil, errors.Errorf("getting model config from state: %w", err)
 	}
 
-	agentVersion, err := s.st.AgentVersion(ctx)
+	agentVersion, agentStream, err := s.st.GetModelAgentVersionAndStream(ctx)
 	if err != nil {
-		return nil, errors.Errorf("getting model agent version for model config: %w", err)
+		return nil, errors.Errorf("getting agent version and stream for model config: %w", err)
 	}
 
 	altConfig := transform.Map(stConfig, func(k, v string) (string, any) { return k, v })
 
-	// We add the agent version to model config here. Over time we need to
-	// remove uses of agent version from model config. We prefer to augment
-	// config with this value on read rather then persisting on writing.
+	// We add the agent version and stream to model config here. Over time we need
+	// to remove uses of agent version and stream from model config. We prefer
+	// to augment config with this value on read rather then persisting on
+	// writing.
 	altConfig[config.AgentVersionKey] = agentVersion
+	altConfig[config.AgentStreamKey] = agentStream
 	return config.New(config.NoDefaults, altConfig)
 }
 
@@ -190,6 +194,10 @@ func (s *Service) reconcileRemovedAttributes(
 	ctx context.Context,
 	removeAttrs []string,
 ) (map[string]any, error) {
+	if len(removeAttrs) == 0 {
+		return map[string]any{}, nil
+	}
+
 	updates := map[string]any{}
 	hasAttrs, err := s.st.ModelConfigHasAttributes(ctx, removeAttrs)
 	if err != nil {
@@ -263,6 +271,7 @@ func (s *Service) SetModelConfig(
 //
 // The following validations on model config are run by default:
 // - Agent version is not change between updates.
+// - Agent stream is not changed between updates.
 // - Charmhub url is not changed between updates.
 // - The networking space chosen is valid and can be used.
 // - The secret backend is valid and can be used.
@@ -296,17 +305,29 @@ func (s *Service) UpdateModelConfig(
 		return errors.Errorf("making updated model configuration: %w", err)
 	}
 
-	_, err = s.validatorForUpdateModelConfig().Validate(ctx, newCfg, currCfg)
+	validatedCfg, err := s.validatorForUpdateModelConfig().Validate(ctx, newCfg, currCfg)
 	if err != nil {
 		return errors.Errorf("validating updated model configuration: %w", err)
 	}
 
-	rawCfg, err := CoerceConfigForStorage(updateAttrs)
+	// We need to walk through all of the updates and potentially find any
+	// changes that were made by the validators.
+	validatedUpdates := make(map[string]any, len(updates))
+	validatedCfgAttrs := validatedCfg.AllAttrs()
+	for k := range updates {
+		validatedCfgVal, exists := validatedCfgAttrs[k]
+		if !exists {
+			continue
+		}
+		validatedUpdates[k] = validatedCfgVal
+	}
+
+	rawCfgUpdate, err := CoerceConfigForStorage(validatedUpdates)
 	if err != nil {
 		return errors.Errorf("coercing new configuration for persistence: %w", err)
 	}
 
-	err = s.st.UpdateModelConfig(ctx, rawCfg, removeAttrs)
+	err = s.st.UpdateModelConfig(ctx, rawCfgUpdate, removeAttrs)
 	if err != nil {
 		return errors.Errorf("updating model config: %w", err)
 	}
@@ -356,6 +377,7 @@ func (s *Service) validatorForUpdateModelConfig(
 ) config.Validator {
 	agg := &config.AggregateValidator{
 		Validators: []config.Validator{
+			validators.AgentStreamChange(),
 			validators.AgentVersionChange(),
 			validators.CharmhubURLChange(),
 			validators.SpaceChecker(&spaceValidator{

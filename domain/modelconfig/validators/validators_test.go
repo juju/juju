@@ -68,6 +68,73 @@ func (*validatorsSuite) TestCharmhubURLNoChange(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+// TestAgentStreamChange is testing that the agent stream variable can't change.
+func (*validatorsSuite) TestAgentStreamChanged(c *gc.C) {
+	oldCfg, err := config.New(config.NoDefaults, map[string]any{
+		"name":         "wallyworld",
+		"uuid":         testing.ModelTag.Id(),
+		"type":         "sometype",
+		"agent-stream": "released",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	newCfg, err := config.New(config.NoDefaults, map[string]any{
+		"name":         "wallyworld",
+		"uuid":         testing.ModelTag.Id(),
+		"type":         "sometype",
+		"agent-stream": "proposed",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var validationError *config.ValidationError
+	_, err = AgentStreamChange()(context.Background(), newCfg, oldCfg)
+	c.Assert(errors.As(err, &validationError), jc.IsTrue)
+	c.Assert(validationError.InvalidAttrs, gc.DeepEquals, []string{"agent-stream"})
+}
+
+// TestAgentStreamNoChange is testing that if the agent stream doesn't change
+// between config changes no validation error is produced.
+func (*validatorsSuite) TestAgentStreamNoChange(c *gc.C) {
+	oldCfg, err := config.New(config.NoDefaults, map[string]any{
+		"name":         "wallyworld",
+		"uuid":         testing.ModelTag.Id(),
+		"type":         "sometype",
+		"agent-stream": "proposed",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	newCfg, err := config.New(config.NoDefaults, map[string]any{
+		"name":         "wallyworld",
+		"uuid":         testing.ModelTag.Id(),
+		"type":         "sometype",
+		"agent-stream": "proposed",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	cfg, err := AgentStreamChange()(context.Background(), newCfg, oldCfg)
+	c.Assert(err, jc.ErrorIsNil)
+	reportedStream := cfg.AgentStream()
+	c.Check(reportedStream, gc.Equals, "")
+
+	oldCfg, err = config.New(config.NoDefaults, map[string]any{
+		"name": "wallyworld",
+		"uuid": testing.ModelTag.Id(),
+		"type": "sometype",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	newCfg, err = config.New(config.NoDefaults, map[string]any{
+		"name":         "wallyworld",
+		"uuid":         testing.ModelTag.Id(),
+		"type":         "sometype",
+		"agent-stream": "proposed",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = AgentStreamChange()(context.Background(), newCfg, oldCfg)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (*validatorsSuite) TestAgentVersionChanged(c *gc.C) {
 	oldCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name":          "wallyworld",

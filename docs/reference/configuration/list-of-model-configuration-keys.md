@@ -18,7 +18,7 @@ URL of private stream.
 
 Version of Juju to use for deploy/upgrades.
 
-**Default value:** `released`
+**Default value:** `""`
 
 **Type:** string
 

@@ -128,7 +128,7 @@ func (t *Tests) SetUpTest(c *gc.C) {
 	t.ToolsFixture.SetUpTest(c)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
-	t.UploadFakeTools(c, stor, "released", "released")
+	t.UploadFakeTools(c, stor, "released")
 	t.toolsStorage = stor
 	t.ControllerStore = jujuclient.NewMemStore()
 	t.ControllerUUID = coretesting.FakeControllerConfig().ControllerUUID()

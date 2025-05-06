@@ -291,7 +291,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	// Put some fake metadata in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running can find the metadata.
-	envtesting.UploadFakeTools(c, s.toolsMetadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream())
+	envtesting.UploadFakeTools(c, s.toolsMetadataStorage, "released")
 	s.imageMetadataStorage = openstack.ImageMetadataStorage(s.env)
 	openstack.UseTestImageData(s.imageMetadataStorage, s.cred)
 	s.storageAdaptor = makeMockAdaptor()
@@ -2469,7 +2469,7 @@ func (s *localServerSuite) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	possibleTools := coretools.List(envtesting.AssertUploadFakeToolsVersions(
-		c, s.toolsMetadataStorage, "released", "released", semversion.MustParseBinary("5.4.5-ubuntu-amd64"),
+		c, s.toolsMetadataStorage, "released", semversion.MustParseBinary("5.4.5-ubuntu-amd64"),
 	))
 	fakeCallback := func(_ context.Context, _ status.Status, _ string, _ map[string]interface{}) error {
 		return nil
@@ -2664,7 +2664,7 @@ func (s *localHTTPSServerSuite) TestCanBootstrap(c *gc.C) {
 	agentURL, err := toolsMetadataStorage.URL("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("Generating fake tools for: %v", agentURL)
-	envtesting.UploadFakeTools(c, toolsMetadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream())
+	envtesting.UploadFakeTools(c, toolsMetadataStorage, "released")
 	defer envtesting.RemoveFakeTools(c, toolsMetadataStorage, s.env.Config().AgentStream())
 
 	imageMetadataStorage := openstack.ImageMetadataStorage(s.env)
@@ -3649,7 +3649,7 @@ func (s *localServerSuite) ensureAMDImages(c *gc.C) environs.Environ {
 		Release: corebase.UbuntuOS,
 	}
 	envtesting.AssertUploadFakeToolsVersions(
-		c, s.toolsMetadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream(), amd64Version)
+		c, s.toolsMetadataStorage, "released", amd64Version)
 
 	// Destroy the old Environ
 	err := environs.Destroy(s.env.Config().Name(), s.env, context.Background(), s.ControllerStore)
@@ -3818,7 +3818,7 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 	}
 	toolsStorage, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
-	envtesting.UploadFakeTools(c, toolsStorage, "released", "released")
+	envtesting.UploadFakeTools(c, toolsStorage, "released")
 	s.PatchValue(&tools.DefaultBaseURL, storageDir)
 	imageStorage, err := filestorage.NewFileStorageWriter(imagesDir)
 	c.Assert(err, jc.ErrorIsNil)

@@ -267,7 +267,7 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 	newerVersion := newVersion
 	newerVersion.Minor++
 	newTools := envtesting.AssertUploadFakeToolsVersions(
-		c, s.store, "released", "released",
+		c, s.store, "released",
 		newerVersion)[0]
 
 	client.EXPECT().DesiredVersion(gomock.Any(), "machine-666").Return(newerVersion.Number, nil)
@@ -369,7 +369,7 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradingMinorVersions(c *gc.C) {
 	oldVersion := vers
 	oldVersion.Minor--
 	downgradeTools := envtesting.AssertUploadFakeToolsVersions(
-		c, s.store, "released", "released",
+		c, s.store, "released",
 		oldVersion)[0]
 
 	client := mocks.NewMockUpgraderClient(ctrl)
@@ -409,7 +409,7 @@ func (s *UpgraderSuite) TestUpgraderForbidsDowngradingToMajorVersion(c *gc.C) {
 	oldVersion := vers
 	oldVersion.Major--
 	downgradeTools := envtesting.AssertUploadFakeToolsVersions(
-		c, s.store, "released", "released",
+		c, s.store, "released",
 		oldVersion)[0]
 
 	client := mocks.NewMockUpgraderClient(ctrl)
@@ -446,7 +446,7 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradingPatchVersions(c *gc.C) {
 	oldVersion := vers
 	oldVersion.Patch--
 	downgradeTools := envtesting.AssertUploadFakeToolsVersions(
-		c, s.store, "released", "released",
+		c, s.store, "released",
 		oldVersion)[0]
 
 	client := mocks.NewMockUpgraderClient(ctrl)
@@ -488,10 +488,10 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradeToPriorMinorVersion(c *gc.C) 
 	s.patchVersion(origTools.Version)
 
 	envtesting.AssertUploadFakeToolsVersions(
-		c, s.store, "released", "released", downgradeVersion)
+		c, s.store, "released", downgradeVersion)
 
 	prevTools := envtesting.AssertUploadFakeToolsVersions(
-		c, s.store, "released", "released", downgradeVersion)[0]
+		c, s.store, "released", downgradeVersion)[0]
 
 	client := mocks.NewMockUpgraderClient(ctrl)
 	client.EXPECT().SetVersion(gomock.Any(), "machine-666", origTools.Version)
@@ -527,7 +527,7 @@ func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *gc.C) {
 	s.patchVersion(oldTools.Version)
 
 	newTools := envtesting.AssertUploadFakeToolsVersions(
-		c, s.store, "released", "released",
+		c, s.store, "released",
 		semversion.MustParseBinary("5.4.5-ubuntu-amd64"))[0]
 
 	client := mocks.NewMockUpgraderClient(ctrl)

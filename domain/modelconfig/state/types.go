@@ -10,8 +10,9 @@ type dbKey struct {
 	Key string `db:"key"`
 }
 
-// dbAgentVersion represents the target agent version from the model table.
-type dbAgentVersion struct {
+// dbAgentVersion represents the target agent version and stream for the model.
+type dbAgentVersionAndStream struct {
+	Stream             string `db:"name"`
 	TargetAgentVersion string `db:"target_version"`
 }
 

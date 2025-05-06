@@ -564,7 +564,6 @@ var defaultConfigValues = map[string]any{
 	ImageStreamKey:                            "released",
 	ImageMetadataURLKey:                       "",
 	ImageMetadataDefaultsDisabledKey:          false,
-	AgentStreamKey:                            "released",
 	AgentMetadataURLKey:                       "",
 	ContainerImageStreamKey:                   "released",
 	ContainerImageMetadataURLKey:              "",
@@ -1430,10 +1429,7 @@ func (c *Config) ImageStream() string {
 // bootstrapping or upgrading an environment.
 func (c *Config) AgentStream() string {
 	v, _ := c.defined[AgentStreamKey].(string)
-	if v != "" {
-		return v
-	}
-	return "released"
+	return v
 }
 
 // ContainerImageStream returns the simplestreams stream used to identify which
