@@ -91,7 +91,7 @@ type Authorizer interface {
 // MachineService is the interface that is used to interact with the machines.
 type MachineService interface {
 	// CreateMachine creates a machine with the given name.
-	CreateMachine(context.Context, coremachine.Name) (string, error)
+	CreateMachine(context.Context, coremachine.Name) (coremachine.UUID, error)
 	// DeleteMachine deletes a machine with the given name.
 	DeleteMachine(context.Context, coremachine.Name) error
 	// GetBootstrapEnviron returns the bootstrap environ.
@@ -108,10 +108,10 @@ type MachineService interface {
 	// It returns a NotFound if the given machine doesn't exist.
 	SetKeepInstance(ctx context.Context, machineName coremachine.Name, keep bool) error
 	// GetMachineUUID returns the UUID of a machine identified by its name.
-	GetMachineUUID(ctx context.Context, name coremachine.Name) (string, error)
+	GetMachineUUID(ctx context.Context, name coremachine.Name) (coremachine.UUID, error)
 	// HardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
-	HardwareCharacteristics(ctx context.Context, machineUUID string) (*instance.HardwareCharacteristics, error)
+	HardwareCharacteristics(ctx context.Context, machineUUID coremachine.UUID) (*instance.HardwareCharacteristics, error)
 }
 
 // ApplicationService is the interface that is used to interact with

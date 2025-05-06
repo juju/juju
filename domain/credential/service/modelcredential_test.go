@@ -73,7 +73,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesSuccess(c *gc.C) {
 
 	s.machineState.EXPECT().AllMachines().Return([]Machine{s.machine}, nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(s.machine.Id())).Return("deadbeef", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "deadbeef").Return("wind-up", nil)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef")).Return("wind-up", nil)
 
 	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -86,9 +86,9 @@ func (s *CheckMachinesSuite) TestCheckMachinesInstancesMissing(c *gc.C) {
 	machine1 := createTestMachine("2", "birds")
 	s.machineState.EXPECT().AllMachines().Return([]Machine{s.machine, machine1}, nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(s.machine.Id())).Return("deadbeef", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "deadbeef").Return("wind-up", nil)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef")).Return("wind-up", nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(machine1.Id())).Return("deadbeef-1", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "deadbeef-1").Return("birds", nil)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef-1")).Return("birds", nil)
 
 	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -102,7 +102,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesExtraInstances(c *gc.C) {
 
 	s.machineState.EXPECT().AllMachines().Return([]Machine{s.machine}, nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(s.machine.Id())).Return("deadbeef", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "deadbeef").Return("wind-up", nil)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef")).Return("wind-up", nil)
 
 	instance2 := &mockInstance{id: "analyse"}
 	s.provider.allInstancesFunc = func(ctx context.Context) ([]instances.Instance, error) {
@@ -119,7 +119,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesExtraInstancesWhenMigrating(c *gc.
 
 	s.machineState.EXPECT().AllMachines().Return([]Machine{s.machine}, nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(s.machine.Id())).Return("deadbeef", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "deadbeef").Return("wind-up", nil)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef")).Return("wind-up", nil)
 
 	instance2 := &mockInstance{id: "analyse"}
 	s.provider.allInstancesFunc = func(ctx context.Context) ([]instances.Instance, error) {
@@ -147,7 +147,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingInstances(c *gc.C) {
 
 	s.machineState.EXPECT().AllMachines().Return([]Machine{s.machine}, nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(s.machine.Id())).Return("deadbeef", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "deadbeef").Return("", errors.New("kaboom"))
+	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef")).Return("", errors.New("kaboom"))
 
 	s.provider.allInstancesFunc = func(ctx context.Context) ([]instances.Instance, error) {
 		return nil, errors.New("kaboom")
@@ -165,7 +165,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesHandlesContainers(c *gc.C) {
 	machine1.container = true
 	s.machineState.EXPECT().AllMachines().Return([]Machine{s.machine, machine1}, nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(s.machine.Id())).Return("deadbeef", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "deadbeef").Return("wind-up", nil)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef")).Return("wind-up", nil)
 
 	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -179,7 +179,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesHandlesManual(c *gc.C) {
 	machine1.manualFunc = func() (bool, error) { return true, nil }
 	s.machineState.EXPECT().AllMachines().Return([]Machine{s.machine, machine1}, nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(s.machine.Id())).Return("deadbeef", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "deadbeef").Return("wind-up", nil)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef")).Return("wind-up", nil)
 
 	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -193,7 +193,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesHandlesManualFailure(c *gc.C) {
 	machine1.manualFunc = func() (bool, error) { return false, errors.New("manual retrieval failure") }
 	s.machineState.EXPECT().AllMachines().Return([]Machine{s.machine, machine1}, nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(s.machine.Id())).Return("deadbeef", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "deadbeef").Return("wind-up", nil)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef")).Return("wind-up", nil)
 
 	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, false)
 	c.Assert(err, gc.ErrorMatches, "manual retrieval failure")
@@ -207,9 +207,9 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceId(c *g
 	machine1.instanceIdFunc = func() (instance.Id, error) { return "", errors.New("retrieval failure") }
 	s.machineState.EXPECT().AllMachines().Return([]Machine{s.machine, machine1}, nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(s.machine.Id())).Return("deadbeef", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "deadbeef").Return("wind-up", nil)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef")).Return("wind-up", nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(machine1.Id())).Return("deadbeef-1", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "deadbeef-1").Return("", errors.New("retrieval failure"))
+	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef-1")).Return("", errors.New("retrieval failure"))
 
 	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -225,9 +225,9 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceIdNonFa
 	s.machine.instanceIdFunc = machine1.instanceIdFunc
 	s.machineState.EXPECT().AllMachines().Return([]Machine{s.machine, machine1}, nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(s.machine.Id())).Return("deadbeef", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "deadbeef").Return("", errors.New("retrieval failure"))
+	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef")).Return("", errors.New("retrieval failure"))
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(machine1.Id())).Return("deadbeef-1", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "deadbeef-1").Return("", errors.New("retrieval failure"))
+	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef-1")).Return("", errors.New("retrieval failure"))
 
 	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -244,9 +244,9 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceIdNonFa
 	s.machine.instanceIdFunc = machine1.instanceIdFunc
 	s.machineState.EXPECT().AllMachines().Return([]Machine{s.machine, machine1}, nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(s.machine.Id())).Return("deadbeef", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "deadbeef").Return("", errors.New("retrieval failure"))
+	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef")).Return("", errors.New("retrieval failure"))
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(machine1.Id())).Return("deadbeef-1", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "deadbeef-1").Return("", errors.New("retrieval failure"))
+	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef-1")).Return("", errors.New("retrieval failure"))
 
 	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, true)
 	c.Assert(err, jc.ErrorIsNil)
@@ -265,9 +265,9 @@ func (s *CheckMachinesSuite) TestCheckMachinesNotProvisionedError(c *gc.C) {
 	machine1.instanceIdFunc = func() (instance.Id, error) { return "", errors.Errorf("machine 2 %w", coreerrors.NotProvisioned) }
 	s.machineState.EXPECT().AllMachines().Return([]Machine{s.machine, machine1}, nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(s.machine.Id())).Return("deadbeef", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "deadbeef").Return("wind-up", nil)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef")).Return("wind-up", nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(machine1.Id())).Return("deadbeef-1", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "deadbeef-1").Return("", machineerrors.NotProvisioned)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef-1")).Return("", machineerrors.NotProvisioned)
 
 	// We should ignore the unprovisioned machine - we wouldn't expect
 	// the cloud to know about it.

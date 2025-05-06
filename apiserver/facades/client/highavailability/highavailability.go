@@ -44,7 +44,7 @@ type NodeService interface {
 
 // MachineService instances save a machine to dqlite state.
 type MachineService interface {
-	CreateMachine(context.Context, machine.Name) (string, error)
+	CreateMachine(context.Context, machine.Name) (machine.UUID, error)
 }
 
 // ApplicationService instances add units to an application in dqlite state.

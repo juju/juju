@@ -34,14 +34,14 @@ type ExportService interface {
 	AllMachineNames(ctx context.Context) ([]coremachine.Name, error)
 	// InstanceID returns the cloud specific instance id for this machine.
 	// If the machine is not provisioned, it returns a NotProvisionedError.
-	InstanceID(ctx context.Context, machineUUID string) (instance.Id, error)
+	InstanceID(ctx context.Context, machineUUID coremachine.UUID) (instance.Id, error)
 	// HardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
-	HardwareCharacteristics(ctx context.Context, machineUUID string) (*instance.HardwareCharacteristics, error)
+	HardwareCharacteristics(ctx context.Context, machineUUID coremachine.UUID) (*instance.HardwareCharacteristics, error)
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	// It returns a [github.com/juju/juju/domain/machine/errors.MachineNotFound]
 	// if the machine does not exist.
-	GetMachineUUID(ctx context.Context, name coremachine.Name) (string, error)
+	GetMachineUUID(ctx context.Context, name coremachine.Name) (coremachine.UUID, error)
 }
 
 // exportOperation describes a way to execute a migration for

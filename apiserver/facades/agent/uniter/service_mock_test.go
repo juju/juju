@@ -2032,7 +2032,7 @@ func (m *MockMachineService) EXPECT() *MockMachineServiceMockRecorder {
 }
 
 // AppliedLXDProfileNames mocks base method.
-func (m *MockMachineService) AppliedLXDProfileNames(arg0 context.Context, arg1 string) ([]string, error) {
+func (m *MockMachineService) AppliedLXDProfileNames(arg0 context.Context, arg1 machine.UUID) ([]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AppliedLXDProfileNames", arg0, arg1)
 	ret0, _ := ret[0].([]string)
@@ -2059,19 +2059,19 @@ func (c *MockMachineServiceAppliedLXDProfileNamesCall) Return(arg0 []string, arg
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceAppliedLXDProfileNamesCall) Do(f func(context.Context, string) ([]string, error)) *MockMachineServiceAppliedLXDProfileNamesCall {
+func (c *MockMachineServiceAppliedLXDProfileNamesCall) Do(f func(context.Context, machine.UUID) ([]string, error)) *MockMachineServiceAppliedLXDProfileNamesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceAppliedLXDProfileNamesCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockMachineServiceAppliedLXDProfileNamesCall {
+func (c *MockMachineServiceAppliedLXDProfileNamesCall) DoAndReturn(f func(context.Context, machine.UUID) ([]string, error)) *MockMachineServiceAppliedLXDProfileNamesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // AvailabilityZone mocks base method.
-func (m *MockMachineService) AvailabilityZone(arg0 context.Context, arg1 string) (string, error) {
+func (m *MockMachineService) AvailabilityZone(arg0 context.Context, arg1 machine.UUID) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AvailabilityZone", arg0, arg1)
 	ret0, _ := ret[0].(string)
@@ -2098,19 +2098,19 @@ func (c *MockMachineServiceAvailabilityZoneCall) Return(arg0 string, arg1 error)
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceAvailabilityZoneCall) Do(f func(context.Context, string) (string, error)) *MockMachineServiceAvailabilityZoneCall {
+func (c *MockMachineServiceAvailabilityZoneCall) Do(f func(context.Context, machine.UUID) (string, error)) *MockMachineServiceAvailabilityZoneCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceAvailabilityZoneCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockMachineServiceAvailabilityZoneCall {
+func (c *MockMachineServiceAvailabilityZoneCall) DoAndReturn(f func(context.Context, machine.UUID) (string, error)) *MockMachineServiceAvailabilityZoneCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ClearMachineReboot mocks base method.
-func (m *MockMachineService) ClearMachineReboot(arg0 context.Context, arg1 string) error {
+func (m *MockMachineService) ClearMachineReboot(arg0 context.Context, arg1 machine.UUID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ClearMachineReboot", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -2136,22 +2136,22 @@ func (c *MockMachineServiceClearMachineRebootCall) Return(arg0 error) *MockMachi
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceClearMachineRebootCall) Do(f func(context.Context, string) error) *MockMachineServiceClearMachineRebootCall {
+func (c *MockMachineServiceClearMachineRebootCall) Do(f func(context.Context, machine.UUID) error) *MockMachineServiceClearMachineRebootCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceClearMachineRebootCall) DoAndReturn(f func(context.Context, string) error) *MockMachineServiceClearMachineRebootCall {
+func (c *MockMachineServiceClearMachineRebootCall) DoAndReturn(f func(context.Context, machine.UUID) error) *MockMachineServiceClearMachineRebootCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetMachineUUID mocks base method.
-func (m *MockMachineService) GetMachineUUID(arg0 context.Context, arg1 machine.Name) (string, error) {
+func (m *MockMachineService) GetMachineUUID(arg0 context.Context, arg1 machine.Name) (machine.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetMachineUUID", arg0, arg1)
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].(machine.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -2169,25 +2169,25 @@ type MockMachineServiceGetMachineUUIDCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockMachineServiceGetMachineUUIDCall) Return(arg0 string, arg1 error) *MockMachineServiceGetMachineUUIDCall {
+func (c *MockMachineServiceGetMachineUUIDCall) Return(arg0 machine.UUID, arg1 error) *MockMachineServiceGetMachineUUIDCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceGetMachineUUIDCall) Do(f func(context.Context, machine.Name) (string, error)) *MockMachineServiceGetMachineUUIDCall {
+func (c *MockMachineServiceGetMachineUUIDCall) Do(f func(context.Context, machine.Name) (machine.UUID, error)) *MockMachineServiceGetMachineUUIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceGetMachineUUIDCall) DoAndReturn(f func(context.Context, machine.Name) (string, error)) *MockMachineServiceGetMachineUUIDCall {
+func (c *MockMachineServiceGetMachineUUIDCall) DoAndReturn(f func(context.Context, machine.Name) (machine.UUID, error)) *MockMachineServiceGetMachineUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // IsMachineRebootRequired mocks base method.
-func (m *MockMachineService) IsMachineRebootRequired(arg0 context.Context, arg1 string) (bool, error) {
+func (m *MockMachineService) IsMachineRebootRequired(arg0 context.Context, arg1 machine.UUID) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsMachineRebootRequired", arg0, arg1)
 	ret0, _ := ret[0].(bool)
@@ -2214,19 +2214,19 @@ func (c *MockMachineServiceIsMachineRebootRequiredCall) Return(arg0 bool, arg1 e
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceIsMachineRebootRequiredCall) Do(f func(context.Context, string) (bool, error)) *MockMachineServiceIsMachineRebootRequiredCall {
+func (c *MockMachineServiceIsMachineRebootRequiredCall) Do(f func(context.Context, machine.UUID) (bool, error)) *MockMachineServiceIsMachineRebootRequiredCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceIsMachineRebootRequiredCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockMachineServiceIsMachineRebootRequiredCall {
+func (c *MockMachineServiceIsMachineRebootRequiredCall) DoAndReturn(f func(context.Context, machine.UUID) (bool, error)) *MockMachineServiceIsMachineRebootRequiredCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // RequireMachineReboot mocks base method.
-func (m *MockMachineService) RequireMachineReboot(arg0 context.Context, arg1 string) error {
+func (m *MockMachineService) RequireMachineReboot(arg0 context.Context, arg1 machine.UUID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RequireMachineReboot", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -2252,19 +2252,19 @@ func (c *MockMachineServiceRequireMachineRebootCall) Return(arg0 error) *MockMac
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceRequireMachineRebootCall) Do(f func(context.Context, string) error) *MockMachineServiceRequireMachineRebootCall {
+func (c *MockMachineServiceRequireMachineRebootCall) Do(f func(context.Context, machine.UUID) error) *MockMachineServiceRequireMachineRebootCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceRequireMachineRebootCall) DoAndReturn(f func(context.Context, string) error) *MockMachineServiceRequireMachineRebootCall {
+func (c *MockMachineServiceRequireMachineRebootCall) DoAndReturn(f func(context.Context, machine.UUID) error) *MockMachineServiceRequireMachineRebootCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ShouldRebootOrShutdown mocks base method.
-func (m *MockMachineService) ShouldRebootOrShutdown(arg0 context.Context, arg1 string) (machine.RebootAction, error) {
+func (m *MockMachineService) ShouldRebootOrShutdown(arg0 context.Context, arg1 machine.UUID) (machine.RebootAction, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ShouldRebootOrShutdown", arg0, arg1)
 	ret0, _ := ret[0].(machine.RebootAction)
@@ -2291,19 +2291,19 @@ func (c *MockMachineServiceShouldRebootOrShutdownCall) Return(arg0 machine.Reboo
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceShouldRebootOrShutdownCall) Do(f func(context.Context, string) (machine.RebootAction, error)) *MockMachineServiceShouldRebootOrShutdownCall {
+func (c *MockMachineServiceShouldRebootOrShutdownCall) Do(f func(context.Context, machine.UUID) (machine.RebootAction, error)) *MockMachineServiceShouldRebootOrShutdownCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceShouldRebootOrShutdownCall) DoAndReturn(f func(context.Context, string) (machine.RebootAction, error)) *MockMachineServiceShouldRebootOrShutdownCall {
+func (c *MockMachineServiceShouldRebootOrShutdownCall) DoAndReturn(f func(context.Context, machine.UUID) (machine.RebootAction, error)) *MockMachineServiceShouldRebootOrShutdownCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // WatchLXDProfiles mocks base method.
-func (m *MockMachineService) WatchLXDProfiles(arg0 context.Context, arg1 string) (watcher.Watcher[struct{}], error) {
+func (m *MockMachineService) WatchLXDProfiles(arg0 context.Context, arg1 machine.UUID) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchLXDProfiles", arg0, arg1)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])
@@ -2330,13 +2330,13 @@ func (c *MockMachineServiceWatchLXDProfilesCall) Return(arg0 watcher.Watcher[str
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceWatchLXDProfilesCall) Do(f func(context.Context, string) (watcher.Watcher[struct{}], error)) *MockMachineServiceWatchLXDProfilesCall {
+func (c *MockMachineServiceWatchLXDProfilesCall) Do(f func(context.Context, machine.UUID) (watcher.Watcher[struct{}], error)) *MockMachineServiceWatchLXDProfilesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceWatchLXDProfilesCall) DoAndReturn(f func(context.Context, string) (watcher.Watcher[struct{}], error)) *MockMachineServiceWatchLXDProfilesCall {
+func (c *MockMachineServiceWatchLXDProfilesCall) DoAndReturn(f func(context.Context, machine.UUID) (watcher.Watcher[struct{}], error)) *MockMachineServiceWatchLXDProfilesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

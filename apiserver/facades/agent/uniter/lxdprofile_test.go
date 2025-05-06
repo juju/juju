@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/registry"
@@ -55,7 +56,7 @@ func (s *lxdProfileSuite) TestWatchInstanceData(c *gc.C) {
 		changes: make(chan struct{}, 1),
 	}
 	watcher.changes <- struct{}{}
-	s.machineService.EXPECT().WatchLXDProfiles(gomock.Any(), "uuid0").Return(watcher, nil)
+	s.machineService.EXPECT().WatchLXDProfiles(gomock.Any(), coremachine.UUID("uuid0")).Return(watcher, nil)
 	s.applicationService.EXPECT().GetUnitMachineUUID(gomock.Any(), coreunit.Name(s.unitTag1.Id())).Return("uuid0", nil)
 
 	args := params.Entities{
@@ -82,7 +83,7 @@ func (s *lxdProfileSuite) TestLXDProfileName(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.applicationService.EXPECT().GetUnitMachineUUID(gomock.Any(), coreunit.Name("mysql/1")).Return("uuid0", nil)
-	s.machineService.EXPECT().AppliedLXDProfileNames(gomock.Any(), "uuid0").
+	s.machineService.EXPECT().AppliedLXDProfileNames(gomock.Any(), coremachine.UUID("uuid0")).
 		Return([]string{"juju-model-mysql-1"}, nil)
 
 	args := params.Entities{

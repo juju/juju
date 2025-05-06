@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/machine"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/relation"
@@ -48,9 +49,9 @@ func (s *updateUnitPortsSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.machine"))
-	err = machineSt.CreateMachine(context.Background(), "0", netNodeUUIDs[0], machineUUIDs[0])
+	err = machineSt.CreateMachine(context.Background(), "0", netNodeUUIDs[0], machine.UUID(machineUUIDs[0]))
 	c.Assert(err, jc.ErrorIsNil)
-	err = machineSt.CreateMachine(context.Background(), "1", netNodeUUIDs[1], machineUUIDs[1])
+	err = machineSt.CreateMachine(context.Background(), "1", netNodeUUIDs[1], machine.UUID(machineUUIDs[1]))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.appUUID = s.createApplicationWithRelations(c, appNames[0], "ep0", "ep1", "ep2")

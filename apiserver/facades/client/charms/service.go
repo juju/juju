@@ -54,8 +54,8 @@ type ApplicationService interface {
 // service.
 type MachineService interface {
 	// GetMachineUUID returns the UUID of a machine identified by its name.
-	GetMachineUUID(ctx context.Context, name machine.Name) (string, error)
+	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
 	// HardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
-	HardwareCharacteristics(ctx context.Context, machineUUID string) (*instance.HardwareCharacteristics, error)
+	HardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
 }

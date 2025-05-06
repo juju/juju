@@ -25,7 +25,7 @@ type State interface {
 	// CreateMachine persists the input machine entity.
 	// It returns a MachineAlreadyExists error if a machine with the same name
 	// already exists.
-	CreateMachine(context.Context, machine.Name, string, string) error
+	CreateMachine(context.Context, machine.Name, string, machine.UUID) error
 
 	// CreateMachineWithparent persists the input machine entity, associating it
 	// with the parent machine.
@@ -33,7 +33,7 @@ type State interface {
 	// already exists.
 	// It returns a MachineNotFound error if the parent machine does not exist.
 
-	CreateMachineWithParent(context.Context, machine.Name, machine.Name, string, string) error
+	CreateMachineWithParent(context.Context, machine.Name, machine.Name, string, machine.UUID) error
 
 	// DeleteMachine deletes the input machine entity.
 	DeleteMachine(context.Context, machine.Name) error
@@ -59,11 +59,11 @@ type State interface {
 	AllMachineNames(context.Context) ([]machine.Name, error)
 
 	// InstanceID returns the cloud specific instance id for this machine.
-	InstanceID(context.Context, string) (string, error)
+	InstanceID(context.Context, machine.UUID) (string, error)
 
 	// InstanceIDAndName returns the cloud specific instance ID and display name for
 	// this machine.
-	InstanceIDAndName(ctx context.Context, mUUID string) (string, string, error)
+	InstanceIDAndName(ctx context.Context, mUUID machine.UUID) (string, string, error)
 
 	// GetInstanceStatus returns the cloud specific instance status for this
 	// machine.
@@ -87,22 +87,22 @@ type State interface {
 
 	// HardwareCharacteristics returns the hardware characteristics struct with
 	// data retrieved from the machine cloud instance table.
-	HardwareCharacteristics(context.Context, string) (*instance.HardwareCharacteristics, error)
+	HardwareCharacteristics(context.Context, machine.UUID) (*instance.HardwareCharacteristics, error)
 
 	// AvailabilityZone returns the availability zone for the specified machine.
-	AvailabilityZone(context.Context, string) (string, error)
+	AvailabilityZone(context.Context, machine.UUID) (string, error)
 
 	// SetMachineCloudInstance sets an entry in the machine cloud instance table
 	// along with the instance tags and the link to a lxd profile if any.
-	SetMachineCloudInstance(context.Context, string, instance.Id, string, *instance.HardwareCharacteristics) error
+	SetMachineCloudInstance(context.Context, machine.UUID, instance.Id, string, *instance.HardwareCharacteristics) error
 
 	// SetRunningAgentBinaryVersion sets the running agent version for the machine.
 	// A MachineNotFound error will be returned if the machine does not exist.
-	SetRunningAgentBinaryVersion(context.Context, string, coreagentbinary.Version) error
+	SetRunningAgentBinaryVersion(context.Context, machine.UUID, coreagentbinary.Version) error
 
 	// DeleteMachineCloudInstance removes an entry in the machine cloud instance
 	// table along with the instance tags and the link to a lxd profile if any.
-	DeleteMachineCloudInstance(context.Context, string) error
+	DeleteMachineCloudInstance(context.Context, machine.UUID) error
 
 	// IsMachineController returns whether the machine is a controller machine.
 	// It returns a NotFound if the given machine doesn't exist.
@@ -118,21 +118,21 @@ type State interface {
 	SetKeepInstance(ctx context.Context, mName machine.Name, keep bool) error
 
 	// RequireMachineReboot sets the machine referenced by its UUID as requiring a reboot.
-	RequireMachineReboot(ctx context.Context, uuid string) error
+	RequireMachineReboot(ctx context.Context, uuid machine.UUID) error
 
 	// ClearMachineReboot removes the reboot flag of the machine referenced by its UUID if a reboot has previously been required.
-	ClearMachineReboot(ctx context.Context, uuid string) error
+	ClearMachineReboot(ctx context.Context, uuid machine.UUID) error
 
 	// IsMachineRebootRequired checks if the machine referenced by its UUID requires a reboot.
-	IsMachineRebootRequired(ctx context.Context, uuid string) (bool, error)
+	IsMachineRebootRequired(ctx context.Context, uuid machine.UUID) (bool, error)
 
 	// GetMachineParentUUID returns the parent UUID of the specified machine.
 	// It returns a MachineNotFound if the machine does not exist.
 	// It returns a MachineHasNoParent if the machine has no parent.
-	GetMachineParentUUID(ctx context.Context, machineUUID string) (string, error)
+	GetMachineParentUUID(ctx context.Context, machineUUID machine.UUID) (machine.UUID, error)
 
 	// ShouldRebootOrShutdown determines whether a machine should reboot or shutdown
-	ShouldRebootOrShutdown(ctx context.Context, uuid string) (machine.RebootAction, error)
+	ShouldRebootOrShutdown(ctx context.Context, uuid machine.UUID) (machine.RebootAction, error)
 
 	// MarkMachineForRemoval marks the given machine for removal.
 	// It returns a MachineNotFound error if the machine does not exist.
@@ -140,18 +140,18 @@ type State interface {
 
 	// GetAllMachineRemovals returns the UUIDs of all of the machines that need
 	// to be removed but need provider-level cleanup.
-	GetAllMachineRemovals(context.Context) ([]string, error)
+	GetAllMachineRemovals(context.Context) ([]machine.UUID, error)
 
 	// GetMachineUUID returns the UUID of a machine identified by its name.
-	GetMachineUUID(context.Context, machine.Name) (string, error)
+	GetMachineUUID(context.Context, machine.Name) (machine.UUID, error)
 
 	// AppliedLXDProfileNames returns the names of the LXD profiles on the machine.
-	AppliedLXDProfileNames(ctx context.Context, mUUID string) ([]string, error)
+	AppliedLXDProfileNames(ctx context.Context, mUUID machine.UUID) ([]string, error)
 
 	// SetAppliedLXDProfileNames sets the list of LXD profile names to the
 	// lxd_profile table for the given machine. This method will overwrite the list
 	// of profiles for the given machine without any checks.
-	SetAppliedLXDProfileNames(ctx context.Context, mUUID string, profileNames []string) error
+	SetAppliedLXDProfileNames(ctx context.Context, mUUID machine.UUID, profileNames []string) error
 
 	// NamespaceForWatchMachineCloudInstance returns the namespace for watching
 	// machine cloud instance changes.
@@ -187,7 +187,7 @@ func NewService(st State) *Service {
 // CreateMachine creates the specified machine.
 // It returns a MachineAlreadyExists error if a machine with the same name
 // already exists.
-func (s *Service) CreateMachine(ctx context.Context, machineName machine.Name) (string, error) {
+func (s *Service) CreateMachine(ctx context.Context, machineName machine.Name) (machine.UUID, error) {
 	// Make a new UUIDs for the net-node and the machine.
 	// We want to do this in the service layer so that if retries are invoked at
 	// the state layer we don't keep regenerating.
@@ -208,7 +208,7 @@ func (s *Service) CreateMachine(ctx context.Context, machineName machine.Name) (
 // It returns a MachineAlreadyExists error if a machine with the same name
 // already exists.
 // It returns a MachineNotFound error if the parent machine does not exist.
-func (s *Service) CreateMachineWithParent(ctx context.Context, machineName, parentName machine.Name) (string, error) {
+func (s *Service) CreateMachineWithParent(ctx context.Context, machineName, parentName machine.Name) (machine.UUID, error) {
 	// Make a new UUIDs for the net-node and the machine.
 	// We want to do this in the service layer so that if retries are invoked at
 	// the state layer we don't keep regenerating.
@@ -225,16 +225,16 @@ func (s *Service) CreateMachineWithParent(ctx context.Context, machineName, pare
 }
 
 // createUUIDs generates a new UUID for the machine and the net-node.
-func createUUIDs() (string, string, error) {
+func createUUIDs() (string, machine.UUID, error) {
 	nodeUUID, err := uuid.NewUUID()
 	if err != nil {
 		return "", "", errors.Errorf("generating net-node UUID: %w", err)
 	}
-	machineUUID, err := uuid.NewUUID()
+	machineUUID, err := machine.NewUUID()
 	if err != nil {
 		return "", "", errors.Errorf("generating machine UUID: %w", err)
 	}
-	return nodeUUID.String(), machineUUID.String(), nil
+	return nodeUUID.String(), machineUUID, nil
 }
 
 // DeleteMachine deletes the specified machine.
@@ -383,7 +383,7 @@ func (s *Service) SetKeepInstance(ctx context.Context, machineName machine.Name,
 }
 
 // RequireMachineReboot sets the machine referenced by its UUID as requiring a reboot.
-func (s *Service) RequireMachineReboot(ctx context.Context, uuid string) error {
+func (s *Service) RequireMachineReboot(ctx context.Context, uuid machine.UUID) error {
 	err := s.st.RequireMachineReboot(ctx, uuid)
 	if err != nil {
 		return errors.Errorf("requiring a machine reboot for machine with uuid %q: %w", uuid, err)
@@ -392,7 +392,7 @@ func (s *Service) RequireMachineReboot(ctx context.Context, uuid string) error {
 }
 
 // ClearMachineReboot removes the reboot flag of the machine referenced by its UUID if a reboot has previously been required.
-func (s *Service) ClearMachineReboot(ctx context.Context, uuid string) error {
+func (s *Service) ClearMachineReboot(ctx context.Context, uuid machine.UUID) error {
 	err := s.st.ClearMachineReboot(ctx, uuid)
 	if err != nil {
 		return errors.Errorf("clear machine reboot flag for machine with uuid %q: %w", uuid, err)
@@ -401,7 +401,7 @@ func (s *Service) ClearMachineReboot(ctx context.Context, uuid string) error {
 }
 
 // IsMachineRebootRequired checks if the machine referenced by its UUID requires a reboot.
-func (s *Service) IsMachineRebootRequired(ctx context.Context, uuid string) (bool, error) {
+func (s *Service) IsMachineRebootRequired(ctx context.Context, uuid machine.UUID) (bool, error) {
 	rebootRequired, err := s.st.IsMachineRebootRequired(ctx, uuid)
 	if err != nil {
 		return rebootRequired, errors.Errorf("checking if machine with uuid %q is requiring a reboot: %w", uuid, err)
@@ -413,7 +413,7 @@ func (s *Service) IsMachineRebootRequired(ctx context.Context, uuid string) (boo
 // It returns a MachineNotFound if the machine does not exist.
 // It returns a MachineHasNoParent if the machine has no parent.
 // It returns a GrandParentNotAllowed if the machine's parent has a parent.
-func (s *Service) GetMachineParentUUID(ctx context.Context, machineUUID string) (string, error) {
+func (s *Service) GetMachineParentUUID(ctx context.Context, machineUUID machine.UUID) (machine.UUID, error) {
 	parentUUID, err := s.st.GetMachineParentUUID(ctx, machineUUID)
 	if err != nil {
 		return "", errors.Errorf("retrieving parent UUID for machine %q: %w", machineUUID, err)
@@ -422,7 +422,7 @@ func (s *Service) GetMachineParentUUID(ctx context.Context, machineUUID string) 
 }
 
 // ShouldRebootOrShutdown determines whether a machine should reboot or shutdown
-func (s *Service) ShouldRebootOrShutdown(ctx context.Context, uuid string) (machine.RebootAction, error) {
+func (s *Service) ShouldRebootOrShutdown(ctx context.Context, uuid machine.UUID) (machine.RebootAction, error) {
 	rebootRequired, err := s.st.ShouldRebootOrShutdown(ctx, uuid)
 	if err != nil {
 		return rebootRequired, errors.Errorf("getting if the machine with uuid %q need to reboot or shutdown: %w", uuid, err)
@@ -442,7 +442,7 @@ func (s *Service) MarkMachineForRemoval(ctx context.Context, machineName machine
 
 // GetAllMachineRemovals returns the UUIDs of all of the machines that need to
 // be removed but need provider-level cleanup.
-func (s *Service) GetAllMachineRemovals(ctx context.Context) ([]string, error) {
+func (s *Service) GetAllMachineRemovals(ctx context.Context) ([]machine.UUID, error) {
 	removals, err := s.st.GetAllMachineRemovals(ctx)
 	if err != nil {
 		return nil, errors.Errorf("retrieving all machines marked to be removed: %w", err)
@@ -452,12 +452,12 @@ func (s *Service) GetAllMachineRemovals(ctx context.Context) ([]string, error) {
 
 // GetMachineUUID returns the UUID of a machine identified by its name.
 // It returns a MachineNotFound if the machine does not exist.
-func (s *Service) GetMachineUUID(ctx context.Context, name machine.Name) (string, error) {
+func (s *Service) GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error) {
 	return s.st.GetMachineUUID(ctx, name)
 }
 
 // LXDProfiles returns the names of the LXD profiles on the machine.
-func (s *Service) AppliedLXDProfileNames(ctx context.Context, mUUID string) ([]string, error) {
+func (s *Service) AppliedLXDProfileNames(ctx context.Context, mUUID machine.UUID) ([]string, error) {
 	profiles, err := s.st.AppliedLXDProfileNames(ctx, mUUID)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -470,7 +470,7 @@ func (s *Service) AppliedLXDProfileNames(ctx context.Context, mUUID string) ([]s
 // the given machine without any checks.
 // [machineerrors.MachineNotFound] will be returned if the machine does not
 // exist.
-func (s *Service) SetAppliedLXDProfileNames(ctx context.Context, mUUID string, profileNames []string) error {
+func (s *Service) SetAppliedLXDProfileNames(ctx context.Context, mUUID machine.UUID, profileNames []string) error {
 	return errors.Capture(s.st.SetAppliedLXDProfileNames(ctx, mUUID, profileNames))
 }
 

@@ -102,10 +102,10 @@ func (m *MockImportService) EXPECT() *MockImportServiceMockRecorder {
 }
 
 // CreateMachine mocks base method.
-func (m *MockImportService) CreateMachine(arg0 context.Context, arg1 machine.Name) (string, error) {
+func (m *MockImportService) CreateMachine(arg0 context.Context, arg1 machine.Name) (machine.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateMachine", arg0, arg1)
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].(machine.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -123,25 +123,25 @@ type MockImportServiceCreateMachineCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockImportServiceCreateMachineCall) Return(arg0 string, arg1 error) *MockImportServiceCreateMachineCall {
+func (c *MockImportServiceCreateMachineCall) Return(arg0 machine.UUID, arg1 error) *MockImportServiceCreateMachineCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockImportServiceCreateMachineCall) Do(f func(context.Context, machine.Name) (string, error)) *MockImportServiceCreateMachineCall {
+func (c *MockImportServiceCreateMachineCall) Do(f func(context.Context, machine.Name) (machine.UUID, error)) *MockImportServiceCreateMachineCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockImportServiceCreateMachineCall) DoAndReturn(f func(context.Context, machine.Name) (string, error)) *MockImportServiceCreateMachineCall {
+func (c *MockImportServiceCreateMachineCall) DoAndReturn(f func(context.Context, machine.Name) (machine.UUID, error)) *MockImportServiceCreateMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetMachineCloudInstance mocks base method.
-func (m *MockImportService) SetMachineCloudInstance(arg0 context.Context, arg1 string, arg2 instance.Id, arg3 string, arg4 *instance.HardwareCharacteristics) error {
+func (m *MockImportService) SetMachineCloudInstance(arg0 context.Context, arg1 machine.UUID, arg2 instance.Id, arg3 string, arg4 *instance.HardwareCharacteristics) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetMachineCloudInstance", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(error)
@@ -167,13 +167,13 @@ func (c *MockImportServiceSetMachineCloudInstanceCall) Return(arg0 error) *MockI
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockImportServiceSetMachineCloudInstanceCall) Do(f func(context.Context, string, instance.Id, string, *instance.HardwareCharacteristics) error) *MockImportServiceSetMachineCloudInstanceCall {
+func (c *MockImportServiceSetMachineCloudInstanceCall) Do(f func(context.Context, machine.UUID, instance.Id, string, *instance.HardwareCharacteristics) error) *MockImportServiceSetMachineCloudInstanceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockImportServiceSetMachineCloudInstanceCall) DoAndReturn(f func(context.Context, string, instance.Id, string, *instance.HardwareCharacteristics) error) *MockImportServiceSetMachineCloudInstanceCall {
+func (c *MockImportServiceSetMachineCloudInstanceCall) DoAndReturn(f func(context.Context, machine.UUID, instance.Id, string, *instance.HardwareCharacteristics) error) *MockImportServiceSetMachineCloudInstanceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -241,10 +241,10 @@ func (c *MockExportServiceAllMachineNamesCall) DoAndReturn(f func(context.Contex
 }
 
 // GetMachineUUID mocks base method.
-func (m *MockExportService) GetMachineUUID(arg0 context.Context, arg1 machine.Name) (string, error) {
+func (m *MockExportService) GetMachineUUID(arg0 context.Context, arg1 machine.Name) (machine.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetMachineUUID", arg0, arg1)
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].(machine.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -262,25 +262,25 @@ type MockExportServiceGetMachineUUIDCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockExportServiceGetMachineUUIDCall) Return(arg0 string, arg1 error) *MockExportServiceGetMachineUUIDCall {
+func (c *MockExportServiceGetMachineUUIDCall) Return(arg0 machine.UUID, arg1 error) *MockExportServiceGetMachineUUIDCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockExportServiceGetMachineUUIDCall) Do(f func(context.Context, machine.Name) (string, error)) *MockExportServiceGetMachineUUIDCall {
+func (c *MockExportServiceGetMachineUUIDCall) Do(f func(context.Context, machine.Name) (machine.UUID, error)) *MockExportServiceGetMachineUUIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockExportServiceGetMachineUUIDCall) DoAndReturn(f func(context.Context, machine.Name) (string, error)) *MockExportServiceGetMachineUUIDCall {
+func (c *MockExportServiceGetMachineUUIDCall) DoAndReturn(f func(context.Context, machine.Name) (machine.UUID, error)) *MockExportServiceGetMachineUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // HardwareCharacteristics mocks base method.
-func (m *MockExportService) HardwareCharacteristics(arg0 context.Context, arg1 string) (*instance.HardwareCharacteristics, error) {
+func (m *MockExportService) HardwareCharacteristics(arg0 context.Context, arg1 machine.UUID) (*instance.HardwareCharacteristics, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HardwareCharacteristics", arg0, arg1)
 	ret0, _ := ret[0].(*instance.HardwareCharacteristics)
@@ -307,19 +307,19 @@ func (c *MockExportServiceHardwareCharacteristicsCall) Return(arg0 *instance.Har
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockExportServiceHardwareCharacteristicsCall) Do(f func(context.Context, string) (*instance.HardwareCharacteristics, error)) *MockExportServiceHardwareCharacteristicsCall {
+func (c *MockExportServiceHardwareCharacteristicsCall) Do(f func(context.Context, machine.UUID) (*instance.HardwareCharacteristics, error)) *MockExportServiceHardwareCharacteristicsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockExportServiceHardwareCharacteristicsCall) DoAndReturn(f func(context.Context, string) (*instance.HardwareCharacteristics, error)) *MockExportServiceHardwareCharacteristicsCall {
+func (c *MockExportServiceHardwareCharacteristicsCall) DoAndReturn(f func(context.Context, machine.UUID) (*instance.HardwareCharacteristics, error)) *MockExportServiceHardwareCharacteristicsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // InstanceID mocks base method.
-func (m *MockExportService) InstanceID(arg0 context.Context, arg1 string) (instance.Id, error) {
+func (m *MockExportService) InstanceID(arg0 context.Context, arg1 machine.UUID) (instance.Id, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InstanceID", arg0, arg1)
 	ret0, _ := ret[0].(instance.Id)
@@ -346,13 +346,13 @@ func (c *MockExportServiceInstanceIDCall) Return(arg0 instance.Id, arg1 error) *
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockExportServiceInstanceIDCall) Do(f func(context.Context, string) (instance.Id, error)) *MockExportServiceInstanceIDCall {
+func (c *MockExportServiceInstanceIDCall) Do(f func(context.Context, machine.UUID) (instance.Id, error)) *MockExportServiceInstanceIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockExportServiceInstanceIDCall) DoAndReturn(f func(context.Context, string) (instance.Id, error)) *MockExportServiceInstanceIDCall {
+func (c *MockExportServiceInstanceIDCall) DoAndReturn(f func(context.Context, machine.UUID) (instance.Id, error)) *MockExportServiceInstanceIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

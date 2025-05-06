@@ -49,7 +49,7 @@ func (s *exportSuite) TestFailGetInstanceIDForExport(c *gc.C) {
 		Id: string(machineNames[0]),
 	})
 
-	machineUUIDs := []string{"deadbeef-0bad-400d-8000-4b1d0d06f00d"}
+	machineUUIDs := []coremachine.UUID{"deadbeef-0bad-400d-8000-4b1d0d06f00d"}
 	s.service.EXPECT().GetMachineUUID(gomock.Any(), machineNames[0]).
 		Return(machineUUIDs[0], nil)
 	s.service.EXPECT().InstanceID(gomock.Any(), machineUUIDs[0]).
@@ -69,7 +69,7 @@ func (s *exportSuite) TestFailGetHardwareCharacteristicsForExport(c *gc.C) {
 		Id: string(machineNames[0]),
 	})
 
-	machineUUIDs := []string{"deadbeef-0bad-400d-8000-4b1d0d06f00d"}
+	machineUUIDs := []coremachine.UUID{"deadbeef-0bad-400d-8000-4b1d0d06f00d"}
 	s.service.EXPECT().GetMachineUUID(gomock.Any(), machineNames[0]).
 		Return(machineUUIDs[0], nil)
 	s.service.EXPECT().InstanceID(gomock.Any(), machineUUIDs[0]).
@@ -91,7 +91,7 @@ func (s *exportSuite) TestExport(c *gc.C) {
 		Id: string(machineNames[0]),
 	})
 
-	machineUUIDs := []string{"deadbeef-0bad-400d-8000-4b1d0d06f00d"}
+	machineUUIDs := []coremachine.UUID{"deadbeef-0bad-400d-8000-4b1d0d06f00d"}
 	s.service.EXPECT().InstanceID(gomock.Any(), machineUUIDs[0]).
 		Return("inst-0", nil)
 	s.service.EXPECT().GetMachineUUID(gomock.Any(), machineNames[0]).

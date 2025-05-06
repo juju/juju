@@ -34,7 +34,7 @@ type assignerState interface {
 // MachineService is the interface that is used to interact with the machine
 // domain.
 type MachineService interface {
-	CreateMachine(context.Context, machine.Name) (string, error)
+	CreateMachine(context.Context, machine.Name) (machine.UUID, error)
 }
 
 // NetworkService is the interface that is used to interact with the

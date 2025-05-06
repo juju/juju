@@ -76,7 +76,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	machine0.EXPECT().Tag().Return(names.NewMachineTag("0")).AnyTimes()
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return("deadbeef", nil)
 	hc := instance.MustParseHardware("mem=4G arch=amd64")
-	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef").Return(&hc, nil)
+	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), coremachine.UUID("deadbeef")).Return(&hc, nil)
 	machine0.EXPECT().SetPassword(gomock.Any()).Return(nil)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 

@@ -55,7 +55,7 @@ var (
 )
 
 var (
-	machineUUIDs = []string{"machine-0-uuid", "machine-1-uuid"}
+	machineUUIDs = []machine.UUID{"machine-0-uuid", "machine-1-uuid"}
 	netNodeUUIDs = []string{"net-node-0-uuid", "net-node-1-uuid"}
 	appNames     = []string{"app-zero", "app-one"}
 )

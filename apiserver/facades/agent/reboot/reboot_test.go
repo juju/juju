@@ -34,7 +34,7 @@ import (
 
 // testMachine is an helper struct to keep machine information during tests
 type testMachine struct {
-	uuid      string
+	uuid      coremachine.UUID
 	tag       names.Tag
 	rebootAPI *reboot.RebootAPI
 	args      params.Entities
@@ -75,7 +75,7 @@ func (s *rebootSuite) createMachineWithParent(c *gc.C, tag names.MachineTag, par
 	return s.setupMachine(c, tag, err, uuid)
 }
 
-func (s *rebootSuite) setupMachine(c *gc.C, tag names.MachineTag, err error, uuid string) *testMachine {
+func (s *rebootSuite) setupMachine(c *gc.C, tag names.MachineTag, err error, uuid coremachine.UUID) *testMachine {
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming we logged in as a machine agent.
 	authorizer := apiservertesting.FakeAuthorizer{

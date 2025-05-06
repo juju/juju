@@ -20,9 +20,9 @@ import (
 // service.
 type MachineService interface {
 	// GetMachineUUID returns the UUID of a machine identified by its name.
-	GetMachineUUID(ctx context.Context, name machine.Name) (string, error)
+	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
 	// InstanceID returns the cloud specific instance id for this machine.
-	InstanceID(ctx context.Context, mUUID string) (instance.Id, error)
+	InstanceID(ctx context.Context, mUUID machine.UUID) (instance.Id, error)
 }
 
 // InstanceIdGetter implements a common InstanceId method for use by

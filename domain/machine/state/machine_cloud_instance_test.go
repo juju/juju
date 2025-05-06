@@ -12,16 +12,15 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
+	coremachinetesting "github.com/juju/juju/core/machine/testing"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
-	"github.com/juju/juju/internal/uuid"
 )
 
 func (s *stateSuite) TestGetHardwareCharacteristicsWithNoData(c *gc.C) {
-	machineUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	machineUUID := coremachinetesting.GenUUID(c)
 
-	_, err = s.state.HardwareCharacteristics(context.Background(), machineUUID.String())
+	_, err := s.state.HardwareCharacteristics(context.Background(), machineUUID)
 	c.Assert(err, jc.ErrorIs, machineerrors.NotProvisioned)
 }
 
@@ -45,7 +44,7 @@ func (s *stateSuite) TestGetHardwareCharacteristicsWithoutAvailabilityZone(c *gc
 	// Create a reference machine.
 	err := s.state.CreateMachine(context.Background(), "42", "", "")
 	c.Assert(err, jc.ErrorIsNil)
-	var machineUUID string
+	var machineUUID machine.UUID
 	err = db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE name='42'").Scan(&machineUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -80,10 +79,9 @@ func (s *stateSuite) TestGetHardwareCharacteristicsWithoutAvailabilityZone(c *gc
 }
 
 func (s *stateSuite) TestAvailabilityZoneWithNoMachine(c *gc.C) {
-	machineUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	machineUUID := coremachinetesting.GenUUID(c)
 
-	_, err = s.state.AvailabilityZone(context.Background(), machineUUID.String())
+	_, err := s.state.AvailabilityZone(context.Background(), machineUUID)
 	c.Assert(err, jc.ErrorIs, machineerrors.AvailabilityZoneNotFound)
 }
 
@@ -101,7 +99,7 @@ func (s *stateSuite) TestSetInstanceData(c *gc.C) {
 	// Create a reference machine.
 	err := s.state.CreateMachine(context.Background(), "42", "", "")
 	c.Assert(err, jc.ErrorIsNil)
-	var machineUUID string
+	var machineUUID machine.UUID
 	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE name='42'")
 	c.Assert(row.Err(), jc.ErrorIsNil)
 	err = row.Scan(&machineUUID)
@@ -158,7 +156,7 @@ func (s *stateSuite) TestSetInstanceData(c *gc.C) {
 	c.Check(*instanceData.AvailabilityZoneUUID, gc.Equals, "deadbeef-0bad-400d-8000-4b1d0d06f00d")
 	c.Check(*instanceData.VirtType, gc.Equals, "virtual-machine")
 
-	rows, err := db.QueryContext(context.Background(), "SELECT tag FROM instance_tag WHERE machine_uuid='"+machineUUID+"'")
+	rows, err := db.QueryContext(context.Background(), "SELECT tag FROM instance_tag WHERE machine_uuid='"+machineUUID.String()+"'")
 	defer func() { _ = rows.Close() }()
 	c.Assert(err, jc.ErrorIsNil)
 	var instanceTags []string
@@ -179,7 +177,7 @@ func (s *stateSuite) TestSetInstanceDataAlreadyExists(c *gc.C) {
 	// Create a reference machine.
 	err := s.state.CreateMachine(context.Background(), "42", "", "")
 	c.Assert(err, jc.ErrorIsNil)
-	var machineUUID string
+	var machineUUID machine.UUID
 	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE name='42'")
 	c.Assert(row.Err(), jc.ErrorIsNil)
 	err = row.Scan(&machineUUID)
@@ -226,7 +224,7 @@ func (s *stateSuite) TestDeleteInstanceData(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rows.Err(), jc.ErrorIsNil)
 	c.Check(rows.Next(), jc.IsFalse)
-	rows, err = db.QueryContext(context.Background(), "SELECT * FROM instance_tag WHERE machine_uuid='"+machineUUID+"'")
+	rows, err = db.QueryContext(context.Background(), "SELECT * FROM instance_tag WHERE machine_uuid='"+machineUUID.String()+"'")
 	defer func() { _ = rows.Close() }()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rows.Err(), jc.ErrorIsNil)
@@ -441,14 +439,12 @@ func (s *stateSuite) TestInstanceStatusValues(c *gc.C) {
 	c.Check(statusValues[3].Name, gc.Equals, "provisioning error")
 }
 
-func (s *stateSuite) ensureInstance(c *gc.C, mName machine.Name) string {
+func (s *stateSuite) ensureInstance(c *gc.C, mName machine.Name) machine.UUID {
 	db := s.DB()
 
 	// Create a reference machine.
-	uuid, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	machineUUID := uuid.String()
-	err = s.state.CreateMachine(context.Background(), mName, "", machineUUID)
+	machineUUID := coremachinetesting.GenUUID(c)
+	err := s.state.CreateMachine(context.Background(), mName, "", machineUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add a reference AZ.
 	_, err = db.ExecContext(context.Background(), "INSERT INTO availability_zone VALUES('deadbeef-0bad-400d-8000-4b1d0d06f00d', 'az-1')")
