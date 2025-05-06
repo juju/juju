@@ -128,7 +128,7 @@ type ApplicationService interface {
 	AddUnits(ctx context.Context, storageParentDir, name string, units ...applicationservice.AddUnitArg) error
 	// SetApplicationCharm sets a new charm for the application, validating that aspects such
 	// as storage are still viable with the new charm.
-	SetApplicationCharm(ctx context.Context, name string, params applicationservice.UpdateCharmParams) error
+	SetApplicationCharm(ctx context.Context, name string, params application.UpdateCharmParams) error
 	// SetApplicationScale sets the application's desired scale value.
 	// This is used on CAAS models.
 	SetApplicationScale(ctx context.Context, name string, scale int) error

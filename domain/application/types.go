@@ -427,3 +427,24 @@ type InsertApplicationArgs struct {
 	// PeerRelations is a map of peer relation endpoint to relation id.
 	PeerRelations map[string]int
 }
+
+// UpdateCharmParams contains the parameters for updating
+// an application's charm and storage.
+type UpdateCharmParams struct {
+	// Charm is the new charm to use for the application. New units
+	// will be started with this charm, and existing units will be
+	// upgraded to use it.
+	Charm internalcharm.Charm
+
+	// Storage contains the storage directives to add or update when
+	// upgrading the charm.
+	//
+	// Any existing storage instances for the named stores will be
+	// unaffected; the storage directives will only be used for
+	// provisioning new storage instances.
+	Storage map[string]storage.Directive
+
+	// CharmUpgradeOnError indicates whether the charm must be upgraded
+	// even when on error.
+	CharmUpgradeOnError bool
+}

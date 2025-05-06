@@ -275,6 +275,7 @@ ON charm_relation (charm_uuid, name);
 
 CREATE VIEW v_charm_relation AS
 SELECT
+    cr.uuid,
     cr.charm_uuid,
     cr.name,
     crr.name AS role,

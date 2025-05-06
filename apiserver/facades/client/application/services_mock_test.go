@@ -1651,7 +1651,7 @@ func (c *MockApplicationServiceMergeExposeSettingsCall) DoAndReturn(f func(conte
 }
 
 // SetApplicationCharm mocks base method.
-func (m *MockApplicationService) SetApplicationCharm(arg0 context.Context, arg1 string, arg2 service.UpdateCharmParams) error {
+func (m *MockApplicationService) SetApplicationCharm(arg0 context.Context, arg1 string, arg2 application0.UpdateCharmParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetApplicationCharm", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -1677,13 +1677,13 @@ func (c *MockApplicationServiceSetApplicationCharmCall) Return(arg0 error) *Mock
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceSetApplicationCharmCall) Do(f func(context.Context, string, service.UpdateCharmParams) error) *MockApplicationServiceSetApplicationCharmCall {
+func (c *MockApplicationServiceSetApplicationCharmCall) Do(f func(context.Context, string, application0.UpdateCharmParams) error) *MockApplicationServiceSetApplicationCharmCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceSetApplicationCharmCall) DoAndReturn(f func(context.Context, string, service.UpdateCharmParams) error) *MockApplicationServiceSetApplicationCharmCall {
+func (c *MockApplicationServiceSetApplicationCharmCall) DoAndReturn(f func(context.Context, string, application0.UpdateCharmParams) error) *MockApplicationServiceSetApplicationCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

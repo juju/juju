@@ -139,6 +139,10 @@ type ApplicationState interface {
 	// the charm metadata.
 	GetCharmIDByApplicationName(context.Context, string) (corecharm.ID, error)
 
+	// SetApplicationCharm sets a new charm for the specified application using
+	// the provided parameters and validates changes.
+	SetApplicationCharm(ctx context.Context, id coreapplication.ID, params application.UpdateCharmParams) error
+
 	// GetApplicationIDByUnitName returns the application ID for the named unit,
 	// returning an error satisfying [applicationerrors.UnitNotFound] if the
 	// unit doesn't exist.
@@ -673,8 +677,15 @@ func (s *Service) MarkApplicationDead(ctx context.Context, appName string) error
 
 // SetApplicationCharm sets a new charm for the application, validating that aspects such
 // as storage are still viable with the new charm.
-func (s *Service) SetApplicationCharm(ctx context.Context, name string, params UpdateCharmParams) error {
-	//TODO(storage) - update charm and storage directive for app
+func (s *Service) SetApplicationCharm(ctx context.Context, appName string, params application.UpdateCharmParams) error {
+	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return errors.Errorf("getting application ID: %w", err)
+	}
+	err = s.st.SetApplicationCharm(ctx, appID, params)
+	if err != nil {
+		return errors.Errorf("setting application %q charm: %w", appName, err)
+	}
 	return nil
 }
 

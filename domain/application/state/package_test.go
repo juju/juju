@@ -33,6 +33,8 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
+//go:generate go run go.uber.org/mock/mockgen -typed -package state -destination charm_mock_test.go github.com/juju/juju/internal/charm Charm
+
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
