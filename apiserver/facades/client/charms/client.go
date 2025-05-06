@@ -21,11 +21,9 @@ import (
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	corelogger "github.com/juju/juju/core/logger"
-	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/permission"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/repository"
 	"github.com/juju/juju/rpc/params"
@@ -473,55 +471,14 @@ func (a *API) checkCharmPlacement(ctx context.Context, arg params.ApplicationCha
 		return params.ErrorResult{}, nil
 	}
 
-	// Unfortunately we now have to check instance data for all units to
-	// validate that we have a homogeneous setup.
-	units, err := app.AllUnits()
+	arches, err := a.machineService.GetMachineArchesForApplication(ctx, appID)
 	if err != nil {
 		return params.ErrorResult{
 			Error: apiservererrors.ServerError(err),
 		}, nil
 	}
 
-	arches := set.NewStrings()
-	for _, unit := range units {
-		machineID, err := unit.AssignedMachineId()
-		if errors.Is(err, errors.NotAssigned) {
-			continue
-		} else if err != nil {
-			return params.ErrorResult{
-				Error: apiservererrors.ServerError(err),
-			}, nil
-		}
-
-		machine, err := a.backendState.Machine(machineID)
-		if errors.Is(err, errors.NotFound) {
-			continue
-		} else if err != nil {
-			return params.ErrorResult{
-				Error: apiservererrors.ServerError(err),
-			}, nil
-		}
-
-		machineArch, err := a.getMachineArch(ctx, machineID, machine)
-		if errors.Is(err, machineerrors.NotProvisioned) {
-			return params.ErrorResult{
-				Error: apiservererrors.ServerError(errors.NotProvisioned),
-			}, nil
-		}
-		if err != nil {
-			return params.ErrorResult{
-				Error: apiservererrors.ServerError(err),
-			}, nil
-		}
-
-		if machineArch == "" {
-			arches.Add(arch.DefaultArchitecture)
-		} else {
-			arches.Add(machineArch)
-		}
-	}
-
-	if arches.Size() > 1 {
+	if len(arches) > 1 {
 		// It is expected that charmhub charms form a homogeneous workload,
 		// so that each unit is the same architecture.
 		err := errors.Errorf("charm can not be placed in a heterogeneous environment")
@@ -531,31 +488,6 @@ func (a *API) checkCharmPlacement(ctx context.Context, arg params.ApplicationCha
 	}
 
 	return params.ErrorResult{}, nil
-}
-
-func (a *API) getMachineArch(ctx context.Context, machineID string, machine charmsinterfaces.Machine) (arch.Arch, error) {
-	cons, err := machine.Constraints()
-	if err == nil && cons.HasArch() {
-		return *cons.Arch, nil
-	}
-
-	machineUUID, err := a.machineService.GetMachineUUID(ctx, coremachine.Name(machineID))
-	if errors.Is(err, errors.NotFound) {
-		return "", nil
-	}
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	hardware, err := a.machineService.HardwareCharacteristics(ctx, machineUUID)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	if hardware.Arch != nil {
-		return *hardware.Arch, nil
-	}
-
-	return "", nil
 }
 
 // ListCharmResources returns a series of resources for a given charm.

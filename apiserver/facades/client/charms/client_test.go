@@ -19,9 +19,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
-	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain/application/architecture"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/environs/config"
@@ -38,10 +36,6 @@ type charmsMockSuite struct {
 	repository   *mocks.MockRepository
 	charmArchive *mocks.MockCharmArchive
 	application  *mocks.MockApplication
-	unit         *mocks.MockUnit
-	unit2        *mocks.MockUnit
-	machine      *mocks.MockMachine
-	machine2     *mocks.MockMachine
 
 	modelConfigService *MockModelConfigService
 	applicationService *MockApplicationService
@@ -314,7 +308,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithConstraintArch(c *gc.C) {
 	c.Assert(result.OneError(), jc.ErrorIsNil)
 }
 
-func (s *charmsMockSuite) TestCheckCharmPlacementWithNoConstraintArch(c *gc.C) {
+func (s *charmsMockSuite) TestCheckCharmPlacementWithHomogeneous(c *gc.C) {
 	appName := "winnie"
 
 	curl := "ch:poo"
@@ -322,67 +316,9 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithNoConstraintArch(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectApplication(appName)
 	s.expectApplicationConstraints(appName, constraints.Value{})
-	s.expectAllUnits()
-	s.expectUnitMachineID()
-	s.expectMachine()
-	s.expectMachineConstraints(constraints.Value{})
-	s.expectHardwareCharacteristics()
 
-	api := s.api(c)
-
-	args := params.ApplicationCharmPlacements{
-		Placements: []params.ApplicationCharmPlacement{{
-			Application: appName,
-			CharmURL:    curl,
-		}},
-	}
-
-	result, err := api.CheckCharmPlacement(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), jc.ErrorIsNil)
-}
-
-func (s *charmsMockSuite) TestCheckCharmPlacementWithNoConstraintArchMachine(c *gc.C) {
-	arch := arch.DefaultArchitecture
-	appName := "winnie"
-
-	curl := "ch:poo"
-
-	defer s.setupMocks(c).Finish()
-	s.expectApplication(appName)
-	s.expectApplicationConstraints(appName, constraints.Value{})
-	s.expectAllUnits()
-	s.expectUnitMachineID()
-	s.expectMachine()
-	s.expectMachineConstraints(constraints.Value{Arch: &arch})
-
-	api := s.api(c)
-
-	args := params.ApplicationCharmPlacements{
-		Placements: []params.ApplicationCharmPlacement{{
-			Application: appName,
-			CharmURL:    curl,
-		}},
-	}
-
-	result, err := api.CheckCharmPlacement(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), jc.ErrorIsNil)
-}
-
-func (s *charmsMockSuite) TestCheckCharmPlacementWithNoConstraintArchAndHardwareArch(c *gc.C) {
-	appName := "winnie"
-
-	curl := "ch:poo"
-
-	defer s.setupMocks(c).Finish()
-	s.expectApplication(appName)
-	s.expectApplicationConstraints(appName, constraints.Value{})
-	s.expectAllUnits()
-	s.expectUnitMachineID()
-	s.expectMachine()
-	s.expectMachineConstraints(constraints.Value{})
-	s.expectEmptyHardwareCharacteristics()
+	s.machineService.EXPECT().GetMachineArchesForApplication(gomock.Any(), coreapplication.ID("deadbeef")).
+		Return([]arch.Arch{arch.AMD64}, nil)
 
 	api := s.api(c)
 
@@ -406,17 +342,9 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithHeterogeneous(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectApplication(appName)
 	s.expectApplicationConstraints(appName, constraints.Value{})
-	s.expectHeterogeneousUnits()
 
-	s.expectUnitMachineID()
-	s.expectMachine()
-	s.expectMachineConstraints(constraints.Value{})
-	s.expectHardwareCharacteristics()
-
-	s.expectUnit2MachineID()
-	s.expectMachine2()
-	s.expectMachineConstraints2(constraints.Value{})
-	s.expectHardwareCharacteristics2()
+	s.machineService.EXPECT().GetMachineArchesForApplication(gomock.Any(), coreapplication.ID("deadbeef")).
+		Return([]arch.Arch{arch.AMD64, arch.ARM64}, nil)
 
 	api := s.api(c)
 
@@ -488,10 +416,6 @@ func (s *charmsMockSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.charmArchive = mocks.NewMockCharmArchive(ctrl)
 
 	s.application = mocks.NewMockApplication(ctrl)
-	s.unit = mocks.NewMockUnit(ctrl)
-	s.unit2 = mocks.NewMockUnit(ctrl)
-	s.machine = mocks.NewMockMachine(ctrl)
-	s.machine2 = mocks.NewMockMachine(ctrl)
 
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	uuid := testing.ModelTag.Id()
@@ -566,60 +490,4 @@ func (s *charmsMockSuite) expectSubordinateApplication(name string) {
 func (s *charmsMockSuite) expectApplicationConstraints(appnName string, cons constraints.Value) {
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), appnName).Return(coreapplication.ID("deadbeef"), nil)
 	s.applicationService.EXPECT().GetApplicationConstraints(gomock.Any(), coreapplication.ID("deadbeef")).Return(cons, nil)
-}
-
-func (s *charmsMockSuite) expectAllUnits() {
-	s.application.EXPECT().AllUnits().Return([]interfaces.Unit{s.unit}, nil)
-}
-
-func (s *charmsMockSuite) expectHeterogeneousUnits() {
-	s.application.EXPECT().AllUnits().Return([]interfaces.Unit{
-		s.unit,
-		s.unit2,
-	}, nil)
-}
-
-func (s *charmsMockSuite) expectUnitMachineID() {
-	s.unit.EXPECT().AssignedMachineId().Return("winnie-poo", nil)
-}
-
-func (s *charmsMockSuite) expectUnit2MachineID() {
-	s.unit2.EXPECT().AssignedMachineId().Return("piglet", nil)
-}
-
-func (s *charmsMockSuite) expectMachine() {
-	s.state.EXPECT().Machine("winnie-poo").Return(s.machine, nil)
-}
-
-func (s *charmsMockSuite) expectMachine2() {
-	s.state.EXPECT().Machine("piglet").Return(s.machine2, nil)
-}
-
-func (s *charmsMockSuite) expectMachineConstraints(cons constraints.Value) {
-	s.machine.EXPECT().Constraints().Return(cons, nil)
-}
-
-func (s *charmsMockSuite) expectHardwareCharacteristics() {
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("winnie-poo")).Return("deadbeef", nil)
-	arch := arch.DefaultArchitecture
-	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), coremachine.UUID("deadbeef")).Return(&instance.HardwareCharacteristics{
-		Arch: &arch,
-	}, nil)
-}
-
-func (s *charmsMockSuite) expectEmptyHardwareCharacteristics() {
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("winnie-poo")).Return("deadbeef", nil)
-	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), coremachine.UUID("deadbeef")).Return(&instance.HardwareCharacteristics{}, nil)
-}
-
-func (s *charmsMockSuite) expectHardwareCharacteristics2() {
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("piglet")).Return("deadbeef", nil)
-	arch := "arm64"
-	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), coremachine.UUID("deadbeef")).Return(&instance.HardwareCharacteristics{
-		Arch: &arch,
-	}, nil)
-}
-
-func (s *charmsMockSuite) expectMachineConstraints2(cons constraints.Value) {
-	s.machine2.EXPECT().Constraints().Return(cons, nil)
 }

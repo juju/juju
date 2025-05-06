@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
+	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/providertracker"
@@ -472,6 +474,14 @@ func (s *Service) AppliedLXDProfileNames(ctx context.Context, mUUID machine.UUID
 // exist.
 func (s *Service) SetAppliedLXDProfileNames(ctx context.Context, mUUID machine.UUID, profileNames []string) error {
 	return errors.Capture(s.st.SetAppliedLXDProfileNames(ctx, mUUID, profileNames))
+}
+
+// GetMachineArchesForApplication returns a list of architectures which are
+// included across the machines of the given application.
+//
+// TODO: Implement this method.
+func (s *Service) GetMachineArchesForApplication(ctx context.Context, appUUID application.ID) ([]arch.Arch, error) {
+	return nil, errors.Errorf("GetMachineArchesForApplication not implemented")
 }
 
 // ProviderService provides the API for working with machines using the
