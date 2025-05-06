@@ -371,43 +371,6 @@ func (s *LeadershipService) GetRelationApplicationSettingsWithLeader(
 	return settings, nil
 }
 
-// SetRelationApplicationSettings records settings for a specific application
-// relation combination.
-//
-// When settings is not empty, the following error types can be expected to be
-// returned:
-//   - [corelease.ErrNotHeld] if the unit is not the leader.
-//   - [relationerrors.ApplicationNotFoundForRelation] is returned if the
-//     application is not part of the relation.
-//   - [relationerrors.RelationNotFound] is returned if the relation UUID
-//     is not found.
-func (s *LeadershipService) SetRelationApplicationSettings(
-	ctx context.Context,
-	unitName unit.Name,
-	relationUUID corerelation.UUID,
-	applicationID application.ID,
-	settings map[string]string,
-) error {
-	if len(settings) == 0 {
-		return nil
-	}
-
-	if err := unitName.Validate(); err != nil {
-		return errors.Capture(err)
-	}
-	if err := relationUUID.Validate(); err != nil {
-		return errors.Errorf(
-			"%w:%w", relationerrors.RelationUUIDNotValid, err)
-	}
-	if err := applicationID.Validate(); err != nil {
-		return errors.Errorf(
-			"%w:%w", relationerrors.ApplicationIDNotValid, err)
-	}
-	return s.leaderEnsurer.WithLeader(ctx, unitName.Application(), unitName.String(), func(ctx context.Context) error {
-		return s.st.SetRelationApplicationSettings(ctx, relationUUID, applicationID, settings)
-	})
-}
-
 // SetRelationApplicationAndUnitSettings records settings for a unit and
 // an application in a relation.
 //
@@ -889,29 +852,6 @@ func (s *Service) RelationUnitInScopeByID(ctx context.Context, relationID int, u
 		return false, errors.Capture(err)
 	}
 	return true, nil
-}
-
-// SetRelationUnitSettings records settings for a specific unit
-// relation combination.
-//
-// If settings is not empty, the following error types can be expected to be
-// returned:
-//   - [relationerrors.RelationUnitNotFound] is returned if the unit is not
-//     part of the relation.
-func (s *Service) SetRelationUnitSettings(
-	ctx context.Context,
-	relationUnitUUID corerelation.UnitUUID,
-	settings map[string]string,
-) error {
-	if len(settings) == 0 {
-		return nil
-	}
-
-	if err := relationUnitUUID.Validate(); err != nil {
-		return errors.Errorf(
-			"%w:%w", relationerrors.RelationUUIDNotValid, err)
-	}
-	return s.st.SetRelationUnitSettings(ctx, relationUnitUUID, settings)
 }
 
 // ImportRelations sets relations imported in migration.
