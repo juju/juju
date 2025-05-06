@@ -63,6 +63,13 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// ErrAPIServerDying is used to indicate to *third parties* that the
+// api-server worker is dying, instead of catacomb.ErrDying, which is
+// unsuitable for propagating inter-worker.
+// This error indicates to consuming workers that their dependency has
+// become unmet and a restart by the dependency engine is imminent.
+const ErrAPIServerDying = errors.ConstError("api-server worker is dying")
+
 var logger = internallogger.GetLogger("juju.apiserver")
 
 var defaultHTTPMethods = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS"}
@@ -631,7 +638,7 @@ func (srv *Server) loop(ready chan struct{}) error {
 			srv.mu.Unlock()
 
 			srv.wg.Wait() // wait for any outstanding requests to complete.
-			return errors.Trace(err)
+			return ErrAPIServerDying
 
 		case <-controllerConfigWatcher.Changes():
 			controllerConfig, err := controllerConfigService.ControllerConfig(ctx)

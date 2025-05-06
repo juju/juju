@@ -454,7 +454,7 @@ func (s *ApiServerSuite) TearDownTest(c *gc.C) {
 	s.tearDownConn(c)
 	if s.Server != nil {
 		err := s.Server.Stop()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, jc.ErrorIs, apiserver.ErrAPIServerDying)
 	}
 	if s.httpServer != nil {
 		s.httpServer.Close()
