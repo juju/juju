@@ -23,12 +23,12 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// CredentialService exposed service methods for interacting with any model's
+// CredentialService exposes service methods for interacting with any model's
 // credentials. This is used to define the exact interface that is required by
 // [credentialServiceShim].
 type CredentialService interface {
 	// GetModelCredentialStatus returns the credential key that is in use by the
-	// model and also a bool indicating of the credential is considered valid.
+	// model and also a bool indicating if the credential is considered valid.
 	// The following errors can be expected:
 	// - [credentialerrors.ModelCredentialNotSet] when the model does not have
 	// any credential set.
@@ -52,12 +52,11 @@ type CredentialService interface {
 // is scoped to that of a single model and cannot move sideways to other models
 // in the controller.
 type credentialServiceShim struct {
-	ModelUUID coremodel.UUID
-	Service   CredentialService
+	modelUUID coremodel.UUID
+	service   CredentialService
 }
 
 // ModelCredentialService exposes State methods needed by credential manager.
-// ModelCredentialService expo
 type ModelCredentialService interface {
 	// GetModelCredentialStatus returns the credential key that is in use by the
 	// model and also a bool indicating of the credential is considered valid.
@@ -68,8 +67,8 @@ type ModelCredentialService interface {
 	// not exist.
 	GetModelCredentialStatus(context.Context) (corecredential.Key, bool, error)
 
-	// InvalidateModelCredential marks the cloud credential that is in use for
-	// by the model as invalid. This will affect all models that are using the
+	// InvalidateModelCredential marks the cloud credential that is in by the
+	// model as invalid. This will affect all models that are using the
 	// credential.
 	// The following errors can be expected:
 	// - [github.com/juju/juju/core/errors.NotValid] when the modelUUID is not
@@ -104,7 +103,7 @@ type CredentialValidatorAPI struct {
 func (s *credentialServiceShim) GetModelCredentialStatus(
 	ctx context.Context,
 ) (corecredential.Key, bool, error) {
-	return s.Service.GetModelCredentialStatus(ctx, s.ModelUUID)
+	return s.service.GetModelCredentialStatus(ctx, s.modelUUID)
 }
 
 // InvalidateModelCredential marks the cloud credential that is in use for
@@ -121,7 +120,7 @@ func (s *credentialServiceShim) InvalidateModelCredential(
 	ctx context.Context,
 	reason string,
 ) error {
-	return s.Service.InvalidateModelCredential(ctx, s.ModelUUID, reason)
+	return s.service.InvalidateModelCredential(ctx, s.modelUUID, reason)
 }
 
 func NewCredentialValidatorAPI(

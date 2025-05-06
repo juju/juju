@@ -47,8 +47,8 @@ func makeCredentialValidatorAPI(ctx facade.ModelContext) (*CredentialValidatorAP
 	return NewCredentialValidatorAPI(
 		ctx.ModelUUID(),
 		&credentialServiceShim{
-			ModelUUID: ctx.ModelUUID(),
-			Service:   domainServices.Credential(),
+			modelUUID: ctx.ModelUUID(),
+			service:   domainServices.Credential(),
 		},
 		modelCredentialWatcherGetter,
 		ctx.WatcherRegistry(),

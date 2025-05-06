@@ -412,8 +412,8 @@ func (st *State) invalidateCloudCredential(
 	invalidReason := credentialInvalidReason{Reason: reason}
 	q := `
 UPDATE cloud_credential
-SET   invalid = true, invalid_reason = $credentialInvalidReason.invalid_reason
-WHERE uuid = $credentialUUID.uuid
+SET    invalid = true, invalid_reason = $credentialInvalidReason.invalid_reason
+WHERE  uuid = $credentialUUID.uuid
 `
 	stmt, err := st.Prepare(q, credentialUUID, invalidReason)
 	if err != nil {
@@ -429,7 +429,7 @@ WHERE uuid = $credentialUUID.uuid
 	if err != nil {
 		return errors.Capture(err)
 	}
-	if n < 1 {
+	if n == 0 {
 		return errors.Errorf(
 			"credential %q does not exist", uuid,
 		).Add(credentialerrors.NotFound)
@@ -475,8 +475,8 @@ func (st *State) InvalidateModelCloudCredential(
 	modelCredentialUUID := modelCredentialUUID{}
 	stmt, err := st.Prepare(`
 SELECT &modelCredentialUUID.*
-FROM v_model
-WHERE uuid = $modelUUID.uuid`,
+FROM   v_model
+WHERE  uuid = $modelUUID.uuid`,
 		modelUUID, modelCredentialUUID)
 	if err != nil {
 		return errors.Capture(err)
