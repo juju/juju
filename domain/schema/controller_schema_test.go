@@ -76,7 +76,6 @@ func (s *controllerSchemaSuite) TestControllerTables(c *tc.C) {
 
 		// Controller API addresses
 		"controller_api_address",
-		"controller_api_address_agents",
 
 		// Model migration
 		"model_migration",

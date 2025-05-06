@@ -50,3 +50,8 @@ type controllerAPIAddress struct {
 type countResult struct {
 	Count int `db:"count"`
 }
+
+// controllerID is the database representation of a controller node id.
+type controllerID struct {
+	ID string `db:"controller_id"`
+}

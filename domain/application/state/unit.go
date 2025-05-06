@@ -1912,8 +1912,7 @@ SELECT &unitNetNodeUUID.*
 FROM (
     SELECT s.net_node_uuid, u.uuid
     FROM unit u
-    JOIN application a on a.uuid = u.application_uuid
-    JOIN k8s_service s on s.application_uuid = a.uuid
+    JOIN k8s_service s on s.application_uuid = u.application_uuid
     UNION
     SELECT net_node_uuid, uuid FROM unit
 ) AS n

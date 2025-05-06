@@ -32,6 +32,7 @@ WHEN
 	NEW.uuid != OLD.uuid OR
 	NEW.device_uuid != OLD.device_uuid OR
 	NEW.address_value != OLD.address_value OR
+	NEW.net_node_uuid != OLD.net_node_uuid OR
 	(NEW.subnet_uuid != OLD.subnet_uuid OR (NEW.subnet_uuid IS NOT NULL AND OLD.subnet_uuid IS NULL) OR (NEW.subnet_uuid IS NULL AND OLD.subnet_uuid IS NOT NULL)) OR
 	NEW.type_id != OLD.type_id OR
 	NEW.config_type_id != OLD.config_type_id OR

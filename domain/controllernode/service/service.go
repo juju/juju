@@ -6,13 +6,16 @@ package service
 import (
 	"context"
 	"net"
+	"strconv"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	"github.com/juju/juju/domain/controllernode"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -46,12 +49,18 @@ type State interface {
 	// controller nodes.
 	NamespaceForWatchControllerNodes() string
 
-	// SetAPIAddress adds the provided address to the controller api address table,
-	// associated with the provided controllerID.
+	// SetAPIAddresses sets the addresses for the provided controller node. It
+	// replaces any existing addresses and stores them in the api_controller_address
+	// table, with the format "host:port" as a string, as well as the is_agent flag
+	// indicating whether the address is available for agents.
 	//
 	// The following errors can be expected:
 	// - [controllernodeerrors.NotFound] if the controller node does not exist.
-	SetAPIAddress(context.Context, string, string, bool) error
+	SetAPIAddresses(ctx context.Context, ctrlID string, addrs []controllernode.APIAddress) error
+
+	// GetControllerIDs returns the list of controller IDs from the controller node
+	// records.
+	GetControllerIDs(ctx context.Context) ([]string, error)
 }
 
 // WatcherFactory instances return watchers for a given namespace and UUID.
@@ -188,17 +197,37 @@ func (s *Service) IsControllerNode(ctx context.Context, nodeID string) (bool, er
 	return isController, nil
 }
 
-// SetAPIAddress sets the provided address associated with the provided
+// SetAPIAddresses sets the provided addresses associated with the provided
 // controller ID.
 //
 // The following errors can be expected:
 // - [controllernodeerrors.NotFound] if the controller node does not exist.
-// - [controllernodeerrors.ControllerAddressNotValid] if the address is not
-// valid.
-func (s *Service) SetAPIAddress(ctx context.Context, controllerID string, address string, isAvailabeForAgents bool) error {
-	if _, _, err := net.SplitHostPort(address); err != nil {
-		return errors.Errorf("%q: %w", address, controllernodeerrors.ControllerAddressNotValid)
+func (s *Service) SetAPIAddresses(ctx context.Context, controllerID string, addrs network.SpaceHostPorts, mgmtSpace network.SpaceInfo) error {
+	// We map the SpaceHostPorts addresses to controller api addresses by
+	// checking if the address is available for agents (this is the case if the
+	// space ID of the address matches the management space ID), and also by
+	// joiping the address host and port to a string "host:port".
+	addresses := make([]controllernode.APIAddress, 0, len(addrs))
+	for _, spHostPort := range addrs {
+		// Check if the address is available for agents.
+		isAvailableForAgents := spHostPort.SpaceID == mgmtSpace.ID
+		// Join the address host and port to a string "host:port".
+		address := net.JoinHostPort(spHostPort.Host(), strconv.Itoa(spHostPort.Port()))
+		addresses = append(addresses, controllernode.APIAddress{
+			Address: address,
+			IsAgent: isAvailableForAgents,
+		})
 	}
 
-	return s.st.SetAPIAddress(ctx, controllerID, address, isAvailabeForAgents)
+	return s.st.SetAPIAddresses(ctx, controllerID, addresses)
+}
+
+// GetControllerIDs returns the list of controller IDs from the controller node
+// records.
+func (s *Service) GetControllerIDs(ctx context.Context) ([]string, error) {
+	res, err := s.st.GetControllerIDs(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return res, nil
 }

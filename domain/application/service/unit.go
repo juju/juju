@@ -631,23 +631,36 @@ func (s *Service) GetUnitPublicAddress(ctx context.Context, unitName coreunit.Na
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	publicAddresses, err := s.GetUnitPublicAddresses(ctx, unitName)
 	if err != nil {
 		return network.SpaceAddress{}, errors.Capture(err)
 	}
+	return publicAddresses[0], nil
+}
+
+// GetUnitPublicAddresses returns all public addresses for the specified unit.
+//
+// The following errors may be returned:
+// - [uniterrors.UnitNotFound] if the unit does not exist
+// - [network.NoAddressError] if the unit has no public address associated
+func (s *Service) GetUnitPublicAddresses(ctx context.Context, unitName coreunit.Name) (network.SpaceAddresses, error) {
+	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
 	addrs, err := s.st.GetUnitAddresses(ctx, unitUUID)
 	if err != nil {
-		return network.SpaceAddress{}, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
 	// First match the scope, then sort by origin.
 	matchedAddrs := addrs.AllMatchingScope(network.ScopeMatchPublic)
 	if len(matchedAddrs) == 0 {
-		return network.SpaceAddress{}, network.NoAddressError(string(network.ScopePublic))
+		return nil, network.NoAddressError(string(network.ScopePublic))
 	}
 	sort.Slice(matchedAddrs, matchedAddrs.Less)
 
-	return matchedAddrs[0], nil
+	return matchedAddrs, nil
 }
 
 // GetUnitPrivateAddress returns the private address for the specified unit.

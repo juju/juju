@@ -234,10 +234,10 @@ CREATE TABLE ip_address (
     REFERENCES ip_address_scope (id)
 );
 
-CREATE INDEX idx_ip_address_device_uuid 
+CREATE INDEX idx_ip_address_device_uuid
 ON ip_address (device_uuid);
 
-CREATE INDEX idx_ip_address_subnet_uuid 
+CREATE INDEX idx_ip_address_subnet_uuid
 ON ip_address (subnet_uuid);
 
 CREATE TABLE provider_ip_address (

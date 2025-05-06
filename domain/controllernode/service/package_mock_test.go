@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	agentbinary "github.com/juju/juju/core/agentbinary"
+	controllernode "github.com/juju/juju/domain/controllernode"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -74,6 +75,45 @@ func (c *MockStateCurateNodesCall) Do(f func(context.Context, []string, []string
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateCurateNodesCall) DoAndReturn(f func(context.Context, []string, []string) error) *MockStateCurateNodesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetControllerIDs mocks base method.
+func (m *MockState) GetControllerIDs(arg0 context.Context) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetControllerIDs", arg0)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetControllerIDs indicates an expected call of GetControllerIDs.
+func (mr *MockStateMockRecorder) GetControllerIDs(arg0 any) *MockStateGetControllerIDsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControllerIDs", reflect.TypeOf((*MockState)(nil).GetControllerIDs), arg0)
+	return &MockStateGetControllerIDsCall{Call: call}
+}
+
+// MockStateGetControllerIDsCall wrap *gomock.Call
+type MockStateGetControllerIDsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetControllerIDsCall) Return(arg0 []string, arg1 error) *MockStateGetControllerIDsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetControllerIDsCall) Do(f func(context.Context) ([]string, error)) *MockStateGetControllerIDsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetControllerIDsCall) DoAndReturn(f func(context.Context) ([]string, error)) *MockStateGetControllerIDsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -194,40 +234,40 @@ func (c *MockStateSelectDatabaseNamespaceCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
-// SetAPIAddress mocks base method.
-func (m *MockState) SetAPIAddress(arg0 context.Context, arg1, arg2 string, arg3 bool) error {
+// SetAPIAddresses mocks base method.
+func (m *MockState) SetAPIAddresses(arg0 context.Context, arg1 string, arg2 []controllernode.APIAddress) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetAPIAddress", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "SetAPIAddresses", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// SetAPIAddress indicates an expected call of SetAPIAddress.
-func (mr *MockStateMockRecorder) SetAPIAddress(arg0, arg1, arg2, arg3 any) *MockStateSetAPIAddressCall {
+// SetAPIAddresses indicates an expected call of SetAPIAddresses.
+func (mr *MockStateMockRecorder) SetAPIAddresses(arg0, arg1, arg2 any) *MockStateSetAPIAddressesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAPIAddress", reflect.TypeOf((*MockState)(nil).SetAPIAddress), arg0, arg1, arg2, arg3)
-	return &MockStateSetAPIAddressCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAPIAddresses", reflect.TypeOf((*MockState)(nil).SetAPIAddresses), arg0, arg1, arg2)
+	return &MockStateSetAPIAddressesCall{Call: call}
 }
 
-// MockStateSetAPIAddressCall wrap *gomock.Call
-type MockStateSetAPIAddressCall struct {
+// MockStateSetAPIAddressesCall wrap *gomock.Call
+type MockStateSetAPIAddressesCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateSetAPIAddressCall) Return(arg0 error) *MockStateSetAPIAddressCall {
+func (c *MockStateSetAPIAddressesCall) Return(arg0 error) *MockStateSetAPIAddressesCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetAPIAddressCall) Do(f func(context.Context, string, string, bool) error) *MockStateSetAPIAddressCall {
+func (c *MockStateSetAPIAddressesCall) Do(f func(context.Context, string, []controllernode.APIAddress) error) *MockStateSetAPIAddressesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetAPIAddressCall) DoAndReturn(f func(context.Context, string, string, bool) error) *MockStateSetAPIAddressCall {
+func (c *MockStateSetAPIAddressesCall) DoAndReturn(f func(context.Context, string, []controllernode.APIAddress) error) *MockStateSetAPIAddressesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
