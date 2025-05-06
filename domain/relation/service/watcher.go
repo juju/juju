@@ -59,29 +59,6 @@ func NewWatchableService(
 	}
 }
 
-// WatchApplicationSettings returns a notify watcher that will signal
-// whenever the specified application's relation settings are changed.
-func (s *WatchableService) WatchApplicationSettings(
-	ctx context.Context,
-	relationUUID corerelation.UUID,
-	applicationID application.ID,
-) (watcher.NotifyWatcher, error) {
-	relationEndpointUUID, err := s.getRelationEndpointUUID(ctx, relation.GetRelationEndpointUUIDArgs{
-		RelationUUID:  relationUUID,
-		ApplicationID: applicationID,
-	})
-	if err != nil {
-		return nil, errors.Capture(errors.Errorf("watch application settings: %w", err))
-	}
-	return s.watcherFactory.NewNotifyWatcher(
-		eventsource.PredicateFilter(
-			s.st.WatcherApplicationSettingsNamespace(),
-			changestream.All,
-			eventsource.EqualsPredicate(relationEndpointUUID.String()),
-		),
-	)
-}
-
 // WatchLifeSuspendedStatus returns a watcher that notifies of changes to
 // the life or suspended status any relation the unit's application is part
 // of. If the unit is a subordinate, its principal application is watched.

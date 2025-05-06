@@ -66,16 +66,6 @@ type relationUnit struct {
 	UnitUUID             unit.UUID                 `db:"unit_uuid"`
 }
 
-// getRelationUnitEndpointName allows to fetch a endpoint name from a relation
-// unit, through the view v_relation_unit_endpoint
-type getRelationUnitEndpointName struct {
-	// RelationUnitUUID represents the unique identifier for a relation unit.
-	RelationUnitUUID corerelation.UnitUUID `db:"relation_unit_uuid"`
-	// EndpointName represents the name of the endpoint associated
-	// with a relation unit.
-	EndpointName string `db:"endpoint_name"`
-}
-
 type getUnit struct {
 	UUID unit.UUID `db:"uuid"`
 	Name unit.Name `db:"name"`
