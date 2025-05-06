@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
@@ -683,6 +684,18 @@ func (s *Service) SetApplicationCharm(ctx context.Context, appName string, param
 		return errors.Errorf("getting application ID: %w", err)
 	}
 	err = s.st.SetApplicationCharm(ctx, appID, params)
+	var (
+		notImplementedRelation *internal.NotImplementedRelationError
+		quotaLimitExceed       *internal.RelationQuotaLimitExceededError
+	)
+	switch {
+	case errors.As(err, &quotaLimitExceed):
+		return errors.Errorf("new charm version imposes a maximum relation limit of %d for %s:%s which cannot be satisfied by the number of already established relations (%d)",
+			quotaLimitExceed.Relation.Limit, appName, quotaLimitExceed.Relation.Name, quotaLimitExceed.Count)
+	case errors.As(err, &notImplementedRelation):
+		return errors.Errorf("would break relation %s:%s", appName, notImplementedRelation.Relation.Name)
+	}
+
 	if err != nil {
 		return errors.Errorf("setting application %q charm: %w", appName, err)
 	}

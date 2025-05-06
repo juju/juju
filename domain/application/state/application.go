@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/ipaddress"
@@ -3338,8 +3339,7 @@ func (st *State) getAllNonPeerRelationInfo(ctx context.Context, tx *sqlair.TX, i
 	app := application{UUID: id.String()}
 
 	stmt, err := st.Prepare(`
-SELECT
-    a.name AS &relationInfo.application_name,
+SELECT 
     vcr.charm_uuid AS &relationInfo.charm_uuid,
     vcr.name AS &relationInfo.name,
     vcr.role AS &relationInfo.role,
@@ -3351,10 +3351,9 @@ SELECT
 FROM   v_charm_relation AS vcr
 JOIN   application_endpoint AS ae ON vcr.uuid = ae.charm_relation_uuid    
 JOIN   relation_endpoint AS re ON ae.uuid = re.endpoint_uuid
-JOIN   application AS a ON ae.application_uuid = a.uuid
 WHERE  ae.application_uuid = $application.uuid
 AND    vcr.role != 'peer'
-GROUP BY a.name, vcr.charm_uuid, vcr.name, vcr.role, vcr.interface, vcr.optional, vcr.capacity, vcr.scope -- for count
+GROUP BY vcr.charm_uuid, vcr.name, vcr.role, vcr.interface, vcr.optional, vcr.capacity, vcr.scope -- for count
 `, app, relationInfo{})
 	if err != nil {
 		return nil, errors.Errorf("preparing query: %w", err)
@@ -3382,15 +3381,13 @@ func precheckUpgradeRelation(meta *internalcharm.Meta, relations []relationInfo)
 	for _, rel := range relations {
 		charmRel := decodeRelation(rel)
 		if !charmRel.ImplementedBy(meta) {
-			return errors.Errorf("would break relation %s:%s", rel.ApplicationName, rel.Name)
+			return &internal.NotImplementedRelationError{Relation: charmRel}
 		}
 		// The relation will always be found. If not, it would have caused
 		// the previous check to fail.
 		spec, _ := relSpec[rel.Name]
 		if rel.Count > spec.Limit {
-			return errors.Errorf("new charm version imposes a maximum relation limit of %d for %s:%s which cannot be"+
-				" satisfied by the number of already established relations (%d)", spec.Limit, rel.ApplicationName,
-				rel.Name, rel.Count)
+			return &internal.RelationQuotaLimitExceededError{Relation: spec, Count: rel.Count}
 		}
 	}
 	return nil
