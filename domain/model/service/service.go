@@ -410,8 +410,6 @@ func (s *Service) createModel(
 // exist.
 // - [github.com/juju/juju/domain/access/errors.NotFound]: When the owner of the
 // model can not be found.
-// - [modelerrors.AgentVersionNotSupported]: When the prescribed agent version
-// cannot be used with this controller or the agent version is set to zero.
 // - [secretbackenderrors.NotFound] When the secret backend for the model
 // cannot be found.
 func (s *Service) ImportModel(

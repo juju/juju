@@ -477,14 +477,7 @@ func (s *ProviderModelService) createModelProviderResources(
 			s.modelUUID, err,
 		)
 	}
-	// TODO (tlm): This is incredibly dangerous and needs to be stopped. We
-	// should not create provider resources on behalf of a model that have the
-	// controller uuid. The reason for this is that the model may get migrated
-	// to a different controller. We have never had a process that updates this
-	// incorrect information.
-	//
-	// If we ever started using it to track down resources we could potentiall
-	// do the wrong thing or overwrite another controllers resources.
+
 	if err := env.CreateModelResources(ctx, environs.CreateParams{ControllerUUID: controllerUUID.String()}); err != nil {
 		// TODO: we should cleanup the model related data created above from database.
 		return errors.Errorf("creating model provider resources for %q: %w", s.modelUUID, err)
