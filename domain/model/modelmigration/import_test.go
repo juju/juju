@@ -28,15 +28,12 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type importSuite struct {
-	modelImportService      *MockModelImportService
-	modelDetailService      *MockModelDetailService
-	userService             *MockUserService
-	controllerConfigService *MockControllerConfigService
+	modelImportService *MockModelImportService
+	modelDetailService *MockModelDetailService
+	userService        *MockUserService
 }
 
 var _ = gc.Suite(&importSuite{})
@@ -47,7 +44,6 @@ func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.modelImportService = NewMockModelImportService(ctrl)
 	s.modelDetailService = NewMockModelDetailService(ctrl)
 	s.userService = NewMockUserService(ctrl)
-	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 
 	return ctrl
 }
@@ -133,7 +129,6 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 		},
 		nil,
 	)
-	i.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(testing.FakeControllerConfig(), nil)
 
 	args := model.ModelImportArgs{
 		GlobalModelCreationArgs: model.GlobalModelCreationArgs{
@@ -147,8 +142,7 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 			Name:  "test-model",
 			Owner: userUUID,
 		},
-		ID:           modelUUID,
-		AgentVersion: jujuversion.Current,
+		UUID: modelUUID,
 	}
 
 	activated := false
@@ -157,13 +151,9 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 		return nil
 	}
 
-	controllerUUID, err := uuid.UUIDFromString(testing.ControllerTag.Id())
-	c.Assert(err, jc.ErrorIsNil)
-
 	i.modelImportService.EXPECT().ImportModel(gomock.Any(), args).Return(activator, nil)
-	i.modelDetailService.EXPECT().CreateModelForVersion(
+	i.modelDetailService.EXPECT().CreateModelWithAgentVersionStream(
 		gomock.Any(),
-		controllerUUID,
 		jujuversion.Current,
 		agentbinary.AgentStreamTesting,
 	).Return(nil)
@@ -188,10 +178,9 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 	})
 
 	importOp := &importModelOperation{
-		userService:             i.userService,
-		modelImportService:      i.modelImportService,
-		controllerConfigService: i.controllerConfigService,
-		modelDetailServiceFunc:  func(_ coremodel.UUID) ModelDetailService { return i.modelDetailService },
+		userService:            i.userService,
+		modelImportService:     i.modelImportService,
+		modelDetailServiceFunc: func(_ coremodel.UUID) ModelDetailService { return i.modelDetailService },
 	}
 
 	coordinator := modelmigration.NewCoordinator(
@@ -215,7 +204,6 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 		},
 		nil,
 	)
-	i.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(testing.FakeControllerConfig(), nil)
 
 	args := model.ModelImportArgs{
 		GlobalModelCreationArgs: model.GlobalModelCreationArgs{
@@ -229,8 +217,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 			Name:  "test-model",
 			Owner: userUUID,
 		},
-		ID:           modelUUID,
-		AgentVersion: jujuversion.Current,
+		UUID: modelUUID,
 	}
 
 	var activated bool
@@ -238,12 +225,10 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 		activated = true
 		return nil
 	}
-	controllerUUID, err := uuid.UUIDFromString(testing.ControllerTag.Id())
-	c.Assert(err, jc.ErrorIsNil)
 
 	i.modelImportService.EXPECT().ImportModel(gomock.Any(), args).Return(activator, nil)
-	i.modelDetailService.EXPECT().CreateModelForVersion(
-		gomock.Any(), controllerUUID, jujuversion.Current, agentbinary.AgentStreamReleased,
+	i.modelDetailService.EXPECT().CreateModelWithAgentVersionStream(
+		gomock.Any(), jujuversion.Current, agentbinary.AgentStreamReleased,
 	).Return(errors.New("boom"))
 	i.modelImportService.EXPECT().DeleteModel(gomock.Any(), modelUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coremodel.UUID, options ...model.DeleteModelOption) error {
 		opts := model.DefaultDeleteModelOptions()
@@ -274,10 +259,9 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 	})
 
 	importOp := &importModelOperation{
-		userService:             i.userService,
-		modelImportService:      i.modelImportService,
-		controllerConfigService: i.controllerConfigService,
-		modelDetailServiceFunc:  func(_ coremodel.UUID) ModelDetailService { return i.modelDetailService },
+		userService:            i.userService,
+		modelImportService:     i.modelImportService,
+		modelDetailServiceFunc: func(_ coremodel.UUID) ModelDetailService { return i.modelDetailService },
 	}
 
 	coordinator := modelmigration.NewCoordinator(
@@ -304,7 +288,6 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc
 		},
 		nil,
 	)
-	i.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(testing.FakeControllerConfig(), nil)
 
 	args := model.ModelImportArgs{
 		GlobalModelCreationArgs: model.GlobalModelCreationArgs{
@@ -318,8 +301,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc
 			Name:  "test-model",
 			Owner: userUUID,
 		},
-		ID:           modelUUID,
-		AgentVersion: jujuversion.Current,
+		UUID: modelUUID,
 	}
 
 	activated := false
@@ -327,12 +309,11 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc
 		activated = true
 		return nil
 	}
-	controllerUUID, err := uuid.UUIDFromString(testing.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
 	i.modelImportService.EXPECT().ImportModel(gomock.Any(), args).Return(activator, nil)
-	i.modelDetailService.EXPECT().CreateModelForVersion(
-		gomock.Any(), controllerUUID, jujuversion.Current, agentbinary.AgentStreamReleased,
+	i.modelDetailService.EXPECT().CreateModelWithAgentVersionStream(
+		gomock.Any(), jujuversion.Current, agentbinary.AgentStreamReleased,
 	).Return(errors.New("boom"))
 	i.modelImportService.EXPECT().DeleteModel(gomock.Any(), modelUUID, gomock.Any()).Return(modelerrors.NotFound)
 	i.modelDetailService.EXPECT().DeleteModel(gomock.Any()).Return(nil)
@@ -356,10 +337,9 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc
 	})
 
 	importOp := &importModelOperation{
-		userService:             i.userService,
-		modelImportService:      i.modelImportService,
-		controllerConfigService: i.controllerConfigService,
-		modelDetailServiceFunc:  func(_ coremodel.UUID) ModelDetailService { return i.modelDetailService },
+		userService:            i.userService,
+		modelImportService:     i.modelImportService,
+		modelDetailServiceFunc: func(_ coremodel.UUID) ModelDetailService { return i.modelDetailService },
 	}
 
 	coordinator := modelmigration.NewCoordinator(
@@ -386,7 +366,6 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 		},
 		nil,
 	)
-	i.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(testing.FakeControllerConfig(), nil)
 
 	activated := false
 	activator := func(_ context.Context) error {
@@ -406,15 +385,12 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 			Name:  "test-model",
 			Owner: userUUID,
 		},
-		ID:           modelUUID,
-		AgentVersion: jujuversion.Current,
+		UUID: modelUUID,
 	}
-	controllerUUID, err := uuid.UUIDFromString(testing.ControllerTag.Id())
-	c.Assert(err, jc.ErrorIsNil)
 
 	i.modelImportService.EXPECT().ImportModel(gomock.Any(), args).Return(activator, nil)
-	i.modelDetailService.EXPECT().CreateModelForVersion(
-		gomock.Any(), controllerUUID, jujuversion.Current, agentbinary.AgentStreamReleased,
+	i.modelDetailService.EXPECT().CreateModelWithAgentVersionStream(
+		gomock.Any(), jujuversion.Current, agentbinary.AgentStreamReleased,
 	).Return(errors.New("boom"))
 	i.modelImportService.EXPECT().DeleteModel(gomock.Any(), modelUUID, gomock.Any()).Return(nil)
 	i.modelDetailService.EXPECT().DeleteModel(gomock.Any()).Return(nil)
@@ -438,10 +414,9 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 	})
 
 	importOp := &importModelOperation{
-		userService:             i.userService,
-		modelImportService:      i.modelImportService,
-		controllerConfigService: i.controllerConfigService,
-		modelDetailServiceFunc:  func(_ coremodel.UUID) ModelDetailService { return i.modelDetailService },
+		userService:            i.userService,
+		modelImportService:     i.modelImportService,
+		modelDetailServiceFunc: func(_ coremodel.UUID) ModelDetailService { return i.modelDetailService },
 	}
 
 	coordinator := modelmigration.NewCoordinator(

@@ -34,6 +34,14 @@ type ModelState interface {
 	// Delete deletes a model.
 	Delete(context.Context, coremodel.UUID) error
 
+	// GetControllerUUID returns the controller uuid for the model.
+	// It is expected that CreateModel has been called before reading this value
+	// from the database.
+	// The following error types can be expected:
+	// - [modelerrors.NotFound] when no model has been created in the state
+	// layer.
+	GetControllerUUID(context.Context) (uuid.UUID, error)
+
 	// GetModel returns the read only model information set in the database.
 	GetModel(context.Context) (coremodel.ModelInfo, error)
 
@@ -70,8 +78,15 @@ type ModelState interface {
 // ControllerState is the controller state required by this service. This is the
 // controller database, not the model state.
 type ControllerState interface {
-	// GetModel returns the model with the given UUID.
-	GetModel(context.Context, coremodel.UUID) (coremodel.Model, error)
+	// GetModelSeedInformation returns information related to a model for the
+	// purposes of seeding this information into other parts of a Juju controller.
+	// This method is similar to [State.GetModel] but it allows for the returning of
+	// information on models that are not activated yet.
+	//
+	// The following error types can be expected:
+	// - [modelerrors.NotFound]: When the model is not found for the given uuid
+	// regardless of the activated status.
+	GetModelSeedInformation(context.Context, coremodel.UUID) (coremodel.ModelInfo, error)
 
 	// GetModelState returns the model state for the given model.
 	// It returns [modelerrors.NotFound] if the model does not exist for the given UUID.
@@ -182,18 +197,49 @@ func (s *ModelService) GetModelMetrics(ctx context.Context) (coremodel.ModelMetr
 	return s.modelSt.GetModelMetrics(ctx)
 }
 
-// CreateModelForVersion is responsible for creating a new model within the
-// model database, using the input agent version.
+// CreateModel is responsible for creating a new model within the model
+// database.
 //
 // The following error types can be expected to be returned:
-// - [modelerrors.AlreadyExists]: When the model uuid is already in use.
-func (s *ModelService) CreateModelForVersion(
+// - [modelerrors.AlreadyExists] when the model uuid is already in use.
+func (s *ModelService) CreateModel(
 	ctx context.Context,
-	controllerUUID uuid.UUID,
+) error {
+	defaultAgentVersion, defaultAgentStream := agentVersionSelector()
+	return s.CreateModelWithAgentVersionStream(
+		ctx, defaultAgentVersion, defaultAgentStream,
+	)
+}
+
+// CreateModelWithAgentVersion is responsible for creating a new model within
+// the model database using the specified agent version.
+//
+// The following error types can be expected to be returned:
+// - [modelerrors.AlreadyExists] when the model uuid is already in use.
+// - [modelerrors.AgentVersionNotSupported] when the agent version is not
+// supported.
+func (s *ModelService) CreateModelWithAgentVersion(
+	ctx context.Context,
+	agentVersion semversion.Number,
+) error {
+	_, defaultAgentStream := agentVersionSelector()
+	return s.CreateModelWithAgentVersionStream(ctx, agentVersion, defaultAgentStream)
+}
+
+// CreateModelForVersion is responsible for creating a new model within the
+// model database, using the input agent version and agent stream.
+//
+// The following error types can be expected to be returned:
+// - [modelerrors.AlreadyExists] when the model uuid is already in use.
+// - [coreerrors.NotValid] when the agent stream is not valid.
+// - [modelerrors.AgentVersionNotSupported] when the agent version is not
+// supported.
+func (s *ModelService) CreateModelWithAgentVersionStream(
+	ctx context.Context,
 	agentVersion semversion.Number,
 	agentStream agentbinary.AgentStream,
 ) error {
-	m, err := s.controllerSt.GetModel(ctx, s.modelUUID)
+	m, err := s.controllerSt.GetModelSeedInformation(ctx, s.modelUUID)
 	if err != nil {
 		return err
 	}
@@ -212,14 +258,14 @@ func (s *ModelService) CreateModelForVersion(
 
 	args := model.ModelDetailArgs{
 		UUID:            m.UUID,
-		ControllerUUID:  controllerUUID,
+		ControllerUUID:  m.ControllerUUID,
 		Name:            m.Name,
-		Type:            m.ModelType,
+		Type:            m.Type,
 		Cloud:           m.Cloud,
 		CloudType:       m.CloudType,
 		CloudRegion:     m.CloudRegion,
-		CredentialOwner: m.Credential.Owner,
-		CredentialName:  m.Credential.Name,
+		CredentialOwner: m.CredentialOwner,
+		CredentialName:  m.CredentialName,
 
 		AgentStream: argAgentStream,
 		// TODO (manadart 2024-01-13): Note that this comes from the arg.
@@ -348,24 +394,69 @@ func (s *ProviderModelService) CloudAPIVersion(ctx context.Context) (string, err
 }
 
 // CreateModel is responsible for creating a new model within the model
-// database, using the default agent version.
+// database. Upon creating the model any information required in the model's
+// provider will be initialised.
 //
 // The following error types can be expected to be returned:
-// - [modelerrors.AlreadyExists]: When the model uuid is already in use.
+// - [modelerrors.AlreadyExists] when the model uuid is already in use.
 func (s *ProviderModelService) CreateModel(
 	ctx context.Context,
-	controllerUUID uuid.UUID,
 ) error {
-	defaultAgentVersion, defaultAgentStream := agentVersionSelector()
-	if err := s.CreateModelForVersion(
-		ctx,
-		controllerUUID,
-		defaultAgentVersion,
-		defaultAgentStream,
+	if err := s.ModelService.CreateModel(ctx); err != nil {
+		return errors.Capture(err)
+	}
+
+	return s.createModelProviderResources(ctx)
+}
+
+// CreateModelWithAgentVersion is responsible for creating a new model within
+// the model database using the specified agent version. Upon creating the model
+// any information required in the model's provider will be initialised.
+//
+// The following error types can be expected to be returned:
+// - [modelerrors.AlreadyExists] when the model uuid is already in use.
+// - [modelerrors.AgentVersionNotSupported] when the agent version is not
+// supported.
+func (s *ProviderModelService) CreateModelWithAgentVersion(
+	ctx context.Context,
+	agentVersion semversion.Number,
+) error {
+	if err := s.ModelService.CreateModelWithAgentVersion(ctx, agentVersion); err != nil {
+		return errors.Capture(err)
+	}
+
+	return s.createModelProviderResources(ctx)
+}
+
+// CreateModelWithAgentVersionStream is responsible for creating a new model
+// within the model database using the specified agent version and agent stream.
+// Upon creating the model any information required in the model's provider
+// will be initialised.
+//
+// The following error types can be expected to be returned:
+// - [modelerrors.AlreadyExists] when the model uuid is already in use.
+// - [modelerrors.AgentVersionNotSupported] when the agent version is not
+// supported.
+// - [coreerrors.NotValid] when the agent stream is not valid.
+func (s *ProviderModelService) CreateModelWithAgentVersionStream(
+	ctx context.Context,
+	agentVersion semversion.Number,
+	agentStream agentbinary.AgentStream,
+) error {
+	if err := s.ModelService.CreateModelWithAgentVersionStream(
+		ctx, agentVersion, agentStream,
 	); err != nil {
 		return errors.Capture(err)
 	}
 
+	return s.createModelProviderResources(ctx)
+}
+
+// createModelProviderResources is responsible for creating the model resources
+// in the underlying provider after the model has been created.
+func (s *ProviderModelService) createModelProviderResources(
+	ctx context.Context,
+) error {
 	env, err := s.providerGetter(ctx)
 	if errors.Is(err, coreerrors.NotSupported) {
 		// Exit early if the provider does not support creating model resources for the new model.
@@ -376,12 +467,22 @@ func (s *ProviderModelService) CreateModel(
 	}
 
 	if err := env.ValidateProviderForNewModel(ctx); err != nil {
-		return errors.Errorf("creating model %q: %w", s.modelUUID, err)
+		return errors.Errorf("validating provider for model %q: %w", s.modelUUID, err)
 	}
+
+	controllerUUID, err := s.modelSt.GetControllerUUID(ctx)
+	if err != nil {
+		return errors.Errorf(
+			"getting controller uuid for model %q to initialise provider: %w",
+			s.modelUUID, err,
+		)
+	}
+
 	if err := env.CreateModelResources(ctx, environs.CreateParams{ControllerUUID: controllerUUID.String()}); err != nil {
 		// TODO: we should cleanup the model related data created above from database.
-		return errors.Errorf("creating model resources for %q: %w", s.modelUUID, err)
+		return errors.Errorf("creating model provider resources for %q: %w", s.modelUUID, err)
 	}
+
 	return nil
 }
 

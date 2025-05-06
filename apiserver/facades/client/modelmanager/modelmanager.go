@@ -286,16 +286,16 @@ func (m *ModelManagerAPI) createModelNew(
 		return modelID, errors.Annotatef(err, "failed to set model config for model %q", modelID)
 	}
 
+	// Create the model information in the model database.
+	if err := modelInfoService.CreateModel(ctx); err != nil {
+		return modelID, errors.Annotatef(err, "failed to create model info for model %q", modelID)
+	}
+
 	// TODO (stickupkid): Once tlm has fixed the CreateModel method to read
 	// from the model database to create the model, move the activator call
 	// to the end of the method.
 	if err := activator(ctx); err != nil {
 		return modelID, errors.Annotatef(err, "failed to finalise model %q", modelID)
-	}
-
-	// Create the model information in the model database.
-	if err := modelInfoService.CreateModel(ctx, m.controllerUUID); err != nil {
-		return modelID, errors.Annotatef(err, "failed to create model info for model %q", modelID)
 	}
 
 	// Reload the substrate spaces for the newly created model.

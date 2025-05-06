@@ -718,41 +718,6 @@ func (s *serviceSuite) TestListModelsForUser(c *gc.C) {
 	})
 }
 
-// TestImportModelWithMissingAgentVersion is asserting that if we try and import
-// a model that does not have an agent version set in the args we get back an
-// error that satisfies [modelerrors.AgentVersionNotSupported].
-func (s *serviceSuite) TestImportModelWithMissingAgentVersion(c *gc.C) {
-	cred := credential.Key{
-		Cloud: "aws",
-		Name:  "foobar",
-		Owner: usertesting.GenNewName(c, "owner"),
-	}
-	s.state.clouds["aws"] = dummyStateCloud{
-		Credentials: map[string]credential.Key{
-			cred.String(): cred,
-		},
-		Regions: []string{"myregion"},
-	}
-
-	modelID := modeltesting.GenModelUUID(c)
-
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
-	_, err := svc.ImportModel(context.Background(), model.ModelImportArgs{
-		GlobalModelCreationArgs: model.GlobalModelCreationArgs{
-			Cloud:       "aws",
-			CloudRegion: "myregion",
-			Credential:  cred,
-			Owner:       s.userUUID,
-			Name:        "my-awesome-model",
-		},
-		ID: modelID,
-	})
-	c.Assert(err, jc.ErrorIs, modelerrors.AgentVersionNotSupported)
-
-	_, exists := s.state.models[modelID]
-	c.Assert(exists, jc.IsFalse)
-}
-
 // TestImportModel is asserting the happy path for importing a model.
 func (s *serviceSuite) TestImportModel(c *gc.C) {
 	cred := credential.Key{
@@ -778,8 +743,7 @@ func (s *serviceSuite) TestImportModel(c *gc.C) {
 			Owner:       s.userUUID,
 			Name:        "my-awesome-model",
 		},
-		ID:           modelID,
-		AgentVersion: jujuversion.Current,
+		UUID: modelID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(activator(context.Background()), jc.ErrorIsNil)

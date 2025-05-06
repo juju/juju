@@ -143,6 +143,11 @@ type dbUUID struct {
 	UUID string `db:"uuid"`
 }
 
+// dbControllerUUID represents the controller uuid value on a model record.
+type dbControllerUUID struct {
+	UUID string `db:"controller_uuid"`
+}
+
 // dbModelUUIDRef represents the model uuid in tables that have a foreign key on
 // the model uuid.
 type dbModelUUIDRef struct {

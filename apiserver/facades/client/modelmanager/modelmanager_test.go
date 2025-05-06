@@ -384,7 +384,7 @@ func (s *modelManagerSuite) expectCreateModelOnModelDB(
 	modelDomainServices.EXPECT().Machine().Return(machineService)
 
 	// Expect calls to functions of the model services.
-	modelInfoService.EXPECT().CreateModel(gomock.Any(), s.controllerUUID)
+	modelInfoService.EXPECT().CreateModel(gomock.Any()).Return(nil)
 	modelInfoService.EXPECT().GetStatus(gomock.Any()).Return(domainmodel.StatusInfo{
 		Status: status.Available,
 		Since:  time.Now(),
@@ -1065,7 +1065,7 @@ func (s *modelManagerStateSuite) expectCreateModelStateSuite(
 	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
 	modelConfigService.EXPECT().SetModelConfig(gomock.Any(), gomock.Any())
 	modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
-	s.modelInfoService.EXPECT().CreateModel(gomock.Any(), s.controllerUUID)
+	s.modelInfoService.EXPECT().CreateModel(gomock.Any()).Return(nil)
 	s.modelInfoService.EXPECT().GetStatus(gomock.Any()).Return(domainmodel.StatusInfo{
 		Status: status.Active,
 		Since:  time.Now(),

@@ -12,8 +12,15 @@ import (
 // LogSinkState is the model state required by the provide service. This is
 // the model database state, not the controller state.
 type LogSinkState interface {
-	// GetModelInfo returns a the model info.
-	GetModelInfo(context.Context, coremodel.UUID) (coremodel.ModelInfo, error)
+	// GetModelSeedInformation returns information related to a model for the
+	// purposes of seeding this information into other parts of a Juju controller.
+	// This method is similar to [State.GetModel] but it allows for the returning of
+	// information on models that are not activated yet.
+	//
+	// The following error types can be expected:
+	// - [modelerrors.NotFound]: When the model is not found for the given uuid
+	// regardless of the activated status.
+	GetModelSeedInformation(context.Context, coremodel.UUID) (coremodel.ModelInfo, error)
 }
 
 // LogSinkService defines a service for interacting with the underlying model
@@ -32,7 +39,7 @@ func NewLogSinkService(st LogSinkState) *LogSinkService {
 // Model returns model info for the current service.
 //
 // The following error types can be expected to be returned:
-// - [modelerrors.NotFound]: When the model is not found for a given uuid.
+// - [modelerrors.NotFound]: When the model is not found for the given uuid.
 func (s *LogSinkService) Model(ctx context.Context, modelUUID coremodel.UUID) (coremodel.ModelInfo, error) {
-	return s.st.GetModelInfo(ctx, modelUUID)
+	return s.st.GetModelSeedInformation(ctx, modelUUID)
 }

@@ -29,7 +29,6 @@ import (
 	service "github.com/juju/juju/domain/modeldefaults/service"
 	service0 "github.com/juju/juju/domain/secretbackend/service"
 	config "github.com/juju/juju/environs/config"
-	uuid "github.com/juju/juju/internal/uuid"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -1053,17 +1052,17 @@ func (m *MockModelInfoService) EXPECT() *MockModelInfoServiceMockRecorder {
 }
 
 // CreateModel mocks base method.
-func (m *MockModelInfoService) CreateModel(arg0 context.Context, arg1 uuid.UUID) error {
+func (m *MockModelInfoService) CreateModel(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateModel", arg0, arg1)
+	ret := m.ctrl.Call(m, "CreateModel", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CreateModel indicates an expected call of CreateModel.
-func (mr *MockModelInfoServiceMockRecorder) CreateModel(arg0, arg1 any) *MockModelInfoServiceCreateModelCall {
+func (mr *MockModelInfoServiceMockRecorder) CreateModel(arg0 any) *MockModelInfoServiceCreateModelCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateModel", reflect.TypeOf((*MockModelInfoService)(nil).CreateModel), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateModel", reflect.TypeOf((*MockModelInfoService)(nil).CreateModel), arg0)
 	return &MockModelInfoServiceCreateModelCall{Call: call}
 }
 
@@ -1079,13 +1078,13 @@ func (c *MockModelInfoServiceCreateModelCall) Return(arg0 error) *MockModelInfoS
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelInfoServiceCreateModelCall) Do(f func(context.Context, uuid.UUID) error) *MockModelInfoServiceCreateModelCall {
+func (c *MockModelInfoServiceCreateModelCall) Do(f func(context.Context) error) *MockModelInfoServiceCreateModelCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelInfoServiceCreateModelCall) DoAndReturn(f func(context.Context, uuid.UUID) error) *MockModelInfoServiceCreateModelCall {
+func (c *MockModelInfoServiceCreateModelCall) DoAndReturn(f func(context.Context) error) *MockModelInfoServiceCreateModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

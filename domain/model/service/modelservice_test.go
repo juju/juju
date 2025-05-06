@@ -13,7 +13,6 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/agentbinary"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
@@ -319,16 +318,18 @@ func (s *modelServiceSuite) TestGetModelMetrics(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, metrics)
 }
 
-// TestAgentVersionUnsupportedGreater is asserting that if we try and create a
-// model with an agent version that is greater then that of the controller the
-// operation fails with a [modelerrors.AgentVersionNotSupported] error.
-func (s *modelServiceSuite) TestAgentVersionUnsupportedGreater(c *gc.C) {
+// TestCreateModelAgentVersionUnsupportedGreater is asserting that if we try and
+// create a model with an agent version that is greater then that of the
+// controller the operation fails with a [modelerrors.AgentVersionNotSupported]
+// error.
+func (s *modelServiceSuite) TestCreateModelAgentVersionUnsupportedGreater(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	modelUUID := modeltesting.GenModelUUID(c)
 
-	s.mockControllerState.EXPECT().GetModel(gomock.Any(), modelUUID).Return(coremodel.Model{}, nil)
+	s.mockControllerState.EXPECT().GetModelSeedInformation(
+		gomock.Any(), modelUUID).Return(coremodel.ModelInfo{}, nil)
 
 	agentVersion, err := semversion.Parse("99.9.9")
 	c.Assert(err, jc.ErrorIsNil)
@@ -341,8 +342,8 @@ func (s *modelServiceSuite) TestAgentVersionUnsupportedGreater(c *gc.C) {
 		DefaultAgentBinaryFinder(),
 	)
 
-	err = svc.CreateModelForVersion(
-		context.Background(), uuid.MustNewUUID(), agentVersion, agentbinary.AgentStreamReleased,
+	err = svc.CreateModelWithAgentVersion(
+		context.Background(), agentVersion,
 	)
 	c.Assert(err, jc.ErrorIs, modelerrors.AgentVersionNotSupported)
 }
@@ -357,7 +358,9 @@ func (s *modelServiceSuite) TestAgentVersionUnsupportedLess(c *gc.C) {
 
 	modelUUID := modeltesting.GenModelUUID(c)
 
-	s.mockControllerState.EXPECT().GetModel(gomock.Any(), modelUUID).Return(coremodel.Model{}, nil)
+	s.mockControllerState.EXPECT().GetModelSeedInformation(
+		gomock.Any(), modelUUID,
+	).Return(coremodel.ModelInfo{}, nil)
 
 	agentVersion, err := semversion.Parse("1.9.9")
 	c.Assert(err, jc.ErrorIsNil)
@@ -369,8 +372,8 @@ func (s *modelServiceSuite) TestAgentVersionUnsupportedLess(c *gc.C) {
 		s.environVersionProviderGetter(),
 		DefaultAgentBinaryFinder(),
 	)
-	err = svc.CreateModelForVersion(
-		context.Background(), uuid.MustNewUUID(), agentVersion, agentbinary.AgentStreamReleased,
+	err = svc.CreateModelWithAgentVersion(
+		context.Background(), agentVersion,
 	)
 	// Add the correct error detail when restoring this test.
 	c.Assert(err, gc.NotNil)
@@ -637,13 +640,14 @@ func (s *providerModelServiceSuite) TestCreateModel(c *gc.C) {
 
 	controllerUUID := uuid.MustNewUUID()
 	modelUUID := modeltesting.GenModelUUID(c)
-	s.mockControllerState.EXPECT().GetModel(gomock.Any(), gomock.Any()).Return(coremodel.Model{
-		UUID:        modelUUID,
-		Name:        "my-awesome-model",
-		Cloud:       "aws",
-		CloudType:   "ec2",
-		CloudRegion: "myregion",
-		ModelType:   coremodel.IAAS,
+	s.mockControllerState.EXPECT().GetModelSeedInformation(gomock.Any(), gomock.Any()).Return(coremodel.ModelInfo{
+		UUID:           modelUUID,
+		ControllerUUID: controllerUUID,
+		Name:           "my-awesome-model",
+		Cloud:          "aws",
+		CloudType:      "ec2",
+		CloudRegion:    "myregion",
+		Type:           coremodel.IAAS,
 	}, nil)
 	s.mockModelState.EXPECT().Create(gomock.Any(), model.ModelDetailArgs{
 		UUID:           modelUUID,
@@ -657,6 +661,7 @@ func (s *providerModelServiceSuite) TestCreateModel(c *gc.C) {
 		AgentVersion:   jujuversion.Current,
 	}).Return(nil)
 
+	s.mockModelState.EXPECT().GetControllerUUID(gomock.Any()).Return(controllerUUID, nil)
 	s.mockProvider.EXPECT().ValidateProviderForNewModel(gomock.Any()).Return(nil)
 	s.mockProvider.EXPECT().CreateModelResources(gomock.Any(), environs.CreateParams{ControllerUUID: controllerUUID.String()}).Return(nil)
 
@@ -669,7 +674,7 @@ func (s *providerModelServiceSuite) TestCreateModel(c *gc.C) {
 		func(context.Context) (CloudInfoProvider, error) { return s.mockCloudInfoProvider, nil },
 		DefaultAgentBinaryFinder(),
 	)
-	err := svc.CreateModel(context.Background(), controllerUUID)
+	err := svc.CreateModel(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -679,13 +684,14 @@ func (s *providerModelServiceSuite) TestCreateModelFailedErrorAlreadyExists(c *g
 
 	controllerUUID := uuid.MustNewUUID()
 	modelUUID := modeltesting.GenModelUUID(c)
-	s.mockControllerState.EXPECT().GetModel(gomock.Any(), gomock.Any()).Return(coremodel.Model{
-		UUID:        modelUUID,
-		Name:        "my-awesome-model",
-		Cloud:       "aws",
-		CloudType:   "ec2",
-		CloudRegion: "myregion",
-		ModelType:   coremodel.IAAS,
+	s.mockControllerState.EXPECT().GetModelSeedInformation(gomock.Any(), gomock.Any()).Return(coremodel.ModelInfo{
+		UUID:           modelUUID,
+		Name:           "my-awesome-model",
+		ControllerUUID: controllerUUID,
+		Cloud:          "aws",
+		CloudType:      "ec2",
+		CloudRegion:    "myregion",
+		Type:           coremodel.IAAS,
 	}, nil)
 	s.mockModelState.EXPECT().Create(gomock.Any(), model.ModelDetailArgs{
 		UUID:           modelUUID,
@@ -708,7 +714,7 @@ func (s *providerModelServiceSuite) TestCreateModelFailedErrorAlreadyExists(c *g
 		func(context.Context) (CloudInfoProvider, error) { return s.mockCloudInfoProvider, nil },
 		DefaultAgentBinaryFinder(),
 	)
-	err := svc.CreateModel(context.Background(), controllerUUID)
+	err := svc.CreateModel(context.Background())
 	c.Assert(err, jc.ErrorIs, modelerrors.AlreadyExists)
 }
 

@@ -418,14 +418,24 @@ FROM   controller
 	return model, nil
 }
 
-// GetModelInfo returns the model associated with the provided uuid. This will
-// return a model, even if it's not activated, so it can be used to determine
-// the model's status. If the model does not exist then an error satisfying
-// [modelerrors.NotFound] will be returned.
-func (s *State) GetModelInfo(
+// GetModelSeedInformation returns information related to a model for the
+// purposes of seeding this information into other parts of a Juju controller.
+// This method is similar to [State.GetModel] but it allows for the returning of
+// information on models that are not activated yet.
+//
+// This is needed to seed the static read only information of a model into the
+// model's database or build a service on behalf of the model that should run
+// regardless if the model is activated like logging.
+//
+// The following error types can be expected:
+// - [modelerrors.NotFound]: When the model is not found for the given uuid
+// regardless of the activated status.
+func (s *State) GetModelSeedInformation(
 	ctx context.Context,
 	modelUUID coremodel.UUID,
 ) (coremodel.ModelInfo, error) {
+	// WARNING (tlm): You are potentially working with half initialized model
+	// information in this function be careful!
 	db, err := s.DB()
 	if err != nil {
 		return coremodel.ModelInfo{}, errors.Capture(err)

@@ -24,6 +24,7 @@ import (
 	life "github.com/juju/juju/domain/life"
 	model0 "github.com/juju/juju/domain/model"
 	environs "github.com/juju/juju/environs"
+	uuid "github.com/juju/juju/internal/uuid"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -50,41 +51,41 @@ func (m *MockControllerState) EXPECT() *MockControllerStateMockRecorder {
 	return m.recorder
 }
 
-// GetModel mocks base method.
-func (m *MockControllerState) GetModel(arg0 context.Context, arg1 model.UUID) (model.Model, error) {
+// GetModelSeedInformation mocks base method.
+func (m *MockControllerState) GetModelSeedInformation(arg0 context.Context, arg1 model.UUID) (model.ModelInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetModel", arg0, arg1)
-	ret0, _ := ret[0].(model.Model)
+	ret := m.ctrl.Call(m, "GetModelSeedInformation", arg0, arg1)
+	ret0, _ := ret[0].(model.ModelInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetModel indicates an expected call of GetModel.
-func (mr *MockControllerStateMockRecorder) GetModel(arg0, arg1 any) *MockControllerStateGetModelCall {
+// GetModelSeedInformation indicates an expected call of GetModelSeedInformation.
+func (mr *MockControllerStateMockRecorder) GetModelSeedInformation(arg0, arg1 any) *MockControllerStateGetModelSeedInformationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModel", reflect.TypeOf((*MockControllerState)(nil).GetModel), arg0, arg1)
-	return &MockControllerStateGetModelCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelSeedInformation", reflect.TypeOf((*MockControllerState)(nil).GetModelSeedInformation), arg0, arg1)
+	return &MockControllerStateGetModelSeedInformationCall{Call: call}
 }
 
-// MockControllerStateGetModelCall wrap *gomock.Call
-type MockControllerStateGetModelCall struct {
+// MockControllerStateGetModelSeedInformationCall wrap *gomock.Call
+type MockControllerStateGetModelSeedInformationCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockControllerStateGetModelCall) Return(arg0 model.Model, arg1 error) *MockControllerStateGetModelCall {
+func (c *MockControllerStateGetModelSeedInformationCall) Return(arg0 model.ModelInfo, arg1 error) *MockControllerStateGetModelSeedInformationCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerStateGetModelCall) Do(f func(context.Context, model.UUID) (model.Model, error)) *MockControllerStateGetModelCall {
+func (c *MockControllerStateGetModelSeedInformationCall) Do(f func(context.Context, model.UUID) (model.ModelInfo, error)) *MockControllerStateGetModelSeedInformationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerStateGetModelCall) DoAndReturn(f func(context.Context, model.UUID) (model.Model, error)) *MockControllerStateGetModelCall {
+func (c *MockControllerStateGetModelSeedInformationCall) DoAndReturn(f func(context.Context, model.UUID) (model.ModelInfo, error)) *MockControllerStateGetModelSeedInformationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -345,6 +346,45 @@ func (c *MockModelStateDeleteCall) Do(f func(context.Context, model.UUID) error)
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelStateDeleteCall) DoAndReturn(f func(context.Context, model.UUID) error) *MockModelStateDeleteCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetControllerUUID mocks base method.
+func (m *MockModelState) GetControllerUUID(arg0 context.Context) (uuid.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetControllerUUID", arg0)
+	ret0, _ := ret[0].(uuid.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetControllerUUID indicates an expected call of GetControllerUUID.
+func (mr *MockModelStateMockRecorder) GetControllerUUID(arg0 any) *MockModelStateGetControllerUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControllerUUID", reflect.TypeOf((*MockModelState)(nil).GetControllerUUID), arg0)
+	return &MockModelStateGetControllerUUIDCall{Call: call}
+}
+
+// MockModelStateGetControllerUUIDCall wrap *gomock.Call
+type MockModelStateGetControllerUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetControllerUUIDCall) Return(arg0 uuid.UUID, arg1 error) *MockModelStateGetControllerUUIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetControllerUUIDCall) Do(f func(context.Context) (uuid.UUID, error)) *MockModelStateGetControllerUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetControllerUUIDCall) DoAndReturn(f func(context.Context) (uuid.UUID, error)) *MockModelStateGetControllerUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

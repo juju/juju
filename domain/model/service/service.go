@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/semversion"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -411,8 +410,6 @@ func (s *Service) createModel(
 // exist.
 // - [github.com/juju/juju/domain/access/errors.NotFound]: When the owner of the
 // model can not be found.
-// - [modelerrors.AgentVersionNotSupported]: When the prescribed agent version
-// cannot be used with this controller or the agent version is set to zero.
 // - [secretbackenderrors.NotFound] When the secret backend for the model
 // cannot be found.
 func (s *Service) ImportModel(
@@ -425,17 +422,7 @@ func (s *Service) ImportModel(
 		)
 	}
 
-	// If we are importing a model we need to know the agent version in use to
-	// make sure we have tools to support the model and it will work with this
-	// controller.
-	if args.AgentVersion == semversion.Zero {
-		return nil, errors.Errorf(
-			"cannot import model with id %q, agent version cannot be zero: %w",
-			args.ID, modelerrors.AgentVersionNotSupported,
-		)
-	}
-
-	return s.createModel(ctx, args.ID, args.GlobalModelCreationArgs)
+	return s.createModel(ctx, args.UUID, args.GlobalModelCreationArgs)
 }
 
 // ControllerModel returns the model used for housing the Juju controller.

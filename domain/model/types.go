@@ -128,11 +128,8 @@ type ModelImportArgs struct {
 	// importing the new model into Juju.
 	GlobalModelCreationArgs
 
-	// ID represents the unique id of the model to import.
-	ID coremodel.UUID
-
-	// AgentVersion is the target version for agents running in this model.
-	AgentVersion semversion.Number
+	// UUID represents the unique uuid of the model to import.
+	UUID coremodel.UUID
 }
 
 // Validate is responsible for checking all of the fields of [ModelImportArgs]
@@ -143,7 +140,7 @@ func (m ModelImportArgs) Validate() error {
 		return errors.Errorf("GlobalModelCreationArgs %w", err)
 	}
 
-	if err := m.ID.Validate(); err != nil {
+	if err := m.UUID.Validate(); err != nil {
 		return errors.Errorf("validating model import args id: %w", err)
 	}
 

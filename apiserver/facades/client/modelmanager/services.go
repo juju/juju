@@ -29,7 +29,6 @@ import (
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/services"
-	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 )
 
@@ -161,7 +160,7 @@ type ModelDefaultsService interface {
 type ModelInfoService interface {
 	// CreateModel is responsible for adding the details of the model
 	// that is being created.
-	CreateModel(context.Context, uuid.UUID) error
+	CreateModel(context.Context) error
 
 	// DeleteModel is responsible for deleting a model.
 	DeleteModel(context.Context) error
