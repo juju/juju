@@ -20,8 +20,8 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/ratelimit"
+	"github.com/juju/worker/v4/catacomb"
 	"github.com/prometheus/client_golang/prometheus"
-	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication"
@@ -54,7 +54,6 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	internalerrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
-	controllermsg "github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/resource"
 	resourcecharmhub "github.com/juju/juju/internal/resource/charmhub"
 	"github.com/juju/juju/internal/services"
@@ -64,13 +63,20 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// ErrAPIServerDying is used to indicate to *third parties* that the
+// api-server worker is dying, instead of catacomb.ErrDying, which is
+// unsuitable for propagating inter-worker.
+// This error indicates to consuming workers that their dependency has
+// become unmet and a restart by the dependency engine is imminent.
+const ErrAPIServerDying = errors.ConstError("api-server worker is dying")
+
 var logger = internallogger.GetLogger("juju.apiserver")
 
 var defaultHTTPMethods = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS"}
 
 // Server holds the server side of the API.
 type Server struct {
-	tomb      tomb.Tomb
+	catacomb  catacomb.Catacomb
 	clock     clock.Clock
 	pingClock clock.Clock
 	wg        sync.WaitGroup
@@ -220,6 +226,9 @@ type ServerConfig struct {
 	// DomainServicesGetter provides access to the services.
 	DomainServicesGetter services.DomainServicesGetter
 
+	// ControllerConfigService provides access to the controller config.
+	ControllerConfigService ControllerConfigService
+
 	// DBGetter returns WatchableDB implementations based on namespace.
 	DBGetter changestream.WatchableDBGetter
 
@@ -287,6 +296,9 @@ func (c ServerConfig) Validate() error {
 	if c.DomainServicesGetter == nil {
 		return errors.NotValidf("missing DomainServicesGetter")
 	}
+	if c.ControllerConfigService == nil {
+		return errors.NotValidf("missing ControllerConfigService")
+	}
 	if c.TracerGetter == nil {
 		return errors.NotValidf("missing TracerGetter")
 	}
@@ -337,22 +349,23 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 	loginAuthenticators := []authentication.LoginAuthenticator{cfg.LocalMacaroonAuthenticator, cfg.JWTAuthenticator}
 
 	shared, err := newSharedServerContext(sharedServerConfig{
-		statePool:            cfg.StatePool,
-		centralHub:           cfg.Hub,
-		leaseManager:         cfg.LeaseManager,
-		controllerUUID:       cfg.ControllerUUID,
-		controllerModelUUID:  cfg.ControllerModelUUID,
-		controllerConfig:     controllerConfig,
-		logger:               internallogger.GetLogger("juju.apiserver"),
-		charmhubHTTPClient:   cfg.CharmhubHTTPClient,
-		dbGetter:             cfg.DBGetter,
-		dbDeleter:            cfg.DBDeleter,
-		domainServicesGetter: cfg.DomainServicesGetter,
-		tracerGetter:         cfg.TracerGetter,
-		objectStoreGetter:    cfg.ObjectStoreGetter,
-		machineTag:           cfg.Tag,
-		dataDir:              cfg.DataDir,
-		logDir:               cfg.LogDir,
+		statePool:               cfg.StatePool,
+		centralHub:              cfg.Hub,
+		leaseManager:            cfg.LeaseManager,
+		controllerUUID:          cfg.ControllerUUID,
+		controllerModelUUID:     cfg.ControllerModelUUID,
+		controllerConfig:        controllerConfig,
+		logger:                  internallogger.GetLogger("juju.apiserver"),
+		charmhubHTTPClient:      cfg.CharmhubHTTPClient,
+		dbGetter:                cfg.DBGetter,
+		dbDeleter:               cfg.DBDeleter,
+		domainServicesGetter:    cfg.DomainServicesGetter,
+		controllerConfigService: cfg.ControllerConfigService,
+		tracerGetter:            cfg.TracerGetter,
+		objectStoreGetter:       cfg.ObjectStoreGetter,
+		machineTag:              cfg.Tag,
+		dataDir:                 cfg.DataDir,
+		logDir:                  cfg.LogDir,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -393,31 +406,6 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		return nil, errors.Trace(err)
 	}
 
-	// We are able to get the current controller config before subscribing to changes
-	// because the changes are only ever published in response to an API call,
-	// and we know that we can't make any API calls until the server has started.
-	unsubscribeControllerConfig, err := cfg.Hub.Subscribe(
-		controllermsg.ConfigChanged,
-		func(topic string, data controllermsg.ConfigChangedMessage, err error) {
-			if err != nil {
-				logger.Criticalf(ctx, "programming error in %s message data: %v", topic, err)
-				return
-			}
-
-			srv.updateAgentRateLimiter(data.Config)
-
-			// If the update fails, there is nothing else we can do but log the
-			// error. The server will continue to run with the old limits.
-			if err := srv.updateResourceDownloadLimiters(data.Config); err != nil {
-				logger.Errorf(ctx, "failed to update resource download limiters: %v", err)
-				return
-			}
-		})
-	if err != nil {
-		logger.Criticalf(ctx, "programming error in subscribe function: %v", err)
-		return nil, errors.Trace(err)
-	}
-
 	macaroonService := controllerDomainServices.Macaroon()
 
 	// The auth context for authenticating access to application offers.
@@ -428,17 +416,18 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		controllerConfigService, macaroonService,
 	)
 	if err != nil {
-		unsubscribeControllerConfig()
 		return nil, fmt.Errorf("creating offer auth context: %w", err)
 	}
 
 	ready := make(chan struct{})
-	srv.tomb.Go(func() error {
-		defer srv.logSink.Close()
-		defer srv.shared.Close()
-		defer unsubscribeControllerConfig()
-		return srv.loop(ready)
-	})
+	if err := catacomb.Invoke(catacomb.Plan{
+		Site: &srv.catacomb,
+		Work: func() error {
+			return srv.loop(ready)
+		},
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	// Don't return until all handlers have been registered.
 	select {
@@ -467,24 +456,33 @@ func (srv *Server) Report() map[string]interface{} {
 
 // Dead returns a channel that signals when the server has exited.
 func (srv *Server) Dead() <-chan struct{} {
-	return srv.tomb.Dead()
+	return srv.catacomb.Dead()
 }
 
 // Stop stops the server and returns when all running requests
 // have completed.
 func (srv *Server) Stop() error {
-	srv.tomb.Kill(nil)
-	return srv.tomb.Wait()
+	srv.Kill()
+	return srv.Wait()
 }
 
 // Kill implements worker.Worker.Kill.
 func (srv *Server) Kill() {
-	srv.tomb.Kill(nil)
+	srv.catacomb.Kill(nil)
 }
 
 // Wait implements worker.Worker.Wait.
 func (srv *Server) Wait() error {
-	return srv.tomb.Wait()
+	// If the server was killed, and in turn any watchers associated with the
+	// catacomb are cancelled whilst a request is being processed, it will
+	// return context.Canceled. This is expected and should not be treated as an
+	// error.
+	if err := srv.catacomb.Wait(); errors.Is(err, context.Canceled) {
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func (srv *Server) updateAgentRateLimiter(cfg controller.Config) {
@@ -614,19 +612,52 @@ func (srv *Server) loop(ready chan struct{}) error {
 		}
 	}
 
+	controllerConfigService := srv.shared.controllerConfigService
+	controllerConfigWatcher, err := controllerConfigService.WatchControllerConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := srv.catacomb.Add(controllerConfigWatcher); err != nil {
+		return errors.Trace(err)
+	}
+
 	close(ready)
+
 	srv.mu.Lock()
 	srv.healthStatus = "running"
 	srv.mu.Unlock()
 
-	<-srv.tomb.Dying()
+	ctx := srv.catacomb.Context(context.Background())
 
-	srv.mu.Lock()
-	srv.healthStatus = "stopping"
-	srv.mu.Unlock()
+	for {
+		select {
+		case <-srv.catacomb.Dying():
+			srv.mu.Lock()
+			srv.healthStatus = "stopping"
+			srv.mu.Unlock()
 
-	srv.wg.Wait() // wait for any outstanding requests to complete.
-	return tomb.ErrDying
+			srv.wg.Wait() // wait for any outstanding requests to complete.
+			return ErrAPIServerDying
+
+		case <-controllerConfigWatcher.Changes():
+			controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
+			if err != nil {
+				logger.Errorf(ctx, "failed to get controller config: %v", err)
+				continue
+			}
+
+			srv.updateAgentRateLimiter(controllerConfig)
+			srv.shared.updateControllerConfig(ctx, controllerConfig)
+
+			// If the update fails, there is nothing else we can do but log the
+			// error. The server will continue to run with the old limits.
+			if err := srv.updateResourceDownloadLimiters(controllerConfig); err != nil {
+				logger.Errorf(ctx, "failed to update resource download limiters: %v", err)
+				continue
+			}
+		}
+	}
 }
 
 const (
@@ -996,27 +1027,27 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 // is shutting down.
 //
 // Note: It is only safe to use trackRequests with API handlers which
-// are interruptible (i.e. they pay attention to the apiserver tomb)
+// are interruptible (i.e. they pay attention to the apiserver catacomb)
 // or are guaranteed to be short-lived. If it's used with long running
-// API handlers which don't watch the apiserver's tomb, apiserver
+// API handlers which don't watch the apiserver's catacomb, apiserver
 // shutdown will be blocked until the API handler returns.
 func (srv *Server) trackRequests(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Care must be taken to not increment the waitgroup count
 		// after the listener has closed.
 		//
-		// First we check to see if the tomb has not yet been killed
-		// because the closure of the listener depends on the tomb being
+		// First we check to see if the catacomb has not yet been killed
+		// because the closure of the listener depends on the catacomb being
 		// killed to trigger the defer block in srv.run.
 		select {
-		case <-srv.tomb.Dying():
+		case <-srv.catacomb.Dying():
 			// This request was accepted before the listener was closed
-			// but after the tomb was killed. As we're in the process of
+			// but after the catacomb was killed. As we're in the process of
 			// shutting down, do not consider this request as in progress,
 			// just send a 503 and return.
 			http.Error(w, "apiserver shutdown in progress", http.StatusServiceUnavailable)
 		default:
-			// If we get here then the tomb was not killed therefore the
+			// If we get here then the catacomb was not killed therefore the
 			// listener is still open. It is safe to increment the
 			// wg counter as wg.Wait in srv.run has not yet been called.
 			srv.wg.Add(1)
@@ -1065,7 +1096,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 
 		logger.Tracef(ctx, "got a request for model %q", modelUUID)
 		if err := srv.serveConn(
-			srv.tomb.Context(ctx),
+			srv.catacomb.Context(ctx),
 			conn,
 			resolvedModelUUID,
 			controllerOnlyLogin,
@@ -1161,7 +1192,7 @@ func (srv *Server) serveConn(
 	conn.Start(ctx)
 	select {
 	case <-conn.Dead():
-	case <-srv.tomb.Dying():
+	case <-srv.catacomb.Dying():
 	case <-stateClosing:
 	}
 	return conn.Close()
@@ -1182,6 +1213,7 @@ func (srv *Server) GetAuditConfig() auditlog.Config {
 }
 
 // GetCentralHub returns the central hub for the server.
+// TODO (stickupkid): Remove me. This is only used for testing.
 func (srv *Server) GetCentralHub() *pubsub.StructuredHub {
 	return srv.shared.centralHub.(*pubsub.StructuredHub)
 }

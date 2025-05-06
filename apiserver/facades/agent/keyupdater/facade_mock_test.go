@@ -353,44 +353,6 @@ func (c *MockModelContextHTTPClientCall) DoAndReturn(f func(http.Purpose) (facad
 	return c
 }
 
-// Hub mocks base method.
-func (m *MockModelContext) Hub() facade.Hub {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Hub")
-	ret0, _ := ret[0].(facade.Hub)
-	return ret0
-}
-
-// Hub indicates an expected call of Hub.
-func (mr *MockModelContextMockRecorder) Hub() *MockModelContextHubCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Hub", reflect.TypeOf((*MockModelContext)(nil).Hub))
-	return &MockModelContextHubCall{Call: call}
-}
-
-// MockModelContextHubCall wrap *gomock.Call
-type MockModelContextHubCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelContextHubCall) Return(arg0 facade.Hub) *MockModelContextHubCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelContextHubCall) Do(f func() facade.Hub) *MockModelContextHubCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelContextHubCall) DoAndReturn(f func() facade.Hub) *MockModelContextHubCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // ID mocks base method.
 func (m *MockModelContext) ID() string {
 	m.ctrl.T.Helper()

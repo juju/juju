@@ -168,7 +168,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	if err := c.checkIsAdmin(ctx); err == nil {
 		// TODO(gfouillet): Re-enable fetching for offer details once
 		//   CMR will be moved in their own domain.
-		logger.Warningf(ctx, "cross model relations are disabled until "+
+		logger.Tracef(ctx, "cross model relations are disabled until "+
 			"backend functionality is moved to domain")
 	}
 	if err = context.fetchMachines(c.stateAccessor); err != nil {

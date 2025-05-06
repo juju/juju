@@ -66,21 +66,6 @@ func (s *workerSuite) TestKilledGetLoggerContext(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, logger.ErrLoggerDying)
 }
 
-func (s *workerSuite) TestClose(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	w := s.newWorker(c)
-	defer workertest.DirtyKill(c, w)
-
-	s.ensureStartup(c)
-
-	worker := w.(*LogSink)
-	err := worker.Close()
-	c.Assert(err, jc.ErrorIsNil)
-
-	workertest.CheckKill(c, w)
-}
-
 func (s *workerSuite) TestGetLogWriter(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

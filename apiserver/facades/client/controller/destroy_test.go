@@ -110,7 +110,6 @@ func (s *destroyControllerSuite) controllerAPI(c *gc.C) *controller.ControllerAP
 		authorizer     = ctx.Auth()
 		pool           = ctx.StatePool()
 		resources      = ctx.Resources()
-		hub            = ctx.Hub()
 		domainServices = ctx.DomainServices()
 	)
 
@@ -177,7 +176,6 @@ func (s *destroyControllerSuite) controllerAPI(c *gc.C) *controller.ControllerAP
 		pool,
 		authorizer,
 		resources,
-		hub,
 		ctx.Logger().Child("controller"),
 		domainServices.ControllerConfig(),
 		domainServices.ExternalController(),

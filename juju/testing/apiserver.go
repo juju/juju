@@ -341,6 +341,7 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 	cfg.DBGetter = stubDBGetter{db: stubWatchableDB{TxnRunner: s.TxnRunner()}}
 	cfg.DBDeleter = stubDBDeleter{}
 	cfg.DomainServicesGetter = s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c))
+	cfg.ControllerConfigService = s.ControllerDomainServices(c).ControllerConfig()
 	cfg.StatePool = s.controller.StatePool()
 	cfg.PublicDNSName = controllerCfg.AutocertDNSName()
 
@@ -453,7 +454,9 @@ func (s *ApiServerSuite) TearDownTest(c *gc.C) {
 	s.tearDownConn(c)
 	if s.Server != nil {
 		err := s.Server.Stop()
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			c.Assert(err, jc.ErrorIs, apiserver.ErrAPIServerDying)
+		}
 	}
 	if s.httpServer != nil {
 		s.httpServer.Close()

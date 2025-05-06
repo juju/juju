@@ -145,6 +145,7 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		DBGetter:                   s.dbGetter,
 		DBDeleter:                  s.dbDeleter,
 		DomainServicesGetter:       s.domainServicesGetter,
+		ControllerConfigService:    s.controllerConfigService,
 		TracerGetter:               s.tracerGetter,
 		ObjectStoreGetter:          s.objectStoreGetter,
 		ControllerUUID:             s.controllerUUID,

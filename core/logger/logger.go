@@ -6,7 +6,6 @@ package logger
 import (
 	"context"
 	"fmt"
-	"io"
 	"sort"
 	"strconv"
 	"strings"
@@ -195,10 +194,6 @@ type LogWriter interface {
 // ModelLogger keeps track of all the log writers, which can be accessed
 // by a given model uuid.
 type ModelLogger interface {
-	// Closer provides a Close() method which calls Close() on
-	// each of the tracked log writers.
-	io.Closer
-
 	// GetLogWriter returns a log writer for the given model and keeps
 	// track of it, returning the same one if called again.
 	GetLogWriter(ctx context.Context, modelUUID model.UUID) (LogWriter, error)

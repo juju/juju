@@ -333,9 +333,9 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		DBGetter:                          dbGetter,
 		DBDeleter:                         dbDeleter,
 		DomainServicesGetter:              domainServicesGetter,
+		ControllerConfigService:           controllerConfigService,
 		TracerGetter:                      tracerGetter,
 		ObjectStoreGetter:                 objectStoreGetter,
-		ControllerConfigService:           controllerConfigService,
 		ModelService:                      modelService,
 	})
 	if err != nil {

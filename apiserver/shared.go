@@ -13,14 +13,13 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/facade"
-	jujucontroller "github.com/juju/juju/controller"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/state"
@@ -58,7 +57,8 @@ type sharedServerContext struct {
 
 	// DomainServicesGetter is used to get the domain services for controllers
 	// and models.
-	domainServicesGetter services.DomainServicesGetter
+	domainServicesGetter    services.DomainServicesGetter
+	controllerConfigService ControllerConfigService
 
 	// TraceGetter is used to get the tracer for the API server.
 	tracerGetter trace.TracerGetter
@@ -71,7 +71,7 @@ type sharedServerContext struct {
 
 	// controllerUUID is the unique identifier of the controller.
 	controllerUUID   string
-	controllerConfig jujucontroller.Config
+	controllerConfig controller.Config
 	features         set.Strings
 
 	// controllerModelUUID is the UUID of the controller model.
@@ -80,8 +80,6 @@ type sharedServerContext struct {
 	machineTag names.Tag
 	dataDir    string
 	logDir     string
-
-	unsubscribe func()
 }
 
 type sharedServerConfig struct {
@@ -90,18 +88,19 @@ type sharedServerConfig struct {
 	leaseManager        lease.Manager
 	controllerUUID      string
 	controllerModelUUID model.UUID
-	controllerConfig    jujucontroller.Config
+	controllerConfig    controller.Config
 	logger              corelogger.Logger
 	charmhubHTTPClient  facade.HTTPClient
 
-	dbGetter             changestream.WatchableDBGetter
-	dbDeleter            database.DBDeleter
-	domainServicesGetter services.DomainServicesGetter
-	tracerGetter         trace.TracerGetter
-	objectStoreGetter    objectstore.ObjectStoreGetter
-	machineTag           names.Tag
-	dataDir              string
-	logDir               string
+	dbGetter                changestream.WatchableDBGetter
+	dbDeleter               database.DBDeleter
+	domainServicesGetter    services.DomainServicesGetter
+	controllerConfigService ControllerConfigService
+	tracerGetter            trace.TracerGetter
+	objectStoreGetter       objectstore.ObjectStoreGetter
+	machineTag              names.Tag
+	dataDir                 string
+	logDir                  string
 }
 
 func (c *sharedServerConfig) validate() error {
@@ -129,6 +128,9 @@ func (c *sharedServerConfig) validate() error {
 	if c.domainServicesGetter == nil {
 		return errors.NotValidf("nil domainServicesGetter")
 	}
+	if c.controllerConfigService == nil {
+		return errors.NotValidf("nil controllerConfigService")
+	}
 	if c.tracerGetter == nil {
 		return errors.NotValidf("nil tracerGetter")
 	}
@@ -146,64 +148,50 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		return nil, errors.Trace(err)
 	}
 	ctx := &sharedServerContext{
-		statePool:            config.statePool,
-		centralHub:           config.centralHub,
-		leaseManager:         config.leaseManager,
-		logger:               config.logger,
-		controllerUUID:       config.controllerUUID,
-		controllerModelUUID:  config.controllerModelUUID,
-		controllerConfig:     config.controllerConfig,
-		charmhubHTTPClient:   config.charmhubHTTPClient,
-		dbGetter:             config.dbGetter,
-		dbDeleter:            config.dbDeleter,
-		domainServicesGetter: config.domainServicesGetter,
-		tracerGetter:         config.tracerGetter,
-		objectStoreGetter:    config.objectStoreGetter,
-		machineTag:           config.machineTag,
-		dataDir:              config.dataDir,
-		logDir:               config.logDir,
+		statePool:               config.statePool,
+		centralHub:              config.centralHub,
+		leaseManager:            config.leaseManager,
+		logger:                  config.logger,
+		controllerUUID:          config.controllerUUID,
+		controllerModelUUID:     config.controllerModelUUID,
+		controllerConfig:        config.controllerConfig,
+		charmhubHTTPClient:      config.charmhubHTTPClient,
+		dbGetter:                config.dbGetter,
+		dbDeleter:               config.dbDeleter,
+		domainServicesGetter:    config.domainServicesGetter,
+		controllerConfigService: config.controllerConfigService,
+		tracerGetter:            config.tracerGetter,
+		objectStoreGetter:       config.objectStoreGetter,
+		machineTag:              config.machineTag,
+		dataDir:                 config.dataDir,
+		logDir:                  config.logDir,
 	}
 	ctx.features = config.controllerConfig.Features()
-	// We are able to get the current controller config before subscribing to changes
-	// because the changes are only ever published in response to an API call, and
-	// this function is called in the newServer call to create the API server,
-	// and we know that we can't make any API calls until the server has started.
-	unsubscribe, err := ctx.centralHub.Subscribe(controller.ConfigChanged, ctx.onConfigChanged)
-	if err != nil {
-		ctx.logger.Criticalf(context.TODO(), "programming error in subscribe function: %v", err)
-		return nil, errors.Trace(err)
-	}
-	ctx.unsubscribe = unsubscribe
 	return ctx, nil
 }
 
-func (c *sharedServerContext) Close() {
-	c.unsubscribe()
-}
-
-func (c *sharedServerContext) onConfigChanged(topic string, data controller.ConfigChangedMessage, err error) {
-	if err != nil {
-		c.logger.Criticalf(context.TODO(), "programming error in %s message data: %v", topic, err)
-		return
-	}
-
-	features := data.Config.Features()
-
+func (c *sharedServerContext) updateControllerConfig(ctx context.Context, config controller.Config) {
 	c.configMutex.Lock()
-	c.controllerConfig = data.Config
+	defer c.configMutex.Unlock()
+
+	c.controllerConfig = config
+
+	features := config.Features()
+
 	removed := c.features.Difference(features)
 	added := features.Difference(c.features)
-	c.features = features
 	values := features.SortedValues()
-	c.configMutex.Unlock()
 
 	if removed.Size() != 0 || added.Size() != 0 {
-		c.logger.Infof(context.TODO(), "updating features to %v", values)
+		c.logger.Infof(ctx, "updating features to %v", values)
 	}
+
+	c.features = features
 }
 
 func (c *sharedServerContext) maxDebugLogDuration() time.Duration {
 	c.configMutex.RLock()
 	defer c.configMutex.RUnlock()
+
 	return c.controllerConfig.MaxDebugLogDuration()
 }

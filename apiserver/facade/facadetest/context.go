@@ -26,7 +26,6 @@ import (
 type ModelContext struct {
 	Auth_            facade.Authorizer
 	Dispose_         func()
-	Hub_             facade.Hub
 	Resources_       facade.Resources
 	WatcherRegistry_ facade.WatcherRegistry
 	State_           *state.State
@@ -68,11 +67,6 @@ func (c ModelContext) Auth() facade.Authorizer {
 // Dispose is part of the facade.ModelContext interface.
 func (c ModelContext) Dispose() {
 	c.Dispose_()
-}
-
-// Hub is part of the facade.ModelContext interface.
-func (c ModelContext) Hub() facade.Hub {
-	return c.Hub_
 }
 
 // Resources is part of the facade.ModelContext interface.

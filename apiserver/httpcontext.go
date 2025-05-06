@@ -211,7 +211,7 @@ func (ctxt *httpContext) domainServicesDuringMigrationForRequest(r *http.Request
 // stop returns a channel which will be closed when a handler should
 // exit.
 func (ctxt *httpContext) stop() <-chan struct{} {
-	return ctxt.srv.tomb.Dying()
+	return ctxt.srv.catacomb.Dying()
 }
 
 // sendError sends a JSON-encoded error response
