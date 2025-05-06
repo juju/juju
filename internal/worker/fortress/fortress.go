@@ -58,18 +58,11 @@ func (f *fortress) Visit(ctx context.Context, visit Visit) error {
 	case <-ctx.Done():
 		return ErrAborted
 	case f.guestTickets <- guestTicket{
+		ctx:    ctx,
 		visit:  visit,
 		result: result,
 	}:
-		// Ensure that we don't block indefinitely when waiting for the result.
-		select {
-		case <-ctx.Done():
-			return ErrAborted
-		case <-f.tomb.Dying():
-			return ErrShutdown
-		case err := <-result:
-			return err
-		}
+		return <-result
 	}
 }
 
@@ -80,20 +73,11 @@ func (f *fortress) allowGuests(ctx context.Context, allowGuests bool) error {
 	case <-f.tomb.Dying():
 		return ErrShutdown
 	case f.guardTickets <- guardTicket{
-		abort:       ctx.Done(),
+		ctx:         ctx,
 		allowGuests: allowGuests,
 		result:      result,
 	}:
-
-		// Ensure that we don't block indefinitely when waiting for the result.
-		select {
-		case <-ctx.Done():
-			return ErrAborted
-		case <-f.tomb.Dying():
-			return ErrShutdown
-		case err := <-result:
-			return err
-		}
+		return <-result
 	}
 }
 
@@ -101,8 +85,6 @@ func (f *fortress) allowGuests(ctx context.Context, allowGuests bool) error {
 // parallel until a Guard locks it down again; at which point, it waits for all
 // outstanding visits to complete, and reverts to its original state.
 func (f *fortress) loop() error {
-	ctx := f.tomb.Context(context.Background())
-
 	var active sync.WaitGroup
 	defer active.Wait()
 
@@ -114,7 +96,7 @@ func (f *fortress) loop() error {
 			return tomb.ErrDying
 		case ticket := <-guestTickets:
 			active.Add(1)
-			go ticket.complete(ctx, active.Done)
+			go ticket.complete(active.Done)
 		case ticket := <-f.guardTickets:
 			// guard ticket requests are idempotent; it's not worth building
 			// the extra mechanism needed to (1) complain about abuse but
@@ -125,28 +107,25 @@ func (f *fortress) loop() error {
 			} else {
 				guestTickets = nil
 			}
-			go ticket.complete(ctx, active.Wait)
+			go ticket.complete(active.Wait)
 		}
 	}
 }
 
 // guardTicket communicates between the Guard interface and the main loop.
 type guardTicket struct {
+	ctx         context.Context
 	allowGuests bool
-	abort       <-chan struct{}
 	result      chan<- error
 }
 
 // complete unconditionally sends a single value on ticket.result; either nil
-// (when the desired state is reached) or ErrAborted (when the ticket's Abort
-// is closed). It should be called on its own goroutine.
-func (ticket guardTicket) complete(ctx context.Context, waitLockedDown func()) {
+// (when the desired state is reached) or ErrAborted (when the ticket's ctx is
+// done). It should be called on its own goroutine.
+func (ticket guardTicket) complete(waitLockedDown func()) {
 	var result error
 	defer func() {
-		select {
-		case <-ctx.Done():
-		case ticket.result <- result:
-		}
+		ticket.result <- result
 	}()
 
 	done := make(chan struct{})
@@ -160,24 +139,26 @@ func (ticket guardTicket) complete(ctx context.Context, waitLockedDown func()) {
 	}()
 	select {
 	case <-done:
-	case <-ticket.abort:
+	case <-ticket.ctx.Done():
 		result = ErrAborted
 	}
 }
 
 // guestTicket communicates between the Guest interface and the main loop.
 type guestTicket struct {
+	ctx    context.Context
 	visit  Visit
 	result chan<- error
 }
 
 // complete unconditionally sends any error returned from the Visit func, then
 // calls the finished func. It should be called on its own goroutine.
-func (ticket guestTicket) complete(ctx context.Context, finished func()) {
+func (ticket guestTicket) complete(finished func()) {
 	defer finished()
 
 	select {
-	case <-ctx.Done():
+	case <-ticket.ctx.Done():
+		ticket.result <- ErrAborted
 	case ticket.result <- ticket.visit():
 	}
 }
