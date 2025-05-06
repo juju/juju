@@ -281,8 +281,10 @@ type linkLayerDeviceDML struct {
 
 // netInterfaceToDML returns persistence types for representing a single
 // [network.NetInterface] instance without its addresses.
-// The incoming map of device name to device UUID should container entries for
+// The incoming map of device name to device UUID should contain entries for
 // this device's UUID and its parent device if required.
+// It is expected that the map will be populated as part of the reconciliation
+// process prior to calling this method.
 func netInterfaceToDML(
 	dev network.NetInterface, nodeUUID string, nameToUUID map[string]string,
 ) (linkLayerDeviceDML, error) {
@@ -363,6 +365,135 @@ func encodeVirtualPortType(kind corenetwork.VirtualPortType) (int64, error) {
 		return 1, nil
 	default:
 		return -1, errors.Errorf("unsupported virtual port type: %q", kind)
+	}
+}
+
+// ipAddressDML is for writing data to the ip_address table.
+type ipAddressDML struct {
+	UUID         string  `db:"uuid"`
+	DeviceUUID   string  `db:"device_uuid"`
+	AddressValue string  `db:"address_value"`
+	SubnetUUID   *string `db:"subnet_uuid"`
+	TypeID       int64   `db:"type_id"`
+	ConfigTypeID int64   `db:"config_type_id"`
+	OriginID     int64   `db:"origin_id"`
+	ScopeID      int64   `db:"scope_id"`
+	IsSecondary  bool    `db:"is_secondary"`
+	IsShadow     bool    `db:"is_shadow"`
+}
+
+// netAddrToDML returns a persistence type for representing a single
+// [network.NetAddr].
+// The incoming map of device name to device UUID should contain an entry for
+// the device to which the address is assigned.
+// The incoming map of IP address to UUID should contain an entry for this
+// address.
+// It is expected that the maps will be populated as part of the reconciliation
+// process prior to calling this method.
+func netAddrToDML(addr network.NetAddr, devNameToUUID, ipToUUID map[string]string) (ipAddressDML, error) {
+	var dml ipAddressDML
+
+	devUUID, ok := devNameToUUID[addr.InterfaceName]
+	if !ok {
+		return dml, errors.Errorf("no UUID associated with device %q", addr.InterfaceName)
+	}
+
+	addrUUID, ok := ipToUUID[addr.AddressValue]
+	if !ok {
+		return dml, errors.Errorf("no UUID associated with IP %q on device %q", addr.AddressValue, addr.InterfaceName)
+	}
+
+	addrTypeID, err := encodeAddressType(addr.AddressType)
+	if err != nil {
+		return dml, errors.Capture(err)
+	}
+
+	addrConfTypeID, err := encodeAddressConfigType(addr.ConfigType)
+	if err != nil {
+		return dml, errors.Capture(err)
+	}
+
+	originID, err := encodeAddressOrigin(addr.Origin)
+	if err != nil {
+		return dml, errors.Capture(err)
+	}
+
+	scopeID, err := encodeAddressScope(addr.Scope)
+	if err != nil {
+		return dml, errors.Capture(err)
+	}
+
+	dml = ipAddressDML{
+		UUID:         addrUUID,
+		DeviceUUID:   devUUID,
+		AddressValue: addr.AddressValue,
+		SubnetUUID:   nil,
+		TypeID:       addrTypeID,
+		ConfigTypeID: addrConfTypeID,
+		OriginID:     originID,
+		ScopeID:      scopeID,
+		IsSecondary:  addr.IsSecondary,
+		IsShadow:     addr.IsShadow,
+	}
+
+	return dml, nil
+}
+
+func encodeAddressType(kind corenetwork.AddressType) (int64, error) {
+	switch kind {
+	case corenetwork.IPv4Address:
+		return 0, nil
+	case corenetwork.IPv6Address:
+		return 1, nil
+	case corenetwork.HostName:
+		return -1, errors.Errorf("address type %q can not be used for an IP address", kind)
+	default:
+		return -1, errors.Errorf("unsupported address type: %q", kind)
+	}
+}
+
+func encodeAddressConfigType(kind corenetwork.AddressConfigType) (int64, error) {
+	switch kind {
+	case corenetwork.ConfigUnknown:
+		return 0, nil
+	case corenetwork.ConfigDHCP:
+		return 1, nil
+	case corenetwork.ConfigStatic:
+		return 4, nil
+	case corenetwork.ConfigManual:
+		return 5, nil
+	case corenetwork.ConfigLoopback:
+		return 6, nil
+	default:
+		return -1, errors.Errorf("unsupported address config type: %q", kind)
+	}
+}
+
+func encodeAddressOrigin(kind corenetwork.Origin) (int64, error) {
+	switch kind {
+	case corenetwork.OriginMachine:
+		return 0, nil
+	case corenetwork.OriginProvider:
+		return 1, nil
+	default:
+		return -1, errors.Errorf("unsupported address origin: %q", kind)
+	}
+}
+
+func encodeAddressScope(kind corenetwork.Scope) (int64, error) {
+	switch kind {
+	case corenetwork.ScopeUnknown:
+		return 0, nil
+	case corenetwork.ScopePublic:
+		return 1, nil
+	case corenetwork.ScopeCloudLocal:
+		return 4, nil
+	case corenetwork.ScopeMachineLocal:
+		return 5, nil
+	case corenetwork.ScopeLinkLocal:
+		return 6, nil
+	default:
+		return -1, errors.Errorf("unsupported address scope: %q", kind)
 	}
 }
 

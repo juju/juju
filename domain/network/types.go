@@ -10,19 +10,20 @@ import "github.com/juju/juju/core/network"
 type NetAddr struct {
 	InterfaceName string
 	ProviderID    *network.Id
-	AddressValue  string
-	CIDR          string
+	// AddressValue is the IP address.
+	// It *must* include a suffix indicating the subnet mask.
+	AddressValue string
 	// ProviderSubnetID is the provider's identity for the subnet that this
 	// address is connected to. It is intended to uniquely identify the
 	// subnet in the event that the same CIDR is used on multiple provider
 	// networks.
 	ProviderSubnetID *network.Id
-	AddressType      string
-	ConfigType       string
+	AddressType      network.AddressType
+	ConfigType       network.AddressConfigType
 	// Origin identifies the authority of this address.
 	// I.e. the machine itself, or the provider substrate.
 	Origin      network.Origin
-	Scope       string
+	Scope       network.Scope
 	IsSecondary bool
 	IsShadow    bool
 }

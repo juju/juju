@@ -21,9 +21,7 @@ var _ = gc.Suite(&typesSuite{})
 func (s *typesSuite) TestNetInterfaceToDMLSuccess(c *gc.C) {
 	dev := getNetInterface()
 
-	dml, err := netInterfaceToDML(dev, "some-node-uuid", map[string]string{
-		"eth0": "some-device-uuid",
-	})
+	dml, err := netInterfaceToDML(dev, "some-node-uuid", map[string]string{"eth0": "some-device-uuid"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(dml, gc.DeepEquals, linkLayerDeviceDML{
@@ -56,10 +54,44 @@ func (s *typesSuite) TestNetInterfaceToDMLBadVirtualPortTypeError(c *gc.C) {
 	dev := getNetInterface()
 	dev.VirtualPortType = "bad-type"
 
-	_, err := netInterfaceToDML(dev, "some-node-uuid", map[string]string{
-		"eth0": "some-device-uuid",
-	})
+	_, err := netInterfaceToDML(dev, "some-node-uuid", map[string]string{"eth0": "some-device-uuid"})
 	c.Assert(err, gc.ErrorMatches, "unsupported virtual port type.*")
+}
+
+func (s *typesSuite) TestNetAddrToDMLSuccess(c *gc.C) {
+	addr := getNetAddr()
+
+	dml, err := netAddrToDML(
+		addr,
+		map[string]string{"eth0": "some-device-uuid"},
+		map[string]string{"10.0.0.13/24": "some-addr-uuid"},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(dml, gc.DeepEquals, ipAddressDML{
+		UUID:         "some-addr-uuid",
+		DeviceUUID:   "some-device-uuid",
+		AddressValue: "10.0.0.13/24",
+		SubnetUUID:   nil,
+		TypeID:       0,
+		ConfigTypeID: 1,
+		OriginID:     0,
+		ScopeID:      4,
+		IsSecondary:  false,
+		IsShadow:     false,
+	})
+}
+
+func (s *typesSuite) TestNetAddrToDMLBadAddressTypeError(c *gc.C) {
+	addr := getNetAddr()
+	addr.AddressType = "bad-type"
+
+	_, err := netAddrToDML(
+		addr,
+		map[string]string{"eth0": "some-device-uuid"},
+		map[string]string{"10.0.0.13/24": "some-addr-uuid"},
+	)
+	c.Assert(err, gc.ErrorMatches, "unsupported address type.*")
 }
 
 func getNetInterface() network.NetInterface {
@@ -82,6 +114,29 @@ func getNetInterface() network.NetInterface {
 		ProviderID:       nil,
 		DNSSearchDomains: nil,
 		DNSAddresses:     nil,
+	}
+}
+
+func getNetAddr() network.NetAddr {
+	return network.NetAddr{
+		InterfaceName: "eth0",
+		AddressValue:  "10.0.0.13/24",
+
+		// TODO (manadart 2025--05-08): This, combined with the CIDR determined
+		// from the address will be used to determine a subnet UUID (if extant)
+		// when we are resolving as part of network detection.
+		ProviderSubnetID: nil,
+		AddressType:      corenetwork.IPv4Address,
+		ConfigType:       corenetwork.ConfigDHCP,
+		Origin:           corenetwork.OriginMachine,
+		Scope:            corenetwork.ScopeCloudLocal,
+		IsSecondary:      false,
+		IsShadow:         false,
+
+		// TODO (manadart 2025-05-08): Handle the translations below as
+		// additional *DML types.
+
+		ProviderID: nil,
 	}
 }
 
