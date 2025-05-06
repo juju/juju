@@ -669,3 +669,45 @@ func (s *modelSuite) TestIsControllerModelNotFound(c *gc.C) {
 	_, err := state.IsControllerModel(context.Background())
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
+
+// TestGetControllerUUIDNotFound tests that if we ask for the controller uuid
+// in the model database and no model record has been established an error
+// satisfying [modelerrors.NotFound] is returned.
+func (s *modelSuite) TestGetControllerUUIDNotFound(c *gc.C) {
+	runner := s.TxnRunnerFactory()
+	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
+
+	_, err := state.GetControllerUUID(context.Background())
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
+// TestGetControllerUUID tests that if we ask for the controller uuid in the
+// model database and a model record has been established we get back the
+// correct controller uuid.
+func (s *modelSuite) TestGetControllerUUID(c *gc.C) {
+	runner := s.TxnRunnerFactory()
+	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
+
+	uuid := modeltesting.GenModelUUID(c)
+	cloudType := "ec2"
+	args := model.ModelDetailArgs{
+		UUID:              uuid,
+		AgentStream:       modelagent.AgentStreamReleased,
+		AgentVersion:      jujuversion.Current,
+		ControllerUUID:    s.controllerUUID,
+		Name:              "mycontrollermodel",
+		Type:              coremodel.IAAS,
+		Cloud:             "aws",
+		CloudType:         cloudType,
+		CloudRegion:       "myregion",
+		CredentialOwner:   usertesting.GenNewName(c, "myowner"),
+		CredentialName:    "mycredential",
+		IsControllerModel: false,
+	}
+	err := state.Create(context.Background(), args)
+	c.Check(err, jc.ErrorIsNil)
+
+	controllerUUID, err := state.GetControllerUUID(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(controllerUUID, gc.Equals, s.controllerUUID)
+}

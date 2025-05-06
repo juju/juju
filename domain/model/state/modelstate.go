@@ -616,6 +616,39 @@ func insertConstraintZones(
 	return nil
 }
 
+// GetControllerUUID returns the controller UUID for the model.
+// The following errors can be expected:
+// - [modelerrors.NotFound] when no model record has been established in the
+// database.
+func (s *ModelState) GetControllerUUID(ctx context.Context) (uuid.UUID, error) {
+	db, err := s.DB()
+	if err != nil {
+		return uuid.UUID{}, errors.Capture(err)
+	}
+
+	var controllerUUID dbControllerUUID
+	stmt, err := s.Prepare(`SELECT &dbControllerUUID.* FROM model`, controllerUUID)
+	if err != nil {
+		return uuid.UUID{}, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).Get(&controllerUUID)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.New("model does not exist").Add(modelerrors.NotFound)
+		}
+		return errors.Capture(err)
+	})
+
+	if err != nil {
+		return uuid.UUID{}, errors.Errorf(
+			"getting model controller uuid: %w", err,
+		)
+	}
+
+	return uuid.UUIDFromString(controllerUUID.UUID)
+}
+
 // GetModel returns model information that has been set in the database.
 // If no model has been set then an error satisfying
 // [modelerrors.NotFound] is returned.
