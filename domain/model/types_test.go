@@ -154,7 +154,7 @@ func (*typesSuite) TestModelImportArgsValidation(c *gc.C) {
 					Name:  "my-awesome-model",
 					Owner: userUUID,
 				},
-				ID: modeltesting.GenModelUUID(c),
+				UUID: modeltesting.GenModelUUID(c),
 			},
 		},
 		{
@@ -171,7 +171,7 @@ func (*typesSuite) TestModelImportArgsValidation(c *gc.C) {
 					Name:  "my-awesome-model",
 					Owner: userUUID,
 				},
-				ID: "not valid",
+				UUID: "not valid",
 			},
 			ErrTest: coreerrors.NotValid,
 		},

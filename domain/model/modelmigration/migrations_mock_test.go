@@ -20,7 +20,6 @@ import (
 	semversion "github.com/juju/juju/core/semversion"
 	user "github.com/juju/juju/core/user"
 	model0 "github.com/juju/juju/domain/model"
-	uuid "github.com/juju/juju/internal/uuid"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -315,40 +314,40 @@ func (m *MockModelDetailService) EXPECT() *MockModelDetailServiceMockRecorder {
 	return m.recorder
 }
 
-// CreateModelForVersion mocks base method.
-func (m *MockModelDetailService) CreateModelForVersion(arg0 context.Context, arg1 uuid.UUID, arg2 semversion.Number, arg3 agentbinary.AgentStream) error {
+// CreateModelWithAgentVersionStream mocks base method.
+func (m *MockModelDetailService) CreateModelWithAgentVersionStream(arg0 context.Context, arg1 semversion.Number, arg2 agentbinary.AgentStream) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateModelForVersion", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "CreateModelWithAgentVersionStream", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// CreateModelForVersion indicates an expected call of CreateModelForVersion.
-func (mr *MockModelDetailServiceMockRecorder) CreateModelForVersion(arg0, arg1, arg2, arg3 any) *MockModelDetailServiceCreateModelForVersionCall {
+// CreateModelWithAgentVersionStream indicates an expected call of CreateModelWithAgentVersionStream.
+func (mr *MockModelDetailServiceMockRecorder) CreateModelWithAgentVersionStream(arg0, arg1, arg2 any) *MockModelDetailServiceCreateModelWithAgentVersionStreamCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateModelForVersion", reflect.TypeOf((*MockModelDetailService)(nil).CreateModelForVersion), arg0, arg1, arg2, arg3)
-	return &MockModelDetailServiceCreateModelForVersionCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateModelWithAgentVersionStream", reflect.TypeOf((*MockModelDetailService)(nil).CreateModelWithAgentVersionStream), arg0, arg1, arg2)
+	return &MockModelDetailServiceCreateModelWithAgentVersionStreamCall{Call: call}
 }
 
-// MockModelDetailServiceCreateModelForVersionCall wrap *gomock.Call
-type MockModelDetailServiceCreateModelForVersionCall struct {
+// MockModelDetailServiceCreateModelWithAgentVersionStreamCall wrap *gomock.Call
+type MockModelDetailServiceCreateModelWithAgentVersionStreamCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelDetailServiceCreateModelForVersionCall) Return(arg0 error) *MockModelDetailServiceCreateModelForVersionCall {
+func (c *MockModelDetailServiceCreateModelWithAgentVersionStreamCall) Return(arg0 error) *MockModelDetailServiceCreateModelWithAgentVersionStreamCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDetailServiceCreateModelForVersionCall) Do(f func(context.Context, uuid.UUID, semversion.Number, agentbinary.AgentStream) error) *MockModelDetailServiceCreateModelForVersionCall {
+func (c *MockModelDetailServiceCreateModelWithAgentVersionStreamCall) Do(f func(context.Context, semversion.Number, agentbinary.AgentStream) error) *MockModelDetailServiceCreateModelWithAgentVersionStreamCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDetailServiceCreateModelForVersionCall) DoAndReturn(f func(context.Context, uuid.UUID, semversion.Number, agentbinary.AgentStream) error) *MockModelDetailServiceCreateModelForVersionCall {
+func (c *MockModelDetailServiceCreateModelWithAgentVersionStreamCall) DoAndReturn(f func(context.Context, semversion.Number, agentbinary.AgentStream) error) *MockModelDetailServiceCreateModelWithAgentVersionStreamCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/description/v9"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/agentbinary"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/credential"
@@ -23,15 +22,12 @@ import (
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	accessservice "github.com/juju/juju/domain/access/service"
 	accessstate "github.com/juju/juju/domain/access/state"
-	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
-	controllerconfigstate "github.com/juju/juju/domain/controllerconfig/state"
 	domainmodel "github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	modelservice "github.com/juju/juju/domain/model/service"
 	modelstate "github.com/juju/juju/domain/model/state"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/uuid"
 )
 
 // Coordinator is the interface that is used to add operations to a migration.
@@ -67,9 +63,9 @@ type ModelImportService interface {
 // ModelDetailService defines a service for interacting with the
 // model information found in a model database.
 type ModelDetailService interface {
-	// CreateModelForVersion is responsible for adding the details of the model
-	// that is being imported.
-	CreateModelForVersion(context.Context, uuid.UUID, semversion.Number, agentbinary.AgentStream) error
+	// CreateModelWithAgentVersionStream is responsible for adding the details
+	// of the model that is being imported.
+	CreateModelWithAgentVersionStream(context.Context, semversion.Number, agentbinary.AgentStream) error
 
 	// DeleteModel is responsible for removing a read only model from the system.
 	DeleteModel(context.Context) error
@@ -97,13 +93,6 @@ type UserService interface {
 	GetUserByName(context.Context, coreuser.Name) (coreuser.User, error)
 }
 
-// ControllerConfigService defines the controller config service used for model
-// migration.
-type ControllerConfigService interface {
-	// ControllerConfig returns the config values for the controller.
-	ControllerConfig(context.Context) (controller.Config, error)
-}
-
 // importModelOperation implements the steps to import a model from another
 // controller into the current controller. importModelOperation assumes that
 // data related to the model such as cloud credentials and users have already
@@ -111,10 +100,9 @@ type ControllerConfigService interface {
 type importModelOperation struct {
 	modelmigration.BaseOperation
 
-	modelImportService      ModelImportService
-	modelDetailServiceFunc  ModelDetailServiceFunc
-	userService             UserService
-	controllerConfigService ControllerConfigService
+	modelImportService     ModelImportService
+	modelDetailServiceFunc ModelDetailServiceFunc
+	userService            UserService
 
 	logger logger.Logger
 }
@@ -165,9 +153,6 @@ func (i *importModelOperation) Setup(scope modelmigration.Scope) error {
 
 	i.modelDetailServiceFunc = modelDetailServiceGetter(scope, i.logger)
 	i.userService = accessservice.NewService(accessstate.NewState(scope.ControllerDB(), i.logger))
-	i.controllerConfigService = controllerconfigservice.NewService(
-		controllerconfigstate.NewState(scope.ControllerDB()),
-	)
 	return nil
 }
 
@@ -253,16 +238,7 @@ func (i *importModelOperation) Execute(ctx context.Context, model description.Mo
 			Name:        modelName,
 			Owner:       user.UUID,
 		},
-		ID:           modelID,
-		AgentVersion: agentVersion,
-	}
-
-	controllerConfig, err := i.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return errors.Errorf(
-			"importing model %q with uuid %q during migration, getting controller uuid: %w",
-			modelName, modelID, err,
-		)
+		UUID: modelID,
 	}
 
 	// NOTE: Try to get all things that can fail before creating the model in
@@ -287,21 +263,12 @@ func (i *importModelOperation) Execute(ctx context.Context, model description.Mo
 		)
 	}
 
-	// When importing a model, we need to move the model from the prior
-	// controller to the current controller. This is done, during the import
-	// operation, so it never changes once the model is up and running.
-
-	controllerUUID, err := uuid.UUIDFromString(controllerConfig.ControllerUUID())
-	if err != nil {
-		return errors.Errorf("parsing controller uuid %q: %w", controllerConfig.ControllerUUID(), err)
-	}
-
 	// We need to establish the read only model information in the model database.
-	err = i.modelDetailServiceFunc(modelID).CreateModelForVersion(ctx, controllerUUID, args.AgentVersion, agentStream)
+	err = i.modelDetailServiceFunc(modelID).CreateModelWithAgentVersionStream(ctx, agentVersion, agentStream)
 	if err != nil {
 		return errors.Errorf(
 			"importing read only model %q with uuid %q during migration: %w",
-			modelName, controllerUUID, err,
+			modelName, args.UUID, err,
 		)
 	}
 

@@ -745,7 +745,7 @@ func (s *serviceSuite) TestImportModelWithMissingAgentVersion(c *gc.C) {
 			Owner:       s.userUUID,
 			Name:        "my-awesome-model",
 		},
-		ID: modelID,
+		UUID: modelID,
 	})
 	c.Assert(err, jc.ErrorIs, modelerrors.AgentVersionNotSupported)
 
@@ -778,8 +778,7 @@ func (s *serviceSuite) TestImportModel(c *gc.C) {
 			Owner:       s.userUUID,
 			Name:        "my-awesome-model",
 		},
-		ID:           modelID,
-		AgentVersion: jujuversion.Current,
+		UUID: modelID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(activator(context.Background()), jc.ErrorIsNil)
