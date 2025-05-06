@@ -639,9 +639,9 @@ func (s *Service) GetRelationUnit(
 	return s.st.GetRelationUnit(ctx, relationUUID, unitName)
 }
 
-// GetRelationUnitByID returns the relation unit UUID for the given unit for the
+// getRelationUnitByID returns the relation unit UUID for the given unit for the
 // given relation.
-func (s *Service) GetRelationUnitByID(
+func (s *Service) getRelationUnitByID(
 	ctx context.Context,
 	relationID int,
 	unitName unit.Name,
@@ -844,7 +844,7 @@ func (s *Service) LeaveScope(ctx context.Context, relationUnitUUID corerelation.
 // unit is in scopen of a given relation
 func (s *Service) RelationUnitInScopeByID(ctx context.Context, relationID int, unitName unit.Name) (bool,
 	error) {
-	_, err := s.GetRelationUnitByID(ctx, relationID, unitName)
+	_, err := s.getRelationUnitByID(ctx, relationID, unitName)
 	if errors.Is(err, relationerrors.RelationUnitNotFound) {
 		return false, nil
 	}
