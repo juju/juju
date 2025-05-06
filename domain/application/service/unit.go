@@ -28,19 +28,19 @@ import (
 // UnitState describes retrieval and persistence methods for
 // units.
 type UnitState interface {
-	// AddIAASUnits adds the specified units to the application. If the
-	// application is not found, an error satisfying
+	// AddIAASUnits adds the specified units to the application, returning their
+	// names. If the application is not found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned. If any of the units
 	// already exists, an error satisfying [applicationerrors.UnitAlreadyExists]
 	// is returned.
-	AddIAASUnits(context.Context, string, coreapplication.ID, corecharm.ID, ...application.AddUnitArg) error
+	AddIAASUnits(context.Context, string, coreapplication.ID, corecharm.ID, ...application.AddUnitArg) ([]coreunit.Name, error)
 
-	// AddCAASUnits adds the specified units to the application. If the
-	// application is not found, an error satisfying
+	// AddCAASUnits adds the specified units to the application, returning their
+	// names. If the application is not found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned. If any of the units
 	// already exists, an error satisfying [applicationerrors.UnitAlreadyExists]
 	// is returned.
-	AddCAASUnits(context.Context, string, coreapplication.ID, corecharm.ID, ...application.AddUnitArg) error
+	AddCAASUnits(context.Context, string, coreapplication.ID, corecharm.ID, ...application.AddUnitArg) ([]coreunit.Name, error)
 
 	// InsertMigratingIAASUnits inserts the fully formed units for the specified
 	// IAAS application. This is only used when inserting units during model
@@ -163,17 +163,12 @@ type UnitState interface {
 func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg, constraints constraints.Constraints) ([]application.AddUnitArg, error) {
 	args := make([]application.AddUnitArg, len(units))
 	for i, u := range units {
-		if err := u.UnitName.Validate(); err != nil {
-			return nil, errors.Errorf("validating unit name %q: %w", u.UnitName, err)
-		}
-
 		placement, err := deployment.ParsePlacement(u.Placement)
 		if err != nil {
-			return nil, errors.Errorf("invalid placement for %q: %w", u.UnitName, err)
+			return nil, errors.Errorf("invalid placement: %w", err)
 		}
 
 		arg := application.AddUnitArg{
-			UnitName:      u.UnitName,
 			Constraints:   constraints,
 			Placement:     placement,
 			UnitStatusArg: s.makeUnitStatusArgs(modelType),

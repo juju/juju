@@ -184,7 +184,6 @@ type ContainerAddress struct {
 // AddUnitArg contains parameters for adding a unit to state.
 type AddUnitArg struct {
 	UnitStatusArg
-	UnitName    coreunit.Name
 	Constraints constraints.Constraints
 	Placement   deployment.Placement
 }

@@ -42,23 +42,6 @@ func sequence(mb modelBackend, name string) (int, error) {
 	return result.Counter, nil
 }
 
-// ReadSequence is a stop gap to allow dqlite units to use the same
-// ordinal as the mongo ones.
-func ReadSequence(mb modelBackend, name string) (int, error) {
-	sequences, closer := mb.db().GetCollection(sequenceC)
-	defer closer()
-
-	result := &sequenceDoc{}
-	err := sequences.FindId(name).One(&result)
-	if err != nil {
-		if err == mgo.ErrNotFound {
-			return 0, nil
-		}
-		return -1, errors.Trace(err)
-	}
-	return result.Counter + 1, nil
-}
-
 func resetSequence(mb modelBackend, name string) error {
 	sequences, closer := mb.db().GetCollection(sequenceC)
 	defer closer()

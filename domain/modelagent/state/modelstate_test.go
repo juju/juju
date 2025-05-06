@@ -200,8 +200,29 @@ func (s *modelStateSuite) setUnitAgentVersion(
 func (s *modelStateSuite) createTestingUnit(
 	c *gc.C,
 ) coreunit.UUID {
-	appID := s.createTestingApplicationWithName(c, "foo")
-	return s.createTestingUnitWithName(c, "foo", appID, coreunit.Name("foo/1"))
+	s.createTestingApplicationWithName(c, "foo")
+	return s.createTestingUnitForApplication(c, "foo")
+}
+
+func (s *modelStateSuite) createTestingUnitForApplication(
+	c *gc.C,
+	appName string,
+) coreunit.UUID {
+	appState := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	appID, err := appState.GetApplicationIDByName(context.Background(), appName)
+	c.Assert(err, jc.ErrorIsNil)
+	charmUUID, err := appState.GetCharmIDByApplicationName(context.Background(), appName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	unitNames, err := appState.AddIAASUnits(context.Background(), "", appID, charmUUID, application.AddUnitArg{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitNames, gc.HasLen, 1)
+	unitName := unitNames[0]
+
+	unitUUID, err := appState.GetUnitUUIDByName(context.Background(), unitName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return unitUUID
 }
 
 func (s *modelStateSuite) createTestingApplicationWithName(
@@ -267,26 +288,6 @@ func (s *modelStateSuite) createTestingApplicationWithName(
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return appID
-}
-
-func (s *modelStateSuite) createTestingUnitWithName(
-	c *gc.C,
-	appName string,
-	appID coreapplication.ID,
-	unitName coreunit.Name,
-) coreunit.UUID {
-	appState := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-	charmUUID, err := appState.GetCharmIDByApplicationName(context.Background(), appName)
-	c.Assert(err, jc.ErrorIsNil)
-	appState.AddIAASUnits(context.Background(), "", appID, charmUUID, application.AddUnitArg{
-		UnitName: unitName,
-	})
-
-	st := NewState(s.TxnRunnerFactory())
-	unitUUID, err := st.GetUnitUUIDByName(context.Background(), unitName)
-	c.Check(err, jc.ErrorIsNil)
-
-	return unitUUID
 }
 
 // TestGetModelAgentVersionSuccess tests that State.GetModelAgentVersion is
@@ -843,16 +844,16 @@ func (s *modelStateSuite) TestUnitsNotAtTargetAgentVersionEmpty(c *gc.C) {
 // a unit that has no reported agent version in the database it appears in
 // the list returned.
 func (s *modelStateSuite) TestUnitsNotAtTargetAgentVersionUnreported(c *gc.C) {
-	appID := s.createTestingApplicationWithName(c, "foo")
-	s.createTestingUnitWithName(c, "foo", appID, coreunit.Name("foo/1"))
-	unit2UUID := s.createTestingUnitWithName(c, "foo", appID, coreunit.Name("foo/2"))
+	s.createTestingApplicationWithName(c, "foo")
+	s.createTestingUnitForApplication(c, "foo")
+	unit2UUID := s.createTestingUnitForApplication(c, "foo")
 	s.setModelTargetAgentVersion(c, "4.0.1")
 	s.setUnitAgentVersion(c, unit2UUID, "4.0.1")
 	st := NewState(s.TxnRunnerFactory())
 	list, err := st.GetUnitsNotAtTargetAgentVersion(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(list, jc.DeepEquals, []coreunit.Name{
-		coreunit.Name("foo/1"),
+		coreunit.Name("foo/0"),
 	})
 }
 
@@ -860,9 +861,9 @@ func (s *modelStateSuite) TestUnitsNotAtTargetAgentVersionUnreported(c *gc.C) {
 // unit's agent version is behind that of the target for the model it is
 // reported in the list.
 func (s *modelStateSuite) TestUnitsNotAtTargetAgentVersionFallingBehind(c *gc.C) {
-	appID := s.createTestingApplicationWithName(c, "foo")
-	unit1UUID := s.createTestingUnitWithName(c, "foo", appID, coreunit.Name("foo/1"))
-	unit2UUID := s.createTestingUnitWithName(c, "foo", appID, coreunit.Name("foo/2"))
+	s.createTestingApplicationWithName(c, "foo")
+	unit1UUID := s.createTestingUnitForApplication(c, "foo")
+	unit2UUID := s.createTestingUnitForApplication(c, "foo")
 	s.setModelTargetAgentVersion(c, "4.1.0")
 	s.setUnitAgentVersion(c, unit1UUID, "4.0.1")
 	s.setUnitAgentVersion(c, unit2UUID, "4.0.1")
@@ -870,7 +871,7 @@ func (s *modelStateSuite) TestUnitsNotAtTargetAgentVersionFallingBehind(c *gc.C)
 	list, err := st.GetUnitsNotAtTargetAgentVersion(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(list, jc.DeepEquals, []coreunit.Name{
-		coreunit.Name("foo/1"), coreunit.Name("foo/2"),
+		coreunit.Name("foo/0"), coreunit.Name("foo/1"),
 	})
 }
 
@@ -878,9 +879,9 @@ func (s *modelStateSuite) TestUnitsNotAtTargetAgentVersionFallingBehind(c *gc.C)
 // units are at the same version as that of the target model agent version
 // the list returned is empty.
 func (s *modelStateSuite) TestUnitsNotAtTargetAgentVersionAllUptoDate(c *gc.C) {
-	appID := s.createTestingApplicationWithName(c, "foo")
-	unit1UUID := s.createTestingUnitWithName(c, "foo", appID, coreunit.Name("foo/1"))
-	unit2UUID := s.createTestingUnitWithName(c, "foo", appID, coreunit.Name("foo/2"))
+	s.createTestingApplicationWithName(c, "foo")
+	unit1UUID := s.createTestingUnitForApplication(c, "foo")
+	unit2UUID := s.createTestingUnitForApplication(c, "foo")
 	s.setModelTargetAgentVersion(c, "4.1.0")
 	s.setUnitAgentVersion(c, unit1UUID, "4.1.0")
 	s.setUnitAgentVersion(c, unit2UUID, "4.1.0")
@@ -1035,26 +1036,26 @@ func (s *modelStateSuite) TestGetUnitAgentBinaryMetadata(c *gc.C) {
 	metaAMD64 := s.registerAgentBinary(c, versionAMD64)
 	metaARM64 := s.registerAgentBinary(c, versionARM64)
 
-	appID1 := s.createTestingApplicationWithName(c, "foo")
+	s.createTestingApplicationWithName(c, "foo")
 
 	st := NewState(s.TxnRunnerFactory())
 	expected := map[coreunit.Name]coreagentbinary.Metadata{}
 
 	for i := range 5 {
-		unitName, err := coreunit.NewNameFromParts("foo", i)
+		unitUUID := s.createTestingUnitForApplication(c, "foo")
+		err := st.SetUnitRunningAgentBinaryVersion(context.Background(), unitUUID, versionAMD64)
 		c.Assert(err, jc.ErrorIsNil)
-		unitUUID := s.createTestingUnitWithName(c, "foo", appID1, unitName)
-		err = st.SetUnitRunningAgentBinaryVersion(context.Background(), unitUUID, versionAMD64)
+		unitName, err := coreunit.NewNameFromParts("foo", i)
 		c.Assert(err, jc.ErrorIsNil)
 		expected[unitName] = metaAMD64
 	}
 
-	appID2 := s.createTestingApplicationWithName(c, "foo1")
+	s.createTestingApplicationWithName(c, "foo1")
 	for i := range 5 {
-		unitName, err := coreunit.NewNameFromParts("foo1", i)
+		unitUUID := s.createTestingUnitForApplication(c, "foo1")
+		err := st.SetUnitRunningAgentBinaryVersion(context.Background(), unitUUID, versionARM64)
 		c.Assert(err, jc.ErrorIsNil)
-		unitUUID := s.createTestingUnitWithName(c, "foo1", appID2, unitName)
-		err = st.SetUnitRunningAgentBinaryVersion(context.Background(), unitUUID, versionARM64)
+		unitName, err := coreunit.NewNameFromParts("foo1", i)
 		c.Assert(err, jc.ErrorIsNil)
 		expected[unitName] = metaARM64
 	}
@@ -1079,21 +1080,17 @@ func (s *modelStateSuite) TestGetUnitsAgentBinaryMetadataUnitNotSet(c *gc.C) {
 	}
 	s.registerAgentBinary(c, versionAMD64)
 
-	appID := s.createTestingApplicationWithName(c, "foo")
+	s.createTestingApplicationWithName(c, "foo")
 	st := NewState(s.TxnRunnerFactory())
 
-	for i := range 5 {
-		unitName, err := coreunit.NewNameFromParts("foo", i)
-		c.Assert(err, jc.ErrorIsNil)
-		unitUUID := s.createTestingUnitWithName(c, "foo", appID, unitName)
-		err = st.SetUnitRunningAgentBinaryVersion(context.Background(), unitUUID, versionAMD64)
+	for range 5 {
+		unitUUID := s.createTestingUnitForApplication(c, "foo")
+		err := st.SetUnitRunningAgentBinaryVersion(context.Background(), unitUUID, versionAMD64)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	// This is our rogue machine with no agent version set.
-	unitName, err := coreunit.NewNameFromParts("foo", 6)
-	c.Assert(err, jc.ErrorIsNil)
-	s.createTestingUnitWithName(c, "foo", appID, unitName)
+	s.createTestingUnitForApplication(c, "foo")
 
 	data, err := st.GetUnitsAgentBinaryMetadata(context.Background())
 	c.Check(err, jc.ErrorIs, modelagenterrors.AgentVersionNotSet)
@@ -1112,23 +1109,19 @@ func (s *modelStateSuite) TestGetUnitAgentBinaryMetadataMissingAgentBinary(c *gc
 	}
 	s.registerAgentBinary(c, versionAMD64)
 
-	appID := s.createTestingApplicationWithName(c, "foo")
+	s.createTestingApplicationWithName(c, "foo")
 	st := NewState(s.TxnRunnerFactory())
 
-	for i := range 5 {
-		unitName, err := coreunit.NewNameFromParts("foo", i)
-		c.Assert(err, jc.ErrorIsNil)
-		unitUUID := s.createTestingUnitWithName(c, "foo", appID, unitName)
-		err = st.SetUnitRunningAgentBinaryVersion(context.Background(), unitUUID, versionAMD64)
+	for range 5 {
+		unitUUID := s.createTestingUnitForApplication(c, "foo")
+		err := st.SetUnitRunningAgentBinaryVersion(context.Background(), unitUUID, versionAMD64)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	// This is the unit that is running an agent version for which there
 	// exists no agent binaries in the store.
-	unitName, err := coreunit.NewNameFromParts("foo", 6)
-	c.Assert(err, jc.ErrorIsNil)
-	unitUUID := s.createTestingUnitWithName(c, "foo", appID, unitName)
-	err = st.SetUnitRunningAgentBinaryVersion(
+	unitUUID := s.createTestingUnitForApplication(c, "foo")
+	err := st.SetUnitRunningAgentBinaryVersion(
 		context.Background(),
 		unitUUID,
 		coreagentbinary.Version{

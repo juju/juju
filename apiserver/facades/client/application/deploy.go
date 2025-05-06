@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
-	coreunit "github.com/juju/juju/core/unit"
 	domainapplication "github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -72,10 +71,6 @@ type DeployApplicationParams struct {
 
 type ApplicationDeployer interface {
 	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
-
-	// ReadSequence is a stop gap to allow the next unit number to be read from mongo
-	// so that correctly matching units can be written to dqlite.
-	ReadSequence(name string) (int, error)
 }
 
 type UnitAdder interface {
@@ -149,7 +144,7 @@ func DeployApplication(
 		asa.Constraints = args.Constraints
 	}
 
-	unitArgs, err := makeUnitArgs(st, args)
+	unitArgs, err := makeUnitArgs(args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -205,27 +200,14 @@ func DeployApplication(
 	return app, errors.Trace(err)
 }
 
-func makeUnitArgs(st ApplicationDeployer, args DeployApplicationParams) ([]applicationservice.AddUnitArg, error) {
-	// TODO(dqlite) - remove mongo AddApplication call.
-	// To ensure dqlite unit names match those created in mongo, grab the next unit
-	// sequence number before writing the mongo units.
-	nextUnitNum, err := st.ReadSequence(args.ApplicationName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func makeUnitArgs(args DeployApplicationParams) ([]applicationservice.AddUnitArg, error) {
 	unitArgs := make([]applicationservice.AddUnitArg, args.NumUnits)
 	for i := range args.NumUnits {
 		var unitPlacement *instance.Placement
 		if i < len(args.Placement) {
 			unitPlacement = args.Placement[i]
 		}
-
-		unitName, err := coreunit.NewNameFromParts(args.ApplicationName, nextUnitNum+i)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		unitArgs[i] = applicationservice.AddUnitArg{
-			UnitName:  unitName,
 			Placement: unitPlacement,
 		}
 	}
@@ -272,8 +254,6 @@ func (api *APIBase) addUnits(
 		return nil, err
 	}
 
-	machineToUnitMap := make(map[string][]coreunit.Name)
-
 	// TODO what do we do if we fail half-way through this process?
 	for i := 0; i < n; i++ {
 		unit, err := unitAdder.AddUnit(state.AddUnitParams{
@@ -283,10 +263,6 @@ func (api *APIBase) addUnits(
 		if err != nil {
 			return nil, internalerrors.Errorf("adding unit %d/%d to application %q: %w", i+1, n, appName, err)
 		}
-		unitName, err := coreunit.NewName(unit.Name())
-		if err != nil {
-			return nil, internalerrors.Errorf("parsing unit name %q: %w", unit.Name(), err)
-		}
 
 		var unitPlacement *instance.Placement
 		if i < len(placement) {
@@ -294,12 +270,11 @@ func (api *APIBase) addUnits(
 		}
 
 		unitArg := applicationservice.AddUnitArg{
-			UnitName:  unitName,
 			Placement: unitPlacement,
 		}
 
 		if err := api.applicationService.AddUnits(ctx, domainapplication.StorageParentDir, appName, unitArg); err != nil {
-			return nil, internalerrors.Errorf("adding unit %q to application %q: %w", unitName, appName, err)
+			return nil, internalerrors.Errorf("adding unit to application %q: %w", appName, err)
 		}
 		units[i] = unit
 		if !assignUnits {
@@ -309,23 +284,22 @@ func (api *APIBase) addUnits(
 		// Are there still placement directives to use?
 		if i > len(placement)-1 {
 			if err := unit.AssignUnit(); err != nil {
-				return nil, internalerrors.Errorf("acquiring new machine to host unit %q: %w", unitName, err)
+				return nil, internalerrors.Errorf("acquiring new machine to host unit: %w", err)
 			}
 		} else {
 			if err := unit.AssignWithPlacement(placement[i], allSpaces); err != nil {
-				return nil, internalerrors.Errorf("acquiring machine for placement %q to host unit %q: %w", placement[i], unitName, err)
+				return nil, internalerrors.Errorf("acquiring machine for placement %q to host unit: %w", placement[i], err)
 			}
 		}
 
 		// Get assigned machine and ensure it exists in dqlite.
 		id, err := unit.AssignedMachineId()
 		if err != nil {
-			return nil, internalerrors.Errorf("getting assigned machine for unit %q: %w", unitName, err)
+			return nil, internalerrors.Errorf("getting assigned machine for unit: %w", err)
 		}
 		if err := saveMachineInfo(ctx, api.machineService, id); err != nil {
-			return nil, internalerrors.Errorf("saving assigned machine %q for unit %q: %w", id, unitName, err)
+			return nil, internalerrors.Errorf("saving assigned machine %q for unit: %w", id, err)
 		}
-		machineToUnitMap[id] = append(machineToUnitMap[id], unitName)
 	}
 
 	return units, nil

@@ -530,9 +530,7 @@ func (s *uniterLegacySuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.applicationService.AddUnits(context.Background(), "mysql", domainapplication.StorageParentDir,
-		applicationservice.AddUnitArg{
-			UnitName: "mysql/1",
-		})
+		applicationservice.AddUnitArg{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	wordpressUnitUUID, err := s.applicationService.GetUnitUUID(context.Background(), "wordpress/0")

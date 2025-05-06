@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/core/errors"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/unit"
 	domainapplication "github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -273,7 +272,7 @@ func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
 				Since:  ptr(now),
 			},
 		},
-		applicationservice.AddUnitArg{UnitName: unit.Name("controller/0")},
+		applicationservice.AddUnitArg{},
 	)
 
 	deployer := s.newBaseDeployer(c, cfg)

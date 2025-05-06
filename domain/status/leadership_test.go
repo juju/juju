@@ -71,16 +71,14 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeader(c *gc.C) {
 		}
 		return nil
 	})
-	s.leadership.EXPECT().Token("foo", "foo/666").Return(leaseToken{})
+	s.leadership.EXPECT().Token("foo", "foo/0").Return(leaseToken{})
 
 	svc := s.setupService(c)
 
-	u1 := application.AddUnitArg{
-		UnitName: "foo/666",
-	}
+	u1 := application.AddUnitArg{}
 	s.createApplication(c, "foo", u1)
 
-	err := svc.SetApplicationStatusForUnitLeader(context.Background(), "foo/666", status.StatusInfo{
+	err := svc.SetApplicationStatusForUnitLeader(context.Background(), "foo/0", status.StatusInfo{
 		Status: status.Active,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -106,18 +104,16 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderNotTheLeader(c *g
 		}
 		return nil
 	})
-	s.leadership.EXPECT().Token("foo", "foo/666").Return(leaseToken{
+	s.leadership.EXPECT().Token("foo", "foo/0").Return(leaseToken{
 		error: lease.ErrNotHeld,
 	})
 
 	svc := s.setupService(c)
 
-	u1 := application.AddUnitArg{
-		UnitName: "foo/666",
-	}
+	u1 := application.AddUnitArg{}
 	s.createApplication(c, "foo", u1)
 
-	err := svc.SetApplicationStatusForUnitLeader(context.Background(), "foo/666", status.StatusInfo{
+	err := svc.SetApplicationStatusForUnitLeader(context.Background(), "foo/0", status.StatusInfo{
 		Status: status.Active,
 	})
 	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotLeader)
@@ -135,18 +131,16 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderCancelled(c *gc.C
 		close(c)
 		return nil
 	})
-	s.leadership.EXPECT().Token("foo", "foo/666").DoAndReturn(func(s1, s2 string) lease.Token {
+	s.leadership.EXPECT().Token("foo", "foo/0").DoAndReturn(func(s1, s2 string) lease.Token {
 		return leaseToken{}
 	}).AnyTimes()
 
 	svc := s.setupService(c)
 
-	u1 := application.AddUnitArg{
-		UnitName: "foo/666",
-	}
+	u1 := application.AddUnitArg{}
 	s.createApplication(c, "foo", u1)
 
-	err := svc.SetApplicationStatusForUnitLeader(context.Background(), "foo/666", status.StatusInfo{
+	err := svc.SetApplicationStatusForUnitLeader(context.Background(), "foo/0", status.StatusInfo{
 		Status: status.Active,
 	})
 	c.Assert(err, jc.ErrorIs, context.Canceled)
@@ -235,10 +229,8 @@ func (s *leadershipSuite) createApplication(c *gc.C, name string, units ...appli
 	charmUUID, err := appState.GetCharmIDByApplicationName(ctx, "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	for _, u := range units {
-		err := appState.AddIAASUnits(ctx, "", appID, charmUUID, u)
-		c.Assert(err, jc.ErrorIsNil)
-	}
+	_, err = appState.AddIAASUnits(ctx, "", appID, charmUUID, units...)
+	c.Assert(err, jc.ErrorIsNil)
 
 	return appID
 }

@@ -757,12 +757,9 @@ func (s *unitStateSuite) assertUnitStatus(c *gc.C, statusType, unitUUID coreunit
 }
 
 func (s *unitStateSuite) TestAddUnitsApplicationNotFound(c *gc.C) {
-	u := application.AddUnitArg{
-		UnitName: "foo/666",
-	}
 	uuid := testing.GenApplicationUUID(c)
 	charmUUID := charmtesting.GenCharmID(c)
-	err := s.state.AddIAASUnits(context.Background(), c.MkDir(), uuid, charmUUID, u)
+	_, err := s.state.AddIAASUnits(context.Background(), c.MkDir(), uuid, charmUUID, application.AddUnitArg{})
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -772,10 +769,7 @@ func (s *unitStateSuite) TestAddUnitsApplicationNotAlive(c *gc.C) {
 	charmUUID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	u := application.AddUnitArg{
-		UnitName: "foo/666",
-	}
-	err = s.state.AddIAASUnits(context.Background(), c.MkDir(), appID, charmUUID, u)
+	_, err = s.state.AddIAASUnits(context.Background(), c.MkDir(), appID, charmUUID, application.AddUnitArg{})
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotAlive)
 }
 
@@ -795,7 +789,6 @@ func (s *unitStateSuite) assertAddUnits(c *gc.C, modelType model.ModelType) {
 
 	now := ptr(time.Now())
 	u := application.AddUnitArg{
-		UnitName: "foo/666",
 		UnitStatusArg: application.UnitStatusArg{
 			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 				Status:  status.UnitAgentStatusExecuting,
@@ -812,25 +805,26 @@ func (s *unitStateSuite) assertAddUnits(c *gc.C, modelType model.ModelType) {
 		},
 	}
 
+	var unitNames []coreunit.Name
 	if modelType == model.IAAS {
-		err = s.state.AddIAASUnits(context.Background(), c.MkDir(), appID, charmUUID, u)
+		unitNames, err = s.state.AddIAASUnits(context.Background(), c.MkDir(), appID, charmUUID, u)
 	} else {
-		err = s.state.AddCAASUnits(context.Background(), c.MkDir(), appID, charmUUID, u)
+		unitNames, err = s.state.AddCAASUnits(context.Background(), c.MkDir(), appID, charmUUID, u)
 	}
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitNames, gc.HasLen, 1)
+	unitName := unitNames[0]
+	c.Check(unitName, gc.Equals, coreunit.Name("foo/0"))
 
-	var (
-		unitUUID, unitName string
-	)
+	var unitUUID string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT uuid, name FROM unit WHERE application_uuid=?", appID).Scan(&unitUUID, &unitName)
+		err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", unitName).Scan(&unitUUID)
 		if err != nil {
 			return err
 		}
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(unitName, gc.Equals, "foo/666")
 	s.assertUnitStatus(
 		c, "unit_agent", coreunit.UUID(unitUUID),
 		int(u.UnitStatusArg.AgentStatus.Status), u.UnitStatusArg.AgentStatus.Message,

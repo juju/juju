@@ -28,10 +28,6 @@ type Backend interface {
 	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
 	Machine(string) (Machine, error)
 	Unit(string) (Unit, error)
-
-	// ReadSequence is a stop gap to allow the next unit number to be read from mongo
-	// so that correctly matching units can be written to dqlite.
-	ReadSequence(name string) (int, error)
 }
 
 // Application defines a subset of the functionality provided by the
@@ -177,10 +173,6 @@ func (s stateShim) Application(name string) (Application, error) {
 		Application: a,
 		st:          s.State,
 	}, nil
-}
-
-func (s stateShim) ReadSequence(name string) (int, error) {
-	return state.ReadSequence(s.State, name)
 }
 
 func (s stateShim) AddApplication(args state.AddApplicationArgs, store objectstore.ObjectStore) (Application, error) {

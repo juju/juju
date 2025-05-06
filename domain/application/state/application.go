@@ -281,8 +281,12 @@ func (st *State) insertApplicationUnits(
 
 	insertUnits := make([]application.InsertUnitArg, len(units))
 	for i, unit := range units {
+		unitName, err := st.newUnitName(ctx, tx, appUUID)
+		if err != nil {
+			return errors.Errorf("getting new unit name for application %q: %w", appUUID, err)
+		}
 		insertUnits[i] = application.InsertUnitArg{
-			UnitName:         unit.UnitName,
+			UnitName:         unitName,
 			Constraints:      unit.Constraints,
 			Placement:        unit.Placement,
 			Storage:          args.Storage,

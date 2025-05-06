@@ -111,8 +111,6 @@ func (s *baseSuite) createApplicationWithRelations(c *gc.C, appName string, rela
 // createUnit creates a new unit in state and returns its UUID. The unit is assigned
 // to the net node with uuid `netNodeUUID` and application with name `appName`.
 func (s *baseSuite) createUnit(c *gc.C, netNodeUUID, appName string) (coreunit.UUID, coreunit.Name) {
-	unitName, err := coreunit.NewNameFromParts(appName, s.unitCount)
-	c.Assert(err, jc.ErrorIsNil)
 	ctx := context.Background()
 	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
@@ -130,19 +128,18 @@ func (s *baseSuite) createUnit(c *gc.C, netNodeUUID, appName string) (coreunit.U
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = applicationSt.AddIAASUnits(ctx, c.MkDir(), appID, charmUUID, application.AddUnitArg{
-		UnitName: unitName,
+	unitNames, err := applicationSt.AddIAASUnits(ctx, c.MkDir(), appID, charmUUID, application.AddUnitArg{
 		Placement: deployment.Placement{
 			Type:      deployment.PlacementTypeMachine,
 			Directive: machineName.String(),
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitNames, gc.HasLen, 1)
+	unitName := unitNames[0]
 	s.unitCount++
 
-	var (
-		unitUUID coreunit.UUID
-	)
+	var unitUUID coreunit.UUID
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", unitName).Scan(&unitUUID)
 		if err != nil {

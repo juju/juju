@@ -38,13 +38,11 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *stateSuite) TestGetUnitUUID(c *gc.C) {
-	u1 := application.AddUnitArg{
-		UnitName: "foo/666",
-	}
+	u1 := application.AddUnitArg{}
 	unitUUIDs := s.createApplication(c, "foo", u1)
 	unitUUID := unitUUIDs[0]
 
-	gotUUID, err := s.state.GetUnitUUID(context.Background(), u1.UnitName)
+	gotUUID, err := s.state.GetUnitUUID(context.Background(), "foo/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(gotUUID, gc.Equals, unitUUID)
 }
@@ -60,9 +58,7 @@ func (s *stateSuite) TestUnitResolveModeNoUnit(c *gc.C) {
 }
 
 func (s *stateSuite) TestUnitResolveModeUnitNotResolved(c *gc.C) {
-	u1 := application.AddUnitArg{
-		UnitName: "foo/666",
-	}
+	u1 := application.AddUnitArg{}
 	unitUUIDs := s.createApplication(c, "foo", u1)
 	unitUUID := unitUUIDs[0]
 
@@ -76,9 +72,7 @@ func (s *stateSuite) TestResolveUnitNoUnit(c *gc.C) {
 }
 
 func (s *stateSuite) TestResolveUnitNoStatus(c *gc.C) {
-	u1 := application.AddUnitArg{
-		UnitName: "foo/666",
-	}
+	u1 := application.AddUnitArg{}
 	unitUUIDs := s.createApplication(c, "foo", u1)
 	unitUUID := unitUUIDs[0]
 
@@ -88,7 +82,6 @@ func (s *stateSuite) TestResolveUnitNoStatus(c *gc.C) {
 
 func (s *stateSuite) TestResolveUnitNotInError(c *gc.C) {
 	u1 := application.AddUnitArg{
-		UnitName: "foo/666",
 		UnitStatusArg: application.UnitStatusArg{
 			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 				Status: status.UnitAgentStatusIdle,
@@ -104,7 +97,6 @@ func (s *stateSuite) TestResolveUnitNotInError(c *gc.C) {
 
 func (s *stateSuite) TestResolveUnitNoHooks(c *gc.C) {
 	u1 := application.AddUnitArg{
-		UnitName: "foo/666",
 		UnitStatusArg: application.UnitStatusArg{
 			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 				Status: status.UnitAgentStatusError,
@@ -124,7 +116,6 @@ func (s *stateSuite) TestResolveUnitNoHooks(c *gc.C) {
 
 func (s *stateSuite) TestResolveUnitRetryHooks(c *gc.C) {
 	u1 := application.AddUnitArg{
-		UnitName: "foo/666",
 		UnitStatusArg: application.UnitStatusArg{
 			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 				Status: status.UnitAgentStatusError,
@@ -144,7 +135,6 @@ func (s *stateSuite) TestResolveUnitRetryHooks(c *gc.C) {
 
 func (s *stateSuite) TestResolveUnitAlreadyResolved(c *gc.C) {
 	u1 := application.AddUnitArg{
-		UnitName: "foo/666",
 		UnitStatusArg: application.UnitStatusArg{
 			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 				Status: status.UnitAgentStatusError,
@@ -172,7 +162,6 @@ func (s *stateSuite) TestResolveAllUnitsNoUnits(c *gc.C) {
 
 func (s *stateSuite) TestResolveAllUnitsNoUnitsInError(c *gc.C) {
 	u1 := application.AddUnitArg{
-		UnitName: "foo/666",
 		UnitStatusArg: application.UnitStatusArg{
 			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 				Status: status.UnitAgentStatusIdle,
@@ -180,7 +169,6 @@ func (s *stateSuite) TestResolveAllUnitsNoUnitsInError(c *gc.C) {
 		},
 	}
 	u2 := application.AddUnitArg{
-		UnitName: "foo/667",
 		UnitStatusArg: application.UnitStatusArg{
 			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 				Status: status.UnitAgentStatusIdle,
@@ -201,7 +189,6 @@ func (s *stateSuite) TestResolveAllUnitsNoUnitsInError(c *gc.C) {
 
 func (s *stateSuite) TestResolveAllUnitsRetryHooks(c *gc.C) {
 	u1 := application.AddUnitArg{
-		UnitName: "foo/666",
 		UnitStatusArg: application.UnitStatusArg{
 			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 				Status: status.UnitAgentStatusError,
@@ -209,7 +196,6 @@ func (s *stateSuite) TestResolveAllUnitsRetryHooks(c *gc.C) {
 		},
 	}
 	u2 := application.AddUnitArg{
-		UnitName: "foo/667",
 		UnitStatusArg: application.UnitStatusArg{
 			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 				Status: status.UnitAgentStatusError,
@@ -217,7 +203,6 @@ func (s *stateSuite) TestResolveAllUnitsRetryHooks(c *gc.C) {
 		},
 	}
 	u3 := application.AddUnitArg{
-		UnitName: "foo/668",
 		UnitStatusArg: application.UnitStatusArg{
 			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 				Status: status.UnitAgentStatusIdle,
@@ -243,7 +228,6 @@ func (s *stateSuite) TestResolveAllUnitsRetryHooks(c *gc.C) {
 
 func (s *stateSuite) TestResolveAllUnitsNoHooks(c *gc.C) {
 	u1 := application.AddUnitArg{
-		UnitName: "foo/666",
 		UnitStatusArg: application.UnitStatusArg{
 			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 				Status: status.UnitAgentStatusError,
@@ -251,7 +235,6 @@ func (s *stateSuite) TestResolveAllUnitsNoHooks(c *gc.C) {
 		},
 	}
 	u2 := application.AddUnitArg{
-		UnitName: "foo/667",
 		UnitStatusArg: application.UnitStatusArg{
 			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 				Status: status.UnitAgentStatusError,
@@ -259,7 +242,6 @@ func (s *stateSuite) TestResolveAllUnitsNoHooks(c *gc.C) {
 		},
 	}
 	u3 := application.AddUnitArg{
-		UnitName: "foo/668",
 		UnitStatusArg: application.UnitStatusArg{
 			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 				Status: status.UnitAgentStatusIdle,
@@ -285,7 +267,6 @@ func (s *stateSuite) TestResolveAllUnitsNoHooks(c *gc.C) {
 
 func (s *stateSuite) TestResolveAllUnitsAlreadyResolved(c *gc.C) {
 	u1 := application.AddUnitArg{
-		UnitName: "foo/666",
 		UnitStatusArg: application.UnitStatusArg{
 			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 				Status: status.UnitAgentStatusError,
@@ -293,7 +274,6 @@ func (s *stateSuite) TestResolveAllUnitsAlreadyResolved(c *gc.C) {
 		},
 	}
 	u2 := application.AddUnitArg{
-		UnitName: "foo/667",
 		UnitStatusArg: application.UnitStatusArg{
 			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 				Status: status.UnitAgentStatusError,
@@ -323,9 +303,7 @@ func (s *stateSuite) TestClearResolvedNoUnit(c *gc.C) {
 }
 
 func (s *stateSuite) TestClearResolvedUnitNotResolved(c *gc.C) {
-	u1 := application.AddUnitArg{
-		UnitName: "foo/666",
-	}
+	u1 := application.AddUnitArg{}
 	unitUUIDs := s.createApplication(c, "foo", u1)
 	unitUUID := unitUUIDs[0]
 
@@ -335,7 +313,6 @@ func (s *stateSuite) TestClearResolvedUnitNotResolved(c *gc.C) {
 
 func (s *stateSuite) TestClearResolvedRetryHooks(c *gc.C) {
 	u1 := application.AddUnitArg{
-		UnitName: "foo/666",
 		UnitStatusArg: application.UnitStatusArg{
 			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 				Status: status.UnitAgentStatusError,
@@ -357,7 +334,6 @@ func (s *stateSuite) TestClearResolvedRetryHooks(c *gc.C) {
 
 func (s *stateSuite) TestClearResolvedNoHooks(c *gc.C) {
 	u1 := application.AddUnitArg{
-		UnitName: "foo/666",
 		UnitStatusArg: application.UnitStatusArg{
 			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 				Status: status.UnitAgentStatusError,
@@ -430,16 +406,14 @@ func (s *stateSuite) createApplication(c *gc.C, name string, units ...applicatio
 	charmUUID, err := appState.GetCharmIDByApplicationName(ctx, name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	for _, u := range units {
-		err := appState.AddIAASUnits(ctx, "", appID, charmUUID, u)
-		c.Assert(err, jc.ErrorIsNil)
-	}
+	unitNames, err := appState.AddIAASUnits(ctx, "", appID, charmUUID, units...)
+	c.Assert(err, jc.ErrorIsNil)
 
 	var unitUUIDs = make([]coreunit.UUID, len(units))
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		for i, u := range units {
+		for i, unitName := range unitNames {
 			var uuid coreunit.UUID
-			err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", u.UnitName).Scan(&uuid)
+			err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", unitName).Scan(&uuid)
 			if err != nil {
 				return err
 			}

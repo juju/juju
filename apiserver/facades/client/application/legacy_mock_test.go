@@ -203,45 +203,6 @@ func (c *MockBackendMachineCall) DoAndReturn(f func(string) (Machine, error)) *M
 	return c
 }
 
-// ReadSequence mocks base method.
-func (m *MockBackend) ReadSequence(arg0 string) (int, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReadSequence", arg0)
-	ret0, _ := ret[0].(int)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ReadSequence indicates an expected call of ReadSequence.
-func (mr *MockBackendMockRecorder) ReadSequence(arg0 any) *MockBackendReadSequenceCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadSequence", reflect.TypeOf((*MockBackend)(nil).ReadSequence), arg0)
-	return &MockBackendReadSequenceCall{Call: call}
-}
-
-// MockBackendReadSequenceCall wrap *gomock.Call
-type MockBackendReadSequenceCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendReadSequenceCall) Return(arg0 int, arg1 error) *MockBackendReadSequenceCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendReadSequenceCall) Do(f func(string) (int, error)) *MockBackendReadSequenceCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendReadSequenceCall) DoAndReturn(f func(string) (int, error)) *MockBackendReadSequenceCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Unit mocks base method.
 func (m *MockBackend) Unit(arg0 string) (Unit, error) {
 	m.ctrl.T.Helper()

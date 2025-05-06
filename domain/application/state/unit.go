@@ -538,16 +538,17 @@ WHERE  u.name = $getUnitMachineUUID.unit_name
 //   - If the application is not found, [applicationerrors.ApplicationNotFound] is returned.
 func (st *State) AddIAASUnits(
 	ctx context.Context, storageParentDir string, appUUID coreapplication.ID, charmUUID corecharm.ID, args ...application.AddUnitArg,
-) error {
+) ([]coreunit.Name, error) {
 	if len(args) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	db, err := st.DB()
 	if err != nil {
-		return errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
+	var unitNames []coreunit.Name
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkApplicationAlive(ctx, tx, appUUID); err != nil {
 			return errors.Capture(err)
@@ -555,8 +556,14 @@ func (st *State) AddIAASUnits(
 
 		// TODO(storage) - read and use storage directives
 		for _, arg := range args {
+			unitName, err := st.newUnitName(ctx, tx, appUUID)
+			if err != nil {
+				return errors.Errorf("getting new unit name for application %q: %w", appUUID, err)
+			}
+			unitNames = append(unitNames, unitName)
+
 			insertArg := application.InsertUnitArg{
-				UnitName:    arg.UnitName,
+				UnitName:    unitName,
 				Constraints: arg.Constraints,
 				Placement:   arg.Placement,
 				UnitStatusArg: application.UnitStatusArg{
@@ -566,12 +573,12 @@ func (st *State) AddIAASUnits(
 				StorageParentDir: storageParentDir,
 			}
 			if err = st.insertIAASUnit(ctx, tx, appUUID, insertArg); err != nil {
-				return errors.Errorf("inserting unit %q: %w ", arg.UnitName, err)
+				return errors.Errorf("inserting unit %q: %w ", unitName, err)
 			}
 		}
 		return nil
 	})
-	return errors.Capture(err)
+	return unitNames, errors.Capture(err)
 }
 
 // AddCAASUnits adds the specified units to the application.
@@ -580,21 +587,28 @@ func (st *State) AddIAASUnits(
 //   - If the application is not found, [applicationerrors.ApplicationNotFound] is returned.
 func (st *State) AddCAASUnits(
 	ctx context.Context, storageParentDir string, appUUID coreapplication.ID, charmUUID corecharm.ID, args ...application.AddUnitArg,
-) error {
+) ([]coreunit.Name, error) {
 	if len(args) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	db, err := st.DB()
 	if err != nil {
-		return errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
+	var unitNames []coreunit.Name
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// TODO(storage) - read and use storage directives
 		for _, arg := range args {
+			unitName, err := st.newUnitName(ctx, tx, appUUID)
+			if err != nil {
+				return errors.Errorf("getting new unit name for application %q: %w", appUUID, err)
+			}
+			unitNames = append(unitNames, unitName)
+
 			insertArg := application.InsertUnitArg{
-				UnitName:    arg.UnitName,
+				UnitName:    unitName,
 				Constraints: arg.Constraints,
 				Placement:   arg.Placement,
 				UnitStatusArg: application.UnitStatusArg{
@@ -604,12 +618,12 @@ func (st *State) AddCAASUnits(
 				StorageParentDir: storageParentDir,
 			}
 			if err = st.insertCAASUnit(ctx, tx, appUUID, insertArg); err != nil {
-				return errors.Errorf("inserting unit %q: %w ", arg.UnitName, err)
+				return errors.Errorf("inserting unit %q: %w ", unitName, err)
 			}
 		}
 		return nil
 	})
-	return errors.Capture(err)
+	return unitNames, errors.Capture(err)
 }
 
 // AddSubordinateUnit adds a unit to the specified subordinate application to
