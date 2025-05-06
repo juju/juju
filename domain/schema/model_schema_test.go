@@ -341,7 +341,6 @@ func (s *modelSchemaSuite) TestModelViews(c *gc.C) {
 		"v_relation_endpoint",
 		"v_relation_endpoint_identifier",
 		"v_relation_status",
-		"v_relation_unit_endpoint",
 		"v_resource",
 		"v_revision_updater_application_unit",
 		"v_revision_updater_application",
