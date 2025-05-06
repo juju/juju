@@ -1347,6 +1347,199 @@ func (s *relationServiceSuite) TestExportRelationsStateError(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, boom)
 }
 
+// TestInferRelationUUIDByEndpoints verifies the behavior of the
+// inferRelationUUIDByEndpoints method for finding a relation uuid.
+func (s *relationServiceSuite) TestInferRelationUUIDByEndpoints(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	endpoint1 := "application-1"
+	endpoint2 := "application-2:endpoint-2"
+
+	expectedRelUUID := corerelationtesting.GenRelationUUID(c)
+
+	s.state.EXPECT().InferRelationUUIDByEndpoints(gomock.Any(), relation.CandidateEndpointIdentifier{
+		ApplicationName: "application-1",
+	}, relation.CandidateEndpointIdentifier{
+		ApplicationName: "application-2",
+		EndpointName:    "endpoint-2",
+	}).Return(expectedRelUUID, nil)
+
+	// Act
+	obtainedRelUUID, err := s.service.inferRelationUUIDByEndpoints(context.Background(), endpoint1, endpoint2)
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtainedRelUUID, gc.Equals, expectedRelUUID)
+}
+
+// TestAddRelationFirstMalformed verifies that inferRelationUUIDByEndpoints
+// returns an appropriate error when the first endpoint is malformed.
+func (s *relationServiceSuite) TestInferRelationUUIDByEndpointsFirstMalformed(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	endpoint1 := "app:ep:is:malformed"
+	endpoint2 := "application-2:endpoint-2"
+
+	// Act
+	_, err := s.service.inferRelationUUIDByEndpoints(context.Background(), endpoint1, endpoint2)
+
+	// Assert
+	c.Assert(err, gc.ErrorMatches, "parsing endpoint identifier \"app:ep:is:malformed\": expected endpoint of form <application-name>:<endpoint-name> or <application-name>")
+}
+
+// TestAddRelationFirstMalformed verifies that InferRelationUUIDByEndpoints
+// returns an appropriate error when the second endpoint is malformed.
+func (s *relationServiceSuite) TestinferRelationUUIDByEndpointsSecondMalformed(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	endpoint1 := "application-1:endpoint-1"
+	endpoint2 := "app:ep:is:malformed"
+
+	// Act
+	_, err := s.service.inferRelationUUIDByEndpoints(context.Background(), endpoint1, endpoint2)
+
+	// Assert
+	c.Assert(err, gc.ErrorMatches, "parsing endpoint identifier \"app:ep:is:malformed\": expected endpoint of form <application-name>:<endpoint-name> or <application-name>")
+}
+
+// TestAddRelationStateError validates the inferRelationUUIDByEndpoints method
+// handles and returns the correct error when state addition fails.
+func (s *relationServiceSuite) TestInferRelationUUIDByEndpointsStateError(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	expectedError := errors.New("state error")
+
+	s.state.EXPECT().InferRelationUUIDByEndpoints(gomock.Any(), gomock.Any(), gomock.Any()).Return("", expectedError)
+
+	// Act
+	_, err := s.service.inferRelationUUIDByEndpoints(context.Background(), "app1", "app2")
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, expectedError)
+}
+
+func (s *relationServiceSuite) TestGetRelationUUIDForRemovalEndpoints(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	endpoint1 := "application-1"
+	endpoint2 := "application-2:endpoint-2"
+
+	expectedRelUUID := corerelationtesting.GenRelationUUID(c)
+
+	s.state.EXPECT().InferRelationUUIDByEndpoints(gomock.Any(), relation.CandidateEndpointIdentifier{
+		ApplicationName: "application-1",
+	}, relation.CandidateEndpointIdentifier{
+		ApplicationName: "application-2",
+		EndpointName:    "endpoint-2",
+	}).Return(expectedRelUUID, nil)
+
+	args := relation.GetRelationUUIDForRemovalArgs{
+		Endpoints: []string{endpoint1, endpoint2},
+	}
+
+	// Act
+	obtainedRelUUID, err := s.service.GetRelationUUIDForRemoval(context.Background(), args)
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtainedRelUUID.String(), gc.Equals, expectedRelUUID.String())
+}
+
+func (s *relationServiceSuite) TestGetRelationUUIDForRemovalEndpointsFail(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	endpoint1 := "application-1"
+	endpoint2 := "application-2:endpoint-2"
+
+	s.state.EXPECT().InferRelationUUIDByEndpoints(gomock.Any(), relation.CandidateEndpointIdentifier{
+		ApplicationName: "application-1",
+	}, relation.CandidateEndpointIdentifier{
+		ApplicationName: "application-2",
+		EndpointName:    "endpoint-2",
+	}).Return("", relationerrors.RelationNotFound)
+
+	args := relation.GetRelationUUIDForRemovalArgs{
+		Endpoints: []string{endpoint1, endpoint2},
+	}
+
+	// Act
+	_, err := s.service.GetRelationUUIDForRemoval(context.Background(), args)
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+}
+
+func (s *relationServiceSuite) TestGetRelationUUIDForRemovalID(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	expectedRelUUID := corerelationtesting.GenRelationUUID(c)
+
+	args := relation.GetRelationUUIDForRemovalArgs{
+		RelationID: 42,
+	}
+	s.state.EXPECT().GetRelationUUIDByID(gomock.Any(), args.RelationID).Return(expectedRelUUID, nil)
+	s.state.EXPECT().IsPeerRelation(gomock.Any(), expectedRelUUID).Return(false, nil)
+
+	// Act
+	obtainedRelUUID, err := s.service.GetRelationUUIDForRemoval(context.Background(), args)
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtainedRelUUID.String(), gc.Equals, expectedRelUUID.String())
+}
+
+func (s *relationServiceSuite) TestGetRelationUUIDForRemovalIDFail(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	args := relation.GetRelationUUIDForRemovalArgs{
+		RelationID: 42,
+	}
+	s.state.EXPECT().GetRelationUUIDByID(gomock.Any(), args.RelationID).Return("", relationerrors.RelationNotFound)
+
+	// Act
+	_, err := s.service.GetRelationUUIDForRemoval(context.Background(), args)
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+}
+
+func (s *relationServiceSuite) TestGetRelationUUIDForRemovalIDIsPeer(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	expectedRelUUID := corerelationtesting.GenRelationUUID(c)
+
+	args := relation.GetRelationUUIDForRemovalArgs{
+		RelationID: 42,
+	}
+	s.state.EXPECT().GetRelationUUIDByID(gomock.Any(), args.RelationID).Return(expectedRelUUID, nil)
+	s.state.EXPECT().IsPeerRelation(gomock.Any(), expectedRelUUID).Return(true, nil)
+
+	// Act
+	_, err := s.service.GetRelationUUIDForRemoval(context.Background(), args)
+
+	// Assert
+	c.Assert(err, gc.NotNil)
+}
+
+func (s *relationServiceSuite) TestGetRelationUUIDForRemovalIDIsPeerFail(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	expectedRelUUID := corerelationtesting.GenRelationUUID(c)
+
+	args := relation.GetRelationUUIDForRemovalArgs{
+		RelationID: 42,
+	}
+	s.state.EXPECT().GetRelationUUIDByID(gomock.Any(), args.RelationID).Return(expectedRelUUID, nil)
+	s.state.EXPECT().IsPeerRelation(gomock.Any(), expectedRelUUID).Return(false, relationerrors.RelationNotFound)
+
+	// Act
+	_, err := s.service.GetRelationUUIDForRemoval(context.Background(), args)
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+}
+
 func (s *relationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

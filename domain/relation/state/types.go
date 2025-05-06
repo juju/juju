@@ -263,6 +263,15 @@ func (e Endpoint) toRelationEndpoint() relation.Endpoint {
 	}
 }
 
+// roEndpointIdentifier returns an EndpointIdentifier type for given
+// CandidateEndpointIdentifier.
+func (e Endpoint) toEndpointIdentifier() corerelation.EndpointIdentifier {
+	return corerelation.EndpointIdentifier{
+		ApplicationName: e.ApplicationName,
+		EndpointName:    e.EndpointName,
+	}
+}
+
 type relationEndpoint struct {
 	// UUID is a unique identifier for the relation endpoint
 	UUID corerelation.EndpointUUID `db:"uuid"`
@@ -308,4 +317,9 @@ type uuids []string
 type applicationIDAndName struct {
 	ID   application.ID `db:"uuid"`
 	Name string         `db:"name"`
+}
+
+// rows is used to count the number of rows found.
+type rows struct {
+	Count int `db:"count"`
 }

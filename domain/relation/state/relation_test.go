@@ -1852,7 +1852,7 @@ func (s *relationSuite) TestEnterScopeIdempotent(c *gc.C) {
 }
 
 // TestEnterScopeSubordinate checks that a subordinate unit can enter scope to
-// with its principle application.
+// with its principal application.
 func (s *relationSuite) TestEnterScopeSubordinate(c *gc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
 	s.addCharmMetadata(c, s.fakeCharmUUID1, true)
@@ -1948,7 +1948,7 @@ func (s *relationSuite) TestEnterScopePotentialRelationUnitNotValidSubordinate(c
 	s.setUnitSubordinate(c, unitUUID1, unitUUID2)
 
 	// Arrange: Add application 3 which is an instance of charm 2, so also
-	// a principle,
+	// a principal,
 	applicationName3 := "application-name-3"
 	applicationUUID3 := s.addApplication(c, s.fakeCharmUUID2, applicationName3)
 
@@ -4024,6 +4024,209 @@ func (s *relationSuite) TestExportRelations(c *gc.C) {
 			ApplicationSettings: make(map[string]any),
 		}},
 	}})
+}
+
+func (s *relationSuite) TestIsPeerRelation(c *gc.C) {
+	// Arrange: add peer relation.
+	peerEndpoint := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-3",
+			Role:      charm.RolePeer,
+			Interface: "peer",
+			Scope:     charm.ScopeContainer,
+		},
+	}
+	charmRelationUUID3 := s.addCharmRelation(c, s.fakeCharmUUID1, peerEndpoint.Relation)
+	applicationEndpointUUID3 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID3)
+	peerRelationUUID := s.addRelation(c)
+	_ = s.addRelationEndpoint(c, peerRelationUUID, applicationEndpointUUID3)
+
+	// Act
+	obtained, err := s.state.IsPeerRelation(context.Background(), peerRelationUUID)
+
+	// Assert
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(obtained, jc.IsTrue)
+}
+
+func (s *relationSuite) TestIsPeerRelationNotPeer(c *gc.C) {
+	// Arrange: add application endpoints for the 2 default applications.
+	appEndpoint1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, s.fakeCharmRelationProvidesUUID)
+	charm2RelationUUID := s.addCharmRelationWithDefaults(c, s.fakeCharmUUID2)
+	appEndpoint2 := s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charm2RelationUUID)
+
+	// Add a third application with 2 units, this is the one tested.
+	charm3 := s.addCharm(c)
+	appName3 := "three"
+	app3 := s.addApplication(c, charm3, appName3)
+	relationName3 := "relation"
+	charm3RelationUUID := s.addCharmRelation(c, charm3, charm.Relation{
+		Name:  relationName3,
+		Role:  charm.RoleRequirer,
+		Scope: charm.ScopeGlobal,
+	})
+	appEndpoint3 := s.addApplicationEndpoint(c, app3, charm3RelationUUID)
+
+	// Relate applications 1 and 3.
+	relUUID1 := s.addRelation(c)
+	_ = s.addRelationEndpoint(c, relUUID1, appEndpoint1)
+	_ = s.addRelationEndpoint(c, relUUID1, appEndpoint3)
+
+	// Relate applications 2 and 3.
+	relUUID2 := s.addRelation(c)
+	_ = s.addRelationEndpoint(c, relUUID2, appEndpoint2)
+	_ = s.addRelationEndpoint(c, relUUID2, appEndpoint3)
+
+	// Act
+	obtained, err := s.state.IsPeerRelation(context.Background(), relUUID1)
+
+	// Assert
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(obtained, jc.IsFalse)
+}
+
+func (s *relationSuite) TestIsPeerRelationNotFound(c *gc.C) {
+	// Arrange
+	relUUID := corerelationtesting.GenRelationUUID(c)
+
+	// Act
+	obtained, err := s.state.IsPeerRelation(context.Background(), relUUID)
+
+	// Assert
+	c.Check(err, jc.ErrorIs, relationerrors.RelationNotFound)
+	c.Check(obtained, jc.IsFalse)
+}
+
+// TestInferRelationUUIDByEndpoints tests InferRelationUUIDByEndpoints
+// method to find an relation UUID. The methods called are also well
+// tested in other methods.
+func (s *relationSuite) TestInferRelationUUIDByEndpoints(c *gc.C) {
+	// Arrange
+	relation1 := charm.Relation{
+		Name:      "fake-endpoint-name-1",
+		Role:      charm.RoleProvider,
+		Interface: "database",
+		Optional:  true,
+		Limit:     20,
+		Scope:     charm.ScopeGlobal,
+	}
+
+	relation2 := charm.Relation{
+		Name:      "fake-endpoint-name-2",
+		Role:      charm.RoleRequirer,
+		Interface: "database",
+		Optional:  false,
+		Limit:     10,
+		Scope:     charm.ScopeGlobal,
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, relation1)
+	charmRelationUUID2 := s.addCharmRelation(c, s.fakeCharmUUID2, relation2)
+	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
+	s.addCharmMetadata(c, s.fakeCharmUUID2, false)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	applicationEndpointUUID2 := s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charmRelationUUID2)
+	relUUID := s.addRelation(c)
+	s.addRelationEndpoint(c, relUUID, applicationEndpointUUID1)
+	s.addRelationEndpoint(c, relUUID, applicationEndpointUUID2)
+	candidate1 := relation.CandidateEndpointIdentifier{
+		ApplicationName: s.fakeApplicationName1,
+	}
+	candidate2 := relation.CandidateEndpointIdentifier{
+		ApplicationName: s.fakeApplicationName2,
+	}
+
+	// Act
+	obtainedUUID, err := s.state.InferRelationUUIDByEndpoints(context.Background(), candidate1, candidate2)
+
+	// Assert
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(obtainedUUID, gc.Equals, relUUID)
+}
+
+func (s *relationSuite) TestInferRelationUUIDByEndpointsFailInfer(c *gc.C) {
+	// Arrange relation endpoints where neither the name nor the interface
+	// match.
+	relation1 := charm.Relation{
+		Name:      "fake-endpoint-name-1",
+		Role:      charm.RoleProvider,
+		Interface: "database",
+		Optional:  true,
+		Limit:     20,
+		Scope:     charm.ScopeGlobal,
+	}
+	relation2 := charm.Relation{
+		Name:      "fake-endpoint-name-2",
+		Role:      charm.RoleRequirer,
+		Interface: "cheese",
+		Optional:  false,
+		Limit:     10,
+		Scope:     charm.ScopeGlobal,
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, relation1)
+	charmRelationUUID2 := s.addCharmRelation(c, s.fakeCharmUUID2, relation2)
+	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
+	s.addCharmMetadata(c, s.fakeCharmUUID2, false)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	applicationEndpointUUID2 := s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charmRelationUUID2)
+	relUUID := s.addRelation(c)
+	s.addRelationEndpoint(c, relUUID, applicationEndpointUUID1)
+	s.addRelationEndpoint(c, relUUID, applicationEndpointUUID2)
+	candidate1 := relation.CandidateEndpointIdentifier{
+		ApplicationName: s.fakeApplicationName1,
+	}
+	candidate2 := relation.CandidateEndpointIdentifier{
+		ApplicationName: s.fakeApplicationName2,
+	}
+
+	// Act
+	_, err := s.state.InferRelationUUIDByEndpoints(context.Background(), candidate1, candidate2)
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+}
+
+func (s *relationSuite) TestInferRelationUUIDByEndpointsFailGetUUID(c *gc.C) {
+	// Arrange application endpoints where the relation does not
+	// exist
+	relation1 := charm.Relation{
+		Name:      "fake-endpoint-name-1",
+		Role:      charm.RoleProvider,
+		Interface: "database",
+		Optional:  true,
+		Limit:     20,
+		Scope:     charm.ScopeGlobal,
+	}
+
+	relation2 := charm.Relation{
+		Name:      "fake-endpoint-name-2",
+		Role:      charm.RoleRequirer,
+		Interface: "database",
+		Optional:  false,
+		Limit:     10,
+		Scope:     charm.ScopeGlobal,
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, relation1)
+	charmRelationUUID2 := s.addCharmRelation(c, s.fakeCharmUUID2, relation2)
+	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
+	s.addCharmMetadata(c, s.fakeCharmUUID2, false)
+	_ = s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	_ = s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charmRelationUUID2)
+	//relUUID := s.addRelation(c)
+	//s.addRelationEndpoint(c, relUUID, applicationEndpointUUID1)
+	//s.addRelationEndpoint(c, relUUID, applicationEndpointUUID2)
+	candidate1 := relation.CandidateEndpointIdentifier{
+		ApplicationName: s.fakeApplicationName1,
+	}
+	candidate2 := relation.CandidateEndpointIdentifier{
+		ApplicationName: s.fakeApplicationName2,
+	}
+
+	// Act
+	_, err := s.state.InferRelationUUIDByEndpoints(context.Background(), candidate1, candidate2)
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
 }
 
 // addRelationUnitSetting inserts a relation unit setting into the database

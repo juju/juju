@@ -126,6 +126,55 @@ func (st *State) AddRelation(ctx context.Context, epIdentifier1, epIdentifier2 r
 	})
 }
 
+// InferRelationUUIDByEndpoints infers the relation based on two endpoints.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] is returned if endpoints cannot be
+//     found.
+func (st *State) InferRelationUUIDByEndpoints(
+	ctx context.Context,
+	epIdentifier1, epIdentifier2 relation.CandidateEndpointIdentifier,
+) (corerelation.UUID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var potentialUUIDs []relationUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		ep1, ep2, err := st.inferEndpoints(ctx, tx, epIdentifier1, epIdentifier2)
+		if errors.Is(err, relationerrors.CompatibleEndpointsNotFound) ||
+			errors.Is(err, relationerrors.RelationEndpointNotFound) ||
+			errors.Is(err, relationerrors.AmbiguousRelation) {
+			return relationerrors.RelationNotFound
+		} else if err != nil {
+			return errors.Errorf("inferring endpoints: %w", err)
+		}
+
+		potentialUUIDs, err = st.getRegularRelationUUIDByEndpointIdentifiers(
+			ctx,
+			tx,
+			ep1.toEndpointIdentifier(),
+			ep2.toEndpointIdentifier(),
+		)
+		if err != nil {
+			return errors.Errorf("getting uuid for %q, %q: %w",
+				ep1.String(), ep2.String(), err)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	if len(potentialUUIDs) > 1 {
+		// This should never happen.
+		return "", errors.Errorf("found multiple relations for endpoint pair")
+	}
+
+	return potentialUUIDs[0].UUID, nil
+}
+
 // SetRelationWithID establishes a relation between two endpoints identified
 // by ep1 and ep2 and returns the relation UUID. Used for migration
 // import.
@@ -1008,6 +1057,33 @@ func (st *State) GetRegularRelationUUIDByEndpointIdentifiers(
 		return "", errors.Capture(err)
 	}
 
+	var uuid []relationUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		uuid, err = st.getRegularRelationUUIDByEndpointIdentifiers(
+			ctx,
+			tx,
+			endpoint1,
+			endpoint2,
+		)
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	if len(uuid) > 1 {
+		return "", errors.Errorf("found multiple relations for endpoint pair")
+	}
+
+	return uuid[0].UUID, nil
+}
+
+func (st *State) getRegularRelationUUIDByEndpointIdentifiers(
+	ctx context.Context,
+	tx *sqlair.TX,
+	endpoint1, endpoint2 corerelation.EndpointIdentifier,
+) ([]relationUUID, error) {
+	var uuid []relationUUID
 	type endpointIdentifier1 endpointIdentifier
 	type endpointIdentifier2 endpointIdentifier
 	e1 := endpointIdentifier1{
@@ -1030,26 +1106,13 @@ AND    e2.application_name = $endpointIdentifier2.application_name
 AND    e2.endpoint_name    = $endpointIdentifier2.endpoint_name
 `, relationUUID{}, e1, e2)
 	if err != nil {
-		return "", errors.Capture(err)
+		return uuid, errors.Capture(err)
 	}
-
-	var uuid []relationUUID
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt, e1, e2).GetAll(&uuid)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return relationerrors.RelationNotFound
-		}
-		return errors.Capture(err)
-	})
-	if err != nil {
-		return "", errors.Capture(err)
+	err = tx.Query(ctx, stmt, e1, e2).GetAll(&uuid)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return uuid, relationerrors.RelationNotFound
 	}
-
-	if len(uuid) > 1 {
-		return "", errors.Errorf("found multiple relations for endpoint pair")
-	}
-
-	return uuid[0].UUID, nil
+	return uuid, errors.Capture(err)
 }
 
 // GetPeerRelationUUIDByEndpointIdentifiers gets the UUID of a peer
@@ -1331,6 +1394,44 @@ AND    re.relation_uuid = $getRelationUnit.relation_uuid`, args)
 		return "", "", errors.Errorf("getting unit: %w", err)
 	}
 	return args.RelationUnitUUID, args.UnitUUID, nil
+}
+
+// IsPeerRelation returns a boolean to indicate if the given
+// relation UUID is for a peer relation.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] if the relation cannot be found.
+func (st *State) IsPeerRelation(ctx context.Context, relUUID corerelation.UUID) (bool, error) {
+	db, err := st.DB()
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	countStmt, err := st.Prepare(`
+SELECT count(*) AS &rows.count
+FROM   relation_endpoint
+WHERE  relation_uuid = $relationUUID.uuid`, rows{}, relationUUID{})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	var found rows
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err = tx.Query(ctx, countStmt, relationUUID{UUID: relUUID}).Get(&found); err != nil {
+			return errors.Errorf("querying relation endpoints for uuid %q: %w", relUUID, err)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	if found.Count == 0 {
+		err = relationerrors.RelationNotFound
+	}
+
+	return found.Count == 1, err
 }
 
 // EnterScope indicates that the provided unit has joined the relation.
@@ -1749,17 +1850,17 @@ WHERE  re.relation_uuid = $relationUUID.uuid
 // 1. The relation has scope container.
 // 2. The unit entering scope is a subordinate.
 // 3. The other application is not a subordinate.
-// Then the subordinate unit cannot enter a relation unless its principle
+// Then the subordinate unit cannot enter a relation unless its principal
 // application is the one in the relation. In this case, the error
 // [relationerrors.PotentialRelationUnitNotValid] is returned.
 //
 // The above scenario can happen when a subordinate application is deployed then
-// related to multiple principle applications. The units of the single
-// subordinate application can have different principle applications depending
+// related to multiple principal applications. The units of the single
+// subordinate application can have different principal applications depending
 // on which machine they are on. When the subordinate application is related to
-// a new principle application, watchers will trigger for all of its units, and
+// a new principal application, watchers will trigger for all of its units, and
 // they will all try to enter the relation scope. They should only succeed if
-// they are the units of the new principle application, otherwise the error is
+// they are the units of the new principal application, otherwise the error is
 // returned.
 func (st *State) checkSubordinateUnitCanEnterScope(
 	ctx context.Context,
@@ -1786,15 +1887,15 @@ func (st *State) checkSubordinateUnitCanEnterScope(
 		return nil
 	}
 
-	// Check that the principle application of the unit is the other application
+	// Check that the principal application of the unit is the other application
 	// in the relation the unit is trying to enter scope in.
-	principleAppID, err := st.getPrincipalApplicationOfUnit(ctx, tx, unitUUID)
+	principalAppID, err := st.getPrincipalApplicationOfUnit(ctx, tx, unitUUID)
 	if err != nil {
 		return errors.Errorf("getting principal application of unit: %w", err)
 	}
-	if principleAppID != otherApplication {
+	if principalAppID != otherApplication {
 		return errors.Errorf(
-			"unit cannot enter scope: principle application not in relation: %w",
+			"unit cannot enter scope: principal application not in relation: %w",
 			relationerrors.PotentialRelationUnitNotValid,
 		)
 	}
@@ -1885,8 +1986,8 @@ WHERE  a.uuid = $getSubordinate.application_uuid
 	return subordinate.Subordinate, nil
 }
 
-// getPrincipalApplicationOfUnit returns the UUID of the principle application
-// of a unit. If the unit has no principle application, then the error
+// getPrincipalApplicationOfUnit returns the UUID of the principal application
+// of a unit. If the unit has no principal application, then the error
 // [relationerrors.UnitPrincipalNotFound] is returned (this means the error is
 // always returned when the unit is not a subordinate).
 func (st *State) getPrincipalApplicationOfUnit(
@@ -2632,7 +2733,7 @@ func (st *State) GetPrincipalSubordinateApplicationIDs(
 		return "", "", errors.Capture(err)
 	}
 
-	var principleAppID, subordinateAppID application.ID
+	var principalAppID, subordinateAppID application.ID
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if alive, err := st.checkLife(ctx, tx, "unit", unitUUID.String(), life.IsAlive); err != nil {
@@ -2641,7 +2742,7 @@ func (st *State) GetPrincipalSubordinateApplicationIDs(
 			return errors.Errorf("unit %s is not alive", unitUUID).Add(relationerrors.UnitNotAlive)
 		}
 		var principalUnit bool
-		principleAppID, err = st.getPrincipalApplicationOfUnit(ctx, tx, unitUUID)
+		principalAppID, err = st.getPrincipalApplicationOfUnit(ctx, tx, unitUUID)
 		if errors.Is(err, relationerrors.UnitPrincipalNotFound) {
 			principalUnit = true
 		} else if err != nil {
@@ -2654,13 +2755,13 @@ func (st *State) GetPrincipalSubordinateApplicationIDs(
 		}
 
 		if principalUnit {
-			principleAppID = unitApplicationID
+			principalAppID = unitApplicationID
 		} else {
 			subordinateAppID = unitApplicationID
 		}
 		return err
 	})
-	return principleAppID, subordinateAppID, errors.Capture(err)
+	return principalAppID, subordinateAppID, errors.Capture(err)
 }
 
 // InitialWatchLifeSuspendedStatus returns the two tables to watch for
@@ -3008,17 +3109,15 @@ WHERE  uuid = $search.uuid
 // checkEndpointCapacity validates whether adding a new relation to the given
 // endpoint exceeds its defined capacity limit.
 func (st *State) checkEndpointCapacity(ctx context.Context, tx *sqlair.TX, ep Endpoint) error {
-	type related struct {
-		Count int `db:"count"`
-	}
+
 	countStmt, err := st.Prepare(`
-SELECT count(*) AS &related.count
+SELECT count(*) AS &rows.count
 FROM   relation_endpoint
-WHERE  endpoint_uuid = $Endpoint.application_endpoint_uuid`, related{}, ep)
+WHERE  endpoint_uuid = $Endpoint.application_endpoint_uuid`, rows{}, ep)
 	if err != nil {
 		return errors.Capture(err)
 	}
-	var found related
+	var found rows
 	if err = tx.Query(ctx, countStmt, ep).Get(&found); err != nil {
 		return errors.Errorf("querying relation linked to endpoint %q: %w", ep, err)
 	}

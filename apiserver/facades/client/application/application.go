@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
@@ -40,6 +41,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/resolve"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
 	"github.com/juju/juju/environs/bootstrap"
@@ -86,6 +88,7 @@ type APIBase struct {
 	networkService     NetworkService
 	portService        PortService
 	relationService    RelationService
+	removalService     RemovalService
 	resourceService    ResourceService
 	storageService     StorageService
 
@@ -177,6 +180,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 			ResolveService:     domainServices.Resolve(),
 			PortService:        domainServices.Port(),
 			RelationService:    domainServices.Relation(),
+			RemovalService:     domainServices.Removal(),
 			ResourceService:    domainServices.Resource(),
 			StorageService:     storageService,
 		},
@@ -255,6 +259,7 @@ func NewAPIBase(
 		networkService:     services.NetworkService,
 		portService:        services.PortService,
 		relationService:    services.RelationService,
+		removalService:     services.RemovalService,
 		resourceService:    services.ResourceService,
 		storageService:     services.StorageService,
 
@@ -1772,7 +1777,35 @@ func (api *APIBase) DestroyRelation(ctx context.Context, args params.DestroyRela
 		return internalerrors.Capture(err)
 	}
 
-	return internalerrors.Errorf("destroying relations is not yet supported%w", errors.NotImplemented)
+	getUUIDArgs := relation.GetRelationUUIDForRemovalArgs{
+		Endpoints:  args.Endpoints,
+		RelationID: args.RelationId,
+	}
+	relUUID, err := api.relationService.GetRelationUUIDForRemoval(ctx, getUUIDArgs)
+	if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	force := false
+	if args.Force != nil {
+		force = *args.Force
+	}
+	var maxWait time.Duration
+	if args.MaxWait != nil {
+		maxWait = *args.MaxWait
+	}
+
+	removalUUID, err := api.removalService.RemoveRelation(ctx, relUUID, force, maxWait)
+	if err == nil {
+		var msg string
+		if len(args.Endpoints) == 2 {
+			msg = fmt.Sprintf("%q, %q", args.Endpoints[0], args.Endpoints[1])
+		} else {
+			msg = fmt.Sprintf("%d", args.RelationId)
+		}
+		api.logger.Debugf(ctx, "removal uuid %q for relation %q", removalUUID, msg)
+	}
+	return internalerrors.Capture(err)
 }
 
 // SetRelationsSuspended sets the suspended status of the specified relations.

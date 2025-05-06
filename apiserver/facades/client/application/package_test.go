@@ -21,7 +21,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package application -destination services_mock_test.go github.com/juju/juju/apiserver/facades/client/application NetworkService,StorageInterface,DeployFromRepository,BlockChecker,ModelConfigService,MachineService,ApplicationService,ResolveService,PortService,Leadership,StorageService,RelationService,ResourceService
+//go:generate go run go.uber.org/mock/mockgen -typed -package application -destination services_mock_test.go github.com/juju/juju/apiserver/facades/client/application NetworkService,StorageInterface,DeployFromRepository,BlockChecker,ModelConfigService,MachineService,ApplicationService,ResolveService,PortService,Leadership,StorageService,RelationService,ResourceService,RemovalService
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination legacy_mock_test.go github.com/juju/juju/apiserver/facades/client/application Backend,Application,CaasBrokerInterface
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination storage_mock_test.go github.com/juju/juju/internal/storage ProviderRegistry
@@ -47,13 +47,13 @@ type baseSuite struct {
 	resourceService    *MockResourceService
 	storageService     *MockStorageService
 	relationService    *MockRelationService
-
-	storageAccess    *MockStorageInterface
-	authorizer       *MockAuthorizer
-	blockChecker     *MockBlockChecker
-	leadershipReader *MockLeadership
-	deployFromRepo   *MockDeployFromRepository
-	objectStore      *MockObjectStore
+	removalService     *MockRemovalService
+	storageAccess      *MockStorageInterface
+	authorizer         *MockAuthorizer
+	blockChecker       *MockBlockChecker
+	leadershipReader   *MockLeadership
+	deployFromRepo     *MockDeployFromRepository
+	objectStore        *MockObjectStore
 
 	charmRepository        *MockRepository
 	charmRepositoryFactory *MockRepositoryFactory
@@ -80,6 +80,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.resourceService = NewMockResourceService(ctrl)
 	s.storageService = NewMockStorageService(ctrl)
 	s.relationService = NewMockRelationService(ctrl)
+	s.removalService = NewMockRemovalService(ctrl)
 
 	s.storageAccess = NewMockStorageInterface(ctrl)
 	s.authorizer = NewMockAuthorizer(ctrl)
@@ -155,6 +156,7 @@ func (s *baseSuite) newAPI(c *gc.C, modelType model.ModelType) {
 			ResourceService:    s.resourceService,
 			StorageService:     s.storageService,
 			RelationService:    s.relationService,
+			RemovalService:     s.removalService,
 		},
 		s.storageAccess,
 		s.authorizer,

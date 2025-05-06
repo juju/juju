@@ -137,7 +137,7 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationPrincipal(c *gc.C) 
 
 // TestSubordinateSendChangeEventRelationNoChange checks that no change is
 // requested while all state calls are successful. Rhe relation is container
-// scoped but the application in the relation is not the subordinates principle.
+// scoped but the application in the relation is not the subordinate's principal.
 func (s *watcherSuite) TestSubordinateSendChangeEventRelationNoChange(c *gc.C) {
 	// Arrange:
 	defer s.setupMocks(c).Finish()

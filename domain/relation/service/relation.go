@@ -261,10 +261,27 @@ type State interface {
 	//     unit is not part of the relation.
 	GetRelationUnitSettings(ctx context.Context, relationUnitUUID corerelation.UnitUUID) (map[string]string, error)
 
+	// InferRelationUUIDByEndpoints infers the relation based on two endpoints.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.RelationNotFound] is returned if endpoints cannot be
+	//     found.
+	InferRelationUUIDByEndpoints(
+		ctx context.Context,
+		epIdentifier1, epIdentifier2 relation.CandidateEndpointIdentifier,
+	) (corerelation.UUID, error)
+
 	// InitialWatchLifeSuspendedStatus returns the two tables to watch for
 	// a relation's Life and Suspended status when the relation contains
 	// the provided application and the initial namespace query.
 	InitialWatchLifeSuspendedStatus(id application.ID) (string, string, eventsource.NamespaceQuery)
+
+	// IsPeerRelation returns a boolean to indicate if the given
+	// relation UUID is for a peer relation.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.RelationNotFound] if the relation cannot be found.
+	IsPeerRelation(ctx context.Context, relationUUID corerelation.UUID) (bool, error)
 
 	// LeaveScope updates the given relation to indicate it is not in scope.
 	//
@@ -907,6 +924,62 @@ func (s *Service) GetRelationUUIDByKey(ctx context.Context, relationKey corerela
 	default:
 		return "", errors.Errorf("internal error: unexpected number of endpoints %d", len(eids))
 	}
+}
+
+// GetRelationUUIDForRemoval returns the relation UUID, of the relation
+// represented in GetRelationUUIDForRemovalArgs, with the understanding
+// this relation will be removed by an end user. Peer relations cannot be
+// removed by an end user.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] is returned if endpoints cannot be
+//     found.
+func (s *Service) GetRelationUUIDForRemoval(
+	ctx context.Context,
+	args relation.GetRelationUUIDForRemovalArgs,
+) (corerelation.UUID, error) {
+	if err := args.Validate(); err != nil {
+		return "", errors.Capture(err)
+	}
+
+	if len(args.Endpoints) == 2 {
+		return s.inferRelationUUIDByEndpoints(ctx, args.Endpoints[0], args.Endpoints[1])
+	}
+
+	// If we're not finding the relation by endpoints, use the relation ID.
+	// 0 is a valid relation ID. Resolve the relation ID into a relationUUID,
+	// verifying it is not a peer relation.
+	relUUID, err := s.st.GetRelationUUIDByID(ctx, args.RelationID)
+	if err != nil {
+		return relUUID, errors.Errorf("finding relation uuid for id %d: %w", args.RelationID, err)
+	}
+	isPeer, err := s.st.IsPeerRelation(ctx, relUUID)
+	if err != nil {
+		return relUUID, errors.Errorf("checking if peer relation %q: %w", relUUID, err)
+	}
+	if isPeer {
+		return relUUID, errors.Errorf("cannot remove a peer relation")
+	}
+	return relUUID, nil
+}
+
+// inferRelationUUIDByEndpoints infers the relation based on two endpoint
+// strings. Unlike with GetRelationUUIDByKey, the endpoints may not be
+// fully qualified and come from a user.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] is returned if endpoints cannot be
+//     found.
+func (s *Service) inferRelationUUIDByEndpoints(ctx context.Context, ep1, ep2 string) (corerelation.UUID, error) {
+	idep1, err := relation.NewCandidateEndpointIdentifier(ep1)
+	if err != nil {
+		return "", errors.Errorf("parsing endpoint identifier %q: %w", ep1, err)
+	}
+	idep2, err := relation.NewCandidateEndpointIdentifier(ep2)
+	if err != nil {
+		return "", errors.Errorf("parsing endpoint identifier %q: %w", ep2, err)
+	}
+	return s.st.InferRelationUUIDByEndpoints(ctx, idep1, idep2)
 }
 
 // GetRelationApplicationSettings returns the application settings
