@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
+	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 )
@@ -110,6 +111,9 @@ type StatusService interface {
 	// GetApplicationAndUnitModelStatuses returns the application name and unit
 	// count for each model for the model status request.
 	GetApplicationAndUnitModelStatuses(ctx context.Context) (map[string]int, error)
+
+	// GetModelInfo returns the model's basic information.
+	GetModelInfo(context.Context) (domainstatus.ModelStatusInfo, error)
 }
 
 var _ ModelManagerBackend = (*modelManagerStateShim)(nil)

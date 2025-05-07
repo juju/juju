@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/modeldefaults"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
+	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/state"
@@ -274,6 +275,9 @@ type StatusService interface {
 	// GetApplicationAndUnitModelStatuses returns the application name and unit
 	// count for each model for the model status request.
 	GetApplicationAndUnitModelStatuses(ctx context.Context) (map[string]int, error)
+
+	// GetModelInfo returns the model's basic information
+	GetModelInfo(ctx context.Context) (status.ModelStatusInfo, error)
 }
 
 // SecretBackendService is an interface for interacting with secret backend service.

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
+	domainstatus "github.com/juju/juju/domain/status"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -78,6 +79,11 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
 		Tag: user,
 	}
 
+	s.statusService.EXPECT().GetModelInfo(gomock.Any()).Return(domainstatus.ModelStatusInfo{
+		Type:     string(s.Model.Type()),
+		OwnerTag: s.Model.Owner().String(),
+	}, nil)
+
 	api := model.NewModelStatusAPI(
 		model.NewModelManagerBackend(s.Model, s.StatePool),
 		s.machineServiceGetter,
@@ -105,6 +111,12 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 	}
 	st := s.Factory.MakeModel(c, &factory.ModelParams{Owner: owner})
 	defer st.Close()
+
+	s.statusService.EXPECT().GetModelInfo(gomock.Any()).Return(domainstatus.ModelStatusInfo{
+		Type:     string(s.Model.Type()),
+		OwnerTag: owner.String(),
+	}, nil)
+
 	api := model.NewModelStatusAPI(
 		model.NewModelManagerBackend(s.Model, s.StatePool),
 		s.machineServiceGetter,
@@ -147,6 +159,12 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
 			},
 		},
 	}
+
+	s.statusService.EXPECT().GetModelInfo(gomock.Any()).Return(domainstatus.ModelStatusInfo{
+		Type:     string(s.Model.Type()),
+		OwnerTag: s.Model.Owner().String(),
+	}, nil)
+
 	modelStatusAPI := model.NewModelStatusAPI(
 		model.NewModelManagerBackend(s.Model, s.StatePool),
 		s.machineServiceGetter,

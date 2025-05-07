@@ -1439,6 +1439,21 @@ func (s *serviceSuite) TestExportRelationStatusesError(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, expectedError)
 }
 
+func (s *serviceSuite) TestGetModelInfo(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelStatusInfo := status.ModelStatusInfo{
+		OwnerTag: "owner",
+		Type:     model.IAAS.String(),
+	}
+
+	s.state.EXPECT().GetModelInfo(gomock.Any()).Return(modelStatusInfo, nil)
+
+	modelStatusInfo, err := s.service.GetModelInfo(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelStatusInfo, gc.DeepEquals, modelStatusInfo)
+}
+
 func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

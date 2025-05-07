@@ -17,6 +17,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	corelife "github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	corestatus "github.com/juju/juju/core/status"
@@ -50,14 +51,22 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	modelUUID := uuid.MustNewUUID()
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
-			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
+			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type, credential_owner)
+			VALUES (?, ?, "test", "iaas", "test-model", "ec2", "owner")
 		`, modelUUID.String(), coretesting.ControllerTag.Id())
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+}
+
+func (s *stateSuite) TestGetModelInfo(c *gc.C) {
+	modelInfo, err := s.state.GetModelInfo(context.Background())
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelInfo.Type, gc.Equals, string(model.IAAS))
+	c.Assert(modelInfo.OwnerTag, gc.Equals, "user-owner")
 }
 
 func (s *stateSuite) TestGetAllRelationStatuses(c *gc.C) {

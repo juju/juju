@@ -156,6 +156,8 @@ type State interface {
 	// GetApplicationAndUnitModelStatuses returns the application name and unit
 	// count for each model for the model status request.
 	GetApplicationAndUnitModelStatuses(ctx context.Context) (map[string]int, error)
+	// GetModelInfo returns the model's basic information.
+	GetModelInfo(ctx context.Context) (status.ModelStatusInfo, error)
 }
 
 // Service provides the API for working with the statuses of applications and
@@ -680,4 +682,10 @@ func (s *Service) decodeUnitStatusDetails(unit status.Unit) (Unit, error) {
 		WorkloadVersion:  unit.WorkloadVersion,
 		K8sProviderID:    unit.K8sProviderID,
 	}, nil
+}
+
+// GetModelInfo returns the model's basic information.
+func (s *Service) GetModelInfo(ctx context.Context) (status.ModelStatusInfo, error) {
+	// TODO: add other model status info such as applications, machines, volumes, i.e those in params.ModelStatus.
+	return s.st.GetModelInfo(ctx)
 }

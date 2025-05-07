@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/domain/blockcommand"
 	domainmodel "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/relation"
+	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/proxy"
@@ -105,6 +106,8 @@ type StatusService interface {
 	// GetApplicationAndUnitModelStatuses returns the application name and unit
 	// count for each model for the model status request.
 	GetApplicationAndUnitModelStatuses(ctx context.Context) (map[string]int, error)
+	// GetModelInfo returns the model's basic information.
+	GetModelInfo(context.Context) (domainstatus.ModelStatusInfo, error)
 }
 
 // ProxyService provides access to the proxy service.

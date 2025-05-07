@@ -91,11 +91,16 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 		st = otherSt
 	}
 
-	model, err := st.Model()
+	statusServiceGetter, err := c.getStatusService(ctx, coremodel.UUID(modelTag.Id()))
 	if err != nil {
 		return status, errors.Trace(err)
 	}
-	isAdmin, err := HasModelAdmin(ctx, c.authorizer, c.backend.ControllerTag(), model.ModelTag())
+	modelInfo, err := statusServiceGetter.GetModelInfo(ctx)
+	if err != nil {
+		return status, errors.Trace(err)
+	}
+
+	isAdmin, err := HasModelAdmin(ctx, c.authorizer, c.backend.ControllerTag(), modelTag)
 	if err != nil {
 		return status, errors.Trace(err)
 	}
@@ -156,11 +161,16 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 	}
 	modelFilesystems := ModelFilesystemInfo(filesystems)
 
+	model, err := st.Model()
+	if err != nil {
+		return status, errors.Trace(err)
+	}
+
 	result := params.ModelStatus{
 		ModelTag:           tag,
-		OwnerTag:           model.Owner().String(),
+		OwnerTag:           modelInfo.OwnerTag,
 		Life:               life.Value(model.Life().String()),
-		Type:               string(model.Type()),
+		Type:               modelInfo.Type,
 		HostedMachineCount: hostedMachineCount,
 		ApplicationCount:   len(applications),
 		UnitCount:          unitCount,

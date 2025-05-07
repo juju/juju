@@ -9,6 +9,7 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
+	"github.com/juju/names/v6"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/database"
@@ -38,6 +39,40 @@ func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logge
 		clock:     clock,
 		logger:    logger,
 	}
+}
+
+// GetModelInfo returns the model's basic information.
+func (st *State) GetModelInfo(ctx context.Context) (status.ModelStatusInfo, error) {
+	type modelInfo struct {
+		ModelType       string `db:"type"`
+		CredentialOwner string `db:"credential_owner"`
+	}
+
+	db, err := st.DB()
+	if err != nil {
+		return status.ModelStatusInfo{}, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &modelInfo.*
+FROM   model
+`, modelInfo{})
+	if err != nil {
+		return status.ModelStatusInfo{}, errors.Capture(err)
+	}
+
+	var m modelInfo
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt).Get(&m)
+	})
+	if err != nil {
+		return status.ModelStatusInfo{}, errors.Capture(err)
+	}
+
+	modelType := m.ModelType
+	ownerTag := names.NewUserTag(m.CredentialOwner).String()
+	return status.ModelStatusInfo{Type: modelType, OwnerTag: ownerTag}, nil
+
 }
 
 // GetAllRelationStatuses returns all the relation statuses of the given model.
