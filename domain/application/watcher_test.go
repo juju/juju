@@ -1165,7 +1165,8 @@ func (s *watcherSuite) createApplicationWithCharmAndStoragePath(c *gc.C, svc *se
 }
 
 type stubCharm struct {
-	name string
+	name        string
+	subordinate bool
 }
 
 func (s *stubCharm) Meta() *internalcharm.Meta {
@@ -1174,7 +1175,8 @@ func (s *stubCharm) Meta() *internalcharm.Meta {
 		name = "test"
 	}
 	return &internalcharm.Meta{
-		Name: name,
+		Name:        name,
+		Subordinate: s.subordinate,
 	}
 }
 

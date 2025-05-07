@@ -13,9 +13,8 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	apiservermocks "github.com/juju/juju/apiserver/facade/mocks"
-	"github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	"github.com/juju/juju/apiserver/facades/client/charms/mocks"
-	coreapplication "github.com/juju/juju/core/application"
+	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -31,11 +30,9 @@ import (
 )
 
 type charmsMockSuite struct {
-	state        *mocks.MockBackendState
 	authorizer   *apiservermocks.MockAuthorizer
 	repository   *mocks.MockRepository
 	charmArchive *mocks.MockCharmArchive
-	application  *mocks.MockApplication
 
 	modelConfigService *MockModelConfigService
 	applicationService *MockApplicationService
@@ -268,7 +265,10 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithSubordinate(c *gc.C) {
 	curl := "ch:poo"
 
 	defer s.setupMocks(c).Finish()
-	s.expectSubordinateApplication(appName)
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return(appUUID, nil)
+	s.applicationService.EXPECT().IsSubordinateApplication(gomock.Any(), appUUID).Return(true, nil)
 
 	api := s.api(c)
 
@@ -291,8 +291,11 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithConstraintArch(c *gc.C) {
 	curl := "ch:poo"
 
 	defer s.setupMocks(c).Finish()
-	s.expectApplication(appName)
-	s.expectApplicationConstraints(appName, constraints.Value{Arch: &arch})
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return(appUUID, nil)
+	s.applicationService.EXPECT().IsSubordinateApplication(gomock.Any(), appUUID).Return(false, nil)
+	s.applicationService.EXPECT().GetApplicationConstraints(gomock.Any(), appUUID).Return(constraints.Value{Arch: &arch}, nil)
 
 	api := s.api(c)
 
@@ -314,10 +317,13 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithHomogeneous(c *gc.C) {
 	curl := "ch:poo"
 
 	defer s.setupMocks(c).Finish()
-	s.expectApplication(appName)
-	s.expectApplicationConstraints(appName, constraints.Value{})
 
-	s.machineService.EXPECT().GetMachineArchesForApplication(gomock.Any(), coreapplication.ID("deadbeef")).
+	appUUID := applicationtesting.GenApplicationUUID(c)
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return(appUUID, nil)
+	s.applicationService.EXPECT().IsSubordinateApplication(gomock.Any(), appUUID).Return(false, nil)
+	s.applicationService.EXPECT().GetApplicationConstraints(gomock.Any(), appUUID).Return(constraints.Value{}, nil)
+
+	s.machineService.EXPECT().GetMachineArchesForApplication(gomock.Any(), appUUID).
 		Return([]arch.Arch{arch.AMD64}, nil)
 
 	api := s.api(c)
@@ -340,10 +346,13 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithHeterogeneous(c *gc.C) {
 	curl := "ch:poo"
 
 	defer s.setupMocks(c).Finish()
-	s.expectApplication(appName)
-	s.expectApplicationConstraints(appName, constraints.Value{})
 
-	s.machineService.EXPECT().GetMachineArchesForApplication(gomock.Any(), coreapplication.ID("deadbeef")).
+	appUUID := applicationtesting.GenApplicationUUID(c)
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return(appUUID, nil)
+	s.applicationService.EXPECT().IsSubordinateApplication(gomock.Any(), appUUID).Return(false, nil)
+	s.applicationService.EXPECT().GetApplicationConstraints(gomock.Any(), appUUID).Return(constraints.Value{}, nil)
+
+	s.machineService.EXPECT().GetMachineArchesForApplication(gomock.Any(), appUUID).
 		Return([]arch.Arch{arch.AMD64, arch.ARM64}, nil)
 
 	api := s.api(c)
@@ -363,7 +372,6 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithHeterogeneous(c *gc.C) {
 // NewCharmsAPI is only used for testing.
 func NewCharmsAPI(
 	authorizer facade.Authorizer,
-	st interfaces.BackendState,
 	modelConfigService ModelConfigService,
 	applicationService ApplicationService,
 	machineService MachineService,
@@ -374,7 +382,6 @@ func NewCharmsAPI(
 ) (*API, error) {
 	return &API{
 		authorizer:         authorizer,
-		backendState:       st,
 		modelConfigService: modelConfigService,
 		applicationService: applicationService,
 		machineService:     machineService,
@@ -391,7 +398,6 @@ func NewCharmsAPI(
 func (s *charmsMockSuite) api(c *gc.C) *API {
 	api, err := NewCharmsAPI(
 		s.authorizer,
-		s.state,
 		s.modelConfigService,
 		s.applicationService,
 		s.machineService,
@@ -410,12 +416,8 @@ func (s *charmsMockSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.authorizer = apiservermocks.NewMockAuthorizer(ctrl)
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
-	s.state = mocks.NewMockBackendState(ctrl)
-
 	s.repository = mocks.NewMockRepository(ctrl)
 	s.charmArchive = mocks.NewMockCharmArchive(ctrl)
-
-	s.application = mocks.NewMockApplication(ctrl)
 
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	uuid := testing.ModelTag.Id()
@@ -475,19 +477,4 @@ func (s *charmsMockSuite) expectResolveWithPreferredChannel(times int, err error
 				Platform:          bases,
 			}, err
 		}).Times(times)
-}
-
-func (s *charmsMockSuite) expectApplication(name string) {
-	s.state.EXPECT().Application(name).Return(s.application, nil)
-	s.application.EXPECT().IsPrincipal().Return(true)
-}
-
-func (s *charmsMockSuite) expectSubordinateApplication(name string) {
-	s.state.EXPECT().Application(name).Return(s.application, nil)
-	s.application.EXPECT().IsPrincipal().Return(false)
-}
-
-func (s *charmsMockSuite) expectApplicationConstraints(appnName string, cons constraints.Value) {
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), appnName).Return(coreapplication.ID("deadbeef"), nil)
-	s.applicationService.EXPECT().GetApplicationConstraints(gomock.Any(), coreapplication.ID("deadbeef")).Return(cons, nil)
 }

@@ -530,12 +530,6 @@ func (a *Application) CharmOrigin() *CharmOrigin {
 	return &a.doc.CharmOrigin
 }
 
-// IsPrincipal returns whether units of the application can
-// have subordinate units.
-func (a *Application) IsPrincipal() bool {
-	return !a.doc.Subordinate
-}
-
 // CharmModifiedVersion increases whenever the application's charm is changed in any
 // way.
 func (a *Application) CharmModifiedVersion() int {

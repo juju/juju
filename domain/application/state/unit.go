@@ -784,6 +784,8 @@ AND    u2.application_uuid = $getSubordinate.application_uuid
 
 // IsSubordinateApplication returns true if the application is a subordinate
 // application.
+// The following errors may be returned:
+// - [appliationerrors.ApplicationNotFound] if the application does not exist
 func (st *State) IsSubordinateApplication(
 	ctx context.Context,
 	applicationUUID coreapplication.ID,

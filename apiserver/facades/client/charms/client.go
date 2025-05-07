@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	charmsinterfaces "github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	charmscommon "github.com/juju/juju/apiserver/internal/charms"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
@@ -39,7 +38,6 @@ type APIv7 struct {
 type API struct {
 	charmInfoAPI       *charmscommon.CharmInfoAPI
 	authorizer         facade.Authorizer
-	backendState       charmsinterfaces.BackendState
 	charmhubHTTPClient facade.HTTPClient
 
 	modelTag        names.ModelTag
@@ -431,22 +429,8 @@ func (a *API) checkCharmPlacement(ctx context.Context, arg params.ApplicationCha
 		return params.ErrorResult{}, nil
 	}
 
-	// Get the application. If it's not found, just return without an error as
-	// the charm can be placed in the application once it's created.
-	app, err := a.backendState.Application(arg.Application)
-	if errors.Is(err, errors.NotFound) {
-		return params.ErrorResult{}, nil
-	} else if err != nil {
-		return params.ErrorResult{
-			Error: apiservererrors.ServerError(err),
-		}, nil
-	}
-
-	// We don't care for subordinates here.
-	if !app.IsPrincipal() {
-		return params.ErrorResult{}, nil
-	}
-
+	// If the application it's not found, just return without an error as the
+	// charm can be placed in the application once it's created.
 	appID, err := a.applicationService.GetApplicationIDByName(ctx, arg.Application)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return params.ErrorResult{}, nil
@@ -455,6 +439,21 @@ func (a *API) checkCharmPlacement(ctx context.Context, arg params.ApplicationCha
 			Error: apiservererrors.ServerError(err),
 		}, nil
 	}
+
+	isSubordinate, err := a.applicationService.IsSubordinateApplication(ctx, appID)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return params.ErrorResult{}, nil
+	} else if err != nil {
+		return params.ErrorResult{
+			Error: apiservererrors.ServerError(err),
+		}, nil
+	}
+
+	// We don't care for subordinates here.
+	if isSubordinate {
+		return params.ErrorResult{}, nil
+	}
+
 	cons, err := a.applicationService.GetApplicationConstraints(ctx, appID)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return params.ErrorResult{}, nil

@@ -51,7 +51,7 @@ type applicationServiceSuite struct {
 
 var _ = gc.Suite(&applicationServiceSuite{})
 
-func (s *applicationServiceSuite) TestGetCharmByApplicationName(c *gc.C) {
+func (s *applicationServiceSuite) TestGetCharmByApplicationID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
