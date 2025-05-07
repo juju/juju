@@ -13,7 +13,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	core "k8s.io/api/core/v1"
@@ -31,11 +30,12 @@ import (
 	_ "github.com/juju/juju/internal/secrets/provider/all"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes/mocks"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type providerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	k8sClient               *mocks.MockInterface
 	mockDiscovery           *mocks.MockDiscoveryInterface

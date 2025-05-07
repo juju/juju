@@ -7,14 +7,14 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	environscmd "github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type contextSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&contextSuite{})

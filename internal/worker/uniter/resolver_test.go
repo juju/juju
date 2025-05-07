@@ -10,11 +10,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/charm/hooks"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/uniter"
 	uniteractions "github.com/juju/juju/internal/worker/uniter/actions"
 	unitercharm "github.com/juju/juju/internal/worker/uniter/charm"
@@ -32,7 +32,7 @@ import (
 )
 
 type baseResolverSuite struct {
-	stub           testing.Stub
+	stub           testhelpers.Stub
 	charmURL       string
 	remoteState    remotestate.Snapshot
 	opFactory      operation.Factory
@@ -125,7 +125,7 @@ func (s *baseResolverSuite) SetUpTest(c *tc.C, modelType model.ModelType, reboot
 		Logger: logger,
 	}
 
-	s.stub = testing.Stub{}
+	s.stub = testhelpers.Stub{}
 	s.charmURL = "ch:precise/mysql-2"
 	s.remoteState = remotestate.Snapshot{
 		CharmURL: s.charmURL,

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -19,12 +18,13 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/application/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/testhelpers"
 	internaltesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
 type charmInfoSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	charmService *mocks.MockCharmService
 	authorizer   *facademocks.MockAuthorizer

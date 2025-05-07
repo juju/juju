@@ -9,15 +9,15 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type multiplexerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&multiplexerSuite{})

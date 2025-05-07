@@ -9,12 +9,12 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent/agent"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/rpc/params"
@@ -26,7 +26,7 @@ import (
 // may trigger more than one of these, but it's impractical to test *every*
 // possible *path*.
 type ScaryConnectSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&ScaryConnectSuite{})
@@ -40,7 +40,7 @@ func (*ScaryConnectSuite) TestEntityDying(c *tc.C) {
 }
 
 func testEntityFine(c *tc.C, life apiagent.Life) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	expectConn := &mockConn{stub: stub}
 	apiOpen := func(ctx context.Context, info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		// no apiOpen stub calls necessary in this suite; covered
@@ -62,7 +62,7 @@ func testEntityFine(c *tc.C, life apiagent.Life) {
 	conn, err := lifeTest(c, stub, apiagent.Alive, connect)
 	c.Check(conn, tc.Equals, expectConn)
 	c.Check(err, tc.ErrorIsNil)
-	stub.CheckCalls(c, []testing.StubCall{{
+	stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Life",
 		Args:     []interface{}{entity},
 	}, {
@@ -73,7 +73,7 @@ func testEntityFine(c *tc.C, life apiagent.Life) {
 
 func (*ScaryConnectSuite) TestEntityDead(c *tc.C) {
 	// permanent failure case
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	expectConn := &mockConn{stub: stub}
 	apiOpen := func(ctx context.Context, info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		return expectConn, nil
@@ -91,7 +91,7 @@ func (*ScaryConnectSuite) TestEntityDead(c *tc.C) {
 	conn, err := lifeTest(c, stub, apiagent.Dead, connect)
 	c.Check(conn, tc.IsNil)
 	c.Check(err, tc.Equals, apicaller.ErrConnectImpossible)
-	stub.CheckCalls(c, []testing.StubCall{{
+	stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Life",
 		Args:     []interface{}{entity},
 	}, {
@@ -101,7 +101,7 @@ func (*ScaryConnectSuite) TestEntityDead(c *tc.C) {
 
 func (*ScaryConnectSuite) TestEntityDenied(c *tc.C) {
 	// permanent failure case
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	stub.SetErrors(apiagent.ErrDenied)
 	expectConn := &mockConn{stub: stub}
 	apiOpen := func(ctx context.Context, info *api.Info, opts api.DialOpts) (api.Connection, error) {
@@ -120,7 +120,7 @@ func (*ScaryConnectSuite) TestEntityDenied(c *tc.C) {
 	conn, err := lifeTest(c, stub, apiagent.Dead, connect)
 	c.Check(conn, tc.IsNil)
 	c.Check(err, tc.Equals, apicaller.ErrConnectImpossible)
-	stub.CheckCalls(c, []testing.StubCall{{
+	stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Life",
 		Args:     []interface{}{entity},
 	}, {
@@ -130,7 +130,7 @@ func (*ScaryConnectSuite) TestEntityDenied(c *tc.C) {
 
 func (*ScaryConnectSuite) TestEntityUnknownLife(c *tc.C) {
 	// "random" failure case
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	expectConn := &mockConn{stub: stub}
 	apiOpen := func(ctx context.Context, info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		return expectConn, nil
@@ -148,7 +148,7 @@ func (*ScaryConnectSuite) TestEntityUnknownLife(c *tc.C) {
 	conn, err := lifeTest(c, stub, apiagent.Life("zombie"), connect)
 	c.Check(conn, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, `unknown life value "zombie"`)
-	stub.CheckCalls(c, []testing.StubCall{{
+	stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Life",
 		Args:     []interface{}{entity},
 	}, {
@@ -207,7 +207,7 @@ func (s *ScaryConnectSuite) TestChangePasswordSuccessAfterBadCurrentPasswordErro
 	s.assertChangePasswordSuccess(c, stub)
 }
 
-func (*ScaryConnectSuite) assertChangePasswordSuccess(c *tc.C, stub *testing.Stub) {
+func (*ScaryConnectSuite) assertChangePasswordSuccess(c *tc.C, stub *testhelpers.Stub) {
 	err := checkChangePassword(c, stub)
 	c.Check(err, tc.Equals, apicaller.ErrChangedPassword)
 	stub.CheckCallNames(c,
@@ -219,19 +219,19 @@ func (*ScaryConnectSuite) assertChangePasswordSuccess(c *tc.C, stub *testing.Stu
 	checkSaneChange(c, stub.Calls()[2:5])
 }
 
-func createUnauthorisedStub(errs ...error) *testing.Stub {
+func createUnauthorisedStub(errs ...error) *testhelpers.Stub {
 	return createPasswordCheckStub(&params.Error{Code: params.CodeUnauthorized}, errs...)
 }
 
-func createPasswordCheckStub(currentPwdLoginErr error, errs ...error) *testing.Stub {
+func createPasswordCheckStub(currentPwdLoginErr error, errs ...error) *testhelpers.Stub {
 	allErrs := append([]error{currentPwdLoginErr, nil}, errs...)
 
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	stub.SetErrors(allErrs...)
 	return stub
 }
 
-func checkChangePassword(c *tc.C, stub *testing.Stub) error {
+func checkChangePassword(c *tc.C, stub *testhelpers.Stub) error {
 	// We prepend the unauth/success pair that triggers password
 	// change, and consume them in apiOpen below...
 	//errUnauth := &params.Error{Code: params.CodeUnauthorized}
@@ -264,7 +264,7 @@ func checkChangePassword(c *tc.C, stub *testing.Stub) error {
 	return err
 }
 
-func checkSaneChange(c *tc.C, calls []testing.StubCall) {
+func checkSaneChange(c *tc.C, calls []testhelpers.StubCall) {
 	c.Assert(calls, tc.HasLen, 3)
 	localSet := calls[0]
 	localSetOld := calls[1]
@@ -275,15 +275,15 @@ func checkSaneChange(c *tc.C, calls []testing.StubCall) {
 		c.Fatalf("very bad new password: %q", chosePassword)
 	}
 
-	c.Check(localSet, tc.DeepEquals, testing.StubCall{
+	c.Check(localSet, tc.DeepEquals, testhelpers.StubCall{
 		FuncName: "SetPassword",
 		Args:     []interface{}{chosePassword},
 	})
-	c.Check(localSetOld, tc.DeepEquals, testing.StubCall{
+	c.Check(localSetOld, tc.DeepEquals, testhelpers.StubCall{
 		FuncName: "SetOldPassword",
 		Args:     []interface{}{"old"},
 	})
-	c.Check(remoteSet, tc.DeepEquals, testing.StubCall{
+	c.Check(remoteSet, tc.DeepEquals, testhelpers.StubCall{
 		FuncName: "SetPassword",
 		Args:     []interface{}{names.NewApplicationTag("omg"), chosePassword},
 	})

@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/internal/secrets/provider"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type configSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&configSuite{})

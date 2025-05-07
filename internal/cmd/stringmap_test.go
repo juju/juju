@@ -5,15 +5,15 @@ package cmd_test
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 var _ = tc.Suite(&StringMapSuite{})
 
 type StringMapSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 func (StringMapSuite) TestStringMapNilOk(c *tc.C) {

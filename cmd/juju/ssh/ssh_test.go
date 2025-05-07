@@ -5,13 +5,13 @@ package ssh
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type CmdSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&CmdSuite{})

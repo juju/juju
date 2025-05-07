@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
 	"github.com/juju/juju/rpc/params"
 )
@@ -20,7 +20,7 @@ type settingsResult struct {
 }
 
 type RelationCacheSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	calls   []string
 	results []settingsResult
 }

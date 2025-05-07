@@ -6,13 +6,13 @@ package resource_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type OriginSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&OriginSuite{})

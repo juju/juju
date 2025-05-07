@@ -20,7 +20,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/utils/v4"
 	k8scmd "k8s.io/client-go/tools/clientcmd"
 
@@ -50,6 +49,7 @@ import (
 	"github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/internal/provider/openstack"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/juju/keys"
@@ -213,30 +213,30 @@ func (s *BootstrapSuite) patchVersion(c *tc.C) {
 	s.PatchValue(&jujuversion.Current, num)
 }
 
-func (s *BootstrapSuite) run(c *tc.C, test bootstrapTest) testing.Restorer {
+func (s *BootstrapSuite) run(c *tc.C, test bootstrapTest) testhelpers.Restorer {
 	// Create home with dummy provider and remove all
 	// of its envtools.
 	s.setupAutoUploadTest(c, "1.0.0", "jammy")
 	s.tw.Clear()
 
-	var restore testing.Restorer = func() {
+	var restore testhelpers.Restorer = func() {
 		s.store = jujuclienttesting.MinimalStore()
 	}
 	bootstrapVersion := v100u64
 	if test.version != "" {
 		bootstrapVersion = semversion.MustParseBinary(test.version)
-		restore = restore.Add(testing.PatchValue(&jujuversion.Current, bootstrapVersion.Number))
-		restore = restore.Add(testing.PatchValue(&arch.HostArch, func() string { return bootstrapVersion.Arch }))
+		restore = restore.Add(testhelpers.PatchValue(&jujuversion.Current, bootstrapVersion.Number))
+		restore = restore.Add(testhelpers.PatchValue(&arch.HostArch, func() string { return bootstrapVersion.Arch }))
 		bootstrapVersion.Build = 1
 		if test.upload != "" {
 			uploadVers := semversion.MustParseBinary(test.upload)
 			bootstrapVersion.Number = uploadVers.Number
 		}
-		restore = restore.Add(testing.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(bootstrapVersion.Number)))
+		restore = restore.Add(testhelpers.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(bootstrapVersion.Number)))
 	}
 
 	if test.hostArch != "" {
-		restore = restore.Add(testing.PatchEnvironment("GOARCH", test.hostArch))
+		restore = restore.Add(testhelpers.PatchEnvironment("GOARCH", test.hostArch))
 	}
 
 	controllerName := "peckham-controller"
@@ -251,7 +251,7 @@ func (s *BootstrapSuite) run(c *tc.C, test bootstrapTest) testing.Restorer {
 	var err error
 	select {
 	case err = <-errc:
-	case <-time.After(3 * testing.LongWait):
+	case <-time.After(3 * testhelpers.LongWait):
 		c.Fatal("timed out")
 	}
 	c.Check(s.tw.Log(), tc.LogMatches, test.logs)
@@ -1300,7 +1300,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *tc.C) {
 	select {
 	case err := <-errc:
 		c.Assert(err, tc.ErrorIsNil)
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out")
 	}
 	c.Check((<-opc).(dummy.OpBootstrap).Env, tc.Equals, bootstrap.ControllerModelName)
@@ -1365,7 +1365,7 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *tc.C) {
 	select {
 	case err := <-errc:
 		c.Assert(err, tc.Equals, cmd.ErrSilent)
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out")
 	}
 
@@ -1405,7 +1405,7 @@ func (s *BootstrapSuite) TestBootstrapKeepBroken(c *tc.C) {
 	select {
 	case err := <-errc:
 		c.Assert(err, tc.ErrorMatches, "failed to bootstrap model: dummy.Bootstrap is broken")
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out")
 	}
 	done := false
@@ -2129,7 +2129,7 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *tc.C) {
 	case op := <-opc:
 		_, ok := op.(dummy.OpBootstrap)
 		c.Assert(ok, tc.IsTrue)
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out")
 	}
 
@@ -2147,7 +2147,7 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *tc.C) {
 	case op := <-opc:
 		_, ok := op.(dummy.OpFinalizeBootstrap)
 		c.Assert(ok, tc.IsTrue)
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out")
 	}
 
@@ -2155,7 +2155,7 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *tc.C) {
 	select {
 	case err := <-errc:
 		c.Assert(err, tc.ErrorIsNil)
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out")
 	}
 
@@ -2163,7 +2163,7 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *tc.C) {
 	select {
 	case _, ok := <-opc:
 		c.Assert(ok, tc.IsFalse)
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out")
 	}
 

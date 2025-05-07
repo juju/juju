@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"go.uber.org/mock/gomock"
@@ -18,12 +17,13 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/environs"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/instancemutater"
 	"github.com/juju/juju/internal/worker/instancemutater/mocks"
 )
 
 type modelManifoldConfigSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&modelManifoldConfigSuite{})
@@ -135,7 +135,7 @@ func (s *modelManifoldConfigSuite) TestValidConfigValidate(c *tc.C) {
 }
 
 type environAPIManifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	getter    *mocks.MockGetter
 	agent     *mocks.MockAgent
@@ -225,7 +225,7 @@ func (s *environAPIManifoldSuite) TestMissingAPICallerFromContext(c *tc.C) {
 }
 
 type modelManifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	getter      *mocks.MockGetter
 	agent       *mocks.MockAgent
@@ -390,7 +390,7 @@ type environShim struct {
 }
 
 type machineManifoldConfigSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&machineManifoldConfigSuite{})
@@ -502,7 +502,7 @@ func (s *machineManifoldConfigSuite) TestValidConfigValidate(c *tc.C) {
 }
 
 type brokerAPIManifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	getter    *mocks.MockGetter
 	agent     *mocks.MockAgent
@@ -592,7 +592,7 @@ func (s *brokerAPIManifoldSuite) TestMissingAPICallerFromContext(c *tc.C) {
 }
 
 type machineManifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	getter      *mocks.MockGetter
 	agent       *mocks.MockAgent

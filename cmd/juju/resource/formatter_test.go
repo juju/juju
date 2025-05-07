@@ -10,17 +10,17 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/core/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 var _ = tc.Suite(&CharmFormatterSuite{})
 
 type CharmFormatterSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 func (s *CharmFormatterSuite) TestFormatCharmResource(c *tc.C) {
@@ -44,7 +44,7 @@ func (s *CharmFormatterSuite) TestFormatCharmResource(c *tc.C) {
 var _ = tc.Suite(&SvcFormatterSuite{})
 
 type SvcFormatterSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 func (s *SvcFormatterSuite) TestFormatSvcResource(c *tc.C) {
@@ -174,7 +174,7 @@ func (s *SvcFormatterSuite) TestInitialOriginUpload(c *tc.C) {
 var _ = tc.Suite(&DetailFormatterSuite{})
 
 type DetailFormatterSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 func (s *DetailFormatterSuite) TestFormatDetail(c *tc.C) {

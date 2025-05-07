@@ -5,14 +5,14 @@ package life_test
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type LifeSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&LifeSuite{})

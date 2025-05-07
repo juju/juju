@@ -5,16 +5,16 @@ package commands
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type stubCommand struct {
 	modelcmd.ModelCommandBase
-	stub    *testing.Stub
+	stub    *testhelpers.Stub
 	info    *cmd.Info
 	envName string
 }
@@ -53,7 +53,7 @@ func (c *stubCommand) ModelName() (string, error) {
 }
 
 type stubRegistry struct {
-	stub *testing.Stub
+	stub *testhelpers.Stub
 
 	names []string
 }

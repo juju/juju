@@ -5,13 +5,13 @@ package utils_test
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/internal/mongo/utils"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type dataCleansingSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&dataCleansingSuite{})

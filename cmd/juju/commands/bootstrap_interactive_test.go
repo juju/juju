@@ -10,15 +10,15 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type BSInteractSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(BSInteractSuite{})

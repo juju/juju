@@ -5,7 +5,8 @@ package client_test
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 // Most (if not all) of the permission tests below aim to test
@@ -14,7 +15,7 @@ import (
 // (usually due to "permission denied"). There are separate test cases
 // testing each individual API call data flow later on.
 type permSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&permSuite{})

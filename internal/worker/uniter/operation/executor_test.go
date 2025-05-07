@@ -9,12 +9,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/internal/charm/hooks"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/operation/mocks"
@@ -23,7 +23,7 @@ import (
 )
 
 type NewExecutorSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	mockStateRW *mocks.MockUnitStateReadWriter
 }
@@ -111,7 +111,7 @@ func (s *NewExecutorSuite) TestNewExecutorValidFile(c *tc.C) {
 }
 
 type ExecutorSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	mockStateRW *mocks.MockUnitStateReadWriter
 }
 
@@ -267,7 +267,7 @@ func (s *ExecutorSuite) TestSucceedWithRemoteStateChanges(c *tc.C) {
 		select {
 		case <-remoteStateUpdated:
 			return nil, nil
-		case <-time.After(testing.ShortWait):
+		case <-time.After(testhelpers.ShortWait):
 			c.Fatal("remote state wasn't updated")
 			return nil, nil
 		}

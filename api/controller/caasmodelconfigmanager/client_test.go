@@ -7,16 +7,16 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/caasmodelconfigmanager"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 type caasmodelconfigmanagerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&caasmodelconfigmanagerSuite{})

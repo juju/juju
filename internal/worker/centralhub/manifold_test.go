@@ -9,16 +9,16 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
 
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/centralhub"
 )
 
 type ManifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	hub    *pubsub.StructuredHub
 	config centralhub.ManifoldConfig
 }

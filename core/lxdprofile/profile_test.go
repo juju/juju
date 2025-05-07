@@ -7,13 +7,13 @@ import (
 	"fmt"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type ProfileSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&ProfileSuite{})

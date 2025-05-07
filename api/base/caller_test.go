@@ -5,16 +5,16 @@ package base_test
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/base/mocks"
 	coretrace "github.com/juju/juju/core/trace"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type apiCallerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	apiCaller *mocks.MockAPICaller
 }

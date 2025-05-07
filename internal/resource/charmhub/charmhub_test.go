@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/charm"
@@ -18,11 +17,12 @@ import (
 	"github.com/juju/juju/internal/charmhub/transport"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/resource/charmhub"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/state"
 )
 
 type CharmHubSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	client     *MockCharmHub
 	downloader *MockDownloader

@@ -8,18 +8,18 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type AgentManifoldSuite struct {
-	testing.IsolationSuite
-	testing.Stub
+	testhelpers.IsolationSuite
+	testhelpers.Stub
 	manifold dependency.Manifold
 	worker   worker.Worker
 }
@@ -28,7 +28,7 @@ var _ = tc.Suite(&AgentManifoldSuite{})
 
 func (s *AgentManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.Stub = testing.Stub{}
+	s.Stub = testhelpers.Stub{}
 	s.worker = &dummyWorker{}
 	s.manifold = engine.AgentManifold(engine.AgentManifoldConfig{
 		AgentName: "agent-name",
@@ -71,7 +71,7 @@ func (s *AgentManifoldSuite) TestStartFailure(c *tc.C) {
 	worker, err := s.manifold.Start(context.Background(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "some error")
-	s.CheckCalls(c, []testing.StubCall{{
+	s.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "newWorker",
 		Args:     []interface{}{expectAgent},
 	}})
@@ -86,7 +86,7 @@ func (s *AgentManifoldSuite) TestStartSuccess(c *tc.C) {
 	worker, err := s.manifold.Start(context.Background(), getter)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(worker, tc.Equals, s.worker)
-	s.CheckCalls(c, []testing.StubCall{{
+	s.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "newWorker",
 		Args:     []interface{}{expectAgent},
 	}})

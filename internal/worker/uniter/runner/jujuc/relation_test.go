@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
 
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc/jujuctesting"
 )
@@ -42,7 +42,7 @@ func (s *relationSuite) newHookContext(relid int, remote string, app string) (ju
 type relationInfo struct {
 	*jujuctesting.ContextInfo
 
-	stub *testing.Stub
+	stub *testhelpers.Stub
 	rels map[int]*jujuctesting.Relation
 }
 

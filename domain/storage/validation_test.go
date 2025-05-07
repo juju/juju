@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	coremodel "github.com/juju/juju/core/model"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -16,10 +15,11 @@ import (
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type validationSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	modelType coremodel.ModelType
 	meta      *charm.Meta

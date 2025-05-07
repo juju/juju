@@ -5,11 +5,12 @@ package client_test
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type statusSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&statusSuite{})
@@ -25,7 +26,7 @@ func (s *statusSuite) TestStub(c *tc.C) {
 }
 
 type statusUnitTestSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&statusUnitTestSuite{})

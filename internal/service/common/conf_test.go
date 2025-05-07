@@ -5,16 +5,16 @@ package common_test
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/utils/v4/shell"
 
 	"github.com/juju/juju/internal/service/common"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 var renderer = &shell.BashRenderer{}
 
 type confSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&confSuite{})

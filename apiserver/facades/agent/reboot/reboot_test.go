@@ -10,7 +10,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/apiserver/facade"
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/domain/machine/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -50,7 +50,7 @@ var (
 )
 
 type rebootSuite struct {
-	testing.CleanupSuite
+	testhelpers.CleanupSuite
 	jujutesting.ApiServerSuite
 	changestreamtesting.ModelSuite
 

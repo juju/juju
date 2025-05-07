@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package providertracker -destination providertracker_mock_test.go github.com/juju/juju/internal/worker/providertracker DomainServicesGetter,DomainServices,ModelService,CloudService,ConfigService,CredentialService
@@ -28,7 +28,7 @@ func TestPackage(t *stdtesting.T) {
 }
 
 type baseSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	states chan string
 
@@ -77,7 +77,7 @@ func (s *baseSuite) ensureStartup(c *tc.C) {
 	select {
 	case state := <-s.states:
 		c.Assert(state, tc.Equals, stateStarted)
-	case <-time.After(testing.ShortWait * 10):
+	case <-time.After(testhelpers.ShortWait * 10):
 		c.Fatalf("timed out waiting for startup")
 	}
 }

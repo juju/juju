@@ -7,17 +7,17 @@ import (
 	"errors"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/service"
 	"github.com/juju/juju/internal/service/common"
 	"github.com/juju/juju/internal/service/mocks"
 	"github.com/juju/juju/internal/service/systemd"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type serviceSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&serviceSuite{})
@@ -95,7 +95,7 @@ func (s *serviceSuite) TestInstallAndStartFail(c *tc.C) {
 }
 
 type restartSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&restartSuite{})

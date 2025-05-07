@@ -6,10 +6,10 @@ package common_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/common"
 )
@@ -47,7 +47,7 @@ func (s *cleanupSuite) TestReport(c *tc.C) {
 }
 
 type fakeWorker struct {
-	stub testing.Stub
+	stub testhelpers.Stub
 }
 
 func (w *fakeWorker) Kill() {

@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/utils/v4/ssh"
 
 	"github.com/juju/juju/environs"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/provider/common"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 var logger = internallogger.GetLogger("juju.environs.testing")
@@ -36,7 +36,7 @@ func DisableFinishBootstrap() func() {
 		logger.Infof(context.Background(), "provider/common.FinishBootstrap is disabled")
 		return nil
 	}
-	return testing.PatchValue(&common.FinishBootstrap, f)
+	return testhelpers.PatchValue(&common.FinishBootstrap, f)
 }
 
 // BootstrapContext creates a simple bootstrap execution context.

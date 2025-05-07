@@ -12,7 +12,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 	core "k8s.io/api/core/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -48,6 +47,7 @@ import (
 	"github.com/juju/juju/cloud"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
@@ -410,7 +410,7 @@ func ensureJujuNamespaceAnnotations(modelUUID string, isController bool, ns *cor
 }
 
 type fakeClientSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	clock               *testclock.Clock
 	broker              *provider.KubernetesClient

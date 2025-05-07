@@ -7,15 +7,15 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type migrationSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	op        *MockOperation
 	txnRunner *MockTxnRunner

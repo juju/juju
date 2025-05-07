@@ -4,14 +4,13 @@
 package cloudinittest
 
 import (
-	"github.com/juju/testing"
-
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type CloudConfig struct {
 	cloudinit.CloudConfig
-	testing.Stub
+	testhelpers.Stub
 
 	YAML   []byte
 	Script string

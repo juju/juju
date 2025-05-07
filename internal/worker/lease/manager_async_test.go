@@ -11,10 +11,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 
 	corelease "github.com/juju/juju/core/lease"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/lease"
 )
@@ -24,7 +24,7 @@ type leaseMap = map[corelease.Key]corelease.Info
 // AsyncSuite checks that expiries and claims that block don't prevent
 // subsequent updates.
 type AsyncSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&AsyncSuite{})
@@ -241,7 +241,7 @@ func (s *AsyncSuite) TestClaimSlow(c *tc.C) {
 
 		// response1 should have failed its claim, and now be waiting to retry
 		// only 1 waiter, which is the 'when should we expire next' timer.
-		c.Assert(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 1), tc.ErrorIsNil)
+		c.Assert(clock.WaitAdvance(50*time.Millisecond, testhelpers.LongWait, 1), tc.ErrorIsNil)
 
 		// We should be able to get the response for the second claim
 		// even though the first hasn't come back yet.
@@ -256,7 +256,7 @@ func (s *AsyncSuite) TestClaimSlow(c *tc.C) {
 
 		close(slowFinish)
 
-		c.Assert(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 1), tc.ErrorIsNil)
+		c.Assert(clock.WaitAdvance(50*time.Millisecond, testhelpers.LongWait, 1), tc.ErrorIsNil)
 
 		// Now response1 should come back.
 		select {
@@ -467,7 +467,7 @@ func (s *AsyncSuite) TestClaimNoticesEarlyExpiry(c *tc.C) {
 		// We sleep for 30s which *shouldn't* trigger any Expiry. And then we get
 		// another claim that also wants 1 minute duration. But that should not cause the
 		// timer to wake up in 1minute, but the 30s that are remaining.
-		c.Assert(clock.WaitAdvance(30*time.Second, testing.LongWait, 1), tc.ErrorIsNil)
+		c.Assert(clock.WaitAdvance(30*time.Second, testhelpers.LongWait, 1), tc.ErrorIsNil)
 		// The second claim tries to set a timeout of another minute, but that should
 		// not cause the timer to get reset any later than it already is.
 		// Chocolate is also given a slightly longer timeout (2min after epoch)
@@ -476,7 +476,7 @@ func (s *AsyncSuite) TestClaimNoticesEarlyExpiry(c *tc.C) {
 		// Now when we advance the clock another 30s, it should wake up and
 		// expire "icecream", and then queue up that we should expire "fudge"
 		// 1m later
-		c.Assert(clock.WaitAdvance(30*time.Second, testing.LongWait, 1), tc.ErrorIsNil)
+		c.Assert(clock.WaitAdvance(30*time.Second, testhelpers.LongWait, 1), tc.ErrorIsNil)
 	})
 }
 

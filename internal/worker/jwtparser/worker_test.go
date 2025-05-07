@@ -9,15 +9,15 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type workerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	client           *MockHTTPClient
 	controllerConfig *MockControllerConfigService
 }

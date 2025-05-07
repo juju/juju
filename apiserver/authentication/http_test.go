@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type MockAuthenticatorNotFound struct{}
@@ -38,7 +38,7 @@ func (m *MockAuthenticatorNoError) Authenticate(req *http.Request) (authenticati
 }
 
 type HTTPAuthenticatorSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&HTTPAuthenticatorSuite{})

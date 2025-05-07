@@ -15,18 +15,18 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/crossmodel/mocks"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 )
 
 type bakerySuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	mockRoundTripper           *mocks.MockRoundTripper
 	mockExpirableStorageBakery *mocks.MockExpirableStorageBakery

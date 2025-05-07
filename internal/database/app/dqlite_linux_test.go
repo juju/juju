@@ -9,11 +9,12 @@ import (
 	"fmt"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type onceErrorSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&onceErrorSuite{})

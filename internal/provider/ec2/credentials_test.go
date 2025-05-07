@@ -9,16 +9,16 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type credentialsSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	provider environs.EnvironProvider
 }
 

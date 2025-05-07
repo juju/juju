@@ -7,11 +7,12 @@ import (
 	"os/exec"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type ovsSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&ovsSuite{})
@@ -27,7 +28,7 @@ func (s *ovsSuite) SetUpTest(c *tc.C) {
 func (s *ovsSuite) TestExistingOvsManagedBridgeInterfaces(c *tc.C) {
 	// Patch output for "ovs-vsctl list-br" and make sure exec.LookPath can
 	// detect it in the path
-	testing.PatchExecutableAsEchoArgs(c, s, "ovs-vsctl", 0)
+	testhelpers.PatchExecutableAsEchoArgs(c, s, "ovs-vsctl", 0)
 	s.PatchValue(&getCommandOutput, func(cmd *exec.Cmd) ([]byte, error) {
 		c.Assert(cmd.Args, tc.DeepEquals, []string{"ovs-vsctl", "list-br"}, tc.Commentf("expected ovs-vsctl to be invoked with 'list-br' as an argument"))
 		return []byte("ovsbr1" + "\n"), nil
@@ -49,7 +50,7 @@ func (s *ovsSuite) TestExistingOvsManagedBridgeInterfaces(c *tc.C) {
 func (s *ovsSuite) TestNonExistingOvsManagedBridgeInterfaces(c *tc.C) {
 	// Patch output for "ovs-vsctl list-br" and make sure exec.LookPath can
 	// detect it in the path
-	testing.PatchExecutableAsEchoArgs(c, s, "ovs-vsctl", 0)
+	testhelpers.PatchExecutableAsEchoArgs(c, s, "ovs-vsctl", 0)
 	s.PatchValue(&getCommandOutput, func(cmd *exec.Cmd) ([]byte, error) {
 		c.Assert(cmd.Args, tc.DeepEquals, []string{"ovs-vsctl", "list-br"}, tc.Commentf("expected ovs-vsctl to be invoked with 'list-br' as an argument"))
 		return []byte("\n"), nil

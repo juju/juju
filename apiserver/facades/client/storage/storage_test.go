@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -23,6 +22,7 @@ import (
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider/dummy"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -353,7 +353,7 @@ func (s *storageSuite) TestDetach(c *tc.C) {
 		storageInstanceAttachmentsCall,
 		detachStorageCall,
 	})
-	s.stub.CheckCalls(c, []testing.StubCall{
+	s.stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: detachStorageCall, Args: []interface{}{s.storageTag, s.unitTag, false}},
 		{FuncName: storageInstanceAttachmentsCall, Args: []interface{}{s.storageTag}},
 		{FuncName: detachStorageCall, Args: []interface{}{s.storageTag, s.unitTag, false}},
@@ -382,7 +382,7 @@ func (s *storageSuite) TestDetachSpecifiedNotFound(c *tc.C) {
 	s.assertCalls(c, []string{
 		detachStorageCall,
 	})
-	s.stub.CheckCalls(c, []testing.StubCall{
+	s.stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: detachStorageCall, Args: []interface{}{
 			s.storageTag,
 			names.NewUnitTag("foo/42"),
@@ -422,7 +422,7 @@ func (s *storageSuite) TestDetachAttachmentNotFoundConcurrent(c *tc.C) {
 		storageInstanceAttachmentsCall,
 		detachStorageCall,
 	})
-	s.stub.CheckCalls(c, []testing.StubCall{
+	s.stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: storageInstanceAttachmentsCall, Args: []interface{}{s.storageTag}},
 		{FuncName: detachStorageCall, Args: []interface{}{s.storageTag, s.unitTag, false}},
 	})
@@ -447,7 +447,7 @@ func (s *storageSuite) TestDetachNoAttachmentsStorageNotFound(c *tc.C) {
 			Message: "storage foo/42 not found",
 		}},
 	})
-	s.stub.CheckCalls(c, []testing.StubCall{
+	s.stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: storageInstanceAttachmentsCall, Args: []interface{}{names.NewStorageTag("foo/42")}},
 		{FuncName: storageInstanceCall, Args: []interface{}{names.NewStorageTag("foo/42")}},
 	})
@@ -470,7 +470,7 @@ func (s *storageSuite) TestAttach(c *tc.C) {
 		{Error: &params.Error{Message: `"machine-0" is not a valid unit tag`}},
 		{Error: &params.Error{Message: `"volume-0" is not a valid storage tag`}},
 	})
-	s.stub.CheckCalls(c, []testing.StubCall{
+	s.stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: attachStorageCall, Args: []interface{}{s.storageTag, s.unitTag}},
 	})
 }
@@ -506,7 +506,7 @@ func (s *storageSuite) TestImportFilesystem(c *tc.C) {
 			StorageTag: "storage-data-0",
 		},
 	}})
-	filesystemSource.CheckCalls(c, []testing.StubCall{
+	filesystemSource.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "ImportFilesystem", Args: []interface{}{
 			"foo", map[string]string{
 				"juju-model-uuid":      s.modelUUID.String(),
@@ -514,7 +514,7 @@ func (s *storageSuite) TestImportFilesystem(c *tc.C) {
 			},
 		}},
 	})
-	s.stub.CheckCalls(c, []testing.StubCall{
+	s.stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: addExistingFilesystemCall, Args: []interface{}{
 			state.FilesystemInfo{
 				FilesystemId: "foo",
@@ -561,7 +561,7 @@ func (s *storageSuite) TestImportFilesystemVolumeBacked(c *tc.C) {
 			StorageTag: "storage-data-0",
 		},
 	}})
-	volumeSource.CheckCalls(c, []testing.StubCall{
+	volumeSource.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "ImportVolume", Args: []interface{}{
 			"foo", map[string]string{
 				"juju-model-uuid":      s.modelUUID.String(),
@@ -569,7 +569,7 @@ func (s *storageSuite) TestImportFilesystemVolumeBacked(c *tc.C) {
 			},
 		}},
 	})
-	s.stub.CheckCalls(c, []testing.StubCall{
+	s.stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: addExistingFilesystemCall, Args: []interface{}{
 			state.FilesystemInfo{
 				Pool: "radiance",

@@ -8,12 +8,12 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorupgrader"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/semversion"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -88,7 +88,7 @@ func (s *CAASProvisionerSuite) TestUpgradeController(c *tc.C) {
 }
 
 type mockBroker struct {
-	testing.Stub
+	testhelpers.Stub
 }
 
 func (m *mockBroker) Upgrade(_ context.Context, app string, vers semversion.Number) error {

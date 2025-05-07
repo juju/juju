@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
 
@@ -60,7 +60,7 @@ func (s *builtinSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	var logger loggo.Logger
-	s.runner = dummyRunner{CallMocker: testing.NewCallMocker(logger)}
+	s.runner = dummyRunner{CallMocker: testhelpers.NewCallMocker(logger)}
 	s.kubeCloudParams = provider.KubeCloudParams{
 		ClusterName:   k8s.MicroK8sClusterName,
 		CloudName:     k8s.K8sCloudMicrok8s,

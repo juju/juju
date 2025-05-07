@@ -5,13 +5,13 @@ package network_test
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/internal/network"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type DeviceNamesSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&DeviceNamesSuite{})

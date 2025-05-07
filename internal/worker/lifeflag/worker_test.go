@@ -9,22 +9,22 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 
 	apilifeflag "github.com/juju/juju/api/controller/lifeflag"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/lifeflag"
 )
 
 type WorkerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&WorkerSuite{})
 
 func (*WorkerSuite) TestCreateNotFoundError(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	stub.SetErrors(apilifeflag.ErrEntityNotFound)
 	config := lifeflag.Config{
 		Facade: newMockFacade(stub),
@@ -39,7 +39,7 @@ func (*WorkerSuite) TestCreateNotFoundError(c *tc.C) {
 }
 
 func (*WorkerSuite) TestCreateRandomError(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	stub.SetErrors(errors.New("boom splat"))
 	config := lifeflag.Config{
 		Facade: newMockFacade(stub),
@@ -54,7 +54,7 @@ func (*WorkerSuite) TestCreateRandomError(c *tc.C) {
 }
 
 func (*WorkerSuite) TestWatchNotFoundError(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	stub.SetErrors(nil, apilifeflag.ErrEntityNotFound)
 	config := lifeflag.Config{
 		Facade: newMockFacade(stub, life.Alive),
@@ -72,7 +72,7 @@ func (*WorkerSuite) TestWatchNotFoundError(c *tc.C) {
 }
 
 func (*WorkerSuite) TestWatchRandomError(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	stub.SetErrors(nil, errors.New("pew pew"))
 	config := lifeflag.Config{
 		Facade: newMockFacade(stub, life.Alive),
@@ -90,7 +90,7 @@ func (*WorkerSuite) TestWatchRandomError(c *tc.C) {
 }
 
 func (*WorkerSuite) TestLifeNotFoundError(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	stub.SetErrors(nil, nil, apilifeflag.ErrEntityNotFound)
 	config := lifeflag.Config{
 		Facade: newMockFacade(stub, life.Alive),
@@ -108,7 +108,7 @@ func (*WorkerSuite) TestLifeNotFoundError(c *tc.C) {
 }
 
 func (*WorkerSuite) TestLifeRandomError(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	stub.SetErrors(nil, nil, errors.New("rawr"))
 	config := lifeflag.Config{
 		Facade: newMockFacade(stub, life.Alive),
@@ -126,7 +126,7 @@ func (*WorkerSuite) TestLifeRandomError(c *tc.C) {
 }
 
 func (*WorkerSuite) TestResultImmediateRealChange(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	config := lifeflag.Config{
 		Facade: newMockFacade(stub, life.Alive, life.Dead),
 		Entity: testEntity,
@@ -143,7 +143,7 @@ func (*WorkerSuite) TestResultImmediateRealChange(c *tc.C) {
 }
 
 func (*WorkerSuite) TestResultSubsequentRealChange(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	config := lifeflag.Config{
 		Facade: newMockFacade(stub, life.Dying, life.Dying, life.Dead),
 		Entity: testEntity,
@@ -159,7 +159,7 @@ func (*WorkerSuite) TestResultSubsequentRealChange(c *tc.C) {
 }
 
 func (*WorkerSuite) TestResultNoRealChange(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	config := lifeflag.Config{
 		Facade: newMockFacade(stub, life.Alive, life.Alive, life.Dying),
 		Entity: testEntity,
@@ -176,7 +176,7 @@ func (*WorkerSuite) TestResultNoRealChange(c *tc.C) {
 
 var testEntity = names.NewUnitTag("blah/123")
 
-func checkCalls(c *tc.C, stub *testing.Stub, names ...string) {
+func checkCalls(c *tc.C, stub *testhelpers.Stub, names ...string) {
 	stub.CheckCallNames(c, names...)
 	for _, call := range stub.Calls() {
 		c.Check(call.Args, tc.DeepEquals, []interface{}{testEntity})

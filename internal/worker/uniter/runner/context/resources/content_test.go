@@ -8,22 +8,22 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/uniter/runner/context/resources"
 )
 
 var _ = tc.Suite(&ContentSuite{})
 
 type ContentSuite struct {
-	testing.IsolationSuite
-	stub *testing.Stub
+	testhelpers.IsolationSuite
+	stub *testhelpers.Stub
 }
 
 func (s *ContentSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.stub = &testing.Stub{}
+	s.stub = &testhelpers.Stub{}
 }
 
 func (s *ContentSuite) TestVerifyOkay(c *tc.C) {
@@ -72,13 +72,13 @@ func (s *ContentSuite) TestVerifyBadFingerprint(c *tc.C) {
 var _ = tc.Suite(&CheckerSuite{})
 
 type CheckerSuite struct {
-	testing.IsolationSuite
-	stub *testing.Stub
+	testhelpers.IsolationSuite
+	stub *testhelpers.Stub
 }
 
 func (s *CheckerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.stub = &testing.Stub{}
+	s.stub = &testhelpers.Stub{}
 }
 
 func (s *CheckerSuite) TestVerifyOkay(c *tc.C) {

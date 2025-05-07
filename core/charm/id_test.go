@@ -5,14 +5,14 @@ package charm
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
 
 type CharmSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&CharmSuite{})

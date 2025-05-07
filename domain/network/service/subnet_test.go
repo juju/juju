@@ -7,16 +7,16 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	gomock "go.uber.org/mock/gomock"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type subnetSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	st *MockState
 }

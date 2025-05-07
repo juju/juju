@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
@@ -19,13 +18,14 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/apicaller"
 )
 
 type ManifoldSuite struct {
-	testing.IsolationSuite
-	testing.Stub
+	testhelpers.IsolationSuite
+	testhelpers.Stub
 
 	manifold       dependency.Manifold
 	manifoldConfig apicaller.ManifoldConfig
@@ -38,7 +38,7 @@ var _ = tc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.Stub = testing.Stub{}
+	s.Stub = testhelpers.Stub{}
 	s.manifoldConfig = apicaller.ManifoldConfig{
 		AgentName:            "agent-name",
 		APIConfigWatcherName: "api-config-watcher-name",
@@ -78,7 +78,7 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	// are made from the worker's loop goroutine. You should make
 	// sure to stop the worker before checking the mock conn's calls.
 	s.conn = &mockConn{
-		stub:   &testing.Stub{},
+		stub:   &testhelpers.Stub{},
 		broken: make(chan struct{}),
 	}
 }
@@ -114,7 +114,7 @@ func (s *ManifoldSuite) TestStartCannotOpenAPI(c *tc.C) {
 	worker, err := s.manifold.Start(context.Background(), s.getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, `\[deadbe\] "machine-42" cannot open api: no api for you`)
-	s.CheckCalls(c, []testing.StubCall{{
+	s.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "NewConnection",
 		Args:     []interface{}{s.agent},
 	}})
@@ -124,7 +124,7 @@ func (s *ManifoldSuite) TestStartSuccess(c *tc.C) {
 	worker, err := s.manifold.Start(context.Background(), s.getter)
 	c.Check(err, tc.ErrorIsNil)
 	defer assertStop(c, worker)
-	s.CheckCalls(c, []testing.StubCall{{
+	s.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "NewConnection",
 		Args:     []interface{}{s.agent},
 	}})
@@ -140,7 +140,7 @@ func (s *ManifoldSuite) setupWorkerTest(c *tc.C) worker.Worker {
 func (s *ManifoldSuite) TestKillWorkerClosesConnection(c *tc.C) {
 	worker := s.setupWorkerTest(c)
 	assertStop(c, worker)
-	s.conn.stub.CheckCalls(c, []testing.StubCall{{
+	s.conn.stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Close",
 	}})
 }
@@ -150,7 +150,7 @@ func (s *ManifoldSuite) TestKillWorkerReportsCloseErr(c *tc.C) {
 	worker := s.setupWorkerTest(c)
 
 	assertStopError(c, worker, "bad plumbing")
-	s.conn.stub.CheckCalls(c, []testing.StubCall{{
+	s.conn.stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Close",
 	}})
 }
@@ -162,7 +162,7 @@ func (s *ManifoldSuite) TestBrokenConnectionKillsWorkerWithCloseErr(c *tc.C) {
 	close(s.conn.broken)
 	err := worker.Wait()
 	c.Check(err, tc.ErrorMatches, "bad plumbing")
-	s.conn.stub.CheckCalls(c, []testing.StubCall{{
+	s.conn.stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Close",
 	}})
 }
@@ -173,7 +173,7 @@ func (s *ManifoldSuite) TestBrokenConnectionKillsWorkerWithFallbackErr(c *tc.C) 
 	close(s.conn.broken)
 	err := worker.Wait()
 	c.Check(err, tc.ErrorMatches, "api connection broken unexpectedly")
-	s.conn.stub.CheckCalls(c, []testing.StubCall{{
+	s.conn.stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Close",
 	}})
 }

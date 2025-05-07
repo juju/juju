@@ -8,21 +8,21 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/migrationflag"
 )
 
 type WorkerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&WorkerSuite{})
 
 func (*WorkerSuite) TestPhaseErrorOnStartup(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	stub.SetErrors(errors.New("gaah"))
 	facade := newMockFacade(stub)
 	config := migrationflag.Config{
@@ -37,7 +37,7 @@ func (*WorkerSuite) TestPhaseErrorOnStartup(c *tc.C) {
 }
 
 func (*WorkerSuite) TestWatchError(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	stub.SetErrors(nil, errors.New("boff"))
 	facade := newMockFacade(stub, migration.REAP)
 	config := migrationflag.Config{
@@ -55,7 +55,7 @@ func (*WorkerSuite) TestWatchError(c *tc.C) {
 }
 
 func (*WorkerSuite) TestPhaseErrorWhileRunning(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	stub.SetErrors(nil, nil, errors.New("glug"))
 	facade := newMockFacade(stub, migration.QUIESCE)
 	config := migrationflag.Config{
@@ -73,7 +73,7 @@ func (*WorkerSuite) TestPhaseErrorWhileRunning(c *tc.C) {
 }
 
 func (*WorkerSuite) TestImmediatePhaseChange(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	facade := newMockFacade(stub,
 		migration.QUIESCE, migration.REAP,
 	)
@@ -92,7 +92,7 @@ func (*WorkerSuite) TestImmediatePhaseChange(c *tc.C) {
 }
 
 func (*WorkerSuite) TestSubsequentPhaseChange(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	facade := newMockFacade(stub,
 		migration.ABORT, migration.REAP, migration.QUIESCE,
 	)
@@ -111,7 +111,7 @@ func (*WorkerSuite) TestSubsequentPhaseChange(c *tc.C) {
 }
 
 func (*WorkerSuite) TestNoRelevantPhaseChange(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	facade := newMockFacade(stub,
 		migration.REAPFAILED,
 		migration.DONE,

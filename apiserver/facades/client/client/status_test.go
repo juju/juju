@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/model"
@@ -21,11 +20,12 @@ import (
 	domainmodel "github.com/juju/juju/domain/model"
 	domainmodelerrors "github.com/juju/juju/domain/model/errors"
 	statusservice "github.com/juju/juju/domain/status/service"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 type statusSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	modelUUID model.UUID
 

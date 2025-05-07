@@ -15,7 +15,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 	gomock "go.uber.org/mock/gomock"
 	"gopkg.in/macaroon.v2"
@@ -36,6 +35,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -196,7 +196,7 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *tc.C, lifeVa
 	c.Assert(err, tc.ErrorIsNil)
 	err = results.Combine()
 	c.Assert(err, tc.ErrorIsNil)
-	expected := []testing.StubCall{
+	expected := []testhelpers.StubCall{
 		{FuncName: "GetRemoteEntity", Args: []interface{}{"token-db2:db django:db"}},
 		{FuncName: "GetRemoteEntity", Args: []interface{}{"token-db2"}},
 		{FuncName: "ApplicationOfferForUUID", Args: []interface{}{"f47ac10b-58cc-4372-a567-0e02b2c3d479"}},
@@ -215,21 +215,21 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *tc.C, lifeVa
 	}
 	s.st.CheckCalls(c, expected)
 	if forceCleanup {
-		ru1.CheckCalls(c, []testing.StubCall{
+		ru1.CheckCalls(c, []testhelpers.StubCall{
 			{FuncName: "LeaveScope", Args: []interface{}{}},
 		})
-		rel.CheckCalls(c, []testing.StubCall{
+		rel.CheckCalls(c, []testhelpers.StubCall{
 			{FuncName: "Suspended", Args: []interface{}{}},
 			{FuncName: "AllRemoteUnits", Args: []interface{}{"db2"}},
 			{FuncName: "DestroyWithForce", Args: []interface{}{true}},
 		})
 	} else {
-		ru1.CheckCalls(c, []testing.StubCall{
+		ru1.CheckCalls(c, []testhelpers.StubCall{
 			{FuncName: "InScope", Args: []interface{}{}},
 			{FuncName: "EnterScope", Args: []interface{}{map[string]interface{}{"foo": "bar"}}},
 		})
 		if lifeValue == life.Alive {
-			rel.CheckCalls(c, []testing.StubCall{
+			rel.CheckCalls(c, []testhelpers.StubCall{
 				{FuncName: "Suspended", Args: []interface{}{}},
 				{FuncName: "SetSuspended", Args: []interface{}{}},
 				{FuncName: "SetStatus", Args: []interface{}{}},
@@ -238,7 +238,7 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *tc.C, lifeVa
 				{FuncName: "RemoteUnit", Args: []interface{}{"db2/1"}},
 			})
 		} else {
-			rel.CheckCalls(c, []testing.StubCall{
+			rel.CheckCalls(c, []testhelpers.StubCall{
 				{FuncName: "Suspended", Args: []interface{}{}},
 				{FuncName: "Destroy", Args: []interface{}{}},
 				{FuncName: "Tag", Args: []interface{}{}},
@@ -247,7 +247,7 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *tc.C, lifeVa
 			})
 		}
 	}
-	ru2.CheckCalls(c, []testing.StubCall{
+	ru2.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "LeaveScope", Args: []interface{}{}},
 	})
 }
@@ -345,11 +345,11 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *tc.C) {
 	c.Check(cav[4].Id, tc.DeepEquals, []byte("declared relation-key offeredapp:local remote-apptoken:remote"))
 
 	expectedRemoteApp := s.st.remoteApplications["remote-apptoken"]
-	expectedRemoteApp.Stub = testing.Stub{} // don't care about api calls
+	expectedRemoteApp.Stub = testhelpers.Stub{} // don't care about api calls
 	c.Check(expectedRemoteApp, tc.DeepEquals, &mockRemoteApplication{
 		sourceModelUUID: coretesting.ModelTag.Id(), consumerproxy: true, consumeversion: 777})
 	expectedRel := s.st.relations["offeredapp:local remote-apptoken:remote"]
-	expectedRel.Stub = testing.Stub{} // don't care about api calls
+	expectedRel.Stub = testhelpers.Stub{} // don't care about api calls
 	c.Check(expectedRel, tc.DeepEquals, &mockRelation{id: 0, key: "offeredapp:local remote-apptoken:remote"})
 	c.Check(s.st.remoteEntities, tc.HasLen, 2)
 	c.Check(s.st.remoteEntities[names.NewApplicationOfferTag("f47ac10b-58cc-4372-a567-0e02b2c3d479")], tc.Equals, "token-f47ac10b-58cc-4372-a567-0e02b2c3d479")
@@ -425,7 +425,7 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *tc.C) {
 	err = results.Combine()
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.st.ingressNetworks[rel.key], tc.DeepEquals, []string{"1.2.3.4/32"})
-	s.st.CheckCalls(c, []testing.StubCall{
+	s.st.CheckCalls(c, []testhelpers.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 	})
@@ -475,7 +475,7 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChangesRejected(c *t
 	c.Assert(err, tc.ErrorIsNil)
 	err = results.Combine()
 	c.Assert(err, tc.ErrorMatches, regexp.QuoteMeta("subnet 1.2.3.4/32 not in firewall whitelist"))
-	s.st.CheckCalls(c, []testing.StubCall{
+	s.st.CheckCalls(c, []testhelpers.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 	})
@@ -528,7 +528,7 @@ func (s *crossmodelRelationsSuite) TestWatchEgressAddressesForRelations(c *tc.C)
 	c.Assert(s.watchedRelations, tc.DeepEquals, params.Entities{
 		Entities: []params.Entity{{Tag: "relation-db2.db#django.db"}}},
 	)
-	s.st.CheckCalls(c, []testing.StubCall{
+	s.st.CheckCalls(c, []testhelpers.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-mysql:db django:db"}},
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"GetRemoteEntity", []interface{}{"token-postgresql:db django:db"}},
@@ -580,7 +580,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatus(c *tc.C) {
 	c.Assert(s.watchedRelations, tc.DeepEquals, params.Entities{
 		Entities: []params.Entity{{Tag: "relation-db2.db#django.db"}}},
 	)
-	s.st.CheckCalls(c, []testing.StubCall{
+	s.st.CheckCalls(c, []testhelpers.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-mysql:db django:db"}},
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
@@ -624,7 +624,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatusRelationNotFound(c *t
 	c.Assert(results.Results, tc.HasLen, len(args.Args))
 	c.Assert(results.Results[0].Error, tc.IsNil)
 	c.Assert(results.Results[0].Changes[0].Life, tc.Equals, life.Dead)
-	s.st.CheckCalls(c, []testing.StubCall{
+	s.st.CheckCalls(c, []testhelpers.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 		{"IsMigrationActive", []interface{}{}},
@@ -638,7 +638,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatusRelationNotFound(c *t
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, len(args.Args))
 	c.Assert(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
-	s.st.CheckCalls(c, []testing.StubCall{
+	s.st.CheckCalls(c, []testhelpers.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 		{"IsMigrationActive", []interface{}{}},
@@ -697,7 +697,7 @@ func (s *crossmodelRelationsSuite) TestWatchOfferStatus(c *tc.C) {
 	}})
 	c.Assert(results.Results[2].Error.ErrorCode(), tc.Equals, params.CodeUnauthorized)
 	c.Assert(s.watchedOffers, tc.DeepEquals, []string{"f47ac10b-58cc-4372-a567-0e02b2c3d479"})
-	s.st.CheckCalls(c, []testing.StubCall{
+	s.st.CheckCalls(c, []testhelpers.StubCall{
 		{"IsMigrationActive", nil},
 		{"ApplicationOfferForUUID", []interface{}{"f47ac10b-58cc-4372-a567-0e02b2c3d479"}},
 	})
@@ -756,18 +756,18 @@ func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettingsRemo
 	c.Assert(err, tc.ErrorIsNil)
 	err = results.Combine()
 	c.Assert(err, tc.ErrorIsNil)
-	expected := []testing.StubCall{
+	expected := []testhelpers.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"GetRemoteEntity", []interface{}{"token-db2"}},
 		{"ApplicationOfferForUUID", []interface{}{"f47ac10b-58cc-4372-a567-0e02b2c3d479"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 	}
 	s.st.CheckCalls(c, expected)
-	ru1.CheckCalls(c, []testing.StubCall{
+	ru1.CheckCalls(c, []testhelpers.StubCall{
 		{"InScope", []interface{}{}},
 		{"EnterScope", []interface{}{map[string]interface{}{"foo": "bar"}}},
 	})
-	ru2.CheckCalls(c, []testing.StubCall{
+	ru2.CheckCalls(c, []testhelpers.StubCall{
 		{"LeaveScope", []interface{}{}},
 	})
 	rel.CheckCallNames(c, "Suspended", "ReplaceApplicationSettings", "Tag", "RemoteUnit", "RemoteUnit")
@@ -829,17 +829,17 @@ func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettingsRemo
 	c.Assert(err, tc.ErrorIsNil)
 	err = results.Combine()
 	c.Assert(err, tc.ErrorIsNil)
-	expected := []testing.StubCall{
+	expected := []testhelpers.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"GetRemoteEntity", []interface{}{"token-db2"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 	}
 	s.st.CheckCalls(c, expected)
-	ru1.CheckCalls(c, []testing.StubCall{
+	ru1.CheckCalls(c, []testhelpers.StubCall{
 		{"InScope", []interface{}{}},
 		{"EnterScope", []interface{}{map[string]interface{}{"foo": "bar"}}},
 	})
-	ru2.CheckCalls(c, []testing.StubCall{
+	ru2.CheckCalls(c, []testhelpers.StubCall{
 		{"LeaveScope", []interface{}{}},
 	})
 	rel.CheckCallNames(c, "Suspended", "ReplaceApplicationSettings", "Tag", "RemoteUnit", "RemoteUnit")

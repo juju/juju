@@ -10,16 +10,16 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/metricobserver"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc"
 )
 
 type observerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	clock *testclock.Clock
 }
 

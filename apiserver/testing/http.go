@@ -8,10 +8,10 @@ import (
 	"net/http"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing/httptesting"
 
 	jujuversion "github.com/juju/juju/core/version"
 	jujuhttp "github.com/juju/juju/internal/http"
+	"github.com/juju/juju/internal/testhelpers/httptesting"
 	"github.com/juju/juju/rpc/params"
 )
 

@@ -7,11 +7,12 @@ import (
 	"os"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type cleanupSuite struct {
-	testing.CleanupSuite
+	testhelpers.CleanupSuite
 }
 
 var _ = tc.Suite(&cleanupSuite{})
@@ -118,7 +119,7 @@ type cleanupSuiteAndTestLifetimes struct {
 var _ = tc.Suite(&cleanupSuiteAndTestLifetimes{})
 
 func (s *cleanupSuiteAndTestLifetimes) TestAddCleanupBeforeSetUpSuite(c *tc.C) {
-	suite := &testing.CleanupSuite{}
+	suite := &testhelpers.CleanupSuite{}
 	c.Assert(func() { suite.AddCleanup(noopCleanup) },
 		tc.PanicMatches,
 		"unsafe to call AddCleanup before SetUpSuite")
@@ -129,7 +130,7 @@ func (s *cleanupSuiteAndTestLifetimes) TestAddCleanupBeforeSetUpSuite(c *tc.C) {
 }
 
 func (s *cleanupSuiteAndTestLifetimes) TestAddCleanupAfterTearDownSuite(c *tc.C) {
-	suite := &testing.CleanupSuite{}
+	suite := &testhelpers.CleanupSuite{}
 	suite.SetUpSuite(c)
 	suite.SetUpTest(c)
 	suite.TearDownTest(c)
@@ -141,7 +142,7 @@ func (s *cleanupSuiteAndTestLifetimes) TestAddCleanupAfterTearDownSuite(c *tc.C)
 
 func (s *cleanupSuiteAndTestLifetimes) TestAddCleanupMixedSuiteAndTest(c *tc.C) {
 	calls := []string{}
-	suite := &testing.CleanupSuite{}
+	suite := &testhelpers.CleanupSuite{}
 	suite.SetUpSuite(c)
 	suite.AddCleanup(func(*tc.C) { calls = append(calls, "before SetUpTest") })
 	suite.SetUpTest(c)

@@ -5,13 +5,13 @@ package arch_test
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type archSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&archSuite{})

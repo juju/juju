@@ -11,18 +11,18 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	internallogger "github.com/juju/juju/internal/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/logger"
 )
 
 type LoggerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	context   corelogger.LoggerContext
 	agent     names.Tag
@@ -80,7 +80,7 @@ func (s *LoggerSuite) TestMissingLogger(c *tc.C) {
 }
 
 func (s *LoggerSuite) waitLoggingInfo(c *tc.C, expected string) {
-	timeout := time.After(testing.LongWait)
+	timeout := time.After(testhelpers.LongWait)
 	for {
 		select {
 		case <-timeout:

@@ -7,11 +7,11 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/api/agent/caasagent"
 	apitesting "github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	internaltesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -19,7 +19,7 @@ import (
 var _ = tc.Suite(&ClientSuite{})
 
 type ClientSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 func (s *ClientSuite) TestWatchCloudSpecChanges(c *tc.C) {

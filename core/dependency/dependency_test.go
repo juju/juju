@@ -5,12 +5,13 @@ package dependency
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	dependencytesting "github.com/juju/worker/v4/dependency/testing"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type dependencySuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&dependencySuite{})

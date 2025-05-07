@@ -9,7 +9,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	coresecrets "github.com/juju/juju/core/secrets"
@@ -17,10 +16,11 @@ import (
 	"github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/internal/secrets/mocks"
 	"github.com/juju/juju/internal/secrets/provider"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type deleteBackendSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&deleteBackendSuite{})

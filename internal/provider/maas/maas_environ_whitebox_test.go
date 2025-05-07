@@ -15,7 +15,6 @@ import (
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/utils/v4"
 	goyaml "gopkg.in/yaml.v2"
 
@@ -35,6 +34,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 )
@@ -390,7 +390,7 @@ func (suite *maasEnvironSuite) TestStartInstanceReturnsHostnameAsDisplayName(c *
 		systemID:     "Bruce Sterling",
 		architecture: arch.HostArch(),
 		hostname:     "mirrorshades.author",
-		Stub:         &testing.Stub{},
+		Stub:         &testhelpers.Stub{},
 		statusName:   "",
 	}
 	env, _ := suite.injectControllerWithMachine(c, machine, nil, gomaasapi.AllocateMachineArgs{})
@@ -406,7 +406,7 @@ func (suite *maasEnvironSuite) TestStartInstanceReturnsFQDNAsDisplayNameWhenHost
 		systemID:     "Bruce Sterling",
 		architecture: arch.HostArch(),
 		hostname:     "",
-		Stub:         &testing.Stub{},
+		Stub:         &testhelpers.Stub{},
 		statusName:   "",
 	}
 	env, _ := suite.injectControllerWithMachine(c, machine, nil, gomaasapi.AllocateMachineArgs{})
@@ -1059,9 +1059,9 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesSingleNic(c *tc.C) 
 		systemID:     "foo",
 	}
 	controller := &fakeController{
-		Stub: &testing.Stub{},
+		Stub: &testhelpers.Stub{},
 		machines: []gomaasapi.Machine{&fakeMachine{
-			Stub:         &testing.Stub{},
+			Stub:         &testhelpers.Stub{},
 			systemID:     "1",
 			architecture: arch.HostArch(),
 			interfaceSet: interfaces,
@@ -1195,9 +1195,9 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesSingleNicWithNoVLAN
 		systemID:     "foo",
 	}
 	controller := &fakeController{
-		Stub: &testing.Stub{},
+		Stub: &testhelpers.Stub{},
 		machines: []gomaasapi.Machine{&fakeMachine{
-			Stub:         &testing.Stub{},
+			Stub:         &testhelpers.Stub{},
 			systemID:     "1",
 			architecture: arch.HostArch(),
 			interfaceSet: interfaces,
@@ -1309,7 +1309,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesNoStaticRoutesAPI(c
 			children: []string{},
 		},
 	}
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	device := &fakeDevice{
 		Stub:         stub,
 		interfaceSet: deviceInterfaces,
@@ -1426,9 +1426,9 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesStaticRoutesDenied(
 	staticRoutesErr := errors.Annotatef(internalError, "ServerError: %v (%s)", http.StatusInternalServerError, body)
 	var env *maasEnviron
 	controller := &fakeController{
-		Stub: &testing.Stub{},
+		Stub: &testhelpers.Stub{},
 		machines: []gomaasapi.Machine{&fakeMachine{
-			Stub:         &testing.Stub{},
+			Stub:         &testhelpers.Stub{},
 			systemID:     "1",
 			architecture: arch.HostArch(),
 			interfaceSet: interfaces,
@@ -1544,7 +1544,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesDualNic(c *tc.C) {
 			},
 			parents:  []string{},
 			children: []string{"eth0.100", "eth0.250", "eth0.50"},
-			Stub:     &testing.Stub{},
+			Stub:     &testhelpers.Stub{},
 		},
 	}
 	newInterface := &fakeInterface{
@@ -1562,18 +1562,18 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesDualNic(c *tc.C) {
 				mode:      "static",
 			},
 		},
-		Stub: &testing.Stub{},
+		Stub: &testhelpers.Stub{},
 	}
 	device := &fakeDevice{
 		interfaceSet: deviceInterfaces,
 		systemID:     "foo",
 		interface_:   newInterface,
-		Stub:         &testing.Stub{},
+		Stub:         &testhelpers.Stub{},
 	}
 	controller := &fakeController{
-		Stub: &testing.Stub{},
+		Stub: &testhelpers.Stub{},
 		machines: []gomaasapi.Machine{&fakeMachine{
-			Stub:         &testing.Stub{},
+			Stub:         &testhelpers.Stub{},
 			systemID:     "1",
 			architecture: arch.HostArch(),
 			interfaceSet: interfaces,
@@ -1662,7 +1662,7 @@ func (suite *maasEnvironSuite) assertAllocateContainerAddressesFails(c *tc.C, co
 
 func (suite *maasEnvironSuite) TestAllocateContainerAddressesSpacesError(c *tc.C) {
 	machine := &fakeMachine{
-		Stub:     &testing.Stub{},
+		Stub:     &testhelpers.Stub{},
 		systemID: "1",
 	}
 	controller := &fakeController{
@@ -1674,7 +1674,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesSpacesError(c *tc.C
 
 func (suite *maasEnvironSuite) TestAllocateContainerAddressesPrimaryInterfaceMissing(c *tc.C) {
 	machine := &fakeMachine{
-		Stub:     &testing.Stub{},
+		Stub:     &testhelpers.Stub{},
 		systemID: "1",
 	}
 	controller := &fakeController{
@@ -1724,7 +1724,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesMachinesError(c *tc
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func getArgs(c *tc.C, calls []testing.StubCall, callNum, argNum int) interface{} {
+func getArgs(c *tc.C, calls []testhelpers.StubCall, callNum, argNum int) interface{} {
 	c.Assert(len(calls), tc.Not(tc.LessThan), callNum)
 	args := calls[callNum].Args
 	c.Assert(len(args), tc.Not(tc.LessThan), argNum)
@@ -1735,7 +1735,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesCreateDeviceError(c
 	subnet := makeFakeSubnet(3)
 	var env *maasEnviron
 	machine := &fakeMachine{
-		Stub:     &testing.Stub{},
+		Stub:     &testhelpers.Stub{},
 		systemID: "1",
 	}
 	machine.SetErrors(nil, errors.New("bad device call"))
@@ -1774,7 +1774,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesSubnetMissing(c *tc
 	subnet := makeFakeSubnet(3)
 	var env *maasEnviron
 	device := &fakeDevice{
-		Stub: &testing.Stub{},
+		Stub: &testhelpers.Stub{},
 		interfaceSet: []gomaasapi.Interface{
 			&fakeInterface{
 				id:         93,
@@ -1791,7 +1791,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesSubnetMissing(c *tc
 				},
 				parents:  []string{},
 				children: []string{},
-				Stub:     &testing.Stub{},
+				Stub:     &testhelpers.Stub{},
 			},
 		},
 		interface_: &fakeInterface{
@@ -1809,17 +1809,17 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesSubnetMissing(c *tc
 			},
 			parents:  []string{},
 			children: []string{},
-			Stub:     &testing.Stub{},
+			Stub:     &testhelpers.Stub{},
 		},
 		systemID: "foo",
 	}
 	machine := &fakeMachine{
-		Stub:         &testing.Stub{},
+		Stub:         &testhelpers.Stub{},
 		systemID:     "1",
 		createDevice: device,
 	}
 	controller := &fakeController{
-		Stub:     &testing.Stub{},
+		Stub:     &testhelpers.Stub{},
 		machines: []gomaasapi.Machine{machine},
 		spaces: []gomaasapi.Space{
 			fakeSpace{
@@ -1872,13 +1872,13 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesCreateInterfaceErro
 	subnet2.vlan = fakeVLAN{vid: 66}
 	var env *maasEnviron
 	device := &fakeDevice{
-		Stub:         &testing.Stub{},
+		Stub:         &testhelpers.Stub{},
 		interfaceSet: []gomaasapi.Interface{&fakeInterface{}},
 		systemID:     "foo",
 	}
 	device.SetErrors(errors.New("boom"))
 	machine := &fakeMachine{
-		Stub:         &testing.Stub{},
+		Stub:         &testhelpers.Stub{},
 		systemID:     "1",
 		createDevice: device,
 	}
@@ -1925,21 +1925,21 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesLinkSubnetError(c *
 	subnet2 := makeFakeSubnet(4)
 	subnet2.vlan = fakeVLAN{vid: 66}
 	var env *maasEnviron
-	interface_ := &fakeInterface{Stub: &testing.Stub{}}
+	interface_ := &fakeInterface{Stub: &testhelpers.Stub{}}
 	interface_.SetErrors(errors.New("boom"))
 	device := &fakeDevice{
-		Stub:         &testing.Stub{},
+		Stub:         &testhelpers.Stub{},
 		interfaceSet: []gomaasapi.Interface{&fakeInterface{}},
 		interface_:   interface_,
 		systemID:     "foo",
 	}
 	machine := &fakeMachine{
-		Stub:         &testing.Stub{},
+		Stub:         &testhelpers.Stub{},
 		systemID:     "1",
 		createDevice: device,
 	}
 	controller := &fakeController{
-		Stub:     &testing.Stub{},
+		Stub:     &testhelpers.Stub{},
 		machines: []gomaasapi.Machine{machine},
 		spaces: []gomaasapi.Space{
 			fakeSpace{
@@ -1992,7 +1992,7 @@ func (suite *maasEnvironSuite) TestStorageReturnsStorage(c *tc.C) {
 }
 
 func (suite *maasEnvironSuite) TestAllocateContainerReuseExistingDevice(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	vlan1 := fakeVLAN{
 		id:  5001,
 		mtu: 1500,
@@ -2233,7 +2233,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerRefusesReuseInvalidNIC(c *tc
 		badDeviceInterfaces[0],
 	}
 	var env *maasEnviron
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	badDevice := &fakeDevice{
 		Stub:         stub,
 		interfaceSet: badDeviceInterfaces,
@@ -2705,10 +2705,10 @@ func (suite *maasEnvironSuite) TestAdoptResourcesError(c *tc.C) {
 
 func newFakeDevice(systemID, macAddress string) *fakeDevice {
 	return &fakeDevice{
-		Stub:     &testing.Stub{},
+		Stub:     &testhelpers.Stub{},
 		systemID: systemID,
 		interface_: &fakeInterface{
-			Stub:       &testing.Stub{},
+			Stub:       &testhelpers.Stub{},
 			macAddress: macAddress,
 		},
 	}

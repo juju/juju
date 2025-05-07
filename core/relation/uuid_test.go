@@ -5,14 +5,14 @@ package relation
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
 
 type relationUUIDSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&relationUUIDSuite{})
@@ -51,7 +51,7 @@ func (*relationUUIDSuite) TestUUIDValidate(c *tc.C) {
 }
 
 type relationUnitUUIDSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&relationUnitUUIDSuite{})
@@ -90,7 +90,7 @@ func (*relationUnitUUIDSuite) TestUUIDValidate(c *tc.C) {
 }
 
 type relationEndpointUUIDSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&relationEndpointUUIDSuite{})

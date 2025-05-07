@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
@@ -28,12 +27,13 @@ import (
 	"github.com/juju/juju/internal/pki"
 	pkitest "github.com/juju/juju/internal/pki/test"
 	"github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/httpserver"
 	"github.com/juju/juju/state"
 )
 
 type ManifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	authority              pki.Authority
 	config                 httpserver.ManifoldConfig
@@ -50,7 +50,7 @@ type ManifoldSuite struct {
 	autocertCacheGetter    *autocertcacheservice.Service
 	controllerConfigGetter *controllerconfigservice.WatchableService
 
-	stub testing.Stub
+	stub testhelpers.Stub
 }
 
 var _ = tc.Suite(&ManifoldSuite{})

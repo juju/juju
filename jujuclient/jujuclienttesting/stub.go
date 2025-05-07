@@ -4,14 +4,13 @@
 package jujuclienttesting
 
 import (
-	"github.com/juju/testing"
-
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/jujuclient"
 )
 
 type StubStore struct {
-	*testing.Stub
+	*testhelpers.Stub
 
 	AllControllersFunc           func() (map[string]jujuclient.ControllerDetails, error)
 	ControllerByNameFunc         func(name string) (*jujuclient.ControllerDetails, error)
@@ -48,7 +47,7 @@ type StubStore struct {
 
 func NewStubStore() *StubStore {
 	result := &StubStore{
-		Stub: &testing.Stub{},
+		Stub: &testhelpers.Stub{},
 	}
 	result.AllControllersFunc = func() (map[string]jujuclient.ControllerDetails, error) {
 		return nil, result.Stub.NextErr()

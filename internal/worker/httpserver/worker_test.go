@@ -18,7 +18,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/api"
@@ -26,12 +25,13 @@ import (
 	dqlitetesting "github.com/juju/juju/internal/database/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pubsub/apiserver"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/httpserver"
 )
 
 type workerFixture struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	prometheusRegisterer stubPrometheusRegisterer
 	agentName            string
 	mux                  *apiserverhttp.Mux
@@ -157,7 +157,7 @@ func (s *WorkerSuite) makeRequest(c *tc.C, url string) {
 		Transport: &http.Transport{
 			TLSClientConfig: s.config.TLSConfig,
 		},
-		Timeout: testing.LongWait,
+		Timeout: testhelpers.LongWait,
 	}
 	defer client.CloseIdleConnections()
 	resp, err := client.Get(url + "/hello/world")
@@ -269,7 +269,7 @@ func (s *WorkerSuite) TestHeldListener(c *tc.C) {
 			Transport: &http.Transport{
 				TLSClientConfig: s.config.TLSConfig,
 			},
-			Timeout: testing.LongWait,
+			Timeout: testhelpers.LongWait,
 		}
 		defer client.CloseIdleConnections()
 		_, err := client.Get(url + "/quick")
@@ -361,7 +361,7 @@ func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelay(c *tc.C) {
 			Transport: &http.Transport{
 				TLSClientConfig: s.config.TLSConfig,
 			},
-			Timeout: testing.LongWait,
+			Timeout: testhelpers.LongWait,
 		}
 		defer client.CloseIdleConnections()
 		_, err := client.Get(url + "/quick")
@@ -412,7 +412,7 @@ func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelay(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("the handler should have exited early and not be waiting")
 	}
 
@@ -464,7 +464,7 @@ func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelayShutdown(c *tc.
 			Transport: &http.Transport{
 				TLSClientConfig: s.config.TLSConfig,
 			},
-			Timeout: testing.LongWait,
+			Timeout: testhelpers.LongWait,
 		}
 		defer client.CloseIdleConnections()
 		_, err := client.Get(url + "/quick")

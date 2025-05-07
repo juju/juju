@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/errors"
@@ -18,11 +17,12 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
 
 type storageSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	state              *MockState
 	registry           storage.ProviderRegistry

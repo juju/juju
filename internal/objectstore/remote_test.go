@@ -9,17 +9,17 @@ import (
 	"io"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type remoteFileObjectStoreSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	tracked *MockTrackedObjectStore
 	remote  worker.Worker

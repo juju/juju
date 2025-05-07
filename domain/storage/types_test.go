@@ -5,15 +5,15 @@ package storage_test
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/domain/storage"
 	internalstorage "github.com/juju/juju/internal/storage"
 	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type defaultStoragePoolsSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&defaultStoragePoolsSuite{})

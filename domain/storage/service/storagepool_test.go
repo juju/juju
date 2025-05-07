@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -18,10 +17,11 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type storagePoolServiceSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	state    *MockState
 	registry storage.ProviderRegistry

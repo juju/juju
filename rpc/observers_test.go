@@ -7,14 +7,14 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc"
 )
 
 type multiplexerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&multiplexerSuite{})

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/controller"
@@ -19,12 +18,13 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalpubsub "github.com/juju/juju/internal/pubsub"
 	controllermsg "github.com/juju/juju/internal/pubsub/controller"
+	"github.com/juju/juju/internal/testhelpers"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/agentconfigupdater"
 )
 
 type WorkerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	logger logger.Logger
 	agent  *mockAgent
 	hub    *pubsub.StructuredHub
@@ -155,7 +155,7 @@ func (s *WorkerSuite) TestUpdateJujuDBSnapChannel(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("event not handled")
 	}
 
@@ -167,7 +167,7 @@ func (s *WorkerSuite) TestUpdateJujuDBSnapChannel(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("event not handled")
 	}
 
@@ -186,7 +186,7 @@ func (s *WorkerSuite) TestUpdateQueryTracingEnabled(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("event not handled")
 	}
 
@@ -198,7 +198,7 @@ func (s *WorkerSuite) TestUpdateQueryTracingEnabled(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("event not handled")
 	}
 
@@ -217,7 +217,7 @@ func (s *WorkerSuite) TestUpdateQueryTracingThreshold(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("event not handled")
 	}
 
@@ -230,7 +230,7 @@ func (s *WorkerSuite) TestUpdateQueryTracingThreshold(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("event not handled")
 	}
 
@@ -249,7 +249,7 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryEnabled(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("event not handled")
 	}
 
@@ -260,7 +260,7 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryEnabled(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("event not handled")
 	}
 
@@ -279,7 +279,7 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryEndpoint(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("event not handled")
 	}
 
@@ -290,7 +290,7 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryEndpoint(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("event not handled")
 	}
 
@@ -309,7 +309,7 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryInsecure(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("event not handled")
 	}
 
@@ -320,7 +320,7 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryInsecure(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("event not handled")
 	}
 
@@ -339,7 +339,7 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryStackTraces(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("event not handled")
 	}
 
@@ -350,7 +350,7 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryStackTraces(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("event not handled")
 	}
 
@@ -369,7 +369,7 @@ func (s *WorkerSuite) TestUpdateOpenTelemetrySampleRatio(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("event not handled")
 	}
 
@@ -380,7 +380,7 @@ func (s *WorkerSuite) TestUpdateOpenTelemetrySampleRatio(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("event not handled")
 	}
 
@@ -399,7 +399,7 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryTailSamplingThreshold(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("event not handled")
 	}
 
@@ -411,7 +411,7 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryTailSamplingThreshold(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("event not handled")
 	}
 
@@ -430,7 +430,7 @@ func (s *WorkerSuite) TestUpdateObjectStoreType(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("event not handled")
 	}
 
@@ -441,7 +441,7 @@ func (s *WorkerSuite) TestUpdateObjectStoreType(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("event not handled")
 	}
 

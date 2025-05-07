@@ -9,25 +9,25 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	jtesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/params"
 )
 
 type AddRelationSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	mockAPI *mockAddAPI
 }
 
 func (s *AddRelationSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.mockAPI = &mockAddAPI{Stub: &testing.Stub{}}
+	s.mockAPI = &mockAddAPI{Stub: &testhelpers.Stub{}}
 	s.mockAPI.addRelationFunc = func(endpoints, viaCIDRs []string) (*params.AddRelationResults, error) {
 		// At the moment, cmd implementation ignores the return values,
 		// so nil is an acceptable return for testing purposes.
@@ -95,7 +95,7 @@ func (s *AddRelationSuite) TestAddRelationUnauthorizedMentionsJujuGrant(c *tc.C)
 }
 
 type mockAddAPI struct {
-	*testing.Stub
+	*testhelpers.Stub
 	addRelationFunc func(endpoints, viaCIDRs []string) (*params.AddRelationResults, error)
 }
 

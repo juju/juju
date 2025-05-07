@@ -16,13 +16,13 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/logsink"
 	"github.com/juju/juju/apiserver/logsink/mocks"
 	"github.com/juju/juju/apiserver/websocket/websockettest"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
@@ -39,11 +39,11 @@ var longAttempt = &utils.AttemptStrategy{
 }
 
 type logsinkSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	abort chan struct{}
 
-	stub    *testing.Stub
+	stub    *testhelpers.Stub
 	written chan params.LogRecord
 
 	lastStack []byte
@@ -56,7 +56,7 @@ func (s *logsinkSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.abort = make(chan struct{})
 	s.written = make(chan params.LogRecord, 1)
-	s.stub = &testing.Stub{}
+	s.stub = &testhelpers.Stub{}
 	s.stackMu.Lock()
 	s.lastStack = nil
 	s.stackMu.Unlock()
@@ -389,7 +389,7 @@ func (s *logsinkSuite) TestHandlerClosesStopChannel(c *tc.C) {
 	metricsCollector, finish := createMockMetrics(c, modelUUID.String())
 	defer finish()
 
-	var stub testing.Stub
+	var stub testhelpers.Stub
 	handler := logsink.NewHTTPHandlerForTest(
 		func(req *http.Request) (logsink.LogWriter, error) {
 			return &mockLogWriter{
@@ -477,7 +477,7 @@ func (s *logsinkSuite) createServer(c *tc.C) (*httptest.Server, func()) {
 }
 
 type mockLogWriter struct {
-	*testing.Stub
+	*testhelpers.Stub
 	written  chan<- params.LogRecord
 	callback func()
 }
@@ -506,7 +506,7 @@ func (slowWriteCloser) WriteLog(params.LogRecord) error {
 	// This makes it more likely that the goroutine will notice the
 	// stop channel is closed, because logCh won't be ready for
 	// sending.
-	time.Sleep(testing.ShortWait)
+	time.Sleep(testhelpers.ShortWait)
 	return nil
 }
 

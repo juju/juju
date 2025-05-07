@@ -6,16 +6,16 @@ package application
 import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 var _ = tc.Suite(&FlagSuite{})
 
 type FlagSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 func (FlagSuite) TestStringMapNilOk(c *tc.C) {

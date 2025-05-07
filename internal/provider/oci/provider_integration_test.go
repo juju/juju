@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/cloud"
@@ -21,11 +20,12 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/provider/oci"
 	ocitesting "github.com/juju/juju/internal/provider/oci/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
 
 type credentialsSuite struct {
-	testing.FakeHomeSuite
+	testhelpers.FakeHomeSuite
 
 	provider environs.EnvironProvider
 	spec     environscloudspec.CloudSpec
@@ -83,7 +83,7 @@ func (s *credentialsSuite) writeOCIConfig(c *tc.C, sections map[string]map[strin
 	for k, v := range sections {
 		pem_name := fmt.Sprintf(".oci/oci_api_key_%s.pem", k)
 		pem := filepath.Join(home, pem_name)
-		s.Home.AddFiles(c, testing.TestFile{
+		s.Home.AddFiles(c, testhelpers.TestFile{
 			Name: pem_name,
 			Data: v["key"],
 		})
@@ -92,7 +92,7 @@ func (s *credentialsSuite) writeOCIConfig(c *tc.C, sections map[string]map[strin
 			pem, v["region"], v["pass-phrase"])
 		sectionList = append(sectionList, cfg)
 	}
-	s.Home.AddFiles(c, testing.TestFile{
+	s.Home.AddFiles(c, testhelpers.TestFile{
 		Name: ".oci/config",
 		Data: strings.Join(sectionList, "\n")})
 }

@@ -8,18 +8,18 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/agent/engine"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/gate"
 )
 
 type FlagSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&FlagSuite{})

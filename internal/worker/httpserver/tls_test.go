@@ -11,16 +11,16 @@ import (
 	"net/http/httptest"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/httpserver"
 )
 
 type tlsStateFixture struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	cert *tls.Certificate
 
 	dnsName   string

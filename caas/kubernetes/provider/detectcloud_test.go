@@ -9,13 +9,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/utils/v4/exec"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
@@ -34,17 +34,17 @@ type builtinCloudRet struct {
 }
 
 type dummyRunner struct {
-	*testing.CallMocker
+	*testhelpers.CallMocker
 }
 
 func (d dummyRunner) RunCommands(run exec.RunParams) (*exec.ExecResponse, error) {
 	results := d.MethodCall(d, "RunCommands", run)
-	return results[0].(*exec.ExecResponse), testing.TypeAssertError(results[1])
+	return results[0].(*exec.ExecResponse), testhelpers.TypeAssertError(results[1])
 }
 
 func (d dummyRunner) LookPath(file string) (string, error) {
 	results := d.MethodCall(d, "LookPath", file)
-	return results[0].(string), testing.TypeAssertError(results[1])
+	return results[0].(string), testhelpers.TypeAssertError(results[1])
 }
 
 func cloudGetterFunc(args builtinCloudRet) func(provider.CommandRunner) (jujucloud.Cloud, error) {

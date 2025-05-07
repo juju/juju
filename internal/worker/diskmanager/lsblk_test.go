@@ -13,9 +13,9 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/core/blockdevice"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/diskmanager"
 )
@@ -31,14 +31,14 @@ func (s *ListBlockDevicesSuite) SetUpTest(c *tc.C) {
 	s.PatchValue(diskmanager.BlockDeviceInUse, func(device blockdevice.BlockDevice) (bool, error) {
 		return false, nil
 	})
-	testing.PatchExecutable(c, s, "udevadm", `#!/bin/bash --norc`)
+	testhelpers.PatchExecutable(c, s, "udevadm", `#!/bin/bash --norc`)
 }
 
 func (s *ListBlockDevicesSuite) TestListBlockDevices(c *tc.C) {
 	s.PatchValue(diskmanager.BlockDeviceInUse, func(dev blockdevice.BlockDevice) (bool, error) {
 		return dev.DeviceName == "sdb", nil
 	})
-	testing.PatchExecutable(c, s, "lsblk", `#!/bin/bash --norc
+	testhelpers.PatchExecutable(c, s, "lsblk", `#!/bin/bash --norc
 cat <<EOF
 KNAME="sda" SIZE="240057409536" LABEL="" UUID="" TYPE="disk"
 KNAME="sda1" SIZE="254803968" LABEL="" UUID="7a62bd85-a350-4c09-8944-5b99bf2080c6" MOUNTPOINT="/tmp" TYPE="part"
@@ -169,11 +169,11 @@ func (s *ListBlockDevicesSuite) testListBlockDevicesExtended(
 	deviceName string,
 	expect blockdevice.BlockDevice,
 ) {
-	testing.PatchExecutable(c, s, "lsblk", fmt.Sprintf(`#!/bin/bash --norc
+	testhelpers.PatchExecutable(c, s, "lsblk", fmt.Sprintf(`#!/bin/bash --norc
 cat <<EOF
 KNAME="%s" SIZE="240057409536" LABEL="" UUID="" TYPE="disk"
 EOF`, deviceName))
-	testing.PatchExecutable(c, s, "udevadm", `#!/bin/bash --norc
+	testhelpers.PatchExecutable(c, s, "udevadm", `#!/bin/bash --norc
 cat <<EOF
 `+strings.TrimSpace(udevadmInfo)+`
 EOF`)
@@ -187,7 +187,7 @@ EOF`)
 }
 
 func (s *ListBlockDevicesSuite) TestListBlockDevicesLsblkError(c *tc.C) {
-	testing.PatchExecutableThrowError(c, s, "lsblk", 123)
+	testhelpers.PatchExecutableThrowError(c, s, "lsblk", 123)
 	devices, err := diskmanager.ListBlockDevices(context.Background())
 	c.Assert(err, tc.ErrorMatches, "cannot list block devices: lsblk failed: exit status 123")
 	c.Assert(devices, tc.IsNil)
@@ -197,7 +197,7 @@ func (s *ListBlockDevicesSuite) TestListBlockDevicesBlockDeviceInUseError(c *tc.
 	s.PatchValue(diskmanager.BlockDeviceInUse, func(dev blockdevice.BlockDevice) (bool, error) {
 		return false, errors.New("badness")
 	})
-	testing.PatchExecutable(c, s, "lsblk", `#!/bin/bash --norc
+	testhelpers.PatchExecutable(c, s, "lsblk", `#!/bin/bash --norc
 cat <<EOF
 KNAME="sda" SIZE="240057409536" LABEL="" UUID="" TYPE="disk"
 EOF`)
@@ -216,7 +216,7 @@ EOF`)
 func (s *ListBlockDevicesSuite) TestListBlockDevicesLsblkBadOutput(c *tc.C) {
 	// Extra key/value pairs should be ignored; invalid sizes should
 	// be logged and ignored (Size will be set to zero).
-	testing.PatchExecutable(c, s, "lsblk", `#!/bin/bash --norc
+	testhelpers.PatchExecutable(c, s, "lsblk", `#!/bin/bash --norc
 cat <<EOF
 KNAME="sda" SIZE="eleventy" LABEL="" UUID="" TYPE="disk"
 KNAME="sdb" SIZE="1048576" LABEL="" UUID="" BOB="DOBBS" TYPE="disk"
@@ -237,7 +237,7 @@ func (s *ListBlockDevicesSuite) TestListBlockDevicesDeviceNotExist(c *tc.C) {
 	s.PatchValue(diskmanager.BlockDeviceInUse, func(dev blockdevice.BlockDevice) (bool, error) {
 		return false, os.ErrNotExist
 	})
-	testing.PatchExecutable(c, s, "lsblk", `#!/bin/bash --norc
+	testhelpers.PatchExecutable(c, s, "lsblk", `#!/bin/bash --norc
 cat <<EOF
 KNAME="sda" SIZE="240057409536" LABEL="" UUID="" TYPE="disk"
 KNAME="sdb" SIZE="32017047552" LABEL="" UUID="" TYPE="disk"
@@ -249,7 +249,7 @@ EOF`)
 }
 
 func (s *ListBlockDevicesSuite) TestListBlockDevicesDeviceFiltering(c *tc.C) {
-	testing.PatchExecutable(c, s, "lsblk", `#!/bin/bash --norc
+	testhelpers.PatchExecutable(c, s, "lsblk", `#!/bin/bash --norc
 cat <<EOF
 KNAME="sda" SIZE="240057409536" LABEL="" UUID="" TYPE="disk"
 KNAME="sda1" SIZE="254803968" LABEL="" UUID="" TYPE="part"

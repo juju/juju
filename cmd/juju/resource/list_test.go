@@ -9,18 +9,18 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 var _ = tc.Suite(&ShowApplicationSuite{})
 
 type ShowApplicationSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	stubDeps *stubShowApplicationDeps
 }
@@ -28,7 +28,7 @@ type ShowApplicationSuite struct {
 func (s *ShowApplicationSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	s.stubDeps = &stubShowApplicationDeps{
 		stub:   stub,
 		client: &stubResourceClient{stub: stub},
@@ -618,7 +618,7 @@ charlie   2011-11-11T11:11  2012-12-12T12:12
 }
 
 type stubShowApplicationDeps struct {
-	stub   *testing.Stub
+	stub   *testhelpers.Stub
 	client *stubResourceClient
 }
 
@@ -632,7 +632,7 @@ func (s *stubShowApplicationDeps) NewClient(ctx context.Context) (resourcecmd.Li
 }
 
 type stubResourceClient struct {
-	stub            *testing.Stub
+	stub            *testhelpers.Stub
 	ReturnResources []resource.ApplicationResources
 }
 

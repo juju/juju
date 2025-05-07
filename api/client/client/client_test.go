@@ -14,10 +14,10 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/api"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -88,7 +88,7 @@ func (s *clientSuite) TestWebsocketDialWithErrorsSetsDeadline(c *tc.C) {
 }
 
 type fakeDialer struct {
-	testing.Stub
+	testhelpers.Stub
 
 	conn *websocket.Conn
 	resp *http.Response

@@ -7,14 +7,14 @@ import (
 	dqlite "github.com/canonical/go-dqlite/v2/driver"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/mattn/go-sqlite3"
 
 	"github.com/juju/juju/internal/database/driver"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type errorSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&errorSuite{})

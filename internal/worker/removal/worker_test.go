@@ -11,7 +11,6 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -19,10 +18,11 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/removal"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type workerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	svc *MockRemovalService
 	clk *MockClock
@@ -55,7 +55,7 @@ func (s *workerSuite) TestWorkerStartStop(c *tc.C) {
 
 	select {
 	case <-sync:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testhelpers.ShortWait):
 		c.Fatalf("timed out waiting for worker to start")
 	}
 
@@ -115,13 +115,13 @@ func (s *workerSuite) TestWorkerNotifiedSchedulesDueJob(c *tc.C) {
 
 	select {
 	case ch <- []string{"some-job-uuid"}:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testhelpers.ShortWait):
 		c.Fatalf("timed out waiting for watcher event consumption")
 	}
 
 	select {
 	case <-sync:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testhelpers.ShortWait):
 		c.Fatalf("timed out waiting for job execution")
 	}
 
@@ -208,13 +208,13 @@ func (s *workerSuite) TestWorkerTimerSchedulesOnlyRequiredJob(c *tc.C) {
 
 	select {
 	case ch <- []string{"due-job-uuid"}:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testhelpers.ShortWait):
 		c.Fatalf("timed out waiting for watcher event consumption")
 	}
 
 	select {
 	case <-sync:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testhelpers.ShortWait):
 		c.Fatalf("timed out waiting for job execution")
 	}
 

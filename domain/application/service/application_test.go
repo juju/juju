@@ -11,7 +11,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -41,6 +40,7 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/testcharms"
 )
 
@@ -986,7 +986,7 @@ func (s *applicationServiceSuite) TestGetDeviceConstraints(c *tc.C) {
 }
 
 type applicationWatcherServiceSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	service *WatchableService
 

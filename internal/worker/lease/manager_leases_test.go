@@ -9,14 +9,14 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	corelease "github.com/juju/juju/core/lease"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/lease"
 )
 
 type LeasesSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	appName string
 }

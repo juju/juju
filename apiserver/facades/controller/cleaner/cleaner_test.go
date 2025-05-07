@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/cleaner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -47,7 +47,7 @@ func (s *CleanerSuite) SetUpTest(c *tc.C) {
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Controller: true,
 	}
-	s.st = &mockState{&testing.Stub{}, false}
+	s.st = &mockState{&testhelpers.Stub{}, false}
 	cleaner.PatchState(s, s.st)
 }
 
@@ -131,7 +131,7 @@ func (s *CleanerSuite) TestCleanupFailure(c *tc.C) {
 }
 
 type mockState struct {
-	*testing.Stub
+	*testhelpers.Stub
 	watchCleanupsFails bool
 }
 

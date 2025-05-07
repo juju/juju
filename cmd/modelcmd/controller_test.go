@@ -10,19 +10,19 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 )
 
 type ControllerCommandSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&ControllerCommandSuite{})
@@ -144,7 +144,7 @@ func runTestControllerCommand(c *tc.C, store jujuclient.ClientStore, args ...str
 }
 
 type OptionalControllerCommandSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	coretesting.JujuOSEnvSuite
 }
 

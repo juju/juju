@@ -5,13 +5,13 @@ package objectstore
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type LeaseSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&LeaseSuite{})

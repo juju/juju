@@ -7,11 +7,11 @@ import (
 	"encoding/base64"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 )
 
@@ -55,15 +55,15 @@ func (s *SecretGetSuite) TestSecretGetJson(c *tc.C) {
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"secret:9m4e2mr0ui3e8a215n4g", "--format", "json"})
 	c.Assert(code, tc.Equals, 0)
 
-	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "GetSecret", Args: []interface{}{"secret:9m4e2mr0ui3e8a215n4g", "", false, false}}})
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{{FuncName: "GetSecret", Args: []interface{}{"secret:9m4e2mr0ui3e8a215n4g", "", false, false}}})
 	c.Assert(bufferString(ctx.Stderr), tc.Equals, "")
 	c.Assert(bufferString(ctx.Stdout), tc.Equals, `{"key":"s3cret!"}`+"\n")
 }
 
 func (s *SecretGetSuite) TestSecretGetViaURI(c *tc.C) {
-	s.assertSecretGet(c, func() ([]string, testing.StubCall) {
+	s.assertSecretGet(c, func() ([]string, testhelpers.StubCall) {
 		return []string{"secret:9m4e2mr0ui3e8a215n4g"},
-			testing.StubCall{
+			testhelpers.StubCall{
 				FuncName: "GetSecret",
 				Args:     []interface{}{"secret:9m4e2mr0ui3e8a215n4g", "", false, false},
 			}
@@ -71,9 +71,9 @@ func (s *SecretGetSuite) TestSecretGetViaURI(c *tc.C) {
 }
 
 func (s *SecretGetSuite) TestSecretGetViaLabel(c *tc.C) {
-	s.assertSecretGet(c, func() ([]string, testing.StubCall) {
+	s.assertSecretGet(c, func() ([]string, testhelpers.StubCall) {
 		return []string{"--label", "label"},
-			testing.StubCall{
+			testhelpers.StubCall{
 				FuncName: "GetSecret",
 				Args:     []interface{}{"", "label", false, false},
 			}
@@ -81,9 +81,9 @@ func (s *SecretGetSuite) TestSecretGetViaLabel(c *tc.C) {
 }
 
 func (s *SecretGetSuite) TestSecretGetPeekViaURI(c *tc.C) {
-	s.assertSecretGet(c, func() ([]string, testing.StubCall) {
+	s.assertSecretGet(c, func() ([]string, testhelpers.StubCall) {
 		return []string{"secret:9m4e2mr0ui3e8a215n4g", "--peek"},
-			testing.StubCall{
+			testhelpers.StubCall{
 				FuncName: "GetSecret",
 				Args:     []interface{}{"secret:9m4e2mr0ui3e8a215n4g", "", false, true},
 			}
@@ -91,9 +91,9 @@ func (s *SecretGetSuite) TestSecretGetPeekViaURI(c *tc.C) {
 }
 
 func (s *SecretGetSuite) TestSecretGetPeekViaLabel(c *tc.C) {
-	s.assertSecretGet(c, func() ([]string, testing.StubCall) {
+	s.assertSecretGet(c, func() ([]string, testhelpers.StubCall) {
 		return []string{"--label", "label", "--peek"},
-			testing.StubCall{
+			testhelpers.StubCall{
 				FuncName: "GetSecret",
 				Args:     []interface{}{"", "label", false, true},
 			}
@@ -101,9 +101,9 @@ func (s *SecretGetSuite) TestSecretGetPeekViaLabel(c *tc.C) {
 }
 
 func (s *SecretGetSuite) TestSecretGetUpdateWithURI(c *tc.C) {
-	s.assertSecretGet(c, func() ([]string, testing.StubCall) {
+	s.assertSecretGet(c, func() ([]string, testhelpers.StubCall) {
 		return []string{"secret:9m4e2mr0ui3e8a215n4g", "--refresh"},
-			testing.StubCall{
+			testhelpers.StubCall{
 				FuncName: "GetSecret",
 				Args:     []interface{}{"secret:9m4e2mr0ui3e8a215n4g", "", true, false},
 			}
@@ -111,9 +111,9 @@ func (s *SecretGetSuite) TestSecretGetUpdateWithURI(c *tc.C) {
 }
 
 func (s *SecretGetSuite) TestSecretGetUpdateWithLabel(c *tc.C) {
-	s.assertSecretGet(c, func() ([]string, testing.StubCall) {
+	s.assertSecretGet(c, func() ([]string, testhelpers.StubCall) {
 		return []string{"--label", "label", "--refresh"},
-			testing.StubCall{
+			testhelpers.StubCall{
 				FuncName: "GetSecret",
 				Args:     []interface{}{"", "label", true, false},
 			}
@@ -121,16 +121,16 @@ func (s *SecretGetSuite) TestSecretGetUpdateWithLabel(c *tc.C) {
 }
 
 func (s *SecretGetSuite) TestSecretGetUpdateWithBothURIAndLabel(c *tc.C) {
-	s.assertSecretGet(c, func() ([]string, testing.StubCall) {
+	s.assertSecretGet(c, func() ([]string, testhelpers.StubCall) {
 		return []string{"secret:9m4e2mr0ui3e8a215n4g", "--label", "label", "--refresh"},
-			testing.StubCall{
+			testhelpers.StubCall{
 				FuncName: "GetSecret",
 				Args:     []interface{}{"secret:9m4e2mr0ui3e8a215n4g", "label", true, false},
 			}
 	})
 }
 
-func (s *SecretGetSuite) assertSecretGet(c *tc.C, f func() ([]string, testing.StubCall)) {
+func (s *SecretGetSuite) assertSecretGet(c *tc.C, f func() ([]string, testhelpers.StubCall)) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 	hctx.ContextSecrets.SecretValue = secrets.NewSecretValue(map[string]string{
 		"cert": base64.StdEncoding.EncodeToString([]byte("cert")),
@@ -144,7 +144,7 @@ func (s *SecretGetSuite) assertSecretGet(c *tc.C, f func() ([]string, testing.St
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, args)
 	c.Assert(code, tc.Equals, 0)
 
-	s.Stub.CheckCalls(c, []testing.StubCall{checkCall})
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{checkCall})
 	c.Assert(bufferString(ctx.Stderr), tc.Equals, "")
 	c.Assert(bufferString(ctx.Stdout), tc.Equals, `
 cert: cert
@@ -165,7 +165,7 @@ func (s *SecretGetSuite) TestSecretGetBinary(c *tc.C) {
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"secret:9m4e2mr0ui3e8a215n4g"})
 	c.Assert(code, tc.Equals, 0)
 
-	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "GetSecret", Args: []interface{}{"secret:9m4e2mr0ui3e8a215n4g", "", false, false}}})
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{{FuncName: "GetSecret", Args: []interface{}{"secret:9m4e2mr0ui3e8a215n4g", "", false, false}}})
 	c.Assert(bufferString(ctx.Stderr), tc.Equals, "")
 	c.Assert(bufferString(ctx.Stdout), tc.Equals, `
 key: !!binary |
@@ -189,7 +189,7 @@ func (s *SecretGetSuite) TestSecretGetKey(c *tc.C) {
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"secret:9m4e2mr0ui3e8a215n4g", "cert"})
 	c.Assert(code, tc.Equals, 0)
 
-	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "GetSecret", Args: []interface{}{"secret:9m4e2mr0ui3e8a215n4g", "", false, false}}})
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{{FuncName: "GetSecret", Args: []interface{}{"secret:9m4e2mr0ui3e8a215n4g", "", false, false}}})
 	c.Assert(bufferString(ctx.Stderr), tc.Equals, "")
 	c.Assert(bufferString(ctx.Stdout), tc.Equals, `
 cert
@@ -209,7 +209,7 @@ func (s *SecretGetSuite) TestSecretGetKeyBase64(c *tc.C) {
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"secret:9m4e2mr0ui3e8a215n4g", "cert#base64"})
 	c.Assert(code, tc.Equals, 0)
 
-	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "GetSecret", Args: []interface{}{"secret:9m4e2mr0ui3e8a215n4g", "", false, false}}})
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{{FuncName: "GetSecret", Args: []interface{}{"secret:9m4e2mr0ui3e8a215n4g", "", false, false}}})
 	c.Assert(bufferString(ctx.Stderr), tc.Equals, "")
 	c.Assert(bufferString(ctx.Stdout), tc.Equals, "Y2VydA==\n")
 }

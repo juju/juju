@@ -15,7 +15,6 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
@@ -24,13 +23,14 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/state"
 )
 
 // mockState implements StateInterface and allows inspection of called
 // methods.
 type mockState struct {
-	*testing.Stub
+	*testhelpers.Stub
 
 	mu sync.Mutex
 
@@ -43,7 +43,7 @@ type mockState struct {
 
 func NewMockState() *mockState {
 	return &mockState{
-		Stub:     &testing.Stub{},
+		Stub:     &testhelpers.Stub{},
 		machines: make(map[string]*mockMachine),
 	}
 }
@@ -232,7 +232,7 @@ type machineInfo struct {
 }
 
 type mockMachine struct {
-	*testing.Stub
+	*testhelpers.Stub
 	instancepoller.StateMachine
 
 	mu sync.Mutex

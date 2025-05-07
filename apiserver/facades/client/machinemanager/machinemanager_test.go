@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -31,6 +30,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -192,7 +192,7 @@ func (s *AddMachineManagerSuite) TestAddMachinesStateError(c *tc.C) {
 }
 
 type DestroyMachineManagerSuite struct {
-	testing.CleanupSuite
+	testhelpers.CleanupSuite
 	authorizer    *apiservertesting.FakeAuthorizer
 	st            *MockBackend
 	storageAccess *MockStorageInterface

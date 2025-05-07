@@ -6,15 +6,15 @@ package metricobserver_test
 import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/observer/metricobserver"
 	"github.com/juju/juju/apiserver/observer/metricobserver/mocks"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type configSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&configSuite{})

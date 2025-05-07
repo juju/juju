@@ -10,17 +10,17 @@ import (
 	"io"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"golang.org/x/sys/windows/registry"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 const randomPasswordBytes = 18
 
 type windowsBaseSuite struct {
-	testing.CleanupSuite
+	testhelpers.CleanupSuite
 }
 
 var versionTests = []struct {

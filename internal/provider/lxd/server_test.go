@@ -5,9 +5,9 @@ package lxd
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 var (
@@ -18,7 +18,7 @@ var (
 // lxd package. See server_integration_test.go for tests that use
 // only the exported surface of the package.
 type serverSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 func (s *serverSuite) TestParseAPIVersion(c *tc.C) {

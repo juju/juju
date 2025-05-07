@@ -5,14 +5,14 @@ package engine_test
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/agent/engine"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type FlagSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&FlagSuite{})

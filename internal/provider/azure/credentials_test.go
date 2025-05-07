@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -19,10 +18,11 @@ import (
 	"github.com/juju/juju/internal/provider/azure/internal/azureauth"
 	"github.com/juju/juju/internal/provider/azure/internal/azurecli"
 	"github.com/juju/juju/internal/provider/azure/internal/azuretesting"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type credentialsSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	servicePrincipalCreator servicePrincipalCreator
 	azureCLI                azureCLI
 	provider                environs.EnvironProvider
@@ -468,7 +468,7 @@ func (s *credentialsSuite) TestFinalizeCredentialAzureCLIServicePrincipalError(c
 }
 
 type servicePrincipalCreator struct {
-	testing.Stub
+	testhelpers.Stub
 }
 
 func (c *servicePrincipalCreator) InteractiveCreate(sdkCtx context.Context, stderr io.Writer, params azureauth.ServicePrincipalParams) (appId, spId, password string, _ error) {
@@ -482,7 +482,7 @@ func (c *servicePrincipalCreator) Create(sdkCtx context.Context, params azureaut
 }
 
 type azureCLI struct {
-	testing.Stub
+	testhelpers.Stub
 	Accounts []azurecli.Account
 	Clouds   []azurecli.Cloud
 }

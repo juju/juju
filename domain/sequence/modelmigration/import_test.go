@@ -8,12 +8,13 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	gomock "go.uber.org/mock/gomock"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type importSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	importService *MockImportService
 }

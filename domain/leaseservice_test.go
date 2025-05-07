@@ -8,14 +8,14 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type leaseServiceSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	modelLeaseManager *MockModelLeaseManagerGetter
 	leaseChecker      *MockChecker
@@ -38,7 +38,7 @@ func (s *leaseServiceSuite) TestWithLeader(c *tc.C) {
 			// Don't return until the lease function is done.
 			select {
 			case <-done:
-			case <-time.After(testing.LongWait):
+			case <-time.After(testhelpers.LongWait):
 				c.Fatalf("lease function not done")
 			}
 			return nil
@@ -95,7 +95,7 @@ func (s *leaseServiceSuite) TestWithLeaderWaitHasLeaseChange(c *tc.C) {
 
 			select {
 			case <-running:
-			case <-time.After(testing.LongWait):
+			case <-time.After(testhelpers.LongWait):
 				c.Fatalf("lease function not running")
 			}
 
@@ -127,7 +127,7 @@ func (s *leaseServiceSuite) TestWithLeaderWaitHasLeaseChange(c *tc.C) {
 
 		select {
 		case <-done:
-		case <-time.After(testing.LongWait):
+		case <-time.After(testhelpers.LongWait):
 			c.Fatalf("lease function not done")
 		}
 		select {
@@ -155,7 +155,7 @@ func (s *leaseServiceSuite) TestWithLeaderFailsOnWaitCheck(c *tc.C) {
 
 			select {
 			case <-done:
-			case <-time.After(testing.LongWait):
+			case <-time.After(testhelpers.LongWait):
 			}
 
 			return nil

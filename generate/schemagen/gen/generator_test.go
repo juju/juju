@@ -7,16 +7,16 @@ import (
 	"reflect"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/facade"
 	jsonschema "github.com/juju/juju/generate/schemagen/jsonschema-gen"
 	"github.com/juju/juju/internal/rpcreflect"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type GenSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	pkgRegistry *MockPackageRegistry
 	apiServer   *MockAPIServer

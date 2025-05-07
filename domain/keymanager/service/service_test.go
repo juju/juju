@@ -8,7 +8,6 @@ import (
 	"net/url"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	gomock "go.uber.org/mock/gomock"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -23,10 +22,11 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/ssh"
 	importererrors "github.com/juju/juju/internal/ssh/importer/errors"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type serviceSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	keyImporter *MockPublicKeyImporter
 	state       *MockState

@@ -9,15 +9,15 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/utils/v4/exec"
 
 	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/machineactions"
 )
 
 type HandleSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&HandleSuite{})

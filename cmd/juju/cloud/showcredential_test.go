@@ -8,12 +8,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
@@ -248,7 +248,7 @@ controller-credentials:
 }
 
 type fakeCredentialContentAPI struct {
-	testing.Stub
+	testhelpers.Stub
 	v           int
 	contents    []params.CredentialContentResult
 	inclsecrets bool

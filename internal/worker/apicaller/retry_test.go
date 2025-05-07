@@ -12,10 +12,10 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/retry"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/api"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/apicaller"
 )
 
@@ -32,7 +32,7 @@ import (
 // seems best to at least decompose the testing. Which is more detailed
 // than it was before, anyway.
 type RetryStrategySuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&RetryStrategySuite{})
@@ -46,7 +46,7 @@ var strategy = retry.CallArgs{
 }
 
 func (s *RetryStrategySuite) TestOnlyConnectSuccess(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	stub.SetErrors(
 		errNotProvisioned, // initial attempt, outside strategy
 		errNotProvisioned, // first strategy attempt
@@ -61,7 +61,7 @@ func (s *RetryStrategySuite) TestOnlyConnectSuccess(c *tc.C) {
 }
 
 func (s *RetryStrategySuite) TestOnlyConnectOldPasswordSuccess(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	stub.SetErrors(
 		errNotAuthorized,  // initial attempt, outside strategy
 		errNotProvisioned, // fallback attempt, outside strategy
@@ -89,7 +89,7 @@ func (s *RetryStrategySuite) TestScaryConnectEventualError(c *tc.C) {
 }
 
 func checkWaitProvisionedError(c *tc.C, connect apicaller.ConnectFunc) (api.Connection, error) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	stub.SetErrors(
 		errNotProvisioned,       // initial attempt, outside strategy
 		errNotProvisioned,       // first strategy attempt
@@ -116,7 +116,7 @@ func (s *RetryStrategySuite) TestScaryConnectNeverProvisioned(c *tc.C) {
 }
 
 func checkWaitNeverProvisioned(c *tc.C, connect apicaller.ConnectFunc) (api.Connection, error) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	stub.SetErrors(
 		errNotProvisioned, // initial attempt, outside strategy
 		errNotProvisioned, // first strategy attempt

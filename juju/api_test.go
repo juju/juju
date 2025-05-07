@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/core/version"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/keys"
@@ -436,7 +436,7 @@ func (s *NewAPIClientSuite) TestWithExistingDNSCache(c *tc.C) {
 					// until we're called upon to start.
 					select {
 					case <-start:
-					case <-time.After(testing.LongWait):
+					case <-time.After(testhelpers.LongWait):
 						c.Fatalf("timeout while waiting for start dialing %v", ipAddr)
 					}
 					return nil, errors.New("fail")

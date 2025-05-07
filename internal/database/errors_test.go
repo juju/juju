@@ -6,13 +6,14 @@ package database
 import (
 	dqlite "github.com/canonical/go-dqlite/v2/driver"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/testing/checkers"
 	"github.com/mattn/go-sqlite3"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type errorSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&errorSuite{})

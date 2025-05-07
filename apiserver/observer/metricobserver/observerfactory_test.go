@@ -8,15 +8,15 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/observer/metricobserver"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type observerFactorySuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	clock *testclock.Clock
 }
 

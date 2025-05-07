@@ -9,15 +9,15 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type checkConnectionSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&checkConnectionSuite{})
@@ -55,12 +55,12 @@ func (s *checkConnectionSuite) TestRunClosesConnection(c *tc.C) {
 }
 
 func newAgentConf() *mockAgentConf {
-	return &mockAgentConf{stub: &testing.Stub{}}
+	return &mockAgentConf{stub: &testhelpers.Stub{}}
 }
 
 type mockAgentConf struct {
 	agentconf.AgentConf
-	stub *testing.Stub
+	stub *testhelpers.Stub
 }
 
 func (c *mockAgentConf) ReadConfig(tag string) error {

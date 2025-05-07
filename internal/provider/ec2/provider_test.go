@@ -9,18 +9,18 @@ import (
 	"github.com/aws/smithy-go"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/provider/ec2"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type ProviderSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	spec     environscloudspec.CloudSpec
 	provider environs.EnvironProvider
 }

@@ -11,7 +11,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 
@@ -25,13 +24,14 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/internal/jwtparser"
 	"github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/apiserver"
 	"github.com/juju/juju/state"
 )
 
 type workerFixture struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	agentConfig             mockAgentConfig
 	authenticator           *mockAuthenticator
 	clock                   *testclock.Clock
@@ -40,7 +40,7 @@ type workerFixture struct {
 	prometheusRegisterer    stubPrometheusRegisterer
 	leaseManager            lease.Manager
 	config                  apiserver.Config
-	stub                    testing.Stub
+	stub                    testhelpers.Stub
 	metricsCollector        *coreapiserver.Collector
 	logSink                 corelogger.ModelLogger
 	charmhubHTTPClient      *http.Client

@@ -6,11 +6,12 @@ package snap
 import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type confinementSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&confinementSuite{})
@@ -43,7 +44,7 @@ func (s *confinementSuite) TestConfinementPolicy(c *tc.C) {
 }
 
 type appSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&appSuite{})

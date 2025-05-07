@@ -10,8 +10,9 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	gomock "go.uber.org/mock/gomock"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 // testingSSHServerListener is required to prevent a race condition that can
@@ -64,7 +65,7 @@ func (l testingSSHServerListener) Close() error {
 }
 
 type listenerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	listener *MockListener
 }
@@ -94,7 +95,7 @@ func (s *listenerSuite) TestAcceptOnceListener(c *tc.C) {
 
 	select {
 	case <-done:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fail()
 	}
 }

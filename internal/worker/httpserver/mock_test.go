@@ -4,14 +4,14 @@
 package httpserver_test
 
 import (
-	"github.com/juju/testing"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/state"
 )
 
 type stubStateTracker struct {
-	testing.Stub
+	testhelpers.Stub
 	pool   *state.StatePool
 	system *state.State
 }
@@ -32,7 +32,7 @@ func (s *stubStateTracker) Report() map[string]interface{} {
 }
 
 type stubPrometheusRegisterer struct {
-	testing.Stub
+	testhelpers.Stub
 }
 
 func (s *stubPrometheusRegisterer) MustRegister(...prometheus.Collector) {

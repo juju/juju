@@ -12,10 +12,10 @@ import (
 
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/internal/pubsub/apiserver"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
@@ -89,7 +89,7 @@ func startAddressPublisher(suite cleanupSuite, c *tc.C, agent *MachineAgent) {
 				// Ensure that it has been sent, before moving on.
 				select {
 				case <-pubsub.Wait(sent):
-				case <-time.After(testing.ShortWait):
+				case <-time.After(testhelpers.ShortWait):
 				}
 			}
 		}

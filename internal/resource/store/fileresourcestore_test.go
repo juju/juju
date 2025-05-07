@@ -11,7 +11,6 @@ import (
 	"io"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
@@ -19,10 +18,11 @@ import (
 	resourcestore "github.com/juju/juju/core/resource/store"
 	resourcestesting "github.com/juju/juju/core/resource/testing"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type fileResourceStoreSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	objectStore *MockObjectStore
 	resource    coreresource.Resource
 	file        io.ReadCloser

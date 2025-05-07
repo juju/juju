@@ -9,17 +9,17 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/core/blockdevice"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/state"
 )
 
 type fakeBlockDeviceGetter struct {
-	testing.Stub
+	testhelpers.Stub
 	blockDevices func(string) ([]blockdevice.BlockDevice, error)
 }
 
@@ -29,7 +29,7 @@ func (s *fakeBlockDeviceGetter) BlockDevices(_ context.Context, machineId string
 }
 
 type fakeStorage struct {
-	testing.Stub
+	testhelpers.Stub
 	storagecommon.StorageAccess
 	storagecommon.FilesystemAccess
 	storageInstance           func(names.StorageTag) (state.StorageInstance, error)

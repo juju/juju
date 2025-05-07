@@ -11,14 +11,14 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 )
 
 type suite struct {
-	testing.LoggingSuite
+	testhelpers.LoggingSuite
 }
 
 var _ = tc.Suite(&suite{})

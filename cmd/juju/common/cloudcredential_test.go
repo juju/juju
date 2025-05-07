@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cloud"
@@ -17,12 +16,13 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/internal/cmd"
 	_ "github.com/juju/juju/internal/provider/dummy"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 var _ = tc.Suite(&cloudCredentialSuite{})
 
 type cloudCredentialSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 func (*cloudCredentialSuite) TestResolveCloudCredentialTag(c *tc.C) {

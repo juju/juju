@@ -13,15 +13,15 @@ import (
 	"github.com/aws/smithy-go"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	corenetwork "github.com/juju/juju/core/network"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/provider/common"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type vpcSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	stubAPI *stubVPCAPIClient
 }
@@ -31,7 +31,7 @@ var _ = tc.Suite(&vpcSuite{})
 func (s *vpcSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.stubAPI = &stubVPCAPIClient{Stub: &testing.Stub{}}
+	s.stubAPI = &stubVPCAPIClient{Stub: &testhelpers.Stub{}}
 }
 
 func (s *vpcSuite) TestValidateBootstrapVPCUnexpectedError(c *tc.C) {
@@ -641,7 +641,7 @@ const (
 )
 
 type stubVPCAPIClient struct {
-	*testing.Stub
+	*testhelpers.Stub
 
 	attributesResponse  *ec2.DescribeAccountAttributesOutput
 	vpcsResponse        *ec2.DescribeVpcsOutput

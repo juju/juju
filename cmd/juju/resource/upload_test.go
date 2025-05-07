@@ -9,28 +9,28 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 var _ = tc.Suite(&UploadSuite{})
 
 type UploadSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
-	stub     *testing.Stub
+	stub     *testhelpers.Stub
 	stubDeps *stubUploadDeps
 }
 
 func (s *UploadSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.stub = &testing.Stub{}
+	s.stub = &testhelpers.Stub{}
 	s.stubDeps = &stubUploadDeps{
 		stub:   s.stub,
 		client: &stubAPIClient{stub: s.stub},
@@ -201,7 +201,7 @@ password: hunter2
 
 type stubUploadDeps struct {
 	modelcmd.Filesystem
-	stub   *testing.Stub
+	stub   *testhelpers.Stub
 	file   modelcmd.ReadSeekCloser
 	client resourcecmd.UploadClient
 }

@@ -10,7 +10,6 @@ import (
 	"io"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/yaml.v2"
 
@@ -21,10 +20,11 @@ import (
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type containerImageResourceStoreSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	containerImageResourceState *MockState
 	imageMetadata               docker.DockerImageDetails
 	jsonBlob                    io.ReadCloser

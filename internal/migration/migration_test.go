@@ -16,7 +16,6 @@ import (
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/controller"
@@ -32,6 +31,7 @@ import (
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
 )
@@ -105,7 +105,7 @@ func (s *ExportSuite) TestExportValidationFails(c *tc.C) {
 }
 
 type ImportSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	charmService     *MockCharmService
 	agentBinaryStore *MockAgentBinaryStore
 }

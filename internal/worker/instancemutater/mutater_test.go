@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	apiinstancemutater "github.com/juju/juju/api/agent/instancemutater"
@@ -16,12 +15,13 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/instancemutater"
 	"github.com/juju/juju/internal/worker/instancemutater/mocks"
 )
 
 type mutaterSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	tag    names.MachineTag
 	instId string

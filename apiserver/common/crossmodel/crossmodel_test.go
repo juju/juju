@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common/crossmodel"
@@ -17,6 +16,7 @@ import (
 	corecrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/status"
 	statuserrors "github.com/juju/juju/domain/status/errors"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -126,7 +126,7 @@ func (s *crossmodelSuite) TestGetOfferStatusChange(c *tc.C) {
 }
 
 type mockBackend struct {
-	testing.Stub
+	testhelpers.Stub
 	crossmodel.Backend
 
 	appName        string

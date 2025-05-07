@@ -5,7 +5,8 @@ package testing
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 const jujuPkgPrefix = "github.com/juju/juju/"
@@ -15,7 +16,7 @@ const jujuPkgPrefix = "github.com/juju/juju/"
 // common prefix "github.com/juju/juju/" leaving just the short names.
 // Suites calling this MUST NOT override HOME or XDG_CACHE_HOME.
 func FindJujuCoreImports(c *tc.C, packageName string) []string {
-	imps, err := testing.FindImports(packageName, jujuPkgPrefix)
+	imps, err := testhelpers.FindImports(packageName, jujuPkgPrefix)
 	c.Assert(err, tc.ErrorIsNil)
 	return imps
 }

@@ -10,12 +10,12 @@ import (
 
 	"github.com/juju/mutex/v2"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
 
@@ -25,7 +25,7 @@ type Lock interface {
 }
 
 type lockSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	logfile string
 	clock   *fakeClock
 	lock    Lock

@@ -10,18 +10,18 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
 type caasProvisionerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	api *StorageProvisionerAPIv4
 
@@ -47,7 +47,7 @@ func (s *caasProvisionerSuite) TestWatchApplications(c *tc.C) {
 		go func() {
 			select {
 			case ch <- []string{"application-mariadb"}:
-			case <-time.After(testing.LongWait):
+			case <-time.After(testhelpers.LongWait):
 				c.Fatalf("timed out waiting to send")
 			}
 		}()

@@ -9,19 +9,19 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	coreresouces "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
 	domainresource "github.com/juju/juju/domain/resource"
 	"github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 var fingerprint = []byte("123456789012345678901234567890123456789012345678")
 
 type exportSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	exportService *MockExportService
 }

@@ -16,13 +16,13 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongotest"
 	"github.com/juju/juju/internal/service/snap"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
@@ -68,7 +68,7 @@ func makeEnsureServerParams(dataDir, configDir string) mongo.EnsureServerParams 
 func (s *MongoSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	testing.PatchExecutable(c, s, "juju-db.mongod", "#!/bin/bash\n\nprintf %s 'db version v6.6.6'\n")
+	testhelpers.PatchExecutable(c, s, "juju-db.mongod", "#!/bin/bash\n\nprintf %s 'db version v6.6.6'\n")
 	jujuMongodPath, err := exec.LookPath("juju-db.mongod")
 	c.Assert(err, tc.ErrorIsNil)
 	s.PatchValue(&mongo.JujuDbSnapMongodPath, jujuMongodPath)
@@ -208,7 +208,7 @@ func (s *MongoSuite) TestEnsureServerInstalledSetsSysctlValues(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	_ = dataFile.Close()
 
-	testing.PatchExecutableAsEchoArgs(c, s, "snap")
+	testhelpers.PatchExecutableAsEchoArgs(c, s, "snap")
 
 	contents, err := os.ReadFile(dataFilePath)
 	c.Assert(err, tc.ErrorIsNil)
@@ -234,7 +234,7 @@ func (s *MongoSuite) TestEnsureServerInstalledLocalSnap(c *tc.C) {
 	dataDir := c.MkDir()
 	configDir := c.MkDir()
 
-	testing.PatchExecutableAsEchoArgs(c, s, "snap")
+	testhelpers.PatchExecutableAsEchoArgs(c, s, "snap")
 
 	s.PatchValue(mongo.InstallMongo, func(string) error {
 		c.Fatalf("unexpected call to InstallMongo")
@@ -251,7 +251,7 @@ func (s *MongoSuite) TestEnsureServerInstalledError(c *tc.C) {
 	dataDir := c.MkDir()
 	configDir := c.MkDir()
 
-	testing.PatchExecutableAsEchoArgs(c, s, "snap")
+	testhelpers.PatchExecutableAsEchoArgs(c, s, "snap")
 
 	failure := errors.New("boom")
 	s.PatchValue(mongo.InstallMongo, func(string) error {
@@ -267,7 +267,7 @@ func (s *MongoSuite) assertEnsureServerIPv6(c *tc.C, ipv6 bool) string {
 	configDir := c.MkDir()
 	s.mongodConfigPath = filepath.Join(dataDir, "juju-db.config")
 
-	testing.PatchExecutableAsEchoArgs(c, s, "snap")
+	testhelpers.PatchExecutableAsEchoArgs(c, s, "snap")
 
 	s.PatchValue(mongo.SupportsIPv6, func() bool {
 		return ipv6
@@ -284,7 +284,7 @@ func (s *MongoSuite) TestNoMongoDir(c *tc.C) {
 
 	// Make a non-existent directory that can nonetheless be
 	// created.
-	testing.PatchExecutableAsEchoArgs(c, s, "snap")
+	testhelpers.PatchExecutableAsEchoArgs(c, s, "snap")
 
 	dataDir := filepath.Join(c.MkDir(), "dir", "data")
 	configDir := c.MkDir()

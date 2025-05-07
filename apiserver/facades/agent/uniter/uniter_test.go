@@ -12,7 +12,6 @@ import (
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -41,12 +40,13 @@ import (
 	"github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
 type uniterSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	badTag names.Tag
 
@@ -605,7 +605,7 @@ type leadershipSettings interface {
 }
 
 type leadershipUniterSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	watcherRegistry *MockWatcherRegistry
 
@@ -718,7 +718,7 @@ func (s *uniterv20Suite) SetUpTest(c *tc.C) {
 }
 
 type uniterRelationSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	wordpressAppTag  names.ApplicationTag
 	authTag          names.Tag
@@ -1728,7 +1728,7 @@ func (s *uniterRelationSuite) expectWatchRelatedUnitsChange(
 }
 
 type commitHookChangesSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	applicationService *MockApplicationService
 	relationService    *MockRelationService

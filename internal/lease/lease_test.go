@@ -6,15 +6,15 @@ package lease
 import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
 
 type secretaryFinderSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	secretary *MockSecretary
 }

@@ -6,11 +6,11 @@ package jujuc_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc/mocks"
 )
@@ -18,7 +18,7 @@ import (
 var _ = tc.Suite(&ResourceGetCmdSuite{})
 
 type ResourceGetCmdSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 func (s *ResourceGetCmdSuite) TestInitNilArgs(c *tc.C) {

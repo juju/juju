@@ -11,11 +11,12 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type BundleDataSourceSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&BundleDataSourceSuite{})

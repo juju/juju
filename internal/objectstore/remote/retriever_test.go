@@ -14,7 +14,6 @@ import (
 
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/httprequest.v1"
@@ -23,11 +22,12 @@ import (
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/s3client"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/apiremotecaller"
 )
 
 type retrieverSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	remoteCallers    *MockAPIRemoteCallers
 	remoteConnection *MockRemoteConnection
@@ -132,19 +132,19 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesRace(c *tc.C) {
 		func(ctx context.Context, s1, s2 string) (io.ReadCloser, int64, error) {
 			select {
 			case <-started:
-			case <-time.After(testing.LongWait):
+			case <-time.After(testhelpers.LongWait):
 				c.Fatalf("timed out waiting for started")
 			}
 
 			select {
 			case <-done:
-			case <-time.After(testing.LongWait):
+			case <-time.After(testhelpers.LongWait):
 				c.Fatalf("timed out waiting for done")
 			}
 
 			select {
 			case <-ctx.Done():
-			case <-time.After(testing.LongWait):
+			case <-time.After(testhelpers.LongWait):
 				c.Fatalf("timed out waiting for context to be done")
 			}
 			return nil, 0, ctx.Err()
@@ -154,7 +154,7 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesRace(c *tc.C) {
 
 			select {
 			case <-started:
-			case <-time.After(testing.LongWait):
+			case <-time.After(testhelpers.LongWait):
 				c.Fatalf("timed out waiting for started")
 			}
 
@@ -223,7 +223,7 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesRaceNotFound(c *tc.C) {
 	notFound := func(ctx context.Context, s1, s2 string) (io.ReadCloser, int64, error) {
 		select {
 		case <-started:
-		case <-time.After(testing.LongWait):
+		case <-time.After(testhelpers.LongWait):
 			c.Fatalf("timed out waiting for started")
 		}
 		return nil, 0, jujuerrors.NotFound
@@ -235,7 +235,7 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesRaceNotFound(c *tc.C) {
 		func(ctx context.Context, s1, s2 string) (io.ReadCloser, int64, error) {
 			select {
 			case <-started:
-			case <-time.After(testing.LongWait):
+			case <-time.After(testhelpers.LongWait):
 				c.Fatalf("timed out waiting for started")
 			}
 			return b, int64(11), nil
@@ -337,7 +337,7 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesError(c *tc.C) {
 	fail := func(ctx context.Context, namespace, sha256 string) (io.ReadCloser, int64, error) {
 		select {
 		case <-started:
-		case <-time.After(testing.LongWait):
+		case <-time.After(testhelpers.LongWait):
 			c.Fatalf("timed out waiting for started")
 		}
 		return nil, 0, fmt.Errorf("boom")
@@ -347,7 +347,7 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesError(c *tc.C) {
 		s.client.EXPECT().GetObject(gomock.Any(), "namespace", "foo").DoAndReturn(func(ctx context.Context, namespace, sha256 string) (io.ReadCloser, int64, error) {
 			select {
 			case <-started:
-			case <-time.After(testing.LongWait):
+			case <-time.After(testhelpers.LongWait):
 				c.Fatalf("timed out waiting for started")
 			}
 			return nil, 0, BlobNotFound
@@ -395,7 +395,7 @@ func (s *retrieverSuite) TestRetrieverWaitingForConnection(c *tc.C) {
 
 		select {
 		case <-ctx.Done():
-		case <-time.After(testing.LongWait):
+		case <-time.After(testhelpers.LongWait):
 			c.Fatalf("timed out waiting for context to be done")
 		}
 		return nil
@@ -409,7 +409,7 @@ func (s *retrieverSuite) TestRetrieverWaitingForConnection(c *tc.C) {
 	go func() {
 		select {
 		case <-requested:
-		case <-time.After(testing.LongWait):
+		case <-time.After(testhelpers.LongWait):
 			c.Fatalf("timed out waiting for connection to be requested")
 		}
 

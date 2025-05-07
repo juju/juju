@@ -5,15 +5,15 @@ package firewall
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 var _ = tc.Suite(&IngressRuleSuite{})
 
 type IngressRuleSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 func (IngressRuleSuite) TestRuleFormatting(c *tc.C) {

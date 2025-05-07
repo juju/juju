@@ -12,18 +12,18 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	apiresources "github.com/juju/juju/api/client/resources"
 	"github.com/juju/juju/cmd/modelcmd"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/docker"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type DeploySuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
-	stub *testing.Stub
+	stub *testhelpers.Stub
 }
 
 var _ = tc.Suite(&DeploySuite{})
@@ -31,7 +31,7 @@ var _ = tc.Suite(&DeploySuite{})
 func (s *DeploySuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.stub = &testing.Stub{}
+	s.stub = &testhelpers.Stub{}
 }
 
 func (s DeploySuite) TestDeployResourcesWithoutFiles(c *tc.C) {
@@ -550,7 +550,7 @@ func (s DeploySuite) TestGetDockerDetailsData(c *tc.C) {
 
 type uploadDeps struct {
 	modelcmd.Filesystem
-	stub *testing.Stub
+	stub *testhelpers.Stub
 	data []byte
 }
 

@@ -16,9 +16,10 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstore -destination state_mock_test.go github.com/juju/juju/internal/objectstore Claimer,ClaimExtender,HashFileSystemAccessor,TrackedObjectStore,RemoteRetriever
@@ -32,7 +33,7 @@ func TestAll(t *stdtesting.T) {
 }
 
 type baseSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	service       *MockObjectStoreMetadata
 	claimer       *MockClaimer

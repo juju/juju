@@ -9,12 +9,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
@@ -25,7 +25,7 @@ const allEndpoints = ""
 
 type FlushContextSuite struct {
 	BaseHookContextSuite
-	stub testing.Stub
+	stub testhelpers.Stub
 }
 
 var _ = tc.Suite(&FlushContextSuite{})
@@ -128,7 +128,7 @@ func (s *FlushContextSuite) TestRebootWhenHookFails(c *tc.C) {
 
 	ctx := s.context(c, ctrl)
 
-	var stub testing.Stub
+	var stub testhelpers.Stub
 	ctx.SetProcess(&mockProcess{func() error {
 		priority := ctx.GetRebootPriority()
 		c.Assert(priority, tc.Equals, jujuc.RebootAfterHook)
@@ -152,7 +152,7 @@ func (s *FlushContextSuite) TestRebootNowWhenHookFails(c *tc.C) {
 
 	ctx := s.context(c, ctrl)
 
-	var stub testing.Stub
+	var stub testhelpers.Stub
 	ctx.SetProcess(&mockProcess{func() error {
 		priority := ctx.GetRebootPriority()
 		c.Assert(priority, tc.Equals, jujuc.RebootNow)
@@ -179,7 +179,7 @@ func (s *FlushContextSuite) TestRebootNow(c *tc.C) {
 
 	ctx := s.context(c, ctrl)
 
-	var stub testing.Stub
+	var stub testhelpers.Stub
 	ctx.SetProcess(&mockProcess{func() error {
 		priority := ctx.GetRebootPriority()
 		c.Assert(priority, tc.Equals, jujuc.RebootNow)

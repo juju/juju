@@ -12,7 +12,6 @@ import (
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	gossh "golang.org/x/crypto/ssh"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	virtualhostname "github.com/juju/juju/core/virtualhostname"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
 
@@ -28,7 +28,7 @@ const maxConcurrentConnections = 10
 const testVirtualHostname = "1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local"
 
 type sshServerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	userSigner     ssh.Signer
 	sessionHandler *MockSessionHandler

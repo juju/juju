@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -305,13 +305,13 @@ func (s *ProxyUpdaterSuite) TestSnapProxyConfig(c *tc.C) {
 }
 
 type stubBackend struct {
-	*testing.Stub
+	*testhelpers.Stub
 	c         *tc.C
 	hpWatcher workertest.NotAWatcher
 }
 
 func (sb *stubBackend) SetUp(c *tc.C) {
-	sb.Stub = &testing.Stub{}
+	sb.Stub = &testhelpers.Stub{}
 	sb.c = c
 	sb.hpWatcher = workertest.NewFakeWatcher(1, 1)
 }

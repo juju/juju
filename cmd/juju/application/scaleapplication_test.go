@@ -8,19 +8,19 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/params"
 )
 
 type ScaleApplicationSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	mockAPI *mockScaleApplicationAPI
 }
@@ -28,7 +28,7 @@ type ScaleApplicationSuite struct {
 var _ = tc.Suite(&ScaleApplicationSuite{})
 
 type mockScaleApplicationAPI struct {
-	*testing.Stub
+	*testhelpers.Stub
 }
 
 func (s mockScaleApplicationAPI) Close() error {
@@ -43,7 +43,7 @@ func (s mockScaleApplicationAPI) ScaleApplication(ctx context.Context, args appl
 
 func (s *ScaleApplicationSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.mockAPI = &mockScaleApplicationAPI{Stub: &testing.Stub{}}
+	s.mockAPI = &mockScaleApplicationAPI{Stub: &testhelpers.Stub{}}
 }
 
 func (s *ScaleApplicationSuite) runScaleApplication(c *tc.C, args ...string) (*cmd.Context, error) {

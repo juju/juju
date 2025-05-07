@@ -9,12 +9,12 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	jujustorage "github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type ImportFilesystemSuite struct {
@@ -61,7 +61,7 @@ importing "bar" from storage pool "foo" as storage "baz"
 imported storage baz/0
 `[1:])
 
-	s.importer.CheckCalls(c, []testing.StubCall{
+	s.importer.CheckCalls(c, []testhelpers.StubCall{
 		{"ImportStorage", []interface{}{
 			jujustorage.StorageKindFilesystem,
 			"foo", "bar", "baz",
@@ -90,7 +90,7 @@ func (s *ImportFilesystemSuite) run(c *tc.C, args ...string) (*cmd.Context, erro
 }
 
 type mockStorageImporter struct {
-	testing.Stub
+	testhelpers.Stub
 }
 
 func (m *mockStorageImporter) Close() error {

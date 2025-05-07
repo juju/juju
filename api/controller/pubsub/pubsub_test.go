@@ -11,15 +11,15 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/api/base"
 	apipubsub "github.com/juju/juju/api/controller/pubsub"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 type PubSubSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&PubSubSuite{})

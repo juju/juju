@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/hooks"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	uniterapi "github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/internal/worker/uniter/hook"
@@ -82,7 +82,7 @@ func mockAPICaller(c *tc.C, callNumber *int32, apiCalls ...apiCall) apitesting.A
 			if call.err != nil {
 				return apiservererrors.ServerError(call.err)
 			}
-			testing.PatchValue(result, call.result)
+			testhelpers.PatchValue(result, call.result)
 		default:
 			c.Fail()
 		}

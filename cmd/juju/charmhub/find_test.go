@@ -5,7 +5,6 @@ package charmhub
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cmd/juju/charmhub/mocks"
@@ -13,10 +12,11 @@ import (
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/charmhub/transport"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type findSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	charmHubAPI *mocks.MockCharmHubClient
 }

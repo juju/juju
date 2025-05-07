@@ -8,13 +8,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
@@ -22,7 +22,7 @@ import (
 )
 
 type ConsumeSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	mockAPI *mockConsumeAPI
 	store   *jujuclient.MemStore
 }
@@ -31,7 +31,7 @@ var _ = tc.Suite(&ConsumeSuite{})
 
 func (s *ConsumeSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.mockAPI = &mockConsumeAPI{Stub: &testing.Stub{}}
+	s.mockAPI = &mockConsumeAPI{Stub: &testhelpers.Stub{}}
 
 	// Set up the current controller, and write just enough info
 	// so we don't try to refresh
@@ -107,7 +107,7 @@ func (s *ConsumeSuite) assertSuccessModelDotApplication(c *tc.C, alias string) {
 	c.Assert(err, tc.ErrorIsNil)
 	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, tc.ErrorIsNil)
-	s.mockAPI.CheckCalls(c, []testing.StubCall{
+	s.mockAPI.CheckCalls(c, []testhelpers.StubCall{
 		{"GetConsumeDetails", []interface{}{"bob/booster.uke"}},
 		{"Consume", []interface{}{crossmodel.ConsumeApplicationArgs{
 			Offer:            params.ApplicationOfferDetailsV5{OfferName: "an offer", OfferURL: "ctrl:bob/booster.uke"},
@@ -136,7 +136,7 @@ func (s *ConsumeSuite) TestSuccessModelDotApplicationWithAlias(c *tc.C) {
 }
 
 type mockConsumeAPI struct {
-	*testing.Stub
+	*testhelpers.Stub
 
 	localName string
 }

@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
-	"github.com/juju/testing/filetesting"
 
 	"github.com/juju/juju/core/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/testhelpers/filetesting"
 )
 
 type newCharmResourceFunc func(c *tc.C, name, content string) charmresource.Resource
@@ -21,7 +21,7 @@ type newCharmResourceFunc func(c *tc.C, name, content string) charmresource.Reso
 // NewResource produces full resource info for the given name and
 // content. The origin is set to "upload". A reader is also returned
 // which contains the content.
-func NewResource(c *tc.C, stub *testing.Stub, name, applicationID, content string) resource.Opened {
+func NewResource(c *tc.C, stub *testhelpers.Stub, name, applicationID, content string) resource.Opened {
 	username := "a-user"
 	return resource.Opened{
 		Resource:   newResource(c, name, applicationID, username, content, NewCharmResource),
@@ -32,7 +32,7 @@ func NewResource(c *tc.C, stub *testing.Stub, name, applicationID, content strin
 // NewDockerResource produces full resource info for the given name and
 // content. The origin is set to "upload" (via resource created by  NewCharmDockerResource).
 // A reader is also returned which contains the content.
-func NewDockerResource(c *tc.C, stub *testing.Stub, name, applicationID, content string) resource.Opened {
+func NewDockerResource(c *tc.C, stub *testhelpers.Stub, name, applicationID, content string) resource.Opened {
 	username := "a-user"
 	return resource.Opened{
 		Resource:   newResource(c, name, applicationID, username, content, NewCharmDockerResource),
@@ -118,7 +118,7 @@ type stubReadCloser struct {
 	io.Closer
 }
 
-func newStubReadCloser(stub *testing.Stub, content string) io.ReadCloser {
+func newStubReadCloser(stub *testhelpers.Stub, content string) io.ReadCloser {
 	return &stubReadCloser{
 		Reader: filetesting.NewStubReader(stub, content),
 		Closer: &filetesting.StubCloser{

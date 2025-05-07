@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
@@ -247,14 +247,14 @@ func (s *controllerInstancesSuite) TestControllerInstances(c *tc.C) {
 
 func (s *controllerInstancesSuite) TestControllerInstancesStderr(c *tc.C) {
 	// Stderr should not affect the behaviour of ControllerInstances.
-	testing.PatchExecutable(c, s, "ssh", "#!/bin/sh\nhead -n1 > /dev/null; echo abc >&2; exit 0")
+	testhelpers.PatchExecutable(c, s, "ssh", "#!/bin/sh\nhead -n1 > /dev/null; echo abc >&2; exit 0")
 	_, err := s.env.ControllerInstances(context.Background(), "not-used")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *controllerInstancesSuite) TestControllerInstancesError(c *tc.C) {
 	// If the ssh execution fails, its stderr will be captured in the error message.
-	testing.PatchExecutable(c, s, "ssh", "#!/bin/sh\nhead -n1 > /dev/null; echo abc >&2; exit 1")
+	testhelpers.PatchExecutable(c, s, "ssh", "#!/bin/sh\nhead -n1 > /dev/null; echo abc >&2; exit 1")
 	_, err := s.env.ControllerInstances(context.Background(), "not-used")
 	c.Assert(err, tc.ErrorMatches, "abc: .*")
 }
@@ -264,7 +264,7 @@ func (s *controllerInstancesSuite) TestControllerInstancesInternal(c *tc.C) {
 	s.PatchValue(&os.Args, []string{"/some/where/containing/jujud", "whatever"})
 	// Patch the ssh executable so that it would cause an error if we
 	// were to call it.
-	testing.PatchExecutable(c, s, "ssh", "#!/bin/sh\nhead -n1 > /dev/null; echo abc >&2; exit 1")
+	testhelpers.PatchExecutable(c, s, "ssh", "#!/bin/sh\nhead -n1 > /dev/null; echo abc >&2; exit 1")
 	instances, err := s.env.ControllerInstances(context.Background(), "not-used")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(instances, tc.DeepEquals, []instance.Id{BootstrapInstanceId})

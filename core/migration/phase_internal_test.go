@@ -6,11 +6,12 @@ package migration
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type PhaseInternalSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(new(PhaseInternalSuite))

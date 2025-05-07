@@ -10,7 +10,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/internal/docker/registry"
 	registrymocks "github.com/juju/juju/internal/docker/registry/mocks"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasmodelconfigmanager"
 	"github.com/juju/juju/internal/worker/caasmodelconfigmanager/mocks"
@@ -31,7 +31,7 @@ import (
 var _ = tc.Suite(&workerSuite{})
 
 type workerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	modelTag names.ModelTag
 	logger   logger.Logger
@@ -48,7 +48,7 @@ func (s *workerSuite) SetUpTest(c *tc.C) {
 	s.modelTag = names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff")
 	s.logger = loggertesting.WrapCheckLog(c)
 	s.controllerConfig = coretesting.FakeControllerConfig()
-	s.clock = testclock.NewDilatedWallClock(testing.ShortWait)
+	s.clock = testclock.NewDilatedWallClock(testhelpers.ShortWait)
 }
 
 func (s *workerSuite) TearDownTest(c *tc.C) {

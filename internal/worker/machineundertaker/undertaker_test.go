@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"gopkg.in/tomb.v2"
@@ -18,11 +17,12 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/machineundertaker"
 )
 
 type undertakerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&undertakerSuite{})
@@ -60,7 +60,7 @@ func (s *undertakerSuite) TestErrorGettingRemovals(c *tc.C) {
 // of in NotifyWorker instead).
 
 func (*undertakerSuite) TestMaybeReleaseAddresses_NoNetworking(c *tc.C) {
-	api := fakeAPI{Stub: &testing.Stub{}}
+	api := fakeAPI{Stub: &testhelpers.Stub{}}
 	u := machineundertaker.Undertaker{API: &api, Logger: loggertesting.WrapCheckLog(c)}
 	err := u.MaybeReleaseAddresses(context.Background(), names.NewMachineTag("3"))
 	c.Assert(err, tc.ErrorIsNil)
@@ -68,7 +68,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_NoNetworking(c *tc.C) {
 }
 
 func (*undertakerSuite) TestMaybeReleaseAddresses_NotContainer(c *tc.C) {
-	api := fakeAPI{Stub: &testing.Stub{}}
+	api := fakeAPI{Stub: &testhelpers.Stub{}}
 	releaser := fakeReleaser{}
 	u := machineundertaker.Undertaker{
 		API:      &api,
@@ -81,7 +81,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_NotContainer(c *tc.C) {
 }
 
 func (*undertakerSuite) TestMaybeReleaseAddresses_ErrorGettingInfo(c *tc.C) {
-	api := fakeAPI{Stub: &testing.Stub{}}
+	api := fakeAPI{Stub: &testhelpers.Stub{}}
 	api.SetErrors(errors.New("a funny thing happened on the way"))
 	releaser := fakeReleaser{}
 	u := machineundertaker.Undertaker{
@@ -94,8 +94,8 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_ErrorGettingInfo(c *tc.C) {
 }
 
 func (*undertakerSuite) TestMaybeReleaseAddresses_NoAddresses(c *tc.C) {
-	api := fakeAPI{Stub: &testing.Stub{}}
-	releaser := fakeReleaser{Stub: &testing.Stub{}}
+	api := fakeAPI{Stub: &testhelpers.Stub{}}
+	releaser := fakeReleaser{Stub: &testhelpers.Stub{}}
 	u := machineundertaker.Undertaker{
 		API:      &api,
 		Releaser: &releaser,
@@ -108,14 +108,14 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_NoAddresses(c *tc.C) {
 
 func (*undertakerSuite) TestMaybeReleaseAddresses_NotSupported(c *tc.C) {
 	api := fakeAPI{
-		Stub: &testing.Stub{},
+		Stub: &testhelpers.Stub{},
 		interfaces: map[string][]network.ProviderInterfaceInfo{
 			"4/lxd/4": {
 				{InterfaceName: "chloe"},
 			},
 		},
 	}
-	releaser := fakeReleaser{Stub: &testing.Stub{}}
+	releaser := fakeReleaser{Stub: &testhelpers.Stub{}}
 	releaser.SetErrors(errors.NotSupportedf("this sort of thing"))
 	u := machineundertaker.Undertaker{
 		API:      &api,
@@ -131,14 +131,14 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_NotSupported(c *tc.C) {
 
 func (*undertakerSuite) TestMaybeReleaseAddresses_ErrorReleasing(c *tc.C) {
 	api := fakeAPI{
-		Stub: &testing.Stub{},
+		Stub: &testhelpers.Stub{},
 		interfaces: map[string][]network.ProviderInterfaceInfo{
 			"4/lxd/4": {
 				{InterfaceName: "chloe"},
 			},
 		},
 	}
-	releaser := fakeReleaser{Stub: &testing.Stub{}}
+	releaser := fakeReleaser{Stub: &testhelpers.Stub{}}
 	releaser.SetErrors(errors.New("something unexpected"))
 	u := machineundertaker.Undertaker{
 		API:      &api,
@@ -154,14 +154,14 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_ErrorReleasing(c *tc.C) {
 
 func (*undertakerSuite) TestMaybeReleaseAddresses_Success(c *tc.C) {
 	api := fakeAPI{
-		Stub: &testing.Stub{},
+		Stub: &testhelpers.Stub{},
 		interfaces: map[string][]network.ProviderInterfaceInfo{
 			"4/lxd/4": {
 				{InterfaceName: "chloe"},
 			},
 		},
 	}
-	releaser := fakeReleaser{Stub: &testing.Stub{}}
+	releaser := fakeReleaser{Stub: &testhelpers.Stub{}}
 	u := machineundertaker.Undertaker{
 		API:      &api,
 		Releaser: &releaser,
@@ -176,7 +176,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_Success(c *tc.C) {
 
 func (*undertakerSuite) TestHandle_CompletesRemoval(c *tc.C) {
 	api := fakeAPI{
-		Stub:     &testing.Stub{},
+		Stub:     &testhelpers.Stub{},
 		removals: []string{"3", "4/lxd/4"},
 		interfaces: map[string][]network.ProviderInterfaceInfo{
 			"4/lxd/4": {
@@ -184,7 +184,7 @@ func (*undertakerSuite) TestHandle_CompletesRemoval(c *tc.C) {
 			},
 		},
 	}
-	releaser := fakeReleaser{Stub: &testing.Stub{}}
+	releaser := fakeReleaser{Stub: &testhelpers.Stub{}}
 	u := machineundertaker.Undertaker{
 		API:      &api,
 		Releaser: &releaser,
@@ -203,7 +203,7 @@ func (*undertakerSuite) TestHandle_CompletesRemoval(c *tc.C) {
 
 func (*undertakerSuite) TestHandle_NoRemovalOnErrorReleasing(c *tc.C) {
 	api := fakeAPI{
-		Stub:     &testing.Stub{},
+		Stub:     &testhelpers.Stub{},
 		removals: []string{"3", "4/lxd/4", "5"},
 		interfaces: map[string][]network.ProviderInterfaceInfo{
 			"4/lxd/4": {
@@ -211,7 +211,7 @@ func (*undertakerSuite) TestHandle_NoRemovalOnErrorReleasing(c *tc.C) {
 			},
 		},
 	}
-	releaser := fakeReleaser{Stub: &testing.Stub{}}
+	releaser := fakeReleaser{Stub: &testhelpers.Stub{}}
 	releaser.SetErrors(errors.New("couldn't release address"))
 	u := machineundertaker.Undertaker{
 		API:      &api,
@@ -231,7 +231,7 @@ func (*undertakerSuite) TestHandle_NoRemovalOnErrorReleasing(c *tc.C) {
 
 func (*undertakerSuite) TestHandle_ErrorOnRemoval(c *tc.C) {
 	api := fakeAPI{
-		Stub:     &testing.Stub{},
+		Stub:     &testhelpers.Stub{},
 		removals: []string{"3", "4/lxd/4"},
 	}
 	api.SetErrors(nil, errors.New("couldn't remove machine 3"))
@@ -241,7 +241,7 @@ func (*undertakerSuite) TestHandle_ErrorOnRemoval(c *tc.C) {
 	checkRemovalsMatch(c, api.Stub, "3", "4/lxd/4")
 }
 
-func checkRemovalsMatch(c *tc.C, stub *testing.Stub, expected ...string) {
+func checkRemovalsMatch(c *tc.C, stub *testhelpers.Stub, expected ...string) {
 	var completedRemovals []string
 	for _, call := range stub.Calls() {
 		if call.FuncName == "CompleteRemoval" {
@@ -254,7 +254,7 @@ func checkRemovalsMatch(c *tc.C, stub *testing.Stub, expected ...string) {
 
 func (s *undertakerSuite) makeAPIWithWatcher() *fakeAPI {
 	return &fakeAPI{
-		Stub:    &testing.Stub{},
+		Stub:    &testhelpers.Stub{},
 		watcher: s.newMockNotifyWatcher(),
 	}
 }
@@ -280,7 +280,7 @@ type fakeEnviron struct {
 }
 
 type fakeReleaser struct {
-	*testing.Stub
+	*testhelpers.Stub
 }
 
 func (r *fakeReleaser) ReleaseContainerAddresses(ctx context.Context, interfaces []network.ProviderInterfaceInfo) error {
@@ -291,7 +291,7 @@ func (r *fakeReleaser) ReleaseContainerAddresses(ctx context.Context, interfaces
 type fakeAPI struct {
 	machineundertaker.Facade
 
-	*testing.Stub
+	*testhelpers.Stub
 	watcher    *mockNotifyWatcher
 	removals   []string
 	interfaces map[string][]network.ProviderInterfaceInfo

@@ -6,15 +6,15 @@ package azureauth_test
 import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/microsoft/kiota-abstractions-go/store"
 	"github.com/microsoftgraph/msgraph-sdk-go/models/odataerrors"
 
 	"github.com/juju/juju/internal/provider/azure/internal/azureauth"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type ErrorSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&ErrorSuite{})

@@ -11,10 +11,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 // APICallerFunc is a function type that implements APICaller.
@@ -159,7 +159,7 @@ func checkArgs(c *tc.C, args APICall, facade string, version int, id, method str
 	}
 	if args.Results != nil {
 		c.Check(outResults, tc.NotNil)
-		testing.PatchValue(outResults, args.Results)
+		testhelpers.PatchValue(outResults, args.Results)
 	}
 	return args.Error
 }
@@ -201,7 +201,7 @@ func APICallerWithBakery(caller base.APICallCloser, discharger base.MacaroonDisc
 // StubFacadeCaller is a testing stub implementation of api/base.FacadeCaller.
 type StubFacadeCaller struct {
 	// Stub is the raw stub used to track calls and errors.
-	Stub *testing.Stub
+	Stub *testhelpers.Stub
 	// These control the values returned by the stub's methods.
 	FacadeCallFn         func(name string, params, response interface{}) error
 	ReturnName           string

@@ -6,15 +6,15 @@ package mongometrics_test
 import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 
 	"github.com/juju/juju/internal/mongo/mongometrics"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type MgoStatsCollectorSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	collector       *mongometrics.MgoStatsCollector
 	getCurrentStats func() mgo.Stats
 }

@@ -8,11 +8,11 @@ import (
 	"errors"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -20,7 +20,7 @@ import (
 var _ = tc.Suite(&CrossControllerSuite{})
 
 type CrossControllerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	resources                *common.Resources
 	watcher                  *mockNotifyWatcher

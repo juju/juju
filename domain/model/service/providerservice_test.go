@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	corecloud "github.com/juju/juju/core/cloud"
@@ -18,6 +17,7 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -42,7 +42,7 @@ func (d *dummyProviderState) GetModel(ctx context.Context) (coremodel.ModelInfo,
 }
 
 type providerServiceSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	state *dummyProviderState
 
@@ -110,13 +110,13 @@ func (s *providerServiceSuite) TestWatchModelCloudCredential(c *tc.C) {
 
 	select {
 	case ch <- struct{}{}:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("failed to send changes to channel")
 	}
 
 	select {
 	case <-w.Changes():
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("failed to receive changes from watcher")
 	}
 }

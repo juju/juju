@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
 
@@ -46,7 +46,7 @@ func (fix *fixture) Run(c *tc.C, test func(*runContext)) {
 
 type runContext struct {
 	mu           sync.Mutex
-	stub         testing.Stub
+	stub         testhelpers.Stub
 	cloud        environscloudspec.CloudSpec
 	config       map[string]interface{}
 	watcher      *notifyWatcher
@@ -216,7 +216,7 @@ func newModelConfig(c *tc.C, extraAttrs jujutesting.Attrs) map[string]interface{
 
 type mockBroker struct {
 	caas.Broker
-	testing.Stub
+	testhelpers.Stub
 	spec      environscloudspec.CloudSpec
 	cfg       *config.Config
 	namespace string

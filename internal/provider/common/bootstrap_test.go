@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/utils/v4/ssh"
 	cryptossh "golang.org/x/crypto/ssh"
 
@@ -37,6 +36,7 @@ import (
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/provider/common"
 	corestorage "github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 )
@@ -596,8 +596,8 @@ func (s *BootstrapSuite) TestSuccess(c *tc.C) {
 			"'-o' 'UserKnownHostsFile (.*)' " +
 			"'-o' 'HostKeyAlgorithms (.*)' " +
 			"'ubuntu@testing.invalid' '/bin/bash'")
-	testing.PatchExecutableAsEchoArgs(c, s, "ssh")
-	testing.PatchExecutableAsEchoArgs(c, s, "scp")
+	testhelpers.PatchExecutableAsEchoArgs(c, s, "ssh")
+	testhelpers.PatchExecutableAsEchoArgs(c, s, "scp")
 	s.PatchValue(common.ConnectSSH, func(_ ssh.Client, host, checkHostScript string, opts *ssh.Options) error {
 		// Stop WaitSSH from continuing.
 		client, err := ssh.NewOpenSSHClient()
@@ -608,7 +608,7 @@ func (s *BootstrapSuite) TestSuccess(c *tc.C) {
 		if err := cmd.Run(); err != nil {
 			return err
 		}
-		sshArgs := testing.ReadEchoArgs(c, "ssh")
+		sshArgs := testhelpers.ReadEchoArgs(c, "ssh")
 		submatch := re.FindStringSubmatch(sshArgs)
 		if c.Check(submatch, tc.NotNil, tc.Commentf("%s", sshArgs)) {
 			knownHostsFile := submatch[1]

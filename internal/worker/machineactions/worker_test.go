@@ -10,18 +10,18 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/machineactions"
 	"github.com/juju/juju/internal/worker/machineactions/mocks"
 	"github.com/juju/juju/rpc/params"
 )
 
 type WorkerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	facade *mocks.MockFacade
 	lock   *mocks.MockLock
@@ -60,7 +60,7 @@ func (s *WorkerSuite) TestInvalidHandleAction(c *tc.C) {
 	c.Assert(worker, tc.IsNil)
 }
 
-func defaultConfig(stub *testing.Stub, facade machineactions.Facade, lock machinelock.Lock) machineactions.WorkerConfig {
+func defaultConfig(stub *testhelpers.Stub, facade machineactions.Facade, lock machinelock.Lock) machineactions.WorkerConfig {
 	return machineactions.WorkerConfig{
 		Facade:       facade,
 		MachineTag:   fakeTag,
@@ -74,7 +74,7 @@ func (s *WorkerSuite) TestRunningActionsError(c *tc.C) {
 
 	s.facade.EXPECT().RunningActions(gomock.Any(), fakeTag).Return(nil, errors.New("splash"))
 
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	worker, err := machineactions.NewMachineActionsWorker(defaultConfig(stub, s.facade, s.lock))
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -94,7 +94,7 @@ func (s *WorkerSuite) TestInvalidActionId(c *tc.C) {
 		Worker:  workertest.NewErrorWorker(nil),
 		changes: changes}, nil)
 
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	worker, err := machineactions.NewMachineActionsWorker(defaultConfig(stub, s.facade, s.lock))
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -110,7 +110,7 @@ func (s *WorkerSuite) TestWatchErrorNonEmptyRunningActions(c *tc.C) {
 	s.facade.EXPECT().ActionFinish(gomock.Any(), names.NewActionTag("3"), params.ActionFailed, nil, "action cancelled").Return(nil)
 	s.facade.EXPECT().WatchActionNotifications(gomock.Any(), fakeTag).Return(nil, errors.New("kuso"))
 
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	worker, err := machineactions.NewMachineActionsWorker(defaultConfig(stub, s.facade, s.lock))
 	c.Assert(err, tc.ErrorIsNil)
 	err = workertest.CheckKilled(c, worker)
@@ -133,7 +133,7 @@ func (s *WorkerSuite) TestCannotRetrieveAction(c *tc.C) {
 	s.facade.EXPECT().ActionBegin(gomock.Any(), names.NewActionTag("3")).Return(nil)
 	s.facade.EXPECT().ActionFinish(gomock.Any(), names.NewActionTag("3"), params.ActionCompleted, nil, "").Return(nil)
 
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	worker, err := machineactions.NewMachineActionsWorker(defaultConfig(stub, s.facade, s.lock))
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, worker)
@@ -145,7 +145,7 @@ func (s *WorkerSuite) TestCannotRetrieveAction(c *tc.C) {
 	// Ensure we can clean kill.
 	workertest.CleanKill(c, worker)
 
-	stub.CheckCallsUnordered(c, []testing.StubCall{{
+	stub.CheckCallsUnordered(c, []testhelpers.StubCall{{
 		FuncName: "HandleAction",
 		Args:     []interface{}{firstAction.Name()},
 	}, {
@@ -177,12 +177,12 @@ func (s *WorkerSuite) TestRunActions(c *tc.C) {
 	begin3 := s.facade.EXPECT().ActionBegin(gomock.Any(), names.NewActionTag("3")).Times(1).Return(nil)
 	s.facade.EXPECT().ActionFinish(gomock.Any(), names.NewActionTag("3"), params.ActionCompleted, nil, "").After(begin3).Return(nil)
 
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	worker, err := machineactions.NewMachineActionsWorker(defaultConfig(stub, s.facade, s.lock))
 	c.Assert(err, tc.ErrorIsNil)
 	err = workertest.CheckKilled(c, worker)
 	c.Check(errors.Cause(err), tc.ErrorMatches, "got invalid action id invalid-action-id")
-	stub.CheckCallsUnordered(c, []testing.StubCall{{
+	stub.CheckCallsUnordered(c, []testhelpers.StubCall{{
 		FuncName: "HandleAction",
 		Args:     []interface{}{secondAction.Name()},
 	}, {
@@ -216,7 +216,7 @@ func (s *WorkerSuite) TestActionHandleError(c *tc.C) {
 	s.facade.EXPECT().ActionFinish(gomock.Any(), names.NewActionTag("1"), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(assertFinish)
 	s.facade.EXPECT().ActionFinish(gomock.Any(), names.NewActionTag("3"), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(assertFinish)
 
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	stub.SetErrors(errors.New("slob"))
 	worker, err := machineactions.NewMachineActionsWorker(defaultConfig(stub, s.facade, s.lock))
 	c.Assert(err, tc.ErrorIsNil)
@@ -229,7 +229,7 @@ func (s *WorkerSuite) TestActionHandleError(c *tc.C) {
 	// Ensure we can clean kill.
 	workertest.CleanKill(c, worker)
 
-	stub.CheckCallsUnordered(c, []testing.StubCall{{
+	stub.CheckCallsUnordered(c, []testhelpers.StubCall{{
 		FuncName: "HandleAction",
 		Args:     []interface{}{firstAction.Name()},
 	}, {
@@ -246,7 +246,7 @@ func (s *WorkerSuite) TestWorkerNoError(c *tc.C) {
 		Worker: workertest.NewErrorWorker(nil),
 	}, nil)
 
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	worker, err := machineactions.NewMachineActionsWorker(defaultConfig(stub, s.facade, s.lock))
 	c.Assert(err, tc.ErrorIsNil)
 

@@ -5,13 +5,13 @@ package os
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type macOSXSeriesSuite struct {
-	testing.CleanupSuite
+	testhelpers.CleanupSuite
 }
 
 var _ = tc.Suite(&macOSXSeriesSuite{})

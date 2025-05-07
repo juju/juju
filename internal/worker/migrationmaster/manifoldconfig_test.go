@@ -7,15 +7,15 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/migrationmaster"
 )
 
 type ManifoldConfigSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	config migrationmaster.ManifoldConfig
 }
 

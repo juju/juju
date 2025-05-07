@@ -5,13 +5,13 @@ package service
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	internalcharm "github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type lxdProfileSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&lxdProfileSuite{})

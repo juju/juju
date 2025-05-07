@@ -7,16 +7,16 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 // FilesystemSource is an implementation of storage.FilesystemSource, suitable for
 // testing. Each method's default behaviour may be overridden by setting
 // the corresponding Func field.
 type FilesystemSource struct {
-	testing.Stub
+	testhelpers.Stub
 
 	CreateFilesystemsFunc        func(context.Context, []storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error)
 	DestroyFilesystemsFunc       func(context.Context, []string) ([]error, error)

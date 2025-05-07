@@ -10,17 +10,17 @@ import (
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
 
 type FlagSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	manager *MockManager
 	claimer *MockClaimer
@@ -104,7 +104,7 @@ func (s *FlagSuite) TestSuccessClaimOnCreation(c *tc.C) {
 
 	select {
 	case <-done:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for claim to expire")
 	}
 
@@ -149,7 +149,7 @@ func (s *FlagSuite) TestDeniedClaimOnCreationCausesWait(c *tc.C) {
 
 	select {
 	case <-done:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for claim to expire")
 	}
 
@@ -176,7 +176,7 @@ func (s *FlagSuite) TestDeniedClaimOnCreationCausesWaitError(c *tc.C) {
 
 	select {
 	case <-done:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for claim to expire")
 	}
 
@@ -215,7 +215,7 @@ func (s *FlagSuite) TestRepeatedClaim(c *tc.C) {
 
 	select {
 	case <-done:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for claim to expire")
 	}
 
@@ -250,7 +250,7 @@ func (s *FlagSuite) TestRepeatedClaimFails(c *tc.C) {
 
 	select {
 	case <-done:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for claim to expire")
 	}
 
@@ -286,7 +286,7 @@ func (s *FlagSuite) TestRepeatedClaimFailsWithError(c *tc.C) {
 
 	select {
 	case <-done:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for claim to expire")
 	}
 

@@ -9,16 +9,16 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/internal/packaging/commands"
 	"github.com/juju/juju/internal/packaging/manager"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 var _ = tc.Suite(&SnapSuite{})
 
 type SnapSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 func (s *SnapSuite) TestInstall(c *tc.C) {
@@ -41,7 +41,7 @@ func (s *SnapSuite) TestInstallWithMountFailure(c *tc.C) {
 	state := os.ProcessState{}
 	cmdError := &exec.ExitError{ProcessState: &state}
 	s.PatchValue(&manager.SnapAttempts, minRetries)
-	s.PatchValue(&manager.SnapDelay, testing.ShortWait)
+	s.PatchValue(&manager.SnapDelay, testhelpers.ShortWait)
 	s.PatchValue(&manager.ProcessStateSys, func(*os.ProcessState) interface{} {
 		return mockExitStatuser(1) // retry each time.
 	})
@@ -66,7 +66,7 @@ func (s *SnapSuite) TestInstallWithUDevFailure(c *tc.C) {
 	state := os.ProcessState{}
 	cmdError := &exec.ExitError{ProcessState: &state}
 	s.PatchValue(&manager.SnapAttempts, minRetries)
-	s.PatchValue(&manager.SnapDelay, testing.ShortWait)
+	s.PatchValue(&manager.SnapDelay, testhelpers.ShortWait)
 	s.PatchValue(&manager.ProcessStateSys, func(*os.ProcessState) interface{} {
 		return mockExitStatuser(2) // retry each time.
 	})
@@ -92,7 +92,7 @@ func (s *SnapSuite) TestInstallWithFailureAndNonMatchingOutput(c *tc.C) {
 	state := os.ProcessState{}
 	cmdError := &exec.ExitError{ProcessState: &state}
 	s.PatchValue(&manager.SnapAttempts, minRetries)
-	s.PatchValue(&manager.SnapDelay, testing.ShortWait)
+	s.PatchValue(&manager.SnapDelay, testhelpers.ShortWait)
 	s.PatchValue(&manager.ProcessStateSys, func(*os.ProcessState) interface{} {
 		return mockExitStatuser(1) // retry each time.
 	})
@@ -119,7 +119,7 @@ func (s *SnapSuite) TestInstallWithoutFailure(c *tc.C) {
 	state := os.ProcessState{}
 	cmdError := &exec.ExitError{ProcessState: &state}
 	s.PatchValue(&manager.SnapAttempts, minRetries)
-	s.PatchValue(&manager.SnapDelay, testing.ShortWait)
+	s.PatchValue(&manager.SnapDelay, testhelpers.ShortWait)
 	s.PatchValue(&manager.ProcessStateSys, func(*os.ProcessState) interface{} {
 		return mockExitStatuser(0) // retry each time.
 	})
@@ -145,7 +145,7 @@ func (s *SnapSuite) TestInstallWithDNSFailure(c *tc.C) {
 	state := os.ProcessState{}
 	cmdError := &exec.ExitError{ProcessState: &state}
 	s.PatchValue(&manager.SnapAttempts, minRetries)
-	s.PatchValue(&manager.SnapDelay, testing.ShortWait)
+	s.PatchValue(&manager.SnapDelay, testhelpers.ShortWait)
 	s.PatchValue(&manager.ProcessStateSys, func(*os.ProcessState) interface{} {
 		return mockExitStatuser(100) // retry each time.
 	})
@@ -168,7 +168,7 @@ func (s *SnapSuite) TestInstallWithDNSFailure(c *tc.C) {
 func (s *SnapSuite) TestInstallForUnknownPackage(c *tc.C) {
 	const minRetries = 3
 	s.PatchValue(&manager.SnapAttempts, minRetries)
-	s.PatchValue(&manager.SnapDelay, testing.ShortWait)
+	s.PatchValue(&manager.SnapDelay, testhelpers.ShortWait)
 
 	const expected = `error: snap "foo" not found`
 

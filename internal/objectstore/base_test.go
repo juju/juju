@@ -9,16 +9,16 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/objectstore"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type baseObjectStoreSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	clock         *MockClock
 	claimer       *MockClaimer
@@ -133,7 +133,7 @@ func (s *baseObjectStoreSuite) TestLockingForBlockedFunc(c *tc.C) {
 		select {
 		case <-block:
 			return nil
-		case <-time.After(testing.LongWait):
+		case <-time.After(testhelpers.LongWait):
 			c.Fatal("timed out waiting for block")
 			return nil
 		}
@@ -205,7 +205,7 @@ func (s *baseObjectStoreSuite) TestLockingForTombKill(c *tc.C) {
 		case <-block:
 			w.Kill()
 			close(wait)
-		case <-time.After(testing.LongWait):
+		case <-time.After(testhelpers.LongWait):
 			c.Fatal("timed out waiting for block")
 		}
 	}()
@@ -219,7 +219,7 @@ func (s *baseObjectStoreSuite) TestLockingForTombKill(c *tc.C) {
 
 	select {
 	case <-wait:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for complete state")
 	}
 }

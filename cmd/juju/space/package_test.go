@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/cmd/juju/space"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/params"
@@ -145,7 +145,7 @@ func (s *BaseSpaceSuite) Strings(values ...string) []string {
 
 // StubAPI defines a testing stub for the SpaceAPI interface.
 type StubAPI struct {
-	*testing.Stub
+	*testhelpers.Stub
 
 	Spaces  []params.Space
 	Subnets []params.Subnet
@@ -230,7 +230,7 @@ func NewStubAPI() *StubAPI {
 		}},
 	}}
 	return &StubAPI{
-		Stub:              &testing.Stub{},
+		Stub:              &testhelpers.Stub{},
 		Spaces:            spaces,
 		Subnets:           subnets,
 		ShowSpaceResp:     showSpace,

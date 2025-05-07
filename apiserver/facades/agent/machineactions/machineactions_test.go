@@ -10,18 +10,18 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/machineactions"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
 type FacadeSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&FacadeSuite{})
@@ -39,7 +39,7 @@ func (*FacadeSuite) TestOtherAgent(c *tc.C) {
 }
 
 func (*FacadeSuite) TestRunningActions(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	auth := agentAuth{
 		machine: true,
 	}
@@ -107,7 +107,7 @@ func (auth agentAuth) AuthOwner(tag names.Tag) bool {
 // mockBackend implements machineactions.Backend for use in the tests.
 type mockBackend struct {
 	machineactions.Backend
-	stub *testing.Stub
+	stub *testhelpers.Stub
 }
 
 func (mock *mockBackend) TagToActionReceiverFn(findEntity func(names.Tag) (state.Entity, error)) func(string) (state.ActionReceiver, error) {

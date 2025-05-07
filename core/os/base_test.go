@@ -5,14 +5,14 @@ package os_test
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type baseSuite struct {
-	testing.CleanupSuite
+	testhelpers.CleanupSuite
 }
 
 var _ = tc.Suite(&baseSuite{})

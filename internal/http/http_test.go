@@ -9,13 +9,13 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	jujuhttp "github.com/juju/juju/internal/http"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type httpSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&httpSuite{})

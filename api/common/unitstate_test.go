@@ -9,16 +9,16 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 type unitStateSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	tag names.UnitTag
 }
 
@@ -29,7 +29,7 @@ func (s *unitStateSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestSetStateSingleResult(c *tc.C) {
-	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
+	facadeCaller := apitesting.StubFacadeCaller{Stub: &testhelpers.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
 		c.Assert(name, tc.Equals, "SetState")
 		c.Assert(args.(params.SetUnitStateArgs).Args, tc.HasLen, 1)
@@ -50,7 +50,7 @@ func (s *unitStateSuite) TestSetStateSingleResult(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestSetStateReturnsQuotaExceededError(c *tc.C) {
-	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
+	facadeCaller := apitesting.StubFacadeCaller{Stub: &testhelpers.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
 		result := response.(*params.ErrorResults)
 		result.Results = []params.ErrorResult{{
@@ -68,7 +68,7 @@ func (s *unitStateSuite) TestSetStateReturnsQuotaExceededError(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestSetStateMultipleReturnsError(c *tc.C) {
-	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
+	facadeCaller := apitesting.StubFacadeCaller{Stub: &testhelpers.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
 		c.Assert(name, tc.Equals, "SetState")
 		c.Assert(args.(params.SetUnitStateArgs).Args, tc.HasLen, 1)
@@ -97,7 +97,7 @@ func (s *unitStateSuite) TestStateSingleResult(c *tc.C) {
 	}
 	expectedUniterState := "testing"
 
-	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
+	facadeCaller := apitesting.StubFacadeCaller{Stub: &testhelpers.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
 		c.Assert(name, tc.Equals, "State")
 		*(response.(*params.UnitStateResults)) = params.UnitStateResults{
@@ -116,7 +116,7 @@ func (s *unitStateSuite) TestStateSingleResult(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestStateMultipleReturnsError(c *tc.C) {
-	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
+	facadeCaller := apitesting.StubFacadeCaller{Stub: &testhelpers.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
 		c.Assert(name, tc.Equals, "State")
 		*(response.(*params.UnitStateResults)) = params.UnitStateResults{

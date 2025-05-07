@@ -10,7 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type maasStorageSuite struct {
@@ -19,11 +20,11 @@ type maasStorageSuite struct {
 
 var _ = tc.Suite(&maasStorageSuite{})
 
-func makeCall(funcName string, args ...interface{}) testing.StubCall {
-	return testing.StubCall{funcName, args}
+func makeCall(funcName string, args ...interface{}) testhelpers.StubCall {
+	return testhelpers.StubCall{funcName, args}
 }
 
-func checkCalls(c *tc.C, stub *testing.Stub, calls ...testing.StubCall) {
+func checkCalls(c *tc.C, stub *testhelpers.Stub, calls ...testhelpers.StubCall) {
 	stub.CheckCalls(c, calls)
 }
 

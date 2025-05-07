@@ -11,18 +11,18 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
 	coreleadership "github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/leadership"
 )
 
 type TrackerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	unitTag names.UnitTag
 
 	claimer *MockClaimer

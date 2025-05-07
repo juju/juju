@@ -15,10 +15,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	jujuhttp "github.com/juju/juju/internal/http"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type APIRequesterSuite struct {
@@ -238,8 +238,8 @@ func (s *RESTSuite) TestGetWithFailureRetry(c *tc.C) {
 
 	httpClient := requestHTTPClient(nil, jujuhttp.RetryPolicy{
 		Attempts: 3,
-		Delay:    testing.ShortWait,
-		MaxDelay: testing.LongWait,
+		Delay:    testhelpers.ShortWait,
+		MaxDelay: testhelpers.LongWait,
 	})(s.logger)
 	client := newHTTPRESTClient(httpClient)
 
@@ -261,8 +261,8 @@ func (s *RESTSuite) TestGetWithFailureWithoutRetry(c *tc.C) {
 
 	httpClient := requestHTTPClient(nil, jujuhttp.RetryPolicy{
 		Attempts: 3,
-		Delay:    testing.ShortWait,
-		MaxDelay: testing.LongWait,
+		Delay:    testhelpers.ShortWait,
+		MaxDelay: testhelpers.LongWait,
 	})(s.logger)
 	client := newHTTPRESTClient(httpClient)
 
@@ -286,8 +286,8 @@ func (s *RESTSuite) TestGetWithNoRetry(c *tc.C) {
 
 	httpClient := requestHTTPClient(nil, jujuhttp.RetryPolicy{
 		Attempts: 3,
-		Delay:    testing.ShortWait,
-		MaxDelay: testing.LongWait,
+		Delay:    testhelpers.ShortWait,
+		MaxDelay: testhelpers.LongWait,
 	})(s.logger)
 	client := newHTTPRESTClient(httpClient)
 

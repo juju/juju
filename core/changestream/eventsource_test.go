@@ -5,14 +5,14 @@ package changestream
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type changestreamSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	txnRunner *MockTxnRunner
 }

@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -56,8 +56,8 @@ func fakeCredential() cloud.Credential {
 }
 
 type providerSuite struct {
-	testing.IsolationSuite
-	dialStub testing.Stub
+	testhelpers.IsolationSuite
+	dialStub testhelpers.Stub
 	provider caas.ContainerEnvironProvider
 }
 

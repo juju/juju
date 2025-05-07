@@ -1,0 +1,9 @@
+# Replace juju/testing with internal/testhelpers
+@@
+var x identifier
+@@
+-import "github.com/juju/testing"
++import "github.com/juju/juju/internal/testhelpers"
+
+-testing.x
++testhelpers.x

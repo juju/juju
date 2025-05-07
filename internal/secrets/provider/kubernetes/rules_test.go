@@ -5,12 +5,13 @@ package kubernetes
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	rbacv1 "k8s.io/api/rbac/v1"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type rulesSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&rulesSuite{})

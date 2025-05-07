@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/caas"
@@ -21,13 +20,14 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
 
 var _ = tc.Suite(&CheckMachinesSuite{})
 
 type CheckMachinesSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	provider *mockProvider
 	instance *mockInstance
@@ -48,7 +48,7 @@ func (s *CheckMachinesSuite) SetUpTest(c *tc.C) {
 	// This is what the test gets from the cloud.
 	s.instance = &mockInstance{id: "wind-up"}
 	s.provider = &mockProvider{
-		Stub: &testing.Stub{},
+		Stub: &testhelpers.Stub{},
 		allInstancesFunc: func(ctx context.Context) ([]instances.Instance, error) {
 			return []instances.Instance{s.instance}, nil
 		},
@@ -278,7 +278,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesNotProvisionedError(c *tc.C) {
 var _ = tc.Suite(&ModelCredentialSuite{})
 
 type ModelCredentialSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	machineService *MockMachineService
 	machineState   *MockMachineState
@@ -431,7 +431,7 @@ func (s *ModelCredentialSuite) ensureEnvForIAASModel() {
 	s.PatchValue(&newEnv, func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (environs.Environ, error) {
 		return &mockEnviron{
 			mockProvider: &mockProvider{
-				Stub: &testing.Stub{},
+				Stub: &testhelpers.Stub{},
 				allInstancesFunc: func(ctx context.Context) ([]instances.Instance, error) {
 					return []instances.Instance{}, nil
 				},
@@ -441,7 +441,7 @@ func (s *ModelCredentialSuite) ensureEnvForIAASModel() {
 }
 
 type mockProvider struct {
-	*testing.Stub
+	*testhelpers.Stub
 	allInstancesFunc func(ctx context.Context) ([]instances.Instance, error)
 }
 

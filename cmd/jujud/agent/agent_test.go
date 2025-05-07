@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/agent"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	internallogger "github.com/juju/juju/internal/logger"
+	"github.com/juju/juju/internal/testhelpers"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/proxyupdater"
 )
@@ -75,7 +75,7 @@ func (s *AgentSuite) SetUpTest(c *tc.C) {
 }
 
 type agentLoggingSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&agentLoggingSuite{})

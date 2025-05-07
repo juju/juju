@@ -9,16 +9,16 @@ import (
 	"net/http/httptest"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/httpcontext"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type ModelHandlersSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	controllerModelHandler *httpcontext.ControllerModelHandler
 	queryHandler           *httpcontext.QueryModelHandler

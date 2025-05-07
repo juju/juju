@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	model "github.com/juju/juju/core/model"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
 
@@ -32,7 +32,7 @@ type ManifoldSuite struct {
 	logger logger.Logger
 
 	clock clock.Clock
-	stub  testing.Stub
+	stub  testhelpers.Stub
 }
 
 var _ = tc.Suite(&ManifoldSuite{})

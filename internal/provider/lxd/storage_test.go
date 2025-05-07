@@ -10,12 +10,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	containerlxd "github.com/juju/juju/internal/container/lxd"
 	"github.com/juju/juju/internal/provider/lxd"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type storageSuite struct {
@@ -209,7 +209,7 @@ func (s *storageSuite) TestDestroyFilesystems(c *tc.C) {
 	c.Check(results[1], tc.ErrorIsNil)
 	c.Check(results[2], tc.ErrorMatches, "boom")
 
-	s.Stub.CheckCalls(c, []testing.StubCall{
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "DeleteStoragePoolVolume", Args: []interface{}{"pool0", "custom", "filesystem-0"}},
 		{FuncName: "DeleteStoragePoolVolume", Args: []interface{}{"pool1", "custom", "filesystem-1"}},
 	})
@@ -271,7 +271,7 @@ func (s *storageSuite) TestReleaseFilesystems(c *tc.C) {
 		Config: map[string]string{},
 	}
 
-	s.Stub.CheckCalls(c, []testing.StubCall{
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "GetStoragePoolVolume", Args: []interface{}{"foo", "custom", "filesystem-0"}},
 		{FuncName: "UpdateStoragePoolVolume", Args: []interface{}{"foo", "custom", "filesystem-0", update0, "eTag"}},
 		{FuncName: "GetStoragePoolVolume", Args: []interface{}{"foo", "custom", "filesystem-1"}},
@@ -294,7 +294,7 @@ func (s *storageSuite) TestReleaseFilesystemsInvalidCredentials(c *tc.C) {
 	c.Assert(results, tc.HasLen, 1)
 	c.Check(results[0], tc.ErrorMatches, "not authorized")
 
-	s.Stub.CheckCalls(c, []testing.StubCall{
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "GetStoragePoolVolume", Args: []interface{}{"foo", "custom", "filesystem-0"}},
 	})
 }
@@ -366,7 +366,7 @@ func (s *storageSuite) TestAttachFilesystems(c *tc.C) {
 
 	// TODO (manadart 2018-06-25) We need to check the device written to the
 	// container as config.
-	s.Stub.CheckCalls(c, []testing.StubCall{{
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "AliveContainers",
 		Args:     []interface{}{"juju-f75cba-"},
 	}, {
@@ -496,7 +496,7 @@ func (s *storageSuite) TestDetachFilesystems(c *tc.C) {
 
 	// TODO (manadart 2018-06-25) We need to check the container config to
 	// ensure it represents the removed device.
-	s.Stub.CheckCalls(c, []testing.StubCall{{
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "AliveContainers",
 		Args:     []interface{}{"juju-f75cba-"},
 	}, {
@@ -595,7 +595,7 @@ func (s *storageSuite) TestImportFilesystem(c *tc.C) {
 			"user.baz": "qux",
 		},
 	}
-	s.Stub.CheckCalls(c, []testing.StubCall{
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "GetStoragePoolVolume", Args: []interface{}{"foo", "custom", "bar"}},
 		{FuncName: "UpdateStoragePoolVolume", Args: []interface{}{"foo", "custom", "bar", update, "eTag"}},
 	})

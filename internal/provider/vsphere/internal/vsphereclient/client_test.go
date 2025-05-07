@@ -14,7 +14,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/mutex/v2"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/vmware/govmomi"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/session"
@@ -27,10 +26,11 @@ import (
 	"golang.org/x/net/context"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type clientSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	server         *httptest.Server
 	serviceContent types.ServiceContent
@@ -609,7 +609,7 @@ func (s *clientSuite) TestComputeResources(c *tc.C) {
 	result, err := client.ComputeResources(context.Background())
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.roundTripper.CheckCalls(c, []testing.StubCall{
+	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeDatacenter"),
@@ -628,7 +628,7 @@ func (s *clientSuite) TestFolders(c *tc.C) {
 	result, err := client.Folders(context.Background())
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.roundTripper.CheckCalls(c, []testing.StubCall{
+	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeDatacenter"),
@@ -645,7 +645,7 @@ func (s *clientSuite) TestDestroyVMFolder(c *tc.C) {
 	err := client.DestroyVMFolder(context.Background(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.roundTripper.CheckCalls(c, []testing.StubCall{
+	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeDatacenter"),
@@ -675,7 +675,7 @@ func (s *clientSuite) TestEnsureVMFolder(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(folder, tc.NotNil)
 
-	s.roundTripper.CheckCalls(c, []testing.StubCall{
+	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
@@ -722,7 +722,7 @@ func (s *clientSuite) TestMoveVMFolderInto(c *tc.C) {
 	err := client.MoveVMFolderInto(context.Background(), "foo", "foo/bar")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.roundTripper.CheckCalls(c, []testing.StubCall{
+	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeDatacenter"),
@@ -760,7 +760,7 @@ func (s *clientSuite) TestMoveVMsInto(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.roundTripper.CheckCalls(c, []testing.StubCall{
+	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeDatacenter"),
@@ -780,7 +780,7 @@ func (s *clientSuite) TestRemoveVirtualMachines(c *tc.C) {
 	err := client.RemoveVirtualMachines(context.Background(), "foo/bar/*")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.roundTripper.CheckCalls(c, []testing.StubCall{
+	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeDatacenter"),
@@ -833,7 +833,7 @@ func (s *clientSuite) TestMaybeUpgradeVMVersionNotSet(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// No calls should be made. ForceVMHardwareVersion was not set.
-	s.roundTripper.CheckCalls(c, []testing.StubCall{})
+	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{})
 }
 
 func (s *clientSuite) TestMaybeUpgradeVMVersionLowerThanSourceVM(c *tc.C) {
@@ -852,7 +852,7 @@ func (s *clientSuite) TestMaybeUpgradeVMVersionLowerThanSourceVM(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `selected HW \(9\) version is lower than VM hardware`)
 
 	// ForceVMHardwareVersion was set, but is lower than the VM version (vmx-10).
-	s.roundTripper.CheckCalls(c, []testing.StubCall{
+	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
 		retrievePropertiesStubCall("FakeVm0"),
 	})
 }
@@ -882,7 +882,7 @@ func (s *clientSuite) TestMaybeUpgradeVMVersionNotSupportedByEnv(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `hardware version 14 not supported by target \(max version 13\)`)
 
 	// No calls should be made. ForceVMHardwareVersion was not set.
-	s.roundTripper.CheckCalls(c, []testing.StubCall{
+	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
 		// Gets VM version
 		retrievePropertiesStubCall("FakeVm0"),
 		// Gets environment max version.
@@ -930,7 +930,7 @@ func (s *clientSuite) TestMaybeUpgradeVMVersion(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// No calls should be made. ForceVMHardwareVersion was not set.
-	s.roundTripper.CheckCalls(c, []testing.StubCall{
+	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
 		retrievePropertiesStubCall("FakeVm0"),
 		{
 			FuncName: "QueryConfigOption",
@@ -988,7 +988,7 @@ func (s *clientSuite) TestVirtualMachines(c *tc.C) {
 	result, err := client.VirtualMachines(context.Background(), "foo/bar/*")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.roundTripper.CheckCalls(c, []testing.StubCall{
+	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeDatacenter"),
@@ -1012,7 +1012,7 @@ func (s *clientSuite) TestListVMTemplates(c *tc.C) {
 	result, err := client.ListVMTemplates(context.Background(), "foo/bar/*")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.roundTripper.CheckCalls(c, []testing.StubCall{
+	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeDatacenter"),
@@ -1034,7 +1034,7 @@ func (s *clientSuite) TestDatastores(c *tc.C) {
 	result, err := client.Datastores(context.Background())
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.roundTripper.CheckCalls(c, []testing.StubCall{
+	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeDatacenter"),
@@ -1053,7 +1053,7 @@ func (s *clientSuite) TestDeleteDatastoreFile(c *tc.C) {
 	err := client.DeleteDatastoreFile(context.Background(), "[datastore1] file/path")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.roundTripper.CheckCalls(c, []testing.StubCall{
+	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
 		{FuncName: "DeleteDatastoreFile", Args: []interface{}{"[datastore1] file/path"}},
@@ -1088,7 +1088,7 @@ func (s *clientSuite) TestResourcePools(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	result, err := client.ResourcePools(context.Background(), "z0/...")
 
-	s.roundTripper.CheckCalls(c, []testing.StubCall{
+	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeDatacenter"),
@@ -1115,7 +1115,7 @@ func (s *clientSuite) TestUserHasRootLevelPrivilege(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.Equals, true)
 
-	s.roundTripper.CheckCalls(c, []testing.StubCall{
+	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
 		retrievePropertiesStubCall("FakeSessionManager"),
 		{FuncName: "HasPrivilegeOnEntities", Args: []interface{}{
 			"FakeAuthorizationManager",

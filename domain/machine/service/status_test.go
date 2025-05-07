@@ -5,14 +5,14 @@ package service
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/machine"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type statusSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&statusSuite{})

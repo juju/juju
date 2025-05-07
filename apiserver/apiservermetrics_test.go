@@ -8,15 +8,15 @@ import (
 	"regexp"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/core/version"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type apiservermetricsSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	collector prometheus.Collector
 }
 

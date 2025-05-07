@@ -8,9 +8,9 @@ import (
 	"io"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/uniter/runner/context/mocks"
 	"github.com/juju/juju/internal/worker/uniter/runner/context/resources"
 )
@@ -18,14 +18,14 @@ import (
 var _ = tc.Suite(&OpenedResourceSuite{})
 
 type OpenedResourceSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
-	stub *testing.Stub
+	stub *testhelpers.Stub
 }
 
 func (s *OpenedResourceSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.stub = &testing.Stub{}
+	s.stub = &testhelpers.Stub{}
 }
 
 func (s *OpenedResourceSuite) TestOpenResource(c *tc.C) {

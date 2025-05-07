@@ -7,13 +7,14 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type suite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	clock *MockClock
 }
@@ -37,7 +38,7 @@ func (s *suite) TestPing(c *tc.C) {
 	for i := 0; i < 10; i++ {
 		p.Ping()
 		// Ensure that the ping timer has been at least called
-		<-time.After(testing.ShortWait)
+		<-time.After(testhelpers.ShortWait)
 	}
 
 	workertest.CheckKill(c, p)
@@ -83,7 +84,7 @@ func (s *suite) TestPingTimeout(c *tc.C) {
 
 	select {
 	case <-sync:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testhelpers.ShortWait):
 		c.Fatal("timed out waiting for action")
 	}
 

@@ -15,14 +15,14 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery/form"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api/authentication"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type InteractorSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	jar     *cookiejar.Jar
 	client  *httpbakery.Client

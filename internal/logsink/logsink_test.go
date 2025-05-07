@@ -16,14 +16,14 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type logSinkSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	states chan string
 	closed int64
@@ -321,7 +321,7 @@ func (s *logSinkSuite) expectFlush(c *tc.C) {
 	select {
 	case state := <-s.states:
 		c.Assert(state, tc.Equals, stateFlushed)
-	case <-time.After(testing.ShortWait * 10):
+	case <-time.After(testhelpers.ShortWait * 10):
 		c.Fatalf("timed out waiting for startup")
 	}
 }
@@ -336,7 +336,7 @@ func (s *logSinkSuite) expectNumOfFlushes(c *tc.C, flushes int) {
 					return
 				}
 			}
-		case <-time.After(testing.LongWait):
+		case <-time.After(testhelpers.LongWait):
 			c.Fatalf("timed out waiting for %d flushes", flushes)
 		}
 	}
@@ -362,7 +362,7 @@ func (s *logSinkSuite) expectTick(c *tc.C) {
 	select {
 	case state := <-s.states:
 		c.Assert(state, tc.Equals, stateTicked)
-	case <-time.After(testing.ShortWait * 10):
+	case <-time.After(testhelpers.ShortWait * 10):
 		c.Fatalf("timed out waiting for startup")
 	}
 }

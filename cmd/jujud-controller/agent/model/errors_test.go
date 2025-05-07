@@ -6,15 +6,15 @@ package model_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/cmd/jujud-controller/agent/model"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/lifeflag"
 )
 
 type ErrorsSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&ErrorsSuite{})

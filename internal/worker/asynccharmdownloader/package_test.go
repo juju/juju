@@ -8,9 +8,10 @@ import (
 	time "time"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package asynccharmdownloader -destination package_mocks_test.go github.com/juju/juju/internal/worker/asynccharmdownloader ApplicationService,Downloader
@@ -24,7 +25,7 @@ func TestAll(t *stdtesting.T) {
 }
 
 type baseSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	applicationService *MockApplicationService
 	downloader         *MockDownloader

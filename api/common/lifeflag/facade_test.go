@@ -9,19 +9,19 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/common/lifeflag"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/rpc/params"
 )
 
 type FacadeSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&FacadeSuite{})

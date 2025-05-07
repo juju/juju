@@ -9,20 +9,20 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/credentialvalidator"
 )
 
 // mockFacade implements credentialvalidator.Facade for use in the tests.
 type mockFacade struct {
-	*testing.Stub
+	*testhelpers.Stub
 	credential *base.StoredCredential
 	exists     bool
 

@@ -8,13 +8,13 @@ import (
 	"os"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/core/backups"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type workspaceSuiteV0 struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	baseArchiveDataSuite
 }
 
@@ -85,7 +85,7 @@ func (s *workspaceSuiteV0) TestMetadata(c *tc.C) {
 }
 
 type workspaceSuiteV1 struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	baseArchiveDataSuite
 }
 

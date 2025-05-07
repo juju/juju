@@ -9,10 +9,10 @@ import (
 	"path/filepath"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/uniter/runner/context/mocks"
 	"github.com/juju/juju/internal/worker/uniter/runner/context/resources"
 )
@@ -20,13 +20,13 @@ import (
 var _ = tc.Suite(&ContextSuite{})
 
 type ContextSuite struct {
-	testing.IsolationSuite
-	stub *testing.Stub
+	testhelpers.IsolationSuite
+	stub *testhelpers.Stub
 }
 
 func (s *ContextSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.stub = &testing.Stub{}
+	s.stub = &testhelpers.Stub{}
 }
 
 func (s *ContextSuite) TestDownloadOutOfDate(c *tc.C) {

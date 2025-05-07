@@ -9,16 +9,16 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/juju/testing"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
 
 	"github.com/juju/juju/internal/provider/vsphere"
 	"github.com/juju/juju/internal/provider/vsphere/internal/vsphereclient"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
-func newMockDialFunc(dialStub *testing.Stub, client vsphere.Client) vsphere.DialFunc {
+func newMockDialFunc(dialStub *testhelpers.Stub, client vsphere.Client) vsphere.DialFunc {
 	return func(ctx context.Context, u *url.URL, datacenter string) (vsphere.Client, error) {
 		dialStub.AddCall("Dial", ctx, u, datacenter)
 		if err := dialStub.NextErr(); err != nil {
@@ -32,7 +32,7 @@ type mockClient struct {
 	// mu guards testing.Stub access, to ensure that the recorded
 	// method calls correspond to the errors returned.
 	mu sync.Mutex
-	testing.Stub
+	testhelpers.Stub
 
 	computeResources        []vsphereclient.ComputeResource
 	resourcePools           map[string][]*object.ResourcePool

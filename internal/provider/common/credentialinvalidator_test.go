@@ -9,16 +9,16 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/provider/common/mocks"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type ErrorsSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	credentialInvalidator *mocks.MockCredentialInvalidator
 }

@@ -9,16 +9,16 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type UnitAccessorSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	applicationService *MockApplicationService
 }

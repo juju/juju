@@ -15,7 +15,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/os/v2/series"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/core/arch"
@@ -26,6 +25,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/wrench"
 	"github.com/juju/juju/juju/osenv"
 )
@@ -148,8 +148,8 @@ func (s *JujuOSEnvSuite) SetFeatureFlags(flag ...string) {
 // to the IsolationSuite that rely on external things in PATH.
 type BaseSuite struct {
 	oldLtsForTesting string
-	testing.CleanupSuite
-	testing.LoggingSuite
+	testhelpers.CleanupSuite
+	testhelpers.LoggingSuite
 	JujuOSEnvSuite
 	InitialLoggingConfig string
 }

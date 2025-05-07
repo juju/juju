@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -25,6 +24,7 @@ import (
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
+	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/juju/testing"
 )
 
@@ -391,7 +391,7 @@ func (s *userAuthenticatorSuite) TestAuthenticateLocalLoginMacaroon(c *tc.C) {
 }
 
 type mockBakeryService struct {
-	testing.Stub
+	testhelpers.Stub
 }
 
 func (s *mockBakeryService) Auth(_ context.Context, mss ...macaroon.Slice) *bakery.AuthChecker {

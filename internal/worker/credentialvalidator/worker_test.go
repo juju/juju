@@ -10,18 +10,18 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/credentialvalidator"
 )
 
 type WorkerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	facade                 *mockFacade
 	config                 credentialvalidator.Config
@@ -40,7 +40,7 @@ func (s *WorkerSuite) SetUpTest(c *tc.C) {
 	s.exists = true
 	s.modelCredentialChanges = make(chan struct{})
 	s.facade = &mockFacade{
-		Stub:         &testing.Stub{},
+		Stub:         &testhelpers.Stub{},
 		credential:   s.credential,
 		exists:       s.exists,
 		modelWatcher: watchertest.NewMockNotifyWatcher(s.modelCredentialChanges),

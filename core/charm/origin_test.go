@@ -5,13 +5,13 @@ package charm_test
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/core/charm"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type sourceSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&sourceSuite{})
@@ -27,7 +27,7 @@ func (s sourceSuite) TestNotMatches(c *tc.C) {
 }
 
 type platformSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&platformSuite{})

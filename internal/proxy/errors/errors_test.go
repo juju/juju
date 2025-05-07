@@ -7,15 +7,15 @@ import (
 	stderrors "errors"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/internal/proxy/errors"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 var _ = tc.Suite(&ErrorsSuite{})
 
 type ErrorsSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 func (*ErrorsSuite) TestIsProxyConnectError(c *tc.C) {

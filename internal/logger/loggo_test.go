@@ -8,14 +8,14 @@ import (
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type loggoSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&loggoSuite{})

@@ -13,16 +13,16 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	coreresource "github.com/juju/juju/core/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type UnitResourcesHandlerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	opener       *MockOpener
 	openerGetter *MockResourceOpenerGetter

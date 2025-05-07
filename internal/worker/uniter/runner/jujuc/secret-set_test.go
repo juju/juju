@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 )
 
@@ -107,7 +107,7 @@ func (s *SecretUpdateSuite) TestUpdateSecretBase64(c *tc.C) {
 	args := &jujuc.SecretUpdateArgs{
 		Value: val,
 	}
-	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UpdateSecret", Args: []interface{}{"secret:9m4e2mr0ui3e8a215n4g", args}}})
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{{FuncName: "UpdateSecret", Args: []interface{}{"secret:9m4e2mr0ui3e8a215n4g", args}}})
 }
 
 func (s *SecretUpdateSuite) TestUpdateSecretRotateInterval(c *tc.C) {
@@ -123,7 +123,7 @@ func (s *SecretUpdateSuite) TestUpdateSecretRotateInterval(c *tc.C) {
 		Value:        coresecrets.NewSecretValue(nil),
 		RotatePolicy: ptr(coresecrets.RotateDaily),
 	}
-	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UpdateSecret", Args: []interface{}{"secret:9m4e2mr0ui3e8a215n4g", args}}})
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{{FuncName: "UpdateSecret", Args: []interface{}{"secret:9m4e2mr0ui3e8a215n4g", args}}})
 }
 
 func (s *SecretUpdateSuite) TestUpdateSecretFromFile(c *tc.C) {
@@ -156,5 +156,5 @@ func (s *SecretUpdateSuite) TestUpdateSecretFromFile(c *tc.C) {
 	args := &jujuc.SecretUpdateArgs{
 		Value: val,
 	}
-	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UpdateSecret", Args: []interface{}{"secret:9m4e2mr0ui3e8a215n4g", args}}})
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{{FuncName: "UpdateSecret", Args: []interface{}{"secret:9m4e2mr0ui3e8a215n4g", args}}})
 }

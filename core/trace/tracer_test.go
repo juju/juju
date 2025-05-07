@@ -7,13 +7,13 @@ import (
 	"fmt"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type nameSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&nameSuite{})
@@ -28,7 +28,7 @@ func (nameSuite) TestControllerNamespaceConstant(c *tc.C) {
 }
 
 type namespaceSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&namespaceSuite{})

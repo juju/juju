@@ -5,16 +5,16 @@ package jujuclient_test
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/caas/kubernetes/provider/proxy"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/jujuclient"
 )
 
 type proxyWrapperSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&proxyWrapperSuite{})

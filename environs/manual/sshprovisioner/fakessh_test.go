@@ -11,11 +11,11 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/internal/service"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 // sshscript should only print the result on the first execution,
@@ -57,7 +57,7 @@ fi`
 //   - nil (no output)
 //   - a string (stdout)
 //   - a slice of strings, of length two (stdout, stderr)
-func installFakeSSH(c *tc.C, input, output interface{}, rc int) testing.Restorer {
+func installFakeSSH(c *tc.C, input, output interface{}, rc int) testhelpers.Restorer {
 	fakebin := c.MkDir()
 	ssh := filepath.Join(fakebin, "ssh")
 	switch input := input.(type) {
@@ -82,13 +82,13 @@ func installFakeSSH(c *tc.C, input, output interface{}, rc int) testing.Restorer
 	script := fmt.Sprintf(sshscript, stdout, stderr, rc)
 	err := os.WriteFile(ssh, []byte(script), 0777)
 	c.Assert(err, tc.ErrorIsNil)
-	return testing.PatchEnvPathPrepend(fakebin)
+	return testhelpers.PatchEnvPathPrepend(fakebin)
 }
 
 // installDetectionFakeSSH installs a fake SSH command, which will respond
 // to the base/hardware detection script with the specified
 // base/arch.
-func installDetectionFakeSSH(c *tc.C, base corebase.Base, arch string) testing.Restorer {
+func installDetectionFakeSSH(c *tc.C, base corebase.Base, arch string) testhelpers.Restorer {
 	if arch == "" {
 		arch = "amd64"
 	}
@@ -135,8 +135,8 @@ type fakeSSH struct {
 // install installs fake SSH commands, which will respond to
 // manual provisioning/bootstrapping commands with the specified
 // output and exit codes.
-func (r fakeSSH) install(c *tc.C) testing.Restorer {
-	var restore testing.Restorer
+func (r fakeSSH) install(c *tc.C) testhelpers.Restorer {
+	var restore testhelpers.Restorer
 	add := func(input, output interface{}, rc int) {
 		restore = restore.Add(installFakeSSH(c, input, output, rc))
 	}

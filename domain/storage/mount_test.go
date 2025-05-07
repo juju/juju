@@ -5,13 +5,13 @@ package storage_test
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type mountSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&mountSuite{})

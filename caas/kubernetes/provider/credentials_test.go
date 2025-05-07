@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/utils/v4"
 
 	k8s "github.com/juju/juju/caas/kubernetes"
@@ -15,10 +14,11 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type credentialsSuite struct {
-	testing.FakeHomeSuite
+	testhelpers.FakeHomeSuite
 	provider environs.EnvironProvider
 }
 
@@ -76,7 +76,7 @@ users:
 func (s *credentialsSuite) TestDetectCredentials(c *tc.C) {
 	kubeConfig := filepath.Join(utils.Home(), "config")
 	s.PatchEnvironment("KUBECONFIG", kubeConfig)
-	s.Home.AddFiles(c, testing.TestFile{
+	s.Home.AddFiles(c, testhelpers.TestFile{
 		Name: "config",
 		Data: singleConfigYAML,
 	})

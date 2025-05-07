@@ -8,14 +8,14 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/externalcontrollerupdater"
 )
 
 type ManifoldConfigSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	config externalcontrollerupdater.ManifoldConfig
 }
 

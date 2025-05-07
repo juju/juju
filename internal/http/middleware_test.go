@@ -9,14 +9,14 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type DialContextMiddlewareSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&DialContextMiddlewareSuite{})
@@ -65,7 +65,7 @@ func (s *DialContextMiddlewareSuite) TestSecureClientNoAccess(c *tc.C) {
 }
 
 type LocalDialBreakerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&LocalDialBreakerSuite{})
@@ -109,7 +109,7 @@ func (s *LocalDialBreakerSuite) TestLocalAllowedAfterTrip(c *tc.C) {
 }
 
 type RetrySuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&RetrySuite{})

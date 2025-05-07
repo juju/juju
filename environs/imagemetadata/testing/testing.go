@@ -12,19 +12,19 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 // PatchOfficialDataSources is used by tests.
 // We replace one of the urls with the supplied value
 // and prevent the other from being used.
-func PatchOfficialDataSources(s *testing.CleanupSuite, url string) {
+func PatchOfficialDataSources(s *testhelpers.CleanupSuite, url string) {
 	s.PatchValue(&imagemetadata.DefaultUbuntuBaseURL, url)
 }
 

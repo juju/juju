@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -29,13 +28,14 @@ import (
 	"github.com/juju/juju/core/status"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
 type watcherSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&watcherSuite{})
@@ -103,7 +103,7 @@ func setupWatcher[T any](c *tc.C, caller *apimocks.MockAPICaller, facadeName str
 		func(context.Context, string, int, string, string, any, any) error {
 			select {
 			case stopped <- true:
-			case <-time.After(testing.LongWait):
+			case <-time.After(testhelpers.LongWait):
 				c.Fatalf("timed out waiting for stop call")
 			}
 			return nil
@@ -652,7 +652,7 @@ func (s *watcherSuite) TestCrossModelSecretsRevisionWatcher(c *tc.C) {
 }
 
 type migrationSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&migrationSuite{})

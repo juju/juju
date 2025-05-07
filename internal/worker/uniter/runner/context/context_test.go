@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/agent/secretsmanager"
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/secrets/provider/vault"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/common/charmrunner"
 	"github.com/juju/juju/internal/worker/uniter/api"
@@ -510,7 +510,7 @@ func (s *InterfaceSuite) TestRequestRebootNow(c *tc.C) {
 
 	ctx := s.GetContext(c, ctrl, -1, "", names.StorageTag{}).(*context.HookContext)
 
-	var stub testing.Stub
+	var stub testhelpers.Stub
 	var p *mockProcess
 	p = &mockProcess{func() error {
 		// Reboot priority should be set before the process
@@ -738,7 +738,7 @@ func (p *mockProcess) Pid() int {
 var _ = tc.Suite(&HookContextSuite{})
 
 type HookContextSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	mockUnit       *api.MockUnit
 	mockLeadership *mocks.MockLeadershipContext
 	mockCache      params.UnitStateResult

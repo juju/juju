@@ -14,7 +14,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing/httptesting"
 	"go.uber.org/mock/gomock"
 	"golang.org/x/crypto/nacl/secretbox"
 
@@ -28,6 +27,7 @@ import (
 	environs "github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/auth"
 	jujuhttp "github.com/juju/juju/internal/http"
+	"github.com/juju/juju/internal/testhelpers/httptesting"
 	coretesting "github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"

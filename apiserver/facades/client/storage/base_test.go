@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/blockcommand"
 	jujustorage "github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
@@ -54,7 +54,7 @@ type baseStorageSuite struct {
 	filesystemTag        names.FilesystemTag
 	filesystem           *mockFilesystem
 	filesystemAttachment *mockFilesystemAttachment
-	stub                 testing.Stub
+	stub                 testhelpers.Stub
 
 	storageService     *storage.MockStorageService
 	applicationService *storage.MockApplicationService

@@ -10,13 +10,14 @@ import (
 	time "time"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type loggerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	clock  *MockClock
 	timer  *MockTimer
@@ -43,7 +44,7 @@ func (s *loggerSuite) TestLogger(c *tc.C) {
 
 	select {
 	case ch <- time.Now():
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testhelpers.ShortWait):
 		c.Fatal("timed out waiting for log to be written")
 	}
 
@@ -79,7 +80,7 @@ func (s *loggerSuite) TestLoggerMultipleTimes(c *tc.C) {
 
 	select {
 	case ch <- time.Now():
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testhelpers.ShortWait):
 		c.Fatal("timed out waiting for log to be written")
 	}
 

@@ -17,17 +17,17 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type statusHistorySuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	recorder *MockRecorder
 }
@@ -184,7 +184,7 @@ func (s *statusHistorySuite) setupMocks(c *tc.C) *gomock.Controller {
 }
 
 type statusHistoryReaderSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&statusHistoryReaderSuite{})

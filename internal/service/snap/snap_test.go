@@ -11,14 +11,14 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/service/common"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type validationSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&validationSuite{})
@@ -110,7 +110,7 @@ func (*validationSuite) TestValidateLocalSnap(c *tc.C) {
 }
 
 type snapSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&snapSuite{})
@@ -158,7 +158,7 @@ LimitNOFILE=64000
 }
 
 type serviceSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&serviceSuite{})

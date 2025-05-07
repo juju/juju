@@ -8,11 +8,11 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/api"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/version"
+	"github.com/juju/juju/internal/testhelpers"
 	jtesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -20,7 +20,7 @@ import (
 var _ = tc.Suite(&fakeAPISuite{})
 
 type fakeAPISuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 const fakeUUID = "f47ac10b-58cc-dead-beef-0e02b2c3d479"

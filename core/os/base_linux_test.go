@@ -8,13 +8,13 @@ import (
 	"path/filepath"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type linuxBaseSuite struct {
-	testing.CleanupSuite
+	testhelpers.CleanupSuite
 }
 
 var _ = tc.Suite(&linuxBaseSuite{})

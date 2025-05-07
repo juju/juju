@@ -7,14 +7,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type spaceSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	spaces network.SpaceInfos
 }

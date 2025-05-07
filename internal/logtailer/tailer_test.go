@@ -13,16 +13,16 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/logtailer"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type TailerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&TailerSuite{})
@@ -101,7 +101,7 @@ func (s *TailerSuite) TestProcessReverseNoTail(c *tc.C) {
 
 func (s *TailerSuite) fetchLogs(tailer logtailer.LogTailer, expected int) []corelogger.LogRecord {
 	var records []corelogger.LogRecord
-	timeout := time.After(testing.LongWait)
+	timeout := time.After(testhelpers.LongWait)
 	for {
 		select {
 		case rec, ok := <-tailer.Logs():
@@ -245,7 +245,7 @@ func mustParseTime(in string) time.Time {
 }
 
 type LogFilterSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&LogFilterSuite{})
@@ -454,7 +454,7 @@ func (s *LogFilterSuite) checkLogTailerFiltering(
 
 func (s *LogFilterSuite) assertTailer(c *tc.C, tailer logtailer.LogTailer, template ...*corelogger.LogRecord) {
 	c.Assert(template, tc.Not(tc.HasLen), 0)
-	timeout := time.After(testing.LongWait)
+	timeout := time.After(testhelpers.LongWait)
 	count := 0
 	for {
 		select {

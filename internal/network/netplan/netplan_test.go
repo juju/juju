@@ -14,16 +14,16 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/kr/pretty"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/internal/network/netplan"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type NetplanSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&NetplanSuite{})

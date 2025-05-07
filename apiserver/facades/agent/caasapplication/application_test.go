@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/agent"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -30,7 +30,7 @@ import (
 var _ = tc.Suite(&CAASApplicationSuite{})
 
 type CAASApplicationSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer

@@ -11,15 +11,15 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/statushistory"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type statusHistorySuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	historyReader *MockStatusHistoryReader
 	now           time.Time

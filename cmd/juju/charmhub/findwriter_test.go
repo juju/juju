@@ -7,11 +7,12 @@ import (
 	"bytes"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type columnFindSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&columnFindSuite{})
@@ -39,7 +40,7 @@ func (s *columnFindSuite) TestMakeColumnsInvalidAlias(c *tc.C) {
 }
 
 type printFindSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&printFindSuite{})

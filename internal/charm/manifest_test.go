@@ -7,11 +7,12 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type manifestSuite struct {
-	testing.CleanupSuite
+	testhelpers.CleanupSuite
 }
 
 var _ = tc.Suite(&manifestSuite{})

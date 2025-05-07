@@ -13,7 +13,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	vault "github.com/mittwald/vaultgo"
 	"go.uber.org/mock/gomock"
 
@@ -22,11 +21,12 @@ import (
 	_ "github.com/juju/juju/internal/secrets/provider/all"
 	jujuvault "github.com/juju/juju/internal/secrets/provider/vault"
 	"github.com/juju/juju/internal/secrets/provider/vault/mocks"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type providerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	coretesting.JujuOSEnvSuite
 
 	mockRoundTripper *mocks.MockRoundTripper

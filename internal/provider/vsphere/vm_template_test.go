@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
@@ -20,12 +19,13 @@ import (
 	"github.com/juju/juju/internal/provider/vsphere"
 	"github.com/juju/juju/internal/provider/vsphere/internal/ovatest"
 	"github.com/juju/juju/internal/provider/vsphere/internal/vsphereclient"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type vmTemplateSuite struct {
 	EnvironFixture
-	statusCallbackStub testing.Stub
+	statusCallbackStub testhelpers.Stub
 
 	statusUpdateParams vsphereclient.StatusUpdateParams
 	datastore          *object.Datastore

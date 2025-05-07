@@ -7,15 +7,15 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/internal/network/iptables"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type IptablesSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&IptablesSuite{})

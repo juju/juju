@@ -9,10 +9,10 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/naturalsort"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type modelSuite struct{}
@@ -283,7 +283,7 @@ func (*modelSuite) TestBundleMachineNotMapped(c *tc.C) {
 }
 
 type inferMachineMapSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	data *charm.BundleData
 }

@@ -8,17 +8,17 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/core/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 var _ = tc.Suite(&CharmTabularSuite{})
 
 type CharmTabularSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 func (s *CharmTabularSuite) formatTabular(c *tc.C, value interface{}) string {
@@ -92,7 +92,7 @@ func (s *CharmTabularSuite) TestFormatCharmTabularBadValue(c *tc.C) {
 var _ = tc.Suite(&AppTabularSuite{})
 
 type AppTabularSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 func (s *AppTabularSuite) formatTabular(c *tc.C, value interface{}) string {

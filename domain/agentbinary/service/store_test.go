@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
@@ -25,10 +24,11 @@ import (
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	intobjectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type storeSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	mockState             *MockState
 	mockObjectStoreGetter *MockModelObjectStoreGetter

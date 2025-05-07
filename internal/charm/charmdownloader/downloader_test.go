@@ -9,16 +9,16 @@ import (
 	"os"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type downloaderSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	downloadClient *MockDownloadClient
 }

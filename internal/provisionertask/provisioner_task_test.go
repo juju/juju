@@ -18,7 +18,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/retry"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"github.com/kr/pretty"
@@ -48,6 +47,7 @@ import (
 	providermocks "github.com/juju/juju/internal/provider/common/mocks"
 	"github.com/juju/juju/internal/provisionertask"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
@@ -68,7 +68,7 @@ func machineInstanceInfoSetter(machineProvisionerAPI apiprovisioner.MachineProvi
 }
 
 type ProvisionerTaskSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	setupDone            chan bool
 	modelMachinesChanges chan []string
@@ -98,7 +98,7 @@ func (s *ProvisionerTaskSuite) SetUpTest(c *tc.C) {
 
 	s.instances = []instances.Instance{}
 	s.instanceBroker = &testInstanceBroker{
-		Stub:      &testing.Stub{},
+		Stub:      &testhelpers.Stub{},
 		callsChan: make(chan string, 2),
 		allInstancesFunc: func(ctx context.Context) ([]instances.Instance, error) {
 			return s.instances, s.instanceBroker.NextErr()
@@ -169,7 +169,7 @@ func (s *ProvisionerTaskSuite) TestStopInstancesIgnoresMachinesWithKeep(c *tc.C)
 
 	workertest.CleanKill(c, task)
 	close(s.instanceBroker.callsChan)
-	s.instanceBroker.CheckCalls(c, []testing.StubCall{
+	s.instanceBroker.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "AllRunningInstances"},
 		{FuncName: "StopInstances", Args: []interface{}{[]instance.Id{"zero"}}},
 	})
@@ -958,7 +958,7 @@ func (s *ProvisionerTaskSuite) TestUpdatedZonesReflectedInAZMachineSlice(c *tc.C
 	}, nil).MinTimes(1).Do(func(context.Context, environs.StartInstanceParams) {
 		select {
 		case step <- struct{}{}:
-		case <-time.After(testing.LongWait):
+		case <-time.After(testhelpers.LongWait):
 			c.Fatalf("timed out writing to step channel")
 		}
 	})
@@ -968,7 +968,7 @@ func (s *ProvisionerTaskSuite) TestUpdatedZonesReflectedInAZMachineSlice(c *tc.C
 	syncStep := func() {
 		select {
 		case <-step:
-		case <-time.After(testing.LongWait):
+		case <-time.After(testhelpers.LongWait):
 			c.Fatalf("timed out reading from step channel")
 		}
 	}
@@ -1621,7 +1621,7 @@ func (s *MachineClassifySuite) TestMachineClassification(c *tc.C) {
 }
 
 type testInstanceBroker struct {
-	*testing.Stub
+	*testhelpers.Stub
 
 	callsChan        chan string
 	allInstancesFunc func(ctx context.Context) ([]instances.Instance, error)

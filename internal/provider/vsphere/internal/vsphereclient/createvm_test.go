@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/internal/provider/vsphere/internal/ovatest"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
@@ -70,7 +70,7 @@ func (s *clientSuite) TestCreateTemplateVM(c *tc.C) {
 
 	templateCisp := baseCisp()
 	templateCisp.EntityName = args.TemplateName
-	s.roundTripper.CheckCalls(c, []testing.StubCall{
+	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "CreateImportSpec", Args: []interface{}{
 			UbuntuOVF,
 			types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore1"},
@@ -144,7 +144,7 @@ func (s *clientSuite) TestCreateVirtualMachine(c *tc.C) {
 	})
 
 	datastore := types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore1"}
-	s.roundTripper.CheckCalls(c, []testing.StubCall{
+	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),

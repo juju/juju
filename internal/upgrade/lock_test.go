@@ -5,15 +5,15 @@ package upgrade
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type lockSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	lock        *MockLock
 	agent       *MockAgent

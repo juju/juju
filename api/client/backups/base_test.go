@@ -7,16 +7,16 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/core/backups"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 type baseSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	facade    *mocks.MockFacadeCaller
 	apiCaller *mocks.MockAPICallCloser

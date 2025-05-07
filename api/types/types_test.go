@@ -5,13 +5,13 @@ package types
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type modelSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&modelSuite{})

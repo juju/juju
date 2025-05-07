@@ -5,18 +5,18 @@ package caasmodelconfigmanager_test
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/controller/caasmodelconfigmanager"
 	"github.com/juju/juju/apiserver/facades/controller/caasmodelconfigmanager/mocks"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 var _ = tc.Suite(&caasmodelconfigmanagerSuite{})
 
 type caasmodelconfigmanagerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 func (s *caasmodelconfigmanagerSuite) TestAuth(c *tc.C) {

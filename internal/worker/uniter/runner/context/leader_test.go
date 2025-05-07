@@ -5,15 +5,15 @@ package context_test
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
 )
 
 type LeaderSuite struct {
-	testing.IsolationSuite
-	testing.Stub
+	testhelpers.IsolationSuite
+	testhelpers.Stub
 	tracker *StubTracker
 	context context.LeadershipContext
 }
@@ -29,14 +29,14 @@ func (s *LeaderSuite) SetUpTest(c *tc.C) {
 	s.context = context.NewLeadershipContext(s.tracker)
 }
 
-func (s *LeaderSuite) CheckCalls(c *tc.C, stubCalls []testing.StubCall, f func()) {
-	s.Stub = testing.Stub{}
+func (s *LeaderSuite) CheckCalls(c *tc.C, stubCalls []testhelpers.StubCall, f func()) {
+	s.Stub = testhelpers.Stub{}
 	f()
 	s.Stub.CheckCalls(c, stubCalls)
 }
 
 func (s *LeaderSuite) TestIsLeaderSuccess(c *tc.C) {
-	s.CheckCalls(c, []testing.StubCall{{
+	s.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "ClaimLeader",
 	}}, func() {
 		// The first call succeeds...
@@ -46,7 +46,7 @@ func (s *LeaderSuite) TestIsLeaderSuccess(c *tc.C) {
 		c.Check(err, tc.ErrorIsNil)
 	})
 
-	s.CheckCalls(c, []testing.StubCall{{
+	s.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "ClaimLeader",
 	}}, func() {
 		// ...and so does the second.
@@ -58,7 +58,7 @@ func (s *LeaderSuite) TestIsLeaderSuccess(c *tc.C) {
 }
 
 func (s *LeaderSuite) TestIsLeaderFailure(c *tc.C) {
-	s.CheckCalls(c, []testing.StubCall{{
+	s.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "ClaimLeader",
 	}}, func() {
 		// The first call fails...
@@ -77,7 +77,7 @@ func (s *LeaderSuite) TestIsLeaderFailure(c *tc.C) {
 }
 
 func (s *LeaderSuite) TestIsLeaderFailureAfterSuccess(c *tc.C) {
-	s.CheckCalls(c, []testing.StubCall{{
+	s.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "ClaimLeader",
 	}}, func() {
 		// The first call succeeds...
@@ -87,7 +87,7 @@ func (s *LeaderSuite) TestIsLeaderFailureAfterSuccess(c *tc.C) {
 		c.Check(err, tc.ErrorIsNil)
 	})
 
-	s.CheckCalls(c, []testing.StubCall{{
+	s.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "ClaimLeader",
 	}}, func() {
 		// The second fails...
@@ -107,7 +107,7 @@ func (s *LeaderSuite) TestIsLeaderFailureAfterSuccess(c *tc.C) {
 
 type StubTracker struct {
 	leadership.Tracker
-	*testing.Stub
+	*testhelpers.Stub
 	applicationName string
 	results         []StubTicket
 }

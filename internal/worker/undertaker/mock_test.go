@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 
@@ -19,12 +18,13 @@ import (
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/undertaker"
 	"github.com/juju/juju/rpc/params"
 )
 
 type mockFacade struct {
-	stub         *testing.Stub
+	stub         *testhelpers.Stub
 	info         params.UndertakerModelInfoResult
 	clock        testclock.AdvanceableClock
 	advance      time.Duration
@@ -102,7 +102,7 @@ func (mock *mockFacade) WatchModel(context.Context) (watcher.NotifyWatcher, erro
 
 type mockDestroyer struct {
 	environs.Environ
-	stub *testing.Stub
+	stub *testhelpers.Stub
 }
 
 func (mock *mockDestroyer) Destroy(ctx context.Context) error {
@@ -137,8 +137,8 @@ func (fix *fixture) cleanup(c *tc.C, w worker.Worker) {
 	}
 }
 
-func (fix *fixture) run(c *tc.C, test func(worker.Worker)) *testing.Stub {
-	stub := &testing.Stub{}
+func (fix *fixture) run(c *tc.C, test func(worker.Worker)) *testhelpers.Stub {
+	stub := &testhelpers.Stub{}
 	facade := &mockFacade{
 		stub:         stub,
 		info:         fix.info,

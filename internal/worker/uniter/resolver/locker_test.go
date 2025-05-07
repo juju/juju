@@ -7,10 +7,10 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/internal/charm/hooks"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
@@ -91,5 +91,5 @@ func (s *GuardSuite) TestLockdownAbortArg(c *tc.C) {
 	abort := make(fortress.Abort)
 	err := resolver.UpdateCharmDir(context.Background(), operation.State{}, s.guard, abort, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
-	s.guard.CheckCalls(c, []testing.StubCall{{FuncName: "Lockdown", Args: []interface{}{abort}}})
+	s.guard.CheckCalls(c, []testhelpers.StubCall{{FuncName: "Lockdown", Args: []interface{}{abort}}})
 }

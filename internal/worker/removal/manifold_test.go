@@ -8,16 +8,16 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/core/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type manifoldConfigSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	config ManifoldConfig
 }
@@ -72,7 +72,7 @@ func (s *manifoldConfigSuite) checkNotValid(c *tc.C, expect string) {
 }
 
 type manifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&manifoldSuite{})

@@ -7,15 +7,15 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/core/semversion"
 	chassumes "github.com/juju/juju/internal/charm/assumes"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type SatCheckerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&SatCheckerSuite{})

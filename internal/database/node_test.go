@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/yaml.v3"
 
@@ -28,11 +27,12 @@ import (
 	dqlitetesting "github.com/juju/juju/internal/database/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/network"
+	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
 
 type nodeManagerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&nodeManagerSuite{})
@@ -469,7 +469,7 @@ func (cfg fakeAgentConfig) DqlitePort() (int, bool) {
 }
 
 type slowQuerySuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&slowQuerySuite{})

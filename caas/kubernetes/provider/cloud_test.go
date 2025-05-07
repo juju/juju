@@ -10,7 +10,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,6 +21,7 @@ import (
 	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 var _ = tc.Suite(&cloudSuite{})
@@ -58,8 +58,8 @@ func getDefaultCredential() jujucloud.Credential {
 
 func (s *cloudSuite) SetUpTest(c *tc.C) {
 	var logger loggo.Logger
-	s.fakeBroker = fakeK8sClusterMetadataChecker{CallMocker: testing.NewCallMocker(logger)}
-	s.runner = dummyRunner{CallMocker: testing.NewCallMocker(logger)}
+	s.fakeBroker = fakeK8sClusterMetadataChecker{CallMocker: testhelpers.NewCallMocker(logger)}
+	s.runner = dummyRunner{CallMocker: testhelpers.NewCallMocker(logger)}
 }
 
 func (s *cloudSuite) TestFinalizeCloudMicrok8s(c *tc.C) {
@@ -181,7 +181,7 @@ func (s *cloudSuite) TestEnsureMicroK8sSuitableDNSNotEnabled(c *tc.C) {
 
 type mockContext struct {
 	context.Context
-	testing.Stub
+	testhelpers.Stub
 }
 
 func (c *mockContext) Verbosef(f string, args ...interface{}) {
@@ -189,23 +189,23 @@ func (c *mockContext) Verbosef(f string, args ...interface{}) {
 }
 
 type fakeK8sClusterMetadataChecker struct {
-	*testing.CallMocker
+	*testhelpers.CallMocker
 	k8s.ClusterMetadataChecker
 }
 
 func (api *fakeK8sClusterMetadataChecker) GetClusterMetadata(_ context.Context, storageClass string) (result *k8s.ClusterMetadata, err error) {
 	results := api.MethodCall(api, "GetClusterMetadata")
-	return results[0].(*k8s.ClusterMetadata), testing.TypeAssertError(results[1])
+	return results[0].(*k8s.ClusterMetadata), testhelpers.TypeAssertError(results[1])
 }
 
 func (api *fakeK8sClusterMetadataChecker) CheckDefaultWorkloadStorage(cluster string, storageProvisioner *k8s.StorageProvisioner) error {
 	results := api.MethodCall(api, "CheckDefaultWorkloadStorage")
-	return testing.TypeAssertError(results[0])
+	return testhelpers.TypeAssertError(results[0])
 }
 
 func (api *fakeK8sClusterMetadataChecker) EnsureStorageProvisioner(cfg k8s.StorageProvisioner) (*k8s.StorageProvisioner, bool, error) {
 	results := api.MethodCall(api, "EnsureStorageProvisioner")
-	return results[0].(*k8s.StorageProvisioner), false, testing.TypeAssertError(results[1])
+	return results[0].(*k8s.StorageProvisioner), false, testhelpers.TypeAssertError(results[1])
 }
 
 func (api *fakeK8sClusterMetadataChecker) ListPods(_ context.Context, namespace string, selector k8slabels.Selector) ([]corev1.Pod, error) {

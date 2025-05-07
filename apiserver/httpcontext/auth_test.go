@@ -12,15 +12,15 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/httpcontext"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type BasicAuthHandlerSuite struct {
-	testing.IsolationSuite
-	stub     testing.Stub
+	testhelpers.IsolationSuite
+	stub     testhelpers.Stub
 	handler  *httpcontext.AuthHandler
 	authInfo authentication.AuthInfo
 	server   *httptest.Server

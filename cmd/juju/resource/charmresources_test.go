@@ -7,27 +7,27 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/cmd/juju/resource"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 var _ = tc.Suite(&CharmResourcesSuite{})
 
 type CharmResourcesSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
-	stub   *testing.Stub
+	stub   *testhelpers.Stub
 	client *stubCharmStore
 }
 
 func (s *CharmResourcesSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.stub = &testing.Stub{}
+	s.stub = &testhelpers.Stub{}
 	s.client = &stubCharmStore{stub: s.stub}
 }
 

@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/params"
@@ -115,7 +115,7 @@ func (s *BaseSubnetSuite) Strings(values ...string) []string {
 
 // StubAPI defines a testing stub for the SubnetAPI interface.
 type StubAPI struct {
-	*testing.Stub
+	*testhelpers.Stub
 
 	Subnets []params.Subnet
 	Spaces  []names.Tag
@@ -151,7 +151,7 @@ func NewStubAPI() *StubAPI {
 		VLANTag:  42,
 	}}
 	return &StubAPI{
-		Stub:    &testing.Stub{},
+		Stub:    &testhelpers.Stub{},
 		Zones:   []string{"zone1", "zone2"},
 		Subnets: subnets,
 		Spaces: []names.Tag{

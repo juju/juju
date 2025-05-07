@@ -9,13 +9,13 @@ import (
 	"path/filepath"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type ParseAliasFileSuite struct {
-	testing.LoggingSuite
+	testhelpers.LoggingSuite
 }
 
 var _ = tc.Suite(&ParseAliasFileSuite{})

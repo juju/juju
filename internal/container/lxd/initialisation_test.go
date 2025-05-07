@@ -12,7 +12,6 @@ import (
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/base"
@@ -21,12 +20,13 @@ import (
 	lxdtesting "github.com/juju/juju/internal/container/lxd/testing"
 	"github.com/juju/juju/internal/packaging/commands"
 	"github.com/juju/juju/internal/packaging/manager"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type initialiserTestSuite struct {
 	coretesting.BaseSuite
-	testing.PatchExecHelper
+	testhelpers.PatchExecHelper
 }
 
 // patchDF100GB ensures that df always returns 100GB.
@@ -60,8 +60,8 @@ func (s *InitialiserSuite) SetUpTest(c *tc.C) {
 	}
 	s.PatchValue(&randomizedOctetRange, nonRandomizedOctetRange)
 	// Fake the lxc executable for all the tests.
-	testing.PatchExecutableAsEchoArgs(c, s, "lxc")
-	testing.PatchExecutableAsEchoArgs(c, s, "lxd")
+	testhelpers.PatchExecutableAsEchoArgs(c, s, "lxc")
+	testhelpers.PatchExecutableAsEchoArgs(c, s, "lxd")
 }
 
 // getMockRunCommandWithRetry is a helper function which returns a function
@@ -161,7 +161,7 @@ func (s *InitialiserSuite) TestLXDAlreadyInitialized(c *tc.C) {
 	PatchHostBase(s, base.MustParseBaseFromString("ubuntu@20.04"))
 
 	ci := s.containerInitialiser(nil, true, "local")
-	ci.getExecCommand = s.PatchExecHelper.GetExecCommand(testing.PatchExecConfig{
+	ci.getExecCommand = s.PatchExecHelper.GetExecCommand(testhelpers.PatchExecConfig{
 		Stderr:   `error: You have existing containers or images. lxd init requires an empty LXD.`,
 		ExitCode: 1,
 	})
@@ -229,7 +229,7 @@ func (s *InitialiserSuite) TestConfigureProxiesLXDNotRunning(c *tc.C) {
 
 type ConfigureInitialiserSuite struct {
 	initialiserTestSuite
-	testing.PatchExecHelper
+	testhelpers.PatchExecHelper
 }
 
 var _ = tc.Suite(&ConfigureInitialiserSuite{})
@@ -237,6 +237,6 @@ var _ = tc.Suite(&ConfigureInitialiserSuite{})
 func (s *ConfigureInitialiserSuite) SetUpTest(c *tc.C) {
 	s.initialiserTestSuite.SetUpTest(c)
 	// Fake the lxc executable for all the tests.
-	testing.PatchExecutableAsEchoArgs(c, s, "lxc")
-	testing.PatchExecutableAsEchoArgs(c, s, "lxd")
+	testhelpers.PatchExecutableAsEchoArgs(c, s, "lxc")
+	testhelpers.PatchExecutableAsEchoArgs(c, s, "lxd")
 }

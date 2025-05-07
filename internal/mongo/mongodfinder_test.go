@@ -8,14 +8,14 @@ import (
 	"path/filepath"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/mongo"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type MongodFinderSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	ctrl   *gomock.Controller
 	finder *mongo.MongodFinder
@@ -57,7 +57,7 @@ func (s *MongodFinderSuite) TestFindJujuMongodbNone(c *tc.C) {
 }
 
 type OSSearchToolsSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&OSSearchToolsSuite{})

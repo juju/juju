@@ -10,9 +10,9 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 )
@@ -24,7 +24,7 @@ func TestPackage(t *stdtesting.T) {
 }
 
 type BaseSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 func (s *BaseSuite) InitializeCurrentToolsDir(c *tc.C, dataDir string) {

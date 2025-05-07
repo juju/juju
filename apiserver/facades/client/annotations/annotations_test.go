@@ -10,18 +10,18 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/annotation"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 type annotationSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	uuid string
 

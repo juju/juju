@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/base"
@@ -27,12 +26,13 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/testcharms"
 )
 
 type deployerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	consumeDetails *mocks.MockConsumeDetails
 	resolver       *mocks.MockResolver

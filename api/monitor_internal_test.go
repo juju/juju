@@ -10,15 +10,15 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
+	"github.com/juju/juju/internal/testhelpers"
 	jtesting "github.com/juju/juju/internal/testing"
 )
 
 var _ = tc.Suite(&MonitorSuite{})
 
 type MonitorSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	clock   *testclock.Clock
 	closed  chan struct{}
 	dead    chan struct{}

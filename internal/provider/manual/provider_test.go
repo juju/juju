@@ -9,7 +9,6 @@ import (
 	"io"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
@@ -19,12 +18,13 @@ import (
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/provider/manual"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type providerSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
-	testing.Stub
+	testhelpers.Stub
 }
 
 var _ = tc.Suite(&providerSuite{})

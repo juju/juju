@@ -8,16 +8,16 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/state"
 )
 
 type fakeBlockDevices struct {
-	testing.Stub
+	testhelpers.Stub
 	blockDevices      func(string) ([]blockdevice.BlockDevice, error)
 	watchBlockDevices func(string) watcher.NotifyWatcher
 }
@@ -33,7 +33,7 @@ func (s *fakeBlockDevices) WatchBlockDevices(_ context.Context, machineId string
 }
 
 type fakeStorage struct {
-	testing.Stub
+	testhelpers.Stub
 	uniter.StorageStateInterface
 	uniter.StorageFilesystemInterface
 	storageInstance        func(names.StorageTag) (state.StorageInstance, error)

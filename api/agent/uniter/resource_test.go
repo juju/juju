@@ -11,8 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
-	"github.com/juju/testing/filetesting"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api/agent/uniter"
@@ -20,22 +18,24 @@ import (
 	api "github.com/juju/juju/api/client/resources"
 	"github.com/juju/juju/core/resource"
 	resourcetesting "github.com/juju/juju/core/resource/testing"
+	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/testhelpers/filetesting"
 	"github.com/juju/juju/rpc/params"
 )
 
 var _ = tc.Suite(&ResourcesFacadeClientSuite{})
 
 type ResourcesFacadeClientSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
-	stub *testing.Stub
+	stub *testhelpers.Stub
 	api  *stubAPI
 }
 
 func (s *ResourcesFacadeClientSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.stub = &testing.Stub{}
+	s.stub = &testhelpers.Stub{}
 	s.api = &stubAPI{Stub: s.stub}
 }
 
@@ -71,7 +71,7 @@ func (s *ResourcesFacadeClientSuite) TestUnitDoer(c *tc.C) {
 
 type stubAPI struct {
 	base.APICaller
-	*testing.Stub
+	*testhelpers.Stub
 
 	ReturnFacadeCall params.UnitResourcesResult
 	ReturnUnit       string

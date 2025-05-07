@@ -9,12 +9,12 @@ import (
 
 	names "github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	gomock "go.uber.org/mock/gomock"
 
 	agent "github.com/juju/juju/agent"
 	version "github.com/juju/juju/core/semversion"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/upgradesteps"
 )
@@ -31,7 +31,7 @@ func TestAll(t *stdtesting.T) {
 }
 
 type baseSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	agent        *MockAgent
 	config       *MockConfig
@@ -87,7 +87,7 @@ func (s *baseSuite) dispatchChange(c *tc.C, ch chan struct{}) {
 	// Send initial event.
 	select {
 	case ch <- struct{}{}:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testhelpers.ShortWait):
 		c.Fatalf("timed out waiting to enqueue change")
 	}
 }

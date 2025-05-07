@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -17,13 +16,14 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/testhelpers"
 	internaltesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
 type undertakerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&undertakerSuite{})
@@ -101,7 +101,7 @@ func (*undertakerSuite) TestGetMachineProviderInterfaceInfo(c *tc.C) {
 	backend, _, _, api := makeAPI(c, "")
 	backend.machines = map[string]*mockMachine{
 		"0": {
-			Stub: &testing.Stub{},
+			Stub: &testhelpers.Stub{},
 			interfaceInfos: []network.ProviderInterfaceInfo{{
 				InterfaceName:   "billy",
 				HardwareAddress: "hexadecimal!",
@@ -112,7 +112,7 @@ func (*undertakerSuite) TestGetMachineProviderInterfaceInfo(c *tc.C) {
 				ProviderId:      "different number",
 			}}},
 		"2": {
-			Stub: &testing.Stub{},
+			Stub: &testhelpers.Stub{},
 			interfaceInfos: []network.ProviderInterfaceInfo{{
 				InterfaceName:   "gilly",
 				HardwareAddress: "sexagesimal?!",
@@ -195,7 +195,7 @@ func (*undertakerSuite) TestCompleteMachineRemovals(c *tc.C) {
 	values, ok := callArgs[0].([]string)
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(values, tc.DeepEquals, []string{"2", "52"})
-	remover.stub.CheckCalls(c, []testing.StubCall{
+	remover.stub.CheckCalls(c, []testhelpers.StubCall{
 		{"Delete", []any{machine.Name("2")}},
 		{"Delete", []any{machine.Name("52")}},
 	})
@@ -231,8 +231,8 @@ func (*undertakerSuite) TestWatchMachineRemovalsError(c *tc.C) {
 }
 
 func makeAPI(c *tc.C, modelUUID string) (*mockBackend, *mockMachineRemover, *common.Resources, *machineundertaker.API) {
-	backend := &mockBackend{Stub: &testing.Stub{}}
-	machineRemover := &mockMachineRemover{stub: &testing.Stub{}}
+	backend := &mockBackend{Stub: &testhelpers.Stub{}}
+	machineRemover := &mockMachineRemover{stub: &testhelpers.Stub{}}
 	res := common.NewResources()
 	api, err := machineundertaker.NewAPI(
 		model.UUID(modelUUID),
@@ -268,7 +268,7 @@ func makeEntitiesResults(tags ...string) params.EntitiesResults {
 }
 
 type mockBackend struct {
-	*testing.Stub
+	*testhelpers.Stub
 
 	removals       []string
 	machines       map[string]*mockMachine
@@ -302,7 +302,7 @@ func (b *mockBackend) Machine(id string) (machineundertaker.Machine, error) {
 }
 
 type mockMachine struct {
-	*testing.Stub
+	*testhelpers.Stub
 	interfaceInfos []network.ProviderInterfaceInfo
 }
 
@@ -331,7 +331,7 @@ func (w *mockWatcher) Err() error {
 }
 
 type mockMachineRemover struct {
-	stub *testing.Stub
+	stub *testhelpers.Stub
 }
 
 func (m *mockMachineRemover) DeleteMachine(_ context.Context, machineId machine.Name) error {

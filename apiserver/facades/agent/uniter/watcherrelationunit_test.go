@@ -12,7 +12,6 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"go.uber.org/mock/gomock"
 
@@ -28,11 +27,12 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 type watcherrelationunitSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	relationService *MockRelationService
 	watcherRegistry *MockWatcherRegistry

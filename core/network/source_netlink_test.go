@@ -9,13 +9,14 @@ import (
 	"net"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type sourceNetlinkSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&sourceNetlinkSuite{})

@@ -18,17 +18,17 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/introspection"
 	_ "github.com/juju/juju/state"
 )
 
 type suite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&suite{})
@@ -65,7 +65,7 @@ func (s *suite) TestStartStop(c *tc.C) {
 }
 
 type introspectionSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	name       string
 	worker     worker.Worker

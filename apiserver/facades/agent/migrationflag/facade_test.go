@@ -8,17 +8,17 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/agent/migrationflag"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
 type FacadeSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&FacadeSuite{})
@@ -48,7 +48,7 @@ func (*FacadeSuite) TestRejectsNonAgent(c *tc.C) {
 }
 
 func (*FacadeSuite) TestPhaseSuccess(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	backend := newMockBackend(stub)
 	facade, err := migrationflag.New(backend, nil, authOK)
 	c.Assert(err, tc.ErrorIsNil)
@@ -67,7 +67,7 @@ func (*FacadeSuite) TestPhaseSuccess(c *tc.C) {
 }
 
 func (*FacadeSuite) TestPhaseErrors(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	stub.SetErrors(errors.New("ouch"))
 	backend := newMockBackend(stub)
 	facade, err := migrationflag.New(backend, nil, authOK)
@@ -97,7 +97,7 @@ func (*FacadeSuite) TestPhaseErrors(c *tc.C) {
 }
 
 func (*FacadeSuite) TestWatchSuccess(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	backend := newMockBackend(stub)
 	resources := common.NewResources()
 	facade, err := migrationflag.New(backend, resources, authOK)
@@ -123,7 +123,7 @@ func (*FacadeSuite) TestWatchSuccess(c *tc.C) {
 }
 
 func (*FacadeSuite) TestWatchErrors(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	stub.SetErrors(errors.New("blort")) // trigger channel closed error
 	backend := newMockBackend(stub)
 	resources := common.NewResources()

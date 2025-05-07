@@ -11,7 +11,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
@@ -25,6 +24,7 @@ import (
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	macaroonservice "github.com/juju/juju/domain/macaroon/service"
 	"github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/httpserverargs"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -41,7 +41,7 @@ type ManifoldSuite struct {
 	authenticator  mockLocalMacaroonAuthenticator
 	domainServices stubDomainServices
 
-	stub testing.Stub
+	stub testhelpers.Stub
 }
 
 var _ = tc.Suite(&ManifoldSuite{})
@@ -212,7 +212,7 @@ type mockLocalMacaroonAuthenticator struct {
 }
 
 type stubStateTracker struct {
-	testing.Stub
+	testhelpers.Stub
 	pool  *state.StatePool
 	state *state.State
 }
@@ -233,7 +233,7 @@ func (s *stubStateTracker) Report() map[string]any {
 }
 
 type stubDomainServices struct {
-	testing.Stub
+	testhelpers.Stub
 	services.ControllerDomainServices
 	services.DomainServicesGetter
 }

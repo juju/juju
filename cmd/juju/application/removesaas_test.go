@@ -9,19 +9,19 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/api/client/application"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/params"
 )
 
 type RemoveSaasSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	mockAPI *mockRemoveSaasAPI
 }
@@ -30,7 +30,7 @@ var _ = tc.Suite(&RemoveSaasSuite{})
 
 func (s *RemoveSaasSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.mockAPI = &mockRemoveSaasAPI{Stub: &testing.Stub{}}
+	s.mockAPI = &mockRemoveSaasAPI{Stub: &testhelpers.Stub{}}
 }
 
 func (s *RemoveSaasSuite) runRemoveSaas(c *tc.C, args ...string) (*cmd.Context, error) {
@@ -83,7 +83,7 @@ func (s *RemoveSaasSuite) TestInvalidArgs(c *tc.C) {
 }
 
 type mockRemoveSaasAPI struct {
-	*testing.Stub
+	*testhelpers.Stub
 	err error
 }
 

@@ -5,14 +5,14 @@ package charmhub
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cmd/juju/charmhub/mocks"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type unicodeSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&unicodeSuite{})

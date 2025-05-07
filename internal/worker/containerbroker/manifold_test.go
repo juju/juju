@@ -8,18 +8,18 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/container/broker"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/containerbroker"
 	"github.com/juju/juju/internal/worker/containerbroker/mocks"
 )
 
 type manifoldConfigSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&manifoldConfigSuite{})
@@ -107,7 +107,7 @@ func (s *manifoldConfigSuite) TestValidConfigValidate(c *tc.C) {
 }
 
 type manifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	getter      *mocks.MockGetter
 	agent       *mocks.MockAgent

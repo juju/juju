@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/agent/provisioner"
@@ -19,13 +18,14 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/container/broker"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/containerbroker"
 	"github.com/juju/juju/internal/worker/containerbroker/mocks"
 	"github.com/juju/juju/rpc/params"
 )
 
 type brokerConfigSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&brokerConfigSuite{})
@@ -113,7 +113,7 @@ func (s *brokerConfigSuite) TestValidConfigValidate(c *tc.C) {
 }
 
 type trackerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	apiCaller   *mocks.MockAPICaller
 	agentConfig *mocks.MockConfig

@@ -9,10 +9,10 @@ import (
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type volumeSuite struct {
@@ -177,7 +177,7 @@ func (s *volumeSuite) TestInstanceVolumesMAAS2(c *tc.C) {
 }
 
 type storageProviderSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&storageProviderSuite{})

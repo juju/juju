@@ -10,15 +10,15 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/mattn/go-sqlite3"
 
 	corelease "github.com/juju/juju/core/lease"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/lease"
 )
 
 type ClaimSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&ClaimSuite{})
@@ -86,7 +86,7 @@ func (s *ClaimSuite) TestClaimLease_Success_SameHolder(c *tc.C) {
 			c.Check(err, tc.ErrorIsNil)
 			wg.Done()
 		}()
-		c.Check(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 2), tc.ErrorIsNil)
+		c.Check(clock.WaitAdvance(50*time.Millisecond, testhelpers.LongWait, 2), tc.ErrorIsNil)
 		wg.Wait()
 	})
 }
@@ -124,7 +124,7 @@ func (s *ClaimSuite) TestClaimLeaseFailureHeldByClaimer(c *tc.C) {
 			c.Check(err, tc.Equals, corelease.ErrClaimDenied)
 			wg.Done()
 		}()
-		c.Check(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 2), tc.ErrorIsNil)
+		c.Check(clock.WaitAdvance(50*time.Millisecond, testhelpers.LongWait, 2), tc.ErrorIsNil)
 		wg.Wait()
 	})
 }
@@ -246,7 +246,7 @@ func (s *ClaimSuite) TestExtendLease_Success_Expired(c *tc.C) {
 			c.Check(err, tc.ErrorIsNil)
 			wg.Done()
 		}()
-		c.Check(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 2), tc.ErrorIsNil)
+		c.Check(clock.WaitAdvance(50*time.Millisecond, testhelpers.LongWait, 2), tc.ErrorIsNil)
 		wg.Wait()
 	})
 }
@@ -290,7 +290,7 @@ func (s *ClaimSuite) TestExtendLease_Failure_OtherHolder(c *tc.C) {
 			c.Check(err, tc.Equals, corelease.ErrClaimDenied)
 			wg.Done()
 		}()
-		c.Check(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 2), tc.ErrorIsNil)
+		c.Check(clock.WaitAdvance(50*time.Millisecond, testhelpers.LongWait, 2), tc.ErrorIsNil)
 		wg.Wait()
 	})
 }
@@ -334,7 +334,7 @@ func (s *ClaimSuite) TestExtendLease_Failure_Retryable(c *tc.C) {
 			c.Check(err, tc.Equals, corelease.ErrClaimDenied)
 			wg.Done()
 		}()
-		c.Check(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 2), tc.ErrorIsNil)
+		c.Check(clock.WaitAdvance(50*time.Millisecond, testhelpers.LongWait, 2), tc.ErrorIsNil)
 		wg.Wait()
 	})
 }

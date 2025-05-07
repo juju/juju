@@ -11,14 +11,15 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 // flagRunMain is used to indicate that the -run-main flag was used.
 var flagRunMain = flag.Bool("run-main", false, "Run the application's main function for recursive testing")
 
 type CmdSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&CmdSuite{})

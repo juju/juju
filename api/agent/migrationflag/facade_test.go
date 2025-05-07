@@ -8,24 +8,24 @@ import (
 	"errors"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/api/agent/migrationflag"
 	"github.com/juju/juju/api/base"
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 type FacadeSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&FacadeSuite{})
 
 func (*FacadeSuite) TestPhaseCallError(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	apiCaller := apiCaller(c, stub, func(interface{}) error {
 		return errors.New("bork")
 	})
@@ -38,7 +38,7 @@ func (*FacadeSuite) TestPhaseCallError(c *tc.C) {
 }
 
 func (*FacadeSuite) TestPhaseNoResults(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	apiCaller := apiCaller(c, stub, func(interface{}) error {
 		return nil
 	})
@@ -51,7 +51,7 @@ func (*FacadeSuite) TestPhaseNoResults(c *tc.C) {
 }
 
 func (*FacadeSuite) TestPhaseExtraResults(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	apiCaller := apiCaller(c, stub, func(response interface{}) error {
 		outPtr, ok := response.(*params.PhaseResults)
 		c.Assert(ok, tc.IsTrue)
@@ -70,7 +70,7 @@ func (*FacadeSuite) TestPhaseExtraResults(c *tc.C) {
 }
 
 func (*FacadeSuite) TestPhaseError(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	apiCaller := apiCaller(c, stub, func(response interface{}) error {
 		outPtr, ok := response.(*params.PhaseResults)
 		c.Assert(ok, tc.IsTrue)
@@ -88,7 +88,7 @@ func (*FacadeSuite) TestPhaseError(c *tc.C) {
 }
 
 func (*FacadeSuite) TestPhaseInvalid(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	apiCaller := apiCaller(c, stub, func(response interface{}) error {
 		outPtr, ok := response.(*params.PhaseResults)
 		c.Assert(ok, tc.IsTrue)
@@ -104,7 +104,7 @@ func (*FacadeSuite) TestPhaseInvalid(c *tc.C) {
 }
 
 func (*FacadeSuite) TestPhaseSuccess(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	apiCaller := apiCaller(c, stub, func(response interface{}) error {
 		outPtr, ok := response.(*params.PhaseResults)
 		c.Assert(ok, tc.IsTrue)
@@ -120,7 +120,7 @@ func (*FacadeSuite) TestPhaseSuccess(c *tc.C) {
 }
 
 func (*FacadeSuite) TestWatchCallError(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	apiCaller := apiCaller(c, stub, func(interface{}) error {
 		return errors.New("bork")
 	})
@@ -133,7 +133,7 @@ func (*FacadeSuite) TestWatchCallError(c *tc.C) {
 }
 
 func (*FacadeSuite) TestWatchNoResults(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	apiCaller := apiCaller(c, stub, func(interface{}) error {
 		return nil
 	})
@@ -146,7 +146,7 @@ func (*FacadeSuite) TestWatchNoResults(c *tc.C) {
 }
 
 func (*FacadeSuite) TestWatchExtraResults(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	apiCaller := apiCaller(c, stub, func(response interface{}) error {
 		outPtr, ok := response.(*params.NotifyWatchResults)
 		c.Assert(ok, tc.IsTrue)
@@ -165,7 +165,7 @@ func (*FacadeSuite) TestWatchExtraResults(c *tc.C) {
 }
 
 func (*FacadeSuite) TestWatchError(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	apiCaller := apiCaller(c, stub, func(response interface{}) error {
 		outPtr, ok := response.(*params.NotifyWatchResults)
 		c.Assert(ok, tc.IsTrue)
@@ -183,7 +183,7 @@ func (*FacadeSuite) TestWatchError(c *tc.C) {
 }
 
 func (*FacadeSuite) TestWatchSuccess(c *tc.C) {
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	apiCaller := apiCaller(c, stub, func(response interface{}) error {
 		outPtr, ok := response.(*params.NotifyWatchResults)
 		c.Assert(ok, tc.IsTrue)
@@ -208,7 +208,7 @@ func (*FacadeSuite) TestWatchSuccess(c *tc.C) {
 	checkCalls(c, stub, "Watch")
 }
 
-func apiCaller(c *tc.C, stub *testing.Stub, set func(interface{}) error) base.APICaller {
+func apiCaller(c *tc.C, stub *testhelpers.Stub, set func(interface{}) error) base.APICaller {
 	return basetesting.APICallerFunc(func(
 		objType string, version int,
 		id, request string,
@@ -222,7 +222,7 @@ func apiCaller(c *tc.C, stub *testing.Stub, set func(interface{}) error) base.AP
 	})
 }
 
-func checkCalls(c *tc.C, stub *testing.Stub, names ...string) {
+func checkCalls(c *tc.C, stub *testhelpers.Stub, names ...string) {
 	stub.CheckCallNames(c, names...)
 	for _, call := range stub.Calls() {
 		c.Check(call.Args, tc.DeepEquals, []interface{}{

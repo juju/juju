@@ -8,15 +8,15 @@ import (
 	"fmt"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/internal/featureflag"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
 
 type logSuite struct {
-	testing.LoggingSuite
+	testhelpers.LoggingSuite
 	jujutesting.JujuOSEnvSuite
 }
 

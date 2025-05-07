@@ -6,10 +6,10 @@ package logsendermetrics_test
 import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/logsender/logsendermetrics"
 	"github.com/juju/juju/internal/worker/logsender/logsendertest"
@@ -18,7 +18,7 @@ import (
 const maxLen = 3
 
 type bufferedLogWriterSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	writer    *logsender.BufferedLogWriter
 	collector logsendermetrics.BufferedLogWriterMetrics
 }

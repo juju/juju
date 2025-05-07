@@ -10,12 +10,12 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type namespaceSuite struct {
@@ -95,7 +95,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModel(c *tc.C) {
 	s.expectNoConfigChanges()
 	s.clusterConfig.EXPECT().DBBindAddresses().Return(nil, errors.New("simulates absent config for initial check"))
 
-	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
+	ctx, cancel := context.WithTimeout(context.Background(), testhelpers.LongWait)
 	defer cancel()
 
 	dbw := s.startWorker(c, ctx)
@@ -130,7 +130,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelLoopbackPreferred(c *tc.C) {
 	s.expectNoConfigChanges()
 	s.clusterConfig.EXPECT().DBBindAddresses().Return(nil, errors.New("simulates absent config for initial check"))
 
-	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
+	ctx, cancel := context.WithTimeout(context.Background(), testhelpers.LongWait)
 	defer cancel()
 
 	dbw := s.startWorker(c, ctx)
@@ -170,7 +170,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelWithCache(c *tc.C) {
 	w := s.newWorkerWithDB(c, trackedWorkerDB)
 	defer workertest.DirtyKill(c, w)
 
-	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
+	ctx, cancel := context.WithTimeout(context.Background(), testhelpers.LongWait)
 	defer cancel()
 
 	var (
@@ -234,7 +234,7 @@ func (s *namespaceSuite) TestCloseDatabaseForController(c *tc.C) {
 	s.expectNoConfigChanges()
 	s.clusterConfig.EXPECT().DBBindAddresses().Return(nil, errors.New("simulates absent config for initial check"))
 
-	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
+	ctx, cancel := context.WithTimeout(context.Background(), testhelpers.LongWait)
 	defer cancel()
 
 	dbw := s.startWorker(c, ctx)
@@ -273,7 +273,7 @@ func (s *namespaceSuite) TestCloseDatabaseForModel(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	s.dbApp.EXPECT().Open(gomock.Any(), "foo").Return(db, nil)
 
-	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
+	ctx, cancel := context.WithTimeout(context.Background(), testhelpers.LongWait)
 	defer cancel()
 
 	dbw := s.startWorker(c, ctx)
@@ -315,7 +315,7 @@ func (s *namespaceSuite) TestCloseDatabaseForModelLoopbackPreferred(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	s.dbApp.EXPECT().Open(gomock.Any(), "foo").Return(db, nil)
 
-	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
+	ctx, cancel := context.WithTimeout(context.Background(), testhelpers.LongWait)
 	defer cancel()
 
 	dbw := s.startWorker(c, ctx)

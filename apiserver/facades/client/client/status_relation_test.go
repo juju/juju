@@ -8,7 +8,6 @@ import (
 	"errors"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	corerelation "github.com/juju/juju/core/relation"
@@ -17,10 +16,11 @@ import (
 	domainrelation "github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type relationStatusSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	relationService *MockRelationService
 	statusService   *MockStatusService
 }

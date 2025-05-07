@@ -8,17 +8,17 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/remoterelations"
 )
 
 type ManifoldConfigSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	config remoterelations.ManifoldConfig
 }
 

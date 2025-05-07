@@ -6,7 +6,6 @@ package remoterelations_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/tomb.v2"
 
@@ -14,12 +13,13 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/relation"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/state"
 )
 
 type mockRelation struct {
 	common.Relation
-	testing.Stub
+	testhelpers.Stub
 	id                    int
 	key                   string
 	life                  state.Life
@@ -135,7 +135,7 @@ func (o *mockOfferConnection) UserName() string {
 
 type mockRemoteApplication struct {
 	common.RemoteApplication
-	testing.Stub
+	testhelpers.Stub
 	name          string
 	alias         string
 	url           string
@@ -222,7 +222,7 @@ type mockOperation struct {
 
 type mockApplication struct {
 	common.Application
-	testing.Stub
+	testhelpers.Stub
 	name string
 	life state.Life
 }
@@ -249,7 +249,7 @@ func (a *mockApplication) Life() state.Life {
 }
 
 type mockWatcher struct {
-	testing.Stub
+	testhelpers.Stub
 	tomb.Tomb
 }
 
@@ -290,7 +290,7 @@ func (w *mockRelationUnitsWatcher) Changes() watcher.RelationUnitsChannel {
 
 type mockRelationUnit struct {
 	common.RelationUnit
-	testing.Stub
+	testhelpers.Stub
 	inScope  bool
 	settings map[string]interface{}
 }

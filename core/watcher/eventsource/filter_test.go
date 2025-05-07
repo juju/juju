@@ -5,13 +5,13 @@ package eventsource
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type filterSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&filterSuite{})

@@ -10,12 +10,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/version"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
@@ -70,7 +70,7 @@ func (suite *maasSuite) makeEnviron(c *tc.C, controller gomaasapi.Controller) *m
 
 type fakeController struct {
 	gomaasapi.Controller
-	*testing.Stub
+	*testhelpers.Stub
 
 	domains            []gomaasapi.Domain
 	bootResources      []gomaasapi.BootResource
@@ -98,7 +98,7 @@ type fakeController struct {
 
 func newFakeController() *fakeController {
 	return &fakeController{
-		Stub: &testing.Stub{},
+		Stub: &testhelpers.Stub{},
 		zones: []gomaasapi.Zone{
 			&fakeZone{name: "mossack"},
 			&fakeZone{name: "fonseca"},
@@ -235,7 +235,7 @@ func (r *fakeBootResource) Architecture() string {
 
 type fakeMachine struct {
 	gomaasapi.Machine
-	*testing.Stub
+	*testhelpers.Stub
 
 	zoneName      string
 	hostname      string
@@ -254,7 +254,7 @@ type fakeMachine struct {
 
 func newFakeMachine(systemID, architecture, statusName string) *fakeMachine {
 	return &fakeMachine{
-		Stub:         &testing.Stub{},
+		Stub:         &testhelpers.Stub{},
 		systemID:     systemID,
 		architecture: architecture,
 		statusName:   statusName,
@@ -455,7 +455,7 @@ func (v fakeVLAN) MTU() int {
 }
 
 type fakeInterface struct {
-	*testing.Stub
+	*testhelpers.Stub
 
 	id         int
 	name       string
@@ -626,7 +626,7 @@ func (part fakePartition) Size() uint64 {
 }
 
 type fakeDevice struct {
-	*testing.Stub
+	*testhelpers.Stub
 
 	interfaceSet []gomaasapi.Interface
 	systemID     string

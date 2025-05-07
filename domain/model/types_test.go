@@ -5,7 +5,6 @@ package model
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/credential"
@@ -14,10 +13,11 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/constraints"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type typesSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&typesSuite{})

@@ -5,9 +5,9 @@ package mongo_test
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/internal/mongo"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
@@ -63,7 +63,7 @@ func (s *preallocSuite) TestOplogSize(c *tc.C) {
 func (s *preallocSuite) TestFsAvailSpace(c *tc.C) {
 	output := `Filesystem     1K-blocks    Used Available Use% Mounted on
     /dev/vda1        8124856 1365292     12345  18% /`
-	testing.PatchExecutable(c, s, "df", "#!/bin/sh\ncat<<EOF\n"+output+"\nEOF")
+	testhelpers.PatchExecutable(c, s, "df", "#!/bin/sh\ncat<<EOF\n"+output+"\nEOF")
 
 	mb, err := mongo.FsAvailSpace("")
 	c.Assert(err, tc.ErrorIsNil)
@@ -91,7 +91,7 @@ func (s *preallocSuite) TestFsAvailSpaceErrors(c *tc.C) {
 	}}
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.desc)
-		testing.PatchExecutable(c, s, "df", "#!/bin/sh\ncat<<EOF\n"+test.output+"\nEOF")
+		testhelpers.PatchExecutable(c, s, "df", "#!/bin/sh\ncat<<EOF\n"+test.output+"\nEOF")
 		_, err := mongo.FsAvailSpace("")
 		c.Check(err, tc.ErrorMatches, test.err)
 	}

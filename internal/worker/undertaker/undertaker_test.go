@@ -10,7 +10,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/undertaker"
 	"github.com/juju/juju/rpc/params"
 )
@@ -28,7 +28,7 @@ import (
 // OldUndertakerSuite is *not* complete. But it's a lot more so
 // than it was before, and should be much easier to extend.
 type OldUndertakerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	fix fixture
 }
 
@@ -266,7 +266,7 @@ func (s *OldUndertakerSuite) TestEnvironDestroyTimeoutForce(c *tc.C) {
 	c.Assert(destroyCloudCalls, tc.DeepEquals, []string{"ModelConfig", "CloudSpec", "Destroy"})
 }
 
-func (s *OldUndertakerSuite) sortCalls(c *tc.C, stub *testing.Stub) (mainCalls []string, destroyCloudCalls []string) {
+func (s *OldUndertakerSuite) sortCalls(c *tc.C, stub *testhelpers.Stub) (mainCalls []string, destroyCloudCalls []string) {
 	calls := stub.Calls()
 	for _, call := range calls {
 		switch call.FuncName {
@@ -336,7 +336,7 @@ func (s *UndertakerSuite) TestExitOnModelChanged(c *tc.C) {
 	w, err := undertaker.NewUndertaker(undertaker.Config{
 		Facade: facade,
 		Logger: loggertesting.WrapCheckLog(c),
-		Clock:  testclock.NewDilatedWallClock(testing.ShortWait),
+		Clock:  testclock.NewDilatedWallClock(testhelpers.ShortWait),
 		NewCloudDestroyerFunc: func(ctx context.Context, op environs.OpenParams, _ environs.CredentialInvalidator) (environs.CloudDestroyer, error) {
 			return &waitDestroyer{}, nil
 		},

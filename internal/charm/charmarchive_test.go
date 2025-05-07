@@ -12,14 +12,14 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/internal/charm"
 	charmtesting "github.com/juju/juju/internal/charm/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type CharmArchiveSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	archivePath string
 }
 

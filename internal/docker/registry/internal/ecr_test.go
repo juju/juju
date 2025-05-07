@@ -14,7 +14,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ecr"
 	"github.com/aws/aws-sdk-go-v2/service/ecr/types"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/semversion"
@@ -24,11 +23,12 @@ import (
 	"github.com/juju/juju/internal/docker/registry/internal"
 	internalmocks "github.com/juju/juju/internal/docker/registry/internal/mocks"
 	"github.com/juju/juju/internal/docker/registry/mocks"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/tools"
 )
 
 type elasticContainerRegistrySuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	mockRoundTripper *mocks.MockRoundTripper
 	mockECRAPI       *internalmocks.MockECRInterface

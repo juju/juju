@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cmd/jujud/reboot"
 	"github.com/juju/juju/cmd/jujud/reboot/mocks"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testhelpers/filetesting"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -137,7 +137,7 @@ var _ = tc.Suite(&NixRebootSuite{})
 
 func (s *NixRebootSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
-	testing.PatchExecutableAsEchoArgs(c, s, rebootBin)
+	testhelpers.PatchExecutableAsEchoArgs(c, s, rebootBin)
 	s.tmpDir = c.MkDir()
 	s.rebootScriptName = "juju-reboot-script"
 	s.PatchValue(reboot.TmpFile, func() (*os.File, error) {
@@ -150,7 +150,7 @@ func (s *NixRebootSuite) TestReboot(c *tc.C) {
 	expectedParams := s.commandParams()
 	err := reboot.ScheduleAction(params.ShouldReboot, 15)
 	c.Assert(err, tc.ErrorIsNil)
-	testing.AssertEchoArgs(c, rebootBin, expectedParams...)
+	testhelpers.AssertEchoArgs(c, rebootBin, expectedParams...)
 	filetesting.File{Path: s.rebootScriptName, Data: expectedRebootScript, Perm: 0755}.Check(c, s.tmpDir)
 }
 
@@ -159,7 +159,7 @@ func (s *NixRebootSuite) TestShutdownNoContainers(c *tc.C) {
 
 	err := reboot.ScheduleAction(params.ShouldShutdown, 15)
 	c.Assert(err, tc.ErrorIsNil)
-	testing.AssertEchoArgs(c, rebootBin, expectedParams...)
+	testhelpers.AssertEchoArgs(c, rebootBin, expectedParams...)
 	filetesting.File{Path: s.rebootScriptName, Data: expectedShutdownScript, Perm: 0755}.Check(c, s.tmpDir)
 }
 

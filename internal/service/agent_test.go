@@ -8,12 +8,12 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/shell"
 
 	"github.com/juju/juju/internal/service"
 	"github.com/juju/juju/internal/service/common"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/juju/osenv"
 )
 
@@ -22,7 +22,7 @@ var (
 )
 
 type agentSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&agentSuite{})

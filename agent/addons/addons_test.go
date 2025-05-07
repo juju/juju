@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/prometheus/client_golang/prometheus"
@@ -19,12 +18,13 @@ import (
 
 	"github.com/juju/juju/agent/addons"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/introspection"
 )
 
 type introspectionSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&introspectionSuite{})
@@ -124,7 +124,7 @@ func (d *dummyWorker) Wait() error {
 }
 
 type registerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&registerSuite{})
@@ -157,7 +157,7 @@ func (s *registerSuite) TestRegisterEngineMetrics(c *tc.C) {
 
 	select {
 	case <-done:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testhelpers.ShortWait):
 	}
 }
 

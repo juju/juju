@@ -9,13 +9,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/agent/migrationminion"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -27,7 +27,7 @@ var _ migrationminion.Backend = (*state.State)(nil)
 type Suite struct {
 	coretesting.BaseSuite
 
-	stub       *testing.Stub
+	stub       *testhelpers.Stub
 	backend    *stubBackend
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
@@ -38,7 +38,7 @@ var _ = tc.Suite(&Suite{})
 func (s *Suite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.stub = &testing.Stub{}
+	s.stub = &testhelpers.Stub{}
 	s.backend = &stubBackend{stub: s.stub}
 
 	s.resources = common.NewResources()
@@ -85,7 +85,7 @@ func (s *Suite) TestReport(c *tc.C) {
 		Success:     true,
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	s.stub.CheckCalls(c, []testing.StubCall{
+	s.stub.CheckCalls(c, []testhelpers.StubCall{
 		{"Migration", []interface{}{"id"}},
 		{"Report", []interface{}{s.authorizer.Tag, migration.IMPORT, true}},
 	})
@@ -125,7 +125,7 @@ func (s *Suite) mustMakeAPI(c *tc.C) *migrationminion.API {
 
 type stubBackend struct {
 	migrationminion.Backend
-	stub           *testing.Stub
+	stub           *testhelpers.Stub
 	modelLookupErr error
 }
 
@@ -144,7 +144,7 @@ func (b *stubBackend) Migration(id string) (state.ModelMigration, error) {
 
 type stubModelMigration struct {
 	state.ModelMigration
-	stub *testing.Stub
+	stub *testhelpers.Stub
 }
 
 func (m *stubModelMigration) SubmitMinionReport(tag names.Tag, phase migration.Phase, success bool) error {

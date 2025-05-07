@@ -14,11 +14,11 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 var _ = tc.Suite(&CmdSuite{})
@@ -26,7 +26,7 @@ var _ = tc.Suite(&CmdHelpSuite{})
 var _ = tc.Suite(&CmdDocumentationSuite{})
 
 type CmdSuite struct {
-	testing.LoggingCleanupSuite
+	testhelpers.LoggingCleanupSuite
 
 	ctx *cmd.Context
 }
@@ -265,7 +265,7 @@ func (s *CmdSuite) assertFlagSetHelp(c *tc.C, fs *gnuflag.FlagSet) {
 }
 
 type CmdHelpSuite struct {
-	testing.LoggingCleanupSuite
+	testhelpers.LoggingCleanupSuite
 
 	superfs   *gnuflag.FlagSet
 	commandfs *gnuflag.FlagSet
@@ -419,5 +419,5 @@ Subcommands:
 }
 
 type CmdDocumentationSuite struct {
-	testing.LoggingCleanupSuite
+	testhelpers.LoggingCleanupSuite
 }

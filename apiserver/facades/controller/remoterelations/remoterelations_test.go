@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -158,7 +158,7 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationChanges(c *tc.C) {
 		},
 	}})
 
-	djangoRelation.CheckCalls(c, []testing.StubCall{
+	djangoRelation.CheckCalls(c, []testhelpers.StubCall{
 		{"Endpoints", []interface{}{}},
 		{"Endpoints", []interface{}{}},
 		{"WatchUnits", []interface{}{"django"}},

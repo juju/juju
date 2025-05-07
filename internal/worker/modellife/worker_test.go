@@ -10,7 +10,6 @@ import (
 
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -22,10 +21,11 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type workerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	modelService *MockModelService
 
@@ -67,7 +67,7 @@ func (s *workerSuite) TestStartAlive(c *tc.C) {
 
 	select {
 	case <-done:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for worker to start")
 	}
 
@@ -92,7 +92,7 @@ func (s *workerSuite) TestStartDead(c *tc.C) {
 
 	select {
 	case <-done:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for worker to start")
 	}
 
@@ -129,7 +129,7 @@ func (s *workerSuite) TestWatchModelError(c *tc.C) {
 
 	select {
 	case <-done:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for worker to start")
 	}
 
@@ -158,13 +158,13 @@ func (s *workerSuite) TestWatchModelStillAlive(c *tc.C) {
 
 	select {
 	case ch <- struct{}{}:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for worker to start")
 	}
 
 	select {
 	case <-done:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for worker to start")
 	}
 
@@ -194,13 +194,13 @@ func (s *workerSuite) TestWatchModelTransitionAliveToDying(c *tc.C) {
 
 	select {
 	case ch <- struct{}{}:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for worker to start")
 	}
 
 	select {
 	case <-done:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for worker to start")
 	}
 
@@ -236,14 +236,14 @@ func (s *workerSuite) TestWatchModelTransitionDyingToDead(c *tc.C) {
 	for i := 0; i < 2; i++ {
 		select {
 		case ch <- struct{}{}:
-		case <-time.After(testing.LongWait):
+		case <-time.After(testhelpers.LongWait):
 			c.Fatal("timed out waiting for worker to start")
 		}
 	}
 
 	select {
 	case <-done:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for worker to start")
 	}
 

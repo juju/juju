@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"golang.org/x/crypto/openpgp"
 	openpgperrors "golang.org/x/crypto/openpgp/errors"
 
@@ -20,10 +19,11 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	streamstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type Suite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&Suite{})

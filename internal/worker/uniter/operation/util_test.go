@@ -8,13 +8,13 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	utilexec "github.com/juju/utils/v4/exec"
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/charm/hooks"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/uniter/charm"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
@@ -320,7 +320,7 @@ func (f *MockRunnerActionWaitFactory) NewActionRunner(_ context.Context, action 
 
 type MockContext struct {
 	runnercontext.Context
-	testing.Stub
+	testhelpers.Stub
 	actionData      *runnercontext.ActionData
 	setStatusCalled bool
 	status          jujuc.StatusInfo

@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/api/base"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -29,7 +29,7 @@ type clientCommmon interface {
 }
 
 type firewallerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	newFunc func(caller base.APICaller) clientCommmon
 	objType string

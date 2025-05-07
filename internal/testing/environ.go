@@ -6,7 +6,6 @@ package testing
 import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/utils/v4/ssh"
 
 	"github.com/juju/juju/cloud"
@@ -18,6 +17,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -140,7 +140,7 @@ const DefaultMongoPassword = "conn-from-name-secret"
 // sets up a Juju home with a sample environment and certificate.
 type FakeJujuXDGDataHomeSuite struct {
 	JujuOSEnvSuite
-	testing.FakeHomeSuite
+	testhelpers.FakeHomeSuite
 }
 
 func (s *FakeJujuXDGDataHomeSuite) SetUpTest(c *tc.C) {

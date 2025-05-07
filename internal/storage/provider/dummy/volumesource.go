@@ -7,16 +7,16 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 // VolumeSource is an implementation of storage.VolumeSource, suitable for
 // testing. Each method's default behaviour may be overridden by setting
 // the corresponding Func field.
 type VolumeSource struct {
-	testing.Stub
+	testhelpers.Stub
 
 	CreateVolumesFunc        func(context.Context, []storage.VolumeParams) ([]storage.CreateVolumesResult, error)
 	ListVolumesFunc          func(context.Context) ([]string, error)

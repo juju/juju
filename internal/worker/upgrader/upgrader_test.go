@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/symlink"
 	"github.com/juju/worker/v4"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/upgrades"
@@ -44,7 +44,7 @@ func TestPackage(t *stdtesting.T) {
 }
 
 type UpgraderSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	confVersion          semversion.Number
 	upgradeStepsComplete gate.Lock
@@ -535,7 +535,7 @@ func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *tc.C) {
 	client.EXPECT().DesiredVersion(gomock.Any(), "machine-666").Return(newTools.Version.Number, nil)
 	client.EXPECT().Tools(gomock.Any(), "machine-666").Return(coretools.List{newTools}, nil)
 
-	var diskSpaceStub testing.Stub
+	var diskSpaceStub testhelpers.Stub
 	diskSpaceStub.SetErrors(nil, errors.Errorf("full-up"))
 	diskSpaceChecked := make(chan struct{}, 1)
 

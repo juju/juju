@@ -8,16 +8,16 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
 )
 
 type ConfigSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	// This is a bit unexpected: these tests should mutate the stored
 	// config, and then call the checkNotValid method.

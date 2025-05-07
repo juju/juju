@@ -10,15 +10,15 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/internal/packaging/manager"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 var _ = tc.Suite(&RunSuite{})
 
 type RunSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 func (s *RunSuite) TestRunCommandWithRetryAttemptsExceeded(c *tc.C) {
@@ -39,7 +39,7 @@ func (s *RunSuite) TestRunCommandWithRetryAttemptsExceeded(c *tc.C) {
 
 	_, _, err := manager.RunCommandWithRetry("ls -la", alwaysRetryable{}, manager.RetryPolicy{
 		Attempts: 3,
-		Delay:    testing.ShortWait,
+		Delay:    testhelpers.ShortWait,
 	})
 
 	c.Check(err, tc.ErrorMatches, "packaging command failed: attempt count exceeded: exit status.*")
@@ -64,7 +64,7 @@ func (s *RunSuite) TestRunCommandWithRetryStopsWithFatalError(c *tc.C) {
 
 	_, _, err := manager.RunCommandWithRetry("ls -la", alwaysFatal{}, manager.RetryPolicy{
 		Attempts: 3,
-		Delay:    testing.ShortWait,
+		Delay:    testhelpers.ShortWait,
 	})
 
 	c.Check(err, tc.ErrorMatches, "packaging command failed: encountered fatal error: boom!")

@@ -8,18 +8,18 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/unit"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 var _ Observer = (*AgentPresence)(nil)
 
 type AgentPresenceSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	domainServicesGetter *MockDomainServicesGetter
 	modelService         *MockModelService

@@ -5,13 +5,13 @@ package deployment
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type PlacementSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&PlacementSuite{})

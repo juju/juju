@@ -10,13 +10,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -70,7 +70,7 @@ func (mockProvider) FinalizeCredential(
 }
 
 type credentialsSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	cloud cloud.Cloud
 	store *jujuclient.MemStore
 }

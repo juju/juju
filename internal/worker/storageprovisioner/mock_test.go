@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/blockdevice"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -331,7 +331,7 @@ func newMockVolumeAccessor() *mockVolumeAccessor {
 }
 
 type mockFilesystemAccessor struct {
-	testing.Stub
+	testhelpers.Stub
 	filesystemsWatcher             *mockStringsWatcher
 	attachmentsWatcher             *mockAttachmentsWatcher
 	provisionedMachines            map[string]instance.Id
@@ -857,7 +857,7 @@ func newMockMachineAccessor(c *tc.C) *mockMachineAccessor {
 
 type mockClock struct {
 	clock.Clock
-	testing.Stub
+	testhelpers.Stub
 	now         time.Time
 	onNow       func() time.Time
 	onAfter     func(time.Duration) <-chan time.Time

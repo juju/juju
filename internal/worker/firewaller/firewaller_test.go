@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -37,6 +36,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/instances"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/firewaller"
 	"github.com/juju/juju/internal/worker/firewaller/mocks"
@@ -49,7 +49,7 @@ const allEndpoints = ""
 // firewallerBaseSuite implements common functionality for embedding
 // into each of the other per-mode suites.
 type firewallerBaseSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	firewaller           *mocks.MockFirewallerAPI
 	remoteRelations      *mocks.MockRemoteRelationsAPI

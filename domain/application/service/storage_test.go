@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	corestorage "github.com/juju/juju/core/storage"
@@ -21,10 +20,11 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type storageSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	mockState *MockState
 

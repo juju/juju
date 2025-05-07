@@ -7,10 +7,10 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 // OutputCommand is a command that uses the output.go formatters.
@@ -136,7 +136,7 @@ var outputTests = map[string][]struct {
 }
 
 type OutputSuite struct {
-	testing.LoggingCleanupSuite
+	testhelpers.LoggingCleanupSuite
 
 	ctx *cmd.Context
 }

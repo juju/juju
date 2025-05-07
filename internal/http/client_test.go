@@ -15,8 +15,9 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type clientSuite struct{}
@@ -29,7 +30,7 @@ func (s *clientSuite) TestNewClient(c *tc.C) {
 }
 
 type httpSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	server *httptest.Server
 }
 
@@ -174,7 +175,7 @@ func (s *httpSuite) TestRetryExceeded(c *tc.C) {
 }
 
 type httpTLSServerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	server *httptest.Server
 }
 

@@ -28,7 +28,6 @@ import (
 	"github.com/juju/names/v6"
 	proxyutils "github.com/juju/proxy"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -41,6 +40,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	proxy "github.com/juju/juju/internal/proxy/config"
+	"github.com/juju/juju/internal/testhelpers"
 	jtesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -114,7 +114,7 @@ func (s *apiclientSuite) TestDialAPIMultiple(c *tc.C) {
 	// Create a socket that proxies to the API server.
 	info := s.APIInfo()
 	serverAddr := info.Addrs[0]
-	proxy := testing.NewTCPProxy(c, serverAddr)
+	proxy := testhelpers.NewTCPProxy(c, serverAddr)
 	defer proxy.Close()
 
 	// Check that we can use the proxy to connect.
@@ -1020,7 +1020,7 @@ func (s *apiclientSuite) TestOpenTimeoutAffectsDial(c *tc.C) {
 	// has entered the dial function.
 	select {
 	case <-sync:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Errorf("didn't enter dial")
 	}
 	err := clk.WaitAdvance(5*time.Second, time.Second, 1)
@@ -1061,7 +1061,7 @@ func (s *apiclientSuite) TestOpenDialTimeoutAffectsDial(c *tc.C) {
 	// has entered the dial function.
 	select {
 	case <-sync:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Errorf("didn't enter dial")
 	}
 	err := clk.WaitAdvance(3*time.Second, time.Second, 2) // Timeout & DialTimeout
@@ -1544,7 +1544,7 @@ func newRPCConnection(errs ...error) *fakeRPCConnection {
 }
 
 type fakeRPCConnection struct {
-	stub     testing.Stub
+	stub     testhelpers.Stub
 	response interface{}
 }
 

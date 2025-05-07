@@ -8,13 +8,13 @@ import (
 	"path/filepath"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/internal/docker"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type authSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&authSuite{})

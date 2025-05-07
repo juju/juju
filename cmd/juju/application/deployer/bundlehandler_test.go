@@ -14,7 +14,6 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/httprequest.v1"
@@ -39,12 +38,13 @@ import (
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testcharms"
 )
 
 type BundleDeployRepositorySuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	bundleResolver *mocks.MockResolver
 	charmReader    *mocks.MockCharmReader
@@ -2508,7 +2508,7 @@ func (m setCharmConfigMatcher) String() string {
 }
 
 type BundleHandlerOriginSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&BundleHandlerOriginSuite{})
@@ -2610,7 +2610,7 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginEmptyChannel(c *
 }
 
 type BundleHandlerResolverSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&BundleHandlerResolverSuite{})
@@ -2697,7 +2697,7 @@ func (s *BundleHandlerResolverSuite) TestResolveLocalCharm(c *tc.C) {
 }
 
 type BundleHandlerMakeModelSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	deployerAPI *mocks.MockDeployerAPI
 }

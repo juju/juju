@@ -8,14 +8,14 @@ import (
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type VersionSuite struct {
-	testing.LoggingSuite
+	testhelpers.LoggingSuite
 
 	ctx *cmd.Context
 }

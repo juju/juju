@@ -9,13 +9,13 @@ import (
 
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type ArgsSuite struct {
-	testing.LoggingSuite
+	testhelpers.LoggingSuite
 }
 
 var _ = tc.Suite(&ArgsSuite{})

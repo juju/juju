@@ -7,20 +7,20 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 // ContextSuite is the base suite for testing jujuc.Context-related code.
 type ContextSuite struct {
-	Stub *testing.Stub
+	Stub *testhelpers.Stub
 	Unit string
 }
 
 func (s *ContextSuite) SetUpTest(c *tc.C) {
-	s.Stub = &testing.Stub{}
+	s.Stub = &testhelpers.Stub{}
 	s.Unit = "u/0"
 }
 

@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -17,13 +16,14 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
 
 type BindSuite struct {
-	testing.IsolationSuite
-	testing.Stub
+	testhelpers.IsolationSuite
+	testhelpers.Stub
 
 	apiConnection     mockAPIConnection
 	applicationClient mockApplicationBindClient
@@ -153,7 +153,7 @@ func (s *BindSuite) setupAPIConnection() {
 
 type mockApplicationBindClient struct {
 	ApplicationBindClient
-	testing.Stub
+	testhelpers.Stub
 
 	getResults *params.ApplicationGetResults
 }

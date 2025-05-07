@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/migrationflag"
 )
 
@@ -25,7 +25,7 @@ import (
 // specifies; if any Phase call does not return an error, it will
 // return a phase consumed from the head of the supplied list (or
 // panic if it's empty).
-func newMockFacade(stub *testing.Stub, phases ...migration.Phase) *mockFacade {
+func newMockFacade(stub *testhelpers.Stub, phases ...migration.Phase) *mockFacade {
 	return &mockFacade{
 		stub:   stub,
 		phases: phases,
@@ -34,7 +34,7 @@ func newMockFacade(stub *testing.Stub, phases ...migration.Phase) *mockFacade {
 
 // mockFacade implements migrationflag.Facade for use in the tests.
 type mockFacade struct {
-	stub   *testing.Stub
+	stub   *testhelpers.Stub
 	phases []migration.Phase
 }
 
@@ -90,7 +90,7 @@ func (mock *mockWatcher) Changes() watcher.NotifyChannel {
 
 // checkCalls checks that all the supplied call names were invoked
 // in the supplied order, and that every one was passed [validUUID].
-func checkCalls(c *tc.C, stub *testing.Stub, names ...string) {
+func checkCalls(c *tc.C, stub *testhelpers.Stub, names ...string) {
 	stub.CheckCallNames(c, names...)
 	for _, call := range stub.Calls() {
 		c.Check(call.Args, tc.DeepEquals, []interface{}{validUUID})

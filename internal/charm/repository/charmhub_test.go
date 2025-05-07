@@ -12,7 +12,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/utils/v4/hash"
 	"go.uber.org/mock/gomock"
 
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/charmhub/transport"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -36,7 +36,7 @@ var (
 )
 
 type charmHubRepositorySuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	client *mocks.MockCharmHubClient
 }
@@ -948,7 +948,7 @@ func (s *charmHubRepositorySuite) expectListResourceRevisions(rev int) {
 }
 
 type refreshConfigSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&refreshConfigSuite{})
@@ -1093,7 +1093,7 @@ func (refreshConfigSuite) TestRefreshByID(c *tc.C) {
 }
 
 type selectNextBaseSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&selectNextBaseSuite{})
@@ -1246,7 +1246,7 @@ available releases are:
 }
 
 type composeSuggestionsSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&composeSuggestionsSuite{})

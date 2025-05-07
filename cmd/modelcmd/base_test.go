@@ -15,7 +15,6 @@ import (
 	"github.com/juju/names/v6"
 	cookiejar "github.com/juju/persistent-cookiejar"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
@@ -31,6 +30,7 @@ import (
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/pki"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
@@ -38,7 +38,7 @@ import (
 )
 
 type BaseCommandSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	store *jujuclient.MemStore
 }
 
@@ -337,7 +337,7 @@ func (s *BaseCommandSuite) TestNewAPIConnectionParamsWithOAuthController(c *tc.C
 }
 
 type NewGetBootstrapConfigParamsFuncSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&NewGetBootstrapConfigParamsFuncSuite{})
@@ -426,7 +426,7 @@ func (p *mockEnvironProvider) CredentialSchemas() map[cloud.AuthType]cloud.Crede
 }
 
 type OpenAPIFuncSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	store *jujuclient.MemStore
 }
 

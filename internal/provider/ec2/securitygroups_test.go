@@ -14,9 +14,9 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/internal/provider/ec2"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
@@ -37,7 +37,7 @@ func (s *SecurityGroupSuite) SetUpSuite(c *tc.C) {
 func (s *SecurityGroupSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.clientStub = &stubClient{
-		Stub: &testing.Stub{},
+		Stub: &testhelpers.Stub{},
 		deleteSecurityGroup: func(group types.GroupIdentifier) (resp *awsec2.DeleteSecurityGroupOutput, err error) {
 			return nil, nil
 		},
@@ -100,7 +100,7 @@ func (c autoAdvancingClock) After(d time.Duration) <-chan time.Time {
 }
 
 type stubClient struct {
-	*testing.Stub
+	*testhelpers.Stub
 	deleteSecurityGroup func(group types.GroupIdentifier) (*awsec2.DeleteSecurityGroupOutput, error)
 }
 

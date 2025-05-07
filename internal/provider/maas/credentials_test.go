@@ -6,15 +6,15 @@ package maas_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type credentialsSuite struct {
-	testing.FakeHomeSuite
+	testhelpers.FakeHomeSuite
 	provider environs.EnvironProvider
 }
 
@@ -43,7 +43,7 @@ func (s *credentialsSuite) TestOAuth1HiddenAttributes(c *tc.C) {
 }
 
 func (s *credentialsSuite) TestDetectCredentials(c *tc.C) {
-	s.Home.AddFiles(c, testing.TestFile{
+	s.Home.AddFiles(c, testhelpers.TestFile{
 		Name: ".maasrc",
 		Data: `{"Server": "http://10.0.0.1/MAAS", "OAuth": "key"}`,
 	})
@@ -60,7 +60,7 @@ func (s *credentialsSuite) TestDetectCredentials(c *tc.C) {
 }
 
 func (s *credentialsSuite) TestDetectCredentialsNoServer(c *tc.C) {
-	s.Home.AddFiles(c, testing.TestFile{
+	s.Home.AddFiles(c, testhelpers.TestFile{
 		Name: ".maasrc",
 		Data: `{"OAuth": "key"}`,
 	})

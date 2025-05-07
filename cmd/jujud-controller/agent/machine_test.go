@@ -16,7 +16,6 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/utils/v4/cert"
 	"github.com/juju/worker/v4"
 	"go.uber.org/mock/gomock"
@@ -42,6 +41,7 @@ import (
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/mongo"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 	jworker "github.com/juju/juju/internal/worker"
@@ -570,7 +570,7 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *tc.C) {
 func (s *MachineSuite) TestMachineWorkers(c *tc.C) {
 	// TODO(wallyworld) - we need the dqlite model database to be available.
 	c.Skip("we need to seed the dqlite database with machine data")
-	testing.PatchExecutableAsEchoArgs(c, s, "ovs-vsctl", 0)
+	testhelpers.PatchExecutableAsEchoArgs(c, s, "ovs-vsctl", 0)
 
 	tracker := agenttest.NewEngineTracker()
 	instrumented := TrackMachines(c, tracker, iaasMachineManifolds)

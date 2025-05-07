@@ -8,13 +8,13 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type ParseBindSuite struct {
-	testing.LoggingSuite
+	testhelpers.LoggingSuite
 }
 
 var _ = tc.Suite(&ParseBindSuite{})

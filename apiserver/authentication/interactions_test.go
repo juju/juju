@@ -9,14 +9,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type InteractionsSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	interactions *authentication.Interactions
 }
 

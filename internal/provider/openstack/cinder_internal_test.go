@@ -7,9 +7,9 @@ import (
 	"github.com/go-goose/goose/v5/client"
 	"github.com/go-goose/goose/v5/identity"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 // TODO(axw) 2016-10-03 #1629721
@@ -18,7 +18,7 @@ import (
 // it more easily testable.
 
 type cinderInternalSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&cinderInternalSuite{})

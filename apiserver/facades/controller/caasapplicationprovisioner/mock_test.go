@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -30,11 +29,12 @@ import (
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/state"
 )
 
 type mockState struct {
-	testing.Stub
+	testhelpers.Stub
 
 	common.APIAddressAccessor
 	model                        *mockModel
@@ -133,7 +133,7 @@ func (m *mockStorageRegistry) StorageProvider(p storage.ProviderType) (storage.P
 }
 
 type mockStoragePoolGetter struct {
-	testing.Stub
+	testhelpers.Stub
 }
 
 func (m *mockStoragePoolGetter) GetStoragePoolByName(_ context.Context, name string) (*storage.Config, error) {
@@ -152,7 +152,7 @@ func (m *mockStoragePoolGetter) GetStorageRegistry(ctx context.Context) (storage
 }
 
 type mockModel struct {
-	testing.Stub
+	testhelpers.Stub
 	state *mockState
 }
 
@@ -182,7 +182,7 @@ func (m *mockModel) Containers(providerIds ...string) ([]state.CloudContainer, e
 }
 
 type mockApplication struct {
-	testing.Stub
+	testhelpers.Stub
 	state.Authenticator
 	life                 state.Life
 	tag                  names.Tag
@@ -293,7 +293,7 @@ func (a *mockApplication) Watch() state.NotifyWatcher {
 }
 
 type mockWatcher struct {
-	testing.Stub
+	testhelpers.Stub
 	tomb.Tomb
 }
 
@@ -331,7 +331,7 @@ func (w *mockStringsWatcher) Changes() <-chan []string {
 }
 
 type mockUnit struct {
-	testing.Stub
+	testhelpers.Stub
 	destroyOp           *state.DestroyUnitOperation
 	containerInfo       *mockCloudContainer
 	tag                 names.Tag
@@ -363,7 +363,7 @@ func (u *mockUnit) UpdateOperation(props state.UnitUpdateProperties) *state.Upda
 }
 
 type mockCloudContainer struct {
-	testing.Stub
+	testhelpers.Stub
 	unit       string
 	providerId string
 }
@@ -385,7 +385,7 @@ func (c *mockCloudContainer) Ports() []string {
 }
 
 type mockStorage struct {
-	testing.Stub
+	testhelpers.Stub
 	storageFilesystems map[names.StorageTag]names.FilesystemTag
 	storageVolumes     map[names.StorageTag]names.VolumeTag
 	storageAttachments map[names.UnitTag]names.StorageTag
@@ -493,7 +493,7 @@ func (a *mockStorageInstance) StorageName() string {
 
 type mockStorageAttachment struct {
 	state.StorageAttachment
-	testing.Stub
+	testhelpers.Stub
 	unit    names.UnitTag
 	storage names.StorageTag
 }
@@ -503,7 +503,7 @@ func (a *mockStorageAttachment) StorageInstance() names.StorageTag {
 }
 
 type mockFilesystem struct {
-	*testing.Stub
+	*testhelpers.Stub
 	state.Filesystem
 	tag    names.FilesystemTag
 	volTag names.VolumeTag
@@ -534,7 +534,7 @@ func (f *mockFilesystem) Info() (state.FilesystemInfo, error) {
 }
 
 type mockVolume struct {
-	*testing.Stub
+	*testhelpers.Stub
 	state.Volume
 	tag names.VolumeTag
 }

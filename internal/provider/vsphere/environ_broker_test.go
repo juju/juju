@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/soap"
@@ -36,13 +35,14 @@ import (
 	"github.com/juju/juju/internal/provider/vsphere/internal/ovatest"
 	"github.com/juju/juju/internal/provider/vsphere/internal/vsphereclient"
 	"github.com/juju/juju/internal/provider/vsphere/mocks"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 )
 
 type legacyEnvironBrokerSuite struct {
 	EnvironFixture
-	statusCallbackStub testing.Stub
+	statusCallbackStub testhelpers.Stub
 }
 
 var _ = tc.Suite(&legacyEnvironBrokerSuite{})

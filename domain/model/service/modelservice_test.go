@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/agentbinary"
@@ -27,11 +26,12 @@ import (
 	"github.com/juju/juju/domain/modelagent"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
 
 type modelServiceSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	mockControllerState        *MockControllerState
 	mockModelState             *MockModelState

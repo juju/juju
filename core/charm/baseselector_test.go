@@ -6,17 +6,17 @@ package charm
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/version"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type baseSelectorSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	logger logger.Logger
 	cfg    *MockSelectorModelConfig

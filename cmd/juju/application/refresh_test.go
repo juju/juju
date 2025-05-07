@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -42,6 +41,7 @@ import (
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -50,8 +50,8 @@ import (
 )
 
 type BaseRefreshSuite struct {
-	testing.IsolationSuite
-	testing.Stub
+	testhelpers.IsolationSuite
+	testhelpers.Stub
 
 	deployResources      deployer.DeployResourcesFunc
 	resolveCharm         mockCharmResolver
@@ -1207,7 +1207,7 @@ func (*mockAPIConnection) Close() error {
 
 type mockCharmAdder struct {
 	store.CharmAdder
-	testing.Stub
+	testhelpers.Stub
 }
 
 func (m *mockCharmAdder) AddCharm(ctx context.Context, curl *charm.URL, origin commoncharm.Origin, force bool) (commoncharm.Origin, error) {
@@ -1227,7 +1227,7 @@ func (m *mockCharmAdder) AddLocalCharm(ctx context.Context, curl *charm.URL, ch 
 
 type mockCharmClient struct {
 	apputils.CharmClient
-	testing.Stub
+	testhelpers.Stub
 	charmInfo      *apicommoncharms.CharmInfo
 	charmResources []charmresource.Resource
 }
@@ -1249,7 +1249,7 @@ func (m *mockCharmClient) ListCharmResources(ctx context.Context, curl string, o
 }
 
 type mockCharmResolver struct {
-	testing.Stub
+	testhelpers.Stub
 	resolveFunc func(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []corebase.Base, error)
 }
 
@@ -1259,7 +1259,7 @@ func (m *mockCharmResolver) ResolveCharm(ctx context.Context, url *charm.URL, pr
 
 type mockCharmRefreshClient struct {
 	CharmRefreshClient
-	testing.Stub
+	testhelpers.Stub
 	charmURL    *charm.URL
 	charmOrigin commoncharm.Origin
 
@@ -1293,7 +1293,7 @@ func newMockModelConfigGetter() mockModelConfigGetter {
 
 type mockModelConfigGetter struct {
 	deployer.ModelConfigGetter
-	testing.Stub
+	testhelpers.Stub
 
 	cfg map[string]interface{}
 }
@@ -1313,7 +1313,7 @@ func (m *mockModelConfigGetter) Close() error {
 
 type mockResourceLister struct {
 	apputils.ResourceLister
-	testing.Stub
+	testhelpers.Stub
 }
 
 func (m *mockResourceLister) ListResources(context.Context, []string) ([]coreresouces.ApplicationResources, error) {
@@ -1333,7 +1333,7 @@ func (m *mockResourceLister) ListResources(context.Context, []string) ([]coreres
 
 type mockSpacesClient struct {
 	SpacesAPI
-	testing.Stub
+	testhelpers.Stub
 
 	spaceList []params.Space
 }
@@ -1344,7 +1344,7 @@ func (m *mockSpacesClient) ListSpaces(ctx context.Context) ([]params.Space, erro
 }
 
 type mockDownloadBundleClient struct {
-	testing.Stub
+	testhelpers.Stub
 }
 
 func (m *mockDownloadBundleClient) Download(_ context.Context, resourceURL *url.URL, archivePath string, _ ...charmhub.DownloadOption) (*charmhub.Digest, error) {

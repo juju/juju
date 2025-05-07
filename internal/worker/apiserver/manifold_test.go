@@ -13,7 +13,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
@@ -33,6 +32,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/jwtparser"
 	"github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/apiserver"
 	"github.com/juju/juju/internal/worker/gate"
@@ -42,7 +42,7 @@ import (
 )
 
 type ManifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	manifold dependency.Manifold
 
@@ -70,7 +70,7 @@ type ManifoldSuite struct {
 	objectStoreGetter       stubObjectStoreGetter
 	jwtParser               *jwtparser.Parser
 
-	stub testing.Stub
+	stub testhelpers.Stub
 }
 
 var _ = tc.Suite(&ManifoldSuite{})
@@ -335,7 +335,7 @@ func (c *mockAgentConfig) Value(key string) string {
 }
 
 type stubStateTracker struct {
-	testing.Stub
+	testhelpers.Stub
 	pool  state.StatePool
 	state state.State
 }
@@ -356,7 +356,7 @@ func (s *stubStateTracker) Report() map[string]interface{} {
 }
 
 type stubPrometheusRegisterer struct {
-	testing.Stub
+	testhelpers.Stub
 }
 
 func (s *stubPrometheusRegisterer) MustRegister(...prometheus.Collector) {
@@ -374,7 +374,7 @@ func (s *stubPrometheusRegisterer) Unregister(c prometheus.Collector) bool {
 }
 
 type stubGateWaiter struct {
-	testing.Stub
+	testhelpers.Stub
 	gate.Waiter
 }
 
@@ -384,7 +384,7 @@ func (w *stubGateWaiter) IsUnlocked() bool {
 }
 
 type stubAuditConfig struct {
-	testing.Stub
+	testhelpers.Stub
 	config auditlog.Config
 }
 

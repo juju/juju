@@ -11,16 +11,16 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	statuscmd "github.com/juju/juju/cmd/juju/status"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type StatusHistorySuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	api statuscmd.HistoryAPI
 	now time.Time
 }

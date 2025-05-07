@@ -8,14 +8,14 @@ import (
 	"database/sql"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	databasetesting "github.com/juju/juju/internal/database/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type patchSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	tx *MockTx
 }

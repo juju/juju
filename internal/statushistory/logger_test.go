@@ -7,15 +7,15 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type loggerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	logger *MockLogger
 }

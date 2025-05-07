@@ -19,13 +19,13 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	_ "github.com/mattn/go-sqlite3"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/database/client"
 	"github.com/juju/juju/internal/database/pragma"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -43,7 +43,7 @@ type SchemaApplier interface {
 // It is not pre-populated with any schema and is the job the users of this
 // Suite to call ApplyDDL after SetupTest has been called.
 type DqliteSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	// Verbose indicates whether the suite should print all the sql
 	// hitting the db.

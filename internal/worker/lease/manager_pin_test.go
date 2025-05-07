@@ -8,14 +8,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	corelease "github.com/juju/juju/core/lease"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/lease"
 )
 
 type PinSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	appName string
 	machine string

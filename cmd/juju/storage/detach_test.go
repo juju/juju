@@ -8,17 +8,17 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/params"
 )
 
 type DetachStorageSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&DetachStorageSuite{})
@@ -78,7 +78,7 @@ func (s *DetachStorageSuite) testDetachInitError(c *tc.C, args []string, expect 
 }
 
 type fakeEntityDetacher struct {
-	testing.Stub
+	testhelpers.Stub
 	results []params.ErrorResult
 }
 

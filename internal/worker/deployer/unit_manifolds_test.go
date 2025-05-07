@@ -8,17 +8,17 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agenttest"
 	"github.com/juju/juju/core/logger"
 	internallogger "github.com/juju/juju/internal/logger"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/deployer"
 )
 
 type ManifoldsSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	config deployer.UnitManifoldsConfig
 }

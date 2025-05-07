@@ -7,11 +7,11 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type dummyLogSinkState struct {
@@ -26,7 +26,7 @@ func (d *dummyLogSinkState) GetModelSeedInformation(ctx context.Context, modelUU
 }
 
 type logSinkServiceSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	state *dummyLogSinkState
 }

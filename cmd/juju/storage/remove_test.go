@@ -8,18 +8,18 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/params"
 )
 
 type RemoveStorageSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&RemoveStorageSuite{})
@@ -138,7 +138,7 @@ func (s *RemoveStorageSuite) testRemoveStorageCAASInitError(c *tc.C, args []stri
 }
 
 type fakeStorageRemover struct {
-	testing.Stub
+	testhelpers.Stub
 	results []params.ErrorResult
 }
 

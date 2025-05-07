@@ -8,18 +8,18 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner/internal/filesystemwatcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/state"
 )
 
 var _ = tc.Suite(&WatchersSuite{})
 
 type WatchersSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	backend  *mockBackend
 	watchers filesystemwatcher.Watchers
 }

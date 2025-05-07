@@ -6,9 +6,9 @@ package runcommands_test
 import (
 	"context"
 
-	"github.com/juju/testing"
 	"github.com/juju/utils/v4/exec"
 
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/runner"
 	runnercontext "github.com/juju/juju/internal/worker/uniter/runner/context"
@@ -45,7 +45,7 @@ func (*mockRunnerContext) Prepare(context.Context) error {
 }
 
 type mockCallbacks struct {
-	testing.Stub
+	testhelpers.Stub
 	operation.Callbacks
 }
 

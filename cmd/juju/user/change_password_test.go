@@ -9,12 +9,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
 )
@@ -150,7 +150,7 @@ func (s *ChangePasswordCommandSuite) TestResetPasswordFail(c *tc.C) {
 	s.mockAPI.SetErrors(errors.New("failed to do something"))
 	context, _, err := s.run(c, "", "--reset", "other")
 	c.Assert(err, tc.ErrorMatches, "failed to do something")
-	s.mockAPI.CheckCalls(c, []testing.StubCall{
+	s.mockAPI.CheckCalls(c, []testhelpers.StubCall{
 		{"ResetPassword", []interface{}{"other"}},
 	})
 	// TODO (anastasiamac 2017-08-17)
@@ -165,7 +165,7 @@ func (s *ChangePasswordCommandSuite) TestResetOthersPassword(c *tc.C) {
 	s.mockAPI.key = []byte("no cats or dragons")
 	context, _, err := s.run(c, "", "other", "--reset")
 	c.Assert(err, tc.ErrorIsNil)
-	s.mockAPI.CheckCalls(c, []testing.StubCall{
+	s.mockAPI.CheckCalls(c, []testhelpers.StubCall{
 		{"ResetPassword", []interface{}{"other"}},
 	})
 	c.Assert(cmdtesting.Stdout(context), tc.Equals, "")
@@ -187,7 +187,7 @@ If you want to change it, please call `[1:]+"`juju change-user-password`"+` with
 }
 
 type mockChangePasswordAPI struct {
-	testing.Stub
+	testhelpers.Stub
 	key []byte
 }
 

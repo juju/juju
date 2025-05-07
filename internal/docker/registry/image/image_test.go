@@ -7,15 +7,15 @@ import (
 	"encoding/json"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/docker/registry/image"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type imageSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&imageSuite{})

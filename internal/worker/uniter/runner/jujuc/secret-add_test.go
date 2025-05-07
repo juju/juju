@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 )
 
@@ -130,7 +130,7 @@ func (s *SecretAddSuite) TestAddSecretExpireTimestamp(c *tc.C) {
 		},
 		Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "u"},
 	}
-	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UnitName"}, {FuncName: "CreateSecret", Args: []interface{}{args}}})
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{{FuncName: "UnitName"}, {FuncName: "CreateSecret", Args: []interface{}{args}}})
 	c.Assert(bufferString(ctx.Stdout), tc.Equals, "secret:9m4e2mr0ui3e8a215n4g\n")
 }
 
@@ -150,7 +150,7 @@ func (s *SecretAddSuite) TestAddSecretBase64(c *tc.C) {
 		},
 		Owner: coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "u/0"},
 	}
-	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UnitName"}, {FuncName: "CreateSecret", Args: []interface{}{args}}})
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{{FuncName: "UnitName"}, {FuncName: "CreateSecret", Args: []interface{}{args}}})
 	c.Assert(bufferString(ctx.Stdout), tc.Equals, "secret:9m4e2mr0ui3e8a215n4g\n")
 }
 
@@ -187,6 +187,6 @@ func (s *SecretAddSuite) TestAddSecretFromFile(c *tc.C) {
 		},
 		Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "u"},
 	}
-	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UnitName"}, {FuncName: "CreateSecret", Args: []interface{}{args}}})
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{{FuncName: "UnitName"}, {FuncName: "CreateSecret", Args: []interface{}{args}}})
 	c.Assert(bufferString(ctx.Stdout), tc.Equals, "secret:9m4e2mr0ui3e8a215n4g\n")
 }

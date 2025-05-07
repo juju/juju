@@ -17,7 +17,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	abstractions "github.com/microsoft/kiota-abstractions-go"
 	"github.com/microsoft/kiota-abstractions-go/authentication"
 	"github.com/microsoft/kiota-abstractions-go/serialization"
@@ -28,6 +27,7 @@ import (
 
 	"github.com/juju/juju/internal/provider/azure/internal/azureauth"
 	"github.com/juju/juju/internal/provider/azure/internal/azuretesting"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type requestResult struct {
@@ -73,7 +73,7 @@ func (m *MockRequestAdaptor) Send(ctx context.Context, requestInfo *abstractions
 }
 
 type InteractiveSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	clock   testclock.AdvanceableClock
 	newUUID func() (uuid.UUID, error)
 }

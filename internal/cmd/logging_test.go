@@ -10,17 +10,17 @@ import (
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	internallogger "github.com/juju/juju/internal/logger"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 var logger = internallogger.GetLogger("juju.test")
 
 type LogSuite struct {
-	testing.LoggingCleanupSuite
+	testhelpers.LoggingCleanupSuite
 }
 
 var _ = tc.Suite(&LogSuite{})

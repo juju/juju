@@ -10,14 +10,14 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type AuditLogSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&AuditLogSuite{})
@@ -141,7 +141,7 @@ func (s *AuditLogSuite) TestRecorder(c *tc.C) {
 }
 
 type fakeLog struct {
-	stub testing.Stub
+	stub testhelpers.Stub
 }
 
 func (l *fakeLog) AddConversation(m auditlog.Conversation) error {

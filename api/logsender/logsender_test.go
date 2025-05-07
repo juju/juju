@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/logsender"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -82,7 +82,7 @@ func (s *LogSenderSuite) TestNewAPIReadError(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 	select {
 	case <-conn.closed:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timeout waiting for connection to close")
 	}
 

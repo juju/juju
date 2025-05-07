@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/tomb.v2"
@@ -22,6 +21,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalpubsub "github.com/juju/juju/internal/pubsub"
 	"github.com/juju/juju/internal/pubsub/apiserver"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type WorkerSuite struct {
@@ -145,7 +145,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChanges(c *tc.C) {
 			select {
 			case ch <- s.connection:
 			case <-ctx.Done():
-			case <-time.After(testing.LongWait):
+			case <-time.After(testhelpers.LongWait):
 				c.Fatalf("timed out waiting for connection")
 			}
 		}()
@@ -181,7 +181,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChanges(c *tc.C) {
 
 	select {
 	case <-done:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("timed out waiting for worker to finish")
 	}
 
@@ -235,7 +235,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesNonInternalAddress(c *tc.C) {
 
 	select {
 	case <-done:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("timed out waiting for worker to finish")
 	}
 
@@ -288,7 +288,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesRemovesOldAddress(c *tc.C) {
 
 	select {
 	case <-done1:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("timed out waiting for worker to finish")
 	}
 
@@ -311,7 +311,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesRemovesOldAddress(c *tc.C) {
 
 	select {
 	case <-done2:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("timed out waiting for worker to finish")
 	}
 
@@ -324,7 +324,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesRemovesOldAddress(c *tc.C) {
 		// up before we can check the worker names. It would be better if
 		// runner exposed a way to emit changes to the internal state.
 		time.Sleep(100 * time.Millisecond)
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("timed out waiting for worker to finish")
 	}
 
@@ -378,7 +378,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithSameAddress(c *tc.C) {
 
 	select {
 	case <-done1:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("timed out waiting for worker to finish")
 	}
 
@@ -401,7 +401,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithSameAddress(c *tc.C) {
 
 	select {
 	case <-done2:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("timed out waiting for worker to finish")
 	}
 

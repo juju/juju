@@ -10,13 +10,13 @@ import (
 
 	"github.com/bmizerany/pat"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type MuxBenchSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&MuxBenchSuite{})

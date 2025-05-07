@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/api/agent/uniter"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -362,7 +362,7 @@ func (s *unitSuite) TestWatch(c *tc.C) {
 	select {
 	case _, ok := <-w.Changes():
 		c.Assert(ok, tc.IsTrue)
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("watcher did not send change")
 	}
 }
@@ -409,7 +409,7 @@ func (s *unitSuite) TestWatchResolveMode(c *tc.C) {
 	select {
 	case _, ok := <-w.Changes():
 		c.Assert(ok, tc.IsTrue)
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("watcher did not send change")
 	}
 }
@@ -1103,7 +1103,7 @@ func (s *unitSuite) TestWatchInstanceData(c *tc.C) {
 	select {
 	case _, ok := <-w.Changes():
 		c.Assert(ok, tc.IsTrue)
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("watcher did not send change")
 	}
 }

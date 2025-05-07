@@ -8,23 +8,23 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
 type SuspendRelationSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	mockAPI *mockSuspendAPI
 }
 
 func (s *SuspendRelationSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.mockAPI = &mockSuspendAPI{Stub: &testing.Stub{}}
+	s.mockAPI = &mockSuspendAPI{Stub: &testhelpers.Stub{}}
 	s.mockAPI.setRelationSuspendedFunc = func(relationIds []int, suspended bool, message string) error {
 		return s.mockAPI.NextErr()
 	}
@@ -73,7 +73,7 @@ func (s *SuspendRelationSuite) TestSuspendRelationBlocked(c *tc.C) {
 }
 
 type mockSuspendAPI struct {
-	*testing.Stub
+	*testhelpers.Stub
 	setRelationSuspendedFunc func(relationIds []int, suspended bool, message string) error
 }
 

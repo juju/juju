@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cmd/juju/commands/mocks"
@@ -20,6 +19,7 @@ import (
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 )
@@ -39,7 +39,7 @@ func newUpgradeControllerCommandForTest(
 }
 
 type upgradeControllerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	modelConfigAPI *mocks.MockModelConfigAPI
 	modelUpgrader  *mocks.MockModelUpgraderAPI

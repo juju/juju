@@ -7,22 +7,22 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
 type ResolvedSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	mockAPI *mockResolveAPI
 }
 
 func (s *ResolvedSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.mockAPI = &mockResolveAPI{Stub: &testing.Stub{}}
+	s.mockAPI = &mockResolveAPI{Stub: &testhelpers.Stub{}}
 }
 
 var _ = tc.Suite(&ResolvedSuite{})
@@ -79,7 +79,7 @@ func (s *ResolvedSuite) TestResolved(c *tc.C) {
 }
 
 type mockResolveAPI struct {
-	*testing.Stub
+	*testhelpers.Stub
 }
 
 func (s mockResolveAPI) Close() error {

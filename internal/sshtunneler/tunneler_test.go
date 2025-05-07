@@ -12,12 +12,12 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	gomock "go.uber.org/mock/gomock"
 	gossh "golang.org/x/crypto/ssh"
 
 	network "github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/pki/test"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type sshTunnelerSuite struct {
@@ -336,7 +336,7 @@ func (s *sshTunnelerSuite) TestRequestTunnelTimeout(c *tc.C) {
 func (s *sshTunnelerSuite) TestRequestTunnelDeadline(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	restore := testing.PatchValue(&maxTimeout, 1*time.Millisecond)
+	restore := testhelpers.PatchValue(&maxTimeout, 1*time.Millisecond)
 	defer restore()
 
 	tunnelTracker := s.newTracker(c)

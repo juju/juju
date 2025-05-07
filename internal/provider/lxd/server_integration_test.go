@@ -13,12 +13,12 @@ import (
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cloud"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/provider/lxd"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 var (
@@ -28,7 +28,7 @@ var (
 // serverIntegrationSuite tests server module functionality from outside the
 // lxd package. See server_test.go for package-local unit tests.
 type serverIntegrationSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 func (s *serverIntegrationSuite) TestLocalServer(c *tc.C) {

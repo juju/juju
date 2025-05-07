@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/instancemutater"
 	"github.com/juju/juju/internal/worker/instancemutater/mocks"
 	workermocks "github.com/juju/juju/internal/worker/mocks"
@@ -33,7 +33,7 @@ import (
 )
 
 type workerConfigSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&workerConfigSuite{})
@@ -151,7 +151,7 @@ func (s *workerConfigSuite) TestValidConfigValidate(c *tc.C) {
 }
 
 type workerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	logger                 logger.Logger
 	facade                 *mocks.MockInstanceMutaterAPI
@@ -689,7 +689,7 @@ func (s *workerSuite) waitDone(c *tc.C) {
 
 	select {
 	case <-ch:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Errorf("timed out waiting for notifications to be consumed")
 	}
 }

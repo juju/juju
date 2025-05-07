@@ -8,15 +8,15 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type networkConfigSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	source *MockConfigSource
 

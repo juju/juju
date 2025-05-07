@@ -10,16 +10,16 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/kr/pretty"
 
 	corelogger "github.com/juju/juju/core/logger"
 	coretesting "github.com/juju/juju/core/testing"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type BufferedLogWriterSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&BufferedLogWriterSuite{})
@@ -71,7 +71,7 @@ func (s *BufferedLogWriterSuite) TestLogFlushes(c *tc.C) {
 
 	err = b.Log(in[2:])
 	c.Assert(err, tc.ErrorIsNil)
-	mock.CheckCalls(c, []testing.StubCall{
+	mock.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "Log", Args: []any{in}},
 	})
 
@@ -98,7 +98,7 @@ func (s *BufferedLogWriterSuite) TestLogFlushesMultiple(c *tc.C) {
 
 	err := b.Log(in)
 	c.Assert(err, tc.ErrorIsNil)
-	mock.CheckCalls(c, []testing.StubCall{
+	mock.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "Log", Args: []any{in[:1]}},
 		{FuncName: "Log", Args: []any{in[1:2]}},
 		{FuncName: "Log", Args: []any{in[2:]}},
@@ -136,7 +136,7 @@ func (s *BufferedLogWriterSuite) TestTimerFlushes(c *tc.C) {
 	// Advance to to the flush interval.
 	clock.Advance(30 * time.Second)
 	c.Assert(s.waitFlush(c, &mock), tc.DeepEquals, in)
-	mock.CheckCalls(c, []testing.StubCall{
+	mock.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "Log", Args: []any{in}},
 	})
 	s.assertNoFlush(c, &mock, clock)
@@ -150,7 +150,7 @@ func (s *BufferedLogWriterSuite) TestTimerFlushes(c *tc.C) {
 	mock.CheckNoCalls(c)
 	clock.Advance(1 * time.Second)
 	c.Assert(s.waitFlush(c, &mock), tc.DeepEquals, in)
-	mock.CheckCalls(c, []testing.StubCall{
+	mock.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "Log", Args: []any{in}},
 	})
 	s.assertNoFlush(c, &mock, clock)
@@ -184,7 +184,7 @@ func (s *BufferedLogWriterSuite) TestLogOverCapacity(c *tc.C) {
 	clock.WaitAdvance(time.Minute, coretesting.LongWait, 1)
 	c.Assert(s.waitFlush(c, &mock), tc.DeepEquals, in[bufsz:])
 
-	mock.CheckCalls(c, []testing.StubCall{
+	mock.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "Log", Args: []any{in[:bufsz]}},
 		{FuncName: "Log", Args: []any{in[bufsz:]}},
 	})
@@ -225,7 +225,7 @@ func (s *BufferedLogWriterSuite) TestFlushSorts(c *tc.C) {
 	clock.WaitAdvance(time.Minute, coretesting.LongWait, 1)
 	c.Assert(s.waitFlush(c, &mock), tc.DeepEquals, []corelogger.LogRecord{r1})
 
-	mock.CheckCalls(c, []testing.StubCall{
+	mock.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "Log", Args: []any{[]corelogger.LogRecord{r3, r2}}},
 		{FuncName: "Log", Args: []any{[]corelogger.LogRecord{r1}}},
 	})
@@ -314,7 +314,7 @@ func (s *BufferedLogWriterSuite) TestLogReportsError(c *tc.C) {
 }
 
 type mockLogRecorder struct {
-	testing.Stub
+	testhelpers.Stub
 	called chan []corelogger.LogRecord
 }
 

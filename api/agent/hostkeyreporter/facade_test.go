@@ -9,21 +9,21 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/api/agent/hostkeyreporter"
 	basetesting "github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 type facadeSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&facadeSuite{})
 
 func (s *facadeSuite) TestReportKeys(c *tc.C) {
-	stub := new(testing.Stub)
+	stub := new(testhelpers.Stub)
 	apiCaller := basetesting.APICallerFunc(func(
 		objType string, version int,
 		id, request string,
@@ -45,7 +45,7 @@ func (s *facadeSuite) TestReportKeys(c *tc.C) {
 	err := facade.ReportKeys(context.Background(), "42", []string{"rsa", "dsa"})
 	c.Assert(err, tc.ErrorIsNil)
 
-	stub.CheckCalls(c, []testing.StubCall{{
+	stub.CheckCalls(c, []testhelpers.StubCall{{
 		"ReportKeys", []interface{}{params.SSHHostKeySet{
 			EntityKeys: []params.SSHHostKeys{{
 				Tag:        names.NewMachineTag("42").String(),

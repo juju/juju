@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cloud"
@@ -37,12 +36,13 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujusecrets "github.com/juju/juju/internal/secrets/provider/juju"
 	kubernetessecrets "github.com/juju/juju/internal/secrets/provider/kubernetes"
+	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
 type serviceSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	userUUID user.UUID
 	state    *dummyState
@@ -1126,7 +1126,7 @@ func (s *serviceSuite) TestWatchActivatedModels(c *tc.C) {
 
 	select {
 	case changes <- activatedModelUUIDsStr:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("failed to send changes to channel")
 	}
 
@@ -1143,7 +1143,7 @@ func (s *serviceSuite) TestWatchActivatedModels(c *tc.C) {
 	select {
 	case change := <-watcher.Changes():
 		c.Check(change, tc.DeepEquals, activatedModelUUIDsStr)
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("failed to receive changes from watcher")
 	}
 }
@@ -1362,13 +1362,13 @@ func (s *serviceSuite) TestWatchModelCloudCredential(c *tc.C) {
 
 	select {
 	case ch <- struct{}{}:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("failed to send changes to channel")
 	}
 
 	select {
 	case <-w.Changes():
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("failed to receive changes from watcher")
 	}
 }

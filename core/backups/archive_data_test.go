@@ -9,14 +9,14 @@ import (
 	"io"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/core/backups"
 	bt "github.com/juju/juju/core/backups/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type archiveDataSuiteV0 struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	baseArchiveDataSuite
 }
 
