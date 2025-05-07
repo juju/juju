@@ -77,16 +77,15 @@ type Machine interface {
 // All the interface methods are defined directly on state.Model
 // and are reproduced here for use in tests.
 type Model interface {
-	Type() state.ModelType
 	Life() state.Life
+	TypeOld() state.ModelType
 	ModelTag() names.ModelTag
 	Owner() names.UserTag
-	CloudName() string
-	CloudCredentialTag() (names.CloudCredentialTag, bool)
-	CloudRegion() string
+	CloudNameOld() string
+	CloudRegionOld() string
 	Destroy(state.DestroyModelParams) error
-	Name() string
-	UUID() string
+	NameOld() string
+	UUIDOld() string
 	// TODO(aflynn): ControllerUUID is only here because the EnvironConfigGetter
 	// needs a Model with this model. Once this is gone ControllerUUID can be
 	// removed from this interface.

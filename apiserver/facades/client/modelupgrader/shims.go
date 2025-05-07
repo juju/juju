@@ -38,8 +38,8 @@ type Model interface {
 	IsControllerModel() bool
 
 	Owner() names.UserTag
-	Name() string
-	Type() state.ModelType
+	NameOld() string
+	TypeOld() state.ModelType
 	Life() state.Life
 }
 

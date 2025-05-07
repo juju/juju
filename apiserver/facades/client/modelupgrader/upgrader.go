@@ -317,7 +317,7 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 
 		validators := upgradevalidation.ModelValidatorsForControllerModelUpgrade(targetVersion)
 
-		modelNameKey := fmt.Sprintf("%s/%s", stModel.Owner().Id(), stModel.Name())
+		modelNameKey := fmt.Sprintf("%s/%s", stModel.Owner().Id(), stModel.NameOld())
 		modelAgentVersionService, err := m.modelAgentServiceGetter(ctx, coremodel.UUID(modelUUID))
 		if err != nil {
 			return errors.Trace(err)
@@ -325,7 +325,7 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 		checker := upgradevalidation.NewModelUpgradeCheck(st, modelNameKey, modelAgentVersionService, validators...)
 		blockersForModel, err := checker.Validate()
 		if err != nil {
-			return errors.Annotatef(err, "validating model %q for controller upgrade", stModel.Name())
+			return errors.Annotatef(err, "validating model %q for controller upgrade", stModel.NameOld())
 		}
 		if blockersForModel == nil {
 			// all good.

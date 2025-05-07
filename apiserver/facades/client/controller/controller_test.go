@@ -494,8 +494,8 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.mockModelService.EXPECT().Model(gomock.Any(), model.UUID(model1.ModelTag().Id())).Return(
 		model.Model{
-			UUID:      model.UUID(model1.UUID()),
-			Name:      model1.Name(),
+			UUID:      model.UUID(model1.UUIDOld()),
+			Name:      model1.NameOld(),
 			OwnerName: user.NameFromTag(model1.Owner()),
 		}, nil,
 	)
@@ -506,8 +506,8 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.mockModelService.EXPECT().Model(gomock.Any(), model.UUID(model2.ModelTag().Id())).Return(
 		model.Model{
-			UUID:      model.UUID(model2.UUID()),
-			Name:      model2.Name(),
+			UUID:      model.UUID(model2.UUIDOld()),
+			Name:      model2.NameOld(),
 			OwnerName: user.NameFromTag(model2.Owner()),
 		}, nil,
 	)
@@ -600,8 +600,8 @@ func (s *controllerSuite) TestInitiateMigrationSpecError(c *gc.C) {
 
 	s.mockModelService.EXPECT().Model(gomock.Any(), model.UUID(m.ModelTag().Id())).Return(
 		model.Model{
-			UUID:      model.UUID(m.UUID()),
-			Name:      m.Name(),
+			UUID:      model.UUID(m.UUIDOld()),
+			Name:      m.NameOld(),
 			OwnerName: user.NameFromTag(m.Owner()),
 		}, nil,
 	)
@@ -624,8 +624,8 @@ func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.mockModelService.EXPECT().Model(gomock.Any(), model.UUID(m.ModelTag().Id())).Return(
 		model.Model{
-			UUID:      model.UUID(m.UUID()),
-			Name:      m.Name(),
+			UUID:      model.UUID(m.UUIDOld()),
+			Name:      m.NameOld(),
 			OwnerName: user.NameFromTag(m.Owner()),
 		}, nil,
 	)
@@ -688,8 +688,8 @@ func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *gc.C) {
 	}
 	s.mockModelService.EXPECT().Model(gomock.Any(), model.UUID(m.ModelTag().Id())).Return(
 		model.Model{
-			UUID:      model.UUID(m.UUID()),
-			Name:      m.Name(),
+			UUID:      model.UUID(m.UUIDOld()),
+			Name:      m.NameOld(),
 			OwnerName: user.NameFromTag(m.Owner()),
 		}, nil,
 	)
@@ -715,8 +715,8 @@ func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *gc.C) {
 	m, err := st.Model()
 	s.mockModelService.EXPECT().Model(gomock.Any(), model.UUID(m.ModelTag().Id())).Return(
 		model.Model{
-			UUID:      model.UUID(m.UUID()),
-			Name:      m.Name(),
+			UUID:      model.UUID(m.UUIDOld()),
+			Name:      m.NameOld(),
 			OwnerName: user.NameFromTag(m.Owner()),
 		}, nil,
 	)

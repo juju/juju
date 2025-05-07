@@ -174,11 +174,11 @@ func TargetPrecheck(
 		// If the model is importing then it's probably left behind
 		// from a previous migration attempt. It will be removed
 		// before the next import.
-		if model.UUID() == modelInfo.UUID && mode != state.MigrationModeImporting {
+		if model.UUIDOld() == modelInfo.UUID && mode != state.MigrationModeImporting {
 			return errors.Errorf("model with same UUID already exists (%s)", modelInfo.UUID)
 		}
-		if model.Name() == modelInfo.Name && model.Owner() == modelInfo.Owner {
-			return errors.Errorf("model named %q already exists", model.Name())
+		if model.NameOld() == modelInfo.Name && model.Owner() == modelInfo.Owner {
+			return errors.Errorf("model named %q already exists", model.NameOld())
 		}
 	}
 
@@ -330,7 +330,7 @@ func (c *precheckContext) checkApplications(ctx context.Context) (map[string][]P
 		if err != nil {
 			return nil, errors.Annotatef(err, "retrieving units for %s", app.Name())
 		}
-		err = c.checkUnits(ctx, app, units, modelVersion, model.Type())
+		err = c.checkUnits(ctx, app, units, modelVersion, model.TypeOld())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -433,7 +433,7 @@ func (ctx *precheckSource) checkModel(stdCtx context.Context) error {
 	if mode == state.MigrationModeImporting {
 		return errors.New("model is being imported as part of another migration")
 	}
-	if credTag, found := model.CloudCredentialTag(); found {
+	if credTag, found := model.CloudCredentialTagOld(); found {
 		creds, err := ctx.credentialService.CloudCredential(stdCtx, credential.KeyFromTag(credTag))
 		if err != nil {
 			return errors.Trace(err)
@@ -444,7 +444,7 @@ func (ctx *precheckSource) checkModel(stdCtx context.Context) error {
 	}
 
 	validators := upgradevalidation.ValidatorsForModelMigrationSource()
-	modelGroupedName := fmt.Sprintf("%s/%s", model.Owner().Id(), model.Name())
+	modelGroupedName := fmt.Sprintf("%s/%s", model.Owner().Id(), model.NameOld())
 	checker := upgradevalidation.NewModelUpgradeCheck(ctx.backend, modelGroupedName, ctx.modelAgentService, validators...)
 	blockers, err := checker.Validate()
 	if err != nil {

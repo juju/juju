@@ -441,40 +441,40 @@ func (c *MockModelLifeCall) DoAndReturn(f func() state.Life) *MockModelLifeCall 
 	return c
 }
 
-// Name mocks base method.
-func (m *MockModel) Name() string {
+// NameOld mocks base method.
+func (m *MockModel) NameOld() string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Name")
+	ret := m.ctrl.Call(m, "NameOld")
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
-// Name indicates an expected call of Name.
-func (mr *MockModelMockRecorder) Name() *MockModelNameCall {
+// NameOld indicates an expected call of NameOld.
+func (mr *MockModelMockRecorder) NameOld() *MockModelNameOldCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockModel)(nil).Name))
-	return &MockModelNameCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NameOld", reflect.TypeOf((*MockModel)(nil).NameOld))
+	return &MockModelNameOldCall{Call: call}
 }
 
-// MockModelNameCall wrap *gomock.Call
-type MockModelNameCall struct {
+// MockModelNameOldCall wrap *gomock.Call
+type MockModelNameOldCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelNameCall) Return(arg0 string) *MockModelNameCall {
+func (c *MockModelNameOldCall) Return(arg0 string) *MockModelNameOldCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelNameCall) Do(f func() string) *MockModelNameCall {
+func (c *MockModelNameOldCall) Do(f func() string) *MockModelNameOldCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelNameCall) DoAndReturn(f func() string) *MockModelNameCall {
+func (c *MockModelNameOldCall) DoAndReturn(f func() string) *MockModelNameOldCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -517,40 +517,40 @@ func (c *MockModelOwnerCall) DoAndReturn(f func() names.UserTag) *MockModelOwner
 	return c
 }
 
-// Type mocks base method.
-func (m *MockModel) Type() state.ModelType {
+// TypeOld mocks base method.
+func (m *MockModel) TypeOld() state.ModelType {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Type")
+	ret := m.ctrl.Call(m, "TypeOld")
 	ret0, _ := ret[0].(state.ModelType)
 	return ret0
 }
 
-// Type indicates an expected call of Type.
-func (mr *MockModelMockRecorder) Type() *MockModelTypeCall {
+// TypeOld indicates an expected call of TypeOld.
+func (mr *MockModelMockRecorder) TypeOld() *MockModelTypeOldCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Type", reflect.TypeOf((*MockModel)(nil).Type))
-	return &MockModelTypeCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TypeOld", reflect.TypeOf((*MockModel)(nil).TypeOld))
+	return &MockModelTypeOldCall{Call: call}
 }
 
-// MockModelTypeCall wrap *gomock.Call
-type MockModelTypeCall struct {
+// MockModelTypeOldCall wrap *gomock.Call
+type MockModelTypeOldCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelTypeCall) Return(arg0 state.ModelType) *MockModelTypeCall {
+func (c *MockModelTypeOldCall) Return(arg0 state.ModelType) *MockModelTypeOldCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelTypeCall) Do(f func() state.ModelType) *MockModelTypeCall {
+func (c *MockModelTypeOldCall) Do(f func() state.ModelType) *MockModelTypeOldCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelTypeCall) DoAndReturn(f func() state.ModelType) *MockModelTypeCall {
+func (c *MockModelTypeOldCall) DoAndReturn(f func() state.ModelType) *MockModelTypeOldCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

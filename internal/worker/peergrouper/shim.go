@@ -30,7 +30,7 @@ func (s StateShim) ControllerHost(id string) (ControllerHost, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if model.Type() == state.ModelTypeIAAS {
+	if model.TypeOld() == state.ModelTypeIAAS {
 		return s.State.Machine(id)
 	}
 
