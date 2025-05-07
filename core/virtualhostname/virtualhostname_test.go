@@ -86,6 +86,11 @@ func (s *HostnameSuite) TestParseHostname(c *gc.C) {
 			hostname:    "1a.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 			expectedErr: `could not parse hostname`,
 		},
+		{
+			desc:        "Container specified without application name",
+			hostname:    "hello-kubecon.0.976cbcdc-c49a-4e02-8f29-da260038e517.juju.local",
+			expectedErr: `container name specified without an application name`,
+		},
 	}
 	for i, tC := range testCases {
 		c.Logf("test %d: %s", i, tC.desc)
