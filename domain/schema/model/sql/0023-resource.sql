@@ -104,16 +104,6 @@ CREATE TABLE resource_retrieved_by (
     REFERENCES resource_retrieved_by_type (id)
 );
 
--- This is a container image resource used by a kubernetes application.
--- They are not recorded by unit.
-CREATE TABLE kubernetes_application_resource (
-    resource_uuid TEXT NOT NULL PRIMARY KEY,
-    added_at TIMESTAMP NOT NULL,
-    CONSTRAINT fk_resource_uuid
-    FOREIGN KEY (resource_uuid)
-    REFERENCES resource (uuid)
-);
-
 -- This is a resource used by to a unit.
 CREATE TABLE unit_resource (
     resource_uuid TEXT NOT NULL,

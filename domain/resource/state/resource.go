@@ -270,18 +270,6 @@ WHERE resource_uuid  IN ($uuids[:])`, resUUIDs)
 		return errors.Capture(err)
 	}
 
-	// Delete kubernetes application resources.
-	deleteFromKubernetesApplicationResourceStmt, err := st.Prepare(`
-DELETE FROM kubernetes_application_resource
-WHERE resource_uuid IN ($uuids[:])`, resUUIDs)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	err = tx.Query(ctx, deleteFromKubernetesApplicationResourceStmt, resUUIDs).Run()
-	if err != nil {
-		return errors.Capture(err)
-	}
-
 	// Delete application resources.
 	deleteFromApplicationResourceStmt, err := st.Prepare(`
 DELETE FROM application_resource
@@ -1048,90 +1036,6 @@ WHERE  uuid IN (
 	}
 
 	return nil
-}
-
-// SetApplicationResource marks an existing resource as in use by a kubernetes
-// application.
-//
-// Existing links between the application and resources with the same charm uuid
-// and resource name as the resource being set are left in the table to be
-// removed later on resource cleanup.
-//
-// The following error types can be expected to be returned:
-//   - [resourceerrors.ResourceNotFound] is returned if the resource cannot be
-//     found.
-func (st *State) SetApplicationResource(
-	ctx context.Context,
-	resourceUUID coreresource.UUID,
-) error {
-	db, err := st.DB()
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// Prepare statement to check if the unit/resource is not already there.
-	k8sAppResource := kubernetesApplicationResource{
-		ResourceUUID: resourceUUID.String(),
-		AddedAt:      st.clock.Now(),
-	}
-	checkK8sAppResourceAlreadyExistsStmt, err := st.Prepare(`
-SELECT &kubernetesApplicationResource.*
-FROM   kubernetes_application_resource
-WHERE  kubernetes_application_resource.resource_uuid = $kubernetesApplicationResource.resource_uuid
-`, k8sAppResource)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	checkResourceExistsStmt, err := st.Prepare(`
-SELECT uuid AS &kubernetesApplicationResource.resource_uuid
-FROM   resource
-WHERE  uuid = $kubernetesApplicationResource.resource_uuid
-`, k8sAppResource)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// Prepare statement to insert a new link between unit and resource.
-	insertK8sAppResourceStmt, err := st.Prepare(`
-INSERT INTO kubernetes_application_resource (resource_uuid, added_at)
-VALUES      ($kubernetesApplicationResource.*)
-`, k8sAppResource)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Check unit resource is not already inserted.
-		err := tx.Query(ctx, checkK8sAppResourceAlreadyExistsStmt, k8sAppResource).Get(&k8sAppResource)
-		if err == nil {
-			// If the kubernetes application resource already exists, do nothing
-			// and return.
-			return nil
-		}
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Capture(err)
-		}
-
-		// Check resource exists.
-		err = tx.Query(ctx, checkResourceExistsStmt, k8sAppResource).Get(&k8sAppResource)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("resource %s: %w", resourceUUID, resourceerrors.ResourceNotFound)
-		} else if err != nil {
-			return errors.Capture(err)
-		}
-
-		// Update kubernetes application resource table.
-		var outcome sqlair.Outcome
-		err = tx.Query(ctx, insertK8sAppResourceStmt, k8sAppResource).Get(&outcome)
-		if err != nil {
-			return errors.Capture(err)
-		}
-
-		return nil
-	})
-
-	return err
 }
 
 // SetUnitResource links a unit and a resource. If the unit is already linked to
@@ -2370,20 +2274,6 @@ INSERT INTO application_resource (*) VALUES ($applicationResource.*)
 		err = tx.Query(ctx, insertApplicationResourceStmt, toSet.applicationResources).Run()
 		if err != nil {
 			return errors.Errorf("linking resources to applications: %w", err)
-		}
-	}
-
-	// Bulk insert the kubernetes-application-resource links.
-	if len(toSet.kubernetesApplicationResources) > 0 {
-		insertK8sResourceStmt, err := st.Prepare(`
-INSERT INTO kubernetes_application_resource (*) VALUES ($kubernetesApplicationResource.*)
-`, kubernetesApplicationResource{})
-		if err != nil {
-			return errors.Capture(err)
-		}
-		err = tx.Query(ctx, insertK8sResourceStmt, toSet.kubernetesApplicationResources).Run()
-		if err != nil {
-			return errors.Errorf("linking resources to kubernetes applications: %w", err)
 		}
 	}
 

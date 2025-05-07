@@ -442,49 +442,6 @@ func (s *OpenerSuite) TestSetResourceUsedUnitError(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, expectedErr)
 }
 
-func (s *OpenerSuite) TestSetResourceUsedApplication(c *gc.C) {
-	defer s.setupMocks(c, false).Finish()
-	s.resourceService.EXPECT().GetApplicationResourceID(
-		gomock.Any(), domainresource.GetApplicationResourceIDArgs{
-			ApplicationID: s.appID,
-			Name:          "wal-e",
-		},
-	).Return(s.resourceUUID, nil)
-
-	s.resourceService.EXPECT().SetApplicationResource(
-		gomock.Any(),
-		s.resourceUUID,
-	)
-
-	err := s.newApplicationResourceOpener(c).SetResourceUsed(
-		context.Background(),
-		"wal-e",
-	)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *OpenerSuite) TestSetResourceUsedApplicationError(c *gc.C) {
-	defer s.setupMocks(c, false).Finish()
-	s.resourceService.EXPECT().GetApplicationResourceID(
-		gomock.Any(), domainresource.GetApplicationResourceIDArgs{
-			ApplicationID: s.appID,
-			Name:          "wal-e",
-		},
-	).Return(s.resourceUUID, nil)
-
-	expectedErr := errors.New("boom")
-	s.resourceService.EXPECT().SetApplicationResource(
-		gomock.Any(),
-		s.resourceUUID,
-	).Return(expectedErr)
-
-	err := s.newApplicationResourceOpener(c).SetResourceUsed(
-		context.Background(),
-		"wal-e",
-	)
-	c.Assert(err, jc.ErrorIs, expectedErr)
-}
-
 func (s *OpenerSuite) expectNewUnitResourceOpener(c *gc.C) {
 	// Service calls in NewResourceOpenerForUnit.
 	s.applicationService.EXPECT().GetApplicationIDByUnitName(
