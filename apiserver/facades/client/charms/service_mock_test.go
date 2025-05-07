@@ -16,8 +16,6 @@ import (
 	application "github.com/juju/juju/core/application"
 	charm "github.com/juju/juju/core/charm"
 	constraints "github.com/juju/juju/core/constraints"
-	instance "github.com/juju/juju/core/instance"
-	machine "github.com/juju/juju/core/machine"
 	charm0 "github.com/juju/juju/domain/application/charm"
 	config "github.com/juju/juju/environs/config"
 	gomock "go.uber.org/mock/gomock"
@@ -293,80 +291,41 @@ func (m *MockMachineService) EXPECT() *MockMachineServiceMockRecorder {
 	return m.recorder
 }
 
-// GetMachineUUID mocks base method.
-func (m *MockMachineService) GetMachineUUID(arg0 context.Context, arg1 machine.Name) (machine.UUID, error) {
+// GetMachineArchesForApplication mocks base method.
+func (m *MockMachineService) GetMachineArchesForApplication(arg0 context.Context, arg1 application.ID) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetMachineUUID", arg0, arg1)
-	ret0, _ := ret[0].(machine.UUID)
+	ret := m.ctrl.Call(m, "GetMachineArchesForApplication", arg0, arg1)
+	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetMachineUUID indicates an expected call of GetMachineUUID.
-func (mr *MockMachineServiceMockRecorder) GetMachineUUID(arg0, arg1 any) *MockMachineServiceGetMachineUUIDCall {
+// GetMachineArchesForApplication indicates an expected call of GetMachineArchesForApplication.
+func (mr *MockMachineServiceMockRecorder) GetMachineArchesForApplication(arg0, arg1 any) *MockMachineServiceGetMachineArchesForApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineUUID", reflect.TypeOf((*MockMachineService)(nil).GetMachineUUID), arg0, arg1)
-	return &MockMachineServiceGetMachineUUIDCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineArchesForApplication", reflect.TypeOf((*MockMachineService)(nil).GetMachineArchesForApplication), arg0, arg1)
+	return &MockMachineServiceGetMachineArchesForApplicationCall{Call: call}
 }
 
-// MockMachineServiceGetMachineUUIDCall wrap *gomock.Call
-type MockMachineServiceGetMachineUUIDCall struct {
+// MockMachineServiceGetMachineArchesForApplicationCall wrap *gomock.Call
+type MockMachineServiceGetMachineArchesForApplicationCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockMachineServiceGetMachineUUIDCall) Return(arg0 machine.UUID, arg1 error) *MockMachineServiceGetMachineUUIDCall {
+func (c *MockMachineServiceGetMachineArchesForApplicationCall) Return(arg0 []string, arg1 error) *MockMachineServiceGetMachineArchesForApplicationCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceGetMachineUUIDCall) Do(f func(context.Context, machine.Name) (machine.UUID, error)) *MockMachineServiceGetMachineUUIDCall {
+func (c *MockMachineServiceGetMachineArchesForApplicationCall) Do(f func(context.Context, application.ID) ([]string, error)) *MockMachineServiceGetMachineArchesForApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceGetMachineUUIDCall) DoAndReturn(f func(context.Context, machine.Name) (machine.UUID, error)) *MockMachineServiceGetMachineUUIDCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// HardwareCharacteristics mocks base method.
-func (m *MockMachineService) HardwareCharacteristics(arg0 context.Context, arg1 machine.UUID) (*instance.HardwareCharacteristics, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HardwareCharacteristics", arg0, arg1)
-	ret0, _ := ret[0].(*instance.HardwareCharacteristics)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// HardwareCharacteristics indicates an expected call of HardwareCharacteristics.
-func (mr *MockMachineServiceMockRecorder) HardwareCharacteristics(arg0, arg1 any) *MockMachineServiceHardwareCharacteristicsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HardwareCharacteristics", reflect.TypeOf((*MockMachineService)(nil).HardwareCharacteristics), arg0, arg1)
-	return &MockMachineServiceHardwareCharacteristicsCall{Call: call}
-}
-
-// MockMachineServiceHardwareCharacteristicsCall wrap *gomock.Call
-type MockMachineServiceHardwareCharacteristicsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMachineServiceHardwareCharacteristicsCall) Return(arg0 *instance.HardwareCharacteristics, arg1 error) *MockMachineServiceHardwareCharacteristicsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceHardwareCharacteristicsCall) Do(f func(context.Context, machine.UUID) (*instance.HardwareCharacteristics, error)) *MockMachineServiceHardwareCharacteristicsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceHardwareCharacteristicsCall) DoAndReturn(f func(context.Context, machine.UUID) (*instance.HardwareCharacteristics, error)) *MockMachineServiceHardwareCharacteristicsCall {
+func (c *MockMachineServiceGetMachineArchesForApplicationCall) DoAndReturn(f func(context.Context, application.ID) ([]string, error)) *MockMachineServiceGetMachineArchesForApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

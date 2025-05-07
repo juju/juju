@@ -7,10 +7,9 @@ import (
 	"context"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/environs/config"
 )
@@ -28,7 +27,7 @@ type ApplicationService interface {
 	// state.
 	// If there are any non-blocking issues with the charm metadata, actions,
 	// config or manifest, a set of warnings will be returned.
-	SetCharm(ctx context.Context, args charm.SetCharmArgs) (corecharm.ID, []string, error)
+	SetCharm(context.Context, charm.SetCharmArgs) (corecharm.ID, []string, error)
 
 	// ListCharmLocators returns a list of charms with the specified
 	// locator by the name. If no names are provided, all charms are returned.
@@ -47,15 +46,13 @@ type ApplicationService interface {
 	// application ID.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationConstraints(ctx context.Context, appID coreapplication.ID) (constraints.Value, error)
+	GetApplicationConstraints(context.Context, coreapplication.ID) (constraints.Value, error)
 }
 
 // MachineService defines the methods that the facade assumes from the Machine
 // service.
 type MachineService interface {
-	// GetMachineUUID returns the UUID of a machine identified by its name.
-	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
-	// HardwareCharacteristics returns the hardware characteristics of the
-	// specified machine.
-	HardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
+	// GetMachineArchesForApplication returns a list of architectures which are
+	// included across the machines of the given application.
+	GetMachineArchesForApplication(context.Context, coreapplication.ID) ([]arch.Arch, error)
 }

@@ -26,28 +26,7 @@ func (s stateShim) Application(name string) (interfaces.Application, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return stateApplicationShim{Application: app}, nil
-}
-
-func (s stateShim) Machine(machineID string) (interfaces.Machine, error) {
-	machine, err := s.State.Machine(machineID)
-	return machine, errors.Trace(err)
-}
-
-type stateApplicationShim struct {
-	*state.Application
-}
-
-func (s stateApplicationShim) AllUnits() ([]interfaces.Unit, error) {
-	units, err := s.Application.AllUnits()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	results := make([]interfaces.Unit, len(units))
-	for i, unit := range units {
-		results[i] = unit
-	}
-	return results, nil
+	return app, nil
 }
 
 // StoreCharm represents a store charm.
