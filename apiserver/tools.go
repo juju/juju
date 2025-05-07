@@ -402,7 +402,7 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(
 
 	var model *state.Model
 	var storage binarystorage.Storage
-	switch controllerModel.Type() {
+	switch controllerModel.TypeOld() {
 	case state.ModelTypeCAAS:
 		// TODO(caas): unify tool fetching
 		// Cache the tools against the model when the controller is CAAS.
@@ -422,7 +422,7 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(
 		defer controllerStorage.Close()
 		storage = controllerStorage
 	default:
-		return errors.NotValidf("model type %q", controllerModel.Type())
+		return errors.NotValidf("model type %q", controllerModel.TypeOld())
 	}
 
 	newEnviron := stateenvirons.GetNewEnvironFunc(environs.New)

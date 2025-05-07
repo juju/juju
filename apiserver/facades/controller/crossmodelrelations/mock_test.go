@@ -341,7 +341,7 @@ func (w *mockOfferStatusWatcher) OfferName() string {
 type mockModel struct {
 }
 
-func (m *mockModel) Name() string {
+func (m *mockModel) NameOld() string {
 	return "prod"
 }
 
