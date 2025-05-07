@@ -5,14 +5,18 @@ package ssh
 
 import (
 	"github.com/juju/collections/set"
+	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
+	"golang.org/x/crypto/ssh"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/ssh/mocks"
+	"github.com/juju/juju/pki/test"
 	"github.com/juju/juju/rpc/params"
 )
 
 type sshJumpSuite struct {
+	testing.IsolationSuite
 	sshAPIJump *mocks.MockSSHAPIJump
 }
 
@@ -28,8 +32,14 @@ func (s *sshJumpSuite) TestResolveTarget(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.sshAPIJump.EXPECT().VirtualHostname(gomock.Any(), gomock.Any()).Return("resolved-target", nil)
+	privateKey, err := test.InsecureKeyProfile()
+	c.Assert(err, gc.IsNil)
+	publicKey, err := ssh.NewPublicKey(privateKey.Public())
+	c.Assert(err, gc.IsNil)
+
 	s.sshAPIJump.EXPECT().PublicHostKeyForTarget(gomock.Any()).Return(params.PublicSSHHostKeyResult{
-		PublicKey: []byte("host-key"),
+		PublicKey:           publicKey.Marshal(),
+		JumpServerPublicKey: publicKey.Marshal(),
 	}, nil)
 	controllerAddress := "1.0.0.1"
 	sshJump := sshJump{

@@ -12,9 +12,12 @@ import (
 	"net"
 	"os"
 
+	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
-	"github.com/juju/utils/v3/ssh"
+	"github.com/juju/utils/v3"
+	utilsssh "github.com/juju/utils/v3/ssh"
+	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/client/client"
@@ -26,8 +29,15 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-const jumpUser = "ubuntu"
+const jumpUser = "admin"
 const finalDestinationUser = "ubuntu"
+
+type hostKeys struct {
+	jumpHostKey     string
+	jumpHostname    string
+	virtualHostKey  string
+	virtualHostname string
+}
 
 // SSHAPIJump is an interface for the SSH API client used in the SSH jump provider.
 type SSHAPIJump interface {
@@ -45,6 +55,7 @@ type sshJump struct {
 	container              string
 	target                 string
 	args                   []string
+	tempKnownHostsPath     string
 	sshClient              SSHAPIJump
 	controllerClient       SSHControllerAPI
 	hostChecker            jujussh.ReachableChecker
@@ -84,6 +95,10 @@ func (p *sshJump) initRun(cmd ModelCommand) error {
 
 // cleanupRun performs cleanup after the SSH proxy run.
 func (p *sshJump) cleanupRun() {
+	if p.tempKnownHostsPath != "" {
+		_ = os.Remove(p.tempKnownHostsPath)
+		p.tempKnownHostsPath = ""
+	}
 	if p.sshClient != nil {
 		_ = p.sshClient.Close()
 		p.sshClient = nil
@@ -131,12 +146,23 @@ func (p *sshJump) resolveTarget(target string) (*resolvedTarget, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	hostKeys, err := p.getKeysWithRetry(virtualHostname)
+	jumpHostKey, virtualHostKey, err := p.getKeysWithRetry(virtualHostname)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	availableAddresses := network.NewMachineHostPorts(p.jumpHostPort, p.controllersAddresses...).HostPorts()
-	address, err := p.hostChecker.FindHost(availableAddresses, []string{string(hostKeys.JumpServerPublicKey)})
+	address, err := p.hostChecker.FindHost(availableAddresses, []string{jumpHostKey})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	err = p.generateTemporaryKnownHosts(
+		hostKeys{
+			jumpHostKey:     jumpHostKey,
+			jumpHostname:    address.Host(),
+			virtualHostKey:  virtualHostKey,
+			virtualHostname: virtualHostname,
+		},
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -150,9 +176,30 @@ func (p *sshJump) resolveTarget(target string) (*resolvedTarget, error) {
 	}, nil
 }
 
-// getKeysWithRetry retrieves the public SSH host keys for the target and jump server.
+// generateTemporaryKnownHosts generates a temporary known hosts file for the SSH jump.
+// TODO(alek8): The current solution does not allow users to specify their own knownhosts lines manually.
+func (p *sshJump) generateTemporaryKnownHosts(hostKeys hostKeys) error {
+	knownHosts := newKnownHostsBuilder()
+
+	knownHosts.add(fmt.Sprintf("[%s]:%d", hostKeys.jumpHostname, p.jumpHostPort), []string{hostKeys.jumpHostKey})
+	knownHosts.add(hostKeys.virtualHostname, []string{hostKeys.virtualHostKey})
+
+	f, err := os.CreateTemp("", "ssh_known_hosts")
+	if err != nil {
+		return errors.Annotate(err, "creating known hosts file")
+	}
+	defer func() { _ = f.Close() }()
+	p.tempKnownHostsPath = f.Name() // Record for later deletion
+	if err := knownHosts.write(f); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// getKeysWithRetry retrieves the public SSH host keys for the jump and target server, and converts them
+// to the SSH authrorized key format.
 // The reason we need a retry strategy is because the machine might not have been provisioned yet.
-func (p *sshJump) getKeysWithRetry(virtualHostname string) (params.PublicSSHHostKeyResult, error) {
+func (p *sshJump) getKeysWithRetry(virtualHostname string) (string, string, error) {
 	var hostKeysResult params.PublicSSHHostKeyResult
 	strategy := p.publicKeyRetryStrategy
 	strategy.IsFatalError = func(err error) bool {
@@ -168,9 +215,17 @@ func (p *sshJump) getKeysWithRetry(virtualHostname string) (params.PublicSSHHost
 	}
 	err := retry.Call(strategy)
 	if err != nil {
-		return params.PublicSSHHostKeyResult{}, err
+		return "", "", err
 	}
-	return hostKeysResult, nil
+	jumpPublicKey, err := ssh.ParsePublicKey(hostKeysResult.JumpServerPublicKey)
+	if err != nil {
+		return "", "", errors.Annotate(err, "parsing jump server public key")
+	}
+	publicKeyVirtualHostname, err := ssh.ParsePublicKey(hostKeysResult.PublicKey)
+	if err != nil {
+		return "", "", errors.Annotate(err, "parsing virtual hostname public key")
+	}
+	return string(gossh.MarshalAuthorizedKey(jumpPublicKey)), string(gossh.MarshalAuthorizedKey(publicKeyVirtualHostname)), nil
 }
 
 // maybePopulateTargetViaField is here to satisfy the interface.
@@ -179,8 +234,8 @@ func (p *sshJump) maybePopulateTargetViaField(target *resolvedTarget, fetchStatu
 	return errors.Errorf("not implemented for ssh jump provider.")
 }
 
-func (p *sshJump) getSSHOptions(pty bool, targets ...*resolvedTarget) (*ssh.Options, error) {
-	var options ssh.Options
+func (p *sshJump) getSSHOptions(pty bool, targets ...*resolvedTarget) (*utilsssh.Options, error) {
+	var options utilsssh.Options
 	if pty {
 		options.EnablePTY()
 	}
@@ -192,10 +247,12 @@ func (p *sshJump) getSSHOptions(pty bool, targets ...*resolvedTarget) (*ssh.Opti
 		"%h:%p",
 		"-p",
 		fmt.Sprint(p.jumpHostPort),
+		"-o",
+		"UserKnownHostsFile "+utils.CommandString(p.tempKnownHostsPath),
 		fmt.Sprintf("%s@%s", targets[0].via.user, targets[0].via.host),
 	)
-	options.SetStrictHostKeyChecking(ssh.StrictHostChecksNo)
-	options.SetKnownHostsFile(os.DevNull)
+	options.SetStrictHostKeyChecking(utilsssh.StrictHostChecksYes)
+	options.SetKnownHostsFile(p.tempKnownHostsPath)
 	return &options, nil
 }
 
@@ -210,7 +267,7 @@ func (p *sshJump) ssh(ctx Context, enablePty bool, target *resolvedTarget) error
 	if len(p.args) == 0 && p.modelType == model.CAAS {
 		p.args = []string{"exec", "sh"}
 	}
-	cmd := ssh.Command(target.userHost(), p.args, options)
+	cmd := utilsssh.Command(target.userHost(), p.args, options)
 	cmd.Stdin = ctx.GetStdin()
 	cmd.Stdout = ctx.GetStdout()
 	cmd.Stderr = ctx.GetStderr()
