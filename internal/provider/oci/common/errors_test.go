@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	ocicommon "github.com/oracle/oci-go-sdk/v65/common"
 
 	"github.com/juju/juju/internal/provider/oci/common"
@@ -36,11 +35,11 @@ func (a MockServiceError) GetCode() string { return a.code }
 func (s *errorsSuite) TestServiceErrorsCanTriggerIsAuthorisationFailure(c *tc.C) {
 	err := MockServiceError{code: "NotAuthenticated"}
 	result := common.IsAuthorisationFailure(err)
-	c.Assert(result, jc.IsTrue)
+	c.Assert(result, tc.IsTrue)
 
 	err = MockServiceError{code: "InternalServerError"}
 	result = common.IsAuthorisationFailure(err)
-	c.Assert(result, jc.IsFalse)
+	c.Assert(result, tc.IsFalse)
 }
 
 func (s *errorsSuite) TestUnknownErrorsDoNotTriggerIsAuthorisationFailure(c *tc.C) {
@@ -50,11 +49,11 @@ func (s *errorsSuite) TestUnknownErrorsDoNotTriggerIsAuthorisationFailure(c *tc.
 		errors.Trace(err1),
 		errors.Annotate(err1, "really unknown"),
 	} {
-		c.Assert(common.IsAuthorisationFailure(err), jc.IsFalse)
+		c.Assert(common.IsAuthorisationFailure(err), tc.IsFalse)
 	}
 }
 
 func (s *errorsSuite) TestNilDoesNotTriggerIsAuthorisationFailure(c *tc.C) {
 	result := common.IsAuthorisationFailure(nil)
-	c.Assert(result, jc.IsFalse)
+	c.Assert(result, tc.IsFalse)
 }

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coretesting "github.com/juju/juju/internal/testing"
 )
@@ -210,9 +209,9 @@ func (*importSuite) TestImports(c *tc.C) {
 	// TODO: review if there are any un-expected imports!
 	// Show the values rather than just checking the length so a failing
 	// test shows them.
-	c.Check(unexpected.SortedValues(), jc.DeepEquals, []string{})
+	c.Check(unexpected.SortedValues(), tc.DeepEquals, []string{})
 	// If unneeded show any values this is good as we've reduced
 	// dependencies, and they should be removed from expected above.
 	unneeded := expected.Difference(found)
-	c.Check(unneeded.SortedValues(), jc.DeepEquals, []string{})
+	c.Check(unneeded.SortedValues(), tc.DeepEquals, []string{})
 }

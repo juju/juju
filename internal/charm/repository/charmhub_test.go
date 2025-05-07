@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/hash"
 	"go.uber.org/mock/gomock"
 
@@ -71,12 +70,12 @@ func (s *charmHubRepositorySuite) TestResolveForDeploy(c *tc.C) {
 	s.expectCharmRefreshInstallOneFromChannel(c, hash)
 
 	resolvedData, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected := s.expectedCURL(curl, rev, arch.DefaultArchitecture)
 
-	c.Assert(resolvedData.URL, jc.DeepEquals, expected)
-	c.Assert(resolvedData.Origin, jc.DeepEquals, corecharm.Origin{
+	c.Assert(resolvedData.URL, tc.DeepEquals, expected)
+	c.Assert(resolvedData.Origin, tc.DeepEquals, corecharm.Origin{
 		Type:     "charm",
 		Source:   "charm-hub",
 		Revision: &rev,
@@ -88,8 +87,8 @@ func (s *charmHubRepositorySuite) TestResolveForDeploy(c *tc.C) {
 		},
 		Channel: &channel,
 	})
-	c.Assert(resolvedData.Platform, jc.SameContents, []corecharm.Platform{{OS: "ubuntu", Channel: "20.04", Architecture: "amd64"}})
-	c.Assert(resolvedData.EssentialMetadata.DownloadInfo, jc.DeepEquals, corecharm.DownloadInfo{
+	c.Assert(resolvedData.Platform, tc.SameContents, []corecharm.Platform{{OS: "ubuntu", Channel: "20.04", Architecture: "amd64"}})
+	c.Assert(resolvedData.EssentialMetadata.DownloadInfo, tc.DeepEquals, corecharm.DownloadInfo{
 		CharmhubIdentifier: "charmCHARMcharmCHARMcharmCHARM01",
 		DownloadURL:        "http://example.com/wordpress-42",
 		DownloadSize:       42,
@@ -123,16 +122,16 @@ func (s *charmHubRepositorySuite) TestResolveForUpgrade(c *tc.C) {
 	cfg, err := charmhub.RefreshOne("instance-key", "charmCHARMcharmCHARMcharmCHARM01", 16, "latest/stable", charmhub.RefreshBase{
 		Architecture: arch.DefaultArchitecture,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.expectCharmRefresh(c, cfg, hash)
 
 	resolvedData, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected := s.expectedCURL(curl, rev, arch.DefaultArchitecture)
 
-	c.Assert(resolvedData.URL, jc.DeepEquals, expected)
-	c.Assert(resolvedData.Origin, jc.DeepEquals, corecharm.Origin{
+	c.Assert(resolvedData.URL, tc.DeepEquals, expected)
+	c.Assert(resolvedData.Origin, tc.DeepEquals, corecharm.Origin{
 		Type:     "charm",
 		Source:   "charm-hub",
 		ID:       "charmCHARMcharmCHARMcharmCHARM01",
@@ -145,7 +144,7 @@ func (s *charmHubRepositorySuite) TestResolveForUpgrade(c *tc.C) {
 		},
 		Channel: &channel,
 	})
-	c.Assert(resolvedData.Platform, jc.SameContents, []corecharm.Platform{{OS: "ubuntu", Channel: "20.04", Architecture: "amd64"}})
+	c.Assert(resolvedData.Platform, tc.SameContents, []corecharm.Platform{{OS: "ubuntu", Channel: "20.04", Architecture: "amd64"}})
 }
 
 func (s *charmHubRepositorySuite) TestResolveFillsInEmptyTrack(c *tc.C) {
@@ -166,7 +165,7 @@ func (s *charmHubRepositorySuite) TestResolveFillsInEmptyTrack(c *tc.C) {
 		Channel: &channel,
 	}
 	resolvedData, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(resolvedData.Origin.Channel.Track, tc.Equals, "latest")
 }
 
@@ -192,7 +191,7 @@ func (s *charmHubRepositorySuite) TestResolveWithChannel(c *tc.C) {
 	}
 
 	resolvedData, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	curl.Revision = 16
 
@@ -209,9 +208,9 @@ func (s *charmHubRepositorySuite) TestResolveWithChannel(c *tc.C) {
 
 	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture)
 
-	c.Assert(resolvedData.URL, jc.DeepEquals, expected)
-	c.Assert(resolvedData.Origin, jc.DeepEquals, origin)
-	c.Assert(resolvedData.Platform, jc.SameContents, []corecharm.Platform{{OS: "ubuntu", Channel: "20.04", Architecture: "amd64"}})
+	c.Assert(resolvedData.URL, tc.DeepEquals, expected)
+	c.Assert(resolvedData.Origin, tc.DeepEquals, origin)
+	c.Assert(resolvedData.Platform, tc.SameContents, []corecharm.Platform{{OS: "ubuntu", Channel: "20.04", Architecture: "amd64"}})
 }
 
 func (s *charmHubRepositorySuite) TestResolveWithoutBase(c *tc.C) {
@@ -230,7 +229,7 @@ func (s *charmHubRepositorySuite) TestResolveWithoutBase(c *tc.C) {
 	}
 
 	resolvedData, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	curl.Revision = 16
 
@@ -245,9 +244,9 @@ func (s *charmHubRepositorySuite) TestResolveWithoutBase(c *tc.C) {
 
 	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture)
 
-	c.Assert(resolvedData.URL, jc.DeepEquals, expected)
-	c.Assert(resolvedData.Origin, jc.DeepEquals, origin)
-	c.Assert(resolvedData.Platform, jc.SameContents, []corecharm.Platform{})
+	c.Assert(resolvedData.URL, tc.DeepEquals, expected)
+	c.Assert(resolvedData.Origin, tc.DeepEquals, origin)
+	c.Assert(resolvedData.Platform, tc.SameContents, []corecharm.Platform{})
 }
 
 func (s *charmHubRepositorySuite) TestResolveForDeployWithRevisionSuccess(c *tc.C) {
@@ -275,7 +274,7 @@ func (s *charmHubRepositorySuite) TestResolveForDeployWithRevisionSuccess(c *tc.
 	arg := corecharm.CharmID{URL: curl, Origin: origin}
 
 	obtainedData, err := s.newClient(c).ResolveForDeploy(context.Background(), arg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	curl.Revision = revision
 
@@ -299,9 +298,9 @@ func (s *charmHubRepositorySuite) TestResolveForDeployWithRevisionSuccess(c *tc.
 
 	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture)
 
-	c.Check(obtainedData.URL, jc.DeepEquals, expected)
-	c.Check(obtainedData.EssentialMetadata.ResolvedOrigin, jc.DeepEquals, expectedOrigin)
-	c.Check(obtainedData.EssentialMetadata.DownloadInfo, jc.DeepEquals, corecharm.DownloadInfo{
+	c.Check(obtainedData.URL, tc.DeepEquals, expected)
+	c.Check(obtainedData.EssentialMetadata.ResolvedOrigin, tc.DeepEquals, expectedOrigin)
+	c.Check(obtainedData.EssentialMetadata.DownloadInfo, tc.DeepEquals, corecharm.DownloadInfo{
 		CharmhubIdentifier: "charmCHARMcharmCHARMcharmCHARM01",
 		DownloadURL:        "http://example.com/wordpress-42",
 		DownloadSize:       42,
@@ -327,7 +326,7 @@ func (s *charmHubRepositorySuite) TestResolveForDeploySuccessChooseBase(c *tc.C)
 	arg := corecharm.CharmID{URL: curl, Origin: origin}
 
 	obtainedData, err := s.newClient(c).ResolveForDeploy(context.Background(), arg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	curl.Revision = 16
 
@@ -350,9 +349,9 @@ func (s *charmHubRepositorySuite) TestResolveForDeploySuccessChooseBase(c *tc.C)
 
 	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture)
 
-	c.Check(obtainedData.URL, jc.DeepEquals, expected)
-	c.Check(obtainedData.EssentialMetadata.ResolvedOrigin, jc.DeepEquals, expectedOrigin)
-	c.Check(obtainedData.EssentialMetadata.DownloadInfo, jc.DeepEquals, corecharm.DownloadInfo{
+	c.Check(obtainedData.URL, tc.DeepEquals, expected)
+	c.Check(obtainedData.EssentialMetadata.ResolvedOrigin, tc.DeepEquals, expectedOrigin)
+	c.Check(obtainedData.EssentialMetadata.DownloadInfo, tc.DeepEquals, corecharm.DownloadInfo{
 		CharmhubIdentifier: "charmCHARMcharmCHARMcharmCHARM01",
 		DownloadURL:        "http://example.com/wordpress-42",
 		DownloadSize:       42,
@@ -377,7 +376,7 @@ func (s *charmHubRepositorySuite) TestResolveWithBundles(c *tc.C) {
 	}
 
 	resolvedData, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "core-kubernetes", origin)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	curl.Revision = 17
 
@@ -391,9 +390,9 @@ func (s *charmHubRepositorySuite) TestResolveWithBundles(c *tc.C) {
 
 	expected := s.expectedCURL(curl, 17, arch.DefaultArchitecture)
 
-	c.Assert(resolvedData.URL, jc.DeepEquals, expected)
-	c.Assert(resolvedData.Origin, jc.DeepEquals, origin)
-	c.Assert(resolvedData.Platform, jc.SameContents, []corecharm.Platform{})
+	c.Assert(resolvedData.URL, tc.DeepEquals, expected)
+	c.Assert(resolvedData.Origin, tc.DeepEquals, origin)
+	c.Assert(resolvedData.Platform, tc.SameContents, []corecharm.Platform{})
 }
 
 func (s *charmHubRepositorySuite) TestResolveInvalidPlatformError(c *tc.C) {
@@ -413,7 +412,7 @@ func (s *charmHubRepositorySuite) TestResolveInvalidPlatformError(c *tc.C) {
 	}
 
 	resolvedData, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	curl.Revision = 16
 
@@ -430,9 +429,9 @@ func (s *charmHubRepositorySuite) TestResolveInvalidPlatformError(c *tc.C) {
 
 	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture)
 
-	c.Assert(resolvedData.URL, jc.DeepEquals, expected)
-	c.Assert(resolvedData.Origin, jc.DeepEquals, origin)
-	c.Assert(resolvedData.Platform, jc.SameContents, []corecharm.Platform{{OS: "ubuntu", Channel: "20.04", Architecture: "amd64"}})
+	c.Assert(resolvedData.URL, tc.DeepEquals, expected)
+	c.Assert(resolvedData.Origin, tc.DeepEquals, origin)
+	c.Assert(resolvedData.Platform, tc.SameContents, []corecharm.Platform{{OS: "ubuntu", Channel: "20.04", Architecture: "amd64"}})
 }
 
 func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundErrorWithNoSeries(c *tc.C) {
@@ -511,7 +510,7 @@ func (s *charmHubRepositorySuite) TestDownload(c *tc.C) {
 	}
 
 	resolvedURL, err := url.Parse("http://example.com/wordpress-42")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectCharmRefreshInstallOneFromChannel(c, hash)
 	s.client.EXPECT().Download(gomock.Any(), resolvedURL, "/tmp/foo", gomock.Any()).Return(&charmhub.Digest{
@@ -523,7 +522,7 @@ func (s *charmHubRepositorySuite) TestDownload(c *tc.C) {
 	client := s.newClient(c)
 
 	gotOrigin, digest, err := client.Download(context.Background(), "wordpress", requestedOrigin, "/tmp/foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotOrigin, tc.DeepEquals, resolvedOrigin)
 	c.Check(digest, tc.DeepEquals, &charmhub.Digest{
 		SHA256: hash,
@@ -565,12 +564,12 @@ func (s *charmHubRepositorySuite) TestGetDownloadURL(c *tc.C) {
 	}
 
 	resolvedURL, err := url.Parse("http://example.com/wordpress-42")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectCharmRefreshInstallOneFromChannel(c, hash)
 
 	gotURL, gotOrigin, err := s.newClient(c).GetDownloadURL(context.Background(), "wordpress", requestedOrigin)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotURL, tc.DeepEquals, resolvedURL)
 	c.Assert(gotOrigin, tc.DeepEquals, resolvedOrigin)
 }
@@ -593,7 +592,7 @@ func (s *charmHubRepositorySuite) TestResolveResources(c *tc.C) {
 		Fingerprint: fp(c),
 		Size:        0,
 	}}, charmID())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, []charmresource.Resource{{
 		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:      charmresource.OriginUpload,
@@ -622,7 +621,7 @@ func (s *charmHubRepositorySuite) TestResolveResourcesFromStore(c *tc.C) {
 		Revision: 1,
 		Size:     0,
 	}}, id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, []charmresource.Resource{{
 		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:      charmresource.OriginStore,
@@ -642,7 +641,7 @@ func (s *charmHubRepositorySuite) TestResolveResourcesFromStoreNoRevision(c *tc.
 		Revision: -1,
 		Size:     0,
 	}}, charmID())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, []charmresource.Resource{{
 		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:      charmresource.OriginStore,
@@ -681,7 +680,7 @@ func (s *charmHubRepositorySuite) TestResolveResourcesUpload(c *tc.C) {
 			Fingerprint: hash.Fingerprint{}},
 		Size: 0,
 	}}, id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, []charmresource.Resource{{
 		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:   charmresource.OriginUpload,
@@ -712,7 +711,7 @@ func (s *charmHubRepositorySuite) TestResourceInfo(c *tc.C) {
 	}
 
 	result, err := s.newClient(c).resourceInfo(context.Background(), curl, origin, "wal-e", 25)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, charmresource.Resource{
 		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:      charmresource.OriginStore,
@@ -726,7 +725,7 @@ func (s *charmHubRepositorySuite) expectCharmRefreshInstallOneFromChannel(c *tc.
 	cfg, err := charmhub.InstallOneFromChannel("wordpress", "latest/stable", charmhub.RefreshBase{
 		Architecture: arch.DefaultArchitecture,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.expectCharmRefresh(c, cfg, hash)
 }
 
@@ -774,7 +773,7 @@ func (s *charmHubRepositorySuite) expectBundleRefresh(c *tc.C) {
 	cfg, err := charmhub.InstallOneFromChannel("core-kubernetes", "latest/stable", charmhub.RefreshBase{
 		Architecture: arch.DefaultArchitecture,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.client.EXPECT().Refresh(gomock.Any(), RefreshConfigMatcher{c: c, Config: cfg}).DoAndReturn(func(ctx context.Context, cfg charmhub.RefreshConfig) ([]transport.RefreshResponse, error) {
 		id := charmhub.ExtractConfigInstanceKey(cfg)
 
@@ -843,13 +842,13 @@ func (s *charmHubRepositorySuite) expectCharmRefreshInstallOneFromChannelFullBas
 	cfg, err := charmhub.InstallOneFromChannel("wordpress", "latest/stable", charmhub.RefreshBase{
 		Architecture: arch.DefaultArchitecture, Name: "ubuntu", Channel: "20.04",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.expectCharmRefreshFullWithResources(c, cfg)
 }
 
 func (s *charmHubRepositorySuite) expectCharmRefreshInstallOneByRevisionResources(c *tc.C, hash string) {
 	cfg, err := charmhub.InstallOneFromRevision("wordpress", 16)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.expectCharmRefresh(c, cfg, hash)
 }
 
@@ -965,13 +964,13 @@ func (refreshConfigSuite) TestRefreshByChannel(c *tc.C) {
 	}
 
 	cfg, err := refreshConfig(name, origin)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ch := channel.String()
 	instanceKey := charmhub.ExtractConfigInstanceKey(cfg)
 
 	build, err := cfg.Build()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(build, tc.DeepEquals, transport.RefreshRequest{
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "install",
@@ -999,13 +998,13 @@ func (refreshConfigSuite) TestRefreshByChannelVersion(c *tc.C) {
 	}
 
 	cfg, err := refreshConfig(name, origin)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ch := channel.String()
 	instanceKey := charmhub.ExtractConfigInstanceKey(cfg)
 
 	build, err := cfg.Build()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(build, tc.DeepEquals, transport.RefreshRequest{
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "install",
@@ -1033,12 +1032,12 @@ func (refreshConfigSuite) TestRefreshByRevision(c *tc.C) {
 	}
 
 	cfg, err := refreshConfig(name, origin)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	instanceKey := charmhub.ExtractConfigInstanceKey(cfg)
 
 	build, err := cfg.Build()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(build, tc.DeepEquals, transport.RefreshRequest{
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "install",
@@ -1066,12 +1065,12 @@ func (refreshConfigSuite) TestRefreshByID(c *tc.C) {
 	}
 
 	cfg, err := refreshConfig("wordpress", origin)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	instanceKey := charmhub.ExtractConfigInstanceKey(cfg)
 
 	build, err := cfg.Build()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(build, tc.DeepEquals, transport.RefreshRequest{
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "refresh",
@@ -1127,7 +1126,7 @@ func (*selectNextBaseSuite) TestSelectNextBaseWithInvalidBaseChannel(c *tc.C) {
 			OS:           "ubuntu",
 		},
 	})
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
 func (*selectNextBaseSuite) TestSelectNextBaseWithInvalidOS(c *tc.C) {
@@ -1140,7 +1139,7 @@ func (*selectNextBaseSuite) TestSelectNextBaseWithInvalidOS(c *tc.C) {
 			OS:           "ubuntu",
 		},
 	})
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
 func (*selectNextBaseSuite) TestSelectNextBaseWithValidBases(c *tc.C) {
@@ -1156,7 +1155,7 @@ func (*selectNextBaseSuite) TestSelectNextBaseWithValidBases(c *tc.C) {
 			Channel:      "20.04",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(platform, tc.DeepEquals, []corecharm.Platform{{
 		Architecture: "amd64",
 		OS:           "ubuntu",
@@ -1177,7 +1176,7 @@ func (*selectNextBaseSuite) TestSelectNextBaseWithCentosBase(c *tc.C) {
 			Channel:      "20.04",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(platform, tc.DeepEquals, []corecharm.Platform{{
 		Architecture: "amd64",
 		OS:           "centos",
@@ -1354,7 +1353,7 @@ func (s *composeSuggestionsSuite) TestMultipleSuggestion(c *tc.C) {
 			Architecture: "c",
 		},
 	})
-	c.Assert(suggestions, jc.SameContents, []string{
+	c.Assert(suggestions, tc.SameContents, []string{
 		`channel "latest/stable": available bases are: ubuntu@20.04, ubuntu@18.04`,
 		`channel "2.0/stable": available bases are: ubuntu@18.04`,
 	})
@@ -1396,10 +1395,10 @@ func (m RefreshConfigMatcher) Matches(x interface{}) bool {
 	}
 
 	cb, err := m.Config.Build()
-	m.c.Assert(err, jc.ErrorIsNil)
+	m.c.Assert(err, tc.ErrorIsNil)
 
 	rcb, err := rc.Build()
-	m.c.Assert(err, jc.ErrorIsNil)
+	m.c.Assert(err, tc.ErrorIsNil)
 	m.c.Assert(len(cb.Actions), tc.Equals, len(rcb.Actions))
 
 	if cb.Actions[0].ID == nil && rcb.Actions[0].ID == nil {
@@ -1445,7 +1444,7 @@ func (m charmhubConfigMatcher) String() string {
 
 func fp(c *tc.C) charmresource.Fingerprint {
 	fp, err := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return fp
 }
 

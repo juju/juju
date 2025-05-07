@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -55,10 +54,10 @@ func (s *registrySuite) TestRegisterGetCount(c *tc.C) {
 		w := s.expectWatcher(c, ctrl, reg.catacomb.Dying())
 
 		id, err := reg.Register(w)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		w1, err := reg.Get(id)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(w1, tc.Equals, w)
 		c.Check(reg.Count(), tc.Equals, i+1)
 	}
@@ -82,10 +81,10 @@ func (s *registrySuite) TestRegisterNamedGetCount(c *tc.C) {
 
 		id := fmt.Sprintf("id-%d", i)
 		err := reg.RegisterNamed(id, w)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		w1, err := reg.Get(id)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(w1, tc.Equals, w)
 		c.Check(reg.Count(), tc.Equals, i+1)
 	}
@@ -107,11 +106,11 @@ func (s *registrySuite) TestRegisterNamedRepeatedError(c *tc.C) {
 	w := s.expectWatcher(c, ctrl, reg.catacomb.Dying())
 
 	err := reg.RegisterNamed("foo", w)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = reg.RegisterNamed("foo", w)
 	c.Assert(err, tc.ErrorMatches, `worker "foo" already exists`)
-	c.Assert(err, jc.ErrorIs, coreerrors.AlreadyExists)
+	c.Assert(err, tc.ErrorIs, coreerrors.AlreadyExists)
 
 	workertest.CheckKill(c, reg)
 }
@@ -129,7 +128,7 @@ func (s *registrySuite) TestRegisterNamedIntegerName(c *tc.C) {
 
 	err := reg.RegisterNamed("0", w)
 	c.Assert(err, tc.ErrorMatches, `namespace "0" not valid`)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 
 	workertest.CheckKill(c, reg)
 }
@@ -159,10 +158,10 @@ func (s *registrySuite) TestRegisterStop(c *tc.C) {
 	}).MinTimes(1)
 
 	err := reg.RegisterNamed("foo", w)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = reg.Stop("foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(reg.Count(), tc.Equals, 0)
 
@@ -216,7 +215,7 @@ func (s *registrySuite) TestConcurrency(c *tc.C) {
 
 func (s *registrySuite) newRegistry(c *tc.C) *Registry {
 	reg, err := NewRegistry(s.clock, WithLogger(loggertesting.WrapCheckLog(c)))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return reg
 }
 

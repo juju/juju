@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
@@ -60,7 +59,7 @@ func (s *UniterSecretsSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	var err error
 	s.facade, err = NewTestAPI(c, s.authorizer, s.leadership, s.secretService, nil, s.clock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return ctrl
 }
@@ -75,7 +74,7 @@ func (s *UniterSecretsSuite) TestCreateCharmSecrets(c *tc.C) {
 
 	data := map[string]string{"foo": "bar"}
 	checksum, err := coresecrets.NewSecretValue(data).Checksum()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	p := secretservice.CreateCharmSecretParams{
 		Version:    secrets.Version,
@@ -122,8 +121,8 @@ func (s *UniterSecretsSuite) TestCreateCharmSecrets(c *tc.C) {
 			},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.StringResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{{
 			Result: gotURI.String(),
 		}, {
@@ -162,8 +161,8 @@ func (s *UniterSecretsSuite) TestCreateCharmSecretDuplicateLabel(c *tc.C) {
 			},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.StringResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{{
 			Error: &params.Error{Message: `secret with label "foobar" already exists`, Code: params.CodeAlreadyExists},
 		}},
@@ -175,7 +174,7 @@ func (s *UniterSecretsSuite) TestUpdateSecrets(c *tc.C) {
 
 	data := map[string]string{"foo": "bar"}
 	checksum, err := coresecrets.NewSecretValue(data).Checksum()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	p := secretservice.UpdateCharmSecretParams{
 		Accessor: secretservice.SecretAccessor{
@@ -230,8 +229,8 @@ func (s *UniterSecretsSuite) TestUpdateSecrets(c *tc.C) {
 			URI: uri.String(),
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}, {}, {
 			Error: &params.Error{Message: `at least one attribute to update must be specified`},
 		}},
@@ -255,8 +254,8 @@ func (s *UniterSecretsSuite) TestRemoveSecrets(c *tc.C) {
 			URI: expectURI.String(),
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
 	})
 }
@@ -280,8 +279,8 @@ func (s *UniterSecretsSuite) TestRemoveSecretRevision(c *tc.C) {
 			Revisions: []int{666},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
 	})
 }
@@ -305,8 +304,8 @@ func (s *UniterSecretsSuite) TestRemoveSecretNotFound(c *tc.C) {
 			Revisions: []int{666},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results[0].Error, jc.Satisfies, params.IsCodeSecretNotFound)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results[0].Error, tc.Satisfies, params.IsCodeSecretNotFound)
 }
 
 func (s *UniterSecretsSuite) TestSecretsGrant(c *tc.C) {
@@ -337,8 +336,8 @@ func (s *UniterSecretsSuite) TestSecretsGrant(c *tc.C) {
 			Role:     "bad",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{
 				Error: &params.Error{Code: "", Message: fmt.Sprintf(`cannot change access to %q for "unit-wordpress-0": boom`, uri.String())},
@@ -378,8 +377,8 @@ func (s *UniterSecretsSuite) TestSecretsRevoke(c *tc.C) {
 			Role:     "bad",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{
 				Error: &params.Error{Code: "", Message: fmt.Sprintf(`cannot change access to %q for "unit-wordpress-0": boom`, uri.String())},
@@ -398,6 +397,6 @@ func (s *UniterSecretsSuite) TestUpdateTrackedRevisions(c *tc.C) {
 	s.secretService.EXPECT().GetConsumedRevision(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0"), true, false, nil).
 		Return(668, nil)
 	result, err := s.facade.updateTrackedRevisions(context.Background(), []string{uri.ID})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{}}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{}}})
 }

@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	charmresource "github.com/juju/juju/internal/charm/resource"
 )
@@ -15,7 +14,7 @@ import (
 func newFingerprint(c *tc.C, data string) charmresource.Fingerprint {
 	reader := strings.NewReader(data)
 	fp, err := charmresource.GenerateFingerprint(reader)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return fp
 }
 

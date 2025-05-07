@@ -17,7 +17,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/retry"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v4"
 	"go.uber.org/mock/gomock"
@@ -147,7 +146,7 @@ func (s *commonMachineSuite) TearDownTest(c *tc.C) {
 				logger.Infof(context.TODO(), "retrying MgoServer.Reset() after attempt %d: %v", attempt, lastError)
 			},
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	s.AgentSuite.TearDownTest(c)
 }
@@ -187,7 +186,7 @@ func (s *commonMachineSuite) primeAgent(c *tc.C, jobs ...state.MachineJob) (
 // caller to specify the version.Binary to prime with.
 func (s *commonMachineSuite) primeAgentVersion(c *tc.C, vers semversion.Binary, jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
 	m, err := s.ControllerModel(c).State().AddMachine(state.UbuntuBase("12.10"), jobs...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// TODO(wallyworld) - we need the dqlite model database to be available.
 	// s.createMachine(c, m.Id())
 	return s.primeAgentWithMachine(c, m, vers)
@@ -201,17 +200,17 @@ func (s *commonMachineSuite) configureMachine(c *tc.C, machineId string, vers se
 	machineState *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools,
 ) {
 	m, err := s.ControllerModel(c).State().Machine(machineId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add a machine and ensure it is provisioned.
 	inst, md := jujutesting.AssertStartInstance(c, s.Environ, s.ControllerUUID, machineId)
-	c.Assert(m.SetProvisioned(inst.Id(), "", agent.BootstrapNonce, md), jc.ErrorIsNil)
+	c.Assert(m.SetProvisioned(inst.Id(), "", agent.BootstrapNonce, md), tc.ErrorIsNil)
 	// Double write to machine domain.
 	machineService := s.ControllerDomainServices(c).Machine()
 	machineUUID, err := machineService.CreateMachine(context.Background(), machine.Name(m.Id()))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = machineService.SetMachineCloudInstance(context.Background(), machineUUID, inst.Id(), "", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add an address for the tests in case the initiateMongoServer
 	// codepath is exercised.
@@ -219,23 +218,23 @@ func (s *commonMachineSuite) configureMachine(c *tc.C, machineId string, vers se
 
 	// Set up the new machine.
 	err = m.SetAgentVersion(vers)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = m.SetPassword(initialMachinePassword)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	tag := m.Tag()
 	if m.IsManager() {
 		err = m.SetMongoPassword(initialMachinePassword)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		agentConfig, tools = s.PrimeStateAgentVersion(c, tag, initialMachinePassword, vers)
 		info, ok := agentConfig.StateServingInfo()
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		err = s.ControllerModel(c).State().SetStateServingInfo(info)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	} else {
 		agentConfig, tools = s.PrimeAgentVersion(c, tag, initialMachinePassword, vers)
 	}
 	err = agentConfig.Write()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return m, agentConfig, tools
 }
 
@@ -257,7 +256,7 @@ func NewTestMachineAgentFactory(
 
 	return func(agentTag names.Tag, isCAAS bool) (*MachineAgent, error) {
 		prometheusRegistry, err := addons.NewPrometheusRegistry()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		a := &MachineAgent{
 			agentTag:          agentTag,
 			AgentConfigWriter: agentConfWriter,
@@ -297,7 +296,7 @@ func (s *commonMachineSuite) newAgent(c *tc.C, m *state.Machine) (*gomock.Contro
 	}
 	machineAgentFactory := NewTestMachineAgentFactory(c, agentConf, newDBWorkerFunc, c.MkDir(), s.cmdRunner)
 	machineAgent, err := machineAgentFactory(m.Tag(), false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return ctrl, machineAgent
 }
 
@@ -306,12 +305,12 @@ func (s *commonMachineSuite) setFakeMachineAddresses(c *tc.C, machine *state.Mac
 
 	addrs := network.NewSpaceAddresses("0.1.2.3")
 	err := machine.SetProviderAddresses(controllerConfig, addrs...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Set the addresses in the environ instance as well so that if the instance poller
 	// runs it won't overwrite them.
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	insts, err := s.Environ.Instances(context.Background(), []instance.Id{instanceId})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	dummy.SetInstanceAddresses(insts[0], network.NewMachineAddresses([]string{"0.1.2.3"}).AsProviderAddresses())
 }
 

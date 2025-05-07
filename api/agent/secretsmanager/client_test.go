@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/api/base/testing"
@@ -44,7 +43,7 @@ func (s *SecretsSuite) TestGetSecretBackendConfig(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "GetSecretBackendConfigs")
-		c.Check(arg, jc.DeepEquals, params.SecretBackendArgs{
+		c.Check(arg, tc.DeepEquals, params.SecretBackendArgs{
 			BackendIDs: []string{"active-id"},
 		})
 		c.Assert(result, tc.FitsTypeOf, &params.SecretBackendConfigResults{})
@@ -66,8 +65,8 @@ func (s *SecretsSuite) TestGetSecretBackendConfig(c *tc.C) {
 	})
 	client := secretsmanager.NewClient(apiCaller)
 	result, err := client.GetSecretBackendConfig(context.Background(), ptr("active-id"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, &provider.ModelBackendConfigInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, &provider.ModelBackendConfigInfo{
 		ActiveID: "active-id",
 		Configs: map[string]provider.ModelBackendConfig{
 			"active-id": {
@@ -89,7 +88,7 @@ func (s *SecretsSuite) TestGetBackendConfigForDraining(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "GetSecretBackendConfigs")
-		c.Check(arg, jc.DeepEquals, params.SecretBackendArgs{ForDrain: true, BackendIDs: []string{"active-id"}})
+		c.Check(arg, tc.DeepEquals, params.SecretBackendArgs{ForDrain: true, BackendIDs: []string{"active-id"}})
 		c.Assert(result, tc.FitsTypeOf, &params.SecretBackendConfigResults{})
 		*(result.(*params.SecretBackendConfigResults)) = params.SecretBackendConfigResults{
 			ActiveID: "active-id",
@@ -109,8 +108,8 @@ func (s *SecretsSuite) TestGetBackendConfigForDraining(c *tc.C) {
 	})
 	client := secretsmanager.NewClient(apiCaller)
 	result, activeID, err := client.GetBackendConfigForDrain(context.Background(), ptr("active-id"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, &provider.ModelBackendConfig{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, &provider.ModelBackendConfig{
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		ModelUUID:      coretesting.ModelTag.Id(),
 		ModelName:      "fred",
@@ -130,7 +129,7 @@ func (s *SecretsSuite) TestCreateSecretURIs(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "CreateSecretURIs")
-		c.Check(arg, jc.DeepEquals, params.CreateSecretURIsArg{
+		c.Check(arg, tc.DeepEquals, params.CreateSecretURIsArg{
 			Count: 2,
 		})
 		c.Assert(result, tc.FitsTypeOf, &params.StringResults{})
@@ -145,8 +144,8 @@ func (s *SecretsSuite) TestCreateSecretURIs(c *tc.C) {
 	})
 	client := secretsmanager.NewClient(apiCaller)
 	result, err := client.CreateSecretURIs(context.Background(), 2)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, []*coresecrets.URI{uri, uri2})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []*coresecrets.URI{uri, uri2})
 }
 
 func (s *SecretsSuite) TestGetContentInfo(c *tc.C) {
@@ -156,7 +155,7 @@ func (s *SecretsSuite) TestGetContentInfo(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "GetSecretContentInfo")
-		c.Check(arg, jc.DeepEquals, params.GetSecretContentArgs{
+		c.Check(arg, tc.DeepEquals, params.GetSecretContentArgs{
 			Args: []params.GetSecretContentArg{{
 				URI:     uri.String(),
 				Label:   "label",
@@ -174,11 +173,11 @@ func (s *SecretsSuite) TestGetContentInfo(c *tc.C) {
 	})
 	client := secretsmanager.NewClient(apiCaller)
 	content, backendConfig, draining, err := client.GetContentInfo(context.Background(), uri, "label", true, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	value := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
-	c.Assert(content, jc.DeepEquals, &secrets.ContentParams{SecretValue: value})
+	c.Assert(content, tc.DeepEquals, &secrets.ContentParams{SecretValue: value})
 	c.Assert(backendConfig, tc.IsNil)
-	c.Assert(draining, jc.IsFalse)
+	c.Assert(draining, tc.IsFalse)
 }
 
 func (s *SecretsSuite) TestGetContentInfoExternal(c *tc.C) {
@@ -188,7 +187,7 @@ func (s *SecretsSuite) TestGetContentInfoExternal(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "GetSecretContentInfo")
-		c.Check(arg, jc.DeepEquals, params.GetSecretContentArgs{
+		c.Check(arg, tc.DeepEquals, params.GetSecretContentArgs{
 			Args: []params.GetSecretContentArg{{
 				URI:     uri.String(),
 				Label:   "label",
@@ -219,12 +218,12 @@ func (s *SecretsSuite) TestGetContentInfoExternal(c *tc.C) {
 	})
 	client := secretsmanager.NewClient(apiCaller)
 	content, backendConfig, draining, err := client.GetContentInfo(context.Background(), uri, "label", true, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(content, jc.DeepEquals, &secrets.ContentParams{ValueRef: &coresecrets.ValueRef{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(content, tc.DeepEquals, &secrets.ContentParams{ValueRef: &coresecrets.ValueRef{
 		BackendID:  "backend-id",
 		RevisionID: "rev-id",
 	}})
-	c.Assert(backendConfig, jc.DeepEquals, &provider.ModelBackendConfig{
+	c.Assert(backendConfig, tc.DeepEquals, &provider.ModelBackendConfig{
 		ControllerUUID: "controller-uuid",
 		ModelUUID:      "model-uuid",
 		ModelName:      "model",
@@ -233,7 +232,7 @@ func (s *SecretsSuite) TestGetContentInfoExternal(c *tc.C) {
 			Config:      map[string]interface{}{"foo": "bar"},
 		},
 	})
-	c.Assert(draining, jc.IsTrue)
+	c.Assert(draining, tc.IsTrue)
 }
 
 func (s *SecretsSuite) TestGetContentInfoLabelArgOnly(c *tc.C) {
@@ -242,7 +241,7 @@ func (s *SecretsSuite) TestGetContentInfoLabelArgOnly(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "GetSecretContentInfo")
-		c.Check(arg, jc.DeepEquals, params.GetSecretContentArgs{
+		c.Check(arg, tc.DeepEquals, params.GetSecretContentArgs{
 			Args: []params.GetSecretContentArg{{
 				Label:   "label",
 				Refresh: true,
@@ -259,11 +258,11 @@ func (s *SecretsSuite) TestGetContentInfoLabelArgOnly(c *tc.C) {
 	})
 	client := secretsmanager.NewClient(apiCaller)
 	content, backendConfig, draining, err := client.GetContentInfo(context.Background(), nil, "label", true, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	value := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
-	c.Assert(content, jc.DeepEquals, &secrets.ContentParams{SecretValue: value})
+	c.Assert(content, tc.DeepEquals, &secrets.ContentParams{SecretValue: value})
 	c.Assert(backendConfig, tc.IsNil)
-	c.Assert(draining, jc.IsFalse)
+	c.Assert(draining, tc.IsFalse)
 }
 
 func (s *SecretsSuite) TestGetContentInfoError(c *tc.C) {
@@ -290,7 +289,7 @@ func (s *SecretsSuite) TestGetRevisionContentInfo(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "GetSecretRevisionContentInfo")
-		c.Check(arg, jc.DeepEquals, params.SecretRevisionArg{
+		c.Check(arg, tc.DeepEquals, params.SecretRevisionArg{
 			URI:           uri.String(),
 			Revisions:     []int{666},
 			PendingDelete: true,
@@ -305,11 +304,11 @@ func (s *SecretsSuite) TestGetRevisionContentInfo(c *tc.C) {
 	})
 	client := secretsmanager.NewClient(apiCaller)
 	content, backendConfig, draining, err := client.GetRevisionContentInfo(context.Background(), uri, 666, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	value := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
-	c.Assert(content, jc.DeepEquals, &secrets.ContentParams{SecretValue: value})
+	c.Assert(content, tc.DeepEquals, &secrets.ContentParams{SecretValue: value})
 	c.Assert(backendConfig, tc.IsNil)
-	c.Assert(draining, jc.IsFalse)
+	c.Assert(draining, tc.IsFalse)
 }
 
 func (s *SecretsSuite) TestGetRevisionContentInfoExternal(c *tc.C) {
@@ -319,7 +318,7 @@ func (s *SecretsSuite) TestGetRevisionContentInfoExternal(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "GetSecretRevisionContentInfo")
-		c.Check(arg, jc.DeepEquals, params.SecretRevisionArg{
+		c.Check(arg, tc.DeepEquals, params.SecretRevisionArg{
 			URI:           uri.String(),
 			Revisions:     []int{666},
 			PendingDelete: true,
@@ -347,12 +346,12 @@ func (s *SecretsSuite) TestGetRevisionContentInfoExternal(c *tc.C) {
 	})
 	client := secretsmanager.NewClient(apiCaller)
 	content, backendConfig, draining, err := client.GetRevisionContentInfo(context.Background(), uri, 666, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(content, jc.DeepEquals, &secrets.ContentParams{ValueRef: &coresecrets.ValueRef{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(content, tc.DeepEquals, &secrets.ContentParams{ValueRef: &coresecrets.ValueRef{
 		BackendID:  "backend-id",
 		RevisionID: "rev-id",
 	}})
-	c.Assert(backendConfig, jc.DeepEquals, &provider.ModelBackendConfig{
+	c.Assert(backendConfig, tc.DeepEquals, &provider.ModelBackendConfig{
 		ControllerUUID: "controller-uuid",
 		ModelUUID:      "model-uuid",
 		ModelName:      "model",
@@ -361,7 +360,7 @@ func (s *SecretsSuite) TestGetRevisionContentInfoExternal(c *tc.C) {
 			Config:      map[string]interface{}{"foo": "bar"},
 		},
 	})
-	c.Assert(draining, jc.IsTrue)
+	c.Assert(draining, tc.IsTrue)
 }
 
 func (s *SecretsSuite) TestGetRevisionContentInfoError(c *tc.C) {
@@ -422,18 +421,18 @@ func (s *SecretsSuite) TestSecretMetadata(c *tc.C) {
 	})
 	client := secretsmanager.NewClient(apiCaller)
 	result, err := client.SecretMetadata(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.HasLen, 1)
 	for _, info := range result {
 		c.Assert(info.Metadata.URI.String(), tc.Equals, uri.String())
-		c.Assert(info.Metadata.Owner, jc.DeepEquals, coresecrets.Owner{Kind: coresecrets.ModelOwner, ID: coretesting.ModelTag.Id()})
+		c.Assert(info.Metadata.Owner, tc.DeepEquals, coresecrets.Owner{Kind: coresecrets.ModelOwner, ID: coretesting.ModelTag.Id()})
 		c.Assert(info.Metadata.Label, tc.Equals, "label")
 		c.Assert(info.Metadata.LatestRevision, tc.Equals, 667)
 		c.Assert(info.Metadata.LatestRevisionChecksum, tc.Equals, "checksum")
 		c.Assert(info.Metadata.LatestExpireTime, tc.Equals, &now)
 		c.Assert(info.Metadata.NextRotateTime, tc.Equals, &now)
-		c.Assert(info.Revisions, jc.DeepEquals, []int{666, 667})
-		c.Assert(info.Metadata.Access, jc.DeepEquals, []coresecrets.AccessInfo{
+		c.Assert(info.Revisions, tc.DeepEquals, []int{666, 667})
+		c.Assert(info.Metadata.Access, tc.DeepEquals, []coresecrets.AccessInfo{
 			{
 				Target: "application-gitlab",
 				Scope:  coretesting.ModelTag.Id(),
@@ -449,7 +448,7 @@ func (s *SecretsSuite) TestWatchConsumedSecretsChanges(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "WatchConsumedSecretsChanges")
-		c.Check(arg, jc.DeepEquals, params.Entities{
+		c.Check(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "unit-foo-0"}},
 		})
 		c.Assert(result, tc.FitsTypeOf, &params.StringsWatchResults{})
@@ -471,7 +470,7 @@ func (s *SecretsSuite) GetConsumerSecretsRevisionInfo(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "GetConsumerSecretsRevisionInfo")
-		c.Check(arg, jc.DeepEquals, params.GetSecretConsumerInfoArgs{
+		c.Check(arg, tc.DeepEquals, params.GetSecretConsumerInfoArgs{
 			ConsumerTag: "unit-foo-0",
 			URIs: []string{
 				"secret:9m4e2mr0ui3e8a215n4g", "secret:8n3e2mr0ui3e8a215n5h", "secret:7c5e2mr0ui3e8a2154r2"},
@@ -495,8 +494,8 @@ func (s *SecretsSuite) GetConsumerSecretsRevisionInfo(c *tc.C) {
 		context.Background(),
 		"foo-0", []string{
 			"secret:9m4e2mr0ui3e8a215n4g", "secret:8n3e2mr0ui3e8a215n5h", "secret:7c5e2mr0ui3e8a2154r2"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, map[string]coresecrets.SecretRevisionInfo{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, map[string]coresecrets.SecretRevisionInfo{})
 }
 
 func (s *SecretsSuite) TestWatchObsolete(c *tc.C) {
@@ -505,7 +504,7 @@ func (s *SecretsSuite) TestWatchObsolete(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "WatchObsolete")
-		c.Check(arg, jc.DeepEquals, params.Entities{
+		c.Check(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "unit-foo-0"}},
 		})
 		c.Assert(result, tc.FitsTypeOf, &params.StringsWatchResult{})
@@ -525,7 +524,7 @@ func (s *SecretsSuite) TestWatchSecretsRotationChanges(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "WatchSecretsRotationChanges")
-		c.Check(arg, jc.DeepEquals, params.Entities{
+		c.Check(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "application-app"}},
 		})
 		c.Assert(result, tc.FitsTypeOf, &params.SecretTriggerWatchResult{})
@@ -545,7 +544,7 @@ func (s *SecretsSuite) TestSecretRotated(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "SecretsRotated")
-		c.Check(arg, jc.DeepEquals, params.SecretRotatedArgs{
+		c.Check(arg, tc.DeepEquals, params.SecretRotatedArgs{
 			Args: []params.SecretRotatedArg{{
 				URI:              "secret:9m4e2mr0ui3e8a215n4g",
 				OriginalRevision: 666,
@@ -570,7 +569,7 @@ func (s *SecretsSuite) TestWatchSecretRevisionsExpiryChanges(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "WatchSecretRevisionsExpiryChanges")
-		c.Check(arg, jc.DeepEquals, params.Entities{
+		c.Check(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "application-app"}},
 		})
 		c.Assert(result, tc.FitsTypeOf, &params.SecretTriggerWatchResult{})
@@ -591,7 +590,7 @@ func (s *SecretsSuite) TestGrant(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "SecretsGrant")
-		c.Check(arg, jc.DeepEquals, params.GrantRevokeSecretArgs{
+		c.Check(arg, tc.DeepEquals, params.GrantRevokeSecretArgs{
 			Args: []params.GrantRevokeSecretArg{{
 				URI:         uri.String(),
 				ScopeTag:    "relation-wordpress.db#mysql.server",
@@ -623,7 +622,7 @@ func (s *SecretsSuite) TestRevoke(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "SecretsRevoke")
-		c.Check(arg, jc.DeepEquals, params.GrantRevokeSecretArgs{
+		c.Check(arg, tc.DeepEquals, params.GrantRevokeSecretArgs{
 			Args: []params.GrantRevokeSecretArg{{
 				URI:         uri.String(),
 				ScopeTag:    "relation-wordpress.db#mysql.server",

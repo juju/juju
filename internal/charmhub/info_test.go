@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/charmhub/path"
@@ -38,7 +37,7 @@ func (s *InfoSuite) TestInfoCharm(c *tc.C) {
 
 	client := newInfoClient(path, restClient, s.logger)
 	response, err := client.Info(context.Background(), name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(response.Name, tc.Equals, name)
 	c.Assert(response.DefaultRelease.Revision.MetadataYAML, tc.Equals, "YAML")
 }
@@ -57,7 +56,7 @@ func (s *InfoSuite) TestInfoBundle(c *tc.C) {
 
 	client := newInfoClient(path, restClient, s.logger)
 	response, err := client.Info(context.Background(), name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(response.Name, tc.Equals, name)
 	c.Assert(response.DefaultRelease.Revision.BundleYAML, tc.Equals, "YAML")
 }
@@ -76,7 +75,7 @@ func (s *InfoSuite) TestInfoFailure(c *tc.C) {
 
 	client := newInfoClient(path, restClient, s.logger)
 	_, err := client.Info(context.Background(), name)
-	c.Assert(err, tc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
 func (s *InfoSuite) TestInfoError(c *tc.C) {
@@ -93,14 +92,14 @@ func (s *InfoSuite) TestInfoError(c *tc.C) {
 
 	client := newInfoClient(path, restClient, s.logger)
 	_, err := client.Info(context.Background(), name)
-	c.Assert(err, tc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
 func (s *InfoSuite) expectCharmGet(c *tc.C, client *MockRESTClient, p path.Path, name string) {
 	namedPath, err := p.Join(name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	namedPath, err = namedPath.Query("fields", defaultInfoFilter())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).DoAndReturn(func(_ context.Context, _ path.Path, r any) (restResponse, error) {
 		response := r.(*transport.InfoResponse)
@@ -117,9 +116,9 @@ func (s *InfoSuite) expectCharmGet(c *tc.C, client *MockRESTClient, p path.Path,
 
 func (s *InfoSuite) expectBundleGet(c *tc.C, client *MockRESTClient, p path.Path, name string) {
 	namedPath, err := p.Join(name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	namedPath, err = namedPath.Query("fields", defaultInfoFilter())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).Do(func(_ context.Context, _ path.Path, r any) (restResponse, error) {
 		response := r.(*transport.InfoResponse)
@@ -140,9 +139,9 @@ func (s *InfoSuite) expectGetFailure(client *MockRESTClient) {
 
 func (s *InfoSuite) expectGetError(c *tc.C, client *MockRESTClient, p path.Path, name string) {
 	namedPath, err := p.Join(name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	namedPath, err = namedPath.Query("fields", defaultInfoFilter())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).Do(func(_ context.Context, _ path.Path, r any) (restResponse, error) {
 		response := r.(*transport.InfoResponse)
@@ -242,23 +241,23 @@ func (s *InfoSuite) TestInfoRequestPayload(c *tc.C) {
 		w.WriteHeader(http.StatusOK)
 
 		err := json.NewEncoder(w).Encode(infoResponse)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	})
 
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
 	basePath, err := basePath(server.URL)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	infoPath, err := basePath.Join("info")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	apiRequester := newAPIRequester(DefaultHTTPClient(s.logger), s.logger)
 	restClient := newHTTPRESTClient(apiRequester)
 
 	client := newInfoClient(infoPath, restClient, s.logger)
 	response, err := client.Info(context.Background(), "wordpress")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(response, tc.DeepEquals, infoResponse)
 }

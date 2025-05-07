@@ -7,7 +7,6 @@ import (
 	"math"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 )
 
 type unitNameSuite struct{}
@@ -88,11 +87,11 @@ func (*unitNameSuite) TestNameValidate(c *tc.C) {
 		err := Name(test.name).Validate()
 
 		if test.err == nil {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			continue
 		}
 
-		c.Check(err, jc.ErrorIs, test.err)
+		c.Check(err, tc.ErrorIs, test.err)
 	}
 }
 
@@ -146,23 +145,23 @@ func (*unitNameSuite) TestNewNameFromParts(c *tc.C) {
 		_, err := NewNameFromParts(test.application, test.number)
 
 		if test.err == nil {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			continue
 		}
 
-		c.Check(err, jc.ErrorIs, test.err)
+		c.Check(err, tc.ErrorIs, test.err)
 	}
 }
 
 func (*unitNameSuite) TestApplicationName(c *tc.C) {
 	unitName, err := NewName("app/666")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unitName.Application(), tc.Equals, "app")
 }
 
 func (*unitNameSuite) TestNumber(c *tc.C) {
 	unitName, err := NewName("app/666")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unitName.Number(), tc.Equals, 666)
 }
 

@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/downloader"
 	"github.com/juju/juju/internal/testing"
@@ -47,7 +46,7 @@ var _ = tc.Suite(&DownloadSuite{})
 func (s *DownloadSuite) URL(c *tc.C, path string) *url.URL {
 	urlStr := s.HTTPSuite.URL(path)
 	url, err := url.Parse(urlStr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return url
 }
 
@@ -109,7 +108,7 @@ func (s *DownloadSuite) TestVerifyValid(c *tc.C) {
 		downloader.NewHTTPBlobOpener(true),
 	)
 	filename, err := dl.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(filename, tc.Not(tc.Equals), "")
 	stub.CheckCallNames(c, "Verify")
 }
@@ -158,12 +157,12 @@ func (s *DownloadSuite) TestAbort(c *tc.C) {
 
 func assertFileContents(c *tc.C, filename, expect string) {
 	got, err := os.ReadFile(filename)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(string(got), tc.Equals, expect)
 }
 
 func checkDirEmpty(c *tc.C, dir string) {
 	files, err := os.ReadDir(dir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(files, tc.HasLen, 0)
 }

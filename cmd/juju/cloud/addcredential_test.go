@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	jujucloud "github.com/juju/juju/cloud"
@@ -102,7 +101,7 @@ func (s *addCredentialSuite) TestBadLocalCloudName(c *tc.C) {
 	ctx, err := s.run(c, nil, "badcloud", "--client")
 	c.Assert(err, tc.Equals, cmd.ErrSilent)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "To view all available clouds, use 'juju clouds'.\nTo add new cloud, use 'juju add-cloud'.\n")
-	c.Assert(c.GetTestLog(), jc.Contains, "cloud badcloud not valid")
+	c.Assert(c.GetTestLog(), tc.Contains, "cloud badcloud not valid")
 }
 
 func (s *addCredentialSuite) TestAddFromFileBadFilename(c *tc.C) {
@@ -135,7 +134,7 @@ func (s *addCredentialSuite) createTestCredentialFile(c *tc.C, content string) s
 	dir := c.MkDir()
 	credsFile := filepath.Join(dir, "cred.yaml")
 	err := os.WriteFile(credsFile, []byte(content), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return credsFile
 }
 
@@ -171,8 +170,8 @@ func (s *addCredentialSuite) TestAddFromFileExisting(c *tc.C) {
 	}
 	sourceFile := s.createTestCredentialData(c)
 	_, err := s.run(c, nil, "somecloud", "-f", sourceFile, "--client")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.store.Credentials, jc.DeepEquals, map[string]jujucloud.CloudCredential{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.store.Credentials, tc.DeepEquals, map[string]jujucloud.CloudCredential{
 		"somecloud": {
 			AuthCredentials: map[string]jujucloud.Credential{
 				"cred": {},
@@ -205,7 +204,7 @@ func (s *addCredentialSuite) setupCloudWithRegions(c *tc.C) {
 			},
 		}, nil
 	}
-	c.Assert(s.store.Credentials, jc.DeepEquals, map[string]jujucloud.CloudCredential{})
+	c.Assert(s.store.Credentials, tc.DeepEquals, map[string]jujucloud.CloudCredential{})
 }
 
 func (s *addCredentialSuite) createFileForAddCredential(c *tc.C) string {
@@ -220,7 +219,7 @@ credentials:
       password: password
 `[1:]
 	err := os.WriteFile(credsFile, []byte(data), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return credsFile
 }
 
@@ -308,9 +307,9 @@ func (s *addCredentialSuite) assertCredentialAdded(c *tc.C, input string, args [
 	}
 
 	ctxt, runCmd, err := s.runCmd(c, stdin, args...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(runCmd.Region, tc.Equals, expectedRegion)
-	c.Assert(s.store.Credentials, jc.DeepEquals, map[string]jujucloud.CloudCredential{
+	c.Assert(s.store.Credentials, tc.DeepEquals, map[string]jujucloud.CloudCredential{
 		"somecloud": {
 			AuthCredentials: map[string]jujucloud.Credential{
 				"fred": jujucloud.NewCredential(jujucloud.UserPassAuthType, map[string]string{
@@ -326,8 +325,8 @@ func (s *addCredentialSuite) TestAddNewFromFile(c *tc.C) {
 	s.authTypes = []jujucloud.AuthType{jujucloud.AccessKeyAuthType}
 	sourceFile := s.createTestCredentialData(c)
 	_, err := s.run(c, nil, "somecloud", "-f", sourceFile, "--client")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.store.Credentials, jc.DeepEquals, map[string]jujucloud.CloudCredential{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.store.Credentials, tc.DeepEquals, map[string]jujucloud.CloudCredential{
 		"somecloud": {
 			AuthCredentials: map[string]jujucloud.Credential{
 				"me": jujucloud.NewCredential(jujucloud.AccessKeyAuthType, map[string]string{
@@ -366,7 +365,7 @@ func (s *addCredentialSuite) assertAddUserpassCredential(c *tc.C, input string, 
 	}
 	stdin := strings.NewReader(input)
 	ctx, err := s.run(c, stdin, "somecloud", "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	var cred jujucloud.Credential
 	if expected == nil {
 		cred = jujucloud.NewCredential(jujucloud.UserPassAuthType, map[string]string{
@@ -376,7 +375,7 @@ func (s *addCredentialSuite) assertAddUserpassCredential(c *tc.C, input string, 
 	} else {
 		cred = *expected
 	}
-	c.Assert(s.store.Credentials, jc.DeepEquals, map[string]jujucloud.CloudCredential{
+	c.Assert(s.store.Credentials, tc.DeepEquals, map[string]jujucloud.CloudCredential{
 		"somecloud": {
 			AuthCredentials: map[string]jujucloud.Credential{
 				"fred": cred,
@@ -440,7 +439,7 @@ func (s *addCredentialSuite) TestAddCredentialInteractive(c *tc.C) {
 
 	stdin := strings.NewReader("bobscreds\nbob\n")
 	ctx, err := s.run(c, stdin, "somecloud", "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// there's an extra line return after Using auth-type because the rest get a
 	// second line return from the user hitting return when they enter a value
@@ -456,7 +455,7 @@ Credential "bobscreds" added locally for cloud "somecloud".
 
 	// FinalizeCredential should have generated a userpass credential
 	// based on the input from the interactive credential.
-	c.Assert(s.store.Credentials, jc.DeepEquals, map[string]jujucloud.CloudCredential{
+	c.Assert(s.store.Credentials, tc.DeepEquals, map[string]jujucloud.CloudCredential{
 		"somecloud": {
 			AuthCredentials: map[string]jujucloud.Credential{
 				"bobscreds": jujucloud.NewCredential(jujucloud.UserPassAuthType, map[string]string{
@@ -485,14 +484,14 @@ func (s *addCredentialSuite) TestAddCredentialInteractiveHiddenFile(c *tc.C) {
 	}
 
 	file, err := os.CreateTemp("", "username-file")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer file.Close()
 	_, err = file.WriteString("test")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	stdin := strings.NewReader(fmt.Sprintf("wallyworld\n%s\n", file.Name()))
 	ctx, err := s.run(c, stdin, "somecloud", "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// there's an extra line return after Using auth-type because the rest get a
 	// second line return from the user hitting return when they enter a value
@@ -506,7 +505,7 @@ Credential "wallyworld" added locally for cloud "somecloud".
 
 `[1:])
 
-	c.Assert(s.store.Credentials, jc.DeepEquals, map[string]jujucloud.CloudCredential{
+	c.Assert(s.store.Credentials, tc.DeepEquals, map[string]jujucloud.CloudCredential{
 		"somecloud": {
 			AuthCredentials: map[string]jujucloud.Credential{
 				"wallyworld": jujucloud.NewCredential("userpass", map[string]string{
@@ -551,7 +550,7 @@ func (s *addCredentialSuite) TestAddCredentialCredSchemaInteractive(c *tc.C) {
 
 	stdin := strings.NewReader("bobscreds\n\nbob\n")
 	ctx, err := s.run(c, stdin, "somecloud", "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// there's an extra line return after Using auth-type because the rest get a
 	// second line return from the user hitting return when they enter a value
@@ -570,7 +569,7 @@ Credential "bobscreds" added locally for cloud "somecloud".
 
 	// FinalizeCredential should have generated a userpass credential
 	// based on the input from the interactive credential.
-	c.Assert(s.store.Credentials, jc.DeepEquals, map[string]jujucloud.CloudCredential{
+	c.Assert(s.store.Credentials, tc.DeepEquals, map[string]jujucloud.CloudCredential{
 		"somecloud": {
 			AuthCredentials: map[string]jujucloud.Credential{
 				"bobscreds": jujucloud.NewCredential(jujucloud.UserPassAuthType, map[string]string{
@@ -626,18 +625,18 @@ func (s *addCredentialSuite) assertAddFileCredential(c *tc.C, input, fileKey str
 	dir := c.MkDir()
 	filename := filepath.Join(dir, "jsonfile")
 	err := os.WriteFile(filename, []byte{}, 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	stdin := strings.NewReader(fmt.Sprintf(input, filename))
 	addCmd := cloud.NewAddCredentialCommandForTest(s.store, s.cloudByNameFunc, s.credentialAPIFunc)
 	err = cmdtesting.InitCommand(addCmd, []string{"somecloud", "--client"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.ContextForDir(c, dir)
 	ctx.Stdin = stdin
 	err = addCmd.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(s.store.Credentials, jc.DeepEquals, map[string]jujucloud.CloudCredential{
+	c.Assert(s.store.Credentials, tc.DeepEquals, map[string]jujucloud.CloudCredential{
 		"somecloud": {
 			AuthCredentials: map[string]jujucloud.Credential{
 				"fred": jujucloud.NewCredential(s.authTypes[0], map[string]string{
@@ -695,8 +694,8 @@ func (s *addCredentialSuite) assertAddCredentialWithOptions(c *tc.C, input strin
 	// Input includes a bad option
 	stdin := strings.NewReader(input)
 	_, err := s.run(c, stdin, "somecloud", "--client")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.store.Credentials, jc.DeepEquals, map[string]jujucloud.CloudCredential{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.store.Credentials, tc.DeepEquals, map[string]jujucloud.CloudCredential{
 		"somecloud": {
 			AuthCredentials: map[string]jujucloud.Credential{
 				"fred": jujucloud.NewCredential(jujucloud.UserPassAuthType, map[string]string{
@@ -727,8 +726,8 @@ func (s *addCredentialSuite) TestAddMAASCredential(c *tc.C) {
 	}
 	stdin := strings.NewReader("fred\nauth:token\n")
 	_, err := s.run(c, stdin, "somecloud", "--client")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.store.Credentials, jc.DeepEquals, map[string]jujucloud.CloudCredential{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.store.Credentials, tc.DeepEquals, map[string]jujucloud.CloudCredential{
 		"somecloud": {
 			AuthCredentials: map[string]jujucloud.Credential{
 				"fred": jujucloud.NewCredential(jujucloud.OAuth1AuthType, map[string]string{
@@ -756,7 +755,7 @@ func (s *addCredentialSuite) TestAddGCEFileCredentials(c *tc.C) {
 	sourceFile := s.createTestCredentialDataWithAuthType(c, fmt.Sprintf("%v", jujucloud.JSONFileAuthType))
 	stdin := strings.NewReader(fmt.Sprintf("blah\n%s\n", sourceFile))
 	ctx, err := s.run(c, stdin, "somecloud", "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := `
 Enter credential name: 
 Using auth-type "jsonfile".
@@ -775,7 +774,7 @@ func (s *addCredentialSuite) TestShouldFinalizeCredentialWithEnvironProvider(c *
 	provider := environsTesting.NewMockEnvironProvider(ctrl)
 	cred := jujucloud.Credential{}
 	got := cloud.ShouldFinalizeCredential(provider, cred)
-	c.Assert(got, jc.IsFalse)
+	c.Assert(got, tc.IsFalse)
 }
 
 func (s *addCredentialSuite) TestShouldFinalizeCredentialSuccess(c *tc.C) {
@@ -794,7 +793,7 @@ func (s *addCredentialSuite) TestShouldFinalizeCredentialSuccess(c *tc.C) {
 	provider.MockRequestFinalizeCredential.EXPECT().ShouldFinalizeCredential(cred).Return(true)
 
 	got := cloud.ShouldFinalizeCredential(provider, cred)
-	c.Assert(got, jc.IsTrue)
+	c.Assert(got, tc.IsTrue)
 }
 
 func (s *addCredentialSuite) TestShouldFinalizeCredentialFailure(c *tc.C) {
@@ -813,7 +812,7 @@ func (s *addCredentialSuite) TestShouldFinalizeCredentialFailure(c *tc.C) {
 	provider.MockRequestFinalizeCredential.EXPECT().ShouldFinalizeCredential(cred).Return(false)
 
 	got := cloud.ShouldFinalizeCredential(provider, cred)
-	c.Assert(got, jc.IsFalse)
+	c.Assert(got, tc.IsFalse)
 }
 
 func (s *addCredentialSuite) setupStore(c *tc.C) {
@@ -893,12 +892,12 @@ credentials:
 	stdin := strings.NewReader(fmt.Sprintf("%vblah\n%s\n", expectedStdin, sourceFile))
 
 	ctx, err := s.run(c, stdin, append(args, cloudName)...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, expectedStdout)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, expectedStderr)
 
 	if added {
-		c.Assert(s.store.Credentials[cloudName].AuthCredentials["blah"].Attributes()["file"], tc.Not(jc.Contains), expectedContents)
+		c.Assert(s.store.Credentials[cloudName].AuthCredentials["blah"].Attributes()["file"], tc.Not(tc.Contains), expectedContents)
 		c.Assert(s.store.Credentials[cloudName].AuthCredentials["blah"].Attributes()["file"], tc.Equals, sourceFile)
 	}
 	c.Assert(called, tc.Equals, uploaded)

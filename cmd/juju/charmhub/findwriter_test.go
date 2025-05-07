@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 type columnFindSuite struct {
@@ -19,19 +18,19 @@ var _ = tc.Suite(&columnFindSuite{})
 
 func (s *columnFindSuite) TestColumnNames(c *tc.C) {
 	names := DefaultColumns().Names()
-	c.Assert(names, jc.DeepEquals, []string{"Name", "Bundle", "Version", "Architectures", "OS", "Supports", "Publisher", "Summary"})
+	c.Assert(names, tc.DeepEquals, []string{"Name", "Bundle", "Version", "Architectures", "OS", "Supports", "Publisher", "Summary"})
 }
 
 func (s *columnFindSuite) TestMakeColumns(c *tc.C) {
 	columns, err := MakeColumns(DefaultColumns(), "nb")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(columns.Names(), jc.DeepEquals, []string{"Name", "Bundle"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(columns.Names(), tc.DeepEquals, []string{"Name", "Bundle"})
 }
 
 func (s *columnFindSuite) TestMakeColumnsOutOfOrder(c *tc.C) {
 	columns, err := MakeColumns(DefaultColumns(), "vbn")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(columns.Names(), jc.DeepEquals, []string{"Version", "Bundle", "Name"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(columns.Names(), tc.DeepEquals, []string{"Version", "Bundle", "Name"})
 }
 
 func (s *columnFindSuite) TestMakeColumnsInvalidAlias(c *tc.C) {
@@ -52,7 +51,7 @@ func (s *printFindSuite) TestCharmPrintFind(c *tc.C) {
 
 	fw := makeFindWriter(ctx.Stdout, ctx.Warningf, cols, fr)
 	err := fw.Print()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `
@@ -69,11 +68,11 @@ func (s *printFindSuite) TestCharmPrintFindWithColumns(c *tc.C) {
 	fr := getCharmFindResponse()
 	ctx := commandContextForTest(c)
 	cols, err := MakeColumns(DefaultColumns(), "nbvps")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	fw := makeFindWriter(ctx.Stdout, ctx.Warningf, cols, fr)
 	err = fw.Print()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `
@@ -98,7 +97,7 @@ func (s *printFindSuite) TestCharmPrintFindWithMissingData(c *tc.C) {
 
 	fw := makeFindWriter(ctx.Stdout, ctx.Warningf, cols, fr)
 	err := fw.Print()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `
@@ -112,7 +111,7 @@ osm        Y       3.2.3    all            ubuntu@18.04,ubuntu@20.04,ubuntu@22.0
 
 func (s *printFindSuite) TestSummary(c *tc.C) {
 	summary, err := oneLine("WordPress is a full featured web blogging tool, this charm deploys it.\nSome addition data\nMore Lines", 0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained := summary
 	expected := `
@@ -123,7 +122,7 @@ tool, this charm deploys it.`
 
 func (s *printFindSuite) TestSummaryEmpty(c *tc.C) {
 	summary, err := oneLine("", 0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained := summary
 	expected := ""

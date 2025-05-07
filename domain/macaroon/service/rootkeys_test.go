@@ -10,7 +10,6 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/dbrootkeystore"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/domain/macaroon"
@@ -57,7 +56,7 @@ func (s *rootKeyServiceSuite) TestGetKeyContext(c *tc.C) {
 	srv := NewRootKeyService(s.st, s.clock)
 
 	res, err := srv.GetKeyContext(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, key)
 }
 
@@ -69,7 +68,7 @@ func (s *rootKeyServiceSuite) TestGetKeyContextNotFound(c *tc.C) {
 	srv := NewRootKeyService(s.st, s.clock)
 
 	_, err := srv.GetKeyContext(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, bakery.ErrNotFound)
+	c.Assert(err, tc.ErrorIs, bakery.ErrNotFound)
 }
 
 func (s *rootKeyServiceSuite) TestFindLatestKeyContext(c *tc.C) {
@@ -82,7 +81,7 @@ func (s *rootKeyServiceSuite) TestFindLatestKeyContext(c *tc.C) {
 	srv := NewRootKeyService(s.st, s.clock)
 
 	res, err := srv.FindLatestKeyContext(context.Background(), createdAfter, expiresAfter, expiresBefore)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, key)
 }
 
@@ -96,7 +95,7 @@ func (s *rootKeyServiceSuite) TestFindLatestKeyContextNotFound(c *tc.C) {
 	srv := NewRootKeyService(s.st, s.clock)
 
 	res, err := srv.FindLatestKeyContext(context.Background(), createdAfter, expiresAfter, expiresBefore)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, dbrootkeystore.RootKey{})
 }
 
@@ -107,7 +106,7 @@ func (s *rootKeyServiceSuite) TestInsertKeyContext(c *tc.C) {
 	srv := NewRootKeyService(s.st, s.clock)
 
 	err := srv.InsertKeyContext(context.Background(), key)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *rootKeyServiceSuite) TestInsertKeyContextError(c *tc.C) {

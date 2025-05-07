@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/errors"
@@ -31,7 +30,7 @@ func (*validatorsSuite) TestCharmhubURLChange(c *tc.C) {
 		"type":         "sometype",
 		"charmhub-url": "https://charmhub.example.com",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name":         "wallyworld",
@@ -39,11 +38,11 @@ func (*validatorsSuite) TestCharmhubURLChange(c *tc.C) {
 		"type":         "sometype",
 		"charmhub-url": "https://charmhub1.example.com",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var validationError *config.ValidationError
 	_, err = CharmhubURLChange()(context.Background(), newCfg, oldCfg)
-	c.Assert(errors.As(err, &validationError), jc.IsTrue)
+	c.Assert(errors.As(err, &validationError), tc.IsTrue)
 	c.Assert(validationError.InvalidAttrs, tc.DeepEquals, []string{"charmhub-url"})
 }
 
@@ -54,7 +53,7 @@ func (*validatorsSuite) TestCharmhubURLNoChange(c *tc.C) {
 		"type":         "sometype",
 		"charmhub-url": "https://charmhub.example.com",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name":         "wallyworld",
@@ -62,10 +61,10 @@ func (*validatorsSuite) TestCharmhubURLNoChange(c *tc.C) {
 		"type":         "sometype",
 		"charmhub-url": "https://charmhub.example.com",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = CharmhubURLChange()(context.Background(), newCfg, oldCfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestAgentStreamChange is testing that the agent stream variable can't change.
@@ -76,7 +75,7 @@ func (*validatorsSuite) TestAgentStreamChanged(c *tc.C) {
 		"type":         "sometype",
 		"agent-stream": "released",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name":         "wallyworld",
@@ -84,11 +83,11 @@ func (*validatorsSuite) TestAgentStreamChanged(c *tc.C) {
 		"type":         "sometype",
 		"agent-stream": "proposed",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var validationError *config.ValidationError
 	_, err = AgentStreamChange()(context.Background(), newCfg, oldCfg)
-	c.Assert(errors.As(err, &validationError), jc.IsTrue)
+	c.Assert(errors.As(err, &validationError), tc.IsTrue)
 	c.Assert(validationError.InvalidAttrs, tc.DeepEquals, []string{"agent-stream"})
 }
 
@@ -101,7 +100,7 @@ func (*validatorsSuite) TestAgentStreamNoChange(c *tc.C) {
 		"type":         "sometype",
 		"agent-stream": "proposed",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name":         "wallyworld",
@@ -109,10 +108,10 @@ func (*validatorsSuite) TestAgentStreamNoChange(c *tc.C) {
 		"type":         "sometype",
 		"agent-stream": "proposed",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cfg, err := AgentStreamChange()(context.Background(), newCfg, oldCfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	reportedStream := cfg.AgentStream()
 	c.Check(reportedStream, tc.Equals, "")
 
@@ -121,7 +120,7 @@ func (*validatorsSuite) TestAgentStreamNoChange(c *tc.C) {
 		"uuid": testing.ModelTag.Id(),
 		"type": "sometype",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newCfg, err = config.New(config.NoDefaults, map[string]any{
 		"name":         "wallyworld",
@@ -129,10 +128,10 @@ func (*validatorsSuite) TestAgentStreamNoChange(c *tc.C) {
 		"type":         "sometype",
 		"agent-stream": "proposed",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = AgentStreamChange()(context.Background(), newCfg, oldCfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (*validatorsSuite) TestAgentVersionChanged(c *tc.C) {
@@ -142,7 +141,7 @@ func (*validatorsSuite) TestAgentVersionChanged(c *tc.C) {
 		"type":          "sometype",
 		"agent-version": "1.2.3",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name":          "wallyworld",
@@ -150,11 +149,11 @@ func (*validatorsSuite) TestAgentVersionChanged(c *tc.C) {
 		"type":          "sometype",
 		"agent-version": "1.3.0",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var validationError *config.ValidationError
 	_, err = AgentVersionChange()(context.Background(), newCfg, oldCfg)
-	c.Assert(errors.As(err, &validationError), jc.IsTrue)
+	c.Assert(errors.As(err, &validationError), tc.IsTrue)
 	c.Assert(validationError.InvalidAttrs, tc.DeepEquals, []string{"agent-version"})
 }
 
@@ -167,7 +166,7 @@ func (*validatorsSuite) TestAgentVersionNoChange(c *tc.C) {
 		"type":          "sometype",
 		"agent-version": "1.3.0",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name":          "wallyworld",
@@ -175,19 +174,19 @@ func (*validatorsSuite) TestAgentVersionNoChange(c *tc.C) {
 		"type":          "sometype",
 		"agent-version": "1.3.0",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cfg, err := AgentVersionChange()(context.Background(), newCfg, oldCfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, agentVersionSet := cfg.AgentVersion()
-	c.Check(agentVersionSet, jc.IsFalse)
+	c.Check(agentVersionSet, tc.IsFalse)
 
 	oldCfg, err = config.New(config.NoDefaults, map[string]any{
 		"name": "wallyworld",
 		"uuid": testing.ModelTag.Id(),
 		"type": "sometype",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newCfg, err = config.New(config.NoDefaults, map[string]any{
 		"name":          "wallyworld",
@@ -195,10 +194,10 @@ func (*validatorsSuite) TestAgentVersionNoChange(c *tc.C) {
 		"type":          "sometype",
 		"agent-version": "1.3.0",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = AgentVersionChange()(context.Background(), newCfg, oldCfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (*validatorsSuite) TestSpaceCheckerFound(c *tc.C) {
@@ -213,7 +212,7 @@ func (*validatorsSuite) TestSpaceCheckerFound(c *tc.C) {
 		"type":          "sometype",
 		"default-space": "foobar",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name":          "wallyworld",
@@ -221,10 +220,10 @@ func (*validatorsSuite) TestSpaceCheckerFound(c *tc.C) {
 		"type":          "sometype",
 		"default-space": "foobar",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = SpaceChecker(provider)(context.Background(), newCfg, oldCfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (*validatorsSuite) TestSpaceCheckerNotFound(c *tc.C) {
@@ -239,7 +238,7 @@ func (*validatorsSuite) TestSpaceCheckerNotFound(c *tc.C) {
 		"type":          "sometype",
 		"default-space": "foobar",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name":          "wallyworld",
@@ -247,11 +246,11 @@ func (*validatorsSuite) TestSpaceCheckerNotFound(c *tc.C) {
 		"type":          "sometype",
 		"default-space": "foobar",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = SpaceChecker(provider)(context.Background(), newCfg, oldCfg)
 	var validationError *config.ValidationError
-	c.Assert(errors.As(err, &validationError), jc.IsTrue)
+	c.Assert(errors.As(err, &validationError), tc.IsTrue)
 	c.Assert(validationError.InvalidAttrs, tc.DeepEquals, []string{"default-space"})
 }
 
@@ -268,7 +267,7 @@ func (*validatorsSuite) TestSpaceCheckerError(c *tc.C) {
 		"type":          "sometype",
 		"default-space": "foobar",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name":          "wallyworld",
@@ -276,10 +275,10 @@ func (*validatorsSuite) TestSpaceCheckerError(c *tc.C) {
 		"type":          "sometype",
 		"default-space": "foobar",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = SpaceChecker(provider)(context.Background(), newCfg, oldCfg)
-	c.Assert(err, jc.ErrorIs, providerErr)
+	c.Assert(err, tc.ErrorIs, providerErr)
 }
 
 func (*validatorsSuite) TestLoggincTracePermissionNoTrace(c *tc.C) {
@@ -288,7 +287,7 @@ func (*validatorsSuite) TestLoggincTracePermissionNoTrace(c *tc.C) {
 		"uuid": testing.ModelTag.Id(),
 		"type": "sometype",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name":           "wallyworld",
@@ -296,10 +295,10 @@ func (*validatorsSuite) TestLoggincTracePermissionNoTrace(c *tc.C) {
 		"type":           "sometype",
 		"logging-config": "root=DEBUG",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = LoggingTracePermissionChecker(false)(context.Background(), newCfg, oldCfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (*validatorsSuite) TestLoggincTracePermissionTrace(c *tc.C) {
@@ -308,7 +307,7 @@ func (*validatorsSuite) TestLoggincTracePermissionTrace(c *tc.C) {
 		"uuid": testing.ModelTag.Id(),
 		"type": "sometype",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name":           "wallyworld",
@@ -316,13 +315,13 @@ func (*validatorsSuite) TestLoggincTracePermissionTrace(c *tc.C) {
 		"type":           "sometype",
 		"logging-config": "root=TRACE",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = LoggingTracePermissionChecker(false)(context.Background(), newCfg, oldCfg)
-	c.Assert(err, jc.ErrorIs, ErrorLogTracingPermission)
+	c.Assert(err, tc.ErrorIs, ErrorLogTracingPermission)
 
 	var validationError *config.ValidationError
-	c.Assert(errors.As(err, &validationError), jc.IsTrue)
+	c.Assert(errors.As(err, &validationError), tc.IsTrue)
 	c.Assert(validationError.InvalidAttrs, tc.DeepEquals, []string{"logging-config"})
 }
 
@@ -332,7 +331,7 @@ func (*validatorsSuite) TestLoggincTracePermissionTraceAllow(c *tc.C) {
 		"uuid": testing.ModelTag.Id(),
 		"type": "sometype",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name":           "wallyworld",
@@ -340,10 +339,10 @@ func (*validatorsSuite) TestLoggincTracePermissionTraceAllow(c *tc.C) {
 		"type":           "sometype",
 		"logging-config": "root=TRACE",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = LoggingTracePermissionChecker(true)(context.Background(), newCfg, oldCfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestContainerNetworkingMethodValueValid asserts that valid container
@@ -358,10 +357,10 @@ func (*validatorsSuite) TestContainerNetworkingMethodValueValid(c *tc.C) {
 			"type":                              "sometype",
 			config.ContainerNetworkingMethodKey: containerNetworkingMethod,
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		_, err = ContainerNetworkingMethodValue()(context.Background(), cfg, nil)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
 }
 
@@ -375,7 +374,7 @@ func (*validatorsSuite) TestContainerNetworkingMethodChanged(c *tc.C) {
 		"type":                              "sometype",
 		config.ContainerNetworkingMethodKey: "provider",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name":                              "wallyworld",
@@ -383,11 +382,11 @@ func (*validatorsSuite) TestContainerNetworkingMethodChanged(c *tc.C) {
 		"type":                              "sometype",
 		config.ContainerNetworkingMethodKey: "local",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = ContainerNetworkingMethodChange()(context.Background(), newCfg, oldCfg)
 	var validationError *config.ValidationError
-	c.Assert(errors.As(err, &validationError), jc.IsTrue)
+	c.Assert(errors.As(err, &validationError), tc.IsTrue)
 	c.Assert(validationError.InvalidAttrs, tc.DeepEquals, []string{"container-networking-method"})
 }
 
@@ -401,7 +400,7 @@ func (*validatorsSuite) TestContainerNetworkingMethodNoChange(c *tc.C) {
 		"type":                              "sometype",
 		config.ContainerNetworkingMethodKey: "provider",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name":                              "wallyworld",
@@ -409,8 +408,8 @@ func (*validatorsSuite) TestContainerNetworkingMethodNoChange(c *tc.C) {
 		"type":                              "sometype",
 		config.ContainerNetworkingMethodKey: "provider",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = ContainerNetworkingMethodChange()(context.Background(), newCfg, oldCfg)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }

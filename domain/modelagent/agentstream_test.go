@@ -4,7 +4,6 @@ package modelagent
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -22,7 +21,7 @@ var _ = tc.Suite(&agentStreamSuite{})
 func (s *agentStreamSuite) TestAgentStreamDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, name FROM agent_stream")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer rows.Close()
 
 	dbValues := make(map[AgentStream]string)
@@ -32,10 +31,10 @@ func (s *agentStreamSuite) TestAgentStreamDBValues(c *tc.C) {
 			name string
 		)
 		err := rows.Scan(&id, &name)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		dbValues[AgentStream(id)] = name
 	}
-	c.Assert(dbValues, jc.DeepEquals, map[AgentStream]string{
+	c.Assert(dbValues, tc.DeepEquals, map[AgentStream]string{
 		AgentStreamReleased: "released",
 		AgentStreamDevel:    "devel",
 		AgentStreamTesting:  "testing",
@@ -72,7 +71,7 @@ func (s *agentStreamSuite) TestAgentStreamFromCoreAgentStream(c *tc.C) {
 
 	for _, test := range tests {
 		rval, err := AgentStreamFromCoreAgentStream(test.in)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(rval, tc.Equals, test.expected)
 	}
 }

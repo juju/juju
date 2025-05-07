@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
@@ -35,13 +34,13 @@ func (s *baseControllerSuite) SetUpTest(c *tc.C) {
 
 func (s *baseControllerSuite) createTestClientStore(c *tc.C) *jujuclient.MemStore {
 	controllers, err := jujuclient.ParseControllers([]byte(s.controllersYaml))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	models, err := jujuclient.ParseModels([]byte(s.modelsYaml))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	accounts, err := jujuclient.ParseAccounts([]byte(s.accountsYaml))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	store := jujuclient.NewMemStore()
 	store.Controllers = controllers.Controllers

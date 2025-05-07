@@ -7,7 +7,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -101,7 +100,7 @@ the current model:
 
 		err := spec.src.checkCompatibilityWith(spec.dst)
 		if spec.expErr == "" {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		} else {
 			c.Assert(err, tc.Not(tc.Equals), nil)
 			c.Assert(err.Error(), tc.Equals, spec.expErr)
@@ -118,7 +117,7 @@ func (s *controllerSuite) TestTargetToAPIInfoLocalUser(c *tc.C) {
 		Macaroons: []macaroon.Slice{{}},
 	}
 	apiInfo := targetToAPIInfo(&targetInfo)
-	c.Assert(apiInfo, jc.DeepEquals, &api.Info{
+	c.Assert(apiInfo, tc.DeepEquals, &api.Info{
 		Addrs:     targetInfo.Addrs,
 		CACert:    targetInfo.CACert,
 		Tag:       targetInfo.AuthTag,
@@ -136,7 +135,7 @@ func (s *controllerSuite) TestTargetToAPIInfoExternalUser(c *tc.C) {
 		Macaroons: []macaroon.Slice{{}},
 	}
 	apiInfo := targetToAPIInfo(&targetInfo)
-	c.Assert(apiInfo, jc.DeepEquals, &api.Info{
+	c.Assert(apiInfo, tc.DeepEquals, &api.Info{
 		Addrs:     targetInfo.Addrs,
 		CACert:    targetInfo.CACert,
 		Password:  targetInfo.Password,

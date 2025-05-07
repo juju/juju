@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
@@ -70,7 +69,7 @@ func (s *bundleMockSuite) TestGetChangesMapArgs(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "GetChangesMapArgs", args, res).SetArg(3, results).Return(nil)
 	client := bundle.NewClientFromCaller(mockFacadeCaller)
 	result, err := client.GetChangesMapArgs(context.Background(), bundleURL, bundleYAML)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Errors, tc.DeepEquals, []string(nil))
 	c.Assert(result.Changes, tc.DeepEquals, changes)
 }
@@ -105,7 +104,7 @@ func (s *bundleMockSuite) TestGetChangesMapArgsReturnsErrors(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "GetChangesMapArgs", args, res).SetArg(3, results).Return(nil)
 	client := bundle.NewClientFromCaller(mockFacadeCaller)
 	result, err := client.GetChangesMapArgs(context.Background(), bundleURL, bundleYAML)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Errors, tc.DeepEquals, []string{"Error returned from request"})
 	c.Assert(result.Changes, tc.DeepEquals, []*params.BundleChangesMapArgs(nil))
 }
@@ -138,6 +137,6 @@ func (s *bundleMockSuite) TestExportBundleLatest(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ExportBundle", args, res).SetArg(3, results).Return(nil)
 	client := bundle.NewClientFromCaller(mockFacadeCaller)
 	result, err := client.ExportBundle(context.Background(), true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, bundleStr)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, bundleStr)
 }

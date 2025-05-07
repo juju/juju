@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
@@ -50,7 +49,7 @@ func (s *loggerSuite) setupAPI(c *tc.C) {
 		Tag: defaultMachineTag,
 	}
 	s.logger, err = logger.NewLoggerAPI(s.authorizer, s.watcherRegistry, s.modelConfigService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *loggerSuite) TestNewLoggerAPIRefusesNonAgent(c *tc.C) {
@@ -75,7 +74,7 @@ func (s *loggerSuite) TestNewLoggerAPIAcceptsUnitAgent(c *tc.C) {
 		Tag: names.NewUnitTag("germany/7"),
 	}
 	s.logger, err = logger.NewLoggerAPI(s.authorizer, s.watcherRegistry, s.modelConfigService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *loggerSuite) TestNewLoggerAPIAcceptsApplicationAgent(c *tc.C) {
@@ -88,7 +87,7 @@ func (s *loggerSuite) TestNewLoggerAPIAcceptsApplicationAgent(c *tc.C) {
 		Tag: names.NewApplicationTag("germany"),
 	}
 	s.logger, err = logger.NewLoggerAPI(s.authorizer, s.watcherRegistry, s.modelConfigService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *loggerSuite) TestWatchLoggingConfigNothing(c *tc.C) {
@@ -173,7 +172,7 @@ func (s *loggerSuite) TestLoggingConfigForAgent(c *tc.C) {
 
 		"logging-config": "<root>=WARN;juju.log.test=DEBUG;unit=INFO",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
 
 	args := params.Entities{

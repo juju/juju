@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -44,7 +43,7 @@ func validConfig(c *tc.C) ManifoldConfig {
 }
 
 func (s *ManifoldConfigSuite) TestValid(c *tc.C) {
-	c.Check(s.config.Validate(), jc.ErrorIsNil)
+	c.Check(s.config.Validate(), tc.ErrorIsNil)
 }
 
 func (s *ManifoldConfigSuite) TestMissingDomainServicesName(c *tc.C) {
@@ -95,5 +94,5 @@ func (s *ManifoldConfigSuite) TestMissingClock(c *tc.C) {
 func (s *ManifoldConfigSuite) checkNotValid(c *tc.C, expect string) {
 	err := s.config.Validate()
 	c.Check(err, tc.ErrorMatches, expect)
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 }

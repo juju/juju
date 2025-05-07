@@ -9,7 +9,6 @@ import (
 	"regexp"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/internal/worker/uniter/runner/debug"
@@ -104,8 +103,8 @@ func testEncodeRoundTrips(c *tc.C, match []string, debugAt string, decoded map[s
 func decodeArgs(c *tc.C, base64Args string) map[string]interface{} {
 	c.Assert(base64Args, tc.Not(tc.Equals), "")
 	yamlArgs, err := base64.StdEncoding.DecodeString(base64Args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	var decoded map[string]interface{}
-	c.Assert(goyaml.Unmarshal(yamlArgs, &decoded), jc.ErrorIsNil)
+	c.Assert(goyaml.Unmarshal(yamlArgs, &decoded), tc.ErrorIsNil)
 	return decoded
 }

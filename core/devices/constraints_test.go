@@ -5,7 +5,6 @@ package devices_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/internal/testing"
@@ -19,7 +18,7 @@ var _ = tc.Suite(&ConstraintsSuite{})
 
 func (*ConstraintsSuite) testParse(c *tc.C, s string, expect devices.Constraints) {
 	cons, err := devices.ParseConstraints(s)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cons, tc.DeepEquals, expect)
 }
 

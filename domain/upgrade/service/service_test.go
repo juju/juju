@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -50,7 +49,7 @@ func (s *serviceSuite) TestCreateUpgrade(c *tc.C) {
 	s.state.EXPECT().CreateUpgrade(gomock.Any(), semversion.MustParse("3.0.0"), semversion.MustParse("3.0.1")).Return(s.upgradeUUID, nil)
 
 	upgradeUUID, err := s.service.CreateUpgrade(context.Background(), semversion.MustParse("3.0.0"), semversion.MustParse("3.0.1"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(upgradeUUID, tc.Equals, s.upgradeUUID)
 }
 
@@ -60,15 +59,15 @@ func (s *serviceSuite) TestCreateUpgradeAlreadyExists(c *tc.C) {
 	s.state.EXPECT().CreateUpgrade(gomock.Any(), semversion.MustParse("3.0.0"), semversion.MustParse("3.0.1")).Return(s.upgradeUUID, upgradeerrors.AlreadyExists)
 
 	_, err := s.service.CreateUpgrade(context.Background(), semversion.MustParse("3.0.0"), semversion.MustParse("3.0.1"))
-	c.Assert(err, jc.ErrorIs, upgradeerrors.AlreadyExists)
+	c.Assert(err, tc.ErrorIs, upgradeerrors.AlreadyExists)
 }
 
 func (s *serviceSuite) TestCreateUpgradeInvalidVersions(c *tc.C) {
 	_, err := s.service.CreateUpgrade(context.Background(), semversion.MustParse("3.0.1"), semversion.MustParse("3.0.0"))
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 
 	_, err = s.service.CreateUpgrade(context.Background(), semversion.MustParse("3.0.1"), semversion.MustParse("3.0.1"))
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *serviceSuite) TestSetControllerReady(c *tc.C) {
@@ -77,7 +76,7 @@ func (s *serviceSuite) TestSetControllerReady(c *tc.C) {
 	s.state.EXPECT().SetControllerReady(gomock.Any(), s.upgradeUUID, s.controllerUUID).Return(nil)
 
 	err := s.service.SetControllerReady(context.Background(), s.upgradeUUID, s.controllerUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestSetControllerReadyForeignKey(c *tc.C) {
@@ -87,7 +86,7 @@ func (s *serviceSuite) TestSetControllerReadyForeignKey(c *tc.C) {
 
 	err := s.service.SetControllerReady(context.Background(), s.upgradeUUID, s.controllerUUID)
 	c.Log(err)
-	c.Assert(err, jc.ErrorIs, upgradeerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, upgradeerrors.NotFound)
 }
 
 func (s *serviceSuite) TestStartUpgrade(c *tc.C) {
@@ -96,7 +95,7 @@ func (s *serviceSuite) TestStartUpgrade(c *tc.C) {
 	s.state.EXPECT().StartUpgrade(gomock.Any(), s.upgradeUUID).Return(nil)
 
 	err := s.service.StartUpgrade(context.Background(), s.upgradeUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestStartUpgradeBeforeCreated(c *tc.C) {
@@ -105,7 +104,7 @@ func (s *serviceSuite) TestStartUpgradeBeforeCreated(c *tc.C) {
 	s.state.EXPECT().StartUpgrade(gomock.Any(), s.upgradeUUID).Return(upgradeerrors.NotFound)
 
 	err := s.service.StartUpgrade(context.Background(), s.upgradeUUID)
-	c.Assert(err, jc.ErrorIs, upgradeerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, upgradeerrors.NotFound)
 }
 
 func (s *serviceSuite) TestActiveUpgrade(c *tc.C) {
@@ -114,7 +113,7 @@ func (s *serviceSuite) TestActiveUpgrade(c *tc.C) {
 	s.state.EXPECT().ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, nil)
 
 	activeUpgrade, err := s.service.ActiveUpgrade(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(activeUpgrade, tc.Equals, s.upgradeUUID)
 }
 
@@ -124,7 +123,7 @@ func (s *serviceSuite) TestActiveUpgradeNoUpgrade(c *tc.C) {
 	s.state.EXPECT().ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, errors.Capture(upgradeerrors.NotFound))
 
 	_, err := s.service.ActiveUpgrade(context.Background())
-	c.Assert(err, jc.ErrorIs, upgradeerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, upgradeerrors.NotFound)
 }
 
 func (s *serviceSuite) TestSetDBUpgradeCompleted(c *tc.C) {
@@ -133,7 +132,7 @@ func (s *serviceSuite) TestSetDBUpgradeCompleted(c *tc.C) {
 	s.state.EXPECT().SetDBUpgradeCompleted(gomock.Any(), s.upgradeUUID).Return(nil)
 
 	err := s.service.SetDBUpgradeCompleted(context.Background(), s.upgradeUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestSetDBUpgradeFailed(c *tc.C) {
@@ -142,7 +141,7 @@ func (s *serviceSuite) TestSetDBUpgradeFailed(c *tc.C) {
 	s.state.EXPECT().SetDBUpgradeFailed(gomock.Any(), s.upgradeUUID).Return(nil)
 
 	err := s.service.SetDBUpgradeFailed(context.Background(), s.upgradeUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestUpgradeInfo(c *tc.C) {
@@ -151,7 +150,7 @@ func (s *serviceSuite) TestUpgradeInfo(c *tc.C) {
 	s.state.EXPECT().UpgradeInfo(gomock.Any(), s.upgradeUUID).Return(coreupgrade.Info{}, nil)
 
 	_, err := s.service.UpgradeInfo(context.Background(), s.upgradeUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestWatchForUpgradeReady(c *tc.C) {
@@ -165,7 +164,7 @@ func (s *serviceSuite) TestWatchForUpgradeReady(c *tc.C) {
 	})
 
 	watcher, err := s.service.WatchForUpgradeReady(context.Background(), s.upgradeUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(watcher, tc.NotNil)
 }
 
@@ -180,7 +179,7 @@ func (s *serviceSuite) TestWatchForUpgradeState(c *tc.C) {
 	})
 
 	watcher, err := s.service.WatchForUpgradeState(context.Background(), s.upgradeUUID, coreupgrade.Started)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(watcher, tc.NotNil)
 }
 
@@ -190,8 +189,8 @@ func (s *serviceSuite) TestIsUpgrade(c *tc.C) {
 	s.state.EXPECT().ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, nil)
 
 	upgrading, err := s.service.IsUpgrading(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(upgrading, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(upgrading, tc.IsTrue)
 }
 
 func (s *serviceSuite) TestIsUpgradeNoUpgrade(c *tc.C) {
@@ -200,8 +199,8 @@ func (s *serviceSuite) TestIsUpgradeNoUpgrade(c *tc.C) {
 	s.state.EXPECT().ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, errors.Capture(upgradeerrors.NotFound))
 
 	upgrading, err := s.service.IsUpgrading(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(upgrading, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(upgrading, tc.IsFalse)
 }
 
 func (s *serviceSuite) TestIsUpgradeError(c *tc.C) {
@@ -211,5 +210,5 @@ func (s *serviceSuite) TestIsUpgradeError(c *tc.C) {
 
 	upgrading, err := s.service.IsUpgrading(context.Background())
 	c.Assert(err, tc.ErrorMatches, `boom`)
-	c.Assert(upgrading, jc.IsFalse)
+	c.Assert(upgrading, tc.IsFalse)
 }

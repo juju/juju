@@ -11,7 +11,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	"gopkg.in/yaml.v2"
 
@@ -49,14 +48,14 @@ func oauthCredential(token string) cloud.Credential {
 
 func (s *EnvironProviderSuite) TestValidateCloud(c *tc.C) {
 	err := providerInstance.ValidateCloud(context.Background(), s.cloudSpec())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *EnvironProviderSuite) TestValidateCloudSkipTLSVerify(c *tc.C) {
 	cloud := s.cloudSpec()
 	cloud.SkipTLSVerify = true
 	err := providerInstance.ValidateCloud(context.Background(), cloud)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *EnvironProviderSuite) TestValidateCloudInvalidOAuth(c *tc.C) {
@@ -81,17 +80,17 @@ func (s *EnvironProviderSuite) TestValidateCloudInvalidEndpoint(c *tc.C) {
 func createTempFile(c *tc.C, content []byte) string {
 	file, err := os.CreateTemp(c.MkDir(), "")
 	defer file.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	filename := file.Name()
 	err = os.WriteFile(filename, content, 0o644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return filename
 }
 
 func (s *EnvironProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *tc.C) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{"type": "maas"})
 	config, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	spec := s.cloudSpec()
 	cred := oauthCredential("wrongly-formatted-oauth-string")
 	spec.Credential = &cred
@@ -113,14 +112,14 @@ endpoint: http://foo.com/openstack
 `[1:])
 	var v interface{}
 	err := yaml.Unmarshal(y, &v)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	v, err = utils.ConformYAML(v)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	p, err := environs.Provider("maas")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = p.CloudSchema().Validate(v)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type MaasPingSuite struct {
@@ -155,7 +154,7 @@ func (s *MaasPingSuite) TestPingOK(c *tc.C) {
 			return set.NewStrings("network-deployment-ubuntu"), nil
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(serverURLs, tc.DeepEquals, []string{
 		"https://foo.com/MAAS/api/2.0/",
 	})
@@ -171,7 +170,7 @@ func (s *MaasPingSuite) TestPingVersionURLOK(c *tc.C) {
 			return set.NewStrings("network-deployment-ubuntu"), nil
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(serverURLs, tc.DeepEquals, []string{
 		"https://foo.com/MAAS/api/10.1/",
 	})
@@ -195,9 +194,9 @@ func (s *MaasPingSuite) TestPingVersionURLBad(c *tc.C) {
 
 func ping(c *tc.C, endpoint string, getCapabilities Capabilities) error {
 	p, err := environs.Provider("maas")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	m, ok := p.(EnvironProvider)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	m.GetCapabilities = getCapabilities
 	return m.Ping(context.Background(), endpoint)
 }

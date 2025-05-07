@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/logsender"
@@ -106,7 +105,7 @@ type mockConnector struct {
 
 func (c *mockConnector) ConnectStream(_ context.Context, path string, values url.Values) (base.Stream, error) {
 	c.c.Assert(path, tc.Equals, "/logsink")
-	c.c.Assert(values, jc.DeepEquals, url.Values{
+	c.c.Assert(values, tc.DeepEquals, url.Values{
 		"version": []string{"1"},
 	})
 

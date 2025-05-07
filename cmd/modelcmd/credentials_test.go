@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cloud"
@@ -92,7 +91,7 @@ func (s *credentialsSuite) SetUpTest(c *tc.C) {
 	dir := c.MkDir()
 	keyFile := filepath.Join(dir, "keyfile")
 	err := os.WriteFile(keyFile, []byte("value"), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.store = jujuclient.NewMemStore()
 	s.store.Credentials["cloud"] = cloud.CloudCredential{
@@ -118,14 +117,14 @@ func (s *credentialsSuite) assertGetCredentials(c *tc.C, cred, region string) {
 			CredentialName: cred,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedRegion := region
 	if expectedRegion == "" {
 		expectedRegion = s.store.Credentials["cloud"].DefaultRegion
 	}
 	c.Assert(regionName, tc.Equals, expectedRegion)
 	c.Assert(credentialName, tc.Equals, cred)
-	c.Assert(credential.Attributes(), jc.DeepEquals, map[string]string{
+	c.Assert(credential.Attributes(), tc.DeepEquals, map[string]string{
 		"key":      "value",
 		"username": "user",
 		"password": "sekret",
@@ -186,7 +185,7 @@ func (s *credentialsSuite) TestRegisterCredentials(c *tc.C) {
 			Name: "fake",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(credentials, tc.DeepEquals, credential)
 }
 
@@ -248,6 +247,6 @@ func (s *credentialsSuite) TestDetectCredential(c *tc.C) {
 	mockProvider.EXPECT().DetectCredentials("fake").Return(credential, nil)
 
 	credentials, err := modelcmd.DetectCredential("fake", mockProvider)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(credentials, tc.DeepEquals, credential)
 }

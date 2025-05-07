@@ -11,7 +11,6 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
@@ -29,18 +28,18 @@ func (s *workerSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.getConfig(c)
-	c.Check(cfg.Validate(), jc.ErrorIsNil)
+	c.Check(cfg.Validate(), tc.ErrorIsNil)
 
 	cfg.Clock = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
 	cfg.Logger = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
 	cfg.DBGetter = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *workerSuite) getConfig(c *tc.C) WorkerConfig {
@@ -59,7 +58,7 @@ func (s *workerSuite) TestPrune(c *tc.C) {
 	pruner := s.newPruner(c)
 
 	result, err := pruner.prune()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	// This ensures that we always prune the controller namespace.
 	c.Check(result, tc.DeepEquals, map[string]int64{
@@ -83,7 +82,7 @@ func (s *workerSuite) TestPruneControllerNS(c *tc.C) {
 	s.insertChangeLogItems(c, s.TxnRunner(), 0, 10, now)
 
 	result, err := pruner.prune()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	// This ensures that we always prune the controller namespace.
 	c.Check(result, tc.DeepEquals, map[string]int64{
@@ -114,7 +113,7 @@ func (s *workerSuite) TestPruneModelList(c *tc.C) {
 	s.insertChangeLogItems(c, s.TxnRunner(), 0, 10, now)
 
 	result, err := pruner.prune()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	// This ensures that we always prune the controller namespace.
 	c.Check(result, tc.DeepEquals, map[string]int64{
@@ -150,7 +149,7 @@ func (s *workerSuite) TestPruneModelListWithChangeLogItems(c *tc.C) {
 	s.insertChangeLogItems(c, txnRunner, 0, 6, now)
 
 	result, err := pruner.prune()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	// This ensures that we always prune the controller namespace.
 	c.Check(result, tc.DeepEquals, map[string]int64{
@@ -167,7 +166,7 @@ func (s *workerSuite) TestPruneModel(c *tc.C) {
 	pruner := s.newPruner(c)
 
 	result, err := pruner.pruneModel(context.Background(), "foo")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, int64(0))
 }
 
@@ -196,7 +195,7 @@ func (s *workerSuite) TestPruneModelChangeLogWitness(c *tc.C) {
 	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "0", LowerBound: 1, UpdatedAt: now})
 
 	result, err := pruner.pruneModel(context.Background(), "foo")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, int64(1))
 
 	s.expectChangeLogWitnesses(c, s.TxnRunner(), []Watermark{{
@@ -230,14 +229,14 @@ func (s *workerSuite) TestPruneModelLogsWarning(c *tc.C) {
 	s.insertChangeLogItems(c, s.TxnRunner(), 0, 1, now)
 
 	result, err := pruner.pruneModel(context.Background(), "foo")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, int64(1))
 
 	// Should not prune anything as there are no new changes. Notice that the
 	// warning is not logged.
 
 	result, err = pruner.pruneModel(context.Background(), "foo")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, int64(0))
 
 	// Add some new changes and it should log the warning.
@@ -250,7 +249,7 @@ func (s *workerSuite) TestPruneModelLogsWarning(c *tc.C) {
 	s.insertChangeLogItems(c, s.TxnRunner(), 1, 1, now)
 
 	result, err = pruner.pruneModel(context.Background(), "foo")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, int64(1))
 
 	c.Check(entries, tc.DeepEquals, []string{
@@ -277,7 +276,7 @@ func (s *workerSuite) TestPruneModelRemovesChangeLogItems(c *tc.C) {
 	s.insertChangeLogItems(c, s.TxnRunner(), 0, 10, now)
 
 	result, err := pruner.pruneModel(context.Background(), "foo")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, int64(3+totalCtrlNodes))
 
 	s.expectChangeLogItems(c, s.TxnRunner(), 7, 1003, 1010)
@@ -301,7 +300,7 @@ func (s *workerSuite) TestPruneModelRemovesChangeLogItemsWithMultipleWatermarks(
 	s.insertChangeLogItems(c, s.TxnRunner(), 0, 10, now)
 
 	result, err := pruner.pruneModel(context.Background(), "foo")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, int64(3+totalCtrlNodes))
 
 	s.expectChangeLogItems(c, s.TxnRunner(), 7, 1003, 1010)
@@ -326,7 +325,7 @@ func (s *workerSuite) TestPruneModelRemovesChangeLogItemsWithMultipleWatermarksW
 	s.insertChangeLogItems(c, s.TxnRunner(), 0, 10, now)
 
 	result, err := pruner.pruneModel(context.Background(), "foo")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, int64(2+totalCtrlNodes))
 
 	s.expectChangeLogItems(c, s.TxnRunner(), 8, 1002, 1010)
@@ -351,7 +350,7 @@ func (s *workerSuite) TestPruneModelRemovesChangeLogItemsWithMultipleWatermarksM
 	s.insertChangeLogItems(c, s.TxnRunner(), 0, 10, now)
 
 	result, err := pruner.pruneModel(context.Background(), "foo")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, int64(2+totalCtrlNodes))
 
 	s.expectChangeLogItems(c, s.TxnRunner(), 8, 1002, 1010)
@@ -499,7 +498,7 @@ func (s *workerSuite) TestLowestWatermark(c *tc.C) {
 		c.Logf("test %d", i)
 
 		got := sortWatermarks("foo", test.watermarks)
-		c.Check(got, jc.DeepEquals, test.expected)
+		c.Check(got, tc.DeepEquals, test.expected)
 	}
 }
 
@@ -523,7 +522,7 @@ func (s *workerSuite) insertControllerNodes(c *tc.C, amount int) {
 INSERT INTO controller_node (controller_id, dqlite_node_id, dqlite_bind_address)
 VALUES ($M.ctrl_id, $M.node_id, $M.addr)
 			`, sqlair.M{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		for i := 0; i < amount; i++ {
@@ -532,11 +531,11 @@ VALUES ($M.ctrl_id, $M.node_id, $M.addr)
 				"node_id": i,
 				"addr":    fmt.Sprintf("127.0.1.%d", i+2),
 			}).Run()
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *workerSuite) insertChangeLogWitness(c *tc.C, runner coredatabase.TxnRunner, watermarks ...Watermark) {
@@ -545,7 +544,7 @@ INSERT INTO change_log_witness (controller_id, lower_bound, updated_at)
 VALUES ($M.ctrl_id, $M.lower_bound, $M.updated_at)
 ON CONFLICT (controller_id) DO UPDATE SET lower_bound = $M.lower_bound, updated_at = $M.updated_at;
 			`, sqlair.M{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		for _, watermark := range watermarks {
@@ -554,11 +553,11 @@ ON CONFLICT (controller_id) DO UPDATE SET lower_bound = $M.lower_bound, updated_
 				"lower_bound": watermark.LowerBound,
 				"updated_at":  watermark.UpdatedAt,
 			}).Run()
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *workerSuite) insertChangeLogItems(c *tc.C, runner coredatabase.TxnRunner, start, amount int, now time.Time) {
@@ -566,7 +565,7 @@ func (s *workerSuite) insertChangeLogItems(c *tc.C, runner coredatabase.TxnRunne
 INSERT INTO change_log (id, edit_type_id, namespace_id, changed, created_at)
 VALUES ($M.id, 4, 2, 0, $M.created_at);
 			`, sqlair.M{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		for i := start; i < amount; i++ {
@@ -574,18 +573,18 @@ VALUES ($M.id, 4, 2, 0, $M.created_at);
 				"id":         i + 1000,
 				"created_at": now,
 			}).Run()
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *workerSuite) expectChangeLogWitnesses(c *tc.C, runner coredatabase.TxnRunner, watermarks []Watermark) {
 	query, err := sqlair.Prepare(`
 SELECT (controller_id, lower_bound, updated_at) AS (&Watermark.*) FROM change_log_witness;
 `, Watermark{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var got []Watermark
 	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
@@ -596,15 +595,15 @@ SELECT (controller_id, lower_bound, updated_at) AS (&Watermark.*) FROM change_lo
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(got, jc.DeepEquals, watermarks)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, watermarks)
 }
 
 func (s *workerSuite) expectChangeLogItems(c *tc.C, runner coredatabase.TxnRunner, amount, lowerBound, upperBound int) {
 	query, err := sqlair.Prepare(`
 SELECT (id, edit_type_id, namespace_id, changed, created_at) AS (&ChangeLogItem.*) FROM change_log;
 	`, ChangeLogItem{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var got []ChangeLogItem
 	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
@@ -615,7 +614,7 @@ SELECT (id, edit_type_id, namespace_id, changed, created_at) AS (&ChangeLogItem.
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(len(got), tc.Equals, amount)
 	for i, item := range got {
 		if item.ID < lowerBound || item.ID > upperBound {
@@ -630,12 +629,12 @@ SELECT (id, edit_type_id, namespace_id, changed, created_at) AS (&ChangeLogItem.
 
 func (s *workerSuite) truncateChangeLog(c *tc.C, runner coredatabase.TxnRunner) {
 	query, err := sqlair.Prepare(`DELETE FROM change_log;`)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, query).Run()
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type ChangeLogItem struct {

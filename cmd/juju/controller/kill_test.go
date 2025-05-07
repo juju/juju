@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -89,7 +88,7 @@ func (s *KillSuite) TestKillDurationFlags(c *tc.C) {
 		args := append([]string{"test1"}, test.args...)
 		err := cmdtesting.InitCommand(wrapped, args)
 		if test.err == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			c.Check(controller.KillTimeout(wrapped), tc.Equals, test.expected)
 		} else {
 			c.Check(err, tc.ErrorMatches, test.err)
@@ -101,11 +100,11 @@ func (s *KillSuite) TestKillWaitForModels_AllGood(c *tc.C) {
 	s.resetAPIModels(c)
 	wrapped := s.newKillCommand()
 	err := cmdtesting.InitCommand(wrapped, []string{"test1", "--timeout=1m"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := cmdtesting.Context(c)
 	err = controller.KillWaitForModels(wrapped, ctx, s.api, test1UUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "All models reclaimed, cleaning up controller machines\n")
 }
 
@@ -120,7 +119,7 @@ func (s *KillSuite) TestKillWaitForModels_ActuallyWaits(c *tc.C) {
 	})
 	wrapped := s.newKillCommand()
 	err := cmdtesting.InitCommand(wrapped, []string{"test1", "--timeout=1m"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := cmdtesting.Context(c)
 	result := make(chan error)
@@ -144,7 +143,7 @@ func (s *KillSuite) TestKillWaitForModels_ActuallyWaits(c *tc.C) {
 
 	select {
 	case err := <-result:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for result")
 	}
@@ -170,7 +169,7 @@ func (s *KillSuite) TestKillWaitForModels_WaitsForControllerMachines(c *tc.C) {
 
 	wrapped := s.newKillCommand()
 	err := cmdtesting.InitCommand(wrapped, []string{"test1", "--timeout=1m"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := cmdtesting.Context(c)
 	result := make(chan error)
@@ -199,7 +198,7 @@ func (s *KillSuite) TestKillWaitForModels_WaitsForControllerMachines(c *tc.C) {
 
 	select {
 	case err := <-result:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for result")
 	}
@@ -222,7 +221,7 @@ func (s *KillSuite) TestKillWaitForModels_TimeoutResetsWithChange(c *tc.C) {
 	})
 	wrapped := s.newKillCommand()
 	err := cmdtesting.InitCommand(wrapped, []string{"test1", "--timeout=20s"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := cmdtesting.Context(c)
 	result := make(chan error)
@@ -249,7 +248,7 @@ func (s *KillSuite) TestKillWaitForModels_TimeoutResetsWithChange(c *tc.C) {
 
 	select {
 	case err := <-result:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for result")
 	}
@@ -273,7 +272,7 @@ func (s *KillSuite) TestKillWaitForModels_TimeoutWithNoChange(c *tc.C) {
 	})
 	wrapped := s.newKillCommand()
 	err := cmdtesting.InitCommand(wrapped, []string{"test1", "--timeout=1m"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := cmdtesting.Context(c)
 	result := make(chan error)
@@ -365,14 +364,14 @@ func (s *KillSuite) TestKillUnknownController(c *tc.C) {
 func (s *KillSuite) TestKillCannotConnectToAPISucceeds(c *tc.C) {
 	s.api, s.apierror = nil, errors.New("connection refused")
 	ctx, err := s.runKillCommand(c, "test1", "--no-prompt")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cmdtesting.Stderr(ctx), jc.Contains, "Unable to open API: connection refused")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cmdtesting.Stderr(ctx), tc.Contains, "Unable to open API: connection refused")
 	checkControllerRemovedFromStore(c, "test1", s.store)
 }
 
 func (s *KillSuite) TestKillWithAPIConnection(c *tc.C) {
 	_, err := s.runKillCommand(c, "test1", "--no-prompt")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api.CheckCallNames(c, "DestroyController", "AllModels", "ModelStatus", "Close")
 	destroyStorage := true
 	s.api.CheckCall(c, 0, "DestroyController", apicontroller.DestroyControllerParams{
@@ -403,15 +402,15 @@ func (s *KillSuite) TestKillEnvironmentGetFailsWithAPIConnection(c *tc.C) {
 func (s *KillSuite) TestKillDestroysControllerWithAPIError(c *tc.C) {
 	s.api.SetErrors(errors.New("some destroy error"))
 	ctx, err := s.runKillCommand(c, "test1", "--no-prompt")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cmdtesting.Stderr(ctx), jc.Contains, "Unable to destroy controller through the API: some destroy error\nDestroying through provider")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cmdtesting.Stderr(ctx), tc.Contains, "Unable to destroy controller through the API: some destroy error\nDestroying through provider")
 	checkControllerRemovedFromStore(c, "test1", s.store)
 }
 
 func (s *KillSuite) TestKillCommandConfirmation(c *tc.C) {
 	var stdin, stdout, stderr bytes.Buffer
 	ctx, err := cmd.DefaultContext()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx.Stdout = &stdout
 	ctx.Stdin = &stdin
 	ctx.Stderr = &stderr
@@ -432,7 +431,7 @@ func (s *KillSuite) TestKillCommandConfirmation(c *tc.C) {
 
 func (s *KillSuite) TestKillCommandControllerAlias(c *tc.C) {
 	_, err := cmdtesting.RunCommand(c, s.newKillCommand(), "test1", "--no-prompt")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkControllerRemovedFromStore(c, "test1:test1", s.store)
 }
 
@@ -464,8 +463,8 @@ func (s *KillSuite) TestKillEarlyAPIConnectionTimeout(c *tc.C) {
 		environs.Destroy,
 	)
 	ctx, err := cmdtesting.RunCommand(c, cmd, "test1", "--no-prompt")
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(cmdtesting.Stderr(ctx), jc.Contains, "Unable to open API: open connection timed out")
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(cmdtesting.Stderr(ctx), tc.Contains, "Unable to open API: open connection timed out")
 	checkControllerRemovedFromStore(c, "test1", s.store)
 	// Check that we were actually told to wait for 10s.
 	c.Assert(clock.wait, tc.Equals, 10*time.Second)
@@ -499,7 +498,7 @@ func (s *KillSuite) TestControllerStatus(c *tc.C) {
 	s.api.envStatus = make(map[string]base.ModelStatus)
 	for _, env := range s.api.allModels {
 		owner, err := names.ParseUserTag(env.Owner)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		s.api.envStatus[env.UUID] = base.ModelStatus{
 			UUID:               env.UUID,
 			Life:               life.Dying,
@@ -510,7 +509,7 @@ func (s *KillSuite) TestControllerStatus(c *tc.C) {
 	}
 
 	environmentStatus, err := controller.NewData(s.api, "123")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(environmentStatus.Controller.HostedModelCount, tc.Equals, 2)
 	c.Assert(environmentStatus.Controller.HostedMachineCount, tc.Equals, 6)
 	c.Assert(environmentStatus.Controller.ApplicationCount, tc.Equals, 3)

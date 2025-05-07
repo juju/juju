@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/httpcontext"
@@ -57,66 +56,66 @@ func (s *ModelHandlersSuite) SetUpTest(c *tc.C) {
 
 func (s *ModelHandlersSuite) TestControllerUUID(c *tc.C) {
 	resp, err := s.server.Client().Get(s.server.URL + "/controller")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 	defer resp.Body.Close()
 
 	out, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(out), tc.Equals, coretesting.ModelTag.Id())
 }
 
 func (s *ModelHandlersSuite) TestQuery(c *tc.C) {
 	resp, err := s.server.Client().Get(s.server.URL + "/query?modeluuid=" + coretesting.ModelTag.Id())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 	defer resp.Body.Close()
 
 	out, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(out), tc.Equals, coretesting.ModelTag.Id())
 }
 
 func (s *ModelHandlersSuite) TestQueryInvalidModelUUID(c *tc.C) {
 	resp, err := s.server.Client().Get(s.server.URL + "/query?modeluuid=zing")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusBadRequest)
 	defer resp.Body.Close()
 
 	out, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(out), tc.Equals, `invalid model UUID "zing"`+"\n")
 }
 
 func (s *ModelHandlersSuite) TestBucket(c *tc.C) {
 	resp, err := s.server.Client().Get(s.server.URL + "/model-" + coretesting.ModelTag.Id() + "/charms/somecharm-abcd0123")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 	defer resp.Body.Close()
 
 	out, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(out), tc.Equals, coretesting.ModelTag.Id())
 }
 
 func (s *ModelHandlersSuite) TestInvalidBucket(c *tc.C) {
 	resp, err := s.server.Client().Get(s.server.URL + "/modelwrongbucket/charms/somecharm-abcd0123")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusNotFound)
 	defer resp.Body.Close()
 
 	out, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(out), tc.Equals, "404 page not found\n")
 }
 
 func (s *ModelHandlersSuite) TestBucketInvalidModelUUID(c *tc.C) {
 	resp, err := s.server.Client().Get(s.server.URL + "/model-wrongbucket/charms/somecharm-abcd0123")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusBadRequest)
 	defer resp.Body.Close()
 
 	out, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(out), tc.Equals, `invalid model UUID "wrongbucket"`+"\n")
 }

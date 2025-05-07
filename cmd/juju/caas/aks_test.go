@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/exec"
 	"go.uber.org/mock/gomock"
 
@@ -31,7 +30,7 @@ var _ = tc.Suite(&aksSuite{})
 func (s *aksSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	err := os.Setenv("PATH", "/path/to/here")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *aksSuite) TestGetKubeConfig(c *tc.C) {
@@ -41,12 +40,12 @@ func (s *aksSuite) TestGetKubeConfig(c *tc.C) {
 	mockRunner := mocks.NewMockCommandRunner(ctrl)
 	configFile := filepath.Join(c.MkDir(), "config")
 	err := os.Setenv("KUBECONFIG", configFile)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	aks := &aks{
 		CommandRunner: mockRunner,
 	}
 	err = os.WriteFile(configFile, []byte("data"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	gomock.InOrder(
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
@@ -63,12 +62,12 @@ func (s *aksSuite) TestGetKubeConfig(c *tc.C) {
 		name:          "mycluster",
 		resourceGroup: "resourceGroup",
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	defer rdr.Close()
 
 	c.Assert(clusterName, tc.Equals, "mycluster")
 	data, err := io.ReadAll(rdr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(data), tc.DeepEquals, "data")
 }
 
@@ -140,9 +139,9 @@ Select cluster [mycluster in resource group testRG]:
 `[1:]
 
 	outParams, err := aks.interactiveParams(ctx, &clusterParams{})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
-	c.Assert(outParams, jc.DeepEquals, &clusterParams{
+	c.Assert(outParams, tc.DeepEquals, &clusterParams{
 		name:          clusterName,
 		resourceGroup: resourceGroup,
 		region:        "westus2",
@@ -214,9 +213,9 @@ Select cluster [mycluster]:
 	outParams, err := aks.interactiveParams(ctx, &clusterParams{
 		resourceGroup: resourceGroup,
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
-	c.Assert(outParams, jc.DeepEquals, &clusterParams{
+	c.Assert(outParams, tc.DeepEquals, &clusterParams{
 		name:          clusterName,
 		resourceGroup: resourceGroup,
 		region:        "westus2",
@@ -290,9 +289,9 @@ Select cluster [mycluster]:
 `[1:]
 
 	outParams, err := aks.interactiveParams(ctx, &clusterParams{})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
-	c.Assert(outParams, jc.DeepEquals, &clusterParams{
+	c.Assert(outParams, tc.DeepEquals, &clusterParams{
 		name:          clusterName,
 		resourceGroup: resourceGroup,
 		region:        "westus2",
@@ -367,9 +366,9 @@ Select cluster [mycluster in resource group testRG]:
 `[1:]
 
 	outParams, err := aks.interactiveParams(ctx, &clusterParams{})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
-	c.Assert(outParams, jc.DeepEquals, &clusterParams{
+	c.Assert(outParams, tc.DeepEquals, &clusterParams{
 		name:          clusterName,
 		resourceGroup: resourceGroup,
 		region:        "westus2",
@@ -438,9 +437,9 @@ func (s *aksSuite) TestInteractiveParamsClusterSpecifiedNoResourceGroupSpecified
 	outParams, err := aks.interactiveParams(ctx, &clusterParams{
 		name: clusterName,
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
-	c.Assert(outParams, jc.DeepEquals, &clusterParams{
+	c.Assert(outParams, tc.DeepEquals, &clusterParams{
 		name:          clusterName,
 		resourceGroup: resourceGroup,
 		region:        "westus2",
@@ -542,9 +541,9 @@ Select resource group [testRG in westus2]:
 	outParams, err := aks.interactiveParams(ctx, &clusterParams{
 		name: clusterName,
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
-	c.Assert(outParams, jc.DeepEquals, &clusterParams{
+	c.Assert(outParams, tc.DeepEquals, &clusterParams{
 		name:          clusterName,
 		resourceGroup: resourceGroup,
 		region:        "westus2",
@@ -595,9 +594,9 @@ func (s *aksSuite) TestInteractiveParamsClusterSpecifiedResourceGroupSpecified(c
 		name:          clusterName,
 		resourceGroup: resourceGroup,
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
-	c.Assert(outParams, jc.DeepEquals, &clusterParams{
+	c.Assert(outParams, tc.DeepEquals, &clusterParams{
 		name:          clusterName,
 		resourceGroup: resourceGroup,
 		region:        "westus2",
@@ -630,7 +629,7 @@ func (s *aksSuite) TestEnsureExecutablePicksAZ(c *tc.C) {
 			}, nil),
 	)
 	err := aks.ensureExecutable()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *aksSuite) TestEnsureExecutableNotFound(c *tc.C) {

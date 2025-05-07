@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/agent"
 	modeloperatorapi "github.com/juju/juju/api/controller/caasmodeloperator"
@@ -118,7 +117,7 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *tc.C) {
 			c.Check(conf.ImageDetails.RegistryPath, tc.Equals, imagePath[iteration])
 
 			ac, err := agent.ParseConfigData(conf.AgentConf)
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			if err != nil {
 				return err
 			}
@@ -148,7 +147,7 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *tc.C) {
 	worker, err := caasmodeloperator.NewModelOperatorManager(
 		loggertesting.WrapCheckLog(c),
 		api, broker, modelUUID, &mockAgentConfig{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	for i := 0; i < n; i++ {
 		changed <- struct{}{}
@@ -156,7 +155,7 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *tc.C) {
 
 	worker.Kill()
 	err = worker.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(iteration, tc.Equals, n)
 }

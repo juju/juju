@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
@@ -37,7 +36,7 @@ func (s *watcherSuite) TestWatchWithAdd(c *tc.C) {
 		),
 	)
 	watcher, err := svc.Watch()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Wait for the initial change.
 	select {
@@ -54,7 +53,7 @@ func (s *watcherSuite) TestWatchWithAdd(c *tc.C) {
 		Size:   666,
 	}
 	_, err = svc.PutMetadata(context.Background(), metadata)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Get the change.
 	select {
@@ -74,7 +73,7 @@ func (s *watcherSuite) TestWatchWithDelete(c *tc.C) {
 		),
 	)
 	watcher, err := svc.Watch()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Wait for the initial change.
 	select {
@@ -91,7 +90,7 @@ func (s *watcherSuite) TestWatchWithDelete(c *tc.C) {
 		Size:   666,
 	}
 	_, err = svc.PutMetadata(context.Background(), metadata)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Get the change.
 	select {
@@ -103,7 +102,7 @@ func (s *watcherSuite) TestWatchWithDelete(c *tc.C) {
 
 	// Remove the object.
 	err = svc.RemoveMetadata(context.Background(), metadata.Path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Get the change.
 	select {
@@ -114,5 +113,5 @@ func (s *watcherSuite) TestWatchWithDelete(c *tc.C) {
 	}
 
 	_, err = svc.GetMetadata(context.Background(), metadata.Path)
-	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrNotFound)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrNotFound)
 }

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 
@@ -81,7 +80,7 @@ func (s *Suite) apiOpen(ctx context.Context, info *api.Info, _ api.DialOpts) (ap
 
 func (s *Suite) TestStartAndStop(c *tc.C) {
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 	s.stub.CheckCallNames(c, "Watch")
 }
@@ -89,7 +88,7 @@ func (s *Suite) TestStartAndStop(c *tc.C) {
 func (s *Suite) TestWatchFailure(c *tc.C) {
 	s.client.watchErr = errors.New("boom")
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
 	c.Check(err, tc.ErrorMatches, "setting up watcher: boom")
 }
@@ -97,7 +96,7 @@ func (s *Suite) TestWatchFailure(c *tc.C) {
 func (s *Suite) TestClosedWatcherChannel(c *tc.C) {
 	close(s.client.watcher.changes)
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
 	c.Check(err, tc.ErrorMatches, "watcher channel closed")
 }
@@ -108,7 +107,7 @@ func (s *Suite) TestUnlockError(c *tc.C) {
 	}
 	s.guard.unlockErr = errors.New("squish")
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = workertest.CheckKilled(c, w)
 	c.Check(err, tc.ErrorMatches, "squish")
@@ -121,7 +120,7 @@ func (s *Suite) TestLockdownError(c *tc.C) {
 	}
 	s.guard.lockdownErr = errors.New("squash")
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = workertest.CheckKilled(c, w)
 	c.Check(err, tc.ErrorMatches, "squash")
@@ -149,7 +148,7 @@ func (s *Suite) checkNonRunningPhase(c *tc.C, phase migration.Phase) {
 	s.stub.ResetCalls()
 	s.client.watcher.changes <- watcher.MigrationStatus{Phase: phase}
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	workertest.CleanKill(c, w)
 	s.stub.CheckCallNames(c, "Watch", "Unlock")
@@ -161,7 +160,7 @@ func (s *Suite) TestQUIESCE(c *tc.C) {
 		Phase:       migration.QUIESCE,
 	}
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.waitForStubCalls(c, []string{
@@ -180,7 +179,7 @@ func (s *Suite) TestVALIDATION(c *tc.C) {
 		TargetCACert:   caCert,
 	}
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.waitForStubCalls(c, []string{
@@ -215,7 +214,7 @@ func (s *Suite) TestVALIDATIONCanConnectButIsRepeatedlyCalled(c *tc.C) {
 		TargetCACert:   caCert,
 	}
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.waitForStubCalls(c, []string{
@@ -247,14 +246,14 @@ func (s *Suite) TestVALIDATIONCantConnect(c *tc.C) {
 		return nil, errors.New("boom")
 	}
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	// Advance time enough for all of the retries to be exhausted.
 	sleepTime := 100 * time.Millisecond
 	for i := 0; i < 20; i++ {
 		err := s.clock.WaitAdvance(sleepTime, coretesting.ShortWait, 1)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		sleepTime = calculateSleepTime(i)
 	}
 
@@ -296,14 +295,14 @@ func (s *Suite) TestVALIDATIONCantConnectNotReportForTryAgainError(c *tc.C) {
 		return nil, apiservererrors.ErrTryAgain
 	}
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	// Advance time enough for all of the retries to be exhausted.
 	sleepTime := 100 * time.Millisecond
 	for i := 0; i < 20; i++ {
 		err := s.clock.WaitAdvance(sleepTime, coretesting.ShortWait, 1)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		sleepTime = calculateSleepTime(i)
 	}
 
@@ -343,14 +342,14 @@ func (s *Suite) TestVALIDATIONFail(c *tc.C) {
 		return errors.New("boom")
 	}
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	// Advance time enough for all of the retries to be exhausted.
 	sleepTime := 100 * time.Millisecond
 	for i := 0; i < 20; i++ {
 		err := s.clock.WaitAdvance(sleepTime, coretesting.ShortWait, 1)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		sleepTime = calculateSleepTime(i)
 	}
 
@@ -376,18 +375,18 @@ func (s *Suite) TestVALIDATIONRetrySucceed(c *tc.C) {
 	}
 
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	waitForStubCalls(c, &stub, "ValidateMigration")
 
 	err = s.clock.WaitAdvance(160*time.Millisecond, coretesting.LongWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	waitForStubCalls(c, &stub, "ValidateMigration", "ValidateMigration")
 
 	err = s.clock.WaitAdvance(256*time.Millisecond, coretesting.LongWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.waitForStubCalls(c, []string{
 		"Watch",
@@ -411,7 +410,7 @@ func (s *Suite) TestSUCCESS(c *tc.C) {
 		TargetCACert:   caCert,
 	}
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-s.agent.configChanged:
@@ -438,14 +437,14 @@ func (s *Suite) TestSUCCESSCantConnectNotReportForTryAgainError(c *tc.C) {
 	}
 	s.stub.SetErrors(rpc.ErrShutdown)
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	// Advance time enough for all of the retries to be exhausted.
 	sleepTime := 100 * time.Millisecond
 	for i := 0; i < 9; i++ {
 		err := s.clock.WaitAdvance(sleepTime, coretesting.ShortWait, 1)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		sleepTime = sleepTime * 2
 	}
 
@@ -479,7 +478,7 @@ func (s *Suite) TestSUCCESSRetryReport(c *tc.C) {
 
 	s.stub.SetErrors(rpc.ErrShutdown)
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.waitForStubCalls(c, []string{

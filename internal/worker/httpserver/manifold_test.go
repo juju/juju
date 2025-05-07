@@ -13,7 +13,6 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
@@ -60,7 +59,7 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	authority, err := pkitest.NewTestAuthority()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.authority = authority
 
 	s.mux = &apiserverhttp.Mux{}
@@ -159,7 +158,7 @@ var expectedInputs = []string{
 }
 
 func (s *ManifoldSuite) TestInputs(c *tc.C) {
-	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
+	c.Assert(s.manifold.Inputs, tc.SameContents, expectedInputs)
 }
 
 func (s *ManifoldSuite) TestMissingInputs(c *tc.C) {
@@ -182,7 +181,7 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 	c.Assert(newWorkerArgs[0], tc.FitsTypeOf, httpserver.Config{})
 	config := newWorkerArgs[0].(httpserver.Config)
 
-	c.Assert(config, jc.DeepEquals, httpserver.Config{
+	c.Assert(config, tc.DeepEquals, httpserver.Config{
 		AgentName:            "machine-42",
 		Clock:                s.clock,
 		PrometheusRegisterer: &s.prometheusRegisterer,
@@ -253,7 +252,7 @@ func (s *ManifoldSuite) TestValidate(c *tc.C) {
 
 func (s *ManifoldSuite) startWorkerClean(c *tc.C) worker.Worker {
 	w, err := s.manifold.Start(context.Background(), s.getter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w
 }

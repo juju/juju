@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
@@ -52,7 +51,7 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *ManifoldSuite) TestInputs(c *tc.C) {
-	c.Assert(s.manifold.Inputs, jc.SameContents, []string{"agent"})
+	c.Assert(s.manifold.Inputs, tc.SameContents, []string{"agent"})
 }
 
 func (s *ManifoldSuite) TestNoAgent(c *tc.C) {
@@ -79,7 +78,7 @@ func (s *ManifoldSuite) TestNotMachineAgent(c *tc.C) {
 
 func (s *ManifoldSuite) TestStart(c *tc.C) {
 	w, err := s.manifold.Start(context.Background(), s.getter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkStop(c, w)
 }
 
@@ -91,7 +90,7 @@ func (s *ManifoldSuite) TestOutputBadWorker(c *tc.C) {
 
 func (s *ManifoldSuite) TestOutputWrongType(c *tc.C) {
 	w, err := s.manifold.Start(context.Background(), s.getter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer checkStop(c, w)
 
 	var out int
@@ -102,37 +101,37 @@ func (s *ManifoldSuite) TestOutputWrongType(c *tc.C) {
 func (s *ManifoldSuite) TestOutputSuccessNotStateServer(c *tc.C) {
 	s.agent.conf.setStateServingInfo(false)
 	w, err := s.manifold.Start(context.Background(), s.getter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer checkStop(c, w)
 
 	var out bool
 	err = s.manifold.Output(w, &out)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(out, jc.IsFalse)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(out, tc.IsFalse)
 }
 
 func (s *ManifoldSuite) TestOutputSuccessStateServer(c *tc.C) {
 	s.agent.conf.setStateServingInfo(true)
 	w, err := s.manifold.Start(context.Background(), s.getter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer checkStop(c, w)
 
 	var out bool
 	err = s.manifold.Output(w, &out)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(out, jc.IsTrue)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(out, tc.IsTrue)
 }
 
 func (s *ManifoldSuite) TestBounceOnChange(c *tc.C) {
 	s.agent.conf.setStateServingInfo(false)
 	w, err := s.manifold.Start(context.Background(), s.getter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkNotExiting(c, w)
 
 	checkOutput := func(expected bool) {
 		var out bool
 		err = s.manifold.Output(w, &out)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(out, tc.Equals, expected)
 	}
 
@@ -153,7 +152,7 @@ func (s *ManifoldSuite) TestBounceOnChange(c *tc.C) {
 
 	// Restart the worker, the output should now be true.
 	w, err = s.manifold.Start(context.Background(), s.getter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkNotExiting(c, w)
 	checkOutput(true)
 
@@ -171,7 +170,7 @@ func (s *ManifoldSuite) TestBounceOnChange(c *tc.C) {
 
 func (s *ManifoldSuite) TestClosedVoyeur(c *tc.C) {
 	w, err := s.manifold.Start(context.Background(), s.getter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkNotExiting(c, w)
 
 	s.agentConfigChanged.Close()
@@ -181,7 +180,7 @@ func (s *ManifoldSuite) TestClosedVoyeur(c *tc.C) {
 
 func checkStop(c *tc.C, w worker.Worker) {
 	err := worker.Stop(w)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func checkNotExiting(c *tc.C, w worker.Worker) {

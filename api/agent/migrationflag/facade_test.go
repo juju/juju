@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/agent/migrationflag"
 	"github.com/juju/juju/api/base"
@@ -55,7 +54,7 @@ func (*FacadeSuite) TestPhaseExtraResults(c *tc.C) {
 	stub := &testing.Stub{}
 	apiCaller := apiCaller(c, stub, func(response interface{}) error {
 		outPtr, ok := response.(*params.PhaseResults)
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		outPtr.Results = []params.PhaseResult{
 			{Phase: "ABORT"},
 			{Phase: "DONE"},
@@ -74,7 +73,7 @@ func (*FacadeSuite) TestPhaseError(c *tc.C) {
 	stub := &testing.Stub{}
 	apiCaller := apiCaller(c, stub, func(response interface{}) error {
 		outPtr, ok := response.(*params.PhaseResults)
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		outPtr.Results = []params.PhaseResult{
 			{Error: &params.Error{Message: "mneh"}},
 		}
@@ -92,7 +91,7 @@ func (*FacadeSuite) TestPhaseInvalid(c *tc.C) {
 	stub := &testing.Stub{}
 	apiCaller := apiCaller(c, stub, func(response interface{}) error {
 		outPtr, ok := response.(*params.PhaseResults)
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		outPtr.Results = []params.PhaseResult{{Phase: "COLLABORATE"}}
 		return nil
 	})
@@ -108,14 +107,14 @@ func (*FacadeSuite) TestPhaseSuccess(c *tc.C) {
 	stub := &testing.Stub{}
 	apiCaller := apiCaller(c, stub, func(response interface{}) error {
 		outPtr, ok := response.(*params.PhaseResults)
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		outPtr.Results = []params.PhaseResult{{Phase: "ABORT"}}
 		return nil
 	})
 	facade := migrationflag.NewFacade(apiCaller, nil)
 
 	phase, err := facade.Phase(context.Background(), someUUID)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(phase, tc.Equals, migration.ABORT)
 	checkCalls(c, stub, "Phase")
 }
@@ -150,7 +149,7 @@ func (*FacadeSuite) TestWatchExtraResults(c *tc.C) {
 	stub := &testing.Stub{}
 	apiCaller := apiCaller(c, stub, func(response interface{}) error {
 		outPtr, ok := response.(*params.NotifyWatchResults)
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		outPtr.Results = []params.NotifyWatchResult{
 			{NotifyWatcherId: "123"},
 			{NotifyWatcherId: "456"},
@@ -169,7 +168,7 @@ func (*FacadeSuite) TestWatchError(c *tc.C) {
 	stub := &testing.Stub{}
 	apiCaller := apiCaller(c, stub, func(response interface{}) error {
 		outPtr, ok := response.(*params.NotifyWatchResults)
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		outPtr.Results = []params.NotifyWatchResult{
 			{Error: &params.Error{Message: "snfl"}},
 		}
@@ -187,7 +186,7 @@ func (*FacadeSuite) TestWatchSuccess(c *tc.C) {
 	stub := &testing.Stub{}
 	apiCaller := apiCaller(c, stub, func(response interface{}) error {
 		outPtr, ok := response.(*params.NotifyWatchResults)
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		outPtr.Results = []params.NotifyWatchResult{
 			{NotifyWatcherId: "789"},
 		}
@@ -196,7 +195,7 @@ func (*FacadeSuite) TestWatchSuccess(c *tc.C) {
 	expectWatch := &struct{ watcher.NotifyWatcher }{}
 	newWatcher := func(gotCaller base.APICaller, result params.NotifyWatchResult) watcher.NotifyWatcher {
 		c.Check(gotCaller, tc.NotNil) // uncomparable
-		c.Check(result, jc.DeepEquals, params.NotifyWatchResult{
+		c.Check(result, tc.DeepEquals, params.NotifyWatchResult{
 			NotifyWatcherId: "789",
 		})
 		return expectWatch
@@ -204,7 +203,7 @@ func (*FacadeSuite) TestWatchSuccess(c *tc.C) {
 	facade := migrationflag.NewFacade(apiCaller, newWatcher)
 
 	watch, err := facade.Watch(context.Background(), someUUID)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(watch, tc.Equals, expectWatch)
 	checkCalls(c, stub, "Watch")
 }
@@ -226,7 +225,7 @@ func apiCaller(c *tc.C, stub *testing.Stub, set func(interface{}) error) base.AP
 func checkCalls(c *tc.C, stub *testing.Stub, names ...string) {
 	stub.CheckCallNames(c, names...)
 	for _, call := range stub.Calls() {
-		c.Check(call.Args, jc.DeepEquals, []interface{}{
+		c.Check(call.Args, tc.DeepEquals, []interface{}{
 			params.Entities{
 				[]params.Entity{{"model-some-uuid"}},
 			},

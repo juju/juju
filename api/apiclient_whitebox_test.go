@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	jtesting "github.com/juju/juju/internal/testing"
 )
@@ -39,7 +38,7 @@ func (s *apiclientWhiteboxSuite) TestDialWebsocketMultiCancelled(c *tc.C) {
 		}
 	}()
 	listen, err := net.Listen("tcp4", ":0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	addr := listen.Addr().String()
 	c.Logf("listening at: %s", addr)
 	// Note that we Listen, but we never Accept
@@ -61,7 +60,7 @@ func (s *apiclientWhiteboxSuite) TestDialWebsocketMultiCancelled(c *tc.C) {
 
 func (s *apiclientWhiteboxSuite) TestDialWebsocketMultiClosed(c *tc.C) {
 	listen, err := net.Listen("tcp4", ":0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	addr := listen.Addr().String()
 	c.Logf("listening at: %s", addr)
 	// Note that we Listen, but we never Accept

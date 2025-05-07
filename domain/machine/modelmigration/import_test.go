@@ -9,7 +9,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/instance"
@@ -57,7 +56,7 @@ func (s *importSuite) TestNoMachines(c *tc.C) {
 
 	op := s.newImportOperation(c)
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *importSuite) TestImport(c *tc.C) {
@@ -71,7 +70,7 @@ func (s *importSuite) TestImport(c *tc.C) {
 
 	op := s.newImportOperation(c)
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *importSuite) TestFailImportMachineWithoutCloudInstance(c *tc.C) {
@@ -102,7 +101,7 @@ func (s *importSuite) TestImportMachineWithoutCloudInstance(c *tc.C) {
 
 	op := s.newImportOperation(c)
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *importSuite) TestFailImportMachineWithCloudInstance(c *tc.C) {
@@ -200,5 +199,5 @@ func (s *importSuite) TestImportMachineWithCloudInstance(c *tc.C) {
 
 	op := s.newImportOperation(c)
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

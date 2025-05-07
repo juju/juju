@@ -5,7 +5,6 @@ package status_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/status"
 )
@@ -60,7 +59,7 @@ func (s *StatusSuite) TestValidModelStatus(c *tc.C) {
 		status.Error,
 		status.Suspended,
 	} {
-		c.Assert(status.ValidModelStatus(v), jc.IsTrue, tc.Commentf("status %q is not valid for a model", v))
+		c.Assert(status.ValidModelStatus(v), tc.IsTrue, tc.Commentf("status %q is not valid for a model", v))
 	}
 }
 
@@ -96,7 +95,7 @@ func (s *StatusSuite) TestInvalidModelStatus(c *tc.C) {
 		status.Unknown,
 		status.Waiting,
 	} {
-		c.Assert(status.ValidModelStatus(v), jc.IsFalse, tc.Commentf("status %q is valid for a model", v))
+		c.Assert(status.ValidModelStatus(v), tc.IsFalse, tc.Commentf("status %q is valid for a model", v))
 	}
 }
 

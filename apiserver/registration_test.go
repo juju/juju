@@ -14,7 +14,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/testing/httptesting"
 	"go.uber.org/mock/gomock"
 	"golang.org/x/crypto/nacl/secretbox"
@@ -60,10 +59,10 @@ func (s *registrationSuite) SetUpTest(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.activationKey, err = s.accessService.ResetPassword(context.Background(), usertesting.GenNewName(c, "bob"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.registrationURL = s.URL("/register", url.Values{}).String()
 }
@@ -117,7 +116,7 @@ func (s *registrationSuite) assertRegisterNoProxy(c *tc.C, hasProxy bool) {
 	// It should be not possible to log in as bob with the password "hunter2"
 	// now.
 	_, err := s.accessService.GetUserByAuth(context.Background(), usertesting.GenNewName(c, "bob"), auth.NewPassword(password))
-	c.Assert(err, jc.ErrorIs, usererrors.UserUnauthorized)
+	c.Assert(err, tc.ErrorIs, usererrors.UserUnauthorized)
 
 	validNonce := []byte(strings.Repeat("X", 24))
 	ciphertext := s.sealBox(
@@ -141,14 +140,14 @@ func (s *registrationSuite) assertRegisterNoProxy(c *tc.C, hasProxy bool) {
 	// password "hunter2" now, and there should be no
 	// secret key any longer.
 	user, err := s.accessService.GetUserByAuth(context.Background(), usertesting.GenNewName(c, "bob"), auth.NewPassword(password))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(user.UUID, tc.Equals, s.userUUID)
 
 	var response params.SecretKeyLoginResponse
 	bodyData, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = json.Unmarshal(bodyData, &response)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(response.Nonce, tc.HasLen, len(validNonce))
 
 	// Open the box to ensure that the response is as expected.
@@ -156,7 +155,7 @@ func (s *registrationSuite) assertRegisterNoProxy(c *tc.C, hasProxy bool) {
 
 	var responsePayload params.SecretKeyLoginResponsePayload
 	err = json.Unmarshal(plaintext, &responsePayload)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(responsePayload.CACert, tc.Equals, coretesting.CACert)
 	c.Assert(responsePayload.ControllerUUID, tc.Equals, s.ControllerUUID)
 	if hasProxy {
@@ -226,7 +225,7 @@ func (s *registrationSuite) TestRegisterInvalidCiphertext(c *tc.C) {
 
 func (s *registrationSuite) TestRegisterNoSecretKey(c *tc.C) {
 	err := s.accessService.SetPassword(context.Background(), usertesting.GenNewName(c, "bob"), auth.NewPassword("anything"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	validNonce := []byte(strings.Repeat("X", 24))
 	s.testInvalidRequest(c,
@@ -266,6 +265,6 @@ func (s *registrationSuite) openBox(c *tc.C, ciphertext, nonce, key []byte) []by
 	c.Assert(copy(nonceArray[:], nonce), tc.Equals, len(nonceArray), tc.Commentf("nonce: %v", nonce))
 	c.Assert(copy(keyArray[:], key), tc.Equals, len(keyArray), tc.Commentf("key: %v", key))
 	message, ok := secretbox.Open(nil, ciphertext, &nonceArray, &keyArray)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	return message
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -39,9 +38,9 @@ func (*fakeAPISuite) TestFakeAPI(c *tc.C) {
 		ModelTag: names.NewModelTag(fakeUUID),
 	}
 	_, err := api.Open(context.Background(), info, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(r.calledMethods, jc.DeepEquals, []string{"Login"})
+	c.Assert(r.calledMethods, tc.DeepEquals, []string{"Login"})
 }
 
 type root struct {

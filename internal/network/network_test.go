@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/network"
@@ -24,7 +23,7 @@ type RouteSuite struct{}
 var _ = tc.Suite(&RouteSuite{})
 
 func checkRouteIsValid(c *tc.C, r corenetwork.Route) {
-	c.Check(r.Validate(), jc.ErrorIsNil)
+	c.Check(r.Validate(), tc.ErrorIsNil)
 }
 
 func checkRouteErrEquals(c *tc.C, r corenetwork.Route, errString string) {
@@ -141,7 +140,7 @@ func (s *NetworkSuite) TestFilterBridgeAddresses(c *tc.C) {
 		"localhost",
 		"252.16.134.1",
 	}).AsProviderAddresses()
-	c.Assert(network.FilterBridgeAddresses(inputAddresses), jc.DeepEquals, filteredAddresses)
+	c.Assert(network.FilterBridgeAddresses(inputAddresses), tc.DeepEquals, filteredAddresses)
 }
 
 func checkQuoteSpaceSet(c *tc.C, expected string, spaces ...string) {
@@ -241,11 +240,11 @@ func (s *CIDRSuite) TestSubnetInAnyRange(c *tc.C) {
 		cidrs := make([]*net.IPNet, len(t.cidrs))
 		for i, cidrStr := range t.cidrs {
 			_, cidr, err := net.ParseCIDR(cidrStr)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			cidrs[i] = cidr
 		}
 		_, subnet, err := net.ParseCIDR(t.subnet)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		result := network.SubnetInAnyRange(cidrs, subnet)
 		c.Assert(result, tc.Equals, t.included)
 	}

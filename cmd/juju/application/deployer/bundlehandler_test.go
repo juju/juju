@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/httprequest.v1"
@@ -145,9 +144,9 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSuccessWithModelConstraint
 	s.expectEmptyModelToStart(c)
 
 	mysqlCurl, err := charm.ParseURL("mysql")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wordpressCurl, err := charm.ParseURL("wordpress")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	chUnits := []charmUnit{
 		{
 			curl:                 mysqlCurl,
@@ -164,10 +163,10 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSuccessWithModelConstraint
 	s.expectAddRelation([]string{"wordpress:db", "mysql:db"})
 
 	bundleData, err := charm.ReadBundleData(strings.NewReader(wordpressBundle))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpecWithConstraints(constraints.MustParse("arch=arm64")))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.deployArgs, tc.HasLen, 2)
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "20.04")
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "ubuntu", "20.04")
@@ -245,10 +244,10 @@ func (s *BundleDeployRepositorySuite) TestDeployAddCharmHasBase(c *tc.C) {
 	fullPilotURL := s.expectK8sCharmByRevision(charm.MustParseURL("ch:istio-pilot"), 95)
 
 	bundleData, err := charm.ReadBundleData(strings.NewReader(multiApplicationBundle))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpec())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.deployArgs, tc.HasLen, 3)
 	s.assertDeployArgs(c, fullGatewayURL.String(), "istio-ingressgateway", "ubuntu", "20.04")
 	s.assertDeployArgs(c, fullTrainingURL.String(), "training-operator", "ubuntu", "20.04")
@@ -432,18 +431,18 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithRevis
 	s.expectAddRelation([]string{"gitlab:mysql", "mariadb:server"})
 
 	bundleData, err := charm.ReadBundleData(strings.NewReader(kubernetesCharmhubGitlabBundleWithRevision))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpec())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.deployArgs, tc.HasLen, 2)
 	s.assertDeployArgs(c, fullGitlabCurl.String(), "gitlab", "ubuntu", "20.04")
 	s.assertDeployArgs(c, fullMariadbCurl.String(), "mariadb", "ubuntu", "20.04")
 
 	str := s.output.String()
-	c.Check(strings.Contains(str, "Located charm \"gitlab-k8s\" in charm-hub, channel new/edge\n"), jc.IsTrue)
-	c.Check(strings.Contains(str, "Located charm \"mariadb-k8s\" in charm-hub, channel old/stable\n"), jc.IsTrue)
-	c.Check(strings.Contains(str, "- upload charm mariadb-k8s from charm-hub with revision 4 with architecture=amd64\n"), jc.IsTrue)
+	c.Check(strings.Contains(str, "Located charm \"gitlab-k8s\" in charm-hub, channel new/edge\n"), tc.IsTrue)
+	c.Check(strings.Contains(str, "Located charm \"mariadb-k8s\" in charm-hub, channel old/stable\n"), tc.IsTrue)
+	c.Check(strings.Contains(str, "- upload charm mariadb-k8s from charm-hub with revision 4 with architecture=amd64\n"), tc.IsTrue)
 }
 
 func (s *BundleDeployRepositorySuite) expectK8sCharmByRevision(curl *charm.URL, rev int) *charm.URL {
@@ -853,8 +852,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleResources(c *tc.C) {
 	}
 
 	s.runDeployWithSpec(c, charmWithResourcesBundle, spec)
-	c.Assert(strings.Contains(s.output.String(), "added resource one"), jc.IsTrue)
-	c.Assert(strings.Contains(s.output.String(), "added resource two"), jc.IsTrue)
+	c.Assert(strings.Contains(s.output.String(), "added resource one"), tc.IsTrue)
+	c.Assert(strings.Contains(s.output.String(), "added resource two"), tc.IsTrue)
 }
 
 const specifyResourcesBundle = `
@@ -906,8 +905,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSpecifyResources(c *tc.C) 
 	}
 
 	s.runDeployWithSpec(c, specifyResourcesBundle, spec)
-	c.Assert(strings.Contains(s.output.String(), "added resource one"), jc.IsTrue)
-	c.Assert(strings.Contains(s.output.String(), "added resource two"), jc.IsTrue)
+	c.Assert(strings.Contains(s.output.String(), "added resource one"), tc.IsTrue)
+	c.Assert(strings.Contains(s.output.String(), "added resource two"), tc.IsTrue)
 }
 
 const wordpressBundleWithStorageUpgradeConstraints = `
@@ -1332,8 +1331,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundlePeerContainer(c *tc.C) {
 
 	s.runDeploy(c, peerContainerBundle)
 
-	c.Assert(strings.Contains(s.output.String(), "add unit django/0 to 0/lxd/1 to satisfy [lxd:wordpress]"), jc.IsTrue)
-	c.Assert(strings.Contains(s.output.String(), "add unit django/1 to 1/lxd/1 to satisfy [lxd:wordpress]"), jc.IsTrue)
+	c.Assert(strings.Contains(s.output.String(), "add unit django/0 to 0/lxd/1 to satisfy [lxd:wordpress]"), tc.IsTrue)
+	c.Assert(strings.Contains(s.output.String(), "add unit django/1 to 1/lxd/1 to satisfy [lxd:wordpress]"), tc.IsTrue)
 }
 
 const unitColocationWithUnitBundle = `
@@ -1620,7 +1619,7 @@ machines:
 `
 
 	bundleData, err := charm.ReadBundleData(strings.NewReader(quickBundle))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, tc.ErrorMatches, `cannot create machine for holding wp unit: invalid container type "bad"`)
 }
@@ -1853,21 +1852,21 @@ relations:
 	mysql := testcharms.RepoWithSeries("focal").CharmDir("mysql")
 	mysqlPath := filepath.Join(tmpDir, "mysql.charm")
 	err := mysql.ArchiveToPath(mysqlPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.expectLocalCharm(mysqlPath, mysql, mysqlCurl, nil)
 
 	wordpress := testcharms.RepoWithSeries("focal").CharmDir("wordpress")
 	wordpressPath := filepath.Join(tmpDir, "wordpress.charm")
 	err = wordpress.ArchiveToPath(wordpressPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.expectLocalCharm(wordpressPath, wordpress, wordpressCurl, nil)
 
 	bundle := fmt.Sprintf(content, wordpressPath, mysqlPath)
 	bundleData, err := charm.ReadBundleData(strings.NewReader(bundle))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpec())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "20.04")
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "ubuntu", "20.04")
 	expectedOutput := "" +
@@ -1932,21 +1931,21 @@ relations:
 	mysql := testcharms.RepoWithSeries("focal").CharmDir("mysql")
 	mysqlPath := filepath.Join(tmpdir, "mysql.charm")
 	err := mysql.ArchiveToPath(mysqlPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.expectLocalCharm(mysqlPath, mysql, mysqlCurl, nil)
 
 	wordpress := testcharms.RepoWithSeries("focal").CharmDir("wordpress")
 	wordpressPath := filepath.Join(tmpdir, "wordpress.charm")
 	err = wordpress.ArchiveToPath(wordpressPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.expectLocalCharm(wordpressPath, wordpress, wordpressCurl, nil)
 
 	bundle := fmt.Sprintf(content, wordpressPath, mysqlPath)
 	bundleData, err := charm.ReadBundleData(strings.NewReader(bundle))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpec())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "20.04")
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "ubuntu", "20.04")
 	expectedOutput := "" +
@@ -1971,11 +1970,11 @@ func (s *BundleDeployRepositorySuite) TestApplicationsForMachineChange(c *tc.C) 
 	s.expectResolveCharmWithBases([]string{"ubuntu@22.04"}, nil)
 	spec := s.bundleDeploySpec()
 	bundleData, err := charm.ReadBundleData(strings.NewReader(machineUnitPlacementBundle))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	h := makeBundleHandler(charm.CharmHub, bundleData, spec)
 	err = h.getChanges(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var count int
 	for _, change := range h.changes {
@@ -1984,19 +1983,19 @@ func (s *BundleDeployRepositorySuite) TestApplicationsForMachineChange(c *tc.C) 
 			applications := h.applicationsForMachineChange(change)
 			switch change.Params.Machine() {
 			case "0":
-				c.Assert(applications, jc.SameContents, []string{"mysql", "wordpress"})
+				c.Assert(applications, tc.SameContents, []string{"mysql", "wordpress"})
 				count += 1
 			case "1":
-				c.Assert(applications, jc.SameContents, []string{"wordpress"})
+				c.Assert(applications, tc.SameContents, []string{"wordpress"})
 				count += 1
 			case "2":
-				c.Assert(applications, jc.SameContents, []string{"mysql"})
+				c.Assert(applications, tc.SameContents, []string{"mysql"})
 				count += 1
 			case "0/lxd/0":
-				c.Assert(applications, jc.SameContents, []string{"mysql"})
+				c.Assert(applications, tc.SameContents, []string{"mysql"})
 				count += 1
 			case "1/lxd/0":
-				c.Assert(applications, jc.SameContents, []string{"wordpress"})
+				c.Assert(applications, tc.SameContents, []string{"wordpress"})
 				count += 1
 			default:
 				c.Fatalf("%q not expected machine", change.Params.Machine())
@@ -2012,7 +2011,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithEndpointBindings(c *tc
 	s.expectEmptyModelToStart(c)
 
 	grafanaCurl, err := charm.ParseURL("ch:grafana")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	chUnits := []charmUnit{{
 		curl:                 grafanaCurl,
 		machine:              "0",
@@ -2021,12 +2020,12 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithEndpointBindings(c *tc
 	s.setupCharmUnits(chUnits)
 
 	bundleData, err := charm.ReadBundleData(strings.NewReader(grafanaBundleEndpointBindings))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	bundleDeploymentSpec := s.bundleDeploySpec()
 	bundleDeploymentSpec.knownSpaceNames = set.NewStrings("alpha", "beta")
 
 	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, bundleDeploymentSpec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidEndpointBindings(c *tc.C) {
@@ -2037,7 +2036,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidEndpointBinding
 	s.expectAddCharm(false)
 
 	bundleData, err := charm.ReadBundleData(strings.NewReader(grafanaBundleEndpointBindings))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	bundleDeploymentSpec := s.bundleDeploySpec()
 	bundleDeploymentSpec.knownSpaceNames = set.NewStrings("alpha")
 
@@ -2095,7 +2094,7 @@ func (s *BundleDeployRepositorySuite) bundleDeploySpecWithConstraints(cons const
 
 func (s *BundleDeployRepositorySuite) assertDeployArgs(c *tc.C, curl, appName, os, channel string) {
 	arg, found := s.deployArgs[appName]
-	c.Assert(found, jc.IsTrue, tc.Commentf("Application %q not found in deploy args %s", appName))
+	c.Assert(found, tc.IsTrue, tc.Commentf("Application %q not found in deploy args %s", appName))
 	c.Assert(arg.CharmID.URL, tc.Equals, curl)
 	c.Assert(arg.CharmOrigin.Base.OS, tc.Equals, os)
 	c.Assert(arg.CharmOrigin.Base.Channel.Track, tc.Equals, channel, tc.Commentf("%s", pretty.Sprint(arg)))
@@ -2103,22 +2102,22 @@ func (s *BundleDeployRepositorySuite) assertDeployArgs(c *tc.C, curl, appName, o
 
 func (s *BundleDeployRepositorySuite) assertDeployArgsStorage(c *tc.C, appName string, storage map[string]storage.Directive) {
 	arg, found := s.deployArgs[appName]
-	c.Assert(found, jc.IsTrue, tc.Commentf("Application %q not found in deploy args", appName))
+	c.Assert(found, tc.IsTrue, tc.Commentf("Application %q not found in deploy args", appName))
 	c.Assert(arg.Storage, tc.DeepEquals, storage)
 }
 
 func (s *BundleDeployRepositorySuite) assertDeployArgsConfig(c *tc.C, appName string, options map[string]interface{}) {
 	cfg, err := yaml.Marshal(map[string]map[string]interface{}{appName: options})
-	c.Assert(err, jc.ErrorIsNil, tc.Commentf("cannot marshal options for application %q", appName))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("cannot marshal options for application %q", appName))
 	configYAML := string(cfg)
 	arg, found := s.deployArgs[appName]
-	c.Assert(found, jc.IsTrue, tc.Commentf("Application %q not found in deploy args", appName))
+	c.Assert(found, tc.IsTrue, tc.Commentf("Application %q not found in deploy args", appName))
 	c.Assert(arg.ConfigYAML, tc.DeepEquals, configYAML)
 }
 
 func (s *BundleDeployRepositorySuite) assertDeployArgsDevices(c *tc.C, appName string, devices map[string]devices.Constraints) {
 	arg, found := s.deployArgs[appName]
-	c.Assert(found, jc.IsTrue, tc.Commentf("Application %q not found in deploy args", appName))
+	c.Assert(found, tc.IsTrue, tc.Commentf("Application %q not found in deploy args", appName))
 	c.Assert(arg.Devices, tc.DeepEquals, devices)
 }
 
@@ -2192,10 +2191,10 @@ func (s *BundleDeployRepositorySuite) runDeploy(c *tc.C, bundle string) {
 
 func (s *BundleDeployRepositorySuite) runDeployWithSpec(c *tc.C, bundle string, spec bundleDeploySpec) {
 	bundleData, err := charm.ReadBundleData(strings.NewReader(bundle))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, spec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *BundleDeployRepositorySuite) expectEmptyModelToStart(c *tc.C) {
@@ -2354,7 +2353,7 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusDjango2Units() {
 
 func (s *BundleDeployRepositorySuite) expectDeployerAPIModelGet(c *tc.C) {
 	cfg, err := config.New(true, minimalModelConfig())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.deployerAPI.EXPECT().ModelGet(gomock.Any()).Return(cfg.AllAttrs(), nil).AnyTimes()
 }
 
@@ -2472,7 +2471,7 @@ func (s *BundleDeployRepositorySuite) expectAddOneUnit(name, directive, unit str
 
 func (s *BundleDeployRepositorySuite) expectSetConfig(c *tc.C, appName string, options map[string]interface{}) {
 	cfg, err := yaml.Marshal(map[string]map[string]interface{}{appName: options})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.deployerAPI.EXPECT().SetConfig(gomock.Any(), appName, string(cfg), gomock.Any())
 }
 
@@ -2499,7 +2498,7 @@ func (m setCharmConfigMatcher) Matches(arg interface{}) bool {
 	if !ok {
 		return false
 	}
-	m.c.Assert(ok, jc.IsTrue, tc.Commentf("arg is not a application.SetCharmConfig"))
+	m.c.Assert(ok, tc.IsTrue, tc.Commentf("arg is not a application.SetCharmConfig"))
 	m.c.Assert(cfg.ApplicationName, tc.Equals, m.name)
 	return true
 }
@@ -2527,7 +2526,7 @@ func (s *BundleHandlerOriginSuite) TestAddOrigin(c *tc.C) {
 
 	handler.addOrigin(*curl, channel, origin)
 	res, found := handler.getOrigin(*curl, channel)
-	c.Assert(found, jc.IsTrue)
+	c.Assert(found, tc.IsTrue)
 	c.Assert(res, tc.DeepEquals, origin)
 }
 
@@ -2543,12 +2542,12 @@ func (s *BundleHandlerOriginSuite) TestGetOriginNotFound(c *tc.C) {
 	}
 
 	_, found := handler.getOrigin(*curl, channel)
-	c.Assert(found, jc.IsFalse)
+	c.Assert(found, tc.IsFalse)
 
 	channelB := corecharm.MustParseChannel("edge")
 	handler.addOrigin(*curl, channelB, origin)
 	_, found = handler.getOrigin(*curl, channel)
-	c.Assert(found, jc.IsFalse)
+	c.Assert(found, tc.IsFalse)
 }
 
 func (s *BundleHandlerOriginSuite) TestConstructChannelAndOrigin(c *tc.C) {
@@ -2562,7 +2561,7 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOrigin(c *tc.C) {
 	}
 
 	resultChannel, resultOrigin, err := handler.constructChannelAndOrigin(charm.CharmHub, -1, base, channel, cons)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(resultChannel, tc.DeepEquals, corecharm.MustParseChannel("stable"))
 	c.Assert(resultOrigin, tc.DeepEquals, commoncharm.Origin{
 		Source:       "charm-hub",
@@ -2580,7 +2579,7 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginUsingArchFallbac
 	cons := constraints.Value{}
 
 	resultChannel, resultOrigin, err := handler.constructChannelAndOrigin(charm.CharmHub, -1, base, channel, cons)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(resultChannel, tc.DeepEquals, corecharm.MustParseChannel("stable"))
 	c.Assert(resultOrigin, tc.DeepEquals, commoncharm.Origin{
 		Source:       "charm-hub",
@@ -2601,7 +2600,7 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginEmptyChannel(c *
 	}
 
 	resultChannel, resultOrigin, err := handler.constructChannelAndOrigin(charm.CharmHub, -1, base, channel, cons)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(resultChannel, tc.DeepEquals, charm.Channel{})
 	c.Assert(resultOrigin, tc.DeepEquals, commoncharm.Origin{
 		Source:       "charm-hub",
@@ -2644,7 +2643,7 @@ func (s *BundleHandlerResolverSuite) TestResolveCharmChannelAndRevision(c *tc.C)
 
 	base := corebase.MustParseBaseFromString("ubuntu@20.04")
 	channel, rev, err := handler.resolveCharmChannelAndRevision(context.Background(), charmURL.String(), base, charmChannel, arch, -1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(channel, tc.DeepEquals, "stable")
 	c.Assert(rev, tc.Equals, rev)
 }
@@ -2675,7 +2674,7 @@ func (s *BundleHandlerResolverSuite) TestResolveCharmChannelWithoutRevision(c *t
 
 	base := corebase.MustParseBaseFromString("ubuntu@20.04")
 	channel, rev, err := handler.resolveCharmChannelAndRevision(context.Background(), charmURL.String(), base, charmChannel, arch, -1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(channel, tc.DeepEquals, "stable")
 	c.Assert(rev, tc.Equals, -1)
 }
@@ -2692,7 +2691,7 @@ func (s *BundleHandlerResolverSuite) TestResolveLocalCharm(c *tc.C) {
 	arch := "amd64"
 
 	channel, rev, err := handler.resolveCharmChannelAndRevision(context.Background(), charmURL.String(), charmBase, charmChannel, arch, -1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(channel, tc.DeepEquals, "stable")
 	c.Assert(rev, tc.Equals, -1)
 }
@@ -2715,7 +2714,7 @@ func (s *BundleHandlerMakeModelSuite) TestEmptyModel(c *tc.C) {
 	}
 
 	err := handler.makeModel(context.Background(), false, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *BundleHandlerMakeModelSuite) TestEmptyModelOldController(c *tc.C) {
@@ -2729,7 +2728,7 @@ func (s *BundleHandlerMakeModelSuite) TestEmptyModelOldController(c *tc.C) {
 	}
 
 	err := handler.makeModel(context.Background(), false, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *BundleHandlerMakeModelSuite) TestModelOldController(c *tc.C) {
@@ -2746,7 +2745,7 @@ func (s *BundleHandlerMakeModelSuite) TestModelOldController(c *tc.C) {
 	}
 
 	err := handler.makeModel(context.Background(), false, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	app := handler.model.GetApplication("mysql")
 	c.Assert(app.Base.Channel.Track, tc.Equals, "18.04")
 	app = handler.model.GetApplication("wordpress")
@@ -2783,7 +2782,7 @@ func (s *BundleHandlerMakeModelSuite) expectDeployerAPIEmptyStatus() {
 
 func (s *BundleHandlerMakeModelSuite) expectDeployerAPIModelGet(c *tc.C) {
 	cfg, err := config.New(true, minimalModelConfig())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.deployerAPI.EXPECT().ModelGet(gomock.Any()).Return(cfg.AllAttrs(), nil).AnyTimes()
 }
 

@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
@@ -55,15 +54,15 @@ func (s *FacadeSuite) TestAddresses(c *tc.C) {
 	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
 
 	public, err := facade.PublicAddress(context.Background(), "foo/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(public, tc.Equals, "1.1.1.1")
 
 	private, err := facade.PrivateAddress(context.Background(), "foo/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(private, tc.Equals, "1.1.1.1")
 
 	addrs, err := facade.AllAddresses(context.Background(), "foo/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(addrs, tc.DeepEquals, []string{"1.1.1.1", "2.2.2.2"})
 
 }
@@ -239,7 +238,7 @@ func (s *FacadeSuite) TestPublicKeys(c *tc.C) {
 	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
 
 	keys, err := facade.PublicKeys(context.Background(), "foo/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(keys, tc.DeepEquals, []string{"rsa", "dsa"})
 }
 
@@ -339,7 +338,7 @@ func checkProxy(c *tc.C, useProxy bool) {
 	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
 
 	result, err := facade.Proxy(context.Background())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, useProxy)
 }
 
@@ -386,7 +385,7 @@ func (s *FacadeSuite) TestModelCredentialForSSH(c *tc.C) {
 	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
 
 	spec, err := facade.ModelCredentialForSSH(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	credential := cloud.NewCredential(
 		"auth-type",
@@ -428,7 +427,7 @@ func (s *FacadeSuite) TestVirtualHostname(c *tc.C) {
 	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
 
 	virtualHostname, err := facade.VirtualHostname(context.Background(), "foo/0", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(virtualHostname, tc.Equals, "1.8419cd78-4993-4c3a-928e-c646226beeee.juju.local")
 }
 

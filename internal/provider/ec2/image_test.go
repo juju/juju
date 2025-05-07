@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
@@ -248,7 +247,7 @@ func (s *specSuite) TestFindInstanceSpec(c *tc.C) {
 				Constraints: constraints.MustParse(test.cons),
 				Storage:     stor,
 			})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(spec.InstanceType.Name, tc.Equals, test.itype)
 		c.Check(spec.Image.Id, tc.Equals, test.image)
 	}
@@ -269,7 +268,7 @@ func (s *specSuite) TestFindInstanceSpecNotSetCpuPowerWhenInstanceTypeSet(c *tc.
 		testInstanceTypes,
 		instanceConstraint,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(instanceConstraint.Constraints.CpuPower, tc.IsNil)
 }

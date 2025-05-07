@@ -16,7 +16,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -249,7 +248,7 @@ func (s *BaseRefreshSuite) refreshCommand() cmd.Command {
 
 func (s *RefreshSuite) TestStorageDirectives(c *tc.C) {
 	_, err := s.runRefresh(c, "foo", "--storage", "bar=baz")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", application.SetCharmConfig{
@@ -276,10 +275,10 @@ func (s *RefreshSuite) TestConfigSettings(c *tc.C) {
 	tempdir := c.MkDir()
 	configFile := filepath.Join(tempdir, "config.yaml")
 	err := os.WriteFile(configFile, []byte("foo:{}"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.runRefresh(c, "foo", "--config", configFile)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", application.SetCharmConfig{
@@ -302,7 +301,7 @@ func (s *RefreshSuite) TestConfigSettings(c *tc.C) {
 
 func (s *RefreshSuite) TestConfigSettingsWithTrust(c *tc.C) {
 	_, err := s.runRefresh(c, "foo", "--trust", "--config", "foo=bar")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", application.SetCharmConfig{
@@ -324,7 +323,7 @@ func (s *RefreshSuite) TestConfigSettingsWithTrust(c *tc.C) {
 
 func (s *RefreshSuite) TestConfigSettingsWithTrustFalse(c *tc.C) {
 	_, err := s.runRefresh(c, "foo", "--trust=false", "--config", "foo=bar")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", application.SetCharmConfig{
@@ -348,10 +347,10 @@ func (s *RefreshSuite) TestConfigSettingsWithKeyValuesAndFile(c *tc.C) {
 	tempdir := c.MkDir()
 	configFile := filepath.Join(tempdir, "config.yaml")
 	err := os.WriteFile(configFile, []byte("foo:{}"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.runRefresh(c, "foo", "--trust", "--config", "foo=bar", "--config", configFile)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", application.SetCharmConfig{
@@ -398,7 +397,7 @@ func (s *RefreshSuite) testUpgradeWithBind(c *tc.C, expectedBindings map[string]
 	}
 
 	_, err := s.runRefresh(c, "foo", "--bind", "ep1=sp1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.spacesClient.CheckCallNames(c, "ListSpaces")
 
@@ -477,7 +476,7 @@ func (s *RefreshSuite) TestLocalRevisionUnchanged(c *tc.C) {
 
 	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
 	_, err := s.runRefresh(c, "riak", "--path", s.archivePath(c, path))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.charmAdder.CheckCallNames(c, "AddLocalCharm")
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	rev := 7
@@ -499,7 +498,7 @@ func (s *RefreshSuite) TestLocalRevisionUnchanged(c *tc.C) {
 func (s *RefreshSuite) TestUpgradeWithChannel(c *tc.C) {
 	s.resolvedChannel = charm.Beta
 	_, err := s.runRefresh(c, "foo", "--channel=beta")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.charmAdder.CheckCallNames(c, "AddCharm")
 	origin, _ := apputils.MakeOrigin(charm.Schema(s.resolvedCharmURL.Schema), s.resolvedCharmURL.Revision, charm.Channel{Risk: charm.Beta}, corecharm.Platform{
@@ -535,7 +534,7 @@ func (s *RefreshSuite) TestUpgradeWithChannelNoNewCharmURL(c *tc.C) {
 	s.resolvedCharmURL = charm.MustParseURL("ch:foo-1")
 
 	_, err := s.runRefresh(c, "foo", "--channel=beta")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", application.SetCharmConfig{
@@ -558,7 +557,7 @@ func (s *RefreshSuite) TestUpgradeWithChannelNoNewCharmURL(c *tc.C) {
 func (s *RefreshSuite) TestRefreshShouldRespectDeployedChannelByDefault(c *tc.C) {
 	s.resolvedChannel = charm.Beta
 	_, err := s.runRefresh(c, "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.charmAdder.CheckCallNames(c, "AddCharm")
 	origin, _ := apputils.MakeOrigin(charm.Schema(s.resolvedCharmURL.Schema), s.resolvedCharmURL.Revision, charm.Channel{Risk: charm.Beta}, s.testPlatform)
@@ -594,7 +593,7 @@ func (s *RefreshSuite) TestUpgradeFailWithoutCharmHubOriginID(c *tc.C) {
 
 func (s *RefreshSuite) TestSwitch(c *tc.C) {
 	_, err := s.runRefresh(c, "foo", "--switch=ch:trusty/anotherriak")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.charmClient.CheckCallNames(c, "CharmInfo", "CharmInfo")
 	s.charmClient.CheckCall(c, 0, "CharmInfo", s.resolvedCharmURL.String())
@@ -602,7 +601,7 @@ func (s *RefreshSuite) TestSwitch(c *tc.C) {
 	origin, _ := apputils.MakeOrigin(charm.Schema(s.resolvedCharmURL.Schema), s.resolvedCharmURL.Revision, charm.Channel{Risk: charm.Stable}, s.testPlatform)
 
 	parsedSwitchUrl, err := charm.ParseURL("ch:trusty/anotherriak")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.charmAdder.CheckCall(c, 0, "CheckCharmPlacement", "foo", parsedSwitchUrl)
 	origin.Revision = (*int)(nil)
 	s.charmAdder.CheckCall(c, 1, "AddCharm", s.resolvedCharmURL, origin, false)
@@ -636,7 +635,7 @@ func (s *RefreshSuite) TestSwitchSameURL(c *tc.C) {
 	s.charmAPIClient.charmURL = s.resolvedCharmURL
 	_, err := s.runRefresh(c, "foo", "--switch="+s.resolvedCharmURL.String())
 	// Should not get error since charm already up-to-date
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *RefreshSuite) TestSwitchDifferentRevision(c *tc.C) {
@@ -644,7 +643,7 @@ func (s *RefreshSuite) TestSwitchDifferentRevision(c *tc.C) {
 	s.charmAPIClient.charmURL = &curlCopy
 	s.resolvedCharmURL.Revision++
 	_, err := s.runRefresh(c, "riak", "--switch="+s.resolvedCharmURL.String())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *RefreshSuite) TestSwitchToLocalNotFound(c *tc.C) {
@@ -671,14 +670,14 @@ func (s *RefreshSuite) TestRespectsLocalRevisionWhenPossible(c *tc.C) {
 
 	// Set the disk revision to 42.
 	revFile, err := os.OpenFile(filepath.Join(myriakPath, "revision"), os.O_CREATE|os.O_WRONLY, 0666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = revFile.WriteString("42")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	err = revFile.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.runRefresh(c, "riak", "--path", s.archivePath(c, myriakPath))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.charmAdder.CheckCallNames(c, "AddLocalCharm")
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", application.SetCharmConfig{
@@ -728,7 +727,7 @@ func (s *RefreshSuite) TestForcedSeriesUpgrade(c *tc.C) {
 	//  in 3.x the --force-series argument exists, though it is being
 	//  replaced by --force-base
 	_, err = s.runRefresh(c, "multi-series", "--path", s.archivePath(c, repoPath), "--force-series")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	rev := 1
@@ -781,7 +780,7 @@ func (s *RefreshSuite) TestForcedBaseUpgrade(c *tc.C) {
 
 	_, err = s.runRefresh(c, "multi-base", "--base", "ubuntu@20.04",
 		"--path", s.archivePath(c, repoPath), "--force-base")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	rev := 1
@@ -809,7 +808,7 @@ func (s *RefreshSuite) TestForcedUnitsUpgrade(c *tc.C) {
 
 	myriakPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
 	_, err := s.runRefresh(c, "riak", "--path", s.archivePath(c, myriakPath), "--force-units")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.charmAdder.CheckCallNames(c, "AddLocalCharm")
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	rev := 7
@@ -834,7 +833,7 @@ func (s *RefreshSuite) TestBlockRefresh(c *tc.C) {
 
 	_, err := s.runRefresh(c, "riak")
 	c.Assert(err, tc.NotNil)
-	c.Assert(strings.Contains(err.Error(), "All operations that change model have been disabled for the current model"), jc.IsTrue)
+	c.Assert(strings.Contains(err.Error(), "All operations that change model have been disabled for the current model"), tc.IsTrue)
 }
 
 func (s *RefreshSuite) TestCharmPathNotFound(c *tc.C) {
@@ -852,7 +851,7 @@ func (s *RefreshSuite) TestCharmPathNoRevUpgrade(c *tc.C) {
 	myriakPath := testcharms.RepoWithSeries("bionic").CharmArchivePath(c.MkDir(), "riak")
 
 	_, err := s.runRefresh(c, "riak", "--path", myriakPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.charmAdder.CheckCallNames(c, "AddLocalCharm")
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	rev := 7
@@ -918,7 +917,7 @@ devices: {}
 	}
 
 	_, err = s.runRefresh(c, "lxd-profile-alt", "--path", s.archivePath(c, repoPath))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	rev := 0
@@ -945,9 +944,9 @@ func (s *RefreshSuite) TestInitWithResources(c *tc.C) {
 	foopath := path.Join(dir, "foo")
 	barpath := path.Join(dir, "bar")
 	err := os.WriteFile(foopath, []byte("foo"), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = os.WriteFile(barpath, []byte("bar"), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	res1 := fmt.Sprintf("foo=%s", foopath)
 	res2 := fmt.Sprintf("bar=%s", barpath)
@@ -958,7 +957,7 @@ func (s *RefreshSuite) TestInitWithResources(c *tc.C) {
 	cmd := modelcmd.Wrap(&d)
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	err = cmdtesting.InitCommand(cmd, args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(d.Resources, tc.DeepEquals, map[string]string{
 		"foo": foopath,
 		"bar": barpath,
@@ -982,12 +981,12 @@ func (s *RefreshSuite) TestUpgradeSameVersionWithResourceUpload(c *tc.C) {
 	dir := c.MkDir()
 	barpath := path.Join(dir, "bar")
 	err := os.WriteFile(barpath, []byte("bar"), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	res1 := fmt.Sprintf("bar=%s", barpath)
 
 	_, err = s.runRefresh(c, "foo", "--resource="+res1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.charmAdder.CheckNoCalls(c)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
@@ -1011,11 +1010,11 @@ func (s *RefreshSuite) TestUpgradeSameVersionWithResourceUpload(c *tc.C) {
 
 func (s *RefreshSuite) archivePath(c *tc.C, path string) string {
 	charm, err := charmtesting.ReadCharmDir(path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	archivePath := filepath.Join(c.MkDir(), "myriak.charm")
 	err = charm.ArchiveToPath(archivePath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return archivePath
 }
@@ -1062,7 +1061,7 @@ func (s *RefreshCharmHubSuite) TestUpgradeResourceRevision(c *tc.C) {
 	}
 
 	_, err := s.runRefresh(c, "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.charmClient.CheckCallNames(c, "CharmInfo", "ListCharmResources", "CharmInfo")
@@ -1105,7 +1104,7 @@ func (s *RefreshCharmHubSuite) TestUpgradeResourceRevisionSupplied(c *tc.C) {
 	}
 
 	_, err := s.runRefresh(c, "foo", "--resource", "bar=3")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.charmClient.CheckCallNames(c, "CharmInfo", "ListCharmResources", "CharmInfo")
@@ -1147,7 +1146,7 @@ func (s *RefreshCharmHubSuite) TestUpgradeResourceNoChange(c *tc.C) {
 	}
 
 	_, err := s.runRefresh(c, "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.charmClient.CheckCallNames(c, "CharmInfo", "ListCharmResources", "CharmInfo")

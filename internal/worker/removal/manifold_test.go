@@ -9,7 +9,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
@@ -69,7 +68,7 @@ func validConfig(c *tc.C) ManifoldConfig {
 func (s *manifoldConfigSuite) checkNotValid(c *tc.C, expect string) {
 	err := s.config.Validate()
 	c.Check(err, tc.ErrorMatches, expect)
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 }
 
 type manifoldSuite struct {
@@ -93,7 +92,7 @@ func (s *manifoldSuite) TestStartSuccess(c *tc.C) {
 	}
 
 	w, err := Manifold(cfg).Start(context.Background(), noGetter{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(w, tc.NotNil)
 }
 

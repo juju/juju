@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/common"
 )
@@ -47,8 +46,8 @@ func (s *FormatTimeSuite) TestFormatTime(c *tc.C) {
 		c.Logf("test %d: %s", i, test.description)
 		formatted := common.FormatTime(&test.input, test.isoTime)
 		parsed, err := time.Parse(test.outputFormat, formatted)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(parsed, jc.DeepEquals, test.input)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(parsed, tc.DeepEquals, test.input)
 	}
 }
 
@@ -86,13 +85,13 @@ func (s *FormatTimeAsTimestampSuite) TestFormatTimeAsTimestamp(c *tc.C) {
 		c.Logf("test %d: %s", i, test.description)
 		formatted := common.FormatTimeAsTimestamp(&test.input, test.isoTime)
 		parsed, err := time.Parse(test.outputFormat, formatted)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		expected := test.input.Local()
 		if test.isoTime {
 			expected = test.input.UTC()
 		}
-		c.Assert(parsed.Format(test.outputFormat), jc.DeepEquals, expected.Format(test.outputFormat))
+		c.Assert(parsed.Format(test.outputFormat), tc.DeepEquals, expected.Format(test.outputFormat))
 	}
 }
 
@@ -191,7 +190,7 @@ func (s *ConformSuite) TestConformYAML(c *tc.C) {
 		input := test.inputInterface
 		cleansedInterfaceMap, err := common.ConformYAML(input)
 		if test.expectedError == "" {
-			if !c.Check(err, jc.ErrorIsNil) {
+			if !c.Check(err, tc.ErrorIsNil) {
 				continue
 			}
 			c.Check(cleansedInterfaceMap, tc.DeepEquals, test.expectedInterface)

@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 type profileSuite struct {
@@ -27,7 +26,7 @@ func (*profileSuite) TestNonLinux(c *tc.C) {
 		c.Skip("testing non-linux")
 	}
 	err := WriteProfileFunctions(ProfileDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *profileSuite) TestLinux(c *tc.C) {
@@ -36,9 +35,9 @@ func (s *profileSuite) TestLinux(c *tc.C) {
 	}
 	dir := c.MkDir()
 	err := WriteProfileFunctions(dir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	content, err := os.ReadFile(profileFilename(dir))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(content), tc.Equals, shellFuncs)
 }

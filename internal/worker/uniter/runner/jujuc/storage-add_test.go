@@ -5,7 +5,6 @@ package jujuc_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -21,7 +20,7 @@ var _ = tc.Suite(&storageAddSuite{})
 func (s *storageAddSuite) getStorageUnitAddCommand(c *tc.C) cmd.Command {
 	hctx, _ := s.ContextSuite.NewHookContext()
 	com, err := jujuc.NewCommand(hctx, "storage-add")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return jujuc.NewJujucCommandWrappedForTest(com)
 }
 

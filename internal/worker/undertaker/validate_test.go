@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/environs"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -61,7 +60,7 @@ func validConfig(c *tc.C) undertaker.Config {
 
 func checkInvalid(c *tc.C, config undertaker.Config, message string) {
 	check := func(err error) {
-		c.Check(err, jc.ErrorIs, errors.NotValid)
+		c.Check(err, tc.ErrorIs, errors.NotValid)
 		c.Check(err, tc.ErrorMatches, message)
 	}
 	err := config.Validate()

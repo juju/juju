@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,18 +29,18 @@ func (s *clusterRoleSuite) TestApply(c *tc.C) {
 	}
 	// Create.
 	clusterRoleResource := resources.NewClusterRole("role1", role)
-	c.Assert(clusterRoleResource.Apply(context.Background(), s.client), jc.ErrorIsNil)
+	c.Assert(clusterRoleResource.Apply(context.Background(), s.client), tc.ErrorIsNil)
 	result, err := s.client.RbacV1().ClusterRoles().Get(context.Background(), "role1", metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(result.GetAnnotations()), tc.Equals, 0)
 
 	// Update.
 	role.SetAnnotations(map[string]string{"a": "b"})
 	clusterRoleResource = resources.NewClusterRole("role1", role)
-	c.Assert(clusterRoleResource.Apply(context.Background(), s.client), jc.ErrorIsNil)
+	c.Assert(clusterRoleResource.Apply(context.Background(), s.client), tc.ErrorIsNil)
 
 	result, err = s.client.RbacV1().ClusterRoles().Get(context.Background(), "role1", metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.GetName(), tc.Equals, `role1`)
 	c.Assert(result.GetAnnotations(), tc.DeepEquals, map[string]string{"a": "b"})
 }
@@ -55,12 +54,12 @@ func (s *clusterRoleSuite) TestGet(c *tc.C) {
 	role1 := template
 	role1.SetAnnotations(map[string]string{"a": "b"})
 	_, err := s.client.RbacV1().ClusterRoles().Create(context.Background(), &role1, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	roleResource := resources.NewClusterRole("role1", &template)
 	c.Assert(len(roleResource.GetAnnotations()), tc.Equals, 0)
 	err = roleResource.Get(context.Background(), s.client)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(roleResource.GetName(), tc.Equals, `role1`)
 	c.Assert(roleResource.GetAnnotations(), tc.DeepEquals, map[string]string{"a": "b"})
 }
@@ -72,21 +71,21 @@ func (s *clusterRoleSuite) TestDelete(c *tc.C) {
 		},
 	}
 	_, err := s.client.RbacV1().ClusterRoles().Create(context.Background(), &role, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := s.client.RbacV1().ClusterRoles().Get(context.Background(), "role1", metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.GetName(), tc.Equals, `role1`)
 
 	roleResource := resources.NewClusterRole("role1", &role)
 	err = roleResource.Delete(context.Background(), s.client)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = roleResource.Get(context.Background(), s.client)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 
 	_, err = s.client.RbacV1().ClusterRoles().Get(context.Background(), "role1", metav1.GetOptions{})
-	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
+	c.Assert(err, tc.Satisfies, k8serrors.IsNotFound)
 }
 
 // This test ensures that there has not been a regression with ensure cluster
@@ -126,7 +125,7 @@ func (s *clusterRoleSuite) TestEnsureClusterRoleRegressionOnLabelChange(c *tc.C)
 		s.client,
 		resources.ClaimFn(func(_ interface{}) (bool, error) { return true, nil }),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	rrole, err := s.client.RbacV1().ClusterRoles().Get(
 		context.Background(),
@@ -134,8 +133,8 @@ func (s *clusterRoleSuite) TestEnsureClusterRoleRegressionOnLabelChange(c *tc.C)
 		metav1.GetOptions{},
 	)
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rrole, jc.DeepEquals, clusterRole)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rrole, tc.DeepEquals, clusterRole)
 
 	crApi.ClusterRole.ObjectMeta.Labels = map[string]string{
 		"new-label": "new-value",
@@ -146,7 +145,7 @@ func (s *clusterRoleSuite) TestEnsureClusterRoleRegressionOnLabelChange(c *tc.C)
 		s.client,
 		resources.ClaimFn(func(_ interface{}) (bool, error) { return true, nil }),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	rrole, err = s.client.RbacV1().ClusterRoles().Get(
 		context.Background(),
@@ -154,6 +153,6 @@ func (s *clusterRoleSuite) TestEnsureClusterRoleRegressionOnLabelChange(c *tc.C)
 		metav1.GetOptions{},
 	)
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rrole, jc.DeepEquals, &crApi.ClusterRole)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rrole, tc.DeepEquals, &crApi.ClusterRole)
 }

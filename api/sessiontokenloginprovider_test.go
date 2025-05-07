@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -139,12 +138,12 @@ func (s *sessionTokenLoginProviderProviderSuite) TestSessionTokenLogin(c *tc.C) 
 	}, api.DialOpts{
 		LoginProvider: lp,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = apiState.Close() }()
 
 	c.Check(output.String(), tc.Equals, "Please visit http://localhost:8080/test-verification and enter code 1234567 to log in.\n")
 	c.Check(obtainedSessionToken, tc.Equals, sessionToken)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *sessionTokenLoginProviderProviderSuite) TestInvalidSessionTokenLogin(c *tc.C) {
@@ -170,7 +169,7 @@ func (s *sessionTokenLoginProviderProviderSuite) TestInvalidSessionTokenLogin(c 
 			func(sessionToken string) {},
 		),
 	})
-	c.Assert(err, jc.ErrorIs, expectedErr)
+	c.Assert(err, tc.ErrorIs, expectedErr)
 }
 
 // A separate suite for tests that don't need to communicate with a controller.
@@ -205,7 +204,7 @@ func (s *sessionTokenLoginProviderBasicSuite) TestSessionTokenAuthHeader(c *tc.C
 		if tC.err != "" {
 			c.Assert(err, tc.ErrorMatches, tC.err)
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			c.Check(tC.expected, tc.DeepEquals, header)
 		}
 	}

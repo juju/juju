@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 )
@@ -103,7 +102,7 @@ dummy stack
 
 func (s *loggerSuite) expectLogResult(c *tc.C, dir string, match string) {
 	data, err := os.ReadFile(filepath.Join(dir, filename))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(data), tc.Equals, match)
 }
 
@@ -131,7 +130,7 @@ func (s *loggerSuite) newWorker(c *tc.C, dir string) *loggerWorker {
 			return []byte("dummy stack")
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return w
 }

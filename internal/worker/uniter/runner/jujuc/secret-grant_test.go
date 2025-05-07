@@ -5,7 +5,6 @@ package jujuc_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -43,7 +42,7 @@ func (s *SecretGrantSuite) TestGrantSecretInvalidArgs(c *tc.C) {
 		},
 	} {
 		com, err := jujuc.NewCommand(hctx, "secret-grant")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
 
@@ -56,7 +55,7 @@ func (s *SecretGrantSuite) TestGrantSecret(c *tc.C) {
 	hctx, _ := s.newHookContext(1, "mediawiki/0", "mediawiki")
 
 	com, err := jujuc.NewCommand(hctx, "secret-grant")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{
 		"secret:9m4e2mr0ui3e8a215n4g",
@@ -76,7 +75,7 @@ func (s *SecretGrantSuite) TestGrantSecretUnit(c *tc.C) {
 	hctx, _ := s.newHookContext(1, "mediawiki/0", "mediawiki")
 
 	com, err := jujuc.NewCommand(hctx, "secret-grant")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{
 		"secret:9m4e2mr0ui3e8a215n4g",
@@ -98,7 +97,7 @@ func (s *SecretGrantSuite) TestGrantSecretWrongUnit(c *tc.C) {
 	hctx, _ := s.newHookContext(1, "mediawiki/0", "mediawiki")
 
 	com, err := jujuc.NewCommand(hctx, "secret-grant")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{
 		"secret:9m4e2mr0ui3e8a215n4g",

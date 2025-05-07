@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/model"
@@ -138,14 +137,14 @@ func (s *retryProvisioningSuite) TestRetryProvisioning(c *tc.C) {
 			c.Check(err, tc.ErrorMatches, t.err)
 			continue
 		}
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		output := cmdtesting.Stderr(context)
 		stripped := strings.Replace(output, "\n", "", -1)
 		c.Check(stripped, tc.Equals, t.stdErr)
 		if t.args[0] == "0" || t.args[0] == "all" {
 			m := s.fake.m["0"]
 			c.Check(m.info, tc.Equals, "broken")
-			c.Check(m.data["transient"], jc.IsTrue)
+			c.Check(m.data["transient"], tc.IsTrue)
 		}
 	}
 }

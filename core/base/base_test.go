@@ -6,7 +6,6 @@ package base
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/charm"
 )
@@ -19,19 +18,19 @@ var _ = tc.Suite(&BaseSuite{})
 
 func (s *BaseSuite) TestParseBase(c *tc.C) {
 	base, err := ParseBase("ubuntu", "22.04")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(base, jc.DeepEquals, Base{OS: "ubuntu", Channel: Channel{Track: "22.04", Risk: "stable"}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(base, tc.DeepEquals, Base{OS: "ubuntu", Channel: Channel{Track: "22.04", Risk: "stable"}})
 	base, err = ParseBase("ubuntu", "22.04/edge")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(base, jc.DeepEquals, Base{OS: "ubuntu", Channel: Channel{Track: "22.04", Risk: "edge"}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(base, tc.DeepEquals, Base{OS: "ubuntu", Channel: Channel{Track: "22.04", Risk: "edge"}})
 }
 
 func (s *BaseSuite) TestParseBaseFromString(c *tc.C) {
 	base, err := ParseBaseFromString("ubuntu@22.04")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(base.String(), tc.Equals, "ubuntu@22.04/stable")
 	base, err = ParseBaseFromString("ubuntu@22.04/edge")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(base.String(), tc.Equals, "ubuntu@22.04/edge")
 	base, err = ParseBaseFromString("foo")
 	c.Assert(err, tc.ErrorMatches, `expected base string to contain os and channel separated by '@'`)
@@ -71,14 +70,14 @@ func (s *BaseSuite) TestParseManifestBases(c *tc.C) {
 		},
 	}}
 	obtained, err := ParseManifestBases(manifestBases)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.HasLen, 3)
 	expected := []Base{
 		{OS: "ubuntu", Channel: Channel{Track: "18.04", Risk: "stable"}},
 		{OS: "ubuntu", Channel: Channel{Track: "20.04", Risk: "edge"}},
 		{OS: "centos", Channel: Channel{Track: "9", Risk: "candidate"}},
 	}
-	c.Assert(obtained, jc.DeepEquals, expected)
+	c.Assert(obtained, tc.DeepEquals, expected)
 }
 
 var ubuntuLTS = []Base{
@@ -92,7 +91,7 @@ var ubuntuLTS = []Base{
 func (s *BaseSuite) TestIsUbuntuLTSForLTSes(c *tc.C) {
 	for i, lts := range ubuntuLTS {
 		c.Logf("Checking index %d base %v", i, lts)
-		c.Check(lts.IsUbuntuLTS(), jc.IsTrue)
+		c.Check(lts.IsUbuntuLTS(), tc.IsTrue)
 	}
 }
 
@@ -115,6 +114,6 @@ var nonUbuntuLTS = []Base{
 func (s *BaseSuite) TestIsUbuntuLTSForNonLTSes(c *tc.C) {
 	for i, lts := range nonUbuntuLTS {
 		c.Logf("Checking index %d base %v", i, lts)
-		c.Check(lts.IsUbuntuLTS(), jc.IsFalse)
+		c.Check(lts.IsUbuntuLTS(), tc.IsFalse)
 	}
 }

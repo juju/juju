@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/storage"
@@ -113,7 +112,7 @@ added storage foo/1 to tst/123
 	for i, args := range validArgs {
 		c.Logf("test %d for %q", i, args)
 		context, err := s.runAdd(c, args...)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		s.assertExpectedOutput(c, context, expectedStderr)
 	}
 }

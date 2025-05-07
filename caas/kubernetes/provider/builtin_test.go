@@ -14,7 +14,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
@@ -114,7 +113,7 @@ func (s *builtinSuite) prepareKubeConfigFile(c *tc.C, content string) string {
 	os.MkdirAll(fileDir, os.ModePerm)
 	path := filepath.Join(fileDir, "client.config")
 	err := os.WriteFile(path, []byte(content), 0660)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return path
 }
 
@@ -123,7 +122,7 @@ func (s *builtinSuite) TestAttemptMicroK8sCloud(c *tc.C) {
 	kubeconfigFile := s.prepareKubeConfigFile(c, microk8sConfig)
 
 	k8sCloud, err := provider.AttemptMicroK8sCloud(s.runner, func() (string, error) { return kubeconfigFile, nil })
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(k8sCloud, tc.DeepEquals, cloud.Cloud{
 		Name:     k8s.K8sCloudMicrok8s,
 		Endpoint: "http://1.1.1.1:8080",
@@ -149,7 +148,7 @@ func (s *builtinSuite) assertDecideKubeConfigDir(c *tc.C, isOfficial bool, clien
 	})
 	s.PatchEnvironment("SNAP_DATA", "snap-data-dir")
 	p, err := provider.DecideKubeConfigDir()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(p, tc.DeepEquals, clientConfigPath)
 }
 
@@ -167,6 +166,6 @@ func (s *builtinSuite) TestDecideKubeConfigDirNoJujud(c *tc.C) {
 	})
 	s.PatchEnvironment("SNAP_DATA", "snap-data-dir")
 	p, err := provider.DecideKubeConfigDir()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(p, tc.DeepEquals, `/var/snap/microk8s/current/credentials/client.config`)
 }

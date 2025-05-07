@@ -12,7 +12,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/internal/worker/lease"
@@ -47,9 +46,9 @@ func (s *WaitUntilExpiredSuite) TestLeadershipNoLeaseBlockEvaluatedNextTick(c *t
 
 		// Check that *another* lease expiry causes the unassociated block to
 		// be checked and in the absence of its lease, get unblocked.
-		c.Assert(clock.WaitAdvance(2*time.Second, testing.ShortWait, 1), jc.ErrorIsNil)
+		c.Assert(clock.WaitAdvance(2*time.Second, testing.ShortWait, 1), tc.ErrorIsNil)
 		err := blockTest.assertUnblocked(c)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	})
 }
 
@@ -67,9 +66,9 @@ func (s *WaitUntilExpiredSuite) TestLeadershipExpires(c *tc.C) {
 		blockTest.assertBlocked(c)
 
 		// Trigger expiry.
-		c.Assert(clock.WaitAdvance(2*time.Second, testing.ShortWait, 1), jc.ErrorIsNil)
+		c.Assert(clock.WaitAdvance(2*time.Second, testing.ShortWait, 1), tc.ErrorIsNil)
 		err := blockTest.assertUnblocked(c)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	})
 }
 
@@ -95,18 +94,18 @@ func (s *WaitUntilExpiredSuite) TestBlockChecksRescheduled(c *tc.C) {
 		blockTest.assertBlocked(c)
 
 		// Advance past the first expiry.
-		c.Assert(clock.WaitAdvance(3*time.Second, testing.ShortWait, 1), jc.ErrorIsNil)
+		c.Assert(clock.WaitAdvance(3*time.Second, testing.ShortWait, 1), tc.ErrorIsNil)
 		blockTest.assertBlocked(c)
 
 		// Advance past the second expiry. We should have had a check scheduled.
-		c.Assert(clock.WaitAdvance(3*time.Second, testing.ShortWait, 1), jc.ErrorIsNil)
+		c.Assert(clock.WaitAdvance(3*time.Second, testing.ShortWait, 1), tc.ErrorIsNil)
 		blockTest.assertBlocked(c)
 
 		// Advance past the last expiry. We should have had a check scheduled
 		// that causes the redis lease to be unblocked.
-		c.Assert(clock.WaitAdvance(3*time.Second, testing.ShortWait, 1), jc.ErrorIsNil)
+		c.Assert(clock.WaitAdvance(3*time.Second, testing.ShortWait, 1), tc.ErrorIsNil)
 		err := blockTest.assertUnblocked(c)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	})
 }
 
@@ -146,7 +145,7 @@ func (s *WaitUntilExpiredSuite) TestLeadershipExpiredEarly(c *tc.C) {
 		// Induce a scheduled block check by making an unexpected check;
 		// it turns out the lease had already been expired by someone else.
 		checker, err := manager.Checker("namespace", "model")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = checker.Token("redis", "redis/99").Check()
 		c.Assert(err, tc.ErrorMatches, "lease not held")
 
@@ -156,10 +155,10 @@ func (s *WaitUntilExpiredSuite) TestLeadershipExpiredEarly(c *tc.C) {
 		// When we notice that we are out of sync, we should queue up an
 		// expiration and update of blockers after a very short timeout.
 		err = clock.WaitAdvance(time.Second, testing.ShortWait, 1)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		err = blockTest.assertUnblocked(c)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	})
 }
 
@@ -188,7 +187,7 @@ func (s *WaitUntilExpiredSuite) TestMultiple(c *tc.C) {
 
 		// Induce a scheduled block check by making an unexpected check.
 		checker, err := manager.Checker("namespace", "model")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = checker.Token("redis", "redis/99").Check()
 		c.Assert(err, tc.ErrorMatches, "lease not held")
 
@@ -197,13 +196,13 @@ func (s *WaitUntilExpiredSuite) TestMultiple(c *tc.C) {
 		delete(fix.leases, key("redis"))
 
 		err = clock.WaitAdvance(time.Second, testing.ShortWait, 1)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		err = redisTest2.assertUnblocked(c)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 
 		err = redisTest1.assertUnblocked(c)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 
 		storeTest2.assertBlocked(c)
 		storeTest1.assertBlocked(c)

@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
@@ -158,7 +157,7 @@ func (s *manifoldSuite) TestMissingLogger(c *tc.C) {
 func (s *manifoldSuite) checkConfigInvalid(c *tc.C, config caasfirewaller.ManifoldConfig, expect string) {
 	err := config.Validate()
 	c.Check(err, tc.ErrorMatches, expect)
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 }
 
 var expectedInputs = []string{"api-caller", "broker", "domain-services"}
@@ -166,7 +165,7 @@ var expectedInputs = []string{"api-caller", "broker", "domain-services"}
 func (s *manifoldSuite) TestInputs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
+	c.Assert(s.manifold.Inputs, tc.SameContents, expectedInputs)
 }
 
 func (s *manifoldSuite) TestMissingInputs(c *tc.C) {
@@ -185,7 +184,7 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, err := s.manifold.Start(context.Background(), s.getter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 
 	s.CheckCallNames(c, "NewClient", "NewWorker")

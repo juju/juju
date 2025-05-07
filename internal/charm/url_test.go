@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/internal/charm"
@@ -231,10 +230,10 @@ func (s *URLSuite) TestURLCodecs(c *tc.C) {
 		url := charm.MustParseURL("ch:name")
 		v0 := doc{URL: url}
 		data, err := codec.Marshal(v0)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		var v doc
 		err = codec.Unmarshal(data, &v)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(v, tc.DeepEquals, v0)
 
 		// Check that the underlying representation
@@ -244,14 +243,14 @@ func (s *URLSuite) TestURLCodecs(c *tc.C) {
 		}
 		var vs strDoc
 		err = codec.Unmarshal(data, &vs)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(vs.URL, tc.Equals, "ch:name")
 
 		data, err = codec.Marshal(doc{})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		v = doc{}
 		err = codec.Unmarshal(data, &v)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(v.URL, tc.IsNil, tc.Commentf("data: %q", data))
 	}
 }

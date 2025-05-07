@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/provider/gce/google"
 )
@@ -28,11 +27,11 @@ func (s *credentialsSuite) TestNewCredentials(c *tc.C) {
 		google.OSEnvProjectID:   "yup",
 	}
 	creds, err := google.NewCredentials(values)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	jsonKey := creds.JSONKey
 	creds.JSONKey = nil
-	c.Check(creds, jc.DeepEquals, &google.Credentials{
+	c.Check(creds, tc.DeepEquals, &google.Credentials{
 		ClientID:    "abc",
 		ClientEmail: "xyz@g.com",
 		PrivateKey:  []byte("<some-key>"),
@@ -40,8 +39,8 @@ func (s *credentialsSuite) TestNewCredentials(c *tc.C) {
 	})
 	data := make(map[string]string)
 	err = json.Unmarshal(jsonKey, &data)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(data, jc.DeepEquals, map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(data, tc.DeepEquals, map[string]string{
 		"type":         "service_account",
 		"client_id":    "abc",
 		"client_email": "xyz@g.com",
@@ -55,7 +54,7 @@ func (s *credentialsSuite) TestNewCredentialsUnrecognized(c *tc.C) {
 	}
 	_, err := google.NewCredentials(values)
 
-	c.Check(err, jc.ErrorIs, errors.NotSupported)
+	c.Check(err, tc.ErrorIs, errors.NotSupported)
 }
 
 func (s *credentialsSuite) TestNewCredentialsValidates(c *tc.C) {
@@ -68,7 +67,7 @@ func (s *credentialsSuite) TestNewCredentialsValidates(c *tc.C) {
 	// This error comes from Credentials.Validate so by implication
 	// if we're getting this error, validation is being performed.
 	c.Check(err, tc.ErrorMatches, `invalid config value \(\) for "GCE_CLIENT_ID": missing ClientID`)
-	c.Assert(err, jc.Satisfies, google.IsInvalidConfigValueError)
+	c.Assert(err, tc.Satisfies, google.IsInvalidConfigValueError)
 }
 
 func (s *credentialsSuite) TestParseJSONKey(c *tc.C) {
@@ -82,11 +81,11 @@ func (s *credentialsSuite) TestParseJSONKey(c *tc.C) {
     "type": "service_account"
 }`[1:]
 	creds, err := google.ParseJSONKey(bytes.NewBufferString(original))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	jsonKey := creds.JSONKey
 	creds.JSONKey = nil
-	c.Check(creds, jc.DeepEquals, &google.Credentials{
+	c.Check(creds, tc.DeepEquals, &google.Credentials{
 		ClientID:    "abc",
 		ClientEmail: "xyz@g.com",
 		PrivateKey:  []byte("<some-key>"),
@@ -103,10 +102,10 @@ func (s *credentialsSuite) TestCredentialsValues(c *tc.C) {
 		google.OSEnvProjectID:   "yup",
 	}
 	creds, err := google.NewCredentials(original)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	values := creds.Values()
 
-	c.Check(values, jc.DeepEquals, original)
+	c.Check(values, tc.DeepEquals, original)
 }
 
 func (*credentialsSuite) TestValidateValid(c *tc.C) {
@@ -117,7 +116,7 @@ func (*credentialsSuite) TestValidateValid(c *tc.C) {
 	}
 	err := creds.Validate()
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (*credentialsSuite) TestValidateMissingID(c *tc.C) {
@@ -127,7 +126,7 @@ func (*credentialsSuite) TestValidateMissingID(c *tc.C) {
 	}
 	err := creds.Validate()
 
-	c.Assert(err, jc.Satisfies, google.IsInvalidConfigValueError)
+	c.Assert(err, tc.Satisfies, google.IsInvalidConfigValueError)
 	c.Check(err.(*google.InvalidConfigValueError).Key, tc.Equals, "GCE_CLIENT_ID")
 }
 
@@ -139,7 +138,7 @@ func (*credentialsSuite) TestValidateBadEmail(c *tc.C) {
 	}
 	err := creds.Validate()
 
-	c.Assert(err, jc.Satisfies, google.IsInvalidConfigValueError)
+	c.Assert(err, tc.Satisfies, google.IsInvalidConfigValueError)
 	c.Check(err.(*google.InvalidConfigValueError).Key, tc.Equals, "GCE_CLIENT_EMAIL")
 }
 
@@ -150,6 +149,6 @@ func (*credentialsSuite) TestValidateMissingKey(c *tc.C) {
 	}
 	err := creds.Validate()
 
-	c.Assert(err, jc.Satisfies, google.IsInvalidConfigValueError)
+	c.Assert(err, tc.Satisfies, google.IsInvalidConfigValueError)
 	c.Check(err.(*google.InvalidConfigValueError).Key, tc.Equals, "GCE_PRIVATE_KEY")
 }

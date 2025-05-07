@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver/authentication"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -30,26 +29,26 @@ func (s *InteractionsSuite) SetUpTest(c *tc.C) {
 
 func (s *InteractionsSuite) TestStart(c *tc.C) {
 	waitId, err := s.interactions.Start([]byte("caveat-id"), time.Time{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(waitId, tc.Not(tc.Equals), "")
 }
 
 func (s *InteractionsSuite) TestDone(c *tc.C) {
 	waitId := s.start(c, "caveat-id")
 	err := s.interactions.Done(waitId, names.NewUserTag("admin@local"), nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *InteractionsSuite) TestDoneNotFound(c *tc.C) {
 	err := s.interactions.Done("not-found", names.NewUserTag("admin@local"), nil)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 	c.Assert(err, tc.ErrorMatches, `interaction "not-found" not found`)
 }
 
 func (s *InteractionsSuite) TestDoneTwice(c *tc.C) {
 	waitId := s.start(c, "caveat-id")
 	err := s.interactions.Done(waitId, names.NewUserTag("admin@local"), nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.interactions.Done(waitId, names.NewUserTag("admin@local"), nil)
 	c.Assert(err, tc.ErrorMatches, `interaction ".*" already done`)
 }
@@ -60,9 +59,9 @@ func (s *InteractionsSuite) TestWait(c *tc.C) {
 	loginError := errors.New("login failed")
 	s.done(c, waitId, loginUser, loginError)
 	interaction, err := s.interactions.Wait(waitId, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(interaction, tc.NotNil)
-	c.Assert(interaction, jc.DeepEquals, &authentication.Interaction{
+	c.Assert(interaction, tc.DeepEquals, &authentication.Interaction{
 		CaveatId:   []byte("caveat-id"),
 		LoginUser:  loginUser,
 		LoginError: loginError,
@@ -80,7 +79,7 @@ func (s *InteractionsSuite) TestWaitTwice(c *tc.C) {
 	s.done(c, waitId, names.NewUserTag("admin@local"), nil)
 
 	_, err := s.interactions.Wait(waitId, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// The Wait call above should have removed the item.
 	_, err = s.interactions.Wait(waitId, nil)
@@ -119,7 +118,7 @@ func (s *InteractionsSuite) TestWaitExpired(c *tc.C) {
 	t2 := t1.Add(time.Second)
 
 	waitId, err := s.interactions.Start([]byte("caveat-id"), t2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	type waitResult struct {
 		interaction *authentication.Interaction
@@ -154,11 +153,11 @@ func (s *InteractionsSuite) TestWaitExpired(c *tc.C) {
 
 func (s *InteractionsSuite) start(c *tc.C, caveatId string) string {
 	waitId, err := s.interactions.Start([]byte(caveatId), time.Time{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return waitId
 }
 
 func (s *InteractionsSuite) done(c *tc.C, waitId string, loginUser names.UserTag, loginError error) {
 	err := s.interactions.Done(waitId, loginUser, loginError)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

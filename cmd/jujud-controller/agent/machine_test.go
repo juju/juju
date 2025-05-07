@@ -17,7 +17,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/cert"
 	"github.com/juju/worker/v4"
 	"go.uber.org/mock/gomock"
@@ -109,7 +108,7 @@ func (s *MachineSuite) SetUpTest(c *tc.C) {
 	storageDir := c.MkDir()
 	s.PatchValue(&envtools.DefaultBaseURL, storageDir)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Upload tools to both release and devel streams since config will dictate that we
 	// end up looking in both places.
 	versions := defaultVersions(coretesting.CurrentVersion().Number)
@@ -128,7 +127,7 @@ func (s *MachineSuite) SetUpTest(c *tc.C) {
 	// Ensure the dummy provider is initialised - no need to actually bootstrap.
 	ctx := envtesting.BootstrapContext(context.Background(), c)
 	err = s.Environ.PrepareForBootstrap(ctx, "controller")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *MachineSuite) TestParseNonsense(c *tc.C) {
@@ -194,7 +193,7 @@ func (s *MachineSuite) TestUseLumberjack(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 
 	l, ok := ctx.Stderr.(*lumberjack.Logger)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	c.Check(l.MaxAge, tc.Equals, 0)
 	c.Check(l.MaxBackups, tc.Equals, 2)
 	c.Check(l.Filename, tc.Equals, filepath.FromSlash("/var/log/juju/machine-42.log"))
@@ -227,7 +226,7 @@ func (s *MachineSuite) TestDontUseLumberjack(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 
 	_, ok := ctx.Stderr.(*lumberjack.Logger)
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 }
 
 func (s *MachineSuite) TestRunStop(c *tc.C) {
@@ -241,8 +240,8 @@ func (s *MachineSuite) TestRunStop(c *tc.C) {
 		done <- a.Run(nil)
 	}()
 	err := a.Stop()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(<-done, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(<-done, tc.ErrorIsNil)
 }
 
 func (s *MachineSuite) testUpgradeRequest(c *tc.C, agent runner, tag string, currentTools *tools.Tools, upgrader state.Upgrader) {
@@ -256,9 +255,9 @@ func (s *MachineSuite) testUpgradeRequest(c *tc.C, agent runner, tag string, cur
 	// read from dqlite, but the check of "should I upgrade" is still being
 	// read from Mongo.
 	err := s.ControllerModel(c).State().SetModelAgentVersion(newVers.Number, nil, true, upgrader)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.setAgentVersion(c, newVers.Number.String())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = runWithTimeout(c, agent)
 	envtesting.CheckUpgraderReadyError(c, err, &agenterrors.UpgradeReadyError{
@@ -278,12 +277,12 @@ func (s *MachineSuite) setAgentVersion(c *tc.C, vers string) {
 	args := sqlair.M{"target_version": vers}
 
 	stmt, err := sqlair.Prepare(q, args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt, args).Run()
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *MachineSuite) TestUpgradeRequest(c *tc.C) {
@@ -292,7 +291,7 @@ func (s *MachineSuite) TestUpgradeRequest(c *tc.C) {
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
 	s.testUpgradeRequest(c, a, m.Tag().String(), currentTools, stubUpgrader{})
-	c.Assert(a.initialUpgradeCheckComplete.IsUnlocked(), jc.IsFalse)
+	c.Assert(a.initialUpgradeCheckComplete.IsUnlocked(), tc.IsFalse)
 }
 
 func (s *MachineSuite) TestNoUpgradeRequired(c *tc.C) {
@@ -308,7 +307,7 @@ func (s *MachineSuite) TestNoUpgradeRequired(c *tc.C) {
 	}
 	defer a.Stop() // in case of failure
 	s.waitStopped(c, state.JobManageModel, a, done)
-	c.Assert(a.initialUpgradeCheckComplete.IsUnlocked(), jc.IsTrue)
+	c.Assert(a.initialUpgradeCheckComplete.IsUnlocked(), tc.IsTrue)
 }
 
 func (s *MachineSuite) TestAgentSetsToolsVersionManageModel(c *tc.C) {
@@ -330,8 +329,8 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *tc.C) {
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+	go func() { c.Check(a.Run(nil), tc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), tc.ErrorIsNil) }()
 
 	// Update the API addresses.
 	updatedServers := []network.SpaceHostPorts{
@@ -342,7 +341,7 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *tc.C) {
 
 	st := s.ControllerModel(c).State()
 	err := st.SetAPIHostPorts(controllerConfig, updatedServers, updatedServers)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Wait for config to be updated.
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
@@ -350,7 +349,7 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *tc.C) {
 			break
 		}
 		addrs, err := a.CurrentConfig().APIAddresses()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		if reflect.DeepEqual(addrs, []string{"localhost:1234"}) {
 			return
 		}
@@ -373,8 +372,8 @@ func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *tc.C) {
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+	go func() { c.Check(a.Run(nil), tc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), tc.ErrorIsNil) }()
 	started.assertTriggered(c, "diskmanager worker to start")
 }
 
@@ -390,13 +389,13 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *tc.C) {
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+	go func() { c.Check(a.Run(nil), tc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), tc.ErrorIsNil) }()
 
 	// Wait for state to be updated.
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
 		devices, err := blockdevicestate.NewState(s.TxnRunnerFactory()).BlockDevices(context.Background(), m.Id())
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		if len(devices) > 0 {
 			c.Assert(devices, tc.HasLen, 1)
 			c.Assert(devices[0].DeviceName, tc.Equals, expected[0].DeviceName)
@@ -414,7 +413,7 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *tc.C) {
 	started := newSignal()
 	newWorker := func(config storageprovisioner.Config) (worker.Worker, error) {
 		c.Check(config.Scope, tc.Equals, m.Tag())
-		c.Check(config.Validate(), jc.ErrorIsNil)
+		c.Check(config.Validate(), tc.ErrorIsNil)
 		started.trigger()
 		return jworker.NoopWorker(), nil
 	}
@@ -423,8 +422,8 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *tc.C) {
 	// Start the machine agent.
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+	go func() { c.Check(a.Run(nil), tc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), tc.ErrorIsNil) }()
 	started.assertTriggered(c, "storage worker to start")
 }
 
@@ -443,11 +442,11 @@ func (s *MachineSuite) TestCertificateDNSUpdatedInvalidPrivateKey(c *tc.C) {
 	// Write out config with an invalid private key. This should
 	// cause the agent to rewrite the cert and key.
 	si, ok := agentConfig.StateServingInfo()
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	si.PrivateKey = "foo"
 	agentConfig.SetStateServingInfo(si)
 	err := agentConfig.Write()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
@@ -462,8 +461,8 @@ func (s *MachineSuite) testCertificateDNSUpdated(c *tc.C, a *MachineAgent) {
 	})
 
 	// Start the agent.
-	go func() { c.Check(a.Run(cmdtesting.Context(c)), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+	go func() { c.Check(a.Run(cmdtesting.Context(c)), tc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), tc.ErrorIsNil) }()
 
 	// Wait for State to be opened. Once this occurs we know that the
 	// agent's initial startup has happened.
@@ -472,14 +471,14 @@ func (s *MachineSuite) testCertificateDNSUpdated(c *tc.C, a *MachineAgent) {
 	// Check that certificate was updated when the agent started.
 	stateInfo, _ := a.CurrentConfig().StateServingInfo()
 	srvCert, _, err := cert.ParseCertAndKey(stateInfo.Cert, stateInfo.PrivateKey)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedDnsNames := set.NewStrings("localhost", "juju-apiserver", "juju-mongodb")
 	certDnsNames := set.NewStrings(srvCert.DNSNames...)
-	c.Check(expectedDnsNames.Difference(certDnsNames).IsEmpty(), jc.IsTrue)
+	c.Check(expectedDnsNames.Difference(certDnsNames).IsEmpty(), tc.IsTrue)
 
 	// Check the mongo certificate file too.
 	pemContent, err := os.ReadFile(filepath.Join(s.DataDir, "server.pem"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(string(pemContent), tc.Equals, stateInfo.Cert+"\n"+stateInfo.PrivateKey)
 }
 
@@ -498,7 +497,7 @@ func (s *MachineSuite) setupIgnoreAddresses(c *tc.C, expectedIgnoreValue bool) c
 
 	attrs := coretesting.Attrs{"ignore-machine-addresses": expectedIgnoreValue}
 	err := s.ControllerDomainServices(c).Config().UpdateModelConfig(context.Background(), attrs, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return ignoreAddressCh
 }
 
@@ -536,7 +535,7 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *tc.C) {
 
 	st := s.ControllerModel(c).State()
 	parent, err := st.AddMachine(state.UbuntuBase("20.04"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	m, err := st.AddMachineInsideMachine(
 		state.MachineTemplate{
 			Base: state.UbuntuBase("22.04"),
@@ -545,7 +544,7 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *tc.C) {
 		parent.Id(),
 		instance.LXD,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	vers := coretesting.CurrentVersion()
 	s.primeAgentWithMachine(c, m, vers)
@@ -580,8 +579,8 @@ func (s *MachineSuite) TestMachineWorkers(c *tc.C) {
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
-	go func() { c.Check(a.Run(cmdtesting.Context(c)), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+	go func() { c.Check(a.Run(cmdtesting.Context(c)), tc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), tc.ErrorIsNil) }()
 
 	// Wait for it to stabilise, running as normal.
 	matcher := agenttest.NewWorkerMatcher(c, tracker, a.Tag().String(),
@@ -600,7 +599,7 @@ func (s *MachineSuite) TestReplicasetInitForNewController(c *tc.C) {
 	agentConfig := a.CurrentConfig()
 
 	err := a.ensureMongoServer(context.Background(), agentConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(s.fakeEnsureMongo.EnsureCount, tc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.InitiateCount, tc.Equals, 0)
@@ -619,12 +618,12 @@ func (s *MachineSuite) waitStopped(c *tc.C, job state.MachineJob, a *MachineAgen
 			c.Logf("error shutting down state manager: %v", err)
 		}
 	} else {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	select {
 	case err := <-done:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for agent to terminate")
 	}
@@ -646,10 +645,10 @@ func (s *MachineSuite) assertAgentSetsToolsVersion(c *tc.C, job state.MachineJob
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
 	ctx := cmdtesting.Context(c)
-	go func() { c.Check(a.Run(ctx), jc.ErrorIsNil) }()
+	go func() { c.Check(a.Run(ctx), tc.ErrorIsNil) }()
 	defer func() {
 		logger.Infof(context.TODO(), "stopping machine agent")
-		c.Check(a.Stop(), jc.ErrorIsNil)
+		c.Check(a.Stop(), tc.ErrorIsNil)
 		logger.Infof(context.TODO(), "stopped machine agent")
 	}()
 
@@ -661,10 +660,10 @@ func (s *MachineSuite) assertAgentSetsToolsVersion(c *tc.C, job state.MachineJob
 		case <-time.After(coretesting.ShortWait):
 			c.Log("Refreshing")
 			err := m.Refresh()
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			c.Log("Fetching agent tools")
 			agentTools, err := m.AgentTools()
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			c.Logf("(%v vs. %v)", agentTools.Version, jujuversion.Current)
 			if agentTools.Version.Minor != jujuversion.Current.Minor {
 				continue

@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	databasetesting "github.com/juju/juju/internal/database/testing"
@@ -181,7 +180,7 @@ func (s *schemaSuite) TestEnsureHashBreaks(c *tc.C) {
 		_, err := tx.ExecContext(ctx, "UPDATE schema SET hash = 'blah' WHERE version=2;")
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	schema.Add(MakePatch("CREATE TEMP TABLE baz (id INTEGER PRIMARY KEY);"))
 

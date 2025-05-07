@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/crossmodel"
@@ -47,7 +46,7 @@ func (s *importSuite) TestEmptyExternalControllers(c *tc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// No import executed.
 	s.service.EXPECT().ImportExternalControllers(gomock.All(), gomock.Any()).Times(0)
 }
@@ -96,7 +95,7 @@ func (s *importSuite) TestExecuteMultipleExternalControllers(c *tc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *importSuite) TestExecuteReturnsError(c *tc.C) {

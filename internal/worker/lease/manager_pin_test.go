@@ -9,7 +9,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/internal/worker/lease"
@@ -49,7 +48,7 @@ func (s *PinSuite) TestPinLease_Success(c *tc.C) {
 	}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		err := getPinner(c, manager).Pin(s.appName, s.machine)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	})
 }
 
@@ -76,7 +75,7 @@ func (s *PinSuite) TestUnpinLease_Success(c *tc.C) {
 	}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		err := getPinner(c, manager).Unpin(s.appName, s.machine)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	})
 }
 
@@ -102,13 +101,13 @@ func (s *PinSuite) TestPinned(c *tc.C) {
 	}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		pinned, err := getPinner(c, manager).Pinned()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(pinned, tc.DeepEquals, map[string][]string{"redis": {s.machine}})
 	})
 }
 
 func getPinner(c *tc.C, manager *lease.Manager) corelease.Pinner {
 	pinner, err := manager.Pinner("namespace", "modelUUID")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return pinner
 }

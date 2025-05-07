@@ -5,7 +5,6 @@ package testing
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	corecharm "github.com/juju/juju/core/charm"
 )
@@ -14,6 +13,6 @@ import (
 // checked for subsequent errors using the test suit's go check instance.
 func GenCharmID(c *tc.C) corecharm.ID {
 	id, err := corecharm.NewID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return id
 }

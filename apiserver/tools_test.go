@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/httpcontext"
@@ -60,14 +59,14 @@ func (s *toolsSuite) assertResponse(c *tc.C, resp *http.Response, expStatus int)
 	body := apitesting.AssertResponse(c, resp, expStatus, params.ContentTypeJSON)
 	var toolsResponse params.ToolsResult
 	err := json.Unmarshal(body, &toolsResponse)
-	c.Assert(err, jc.ErrorIsNil, tc.Commentf("Body: %s", body))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("Body: %s", body))
 	return toolsResponse
 }
 
 func (s *toolsSuite) assertUploadResponse(c *tc.C, resp *http.Response, agentTools *tools.Tools) {
 	toolsResponse := s.assertResponse(c, resp, http.StatusOK)
 	c.Check(toolsResponse.Error, tc.IsNil)
-	c.Check(toolsResponse.ToolsList, jc.DeepEquals, tools.List{agentTools})
+	c.Check(toolsResponse.ToolsList, tc.DeepEquals, tools.List{agentTools})
 }
 
 func (s *toolsSuite) blockCheckGetter(_ context.Context) (BlockChecker, error) {

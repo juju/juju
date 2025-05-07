@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/database"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -79,7 +78,7 @@ func (s *bootstrapSuite) TestBootstrapSuccess(c *tc.C) {
 	}
 
 	err := BootstrapDqlite(context.Background(), mgr, modeltesting.GenModelUUID(c), loggertesting.WrapCheckLog(c), check)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 }
 
@@ -107,8 +106,8 @@ func (f *testNodeManager) WithPreferredCloudLocalAddressOption(network.ConfigSou
 func (f *testNodeManager) WithLoopbackAddressOption() app.Option {
 	if f.port == 0 {
 		l, err := net.Listen("tcp", ":0")
-		f.c.Assert(err, jc.ErrorIsNil)
-		f.c.Assert(l.Close(), jc.ErrorIsNil)
+		f.c.Assert(err, tc.ErrorIsNil)
+		f.c.Assert(l.Close(), tc.ErrorIsNil)
 		f.port = l.Addr().(*net.TCPAddr).Port
 	}
 	return app.WithAddress(fmt.Sprintf("127.0.0.1:%d", f.port))

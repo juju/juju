@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/model"
@@ -34,6 +33,6 @@ func (s *serviceSuite) TestControllerModelUUID(c *tc.C) {
 	controllerModelUUID := model.UUID(jujutesting.ModelTag.Id())
 	s.state.EXPECT().ControllerModelUUID(gomock.Any()).Return(controllerModelUUID, nil)
 	uuid, err := st.ControllerModelUUID(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(uuid, tc.Equals, controllerModelUUID)
 }

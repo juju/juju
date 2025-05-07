@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/provider/gce"
@@ -26,11 +25,11 @@ func (s *environUpgradeSuite) TestEnvironImplementsUpgrader(c *tc.C) {
 
 func (s *environUpgradeSuite) TestEnvironUpgradeOperationsInvalidCredentialError(c *tc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
-	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
 	ops := s.Env.UpgradeOperations(context.Background(), environs.UpgradeOperationsParams{})
 	err := ops[0].Steps[0].Run(context.Background())
 	c.Assert(err, tc.NotNil)
-	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }
 
 func (s *environUpgradeSuite) TestEnvironUpgradeOperations(c *tc.C) {
@@ -49,15 +48,15 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationSetDiskLabels(c *tc.C) 
 	op0 := s.Env.UpgradeOperations(context.Background(), environs.UpgradeOperationsParams{
 		ControllerUUID: "yup",
 	})[0]
-	c.Assert(op0.Steps[0].Run(context.Background()), jc.ErrorIsNil)
+	c.Assert(op0.Steps[0].Run(context.Background()), tc.ErrorIsNil)
 
 	setDiskLabelsCalled, calls := s.FakeConn.WasCalled("SetDiskLabels")
-	c.Assert(setDiskLabelsCalled, jc.IsTrue)
+	c.Assert(setDiskLabelsCalled, tc.IsTrue)
 	c.Check(calls, tc.HasLen, 1)
 	c.Check(calls[0].ID, tc.Equals, s.BaseDisk.Name)
 	c.Check(calls[0].ZoneName, tc.Equals, "home-zone")
 	c.Check(calls[0].LabelFingerprint, tc.Equals, "foo")
-	c.Check(calls[0].Labels, jc.DeepEquals, map[string]string{
+	c.Check(calls[0].Labels, tc.DeepEquals, map[string]string{
 		"juju-controller-uuid": "yup",
 		"juju-model-uuid":      s.Env.Config().UUID(),
 		"yodel":                "eh",
@@ -73,10 +72,10 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationSetDiskLabelsNoDescript
 	op0 := s.Env.UpgradeOperations(context.Background(), environs.UpgradeOperationsParams{
 		ControllerUUID: "yup",
 	})[0]
-	c.Assert(op0.Steps[0].Run(context.Background()), jc.ErrorIsNil)
+	c.Assert(op0.Steps[0].Run(context.Background()), tc.ErrorIsNil)
 
 	setDiskLabelsCalled, _ := s.FakeConn.WasCalled("SetDiskLabels")
-	c.Assert(setDiskLabelsCalled, jc.IsTrue)
+	c.Assert(setDiskLabelsCalled, tc.IsTrue)
 }
 
 func (s *environUpgradeSuite) TestEnvironUpgradeOperationSetDiskLabelsIdempotent(c *tc.C) {
@@ -87,8 +86,8 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationSetDiskLabelsIdempotent
 	op0 := s.Env.UpgradeOperations(context.Background(), environs.UpgradeOperationsParams{
 		ControllerUUID: "yup",
 	})[0]
-	c.Assert(op0.Steps[0].Run(context.Background()), jc.ErrorIsNil)
+	c.Assert(op0.Steps[0].Run(context.Background()), tc.ErrorIsNil)
 
 	setDiskLabelsCalled, _ := s.FakeConn.WasCalled("SetDiskLabels")
-	c.Assert(setDiskLabelsCalled, jc.IsFalse)
+	c.Assert(setDiskLabelsCalled, tc.IsFalse)
 }

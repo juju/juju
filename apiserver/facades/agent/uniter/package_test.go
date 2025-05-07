@@ -10,7 +10,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
@@ -131,7 +130,7 @@ func (s *uniterSuiteBase) newUniterAPI(c *tc.C, st *state.State, auth facade.Aut
 	facadeContext.Auth_ = auth
 	facadeContext.LeadershipRevoker_ = s.leadershipRevoker
 	uniterAPI, err := uniter.NewUniterAPI(context.Background(), facadeContext)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return uniterAPI
 }
 
@@ -141,7 +140,7 @@ func (s *uniterSuiteBase) newUniterAPIv19(c *tc.C, st *state.State, auth facade.
 	facadeContext.Auth_ = auth
 	facadeContext.LeadershipRevoker_ = s.leadershipRevoker
 	uniterAPI, err := uniter.NewUniterAPIv19(context.Background(), facadeContext)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return uniterAPI
 }
 

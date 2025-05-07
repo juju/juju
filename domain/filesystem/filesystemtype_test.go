@@ -5,7 +5,6 @@ package filesystem
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
@@ -21,7 +20,7 @@ var _ = tc.Suite(&filesystemtypeSuite{})
 func (s *filesystemtypeSuite) TestFilesystemTypeDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, name FROM filesystem_type")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer rows.Close()
 
 	dbValues := make(map[FilesystemType]string)
@@ -31,10 +30,10 @@ func (s *filesystemtypeSuite) TestFilesystemTypeDBValues(c *tc.C) {
 			value string
 		)
 		err := rows.Scan(&id, &value)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		dbValues[FilesystemType(id)] = value
 	}
-	c.Assert(dbValues, jc.DeepEquals, map[FilesystemType]string{
+	c.Assert(dbValues, tc.DeepEquals, map[FilesystemType]string{
 		Unspecified: "unspecified",
 		Vfat:        "vfat",
 		Ext4:        "ext4",

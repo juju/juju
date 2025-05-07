@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/core/semversion"
@@ -36,7 +35,7 @@ Charm cannot be deployed because:
 `[1:]
 
 	err := fs.Satisfies(exprTree)
-	c.Assert(err, jc.Satisfies, IsRequirementsNotSatisfiedError, tc.Commentf("expected to get a RequirementsNotSatisfied error"))
+	c.Assert(err, tc.Satisfies, IsRequirementsNotSatisfiedError, tc.Commentf("expected to get a RequirementsNotSatisfied error"))
 	c.Assert(err.Error(), tc.Equals, expErr)
 }
 
@@ -64,7 +63,7 @@ Charm cannot be deployed because:
 `[1:]
 
 	err := fs.Satisfies(exprTree)
-	c.Assert(err, jc.Satisfies, IsRequirementsNotSatisfiedError, tc.Commentf("expected to get a RequirementsNotSatisfied error"))
+	c.Assert(err, tc.Satisfies, IsRequirementsNotSatisfiedError, tc.Commentf("expected to get a RequirementsNotSatisfied error"))
 	c.Assert(err.Error(), tc.Equals, expErr)
 }
 
@@ -103,7 +102,7 @@ Charm cannot be deployed because:
 `[1:]
 
 	err := fs.Satisfies(exprTree)
-	c.Assert(err, jc.Satisfies, IsRequirementsNotSatisfiedError, tc.Commentf("expected to get a RequirementsNotSatisfied error"))
+	c.Assert(err, tc.Satisfies, IsRequirementsNotSatisfiedError, tc.Commentf("expected to get a RequirementsNotSatisfied error"))
 	c.Assert(err.Error(), tc.Equals, expErr)
 }
 
@@ -124,7 +123,7 @@ assumes:
 `)
 
 	err := fs.Satisfies(exprTree)
-	c.Assert(err, jc.ErrorIsNil, tc.Commentf("expected assumes expression tree to be satisfied"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("expected assumes expression tree to be satisfied"))
 }
 
 func genFeatureSet(c *tc.C) FeatureSet {
@@ -156,7 +155,7 @@ func genFeatureSet(c *tc.C) FeatureSet {
 
 func mustParseVersion(c *tc.C, verStr string) *semversion.Number {
 	ver, err := semversion.ParseNonStrict(verStr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return &ver
 }
 
@@ -166,7 +165,7 @@ func mustParseAssumesExpr(c *tc.C, exprYAML string) *chassumes.ExpressionTree {
 	}{}
 
 	err := yaml.NewDecoder(strings.NewReader(exprYAML)).Decode(&payload)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return &payload.ExprTree
 }

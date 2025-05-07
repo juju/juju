@@ -5,7 +5,6 @@ package google_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"google.golang.org/api/compute/v1"
 
 	"github.com/juju/juju/internal/provider/gce/google"
@@ -23,10 +22,10 @@ func (s *instanceSuite) TestNewInstance(c *tc.C) {
 	c.Check(inst.ID, tc.Equals, "spam")
 	c.Check(inst.ZoneName, tc.Equals, "a-zone")
 	c.Check(inst.Status(), tc.Equals, google.StatusRunning)
-	c.Check(inst.Metadata(), jc.DeepEquals, s.Metadata)
-	c.Check(inst.Addresses(), jc.DeepEquals, s.Addresses)
+	c.Check(inst.Metadata(), tc.DeepEquals, s.Metadata)
+	c.Check(inst.Addresses(), tc.DeepEquals, s.Addresses)
 	spec := google.GetInstanceSpec(inst)
-	c.Check(spec, jc.DeepEquals, &s.InstanceSpec)
+	c.Check(spec, tc.DeepEquals, &s.InstanceSpec)
 }
 
 func (s *instanceSuite) TestNewInstanceNoSpec(c *tc.C) {
@@ -65,13 +64,13 @@ func (s *instanceSuite) TestInstanceStatusDown(c *tc.C) {
 func (s *instanceSuite) TestInstanceAddresses(c *tc.C) {
 	addresses := s.Instance.Addresses()
 
-	c.Check(addresses, jc.DeepEquals, s.Addresses)
+	c.Check(addresses, tc.DeepEquals, s.Addresses)
 }
 
 func (s *instanceSuite) TestInstanceMetadata(c *tc.C) {
 	metadata := s.Instance.Metadata()
 
-	c.Check(metadata, jc.DeepEquals, map[string]string{"eggs": "steak"})
+	c.Check(metadata, tc.DeepEquals, map[string]string{"eggs": "steak"})
 }
 
 func (s *instanceSuite) TestPackMetadata(c *tc.C) {
@@ -81,7 +80,7 @@ func (s *instanceSuite) TestPackMetadata(c *tc.C) {
 	data := map[string]string{"spam": "eggs"}
 	packed := google.PackMetadata(data)
 
-	c.Check(packed, jc.DeepEquals, &expected)
+	c.Check(packed, tc.DeepEquals, &expected)
 }
 
 func (s *instanceSuite) TestUnpackMetadata(c *tc.C) {
@@ -91,7 +90,7 @@ func (s *instanceSuite) TestUnpackMetadata(c *tc.C) {
 	}}
 	data := google.UnpackMetadata(&packed)
 
-	c.Check(data, jc.DeepEquals, expected)
+	c.Check(data, tc.DeepEquals, expected)
 }
 
 func (s *instanceSuite) TestFormatMachineType(c *tc.C) {

@@ -6,7 +6,6 @@ package migrationflag_test
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 type ValidateSuite struct {
@@ -18,7 +17,7 @@ var _ = tc.Suite(&ValidateSuite{})
 func (*ValidateSuite) TestValid(c *tc.C) {
 	config := validConfig()
 	err := config.Validate()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (*ValidateSuite) TestNilFacade(c *tc.C) {

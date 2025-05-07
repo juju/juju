@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	apisecretbackends "github.com/juju/juju/api/client/secretbackends"
@@ -80,7 +79,7 @@ func (s *UpdateSuite) TestUpdate(c *tc.C) {
 	_, err := cmdtesting.RunCommand(c, secretbackends.NewUpdateCommandForTest(s.store, s.updateSecretBackendsAPI),
 		"myvault", "endpoint=http://vault", "token-rotate=666m", "--force",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *UpdateSuite) TestUpdateName(c *tc.C) {
@@ -98,7 +97,7 @@ func (s *UpdateSuite) TestUpdateName(c *tc.C) {
 	_, err := cmdtesting.RunCommand(c, secretbackends.NewUpdateCommandForTest(s.store, s.updateSecretBackendsAPI),
 		"myvault", "endpoint=http://vault", "name=myvault2",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *UpdateSuite) TestUpdateResetTokenRotate(c *tc.C) {
@@ -116,7 +115,7 @@ func (s *UpdateSuite) TestUpdateResetTokenRotate(c *tc.C) {
 	_, err := cmdtesting.RunCommand(c, secretbackends.NewUpdateCommandForTest(s.store, s.updateSecretBackendsAPI),
 		"myvault", "endpoint=http://vault", "token-rotate=0",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *UpdateSuite) TestUpdateFromFile(c *tc.C) {
@@ -124,7 +123,7 @@ func (s *UpdateSuite) TestUpdateFromFile(c *tc.C) {
 
 	fname := filepath.Join(c.MkDir(), "cfg.yaml")
 	err := os.WriteFile(fname, []byte("endpoint: http://vault"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.updateSecretBackendsAPI.EXPECT().UpdateSecretBackend(
 		gomock.Any(),
 		apisecretbackends.UpdateSecretBackend{
@@ -140,5 +139,5 @@ func (s *UpdateSuite) TestUpdateFromFile(c *tc.C) {
 	_, err = cmdtesting.RunCommand(c, secretbackends.NewUpdateCommandForTest(s.store, s.updateSecretBackendsAPI),
 		"myvault", "token=s.666", "token-rotate=666m", "--config", fname,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

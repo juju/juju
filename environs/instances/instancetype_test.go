@@ -7,7 +7,6 @@ import (
 	"sort"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/internal/testing"
@@ -237,7 +236,7 @@ func (s *instanceTypeSuite) TestGetMatchingInstanceTypes(c *tc.C) {
 			itypesToUse = instanceTypes
 		}
 		itypes, err := MatchingInstanceTypes(itypesToUse, "test", constraints.MustParse(t.cons))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		names := make([]string, len(itypes))
 		for i, itype := range itypes {
 			if t.arch != "" {
@@ -313,10 +312,10 @@ func (s *instanceTypeSuite) TestMatch(c *tc.C) {
 		c.Assert(itype.Name, tc.Not(tc.Equals), "")
 		itype, match := itype.match(cons)
 		if t.arch != "" {
-			c.Check(match, jc.IsTrue)
+			c.Check(match, tc.IsTrue)
 			c.Check(itype, tc.DeepEquals, itype)
 		} else {
-			c.Check(match, jc.IsFalse)
+			c.Check(match, tc.IsFalse)
 			c.Check(itype, tc.DeepEquals, InstanceType{})
 		}
 	}

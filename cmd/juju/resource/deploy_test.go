@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	apiresources "github.com/juju/juju/api/client/resources"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -61,7 +60,7 @@ func (s DeploySuite) TestDeployResourcesWithoutFiles(c *tc.C) {
 		Client:         deps,
 		ResourcesMeta:  resources,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(ids, tc.DeepEquals, map[string]string{
 		"store-tarball": "id-store-tarball",
@@ -110,7 +109,7 @@ func (s DeploySuite) TestUploadFilesOnly(c *tc.C) {
 	}
 	revisions := map[string]int{}
 	ids, err := du.upload(context.Background(), files, revisions)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(ids, tc.DeepEquals, map[string]string{
 		"upload": "id-upload",
 		"store":  "id-store",
@@ -169,7 +168,7 @@ func (s DeploySuite) TestUploadRevisionsOnly(c *tc.C) {
 		"store": 3,
 	}
 	ids, err := du.upload(context.Background(), files, revisions)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(ids, tc.DeepEquals, map[string]string{
 		"upload": "id-upload",
 		"store":  "id-store",
@@ -220,7 +219,7 @@ func (s DeploySuite) TestUploadFilesAndRevisions(c *tc.C) {
 		"store": 3,
 	}
 	ids, err := du.upload(context.Background(), files, revisions)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(ids, tc.DeepEquals, map[string]string{
 		"upload": "id-upload",
 		"store":  "id-store",
@@ -317,7 +316,7 @@ func (s DeploySuite) TestMissingResource(c *tc.C) {
 	revisions := map[string]int{}
 	_, err := du.upload(context.Background(), files, revisions)
 	c.Check(err, tc.ErrorMatches, `file for resource "res1".*`)
-	c.Check(errors.Cause(err), jc.Satisfies, os.IsNotExist)
+	c.Check(errors.Cause(err), tc.Satisfies, os.IsNotExist)
 }
 
 func (s DeploySuite) TestDeployDockerResource(c *tc.C) {
@@ -403,7 +402,7 @@ password: 'hunter2',,
 			dir := c.MkDir()
 			resourceValue = path.Join(dir, "details.json")
 			err := os.WriteFile(resourceValue, []byte(t.fileContents), 0600)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			deps.data = []byte(t.fileContents)
 		}
 
@@ -435,7 +434,7 @@ password: 'hunter2',,
 			c.Assert(err, tc.ErrorMatches, t.uploadError)
 			continue
 		}
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(ids, tc.DeepEquals, map[string]string{
 			"mysql_image": "id-mysql_image",
 		})
@@ -463,7 +462,7 @@ password: hunter2
 `
 	data := bytes.NewBufferString(content)
 	dets, err := unMarshalDockerDetails(data)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(dets, tc.DeepEquals, docker.DockerImageDetails{
 		RegistryPath: "registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image",
 		ImageRepoDetails: docker.ImageRepoDetails{
@@ -483,7 +482,7 @@ password: hunter2
 `
 	data = bytes.NewBufferString(content)
 	dets, err = unMarshalDockerDetails(data)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(dets, tc.DeepEquals, docker.DockerImageDetails{
 		RegistryPath: "registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image",
 		ImageRepoDetails: docker.ImageRepoDetails{
@@ -515,7 +514,7 @@ func (osFilesystem) Open(name string) (modelcmd.ReadSeekCloser, error) {
 func (s DeploySuite) TestGetDockerDetailsData(c *tc.C) {
 	fs := osFilesystem{}
 	result, err := getDockerDetailsData("registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image", fs.Open)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, docker.DockerImageDetails{
 		RegistryPath: "registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image",
 		ImageRepoDetails: docker.ImageRepoDetails{
@@ -535,9 +534,9 @@ func (s DeploySuite) TestGetDockerDetailsData(c *tc.C) {
 	dir := c.MkDir()
 	yamlFile := path.Join(dir, "actually-yaml-file")
 	err = os.WriteFile(yamlFile, []byte("registrypath: mariadb/mariadb:10.2"), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result, err = getDockerDetailsData(yamlFile, fs.Open)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, docker.DockerImageDetails{
 		RegistryPath: "mariadb/mariadb:10.2",
 		ImageRepoDetails: docker.ImageRepoDetails{

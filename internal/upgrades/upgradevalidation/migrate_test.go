@@ -7,7 +7,6 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/base"
@@ -40,7 +39,7 @@ func (s *migrateSuite) TestValidatorsForModelMigrationSourceJuju3(c *tc.C) {
 
 	checker := upgradevalidation.NewModelUpgradeCheck(s.st, "test-model", s.agentService, validators...)
 	blockers, err := checker.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(blockers, tc.IsNil)
 }
 
@@ -51,7 +50,7 @@ func (s *migrateSuite) TestValidatorsForModelMigrationSourceJuju31(c *tc.C) {
 
 	checker := upgradevalidation.NewModelUpgradeCheck(s.st, "test-model", s.agentService, validators...)
 	blockers, err := checker.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(blockers, tc.IsNil)
 }
 

@@ -8,7 +8,6 @@ import (
 	"database/sql"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/core/blockdevice"
@@ -53,7 +52,7 @@ VALUES (?, ?, ?, ?)
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return machineUUID
 }
@@ -79,10 +78,10 @@ func (s *watcherSuite) TestStops(c *tc.C) {
 	service := service.NewWatchableService(st, factory, loggertesting.WrapCheckLog(c))
 
 	w, err := service.WatchBlockDevices(context.Background(), "666")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = workertest.CheckKill(c, w)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *watcherSuite) TestWatchBlockDevices(c *tc.C) {
@@ -100,7 +99,7 @@ func (s *watcherSuite) TestWatchBlockDevices(c *tc.C) {
 	service := service.NewWatchableService(st, factory, loggertesting.WrapCheckLog(c))
 
 	w, err := service.WatchBlockDevices(context.Background(), "666")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertKilled()
@@ -109,23 +108,23 @@ func (s *watcherSuite) TestWatchBlockDevices(c *tc.C) {
 	wc.AssertOneChange()
 
 	err = st.SetMachineBlockDevices(context.Background(), "666", bd)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Saving existing devices -> no change.
 	err = st.SetMachineBlockDevices(context.Background(), "666", bd)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// Updating existing device -> change.
 	bd.SerialId = "serial"
 	err = st.SetMachineBlockDevices(context.Background(), "666", bd)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Removing devices -> change.
 	err = st.SetMachineBlockDevices(context.Background(), "666")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc.AssertOneChange()
 }
 
@@ -145,7 +144,7 @@ func (s *watcherSuite) TestWatchBlockDevicesIgnoresWrongMachine(c *tc.C) {
 	service := service.NewWatchableService(st, factory, loggertesting.WrapCheckLog(c))
 
 	w, err := service.WatchBlockDevices(context.Background(), "667")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertKilled()
@@ -155,6 +154,6 @@ func (s *watcherSuite) TestWatchBlockDevicesIgnoresWrongMachine(c *tc.C) {
 
 	// No events for changes done to a different machine.
 	err = st.SetMachineBlockDevices(context.Background(), "666", bd)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc.AssertNoChange()
 }

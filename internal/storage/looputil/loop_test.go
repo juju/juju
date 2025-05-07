@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/storage/looputil"
 	"github.com/juju/juju/internal/testing"
@@ -27,7 +26,7 @@ func (s *LoopUtilSuite) TestDetachLoopDevicesNone(c *tc.C) {
 
 	m := looputil.NewTestLoopDeviceManager(commands.run, nil, nil)
 	err := m.DetachLoopDevices("", "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *LoopUtilSuite) TestDetachLoopDevicesListError(c *tc.C) {
@@ -69,7 +68,7 @@ func (s *LoopUtilSuite) TestDetachLoopDevicesNotFound(c *tc.C) {
 	}
 	m := looputil.NewTestLoopDeviceManager(commands.run, stat, nil)
 	err := m.DetachLoopDevices("", "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *LoopUtilSuite) TestDetachLoopDevicesStatError(c *tc.C) {
@@ -93,7 +92,7 @@ func (s *LoopUtilSuite) TestDetachLoopDevicesInodeMismatch(c *tc.C) {
 	}
 	m := looputil.NewTestLoopDeviceManager(commands.run, stat, mockFileInfoInode)
 	err := m.DetachLoopDevices("", "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *LoopUtilSuite) TestDetachLoopDevicesInodeMatch(c *tc.C) {
@@ -106,7 +105,7 @@ func (s *LoopUtilSuite) TestDetachLoopDevicesInodeMatch(c *tc.C) {
 	}
 	m := looputil.NewTestLoopDeviceManager(commands.run, stat, mockFileInfoInode)
 	err := m.DetachLoopDevices("", "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *LoopUtilSuite) TestDetachLoopDevicesDetachError(c *tc.C) {
@@ -146,8 +145,8 @@ func (s *LoopUtilSuite) TestDetachLoopDevicesMultiple(c *tc.C) {
 	}
 	m := looputil.NewTestLoopDeviceManager(commands.run, stat, mockFileInfoInode)
 	err := m.DetachLoopDevices("", "")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statted, jc.DeepEquals, []string{"/tmp/test1.dat", "/tmp/test2.dat", "/tmp/test3.dat"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(statted, tc.DeepEquals, []string{"/tmp/test1.dat", "/tmp/test2.dat", "/tmp/test3.dat"})
 }
 
 func (s *LoopUtilSuite) TestDetachLoopDevicesAlternativeRoot(c *tc.C) {
@@ -161,7 +160,7 @@ func (s *LoopUtilSuite) TestDetachLoopDevicesAlternativeRoot(c *tc.C) {
 	}
 	m := looputil.NewTestLoopDeviceManager(commands.run, stat, mockFileInfoInode)
 	err := m.DetachLoopDevices("/var/lib/lxc/mycontainer/rootfs", "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(statted, tc.Equals, "/var/lib/lxc/mycontainer/rootfs/tmp/test.dat")
 }
 
@@ -181,8 +180,8 @@ func (s *LoopUtilSuite) TestDetachLoopDevicesAlternativeRootWithPrefix(c *tc.C) 
 	}
 	m := looputil.NewTestLoopDeviceManager(commands.run, stat, mockFileInfoInode)
 	err := m.DetachLoopDevices("/var/lib/lxc/mycontainer/rootfs", "/var/lib/juju")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statted, jc.DeepEquals, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(statted, tc.DeepEquals, []string{
 		"/var/lib/lxc/mycontainer/rootfs/var/lib/juju/storage/loop/volume-0-0",
 	})
 }
@@ -193,7 +192,7 @@ func (s *LoopUtilSuite) TestDetachLoopDevicesListEmptyInodeOK(c *tc.C) {
 	commands.expect("losetup", "-a").respond("/dev/loop0: []: (/var/lib/lxc-btrfs.img)", nil)
 	m := looputil.NewTestLoopDeviceManager(commands.run, nil, nil)
 	err := m.DetachLoopDevices("", "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type mockFileInfo struct {

@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
@@ -45,7 +44,7 @@ func (s *SecretsManagerSuite) setup(c *tc.C) *gomock.Controller {
 
 	var err error
 	s.facade, err = NewTestAPI(s.authorizer, s.watcherRegistry, s.mockService, s.clock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return ctrl
 }
 
@@ -69,8 +68,8 @@ func (s *SecretsManagerSuite) TestWatchBackendRotateChanges(c *tc.C) {
 	s.mockWatcher.EXPECT().Changes().Return(rotateChan)
 
 	result, err := s.facade.WatchSecretBackendsRotateChanges(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.SecretBackendRotateWatchResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.SecretBackendRotateWatchResult{
 		WatcherId: "1",
 		Changes: []params.SecretBackendRotateChange{{
 			ID:              "backend-id",
@@ -92,8 +91,8 @@ func (s *SecretsManagerSuite) TestRotateBackendTokens(c *tc.C) {
 			"backend-id-1",
 			"backend-id-2",
 		}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{},
 			{

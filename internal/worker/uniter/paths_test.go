@@ -9,7 +9,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
@@ -43,7 +42,7 @@ func (s *PathsSuite) TestOther(c *tc.C) {
 
 	localRunSocket := sockets.Socket{Network: "unix", Address: relAgent("run.socket")}
 	localJujucSocket := sockets.Socket{Network: "unix", Address: relAgent("agent.socket")}
-	c.Assert(paths, jc.DeepEquals, uniter.Paths{
+	c.Assert(paths, tc.DeepEquals, uniter.Paths{
 		ToolsDir: relData("tools/unit-some-application-323"),
 		Runtime: uniter.RuntimePaths{
 			LocalJujuExecSocket:    uniter.SocketPair{localRunSocket, localRunSocket},
@@ -72,7 +71,7 @@ func (s *PathsSuite) TestWorkerPaths(c *tc.C) {
 	relAgent := relPathFunc(relData("agents", "unit-some-application-323"))
 	localRunSocket := sockets.Socket{Network: "unix", Address: relAgent(worker + "-run.socket")}
 	localJujucSocket := sockets.Socket{Network: "unix", Address: relAgent(worker + "-agent.socket")}
-	c.Assert(paths, jc.DeepEquals, uniter.Paths{
+	c.Assert(paths, tc.DeepEquals, uniter.Paths{
 		ToolsDir: relData("tools/unit-some-application-323"),
 		Runtime: uniter.RuntimePaths{
 			LocalJujuExecSocket:    uniter.SocketPair{localRunSocket, localRunSocket},

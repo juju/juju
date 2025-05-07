@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -79,12 +78,12 @@ func (s *modelUpgraderSuite) TestModelOperatorUpgrade(c *tc.C) {
 				},
 			},
 		}, meta.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(modelOperatorUpgrade(context.Background(), operatorName, semversion.MustParse("9.9.9"), s.broker), jc.ErrorIsNil)
+	c.Assert(modelOperatorUpgrade(context.Background(), operatorName, semversion.MustParse("9.9.9"), s.broker), tc.ErrorIsNil)
 	de, err := s.broker.Client().AppsV1().Deployments(s.broker.Namespace()).
 		Get(context.Background(), operatorName, meta.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(de.Spec.Template.Spec.Containers[0].Image, tc.Equals, newImagePath)
 
 	c.Assert(de.Annotations[utils.AnnotationVersionKey(1)], tc.Equals, semversion.MustParse("9.9.9").String())

@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/client/application"
@@ -123,7 +122,7 @@ func (s *sshContainerSuite) TestResolveTargetForWorkloadPod(c *tc.C) {
 			}, nil),
 	)
 	target, err := s.sshC.ResolveTarget(context.Background(), "mariadb-k8s/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(target.GetEntity(), tc.DeepEquals, "mariadb-k8s-0")
 }
 
@@ -133,7 +132,7 @@ func (s *sshContainerSuite) TestResolveTargetForController(c *tc.C) {
 	defer ctrl.Finish()
 
 	target, err := s.sshC.ResolveTarget(context.Background(), "0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(target.GetEntity(), tc.DeepEquals, "controller-0")
 }
 
@@ -170,7 +169,7 @@ func (s *sshContainerSuite) TestResolveTargetForSidecarCharm(c *tc.C) {
 			}, nil),
 	)
 	target, err := s.sshC.ResolveTarget(context.Background(), "mariadb-k8s/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(target.GetEntity(), tc.DeepEquals, "mariadb-k8s-0")
 }
 
@@ -198,7 +197,7 @@ func (s *sshContainerSuite) TestResolveCharmTargetForSidecarCharm(c *tc.C) {
 			}, nil),
 	)
 	target, err := s.sshC.ResolveTarget(context.Background(), "mariadb-k8s/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(target.GetEntity(), tc.DeepEquals, "mariadb-k8s-0")
 }
 
@@ -230,7 +229,7 @@ func (s *sshContainerSuite) TestResolveTargetForSidecarCharmWithContainer(c *tc.
 			}, nil),
 	)
 	target, err := s.sshC.ResolveTarget(context.Background(), "mariadb-k8s/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(target.GetEntity(), tc.DeepEquals, "mariadb-k8s-0")
 }
 
@@ -292,7 +291,7 @@ func (s *sshContainerSuite) TestGetExecClient(c *tc.C) {
 			Return(cloudspec.CloudSpec{}, nil),
 	)
 	execC, err := s.sshC.GetExecClient()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.sshC.ModelName(), tc.Equals, s.modelName)
 	c.Assert(execC, tc.DeepEquals, s.execClient)
 }
@@ -313,8 +312,8 @@ func (s *sshContainerSuite) TestSSHNoContainerSpecified(c *tc.C) {
 		ctx.EXPECT().GetStdin().Return(buffer),
 		s.execClient.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 			func(_ context.Context, arg k8sexec.ExecParams, cancel <-chan struct{}) error {
-				mc := jc.NewMultiChecker()
-				mc.AddExpr(`_.Env`, jc.Ignore)
+				mc := tc.NewMultiChecker()
+				mc.AddExpr(`_.Env`, tc.Ignore)
 				c.Check(arg, mc, k8sexec.ExecParams{
 					PodName:  "mariadb-k8s-0",
 					Commands: []string{"bash"},
@@ -331,7 +330,7 @@ func (s *sshContainerSuite) TestSSHNoContainerSpecified(c *tc.C) {
 	target := &ssh.ResolvedTarget{}
 	target.SetEntity("mariadb-k8s-0")
 	err := s.sshC.SSH(ctx, true, target)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *sshContainerSuite) TestSSHWithContainerSpecified(c *tc.C) {
@@ -350,8 +349,8 @@ func (s *sshContainerSuite) TestSSHWithContainerSpecified(c *tc.C) {
 		ctx.EXPECT().GetStdin().Return(buffer),
 		s.execClient.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 			func(_ context.Context, arg k8sexec.ExecParams, cancel <-chan struct{}) error {
-				mc := jc.NewMultiChecker()
-				mc.AddExpr(`_.Env`, jc.Ignore)
+				mc := tc.NewMultiChecker()
+				mc.AddExpr(`_.Env`, tc.Ignore)
 				c.Check(arg, mc, k8sexec.ExecParams{
 					PodName:       "mariadb-k8s-0",
 					ContainerName: "container1",
@@ -369,7 +368,7 @@ func (s *sshContainerSuite) TestSSHWithContainerSpecified(c *tc.C) {
 	target := &ssh.ResolvedTarget{}
 	target.SetEntity("mariadb-k8s-0")
 	err := s.sshC.SSH(ctx, true, target)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *sshContainerSuite) TestSSHCancelled(c *tc.C) {
@@ -392,8 +391,8 @@ func (s *sshContainerSuite) TestSSHCancelled(c *tc.C) {
 		ctx.EXPECT().GetStdin().Return(buffer),
 		s.execClient.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 			func(_ context.Context, arg k8sexec.ExecParams, cancel <-chan struct{}) error {
-				mc := jc.NewMultiChecker()
-				mc.AddExpr(`_.Env`, jc.Ignore)
+				mc := tc.NewMultiChecker()
+				mc.AddExpr(`_.Env`, tc.Ignore)
 				c.Check(arg, mc, k8sexec.ExecParams{
 					PodName:  "mariadb-k8s-0",
 					Commands: []string{"bash"},
@@ -436,7 +435,7 @@ func (s *sshContainerSuite) TestGetInterruptAbortChanInterrupted(c *tc.C) {
 
 	select {
 	case _, ok := <-cancel:
-		c.Assert(ok, jc.IsFalse)
+		c.Assert(ok, tc.IsFalse)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for cancelling")
 	}
@@ -455,7 +454,7 @@ func (s *sshContainerSuite) TestGetInterruptAbortChanStopped(c *tc.C) {
 	stop()
 	select {
 	case _, ok := <-cancel:
-		c.Assert(ok, jc.IsFalse)
+		c.Assert(ok, tc.IsFalse)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for cancelling")
 	}
@@ -502,7 +501,7 @@ func (s *sshContainerSuite) TestCopyFromWorkloadPod(c *tc.C) {
 	)
 
 	err := s.sshC.Copy(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *sshContainerSuite) TestCopyToWorkloadPod(c *tc.C) {
@@ -532,7 +531,7 @@ func (s *sshContainerSuite) TestCopyToWorkloadPod(c *tc.C) {
 	)
 
 	err := s.sshC.Copy(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *sshContainerSuite) TestCopyToWorkloadPodWithContainerSpecified(c *tc.C) {
@@ -566,7 +565,7 @@ func (s *sshContainerSuite) TestCopyToWorkloadPodWithContainerSpecified(c *tc.C)
 	)
 
 	err := s.sshC.Copy(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *sshContainerSuite) TestNamespaceControllerModel(c *tc.C) {
@@ -584,7 +583,7 @@ func (s *sshContainerSuite) TestNamespaceControllerModel(c *tc.C) {
 		controller.Config{"controller-name": "foobar"}, nil)
 
 	err := s.sshC.InitRun(context.Background(), mc)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.sshC.Namespace(), tc.Equals, "controller-foobar")
 }
 
@@ -614,7 +613,7 @@ func (s *sshContainerSuite) TestSSHWithTerm(c *tc.C) {
 		ctx.EXPECT().GetStdin().Return(buffer),
 		s.execClient.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 			func(_ context.Context, arg k8sexec.ExecParams, cancel <-chan struct{}) error {
-				c.Check(arg, jc.DeepEquals, k8sexec.ExecParams{
+				c.Check(arg, tc.DeepEquals, k8sexec.ExecParams{
 					PodName:  "mariadb-k8s-0",
 					Env:      []string{"TERM=foobar-256color"},
 					Commands: []string{"bash"},
@@ -631,7 +630,7 @@ func (s *sshContainerSuite) TestSSHWithTerm(c *tc.C) {
 	target := &ssh.ResolvedTarget{}
 	target.SetEntity("mariadb-k8s-0")
 	err := s.sshC.SSH(ctx, true, target)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *sshContainerSuite) TestSSHWithTermNoTTY(c *tc.C) {
@@ -660,7 +659,7 @@ func (s *sshContainerSuite) TestSSHWithTermNoTTY(c *tc.C) {
 		ctx.EXPECT().GetStdin().Return(buffer),
 		s.execClient.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 			func(_ context.Context, arg k8sexec.ExecParams, cancel <-chan struct{}) error {
-				c.Check(arg, jc.DeepEquals, k8sexec.ExecParams{
+				c.Check(arg, tc.DeepEquals, k8sexec.ExecParams{
 					PodName:  "mariadb-k8s-0",
 					Env:      nil,
 					Commands: []string{"bash"},
@@ -677,5 +676,5 @@ func (s *sshContainerSuite) TestSSHWithTermNoTTY(c *tc.C) {
 	target := &ssh.ResolvedTarget{}
 	target.SetEntity("mariadb-k8s-0")
 	err := s.sshC.SSH(ctx, false, target)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

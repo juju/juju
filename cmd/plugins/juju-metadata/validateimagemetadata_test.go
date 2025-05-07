@@ -9,7 +9,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	corebase "github.com/juju/juju/core/base"
@@ -108,7 +107,7 @@ func cacheTestEnvConfig(c *tc.C, store *jujuclient.MemStore) {
 		"controller-uuid": coretesting.ControllerTag.Id(),
 		"uuid":            ec2UUID,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	store.Controllers["ec2-controller"] = jujuclient.ControllerDetails{
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		CACert:         coretesting.CACert,
@@ -165,17 +164,17 @@ func (s *ValidateImageMetadataSuite) SetUpTest(c *tc.C) {
 func (s *ValidateImageMetadataSuite) setupEc2LocalMetadata(c *tc.C, region, stream string) {
 	resolver := ec2.NewDefaultEndpointResolver()
 	ep, err := resolver.ResolveEndpoint(region, ec2.EndpointResolverOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	base := corebase.MustParseBaseFromString("ubuntu@22.04")
 	err = s.makeLocalMetadata("1234", region, base, ep.URL, stream)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ValidateImageMetadataSuite) assertEc2LocalMetadataUsingEnvironment(c *tc.C, stream string) {
 	s.setupEc2LocalMetadata(c, "us-east-1", stream)
 	ctx, err := runValidateImageMetadata(c, s.store, "-c", "ec2-controller", "-d", s.metadataDir, "--stream", stream)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	stdout := cmdtesting.Stdout(ctx)
 	stderr := cmdtesting.Stderr(ctx)
 	strippedOut := strings.Replace(stdout, "\n", "", -1)
@@ -207,7 +206,7 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataWithManualParams(c *tc.
 		"-p", "ec2", "--base", "ubuntu@22.04", "-r", "us-west-1",
 		"-u", "https://ec2.us-west-1.amazonaws.com", "-d", s.metadataDir,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(
@@ -234,12 +233,12 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataNoMatch(c *tc.C) {
 func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataWithManualParams(c *tc.C) {
 	base := corebase.MustParseBaseFromString("ubuntu@13.04")
 	err := s.makeLocalMetadata("1234", "region-2", base, "some-auth-url", "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx, err := runValidateImageMetadata(c, s.store,
 		"-p", "openstack", "--base", "ubuntu@13.04", "-r", "region-2",
 		"-u", "some-auth-url", "-d", s.metadataDir,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(
@@ -250,7 +249,7 @@ func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataWithManualParams(
 func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *tc.C) {
 	base := corebase.MustParseBaseFromString("ubuntu@13.04")
 	err := s.makeLocalMetadata("1234", "region-2", base, "some-auth-url", "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = runValidateImageMetadata(c, s.store,
 		"-p", "openstack", "--base", "ubuntu@22.04", "-r", "region-2",
 		"-u", "some-auth-url", "-d", s.metadataDir,

@@ -5,7 +5,6 @@ package jujuc_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -82,11 +81,11 @@ func (s *RelationModelGetSuite) TestInit(c *tc.C) {
 		c.Logf("test %d", i)
 		hctx, _ := s.newHookContext(t.ctxrelid, "", "")
 		com, err := jujuc.NewCommand(hctx, "relation-model-get")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		err = cmdtesting.InitCommand(com, t.args)
 		if t.err == "" {
-			if !c.Check(err, jc.ErrorIsNil) {
+			if !c.Check(err, tc.ErrorIsNil) {
 				return
 			}
 			rset := com.(*jujuc.RelationModelGetCommand)
@@ -100,7 +99,7 @@ func (s *RelationModelGetSuite) TestInit(c *tc.C) {
 func (s *RelationModelGetSuite) TestRun(c *tc.C) {
 	hctx, _ := s.newHookContext(0, "", "")
 	com, err := jujuc.NewCommand(hctx, "relation-model-get")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, nil)
 	c.Check(code, tc.Equals, 0)
@@ -112,7 +111,7 @@ func (s *RelationModelGetSuite) TestRun(c *tc.C) {
 func (s *RelationModelGetSuite) TestRunFormatJSON(c *tc.C) {
 	hctx, _ := s.newHookContext(0, "", "")
 	com, err := jujuc.NewCommand(hctx, "relation-model-get")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--format", "json"})
 	c.Check(code, tc.Equals, 0)

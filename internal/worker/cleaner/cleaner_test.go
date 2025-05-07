@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
 
@@ -59,8 +58,8 @@ func (s *CleanerSuite) AssertEmpty(c *tc.C) {
 
 func (s *CleanerSuite) TestCleaner(c *tc.C) {
 	cln, err := cleaner.NewCleaner(context.Background(), s.mockState, s.mockClock, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { c.Assert(worker.Stop(cln), jc.ErrorIsNil) }()
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { c.Assert(worker.Stop(cln), tc.ErrorIsNil) }()
 
 	s.AssertReceived(c, "WatchCleanups")
 	s.AssertReceived(c, "Cleanup")
@@ -73,8 +72,8 @@ func (s *CleanerSuite) TestCleaner(c *tc.C) {
 
 func (s *CleanerSuite) TestCleanerPeriodic(c *tc.C) {
 	cln, err := cleaner.NewCleaner(context.Background(), s.mockState, s.mockClock, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { c.Assert(worker.Stop(cln), jc.ErrorIsNil) }()
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { c.Assert(worker.Stop(cln), tc.ErrorIsNil) }()
 
 	s.AssertReceived(c, "WatchCleanups")
 	s.AssertReceived(c, "Cleanup")
@@ -104,12 +103,12 @@ func (s *CleanerSuite) TestWatchCleanupsError(c *tc.C) {
 func (s *CleanerSuite) TestCleanupError(c *tc.C) {
 	s.mockState.err = []error{nil, errors.New("hello")}
 	cln, err := cleaner.NewCleaner(context.Background(), s.mockState, s.mockClock, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.AssertReceived(c, "WatchCleanups")
 	s.AssertReceived(c, "Cleanup")
 	err = worker.Stop(cln)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	log := c.GetTestLog()
 	c.Assert(log[:len(log)-1], tc.Matches, "ERROR.*cannot cleanup state.*hello.*")
 }
@@ -125,7 +124,7 @@ func (s *CleanerSuite) newMockNotifyWatcher(err error) *mockNotifyWatcher {
 	})
 	s.AddCleanup(func(c *tc.C) {
 		err := worker.Stop(m)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	})
 	m.Change()
 	return m

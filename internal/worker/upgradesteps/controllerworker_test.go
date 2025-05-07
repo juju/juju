@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -410,7 +409,7 @@ func (s *controllerWorkerSuite) TestUpgradeFailsWhenKilled(c *tc.C) {
 func (s *controllerWorkerSuite) newWorker(c *tc.C) *controllerWorker {
 	baseWorker := s.newBaseWorker(c, version.MustParse("6.6.6"), version.MustParse("9.9.9"))
 	w, err := newControllerWorker(baseWorker, s.upgradeService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }
 
@@ -419,7 +418,7 @@ func (s *controllerWorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	var err error
 	s.upgradeUUID, err = domainupgrade.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.upgradeService = NewMockUpgradeService(ctrl)
 

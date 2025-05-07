@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/apiserver"
@@ -43,7 +42,7 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 
 	var err error
 	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AddCleanup(func(c *tc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
 
 	s.resources = common.NewResources()
@@ -62,7 +61,7 @@ func (s *watcherSuite) getFacade(
 ) interface{} {
 	factory := getFacadeFactory(c, name, version)
 	facade, err := factory(context.Background(), s.facadeContext(c, id, dispose))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return facade
 }
 
@@ -81,7 +80,7 @@ func (s *watcherSuite) facadeContext(c *tc.C, id string, dispose func()) facadet
 
 func getFacadeFactory(c *tc.C, name string, version int) facade.MultiModelFactory {
 	factory, err := apiserver.AllFacades().GetFactory(name, version)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return factory
 }
 
@@ -93,9 +92,9 @@ func (s *watcherSuite) TestVolumeAttachmentsWatcher(c *tc.C) {
 	ch <- []string{"0:1", "1:2"}
 	facade := s.getFacade(c, "VolumeAttachmentsWatcher", 2, id, nopDispose).(machineStorageIdsWatcher)
 	result, err := facade.Next(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(result, jc.DeepEquals, params.MachineStorageIdsWatchResult{
+	c.Assert(result, tc.DeepEquals, params.MachineStorageIdsWatchResult{
 		Changes: []params.MachineStorageId{
 			{MachineTag: "machine-0", AttachmentTag: "volume-1"},
 			{MachineTag: "machine-1", AttachmentTag: "volume-2"},
@@ -111,9 +110,9 @@ func (s *watcherSuite) TestFilesystemAttachmentsWatcher(c *tc.C) {
 	ch <- []string{"0:1", "1:2"}
 	facade := s.getFacade(c, "FilesystemAttachmentsWatcher", 2, id, nopDispose).(machineStorageIdsWatcher)
 	result, err := facade.Next(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(result, jc.DeepEquals, params.MachineStorageIdsWatchResult{
+	c.Assert(result, tc.DeepEquals, params.MachineStorageIdsWatchResult{
 		Changes: []params.MachineStorageId{
 			{MachineTag: "machine-0", AttachmentTag: "filesystem-1"},
 			{MachineTag: "machine-1", AttachmentTag: "filesystem-2"},
@@ -129,10 +128,10 @@ func (s *watcherSuite) TestMigrationStatusWatcher(c *tc.C) {
 	apiserver.PatchGetControllerCACert(s, "no worries")
 
 	facade := s.getFacade(c, "MigrationStatusWatcher", 1, id, nopDispose).(migrationStatusWatcher)
-	defer c.Check(facade.Stop(), jc.ErrorIsNil)
+	defer c.Check(facade.Stop(), tc.ErrorIsNil)
 	result, err := facade.Next(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.MigrationStatus{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.MigrationStatus{
 		MigrationId:    "id",
 		Attempt:        2,
 		Phase:          "IMPORT",
@@ -151,10 +150,10 @@ func (s *watcherSuite) TestMigrationStatusWatcherNoMigration(c *tc.C) {
 	apiserver.PatchGetMigrationBackend(s, backend, backend)
 
 	facade := s.getFacade(c, "MigrationStatusWatcher", 1, id, nopDispose).(migrationStatusWatcher)
-	defer c.Check(facade.Stop(), jc.ErrorIsNil)
+	defer c.Check(facade.Stop(), tc.ErrorIsNil)
 	result, err := facade.Next(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.MigrationStatus{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.MigrationStatus{
 		Phase: "NONE",
 	})
 }
@@ -164,7 +163,7 @@ func (s *watcherSuite) TestMigrationStatusWatcherNotAgent(c *tc.C) {
 	s.authorizer.Tag = names.NewUserTag("frogdog")
 
 	factory, err := apiserver.AllFacades().GetFactory("MigrationStatusWatcher", 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = factory(context.Background(), facadetest.MultiModelContext{
 		ModelContext: facadetest.ModelContext{
 			Resources_:      s.resources,

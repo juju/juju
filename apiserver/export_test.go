@@ -10,7 +10,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -118,7 +117,7 @@ func TestingAPIRoot(facades *facade.Registry) rpc.Root {
 func TestingAPIHandler(c *tc.C, pool *state.StatePool, st *state.State, sf services.DomainServices) (*apiHandler, *common.Resources) {
 	agentAuthGetter := authentication.NewAgentAuthenticatorGetter(nil, st, loggertesting.WrapCheckLog(c))
 	modelInfo, err := sf.ModelInfo().GetModelInfo(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	authenticator, err := stateauthenticator.NewAuthenticator(
 		context.Background(),
@@ -131,10 +130,10 @@ func TestingAPIHandler(c *tc.C, pool *state.StatePool, st *state.State, sf servi
 		agentAuthGetter,
 		clock.WallClock,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	offerAuthCtxt, err := newOfferAuthContext(context.Background(), pool, clock.WallClock, sf.Access(), sf.ModelInfo(), sf.ControllerConfig(), sf.Macaroon())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	srv := &Server{
 		httpAuthenticators:  []authentication.HTTPAuthenticator{authenticator},
@@ -162,7 +161,7 @@ func TestingAPIHandler(c *tc.C, pool *state.StatePool, st *state.State, sf servi
 		6543,
 		"testing.invalid:1234",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	resources := h.Resources()
 	return h, resources
@@ -211,7 +210,7 @@ func TestingAPIHandlerWithToken(
 ) (*apiHandler, *common.Resources) {
 	h, hr := TestingAPIHandler(c, pool, st, sf)
 	user, err := names.ParseUserTag(jwt.Subject())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	h.authInfo.Entity = authjwt.TokenEntity{User: user}
 	h.authInfo.Delegator = delegator
 	return h, hr
@@ -310,6 +309,6 @@ func AssertHasPermission(c *tc.C, handler *apiHandler, access permission.Access,
 	err := handler.HasPermission(context.Background(), access, tag)
 	c.Assert(err == nil, tc.Equals, expect)
 	if expect {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }

@@ -3,10 +3,7 @@
 
 package relation
 
-import (
-	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
-)
+import "github.com/juju/tc"
 
 type typesSuite struct{}
 
@@ -22,7 +19,7 @@ func (s *typesSuite) TestValidate(c *tc.C) {
 	err := args.Validate()
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *typesSuite) TestValidateFailEndpointsOne(c *tc.C) {

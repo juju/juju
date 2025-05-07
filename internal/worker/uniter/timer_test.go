@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/worker/uniter"
 )
@@ -31,8 +30,8 @@ func (s *timerSuite) TestTimer(c *tc.C) {
 		wait := timer(nominal)
 		waitDuration := time.Duration(reflect.ValueOf(wait).Int())
 		// We use Assert rather than Check because we don't want 100s of failures
-		c.Assert(wait, jc.GreaterThan, minTime)
-		c.Assert(wait, jc.LessThan, maxTime)
+		c.Assert(wait, tc.GreaterThan, minTime)
+		c.Assert(wait, tc.LessThan, maxTime)
 		if lastTime == 0 {
 			measuredMinTime = waitDuration
 			measuredMaxTime = waitDuration
@@ -62,6 +61,6 @@ func (s *timerSuite) TestTimer(c *tc.C) {
 	// However, at 1/10 its 0.9^1000=1.7e-46, or 10^41 times less likely to fail.
 	// In 100,000 runs, a range of 1/10 never failed
 	expectedCloseness := (maxTime - minTime) / 10
-	c.Check(measuredMinTime, jc.LessThan, minTime+expectedCloseness)
-	c.Check(measuredMaxTime, jc.GreaterThan, maxTime-expectedCloseness)
+	c.Check(measuredMinTime, tc.LessThan, minTime+expectedCloseness)
+	c.Check(measuredMaxTime, tc.GreaterThan, maxTime-expectedCloseness)
 }

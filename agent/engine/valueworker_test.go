@@ -6,7 +6,6 @@ package engine_test
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/agent/engine"
@@ -20,10 +19,10 @@ var _ = tc.Suite(&ValueWorkerSuite{})
 
 func (s *ValueWorkerSuite) TestNewValueWorker_Success(c *tc.C) {
 	w, err := engine.NewValueWorker("cheese")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = worker.Stop(w)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *ValueWorkerSuite) TestNewValueWorker_NilValue(c *tc.C) {
@@ -35,11 +34,11 @@ func (s *ValueWorkerSuite) TestNewValueWorker_NilValue(c *tc.C) {
 func (s *ValueWorkerSuite) TestValueWorkerOutput_Success(c *tc.C) {
 	value := &testType{}
 	w, err := engine.NewValueWorker(value)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var outVal testInterface
 	err = engine.ValueWorkerOutput(w, &outVal)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(outVal, tc.DeepEquals, value)
 }
 
@@ -53,7 +52,7 @@ func (s *ValueWorkerSuite) TestValueWorkerOutput_BadInput(c *tc.C) {
 func (s *ValueWorkerSuite) TestValueWorkerOutput_BadOutputIndirection(c *tc.C) {
 	value := &testType{}
 	w, err := engine.NewValueWorker(value)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var outVal string
 	err = engine.ValueWorkerOutput(w, outVal)
@@ -64,7 +63,7 @@ func (s *ValueWorkerSuite) TestValueWorkerOutput_BadOutputIndirection(c *tc.C) {
 func (s *ValueWorkerSuite) TestValueWorkerOutput_BadOutputType(c *tc.C) {
 	value := &testType{}
 	w, err := engine.NewValueWorker(value)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var outVal string
 	err = engine.ValueWorkerOutput(w, &outVal)

@@ -16,7 +16,6 @@ import (
 	cookiejar "github.com/juju/persistent-cookiejar"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
@@ -137,10 +136,10 @@ func (s *BaseCommandSuite) TestMigratedModelErrorHandling(c *tc.C) {
 	modelcmd.InitContexts(&cmd.Context{Stderr: io.Discard}, baseCmd)
 	modelcmd.SetRunStarted(baseCmd)
 
-	c.Assert(baseCmd.SetModelIdentifier("foo:admin/badmodel", false), jc.ErrorIsNil)
+	c.Assert(baseCmd.SetModelIdentifier("foo:admin/badmodel", false), tc.ErrorIsNil)
 
 	fingerprint, _, err := pki.Fingerprint([]byte(coretesting.CACert))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	specs := []struct {
 		descr   string
@@ -226,10 +225,10 @@ func (s *BaseCommandSuite) TestNewAPIRootExternalUser(c *tc.C) {
 	modelcmd.InitContexts(&cmd.Context{Stderr: io.Discard}, baseCmd)
 	modelcmd.SetRunStarted(baseCmd)
 
-	c.Assert(baseCmd.SetModelIdentifier("foo:admin/badmodel", false), jc.ErrorIsNil)
+	c.Assert(baseCmd.SetModelIdentifier("foo:admin/badmodel", false), tc.ErrorIsNil)
 
 	_, err := baseCmd.NewAPIRoot(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestLoginWithOIDC verifies that when we have a controller supporting
@@ -246,7 +245,7 @@ func (s *BaseCommandSuite) TestLoginWithOIDC(c *tc.C) {
 
 	apiOpen := func(ctx context.Context, info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		_, err := opts.LoginProvider.Login(ctx, conn)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		return conn, nil
 	}
 	externalName := "kian@external"
@@ -290,10 +289,10 @@ func (s *BaseCommandSuite) TestLoginWithOIDC(c *tc.C) {
 	modelcmd.InitContexts(&cmd.Context{Stderr: io.Discard}, baseCmd)
 	modelcmd.SetRunStarted(baseCmd)
 
-	c.Assert(baseCmd.SetModelIdentifier("foo:admin/badmodel", false), jc.ErrorIsNil)
+	c.Assert(baseCmd.SetModelIdentifier("foo:admin/badmodel", false), tc.ErrorIsNil)
 
 	_, err := baseCmd.NewAPIRoot(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(s.store.Accounts["foo"].SessionToken, tc.Equals, "new-token")
 }
@@ -310,7 +309,7 @@ func (s *BaseCommandSuite) TestNewAPIConnectionParams(c *tc.C) {
 	}
 	account := s.store.Accounts["foo"]
 	params, err := baseCmd.NewAPIConnectionParams(s.store, s.store.CurrentControllerName, "", &account)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(params.DialOpts.LoginProvider, tc.IsNil)
 }
 
@@ -320,7 +319,7 @@ func (s *BaseCommandSuite) TestNewAPIConnectionParams(c *tc.C) {
 // to a specific kind of login provider.
 func (s *BaseCommandSuite) TestNewAPIConnectionParamsWithOAuthController(c *tc.C) {
 	newController, err := s.store.ControllerByName(s.store.CurrentControllerName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	newController.OIDCLogin = true
 	s.store.Controllers["oauth-controller"] = *newController
 
@@ -332,7 +331,7 @@ func (s *BaseCommandSuite) TestNewAPIConnectionParamsWithOAuthController(c *tc.C
 	}
 	account := s.store.Accounts["foo"]
 	params, err := baseCmd.NewAPIConnectionParams(s.store, "oauth-controller", "", &account)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	sessionTokenLogin := api.NewSessionTokenLoginProvider("", nil, nil)
 	c.Assert(params.DialOpts.LoginProvider, tc.FitsTypeOf, sessionTokenLogin)
 }
@@ -364,7 +363,7 @@ func (NewGetBootstrapConfigParamsFuncSuite) TestDetectCredentials(c *tc.C) {
 		&registry,
 	)
 	_, spec, _, err := f("foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(spec.Credential.Label, tc.Equals, "finalized")
 }
 
@@ -392,9 +391,9 @@ func (NewGetBootstrapConfigParamsFuncSuite) TestCloudCACert(c *tc.C) {
 		&registry,
 	)
 	_, spec, _, err := f("foo")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(spec.CACertificates, jc.SameContents, []string{fakeCert})
-	c.Assert(spec.SkipTLSVerify, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(spec.CACertificates, tc.SameContents, []string{fakeCert})
+	c.Assert(spec.SkipTLSVerify, tc.IsTrue)
 }
 
 type mockProviderRegistry struct {
@@ -453,8 +452,8 @@ func (s *OpenAPIFuncSuite) TestOpenAPIFunc(c *tc.C) {
 	}
 	openFunc := modelcmd.OpenAPIFuncWithMacaroons(origin, s.store, "foo")
 	_, err := openFunc(context.Background(), expected, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(received, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(received, tc.DeepEquals, expected)
 }
 
 func (s *OpenAPIFuncSuite) TestOpenAPIFuncWithNoPassword(c *tc.C) {
@@ -470,8 +469,8 @@ func (s *OpenAPIFuncSuite) TestOpenAPIFuncWithNoPassword(c *tc.C) {
 	}
 	openFunc := modelcmd.OpenAPIFuncWithMacaroons(origin, s.store, "foo")
 	_, err := openFunc(context.Background(), expected, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(received, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(received, tc.DeepEquals, expected)
 }
 
 func (s *OpenAPIFuncSuite) TestOpenAPIFuncWithNoMacaroons(c *tc.C) {
@@ -487,15 +486,15 @@ func (s *OpenAPIFuncSuite) TestOpenAPIFuncWithNoMacaroons(c *tc.C) {
 	}
 	openFunc := modelcmd.OpenAPIFuncWithMacaroons(origin, s.store, "foo")
 	_, err := openFunc(context.Background(), expected, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(received, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(received, tc.DeepEquals, expected)
 }
 
 func (s *OpenAPIFuncSuite) TestOpenAPIFuncUsesStore(c *tc.C) {
 	mac, err := jujutesting.NewMacaroon("id")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	jar, err := cookiejar.New(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	addCookie(c, jar, mac, api.CookieURLFromHost("foo"))
 	s.store.CookieJars["foo"] = jar
@@ -515,15 +514,15 @@ func (s *OpenAPIFuncSuite) TestOpenAPIFuncUsesStore(c *tc.C) {
 	_, err = openFunc(context.Background(), &api.Info{
 		ControllerUUID: "foo",
 	}, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(received, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(received, tc.DeepEquals, expected)
 }
 
 func (s *OpenAPIFuncSuite) TestOpenAPIFuncUsesStoreWithSNIHost(c *tc.C) {
 	mac, err := jujutesting.NewMacaroon("id")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	jar, err := cookiejar.New(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	addCookie(c, jar, mac, api.CookieURLFromHost("foo"))
 	s.store.CookieJars["foo"] = jar
@@ -545,13 +544,13 @@ func (s *OpenAPIFuncSuite) TestOpenAPIFuncUsesStoreWithSNIHost(c *tc.C) {
 		SNIHostName:    "foo",
 		ControllerUUID: "bar",
 	}, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(received, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(received, tc.DeepEquals, expected)
 }
 
 func addCookie(c *tc.C, jar http.CookieJar, mac *macaroon.Macaroon, url *url.URL) {
 	cookie, err := httpbakery.NewCookie(nil, macaroon.Slice{mac})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cookie.Expires = time.Now().Add(time.Hour) // only persistent cookies are stored
 	jar.SetCookies(url, []*http.Cookie{cookie})
 }

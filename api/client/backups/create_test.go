@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	backupstesting "github.com/juju/juju/core/backups/testing"
@@ -35,7 +34,7 @@ func (s *createSuite) TestCreate(c *tc.C) {
 
 	client := s.newClient()
 	got, err := client.Create(context.Background(), "important", true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Log(got)
 	resultMeta := backupstesting.UpdateNotes(meta, "important")
 	s.checkMetadataResult(c, got, resultMeta)

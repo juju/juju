@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -54,7 +53,7 @@ func generatePublicKeys(c *tc.C, publicKeys []string) []keymanager.PublicKey {
 	rval := make([]keymanager.PublicKey, 0, len(publicKeys))
 	for _, pk := range publicKeys {
 		parsedKey, err := ssh.ParsePublicKey(pk)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		rval = append(rval, keymanager.PublicKey{
 			Comment:         parsedKey.Comment,
@@ -76,7 +75,7 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 	model, err := modelstate.NewState(s.TxnRunnerFactory()).GetModel(
 		context.Background(), s.modelId,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.userId = model.Owner
 	s.userName = model.OwnerName
 }
@@ -90,13 +89,13 @@ func (s *stateSuite) TestAddPublicKeyForUser(c *tc.C) {
 	keysToAdd := generatePublicKeys(c, testingPublicKeys)
 
 	err := state.AddPublicKeysForUser(context.Background(), s.modelId, s.userId, keysToAdd)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.modelId, s.userId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
-	c.Check(keys, jc.DeepEquals, testingPublicKeys)
+	c.Check(keys, tc.DeepEquals, testingPublicKeys)
 
 	// Create a second model to add keys onto
 	modelId := statemodeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "second-model")
@@ -104,20 +103,20 @@ func (s *stateSuite) TestAddPublicKeyForUser(c *tc.C) {
 	// Confirm that the users public ssh keys don't show up on the second model
 	// yet
 	keys, err = state.GetPublicKeysDataForUser(context.Background(), modelId, s.userId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(len(keys), tc.Equals, 0)
 
 	// Add the users keys onto the second model. We want to see here that this
 	// is a successful operation with no errors.
 	err = state.AddPublicKeysForUser(context.Background(), modelId, s.userId, keysToAdd)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	// Confirm the keys exists on the second model
 	keys, err = state.GetPublicKeysDataForUser(context.Background(), modelId, s.userId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
-	c.Check(keys, jc.DeepEquals, testingPublicKeys)
+	c.Check(keys, tc.DeepEquals, testingPublicKeys)
 }
 
 // TestAddPublicKeysForUserAlreadyExists is asserting that if we try and add the
@@ -128,25 +127,25 @@ func (s *stateSuite) TestAddPublicKeyForUserAlreadyExists(c *tc.C) {
 	keysToAdd := generatePublicKeys(c, testingPublicKeys)
 
 	err := state.AddPublicKeysForUser(context.Background(), s.modelId, s.userId, keysToAdd)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.modelId, s.userId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
-	c.Check(keys, jc.DeepEquals, testingPublicKeys)
+	c.Check(keys, tc.DeepEquals, testingPublicKeys)
 
 	// Add the users keys onto the second model. We want to see here that this
 	// is a successful operation with no errors.
 	err = state.AddPublicKeysForUser(context.Background(), s.modelId, s.userId, keysToAdd)
-	c.Check(err, jc.ErrorIs, keyerrors.PublicKeyAlreadyExists)
+	c.Check(err, tc.ErrorIs, keyerrors.PublicKeyAlreadyExists)
 
 	// Confirm the key still exists on the model
 	keys, err = state.GetPublicKeysDataForUser(context.Background(), s.modelId, s.userId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
-	c.Check(keys, jc.DeepEquals, testingPublicKeys)
+	c.Check(keys, tc.DeepEquals, testingPublicKeys)
 }
 
 // TestAddPublicKeyForUserNotFound is asserting that if we attempt to add a
@@ -159,7 +158,7 @@ func (s *stateSuite) TestAddPublicKeyForUserNotFound(c *tc.C) {
 	badUserId := usertesting.GenUserUUID(c)
 
 	err := state.AddPublicKeysForUser(context.Background(), s.modelId, badUserId, keysToAdd)
-	c.Check(err, jc.ErrorIs, accesserrors.UserNotFound)
+	c.Check(err, tc.ErrorIs, accesserrors.UserNotFound)
 }
 
 // TestAddPublicKeyForUserOnNotFoundModel is asserting that if we attempt to add
@@ -172,7 +171,7 @@ func (s *stateSuite) TestAddPublicKeyForUserOnNotFoundModel(c *tc.C) {
 	badModelId := modeltesting.GenModelUUID(c)
 
 	err := state.AddPublicKeysForUser(context.Background(), badModelId, s.userId, keysToAdd)
-	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 // TestEnsurePublicKeysForUser is asserting the happy path of
@@ -182,23 +181,23 @@ func (s *stateSuite) TestEnsurePublicKeysForUser(c *tc.C) {
 	keysToAdd := generatePublicKeys(c, testingPublicKeys)
 
 	err := state.EnsurePublicKeysForUser(context.Background(), s.modelId, s.userId, keysToAdd)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.modelId, s.userId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
-	c.Check(keys, jc.DeepEquals, testingPublicKeys)
+	c.Check(keys, tc.DeepEquals, testingPublicKeys)
 
 	// Run all of the operations again and confirm that there exists no errors.
 	err = state.EnsurePublicKeysForUser(context.Background(), s.modelId, s.userId, keysToAdd)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	keys, err = state.GetPublicKeysDataForUser(context.Background(), s.modelId, s.userId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
-	c.Check(keys, jc.DeepEquals, testingPublicKeys)
+	c.Check(keys, tc.DeepEquals, testingPublicKeys)
 }
 
 // TestEnsurePublicKeysForUser is asserting the ensure user after keys have
@@ -210,13 +209,13 @@ func (s *stateSuite) TestEnsurePublicKeysForUserForStrippedComments(c *tc.C) {
 	keysToAdd := generatePublicKeys(c, testingPublicKeys)
 
 	err := state.EnsurePublicKeysForUser(context.Background(), s.modelId, s.userId, keysToAdd)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.modelId, s.userId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
-	c.Check(keys, jc.DeepEquals, testingPublicKeys)
+	c.Check(keys, tc.DeepEquals, testingPublicKeys)
 
 	// Run all of the operations again and confirm that there exists no errors.
 
@@ -237,13 +236,13 @@ func (s *stateSuite) TestEnsurePublicKeysForUserForStrippedComments(c *tc.C) {
 	}
 
 	err = state.EnsurePublicKeysForUser(context.Background(), s.modelId, s.userId, stripped)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	keys, err = state.GetPublicKeysDataForUser(context.Background(), s.modelId, s.userId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
-	c.Check(keys, jc.DeepEquals, testingPublicKeys)
+	c.Check(keys, tc.DeepEquals, testingPublicKeys)
 }
 
 // TestEnsurePublicKeyForUserNotFound is asserting that if we attempt to add a
@@ -256,7 +255,7 @@ func (s *stateSuite) TestEnsurePublicKeyForUserNotFound(c *tc.C) {
 	badUserId := usertesting.GenUserUUID(c)
 
 	err := state.EnsurePublicKeysForUser(context.Background(), s.modelId, badUserId, keysToAdd)
-	c.Check(err, jc.ErrorIs, accesserrors.UserNotFound)
+	c.Check(err, tc.ErrorIs, accesserrors.UserNotFound)
 }
 
 // TestEnsurePublicKeyForUserOnNotFoundModel is asserting that if we attempt to
@@ -269,7 +268,7 @@ func (s *stateSuite) TestEnsurePublicKeyForUserOnNotFoundModel(c *tc.C) {
 	badModelId := modeltesting.GenModelUUID(c)
 
 	err := state.EnsurePublicKeysForUser(context.Background(), badModelId, s.userId, keysToAdd)
-	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 // TestDeletePublicKeysForNonExistentUser is asserting that if we try and
@@ -279,7 +278,7 @@ func (s *stateSuite) TestDeletePublicKeysForNonExistentUser(c *tc.C) {
 	userId := usertesting.GenUserUUID(c)
 	state := NewState(s.TxnRunnerFactory())
 	err := state.DeletePublicKeysForUser(context.Background(), s.modelId, userId, []string{"comment"})
-	c.Check(err, jc.ErrorIs, accesserrors.UserNotFound)
+	c.Check(err, tc.ErrorIs, accesserrors.UserNotFound)
 }
 
 // TestDeletePublicKeysForComment is testing that we can remove a users public
@@ -289,18 +288,18 @@ func (s *stateSuite) TestDeletePublicKeysForComment(c *tc.C) {
 	keysToAdd := generatePublicKeys(c, testingPublicKeys)
 
 	err := state.AddPublicKeysForUser(context.Background(), s.modelId, s.userId, keysToAdd)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	err = state.DeletePublicKeysForUser(context.Background(), s.modelId, s.userId, []string{
 		keysToAdd[0].Comment,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.modelId, s.userId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
-	c.Check(testingPublicKeys[1:], jc.DeepEquals, keys)
+	c.Check(testingPublicKeys[1:], tc.DeepEquals, keys)
 }
 
 // TestDeletePublicKeysForComment is testing that we can remove a users public
@@ -310,18 +309,18 @@ func (s *stateSuite) TestDeletePublicKeysForFingerprint(c *tc.C) {
 	keysToAdd := generatePublicKeys(c, testingPublicKeys)
 
 	err := state.AddPublicKeysForUser(context.Background(), s.modelId, s.userId, keysToAdd)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	err = state.DeletePublicKeysForUser(context.Background(), s.modelId, s.userId, []string{
 		keysToAdd[0].Fingerprint,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.modelId, s.userId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
-	c.Check(testingPublicKeys[1:], jc.DeepEquals, keys)
+	c.Check(testingPublicKeys[1:], tc.DeepEquals, keys)
 }
 
 // TestDeletePublicKeysForComment is testing that we can remove a users public
@@ -331,18 +330,18 @@ func (s *stateSuite) TestDeletePublicKeysForKeyData(c *tc.C) {
 	keysToAdd := generatePublicKeys(c, testingPublicKeys)
 
 	err := state.AddPublicKeysForUser(context.Background(), s.modelId, s.userId, keysToAdd)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	err = state.DeletePublicKeysForUser(context.Background(), s.modelId, s.userId, []string{
 		keysToAdd[0].Key,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.modelId, s.userId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
-	c.Check(testingPublicKeys[1:], jc.DeepEquals, keys)
+	c.Check(testingPublicKeys[1:], tc.DeepEquals, keys)
 }
 
 // TestDeletePublicKeysForCombination is asserting that we can remove a users
@@ -352,19 +351,19 @@ func (s *stateSuite) TestDeletePublicKeysForCombination(c *tc.C) {
 	keysToAdd := generatePublicKeys(c, testingPublicKeys)
 
 	err := state.AddPublicKeysForUser(context.Background(), s.modelId, s.userId, keysToAdd)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	err = state.DeletePublicKeysForUser(context.Background(), s.modelId, s.userId, []string{
 		keysToAdd[0].Comment,
 		keysToAdd[1].Fingerprint,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.modelId, s.userId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
-	c.Check(testingPublicKeys[2:], jc.DeepEquals, keys)
+	c.Check(testingPublicKeys[2:], tc.DeepEquals, keys)
 }
 
 // TestDeleteSamePublicKeyByTwoMethods is here to assert that if we call one
@@ -375,19 +374,19 @@ func (s *stateSuite) TestDeleteSamePublicKeyByTwoMethods(c *tc.C) {
 	keysToAdd := generatePublicKeys(c, testingPublicKeys)
 
 	err := state.AddPublicKeysForUser(context.Background(), s.modelId, s.userId, keysToAdd)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	err = state.DeletePublicKeysForUser(context.Background(), s.modelId, s.userId, []string{
 		keysToAdd[0].Comment,
 		keysToAdd[0].Fingerprint,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.modelId, s.userId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
-	c.Check(testingPublicKeys[1:], jc.DeepEquals, keys)
+	c.Check(testingPublicKeys[1:], tc.DeepEquals, keys)
 }
 
 // TestDeletePublicKeysForNonExistentModel is asserting the if we try and delete
@@ -403,7 +402,7 @@ func (s *stateSuite) TestDeletePublicKeysForNonExistentModel(c *tc.C) {
 		keysToAdd[0].Comment,
 		keysToAdd[0].Fingerprint,
 	})
-	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 // TestGetAllUsersPublicKeys is responsible for testing the happy path of
@@ -418,7 +417,7 @@ func (s *stateSuite) TestGetAllUsersPublicKeys(c *tc.C) {
 		s.userId,
 		keysToAdd,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	secondUserId := usertesting.GenUserUUID(c)
 	secondUserName := usertesting.GenNewName(c, "tlm")
@@ -431,7 +430,7 @@ func (s *stateSuite) TestGetAllUsersPublicKeys(c *tc.C) {
 		false,
 		s.userId,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = state.AddPublicKeysForUser(
 		context.Background(),
@@ -439,10 +438,10 @@ func (s *stateSuite) TestGetAllUsersPublicKeys(c *tc.C) {
 		secondUserId,
 		keysToAdd,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	allKeys, err := state.GetAllUsersPublicKeys(context.Background(), s.modelId)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	for k := range allKeys {
 		slices.Sort(allKeys[k])
@@ -454,7 +453,7 @@ func (s *stateSuite) TestGetAllUsersPublicKeys(c *tc.C) {
 	}
 	slices.Sort(expected)
 
-	c.Check(allKeys, jc.DeepEquals, map[user.Name][]string{
+	c.Check(allKeys, tc.DeepEquals, map[user.Name][]string{
 		s.userName:     expected,
 		secondUserName: expected,
 	})
@@ -466,7 +465,7 @@ func (s *stateSuite) TestGetAllUsersPublicKeys(c *tc.C) {
 func (s *stateSuite) TestGetAllUserPublicKeysEmpty(c *tc.C) {
 	state := NewState(s.TxnRunnerFactory())
 	allKeys, err := state.GetAllUsersPublicKeys(context.Background(), s.modelId)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(len(allKeys), tc.Equals, 0)
 }
 
@@ -479,5 +478,5 @@ func (s *stateSuite) TestGetAllUserPublicKeysModelNotFound(c *tc.C) {
 		context.Background(),
 		badModelUUID,
 	)
-	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
 }

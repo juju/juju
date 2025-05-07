@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	actionapi "github.com/juju/juju/api/client/action"
 	"github.com/juju/juju/cmd/juju/action"
@@ -67,7 +66,7 @@ func (s *ShowSuite) TestInit(c *tc.C) {
 			args := append([]string{modelFlag, "admin"}, t.args...)
 			err := cmdtesting.InitCommand(s.wrappedCommand, args)
 			if t.expectedErr == "" {
-				c.Check(err, jc.ErrorIsNil)
+				c.Check(err, tc.ErrorIsNil)
 				c.Check(s.command.ApplicationName(), tc.Equals, t.expectedApp)
 				c.Check(s.command.ActionName(), tc.Equals, t.expectedAction)
 			} else {

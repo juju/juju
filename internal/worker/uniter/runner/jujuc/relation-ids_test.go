@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/internal/cmd"
@@ -106,7 +105,7 @@ func (s *RelationIdsSuite) TestRelationIds(c *tc.C) {
 		c.Logf("test %d: %s", i, t.summary)
 		hctx, _ := s.newHookContext(t.relid, "")
 		com, err := jujuc.NewCommand(hctx, "relation-ids")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
 		c.Assert(code, tc.Equals, t.code)
@@ -135,11 +134,11 @@ func (s *RelationIdsSuite) TestHelp(c *tc.C) {
 		c.Logf("relid %d", relid)
 		hctx, _ := s.newHookContext(relid, "")
 		com, err := jujuc.NewCommand(hctx, "relation-ids")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
 		c.Assert(code, tc.Equals, 0)
-		c.Assert(strings.Contains(bufferString(ctx.Stdout), t.usage), jc.IsTrue)
+		c.Assert(strings.Contains(bufferString(ctx.Stdout), t.usage), tc.IsTrue)
 	}
 }
 
@@ -163,7 +162,7 @@ func (s *RelationIdsSuite) TestFilterNonLiveRelations(c *tc.C) {
 
 func (s *RelationIdsSuite) assertOutputMatches(c *tc.C, hctx jujuc.Context, expOutput string) {
 	com, err := jujuc.NewCommand(hctx, "relation-ids")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, nil)
 	c.Assert(code, tc.Equals, 0)

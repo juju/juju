@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/exec"
 
 	"github.com/juju/juju/core/actions"
@@ -60,7 +59,7 @@ func (s *HandleSuite) TestSuccessfulRun(c *tc.C) {
 	}
 
 	results, err := machineactions.HandleAction(actions.JujuExecActionName, params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results["return-code"], tc.Equals, 0)
 	c.Assert(strings.TrimRight(results["stdout"].(string), "\r\n"), tc.Equals, "1")
 	c.Assert(results["stderr"], tc.Equals, "")
@@ -73,7 +72,7 @@ func (s *HandleSuite) TestErrorRun(c *tc.C) {
 	}
 
 	results, err := machineactions.HandleAction(actions.JujuExecActionName, params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results["return-code"], tc.Equals, 42)
 	c.Assert(results["stdout"], tc.Equals, "")
 	c.Assert(results["stderr"], tc.Equals, "")

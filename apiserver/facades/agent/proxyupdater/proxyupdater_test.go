@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
@@ -65,7 +64,7 @@ func (s *ProxyUpdaterSuite) setupAPI(c *tc.C) *gomock.Controller {
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 
 	api, err := proxyupdater.NewAPIV2(s.state, s.controllerConfigService, s.modelConfigService, s.resources, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(api, tc.NotNil)
 	s.facade = api
 
@@ -101,7 +100,7 @@ func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *tc.C
 	c.Assert(s.resources.Count(), tc.Equals, 1)
 	resource := s.resources.Get(result.Results[0].NotifyWatcherId)
 	watcher, ok := resource.(state.NotifyWatcher)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	// Verify the initial event was consumed.
 	select {
@@ -172,7 +171,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfig(c *tc.C) {
 		APTProxySettings: params.ProxyConfig{
 			HTTP: "http://apt http proxy", HTTPS: "https://apt https proxy", FTP: "", NoProxy: ""},
 	}
-	c.Assert(cfg.Results[0], jc.DeepEquals, r)
+	c.Assert(cfg.Results[0], tc.DeepEquals, r)
 }
 
 func (s *ProxyUpdaterSuite) TestProxyConfigJujuProxy(c *tc.C) {
@@ -208,7 +207,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfigJujuProxy(c *tc.C) {
 		APTProxySettings: params.ProxyConfig{
 			HTTP: "http://apt http proxy", HTTPS: "https://apt https proxy", FTP: "", NoProxy: ""},
 	}
-	c.Assert(cfg.Results[0], jc.DeepEquals, r)
+	c.Assert(cfg.Results[0], tc.DeepEquals, r)
 }
 
 func (s *ProxyUpdaterSuite) TestProxyConfigExtendsExisting(c *tc.C) {
@@ -235,7 +234,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfigExtendsExisting(c *tc.C) {
 	expectedNoProxy := "0.1.2.3,0.1.2.4,0.1.2.5,9.9.9.9"
 	expectedAptNoProxy := "9.9.9.9"
 
-	c.Assert(cfg.Results[0], jc.DeepEquals, params.ProxyConfigResult{
+	c.Assert(cfg.Results[0], tc.DeepEquals, params.ProxyConfigResult{
 		LegacyProxySettings: params.ProxyConfig{
 			HTTP: "http proxy", HTTPS: "https proxy", FTP: "", NoProxy: expectedNoProxy},
 		APTProxySettings: params.ProxyConfig{
@@ -267,7 +266,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfigNoDuplicates(c *tc.C) {
 	expectedNoProxy := "0.1.2.3,0.1.2.4,0.1.2.5"
 	expectedAptNoProxy := "0.1.2.3"
 
-	c.Assert(cfg.Results[0], jc.DeepEquals, params.ProxyConfigResult{
+	c.Assert(cfg.Results[0], tc.DeepEquals, params.ProxyConfigResult{
 		LegacyProxySettings: params.ProxyConfig{
 			HTTP: "http proxy", HTTPS: "https proxy", FTP: "", NoProxy: expectedNoProxy},
 		APTProxySettings: params.ProxyConfig{
@@ -296,7 +295,7 @@ func (s *ProxyUpdaterSuite) TestSnapProxyConfig(c *tc.C) {
 
 	expectedNoProxy := "0.1.2.3,0.1.2.4,0.1.2.5"
 
-	c.Assert(cfg.Results[0], jc.DeepEquals, params.ProxyConfigResult{
+	c.Assert(cfg.Results[0], tc.DeepEquals, params.ProxyConfigResult{
 		LegacyProxySettings: params.ProxyConfig{NoProxy: expectedNoProxy},
 		SnapProxySettings: params.ProxyConfig{
 			HTTP: "http proxy", HTTPS: "https proxy"},

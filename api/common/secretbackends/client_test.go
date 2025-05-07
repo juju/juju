@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/common/secretbackends"
@@ -68,8 +67,8 @@ func (s *SecretsSuite) TestGetSecretBackendConfig(c *tc.C) {
 
 	client := secretbackends.NewClient(apiCaller)
 	result, err := client.GetSecretBackendConfig(context.Background(), ptr("active-id"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, &provider.ModelBackendConfigInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, &provider.ModelBackendConfigInfo{
 		ActiveID: "active-id",
 		Configs: map[string]provider.ModelBackendConfig{
 			"active-id": {
@@ -115,8 +114,8 @@ func (s *SecretsSuite) TestGetBackendConfigForDraing(c *tc.C) {
 
 	client := secretbackends.NewClient(apiCaller)
 	result, activeID, err := client.GetBackendConfigForDrain(context.Background(), ptr("active-id"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, &provider.ModelBackendConfig{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, &provider.ModelBackendConfig{
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		ModelUUID:      coretesting.ModelTag.Id(),
 		ModelName:      "fred",
@@ -157,11 +156,11 @@ func (s *SecretsSuite) TestGetContentInfo(c *tc.C) {
 
 	client := secretbackends.NewClient(apiCaller)
 	content, backendConfig, draining, err := client.GetContentInfo(context.Background(), uri, "label", true, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	value := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
-	c.Assert(content, jc.DeepEquals, &secrets.ContentParams{SecretValue: value})
+	c.Assert(content, tc.DeepEquals, &secrets.ContentParams{SecretValue: value})
 	c.Assert(backendConfig, tc.IsNil)
-	c.Assert(draining, jc.IsFalse)
+	c.Assert(draining, tc.IsFalse)
 }
 
 func (s *SecretsSuite) TestGetContentInfoExternal(c *tc.C) {
@@ -206,12 +205,12 @@ func (s *SecretsSuite) TestGetContentInfoExternal(c *tc.C) {
 
 	client := secretbackends.NewClient(apiCaller)
 	content, backendConfig, draining, err := client.GetContentInfo(context.Background(), uri, "label", true, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(content, jc.DeepEquals, &secrets.ContentParams{ValueRef: &coresecrets.ValueRef{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(content, tc.DeepEquals, &secrets.ContentParams{ValueRef: &coresecrets.ValueRef{
 		BackendID:  "backend-id",
 		RevisionID: "rev-id",
 	}})
-	c.Assert(backendConfig, jc.DeepEquals, &provider.ModelBackendConfig{
+	c.Assert(backendConfig, tc.DeepEquals, &provider.ModelBackendConfig{
 		ControllerUUID: "controller-uuid",
 		ModelUUID:      "model-uuid",
 		ModelName:      "model",
@@ -220,7 +219,7 @@ func (s *SecretsSuite) TestGetContentInfoExternal(c *tc.C) {
 			Config:      map[string]interface{}{"foo": "bar"},
 		},
 	})
-	c.Assert(draining, jc.IsTrue)
+	c.Assert(draining, tc.IsTrue)
 }
 
 func (s *SecretsSuite) TestGetContentInfoLabelArgOnly(c *tc.C) {
@@ -250,11 +249,11 @@ func (s *SecretsSuite) TestGetContentInfoLabelArgOnly(c *tc.C) {
 
 	client := secretbackends.NewClient(apiCaller)
 	content, backendConfig, draining, err := client.GetContentInfo(context.Background(), nil, "label", true, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	value := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
-	c.Assert(content, jc.DeepEquals, &secrets.ContentParams{SecretValue: value})
+	c.Assert(content, tc.DeepEquals, &secrets.ContentParams{SecretValue: value})
 	c.Assert(backendConfig, tc.IsNil)
-	c.Assert(draining, jc.IsFalse)
+	c.Assert(draining, tc.IsFalse)
 }
 
 func (s *SecretsSuite) TestGetContentInfoError(c *tc.C) {
@@ -316,11 +315,11 @@ func (s *SecretsSuite) TestGetRevisionContentInfo(c *tc.C) {
 
 	client := secretbackends.NewClient(apiCaller)
 	content, backendConfig, draining, err := client.GetRevisionContentInfo(context.Background(), uri, 666, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	value := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
-	c.Assert(content, jc.DeepEquals, &secrets.ContentParams{SecretValue: value})
+	c.Assert(content, tc.DeepEquals, &secrets.ContentParams{SecretValue: value})
 	c.Assert(backendConfig, tc.IsNil)
-	c.Assert(draining, jc.IsFalse)
+	c.Assert(draining, tc.IsFalse)
 }
 
 func (s *SecretsSuite) TestGetRevisionContentInfoExternal(c *tc.C) {
@@ -362,12 +361,12 @@ func (s *SecretsSuite) TestGetRevisionContentInfoExternal(c *tc.C) {
 
 	client := secretbackends.NewClient(apiCaller)
 	content, backendConfig, draining, err := client.GetRevisionContentInfo(context.Background(), uri, 666, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(content, jc.DeepEquals, &secrets.ContentParams{ValueRef: &coresecrets.ValueRef{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(content, tc.DeepEquals, &secrets.ContentParams{ValueRef: &coresecrets.ValueRef{
 		BackendID:  "backend-id",
 		RevisionID: "rev-id",
 	}})
-	c.Assert(backendConfig, jc.DeepEquals, &provider.ModelBackendConfig{
+	c.Assert(backendConfig, tc.DeepEquals, &provider.ModelBackendConfig{
 		ControllerUUID: "controller-uuid",
 		ModelUUID:      "model-uuid",
 		ModelName:      "model",
@@ -376,7 +375,7 @@ func (s *SecretsSuite) TestGetRevisionContentInfoExternal(c *tc.C) {
 			Config:      map[string]interface{}{"foo": "bar"},
 		},
 	})
-	c.Assert(draining, jc.IsTrue)
+	c.Assert(draining, tc.IsTrue)
 }
 
 func (s *SecretsSuite) TestGetRevisionContentInfoError(c *tc.C) {

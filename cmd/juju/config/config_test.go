@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	jujucmd "github.com/juju/juju/internal/cmd"
 )
@@ -43,7 +42,7 @@ func (s *suite) TestSetFlags(c *tc.C) {
 		f.VisitAll(
 			func(f *gnuflag.Flag) { flags = append(flags, f.Name) },
 		)
-		c.Check(flags, jc.SameContents, expectedFlags)
+		c.Check(flags, tc.SameContents, expectedFlags)
 
 		c.Check(sliceContains(flags, "reset"), tc.Equals, resettable)
 	}
@@ -70,7 +69,7 @@ func testParse(c *tc.C, test parseFailTest, fail bool) {
 	if fail {
 		c.Assert(err, tc.ErrorMatches, test.errMsg)
 	} else {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }
 
@@ -106,7 +105,7 @@ func setupInitTest(c *tc.C, args []string, cantReset []string) (ConfigCommandBas
 	f := flagSetForTest(c)
 	cmd.SetFlags(f)
 	err := f.Parse(true, args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = cmd.Init(f.Args())
 
 	return cmd, err
@@ -137,8 +136,8 @@ func (s *suite) TestInitSuccess(c *tc.C) {
 		testParse(c, parseFailTest{resettable: true, args: test.args}, false)
 
 		cmd, err := setupInitTest(c, test.args, test.cantReset)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(cmd.Actions, jc.SameContents, test.actions)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(cmd.Actions, tc.SameContents, test.actions)
 		s.checkFileFirst(c, cmd.Actions)
 		c.Check(cmd.ConfigFile, tc.DeepEquals, test.configFile)
 
@@ -171,7 +170,7 @@ func (s *suite) TestReadFile(c *tc.C) {
 	dir := c.MkDir()
 	filename := "cfg.yaml"
 	err := os.WriteFile(path.Join(dir, filename), fileContents, 0666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cmd := ConfigCommandBase{
 		ConfigFile: jujucmd.FileVar{Path: filename},
@@ -182,7 +181,7 @@ func (s *suite) TestReadFile(c *tc.C) {
 	}
 
 	attrs, err := cmd.ReadFile(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(attrs, tc.DeepEquals, configAttrs)
 }
 
@@ -199,7 +198,7 @@ func (s *suite) TestReadFileStdin(c *tc.C) {
 	}
 
 	attrs, err := cmd.ReadFile(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(attrs, tc.DeepEquals, configAttrs)
 }
 
@@ -208,7 +207,7 @@ func (s *suite) TestReadNoSuchFile(c *tc.C) {
 	dir := c.MkDir()
 	filename := "cfg.yaml"
 	_, err := os.Stat(path.Join(dir, filename))
-	c.Assert(err, jc.ErrorIs, fs.ErrNotExist)
+	c.Assert(err, tc.ErrorIs, fs.ErrNotExist)
 
 	cmd := ConfigCommandBase{
 		ConfigFile: jujucmd.FileVar{Path: filename},
@@ -227,7 +226,7 @@ func (s *suite) TestReadFileBadYAML(c *tc.C) {
 	dir := c.MkDir()
 	filename := "cfg.yaml"
 	err := os.WriteFile(path.Join(dir, filename), []byte("foo: foo: foo"), 0666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cmd := ConfigCommandBase{
 		ConfigFile: jujucmd.FileVar{Path: filename},

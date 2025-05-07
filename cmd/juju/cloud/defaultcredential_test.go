@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
@@ -53,7 +52,7 @@ func (s *defaultCredentialSuite) assertSetDefaultCredential(c *tc.C, cloudName s
 	}
 	cmd := cloud.NewSetDefaultCredentialCommandForTest(store)
 	ctx, err := cmdtesting.RunCommand(c, cmd, cloudName, "my-sekrets")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	output := cmdtesting.Stderr(ctx)
 	output = strings.Replace(output, "\n", "", -1)
 	c.Assert(output, tc.Equals, fmt.Sprintf(`Local credential "my-sekrets" is set to be default for %q for this client.`, cloudName))
@@ -76,7 +75,7 @@ func (s *defaultCredentialSuite) TestReadDefaultCredential(c *tc.C) {
 	}
 	cmd := cloud.NewSetDefaultCredentialCommandForTest(store)
 	ctx, err := cmdtesting.RunCommand(c, cmd, cloudName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	output := cmdtesting.Stderr(ctx)
 	output = strings.Replace(output, "\n", "", -1)
 	c.Assert(output, tc.Equals, fmt.Sprintf(`Default credential for cloud %q is "my-sekrets" on this client.`, cloudName))
@@ -88,7 +87,7 @@ func (s *defaultCredentialSuite) TestReadDefaultCredentialNoneSet(c *tc.C) {
 	store.Credentials[cloudName] = jujucloud.CloudCredential{}
 	cmd := cloud.NewSetDefaultCredentialCommandForTest(store)
 	ctx, err := cmdtesting.RunCommand(c, cmd, cloudName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	output := cmdtesting.Stderr(ctx)
 	output = strings.Replace(output, "\n", "", -1)
 	c.Assert(output, tc.Equals, fmt.Sprintf(`Default credential for cloud %q is not set on this client.`, cloudName))
@@ -102,7 +101,7 @@ func (s *defaultCredentialSuite) TestResetDefaultCredential(c *tc.C) {
 	}
 	cmd := cloud.NewSetDefaultCredentialCommandForTest(store)
 	ctx, err := cmdtesting.RunCommand(c, cmd, cloudName, "--reset")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	output := cmdtesting.Stderr(ctx)
 	output = strings.Replace(output, "\n", "", -1)
 	c.Assert(output, tc.Equals, fmt.Sprintf(`Default credential for cloud %q is no longer set on this client.`, cloudName))

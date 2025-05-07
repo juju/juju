@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/internal/cmd"
@@ -74,20 +73,20 @@ func (s *removeSuite) TestRemoveApiError(c *tc.C) {
 func (s *removeSuite) TestRemove(c *tc.C) {
 	s.mockAPI.expectedURLs = []string{"fred@external/model.db2", "mary/model.db2"}
 	_, err := s.runRemove(c, "fred@external/model.db2", "mary/model.db2", "-y")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *removeSuite) TestRemoveForce(c *tc.C) {
 	s.mockAPI.expectedURLs = []string{"fred/model.db2", "mary/model.db2"}
 	s.mockAPI.expectedForce = true
 	_, err := s.runRemove(c, "fred/model.db2", "mary/model.db2", "-y", "--force")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *removeSuite) TestRemoveForceMessage(c *tc.C) {
 	var stdin, stdout, stderr bytes.Buffer
 	ctx, err := cmd.DefaultContext()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx.Stdout = &stdout
 	ctx.Stderr = &stderr
 	ctx.Stdin = &stdin
@@ -95,7 +94,7 @@ func (s *removeSuite) TestRemoveForceMessage(c *tc.C) {
 
 	com := newRemoveCommandForTest(s.store, s.mockAPI)
 	err = cmdtesting.InitCommand(com, []string{"fred/model.db2", "--force"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	com.Run(ctx)
 
 	expected := `
@@ -110,7 +109,7 @@ Continue [y/N]? `[1:]
 func (s *removeSuite) TestRemoveNameOnly(c *tc.C) {
 	s.mockAPI.expectedURLs = []string{"fred/test.db2"}
 	_, err := s.runRemove(c, "db2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type mockRemoveAPI struct {

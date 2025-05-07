@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	importererrors "github.com/juju/juju/internal/ssh/importer/errors"
@@ -36,14 +35,14 @@ func (i *importerSuite) TestInvalidURI(c *tc.C) {
 	defer i.setupMocks(c).Finish()
 
 	uri, err := url.Parse("gh:")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	importer := Importer{
 		resolvers: map[string]Resolver{
 			"gh": i.resolver,
 		},
 	}
 	_, err = importer.FetchPublicKeysForSubject(context.Background(), uri)
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 }
 
 // TestNoResolver is testing that if we ask for a subjects public key using a
@@ -52,14 +51,14 @@ func (i *importerSuite) TestNoResolver(c *tc.C) {
 	defer i.setupMocks(c).Finish()
 
 	uri, err := url.Parse("lp:~tlm")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	importer := Importer{
 		resolvers: map[string]Resolver{
 			"gh": i.resolver,
 		},
 	}
 	_, err = importer.FetchPublicKeysForSubject(context.Background(), uri)
-	c.Check(err, jc.ErrorIs, importererrors.NoResolver)
+	c.Check(err, tc.ErrorIs, importererrors.NoResolver)
 }
 
 // TestSubjectNotFound is testing that if the resolver tells a subject does not
@@ -71,14 +70,14 @@ func (i *importerSuite) TestSubjectNotFound(c *tc.C) {
 		Return(nil, importererrors.SubjectNotFound)
 
 	uri, err := url.Parse("gh:tlm")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	importer := Importer{
 		resolvers: map[string]Resolver{
 			"gh": i.resolver,
 		},
 	}
 	_, err = importer.FetchPublicKeysForSubject(context.Background(), uri)
-	c.Check(err, jc.ErrorIs, importererrors.SubjectNotFound)
+	c.Check(err, tc.ErrorIs, importererrors.SubjectNotFound)
 }
 
 // TestFetchPublicKeysForSubject is testing the happy path for
@@ -94,14 +93,14 @@ func (i *importerSuite) TestFetchPublicKeysForSubject(c *tc.C) {
 	)
 
 	uri, err := url.Parse("gh:tlm")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	importer := Importer{
 		resolvers: map[string]Resolver{
 			"gh": i.resolver,
 		},
 	}
 	keys, err := importer.FetchPublicKeysForSubject(context.Background(), uri)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	expected := []string{
 		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC key1",
@@ -110,5 +109,5 @@ func (i *importerSuite) TestFetchPublicKeysForSubject(c *tc.C) {
 
 	slices.Sort(keys)
 	slices.Sort(expected)
-	c.Check(keys, jc.DeepEquals, expected)
+	c.Check(keys, tc.DeepEquals, expected)
 }

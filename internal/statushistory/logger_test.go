@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/logger"
@@ -50,7 +49,7 @@ func (s *loggerSuite) TestRecord(c *tc.C) {
 			"bar": "baz",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *loggerSuite) setupMocks(c *tc.C) *gomock.Controller {

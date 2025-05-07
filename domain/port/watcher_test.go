@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
@@ -80,14 +79,14 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 		`, modelUUID.String(), coretesting.ControllerTag.Id())
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.machine"))
 
 	err = machineSt.CreateMachine(context.Background(), "0", netNodeUUIDs[0], machineUUIDs[0])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = machineSt.CreateMachine(context.Background(), "1", netNodeUUIDs[1], machineUUIDs[1])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *watcherSuite) createApplicationWithRelations(c *tc.C, appName string, relations ...string) coreapplication.ID {
@@ -120,7 +119,7 @@ func (s *watcherSuite) createApplicationWithRelations(c *tc.C, appName string, r
 			Source:        charm.LocalSource,
 		},
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return appUUID
 }
 
@@ -131,10 +130,10 @@ func (s *watcherSuite) createUnit(c *tc.C, netNodeUUID, appName string) coreunit
 	ctx := context.Background()
 
 	appID, err := applicationSt.GetApplicationIDByName(ctx, appName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	charmUUID, err := applicationSt.GetCharmIDByApplicationName(ctx, appName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Ensure that we place the unit on the same machine as the net node.
 	var machineName machine.Name
@@ -142,7 +141,7 @@ func (s *watcherSuite) createUnit(c *tc.C, netNodeUUID, appName string) coreunit
 		err := tx.QueryRowContext(ctx, "SELECT name FROM machine WHERE net_node_uuid = ?", netNodeUUID).Scan(&machineName)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	unitNames, err := applicationSt.AddIAASUnits(ctx, c.MkDir(), appID, charmUUID, application.AddUnitArg{
 		Placement: deployment.Placement{
@@ -150,7 +149,7 @@ func (s *watcherSuite) createUnit(c *tc.C, netNodeUUID, appName string) coreunit
 			Directive: machineName.String(),
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unitNames, tc.HasLen, 1)
 	unitName := unitNames[0]
 	s.unitCount++
@@ -160,7 +159,7 @@ func (s *watcherSuite) createUnit(c *tc.C, netNodeUUID, appName string) coreunit
 		err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", unitName).Scan(&unitUUID)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return unitUUID
 }
 
@@ -182,7 +181,7 @@ func (s *watcherSuite) TestWatchMachinePortRanges(c *tc.C) {
 	s.unitUUIDs[2] = s.createUnit(c, netNodeUUIDs[1], appNames[1])
 
 	watcher, err := s.srv.WatchMachineOpenedPorts(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
@@ -191,7 +190,7 @@ func (s *watcherSuite) TestWatchMachinePortRanges(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[0], network.GroupedPortRanges{
 			"ep0": {ssh},
 		}, network.GroupedPortRanges{})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(watchertest.StringSliceAssert("0"))
 	})
@@ -201,7 +200,7 @@ func (s *watcherSuite) TestWatchMachinePortRanges(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[0], network.GroupedPortRanges{
 			"ep0": {http},
 		}, network.GroupedPortRanges{})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(watchertest.StringSliceAssert("0"))
 	})
@@ -211,7 +210,7 @@ func (s *watcherSuite) TestWatchMachinePortRanges(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[1], network.GroupedPortRanges{
 			"ep1": {http},
 		}, network.GroupedPortRanges{})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(watchertest.StringSliceAssert("0"))
 	})
@@ -221,7 +220,7 @@ func (s *watcherSuite) TestWatchMachinePortRanges(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[2], network.GroupedPortRanges{
 			"ep2": {https},
 		}, network.GroupedPortRanges{})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(watchertest.StringSliceAssert("1"))
 	})
@@ -231,7 +230,7 @@ func (s *watcherSuite) TestWatchMachinePortRanges(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[0], network.GroupedPortRanges{
 			"ep0": {ssh},
 		}, network.GroupedPortRanges{})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
@@ -241,7 +240,7 @@ func (s *watcherSuite) TestWatchMachinePortRanges(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[0], network.GroupedPortRanges{}, network.GroupedPortRanges{
 			"ep0": {ssh},
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(watchertest.StringSliceAssert("0"))
 	})
@@ -251,7 +250,7 @@ func (s *watcherSuite) TestWatchMachinePortRanges(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[0], network.GroupedPortRanges{}, network.GroupedPortRanges{
 			"ep0": {http},
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(watchertest.StringSliceAssert("0"))
 	})
@@ -261,7 +260,7 @@ func (s *watcherSuite) TestWatchMachinePortRanges(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[1], network.GroupedPortRanges{}, network.GroupedPortRanges{
 			"ep1": {https},
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
@@ -271,11 +270,11 @@ func (s *watcherSuite) TestWatchMachinePortRanges(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[1], network.GroupedPortRanges{
 			"ep3": {https},
 		}, network.GroupedPortRanges{})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[2], network.GroupedPortRanges{
 			"ep3": {https},
 		}, network.GroupedPortRanges{})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(watchertest.StringSliceAssert("0", "1"))
 	})
@@ -292,7 +291,7 @@ func (s *watcherSuite) TestWatchOpenedPortsForApplication(c *tc.C) {
 	s.unitUUIDs[2] = s.createUnit(c, netNodeUUIDs[1], appNames[1])
 
 	watcher, err := s.srv.WatchOpenedPortsForApplication(context.Background(), s.appUUIDs[1])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
@@ -301,7 +300,7 @@ func (s *watcherSuite) TestWatchOpenedPortsForApplication(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[1], network.GroupedPortRanges{
 			"ep1": {http},
 		}, network.GroupedPortRanges{})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})
@@ -311,7 +310,7 @@ func (s *watcherSuite) TestWatchOpenedPortsForApplication(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[2], network.GroupedPortRanges{
 			"ep2": {https},
 		}, network.GroupedPortRanges{})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})
@@ -321,7 +320,7 @@ func (s *watcherSuite) TestWatchOpenedPortsForApplication(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[0], network.GroupedPortRanges{
 			"ep0": {ssh},
 		}, network.GroupedPortRanges{})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
@@ -331,7 +330,7 @@ func (s *watcherSuite) TestWatchOpenedPortsForApplication(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[1], network.GroupedPortRanges{
 			"ep1": {http},
 		}, network.GroupedPortRanges{})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
@@ -341,7 +340,7 @@ func (s *watcherSuite) TestWatchOpenedPortsForApplication(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[1], network.GroupedPortRanges{}, network.GroupedPortRanges{
 			"ep1": {http},
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})
@@ -351,7 +350,7 @@ func (s *watcherSuite) TestWatchOpenedPortsForApplication(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[2], network.GroupedPortRanges{}, network.GroupedPortRanges{
 			"ep2": {https},
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})
@@ -361,7 +360,7 @@ func (s *watcherSuite) TestWatchOpenedPortsForApplication(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[0], network.GroupedPortRanges{}, network.GroupedPortRanges{
 			"ep0": {ssh},
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})

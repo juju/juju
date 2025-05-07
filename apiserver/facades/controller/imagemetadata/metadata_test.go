@@ -6,7 +6,6 @@ package imagemetadata_test
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/controller/imagemetadata"
@@ -25,7 +24,7 @@ func (s *ImageMetadataUpdateSuite) TestControllerOnly(c *tc.C) {
 	_, err := imagemetadata.NewAPI(facadetest.ModelContext{
 		Auth_: authorizer,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	authorizer.Controller = false
 	_, err = imagemetadata.NewAPI(facadetest.ModelContext{
 		Auth_: authorizer,

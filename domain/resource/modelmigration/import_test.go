@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	domainresource "github.com/juju/juju/domain/resource"
@@ -59,7 +58,7 @@ func (s *importSuite) TestEmptyImport(c *tc.C) {
 	// Act:
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *importSuite) TestImport(c *tc.C) {
@@ -155,7 +154,7 @@ func (s *importSuite) TestImport(c *tc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestImportRevisionOriginUpload checks that when a resource with origin upload
@@ -193,7 +192,7 @@ func (s *importSuite) TestImportRevisionOriginUpload(c *tc.C) {
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestImportRevisionNotValidOriginStore checks that an error is thrown when a
@@ -222,7 +221,7 @@ func (s *importSuite) TestImportRevisionNotValidOriginStore(c *tc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceRevisionNotValid)
+	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceRevisionNotValid)
 }
 
 func (s *importSuite) TestImportOriginNotValid(c *tc.C) {
@@ -245,7 +244,7 @@ func (s *importSuite) TestImportOriginNotValid(c *tc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIs, resourceerrors.OriginNotValid)
+	c.Assert(err, tc.ErrorIs, resourceerrors.OriginNotValid)
 }
 
 func (s *importSuite) TestImportResourceNameNotValid(c *tc.C) {
@@ -266,5 +265,5 @@ func (s *importSuite) TestImportResourceNameNotValid(c *tc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNameNotValid)
+	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNameNotValid)
 }

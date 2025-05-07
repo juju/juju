@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/yaml.v2"
 
@@ -47,7 +46,7 @@ func (s *NewExecutorSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *NewExecutorSuite) expectState(c *tc.C, st operation.State) {
 	data, err := yaml.Marshal(st)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	stStr := string(data)
 
 	mExp := s.mockStateRW.EXPECT()
@@ -85,7 +84,7 @@ func (s *NewExecutorSuite) TestNewExecutorNoInitialState(c *tc.C) {
 		Logger:          loggertesting.WrapCheckLog(c),
 	}
 	executor, err := operation.NewExecutor(context.Background(), "test", cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(executor.State(), tc.DeepEquals, initialState)
 }
 
@@ -103,7 +102,7 @@ func (s *NewExecutorSuite) TestNewExecutorValidFile(c *tc.C) {
 		Logger:          loggertesting.WrapCheckLog(c),
 	}
 	executor, err := operation.NewExecutor(context.Background(), "test", cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(executor.State(), tc.DeepEquals, operation.State{
 		Kind:    operation.Continue,
 		Step:    operation.Pending,
@@ -126,7 +125,7 @@ func (s *ExecutorSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *ExecutorSuite) expectSetState(c *tc.C, st operation.State) {
 	data, err := yaml.Marshal(st)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	strUniterState := string(data)
 
 	mExp := s.mockStateRW.EXPECT()
@@ -135,7 +134,7 @@ func (s *ExecutorSuite) expectSetState(c *tc.C, st operation.State) {
 
 func (s *ExecutorSuite) expectState(c *tc.C, st operation.State) {
 	data, err := yaml.Marshal(st)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	strState := string(data)
 
 	mExp := s.mockStateRW.EXPECT()
@@ -194,7 +193,7 @@ func (s *ExecutorSuite) newExecutor(c *tc.C, st *operation.State) operation.Exec
 		Logger:          loggertesting.WrapCheckLog(c),
 	}
 	executor, err := operation.NewExecutor(context.Background(), "test", cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return executor
 }
 
@@ -220,7 +219,7 @@ func (s *ExecutorSuite) TestSucceedNoStateChanges(c *tc.C) {
 	}
 
 	err := executor.Run(context.Background(), op, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(prepare.gotState, tc.DeepEquals, initialState)
 	c.Assert(execute.gotState, tc.DeepEquals, initialState)
@@ -248,7 +247,7 @@ func (s *ExecutorSuite) TestSucceedWithStateChanges(c *tc.C) {
 	}
 
 	err := executor.Run(context.Background(), op, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(prepare.gotState, tc.DeepEquals, initialState)
 	c.Assert(execute.gotState, tc.DeepEquals, *prepare.newState)
@@ -291,7 +290,7 @@ func (s *ExecutorSuite) TestSucceedWithRemoteStateChanges(c *tc.C) {
 		ConfigHash: "test",
 	}
 	err := executor.Run(context.Background(), op, rs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ExecutorSuite) TestErrSkipExecute(c *tc.C) {
@@ -311,7 +310,7 @@ func (s *ExecutorSuite) TestErrSkipExecute(c *tc.C) {
 	}
 
 	err := executor.Run(context.Background(), op, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(prepare.gotState, tc.DeepEquals, initialState)
 	c.Assert(commit.gotState, tc.DeepEquals, *prepare.newState)
@@ -470,7 +469,7 @@ func (s *ExecutorSuite) TestFailCommitWithStateChange(c *tc.C) {
 func (s *ExecutorSuite) initLockTest(c *tc.C, lockFunc func(string, string) (func(), error)) operation.Executor {
 	initialState := justInstalledState()
 	err := operation.NewStateOps(s.mockStateRW).Write(context.Background(), &initialState)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cfg := operation.ExecutorConfig{
 		StateReadWriter: s.mockStateRW,
 		InitialState:    operation.State{Step: operation.Queued},
@@ -478,7 +477,7 @@ func (s *ExecutorSuite) initLockTest(c *tc.C, lockFunc func(string, string) (fun
 		Logger:          loggertesting.WrapCheckLog(c),
 	}
 	executor, err := operation.NewExecutor(context.Background(), "test", cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return executor
 }
@@ -496,11 +495,11 @@ func (s *ExecutorSuite) TestLockSucceedsStepsCalled(c *tc.C) {
 	executor := s.initLockTest(c, lockFunc)
 
 	err := executor.Run(context.Background(), op, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(mockLock.calledLock, jc.IsTrue)
-	c.Assert(mockLock.calledUnlock, jc.IsTrue)
-	c.Assert(mockLock.noStepsCalledOnLock, jc.IsTrue)
+	c.Assert(mockLock.calledLock, tc.IsTrue)
+	c.Assert(mockLock.calledUnlock, tc.IsTrue)
+	c.Assert(mockLock.noStepsCalledOnLock, tc.IsTrue)
 
 	expectedStepsOnUnlock := []bool{true, true, true}
 	c.Assert(mockLock.stepsCalledOnUnlock, tc.DeepEquals, expectedStepsOnUnlock)
@@ -524,13 +523,13 @@ func (s *ExecutorSuite) TestLockFailsOpsStepsNotCalled(c *tc.C) {
 	err := executor.Run(context.Background(), op, nil)
 	c.Assert(err, tc.ErrorMatches, "could not acquire lock: wat")
 
-	c.Assert(mockLock.calledLock, jc.IsFalse)
-	c.Assert(mockLock.calledUnlock, jc.IsFalse)
-	c.Assert(mockLock.noStepsCalledOnLock, jc.IsTrue)
+	c.Assert(mockLock.calledLock, tc.IsFalse)
+	c.Assert(mockLock.calledUnlock, tc.IsFalse)
+	c.Assert(mockLock.noStepsCalledOnLock, tc.IsTrue)
 
-	c.Assert(prepare.called, jc.IsFalse)
-	c.Assert(execute.called, jc.IsFalse)
-	c.Assert(commit.called, jc.IsFalse)
+	c.Assert(prepare.called, tc.IsFalse)
+	c.Assert(execute.called, tc.IsFalse)
+	c.Assert(commit.called, tc.IsFalse)
 }
 
 func (s *ExecutorSuite) testLockUnlocksOnError(c *tc.C, op *mockOperation) (error, *mockLockFunc) {
@@ -540,9 +539,9 @@ func (s *ExecutorSuite) testLockUnlocksOnError(c *tc.C, op *mockOperation) (erro
 
 	err := executor.Run(context.Background(), op, nil)
 
-	c.Assert(mockLock.calledLock, jc.IsTrue)
-	c.Assert(mockLock.calledUnlock, jc.IsTrue)
-	c.Assert(mockLock.noStepsCalledOnLock, jc.IsTrue)
+	c.Assert(mockLock.calledLock, tc.IsTrue)
+	c.Assert(mockLock.calledUnlock, tc.IsTrue)
+	c.Assert(mockLock.noStepsCalledOnLock, tc.IsTrue)
 
 	return err, mockLock
 }

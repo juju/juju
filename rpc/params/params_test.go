@@ -7,7 +7,6 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -50,7 +49,7 @@ func (s *ErrorResultsSuite) TestOneError(c *tc.C) {
 		c.Logf("test %d", i)
 		err := test.results.OneError()
 		if test.errMatch == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
 			c.Check(err, tc.ErrorMatches, test.errMatch)
 		}
@@ -98,7 +97,7 @@ func (s *ErrorResultsSuite) TestCombine(c *tc.C) {
 		c.Logf("test %d: %s", i, test.msg)
 		err := test.results.Combine()
 		if test.errMatch == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
 			c.Check(err, tc.ErrorMatches, test.errMatch)
 		}

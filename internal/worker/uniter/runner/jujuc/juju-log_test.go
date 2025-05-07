@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/cmd"
@@ -29,7 +28,7 @@ var _ = tc.Suite(&JujuLogSuite{})
 func (s *JujuLogSuite) newJujuLogCommand(c *tc.C) cmd.Command {
 	ctx, _ := s.newHookContext(-1, "", "")
 	cmd, err := jujuc.NewJujuLogCommand(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return jujuc.NewJujucCommandWrappedForTest(cmd)
 }
 
@@ -74,7 +73,7 @@ func (s *JujuLogSuite) TestLogInitMissingMessage(c *tc.C) {
 func (s *JujuLogSuite) TestLogDeprecation(c *tc.C) {
 	cmd := s.newJujuLogCommand(c)
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--format", "foo", "msg")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "--format flag deprecated for command \"juju-log\"")
 }
 
@@ -92,7 +91,7 @@ func (s *JujuLogSuite) TestRunWithNoErrorsLogsOnRun(c *tc.C) {
 	context.EXPECT().UnitName().Return("")
 
 	ctx, err := cmdtesting.RunCommand(c, cmd, messages...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "")
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
 }
@@ -108,7 +107,7 @@ func (s *JujuLogSuite) TestRunWithErrorIsNotImplementedLogsOnRun(c *tc.C) {
 	context.EXPECT().UnitName().Return("")
 
 	ctx, err := cmdtesting.RunCommand(c, cmd, messages...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "")
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
 }
@@ -124,7 +123,7 @@ func (s *JujuLogSuite) TestRunWithErrorIsNotFoundLogsOnRun(c *tc.C) {
 	context.EXPECT().UnitName().Return("")
 
 	ctx, err := cmdtesting.RunCommand(c, cmd, messages...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "")
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
 }

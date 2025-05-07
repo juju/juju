@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -61,7 +60,7 @@ func (s *APIAddressUpdaterSuite) TestStartStop(c *tc.C) {
 			Setter:    &apiAddressSetter{},
 			Logger:    loggertesting.WrapCheckLog(c),
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, worker)
 }
 
@@ -85,7 +84,7 @@ func (s *APIAddressUpdaterSuite) assertInitialUpdate(c *tc.C, ctrl *gomock.Contr
 			Setter:    setter,
 			Logger:    loggertesting.WrapCheckLog(c),
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expServer := result.HostPorts()
 	select {
@@ -97,8 +96,8 @@ func (s *APIAddressUpdaterSuite) assertInitialUpdate(c *tc.C, ctrl *gomock.Contr
 
 	// The values are also available through the report.
 	reporter, ok := w.(worker.Reporter)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(reporter.Report(), jc.DeepEquals, map[string]interface{}{
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(reporter.Report(), tc.DeepEquals, map[string]interface{}{
 		"servers": [][]string{{"localhost:1234", "127.0.0.1:1234"}},
 	})
 	return w, client, ch
@@ -235,7 +234,7 @@ func (s *APIAddressUpdaterSuite) TestBridgeAddressesFiltering(c *tc.C) {
 			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("10.0.4.2").AsProviderAddress(), NetPort: 4321},
 			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("192.168.122.1").AsProviderAddress(), NetPort: 4321},
 		}.HostPorts()
-		c.Check(servers, jc.DeepEquals, []corenetwork.HostPorts{expServer1, expServerInit})
+		c.Check(servers, tc.DeepEquals, []corenetwork.HostPorts{expServer1, expServerInit})
 	}
 
 	client.EXPECT().APIHostPorts(gomock.Any()).Return(updatedServers, nil)
@@ -251,7 +250,7 @@ func (s *APIAddressUpdaterSuite) TestBridgeAddressesFiltering(c *tc.C) {
 		expServerUpd := corenetwork.ProviderHostPorts{
 			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("10.0.3.3").AsProviderAddress(), NetPort: 4001},
 		}.HostPorts()
-		c.Check(servers, jc.DeepEquals, []corenetwork.HostPorts{expServer1, expServerUpd})
+		c.Check(servers, tc.DeepEquals, []corenetwork.HostPorts{expServer1, expServerUpd})
 	}
 }
 
@@ -263,7 +262,7 @@ var _ = tc.Suite(&ValidateSuite{})
 
 func (*ValidateSuite) TestValid(c *tc.C) {
 	err := validConfig(c).Validate()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (*ValidateSuite) TestMissingAddresser(c *tc.C) {
@@ -297,7 +296,7 @@ func validConfig(c *tc.C) apiaddressupdater.Config {
 func checkNotValid(c *tc.C, config apiaddressupdater.Config, expect string) {
 	check := func(err error) {
 		c.Check(err, tc.ErrorMatches, expect)
-		c.Check(err, jc.ErrorIs, errors.NotValid)
+		c.Check(err, tc.ErrorIs, errors.NotValid)
 	}
 
 	err := config.Validate()

@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/crossmodel"
 )
@@ -150,17 +149,17 @@ func (s *OfferURLSuite) TestParseURLParts(c *tc.C) {
 
 func (s *OfferURLSuite) TestHasEndpoint(c *tc.C) {
 	url, err := crossmodel.ParseOfferURL("model.application:endpoint")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(url.HasEndpoint(), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(url.HasEndpoint(), tc.IsTrue)
 	url, err = crossmodel.ParseOfferURL("model.application")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(url.HasEndpoint(), jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(url.HasEndpoint(), tc.IsFalse)
 	url, err = crossmodel.ParseOfferURL("controller:/user/model.application:thing")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(url.HasEndpoint(), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(url.HasEndpoint(), tc.IsTrue)
 	url, err = crossmodel.ParseOfferURL("controller:/user/model.application")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(url.HasEndpoint(), jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(url.HasEndpoint(), tc.IsFalse)
 }
 
 func (s *OfferURLSuite) TestMakeURL(c *tc.C) {
@@ -172,9 +171,9 @@ func (s *OfferURLSuite) TestMakeURL(c *tc.C) {
 
 func (s *OfferURLSuite) TestAsLocal(c *tc.C) {
 	url, err := crossmodel.ParseOfferURL("source:model.application:endpoint")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected, err := crossmodel.ParseOfferURL("model.application:endpoint")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	original := *url
 	c.Assert(url.AsLocal(), tc.DeepEquals, expected)
 	c.Assert(*url, tc.DeepEquals, original)

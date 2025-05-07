@@ -5,7 +5,6 @@ package machine_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/internal/storage"
@@ -30,9 +29,9 @@ func (*FlagsSuite) TestDisksFlag(c *tc.C) {
 	var disks []storage.Directive
 	f := machine.NewDisksFlag(&disks)
 	err := f.Set("crystal,1G")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = f.Set("2,2G")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(disks, tc.DeepEquals, []storage.Directive{
 		{Pool: "crystal", Size: 1024, Count: 1},
 		{Size: 2048, Count: 2},

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	coremodel "github.com/juju/juju/core/model"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -95,7 +94,7 @@ func (s *validationSuite) TestValidateStorageDirectivesAgainstCharmSuccess(c *tc
 		"multi2up":   makeStorageDirective("loop-pool", 2048, 2),
 	}
 	err := s.validateStorageDirectives(storageDirectives)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *validationSuite) TestValidateStorageDirectivesAgainstCharmStoragePoolNotFound(c *tc.C) {
@@ -105,7 +104,7 @@ func (s *validationSuite) TestValidateStorageDirectivesAgainstCharmStoragePoolNo
 	}
 	err := s.validateStorageDirectives(storageDirectives)
 	c.Assert(err, tc.ErrorMatches, `storage pool "ebs-fast" not found`)
-	c.Assert(err, jc.ErrorIs, storageerrors.PoolNotFoundError)
+	c.Assert(err, tc.ErrorIs, storageerrors.PoolNotFoundError)
 }
 
 func (s *validationSuite) TestValidateStorageDirectivesAgainstCharmErrors(c *tc.C) {

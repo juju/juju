@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/internal/provider/lxd"
@@ -55,7 +54,7 @@ func (s *instanceSuite) TestAddresses(c *tc.C) {
 	defer ctrl.Finish()
 
 	addresses, err := s.Instance.Addresses(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(addresses, jc.DeepEquals, s.Addresses)
+	c.Check(addresses, tc.DeepEquals, s.Addresses)
 }

@@ -8,7 +8,6 @@ import (
 	"database/sql"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coredatabase "github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
@@ -33,7 +32,7 @@ func (s *ControllerSuite) SetUpTest(c *tc.C) {
 		Verbose: s.Verbose,
 	})
 	err := database.InsertControllerNodeID(context.Background(), s.DqliteSuite.TxnRunner(), 0x2dc171858c3155be)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // ApplyDDLForRunner is responsible for applying the controller schema to the
@@ -44,7 +43,7 @@ func (s *ControllerSuite) ApplyDDLForRunner(c *tc.C, runner coredatabase.TxnRunn
 		Verbose: s.Verbose,
 	}, runner)
 	err := database.InsertControllerNodeID(context.Background(), runner, 0x2dc171858c3155be)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // ControllerTxnRunner returns a txn runner attached to the controller database.
@@ -61,7 +60,7 @@ func (s *ControllerSuite) SeedControllerTable(c *tc.C, controllerModelUUID corem
 		_, err := tx.ExecContext(ctx, `INSERT INTO controller (uuid, model_uuid) VALUES (?, ?)`, controllerUUID, controllerModelUUID)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return controllerUUID
 }
 
@@ -71,6 +70,6 @@ func (s *ControllerSuite) SeedControllerUUID(c *tc.C) (controllerUUID string) {
 		_, err := tx.ExecContext(ctx, `INSERT INTO controller (uuid, model_uuid) VALUES (?, ?)`, controllerUUID, jujutesting.ControllerModelTag.Id())
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return controllerUUID
 }

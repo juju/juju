@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/logger"
@@ -72,7 +71,7 @@ func (s *workerSuite) runHandlerTest(c *tc.C, test handlerTest) {
 		NewSocketListener:   NewSocketListener,
 		ControllerModelUUID: model.UUID(jujujujutesting.ModelTag.Id()),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	serverURL := "http://localhost:8080"
 	req, err := http.NewRequest(
@@ -80,24 +79,24 @@ func (s *workerSuite) runHandlerTest(c *tc.C, test handlerTest) {
 		serverURL+test.endpoint,
 		strings.NewReader(test.body),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	resp, err := client(socket).Do(req)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(resp.StatusCode, tc.Equals, test.statusCode)
 
 	if test.ignoreBody {
 		return
 	}
 	data, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = resp.Body.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Response should be valid JSON
 	c.Check(resp.Header.Get("Content-Type"), tc.Equals, "application/json")
 	err = json.Unmarshal(data, &struct{}{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	if test.response != "" {
 		c.Check(string(data), tc.Matches, test.response)
 	}

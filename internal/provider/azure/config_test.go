@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -75,20 +74,20 @@ Please choose a name of no more than 80 characters.`)
 func (s *configSuite) TestValidateLoadBalancerSkuNameCanChange(c *tc.C) {
 	cfgOld := makeTestModelConfig(c, testing.Attrs{"load-balancer-sku-name": "Standard"})
 	_, err := s.provider.Validate(context.Background(), cfgOld, cfgOld)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cfgNew := makeTestModelConfig(c, testing.Attrs{"load-balancer-sku-name": "Basic"})
 	_, err = s.provider.Validate(context.Background(), cfgNew, cfgOld)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.provider.Validate(context.Background(), cfgOld, cfgNew)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *configSuite) TestValidateResourceGroupNameCantChange(c *tc.C) {
 	cfgOld := makeTestModelConfig(c, testing.Attrs{"resource-group-name": "foo"})
 	_, err := s.provider.Validate(context.Background(), cfgOld, cfgOld)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cfgNew := makeTestModelConfig(c, testing.Attrs{"resource-group-name": "bar"})
 	_, err = s.provider.Validate(context.Background(), cfgNew, cfgOld)
@@ -98,7 +97,7 @@ func (s *configSuite) TestValidateResourceGroupNameCantChange(c *tc.C) {
 func (s *configSuite) TestValidateVirtualNetworkNameCantChange(c *tc.C) {
 	cfgOld := makeTestModelConfig(c, testing.Attrs{"network": "foo"})
 	_, err := s.provider.Validate(context.Background(), cfgOld, cfgOld)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cfgNew := makeTestModelConfig(c, testing.Attrs{"network": "bar"})
 	_, err = s.provider.Validate(context.Background(), cfgNew, cfgOld)
@@ -108,7 +107,7 @@ func (s *configSuite) TestValidateVirtualNetworkNameCantChange(c *tc.C) {
 func (s *configSuite) assertConfigValid(c *tc.C, attrs testing.Attrs) {
 	cfg := makeTestModelConfig(c, attrs)
 	_, err := s.provider.Validate(context.Background(), cfg, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *configSuite) assertConfigInvalid(c *tc.C, attrs testing.Attrs, expect string) {
@@ -127,6 +126,6 @@ func makeTestModelConfig(c *tc.C, extra ...testing.Attrs) *config.Config {
 	}
 	attrs = testing.FakeConfig().Merge(attrs)
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return cfg
 }

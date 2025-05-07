@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 
 	coretesting "github.com/juju/juju/internal/testing"
@@ -81,7 +80,7 @@ func (s *FortressSuite) TestInitialLockdown(c *tc.C) {
 	defer fix.TearDown(c)
 
 	err := fix.Guard(c).Lockdown(nil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	AssertLocked(c, fix.Guest(c))
 }
 
@@ -90,7 +89,7 @@ func (s *FortressSuite) TestInitialUnlock(c *tc.C) {
 	defer fix.TearDown(c)
 
 	err := fix.Guard(c).Unlock()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	AssertUnlocked(c, fix.Guest(c))
 }
 
@@ -100,10 +99,10 @@ func (s *FortressSuite) TestDoubleUnlock(c *tc.C) {
 
 	guard := fix.Guard(c)
 	err := guard.Unlock()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	err = guard.Unlock()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	AssertUnlocked(c, fix.Guest(c))
 }
 
@@ -113,12 +112,12 @@ func (s *FortressSuite) TestDoubleLockdown(c *tc.C) {
 
 	guard := fix.Guard(c)
 	err := guard.Unlock()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	err = guard.Lockdown(nil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	err = guard.Lockdown(nil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	AssertLocked(c, fix.Guest(c))
 }
 
@@ -128,15 +127,15 @@ func (s *FortressSuite) TestWorkersIndependent(c *tc.C) {
 
 	// Create a separate worker and associated guard from the same manifold.
 	worker2, err := fix.manifold.Start(context.Background(), nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer CheckStop(c, worker2)
 	var guard2 fortress.Guard
 	err = fix.manifold.Output(worker2, &guard2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Unlock the separate worker; check the original worker is unaffected.
 	err = guard2.Unlock()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	AssertLocked(c, fix.Guest(c))
 }
 
@@ -144,7 +143,7 @@ func (s *FortressSuite) TestVisitError(c *tc.C) {
 	fix := newFixture(c)
 	defer fix.TearDown(c)
 	err := fix.Guard(c).Unlock()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	err = fix.Guest(c).Visit(badVisit, nil)
 	c.Check(err, tc.ErrorMatches, "bad!")
@@ -154,17 +153,17 @@ func (s *FortressSuite) TestVisitSuccess(c *tc.C) {
 	fix := newFixture(c)
 	defer fix.TearDown(c)
 	err := fix.Guard(c).Unlock()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	err = fix.Guest(c).Visit(func() error { return nil }, nil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *FortressSuite) TestConcurrentVisit(c *tc.C) {
 	fix := newFixture(c)
 	defer fix.TearDown(c)
 	err := fix.Guard(c).Unlock()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	guest := fix.Guest(c)
 
 	// Start a bunch of concurrent, blocking, Visits.
@@ -181,7 +180,7 @@ func (s *FortressSuite) TestConcurrentVisit(c *tc.C) {
 				return nil
 			}
 			err := guest.Visit(visit, nil)
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			finishes <- i
 
 		}(i)
@@ -224,7 +223,7 @@ func (s *FortressSuite) TestUnlockUnblocksVisit(c *tc.C) {
 
 	// Unlock the fortress, and check the Visit is unblocked.
 	err := fix.Guard(c).Unlock()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case err := <-visited:
 		c.Check(err, tc.ErrorMatches, "bad!")
@@ -259,7 +258,7 @@ func (s *FortressSuite) TestVisitUnblocksLockdown(c *tc.C) {
 	unblockVisit <- struct{}{}
 	select {
 	case err := <-locked:
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out")
 	}
@@ -316,13 +315,13 @@ func (s *FortressSuite) TestAbortedLockdownUnlock(c *tc.C) {
 	// Unlock the fortress again, leaving the original visit running, and
 	// check that new Visits are immediately accepted.
 	err = guard.Unlock()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	AssertUnlocked(c, fix.Guest(c))
 }
 
 func (s *FortressSuite) TestIsFortressError(c *tc.C) {
-	c.Check(fortress.IsFortressError(fortress.ErrAborted), jc.IsTrue)
-	c.Check(fortress.IsFortressError(fortress.ErrShutdown), jc.IsTrue)
-	c.Check(fortress.IsFortressError(errors.Trace(fortress.ErrShutdown)), jc.IsTrue)
-	c.Check(fortress.IsFortressError(errors.New("boom")), jc.IsFalse)
+	c.Check(fortress.IsFortressError(fortress.ErrAborted), tc.IsTrue)
+	c.Check(fortress.IsFortressError(fortress.ErrShutdown), tc.IsTrue)
+	c.Check(fortress.IsFortressError(errors.Trace(fortress.ErrShutdown)), tc.IsTrue)
+	c.Check(fortress.IsFortressError(errors.New("boom")), tc.IsFalse)
 }

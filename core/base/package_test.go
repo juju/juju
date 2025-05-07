@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coretesting "github.com/juju/juju/internal/testing"
 )
@@ -22,7 +21,7 @@ var _ = tc.Suite(&ImportTest{})
 
 func (*ImportTest) TestImports(c *tc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/base")
-	c.Assert(found, jc.SameContents, []string{
+	c.Assert(found, tc.SameContents, []string{
 		"core/arch",
 		"core/errors",
 		"internal/charm",

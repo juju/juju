@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/domain/schema/testing"
@@ -92,5 +91,5 @@ INSERT INTO change_log (edit_type_id, namespace_id, changed) VALUES (1, 666, 'fo
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

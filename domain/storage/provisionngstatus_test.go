@@ -5,7 +5,6 @@ package storage
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
@@ -21,7 +20,7 @@ var _ = tc.Suite(&provisioningStatusSuite{})
 func (s *provisioningStatusSuite) TestProvisioningStatusDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, name FROM storage_provisioning_status")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = rows.Close() }()
 
 	dbValues := make(map[ProvisioningStatus]string)
@@ -30,10 +29,10 @@ func (s *provisioningStatusSuite) TestProvisioningStatusDBValues(c *tc.C) {
 			id    int
 			value string
 		)
-		c.Assert(rows.Scan(&id, &value), jc.ErrorIsNil)
+		c.Assert(rows.Scan(&id, &value), tc.ErrorIsNil)
 		dbValues[ProvisioningStatus(id)] = value
 	}
-	c.Assert(dbValues, jc.DeepEquals, map[ProvisioningStatus]string{
+	c.Assert(dbValues, tc.DeepEquals, map[ProvisioningStatus]string{
 		ProvisioningStatusPending:     "pending",
 		ProvisioningStatusProvisioned: "provisioned",
 		ProvisioningStatusError:       "error",

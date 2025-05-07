@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 )
 
 type returnSuite struct{}
@@ -441,9 +440,9 @@ func (s *returnSuite) TestProcessFile(c *tc.C) {
 		testFile, err := parser.ParseFile(
 			fset, "test", test.Input, parser.ParseComments,
 		)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		processFile(testFile)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 
 		outputBuf := strings.Builder{}
 		printer.Fprint(&outputBuf, fset, testFile)

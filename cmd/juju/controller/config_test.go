@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/controller"
 	jujucontroller "github.com/juju/juju/controller"
@@ -72,7 +71,7 @@ func (s *ConfigSuite) TestInit(c *tc.C) {
 		c.Logf("%d - %s", i, test.desc)
 		err := cmdtesting.InitCommand(controller.NewConfigCommandForTest(&fakeControllerAPI{}, s.store), test.args)
 		if test.err == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
 			c.Check(err, tc.ErrorMatches, test.err)
 		}
@@ -81,7 +80,7 @@ func (s *ConfigSuite) TestInit(c *tc.C) {
 
 func (s *ConfigSuite) TestSingleValue(c *tc.C) {
 	context, err := s.run(c, "ca-cert")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	c.Assert(output, tc.Equals, "multi\nline")
@@ -89,7 +88,7 @@ func (s *ConfigSuite) TestSingleValue(c *tc.C) {
 
 func (s *ConfigSuite) TestSingleValueJSON(c *tc.C) {
 	context, err := s.run(c, "--format=json", "controller-uuid")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	c.Assert(output, tc.Equals, `"uuid"`)
@@ -97,7 +96,7 @@ func (s *ConfigSuite) TestSingleValueJSON(c *tc.C) {
 
 func (s *ConfigSuite) TestAllValues(c *tc.C) {
 	context, err := s.run(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	expected := `
@@ -119,7 +118,7 @@ func (s *ConfigSuite) TestOneLineExcludeMethods(c *tc.C) {
 		"audit-log-exclude-methods": []string{"Actual.Size"},
 	}
 	context, err := s.runWithAPI(c, &api)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	expected := `
@@ -130,7 +129,7 @@ audit-log-exclude-methods  Actual.Size`[1:]
 
 func (s *ConfigSuite) TestAllValuesJSON(c *tc.C) {
 	context, err := s.run(c, "--format=json")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	expected := `{"api-port":1234,"audit-log-exclude-methods":["Thing1","Thing2"],"ca-cert":"multi\nline","controller-uuid":"uuid"}`
@@ -170,7 +169,7 @@ func (s *ConfigSuite) TestError(c *tc.C) {
 func (s *ConfigSuite) TestSettingKey(c *tc.C) {
 	var api fakeControllerAPI
 	context, err := s.runWithAPI(c, &api, "juju-ha-space=value")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	c.Assert(output, tc.Equals, "")
@@ -181,7 +180,7 @@ func (s *ConfigSuite) TestSettingKey(c *tc.C) {
 func (s *ConfigSuite) TestSettingDuration(c *tc.C) {
 	var api fakeControllerAPI
 	context, err := s.runWithAPI(c, &api, "api-port-open-delay=100ms")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	c.Assert(output, tc.Equals, "")
@@ -193,7 +192,7 @@ func (s *ConfigSuite) TestSettingFromFile(c *tc.C) {
 	path := writeFile(c, "yaml", "juju-ha-space: value\n")
 	var api fakeControllerAPI
 	context, err := s.runWithAPI(c, &api, "--file", path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	c.Assert(output, tc.Equals, "")
@@ -220,7 +219,7 @@ func (s *ConfigSuite) TestOverrideFileFromArgs(c *tc.C) {
 	path := writeFile(c, "yaml", "juju-ha-space: value\naudit-log-max-backups: 2\n")
 	var api fakeControllerAPI
 	context, err := s.runWithAPI(c, &api, "--file", path, "audit-log-max-backups=4")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	c.Assert(output, tc.Equals, "")
@@ -259,7 +258,7 @@ func (s *ConfigSuite) TestErrorOnSetting(c *tc.C) {
 func writeFile(c *tc.C, name, content string) string {
 	path := filepath.Join(c.MkDir(), name)
 	err := os.WriteFile(path, []byte(content), 0777)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return path
 }
 

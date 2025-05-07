@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -287,9 +286,9 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownSuccess(c *
 	go s.broker.DeleteClusterScopeResourcesModelTeardown(ctx, &wg, errCh)
 
 	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 6)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-done:
 	case <-time.After(testing.LongWait):
@@ -492,7 +491,7 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownTimeout(c *
 	go s.broker.DeleteClusterScopeResourcesModelTeardown(ctx, &wg, errCh)
 
 	err := s.clock.WaitAdvance(500*time.Millisecond, testing.ShortWait, 6)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-done:
 		c.Assert(<-errCh, tc.ErrorMatches, `context deadline exceeded`)
@@ -543,7 +542,7 @@ func (s *K8sBrokerSuite) TestDeleteNamespaceModelTeardown(c *tc.C) {
 	select {
 	case <-done:
 		for _, watcher := range s.watchers {
-			c.Assert(workertest.CheckKilled(c, watcher), jc.ErrorIsNil)
+			c.Assert(workertest.CheckKilled(c, watcher), tc.ErrorIsNil)
 		}
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for deleteNamespaceModelTeardown return")
@@ -594,7 +593,7 @@ func (s *K8sBrokerSuite) TestDeleteNamespaceModelTeardownFailed(c *tc.C) {
 		err := <-errCh
 		c.Assert(err, tc.ErrorMatches, `getting namespace "test": error bla`)
 		for _, watcher := range s.watchers {
-			c.Assert(workertest.CheckKilled(c, watcher), jc.ErrorIsNil)
+			c.Assert(workertest.CheckKilled(c, watcher), tc.ErrorIsNil)
 		}
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for deleteNamespaceModelTeardown return")

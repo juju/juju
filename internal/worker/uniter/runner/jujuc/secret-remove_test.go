@@ -5,7 +5,6 @@ package jujuc_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -34,7 +33,7 @@ func (s *SecretRemoveSuite) TestRemoveSecretInvalidArgs(c *tc.C) {
 		},
 	} {
 		com, err := jujuc.NewCommand(hctx, "secret-remove")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
 
@@ -47,7 +46,7 @@ func (s *SecretRemoveSuite) TestRemoveSecret(c *tc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
 	com, err := jujuc.NewCommand(hctx, "secret-remove")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{
 		"secret:9m4e2mr0ui3e8a215n4g",
@@ -65,7 +64,7 @@ func (s *SecretRemoveSuite) TestRemoveSecretRevision(c *tc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
 	com, err := jujuc.NewCommand(hctx, "secret-remove")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{
 		"secret:9m4e2mr0ui3e8a215n4g", "--revision", "666",

@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
@@ -45,16 +44,16 @@ func newTestConfig(c *tc.C) *configInternal {
 	params.Paths.DataDir = c.MkDir()
 	params.Paths.LogDir = c.MkDir()
 	config, err := NewAgentConfig(params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return config.(*configInternal)
 }
 
 func (*formatSuite) TestWriteCommands(c *tc.C) {
 	cloudcfg, err := cloudinit.New("ubuntu")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	config := newTestConfig(c)
 	commands, err := config.WriteCommands(cloudcfg.ShellRenderer())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(commands, tc.HasLen, 3)
 	c.Assert(commands[0], tc.Matches, `mkdir -p '\S+/agents/machine-1'`)
 	c.Assert(commands[1], tc.Matches, `cat > '\S+/agents/machine-1/agent.conf' << 'EOF'\n(.|\n)*\nEOF`)
@@ -64,7 +63,7 @@ func (*formatSuite) TestWriteCommands(c *tc.C) {
 func (*formatSuite) TestWriteAgentConfig(c *tc.C) {
 	config := newTestConfig(c)
 	err := config.Write()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	configPath := ConfigPath(config.DataDir(), config.Tag())
 	formatPath := filepath.Join(config.Dir(), "format")
@@ -89,36 +88,36 @@ func (*formatSuite) TestReadWriteStateConfig(c *tc.C) {
 	params.Paths.DataDir = c.MkDir()
 	params.Values = map[string]string{"foo": "bar", "wibble": "wobble"}
 	configInterface, err := NewStateMachineConfig(params, servingInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	config, ok := configInterface.(*configInternal)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	assertWriteAndRead(c, config)
 }
 
 func assertWriteAndRead(c *tc.C, config *configInternal) {
 	err := config.Write()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	configPath := ConfigPath(config.DataDir(), config.Tag())
 	readConfig, err := ReadConfig(configPath)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(readConfig, jc.DeepEquals, config)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(readConfig, tc.DeepEquals, config)
 }
 
 func assertFileExists(c *tc.C, path string) {
 	fileInfo, err := os.Stat(path)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fileInfo.Mode().IsRegular(), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(fileInfo.Mode().IsRegular(), tc.IsTrue)
 
 	// Windows is not fully POSIX compliant. Chmod() and Chown() have unexpected behavior
 	// compared to linux/unix
 	if runtime.GOOS != "windows" {
 		c.Assert(fileInfo.Mode().Perm(), tc.Equals, os.FileMode(0600))
 	}
-	c.Assert(fileInfo.Size(), jc.GreaterThan, 0)
+	c.Assert(fileInfo.Size(), tc.GreaterThan, 0)
 }
 
 func assertFileNotExist(c *tc.C, path string) {
 	_, err := os.Stat(path)
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
+	c.Assert(err, tc.Satisfies, os.IsNotExist)
 }

@@ -5,7 +5,6 @@ package storage_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/storage"
 )
@@ -28,7 +27,7 @@ func assertStorageNameValid(c *tc.C, name string) {
 
 func assertStorageNameInvalid(c *tc.C, name string) {
 	_, err := storage.ParseName(name)
-	c.Assert(err, jc.ErrorIs, storage.InvalidStorageName)
+	c.Assert(err, tc.ErrorIs, storage.InvalidStorageName)
 }
 
 type storageIDSuite struct{}
@@ -50,7 +49,7 @@ func assertStorageIDValid(c *tc.C, id string) {
 
 func assertStorageIDInvalid(c *tc.C, id string) {
 	_, err := storage.ParseID(id)
-	c.Assert(err, jc.ErrorIs, storage.InvalidStorageID)
+	c.Assert(err, tc.ErrorIs, storage.InvalidStorageID)
 }
 
 func (s *storageIDSuite) TestMakeID(c *tc.C) {

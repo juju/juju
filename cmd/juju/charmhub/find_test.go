@@ -6,7 +6,6 @@ package charmhub
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cmd/juju/charmhub/mocks"
@@ -31,7 +30,7 @@ func (s *findSuite) TestInitNoArgs(c *tc.C) {
 		columns:         "nbvps",
 	}
 	err := command.Init([]string{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *findSuite) TestInitSuccess(c *tc.C) {
@@ -40,7 +39,7 @@ func (s *findSuite) TestInitSuccess(c *tc.C) {
 		columns:         "nbvps",
 	}
 	err := command.Init([]string{"test"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *findSuite) TestRun(c *tc.C) {
@@ -52,11 +51,11 @@ func (s *findSuite) TestRun(c *tc.C) {
 	}
 
 	err := cmdtesting.InitCommand(command, []string{"test"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *findSuite) TestRunJSON(c *tc.C) {
@@ -68,11 +67,11 @@ func (s *findSuite) TestRunJSON(c *tc.C) {
 	}
 
 	err := cmdtesting.InitCommand(command, []string{"test", "--format", "json"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(indentJSON(c, cmdtesting.Stdout(ctx)), tc.Equals, `
 [
   {
@@ -109,11 +108,11 @@ func (s *findSuite) TestRunYAML(c *tc.C) {
 	}
 
 	err := cmdtesting.InitCommand(command, []string{"test", "--format", "yaml"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 - type: object
   id: charmCHARMcharmCHARMcharmCHARM01
@@ -141,11 +140,11 @@ func (s *findSuite) TestRunWithType(c *tc.C) {
 	}
 
 	err := cmdtesting.InitCommand(command, []string{"test", "--type", "bundle"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *findSuite) TestRunWithNoType(c *tc.C) {
@@ -157,11 +156,11 @@ func (s *findSuite) TestRunWithNoType(c *tc.C) {
 	}
 
 	err := cmdtesting.InitCommand(command, []string{"test", "--type", ""})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *findSuite) newCharmHubCommand() *charmHubCommand {

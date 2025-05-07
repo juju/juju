@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -42,41 +41,41 @@ func (*UploadSuite) TestInitEmpty(c *tc.C) {
 	var u resourcecmd.UploadCommand
 
 	err := u.Init([]string{})
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 }
 
 func (s *UploadSuite) TestInitOneArg(c *tc.C) {
 	u := resourcecmd.NewUploadCommandForTest(nil, s.stubDeps)
 	err := u.Init([]string{"foo"})
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 }
 
 func (s *UploadSuite) TestInitJustName(c *tc.C) {
 	u := resourcecmd.NewUploadCommandForTest(nil, s.stubDeps)
 
 	err := u.Init([]string{"foo", "bar"})
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
 func (s *UploadSuite) TestInitNoName(c *tc.C) {
 	u := resourcecmd.NewUploadCommandForTest(nil, s.stubDeps)
 
 	err := u.Init([]string{"foo", "=foobar"})
-	c.Assert(errors.Cause(err), jc.ErrorIs, errors.NotValid)
+	c.Assert(errors.Cause(err), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *UploadSuite) TestInitNoPath(c *tc.C) {
 	u := resourcecmd.NewUploadCommandForTest(nil, s.stubDeps)
 
 	err := u.Init([]string{"foo", "foobar="})
-	c.Assert(errors.Cause(err), jc.ErrorIs, errors.NotValid)
+	c.Assert(errors.Cause(err), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *UploadSuite) TestInitGood(c *tc.C) {
 	u := resourcecmd.NewUploadCommandForTest(nil, s.stubDeps)
 
 	err := u.Init([]string{"foo", "bar=baz"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	svc, name, filename := resourcecmd.UploadCommandResourceValue(u)
 	c.Assert(svc, tc.Equals, "foo")
 	c.Assert(name, tc.Equals, "bar")
@@ -100,7 +99,7 @@ func (s *UploadSuite) TestInfo(c *tc.C) {
 	c.Check(info.Purpose, tc.Not(tc.Equals), "")
 	c.Check(info.Doc, tc.Not(tc.Equals), "")
 	c.Check(info.FlagKnownAs, tc.Not(tc.Equals), "")
-	c.Check(len(info.ShowSuperFlags), jc.GreaterThan, 2)
+	c.Check(len(info.ShowSuperFlags), tc.GreaterThan, 2)
 }
 
 func (s *UploadSuite) TestUploadFileResource(c *tc.C) {
@@ -108,10 +107,10 @@ func (s *UploadSuite) TestUploadFileResource(c *tc.C) {
 	s.stubDeps.file = file
 	u := resourcecmd.NewUploadCommandForTest(s.stubDeps.NewClient, s.stubDeps)
 	err := u.Init([]string{"svc", "foo=bar"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = u.Run(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c,
 		"NewClient",
@@ -131,7 +130,7 @@ func (s *UploadSuite) TestUploadFileChangeBlocked(c *tc.C) {
 	s.stubDeps.file = file
 	u := resourcecmd.NewUploadCommandForTest(s.stubDeps.NewClient, s.stubDeps)
 	err := u.Init([]string{"svc", "foo=bar"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedError := params.Error{
 		Message: "test-block",
@@ -140,8 +139,8 @@ func (s *UploadSuite) TestUploadFileChangeBlocked(c *tc.C) {
 	s.stub.SetErrors(nil, nil, nil, expectedError)
 
 	err = u.Run(nil)
-	c.Assert(err.Error(), jc.Contains, `failed to upload resource "foo": test-block`)
-	c.Assert(err.Error(), jc.Contains, `All operations that change model have been disabled for the current model.`)
+	c.Assert(err.Error(), tc.Contains, `failed to upload resource "foo": test-block`)
+	c.Assert(err.Error(), tc.Contains, `All operations that change model have been disabled for the current model.`)
 
 	s.stub.CheckCallNames(c,
 		"NewClient",
@@ -184,10 +183,10 @@ password: hunter2
 	}
 	u := resourcecmd.NewUploadCommandForTest(s.stubDeps.NewClient, s.stubDeps)
 	err := u.Init([]string{"svc", "foo=bar"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = u.Run(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c,
 		"NewClient",

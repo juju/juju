@@ -9,7 +9,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/domain/cloudimagemetadata"
@@ -95,12 +94,12 @@ func (s *exportSuite) TestExport(c *tc.C) {
 	// Act
 	op := s.newExportOperation(c)
 	err := op.Execute(context.Background(), dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert
 	actualCloudMetadata := dst.CloudImageMetadata()
 	obtained := transformMetadataFromDescriptionToDomain(actualCloudMetadata)
-	c.Assert(obtained, jc.DeepEquals, expected)
+	c.Assert(obtained, tc.DeepEquals, expected)
 }
 
 // TestExportFailGetAllImage verifies that the export operation handles failure when retrieving cloud image metadata,
@@ -118,7 +117,7 @@ func (s *exportSuite) TestExportFailGetAllImage(c *tc.C) {
 	err := op.Execute(context.Background(), dst)
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, expected)
+	c.Assert(err, tc.ErrorIs, expected)
 }
 
 func ptr[T any](u T) *T {

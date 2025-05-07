@@ -10,7 +10,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api"
 	corecontroller "github.com/juju/juju/controller"
@@ -38,7 +37,7 @@ func (s *rateLimitSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *rateLimitSuite) TestRateLimitAgents(c *tc.C) {
-	c.Assert(s.Server.Report(), jc.DeepEquals, map[string]interface{}{
+	c.Assert(s.Server.Report(), tc.DeepEquals, map[string]interface{}{
 		"agent-ratelimit-max":  1,
 		"agent-ratelimit-rate": 60 * time.Second,
 	})
@@ -47,7 +46,7 @@ func (s *rateLimitSuite) TestRateLimitAgents(c *tc.C) {
 	// First agent connection is fine.
 	machine1 := s.infoForNewMachine(c, info)
 	conn1, err := api.Open(context.Background(), machine1, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer conn1.Close()
 
 	// Second machine in the same minute gets told to go away and try again.
@@ -58,7 +57,7 @@ func (s *rateLimitSuite) TestRateLimitAgents(c *tc.C) {
 	// If we wait a minute and try again, it is fine.
 	s.Clock.Advance(time.Minute)
 	conn2, err := api.Open(context.Background(), machine2, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer conn2.Close()
 
 	// And the next one is limited.
@@ -73,18 +72,18 @@ func (s *rateLimitSuite) TestRateLimitNotApplicableToUsers(c *tc.C) {
 	// First agent connection is fine.
 	machine1 := s.infoForNewMachine(c, info)
 	conn1, err := api.Open(context.Background(), machine1, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer conn1.Close()
 
 	// User connections are fine.
 	user := s.infoForNewUser(c, info, "fredrikthordendal")
 	conn2, err := api.Open(context.Background(), user, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer conn2.Close()
 
 	user2 := s.infoForNewUser(c, info, "jenskidman")
 	conn3, err := api.Open(context.Background(), user2, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer conn3.Close()
 }
 
@@ -122,7 +121,7 @@ func (s *rateLimitSuite) infoForNewUser(c *tc.C, info *api.Info, name string) *a
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = accessService.CreatePermission(context.Background(), permission.UserAccessSpec{
 		AccessSpec: permission.AccessSpec{
@@ -134,7 +133,7 @@ func (s *rateLimitSuite) infoForNewUser(c *tc.C, info *api.Info, name string) *a
 		},
 		User: user.NameFromTag(userTag),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newInfo.Tag = userTag
 	newInfo.Password = "hunter2"

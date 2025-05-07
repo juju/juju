@@ -6,7 +6,6 @@ package all_test
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/secrets/provider"
 	_ "github.com/juju/juju/internal/secrets/provider/all"
@@ -28,7 +27,7 @@ func (s *allSuite) TestInit(c *tc.C) {
 		vault.BackendType,
 	} {
 		p, err := provider.Provider(name)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		c.Check(p.Type(), tc.Equals, name)
 	}
 }

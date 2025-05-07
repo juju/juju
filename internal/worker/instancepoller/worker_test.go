@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -76,7 +75,7 @@ func (s *configSuite) TestConfigValidation(c *tc.C) {
 		Environ: mocks.NewMockEnviron(ctrl),
 		Logger:  loggertesting.WrapCheckLog(c),
 	}
-	c.Assert(origCfg.Validate(), jc.ErrorIsNil)
+	c.Assert(origCfg.Validate(), tc.ErrorIsNil)
 
 	testCfg := origCfg
 	testCfg.Clock = nil
@@ -140,7 +139,7 @@ func (s *workerSuite) TestQueueingNewMachineAddsItToShortPollGroup(c *tc.C) {
 
 	// Queue machine.
 	err := updWorker.queueMachineForPolling(context.Background(), machineTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(updWorker.pollGroup[shortPollGroup], tc.HasLen, 1, tc.Commentf("machine didn't end up in short poll group"))
 }
@@ -168,7 +167,7 @@ func (s *workerSuite) TestQueueingExistingMachineAlwaysMovesItToShortPollGroup(c
 
 	// Queue machine.
 	err := updWorker.queueMachineForPolling(context.Background(), machineTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(updWorker.pollGroup[shortPollGroup], tc.HasLen, 1, tc.Commentf("machine didn't end up in short poll group"))
 	c.Assert(entry.shortPollInterval, tc.Equals, ShortPoll, tc.Commentf("poll interval was not reset"))
@@ -209,7 +208,7 @@ func (s *workerSuite) TestUpdateOfStatusAndAddressDetails(c *tc.C) {
 	machine.EXPECT().SetProviderNetworkConfig(gomock.Any(), testNetIfs).Return(testAddrs, true, nil)
 
 	providerStatus, addrCount, err := updWorker.processProviderInfo(context.Background(), entry, instInfo, testNetIfs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(providerStatus, tc.Equals, status.Running)
 	c.Assert(addrCount, tc.Equals, len(testAddrs))
 }
@@ -625,7 +624,7 @@ func (s *workerSuite) startWorker(c *tc.C, ctrl *gomock.Controller) (worker.Work
 		Environ: mocked.environ,
 		Logger:  loggertesting.WrapCheckLog(c),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Wait for worker to reach main loop before we allow tests to
 	// manipulate the clock.

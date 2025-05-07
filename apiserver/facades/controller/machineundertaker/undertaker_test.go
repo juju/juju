@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -52,7 +51,7 @@ func (*undertakerSuite) TestRequiresModelManager(c *tc.C) {
 		apiservertesting.FakeAuthorizer{Controller: true},
 		&mockMachineRemover{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (*undertakerSuite) TestAllMachineRemovalsNoResults(c *tc.C) {
@@ -69,7 +68,7 @@ func (*undertakerSuite) TestAllMachineRemovalsError(c *tc.C) {
 	result := api.AllMachineRemovals(context.Background(), makeEntities(tag1))
 	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0].Error, tc.ErrorMatches, "I don't want to set the world on fire")
-	c.Assert(result.Results[0].Entities, jc.DeepEquals, []params.Entity{})
+	c.Assert(result.Results[0].Entities, tc.DeepEquals, []params.Entity{})
 }
 
 func (*undertakerSuite) TestAllMachineRemovalsRequiresModelTags(c *tc.C) {
@@ -77,9 +76,9 @@ func (*undertakerSuite) TestAllMachineRemovalsRequiresModelTags(c *tc.C) {
 	results := api.AllMachineRemovals(context.Background(), makeEntities(tag1, "machine-0"))
 	c.Assert(results.Results, tc.HasLen, 2)
 	c.Assert(results.Results[0].Error, tc.IsNil)
-	c.Assert(results.Results[0].Entities, jc.DeepEquals, []params.Entity{})
+	c.Assert(results.Results[0].Entities, tc.DeepEquals, []params.Entity{})
 	c.Assert(results.Results[1].Error, tc.ErrorMatches, `"machine-0" is not a valid model tag`)
-	c.Assert(results.Results[1].Entities, jc.DeepEquals, []params.Entity{})
+	c.Assert(results.Results[1].Entities, tc.DeepEquals, []params.Entity{})
 }
 
 func (*undertakerSuite) TestAllMachineRemovalsChecksModelTag(c *tc.C) {
@@ -189,12 +188,12 @@ func (*undertakerSuite) TestCompleteMachineRemovalsWithOtherError(c *tc.C) {
 func (*undertakerSuite) TestCompleteMachineRemovals(c *tc.C) {
 	backend, remover, _, api := makeAPI(c, "")
 	err := api.CompleteMachineRemovals(context.Background(), makeEntities("machine-2", "machine-52"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	backend.CheckCallNames(c, "CompleteMachineRemovals")
 	callArgs := backend.Calls()[0].Args
 	c.Assert(len(callArgs), tc.Equals, 1)
 	values, ok := callArgs[0].([]string)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	c.Assert(values, tc.DeepEquals, []string{"2", "52"})
 	remover.stub.CheckCalls(c, []testing.StubCall{
 		{"Delete", []any{machine.Name("2")}},
@@ -244,7 +243,7 @@ func makeAPI(c *tc.C, modelUUID string) (*mockBackend, *mockMachineRemover, *com
 		},
 		machineRemover,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return backend, machineRemover, res, api
 }
 

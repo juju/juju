@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 )
 
@@ -38,7 +37,7 @@ func (s *configServiceSuite) TestInitialise(c *tc.C) {
 
 	srv := NewBakeryConfigService(s.st)
 	err := srv.InitialiseBakeryConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *configServiceSuite) TestGetLocalUsersKey(c *tc.C) {
@@ -49,7 +48,7 @@ func (s *configServiceSuite) TestGetLocalUsersKey(c *tc.C) {
 
 	srv := NewBakeryConfigService(s.st)
 	key, err := srv.GetLocalUsersKey(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(key, tc.DeepEquals, testKey)
 }
 
@@ -61,7 +60,7 @@ func (s *configServiceSuite) TestGetLocalUsersThirdPartyKey(c *tc.C) {
 
 	srv := NewBakeryConfigService(s.st)
 	key, err := srv.GetLocalUsersThirdPartyKey(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(key, tc.DeepEquals, testKey)
 }
 
@@ -73,7 +72,7 @@ func (s *configServiceSuite) TestGetExternalUsersThirdPartyKey(c *tc.C) {
 
 	srv := NewBakeryConfigService(s.st)
 	key, err := srv.GetExternalUsersThirdPartyKey(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(key, tc.DeepEquals, testKey)
 }
 
@@ -85,6 +84,6 @@ func (s *configServiceSuite) TestGetOffersThirdPartyKey(c *tc.C) {
 
 	srv := NewBakeryConfigService(s.st)
 	key, err := srv.GetOffersThirdPartyKey(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(key, tc.DeepEquals, testKey)
 }

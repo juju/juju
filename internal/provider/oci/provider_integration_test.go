@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/cloud"
@@ -124,7 +123,7 @@ func (s *credentialsSuite) TestDetectCredentialsNotFound(c *tc.C) {
 	creds, err := s.provider.DetectCredentials("")
 	c.Assert(err, tc.IsNil)
 	c.Assert(creds, tc.NotNil)
-	c.Assert(*creds, jc.DeepEquals, result)
+	c.Assert(*creds, tc.DeepEquals, result)
 }
 
 func (s *credentialsSuite) TestDetectCredentials(c *tc.C) {
@@ -151,7 +150,7 @@ func (s *credentialsSuite) TestDetectCredentialsWrongPassphrase(c *tc.C) {
 	}
 	s.writeOCIConfig(c, cfg)
 	_, err := s.provider.DetectCredentials("")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *credentialsSuite) TestDetectCredentialsMultiSection(c *tc.C) {
@@ -200,7 +199,7 @@ func (s *credentialsSuite) TestOpen(c *tc.C) {
 		Cloud:  s.spec,
 		Config: newConfig(c, jujutesting.Attrs{"compartment-id": "fake"}),
 	}, environs.NoopCredentialInvalidator())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(env, tc.NotNil)
 
 	env, err = environs.Open(stdcontext.Background(), s.provider, environs.OpenParams{

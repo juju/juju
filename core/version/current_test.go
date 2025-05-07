@@ -7,7 +7,6 @@ import (
 	"os/exec"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coreos "github.com/juju/juju/core/os"
 )
@@ -23,6 +22,6 @@ func (*CurrentSuite) TestCurrentSeries(c *tc.C) {
 	}
 	out, err := exec.Command("lsb_release", "-r").CombinedOutput()
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(out), tc.Equals, "Release:\t"+b.Channel.Track+"\n")
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 )
 
 type fetchInstanceClientFunc func(context.Context, *ec2.DescribeInstanceTypesInput, ...func(*ec2.Options)) (*ec2.DescribeInstanceTypesOutput, error)
@@ -56,6 +55,6 @@ func (s *instanceSuite) TestFetchInstanceTypeInfoPagnation(c *tc.C) {
 		context.Background(),
 		fetchInstanceClientFunc(client),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(res), tc.Equals, 600)
 }

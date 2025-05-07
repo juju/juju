@@ -6,7 +6,6 @@ package params_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
@@ -62,7 +61,7 @@ func (*errorSuite) TestTranslateWellKnownError(c *tc.C) {
 	}
 
 	for _, v := range tests {
-		c.Assert(v.err, tc.Not(jc.ErrorIs), v.errType, tc.Commentf("test %s: params error is not a juju/errors error", v.name))
-		c.Assert(params.TranslateWellKnownError(v.err), jc.ErrorIs, v.errType, tc.Commentf("test %s: translated error is a juju/errors error", v.name))
+		c.Assert(v.err, tc.Not(tc.ErrorIs), v.errType, tc.Commentf("test %s: params error is not a juju/errors error", v.name))
+		c.Assert(params.TranslateWellKnownError(v.err), tc.ErrorIs, v.errType, tc.Commentf("test %s: translated error is a juju/errors error", v.name))
 	}
 }

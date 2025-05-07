@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
@@ -45,7 +44,7 @@ func (s *AgentManifoldSuite) newWorker(a agent.Agent) (worker.Worker, error) {
 }
 
 func (s *AgentManifoldSuite) TestInputs(c *tc.C) {
-	c.Check(s.manifold.Inputs, jc.DeepEquals, []string{"agent-name"})
+	c.Check(s.manifold.Inputs, tc.DeepEquals, []string{"agent-name"})
 }
 
 func (s *AgentManifoldSuite) TestOutput(c *tc.C) {
@@ -85,7 +84,7 @@ func (s *AgentManifoldSuite) TestStartSuccess(c *tc.C) {
 	})
 
 	worker, err := s.manifold.Start(context.Background(), getter)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(worker, tc.Equals, s.worker)
 	s.CheckCalls(c, []testing.StubCall{{
 		FuncName: "newWorker",

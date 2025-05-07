@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/api/agent/migrationminion"
@@ -45,7 +44,7 @@ func (s *ClientSuite) TestWatch(c *tc.C) {
 
 	client := migrationminion.NewClient(apiCaller)
 	w, err := client.Watch(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer worker.Stop(w)
 
 	errC := make(chan error)
@@ -93,7 +92,7 @@ func (s *ClientSuite) TestReport(c *tc.C) {
 
 	client := migrationminion.NewClient(apiCaller)
 	err := client.Report(context.Background(), "id", migration.IMPORT, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{FuncName: "MigrationMinion.Report", Args: []interface{}{params.MinionReport{

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
@@ -205,10 +204,10 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *tc.C) {
 		c.Logf("test %d: %v", i, test)
 		badrun(c, 0, test...)
 		content, err := os.ReadFile(logpath)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(string(content), tc.Matches, "(.|\n)*running juju(.|\n)*command finished(.|\n)*")
 		err = os.Remove(logpath)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }
 
@@ -231,7 +230,7 @@ func (s *MainSuite) TestNoWarn2xFirstRun(c *tc.C) {
 
 	// remove the new juju-home.
 	err := os.RemoveAll(osenv.JujuXDGDataHomeDir())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// create fake (empty) old juju home.
 	path := c.MkDir()
@@ -283,7 +282,7 @@ func (s *MainSuite) assertRunUpdateCloud(c *tc.C, expectedCalled bool) {
 func (s *MainSuite) TestFirstRunUpdateCloud(c *tc.C) {
 	// remove the juju-home.
 	err := os.RemoveAll(osenv.JujuXDGDataHomeDir())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertRunUpdateCloud(c, true)
 }
 
@@ -523,18 +522,18 @@ func (s *MainSuite) TestHelpCommands(c *tc.C) {
 	// Use sorted values here so we can better see what is wrong.
 	registered := getHelpCommandNames(c)
 	unknown := registered.Difference(cmdSet)
-	c.Assert(unknown, jc.DeepEquals, set.NewStrings())
+	c.Assert(unknown, tc.DeepEquals, set.NewStrings())
 	missing := cmdSet.Difference(registered)
-	c.Assert(missing, jc.DeepEquals, set.NewStrings())
+	c.Assert(missing, tc.DeepEquals, set.NewStrings())
 
 	// 2. Enable development features, and test again.
 	cmdSet = cmdSet.Union(commandNamesBehindFlags)
 	setFeatureFlags(strings.Join(optionalFeatures, ","))
 	registered = getHelpCommandNames(c)
 	unknown = registered.Difference(cmdSet)
-	c.Assert(unknown, jc.DeepEquals, set.NewStrings())
+	c.Assert(unknown, tc.DeepEquals, set.NewStrings())
 	missing = cmdSet.Difference(registered)
-	c.Assert(missing.IsEmpty(), jc.IsTrue)
+	c.Assert(missing.IsEmpty(), tc.IsTrue)
 }
 
 func getHelpCommandNames(c *tc.C) set.Strings {
@@ -604,7 +603,7 @@ func (s *MainSuite) TestRegisterCommands(c *tc.C) {
 	expected := make([]string, len(commandNames))
 	copy(expected, commandNames)
 	sort.Strings(expected)
-	c.Check(registry.names, jc.DeepEquals, expected)
+	c.Check(registry.names, tc.DeepEquals, expected)
 }
 
 func (s *MainSuite) TestRegisterCommandsWhitelist(c *tc.C) {
@@ -615,7 +614,7 @@ func (s *MainSuite) TestRegisterCommandsWhitelist(c *tc.C) {
 		excluded:        set.NewStrings(),
 	}
 	registerCommands(registry)
-	c.Assert(stubRegistry.names, jc.SameContents, []string{"status"})
+	c.Assert(stubRegistry.names, tc.SameContents, []string{"status"})
 }
 
 func (s *MainSuite) TestRegisterCommandsEmbedded(c *tc.C) {
@@ -634,9 +633,9 @@ func (s *MainSuite) TestRegisterCommandsEmbedded(c *tc.C) {
 		},
 	}
 	registry.Register(stubCmd)
-	c.Assert(stubRegistry.names, jc.SameContents, []string{"test"})
-	c.Assert(stubCmd.Embedded, jc.IsTrue)
-	c.Assert(stubCmd.ClientStore(), jc.DeepEquals, store)
+	c.Assert(stubRegistry.names, tc.SameContents, []string{"test"})
+	c.Assert(stubCmd.Embedded, tc.IsTrue)
+	c.Assert(stubCmd.ClientStore(), tc.DeepEquals, store)
 }
 
 type commands []cmd.Command
@@ -694,7 +693,7 @@ func (s *MainSuite) TestAllCommandsPurpose(c *tc.C) {
 			prefix := string(purpose[0])
 			c.Check(prefix, tc.Equals, strings.ToUpper(prefix),
 				comment("expected uppercase first-letter Purpose"))
-			c.Check(strings.HasSuffix(purpose, "."), jc.IsTrue,
+			c.Check(strings.HasSuffix(purpose, "."), tc.IsTrue,
 				comment("is missing full stop in Purpose"))
 		}
 		if doc != "" && !strings.HasPrefix(doc, info.Name) {

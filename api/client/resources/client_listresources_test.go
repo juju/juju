@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/base/mocks"
@@ -42,8 +41,8 @@ func (s *ListResourcesSuite) TestListResources(c *tc.C) {
 	client := resources.NewClientFromCaller(mockFacadeCaller)
 
 	res, err := client.ListResources(context.Background(), []string{"a-application", "other-application"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res, jc.DeepEquals, []coreresource.ApplicationResources{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.DeepEquals, []coreresource.ApplicationResources{
 		{Resources: expected1},
 		{Resources: expected2},
 	})
@@ -77,8 +76,8 @@ func (s *ListResourcesSuite) TestEmptyResources(c *tc.C) {
 	client := resources.NewClientFromCaller(mockFacadeCaller)
 
 	res, err := client.ListResources(context.Background(), []string{"a-application", "other-application"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res, jc.DeepEquals, []coreresource.ApplicationResources{{}, {}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.DeepEquals, []coreresource.ApplicationResources{{}, {}})
 }
 
 func (s *ListResourcesSuite) TestServerError(c *tc.C) {

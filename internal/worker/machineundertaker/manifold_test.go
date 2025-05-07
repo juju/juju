@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
@@ -76,7 +75,7 @@ func (*manifoldSuite) TestSuccess(c *tc.C) {
 		"the-caller":  apitesting.APICallerFunc(nil),
 		"the-environ": &fakeEnviron{},
 	}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, &w)
 }
 

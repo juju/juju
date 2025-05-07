@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/common/secretsdrain"
@@ -58,11 +57,11 @@ func (s *secretsDrainSuite) TestGetSecretsToDrain(c *tc.C) {
 
 	client := secretsdrain.NewClient(apiCaller)
 	result, err := client.GetSecretsToDrain(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.HasLen, 1)
 	for _, info := range result {
 		c.Assert(info.URI.String(), tc.Equals, uri.String())
-		c.Assert(info.Revisions, jc.DeepEquals, []coresecrets.SecretExternalRevision{
+		c.Assert(info.Revisions, tc.DeepEquals, []coresecrets.SecretExternalRevision{
 			{
 				Revision: 666,
 				ValueRef: &coresecrets.ValueRef{
@@ -124,9 +123,9 @@ func (s *secretsDrainSuite) TestChangeSecretBackend(c *tc.C) {
 			},
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
-	c.Assert(result.Results[0], jc.ErrorIsNil)
+	c.Assert(result.Results[0], tc.ErrorIsNil)
 }
 
 func (s *secretsDrainSuite) TestWatchSecretBackendChanged(c *tc.C) {

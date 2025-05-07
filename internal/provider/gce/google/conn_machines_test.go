@@ -3,14 +3,11 @@
 
 package google_test
 
-import (
-	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
-)
+import "github.com/juju/tc"
 
 func (s *connSuite) TestConnectionListMachineTypesAPI(c *tc.C) {
 	_, err := s.FakeConn.ListMachineTypes("project", "a-zone")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, tc.HasLen, 1)
 	c.Check(s.FakeConn.Calls[0].FuncName, tc.Equals, "ListMachineTypes")

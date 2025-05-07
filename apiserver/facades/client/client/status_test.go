@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/model"
@@ -87,14 +86,14 @@ func (s *statusSuite) TestModelStatusModelNotFound(c *tc.C) {
 
 	client := &Client{modelInfoService: s.modelInfoService}
 	_, err := client.modelStatus(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *statusSuite) TestStatusHistory(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag, err := names.ParseApplicationTag("application-foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, gomock.Any()).Return(nil)
 	s.statusService.EXPECT().GetStatusHistory(gomock.Any(), statusservice.StatusHistoryRequest{
@@ -130,7 +129,7 @@ func (s *statusSuite) TestStatusHistoryNoBulk(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag, err := names.ParseApplicationTag("application-foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, gomock.Any()).Return(nil)
 
@@ -162,7 +161,7 @@ func (s *statusSuite) TestStatusHistoryInvalidKind(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag, err := names.ParseApplicationTag("application-foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, gomock.Any()).Return(nil)
 
@@ -211,7 +210,7 @@ func (s *statusSuite) TestStatusHistoryError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag, err := names.ParseApplicationTag("application-foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, gomock.Any()).Return(nil)
 	s.statusService.EXPECT().GetStatusHistory(gomock.Any(), statusservice.StatusHistoryRequest{

@@ -5,7 +5,6 @@ package jujuclienttesting
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
@@ -37,9 +36,9 @@ func SetupMinimalFileStore(c *tc.C) {
 		Controllers:       store.Controllers,
 		CurrentController: store.CurrentControllerName,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = jujuclient.WriteModelsFile(store.Models)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = jujuclient.WriteAccountsFile(store.Accounts)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

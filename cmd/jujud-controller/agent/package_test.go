@@ -13,7 +13,6 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/internal/pubsub/apiserver"
@@ -30,7 +29,7 @@ func TestPackage(t *stdtesting.T) {
 
 func readAuditLog(c *tc.C, logPath string) []auditlog.Record {
 	file, err := os.Open(logPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
@@ -38,7 +37,7 @@ func readAuditLog(c *tc.C, logPath string) []auditlog.Record {
 	for scanner.Scan() {
 		var record auditlog.Record
 		err := json.Unmarshal(scanner.Bytes(), &record)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		results = append(results, record)
 	}
 	return results

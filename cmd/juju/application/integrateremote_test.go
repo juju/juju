@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	jtesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/crossmodel"
@@ -30,7 +29,7 @@ var _ = tc.Suite(&AddRemoteRelationSuiteNewAPI{})
 
 func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationNoRemoteApplications(c *tc.C) {
 	err := s.runAddRelation(c, "applicationname2", "applicationname")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.mockAPI.CheckCallNames(c, "AddRelation", "Close")
 	s.mockAPI.CheckCall(c, 0, "AddRelation", []string{"applicationname2", "applicationname"}, []string(nil))
 }
@@ -120,7 +119,7 @@ To integrate with a new offer with the same name, first run
 
 func (s *AddRemoteRelationSuiteNewAPI) TestAddedRelationVia(c *tc.C) {
 	err := s.runAddRelation(c, "othermodel.applicationname2", "applicationname", "--via", "192.168.1.0/16, 10.0.0.0/16")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.mockAPI.CheckCallNames(c, "GetConsumeDetails", "Consume", "Close", "AddRelation", "Close")
 	s.mockAPI.CheckCall(c, 3, "AddRelation",
 		[]string{"applicationname2", "applicationname"}, []string{"192.168.1.0/16", "10.0.0.0/16"})
@@ -128,7 +127,7 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddedRelationVia(c *tc.C) {
 
 func (s *AddRemoteRelationSuiteNewAPI) assertAddedRelation(c *tc.C, args ...string) {
 	err := s.runAddRelation(c, args...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.mockAPI.CheckCallNames(c, "GetConsumeDetails", "Consume", "Close", "AddRelation", "Close")
 }
 
@@ -180,7 +179,7 @@ func (s *baseAddRemoteRelationSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	var err error
 	s.mac, err = jujutesting.NewMacaroon("id")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.mockAPI = &mockAddRelationAPI{
 		addRelation: func(endpoints, viaCIDRs []string) (*params.AddRelationResults, error) {
 			return nil, nil

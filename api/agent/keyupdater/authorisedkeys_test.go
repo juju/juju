@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/agent/keyupdater"
 	"github.com/juju/juju/api/base/testing"
@@ -28,7 +27,7 @@ func (s *keyupdaterSuite) TestAuthorisedKeys(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "AuthorisedKeys")
-		c.Check(arg, jc.DeepEquals, params.Entities{
+		c.Check(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "machine-666"}},
 		})
 		c.Assert(result, tc.FitsTypeOf, &params.StringsResults{})
@@ -42,7 +41,7 @@ func (s *keyupdaterSuite) TestAuthorisedKeys(c *tc.C) {
 	tag := names.NewMachineTag("666")
 	client := keyupdater.NewClient(apiCaller)
 	keys, err := client.AuthorisedKeys(context.Background(), tag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(keys, tc.DeepEquals, []string{"key1", "key2"})
 }
 
@@ -52,7 +51,7 @@ func (s *keyupdaterSuite) TestWatchAuthorisedKeys(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "WatchAuthorisedKeys")
-		c.Check(arg, jc.DeepEquals, params.Entities{
+		c.Check(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "machine-666"}},
 		})
 		c.Assert(result, tc.FitsTypeOf, &params.NotifyWatchResults{})

@@ -13,7 +13,6 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
@@ -62,11 +61,11 @@ func (s *modelSuite) TestGetModelType(c *tc.C) {
 		`, modelUUID.String(), coretesting.ControllerTag.Id())
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	mt, err := st.GetModelType(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(mt, tc.Equals, coremodel.IAAS)
 }
 
@@ -116,20 +115,20 @@ func (s *applicationStateSuite) TestCreateApplication(c *tc.C) {
 		Scale:   1,
 		Channel: channel,
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, channel, scale, false)
 
 	// Ensure that config is empty and trust is false.
 	config, settings, err := s.state.GetApplicationConfigAndSettings(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(config, tc.HasLen, 0)
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{Trust: false})
 
 	// Status should be unset.
 	statusState := statusstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	sts, err := statusState.GetApplicationStatus(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sts, tc.DeepEquals, status.StatusInfo[status.WorkloadStatusType]{
 		Status: status.WorkloadStatusUnset,
 	})
@@ -176,13 +175,13 @@ func (s *applicationStateSuite) TestCreateApplicationWithConfigAndSettings(c *tc
 			Trust: true,
 		},
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, channel, scale, false)
 
 	// Ensure that config is empty and trust is false.
 	config, settings, err := s.state.GetApplicationConfigAndSettings(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"foo": {
 			Value: "bar",
@@ -224,7 +223,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithPeerRelation(c *tc.C) {
 		Scale:   1,
 		Channel: channel,
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil, tc.Commentf("Failed to create application: %s", errors.ErrorStack(err)))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("Failed to create application: %s", errors.ErrorStack(err)))
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, channel, scale, false)
 
@@ -270,13 +269,13 @@ func (s *applicationStateSuite) TestCreateApplicationWithStatus(c *tc.C) {
 			Since:   ptr(now),
 		},
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, channel, scale, false)
 
 	statusState := statusstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	sts, err := statusState.GetApplicationStatus(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sts, tc.DeepEquals, status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "test",
@@ -334,7 +333,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithUnits(c *tc.C) {
 	ctx := context.Background()
 
 	_, err := s.state.CreateApplication(ctx, "foo", a, us)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "foo", platform, channel, scale, false)
 }
@@ -364,7 +363,7 @@ func (s *applicationStateSuite) TestCreateApplicationsWithSameCharm(c *tc.C) {
 			ReferenceName: "foo",
 		},
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.state.CreateApplication(ctx, "foo2", application.AddApplicationArg{
 		Platform: platform,
@@ -378,7 +377,7 @@ func (s *applicationStateSuite) TestCreateApplicationsWithSameCharm(c *tc.C) {
 			ReferenceName: "foo",
 		},
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	scale := application.ScaleState{}
 	s.assertApplication(c, "foo1", platform, channel, scale, false)
@@ -406,7 +405,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithoutChannel(c *tc.C) {
 		},
 		Scale: 1,
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, nil, scale, false)
 }
@@ -431,7 +430,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithEmptyChannel(c *tc.C) {
 		},
 		Scale: 1,
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, channel, scale, false)
 }
@@ -458,7 +457,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithCharmStoragePath(c *tc.
 		},
 		Scale: 1,
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, channel, scale, true)
 }
@@ -497,11 +496,11 @@ func (s *applicationStateSuite) TestCreateApplicationWithResolvedResources(c *tc
 
 	_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForResources(c, "666",
 		charmResources, addResourcesArgs), nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Check expected resources are added
 	assertTxn := func(comment string, do func(ctx context.Context, tx *sql.Tx) error) {
 		err := s.TxnRunner().StdTxn(context.Background(), do)
-		c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Assert) %s: %s", comment,
+		c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) %s: %s", comment,
 			errors.ErrorStack(err)))
 	}
 	var (
@@ -585,9 +584,9 @@ AND state = 'potential'`, appUUID)
 		}
 		return nil
 	})
-	c.Check(foundCharmResources, jc.SameContents, slices.Collect(maps.Values(charmResources)),
+	c.Check(foundCharmResources, tc.SameContents, slices.Collect(maps.Values(charmResources)),
 		tc.Commentf("(Assert) mismatch between charm resources and inserted resources"))
-	c.Check(foundAppAvailableResources, jc.SameContents, addResourcesArgs,
+	c.Check(foundAppAvailableResources, tc.SameContents, addResourcesArgs,
 		tc.Commentf("(Assert) mismatch between app available app resources and inserted resources"))
 	expectedPotentialResources := make([]application.AddApplicationResourceArg, 0, len(addResourcesArgs))
 	for _, res := range addResourcesArgs {
@@ -597,7 +596,7 @@ AND state = 'potential'`, appUUID)
 			Origin:   charmresource.OriginStore, // origin should always be store
 		})
 	}
-	c.Check(foundAppPotentialResources, jc.SameContents, expectedPotentialResources,
+	c.Check(foundAppPotentialResources, tc.SameContents, expectedPotentialResources,
 		tc.Commentf("(Assert) mismatch between potential app resources and inserted resources"))
 }
 
@@ -628,7 +627,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithPendingResources(c *tc.
 		charmResources, nil)
 
 	charmID, _, err := s.state.SetCharm(ctx, args.Charm, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	addResources := []resource.AddResourceDetails{
 		{
@@ -643,11 +642,11 @@ func (s *applicationStateSuite) TestCreateApplicationWithPendingResources(c *tc.
 	args.PendingResources = s.addResourcesBeforeApplication(c, appName, charmID.String(), addResources)
 
 	_, err = s.state.CreateApplication(ctx, appName, args, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Check expected resources are added
 	assertTxn := func(comment string, do func(ctx context.Context, tx *sql.Tx) error) {
 		err := s.TxnRunner().StdTxn(context.Background(), do)
-		c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Assert) %s: %s", comment,
+		c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) %s: %s", comment,
 			errors.ErrorStack(err)))
 	}
 	var (
@@ -724,9 +723,9 @@ AND state = 'potential'`, appUUID)
 		}
 		return nil
 	})
-	c.Check(foundCharmResources, jc.SameContents, slices.Collect(maps.Values(charmResources)),
+	c.Check(foundCharmResources, tc.SameContents, slices.Collect(maps.Values(charmResources)),
 		tc.Commentf("(Assert) mismatch between charm resources and inserted resources"))
-	c.Check(foundAppAvailableResources, jc.SameContents, addResources,
+	c.Check(foundAppAvailableResources, tc.SameContents, addResources,
 		tc.Commentf("(Assert) mismatch between app available app resources and inserted resources"))
 	expectedPotentialResources := make([]resource.AddResourceDetails, 0, len(addResources))
 	for _, res := range addResources {
@@ -735,7 +734,7 @@ AND state = 'potential'`, appUUID)
 			Revision: nil, // nil revision
 		})
 	}
-	c.Check(foundAppPotentialResources, jc.SameContents, expectedPotentialResources,
+	c.Check(foundAppPotentialResources, tc.SameContents, expectedPotentialResources,
 		tc.Commentf("(Assert) mismatch between potential app resources and inserted resources"))
 
 	assertTxn("No pending application resources", func(ctx context.Context, tx *sql.Tx) error {
@@ -792,7 +791,7 @@ VALUES (?, ?)
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return resourceUUIDs
 }
 
@@ -826,11 +825,11 @@ func (s *applicationStateSuite) TestCreateApplicationWithExistingCharmWithResour
 
 	_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForResources(c, "666",
 		charmResources, addResourcesArgs), nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.state.CreateApplication(ctx, "667", s.addApplicationArgForResources(c, "666",
 		charmResources, addResourcesArgs), nil)
-	c.Check(err, jc.ErrorIsNil, tc.Commentf("Failed to create second "+
+	c.Check(err, tc.ErrorIsNil, tc.Commentf("Failed to create second "+
 		"application. Maybe the charm UUID is not properly fetched to pass to "+
 		"resources ?"))
 }
@@ -864,7 +863,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithResourcesMissingResourc
 
 	_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForResources(c, "666",
 		charmResources, addResourceArgs), nil)
-	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Assert) unexpected error: %s",
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) unexpected error: %s",
 		errors.ErrorStack(err)))
 }
 
@@ -908,20 +907,20 @@ func (s *applicationStateSuite) TestCreateApplicationWithResourcesTooMuchResourc
 func (s *applicationStateSuite) TestGetApplicationLife(c *tc.C) {
 	appID := s.createApplication(c, "foo", life.Dying)
 	gotID, appLife, err := s.state.GetApplicationLife(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotID, tc.Equals, appID)
 	c.Assert(appLife, tc.Equals, life.Dying)
 }
 
 func (s *applicationStateSuite) TestGetApplicationLifeNotFound(c *tc.C) {
 	_, _, err := s.state.GetApplicationLife(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestUpsertCloudServiceNew(c *tc.C) {
 	appID := s.createApplication(c, "foo", life.Alive)
 	err := s.state.UpsertCloudService(context.Background(), "foo", "provider-id", network.SpaceAddresses{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	var providerID string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT provider_id FROM k8s_service WHERE application_uuid = ?", appID).Scan(&providerID)
@@ -930,16 +929,16 @@ func (s *applicationStateSuite) TestUpsertCloudServiceNew(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(providerID, tc.Equals, "provider-id")
 }
 
 func (s *applicationStateSuite) TestUpsertCloudServiceExisting(c *tc.C) {
 	appID := s.createApplication(c, "foo", life.Alive)
 	err := s.state.UpsertCloudService(context.Background(), "foo", "provider-id", network.SpaceAddresses{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.state.UpsertCloudService(context.Background(), "foo", "provider-id", network.SpaceAddresses{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	var providerID string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT provider_id FROM k8s_service WHERE application_uuid = ?", appID).Scan(&providerID)
@@ -948,7 +947,7 @@ func (s *applicationStateSuite) TestUpsertCloudServiceExisting(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(providerID, tc.Equals, "provider-id")
 }
 
@@ -956,9 +955,9 @@ func (s *applicationStateSuite) TestUpsertCloudServiceAnother(c *tc.C) {
 	appID := s.createApplication(c, "foo", life.Alive)
 	s.createApplication(c, "bar", life.Alive)
 	err := s.state.UpsertCloudService(context.Background(), "foo", "provider-id", network.SpaceAddresses{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.state.UpsertCloudService(context.Background(), "foo", "another-provider-id", network.SpaceAddresses{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	var providerIds []string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, "SELECT provider_id FROM k8s_service WHERE application_uuid = ?", appID)
@@ -976,8 +975,8 @@ func (s *applicationStateSuite) TestUpsertCloudServiceAnother(c *tc.C) {
 		}
 		return rows.Err()
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(providerIds, jc.SameContents, []string{"provider-id", "another-provider-id"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(providerIds, tc.SameContents, []string{"provider-id", "another-provider-id"})
 }
 
 func (s *applicationStateSuite) TestUpsertCloudServiceUpdateExistingEmptyAddresses(c *tc.C) {
@@ -1001,7 +1000,7 @@ func (s *applicationStateSuite) TestUpsertCloudServiceUpdateExistingEmptyAddress
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	checkAddresses := func(c *tc.C, expectedAddresses ...string) {
 		var resultAddresses []string
@@ -1028,14 +1027,14 @@ WHERE application_uuid = ?
 			}
 			return rows.Err()
 		})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(resultAddresses, jc.SameContents, expectedAddresses)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(resultAddresses, tc.SameContents, expectedAddresses)
 	}
 
 	checkAddresses(c, "10.0.0.1", "10.0.0.2")
 
 	err = s.state.UpsertCloudService(context.Background(), "foo", "provider-id", network.SpaceAddresses{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Since no addresses were passed as input, the previous addresses should
 	// be returned.
 	checkAddresses(c, "10.0.0.1", "10.0.0.2")
@@ -1062,7 +1061,7 @@ func (s *applicationStateSuite) TestUpsertCloudServiceUpdateExistingWithAddresse
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	checkAddresses := func(c *tc.C, expectedAddresses ...string) {
 		var resultAddresses []string
@@ -1089,8 +1088,8 @@ WHERE application_uuid = ?
 			}
 			return rows.Err()
 		})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(resultAddresses, jc.SameContents, expectedAddresses)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(resultAddresses, tc.SameContents, expectedAddresses)
 	}
 
 	checkAddresses(c, "10.0.0.1", "10.0.0.2")
@@ -1113,7 +1112,7 @@ WHERE application_uuid = ?
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Since no addresses were passed as input, the previous addresses should
 	// be returned.
 	checkAddresses(c, "192.168.0.0", "192.168.0.1")
@@ -1121,7 +1120,7 @@ WHERE application_uuid = ?
 
 func (s *applicationStateSuite) TestUpsertCloudServiceNotFound(c *tc.C) {
 	err := s.state.UpsertCloudService(context.Background(), "foo", "provider-id", network.SpaceAddresses{})
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestCloudServiceAddresses(c *tc.C) {
@@ -1167,10 +1166,10 @@ func (s *applicationStateSuite) TestCloudServiceAddresses(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	addresses, err := s.state.GetCloudServiceAddresses(context.Background(), appID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(addresses, tc.HasLen, 2)
 	c.Check(addresses, tc.DeepEquals, expectedAddresses)
 }
@@ -1182,13 +1181,13 @@ func (s *applicationStateSuite) TestGetApplicationIDByUnitName(c *tc.C) {
 	expectedAppUUID := s.createApplication(c, "foo", life.Alive, u1)
 
 	obtainedAppUUID, err := s.state.GetApplicationIDByUnitName(context.Background(), u1.UnitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtainedAppUUID, tc.Equals, expectedAppUUID)
 }
 
 func (s *applicationStateSuite) TestGetApplicationIDByUnitNameUnitUnitNotFound(c *tc.C) {
 	_, err := s.state.GetApplicationIDByUnitName(context.Background(), "failme")
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *applicationStateSuite) TestGetApplicationIDAndNameByUnitName(c *tc.C) {
@@ -1198,14 +1197,14 @@ func (s *applicationStateSuite) TestGetApplicationIDAndNameByUnitName(c *tc.C) {
 	expectedAppUUID := s.createApplication(c, "foo", life.Alive, u1)
 
 	appUUID, appName, err := s.state.GetApplicationIDAndNameByUnitName(context.Background(), u1.UnitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(appUUID, tc.Equals, expectedAppUUID)
 	c.Check(appName, tc.Equals, "foo")
 }
 
 func (s *applicationStateSuite) TestGetApplicationIDAndNameByUnitNameNotFound(c *tc.C) {
 	_, _, err := s.state.GetApplicationIDAndNameByUnitName(context.Background(), "failme")
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *applicationStateSuite) TestGetCharmModifiedVersion(c *tc.C) {
@@ -1213,7 +1212,7 @@ func (s *applicationStateSuite) TestGetCharmModifiedVersion(c *tc.C) {
 	s.addCharmModifiedVersion(c, appUUID, 7)
 
 	charmModifiedVersion, err := s.state.GetCharmModifiedVersion(context.Background(), appUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(charmModifiedVersion, tc.Equals, 7)
 }
 
@@ -1221,13 +1220,13 @@ func (s *applicationStateSuite) TestGetCharmModifiedVersionNull(c *tc.C) {
 	appUUID := s.createApplication(c, "foo", life.Alive)
 
 	charmModifiedVersion, err := s.state.GetCharmModifiedVersion(context.Background(), appUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(charmModifiedVersion, tc.Equals, 0)
 }
 
 func (s *applicationStateSuite) TestGetCharmModifiedVersionApplicationNotFound(c *tc.C) {
 	_, err := s.state.GetCharmModifiedVersion(context.Background(), applicationtesting.GenApplicationUUID(c))
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestGetApplicationScaleState(c *tc.C) {
@@ -1237,22 +1236,22 @@ func (s *applicationStateSuite) TestGetApplicationScaleState(c *tc.C) {
 	appID := s.createApplication(c, "foo", life.Alive, u)
 
 	scaleState, err := s.state.GetApplicationScaleState(context.Background(), appID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(scaleState, jc.DeepEquals, application.ScaleState{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(scaleState, tc.DeepEquals, application.ScaleState{
 		Scale: 1,
 	})
 }
 
 func (s *applicationStateSuite) TestGetApplicationScaleStateNotFound(c *tc.C) {
 	_, err := s.state.GetApplicationScaleState(context.Background(), coreapplication.ID(uuid.MustNewUUID().String()))
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestSetDesiredApplicationScale(c *tc.C) {
 	appID := s.createApplication(c, "foo", life.Alive)
 
 	err := s.state.SetDesiredApplicationScale(context.Background(), appID, 666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var gotScale int
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -1260,18 +1259,18 @@ func (s *applicationStateSuite) TestSetDesiredApplicationScale(c *tc.C) {
 			Scan(&gotScale)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(gotScale, jc.DeepEquals, 666)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotScale, tc.DeepEquals, 666)
 }
 
 func (s *applicationStateSuite) TestUpdateApplicationScale(c *tc.C) {
 	appID := s.createApplication(c, "foo", life.Alive)
 
 	err := s.state.SetDesiredApplicationScale(context.Background(), appID, 666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newScale, err := s.state.UpdateApplicationScale(context.Background(), appID, 2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var gotScale int
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -1279,16 +1278,16 @@ func (s *applicationStateSuite) TestUpdateApplicationScale(c *tc.C) {
 			Scan(&gotScale)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(gotScale, jc.DeepEquals, 666+2)
-	c.Check(newScale, jc.DeepEquals, 666+2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotScale, tc.DeepEquals, 666+2)
+	c.Check(newScale, tc.DeepEquals, 666+2)
 }
 
 func (s *applicationStateSuite) TestUpdateApplicationScaleInvalidScale(c *tc.C) {
 	appID := s.createApplication(c, "foo", life.Alive)
 
 	err := s.state.SetDesiredApplicationScale(context.Background(), appID, 666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.state.UpdateApplicationScale(context.Background(), appID, -667)
 	c.Assert(err, tc.ErrorMatches, `scale change invalid: cannot remove more units than currently exist`)
@@ -1302,7 +1301,7 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateAlreadyScaling(c *
 
 	// Set up the initial scale value.
 	err := s.state.SetDesiredApplicationScale(context.Background(), appID, 666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	checkResult := func(want application.ScaleState) {
 		var got application.ScaleState
@@ -1311,12 +1310,12 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateAlreadyScaling(c *
 				Scan(&got.Scale, &got.Scaling, &got.ScaleTarget)
 			return err
 		})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(got, jc.DeepEquals, want)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(got, tc.DeepEquals, want)
 	}
 
 	err = s.state.SetApplicationScalingState(context.Background(), "foo", 42, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkResult(application.ScaleState{
 		Scale:       42,
 		ScaleTarget: 42,
@@ -1325,7 +1324,7 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateAlreadyScaling(c *
 
 	// Set scaling state but use the same target value as current scale.
 	err = s.state.SetApplicationScalingState(context.Background(), "foo", 42, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkResult(application.ScaleState{
 		Scale:       42,
 		ScaleTarget: 42,
@@ -1341,7 +1340,7 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateInconsistent(c *tc
 
 	// Set up the initial scale value.
 	err := s.state.SetDesiredApplicationScale(context.Background(), appID, 666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Set scaling state but use a target value different than the current
 	// scale.
@@ -1357,7 +1356,7 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateAppDying(c *tc.C) 
 
 	// Set up the initial scale value.
 	err := s.state.SetDesiredApplicationScale(context.Background(), appID, 666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	checkResult := func(want application.ScaleState) {
 		var got application.ScaleState
@@ -1366,12 +1365,12 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateAppDying(c *tc.C) 
 				Scan(&got.Scale, &got.Scaling, &got.ScaleTarget)
 			return err
 		})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(got, jc.DeepEquals, want)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(got, tc.DeepEquals, want)
 	}
 
 	err = s.state.SetApplicationScalingState(context.Background(), "foo", 42, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkResult(application.ScaleState{
 		Scale:       42,
 		ScaleTarget: 42,
@@ -1389,7 +1388,7 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateAppDead(c *tc.C) {
 
 	// Set up the initial scale value.
 	err := s.state.SetDesiredApplicationScale(context.Background(), appID, 666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	checkResult := func(want application.ScaleState) {
 		var got application.ScaleState
@@ -1398,12 +1397,12 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateAppDead(c *tc.C) {
 				Scan(&got.Scale, &got.Scaling, &got.ScaleTarget)
 			return err
 		})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(got, jc.DeepEquals, want)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(got, tc.DeepEquals, want)
 	}
 
 	err = s.state.SetApplicationScalingState(context.Background(), "foo", 42, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkResult(application.ScaleState{
 		Scale:       42,
 		ScaleTarget: 42,
@@ -1419,7 +1418,7 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateNotScaling(c *tc.C
 
 	// Set up the initial scale value.
 	err := s.state.SetDesiredApplicationScale(context.Background(), appID, 666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	checkResult := func(want application.ScaleState) {
 		var got application.ScaleState
@@ -1428,12 +1427,12 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateNotScaling(c *tc.C
 				Scan(&got.Scale, &got.Scaling, &got.ScaleTarget)
 			return err
 		})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(got, jc.DeepEquals, want)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(got, tc.DeepEquals, want)
 	}
 
 	err = s.state.SetApplicationScalingState(context.Background(), "foo", 668, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkResult(application.ScaleState{
 		Scale:       666,
 		ScaleTarget: 668,
@@ -1452,21 +1451,21 @@ func (s *applicationStateSuite) TestSetApplicationLife(c *tc.C) {
 				Scan(&gotLife)
 			return err
 		})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(gotLife, jc.DeepEquals, want)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(gotLife, tc.DeepEquals, want)
 	}
 
 	err := s.state.SetApplicationLife(ctx, appID, life.Dying)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkResult(life.Dying)
 
 	err = s.state.SetApplicationLife(ctx, appID, life.Dead)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkResult(life.Dead)
 
 	// Can't go backwards.
 	err = s.state.SetApplicationLife(ctx, appID, life.Dying)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkResult(life.Dead)
 }
 
@@ -1476,7 +1475,7 @@ func (s *applicationStateSuite) TestDeleteApplication(c *tc.C) {
 	s.createApplication(c, "foo", life.Alive)
 
 	err := s.state.DeleteApplication(ctx, "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var (
 		appCount              int
@@ -1551,7 +1550,7 @@ WHERE a.name=?`,
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(appCount, tc.Equals, 0)
 	c.Check(platformCount, tc.Equals, 0)
 	c.Check(channelCount, tc.Equals, 0)
@@ -1565,10 +1564,10 @@ func (s *applicationStateSuite) TestDeleteApplicationTwice(c *tc.C) {
 	s.createApplication(c, "foo", life.Alive)
 
 	err := s.state.DeleteApplication(ctx, "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.DeleteApplication(ctx, "foo")
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestDeleteDeadApplication(c *tc.C) {
@@ -1576,10 +1575,10 @@ func (s *applicationStateSuite) TestDeleteDeadApplication(c *tc.C) {
 	s.createApplication(c, "foo", life.Dead)
 
 	err := s.state.DeleteApplication(ctx, "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.DeleteApplication(ctx, "foo")
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestDeleteApplicationWithUnits(c *tc.C) {
@@ -1590,7 +1589,7 @@ func (s *applicationStateSuite) TestDeleteApplicationWithUnits(c *tc.C) {
 	s.createApplication(c, "foo", life.Alive, u)
 
 	err := s.state.DeleteApplication(ctx, "foo")
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationHasUnits)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationHasUnits)
 	c.Assert(err, tc.ErrorMatches, `.*cannot delete application "foo" as it still has 1 unit\(s\)`)
 
 	var appCount int
@@ -1601,7 +1600,7 @@ func (s *applicationStateSuite) TestDeleteApplicationWithUnits(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(appCount, tc.Equals, 1)
 }
 
@@ -1632,50 +1631,50 @@ func (s *applicationStateSuite) TestGetApplicationUnitLife(c *tc.C) {
 		err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "bar/667").Scan(&unitID3)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	got, err := s.state.GetApplicationUnitLife(context.Background(), "foo", unitID2)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, jc.DeepEquals, map[coreunit.UUID]life.Life{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.DeepEquals, map[coreunit.UUID]life.Life{
 		unitID2: life.Alive,
 	})
 
 	got, err = s.state.GetApplicationUnitLife(context.Background(), "foo", unitID1, unitID2)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, jc.DeepEquals, map[coreunit.UUID]life.Life{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.DeepEquals, map[coreunit.UUID]life.Life{
 		unitID1: life.Dead,
 		unitID2: life.Alive,
 	})
 
 	got, err = s.state.GetApplicationUnitLife(context.Background(), "foo", unitID2, unitID3)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, jc.DeepEquals, map[coreunit.UUID]life.Life{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.DeepEquals, map[coreunit.UUID]life.Life{
 		unitID2: life.Alive,
 	})
 
 	got, err = s.state.GetApplicationUnitLife(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.HasLen, 0)
 }
 
 func (s *applicationStateSuite) TestStorageDefaultsNone(c *tc.C) {
 	defaults, err := s.state.StorageDefaults(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(defaults, jc.DeepEquals, domainstorage.StorageDefaults{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(defaults, tc.DeepEquals, domainstorage.StorageDefaults{})
 }
 
 func (s *applicationStateSuite) TestStorageDefaults(c *tc.C) {
 	db := s.DB()
 	_, err := db.ExecContext(context.Background(), "INSERT INTO model_config (key, value) VALUES (?, ?)",
 		"storage-default-block-source", "ebs-fast")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = db.ExecContext(context.Background(), "INSERT INTO model_config (key, value) VALUES (?, ?)",
 		"storage-default-filesystem-source", "elastic-fs")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	defaults, err := s.state.StorageDefaults(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(defaults, jc.DeepEquals, domainstorage.StorageDefaults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(defaults, tc.DeepEquals, domainstorage.StorageDefaults{
 		DefaultBlockSource:      ptr("ebs-fast"),
 		DefaultFilesystemSource: ptr("elastic-fs"),
 	})
@@ -1737,16 +1736,16 @@ func (s *applicationStateSuite) TestGetCharmIDByApplicationName(c *tc.C) {
 		Revision:      42,
 		Architecture:  architecture.AMD64,
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	chID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(chID.Validate(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(chID.Validate(), tc.ErrorIsNil)
 }
 
 func (s *applicationStateSuite) TestGetCharmIDByApplicationNameError(c *tc.C) {
 	_, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestGetCharmByApplicationID(c *tc.C) {
@@ -1818,13 +1817,13 @@ func (s *applicationStateSuite) TestGetCharmByApplicationID(c *tc.C) {
 		},
 		Platform: platform,
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add the implicit juju-info relation inserted with the charm.
 	expectedMetadata.Provides = jujuInfoRelation()
 
 	ch, err := s.state.GetCharmByApplicationID(context.Background(), appID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(ch, tc.DeepEquals, charm.Charm{
 		Metadata:      expectedMetadata,
 		Manifest:      expectedManifest,
@@ -1853,7 +1852,7 @@ WHERE application_uuid = ?
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotPlatform, tc.DeepEquals, platform)
 }
 
@@ -1913,13 +1912,13 @@ func (s *applicationStateSuite) TestCreateApplicationDefaultSourceIsCharmhub(c *
 			Channel:      "22.04",
 		},
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add the implicit juju-info relation inserted with the charm.
 	expectedMetadata.Provides = jujuInfoRelation()
 
 	ch, err := s.state.GetCharmByApplicationID(context.Background(), appID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(ch, tc.DeepEquals, charm.Charm{
 		Metadata:      expectedMetadata,
 		Manifest:      expectedManifest,
@@ -1952,12 +1951,12 @@ func (s *applicationStateSuite) TestSetCharmThenGetCharmByApplicationNameInvalid
 			ReferenceName: "ubuntu",
 		},
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	id := applicationtesting.GenApplicationUUID(c)
 
 	_, err = s.state.GetCharmByApplicationID(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestCheckCharmExistsNotFound(c *tc.C) {
@@ -1967,7 +1966,7 @@ func (s *applicationStateSuite) TestCheckCharmExistsNotFound(c *tc.C) {
 			UUID: id,
 		})
 	})
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *applicationStateSuite) TestInitialWatchStatementApplicationsWithPendingCharms(c *tc.C) {
@@ -1977,8 +1976,8 @@ func (s *applicationStateSuite) TestInitialWatchStatementApplicationsWithPending
 	id := s.createApplication(c, "foo", life.Alive)
 
 	result, err := query(context.Background(), s.TxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.SameContents, []string{id.String()})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.SameContents, []string{id.String()})
 }
 
 func (s *applicationStateSuite) TestInitialWatchStatementApplicationsWithPendingCharmsIfAvailable(c *tc.C) {
@@ -2001,10 +2000,10 @@ WHERE a.uuid=?`, id1.String())
 
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := query(context.Background(), s.TxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.HasLen, 0)
 }
 
@@ -2013,7 +2012,7 @@ func (s *applicationStateSuite) TestInitialWatchStatementApplicationsWithPending
 	c.Check(name, tc.Equals, "application")
 
 	result, err := query(context.Background(), s.TxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.HasLen, 0)
 }
 
@@ -2021,8 +2020,8 @@ func (s *applicationStateSuite) TestGetApplicationsWithPendingCharmsFromUUIDsIfP
 	id := s.createApplication(c, "foo", life.Alive)
 
 	expected, err := s.state.GetApplicationsWithPendingCharmsFromUUIDs(context.Background(), []coreapplication.ID{id})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(expected, jc.DeepEquals, []coreapplication.ID{id})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(expected, tc.DeepEquals, []coreapplication.ID{id})
 }
 
 func (s *applicationStateSuite) TestGetApplicationsWithPendingCharmsFromUUIDsIfAvailable(c *tc.C) {
@@ -2038,16 +2037,16 @@ WHERE a.uuid=?`, id.String())
 
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected, err := s.state.GetApplicationsWithPendingCharmsFromUUIDs(context.Background(), []coreapplication.ID{id})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(expected, tc.HasLen, 0)
 }
 
 func (s *applicationStateSuite) TestGetApplicationsWithPendingCharmsFromUUIDsNotFound(c *tc.C) {
 	expected, err := s.state.GetApplicationsWithPendingCharmsFromUUIDs(context.Background(), []coreapplication.ID{"foo"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(expected, tc.HasLen, 0)
 }
 
@@ -2068,10 +2067,10 @@ WHERE a.uuid=?`, id1.String())
 
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected, err := s.state.GetApplicationsWithPendingCharmsFromUUIDs(context.Background(), []coreapplication.ID{id0, id1})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(expected, tc.HasLen, 0)
 }
@@ -2080,12 +2079,12 @@ func (s *applicationStateSuite) TestGetAsyncCharmDownloadInfo(c *tc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
 	charmUUID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info, err := s.state.GetAsyncCharmDownloadInfo(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(info, jc.DeepEquals, application.CharmDownloadInfo{
+	c.Check(info, tc.DeepEquals, application.CharmDownloadInfo{
 		CharmUUID: charmUUID,
 		Name:      "foo",
 		SHA256:    "hash",
@@ -2102,20 +2101,20 @@ func (s *applicationStateSuite) TestGetAsyncCharmDownloadInfoNoApplication(c *tc
 	id := applicationtesting.GenApplicationUUID(c)
 
 	_, err := s.state.GetAsyncCharmDownloadInfo(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestGetAsyncCharmDownloadInfoAlreadyDone(c *tc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
 	charmUUID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.SetCharmAvailable(context.Background(), charmUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.state.GetAsyncCharmDownloadInfo(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmAlreadyAvailable)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmAlreadyAvailable)
 }
 
 func (s *applicationStateSuite) TestResolveCharmDownload(c *tc.C) {
@@ -2124,7 +2123,7 @@ func (s *applicationStateSuite) TestResolveCharmDownload(c *tc.C) {
 	objectStoreUUID := s.createObjectStoreBlob(c, "archive")
 
 	info, err := s.state.GetAsyncCharmDownloadInfo(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	actions := charm.Actions{
 		Actions: map[string]charm.Action{
@@ -2143,15 +2142,15 @@ func (s *applicationStateSuite) TestResolveCharmDownload(c *tc.C) {
 		ObjectStoreUUID: objectStoreUUID,
 		ArchivePath:     "archive",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Ensure the charm is now available.
 	available, err := s.state.IsCharmAvailable(context.Background(), info.CharmUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(available, tc.Equals, true)
 
 	ch, err := s.state.GetCharmByApplicationID(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(ch.Actions, tc.DeepEquals, actions)
 	c.Check(ch.LXDProfile, tc.DeepEquals, []byte("profile"))
@@ -2164,17 +2163,17 @@ func (s *applicationStateSuite) TestResolveCharmDownloadAlreadyResolved(c *tc.C)
 	objectStoreUUID := s.createObjectStoreBlob(c, "archive")
 
 	charmUUID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.SetCharmAvailable(context.Background(), charmUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.ResolveCharmDownload(context.Background(), charmUUID, application.ResolvedCharmDownload{
 		LXDProfile:      []byte("profile"),
 		ObjectStoreUUID: objectStoreUUID,
 		ArchivePath:     "archive",
 	})
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmAlreadyResolved)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmAlreadyResolved)
 }
 
 func (s *applicationStateSuite) TestResolveCharmDownloadNotFound(c *tc.C) {
@@ -2187,7 +2186,7 @@ func (s *applicationStateSuite) TestResolveCharmDownloadNotFound(c *tc.C) {
 		ObjectStoreUUID: objectStoreUUID,
 		ArchivePath:     "archive",
 	})
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *applicationStateSuite) TestGetAsyncCharmDownloadInfoLocalCharm(c *tc.C) {
@@ -2214,10 +2213,10 @@ func (s *applicationStateSuite) TestGetAsyncCharmDownloadInfoLocalCharm(c *tc.C)
 			Revision:      42,
 		},
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.state.GetAsyncCharmDownloadInfo(context.Background(), appID)
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmProvenanceNotValid)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmProvenanceNotValid)
 }
 
 func (s *applicationStateSuite) TestGetApplicationsForRevisionUpdater(c *tc.C) {
@@ -2229,8 +2228,8 @@ func (s *applicationStateSuite) TestGetApplicationsForRevisionUpdater(c *tc.C) {
 
 	// Get the applications for the revision updater.
 	apps, err := s.state.GetApplicationsForRevisionUpdater(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(apps, jc.DeepEquals, []application.RevisionUpdaterApplication{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(apps, tc.DeepEquals, []application.RevisionUpdaterApplication{{
 		Name: "foo",
 		CharmLocator: charm.CharmLocator{
 			Name:         "foo",
@@ -2287,17 +2286,17 @@ func (s *applicationStateSuite) TestGetApplicationConfigAndSettings(c *tc.C) {
 		_, err := tx.ExecContext(ctx, stmt, id.String(), "key", "value", 0)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	config, settings, err := s.state.GetApplicationConfigAndSettings(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(config, jc.DeepEquals, map[string]application.ApplicationConfig{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
 			Value: "value",
 		},
 	})
-	c.Check(settings, jc.DeepEquals, application.ApplicationSettings{})
+	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
 }
 
 func (s *applicationStateSuite) TestGetApplicationConfigAndSettingsWithTrust(c *tc.C) {
@@ -2319,17 +2318,17 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 		_, err = tx.ExecContext(ctx, stmt, id.String())
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	config, settings, err := s.state.GetApplicationConfigAndSettings(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(config, jc.DeepEquals, map[string]application.ApplicationConfig{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
 			Value: "value",
 		},
 	})
-	c.Check(settings, jc.DeepEquals, application.ApplicationSettings{
+	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{
 		Trust: true,
 	})
 }
@@ -2338,7 +2337,7 @@ func (s *applicationStateSuite) TestGetApplicationConfigAndSettingsNotFound(c *t
 	// If the application is not found, it should return application not found.
 	id := applicationtesting.GenApplicationUUID(c)
 	_, _, err := s.state.GetApplicationConfigAndSettings(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestGetApplicationConfigAndSettingsNoConfig(c *tc.C) {
@@ -2348,9 +2347,9 @@ func (s *applicationStateSuite) TestGetApplicationConfigAndSettingsNoConfig(c *t
 	// from the application_setting table.
 
 	config, settings, err := s.state.GetApplicationConfigAndSettings(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(config, tc.HasLen, 0)
-	c.Check(settings, jc.DeepEquals, application.ApplicationSettings{})
+	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
 }
 
 func (s *applicationStateSuite) TestGetApplicationConfigAndSettingsForApplications(c *tc.C) {
@@ -2372,11 +2371,11 @@ func (s *applicationStateSuite) TestGetApplicationConfigAndSettingsForApplicatio
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	config, settings, err := s.state.GetApplicationConfigAndSettings(context.Background(), id0)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(config, jc.DeepEquals, map[string]application.ApplicationConfig{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"a": {
 			Type:  charm.OptionString,
 			Value: "b",
@@ -2386,17 +2385,17 @@ func (s *applicationStateSuite) TestGetApplicationConfigAndSettingsForApplicatio
 			Value: "d",
 		},
 	})
-	c.Check(settings, jc.DeepEquals, application.ApplicationSettings{})
+	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
 
 	config, settings, err = s.state.GetApplicationConfigAndSettings(context.Background(), id1)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(config, jc.DeepEquals, map[string]application.ApplicationConfig{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"e": {
 			Type:  charm.OptionInt,
 			Value: "f",
 		},
 	})
-	c.Check(settings, jc.DeepEquals, application.ApplicationSettings{})
+	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
 }
 
 func (s *applicationStateSuite) TestGetApplicationTrustSetting(c *tc.C) {
@@ -2418,11 +2417,11 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 		_, err = tx.ExecContext(ctx, stmt, id.String())
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	trust, err := s.state.GetApplicationTrustSetting(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(trust, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(trust, tc.IsTrue)
 }
 
 func (s *applicationStateSuite) TestGetApplicationTrustSettingNoRow(c *tc.C) {
@@ -2436,18 +2435,18 @@ func (s *applicationStateSuite) TestGetApplicationTrustSettingNoRow(c *tc.C) {
 		}
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	trust, err := s.state.GetApplicationTrustSetting(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(trust, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(trust, tc.IsFalse)
 }
 
 func (s *applicationStateSuite) TestGetApplicationTrustSettingNoApplication(c *tc.C) {
 	// If the application is not found, it should return application not found.
 	id := applicationtesting.GenApplicationUUID(c)
 	_, err := s.state.GetApplicationTrustSetting(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestGetApplicationConfigHash(c *tc.C) {
@@ -2456,14 +2455,14 @@ func (s *applicationStateSuite) TestGetApplicationConfigHash(c *tc.C) {
 	// No config, so the hash should just be the trust value.
 
 	hash, err := s.state.GetApplicationConfigHash(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(hash, tc.Equals, "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa")
 }
 
 func (s *applicationStateSuite) TestGetApplicationConfigHashNotFound(c *tc.C) {
 	id := applicationtesting.GenApplicationUUID(c)
 	_, err := s.state.GetApplicationConfigHash(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsNoApplication(c *tc.C) {
@@ -2475,7 +2474,7 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsNoApplicat
 			Value: "value",
 		},
 	}, application.UpdateApplicationSettingsArg{})
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsApplicationIsDead(c *tc.C) {
@@ -2487,19 +2486,19 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsApplicatio
 			Value: "value",
 		},
 	}, application.UpdateApplicationSettingsArg{})
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationIsDead)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationIsDead)
 }
 
 func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsNoop(c *tc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
 	err := s.state.UpdateApplicationConfigAndSettings(context.Background(), id, map[string]application.ApplicationConfig{}, application.UpdateApplicationSettingsArg{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	config, settings, err := s.state.GetApplicationConfigAndSettings(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(config, jc.DeepEquals, map[string]application.ApplicationConfig{})
-	c.Check(settings, jc.DeepEquals, application.ApplicationSettings{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{})
+	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
 }
 
 func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettings(c *tc.C) {
@@ -2511,20 +2510,20 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettings(c *tc.C) 
 			Value: "value",
 		},
 	}, application.UpdateApplicationSettingsArg{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	config, settings, err := s.state.GetApplicationConfigAndSettings(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(config, jc.DeepEquals, map[string]application.ApplicationConfig{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
 			Value: "value",
 		},
 	})
-	c.Check(settings, jc.DeepEquals, application.ApplicationSettings{})
+	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
 
 	sha256, err := s.state.GetApplicationConfigHash(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sha256, tc.Equals, "6e1b3adca7459d700abb8e270b06ee7fc96f83436bb533ad4540a3a6eb66cf1b")
 }
 
@@ -2541,11 +2540,11 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsMultipleCo
 			Value: 17,
 		},
 	}, application.UpdateApplicationSettingsArg{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	config, settings, err := s.state.GetApplicationConfigAndSettings(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(config, jc.DeepEquals, map[string]application.ApplicationConfig{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  charm.OptionString,
 			Value: "bar",
@@ -2555,7 +2554,7 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsMultipleCo
 			Value: "17",
 		},
 	})
-	c.Check(settings, jc.DeepEquals, application.ApplicationSettings{})
+	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
 }
 
 func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsChangesIdempotent(c *tc.C) {
@@ -2567,7 +2566,7 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsChangesIde
 			Value: "value",
 		},
 	}, application.UpdateApplicationSettingsArg{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.UpdateApplicationConfigAndSettings(context.Background(), id, map[string]application.ApplicationConfig{
 		"key": {
@@ -2575,17 +2574,17 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsChangesIde
 			Value: "value",
 		},
 	}, application.UpdateApplicationSettingsArg{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	config, settings, err := s.state.GetApplicationConfigAndSettings(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(config, jc.DeepEquals, map[string]application.ApplicationConfig{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
 			Value: "value",
 		},
 	})
-	c.Check(settings, jc.DeepEquals, application.ApplicationSettings{})
+	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
 }
 
 func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsMerges(c *tc.C) {
@@ -2597,10 +2596,10 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsMerges(c *
 			Value: "bar",
 		},
 	}, application.UpdateApplicationSettingsArg{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	sha256, err := s.state.GetApplicationConfigHash(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sha256, tc.Equals, "3fe07426e3e5c57aa18fc4a3d7e412ee31ea150e71d343fbcbe3a406350d3297")
 
 	err = s.state.UpdateApplicationConfigAndSettings(context.Background(), id, map[string]application.ApplicationConfig{
@@ -2609,11 +2608,11 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsMerges(c *
 			Value: "foo",
 		},
 	}, application.UpdateApplicationSettingsArg{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	config, settings, err := s.state.GetApplicationConfigAndSettings(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(config, jc.DeepEquals, map[string]application.ApplicationConfig{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  charm.OptionString,
 			Value: "bar",
@@ -2623,10 +2622,10 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsMerges(c *
 			Value: "foo",
 		},
 	})
-	c.Check(settings, jc.DeepEquals, application.ApplicationSettings{})
+	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
 
 	sha256, err = s.state.GetApplicationConfigHash(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sha256, tc.Equals, "8324209a0e1897b4d1f56e4f4b172af181496d377ceef179362999720148841e")
 }
 
@@ -2639,7 +2638,7 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsOverwrites
 			Value: "bar",
 		},
 	}, application.UpdateApplicationSettingsArg{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.UpdateApplicationConfigAndSettings(context.Background(), id, map[string]application.ApplicationConfig{
 		"foo": {
@@ -2647,17 +2646,17 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsOverwrites
 			Value: "baz",
 		},
 	}, application.UpdateApplicationSettingsArg{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	config, settings, err := s.state.GetApplicationConfigAndSettings(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(config, jc.DeepEquals, map[string]application.ApplicationConfig{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  charm.OptionString,
 			Value: "baz",
 		},
 	})
-	c.Check(settings, jc.DeepEquals, application.ApplicationSettings{})
+	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
 }
 
 func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsupdatesTrust(c *tc.C) {
@@ -2667,11 +2666,11 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsupdatesTru
 		application.UpdateApplicationSettingsArg{
 			Trust: ptr(true),
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, settings, err := s.state.GetApplicationConfigAndSettings(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(settings, jc.DeepEquals, application.ApplicationSettings{Trust: true})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{Trust: true})
 
 	// Follow up by checking a nil value does not change the setting.
 
@@ -2679,11 +2678,11 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsupdatesTru
 		application.UpdateApplicationSettingsArg{
 			Trust: nil,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, settings, err = s.state.GetApplicationConfigAndSettings(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(settings, jc.DeepEquals, application.ApplicationSettings{Trust: true})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{Trust: true})
 }
 
 func (s *applicationStateSuite) TestUnsetApplicationConfigKeys(c *tc.C) {
@@ -2699,27 +2698,27 @@ func (s *applicationStateSuite) TestUnsetApplicationConfigKeys(c *tc.C) {
 			Value: "d1",
 		},
 	}, application.UpdateApplicationSettingsArg{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.UnsetApplicationConfigKeys(context.Background(), id, []string{"a"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	config, settings, err := s.state.GetApplicationConfigAndSettings(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(config, jc.DeepEquals, map[string]application.ApplicationConfig{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"c": {
 			Type:  charm.OptionString,
 			Value: "d1",
 		},
 	})
-	c.Check(settings, jc.DeepEquals, application.ApplicationSettings{})
+	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
 }
 
 func (s *applicationStateSuite) TestUnsetApplicationConfigKeysApplicationNotFound(c *tc.C) {
 	// If the application is not found, it should return application not found.
 	id := applicationtesting.GenApplicationUUID(c)
 	err := s.state.UnsetApplicationConfigKeys(context.Background(), id, []string{"a"})
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestUnsetApplicationConfigKeysIncludingTrust(c *tc.C) {
@@ -2729,22 +2728,22 @@ func (s *applicationStateSuite) TestUnsetApplicationConfigKeysIncludingTrust(c *
 		map[string]application.ApplicationConfig{},
 		application.UpdateApplicationSettingsArg{Trust: ptr(true)},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	config, settings, err := s.state.GetApplicationConfigAndSettings(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(config, tc.HasLen, 0)
-	c.Check(settings, jc.DeepEquals, application.ApplicationSettings{
+	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{
 		Trust: true,
 	})
 
 	err = s.state.UnsetApplicationConfigKeys(context.Background(), id, []string{"a", "trust"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	config, settings, err = s.state.GetApplicationConfigAndSettings(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(config, jc.DeepEquals, map[string]application.ApplicationConfig{})
-	c.Check(settings, jc.DeepEquals, application.ApplicationSettings{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{})
+	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
 }
 
 func (s *applicationStateSuite) TestUnsetApplicationConfigKeysIgnoredKeys(c *tc.C) {
@@ -2760,39 +2759,39 @@ func (s *applicationStateSuite) TestUnsetApplicationConfigKeysIgnoredKeys(c *tc.
 			Value: "d1",
 		},
 	}, application.UpdateApplicationSettingsArg{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.UnsetApplicationConfigKeys(context.Background(), id, []string{"a", "x", "y"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	config, settings, err := s.state.GetApplicationConfigAndSettings(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(config, jc.DeepEquals, map[string]application.ApplicationConfig{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"c": {
 			Type:  charm.OptionString,
 			Value: "d1",
 		},
 	})
-	c.Check(settings, jc.DeepEquals, application.ApplicationSettings{})
+	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
 }
 
 func (s *applicationStateSuite) TestGetCharmConfigByApplicationID(c *tc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
 	cid, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		stmt := `INSERT INTO charm_config (charm_uuid, key, default_value, type_id) VALUES (?, ?, ?, ?)`
 		_, err := tx.ExecContext(ctx, stmt, cid.String(), "key", "value", 0)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	charmID, config, err := s.state.GetCharmConfigByApplicationID(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(charmID, tc.Equals, cid)
-	c.Check(config, jc.DeepEquals, charm.Config{
+	c.Check(config, tc.DeepEquals, charm.Config{
 		Options: map[string]charm.Option{
 			"key": {
 				Type:    charm.OptionString,
@@ -2806,19 +2805,19 @@ func (s *applicationStateSuite) TestGetCharmConfigByApplicationIDApplicationNotF
 	// If the application is not found, it should return application not found.
 	id := applicationtesting.GenApplicationUUID(c)
 	_, _, err := s.state.GetCharmConfigByApplicationID(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestCheckApplicationCharm(c *tc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
 	cid, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return s.state.checkApplicationCharm(context.Background(), tx, applicationID{ID: id}, charmID{UUID: cid})
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *applicationStateSuite) TestCheckApplicationCharmDifferentCharm(c *tc.C) {
@@ -2827,20 +2826,20 @@ func (s *applicationStateSuite) TestCheckApplicationCharmDifferentCharm(c *tc.C)
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return s.state.checkApplicationCharm(context.Background(), tx, applicationID{ID: id}, charmID{UUID: "other"})
 	})
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationHasDifferentCharm)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationHasDifferentCharm)
 }
 
 func (s *applicationStateSuite) TestGetApplicationIDByName(c *tc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
 	gotID, err := s.state.GetApplicationIDByName(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotID, tc.Equals, id)
 }
 
 func (s *applicationStateSuite) TestGetApplicationIDByNameNotFound(c *tc.C) {
 	_, err := s.state.GetApplicationIDByName(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestHashConfigAndSettings(c *tc.C) {
@@ -2907,7 +2906,7 @@ func (s *applicationStateSuite) TestHashConfigAndSettings(c *tc.C) {
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.name)
 		hash, err := hashConfigAndSettings(test.config, test.settings)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(hash, tc.Equals, test.expected)
 	}
 }
@@ -2963,28 +2962,28 @@ func (s *applicationStateSuite) TestConstraintFull(c *tc.C) {
 		_, err = tx.ExecContext(ctx, addAppConstraintStmt, id, "constraint-uuid")
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons, err := s.state.GetApplicationConstraints(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(*cons.Tags, jc.SameContents, []string{"tag0", "tag1"})
-	c.Check(*cons.Spaces, jc.SameContents, []constraints.SpaceConstraint{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(*cons.Tags, tc.SameContents, []string{"tag0", "tag1"})
+	c.Check(*cons.Spaces, tc.SameContents, []constraints.SpaceConstraint{
 		{SpaceName: "space0", Exclude: false},
 		{SpaceName: "space1", Exclude: true},
 	})
-	c.Check(*cons.Zones, jc.SameContents, []string{"zone0", "zone1"})
-	c.Check(cons.Arch, jc.DeepEquals, ptr("amd64"))
-	c.Check(cons.CpuCores, jc.DeepEquals, ptr(uint64(2)))
-	c.Check(cons.CpuPower, jc.DeepEquals, ptr(uint64(42)))
-	c.Check(cons.Mem, jc.DeepEquals, ptr(uint64(8)))
-	c.Check(cons.RootDisk, jc.DeepEquals, ptr(uint64(256)))
-	c.Check(cons.RootDiskSource, jc.DeepEquals, ptr("root-disk-source"))
-	c.Check(cons.InstanceRole, jc.DeepEquals, ptr("instance-role"))
-	c.Check(cons.InstanceType, jc.DeepEquals, ptr("instance-type"))
-	c.Check(cons.Container, jc.DeepEquals, ptr(instance.LXD))
-	c.Check(cons.VirtType, jc.DeepEquals, ptr("virt-type"))
-	c.Check(cons.AllocatePublicIP, jc.DeepEquals, ptr(true))
-	c.Check(cons.ImageID, jc.DeepEquals, ptr("image-id"))
+	c.Check(*cons.Zones, tc.SameContents, []string{"zone0", "zone1"})
+	c.Check(cons.Arch, tc.DeepEquals, ptr("amd64"))
+	c.Check(cons.CpuCores, tc.DeepEquals, ptr(uint64(2)))
+	c.Check(cons.CpuPower, tc.DeepEquals, ptr(uint64(42)))
+	c.Check(cons.Mem, tc.DeepEquals, ptr(uint64(8)))
+	c.Check(cons.RootDisk, tc.DeepEquals, ptr(uint64(256)))
+	c.Check(cons.RootDiskSource, tc.DeepEquals, ptr("root-disk-source"))
+	c.Check(cons.InstanceRole, tc.DeepEquals, ptr("instance-role"))
+	c.Check(cons.InstanceType, tc.DeepEquals, ptr("instance-type"))
+	c.Check(cons.Container, tc.DeepEquals, ptr(instance.LXD))
+	c.Check(cons.VirtType, tc.DeepEquals, ptr("virt-type"))
+	c.Check(cons.AllocatePublicIP, tc.DeepEquals, ptr(true))
+	c.Check(cons.ImageID, tc.DeepEquals, ptr("image-id"))
 }
 
 func (s *applicationStateSuite) TestConstraintPartial(c *tc.C) {
@@ -3000,11 +2999,11 @@ func (s *applicationStateSuite) TestConstraintPartial(c *tc.C) {
 		_, err = tx.ExecContext(ctx, addAppConstraintStmt, id, "constraint-uuid")
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons, err := s.state.GetApplicationConstraints(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cons, jc.DeepEquals, constraints.Constraints{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cons, tc.DeepEquals, constraints.Constraints{
 		Arch:             ptr("amd64"),
 		CpuCores:         ptr(uint64(2)),
 		AllocatePublicIP: ptr(true),
@@ -3025,11 +3024,11 @@ func (s *applicationStateSuite) TestConstraintSingleValue(c *tc.C) {
 		_, err = tx.ExecContext(ctx, addAppConstraintStmt, id, "constraint-uuid")
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons, err := s.state.GetApplicationConstraints(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cons, jc.DeepEquals, constraints.Constraints{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cons, tc.DeepEquals, constraints.Constraints{
 		CpuCores: ptr(uint64(2)),
 	})
 }
@@ -3038,13 +3037,13 @@ func (s *applicationStateSuite) TestConstraintEmpty(c *tc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
 	cons, err := s.state.GetApplicationConstraints(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cons, jc.DeepEquals, constraints.Constraints{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cons, tc.DeepEquals, constraints.Constraints{})
 }
 
 func (s *applicationStateSuite) TestConstraintsApplicationNotFound(c *tc.C) {
 	_, err := s.state.GetApplicationConstraints(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestSetConstraintFull(c *tc.C) {
@@ -3081,10 +3080,10 @@ func (s *applicationStateSuite) TestSetConstraintFull(c *tc.C) {
 		_, err = tx.ExecContext(ctx, insertSpace1Stmt, "space1-uuid", "space1")
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.SetApplicationConstraints(context.Background(), id, cons)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	type applicationSpace struct {
 		SpaceName    string `db:"space"`
@@ -3162,7 +3161,7 @@ func (s *applicationStateSuite) TestSetConstraintFull(c *tc.C) {
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(constraintUUID, tc.Not(tc.Equals), "")
 	c.Check(applicationUUID, tc.Equals, id.String())
@@ -3180,12 +3179,12 @@ func (s *applicationStateSuite) TestSetConstraintFull(c *tc.C) {
 	c.Check(allocatePublicIP, tc.Equals, true)
 	c.Check(imageID, tc.Equals, "image-id")
 
-	c.Check(constraintSpaces, jc.DeepEquals, []applicationSpace{
+	c.Check(constraintSpaces, tc.DeepEquals, []applicationSpace{
 		{SpaceName: "space0", SpaceExclude: false},
 		{SpaceName: "space1", SpaceExclude: true},
 	})
-	c.Check(constraintTags, jc.DeepEquals, []string{"tag0", "tag1"})
-	c.Check(constraintZones, jc.DeepEquals, []string{"zone0", "zone1"})
+	c.Check(constraintTags, tc.DeepEquals, []string{"tag0", "tag1"})
+	c.Check(constraintZones, tc.DeepEquals, []string{"zone0", "zone1"})
 
 }
 
@@ -3196,7 +3195,7 @@ func (s *applicationStateSuite) TestSetConstraintInvalidContainerType(c *tc.C) {
 		Container: ptr(instance.ContainerType("invalid-container-type")),
 	}
 	err := s.state.SetApplicationConstraints(context.Background(), id, cons)
-	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidApplicationConstraints)
+	c.Assert(err, tc.ErrorIs, applicationerrors.InvalidApplicationConstraints)
 }
 
 func (s *applicationStateSuite) TestSetConstraintInvalidSpace(c *tc.C) {
@@ -3208,7 +3207,7 @@ func (s *applicationStateSuite) TestSetConstraintInvalidSpace(c *tc.C) {
 		}),
 	}
 	err := s.state.SetApplicationConstraints(context.Background(), id, cons)
-	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidApplicationConstraints)
+	c.Assert(err, tc.ErrorIs, applicationerrors.InvalidApplicationConstraints)
 }
 
 func (s *applicationStateSuite) TestSetConstraintsReplacesPrevious(c *tc.C) {
@@ -3218,10 +3217,10 @@ func (s *applicationStateSuite) TestSetConstraintsReplacesPrevious(c *tc.C) {
 		Mem:      ptr(uint64(8)),
 		CpuCores: ptr(uint64(2)),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons, err := s.state.GetApplicationConstraints(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cons, tc.DeepEquals, constraints.Constraints{
 		Mem:      ptr(uint64(8)),
 		CpuCores: ptr(uint64(2)),
@@ -3230,10 +3229,10 @@ func (s *applicationStateSuite) TestSetConstraintsReplacesPrevious(c *tc.C) {
 	err = s.state.SetApplicationConstraints(context.Background(), id, constraints.Constraints{
 		CpuPower: ptr(uint64(42)),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons, err = s.state.GetApplicationConstraints(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cons, tc.DeepEquals, constraints.Constraints{
 		CpuPower: ptr(uint64(42)),
 	})
@@ -3245,20 +3244,20 @@ func (s *applicationStateSuite) TestSetConstraintsReplacesPreviousZones(c *tc.C)
 	err := s.state.SetApplicationConstraints(context.Background(), id, constraints.Constraints{
 		Zones: ptr([]string{"zone0", "zone1"}),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons, err := s.state.GetApplicationConstraints(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(*cons.Zones, jc.SameContents, []string{"zone0", "zone1"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(*cons.Zones, tc.SameContents, []string{"zone0", "zone1"})
 
 	err = s.state.SetApplicationConstraints(context.Background(), id, constraints.Constraints{
 		Tags: ptr([]string{"tag0", "tag1"}),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons, err = s.state.GetApplicationConstraints(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(*cons.Tags, jc.SameContents, []string{"tag0", "tag1"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(*cons.Tags, tc.SameContents, []string{"tag0", "tag1"})
 }
 
 func (s *applicationStateSuite) TestSetConstraintsReplacesPreviousSameZone(c *tc.C) {
@@ -3267,25 +3266,25 @@ func (s *applicationStateSuite) TestSetConstraintsReplacesPreviousSameZone(c *tc
 	err := s.state.SetApplicationConstraints(context.Background(), id, constraints.Constraints{
 		Zones: ptr([]string{"zone0", "zone1"}),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons, err := s.state.GetApplicationConstraints(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(*cons.Zones, jc.SameContents, []string{"zone0", "zone1"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(*cons.Zones, tc.SameContents, []string{"zone0", "zone1"})
 
 	err = s.state.SetApplicationConstraints(context.Background(), id, constraints.Constraints{
 		Zones: ptr([]string{"zone3"}),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons, err = s.state.GetApplicationConstraints(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(*cons.Zones, jc.SameContents, []string{"zone3"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(*cons.Zones, tc.SameContents, []string{"zone3"})
 }
 
 func (s *applicationStateSuite) TestSetConstraintsApplicationNotFound(c *tc.C) {
 	err := s.state.SetApplicationConstraints(context.Background(), "foo", constraints.Constraints{Mem: ptr(uint64(8))})
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestGetApplicationCharmOriginEmptyChannel(c *tc.C) {
@@ -3295,10 +3294,10 @@ func (s *applicationStateSuite) TestGetApplicationCharmOriginEmptyChannel(c *tc.
 		_, err := tx.ExecContext(ctx, "DELETE FROM application_channel WHERE application_uuid=?", id)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	origin, err := s.state.GetApplicationCharmOrigin(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(origin, tc.DeepEquals, application.CharmOrigin{
 		Name:   "foo",
 		Source: charm.CharmHubSource,
@@ -3320,10 +3319,10 @@ func (s *applicationStateSuite) TestGetApplicationCharmOriginRiskOnlyChannel(c *
 		_, err := tx.ExecContext(ctx, "UPDATE application_channel SET track = '', branch = '' WHERE application_uuid=?", id)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	origin, err := s.state.GetApplicationCharmOrigin(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(origin, tc.DeepEquals, application.CharmOrigin{
 		Name:   "foo",
 		Source: charm.CharmHubSource,
@@ -3348,7 +3347,7 @@ func (s *applicationStateSuite) TestGetApplicationCharmOriginInvalidRisk(c *tc.C
 		_, err := tx.ExecContext(ctx, "UPDATE application_channel SET track = '', risk = 'boom', branch = '' WHERE application_uuid=?", id)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.state.GetApplicationCharmOrigin(context.Background(), id)
 	c.Assert(err, tc.ErrorMatches, `decoding channel: decoding risk: unknown risk "boom"`)
@@ -3358,16 +3357,16 @@ func (s *applicationStateSuite) TestGetApplicationCharmOriginNoRevision(c *tc.C)
 	id := s.createApplication(c, "foo", life.Alive)
 
 	charmUUID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE charm SET revision = -1 WHERE uuid=?", charmUUID.String())
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	origin, err := s.state.GetApplicationCharmOrigin(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(origin, tc.DeepEquals, application.CharmOrigin{
 		Name:   "foo",
 		Source: charm.CharmHubSource,
@@ -3391,16 +3390,16 @@ func (s *applicationStateSuite) TestGetApplicationCharmOriginNoCharmhubIdentifie
 	id := s.createApplication(c, "foo", life.Alive)
 
 	charmUUID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE charm_download_info SET charmhub_identifier = NULL WHERE charm_uuid=?", charmUUID.String())
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	origin, err := s.state.GetApplicationCharmOrigin(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(origin, tc.DeepEquals, application.CharmOrigin{
 		Name:   "foo",
 		Source: charm.CharmHubSource,
@@ -3447,10 +3446,10 @@ func (s *applicationStateSuite) TestGetDeviceConstraints(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons, err := s.state.GetDeviceConstraints(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cons, tc.HasLen, 4)
 	// Device constraint added by createApplication().
 	c.Check(cons["dev0"].Type, tc.Equals, devices.DeviceType("type0"))
@@ -3475,7 +3474,7 @@ func (s *applicationStateSuite) TestGetDeviceConstraintsFromCreatedApp(c *tc.C) 
 	id := s.createApplication(c, "foo", life.Alive)
 
 	cons, err := s.state.GetDeviceConstraints(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cons, tc.HasLen, 3)
 	c.Check(cons["dev0"].Type, tc.Equals, devices.DeviceType("type0"))
 	c.Check(cons["dev0"].Count, tc.Equals, 42)
@@ -3497,7 +3496,7 @@ func (s *applicationStateSuite) TestGetAddressesHashEmpty(c *tc.C) {
 	})
 
 	hash, err := s.state.GetAddressesHash(context.Background(), appID, "net-node-uuid")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// The resulting hash is not the empty string because it always contains
 	// the default bindings.
 	c.Check(hash, tc.Equals, "5ec8be1eeb06c2f67dc76a85843d4461bd51668aab3f27df2af8b3e89a28d703")
@@ -3541,10 +3540,10 @@ func (s *applicationStateSuite) TestGetAddressesHash(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	hash, err := s.state.GetAddressesHash(context.Background(), appID, "net-node-uuid")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(hash, tc.Equals, "7166b95ec684e8452e796e2d82bfa7c6f74c7597a4c56af8d763c4be4fcefc77")
 }
 
@@ -3602,10 +3601,10 @@ func (s *applicationStateSuite) TestGetAddressesHashWithEndpointBindings(c *tc.C
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	hash, err := s.state.GetAddressesHash(context.Background(), appID, "net-node-uuid")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(hash, tc.Equals, "2b94c712836ade07adcac5d9742f7a77e989d74893168bdbf9aa956f670c8290")
 }
 
@@ -3615,7 +3614,7 @@ func (s *applicationStateSuite) TestGetAddressesHashCloudService(c *tc.C) {
 	})
 
 	err := s.state.UpsertCloudService(context.Background(), "foo", "provider-id", network.NewSpaceAddresses("10.0.0.1"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var netNodeUUID string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -3625,10 +3624,10 @@ func (s *applicationStateSuite) TestGetAddressesHashCloudService(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	hash, err := s.state.GetAddressesHash(context.Background(), appID, netNodeUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(hash, tc.Equals, "aba7ff161442bff8b0b29c4a88599eeb32eaa89b3e53d80a35ee8b4efd367d14")
 }
 
@@ -3638,7 +3637,7 @@ func (s *applicationStateSuite) TestGetAddressesHashCloudServiceWithEndpointBind
 	})
 
 	err := s.state.UpsertCloudService(context.Background(), "foo", "provider-id", network.NewSpaceAddresses("10.0.0.1"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var netNodeUUID string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -3670,16 +3669,16 @@ func (s *applicationStateSuite) TestGetAddressesHashCloudServiceWithEndpointBind
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	hash, err := s.state.GetAddressesHash(context.Background(), appID, netNodeUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(hash, tc.Equals, "7b3da67858305e4297f5cc6968a34e383af675dff6bb85a15c95ff39923ad31d")
 }
 
 func (s *applicationStateSuite) TestHashAddresses(c *tc.C) {
 	hash, err := s.state.hashAddressesAndEndpoints(nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(hash, tc.Equals, "")
 
 	hash0, err := s.state.hashAddressesAndEndpoints([]spaceAddress{
@@ -3690,7 +3689,7 @@ func (s *applicationStateSuite) TestHashAddresses(c *tc.C) {
 			Value: "10.0.0.2",
 		},
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	hash1, err := s.state.hashAddressesAndEndpoints([]spaceAddress{
 		{
 			Value: "10.0.0.2",
@@ -3699,7 +3698,7 @@ func (s *applicationStateSuite) TestHashAddresses(c *tc.C) {
 			Value: "10.0.0.1",
 		},
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// The hash should be consistent regardless of the order of the addresses.
 	c.Check(hash0, tc.Equals, hash1)
 
@@ -3707,12 +3706,12 @@ func (s *applicationStateSuite) TestHashAddresses(c *tc.C) {
 		"foo": "bar",
 		"foz": "baz",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	hash1, err = s.state.hashAddressesAndEndpoints([]spaceAddress{}, map[string]string{
 		"foz": "baz",
 		"foo": "bar",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// The hash should be consistent regardless of the order of the endpoint
 	// bindings.
 	c.Check(hash0, tc.Equals, hash1)
@@ -3724,7 +3723,7 @@ func (s *applicationStateSuite) TestGetNetNodeFromK8sService(c *tc.C) {
 	})
 
 	err := s.state.UpsertCloudService(context.Background(), "foo", "provider-id", network.NewSpaceAddresses("10.0.0.1"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Also insert the unit net node to make sure the k8s service one is
 	// returned.
@@ -3741,13 +3740,13 @@ func (s *applicationStateSuite) TestGetNetNodeFromK8sService(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the k8s service net node is returned (since the uuid is generated
 	// we check that the unit net node uuid, which is manually crafted, is not
 	// returned).
 	netNode, err := s.state.GetNetNodeUUIDByUnitName(context.Background(), "foo/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(netNode, tc.Not(tc.Equals), "net-node-uuid")
 }
 
@@ -3771,17 +3770,17 @@ func (s *applicationStateSuite) TestGetNetNodeFromUnit(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the unit net node is returned.
 	netNode, err := s.state.GetNetNodeUUIDByUnitName(context.Background(), "foo/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(netNode, tc.Equals, "net-node-uuid")
 }
 
 func (s *applicationStateSuite) TestGetNetNodeUnitNotFound(c *tc.C) {
 	_, err := s.state.GetNetNodeUUIDByUnitName(context.Background(), "foo/0")
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *applicationStateSuite) addCharmModifiedVersion(c *tc.C, appID coreapplication.ID, charmModifiedVersion int) {
@@ -3789,7 +3788,7 @@ func (s *applicationStateSuite) addCharmModifiedVersion(c *tc.C, appID coreappli
 		_, err := tx.ExecContext(ctx, "UPDATE application SET charm_modified_version = ? WHERE uuid = ?", charmModifiedVersion, appID)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *baseSuite) assertPeerRelation(c *tc.C, appName string, peerRelationInput map[string]int) {
@@ -3837,7 +3836,7 @@ ORDER BY r.relation_id
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(peerRelations, jc.SameContents, expected)
+	c.Check(peerRelations, tc.SameContents, expected)
 }

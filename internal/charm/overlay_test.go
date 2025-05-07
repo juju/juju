@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/internal/charm"
@@ -100,14 +99,14 @@ applications:
 	c.Assert(err, tc.IsNil)
 
 	base, overlay, err := charm.ExtractBaseAndOverlayParts(bd)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	baseYaml, err := yaml.Marshal(base)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(baseYaml), tc.Equals, expBase)
 
 	overlayYaml, err := yaml.Marshal(overlay)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(overlayYaml), tc.Equals, expOverlay)
 }
 
@@ -148,14 +147,14 @@ relations:
 	c.Assert(err, tc.IsNil)
 
 	base, overlay, err := charm.ExtractBaseAndOverlayParts(bd)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	baseYaml, err := yaml.Marshal(base)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(baseYaml), tc.Equals, expBase)
 
 	overlayYaml, err := yaml.Marshal(overlay)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(overlayYaml), tc.Equals, expOverlay)
 }
 
@@ -229,23 +228,23 @@ applications:
 	c.Assert(err, tc.IsNil)
 
 	base, overlay, err := charm.ExtractBaseAndOverlayParts(bd)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	baseYaml, err := yaml.Marshal(base)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(baseYaml), tc.Equals, expBase)
 
 	overlayYaml, err := yaml.Marshal(overlay)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(overlayYaml), tc.Equals, expOverlay)
 
 	// Check that merging the output back into a bundle yields the original
 	r := strings.NewReader(string(baseYaml) + "\n---\n" + string(overlayYaml))
 	ds, err := charm.StreamBundleDataSource(r, "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newBd, err := charm.ReadAndMergeBundleData(ds)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(newBd, tc.DeepEquals, bd)
 }
 
@@ -274,7 +273,7 @@ saas:
 	c.Assert(err, tc.IsNil)
 
 	static, overlay, err := charm.ExtractBaseAndOverlayParts(bd)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(charm.VerifyNoOverlayFieldsPresent(static), tc.Equals, nil)
 
@@ -293,7 +292,7 @@ saas:
 	}
 	sort.Strings(errStrings)
 	sort.Strings(expErrors)
-	c.Assert(errStrings, jc.DeepEquals, expErrors)
+	c.Assert(errStrings, tc.DeepEquals, expErrors)
 }
 
 func (*bundleDataOverlaySuite) TestVerifyNoOverlayFieldsPresentOnNilOptionValue(c *tc.C) {
@@ -312,7 +311,7 @@ applications:
 	c.Assert(err, tc.IsNil)
 
 	static, _, err := charm.ExtractBaseAndOverlayParts(bd)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(charm.VerifyNoOverlayFieldsPresent(static), tc.Equals, nil)
 }

@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/exec"
 	"go.uber.org/mock/gomock"
 
@@ -30,7 +29,7 @@ var _ = tc.Suite(&eksSuite{})
 func (s *eksSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	err := os.Setenv("PATH", "/path/to/here")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *eksSuite) TestGetKubeConfig(c *tc.C) {
@@ -40,13 +39,13 @@ func (s *eksSuite) TestGetKubeConfig(c *tc.C) {
 	mockRunner := mocks.NewMockCommandRunner(ctrl)
 	configFile := filepath.Join(c.MkDir(), "config")
 	err := os.Setenv("KUBECONFIG", configFile)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	eksCMD := &eks{
 		tool:          "eksctl",
 		CommandRunner: mockRunner,
 	}
 	err = os.WriteFile(configFile, []byte("data"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	gomock.InOrder(
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
@@ -63,12 +62,12 @@ func (s *eksSuite) TestGetKubeConfig(c *tc.C) {
 		name:     "mycluster",
 		region:   "ap-southeast-2",
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	defer rdr.Close()
 
 	c.Assert(clusterName, tc.Equals, "mycluster.ap-southeast-2.eksctl.io")
 	data, err := io.ReadAll(rdr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(data), tc.DeepEquals, "data")
 }
 
@@ -112,9 +111,9 @@ Enter region:
 `[1:]
 
 	outParams, err := eksCMD.interactiveParams(ctx, &clusterParams{})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
-	c.Assert(outParams, jc.DeepEquals, &clusterParams{
+	c.Assert(outParams, tc.DeepEquals, &clusterParams{
 		name:   "mycluster",
 		region: "ap-southeast-2",
 	})
@@ -208,9 +207,9 @@ Select cluster [mycluster]:
 `[1:]
 
 	outParams, err := eksCMD.interactiveParams(ctx, &clusterParams{})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
-	c.Assert(outParams, jc.DeepEquals, &clusterParams{
+	c.Assert(outParams, tc.DeepEquals, &clusterParams{
 		name:   "mycluster",
 		region: "ap-southeast-2",
 	})
@@ -275,9 +274,9 @@ Select cluster [nw-deploy-kubeflow-1272]:
 `[1:]
 
 	outParams, err := eksCMD.interactiveParams(ctx, &clusterParams{})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
-	c.Assert(outParams, jc.DeepEquals, &clusterParams{
+	c.Assert(outParams, tc.DeepEquals, &clusterParams{
 		name:   "k1",
 		region: "ap-southeast-2",
 	})
@@ -309,7 +308,7 @@ func (s *eksSuite) TestEnsureExecutable(c *tc.C) {
 			}, nil),
 	)
 	err := eksCMD.ensureExecutable()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *eksSuite) TestEnsureExecutableNotFound(c *tc.C) {

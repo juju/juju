@@ -7,7 +7,6 @@ import (
 	"net"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/pki"
 	pkitest "github.com/juju/juju/internal/pki/test"
@@ -21,7 +20,7 @@ var _ = tc.Suite(&LeafSuite{})
 
 func (l *LeafSuite) TestLeafHasDNSNames(c *tc.C) {
 	authority, err := pkitest.NewTestAuthority()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	tests := []struct {
 		CertDNSNames  []string
@@ -49,7 +48,7 @@ func (l *LeafSuite) TestLeafHasDNSNames(c *tc.C) {
 		leaf, err := authority.LeafRequestForGroup(pki.DefaultLeafGroup).
 			AddDNSNames(test.CertDNSNames...).
 			Commit()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(pki.LeafHasDNSNames(leaf, test.CheckDNSNames), tc.Equals,
 			test.Result)
 	}
@@ -57,7 +56,7 @@ func (l *LeafSuite) TestLeafHasDNSNames(c *tc.C) {
 
 func (l *LeafSuite) TestLeafIPAddresses(c *tc.C) {
 	authority, err := pkitest.NewTestAuthority()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	tests := []struct {
 		CertIPAddresses  []net.IP
@@ -75,7 +74,7 @@ func (l *LeafSuite) TestLeafIPAddresses(c *tc.C) {
 		leaf, err := authority.LeafRequestForGroup(pki.DefaultLeafGroup).
 			AddIPAddresses(test.CertIPAddresses...).
 			Commit()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(leaf.Certificate().IPAddresses, testing.IPsEqual, test.CheckIPAddresses)
 	}
 }

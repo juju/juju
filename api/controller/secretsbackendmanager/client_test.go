@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/secretsbackendmanager"
@@ -53,7 +52,7 @@ func (s *SecretBackendsSuite) TestRotateBackendTokens(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "RotateBackendTokens")
-		c.Check(arg, jc.DeepEquals, params.RotateSecretBackendArgs{
+		c.Check(arg, tc.DeepEquals, params.RotateSecretBackendArgs{
 			BackendIDs: []string{"backend-id"},
 		})
 		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -128,8 +127,8 @@ func (s *offerSuite) TestOfferMultipleEndpoints(c *tc.C) {
 
 func (s *offerSuite) assertOfferOutput(c *tc.C, expectedModel, expectedOffer, expectedApplication string, endpoints []string) {
 	_, err := s.runOffer(c, s.args...)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.mockAPI.offers[expectedOffer], jc.SameContents, endpoints)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.mockAPI.offers[expectedOffer], tc.SameContents, endpoints)
 }
 
 type mockOfferAPI struct {

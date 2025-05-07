@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/apiserver/facade"
@@ -63,14 +62,14 @@ var _ = tc.Suite(&rebootSuite{})
 
 func (s *rebootSuite) createMachine(c *tc.C, tag names.MachineTag) *testMachine {
 	uuid, err := s.machineService.CreateMachine(context.Background(), coremachine.Name(tag.Id()))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return s.setupMachine(c, tag, err, uuid)
 }
 
 func (s *rebootSuite) createMachineWithParent(c *tc.C, tag names.MachineTag, parent *testMachine) *testMachine {
 	uuid, err := s.machineService.CreateMachineWithParent(context.Background(), coremachine.Name(tag.Id()), coremachine.Name(parent.tag.Id()))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return s.setupMachine(c, tag, err, uuid)
 }
@@ -83,19 +82,19 @@ func (s *rebootSuite) setupMachine(c *tc.C, tag names.MachineTag, err error, uui
 	}
 
 	rebootAPI, err := reboot.NewRebootAPI(authorizer, s.watcherRegistry, s.machineService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: tag.String()},
 	}}
 
 	watcherResult, err := rebootAPI.WatchForRebootEvent(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(watcherResult.NotifyWatcherId, tc.Not(tc.Equals), "")
 	c.Check(watcherResult.Error, tc.IsNil)
 
 	rebootWatcher, err := s.watcherRegistry.Get(watcherResult.NotifyWatcherId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(rebootWatcher, tc.NotNil)
 
 	w := rebootWatcher.(watcher.NotifyWatcher)
@@ -129,7 +128,7 @@ func (s *rebootSuite) SetUpTest(c *tc.C) {
 
 	var err error
 	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AddCleanup(func(c *tc.C) {
 		workertest.DirtyKill(c, s.watcherRegistry)
 	})
@@ -167,7 +166,7 @@ func (s *rebootSuite) TestWatchForRebootEventFromChild(c *tc.C) {
 	child := s.createMachineWithParent(c, childTag, parent)
 
 	_, err := child.rebootAPI.RequestReboot(context.Background(), child.args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	child.wc.AssertOneChange()
 	parent.wc.AssertNoChange()
@@ -181,7 +180,7 @@ func (s *rebootSuite) TestWatchForRebootEventFromParent(c *tc.C) {
 	child := s.createMachineWithParent(c, childTag, parent)
 
 	_, err := parent.rebootAPI.RequestReboot(context.Background(), parent.args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	parent.wc.AssertOneChange()
 	child.wc.AssertOneChange()
@@ -194,7 +193,7 @@ func (s *rebootSuite) TestRequestReboot(c *tc.C) {
 	machine := s.createMachine(c, parentTag)
 
 	errResult, err := machine.rebootAPI.RequestReboot(context.Background(), machine.args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errResult, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
@@ -203,7 +202,7 @@ func (s *rebootSuite) TestRequestReboot(c *tc.C) {
 	machine.wc.AssertOneChange()
 
 	res, err := machine.rebootAPI.GetRebootAction(context.Background(), machine.args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldReboot},
@@ -218,7 +217,7 @@ func (s *rebootSuite) TestClearReboot(c *tc.C) {
 	machine := s.createMachine(c, parentTag)
 
 	errResult, err := machine.rebootAPI.RequestReboot(context.Background(), machine.args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errResult, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
@@ -228,14 +227,14 @@ func (s *rebootSuite) TestClearReboot(c *tc.C) {
 	machine.wc.AssertOneChange()
 
 	res, err := machine.rebootAPI.GetRebootAction(context.Background(), machine.args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldReboot},
 		}})
 
 	errResult, err = machine.rebootAPI.ClearReboot(context.Background(), machine.args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errResult, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
@@ -243,7 +242,7 @@ func (s *rebootSuite) TestClearReboot(c *tc.C) {
 	})
 
 	res, err = machine.rebootAPI.GetRebootAction(context.Background(), machine.args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldDoNothing},
@@ -262,7 +261,7 @@ func (s *rebootSuite) TestRebootRequestFromParent(c *tc.C) {
 	// parent should reboot
 	// child should shutdown
 	errResult, err := parent.rebootAPI.RequestReboot(context.Background(), parent.args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errResult, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
@@ -272,21 +271,21 @@ func (s *rebootSuite) TestRebootRequestFromParent(c *tc.C) {
 	child.wc.AssertOneChange()
 
 	res, err := parent.rebootAPI.GetRebootAction(context.Background(), parent.args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldReboot},
 		}})
 
 	res, err = child.rebootAPI.GetRebootAction(context.Background(), child.args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldShutdown},
 		}})
 
 	errResult, err = parent.rebootAPI.ClearReboot(context.Background(), parent.args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errResult, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
@@ -310,7 +309,7 @@ func (s *rebootSuite) TestRebootRequestFromChild(c *tc.C) {
 	// parent should do nothing
 	// child should reboot
 	errResult, err := child.rebootAPI.RequestReboot(context.Background(), child.args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errResult, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
@@ -320,21 +319,21 @@ func (s *rebootSuite) TestRebootRequestFromChild(c *tc.C) {
 	parent.wc.AssertNoChange()
 
 	res, err := parent.rebootAPI.GetRebootAction(context.Background(), parent.args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldDoNothing},
 		}})
 
 	res, err = child.rebootAPI.GetRebootAction(context.Background(), child.args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldReboot},
 		}})
 
 	errResult, err = child.rebootAPI.ClearReboot(context.Background(), child.args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errResult, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},

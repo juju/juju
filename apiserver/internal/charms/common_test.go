@@ -6,7 +6,6 @@ package charms
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/application/architecture"
@@ -116,8 +115,8 @@ func (s *exportSuite) TestExport(c *tc.C) {
 	}
 
 	result, err := convertCharm("foo", charmBase, locator)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.DeepEquals, params.Charm{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, params.Charm{
 		Revision: 42,
 		URL:      "ch:amd64/foo-42",
 		Config: map[string]params.CharmOption{

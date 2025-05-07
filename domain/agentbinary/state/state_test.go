@@ -14,7 +14,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/objectstore"
@@ -47,7 +46,7 @@ func (s *stateSuite) TestAddSuccess(c *tc.C) {
 		Arch:            "amd64",
 		ObjectStoreUUID: objStoreUUID,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	record := s.getAgentBinaryRecord(c, "4.0.0", archID)
 	c.Check(record.Version, tc.Equals, "4.0.0")
@@ -66,14 +65,14 @@ func (s *stateSuite) TestAddAlreadyExists(c *tc.C) {
 		Arch:            "amd64",
 		ObjectStoreUUID: objStoreUUID1,
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	err = s.state.RegisterAgentBinary(context.Background(), agentbinary.RegisterAgentBinaryArg{
 		Version:         "4.0.0",
 		Arch:            "amd64",
 		ObjectStoreUUID: objStoreUUID1,
 	})
-	c.Check(err, jc.ErrorIs, agentbinaryerrors.AlreadyExists)
+	c.Check(err, tc.ErrorIs, agentbinaryerrors.AlreadyExists)
 
 	record := s.getAgentBinaryRecord(c, "4.0.0", archID)
 	c.Check(record.Version, tc.Equals, "4.0.0")
@@ -94,14 +93,14 @@ func (s *stateSuite) TestAddFailedUpdateExistingWithDifferentSHA(c *tc.C) {
 		Arch:            "amd64",
 		ObjectStoreUUID: objStoreUUID1,
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	err = s.state.RegisterAgentBinary(context.Background(), agentbinary.RegisterAgentBinaryArg{
 		Version:         "4.0.0",
 		Arch:            "amd64",
 		ObjectStoreUUID: objStoreUUID2,
 	})
-	c.Check(err, jc.ErrorIs, agentbinaryerrors.AgentBinaryImmutable)
+	c.Check(err, tc.ErrorIs, agentbinaryerrors.AgentBinaryImmutable)
 
 	record := s.getAgentBinaryRecord(c, "4.0.0", archID)
 	c.Check(record.Version, tc.Equals, "4.0.0")
@@ -119,7 +118,7 @@ func (s *stateSuite) TestAddErrorArchitectureNotFound(c *tc.C) {
 		Arch:            "non-existent-arch",
 		ObjectStoreUUID: objStoreUUID,
 	})
-	c.Check(err, jc.ErrorIs, coreerrors.NotSupported)
+	c.Check(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
 // TestAddErrorObjectStoreUUIDNotFound asserts that a
@@ -133,7 +132,7 @@ func (s *stateSuite) TestAddErrorObjectStoreUUIDNotFound(c *tc.C) {
 		Arch:            "amd64",
 		ObjectStoreUUID: objectstore.UUID(uuid.MustNewUUID().String()),
 	})
-	c.Check(err, jc.ErrorIs, agentbinaryerrors.ObjectNotFound)
+	c.Check(err, tc.ErrorIs, agentbinaryerrors.ObjectNotFound)
 }
 
 func (s *stateSuite) addArchitecture(c *tc.C, name string) int {
@@ -145,7 +144,7 @@ SELECT id AS &architectureRecord.id
 FROM architecture
 WHERE name = $architectureRecord.name
 `, architectureRecord{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	record := architectureRecord{Name: name}
 	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
@@ -163,12 +162,12 @@ INSERT INTO architecture (name)
 VALUES ($architectureRecord.name)
 RETURNING id AS &architectureRecord.id
 `, architectureRecord{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, insertStmt, record).Get(&record)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return record.ID
 }
 
@@ -187,12 +186,12 @@ func (s *stateSuite) addObjectStore(c *tc.C) (objectstore.UUID, string) {
 INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size)
 VALUES ($objectStoreMeta.uuid, $objectStoreMeta.sha_256, $objectStoreMeta.sha_384, $objectStoreMeta.size)
 `, objectStoreMeta{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	hasher256 := sha256.New()
 	hasher384 := sha512.New384()
 	_, err = io.Copy(io.MultiWriter(hasher256, hasher384), strings.NewReader(storeUUID))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	sha256Hash := hex.EncodeToString(hasher256.Sum(nil))
 	sha384Hash := hex.EncodeToString(hasher384.Sum(nil))
 
@@ -205,7 +204,7 @@ VALUES ($objectStoreMeta.uuid, $objectStoreMeta.sha_256, $objectStoreMeta.sha_38
 	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt, metaRecord).Run()
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	type dbMetadataPath struct {
 		// UUID is the uuid for the metadata.
@@ -221,11 +220,11 @@ VALUES ($objectStoreMeta.uuid, $objectStoreMeta.sha_256, $objectStoreMeta.sha_38
 	pathStmt, err := sqlair.Prepare(`
 INSERT INTO object_store_metadata_path (path, metadata_uuid)
 VALUES ($dbMetadataPath.*)`, pathRecord)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, pathStmt, pathRecord).Run()
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return objectstore.UUID(storeUUID), path
 }
 
@@ -239,7 +238,7 @@ SELECT version AS &agentBinaryRecord.version,
 FROM agent_binary_store
 WHERE version = $agentBinaryRecord.version AND architecture_id = $agentBinaryRecord.architecture_id
 `, agentBinaryRecord{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	params := agentBinaryRecord{
 		Version:        version,
@@ -249,20 +248,20 @@ WHERE version = $agentBinaryRecord.version AND architecture_id = $agentBinaryRec
 	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt, params).Get(&record)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return record
 }
 
 func (s *stateSuite) TestGetObjectUUID(c *tc.C) {
 	objStoreUUID, path := s.addObjectStore(c)
 	gotUUID, err := s.state.GetObjectUUID(context.Background(), path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotUUID.String(), tc.Equals, objStoreUUID.String())
 }
 
 func (s *stateSuite) TestGetObjectUUIDFailedObjectNotFound(c *tc.C) {
 	_, err := s.state.GetObjectUUID(context.Background(), "non-existent-path")
-	c.Check(err, jc.ErrorIs, agentbinaryerrors.ObjectNotFound)
+	c.Check(err, tc.ErrorIs, agentbinaryerrors.ObjectNotFound)
 }
 
 func getMetadata(c *tc.C, db *sql.DB, objStoreUUID objectstore.UUID) agentbinary.Metadata {
@@ -271,7 +270,7 @@ func getMetadata(c *tc.C, db *sql.DB, objStoreUUID objectstore.UUID) agentbinary
 SELECT version, architecture_name, size, sha_256
 FROM   v_agent_binary_store
 WHERE  object_store_uuid = ?`, objStoreUUID).Scan(&data.Version, &data.Arch, &data.Size, &data.SHA256)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return data
 }
 
@@ -281,7 +280,7 @@ func getObjectSHA256(c *tc.C, db *sql.DB, objStoreUUID objectstore.UUID) string 
 SELECT sha_256
 FROM   object_store_metadata
 WHERE  uuid = ?`, objStoreUUID).Scan(&sha)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return sha
 }
 
@@ -294,7 +293,7 @@ func (s *stateSuite) TestListAgentBinaries(c *tc.C) {
 		Arch:            "amd64",
 		ObjectStoreUUID: objStoreUUID,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	binary1 := getMetadata(c, s.DB(), objStoreUUID)
 
 	objStoreUUID, _ = s.addObjectStore(c)
@@ -303,12 +302,12 @@ func (s *stateSuite) TestListAgentBinaries(c *tc.C) {
 		Arch:            "amd64",
 		ObjectStoreUUID: objStoreUUID,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	binary2 := getMetadata(c, s.DB(), objStoreUUID)
 
 	binaries, err := s.state.ListAgentBinaries(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(binaries, jc.SameContents, []agentbinary.Metadata{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(binaries, tc.SameContents, []agentbinary.Metadata{
 		binary1,
 		binary2,
 	})
@@ -316,7 +315,7 @@ func (s *stateSuite) TestListAgentBinaries(c *tc.C) {
 
 func (s *stateSuite) TestListAgentBinariesEmpty(c *tc.C) {
 	binaries, err := s.state.ListAgentBinaries(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(binaries, tc.HasLen, 0)
 }
 
@@ -328,11 +327,11 @@ func (s *stateSuite) TestCheckAgentBinarySHA256Exists(c *tc.C) {
 		Arch:            "amd64",
 		ObjectStoreUUID: objStoreUUID,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	sha := getMetadata(c, s.DB(), objStoreUUID).SHA256
 	exists, err := s.state.CheckAgentBinarySHA256Exists(context.Background(), sha)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, true)
 }
 
@@ -340,6 +339,6 @@ func (s *stateSuite) TestCheckAgentBinarySHA256NoExists(c *tc.C) {
 	objStoreUUID, _ := s.addObjectStore(c)
 	sha := getObjectSHA256(c, s.DB(), objStoreUUID)
 	exists, err := s.state.CheckAgentBinarySHA256Exists(context.Background(), sha)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, false)
 }

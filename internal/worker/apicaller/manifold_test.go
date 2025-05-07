@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
@@ -86,13 +85,13 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 
 func (s *ManifoldSuite) TestInputsOptionalConfigPropertiesUnset(c *tc.C) {
 	s.manifoldConfig.APIConfigWatcherName = ""
-	c.Check(apicaller.Manifold(s.manifoldConfig).Inputs, jc.DeepEquals, []string{
+	c.Check(apicaller.Manifold(s.manifoldConfig).Inputs, tc.DeepEquals, []string{
 		"agent-name",
 	})
 }
 
 func (s *ManifoldSuite) TestInputs(c *tc.C) {
-	c.Check(s.manifold.Inputs, jc.DeepEquals, []string{
+	c.Check(s.manifold.Inputs, tc.DeepEquals, []string{
 		"agent-name",
 		"api-config-watcher-name",
 	})
@@ -123,7 +122,7 @@ func (s *ManifoldSuite) TestStartCannotOpenAPI(c *tc.C) {
 
 func (s *ManifoldSuite) TestStartSuccess(c *tc.C) {
 	worker, err := s.manifold.Start(context.Background(), s.getter)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	defer assertStop(c, worker)
 	s.CheckCalls(c, []testing.StubCall{{
 		FuncName: "NewConnection",
@@ -133,7 +132,7 @@ func (s *ManifoldSuite) TestStartSuccess(c *tc.C) {
 
 func (s *ManifoldSuite) setupWorkerTest(c *tc.C) worker.Worker {
 	w, err := s.manifold.Start(context.Background(), s.getter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AddCleanup(func(c *tc.C) { w.Kill() })
 	return w
 }
@@ -184,12 +183,12 @@ func (s *ManifoldSuite) TestOutputSuccess(c *tc.C) {
 
 	var apicaller base.APICaller
 	err := s.manifold.Output(worker, &apicaller)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(apicaller, tc.Equals, s.conn)
 
 	var conn api.Connection
 	err = s.manifold.Output(worker, &conn)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(conn, tc.Equals, s.conn)
 }
 

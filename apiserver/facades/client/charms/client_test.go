@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/facade"
@@ -56,7 +55,7 @@ func (s *charmsMockSuite) TestListCharmsNoNames(c *tc.C) {
 
 	api := s.api(c)
 	found, err := api.List(context.Background(), params.CharmsList{Names: []string{}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(found.CharmURLs, tc.HasLen, 1)
 	c.Check(found, tc.DeepEquals, params.CharmsListResult{
 		CharmURLs: []string{"ch:amd64/dummy-1"},
@@ -78,7 +77,7 @@ func (s *charmsMockSuite) TestListCharmsWithNames(c *tc.C) {
 
 	api := s.api(c)
 	found, err := api.List(context.Background(), params.CharmsList{Names: []string{"dummy", "foo"}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(found.CharmURLs, tc.HasLen, 1)
 	c.Check(found, tc.DeepEquals, params.CharmsListResult{
 		CharmURLs: []string{"ch:amd64/dummy-1"},
@@ -154,9 +153,9 @@ func (s *charmsMockSuite) TestResolveCharms(c *tc.C) {
 		},
 	}
 	result, err := api.ResolveCharms(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 3)
-	c.Assert(result.Results, jc.DeepEquals, expected)
+	c.Assert(result.Results, tc.DeepEquals, expected)
 }
 
 func (s *charmsMockSuite) TestResolveCharmsUnknownSchema(c *tc.C) {
@@ -164,13 +163,13 @@ func (s *charmsMockSuite) TestResolveCharmsUnknownSchema(c *tc.C) {
 	api := s.api(c)
 
 	curl, err := charm.ParseURL("local:testme")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	args := params.ResolveCharmsWithChannel{
 		Resolve: []params.ResolveCharmWithChannel{{Reference: curl.String()}},
 	}
 
 	result, err := api.ResolveCharms(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0].Error, tc.ErrorMatches, `unknown schema for charm URL "local:testme"`)
 }
@@ -252,7 +251,7 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *tc.C) {
 		},
 	}
 	obtained, err := api.AddCharm(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.DeepEquals, params.CharmOriginResult{
 		Origin: params.CharmOrigin{
 			Source: "charm-hub",
@@ -280,8 +279,8 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithSubordinate(c *tc.C) {
 	}
 
 	result, err := api.CheckCharmPlacement(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.OneError(), tc.ErrorIsNil)
 }
 
 func (s *charmsMockSuite) TestCheckCharmPlacementWithConstraintArch(c *tc.C) {
@@ -304,8 +303,8 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithConstraintArch(c *tc.C) {
 	}
 
 	result, err := api.CheckCharmPlacement(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.OneError(), tc.ErrorIsNil)
 }
 
 func (s *charmsMockSuite) TestCheckCharmPlacementWithHomogeneous(c *tc.C) {
@@ -330,8 +329,8 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithHomogeneous(c *tc.C) {
 	}
 
 	result, err := api.CheckCharmPlacement(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.OneError(), tc.ErrorIsNil)
 }
 
 func (s *charmsMockSuite) TestCheckCharmPlacementWithHeterogeneous(c *tc.C) {
@@ -356,7 +355,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithHeterogeneous(c *tc.C) {
 	}
 
 	result, err := api.CheckCharmPlacement(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.OneError(), tc.ErrorMatches, "charm can not be placed in a heterogeneous environment")
 }
 
@@ -400,7 +399,7 @@ func (s *charmsMockSuite) api(c *tc.C) *API {
 		s.repository,
 		loggertesting.WrapCheckLog(c),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return api
 }
 
@@ -425,7 +424,7 @@ func (s *charmsMockSuite) setupMocks(c *tc.C) *gomock.Controller {
 		"uuid":         uuid,
 		"charmhub-url": "https://api.staging.charmhub.io",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
 
 	s.applicationService = NewMockApplicationService(ctrl)

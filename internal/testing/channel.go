@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 )
 
 // NotifyAsserterC gives helper functions for making assertions about how a
@@ -31,7 +30,7 @@ func (a *NotifyAsserterC) AssertReceive() {
 	}
 	select {
 	case _, ok := <-a.Chan:
-		a.C.Assert(ok, jc.IsTrue)
+		a.C.Assert(ok, tc.IsTrue)
 	case <-time.After(LongWait):
 		a.C.Fatalf("timed out waiting for channel message")
 	}
@@ -50,7 +49,7 @@ func (a *NotifyAsserterC) AssertClosed() {
 	}
 	select {
 	case _, ok := <-a.Chan:
-		a.C.Assert(ok, jc.IsFalse)
+		a.C.Assert(ok, tc.IsFalse)
 	case <-time.After(LongWait):
 		a.C.Fatalf("timed out waiting for channel to close")
 	}
@@ -94,7 +93,7 @@ func (a *ContentAsserterC) recv(timeout time.Duration) (val interface{}, ok, tim
 	}})
 	switch which {
 	case 0:
-		a.C.Assert(ok, jc.IsTrue)
+		a.C.Assert(ok, tc.IsTrue)
 		return v.Interface(), ok, false
 	case 1:
 		return nil, false, true
@@ -109,7 +108,7 @@ func (a *ContentAsserterC) AssertReceive() interface{} {
 	if timedOut {
 		a.C.Fatalf("timed out waiting for channel message")
 	}
-	a.C.Assert(ok, jc.IsTrue)
+	a.C.Assert(ok, tc.IsTrue)
 	return v
 }
 
@@ -135,7 +134,7 @@ func (a *ContentAsserterC) AssertClosed() {
 	if timedOut {
 		a.C.Fatalf("timed out waiting for channel to close")
 	}
-	a.C.Assert(ok, jc.IsFalse)
+	a.C.Assert(ok, tc.IsFalse)
 }
 
 // Assert that we fail to receive on the channel after a short wait.

@@ -8,7 +8,6 @@ import (
 	time "time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 
 	"github.com/juju/juju/internal/testing"
@@ -75,7 +74,7 @@ juju_db_watermark_retries_total{namespace="foo"} 1
 		"juju_db_changestream_count",
 		"juju_db_subscription_count",
 	)
-	if !c.Check(err, jc.ErrorIsNil) {
+	if !c.Check(err, tc.ErrorIsNil) {
 		c.Logf("\nerror:\n%v", err)
 	}
 }
@@ -111,7 +110,7 @@ juju_db_watermark_retries_total{namespace="n2"} 1
 		expected,
 		"juju_db_watermark_retries_total",
 	)
-	if !c.Check(err, jc.ErrorIsNil) {
+	if !c.Check(err, tc.ErrorIsNil) {
 		c.Logf("\nerror:\n%v", err)
 	}
 }

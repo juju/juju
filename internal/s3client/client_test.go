@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -35,10 +34,10 @@ func (s *s3ClientSuite) TestObjectExists(c *tc.C) {
 	defer cleanup()
 
 	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = client.ObjectExists(context.Background(), "bucket", "object")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *s3ClientSuite) TestObjectExistsNotFound(c *tc.C) {
@@ -51,10 +50,10 @@ func (s *s3ClientSuite) TestObjectExistsNotFound(c *tc.C) {
 	defer cleanup()
 
 	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = client.ObjectExists(context.Background(), "bucket", "object")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *s3ClientSuite) TestObjectExistsForbidden(c *tc.C) {
@@ -67,10 +66,10 @@ func (s *s3ClientSuite) TestObjectExistsForbidden(c *tc.C) {
 	defer cleanup()
 
 	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = client.ObjectExists(context.Background(), "bucket", "object")
-	c.Assert(err, jc.ErrorIs, errors.Forbidden)
+	c.Assert(err, tc.ErrorIs, errors.Forbidden)
 }
 
 func (s *s3ClientSuite) TestGetObject(c *tc.C) {
@@ -84,13 +83,13 @@ func (s *s3ClientSuite) TestGetObject(c *tc.C) {
 	defer cleanup()
 
 	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	resp, size, hash, err := client.GetObject(context.Background(), "bucket", "object")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	blob, err := io.ReadAll(resp)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(string(blob), tc.Equals, "blob")
 	c.Check(size, tc.Equals, int64(4))
 	c.Check(hash, tc.Equals, "+iyMxPKBdrvu1Lc231aaNMec03I+nsQvlnS01GrGuLg=")
@@ -111,23 +110,23 @@ func (s *s3ClientSuite) TestPutObject(c *tc.C) {
 
 		lockRetentionDateString := r.Header.Get("x-amz-object-lock-retain-until-date")
 		lockRetentionDate, err := time.Parse(time.RFC3339, lockRetentionDateString)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		// Ensure the retention date is within 1 hour of the retention lock
 		// date, which is currently set to 20 years.
-		c.Check(lockRetentionDate.After(time.Now().Add(retentionLockDate-time.Hour)), jc.IsTrue)
+		c.Check(lockRetentionDate.After(time.Now().Add(retentionLockDate-time.Hour)), tc.IsTrue)
 
 		body, err := io.ReadAll(r.Body)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(string(body), jc.Contains, "blob")
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(string(body), tc.Contains, "blob")
 	})
 	defer cleanup()
 
 	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = client.PutObject(context.Background(), "bucket", "object", strings.NewReader("blob"), hash)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *s3ClientSuite) TestDeleteObject(c *tc.C) {
@@ -141,10 +140,10 @@ func (s *s3ClientSuite) TestDeleteObject(c *tc.C) {
 	defer cleanup()
 
 	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = client.DeleteObject(context.Background(), "bucket", "object")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *s3ClientSuite) TestCreateBucket(c *tc.C) {
@@ -158,10 +157,10 @@ func (s *s3ClientSuite) TestCreateBucket(c *tc.C) {
 	defer cleanup()
 
 	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = client.CreateBucket(context.Background(), "bucket")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *s3ClientSuite) setupServer(c *tc.C, handler http.HandlerFunc) (string, HTTPClient, func()) {

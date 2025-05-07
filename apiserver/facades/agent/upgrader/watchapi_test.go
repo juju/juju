@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
@@ -36,7 +35,7 @@ func (s *upgraderWatchSuite) TestWatchAPIVersionNothing(c *tc.C) {
 
 	// Not an error to watch nothing
 	results, err := s.api().WatchAPIVersion(context.Background(), params.Entities{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results.Results, tc.HasLen, 0)
 }
 
@@ -68,7 +67,7 @@ func (s *upgraderWatchSuite) TestWatchAPIVersionMachine(c *tc.C) {
 			{Tag: tag.String()},
 		}}
 	results, err := s.api().WatchAPIVersion(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			{NotifyWatcherId: "87"},
@@ -104,7 +103,7 @@ func (s *upgraderWatchSuite) TestWatchAPIVersionUnit(c *tc.C) {
 			{Tag: tag.String()},
 		}}
 	results, err := s.api().WatchAPIVersion(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			{NotifyWatcherId: "4"},
@@ -153,7 +152,7 @@ func (s *upgraderWatchSuite) TestWatchAPIVersionControllerModelAgent(c *tc.C) {
 			{Tag: coretesting.ModelTag.String()},
 		}}
 	results, err := s.api().WatchAPIVersion(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			{NotifyWatcherId: "2"},
@@ -170,7 +169,7 @@ func (s *upgraderWatchSuite) TestWatchAPIVersionTagInvalid(c *tc.C) {
 	}
 	results, err := s.api().WatchAPIVersion(context.Background(), args)
 	// It is not an error to make the request, but the specific item is rejected
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results.Results, tc.HasLen, 1)
 	c.Check(results.Results[0].NotifyWatcherId, tc.Equals, "")
 	c.Assert(results.Results[0].Error.Code, tc.Equals, params.CodeTagInvalid)
@@ -186,7 +185,7 @@ func (s *upgraderWatchSuite) TestWatchAPIVersionWrongTypeTag(c *tc.C) {
 	}
 	results, err := s.api().WatchAPIVersion(context.Background(), args)
 	// It is not an error to make the request, but the specific item is rejected
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results.Results, tc.HasLen, 1)
 	c.Check(results.Results[0].NotifyWatcherId, tc.Equals, "")
 	c.Assert(results.Results[0].Error.Code, tc.Equals, params.CodeNotValid)

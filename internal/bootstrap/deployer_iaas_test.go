@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/agent"
@@ -37,7 +36,7 @@ func (s *deployerIAASSuite) TestValidate(c *tc.C) {
 	cfg = s.newConfig(c)
 	cfg.MachineGetter = nil
 	err = cfg.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
 func (s *deployerIAASSuite) TestControllerAddress(c *tc.C) {
@@ -47,7 +46,7 @@ func (s *deployerIAASSuite) TestControllerAddress(c *tc.C) {
 
 	deployer := s.newDeployer(c)
 	address, err := deployer.ControllerAddress(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(address, tc.Equals, "10.0.0.1")
 }
 
@@ -58,7 +57,7 @@ func (s *deployerIAASSuite) TestControllerAddressWithNoAddress(c *tc.C) {
 
 	deployer := s.newDeployer(c)
 	address, err := deployer.ControllerAddress(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(address, tc.Equals, "")
 }
 
@@ -82,7 +81,7 @@ func (s *deployerIAASSuite) TestControllerCharmBase(c *tc.C) {
 
 	deployer := s.newDeployer(c)
 	base, err := deployer.ControllerCharmBase()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(base, tc.Equals, corebase.MakeDefaultBase("ubuntu", "22.04"))
 }
 
@@ -94,7 +93,7 @@ func (s *deployerIAASSuite) TestCompleteProcess(c *tc.C) {
 
 	deployer := s.newDeployer(c)
 	err := deployer.CompleteProcess(context.Background(), coreunit.Name("controller/0"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *deployerIAASSuite) newDeployer(c *tc.C) *IAASDeployer {

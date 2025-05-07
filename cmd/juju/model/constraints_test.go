@@ -5,7 +5,6 @@ package model_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -35,7 +34,7 @@ func (s *ModelConstraintsCommandsSuite) TestSetInit(c *tc.C) {
 	} {
 		err := cmdtesting.InitCommand(model.NewModelSetConstraintsCommandForTest(), test.args)
 		if test.err == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
 			c.Check(err, tc.ErrorMatches, test.err)
 		}
@@ -59,7 +58,7 @@ func (s *ModelConstraintsCommandsSuite) TestGetInit(c *tc.C) {
 	} {
 		err := cmdtesting.InitCommand(model.NewModelGetConstraintsCommandForTest(), test.args)
 		if test.err == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
 			c.Check(err, tc.ErrorMatches, test.err)
 		}

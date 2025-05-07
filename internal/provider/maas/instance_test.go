@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -81,15 +80,15 @@ func (s *maasInstanceSuite) TestAddresses(c *tc.C) {
 		"freckles", "4567", "192.168.10.1", network.WithCIDR(subnet.cidr), network.WithConfigType(network.ConfigStatic),
 	)}
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addresses, jc.SameContents, expectedAddresses)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(addresses, tc.SameContents, expectedAddresses)
 }
 
 func (s *maasInstanceSuite) TestZone(c *tc.C) {
 	machine := &fakeMachine{zoneName: "inflatable"}
 	instance := &maasInstance{machine: machine}
 	zone, err := instance.zone()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(zone, tc.Equals, "inflatable")
 }
 
@@ -97,21 +96,21 @@ func (s *maasInstanceSuite) TestStatusSuccess(c *tc.C) {
 	machine := &fakeMachine{statusMessage: "Wexler", statusName: "Deploying"}
 	thing := &maasInstance{machine: machine}
 	result := thing.Status(context.Background())
-	c.Assert(result, jc.DeepEquals, instance.Status{status.Allocating, "Deploying: Wexler"})
+	c.Assert(result, tc.DeepEquals, instance.Status{status.Allocating, "Deploying: Wexler"})
 }
 
 func (s *maasInstanceSuite) TestStatusError(c *tc.C) {
 	machine := &fakeMachine{statusMessage: "", statusName: ""}
 	thing := &maasInstance{machine: machine}
 	result := thing.Status(context.Background())
-	c.Assert(result, jc.DeepEquals, instance.Status{"", "error in getting status"})
+	c.Assert(result, tc.DeepEquals, instance.Status{"", "error in getting status"})
 }
 
 func (s *maasInstanceSuite) TestHostname(c *tc.C) {
 	machine := &fakeMachine{hostname: "saul-goodman"}
 	thing := &maasInstance{machine: machine}
 	result, err := thing.hostname()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.Equals, "saul-goodman")
 }
 
@@ -119,7 +118,7 @@ func (s *maasInstanceSuite) TestHostnameIsDisplayName(c *tc.C) {
 	machine := &fakeMachine{hostname: "saul-goodman"}
 	thing := &maasInstance{machine: machine}
 	result, err := thing.displayName()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.Equals, "saul-goodman")
 }
 
@@ -127,7 +126,7 @@ func (s *maasInstanceSuite) TestDisplayNameFallsBackToFQDN(c *tc.C) {
 	machine := newFakeMachine("abc123", "amd64", "ok")
 	thing := &maasInstance{machine: machine}
 	result, err := thing.displayName()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.Equals, thing.machine.FQDN())
 }
 
@@ -153,6 +152,6 @@ func (s *maasInstanceSuite) TestHardwareCharacteristics(c *tc.C) {
 		Tags:             &tags,
 	}
 	result, err := thing.hardwareCharacteristics()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, expected)
 }

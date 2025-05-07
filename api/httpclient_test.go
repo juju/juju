@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"gopkg.in/httprequest.v1"
 	"gopkg.in/macaroon.v2"
 
@@ -49,8 +48,8 @@ func (s *httpSuite) SetUpTest(c *tc.C) {
 	}
 	var err error
 	s.conn, err = api.Open(context.Background(), info, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *tc.C) { c.Assert(s.conn.Close(), jc.ErrorIsNil) })
+	c.Assert(err, tc.ErrorIsNil)
+	s.AddCleanup(func(c *tc.C) { c.Assert(s.conn.Close(), tc.ErrorIsNil) })
 	client, err := s.conn.HTTPClient()
 	c.Assert(err, tc.IsNil)
 	s.client = client
@@ -180,17 +179,17 @@ func (s *httpSuite) TestHTTPClient(c *tc.C) {
 			c.Check(err, tc.ErrorMatches, test.expectError)
 			c.Check(params.ErrCode(err), tc.Equals, test.expectErrorCode)
 			if test.expectErrorIs != "" {
-				c.Check(errors.Cause(err), jc.ErrorIs, test.expectErrorIs)
+				c.Check(errors.Cause(err), tc.ErrorIs, test.expectErrorIs)
 			}
 			if err, ok := errors.Cause(err).(*params.Error); ok {
-				c.Check(err.Info, jc.DeepEquals, test.expectErrorInfo)
+				c.Check(err.Info, tc.DeepEquals, test.expectErrorInfo)
 			} else if test.expectErrorInfo != nil {
 				c.Fatalf("no error info found in error")
 			}
 			continue
 		}
 		c.Check(err, tc.IsNil)
-		c.Check(resp, jc.DeepEquals, test.expectResponse)
+		c.Check(resp, tc.DeepEquals, test.expectResponse)
 	}
 }
 
@@ -212,9 +211,9 @@ func (s *httpSuite) TestControllerMachineAuthForHostedModel(c *tc.C) {
 	}
 
 	conn, err := api.Open(context.Background(), info, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	httpClient, err := conn.HTTPClient()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Test with a dummy HTTP server returns the auth related headers used.
 	httpSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -234,7 +233,7 @@ func (s *httpSuite) TestControllerMachineAuthForHostedModel(c *tc.C) {
 	defer httpSrv.Close()
 	httpClient.BaseURL = httpSrv.URL
 	var out map[string]string
-	c.Assert(httpClient.Get(context.Background(), "/", &out), jc.ErrorIsNil)
+	c.Assert(httpClient.Get(context.Background(), "/", &out), tc.ErrorIsNil)
 	c.Assert(out, tc.DeepEquals, map[string]string{
 		"username": "machine-1",
 		"password": "password",
@@ -247,7 +246,7 @@ func (s *httpSuite) TestAuthHTTPRequest(c *tc.C) {
 
 	req := s.authHTTPRequest(c, apiInfo)
 	_, _, ok := req.BasicAuth()
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 	c.Assert(req.Header, tc.HasLen, 2)
 	c.Assert(req.Header.Get(httpbakery.BakeryProtocolHeader), tc.Equals, "3")
 	c.Assert(req.Header.Get(params.JujuClientVersion), tc.Equals, version.Current.String())
@@ -255,7 +254,7 @@ func (s *httpSuite) TestAuthHTTPRequest(c *tc.C) {
 	apiInfo.Nonce = "foo"
 	req = s.authHTTPRequest(c, apiInfo)
 	_, _, ok = req.BasicAuth()
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 	c.Assert(req.Header.Get(params.MachineNonceHeader), tc.Equals, "foo")
 	c.Assert(req.Header.Get(httpbakery.BakeryProtocolHeader), tc.Equals, "3")
 
@@ -263,14 +262,14 @@ func (s *httpSuite) TestAuthHTTPRequest(c *tc.C) {
 	apiInfo.Password = "password"
 	req = s.authHTTPRequest(c, apiInfo)
 	user, pass, ok := req.BasicAuth()
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	c.Assert(user, tc.Equals, "machine-123")
 	c.Assert(pass, tc.Equals, "password")
 	c.Assert(req.Header.Get(params.MachineNonceHeader), tc.Equals, "foo")
 	c.Assert(req.Header.Get(httpbakery.BakeryProtocolHeader), tc.Equals, "3")
 
 	mac, err := jujutesting.NewMacaroon("id")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	apiInfo.Macaroons = []macaroon.Slice{{mac}}
 	req = s.authHTTPRequest(c, apiInfo)
 	c.Assert(req.Header.Get(params.MachineNonceHeader), tc.Equals, "foo")
@@ -281,9 +280,9 @@ func (s *httpSuite) TestAuthHTTPRequest(c *tc.C) {
 
 func (s *httpSuite) authHTTPRequest(c *tc.C, info *api.Info) *http.Request {
 	req, err := http.NewRequest(http.MethodGet, "/", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = api.AuthHTTPRequest(req, info)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return req
 }
 

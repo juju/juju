@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
@@ -57,7 +56,7 @@ func (s *Suite) TestDestroyController(c *tc.C) {
 		MaxWait:        &maxWait,
 		ModelTimeout:   &timeout,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{FuncName: "Controller.DestroyController", Args: []interface{}{params.DestroyControllerArgs{
@@ -99,7 +98,7 @@ func (s *Suite) checkInitiateMigration(c *tc.C, spec controller.MigrationSpec) {
 		}},
 	})
 	id, err := client.InitiateMigration(context.Background(), spec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(id, tc.Equals, "id")
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{FuncName: "Controller.InitiateMigration", Args: []interface{}{specToArgs(spec)}},
@@ -223,7 +222,7 @@ func (s *Suite) TestHostedModelConfigs_FormatResults(c *tc.C) {
 	client := controller.NewClient(apiCaller)
 	config, err := client.HostedModelConfigs(context.Background())
 	c.Assert(config, tc.HasLen, 3)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	first := config[0]
 	c.Assert(first.Name, tc.Equals, "first")
 	c.Assert(first.Owner, tc.Equals, names.NewUserTag("foo@bar"))
@@ -291,8 +290,8 @@ func (s *Suite) TestModelStatusEmpty(c *tc.C) {
 
 	client := controller.NewClient(apiCaller)
 	results, err := client.ModelStatus(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []base.ModelStatus{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, []base.ModelStatus{})
 }
 
 func (s *Suite) TestModelStatus(c *tc.C) {
@@ -302,7 +301,7 @@ func (s *Suite) TestModelStatus(c *tc.C) {
 			c.Check(objType, tc.Equals, "Controller")
 			c.Check(id, tc.Equals, "")
 			c.Check(request, tc.Equals, "ModelStatus")
-			c.Check(arg, jc.DeepEquals, params.Entities{
+			c.Check(arg, tc.DeepEquals, params.Entities{
 				Entities: []params.Entity{
 					{Tag: coretesting.ModelTag.String()},
 					{Tag: coretesting.ModelTag.String()},
@@ -332,8 +331,8 @@ func (s *Suite) TestModelStatus(c *tc.C) {
 
 	client := controller.NewClient(apiCaller)
 	results, err := client.ModelStatus(context.Background(), coretesting.ModelTag, coretesting.ModelTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results[0], jc.DeepEquals, base.ModelStatus{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results[0], tc.DeepEquals, base.ModelStatus{
 		UUID:               coretesting.ModelTag.Id(),
 		TotalMachineCount:  1,
 		HostedMachineCount: 2,
@@ -432,7 +431,7 @@ func (s *Suite) TestDashboardConnectionInfo(c *tc.C) {
 		})
 	client := controller.NewClient(apiCaller)
 	connectionInfo, err := client.DashboardConnectionInfo(context.Background(), proxyfactory.NewFactory())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(connectionInfo.SSHTunnel, tc.NotNil)
 }
 
@@ -460,8 +459,8 @@ func (s *Suite) TestAllModels(c *tc.C) {
 
 	client := controller.NewClient(apiCaller)
 	m, err := client.AllModels(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m, jc.DeepEquals, []base.UserModel{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(m, tc.DeepEquals, []base.UserModel{{
 		Name:           "test",
 		UUID:           coretesting.ModelTag.Id(),
 		Type:           "iaas",
@@ -487,8 +486,8 @@ func (s *Suite) TestControllerConfig(c *tc.C) {
 
 	client := controller.NewClient(apiCaller)
 	m, err := client.ControllerConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m, jc.DeepEquals, corecontroller.Config{"api-port": 666})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(m, tc.DeepEquals, corecontroller.Config{"api-port": 666})
 }
 
 func (s *Suite) TestListBlockedModels(c *tc.C) {
@@ -514,8 +513,8 @@ func (s *Suite) TestListBlockedModels(c *tc.C) {
 
 	client := controller.NewClient(apiCaller)
 	results, err := client.ListBlockedModels(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []params.ModelBlockInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, []params.ModelBlockInfo{
 		{
 			Name:     "controller",
 			UUID:     coretesting.ModelTag.Id(),
@@ -533,7 +532,7 @@ func (s *Suite) TestRemoveBlocks(c *tc.C) {
 		c.Check(objType, tc.Equals, "Controller")
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "RemoveBlocks")
-		c.Check(args, jc.DeepEquals, params.RemoveBlocksArgs{All: true})
+		c.Check(args, tc.DeepEquals, params.RemoveBlocksArgs{All: true})
 		c.Check(result, tc.IsNil)
 		return errors.New("some error")
 	})
@@ -548,7 +547,7 @@ func (s *Suite) TestGetControllerAccess(c *tc.C) {
 		c.Check(objType, tc.Equals, "Controller")
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "GetControllerAccess")
-		c.Check(args, jc.DeepEquals, params.Entities{
+		c.Check(args, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "user-fred"}},
 		})
 		c.Check(result, tc.FitsTypeOf, &params.UserAccessResults{})
@@ -565,6 +564,6 @@ func (s *Suite) TestGetControllerAccess(c *tc.C) {
 
 	client := controller.NewClient(apiCaller)
 	access, err := client.GetControllerAccess(context.Background(), "fred")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(access, tc.Equals, permission.SuperuserAccess)
 }

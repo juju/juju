@@ -12,7 +12,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 
 	corelease "github.com/juju/juju/core/lease"
@@ -70,7 +69,7 @@ func (s *AsyncSuite) TestRevokeTimeout(c *tc.C) {
 	}
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
 		revoker, err := manager.Revoker("namespace", "modelUUID")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		result := make(chan error)
 		go func() {
@@ -87,11 +86,11 @@ func (s *AsyncSuite) TestRevokeTimeout(c *tc.C) {
 		// - one is the nextTick timer, set for 1 minute in the future
 		// - two is the claim retry timer
 		err = clock.WaitAdvance(50*time.Millisecond, coretesting.LongWait, 2)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		select {
 		case err := <-result:
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting for response")
 		}
@@ -131,7 +130,7 @@ func (s *AsyncSuite) TestRevokeRepeatedTimeout(c *tc.C) {
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
 		result := make(chan error)
 		revoker, err := manager.Revoker("namespace", "modelUUID")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		go func() {
 			result <- revoker.Revoke("requiem", "verdi")
 		}()
@@ -150,7 +149,7 @@ func (s *AsyncSuite) TestRevokeRepeatedTimeout(c *tc.C) {
 			// There should be 2 waiters:
 			//  - nextTick has a timer once things expire
 			//  - retryingClaim has an attempt timer
-			c.Assert(clock.WaitAdvance(duration, coretesting.LongWait, 2), jc.ErrorIsNil)
+			c.Assert(clock.WaitAdvance(duration, coretesting.LongWait, 2), tc.ErrorIsNil)
 			duration = time.Duration(float64(duration)*lease.RetryBackoffFactor + 1)
 		}
 
@@ -223,7 +222,7 @@ func (s *AsyncSuite) TestClaimSlow(c *tc.C) {
 	}
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
 		claimer, err := manager.Claimer("namespace", "modelUUID")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		response1 := make(chan error)
 		go func() {
@@ -242,13 +241,13 @@ func (s *AsyncSuite) TestClaimSlow(c *tc.C) {
 
 		// response1 should have failed its claim, and now be waiting to retry
 		// only 1 waiter, which is the 'when should we expire next' timer.
-		c.Assert(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 1), jc.ErrorIsNil)
+		c.Assert(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 1), tc.ErrorIsNil)
 
 		// We should be able to get the response for the second claim
 		// even though the first hasn't come back yet.
 		select {
 		case err := <-response2:
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		case <-response1:
 			c.Fatalf("response1 was ready")
 		case <-time.After(coretesting.LongWait):
@@ -257,7 +256,7 @@ func (s *AsyncSuite) TestClaimSlow(c *tc.C) {
 
 		close(slowFinish)
 
-		c.Assert(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 1), jc.ErrorIsNil)
+		c.Assert(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 1), tc.ErrorIsNil)
 
 		// Now response1 should come back.
 		select {
@@ -311,7 +310,7 @@ func (s *AsyncSuite) TestClaimTwoErrors(c *tc.C) {
 	}
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
 		claimer, err := manager.Claimer("namespace", "modelUUID")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		response1 := make(chan error)
 		go func() {
@@ -396,7 +395,7 @@ func (s *AsyncSuite) TestClaimTimeout(c *tc.C) {
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
 		result := make(chan error)
 		claimer, err := manager.Claimer("namespace", "modelUUID")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		go func() {
 			result <- claimer.Claim("icecream", "rosie", time.Minute)
 		}()
@@ -411,11 +410,11 @@ func (s *AsyncSuite) TestClaimTimeout(c *tc.C) {
 		// - one is the nextTick timer, set for 1 minute in the future
 		// - two is the claim retry timer
 		err = clock.WaitAdvance(50*time.Millisecond, coretesting.LongWait, 2)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		select {
 		case err := <-result:
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting for response")
 		}
@@ -462,22 +461,22 @@ func (s *AsyncSuite) TestClaimNoticesEarlyExpiry(c *tc.C) {
 		// will create an entry that expires in only 1 minute, so we should
 		// reset our expire timeout
 		claimer, err := manager.Claimer("namespace", "modelUUID")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = claimer.Claim("icecream", "rosie", time.Minute)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		// We sleep for 30s which *shouldn't* trigger any Expiry. And then we get
 		// another claim that also wants 1 minute duration. But that should not cause the
 		// timer to wake up in 1minute, but the 30s that are remaining.
-		c.Assert(clock.WaitAdvance(30*time.Second, testing.LongWait, 1), jc.ErrorIsNil)
+		c.Assert(clock.WaitAdvance(30*time.Second, testing.LongWait, 1), tc.ErrorIsNil)
 		// The second claim tries to set a timeout of another minute, but that should
 		// not cause the timer to get reset any later than it already is.
 		// Chocolate is also given a slightly longer timeout (2min after epoch)
 		err = claimer.Claim("fudge", "chocolate", time.Minute)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		// Now when we advance the clock another 30s, it should wake up and
 		// expire "icecream", and then queue up that we should expire "fudge"
 		// 1m later
-		c.Assert(clock.WaitAdvance(30*time.Second, testing.LongWait, 1), jc.ErrorIsNil)
+		c.Assert(clock.WaitAdvance(30*time.Second, testing.LongWait, 1), tc.ErrorIsNil)
 	})
 }
 
@@ -509,7 +508,7 @@ func (s *AsyncSuite) TestClaimRepeatedTimeout(c *tc.C) {
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
 		result := make(chan error)
 		claimer, err := manager.Claimer("namespace", "modelUUID")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		go func() {
 			result <- claimer.Claim("icecream", "rosie", time.Minute)
 		}()
@@ -528,7 +527,7 @@ func (s *AsyncSuite) TestClaimRepeatedTimeout(c *tc.C) {
 			// There should be 2 waiters:
 			//  - nextTick has a timer once things expire
 			//  - retryingClaim has an attempt timer
-			c.Assert(clock.WaitAdvance(duration, coretesting.LongWait, 2), jc.ErrorIsNil)
+			c.Assert(clock.WaitAdvance(duration, coretesting.LongWait, 2), tc.ErrorIsNil)
 			duration = time.Duration(float64(duration)*lease.RetryBackoffFactor + 1)
 		}
 
@@ -577,7 +576,7 @@ func (s *AsyncSuite) TestClaimRepeatedInvalid(c *tc.C) {
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
 		result := make(chan error)
 		claimer, err := manager.Claimer("namespace", "modelUUID")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		go func() {
 			result <- claimer.Claim("icecream", "rosie", time.Minute)
 		}()
@@ -596,7 +595,7 @@ func (s *AsyncSuite) TestClaimRepeatedInvalid(c *tc.C) {
 			// There should be 2 waiters:
 			//  - nextTick has a timer once things expire
 			//  - retryingClaim has an attempt timer
-			c.Assert(clock.WaitAdvance(duration, coretesting.LongWait, 2), jc.ErrorIsNil)
+			c.Assert(clock.WaitAdvance(duration, coretesting.LongWait, 2), tc.ErrorIsNil)
 			duration = time.Duration(float64(duration)*lease.RetryBackoffFactor + 1)
 		}
 
@@ -645,7 +644,7 @@ func (s *AsyncSuite) TestWaitsForGoroutines(c *tc.C) {
 
 		result := make(chan error)
 		claimer, err := manager.Claimer("namespace", "modelUUID")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		go func() {
 			result <- claimer.Claim("blooadoath", "hand", time.Minute)
 		}()
@@ -675,6 +674,6 @@ func (s *AsyncSuite) TestWaitsForGoroutines(c *tc.C) {
 		}
 
 		err = workertest.CheckKilled(c, manager)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	})
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/machine"
@@ -42,14 +41,14 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 		`, modelUUID.String(), coretesting.ControllerTag.Id())
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.machine"))
 
 	err = machineSt.CreateMachine(context.Background(), "0", netNodeUUIDs[0], machine.UUID(machineUUIDs[0]))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = machineSt.CreateMachine(context.Background(), "1", netNodeUUIDs[1], machine.UUID(machineUUIDs[1]))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.appUUIDs[0] = s.createApplicationWithRelations(c, appNames[0], "ep0", "ep1", "ep2")
 	s.appUUIDs[1] = s.createApplicationWithRelations(c, appNames[1], "ep0", "ep1", "ep2")
@@ -75,12 +74,12 @@ func (s *watcherSuite) TestGetMachinesForUnitEndpoints(c *tc.C) {
 	ctx := context.Background()
 
 	machineUUIDsForEndpoint, err := st.GetMachineNamesForUnits(ctx, s.unitUUIDs[:])
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(machineUUIDsForEndpoint, jc.SameContents, []machine.Name{"0", "1"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(machineUUIDsForEndpoint, tc.SameContents, []machine.Name{"0", "1"})
 
 	machineUUIDsForEndpoint, err = st.GetMachineNamesForUnits(ctx, []coreunit.UUID{s.unitUUIDs[0]})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(machineUUIDsForEndpoint, jc.DeepEquals, []machine.Name{"0"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(machineUUIDsForEndpoint, tc.DeepEquals, []machine.Name{"0"})
 }
 
 func (s *watcherSuite) TestFilterEndpointForApplication(c *tc.C) {
@@ -88,10 +87,10 @@ func (s *watcherSuite) TestFilterEndpointForApplication(c *tc.C) {
 	ctx := context.Background()
 
 	filteredUnits, err := st.FilterUnitUUIDsForApplication(ctx, s.unitUUIDs[:], s.appUUIDs[0])
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(filteredUnits, jc.DeepEquals, set.NewStrings(s.unitUUIDs[0].String()))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(filteredUnits, tc.DeepEquals, set.NewStrings(s.unitUUIDs[0].String()))
 
 	filteredUnits, err = st.FilterUnitUUIDsForApplication(ctx, s.unitUUIDs[:], s.appUUIDs[1])
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(filteredUnits, jc.DeepEquals, set.NewStrings(s.unitUUIDs[1].String(), s.unitUUIDs[2].String()))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(filteredUnits, tc.DeepEquals, set.NewStrings(s.unitUUIDs[1].String(), s.unitUUIDs[2].String()))
 }

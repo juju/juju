@@ -5,7 +5,6 @@ package network_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/testing"
@@ -174,7 +173,7 @@ func (*PortRangeSuite) TestSortPortRanges(c *tc.C) {
 
 func (*PortRangeSuite) TestParsePortRange(c *tc.C) {
 	portRange, err := network.ParsePortRange("8000-8099/tcp")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(portRange.Protocol, tc.Equals, "tcp")
 	c.Check(portRange.FromPort, tc.Equals, 8000)
@@ -183,7 +182,7 @@ func (*PortRangeSuite) TestParsePortRange(c *tc.C) {
 
 func (*PortRangeSuite) TestParsePortRangeSingle(c *tc.C) {
 	portRange, err := network.ParsePortRange("80/tcp")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(portRange.Protocol, tc.Equals, "tcp")
 	c.Check(portRange.FromPort, tc.Equals, 80)
@@ -192,7 +191,7 @@ func (*PortRangeSuite) TestParsePortRangeSingle(c *tc.C) {
 
 func (*PortRangeSuite) TestParsePortRangeDefaultProtocol(c *tc.C) {
 	portRange, err := network.ParsePortRange("80")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(portRange.Protocol, tc.Equals, "tcp")
 	c.Check(portRange.FromPort, tc.Equals, 80)
@@ -201,7 +200,7 @@ func (*PortRangeSuite) TestParsePortRangeDefaultProtocol(c *tc.C) {
 
 func (*PortRangeSuite) TestParseIcmpProtocol(c *tc.C) {
 	portRange, err := network.ParsePortRange("icmp")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(portRange.Protocol, tc.Equals, "icmp")
 	c.Check(portRange.FromPort, tc.Equals, -1)
@@ -210,7 +209,7 @@ func (*PortRangeSuite) TestParseIcmpProtocol(c *tc.C) {
 
 func (*PortRangeSuite) TestParseIcmpProtocolRoundTrip(c *tc.C) {
 	portRange, err := network.ParsePortRange("icmp")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	portRangeStr := portRange.String()
 
 	c.Check(portRangeStr, tc.Equals, "icmp")
@@ -218,7 +217,7 @@ func (*PortRangeSuite) TestParseIcmpProtocolRoundTrip(c *tc.C) {
 
 func (*PortRangeSuite) TestParsePortRangeRoundTrip(c *tc.C) {
 	portRange, err := network.ParsePortRange("8000-8099/tcp")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	portRangeStr := portRange.String()
 
 	c.Check(portRangeStr, tc.Equals, "8000-8099/tcp")
@@ -286,7 +285,7 @@ func (*PortRangeSuite) TestCombinePortRanges(c *tc.C) {
 	}}
 	for i, t := range testCases {
 		c.Logf("test %d", i)
-		c.Check(network.CombinePortRanges(t.in...), jc.DeepEquals, t.expected)
+		c.Check(network.CombinePortRanges(t.in...), tc.DeepEquals, t.expected)
 	}
 }
 
@@ -383,7 +382,7 @@ func (p *PortRangeSuite) TestSanitizeBounds(c *tc.C) {
 	}}
 	for i, t := range tests {
 		c.Logf("test %d: %s", i, t.about)
-		c.Check(t.input.SanitizeBounds(), jc.DeepEquals, t.output)
+		c.Check(t.input.SanitizeBounds(), tc.DeepEquals, t.output)
 	}
 }
 

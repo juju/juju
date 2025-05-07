@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/storage"
@@ -310,7 +309,7 @@ func (s *ListSuite) TestListError(c *tc.C) {
 
 func (s *ListSuite) assertValidList(c *tc.C, args []string, expectedValid string) {
 	context, err := s.runList(c, args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtainedErr := cmdtesting.Stderr(context)
 	c.Assert(obtainedErr, tc.Equals, "")

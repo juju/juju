@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -24,14 +23,14 @@ func (s *providerCommonSuite) TestCommonProvidersExported(c *tc.C) {
 	registry := provider.CommonStorageProviders()
 	var common []storage.ProviderType
 	pTypes, err := registry.StorageProviderTypes()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	for _, pType := range pTypes {
 		common = append(common, pType)
 		p, err := registry.StorageProvider(pType)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(p, tc.NotNil)
 	}
-	c.Assert(common, jc.SameContents, []storage.ProviderType{
+	c.Assert(common, tc.SameContents, []storage.ProviderType{
 		provider.LoopProviderType,
 		provider.RootfsProviderType,
 		provider.TmpfsProviderType,
@@ -59,22 +58,22 @@ func testDetachFilesystems(
 		},
 		Path: testMountPoint,
 	}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 1)
-	c.Assert(results[0], jc.ErrorIsNil)
+	c.Assert(results[0], tc.ErrorIsNil)
 
 	data, err := os.ReadFile(filepath.Join(etcDir, "fstab"))
 	if os.IsNotExist(err) {
 		c.Assert(fstab, tc.Equals, "")
 		return
 	}
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(data), tc.Equals, fstab)
 }
 
 func (s *providerCommonSuite) TestAllowedContainerProvider(c *tc.C) {
-	c.Assert(provider.AllowedContainerProvider(provider.LoopProviderType), jc.IsTrue)
-	c.Assert(provider.AllowedContainerProvider(provider.RootfsProviderType), jc.IsTrue)
-	c.Assert(provider.AllowedContainerProvider(provider.TmpfsProviderType), jc.IsTrue)
-	c.Assert(provider.AllowedContainerProvider("somestorage"), jc.IsFalse)
+	c.Assert(provider.AllowedContainerProvider(provider.LoopProviderType), tc.IsTrue)
+	c.Assert(provider.AllowedContainerProvider(provider.RootfsProviderType), tc.IsTrue)
+	c.Assert(provider.AllowedContainerProvider(provider.TmpfsProviderType), tc.IsTrue)
+	c.Assert(provider.AllowedContainerProvider("somestorage"), tc.IsFalse)
 }

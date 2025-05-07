@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -46,12 +45,12 @@ func (s *ContextSuite) TestDownloadOutOfDate(c *tc.C) {
 		Logger:       loggertesting.WrapCheckLog(c),
 	}
 	path, err := ctx.DownloadResource(context.Background(), "spam")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Read", "Read", "Close")
 	c.Assert(path, tc.Equals, filepath.Join(resourceDir, "spam.tgz"))
 	data, err := os.ReadFile(path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(data), tc.Equals, "some data")
 }
 
@@ -63,7 +62,7 @@ func (s *ContextSuite) TestContextDownloadUpToDate(c *tc.C) {
 	resourceDir := c.MkDir()
 	existing := filepath.Join(resourceDir, "spam.tgz")
 	err := os.WriteFile(existing, []byte("some data"), 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	client := mocks.NewMockOpenedResourceClient(ctrl)
 
@@ -75,7 +74,7 @@ func (s *ContextSuite) TestContextDownloadUpToDate(c *tc.C) {
 		Logger:       loggertesting.WrapCheckLog(c),
 	}
 	path, err := ctx.DownloadResource(context.Background(), "spam")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Close")
 	c.Assert(path, tc.Equals, filepath.Join(resourceDir, "spam.tgz"))

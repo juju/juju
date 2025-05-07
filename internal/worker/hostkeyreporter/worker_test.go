@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/juju/worker/v4/workertest"
 
@@ -37,12 +36,12 @@ func (s *Suite) SetUpTest(c *tc.C) {
 	s.dir = c.MkDir()
 	sshDir := filepath.Join(s.dir, "etc", "ssh")
 	err := os.MkdirAll(sshDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	writeKey := func(keyType string) {
 		baseName := fmt.Sprintf("ssh_host_%s_key.pub", keyType)
 		fileName := filepath.Join(sshDir, baseName)
 		err := os.WriteFile(fileName, []byte(keyType), 0644)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	writeKey("dsa")
 	writeKey("rsa")
@@ -69,7 +68,7 @@ func (s *Suite) TestNoSSHDir(c *tc.C) {
 	s.config.RootDir = c.MkDir()
 
 	w, err := hostkeyreporter.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
 	c.Check(errors.Cause(err), tc.Equals, dependency.ErrUninstall)
 }
@@ -77,11 +76,11 @@ func (s *Suite) TestNoSSHDir(c *tc.C) {
 func (s *Suite) TestNoKeys(c *tc.C) {
 	// Pass an empty /etc/ssh
 	dir := c.MkDir()
-	c.Assert(os.MkdirAll(filepath.Join(dir, "etc", "ssh"), 0777), jc.ErrorIsNil)
+	c.Assert(os.MkdirAll(filepath.Join(dir, "etc", "ssh"), 0777), tc.ErrorIsNil)
 	s.config.RootDir = dir
 
 	w, err := hostkeyreporter.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
 	c.Check(err, tc.ErrorMatches, "no SSH host keys found")
 }
@@ -89,14 +88,14 @@ func (s *Suite) TestNoKeys(c *tc.C) {
 func (s *Suite) TestReportKeysError(c *tc.C) {
 	s.facade.reportErr = errors.New("blam")
 	w, err := hostkeyreporter.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
 	c.Check(err, tc.ErrorMatches, "blam")
 }
 
 func (s *Suite) TestSuccess(c *tc.C) {
 	w, err := hostkeyreporter.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
 	c.Check(err, tc.Equals, dependency.ErrUninstall)
 	s.stub.CheckCalls(c, []jujutesting.StubCall{{

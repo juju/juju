@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/uniter/container"
@@ -32,18 +31,18 @@ func (s *workloadSuite) TestWorkloadEventList(c *tc.C) {
 	events := container.NewWorkloadEvents()
 	id := events.AddWorkloadEvent(evt, func(err error) {
 		c.Assert(err, tc.Equals, expectedErr)
-		c.Assert(cbCalled, jc.IsFalse)
+		c.Assert(cbCalled, tc.IsFalse)
 		cbCalled = true
 	})
 	c.Assert(id, tc.Not(tc.Equals), "")
 	c.Assert(events.Events(), tc.DeepEquals, []container.WorkloadEvent{evt})
 	c.Assert(events.EventIDs(), tc.DeepEquals, []string{id})
 	evt2, cb, err := events.GetWorkloadEvent(id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cb, tc.NotNil)
 	c.Assert(evt2, tc.DeepEquals, evt)
 	cb(expectedErr)
-	c.Assert(cbCalled, jc.IsTrue)
+	c.Assert(cbCalled, tc.IsTrue)
 }
 
 func (s *workloadSuite) TestWorkloadEventListFail(c *tc.C) {
@@ -80,11 +79,11 @@ func (s *workloadSuite) TestWorkloadReadyHook(c *tc.C) {
 	}
 	opFactory := &mockOperations{}
 	op, err := containerResolver.NextOp(context.Background(), localState, remoteState, opFactory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op, tc.NotNil)
 	op = operation.Unwrap(op)
 	hookOp, ok := op.(*mockRunHookOp)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	c.Assert(hookOp.hookInfo, tc.DeepEquals, hook.Info{
 		Kind:         "pebble-ready",
 		WorkloadName: "test",
@@ -120,11 +119,11 @@ func (s *workloadSuite) TestWorkloadCustomNoticeHook(c *tc.C) {
 	}
 	opFactory := &mockOperations{}
 	op, err := containerResolver.NextOp(context.Background(), localState, remoteState, opFactory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op, tc.NotNil)
 	op = operation.Unwrap(op)
 	hookOp, ok := op.(*mockRunHookOp)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	c.Assert(hookOp.hookInfo, tc.DeepEquals, hook.Info{
 		Kind:         "pebble-custom-notice",
 		WorkloadName: "test",
@@ -163,11 +162,11 @@ func (s *workloadSuite) TestWorkloadCheckFailedHook(c *tc.C) {
 	}
 	opFactory := &mockOperations{}
 	op, err := containerResolver.NextOp(context.Background(), localState, remoteState, opFactory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op, tc.NotNil)
 	op = operation.Unwrap(op)
 	hookOp, ok := op.(*mockRunHookOp)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	c.Assert(hookOp.hookInfo, tc.DeepEquals, hook.Info{
 		Kind:         "pebble-check-failed",
 		WorkloadName: "test",
@@ -204,11 +203,11 @@ func (s *workloadSuite) TestWorkloadCheckRecoveredHook(c *tc.C) {
 	}
 	opFactory := &mockOperations{}
 	op, err := containerResolver.NextOp(context.Background(), localState, remoteState, opFactory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op, tc.NotNil)
 	op = operation.Unwrap(op)
 	hookOp, ok := op.(*mockRunHookOp)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	c.Assert(hookOp.hookInfo, tc.DeepEquals, hook.Info{
 		Kind:         "pebble-check-recovered",
 		WorkloadName: "test",

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api/authentication"
@@ -37,7 +36,7 @@ func (s *InteractorSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	var err error
 	s.jar, err = cookiejar.New(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.client = httpbakery.NewClient()
 	s.client.Jar = s.jar
 	s.handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
@@ -51,7 +50,7 @@ func (s *InteractorSuite) TestNotSupportedInteract(c *tc.C) {
 	v := authentication.NewNotSupportedInteractor()
 	c.Assert(v.Kind(), tc.Equals, "juju_userpass")
 	_, err := v.Interact(context.Background(), nil, "", nil)
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 
 func (s *InteractorSuite) TestLegacyInteract(c *tc.C) {
@@ -60,7 +59,7 @@ func (s *InteractorSuite) TestLegacyInteract(c *tc.C) {
 		return "hunter2", nil
 	})
 	lv, ok := v.(httpbakery.LegacyInteractor)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	var formUser, formPassword string
 	s.handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r.ParseForm()
@@ -68,7 +67,7 @@ func (s *InteractorSuite) TestLegacyInteract(c *tc.C) {
 		formPassword = r.Form.Get("password")
 	})
 	err := lv.LegacyInteract(context.Background(), s.client, "", mustParseURL(s.server.URL))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(formUser, tc.Equals, "bob")
 	c.Assert(formPassword, tc.Equals, "hunter2")
 }
@@ -83,7 +82,7 @@ func (s *InteractorSuite) TestLegacyInteractErrorResult(c *tc.C) {
 		return "hunter2", nil
 	})
 	lv, ok := v.(httpbakery.LegacyInteractor)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	s.handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"Message":"bleh"}`, http.StatusInternalServerError)
 	})
@@ -105,7 +104,7 @@ func (s *InteractorSuite) TestInteract(c *tc.C) {
 		}
 		loginRequest := form.LoginRequest{}
 		err := httprequest.Unmarshal(reqParams, &loginRequest)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		formUser = loginRequest.Body.Form["user"].(string)
 		formPassword = loginRequest.Body.Form["password"].(string)
 		loginResponse := form.LoginResponse{
@@ -121,7 +120,7 @@ func (s *InteractorSuite) TestInteract(c *tc.C) {
 	}
 	infoData, err := json.Marshal(info)
 	msgData := json.RawMessage(infoData)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	token, err := v.Interact(context.Background(), s.client, "", &httpbakery.Error{
 		Code: httpbakery.ErrInteractionRequired,
 		Info: &httpbakery.ErrorInfo{
@@ -130,7 +129,7 @@ func (s *InteractorSuite) TestInteract(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(formUser, tc.Equals, "bob")
 	c.Assert(formPassword, tc.Equals, "hunter2")
 	c.Assert(token.Kind, tc.Equals, "juju_userpass")
@@ -148,7 +147,7 @@ func (s *InteractorSuite) TestInteractErrorResult(c *tc.C) {
 		URL: s.server.URL,
 	}
 	infoData, err := json.Marshal(info)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	msgData := json.RawMessage(infoData)
 	_, err = v.Interact(context.Background(), s.client, "", &httpbakery.Error{
 		Code: httpbakery.ErrInteractionRequired,

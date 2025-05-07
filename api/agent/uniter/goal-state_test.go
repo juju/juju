@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/base/testing"
@@ -104,7 +103,7 @@ func (s *goalStateSuite) testGoalState(c *tc.C, facadeResult params.GoalStateRes
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	goalStateResult, err := client.GoalState(context.Background())
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(goalStateResult, jc.DeepEquals, apiResult)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(goalStateResult, tc.DeepEquals, apiResult)
+	c.Assert(called, tc.IsTrue)
 }

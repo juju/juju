@@ -6,7 +6,6 @@ package relation
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -47,7 +46,7 @@ func (*relationUUIDSuite) TestUUIDValidate(c *tc.C) {
 			continue
 		}
 
-		c.Check(err, jc.ErrorIs, test.err)
+		c.Check(err, tc.ErrorIs, test.err)
 	}
 }
 
@@ -86,7 +85,7 @@ func (*relationUnitUUIDSuite) TestUUIDValidate(c *tc.C) {
 			continue
 		}
 
-		c.Check(err, jc.ErrorIs, test.err)
+		c.Check(err, tc.ErrorIs, test.err)
 	}
 }
 
@@ -125,6 +124,6 @@ func (*relationEndpointUUIDSuite) TestUUIDValidate(c *tc.C) {
 			continue
 		}
 
-		c.Check(err, jc.ErrorIs, test.err)
+		c.Check(err, tc.ErrorIs, test.err)
 	}
 }

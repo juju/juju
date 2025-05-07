@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	admission "k8s.io/api/admission/v1beta1"
 	authentication "k8s.io/api/authentication/v1"
 	core "k8s.io/api/core/v1"
@@ -129,9 +128,9 @@ func (h *HandlerSuite) TestUnknownServiceAccount(c *tc.C) {
 
 	outReview := admission.AdmissionReview{}
 	err = json.Unmarshal(recorder.Body.Bytes(), &outReview)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(outReview.Response.Allowed, jc.IsTrue)
+	c.Assert(outReview.Response.Allowed, tc.IsTrue)
 	c.Assert(outReview.Response.UID, tc.Equals, inReview.Request.UID)
 }
 
@@ -169,7 +168,7 @@ func (h *HandlerSuite) TestPatchLabelsAdd(c *tc.C) {
 		},
 	}
 	podBytes, err := json.Marshal(&pod)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	inReview := &admission.AdmissionReview{
 		Request: &admission.AdmissionRequest{
@@ -184,7 +183,7 @@ func (h *HandlerSuite) TestPatchLabelsAdd(c *tc.C) {
 	}
 
 	body, err := json.Marshal(inReview)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
 	req.Header.Set(HeaderContentType, ExpectedContentType)
@@ -203,14 +202,14 @@ func (h *HandlerSuite) TestPatchLabelsAdd(c *tc.C) {
 
 	outReview := admission.AdmissionReview{}
 	err = json.Unmarshal(recorder.Body.Bytes(), &outReview)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(outReview.Response.Allowed, jc.IsTrue)
+	c.Assert(outReview.Response.Allowed, tc.IsTrue)
 	c.Assert(outReview.Response.UID, tc.Equals, inReview.Request.UID)
 
 	patchOperations := []patchOperation{}
 	err = json.Unmarshal(outReview.Response.Patch, &patchOperations)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(len(patchOperations), tc.Equals, 2)
 	c.Assert(patchOperations[0].Op, tc.Equals, "add")
@@ -224,12 +223,12 @@ func (h *HandlerSuite) TestPatchLabelsAdd(c *tc.C) {
 		for _, patchOp := range patchOperations[1:] {
 			if patchOp.Path == fmt.Sprintf("/metadata/labels/%s", patchEscape(k)) {
 				c.Assert(patchOp.Op, tc.Equals, "add")
-				c.Assert(patchOp.Value, jc.DeepEquals, v)
+				c.Assert(patchOp.Value, tc.DeepEquals, v)
 				found = true
 				break
 			}
 		}
-		c.Assert(found, jc.IsTrue)
+		c.Assert(found, tc.IsTrue)
 	}
 
 	for k, v := range expectedLabels {
@@ -243,7 +242,7 @@ func (h *HandlerSuite) TestPatchLabelsAdd(c *tc.C) {
 			}
 			continue
 		}
-		c.Assert(found, jc.IsTrue)
+		c.Assert(found, tc.IsTrue)
 	}
 }
 
@@ -257,7 +256,7 @@ func (h *HandlerSuite) TestPatchLabelsReplace(c *tc.C) {
 		},
 	}
 	podBytes, err := json.Marshal(&pod)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	inReview := &admission.AdmissionReview{
 		Request: &admission.AdmissionRequest{
@@ -272,7 +271,7 @@ func (h *HandlerSuite) TestPatchLabelsReplace(c *tc.C) {
 	}
 
 	body, err := json.Marshal(inReview)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
 	req.Header.Set(HeaderContentType, ExpectedContentType)
@@ -291,14 +290,14 @@ func (h *HandlerSuite) TestPatchLabelsReplace(c *tc.C) {
 
 	outReview := admission.AdmissionReview{}
 	err = json.Unmarshal(recorder.Body.Bytes(), &outReview)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(outReview.Response.Allowed, jc.IsTrue)
+	c.Assert(outReview.Response.Allowed, tc.IsTrue)
 	c.Assert(outReview.Response.UID, tc.Equals, inReview.Request.UID)
 
 	patchOperations := []patchOperation{}
 	err = json.Unmarshal(outReview.Response.Patch, &patchOperations)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(patchOperations), tc.Equals, 1)
 
 	expectedLabels := providerutils.LabelForKeyValue(
@@ -308,12 +307,12 @@ func (h *HandlerSuite) TestPatchLabelsReplace(c *tc.C) {
 		for _, patchOp := range patchOperations {
 			if patchOp.Path == fmt.Sprintf("/metadata/labels/%s", patchEscape(k)) {
 				c.Assert(patchOp.Op, tc.Equals, "replace")
-				c.Assert(patchOp.Value, jc.DeepEquals, v)
+				c.Assert(patchOp.Value, tc.DeepEquals, v)
 				found = true
 				break
 			}
 		}
-		c.Assert(found, jc.IsTrue)
+		c.Assert(found, tc.IsTrue)
 	}
 
 	for k, v := range expectedLabels {
@@ -327,7 +326,7 @@ func (h *HandlerSuite) TestPatchLabelsReplace(c *tc.C) {
 			}
 			continue
 		}
-		c.Assert(found, jc.IsTrue)
+		c.Assert(found, tc.IsTrue)
 	}
 }
 
@@ -347,7 +346,7 @@ func (h *HandlerSuite) TestSelfSubjectAccessReviewIgnore(c *tc.C) {
 	}
 
 	body, err := json.Marshal(inReview)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
 	req.Header.Set(HeaderContentType, ExpectedContentType)
@@ -366,9 +365,9 @@ func (h *HandlerSuite) TestSelfSubjectAccessReviewIgnore(c *tc.C) {
 
 	outReview := admission.AdmissionReview{}
 	err = json.Unmarshal(recorder.Body.Bytes(), &outReview)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(outReview.Response.Allowed, jc.IsTrue)
+	c.Assert(outReview.Response.Allowed, tc.IsTrue)
 	c.Assert(outReview.Response.UID, tc.Equals, inReview.Request.UID)
 
 	c.Assert(len(outReview.Response.Patch), tc.Equals, 0)
@@ -390,7 +389,7 @@ func (h *HandlerSuite) TestSelfSubjectAccessReviewIgnoreLabelsV2(c *tc.C) {
 	}
 
 	body, err := json.Marshal(inReview)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
 	req.Header.Set(HeaderContentType, ExpectedContentType)
@@ -409,9 +408,9 @@ func (h *HandlerSuite) TestSelfSubjectAccessReviewIgnoreLabelsV2(c *tc.C) {
 
 	outReview := admission.AdmissionReview{}
 	err = json.Unmarshal(recorder.Body.Bytes(), &outReview)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(outReview.Response.Allowed, jc.IsTrue)
+	c.Assert(outReview.Response.Allowed, tc.IsTrue)
 	c.Assert(outReview.Response.UID, tc.Equals, inReview.Request.UID)
 
 	c.Assert(len(outReview.Response.Patch), tc.Equals, 0)

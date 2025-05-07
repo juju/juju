@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
 
@@ -59,7 +58,7 @@ func (s *environAvailzonesSuite) TestAvailabilityZones(c *tc.C) {
 	c.Assert(s.env, tc.Implements, new(common.ZonedEnviron))
 	zonedEnviron := s.env.(common.ZonedEnviron)
 	zones, err := zonedEnviron.AvailabilityZones(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(zones), tc.Equals, 6)
 	// No zones for the empty resource.
 	c.Assert(zones[0].Name(), tc.Equals, "z1")
@@ -86,7 +85,7 @@ func (s *environAvailzonesSuite) TestAvailabilityZonesInFolder(c *tc.C) {
 	c.Assert(s.env, tc.Implements, new(common.ZonedEnviron))
 	zonedEnviron := s.env.(common.ZonedEnviron)
 	zones, err := zonedEnviron.AvailabilityZones(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(zones), tc.Equals, 3)
 	c.Assert(zones[0].Name(), tc.Equals, "Folder/z1")
 	c.Assert(zones[1].Name(), tc.Equals, "Folder/z1/ResPool1")
@@ -126,7 +125,7 @@ func (s *environAvailzonesSuite) TestInstanceAvailabilityZoneNames(c *tc.C) {
 	zonedEnviron := s.env.(common.ZonedEnviron)
 	zones, err := zonedEnviron.InstanceAvailabilityZoneNames(context.Background(), ids)
 	c.Assert(err, tc.Equals, environs.ErrPartialInstances)
-	c.Assert(zones, jc.DeepEquals, map[instance.Id]string{
+	c.Assert(zones, tc.DeepEquals, map[instance.Id]string{
 		"inst-0": "z2",
 		"inst-1": "z1",
 		"inst-3": "z3/child",
@@ -155,7 +154,7 @@ func (s *environAvailzonesSuite) TestDeriveAvailabilityZones(c *tc.C) {
 	zones, err := zonedEnviron.DeriveAvailabilityZones(
 		context.Background(),
 		environs.StartInstanceParams{Placement: "zone=test-available"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(zones, tc.DeepEquals, []string{"test-available"})
 }
 

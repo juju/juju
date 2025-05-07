@@ -14,7 +14,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -121,7 +120,7 @@ func (s *CAASApplicationProvisionerSuite) setupAPI(c *tc.C) *gomock.Controller {
 		s.store,
 		s.clock,
 		loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api = api
 
 	return ctrl
@@ -184,10 +183,10 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *tc.C) {
 	s.applicationService.EXPECT().GetDeviceConstraints(gomock.Any(), "gitlab").Return(map[string]devices.Constraints{}, nil)
 
 	result, err := s.api.ProvisioningInfo(context.Background(), params.Entities{Entities: []params.Entity{{Tag: "application-gitlab"}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	mc := jc.NewMultiChecker()
-	mc.AddExpr(`_.Results[0].CACert`, jc.Ignore)
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_.Results[0].CACert`, tc.Ignore)
 	c.Assert(result, mc, params.CAASApplicationProvisioningInfoResults{
 		Results: []params.CAASApplicationProvisioningInfo{{
 			ImageRepo:    params.DockerImageInfo{RegistryPath: "docker.io/jujusolutions/jujud-operator:2.6-beta3.666"},
@@ -222,7 +221,7 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfoPendingCharmError(
 	s.applicationService.EXPECT().IsCharmAvailable(gomock.Any(), locator).Return(false, nil)
 
 	result, err := s.api.ProvisioningInfo(context.Background(), params.Entities{Entities: []params.Entity{{Tag: "application-gitlab"}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results[0].Error, tc.ErrorMatches, `charm for application "gitlab" not provisioned`)
 }
 
@@ -255,7 +254,7 @@ func (s *CAASApplicationProvisionerSuite) TestWatchProvisioningInfo(c *tc.C) {
 		},
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Error, tc.IsNil)
 	res := s.resources.Get("1")
@@ -278,7 +277,7 @@ func (s *CAASApplicationProvisionerSuite) TestSetOperatorStatus(c *tc.C) {
 			Status: "started",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Results[0].Error, tc.IsNil)
 	c.Check(got.Status, tc.Equals, status.Started)
 }
@@ -300,9 +299,9 @@ func (s *CAASApplicationProvisionerSuite) TestUnits(c *tc.C) {
 			Tag: "application-gitlab",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results[0].Error, tc.IsNil)
-	c.Assert(result.Results[0].Units, jc.SameContents, []params.CAASUnitInfo{
+	c.Assert(result.Results[0].Units, tc.SameContents, []params.CAASUnitInfo{
 		{
 			Tag: "unit-gitlab-0",
 			UnitStatus: &params.UnitStatus{
@@ -350,7 +349,7 @@ func (s *CAASApplicationProvisionerSuite) TestApplicationOCIResources(c *tc.C) {
 
 	// Return the marshalled resource.
 	out, err := json.Marshal(res)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.resourceOpener.EXPECT().OpenResource(gomock.Any(), "gitlab-image").Return(
 		jujuresource.Opened{
 			ReadCloser: io.NopCloser(bytes.NewBuffer(out)),
@@ -377,7 +376,7 @@ func (s *CAASApplicationProvisionerSuite) TestApplicationOCIResources(c *tc.C) {
 			Tag: "application-gitlab",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results[0].Error, tc.IsNil)
 	c.Assert(result.Results[0].Result, tc.DeepEquals, &params.CAASApplicationOCIResources{
 		Images: map[string]params.DockerImageInfo{
@@ -494,7 +493,7 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage
 	})
 
 	results, err := s.api.UpdateApplicationsUnits(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results[0], tc.DeepEquals, params.UpdateApplicationUnitResult{
 		Info: &params.UpdateApplicationUnitsInfo{
 			Units: []params.ApplicationUnitInfo{
@@ -650,7 +649,7 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithoutStor
 	})
 
 	results, err := s.api.UpdateApplicationsUnits(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results[0], tc.DeepEquals, params.UpdateApplicationUnitResult{
 		Info: &params.UpdateApplicationUnitsInfo{
 			Units: []params.ApplicationUnitInfo{
@@ -700,7 +699,7 @@ func (s *CAASApplicationProvisionerSuite) TestClearApplicationsResources(c *tc.C
 		}},
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results[0].Error, tc.IsNil)
 	s.st.app.CheckCallNames(c, "ClearResources")
 }
@@ -723,11 +722,11 @@ func (s *CAASApplicationProvisionerSuite) TestWatchUnits(c *tc.C) {
 		},
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Error, tc.IsNil)
 	c.Assert(results.Results[0].StringsWatcherId, tc.Equals, "1")
-	c.Assert(results.Results[0].Changes, jc.DeepEquals, []string{"gitlab/0", "gitlab/1"})
+	c.Assert(results.Results[0].Changes, tc.DeepEquals, []string{"gitlab/0", "gitlab/1"})
 	res := s.resources.Get("1")
 	c.Assert(res, tc.Equals, s.st.app.unitsWatcher)
 }
@@ -749,12 +748,12 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningState(c *tc.C) {
 			ScaleTarget: 10,
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(setResult.Error, tc.IsNil)
 
 	result, err := s.api.ProvisioningState(context.Background(), params.Entity{Tag: "application-gitlab"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.ProvisioningState, jc.DeepEquals, &params.CAASApplicationProvisioningState{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.ProvisioningState, tc.DeepEquals, &params.CAASApplicationProvisioningState{
 		Scaling:     true,
 		ScaleTarget: 10,
 	})
@@ -765,14 +764,14 @@ func (s *CAASApplicationProvisionerSuite) TestProvisionerConfig(c *tc.C) {
 	defer ctrl.Finish()
 
 	result, err := s.api.ProvisionerConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Error, tc.IsNil)
 	c.Assert(result.ProvisionerConfig, tc.NotNil)
 	c.Assert(result.ProvisionerConfig.UnmanagedApplications.Entities, tc.HasLen, 0)
 
 	s.st.isController = true
 	result, err = s.api.ProvisionerConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Error, tc.IsNil)
 	c.Assert(result.ProvisionerConfig, tc.NotNil)
 	c.Assert(result.ProvisionerConfig.UnmanagedApplications.Entities, tc.DeepEquals, []params.Entity{{Tag: "application-controller"}})
@@ -780,13 +779,13 @@ func (s *CAASApplicationProvisionerSuite) TestProvisionerConfig(c *tc.C) {
 
 func (s *CAASApplicationProvisionerSuite) TestCharmStorageParamsPoolNotFound(c *tc.C) {
 	cfg, err := envconfig.New(envconfig.NoDefaults, coretesting.FakeConfig())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	p, err := caasapplicationprovisioner.CharmStorageParams(
 		context.Background(), coretesting.ControllerTag.Id(),
 		"notpool", cfg, model.UUID(coretesting.ModelTag.Id()), "", s.storagePoolGetter,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p, jc.DeepEquals, &params.KubernetesFilesystemParams{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(p, tc.DeepEquals, &params.KubernetesFilesystemParams{
 		StorageName: "charm",
 		Size:        1024,
 		Provider:    "kubernetes",
@@ -810,8 +809,8 @@ func (s *CAASApplicationProvisionerSuite) TestRemove(c *tc.C) {
 	result, err := s.api.Remove(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: "unit-gitlab-0",
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{
 		Error: nil,
 	}}})
 }

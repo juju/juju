@@ -16,7 +16,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -77,13 +76,13 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfig(c *tc.C) {
 	}
 
 	st, err := newAPIConnectionFromNames(c, "noconfig", "admin/admin", store, apiOpen)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(st, tc.Equals, expectState)
 	c.Assert(called, tc.Equals, 1)
 	// The addresses should have been updated.
 	c.Assert(
 		store.Controllers["noconfig"].APIEndpoints,
-		jc.DeepEquals,
+		tc.DeepEquals,
 		[]string{"0.1.2.3:1234", "[2001:db8::1]:1234"},
 	)
 	c.Assert(
@@ -93,18 +92,18 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfig(c *tc.C) {
 	)
 
 	controllerBefore, err := store.ControllerByName("noconfig")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// If APIHostPorts or agent version haven't changed, then the store won't be updated.
 	stubStore := jujuclienttesting.WrapClientStore(store)
 	st, err = newAPIConnectionFromNames(c, "noconfig", "admin/admin", stubStore, apiOpen)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(st, tc.Equals, expectState)
 	c.Assert(called, tc.Equals, 2)
 	stubStore.CheckCallNames(c, "AccountDetails", "ModelByName", "ControllerByName")
 
 	controllerAfter, err := store.ControllerByName("noconfig")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(controllerBefore, tc.DeepEquals, controllerAfter)
 }
 
@@ -113,7 +112,7 @@ func (s *NewAPIClientSuite) TestIncorrectAuthTag(c *tc.C) {
 	err := store.UpdateAccount("noconfig", jujuclient.AccountDetails{
 		User: "wally@external",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	called := 0
 	expectState := mockedAPIState(mockedHostPort | mockedModelTag)
@@ -125,7 +124,7 @@ func (s *NewAPIClientSuite) TestIncorrectAuthTag(c *tc.C) {
 
 	stubStore := jujuclienttesting.WrapClientStore(store)
 	_, err = newAPIConnectionFromNames(c, "noconfig", "admin/admin", stubStore, apiOpen)
-	c.Assert(err, jc.ErrorIs, errors.Unauthorized)
+	c.Assert(err, tc.ErrorIs, errors.Unauthorized)
 }
 
 func (s *NewAPIClientSuite) TestCorrectAuthTag(c *tc.C) {
@@ -133,7 +132,7 @@ func (s *NewAPIClientSuite) TestCorrectAuthTag(c *tc.C) {
 	err := store.UpdateAccount("noconfig", jujuclient.AccountDetails{
 		User: "wally@external",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	called := 0
 	expectState := mockedAPIState(mockedHostPort | mockedModelTag)
@@ -145,7 +144,7 @@ func (s *NewAPIClientSuite) TestCorrectAuthTag(c *tc.C) {
 
 	stubStore := jujuclienttesting.WrapClientStore(store)
 	_, err = newAPIConnectionFromNames(c, "noconfig", "admin/admin", stubStore, apiOpen)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestEmptyStoreAuthTag simulates when the user issues an unqualified
@@ -154,7 +153,7 @@ func (s *NewAPIClientSuite) TestCorrectAuthTag(c *tc.C) {
 func (s *NewAPIClientSuite) TestEmptyStoreAuthTag(c *tc.C) {
 	store := newClientStore(c, "noconfig")
 	err := store.RemoveAccount("noconfig")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	called := 0
 	expectState := mockedAPIState(mockedHostPort | mockedModelTag)
@@ -166,7 +165,7 @@ func (s *NewAPIClientSuite) TestEmptyStoreAuthTag(c *tc.C) {
 
 	stubStore := jujuclienttesting.WrapClientStore(store)
 	_, err = newAPIConnectionFromNames(c, "noconfig", "admin/admin", stubStore, apiOpen)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *NewAPIClientSuite) TestIncorrectAdminAuthTag(c *tc.C) {
@@ -183,7 +182,7 @@ func (s *NewAPIClientSuite) TestIncorrectAdminAuthTag(c *tc.C) {
 
 	stubStore := jujuclienttesting.WrapClientStore(store)
 	_, err := newAPIConnectionFromNames(c, "noconfig", "admin/admin", stubStore, apiOpen)
-	c.Assert(err, jc.ErrorIs, errors.Unauthorized)
+	c.Assert(err, tc.ErrorIs, errors.Unauthorized)
 }
 
 func (s *NewAPIClientSuite) TestCorrectAdminAuthTag(c *tc.C) {
@@ -199,7 +198,7 @@ func (s *NewAPIClientSuite) TestCorrectAdminAuthTag(c *tc.C) {
 
 	stubStore := jujuclienttesting.WrapClientStore(store)
 	_, err := newAPIConnectionFromNames(c, "noconfig", "admin/admin", stubStore, apiOpen)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *NewAPIClientSuite) TestUpdatesPublicDNSName(c *tc.C) {
@@ -213,7 +212,7 @@ func (s *NewAPIClientSuite) TestUpdatesPublicDNSName(c *tc.C) {
 
 	store := newClientStore(c, "controllername")
 	_, err := newAPIConnectionFromNames(c, "controllername", "", store, apiOpen)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(store.Controllers["controllername"].PublicDNSName, tc.Equals, "somewhere.invalid")
 }
 
@@ -223,38 +222,38 @@ func (s *NewAPIClientSuite) TestWithInfoNoAddresses(c *tc.C) {
 		ControllerUUID: fakeUUID,
 		CACert:         "certificate",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	st, err := newAPIConnectionFromNames(c, "noconfig", "", store, panicAPIOpen)
-	c.Assert(err, jc.Satisfies, juju.IsNoAddressesError)
+	c.Assert(err, tc.Satisfies, juju.IsNoAddressesError)
 	c.Assert(st, tc.IsNil)
 }
 
 func (s *NewAPIClientSuite) TestWithMacaroons(c *tc.C) {
 	store := newClientStore(c, "withmac")
 	mac, err := jujutesting.NewMacaroon("id")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = store.UpdateAccount("withmac", jujuclient.AccountDetails{
 		User:      "admin",
 		Password:  "",
 		Macaroons: []macaroon.Slice{{mac}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ad, err := store.AccountDetails("withmac")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	info, _, err := juju.ConnectionInfo(juju.NewAPIConnectionParams{
 		ControllerName:  "withmac",
 		ControllerStore: store,
 		AccountDetails:  ad,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info.Macaroons, tc.DeepEquals, []macaroon.Slice{{mac}})
 }
 
 func (s *NewAPIClientSuite) TestWithAddressOverride(c *tc.C) {
 	store := newClientStore(c, "controllername")
 	ad, err := store.AccountDetails("controllername")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info, _, err := juju.ConnectionInfo(juju.NewAPIConnectionParams{
 		ControllerName:  "controllername",
@@ -262,7 +261,7 @@ func (s *NewAPIClientSuite) TestWithAddressOverride(c *tc.C) {
 		AccountDetails:  ad,
 		APIEndpoints:    []string{"address-override"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info.Addrs, tc.DeepEquals, []string{"address-override"})
 }
 
@@ -273,10 +272,10 @@ func (s *NewAPIClientSuite) TestWithRedirect(c *tc.C) {
 		CACert:         "certificate",
 		APIEndpoints:   []string{"0.1.2.3:5678"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	controllerBefore, err := store.ControllerByName("ctl")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	redirHPs := []network.MachineHostPorts{{
 		network.MachineHostPort{MachineAddress: network.NewMachineAddress("0.0.9.9"), NetPort: network.NetPort(1234)},
@@ -290,7 +289,7 @@ func (s *NewAPIClientSuite) TestWithRedirect(c *tc.C) {
 		openCount++
 		switch openCount {
 		case 1:
-			c.Check(apiInfo.Addrs, jc.DeepEquals, []string{"0.1.2.3:5678"})
+			c.Check(apiInfo.Addrs, tc.DeepEquals, []string{"0.1.2.3:5678"})
 			c.Check(apiInfo.CACert, tc.Equals, "certificate")
 			return nil, errors.Trace(&api.RedirectError{
 				Servers:        redirHPs,
@@ -298,7 +297,7 @@ func (s *NewAPIClientSuite) TestWithRedirect(c *tc.C) {
 				FollowRedirect: true,
 			})
 		case 2:
-			c.Check(apiInfo.Addrs, jc.DeepEquals, network.CollapseToHostPorts(redirHPs).Strings())
+			c.Check(apiInfo.Addrs, tc.DeepEquals, network.CollapseToHostPorts(redirHPs).Strings())
 			c.Check(apiInfo.CACert, tc.Equals, "alternative CA cert")
 			st := mockedAPIState(noFlags)
 			st.apiHostPorts = redirHPs
@@ -311,7 +310,7 @@ func (s *NewAPIClientSuite) TestWithRedirect(c *tc.C) {
 	}
 
 	st0, err := newAPIConnectionFromNames(c, "ctl", "admin/admin", store, redirOpen)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(openCount, tc.Equals, 2)
 	st := st0.(*mockAPIConnection)
 	c.Assert(st.modelTag, tc.Equals, fakeUUID)
@@ -319,7 +318,7 @@ func (s *NewAPIClientSuite) TestWithRedirect(c *tc.C) {
 	// Check that the addresses of the original controller
 	// have not been changed.
 	controllerAfter, err := store.ControllerByName("ctl")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(controllerBefore, tc.DeepEquals, controllerAfter)
 }
 
@@ -345,7 +344,7 @@ func (s *NewAPIClientSuite) TestDialedAddressIsCached(c *tc.C) {
 			"example2:2222",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	dialed := make(chan string, 10)
 	start := make(chan struct{})
 	// Wait for both dials to complete, so we
@@ -383,21 +382,21 @@ func (s *NewAPIClientSuite) TestDialedAddressIsCached(c *tc.C) {
 		},
 		AccountDetails: new(jujuclient.AccountDetails),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer conn.Close()
 	details, err := store.ControllerByName("foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// The cache should contain both results. The IP address
 	// that was successfully dialed should be at the start of its
 	// slice.
-	c.Assert(details.DNSCache, jc.DeepEquals, map[string][]string{
+	c.Assert(details.DNSCache, tc.DeepEquals, map[string][]string{
 		"example1": {"0.1.1.2", "0.1.1.1"},
 		"example2": {"0.2.2.2"},
 	})
 	// The API addresses should have all the returned server addresses
 	// there as well as the one we actually succeeded in dialing.
 	// The successfully dialed address should be at the start.
-	c.Assert(details.APIEndpoints, jc.DeepEquals, []string{
+	c.Assert(details.APIEndpoints, tc.DeepEquals, []string{
 		"example1:1111",
 		"example3:3333",
 		"example4:4444",
@@ -418,7 +417,7 @@ func (s *NewAPIClientSuite) TestWithExistingDNSCache(c *tc.C) {
 			"example2": {"0.2.2.2"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	start := make(chan struct{})
 	conn, err := juju.NewAPIConnection(context.Background(), juju.NewAPIConnectionParams{
 		ControllerStore: store,
@@ -454,20 +453,20 @@ func (s *NewAPIClientSuite) TestWithExistingDNSCache(c *tc.C) {
 		},
 		AccountDetails: new(jujuclient.AccountDetails),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer conn.Close()
 	close(start)
 	details, err := store.ControllerByName("foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// The DNS cache should not have changed.
-	c.Assert(details.DNSCache, jc.DeepEquals, map[string][]string{
+	c.Assert(details.DNSCache, tc.DeepEquals, map[string][]string{
 		"example1": {"0.1.1.2", "0.1.1.1"},
 		"example2": {"0.2.2.2"},
 	})
 	// The API addresses should have all the returned server addresses
 	// there as well as the one we actually succeeded in dialing.
 	// The successfully dialed address should be still at the start.
-	c.Assert(details.APIEndpoints, jc.DeepEquals, []string{
+	c.Assert(details.APIEndpoints, tc.DeepEquals, []string{
 		"example1:1111",
 		"example3:3333",
 		"example5:5555",
@@ -485,7 +484,7 @@ func (s *NewAPIClientSuite) TestEndpointFiltering(c *tc.C) {
 			"example1": {"0.1.1.1"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	serverAddrs := params.FromProviderHostsPorts([]network.ProviderHostPorts{{
 		network.ProviderHostPort{ProviderAddress: network.NewMachineAddress("0.1.2.3").AsProviderAddress(), NetPort: 1234},
@@ -515,13 +514,13 @@ func (s *NewAPIClientSuite) TestEndpointFiltering(c *tc.C) {
 		},
 		AccountDetails: new(jujuclient.AccountDetails),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer conn.Close()
 	details, err := store.ControllerByName("foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// The API addresses should have filtered out duplicates
 	// and unusable addresses.
-	c.Assert(details.APIEndpoints, jc.DeepEquals, []string{
+	c.Assert(details.APIEndpoints, tc.DeepEquals, []string{
 		"example1:1111",
 		"0.1.2.3:1234",
 		"[2001:db8::1]:1234",
@@ -543,7 +542,7 @@ func setupControllerWithPathSegment(c *tc.C, store *jujuclient.MemStore, modelUU
 			"example1": {"0.1.1.1"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	conn, err := juju.NewAPIConnection(context.Background(), juju.NewAPIConnectionParams{
 		ControllerStore: store,
@@ -557,7 +556,7 @@ func setupControllerWithPathSegment(c *tc.C, store *jujuclient.MemStore, modelUU
 		AccountDetails: new(jujuclient.AccountDetails),
 		ModelUUID:      modelUUID,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return conn
 }
 
@@ -566,9 +565,9 @@ func (s *NewAPIClientSuite) TestAPIWithControllerPathSegment(c *tc.C) {
 	controllerConn := setupControllerWithPathSegment(c, store, "")
 	defer controllerConn.Close()
 	details, err := store.ControllerByName("foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// The API address should still contain the path segment.
-	c.Assert(details.APIEndpoints, jc.DeepEquals, []string{
+	c.Assert(details.APIEndpoints, tc.DeepEquals, []string{
 		"example1:1111/foo",
 	})
 }
@@ -599,7 +598,7 @@ func (s *NewAPIClientSuite) TestStreamWithControllerPathSegment(c *tc.C) {
 		s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)
 
 		stream, err := controllerConn.ConnectStream(context.Background(), "/bar", nil)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		defer stream.Close()
 
 		c.Assert(catcher.Location(), tc.Equals, tC.expectedURL)
@@ -612,11 +611,11 @@ func (s *NewAPIClientSuite) TestHTTPClientWithControllerPathSegment(c *tc.C) {
 	defer conn.Close()
 
 	client, err := conn.HTTPClient()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(client.BaseURL, tc.Equals, "https://example1:1111/foo/model/9c8fc580-7ad2-43a0-a0b9-c14b80172190")
 
 	client, err = conn.RootHTTPClient()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(client.BaseURL, tc.Equals, "https://example1:1111/foo")
 }
 
@@ -662,12 +661,12 @@ func newClientStore(c *tc.C, controllerName string) *jujuclient.MemStore {
 		CACert:         "certificate",
 		APIEndpoints:   []string{"0.1.2.3:5678"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = store.UpdateModel(controllerName, "admin/admin", jujuclient.ModelDetails{
 		ModelUUID: fakeUUID, ModelType: model.IAAS,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Models belong to accounts, so we must have an account even
 	// if "creds" is not initialised. If it is, it may overwrite
@@ -676,7 +675,7 @@ func newClientStore(c *tc.C, controllerName string) *jujuclient.MemStore {
 		User:     "admin",
 		Password: "hunter2",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return store
 }
 
@@ -695,12 +694,12 @@ func newAPIConnectionFromNames(
 	}
 	accountDetails, err := store.AccountDetails(controller)
 	if !errors.Is(err, errors.NotFound) {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		args.AccountDetails = accountDetails
 	}
 	if model != "" {
 		modelDetails, err := store.ModelByName(controller, model)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		args.ModelUUID = modelDetails.ModelUUID
 	}
 	return juju.NewAPIConnection(context.Background(), args)

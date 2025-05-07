@@ -9,7 +9,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	unitfacade "github.com/juju/juju/apiserver/facades/agent/payloadshookcontext"
 	"github.com/juju/juju/rpc/params"
@@ -32,8 +31,8 @@ func (s *suite) TestTrack(c *tc.C) {
 	}
 
 	res, err := a.Track(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res, jc.DeepEquals, params.PayloadResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.DeepEquals, params.PayloadResults{
 		Results: []params.PayloadResult{{
 			NotFound: true,
 		}},
@@ -49,8 +48,8 @@ func (s *suite) TestListOne(c *tc.C) {
 		}},
 	}
 	results, err := a.List(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, jc.DeepEquals, params.PayloadResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, params.PayloadResults{
 		Results: []params.PayloadResult{{
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag(id).String(),
@@ -64,8 +63,8 @@ func (s *suite) TestListAll(c *tc.C) {
 	a := unitfacade.NewUnitFacadeV1()
 	args := params.Entities{}
 	results, err := a.List(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, jc.DeepEquals, params.PayloadResults{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, params.PayloadResults{})
 }
 
 func (s *suite) TestLookUp(c *tc.C) {
@@ -77,8 +76,8 @@ func (s *suite) TestLookUp(c *tc.C) {
 		}},
 	}
 	res, err := a.LookUp(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res, jc.DeepEquals, params.PayloadResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.DeepEquals, params.PayloadResults{
 		Results: []params.PayloadResult{{
 			NotFound: true,
 		}},
@@ -96,7 +95,7 @@ func (s *suite) TestSetStatus(c *tc.C) {
 		}},
 	}
 	res, err := a.SetStatus(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, params.PayloadResults{
 		Results: []params.PayloadResult{{
 			Entity: params.Entity{
@@ -117,7 +116,7 @@ func (s *suite) TestUntrack(c *tc.C) {
 		}},
 	}
 	res, err := a.Untrack(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, params.PayloadResults{
 		Results: []params.PayloadResult{{
 			Entity: params.Entity{
@@ -136,7 +135,7 @@ func (s *suite) TestUntrackEmptyID(c *tc.C) {
 		}},
 	}
 	res, err := a.Untrack(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, params.PayloadResults{
 		Results: []params.PayloadResult{{
 			Entity: params.Entity{
@@ -153,6 +152,6 @@ func (s *suite) TestUntrackNoIDs(c *tc.C) {
 		Entities: []params.Entity{},
 	}
 	res, err := a.Untrack(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, params.PayloadResults{})
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
@@ -41,15 +40,15 @@ func (s *workerSuite) TestConfigValidate(c *tc.C) {
 
 	cfg := validCfg
 	cfg.Clock = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = validCfg
 	cfg.Logger = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = validCfg
 	cfg.Store = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *workerSuite) TestWorker(c *tc.C) {
@@ -87,14 +86,14 @@ func (s *workerSuite) TestWorker(c *tc.C) {
 		Tracer: trace.NoopTracer{},
 		Store:  store,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	select {
 	case t := <-done:
 		// Ensure it's within the expected range.
-		c.Check(t >= time.Second*1, jc.IsTrue)
-		c.Check(t <= time.Second*5, jc.IsTrue)
+		c.Check(t >= time.Second*1, tc.IsTrue)
+		c.Check(t <= time.Second*5, tc.IsTrue)
 	case <-time.After(jujujujutesting.ShortWait):
 		c.Fatalf("timed out waiting for reset")
 	}

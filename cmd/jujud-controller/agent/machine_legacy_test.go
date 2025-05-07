@@ -45,7 +45,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/exec"
 	"github.com/juju/utils/v4/symlink"
@@ -120,7 +119,7 @@ For now, we're going to skip these tests.
 	storageDir := c.MkDir()
 	s.PatchValue(&envtools.DefaultBaseURL, storageDir)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Upload tools to both release and devel streams since config will dictate that we
 	// end up looking in both places.
 	versions := defaultVersions(coretesting.CurrentVersion().Number)
@@ -139,7 +138,7 @@ For now, we're going to skip these tests.
 	// Ensure the dummy provider is initialised - no need to actually bootstrap.
 	ctx := envtesting.BootstrapContext(context.Background(), c)
 	err = s.Environ.PrepareForBootstrap(ctx, "controller")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *MachineLegacySuite) TestManageModelAuditsAPI(c *tc.C) {
@@ -151,28 +150,28 @@ func (s *MachineLegacySuite) TestManageModelAuditsAPI(c *tc.C) {
 	err := controllerConfigService.UpdateControllerConfig(context.Background(), map[string]interface{}{
 		"audit-log-exclude-methods": "Client.FullStatus",
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertJob(c, state.JobManageModel, nil, func(conf agent.Config, _ *MachineAgent) {
 		logPath := filepath.Join(conf.LogDir(), "audit.log")
 
 		makeAPIRequest := func(doRequest func(*apiclient.Client)) {
 			apiInfo, ok := conf.APIInfo()
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 			apiInfo.Tag = user
 			apiInfo.Password = password
 			st, err := api.Open(context.Background(), apiInfo, fastDialOpts)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			defer st.Close()
 			doRequest(apiclient.NewClient(st, loggertesting.WrapCheckLog(c)))
 		}
 		makeMachineAPIRequest := func(doRequest func(*machinemanager.Client)) {
 			apiInfo, ok := conf.APIInfo()
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 			apiInfo.Tag = user
 			apiInfo.Password = password
 			st, err := api.Open(context.Background(), apiInfo, fastDialOpts)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			defer st.Close()
 			doRequest(machinemanager.NewClient(st))
 		}
@@ -180,13 +179,13 @@ func (s *MachineLegacySuite) TestManageModelAuditsAPI(c *tc.C) {
 		// Make requests in separate API connections so they're separate conversations.
 		makeAPIRequest(func(client *apiclient.Client) {
 			_, err = client.Status(context.Background(), nil)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		})
 		makeMachineAPIRequest(func(client *machinemanager.Client) {
 			_, err = client.AddMachines(context.Background(), []params.AddMachineParams{{
 				Jobs: []coremodel.MachineJob{"JobHostUnits"},
 			}})
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		})
 
 		// Check that there's a call to Client.AddMachinesV2 in the
@@ -201,7 +200,7 @@ func (s *MachineLegacySuite) TestManageModelAuditsAPI(c *tc.C) {
 		err := controllerConfigService.UpdateControllerConfig(context.Background(), map[string]interface{}{
 			"audit-log-exclude-methods": "",
 		}, nil)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		prevRecords := len(records)
 
@@ -210,7 +209,7 @@ func (s *MachineLegacySuite) TestManageModelAuditsAPI(c *tc.C) {
 		for a := coretesting.LongAttempt.Start(); a.Next(); {
 			makeAPIRequest(func(client *apiclient.Client) {
 				_, err = client.Status(context.Background(), nil)
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 			})
 			// Check to see whether there are more logged requests.
 			records = readAuditLog(c, logPath)
@@ -259,7 +258,7 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithInvalidCredential(c *t
 	// invalidate cloud credential for this model
 	domainServices := s.ControllerDomainServices(c)
 	err := domainServices.Credential().InvalidateCredential(context.Background(), testing.DefaultCredentialId, "coz i can")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	tracker := agenttest.NewEngineTracker()
 	instrumented := TrackModels(c, tracker, iaasModelManifolds)
@@ -294,7 +293,7 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithDeletedCredential(c *t
 	}
 	domainServices := s.ControllerDomainServices(c)
 	err := domainServices.Credential().UpdateCloudCredential(ctx, key, cloud.NewCredential(cloud.UserPassAuthType, nil))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -308,12 +307,12 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithDeletedCredential(c *t
 	})
 	defer func() {
 		err := st.Close()
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}()
 
 	// remove cloud credential used by this model but keep model reference to it
 	err = domainServices.Credential().RemoveCloudCredential(ctx, key)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	tracker := agenttest.NewEngineTracker()
 	instrumented := TrackModels(c, tracker, iaasModelManifolds)
@@ -368,7 +367,7 @@ func (s *MachineLegacySuite) TestMigratingModelWorkers(c *tc.C) {
 			Password:      "password",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	matcher := agenttest.NewWorkerMatcher(c, tracker, s.DefaultModelUUID.String(),
 		append(alwaysModelWorkers, migratingModelWorkers...))
@@ -385,12 +384,12 @@ func (s *MachineLegacySuite) TestDyingModelCleanedUp(c *tc.C) {
 	s.assertJob(c, state.JobManageModel, nil,
 		func(agent.Config, *MachineAgent) {
 			m, err := st.Model()
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			watch := m.Watch()
 			defer workertest.CleanKill(c, watch)
 
 			err = m.Destroy(state.DestroyModelParams{})
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			for {
 				select {
 				case <-watch.Changes():
@@ -400,7 +399,7 @@ func (s *MachineLegacySuite) TestDyingModelCleanedUp(c *tc.C) {
 					} else if errors.Is(err, errors.NotFound) {
 						return // successfully removed
 					}
-					c.Assert(err, jc.ErrorIsNil) // guaranteed fail
+					c.Assert(err, tc.ErrorIsNil) // guaranteed fail
 				case <-timeout:
 					c.Fatalf("timed out waiting for workers")
 				}
@@ -418,7 +417,7 @@ func (s *MachineLegacySuite) TestMachineAgentSymlinks(c *tc.C) {
 	// Symlinks should have been created
 	for _, link := range jujudSymlinks {
 		_, err := os.Stat(utils.EnsureBaseDir(a.rootDir, link))
-		c.Assert(err, jc.ErrorIsNil, tc.Commentf(link))
+		c.Assert(err, tc.ErrorIsNil, tc.Commentf(link))
 	}
 
 	s.waitStopped(c, state.JobManageModel, a, done)
@@ -434,8 +433,8 @@ func (s *MachineLegacySuite) TestMachineAgentSymlinkJujuExecExists(c *tc.C) {
 	a.rootDir = c.MkDir()
 	for _, link := range jujudSymlinks {
 		fullLink := utils.EnsureBaseDir(a.rootDir, link)
-		c.Assert(os.MkdirAll(filepath.Dir(fullLink), os.FileMode(0755)), jc.ErrorIsNil)
-		c.Assert(symlink.New("/nowhere/special", fullLink), jc.ErrorIsNil, tc.Commentf(link))
+		c.Assert(os.MkdirAll(filepath.Dir(fullLink), os.FileMode(0755)), tc.ErrorIsNil)
+		c.Assert(symlink.New("/nowhere/special", fullLink), tc.ErrorIsNil, tc.Commentf(link))
 	}
 
 	// Start the agent and wait for it be running.
@@ -445,7 +444,7 @@ func (s *MachineLegacySuite) TestMachineAgentSymlinkJujuExecExists(c *tc.C) {
 	for _, link := range jujudSymlinks {
 		fullLink := utils.EnsureBaseDir(a.rootDir, link)
 		linkTarget, err := symlink.Read(fullLink)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(linkTarget, tc.Not(tc.Equals), "/nowhere/special", tc.Commentf(link))
 	}
 
@@ -455,12 +454,12 @@ func (s *MachineLegacySuite) TestMachineAgentSymlinkJujuExecExists(c *tc.C) {
 func (s *MachineLegacySuite) TestManageModelServesAPI(c *tc.C) {
 	s.assertJob(c, state.JobManageModel, nil, func(conf agent.Config, a *MachineAgent) {
 		apiInfo, ok := conf.APIInfo()
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		st, err := api.Open(context.Background(), apiInfo, fastDialOpts)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		defer st.Close()
 		m, err := apimachiner.NewClient(st).Machine(context.Background(), conf.Tag().(names.MachineTag))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(m.Life(), tc.Equals, life.Alive)
 	})
 }
@@ -474,12 +473,12 @@ func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFile(c *tc.C) {
 		},
 		func(conf agent.Config, a *MachineAgent) {
 			apiInfo, ok := conf.APIInfo()
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 			st, err := api.Open(context.Background(), apiInfo, fastDialOpts)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			defer func() { _ = st.Close() }()
 			err = a.machineStartup(context.Background(), st, loggertesting.WrapCheckLog(c))
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		},
 	)
 }
@@ -493,9 +492,9 @@ func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFileErrored(c *
 		},
 		func(conf agent.Config, a *MachineAgent) {
 			apiInfo, ok := conf.APIInfo()
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 			st, err := api.Open(context.Background(), apiInfo, fastDialOpts)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			defer func() { _ = st.Close() }()
 			err = a.machineStartup(context.Background(), st, loggertesting.WrapCheckLog(c))
 			c.Assert(err, tc.ErrorMatches, `unknown error`)
@@ -512,9 +511,9 @@ func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFileNonZeroExit
 		},
 		func(conf agent.Config, a *MachineAgent) {
 			apiInfo, ok := conf.APIInfo()
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 			st, err := api.Open(context.Background(), apiInfo, fastDialOpts)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			defer func() { _ = st.Close() }()
 			err = a.machineStartup(context.Background(), st, loggertesting.WrapCheckLog(c))
 			c.Assert(err, tc.ErrorMatches, `cannot patch /etc/update-manager/release-upgrades: unknown error`)
@@ -642,7 +641,7 @@ func (s *MachineLegacySuite) setupNewModel(c *tc.C) (newSt *state.State, closer 
 	})
 	return newSt, func() {
 		err := newSt.Close()
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
 }
 
@@ -659,12 +658,12 @@ func (s *MachineLegacySuite) waitStopped(c *tc.C, job state.MachineJob, a *Machi
 			c.Logf("error shutting down state manager: %v", err)
 		}
 	} else {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	select {
 	case err := <-done:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for agent to terminate")
 	}
@@ -679,5 +678,5 @@ VALUES (?, 0, ?, ?, 'machine-999-lxd-99', datetime('now'), datetime('now', '+100
 		_, err := tx.ExecContext(ctx, q, uuid.MustNewUUID().String(), modelUUID, modelUUID)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

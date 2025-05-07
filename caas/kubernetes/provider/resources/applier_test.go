@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -44,7 +43,7 @@ func (s *applierSuite) TestRun(c *tc.C) {
 		r2.EXPECT().Get(gomock.Any(), gomock.Any()).Return(errors.NewNotFound(nil, "")),
 		r2.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil),
 	)
-	c.Assert(applier.Run(context.Background(), nil, false), jc.ErrorIsNil)
+	c.Assert(applier.Run(context.Background(), nil, false), tc.ErrorIsNil)
 }
 
 func (s *applierSuite) TestRunApplyFailedWithRollBackForNewResource(c *tc.C) {
@@ -202,5 +201,5 @@ func (s *applierSuite) TestApplySet(c *tc.C) {
 		r3.EXPECT().Get(gomock.Any(), gomock.Any()).Return(errors.NotFoundf("missing aye")),
 		r3.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(nil),
 	)
-	c.Assert(applier.Run(context.Background(), nil, false), jc.ErrorIsNil)
+	c.Assert(applier.Run(context.Background(), nil, false), tc.ErrorIsNil)
 }

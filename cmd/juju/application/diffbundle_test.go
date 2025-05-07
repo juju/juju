@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/base"
 	commoncharm "github.com/juju/juju/api/common/charm"
@@ -112,12 +111,12 @@ func (s *diffSuite) TestNotABundle(c *tc.C) {
 	c.Logf(errors.ErrorStack(err))
 	// Fails because the series that comes back from the charm store
 	// is xenial rather than "bundle" (and there's no local bundle).
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
 func (s *diffSuite) TestLocalBundle(c *tc.C) {
 	ctx, err := s.runDiffBundle(c, s.writeLocalBundle(c, testCharmHubBundle))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 applications:
   grafana:
@@ -138,13 +137,13 @@ machines:
 
 func (s *diffSuite) TestLocalBundleInvalidYaml(c *tc.C) {
 	_, err := s.runDiffBundle(c, s.writeLocalBundle(c, invalidYaml))
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(err, tc.ErrorMatches, `.*cannot unmarshal bundle contents.*`[1:])
 }
 
 func (s *diffSuite) TestIncludeAnnotations(c *tc.C) {
 	ctx, err := s.runDiffBundle(c, "--annotations", s.writeLocalBundle(c, testCharmHubBundle))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 applications:
   grafana:
@@ -170,7 +169,7 @@ machines:
 func (s *diffSuite) TestHandlesIncludes(c *tc.C) {
 	s.writeFile(c, "include.yaml", "hume")
 	ctx, err := s.runDiffBundle(c, s.writeLocalBundle(c, withInclude))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 applications:
   grafana:
@@ -196,7 +195,7 @@ func (s *diffSuite) TestHandlesOverlays(c *tc.C) {
 		"--overlay", path1,
 		"--overlay", path2,
 		s.writeLocalBundle(c, testCharmHubBundle))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 applications:
   grafana:
@@ -226,7 +225,7 @@ relations:
 
 func (s *diffSuite) TestCharmSeriesBundle(c *tc.C) {
 	bundleData, err := charm.ReadBundleData(strings.NewReader(withSeries))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.charmHub.url = &charm.URL{
 		Schema: "ch",
 		Name:   "my-bundle",
@@ -234,7 +233,7 @@ func (s *diffSuite) TestCharmSeriesBundle(c *tc.C) {
 	s.charmHub.bundle = &mockBundle{data: bundleData}
 
 	ctx, err := s.runDiffBundle(c, "my-bundle")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 {}
@@ -251,7 +250,7 @@ func (s *diffSuite) TestMachineMap(c *tc.C) {
 	ctx, err := s.runDiffBundle(c,
 		"--map-machines", "0=1",
 		s.writeLocalBundle(c, testCharmHubBundle))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 applications:
   grafana:
@@ -276,7 +275,7 @@ machines:
 
 func (s *diffSuite) TestCharmHubBundle(c *tc.C) {
 	bundleData, err := charm.ReadBundleData(strings.NewReader(testCharmHubBundle))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.charmHub.url = &charm.URL{
 		Schema: "ch",
 		Name:   "my-bundle",
@@ -284,7 +283,7 @@ func (s *diffSuite) TestCharmHubBundle(c *tc.C) {
 	s.charmHub.bundle = &mockBundle{data: bundleData}
 
 	ctx, err := s.runDiffBundle(c, "my-bundle")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 applications:
@@ -318,7 +317,7 @@ func (s *diffSuite) TestRelationsWithMissingEndpoints(c *tc.C) {
 	}
 
 	ctx, err := s.runDiffBundle(c, s.writeLocalBundle(c, withMissingRelationEndpoints))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Note: the logger output is not captured so only the relevant diff
 	// output is checked here.
@@ -331,7 +330,7 @@ relations:
   - - grafana:juju-info
     - prometheus:juju-info`
 
-	c.Assert(strings.Contains(cmdtesting.Stdout(ctx), exp[1:]), jc.IsTrue)
+	c.Assert(strings.Contains(cmdtesting.Stdout(ctx), exp[1:]), tc.IsTrue)
 }
 
 func (s *diffSuite) TestExposedEndpoints(c *tc.C) {
@@ -442,7 +441,7 @@ applications:
 		}
 
 		ctx, err := s.runDiffBundle(c, s.writeLocalBundle(c, spec.bundle))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		c.Log(cmdtesting.Stdout(ctx))
 		c.Assert(cmdtesting.Stdout(ctx), tc.Equals, spec.expDiff)
@@ -456,7 +455,7 @@ func (s *diffSuite) writeLocalBundle(c *tc.C, content string) string {
 func (s *diffSuite) writeFile(c *tc.C, name, content string) string {
 	path := filepath.Join(s.dir, name)
 	err := os.WriteFile(path, []byte(content), 0666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return path
 }
 

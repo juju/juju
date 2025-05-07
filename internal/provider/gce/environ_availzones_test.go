@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/instances"
@@ -24,10 +23,10 @@ var _ = tc.Suite(&environAZSuite{})
 
 func (s *environAZSuite) TestAvailabilityZonesInvalidCredentialError(c *tc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
-	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
 	_, err := s.Env.AvailabilityZones(context.Background())
 	c.Check(err, tc.NotNil)
-	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }
 
 func (s *environAZSuite) TestAvailabilityZones(c *tc.C) {
@@ -37,26 +36,26 @@ func (s *environAZSuite) TestAvailabilityZones(c *tc.C) {
 	}
 
 	zones, err := s.Env.AvailabilityZones(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(zones, tc.HasLen, 2)
 	c.Check(zones[0].Name(), tc.Equals, "a-zone")
-	c.Check(zones[0].Available(), jc.IsTrue)
+	c.Check(zones[0].Available(), tc.IsTrue)
 	c.Check(zones[1].Name(), tc.Equals, "b-zone")
-	c.Check(zones[1].Available(), jc.IsTrue)
+	c.Check(zones[1].Available(), tc.IsTrue)
 }
 
 func (s *environAZSuite) TestAvailabilityZonesDeprecated(c *tc.C) {
 	zone := google.NewZone("a-zone", google.StatusUp, "DEPRECATED", "b-zone")
 
-	c.Check(zone.Deprecated(), jc.IsTrue)
+	c.Check(zone.Deprecated(), tc.IsTrue)
 }
 
 func (s *environAZSuite) TestAvailabilityZonesAPI(c *tc.C) {
 	s.FakeConn.Zones = []google.AvailabilityZone{}
 
 	_, err := s.Env.AvailabilityZones(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, tc.HasLen, 1)
 	c.Check(s.FakeConn.Calls[0].FuncName, tc.Equals, "AvailabilityZones")
@@ -69,9 +68,9 @@ func (s *environAZSuite) TestInstanceAvailabilityZoneNames(c *tc.C) {
 	id := instance.Id("spam")
 	ids := []instance.Id{id}
 	zones, err := s.Env.InstanceAvailabilityZoneNames(context.Background(), ids)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(zones, jc.DeepEquals, map[instance.Id]string{
+	c.Check(zones, tc.DeepEquals, map[instance.Id]string{
 		id: "home-zone",
 	})
 }
@@ -81,7 +80,7 @@ func (s *environAZSuite) TestInstanceAvailabilityZoneNamesAPIs(c *tc.C) {
 
 	ids := []instance.Id{instance.Id("spam")}
 	_, err := s.Env.InstanceAvailabilityZoneNames(context.Background(), ids)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.FakeEnviron.CheckCalls(c, []gce.FakeCall{{
 		FuncName: "GetInstances", Args: gce.FakeCallArgs{"switch": s.Env},
@@ -91,10 +90,10 @@ func (s *environAZSuite) TestInstanceAvailabilityZoneNamesAPIs(c *tc.C) {
 func (s *environAZSuite) TestDeriveAvailabilityZonesInvalidCredentialError(c *tc.C) {
 	s.StartInstArgs.Placement = "zone=test-available"
 	s.FakeConn.Err = gce.InvalidCredentialError
-	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
 	_, err := s.Env.DeriveAvailabilityZones(context.Background(), s.StartInstArgs)
 	c.Check(err, tc.NotNil)
-	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }
 
 func (s *environAZSuite) TestDeriveAvailabilityZones(c *tc.C) {
@@ -103,7 +102,7 @@ func (s *environAZSuite) TestDeriveAvailabilityZones(c *tc.C) {
 		google.NewZone("test-available", google.StatusUp, "", ""),
 	}
 	zones, err := s.Env.DeriveAvailabilityZones(context.Background(), s.StartInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(zones, tc.DeepEquals, []string{"test-available"})
 }
 
@@ -116,7 +115,7 @@ func (s *environAZSuite) TestDeriveAvailabilityZonesVolumeNoPlacement(c *tc.C) {
 		VolumeId: "az2--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
 	}}
 	zones, err := s.Env.DeriveAvailabilityZones(context.Background(), s.StartInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(zones, tc.DeepEquals, []string{"az2"})
 }
 
@@ -157,7 +156,7 @@ func (s *environAZSuite) TestDeriveAvailabilityZonesVolumeAttachments(c *tc.C) {
 	}}
 
 	zones, err := s.Env.DeriveAvailabilityZones(context.Background(), s.StartInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(zones, tc.DeepEquals, []string{"home-zone"})
 }
 

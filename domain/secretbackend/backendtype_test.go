@@ -5,7 +5,6 @@ package secretbackend
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/secrets/provider/juju"
@@ -24,7 +23,7 @@ var _ = tc.Suite(&backendtypeSuite{})
 func (s *backendtypeSuite) TestBackendTypeDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, type FROM secret_backend_type")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer rows.Close()
 
 	dbValues := make(map[BackendType]string)
@@ -34,10 +33,10 @@ func (s *backendtypeSuite) TestBackendTypeDBValues(c *tc.C) {
 			value string
 		)
 		err := rows.Scan(&id, &value)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		dbValues[BackendType(id)] = value
 	}
-	c.Assert(dbValues, jc.DeepEquals, map[BackendType]string{
+	c.Assert(dbValues, tc.DeepEquals, map[BackendType]string{
 		BackendTypeController: juju.BackendType,
 		BackendTypeKubernetes: kubernetes.BackendType,
 		BackendTypeVault:      vault.BackendType,

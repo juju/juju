@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -42,7 +41,7 @@ func (ctx *nonActionContext) ActionParams() (map[string]interface{}, error) {
 func (s *ActionGetSuite) TestNonActionRunFail(c *tc.C) {
 	hctx := &nonActionContext{}
 	com, err := jujuc.NewCommand(hctx, "action-get")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{})
 	c.Check(code, tc.Equals, 1)
@@ -254,7 +253,7 @@ func (s *ActionGetSuite) TestActionGet(c *tc.C) {
 		hctx := &actionGetContext{}
 		hctx.actionParams = t.actionParams
 		com, err := jujuc.NewCommand(hctx, "action-get")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
 		c.Check(code, tc.Equals, t.code)

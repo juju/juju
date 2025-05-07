@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/constraints"
 )
@@ -71,7 +70,7 @@ func (*environSuite) TestConvertConstraints(c *tc.C) {
 		},
 	}} {
 		c.Logf("test #%d: cons2=%s", i, test.cons.String())
-		c.Check(convertConstraints(test.cons), jc.DeepEquals, test.expected)
+		c.Check(convertConstraints(test.cons), tc.DeepEquals, test.expected)
 	}
 }
 
@@ -136,7 +135,7 @@ func (*environSuite) TestConvertTagsToParams(c *tc.C) {
 		c.Logf("test #%d: tags=%v", i, test.tags)
 		var vals = url.Values{}
 		convertTagsToParams(vals, test.tags)
-		c.Check(vals, jc.DeepEquals, test.expected)
+		c.Check(vals, tc.DeepEquals, test.expected)
 	}
 }
 
@@ -206,7 +205,7 @@ func (suite *environSuite) TestParseDelimitedValues(c *tc.C) {
 	}} {
 		c.Logf("test %d: %s", i, test.about)
 		positives, negatives := parseDelimitedValues(test.input)
-		c.Check(positives, jc.DeepEquals, test.positives)
-		c.Check(negatives, jc.DeepEquals, test.negatives)
+		c.Check(positives, tc.DeepEquals, test.positives)
+		c.Check(negatives, tc.DeepEquals, test.negatives)
 	}
 }

@@ -13,7 +13,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -32,7 +31,7 @@ func PatchOfficialDataSources(s *testing.CleanupSuite, url string) {
 // ParseMetadataFromDir loads ImageMetadata from the specified directory.
 func ParseMetadataFromDir(c *tc.C, metadataDir string) []*imagemetadata.ImageMetadata {
 	stor, err := filestorage.NewFileStorageReader(metadataDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return ParseMetadataFromStorage(c, stor)
 }
 
@@ -53,7 +52,7 @@ func ParseIndexMetadataFromStorage(c *tc.C, stor storage.StorageReader) (*simple
 	indexRef, err := ss.GetIndexWithFormat(
 		context.Background(),
 		source, indexPath, "index:1.0", mirrorsPath, requireSigned, simplestreams.CloudSpec{}, params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(indexRef.Indexes, tc.HasLen, 1)
 
 	imageIndexMetadata := indexRef.Indexes["com.ubuntu.cloud:custom"]
@@ -69,15 +68,15 @@ func ParseMetadataFromStorage(c *tc.C, stor storage.StorageReader) []*imagemetad
 	// Read the products file contents.
 	r, err := stor.Get(path.Join("images", imageIndexMetadata.ProductsFilePath))
 	defer func() { _ = r.Close() }()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	data, err := io.ReadAll(r)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Parse the products file metadata.
 	url, err := source.URL(imageIndexMetadata.ProductsFilePath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cloudMetadata, err := simplestreams.ParseCloudMetadata(data, "products:1.0", url, imagemetadata.ImageMetadata{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Collate the metadata.
 	imageMetadataMap := make(map[string]*imagemetadata.ImageMetadata)

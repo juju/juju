@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/controller"
@@ -37,7 +36,7 @@ func (s *serviceSuite) TestUpdateControllerConfigSuccess(c *tc.C) {
 	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), coerced, []string{k1, k2}, gomock.Any()).Return(nil)
 
 	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cfg, []string{k1, k2})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestUpdateControllerError(c *tc.C) {
@@ -65,7 +64,7 @@ func (s *serviceSuite) TestUpdateControllerValidationNoError(c *tc.C) {
 	})
 
 	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cfg, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestUpdateControllerValidationWithMissingConfig(c *tc.C) {
@@ -99,7 +98,7 @@ func (s *serviceSuite) TestUpdateControllerValidationOnlyObjectStoreType(c *tc.C
 	})
 
 	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cfg, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestUpdateControllerValidationAllAtOnce(c *tc.C) {
@@ -115,7 +114,7 @@ func (s *serviceSuite) TestUpdateControllerValidationAllAtOnce(c *tc.C) {
 	})
 
 	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cfg, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 }
 
@@ -154,7 +153,7 @@ func (s *serviceSuite) TestUpdateControllerValidationIgnored(c *tc.C) {
 	})
 
 	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cfg, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestWatch(c *tc.C) {
@@ -171,7 +170,7 @@ func (s *serviceSuite) TestWatch(c *tc.C) {
 	s.watcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any()).Return(s.stringsWatcher, nil)
 
 	w, err := NewWatchableService(s.state, s.watcherFactory).WatchControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(w, tc.NotNil)
 }
 

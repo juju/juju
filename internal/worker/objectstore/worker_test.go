@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -48,7 +47,7 @@ func (s *workerSuite) TestKilledGetObjectStoreErrDying(c *tc.C) {
 
 	worker := w.(*objectStoreWorker)
 	_, err := worker.GetObjectStore(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, objectstore.ErrObjectStoreDying)
+	c.Assert(err, tc.ErrorIs, objectstore.ErrObjectStoreDying)
 }
 
 func (s *workerSuite) TestGetObjectStore(c *tc.C) {
@@ -70,7 +69,7 @@ func (s *workerSuite) TestGetObjectStore(c *tc.C) {
 
 	worker := w.(*objectStoreWorker)
 	objectStore, err := worker.GetObjectStore(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(objectStore, tc.NotNil)
 
 	close(done)
@@ -99,7 +98,7 @@ func (s *workerSuite) TestGetObjectStoreIsCached(c *tc.C) {
 	for i := 0; i < 10; i++ {
 
 		_, err := worker.GetObjectStore(context.Background(), "foo")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	close(done)
@@ -131,7 +130,7 @@ func (s *workerSuite) TestGetObjectStoreIsNotCachedForDifferentNamespaces(c *tc.
 		name := fmt.Sprintf("anything-%d", i)
 
 		_, err := worker.GetObjectStore(context.Background(), name)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	close(done)
@@ -169,7 +168,7 @@ func (s *workerSuite) TestGetObjectStoreConcurrently(c *tc.C) {
 			name := fmt.Sprintf("anything-%d", i)
 
 			_, err := worker.GetObjectStore(context.Background(), name)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}(i)
 	}
 
@@ -197,7 +196,7 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 		RootDir:                    c.MkDir(),
 		RootBucket:                 uuid.MustNewUUID().String(),
 	}, s.states)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }
 

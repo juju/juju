@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/annotations"
@@ -67,7 +66,7 @@ func (s *serviceSuite) TestGetAnnotations(c *tc.C) {
 	).AnyTimes()
 
 	annotations, err := s.service().GetAnnotations(context.Background(), id1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(annotations), tc.Equals, 2)
 	c.Assert(annotations["annotationKey1"], tc.Equals, "annotationValue1")
 	c.Assert(annotations["annotationKey2"], tc.Equals, "annotationValue2")
@@ -75,7 +74,7 @@ func (s *serviceSuite) TestGetAnnotations(c *tc.C) {
 	// Assert that an empty map (not nil) is returend if no annotations
 	// are associated with a given ID
 	noAnnotations, err := s.service().GetAnnotations(context.Background(), idNotExist)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(noAnnotations), tc.Equals, 0)
 }
 
@@ -96,7 +95,7 @@ func (s *serviceSuite) TestGetCharmAnnotations(c *tc.C) {
 		Name:     "foo",
 		Revision: 1,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(annotations), tc.Equals, 2)
 	c.Assert(annotations["annotationKey1"], tc.Equals, "annotationValue1")
 	c.Assert(annotations["annotationKey2"], tc.Equals, "annotationValue2")
@@ -133,7 +132,7 @@ func (s *serviceSuite) TestSetAnnotations(c *tc.C) {
 	}
 
 	err := s.service().SetAnnotations(context.Background(), id1, annotations)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(mockState), tc.Equals, 5)
 	c.Assert(mockState[stateAnnotationKey{ID: id1, key: "annotationKey5"}], tc.Equals, "annotationValue5")
 	c.Assert(mockState[stateAnnotationKey{ID: id1, key: "annotationKey1"}], tc.Equals, "annotationValue1Updated")
@@ -141,7 +140,7 @@ func (s *serviceSuite) TestSetAnnotations(c *tc.C) {
 	// Unset a key
 	unsetAnnotations := map[string]string{"annotationKey4": ""}
 	err = s.service().SetAnnotations(context.Background(), id44, unsetAnnotations)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(mockState), tc.Equals, 4)
 
 }
@@ -166,7 +165,7 @@ func (s *serviceSuite) TestSetCharmAnnotations(c *tc.C) {
 		"annotationKey1": "annotationValue1",
 		"annotationKey2": "annotationValue2",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestSetAnnotationsWithInvalidKeys(c *tc.C) {
@@ -178,7 +177,7 @@ func (s *serviceSuite) TestSetAnnotationsWithInvalidKeys(c *tc.C) {
 	}, map[string]string{
 		"foo.bar": "annotationValue1",
 	})
-	c.Assert(err, jc.ErrorIs, annotationerrors.InvalidKey)
+	c.Assert(err, tc.ErrorIs, annotationerrors.InvalidKey)
 
 	err = s.service().SetAnnotations(context.Background(), annotations.ID{
 		Kind: annotations.KindUnit,
@@ -186,7 +185,7 @@ func (s *serviceSuite) TestSetAnnotationsWithInvalidKeys(c *tc.C) {
 	}, map[string]string{
 		"  ": "annotationValue1",
 	})
-	c.Assert(err, jc.ErrorIs, annotationerrors.InvalidKey)
+	c.Assert(err, tc.ErrorIs, annotationerrors.InvalidKey)
 }
 
 func (s *serviceSuite) TestSetCharmAnnotationsWithInvalidKeys(c *tc.C) {
@@ -199,7 +198,7 @@ func (s *serviceSuite) TestSetCharmAnnotationsWithInvalidKeys(c *tc.C) {
 	}, map[string]string{
 		"foo.bar": "annotationValue1",
 	})
-	c.Assert(err, jc.ErrorIs, annotationerrors.InvalidKey)
+	c.Assert(err, tc.ErrorIs, annotationerrors.InvalidKey)
 
 	err = s.service().SetCharmAnnotations(context.Background(), annotation.GetCharmArgs{
 		Source:   "ch",
@@ -208,5 +207,5 @@ func (s *serviceSuite) TestSetCharmAnnotationsWithInvalidKeys(c *tc.C) {
 	}, map[string]string{
 		"  ": "annotationValue1",
 	})
-	c.Assert(err, jc.ErrorIs, annotationerrors.InvalidKey)
+	c.Assert(err, tc.ErrorIs, annotationerrors.InvalidKey)
 }

@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
@@ -54,7 +53,7 @@ func (s *InstancePollerSuite) TestMachineCallsLife(c *tc.C) {
 	apiCaller := successAPICaller(c, "Life", entitiesArgs, expectedResults)
 	api := instancepoller.NewAPI(apiCaller)
 	m, err := api.Machine(context.Background(), names.NewMachineTag("42"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(apiCaller.CallCount, tc.Equals, 1)
 	c.Assert(m.Life(), tc.Equals, life.Value("working"))
 	c.Assert(m.Id(), tc.Equals, "42")
@@ -70,7 +69,7 @@ func (s *InstancePollerSuite) TestWatchModelMachineStartTimesSuccess(c *tc.C) {
 	watcherFunc := func(caller base.APICaller, result params.StringsWatchResult) watcher.StringsWatcher {
 		numWatcherCalls++
 		c.Check(caller, tc.NotNil)
-		c.Check(result, jc.DeepEquals, expectResult)
+		c.Check(result, tc.DeepEquals, expectResult)
 		return nil
 	}
 	s.PatchValue(instancepoller.NewStringsWatcher, watcherFunc)
@@ -79,7 +78,7 @@ func (s *InstancePollerSuite) TestWatchModelMachineStartTimesSuccess(c *tc.C) {
 
 	api := instancepoller.NewAPI(apiCaller)
 	w, err := api.WatchModelMachines(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(apiCaller.CallCount, tc.Equals, 1)
 	c.Assert(numWatcherCalls, tc.Equals, 1)
 	c.Assert(w, tc.IsNil)

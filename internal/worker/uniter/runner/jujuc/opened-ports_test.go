@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/cmd"
@@ -93,7 +92,7 @@ func (s *OpenedPortsSuite) TestRunAllFormatsWithEndpointDetails(c *tc.C) {
 func (s *OpenedPortsSuite) TestBadArgs(c *tc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, "opened-ports")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = cmdtesting.InitCommand(jujuc.NewJujucCommandWrappedForTest(com), []string{"foo"})
 	c.Assert(err, tc.ErrorMatches, `unrecognized args: \["foo"\]`)
 }
@@ -109,7 +108,7 @@ func (s *OpenedPortsSuite) getContextAndOpenPorts(c *tc.C) *Context {
 
 func (s *OpenedPortsSuite) runCommand(c *tc.C, hctx *Context, args ...string) (stdout, stderr string) {
 	com, err := jujuc.NewCommand(hctx, "opened-ports")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, args)
 	c.Assert(code, tc.Equals, 0)

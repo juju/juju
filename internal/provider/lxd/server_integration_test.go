@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cloud"
@@ -524,7 +523,7 @@ func (s *serverIntegrationSuite) TestIsSupportedAPIVersion(c *tc.C) {
 	} {
 		err := lxd.ValidateAPIVersion(t.input)
 		if t.output == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
 			c.Check(err, tc.ErrorMatches, t.output)
 		}

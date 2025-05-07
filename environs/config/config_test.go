@@ -16,7 +16,6 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
@@ -638,7 +637,7 @@ func (test configTest) check(c *tc.C) {
 		c.Check(err, tc.ErrorMatches, test.err)
 		return
 	}
-	if !c.Check(err, jc.ErrorIsNil, tc.Commentf("config.New failed")) {
+	if !c.Check(err, tc.ErrorIsNil, tc.Commentf("config.New failed")) {
 		// As we have a Check not an Assert so the test should not
 		// continue from here as it will result in a nil pointer panic.
 		return
@@ -655,10 +654,10 @@ func (test configTest) check(c *tc.C) {
 	c.Check(cfg.Name(), tc.Equals, name)
 	agentVersion, ok := cfg.AgentVersion()
 	if s := test.attrs["agent-version"]; s != nil {
-		c.Check(ok, jc.IsTrue)
+		c.Check(ok, tc.IsTrue)
 		c.Check(agentVersion, tc.Equals, semversion.MustParse(s.(string)))
 	} else {
-		c.Check(ok, jc.IsFalse)
+		c.Check(ok, tc.IsFalse)
 		c.Check(agentVersion, tc.Equals, semversion.Zero)
 	}
 
@@ -672,10 +671,10 @@ func (test configTest) check(c *tc.C) {
 	baseAttr, _ := test.attrs["default-base"].(string)
 	defaultBase, ok := cfg.DefaultBase()
 	if baseAttr != "" {
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		c.Assert(defaultBase, tc.Equals, baseAttr)
 	} else {
-		c.Assert(ok, jc.IsFalse)
+		c.Assert(ok, tc.IsFalse)
 		c.Assert(defaultBase, tc.Equals, "")
 	}
 
@@ -693,7 +692,7 @@ func (test configTest) check(c *tc.C) {
 
 	if v, ok := test.attrs["provisioner-harvest-mode"]; ok {
 		harvestMeth, err := config.ParseHarvestMode(v.(string))
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		c.Check(cfg.ProvisionerHarvestMode(), tc.Equals, harvestMeth)
 	} else {
 		c.Check(cfg.ProvisionerHarvestMode(), tc.Equals, config.HarvestDestroyed)
@@ -708,16 +707,16 @@ func (test configTest) check(c *tc.C) {
 	url, urlPresent := cfg.ImageMetadataURL()
 	if v, _ := test.attrs["image-metadata-url"].(string); v != "" {
 		c.Check(url, tc.Equals, v)
-		c.Check(urlPresent, jc.IsTrue)
+		c.Check(urlPresent, tc.IsTrue)
 	} else {
-		c.Check(urlPresent, jc.IsFalse)
+		c.Check(urlPresent, tc.IsFalse)
 	}
 
 	imageMetadataDefaultsDisabled := cfg.ImageMetadataDefaultsDisabled()
 	if v, ok := test.attrs["image-metadata-defaults-disabled"].(bool); ok {
 		c.Assert(imageMetadataDefaultsDisabled, tc.Equals, v)
 	} else {
-		c.Assert(imageMetadataDefaultsDisabled, jc.IsFalse)
+		c.Assert(imageMetadataDefaultsDisabled, tc.IsFalse)
 	}
 
 	agentURL, urlPresent := cfg.AgentMetadataURL()
@@ -738,9 +737,9 @@ func (test configTest) check(c *tc.C) {
 	containerURL, urlPresent := cfg.ContainerImageMetadataURL()
 	if v, _ := test.attrs["container-image-metadata-url"].(string); v != "" {
 		c.Check(containerURL, tc.Equals, v)
-		c.Check(urlPresent, jc.IsTrue)
+		c.Check(urlPresent, tc.IsTrue)
 	} else {
-		c.Check(urlPresent, jc.IsFalse)
+		c.Check(urlPresent, tc.IsFalse)
 	}
 
 	if v, ok := test.attrs["container-image-stream"]; ok {
@@ -753,20 +752,20 @@ func (test configTest) check(c *tc.C) {
 	if v, ok := test.attrs["container-image-metadata-defaults-disabled"].(bool); ok {
 		c.Assert(containerImageMetadataDefaultsDisabled, tc.Equals, v)
 	} else {
-		c.Assert(containerImageMetadataDefaultsDisabled, jc.IsFalse)
+		c.Assert(containerImageMetadataDefaultsDisabled, tc.IsFalse)
 	}
 
 	resourceTags, cfgHasResourceTags := cfg.ResourceTags()
-	c.Check(cfgHasResourceTags, jc.IsTrue)
+	c.Check(cfgHasResourceTags, tc.IsTrue)
 	if tags, ok := test.attrs["resource-tags"]; ok {
 		switch tags := tags.(type) {
 		case []string:
 			if len(tags) > 0 {
-				c.Check(resourceTags, jc.DeepEquals, testResourceTagsMap)
+				c.Check(resourceTags, tc.DeepEquals, testResourceTagsMap)
 			}
 		case string:
 			if tags != "" {
-				c.Check(resourceTags, jc.DeepEquals, testResourceTagsMap)
+				c.Check(resourceTags, tc.DeepEquals, testResourceTagsMap)
 			}
 		}
 	} else {
@@ -778,7 +777,7 @@ func (test configTest) check(c *tc.C) {
 	if xmitAsserted {
 		c.Check(xmit, tc.Equals, expectedXmit)
 	} else {
-		c.Check(xmit, jc.IsTrue)
+		c.Check(xmit, tc.IsTrue)
 	}
 
 	if val, ok := test.attrs[config.NetBondReconfigureDelayKey].(int); ok {
@@ -810,15 +809,15 @@ func (s *ConfigSuite) TestAllAttrs(c *tc.C) {
 		"test-mode":                  false,
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Set from default
 	attrs["logging-config"] = "<root>=INFO"
 
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
-	c.Assert(cfg.AllAttrs(), jc.DeepEquals, attrs)
-	c.Assert(cfg.UnknownAttrs(), jc.DeepEquals, map[string]interface{}{"unknown": "my-unknown"})
+	c.Assert(cfg.AllAttrs(), tc.DeepEquals, attrs)
+	c.Assert(cfg.UnknownAttrs(), tc.DeepEquals, map[string]interface{}{"unknown": "my-unknown"})
 
 	// Verify that default provisioner-harvest-mode is good.
 	c.Assert(cfg.ProvisionerHarvestMode(), tc.Equals, config.HarvestDestroyed)
@@ -828,12 +827,12 @@ func (s *ConfigSuite) TestAllAttrs(c *tc.C) {
 		"uuid":        "6216dfc3-6e82-408f-9f74-8565e63e6158",
 		"new-unknown": "my-new-unknown",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	attrs["name"] = "new-name"
 	attrs["uuid"] = "6216dfc3-6e82-408f-9f74-8565e63e6158"
 	attrs["new-unknown"] = "my-new-unknown"
-	c.Assert(newcfg.AllAttrs(), jc.DeepEquals, attrs)
+	c.Assert(newcfg.AllAttrs(), tc.DeepEquals, attrs)
 }
 
 type validationTest struct {
@@ -900,7 +899,7 @@ func (s *ConfigSuite) TestValidateChange(c *tc.C) {
 		oldConfig := newTestConfig(c, test.old)
 		err := config.Validate(context.Background(), newConfig, oldConfig)
 		if test.err == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
 			c.Check(err, tc.ErrorMatches, test.err)
 		}
@@ -967,7 +966,7 @@ func (test configValidateCloudInitUserDataTest) checkNew(c *tc.C) {
 		c.Assert(err, tc.ErrorMatches, test.err)
 		return
 	}
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ConfigSuite) addJujuFiles(c *tc.C) {
@@ -987,11 +986,11 @@ func (s *ConfigSuite) TestValidateUnknownAttrs(c *tc.C) {
 		"unknown":           "that",
 		"unknown-part-deux": []interface{}{"meshuggah"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// No fields: all attrs passed through.
 	attrs, err := cfg.ValidateUnknownAttrs(nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(attrs, tc.DeepEquals, map[string]interface{}{
 		"known":             "this",
 		"unknown":           "that",
@@ -1001,7 +1000,7 @@ func (s *ConfigSuite) TestValidateUnknownAttrs(c *tc.C) {
 	// Valid field: that and other attrs passed through.
 	fields := schema.Fields{"known": schema.String()}
 	attrs, err = cfg.ValidateUnknownAttrs(fields, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(attrs, tc.DeepEquals, map[string]interface{}{
 		"known":             "this",
 		"unknown":           "that",
@@ -1012,7 +1011,7 @@ func (s *ConfigSuite) TestValidateUnknownAttrs(c *tc.C) {
 	fields["default"] = schema.String()
 	defaults := schema.Defaults{"default": "the other"}
 	attrs, err = cfg.ValidateUnknownAttrs(fields, defaults)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(attrs, tc.DeepEquals, map[string]interface{}{
 		"known":             "this",
 		"unknown":           "that",
@@ -1035,7 +1034,7 @@ func (s *ConfigSuite) TestValidateUnknownAttrs(c *tc.C) {
 		"unknown":    "that",
 		"mapAttr":    map[string]string{"foo": "bar"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = cfg.ValidateUnknownAttrs(nil, nil)
 	c.Assert(err.Error(), tc.Equals, `mapAttr: unknown type (map["foo":"bar"])`)
 
@@ -1049,7 +1048,7 @@ func (s *ConfigSuite) TestValidateUnknownAttrs(c *tc.C) {
 		"unknown":    "that",
 		"bad":        []interface{}{1},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = cfg.ValidateUnknownAttrs(nil, nil)
 	c.Assert(err.Error(), tc.Equals, `bad: unknown type ([1])`)
 }
@@ -1082,15 +1081,15 @@ func (s *ConfigSuite) TestValidateUnknownEmptyAttr(c *tc.C) {
 		"type": "other",
 		"uuid": testing.ModelTag.Id(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	warningTxt := `.* unknown config field %q.*`
 
 	for i, test := range emptyAttributeTests {
 		c.Logf("test %d: %v\n", i, fmt.Sprintf(test.message, test.aKey))
 		testCfg, err := cfg.Apply(map[string]interface{}{test.aKey: test.aValue})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		attrs, err := testCfg.ValidateUnknownAttrs(nil, nil)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		// all attrs passed through
 		c.Assert(attrs, tc.DeepEquals, map[string]interface{}{test.aKey: test.aValue})
 		expectedWarning := fmt.Sprintf(warningTxt, test.aKey)
@@ -1109,7 +1108,7 @@ func newTestConfig(c *tc.C, explicit testing.Attrs) *config.Config {
 		final[key] = value
 	}
 	result, err := config.New(config.UseDefaults, final)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return result
 }
 
@@ -1175,21 +1174,21 @@ func (s *ConfigSuite) TestAutoHookRetryTrueEnv(c *tc.C) {
 func (s *ConfigSuite) TestCharmHubURL(c *tc.C) {
 	config := newTestConfig(c, testing.Attrs{})
 	chURL, ok := config.CharmHubURL()
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	c.Assert(chURL, tc.Equals, charmhub.DefaultServerURL)
 }
 
 func (s *ConfigSuite) TestMode(c *tc.C) {
 	cfg := newTestConfig(c, testing.Attrs{})
 	mode, ok := cfg.Mode()
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	c.Assert(mode, tc.DeepEquals, set.NewStrings(config.RequiresPromptsMode))
 
 	cfg = newTestConfig(c, testing.Attrs{
 		config.ModeKey: "",
 	})
 	mode, ok = cfg.Mode()
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 	c.Assert(mode, tc.DeepEquals, set.NewStrings())
 }
 
@@ -1239,7 +1238,7 @@ func (s *ConfigSuite) TestCharmHubURLSettingValue(c *tc.C) {
 		"charmhub-url": url,
 	})
 	chURL, ok := config.CharmHubURL()
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	c.Assert(chURL, tc.Equals, url)
 }
 
@@ -1397,10 +1396,10 @@ func (s *ConfigSuite) TestProxyConfigMap(c *tc.C) {
 		NoProxy: "no proxy",
 	}
 	cfg, err := cfg.Apply(config.ProxyConfigMap(proxySettings))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.LegacyProxySettings(), tc.DeepEquals, proxySettings)
 	cfg, err = cfg.Apply(config.AptProxyConfigMap(proxySettings))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.AptProxySettings(), tc.DeepEquals, expectedProxySettings)
 }
 
@@ -1414,7 +1413,7 @@ func (s *ConfigSuite) TestAptProxyConfigMap(c *tc.C) {
 		NoProxy: "noproxyhost1,noproxyhost2",
 	}
 	cfg, err := cfg.Apply(config.AptProxyConfigMap(proxySettings))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// The default proxy settings should still be empty.
 	c.Assert(cfg.LegacyProxySettings(), tc.DeepEquals, proxy.Settings{NoProxy: "127.0.0.1,localhost,::1"})
 	c.Assert(cfg.AptProxySettings(), tc.DeepEquals, proxySettings)
@@ -1465,11 +1464,11 @@ func (s *ConfigSuite) TestSchemaNoExtra(c *tc.C) {
 	for name, field := range config.ConfigSchema {
 		orig[name] = field
 	}
-	c.Assert(schema, jc.DeepEquals, orig)
+	c.Assert(schema, tc.DeepEquals, orig)
 	// Check that we actually returned a copy, not the original.
 	schema["foo"] = configschema.Attr{}
 	_, ok := orig["foo"]
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 }
 
 func (s *ConfigSuite) TestSchemaWithExtraFields(c *tc.C) {
@@ -1487,7 +1486,7 @@ func (s *ConfigSuite) TestSchemaWithExtraFields(c *tc.C) {
 	for name, field := range config.ConfigSchema {
 		orig[name] = field
 	}
-	c.Assert(schema, jc.DeepEquals, orig)
+	c.Assert(schema, tc.DeepEquals, orig)
 }
 
 func (s *ConfigSuite) TestSchemaWithExtraOverlap(c *tc.C) {
@@ -1505,7 +1504,7 @@ func (s *ConfigSuite) TestCoerceForStorage(c *tc.C) {
 	cfg := newTestConfig(c, testing.Attrs{
 		"resource-tags": "a=b c=d"})
 	tags, ok := cfg.ResourceTags()
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	expectedTags := map[string]string{"a": "b", "c": "d"}
 	c.Assert(tags, tc.DeepEquals, expectedTags)
 	tagsStr := config.CoerceForStorage(cfg.AllAttrs())["resource-tags"].(string)
@@ -1527,12 +1526,12 @@ func (s *ConfigSuite) TestLXDSnapChannelConfig(c *tc.C) {
 
 func (s *ConfigSuite) TestTelemetryConfig(c *tc.C) {
 	cfg := newTestConfig(c, testing.Attrs{})
-	c.Assert(cfg.Telemetry(), jc.IsTrue)
+	c.Assert(cfg.Telemetry(), tc.IsTrue)
 }
 
 func (s *ConfigSuite) TestTelemetryConfigTrue(c *tc.C) {
 	cfg := newTestConfig(c, testing.Attrs{config.DisableTelemetryKey: true})
-	c.Assert(cfg.Telemetry(), jc.IsFalse)
+	c.Assert(cfg.Telemetry(), tc.IsFalse)
 }
 
 func (s *ConfigSuite) TestTelemetryConfigDoesNotExist(c *tc.C) {
@@ -1542,8 +1541,8 @@ func (s *ConfigSuite) TestTelemetryConfigDoesNotExist(c *tc.C) {
 	}
 
 	cfg, err := config.New(config.UseDefaults, final)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.Telemetry(), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.Telemetry(), tc.IsTrue)
 }
 
 var validCloudInitUserData = `

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/errors"
@@ -53,7 +52,7 @@ func (s *migrationSuite) TestPerform(c *tc.C) {
 	)
 
 	err := m.Perform(context.Background(), s.scope, s.model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 func (s *migrationSuite) TestPerformWithRollbackAtSetup(c *tc.C) {
 	defer s.setupMocks(c).Finish()

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/cmd"
@@ -36,7 +35,7 @@ func (s *SecretGetSuite) TestSecretGetInit(c *tc.C) {
 	}} {
 		hctx, _ := s.ContextSuite.NewHookContext()
 		com, err := jujuc.NewCommand(hctx, "secret-get")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
 		c.Check(code, tc.Equals, 2)
@@ -51,7 +50,7 @@ func (s *SecretGetSuite) TestSecretGetJson(c *tc.C) {
 	})
 
 	com, err := jujuc.NewCommand(hctx, "secret-get")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"secret:9m4e2mr0ui3e8a215n4g", "--format", "json"})
 	c.Assert(code, tc.Equals, 0)
@@ -139,7 +138,7 @@ func (s *SecretGetSuite) assertSecretGet(c *tc.C, f func() ([]string, testing.St
 	})
 
 	com, err := jujuc.NewCommand(hctx, "secret-get")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	args, checkCall := f()
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, args)
@@ -161,7 +160,7 @@ func (s *SecretGetSuite) TestSecretGetBinary(c *tc.C) {
 	})
 
 	com, err := jujuc.NewCommand(hctx, "secret-get")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"secret:9m4e2mr0ui3e8a215n4g"})
 	c.Assert(code, tc.Equals, 0)
@@ -185,7 +184,7 @@ func (s *SecretGetSuite) TestSecretGetKey(c *tc.C) {
 	})
 
 	com, err := jujuc.NewCommand(hctx, "secret-get")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"secret:9m4e2mr0ui3e8a215n4g", "cert"})
 	c.Assert(code, tc.Equals, 0)
@@ -205,7 +204,7 @@ func (s *SecretGetSuite) TestSecretGetKeyBase64(c *tc.C) {
 	})
 
 	com, err := jujuc.NewCommand(hctx, "secret-get")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"secret:9m4e2mr0ui3e8a215n4g", "cert#base64"})
 	c.Assert(code, tc.Equals, 0)

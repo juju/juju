@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/internal/provider/gce"
@@ -44,44 +43,44 @@ func (s *instanceSuite) TestStatus(c *tc.C) {
 
 func (s *instanceSuite) TestAddresses(c *tc.C) {
 	addresses, err := s.Instance.Addresses(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(addresses, jc.DeepEquals, s.Addresses)
+	c.Check(addresses, tc.DeepEquals, s.Addresses)
 	s.CheckNoAPI(c)
 }
 
 func (s *instanceSuite) TestOpenPortsAPI(c *tc.C) {
 	err := s.Instance.OpenPorts(context.Background(), "42", s.Rules)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, tc.HasLen, 1)
 	c.Check(s.FakeConn.Calls[0].FuncName, tc.Equals, "OpenPorts")
 	c.Check(s.FakeConn.Calls[0].FirewallName, tc.Equals, s.InstName)
-	c.Check(s.FakeConn.Calls[0].Rules, jc.DeepEquals, s.Rules)
+	c.Check(s.FakeConn.Calls[0].Rules, tc.DeepEquals, s.Rules)
 }
 
 func (s *instanceSuite) TestClosePortsAPI(c *tc.C) {
 	err := s.Instance.ClosePorts(context.Background(), "42", s.Rules)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, tc.HasLen, 1)
 	c.Check(s.FakeConn.Calls[0].FuncName, tc.Equals, "ClosePorts")
 	c.Check(s.FakeConn.Calls[0].FirewallName, tc.Equals, s.InstName)
-	c.Check(s.FakeConn.Calls[0].Rules, jc.DeepEquals, s.Rules)
+	c.Check(s.FakeConn.Calls[0].Rules, tc.DeepEquals, s.Rules)
 }
 
 func (s *instanceSuite) TestPorts(c *tc.C) {
 	s.FakeConn.Rules = s.Rules
 
 	ports, err := s.Instance.IngressRules(context.Background(), "42")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(ports, jc.DeepEquals, s.Rules)
+	c.Check(ports, tc.DeepEquals, s.Rules)
 }
 
 func (s *instanceSuite) TestPortsAPI(c *tc.C) {
 	_, err := s.Instance.IngressRules(context.Background(), "42")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, tc.HasLen, 1)
 	c.Check(s.FakeConn.Calls[0].FuncName, tc.Equals, "Ports")

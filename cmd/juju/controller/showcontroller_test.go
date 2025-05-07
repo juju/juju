@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/base"
 	apicontroller "github.com/juju/juju/api/controller/controller"
@@ -394,11 +393,11 @@ func (s *ShowControllerSuite) TestShowControllerUnrecognizedOptionFlag(c *tc.C) 
 func (s *ShowControllerSuite) TestShowControllerRefreshesStore(c *tc.C) {
 	store := s.createTestClientStore(c)
 	_, err := s.runShowController(c, "aws-test")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(store.Controllers["aws-test"].ActiveControllerMachineCount, tc.Equals, 1)
 	s.fakeController.machines["ghi"][0].HasVote = true
 	_, err = s.runShowController(c, "aws-test")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(store.Controllers["aws-test"].ControllerMachineCount, tc.Equals, 3)
 	c.Check(store.Controllers["aws-test"].ActiveControllerMachineCount, tc.Equals, 2)
 }
@@ -413,7 +412,7 @@ func (s *ShowControllerSuite) TestShowControllerRefreshesStoreModels(c *tc.C) {
 		},
 	})
 	_, err := s.runShowController(c, "mallards")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(store.Models["mallards"], tc.DeepEquals, &jujuclient.ControllerModels{
 		CurrentModel: "admin/my-model",
 		Models: map[string]jujuclient.ModelDetails{
@@ -457,14 +456,14 @@ mallards:
 func (s *ShowControllerSuite) TestShowControllerWithIdentityProvider(c *tc.C) {
 	_ = s.createTestClientStore(c)
 	ctx, err := s.runShowController(c, "aws-test")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), tc.Not(jc.Contains), "identity-url")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.Not(tc.Contains), "identity-url")
 
 	expURL := "https://api.jujucharms.com/identity"
 	s.fakeController.identityURL = expURL
 	ctx, err = s.runShowController(c, "aws-test")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), jc.Contains, "identity-url: "+expURL)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.Contains, "identity-url: "+expURL)
 }
 
 func (s *ShowControllerSuite) TestShowControllerWithCAFingerprint(c *tc.C) {
@@ -549,7 +548,7 @@ func (s *ShowControllerSuite) assertShowControllerFailed(c *tc.C, args ...string
 
 func (s *ShowControllerSuite) assertShowController(c *tc.C, args ...string) {
 	context, err := s.runShowController(c, args...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), tc.Equals, s.expectedOutput)
 }
 

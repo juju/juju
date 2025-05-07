@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -29,8 +28,8 @@ func (testsuite) TestSetup(c *tc.C) {
 	f := &fakeAPI{}
 	ua := newHandler(c, f)
 	_, err := ua.SetUp(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(f.calledWatch, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(f.calledWatch, tc.IsTrue)
 
 	f.err = errors.New("boo")
 	_, err = ua.SetUp(context.Background())
@@ -42,7 +41,7 @@ func (testsuite) TestHandle(c *tc.C) {
 	ua := newHandler(c, f)
 	ids := []string{"foo/0", "bar/0"}
 	err := ua.Handle(nil, ids)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(f.assignTags, tc.DeepEquals, []names.UnitTag{
 		names.NewUnitTag("foo/0"),
 		names.NewUnitTag("bar/0"),
@@ -59,7 +58,7 @@ func (testsuite) TestHandleError(c *tc.C) {
 	ua := newHandler(c, f)
 	ids := []string{"foo/0", "bar/0"}
 	err := ua.Handle(nil, ids)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(f.assignTags, tc.DeepEquals, []names.UnitTag{
 		names.NewUnitTag("foo/0"),
 		names.NewUnitTag("bar/0"),

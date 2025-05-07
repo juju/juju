@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/exec"
 	"github.com/juju/utils/v4/shell"
 	"go.uber.org/mock/gomock"
@@ -76,7 +75,7 @@ func (s *initSystemSuite) SetUpTest(c *tc.C) {
 	// Set up the service config.
 	tagStr := "machine-0"
 	tag, err := names.ParseTag(tagStr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.tag = tag
 	s.name = "jujud-" + tagStr
 	s.conf = common.Conf{
@@ -108,13 +107,13 @@ func (s *initSystemSuite) newService(c *tc.C) *systemd.Service {
 	}
 
 	svc, err := systemd.NewService(s.name, s.conf, systemd.EtcSystemdDir, fac, s.fops, renderer.Join(s.dataDir, "init"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return svc
 }
 
 func (s *initSystemSuite) expectConf(c *tc.C, conf common.Conf) *gomock.Call {
 	data, err := systemd.Serialize(s.name, conf, renderer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return s.exec.EXPECT().RunCommands(
 		exec.RunParams{
@@ -155,8 +154,8 @@ func (s *initSystemSuite) TestListServices(c *tc.C) {
 	}, nil)
 
 	services, err := systemd.ListServices()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(services, jc.SameContents, []string{"jujud-machine-0", "jujud-unit-wordpress-0"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(services, tc.SameContents, []string{"jujud-machine-0", "jujud-unit-wordpress-0"})
 }
 
 func (s *initSystemSuite) TestListServicesEmpty(c *tc.C) {
@@ -166,13 +165,13 @@ func (s *initSystemSuite) TestListServicesEmpty(c *tc.C) {
 	s.exec.EXPECT().RunCommands(listCmdArg).Return(&exec.ExecResponse{Stdout: []byte("")}, nil)
 
 	services, err := systemd.ListServices()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(services, tc.HasLen, 0)
 }
 
 func (s *initSystemSuite) TestNewService(c *tc.C) {
 	svc := s.newService(c)
-	c.Check(svc.Service, jc.DeepEquals, common.Service{Name: s.name, Conf: s.conf})
+	c.Check(svc.Service, tc.DeepEquals, common.Service{Name: s.name, Conf: s.conf})
 	c.Check(svc.ConfName, tc.Equals, s.name+".service")
 	c.Check(svc.UnitName, tc.Equals, s.name+".service")
 	c.Check(svc.DirName, tc.Equals, systemd.EtcSystemdDir)
@@ -196,7 +195,7 @@ exec 2>&1
 # Run the script.
 ` + jujud + " machine-0"
 
-	c.Check(svc.Service, jc.DeepEquals, common.Service{
+	c.Check(svc.Service, tc.DeepEquals, common.Service{
 		Name: s.name,
 		Conf: common.Conf{
 			Desc:      s.conf.Desc,
@@ -211,14 +210,14 @@ exec 2>&1
 
 	// This gives us a more readable output if they aren't equal.
 	c.Check(string(svc.Script), tc.Equals, script)
-	c.Check(strings.Split(string(svc.Script), "\n"), jc.DeepEquals, strings.Split(script, "\n"))
+	c.Check(strings.Split(string(svc.Script), "\n"), tc.DeepEquals, strings.Split(script, "\n"))
 }
 
 func (s *initSystemSuite) TestNewServiceEmptyConf(c *tc.C) {
 	svc, err := systemd.NewService(
 		s.name, common.Conf{}, systemd.EtcSystemdDir, systemd.NewDBusAPI, s.fops, renderer.Join(s.dataDir, "init"))
 	c.Assert(err, tc.IsNil)
-	c.Check(svc.Service, jc.DeepEquals, common.Service{Name: s.name})
+	c.Check(svc.Service, tc.DeepEquals, common.Service{Name: s.name})
 	c.Check(svc.ConfName, tc.Equals, s.name+".service")
 	c.Check(svc.UnitName, tc.Equals, s.name+".service")
 	c.Check(svc.DirName, tc.Equals, systemd.EtcSystemdDir)
@@ -227,7 +226,7 @@ func (s *initSystemSuite) TestNewServiceEmptyConf(c *tc.C) {
 func (s *initSystemSuite) TestNewServiceBasic(c *tc.C) {
 	s.conf.ExecStart = "/path/to/some/other/command"
 	svc := s.newService(c)
-	c.Check(svc.Service, jc.DeepEquals, common.Service{Name: s.name, Conf: s.conf})
+	c.Check(svc.Service, tc.DeepEquals, common.Service{Name: s.name, Conf: s.conf})
 	c.Check(svc.ConfName, tc.Equals, s.name+".service")
 	c.Check(svc.UnitName, tc.Equals, s.name+".service")
 	c.Check(svc.DirName, tc.Equals, systemd.EtcSystemdDir)
@@ -243,7 +242,7 @@ func (s *initSystemSuite) TestNewServiceExtraScript(c *tc.C) {
 '/path/to/another/command'
 `[1:] + jujud + " machine-0"
 
-	c.Check(svc.Service, jc.DeepEquals, common.Service{
+	c.Check(svc.Service, tc.DeepEquals, common.Service{
 		Name: s.name,
 		Conf: common.Conf{
 			Desc:      s.conf.Desc,
@@ -268,7 +267,7 @@ a
 b
 c`[1:]
 
-	c.Check(svc.Service, jc.DeepEquals, common.Service{
+	c.Check(svc.Service, tc.DeepEquals, common.Service{
 		Name: s.name,
 		Conf: common.Conf{
 			Desc:      s.conf.Desc,
@@ -293,8 +292,8 @@ func (s *initSystemSuite) TestInstalledTrue(c *tc.C) {
 	}, nil)
 
 	installed, err := s.newService(c).Installed()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(installed, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(installed, tc.IsTrue)
 }
 
 func (s *initSystemSuite) TestInstalledFalse(c *tc.C) {
@@ -306,8 +305,8 @@ func (s *initSystemSuite) TestInstalledFalse(c *tc.C) {
 	}, nil)
 
 	installed, err := s.newService(c).Installed()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(installed, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(installed, tc.IsFalse)
 }
 
 func (s *initSystemSuite) TestInstalledError(c *tc.C) {
@@ -318,7 +317,7 @@ func (s *initSystemSuite) TestInstalledError(c *tc.C) {
 
 	installed, err := s.newService(c).Installed()
 	c.Assert(errors.Cause(err), tc.Equals, errFailure)
-	c.Check(installed, jc.IsFalse)
+	c.Check(installed, tc.IsFalse)
 }
 
 func (s *initSystemSuite) TestExistsTrue(c *tc.C) {
@@ -327,8 +326,8 @@ func (s *initSystemSuite) TestExistsTrue(c *tc.C) {
 	s.expectConf(c, s.conf)
 
 	exists, err := s.newService(c).Exists()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(exists, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsTrue)
 }
 
 func (s *initSystemSuite) TestExistsFalse(c *tc.C) {
@@ -345,8 +344,8 @@ func (s *initSystemSuite) TestExistsFalse(c *tc.C) {
 	})
 
 	exists, err := s.newService(c).Exists()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(exists, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsFalse)
 }
 
 func (s *initSystemSuite) TestExistsError(c *tc.C) {
@@ -361,7 +360,7 @@ func (s *initSystemSuite) TestExistsError(c *tc.C) {
 
 	exists, err := s.newService(c).Exists()
 	c.Assert(errors.Cause(err), tc.Equals, errFailure)
-	c.Check(exists, jc.IsFalse)
+	c.Check(exists, tc.IsFalse)
 }
 
 func (s *initSystemSuite) TestExistsEmptyConf(c *tc.C) {
@@ -384,8 +383,8 @@ func (s *initSystemSuite) TestRunningTrue(c *tc.C) {
 	)
 
 	running, err := s.newService(c).Running()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(running, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(running, tc.IsTrue)
 }
 
 func (s *initSystemSuite) TestRunningFalse(c *tc.C) {
@@ -401,8 +400,8 @@ func (s *initSystemSuite) TestRunningFalse(c *tc.C) {
 	)
 
 	running, err := s.newService(c).Running()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(running, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(running, tc.IsFalse)
 }
 
 func (s *initSystemSuite) TestRunningNotEnabled(c *tc.C) {
@@ -417,8 +416,8 @@ func (s *initSystemSuite) TestRunningNotEnabled(c *tc.C) {
 	)
 
 	running, err := s.newService(c).Running()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(running, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(running, tc.IsFalse)
 }
 
 func (s *initSystemSuite) TestRunningError(c *tc.C) {
@@ -461,7 +460,7 @@ func (s *initSystemSuite) TestStart(c *tc.C) {
 	)
 
 	err := svc.Start()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *initSystemSuite) TestStartAlreadyRunning(c *tc.C) {
@@ -481,7 +480,7 @@ func (s *initSystemSuite) TestStartAlreadyRunning(c *tc.C) {
 	)
 
 	err := svc.Start()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *initSystemSuite) TestStartNotInstalled(c *tc.C) {
@@ -491,7 +490,7 @@ func (s *initSystemSuite) TestStartNotInstalled(c *tc.C) {
 	s.exec.EXPECT().RunCommands(listCmdArg).Return(&exec.ExecResponse{Stdout: []byte("")}, nil)
 
 	err := s.newService(c).Start()
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *initSystemSuite) TestStop(c *tc.C) {
@@ -518,7 +517,7 @@ func (s *initSystemSuite) TestStop(c *tc.C) {
 	)
 
 	err := svc.Stop()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *initSystemSuite) TestStopNotRunning(c *tc.C) {
@@ -535,7 +534,7 @@ func (s *initSystemSuite) TestStopNotRunning(c *tc.C) {
 	)
 
 	err := svc.Stop()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *initSystemSuite) TestStopNotInstalled(c *tc.C) {
@@ -548,7 +547,7 @@ func (s *initSystemSuite) TestStopNotInstalled(c *tc.C) {
 	)
 
 	err := s.newService(c).Stop()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *initSystemSuite) TestRemove(c *tc.C) {
@@ -567,7 +566,7 @@ func (s *initSystemSuite) TestRemove(c *tc.C) {
 	)
 
 	err := svc.Remove()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *initSystemSuite) TestRemoveNotInstalled(c *tc.C) {
@@ -577,7 +576,7 @@ func (s *initSystemSuite) TestRemoveNotInstalled(c *tc.C) {
 	s.exec.EXPECT().RunCommands(listCmdArg).Return(&exec.ExecResponse{Stdout: []byte("")}, nil)
 
 	err := s.newService(c).Remove()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *initSystemSuite) TestInstall(c *tc.C) {
@@ -596,7 +595,7 @@ func (s *initSystemSuite) TestInstall(c *tc.C) {
 	)
 
 	err := s.newService(c).Install()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *initSystemSuite) TestInstallAlreadyInstalled(c *tc.C) {
@@ -609,7 +608,7 @@ func (s *initSystemSuite) TestInstallAlreadyInstalled(c *tc.C) {
 	s.exec.EXPECT().RunCommands(listCmdArg).Return(&exec.ExecResponse{Stdout: []byte(svc.Name())}, nil)
 
 	err := svc.Install()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *initSystemSuite) TestInstallZombie(c *tc.C) {
@@ -635,7 +634,7 @@ func (s *initSystemSuite) TestInstallZombie(c *tc.C) {
 		s.fops,
 		renderer.Join(s.dataDir, "init"),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	fileName := fmt.Sprintf("%s/%s.service", systemd.EtcSystemdDir, s.name)
 
@@ -655,7 +654,7 @@ func (s *initSystemSuite) TestInstallZombie(c *tc.C) {
 	s.dBus.EXPECT().EnableUnitFiles([]string{fileName}, false, true).Return(true, nil, nil)
 
 	err = svc.Install()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *initSystemSuite) TestInstallMultiLine(c *tc.C) {
@@ -681,7 +680,7 @@ func (s *initSystemSuite) TestInstallMultiLine(c *tc.C) {
 	)
 
 	err := svc.Install()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *initSystemSuite) TestInstallEmptyConf(c *tc.C) {
@@ -694,7 +693,7 @@ func (s *initSystemSuite) TestInstallEmptyConf(c *tc.C) {
 func (s *initSystemSuite) TestInstallCommands(c *tc.C) {
 	name := "jujud-machine-0"
 	commands, err := s.newService(c).InstallCommands()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	test := systemdtesting.WriteConfTest{
 		Service:  name,
@@ -709,7 +708,7 @@ func (s *initSystemSuite) TestInstallCommandsLogfile(c *tc.C) {
 	s.conf.Logfile = "/var/log/juju/machine-0.log"
 	svc := s.newService(c)
 	commands, err := svc.InstallCommands()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	user, group := paths.SyslogUserGroup()
 	test := systemdtesting.WriteConfTest{
@@ -738,14 +737,14 @@ exec 2>&1
 func (s *initSystemSuite) TestInstallCommandsShutdown(c *tc.C) {
 	name := "juju-shutdown-job"
 	conf, err := service.ShutdownAfterConf("cloud-final")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	svc, err := systemd.NewService(
 		name, conf, systemd.EtcSystemdDir, systemd.NewDBusAPI, s.fops, renderer.Join(s.dataDir, "init"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	commands, err := svc.InstallCommands()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	test := systemdtesting.WriteConfTest{
 		Service: name,
@@ -779,8 +778,8 @@ func (s *initSystemSuite) TestInstallCommandsEmptyConf(c *tc.C) {
 
 func (s *initSystemSuite) TestStartCommands(c *tc.C) {
 	commands, err := s.newService(c).StartCommands()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(commands, jc.DeepEquals, []string{"/bin/systemctl start jujud-machine-0.service"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(commands, tc.DeepEquals, []string{"/bin/systemctl start jujud-machine-0.service"})
 }
 
 func (s *initSystemSuite) TestInstallLimits(c *tc.C) {
@@ -797,7 +796,7 @@ func (s *initSystemSuite) TestInstallLimits(c *tc.C) {
 		},
 	}
 	data, err := systemd.Serialize(name, conf, renderer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(string(data), tc.Equals, `
 [Unit]
 Description=juju agent for juju-job

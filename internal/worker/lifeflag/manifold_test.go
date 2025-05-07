@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
@@ -32,7 +31,7 @@ func (*ManifoldSuite) TestInputs(c *tc.C) {
 	manifold := lifeflag.Manifold(lifeflag.ManifoldConfig{
 		APICallerName: "boris",
 	})
-	c.Check(manifold.Inputs, jc.DeepEquals, []string{"boris"})
+	c.Check(manifold.Inputs, tc.DeepEquals, []string{"boris"})
 }
 
 func (*ManifoldSuite) TestFilter(c *tc.C) {
@@ -65,7 +64,7 @@ func (*ManifoldSuite) TestOutputSuccess(c *tc.C) {
 	worker := &lifeflag.Worker{}
 	var flag engine.Flag
 	err := manifold.Output(worker, &flag)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(flag, tc.Equals, worker)
 }
 
@@ -125,7 +124,7 @@ func (*ManifoldSuite) TestNewWorkerSuccess(c *tc.C) {
 
 	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, tc.Equals, expectWorker)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (*ManifoldSuite) TestNewWorkerSuccessWithAgentName(c *tc.C) {
@@ -148,7 +147,7 @@ func (*ManifoldSuite) TestNewWorkerSuccessWithAgentName(c *tc.C) {
 
 	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, tc.Equals, expectWorker)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 type fakeAgent struct {

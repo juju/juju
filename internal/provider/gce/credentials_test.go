@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/cloud"
@@ -30,7 +29,7 @@ func (s *credentialsSuite) SetUpTest(c *tc.C) {
 
 	var err error
 	s.provider, err = environs.Provider("gce")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *credentialsSuite) TestCredentialSchemas(c *tc.C) {
@@ -61,7 +60,7 @@ func (s *credentialsSuite) TestJSONFileCredentialsValid(c *tc.C) {
 	dir := c.MkDir()
 	filename := filepath.Join(dir, "somefile")
 	err := os.WriteFile(filename, []byte("contents"), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	envtesting.AssertProviderCredentialsValid(c, s.provider, "jsonfile", map[string]string{
 		// For now at least, the contents of the file are not validated
 		// by the credentials schema. That is left to the provider.
@@ -76,9 +75,9 @@ func createCredsFile(c *tc.C, path string) string {
 		path = filepath.Join(dir, "creds.json")
 	}
 	creds, err := google.NewCredentials(sampleCredentialAttributes)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = os.WriteFile(path, creds.JSONKey, 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return path
 }
 
@@ -88,36 +87,36 @@ func (s *credentialsSuite) TestDetectCredentialsFromEnvVar(c *tc.C) {
 	s.PatchEnvironment("GOOGLE_APPLICATION_CREDENTIALS", jsonpath)
 	s.PatchEnvironment("CLOUDSDK_COMPUTE_REGION", "region")
 	credentials, err := s.provider.DetectCredentials("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(credentials.DefaultRegion, tc.Equals, "region")
 	expected := cloud.NewCredential(cloud.JSONFileAuthType, map[string]string{"file": jsonpath})
 	expected.Label = `google credential "test@example.com"`
-	c.Assert(credentials.AuthCredentials["fred"], jc.DeepEquals, expected)
+	c.Assert(credentials.AuthCredentials["fred"], tc.DeepEquals, expected)
 }
 
 func (s *credentialsSuite) assertDetectCredentialsKnownLocation(c *tc.C, jsonpath string) {
 	s.PatchEnvironment("USER", "fred")
 	s.PatchEnvironment("CLOUDSDK_COMPUTE_REGION", "region")
 	credentials, err := s.provider.DetectCredentials("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(credentials.DefaultRegion, tc.Equals, "region")
 	expected := cloud.NewCredential(cloud.JSONFileAuthType, map[string]string{"file": jsonpath})
 	expected.Label = `google credential "test@example.com"`
-	c.Assert(credentials.AuthCredentials["fred"], jc.DeepEquals, expected)
+	c.Assert(credentials.AuthCredentials["fred"], tc.DeepEquals, expected)
 }
 
 func (s *credentialsSuite) TestDetectCredentialsKnownLocationUnix(c *tc.C) {
 	home := utils.Home()
 	dir := c.MkDir()
 	err := utils.SetHome(dir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AddCleanup(func(c *tc.C) {
 		err := utils.SetHome(home)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	})
 	path := filepath.Join(dir, ".config", "gcloud")
 	err = os.MkdirAll(path, 0700)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	jsonpath := createCredsFile(c, filepath.Join(path, "application_default_credentials.json"))
 	s.assertDetectCredentialsKnownLocation(c, jsonpath)
 }

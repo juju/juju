@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/machine"
@@ -107,7 +106,7 @@ func (s *AddMachineSuite) TestInit(c *tc.C) {
 		wrappedCommand, addCmd := machine.NewAddCommandForTest(s.fakeAddMachine, s.fakeAddMachine)
 		err := cmdtesting.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			c.Check(addCmd.Base, tc.Equals, test.base)
 			c.Check(addCmd.Constraints.String(), tc.Equals, test.constraints)
 			if addCmd.Placement != nil {
@@ -129,11 +128,11 @@ func (s *AddMachineSuite) run(c *tc.C, args ...string) (*cmd.Context, error) {
 
 func (s *AddMachineSuite) TestAddMachine(c *tc.C) {
 	context, err := s.run(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "created machine 0\n")
 
 	c.Assert(s.fakeAddMachine.args, tc.HasLen, 1)
-	c.Assert(s.fakeAddMachine.args[0].Jobs, jc.DeepEquals, []model.MachineJob{model.JobHostUnits})
+	c.Assert(s.fakeAddMachine.args[0].Jobs, tc.DeepEquals, []model.MachineJob{model.JobHostUnits})
 }
 
 func (s *AddMachineSuite) TestAddMachineUnauthorizedMentionsJujuGrant(c *tc.C) {
@@ -151,7 +150,7 @@ func (s *AddMachineSuite) TestSSHPlacement(c *tc.C) {
 		return "42", nil
 	})
 	context, err := s.run(c, "ssh:10.1.2.3")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "created machine 42\n")
 }
 
@@ -166,52 +165,52 @@ func (s *AddMachineSuite) TestSSHPlacementError(c *tc.C) {
 
 func (s *AddMachineSuite) TestParamsPassedOn(c *tc.C) {
 	_, err := s.run(c, "--constraints", "mem=8G", "--base=ubuntu@22.04", "zone=nz")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.fakeAddMachine.args, tc.HasLen, 1)
 
 	param := s.fakeAddMachine.args[0]
 
 	c.Assert(param.Placement.String(), tc.Equals, "fake-uuid:zone=nz")
-	c.Assert(param.Base, jc.DeepEquals, &params.Base{Name: "ubuntu", Channel: "22.04/stable"})
+	c.Assert(param.Base, tc.DeepEquals, &params.Base{Name: "ubuntu", Channel: "22.04/stable"})
 	c.Assert(param.Constraints.String(), tc.Equals, "mem=8192M")
 }
 
 func (s *AddMachineSuite) TestParamsPassedOnMultipleConstraints(c *tc.C) {
 	_, err := s.run(c, "--constraints", "mem=8G", "--constraints", "cores=4", "--base=ubuntu@22.04", "zone=nz")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.fakeAddMachine.args, tc.HasLen, 1)
 
 	param := s.fakeAddMachine.args[0]
 
 	c.Assert(param.Placement.String(), tc.Equals, "fake-uuid:zone=nz")
-	c.Assert(param.Base, jc.DeepEquals, &params.Base{Name: "ubuntu", Channel: "22.04/stable"})
+	c.Assert(param.Base, tc.DeepEquals, &params.Base{Name: "ubuntu", Channel: "22.04/stable"})
 	c.Assert(param.Constraints.String(), tc.Equals, "cores=4 mem=8192M")
 }
 
 func (s *AddMachineSuite) TestParamsPassedOnNTimes(c *tc.C) {
 	_, err := s.run(c, "-n", "3", "--constraints", "mem=8G", "--base=ubuntu@22.04")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.fakeAddMachine.args, tc.HasLen, 3)
 
 	param := s.fakeAddMachine.args[0]
-	c.Assert(param.Base, jc.DeepEquals, &params.Base{Name: "ubuntu", Channel: "22.04/stable"})
+	c.Assert(param.Base, tc.DeepEquals, &params.Base{Name: "ubuntu", Channel: "22.04/stable"})
 
 	c.Assert(param.Constraints.String(), tc.Equals, "mem=8192M")
-	c.Assert(param, jc.DeepEquals, s.fakeAddMachine.args[1])
-	c.Assert(param, jc.DeepEquals, s.fakeAddMachine.args[2])
+	c.Assert(param, tc.DeepEquals, s.fakeAddMachine.args[1])
+	c.Assert(param, tc.DeepEquals, s.fakeAddMachine.args[2])
 }
 
 func (s *AddMachineSuite) TestParamsPassedOnNTimesMultipleConstraints(c *tc.C) {
 	_, err := s.run(c, "-n", "3", "--constraints", "mem=8G", "--constraints", "cores=4", "--base=ubuntu@22.04")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.fakeAddMachine.args, tc.HasLen, 3)
 
 	param := s.fakeAddMachine.args[0]
-	c.Assert(param.Base, jc.DeepEquals, &params.Base{Name: "ubuntu", Channel: "22.04/stable"})
+	c.Assert(param.Base, tc.DeepEquals, &params.Base{Name: "ubuntu", Channel: "22.04/stable"})
 
 	c.Assert(param.Constraints.String(), tc.Equals, "cores=4 mem=8192M")
-	c.Assert(param, jc.DeepEquals, s.fakeAddMachine.args[1])
-	c.Assert(param, jc.DeepEquals, s.fakeAddMachine.args[2])
+	c.Assert(param, tc.DeepEquals, s.fakeAddMachine.args[1])
+	c.Assert(param, tc.DeepEquals, s.fakeAddMachine.args[2])
 }
 
 func (s *AddMachineSuite) TestAddThreeMachinesWithTwoFailures(c *tc.C) {
@@ -232,7 +231,7 @@ func (s *AddMachineSuite) TestBlockedError(c *tc.C) {
 
 func (s *AddMachineSuite) TestAddMachineWithDisks(c *tc.C) {
 	_, err := s.run(c, "--disks", "2,1G", "--disks", "2G")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.fakeAddMachine.args, tc.HasLen, 1)
 	param := s.fakeAddMachine.args[0]
 	c.Assert(param.Disks, tc.DeepEquals, []storage.Directive{

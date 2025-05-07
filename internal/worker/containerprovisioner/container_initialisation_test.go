@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/agent"
@@ -75,7 +74,7 @@ func (s *containerSetupSuite) testInitialiseContainers(c *tc.C, containerType in
 	abort := make(chan struct{})
 	close(abort)
 	err := cs.initialiseContainers(context.Background(), abort)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *containerSetupSuite) TestInitialiseContainerProvisonerLXD(c *tc.C) {
@@ -112,7 +111,7 @@ func (s *containerSetupSuite) setUpContainerSetup(c *tc.C, containerType instanc
 			Controller:        names.NewControllerTag(s.controllerUUID.String()),
 			Model:             names.NewModelTag(s.modelUUID.String()),
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	args := ContainerSetupParams{
 		Logger:        loggertesting.WrapCheckLog(c),

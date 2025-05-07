@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	apiserverstorage "github.com/juju/juju/apiserver/facades/client/storage"
@@ -34,19 +33,19 @@ func (s *poolSuite) TestEnsureStoragePoolFilter(c *tc.C) {
 
 	filter := params.StoragePoolFilter{}
 	c.Assert(filter.Providers, tc.HasLen, 0)
-	c.Assert(apiserverstorage.EnsureStoragePoolFilter(s.apiCaas, filter).Providers, jc.DeepEquals, []string{"kubernetes"})
+	c.Assert(apiserverstorage.EnsureStoragePoolFilter(s.apiCaas, filter).Providers, tc.DeepEquals, []string{"kubernetes"})
 }
 
 func (s *poolSuite) TestList(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	p, err := internalstorage.NewConfig(fmt.Sprintf("%v%v", tstName, 0), provider.LoopProviderType, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.storageService.EXPECT().ListStoragePools(gomock.Any(), domainstorage.NilNames, domainstorage.NilProviders).
 		Return([]*internalstorage.Config{p}, nil)
 
 	results, err := s.api.ListPools(context.Background(), params.StoragePoolFilters{[]params.StoragePoolFilter{{}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	one := results.Results[0]
 	c.Assert(one.Error, tc.IsNil)
@@ -59,14 +58,14 @@ func (s *poolSuite) TestListManyResults(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	p, err := internalstorage.NewConfig(fmt.Sprintf("%v%v", tstName, 0), provider.LoopProviderType, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	p2, err := internalstorage.NewConfig(fmt.Sprintf("%v%v", tstName, 1), provider.LoopProviderType, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.storageService.EXPECT().ListStoragePools(gomock.Any(), domainstorage.NilNames, domainstorage.NilProviders).
 		Return([]*internalstorage.Config{p, p2}, nil)
 
 	results, err := s.api.ListPools(context.Background(), params.StoragePoolFilters{[]params.StoragePoolFilter{{}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertPoolNames(c, results.Results[0].Result, "testpool0", "testpool1")
 }
 
@@ -74,7 +73,7 @@ func assertPoolNames(c *tc.C, results []params.StoragePool, expected ...string) 
 	expectedNames := set.NewStrings(expected...)
 	c.Assert(len(expectedNames), tc.Equals, len(results))
 	for _, one := range results {
-		c.Assert(expectedNames.Contains(one.Name), jc.IsTrue)
+		c.Assert(expectedNames.Contains(one.Name), tc.IsTrue)
 	}
 }
 
@@ -85,7 +84,7 @@ func (s *poolSuite) TestListNoPools(c *tc.C) {
 		Return([]*internalstorage.Config{}, nil)
 
 	results, err := s.api.ListPools(context.Background(), params.StoragePoolFilters{[]params.StoragePoolFilter{{}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Result, tc.HasLen, 0)
 }

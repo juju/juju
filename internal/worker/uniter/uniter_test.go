@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/yaml.v2"
 
@@ -57,7 +56,7 @@ func (s *UniterSuite) SetUpSuite(c *tc.C) {
 	s.dataDir = c.MkDir()
 	toolsDir := tools.ToolsDir(s.dataDir, "unit-u-0")
 	err := os.MkdirAll(toolsDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.PatchEnvironment("LC_ALL", "en_US")
 	s.unitDir = filepath.Join(s.dataDir, "agents", "unit-u-0")
@@ -83,7 +82,7 @@ func (s *UniterSuite) ResetContext(c *tc.C) {
 	s.runner = &mockRunner{}
 	s.deployer = &mockDeployer{}
 	err := os.RemoveAll(s.unitDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *UniterSuite) newContext(c *tc.C) (*testContext, *gomock.Controller) {
@@ -276,16 +275,16 @@ func (s *UniterSuite) TestUniterStartupStatusCharmProfile(c *tc.C) {
 	// scenarios.
 	addCharmProfile := func(c *tc.C, ctx *testContext, path string) {
 		f, err := os.OpenFile(filepath.Join(path, "lxd-profile.yaml"), os.O_RDWR|os.O_CREATE, 0644)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		defer func() {
 			err := f.Close()
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}()
 		_, err = io.WriteString(f, `
 config:
   security.nesting: "false"
   security.privileged: "true"`)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	s.runUniterTests(c, []uniterTest{
@@ -823,10 +822,10 @@ func (s *UniterSuite) TestUpdateResourceCausesUpgrade(c *tc.C) {
 	// scenarios.
 	appendResource := func(c *tc.C, ctx *testContext, path string) {
 		f, err := os.OpenFile(filepath.Join(path, "metadata.yaml"), os.O_RDWR|os.O_APPEND, 0644)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		defer func() {
 			err := f.Close()
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}()
 		_, err = io.WriteString(f, `
 resources:
@@ -834,7 +833,7 @@ resources:
     Type: file
     filename: filename.tgz
     comment: One line that is useful when operators need to push it.`)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	s.runUniterTests(c, []uniterTest{
 		ut(
@@ -1039,7 +1038,7 @@ func (s *UniterSuite) TestUniterRelations(c *tc.C) {
 		}}
 		unchecked := ctx.hooksCompleted[len(ctx.hooks):]
 		for _, possible := range possibles {
-			if ok, _ := jc.DeepEqual(unchecked, possible); ok {
+			if ok, _ := tc.DeepEqual(unchecked, possible); ok {
 				return
 			}
 		}
@@ -1185,7 +1184,7 @@ func (s *UniterSuite) TestUniterRelationErrorsLostRelation(c *tc.C) {
 					RemoteApplication: "other",
 				}
 				newData, err := yaml.Marshal(&opState)
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				ctx.uniterState = string(newData)
 			}},
 			startUniter{rebootQuerier: fakeRebootQuerier{rebootNotDetected}},
@@ -1364,10 +1363,10 @@ func (s *UniterSuite) TestStorage(c *tc.C) {
 	// scenarios.
 	appendStorageMetadata := func(c *tc.C, ctx *testContext, path string) {
 		f, err := os.OpenFile(filepath.Join(path, "metadata.yaml"), os.O_RDWR|os.O_APPEND, 0644)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		defer func() {
 			err := f.Close()
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}()
 		_, err = io.WriteString(f, `
 storage:
@@ -1376,7 +1375,7 @@ storage:
     multiple:
       range: 0-
 `[1:])
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	storageDirectives := map[string]state.StorageConstraints{
 		"wp-content": {Count: 1},
@@ -1509,7 +1508,7 @@ func (s *UniterSuite) TestTranslateResolverError(c *tc.C) {
 func executorFunc(c *tc.C) uniter.NewOperationExecutorFunc {
 	return func(ctx context.Context, unitName string, cfg operation.ExecutorConfig) (operation.Executor, error) {
 		e, err := operation.NewExecutor(ctx, unitName, cfg)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		return &mockExecutor{e}, nil
 	}
 }

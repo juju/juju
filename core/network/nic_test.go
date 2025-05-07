@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
@@ -44,25 +43,25 @@ func (s *nicSuite) TestActualInterfaceName(c *tc.C) {
 }
 
 func (s *nicSuite) TestIsVirtual(c *tc.C) {
-	c.Check(s.info[0].IsVirtual(), jc.IsTrue)
-	c.Check(s.info[1].IsVirtual(), jc.IsFalse)
-	c.Check(s.info[2].IsVirtual(), jc.IsTrue)
-	c.Check(s.info[8].IsVirtual(), jc.IsTrue, tc.Commentf("expected NIC with OVS virtual port type to be treated as virtual"))
+	c.Check(s.info[0].IsVirtual(), tc.IsTrue)
+	c.Check(s.info[1].IsVirtual(), tc.IsFalse)
+	c.Check(s.info[2].IsVirtual(), tc.IsTrue)
+	c.Check(s.info[8].IsVirtual(), tc.IsTrue, tc.Commentf("expected NIC with OVS virtual port type to be treated as virtual"))
 }
 
 func (s *nicSuite) TestIsVLAN(c *tc.C) {
-	c.Check(s.info[0].IsVLAN(), jc.IsTrue)
-	c.Check(s.info[1].IsVLAN(), jc.IsFalse)
-	c.Check(s.info[2].IsVLAN(), jc.IsTrue)
+	c.Check(s.info[0].IsVLAN(), tc.IsTrue)
+	c.Check(s.info[1].IsVLAN(), tc.IsFalse)
+	c.Check(s.info[2].IsVLAN(), tc.IsTrue)
 }
 
 func (s *nicSuite) TestAdditionalFields(c *tc.C) {
 	c.Check(s.info[3].ConfigType, tc.Equals, network.ConfigDHCP)
-	c.Check(s.info[3].NoAutoStart, jc.IsTrue)
-	c.Check(s.info[4].Addresses, jc.DeepEquals, network.ProviderAddresses{network.NewMachineAddress("0.1.2.3").AsProviderAddress()})
-	c.Check(s.info[5].DNSServers, jc.DeepEquals, []string{"1.1.1.1", "2.2.2.2"})
-	c.Check(s.info[6].GatewayAddress, jc.DeepEquals, network.NewMachineAddress("4.3.2.1").AsProviderAddress())
-	c.Check(s.info[7].Routes, jc.DeepEquals, []network.Route{{
+	c.Check(s.info[3].NoAutoStart, tc.IsTrue)
+	c.Check(s.info[4].Addresses, tc.DeepEquals, network.ProviderAddresses{network.NewMachineAddress("0.1.2.3").AsProviderAddress()})
+	c.Check(s.info[5].DNSServers, tc.DeepEquals, []string{"1.1.1.1", "2.2.2.2"})
+	c.Check(s.info[6].GatewayAddress, tc.DeepEquals, network.NewMachineAddress("4.3.2.1").AsProviderAddress())
+	c.Check(s.info[7].Routes, tc.DeepEquals, []network.Route{{
 		DestinationCIDR: "0.1.2.3/24",
 		GatewayIP:       "0.1.2.1",
 		Metric:          0,
@@ -71,27 +70,27 @@ func (s *nicSuite) TestAdditionalFields(c *tc.C) {
 
 func (*nicSuite) TestInterfaceInfoValidate(c *tc.C) {
 	dev := network.InterfaceInfo{InterfaceName: ""}
-	c.Check(dev.Validate(), jc.ErrorIs, coreerrors.NotValid)
+	c.Check(dev.Validate(), tc.ErrorIs, coreerrors.NotValid)
 
 	dev = network.InterfaceInfo{MACAddress: "do you even MAC bro?"}
-	c.Check(dev.Validate(), jc.ErrorIs, coreerrors.NotValid)
+	c.Check(dev.Validate(), tc.ErrorIs, coreerrors.NotValid)
 
 	dev = network.InterfaceInfo{
 		InterfaceName: "eth0",
 		MACAddress:    network.GenerateVirtualMACAddress(),
 		InterfaceType: "invalid",
 	}
-	c.Check(dev.Validate(), jc.ErrorIs, coreerrors.NotValid)
+	c.Check(dev.Validate(), tc.ErrorIs, coreerrors.NotValid)
 
 	dev = network.InterfaceInfo{
 		InterfaceName: "not#valid",
 		InterfaceType: "bond",
 	}
-	c.Check(dev.Validate(), jc.ErrorIsNil)
+	c.Check(dev.Validate(), tc.ErrorIsNil)
 }
 
 func (*nicSuite) TestInterfaceInfosValidate(c *tc.C) {
-	c.Check(getInterFaceInfos().Validate(), jc.ErrorIsNil)
+	c.Check(getInterFaceInfos().Validate(), tc.ErrorIsNil)
 }
 
 func (*nicSuite) TestInterfaceInfosFiltering(c *tc.C) {

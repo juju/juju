@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/resource"
@@ -32,7 +31,7 @@ func (ResourceSuite) TestValidateUploadUsed(c *tc.C) {
 
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (ResourceSuite) TestValidateUploadNotUsed(c *tc.C) {
@@ -44,7 +43,7 @@ func (ResourceSuite) TestValidateUploadNotUsed(c *tc.C) {
 
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (ResourceSuite) TestValidateZeroValue(c *tc.C) {
@@ -52,7 +51,7 @@ func (ResourceSuite) TestValidateZeroValue(c *tc.C) {
 
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `.*bad info.*`)
 }
 
@@ -66,7 +65,7 @@ func (ResourceSuite) TestValidateBadInfo(c *tc.C) {
 
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `.*bad info.*`)
 }
 
@@ -80,7 +79,7 @@ func (ResourceSuite) TestValidateMissingID(c *tc.C) {
 
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (ResourceSuite) TestValidateMissingApplicationName(c *tc.C) {
@@ -93,7 +92,7 @@ func (ResourceSuite) TestValidateMissingApplicationName(c *tc.C) {
 
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `.*missing application name.*`)
 }
 
@@ -108,7 +107,7 @@ func (ResourceSuite) TestValidateMissingUsername(c *tc.C) {
 
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (ResourceSuite) TestValidateMissingTimestamp(c *tc.C) {
@@ -122,7 +121,7 @@ func (ResourceSuite) TestValidateMissingTimestamp(c *tc.C) {
 
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `.*missing timestamp.*`)
 }
 
@@ -141,7 +140,7 @@ func (ResourceSuite) TestRevisionStringNone(c *tc.C) {
 	}
 
 	err := res.Validate()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	c.Check(res.RevisionString(), tc.Equals, "-")
 }
@@ -163,7 +162,7 @@ func (ResourceSuite) TestRevisionStringTime(c *tc.C) {
 	}
 
 	err := res.Validate()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	c.Check(res.RevisionString(), tc.Equals, "2012-07-08 15:59:05 +0000 UTC")
 }
@@ -186,7 +185,7 @@ func (ResourceSuite) TestRevisionStringNumber(c *tc.C) {
 	}
 
 	err := res.Validate()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	c.Check(res.RevisionString(), tc.Equals, "7")
 }
@@ -201,7 +200,7 @@ func (s *ResourceSuite) TestAsMap(c *tc.C) {
 
 	resMap := resource.AsMap(res)
 
-	c.Check(resMap, jc.DeepEquals, map[string]resource.Resource{
+	c.Check(resMap, tc.DeepEquals, map[string]resource.Resource{
 		"spam": spam,
 		"eggs": eggs,
 	})

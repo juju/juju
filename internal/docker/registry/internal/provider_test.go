@@ -6,7 +6,6 @@ package internal_test
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/docker/registry/internal"
@@ -29,5 +28,5 @@ func (s *providerSuite) TestInitClient(c *tc.C) {
 		initializer.EXPECT().WrapTransport().Return(nil),
 	)
 	err := internal.InitProvider(initializer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -33,7 +32,7 @@ func (s *configSuite) SetUpTest(c *tc.C) {
 	s.provider = lxd.NewProvider()
 
 	cfg, err := testing.ModelConfig(c).Apply(lxd.ConfigAttrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.config = cfg
 }
 
@@ -44,7 +43,7 @@ func (s *configSuite) TestDefaults(c *tc.C) {
 	values, extras := ecfg.Values(c)
 	c.Assert(extras, tc.HasLen, 0)
 
-	c.Check(values, jc.DeepEquals, lxd.ConfigValues{})
+	c.Check(values, tc.DeepEquals, lxd.ConfigValues{})
 }
 
 // TODO(ericsnow) Each test only deals with a single field, so having
@@ -66,7 +65,7 @@ type configTestSpec struct {
 }
 
 func (ts configTestSpec) checkSuccess(c *tc.C, value interface{}, err error) {
-	if !c.Check(err, jc.ErrorIsNil) {
+	if !c.Check(err, tc.ErrorIsNil) {
 		return
 	}
 
@@ -103,7 +102,7 @@ func (ts configTestSpec) attrs() testing.Attrs {
 func (ts configTestSpec) newConfig(c *tc.C) *config.Config {
 	attrs := ts.attrs()
 	cfg, err := testing.ModelConfig(c).Apply(attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return cfg
 }
 
@@ -114,7 +113,7 @@ func (ts configTestSpec) fixCfg(c *tc.C, cfg *config.Config) *config.Config {
 	fixes = updateAttrs(fixes, ts.insert)
 
 	newCfg, err := cfg.Apply(fixes)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return newCfg
 }
 
@@ -178,7 +177,7 @@ func (s *configSuite) TestValidateOldConfig(c *tc.C) {
 		oldcfg := test.newConfig(c)
 		var err error
 		oldcfg, err = s.provider.Validate(context.Background(), oldcfg, nil)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		newcfg := test.fixCfg(c, s.config)
 		expected := updateAttrs(lxd.ConfigAttrs, test.insert)
 
@@ -190,7 +189,7 @@ func (s *configSuite) TestValidateOldConfig(c *tc.C) {
 		if test.err != "" {
 			test.checkFailure(c, err, "invalid base config")
 		} else {
-			if !c.Check(err, jc.ErrorIsNil) {
+			if !c.Check(err, tc.ErrorIsNil) {
 				continue
 			}
 			// We verify that Validate filled in the defaults
@@ -234,7 +233,7 @@ func (s *configSuite) TestSetConfig(c *tc.C) {
 			Cloud:  lxdCloudSpec(),
 			Config: s.config,
 		}, environs.NoopCredentialInvalidator())
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		testConfig := test.newConfig(c)
 		err = environ.SetConfig(context.Background(), testConfig)
@@ -243,7 +242,7 @@ func (s *configSuite) TestSetConfig(c *tc.C) {
 		if test.err != "" {
 			test.checkFailure(c, err, "invalid config change")
 			expected, err := s.provider.Validate(context.Background(), s.config, nil)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			test.checkAttrs(c, environ.Config().AllAttrs(), expected)
 		} else {
 			test.checkSuccess(c, environ.Config(), err)
@@ -260,7 +259,7 @@ func (s *configSuite) TestSchema(c *tc.C) {
 	globalFields, err := config.Schema(nil)
 	c.Assert(err, tc.IsNil)
 	for name, field := range globalFields {
-		c.Check(fields[name], jc.DeepEquals, field)
+		c.Check(fields[name], tc.DeepEquals, field)
 	}
 }
 

@@ -11,7 +11,6 @@ import (
 
 	clock "github.com/juju/clock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -41,31 +40,31 @@ func (s *workerSuite) TestWorkerConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.newConfig(c)
-	c.Assert(cfg.Validate(), jc.ErrorIsNil)
+	c.Assert(cfg.Validate(), tc.ErrorIsNil)
 
 	cfg = s.newConfig(c)
 	cfg.ApplicationService = nil
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
 	cfg.HTTPClientGetter = nil
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
 	cfg.NewHTTPClient = nil
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
 	cfg.NewDownloader = nil
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
 	cfg.Logger = nil
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
 	cfg.Clock = nil
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *workerSuite) TestWorkerStart(c *tc.C) {
@@ -330,7 +329,7 @@ func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *workerSuite) newWorker(c *tc.C) *Worker {
 	w, err := newWorker(s.newConfig(c), s.states)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return w
 }

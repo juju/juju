@@ -3,10 +3,7 @@
 
 package hooks
 
-import (
-	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
-)
+import "github.com/juju/tc"
 
 var _ = tc.Suite(&HooksSuite{})
 
@@ -14,36 +11,36 @@ type HooksSuite struct{}
 
 func (s *HooksSuite) TestIsRelation(c *tc.C) {
 	for _, h := range relationHooks {
-		c.Assert(h.IsRelation(), jc.IsTrue)
+		c.Assert(h.IsRelation(), tc.IsTrue)
 	}
 	for _, h := range unitHooks {
-		c.Assert(h.IsRelation(), jc.IsFalse)
+		c.Assert(h.IsRelation(), tc.IsFalse)
 	}
 }
 
 func (s *HooksSuite) TestIsStorage(c *tc.C) {
 	for _, h := range storageHooks {
-		c.Assert(h.IsStorage(), jc.IsTrue)
+		c.Assert(h.IsStorage(), tc.IsTrue)
 	}
 	for _, h := range unitHooks {
-		c.Assert(h.IsStorage(), jc.IsFalse)
+		c.Assert(h.IsStorage(), tc.IsFalse)
 	}
 }
 
 func (s *HooksSuite) TestIsWorkload(c *tc.C) {
 	for _, h := range workloadHooks {
-		c.Assert(h.IsWorkload(), jc.IsTrue)
+		c.Assert(h.IsWorkload(), tc.IsTrue)
 	}
 	for _, h := range unitHooks {
-		c.Assert(h.IsWorkload(), jc.IsFalse)
+		c.Assert(h.IsWorkload(), tc.IsFalse)
 	}
 }
 
 func (s *HooksSuite) TestIsSecret(c *tc.C) {
 	for _, h := range secretHooks {
-		c.Assert(h.IsSecret(), jc.IsTrue)
+		c.Assert(h.IsSecret(), tc.IsTrue)
 	}
 	for _, h := range unitHooks {
-		c.Assert(h.IsSecret(), jc.IsFalse)
+		c.Assert(h.IsSecret(), tc.IsFalse)
 	}
 }

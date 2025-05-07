@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -28,7 +27,7 @@ var _ = tc.Suite(&ValidateSuite{})
 
 func (*ValidateSuite) TestValid(c *tc.C) {
 	err := validConfig(c).Validate()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (*ValidateSuite) TestMissingAgent(c *tc.C) {
@@ -88,7 +87,7 @@ func validConfig(c *tc.C) migrationminion.Config {
 func checkNotValid(c *tc.C, config migrationminion.Config, expect string) {
 	check := func(err error) {
 		c.Check(err, tc.ErrorMatches, expect)
-		c.Check(err, jc.ErrorIs, errors.NotValid)
+		c.Check(err, tc.ErrorIs, errors.NotValid)
 	}
 
 	err := config.Validate()

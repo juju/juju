@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cloud"
 	cloudtesting "github.com/juju/juju/core/cloud/testing"
@@ -61,17 +60,17 @@ func (s *stateSuite) setupModel(c *tc.C) coremodel.UUID {
 	ctx := context.Background()
 
 	err := bootstrap.CreateDefaultBackends(coremodel.IAAS)(ctx, s.ControllerTxnRunner(), s.TxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	userName, err := user.NewName("test-usertest")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	userUUID := usertesting.GenUserUUID(c)
 	err = userstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c)).AddUser(ctx, userUUID, userName, userName.String(), false, userUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cloudUUID := cloudtesting.GenCloudUUID(c)
 	err = cloudstate.NewState(s.TxnRunnerFactory()).CreateCloud(ctx, userName, cloudUUID.String(), testCloud)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	key := corecredential.Key{
 		Cloud: "test",
@@ -90,7 +89,7 @@ func (s *stateSuite) setupModel(c *tc.C) coremodel.UUID {
 		Attributes: attributes,
 	}
 	err = credentialstate.NewState(s.TxnRunnerFactory()).UpsertCloudCredential(ctx, key, credInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	modelUUID := modeltesting.GenModelUUID(c)
 	modelSt := modelstate.NewState(s.TxnRunnerFactory())
@@ -102,9 +101,9 @@ func (s *stateSuite) setupModel(c *tc.C) coremodel.UUID {
 		Owner:         userUUID,
 		SecretBackend: juju.BackendName,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = modelSt.Activate(ctx, modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return modelUUID
 }
 
@@ -112,11 +111,11 @@ func (s *stateSuite) TestGetModelCloudAndCredential(c *tc.C) {
 	uuid := s.setupModel(c)
 	st := NewState(s.TxnRunnerFactory())
 	cld, region, cred, err := st.GetModelCloudAndCredential(context.Background(), uuid)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cld, tc.DeepEquals, &testCloud)
 	c.Check(region, tc.Equals, "test-region")
 	c.Check(cred.AuthType, tc.Equals, cloud.AccessKeyAuthType)
-	c.Check(cred.Attributes, jc.DeepEquals, map[string]string{
+	c.Check(cred.Attributes, tc.DeepEquals, map[string]string{
 		"foo": "foo val",
 		"bar": "bar val",
 	})
@@ -126,5 +125,5 @@ func (s *stateSuite) TestGetModelCloudAndCredentialNotFound(c *tc.C) {
 	uuid := modeltesting.GenModelUUID(c)
 	st := NewState(s.TxnRunnerFactory())
 	_, _, _, err := st.GetModelCloudAndCredential(context.Background(), uuid)
-	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }

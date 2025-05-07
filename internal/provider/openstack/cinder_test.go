@@ -15,7 +15,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
 
@@ -89,8 +88,8 @@ func (s *cinderVolumeSourceSuite) TestAttachVolumes(c *tc.C) {
 			InstanceId: mockServerId,
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, jc.DeepEquals, []storage.AttachVolumesResult{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, []storage.AttachVolumesResult{{
 		VolumeAttachment: &storage.VolumeAttachment{
 			Volume:  mockVolumeTag,
 			Machine: mockMachineTag,
@@ -105,7 +104,7 @@ var testUnauthorisedGooseError = gooseerrors.NewUnauthorisedf(nil, "", "invalid 
 
 func (s *cinderVolumeSourceSuite) TestAttachVolumesInvalidCredential(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	c.Assert(s.invalidCredential, jc.IsFalse)
+	c.Assert(s.invalidCredential, tc.IsFalse)
 	mockAdaptor := &mockAdaptor{
 		attachVolume: func(serverId, volId, mountPoint string) (*nova.VolumeAttachment, error) {
 			return &nova.VolumeAttachment{}, testUnauthorisedGooseError
@@ -122,8 +121,8 @@ func (s *cinderVolumeSourceSuite) TestAttachVolumesInvalidCredential(c *tc.C) {
 			InstanceId: mockServerId,
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.invalidCredential, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.invalidCredential, tc.IsTrue)
 }
 
 func (s *cinderVolumeSourceSuite) TestAttachVolumesNoDevice(c *tc.C) {
@@ -149,7 +148,7 @@ func (s *cinderVolumeSourceSuite) TestAttachVolumesNoDevice(c *tc.C) {
 			InstanceId: mockServerId,
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 1)
 	c.Assert(results[0].Error, tc.ErrorMatches, "device not assigned to volume attachment")
 }
@@ -167,7 +166,7 @@ func (s *cinderVolumeSourceSuite) TestCreateVolume(c *tc.C) {
 	var getVolumeCalls int
 	mockAdaptor := &mockAdaptor{
 		createVolume: func(args cinder.CreateVolumeVolumeParams) (*cinder.Volume, error) {
-			c.Assert(args, jc.DeepEquals, cinder.CreateVolumeVolumeParams{
+			c.Assert(args, tc.DeepEquals, cinder.CreateVolumeVolumeParams{
 				Size:             requestedSize / 1024,
 				Name:             "juju-testmodel-volume-123",
 				AvailabilityZone: "zone-1",
@@ -219,11 +218,11 @@ func (s *cinderVolumeSourceSuite) TestCreateVolume(c *tc.C) {
 			},
 		},
 	}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 1)
-	c.Assert(results[0].Error, jc.ErrorIsNil)
+	c.Assert(results[0].Error, tc.ErrorIsNil)
 
-	c.Check(results[0].Volume, jc.DeepEquals, &storage.Volume{
+	c.Check(results[0].Volume, tc.DeepEquals, &storage.Volume{
 		Tag: mockVolumeTag,
 		VolumeInfo: storage.VolumeInfo{
 			VolumeId:   mockVolId,
@@ -244,7 +243,7 @@ func (s *cinderVolumeSourceSuite) TestCreateVolumeNoCompatibleZones(c *tc.C) {
 	mockAdaptor := &mockAdaptor{
 		createVolume: func(args cinder.CreateVolumeVolumeParams) (*cinder.Volume, error) {
 			created = true
-			c.Assert(args, jc.DeepEquals, cinder.CreateVolumeVolumeParams{
+			c.Assert(args, tc.DeepEquals, cinder.CreateVolumeVolumeParams{
 				Size: 1,
 				Name: "juju-testmodel-volume-123",
 			})
@@ -273,8 +272,8 @@ func (s *cinderVolumeSourceSuite) TestCreateVolumeNoCompatibleZones(c *tc.C) {
 		Tag:      mockVolumeTag,
 		Size:     1024,
 	}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(created, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(created, tc.IsTrue)
 }
 
 func (s *cinderVolumeSourceSuite) TestCreateVolumeZonesNotSupported(c *tc.C) {
@@ -285,7 +284,7 @@ func (s *cinderVolumeSourceSuite) TestCreateVolumeZonesNotSupported(c *tc.C) {
 		// listAvailabilityZones not implemented so we get a NotImplemented error.
 		createVolume: func(args cinder.CreateVolumeVolumeParams) (*cinder.Volume, error) {
 			created = true
-			c.Assert(args, jc.DeepEquals, cinder.CreateVolumeVolumeParams{
+			c.Assert(args, tc.DeepEquals, cinder.CreateVolumeVolumeParams{
 				Size: 1,
 				Name: "juju-testmodel-volume-123",
 			})
@@ -308,8 +307,8 @@ func (s *cinderVolumeSourceSuite) TestCreateVolumeZonesNotSupported(c *tc.C) {
 		Tag:      mockVolumeTag,
 		Size:     1024,
 	}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(created, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(created, tc.IsTrue)
 }
 
 func (s *cinderVolumeSourceSuite) TestCreateVolumeVolumeType(c *tc.C) {
@@ -319,7 +318,7 @@ func (s *cinderVolumeSourceSuite) TestCreateVolumeVolumeType(c *tc.C) {
 	mockAdaptor := &mockAdaptor{
 		createVolume: func(args cinder.CreateVolumeVolumeParams) (*cinder.Volume, error) {
 			created = true
-			c.Assert(args, jc.DeepEquals, cinder.CreateVolumeVolumeParams{
+			c.Assert(args, tc.DeepEquals, cinder.CreateVolumeVolumeParams{
 				Size:       1,
 				Name:       "juju-testmodel-volume-123",
 				VolumeType: "SSD",
@@ -344,14 +343,14 @@ func (s *cinderVolumeSourceSuite) TestCreateVolumeVolumeType(c *tc.C) {
 			"volume-type": "SSD",
 		},
 	}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(created, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(created, tc.IsTrue)
 }
 
 func (s *cinderVolumeSourceSuite) TestCreateVolumeInvalidCredential(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	c.Assert(s.invalidCredential, jc.IsFalse)
+	c.Assert(s.invalidCredential, tc.IsFalse)
 	mockAdaptor := &mockAdaptor{
 		createVolume: func(args cinder.CreateVolumeVolumeParams) (*cinder.Volume, error) {
 			return &cinder.Volume{}, testUnauthorisedGooseError
@@ -370,8 +369,8 @@ func (s *cinderVolumeSourceSuite) TestCreateVolumeInvalidCredential(c *tc.C) {
 			"volume-type": "SSD",
 		},
 	}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.invalidCredential, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.invalidCredential, tc.IsTrue)
 }
 
 func (s *cinderVolumeSourceSuite) TestResourceTags(c *tc.C) {
@@ -379,7 +378,7 @@ func (s *cinderVolumeSourceSuite) TestResourceTags(c *tc.C) {
 	mockAdaptor := &mockAdaptor{
 		createVolume: func(args cinder.CreateVolumeVolumeParams) (*cinder.Volume, error) {
 			created = true
-			c.Assert(args, jc.DeepEquals, cinder.CreateVolumeVolumeParams{
+			c.Assert(args, tc.DeepEquals, cinder.CreateVolumeVolumeParams{
 				Size: 1,
 				Name: "juju-testmodel-volume-123",
 				Metadata: map[string]string{
@@ -423,8 +422,8 @@ func (s *cinderVolumeSourceSuite) TestResourceTags(c *tc.C) {
 			},
 		},
 	}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(created, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(created, tc.IsTrue)
 }
 
 func (s *cinderVolumeSourceSuite) TestListVolumes(c *tc.C) {
@@ -447,12 +446,12 @@ func (s *cinderVolumeSourceSuite) TestListVolumes(c *tc.C) {
 	}
 	volSource := openstack.NewCinderVolumeSource(mockAdaptor, s.env, s.invalidator)
 	volumeIds, err := volSource.ListVolumes(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(volumeIds, jc.DeepEquals, []string{"volume-3"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(volumeIds, tc.DeepEquals, []string{"volume-3"})
 }
 
 func (s *cinderVolumeSourceSuite) TestListVolumesInvalidCredential(c *tc.C) {
-	c.Assert(s.invalidCredential, jc.IsFalse)
+	c.Assert(s.invalidCredential, tc.IsFalse)
 	mockAdaptor := &mockAdaptor{
 		getVolumesDetail: func() ([]cinder.Volume, error) {
 			return []cinder.Volume{}, testUnauthorisedGooseError
@@ -461,7 +460,7 @@ func (s *cinderVolumeSourceSuite) TestListVolumesInvalidCredential(c *tc.C) {
 	volSource := openstack.NewCinderVolumeSource(mockAdaptor, s.env, s.invalidator)
 	_, err := volSource.ListVolumes(context.Background())
 	c.Assert(err, tc.ErrorMatches, "invalid auth")
-	c.Assert(s.invalidCredential, jc.IsTrue)
+	c.Assert(s.invalidCredential, tc.IsTrue)
 }
 
 func (s *cinderVolumeSourceSuite) TestDescribeVolumes(c *tc.C) {
@@ -475,8 +474,8 @@ func (s *cinderVolumeSourceSuite) TestDescribeVolumes(c *tc.C) {
 	}
 	volSource := openstack.NewCinderVolumeSource(mockAdaptor, s.env, s.invalidator)
 	volumes, err := volSource.DescribeVolumes(context.Background(), []string{mockVolId})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(volumes, jc.DeepEquals, []storage.DescribeVolumesResult{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(volumes, tc.DeepEquals, []storage.DescribeVolumesResult{{
 		VolumeInfo: &storage.VolumeInfo{
 			VolumeId:   mockVolId,
 			Size:       mockVolSize,
@@ -486,7 +485,7 @@ func (s *cinderVolumeSourceSuite) TestDescribeVolumes(c *tc.C) {
 }
 
 func (s *cinderVolumeSourceSuite) TestDescribeVolumesInvalidCredential(c *tc.C) {
-	c.Assert(s.invalidCredential, jc.IsFalse)
+	c.Assert(s.invalidCredential, tc.IsFalse)
 	mockAdaptor := &mockAdaptor{
 		getVolumesDetail: func() ([]cinder.Volume, error) {
 			return []cinder.Volume{}, testUnauthorisedGooseError
@@ -495,15 +494,15 @@ func (s *cinderVolumeSourceSuite) TestDescribeVolumesInvalidCredential(c *tc.C) 
 	volSource := openstack.NewCinderVolumeSource(mockAdaptor, s.env, s.invalidator)
 	_, err := volSource.DescribeVolumes(context.Background(), []string{mockVolId})
 	c.Assert(err, tc.ErrorMatches, "invalid auth")
-	c.Assert(s.invalidCredential, jc.IsTrue)
+	c.Assert(s.invalidCredential, tc.IsTrue)
 }
 
 func (s *cinderVolumeSourceSuite) TestDestroyVolumes(c *tc.C) {
 	mockAdaptor := &mockAdaptor{}
 	volSource := openstack.NewCinderVolumeSource(mockAdaptor, s.env, s.invalidator)
 	errs, err := volSource.DestroyVolumes(context.Background(), []string{mockVolId})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs, jc.DeepEquals, []error{nil})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errs, tc.DeepEquals, []error{nil})
 	mockAdaptor.CheckCalls(c, []jujutesting.StubCall{
 		{"GetVolume", []interface{}{mockVolId}},
 		{"DeleteVolume", []interface{}{mockVolId}},
@@ -518,8 +517,8 @@ func (s *cinderVolumeSourceSuite) TestDestroyVolumesNotFound(c *tc.C) {
 	}
 	volSource := openstack.NewCinderVolumeSource(mockAdaptor, s.env, s.invalidator)
 	errs, err := volSource.DestroyVolumes(context.Background(), []string{mockVolId})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs, jc.DeepEquals, []error{nil})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errs, tc.DeepEquals, []error{nil})
 	mockAdaptor.CheckCalls(c, []jujutesting.StubCall{
 		{"GetVolume", []interface{}{mockVolId}},
 	})
@@ -542,9 +541,9 @@ func (s *cinderVolumeSourceSuite) TestDestroyVolumesAttached(c *tc.C) {
 
 	volSource := openstack.NewCinderVolumeSource(mockAdaptor, s.env, s.invalidator)
 	errs, err := volSource.DestroyVolumes(context.Background(), []string{mockVolId})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs, tc.HasLen, 1)
-	c.Assert(errs[0], jc.ErrorIsNil)
+	c.Assert(errs[0], tc.ErrorIsNil)
 	c.Assert(statuses, tc.HasLen, 0)
 	mockAdaptor.CheckCalls(c, []jujutesting.StubCall{{
 		"GetVolume", []interface{}{mockVolId},
@@ -558,7 +557,7 @@ func (s *cinderVolumeSourceSuite) TestDestroyVolumesAttached(c *tc.C) {
 }
 
 func (s *cinderVolumeSourceSuite) TestDestroyVolumesInvalidCredential(c *tc.C) {
-	c.Assert(s.invalidCredential, jc.IsFalse)
+	c.Assert(s.invalidCredential, tc.IsFalse)
 	mockAdaptor := &mockAdaptor{
 		getVolume: func(volId string) (*cinder.Volume, error) {
 			return &cinder.Volume{}, testUnauthorisedGooseError
@@ -567,10 +566,10 @@ func (s *cinderVolumeSourceSuite) TestDestroyVolumesInvalidCredential(c *tc.C) {
 
 	volSource := openstack.NewCinderVolumeSource(mockAdaptor, s.env, s.invalidator)
 	errs, err := volSource.DestroyVolumes(context.Background(), []string{mockVolId})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs, tc.HasLen, 1)
 	c.Assert(errs[0], tc.ErrorMatches, "getting volume: invalid auth")
-	c.Assert(s.invalidCredential, jc.IsTrue)
+	c.Assert(s.invalidCredential, tc.IsTrue)
 	mockAdaptor.CheckCallNames(c, "GetVolume")
 }
 
@@ -578,8 +577,8 @@ func (s *cinderVolumeSourceSuite) TestReleaseVolumes(c *tc.C) {
 	mockAdaptor := &mockAdaptor{}
 	volSource := openstack.NewCinderVolumeSource(mockAdaptor, s.env, s.invalidator)
 	errs, err := volSource.ReleaseVolumes(context.Background(), []string{mockVolId})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs, jc.DeepEquals, []error{nil})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errs, tc.DeepEquals, []error{nil})
 	metadata := map[string]string{
 		"juju-controller-uuid": "",
 		"juju-model-uuid":      "",
@@ -602,7 +601,7 @@ func (s *cinderVolumeSourceSuite) TestReleaseVolumesAttached(c *tc.C) {
 
 	volSource := openstack.NewCinderVolumeSource(mockAdaptor, s.env, s.invalidator)
 	errs, err := volSource.ReleaseVolumes(context.Background(), []string{mockVolId})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs, tc.HasLen, 1)
 	c.Assert(errs[0], tc.ErrorMatches, `cannot release volume "0": volume still in-use`)
 	mockAdaptor.CheckCalls(c, []jujutesting.StubCall{{
@@ -611,7 +610,7 @@ func (s *cinderVolumeSourceSuite) TestReleaseVolumesAttached(c *tc.C) {
 }
 
 func (s *cinderVolumeSourceSuite) TestReleaseVolumesInvalidCredential(c *tc.C) {
-	c.Assert(s.invalidCredential, jc.IsFalse)
+	c.Assert(s.invalidCredential, tc.IsFalse)
 	mockAdaptor := &mockAdaptor{
 		getVolume: func(volId string) (*cinder.Volume, error) {
 			return &cinder.Volume{}, testUnauthorisedGooseError
@@ -620,8 +619,8 @@ func (s *cinderVolumeSourceSuite) TestReleaseVolumesInvalidCredential(c *tc.C) {
 
 	volSource := openstack.NewCinderVolumeSource(mockAdaptor, s.env, s.invalidator)
 	_, err := volSource.ReleaseVolumes(context.Background(), []string{mockVolId})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.invalidCredential, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.invalidCredential, tc.IsTrue)
 	mockAdaptor.CheckCalls(c, []jujutesting.StubCall{{
 		"GetVolume", []interface{}{mockVolId},
 	}})
@@ -644,9 +643,9 @@ func (s *cinderVolumeSourceSuite) TestReleaseVolumesDetaching(c *tc.C) {
 
 	volSource := openstack.NewCinderVolumeSource(mockAdaptor, s.env, s.invalidator)
 	errs, err := volSource.ReleaseVolumes(context.Background(), []string{mockVolId})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs, tc.HasLen, 1)
-	c.Assert(errs[0], jc.ErrorIsNil)
+	c.Assert(errs[0], tc.ErrorIsNil)
 	c.Assert(statuses, tc.HasLen, 0)
 	mockAdaptor.CheckCallNames(c, "GetVolume", "GetVolume", "SetVolumeMetadata")
 }
@@ -683,8 +682,8 @@ func (s *cinderVolumeSourceSuite) TestDetachVolumes(c *tc.C) {
 			InstanceId: mockServerId2,
 		},
 	}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs, jc.DeepEquals, []error{nil, nil})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errs, tc.DeepEquals, []error{nil, nil})
 	mockAdaptor.CheckCalls(c, []jujutesting.StubCall{
 		{"DetachVolume", []interface{}{mockServerId, mockVolId}},
 		{"DetachVolume", []interface{}{mockServerId2, "42"}},
@@ -760,9 +759,9 @@ func (s *cinderVolumeSourceSuite) TestCreateVolumeCleanupDestroys(c *tc.C) {
 		},
 	}}
 	results, err := volSource.CreateVolumes(context.Background(), volumeParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 3)
-	c.Assert(results[0].Error, jc.ErrorIsNil)
+	c.Assert(results[0].Error, tc.ErrorIsNil)
 	c.Assert(results[1].Error, tc.ErrorMatches, "waiting for volume to be provisioned: getting volume: no volume details for you")
 	c.Assert(results[2].Error, tc.ErrorMatches, "no volume for you")
 	c.Assert(numCreateCalls, tc.Equals, 3)
@@ -788,8 +787,8 @@ func (s *cinderVolumeSourceSuite) TestImportVolume(c *tc.C) {
 		"c": "d",
 	}
 	info, err := volSource.(storage.VolumeImporter).ImportVolume(context.Background(), mockVolId, tags)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, storage.VolumeInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, storage.VolumeInfo{
 		VolumeId:   mockVolId,
 		Size:       mockVolSize,
 		Persistent: true,
@@ -818,7 +817,7 @@ func (s *cinderVolumeSourceSuite) TestImportVolumeInUse(c *tc.C) {
 }
 
 func (s *cinderVolumeSourceSuite) TestImportVolumeInvalidCredential(c *tc.C) {
-	c.Assert(s.invalidCredential, jc.IsFalse)
+	c.Assert(s.invalidCredential, tc.IsFalse)
 	mockAdaptor := &mockAdaptor{
 		getVolume: func(volumeId string) (*cinder.Volume, error) {
 			return &cinder.Volume{}, testUnauthorisedGooseError
@@ -830,7 +829,7 @@ func (s *cinderVolumeSourceSuite) TestImportVolumeInvalidCredential(c *tc.C) {
 	mockAdaptor.CheckCalls(c, []jujutesting.StubCall{
 		{"GetVolume", []interface{}{mockVolId}},
 	})
-	c.Assert(s.invalidCredential, jc.IsTrue)
+	c.Assert(s.invalidCredential, tc.IsTrue)
 }
 
 type mockAdaptor struct {
@@ -947,7 +946,7 @@ func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointVolume(c *tc.C) {
 		"west": map[string]string{"volume": "http://cinder.testing/v1"},
 	}}
 	url, err := openstack.GetVolumeEndpointURL(context.Background(), client, "west")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(url.String(), tc.Equals, "http://cinder.testing/v1")
 }
 
@@ -956,7 +955,7 @@ func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointVolumeV2(c *tc.C) {
 		"west": map[string]string{"volumev2": "http://cinder.testing/v2"},
 	}}
 	url, err := openstack.GetVolumeEndpointURL(context.Background(), client, "west")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(url.String(), tc.Equals, "http://cinder.testing/v2")
 }
 
@@ -968,7 +967,7 @@ func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointV2IfNoV3(c *tc.C) {
 		},
 	}}
 	url, err := openstack.GetVolumeEndpointURL(context.Background(), client, "south")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(url.String(), tc.Equals, "http://cinder.testing/v2")
 }
 
@@ -981,7 +980,7 @@ func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointPreferV3(c *tc.C) {
 		},
 	}}
 	url, err := openstack.GetVolumeEndpointURL(context.Background(), client, "south")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(url.String(), tc.Equals, "http://cinder.testing/v3")
 }
 
@@ -989,7 +988,7 @@ func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointMissing(c *tc.C) {
 	client := &testEndpointResolver{}
 	url, err := openstack.GetVolumeEndpointURL(context.Background(), client, "east")
 	c.Assert(err, tc.ErrorMatches, `endpoint "volume" in region "east" not found`)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 	c.Assert(url, tc.IsNil)
 }
 

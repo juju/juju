@@ -15,7 +15,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/api"
@@ -50,7 +49,7 @@ func dialWebsocketFromURL(c *tc.C, server string, header http.Header) (*websocke
 	}
 	header.Set("Origin", "http://localhost/")
 	caCerts := x509.NewCertPool()
-	c.Assert(caCerts.AppendCertsFromPEM([]byte(coretesting.CACert)), jc.IsTrue)
+	c.Assert(caCerts.AppendCertsFromPEM([]byte(coretesting.CACert)), tc.IsTrue)
 	tlsConfig := jujuhttp.SecureTLSConfig()
 	tlsConfig.RootCAs = caCerts
 	tlsConfig.ServerName = "juju-apiserver"
@@ -71,13 +70,13 @@ func (s *serverSuite) TestStop(c *tc.C) {
 	conn, machine := s.OpenAPIAsNewMachine(c, state.JobManageModel)
 
 	_, err := apimachiner.NewClient(conn).Machine(context.Background(), machine.MachineTag())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = apimachiner.NewClient(conn).Machine(context.Background(), machine.MachineTag())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.Server.Stop()
-	c.Assert(err, jc.ErrorIs, apiserver.ErrAPIServerDying)
+	c.Assert(err, tc.ErrorIs, apiserver.ErrAPIServerDying)
 
 	_, err = apimachiner.NewClient(conn).Machine(context.Background(), machine.MachineTag())
 	// The client has not necessarily seen the server shutdown yet, so there
@@ -87,7 +86,7 @@ func (s *serverSuite) TestStop(c *tc.C) {
 
 	// Check it can be stopped twice.
 	err = s.Server.Stop()
-	c.Assert(err, jc.ErrorIs, apiserver.ErrAPIServerDying)
+	c.Assert(err, tc.ErrorIs, apiserver.ErrAPIServerDying)
 
 	// nil Server to prevent connection cleanup during teardown complaining due
 	// to connection close errors.
@@ -97,12 +96,12 @@ func (s *serverSuite) TestStop(c *tc.C) {
 func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *tc.C) {
 	domainServices := s.ControllerDomainServices(c)
 	controllerConfig, err := domainServices.ControllerConfig().ControllerConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	st := s.ControllerModel(c).State()
 
 	err = st.SetAPIHostPorts(controllerConfig, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -119,33 +118,33 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *tc.C) {
 	info.Nonce = "fake_nonce"
 
 	ipv4Conn, err := api.Open(context.Background(), info, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer ipv4Conn.Close()
 	c.Assert(ipv4Conn.Addr().String(), tc.Equals, "wss://"+net.JoinHostPort("localhost", portString))
-	c.Assert(ipv4Conn.APIHostPorts(), jc.DeepEquals, []network.MachineHostPorts{
+	c.Assert(ipv4Conn.APIHostPorts(), tc.DeepEquals, []network.MachineHostPorts{
 		network.NewMachineHostPorts(port, "localhost"),
 	})
 
 	_, err = apimachiner.NewClient(ipv4Conn).Machine(context.Background(), machine.MachineTag())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info.Addrs = []string{net.JoinHostPort("::1", portString)}
 	ipv6Conn, err := api.Open(context.Background(), info, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer ipv6Conn.Close()
 	c.Assert(ipv6Conn.Addr().String(), tc.Equals, "wss://"+net.JoinHostPort("::1", portString))
-	c.Assert(ipv6Conn.APIHostPorts(), jc.DeepEquals, []network.MachineHostPorts{
+	c.Assert(ipv6Conn.APIHostPorts(), tc.DeepEquals, []network.MachineHostPorts{
 		network.NewMachineHostPorts(port, "::1"),
 	})
 
 	_, err = apimachiner.NewClient(ipv6Conn).Machine(context.Background(), machine.MachineTag())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serverSuite) TestOpenAsMachineErrors(c *tc.C) {
 	assertNotProvisioned := func(err error) {
 		c.Assert(err, tc.NotNil)
-		c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
+		c.Assert(err, tc.Satisfies, params.IsCodeNotProvisioned)
 		c.Assert(err, tc.ErrorMatches, `machine \d+ not provisioned \(not provisioned\)`)
 	}
 
@@ -173,16 +172,16 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *tc.C) {
 	// Finally, with the correct one succeeds.
 	info.Nonce = "fake_nonce"
 	st, err = api.Open(context.Background(), info, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(st, tc.NotNil)
 	st.Close()
 
 	// Now add another machine, intentionally unprovisioned.
 	st1 := s.ControllerModel(c).State()
 	stm1, err := st1.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = stm1.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Try connecting, it will fail.
 	info.Tag = stm1.Tag()
@@ -197,7 +196,7 @@ func dialWebsocket(c *tc.C, addr, path string) (*websocket.Conn, error) {
 	url := fmt.Sprintf("wss://%s%s", addr, path)
 	header := make(http.Header)
 	caCerts := x509.NewCertPool()
-	c.Assert(caCerts.AppendCertsFromPEM([]byte(coretesting.CACert)), jc.IsTrue)
+	c.Assert(caCerts.AppendCertsFromPEM([]byte(coretesting.CACert)), tc.IsTrue)
 	tlsConfig := jujuhttp.SecureTLSConfig()
 	tlsConfig.RootCAs = caCerts
 	tlsConfig.ServerName = "anything"
@@ -220,17 +219,17 @@ func (s *serverSuite) TestNonCompatiblePathsAre404(c *tc.C) {
 
 	// '/api' should be fine
 	conn, err := dialWebsocket(c, addr, "/api")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	conn.Close()
 
 	// '/`' should be fine
 	conn, err = dialWebsocket(c, addr, "/")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	conn.Close()
 
 	// '/model/MODELUUID/api' should be fine
 	conn, err = dialWebsocket(c, addr, "/model/deadbeef-1234-5678-0123-0123456789ab/api")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	conn.Close()
 
 	// '/randompath' is not ok
@@ -271,10 +270,10 @@ func (s *serverSuite) bootstrapHasPermissionTest(c *tc.C) (state.Entity, names.C
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	user, err := accessService.GetUser(context.Background(), userUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	st := s.ControllerModel(c).State()
 	cTag := names.NewControllerTag(st.ControllerUUID())
@@ -314,7 +313,7 @@ func (s *serverSuite) TestAPIHandlerHasPermissionSuperUser(c *tc.C) {
 		Change:  permission.Grant,
 		Subject: usertesting.GenNewName(c, u.Tag().Id()),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	apiserver.AssertHasPermission(c, handler, permission.LoginAccess, ctag, true)
 	apiserver.AssertHasPermission(c, handler, permission.SuperuserAccess, ctag, true)
@@ -330,7 +329,7 @@ func (s *serverSuite) TestAPIHandlerHasPermissionLoginToken(c *tc.C) {
 			coretesting.ModelTag.String():      "write",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	domainServices := s.ControllerDomainServices(c)
 
@@ -354,7 +353,7 @@ func (s *serverSuite) TestAPIHandlerMissingPermissionLoginToken(c *tc.C) {
 			coretesting.ModelTag.String():      "write",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	domainServices := s.ControllerDomainServices(c)
 
@@ -364,8 +363,8 @@ func (s *serverSuite) TestAPIHandlerMissingPermissionLoginToken(c *tc.C) {
 	defer handler.Kill()
 	err = handler.HasPermission(context.Background(), permission.AdminAccess, coretesting.ModelTag)
 	var reqError *errors.AccessRequiredError
-	c.Assert(jujuerrors.As(err, &reqError), jc.IsTrue)
-	c.Assert(reqError, jc.DeepEquals, &errors.AccessRequiredError{
+	c.Assert(jujuerrors.As(err, &reqError), tc.IsTrue)
+	c.Assert(reqError, tc.DeepEquals, &errors.AccessRequiredError{
 		RequiredAccess: map[names.Tag]permission.Access{
 			coretesting.ModelTag: permission.AdminAccess,
 		},
@@ -415,14 +414,14 @@ func (s *serverSuite) TestClosesStateFromPool(c *tc.C) {
 	info := s.ControllerModelApiInfo()
 	addr := fmt.Sprintf("localhost:%d", info.Ports()[0])
 	conn, err := dialWebsocket(c, addr, fmt.Sprintf("/model/%s/api", s.DefaultModelUUID.String()))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	conn.Close()
 
 	// Don't make an assertion about whether the remove call returns
 	// true - that's dependent on whether the server has reacted to
 	// the connection being closed yet, so it's racy.
 	_, err = s.StatePool().Remove(s.DefaultModelUUID.String())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertStateBecomesClosed(c, m.State())
 }
 
@@ -451,7 +450,7 @@ func (s *serverSuite) checkAPIHandlerTeardown(c *tc.C, st *state.State) {
 	resource := new(fakeResource)
 	resources.Register(resource)
 
-	c.Assert(resource.stopped, jc.IsFalse)
+	c.Assert(resource.stopped, tc.IsFalse)
 	handler.Kill()
-	c.Assert(resource.stopped, jc.IsTrue)
+	c.Assert(resource.stopped, tc.IsTrue)
 }

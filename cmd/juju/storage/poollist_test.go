@@ -10,7 +10,6 @@ import (
 	"fmt"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cmd/juju/storage"
@@ -113,10 +112,10 @@ type unmarshaller func(in []byte, out interface{}) (err error)
 func (s *poolListSuite) assertUnmarshalledOutput(c *tc.C, unmarshall unmarshaller, args ...string) {
 
 	context, err := s.runPoolList(c, args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	var result map[string]storage.PoolInfo
 	err = unmarshall(context.Stdout.(*bytes.Buffer).Bytes(), &result)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := s.expect(c,
 		[]string{providerA, providerB},
 		[]string{nameABC, nameXYZ})
@@ -133,16 +132,16 @@ func (s poolListSuite) assertSamePoolInfos(c *tc.C, one, two map[string]storage.
 		c.Assert(a, tc.HasLen, len(b))
 		for ka, va := range a {
 			vb, okb := b[ka]
-			c.Assert(okb, jc.IsTrue)
+			c.Assert(okb, tc.IsTrue)
 			// As some types may have been unmarshalled incorrectly, for example
 			// int versus float64, compare values' string representations
-			c.Assert(fmt.Sprintf("%v", va), jc.DeepEquals, fmt.Sprintf("%v", vb))
+			c.Assert(fmt.Sprintf("%v", va), tc.DeepEquals, fmt.Sprintf("%v", vb))
 		}
 	}
 
 	for key, v1 := range one {
 		v2, ok := two[key]
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		c.Assert(v1.Provider, tc.Equals, v2.Provider)
 		sameAttributes(v1.Attrs, v2.Attrs)
 	}
@@ -150,7 +149,7 @@ func (s poolListSuite) assertSamePoolInfos(c *tc.C, one, two map[string]storage.
 
 func (s poolListSuite) expect(c *tc.C, types, names []string) map[string]storage.PoolInfo {
 	all, err := s.mockAPI.ListPools(context.Background(), types, names)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result := make(map[string]storage.PoolInfo, len(all))
 	for _, one := range all {
 		result[one.Name] = storage.PoolInfo{one.Provider, one.Attrs}
@@ -160,7 +159,7 @@ func (s poolListSuite) expect(c *tc.C, types, names []string) map[string]storage
 
 func (s *poolListSuite) assertValidList(c *tc.C, args []string, expected string) {
 	context, err := s.runPoolList(c, args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained := cmdtesting.Stdout(context)
 	c.Assert(obtained, tc.Equals, expected)

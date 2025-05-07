@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -67,6 +66,6 @@ func NewTestLxdProfileWatcher(c *tc.C, machine Machine, backend InstanceMutaterS
 			machineService:     machineService,
 			applicationService: applicationService,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }

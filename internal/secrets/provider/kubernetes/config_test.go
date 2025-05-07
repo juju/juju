@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/secrets/provider"
 )
@@ -21,9 +20,9 @@ var _ = tc.Suite(&configSuite{})
 
 func (s *configSuite) TestValidateConfig(c *tc.C) {
 	p, err := provider.Provider(BackendType)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	configValidator, ok := p.(provider.ProviderConfig)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	rotateInterval := time.Hour
 	for _, t := range []struct {
 		cfg                 map[string]interface{}

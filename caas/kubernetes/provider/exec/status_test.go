@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -55,7 +54,7 @@ func (s *statusSuite) TestStatus(c *tc.C) {
 	)
 
 	status, err := s.execClient.Status(context.Background(), params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(status, tc.DeepEquals, &exec.Status{
 		PodName: "gitlab-k8s-0",
 		ContainerStatus: []exec.ContainerStatus{
@@ -102,7 +101,7 @@ func (s *statusSuite) TestStatusInit(c *tc.C) {
 	)
 
 	status, err := s.execClient.Status(context.Background(), params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(status, tc.DeepEquals, &exec.Status{
 		PodName: "gitlab-k8s-0",
 		ContainerStatus: []exec.ContainerStatus{
@@ -149,7 +148,7 @@ func (s *statusSuite) TestStatusEphemeral(c *tc.C) {
 	)
 
 	status, err := s.execClient.Status(context.Background(), params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(status, tc.DeepEquals, &exec.Status{
 		PodName: "gitlab-k8s-0",
 		ContainerStatus: []exec.ContainerStatus{
@@ -180,6 +179,6 @@ func (s *statusSuite) TestStatusPodNotFound(c *tc.C) {
 	)
 
 	status, err := s.execClient.Status(context.Background(), params)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 	c.Assert(status, tc.IsNil)
 }

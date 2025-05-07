@@ -8,7 +8,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/internal/worker/lease"
@@ -41,7 +40,7 @@ func (s *RevokeSuite) TestHolderSuccess(c *tc.C) {
 	}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		err := getRevoker(c, manager).Revoke("redis", "redis/0")
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	})
 }
 
@@ -63,12 +62,12 @@ func (s *RevokeSuite) TestMissing(c *tc.C) {
 	fix := &Fixture{}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		err := getRevoker(c, manager).Revoke("redis", "redis/0")
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	})
 }
 
 func getRevoker(c *tc.C, manager *lease.Manager) corelease.Revoker {
 	revoker, err := manager.Revoker("namespace", "modelUUID")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return revoker
 }

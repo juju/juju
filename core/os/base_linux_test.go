@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	corebase "github.com/juju/juju/core/base"
 )
@@ -124,10 +123,10 @@ func (s *linuxBaseSuite) TestReadSeries(c *tc.C) {
 	for i, t := range readBaseTests {
 		c.Logf("test %d", i)
 		err := ioutil.WriteFile(f, []byte(t.contents), 0666)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		b, err := readBase()
 		if t.err == "" {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(b, tc.Equals, t.base)
 		} else {
 			c.Assert(err, tc.ErrorMatches, t.err)

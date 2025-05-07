@@ -6,7 +6,6 @@ package space_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/space"
 	"github.com/juju/juju/rpc/params"
@@ -55,7 +54,7 @@ func (s *AddSuite) TestRunWhenSpacesNotSupported(c *tc.C) {
 		`cannot add space "foo": spaces not supported`,
 		"foo", "10.1.2.0/24",
 	)
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 
 	s.api.CheckCallNames(c, "AddSpace", "Close")
 	s.api.CheckCall(c, 0, "AddSpace", "foo", s.Strings("10.1.2.0/24"), true)

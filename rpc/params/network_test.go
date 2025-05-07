@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
@@ -92,11 +91,11 @@ func (s *NetworkSuite) TestPortsResults(c *tc.C) {
 	for i, test := range tests {
 		c.Logf("\ntest %d: %s", i, test.about)
 		output, err := json.Marshal(test.results)
-		if !c.Check(err, jc.ErrorIsNil) {
+		if !c.Check(err, tc.ErrorIsNil) {
 			continue
 		}
 		c.Logf("\nJSON output:\n%v", string(output))
-		c.Check(string(output), jc.JSONEquals, test.expected)
+		c.Check(string(output), tc.JSONEquals, test.expected)
 	}
 }
 
@@ -168,11 +167,11 @@ func (s *NetworkSuite) TestHostPort(c *tc.C) {
 	for i, test := range tests {
 		c.Logf("\ntest %d: %s", i, test.about)
 		output, err := json.Marshal(test.hostPort)
-		if !c.Check(err, jc.ErrorIsNil) {
+		if !c.Check(err, tc.ErrorIsNil) {
 			continue
 		}
 		c.Logf("\nJSON output:\n%v", string(output))
-		c.Check(string(output), jc.JSONEquals, test.expected)
+		c.Check(string(output), tc.JSONEquals, test.expected)
 	}
 }
 
@@ -239,11 +238,11 @@ func (s *NetworkSuite) TestMachinePortRange(c *tc.C) {
 	for i, test := range tests {
 		c.Logf("\ntest %d: %s", i, test.about)
 		output, err := json.Marshal(test.machinePortRange)
-		if !c.Check(err, jc.ErrorIsNil) {
+		if !c.Check(err, tc.ErrorIsNil) {
 			continue
 		}
 		c.Logf("\nJSON output:\n%v", string(output))
-		c.Check(string(output), jc.JSONEquals, test.expected)
+		c.Check(string(output), tc.JSONEquals, test.expected)
 	}
 }
 
@@ -255,7 +254,7 @@ func (s *NetworkSuite) TestPortRangeConvenience(c *tc.C) {
 	}
 	paramsPortRange := params.FromNetworkPortRange(networkPortRange)
 	networkPortRangeBack := paramsPortRange.NetworkPortRange()
-	c.Assert(networkPortRange, jc.DeepEquals, networkPortRangeBack)
+	c.Assert(networkPortRange, tc.DeepEquals, networkPortRangeBack)
 }
 
 func (s *NetworkSuite) TestProviderAddressConversion(c *tc.C) {
@@ -268,7 +267,7 @@ func (s *NetworkSuite) TestProviderAddressConversion(c *tc.C) {
 	pAddrs[0].ProviderSpaceID = "666"
 
 	addrs := params.FromProviderAddresses(pAddrs...)
-	c.Assert(params.ToProviderAddresses(addrs...), jc.DeepEquals, pAddrs)
+	c.Assert(params.ToProviderAddresses(addrs...), tc.DeepEquals, pAddrs)
 }
 
 func (s *NetworkSuite) TestMachineAddressConversion(c *tc.C) {
@@ -283,7 +282,7 @@ func (s *NetworkSuite) TestMachineAddressConversion(c *tc.C) {
 		{Value: "1.2.3.5", Scope: string(network.ScopeCloudLocal), Type: string(network.IPv4Address), IsSecondary: true},
 		{Value: "2.3.4.5", Scope: string(network.ScopePublic), Type: string(network.IPv4Address), ConfigType: "dhcp"},
 	}
-	c.Assert(params.FromMachineAddresses(mAddrs...), jc.DeepEquals, exp)
+	c.Assert(params.FromMachineAddresses(mAddrs...), tc.DeepEquals, exp)
 }
 
 func (s *NetworkSuite) TestProviderHostPortConversion(c *tc.C) {
@@ -309,7 +308,7 @@ func (s *NetworkSuite) TestProviderHostPortConversion(c *tc.C) {
 	pHPs[0][0].ProviderSpaceID = "666"
 
 	hps := params.FromProviderHostsPorts(pHPs)
-	c.Assert(params.ToProviderHostsPorts(hps), jc.DeepEquals, pHPs)
+	c.Assert(params.ToProviderHostsPorts(hps), tc.DeepEquals, pHPs)
 }
 
 func (s *NetworkSuite) TestMachineHostPortConversion(c *tc.C) {
@@ -363,7 +362,7 @@ func (s *NetworkSuite) TestMachineHostPortConversion(c *tc.C) {
 		},
 	}
 
-	c.Assert(params.ToMachineHostsPorts(hps), jc.DeepEquals, exp)
+	c.Assert(params.ToMachineHostsPorts(hps), tc.DeepEquals, exp)
 }
 
 func (s *NetworkSuite) TestHostPortConversion(c *tc.C) {
@@ -392,7 +391,7 @@ func (s *NetworkSuite) TestHostPortConversion(c *tc.C) {
 	}
 
 	pHPs := params.FromHostsPorts(hps)
-	c.Assert(params.ToMachineHostsPorts(pHPs), jc.DeepEquals, mHPs)
+	c.Assert(params.ToMachineHostsPorts(pHPs), tc.DeepEquals, mHPs)
 }
 
 func (s *NetworkSuite) TestSetNetworkConfigBackFillMachineOrigin(c *tc.C) {

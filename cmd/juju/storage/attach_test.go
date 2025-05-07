@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/internal/cmd"
@@ -31,7 +30,7 @@ func (s *AttachStorageSuite) TestAttach(c *tc.C) {
 	}}
 	cmd := storage.NewAttachStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
 	ctx, err := cmdtesting.RunCommand(c, cmd, "foo/0", "bar/1", "baz/2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	fake.CheckCallNames(c, "NewEntityAttacherCloser", "Attach", "Close")
 	fake.CheckCall(c, 1, "Attach", "foo/0", []string{"bar/1", "baz/2"})
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
@@ -72,8 +71,8 @@ func (s *AttachStorageSuite) TestAttachBlocked(c *tc.C) {
 	fake.SetErrors(nil, &params.Error{Code: params.CodeOperationBlocked, Message: "nope"})
 	cmd := storage.NewAttachStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, cmd, "foo/0", "bar/1")
-	c.Assert(err.Error(), jc.Contains, `could not attach storage [bar/1]: nope`)
-	c.Assert(err.Error(), jc.Contains, `All operations that change model have been disabled for the current model.`)
+	c.Assert(err.Error(), tc.Contains, `could not attach storage [bar/1]: nope`)
+	c.Assert(err.Error(), tc.Contains, `All operations that change model have been disabled for the current model.`)
 }
 
 func (s *AttachStorageSuite) TestAttachInitErrors(c *tc.C) {

@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
@@ -328,7 +327,7 @@ func (s *imageSuite) TestFindInstanceSpec(c *tc.C) {
 			Releases:  []string{"12.04"},
 			Stream:    t.stream,
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		dataSource := simplestreams.NewDataSource(simplestreams.Config{
 			Description:          "test",
 			BaseURL:              "some-url",
@@ -336,7 +335,7 @@ func (s *imageSuite) TestFindInstanceSpec(c *tc.C) {
 			Priority:             simplestreams.DEFAULT_CLOUD_DATA,
 		})
 		imageMeta, err := imagemetadata.GetLatestImageIdMetadata([]byte(jsonImagesContent), dataSource, cons)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		var images []Image
 		for _, imageMetadata := range imageMeta {
 			im := *imageMetadata
@@ -357,7 +356,7 @@ func (s *imageSuite) TestFindInstanceSpec(c *tc.C) {
 			c.Check(err, tc.ErrorMatches, t.err)
 			continue
 		} else {
-			if !c.Check(err, jc.ErrorIsNil) {
+			if !c.Check(err, tc.ErrorIsNil) {
 				continue
 			}
 			c.Check(spec.Image.Id, tc.Equals, t.imageId)

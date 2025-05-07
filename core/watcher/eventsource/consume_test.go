@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/tomb.v2"
 
@@ -31,8 +30,8 @@ func (s *consumeSuite) TestConsumeInitialEventReturnsChanges(c *tc.C) {
 	s.watcher.EXPECT().Changes().Return(changes)
 
 	res, err := ConsumeInitialEvent[[]string](context.Background(), s.watcher)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, jc.SameContents, contents)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.SameContents, contents)
 }
 
 func (s *consumeSuite) TestConsumeInitialEventWorkerKilled(c *tc.C) {
@@ -64,7 +63,7 @@ func (s *consumeSuite) TestConsumeInitialEventWatcherStoppedNilErr(c *tc.C) {
 
 	res, err := ConsumeInitialEvent[[]string](context.Background(), s.watcher)
 	c.Assert(err, tc.ErrorMatches, "expected an error from .* got nil.*")
-	c.Assert(err, jc.ErrorIs, ErrWorkerStopped)
+	c.Assert(err, tc.ErrorIs, ErrWorkerStopped)
 	c.Assert(res, tc.IsNil)
 }
 

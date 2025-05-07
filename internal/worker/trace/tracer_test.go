@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.opentelemetry.io/otel/trace"
 	gomock "go.uber.org/mock/gomock"
@@ -141,7 +140,7 @@ func (s *tracerSuite) TestBuildRequestContextWithBackgroundContext(c *tc.C) {
 	c.Check(ctx, tc.NotNil)
 
 	traceID, spanID, flags, ok := coretrace.ScopeFromContext(ctx)
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 	c.Check(traceID, tc.Equals, "")
 	c.Check(spanID, tc.Equals, "")
 	c.Check(flags, tc.Equals, 0)
@@ -161,7 +160,7 @@ func (s *tracerSuite) TestBuildRequestContextWithBrokenTraceID(c *tc.C) {
 	c.Check(ctx, tc.NotNil)
 
 	traceID, spanID, flags, ok := coretrace.ScopeFromContext(ctx)
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 	c.Check(traceID, tc.Equals, "")
 	c.Check(spanID, tc.Equals, "")
 	c.Check(flags, tc.Equals, 0)
@@ -181,7 +180,7 @@ func (s *tracerSuite) TestBuildRequestContextWithBrokenSpanID(c *tc.C) {
 	c.Check(ctx, tc.NotNil)
 
 	traceID, spanID, flags, ok := coretrace.ScopeFromContext(ctx)
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 	c.Check(traceID, tc.Equals, "")
 	c.Check(spanID, tc.Equals, "")
 	c.Check(flags, tc.Equals, 0)
@@ -201,13 +200,13 @@ func (s *tracerSuite) TestBuildRequestContext(c *tc.C) {
 	c.Check(ctx, tc.NotNil)
 
 	traceID, spanID, flags, ok := coretrace.ScopeFromContext(ctx)
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 	c.Check(traceID, tc.Equals, "")
 	c.Check(spanID, tc.Equals, "")
 	c.Check(flags, tc.Equals, 0)
 
 	span := trace.SpanContextFromContext(ctx)
-	c.Check(span.IsRemote(), jc.IsTrue)
+	c.Check(span.IsRemote(), tc.IsTrue)
 }
 
 func (s *tracerSuite) newTracer(c *tc.C) TrackedTracer {
@@ -216,6 +215,6 @@ func (s *tracerSuite) newTracer(c *tc.C) TrackedTracer {
 		return s.client, s.clientTracerProvider, s.clientTracer, nil
 	}
 	tracer, err := NewTracerWorker(context.Background(), ns, "http://meshuggah.com", false, false, 0.42, time.Second, s.logger, newClient)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return tracer
 }

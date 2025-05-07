@@ -7,7 +7,6 @@ import (
 	"errors"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/subnet"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -58,7 +57,7 @@ func (s *SubnetCommandBaseSuite) TestCheckNumArgs(c *tc.C) {
 			if expectErr != "" {
 				c.Check(err, tc.ErrorMatches, expectErr)
 			} else {
-				c.Check(err, jc.ErrorIsNil)
+				c.Check(err, tc.ErrorIsNil)
 			}
 		}
 	}
@@ -129,7 +128,7 @@ func (s *SubnetCommandBaseSuite) TestValidateCIDR(c *tc.C) {
 		if test.expectErr != "" {
 			c.Check(err, tc.ErrorMatches, test.expectErr)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		}
 		c.Check(validated, tc.Equals, test.output)
 	}
@@ -177,7 +176,7 @@ func (s *SubnetCommandBaseSuite) TestValidateSpace(c *tc.C) {
 			c.Check(err, tc.ErrorMatches, test.expectErr)
 			c.Check(validated.Id(), tc.Equals, "")
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			// When the input is valid it should stay the same.
 			c.Check(validated.Id(), tc.Equals, test.input)
 		}

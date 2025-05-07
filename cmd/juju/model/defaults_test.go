@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cloud"
@@ -230,7 +229,7 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *tc.C) {
 		c.Logf("test %d: %s", i, test.description)
 		_, err := s.run(c, test.args...)
 		if test.nilErr {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			continue
 		}
 		c.Check(err, tc.ErrorMatches, test.errorMatch)
@@ -255,17 +254,17 @@ func (s *DefaultsCommandSuite) TestNoVisibleCloudMessage(c *tc.C) {
 
 func (s *DefaultsCommandSuite) TestResetUnknownValueLogs(c *tc.C) {
 	ctx, err := s.run(c, "--reset", "attr,weird")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := `key "weird" is not defined in the known model configuration: possible misspelling`
-	c.Check(c.GetTestLog(), jc.Contains, expected)
-	c.Check(cmdtesting.Stdout(ctx), jc.DeepEquals, "")
+	c.Check(c.GetTestLog(), tc.Contains, expected)
+	c.Check(cmdtesting.Stdout(ctx), tc.DeepEquals, "")
 }
 
 func (s *DefaultsCommandSuite) TestResetAttr(c *tc.C) {
 	ctx, err := s.run(c, "--reset", "attr,unknown")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(s.fakeDefaultsAPI.cloud, tc.Equals, "dummy")
-	c.Check(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
+	c.Check(s.fakeDefaultsAPI.defaults, tc.DeepEquals, config.ModelDefaultAttributes{
 		"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
 			Name:  "dummy-region",
 			Value: "dummy-value",
@@ -274,13 +273,13 @@ func (s *DefaultsCommandSuite) TestResetAttr(c *tc.C) {
 			Value: "another-value",
 		}}},
 	})
-	c.Check(cmdtesting.Stdout(ctx), jc.DeepEquals, "")
+	c.Check(cmdtesting.Stdout(ctx), tc.DeepEquals, "")
 }
 
 func (s *DefaultsCommandSuite) TestResetRegionAttr(c *tc.C) {
 	ctx, err := s.run(c, "--reset", "attr,unknown", "--region", "dummy-region")
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(s.fakeDefaultsAPI.defaults, tc.DeepEquals, config.ModelDefaultAttributes{
 		"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
 			Name:  "dummy-region",
 			Value: "dummy-value",
@@ -289,7 +288,7 @@ func (s *DefaultsCommandSuite) TestResetRegionAttr(c *tc.C) {
 			Value: "another-value",
 		}}},
 	})
-	c.Check(cmdtesting.Stdout(ctx), jc.DeepEquals, "")
+	c.Check(cmdtesting.Stdout(ctx), tc.DeepEquals, "")
 }
 
 func (s *DefaultsCommandSuite) TestResetBlockedError(c *tc.C) {
@@ -300,16 +299,16 @@ func (s *DefaultsCommandSuite) TestResetBlockedError(c *tc.C) {
 
 func (s *DefaultsCommandSuite) TestSetUnknownValueLogs(c *tc.C) {
 	_, err := s.run(c, "weird=foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := `key "weird" is not defined in the known model configuration: possible misspelling`
-	c.Check(c.GetTestLog(), jc.Contains, expected)
+	c.Check(c.GetTestLog(), tc.Contains, expected)
 }
 
 func (s *DefaultsCommandSuite) TestSet(c *tc.C) {
 	_, err := s.run(c, "special=extra", "attr=baz")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.fakeDefaultsAPI.cloud, tc.Equals, "dummy")
-	c.Assert(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
+	c.Assert(s.fakeDefaultsAPI.defaults, tc.DeepEquals, config.ModelDefaultAttributes{
 		"attr": {Controller: "baz", Default: nil, Regions: nil},
 		"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
 			Name:  "dummy-region",
@@ -324,9 +323,9 @@ func (s *DefaultsCommandSuite) TestSet(c *tc.C) {
 
 func (s *DefaultsCommandSuite) TestSetReset(c *tc.C) {
 	ctx, err := s.run(c, "special=extra", "--reset", "attr,unknown")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(s.fakeDefaultsAPI.cloud, tc.Equals, "dummy")
-	c.Check(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
+	c.Check(s.fakeDefaultsAPI.defaults, tc.DeepEquals, config.ModelDefaultAttributes{
 		"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
 			Name:  "dummy-region",
 			Value: "dummy-value",
@@ -336,15 +335,15 @@ func (s *DefaultsCommandSuite) TestSetReset(c *tc.C) {
 		}}},
 		"special": {Controller: "extra", Default: nil, Regions: nil},
 	})
-	c.Check(cmdtesting.Stdout(ctx), jc.DeepEquals, "")
+	c.Check(cmdtesting.Stdout(ctx), tc.DeepEquals, "")
 }
 
 func (s *DefaultsCommandSuite) TestSetValueWithSlash(c *tc.C) {
 	// A value with a "/" might be interpreted as a cloud/region.
 	_, err := s.run(c, `juju-no-proxy=localhost,127.0.0.1,127.0.0.53,10.0.8.0/24`)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.fakeDefaultsAPI.cloud, tc.Equals, "dummy")
-	c.Assert(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
+	c.Assert(s.fakeDefaultsAPI.defaults, tc.DeepEquals, config.ModelDefaultAttributes{
 		"attr": {Controller: nil, Default: "foo", Regions: nil},
 		"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
 			Name:  "dummy-region",
@@ -361,11 +360,11 @@ func (s *DefaultsCommandSuite) TestSetFromFile(c *tc.C) {
 	tmpdir := c.MkDir()
 	configFile := filepath.Join(tmpdir, "config.yaml")
 	err := os.WriteFile(configFile, []byte("special: extra\n"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.run(c, "--file", configFile)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.fakeDefaultsAPI.defaults, tc.DeepEquals, config.ModelDefaultAttributes{
 		"attr": {Controller: nil, Default: "foo", Regions: nil},
 		"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
 			Name:  "dummy-region",
@@ -391,7 +390,7 @@ func (s *DefaultsCommandSuite) TestSetFromStdin(c *tc.C) {
 	stderr := strings.TrimSpace(cmdtesting.Stderr(ctx))
 	c.Assert(stderr, tc.Equals, "")
 
-	c.Assert(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
+	c.Assert(s.fakeDefaultsAPI.defaults, tc.DeepEquals, config.ModelDefaultAttributes{
 		"attr": {Controller: nil, Default: "foo", Regions: nil},
 		"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
 			Name:  "dummy-region",
@@ -410,11 +409,11 @@ func (s *DefaultsCommandSuite) TestSetFromFileCombined(c *tc.C) {
 	err := os.WriteFile(configFile, []byte(`
 special: extra
 attr: foo`), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.run(c, "--file", configFile, "attr=baz")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.fakeDefaultsAPI.defaults, tc.DeepEquals, config.ModelDefaultAttributes{
 		"attr": {Controller: "baz", Default: nil, Regions: nil},
 		"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
 			Name:  "dummy-region",
@@ -433,11 +432,11 @@ func (s *DefaultsCommandSuite) TestSetFromFileReset(c *tc.C) {
 	err := os.WriteFile(configFile, []byte(`
 special: extra
 attr: foo`), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.run(c, "--file", configFile, "--reset", "attr")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.fakeDefaultsAPI.defaults, tc.DeepEquals, config.ModelDefaultAttributes{
 		"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
 			Name:  "dummy-region",
 			Value: "dummy-value",
@@ -456,13 +455,13 @@ func (s *DefaultsCommandSuite) TestSetFromFileUsingYAML(c *tc.C) {
 special:
   default: meshuggah
 `), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.run(c, "--file", configFile)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = s.run(c, "attr=baz")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.fakeDefaultsAPI.defaults, tc.DeepEquals, config.ModelDefaultAttributes{
 		"attr": {Controller: "baz", Default: nil, Regions: nil},
 		"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
 			Name:  "dummy-region",
@@ -483,13 +482,13 @@ special:
   default: meshuggah
   controller: nadir
 `), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.run(c, "--file", configFile)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = s.run(c, "attr=baz")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.fakeDefaultsAPI.defaults, tc.DeepEquals, config.ModelDefaultAttributes{
 		"attr": {Controller: "baz", Default: nil, Regions: nil},
 		"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
 			Name:  "dummy-region",
@@ -522,11 +521,11 @@ special:
   - name: `+test.region+`
     value: zenith
 `), 0644)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		_, err = s.run(c, "--region", test.input, "--file", configFile)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(s.fakeDefaultsAPI.defaults, tc.DeepEquals, config.ModelDefaultAttributes{
 			"attr": {Controller: nil, Default: "foo", Regions: nil},
 			"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
 				Name:  "dummy-region",
@@ -560,9 +559,9 @@ func (s *DefaultsCommandSuite) TestSetConveysCloudRegion(c *tc.C) {
 		} else {
 			_, err = s.run(c, "--region", test.input, "special=extra")
 		}
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(s.fakeDefaultsAPI.region, jc.DeepEquals, test.region)
-		c.Assert(s.fakeDefaultsAPI.cloud, jc.DeepEquals, test.cloud)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(s.fakeDefaultsAPI.region, tc.DeepEquals, test.region)
+		c.Assert(s.fakeDefaultsAPI.cloud, tc.DeepEquals, test.cloud)
 	}
 }
 
@@ -574,7 +573,7 @@ func (s *DefaultsCommandSuite) TestBlockedErrorOnSet(c *tc.C) {
 
 func (s *DefaultsCommandSuite) TestGetSingleValue(c *tc.C) {
 	context, err := s.run(c, "attr2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(s.fakeDefaultsAPI.cloud, tc.Equals, "dummy")
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
@@ -588,7 +587,7 @@ func (s *DefaultsCommandSuite) TestGetSingleValue(c *tc.C) {
 
 func (s *DefaultsCommandSuite) TestGetSingleValueJSON(c *tc.C) {
 	context, err := s.run(c, "--format=json", "attr2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	c.Assert(output, tc.Equals,
@@ -597,7 +596,7 @@ func (s *DefaultsCommandSuite) TestGetSingleValueJSON(c *tc.C) {
 
 func (s *DefaultsCommandSuite) TestGetAllValuesYAML(c *tc.C) {
 	context, err := s.run(c, "--format=yaml")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	expected := "" +
@@ -615,7 +614,7 @@ func (s *DefaultsCommandSuite) TestGetAllValuesYAML(c *tc.C) {
 
 func (s *DefaultsCommandSuite) TestGetAllValuesJSON(c *tc.C) {
 	context, err := s.run(c, "--format=json")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	expected := `{"attr":{"default":"foo"},"attr2":{"controller":"bar","regions":[{"name":"dummy-region","value":"dummy-value"},{"name":"another-region","value":"another-value"}]}}`
@@ -624,7 +623,7 @@ func (s *DefaultsCommandSuite) TestGetAllValuesJSON(c *tc.C) {
 
 func (s *DefaultsCommandSuite) TestGetAllValuesTabular(c *tc.C) {
 	context, err := s.run(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	expected := "" +
@@ -638,7 +637,7 @@ func (s *DefaultsCommandSuite) TestGetAllValuesTabular(c *tc.C) {
 
 func (s *DefaultsCommandSuite) TestGetRegionValuesTabular(c *tc.C) {
 	context, err := s.run(c, "--region", "dummy-region")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	expected := "" +
@@ -650,7 +649,7 @@ func (s *DefaultsCommandSuite) TestGetRegionValuesTabular(c *tc.C) {
 
 func (s *DefaultsCommandSuite) TestGetRegionNoValuesTabular(c *tc.C) {
 	_, err := s.run(c, "--reset", "attr2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx, err := s.run(c, "--region", "dummy-region")
 	c.Assert(err, tc.ErrorMatches, `there are no default model values in region "dummy-region"`)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
@@ -701,7 +700,7 @@ func (s *DefaultsCommandSuite) TestCloudRegion(c *tc.C) {
 		c.Logf("test %d: %s", i, t.about)
 		_, err := s.run(c, append(t.args, "foo=bar")...)
 		if t.err == "" {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			c.Check(s.fakeDefaultsAPI.cloud, tc.Equals, t.cloud)
 			c.Check(s.fakeDefaultsAPI.region, tc.Equals, t.region)
 		} else {

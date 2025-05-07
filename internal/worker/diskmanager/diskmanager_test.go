@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/blockdevice"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -64,19 +63,19 @@ func (s *DiskManagerWorkerSuite) TestBlockDeviceChanges(c *tc.C) {
 	}
 
 	err := diskmanager.DoWork(context.Background(), listDevices, setDevices, &oldDevices)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(devicesSet, tc.HasLen, 1)
 
 	// diskmanager only calls the BlockDeviceSetter when it sees a
 	// change in disks. Order of DeviceLinks should not matter.
 	device.DeviceLinks = []string{"b", "a"}
 	err = diskmanager.DoWork(context.Background(), listDevices, setDevices, &oldDevices)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(devicesSet, tc.HasLen, 1)
 
 	device.DeviceName = "sdb"
 	err = diskmanager.DoWork(context.Background(), listDevices, setDevices, &oldDevices)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(devicesSet, tc.HasLen, 2)
 
 	c.Assert(devicesSet[0], tc.DeepEquals, []blockdevice.BlockDevice{{
@@ -104,7 +103,7 @@ func (s *DiskManagerWorkerSuite) TestBlockDevicesSorted(c *tc.C) {
 		}}, nil
 	}
 	err := diskmanager.DoWork(context.Background(), listDevices, setDevices, new([]blockdevice.BlockDevice))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// The block Devices should be sorted when passed to the block
 	// device setter.

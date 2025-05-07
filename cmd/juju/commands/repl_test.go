@@ -12,7 +12,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/internal/cmd"
@@ -40,7 +39,7 @@ func (*ReplSuite) TestPromptNoCurrentController(c *tc.C) {
 	r := &replCommand{store: store}
 
 	p, err := r.getPrompt()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(p, tc.Equals, "$ ")
 }
 
@@ -51,7 +50,7 @@ func (*ReplSuite) TestPromptControllerNoLogin(c *tc.C) {
 	r := &replCommand{store: store}
 
 	p, err := r.getPrompt()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(p, tc.Equals, "somecontroller$ ")
 }
 
@@ -63,7 +62,7 @@ func (*ReplSuite) TestPromptControllerNoModel(c *tc.C) {
 	r := &replCommand{store: store}
 
 	p, err := r.getPrompt()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(p, tc.Equals, "fred@somecontroller$ ")
 }
 
@@ -78,7 +77,7 @@ func (*ReplSuite) TestPromptControllerWithModel(c *tc.C) {
 	r := &replCommand{store: store}
 
 	p, err := r.getPrompt()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(p, tc.Equals, "fred@somecontroller:test$ ")
 }
 
@@ -93,7 +92,7 @@ func (*ReplSuite) TestPromptControllerWithModelDifferentUser(c *tc.C) {
 	r := &replCommand{store: store}
 
 	p, err := r.getPrompt()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(p, tc.Equals, "fred@somecontroller:mary/test$ ")
 }
 
@@ -107,7 +106,7 @@ func (*ReplSuite) TestPromptControllerWithModelNoLogin(c *tc.C) {
 	r := &replCommand{store: store}
 
 	p, err := r.getPrompt()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(p, tc.Equals, "somecontroller:test$ ")
 }
 
@@ -173,7 +172,7 @@ func (s *ReplSuite) TestRepl(c *tc.C) {
 		},
 	}
 	err := cmdtesting.InitCommand(r, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := &cmd.Context{
 		Dir:    c.MkDir(),
@@ -182,9 +181,9 @@ func (s *ReplSuite) TestRepl(c *tc.C) {
 		Stdin:  bytes.NewReader([]byte("\nstatus --format yaml\ncontrollers\n\nQ\n")),
 	}
 	err = r.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmds, tc.HasLen, 2)
-	c.Assert(cmds, jc.DeepEquals, []string{
+	c.Assert(cmds, tc.DeepEquals, []string{
 		"juju status --format yaml",
 		"juju controllers",
 	})
@@ -200,7 +199,7 @@ func (s *ReplSuite) TestMissingCommandHelp(c *tc.C) {
 		execJujuCommand: cmd.Main,
 	}
 	err := cmdtesting.InitCommand(r, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := &cmd.Context{
 		Dir:    c.MkDir(),
@@ -209,7 +208,7 @@ func (s *ReplSuite) TestMissingCommandHelp(c *tc.C) {
 		Stdin:  bytes.NewReader([]byte("\nfoo\nQ\n")),
 	}
 	err = r.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
 ERROR juju: "foo" is not a juju command. Type "help" to see a list of commands.
 
@@ -228,7 +227,7 @@ func (s *ReplSuite) TestNoControllersBootstrap(c *tc.C) {
 		},
 	}
 	err := cmdtesting.InitCommand(r, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := &cmd.Context{
 		Dir:    c.MkDir(),
@@ -237,13 +236,13 @@ func (s *ReplSuite) TestNoControllersBootstrap(c *tc.C) {
 		Stdin:  bytes.NewReader([]byte("\nfoo\nbootstrap aws\n\nQ\n")),
 	}
 	err = r.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
 Please either create a new controller using "bootstrap" or connect to
 another controller that you have been given access to using "register".
 `[1:])
 	c.Assert(cmds, tc.HasLen, 1)
-	c.Assert(cmds, jc.DeepEquals, []string{
+	c.Assert(cmds, tc.DeepEquals, []string{
 		"juju bootstrap aws",
 	})
 }

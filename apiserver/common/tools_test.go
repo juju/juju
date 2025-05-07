@@ -12,7 +12,6 @@ import (
 	"github.com/juju/os/v2"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -92,7 +91,7 @@ func (s *getToolsSuite) TestTools(c *tc.C) {
 
 	result, err := tg.Tools(context.Background(), args)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 3)
 	c.Assert(result.Results[0].Error, tc.IsNil)
 	c.Assert(result.Results[0].ToolsList, tc.HasLen, 1)
@@ -204,8 +203,8 @@ func (s *findToolsSuite) TestFindToolsMatchMajor(c *tc.C) {
 		Arch:         "alpha",
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, coretools.List{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, coretools.List{
 		&coretools.Tools{
 			Version: semversion.MustParseBinary(storageMetadata[0].Version),
 			Size:    storageMetadata[0].Size,
@@ -259,8 +258,8 @@ func (s *findToolsSuite) TestFindToolsRequestAgentStream(c *tc.C) {
 		Arch:         "alpha",
 		AgentStream:  "pretend",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, coretools.List{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, coretools.List{
 		&coretools.Tools{
 			Version: semversion.MustParseBinary(storageMetadata[0].Version),
 			Size:    storageMetadata[0].Size,
@@ -287,7 +286,7 @@ func (s *findToolsSuite) TestFindToolsNotFound(c *tc.C) {
 
 	toolsFinder := common.NewToolsFinder(controllerConfigService{}, s.toolsStorageGetter, nil, s.store, s.mockAgentBinaryService)
 	_, err := toolsFinder.FindAgents(context.Background(), common.FindAgentsParams{})
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *findToolsSuite) TestFindToolsToolsStorageError(c *tc.C) {
@@ -348,8 +347,8 @@ func (s *getUrlSuite) TestToolsURLGetter(c *tc.C) {
 	g := common.NewToolsURLGetter("my-uuid", s.apiHostPortsGetter)
 	current := coretesting.CurrentVersion()
 	urls, err := g.ToolsURLs(context.Background(), coretesting.FakeControllerConfig(), current)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(urls, jc.DeepEquals, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(urls, tc.DeepEquals, []string{
 		"https://0.1.2.3:1234/model/my-uuid/tools/" + current.String(),
 	})
 }

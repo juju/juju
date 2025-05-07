@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/application"
@@ -61,7 +60,7 @@ func (s *AddRelationSuite) TestAddRelationWrongNumberOfArguments(c *tc.C) {
 
 func (s *AddRelationSuite) TestAddRelationSuccess(c *tc.C) {
 	err := s.runAddRelation(c, "application1", "application2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.mockAPI.CheckCall(c, 0, "AddRelation", []string{"application1", "application2"}, []string(nil))
 	s.mockAPI.CheckCall(c, 1, "Close")
 }

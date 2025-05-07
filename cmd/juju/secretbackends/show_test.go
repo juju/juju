@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	apisecretbackends "github.com/juju/juju/api/client/secretbackends"
@@ -60,7 +59,7 @@ func (s *ShowSuite) TestShowYAML(c *tc.C) {
 	s.secretBackendsAPI.EXPECT().Close().Return(nil)
 
 	ctx, err := cmdtesting.RunCommand(c, secretbackends.NewShowCommandForTest(s.store, s.secretBackendsAPI), "myvault", "--reveal")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, tc.Equals, `
 myvault:

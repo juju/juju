@@ -15,7 +15,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -82,7 +81,7 @@ func (s *pebblePollerSuite) TestStart(c *tc.C) {
 				c.Logf("got queued log id %s", id)
 				c.Assert(workloadEvents.Events(), tc.HasLen, 1)
 				evt, cb, err := workloadEvents.GetWorkloadEvent(id)
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				c.Assert(evt, tc.DeepEquals, container.WorkloadEvent{
 					Type:         container.ReadyEvent,
 					WorkloadName: containerName,
@@ -111,7 +110,7 @@ func (s *pebblePollerSuite) TestStart(c *tc.C) {
 	workertest.CleanKill(c, worker)
 
 	for k, v := range clients {
-		c.Assert(v.closed, jc.IsTrue, tc.Commentf("client %s not closed", k))
+		c.Assert(v.closed, tc.IsTrue, tc.Commentf("client %s not closed", k))
 	}
 }
 

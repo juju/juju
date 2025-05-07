@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
@@ -24,7 +23,7 @@ type NetworkInterface struct {
 
 // CheckPorts checks the current ports.
 func (ni *NetworkInterface) CheckPortRanges(c *tc.C, expected network.GroupedPortRanges) {
-	c.Check(ni.PortRangesByEndpoint, jc.DeepEquals, expected)
+	c.Check(ni.PortRangesByEndpoint, tc.DeepEquals, expected)
 }
 
 // AddPortRanges adds the specified port range.

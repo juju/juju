@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -46,7 +45,7 @@ func (s *ProviderSuite) SetUpTest(c *tc.C) {
 	}
 
 	provider, err := environs.Provider("ec2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.provider = provider
 }
 
@@ -55,7 +54,7 @@ func (s *ProviderSuite) TestOpen(c *tc.C) {
 		Cloud:  s.spec,
 		Config: coretesting.ModelConfig(c),
 	}, environs.NoopCredentialInvalidator())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(env, tc.NotNil)
 }
 
@@ -80,13 +79,13 @@ func (s *ProviderSuite) testOpenError(c *tc.C, spec environscloudspec.CloudSpec,
 
 func (s *ProviderSuite) TestVerifyCredentialsErrs(c *tc.C) {
 	err := ec2.VerifyCredentials(context.Background(), nil)
-	c.Assert(err, tc.Not(jc.ErrorIsNil))
-	c.Assert(err, tc.Not(jc.ErrorIs), common.ErrorCredentialNotValid)
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
+	c.Assert(err, tc.Not(tc.ErrorIs), common.ErrorCredentialNotValid)
 }
 
 func (s *ProviderSuite) TestIsAuthorizationErrorIgnoresNil(c *tc.C) {
 	isAuthErr := ec2.IsAuthorizationError(nil)
-	c.Assert(isAuthErr, jc.IsFalse)
+	c.Assert(isAuthErr, tc.IsFalse)
 }
 
 func (s *ProviderSuite) TestIsAuthorizationErrorConvertsCredentialRelatedFailures(c *tc.C) {
@@ -101,7 +100,7 @@ func (s *ProviderSuite) TestIsAuthorizationErrorConvertsCredentialRelatedFailure
 	} {
 		isAuthErr := ec2.IsAuthorizationError(
 			&smithy.GenericAPIError{Code: code})
-		c.Assert(isAuthErr, jc.IsTrue)
+		c.Assert(isAuthErr, tc.IsTrue)
 	}
 }
 
@@ -117,7 +116,7 @@ func (s *ProviderSuite) TestIsAuthorizationErrorConvertsCredentialRelatedFailure
 	} {
 		isAuthErr := ec2.IsAuthorizationError(
 			errors.Annotatef(&smithy.GenericAPIError{Code: code}, "wrapped"))
-		c.Assert(isAuthErr, jc.IsTrue)
+		c.Assert(isAuthErr, tc.IsTrue)
 	}
 }
 
@@ -128,14 +127,14 @@ func (s *ProviderSuite) TestIsAuthorizationErrorNotInvalidCredential(c *tc.C) {
 	} {
 		isAuthErr := ec2.IsAuthorizationError(
 			&smithy.GenericAPIError{Code: code})
-		c.Assert(isAuthErr, jc.IsFalse)
+		c.Assert(isAuthErr, tc.IsFalse)
 	}
 }
 
 func (s *ProviderSuite) TestIsAuthorizationErrorHandlesOtherProviderErrors(c *tc.C) {
 	// Any other ec2.Error is returned unwrapped.
 	isAuthErr := ec2.IsAuthorizationError(&smithy.GenericAPIError{Code: "DryRunOperation"})
-	c.Assert(isAuthErr, jc.IsFalse)
+	c.Assert(isAuthErr, tc.IsFalse)
 }
 
 func (s *ProviderSuite) TestConvertAuthorizationErrorsCredentialRelatedFailures(c *tc.C) {
@@ -150,7 +149,7 @@ func (s *ProviderSuite) TestConvertAuthorizationErrorsCredentialRelatedFailures(
 	} {
 		authErr := ec2.ConvertAuthorizationError(
 			&smithy.GenericAPIError{Code: code})
-		c.Assert(authErr, jc.ErrorIs, common.ErrorCredentialNotValid)
+		c.Assert(authErr, tc.ErrorIs, common.ErrorCredentialNotValid)
 	}
 }
 
@@ -161,13 +160,13 @@ func (s *ProviderSuite) TestConvertAuthorizationErrorsNotInvalidCredential(c *tc
 	} {
 		authErr := ec2.ConvertAuthorizationError(
 			&smithy.GenericAPIError{Code: code})
-		c.Assert(authErr, tc.Not(jc.ErrorIs), common.ErrorCredentialNotValid)
+		c.Assert(authErr, tc.Not(tc.ErrorIs), common.ErrorCredentialNotValid)
 	}
 }
 
 func (s *ProviderSuite) TestConvertAuthorizationErrorsIsNil(c *tc.C) {
 	authErr := ec2.ConvertAuthorizationError(nil)
-	c.Assert(authErr, jc.ErrorIsNil)
+	c.Assert(authErr, tc.ErrorIsNil)
 }
 
 func (s *ProviderSuite) TestConvertedCredentialError(c *tc.C) {
@@ -176,22 +175,22 @@ func (s *ProviderSuite) TestConvertedCredentialError(c *tc.C) {
 		&smithy.GenericAPIError{Code: "Blocked"})
 	traced := errors.Trace(inner)
 	c.Assert(traced, tc.NotNil)
-	c.Assert(traced, jc.ErrorIs, common.ErrorCredentialNotValid)
+	c.Assert(traced, tc.ErrorIs, common.ErrorCredentialNotValid)
 
 	// Annotate() will keep error type
 	annotated := errors.Annotate(inner, "annotation")
 	c.Assert(annotated, tc.NotNil)
-	c.Assert(annotated, jc.ErrorIs, common.ErrorCredentialNotValid)
+	c.Assert(annotated, tc.ErrorIs, common.ErrorCredentialNotValid)
 
 	// Running a CredentialNotValid through conversion call again is a no-op.
 	again := ec2.ConvertAuthorizationError(inner)
 	c.Assert(again, tc.NotNil)
-	c.Assert(again, jc.ErrorIs, common.ErrorCredentialNotValid)
-	c.Assert(again.Error(), jc.Contains, "\nYour Amazon account is currently blocked.: api error Blocked:")
+	c.Assert(again, tc.ErrorIs, common.ErrorCredentialNotValid)
+	c.Assert(again.Error(), tc.Contains, "\nYour Amazon account is currently blocked.: api error Blocked:")
 
 	// Running an annotated CredentialNotValid through conversion call again is a no-op too.
 	againAnotated := ec2.ConvertAuthorizationError(annotated)
 	c.Assert(againAnotated, tc.NotNil)
-	c.Assert(againAnotated, jc.ErrorIs, common.ErrorCredentialNotValid)
-	c.Assert(againAnotated.Error(), jc.Contains, "\nYour Amazon account is currently blocked.: api error Blocked:")
+	c.Assert(againAnotated, tc.ErrorIs, common.ErrorCredentialNotValid)
+	c.Assert(againAnotated.Error(), tc.Contains, "\nYour Amazon account is currently blocked.: api error Blocked:")
 }

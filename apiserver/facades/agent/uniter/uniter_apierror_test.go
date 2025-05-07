@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade/facadetest"
@@ -33,7 +32,7 @@ func (s *uniterAPIErrorSuite) SetupTest(c *tc.C) {
 
 	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
 	err := domainServices.Credential().UpdateCloudCredential(context.Background(), testing.DefaultCredentialId, cred)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *tc.C) {

@@ -6,7 +6,6 @@ package jujuc_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -24,7 +23,7 @@ func (s *ApplicationVersionSetSuite) createCommand(c *tc.C, err error) (*Context
 	s.Stub.SetErrors(err)
 
 	com, err := jujuc.NewCommand(hctx, "application-version-set")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return hctx, jujuc.NewJujucCommandWrappedForTest(com)
 }
 

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/service"
@@ -26,10 +25,10 @@ var _ = tc.Suite(&serviceSuite{})
 func (s *serviceSuite) TestNewService(c *tc.C) {
 	cfg := common.Conf{Desc: "test", ExecStart: "/path/to/script"}
 	svc, err := service.NewService("fred", cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(svc, tc.FitsTypeOf, &systemd.Service{})
 	c.Assert(svc.Name(), tc.Equals, "fred")
-	c.Assert(svc.Conf(), jc.DeepEquals, cfg)
+	c.Assert(svc.Conf(), tc.DeepEquals, cfg)
 }
 
 func (s *serviceSuite) TestNewServiceMissingName(c *tc.C) {
@@ -39,7 +38,7 @@ func (s *serviceSuite) TestNewServiceMissingName(c *tc.C) {
 
 func (s *serviceSuite) TestListServices(c *tc.C) {
 	_, err := service.ListServices()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (*serviceSuite) TestListServicesScript(c *tc.C) {
@@ -60,7 +59,7 @@ func (s *serviceSuite) TestInstallAndStartOkay(c *tc.C) {
 	svc.EXPECT().Start().Return(nil)
 
 	err := service.InstallAndStart(svc)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestInstallAndStartRetry(c *tc.C) {
@@ -76,7 +75,7 @@ func (s *serviceSuite) TestInstallAndStartRetry(c *tc.C) {
 	svc.EXPECT().Start().Return(nil)
 
 	err := service.InstallAndStart(svc)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestInstallAndStartFail(c *tc.C) {
@@ -114,7 +113,7 @@ func (s *restartSuite) TestRestartStopAndStart(c *tc.C) {
 		return svc, nil
 	})
 	err := service.Restart("fred")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *restartSuite) TestRestartFailStop(c *tc.C) {
@@ -130,7 +129,7 @@ func (s *restartSuite) TestRestartFailStop(c *tc.C) {
 		return svc, nil
 	})
 	err := service.Restart("fred")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *restartSuite) TestRestartFailStart(c *tc.C) {

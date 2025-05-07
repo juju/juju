@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
@@ -40,7 +39,7 @@ func (s *watcherSuite) TestWatchRemovals(c *tc.C) {
 	)
 
 	w, err := svc.WatchRemovals()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
 
@@ -55,7 +54,7 @@ func (s *watcherSuite) TestWatchRemovals(c *tc.C) {
 			_, err := tx.ExecContext(ctx, q, "job-uuid-2", 1, "rel-uuid-2")
 			return err
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(watchertest.StringSliceAssert("job-uuid-1", "job-uuid-2"))

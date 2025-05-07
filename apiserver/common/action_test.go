@@ -8,7 +8,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/apiserver/common"
@@ -57,7 +56,7 @@ func (s *actionsSuite) TestTagToActionReceiverFn(c *tc.C) {
 			c.Check(err.Error(), tc.Equals, test.err.Error())
 			c.Check(receiver, tc.IsNil)
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(receiver, tc.Equals, test.result)
 		}
 	}
@@ -117,7 +116,7 @@ func (s *actionsSuite) TestAuthAndActionFromTagFn(c *tc.C) {
 			c.Check(err, tc.Equals, test.err)
 			c.Check(action, tc.IsNil)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			c.Check(action, tc.Equals, action)
 		}
 	}
@@ -133,7 +132,7 @@ func (s *actionsSuite) TestBeginActions(c *tc.C) {
 
 	results := common.BeginActions(args, actionFn)
 
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		[]params.ErrorResult{
 			{},
 			{apiservererrors.ServerError(expectErr)},
@@ -153,7 +152,7 @@ func (s *actionsSuite) TestGetActions(c *tc.C) {
 
 	parallel := true
 	executionGroup := "group"
-	c.Assert(results, jc.DeepEquals, params.ActionResults{
+	c.Assert(results, tc.DeepEquals, params.ActionResults{
 		[]params.ActionResult{
 			{Action: &params.Action{Name: "floosh", Parallel: &parallel, ExecutionGroup: &executionGroup}},
 			{Error: apiservererrors.ServerError(actionNotFoundErr)},
@@ -178,7 +177,7 @@ func (s *actionsSuite) TestFinishActions(c *tc.C) {
 		"finishFail":  fakeAction{finishErr: expectErr},
 	})
 	results := common.FinishActions(args, actionFn)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		[]params.ErrorResult{
 			{},
 			{apiservererrors.ServerError(actionNotFoundErr)},
@@ -203,7 +202,7 @@ func (s *actionsSuite) TestWatchActionNotifications(c *tc.C) {
 
 	results := common.WatchActionNotifications(args, canAccess, watchOne)
 
-	c.Assert(results, jc.DeepEquals, params.StringsWatchResults{
+	c.Assert(results, tc.DeepEquals, params.StringsWatchResults{
 		[]params.StringsWatchResult{
 			{Error: apiservererrors.ServerError(errors.New(`invalid actionreceiver tag "invalid-actionreceiver"`))},
 			{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)},
@@ -242,9 +241,9 @@ func (s *actionsSuite) TestWatchOneActionReceiverNotifications(c *tc.C) {
 		result, err := watchOneFn(test.tag)
 		if test.err != "" {
 			c.Check(err, tc.ErrorMatches, test.err)
-			c.Check(result, jc.DeepEquals, params.StringsWatchResult{})
+			c.Check(result, tc.DeepEquals, params.StringsWatchResult{})
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			c.Check(result.StringsWatcherId, tc.Equals, test.watcherId)
 		}
 	}
@@ -279,9 +278,9 @@ func (s *actionsSuite) TestWatchPendingActionsForReceiver(c *tc.C) {
 		result, err := watchOneFn(test.tag)
 		if test.err != "" {
 			c.Check(err, tc.ErrorMatches, test.err)
-			c.Check(result, jc.DeepEquals, params.StringsWatchResult{})
+			c.Check(result, tc.DeepEquals, params.StringsWatchResult{})
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			c.Check(result.StringsWatcherId, tc.Equals, test.watcherId)
 		}
 	}

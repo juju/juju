@@ -8,7 +8,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -25,20 +24,20 @@ var _ = tc.Suite(&WrapAgentSuite{})
 func (s *WrapAgentSuite) TestRequiresControllerUUID(c *tc.C) {
 	agent, err := model.WrapAgent(&mockAgent{}, "lol-nope-no-hope", coretesting.ModelTag.Id())
 	c.Check(err, tc.ErrorMatches, `controller uuid "lol-nope-no-hope" not valid`)
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 	c.Check(agent, tc.IsNil)
 }
 
 func (s *WrapAgentSuite) TestRequiresModelUUID(c *tc.C) {
 	agent, err := model.WrapAgent(&mockAgent{}, coretesting.ControllerTag.Id(), "lol-nope-no-hope")
 	c.Check(err, tc.ErrorMatches, `model uuid "lol-nope-no-hope" not valid`)
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 	c.Check(agent, tc.IsNil)
 }
 
 func (s *WrapAgentSuite) TestWraps(c *tc.C) {
 	agent, err := model.WrapAgent(&mockAgent{}, coretesting.ControllerTag.Id(), coretesting.ModelTag.Id())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	config := agent.CurrentConfig()
 
 	c.Check(config.Model(), tc.Equals, coretesting.ModelTag)
@@ -46,7 +45,7 @@ func (s *WrapAgentSuite) TestWraps(c *tc.C) {
 	c.Check(config.OldPassword(), tc.Equals, "")
 
 	apiInfo, ok := config.APIInfo()
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	c.Check(apiInfo, tc.DeepEquals, &api.Info{
 		Addrs:    []string{"here", "there"},
 		CACert:   "trust-me",

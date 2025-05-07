@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common/crossmodel"
@@ -48,7 +47,7 @@ func (s *offerAccessSuite) SetUpTest(c *tc.C) {
 		s.mockState, nil, names.NewModelTag(modelUUID.String()), thirdPartyKey,
 		crossmodel.NewOfferBakeryForTest(s.bakery, clock.WallClock),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // Creates the API to use in testing.
@@ -67,7 +66,7 @@ func (s *offerAccessSuite) setupAPI(c *tc.C) {
 		uuid.MustNewUUID().String(),
 		s.mockModelService,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api = api
 }
 
@@ -214,7 +213,7 @@ func (s *offerAccessSuite) TestGrantPermissionAddRemoteUser(c *tc.C) {
 	})
 
 	err := s.grant(user, params.OfferReadAccess, "superuser-bob/test.someoffer")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *offerAccessSuite) assertGrantToOffer(c *tc.C, userAccess permission.Access) {
@@ -277,7 +276,7 @@ func (s *offerAccessSuite) TestGrantToOfferAdminAccess(c *tc.C) {
 	})
 
 	err := s.grant(other, params.OfferReadAccess, "foobar/test.someoffer")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *offerAccessSuite) TestGrantOfferInvalidUserTag(c *tc.C) {
@@ -346,7 +345,7 @@ func (s *offerAccessSuite) TestGrantOfferInvalidUserTag(c *tc.C) {
 			}}}
 
 		result, err := s.api.ModifyOfferAccess(context.Background(), args)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(result.OneError(), tc.ErrorMatches, expectedErr)
 	}
 }
@@ -360,7 +359,7 @@ func (s *offerAccessSuite) TestModifyOfferAccessEmptyArgs(c *tc.C) {
 		Changes: []params.ModifyOfferAccess{{OfferURL: "test.someoffer"}}}
 
 	result, err := s.api.ModifyOfferAccess(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedErr := `could not modify offer access: "" offer access not valid`
 	c.Assert(result.OneError(), tc.ErrorMatches, expectedErr)
 }
@@ -381,7 +380,7 @@ func (s *offerAccessSuite) TestModifyOfferAccessInvalidAction(c *tc.C) {
 		}}}
 
 	result, err := s.api.ModifyOfferAccess(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedErr := `unknown action "dance"`
 	c.Assert(result.OneError(), tc.ErrorMatches, expectedErr)
 }
@@ -402,8 +401,8 @@ func (s *offerAccessSuite) TestModifyOfferAccessForModelAdminPermission(c *tc.C)
 		}}}
 
 	result, err := s.api.ModifyOfferAccess(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.OneError(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.OneError(), tc.ErrorIsNil)
 }
 
 func offerAccessSpec(offerUUID string, accessLevel permission.Access) permission.AccessSpec {

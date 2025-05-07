@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	corebase "github.com/juju/juju/core/base"
@@ -50,9 +49,9 @@ func (s *environSuite) TestSetConfigOkay(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	err := s.Env.SetConfig(context.Background(), s.Config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(lxd.ExposeEnvConfig(s.Env), jc.DeepEquals, s.EnvConfig)
+	c.Check(lxd.ExposeEnvConfig(s.Env), tc.DeepEquals, s.EnvConfig)
 	// Ensure the client did not change.
 	c.Check(lxd.ExposeEnvServer(s.Env), tc.Equals, s.Client)
 }
@@ -62,7 +61,7 @@ func (s *environSuite) TestSetConfigNoAPI(c *tc.C) {
 
 	err := s.Env.SetConfig(context.Background(), s.Config)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *environSuite) TestConfig(c *tc.C) {
@@ -70,7 +69,7 @@ func (s *environSuite) TestConfig(c *tc.C) {
 
 	cfg := s.Env.Config()
 
-	c.Check(cfg, jc.DeepEquals, s.Config)
+	c.Check(cfg, tc.DeepEquals, s.Config)
 }
 
 func (s *environSuite) TestBootstrapOkay(c *tc.C) {
@@ -90,7 +89,7 @@ func (s *environSuite) TestBootstrapOkay(c *tc.C) {
 		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 	}
 	result, err := s.Env.Bootstrap(environscmd.BootstrapContext(context.Background(), ctx), params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(result.Arch, tc.Equals, "amd64")
 	c.Check(result.Base.DisplayString(), tc.Equals, "ubuntu@22.04")
@@ -110,7 +109,7 @@ func (s *environSuite) TestBootstrapAPI(c *tc.C) {
 		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 	}
 	_, err := s.Env.Bootstrap(ctx, params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.Stub.CheckCalls(c, []jujutesting.StubCall{{
 		FuncName: "Bootstrap",
@@ -140,7 +139,7 @@ func (s *environSuite) TestDestroy(c *tc.C) {
 
 	callCtx := context.Background()
 	err := s.Env.Destroy(callCtx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.Stub.CheckCalls(c, []jujutesting.StubCall{
 		{FuncName: "Destroy", Args: []interface{}{callCtx}},
@@ -184,7 +183,7 @@ func (s *environSuite) TestDestroyInvalidCredentialsDestroyingFileSystems(c *tc.
 	calls := s.Stub.Calls()
 	c.Assert(calls, tc.Not(tc.HasLen), 0)
 	calls[0].Args = nil
-	c.Assert(calls, jc.DeepEquals, []jujutesting.StubCall{
+	c.Assert(calls, tc.DeepEquals, []jujutesting.StubCall{
 		{FuncName: "Destroy", Args: nil},
 		{FuncName: "StorageSupported", Args: nil},
 		{FuncName: "GetStoragePools", Args: nil},
@@ -235,7 +234,7 @@ func (s *environSuite) TestDestroyController(c *tc.C) {
 
 	callCtx := context.Background()
 	err := s.Env.DestroyController(callCtx, s.Config.UUID())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.Stub.CheckCalls(c, []jujutesting.StubCall{
 		{FuncName: "Destroy", Args: []interface{}{callCtx}},
@@ -289,7 +288,7 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsHostedModels(c *tc
 	calls := s.Stub.Calls()
 	c.Assert(calls, tc.Not(tc.HasLen), 0)
 	calls[0].Args = nil
-	c.Assert(calls, jc.DeepEquals, []jujutesting.StubCall{
+	c.Assert(calls, tc.DeepEquals, []jujutesting.StubCall{
 		{FuncName: "Destroy", Args: nil},
 		{FuncName: "StorageSupported", Args: nil},
 		{FuncName: "GetStoragePools", Args: nil},
@@ -344,7 +343,7 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsDestroyFilesystem(
 	calls := s.Stub.Calls()
 	c.Assert(calls, tc.Not(tc.HasLen), 0)
 	calls[0].Args = nil
-	c.Assert(calls, jc.DeepEquals, []jujutesting.StubCall{
+	c.Assert(calls, tc.DeepEquals, []jujutesting.StubCall{
 		{FuncName: "Destroy", Args: nil},
 		{FuncName: "StorageSupported", Args: nil},
 		{FuncName: "GetStoragePools", Args: nil},
@@ -407,7 +406,7 @@ func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfile(c *tc.C) {
 	s.expectCreateProfile("juju-controller", nil)
 
 	err := s.cloudSpecEnv.SetCloudSpec(context.Background(), lxdCloudSpec())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfileErrorSucceeds(c *tc.C) {
@@ -416,7 +415,7 @@ func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfileErrorSucceeds(c 
 	s.expectCreateProfile("juju-controller", errors.New("The profile already exists"))
 
 	err := s.cloudSpecEnv.SetCloudSpec(context.Background(), lxdCloudSpec())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *environCloudProfileSuite) TestSetCloudSpecUsesConfiguredProject(c *tc.C) {
@@ -425,7 +424,7 @@ func (s *environCloudProfileSuite) TestSetCloudSpecUsesConfiguredProject(c *tc.C
 	s.expectCreateProfile("juju-controller", nil)
 
 	err := s.cloudSpecEnv.SetCloudSpec(context.Background(), lxdCloudSpec())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *environCloudProfileSuite) setup(c *tc.C, cfgEdit map[string]interface{}) *gomock.Controller {
@@ -444,7 +443,7 @@ func (s *environCloudProfileSuite) setup(c *tc.C, cfgEdit map[string]interface{}
 	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
 
 	env, ok := s.NewEnvironWithServerFactory(c, svrFactory, cfgEdit, invalidator).(environs.CloudSpecSetter)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	s.cloudSpecEnv = env
 
 	return ctrl
@@ -491,7 +490,7 @@ func (s *environProfileSuite) TestMaybeWriteLXDProfileYes(c *tc.C) {
 		},
 		Description: "test profile",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *environProfileSuite) TestMaybeWriteLXDProfileNo(c *tc.C) {
@@ -501,7 +500,7 @@ func (s *environProfileSuite) TestMaybeWriteLXDProfileNo(c *tc.C) {
 	s.expectMaybeWriteLXDProfile(true, profile)
 
 	err := s.lxdEnv.MaybeWriteLXDProfile(profile, lxdprofile.Profile{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *environProfileSuite) TestLXDProfileNames(c *tc.C) {
@@ -513,8 +512,8 @@ func (s *environProfileSuite) TestLXDProfileNames(c *tc.C) {
 	}, nil)
 
 	result, err := s.lxdEnv.LXDProfileNames("testname")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []string{
 		lxdprofile.Name("foo", "bar", 1),
 	})
 }
@@ -542,7 +541,7 @@ func (s *environProfileSuite) TestAssignLXDProfiles(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.DeepEquals, expectedProfiles)
 }
 
@@ -581,7 +580,7 @@ func (s *environProfileSuite) TestDetectCorrectHardwareEndpointIPOnly(c *tc.C) {
 	}).Finish()
 
 	detector, supported := s.lxdEnv.(environs.HardwareCharacteristicsDetector)
-	c.Assert(supported, jc.IsTrue)
+	c.Assert(supported, tc.IsTrue)
 
 	hc, err := detector.DetectHardware()
 	c.Assert(err, tc.IsNil)
@@ -595,7 +594,7 @@ func (s *environProfileSuite) TestDetectCorrectHardwareEndpointIPPort(c *tc.C) {
 	}).Finish()
 
 	detector, supported := s.lxdEnv.(environs.HardwareCharacteristicsDetector)
-	c.Assert(supported, jc.IsTrue)
+	c.Assert(supported, tc.IsTrue)
 
 	hc, err := detector.DetectHardware()
 	c.Assert(err, tc.IsNil)
@@ -609,7 +608,7 @@ func (s *environProfileSuite) TestDetectCorrectHardwareEndpointSchemeIPPort(c *t
 	}).Finish()
 
 	detector, supported := s.lxdEnv.(environs.HardwareCharacteristicsDetector)
-	c.Assert(supported, jc.IsTrue)
+	c.Assert(supported, tc.IsTrue)
 
 	hc, err := detector.DetectHardware()
 	c.Assert(err, tc.IsNil)
@@ -623,7 +622,7 @@ func (s *environProfileSuite) TestDetectCorrectHardwareEndpointHostOnly(c *tc.C)
 	}).Finish()
 
 	detector, supported := s.lxdEnv.(environs.HardwareCharacteristicsDetector)
-	c.Assert(supported, jc.IsTrue)
+	c.Assert(supported, tc.IsTrue)
 
 	hc, err := detector.DetectHardware()
 	c.Assert(err, tc.IsNil)
@@ -637,7 +636,7 @@ func (s *environProfileSuite) TestDetectCorrectHardwareEndpointHostPort(c *tc.C)
 	}).Finish()
 
 	detector, supported := s.lxdEnv.(environs.HardwareCharacteristicsDetector)
-	c.Assert(supported, jc.IsTrue)
+	c.Assert(supported, tc.IsTrue)
 
 	hc, err := detector.DetectHardware()
 	c.Assert(err, tc.IsNil)
@@ -651,7 +650,7 @@ func (s *environProfileSuite) TestDetectCorrectHardwareEndpointSchemeHostPort(c 
 	}).Finish()
 
 	detector, supported := s.lxdEnv.(environs.HardwareCharacteristicsDetector)
-	c.Assert(supported, jc.IsTrue)
+	c.Assert(supported, tc.IsTrue)
 
 	hc, err := detector.DetectHardware()
 	c.Assert(err, tc.IsNil)
@@ -665,7 +664,7 @@ func (s *environProfileSuite) TestDetectCorrectHardwareWrongEndpoint(c *tc.C) {
 	}).Finish()
 
 	detector, supported := s.lxdEnv.(environs.HardwareCharacteristicsDetector)
-	c.Assert(supported, jc.IsTrue)
+	c.Assert(supported, tc.IsTrue)
 
 	hc, err := detector.DetectHardware()
 	// the endpoint is wrongly formatted but we don't return an error, that
@@ -680,7 +679,7 @@ func (s *environProfileSuite) TestDetectCorrectHardwareEmptyEndpoint(c *tc.C) {
 	}).Finish()
 
 	detector, supported := s.lxdEnv.(environs.HardwareCharacteristicsDetector)
-	c.Assert(supported, jc.IsTrue)
+	c.Assert(supported, tc.IsTrue)
 
 	hc, err := detector.DetectHardware()
 	// the endpoint is wrongly formatted but we don't return an error, that
@@ -696,7 +695,7 @@ func (s *environProfileSuite) setup(c *tc.C, cloudSpec environscloudspec.CloudSp
 	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
 
 	lxdEnv, ok := s.NewEnviron(c, s.svr, nil, cloudSpec, invalidator).(environs.LXDProfiler)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	s.lxdEnv = lxdEnv
 
 	return ctrl

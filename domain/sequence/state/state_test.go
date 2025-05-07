@@ -8,7 +8,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainsequence "github.com/juju/juju/domain/sequence"
@@ -25,7 +24,7 @@ func (s *stateSuite) TestGetSequencesForExportNoRows(c *tc.C) {
 	state := NewState(s.TxnRunnerFactory())
 
 	seq, err := state.GetSequencesForExport(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(seq, tc.HasLen, 0)
 }
 
@@ -38,10 +37,10 @@ func (s *stateSuite) TestGetSequencesForExport(c *tc.C) {
 		seqValue, err = NextValue(ctx, state, tx, domainsequence.StaticNamespace("foo"))
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	seq, err := state.GetSequencesForExport(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(seq, tc.DeepEquals, map[string]uint64{
 		"foo": seqValue,
 	})
@@ -60,11 +59,11 @@ func (s *stateSuite) TestGetSequencesForExportMultiple(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(seqValue, tc.Equals, uint64(9))
 
 	seq, err := state.GetSequencesForExport(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(seq, tc.DeepEquals, map[string]uint64{
 		"foo": seqValue,
 	})
@@ -79,10 +78,10 @@ func (s *stateSuite) TestGetSequencesForExportPrefixNamespace(c *tc.C) {
 		seqValue, err = NextValue(ctx, state, tx, domainsequence.MakePrefixNamespace(domainsequence.StaticNamespace("foo"), "bar"))
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	seq, err := state.GetSequencesForExport(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(seq, tc.DeepEquals, map[string]uint64{
 		"foo_bar": seqValue,
 	})
@@ -92,17 +91,17 @@ func (s *stateSuite) TestImportSequences(c *tc.C) {
 	state := NewState(s.TxnRunnerFactory())
 
 	seq, err := state.GetSequencesForExport(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(seq, tc.HasLen, 0)
 
 	err = state.ImportSequences(context.Background(), map[string]uint64{
 		"foo":     1,
 		"foo_bar": 2,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	seq, err = state.GetSequencesForExport(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(seq, tc.DeepEquals, map[string]uint64{
 		"foo":     1,
 		"foo_bar": 2,
@@ -113,46 +112,46 @@ func (s *stateSuite) TestImportSequencesTwice(c *tc.C) {
 	state := NewState(s.TxnRunnerFactory())
 
 	seq, err := state.GetSequencesForExport(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(seq, tc.HasLen, 0)
 
 	err = state.ImportSequences(context.Background(), map[string]uint64{
 		"foo":     1,
 		"foo_bar": 2,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = state.ImportSequences(context.Background(), map[string]uint64{
 		"foo":     1,
 		"foo_bar": 2,
 	})
-	c.Assert(err, jc.ErrorIs, sequenceerrors.DuplicateNamespaceSequence)
+	c.Assert(err, tc.ErrorIs, sequenceerrors.DuplicateNamespaceSequence)
 }
 
 func (s *stateSuite) TestRemoveAllSequences(c *tc.C) {
 	state := NewState(s.TxnRunnerFactory())
 
 	seq, err := state.GetSequencesForExport(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(seq, tc.HasLen, 0)
 
 	err = state.ImportSequences(context.Background(), map[string]uint64{
 		"foo":     1,
 		"foo_bar": 2,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	seq, err = state.GetSequencesForExport(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(seq, tc.DeepEquals, map[string]uint64{
 		"foo":     1,
 		"foo_bar": 2,
 	})
 
 	err = state.RemoveAllSequences(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	seq, err = state.GetSequencesForExport(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(seq, tc.HasLen, 0)
 }

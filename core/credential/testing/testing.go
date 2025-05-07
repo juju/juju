@@ -5,7 +5,6 @@ package testing
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	corecredential "github.com/juju/juju/core/credential"
 )
@@ -14,6 +13,6 @@ import (
 // that is checked for subsequent errors using the test suits go check instance.
 func GenCredentialUUID(c *tc.C) corecredential.UUID {
 	uuid, err := corecredential.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return uuid
 }

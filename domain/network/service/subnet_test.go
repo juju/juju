@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -52,7 +51,7 @@ func (s *subnetSuite) TestFailAddSubnet(c *tc.C) {
 				c.Assert(subnet.CIDR, tc.Equals, subnetInfo.CIDR)
 				c.Assert(subnet.ProviderId, tc.Equals, subnetInfo.ProviderId)
 				c.Assert(subnet.ProviderNetworkId, tc.Equals, subnetInfo.ProviderNetworkId)
-				c.Assert(subnet.AvailabilityZones, jc.SameContents, subnetInfo.AvailabilityZones)
+				c.Assert(subnet.AvailabilityZones, tc.SameContents, subnetInfo.AvailabilityZones)
 				return errors.New("boom")
 			})
 
@@ -81,13 +80,13 @@ func (s *subnetSuite) TestAddSubnet(c *tc.C) {
 				c.Assert(subnet.CIDR, tc.Equals, subnetInfo.CIDR)
 				c.Assert(subnet.ProviderId, tc.Equals, subnetInfo.ProviderId)
 				c.Assert(subnet.ProviderNetworkId, tc.Equals, subnetInfo.ProviderNetworkId)
-				c.Assert(subnet.AvailabilityZones, jc.SameContents, subnetInfo.AvailabilityZones)
+				c.Assert(subnet.AvailabilityZones, tc.SameContents, subnetInfo.AvailabilityZones)
 				expectedUUID = subnet.ID
 				return nil
 			})
 
 	returnedUUID, err := NewService(s.st, nil).AddSubnet(context.Background(), subnetInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Verify that the passed UUID is also returned.
 	c.Assert(returnedUUID, tc.Equals, expectedUUID)
 }
@@ -105,8 +104,8 @@ func (s *subnetSuite) TestRetrieveAllSubnets(c *tc.C) {
 	}
 	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(subnetInfos, nil)
 	subnets, err := NewService(s.st, nil).GetAllSubnets(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(subnets, jc.SameContents, subnetInfos)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(subnets, tc.SameContents, subnetInfos)
 }
 
 func (s *subnetSuite) TestRetrieveSubnetByID(c *tc.C) {
@@ -114,7 +113,7 @@ func (s *subnetSuite) TestRetrieveSubnetByID(c *tc.C) {
 
 	s.st.EXPECT().GetSubnet(gomock.Any(), "subnet0")
 	_, err := NewService(s.st, nil).Subnet(context.Background(), "subnet0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *subnetSuite) TestFailRetrieveSubnetByID(c *tc.C) {
@@ -131,7 +130,7 @@ func (s *subnetSuite) TestRetrieveSubnetByCIDRs(c *tc.C) {
 
 	s.st.EXPECT().GetSubnetsByCIDR(gomock.Any(), "192.168.1.1", "10.0.0.1")
 	_, err := NewService(s.st, nil).SubnetsByCIDR(context.Background(), "192.168.1.1", "10.0.0.1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *subnetSuite) TestFailRetrieveSubnetByCIDRs(c *tc.C) {
@@ -148,7 +147,7 @@ func (s *subnetSuite) TestUpdateSubnet(c *tc.C) {
 
 	s.st.EXPECT().UpdateSubnet(gomock.Any(), "subnet0", "space0")
 	err := NewService(s.st, nil).UpdateSubnet(context.Background(), "subnet0", "space0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *subnetSuite) TestFailUpdateSubnet(c *tc.C) {
@@ -165,7 +164,7 @@ func (s *subnetSuite) TestRemoveSubnet(c *tc.C) {
 
 	s.st.EXPECT().DeleteSubnet(gomock.Any(), "subnet0")
 	err := NewService(s.st, nil).RemoveSubnet(context.Background(), "subnet0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *subnetSuite) TestFailRemoveSubnet(c *tc.C) {

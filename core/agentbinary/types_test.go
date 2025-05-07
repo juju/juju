@@ -5,7 +5,6 @@ package agentbinary
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/arch"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -23,7 +22,7 @@ func (s *typeSuite) TestVersionValidation(c *tc.C) {
 		Number: semversion.MustParse("4.1.1"),
 		Arch:   arch.AMD64,
 	}
-	c.Check(v.Validate(), jc.ErrorIsNil)
+	c.Check(v.Validate(), tc.ErrorIsNil)
 }
 
 // TestVersionValidationFailsWithZeroVersion checks that if we specify the zero
@@ -35,7 +34,7 @@ func (s *typeSuite) TestVersionValidationFailsWithZeroVersion(c *tc.C) {
 		Arch:   arch.ARM64,
 	}
 	err := v.Validate()
-	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 // TestVersionValidationFailsWithUnsupportedArch checks that if we specify an
@@ -47,5 +46,5 @@ func (s *typeSuite) TestVersionValidationFailsWithUnsupportedArch(c *tc.C) {
 		Arch:   arch.Arch("unsupported"),
 	}
 	err := v.Validate()
-	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }

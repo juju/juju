@@ -17,7 +17,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/controller"
@@ -80,7 +79,7 @@ func (s *ExportSuite) TestExportValidates(c *tc.C) {
 	)
 
 	_, err := exporter.Export(context.Background(), s.model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ExportSuite) TestExportValidationFails(c *tc.C) {
@@ -280,7 +279,7 @@ func (s *ImportSuite) TestBinariesMigration(c *tc.C) {
 		ResourceUploader:   uploader,
 	}
 	err := migration.UploadBinaries(context.Background(), config, loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedCurls := []string{
 		// Note ordering.
@@ -288,26 +287,26 @@ func (s *ImportSuite) TestBinariesMigration(c *tc.C) {
 		"local:trusty/magic-2",
 		"local:trusty/magic-10",
 	}
-	c.Assert(uploader.curls, jc.DeepEquals, expectedCurls)
+	c.Assert(uploader.curls, tc.DeepEquals, expectedCurls)
 
 	expectedRefs := []string{
 		"postgresql-hash0123",
 		"magic-hash0123",
 		"magic-hash0123",
 	}
-	c.Assert(uploader.charmRefs, jc.DeepEquals, expectedRefs)
+	c.Assert(uploader.charmRefs, tc.DeepEquals, expectedRefs)
 
 	c.Check(len(uploader.tools), tc.Equals, len(toolsMap))
 	for _, ver := range toolsMap {
 		_, exists := uploader.tools[ver]
-		c.Check(exists, jc.IsTrue)
+		c.Check(exists, tc.IsTrue)
 	}
 
-	c.Assert(downloader.resources, jc.SameContents, []string{
+	c.Assert(downloader.resources, tc.SameContents, []string{
 		"app0/blob0",
 		"app1/blob1",
 	})
-	c.Assert(uploader.resources, jc.DeepEquals, map[string]string{
+	c.Assert(uploader.resources, tc.DeepEquals, map[string]string{
 		"app0/blob0": "blob0",
 		"app1/blob1": "blob1",
 	})

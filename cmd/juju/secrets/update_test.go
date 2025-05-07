@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cmd/juju/secrets"
@@ -59,7 +58,7 @@ func (s *updateSuite) TestUpdateWithoutContent(c *tc.C) {
 		s.store, s.secretsAPI), uri.String(),
 		"--auto-prune", "--name", "new-name", "--info", "this is a secret.",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *updateSuite) TestUpdateFromArg(c *tc.C) {
@@ -73,7 +72,7 @@ func (s *updateSuite) TestUpdateFromArg(c *tc.C) {
 		s.store, s.secretsAPI), uri.String(), "foo=bar",
 		"--auto-prune", "--name", "new-name", "--info", "this is a secret.",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *updateSuite) TestUpdateAutoPruneFalse(c *tc.C) {
@@ -86,7 +85,7 @@ func (s *updateSuite) TestUpdateAutoPruneFalse(c *tc.C) {
 	_, err := cmdtesting.RunCommand(c, secrets.NewUpdateCommandForTest(
 		s.store, s.secretsAPI), uri.String(), "--auto-prune=false",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *updateSuite) TestUpdateAutoPruneNil(c *tc.C) {
@@ -99,7 +98,7 @@ func (s *updateSuite) TestUpdateAutoPruneNil(c *tc.C) {
 	_, err := cmdtesting.RunCommand(c, secrets.NewUpdateCommandForTest(
 		s.store, s.secretsAPI), uri.String(), "--info", "this is a secret.",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *updateSuite) TestUpdateFromFile(c *tc.C) {
@@ -115,10 +114,10 @@ func (s *updateSuite) TestUpdateFromFile(c *tc.C) {
 foo: bar
     `
 	err := os.WriteFile(path, []byte(data), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = cmdtesting.RunCommand(c, secrets.NewUpdateCommandForTest(
 		s.store, s.secretsAPI), uri.String(), "--file", path,
 		"--auto-prune", "--name", "new-name", "--info", "this is a secret.",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

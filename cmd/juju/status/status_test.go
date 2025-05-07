@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/client/client"
 	coremodel "github.com/juju/juju/core/model"
@@ -64,7 +63,7 @@ func (s *MinimalStatusSuite) runStatus(c *tc.C, args ...string) (*cmd.Context, e
 
 func (s *MinimalStatusSuite) TestGoodCall(c *tc.C) {
 	_, err := s.runStatus(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.clock.waits, tc.HasLen, 0)
 }
 
@@ -76,7 +75,7 @@ func (s *MinimalStatusSuite) TestGoodCallWithStorage(c *tc.C) {
 	s.statusapi.result.Volumes = volumeDetails(t)
 
 	context, err := s.runStatus(c, "--no-color", "--storage")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.clock.waits, tc.HasLen, 0)
 
 	obtainedValid := cmdtesting.Stdout(context)
@@ -100,10 +99,10 @@ func (s *MinimalStatusSuite) TestRetryOnError(c *tc.C) {
 	}
 
 	_, err := s.runStatus(c, "--no-color")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	delay := 100 * time.Millisecond
 	// Two delays of the default time.
-	c.Assert(s.clock.waits, jc.DeepEquals, []time.Duration{delay, delay})
+	c.Assert(s.clock.waits, tc.DeepEquals, []time.Duration{delay, delay})
 }
 
 func (s *MinimalStatusSuite) TestRetryDelays(c *tc.C) {
@@ -113,9 +112,9 @@ func (s *MinimalStatusSuite) TestRetryDelays(c *tc.C) {
 	}
 
 	_, err := s.runStatus(c, "--no-color", "--retry-delay", "250ms")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	delay := 250 * time.Millisecond
-	c.Assert(s.clock.waits, jc.DeepEquals, []time.Duration{delay, delay})
+	c.Assert(s.clock.waits, tc.DeepEquals, []time.Duration{delay, delay})
 }
 
 func (s *MinimalStatusSuite) TestRetryCount(c *tc.C) {
@@ -133,7 +132,7 @@ func (s *MinimalStatusSuite) TestRetryCount(c *tc.C) {
 	c.Assert(err.Error(), tc.Equals, "error 6")
 	// We expect five waits of the default duration.
 	delay := 100 * time.Millisecond
-	c.Assert(s.clock.waits, jc.DeepEquals, []time.Duration{delay, delay, delay, delay, delay})
+	c.Assert(s.clock.waits, tc.DeepEquals, []time.Duration{delay, delay, delay, delay, delay})
 }
 
 func (s *MinimalStatusSuite) TestRetryCountOfZero(c *tc.C) {

@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/core/crossmodel"
@@ -76,7 +75,7 @@ func (s *ConsumeSuite) TestInvalidRemoteApplication(c *tc.C) {
 	for _, bad := range badApplications {
 		c.Logf(bad)
 		_, err := s.runConsume(c, bad)
-		c.Check(err != nil, jc.IsTrue)
+		c.Check(err != nil, tc.IsTrue)
 	}
 }
 
@@ -90,8 +89,8 @@ func (s *ConsumeSuite) TestConsumeBlocked(c *tc.C) {
 	s.mockAPI.SetErrors(nil, &params.Error{Code: params.CodeOperationBlocked, Message: "nope"})
 	_, err := s.runConsume(c, "model.application")
 	s.mockAPI.CheckCallNames(c, "GetConsumeDetails", "Consume", "Close", "Close")
-	c.Assert(err.Error(), jc.Contains, `could not consume bob/model.application: nope`)
-	c.Assert(err.Error(), jc.Contains, `All operations that change model have been disabled for the current model.`)
+	c.Assert(err.Error(), tc.Contains, `could not consume bob/model.application: nope`)
+	c.Assert(err.Error(), tc.Contains, `All operations that change model have been disabled for the current model.`)
 }
 
 func (s *ConsumeSuite) assertSuccessModelDotApplication(c *tc.C, alias string) {
@@ -105,9 +104,9 @@ func (s *ConsumeSuite) assertSuccessModelDotApplication(c *tc.C, alias string) {
 	} else {
 		ctx, err = s.runConsume(c, "ctrl:booster.uke")
 	}
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	mac, err := jujutesting.NewMacaroon("id")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.mockAPI.CheckCalls(c, []testing.StubCall{
 		{"GetConsumeDetails", []interface{}{"bob/booster.uke"}},
 		{"Consume", []interface{}{crossmodel.ConsumeApplicationArgs{

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/testing"
@@ -51,10 +50,10 @@ func (*configSuite) TestValidateUpcallsEnvironsConfigValidate(c *tc.C) {
 	// change its name.  Trigger that error so as to prove that the
 	// environment provider's Validate() calls the base Validate().
 	oldCfg, err := newConfig(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	newName := oldCfg.Name() + "-but-different"
 	newCfg, err := oldCfg.Apply(map[string]interface{}{"name": newName})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = EnvironProvider{}.Validate(context.Background(), newCfg, oldCfg.Config)
 
@@ -69,6 +68,6 @@ func (*configSuite) TestSchema(c *tc.C) {
 	globalFields, err := config.Schema(nil)
 	c.Assert(err, tc.IsNil)
 	for name, field := range globalFields {
-		c.Check(fields[name], jc.DeepEquals, field)
+		c.Check(fields[name], tc.DeepEquals, field)
 	}
 }

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -89,7 +88,7 @@ func (s *macaroonAuthSuite) setupMocks(c *tc.C) *gomock.Controller {
 		agentAuthGetter,
 		s.clock,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.authenticator = authenticator
 
 	return ctrl
@@ -139,11 +138,11 @@ func (s *macaroonAuthSuite) TestServerBakery(c *tc.C) {
 
 	client := httpbakery.NewClient()
 	ms, err := client.DischargeAll(context.Background(), mac)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, cond, err := bsvc.Oven.VerifyMacaroon(context.Background(), ms)
 	c.Assert(err, tc.IsNil)
-	c.Assert(cond, jc.DeepEquals, []string{"declared username fred"})
+	c.Assert(cond, tc.DeepEquals, []string{"declared username fred"})
 	authChecker := bsvc.Checker.Auth(ms)
 	ai, err := authChecker.Allow(context.Background(), identchecker.LoginOp)
 	c.Assert(err, tc.IsNil)
@@ -173,7 +172,7 @@ func (s *macaroonAuthSuite) TestExpiredKey(c *tc.C) {
 
 	client := httpbakery.NewClient()
 	ms, err := client.DischargeAll(context.Background(), mac)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, _, err = bsvc.Oven.VerifyMacaroon(context.Background(), ms)
 	c.Assert(err, tc.ErrorMatches, "verification failed: macaroon not found in storage")

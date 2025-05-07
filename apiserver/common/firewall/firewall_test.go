@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -118,9 +117,9 @@ func (s *FirewallSuite) TestWatchEgressAddressesForRelations(c *tc.C) {
 		params.Entities{Entities: []params.Entity{{
 			Tag: names.NewRelationTag("remote-db2:db django:db").String(),
 		}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
-	c.Assert(result.Results[0].Changes, jc.SameContents, []string{"1.2.3.4/32", "4.3.2.1/32"})
+	c.Assert(result.Results[0].Changes, tc.SameContents, []string{"1.2.3.4/32", "4.3.2.1/32"})
 	c.Assert(result.Results[0].Error, tc.IsNil)
 	c.Assert(result.Results[0].StringsWatcherId, tc.Equals, "1")
 
@@ -142,10 +141,10 @@ func (s *FirewallSuite) TestWatchEgressAddressesForRelations(c *tc.C) {
 		django0Call, django1Call = django1Call, django0Call
 		django0MachineCall, django1MachineCall = django1MachineCall, django0MachineCall
 	}
-	c.Assert(django0Call.Args, jc.DeepEquals, []interface{}{"django/0"})
-	c.Assert(django0MachineCall.Args, jc.DeepEquals, []interface{}{"0"})
-	c.Assert(django1Call.Args, jc.DeepEquals, []interface{}{"django/1"})
-	c.Assert(django1MachineCall.Args, jc.DeepEquals, []interface{}{"1"})
+	c.Assert(django0Call.Args, tc.DeepEquals, []interface{}{"django/0"})
+	c.Assert(django0MachineCall.Args, tc.DeepEquals, []interface{}{"0"})
+	c.Assert(django1Call.Args, tc.DeepEquals, []interface{}{"django/1"})
+	c.Assert(django1MachineCall.Args, tc.DeepEquals, []interface{}{"1"})
 }
 
 func (s *FirewallSuite) TestWatchEgressAddressesForRelationsIgnoresProvider(c *tc.C) {
@@ -179,7 +178,7 @@ func (s *FirewallSuite) TestWatchEgressAddressesForRelationsIgnoresProvider(c *t
 		params.Entities{Entities: []params.Entity{{
 			Tag: names.NewRelationTag("remote-db2:db django:db").String(),
 		}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0].Error, tc.ErrorMatches, "egress network for application db2 without requires endpoint not supported")
 }

@@ -19,7 +19,6 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/api"
@@ -45,7 +44,7 @@ type workerFixture struct {
 func (s *workerFixture) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	certPool, err := api.CreateCertPool(coretesting.CACert)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	tlsConfig := api.NewTLSConfig(certPool)
 	tlsConfig.ServerName = "juju-apiserver"
 	tlsConfig.Certificates = []tls.Certificate{*coretesting.ServerTLSCert}
@@ -123,7 +122,7 @@ var _ = tc.Suite(&WorkerSuite{})
 func (s *WorkerSuite) SetUpTest(c *tc.C) {
 	s.workerFixture.SetUpTest(c)
 	worker, err := httpserver.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AddCleanup(func(c *tc.C) {
 		workertest.DirtyKill(c, worker)
 	})
@@ -162,12 +161,12 @@ func (s *WorkerSuite) makeRequest(c *tc.C, url string) {
 	}
 	defer client.CloseIdleConnections()
 	resp, err := client.Get(url + "/hello/world")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer resp.Body.Close()
 
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 	out, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(out), tc.Equals, "hello, world")
 }
 
@@ -193,13 +192,13 @@ func (s *WorkerSuite) TestWaitsForClients(c *tc.C) {
 	s.mux.ClientDone()
 	select {
 	case err := <-waitResult:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("didn't stop after clients were finished")
 	}
 	// Normal exit, no debug file.
 	_, err := os.Stat(filepath.Join(s.logDir, "apiserver-debug.log"))
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
+	c.Assert(err, tc.Satisfies, os.IsNotExist)
 }
 
 func (s *WorkerSuite) TestExitsWithTardyClients(c *tc.C) {
@@ -225,21 +224,21 @@ func (s *WorkerSuite) TestExitsWithTardyClients(c *tc.C) {
 	s.clock.Advance(1 * time.Minute)
 	select {
 	case err := <-waitResult:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("didn't stop after timeout")
 	}
 	// There should be a log file with goroutines.
 	data, err := os.ReadFile(filepath.Join(s.logDir, "apiserver-debug.log"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	lines := strings.Split(string(data), "\n")
-	c.Assert(len(lines), jc.GreaterThan, 1)
+	c.Assert(len(lines), tc.GreaterThan, 1)
 	c.Assert(lines[1], tc.Matches, "goroutine profile:.*")
 }
 
 func (s *WorkerSuite) TestMinTLSVersion(c *tc.C) {
 	parsed, err := url.Parse(s.worker.URL())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	tlsConfig := s.config.TLSConfig
 	// Specify an unsupported TLS version
@@ -260,7 +259,7 @@ func (s *WorkerSuite) TestHeldListener(c *tc.C) {
 	err := s.mux.AddHandler("GET", "/quick", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	quickErr := make(chan error)
 	request := func() {
@@ -282,7 +281,7 @@ func (s *WorkerSuite) TestHeldListener(c *tc.C) {
 
 	select {
 	case err := <-quickErr:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for quick request")
 	}
@@ -344,7 +343,7 @@ var _ = tc.Suite(&WorkerControllerPortSuite{})
 
 func (s *WorkerControllerPortSuite) newWorker(c *tc.C) *httpserver.Worker {
 	worker, err := httpserver.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AddCleanup(func(c *tc.C) {
 		workertest.DirtyKill(c, worker)
 	})
@@ -355,7 +354,7 @@ func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelay(c *tc.C) {
 	err := s.mux.AddHandler("GET", "/quick", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	request := func(url string) error {
 		client := &http.Client{
@@ -381,7 +380,7 @@ func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelay(c *tc.C) {
 	// The worker reports its URL as the controller port.
 	controllerURL := worker.URL()
 	parsed, err := url.Parse(controllerURL)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(parsed.Port(), tc.Equals, fmt.Sprint(controllerPort))
 
 	reportPorts := map[string]interface{}{
@@ -395,10 +394,10 @@ func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelay(c *tc.C) {
 		"status":              "running",
 		"ports":               reportPorts,
 	}
-	c.Check(worker.Report(), jc.DeepEquals, report)
+	c.Check(worker.Report(), tc.DeepEquals, report)
 
 	// Requests on that port work.
-	c.Assert(request(controllerURL), jc.ErrorIsNil)
+	c.Assert(request(controllerURL), tc.ErrorIsNil)
 
 	// Requests on the regular API port fail to connect.
 	parsed.Host = net.JoinHostPort(parsed.Hostname(), fmt.Sprint(port))
@@ -410,7 +409,7 @@ func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelay(c *tc.C) {
 		AgentTag: "machine-13",
 		Origin:   s.agentName,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
 	case <-time.After(testing.LongWait):
@@ -423,19 +422,19 @@ func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelay(c *tc.C) {
 		AgentTag: s.agentName,
 		Origin:   s.agentName,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.clock.WaitAdvance(5*time.Second, coretesting.LongWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(request(controllerURL), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(request(controllerURL), tc.ErrorIsNil)
 	c.Assert(request(normalURL), tc.ErrorMatches, `.*: connection refused$`)
 
 	reportPorts["status"] = "waiting prior to opening agent port"
-	c.Check(worker.Report(), jc.DeepEquals, report)
+	c.Check(worker.Report(), tc.DeepEquals, report)
 
 	// After the required delay the port eventually opens.
 	err = s.clock.WaitAdvance(5*time.Second, coretesting.LongWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// The reported url changes to the regular port.
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
@@ -446,19 +445,19 @@ func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelay(c *tc.C) {
 	c.Assert(worker.URL(), tc.Equals, normalURL)
 
 	// Requests on both ports work.
-	c.Assert(request(controllerURL), jc.ErrorIsNil)
-	c.Assert(request(normalURL), jc.ErrorIsNil)
+	c.Assert(request(controllerURL), tc.ErrorIsNil)
+	c.Assert(request(normalURL), tc.ErrorIsNil)
 
 	delete(reportPorts, "status")
 	reportPorts["agent"] = fmt.Sprintf("[::]:%d", s.config.APIPort)
-	c.Check(worker.Report(), jc.DeepEquals, report)
+	c.Check(worker.Report(), tc.DeepEquals, report)
 }
 
 func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelayShutdown(c *tc.C) {
 	err := s.mux.AddHandler("GET", "/quick", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	request := func(url string) error {
 		client := &http.Client{
@@ -481,10 +480,10 @@ func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelayShutdown(c *tc.
 	worker := s.newWorker(c)
 	controllerURL := worker.URL()
 	parsed, err := url.Parse(controllerURL)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(parsed.Port(), tc.Equals, fmt.Sprint(controllerPort))
 	// Requests to controllerURL are successful, but normal requests are denied
-	c.Assert(request(controllerURL), jc.ErrorIsNil)
+	c.Assert(request(controllerURL), tc.ErrorIsNil)
 	parsed.Host = net.JoinHostPort(parsed.Hostname(), fmt.Sprint(port))
 	normalURL := parsed.String()
 	c.Assert(request(normalURL), tc.ErrorMatches, `.*: connection refused$`)
@@ -494,7 +493,7 @@ func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelayShutdown(c *tc.
 		AgentTag: s.agentName,
 		Origin:   s.agentName,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// We exit cleanly even if we never tick the clock forward
 	workertest.CleanKill(c, worker)
 }

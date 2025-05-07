@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
 
 	corebase "github.com/juju/juju/core/base"
@@ -33,7 +32,7 @@ func (s *diffSuite) SetUpTest(c *tc.C) {
 
 func (s *diffSuite) TestNewDiffEmpty(c *tc.C) {
 	diff := &bundlechanges.BundleDiff{}
-	c.Assert(diff.Empty(), jc.IsTrue)
+	c.Assert(diff.Empty(), tc.IsTrue)
 }
 
 func (s *diffSuite) TestApplicationsNotEmpty(c *tc.C) {
@@ -43,7 +42,7 @@ func (s *diffSuite) TestApplicationsNotEmpty(c *tc.C) {
 	diff.Applications["mantell"] = &bundlechanges.ApplicationDiff{
 		Missing: bundlechanges.ModelSide,
 	}
-	c.Assert(diff.Empty(), jc.IsFalse)
+	c.Assert(diff.Empty(), tc.IsFalse)
 }
 
 func (s *diffSuite) TestApplicationExposedEndpointsDiff(c *tc.C) {
@@ -149,7 +148,7 @@ func (s *diffSuite) TestMachinesNotEmpty(c *tc.C) {
 	diff.Machines["1"] = &bundlechanges.MachineDiff{
 		Missing: bundlechanges.BundleSide,
 	}
-	c.Assert(diff.Empty(), jc.IsFalse)
+	c.Assert(diff.Empty(), tc.IsFalse)
 }
 
 func (s *diffSuite) TestRelationsNotEmpty(c *tc.C) {
@@ -159,7 +158,7 @@ func (s *diffSuite) TestRelationsNotEmpty(c *tc.C) {
 			{"sinkane:telephone", "bad-sav:hensteeth"},
 		},
 	}
-	c.Assert(diff.Empty(), jc.IsFalse)
+	c.Assert(diff.Empty(), tc.IsFalse)
 }
 
 func (s *diffSuite) TestModelMissingApplication(c *tc.C) {
@@ -1471,7 +1470,7 @@ func (s *diffSuite) checkDiffImpl(c *tc.C, config bundlechanges.DiffConfig, expe
 		c.Assert(err, tc.ErrorMatches, errMatch)
 		c.Assert(diff, tc.IsNil)
 	} else {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		//diffOut, err := yaml.Marshal(diff)
 		//c.Assert(err, jc.ErrorIsNil)
 		c.Logf("actual: %s", pretty.Sprint(diff))
@@ -1484,8 +1483,8 @@ func (s *diffSuite) checkDiffImpl(c *tc.C, config bundlechanges.DiffConfig, expe
 
 func (s *diffSuite) readBundle(c *tc.C, bundleContent string) *charm.BundleData {
 	data, err := charm.ReadBundleData(strings.NewReader(bundleContent))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = data.Verify(nil, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return data
 }

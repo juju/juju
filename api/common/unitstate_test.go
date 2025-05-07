@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/common"
@@ -35,7 +34,7 @@ func (s *unitStateSuite) TestSetStateSingleResult(c *tc.C) {
 		c.Assert(name, tc.Equals, "SetState")
 		c.Assert(args.(params.SetUnitStateArgs).Args, tc.HasLen, 1)
 		c.Assert(args.(params.SetUnitStateArgs).Args[0].Tag, tc.Equals, s.tag.String())
-		c.Assert(*args.(params.SetUnitStateArgs).Args[0].CharmState, jc.DeepEquals, map[string]string{"one": "two"})
+		c.Assert(*args.(params.SetUnitStateArgs).Args[0].CharmState, tc.DeepEquals, map[string]string{"one": "two"})
 		*(response.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{
 				Error: nil,
@@ -47,7 +46,7 @@ func (s *unitStateSuite) TestSetStateSingleResult(c *tc.C) {
 	err := api.SetState(context.Background(), params.SetUnitStateArg{
 		CharmState: &map[string]string{"one": "two"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *unitStateSuite) TestSetStateReturnsQuotaExceededError(c *tc.C) {
@@ -65,7 +64,7 @@ func (s *unitStateSuite) TestSetStateReturnsQuotaExceededError(c *tc.C) {
 	err := api.SetState(context.Background(), params.SetUnitStateArg{
 		CharmState: &map[string]string{"one": "two"},
 	})
-	c.Assert(err, jc.ErrorIs, errors.QuotaLimitExceeded, tc.Commentf("expected the client to reconstruct QuotaLimitExceeded error from server response"))
+	c.Assert(err, tc.ErrorIs, errors.QuotaLimitExceeded, tc.Commentf("expected the client to reconstruct QuotaLimitExceeded error from server response"))
 }
 
 func (s *unitStateSuite) TestSetStateMultipleReturnsError(c *tc.C) {
@@ -74,7 +73,7 @@ func (s *unitStateSuite) TestSetStateMultipleReturnsError(c *tc.C) {
 		c.Assert(name, tc.Equals, "SetState")
 		c.Assert(args.(params.SetUnitStateArgs).Args, tc.HasLen, 1)
 		c.Assert(args.(params.SetUnitStateArgs).Args[0].Tag, tc.Equals, s.tag.String())
-		c.Assert(*args.(params.SetUnitStateArgs).Args[0].CharmState, jc.DeepEquals, map[string]string{"one": "two"})
+		c.Assert(*args.(params.SetUnitStateArgs).Args[0].CharmState, tc.DeepEquals, map[string]string{"one": "two"})
 		*(response.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{
 				{Error: nil},
@@ -111,7 +110,7 @@ func (s *unitStateSuite) TestStateSingleResult(c *tc.C) {
 
 	api := common.NewUniterStateAPI(&facadeCaller, s.tag)
 	obtainedUnitState, err := api.State(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(expectedCharmState, tc.DeepEquals, obtainedUnitState.CharmState)
 	c.Assert(expectedUniterState, tc.DeepEquals, obtainedUnitState.UniterState)
 }

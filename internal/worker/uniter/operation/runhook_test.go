@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/internal/charm/hooks"
@@ -37,7 +36,7 @@ func (s *RunHookSuite) testPrepareHookError(
 	}
 	factory := newOpFactory(c, nil, callbacks)
 	op, err := newHook(factory, hook.Info{Kind: hooks.ConfigChanged})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Prepare(stdcontext.Background(), operation.State{})
 	c.Check(newState, tc.IsNil)
@@ -67,11 +66,11 @@ func (s *RunHookSuite) TestPrepareHookCtxCalled(c *tc.C) {
 	factory := newOpFactory(c, runnerFactory, callbacks)
 
 	op, err := factory.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Prepare(stdcontext.Background(), operation.State{})
 	c.Check(newState, tc.NotNil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx.CheckCall(c, 0, "Prepare")
 }
@@ -92,7 +91,7 @@ func (s *RunHookSuite) TestPrepareHookCtxError(c *tc.C) {
 	factory := newOpFactory(c, runnerFactory, callbacks)
 
 	op, err := factory.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Prepare(stdcontext.Background(), operation.State{})
 	c.Check(newState, tc.IsNil)
@@ -123,7 +122,7 @@ func (s *RunHookSuite) TestPrepareHookError_LeaderElectedNotLeader(c *tc.C) {
 	factory := newOpFactory(c, runnerFactory, callbacks)
 
 	op, err := operation.Factory.NewRunHook(factory, hook.Info{Kind: hooks.LeaderElected})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = op.Prepare(stdcontext.Background(), operation.State{})
 	c.Assert(err, tc.Equals, operation.ErrSkipExecute)
@@ -136,7 +135,7 @@ func (s *RunHookSuite) testPrepareRunnerError(c *tc.C, newHook newHook) {
 	}
 	factory := newOpFactory(c, runnerFactory, callbacks)
 	op, err := newHook(factory, hook.Info{Kind: hooks.ConfigChanged})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Prepare(stdcontext.Background(), operation.State{})
 	c.Check(newState, tc.IsNil)
@@ -157,10 +156,10 @@ func (s *RunHookSuite) testPrepareSuccess(
 	callbacks := NewPrepareHookCallbacks(hooks.ConfigChanged)
 	factory := newOpFactory(c, runnerFactory, callbacks)
 	op, err := newHook(factory, hook.Info{Kind: hooks.ConfigChanged})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Prepare(stdcontext.Background(), before)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(newState, tc.DeepEquals, &after)
 }
 
@@ -202,7 +201,7 @@ func (s *RunHookSuite) getExecuteRunnerTest(
 
 	op, err := newHook(factory, hook.Info{Kind: kind})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return op, callbacks, runnerFactory
 }
 
@@ -212,10 +211,10 @@ func (s *RunHookSuite) TestExecuteMissingHookError(c *tc.C) {
 		c.Logf("hook %v", kind)
 		op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, operation.Factory.NewRunHook, kind, runErr)
 		_, err := op.Prepare(stdcontext.Background(), operation.State{})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		newState, err := op.Execute(stdcontext.Background(), operation.State{})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		s.assertStateMatches(c, newState, operation.RunHook, operation.Done, kind)
 
@@ -224,7 +223,7 @@ func (s *RunHookSuite) TestExecuteMissingHookError(c *tc.C) {
 		c.Assert(callbacks.MockNotifyHookFailed.gotName, tc.IsNil)
 
 		status, err := runnerFactory.MockNewHookRunner.runner.Context().UnitStatus(stdcontext.Background())
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		testAfterHookStatus(c, kind, status, false)
 	}
 }
@@ -246,7 +245,7 @@ func (s *RunHookSuite) TestExecuteRequeueRebootError(c *tc.C) {
 	runErr := context.ErrRequeueAndReboot
 	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, operation.Factory.NewRunHook, hooks.ConfigChanged, runErr)
 	_, err := op.Prepare(stdcontext.Background(), operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Execute(stdcontext.Background(), operation.State{})
 	c.Assert(err, tc.Equals, operation.ErrNeedsReboot)
@@ -263,7 +262,7 @@ func (s *RunHookSuite) TestExecuteRebootError(c *tc.C) {
 	runErr := context.ErrReboot
 	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, operation.Factory.NewRunHook, hooks.ConfigChanged, runErr)
 	_, err := op.Prepare(stdcontext.Background(), operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Execute(stdcontext.Background(), operation.State{})
 	c.Assert(err, tc.Equals, operation.ErrNeedsReboot)
@@ -280,7 +279,7 @@ func (s *RunHookSuite) TestExecuteOtherError(c *tc.C) {
 	runErr := errors.New("graaargh")
 	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, operation.Factory.NewRunHook, hooks.ConfigChanged, runErr)
 	_, err := op.Prepare(stdcontext.Background(), operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Execute(stdcontext.Background(), operation.State{})
 	c.Assert(err, tc.Equals, operation.ErrHookFailed)
@@ -295,7 +294,7 @@ func (s *RunHookSuite) TestExecuteTerminated(c *tc.C) {
 	runErr := runner.ErrTerminated
 	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, operation.Factory.NewRunHook, hooks.ConfigChanged, runErr)
 	_, err := op.Prepare(stdcontext.Background(), operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Execute(stdcontext.Background(), operation.State{})
 	c.Assert(err, tc.Equals, runner.ErrTerminated)
@@ -309,19 +308,19 @@ func (s *RunHookSuite) TestExecuteTerminated(c *tc.C) {
 func (s *RunHookSuite) TestInstallHookPreservesStatus(c *tc.C) {
 	op, callbacks, f := s.getExecuteRunnerTest(c, operation.Factory.NewRunHook, hooks.Install, nil)
 	err := f.MockNewHookRunner.runner.Context().SetUnitStatus(stdcontext.Background(), jujuc.StatusInfo{Status: "blocked", Info: "no database"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	st := operation.State{
 		StatusSet: true,
 	}
 	midState, err := op.Prepare(stdcontext.Background(), st)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(midState, tc.NotNil)
 
 	_, err = op.Execute(stdcontext.Background(), *midState)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(callbacks.executingMessage, tc.Equals, "running install hook")
 	status, err := f.MockNewHookRunner.runner.Context().UnitStatus(stdcontext.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(status.Status, tc.Equals, "blocked")
 	c.Assert(status.Info, tc.Equals, "no database")
 }
@@ -332,14 +331,14 @@ func (s *RunHookSuite) TestInstallHookWHenNoStatusSet(c *tc.C) {
 		StatusSet: false,
 	}
 	midState, err := op.Prepare(stdcontext.Background(), st)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(midState, tc.NotNil)
 
 	_, err = op.Execute(stdcontext.Background(), *midState)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(callbacks.executingMessage, tc.Equals, "running install hook")
 	status, err := f.MockNewHookRunner.runner.Context().UnitStatus(stdcontext.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(status.Status, tc.Equals, "maintenance")
 	c.Assert(status.Info, tc.Equals, "installing charm software")
 }
@@ -350,11 +349,11 @@ func (s *RunHookSuite) testExecuteSuccess(
 	op, callbacks, f := s.getExecuteRunnerTest(c, operation.Factory.NewRunHook, hooks.ConfigChanged, nil)
 	f.MockNewHookRunner.runner.MockRunHook.setStatusCalled = setStatusCalled
 	midState, err := op.Prepare(stdcontext.Background(), before)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(midState, tc.NotNil)
 
 	newState, err := op.Execute(stdcontext.Background(), *midState)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertStateMatches(c, newState, after.Kind, after.Step, after.Hook.Kind)
 	c.Assert(newState.Started, tc.Equals, after.Started)
@@ -396,21 +395,21 @@ func (s *RunHookSuite) testExecuteThenCharmStatus(
 	op, _, f := s.getExecuteRunnerTest(c, operation.Factory.NewRunHook, kind, nil)
 	f.MockNewHookRunner.runner.MockRunHook.setStatusCalled = setStatusCalled
 	midState, err := op.Prepare(stdcontext.Background(), before)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(midState, tc.NotNil)
 
 	_, err = f.MockNewHookRunner.runner.Context().UnitStatus(stdcontext.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Execute(stdcontext.Background(), *midState)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertStateMatches(c, newState, after.Kind, after.Step, after.Hook.Kind)
 	c.Assert(newState.Started, tc.Equals, after.Started)
 	c.Assert(newState.StatusSet, tc.Equals, after.StatusSet)
 
 	status, err := f.MockNewHookRunner.runner.Context().UnitStatus(stdcontext.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	testAfterHookStatus(c, kind, status, after.StatusSet)
 }
 
@@ -457,14 +456,14 @@ func (s *RunHookSuite) testBeforeHookExecute(c *tc.C, newHook newHook, kind hook
 	runErr := errors.New("graaargh")
 	op, _, runnerFactory := s.getExecuteRunnerTest(c, newHook, kind, runErr)
 	_, err := op.Prepare(stdcontext.Background(), operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Execute(stdcontext.Background(), operation.State{})
 	c.Assert(err, tc.Equals, operation.ErrHookFailed)
 	c.Assert(newState, tc.IsNil)
 
 	status, err := runnerFactory.MockNewHookRunner.runner.Context().UnitStatus(stdcontext.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	testBeforeHookStatus(c, kind, status)
 }
 
@@ -504,7 +503,7 @@ func (s *RunHookSuite) testCommitError(c *tc.C, newHook newHook) {
 	}
 	factory := newOpFactory(c, nil, callbacks)
 	op, err := newHook(factory, hook.Info{Kind: hooks.ConfigChanged})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Commit(stdcontext.Background(), operation.State{})
 	c.Assert(newState, tc.IsNil)
@@ -525,10 +524,10 @@ func (s *RunHookSuite) testCommitSuccess(c *tc.C, newHook newHook, hookInfo hook
 	}
 	factory := newOpFactory(c, nil, callbacks)
 	op, err := newHook(factory, hookInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Commit(stdcontext.Background(), before)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(newState, tc.DeepEquals, &after)
 }
 
@@ -629,13 +628,13 @@ func (s *RunHookSuite) assertCommitSuccess_RelationBroken_SetStatus(c *tc.C, sus
 	}
 	factory := newOpFactory(c, runnerFactory, callbacks)
 	op, err := factory.NewRunHook(hook.Info{Kind: hooks.RelationBroken})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = op.Prepare(stdcontext.Background(), operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Execute(stdcontext.Background(), operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	step := operation.Done
 	c.Assert(newState, tc.DeepEquals, &operation.State{
 		Kind:     operation.RunHook,
@@ -867,7 +866,7 @@ func (s *RunHookSuite) TestQueueNothing_RelationBroken_Preserve(c *tc.C) {
 func (s *RunHookSuite) testNeedsGlobalMachineLock(c *tc.C, newHook newHook, expected bool) {
 	factory := newOpFactory(c, nil, nil)
 	op, err := newHook(factory, hook.Info{Kind: hooks.ConfigChanged})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.NeedsGlobalMachineLock(), tc.Equals, expected)
 }
 
@@ -937,7 +936,7 @@ func (s *RunHookSuite) TestCommitSuccess_SecretRotate_SetRotated(c *tc.C) {
 	op, err := factory.NewRunHook(hook.Info{
 		Kind: hooks.SecretRotate, SecretURI: "secret:9m4e2mr0ui3e8a215n4g",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectState := &operation.State{
 		Kind: operation.Continue,
@@ -945,10 +944,10 @@ func (s *RunHookSuite) TestCommitSuccess_SecretRotate_SetRotated(c *tc.C) {
 	}
 
 	_, err = op.Prepare(stdcontext.Background(), operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	newState, err := op.Commit(stdcontext.Background(), operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newState, jc.DeepEquals, expectState)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(newState, tc.DeepEquals, expectState)
 	c.Assert(callbacks.rotatedSecretURI, tc.Equals, "secret:9m4e2mr0ui3e8a215n4g")
 	c.Assert(callbacks.rotatedOldRevision, tc.Equals, 666)
 }
@@ -975,7 +974,7 @@ func (s *RunHookSuite) assertPrepareSecretHookErrorNotLeader(c *tc.C, kind hooks
 	op, err := factory.NewRunHook(hook.Info{
 		Kind: kind, SecretURI: "secret:9m4e2mr0ui3e8a215n4g", SecretRevision: 666,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = op.Prepare(stdcontext.Background(), operation.State{})
 	c.Assert(err, tc.Equals, operation.ErrSkipExecute)

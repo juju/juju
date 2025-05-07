@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	apiapplication "github.com/juju/juju/api/client/application"
@@ -75,7 +74,7 @@ func (s *removeApplicationSuite) TestRemoveApplication(c *tc.C) {
 
 	ctx, err := s.runRemoveApplication(c, "--no-prompt", "real-app")
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "will remove application real-app\n")
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "")
 }
@@ -94,7 +93,7 @@ func (s *removeApplicationSuite) TestRemoveApplicationWithRequiresPromptModeAbse
 
 	ctx, err := s.runRemoveApplication(c, "real-app")
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "will remove application real-app\n")
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "")
 }
@@ -111,7 +110,7 @@ func (s *removeApplicationSuite) TestRemoveApplicationForce(c *tc.C) {
 
 	ctx, err := s.runRemoveApplication(c, "--no-prompt", "real-app", "--force")
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "will remove application real-app\n")
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "")
 }
@@ -128,7 +127,7 @@ func (s *removeApplicationSuite) TestRemoveApplicationDryRun(c *tc.C) {
 
 	ctx, err := s.runRemoveApplication(c, "real-app", "--dry-run")
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 will remove application real-app
 `[1:])
@@ -170,7 +169,7 @@ func (s *removeApplicationSuite) TestRemoveApplicationPrompt(c *tc.C) {
 
 	select {
 	case err := <-errc:
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	case <-time.After(testing.LongWait):
 		c.Fatal("command took too long")
 	}
@@ -204,7 +203,7 @@ func (s *removeApplicationSuite) TestHandlingNotSupportedDoesNotAffectBaseCase(c
 
 	ctx, err := s.runRemoveApplication(c, "--no-prompt", "real-app")
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "will remove application real-app\n")
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "")
 }
@@ -257,7 +256,7 @@ func (s *removeApplicationSuite) TestDetachStorage(c *tc.C) {
 
 	ctx, err := s.runRemoveApplication(c, "--no-prompt", "storage-app")
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	stdout := cmdtesting.Stdout(ctx)
 	c.Assert(stdout, tc.Equals, `
 will remove application storage-app
@@ -282,7 +281,7 @@ func (s *removeApplicationSuite) TestDestroyStorage(c *tc.C) {
 
 	ctx, err := s.runRemoveApplication(c, "--no-prompt", "storage-app", "--destroy-storage")
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	stdout := cmdtesting.Stdout(ctx)
 	c.Assert(stdout, tc.Equals, `
 will remove application storage-app

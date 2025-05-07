@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/controller"
@@ -48,7 +47,7 @@ func (s *CrossControllerSuite) SetUpTest(c *tc.C) {
 		func(context.Context) (string, error) { return s.publicDnsAddress, nil },
 		func() state.NotifyWatcher { return s.watchLocalControllerInfo() },
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api = api
 	s.watcher = newMockNotifyWatcher()
 	s.AddCleanup(func(*tc.C) { _ = s.watcher.Stop() })
@@ -56,8 +55,8 @@ func (s *CrossControllerSuite) SetUpTest(c *tc.C) {
 
 func (s *CrossControllerSuite) TestControllerInfo(c *tc.C) {
 	results, err := s.api.ControllerInfo(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ControllerAPIInfoResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ControllerAPIInfoResults{
 		Results: []params.ControllerAPIInfoResult{{
 			Addresses: []string{"addr1", "addr2"},
 			CACert:    "ca-cert",
@@ -68,8 +67,8 @@ func (s *CrossControllerSuite) TestControllerInfo(c *tc.C) {
 func (s *CrossControllerSuite) TestControllerInfoWithDNSAddress(c *tc.C) {
 	s.publicDnsAddress = "publicDNSaddr"
 	results, err := s.api.ControllerInfo(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ControllerAPIInfoResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ControllerAPIInfoResults{
 		Results: []params.ControllerAPIInfoResult{{
 			Addresses: []string{"publicDNSaddr", "addr1", "addr2"},
 			CACert:    "ca-cert",
@@ -82,8 +81,8 @@ func (s *CrossControllerSuite) TestControllerInfoError(c *tc.C) {
 		return nil, "", errors.New("nope")
 	}
 	results, err := s.api.ControllerInfo(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ControllerAPIInfoResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ControllerAPIInfoResults{
 		Results: []params.ControllerAPIInfoResult{{
 			Error: &params.Error{Message: "nope"},
 		}},
@@ -93,8 +92,8 @@ func (s *CrossControllerSuite) TestControllerInfoError(c *tc.C) {
 func (s *CrossControllerSuite) TestWatchControllerInfo(c *tc.C) {
 	s.watcher.changes <- struct{}{} // initial value
 	results, err := s.api.WatchControllerInfo(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.NotifyWatchResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{{
 			NotifyWatcherId: "1",
 		}},
@@ -107,8 +106,8 @@ func (s *CrossControllerSuite) TestWatchControllerInfoError(c *tc.C) {
 	close(s.watcher.changes)
 
 	results, err := s.api.WatchControllerInfo(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.NotifyWatchResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{{
 			Error: &params.Error{Message: "nope"},
 		}},
@@ -147,9 +146,9 @@ func (s *CrossControllerSuite) TestGetControllerInfo(c *tc.C) {
 	addrs, cert, err := controllerInfo(stubControllerInfoGetter{}, controller.Config{
 		"ca-cert": "ca-cert",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Public address is sorted first.
-	c.Check(addrs, jc.DeepEquals, []string{"host-name:50000", "10.1.2.3:50000"})
+	c.Check(addrs, tc.DeepEquals, []string{"host-name:50000", "10.1.2.3:50000"})
 	c.Check(cert, tc.Equals, "ca-cert")
 }

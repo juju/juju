@@ -19,7 +19,6 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"github.com/kr/pretty"
@@ -121,11 +120,11 @@ func (s *ProvisionerTaskSuite) TestStartStop(c *tc.C) {
 	workertest.CleanKill(c, task)
 
 	err := workertest.CheckKilled(c, task)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = workertest.CheckKilled(c, s.modelMachinesWatcher)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = workertest.CheckKilled(c, s.machineErrorRetryWatcher)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.instanceBroker.CheckNoCalls(c)
 }
 
@@ -161,8 +160,8 @@ func (s *ProvisionerTaskSuite) TestStopInstancesIgnoresMachinesWithKeep(c *tc.C)
 	)
 	defer workertest.CleanKill(c, task)
 
-	c.Assert(m0.markForRemoval, jc.IsFalse)
-	c.Assert(m1.markForRemoval, jc.IsFalse)
+	c.Assert(m0.markForRemoval, tc.IsFalse)
+	c.Assert(m1.markForRemoval, tc.IsFalse)
 
 	s.sendModelMachinesChange(c, "0", "1")
 
@@ -174,8 +173,8 @@ func (s *ProvisionerTaskSuite) TestStopInstancesIgnoresMachinesWithKeep(c *tc.C)
 		{FuncName: "AllRunningInstances"},
 		{FuncName: "StopInstances", Args: []interface{}{[]instance.Id{"zero"}}},
 	})
-	c.Assert(m0.markForRemoval, jc.IsTrue)
-	c.Assert(m1.markForRemoval, jc.IsTrue)
+	c.Assert(m0.markForRemoval, tc.IsTrue)
+	c.Assert(m1.markForRemoval, tc.IsTrue)
 }
 
 func (s *ProvisionerTaskSuite) TestProvisionerRetries(c *tc.C) {
@@ -237,7 +236,7 @@ func (s *ProvisionerTaskSuite) waitForRemovalMark(c *tc.C, m *testMachine) {
 func (s *ProvisionerTaskSuite) waitForInstanceStatus(c *tc.C, m *testMachine, status status.Status) string {
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
 		instStatus, info, err := m.InstanceStatus(context.Background())
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		if instStatus == status {
 			return info
 		}
@@ -297,7 +296,7 @@ func (s *ProvisionerTaskSuite) TestSetUpToStartMachine(c *tc.C) {
 		},
 	}
 	startInstanceParams, err := provisionertask.SetupToStartMachine(task, m0, &vers, res)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(startInstanceParams.InstanceConfig, tc.NotNil)
 	c.Assert(startInstanceParams.InstanceConfig.APIInfo, tc.NotNil)
 	c.Assert(startInstanceParams.InstanceConfig.APIInfo.Password, tc.Not(tc.Equals), "")
@@ -317,7 +316,7 @@ func (s *ProvisionerTaskSuite) TestSetUpToStartMachine(c *tc.C) {
 	want.ImageMetadata = possibleImageMetadata
 	want.EndpointBindings = map[string]network.Id{"endpoint": "space"}
 	want.CharmLXDProfiles = []string{"p1", "p2"}
-	c.Assert(startInstanceParams, jc.DeepEquals, *want)
+	c.Assert(startInstanceParams, tc.DeepEquals, *want)
 }
 
 func (s *ProvisionerTaskSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvailable(c *tc.C) {
@@ -398,7 +397,7 @@ func (s *ProvisionerTaskSuite) TestEvenZonePlacement(c *tc.C) {
 		},
 	}
 	err := retry.Call(retryCallArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	zoneCounts := make(map[string]int)
 	for _, z := range usedZones {
@@ -410,7 +409,7 @@ func (s *ProvisionerTaskSuite) TestEvenZonePlacement(c *tc.C) {
 			c.Fatalf("expected either 1 or 2 machines for %v, got %d", z, count)
 		}
 	}
-	c.Assert(set.NewStrings(usedZones...).SortedValues(), jc.DeepEquals, []string{"az1", "az2", "az3"})
+	c.Assert(set.NewStrings(usedZones...).SortedValues(), tc.DeepEquals, []string{"az1", "az2", "az3"})
 
 	for _, m := range machines {
 		c.Assert(m.password, tc.Not(tc.Equals), "")
@@ -989,7 +988,7 @@ func (s *ProvisionerTaskSuite) TestUpdatedZonesReflectedInAZMachineSlice(c *tc.C
 	syncStep()
 	azm = provisionertask.GetCopyAvailabilityZoneMachines(task)
 	c.Assert(azm, tc.HasLen, 3)
-	c.Assert([]string{azm[0].ZoneName, azm[1].ZoneName, azm[2].ZoneName}, jc.SameContents, []string{"az1", "az2", "az3"})
+	c.Assert([]string{azm[0].ZoneName, azm[1].ZoneName, azm[2].ZoneName}, tc.SameContents, []string{"az1", "az2", "az3"})
 
 	m0.SetUnprovisioned()
 	s.sendModelMachinesChange(c, "0")
@@ -1116,10 +1115,10 @@ func (s *ProvisionerTaskSuite) TestProvisionerStopRetryingIfDying(c *tc.C) {
 	s.instanceBroker.CheckCallNames(c, "StartInstance")
 
 	statusInfo, _, err := m0.Status(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(statusInfo, tc.Equals, status.Pending)
 	statusInfo, _, err = m0.InstanceStatus(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	if statusInfo != status.Pending && statusInfo != status.Provisioning {
 		c.Errorf("statusInfo.Status was %q not one of %q or %q",
 			statusInfo, status.Pending, status.Provisioning)
@@ -1345,7 +1344,7 @@ func (s *ProvisionerTaskSuite) TestDyingMachines(c *tc.C) {
 	s.waitForRemovalMark(c, m1)
 
 	// verify the other one's still fine
-	c.Assert(m0.markForRemoval, jc.IsFalse)
+	c.Assert(m0.markForRemoval, tc.IsFalse)
 }
 
 // setUpZonedEnviron creates a mock broker with instances based on those set
@@ -1468,7 +1467,7 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithRetry(
 		NumProvisionWorkers:          numProvisionWorkers,
 		GetMachineInstanceInfoSetter: machineInstanceInfoSetter,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }
 
@@ -1511,7 +1510,7 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithBrokerAndEventCb(
 		EventProcessedCb:             evtCb,
 		GetMachineInstanceInfoSetter: machineInstanceInfoSetter,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return task
 }
 

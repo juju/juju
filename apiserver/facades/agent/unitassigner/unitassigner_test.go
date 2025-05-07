@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -45,12 +44,12 @@ func (s *testsuite) TestAssignUnits(c *tc.C) {
 	}
 	args := params.Entities{Entities: []params.Entity{{Tag: "unit-foo-0"}, {Tag: "unit-bar-1"}}}
 	res, err := api.AssignUnits(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(f.ids, tc.DeepEquals, []string{"foo/0", "bar/1"})
 	c.Assert(res.Results, tc.HasLen, 2)
 	c.Check(res.Results[0].Error, tc.IsNil)
 	c.Check(res.Results[1].Error, tc.ErrorMatches, `unit "unit-bar-1" not found`)
-	c.Check(machineService.machineNames, jc.SameContents, []machine.Name{machine.Name("1"), machine.Name("1/lxd/2")})
+	c.Check(machineService.machineNames, tc.SameContents, []machine.Name{machine.Name("1"), machine.Name("1/lxd/2")})
 }
 
 func (s *testsuite) TestWatchUnitAssignment(c *tc.C) {
@@ -58,8 +57,8 @@ func (s *testsuite) TestWatchUnitAssignment(c *tc.C) {
 	api := API{st: f, res: common.NewResources()}
 	f.ids = []string{"boo", "far"}
 	res, err := api.WatchUnitAssignments(context.Background())
-	c.Assert(f.watchCalled, jc.IsTrue)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(f.watchCalled, tc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Changes, tc.DeepEquals, f.ids)
 }
 
@@ -89,7 +88,7 @@ func (s *testsuite) TestSetStatus(c *tc.C) {
 		}},
 	}
 	res, err := api.SetAgentStatus(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(res.Results, tc.DeepEquals, []params.ErrorResult{
 		{},

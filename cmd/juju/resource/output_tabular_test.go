@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/core/resource"
@@ -25,7 +24,7 @@ type CharmTabularSuite struct {
 func (s *CharmTabularSuite) formatTabular(c *tc.C, value interface{}) string {
 	out := &bytes.Buffer{}
 	err := resourcecmd.FormatCharmTabular(out, value)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return out.String()
 }
 
@@ -99,7 +98,7 @@ type AppTabularSuite struct {
 func (s *AppTabularSuite) formatTabular(c *tc.C, value interface{}) string {
 	out := &bytes.Buffer{}
 	err := resourcecmd.FormatAppTabular(out, value)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return out.String()
 }
 
@@ -245,7 +244,7 @@ func (s *AppTabularSuite) TestFormatSvcTabularMulti(c *tc.C) {
 		Resources:           res,
 		RepositoryResources: charmResources,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	data := s.formatTabular(c, formatted)
 	// Notes: sorted by name, then by revision, newest first.

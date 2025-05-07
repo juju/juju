@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	actionapi "github.com/juju/juju/api/client/action"
 	"github.com/juju/juju/cmd/juju/action"
@@ -34,7 +33,7 @@ func (s *CancelSuite) TestInit(c *tc.C) {
 		cmd, _ := action.NewCancelCommandForTest(s.store)
 		args := append([]string{modelFlag, "admin"}, "test")
 		err := cmdtesting.InitCommand(cmd, args)
-		c.Check(err, jc.ErrorIs, errors.NotValid)
+		c.Check(err, tc.ErrorIs, errors.NotValid)
 	}
 }
 
@@ -70,14 +69,14 @@ func (s *CancelSuite) runTestCase(c *tc.C, tc cancelTestCase) {
 		args := append([]string{modelFlag, "admin"}, tc.args...)
 		ctx, err := cmdtesting.RunCommand(c, s.subcommand, args...)
 		if tc.expectError == "" {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		} else {
 			c.Assert(err, tc.ErrorMatches, tc.expectError)
 		}
 		if len(tc.results) > 0 {
 			out := &bytes.Buffer{}
 			err := cmd.FormatYaml(out, action.ActionResultsToMap(tc.results))
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			c.Check(ctx.Stdout.(*bytes.Buffer).String(), tc.Equals, out.String())
 			c.Check(ctx.Stderr.(*bytes.Buffer).String(), tc.Equals, "")
 		}

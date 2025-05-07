@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/agent"
@@ -78,7 +77,7 @@ func (s *lxdBrokerSuite) SetUpTest(c *tc.C) {
 			Controller:        coretesting.ControllerTag,
 			Model:             coretesting.ModelTag,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api = NewFakeAPI()
 	s.manager = &fakeContainerManager{}
 }
@@ -93,7 +92,7 @@ func (s *lxdBrokerSuite) newLXDBroker(c *tc.C) (environs.InstanceBroker, error) 
 
 func (s *lxdBrokerSuite) TestStartInstanceWithoutHostNetworkChanges(c *tc.C) {
 	broker, brokerErr := s.newLXDBroker(c)
-	c.Assert(brokerErr, jc.ErrorIsNil)
+	c.Assert(brokerErr, tc.ErrorIsNil)
 	machineId := "1/lxd/0"
 	containerTag := names.NewMachineTag("1-lxd-0")
 	s.startInstance(c, broker, machineId)
@@ -115,13 +114,13 @@ func (s *lxdBrokerSuite) TestStartInstanceWithoutHostNetworkChanges(c *tc.C) {
 	instanceConfig := call.Args[0].(*instancecfg.InstanceConfig)
 	c.Assert(instanceConfig.ToolsList(), tc.HasLen, 1)
 	arch, err := instanceConfig.ToolsList().OneArch()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(arch, tc.Equals, "amd64")
 }
 
 func (s *lxdBrokerSuite) TestStartInstancePopulatesFallbackNetworkInfo(c *tc.C) {
 	broker, brokerErr := s.newLXDBroker(c)
-	c.Assert(brokerErr, jc.ErrorIsNil)
+	c.Assert(brokerErr, tc.ErrorIsNil)
 
 	patchResolvConf(s, c)
 
@@ -136,7 +135,7 @@ func (s *lxdBrokerSuite) TestStartInstancePopulatesFallbackNetworkInfo(c *tc.C) 
 
 func (s *lxdBrokerSuite) TestStartInstanceNoHostArchTools(c *tc.C) {
 	broker, brokerErr := s.newLXDBroker(c)
-	c.Assert(brokerErr, jc.ErrorIsNil)
+	c.Assert(brokerErr, tc.ErrorIsNil)
 
 	_, err := broker.StartInstance(context.Background(), environs.StartInstanceParams{
 		Tools: coretools.List{{
@@ -151,10 +150,10 @@ func (s *lxdBrokerSuite) TestStartInstanceNoHostArchTools(c *tc.C) {
 
 func (s *lxdBrokerSuite) TestStartInstanceWithCloudInitUserData(c *tc.C) {
 	broker, brokerErr := s.newLXDBroker(c)
-	c.Assert(brokerErr, jc.ErrorIsNil)
+	c.Assert(brokerErr, tc.ErrorIsNil)
 
 	_, err := s.startInstance(c, broker, "1/lxd/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.manager.CheckCallNames(c, "CreateContainer")
 	call := s.manager.Calls()[0]
@@ -173,9 +172,9 @@ func (s *lxdBrokerSuite) TestStartInstanceWithContainerInheritProperties(c *tc.C
 	s.api.fakeContainerConfig.ContainerInheritProperties = "ca-certs,apt-security"
 
 	broker, brokerErr := s.newLXDBroker(c)
-	c.Assert(brokerErr, jc.ErrorIsNil)
+	c.Assert(brokerErr, tc.ErrorIsNil)
 	_, err := s.startInstance(c, broker, "1/lxd/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.manager.CheckCallNames(c, "CreateContainer")
 	call := s.manager.Calls()[0]
@@ -246,7 +245,7 @@ func (s *lxdBrokerSuite) TestStartInstanceWithLXDProfile(c *tc.C) {
 			return nil
 		},
 		mockApi, mockManager, s.agentConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.startInstance(c, broker, machineId)
 }
@@ -280,7 +279,7 @@ func (s *lxdBrokerSuite) TestStartInstanceWithNoNameLXDProfile(c *tc.C) {
 			return nil
 		},
 		mockApi, mockManager, s.agentConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.startInstance(c, broker, machineId)
 	c.Assert(err, tc.ErrorMatches, fmt.Sprintf("cannot write charm profile: request to write LXD profile for machine %s with no profile name", machineId))
@@ -303,12 +302,12 @@ func (s *lxdBrokerSuite) TestStartInstanceWithLXDProfileReturnsLXDProfileNames(c
 			return nil
 		},
 		mockApi, mockManager, s.agentConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	nameRetriever := broker.(container.LXDProfileNameRetriever)
 	profileNames, err := nameRetriever.LXDProfileNames(containerTag.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(profileNames, jc.DeepEquals, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(profileNames, tc.DeepEquals, []string{
 		lxdprofile.Name("foo", "bar", 1),
 	})
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/common"
 )
@@ -44,7 +43,7 @@ func (s *errorsSuite) TestSingleTermRequired(c *tc.C) {
 		Message: "term agreement required: foo/1",
 	}}
 	termErr, ok := common.MaybeTermsAgreementError(err).(*common.TermsRequiredError)
-	c.Assert(ok, jc.IsTrue, tc.Commentf("failed to match common.TermsRequiredError"))
+	c.Assert(ok, tc.IsTrue, tc.Commentf("failed to match common.TermsRequiredError"))
 	c.Assert(termErr, tc.ErrorMatches, `.*please agree to terms "foo/1".*`)
 	c.Assert(termErr.UserErr(), tc.ErrorMatches,
 		`.*Declined: some terms require agreement. Try: "juju agree foo/1".*`)
@@ -56,7 +55,7 @@ func (s *errorsSuite) TestMultipleTermsRequired(c *tc.C) {
 		Message: "term agreement required: foo/1 bar/2",
 	}}
 	termErr, ok := common.MaybeTermsAgreementError(err).(*common.TermsRequiredError)
-	c.Assert(ok, jc.IsTrue, tc.Commentf("failed to match common.TermsRequiredError"))
+	c.Assert(ok, tc.IsTrue, tc.Commentf("failed to match common.TermsRequiredError"))
 	c.Assert(termErr, tc.ErrorMatches, `.*please agree to terms "foo/1 bar/2".*`)
 	c.Assert(termErr.UserErr(), tc.ErrorMatches,
 		`.*Declined: some terms require agreement. Try: "juju agree foo/1 bar/2".*`)
@@ -65,8 +64,8 @@ func (s *errorsSuite) TestMultipleTermsRequired(c *tc.C) {
 func (s *errorsSuite) TestPermissionsMessage(c *tc.C) {
 	var buf bytes.Buffer
 	common.PermissionsMessage(&buf, "bork")
-	c.Assert(buf.String(), jc.Contains, `You do not have permission to bork.`)
+	c.Assert(buf.String(), tc.Contains, `You do not have permission to bork.`)
 	buf.Reset()
 	common.PermissionsMessage(&buf, "")
-	c.Assert(buf.String(), jc.Contains, `You do not have permission to complete this operation.`)
+	c.Assert(buf.String(), tc.Contains, `You do not have permission to complete this operation.`)
 }

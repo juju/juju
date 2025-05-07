@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -39,11 +38,11 @@ func (s *UnitAccessorSuite) TestApplicationAgent(c *tc.C) {
 
 	getAuthFunc := UnitAccessor(auth, s.applicationService)
 	authFunc, err := getAuthFunc(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ok := authFunc(names.NewUnitTag("gitlab/0"))
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	ok = authFunc(names.NewUnitTag("mysql/0"))
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 }
 
 func (s *UnitAccessorSuite) TestApplicationNotFound(c *tc.C) {
@@ -58,7 +57,7 @@ func (s *UnitAccessorSuite) TestApplicationNotFound(c *tc.C) {
 	}
 	getAuthFunc := UnitAccessor(auth, s.applicationService)
 	_, err := getAuthFunc(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *UnitAccessorSuite) TestUnitAgent(c *tc.C) {
@@ -69,15 +68,15 @@ func (s *UnitAccessorSuite) TestUnitAgent(c *tc.C) {
 	}
 	getAuthFunc := UnitAccessor(auth, s.applicationService)
 	authFunc, err := getAuthFunc(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ok := authFunc(names.NewUnitTag("gitlab/0"))
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	ok = authFunc(names.NewApplicationTag("gitlab"))
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	ok = authFunc(names.NewUnitTag("gitlab/1"))
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 	ok = authFunc(names.NewUnitTag("mysql/0"))
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 }
 
 func (s *UnitAccessorSuite) setupMocks(c *tc.C) *gomock.Controller {

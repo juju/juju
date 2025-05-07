@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/core/migration"
@@ -47,8 +46,8 @@ func (*WorkerSuite) TestWatchError(c *tc.C) {
 		Check:  neverCheck,
 	}
 	worker, err := migrationflag.New(context.Background(), config)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(worker.Check(), jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(worker.Check(), tc.IsFalse)
 
 	err = workertest.CheckKilled(c, worker)
 	c.Check(err, tc.ErrorMatches, "boff")
@@ -65,8 +64,8 @@ func (*WorkerSuite) TestPhaseErrorWhileRunning(c *tc.C) {
 		Check:  neverCheck,
 	}
 	worker, err := migrationflag.New(context.Background(), config)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(worker.Check(), jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(worker.Check(), tc.IsFalse)
 
 	err = workertest.CheckKilled(c, worker)
 	c.Check(err, tc.ErrorMatches, "glug")
@@ -84,8 +83,8 @@ func (*WorkerSuite) TestImmediatePhaseChange(c *tc.C) {
 		Check:  isQuiesce,
 	}
 	worker, err := migrationflag.New(context.Background(), config)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(worker.Check(), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(worker.Check(), tc.IsTrue)
 
 	err = workertest.CheckKilled(c, worker)
 	c.Check(err, tc.Equals, migrationflag.ErrChanged)
@@ -103,8 +102,8 @@ func (*WorkerSuite) TestSubsequentPhaseChange(c *tc.C) {
 		Check:  isQuiesce,
 	}
 	worker, err := migrationflag.New(context.Background(), config)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(worker.Check(), jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(worker.Check(), tc.IsFalse)
 
 	err = workertest.CheckKilled(c, worker)
 	c.Check(err, tc.Equals, migrationflag.ErrChanged)
@@ -125,8 +124,8 @@ func (*WorkerSuite) TestNoRelevantPhaseChange(c *tc.C) {
 		Check:  isQuiesce,
 	}
 	worker, err := migrationflag.New(context.Background(), config)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(worker.Check(), jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(worker.Check(), tc.IsFalse)
 
 	workertest.CheckAlive(c, worker)
 	workertest.CleanKill(c, worker)

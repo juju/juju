@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
@@ -36,7 +35,7 @@ func (s *MachineWatcherSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockWatchRebootService = mocks.NewMockWatchableMachineService(ctrl)
 	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AddCleanup(func(c *tc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
 	return ctrl
 }
@@ -54,7 +53,7 @@ func (s *MachineWatcherSuite) TestWatchForRebootEventCannotGetUUID(c *tc.C) {
 	_, err := rebootWatcher.WatchForRebootEvent(context.Background())
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, errMachineNotFound)
+	c.Assert(err, tc.ErrorIs, errMachineNotFound)
 	c.Assert(s.watcherRegistry.Count(), tc.Equals, 0)
 }
 
@@ -72,7 +71,7 @@ func (s *MachineWatcherSuite) TestWatchForRebootEventErrorStartWatcher(c *tc.C) 
 	_, err := rebootWatcher.WatchForRebootEvent(context.Background())
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, errStartWatcher)
+	c.Assert(err, tc.ErrorIs, errStartWatcher)
 	c.Assert(s.watcherRegistry.Count(), tc.Equals, 0)
 }
 
@@ -89,7 +88,7 @@ func (s *MachineWatcherSuite) TestWatchForRebootEvent(c *tc.C) {
 	result, err := rebootWatcher.WatchForRebootEvent(context.Background())
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.watcherRegistry.Count(), tc.Equals, 1)
 	c.Assert(result, tc.Equals, params.NotifyWatchResult{
 		NotifyWatcherId: registry.DefaultNamespace + "-1",

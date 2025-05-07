@@ -3,10 +3,7 @@
 
 package charm
 
-import (
-	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
-)
+import "github.com/juju/tc"
 
 type removeRelationsSuite struct{}
 
@@ -35,18 +32,18 @@ func (*removeRelationsSuite) TestEmpty(c *tc.C) {
 
 func (*removeRelationsSuite) TestAppNotThere(c *tc.C) {
 	result := removeRelations(sampleRelations, "foo")
-	c.Assert(result, jc.DeepEquals, sampleRelations)
+	c.Assert(result, tc.DeepEquals, sampleRelations)
 }
 
 func (*removeRelationsSuite) TestAppBadRelationsKept(c *tc.C) {
 	badRelations := [][]string{{"single value"}, {"three", "string", "values"}}
 	result := removeRelations(badRelations, "foo")
-	c.Assert(result, jc.DeepEquals, badRelations)
+	c.Assert(result, tc.DeepEquals, badRelations)
 }
 
 func (*removeRelationsSuite) TestRemoveFromRight(c *tc.C) {
 	result := removeRelations(sampleRelations, "etcd")
-	c.Assert(result, jc.DeepEquals, [][]string{
+	c.Assert(result, tc.DeepEquals, [][]string{
 		{"kubernetes-master:kube-control", "kubernetes-worker:kube-control"},
 		{"kubernetes-worker:kube-api-endpoint", "kubeapi-load-balancer:website"},
 		{"flannel:cni", "kubernetes-master:cni"},
@@ -56,7 +53,7 @@ func (*removeRelationsSuite) TestRemoveFromRight(c *tc.C) {
 
 func (*removeRelationsSuite) TestRemoveFromLeft(c *tc.C) {
 	result := removeRelations(sampleRelations, "flannel")
-	c.Assert(result, jc.DeepEquals, [][]string{
+	c.Assert(result, tc.DeepEquals, [][]string{
 		{"kubernetes-master:kube-control", "kubernetes-worker:kube-control"},
 		{"kubernetes-master:etcd", "etcd:db"},
 		{"kubernetes-worker:kube-api-endpoint", "kubeapi-load-balancer:website"},

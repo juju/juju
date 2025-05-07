@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/objectstore"
@@ -52,7 +51,7 @@ func (s *storeSuite) TestStore(c *tc.C) {
 			uniqueName = name
 
 			data, err := io.ReadAll(reader)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			contents = string(data)
 
 			return uuid, nil
@@ -60,7 +59,7 @@ func (s *storeSuite) TestStore(c *tc.C) {
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
 	storeResult, err := storage.Store(context.Background(), path, contentDigest.Size, contentDigest.SHA384)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(storeResult.ObjectStoreUUID, tc.DeepEquals, uuid)
 	c.Check(storeResult.UniqueName, tc.Equals, uniqueName)
@@ -88,7 +87,7 @@ func (s *storeSuite) TestStoreFileClosed(c *tc.C) {
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
 	_, err := storage.Store(context.Background(), path, contentDigest.Size, contentDigest.SHA384)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Attempt to read the contents of the read after it's been closed.
 	_, err = io.ReadAll(reader)
@@ -103,7 +102,7 @@ func (s *storeSuite) TestStoreFileNotFound(c *tc.C) {
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
 	_, err := storage.Store(context.Background(), filepath.Join(dir, "foo"), 12, "hash")
-	c.Assert(err, jc.ErrorIs, ErrNotFound)
+	c.Assert(err, tc.ErrorIs, ErrNotFound)
 }
 
 func (s *storeSuite) TestStoreFailed(c *tc.C) {
@@ -127,7 +126,7 @@ func (s *storeSuite) TestStoreFromReader(c *tc.C) {
 	dir := c.MkDir()
 	path, contentDigest := s.createTempFile(c, dir, "hello world")
 	reader, err := os.Open(path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	uuid := objectstoretesting.GenObjectStoreUUID(c)
 
@@ -141,7 +140,7 @@ func (s *storeSuite) TestStoreFromReader(c *tc.C) {
 			uniqueName = name
 
 			data, err := io.ReadAll(reader)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			contents = string(data)
 
 			return uuid, nil
@@ -149,7 +148,7 @@ func (s *storeSuite) TestStoreFromReader(c *tc.C) {
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
 	storeResult, digest, err := storage.StoreFromReader(context.Background(), reader, contentDigest.SHA256[:7])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(storeResult.ObjectStoreUUID, tc.DeepEquals, uuid)
 	c.Check(storeResult.UniqueName, tc.Equals, uniqueName)
@@ -169,7 +168,7 @@ func (s *storeSuite) TestStoreFromReaderEmptyReader(c *tc.C) {
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
 	_, _, err := storage.StoreFromReader(context.Background(), reader, contentDigest.SHA256[:7])
-	c.Assert(err, jc.ErrorIs, ErrCharmHashMismatch)
+	c.Assert(err, tc.ErrorIs, ErrCharmHashMismatch)
 }
 
 func (s *storeSuite) TestStoreFromReaderInvalidHash(c *tc.C) {
@@ -178,11 +177,11 @@ func (s *storeSuite) TestStoreFromReaderInvalidHash(c *tc.C) {
 	dir := c.MkDir()
 	path, _ := s.createTempFile(c, dir, "hello world")
 	reader, err := os.Open(path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
 	_, _, err = storage.StoreFromReader(context.Background(), reader, "blah")
-	c.Assert(err, jc.ErrorIs, ErrCharmHashMismatch)
+	c.Assert(err, tc.ErrorIs, ErrCharmHashMismatch)
 }
 
 func (s *storeSuite) TestGet(c *tc.C) {
@@ -193,10 +192,10 @@ func (s *storeSuite) TestGet(c *tc.C) {
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
 	reader, err := storage.Get(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	content, err := io.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(string(content), tc.Equals, "archive-content")
 }
 
@@ -218,7 +217,7 @@ func (s *storeSuite) TestGetNotFound(c *tc.C) {
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
 	_, err := storage.Get(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, ErrNotFound)
+	c.Assert(err, tc.ErrorIs, ErrNotFound)
 }
 
 func (s *storeSuite) TestGetBySHA256Prefix(c *tc.C) {
@@ -229,9 +228,9 @@ func (s *storeSuite) TestGetBySHA256Prefix(c *tc.C) {
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
 	reader, err := storage.GetBySHA256Prefix(context.Background(), "02638299")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	content, err := io.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(string(content), tc.Equals, "archive-content")
 }
 
@@ -252,7 +251,7 @@ func (s *storeSuite) TestGetBySHA256NotFound(c *tc.C) {
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
 	_, err := storage.GetBySHA256Prefix(context.Background(), "02638299")
-	c.Assert(err, jc.ErrorIs, ErrNotFound)
+	c.Assert(err, tc.ErrorIs, ErrNotFound)
 }
 
 func (s *storeSuite) setupMocks(c *tc.C) *gomock.Controller {
@@ -269,10 +268,10 @@ func (s *storeSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *storeSuite) createTempFile(c *tc.C, dir, content string) (string, Digest) {
 	path := filepath.Join(dir, "test")
 	err := os.WriteFile(path, []byte(content), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info, err := os.Stat(path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return path, Digest{
 		SHA256: calculateSHA256(c, content),
@@ -284,13 +283,13 @@ func (s *storeSuite) createTempFile(c *tc.C, dir, content string) (string, Diges
 func calculateSHA384(c *tc.C, content string) string {
 	hash := sha512.New384()
 	_, err := hash.Write([]byte(content))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return hex.EncodeToString(hash.Sum(nil))
 }
 
 func calculateSHA256(c *tc.C, content string) string {
 	hash := sha256.New()
 	_, err := hash.Write([]byte(content))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return hex.EncodeToString(hash.Sum(nil))
 }

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -44,9 +43,9 @@ func (s *environInstSuite) TestInstances(c *tc.C) {
 
 	ids := []instance.Id{"spam", "eggs", "ham"}
 	insts, err := s.Env.Instances(context.Background(), ids)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(insts, jc.DeepEquals, []instances.Instance{spam, eggs, ham})
+	c.Check(insts, tc.DeepEquals, []instances.Instance{spam, eggs, ham})
 }
 
 func (s *environInstSuite) TestInstancesEmptyArg(c *tc.C) {
@@ -62,7 +61,7 @@ func (s *environInstSuite) TestInstancesInstancesFailed(c *tc.C) {
 	ids := []instance.Id{"spam"}
 	insts, err := s.Env.Instances(context.Background(), ids)
 
-	c.Check(insts, jc.DeepEquals, []instances.Instance{nil})
+	c.Check(insts, tc.DeepEquals, []instances.Instance{nil})
 	c.Check(errors.Cause(err), tc.Equals, failure)
 }
 
@@ -72,7 +71,7 @@ func (s *environInstSuite) TestInstancesPartialMatch(c *tc.C) {
 	ids := []instance.Id{"spam", "eggs"}
 	insts, err := s.Env.Instances(context.Background(), ids)
 
-	c.Check(insts, jc.DeepEquals, []instances.Instance{s.Instance, nil})
+	c.Check(insts, tc.DeepEquals, []instances.Instance{s.Instance, nil})
 	c.Check(errors.Cause(err), tc.Equals, environs.ErrPartialInstances)
 }
 
@@ -82,7 +81,7 @@ func (s *environInstSuite) TestInstancesNoMatch(c *tc.C) {
 	ids := []instance.Id{"eggs"}
 	insts, err := s.Env.Instances(context.Background(), ids)
 
-	c.Check(insts, jc.DeepEquals, []instances.Instance{nil})
+	c.Check(insts, tc.DeepEquals, []instances.Instance{nil})
 	c.Check(errors.Cause(err), tc.Equals, environs.ErrNoInstances)
 }
 
@@ -93,9 +92,9 @@ func (s *environInstSuite) TestBasicInstances(c *tc.C) {
 	s.FakeConn.Insts = []google.Instance{*spam, *ham, *eggs}
 
 	insts, err := gce.GetInstances(s.Env, context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(insts, jc.DeepEquals, []instances.Instance{
+	c.Check(insts, tc.DeepEquals, []instances.Instance{
 		s.NewInstance(c, "spam"),
 		s.NewInstance(c, "ham"),
 		s.NewInstance(c, "eggs"),
@@ -106,33 +105,33 @@ func (s *environInstSuite) TestBasicInstancesAPI(c *tc.C) {
 	s.FakeConn.Insts = []google.Instance{*s.BaseInstance}
 
 	_, err := gce.GetInstances(s.Env, context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, tc.HasLen, 1)
 	c.Check(s.FakeConn.Calls[0].FuncName, tc.Equals, "Instances")
 	c.Check(s.FakeConn.Calls[0].Prefix, tc.Equals, s.Prefix())
-	c.Check(s.FakeConn.Calls[0].Statuses, jc.DeepEquals, []string{google.StatusPending, google.StatusStaging, google.StatusRunning})
+	c.Check(s.FakeConn.Calls[0].Statuses, tc.DeepEquals, []string{google.StatusPending, google.StatusStaging, google.StatusRunning})
 }
 
 func (s *environInstSuite) TestControllerInstances(c *tc.C) {
 	s.FakeConn.Insts = []google.Instance{*s.BaseInstance}
 
 	ids, err := s.Env.ControllerInstances(context.Background(), s.ControllerUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
+	c.Check(ids, tc.DeepEquals, []instance.Id{"spam"})
 }
 
 func (s *environInstSuite) TestControllerInstancesAPI(c *tc.C) {
 	s.FakeConn.Insts = []google.Instance{*s.BaseInstance}
 
 	_, err := s.Env.ControllerInstances(context.Background(), s.ControllerUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, tc.HasLen, 1)
 	c.Check(s.FakeConn.Calls[0].FuncName, tc.Equals, "Instances")
 	c.Check(s.FakeConn.Calls[0].Prefix, tc.Equals, s.Prefix())
-	c.Check(s.FakeConn.Calls[0].Statuses, jc.DeepEquals, []string{google.StatusPending, google.StatusStaging, google.StatusRunning})
+	c.Check(s.FakeConn.Calls[0].Statuses, tc.DeepEquals, []string{google.StatusPending, google.StatusStaging, google.StatusRunning})
 }
 
 func (s *environInstSuite) TestControllerInstancesNotBootstrapped(c *tc.C) {
@@ -146,9 +145,9 @@ func (s *environInstSuite) TestControllerInstancesMixed(c *tc.C) {
 	s.FakeConn.Insts = []google.Instance{*s.BaseInstance, *other}
 
 	ids, err := s.Env.ControllerInstances(context.Background(), s.ControllerUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
+	c.Check(ids, tc.DeepEquals, []instance.Id{"spam"})
 }
 
 func (s *environInstSuite) TestParsePlacement(c *tc.C) {
@@ -156,9 +155,9 @@ func (s *environInstSuite) TestParsePlacement(c *tc.C) {
 	s.FakeConn.Zones = []google.AvailabilityZone{zone}
 
 	placement, err := gce.ParsePlacement(s.Env, context.Background(), "zone=a-zone")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(placement.Zone, jc.DeepEquals, &zone)
+	c.Check(placement.Zone, tc.DeepEquals, &zone)
 }
 
 func (s *environInstSuite) TestParsePlacementZoneFailure(c *tc.C) {
@@ -189,7 +188,7 @@ func (s *environInstSuite) TestPrecheckInstanceWithValidInstanceType(c *tc.C) {
 			InstanceType: &typ,
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *environInstSuite) TestPrecheckInstanceTypeUnknown(c *tc.C) {
@@ -208,10 +207,10 @@ func (s *environInstSuite) TestPrecheckInstanceInvalidCredentialError(c *tc.C) {
 	mem := uint64(1025)
 	s.FakeConn.Err = gce.InvalidCredentialError
 
-	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
 	_, err := s.Env.InstanceTypes(context.Background(), constraints.Value{Mem: &mem})
 	c.Check(err, tc.NotNil)
-	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }
 
 func (s *environInstSuite) TestListMachineTypes(c *tc.C) {
@@ -227,7 +226,7 @@ func (s *environInstSuite) TestListMachineTypes(c *tc.C) {
 
 	mem := uint64(1025)
 	types, err := s.Env.InstanceTypes(context.Background(), constraints.Value{Mem: &mem})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(types.InstanceTypes, tc.HasLen, 1)
 
 }
@@ -238,7 +237,7 @@ func (s *environInstSuite) TestAdoptResources(c *tc.C) {
 	s.FakeEnviron.Insts = []instances.Instance{john, misty}
 
 	err := s.Env.AdoptResources(context.Background(), "other-uuid", semversion.MustParse("1.2.3"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.FakeConn.Calls, tc.HasLen, 1)
 	call := s.FakeConn.Calls[0]
 	c.Check(call.FuncName, tc.Equals, "UpdateMetadata")
@@ -249,12 +248,12 @@ func (s *environInstSuite) TestAdoptResources(c *tc.C) {
 
 func (s *environInstSuite) TestAdoptResourcesInvalidCredentialError(c *tc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
-	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
 	john := s.NewInstance(c, "john")
 	misty := s.NewInstance(c, "misty")
 	s.FakeEnviron.Insts = []instances.Instance{john, misty}
 
 	err := s.Env.AdoptResources(context.Background(), "other-uuid", semversion.MustParse("1.2.3"))
 	c.Check(err, tc.NotNil)
-	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }

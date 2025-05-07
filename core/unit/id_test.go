@@ -6,7 +6,6 @@ package unit
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -45,7 +44,7 @@ func (*unitSuite) TestUUIDValidate(c *tc.C) {
 			continue
 		}
 
-		c.Check(err, jc.ErrorIs, test.err)
+		c.Check(err, tc.ErrorIs, test.err)
 	}
 }
 
@@ -78,6 +77,6 @@ func (*unitSuite) TestParseUUID(c *tc.C) {
 			continue
 		}
 
-		c.Check(err, jc.ErrorIs, test.err)
+		c.Check(err, tc.ErrorIs, test.err)
 	}
 }

@@ -13,7 +13,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
@@ -59,14 +58,14 @@ func (s *clientSuite) TestCreateTemplateVM(c *tc.C) {
 	}
 
 	_, err := client.CreateTemplateVM(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusUpdates, jc.DeepEquals, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(statusUpdates, tc.DeepEquals, []string{
 		fmt.Sprintf(`creating template VM "juju-template-%s"`, args.OVASHA256),
 		"streaming vmdk: 100.00% (0B/s)",
 	})
 	c.Assert(s.uploadRequests, tc.HasLen, 1)
 	contents, err := io.ReadAll(s.uploadRequests[0].Body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(contents), tc.Equals, "FakeVmdkContent")
 
 	templateCisp := baseCisp()
@@ -137,8 +136,8 @@ func (s *clientSuite) TestCreateVirtualMachine(c *tc.C) {
 	}
 
 	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusUpdates, jc.DeepEquals, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(statusUpdates, tc.DeepEquals, []string{
 		"cloning template",
 		"VM cloned",
 		"powering on",
@@ -217,7 +216,7 @@ func (s *clientSuite) TestCreateVirtualMachineForceHWVersion(c *tc.C) {
 		Value: "FakeEnvironmentBrowser",
 	}
 	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.roundTripper.CheckCall(c, 18, "RetrieveProperties", "FakeVm1")
 	s.roundTripper.CheckCall(c, 19, "QueryConfigOption", "FakeEnvironmentBrowser")
@@ -232,7 +231,7 @@ func (s *clientSuite) TestCreateVirtualMachineNoDiskUUID(c *tc.C) {
 	args := baseCreateVirtualMachineParams(c, client)
 	args.EnableDiskUUID = false
 	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	datastore := types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore1"}
 	s.roundTripper.CheckCall(
@@ -275,7 +274,7 @@ func (s *clientSuite) TestCreateVirtualMachineThickDiskProvisioning(c *tc.C) {
 	args := baseCreateVirtualMachineParams(c, client)
 	args.DiskProvisioningType = DiskTypeThickLazyZero
 	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	datastore := types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore1"}
 
@@ -321,7 +320,7 @@ func (s *clientSuite) TestCreateVirtualMachineThickEagerZeroDiskProvisioning(c *
 	args.DiskProvisioningType = DiskTypeThick
 
 	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	datastore := types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore1"}
 
@@ -367,7 +366,7 @@ func (s *clientSuite) TestCreateVirtualMachineThinDiskProvisioning(c *tc.C) {
 	args.DiskProvisioningType = DiskTypeThin
 
 	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	datastore := types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore1"}
 
@@ -416,7 +415,7 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreSpecified(c *tc.C) {
 	}}
 
 	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	datastoreLocation := types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore1"}
 	s.roundTripper.CheckCall(
@@ -527,7 +526,7 @@ func (s *clientSuite) TestCreateVirtualMachineMultipleNetworksSpecifiedFirstDefa
 	}
 
 	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var networkDevice1, networkDevice2 types.VirtualVmxnet3
 	wakeOnLan := true
@@ -610,7 +609,7 @@ func (s *clientSuite) TestCreateVirtualMachineNetworkSpecifiedDVPortgroup(c *tc.
 	}
 
 	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var networkDevice types.VirtualVmxnet3
 	wakeOnLan := true
@@ -704,7 +703,7 @@ func (s *clientSuite) TestCreateVirtualMachineRootDiskSize(c *tc.C) {
 	args.Constraints.RootDisk = &rootDisk
 
 	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.roundTripper.CheckCall(c, 19, "ReconfigVM_Task", types.VirtualMachineConfigSpec{
 		DeviceChange: []types.BaseVirtualDeviceConfigSpec{
@@ -735,7 +734,7 @@ func (s *clientSuite) TestCreateVirtualMachineWithCustomizedVMFolder(c *tc.C) {
 	args.Folder = "k8s"
 
 	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	datastore := types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore1"}
 	// The template import and the create from template have been split in two separate

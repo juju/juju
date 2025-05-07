@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	apihttp "github.com/juju/juju/api/http"
@@ -61,11 +60,11 @@ func (s *httpSuite) TestOpenURI(c *tc.C) {
 	})
 
 	reader, err := apihttp.OpenURI(context.Background(), mockHttp, "/tools/2.6.6-ubuntu-amd64", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer reader.Close()
 
 	// The fake tools content will be the version number.
 	content, err := io.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(content), tc.Equals, "2.6.6-ubuntu-amd64")
 }

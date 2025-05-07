@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/api/base"
@@ -32,7 +31,7 @@ func (*FacadeSuite) TestLifeCall(c *tc.C) {
 	caller := apiCaller(c, func(request string, args, _ interface{}) error {
 		called = true
 		c.Check(request, tc.Equals, "Life")
-		c.Check(args, jc.DeepEquals, params.Entities{
+		c.Check(args, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "application-blah"}},
 		})
 		return nil
@@ -40,7 +39,7 @@ func (*FacadeSuite) TestLifeCall(c *tc.C) {
 	facade := lifeflag.NewClient(caller, "LifeFlag")
 
 	facade.Life(context.Background(), names.NewApplicationTag("blah"))
-	c.Check(called, jc.IsTrue)
+	c.Check(called, tc.IsTrue)
 }
 
 func (*FacadeSuite) TestLifeCallError(c *tc.C) {
@@ -68,7 +67,7 @@ func (*FacadeSuite) TestLifeNoResultsError(c *tc.C) {
 func (*FacadeSuite) TestLifeExtraResultsError(c *tc.C) {
 	caller := apiCaller(c, func(_ string, _, results interface{}) error {
 		typed, ok := results.(*params.LifeResults)
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		*typed = params.LifeResults{
 			Results: make([]params.LifeResult, 2),
 		}
@@ -84,7 +83,7 @@ func (*FacadeSuite) TestLifeExtraResultsError(c *tc.C) {
 func (*FacadeSuite) TestLifeNotFoundError(c *tc.C) {
 	caller := apiCaller(c, func(_ string, _, results interface{}) error {
 		typed, ok := results.(*params.LifeResults)
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		*typed = params.LifeResults{
 			Results: []params.LifeResult{{
 				Error: &params.Error{Code: params.CodeNotFound},
@@ -102,7 +101,7 @@ func (*FacadeSuite) TestLifeNotFoundError(c *tc.C) {
 func (*FacadeSuite) TestLifeInvalidResultError(c *tc.C) {
 	caller := apiCaller(c, func(_ string, _, results interface{}) error {
 		typed, ok := results.(*params.LifeResults)
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		*typed = params.LifeResults{
 			Results: []params.LifeResult{{Life: "decomposed"}},
 		}
@@ -118,7 +117,7 @@ func (*FacadeSuite) TestLifeInvalidResultError(c *tc.C) {
 func (*FacadeSuite) TestLifeSuccess(c *tc.C) {
 	caller := apiCaller(c, func(_ string, _, results interface{}) error {
 		typed, ok := results.(*params.LifeResults)
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		*typed = params.LifeResults{
 			Results: []params.LifeResult{{Life: "dying"}},
 		}
@@ -127,7 +126,7 @@ func (*FacadeSuite) TestLifeSuccess(c *tc.C) {
 	facade := lifeflag.NewClient(caller, "LifeFlag")
 
 	result, err := facade.Life(context.Background(), names.NewApplicationTag("blah"))
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, life.Dying)
 }
 
@@ -136,7 +135,7 @@ func (*FacadeSuite) TestWatchCall(c *tc.C) {
 	caller := apiCaller(c, func(request string, args, _ interface{}) error {
 		called = true
 		c.Check(request, tc.Equals, "Watch")
-		c.Check(args, jc.DeepEquals, params.Entities{
+		c.Check(args, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "application-blah"}},
 		})
 		return nil
@@ -144,7 +143,7 @@ func (*FacadeSuite) TestWatchCall(c *tc.C) {
 	facade := lifeflag.NewClient(caller, "LifeFlag")
 
 	facade.Watch(context.Background(), names.NewApplicationTag("blah"))
-	c.Check(called, jc.IsTrue)
+	c.Check(called, tc.IsTrue)
 }
 
 func (*FacadeSuite) TestWatchCallError(c *tc.C) {
@@ -172,7 +171,7 @@ func (*FacadeSuite) TestWatchNoResultsError(c *tc.C) {
 func (*FacadeSuite) TestWatchExtraResultsError(c *tc.C) {
 	caller := apiCaller(c, func(_ string, _, results interface{}) error {
 		typed, ok := results.(*params.NotifyWatchResults)
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		*typed = params.NotifyWatchResults{
 			Results: make([]params.NotifyWatchResult, 2),
 		}
@@ -188,7 +187,7 @@ func (*FacadeSuite) TestWatchExtraResultsError(c *tc.C) {
 func (*FacadeSuite) TestWatchNotFoundError(c *tc.C) {
 	caller := apiCaller(c, func(_ string, _, results interface{}) error {
 		typed, ok := results.(*params.NotifyWatchResults)
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		*typed = params.NotifyWatchResults{
 			Results: []params.NotifyWatchResult{{
 				Error: &params.Error{Code: params.CodeNotFound},
@@ -211,7 +210,7 @@ func (*FacadeSuite) TestWatchSuccess(c *tc.C) {
 			c.Check(version, tc.Equals, 0)
 			c.Check(id, tc.Equals, "")
 			typed, ok := result.(*params.NotifyWatchResults)
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 			*typed = params.NotifyWatchResults{
 				Results: []params.NotifyWatchResult{{
 					NotifyWatcherId: "123",
@@ -227,7 +226,7 @@ func (*FacadeSuite) TestWatchSuccess(c *tc.C) {
 	})
 	facade := lifeflag.NewClient(caller, "LifeFlag")
 	watcher, err := facade.Watch(context.Background(), names.NewApplicationTag("blah"))
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	workertest.CheckKilled(c, watcher)
 }
 

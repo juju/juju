@@ -10,7 +10,6 @@ import (
 	"net/url"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/pki"
 )
@@ -22,7 +21,7 @@ var _ = tc.Suite(&CertificateSuite{})
 
 func (cs *CertificateSuite) VerifyCSRToCertificate(c *tc.C) {
 	jujuURL, err := url.Parse("https://discourse.juju.is")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	subject := pkix.Name{
 		CommonName:         "juju test",
@@ -47,7 +46,7 @@ func (cs *CertificateSuite) VerifyCSRToCertificate(c *tc.C) {
 	}
 
 	rCert := pki.CSRToCertificate(&csr)
-	c.Assert(rCert, jc.DeepEquals, &expectedCert)
+	c.Assert(rCert, tc.DeepEquals, &expectedCert)
 }
 
 func (cs *CertificateSuite) CheckPkixNameFromDefaults(c *tc.C) {
@@ -77,6 +76,6 @@ func (cs *CertificateSuite) CheckPkixNameFromDefaults(c *tc.C) {
 
 	for _, test := range tests {
 		rval := pki.MakeX509NameFromDefaults(&test.Template, &test.Request)
-		c.Assert(rval, jc.DeepEquals, test.RVal)
+		c.Assert(rval, tc.DeepEquals, test.RVal)
 	}
 }

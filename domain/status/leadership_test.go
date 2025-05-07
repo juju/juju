@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -54,7 +53,7 @@ func (s *leadershipSuite) SetUpTest(c *tc.C) {
 		`, modelUUID.String(), coretesting.ControllerTag.Id())
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *leadershipSuite) TestSetApplicationStatusForUnitLeader(c *tc.C) {
@@ -81,12 +80,12 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeader(c *tc.C) {
 	err := svc.SetApplicationStatusForUnitLeader(context.Background(), "foo/0", status.StatusInfo{
 		Status: status.Active,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	close(done)
 
 	appStatus, err := svc.GetApplicationDisplayStatus(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(appStatus.Status, tc.Equals, status.Active)
 }
 
@@ -116,7 +115,7 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderNotTheLeader(c *t
 	err := svc.SetApplicationStatusForUnitLeader(context.Background(), "foo/0", status.StatusInfo{
 		Status: status.Active,
 	})
-	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotLeader)
+	c.Assert(err, tc.ErrorIs, statuserrors.UnitNotLeader)
 
 	close(done)
 }
@@ -143,7 +142,7 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderCancelled(c *tc.C
 	err := svc.SetApplicationStatusForUnitLeader(context.Background(), "foo/0", status.StatusInfo{
 		Status: status.Active,
 	})
-	c.Assert(err, jc.ErrorIs, context.Canceled)
+	c.Assert(err, tc.ErrorIs, context.Canceled)
 }
 
 func (s *leadershipSuite) setupService(c *tc.C) *service.LeadershipService {
@@ -224,13 +223,13 @@ func (s *leadershipSuite) createApplication(c *tc.C, name string, units ...appli
 		},
 		Scale: len(units),
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	charmUUID, err := appState.GetCharmIDByApplicationName(ctx, "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = appState.AddIAASUnits(ctx, "", appID, charmUUID, units...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return appID
 }

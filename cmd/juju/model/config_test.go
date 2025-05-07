@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/model"
@@ -78,7 +77,7 @@ func (s *ConfigCommandSuite) TestInit(c *tc.C) {
 		command := model.NewConfigCommandForTest(s.fake)
 		err := cmdtesting.InitCommand(command, test.args)
 		if test.nilErr {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			continue
 		}
 		c.Check(err, tc.ErrorMatches, test.errorMatch)
@@ -89,7 +88,7 @@ func (s *ConfigCommandSuite) TestSingleValue(c *tc.C) {
 	s.fake.values["special"] = "multi\nline"
 
 	context, err := s.run(c, "special")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	output := cmdtesting.Stdout(context)
 	c.Assert(output, tc.Equals, "multi\nline\n")
@@ -100,10 +99,10 @@ func (s *ConfigCommandSuite) TestSingleValueOutputFile(c *tc.C) {
 
 	outpath := filepath.Join(c.MkDir(), "out")
 	_, err := s.run(c, "--output", outpath, "special")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	output, err := os.ReadFile(outpath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(output), tc.Equals, "multi\nline\n")
 }
 
@@ -126,7 +125,7 @@ func (s *ConfigCommandSuite) TestSetFileNotFound(c *tc.C) {
 
 func (s *ConfigCommandSuite) TestSingleValueJSON(c *tc.C) {
 	context, err := s.run(c, "--format=json", "special")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	want := "{\"special\":{\"Value\":\"special value\",\"Source\":\"model\"}}\n"
 	output := cmdtesting.Stdout(context)
@@ -135,7 +134,7 @@ func (s *ConfigCommandSuite) TestSingleValueJSON(c *tc.C) {
 
 func (s *ConfigCommandSuite) TestSingleValueYAML(c *tc.C) {
 	context, err := s.run(c, "--format=yaml", "special")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	want := "" +
 		"special:\n" +
@@ -148,7 +147,7 @@ func (s *ConfigCommandSuite) TestSingleValueYAML(c *tc.C) {
 
 func (s *ConfigCommandSuite) TestAllValuesYAML(c *tc.C) {
 	context, err := s.run(c, "--format=yaml")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	output := cmdtesting.Stdout(context)
 	expected := "" +
@@ -163,7 +162,7 @@ func (s *ConfigCommandSuite) TestAllValuesYAML(c *tc.C) {
 
 func (s *ConfigCommandSuite) TestAllValuesJSON(c *tc.C) {
 	context, err := s.run(c, "--format=json")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	output := cmdtesting.Stdout(context)
 	expected := `{"running":{"Value":true,"Source":"model"},"special":{"Value":"special value","Source":"model"}}` + "\n"
@@ -172,7 +171,7 @@ func (s *ConfigCommandSuite) TestAllValuesJSON(c *tc.C) {
 
 func (s *ConfigCommandSuite) TestAllValuesTabular(c *tc.C) {
 	context, err := s.run(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	output := cmdtesting.Stdout(context)
 	expected := "" +
@@ -206,9 +205,9 @@ func (s *ConfigCommandSuite) TestGetSecretBackend(c *tc.C) {
 
 func (s *ConfigCommandSuite) TestSetAndReset(c *tc.C) {
 	_, err := s.run(c, "--reset", "special", "foo=bar")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(s.fake.resetKeys, jc.DeepEquals, []string{"special"})
-	c.Check(s.fake.values, jc.DeepEquals, map[string]interface{}{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(s.fake.resetKeys, tc.DeepEquals, []string{"special"})
+	c.Check(s.fake.values, tc.DeepEquals, map[string]interface{}{
 		"name":    "test-model",
 		"special": "special value",
 		"running": true,
@@ -224,16 +223,16 @@ func (s *ConfigCommandSuite) TestSetFromFile(c *tc.C) {
 	tmpdir := c.MkDir()
 	configFile := filepath.Join(tmpdir, "config.yaml")
 	err := os.WriteFile(configFile, []byte("special: extra\n"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.run(c, "--file", configFile)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := map[string]interface{}{
 		"special": "extra",
 		"name":    "test-model",
 		"running": true,
 	}
-	c.Assert(s.fake.values, jc.DeepEquals, expected)
+	c.Assert(s.fake.values, tc.DeepEquals, expected)
 }
 
 func (s *ConfigCommandSuite) TestSetFromStdin(c *tc.C) {
@@ -253,7 +252,7 @@ func (s *ConfigCommandSuite) TestSetFromStdin(c *tc.C) {
 		"name":    "test-model",
 		"running": true,
 	}
-	c.Assert(s.fake.values, jc.DeepEquals, expected)
+	c.Assert(s.fake.values, tc.DeepEquals, expected)
 }
 
 func (s *ConfigCommandSuite) TestSetFromFileUsingYAML(c *tc.C) {
@@ -264,27 +263,27 @@ special:
   value: extra
   source: default
 `), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.run(c, "--file", configFile)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := map[string]interface{}{
 		"special": "extra",
 		"name":    "test-model",
 		"running": true,
 	}
-	c.Assert(s.fake.values, jc.DeepEquals, expected)
+	c.Assert(s.fake.values, tc.DeepEquals, expected)
 }
 
 func (s *ConfigCommandSuite) TestSetFromFileCombined(c *tc.C) {
 	tmpdir := c.MkDir()
 	configFile := filepath.Join(tmpdir, "config.yaml")
 	err := os.WriteFile(configFile, []byte("special: extra\nunknown: bar"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.run(c, "--file", configFile, "unknown=foo")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(s.fake.values, jc.DeepEquals, map[string]interface{}{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(s.fake.values, tc.DeepEquals, map[string]interface{}{
 		"special": "extra", "unknown": "foo",
 		"name":    "test-model",
 		"running": true,
@@ -295,45 +294,45 @@ func (s *ConfigCommandSuite) TestSetFromFileCombinedReset(c *tc.C) {
 	tmpdir := c.MkDir()
 	configFile := filepath.Join(tmpdir, "config.yaml")
 	err := os.WriteFile(configFile, []byte("special: extra\nunknown: bar"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.run(c, "--file", configFile, "--reset", "special,name")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(s.fake.values, jc.DeepEquals, map[string]interface{}{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(s.fake.values, tc.DeepEquals, map[string]interface{}{
 		"special": "extra",
 		"name":    "test-model",
 		"running": true,
 		"unknown": "bar",
 	})
-	c.Check(s.fake.resetKeys, jc.DeepEquals, []string{"special", "name"})
+	c.Check(s.fake.resetKeys, tc.DeepEquals, []string{"special", "name"})
 }
 
 func (s *ConfigCommandSuite) TestPassesValues(c *tc.C) {
 	_, err := s.run(c, "special=extra", "unknown=foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := map[string]interface{}{
 		"special": "extra",
 		"unknown": "foo",
 		"name":    "test-model",
 		"running": true,
 	}
-	c.Assert(s.fake.values, jc.DeepEquals, expected)
+	c.Assert(s.fake.values, tc.DeepEquals, expected)
 }
 
 func (s *ConfigCommandSuite) TestPassesCloudInitUserDataLong(c *tc.C) {
 	modelCfg, err := s.fake.ModelGet(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	modelCfg["cloudinit-userdata"] = "test data"
 	err = s.fake.ModelSet(context.Background(), modelCfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	context, err := s.run(c, "cloudinit-userdata")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	output := cmdtesting.Stdout(context)
 	c.Assert(output, tc.Equals, "test data\n")
 
 	context2, err := s.run(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	output2 := cmdtesting.Stdout(context2)
 	expected2 := "" +
 		"Attribute           From   Value\n" +
@@ -345,13 +344,13 @@ func (s *ConfigCommandSuite) TestPassesCloudInitUserDataLong(c *tc.C) {
 
 func (s *ConfigCommandSuite) TestPassesCloudInitUserDataShort(c *tc.C) {
 	modelCfg, err := s.fake.ModelGet(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	modelCfg["cloudinit-userdata"] = ""
 	err = s.fake.ModelSet(context.Background(), modelCfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	context, err := s.run(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	output := cmdtesting.Stdout(context)
 	expected := "" +
 		"Attribute           From   Value\n" +
@@ -363,10 +362,10 @@ func (s *ConfigCommandSuite) TestPassesCloudInitUserDataShort(c *tc.C) {
 
 func (s *ConfigCommandSuite) TestSettingUnknownValue(c *tc.C) {
 	_, err := s.run(c, "special=extra", "unknown=foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Command succeeds, but warning logged.
 	expected := `key "unknown" is not defined in the current model configuration: possible misspelling`
-	c.Check(c.GetTestLog(), jc.Contains, expected)
+	c.Check(c.GetTestLog(), tc.Contains, expected)
 }
 
 func (s *ConfigCommandSuite) TestBlockedError(c *tc.C) {
@@ -377,17 +376,17 @@ func (s *ConfigCommandSuite) TestBlockedError(c *tc.C) {
 
 func (s *ConfigCommandSuite) TestResetPassesValues(c *tc.C) {
 	_, err := s.run(c, "--reset", "special,running")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fake.resetKeys, jc.DeepEquals, []string{"special", "running"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.fake.resetKeys, tc.DeepEquals, []string{"special", "running"})
 }
 
 func (s *ConfigCommandSuite) TestResettingUnKnownValue(c *tc.C) {
 	_, err := s.run(c, "--reset", "unknown")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fake.resetKeys, jc.DeepEquals, []string{"unknown"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.fake.resetKeys, tc.DeepEquals, []string{"unknown"})
 	// Command succeeds, but warning logged.
 	expected := `key "unknown" is not defined in the current model configuration: possible misspelling`
-	c.Check(c.GetTestLog(), jc.Contains, expected)
+	c.Check(c.GetTestLog(), tc.Contains, expected)
 }
 
 func (s *ConfigCommandSuite) TestResetBlockedError(c *tc.C) {

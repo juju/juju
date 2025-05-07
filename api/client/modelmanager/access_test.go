@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/client/modelmanager"
@@ -54,13 +53,13 @@ func checkCall(c *tc.C, objType string, id, request string) {
 
 func assertRequest(c *tc.C, a interface{}) params.ModifyModelAccessRequest {
 	req, ok := a.(params.ModifyModelAccessRequest)
-	c.Assert(ok, jc.IsTrue, tc.Commentf("wrong request type"))
+	c.Assert(ok, tc.IsTrue, tc.Commentf("wrong request type"))
 	return req
 }
 
 func assertResponse(c *tc.C, result interface{}) *params.ErrorResults {
 	resp, ok := result.(*params.ErrorResults)
-	c.Assert(ok, jc.IsTrue, tc.Commentf("wrong response type"))
+	c.Assert(ok, tc.IsTrue, tc.Commentf("wrong response type"))
 	return resp
 }
 
@@ -82,7 +81,7 @@ func (s *accessSuite) readOnlyUser(c *tc.C, action params.ModelAction) {
 		})
 	client := modelmanager.NewClient(apiCaller)
 	err := accessCall(client, action, "bob", "read", someModelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *accessSuite) TestGrantModelAdminUser(c *tc.C) {
@@ -111,7 +110,7 @@ func (s *accessSuite) adminUser(c *tc.C, action params.ModelAction) {
 		})
 	client := modelmanager.NewClient(apiCaller)
 	err := accessCall(client, action, "bob", "write", someModelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *accessSuite) TestGrantThreeModels(c *tc.C) {
@@ -142,7 +141,7 @@ func (s *accessSuite) threeModels(c *tc.C, action params.ModelAction) {
 		})
 	client := modelmanager.NewClient(apiCaller)
 	err := accessCall(client, action, "carol", "read", someModelUUID, someModelUUID, someModelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *accessSuite) TestGrantErrorResult(c *tc.C) {

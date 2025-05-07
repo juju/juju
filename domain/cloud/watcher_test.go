@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
@@ -50,10 +49,10 @@ func (s *watcherSuite) TestWatchCloud(c *tc.C) {
 	cloud := testCloud
 
 	err := st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), cloudUUID, cloud)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	watcher, err := service.WatchCloud(context.Background(), "fluffy")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
@@ -80,7 +79,7 @@ func (s *watcherSuite) ensureUser(c *tc.C, userUUID, name, createdByUUID string)
 		`, userUUID, name, name, false, false, createdByUUID, time.Now())
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO user_authentication (user_uuid, disabled)
@@ -88,7 +87,7 @@ func (s *watcherSuite) ensureUser(c *tc.C, userUUID, name, createdByUUID string)
 		`, userUUID, false)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 var (

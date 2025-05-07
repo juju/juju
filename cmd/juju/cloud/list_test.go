@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	cloudapi "github.com/juju/juju/api/client/cloud"
 	jujucloud "github.com/juju/juju/cloud"
@@ -42,7 +41,7 @@ func (s *listSuite) SetUpTest(c *tc.C) {
 
 func (s *listSuite) TestListNoCredentialsRegistered(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudCommandForTest(s.store, nil), "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
 Only clouds with registered credentials are shown.
 There are more clouds, use --all to see them.
@@ -51,7 +50,7 @@ There are more clouds, use --all to see them.
 
 func (s *listSuite) TestListPublic(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudCommandForTest(s.store, nil), "--client", "--all")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertCloudsOutput(c, cmdtesting.Stdout(ctx))
 }
 
@@ -70,7 +69,7 @@ func (s *listSuite) assertCloudsOutput(c *tc.C, out string) {
 func (s *listSuite) TestListPublicLocalDefault(c *tc.C) {
 	s.store.Controllers = nil
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudCommandForTest(s.store, nil), "--all", "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Check that we are producing the expected fields
 	s.assertCloudsOutput(c, cmdtesting.Stdout(ctx))
 }
@@ -96,11 +95,11 @@ func (s *listSuite) TestListController(c *tc.C) {
 	}
 
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--format", "yaml", "-c", "mycontroller")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api.CheckCallNames(c, "Clouds", "CloudInfo", "Close")
 	c.Assert(cmd.ControllerName, tc.Equals, "mycontroller")
 
-	c.Assert(cmdtesting.Stdout(ctx), jc.Contains, `
+	c.Assert(cmdtesting.Stdout(ctx), tc.Contains, `
 beehive:
   defined: public
   type: openstack
@@ -154,11 +153,11 @@ func (s *listSuite) TestListClientAndController(c *tc.C) {
 	}
 
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--format", "yaml")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api.CheckCallNames(c, "Clouds", "CloudInfo", "Close")
 	c.Assert(cmd.ControllerName, tc.Equals, "mycontroller")
 
-	c.Assert(cmdtesting.Stdout(ctx), jc.Contains, `
+	c.Assert(cmdtesting.Stdout(ctx), tc.Contains, `
 beehive:
   defined: public
   type: openstack
@@ -196,7 +195,7 @@ func (s *listSuite) TestListEmbedded(c *tc.C) {
 	}
 
 	ctx, err := cmdtesting.RunCommand(c, cmd)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api.CheckCallNames(c, "Clouds", "CloudInfo", "Close")
 	c.Assert(cmd.ControllerName, tc.Equals, "mycontroller")
 
@@ -229,10 +228,10 @@ func (s *listSuite) TestListKubernetes(c *tc.C) {
 	}
 
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--controller", "mycontroller", "--format", "yaml")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api.CheckCallNames(c, "Clouds", "CloudInfo", "Close")
 	c.Assert(cmd.ControllerName, tc.Equals, "mycontroller")
-	c.Assert(cmdtesting.Stdout(ctx), jc.Contains, `
+	c.Assert(cmdtesting.Stdout(ctx), tc.Contains, `
 beehive:
   defined: public
   type: k8s
@@ -281,12 +280,12 @@ func (s *listSuite) assertListTabular(c *tc.C, expectedOutput string) {
 		})
 
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--controller", "mycontroller", "--format", "tabular")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api.CheckCallNames(c, "Clouds", "CloudInfo", "Close")
 	c.Assert(cmd.ControllerName, tc.Equals, "mycontroller")
 
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, jc.Contains, expectedOutput)
+	c.Assert(out, tc.Contains, expectedOutput)
 }
 
 func (s *listSuite) TestListTabular(c *tc.C) {
@@ -322,7 +321,7 @@ clouds:
         endpoint: http://london/1.0
 `[1:]
 	err := os.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cmd := cloud.NewListCloudCommandForTest(
 		s.store,
@@ -332,13 +331,13 @@ clouds:
 		})
 
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
 	// Just check a snippet of the output to make sure it looks ok.
 	// local clouds are last.
 	// homestack should abut localhost and hence come last in the output.
-	c.Assert(out, jc.Contains, `homestack  1        london     openstack  0            local     Openstack Cloud`)
+	c.Assert(out, tc.Contains, `homestack  1        london     openstack  0            local     Openstack Cloud`)
 }
 
 func (s *listSuite) TestListPublicAndPersonalSameName(c *tc.C) {
@@ -350,10 +349,10 @@ clouds:
     endpoint: http://custom
 `[1:]
 	err := os.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudCommandForTest(s.store, nil), "--format", "yaml", "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
 	// Just check a snippet of the output to make sure it looks ok.
@@ -364,7 +363,7 @@ clouds:
 
 func (s *listSuite) TestListYAML(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudCommandForTest(s.store, nil), "--format", "yaml", "--client", "--all")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
 	// Just check a snippet of the output to make sure it looks ok.
@@ -373,7 +372,7 @@ func (s *listSuite) TestListYAML(c *tc.C) {
 
 func (s *listSuite) TestListJSON(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudCommandForTest(s.store, nil), "--format", "json", "--client", "--all")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
 	// Just check a snippet of the output to make sure it looks ok.
@@ -382,18 +381,18 @@ func (s *listSuite) TestListJSON(c *tc.C) {
 
 func (s *listSuite) TestListPreservesRegionOrder(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudCommandForTest(s.store, nil), "--format", "yaml", "--client", "--all")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	lines := strings.Split(cmdtesting.Stdout(ctx), "\n")
 	withClouds := "clouds:\n  " + strings.Join(lines, "\n  ")
 
 	parsedClouds, err := jujucloud.ParseCloudMetadata([]byte(withClouds))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	parsedCloud, ok := parsedClouds["aws"]
-	c.Assert(ok, jc.IsTrue) // aws found in output
+	c.Assert(ok, tc.IsTrue) // aws found in output
 
 	aws, err := jujucloud.CloudByName("aws")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(&parsedCloud, jc.DeepEquals, aws)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(&parsedCloud, tc.DeepEquals, aws)
 }
 
 type fakeListCloudsAPI struct {

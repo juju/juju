@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -57,9 +56,9 @@ func (s *statusSetterSuite) TestUnauthorised(c *tc.C) {
 		Tag:    tag.String(),
 		Status: status.Executing.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *statusSetterSuite) TestNotATag(c *tc.C) {
@@ -69,7 +68,7 @@ func (s *statusSetterSuite) TestNotATag(c *tc.C) {
 		Tag:    "not a tag",
 		Status: status.Executing.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0].Error, tc.ErrorMatches, `"not a tag" is not a valid tag`)
 }
@@ -84,9 +83,9 @@ func (s *statusSetterSuite) TestNotFound(c *tc.C) {
 		Tag:    tag.String(),
 		Status: status.Down.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *statusSetterSuite) TestSetMachineStatus(c *tc.C) {
@@ -106,7 +105,7 @@ func (s *statusSetterSuite) TestSetMachineStatus(c *tc.C) {
 		Tag:    tag.String(),
 		Status: status.Started.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0].Error, tc.IsNil)
 }
@@ -129,9 +128,9 @@ func (s *statusSetterSuite) TestSetUnitStatus(c *tc.C) {
 		Tag:    tag.String(),
 		Status: status.Active.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *statusSetterSuite) TestSetApplicationStatus(c *tc.C) {
@@ -150,9 +149,9 @@ func (s *statusSetterSuite) TestSetApplicationStatus(c *tc.C) {
 		Tag:    tag.String(),
 		Status: status.Active.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *statusSetterSuite) TestBulk(c *tc.C) {
@@ -167,9 +166,9 @@ func (s *statusSetterSuite) TestBulk(c *tc.C) {
 		Tag:    "bad-tag",
 		Status: status.Active.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 2)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(result.Results[1].Error, tc.ErrorMatches, `"bad-tag" is not a valid tag`)
 }
 

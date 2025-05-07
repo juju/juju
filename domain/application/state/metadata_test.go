@@ -8,7 +8,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/semversion"
@@ -410,7 +409,7 @@ func (s *metadataSuite) TestDecodeMetadata(c *tc.C) {
 		c.Logf("Running test case %q", tc.name)
 
 		result, err := decodeMetadata(tc.input, tc.inputArgs)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(result, tc.DeepEquals, tc.output)
 	}
 }
@@ -427,7 +426,7 @@ func (s *metadataSuite) TestEncodeMetadata(c *tc.C) {
 		Subordinate:    true,
 		Assumes:        []byte("null"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, setCharmMetadata{
 		CharmUUID:      id.String(),
 		Name:           "foo",
@@ -462,7 +461,7 @@ SELECT charm_run_as_kind.* AS &charmRunAs.* FROM charm_run_as_kind ORDER BY id;
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt).GetAll(&results)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 4)
 
 	m := []charm.RunAs{
@@ -475,7 +474,7 @@ SELECT charm_run_as_kind.* AS &charmRunAs.* FROM charm_run_as_kind ORDER BY id;
 	for i, value := range m {
 		c.Logf("result %d: %#v", i, value)
 		result, err := encodeRunAs(value)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(result, tc.DeepEquals, results[i].ID)
 	}
 }
@@ -499,7 +498,7 @@ SELECT charm_relation_role.* AS &charmRelationRole.* FROM charm_relation_role OR
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt).GetAll(&results)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 3)
 
 	m := []charm.RelationRole{
@@ -511,7 +510,7 @@ SELECT charm_relation_role.* AS &charmRelationRole.* FROM charm_relation_role OR
 	for i, value := range m {
 		c.Logf("result %d: %#v", i, value)
 		result, err := encodeRelationRole(value)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(result, tc.DeepEquals, results[i].ID)
 	}
 }
@@ -535,7 +534,7 @@ SELECT charm_relation_scope.* AS &charmRelationScope.* FROM charm_relation_scope
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt).GetAll(&results)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 2)
 
 	m := []charm.RelationScope{
@@ -546,7 +545,7 @@ SELECT charm_relation_scope.* AS &charmRelationScope.* FROM charm_relation_scope
 	for i, value := range m {
 		c.Logf("result %d: %#v", i, value)
 		result, err := encodeRelationScope(value)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(result, tc.DeepEquals, results[i].ID)
 	}
 }
@@ -570,7 +569,7 @@ SELECT charm_storage_kind.* AS &storageKind.* FROM charm_storage_kind ORDER BY i
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt).GetAll(&results)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 2)
 
 	m := []charm.StorageType{
@@ -581,7 +580,7 @@ SELECT charm_storage_kind.* AS &storageKind.* FROM charm_storage_kind ORDER BY i
 	for i, value := range m {
 		c.Logf("result %d: %#v", i, value)
 		result, err := encodeStorageType(value)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(result, tc.DeepEquals, results[i].ID)
 	}
 }
@@ -605,7 +604,7 @@ SELECT charm_resource_kind.* AS &charmResourceKind.* FROM charm_resource_kind OR
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt).GetAll(&results)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 2)
 
 	m := []charm.ResourceType{
@@ -616,7 +615,7 @@ SELECT charm_resource_kind.* AS &charmResourceKind.* FROM charm_resource_kind OR
 	for i, value := range m {
 		c.Logf("result %d: %#v", i, value)
 		result, err := encodeResourceType(value)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(result, tc.DeepEquals, results[i].ID)
 	}
 }

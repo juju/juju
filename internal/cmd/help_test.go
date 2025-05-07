@@ -9,7 +9,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
 	gitjujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -84,7 +83,7 @@ func (s *HelpCommandSuite) TestHelpOutput(c *tc.C) {
 
 		ctx, err := cmdtesting.RunCommand(c, super, test.args...)
 		if test.errMatch == "" {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			s.assertStdOutMatches(c, ctx, test.helpMatch)
 
 		} else {
@@ -99,7 +98,7 @@ func (s *HelpCommandSuite) TestHelpBasics(c *tc.C) {
 	super.AddHelpTopic("basics", "short", "long help basics")
 
 	ctx, err := cmdtesting.RunCommand(c, super)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertStdOutMatches(c, ctx, "long help basics")
 }
 
@@ -112,7 +111,7 @@ func (s *HelpCommandSuite) TestMultipleSuperCommands(c *tc.C) {
 	level3.Register(&TestCommand{Name: "blah"})
 
 	ctx, err := cmdtesting.RunCommand(c, level1, "help", "level2", "level3", "blah")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertStdOutMatches(c, ctx, "Usage: level1 level2 level3 blah.*blah-doc.*")
 
 	_, err = cmdtesting.RunCommand(c, level1, "help", "level2", "missing", "blah")
@@ -138,10 +137,10 @@ func (s *HelpCommandSuite) TestRegisterSuperAliasHelp(c *tc.C) {
 		UsagePrefix: "jujutest",
 		Purpose:     "bar functions",
 	})
-	jc.Register(sub)
+	tc.Register(sub)
 	sub.Register(&simple{name: "foo"})
 
-	jc.RegisterSuperAlias("bar-foo", "bar", "foo", nil)
+	tc.RegisterSuperAlias("bar-foo", "bar", "foo", nil)
 
 	for _, test := range []struct {
 		args []string
@@ -180,5 +179,5 @@ func (s *HelpCommandSuite) TestNotifyHelp(c *tc.C) {
 	code := cmd.Main(super, ctx, []string{"help", "blah"})
 	c.Assert(code, tc.Equals, 0)
 
-	c.Assert(called, jc.DeepEquals, [][]string{{"blah"}})
+	c.Assert(called, tc.DeepEquals, [][]string{{"blah"}})
 }

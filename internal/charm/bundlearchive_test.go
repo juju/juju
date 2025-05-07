@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/charm"
 	charmtesting "github.com/juju/juju/internal/charm/testing"
@@ -29,40 +28,40 @@ func (s *BundleArchiveSuite) SetUpSuite(c *tc.C) {
 
 func (s *BundleArchiveSuite) TestReadBundleArchive(c *tc.C) {
 	archive, err := charm.ReadBundleArchive(s.archivePath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkWordpressBundle(c, archive, s.archivePath, bundleName)
 }
 
 func (s *BundleArchiveSuite) TestReadBundleArchiveBytes(c *tc.C) {
 	data, err := os.ReadFile(s.archivePath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	archive, err := charm.ReadBundleArchiveBytes(data)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(archive.ContainsOverlays(), jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(archive.ContainsOverlays(), tc.IsFalse)
 	checkWordpressBundle(c, archive, "", bundleName)
 }
 
 func (s *BundleArchiveSuite) TestReadMultiDocBundleArchiveBytes(c *tc.C) {
 	path := archivePath(c, readBundleDir(c, "wordpress-simple-multidoc"))
 	data, err := os.ReadFile(path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	archive, err := charm.ReadBundleArchiveBytes(data)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(archive.ContainsOverlays(), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(archive.ContainsOverlays(), tc.IsTrue)
 	checkWordpressBundle(c, archive, "", "wordpress-simple-multidoc")
 }
 
 func (s *BundleArchiveSuite) TestReadBundleArchiveFromReader(c *tc.C) {
 	f, err := os.Open(s.archivePath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer f.Close()
 	info, err := f.Stat()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	archive, err := charm.ReadBundleArchiveFromReader(f, info.Size())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkWordpressBundle(c, archive, "", bundleName)
 }
 
@@ -77,21 +76,21 @@ func (s *BundleArchiveSuite) TestReadBundleArchiveWithoutREADME(c *tc.C) {
 func testReadBundleArchiveWithoutFile(c *tc.C, fileToRemove string) {
 	path := cloneDir(c, bundleDirPath(c, "wordpress-simple"))
 	dir, err := charmtesting.ReadBundleDir(path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Remove the file from the bundle directory.
 	// ArchiveTo just zips the contents of the directory as-is,
 	// so the resulting bundle archive not contain the
 	// file.
 	err = os.Remove(filepath.Join(dir.Path, fileToRemove))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	archivePath := filepath.Join(c.MkDir(), "out.bundle")
 	dstf, err := os.Create(archivePath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = dir.ArchiveTo(dstf)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	dstf.Close()
 
 	archive, err := charm.ReadBundleArchive(archivePath)
@@ -104,11 +103,11 @@ func testReadBundleArchiveWithoutFile(c *tc.C, fileToRemove string) {
 func (s *BundleArchiveSuite) TestExpandTo(c *tc.C) {
 	dir := c.MkDir()
 	archive, err := charm.ReadBundleArchive(s.archivePath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = archive.ExpandTo(dir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	bdir, err := charmtesting.ReadBundleDir(dir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(bdir.ReadMe(), tc.Equals, archive.ReadMe())
 	c.Assert(bdir.Data(), tc.DeepEquals, archive.Data())
 }

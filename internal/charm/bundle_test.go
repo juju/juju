@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/charm"
 )
@@ -19,7 +18,7 @@ func checkWordpressBundle(c *tc.C, b *charm.BundleArchive, path string, bundleNa
 	mysqlCharm := readCharmDir(c, "mysql")
 
 	bd := b.Data()
-	c.Assert(bd.RequiredCharms(), jc.DeepEquals, []string{"ch:mysql", "ch:wordpress"})
+	c.Assert(bd.RequiredCharms(), tc.DeepEquals, []string{"ch:mysql", "ch:wordpress"})
 
 	charms := map[string]charm.Charm{
 		"ch:wordpress": wordpressCharm,
@@ -28,7 +27,7 @@ func checkWordpressBundle(c *tc.C, b *charm.BundleArchive, path string, bundleNa
 	err := bd.VerifyWithCharms(verifyOk, nil, nil, charms)
 	c.Assert(err, tc.IsNil)
 
-	c.Assert(bd.Applications, jc.DeepEquals, map[string]*charm.ApplicationSpec{
+	c.Assert(bd.Applications, tc.DeepEquals, map[string]*charm.ApplicationSpec{
 		"wordpress": {
 			Charm: "ch:wordpress",
 		},
@@ -37,7 +36,7 @@ func checkWordpressBundle(c *tc.C, b *charm.BundleArchive, path string, bundleNa
 			NumUnits: 1,
 		},
 	})
-	c.Assert(bd.Relations, jc.DeepEquals, [][]string{
+	c.Assert(bd.Relations, tc.DeepEquals, [][]string{
 		{"wordpress:db", "mysql:server"},
 	})
 	c.Assert(b.ReadMe(), tc.Equals, "A dummy bundle\n")
@@ -45,7 +44,7 @@ func checkWordpressBundle(c *tc.C, b *charm.BundleArchive, path string, bundleNa
 
 	bundlePath := filepath.Join("internal/test-charm-repo/bundle", bundleName, "bundle.yaml")
 	raw, err := os.ReadFile(bundlePath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(b.BundleBytes()), tc.Equals, string(raw))
 }
 

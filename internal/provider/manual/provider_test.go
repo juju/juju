@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
@@ -54,7 +53,7 @@ func (s *providerSuite) SetUpTest(c *tc.C) {
 // manual provider
 func (s *providerSuite) TestPrepareForBootstrap(c *tc.C) {
 	_, err := s.testPrepareForBootstrap(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.CheckNoCalls(c)
 }
 
@@ -72,7 +71,7 @@ func (s *providerSuite) TestBootstrap(c *tc.C) {
 	ctx, err := s.testBootstrap(c, testBootstrapArgs{
 		endpoint: "hostname",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.CheckCall(c, 0, "CheckProvisioned", "hostname", "")
 	s.CheckCall(c, 1, "InitUbuntuUser", "hostname", "", "", "", ctx.GetStdin(), ctx.GetStdout())
 	s.CheckCall(c, 2, "DetectBaseAndHardwareCharacteristics", "hostname", "")
@@ -84,7 +83,7 @@ func (s *providerSuite) TestBootstrapUserHost(c *tc.C) {
 	ctx, err := s.testBootstrap(c, testBootstrapArgs{
 		endpoint: "user@hostwithuser",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.CheckCall(c, 0, "CheckProvisioned", "hostwithuser", "user")
 	s.CheckCall(c, 1, "InitUbuntuUser", "hostwithuser", "user", "", "", ctx.GetStdin(), ctx.GetStdout())
 	s.CheckCall(c, 2, "DetectBaseAndHardwareCharacteristics", "hostwithuser", "user")
@@ -99,7 +98,7 @@ func (s *providerSuite) TestBootstrapUserHostAuthorizedKeys(c *tc.C) {
 			AuthorizedKeys: []string{"key1", "key2"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.CheckCall(c, 0, "CheckProvisioned", "host", "userwithauth")
 	s.CheckCall(c, 1, "InitUbuntuUser", "host", "userwithauth", "key1\nkey2", "", ctx.GetStdin(), ctx.GetStdout())
 	s.CheckCall(c, 2, "DetectBaseAndHardwareCharacteristics", "host", "userwithauth")
@@ -108,7 +107,7 @@ func (s *providerSuite) TestBootstrapUserHostAuthorizedKeys(c *tc.C) {
 func (s *providerSuite) testPrepareForBootstrap(c *tc.C) (environs.BootstrapContext, error) {
 	minimal := manual.MinimalConfigValues()
 	testConfig, err := config.New(config.UseDefaults, minimal)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cloudSpec := environscloudspec.CloudSpec{
 		Endpoint: "endpoint",
 	}
@@ -135,7 +134,7 @@ type testBootstrapArgs struct {
 func (s *providerSuite) testBootstrap(c *tc.C, args testBootstrapArgs) (environs.BootstrapContext, error) {
 	minimal := manual.MinimalConfigValues()
 	testConfig, err := config.New(config.UseDefaults, minimal)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cloudSpec := environscloudspec.CloudSpec{
 		Endpoint: args.endpoint,
 		Region:   "region",
@@ -159,56 +158,56 @@ func (s *providerSuite) testBootstrap(c *tc.C, args testBootstrapArgs) (environs
 func (s *providerSuite) TestNullAlias(c *tc.C) {
 	p, err := environs.Provider("manual")
 	c.Assert(p, tc.NotNil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	p, err = environs.Provider("null")
 	c.Assert(p, tc.NotNil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *providerSuite) TestDisablesUpdatesByDefault(c *tc.C) {
 	p, err := environs.Provider("manual")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	attrs := manual.MinimalConfigValues()
 	testConfig, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(testConfig.EnableOSRefreshUpdate(), jc.IsTrue)
-	c.Check(testConfig.EnableOSUpgrade(), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(testConfig.EnableOSRefreshUpdate(), tc.IsTrue)
+	c.Check(testConfig.EnableOSUpgrade(), tc.IsTrue)
 
 	validCfg, err := p.Validate(context.Background(), testConfig, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Unless specified, update should default to true,
 	// upgrade to false.
-	c.Check(validCfg.EnableOSRefreshUpdate(), jc.IsTrue)
-	c.Check(validCfg.EnableOSUpgrade(), jc.IsFalse)
+	c.Check(validCfg.EnableOSRefreshUpdate(), tc.IsTrue)
+	c.Check(validCfg.EnableOSUpgrade(), tc.IsFalse)
 }
 
 func (s *providerSuite) TestDefaultsCanBeOverriden(c *tc.C) {
 	p, err := environs.Provider("manual")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	attrs := manual.MinimalConfigValues()
 	attrs["enable-os-refresh-update"] = true
 	attrs["enable-os-upgrade"] = true
 
 	testConfig, err := config.New(config.UseDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	validCfg, err := p.Validate(context.Background(), testConfig, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Our preferences should not have been overwritten.
-	c.Check(validCfg.EnableOSRefreshUpdate(), jc.IsTrue)
-	c.Check(validCfg.EnableOSUpgrade(), jc.IsTrue)
+	c.Check(validCfg.EnableOSRefreshUpdate(), tc.IsTrue)
+	c.Check(validCfg.EnableOSUpgrade(), tc.IsTrue)
 }
 
 func (s *providerSuite) TestSchema(c *tc.C) {
 	vals := map[string]interface{}{"endpoint": "http://foo.com/bar"}
 
 	p, err := environs.Provider("manual")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = p.CloudSchema().Validate(vals)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *providerSuite) TestPingEndpointWithUser(c *tc.C) {
@@ -220,16 +219,16 @@ func (s *providerSuite) TestPingEndpointWithUser(c *tc.C) {
 		return nil
 	})
 	p, err := environs.Provider("manual")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p.Ping(context.Background(), endpoint), jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(p.Ping(context.Background(), endpoint), tc.ErrorIsNil)
+	c.Assert(called, tc.IsTrue)
 }
 
 func (s *providerSuite) TestPingIP(c *tc.C) {
 	endpoint := "P"
 	called := 0
 	s.PatchValue(manual.Echo, func(s string) error {
-		c.Assert(called < 2, jc.IsTrue)
+		c.Assert(called < 2, tc.IsTrue)
 		if called == 0 {
 			c.Assert(s, tc.Equals, endpoint)
 		} else {
@@ -239,8 +238,8 @@ func (s *providerSuite) TestPingIP(c *tc.C) {
 		return nil
 	})
 	p, err := environs.Provider("manual")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p.Ping(context.Background(), endpoint), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(p.Ping(context.Background(), endpoint), tc.ErrorIsNil)
 	// Expect the call to be made twice.
 	c.Assert(called, tc.Equals, 1)
 }

@@ -6,7 +6,6 @@ package upgrade
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 type upgradeSuite struct {
@@ -110,7 +109,7 @@ func (s *upgradeSuite) TestTransitionTo(c *tc.C) {
 				c.Check(err, tc.IsNil)
 				continue
 			}
-			c.Check(err, jc.ErrorIs, ErrUnableToTransition)
+			c.Check(err, tc.ErrorIs, ErrUnableToTransition)
 		}
 	}
 }
@@ -137,7 +136,7 @@ func (s *upgradeSuite) TestTransitionToError(c *tc.C) {
 
 		err := test.st.TransitionTo(Error)
 		if test.err != nil {
-			c.Check(err, jc.ErrorIs, test.err)
+			c.Check(err, tc.ErrorIs, test.err)
 			continue
 		}
 		c.Check(err, tc.IsNil)

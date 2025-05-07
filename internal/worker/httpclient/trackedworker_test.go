@@ -5,7 +5,6 @@ package httpclient
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
@@ -25,7 +24,7 @@ func (s *trackedWorkerSuite) TestKilled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, err := NewTrackedWorker(s.client)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CheckKill(c, w)
 
 	w.Kill()

@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cmd/juju/space"
@@ -63,7 +62,7 @@ machine-count: 4
 	api.EXPECT().ShowSpace(gomock.Any(), spaceName).Return(s.getDefaultSpace(), nil)
 
 	ctx, err := s.runCommand(c, api, spaceName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, expectedStdout)
 
 }
@@ -86,7 +85,7 @@ func (s *ShowSuite) TestRunWhenShowSpacesNotSupported(c *tc.C) {
 
 	_, err := s.runCommand(c, api, spaceName)
 
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 
 func (s *ShowSuite) TestRunWhenShowSpacesAPIFails(c *tc.C) {

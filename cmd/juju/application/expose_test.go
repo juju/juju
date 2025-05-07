@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -42,7 +41,7 @@ func (s *ExposeSuite) TestExpose(c *tc.C) {
 	api.EXPECT().Close().Return(nil)
 
 	err := runExpose(c, api, "some-application-name")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ExposeSuite) TestExposeEndpoints(c *tc.C) {
@@ -56,7 +55,7 @@ func (s *ExposeSuite) TestExposeEndpoints(c *tc.C) {
 	api.EXPECT().Close().Return(nil)
 
 	err := runExpose(c, api, "some-application-name", "--endpoints", "ep1,ep2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ExposeSuite) TestExposeSpaces(c *tc.C) {
@@ -70,7 +69,7 @@ func (s *ExposeSuite) TestExposeSpaces(c *tc.C) {
 	api.EXPECT().Close().Return(nil)
 
 	err := runExpose(c, api, "some-application-name", "--endpoints", "ep1", "--to-spaces", "sp1,sp2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ExposeSuite) TestExposeCIDRS(c *tc.C) {
@@ -84,7 +83,7 @@ func (s *ExposeSuite) TestExposeCIDRS(c *tc.C) {
 	api.EXPECT().Close().Return(nil)
 
 	err := runExpose(c, api, "some-application-name", "--endpoints", "ep1", "--to-cidrs", "cidr1,cidr2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ExposeSuite) TestBlockExpose(c *tc.C) {
@@ -97,5 +96,5 @@ func (s *ExposeSuite) TestBlockExpose(c *tc.C) {
 
 	err := runExpose(c, api, "some-application-name")
 	c.Assert(err, tc.NotNil)
-	c.Assert(strings.Contains(err.Error(), "All operations that change model have been disabled for the current model"), jc.IsTrue)
+	c.Assert(strings.Contains(err.Error(), "All operations that change model have been disabled for the current model"), tc.IsTrue)
 }

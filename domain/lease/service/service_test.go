@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/lease"
@@ -37,7 +36,7 @@ func (s *serviceSuite) TestLeases(c *tc.C) {
 
 	service := NewService(s.state)
 	val, err := service.Leases(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(val, tc.DeepEquals, expected)
 }
 
@@ -55,7 +54,7 @@ func (s *serviceSuite) TestLeasesWithKey(c *tc.C) {
 
 	service := NewService(s.state)
 	val, err := service.Leases(context.Background(), key)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(val, tc.DeepEquals, expected)
 }
 
@@ -79,7 +78,7 @@ func (s *serviceSuite) TestClaimLease(c *tc.C) {
 
 	service := NewService(s.state)
 	err := service.ClaimLease(context.Background(), key, req)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestClaimLeaseValidation(c *tc.C) {
@@ -102,7 +101,7 @@ func (s *serviceSuite) TestExtendLease(c *tc.C) {
 
 	service := NewService(s.state)
 	err := service.ExtendLease(context.Background(), key, req)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestExtendLeaseValidation(c *tc.C) {
@@ -122,7 +121,7 @@ func (s *serviceSuite) TestRevokeLease(c *tc.C) {
 
 	service := NewService(s.state)
 	err := service.RevokeLease(context.Background(), key, "postgresql/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestLeaseGroup(c *tc.C) {
@@ -139,7 +138,7 @@ func (s *serviceSuite) TestLeaseGroup(c *tc.C) {
 
 	service := NewService(s.state)
 	got, err := service.LeaseGroup(context.Background(), "foo", "123")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.DeepEquals, expected)
 }
 
@@ -152,7 +151,7 @@ func (s *serviceSuite) TestPinLease(c *tc.C) {
 
 	service := NewService(s.state)
 	err := service.PinLease(context.Background(), key, "machine/6")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestUnpinLease(c *tc.C) {
@@ -164,7 +163,7 @@ func (s *serviceSuite) TestUnpinLease(c *tc.C) {
 
 	service := NewService(s.state)
 	err := service.UnpinLease(context.Background(), key, "machine/6")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestPinned(c *tc.C) {
@@ -179,7 +178,7 @@ func (s *serviceSuite) TestPinned(c *tc.C) {
 
 	service := NewService(s.state)
 	got, err := service.Pinned(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.DeepEquals, expected)
 }
 
@@ -190,7 +189,7 @@ func (s *serviceSuite) TestExpireLeases(c *tc.C) {
 
 	service := NewService(s.state)
 	err := service.ExpireLeases(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {

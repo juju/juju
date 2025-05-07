@@ -16,7 +16,6 @@ import (
 	"github.com/juju/clock"
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
@@ -44,7 +43,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataNotFound(c *tc.C) {
 	s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{}, domainobjectstoreerrors.ErrNotFound).Times(2)
 
 	_, _, err := store.Get(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, objectstoreerrors.ObjectNotFound)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ObjectNotFound)
 }
 
 func (s *fileObjectStoreSuite) TestGetMetadataBySHANotFound(c *tc.C) {
@@ -56,7 +55,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHANotFound(c *tc.C) {
 	s.service.EXPECT().GetMetadataBySHA256Prefix(gomock.Any(), "0263829").Return(objectstore.Metadata{}, domainobjectstoreerrors.ErrNotFound).Times(2)
 
 	_, _, err := store.GetBySHA256Prefix(context.Background(), "0263829")
-	c.Assert(err, jc.ErrorIs, objectstoreerrors.ObjectNotFound)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ObjectNotFound)
 }
 
 func (s *fileObjectStoreSuite) TestGetMetadataFoundNoFile(c *tc.C) {
@@ -78,7 +77,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataFoundNoFile(c *tc.C) {
 		Return(nil, -1, jujuerrors.NotFoundf("not found"))
 
 	_, _, err := store.Get(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, objectstoreerrors.ObjectNotFound)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ObjectNotFound)
 }
 
 func (s *fileObjectStoreSuite) TestGetMetadataBySHA256FoundNoFile(c *tc.C) {
@@ -97,7 +96,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHA256FoundNoFile(c *tc.C) {
 	}, nil).Times(2)
 
 	_, _, err := store.GetBySHA256(context.Background(), "0263829989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f")
-	c.Assert(err, jc.ErrorIs, objectstoreerrors.ObjectNotFound)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ObjectNotFound)
 }
 
 func (s *fileObjectStoreSuite) TestGetMetadataBySHA256PrefixFoundNoFile(c *tc.C) {
@@ -119,7 +118,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHA256PrefixFoundNoFile(c *tc.C)
 		Return(nil, -1, jujuerrors.NotFoundf("not found"))
 
 	_, _, err := store.GetBySHA256Prefix(context.Background(), "0263829")
-	c.Assert(err, jc.ErrorIs, objectstoreerrors.ObjectNotFound)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ObjectNotFound)
 }
 
 func (s *fileObjectStoreSuite) TestGetMetadataAndFileFound(c *tc.C) {
@@ -142,7 +141,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataAndFileFound(c *tc.C) {
 	}, nil)
 
 	file, fileSize, err := store.Get(context.Background(), fileName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(size, tc.Equals, fileSize)
 	c.Check(s.readFile(c, file), tc.Equals, "some content")
 }
@@ -176,7 +175,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataFoundNoFileRemoteFallback(c *tc.C)
 	s.expectRelease(hash384, 1)
 
 	file, fileSize, err := store.Get(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(size, tc.Equals, fileSize)
 	c.Check(s.readFile(c, file), tc.Equals, "some content")
 
@@ -204,7 +203,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHA256AndFileFound(c *tc.C) {
 	}, nil)
 
 	file, fileSize, err := store.GetBySHA256(context.Background(), hash256)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(size, tc.Equals, fileSize)
 	c.Assert(s.readFile(c, file), tc.Equals, "some content")
 }
@@ -230,7 +229,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHA256PrefixAndFileFound(c *tc.C
 	}, nil)
 
 	file, fileSize, err := store.GetBySHA256Prefix(context.Background(), hashPrefix)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(size, tc.Equals, fileSize)
 	c.Assert(s.readFile(c, file), tc.Equals, "some content")
 }
@@ -265,7 +264,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHA256PrefixFoundNoFileRemoteFal
 	s.expectRelease(hash384, 1)
 
 	file, fileSize, err := store.GetBySHA256Prefix(context.Background(), hashPrefix)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(size, tc.Equals, fileSize)
 	c.Check(s.readFile(c, file), tc.Equals, "some content")
 
@@ -302,7 +301,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataAndFileNotFoundThenFound(c *tc.C) 
 	}, nil)
 
 	file, fileSize, err := store.Get(context.Background(), fileName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(size, tc.Equals, fileSize)
 	c.Assert(s.readFile(c, file), tc.Equals, "some content")
 }
@@ -336,7 +335,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHA256AndFileNotFoundThenFound(c
 	}, nil)
 
 	file, fileSize, err := store.GetBySHA256(context.Background(), hash256)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(size, tc.Equals, fileSize)
 	c.Assert(s.readFile(c, file), tc.Equals, "some content")
 }
@@ -371,7 +370,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHA256PrefixAndFileNotFoundThenF
 	}, nil)
 
 	file, fileSize, err := store.GetBySHA256Prefix(context.Background(), hashPrefix)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(size, tc.Equals, fileSize)
 	c.Assert(s.readFile(c, file), tc.Equals, "some content")
 }
@@ -470,8 +469,8 @@ func (s *fileObjectStoreSuite) TestPut(c *tc.C) {
 	}).Return(uuid, nil)
 
 	received, err := store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(received.Validate(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(received.Validate(), tc.ErrorIsNil)
 	c.Check(received, tc.Equals, uuid)
 }
 
@@ -499,12 +498,12 @@ func (s *fileObjectStoreSuite) TestPutFileAlreadyExists(c *tc.C) {
 	}).Return(uuid, nil).Times(2)
 
 	uuid0, err := store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(uuid0.Validate(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uuid0.Validate(), tc.ErrorIsNil)
 
 	uuid1, err := store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(uuid1.Validate(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uuid1.Validate(), tc.ErrorIsNil)
 
 	c.Check(uuid0, tc.Equals, uuid1)
 }
@@ -569,7 +568,7 @@ func (s *fileObjectStoreSuite) TestPutDoesNotCleansUpFileOnMetadataFailure(c *tc
 	}).Return(uuid, nil)
 
 	_, err := store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
 		SHA384: hash384,
@@ -608,8 +607,8 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHash(c *tc.C) {
 	}).Return(uuid, nil)
 
 	uuid, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash384)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(uuid.Validate(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uuid.Validate(), tc.ErrorIsNil)
 }
 
 func (s *fileObjectStoreSuite) TestPutAndCheckHashWithInvalidHash(c *tc.C) {
@@ -652,12 +651,12 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHashFileAlreadyExists(c *tc.C) {
 	}).Return(uuid, nil).Times(2)
 
 	uuid0, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash384)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(uuid0.Validate(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uuid0.Validate(), tc.ErrorIsNil)
 
 	uuid1, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash384)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(uuid1.Validate(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uuid1.Validate(), tc.ErrorIsNil)
 
 	c.Check(uuid0, tc.Equals, uuid1)
 }
@@ -718,7 +717,7 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHashDoesNotCleansUpFileOnMetadataF
 	}).Return("", nil)
 
 	_, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash384)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
 		SHA384: hash384,
@@ -760,7 +759,7 @@ func (s *fileObjectStoreSuite) TestRemoveFileNotFound(c *tc.C) {
 	s.service.EXPECT().RemoveMetadata(gomock.Any(), "foo").Return(nil)
 
 	err := store.Remove(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *fileObjectStoreSuite) TestRemove(c *tc.C) {
@@ -785,7 +784,7 @@ func (s *fileObjectStoreSuite) TestRemove(c *tc.C) {
 	}).Return("", nil)
 
 	_, err := store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectFileDoesExist(c, path, hash384)
 
@@ -799,7 +798,7 @@ func (s *fileObjectStoreSuite) TestRemove(c *tc.C) {
 	s.service.EXPECT().RemoveMetadata(gomock.Any(), "foo").Return(nil)
 
 	err = store.Remove(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectFileDoesNotExist(c, path, hash384)
 }
@@ -826,7 +825,7 @@ func (s *fileObjectStoreSuite) TestList(c *tc.C) {
 	}}, nil)
 
 	metadata, files, err := store.list(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(metadata, tc.DeepEquals, []objectstore.Metadata{{
 		SHA384: hash384,
 		SHA256: hash256,
@@ -846,12 +845,12 @@ func (s *fileObjectStoreSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *fileObjectStoreSuite) expectFileDoesNotExist(c *tc.C, path, hash string) {
 	_, err := os.Stat(filepath.Join(path, defaultFileDirectory, "inferi", hash))
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
+	c.Assert(err, tc.Satisfies, os.IsNotExist)
 }
 
 func (s *fileObjectStoreSuite) expectFileDoesExist(c *tc.C, path, hash string) {
 	_, err := os.Stat(filepath.Join(path, defaultFileDirectory, "inferi", hash))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *fileObjectStoreSuite) expectClaim(hash string, num int) {
@@ -885,5 +884,5 @@ func (s *fileObjectStoreSuite) newFileObjectStore(c *tc.C, path string) TrackedO
 
 func (s *fileObjectStoreSuite) createDirectory(c *tc.C, path, name string) {
 	err := os.MkdirAll(filepath.Join(path, name), 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

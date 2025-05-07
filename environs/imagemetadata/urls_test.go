@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/environs/imagemetadata"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -64,13 +63,13 @@ func (s *URLsSuite) TestImageMetadataURLOfficialSource(c *tc.C) {
 	baseURL := imagemetadata.UbuntuCloudImagesURL
 	// Released streams.
 	url, err := imagemetadata.ImageMetadataURL(baseURL, "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(url, tc.Equals, fmt.Sprintf("%s/%s", baseURL, "releases"))
 	url, err = imagemetadata.ImageMetadataURL(baseURL, imagemetadata.ReleasedStream)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(url, tc.Equals, fmt.Sprintf("%s/%s", baseURL, "releases"))
 	// Non-released streams.
 	url, err = imagemetadata.ImageMetadataURL(baseURL, "daily")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(url, tc.Equals, fmt.Sprintf("%s/%s", baseURL, "daily"))
 }

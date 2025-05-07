@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -117,20 +116,20 @@ var imageMetadataForTesting = []*imagemetadata.ImageMetadata{
 func (s *marshalSuite) TestMarshalIndex(c *tc.C) {
 	cloudSpec := []simplestreams.CloudSpec{{Region: "region", Endpoint: "endpoint"}}
 	index, err := imagemetadata.MarshalImageMetadataIndexJSON(imageMetadataForTesting, cloudSpec, time.Unix(0, 0).UTC())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(index), tc.Equals, expectedIndex)
 }
 
 func (s *marshalSuite) TestMarshalProducts(c *tc.C) {
 	products, err := imagemetadata.MarshalImageMetadataProductsJSON(imageMetadataForTesting, time.Unix(0, 0).UTC())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(products), tc.Equals, expectedProducts)
 }
 
 func (s *marshalSuite) TestMarshal(c *tc.C) {
 	cloudSpec := []simplestreams.CloudSpec{{Region: "region", Endpoint: "endpoint"}}
 	index, products, err := imagemetadata.MarshalImageMetadataJSON(imageMetadataForTesting, cloudSpec, time.Unix(0, 0).UTC())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(index), tc.Equals, expectedIndex)
 	c.Assert(string(products), tc.Equals, expectedProducts)
 }

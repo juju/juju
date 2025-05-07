@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/model"
@@ -62,7 +61,7 @@ func (s *ExportImportSuite) exportImport(c *tc.C, leaders map[string]string) {
 		clock.WallClock,
 	)
 	gotM, gotSt, err := importer.ImportModel(context.Background(), bytes)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(controller.model.UUID(), tc.Equals, "bd3fae18-5ea1-4bc5-8837-45400cf1f8f6")
 	c.Assert(gotM, tc.Equals, m)
 	c.Assert(gotSt, tc.Equals, st)

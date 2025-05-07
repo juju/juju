@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	apiapplication "github.com/juju/juju/api/client/application"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -143,23 +142,23 @@ func (s *AddUnitSuite) runAddUnit(c *tc.C, args ...string) error {
 
 func (s *AddUnitSuite) TestAddUnit(c *tc.C) {
 	err := s.runAddUnit(c, "some-application-name")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.fake.numUnits, tc.Equals, 2)
 
 	err = s.runAddUnit(c, "--num-units", "2", "some-application-name")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.fake.numUnits, tc.Equals, 4)
 }
 
 func (s *AddUnitSuite) TestAddUnitWithPlacement(c *tc.C) {
 	err := s.runAddUnit(c, "some-application-name")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.fake.numUnits, tc.Equals, 2)
 
 	err = s.runAddUnit(c, "--num-units", "2", "--to", "123,lxd:1,1/lxd/2,foo", "some-application-name")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.fake.numUnits, tc.Equals, 4)
-	c.Assert(s.fake.placement, jc.DeepEquals, []*instance.Placement{
+	c.Assert(s.fake.placement, tc.DeepEquals, []*instance.Placement{
 		{"#", "123"},
 		{"lxd", "1"},
 		{"#", "1/lxd/2"},
@@ -169,14 +168,14 @@ func (s *AddUnitSuite) TestAddUnitWithPlacement(c *tc.C) {
 
 func (s *AddUnitSuite) TestAddUnitAttachStorage(c *tc.C) {
 	err := s.runAddUnit(c, "some-application-name")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.fake.numUnits, tc.Equals, 2)
 	c.Assert(s.fake.attachStorage, tc.HasLen, 0)
 
 	err = s.runAddUnit(c, "some-application-name", "--attach-storage", "foo/0,bar/1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.fake.numUnits, tc.Equals, 3)
-	c.Assert(s.fake.attachStorage, jc.DeepEquals, []string{"foo/0", "bar/1"})
+	c.Assert(s.fake.attachStorage, tc.DeepEquals, []string{"foo/0", "bar/1"})
 }
 
 func (s *AddUnitSuite) TestBlockAddUnit(c *tc.C) {
@@ -202,19 +201,19 @@ func (s *AddUnitSuite) TestUnauthorizedMentionsJujuGrant(c *tc.C) {
 
 func (s *AddUnitSuite) TestForceMachine(c *tc.C) {
 	err := s.runAddUnit(c, "some-application-name", "--to", "3")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.fake.numUnits, tc.Equals, 2)
 	c.Assert(s.fake.placement[0].Directive, tc.Equals, "3")
 
 	err = s.runAddUnit(c, "some-application-name", "--to", "23")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.fake.numUnits, tc.Equals, 3)
 	c.Assert(s.fake.placement[0].Directive, tc.Equals, "23")
 }
 
 func (s *AddUnitSuite) TestForceMachineNewContainer(c *tc.C) {
 	err := s.runAddUnit(c, "some-application-name", "--to", "lxd:1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.fake.numUnits, tc.Equals, 2)
 	c.Assert(s.fake.placement[0].Directive, tc.Equals, "1")
 	c.Assert(s.fake.placement[0].Scope, tc.Equals, "lxd")
@@ -264,7 +263,7 @@ func (s *AddUnitSuite) TestCAASAllowsNumUnitsOnly(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, expectedError)
 
 	err = s.runAddUnit(c, "some-application-name", "--num-units", "2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *AddUnitSuite) TestCAASAddUnitNotSupported(c *tc.C) {
@@ -284,6 +283,6 @@ func (s *AddUnitSuite) TestUnknownModelCallsRefresh(c *tc.C) {
 	}
 	cmd := application.NewAddUnitCommandForTestWithRefresh(s.fake, s.store, refresh)
 	_, err := cmdtesting.RunCommand(c, cmd, "-m", "nope", "no-app")
-	c.Check(called, jc.IsTrue)
+	c.Check(called, tc.IsTrue)
 	c.Assert(err, tc.ErrorMatches, "model arthur:king/nope not found")
 }

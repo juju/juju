@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/agenttools"
@@ -38,6 +37,6 @@ func (s *AgentToolsSuite) TestUpdateToolsVersion(c *tc.C) {
 		})
 	client := agenttools.NewFacade(apiCaller)
 	err := client.UpdateToolsVersion(context.Background())
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(called, tc.IsTrue)
 }

@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/httprequest.v1"
 
@@ -45,7 +44,7 @@ func (s *UpgradeModelSuite) TestAbortModelUpgrade(c *tc.C) {
 
 	client := modelupgrader.NewClient(apiCaller)
 	err := client.AbortModelUpgrade(context.Background(), coretesting.ModelTag.Id())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *UpgradeModelSuite) TestUpgradeModel(c *tc.C) {
@@ -76,7 +75,7 @@ func (s *UpgradeModelSuite) TestUpgradeModel(c *tc.C) {
 		semversion.MustParse("2.9.1"),
 		"", true, true,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(chosenVersion, tc.DeepEquals, semversion.MustParse("2.9.99"))
 }
 
@@ -94,7 +93,7 @@ func (s *UpgradeModelSuite) TestUploadTools(c *tc.C) {
 			semversion.MustParseBinary("2.9.100-ubuntu-amd64"),
 		), nil,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	req.Header.Set("Content-Type", "application/x-tar-gz")
 	req = req.WithContext(ctx)
 
@@ -116,7 +115,7 @@ func (s *UpgradeModelSuite) TestUploadTools(c *tc.C) {
 		context.Background(),
 		nil, semversion.MustParseBinary("2.9.100-ubuntu-amd64"),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, coretools.List{
 		{Version: semversion.MustParseBinary("2.9.100-ubuntu-amd64")},
 	})

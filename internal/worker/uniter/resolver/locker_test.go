@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/charm/hooks"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -30,7 +29,7 @@ func (s *GuardSuite) SetUpTest(c *tc.C) {
 
 func (s *GuardSuite) checkCall(c *tc.C, state operation.State, call string) {
 	err := resolver.UpdateCharmDir(context.Background(), state, s.guard, nil, loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.guard.CheckCallNames(c, call)
 }
 
@@ -91,6 +90,6 @@ func (s *GuardSuite) TestUnlockConfigChanged(c *tc.C) {
 func (s *GuardSuite) TestLockdownAbortArg(c *tc.C) {
 	abort := make(fortress.Abort)
 	err := resolver.UpdateCharmDir(context.Background(), operation.State{}, s.guard, abort, loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.guard.CheckCalls(c, []testing.StubCall{{FuncName: "Lockdown", Args: []interface{}{abort}}})
 }

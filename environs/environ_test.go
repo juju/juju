@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs"
@@ -52,6 +51,6 @@ func (s *environSuite) TestGetEnvironment(c *tc.C) {
 	cfg := testing.CustomModelConfig(c, testing.Attrs{"name": "testmodel-foo"})
 	m := &mockModel{cfg: cfg}
 	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(m, apiservertesting.ConstCloudGetter(&jujutesting.DefaultCloud), nil, m)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Config().UUID(), jc.DeepEquals, cfg.UUID())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(env.Config().UUID(), tc.DeepEquals, cfg.UUID())
 }

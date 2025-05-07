@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/model"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -35,7 +34,7 @@ func (*NamingSuite) TestDisambiguateName(c *tc.C) {
 		if t.err != "" {
 			c.Check(err, tc.ErrorMatches, regexp.QuoteMeta(t.err))
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			c.Check(result, tc.Equals, t.result)
 		}
 	}
@@ -58,7 +57,7 @@ func (*NamingSuite) TestDisambiguateNameWithSuffixLength(c *tc.C) {
 		if t.err != "" {
 			c.Check(err, tc.ErrorMatches, regexp.QuoteMeta(t.err))
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			c.Check(result, tc.Equals, t.result)
 		}
 	}

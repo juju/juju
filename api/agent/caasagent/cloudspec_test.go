@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/api/agent/caasagent"
@@ -51,9 +50,9 @@ func (s *ClientSuite) TestWatchCloudSpecChanges(c *tc.C) {
 	})
 
 	api, err := caasagent.NewClient(apiCaller)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	w, err := api.WatchCloudSpecChanges(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(called, tc.IsTrue)
 	workertest.CleanKill(c, w)
 }

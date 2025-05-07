@@ -5,7 +5,6 @@ package charm_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/charm"
 )
@@ -21,9 +20,9 @@ func (s *resourceSuite) TestSchemaOkay(c *tc.C) {
 		"description": "One line that is useful when operators need to push it.",
 	}
 	v, err := charm.ResourceSchema.Coerce(raw, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(v, jc.DeepEquals, map[string]interface{}{
+	c.Check(v, tc.DeepEquals, map[string]interface{}{
 		"type":        "file",
 		"filename":    "filename.tgz",
 		"description": "One line that is useful when operators need to push it.",
@@ -36,9 +35,9 @@ func (s *resourceSuite) TestSchemaMissingType(c *tc.C) {
 		"description": "One line that is useful when operators need to push it.",
 	}
 	v, err := charm.ResourceSchema.Coerce(raw, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(v, jc.DeepEquals, map[string]interface{}{
+	c.Check(v, tc.DeepEquals, map[string]interface{}{
 		"type":        "file",
 		"filename":    "filename.tgz",
 		"description": "One line that is useful when operators need to push it.",
@@ -52,9 +51,9 @@ func (s *resourceSuite) TestSchemaUnknownType(c *tc.C) {
 		"description": "One line that is useful when operators need to push it.",
 	}
 	v, err := charm.ResourceSchema.Coerce(raw, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(v, jc.DeepEquals, map[string]interface{}{
+	c.Check(v, tc.DeepEquals, map[string]interface{}{
 		"type":        "repo",
 		"filename":    "juju",
 		"description": "One line that is useful when operators need to push it.",
@@ -67,9 +66,9 @@ func (s *resourceSuite) TestSchemaMissingComment(c *tc.C) {
 		"filename": "filename.tgz",
 	}
 	v, err := charm.ResourceSchema.Coerce(raw, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(v, jc.DeepEquals, map[string]interface{}{
+	c.Check(v, tc.DeepEquals, map[string]interface{}{
 		"type":        "file",
 		"filename":    "filename.tgz",
 		"description": "",

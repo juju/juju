@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/agent/tools"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -35,11 +34,11 @@ func (s *BaseSuite) InitializeCurrentToolsDir(c *tc.C, dataDir string) {
 	toolsDir := tools.SharedToolsDir(dataDir, current)
 	// Make that directory.
 	err := os.MkdirAll(toolsDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	toolsPath := filepath.Join(toolsDir, "downloaded-tools.txt")
 	testTools := coretools.Tools{Version: current, URL: "http://testing.invalid/tools"}
 	data, err := json.Marshal(testTools)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = os.WriteFile(toolsPath, data, 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

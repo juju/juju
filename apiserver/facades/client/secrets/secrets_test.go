@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -81,7 +80,7 @@ func (s *SecretsSuite) assertListSecrets(c *tc.C, reveal bool) {
 	}
 
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	now := time.Now()
 	uri := coresecrets.NewURI()
@@ -142,8 +141,8 @@ func (s *SecretsSuite) assertListSecrets(c *tc.C, reveal bool) {
 	}
 
 	results, err := facade.ListSecrets(context.Background(), params.ListSecretsArgs{ShowSecrets: reveal})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ListSecretResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ListSecretResults{
 		Results: []params.ListSecretResult{{
 			URI:                    uri.String(),
 			Version:                1,
@@ -186,7 +185,7 @@ func (s *SecretsSuite) TestListSecretsPermissionDenied(c *tc.C) {
 		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = facade.ListSecrets(context.Background(), params.ListSecretsArgs{})
 	c.Assert(err, tc.ErrorMatches, "permission denied")
@@ -202,7 +201,7 @@ func (s *SecretsSuite) TestListSecretsPermissionDeniedShow(c *tc.C) {
 		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = facade.ListSecrets(context.Background(), params.ListSecretsArgs{ShowSecrets: true})
 	c.Assert(err, tc.ErrorMatches, "permission denied")
@@ -216,7 +215,7 @@ func (s *SecretsSuite) TestCreateSecretsPermissionDenied(c *tc.C) {
 		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = facade.CreateSecrets(context.Background(), params.CreateSecretArgs{})
 	c.Assert(err, tc.ErrorMatches, "permission denied")
@@ -232,7 +231,7 @@ func (s *SecretsSuite) TestCreateSecretsEmptyData(c *tc.C) {
 	uriStrPtr := ptr(uri.String())
 
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := facade.CreateSecrets(context.Background(), params.CreateSecretArgs{
 		Args: []params.CreateSecretArg{
@@ -242,7 +241,7 @@ func (s *SecretsSuite) TestCreateSecretsEmptyData(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results[0].Error.Message, tc.DeepEquals, "empty secret value not valid")
 }
 
@@ -264,7 +263,7 @@ func (s *SecretsSuite) TestCreateSecrets(c *tc.C) {
 		return nil
 	})
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := facade.CreateSecrets(context.Background(), params.CreateSecretArgs{
 		Args: []params.CreateSecretArg{
@@ -281,7 +280,7 @@ func (s *SecretsSuite) TestCreateSecrets(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results[0], tc.DeepEquals, params.StringResult{Result: uri.String()})
 }
 
@@ -311,7 +310,7 @@ func (s *SecretsSuite) assertUpdateSecrets(c *tc.C, uri *coresecrets.URI) {
 		return nil
 	})
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := facade.UpdateSecrets(context.Background(), params.UpdateUserSecretArgs{
 		Args: []params.UpdateUserSecretArg{
@@ -329,7 +328,7 @@ func (s *SecretsSuite) assertUpdateSecrets(c *tc.C, uri *coresecrets.URI) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results[0].Error, tc.IsNil)
 }
 
@@ -354,15 +353,15 @@ func (s *SecretsSuite) TestRemoveSecrets(c *tc.C) {
 	}).Return(nil)
 
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	results, err := facade.RemoveSecrets(context.Background(), params.DeleteSecretArgs{
 		Args: []params.DeleteSecretArg{{
 			URI:       expectURI.String(),
 			Revisions: []int{666},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
 	})
 }
@@ -376,7 +375,7 @@ func (s *SecretsSuite) TestRemoveSecretsFailedNotModelAdmin(c *tc.C) {
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, coretesting.ModelTag).Return(apiservererrors.ErrPerm)
 
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = facade.RemoveSecrets(context.Background(), params.DeleteSecretArgs{
 		Args: []params.DeleteSecretArg{{
 			URI:       expectURI.String(),
@@ -399,15 +398,15 @@ func (s *SecretsSuite) TestRemoveSecretRevision(c *tc.C) {
 	}).Return(nil)
 
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	results, err := facade.RemoveSecrets(context.Background(), params.DeleteSecretArgs{
 		Args: []params.DeleteSecretArg{{
 			URI:       expectURI.String(),
 			Revisions: []int{666},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
 	})
 }
@@ -425,15 +424,15 @@ func (s *SecretsSuite) TestRemoveSecretNotFound(c *tc.C) {
 	}).Return(secreterrors.SecretNotFound)
 
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	results, err := facade.RemoveSecrets(context.Background(), params.DeleteSecretArgs{
 		Args: []params.DeleteSecretArg{{
 			URI:       expectURI.String(),
 			Revisions: []int{666},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results[0].Error, jc.Satisfies, params.IsCodeSecretNotFound)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results[0].Error, tc.Satisfies, params.IsCodeSecretNotFound)
 }
 
 func (s *SecretsSuite) TestGrantSecret(c *tc.C) {
@@ -446,9 +445,9 @@ func (s *SecretsSuite) TestGrantSecret(c *tc.C) {
 	s.secretService.EXPECT().GrantSecretAccess(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, arg *coresecrets.URI, params secretservice.SecretAccessParams) error {
 			c.Assert(arg, tc.DeepEquals, uri)
-			c.Assert(params.Scope, jc.DeepEquals,
+			c.Assert(params.Scope, tc.DeepEquals,
 				secretservice.SecretAccessScope{Kind: secretservice.ModelAccessScope, ID: coretesting.ModelTag.Id()})
-			c.Assert(params.Subject, jc.DeepEquals,
+			c.Assert(params.Subject, tc.DeepEquals,
 				secretservice.SecretAccessor{Kind: secretservice.ApplicationAccessor, ID: "gitlab"})
 			c.Assert(params.Role, tc.Equals, coresecrets.RoleView)
 			return nil
@@ -457,9 +456,9 @@ func (s *SecretsSuite) TestGrantSecret(c *tc.C) {
 	s.secretService.EXPECT().GrantSecretAccess(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, arg *coresecrets.URI, params secretservice.SecretAccessParams) error {
 			c.Assert(arg, tc.DeepEquals, uri)
-			c.Assert(params.Scope, jc.DeepEquals,
+			c.Assert(params.Scope, tc.DeepEquals,
 				secretservice.SecretAccessScope{Kind: secretservice.ModelAccessScope, ID: coretesting.ModelTag.Id()})
-			c.Assert(params.Subject, jc.DeepEquals,
+			c.Assert(params.Subject, tc.DeepEquals,
 				secretservice.SecretAccessor{Kind: secretservice.ApplicationAccessor, ID: "mysql"})
 			c.Assert(params.Role, tc.Equals, coresecrets.RoleView)
 			return nil
@@ -467,7 +466,7 @@ func (s *SecretsSuite) TestGrantSecret(c *tc.C) {
 	)
 
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := facade.GrantSecret(context.Background(), params.GrantRevokeUserSecretArg{
 		URI: uri.String(),
@@ -475,7 +474,7 @@ func (s *SecretsSuite) TestGrantSecret(c *tc.C) {
 			"gitlab", "mysql",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{Error: nil}, {Error: nil}}})
 }
 
@@ -490,9 +489,9 @@ func (s *SecretsSuite) TestGrantSecretByName(c *tc.C) {
 	s.secretService.EXPECT().GrantSecretAccess(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, arg *coresecrets.URI, params secretservice.SecretAccessParams) error {
 			c.Assert(arg, tc.DeepEquals, uri)
-			c.Assert(params.Scope, jc.DeepEquals,
+			c.Assert(params.Scope, tc.DeepEquals,
 				secretservice.SecretAccessScope{Kind: secretservice.ModelAccessScope, ID: coretesting.ModelTag.Id()})
-			c.Assert(params.Subject, jc.DeepEquals,
+			c.Assert(params.Subject, tc.DeepEquals,
 				secretservice.SecretAccessor{Kind: secretservice.ApplicationAccessor, ID: "gitlab"})
 			c.Assert(params.Role, tc.Equals, coresecrets.RoleView)
 			return nil
@@ -501,9 +500,9 @@ func (s *SecretsSuite) TestGrantSecretByName(c *tc.C) {
 	s.secretService.EXPECT().GrantSecretAccess(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, arg *coresecrets.URI, params secretservice.SecretAccessParams) error {
 			c.Assert(arg, tc.DeepEquals, uri)
-			c.Assert(params.Scope, jc.DeepEquals,
+			c.Assert(params.Scope, tc.DeepEquals,
 				secretservice.SecretAccessScope{Kind: secretservice.ModelAccessScope, ID: coretesting.ModelTag.Id()})
-			c.Assert(params.Subject, jc.DeepEquals,
+			c.Assert(params.Subject, tc.DeepEquals,
 				secretservice.SecretAccessor{Kind: secretservice.ApplicationAccessor, ID: "mysql"})
 			c.Assert(params.Role, tc.Equals, coresecrets.RoleView)
 			return nil
@@ -511,7 +510,7 @@ func (s *SecretsSuite) TestGrantSecretByName(c *tc.C) {
 	)
 
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := facade.GrantSecret(context.Background(), params.GrantRevokeUserSecretArg{
 		Label: "my-secret",
@@ -519,7 +518,7 @@ func (s *SecretsSuite) TestGrantSecretByName(c *tc.C) {
 			"gitlab", "mysql",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{Error: nil}, {Error: nil}}})
 }
 
@@ -532,7 +531,7 @@ func (s *SecretsSuite) TestGrantSecretPermissionDenied(c *tc.C) {
 	)
 
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = facade.GrantSecret(context.Background(), params.GrantRevokeUserSecretArg{Label: "my-secret"})
 	c.Assert(err, tc.ErrorMatches, "permission denied")
@@ -548,9 +547,9 @@ func (s *SecretsSuite) TestRevokeSecret(c *tc.C) {
 	s.secretService.EXPECT().RevokeSecretAccess(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, arg *coresecrets.URI, params secretservice.SecretAccessParams) error {
 			c.Assert(arg, tc.DeepEquals, uri)
-			c.Assert(params.Scope, jc.DeepEquals,
+			c.Assert(params.Scope, tc.DeepEquals,
 				secretservice.SecretAccessScope{Kind: secretservice.ModelAccessScope, ID: coretesting.ModelTag.Id()})
-			c.Assert(params.Subject, jc.DeepEquals,
+			c.Assert(params.Subject, tc.DeepEquals,
 				secretservice.SecretAccessor{Kind: secretservice.ApplicationAccessor, ID: "gitlab"})
 			c.Assert(params.Role, tc.Equals, coresecrets.RoleView)
 			return nil
@@ -559,9 +558,9 @@ func (s *SecretsSuite) TestRevokeSecret(c *tc.C) {
 	s.secretService.EXPECT().RevokeSecretAccess(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, arg *coresecrets.URI, params secretservice.SecretAccessParams) error {
 			c.Assert(arg, tc.DeepEquals, uri)
-			c.Assert(params.Scope, jc.DeepEquals,
+			c.Assert(params.Scope, tc.DeepEquals,
 				secretservice.SecretAccessScope{Kind: secretservice.ModelAccessScope, ID: coretesting.ModelTag.Id()})
-			c.Assert(params.Subject, jc.DeepEquals,
+			c.Assert(params.Subject, tc.DeepEquals,
 				secretservice.SecretAccessor{Kind: secretservice.ApplicationAccessor, ID: "mysql"})
 			c.Assert(params.Role, tc.Equals, coresecrets.RoleView)
 			return nil
@@ -569,7 +568,7 @@ func (s *SecretsSuite) TestRevokeSecret(c *tc.C) {
 	)
 
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := facade.RevokeSecret(context.Background(), params.GrantRevokeUserSecretArg{
 		URI: uri.String(),
@@ -577,7 +576,7 @@ func (s *SecretsSuite) TestRevokeSecret(c *tc.C) {
 			"gitlab", "mysql",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{Error: nil}, {Error: nil}}})
 }
 
@@ -590,7 +589,7 @@ func (s *SecretsSuite) TestRevokeSecretPermissionDenied(c *tc.C) {
 	)
 
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = facade.RevokeSecret(context.Background(), params.GrantRevokeUserSecretArg{Label: "my-secret"})
 	c.Assert(err, tc.ErrorMatches, "permission denied")

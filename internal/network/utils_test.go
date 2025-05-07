@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/network"
 )
@@ -26,14 +25,14 @@ func (s *UtilsSuite) TestSupportsIPv6Error(c *tc.C) {
 		c.Check(bindAddress, tc.Equals, "[::1]:0")
 		return nil, errors.New("boom!")
 	})
-	c.Check(network.SupportsIPv6(), jc.IsFalse)
+	c.Check(network.SupportsIPv6(), tc.IsFalse)
 }
 
 func (s *UtilsSuite) TestSupportsIPv6OK(c *tc.C) {
 	s.PatchValue(network.NetListen, func(_, _ string) (net.Listener, error) {
 		return &mockListener{}, nil
 	})
-	c.Check(network.SupportsIPv6(), jc.IsTrue)
+	c.Check(network.SupportsIPv6(), tc.IsTrue)
 }
 
 type mockListener struct {

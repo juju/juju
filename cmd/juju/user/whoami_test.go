@@ -6,7 +6,6 @@ package user_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/core/model"
@@ -179,7 +178,7 @@ func (s *WhoAmITestSuite) assertWhoAmIFailed(c *tc.C, args ...string) {
 
 func (s *WhoAmITestSuite) assertWhoAmI(c *tc.C, args ...string) string {
 	context, err := s.runWhoAmI(c, args...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	output := cmdtesting.Stdout(context)
 	if output == "" {
 		output = cmdtesting.Stderr(context)

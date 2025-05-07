@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/cmd/containeragent/unit"
@@ -22,7 +21,7 @@ var _ = tc.Suite(&ErrorsSuite{})
 
 func (*ErrorsSuite) TestLifeFilter_Nil(c *tc.C) {
 	result := unit.LifeFilter(nil)
-	c.Check(result, jc.ErrorIsNil)
+	c.Check(result, tc.ErrorIsNil)
 }
 
 func (*ErrorsSuite) TestLifeFilter_Random(c *tc.C) {

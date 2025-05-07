@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -19,7 +18,7 @@ import (
 
 func fakeConfig(c *tc.C, attrs ...testing.Attrs) *config.Config {
 	cfg, err := testing.ModelConfig(c).Apply(fakeConfigAttrs(attrs...))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return cfg
 }
 
@@ -85,7 +84,7 @@ type configTestSpec struct {
 }
 
 func (ts configTestSpec) checkSuccess(c *tc.C, value interface{}, err error) {
-	if !c.Check(err, jc.ErrorIsNil) {
+	if !c.Check(err, tc.ErrorIsNil) {
 		return
 	}
 
@@ -120,7 +119,7 @@ func (ts configTestSpec) attrs() testing.Attrs {
 func (ts configTestSpec) newConfig(c *tc.C) *config.Config {
 	attrs := ts.attrs()
 	cfg, err := testing.ModelConfig(c).Apply(attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return cfg
 }
 
@@ -200,7 +199,7 @@ func (s *ConfigSuite) TestValidateOldConfig(c *tc.C) {
 				continue
 			}
 
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			// We verify that Validate filled in the defaults
 			// appropriately.
 			c.Check(validatedConfig, tc.NotNil)
@@ -242,7 +241,7 @@ func (s *ConfigSuite) TestSetConfig(c *tc.C) {
 			Cloud:  fakeCloudSpec(),
 			Config: s.config,
 		}, environs.NoopCredentialInvalidator())
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		fakeConfig := test.newConfig(c)
 		err = environ.SetConfig(context.Background(), fakeConfig)
@@ -259,13 +258,13 @@ func (s *ConfigSuite) TestSetConfig(c *tc.C) {
 
 func (s *ConfigSuite) TestSchema(c *tc.C) {
 	ps, ok := s.provider.(environs.ProviderSchema)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	fields := ps.Schema()
 
 	globalFields, err := config.Schema(nil)
 	c.Assert(err, tc.IsNil)
 	for name, field := range globalFields {
-		c.Check(fields[name], jc.DeepEquals, field)
+		c.Check(fields[name], tc.DeepEquals, field)
 	}
 }

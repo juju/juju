@@ -6,7 +6,6 @@ package apiserver_test
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
@@ -28,7 +27,7 @@ func (s *facadeVersionSuite) TestFacadeVersionsMatchServerVersions(c *tc.C) {
 	for name, versions := range api.SupportedFacadeVersions() {
 		clientFacadeNames.Add(name)
 		// All versions should now be non-zero.
-		c.Check(set.NewInts(versions...).Contains(0), jc.IsFalse)
+		c.Check(set.NewInts(versions...).Contains(0), tc.IsFalse)
 	}
 	allServerFacades := apiserver.AllFacades().List()
 	serverFacadeNames := set.NewStrings()
@@ -50,7 +49,7 @@ func (s *facadeVersionSuite) TestFacadeVersionsMatchServerVersions(c *tc.C) {
 		sorted := set.NewInts(versions...).SortedValues()
 		apiFacadeVersions[name] = sorted[len(sorted)-1]
 	}
-	c.Check(apiFacadeVersions, jc.DeepEquals, serverFacadeBestVersions)
+	c.Check(apiFacadeVersions, tc.DeepEquals, serverFacadeBestVersions)
 }
 
 // TestClientSupport checks that the client facade supports the 3.x and 4.x

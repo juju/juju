@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"
@@ -59,48 +58,48 @@ var (
 func (s *AccountsFileSuite) TestWriteFile(c *tc.C) {
 	writeTestAccountsFile(c)
 	data, err := os.ReadFile(osenv.JujuXDGDataHomePath("accounts.yaml"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(data), tc.Equals, testAccountsYAML[1:])
 }
 
 func (s *AccountsFileSuite) TestReadNoFile(c *tc.C) {
 	accounts, err := jujuclient.ReadAccountsFile("nowhere.yaml")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(accounts, tc.IsNil)
 }
 
 func (s *AccountsFileSuite) TestReadEmptyFile(c *tc.C) {
 	err := os.WriteFile(osenv.JujuXDGDataHomePath("accounts.yaml"), []byte(""), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	accounts, err := jujuclient.ReadAccountsFile(jujuclient.JujuAccountsPath())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(accounts, tc.HasLen, 0)
 }
 
 func (s *AccountsFileSuite) TestMigrateLegacyLocal(c *tc.C) {
 	err := os.WriteFile(jujuclient.JujuAccountsPath(), []byte(testLegacyAccountsYAML), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	accounts, err := jujuclient.ReadAccountsFile(jujuclient.JujuAccountsPath())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	migratedData, err := os.ReadFile(jujuclient.JujuAccountsPath())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	migratedAccounts, err := jujuclient.ParseAccounts(migratedData)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(migratedData), jc.DeepEquals, testAccountsYAML[1:])
-	c.Assert(migratedAccounts, jc.DeepEquals, accounts)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(migratedData), tc.DeepEquals, testAccountsYAML[1:])
+	c.Assert(migratedAccounts, tc.DeepEquals, accounts)
 }
 
 func writeTestAccountsFile(c *tc.C) {
 	err := jujuclient.WriteAccountsFile(testControllerAccounts)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *AccountsFileSuite) TestParseAccounts(c *tc.C) {
 	accounts, err := jujuclient.ParseAccounts([]byte(testAccountsYAML))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(accounts, jc.DeepEquals, testControllerAccounts)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(accounts, tc.DeepEquals, testControllerAccounts)
 }
 
 func (s *AccountsFileSuite) TestParseAccountMetadataError(c *tc.C) {

@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	core "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -27,7 +26,7 @@ func (s *secretsSuite) TestProcessSecretData(c *tc.C) {
 			"password": "MWYyZDFlMmU2N2Rm",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(o, tc.DeepEquals, map[string][]byte{
 		"username": []byte("admin"),
 		"password": []byte("1f2d1e2e67df"),
@@ -48,14 +47,14 @@ func (s *secretsSuite) TestGetSecretToken(c *tc.C) {
 		},
 	}
 	_, err := s.mockSecrets.Create(context.Background(), secret, v1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	out, err := s.broker.GetSecretToken(context.Background(), "secret-1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out, tc.Equals, "token")
 
 	result, err := s.mockSecrets.List(context.Background(), v1.ListOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Items, tc.HasLen, 1)
 	c.Assert(result.Items[0].Name, tc.Equals, "secret-1")
 }

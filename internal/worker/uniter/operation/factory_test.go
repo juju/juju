@@ -9,7 +9,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	utilexec "github.com/juju/utils/v4/exec"
 
 	"github.com/juju/juju/api/agent/uniter"
@@ -85,7 +84,7 @@ func (s *FactorySuite) TestNewResolvedUpgradeError(c *tc.C) {
 
 func (s *FactorySuite) testNewDeployString(c *tc.C, newDeploy newDeploy, expectPrefix string) {
 	op, err := newDeploy(s.factory, "ch:quantal/wordpress-1")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(op.String(), tc.Equals, expectPrefix+" ch:quantal/wordpress-1")
 }
 
@@ -119,7 +118,7 @@ func (s *FactorySuite) TestNewActionError(c *tc.C) {
 
 func (s *FactorySuite) TestNewActionString(c *tc.C) {
 	op, err := s.factory.NewAction(context.Background(), someActionId)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(op.String(), tc.Equals, "run action "+someActionId)
 }
 
@@ -175,7 +174,7 @@ func (s *FactorySuite) testNewCommandsString(
 	c *tc.C, args operation.CommandArgs, expect string,
 ) {
 	op, err := s.factory.NewCommands(args, panicSendResponse)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(op.String(), tc.Equals, expect)
 }
 
@@ -216,7 +215,7 @@ func (s *FactorySuite) TestNewHookError_Skip(c *tc.C) {
 
 func (s *FactorySuite) TestNewHookString_Run(c *tc.C) {
 	op, err := s.factory.NewRunHook(hook.Info{Kind: hooks.Install})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(op.String(), tc.Equals, "run install hook")
 }
 
@@ -227,19 +226,19 @@ func (s *FactorySuite) TestNewHookString_Skip(c *tc.C) {
 		RemoteApplication: "foo/22",
 		RelationId:        123,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(op.String(), tc.Equals, "skip run relation-joined (123; unit: foo/22) hook")
 }
 
 func (s *FactorySuite) TestNewAcceptLeadershipString(c *tc.C) {
 	op, err := s.factory.NewAcceptLeadership()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "accept leadership")
 }
 
 func (s *FactorySuite) TestNewResignLeadershipString(c *tc.C) {
 	op, err := s.factory.NewResignLeadership()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "resign leadership")
 }
 
@@ -259,6 +258,6 @@ func (s *FactorySuite) TestNewActionUnauthorised(c *tc.C) {
 
 func (s *FactorySuite) TestNewNoOpSecretsRemoved(c *tc.C) {
 	op, err := s.factory.NewNoOpSecretsRemoved([]string{"secreturi"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "process removed secrets: [secreturi]")
 }

@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/life"
@@ -127,7 +126,7 @@ func (s *triggerSecretsSuite) TestNextOpRotate(c *tc.C) {
 	}
 	s.remoteState.SecretRotations = []string{"secret:9m4e2mr0ui3e8a215n4g"}
 	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run secret-rotate (secret:9m4e2mr0ui3e8a215n4g) hook")
 }
 
@@ -148,7 +147,7 @@ func (s *triggerSecretsSuite) TestRotateCommit(c *tc.C) {
 		rotatedURI = uri
 	}
 	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	hi := hook.Info{
 		Kind:      hooks.SecretRotate,
@@ -164,13 +163,13 @@ func (s *triggerSecretsSuite) TestRotateCommit(c *tc.C) {
 		},
 	}, nil)
 	_, err = op.Prepare(context.Background(), operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.mockCallbacks.EXPECT().CommitHook(gomock.Any(), hi).Return(nil)
 	s.mockCallbacks.EXPECT().SetSecretRotated(gomock.Any(), uri.String(), 666).Return(nil)
 
 	_, err = op.Commit(context.Background(), operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rotatedURI, tc.Equals, uri.String())
 }
 
@@ -186,7 +185,7 @@ func (s *triggerSecretsSuite) TestNextOpExpire(c *tc.C) {
 	}
 	s.remoteState.ExpiredSecretRevisions = []string{"secret:9m4e2mr0ui3e8a215n4g/666"}
 	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run secret-expired (secret:9m4e2mr0ui3e8a215n4g/666) hook")
 }
 
@@ -207,7 +206,7 @@ func (s *triggerSecretsSuite) TestExpireCommit(c *tc.C) {
 		expiredRevision = rev
 	}
 	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	hi := hook.Info{
 		Kind:           hooks.SecretExpired,
@@ -219,12 +218,12 @@ func (s *triggerSecretsSuite) TestExpireCommit(c *tc.C) {
 	s.mockRunner.EXPECT().Context().Return(s.mockContext).AnyTimes()
 	s.mockContext.EXPECT().Prepare(gomock.Any()).Return(nil)
 	_, err = op.Prepare(context.Background(), operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.mockCallbacks.EXPECT().CommitHook(context.Background(), hi).Return(nil)
 
 	_, err = op.Commit(context.Background(), operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(expiredRevision, tc.Equals, uri.String()+"/666")
 }
 
@@ -283,7 +282,7 @@ func (s *changeSecretsSuite) TestNextOpNoneExisting(c *tc.C) {
 		"secret:9m4e2mr0ui3e8a215n4g": {LatestRevision: 666},
 	}
 	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run secret-changed (secret:9m4e2mr0ui3e8a215n4g) hook")
 }
 
@@ -303,7 +302,7 @@ func (s *changeSecretsSuite) TestNextOpUpdatedRevision(c *tc.C) {
 		"secret:9m4e2mr0ui3e8a215n4g": {LatestRevision: 666},
 	}
 	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run secret-changed (secret:9m4e2mr0ui3e8a215n4g) hook")
 }
 
@@ -381,7 +380,7 @@ func (s *removeSecretSuite) TestNextOpNoneExisting(c *tc.C) {
 		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
 	}
 	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run secret-remove (secret:9m4e2mr0ui3e8a215n4g/666) hook")
 }
 
@@ -401,7 +400,7 @@ func (s *removeSecretSuite) TestNextOpNextRevision(c *tc.C) {
 		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
 	}
 	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run secret-remove (secret:9m4e2mr0ui3e8a215n4g/668) hook")
 }
 
@@ -481,7 +480,7 @@ func (s *secretDeletedSuite) TestNextOp(c *tc.C) {
 	}
 	s.remoteState.DeletedSecrets = []string{"secret:9m4e2mr0ui3e8a215n4g"}
 	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "process removed secrets: [secret:9m4e2mr0ui3e8a215n4g]")
 }
 
@@ -497,7 +496,7 @@ func (s *secretDeletedSuite) TestCommit(c *tc.C) {
 	}
 	s.remoteState.DeletedSecrets = []string{"secret:9m4e2mr0ui3e8a215n4g"}
 	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = op.Prepare(context.Background(), operation.State{})
 	c.Assert(err, tc.Equals, operation.ErrSkipExecute)
@@ -507,6 +506,6 @@ func (s *secretDeletedSuite) TestCommit(c *tc.C) {
 	s.mockCallbacks.EXPECT().SecretsRemoved(gomock.Any(), []string{"secret:9m4e2mr0ui3e8a215n4g"}).Return(nil)
 
 	_, err = op.Commit(context.Background(), operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.deleted, jc.DeepEquals, []string{"secret:9m4e2mr0ui3e8a215n4g"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.deleted, tc.DeepEquals, []string{"secret:9m4e2mr0ui3e8a215n4g"})
 }

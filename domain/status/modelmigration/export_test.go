@@ -10,7 +10,6 @@ import (
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	coremodel "github.com/juju/juju/core/model"
@@ -51,7 +50,7 @@ func (s *exportSuite) TestExportEmpty(c *tc.C) {
 	}
 
 	err := exportOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *exportSuite) TestExportApplicationStatuses(c *tc.C) {
@@ -89,7 +88,7 @@ func (s *exportSuite) TestExportApplicationStatuses(c *tc.C) {
 	}
 
 	err := exportOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(app.Status().Message(), tc.Equals, "it's active")
 	c.Check(app.Status().Value(), tc.Equals, corestatus.Active.String())
@@ -125,10 +124,10 @@ func (s *exportSuite) TestExportApplicationStatusesMissing(c *tc.C) {
 	}
 
 	err := exportOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(app.Status().Value(), tc.Equals, "")
-	c.Check(app.Status().NeverSet(), jc.IsTrue)
+	c.Check(app.Status().NeverSet(), tc.IsTrue)
 }
 
 func (s *exportSuite) TestExportUnitStatuses(c *tc.C) {
@@ -188,9 +187,9 @@ func (s *exportSuite) TestExportUnitStatuses(c *tc.C) {
 		clock: clock.WallClock,
 	}
 	err := exportOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(app.Status().NeverSet(), jc.IsTrue)
+	c.Check(app.Status().NeverSet(), tc.IsTrue)
 
 	c.Check(u0.AgentStatus().Value(), tc.Equals, corestatus.Idle.String())
 	c.Check(u0.AgentStatus().Data(), tc.DeepEquals, map[string]interface{}{"agent": "idle"})
@@ -244,10 +243,10 @@ func (s *exportSuite) TestExportRelationStatuses(c *tc.C) {
 		clock: clock.WallClock,
 	}
 	err := exportOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(rel1.Status().Value(), tc.Equals, corestatus.Joining.String())
-	c.Check(rel2.Status().NeverSet(), jc.IsTrue)
+	c.Check(rel2.Status().NeverSet(), tc.IsTrue)
 }
 
 func (s *exportSuite) setupMocks(c *tc.C) *gomock.Controller {

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -35,7 +34,7 @@ func (s *clientSuite) TestWebsocketDialWithErrorsJSON(c *tc.C) {
 		Error: apiservererrors.ServerError(errors.New("kablooie")),
 	}
 	data, err := json.Marshal(errorResult)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cw := closeWatcher{Reader: bytes.NewReader(data)}
 	d := fakeDialer{
 		resp: &http.Response{
@@ -82,7 +81,7 @@ func (s *clientSuite) TestWebsocketDialWithErrorsSetsDeadline(c *tc.C) {
 	// DeadlineStream with the expected timeout.
 	d := fakeDialer{}
 	stream, err := api.WebsocketDialWithErrors(&d, "something", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	deadlineStream, ok := stream.(*api.DeadlineStream)
 	c.Assert(ok, tc.Equals, true)
 	c.Assert(deadlineStream.Timeout, tc.Equals, 30*time.Second)

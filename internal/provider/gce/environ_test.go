@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/controller"
 	corebase "github.com/juju/juju/core/base"
@@ -42,7 +41,7 @@ func (s *environSuite) TestProvider(c *tc.C) {
 
 func (s *environSuite) TestRegion(c *tc.C) {
 	cloudSpec, err := s.Env.Region()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(cloudSpec.Region, tc.Equals, "us-east1")
 	c.Check(cloudSpec.Endpoint, tc.Equals, "https://www.googleapis.com")
@@ -50,15 +49,15 @@ func (s *environSuite) TestRegion(c *tc.C) {
 
 func (s *environSuite) TestSetConfig(c *tc.C) {
 	err := s.Env.SetConfig(context.Background(), s.Config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(gce.ExposeEnvConfig(s.Env), jc.DeepEquals, s.EnvConfig)
+	c.Check(gce.ExposeEnvConfig(s.Env), tc.DeepEquals, s.EnvConfig)
 	c.Check(gce.ExposeEnvConnection(s.Env), tc.Equals, s.FakeConn)
 }
 
 func (s *environSuite) TestSetConfigFake(c *tc.C) {
 	err := s.Env.SetConfig(context.Background(), s.Config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, tc.HasLen, 0)
 }
@@ -66,7 +65,7 @@ func (s *environSuite) TestSetConfigFake(c *tc.C) {
 func (s *environSuite) TestConfig(c *tc.C) {
 	cfg := s.Env.Config()
 
-	c.Check(cfg, jc.DeepEquals, s.Config)
+	c.Check(cfg, tc.DeepEquals, s.Config)
 }
 
 func (s *environSuite) TestBootstrap(c *tc.C) {
@@ -83,7 +82,7 @@ func (s *environSuite) TestBootstrap(c *tc.C) {
 		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 	}
 	result, err := s.Env.Bootstrap(ctx, params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(result.Arch, tc.Equals, "amd64")
 	c.Check(result.Base.DisplayString(), tc.Equals, "ubuntu@22.04")
@@ -93,14 +92,14 @@ func (s *environSuite) TestBootstrap(c *tc.C) {
 
 func (s *environSuite) TestBootstrapInvalidCredentialError(c *tc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
-	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
 	params := environs.BootstrapParams{
 		ControllerConfig:        testing.FakeControllerConfig(),
 		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 	}
 	_, err := s.Env.Bootstrap(envtesting.BootstrapTestContext(c), params)
 	c.Check(err, tc.NotNil)
-	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }
 
 func (s *environSuite) TestBootstrapOpensAPIPort(c *tc.C) {
@@ -127,7 +126,7 @@ func (s *environSuite) checkAPIPorts(c *tc.C, config controller.Config, expected
 		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 	}
 	_, err := s.Env.Bootstrap(ctx, params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	called, calls := s.FakeConn.WasCalled("OpenPorts")
 	c.Check(called, tc.Equals, true)
@@ -146,7 +145,7 @@ func (s *environSuite) checkAPIPorts(c *tc.C, config controller.Config, expected
 
 	call := calls[0]
 	c.Check(call.FirewallName, tc.Equals, gce.GlobalFirewallName(s.Env))
-	c.Check(call.Rules, jc.DeepEquals, expRules)
+	c.Check(call.Rules, tc.DeepEquals, expRules)
 }
 
 func (s *environSuite) TestBootstrapCommon(c *tc.C) {
@@ -156,7 +155,7 @@ func (s *environSuite) TestBootstrapCommon(c *tc.C) {
 		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 	}
 	_, err := s.Env.Bootstrap(ctx, params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.FakeCommon.CheckCalls(c, []gce.FakeCall{{
 		FuncName: "Bootstrap",
@@ -170,21 +169,21 @@ func (s *environSuite) TestBootstrapCommon(c *tc.C) {
 
 func (s *environSuite) TestDestroyInvalidCredentialError(c *tc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
-	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
 	err := s.Env.Destroy(context.Background())
 	c.Check(err, tc.NotNil)
-	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }
 
 func (s *environSuite) TestDestroy(c *tc.C) {
 	err := s.Env.Destroy(context.Background())
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *environSuite) TestDestroyAPI(c *tc.C) {
 	err := s.Env.Destroy(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, tc.HasLen, 1)
 	c.Check(s.FakeConn.Calls[0].FuncName, tc.Equals, "RemoveFirewall")

@@ -9,7 +9,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner"
@@ -41,10 +40,10 @@ func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *tc.C) {
 	tag := names.NewUnitTag("mysql/0")
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: tag}
 	backend, storageBackend, err := storageprovisioner.NewStateBackends(s.st)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	modelInfo, err := s.ControllerDomainServices(c).ModelInfo().GetModelInfo(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = storageprovisioner.NewStorageProvisionerAPIv4(
 		context.Background(),
 		nil,
@@ -66,12 +65,12 @@ func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *tc.C) {
 
 func (s *provisionerSuite) TestVolumesEmptyArgs(c *tc.C) {
 	results, err := s.api.Volumes(context.Background(), params.Entities{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 0)
 }
 
 func (s *provisionerSuite) TestVolumeParamsEmptyArgs(c *tc.C) {
 	results, err := s.api.VolumeParams(context.Background(), params.Entities{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 0)
 }

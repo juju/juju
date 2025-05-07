@@ -13,7 +13,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 	"github.com/juju/worker/v4/workertest"
@@ -54,7 +53,7 @@ func (s *providerWorkerSuite) TestKilledSingularWorkerProviderErrDying(c *tc.C) 
 
 	worker := w.(*providerWorker)
 	_, err := worker.Provider()
-	c.Assert(err, jc.ErrorIs, ErrProviderWorkerDying)
+	c.Assert(err, tc.ErrorIs, ErrProviderWorkerDying)
 }
 
 func (s *providerWorkerSuite) TestKilledMultiWorkerProviderErrDying(c *tc.C) {
@@ -74,7 +73,7 @@ func (s *providerWorkerSuite) TestKilledMultiWorkerProviderErrDying(c *tc.C) {
 
 	worker := w.(*providerWorker)
 	_, err := worker.ProviderForModel(context.Background(), "hunter2")
-	c.Assert(err, jc.ErrorIs, ErrProviderWorkerDying)
+	c.Assert(err, tc.ErrorIs, ErrProviderWorkerDying)
 }
 
 func (s *providerWorkerSuite) TestMultiFailsForSingularModels(c *tc.C) {
@@ -90,7 +89,7 @@ func (s *providerWorkerSuite) TestMultiFailsForSingularModels(c *tc.C) {
 
 	worker := w.(*providerWorker)
 	_, err := worker.Provider()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
 func (s *providerWorkerSuite) TestSingularFailsForMultiModels(c *tc.C) {
@@ -108,7 +107,7 @@ func (s *providerWorkerSuite) TestSingularFailsForMultiModels(c *tc.C) {
 
 	worker := w.(*providerWorker)
 	_, err := worker.ProviderForModel(context.Background(), "hunter2")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
 func (s *providerWorkerSuite) TestControllerNamespaceFails(c *tc.C) {
@@ -125,7 +124,7 @@ func (s *providerWorkerSuite) TestControllerNamespaceFails(c *tc.C) {
 
 	worker := w.(*providerWorker)
 	_, err := worker.ProviderForModel(context.Background(), database.ControllerNS)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
 func (s *providerWorkerSuite) TestProvider(c *tc.C) {
@@ -142,7 +141,7 @@ func (s *providerWorkerSuite) TestProvider(c *tc.C) {
 
 	worker := w.(*providerWorker)
 	provider, err := worker.Provider()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(provider, tc.NotNil)
 }
 
@@ -162,7 +161,7 @@ func (s *providerWorkerSuite) TestProviderIsCached(c *tc.C) {
 	worker := w.(*providerWorker)
 	for i := 0; i < 10; i++ {
 		_, err := worker.Provider()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	workertest.CleanKill(c, w)
@@ -186,7 +185,7 @@ func (s *providerWorkerSuite) TestProviderForModel(c *tc.C) {
 	worker := w.(*providerWorker)
 
 	provider, err := worker.ProviderForModel(context.Background(), "hunter2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(provider, tc.NotNil)
 }
 
@@ -206,7 +205,7 @@ func (s *providerWorkerSuite) TestProviderForModelIsCached(c *tc.C) {
 	worker := w.(*providerWorker)
 	for i := 0; i < 10; i++ {
 		_, err := worker.Provider()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	workertest.CleanKill(c, w)
@@ -236,7 +235,7 @@ func (s *providerWorkerSuite) TestProviderForModelIsNotCachedForDifferentNamespa
 		name := fmt.Sprintf("hunter-%d", i)
 
 		_, err := worker.ProviderForModel(context.Background(), name)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	workertest.CleanKill(c, w)
@@ -271,7 +270,7 @@ func (s *providerWorkerSuite) TestProviderForModelConcurrently(c *tc.C) {
 			name := fmt.Sprintf("hunter-%d", i)
 
 			_, err := worker.ProviderForModel(context.Background(), name)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}(i)
 	}
 
@@ -293,7 +292,7 @@ func (s *providerWorkerSuite) TestEphemeralProviderFromConfig(c *tc.C) {
 	worker := w.(*providerWorker)
 
 	provider, err := worker.EphemeralProviderFromConfig(context.Background(), providertracker.EphemeralProviderConfig{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(provider, tc.NotNil)
 }
 
@@ -309,7 +308,7 @@ func (s *providerWorkerSuite) TestEphemeralProviderFromConfigIsNotCachedForDiffe
 	for i := 0; i < 10; i++ {
 
 		_, err := worker.EphemeralProviderFromConfig(context.Background(), providertracker.EphemeralProviderConfig{})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	workertest.CleanKill(c, w)
@@ -335,7 +334,7 @@ func (s *providerWorkerSuite) TestEphemeralProviderFromConfigConcurrently(c *tc.
 			defer wg.Done()
 
 			_, err := worker.EphemeralProviderFromConfig(context.Background(), providertracker.EphemeralProviderConfig{})
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}(i)
 	}
 
@@ -392,7 +391,7 @@ func (s *providerWorkerSuite) newWorker(c *tc.C, trackerType TrackerType) worker
 		Logger: s.logger,
 		Clock:  clock.WallClock,
 	}, s.states)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return w
 }

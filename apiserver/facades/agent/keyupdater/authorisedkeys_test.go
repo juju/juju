@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -60,7 +59,7 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeysNothing(c *tc.C) {
 		s.getCanRead, s.keyUpdaterService, s.watcherRegistry,
 	)
 	results, err := endPoint.WatchAuthorisedKeys(context.Background(), params.Entities{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 0)
 }
 
@@ -108,7 +107,7 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeys(c *tc.C) {
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
 
 	result, err := endPoint.WatchAuthorisedKeys(context.Background(), args)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			{NotifyWatcherId: "1"},
@@ -132,7 +131,7 @@ func (s *authorisedKeysSuite) TestAuthorisedKeysForNone(c *tc.C) {
 	)
 	// Not an error to watch nothing
 	results, err := endPoint.AuthorisedKeys(context.Background(), params.Entities{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 0)
 }
 
@@ -157,7 +156,7 @@ func (s *authorisedKeysSuite) TestAuthorisedKeys(c *tc.C) {
 		Return([]string{"key1", "key2"}, nil)
 
 	result, err := endPoint.AuthorisedKeys(context.Background(), args)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
 			{Result: []string{"key1", "key2"}},
@@ -188,7 +187,7 @@ func (s *authorisedKeysSuite) TestAuthorisedKeysForNonMachineEntity(c *tc.C) {
 	}
 
 	result, err := endPoint.AuthorisedKeys(context.Background(), args)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
 			{Error: &params.Error{
@@ -214,7 +213,7 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeysForNonMachineEntity(c *tc.C
 	}
 
 	result, err := endPoint.WatchAuthorisedKeys(context.Background(), args)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			{Error: &params.Error{
@@ -244,7 +243,7 @@ func (s *authorisedKeysSuite) TestAuthorisedKeysForNotFoundMachine(c *tc.C) {
 	).Return(nil, machineerrors.MachineNotFound)
 
 	result, err := endPoint.AuthorisedKeys(context.Background(), args)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
 			{Error: &params.Error{

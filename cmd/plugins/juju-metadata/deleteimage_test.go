@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -76,7 +75,7 @@ func (s *deleteImageSuite) runDeleteImageMetadata(c *tc.C, args ...string) error
 
 func (s *deleteImageSuite) assertDeleteImageMetadata(c *tc.C, id string) {
 	err := s.runDeleteImageMetadata(c, id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.deletedIds, tc.DeepEquals, []string{id})
 	s.mockAPI.CheckCallNames(c, "Delete", "Close")
 }

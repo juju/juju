@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	jujuos "github.com/juju/juju/core/os"
@@ -37,7 +36,7 @@ func (s *EnvSuite) assertVars(c *tc.C, actual []string, expect ...[]string) {
 	}
 	sort.Strings(actual)
 	sort.Strings(fullExpect)
-	c.Assert(actual, jc.DeepEquals, fullExpect)
+	c.Assert(actual, tc.DeepEquals, fullExpect)
 }
 
 func (s *EnvSuite) getPaths() (paths context.Paths, expectVars []string) {
@@ -229,7 +228,7 @@ func (s *EnvSuite) TestHostEnv(c *tc.C) {
 	hookContext, contextVars := s.getHookContext(c, false, state, unit)
 	paths, pathsVars := s.getPaths()
 	actualVars, err := hookContext.HookVars(stdcontext.Background(), paths, environmenter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars)
 
 	relationVars := s.setDepartingRelation(hookContext)
@@ -239,7 +238,7 @@ func (s *EnvSuite) TestHostEnv(c *tc.C) {
 	noticeVars := s.setNotice(hookContext)
 	checkVars := s.setCheck(hookContext)
 	actualVars, err = hookContext.HookVars(stdcontext.Background(), paths, environmenter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars, secretVars, storageVars, workloadVars, noticeVars, checkVars)
 }
 

@@ -13,7 +13,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	goyaml "gopkg.in/yaml.v2"
 	"gopkg.in/yaml.v3"
@@ -127,8 +126,8 @@ func (s *configCommandSuite) SetUpTest(c *tc.C) {
 	s.store = jujuclienttesting.MinimalStore()
 
 	s.dir = c.MkDir()
-	c.Assert(utf8.ValidString(validSetTestValue), jc.IsTrue)
-	c.Assert(utf8.ValidString(invalidSetTestValue), jc.IsFalse)
+	c.Assert(utf8.ValidString(validSetTestValue), tc.IsTrue)
+	c.Assert(utf8.ValidString(invalidSetTestValue), tc.IsFalse)
 	setupValueFile(c, s.dir, "valid.txt", validSetTestValue)
 	setupValueFile(c, s.dir, "invalid.txt", invalidSetTestValue)
 	setupBigFile(c, s.dir)
@@ -143,12 +142,12 @@ func (s *configCommandSuite) TestGetCommandInit(c *tc.C) {
 
 func (s *configCommandSuite) TestGetCommandInitWithApplication(c *tc.C) {
 	err := cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake, s.store), []string{"app"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *configCommandSuite) TestGetCommandInitWithKey(c *tc.C) {
 	err := cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake, s.store), []string{"app", "key"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *configCommandSuite) TestGetConfig(c *tc.C) {
@@ -165,16 +164,16 @@ func (s *configCommandSuite) TestGetConfig(c *tc.C) {
 		// map[interface{}]interface{} vs map[string]interface{}. This is
 		// also required if we add json support to this command.
 		buf, err := goyaml.Marshal(t.expected)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		expected := make(map[string]interface{})
 		err = goyaml.Unmarshal(buf, &expected)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		actual := make(map[string]interface{})
 		err = goyaml.Unmarshal(ctx.Stdout.(*bytes.Buffer).Bytes(), &actual)
 		c.Log(ctx.Stdout.(*bytes.Buffer).String())
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(actual, jc.DeepEquals, expected)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(actual, tc.DeepEquals, expected)
 	}
 }
 
@@ -366,7 +365,7 @@ func (s *configCommandSuite) TestSetFromStdin(c *tc.C) {
 		"--file",
 		"-"})
 	c.Check(code, tc.Equals, 0)
-	c.Check(s.fake.config, jc.DeepEquals, "settings:\n  username:\n  value: world\n")
+	c.Check(s.fake.config, tc.DeepEquals, "settings:\n  username:\n  value: world\n")
 }
 
 func (s *configCommandSuite) TestResetCharmConfigToDefault(c *tc.C) {
@@ -457,7 +456,7 @@ func (s *configCommandSuite) assertSetSuccess(
 
 	args = append([]string{"dummy-application"}, args...)
 	_, err := cmdtesting.RunCommandInDir(c, cmd, args, dir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	appValues := make(map[string]interface{})
 	for k, v := range s.defaultAppValues {
 		appValues[k] = v
@@ -465,7 +464,7 @@ func (s *configCommandSuite) assertSetSuccess(
 	for k, v := range expectAppValues {
 		appValues[k] = v
 	}
-	c.Assert(s.fake.appValues, jc.DeepEquals, appValues)
+	c.Assert(s.fake.appValues, tc.DeepEquals, appValues)
 
 	charmValues := make(map[string]interface{})
 	for k, v := range s.defaultCharmValues {
@@ -474,7 +473,7 @@ func (s *configCommandSuite) assertSetSuccess(
 	for k, v := range expectCharmValues {
 		charmValues[k] = v
 	}
-	c.Assert(s.fake.charmValues, jc.DeepEquals, charmValues)
+	c.Assert(s.fake.charmValues, tc.DeepEquals, charmValues)
 }
 
 func (s *configCommandSuite) assertResetSuccess(
@@ -486,9 +485,9 @@ func (s *configCommandSuite) assertResetSuccess(
 
 	args = append([]string{"dummy-application"}, args...)
 	_, err := cmdtesting.RunCommandInDir(c, cmd, args, dir)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fake.appValues, jc.DeepEquals, expectAppValues)
-	c.Assert(s.fake.charmValues, jc.DeepEquals, expectCharmValues)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.fake.appValues, tc.DeepEquals, expectAppValues)
+	c.Assert(s.fake.charmValues, tc.DeepEquals, expectCharmValues)
 }
 
 // assertSetFail sets configuration options and checks the expected error.
@@ -505,7 +504,7 @@ func (s *configCommandSuite) assertNoWarning(c *tc.C, dir string, args []string)
 	cmd := application.NewConfigCommandForTest(s.fake, s.store)
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommandInDir(c, cmd, append([]string{"dummy-application"}, args...), dir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(strings.Replace(c.GetTestLog(), "\n", " ", -1), tc.Not(tc.Matches), ".*WARNING.*")
 }
 
@@ -516,7 +515,7 @@ func setupValueFile(c *tc.C, dir, filename, value string) string {
 	path := ctx.AbsPath(filename)
 	content := []byte(value)
 	err := os.WriteFile(path, content, 0666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return path
 }
 
@@ -526,7 +525,7 @@ func setupBigFile(c *tc.C, dir string) string {
 	ctx := cmdtesting.ContextForDir(c, dir)
 	path := ctx.AbsPath("big.txt")
 	file, err := os.Create(path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer file.Close()
 	chunk := make([]byte, 1024)
 	for i := 0; i < cap(chunk); i++ {
@@ -534,7 +533,7 @@ func setupBigFile(c *tc.C, dir string) string {
 	}
 	for i := 0; i < 6000; i++ {
 		_, err = file.Write(chunk)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	return path
 }
@@ -546,7 +545,7 @@ func setupConfigFile(c *tc.C, dir string) string {
 	path := ctx.AbsPath("testconfig.yaml")
 	content := []byte(yamlConfigValue)
 	err := os.WriteFile(path, content, 0666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return path
 }
 

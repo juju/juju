@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/replicaset/v3"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cloud"
@@ -77,7 +76,7 @@ func (s *SourcePrecheckSuite) TestSuccess(c *tc.C) {
 		s.statusService,
 		s.agentService,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *SourcePrecheckSuite) TestDyingModel(c *tc.C) {
@@ -368,7 +367,7 @@ func (s *SourcePrecheckSuite) TestCAASModelNoUnitVersionCheck(c *tc.C) {
 	}
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *SourcePrecheckSuite) TestDeadUnit(c *tc.C) {
@@ -413,7 +412,7 @@ func (s *SourcePrecheckSuite) TestUnitExecuting(c *tc.C) {
 	}
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *SourcePrecheckSuite) TestUnitNotReadyForMigration(c *tc.C) {
@@ -561,7 +560,7 @@ func (s *SourcePrecheckSuite) TestUnitsAllInScope(c *tc.C) {
 	backend := newHappyBackend()
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *SourcePrecheckSuite) TestSubordinatesNotYetInScope(c *tc.C) {
@@ -631,7 +630,7 @@ var _ = tc.Suite(&ImportPrecheckSuite{})
 func (s *ImportPrecheckSuite) TestImportPrecheckEmpty(c *tc.C) {
 	model := description.NewModel(description.ModelArgs{})
 	err := migration.ImportPrecheck(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ImportPrecheckSuite) TestCharmsWithNoManifest(c *tc.C) {
@@ -722,7 +721,7 @@ func (s *TargetPrecheckSuite) TestSuccess(c *tc.C) {
 
 	err := s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, s.relationService, s.statusService,
 		s.agentService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *TargetPrecheckSuite) TestModelVersionAheadOfTarget(c *tc.C) {
@@ -789,7 +788,7 @@ func (s *TargetPrecheckSuite) TestSourceControllerPatchAhead(c *tc.C) {
 
 	c.Assert(s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, s.relationService, s.statusService,
 		s.agentService),
-		jc.ErrorIsNil)
+		tc.ErrorIsNil)
 }
 
 func (s *TargetPrecheckSuite) TestSourceControllerBuildAhead(c *tc.C) {
@@ -805,7 +804,7 @@ func (s *TargetPrecheckSuite) TestSourceControllerBuildAhead(c *tc.C) {
 
 	c.Assert(s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, s.relationService, s.statusService,
 		s.agentService),
-		jc.ErrorIsNil)
+		tc.ErrorIsNil)
 }
 
 func (s *TargetPrecheckSuite) TestSourceControllerTagMismatch(c *tc.C) {
@@ -821,7 +820,7 @@ func (s *TargetPrecheckSuite) TestSourceControllerTagMismatch(c *tc.C) {
 
 	c.Assert(s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, s.relationService, s.statusService,
 		s.agentService),
-		jc.ErrorIsNil)
+		tc.ErrorIsNil)
 }
 
 func (s *TargetPrecheckSuite) TestDying(c *tc.C) {
@@ -974,7 +973,7 @@ func (s *TargetPrecheckSuite) TestModelNameOverlapOkForDifferentOwner(c *tc.C) {
 	backend := newFakeBackend()
 	backend.models = pool.uuids()
 	err := migration.TargetPrecheck(context.Background(), backend, pool, s.modelInfo, s.upgradeService, s.applicationService, s.relationService, s.statusService, s.agentService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *TargetPrecheckSuite) TestUUIDAlreadyExists(c *tc.C) {
@@ -1012,7 +1011,7 @@ func (s *TargetPrecheckSuite) TestUUIDAlreadyExistsButImporting(c *tc.C) {
 	backend.models = pool.uuids()
 	err := migration.TargetPrecheck(context.Background(), backend, pool, s.modelInfo, s.upgradeService,
 		s.applicationService, s.relationService, s.statusService, s.agentService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *TargetPrecheckSuite) TestFanConfigInModelConfig(c *tc.C) {

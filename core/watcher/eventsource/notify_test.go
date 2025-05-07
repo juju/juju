@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/core/changestream"
@@ -59,7 +58,7 @@ func (s *notifySuite) TestNotificationsByNamespaceFilter(c *tc.C) {
 		return nil, nil
 	}, NamespaceFilter("random_namespace", changestream.All))
 	defer workertest.DirtyKill(c, w)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Initial notification.
 	select {
@@ -140,7 +139,7 @@ func (s *notifySuite) TestNotificationsByPredicateFilter(c *tc.C) {
 		return nil, nil
 	}, PredicateFilter("random_namespace", changestream.All, EqualsPredicate("some-key-value")))
 	defer workertest.DirtyKill(c, w)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Initial notification.
 	select {
@@ -209,7 +208,7 @@ func (s *notifySuite) TestNotificationsByMapperError(c *tc.C) {
 		return nil, errors.Errorf("boom")
 	}, PredicateFilter("random_namespace", changestream.All, EqualsPredicate("value")))
 	defer workertest.DirtyKill(c, w)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Initial notification.
 	select {
@@ -233,7 +232,7 @@ func (s *notifySuite) TestNotificationsByMapperError(c *tc.C) {
 	select {
 	case _, ok := <-w.Changes():
 		// Ensure the channel is closed, when the predicate dies.
-		c.Assert(ok, jc.IsFalse)
+		c.Assert(ok, tc.IsFalse)
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for initial watcher changes")
 	}
@@ -267,7 +266,7 @@ func (s *notifySuite) TestNotificationsSent(c *tc.C) {
 
 	w, err := NewNotifyWatcher(s.newBaseWatcher(c), PredicateFilter("random_namespace", changestream.All, EqualsPredicate("value")))
 	defer workertest.DirtyKill(c, w)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Initial notification.
 	select {
@@ -315,10 +314,10 @@ func (s *notifySuite) TestSubscriptionDoneKillsWorker(c *tc.C) {
 
 	w, err := NewNotifyWatcher(s.newBaseWatcher(c), PredicateFilter("random_namespace", changestream.All, EqualsPredicate("value")))
 	defer workertest.DirtyKill(c, w)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = workertest.CheckKilled(c, w)
-	c.Check(err, jc.ErrorIs, ErrSubscriptionClosed)
+	c.Check(err, tc.ErrorIs, ErrSubscriptionClosed)
 }
 
 func (s *notifySuite) TestEnsureCloseOnCleanKill(c *tc.C) {
@@ -335,13 +334,13 @@ func (s *notifySuite) TestEnsureCloseOnCleanKill(c *tc.C) {
 	).Return(s.sub, nil)
 
 	w, err := NewNotifyWatcher(s.newBaseWatcher(c), PredicateFilter("random_namespace", changestream.All, EqualsPredicate("value")))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, w)
 
 	select {
 	case _, ok := <-w.Changes():
-		c.Assert(ok, jc.IsFalse)
+		c.Assert(ok, tc.IsFalse)
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for watcher to close")
 	}
@@ -361,13 +360,13 @@ func (s *notifySuite) TestEnsureCloseOnDirtyKill(c *tc.C) {
 	).Return(s.sub, nil)
 
 	w, err := NewNotifyWatcher(s.newBaseWatcher(c), PredicateFilter("random_namespace", changestream.All, EqualsPredicate("value")))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.DirtyKill(c, w)
 
 	select {
 	case _, ok := <-w.Changes():
-		c.Assert(ok, jc.IsFalse)
+		c.Assert(ok, tc.IsFalse)
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for watcher to close")
 	}
@@ -377,12 +376,12 @@ func (s *notifySuite) TestNilOption(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := NewNotifyWatcher(s.newBaseWatcher(c), nil)
-	c.Assert(err, tc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
 func (s *notifySuite) TestNilPredicate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := NewNotifyWatcher(s.newBaseWatcher(c), PredicateFilter("random_namespace", changestream.All, nil))
-	c.Assert(err, tc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }

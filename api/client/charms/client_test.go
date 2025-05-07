@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
@@ -158,7 +157,7 @@ func (s *charmsMockSuite) TestGetDownloadInfo(c *tc.C) {
 
 	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
 	origin, err := apicharm.APICharmOrigin(noChannelParamsOrigin)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	got, err := client.GetDownloadInfo(context.Background(), curl, origin)
 	c.Assert(err, tc.IsNil)
 
@@ -199,7 +198,7 @@ func (s *addCharmSuite) TestAddCharm(c *tc.C) {
 
 	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
 	got, err := client.AddCharm(context.Background(), curl, origin, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.DeepEquals, origin)
 }
 
@@ -224,7 +223,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacement(c *tc.C) {
 
 	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
 	err := client.CheckCharmPlacement(context.Background(), "winnie", charm.MustParseURL("poo"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *charmsMockSuite) TestCheckCharmPlacementError(c *tc.C) {
@@ -281,7 +280,7 @@ func (s *charmsMockSuite) TestListCharmResources(c *tc.C) {
 
 	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
 	origin, err := apicharm.APICharmOrigin(noChannelParamsOrigin)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	got, err := client.ListCharmResources(context.Background(), curl, origin)
 	c.Assert(err, tc.IsNil)
 
@@ -303,33 +302,33 @@ func (s *charmsMockSuite) TestZipHasHooksOnly(c *tc.C) {
 	ch := testcharms.Repo.CharmDir("storage-filesystem-subordinate") // has hooks only
 	charmPath := filepath.Join(c.MkDir(), "charm")
 	err := ch.ArchiveToPath(charmPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	f := *charms.HasHooksOrDispatch
 	hasHooks, err := f(charmPath)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hasHooks, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hasHooks, tc.IsTrue)
 }
 
 func (s *charmsMockSuite) TestZipHasDispatchFileOnly(c *tc.C) {
 	ch := testcharms.Repo.CharmDir("category-dispatch") // has dispatch file only
 	charmPath := filepath.Join(c.MkDir(), "charm")
 	err := ch.ArchiveToPath(charmPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	f := *charms.HasHooksOrDispatch
 	hasDispatch, err := f(charmPath)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hasDispatch, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hasDispatch, tc.IsTrue)
 }
 
 func (s *charmsMockSuite) TestZipHasNoHooksNorDispatch(c *tc.C) {
 	ch := testcharms.Repo.CharmDir("category") // has no hooks nor dispatch file
 	charmPath := filepath.Join(c.MkDir(), "charm")
 	err := ch.ArchiveToPath(charmPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	f := *charms.HasHooksOrDispatch
 	hasHooks, err := f(charmPath)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hasHooks, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hasHooks, tc.IsFalse)
 }
 
 // TestZipHasSingleHook tests that an archive containing only a single hook
@@ -337,54 +336,54 @@ func (s *charmsMockSuite) TestZipHasNoHooksNorDispatch(c *tc.C) {
 // charm with hooks.
 func (s *charmsMockSuite) TestZipHasSingleHook(c *tc.C) {
 	tempFile, err := os.CreateTemp(c.MkDir(), "charm")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer tempFile.Close()
 
 	zipWriter := zip.NewWriter(tempFile)
 	// add a single install hook
 	_, err = zipWriter.Create("hooks/install")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = zipWriter.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Verify created zip is as expected
 	zipReader, err := zip.OpenReader(tempFile.Name())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(zipReader.File), tc.Equals, 1)
 	c.Assert(zipReader.File[0].Name, tc.Equals, "hooks/install")
-	c.Assert(zipReader.File[0].Mode().IsRegular(), jc.IsTrue)
+	c.Assert(zipReader.File[0].Mode().IsRegular(), tc.IsTrue)
 
 	// Verify this is validated as having a hook
 	hasHooks, err := (*charms.HasHooksOrDispatch)(tempFile.Name())
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(hasHooks, jc.IsTrue)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(hasHooks, tc.IsTrue)
 }
 
 // TestZipEmptyHookDir tests that an archive containing only an empty hooks
 // directory is not validated as a charm with hooks.
 func (s *charmsMockSuite) TestZipEmptyHookDir(c *tc.C) {
 	tempFile, err := os.CreateTemp(c.MkDir(), "charm")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer tempFile.Close()
 
 	zipWriter := zip.NewWriter(tempFile)
 	// add an empty hooks directory
 	_, err = zipWriter.Create("hooks/")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = zipWriter.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Verify created zip is as expected
 	zipReader, err := zip.OpenReader(tempFile.Name())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(zipReader.File), tc.Equals, 1)
 	c.Assert(zipReader.File[0].Name, tc.Equals, "hooks/")
-	c.Assert(zipReader.File[0].Mode().IsDir(), jc.IsTrue)
+	c.Assert(zipReader.File[0].Mode().IsDir(), tc.IsTrue)
 
 	// Verify this is validated as having no hooks
 	hasHooks, err := (*charms.HasHooksOrDispatch)(tempFile.Name())
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(hasHooks, jc.IsFalse)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(hasHooks, tc.IsFalse)
 }
 
 // TestZipSubfileHook tests that an archive containing nested subfiles inside
@@ -392,30 +391,30 @@ func (s *charmsMockSuite) TestZipEmptyHookDir(c *tc.C) {
 // with hooks.
 func (s *charmsMockSuite) TestZipSubfileHook(c *tc.C) {
 	tempFile, err := os.CreateTemp(c.MkDir(), "charm")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer tempFile.Close()
 
 	zipWriter := zip.NewWriter(tempFile)
 	// add some files inside a subdir of hooks
 	_, err = zipWriter.Create("hooks/foo/bar.sh")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = zipWriter.Create("hooks/hooks/install")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = zipWriter.Create("foo/hooks/install")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = zipWriter.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Verify created zip is as expected
 	zipReader, err := zip.OpenReader(tempFile.Name())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(zipReader.File), tc.Equals, 3)
 	for _, f := range zipReader.File {
-		c.Assert(f.Mode().IsRegular(), jc.IsTrue)
+		c.Assert(f.Mode().IsRegular(), tc.IsTrue)
 	}
 
 	// Verify this is not validated as having a hook
 	hasHooks, err := (*charms.HasHooksOrDispatch)(tempFile.Name())
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(hasHooks, jc.IsFalse)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(hasHooks, tc.IsFalse)
 }

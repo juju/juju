@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/semversion"
@@ -44,10 +43,10 @@ func (s *AgentToolsSuite) TestCheckTools(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	expVer, err := semversion.Parse("2.5.0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(expVer, nil)
 	modelConfig, err := config.New(config.NoDefaults, coretesting.FakeConfig())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(modelConfig, nil)
 
 	var (
@@ -65,10 +64,10 @@ func (s *AgentToolsSuite) TestCheckTools(c *tc.C) {
 	}
 
 	api, err := NewAgentToolsAPI(nil, getDummyEnviron, fakeToolFinder, nil, nil, loggertesting.WrapCheckLog(c), s.modelConfigService, s.modelAgentService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtainedVer, err := api.checkToolsAvailability(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtainedVer, tc.Equals, expVer)
 }
 
@@ -76,7 +75,7 @@ func (s *AgentToolsSuite) TestCheckToolsNonReleasedStream(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	expVer, err := semversion.Parse("2.5-alpha1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(expVer, nil)
 
 	sConfig := coretesting.FakeConfig()
@@ -84,7 +83,7 @@ func (s *AgentToolsSuite) TestCheckToolsNonReleasedStream(c *tc.C) {
 		"agent-stream": "proposed",
 	})
 	cfg, err := config.New(config.NoDefaults, sConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
 
 	var (
@@ -106,10 +105,10 @@ func (s *AgentToolsSuite) TestCheckToolsNonReleasedStream(c *tc.C) {
 	}
 
 	api, err := NewAgentToolsAPI(nil, getDummyEnviron, fakeToolFinder, nil, nil, loggertesting.WrapCheckLog(c), s.modelConfigService, s.modelAgentService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtainedVer, err := api.checkToolsAvailability(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(calledWithStreams, tc.DeepEquals, [][]string{{"proposed", "released"}})
 	c.Assert(obtainedVer, tc.Equals, semversion.Number{Major: 2, Minor: 5, Patch: 0})
 }
@@ -124,10 +123,10 @@ func (s *AgentToolsSuite) TestUpdateToolsAvailability(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	expVer, err := semversion.Parse("2.5.0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(expVer, nil)
 	modelConfig, err := config.New(config.NoDefaults, coretesting.FakeConfig())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(modelConfig, nil)
 
 	fakeToolFinder := func(_ context.Context, _ tools.SimplestreamsFetcher, _ environs.BootstrapEnviron, _ int, _ int, _ []string, _ coretools.Filter) (coretools.List, error) {
@@ -145,10 +144,10 @@ func (s *AgentToolsSuite) TestUpdateToolsAvailability(c *tc.C) {
 	}
 
 	api, err := NewAgentToolsAPI(&mockState{}, getDummyEnviron, fakeToolFinder, fakeUpdate, nil, loggertesting.WrapCheckLog(c), s.modelConfigService, s.modelAgentService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = api.updateToolsAvailability(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ver, tc.Equals, semversion.Number{Major: 2, Minor: 5, Patch: 2})
 }
 
@@ -156,10 +155,10 @@ func (s *AgentToolsSuite) TestUpdateToolsAvailabilityNoMatches(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	expVer, err := semversion.Parse("2.5.0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(expVer, nil)
 	modelConfig, err := config.New(config.NoDefaults, coretesting.FakeConfig())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(modelConfig, nil)
 
 	// No new tools available.
@@ -174,10 +173,10 @@ func (s *AgentToolsSuite) TestUpdateToolsAvailabilityNoMatches(c *tc.C) {
 	}
 
 	api, err := NewAgentToolsAPI(&mockState{}, getDummyEnviron, fakeToolFinder, fakeUpdate, nil, loggertesting.WrapCheckLog(c), s.modelConfigService, s.modelAgentService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = api.updateToolsAvailability(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func getDummyEnviron() (environs.Environ, error) {

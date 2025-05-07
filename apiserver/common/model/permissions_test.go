@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -30,8 +29,8 @@ func (r *PermissionSuite) TestHasModelAdminSuperUser(c *tc.C) {
 	auth.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, testing.ControllerTag).Return(nil)
 
 	has, err := model.HasModelAdmin(context.Background(), auth, testing.ControllerTag, testing.ModelTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(has, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(has, tc.IsTrue)
 }
 
 func (r *PermissionSuite) TestHasModelAdminYes(c *tc.C) {
@@ -43,8 +42,8 @@ func (r *PermissionSuite) TestHasModelAdminYes(c *tc.C) {
 	auth.EXPECT().HasPermission(gomock.Any(), permission.AdminAccess, testing.ModelTag).Return(nil)
 
 	has, err := model.HasModelAdmin(context.Background(), auth, testing.ControllerTag, testing.ModelTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(has, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(has, tc.IsTrue)
 }
 
 func (r *PermissionSuite) TestHasModelAdminNo(c *tc.C) {
@@ -56,8 +55,8 @@ func (r *PermissionSuite) TestHasModelAdminNo(c *tc.C) {
 	auth.EXPECT().HasPermission(gomock.Any(), permission.AdminAccess, testing.ModelTag).Return(authentication.ErrorEntityMissingPermission)
 
 	has, err := model.HasModelAdmin(context.Background(), auth, testing.ControllerTag, testing.ModelTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(has, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(has, tc.IsFalse)
 }
 
 func (r *PermissionSuite) TestHasModelAdminError(c *tc.C) {
@@ -70,6 +69,6 @@ func (r *PermissionSuite) TestHasModelAdminError(c *tc.C) {
 	auth.EXPECT().HasPermission(gomock.Any(), permission.AdminAccess, testing.ModelTag).Return(someError)
 
 	has, err := model.HasModelAdmin(context.Background(), auth, testing.ControllerTag, testing.ModelTag)
-	c.Assert(err, jc.ErrorIs, someError)
-	c.Assert(has, jc.IsFalse)
+	c.Assert(err, tc.ErrorIs, someError)
+	c.Assert(has, tc.IsFalse)
 }

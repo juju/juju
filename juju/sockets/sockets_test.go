@@ -9,7 +9,6 @@ import (
 	"net/rpc"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/sockets"
@@ -65,7 +64,7 @@ func (s *SocketSuite) TestTLSOverTCP(c *tc.C) {
 
 func (s *SocketSuite) testConn(c *tc.C, serverSocketDesc, clientSocketDesc sockets.Socket) {
 	l, err := sockets.Listen(serverSocketDesc)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	srv := rpc.Server{}
 	called := false
@@ -74,23 +73,23 @@ func (s *SocketSuite) testConn(c *tc.C, serverSocketDesc, clientSocketDesc socke
 		*reply = arg
 		return nil
 	}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	go func() {
 		cconn, err := sockets.Dial(clientSocketDesc)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		rep := ""
 		err = cconn.Call("RpcCaller.TestCall", "hello", &rep)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		c.Check(rep, tc.Equals, "hello")
 		err = cconn.Close()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}()
 
 	sconn, err := l.Accept()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	srv.ServeConn(sconn)
 	err = l.Close()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(called, tc.IsTrue)
 }

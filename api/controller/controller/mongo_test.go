@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/controller"
@@ -46,7 +45,7 @@ func (s *Suite) TestMongoVersion(c *tc.C) {
 
 	client := controller.NewClient(apiCaller)
 	result, err := client.MongoVersion(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.Equals, "3.5.12")
 }
 

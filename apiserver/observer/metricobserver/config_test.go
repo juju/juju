@@ -7,7 +7,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/observer/metricobserver"
@@ -31,7 +30,7 @@ func (*configSuite) TestValidateValid(c *tc.C) {
 		MetricsCollector: metricsCollector,
 	}
 	err := cfg.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (*configSuite) TestValidateInvalid(c *tc.C) {

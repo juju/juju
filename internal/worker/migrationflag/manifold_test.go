@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
@@ -27,7 +26,7 @@ var _ = tc.Suite(&ManifoldSuite{})
 
 func (*ManifoldSuite) TestInputs(c *tc.C) {
 	manifold := migrationflag.Manifold(validManifoldConfig())
-	c.Check(manifold.Inputs, jc.DeepEquals, []string{"api-caller"})
+	c.Check(manifold.Inputs, tc.DeepEquals, []string{"api-caller"})
 }
 
 func (*ManifoldSuite) TestOutputBadWorker(c *tc.C) {
@@ -51,14 +50,14 @@ func (*ManifoldSuite) TestOutputBadInput(c *tc.C) {
 	in := &migrationflag.Worker{}
 	var out engine.Flag
 	err := manifold.Output(in, &out)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(out, tc.Equals, in)
 }
 
 func (*ManifoldSuite) TestFilterNil(c *tc.C) {
 	manifold := migrationflag.Manifold(migrationflag.ManifoldConfig{})
 	err := manifold.Filter(nil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (*ManifoldSuite) TestFilterErrChanged(c *tc.C) {
@@ -163,6 +162,6 @@ func (*ManifoldSuite) TestStartSuccess(c *tc.C) {
 	manifold := migrationflag.Manifold(config)
 
 	worker, err := manifold.Start(context.Background(), getter)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(worker, tc.Equals, expectWorker)
 }

@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/testing"
@@ -32,29 +31,29 @@ func (s *DirectorySuite) SetUpTest(c *tc.C) {
 
 func (*DirectorySuite) TestNewContainerDir(c *tc.C) {
 	dir, err := container.NewDirectory("testing")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dir, jc.IsDirectory)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(dir, tc.IsDirectory)
 }
 
 func (s *DirectorySuite) TestRemoveContainerDir(c *tc.C) {
 	dir, err := container.NewDirectory("testing")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = container.RemoveDirectory("testing")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dir, jc.DoesNotExist)
-	c.Assert(filepath.Join(s.removedDir, "testing"), jc.IsDirectory)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(dir, tc.DoesNotExist)
+	c.Assert(filepath.Join(s.removedDir, "testing"), tc.IsDirectory)
 }
 
 func (s *DirectorySuite) TestRemoveContainerDirWithClash(c *tc.C) {
 	dir, err := container.NewDirectory("testing")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	clash := filepath.Join(s.removedDir, "testing")
 	err = os.MkdirAll(clash, 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = container.RemoveDirectory("testing")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dir, jc.DoesNotExist)
-	c.Assert(filepath.Join(s.removedDir, "testing.1"), jc.IsDirectory)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(dir, tc.DoesNotExist)
+	c.Assert(filepath.Join(s.removedDir, "testing.1"), tc.IsDirectory)
 }

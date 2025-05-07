@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -53,7 +52,7 @@ func (s *storageSuite) TestStorageListEmpty(c *tc.C) {
 		context.Background(),
 		params.StorageFilters{Filters: []params.StorageFilter{{}}},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 1)
 	c.Assert(found.Results[0].Error, tc.IsNil)
 	c.Assert(found.Results[0].Result, tc.HasLen, 0)
@@ -67,7 +66,7 @@ func (s *storageSuite) TestStorageListFilesystem(c *tc.C) {
 		context.Background(),
 		params.StorageFilters{Filters: []params.StorageFilter{{}}},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedCalls := []string{
 		allStorageInstancesCall,
@@ -83,7 +82,7 @@ func (s *storageSuite) TestStorageListFilesystem(c *tc.C) {
 	c.Assert(found.Results[0].Error, tc.IsNil)
 	c.Assert(found.Results[0].Result, tc.HasLen, 1)
 	wantedDetails := s.createTestStorageDetails()
-	c.Assert(found.Results[0].Result[0], jc.DeepEquals, wantedDetails)
+	c.Assert(found.Results[0].Result[0], tc.DeepEquals, wantedDetails)
 }
 
 func (s *storageSuite) TestStorageListVolume(c *tc.C) {
@@ -94,7 +93,7 @@ func (s *storageSuite) TestStorageListVolume(c *tc.C) {
 		context.Background(),
 		params.StorageFilters{Filters: []params.StorageFilter{{}}},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedCalls := []string{
 		allStorageInstancesCall,
@@ -111,7 +110,7 @@ func (s *storageSuite) TestStorageListVolume(c *tc.C) {
 	wantedDetails := s.createTestStorageDetails()
 	wantedDetails.Kind = params.StorageKindBlock
 	wantedDetails.Status.Status = status.Attached
-	c.Assert(found.Results[0].Result[0], jc.DeepEquals, wantedDetails)
+	c.Assert(found.Results[0].Result[0], tc.DeepEquals, wantedDetails)
 }
 
 func (s *storageSuite) TestStorageListError(c *tc.C) {
@@ -127,7 +126,7 @@ func (s *storageSuite) TestStorageListError(c *tc.C) {
 		context.Background(),
 		params.StorageFilters{Filters: []params.StorageFilter{{}}},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 1)
 	c.Assert(found.Results[0].Error, tc.ErrorMatches, msg)
 
@@ -141,7 +140,7 @@ func (s *storageSuite) TestStorageListInstanceError(c *tc.C) {
 	msg := "list test error"
 	s.storageAccessor.storageInstance = func(sTag names.StorageTag) (state.StorageInstance, error) {
 		s.stub.AddCall(storageInstanceCall)
-		c.Assert(sTag, jc.DeepEquals, s.storageTag)
+		c.Assert(sTag, tc.DeepEquals, s.storageTag)
 		return nil, errors.New(msg)
 	}
 
@@ -149,7 +148,7 @@ func (s *storageSuite) TestStorageListInstanceError(c *tc.C) {
 		context.Background(),
 		params.StorageFilters{Filters: []params.StorageFilter{{}}},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedCalls := []string{
 		allStorageInstancesCall,
@@ -170,7 +169,7 @@ func (s *storageSuite) TestStorageListFilesystemError(c *tc.C) {
 	msg := "list test error"
 	s.storageAccessor.storageInstanceFilesystem = func(sTag names.StorageTag) (state.Filesystem, error) {
 		s.stub.AddCall(storageInstanceFilesystemCall)
-		c.Assert(sTag, jc.DeepEquals, s.storageTag)
+		c.Assert(sTag, tc.DeepEquals, s.storageTag)
 		return nil, errors.New(msg)
 	}
 
@@ -178,7 +177,7 @@ func (s *storageSuite) TestStorageListFilesystemError(c *tc.C) {
 		context.Background(),
 		params.StorageFilters{Filters: []params.StorageFilter{{}}},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedCalls := []string{
 		allStorageInstancesCall,
@@ -218,7 +217,7 @@ func (s *storageSuite) assertInstanceInfoError(c *tc.C, obtained params.StorageD
 		c.Assert(obtained.Result, tc.IsNil)
 	} else {
 		c.Assert(obtained.Error, tc.IsNil)
-		c.Assert(obtained, jc.DeepEquals, wanted)
+		c.Assert(obtained, tc.DeepEquals, wanted)
 	}
 }
 
@@ -226,7 +225,7 @@ func (s *storageSuite) TestShowStorageEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	found, err := s.api.StorageDetails(context.Background(), params.Entities{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 0)
 }
 
@@ -237,7 +236,7 @@ func (s *storageSuite) TestShowStorageInvalidTag(c *tc.C) {
 	found, err := s.api.StorageDetails(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: "machine-1"}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 1)
 	c.Assert(found.Results[0].Error, tc.ErrorMatches, `"machine-1" is not a valid storage tag`)
 }
@@ -251,7 +250,7 @@ func (s *storageSuite) TestShowStorage(c *tc.C) {
 		context.Background(),
 		params.Entities{Entities: []params.Entity{entity}},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 1)
 
 	one := found.Results[0]
@@ -275,7 +274,7 @@ func (s *storageSuite) TestShowStorage(c *tc.C) {
 			},
 		},
 	}
-	c.Assert(one.Result, jc.DeepEquals, &expected)
+	c.Assert(one.Result, tc.DeepEquals, &expected)
 }
 
 func (s *storageSuite) TestShowStorageInvalidId(c *tc.C) {
@@ -285,7 +284,7 @@ func (s *storageSuite) TestShowStorageInvalidId(c *tc.C) {
 	entity := params.Entity{Tag: storageTag}
 
 	found, err := s.api.StorageDetails(context.Background(), params.Entities{Entities: []params.Entity{entity}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 1)
 	s.assertInstanceInfoError(c, found.Results[0], params.StorageDetailsResult{}, `"foo" is not a valid tag`)
 }
@@ -304,8 +303,8 @@ func (s *storageSuite) TestRemove(c *tc.C) {
 		{Tag: "filesystem-1-2"},
 		{Tag: "machine-0"},
 	}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.DeepEquals, []params.ErrorResult{
 		{Error: &params.Error{Message: "cannae do it"}},
 		{Error: &params.Error{Message: "cannae do it"}},
 		{Error: &params.Error{Message: "cannae do it"}},
@@ -339,9 +338,9 @@ func (s *storageSuite) TestDetach(c *tc.C) {
 				{StorageTag: "machine-0", UnitTag: "unit-bar-0"},
 				{StorageTag: "storage-foo-0", UnitTag: "application-bar"},
 			}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 6)
-	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
+	c.Assert(results.Results, tc.DeepEquals, []params.ErrorResult{
 		{Error: nil},
 		{Error: nil},
 		{Error: &params.Error{Message: `"volume-0" is not a valid storage tag`}},
@@ -372,9 +371,9 @@ func (s *storageSuite) TestDetachSpecifiedNotFound(c *tc.C) {
 			StorageIds: params.StorageAttachmentIds{Ids: []params.StorageAttachmentId{
 				{StorageTag: "storage-data-0", UnitTag: "unit-foo-42"},
 			}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
-	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
+	c.Assert(results.Results, tc.DeepEquals, []params.ErrorResult{
 		{Error: &params.Error{
 			Code:    params.CodeNotFound,
 			Message: "attachment of storage data/0 to unit foo/42 not found",
@@ -416,9 +415,9 @@ func (s *storageSuite) TestDetachAttachmentNotFoundConcurrent(c *tc.C) {
 			StorageIds: params.StorageAttachmentIds{Ids: []params.StorageAttachmentId{
 				{StorageTag: "storage-data-0"},
 			}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
-	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{{}})
+	c.Assert(results.Results, tc.DeepEquals, []params.ErrorResult{{}})
 	s.assertCalls(c, []string{
 		storageInstanceAttachmentsCall,
 		detachStorageCall,
@@ -440,9 +439,9 @@ func (s *storageSuite) TestDetachNoAttachmentsStorageNotFound(c *tc.C) {
 			StorageIds: params.StorageAttachmentIds{Ids: []params.StorageAttachmentId{
 				{StorageTag: "storage-foo-42"},
 			}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
-	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
+	c.Assert(results.Results, tc.DeepEquals, []params.ErrorResult{
 		{Error: &params.Error{
 			Code:    params.CodeNotFound,
 			Message: "storage foo/42 not found",
@@ -464,9 +463,9 @@ func (s *storageSuite) TestAttach(c *tc.C) {
 		{StorageTag: "storage-data-0", UnitTag: "machine-0"},
 		{StorageTag: "volume-0", UnitTag: "unit-mysql-0"},
 	}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 3)
-	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
+	c.Assert(results.Results, tc.DeepEquals, []params.ErrorResult{
 		{Error: nil},
 		{Error: &params.Error{Message: `"machine-0" is not a valid unit tag`}},
 		{Error: &params.Error{Message: `"volume-0" is not a valid storage tag`}},
@@ -482,7 +481,7 @@ func (s *storageSuite) TestImportFilesystem(c *tc.C) {
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
 
 	p, err := storage.NewConfig("radiance", "radiance", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.storageService.EXPECT().GetStoragePoolByName(gomock.Any(), "radiance").Return(p, nil)
 
 	filesystemSource := filesystemImporter{FilesystemSource: &dummy.FilesystemSource{}}
@@ -501,8 +500,8 @@ func (s *storageSuite) TestImportFilesystem(c *tc.C) {
 		ProviderId:  "foo",
 		StorageName: "pgdata",
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, jc.DeepEquals, []params.ImportStorageResult{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.DeepEquals, []params.ImportStorageResult{{
 		Result: &params.ImportStorageDetails{
 			StorageTag: "storage-data-0",
 		},
@@ -534,7 +533,7 @@ func (s *storageSuite) TestImportFilesystemVolumeBacked(c *tc.C) {
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
 
 	p, err := storage.NewConfig("radiance", "radiance", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.storageService.EXPECT().GetStoragePoolByName(gomock.Any(), "radiance").Return(p, nil)
 
 	volumeSource := volumeImporter{VolumeSource: &dummy.VolumeSource{}}
@@ -556,8 +555,8 @@ func (s *storageSuite) TestImportFilesystemVolumeBacked(c *tc.C) {
 		ProviderId:  "foo",
 		StorageName: "pgdata",
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, jc.DeepEquals, []params.ImportStorageResult{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.DeepEquals, []params.ImportStorageResult{{
 		Result: &params.ImportStorageDetails{
 			StorageTag: "storage-data-0",
 		},
@@ -593,7 +592,7 @@ func (s *storageSuite) TestImportFilesystemError(c *tc.C) {
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
 
 	p, err := storage.NewConfig("radiance", "radiance", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.storageService.EXPECT().GetStoragePoolByName(gomock.Any(), "radiance").Return(p, nil)
 
 	filesystemSource := filesystemImporter{FilesystemSource: &dummy.FilesystemSource{}}
@@ -613,8 +612,8 @@ func (s *storageSuite) TestImportFilesystemError(c *tc.C) {
 		ProviderId:  "foo",
 		StorageName: "pgdata",
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, jc.DeepEquals, []params.ImportStorageResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.DeepEquals, []params.ImportStorageResult{
 		{Error: &params.Error{Message: `importing filesystem: nope`}},
 	})
 	filesystemSource.CheckCallNames(c, "ImportFilesystem")
@@ -627,7 +626,7 @@ func (s *storageSuite) TestImportFilesystemNotSupported(c *tc.C) {
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
 
 	p, err := storage.NewConfig("radiance", "radiance", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.storageService.EXPECT().GetStoragePoolByName(gomock.Any(), "radiance").Return(p, nil)
 
 	filesystemSource := &dummy.FilesystemSource{}
@@ -646,8 +645,8 @@ func (s *storageSuite) TestImportFilesystemNotSupported(c *tc.C) {
 		ProviderId:  "foo",
 		StorageName: "pgdata",
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, jc.DeepEquals, []params.ImportStorageResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.DeepEquals, []params.ImportStorageResult{
 		{Error: &params.Error{
 			Message: `importing filesystem with storage provider "radiance" not supported`,
 			Code:    "not supported",
@@ -663,7 +662,7 @@ func (s *storageSuite) TestImportFilesystemVolumeBackedNotSupported(c *tc.C) {
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
 
 	p, err := storage.NewConfig("radiance", "radiance", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.storageService.EXPECT().GetStoragePoolByName(gomock.Any(), "radiance").Return(p, nil)
 
 	volumeSource := &dummy.VolumeSource{}
@@ -685,8 +684,8 @@ func (s *storageSuite) TestImportFilesystemVolumeBackedNotSupported(c *tc.C) {
 		ProviderId:  "foo",
 		StorageName: "pgdata",
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, jc.DeepEquals, []params.ImportStorageResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.DeepEquals, []params.ImportStorageResult{
 		{Error: &params.Error{
 			Message: `importing volume with storage provider "radiance" not supported`,
 			Code:    "not supported",
@@ -712,8 +711,8 @@ func (s *storageSuite) TestImportValidationErrors(c *tc.C) {
 		ProviderId:  "foo",
 		StorageName: "pgdata",
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, jc.DeepEquals, []params.ImportStorageResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.DeepEquals, []params.ImportStorageResult{
 		{Error: &params.Error{Message: `storage kind "block" not supported`, Code: "not supported"}},
 		{Error: &params.Error{Message: `pool name "123" not valid`, Code: `not valid`}},
 	})
@@ -735,7 +734,7 @@ func (s *storageSuite) TestListStorageAsAdminOnNotOwnedModel(c *tc.C) {
 
 	// ListStorageDetails should not fail
 	_, err := s.api.ListStorageDetails(context.Background(), params.StorageFilters{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *storageSuite) TestListStorageAsNonAdminOnNotOwnedModel(c *tc.C) {
@@ -754,7 +753,7 @@ func (s *storageSuite) TestListStorageAsNonAdminOnNotOwnedModel(c *tc.C) {
 
 	// ListStorageDetails should fail with perm error
 	_, err := s.api.ListStorageDetails(context.Background(), params.StorageFilters{})
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
 type filesystemImporter struct {

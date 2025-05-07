@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 
 	k8s "github.com/juju/juju/caas/kubernetes"
@@ -30,7 +29,7 @@ func (s *credentialsSuite) SetUpTest(c *tc.C) {
 
 	var err error
 	s.provider, err = environs.Provider("kubernetes")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *credentialsSuite) TestCredentialSchemas(c *tc.C) {
@@ -82,7 +81,7 @@ func (s *credentialsSuite) TestDetectCredentials(c *tc.C) {
 		Data: singleConfigYAML,
 	})
 	creds, err := s.provider.DetectCredentials("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(creds.DefaultRegion, tc.Equals, "")
 	expected := cloud.NewNamedCredential(
 		"the-user", cloud.UserPassAuthType, map[string]string{
@@ -90,13 +89,13 @@ func (s *credentialsSuite) TestDetectCredentials(c *tc.C) {
 			"password": "thepassword",
 		}, false,
 	)
-	c.Assert(creds.AuthCredentials["the-user"], jc.DeepEquals, expected)
+	c.Assert(creds.AuthCredentials["the-user"], tc.DeepEquals, expected)
 }
 
 func (s *credentialsSuite) TestRegisterCredentialsNotMicrok8s(c *tc.C) {
 	p := provider.NewProviderCredentials(credentialGetterFunc(builtinCloudRet{}))
 	credentials, err := p.RegisterCredentials(cloud.Cloud{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(credentials, tc.HasLen, 0)
 }
 
@@ -111,7 +110,7 @@ func (s *credentialsSuite) TestRegisterCredentialsMicrok8s(c *tc.C) {
 		),
 	)
 	credentials, err := p.RegisterCredentials(defaultK8sCloud)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(credentials, tc.HasLen, 1)
 	c.Assert(credentials[k8s.K8sCloudMicrok8s], tc.DeepEquals, &cloud.CloudCredential{
 		DefaultCredential: k8s.K8sCloudMicrok8s,

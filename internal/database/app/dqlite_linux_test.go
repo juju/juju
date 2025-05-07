@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 type onceErrorSuite struct {
@@ -32,7 +31,7 @@ func (s *onceErrorSuite) TestDoWithNil(c *tc.C) {
 		return nil
 	})
 	c.Assert(err, tc.IsNil)
-	c.Check(called, jc.IsFalse)
+	c.Check(called, tc.IsFalse)
 }
 
 func (s *onceErrorSuite) TestDoWithError(c *tc.C) {

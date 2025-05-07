@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -57,9 +56,9 @@ func (s *caasProvisionerSuite) TestWatchApplications(c *tc.C) {
 	s.resources.EXPECT().Register(watcher).Return("1")
 
 	result, err := s.api.WatchApplications(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.StringsWatcherId, tc.Equals, "1")
-	c.Check(result.Changes, jc.DeepEquals, []string{"application-mariadb"})
+	c.Check(result.Changes, tc.DeepEquals, []string{"application-mariadb"})
 }
 
 func (s *caasProvisionerSuite) TestWatchApplicationsClosed(c *tc.C) {
@@ -100,8 +99,8 @@ func (s *caasProvisionerSuite) TestRemoveVolumeAttachment(c *tc.C) {
 			AttachmentTag: "volume-42",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: &params.Error{Message: "removing attachment of volume 0 from unit mariadb/0: volume attachment is not dying"}},
 			{Error: nil},
@@ -136,8 +135,8 @@ func (s *caasProvisionerSuite) TestRemoveFilesystemAttachments(c *tc.C) {
 			AttachmentTag: "filesystem-42",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: &params.Error{Message: "removing attachment of filesystem 0 from unit mariadb/0: filesystem attachment is not dying"}},
 			{Error: nil},
@@ -166,7 +165,7 @@ func (s *caasProvisionerSuite) TestFilesystemLife(c *tc.C) {
 
 	args := params.Entities{Entities: []params.Entity{{Tag: "filesystem-0"}, {Tag: "filesystem-1"}, {Tag: "filesystem-42"}}}
 	result, err := s.api.Life(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Life: life.Alive},
@@ -198,7 +197,7 @@ func (s *caasProvisionerSuite) TestVolumeLife(c *tc.C) {
 
 	args := params.Entities{Entities: []params.Entity{{Tag: "volume-0"}, {Tag: "volume-1"}, {Tag: "volume-42"}}}
 	result, err := s.api.Life(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Life: life.Alive},
@@ -234,8 +233,8 @@ func (s *caasProvisionerSuite) TestFilesystemAttachmentLife(c *tc.C) {
 			AttachmentTag: "filesystem-42",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.LifeResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Life: life.Alive},
 			{Life: life.Alive},
@@ -267,8 +266,8 @@ func (s *caasProvisionerSuite) TestVolumeAttachmentLife(c *tc.C) {
 			AttachmentTag: "volume-42",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.LifeResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Life: life.Alive},
 			{Life: life.Alive},

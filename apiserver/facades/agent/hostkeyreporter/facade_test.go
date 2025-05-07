@@ -9,7 +9,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver/facades/agent/hostkeyreporter"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -31,7 +30,7 @@ func (s *facadeSuite) SetUpTest(c *tc.C) {
 	s.backend = new(mockBackend)
 	s.authorizer = new(apiservertesting.FakeAuthorizer)
 	facade, err := hostkeyreporter.New(s.backend, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.facade = facade
 }
 
@@ -50,7 +49,7 @@ func (s *facadeSuite) TestReportKeys(c *tc.C) {
 		},
 	}
 	result, err := s.facade.ReportKeys(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{

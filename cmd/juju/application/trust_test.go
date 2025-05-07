@@ -5,7 +5,6 @@ package application
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cmd/juju/application/mocks"
@@ -47,7 +46,7 @@ func (s *TrustSuite) TestTrust(c *tc.C) {
 	s.applicationAPI.EXPECT().Close()
 
 	err := s.runTrust(c, "gitlab")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *TrustSuite) TestTrustCAAS(c *tc.C) {
@@ -64,7 +63,7 @@ func (s *TrustSuite) TestTrustCAAS(c *tc.C) {
 	s.applicationAPI.EXPECT().Close()
 
 	err := s.runTrust(c, "gitlab", "--scope", "cluster")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *TrustSuite) TestTrustCAASRemove(c *tc.C) {
@@ -81,7 +80,7 @@ func (s *TrustSuite) TestTrustCAASRemove(c *tc.C) {
 	s.applicationAPI.EXPECT().Close()
 
 	err := s.runTrust(c, "gitlab", "--remove")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *TrustSuite) TestTrustCAASNoScope(c *tc.C) {

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -47,7 +46,7 @@ func (s *agentSuite) TestSetUnitPassword(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{
@@ -76,7 +75,7 @@ func (s *agentSuite) TestSetUnitPasswordUnitNotFound(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{

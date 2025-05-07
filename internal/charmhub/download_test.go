@@ -16,7 +16,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/testcharms/repo"
@@ -54,11 +53,11 @@ func (s *DownloadSuite) TestDownload(c *tc.C) {
 	})
 
 	serverURL, err := url.Parse("http://meshuggah.rocks")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	client := NewDownloadClient(httpClient, fileSystem, s.logger)
 	digest, err := client.Download(context.Background(), serverURL, tmpFile.Name())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(digest, tc.DeepEquals, &Digest{
 		SHA256: "679e21d12ebfd206ba08dd7a3a23b81170d30c8c7cbc0ac2443beb6aac67dfdb",
 		SHA384: "5821c48bdfc6d6ec87cfd4fc1e5f26898a3c983ccdbc46816fe6938493cfb003ca9642087666af9e1c0b7397b0a33c8a",
@@ -86,7 +85,7 @@ func (s *DownloadSuite) TestDownloadWithProgressBar(c *tc.C) {
 	})
 
 	serverURL, err := url.Parse("http://meshuggah.rocks")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	pgBar := NewMockProgressBar(ctrl)
 	pgBar.EXPECT().Write(gomock.Any()).MinTimes(1).DoAndReturn(func(p []byte) (int, error) {
@@ -99,7 +98,7 @@ func (s *DownloadSuite) TestDownloadWithProgressBar(c *tc.C) {
 
 	client := NewDownloadClient(httpClient, fileSystem, s.logger)
 	digest, err := client.Download(ctx, serverURL, tmpFile.Name(), WithProgressBar(pgBar))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(digest, tc.DeepEquals, &Digest{
 		SHA256: "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
 		SHA384: "fdbd8e75a67f29f701a4e040385e2e23986303ea10239211af907fcbb83578b3e417cb71ce646efd0819dd8c088de1bd",
@@ -127,11 +126,11 @@ func (s *DownloadSuite) TestDownloadWithDigest(c *tc.C) {
 	})
 
 	serverURL, err := url.Parse("http://meshuggah.rocks")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	client := NewDownloadClient(httpClient, fileSystem, s.logger)
 	digest, err := client.Download(context.Background(), serverURL, tmpFile.Name())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedSHA256 := readSHA256(c, strings.NewReader("hello world"))
 	expectedSHA384 := readSHA384(c, strings.NewReader("hello world"))
@@ -162,7 +161,7 @@ func (s *DownloadSuite) TestDownloadWithNotFoundStatusCode(c *tc.C) {
 	})
 
 	serverURL, err := url.Parse("http://meshuggah.rocks")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	client := NewDownloadClient(httpClient, fileSystem, s.logger)
 	_, err = client.Download(context.Background(), serverURL, tmpFile.Name())
@@ -189,7 +188,7 @@ func (s *DownloadSuite) TestDownloadWithFailedStatusCode(c *tc.C) {
 	})
 
 	serverURL, err := url.Parse("http://meshuggah.rocks")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	client := NewDownloadClient(httpClient, fileSystem, s.logger)
 	_, err = client.Download(context.Background(), serverURL, tmpFile.Name())
@@ -198,30 +197,30 @@ func (s *DownloadSuite) TestDownloadWithFailedStatusCode(c *tc.C) {
 
 func (s *DownloadSuite) createCharmAchieve(c *tc.C) []byte {
 	tmpDir, err := os.MkdirTemp("", "charm")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	repo := repo.NewRepo(localCharmRepo, defaultSeries)
 	charmPath := repo.CharmArchivePath(tmpDir, "dummy")
 
 	path, err := os.ReadFile(charmPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return path
 }
 
 func (s *DownloadSuite) expectTmpFile(c *tc.C) (*os.File, func()) {
 	tmpFile, err := os.CreateTemp("", "charm")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return tmpFile, func() {
 		err := os.Remove(tmpFile.Name())
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }
 
 func readSHA256(c *tc.C, reader io.Reader) string {
 	hash := sha256.New()
 	_, err := io.Copy(hash, reader)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return hex.EncodeToString(hash.Sum(nil))
 }
@@ -229,7 +228,7 @@ func readSHA256(c *tc.C, reader io.Reader) string {
 func readSHA384(c *tc.C, reader io.Reader) string {
 	hash := sha512.New384()
 	_, err := io.Copy(hash, reader)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return hex.EncodeToString(hash.Sum(nil))
 }

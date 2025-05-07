@@ -13,7 +13,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -93,9 +92,9 @@ func (s *StateSuite) SetUpTest(c *tc.C) {
 	s.StatePool = s.Controller.StatePool()
 	var err error
 	s.State, err = s.StatePool.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.Model = model
 
 	s.Factory = factory.NewFactory(s.State, s.StatePool, s.ControllerConfig)

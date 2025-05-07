@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/cmd/juju/machine"
@@ -138,7 +137,7 @@ func (s *MachineListCommandSuite) SetUpTest(c *tc.C) {
 
 func (s *MachineListCommandSuite) TestMachine(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, newMachineListCommand())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), tc.Equals, ""+
 		"Machine  State    Address   Inst id              Base          AZ         Message\n"+
 		"0        started  10.0.0.1  juju-badd06-0        ubuntu@22.04  us-east-1  \n"+
@@ -148,7 +147,7 @@ func (s *MachineListCommandSuite) TestMachine(c *tc.C) {
 
 func (s *MachineListCommandSuite) TestListMachineYaml(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, newMachineListCommand(), "--format", "yaml")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), tc.Equals, ""+
 		"model: dummyenv\n"+
 		"machines:\n"+
@@ -223,7 +222,7 @@ func (s *MachineListCommandSuite) TestListMachineYaml(c *tc.C) {
 
 func (s *MachineListCommandSuite) TestListMachineJson(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, newMachineListCommand(), "--format", "json")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Make the test more readable by putting all the JSON in a expanded form.
 	// Then to test it, marshal it back into json, so that map equality ordering
 	// doesn't matter.
@@ -323,9 +322,9 @@ func (s *MachineListCommandSuite) TestListMachineJson(c *tc.C) {
 		"	   }" +
 		"	}" +
 		" }\n")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	actualJSON, err := unmarshalStringAsJSON(cmdtesting.Stdout(context))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(actualJSON, tc.DeepEquals, expectedJSON)
 }
 

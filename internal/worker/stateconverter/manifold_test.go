@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
@@ -60,7 +59,7 @@ func (s *manifoldConfigSuite) TestValidateSuccess(c *tc.C) {
 		Logger:        loggertesting.WrapCheckLog(c),
 	}
 	err := cfg.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *manifoldConfigSuite) TestManifoldStart(c *tc.C) {
@@ -86,7 +85,7 @@ func (s *manifoldConfigSuite) TestManifoldStart(c *tc.C) {
 	)
 	manifold := stateconverter.Manifold(cfg)
 	w, err := manifold.Start(context.Background(), s.getter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(w, tc.NotNil)
 	select {
 	case <-done:

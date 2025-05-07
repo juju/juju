@@ -12,7 +12,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -71,7 +70,7 @@ func (s *applicationServiceSuite) TestGetCharmByApplicationName(c *tc.C) {
 	}, nil)
 
 	ch, locator, err := s.service.GetCharmByApplicationID(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(ch.Meta(), tc.DeepEquals, &charm.Meta{
 		Name: "foo",
 
@@ -105,7 +104,7 @@ func (s *applicationServiceSuite) TestGetCharmLocatorByApplicationName(c *tc.C) 
 		Architecture: architecture.AMD64,
 	}
 	locator, err := s.service.GetCharmLocatorByApplicationName(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(locator, tc.DeepEquals, expectedLocator)
 }
 
@@ -117,7 +116,7 @@ func (s *applicationServiceSuite) TestGetApplicationIDByUnitName(c *tc.C) {
 	s.state.EXPECT().GetApplicationIDByUnitName(gomock.Any(), unitName).Return(expectedAppID, nil)
 
 	obtainedAppID, err := s.service.GetApplicationIDByUnitName(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtainedAppID, tc.DeepEquals, expectedAppID)
 }
 
@@ -128,7 +127,7 @@ func (s *applicationServiceSuite) TestGetCharmModifiedVersion(c *tc.C) {
 	s.state.EXPECT().GetCharmModifiedVersion(gomock.Any(), appUUID).Return(42, nil)
 
 	obtained, err := s.service.GetCharmModifiedVersion(context.Background(), appUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtained, tc.DeepEquals, 42)
 }
 
@@ -153,7 +152,7 @@ func (s *applicationServiceSuite) TestGetAsyncCharmDownloadInfo(c *tc.C) {
 	s.state.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appUUID).Return(info, nil)
 
 	obtained, err := s.service.GetAsyncCharmDownloadInfo(context.Background(), appUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtained, tc.DeepEquals, info)
 }
 
@@ -169,7 +168,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownload(c *tc.C) {
 	// For now, just brute force our way through to get the actions.
 	ch := testcharms.Repo.CharmDir("dummy")
 	actions, err := encodeActions(ch.Actions())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 	charmUUID := charmtesting.GenCharmID(c)
@@ -204,14 +203,14 @@ func (s *applicationServiceSuite) TestResolveCharmDownload(c *tc.C) {
 		Path:      path,
 		Size:      42,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *applicationServiceSuite) TestResolveCharmDownloadInvalidApplicationID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := s.service.ResolveCharmDownload(context.Background(), "!!!!", application.ResolveCharmDownload{})
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyAvailable(c *tc.C) {
@@ -239,7 +238,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyAvailable(c *tc
 		Path:      "foo",
 		Size:      42,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyResolved(c *tc.C) {
@@ -267,7 +266,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyResolved(c *tc.
 		Path:      "foo",
 		Size:      42,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *applicationServiceSuite) TestResolveCharmDownloadCharmUUIDMismatch(c *tc.C) {
@@ -298,7 +297,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadCharmUUIDMismatch(c *t
 		Path:      path,
 		Size:      42,
 	})
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotResolved)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotResolved)
 }
 
 func (s *applicationServiceSuite) TestResolveCharmDownloadNotStored(c *tc.C) {
@@ -332,7 +331,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadNotStored(c *tc.C) {
 		Path:      path,
 		Size:      42,
 	})
-	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 }
 
 func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyStored(c *tc.C) {
@@ -347,7 +346,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyStored(c *tc.C)
 	// For now, just brute force our way through to get the actions.
 	ch := testcharms.Repo.CharmDir("dummy")
 	actions, err := encodeActions(ch.Actions())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 	charmUUID := charmtesting.GenCharmID(c)
@@ -382,7 +381,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyStored(c *tc.C)
 		Path:      path,
 		Size:      42,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *applicationServiceSuite) TestGetApplicationsForRevisionUpdater(c *tc.C) {
@@ -397,7 +396,7 @@ func (s *applicationServiceSuite) TestGetApplicationsForRevisionUpdater(c *tc.C)
 	s.state.EXPECT().GetApplicationsForRevisionUpdater(gomock.Any()).Return(apps, nil)
 
 	results, err := s.service.GetApplicationsForRevisionUpdater(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, apps)
 }
 
@@ -416,7 +415,7 @@ func (s *applicationServiceSuite) TestGetApplicationConfig(c *tc.C) {
 	}, nil)
 
 	results, err := s.service.GetApplicationConfig(context.Background(), appUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, config.ConfigAttributes{
 		"foo":   "bar",
 		"trust": true,
@@ -450,7 +449,7 @@ func (s *applicationServiceSuite) TestGetApplicationConfigNoConfig(c *tc.C) {
 		Return(map[string]application.ApplicationConfig{}, application.ApplicationSettings{}, nil)
 
 	results, err := s.service.GetApplicationConfig(context.Background(), appUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, config.ConfigAttributes{
 		"trust": false,
 	})
@@ -467,7 +466,7 @@ func (s *applicationServiceSuite) TestGetApplicationConfigNoConfigWithTrust(c *t
 		}, nil)
 
 	results, err := s.service.GetApplicationConfig(context.Background(), appUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, config.ConfigAttributes{
 		"trust": true,
 	})
@@ -477,7 +476,7 @@ func (s *applicationServiceSuite) TestGetApplicationConfigInvalidApplicationID(c
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.GetApplicationConfig(context.Background(), "!!!")
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *applicationServiceSuite) TestGetApplicationTrustSetting(c *tc.C) {
@@ -488,15 +487,15 @@ func (s *applicationServiceSuite) TestGetApplicationTrustSetting(c *tc.C) {
 	s.state.EXPECT().GetApplicationTrustSetting(gomock.Any(), appUUID).Return(true, nil)
 
 	results, err := s.service.GetApplicationTrustSetting(context.Background(), appUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.IsTrue)
 }
 
 func (s *applicationServiceSuite) TestGetApplicationTrustSettingInvalidApplicationID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.GetApplicationTrustSetting(context.Background(), "!!!")
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *applicationServiceSuite) TestUnsetApplicationConfigKeys(c *tc.C) {
@@ -507,7 +506,7 @@ func (s *applicationServiceSuite) TestUnsetApplicationConfigKeys(c *tc.C) {
 	s.state.EXPECT().UnsetApplicationConfigKeys(gomock.Any(), appUUID, []string{"a", "b"}).Return(nil)
 
 	err := s.service.UnsetApplicationConfigKeys(context.Background(), appUUID, []string{"a", "b"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *applicationServiceSuite) TestUnsetApplicationConfigKeysNoValues(c *tc.C) {
@@ -516,14 +515,14 @@ func (s *applicationServiceSuite) TestUnsetApplicationConfigKeysNoValues(c *tc.C
 	appUUID := applicationtesting.GenApplicationUUID(c)
 
 	err := s.service.UnsetApplicationConfigKeys(context.Background(), appUUID, []string{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *applicationServiceSuite) TestUnsetApplicationConfigKeysInvalidApplicationID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := s.service.UnsetApplicationConfigKeys(context.Background(), "!!!", []string{"a", "b"})
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *applicationServiceSuite) TestUpdateApplicationConfig(c *tc.C) {
@@ -552,7 +551,7 @@ func (s *applicationServiceSuite) TestUpdateApplicationConfig(c *tc.C) {
 		"trust": "true",
 		"foo":   "bar",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *applicationServiceSuite) TestUpdateApplicationConfigRemoveTrust(c *tc.C) {
@@ -581,7 +580,7 @@ func (s *applicationServiceSuite) TestUpdateApplicationConfigRemoveTrust(c *tc.C
 		"trust": "false",
 		"foo":   "bar",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *applicationServiceSuite) TestUpdateApplicationConfigNoTrust(c *tc.C) {
@@ -607,7 +606,7 @@ func (s *applicationServiceSuite) TestUpdateApplicationConfigNoTrust(c *tc.C) {
 	err := s.service.UpdateApplicationConfig(context.Background(), appUUID, map[string]string{
 		"foo": "bar",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *applicationServiceSuite) TestUpdateApplicationConfigNoCharmConfig(c *tc.C) {
@@ -625,7 +624,7 @@ func (s *applicationServiceSuite) TestUpdateApplicationConfigNoCharmConfig(c *tc
 		"trust": "true",
 		"foo":   "bar",
 	})
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *applicationServiceSuite) TestUpdateApplicationConfigWithNoCharmConfig(c *tc.C) {
@@ -641,7 +640,7 @@ func (s *applicationServiceSuite) TestUpdateApplicationConfigWithNoCharmConfig(c
 		"trust": "true",
 		"foo":   "bar",
 	})
-	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidApplicationConfig)
+	c.Assert(err, tc.ErrorIs, applicationerrors.InvalidApplicationConfig)
 }
 
 func (s *applicationServiceSuite) TestUpdateApplicationConfigInvalidOptionType(c *tc.C) {
@@ -699,14 +698,14 @@ func (s *applicationServiceSuite) TestUpdateApplicationConfigNoConfig(c *tc.C) {
 	).Return(nil)
 
 	err := s.service.UpdateApplicationConfig(context.Background(), appUUID, map[string]string{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *applicationServiceSuite) TestUpdateApplicationConfigInvalidApplicationID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := s.service.UpdateApplicationConfig(context.Background(), "!!!", nil)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *applicationServiceSuite) TestGetApplicationAndCharmConfig(c *tc.C) {
@@ -751,7 +750,7 @@ func (s *applicationServiceSuite) TestGetApplicationAndCharmConfig(c *tc.C) {
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(charmOrigin, nil)
 
 	results, err := s.service.GetApplicationAndCharmConfig(context.Background(), appUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, ApplicationConfig{
 		ApplicationConfig: config.ConfigAttributes{
 			"foo": "bar",
@@ -785,7 +784,7 @@ func (s *applicationServiceSuite) TestGetApplicationAndCharmConfigInvalidID(c *t
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.GetApplicationAndCharmConfig(context.Background(), "!!!")
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *applicationServiceSuite) TestGetApplicationAndCharmConfigNotFound(c *tc.C) {
@@ -806,7 +805,7 @@ func (s *applicationServiceSuite) TestGetApplicationAndCharmConfigNotFound(c *tc
 	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).Return(appConfig, settings, applicationerrors.ApplicationNotFound)
 
 	_, err := s.service.GetApplicationAndCharmConfig(context.Background(), appUUID)
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationServiceSuite) TestDecodeCharmOrigin(c *tc.C) {
@@ -824,7 +823,7 @@ func (s *applicationServiceSuite) TestDecodeCharmOrigin(c *tc.C) {
 	}
 
 	decoded, err := decodeCharmOrigin(origin)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(decoded, tc.DeepEquals, corecharm.Origin{
 		Source: corecharm.CharmHub,
@@ -842,16 +841,16 @@ func (s *applicationServiceSuite) TestDecodeCharmOrigin(c *tc.C) {
 func (s *applicationServiceSuite) TestDecodeCharmSource(c *tc.C) {
 	source := applicationcharm.CharmHubSource
 	decoded, err := decodeCharmSource(source)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(decoded, tc.Equals, corecharm.CharmHub)
 
 	source = applicationcharm.LocalSource
 	decoded, err = decodeCharmSource(source)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(decoded, tc.Equals, corecharm.Local)
 
 	_, err = decodeCharmSource("boom")
-	c.Assert(err, tc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
 func (s *applicationServiceSuite) TestDecodePlatform(c *tc.C) {
@@ -862,7 +861,7 @@ func (s *applicationServiceSuite) TestDecodePlatform(c *tc.C) {
 	}
 
 	decoded, err := decodePlatform(platform)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(decoded, tc.DeepEquals, corecharm.Platform{
 		Architecture: arch.AMD64,
@@ -879,7 +878,7 @@ func (s *applicationServiceSuite) TestDecodePlatformArchError(c *tc.C) {
 	}
 
 	_, err := decodePlatform(platform)
-	c.Assert(err, tc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
 func (s *applicationServiceSuite) TestDecodePlatformOSError(c *tc.C) {
@@ -890,12 +889,12 @@ func (s *applicationServiceSuite) TestDecodePlatformOSError(c *tc.C) {
 	}
 
 	_, err := decodePlatform(platform)
-	c.Assert(err, tc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
 func (s *applicationServiceSuite) TestDecodeChannelNilChannel(c *tc.C) {
 	ch, err := decodeChannel(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(ch, tc.IsNil)
 }
 
@@ -903,7 +902,7 @@ func (s *applicationServiceSuite) TestDecodeChannel(c *tc.C) {
 	ch, err := decodeChannel(&deployment.Channel{
 		Risk: deployment.RiskStable,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(ch, tc.DeepEquals, &charm.Channel{
 		Risk: charm.Stable,
 	})
@@ -913,7 +912,7 @@ func (s *applicationServiceSuite) TestDecodeChannelInvalidRisk(c *tc.C) {
 	_, err := decodeChannel(&deployment.Channel{
 		Risk: "risk",
 	})
-	c.Assert(err, tc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
 func (s *applicationServiceSuite) TestDecodeRisk(c *tc.C) {
@@ -941,7 +940,7 @@ func (s *applicationServiceSuite) TestDecodeRisk(c *tc.C) {
 	for i, test := range tests {
 		c.Logf("test %d", i)
 		decoded, err := decodeRisk(test.risk)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(decoded, tc.Equals, test.expected)
 	}
 }
@@ -977,7 +976,7 @@ func (s *applicationServiceSuite) TestGetDeviceConstraints(c *tc.C) {
 	}, nil)
 
 	cons, err := s.service.GetDeviceConstraints(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cons, tc.DeepEquals, map[string]devices.Constraints{
 		"dev0": {
 			Type:  "type0",
@@ -1019,7 +1018,7 @@ func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMa
 	}}
 
 	result, err := s.service.watchApplicationsWithPendingCharmsMapper(context.Background(), changes)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, changes)
 }
 
@@ -1037,7 +1036,7 @@ func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMa
 	}}
 
 	_, err := s.service.watchApplicationsWithPendingCharmsMapper(context.Background(), changes)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMapperOrder(c *tc.C) {
@@ -1074,7 +1073,7 @@ func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMa
 	s.state.EXPECT().GetApplicationsWithPendingCharmsFromUUIDs(gomock.Any(), appIDs).Return(shuffle, nil)
 
 	result, err := s.service.watchApplicationsWithPendingCharmsMapper(context.Background(), changes)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, changes)
 }
 
@@ -1116,7 +1115,7 @@ func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMa
 	s.state.EXPECT().GetApplicationsWithPendingCharmsFromUUIDs(gomock.Any(), appIDs).Return(dropped, nil)
 
 	result, err := s.service.watchApplicationsWithPendingCharmsMapper(context.Background(), changes)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, expected)
 }
 
@@ -1166,7 +1165,7 @@ func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMa
 	s.state.EXPECT().GetApplicationsWithPendingCharmsFromUUIDs(gomock.Any(), appIDs).Return(shuffle, nil)
 
 	result, err := s.service.watchApplicationsWithPendingCharmsMapper(context.Background(), changes)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, expected)
 }
 

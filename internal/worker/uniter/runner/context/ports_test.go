@@ -7,7 +7,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	envtesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -215,11 +214,11 @@ func (s *PortRangeChangeRecorderSuite) TestOpenPortRange(c *tc.C) {
 		if test.expectErr != "" {
 			c.Check(err, tc.ErrorMatches, test.expectErr)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 
 			pendingOpenRanges, pendingCloseRanges := rec.PendingChanges()
-			c.Check(pendingOpenRanges, jc.DeepEquals, test.expectPendingOpen)
-			c.Check(pendingCloseRanges, jc.DeepEquals, test.expectPendingClose)
+			c.Check(pendingOpenRanges, tc.DeepEquals, test.expectPendingOpen)
+			c.Check(pendingCloseRanges, tc.DeepEquals, test.expectPendingClose)
 		}
 	}
 }
@@ -415,11 +414,11 @@ func (s *PortRangeChangeRecorderSuite) TestClosePortRange(c *tc.C) {
 		if test.expectErr != "" {
 			c.Check(err, tc.ErrorMatches, test.expectErr)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 
 			pendingOpenRanges, pendingCloseRanges := rec.PendingChanges()
-			c.Check(pendingOpenRanges, jc.DeepEquals, test.expectPendingOpen)
-			c.Check(pendingCloseRanges, jc.DeepEquals, test.expectPendingClose)
+			c.Check(pendingOpenRanges, tc.DeepEquals, test.expectPendingOpen)
+			c.Check(pendingCloseRanges, tc.DeepEquals, test.expectPendingClose)
 		}
 	}
 }

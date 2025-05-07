@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"go.uber.org/mock/gomock"
@@ -35,7 +34,7 @@ var _ = tc.Suite(&manifoldSuite{})
 func (s *manifoldSuite) TestInputs(c *tc.C) {
 	cfg := s.newManifoldConfig(c)
 
-	c.Check(leaseexpiry.Manifold(cfg).Inputs, jc.DeepEquals, []string{"clock-name", "db-accessor-name", "trace-name"})
+	c.Check(leaseexpiry.Manifold(cfg).Inputs, tc.DeepEquals, []string{"clock-name", "db-accessor-name", "trace-name"})
 }
 
 func (s *manifoldSuite) TestConfigValidate(c *tc.C) {
@@ -43,27 +42,27 @@ func (s *manifoldSuite) TestConfigValidate(c *tc.C) {
 
 	cfg := validCfg
 	cfg.ClockName = ""
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = validCfg
 	cfg.DBAccessorName = ""
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = validCfg
 	cfg.TraceName = ""
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = validCfg
 	cfg.Logger = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = validCfg
 	cfg.NewWorker = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = validCfg
 	cfg.NewStore = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) TestStartSuccess(c *tc.C) {
@@ -73,7 +72,7 @@ func (s *manifoldSuite) TestStartSuccess(c *tc.C) {
 
 	work, err := leaseexpiry.Manifold(cfg).Start(context.Background(), s.newGetter())
 	c.Check(work, tc.NotNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {

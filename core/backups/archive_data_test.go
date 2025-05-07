@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/backups"
 	bt "github.com/juju/juju/core/backups/testing"
@@ -61,7 +60,7 @@ func newArchiveFile(c *tc.C, meta *backups.Metadata) io.Reader {
 	} else {
 		archiveFile, err = bt.NewArchive(meta, files, dump)
 	}
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return archiveFile
 }
 
@@ -75,49 +74,49 @@ func (s *archiveDataSuiteV0) TestNewArchiveData(c *tc.C) {
 
 func (s *archiveDataSuiteV0) TestNewArchiveDataReader(c *tc.C) {
 	ad, err := backups.NewArchiveDataReader(s.archiveFile)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	data := ad.NewBuffer().Bytes()
 
 	c.Check(ad.ContentDir, tc.Equals, "juju-backup")
-	c.Check(data, jc.DeepEquals, s.data)
+	c.Check(data, tc.DeepEquals, s.data)
 }
 
 func (s *archiveDataSuiteV0) TestNewBuffer(c *tc.C) {
 	ad, err := backups.NewArchiveDataReader(s.archiveFile)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	buf := ad.NewBuffer()
 
-	c.Check(buf.Bytes(), jc.DeepEquals, s.data)
+	c.Check(buf.Bytes(), tc.DeepEquals, s.data)
 }
 
 func (s *archiveDataSuiteV0) TestNewBufferMultiple(c *tc.C) {
 	ad, err := backups.NewArchiveDataReader(s.archiveFile)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	buf1 := ad.NewBuffer()
 	buf2 := ad.NewBuffer()
 
 	c.Check(buf2, tc.Not(tc.Equals), buf1)
-	c.Check(buf2.Bytes(), jc.DeepEquals, buf1.Bytes())
+	c.Check(buf2.Bytes(), tc.DeepEquals, buf1.Bytes())
 }
 
 func (s *archiveDataSuiteV0) TestMetadata(c *tc.C) {
 	ad, err := backups.NewArchiveDataReader(s.archiveFile)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	meta, err := ad.Metadata()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(meta, jc.DeepEquals, s.meta)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(meta, tc.DeepEquals, s.meta)
 }
 
 func (s *archiveDataSuiteV0) TestVersionFound(c *tc.C) {
 	ad, err := backups.NewArchiveDataReader(s.archiveFile)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	version, err := ad.Version()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(version, jc.DeepEquals, &s.meta.Origin.Version)
+	c.Check(version, tc.DeepEquals, &s.meta.Origin.Version)
 }
 
 type baseArchiveDataSuite struct {
@@ -150,15 +149,15 @@ const (
 
 func (s *baseArchiveDataSuite) setupMetadata(c *tc.C, metadata string) {
 	meta, err := backups.NewMetadataJSONReader(bytes.NewBufferString(metadata))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	archiveFile := newArchiveFile(c, meta)
 	compressed, err := io.ReadAll(archiveFile)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	gzr, err := gzip.NewReader(bytes.NewBuffer(compressed))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	data, err := io.ReadAll(gzr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.archiveFile = bytes.NewBuffer(compressed)
 	s.data = data

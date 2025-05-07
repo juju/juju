@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
@@ -62,14 +61,14 @@ func (s *charmSuite) TestSetCharmWithArchitecture(c *tc.C) {
 		Version:       "1.0",
 		Architecture:  arch.ARM64,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, locator, _, err := service.GetCharm(context.Background(), charm.CharmLocator{
 		Name:     "foo",
 		Revision: 1,
 		Source:   charm.LocalSource,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(locator.Architecture, tc.Equals, architecture.ARM64)
 }
@@ -102,14 +101,14 @@ func (s *charmSuite) TestSetCharmWithoutArchitecture(c *tc.C) {
 		ArchivePath:   "archive",
 		Version:       "1.0",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, locator, _, err := service.GetCharm(context.Background(), charm.CharmLocator{
 		Name:     "foo",
 		Revision: 1,
 		Source:   charm.LocalSource,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(locator.Architecture, tc.Equals, architecture.Unknown)
 }

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
@@ -43,7 +42,7 @@ func (s *userSecretsSuite) setup(c *tc.C) *gomock.Controller {
 
 	var err error
 	s.facade, err = usersecrets.NewTestAPI(s.authorizer, s.watcherRegistry, s.secretService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return ctrl
 }
 
@@ -58,8 +57,8 @@ func (s *userSecretsSuite) TestWatchRevisionsToPrune(c *tc.C) {
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("watcher-id", nil)
 
 	result, err := s.facade.WatchRevisionsToPrune(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.NotifyWatchResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{
 		NotifyWatcherId: "watcher-id",
 	})
 }
@@ -69,5 +68,5 @@ func (s *userSecretsSuite) TestDeleteRevisionsAutoPruneEnabled(c *tc.C) {
 
 	s.secretService.EXPECT().DeleteObsoleteUserSecretRevisions(gomock.Any()).Return(nil)
 	err := s.facade.DeleteObsoleteUserSecretRevisions(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/network"
 )
@@ -626,8 +625,8 @@ func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *tc.C) {
 	}}
 
 	result, err := parseInterfaces([]byte(exampleInterfaceSetJSON))
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(result, jc.DeepEquals, expected)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, expected)
 }
 
 func (s *interfacesSuite) TestMAASNetworkInterfaces(c *tc.C) {
@@ -985,8 +984,8 @@ func (s *interfacesSuite) TestMAASNetworkInterfaces(c *tc.C) {
 	instance := &maasInstance{machine: machine}
 
 	infos, err := maasNetworkInterfaces(context.Background(), instance, subnetsMap)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(infos, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(infos, tc.DeepEquals, expected)
 }
 
 func (s *interfacesSuite) TestMAASInterfacesNilVLAN(c *tc.C) {
@@ -1051,6 +1050,6 @@ func (s *interfacesSuite) TestMAASInterfacesNilVLAN(c *tc.C) {
 	}}
 
 	infos, err := maasNetworkInterfaces(context.Background(), instance, map[string]network.Id{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(infos, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(infos, tc.DeepEquals, expected)
 }

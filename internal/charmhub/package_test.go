@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/charmhub/path"
@@ -36,7 +35,7 @@ func (s *baseSuite) SetUpTest(c *tc.C) {
 
 func MustParseURL(c *tc.C, path string) *url.URL {
 	u, err := url.Parse(path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return u
 }
 
@@ -65,7 +64,7 @@ func MakeContentTypeHeader(name string) http.Header {
 
 func MustNewRequest(c *tc.C, path string) *http.Request {
 	req, err := http.NewRequest("GET", path, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return req
 }

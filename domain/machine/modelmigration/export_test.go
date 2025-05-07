@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/instance"
@@ -113,7 +112,7 @@ func (s *exportSuite) TestExport(c *tc.C) {
 
 	op := s.newExportOperation(c)
 	err := op.Execute(context.Background(), dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	actualMachines := dst.Machines()
 	c.Check(len(actualMachines), tc.Equals, 1)
@@ -126,7 +125,7 @@ func (s *exportSuite) TestExport(c *tc.C) {
 	c.Check(cloudInstance.RootDiskSource(), tc.Equals, "/")
 	c.Check(cloudInstance.CpuCores(), tc.Equals, uint64(4))
 	c.Check(cloudInstance.CpuPower(), tc.Equals, uint64(16))
-	c.Check(cloudInstance.Tags(), jc.SameContents, tags)
+	c.Check(cloudInstance.Tags(), tc.SameContents, tags)
 	c.Check(cloudInstance.AvailabilityZone(), tc.Equals, "az-1")
 	c.Check(cloudInstance.VirtType(), tc.Equals, "vm")
 }

@@ -8,7 +8,6 @@ import (
 	"database/sql"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
@@ -29,11 +28,11 @@ func (s *stateSuite) TestAddSpace(c *tc.C) {
 	db := s.DB()
 
 	spaceUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add a subnet of type base.
 	subnetUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSubnet(
 		context.Background(),
 		network.SubnetInfo{
@@ -46,36 +45,36 @@ func (s *stateSuite) TestAddSpace(c *tc.C) {
 			SpaceID:           "",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	subnets := []string{subnetUUID.String()}
 	err = st.AddSpace(context.Background(), spaceUUID.String(), "space0", "foo", subnets)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the space entity.
 	row := db.QueryRow("SELECT name FROM space WHERE uuid = ?", spaceUUID.String())
-	c.Assert(row.Err(), jc.ErrorIsNil)
+	c.Assert(row.Err(), tc.ErrorIsNil)
 	var name string
 	err = row.Scan(&name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(name, tc.Equals, "space0")
 	// Check the provider id for that space.
 	row = db.QueryRow("SELECT provider_id FROM provider_space WHERE space_uuid = ?", spaceUUID.String())
-	c.Assert(row.Err(), jc.ErrorIsNil)
+	c.Assert(row.Err(), tc.ErrorIsNil)
 	var providerID string
 	err = row.Scan(&providerID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(providerID, tc.Equals, "foo")
 	// Check the subnet ids for that space.
 	rows, err := db.Query("SELECT uuid FROM subnet WHERE space_uuid = ?", spaceUUID.String())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer rows.Close()
 
 	i := 0
 	for rows.Next() {
 		var subnetID string
 		err = rows.Scan(&subnetID)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(subnetID, tc.Equals, subnets[i])
 		i++
 	}
@@ -86,11 +85,11 @@ func (s *stateSuite) TestAddSpaceFailDuplicateName(c *tc.C) {
 	db := s.DB()
 
 	spaceUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add a subnet of type base.
 	subnetUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSubnet(
 		context.Background(),
 		network.SubnetInfo{
@@ -103,22 +102,22 @@ func (s *stateSuite) TestAddSpaceFailDuplicateName(c *tc.C) {
 			SpaceID:           "",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	subnets := []string{subnetUUID.String()}
 	err = st.AddSpace(context.Background(), spaceUUID.String(), "space0", "foo", subnets)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the space entity.
 	row := db.QueryRow("SELECT name FROM space WHERE uuid = ?", spaceUUID.String())
-	c.Assert(row.Err(), jc.ErrorIsNil)
+	c.Assert(row.Err(), tc.ErrorIsNil)
 	var name string
 	err = row.Scan(&name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(name, tc.Equals, "space0")
 	// Fails when trying to add a new space with the same name.
 	err = st.AddSpace(context.Background(), spaceUUID.String(), "space0", "bar", subnets)
-	c.Assert(err, jc.ErrorIs, networkerrors.SpaceAlreadyExists)
+	c.Assert(err, tc.ErrorIs, networkerrors.SpaceAlreadyExists)
 }
 
 func (s *stateSuite) TestAddSpaceEmptyProviderID(c *tc.C) {
@@ -126,11 +125,11 @@ func (s *stateSuite) TestAddSpaceEmptyProviderID(c *tc.C) {
 	db := s.DB()
 
 	spaceUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add a subnet of type base.
 	subnetUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSubnet(
 		context.Background(),
 		network.SubnetInfo{
@@ -143,19 +142,19 @@ func (s *stateSuite) TestAddSpaceEmptyProviderID(c *tc.C) {
 			SpaceID:           "",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	subnets := []string{subnetUUID.String()}
 	err = st.AddSpace(context.Background(), spaceUUID.String(), "space0", "", subnets)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	sp, err := st.GetSpace(context.Background(), spaceUUID.String())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sp.ProviderId.String(), tc.Equals, "")
 
 	// Check that no provider space id was added.
 	row := db.QueryRow("SELECT provider_id FROM provider_space WHERE space_uuid = ?", spaceUUID.String())
-	c.Assert(row.Err(), jc.ErrorIsNil)
+	c.Assert(row.Err(), tc.ErrorIsNil)
 	var spaceProviderID string
 	err = row.Scan(&spaceProviderID)
 	c.Assert(err, tc.ErrorMatches, "sql: no rows in result set")
@@ -166,7 +165,7 @@ func (s *stateSuite) TestRetrieveSpaceByUUID(c *tc.C) {
 
 	// Add a subnet of type base.
 	subnetUUID0, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSubnet(
 		context.Background(),
 		network.SubnetInfo{
@@ -179,10 +178,10 @@ func (s *stateSuite) TestRetrieveSpaceByUUID(c *tc.C) {
 			SpaceID:           "",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Add a subnet of type base.
 	subnetUUID1, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSubnet(
 		context.Background(),
 		network.SubnetInfo{
@@ -195,16 +194,16 @@ func (s *stateSuite) TestRetrieveSpaceByUUID(c *tc.C) {
 			SpaceID:           "",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	subnets := []string{subnetUUID0.String(), subnetUUID1.String()}
 	spaceUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSpace(context.Background(), spaceUUID.String(), "space0", "foo", subnets)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	sp, err := st.GetSpace(context.Background(), spaceUUID.String())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sp.ID, tc.Equals, spaceUUID.String())
 	c.Check(sp.Name, tc.Equals, network.SpaceName("space0"))
 
@@ -234,7 +233,7 @@ func (s *stateSuite) TestRetrieveSpaceByUUID(c *tc.C) {
 	}
 	// The 3 subnets must be retrieved (including the overlay segment)
 	c.Check(sp.Subnets, tc.HasLen, 2)
-	c.Check(sp.Subnets, jc.SameContents, expected)
+	c.Check(sp.Subnets, tc.SameContents, expected)
 }
 
 // TestRetrieveSpaceByUUIDNotFound tests that if we try to call State.GetSpace
@@ -244,27 +243,27 @@ func (s *stateSuite) TestRetrieveSpaceByUUIDNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	_, err := st.GetSpace(context.Background(), "unknown0")
-	c.Assert(err, jc.ErrorIs, networkerrors.SpaceNotFound)
+	c.Assert(err, tc.ErrorIs, networkerrors.SpaceNotFound)
 }
 
 func (s *stateSuite) TestRetrieveSpaceByName(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	spaceUUID0, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSpace(context.Background(), spaceUUID0.String(), "space0", "provider0", []string{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	spaceUUID1, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSpace(context.Background(), spaceUUID1.String(), "space1", "provider1", []string{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	sp0, err := st.GetSpaceByName(context.Background(), "space0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sp0.ID, tc.Equals, spaceUUID0.String())
 	c.Check(sp0.Name, tc.Equals, network.SpaceName("space0"))
 	sp1, err := st.GetSpaceByName(context.Background(), "space1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sp1.ID, tc.Equals, spaceUUID1.String())
 	c.Check(sp1.Name, tc.Equals, network.SpaceName("space1"))
 }
@@ -276,19 +275,19 @@ func (s *stateSuite) TestRetrieveSpaceByNameNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	_, err := st.GetSpaceByName(context.Background(), "unknown0")
-	c.Assert(err, jc.ErrorIs, networkerrors.SpaceNotFound)
+	c.Assert(err, tc.ErrorIs, networkerrors.SpaceNotFound)
 }
 
 func (s *stateSuite) TestRetrieveSpaceByUUIDWithoutSubnet(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	spaceUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSpace(context.Background(), spaceUUID.String(), "space0", "foo", []string{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	sp, err := st.GetSpace(context.Background(), spaceUUID.String())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sp.ID, tc.Equals, spaceUUID.String())
 	c.Check(sp.Name, tc.Equals, network.SpaceName("space0"))
 	c.Check(sp.Subnets, tc.IsNil)
@@ -299,7 +298,7 @@ func (s *stateSuite) TestRetrieveAllSpaces(c *tc.C) {
 
 	// Add 3 subnets of type base.
 	subnetUUID0, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSubnet(
 		context.Background(),
 		network.SubnetInfo{
@@ -312,9 +311,9 @@ func (s *stateSuite) TestRetrieveAllSpaces(c *tc.C) {
 			SpaceID:           "",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	subnetUUID1, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSubnet(
 		context.Background(),
 		network.SubnetInfo{
@@ -327,9 +326,9 @@ func (s *stateSuite) TestRetrieveAllSpaces(c *tc.C) {
 			SpaceID:           "",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	subnetUUID2, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSubnet(
 		context.Background(),
 		network.SubnetInfo{
@@ -342,27 +341,27 @@ func (s *stateSuite) TestRetrieveAllSpaces(c *tc.C) {
 			SpaceID:           "",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Create 3 spaces based on the 3 created subnets.
 	subnets := []string{subnetUUID0.String()}
 	spaceUUID0, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSpace(context.Background(), spaceUUID0.String(), "space0", "foo0", subnets)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	subnets = []string{subnetUUID1.String()}
 	spaceUUID1, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSpace(context.Background(), spaceUUID1.String(), "space1", "foo1", subnets)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	subnets = []string{subnetUUID2.String()}
 	spaceUUID2, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSpace(context.Background(), spaceUUID2.String(), "space2", "foo2", subnets)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	sp, err := st.GetAllSpaces(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sp, tc.HasLen, 4)
 }
 
@@ -370,15 +369,15 @@ func (s *stateSuite) TestUpdateSpace(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	uuid, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSpace(context.Background(), uuid.String(), "space0", "foo", []string{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = st.UpdateSpace(context.Background(), uuid.String(), "newSpaceName0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	sp, err := st.GetSpace(context.Background(), uuid.String())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sp.Name, tc.Equals, network.SpaceName("newSpaceName0"))
 }
 
@@ -389,7 +388,7 @@ func (s *stateSuite) TestUpdateSpaceFailNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	err := st.UpdateSpace(context.Background(), "unknownSpace", "newSpaceName0")
-	c.Assert(err, jc.ErrorIs, networkerrors.SpaceNotFound)
+	c.Assert(err, tc.ErrorIs, networkerrors.SpaceNotFound)
 }
 
 func (s *stateSuite) TestDeleteSpace(c *tc.C) {
@@ -398,7 +397,7 @@ func (s *stateSuite) TestDeleteSpace(c *tc.C) {
 
 	// Add a subnet of type base.
 	subnetUUID0, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSubnet(
 		context.Background(),
 		network.SubnetInfo{
@@ -411,34 +410,34 @@ func (s *stateSuite) TestDeleteSpace(c *tc.C) {
 			SpaceID:           "",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Create a space containing the newly created subnet.
 	spUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSpace(context.Background(), spUUID.String(), "space0", "foo", []string{subnetUUID0.String()})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the subnet entity.
 	row := db.QueryRow("SELECT space_uuid FROM subnet WHERE uuid = ?", subnetUUID0.String())
-	c.Assert(row.Err(), jc.ErrorIsNil)
+	c.Assert(row.Err(), tc.ErrorIsNil)
 	var name string
 	err = row.Scan(&name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(name, tc.Equals, spUUID.String())
 
 	// Check that the subnet is linked to the newly created space.
 	subnet, err := st.GetSubnet(context.Background(), subnetUUID0.String())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(subnet.SpaceID, tc.Equals, spUUID.String())
 
 	// Delete the space.
 	err = st.DeleteSpace(context.Background(), spUUID.String())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that the subnet is not linked to the deleted space.
 	subnet, err = st.GetSubnet(context.Background(), subnetUUID0.String())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(subnet.SpaceID, tc.Equals, network.AlphaSpaceId)
 }
 
@@ -449,9 +448,9 @@ func (s *stateSuite) TestDeleteSpaceNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	spUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.DeleteSpace(context.Background(), spUUID.String())
-	c.Assert(err, jc.ErrorIs, networkerrors.SpaceNotFound)
+	c.Assert(err, tc.ErrorIs, networkerrors.SpaceNotFound)
 }
 
 func (s *stateSuite) TestIsSpaceNotUsedInConstraints(c *tc.C) {
@@ -459,14 +458,14 @@ func (s *stateSuite) TestIsSpaceNotUsedInConstraints(c *tc.C) {
 
 	// Create a space.
 	spUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSpace(context.Background(), spUUID.String(), "space0", "foo", []string{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that the space is used in constraints.
 	used, err := st.IsSpaceUsedInConstraints(context.Background(), "space0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(used, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(used, tc.IsFalse)
 }
 
 func (s *stateSuite) TestIsSpaceUsedInApplicationConstraints(c *tc.C) {
@@ -474,9 +473,9 @@ func (s *stateSuite) TestIsSpaceUsedInApplicationConstraints(c *tc.C) {
 
 	// Create a space.
 	spUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSpace(context.Background(), spUUID.String(), "space0", "foo", []string{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		addConstraintStmt := `INSERT INTO "constraint" (uuid) VALUES (?)`
@@ -503,15 +502,15 @@ func (s *stateSuite) TestIsSpaceUsedInApplicationConstraints(c *tc.C) {
 		_, err = tx.ExecContext(ctx, addAppConstraintStmt, "app0-uuid", "constraint-uuid")
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that the space is used in constraints.
 	used, err := st.IsSpaceUsedInConstraints(context.Background(), "space0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(used, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(used, tc.IsTrue)
 
 	// Check that the space is not used in constraints.
 	used, err = st.IsSpaceUsedInConstraints(context.Background(), "space1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(used, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(used, tc.IsFalse)
 }

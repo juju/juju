@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cmd/juju/charmhub/mocks"
@@ -52,7 +51,7 @@ func (s *downloadSuite) TestInitErrorCSSchema(c *tc.C) {
 		charmHubCommand: s.newCharmHubCommand(),
 	}
 	err := command.Init([]string{"cs:test"})
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
 func (s *downloadSuite) TestInitSuccess(c *tc.C) {
@@ -68,7 +67,7 @@ func (s *downloadSuite) testInitSuccess(c *tc.C, charmName string) {
 		charmHubCommand: s.newCharmHubCommand(),
 	}
 	err := command.Init([]string{charmName})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *downloadSuite) TestRun(c *tc.C) {
@@ -84,11 +83,11 @@ func (s *downloadSuite) TestRun(c *tc.C) {
 	}
 	command.SetFilesystem(s.filesystem)
 	err := cmdtesting.InitCommand(command, []string{"test"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Matches, "(?s)"+`
 Fetching charm "test" revision 123 using "stable" channel and base "amd64/ubuntu/24.04"
 Install the "test" charm with:
@@ -108,11 +107,11 @@ func (s *downloadSuite) TestRunWithStdout(c *tc.C) {
 		charmHubCommand: s.newCharmHubCommand(),
 	}
 	err := cmdtesting.InitCommand(command, []string{"test", "-"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *downloadSuite) TestRunWithCustomCharmHubURL(c *tc.C) {
@@ -128,11 +127,11 @@ func (s *downloadSuite) TestRunWithCustomCharmHubURL(c *tc.C) {
 	}
 	command.SetFilesystem(s.filesystem)
 	err := cmdtesting.InitCommand(command, []string{"--charmhub-url=" + url, "test"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *downloadSuite) TestRunWithUnsupportedSeriesPicksFirstSuggestion(c *tc.C) {
@@ -149,11 +148,11 @@ func (s *downloadSuite) TestRunWithUnsupportedSeriesPicksFirstSuggestion(c *tc.C
 	}
 	command.SetFilesystem(s.filesystem)
 	err := cmdtesting.InitCommand(command, []string{"test"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *downloadSuite) TestRunWithUnsupportedSeriesReturnsSecondAttempt(c *tc.C) {
@@ -167,7 +166,7 @@ func (s *downloadSuite) TestRunWithUnsupportedSeriesReturnsSecondAttempt(c *tc.C
 	}
 	command.SetFilesystem(s.filesystem)
 	err := cmdtesting.InitCommand(command, []string{"test"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
@@ -184,7 +183,7 @@ func (s *downloadSuite) TestRunWithNoStableRelease(c *tc.C) {
 	}
 	command.SetFilesystem(s.filesystem)
 	err := cmdtesting.InitCommand(command, []string{"test", "--channel", "foo/stable"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
@@ -231,11 +230,11 @@ func (s *downloadSuite) TestRunWithRevision(c *tc.C) {
 	}
 	command.SetFilesystem(s.filesystem)
 	err := cmdtesting.InitCommand(command, []string{"test", "--revision=123"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Matches, "(?s)"+`
 Fetching charm "test" revision 123
 Install the "test" charm with:
@@ -253,7 +252,7 @@ func (s *downloadSuite) TestRunWithRevisionNotFound(c *tc.C) {
 	}
 	command.SetFilesystem(s.filesystem)
 	err := cmdtesting.InitCommand(command, []string{"test", "--revision=99"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
@@ -292,11 +291,11 @@ func (s *downloadSuite) TestRunWithResources(c *tc.C) {
 	}
 	command.SetFilesystem(s.filesystem)
 	err := cmdtesting.InitCommand(command, []string{"test", "--resources"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Matches, "(?s)"+`
 Fetching charm "test" revision 123 using "stable" channel and base "amd64/ubuntu/24.04"
 Install the "test" charm with:
@@ -420,7 +419,7 @@ func (s *downloadSuite) expectRefreshUnsupportedBase() {
 
 func (s *downloadSuite) expectDownload(c *tc.C, charmHubURL string) {
 	resourceURL, err := url.Parse(charmHubURL)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.charmHubAPI.EXPECT().Download(gomock.Any(), resourceURL, "test_r123.charm", gomock.Any()).Return(&charmhub.Digest{
 		SHA256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
 		Size:   42,
@@ -429,7 +428,7 @@ func (s *downloadSuite) expectDownload(c *tc.C, charmHubURL string) {
 
 func (s *downloadSuite) expectResourceDownload(c *tc.C, resourceDownloadURL string) {
 	resourceURL, err := url.Parse(resourceDownloadURL)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.charmHubAPI.EXPECT().Download(gomock.Any(), resourceURL, "resource_foo_r5_a.tar.gz", gomock.Any()).Return(&charmhub.Digest{
 		SHA256: "533513c1397cb8ccec05852b52514becd5fd8c9c21509f7bc2f5d460c6143dd8",
 		Size:   42,

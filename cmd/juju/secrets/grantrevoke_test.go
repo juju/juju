@@ -6,7 +6,6 @@ package secrets_test
 import (
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cmd/juju/secrets"
@@ -46,7 +45,7 @@ func (s *grantSuite) TestGrant(c *tc.C) {
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	_, err := cmdtesting.RunCommand(c, secrets.NewGrantCommandForTest(s.store, s.secretsAPI), uri.String(), "gitlab,mysql")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *grantSuite) TestGrantByName(c *tc.C) {
@@ -56,7 +55,7 @@ func (s *grantSuite) TestGrantByName(c *tc.C) {
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	_, err := cmdtesting.RunCommand(c, secrets.NewGrantCommandForTest(s.store, s.secretsAPI), "my-secret", "gitlab,mysql")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *grantSuite) TestGrantEmptyData(c *tc.C) {
@@ -96,7 +95,7 @@ func (s *revokeSuite) TestRevoke(c *tc.C) {
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	_, err := cmdtesting.RunCommand(c, secrets.NewRevokeCommandForTest(s.store, s.secretsAPI), uri.String(), "gitlab,mysql")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *revokeSuite) TestRevokeByName(c *tc.C) {
@@ -106,7 +105,7 @@ func (s *revokeSuite) TestRevokeByName(c *tc.C) {
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	_, err := cmdtesting.RunCommand(c, secrets.NewRevokeCommandForTest(s.store, s.secretsAPI), "my-secret", "gitlab,mysql")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *revokeSuite) TestRevokeEmptyData(c *tc.C) {

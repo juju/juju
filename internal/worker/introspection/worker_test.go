@@ -19,7 +19,6 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"github.com/prometheus/client_golang/prometheus"
@@ -47,7 +46,7 @@ func (s *suite) TestConfigValidation(c *tc.C) {
 		SocketName:         "socket",
 		PrometheusGatherer: newPrometheusGatherer(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(w, tc.Not(tc.IsNil))
 }
 
@@ -61,7 +60,7 @@ func (s *suite) TestStartStop(c *tc.C) {
 		SocketName:         socketName,
 		PrometheusGatherer: prometheus.NewRegistry(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckKill(c, w)
 }
 
@@ -97,7 +96,7 @@ func (s *introspectionSuite) startWorker(c *tc.C) {
 		PrometheusGatherer: s.gatherer,
 		CentralHub:         s.centralHub,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.worker = w
 	s.AddCleanup(func(c *tc.C) {
 		workertest.CleanKill(c, w)
@@ -106,18 +105,18 @@ func (s *introspectionSuite) startWorker(c *tc.C) {
 
 func (s *introspectionSuite) call(c *tc.C, path string) *http.Response {
 	client := unixSocketHTTPClient(s.name)
-	c.Assert(strings.HasPrefix(path, "/"), jc.IsTrue)
+	c.Assert(strings.HasPrefix(path, "/"), tc.IsTrue)
 	targetURL, err := url.Parse("http://unix.socket" + path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	resp, err := client.Get(targetURL.String())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return resp
 }
 
 func (s *introspectionSuite) body(c *tc.C, r *http.Response) string {
 	response, err := io.ReadAll(r.Body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return string(response)
 }
 
@@ -127,7 +126,7 @@ func (s *introspectionSuite) assertBody(c *tc.C, response *http.Response, value 
 }
 
 func (s *introspectionSuite) assertContains(c *tc.C, value, expected string) {
-	c.Assert(strings.Contains(value, expected), jc.IsTrue,
+	c.Assert(strings.Contains(value, expected), tc.IsTrue,
 		tc.Commentf("missing %q in %v", expected, value))
 }
 

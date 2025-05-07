@@ -12,7 +12,6 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/machine"
@@ -41,10 +40,10 @@ func (s *migrationStateSuite) TestGetApplicationsForExport(c *tc.C) {
 
 	id := s.createApplication(c, "foo", life.Alive)
 	charmID, err := st.GetCharmIDByApplicationName(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	apps, err := st.GetApplicationsForExport(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(apps, tc.DeepEquals, []application.ExportApplication{
 		{
 			UUID:      id,
@@ -78,7 +77,7 @@ func (s *migrationStateSuite) TestGetApplicationsForExportMany(c *tc.C) {
 		name := fmt.Sprintf("foo%d", i)
 		id := s.createApplication(c, name, life.Alive)
 		charmID, err := st.GetCharmIDByApplicationName(context.Background(), name)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		want = append(want, application.ExportApplication{
 			UUID:      id,
@@ -103,7 +102,7 @@ func (s *migrationStateSuite) TestGetApplicationsForExportMany(c *tc.C) {
 	}
 
 	apps, err := st.GetApplicationsForExport(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(apps, tc.DeepEquals, want)
 }
 
@@ -117,11 +116,11 @@ func (s *migrationStateSuite) TestGetApplicationsForExportDeadOrDying(c *tc.C) {
 
 	id0 := s.createApplication(c, "foo0", life.Dying)
 	charmID0, err := st.GetCharmIDByApplicationName(context.Background(), "foo0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	id1 := s.createApplication(c, "foo1", life.Dead)
 	charmID1, err := st.GetCharmIDByApplicationName(context.Background(), "foo1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	want := []application.ExportApplication{
 		{
@@ -167,7 +166,7 @@ func (s *migrationStateSuite) TestGetApplicationsForExportDeadOrDying(c *tc.C) {
 	}
 
 	apps, err := st.GetApplicationsForExport(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(apps, tc.DeepEquals, want)
 }
 
@@ -175,7 +174,7 @@ func (s *migrationStateSuite) TestGetApplicationsForExportWithNoApplications(c *
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	apps, err := st.GetApplicationsForExport(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(apps, tc.HasLen, 0)
 }
 
@@ -191,11 +190,11 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExport(c *tc.C) {
 	})
 
 	unitUUID, err := st.GetUnitUUIDByName(context.Background(), "foo/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	units, err := st.GetApplicationUnitsForExport(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(units, jc.DeepEquals, []application.ExportUnit{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(units, tc.DeepEquals, []application.ExportUnit{
 		{
 			UUID:    unitUUID,
 			Name:    "foo/0",
@@ -219,11 +218,11 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExportMultipleApplicatio
 	})
 
 	unitUUID, err := st.GetUnitUUIDByName(context.Background(), "foo/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	units, err := st.GetApplicationUnitsForExport(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(units, jc.DeepEquals, []application.ExportUnit{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(units, tc.DeepEquals, []application.ExportUnit{
 		{
 			UUID:    unitUUID,
 			Name:    "foo/0",
@@ -249,17 +248,17 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExportSubordinate(c *tc.
 	})
 
 	principalUUID, err := st.GetUnitUUIDByName(context.Background(), principalName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	subUUID, err := st.GetUnitUUIDByName(context.Background(), subName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.insertUnitPrincipal(c, principalUUID, subUUID)
 
 	// Act:
 	units, err := st.GetApplicationUnitsForExport(context.Background(), id)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(units, jc.DeepEquals, []application.ExportUnit{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(units, tc.DeepEquals, []application.ExportUnit{
 		{
 			UUID:      subUUID,
 			Name:      "foo/0",
@@ -278,7 +277,7 @@ INSERT INTO unit_principal (principal_uuid, unit_uuid) VALUES (?,?)`, pUUID, sUU
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *migrationStateSuite) TestGetApplicationUnitsForExportNoUnits(c *tc.C) {
@@ -287,8 +286,8 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExportNoUnits(c *tc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
 	units, err := st.GetApplicationUnitsForExport(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(units, jc.DeepEquals, []application.ExportUnit{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(units, tc.DeepEquals, []application.ExportUnit{})
 }
 
 func (s *migrationStateSuite) TestGetApplicationUnitsForExportDying(c *tc.C) {
@@ -306,17 +305,17 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExportDying(c *tc.C) {
 	})
 
 	unitUUID, err := st.GetUnitUUIDByName(context.Background(), "foo/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = ? WHERE uuid = ?", life.Dying, unitUUID)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	units, err := st.GetApplicationUnitsForExport(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(units, jc.DeepEquals, []application.ExportUnit{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(units, tc.DeepEquals, []application.ExportUnit{
 		{
 			UUID:    unitUUID,
 			Name:    "foo/0",
@@ -340,17 +339,17 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExportDead(c *tc.C) {
 	})
 
 	unitUUID, err := st.GetUnitUUIDByName(context.Background(), "foo/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = ? WHERE uuid = ?", life.Dead, unitUUID)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	units, err := st.GetApplicationUnitsForExport(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(units, jc.DeepEquals, []application.ExportUnit{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(units, tc.DeepEquals, []application.ExportUnit{
 		{
 			UUID:    unitUUID,
 			Name:    "foo/0",
@@ -364,7 +363,7 @@ func (s *migrationStateSuite) TestGetApplicationsForExportEndpointBindings(c *tc
 
 	id := s.createApplication(c, "foo", life.Alive)
 	charmID, err := st.GetCharmIDByApplicationName(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	spaceUUID1 := s.addSpace(c, "beta")
 	spaceUUID2 := s.addSpace(c, "gamma")
@@ -372,7 +371,7 @@ func (s *migrationStateSuite) TestGetApplicationsForExportEndpointBindings(c *tc
 	s.updateApplicationEndpoint(c, "misc", spaceUUID2)
 
 	apps, err := st.GetApplicationsForExport(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(apps, tc.DeepEquals, []application.ExportApplication{
 		{
 			UUID:      id,
@@ -434,14 +433,14 @@ func (s *migrationStateSuite) TestInsertMigratingApplication(c *tc.C) {
 		},
 	}
 	id, err := st.InsertMigratingApplication(ctx, "666", args)
-	c.Assert(err, jc.ErrorIsNil, tc.Commentf("Failed to create application: %s", errors.ErrorStack(err)))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("Failed to create application: %s", errors.ErrorStack(err)))
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, channel, scale, false)
 	s.assertDownloadProvenance(c, id, charm.ProvenanceMigration)
 
 	// Ensure that config is empty and trust is false.
 	config, settings, err := st.GetApplicationConfigAndSettings(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"foo": {
 			Value: "bar",
@@ -491,7 +490,7 @@ func (s *migrationStateSuite) TestInsertMigratingApplicationPeerRelations(c *tc.
 		},
 	}
 	_, err := st.InsertMigratingApplication(ctx, "666", args)
-	c.Assert(err, jc.ErrorIsNil, tc.Commentf("Failed to create application: %s", errors.ErrorStack(err)))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("Failed to create application: %s", errors.ErrorStack(err)))
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, channel, scale, false)
 	s.assertPeerRelation(c, "666", map[string]int{"pollux": 7, "castor": 4})
@@ -522,8 +521,8 @@ AND    v.endpoint_name = ?
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(values, jc.DeepEquals, []string{}, tc.Commentf("found relation_endpoint %q", strings.Join(values, ", ")))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(values, tc.DeepEquals, []string{}, tc.Commentf("found relation_endpoint %q", strings.Join(values, ", ")))
 }
 
 // addSpace ensures a space with the given name exists in the database,
@@ -536,7 +535,7 @@ INSERT INTO space (uuid, name)
 VALUES (?, ?)`, spaceUUID, name)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return spaceUUID
 }
 
@@ -559,7 +558,7 @@ WHERE  charm_relation_uuid = ?
 `, space_uuid, charmRelationUUID)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *migrationStateSuite) assertDownloadProvenance(c *tc.C, appID coreapplication.ID, expectedProvenance charm.Provenance) {
@@ -575,7 +574,7 @@ WHERE  v.application_uuid=?
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtainedProvenance, tc.Equals, string(expectedProvenance))
 }
 
@@ -586,13 +585,13 @@ func (s *unitStateSuite) TestInsertMigratingIAASUnits(c *tc.C) {
 		_, _, err := s.state.insertMachineAndNetNode(context.Background(), tx, machine.Name("0"))
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.InsertMigratingIAASUnits(context.Background(), appID, application.ImportUnitArg{
 		UnitName: "foo/666",
 		Machine:  "0",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertInsertMigratingUnits(c, appID)
 }
@@ -603,7 +602,7 @@ func (s *unitStateSuite) TestInsertMigratingCAASUnits(c *tc.C) {
 	err := s.state.InsertMigratingCAASUnits(context.Background(), appID, application.ImportUnitArg{
 		UnitName: "foo/666",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertInsertMigratingUnits(c, appID)
 }
@@ -620,7 +619,7 @@ func (s *unitStateSubordinateSuite) TestInsertMigratingCAASUnitsSubordinate(c *t
 		UnitName:  sub,
 		Principal: principal,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertInsertMigratingUnits(c, subAppID)
 	s.assertUnitPrincipal(c, principal, sub)
@@ -639,7 +638,7 @@ func (s *unitStateSubordinateSuite) TestInsertMigratingIAASUnitsSubordinate(c *t
 		Machine:   "0",
 		Principal: principal,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertInsertMigratingUnits(c, subAppID)
 	s.assertUnitPrincipal(c, principal, sub)
@@ -654,6 +653,6 @@ func (s *unitStateSuite) assertInsertMigratingUnits(c *tc.C, appID coreapplicati
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unitName, tc.Equals, "foo/666")
 }

@@ -3,10 +3,7 @@
 
 package modeldefaults
 
-import (
-	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
-)
+import "github.com/juju/tc"
 
 type typesSuite struct{}
 
@@ -22,11 +19,11 @@ func (s *typesSuite) TestZeroDefaultsValue(c *tc.C) {
 	val := DefaultAttributeValue{}
 
 	has, source := val.ValueSource("someval")
-	c.Check(has, jc.IsFalse)
+	c.Check(has, tc.IsFalse)
 	c.Check(source, tc.Equals, "")
 
 	applied, is := val.ApplyStrategy("teststring").(string)
-	c.Assert(is, jc.IsTrue, tc.Commentf("expected zero value apply strategy to return what was passed to it verbatim"))
+	c.Assert(is, tc.IsTrue, tc.Commentf("expected zero value apply strategy to return what was passed to it verbatim"))
 	c.Check(applied, tc.Equals, "teststring")
 }
 
@@ -38,13 +35,13 @@ func (s *typesSuite) TestValueSourceSupportForNil(c *tc.C) {
 	}
 
 	has, source := val.ValueSource(nil)
-	c.Check(has, jc.IsFalse)
+	c.Check(has, tc.IsFalse)
 	c.Check(source, tc.Equals, "")
 
 	val = DefaultAttributeValue{}
 
 	has, source = val.ValueSource("myval")
-	c.Check(has, jc.IsFalse)
+	c.Check(has, tc.IsFalse)
 	c.Check(source, tc.Equals, "")
 }
 
@@ -57,7 +54,7 @@ func (s *typesSuite) TestValueSourceSupport(c *tc.C) {
 	}
 
 	has, source := val.ValueSource("someval")
-	c.Check(has, jc.IsTrue)
+	c.Check(has, tc.IsTrue)
 	c.Check(source, tc.Equals, "region")
 
 	i := int32(10)
@@ -66,7 +63,7 @@ func (s *typesSuite) TestValueSourceSupport(c *tc.C) {
 	}
 
 	has, source = val.ValueSource(&i)
-	c.Check(has, jc.IsTrue)
+	c.Check(has, tc.IsTrue)
 	c.Check(source, tc.Equals, "region")
 
 	val = DefaultAttributeValue{
@@ -80,7 +77,7 @@ func (s *typesSuite) TestValueSourceSupport(c *tc.C) {
 	has, source = val.ValueSource([]any{
 		"one", "two", "three",
 	})
-	c.Check(has, jc.IsTrue)
+	c.Check(has, tc.IsTrue)
 	c.Check(source, tc.Equals, "region")
 
 	structVal := struct{ name string }{"test"}
@@ -89,7 +86,7 @@ func (s *typesSuite) TestValueSourceSupport(c *tc.C) {
 	}
 
 	has, source = val.ValueSource(&struct{ name string }{"test"})
-	c.Check(has, jc.IsFalse)
+	c.Check(has, tc.IsFalse)
 	c.Check(source, tc.Equals, "")
 }
 
@@ -119,7 +116,7 @@ func (s *typesSuite) TestApplyStrategy(c *tc.C) {
 	}
 
 	out := val.ApplyStrategy("someval1")
-	c.Check(strategy.called, jc.IsTrue)
+	c.Check(strategy.called, tc.IsTrue)
 	c.Check(out, tc.Equals, "someval1")
 }
 

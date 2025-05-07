@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/charm"
 )
@@ -367,7 +366,7 @@ func (*bundleDataSuite) TestParse(c *tc.C) {
 			continue
 		}
 		c.Assert(err, tc.IsNil)
-		c.Assert(bd, jc.DeepEquals, test.expectedBD)
+		c.Assert(bd, tc.DeepEquals, test.expectedBD)
 	}
 }
 
@@ -396,7 +395,7 @@ func (*bundleDataSuite) TestCodecRoundTrip(c *tc.C) {
 				}
 			}
 
-			c.Assert(&bd, jc.DeepEquals, test.expectedBD)
+			c.Assert(&bd, tc.DeepEquals, test.expectedBD)
 		}
 	}
 }
@@ -411,7 +410,7 @@ func (*bundleDataSuite) TestParseLocal(c *tc.C) {
     `, path)
 	bd, err := charm.ReadBundleData(strings.NewReader(data))
 	c.Assert(err, tc.IsNil)
-	c.Assert(bd, jc.DeepEquals, &charm.BundleData{
+	c.Assert(bd, tc.DeepEquals, &charm.BundleData{
 		Applications: map[string]*charm.ApplicationSpec{
 			"dummy": {
 				Charm:    path,
@@ -639,7 +638,7 @@ func assertVerifyErrors(c *tc.C, bundleData string, charms map[string]charm.Char
 	}
 	sort.Strings(errStrings)
 	sort.Strings(expectErrors)
-	c.Assert(errStrings, jc.DeepEquals, expectErrors)
+	c.Assert(errStrings, tc.DeepEquals, expectErrors)
 }
 
 func (*bundleDataSuite) TestVerifyCharmURL(c *tc.C) {
@@ -663,7 +662,7 @@ func (*bundleDataSuite) TestVerifyLocalCharm(c *tc.C) {
 	bundleDir := c.MkDir()
 	relativeCharmDir := filepath.Join(bundleDir, "charm")
 	err = os.MkdirAll(relativeCharmDir, 0700)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	for i, u := range []string{
 		"ch:wordpress",
 		"local:foo",
@@ -749,8 +748,8 @@ applications:
 	bd, err := charm.ReadBundleData(strings.NewReader(data))
 	c.Assert(err, tc.IsNil)
 	err = bd.Verify(nil, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bd, jc.DeepEquals, &charm.BundleData{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(bd, tc.DeepEquals, &charm.BundleData{
 		Type: "kubernetes",
 		Applications: map[string]*charm.ApplicationSpec{
 			"mariadb": {
@@ -1452,7 +1451,7 @@ func (*bundleDataSuite) TestParsePlacement(c *tc.C) {
 			c.Assert(err, tc.ErrorMatches, test.expectErr)
 		} else {
 			c.Assert(err, tc.IsNil)
-			c.Assert(up, jc.DeepEquals, test.expect)
+			c.Assert(up, tc.DeepEquals, test.expect)
 		}
 	}
 }
@@ -1513,7 +1512,7 @@ relations:
 	bd, err := charm.ReadBundleData(strings.NewReader(data))
 	c.Assert(err, tc.IsNil)
 
-	c.Assert(bd.Applications, jc.DeepEquals, map[string]*charm.ApplicationSpec{
+	c.Assert(bd.Applications, tc.DeepEquals, map[string]*charm.ApplicationSpec{
 		"application1": {
 			Charm: "test",
 			Plan:  "testisv/test",

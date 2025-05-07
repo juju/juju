@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	dt "github.com/juju/worker/v4/dependency/testing"
 
@@ -46,7 +45,7 @@ func (s *ManifoldSuite) validConfig(c *tc.C) caasapplicationprovisioner.Manifold
 }
 
 func (s *ManifoldSuite) TestValid(c *tc.C) {
-	c.Check(s.config.Validate(), jc.ErrorIsNil)
+	c.Check(s.config.Validate(), tc.ErrorIsNil)
 }
 
 func (s *ManifoldSuite) TestMissingAPICallerName(c *tc.C) {
@@ -77,14 +76,14 @@ func (s *ManifoldSuite) TestMissingLogger(c *tc.C) {
 func (s *ManifoldSuite) checkNotValid(c *tc.C, expect string) {
 	err := s.config.Validate()
 	c.Check(err, tc.ErrorMatches, expect)
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 }
 
 func (s *ManifoldSuite) TestStart(c *tc.C) {
 	called := false
 	s.config.NewWorker = func(config caasapplicationprovisioner.Config) (worker.Worker, error) {
 		called = true
-		mc := jc.NewMultiChecker()
+		mc := tc.NewMultiChecker()
 		mc.AddExpr(`_.Facade`, tc.NotNil)
 		mc.AddExpr(`_.Broker`, tc.NotNil)
 		mc.AddExpr(`_.Clock`, tc.NotNil)
@@ -103,8 +102,8 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 		"clock":      struct{ clock.Clock }{},
 	}))
 	c.Assert(w, tc.IsNil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(called, tc.IsTrue)
 }
 
 type mockAPICaller struct {

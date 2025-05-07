@@ -5,7 +5,6 @@ package hook_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/juju/juju/internal/testing"
@@ -97,7 +96,7 @@ func (s *InfoSuite) TestValidate(c *tc.C) {
 		c.Logf("test %d", i)
 		err := t.info.Validate()
 		if t.err == "" {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		} else {
 			c.Assert(err, tc.ErrorMatches, t.err)
 		}

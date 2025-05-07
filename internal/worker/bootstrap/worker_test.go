@@ -12,7 +12,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -117,8 +116,8 @@ func (s *workerSuite) TestSeedAgentBinary(c *tc.C) {
 		},
 	}
 	cleanup, err := w.seedAgentBinary(context.Background(), c.MkDir())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(called, tc.IsTrue)
 	c.Assert(cleanup, tc.NotNil)
 }
 
@@ -146,7 +145,7 @@ func (s *workerSuite) TestSeedAuthorizedNilKeys(c *tc.C) {
 	}
 
 	err := w.seedInitialAuthorizedKeys(context.Background(), nil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *workerSuite) TestSeedBakeryConfig(c *tc.C) {
@@ -159,15 +158,15 @@ func (s *workerSuite) TestSeedBakeryConfig(c *tc.C) {
 
 	s.expectInitialiseBakeryConfig(nil)
 	err := w.seedMacaroonConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectInitialiseBakeryConfig(macaroonerrors.BakeryConfigAlreadyInitialised)
 	err = w.seedMacaroonConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectInitialiseBakeryConfig(errors.Errorf("boom"))
 	err = w.seedMacaroonConfig(context.Background())
-	c.Assert(err, tc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
 func (s *workerSuite) TestFilterHostPortsEmptyManagementSpace(c *tc.C) {
@@ -184,7 +183,7 @@ func (s *workerSuite) TestFilterHostPortsEmptyManagementSpace(c *tc.C) {
 		network.NewSpaceHostPorts(1234, "10.0.0.1"),
 	}
 	filteredHostPorts := w.filterHostPortsForManagementSpace(context.Background(), "", apiHostPorts, network.SpaceInfos{})
-	c.Check(filteredHostPorts, jc.SameContents, apiHostPorts)
+	c.Check(filteredHostPorts, tc.SameContents, apiHostPorts)
 }
 
 func (s *workerSuite) TestHostPortsNotInSpaceNoFilter(c *tc.C) {
@@ -220,7 +219,7 @@ func (s *workerSuite) TestHostPortsNotInSpaceNoFilter(c *tc.C) {
 		},
 	}
 	filteredHostPorts := w.filterHostPortsForManagementSpace(context.Background(), "mgmt-space", apiHostPorts, allSpaces)
-	c.Check(filteredHostPorts, jc.SameContents, apiHostPorts)
+	c.Check(filteredHostPorts, tc.SameContents, apiHostPorts)
 }
 
 func (s *workerSuite) TestHostPortsSameSpaceThenFilter(c *tc.C) {
@@ -283,7 +282,7 @@ func (s *workerSuite) TestHostPortsSameSpaceThenFilter(c *tc.C) {
 		},
 	}
 	filteredHostPorts := w.filterHostPortsForManagementSpace(context.Background(), "mgmt-space", apiHostPorts, allSpaces)
-	c.Check(filteredHostPorts, jc.SameContents, expected)
+	c.Check(filteredHostPorts, tc.SameContents, expected)
 }
 
 func (s *workerSuite) TestSeedStoragePools(c *tc.C) {
@@ -308,7 +307,7 @@ func (s *workerSuite) TestSeedStoragePools(c *tc.C) {
 			"foo":  "bar",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
@@ -348,7 +347,7 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 		},
 		Clock: clock.WallClock,
 	}, s.states)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }
 
@@ -437,7 +436,7 @@ func (s *workerSuite) expectSetAPIHostPorts() {
 
 func (s *workerSuite) ensureBootstrapParams(c *tc.C) {
 	cfg, err := config.New(config.NoDefaults, testing.FakeConfig())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	args := instancecfg.StateInitializationParams{
 		ControllerModelConfig:       cfg,
@@ -447,8 +446,8 @@ func (s *workerSuite) ensureBootstrapParams(c *tc.C) {
 		ControllerCharmChannel:      charm.MakePermissiveChannel("", "stable", ""),
 	}
 	bytes, err := args.Marshal()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = os.WriteFile(filepath.Join(s.dataDir, cloudconfig.FileNameBootstrapParams), bytes, 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
@@ -97,7 +96,7 @@ func (s *workerSuite) TestStartStop(c *tc.C) {
 	s.expectWorker()
 
 	w, err := secretrotate.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CheckAlive(c, w)
 	workertest.CleanKill(c, w)
@@ -114,8 +113,8 @@ func (s *workerSuite) expectNoRotates(c *tc.C) {
 func (s *workerSuite) expectRotated(c *tc.C, expected ...string) {
 	select {
 	case uris, ok := <-s.rotatedSecrets:
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(uris, jc.SameContents, expected)
+		c.Assert(ok, tc.IsTrue)
+		c.Assert(uris, tc.SameContents, expected)
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for secrets to be rotated")
 	}
@@ -128,7 +127,7 @@ func (s *workerSuite) TestFirstSecret(c *tc.C) {
 	s.expectWorker()
 
 	w, err := secretrotate.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
@@ -150,7 +149,7 @@ func (s *workerSuite) TestSecretUpdateBeforeRotate(c *tc.C) {
 	s.expectWorker()
 
 	w, err := secretrotate.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
@@ -179,7 +178,7 @@ func (s *workerSuite) TestSecretUpdateBeforeRotateNotTriggered(c *tc.C) {
 	s.expectWorker()
 
 	w, err := secretrotate.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
@@ -212,7 +211,7 @@ func (s *workerSuite) TestNewSecretTriggersBefore(c *tc.C) {
 	s.expectWorker()
 
 	w, err := secretrotate.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
@@ -247,7 +246,7 @@ func (s *workerSuite) TestManySecretsTrigger(c *tc.C) {
 	s.expectWorker()
 
 	w, err := secretrotate.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
@@ -277,7 +276,7 @@ func (s *workerSuite) TestDeleteSecretRotation(c *tc.C) {
 	s.expectWorker()
 
 	w, err := secretrotate.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
@@ -305,7 +304,7 @@ func (s *workerSuite) TestManySecretsDeleteOne(c *tc.C) {
 	s.expectWorker()
 
 	w, err := secretrotate.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
@@ -345,7 +344,7 @@ func (s *workerSuite) TestRotateGranularity(c *tc.C) {
 	s.expectWorker()
 
 	w, err := secretrotate.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()

@@ -5,7 +5,6 @@ package google_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"google.golang.org/api/compute/v1"
 
 	"github.com/juju/juju/internal/provider/gce/google"
@@ -20,14 +19,14 @@ var _ = tc.Suite(&diskSuite{})
 func (s *diskSuite) TestDiskSpecTooSmall(c *tc.C) {
 	tooSmall := s.DiskSpec.TooSmall()
 
-	c.Check(tooSmall, jc.IsFalse)
+	c.Check(tooSmall, tc.IsFalse)
 }
 
 func (s *diskSuite) TestDiskSpecTooSmallTrue(c *tc.C) {
 	s.DiskSpec.SizeHintGB = 0
 	tooSmall := s.DiskSpec.TooSmall()
 
-	c.Check(tooSmall, jc.IsTrue)
+	c.Check(tooSmall, tc.IsTrue)
 }
 
 func (s *diskSuite) TestDiskSpecSizeGB(c *tc.C) {

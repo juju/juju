@@ -9,7 +9,6 @@ import (
 	"crypto/rand"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	cryptossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/internal/pki/ssh"
@@ -35,10 +34,10 @@ func (s *FormatSuite) TestKeyProfilesFormat(c *tc.C) {
 	}
 	for _, test := range tests {
 		pk, err := test.profile()
-		c.Check(err, jc.ErrorIsNil, tc.Commentf("profile %s", test.name))
+		c.Check(err, tc.ErrorIsNil, tc.Commentf("profile %s", test.name))
 
 		private, public, publicKeyType, err := ssh.FormatKey(pk, "test-comment")
-		c.Check(err, jc.ErrorIsNil, tc.Commentf("profile %s", test.name))
+		c.Check(err, tc.ErrorIsNil, tc.Commentf("profile %s", test.name))
 		c.Check(private, tc.Not(tc.Equals), "")
 		c.Check(public, tc.Not(tc.Equals), "")
 		c.Check(public, tc.Matches, test.publicKeyType+` .* test-comment\n`)
@@ -55,7 +54,7 @@ func (s *FormatSuite) TestBadKey(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `cannot encode private key: x509: unknown curve while marshaling to PKCS#8`)
 
 	pk, err := ecdsa.GenerateKey(elliptic.P224(), rand.Reader)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, _, _, err = ssh.FormatKey(pk, "nope")
 	c.Assert(err, tc.ErrorMatches, `cannot encode public key: public key: ssh: only P-256, P-384 and P-521 EC keys are supported`)
 }

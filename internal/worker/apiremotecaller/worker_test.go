@@ -13,7 +13,6 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/tomb.v2"
@@ -41,35 +40,35 @@ func (s *WorkerSuite) TestWorkerConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.newConfig(c)
-	c.Assert(cfg.Validate(), jc.ErrorIsNil)
+	c.Assert(cfg.Validate(), tc.ErrorIsNil)
 
 	cfg = s.newConfig(c)
 	cfg.Origin = nil
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
 	cfg.Clock = nil
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
 	cfg.Logger = nil
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
 	cfg.Hub = nil
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
 	cfg.APIInfo = nil
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
 	cfg.APIOpener = nil
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
 	cfg.NewRemote = nil
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *WorkerSuite) TestWorker(c *tc.C) {
@@ -198,7 +197,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChanges(c *tc.C) {
 		conn = c
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(conn, tc.NotNil)
 	c.Check(conn.Addr(), tc.DeepEquals, addr)
 
@@ -332,7 +331,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesRemovesOldAddress(c *tc.C) {
 	s.ensureChanged(c)
 
 	c.Check(w.runner.WorkerNames(), tc.DeepEquals, []string{"2"})
-	c.Check(s.called, jc.DeepEquals, map[string]int{
+	c.Check(s.called, tc.DeepEquals, map[string]int{
 		"1": 1,
 		"2": 1,
 	})
@@ -407,7 +406,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithSameAddress(c *tc.C) {
 	}
 
 	c.Check(w.runner.WorkerNames(), tc.DeepEquals, []string{"1"})
-	c.Check(s.called, jc.DeepEquals, map[string]int{"1": 1})
+	c.Check(s.called, tc.DeepEquals, map[string]int{"1": 1})
 
 	workertest.CleanKill(c, w)
 }
@@ -431,7 +430,7 @@ func (s *WorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *WorkerSuite) newWorker(c *tc.C) *remoteWorker {
 	w, err := newWorker(s.newConfig(c), s.states)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return w
 }

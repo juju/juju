@@ -11,7 +11,6 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 
 	applicationtesting "github.com/juju/juju/core/application/testing"
@@ -61,10 +60,10 @@ VALUES (?, 'foo')
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	charmID, err := st.GetCharmID(context.Background(), "foo", 1, charm.CharmHubSource) // default source
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(charmID, tc.Equals, id)
 }
 
@@ -90,10 +89,10 @@ VALUES (?, 'foo')`, id.String())
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	charmID, err := st.GetCharmID(context.Background(), "foo", 1, charm.LocalSource)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(charmID, tc.Equals, id)
 }
 
@@ -119,7 +118,7 @@ INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size) VALUES (?, 'foo
 `, objectStoreUUID.String())
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	id, _, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata:        expected,
@@ -131,7 +130,7 @@ INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size) VALUES (?, 'foo
 		Version:         "deadbeef",
 		ObjectStoreUUID: objectStoreUUID,
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var resultObjectStoreUUID objectstore.UUID
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
@@ -142,7 +141,7 @@ INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size) VALUES (?, 'foo
 		resultObjectStoreUUID = ch.ObjectStoreUUID
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(resultObjectStoreUUID, tc.Equals, objectStoreUUID)
 }
 
@@ -171,7 +170,7 @@ func (s *charmStateSuite) TestSetCharmWithoutObjectStoreUUID(c *tc.C) {
 		Hash:          "hash",
 		Version:       "deadbeef",
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var resultObjectStoreUUID objectstore.UUID
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
@@ -182,7 +181,7 @@ func (s *charmStateSuite) TestSetCharmWithoutObjectStoreUUID(c *tc.C) {
 		resultObjectStoreUUID = ch.ObjectStoreUUID
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(resultObjectStoreUUID, tc.Equals, objectstore.UUID(""))
 }
 
@@ -212,7 +211,7 @@ func (s *charmStateSuite) TestSetCharmNotAvailable(c *tc.C) {
 		Version:       "deadbeef",
 		Architecture:  architecture.Unknown,
 	}, nil, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(locator, tc.DeepEquals, charm.CharmLocator{
 		Name:         "foo",
 		Revision:     0,
@@ -221,12 +220,12 @@ func (s *charmStateSuite) TestSetCharmNotAvailable(c *tc.C) {
 	})
 
 	charmID, err := st.GetCharmID(context.Background(), "foo", locator.Revision, charm.LocalSource)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(charmID, tc.Equals, id)
 
 	available, err := st.IsCharmAvailable(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(available, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(available, tc.IsFalse)
 }
 
 func (s *charmStateSuite) TestSetCharmGetCharmID(c *tc.C) {
@@ -255,10 +254,10 @@ func (s *charmStateSuite) TestSetCharmGetCharmID(c *tc.C) {
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	charmID, err := st.GetCharmID(context.Background(), "foo", locator.Revision, charm.LocalSource)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(charmID, tc.Equals, id)
 }
 
@@ -266,7 +265,7 @@ func (s *charmStateSuite) TestGetCharmIDWithNoCharm(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	_, err := st.GetCharmID(context.Background(), "foo", 0, charm.CharmHubSource) // default source
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmStateSuite) TestIsControllerCharmWithNoCharm(c *tc.C) {
@@ -275,7 +274,7 @@ func (s *charmStateSuite) TestIsControllerCharmWithNoCharm(c *tc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	_, err := st.IsControllerCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmStateSuite) TestIsControllerCharmWithControllerCharm(c *tc.C) {
@@ -295,11 +294,11 @@ func (s *charmStateSuite) TestIsControllerCharmWithControllerCharm(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := st.IsControllerCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.IsTrue)
 }
 
 func (s *charmStateSuite) TestIsControllerCharmWithNoControllerCharm(c *tc.C) {
@@ -319,11 +318,11 @@ func (s *charmStateSuite) TestIsControllerCharmWithNoControllerCharm(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := st.IsControllerCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.IsFalse)
 }
 
 func (s *charmStateSuite) TestIsSubordinateCharmWithNoCharm(c *tc.C) {
@@ -332,7 +331,7 @@ func (s *charmStateSuite) TestIsSubordinateCharmWithNoCharm(c *tc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	_, err := st.IsSubordinateCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmStateSuite) TestIsSubordinateCharmWithSubordinateCharm(c *tc.C) {
@@ -352,11 +351,11 @@ func (s *charmStateSuite) TestIsSubordinateCharmWithSubordinateCharm(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := st.IsSubordinateCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.IsTrue)
 }
 
 func (s *charmStateSuite) TestIsSubordinateCharmWithNoSubordinateCharm(c *tc.C) {
@@ -377,11 +376,11 @@ func (s *charmStateSuite) TestIsSubordinateCharmWithNoSubordinateCharm(c *tc.C) 
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := st.IsSubordinateCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.IsFalse)
 }
 
 func (s *charmStateSuite) TestSupportsContainersWithNoCharm(c *tc.C) {
@@ -390,7 +389,7 @@ func (s *charmStateSuite) TestSupportsContainersWithNoCharm(c *tc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	_, err := st.SupportsContainers(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmStateSuite) TestSupportsContainersWithContainers(c *tc.C) {
@@ -420,11 +419,11 @@ func (s *charmStateSuite) TestSupportsContainersWithContainers(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := st.SupportsContainers(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.IsTrue)
 }
 
 func (s *charmStateSuite) TestSupportsContainersWithNoContainers(c *tc.C) {
@@ -444,11 +443,11 @@ func (s *charmStateSuite) TestSupportsContainersWithNoContainers(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := st.SupportsContainers(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.IsFalse)
 }
 
 func (s *charmStateSuite) TestIsCharmAvailableWithNoCharm(c *tc.C) {
@@ -457,7 +456,7 @@ func (s *charmStateSuite) TestIsCharmAvailableWithNoCharm(c *tc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	_, err := st.IsCharmAvailable(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmStateSuite) TestIsCharmAvailableWithAvailable(c *tc.C) {
@@ -477,11 +476,11 @@ func (s *charmStateSuite) TestIsCharmAvailableWithAvailable(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := st.IsCharmAvailable(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.IsTrue)
 }
 
 func (s *charmStateSuite) TestIsCharmAvailableWithNotAvailable(c *tc.C) {
@@ -501,11 +500,11 @@ func (s *charmStateSuite) TestIsCharmAvailableWithNotAvailable(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := st.IsCharmAvailable(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.IsFalse)
 }
 
 func (s *charmStateSuite) TestSetCharmAvailableWithNoCharm(c *tc.C) {
@@ -514,7 +513,7 @@ func (s *charmStateSuite) TestSetCharmAvailableWithNoCharm(c *tc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	err := st.SetCharmAvailable(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmStateSuite) TestSetCharmAvailable(c *tc.C) {
@@ -534,18 +533,18 @@ func (s *charmStateSuite) TestSetCharmAvailable(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := st.IsCharmAvailable(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.IsFalse)
 
 	err = st.SetCharmAvailable(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err = st.IsCharmAvailable(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.IsTrue)
 }
 
 func (s *charmStateSuite) TestGetCharmMetadataWithNoCharm(c *tc.C) {
@@ -554,7 +553,7 @@ func (s *charmStateSuite) TestGetCharmMetadataWithNoCharm(c *tc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	_, err := st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmStateSuite) TestGetCharmMetadata(c *tc.C) {
@@ -570,10 +569,10 @@ func (s *charmStateSuite) TestGetCharmMetadata(c *tc.C) {
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	metadata, err := st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(metadata, tc.DeepEquals, charm.Metadata{
 		Name:           "ubuntu",
 		Summary:        "summary",
@@ -596,10 +595,10 @@ func (s *charmStateSuite) TestGetCharmMetadataName(c *tc.C) {
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	name, err := st.GetCharmMetadataName(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(name, tc.DeepEquals, "ubuntu")
 }
 
@@ -609,7 +608,7 @@ func (s *charmStateSuite) TestGetCharmMetadataNameNotFound(c *tc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	_, err := st.GetCharmMetadataName(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmStateSuite) TestGetCharmMetadataDescription(c *tc.C) {
@@ -623,10 +622,10 @@ func (s *charmStateSuite) TestGetCharmMetadataDescription(c *tc.C) {
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	description, err := st.GetCharmMetadataDescription(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(description, tc.DeepEquals, "description")
 }
 
@@ -636,7 +635,7 @@ func (s *charmStateSuite) TestGetCharmMetadataDescriptionNotFound(c *tc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	_, err := st.GetCharmMetadataDescription(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmStateSuite) TestGetCharmMetadataWithTagsAndCategories(c *tc.C) {
@@ -673,10 +672,10 @@ VALUES (?, 0, 'foo'), (?, 1, 'foo'), (?, 2,'bar')
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	metadata, err := st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	assertCharmMetadata(c, metadata, func() charm.Metadata {
 		expected.Tags = []string{"foo", "foo", "bar"}
@@ -710,10 +709,10 @@ VALUES (?, 0, 'alpha'), (?, 1, 'beta'), (?, 2, 'beta')
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	metadata, err := st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	assertCharmMetadata(c, metadata, func() charm.Metadata {
 		expected.Terms = []string{"alpha", "beta", "beta"}
@@ -754,10 +753,10 @@ VALUES
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	metadata, err := st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	assertCharmMetadata(c, metadata, func() charm.Metadata {
 		expected.Provides = map[string]charm.Relation{
@@ -817,10 +816,10 @@ VALUES
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	metadata, err := st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	assertCharmMetadata(c, metadata, func() charm.Metadata {
 		expected.ExtraBindings = map[string]charm.ExtraBinding{
@@ -872,7 +871,7 @@ INSERT INTO charm_storage (
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedStorage := map[string]charm.Storage{
 		"foo": {
@@ -900,7 +899,7 @@ INSERT INTO charm_storage (
 	}
 
 	metadata, err := st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	assertCharmMetadata(c, metadata, func() charm.Metadata {
 		expected.Storage = expectedStorage
@@ -908,8 +907,8 @@ INSERT INTO charm_storage (
 	})
 
 	storage, err := st.GetCharmMetadataStorage(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(storage, jc.DeepEquals, expectedStorage)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(storage, tc.DeepEquals, expectedStorage)
 }
 
 func (s *charmStateSuite) TestGetCharmMetadataWithStorageWithProperties(c *tc.C) {
@@ -964,7 +963,7 @@ INSERT INTO charm_storage_property (
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedStorage := map[string]charm.Storage{
 		"foo": {
@@ -993,7 +992,7 @@ INSERT INTO charm_storage_property (
 	}
 
 	metadata, err := st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	assertCharmMetadata(c, metadata, func() charm.Metadata {
 		expected.Storage = expectedStorage
@@ -1001,8 +1000,8 @@ INSERT INTO charm_storage_property (
 	})
 
 	storage, err := st.GetCharmMetadataStorage(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(storage, jc.DeepEquals, expectedStorage)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(storage, tc.DeepEquals, expectedStorage)
 }
 
 func (s *charmStateSuite) TestGetCharmMetadataWithDevices(c *tc.C) {
@@ -1037,10 +1036,10 @@ INSERT INTO charm_device (
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	metadata, err := st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	assertCharmMetadata(c, metadata, func() charm.Metadata {
 		expected.Devices = map[string]charm.Device{
@@ -1093,7 +1092,7 @@ INSERT INTO charm_resource (
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedResources := map[string]charm.Resource{
 		"foo": {
@@ -1111,7 +1110,7 @@ INSERT INTO charm_resource (
 	}
 
 	metadata, err := st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	assertCharmMetadata(c, metadata, func() charm.Metadata {
 		expected.Resources = expectedResources
@@ -1119,8 +1118,8 @@ INSERT INTO charm_resource (
 	})
 
 	resources, err := st.GetCharmMetadataResources(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(resources, jc.DeepEquals, expectedResources)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(resources, tc.DeepEquals, expectedResources)
 }
 
 func (s *charmStateSuite) TestGetCharmMetadataWithContainersWithNoMounts(c *tc.C) {
@@ -1153,10 +1152,10 @@ INSERT INTO charm_container (
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	metadata, err := st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	assertCharmMetadata(c, metadata, func() charm.Metadata {
 		expected.Containers = map[string]charm.Container{
@@ -1218,10 +1217,10 @@ INSERT INTO charm_container_mount (
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	metadata, err := st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	assertCharmMetadata(c, metadata, func() charm.Metadata {
 		expected.Containers = map[string]charm.Container{
@@ -1260,7 +1259,7 @@ func (s *charmStateSuite) TestDeleteCharm(c *tc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	err := st.DeleteCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmStateSuite) TestSetCharmDownloadInfoForCharmhub(c *tc.C) {
@@ -1301,7 +1300,7 @@ func (s *charmStateSuite) TestSetCharmDownloadInfoForCharmhub(c *tc.C) {
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, info, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(locator, tc.DeepEquals, charm.CharmLocator{
 		Name:         "ubuntu",
@@ -1311,7 +1310,7 @@ func (s *charmStateSuite) TestSetCharmDownloadInfoForCharmhub(c *tc.C) {
 	})
 
 	_, downloadInfo, err := st.GetCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(downloadInfo, tc.DeepEquals, info)
 }
 
@@ -1346,10 +1345,10 @@ func (s *charmStateSuite) TestSetCharmDownloadInfoForCharmhubWithoutDownloadInfo
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, _, err = st.GetCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmDownloadInfoNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmDownloadInfoNotFound)
 }
 
 func (s *charmStateSuite) TestSetCharmDownloadInfoForLocal(c *tc.C) {
@@ -1389,10 +1388,10 @@ func (s *charmStateSuite) TestSetCharmDownloadInfoForLocal(c *tc.C) {
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, info, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ch, downloadInfo, err := st.GetCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(downloadInfo, tc.IsNil)
 
 	// This requires sequencing, so a new revision is associated with it, even
@@ -1483,10 +1482,10 @@ func (s *charmStateSuite) TestSetCharmLocalCharmSequencing(c *tc.C) {
 
 	for i := 0; i < 10; i++ {
 		id, _, err := st.SetCharm(context.Background(), charm, info, true)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		ch, downloadInfo, err := st.GetCharm(context.Background(), id)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(downloadInfo, tc.IsNil)
 		c.Check(ch.Revision, tc.Equals, i)
 	}
@@ -1523,10 +1522,10 @@ func (s *charmStateSuite) TestSetCharmDownloadInfoForLocalWithoutInfo(c *tc.C) {
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, downloadInfo, err := st.GetCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(downloadInfo, tc.IsNil)
 }
 
@@ -1553,13 +1552,13 @@ func (s *charmStateSuite) TestSetCharmTwice(c *tc.C) {
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add the implicit juju-info relation inserted with the charm.
 	expected.Provides = jujuInfoRelation()
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, expected)
 
 	_, _, err = st.SetCharm(context.Background(), charm.Charm{
@@ -1572,7 +1571,7 @@ func (s *charmStateSuite) TestSetCharmTwice(c *tc.C) {
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, nil, false)
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmAlreadyExists)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmAlreadyExists)
 }
 
 func (s *charmStateSuite) TestSetCharmThenGetCharm(c *tc.C) {
@@ -1633,13 +1632,13 @@ func (s *charmStateSuite) TestSetCharmThenGetCharm(c *tc.C) {
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add the implicit juju-info relation inserted with the charm.
 	expectedMetadata.Provides = jujuInfoRelation()
 
 	gotCharm, _, err := st.GetCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotCharm, tc.DeepEquals, charm.Charm{
 		Metadata:      expectedMetadata,
 		Manifest:      expectedManifest,
@@ -1693,10 +1692,10 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmProvidesJujuInfo(c *tc.C) {
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	gotCharm, _, err := st.GetCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotCharm, tc.DeepEquals, charm.Charm{
 		Metadata:      expectedMetadata,
 		Manifest:      expectedManifest,
@@ -1770,16 +1769,16 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmWithDifferentReferenceName(c *
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	id, err := st.GetCharmID(context.Background(), "baz", 42, charm.LocalSource)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add the implicit juju-info relation inserted with the charm.
 	expectedMetadata.Provides = jujuInfoRelation()
 
 	gotCharm, _, err := st.GetCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotCharm, tc.DeepEquals, charm.Charm{
 		Metadata:      expectedMetadata,
 		Manifest:      expectedManifest,
@@ -1819,7 +1818,7 @@ func (s *charmStateSuite) TestSetCharmAllowsSameNameButDifferentRevision(c *tc.C
 		Version:       "deadbeef",
 		Architecture:  architecture.AMD64,
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(locator1, tc.DeepEquals, charm.CharmLocator{
 		Name:         "ubuntu",
@@ -1832,7 +1831,7 @@ func (s *charmStateSuite) TestSetCharmAllowsSameNameButDifferentRevision(c *tc.C
 	expected.Provides = jujuInfoRelation()
 
 	got, err := st.GetCharmMetadata(context.Background(), id1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, expected)
 
 	id2, locator2, err := st.SetCharm(context.Background(), charm.Charm{
@@ -1845,10 +1844,10 @@ func (s *charmStateSuite) TestSetCharmAllowsSameNameButDifferentRevision(c *tc.C
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	got, err = st.GetCharmMetadata(context.Background(), id2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, expected)
 
 	c.Check(locator2, tc.DeepEquals, charm.CharmLocator{
@@ -1882,20 +1881,20 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadata(c *tc.C) {
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add the implicit juju-info relation inserted with the charm.
 	expected.Provides = jujuInfoRelation()
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, expected)
 
 	err = st.DeleteCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithTagsAndCategories(c *tc.C) {
@@ -1923,20 +1922,20 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithTagsAndCategories(
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add the implicit juju-info relation inserted with the charm.
 	expected.Provides = jujuInfoRelation()
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, expected)
 
 	err = st.DeleteCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithTerms(c *tc.C) {
@@ -1963,20 +1962,20 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithTerms(c *tc.C) {
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add the implicit juju-info relation inserted with the charm.
 	expected.Provides = jujuInfoRelation()
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, expected)
 
 	err = st.DeleteCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithRelations(c *tc.C) {
@@ -2028,18 +2027,18 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithRelations(c *tc.C)
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add the implicit juju-info relation inserted with the charm.
 	jujuInfo := jujuInfoRelation()
 	expected.Provides[corerelation.JujuInfo] = jujuInfo[corerelation.JujuInfo]
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, expected)
 
 	err = st.DeleteCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	assertTableEmpty(c, s.TxnRunner(), "charm")
 	assertTableEmpty(c, s.TxnRunner(), "charm_relation")
@@ -2076,17 +2075,17 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithExtraBindings(c *t
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add the implicit juju-info relation inserted with the charm.
 	expected.Provides = jujuInfoRelation()
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, expected)
 
 	err = st.DeleteCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	assertTableEmpty(c, s.TxnRunner(), "charm")
 	assertTableEmpty(c, s.TxnRunner(), "charm_extra_binding")
@@ -2139,17 +2138,17 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithStorageWithNoPrope
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add the implicit juju-info relation inserted with the charm.
 	expected.Provides = jujuInfoRelation()
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, expected)
 
 	err = st.DeleteCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	assertTableEmpty(c, s.TxnRunner(), "charm")
 	assertTableEmpty(c, s.TxnRunner(), "charm_storage")
@@ -2204,17 +2203,17 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithStorageWithPropert
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add the implicit juju-info relation inserted with the charm.
 	expected.Provides = jujuInfoRelation()
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, expected)
 
 	err = st.DeleteCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	assertTableEmpty(c, s.TxnRunner(), "charm")
 	assertTableEmpty(c, s.TxnRunner(), "charm_storage")
@@ -2260,17 +2259,17 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithDevices(c *tc.C) {
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add the implicit juju-info relation inserted with the charm.
 	expected.Provides = jujuInfoRelation()
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, expected)
 
 	err = st.DeleteCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	assertTableEmpty(c, s.TxnRunner(), "charm")
 	assertTableEmpty(c, s.TxnRunner(), "charm_device")
@@ -2313,17 +2312,17 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithResources(c *tc.C)
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add the implicit juju-info relation inserted with the charm.
 	expected.Provides = jujuInfoRelation()
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, expected)
 
 	err = st.DeleteCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	assertTableEmpty(c, s.TxnRunner(), "charm")
 	assertTableEmpty(c, s.TxnRunner(), "charm_resource")
@@ -2362,17 +2361,17 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithContainersWithNoMo
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add the implicit juju-info relation inserted with the charm.
 	expected.Provides = jujuInfoRelation()
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, expected)
 
 	err = st.DeleteCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	assertTableEmpty(c, s.TxnRunner(), "charm")
 	assertTableEmpty(c, s.TxnRunner(), "charm_container")
@@ -2431,17 +2430,17 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithContainersWithMoun
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add the implicit juju-info relation inserted with the charm.
 	expected.Provides = jujuInfoRelation()
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, expected)
 
 	err = st.DeleteCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	assertTableEmpty(c, s.TxnRunner(), "charm")
 	assertTableEmpty(c, s.TxnRunner(), "charm_container")
@@ -2482,10 +2481,10 @@ INSERT INTO charm_manifest_base (
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	manifest, err := st.GetCharmManifest(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	assertCharmManifest(c, manifest, func() charm.Manifest {
 		expected.Bases = []charm.Base{
@@ -2518,7 +2517,7 @@ INSERT INTO charm_manifest_base (
 	})
 
 	err = st.DeleteCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	assertTableEmpty(c, s.TxnRunner(), "charm")
 	assertTableEmpty(c, s.TxnRunner(), "charm_manifest_base")
@@ -2570,17 +2569,17 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmManifest(c *tc.C) {
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add the implicit juju-info relation inserted with the charm.
 	expectedMetadata.Provides = jujuInfoRelation()
 
 	got, err := st.GetCharmManifest(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, expected)
 
 	err = st.DeleteCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	assertTableEmpty(c, s.TxnRunner(), "charm")
 	assertTableEmpty(c, s.TxnRunner(), "charm_manifest_base")
@@ -2592,7 +2591,7 @@ func (s *charmStateSuite) TestGetCharmManifestCharmNotFound(c *tc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	_, err := st.GetCharmManifest(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmStateSuite) TestGetCharmLXDProfile(c *tc.C) {
@@ -2616,15 +2615,15 @@ WHERE uuid = ?
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	profile, revision, err := st.GetCharmLXDProfile(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(profile, tc.DeepEquals, []byte(`{"profile": []}`))
 	c.Check(revision, tc.Equals, 42)
 
 	err = st.DeleteCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	assertTableEmpty(c, s.TxnRunner(), "charm")
 }
@@ -2635,7 +2634,7 @@ func (s *charmStateSuite) TestGetCharmLXDProfileCharmNotFound(c *tc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	_, _, err := st.GetCharmLXDProfile(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmStateSuite) TestGetCharmLXDProfileLXDProfileNotFound(c *tc.C) {
@@ -2653,10 +2652,10 @@ VALUES (?, false, 'ubuntu', 0)`, uuid)
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, _, err = st.GetCharmLXDProfile(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.LXDProfileNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.LXDProfileNotFound)
 }
 
 func (s *charmStateSuite) TestGetCharmConfig(c *tc.C) {
@@ -2690,10 +2689,10 @@ INSERT INTO charm_config (
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	config, err := st.GetCharmConfig(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(config, tc.DeepEquals, charm.Config{
 		Options: map[string]charm.Option{
 			"foo": {
@@ -2781,14 +2780,14 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmConfig(c *tc.C) {
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	got, err := st.GetCharmConfig(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, expected)
 
 	err = st.DeleteCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	assertTableEmpty(c, s.TxnRunner(), "charm")
 	assertTableEmpty(c, s.TxnRunner(), "charm_config")
@@ -2800,7 +2799,7 @@ func (s *charmStateSuite) TestGetCharmConfigCharmNotFound(c *tc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	_, err := st.GetCharmConfig(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmStateSuite) TestGetCharmConfigEmpty(c *tc.C) {
@@ -2815,10 +2814,10 @@ func (s *charmStateSuite) TestGetCharmConfigEmpty(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	config, err := st.GetCharmConfig(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(config, tc.DeepEquals, charm.Config{
 		Options: map[string]charm.Option(nil),
 	})
@@ -2852,10 +2851,10 @@ INSERT INTO charm_action (
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	config, err := st.GetCharmActions(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(config, tc.DeepEquals, charm.Actions{
 		Actions: map[string]charm.Action{
 			"foo": {
@@ -2906,14 +2905,14 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmActions(c *tc.C) {
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	got, err := st.GetCharmActions(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, expected)
 
 	err = st.DeleteCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	assertTableEmpty(c, s.TxnRunner(), "charm")
 	assertTableEmpty(c, s.TxnRunner(), "charm_action")
@@ -2925,7 +2924,7 @@ func (s *charmStateSuite) TestGetCharmActionsCharmNotFound(c *tc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	_, err := st.GetCharmActions(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmStateSuite) TestGetCharmActionsEmpty(c *tc.C) {
@@ -2940,10 +2939,10 @@ func (s *charmStateSuite) TestGetCharmActionsEmpty(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	config, err := st.GetCharmActions(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(config, tc.DeepEquals, charm.Actions{
 		Actions: map[string]charm.Action(nil),
 	})
@@ -2964,10 +2963,10 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmArchivePath(c *tc.C) {
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	got, err := st.GetCharmArchivePath(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, "archive")
 }
 
@@ -3000,7 +2999,7 @@ func (s *charmStateSuite) TestSetCharmWithDuplicatedEndpointNames(c *tc.C) {
 		Version:       "deadbeef",
 	}, nil, false)
 
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmRelationNameConflict)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmRelationNameConflict)
 }
 
 func (s *charmStateSuite) TestGetCharmArchivePathCharmNotFound(c *tc.C) {
@@ -3009,7 +3008,7 @@ func (s *charmStateSuite) TestGetCharmArchivePathCharmNotFound(c *tc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	_, err := st.GetCharmArchivePath(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmStateSuite) TestGetCharmArchiveMetadata(c *tc.C) {
@@ -3027,10 +3026,10 @@ func (s *charmStateSuite) TestGetCharmArchiveMetadata(c *tc.C) {
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	got, hash, err := st.GetCharmArchiveMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, "archive")
 	c.Check(hash, tc.DeepEquals, "hash")
 }
@@ -3051,15 +3050,15 @@ func (s *charmStateSuite) TestGetCharmArchiveMetadataInsertAdditionalHashKind(c 
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return insertAdditionalHashKindForCharm(ctx, c, tx, id, "sha386", "hash386")
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, _, err = st.GetCharmArchiveMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.MultipleCharmHashes)
+	c.Assert(err, tc.ErrorIs, applicationerrors.MultipleCharmHashes)
 }
 
 func (s *charmStateSuite) TestGetCharmArchiveMetadataCharmNotFound(c *tc.C) {
@@ -3068,14 +3067,14 @@ func (s *charmStateSuite) TestGetCharmArchiveMetadataCharmNotFound(c *tc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	_, _, err := st.GetCharmArchiveMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmStateSuite) TestListCharmLocatorsWithNoEntries(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	results, err := st.ListCharmLocators(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.HasLen, 0)
 }
 
@@ -3094,10 +3093,10 @@ func (s *charmStateSuite) TestListCharmLocators(c *tc.C) {
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	results, err := st.ListCharmLocators(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, []charm.CharmLocator{{
 		Name:         "ubuntu",
 		Source:       charm.LocalSource,
@@ -3125,7 +3124,7 @@ func (s *charmStateSuite) TestListCharmLocatorsMultipleEntries(c *tc.C) {
 			ArchivePath:   "archive",
 			Version:       "deadbeef",
 		}, nil, false)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		expected = append(expected, charm.CharmLocator{
 			Name:         name,
@@ -3136,7 +3135,7 @@ func (s *charmStateSuite) TestListCharmLocatorsMultipleEntries(c *tc.C) {
 	}
 
 	results, err := st.ListCharmLocators(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, expected)
 }
 
@@ -3144,7 +3143,7 @@ func (s *charmStateSuite) TestListCharmLocatorsByNamesNoEntries(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	results, err := st.ListCharmLocatorsByNames(context.Background(), []string{"ubuntu-0", "ubuntu-2"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.HasLen, 0)
 }
 
@@ -3167,7 +3166,7 @@ func (s *charmStateSuite) TestListCharmLocatorsByNamesMultipleEntries(c *tc.C) {
 			ArchivePath:   "archive",
 			Version:       "deadbeef",
 		}, nil, false)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		// We only want to check the first and last entries.
 		if i == 1 {
@@ -3183,7 +3182,7 @@ func (s *charmStateSuite) TestListCharmLocatorsByNamesMultipleEntries(c *tc.C) {
 	}
 
 	results, err := st.ListCharmLocatorsByNames(context.Background(), []string{"ubuntu-0", "ubuntu-2", "ubuntu-4"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, expected)
 }
 
@@ -3205,11 +3204,11 @@ func (s *charmStateSuite) TestListCharmLocatorsByNamesInvalidEntries(c *tc.C) {
 			ArchivePath:   "archive",
 			Version:       "deadbeef",
 		}, nil, false)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	results, err := st.ListCharmLocatorsByNames(context.Background(), []string{"ubuntu-99"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.HasLen, 0)
 }
 
@@ -3228,10 +3227,10 @@ func (s *charmStateSuite) TestGetCharmDownloadInfoWithNoInfo(c *tc.C) {
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := st.GetCharmDownloadInfo(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.IsNil)
 }
 
@@ -3257,10 +3256,10 @@ func (s *charmStateSuite) TestGetCharmDownloadInfoWithInfoForLocal(c *tc.C) {
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, info, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := st.GetCharmDownloadInfo(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.IsNil)
 }
 
@@ -3286,11 +3285,11 @@ func (s *charmStateSuite) TestGetCharmDownloadInfoWithInfoForCharmhub(c *tc.C) {
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, info, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := st.GetCharmDownloadInfo(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.DeepEquals, info)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, info)
 }
 
 func (s *charmStateSuite) TestGetAvailableCharmArchiveSHA256(c *tc.C) {
@@ -3316,11 +3315,11 @@ func (s *charmStateSuite) TestGetAvailableCharmArchiveSHA256(c *tc.C) {
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
 	}, info, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := st.GetAvailableCharmArchiveSHA256(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.DeepEquals, "hash")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, "hash")
 }
 
 func (s *charmStateSuite) TestGetAvailableCharmArchiveSHA256NotAvailable(c *tc.C) {
@@ -3344,10 +3343,10 @@ func (s *charmStateSuite) TestGetAvailableCharmArchiveSHA256NotAvailable(c *tc.C
 		Hash:          "hash",
 		Version:       "deadbeef",
 	}, info, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = st.GetAvailableCharmArchiveSHA256(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotResolved)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotResolved)
 }
 
 func (s *charmStateSuite) TestGetAvailableCharmArchiveSHA256NotFound(c *tc.C) {
@@ -3356,7 +3355,7 @@ func (s *charmStateSuite) TestGetAvailableCharmArchiveSHA256NotFound(c *tc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	_, err := st.GetAvailableCharmArchiveSHA256(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmStateSuite) TestResolveMigratingUploadedCharmNotFound(c *tc.C) {
@@ -3367,7 +3366,7 @@ func (s *charmStateSuite) TestResolveMigratingUploadedCharmNotFound(c *tc.C) {
 	_, err := st.ResolveMigratingUploadedCharm(context.Background(), charmtesting.GenCharmID(c), charm.ResolvedMigratingUploadedCharm{
 		ObjectStoreUUID: objectStoreUUID,
 	})
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmStateSuite) TestResolveMigratingUploadedCharmAlreadyAvailable(c *tc.C) {
@@ -3390,15 +3389,15 @@ func (s *charmStateSuite) TestResolveMigratingUploadedCharmAlreadyAvailable(c *t
 		Hash:          "hash",
 		Version:       "deadbeef",
 	}, info, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = st.SetCharmAvailable(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = st.ResolveMigratingUploadedCharm(context.Background(), id, charm.ResolvedMigratingUploadedCharm{
 		ObjectStoreUUID: objectStoreUUID,
 	})
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmAlreadyAvailable)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmAlreadyAvailable)
 }
 
 func (s *charmStateSuite) TestResolveMigratingUploaded(c *tc.C) {
@@ -3421,7 +3420,7 @@ func (s *charmStateSuite) TestResolveMigratingUploaded(c *tc.C) {
 		Hash:          "hash",
 		Version:       "deadbeef",
 	}, info, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	locator, err := st.ResolveMigratingUploadedCharm(context.Background(), id, charm.ResolvedMigratingUploadedCharm{
 		ObjectStoreUUID: objectStoreUUID,
@@ -3429,7 +3428,7 @@ func (s *charmStateSuite) TestResolveMigratingUploaded(c *tc.C) {
 		Hash:            "hash",
 		DownloadInfo:    info,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(locator, tc.DeepEquals, charm.CharmLocator{
 		Name:         "foo",
 		Source:       charm.CharmHubSource,
@@ -3439,7 +3438,7 @@ func (s *charmStateSuite) TestResolveMigratingUploaded(c *tc.C) {
 	c.Check(chLocator, tc.DeepEquals, locator)
 
 	available, err := st.IsCharmAvailable(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(available, tc.Equals, true)
 }
 
@@ -3447,7 +3446,7 @@ func (s *charmStateSuite) TestGetLatestPendingCharmhubCharmNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	_, err := st.GetLatestPendingCharmhubCharm(context.Background(), "foo", architecture.AMD64)
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmStateSuite) TestGetLatestPendingCharmhubCharm(c *tc.C) {
@@ -3462,7 +3461,7 @@ func (s *charmStateSuite) TestGetLatestPendingCharmhubCharm(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedLocator := charm.CharmLocator{
 		Name:         "ubuntu",
@@ -3471,7 +3470,7 @@ func (s *charmStateSuite) TestGetLatestPendingCharmhubCharm(c *tc.C) {
 		Architecture: architecture.AMD64,
 	}
 	latest, err := st.GetLatestPendingCharmhubCharm(context.Background(), "ubuntu", architecture.AMD64)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(latest, tc.DeepEquals, expectedLocator)
 }
 
@@ -3487,10 +3486,10 @@ func (s *charmStateSuite) TestGetLatestPendingCharmhubCharmForAnotherArch(c *tc.
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = st.GetLatestPendingCharmhubCharm(context.Background(), "ubuntu", architecture.ARM64)
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmStateSuite) TestGetLatestPendingCharmhubCharmWithMultipleCharms(c *tc.C) {
@@ -3514,7 +3513,7 @@ func (s *charmStateSuite) TestGetLatestPendingCharmhubCharmWithMultipleCharms(c 
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedLocator := charm.CharmLocator{
 		Name:         "ubuntu",
@@ -3523,7 +3522,7 @@ func (s *charmStateSuite) TestGetLatestPendingCharmhubCharmWithMultipleCharms(c 
 		Architecture: architecture.AMD64,
 	}
 	latest, err := st.GetLatestPendingCharmhubCharm(context.Background(), "ubuntu", architecture.AMD64)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(latest, tc.DeepEquals, expectedLocator)
 }
 
@@ -3555,7 +3554,7 @@ func (s *charmStateSuite) TestGetLatestPendingCharmhubCharmWithAssignedApplicati
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedLocator := charm.CharmLocator{
 		Name:         "ubuntu",
@@ -3564,7 +3563,7 @@ func (s *charmStateSuite) TestGetLatestPendingCharmhubCharmWithAssignedApplicati
 		Architecture: architecture.AMD64,
 	}
 	latest, err := st.GetLatestPendingCharmhubCharm(context.Background(), "ubuntu", architecture.AMD64)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(latest, tc.DeepEquals, expectedLocator)
 }
 
@@ -3580,11 +3579,11 @@ func (s *charmStateSuite) TestGetCharmLocatorForLatestPendingCharmhubCharm(c *tc
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	latestLocator, err := st.GetLatestPendingCharmhubCharm(context.Background(), "ubuntu", architecture.AMD64)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(latestLocator, tc.DeepEquals, charm.CharmLocator{
 		Name:         "ubuntu",
 		Source:       charm.CharmHubSource,
@@ -3600,7 +3599,7 @@ func (s *charmStateSuite) TestGetCharmLocatorByIDNotFound(c *tc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	_, err := st.GetCharmLocatorByCharmID(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmStateSuite) TestGetCharmLocatorByID(c *tc.C) {
@@ -3615,10 +3614,10 @@ func (s *charmStateSuite) TestGetCharmLocatorByID(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	locator, err := st.GetCharmLocatorByCharmID(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(locator, tc.DeepEquals, charm.CharmLocator{
 		Name:         "ubuntu",
 		Source:       charm.CharmHubSource,
@@ -3634,7 +3633,7 @@ func (s *charmStateSuite) TestGetCharmIDByApplicationIDNotFound(c *tc.C) {
 		_, err := st.getCharmIDByApplicationID(context.Background(), tx, applicationtesting.GenApplicationUUID(c))
 		return err
 	})
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmStateSuite) TestGetCharmIDByApplicationID(c *tc.C) {
@@ -3643,7 +3642,7 @@ func (s *charmStateSuite) TestGetCharmIDByApplicationID(c *tc.C) {
 	uuid := s.createApplication(c, "foo", life.Alive)
 
 	charmUUID, err := st.GetCharmIDByApplicationName(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var result corecharm.ID
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
@@ -3651,7 +3650,7 @@ func (s *charmStateSuite) TestGetCharmIDByApplicationID(c *tc.C) {
 		result, err = st.getCharmIDByApplicationID(context.Background(), tx, uuid)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, charmUUID)
 }
 
@@ -3705,21 +3704,21 @@ func insertCharmManifest(ctx context.Context, c *tc.C, tx *sql.Tx, uuid string) 
 func insertAdditionalHashKindForCharm(ctx context.Context, c *tc.C, tx *sql.Tx, charmId corecharm.ID, kind, hash string) error {
 	var kindId int
 	rows, err := tx.QueryContext(ctx, `SELECT id FROM hash_kind`)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	for rows.Next() {
 		var id int
 		err := rows.Scan(&id)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		kindId = max(kindId, id)
 	}
 	kindId++
 	defer func() { _ = rows.Close() }()
 
 	_, err = tx.ExecContext(ctx, `INSERT INTO hash_kind (id, name) VALUES (?, ?)`, kindId, kind)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = tx.ExecContext(ctx, `INSERT INTO charm_hash (charm_uuid, hash_kind_id, hash) VALUES (?, ?, ?)`, charmId, kindId, hash)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return nil
 }
@@ -3747,7 +3746,7 @@ func assertTableEmpty(c *tc.C, runner coredatabase.TxnRunner, table string) {
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 0)
 }
 

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/firewaller"
@@ -30,7 +29,7 @@ func (s *machineSuite) TestMachine(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "Life")
-		c.Assert(arg, jc.DeepEquals, params.Entities{
+		c.Assert(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "machine-666"}},
 		})
 		c.Assert(result, tc.FitsTypeOf, &params.LifeResults{})
@@ -41,11 +40,11 @@ func (s *machineSuite) TestMachine(c *tc.C) {
 	})
 	tag := names.NewMachineTag("666")
 	client, err := firewaller.NewClient(apiCaller)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	m, err := client.Machine(context.Background(), tag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(m.Life(), tc.Equals, life.Alive)
-	c.Assert(m.Tag(), jc.DeepEquals, tag)
+	c.Assert(m.Tag(), tc.DeepEquals, tag)
 }
 
 func (s *machineSuite) TestInstanceId(c *tc.C) {
@@ -54,7 +53,7 @@ func (s *machineSuite) TestInstanceId(c *tc.C) {
 		c.Check(objType, tc.Equals, "Firewaller")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
-		c.Assert(arg, jc.DeepEquals, params.Entities{
+		c.Assert(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "machine-666"}},
 		})
 		if calls == 0 {
@@ -75,11 +74,11 @@ func (s *machineSuite) TestInstanceId(c *tc.C) {
 	})
 	tag := names.NewMachineTag("666")
 	client, err := firewaller.NewClient(apiCaller)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	m, err := client.Machine(context.Background(), tag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	id, err := m.InstanceId(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(m.Life(), tc.Equals, life.Alive)
 	c.Assert(id, tc.Equals, instance.Id("inst-666"))
 	c.Assert(calls, tc.Equals, 2)
@@ -91,7 +90,7 @@ func (s *machineSuite) TestWatchUnits(c *tc.C) {
 		c.Check(objType, tc.Equals, "Firewaller")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
-		c.Assert(arg, jc.DeepEquals, params.Entities{
+		c.Assert(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "machine-666"}},
 		})
 		if calls > 0 {
@@ -112,9 +111,9 @@ func (s *machineSuite) TestWatchUnits(c *tc.C) {
 	})
 	tag := names.NewMachineTag("666")
 	client, err := firewaller.NewClient(apiCaller)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	m, err := client.Machine(context.Background(), tag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = m.WatchUnits(context.Background())
 	c.Assert(err, tc.ErrorMatches, "FAIL")
 	c.Assert(calls, tc.Equals, 2)
@@ -126,7 +125,7 @@ func (s *machineSuite) TestIsManual(c *tc.C) {
 		c.Check(objType, tc.Equals, "Firewaller")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
-		c.Assert(arg, jc.DeepEquals, params.Entities{
+		c.Assert(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "machine-666"}},
 		})
 		if calls > 0 {
@@ -147,11 +146,11 @@ func (s *machineSuite) TestIsManual(c *tc.C) {
 	})
 	tag := names.NewMachineTag("666")
 	client, err := firewaller.NewClient(apiCaller)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	m, err := client.Machine(context.Background(), tag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result, err := m.IsManual(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.IsTrue)
 	c.Assert(calls, tc.Equals, 2)
 }

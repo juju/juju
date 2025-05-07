@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/core/os/ostype"
@@ -28,9 +27,9 @@ func (s *RenderersSuite) TestMAASUnix(c *tc.C) {
 	cloudcfg := &cloudinittest.CloudConfig{YAML: []byte("yaml")}
 
 	result, err := renderer.Render(cloudcfg, ostype.Ubuntu)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := base64.StdEncoding.EncodeToString(utils.Gzip(cloudcfg.YAML))
-	c.Assert(string(result), jc.DeepEquals, expected)
+	c.Assert(string(result), tc.DeepEquals, expected)
 }
 
 func (s *RenderersSuite) TestMAASUnknownOS(c *tc.C) {

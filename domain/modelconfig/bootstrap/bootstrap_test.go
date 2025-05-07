@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
@@ -49,7 +48,7 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 
 	controllerUUID := s.SeedControllerUUID(c)
 	userID, err := coreuser.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	accessState := accessstate.NewState(s.ControllerSuite.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err = accessState.AddUserWithPermission(
 		context.Background(), userID,
@@ -65,7 +64,7 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 			},
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cloudName := "test"
 	fn := cloudbootstrap.InsertCloud(coreuser.AdminUserName, cloud.Cloud{
@@ -75,7 +74,7 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	})
 
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	credentialName := "test"
 	fn = credentialbootstrap.InsertCredential(credential.Key{
@@ -87,7 +86,7 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	)
 
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	testing.CreateInternalSecretBackend(c, s.ControllerTxnRunner())
 
@@ -108,7 +107,7 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	s.modelID = modelUUID
 
 	err = modelFn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *bootstrapSuite) TestSetModelConfig(c *tc.C) {
@@ -128,22 +127,22 @@ func (s *bootstrapSuite) TestSetModelConfig(c *tc.C) {
 	//c.Assert(err, jc.ErrorIsNil)
 
 	err := SetModelConfig(s.modelID, nil, defaults)(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	rows, err := s.ModelSuite.DB().Query("SELECT * FROM model_config")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer rows.Close()
 
 	configVals := map[string]string{}
 	var k, v string
 	for rows.Next() {
 		err = rows.Scan(&k, &v)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		configVals[k] = v
 	}
 
-	c.Assert(rows.Err(), jc.ErrorIsNil)
-	c.Assert(configVals, jc.DeepEquals, map[string]string{
+	c.Assert(rows.Err(), tc.ErrorIsNil)
+	c.Assert(configVals, tc.DeepEquals, map[string]string{
 		"name":           "test",
 		"uuid":           s.modelID.String(),
 		"type":           "iaas",

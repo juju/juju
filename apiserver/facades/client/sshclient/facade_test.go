@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -101,7 +100,7 @@ func (s *facadeSuite) TestNonAuthUserDenied(c *tc.C) {
 		nil,
 		s.authorizer,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	args := params.Entities{
 		Entities: []params.Entity{{names.NewMachineTag("0").String()}, {names.NewUnitTag("app/0").String()}},
@@ -137,13 +136,13 @@ func (s *facadeSuite) TestSuperUserAuth(c *tc.C) {
 		nil,
 		s.authorizer,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	args := params.Entities{
 		Entities: []params.Entity{{names.NewMachineTag("0").String()}, {names.NewUnitTag("app/0").String()}},
 	}
 	results, err := facade.PublicAddress(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.SSHAddressResults{
 		Results: []params.SSHAddressResult{{
 			Address: "1.1.1.1",
@@ -179,13 +178,13 @@ func (s *facadeSuite) TestPublicAddress(c *tc.C) {
 		nil,
 		s.authorizer,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	args := params.Entities{
 		Entities: []params.Entity{{names.NewMachineTag("0").String()}, {names.NewUnitTag("app/0").String()}, {names.NewUnitTag("foo/0").String()}},
 	}
 	results, err := facade.PublicAddress(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, params.SSHAddressResults{
 		Results: []params.SSHAddressResult{
 			{Address: "1.1.1.1"},
@@ -221,13 +220,13 @@ func (s *facadeSuite) TestPrivateAddress(c *tc.C) {
 		nil,
 		s.authorizer,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	args := params.Entities{
 		Entities: []params.Entity{{names.NewUnitTag("foo/0").String()}, {names.NewMachineTag("0").String()}, {names.NewUnitTag("app/0").String()}},
 	}
 	results, err := facade.PrivateAddress(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, params.SSHAddressResults{
 		Results: []params.SSHAddressResult{
 			{Error: apiservertesting.NotFoundError("entity")},
@@ -283,13 +282,13 @@ func (s *facadeSuite) TestAllAddresses(c *tc.C) {
 		nil,
 		s.authorizer,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	args := params.Entities{
 		Entities: []params.Entity{{names.NewUnitTag("foo/0").String()}, {names.NewMachineTag("0").String()}, {names.NewUnitTag("app/0").String()}},
 	}
 	results, err := facade.AllAddresses(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, params.SSHAddressesResults{
 		Results: []params.SSHAddressesResult{
 			{Error: apiservertesting.NotFoundError("entity")},
@@ -341,13 +340,13 @@ func (s *facadeSuite) TestPublicKeys(c *tc.C) {
 		nil,
 		s.authorizer,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	args := params.Entities{
 		Entities: []params.Entity{{names.NewMachineTag("0").String()}, {names.NewUnitTag("foo/0").String()}, {names.NewUnitTag("app/0").String()}},
 	}
 	results, err := facade.PublicKeys(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, params.SSHPublicKeysResults{
 		Results: []params.SSHPublicKeysResult{
 			{PublicKeys: []string{"rsa0", "dsa0"}},
@@ -382,11 +381,11 @@ func (s *facadeSuite) TestProxyTrue(c *tc.C) {
 		nil,
 		s.authorizer,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := facade.Proxy(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.UseProxy, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.UseProxy, tc.IsTrue)
 }
 
 func (s *facadeSuite) TestProxyFalse(c *tc.C) {
@@ -414,11 +413,11 @@ func (s *facadeSuite) TestProxyFalse(c *tc.C) {
 		nil,
 		s.authorizer,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := facade.Proxy(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.UseProxy, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.UseProxy, tc.IsFalse)
 }
 
 func (s *facadeSuite) TestModelCredentialForSSHFailedNotAuthorized(c *tc.C) {
@@ -440,7 +439,7 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedNotAuthorized(c *tc.C) {
 		nil,
 		s.authorizer,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := facade.ModelCredentialForSSH(context.Background())
 	c.Assert(err, tc.Equals, apiservererrors.ErrPerm)
@@ -479,10 +478,10 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedBadCredential(c *tc.C) {
 		nil,
 		s.authorizer,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := facade.ModelCredentialForSSH(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(apiservererrors.RestoreError(result.Error), tc.ErrorMatches, `cloud spec "name" has empty credential not valid`)
 	c.Assert(result.Result, tc.IsNil)
 }
@@ -551,10 +550,10 @@ func (s *facadeSuite) assertModelCredentialForSSH(c *tc.C) {
 		nil,
 		s.authorizer,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := facade.ModelCredentialForSSH(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Error, tc.IsNil)
 	c.Assert(result.Result, tc.DeepEquals, &params.CloudSpec{
 		Type:             "type",
@@ -589,7 +588,7 @@ func (s *facadeSuite) TestGetVirtualHostnameForEntity(c *tc.C) {
 		nil,
 		s.authorizer,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	container := "container"
 	tests := []struct {
 		name          string
@@ -632,7 +631,7 @@ func (s *facadeSuite) TestGetVirtualHostnameForEntity(c *tc.C) {
 		if t.expectedError != "" {
 			c.Assert(err, tc.ErrorMatches, t.expectedError)
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(res.Address, tc.Equals, t.expected)
 		}
 

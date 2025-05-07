@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/client/secretbackends"
@@ -43,7 +42,7 @@ func (s *SecretBackendsSuite) TestListSecretBackends(c *tc.C) {
 			c.Check(version, tc.Equals, 1)
 			c.Check(id, tc.Equals, "")
 			c.Check(request, tc.Equals, "ListSecretBackends")
-			c.Check(arg, jc.DeepEquals, params.ListSecretBackendsArgs{Names: []string{"myvault"}, Reveal: true})
+			c.Check(arg, tc.DeepEquals, params.ListSecretBackendsArgs{Names: []string{"myvault"}, Reveal: true})
 			c.Assert(result, tc.FitsTypeOf, &params.ListSecretBackendsResults{})
 			*(result.(*params.ListSecretBackendsResults)) = params.ListSecretBackendsResults{
 				[]params.SecretBackendResult{{
@@ -64,8 +63,8 @@ func (s *SecretBackendsSuite) TestListSecretBackends(c *tc.C) {
 	}
 	client := secretbackends.NewClient(apiCaller)
 	result, err := client.ListSecretBackends(context.Background(), []string{"myvault"}, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, []secretbackends.SecretBackend{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []secretbackends.SecretBackend{{
 		Name:                "foo",
 		BackendType:         "vault",
 		TokenRotateInterval: ptr(666 * time.Minute),
@@ -91,7 +90,7 @@ func (s *SecretBackendsSuite) TestAddSecretsBackend(c *tc.C) {
 			c.Check(version, tc.Equals, 1)
 			c.Check(id, tc.Equals, "")
 			c.Check(request, tc.Equals, "AddSecretBackends")
-			c.Check(arg, jc.DeepEquals, params.AddSecretBackendArgs{
+			c.Check(arg, tc.DeepEquals, params.AddSecretBackendArgs{
 				Args: []params.AddSecretBackendArg{{
 					ID: "backend-id",
 					SecretBackend: params.SecretBackend{
@@ -123,7 +122,7 @@ func (s *SecretBackendsSuite) TestRemoveSecretsBackend(c *tc.C) {
 			c.Check(version, tc.Equals, 1)
 			c.Check(id, tc.Equals, "")
 			c.Check(request, tc.Equals, "RemoveSecretBackends")
-			c.Check(arg, jc.DeepEquals, params.RemoveSecretBackendArgs{
+			c.Check(arg, tc.DeepEquals, params.RemoveSecretBackendArgs{
 				Args: []params.RemoveSecretBackendArg{{
 					Name:  "foo",
 					Force: true,
@@ -156,7 +155,7 @@ func (s *SecretBackendsSuite) TestUpdateSecretsBackend(c *tc.C) {
 			c.Check(version, tc.Equals, 1)
 			c.Check(id, tc.Equals, "")
 			c.Check(request, tc.Equals, "UpdateSecretBackends")
-			c.Check(arg, jc.DeepEquals, params.UpdateSecretBackendArgs{
+			c.Check(arg, tc.DeepEquals, params.UpdateSecretBackendArgs{
 				Args: []params.UpdateSecretBackendArg{{
 					Name:                backend.Name,
 					TokenRotateInterval: backend.TokenRotateInterval,

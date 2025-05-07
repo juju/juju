@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/internal/cmd"
@@ -45,7 +44,7 @@ func (s *PoolUpdateSuite) TestPoolUpdateNoArgs(c *tc.C) {
 
 func (s *PoolUpdateSuite) TestPoolUpdateWithAttrArgs(c *tc.C) {
 	_, err := s.runPoolUpdate(c, []string{"sunshine", "lollypop=true"})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(len(s.mockAPI.Updates), tc.Equals, 1)
 	updatedConfigs := s.mockAPI.Updates[0]
 	c.Assert(updatedConfigs.Name, tc.Equals, "sunshine")
@@ -66,7 +65,7 @@ func (s *PoolUpdateSuite) TestPoolUpdateAttrMissingValue(c *tc.C) {
 
 func (s *PoolUpdateSuite) TestPoolUpdateAttrEmptyValue(c *tc.C) {
 	_, err := s.runPoolUpdate(c, []string{"sunshine", `something=""`})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(len(s.mockAPI.Updates), tc.Equals, 1)
 	updatedConfigs := s.mockAPI.Updates[0]
 	c.Assert(updatedConfigs.Name, tc.Equals, "sunshine")
@@ -75,7 +74,7 @@ func (s *PoolUpdateSuite) TestPoolUpdateAttrEmptyValue(c *tc.C) {
 
 func (s *PoolUpdateSuite) TestPoolUpdateOneAttr(c *tc.C) {
 	_, err := s.runPoolUpdate(c, []string{"sunshine", "something=too"})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(len(s.mockAPI.Updates), tc.Equals, 1)
 	updatedConfigs := s.mockAPI.Updates[0]
 	c.Assert(updatedConfigs.Name, tc.Equals, "sunshine")
@@ -84,7 +83,7 @@ func (s *PoolUpdateSuite) TestPoolUpdateOneAttr(c *tc.C) {
 
 func (s *PoolUpdateSuite) TestPoolUpdateManyAttrs(c *tc.C) {
 	_, err := s.runPoolUpdate(c, []string{"sunshine", "something=too", "another=one"})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(len(s.mockAPI.Updates), tc.Equals, 1)
 	updatedConfigs := s.mockAPI.Updates[0]
 	c.Assert(updatedConfigs.Name, tc.Equals, "sunshine")

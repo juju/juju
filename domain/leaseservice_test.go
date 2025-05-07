@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/errors"
@@ -58,8 +57,8 @@ func (s *leaseServiceSuite) TestWithLeader(c *tc.C) {
 		called = true
 		return ctx.Err()
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(called, tc.IsTrue)
 }
 
 func (s *leaseServiceSuite) TestWithLeaderWaitReturnsError(c *tc.C) {
@@ -78,8 +77,8 @@ func (s *leaseServiceSuite) TestWithLeaderWaitReturnsError(c *tc.C) {
 		called = true
 		return ctx.Err()
 	})
-	c.Assert(err, jc.ErrorIs, context.Canceled)
-	c.Check(called, jc.IsFalse)
+	c.Assert(err, tc.ErrorIs, context.Canceled)
+	c.Check(called, tc.IsFalse)
 }
 
 func (s *leaseServiceSuite) TestWithLeaderWaitHasLeaseChange(c *tc.C) {
@@ -138,8 +137,8 @@ func (s *leaseServiceSuite) TestWithLeaderWaitHasLeaseChange(c *tc.C) {
 
 		return ctx.Err()
 	})
-	c.Assert(err, jc.ErrorIs, context.Canceled)
-	c.Check(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIs, context.Canceled)
+	c.Check(called, tc.IsTrue)
 }
 
 func (s *leaseServiceSuite) TestWithLeaderFailsOnWaitCheck(c *tc.C) {
@@ -177,7 +176,7 @@ func (s *leaseServiceSuite) TestWithLeaderFailsOnWaitCheck(c *tc.C) {
 		return nil
 	})
 	c.Assert(err, tc.ErrorMatches, "checking lease token: not holding lease")
-	c.Check(called, jc.IsFalse)
+	c.Check(called, tc.IsFalse)
 }
 
 func (s *leaseServiceSuite) setupMocks(c *tc.C) *gomock.Controller {

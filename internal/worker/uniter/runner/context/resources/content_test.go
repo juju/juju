@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/worker/uniter/runner/context/resources"
@@ -36,7 +35,7 @@ func (s *ContentSuite) TestVerifyOkay(c *tc.C) {
 	}
 
 	err := content.Verify(info.Size, info.Fingerprint)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.stub.CheckNoCalls(c)
 }
 
@@ -56,7 +55,7 @@ func (s *ContentSuite) TestVerifyBadSize(c *tc.C) {
 
 func (s *ContentSuite) TestVerifyBadFingerprint(c *tc.C) {
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader("other data"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	info, reader := newResource(c, s.stub, "spam", "some data")
 	content := resources.Content{
 		Data:        reader,
@@ -94,10 +93,10 @@ func (s *CheckerSuite) TestVerifyOkay(c *tc.C) {
 
 	s.stub.CheckNoCalls(c)
 	data, err := io.ReadAll(wrapped)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(string(data), tc.Equals, "some data")
 	err = checker.Verify()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *CheckerSuite) TestVerifyFailed(c *tc.C) {
@@ -112,7 +111,7 @@ func (s *CheckerSuite) TestVerifyFailed(c *tc.C) {
 
 	s.stub.CheckNoCalls(c)
 	_, err := io.ReadAll(wrapped)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = checker.Verify()
 	c.Assert(err, tc.ErrorMatches, "resource size does not match expected \\(9 != 10\\)")
 }

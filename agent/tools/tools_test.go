@@ -11,7 +11,6 @@ import (
 	"sort"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/core/semversion"
@@ -30,7 +29,7 @@ func (t *ToolsImportSuite) TestPackageDependencies(c *tc.C) {
 	// Only imports that start with "github.com/juju/juju" are checked, and the
 	// resulting slice has that prefix removed to keep the output short.
 	c.Assert(testing.FindJujuCoreImports(c, "github.com/juju/juju/agent/tools"),
-		jc.SameContents,
+		tc.SameContents,
 		[]string{
 			"core/credential",
 			"core/errors",
@@ -144,7 +143,7 @@ func (t *ToolsSuite) TestUnpackToolsContents(c *tc.C) {
 	}
 
 	err := agenttools.UnpackTools(t.dataDir, testTools, bytes.NewReader(data))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-ubuntu-amd64"})
 	t.assertToolsContents(c, testTools, files)
 
@@ -162,7 +161,7 @@ func (t *ToolsSuite) TestUnpackToolsContents(c *tc.C) {
 		SHA256:  checksum2,
 	}
 	err = agenttools.UnpackTools(t.dataDir, tools2, bytes.NewReader(data2))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-ubuntu-amd64"})
 	t.assertToolsContents(c, testTools, files)
 }
@@ -175,10 +174,10 @@ func (t *ToolsSuite) TestReadToolsErrors(c *tc.C) {
 
 	dir := agenttools.SharedToolsDir(t.dataDir, vers)
 	err = os.MkdirAll(dir, agenttools.DirPerm)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = os.WriteFile(filepath.Join(dir, agenttools.ToolsFile), []byte(" \t\n"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	testTools, err = agenttools.ReadTools(t.dataDir, vers)
 	c.Assert(testTools, tc.IsNil)
@@ -198,10 +197,10 @@ func (t *ToolsSuite) TestChangeAgentTools(c *tc.C) {
 		SHA256:  checksum,
 	}
 	err := agenttools.UnpackTools(t.dataDir, testTools, bytes.NewReader(data))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	gotTools, err := agenttools.ChangeAgentTools(t.dataDir, "testagent", testTools.Version)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(*gotTools, tc.Equals, *testTools)
 
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-ubuntu-amd64", "testagent"})
@@ -220,10 +219,10 @@ func (t *ToolsSuite) TestChangeAgentTools(c *tc.C) {
 		SHA256:  checksum2,
 	}
 	err = agenttools.UnpackTools(t.dataDir, tools2, bytes.NewReader(data2))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	gotTools, err = agenttools.ChangeAgentTools(t.dataDir, "testagent", tools2.Version)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(*gotTools, tc.Equals, *tools2)
 
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-ubuntu-amd64", "1.2.4-ubuntu-amd64", "testagent"})
@@ -246,13 +245,13 @@ func (t *ToolsSuite) assertToolsContents(c *tc.C, testTools *coretest.Tools, fil
 	dir := agenttools.SharedToolsDir(t.dataDir, testTools.Version)
 	assertDirNames(c, dir, wantNames)
 	expectedURLFileContents, err := json.Marshal(testTools)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertFileContents(c, dir, agenttools.ToolsFile, string(expectedURLFileContents), 0200)
 	for _, f := range files {
 		assertFileContents(c, dir, f.Header.Name, f.Contents, 0400)
 	}
 	gotTools, err := agenttools.ReadTools(t.dataDir, testTools.Version)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(*gotTools, tc.Equals, *testTools)
 }
 
@@ -261,10 +260,10 @@ func (t *ToolsSuite) assertToolsContents(c *tc.C, testTools *coretest.Tools, fil
 func assertFileContents(c *tc.C, dir, file, contents string, mode os.FileMode) {
 	file = filepath.Join(dir, file)
 	info, err := os.Stat(file)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info.Mode()&(os.ModeType|mode), tc.Equals, mode)
 	data, err := os.ReadFile(file)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(data), tc.Equals, contents)
 }
 
@@ -272,10 +271,10 @@ func assertFileContents(c *tc.C, dir, file, contents string, mode os.FileMode) {
 // holds the given file or directory names.
 func assertDirNames(c *tc.C, dir string, names []string) {
 	f, err := os.Open(dir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer f.Close()
 	dnames, err := f.Readdirnames(0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	sort.Strings(dnames)
 	sort.Strings(names)
 	c.Assert(dnames, tc.DeepEquals, names)

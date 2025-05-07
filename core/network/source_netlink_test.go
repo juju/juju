@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
@@ -23,7 +22,7 @@ var _ = tc.Suite(&sourceNetlinkSuite{})
 
 func (s *sourceNetlinkSuite) TestNetlinkAddr(c *tc.C) {
 	raw, err := netlink.ParseAddr("192.168.20.1/24")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	addr := &netlinkAddr{raw}
 
 	c.Check(addr.String(), tc.Equals, "192.168.20.1/24")
@@ -33,7 +32,7 @@ func (s *sourceNetlinkSuite) TestNetlinkAddr(c *tc.C) {
 	c.Check(addr.IPNet().String(), tc.Equals, "192.168.20.1/24")
 
 	raw, err = netlink.ParseAddr("fe80::5054:ff:fedd:eef0/64")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	addr = &netlinkAddr{raw}
 
 	c.Check(addr.String(), tc.Equals, "fe80::5054:ff:fedd:eef0/64")
@@ -42,10 +41,10 @@ func (s *sourceNetlinkSuite) TestNetlinkAddr(c *tc.C) {
 	c.Assert(addr.IPNet(), tc.NotNil)
 	c.Check(addr.IPNet().String(), tc.Equals, "fe80::5054:ff:fedd:eef0/64")
 
-	c.Check(addr.IsSecondary(), jc.IsFalse)
+	c.Check(addr.IsSecondary(), tc.IsFalse)
 
 	addr.addr.Flags = addr.addr.Flags | unix.IFA_F_SECONDARY
-	c.Check(addr.IsSecondary(), jc.IsTrue)
+	c.Check(addr.IsSecondary(), tc.IsTrue)
 }
 
 func (s *sourceNetlinkSuite) TestNetlinkAttrs(c *tc.C) {
@@ -54,7 +53,7 @@ func (s *sourceNetlinkSuite) TestNetlinkAttrs(c *tc.C) {
 
 	c.Check(nic.MTU(), tc.Equals, 1500)
 	c.Check(nic.Name(), tc.Equals, "eno3")
-	c.Check(nic.IsUp(), jc.IsTrue)
+	c.Check(nic.IsUp(), tc.IsTrue)
 	c.Check(nic.Index(), tc.Equals, 3)
 	c.Check(nic.HardwareAddr(), tc.DeepEquals, net.HardwareAddr{})
 }
@@ -85,10 +84,10 @@ func (s *sourceNetlinkSuite) TestNetlinkNICType(c *tc.C) {
 
 func (s *sourceNetlinkSuite) TestNetlinkNICAddrs(c *tc.C) {
 	raw1, err := netlink.ParseAddr("192.168.20.1/24")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	raw2, err := netlink.ParseAddr("fe80::5054:ff:fedd:eef0/64")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	getAddrs := func(link netlink.Link) ([]netlink.Addr, error) {
 		// Check that we called correctly passing the inner nic.
@@ -102,7 +101,7 @@ func (s *sourceNetlinkSuite) TestNetlinkNICAddrs(c *tc.C) {
 	}
 
 	addrs, err := nic.Addresses()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(addrs, tc.HasLen, 2)
 	c.Assert(addrs[0].String(), tc.Equals, "192.168.20.1/24")
@@ -118,7 +117,7 @@ func (s *sourceNetlinkSuite) TestNetlinkSourceInterfaces(c *tc.C) {
 	}
 
 	nics, err := source.Interfaces()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(nics, tc.HasLen, 2)
 	c.Check(nics[0].Type(), tc.Equals, BridgeDevice)

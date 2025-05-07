@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/resource"
 	corecharm "github.com/juju/juju/core/charm"
@@ -43,7 +42,7 @@ func (s *CharmResourcesSuite) TestInfo(c *tc.C) {
 	c.Check(info.Doc, tc.Not(tc.Equals), "")
 	c.Check(info.Examples, tc.Not(tc.Equals), "")
 	c.Check(info.FlagKnownAs, tc.Not(tc.Equals), "")
-	c.Check(len(info.ShowSuperFlags), jc.GreaterThan, 2)
+	c.Check(len(info.ShowSuperFlags), tc.GreaterThan, 2)
 }
 
 func (s *CharmResourcesSuite) TestOkay(c *tc.C) {
@@ -89,9 +88,9 @@ func (s *CharmResourcesSuite) TestNoResources(c *tc.C) {
 
 func (s *CharmResourcesSuite) TestOutputFormats(c *tc.C) {
 	fp1, err := charmresource.GenerateFingerprint(strings.NewReader("abc"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	fp2, err := charmresource.GenerateFingerprint(strings.NewReader("xyz"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	resources := []charmresource.Resource{
 		charmRes(c, "website", ".tgz", ".tgz of your website", string(fp1.Bytes())),
 		charmRes(c, "music", ".mp3", "mp3 of your backing vocals", string(fp2.Bytes())),
@@ -163,9 +162,9 @@ website   1
 
 func (s *CharmResourcesSuite) TestChannelFlag(c *tc.C) {
 	fp1, err := charmresource.GenerateFingerprint(strings.NewReader("abc"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	fp2, err := charmresource.GenerateFingerprint(strings.NewReader("xyz"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	resources := []charmresource.Resource{
 		charmRes(c, "website", ".tgz", ".tgz of your website", string(fp1.Bytes())),
 		charmRes(c, "music", ".mp3", "mp3 of your backing vocals", string(fp2.Bytes())),

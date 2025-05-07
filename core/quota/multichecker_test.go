@@ -5,7 +5,6 @@ package quota_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/quota"
@@ -27,7 +26,7 @@ func (s *MultiCheckerSuite) TestSuccessfulCheck(c *tc.C) {
 	})
 
 	err := chk.Outcome()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *MultiCheckerSuite) TestExceedMaxSize(c *tc.C) {
@@ -42,5 +41,5 @@ func (s *MultiCheckerSuite) TestExceedMaxSize(c *tc.C) {
 	})
 
 	err := chk.Outcome()
-	c.Assert(err, jc.ErrorIs, coreerrors.QuotaLimitExceeded)
+	c.Assert(err, tc.ErrorIs, coreerrors.QuotaLimitExceeded)
 }

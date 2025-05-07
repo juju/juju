@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 
 	corebase "github.com/juju/juju/core/base"
@@ -40,9 +39,9 @@ func (s *ValidateSuite) makeLocalMetadata(c *tc.C, ss *simplestreams.Simplestrea
 		Endpoint: endpoint,
 	}
 	targetStorage, err := filestorage.NewFileStorageWriter(s.metadataDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = imagemetadata.MergeAndWriteMetadata(context.Background(), ss, base, metadata, &cloudSpec, targetStorage)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ValidateSuite) SetUpTest(c *tc.C) {
@@ -64,7 +63,7 @@ func (s *ValidateSuite) assertMatch(c *tc.C, ss *simplestreams.Simplestreams, st
 			sstesting.VerifyDefaultCloudDataSource("test", utils.MakeFileURL(metadataPath))},
 	}
 	imageIds, resolveInfo, err := imagemetadata.ValidateImageMetadata(context.Background(), ss, params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(imageIds, tc.DeepEquals, []string{"1234"})
 	c.Check(resolveInfo, tc.DeepEquals, &simplestreams.ResolveInfo{
 		Source:    "test",

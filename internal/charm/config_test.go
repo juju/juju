@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/internal/charm"
@@ -58,7 +57,7 @@ options:
 }
 
 func (s *ConfigSuite) TestReadSample(c *tc.C) {
-	c.Assert(s.config.Options, jc.DeepEquals, map[string]charm.Option{
+	c.Assert(s.config.Options, tc.DeepEquals, map[string]charm.Option{
 		"title": {
 			Default:     "My Title",
 			Description: "A descriptive title used for the application.",
@@ -98,7 +97,7 @@ func (s *ConfigSuite) TestReadSample(c *tc.C) {
 }
 
 func (s *ConfigSuite) TestDefaultSettings(c *tc.C) {
-	c.Assert(s.config.DefaultSettings(), jc.DeepEquals, charm.Settings{
+	c.Assert(s.config.DefaultSettings(), tc.DeepEquals, charm.Settings{
 		"title":              "My Title",
 		"subtitle":           "",
 		"username":           "admin001",
@@ -120,7 +119,7 @@ func (s *ConfigSuite) TestFilterSettings(c *tc.C) {
 		"agility-ratio":      true,
 		"reticulate-splines": "hullo",
 	})
-	c.Assert(settings, jc.DeepEquals, charm.Settings{
+	c.Assert(settings, tc.DeepEquals, charm.Settings{
 		"title":    "something valid",
 		"username": nil,
 		"outlook":  "",
@@ -207,9 +206,9 @@ func (s *ConfigSuite) TestValidateSettings(c *tc.C) {
 		} else {
 			c.Check(err, tc.IsNil)
 			if test.expect == nil {
-				c.Check(result, jc.DeepEquals, test.input)
+				c.Check(result, tc.DeepEquals, test.input)
 			} else {
-				c.Check(result, jc.DeepEquals, test.expect)
+				c.Check(result, tc.DeepEquals, test.expect)
 			}
 		}
 	}
@@ -351,7 +350,7 @@ func (s *ConfigSuite) TestParseSettingsYAML(c *tc.C) {
 			c.Check(err, tc.ErrorMatches, test.err)
 		} else {
 			c.Check(err, tc.IsNil)
-			c.Check(result, jc.DeepEquals, test.expect)
+			c.Check(result, tc.DeepEquals, test.expect)
 		}
 	}
 }
@@ -405,7 +404,7 @@ func (s *ConfigSuite) TestParseSettingsStrings(c *tc.C) {
 			c.Check(err, tc.ErrorMatches, test.err)
 		} else {
 			c.Check(err, tc.IsNil)
-			c.Check(result, jc.DeepEquals, test.expect)
+			c.Check(result, tc.DeepEquals, test.expect)
 		}
 	}
 }
@@ -485,7 +484,7 @@ options:
 
 	newCfg, err := charm.ReadConfig(bytes.NewReader(newYAML))
 	c.Assert(err, tc.IsNil)
-	c.Assert(newCfg, jc.DeepEquals, cfg)
+	c.Assert(newCfg, tc.DeepEquals, cfg)
 }
 
 func (s *ConfigSuite) TestErrorOnInvalidOptionTypes(c *tc.C) {

@@ -6,7 +6,6 @@ package charm
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/base"
@@ -40,8 +39,8 @@ func (s *computedBaseSuite) TestComputedBase(c *tc.C) {
 		}},
 	}).AnyTimes()
 	bases, err := ComputedBases(cm)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bases, jc.DeepEquals, []base.Base{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(bases, tc.DeepEquals, []base.Base{
 		base.MustParseBaseFromString("ubuntu@18.04"),
 		base.MustParseBaseFromString("ubuntu@20.04"),
 	})
@@ -58,7 +57,7 @@ func (s *computedBaseSuite) TestComputedBaseNilManifest(c *tc.C) {
 	}).AnyTimes()
 	cm.EXPECT().Manifest().Return(nil).AnyTimes()
 	_, err := ComputedBases(cm)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *computedBaseSuite) TestComputedBaseError(c *tc.C) {
@@ -82,7 +81,7 @@ func (s *computedBaseSuite) TestComputedBaseError(c *tc.C) {
 		Description: "c",
 	}).AnyTimes()
 	_, err := ComputedBases(cm)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *computedBaseSuite) TestBaseToUse(c *tc.C) {
@@ -115,8 +114,8 @@ func (s *computedBaseSuite) TestBaseToUse(c *tc.C) {
 			c.Check(err, tc.ErrorMatches, test.err)
 			continue
 		}
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(base.IsCompatible(test.baseToUse), jc.IsTrue)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(base.IsCompatible(test.baseToUse), tc.IsTrue)
 	}
 }
 
@@ -146,8 +145,8 @@ func (s *computedBaseSuite) TestBaseIsCompatibleWithCharm(c *tc.C) {
 	focal := base.MustParseBaseFromString("ubuntu@20.04")
 	jammy := base.MustParseBaseFromString("ubuntu@22.04")
 
-	c.Assert(BaseIsCompatibleWithCharm(focal, cm), jc.ErrorIsNil)
-	c.Assert(BaseIsCompatibleWithCharm(jammy, cm), jc.Satisfies, IsUnsupportedBaseError)
+	c.Assert(BaseIsCompatibleWithCharm(focal, cm), tc.ErrorIsNil)
+	c.Assert(BaseIsCompatibleWithCharm(jammy, cm), tc.Satisfies, IsUnsupportedBaseError)
 }
 
 func (s *computedBaseSuite) TestOSIsCompatibleWithCharm(c *tc.C) {
@@ -173,6 +172,6 @@ func (s *computedBaseSuite) TestOSIsCompatibleWithCharm(c *tc.C) {
 		Name: "my-charm",
 	}).AnyTimes()
 
-	c.Assert(OSIsCompatibleWithCharm("ubuntu", cm), jc.ErrorIsNil)
-	c.Assert(OSIsCompatibleWithCharm("centos", cm), jc.ErrorIs, coreerrors.NotSupported)
+	c.Assert(OSIsCompatibleWithCharm("ubuntu", cm), tc.ErrorIsNil)
+	c.Assert(OSIsCompatibleWithCharm("centos", cm), tc.ErrorIs, coreerrors.NotSupported)
 }

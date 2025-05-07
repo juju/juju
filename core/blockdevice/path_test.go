@@ -5,7 +5,6 @@ package blockdevice_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/blockdevice"
 )
@@ -49,6 +48,6 @@ func (s *BlockDevicePathSuite) TestBlockDevicePathError(c *tc.C) {
 
 func testBlockDevicePath(c *tc.C, dev blockdevice.BlockDevice, expect string) {
 	path, err := blockdevice.BlockDevicePath(dev)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(path, jc.SamePath, expect)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(path, tc.SamePath, expect)
 }

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
 	envtesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/exec"
 	"go.uber.org/mock/gomock"
 
@@ -46,7 +45,7 @@ func (s *RunCommandSuite) TestRunCommandsEnvStdOutAndErrAndRC(c *tc.C) {
 	s.setupFactory(c, ctrl)
 
 	ctx, err := s.contextFactory.HookContext(stdcontext.Background(), hook.Info{Kind: hooks.ConfigChanged})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	paths := runnertesting.NewRealPaths(c)
 	r := runner.NewRunner(ctx, paths)
 
@@ -60,7 +59,7 @@ echo this is standard err >&2
 exit 42
 `
 	result, err := r.RunCommands(stdcontext.Background(), commands)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(result.Code, tc.Equals, 42)
 	c.Assert(strings.ReplaceAll(string(result.Stdout), "\n", ""), tc.Equals, paths.GetCharmDir())
@@ -159,7 +158,7 @@ func (r *RestrictedWriter) Write(entry loggo.Entry) {
 
 func (s *RunHookSuite) TestRunHook(c *tc.C) {
 	writer := &RestrictedWriter{Module: "unit.u/0.something-happened"}
-	c.Assert(loggo.RegisterWriter("test", writer), jc.ErrorIsNil)
+	c.Assert(loggo.RegisterWriter("test", writer), tc.ErrorIsNil)
 
 	for i, t := range runHookTests {
 		ctrl := gomock.NewController(c)
@@ -168,7 +167,7 @@ func (s *RunHookSuite) TestRunHook(c *tc.C) {
 		writer.Buffer.Reset()
 		c.Logf("\ntest %d of %d: %s; perm %v", i, len(runHookTests)+1, t.summary, t.spec.perm)
 		ctx, err := s.contextFactory.HookContext(stdcontext.Background(), hook.Info{Kind: hooks.ConfigChanged})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		paths := runnertesting.NewRealPaths(c)
 		rnr := runner.NewRunner(ctx, paths)
@@ -186,9 +185,9 @@ func (s *RunHookSuite) TestRunHook(c *tc.C) {
 		t0 := time.Now()
 		hookType, err := rnr.RunHook(stdcontext.Background(), "something-happened")
 		if t.err == "" && hookExists {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		} else if !hookExists {
-			c.Assert(charmrunner.IsMissingHookError(err), jc.IsTrue)
+			c.Assert(charmrunner.IsMissingHookError(err), tc.IsTrue)
 		} else {
 			c.Assert(err, tc.ErrorMatches, t.err)
 		}
@@ -198,18 +197,18 @@ func (s *RunHookSuite) TestRunHook(c *tc.C) {
 		c.Assert(hookType, tc.Equals, t.hookType)
 		if t.spec.stdout != "" {
 			if len(t.spec.stdout) < lineBufferSize {
-				c.Check(writer.Buffer.String(), jc.Contains,
+				c.Check(writer.Buffer.String(), tc.Contains,
 					fmt.Sprintf("DEBUG unit.u/0.something-happened %s\n", t.spec.stdout))
 			} else {
 				// Lines longer than lineBufferSize get split into multiple log messages
-				c.Check(writer.Buffer.String(), jc.Contains,
+				c.Check(writer.Buffer.String(), tc.Contains,
 					fmt.Sprintf("DEBUG unit.u/0.something-happened %s\n", t.spec.stdout[:lineBufferSize]))
-				c.Check(writer.Buffer.String(), jc.Contains,
+				c.Check(writer.Buffer.String(), tc.Contains,
 					fmt.Sprintf("DEBUG unit.u/0.something-happened %s\n", t.spec.stdout[lineBufferSize:]))
 			}
 		}
 		if t.spec.stderr != "" {
-			c.Check(writer.Buffer.String(), jc.Contains,
+			c.Check(writer.Buffer.String(), tc.Contains,
 				fmt.Sprintf("WARNING unit.u/0.something-happened %s\n", t.spec.stderr))
 		}
 		ctrl.Finish()
@@ -218,7 +217,7 @@ func (s *RunHookSuite) TestRunHook(c *tc.C) {
 
 func (s *RunHookSuite) TestRunHookDispatchingHookHandler(c *tc.C) {
 	ctx, err := s.contextFactory.HookContext(stdcontext.Background(), hook.Info{Kind: hooks.ConfigChanged})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	paths := runnertesting.NewRealPaths(c)
 	rnr := runner.NewRunner(ctx, paths)
@@ -230,7 +229,7 @@ func (s *RunHookSuite) TestRunHookDispatchingHookHandler(c *tc.C) {
 	makeCharm(c, spec, paths.GetCharmDir())
 
 	hookType, err := rnr.RunHook(stdcontext.Background(), "something-happened")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(hookType, tc.Equals, runner.DispatchingHookHandler)
 }
 
@@ -329,7 +328,7 @@ func (s *RunMockContextSuite) SetUpTest(c *tc.C) {
 func (s *RunMockContextSuite) assertRecordedPid(c *tc.C, expectPid int) {
 	path := filepath.Join(s.paths.GetCharmDir(), "pid")
 	content, err := os.ReadFile(path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectContent := fmt.Sprintf("%d", expectPid)
 	c.Assert(strings.TrimRight(string(content), "\r\n"), tc.Equals, expectContent)
 }
@@ -371,7 +370,7 @@ func (s *RunMockContextSuite) TestBadContextId(c *tc.C) {
 		socket := s.paths.GetJujucServerSocket()
 
 		client, err := sockets.Dial(socket)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		defer client.Close()
 
 		req := jujuc.Request{
@@ -388,7 +387,7 @@ func (s *RunMockContextSuite) TestBadContextId(c *tc.C) {
 		}()
 	}()
 	_, err := runner.NewRunner(ctx, s.paths, runner.WithExecutor(execFunc)).RunAction(stdcontext.Background(), "juju-run")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case err := <-result:
@@ -449,7 +448,7 @@ func (s *RunHookSuite) TestRunActionDispatchingHookHandler(c *tc.C) {
 	makeCharm(c, spec, paths.GetCharmDir())
 
 	hookType, err := rnr.RunAction(stdcontext.Background(), "something-happened")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(hookType, tc.Equals, runner.DispatchingHookHandler)
 }
 
@@ -473,7 +472,7 @@ func (s *RunMockContextSuite) TestRunActionFlushSuccess(c *tc.C) {
 	c.Assert(ctx.flushBadge, tc.Equals, "something-happened")
 	c.Assert(ctx.flushFailure, tc.IsNil)
 	s.assertRecordedPid(c, ctx.expectPid)
-	c.Assert(ctx.actionResults, jc.DeepEquals, map[string]interface{}{
+	c.Assert(ctx.actionResults, tc.DeepEquals, map[string]interface{}{
 		"return-code": 0, "stderr": "world\n", "stdout": "hello\n",
 	})
 }
@@ -521,7 +520,7 @@ func (s *RunMockContextSuite) TestRunActionSuccessful(c *tc.C) {
 		actionResults: map[string]interface{}{},
 	}
 	_, err := runner.NewRunner(ctx, s.paths).RunAction(stdcontext.Background(), "juju-exec")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ctx.flushBadge, tc.Equals, "juju-exec")
 	c.Assert(ctx.flushFailure, tc.IsNil)
 	c.Assert(ctx.actionResults["return-code"], tc.Equals, 0)
@@ -542,7 +541,7 @@ func (s *RunMockContextSuite) TestRunActionError(c *tc.C) {
 		actionResults: map[string]interface{}{},
 	}
 	_, err := runner.NewRunner(ctx, s.paths).RunAction(stdcontext.Background(), "juju-exec")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ctx.flushBadge, tc.Equals, "juju-exec")
 	c.Assert(ctx.flushFailure, tc.IsNil)
 	c.Assert(ctx.actionResults["return-code"], tc.Equals, 3)
@@ -564,7 +563,7 @@ func (s *RunMockContextSuite) TestRunActionCancelled(c *tc.C) {
 		actionResults: map[string]interface{}{},
 	}
 	_, err := runner.NewRunner(ctx, s.paths).RunAction(stdcontext.Background(), "juju-exec")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ctx.flushBadge, tc.Equals, "juju-exec")
 	c.Assert(ctx.flushFailure, tc.Equals, exec.ErrCancelled)
 	c.Assert(ctx.actionResults["return-code"], tc.Equals, 0)

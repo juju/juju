@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/worker/uniter/runner/context/mocks"
@@ -38,8 +37,8 @@ func (s *OpenedResourceSuite) TestOpenResource(c *tc.C) {
 	client.EXPECT().GetResource(gomock.Any(), "spam").Return(info, reader, nil)
 
 	opened, err := resources.OpenResource(context.Background(), "spam", client)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(opened, jc.DeepEquals, &resources.OpenedResource{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(opened, tc.DeepEquals, &resources.OpenedResource{
 		Resource:   info,
 		ReadCloser: reader,
 	})
@@ -53,7 +52,7 @@ func (s *OpenedResourceSuite) TestContent(c *tc.C) {
 	}
 
 	content := opened.Content()
-	c.Assert(content, jc.DeepEquals, resources.Content{
+	c.Assert(content, tc.DeepEquals, resources.Content{
 		Data:        reader,
 		Size:        info.Size,
 		Fingerprint: info.Fingerprint,
@@ -70,11 +69,11 @@ func (s *OpenedResourceSuite) TestDockerImage(c *tc.C) {
 	client.EXPECT().GetResource(gomock.Any(), "spam").Return(info, reader, nil)
 
 	opened, err := resources.OpenResource(context.Background(), "spam", client)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(opened.Path, tc.Equals, "content.yaml")
 	content := opened.Content()
 	data, err := io.ReadAll(content.Data)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(data), tc.Equals, `
 registrypath: image-name
 username: docker-registry

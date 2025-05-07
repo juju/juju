@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	apimocks "github.com/juju/juju/api/base/mocks"
@@ -40,7 +39,7 @@ func (s *apiaddresserSuite) TestAPIAddresses(c *tc.C) {
 
 	client := common.NewAPIAddresser(facade)
 	addresses, err := client.APIAddresses(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(addresses, tc.DeepEquals, []string{"0.1.2.3:1234"})
 }
 
@@ -83,7 +82,7 @@ func (s *apiaddresserSuite) TestAPIHostPorts(c *tc.C) {
 	}
 
 	serverAddrs, err := client.APIHostPorts(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(serverAddrs, tc.DeepEquals, expectServerAddrs)
 }
 
@@ -102,7 +101,7 @@ func (s *apiaddresserSuite) TestWatchAPIHostPorts(c *tc.C) {
 
 	client := common.NewAPIAddresser(facade)
 	w, err := client.WatchAPIHostPorts(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// watch for the changes
 	for i := 0; i < 2; i++ {

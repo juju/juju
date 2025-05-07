@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -65,7 +64,7 @@ func (s *SwitchSimpleSuite) TestNoArgsCurrentController(c *tc.C) {
 	s.addController(c, "a-controller")
 	s.store.CurrentControllerName = "a-controller"
 	ctx, err := s.run(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "a-controller\n")
 }
 
@@ -84,14 +83,14 @@ func (s *SwitchSimpleSuite) TestNoArgsCurrentModel(c *tc.C) {
 		CurrentModel: "admin/mymodel",
 	}
 	ctx, err := s.run(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "a-controller:admin/mymodel\n")
 }
 
 func (s *SwitchSimpleSuite) TestSwitchWritesCurrentController(c *tc.C) {
 	s.addController(c, "a-controller")
 	context, err := s.run(c, "a-controller")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, " -> a-controller (controller)\n")
 	s.stubStore.CheckCalls(c, []testing.StubCall{
 		{FuncName: "CurrentController", Args: nil},
@@ -106,7 +105,7 @@ func (s *SwitchSimpleSuite) TestSwitchLocalControllerWithCurrent(c *tc.C) {
 	s.addController(c, "old")
 	s.addController(c, "new")
 	context, err := s.run(c, "new")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "old (controller) -> new (controller)\n")
 }
 
@@ -115,7 +114,7 @@ func (s *SwitchSimpleSuite) TestSwitchLocalControllerWithCurrentExplicit(c *tc.C
 	s.addController(c, "old")
 	s.addController(c, "new")
 	context, err := s.run(c, "new:")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "old (controller) -> new (controller)\n")
 }
 
@@ -123,7 +122,7 @@ func (s *SwitchSimpleSuite) TestSwitchSameController(c *tc.C) {
 	s.store.CurrentControllerName = "same"
 	s.addController(c, "same")
 	context, err := s.run(c, "same")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "same (controller) (no change)\n")
 	s.stubStore.CheckCalls(c, []testing.StubCall{
 		{FuncName: "CurrentController", Args: nil},
@@ -142,7 +141,7 @@ func (s *SwitchSimpleSuite) TestSwitchControllerToModel(c *tc.C) {
 		Models: map[string]jujuclient.ModelDetails{"admin/mymodel": {}},
 	}
 	context, err := s.run(c, "mymodel")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "ctrl (controller) -> ctrl:admin/mymodel\n")
 	s.stubStore.CheckCalls(c, []testing.StubCall{
 		{"CurrentController", nil},
@@ -164,7 +163,7 @@ func (s *SwitchSimpleSuite) TestSwitchControllerToModelDifferentController(c *tc
 		Models: map[string]jujuclient.ModelDetails{"admin/mymodel": {}},
 	}
 	context, err := s.run(c, "new:mymodel")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "old (controller) -> new:admin/mymodel\n")
 	s.stubStore.CheckCalls(c, []testing.StubCall{
 		{"CurrentController", nil},
@@ -188,9 +187,9 @@ func (s *SwitchSimpleSuite) TestSwitchControllerSameNameAsModel(c *tc.C) {
 		Models: map[string]jujuclient.ModelDetails{"admin/somemodel": {}},
 	}
 	_, err := s.run(c, "new:mymodel")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	context, err := s.run(c, "old")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "new:admin/mymodel -> old (controller)\n")
 }
 
@@ -205,9 +204,9 @@ func (s *SwitchSimpleSuite) TestSwitchControllerSameNameAsModelExplicitModel(c *
 		Models: map[string]jujuclient.ModelDetails{"admin/somemodel": {}},
 	}
 	_, err := s.run(c, "new:mymodel")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	context, err := s.run(c, ":old")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "new:admin/mymodel -> new:admin/old\n")
 }
 
@@ -219,7 +218,7 @@ func (s *SwitchSimpleSuite) TestSwitchLocalControllerToModelDifferentController(
 		Models: map[string]jujuclient.ModelDetails{"admin/mymodel": {}},
 	}
 	context, err := s.run(c, "new:mymodel")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "old (controller) -> new:admin/mymodel\n")
 	s.stubStore.CheckCalls(c, []testing.StubCall{
 		{"CurrentController", nil},
@@ -241,7 +240,7 @@ func (s *SwitchSimpleSuite) TestSwitchControllerToDifferentControllerCurrentMode
 		CurrentModel: "admin/mymodel",
 	}
 	context, err := s.run(c, "new:mymodel")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "old (controller) -> new:admin/mymodel\n")
 	s.stubStore.CheckCalls(c, []testing.StubCall{
 		{"CurrentController", nil},
@@ -264,7 +263,7 @@ func (s *SwitchSimpleSuite) TestSwitchToModelDifferentOwner(c *tc.C) {
 		CurrentModel: "admin/mymodel",
 	}
 	context, err := s.run(c, "bianca/mymodel")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "same:admin/mymodel -> same:bianca/mymodel\n")
 	c.Assert(s.store.Models["same"].CurrentModel, tc.Equals, "bianca/mymodel")
 }
@@ -287,7 +286,7 @@ func (s *SwitchSimpleSuite) TestSwitchUnknownCurrentControllerRefreshModels(c *t
 		}
 	}
 	ctx, err := s.run(c, "unknown")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "ctrl (controller) -> ctrl:admin/unknown\n")
 	s.CheckCallNames(c, "RefreshModels")
 }
@@ -311,14 +310,14 @@ func (s *SwitchSimpleSuite) TestSwitchUnknownCurrentControllerRefreshModelsFails
 
 func (s *SwitchSimpleSuite) TestSettingWhenModelEnvVarSet(c *tc.C) {
 	err := os.Setenv("JUJU_MODEL", "using-model")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = s.run(c, "erewhemos-2")
 	c.Assert(err, tc.ErrorMatches, `cannot switch when JUJU_MODEL is overriding the model \(set to "using-model"\)`)
 }
 
 func (s *SwitchSimpleSuite) TestSettingWhenControllerEnvVarSet(c *tc.C) {
 	err := os.Setenv("JUJU_CONTROLLER", "using-controller")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = s.run(c, "erewhemos-2")
 	c.Assert(err, tc.ErrorMatches, `cannot switch when JUJU_CONTROLLER is overriding the controller \(set to "using-controller"\)`)
 }
@@ -345,7 +344,7 @@ func (s *SwitchSimpleSuite) TestSwitchCurrentModelInStore(c *tc.C) {
 		CurrentModel: "admin/mymodel",
 	}
 	context, err := s.run(c, "mymodel")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "same:admin/mymodel (no change)\n")
 	s.stubStore.CheckCalls(c, []testing.StubCall{
 		{"CurrentController", nil},
@@ -387,7 +386,7 @@ func (s *SwitchSimpleSuite) TestSwitchPreviousController(c *tc.C) {
 	// juju switch -c - # Should switch to previous controller
 	context, err := s.run(c, "-c", "-")
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "currentCtrl (controller) -> previousCtrl (controller)\n")
 }
 
@@ -425,7 +424,7 @@ func (s *SwitchSimpleSuite) TestSwitchPreviousModel(c *tc.C) {
 	// juju switch --model - # Should switch to previous model in current controller
 	context, err := s.run(c, "--model", "-")
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "ctrl:admin/current-model -> ctrl:admin/previous-model\n")
 	c.Assert(s.store.Models["ctrl"].CurrentModel, tc.Equals, "admin/previous-model")
 	c.Assert(s.store.Models["ctrl"].PreviousModel, tc.Equals, "admin/current-model")
@@ -482,7 +481,7 @@ func (s *SwitchSimpleSuite) TestSwitchPreviousAcrossControllers(c *tc.C) {
 	// juju switch -
 	context, err := s.run(c, "-")
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "current-ctrl:admin/current-model -> previous-ctrl:admin/current-model\n")
 	c.Assert(s.store.Models["current-ctrl"].CurrentModel, tc.Equals, "admin/current-model")
 	c.Assert(s.store.Models["current-ctrl"].PreviousModel, tc.Equals, "admin/previous-model")
@@ -506,7 +505,7 @@ func (s *SwitchSimpleSuite) TestSwitchPreviousAcrossModels(c *tc.C) {
 	// juju switch -
 	context, err := s.run(c, "-")
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "current-ctrl:admin/current-model -> current-ctrl:admin/previous-model\n")
 	c.Assert(s.store.Models["current-ctrl"].CurrentModel, tc.Equals, "admin/previous-model")
 	c.Assert(s.store.Models["current-ctrl"].PreviousModel, tc.Equals, "admin/current-model")
@@ -527,7 +526,7 @@ func (s *SwitchSimpleSuite) TestSwitchPreviousAcrossModels2(c *tc.C) {
 	// juju switch -
 	context, err := s.run(c, "-")
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "current-ctrl:admin/current-model -> current-ctrl:admin/previous-model\n")
 	c.Assert(s.store.Models["current-ctrl"].CurrentModel, tc.Equals, "admin/previous-model")
 	c.Assert(s.store.Models["current-ctrl"].PreviousModel, tc.Equals, "admin/current-model")
@@ -541,9 +540,9 @@ func (s *SwitchSimpleSuite) TestSwitchPreviousControllerTwice(c *tc.C) {
 
 	// juju switch --controller - && juju switch -c - # Should return to current controller
 	_, err := s.run(c, "--controller", "-")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	context, err := s.run(c, "-c", "-")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "previousCtrl (controller) -> currentCtrl (controller)\n")
 }
@@ -560,9 +559,9 @@ func (s *SwitchSimpleSuite) TestSwitchPreviousModelTwice(c *tc.C) {
 
 	// juju switch --model - && juju switch -m -  # Should switch to current model in current controller
 	_, err := s.run(c, "--model", "-")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	context, err := s.run(c, "-m", "-")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "ctrl:admin/previous-model -> ctrl:admin/current-model\n")
 	c.Assert(s.store.Models["ctrl"].CurrentModel, tc.Equals, "admin/current-model")
@@ -583,9 +582,9 @@ func (s *SwitchSimpleSuite) TestSwitchPreviousModelThenController(c *tc.C) {
 
 	// juju switch --model - && juju switch -c -  # Should switch to previous model in current controller, then go to the previous controller
 	_, err := s.run(c, "--model", "-")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	context, err := s.run(c, "-c", "-")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "ctrl-1:admin/previous-model -> ctrl-2 (controller)\n")
 	c.Assert(s.store.Models["ctrl-1"].CurrentModel, tc.Equals, "admin/previous-model")

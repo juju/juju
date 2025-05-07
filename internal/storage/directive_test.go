@@ -5,7 +5,6 @@ package storage_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testing"
@@ -98,7 +97,7 @@ func (s *DirectiveSuite) TestParseConstraintsUnknown(c *tc.C) {
 
 func (*DirectiveSuite) testParse(c *tc.C, s string, expect storage.Directive) {
 	cons, err := storage.ParseDirective(s)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(cons, tc.DeepEquals, expect)
 }
 
@@ -108,21 +107,21 @@ func (*DirectiveSuite) testParseError(c *tc.C, s, expectErr string) {
 }
 
 func (s *DirectiveSuite) TestValidPoolName(c *tc.C) {
-	c.Assert(storage.IsValidPoolName("pool"), jc.IsTrue)
-	c.Assert(storage.IsValidPoolName("p-ool"), jc.IsTrue)
-	c.Assert(storage.IsValidPoolName("p-00l"), jc.IsTrue)
-	c.Assert(storage.IsValidPoolName("p?00l"), jc.IsTrue)
-	c.Assert(storage.IsValidPoolName("p-?00l"), jc.IsTrue)
-	c.Assert(storage.IsValidPoolName("p"), jc.IsTrue)
-	c.Assert(storage.IsValidPoolName("P"), jc.IsTrue)
-	c.Assert(storage.IsValidPoolName("p?0?l"), jc.IsTrue)
+	c.Assert(storage.IsValidPoolName("pool"), tc.IsTrue)
+	c.Assert(storage.IsValidPoolName("p-ool"), tc.IsTrue)
+	c.Assert(storage.IsValidPoolName("p-00l"), tc.IsTrue)
+	c.Assert(storage.IsValidPoolName("p?00l"), tc.IsTrue)
+	c.Assert(storage.IsValidPoolName("p-?00l"), tc.IsTrue)
+	c.Assert(storage.IsValidPoolName("p"), tc.IsTrue)
+	c.Assert(storage.IsValidPoolName("P"), tc.IsTrue)
+	c.Assert(storage.IsValidPoolName("p?0?l"), tc.IsTrue)
 }
 
 func (s *DirectiveSuite) TestInvalidPoolName(c *tc.C) {
-	c.Assert(storage.IsValidPoolName("7ool"), jc.IsFalse)
-	c.Assert(storage.IsValidPoolName("/ool"), jc.IsFalse)
-	c.Assert(storage.IsValidPoolName("-00l"), jc.IsFalse)
-	c.Assert(storage.IsValidPoolName("*00l"), jc.IsFalse)
+	c.Assert(storage.IsValidPoolName("7ool"), tc.IsFalse)
+	c.Assert(storage.IsValidPoolName("/ool"), tc.IsFalse)
+	c.Assert(storage.IsValidPoolName("-00l"), tc.IsFalse)
+	c.Assert(storage.IsValidPoolName("*00l"), tc.IsFalse)
 }
 
 func (s *DirectiveSuite) TestParseStorageDirectives(c *tc.C) {
@@ -174,7 +173,7 @@ func (*DirectiveSuite) testParseStorageDirectives(c *tc.C,
 	expect map[string]storage.Directive,
 ) {
 	cons, err := storage.ParseDirectivesMap(s, mustHave)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(len(cons), tc.Equals, len(expect))
 	for k, v := range expect {
 		c.Check(cons[k], tc.DeepEquals, v)
@@ -209,7 +208,7 @@ func (s *DirectiveSuite) TestToString(c *tc.C) {
 			Size:  t.size,
 			Count: t.count,
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(str, tc.Equals, t.expected)
 
 		// Test roundtrip, count defaults to 1.

@@ -13,7 +13,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -169,7 +168,7 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *tc.C) {
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
 
 	machines, err := s.api.AddMachines(context.Background(), params.AddMachines{MachineParams: apiParams})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(machines.Machines, tc.HasLen, 2)
 }
 
@@ -184,7 +183,7 @@ func (s *AddMachineManagerSuite) TestAddMachinesStateError(c *tc.C) {
 			Base: &params.Base{Name: "ubuntu", Channel: "22.04"},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.AddMachinesResults{
 		Machines: []params.AddMachinesResult{{
 			Error: &params.Error{Message: "boom", Code: ""},
@@ -351,8 +350,8 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedAllStorageRetrieval
 		MachineTags: []string{"machine-0"},
 		MaxWait:     &noWait,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{{
 			Error: apiservererrors.ServerError(errors.New("getting storage for unit foo/0: kaboom\ngetting storage for unit foo/1: kaboom\ngetting storage for unit foo/2: kaboom")),
 		}},
@@ -375,8 +374,8 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeUnitStorageRetr
 		MachineTags: []string{"machine-0"},
 		MaxWait:     &noWait,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{{
 			Error: apiservererrors.ServerError(errors.New("getting storage for unit foo/1: kaboom")),
 		}},
@@ -401,9 +400,9 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrieva
 		MachineTags: []string{"machine-0", "machine-1"},
 		MaxWait:     &noWait,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{
 			{Error: apiservererrors.ServerError(errors.New("getting storage for unit foo/1: kaboom"))},
 			{Info: &params.DestroyMachineInfo{
@@ -434,9 +433,9 @@ func (s *DestroyMachineManagerSuite) TestForceDestroyMachineFailedSomeStorageRet
 		MachineTags: []string{"machine-0", "machine-1"},
 		MaxWait:     &noWait,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{
 			{Info: &params.DestroyMachineInfo{
 				MachineId: "0",
@@ -471,9 +470,9 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineDryRun(c *tc.C) {
 		MachineTags: []string{"machine-0"},
 		DryRun:      true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{{
 			Info: &params.DestroyMachineInfo{
 				MachineId: "0",
@@ -506,8 +505,8 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersDryRun(c *t
 		MachineTags: []string{"machine-0"},
 		DryRun:      true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{{
 			Info: &params.DestroyMachineInfo{
 				MachineId: "0",
@@ -560,8 +559,8 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNoWait(c *tc.C)
 		MachineTags: []string{"machine-0"},
 		MaxWait:     &noWait,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{{
 			Info: &params.DestroyMachineInfo{
 				MachineId: "0",
@@ -597,8 +596,8 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNilWait(c *tc.C
 		MachineTags: []string{"machine-0"},
 		// This will use max wait of system default for delay between cleanup operations.
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{{
 			Info: &params.DestroyMachineInfo{
 				MachineId: "0",
@@ -631,8 +630,8 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainers(c *tc.C) {
 		Force:       false,
 		MachineTags: []string{"machine-0"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{{
 			Error: apiservererrors.ServerError(stateerrors.NewHasContainersError("0", []string{"0/lxd/0"})),
 		}},
@@ -656,8 +655,8 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersWithForce(c
 		Force:       true,
 		MachineTags: []string{"machine-0"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{{
 			Info: &params.DestroyMachineInfo{
 				MachineId: "0",
@@ -827,7 +826,7 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScript(c *tc.C) {
 		"enable-os-upgrade":        true,
 		"enable-os-refresh-update": true,
 	}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).Times(2)
 
@@ -852,7 +851,7 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScript(c *tc.C) {
 		MachineId: "0",
 		Nonce:     "nonce",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	scriptLines := strings.Split(result.Script, "\n")
 	provisioningScriptLines := strings.Split(result.Script, "\n")
 	c.Assert(scriptLines, tc.HasLen, len(provisioningScriptLines))
@@ -873,7 +872,7 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptNoArch(c *tc.C) 
 		"enable-os-upgrade":        false,
 		"enable-os-refresh-update": false,
 	}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
 
@@ -895,7 +894,7 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptDisablePackageCo
 		"enable-os-upgrade":        false,
 		"enable-os-refresh-update": false,
 	}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).Times(2)
 
@@ -919,9 +918,9 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptDisablePackageCo
 		MachineId: "0",
 		Nonce:     "nonce",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Script, tc.Not(jc.Contains), "apt-get update")
-	c.Assert(result.Script, tc.Not(jc.Contains), "apt-get upgrade")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Script, tc.Not(tc.Contains), "apt-get update")
+	c.Assert(result.Script, tc.Not(tc.Contains), "apt-get upgrade")
 }
 
 type statusMatcher struct {
@@ -931,14 +930,14 @@ type statusMatcher struct {
 
 func (m statusMatcher) Matches(x interface{}) bool {
 	obtained, ok := x.(status.StatusInfo)
-	m.c.Assert(ok, jc.IsTrue)
+	m.c.Assert(ok, tc.IsTrue)
 	if !ok {
 		return false
 	}
 
 	m.c.Assert(obtained.Since, tc.NotNil)
 	obtained.Since = nil
-	m.c.Assert(obtained, jc.DeepEquals, m.expected)
+	m.c.Assert(obtained, tc.DeepEquals, m.expected)
 	return true
 }
 
@@ -964,8 +963,8 @@ func (s *ProvisioningMachineManagerSuite) TestRetryProvisioning(c *tc.C) {
 	results, err := s.api.RetryProvisioning(context.Background(), params.RetryProvisioningArgs{
 		Machines: []string{"machine-0"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{})
 }
 
 func (s *ProvisioningMachineManagerSuite) TestRetryProvisioningAll(c *tc.C) {
@@ -985,6 +984,6 @@ func (s *ProvisioningMachineManagerSuite) TestRetryProvisioningAll(c *tc.C) {
 	results, err := s.api.RetryProvisioning(context.Background(), params.RetryProvisioningArgs{
 		All: true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{})
 }

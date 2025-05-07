@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/provider/azure/internal/azurecli"
 )
@@ -43,8 +42,8 @@ func (s *azSuite) TestShowAccount(c *tc.C) {
 		}.Exec,
 	}
 	acc, err := azcli.ShowAccount("")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(acc, jc.DeepEquals, &azurecli.Account{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(acc, tc.DeepEquals, &azurecli.Account{
 		CloudName: "AzureCloud",
 		ID:        "5544b9a5-0000-0000-0000-fedceb5d3696",
 		IsDefault: true,
@@ -79,8 +78,8 @@ func (s *azSuite) TestShowAccountWithSubscription(c *tc.C) {
 		}.Exec,
 	}
 	acc, err := azcli.ShowAccount("5544b9a5-0000-0000-0000-fedceb5d3696")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(acc, jc.DeepEquals, &azurecli.Account{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(acc, tc.DeepEquals, &azurecli.Account{
 		CloudName: "AzureCloud",
 		ID:        "5544b9a5-0000-0000-0000-fedceb5d3696",
 		IsDefault: true,
@@ -143,8 +142,8 @@ func (s *azSuite) TestListAccounts(c *tc.C) {
 		}.Exec,
 	}
 	accs, err := azcli.ListAccounts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(accs, jc.DeepEquals, []azurecli.Account{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(accs, tc.DeepEquals, []azurecli.Account{{
 		CloudName: "AzureCloud",
 		ID:        "d7ad3057-0000-0000-0000-513d7136eec5",
 		IsDefault: false,
@@ -215,8 +214,8 @@ func (s *azSuite) TestFindAccountsWithCloudName(c *tc.C) {
 		}.Exec,
 	}
 	accs, err := azcli.FindAccountsWithCloudName("AzureCloud")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(accs, jc.DeepEquals, []azurecli.Account{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(accs, tc.DeepEquals, []azurecli.Account{{
 		CloudName:    "AzureCloud",
 		ID:           "d7ad3057-0000-0000-0000-513d7136eec5",
 		IsDefault:    false,
@@ -268,8 +267,8 @@ func (s *azSuite) TestShowCloud(c *tc.C) {
 		}.Exec,
 	}
 	cloud, err := azcli.ShowCloud("")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloud, jc.DeepEquals, &azurecli.Cloud{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cloud, tc.DeepEquals, &azurecli.Cloud{
 		IsActive: true,
 		Name:     "AzureCloud",
 		Profile:  "latest",
@@ -293,8 +292,8 @@ func (s *azSuite) TestShowCloudWithName(c *tc.C) {
 		}.Exec,
 	}
 	cloud, err := azcli.ShowCloud("AzureUSGovernment")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloud, jc.DeepEquals, &azurecli.Cloud{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cloud, tc.DeepEquals, &azurecli.Cloud{
 		IsActive: false,
 		Name:     "AzureUSGovernment",
 		Profile:  "latest",
@@ -351,8 +350,8 @@ func (s *azSuite) TestListClouds(c *tc.C) {
 		}.Exec,
 	}
 	clouds, err := azcli.ListClouds()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(clouds, jc.DeepEquals, []azurecli.Cloud{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(clouds, tc.DeepEquals, []azurecli.Cloud{{
 		IsActive: true,
 		Name:     "AzureCloud",
 		Profile:  "latest",

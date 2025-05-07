@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -27,7 +26,7 @@ func (s *ConfigSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	cfg, err := testing.ModelConfig(c).Apply(gce.ConfigAttrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.config = cfg
 }
 
@@ -50,7 +49,7 @@ type configTestSpec struct {
 }
 
 func (ts configTestSpec) checkSuccess(c *tc.C, value interface{}, err error) {
-	if !c.Check(err, jc.ErrorIsNil) {
+	if !c.Check(err, tc.ErrorIsNil) {
 		return
 	}
 
@@ -86,7 +85,7 @@ func (ts configTestSpec) attrs() testing.Attrs {
 func (ts configTestSpec) newConfig(c *tc.C) *config.Config {
 	attrs := ts.attrs()
 	cfg, err := testing.ModelConfig(c).Apply(attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return cfg
 }
 
@@ -183,7 +182,7 @@ func (s *ConfigSuite) TestSetConfig(c *tc.C) {
 			Cloud:  gce.MakeTestCloudSpec(),
 			Config: s.config,
 		}, environs.NoopCredentialInvalidator())
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		testConfig := test.newConfig(c)
 		err = environ.SetConfig(context.Background(), testConfig)
@@ -205,6 +204,6 @@ func (*ConfigSuite) TestSchema(c *tc.C) {
 	globalFields, err := config.Schema(nil)
 	c.Assert(err, tc.IsNil)
 	for name, field := range globalFields {
-		c.Check(fields[name], jc.DeepEquals, field)
+		c.Check(fields[name], tc.DeepEquals, field)
 	}
 }

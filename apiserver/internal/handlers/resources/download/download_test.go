@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/internal/handlers/resources/download"
@@ -44,7 +43,7 @@ func (s *ValidateSuite) TestValidateResource(c *tc.C) {
 	resourceContent := []byte("resource blob content")
 	hasher := sha512.New384()
 	size, err := io.Copy(hasher, strings.NewReader(string(resourceContent)))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	hash := hex.EncodeToString(hasher.Sum(nil))
 
 	downloader := download.NewDownloader(
@@ -57,7 +56,7 @@ func (s *ValidateSuite) TestValidateResource(c *tc.C) {
 	s.fileSystem.EXPECT().CreateTemp("", "resource-").Return(f, nil)
 	s.fileSystem.EXPECT().Open(f.Name()).DoAndReturn(func(string) (*os.File, error) {
 		opened, err := os.Open(f.Name())
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		return opened, nil
 	})
 	s.fileSystem.EXPECT().Remove(f.Name())
@@ -71,12 +70,12 @@ func (s *ValidateSuite) TestValidateResource(c *tc.C) {
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	buf := new(bytes.Buffer)
 	_, err = io.Copy(buf, reader)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(buf.Bytes(), tc.DeepEquals, resourceContent)
-	c.Assert(reader.Close(), jc.ErrorIsNil)
+	c.Assert(reader.Close(), tc.ErrorIsNil)
 }
 
 func (s *ValidateSuite) TestGetResourceUnexpectedSize(c *tc.C) {
@@ -86,7 +85,7 @@ func (s *ValidateSuite) TestGetResourceUnexpectedSize(c *tc.C) {
 	resourceContent := []byte("resource blob content")
 	hasher := sha512.New384()
 	_, err := io.Copy(hasher, strings.NewReader(string(resourceContent)))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	hash := hex.EncodeToString(hasher.Sum(nil))
 
 	downloader := download.NewDownloader(
@@ -144,10 +143,10 @@ func (s *ValidateSuite) TestGetResourceUnexpectedHash(c *tc.C) {
 
 func (s *ValidateSuite) expectTmpFile(c *tc.C) (*os.File, func()) {
 	tmpFile, err := os.CreateTemp("", "resource-")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return tmpFile, func() {
 		err := os.Remove(tmpFile.Name())
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }

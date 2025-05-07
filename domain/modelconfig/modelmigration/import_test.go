@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -51,7 +50,7 @@ func (s *importSuite) TestEmptyModelConfig(c *tc.C) {
 
 	op := s.newImportOperation(c)
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *importSuite) TestModelConfig(c *tc.C) {
@@ -64,7 +63,7 @@ func (s *importSuite) TestModelConfig(c *tc.C) {
 		"workload-storage": "mystorage",
 		"operator-storage": "otherstorage",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	importedCOnfig := map[string]any{
 		"logging-config":   "<root>=INFO",
 		"workload-storage": "mystorage",
@@ -82,7 +81,7 @@ func (s *importSuite) TestModelConfig(c *tc.C) {
 
 	op := s.newImportOperation(c)
 	err = op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *importSuite) newImportOperation(c *tc.C) *importOperation {

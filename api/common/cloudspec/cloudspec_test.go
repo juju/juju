@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/common/cloudspec"
@@ -34,7 +33,7 @@ func (s *CloudSpecSuite) TestCloudSpec(c *tc.C) {
 	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
 		c.Assert(name, tc.Equals, "CloudSpec")
-		c.Assert(args, jc.DeepEquals, params.Entities{Entities: []params.Entity{
+		c.Assert(args, tc.DeepEquals, params.Entities{Entities: []params.Entity{
 			{Tag: coretesting.ModelTag.String()},
 		}})
 		*(response.(*params.CloudSpecResults)) = params.CloudSpecResults{
@@ -59,13 +58,13 @@ func (s *CloudSpecSuite) TestCloudSpec(c *tc.C) {
 	}
 	api := cloudspec.NewCloudSpecAPI(&facadeCaller, coretesting.ModelTag)
 	cloudSpec, err := api.CloudSpec(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	credential := cloud.NewCredential(
 		"auth-type",
 		map[string]string{"k": "v"},
 	)
-	c.Assert(cloudSpec, jc.DeepEquals, environscloudspec.CloudSpec{
+	c.Assert(cloudSpec, tc.DeepEquals, environscloudspec.CloudSpec{
 		Type:             "type",
 		Name:             "name",
 		Region:           "region",
@@ -114,7 +113,7 @@ func (s *CloudSpecSuite) TestCloudSpecResultError(c *tc.C) {
 	}
 	api := cloudspec.NewCloudSpecAPI(&facadeCaller, coretesting.ModelTag)
 	_, err := api.CloudSpec(context.Background())
-	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(err, tc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(err, tc.ErrorMatches, "API request failed: dang")
 }
 

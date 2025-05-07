@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/tools"
@@ -112,7 +111,7 @@ func (s *ListSuite) TestOneArch(c *tc.C) {
 		if test.err != "" {
 			c.Check(err, tc.ErrorMatches, test.err)
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			c.Check(arch, tc.Equals, test.expect)
 		}
 	}
@@ -348,7 +347,7 @@ func (s *ListSuite) TestMatch(c *tc.C) {
 		actual, err := test.src.Match(test.filter)
 		c.Check(actual, tc.DeepEquals, test.expect)
 		if len(test.expect) > 0 {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
 			c.Check(err, tc.Equals, tools.ErrNoMatches)
 		}
@@ -364,7 +363,7 @@ func (s *ListSuite) TestMatchVersions(c *tc.C) {
 		}
 		actual, err := versions.Match(test.filter)
 		if len(test.expect) > 0 {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
 			c.Check(err, tc.Equals, tools.ErrNoMatches)
 		}

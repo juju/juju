@@ -11,7 +11,6 @@ import (
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
@@ -61,7 +60,7 @@ func (s *AgentSuite) SetUpTest(c *tc.C) {
 		domainServices.Credential(),
 		domainServices.Config(),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.DataDir = c.MkDir()
 	s.LogDir = c.MkDir()
@@ -88,15 +87,15 @@ func (s *AgentSuite) PrimeAgentVersion(c *tc.C, tag names.Tag, password string, 
 	c.Logf("priming agent %s", tag.String())
 
 	store, err := filestorage.NewFileStorageWriter(c.MkDir())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	agentTools := envtesting.PrimeTools(c, store, s.DataDir, "released", vers)
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	err = envtools.MergeAndWriteMetadata(context.Background(), ss, store, "released", "released", coretools.List{agentTools}, envtools.DoNotWriteMirrors)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	tools1, err := agenttools.ChangeAgentTools(s.DataDir, tag.String(), vers)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(tools1, tc.DeepEquals, agentTools)
 
 	stateInfo := mongoInfo()
@@ -137,7 +136,7 @@ func (s *AgentSuite) PrimeAgentVersion(c *tc.C, tag names.Tag, password string, 
 			DqlitePort: dqlitePort,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	conf.SetPassword(password)
 	c.Assert(conf.Write(), tc.IsNil)
 
@@ -152,16 +151,16 @@ func (s *AgentSuite) PrimeStateAgentVersion(c *tc.C, tag names.Tag, password str
 	agent.ConfigSetterWriter, *coretools.Tools,
 ) {
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	agentTools := envtesting.PrimeTools(c, stor, s.DataDir, "released", vers)
 	tools1, err := agenttools.ChangeAgentTools(s.DataDir, tag.String(), vers)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(tools1, tc.DeepEquals, agentTools)
 
 	domainServices := s.ControllerDomainServices(c)
 	cfg, err := domainServices.ControllerConfig().ControllerConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	apiPort, ok := cfg[controller.APIPort].(int)
 	if !ok {
 		c.Fatalf("no api port in controller config")
@@ -175,7 +174,7 @@ func (s *AgentSuite) PrimeStateAgentVersion(c *tc.C, tag names.Tag, password str
 		modeltesting.GenModelUUID(c),
 		loggertesting.WrapCheckLog(c),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return conf, agentTools
 }
@@ -227,7 +226,7 @@ func (s *AgentSuite) WriteStateAgentConfig(
 			StatePort:    mgotesting.MgoServer.Port(),
 			APIPort:      apiPort,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	conf.SetPassword(password)
 	c.Assert(conf.Write(), tc.IsNil)
@@ -240,19 +239,19 @@ func (s *AgentSuite) primeAPIHostPorts(c *tc.C) {
 
 	c.Assert(apiInfo.Addrs, tc.HasLen, 1)
 	mHP, err := network.ParseMachineHostPort(apiInfo.Addrs[0])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	hostPorts := network.SpaceHostPorts{
 		{SpaceAddress: network.SpaceAddress{MachineAddress: mHP.MachineAddress}, NetPort: mHP.NetPort}}
 
 	domainServices := s.ControllerDomainServices(c)
 	controllerConfig, err := domainServices.ControllerConfig().ControllerConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	st := s.ControllerModel(c).State()
 
 	err = st.SetAPIHostPorts(controllerConfig, []network.SpaceHostPorts{hostPorts}, []network.SpaceHostPorts{hostPorts})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Logf("api host ports primed %#v", hostPorts)
 }
@@ -262,18 +261,18 @@ func (s *AgentSuite) primeAPIHostPorts(c *tc.C) {
 func (s *AgentSuite) InitAgent(c *tc.C, a cmd.Command, args ...string) {
 	args = append([]string{"--data-dir", s.DataDir}, args...)
 	err := cmdtesting.InitCommand(a, args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *AgentSuite) AssertCanOpenState(c *tc.C, tag names.Tag, dataDir string) {
 	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, tag))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info, ok := config.MongoInfo()
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	session, err := mongo.DialWithInfo(*info, mongotest.DialOpts())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer session.Close()
 
 	pool, err := state.OpenStatePool(state.OpenParams{
@@ -283,14 +282,14 @@ func (s *AgentSuite) AssertCanOpenState(c *tc.C, tag names.Tag, dataDir string) 
 		MongoSession:       session,
 		NewPolicy:          stateenvirons.GetNewPolicyFunc(nil, nil, nil, nil),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_ = pool.Close()
 }
 
 func (s *AgentSuite) AssertCannotOpenState(c *tc.C, tag names.Tag, dataDir string) {
 	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, tag))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, ok := config.MongoInfo()
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 }

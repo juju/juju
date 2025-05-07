@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/testing/filetesting"
 	"gopkg.in/httprequest.v1"
 
@@ -44,26 +43,26 @@ func (s *ResourcesFacadeClientSuite) TestGetResource(c *tc.C) {
 	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-application", "some data")
 	s.api.setResource(opened.Resource, opened)
 	cl, err := uniter.NewResourcesFacadeClient(s.api, names.NewUnitTag("unit/0"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cl.HTTPDoer = s.api
 
 	info, content, err := cl.GetResource(context.Background(), "spam")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Do", "GetResourceInfo")
-	c.Check(info, jc.DeepEquals, opened.Resource)
-	c.Check(content, jc.DeepEquals, opened)
+	c.Check(info, tc.DeepEquals, opened.Resource)
+	c.Check(content, tc.DeepEquals, opened)
 }
 
 func (s *ResourcesFacadeClientSuite) TestUnitDoer(c *tc.C) {
 	body := filetesting.NewStubFile(s.stub, nil)
 	req, err := http.NewRequest("GET", "/resources/eggs", body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	var resp *http.Response
 	doer := uniter.NewUnitHTTPClient(s.api, "spam/1")
 
 	err = doer.Do(context.Background(), req, &resp)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Do")
 	//s.stub.CheckCall(c, 0, "Do", expected, body, resp)

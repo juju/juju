@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/juju/common"
@@ -126,13 +125,13 @@ func (s *ShowCommandSuite) SetUpTest(c *tc.C) {
 		ModelUUID: testing.ModelTag.Id(),
 		ModelType: coremodel.IAAS,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.store.Models["testing"].CurrentModel = "admin/mymodel"
 }
 
 func (s *ShowCommandSuite) TestShow(c *tc.C) {
 	_, err := cmdtesting.RunCommand(c, s.newShowCommand())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.fake.CheckCalls(c, []jujutesting.StubCall{
 		{"ModelInfo", []interface{}{[]names.ModelTag{testing.ModelTag}}},
 		{"Close", nil},
@@ -141,7 +140,7 @@ func (s *ShowCommandSuite) TestShow(c *tc.C) {
 
 func (s *ShowCommandSuite) TestShowWithPartModelUUID(c *tc.C) {
 	_, err := cmdtesting.RunCommand(c, s.newShowCommand(), "deadbeef")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.fake.CheckCalls(c, []jujutesting.StubCall{
 		{"ModelInfo", []interface{}{[]names.ModelTag{testing.ModelTag}}},
 		{"Close", nil},
@@ -155,14 +154,14 @@ func (s *ShowCommandSuite) TestShowUnknownCallsRefresh(c *tc.C) {
 		return nil
 	}
 	_, err := cmdtesting.RunCommand(c, model.NewShowCommandForTest(&s.fake, refresh, s.store), "unknown")
-	c.Check(called, jc.IsTrue)
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(called, tc.IsTrue)
+	c.Check(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *ShowCommandSuite) TestShowFormatYaml(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, s.newShowCommand(), "--format", "yaml")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), jc.YAMLEquals, s.expectedOutput)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.YAMLEquals, s.expectedOutput)
 }
 
 func (s *ShowCommandSuite) addCredentialToTestData(credentialValid *bool) {
@@ -182,22 +181,22 @@ func (s *ShowCommandSuite) TestShowWithCredentialFormatYaml(c *tc.C) {
 	_true := true
 	s.addCredentialToTestData(&_true)
 	ctx, err := cmdtesting.RunCommand(c, s.newShowCommand(), "--format", "yaml")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), jc.YAMLEquals, s.expectedOutput)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.YAMLEquals, s.expectedOutput)
 }
 
 func (s *ShowCommandSuite) TestShowFormatJson(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, s.newShowCommand(), "--format", "json")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), jc.JSONEquals, s.expectedOutput)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.JSONEquals, s.expectedOutput)
 }
 
 func (s *ShowCommandSuite) TestShowWithCredentialFormatJson(c *tc.C) {
 	_false := false
 	s.addCredentialToTestData(&_false)
 	ctx, err := cmdtesting.RunCommand(c, s.newShowCommand(), "--format", "json")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), jc.JSONEquals, s.expectedOutput)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.JSONEquals, s.expectedOutput)
 }
 
 func (s *ShowCommandSuite) TestUnrecognizedArg(c *tc.C) {
@@ -227,15 +226,15 @@ func (s *ShowCommandSuite) addSecretBackendTestData() {
 func (s *ShowCommandSuite) TestShowWithSecretBackendFormatYaml(c *tc.C) {
 	s.addSecretBackendTestData()
 	ctx, err := cmdtesting.RunCommand(c, s.newShowCommand(), "--format", "yaml")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), jc.YAMLEquals, s.expectedOutput)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.YAMLEquals, s.expectedOutput)
 }
 
 func (s *ShowCommandSuite) TestShowWithSecretBackendFormatJson(c *tc.C) {
 	s.addSecretBackendTestData()
 	ctx, err := cmdtesting.RunCommand(c, s.newShowCommand(), "--format", "json")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), jc.JSONEquals, s.expectedOutput)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.JSONEquals, s.expectedOutput)
 }
 
 func (s *ShowCommandSuite) TestShowBasicIncompleteModelsYaml(c *tc.C) {
@@ -619,7 +618,7 @@ func (s *ShowCommandSuite) assertShowModelWithAgent(c *tc.C, format string) {
 	// Since most of the tests in this suite already test model infos without
 	// agent version, all we need to do here is to test one with it.
 	agentVersion, err := semversion.Parse("2.55.5")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	basicTestInfo := createBasicModelInfo()
 	basicTestInfo.AgentVersion = &agentVersion
 	s.fake.infos = []params.ModelInfoResult{
@@ -634,7 +633,7 @@ func (s *ShowCommandSuite) newShowCommand() cmd.Command {
 
 func (s *ShowCommandSuite) assertShowOutput(c *tc.C, format string) {
 	ctx, err := cmdtesting.RunCommand(c, s.newShowCommand(), "--format", format)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, s.expectedDisplay)
 }
 

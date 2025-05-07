@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/permission"
@@ -56,7 +55,7 @@ func (s *introspectionSuite) TestAccess(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = accessService.CreatePermission(context.Background(), permission.UserAccessSpec{
 		AccessSpec: permission.AccessSpec{
@@ -68,7 +67,7 @@ func (s *introspectionSuite) TestAccess(c *tc.C) {
 		},
 		User: user.NameFromTag(userTag),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.testAccess(c, "user-bobbrown", "hunter2")
 }
@@ -89,7 +88,7 @@ func (s *introspectionSuite) TestAccessDenied(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method:   "GET",
@@ -111,6 +110,6 @@ func (s *introspectionSuite) testAccess(c *tc.C, tag, password string) {
 	defer resp.Body.Close()
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 	content, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(content), tc.Equals, "gazing")
 }

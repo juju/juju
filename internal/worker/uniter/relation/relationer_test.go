@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
@@ -67,10 +66,10 @@ func (s *relationerSuite) TestImplicitRelationerSetDying(c *tc.C) {
 	r := s.newRelationer(c)
 
 	// Set it to Dying
-	c.Assert(r.IsDying(), jc.IsFalse)
+	c.Assert(r.IsDying(), tc.IsFalse)
 	err := r.SetDying(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.IsDying(), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(r.IsDying(), tc.IsTrue)
 }
 
 func (s *relationerSuite) TestSetDying(c *tc.C) {
@@ -81,10 +80,10 @@ func (s *relationerSuite) TestSetDying(c *tc.C) {
 	r := s.newRelationer(c)
 
 	// Set it to Dying
-	c.Assert(r.IsDying(), jc.IsFalse)
+	c.Assert(r.IsDying(), tc.IsFalse)
 	err := r.SetDying(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.IsDying(), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(r.IsDying(), tc.IsTrue)
 }
 
 func (s *relationerSuite) TestIfDyingFailJoin(c *tc.C) {
@@ -96,7 +95,7 @@ func (s *relationerSuite) TestIfDyingFailJoin(c *tc.C) {
 
 	// Set it to Dying
 	err := r.SetDying(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Try to Join
 	err = r.Join(context.Background())
@@ -113,7 +112,7 @@ func (s *relationerSuite) TestCommitHookRelationBrokenDies(c *tc.C) {
 	r := s.newRelationer(c)
 
 	err := r.CommitHook(context.Background(), hook.Info{Kind: hooks.RelationBroken})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *relationerSuite) TestCommitHookRelationRemoved(c *tc.C) {
@@ -126,7 +125,7 @@ func (s *relationerSuite) TestCommitHookRelationRemoved(c *tc.C) {
 	r := s.newRelationer(c)
 
 	err := r.CommitHook(context.Background(), hook.Info{Kind: hooks.RelationBroken})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *relationerSuite) TestCommitHook(c *tc.C) {
@@ -139,7 +138,7 @@ func (s *relationerSuite) TestCommitHook(c *tc.C) {
 	r := s.newRelationer(c)
 
 	err := r.CommitHook(context.Background(), hook.Info{Kind: hooks.RelationJoined, RelationId: 1})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *relationerSuite) TestCommitHookRelationFail(c *tc.C) {
@@ -151,7 +150,7 @@ func (s *relationerSuite) TestCommitHookRelationFail(c *tc.C) {
 	r := s.newRelationer(c)
 
 	err := r.CommitHook(context.Background(), hook.Info{Kind: hooks.RelationJoined, RelationId: 1})
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *relationerSuite) TestPrepareHookRelationFail(c *tc.C) {
@@ -163,7 +162,7 @@ func (s *relationerSuite) TestPrepareHookRelationFail(c *tc.C) {
 	r := s.newRelationer(c)
 
 	_, err := r.PrepareHook(hook.Info{Kind: hooks.RelationJoined, RelationId: 1})
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *relationerSuite) TestPrepareHookValidateFail(c *tc.C) {
@@ -191,7 +190,7 @@ func (s *relationerSuite) TestPrepareHook(c *tc.C) {
 	r := s.newRelationer(c)
 
 	name, err := r.PrepareHook(hook.Info{Kind: hooks.RelationJoined, RelationId: 1})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(name, tc.Equals, fmt.Sprintf("%s-%s", ep.Name, hooks.RelationJoined))
 }
 
@@ -204,7 +203,7 @@ func (s *relationerSuite) TestJoinRelation(c *tc.C) {
 	r := s.newRelationer(c)
 
 	err := r.Join(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *relationerSuite) TestJoinRelationNotFound(c *tc.C) {
@@ -216,7 +215,7 @@ func (s *relationerSuite) TestJoinRelationNotFound(c *tc.C) {
 
 	r := s.newRelationer(c)
 	err := r.Join(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *relationerSuite) newRelationer(c *tc.C) relation.Relationer {

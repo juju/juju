@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
@@ -48,7 +47,7 @@ func (s *workerSuite) getWorkerNewer(c *tc.C) (func(string), *gomock.Controller)
 			Logger:        s.logger,
 			SecretsFacade: s.facade,
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(w, tc.NotNil)
 		workertest.CheckAlive(c, w)
 		s.AddCleanup(func(c *tc.C) {

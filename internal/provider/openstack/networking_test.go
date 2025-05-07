@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/instance"
@@ -56,7 +55,7 @@ func (s *networkingSuite) TestAllocatePublicIPConfiguredExternalNetwork(c *tc.C)
 	s.expectListExternalNetworksV2() // getExternalNeutronNetworksByAZ()
 
 	fip, err := s.runAllocatePublicIP()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(fip, tc.NotNil)
 	c.Assert(*fip, tc.Equals, s.ip)
 }
@@ -73,7 +72,7 @@ func (s *networkingSuite) TestAllocatePublicIPUnconfiguredExternalNetwork(c *tc.
 	s.expectListExternalNetworksV2() // getExternalNeutronNetworksByAZ()
 
 	fip, err := s.runAllocatePublicIP()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(fip, tc.NotNil)
 	c.Assert(*fip, tc.Equals, s.ip2)
 }
@@ -92,7 +91,7 @@ func (s *networkingSuite) TestAllocatePublicIPUnconfiguredExternalNetworkMultiAZ
 	s.expectListExternalNetworksV2MultiAZ() // getExternalNeutronNetworksByAZ()
 
 	fip, err := s.runAllocatePublicIP()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(fip, tc.NotNil)
 	c.Assert(*fip, tc.Equals, s.ip2)
 }
@@ -109,7 +108,7 @@ func (s *networkingSuite) TestAllocatePublicIPFail(c *tc.C) {
 	s.expectAllocateFloatingIPV2FailAll()
 
 	fip, err := s.runAllocatePublicIP()
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 	c.Assert(fip, tc.IsNil)
 }
 
@@ -130,7 +129,7 @@ func (s *networkingSuite) TestAllocatePublicIPEmtpyAZEqualEmptyString(c *tc.C) {
 	s.expectListFloatingIPsV2NotFromConfig()
 
 	fip, err := s.runAllocatePublicIP()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(fip, tc.NotNil)
 	c.Assert(*fip, tc.Equals, s.ip2)
 }
@@ -149,7 +148,7 @@ func (s *networkingSuite) TestAllocatePublicIPNoneAvailable(c *tc.C) {
 	s.expectAllocateFloatingIPV2()
 
 	fip, err := s.runAllocatePublicIP()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(fip, tc.NotNil)
 	c.Assert(*fip, tc.Equals, s.ip3)
 }
@@ -164,7 +163,7 @@ func (s *networkingSuite) TestAllocatePublicIPFailNoNetworkInAZ(c *tc.C) {
 	s.expectListExternalNetworksV2NotInAZ() // getExternalNeutronNetworksByAZ()
 
 	fip, err := s.runAllocatePublicIP()
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 	c.Assert(fip, tc.IsNil)
 }
 
@@ -222,7 +221,7 @@ func (s *networkingSuite) TestNetworkInterfaces(c *tc.C) {
 	nn := &NeutronNetworking{NetworkingBase: s.base}
 
 	res, err := nn.NetworkInterfaces([]instance.Id{"inst-0"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(res, tc.HasLen, 1)
 	c.Assert(res[0], tc.HasLen, 2, tc.Commentf("expected to get 2 NICs for machine-0"))
@@ -230,7 +229,7 @@ func (s *networkingSuite) TestNetworkInterfaces(c *tc.C) {
 	nic0 := res[0][0]
 	c.Assert(nic0.InterfaceType, tc.Equals, network.EthernetDevice)
 	c.Assert(nic0.Origin, tc.Equals, network.OriginProvider)
-	c.Assert(nic0.Disabled, jc.IsFalse)
+	c.Assert(nic0.Disabled, tc.IsFalse)
 	c.Assert(nic0.MACAddress, tc.Equals, "aa:bb:cc:dd:ee:ff")
 	c.Assert(nic0.Addresses, tc.DeepEquals, network.ProviderAddresses{
 		network.NewMachineAddress(
@@ -258,7 +257,7 @@ func (s *networkingSuite) TestNetworkInterfaces(c *tc.C) {
 	nic1 := res[0][1]
 	c.Assert(nic1.InterfaceType, tc.Equals, network.EthernetDevice)
 	c.Assert(nic1.Origin, tc.Equals, network.OriginProvider)
-	c.Assert(nic1.Disabled, jc.IsTrue, tc.Commentf("expected device to be listed as disabled"))
+	c.Assert(nic1.Disabled, tc.IsTrue, tc.Commentf("expected device to be listed as disabled"))
 	c.Assert(nic1.MACAddress, tc.Equals, "10:20:30:40:50:60")
 	c.Assert(nic1.Addresses, tc.DeepEquals, network.ProviderAddresses{
 		network.NewMachineAddress(

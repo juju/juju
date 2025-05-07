@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -63,8 +62,8 @@ func (s *zonesSuite) TestGetProviderAvailabilityZones(c *tc.C) {
 	providerService := NewProviderService(s.st, s.notSupportedNetworkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
 
 	got, err := providerService.GetProviderAvailabilityZones(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(got, jc.DeepEquals, zones)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, zones)
 }
 
 func (s *zonesSuite) TestGetProviderAvailabilityZonesNotSupported(c *tc.C) {
@@ -73,6 +72,6 @@ func (s *zonesSuite) TestGetProviderAvailabilityZonesNotSupported(c *tc.C) {
 	providerService := NewProviderService(s.st, s.networkProviderGetter, s.notSupportedZoneProviderGetter, loggertesting.WrapCheckLog(c))
 
 	zones, err := providerService.GetProviderAvailabilityZones(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(zones, tc.HasLen, 0)
 }

@@ -6,7 +6,6 @@ package resource
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 type StateSuite struct {
@@ -23,7 +22,7 @@ func (StateSuite) TestParseStateKnown(c *tc.C) {
 	for value, expected := range recognized {
 		state, err := ParseState(value)
 
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		c.Check(state, tc.Equals, expected)
 	}
 }
@@ -42,7 +41,7 @@ func (StateSuite) TestValidateKnown(c *tc.C) {
 	for _, state := range recognized {
 		err := state.Validate()
 
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
 }
 

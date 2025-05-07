@@ -10,7 +10,6 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 	"gopkg.in/tomb.v2"
@@ -50,7 +49,7 @@ func NewTestWatchableDB(c *tc.C, id string, db database.TxnRunner) *TestWatchabl
 	logger := loggertesting.WrapCheckLog(c)
 	stream := stream.NewInternalStates(id, db, newNoopFileWatcher(), clock.WallClock, noopMetrics{}, logger, states)
 	mux, err := eventmultiplexer.New(stream, clock.WallClock, noopMetrics{}, logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	h := TestWatchableDB{
 		db:     db,
@@ -67,7 +66,7 @@ func NewTestWatchableDB(c *tc.C, id string, db database.TxnRunner) *TestWatchabl
 			h.mux,
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return &h
 }

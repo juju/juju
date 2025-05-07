@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/cmd"
 )
@@ -101,7 +100,7 @@ insert details here...
 			[]string{"juju", t.command.Info().Name},
 		)
 		c.Check(output, tc.Equals, t.expected)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
 }
 

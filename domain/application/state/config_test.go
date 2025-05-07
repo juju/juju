@@ -8,7 +8,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/domain/application/charm"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -157,7 +156,7 @@ func (s *configSuite) TestDecodeConfig(c *tc.C) {
 		c.Logf("Running test case %q", tc.name)
 
 		result, err := decodeConfig(tc.input)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(result, tc.DeepEquals, tc.output)
 	}
 }
@@ -225,11 +224,11 @@ func (s *configSuite) TestDecodeThenEncodeDefaultValue(c *tc.C) {
 		c.Logf("Running test case %q", tc.name)
 
 		decoded, err := decodeConfigDefaultValue(tc.kind, tc.input)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(decoded, tc.DeepEquals, tc.output)
 
 		encoded, err := encodeConfigDefaultValue(decoded)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(encoded, tc.DeepEquals, tc.input)
 	}
 }
@@ -286,14 +285,14 @@ func (s *configSuite) TestEncodeDefaultValue(c *tc.C) {
 		c.Logf("Running test case %q", tc.name)
 
 		encoded, err := encodeConfigDefaultValue(tc.input)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(encoded, tc.DeepEquals, tc.output)
 	}
 }
 
 func (s *configSuite) TestDecodeConfigTypeError(c *tc.C) {
 	_, err := decodeConfigDefaultValue(charm.OptionType("invalid"), ptr(""))
-	c.Assert(err, tc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
 type configStateSuite struct {
@@ -316,7 +315,7 @@ SELECT charm_config_type.* AS &charmConfigType.* FROM charm_config_type ORDER BY
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt).GetAll(&results)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 5)
 
 	m := []charm.OptionType{
@@ -330,7 +329,7 @@ SELECT charm_config_type.* AS &charmConfigType.* FROM charm_config_type ORDER BY
 	for i, value := range m {
 		c.Logf("result %d: %#v", i, value)
 		result, err := encodeConfigType(value)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(result, tc.DeepEquals, results[i].ID)
 	}
 }

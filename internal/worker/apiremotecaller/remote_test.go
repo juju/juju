@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/tomb.v2"
@@ -48,8 +47,8 @@ func (s *RemoteSuite) TestNotConnectedConnection(c *tc.C) {
 		called = true
 		return nil
 	})
-	c.Assert(err, jc.ErrorIs, context.DeadlineExceeded)
-	c.Check(called, jc.IsFalse)
+	c.Assert(err, tc.ErrorIs, context.DeadlineExceeded)
+	c.Check(called, tc.IsFalse)
 
 	workertest.CleanKill(c, w)
 }
@@ -86,10 +85,10 @@ func (s *RemoteSuite) TestConnect(c *tc.C) {
 		conn = c
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(conn, tc.NotNil)
-	c.Check(conn.Addr().String(), jc.DeepEquals, addr.String())
+	c.Check(conn.Addr().String(), tc.DeepEquals, addr.String())
 
 	workertest.CleanKill(c, w)
 }
@@ -113,8 +112,8 @@ func (s *RemoteSuite) TestConnectWhenAlreadyContextCancelled(c *tc.C) {
 		called = true
 		return nil
 	})
-	c.Assert(err, jc.ErrorIs, context.Canceled)
-	c.Check(called, jc.IsFalse)
+	c.Assert(err, tc.ErrorIs, context.Canceled)
+	c.Check(called, tc.IsFalse)
 
 	workertest.CleanKill(c, w)
 }
@@ -137,8 +136,8 @@ func (s *RemoteSuite) TestConnectWhenAlreadyKilled(c *tc.C) {
 		called = true
 		return nil
 	})
-	c.Assert(err, jc.ErrorIs, tomb.ErrDying)
-	c.Check(called, jc.IsFalse)
+	c.Assert(err, tc.ErrorIs, tomb.ErrDying)
+	c.Check(called, tc.IsFalse)
 }
 
 func (s *RemoteSuite) TestConnectMultipleWithFirstCancelled(c *tc.C) {
@@ -191,8 +190,8 @@ func (s *RemoteSuite) TestConnectMultipleWithFirstCancelled(c *tc.C) {
 			called = true
 			return nil
 		})
-		c.Assert(err, jc.ErrorIs, context.Canceled)
-		c.Check(called, jc.IsFalse)
+		c.Assert(err, tc.ErrorIs, context.Canceled)
+		c.Check(called, tc.IsFalse)
 	}()
 	go func() {
 		// Wait for the first connection to be enqueued.
@@ -245,7 +244,7 @@ func (s *RemoteSuite) TestConnectMultipleWithFirstCancelled(c *tc.C) {
 
 	select {
 	case err := <-res:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	case <-time.After(jujutesting.LongWait):
 		c.Fatalf("timed out waiting for connection")
 	}
@@ -306,10 +305,10 @@ func (s *RemoteSuite) TestConnectWhilstConnecting(c *tc.C) {
 		conn = c
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(conn, tc.NotNil)
-	c.Check(conn.Addr().String(), jc.DeepEquals, addr1.String())
+	c.Check(conn.Addr().String(), tc.DeepEquals, addr1.String())
 
 	workertest.CleanKill(c, w)
 }

@@ -6,7 +6,6 @@ package service
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/machine"
@@ -80,10 +79,10 @@ func (s *statusSuite) TestEncodeMachineStatus(c *tc.C) {
 	for i, test := range testCases {
 		c.Logf("test %d", i)
 		output, err := encodeMachineStatus(test.input)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(output, tc.DeepEquals, test.output)
 		result, err := decodeMachineStatus(output)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(result, tc.DeepEquals, test.input)
 	}
 }
@@ -142,9 +141,9 @@ func (s *statusSuite) TestEncodeInstanceStatus(c *tc.C) {
 	for i, test := range testCases {
 		c.Logf("test %d", i)
 		output, err := encodeInstanceStatus(test.input)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		result, err := decodeInstanceStatus(output)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(result, tc.DeepEquals, test.input)
 	}
 }

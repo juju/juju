@@ -10,7 +10,6 @@ import (
 	"github.com/juju/os/v2"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/internal/charm"
@@ -43,9 +42,9 @@ func (s *baseSuite) TestParseBase(c *tc.C) {
 		if v.err != "" {
 			c.Check(err, tc.ErrorMatches, v.err, comment)
 		} else {
-			c.Assert(err, jc.ErrorIsNil, comment)
+			c.Assert(err, tc.ErrorIsNil, comment)
 		}
-		c.Check(s, jc.DeepEquals, v.parsedBase, comment)
+		c.Check(s, tc.DeepEquals, v.parsedBase, comment)
 	}
 }
 
@@ -70,9 +69,9 @@ func (s *baseSuite) TestParseBaseWithArchitectures(c *tc.C) {
 		comment := tc.Commentf("test %d", i)
 		s, err := charm.ParseBase(v.baseString, v.archs...)
 
-		c.Assert(err, jc.ErrorIsNil, comment)
+		c.Assert(err, tc.ErrorIsNil, comment)
 
-		c.Check(s, jc.DeepEquals, v.parsedBase, comment)
+		c.Check(s, tc.DeepEquals, v.parsedBase, comment)
 	}
 }
 
@@ -105,7 +104,7 @@ func (s *baseSuite) TestStringifyBase(c *tc.C) {
 	}
 	for i, v := range tests {
 		comment := tc.Commentf("test %d", i)
-		c.Assert(v.base.Validate(), jc.ErrorIsNil)
+		c.Assert(v.base.Validate(), tc.ErrorIsNil)
 		c.Assert(v.base.String(), tc.Equals, v.str, comment)
 	}
 }
@@ -116,12 +115,12 @@ func (s *baseSuite) TestJSONEncoding(c *tc.C) {
 		Channel: mustParseChannel("20.04/stable"),
 	}
 	bytes, err := json.Marshal(sys)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(bytes), tc.Equals, `{"name":"ubuntu","channel":{"track":"20.04","risk":"stable"}}`)
 	sys2 := charm.Base{}
 	err = json.Unmarshal(bytes, &sys2)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sys2, jc.DeepEquals, sys)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(sys2, tc.DeepEquals, sys)
 }
 
 // MustParseChannel parses a given string or returns a panic.

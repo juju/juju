@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	gomock "go.uber.org/mock/gomock"
 
@@ -67,7 +66,7 @@ func (s *workerSuite) TestSessionExists(c *tc.C) {
 		session = s.session
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(session, tc.Equals, s.session)
 
 	workertest.CleanKill(c, worker)
@@ -100,7 +99,7 @@ func (s *workerSuite) TestSessionIsRetried(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(session, tc.Equals, s.session)
 	c.Check(attempt, tc.Equals, 2)
 
@@ -190,7 +189,7 @@ func (s *workerSuite) TestSessionIsChanged(c *tc.C) {
 
 	s.ensureClientUpdated(c)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(attempt, tc.Equals, 2)
 
 	// Ensure we called new client twice.
@@ -269,7 +268,7 @@ func (s *workerSuite) TestSessionIsNotChanged(c *tc.C) {
 		c.Fatalf("timed out waiting for controller config watcher to be added")
 	}
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(attempt, tc.Equals, 2)
 
 	// The client wasn't refreshed, so we should still have the original client.
@@ -285,7 +284,7 @@ func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *workerSuite) newWorker(c *tc.C) *s3Worker {
 	worker, err := newWorker(s.getConfig(), s.states)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return worker
 }
 

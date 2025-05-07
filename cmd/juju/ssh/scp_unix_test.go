@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cmd/modelcmd"
@@ -219,14 +218,14 @@ func (s *SCPSuiteLegacy) TestSCPCommand(c *tc.C) {
 		if t.error != "" {
 			c.Assert(err, tc.ErrorMatches, t.error, tc.Commentf("test %d", i))
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			// we suppress stdout from scp, so get the scp args used
 			// from the "scp.args" file that the fake scp executable
 			// installed by SSHMachineSuite generates.
 			c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "", tc.Commentf("test %d", i))
 			c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "", tc.Commentf("test %d", i))
 			actual, err := os.ReadFile(filepath.Join(s.binDir, "scp.args"))
-			c.Assert(err, jc.ErrorIsNil, tc.Commentf("test %d", i))
+			c.Assert(err, tc.ErrorIsNil, tc.Commentf("test %d", i))
 			t.expected.check(c, string(actual))
 		}
 	}

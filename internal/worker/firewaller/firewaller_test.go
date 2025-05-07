@@ -17,7 +17,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -315,7 +314,7 @@ func (s *firewallerBaseSuite) addUnit(c *tc.C, ctrl *gomock.Controller, app *moc
 	unitId := s.nextUnitId[app.Name()]
 	s.nextUnitId[app.Name()] = unitId + 1
 	unitName, err := coreunit.NewNameFromParts(app.Name(), unitId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	m, unitsCh := s.addMachine(ctrl)
 	u := mocks.NewMockUnit(ctrl)
 	s.firewaller.EXPECT().Unit(gomock.Any(), names.NewUnitTag(unitName.String())).Return(u, nil).AnyTimes()
@@ -431,7 +430,7 @@ func (s *firewallerBaseSuite) newFirewaller(c *tc.C, ctrl *gomock.Controller) wo
 	}).AnyTimes()
 
 	fw, err := firewaller.NewFirewaller(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Log("firewaller worker started")
 
 	select {
@@ -1070,7 +1069,7 @@ func (s *InstanceModeSuite) TestRemoveMachine(c *tc.C) {
 	// a refactoring of the worker logic as per LP:1814277.
 	fw.Kill()
 	err := fw.Wait()
-	c.Assert(err == nil || params.IsCodeNotFound(err), jc.IsTrue)
+	c.Assert(err == nil || params.IsCodeNotFound(err), tc.IsTrue)
 }
 
 func (s *InstanceModeSuite) TestStartWithStateOpenPortsBroken(c *tc.C) {
@@ -1168,7 +1167,7 @@ func (s *InstanceModeSuite) TestConfigureModelFirewall(c *tc.C) {
 
 func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(c *tc.C) (chan []string, *macaroon.Macaroon) {
 	mac, err := jujutesting.NewMacaroon("id")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.remoteRelations.EXPECT().Relations(gomock.Any(), []string{"wordpress:db remote-mysql:server"}).Return(
 		[]params.RemoteRelationResult{{
 			Result: &params.RemoteRelation{
@@ -1331,7 +1330,7 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *tc.C)
 	s.addUnit(c, ctrl, app)
 
 	mac, err := jujutesting.NewMacaroon("id")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.remoteRelations.EXPECT().Relations(gomock.Any(), []string{"remote-wordpress:db mysql:server"}).Return(
 		[]params.RemoteRelationResult{{
 			Result: &params.RemoteRelation{
@@ -1408,7 +1407,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *tc.C) {
 	s.addUnit(c, ctrl, app)
 
 	mac, err := jujutesting.NewMacaroon("id")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.remoteRelations.EXPECT().Relations(gomock.Any(), []string{"wordpress:db remote-mysql:server"}).Return(
 		[]params.RemoteRelationResult{{
 			Result: &params.RemoteRelation{
@@ -1500,7 +1499,7 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *tc.C, ctrl *gomock.Controller,
 
 	// Set up the offering model - create the remote app.
 	mac, err := jujutesting.NewMacaroon("id")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	remoteRelParams := params.RemoteRelation{
 		Life:            "alive",
 		Suspended:       false,
@@ -1605,7 +1604,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToWhitelist(c *tc.C
 		"saas-ingress-allow": "192.168.1.0/16",
 	}
 	cfg, err := config.New(config.UseDefaults, attr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.firewaller.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
 	var ingress []string
 	for i := 1; i < 30; i++ {
@@ -2125,7 +2124,7 @@ func (s *GlobalModeSuite) TestRestart(c *tc.C) {
 
 	// Stop firewaller and close one and open a different port.
 	err := worker.Stop(fw)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.firewallerStarted = false
 
 	s.mustClosePortRanges(c, u, allEndpoints, []network.PortRange{
@@ -2180,7 +2179,7 @@ func (s *GlobalModeSuite) TestRestartUnexposedApplication(c *tc.C) {
 
 	// Stop firewaller and clear exposed flag on application.
 	err := worker.Stop(fw)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.firewallerStarted = false
 
 	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(false, nil)
@@ -2223,7 +2222,7 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *tc.C) {
 
 	// Stop firewaller and add another application using the port.
 	err := worker.Stop(fw)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	app2 := s.addApplication(ctrl, "mysql", true)
 	u2, m2, unitsCh2 := s.addUnit(c, ctrl, app2)
@@ -2348,13 +2347,13 @@ func (s *firewallerBaseSuite) mustOpenPortRanges(c *tc.C, u *mocks.MockUnit, end
 	}
 	op := newUnitPortRangesCommit(s.unitPortRanges, coreunit.Name(u.Name()))
 	modified, err := op.Commit()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	if !modified {
 		return
 	}
 
 	m, err := u.AssignedMachine(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	if s.firewallerStarted {
 		s.openedPortsCh <- []string{m.Id()}
@@ -2370,13 +2369,13 @@ func (s *firewallerBaseSuite) mustClosePortRanges(c *tc.C, u *mocks.MockUnit, en
 	}
 	op := newUnitPortRangesCommit(s.unitPortRanges, coreunit.Name(u.Name()))
 	modified, err := op.Commit()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	if !modified {
 		return
 	}
 
 	m, err := u.AssignedMachine(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	if s.firewallerStarted {
 		s.openedPortsCh <- []string{m.Id()}

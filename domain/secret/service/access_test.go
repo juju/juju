@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coresecrets "github.com/juju/juju/core/secrets"
@@ -29,7 +28,7 @@ func (s *serviceSuite) TestGetManagementCaveatOwnerUnit(c *tc.C) {
 		Kind: UnitAccessor,
 		ID:   "mariadb/0",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestGetManagementCaveatLeaderUnitAppSecret(c *tc.C) {
@@ -52,7 +51,7 @@ func (s *serviceSuite) TestGetManagementCaveatLeaderUnitAppSecret(c *tc.C) {
 		Kind: UnitAccessor,
 		ID:   "mariadb/0",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestGetManagementCaveatUserSecrets(c *tc.C) {
@@ -70,7 +69,7 @@ func (s *serviceSuite) TestGetManagementCaveatUserSecrets(c *tc.C) {
 		Kind: ModelAccessor,
 		ID:   "model-uuid",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestCanReadAppSecret(c *tc.C) {
@@ -92,5 +91,5 @@ func (s *serviceSuite) TestCanReadAppSecret(c *tc.C) {
 		Kind: UnitAccessor,
 		ID:   "mariadb/0",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

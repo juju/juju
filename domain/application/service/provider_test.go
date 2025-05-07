@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -194,8 +193,8 @@ func (s *providerServiceSuite) TestCreateApplication(c *tc.C) {
 			"provider": "beta",
 		},
 	}, AddUnitArg{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(receivedArgs, jc.DeepEquals, us)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(receivedArgs, tc.DeepEquals, us)
 }
 
 func (s *providerServiceSuite) TestCreateApplicationWithApplicationStatus(c *tc.C) {
@@ -260,8 +259,8 @@ func (s *providerServiceSuite) TestCreateApplicationWithApplicationStatus(c *tc.
 			Since:   now,
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(receivedArgs.Status, jc.DeepEquals, status)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(receivedArgs.Status, tc.DeepEquals, status)
 }
 
 func (s *providerServiceSuite) TestCreateApplicationPendingResources(c *tc.C) {
@@ -348,7 +347,7 @@ func (s *providerServiceSuite) TestCreateApplicationPendingResources(c *tc.C) {
 		CharmObjectStoreUUID: objectStoreUUID,
 		PendingResources:     []resource.UUID{resourceUUID},
 	}, AddUnitArg{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *providerServiceSuite) TestCreateApplicationWithInvalidApplicationName(c *tc.C) {
@@ -361,7 +360,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidApplicationName(c
 	}, AddApplicationArgs{
 		ReferenceName: "ubuntu",
 	})
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNameNotValid)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
 func (s *providerServiceSuite) TestCreateApplicationWithInvalidCharmName(c *tc.C) {
@@ -378,7 +377,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidCharmName(c *tc.C
 	}, AddApplicationArgs{
 		ReferenceName: "ubuntu",
 	})
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNameNotValid)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNameNotValid)
 }
 
 func (s *providerServiceSuite) TestCreateApplicationWithInvalidReferenceName(c *tc.C) {
@@ -403,7 +402,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidReferenceName(c *
 			DownloadSize:       42,
 		},
 	})
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNameNotValid)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNameNotValid)
 }
 
 func (s *providerServiceSuite) TestCreateApplicationWithNoCharmName(c *tc.C) {
@@ -414,7 +413,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithNoCharmName(c *tc.C) {
 	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 	}, AddApplicationArgs{})
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNameNotValid)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNameNotValid)
 }
 
 func (s *providerServiceSuite) TestCreateApplicationWithNoApplicationOrCharmName(c *tc.C) {
@@ -425,7 +424,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithNoApplicationOrCharmName
 	_, err := s.service.CreateApplication(context.Background(), "", s.charm, corecharm.Origin{
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 	}, AddApplicationArgs{})
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNameNotValid)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
 func (s *providerServiceSuite) TestCreateApplicationWithNoMeta(c *tc.C) {
@@ -436,7 +435,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithNoMeta(c *tc.C) {
 	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 	}, AddApplicationArgs{})
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmMetadataNotValid)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmMetadataNotValid)
 }
 
 func (s *providerServiceSuite) TestCreateApplicationWithNoArchitecture(c *tc.C) {
@@ -459,7 +458,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithNoArchitecture(c *tc.C) 
 			DownloadSize:       42,
 		},
 	})
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmOriginNotValid)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmOriginNotValid)
 }
 
 func (s *providerServiceSuite) TestCreateApplicationWithInvalidResourcesNotAllResourcesResolved(c *tc.C) {
@@ -486,7 +485,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidResourcesNotAllRe
 			ReferenceName:     "foo",
 			ResolvedResources: nil,
 		})
-	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidResourceArgs)
+	c.Assert(err, tc.ErrorIs, applicationerrors.InvalidResourceArgs)
 	c.Assert(err, tc.ErrorMatches,
 		"create application: charm has resources which have not provided: invalid resource args")
 }
@@ -519,7 +518,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidResourceBothTypes
 			ResolvedResources: ResolvedResources{ResolvedResource{Name: "testme"}},
 			PendingResources:  []resource.UUID{resourcetesting.GenResourceUUID(c)},
 		})
-	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidResourceArgs)
+	c.Assert(err, tc.ErrorIs, applicationerrors.InvalidResourceArgs)
 	// There are many places where InvalidResourceArgs are returned,
 	// verify we have the expected one.
 	c.Assert(err, tc.ErrorMatches,
@@ -590,7 +589,7 @@ func (s *providerServiceSuite) testCreateApplicationWithInvalidResource(c *tc.C,
 			ReferenceName:     "foo",
 			ResolvedResources: resources,
 		})
-	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidResourceArgs)
+	c.Assert(err, tc.ErrorIs, applicationerrors.InvalidResourceArgs)
 }
 
 func (s *providerServiceSuite) TestCreateApplicationError(c *tc.C) {
@@ -628,7 +627,7 @@ func (s *providerServiceSuite) TestCreateApplicationError(c *tc.C) {
 			DownloadSize:       42,
 		},
 	})
-	c.Check(err, jc.ErrorIs, rErr)
+	c.Check(err, tc.ErrorIs, rErr)
 	c.Assert(err, tc.ErrorMatches, `creating application "foo": boom`)
 }
 
@@ -740,7 +739,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageBlock(c *tc.C) {
 			DownloadSize:       42,
 		},
 	}, AddUnitArg{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *providerServiceSuite) TestCreateApplicationWithStorageBlockDefaultSource(c *tc.C) {
@@ -856,7 +855,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageBlockDefaultSourc
 			"data": {Count: 2},
 		},
 	}, AddUnitArg{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *providerServiceSuite) TestCreateApplicationWithStorageFilesystem(c *tc.C) {
@@ -969,7 +968,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageFilesystem(c *tc.
 			DownloadSize:       42,
 		},
 	}, AddUnitArg{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *providerServiceSuite) TestCreateApplicationWithStorageFilesystemDefaultSource(c *tc.C) {
@@ -1085,7 +1084,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageFilesystemDefault
 			"data": {Count: 2},
 		},
 	}, AddUnitArg{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *providerServiceSuite) TestCreateApplicationWithSharedStorageMissingDirectives(c *tc.C) {
@@ -1119,7 +1118,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithSharedStorageMissingDire
 			DownloadSize:       42,
 		},
 	}, AddUnitArg{})
-	c.Assert(err, jc.ErrorIs, storageerrors.MissingSharedStorageDirectiveError)
+	c.Assert(err, tc.ErrorIs, storageerrors.MissingSharedStorageDirectiveError)
 	c.Assert(err, tc.ErrorMatches, `.*adding default storage directives: no storage directive specified for shared charm storage "data"`)
 }
 
@@ -1264,7 +1263,7 @@ func (s *providerServiceSuite) TestDeviceConstraintsValid(c *tc.C) {
 	}
 
 	err := validateDeviceConstraints(deviceConstraints, charmMeta)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *providerServiceSuite) TestGetSupportedFeatures(c *tc.C) {
@@ -1276,7 +1275,7 @@ func (s *providerServiceSuite) TestGetSupportedFeatures(c *tc.C) {
 	s.supportedFeaturesProvider.EXPECT().SupportedFeatures().Return(assumes.FeatureSet{}, nil)
 
 	features, err := s.service.GetSupportedFeatures(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var fs assumes.FeatureSet
 	fs.Add(assumes.Feature{
@@ -1284,7 +1283,7 @@ func (s *providerServiceSuite) TestGetSupportedFeatures(c *tc.C) {
 		Description: assumes.UserFriendlyFeatureDescriptions["juju"],
 		Version:     &agentVersion,
 	})
-	c.Check(features, jc.DeepEquals, fs)
+	c.Check(features, tc.DeepEquals, fs)
 }
 
 func (s *providerServiceSuite) TestGetSupportedFeaturesNotSupported(c *tc.C) {
@@ -1301,7 +1300,7 @@ func (s *providerServiceSuite) TestGetSupportedFeaturesNotSupported(c *tc.C) {
 	s.agentVersionGetter.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(agentVersion, nil)
 
 	features, err := s.service.GetSupportedFeatures(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var fs assumes.FeatureSet
 	fs.Add(assumes.Feature{
@@ -1309,7 +1308,7 @@ func (s *providerServiceSuite) TestGetSupportedFeaturesNotSupported(c *tc.C) {
 		Description: assumes.UserFriendlyFeatureDescriptions["juju"],
 		Version:     &agentVersion,
 	})
-	c.Check(features, jc.DeepEquals, fs)
+	c.Check(features, tc.DeepEquals, fs)
 }
 
 func (s *providerServiceSuite) TestGetApplicationConstraintsInvalidAppID(c *tc.C) {
@@ -1341,7 +1340,7 @@ func (s *providerServiceSuite) TestSetConstraintsProviderNotSupported(c *tc.C) {
 	s.state.EXPECT().SetApplicationConstraints(gomock.Any(), id, constraints.Constraints{}).Return(nil)
 
 	err := s.service.SetApplicationConstraints(context.Background(), id, coreconstraints.Value{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *providerServiceSuite) TestSetConstraintsValidatorError(c *tc.C) {
@@ -1409,8 +1408,8 @@ func (s *providerServiceSuite) TestSetConstraintsUnsupportedValues(c *tc.C) {
 	s.state.EXPECT().SetApplicationConstraints(gomock.Any(), id, constraints.Constraints{Arch: ptr("amd64"), Mem: ptr(uint64(8))}).Return(nil)
 
 	err := s.service.SetApplicationConstraints(context.Background(), id, coreconstraints.Value{Arch: ptr("amd64"), Mem: ptr(uint64(8))})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(c.GetTestLog(), jc.Contains, "unsupported constraints: arch,mem")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(c.GetTestLog(), tc.Contains, "unsupported constraints: arch,mem")
 }
 
 func (s *providerServiceSuite) TestSetConstraints(c *tc.C) {
@@ -1436,7 +1435,7 @@ func (s *providerServiceSuite) TestSetConstraints(c *tc.C) {
 	s.state.EXPECT().SetApplicationConstraints(gomock.Any(), id, constraints.Constraints{Arch: ptr("amd64"), Mem: ptr(uint64(8))}).Return(nil)
 
 	err := s.service.SetApplicationConstraints(context.Background(), id, coreconstraints.Value{Arch: ptr("amd64"), Mem: ptr(uint64(8))})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *providerServiceSuite) TestAddUnitsEmptyConstraints(c *tc.C) {
@@ -1481,8 +1480,8 @@ func (s *providerServiceSuite) TestAddUnitsEmptyConstraints(c *tc.C) {
 	})
 
 	err := s.service.AddUnits(context.Background(), s.storageParentDir, "ubuntu", AddUnitArg{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(received, jc.DeepEquals, u)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(received, tc.DeepEquals, u)
 }
 
 func (s *providerServiceSuite) TestAddUnitsAppConstraints(c *tc.C) {
@@ -1552,8 +1551,8 @@ func (s *providerServiceSuite) TestAddUnitsAppConstraints(c *tc.C) {
 		Placement: instance.MustParsePlacement("0/lxd/0"),
 	}
 	err := s.service.AddUnits(context.Background(), s.storageParentDir, "ubuntu", a)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(received, jc.DeepEquals, u)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(received, tc.DeepEquals, u)
 }
 
 func (s *providerServiceSuite) TestAddUnitsModelConstraints(c *tc.C) {
@@ -1616,8 +1615,8 @@ func (s *providerServiceSuite) TestAddUnitsModelConstraints(c *tc.C) {
 	})
 
 	err := s.service.AddUnits(context.Background(), s.storageParentDir, "ubuntu", AddUnitArg{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(received, jc.DeepEquals, u)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(received, tc.DeepEquals, u)
 }
 
 func (s *providerServiceSuite) TestAddUnitsFullConstraints(c *tc.C) {
@@ -1667,8 +1666,8 @@ func (s *providerServiceSuite) TestAddUnitsFullConstraints(c *tc.C) {
 	})
 
 	err := s.service.AddUnits(context.Background(), s.storageParentDir, "ubuntu", AddUnitArg{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(received, jc.DeepEquals, u)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(received, tc.DeepEquals, u)
 }
 
 func (s *providerServiceSuite) TestAddUnitsInvalidName(c *tc.C) {
@@ -1685,7 +1684,7 @@ func (s *providerServiceSuite) TestAddUnitsInvalidName(c *tc.C) {
 	defer ctrl.Finish()
 
 	err := s.service.AddUnits(context.Background(), s.storageParentDir, "!!!", AddUnitArg{})
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNameNotValid)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
 func (s *providerServiceSuite) TestAddUnitsNoUnits(c *tc.C) {
@@ -1702,7 +1701,7 @@ func (s *providerServiceSuite) TestAddUnitsNoUnits(c *tc.C) {
 	defer ctrl.Finish()
 
 	err := s.service.AddUnits(context.Background(), s.storageParentDir, "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *providerServiceSuite) TestAddUnitsApplicationNotFound(c *tc.C) {
@@ -1723,7 +1722,7 @@ func (s *providerServiceSuite) TestAddUnitsApplicationNotFound(c *tc.C) {
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, applicationerrors.ApplicationNotFound)
 
 	err := s.service.AddUnits(context.Background(), s.storageParentDir, "ubuntu", AddUnitArg{})
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *providerServiceSuite) TestAddUnitsGetModelTypeError(c *tc.C) {
@@ -1813,7 +1812,7 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNotSupport
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(s.validator, errors.Errorf("not supported %w", coreerrors.NotSupported))
 
 	_, err := s.service.mergeApplicationAndModelConstraints(context.Background(), constraints.Constraints{})
-	c.Assert(err, jc.ErrorIs, coreerrors.NotSupported)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
 func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNilValidator(c *tc.C) {
@@ -1822,7 +1821,7 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNilValidat
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
 
 	cons, err := s.service.mergeApplicationAndModelConstraints(context.Background(), constraints.Constraints{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cons, tc.DeepEquals, coreconstraints.Value{})
 }
 
@@ -1849,7 +1848,7 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsConstraint
 		Return(coreconstraints.Value{}, nil)
 
 	_, err := s.service.mergeApplicationAndModelConstraints(context.Background(), constraints.Constraints{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *providerServiceSuite) expectEmptyUnitConstraints(c *tc.C, appUUID coreapplication.ID) {

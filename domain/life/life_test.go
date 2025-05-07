@@ -5,7 +5,6 @@ package life
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	corelife "github.com/juju/juju/core/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -22,7 +21,7 @@ var _ = tc.Suite(&lifeSuite{})
 func (s *lifeSuite) TestLifeDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, value FROM life")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer rows.Close()
 
 	dbValues := make(map[Life]string)
@@ -32,10 +31,10 @@ func (s *lifeSuite) TestLifeDBValues(c *tc.C) {
 			value string
 		)
 		err := rows.Scan(&id, &value)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		dbValues[Life(id)] = value
 	}
-	c.Assert(dbValues, jc.DeepEquals, map[Life]string{
+	c.Assert(dbValues, tc.DeepEquals, map[Life]string{
 		Alive: "alive",
 		Dying: "dying",
 		Dead:  "dead",

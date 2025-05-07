@@ -10,7 +10,6 @@ import (
 	"github.com/canonical/pebble/client"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 
@@ -53,7 +52,7 @@ func (s *pebbleNoticerSuite) waitWorkloadEvent(c *tc.C, expected container.Workl
 	select {
 	case id := <-s.workloadEventChan:
 		event, callback, err := s.workloadEvents.GetWorkloadEvent(id)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(event, tc.DeepEquals, expected)
 		callback(nil)
 	case <-time.After(testing.LongWait):

@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/semversion"
@@ -38,7 +37,7 @@ assumes:
 		Assumes *ExpressionTree `yaml:"assumes,omitempty"`
 	}{}
 	err := yaml.NewDecoder(strings.NewReader(payload)).Decode(&dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	exp := CompositeExpression{
 		ExprType: AllOfExpression,
@@ -102,7 +101,7 @@ func (s *ParserSuite) TestNestedExpressionUnmarshalingFromJSON(c *tc.C) {
 		Assumes *ExpressionTree `json:"assumes,omitempty"`
 	}{}
 	err := json.NewDecoder(strings.NewReader(payload)).Decode(&dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	exp := CompositeExpression{
 		ExprType: AllOfExpression,
@@ -145,7 +144,7 @@ assumes:
 		Assumes *ExpressionTree `yaml:"assumes,omitempty"`
 	}{}
 	err := yaml.NewDecoder(strings.NewReader(payload)).Decode(&dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	exp := CompositeExpression{
 		ExprType: AllOfExpression,
@@ -170,7 +169,7 @@ assumes: # test various combinations of whitespace and version formats
 		Assumes *ExpressionTree `yaml:"assumes,omitempty"`
 	}{}
 	err := yaml.NewDecoder(strings.NewReader(payload)).Decode(&dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	exp := CompositeExpression{
 		ExprType: AllOfExpression,
@@ -284,7 +283,7 @@ func (s *ParserSuite) TestFeatureExprParser(c *tc.C) {
 		c.Logf("%d. %s", specIdx, spec.descr)
 		_, err := parseFeatureExpr(spec.in)
 		if spec.expErr == "" {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		} else {
 			c.Assert(err, tc.ErrorMatches, spec.expErr)
 		}
@@ -310,11 +309,11 @@ assumes:
 		Assumes *ExpressionTree `yaml:"assumes,omitempty"`
 	}{}
 	err := yaml.NewDecoder(strings.NewReader(payload)).Decode(&dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var buf bytes.Buffer
 	err = yaml.NewEncoder(&buf).Encode(dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(buf.String(), tc.Equals, payload, tc.Commentf("serialized assumes block not matching original input"))
 }
 
@@ -349,12 +348,12 @@ func (s *ParserSuite) TestMarshalToJSON(c *tc.C) {
 		Assumes *ExpressionTree `json:"assumes,omitempty"`
 	}{}
 	err := json.NewDecoder(strings.NewReader(payload)).Decode(&dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	enc.SetIndent("", "  ")
 	err = enc.Encode(dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(buf.String(), tc.Equals, payload, tc.Commentf("serialized assumes block not matching original input"))
 }

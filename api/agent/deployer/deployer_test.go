@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/agent/deployer"
 	"github.com/juju/juju/api/base/testing"
@@ -35,7 +34,7 @@ func (s *deployerSuite) TestWatchUnits(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "WatchUnits")
-		c.Check(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{
+		c.Check(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{
 			Tag: "machine-666",
 		}}})
 		c.Assert(result, tc.FitsTypeOf, &params.StringsWatchResults{})
@@ -50,7 +49,7 @@ func (s *deployerSuite) TestWatchUnits(c *tc.C) {
 	client := deployer.NewClient(apiCaller)
 	machineTag := names.NewMachineTag("666")
 	machine, err := client.Machine(machineTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = machine.WatchUnits(context.Background())
 	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
@@ -61,7 +60,7 @@ func (s *deployerSuite) TestUnit(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "Life")
-		c.Check(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{
+		c.Check(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{
 			Tag: "unit-mysql-666",
 		}}})
 		c.Assert(result, tc.FitsTypeOf, &params.LifeResults{})
@@ -76,7 +75,7 @@ func (s *deployerSuite) TestUnit(c *tc.C) {
 	client := deployer.NewClient(apiCaller)
 	unitTag := names.NewUnitTag("mysql/666")
 	unit, err := client.Unit(context.Background(), unitTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unit.Life(), tc.Equals, life.Alive)
 }
 
@@ -88,7 +87,7 @@ func (s *deployerSuite) TestUnitLifeRefresh(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "Life")
-		c.Check(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{
+		c.Check(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{
 			Tag: "unit-mysql-666",
 		}}})
 		c.Assert(result, tc.FitsTypeOf, &params.LifeResults{})
@@ -107,9 +106,9 @@ func (s *deployerSuite) TestUnitLifeRefresh(c *tc.C) {
 	client := deployer.NewClient(apiCaller)
 	unitTag := names.NewUnitTag("mysql/666")
 	unit, err := client.Unit(context.Background(), unitTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = unit.Refresh(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unit.Life(), tc.Equals, life.Dying)
 	c.Assert(calls, tc.Equals, 2)
 }
@@ -120,7 +119,7 @@ func (s *deployerSuite) TestUnitRemove(c *tc.C) {
 		c.Check(objType, tc.Equals, "Deployer")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
-		c.Check(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{
+		c.Check(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{
 			Tag: "unit-mysql-666",
 		}}})
 		if calls > 0 {
@@ -145,9 +144,9 @@ func (s *deployerSuite) TestUnitRemove(c *tc.C) {
 	client := deployer.NewClient(apiCaller)
 	unitTag := names.NewUnitTag("mysql/666")
 	unit, err := client.Unit(context.Background(), unitTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = unit.Remove(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(calls, tc.Equals, 2)
 }
 
@@ -158,7 +157,7 @@ func (s *deployerSuite) TestUnitSetPassword(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		if calls > 0 {
-			c.Check(arg, jc.DeepEquals, params.EntityPasswords{
+			c.Check(arg, tc.DeepEquals, params.EntityPasswords{
 				Changes: []params.EntityPassword{
 					{Tag: "unit-mysql-666", Password: "secret"},
 				},
@@ -169,7 +168,7 @@ func (s *deployerSuite) TestUnitSetPassword(c *tc.C) {
 				Results: []params.ErrorResult{{}},
 			}
 		} else {
-			c.Check(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{
+			c.Check(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{
 				Tag: "unit-mysql-666",
 			}}})
 			c.Check(request, tc.Equals, "Life")
@@ -187,9 +186,9 @@ func (s *deployerSuite) TestUnitSetPassword(c *tc.C) {
 	client := deployer.NewClient(apiCaller)
 	unitTag := names.NewUnitTag("mysql/666")
 	unit, err := client.Unit(context.Background(), unitTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = unit.SetPassword(context.Background(), "secret")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(calls, tc.Equals, 2)
 }
 
@@ -201,7 +200,7 @@ func (s *deployerSuite) TestUnitSetStatus(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		if calls > 0 {
-			c.Check(arg, jc.DeepEquals, params.SetStatus{
+			c.Check(arg, tc.DeepEquals, params.SetStatus{
 				Entities: []params.EntityStatusArgs{{Tag: "unit-mysql-666", Status: "active", Info: "is active", Data: data}},
 			})
 			c.Check(request, tc.Equals, "SetStatus")
@@ -210,7 +209,7 @@ func (s *deployerSuite) TestUnitSetStatus(c *tc.C) {
 				Results: []params.ErrorResult{{}},
 			}
 		} else {
-			c.Check(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{
+			c.Check(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{
 				Tag: "unit-mysql-666",
 			}}})
 			c.Check(request, tc.Equals, "Life")
@@ -228,8 +227,8 @@ func (s *deployerSuite) TestUnitSetStatus(c *tc.C) {
 	client := deployer.NewClient(apiCaller)
 	unitTag := names.NewUnitTag("mysql/666")
 	unit, err := client.Unit(context.Background(), unitTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = unit.SetStatus(context.Background(), status.Active, "is active", data)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(calls, tc.Equals, 2)
 }

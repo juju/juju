@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/internal/cmd"
@@ -88,7 +87,7 @@ func (suite *PluginSuite) TestRunPluginExising(c *tc.C) {
 		c.Fatal("failed if called")
 		return nil
 	})(ctx, "foo", []string{"some params"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "foo some params\n")
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "")
 }
@@ -101,7 +100,7 @@ func (suite *PluginSuite) TestRunPluginWithFailing(c *tc.C) {
 		return nil
 	})(ctx, "foo", []string{"some params"})
 	c.Assert(err, tc.ErrorMatches, "subprocess encountered error code 2")
-	c.Assert(err, jc.Satisfies, utils.IsRcPassthroughError)
+	c.Assert(err, tc.Satisfies, utils.IsRcPassthroughError)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "failing\n")
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "")
 }
@@ -209,14 +208,14 @@ func (suite *PluginSuite) setupClientStore(c *tc.C) {
 		ControllerUUID: testing.ControllerTag.Id(),
 		CACert:         "fake",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = store.SetCurrentController("myctrl")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = store.UpdateAccount("myctrl", jujuclient.AccountDetails{
 		User:     "admin",
 		Password: "hunter2",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (suite *PluginSuite) TestJujuModelEnvVars(c *tc.C) {

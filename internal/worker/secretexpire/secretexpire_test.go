@@ -9,7 +9,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
@@ -106,7 +105,7 @@ func (s *workerSuite) TestStartStop(c *tc.C) {
 	s.expectWorker()
 
 	w, err := secretexpire.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CheckAlive(c, w)
 	workertest.CleanKill(c, w)
@@ -114,7 +113,7 @@ func (s *workerSuite) TestStartStop(c *tc.C) {
 
 func (s *workerSuite) advanceClock(c *tc.C, d time.Duration) {
 	err := s.clock.WaitAdvance(d, testing.LongWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *workerSuite) expectNoExpiry(c *tc.C) {
@@ -128,8 +127,8 @@ func (s *workerSuite) expectNoExpiry(c *tc.C) {
 func (s *workerSuite) expectExpired(c *tc.C, expected ...string) {
 	select {
 	case uris, ok := <-s.expiredSecrets:
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(uris, jc.SameContents, expected)
+		c.Assert(ok, tc.IsTrue)
+		c.Assert(uris, tc.SameContents, expected)
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for secrets to be expired")
 	}
@@ -142,7 +141,7 @@ func (s *workerSuite) TestExpires(c *tc.C) {
 	s.expectWorker()
 
 	w, err := secretexpire.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
@@ -164,7 +163,7 @@ func (s *workerSuite) TestRetrigger(c *tc.C) {
 	s.expectWorker()
 
 	w, err := secretexpire.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
@@ -201,7 +200,7 @@ func (s *workerSuite) TestSecretUpdateBeforeExpires(c *tc.C) {
 	s.expectWorker()
 
 	w, err := secretexpire.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
@@ -230,7 +229,7 @@ func (s *workerSuite) TestSecretUpdateBeforeExpiresNotTriggered(c *tc.C) {
 	s.expectWorker()
 
 	w, err := secretexpire.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
@@ -263,7 +262,7 @@ func (s *workerSuite) TestNewSecretTriggersBefore(c *tc.C) {
 	s.expectWorker()
 
 	w, err := secretexpire.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
@@ -298,7 +297,7 @@ func (s *workerSuite) TestManySecretsTrigger(c *tc.C) {
 	s.expectWorker()
 
 	w, err := secretexpire.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
@@ -329,7 +328,7 @@ func (s *workerSuite) TestDeleteSecretExpiry(c *tc.C) {
 	s.expectWorker()
 
 	w, err := secretexpire.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
@@ -357,7 +356,7 @@ func (s *workerSuite) TestManySecretsDeleteOne(c *tc.C) {
 	s.expectWorker()
 
 	w, err := secretexpire.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
@@ -398,7 +397,7 @@ func (s *workerSuite) TestExpiryGranularity(c *tc.C) {
 	s.expectWorker()
 
 	w, err := secretexpire.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()

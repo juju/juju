@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
@@ -169,7 +168,7 @@ func (s *WorkerSuite) TestSendEmptyModelMetrics(c *tc.C) {
 	s.ensureStartup(c)
 
 	err := w.sendEmptyModelMetrics(context.Background(), s.charmhubClient, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *WorkerSuite) TestSendEmptyModelMetricsFails(c *tc.C) {
@@ -203,7 +202,7 @@ func (s *WorkerSuite) TestSendEmptyModelMetricsWithNoTelemetry(c *tc.C) {
 	s.ensureStartup(c)
 
 	err := w.sendEmptyModelMetrics(context.Background(), s.charmhubClient, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *WorkerSuite) TestFetch(c *tc.C) {
@@ -268,10 +267,10 @@ func (s *WorkerSuite) TestFetch(c *tc.C) {
 	s.ensureStartup(c)
 
 	result, err := w.fetch(context.Background(), s.charmhubClient)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	channel := internalcharm.MakePermissiveChannel("latest", "stable", "")
-	c.Check(result, jc.DeepEquals, []latestCharmInfo{{
+	c.Check(result, tc.DeepEquals, []latestCharmInfo{{
 		essentialMetadata: charm.EssentialMetadata{
 			ResolvedOrigin: charm.Origin{
 				Source:   charm.CharmHub,
@@ -355,9 +354,9 @@ func (s *WorkerSuite) TestFetchInfo(c *tc.C) {
 		Name:         id.osType,
 		Channel:      id.osChannel,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cfg, err = charmhub.AddConfigMetrics(cfg, id.metrics)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.charmhubClient.EXPECT().RefreshWithRequestMetrics(gomock.Any(), charmhub.RefreshMany(cfg), metrics).Return([]transport.RefreshResponse{{
 		Name:             id.id,
@@ -373,10 +372,10 @@ func (s *WorkerSuite) TestFetchInfo(c *tc.C) {
 	s.ensureStartup(c)
 
 	result, err := w.fetchInfo(context.Background(), s.charmhubClient, true, ids, apps)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	channel := internalcharm.MakePermissiveChannel("latest", "stable", "")
-	c.Check(result, jc.DeepEquals, []latestCharmInfo{{
+	c.Check(result, tc.DeepEquals, []latestCharmInfo{{
 		essentialMetadata: charm.EssentialMetadata{
 			ResolvedOrigin: charm.Origin{
 				Source:   charm.CharmHub,
@@ -451,9 +450,9 @@ func (s *WorkerSuite) TestFetchInfoInvalidResponseLength(c *tc.C) {
 		Name:         id.osType,
 		Channel:      id.osChannel,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cfg, err = charmhub.AddConfigMetrics(cfg, id.metrics)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.charmhubClient.EXPECT().RefreshWithRequestMetrics(gomock.Any(), charmhub.RefreshMany(cfg), metrics).Return([]transport.RefreshResponse{{
 		Name:             id.id,
@@ -519,9 +518,9 @@ func (s *WorkerSuite) TestRequest(c *tc.C) {
 		Name:         id.osType,
 		Channel:      id.osChannel,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cfg, err = charmhub.AddConfigMetrics(cfg, id.metrics)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.charmhubClient.EXPECT().RefreshWithRequestMetrics(gomock.Any(), charmhub.RefreshMany(cfg), metrics).Return([]transport.RefreshResponse{{
 		Name:             id.id,
@@ -538,8 +537,8 @@ func (s *WorkerSuite) TestRequest(c *tc.C) {
 
 	channel := internalcharm.MakePermissiveChannel("latest", "stable", "")
 	result, err := w.request(context.Background(), s.charmhubClient, metrics, ids)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.DeepEquals, []charmhubResult{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, []charmhubResult{{
 		name:      id.id,
 		timestamp: s.now,
 		essentialMetadata: charm.EssentialMetadata{
@@ -600,9 +599,9 @@ func (s *WorkerSuite) TestRequestWithResources(c *tc.C) {
 		Name:         id.osType,
 		Channel:      id.osChannel,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cfg, err = charmhub.AddConfigMetrics(cfg, id.metrics)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	hash384 := "e8e4d9727695438c7f5c91347e50e3d68eaab5fe3f856685de5a80fbaafb3c1700776dea0eb7db09c940466ba270a4e4"
 
@@ -622,7 +621,7 @@ func (s *WorkerSuite) TestRequestWithResources(c *tc.C) {
 	}}, nil)
 
 	fingerprint, err := resource.ParseFingerprint(hash384)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -631,8 +630,8 @@ func (s *WorkerSuite) TestRequestWithResources(c *tc.C) {
 
 	channel := internalcharm.MakePermissiveChannel("latest", "stable", "")
 	result, err := w.request(context.Background(), s.charmhubClient, metrics, ids)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.DeepEquals, []charmhubResult{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, []charmhubResult{{
 		name:      id.id,
 		timestamp: s.now,
 		resources: []resource.Resource{{
@@ -725,7 +724,7 @@ func (s *WorkerSuite) TestStoreNewRevisionsNoUpdates(c *tc.C) {
 	s.ensureStartup(c)
 
 	err := w.storeNewRevisions(context.Background(), latestCharmInfos)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *WorkerSuite) TestStoreNewCharmRevisionsNoResource(c *tc.C) {
@@ -793,7 +792,7 @@ func (s *WorkerSuite) TestStoreNewCharmRevisionsNoResource(c *tc.C) {
 	s.ensureStartup(c)
 
 	err := w.storeNewRevisions(context.Background(), latestCharmInfos)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *WorkerSuite) TestStoreNewCharmRevisionsError(c *tc.C) {
@@ -876,7 +875,7 @@ func (s *WorkerSuite) TestStoreNewResourceRevisions(c *tc.C) {
 	err := w.storeNewRevisions(context.Background(), latestCharmInfos)
 
 	// Assert: real assertion are done in what as been called in the mock
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *WorkerSuite) TestStoreNewResourceRevisionsWithApplicationNotFound(c *tc.C) {
@@ -926,8 +925,8 @@ func (s *WorkerSuite) TestStoreNewResourceRevisionsWithApplicationNotFound(c *tc
 
 	// Assert: check everything ok through mocks, but also that a log as been
 	// generated for the unknown application.
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(c.GetTestLog(), jc.Contains, `failed to get application ID for "not-found"`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(c.GetTestLog(), tc.Contains, `failed to get application ID for "not-found"`)
 }
 
 func (s *WorkerSuite) TestStoreNewResourceRevisionsErrorGetApplicationID(c *tc.C) {
@@ -961,7 +960,7 @@ func (s *WorkerSuite) TestStoreNewResourceRevisionsErrorGetApplicationID(c *tc.C
 	err := w.storeNewRevisions(context.Background(), latestCharmInfos)
 
 	// Assert: Check the error is returned
-	c.Assert(err, jc.ErrorIs, expectedError)
+	c.Assert(err, tc.ErrorIs, expectedError)
 }
 
 func (s *WorkerSuite) TestStoreNewResourceRevisionsErrorStoreRepositoryResources(c *tc.C) {
@@ -995,7 +994,7 @@ func (s *WorkerSuite) TestStoreNewResourceRevisionsErrorStoreRepositoryResources
 	err := w.storeNewRevisions(context.Background(), latestCharmInfos)
 
 	// Assert: Check the error is returned
-	c.Assert(err, jc.ErrorIs, expectedError)
+	c.Assert(err, tc.ErrorIs, expectedError)
 }
 
 func (s *WorkerSuite) TestEncodeCharmID(c *tc.C) {
@@ -1025,7 +1024,7 @@ func (s *WorkerSuite) TestEncodeCharmID(c *tc.C) {
 		NumUnits: 2,
 	}, modelTag)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(id, tc.DeepEquals, charmhubID{
 		id:          "abc123",
 		revision:    42,
@@ -1132,7 +1131,7 @@ func (s *WorkerSuite) TestEncodeArchitecture(c *tc.C) {
 		c.Logf("test %d", i)
 
 		got, err := encodeArchitecture(test.value)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(got, tc.Equals, test.expected)
 	}
 }
@@ -1164,7 +1163,7 @@ func (s *WorkerSuite) TestEncodeRisk(c *tc.C) {
 		c.Logf("test %d", i)
 
 		got, err := encodeRisk(test.value)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(got, tc.Equals, test.expected)
 	}
 }
@@ -1210,7 +1209,7 @@ func (s *WorkerSuite) newWorker(c *tc.C) *revisionUpdateWorker {
 		Clock:  s.clock,
 		Logger: loggertesting.WrapCheckLog(c),
 	}, s.states)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w.(*revisionUpdateWorker)
 }
 

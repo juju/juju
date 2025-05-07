@@ -7,7 +7,6 @@ import (
 	"io"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/storage"
@@ -19,7 +18,7 @@ import (
 func CreateLocalTestStorage(c *tc.C) (closer io.Closer, stor storage.Storage, dataDir string) {
 	dataDir = c.MkDir()
 	underlying, err := filestorage.NewFileStorageWriter(dataDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return nopCloser{}, underlying, dataDir
 }
 

@@ -6,7 +6,6 @@ package migration_test
 import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"gopkg.in/macaroon.v2"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -100,9 +99,9 @@ func (s *TargetInfoSuite) TestValidation(c *tc.C) {
 		test.tweakInfo(&info)
 		err := info.Validate()
 		if test.errorPattern == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
-			c.Check(err, jc.ErrorIs, coreerrors.NotValid)
+			c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 			c.Check(err, tc.ErrorMatches, test.errorPattern)
 		}
 	}
@@ -110,7 +109,7 @@ func (s *TargetInfoSuite) TestValidation(c *tc.C) {
 
 func makeValidTargetInfo(c *tc.C) migration.TargetInfo {
 	mac, err := macaroon.New([]byte("secret"), []byte("id"), "location", macaroon.LatestVersion)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return migration.TargetInfo{
 		ControllerTag: names.NewControllerTag(uuid.MustNewUUID().String()),
 		Addrs:         []string{"1.2.3.4:5555"},

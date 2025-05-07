@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -55,14 +54,14 @@ func (s *RemoveRelationSuite) TestRemoveRelationWrongNumberOfArguments(c *tc.C) 
 
 func (s *RemoveRelationSuite) TestRemoveRelationSuccess(c *tc.C) {
 	err := s.runRemoveRelation(c, "application1", "application2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.mockAPI.CheckCall(c, 0, "DestroyRelation", (*bool)(nil), (*time.Duration)(nil), []string{"application1", "application2"})
 	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
 func (s *RemoveRelationSuite) TestRemoveRelationIdSuccess(c *tc.C) {
 	err := s.runRemoveRelation(c, "123")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.mockAPI.CheckCall(c, 0, "DestroyRelationId", 123, (*bool)(nil), (*time.Duration)(nil))
 	s.mockAPI.CheckCall(c, 1, "Close")
 }

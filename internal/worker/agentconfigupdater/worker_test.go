@@ -11,7 +11,6 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/controller"
@@ -123,9 +122,9 @@ func (s *WorkerSuite) TestWorkerConfig(c *tc.C) {
 		config := test.config()
 		err := config.Validate()
 		if test.expectErr == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
-			c.Check(err, jc.ErrorIs, errors.NotValid)
+			c.Check(err, tc.ErrorIs, errors.NotValid)
 			c.Check(err, tc.ErrorMatches, test.expectErr)
 		}
 	}
@@ -136,24 +135,24 @@ func (s *WorkerSuite) TestNewWorkerValidatesConfig(c *tc.C) {
 	config.Agent = nil
 	w, err := agentconfigupdater.NewWorker(config)
 	c.Assert(w, tc.IsNil)
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 }
 
 func (s *WorkerSuite) TestNormalStart(c *tc.C) {
 	w, err := agentconfigupdater.NewWorker(s.config)
 	c.Assert(w, tc.NotNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 }
 
 func (s *WorkerSuite) TestUpdateJujuDBSnapChannel(c *tc.C) {
 	w, err := agentconfigupdater.NewWorker(s.config)
 	c.Assert(w, tc.NotNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	newConfig := s.initialConfigMsg
 	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
 	case <-time.After(testing.LongWait):
@@ -165,7 +164,7 @@ func (s *WorkerSuite) TestUpdateJujuDBSnapChannel(c *tc.C) {
 
 	newConfig.Config[controller.JujuDBSnapChannel] = "latest/candidate"
 	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
 	case <-time.After(testing.LongWait):
@@ -180,11 +179,11 @@ func (s *WorkerSuite) TestUpdateJujuDBSnapChannel(c *tc.C) {
 func (s *WorkerSuite) TestUpdateQueryTracingEnabled(c *tc.C) {
 	w, err := agentconfigupdater.NewWorker(s.config)
 	c.Assert(w, tc.NotNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	newConfig := s.initialConfigMsg
 	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
 	case <-time.After(testing.LongWait):
@@ -196,7 +195,7 @@ func (s *WorkerSuite) TestUpdateQueryTracingEnabled(c *tc.C) {
 
 	newConfig.Config[controller.QueryTracingEnabled] = true
 	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
 	case <-time.After(testing.LongWait):
@@ -211,11 +210,11 @@ func (s *WorkerSuite) TestUpdateQueryTracingEnabled(c *tc.C) {
 func (s *WorkerSuite) TestUpdateQueryTracingThreshold(c *tc.C) {
 	w, err := agentconfigupdater.NewWorker(s.config)
 	c.Assert(w, tc.NotNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	newConfig := s.initialConfigMsg
 	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
 	case <-time.After(testing.LongWait):
@@ -228,7 +227,7 @@ func (s *WorkerSuite) TestUpdateQueryTracingThreshold(c *tc.C) {
 	d := time.Second * 2
 	newConfig.Config[controller.QueryTracingThreshold] = d.String()
 	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
 	case <-time.After(testing.LongWait):
@@ -243,11 +242,11 @@ func (s *WorkerSuite) TestUpdateQueryTracingThreshold(c *tc.C) {
 func (s *WorkerSuite) TestUpdateOpenTelemetryEnabled(c *tc.C) {
 	w, err := agentconfigupdater.NewWorker(s.config)
 	c.Assert(w, tc.NotNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	newConfig := s.initialConfigMsg
 	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
 	case <-time.After(testing.LongWait):
@@ -258,7 +257,7 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryEnabled(c *tc.C) {
 
 	newConfig.Config[controller.OpenTelemetryEnabled] = true
 	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
 	case <-time.After(testing.LongWait):
@@ -273,11 +272,11 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryEnabled(c *tc.C) {
 func (s *WorkerSuite) TestUpdateOpenTelemetryEndpoint(c *tc.C) {
 	w, err := agentconfigupdater.NewWorker(s.config)
 	c.Assert(w, tc.NotNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	newConfig := s.initialConfigMsg
 	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
 	case <-time.After(testing.LongWait):
@@ -288,7 +287,7 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryEndpoint(c *tc.C) {
 
 	newConfig.Config[controller.OpenTelemetryEndpoint] = "http://foo.bar"
 	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
 	case <-time.After(testing.LongWait):
@@ -303,11 +302,11 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryEndpoint(c *tc.C) {
 func (s *WorkerSuite) TestUpdateOpenTelemetryInsecure(c *tc.C) {
 	w, err := agentconfigupdater.NewWorker(s.config)
 	c.Assert(w, tc.NotNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	newConfig := s.initialConfigMsg
 	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
 	case <-time.After(testing.LongWait):
@@ -318,7 +317,7 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryInsecure(c *tc.C) {
 
 	newConfig.Config[controller.OpenTelemetryInsecure] = true
 	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
 	case <-time.After(testing.LongWait):
@@ -333,11 +332,11 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryInsecure(c *tc.C) {
 func (s *WorkerSuite) TestUpdateOpenTelemetryStackTraces(c *tc.C) {
 	w, err := agentconfigupdater.NewWorker(s.config)
 	c.Assert(w, tc.NotNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	newConfig := s.initialConfigMsg
 	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
 	case <-time.After(testing.LongWait):
@@ -348,7 +347,7 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryStackTraces(c *tc.C) {
 
 	newConfig.Config[controller.OpenTelemetryStackTraces] = true
 	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
 	case <-time.After(testing.LongWait):
@@ -363,11 +362,11 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryStackTraces(c *tc.C) {
 func (s *WorkerSuite) TestUpdateOpenTelemetrySampleRatio(c *tc.C) {
 	w, err := agentconfigupdater.NewWorker(s.config)
 	c.Assert(w, tc.NotNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	newConfig := s.initialConfigMsg
 	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
 	case <-time.After(testing.LongWait):
@@ -378,7 +377,7 @@ func (s *WorkerSuite) TestUpdateOpenTelemetrySampleRatio(c *tc.C) {
 
 	newConfig.Config[controller.OpenTelemetrySampleRatio] = 0.42
 	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
 	case <-time.After(testing.LongWait):
@@ -393,11 +392,11 @@ func (s *WorkerSuite) TestUpdateOpenTelemetrySampleRatio(c *tc.C) {
 func (s *WorkerSuite) TestUpdateOpenTelemetryTailSamplingThreshold(c *tc.C) {
 	w, err := agentconfigupdater.NewWorker(s.config)
 	c.Assert(w, tc.NotNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	newConfig := s.initialConfigMsg
 	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
 	case <-time.After(testing.LongWait):
@@ -409,7 +408,7 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryTailSamplingThreshold(c *tc.C) {
 	d := time.Second
 	newConfig.Config[controller.OpenTelemetryTailSamplingThreshold] = d.String()
 	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
 	case <-time.After(testing.LongWait):
@@ -424,11 +423,11 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryTailSamplingThreshold(c *tc.C) {
 func (s *WorkerSuite) TestUpdateObjectStoreType(c *tc.C) {
 	w, err := agentconfigupdater.NewWorker(s.config)
 	c.Assert(w, tc.NotNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	newConfig := s.initialConfigMsg
 	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
 	case <-time.After(testing.LongWait):
@@ -439,7 +438,7 @@ func (s *WorkerSuite) TestUpdateObjectStoreType(c *tc.C) {
 
 	newConfig.Config[controller.ObjectStoreType] = objectstore.S3Backend
 	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
 	case <-time.After(testing.LongWait):

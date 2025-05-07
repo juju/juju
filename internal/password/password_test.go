@@ -6,7 +6,6 @@ package password
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 type passwordSuite struct {
@@ -79,11 +78,11 @@ func (*passwordSuite) TestAgentPasswordHash(c *tc.C) {
 	for i := 0; i < 1000; i++ {
 		password, err := RandomPassword()
 		c.Assert(err, tc.IsNil)
-		c.Assert(seenValues[password], jc.IsFalse)
+		c.Assert(seenValues[password], tc.IsFalse)
 		seenValues[password] = true
 		hashed := AgentPasswordHash(password)
 		c.Assert(hashed, tc.Not(tc.Equals), password)
-		c.Assert(seenValues[hashed], jc.IsFalse)
+		c.Assert(seenValues[hashed], tc.IsFalse)
 		seenValues[hashed] = true
 		c.Assert(len(hashed), tc.Equals, 24)
 		// check we're not adding base64 padding.

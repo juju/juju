@@ -13,7 +13,6 @@ import (
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
 
@@ -178,7 +177,7 @@ func (s *credentialsSuite) TestRemoteDetectCredentials(c *tc.C) {
 	deps.server.EXPECT().ServerCertificate().Return(coretesting.ServerCert)
 
 	credentials, err := deps.provider.DetectCredentials("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	nuc1Credential := cloud.NewCredential(
 		cloud.CertificateAuthType,
@@ -200,7 +199,7 @@ func (s *credentialsSuite) TestRemoteDetectCredentials(c *tc.C) {
 	)
 	localCredential.Label = `LXD credential "localhost"`
 
-	c.Assert(credentials, jc.DeepEquals, &cloud.CloudCredential{
+	c.Assert(credentials, tc.DeepEquals, &cloud.CloudCredential{
 		AuthCredentials: map[string]cloud.Credential{
 			"nuc1":      nuc1Credential,
 			"localhost": localCredential,
@@ -235,7 +234,7 @@ func (s *credentialsSuite) TestRemoteDetectCredentialsNoRemoteCert(c *tc.C) {
 	deps.server.EXPECT().ServerCertificate().Return(coretesting.ServerCert)
 
 	credentials, err := deps.provider.DetectCredentials("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	nuc1Credential := cloud.NewCredential(
 		cloud.CertificateAuthType,
@@ -256,7 +255,7 @@ func (s *credentialsSuite) TestRemoteDetectCredentialsNoRemoteCert(c *tc.C) {
 	)
 	localCredential.Label = `LXD credential "localhost"`
 
-	c.Assert(credentials, jc.DeepEquals, &cloud.CloudCredential{
+	c.Assert(credentials, tc.DeepEquals, &cloud.CloudCredential{
 		AuthCredentials: map[string]cloud.Credential{
 			"nuc1":      nuc1Credential,
 			"localhost": localCredential,
@@ -280,8 +279,8 @@ func (s *credentialsSuite) TestRemoteDetectCredentialsWithConfigFailure(c *tc.C)
 	deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", errors.New("bad"))
 
 	credentials, err := deps.provider.DetectCredentials("")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credentials, jc.DeepEquals, &cloud.CloudCredential{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(credentials, tc.DeepEquals, &cloud.CloudCredential{
 		AuthCredentials: map[string]cloud.Credential{},
 	})
 }
@@ -312,8 +311,8 @@ func (s *credentialsSuite) TestRemoteDetectCredentialsWithCertFailure(c *tc.C) {
 	deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", errors.New("bad"))
 
 	credentials, err := deps.provider.DetectCredentials("")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credentials, jc.DeepEquals, &cloud.CloudCredential{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(credentials, tc.DeepEquals, &cloud.CloudCredential{
 		AuthCredentials: map[string]cloud.Credential{},
 	})
 }
@@ -349,8 +348,8 @@ func (s *credentialsSuite) TestRegisterCredentials(c *tc.C) {
 	credentials, err := provider.RegisterCredentials(cloud.Cloud{
 		Name: "localhost",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credentials, jc.DeepEquals, map[string]*cloud.CloudCredential{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(credentials, tc.DeepEquals, map[string]*cloud.CloudCredential{
 		"localhost": {
 			DefaultCredential: "localhost",
 			AuthCredentials: map[string]cloud.Credential{
@@ -390,8 +389,8 @@ func (s *credentialsSuite) TestRegisterCredentialsWithAlternativeCloudName(c *tc
 	credentials, err := provider.RegisterCredentials(cloud.Cloud{
 		Name: "lxd",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credentials, jc.DeepEquals, map[string]*cloud.CloudCredential{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(credentials, tc.DeepEquals, map[string]*cloud.CloudCredential{
 		"lxd": {
 			DefaultCredential: "lxd",
 			AuthCredentials: map[string]cloud.Credential{
@@ -417,7 +416,7 @@ func (s *credentialsSuite) TestRegisterCredentialsUsesJujuCert(c *tc.C) {
 	credentials, err := provider.RegisterCredentials(cloud.Cloud{
 		Name: "localhost",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected := cloud.NewCredential(
 		cloud.CertificateAuthType,
@@ -429,7 +428,7 @@ func (s *credentialsSuite) TestRegisterCredentialsUsesJujuCert(c *tc.C) {
 	)
 	expected.Label = `LXD credential "localhost"`
 
-	c.Assert(credentials, jc.DeepEquals, map[string]*cloud.CloudCredential{
+	c.Assert(credentials, tc.DeepEquals, map[string]*cloud.CloudCredential{
 		"localhost": {
 			DefaultCredential: "localhost",
 			AuthCredentials: map[string]cloud.Credential{
@@ -458,7 +457,7 @@ func (s *credentialsSuite) TestRegisterCredentialsUsesLXCCert(c *tc.C) {
 	credentials, err := provider.RegisterCredentials(cloud.Cloud{
 		Name: "localhost",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected := cloud.NewCredential(
 		cloud.CertificateAuthType,
@@ -470,7 +469,7 @@ func (s *credentialsSuite) TestRegisterCredentialsUsesLXCCert(c *tc.C) {
 	)
 	expected.Label = `LXD credential "localhost"`
 
-	c.Assert(credentials, jc.DeepEquals, map[string]*cloud.CloudCredential{
+	c.Assert(credentials, tc.DeepEquals, map[string]*cloud.CloudCredential{
 		"localhost": {
 			DefaultCredential: "localhost",
 			AuthCredentials: map[string]cloud.Credential{
@@ -495,10 +494,10 @@ func (s *credentialsSuite) TestFinalizeCredentialLocal(c *tc.C) {
 			"client-key":  coretesting.CAKey,
 		}),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(out.AuthType(), tc.Equals, cloud.CertificateAuthType)
-	c.Assert(out.Attributes(), jc.DeepEquals, map[string]string{
+	c.Assert(out.Attributes(), tc.DeepEquals, map[string]string{
 		"client-cert": coretesting.CACert,
 		"client-key":  coretesting.CAKey,
 		"server-cert": "server-cert",
@@ -520,10 +519,10 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalAddCert(c *tc.C) {
 			"client-key":  coretesting.CAKey,
 		}),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(out.AuthType(), tc.Equals, cloud.CertificateAuthType)
-	c.Assert(out.Attributes(), jc.DeepEquals, map[string]string{
+	c.Assert(out.Attributes(), tc.DeepEquals, map[string]string{
 		"client-cert": coretesting.CACert,
 		"client-key":  coretesting.CAKey,
 		"server-cert": "server-cert",
@@ -553,10 +552,10 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalAddCertAlreadyExists(c *tc
 			"client-key":  coretesting.CAKey,
 		}),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(out.AuthType(), tc.Equals, cloud.CertificateAuthType)
-	c.Assert(out.Attributes(), jc.DeepEquals, map[string]string{
+	c.Assert(out.Attributes(), tc.DeepEquals, map[string]string{
 		"client-cert": coretesting.CACert,
 		"client-key":  coretesting.CAKey,
 		"server-cert": "server-cert",
@@ -650,10 +649,10 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalCertificate(c *tc.C) {
 			"client-key":  coretesting.CAKey,
 		}),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(out.AuthType(), tc.Equals, cloud.AuthType("certificate"))
-	c.Assert(out.Attributes(), jc.DeepEquals, map[string]string{
+	c.Assert(out.Attributes(), tc.DeepEquals, map[string]string{
 		"client-cert": coretesting.CACert,
 		"client-key":  coretesting.CAKey,
 		"server-cert": "server-cert",
@@ -709,10 +708,10 @@ func (s *credentialsSuite) TestFinalizeCredentialNonLocal(c *tc.C) {
 	}
 	clientCert := containerLXD.NewCertificate([]byte(coretesting.CACert), []byte(coretesting.CAKey))
 	clientX509Cert, err := clientCert.X509()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	clientX509Base64 := base64.StdEncoding.EncodeToString(clientX509Cert.Raw)
 	fingerprint, err := clientCert.Fingerprint()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	deps.serverFactory.EXPECT().InsecureRemoteServer(insecureSpec).Return(deps.server, nil)
 	deps.server.EXPECT().GetCertificate(fingerprint).Return(nil, "", errNotFound)
@@ -737,8 +736,8 @@ func (s *credentialsSuite) TestFinalizeCredentialNonLocal(c *tc.C) {
 	})
 
 	got, err := deps.provider.FinalizeCredential(cmdtesting.Context(c), params)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, jc.DeepEquals, &expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.DeepEquals, &expected)
 }
 
 func (s *credentialsSuite) TestFinalizeCredentialRemoteWithTrustToken(c *tc.C) {
@@ -776,10 +775,10 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithTrustToken(c *tc.C) {
 	}
 	clientCert := containerLXD.NewCertificate([]byte(coretesting.CACert), []byte(coretesting.CAKey))
 	clientX509Cert, err := clientCert.X509()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	clientX509Base64 := base64.StdEncoding.EncodeToString(clientX509Cert.Raw)
 	fingerprint, err := clientCert.Fingerprint()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	deps.serverFactory.EXPECT().InsecureRemoteServer(insecureSpec).Return(deps.server, nil)
 	deps.server.EXPECT().GetCertificate(fingerprint).Return(nil, "", errNotFound)
@@ -804,8 +803,8 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithTrustToken(c *tc.C) {
 	})
 
 	got, err := deps.provider.FinalizeCredential(cmdtesting.Context(c), params)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, jc.DeepEquals, &expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.DeepEquals, &expected)
 }
 
 func (s *credentialsSuite) TestFinalizeCredentialRemoteWithTrustTokenAndTrustPasswordFails(c *tc.C) {
@@ -861,7 +860,7 @@ func (s *credentialsSuite) TestFinalizeCredentialNonLocalWithCertAlreadyExists(c
 	}
 	clientCert := containerLXD.NewCertificate([]byte(coretesting.CACert), []byte(coretesting.CAKey))
 	fingerprint, err := clientCert.Fingerprint()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	deps.serverFactory.EXPECT().InsecureRemoteServer(insecureSpec).Return(deps.server, nil)
 	deps.server.EXPECT().GetCertificate(fingerprint).Return(&api.Certificate{}, "", nil)
@@ -880,8 +879,8 @@ func (s *credentialsSuite) TestFinalizeCredentialNonLocalWithCertAlreadyExists(c
 	})
 
 	got, err := deps.provider.FinalizeCredential(cmdtesting.Context(c), params)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, jc.DeepEquals, &expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.DeepEquals, &expected)
 }
 
 func (s *credentialsSuite) TestFinalizeCredentialRemoteWithInsecureError(c *tc.C) {
@@ -935,10 +934,10 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithCreateCertificateErro
 	}
 	clientCert := containerLXD.NewCertificate([]byte(coretesting.CACert), []byte(coretesting.CAKey))
 	clientX509Cert, err := clientCert.X509()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	clientX509Base64 := base64.StdEncoding.EncodeToString(clientX509Cert.Raw)
 	fingerprint, err := clientCert.Fingerprint()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	deps.serverFactory.EXPECT().InsecureRemoteServer(insecureSpec).Return(deps.server, nil)
 	deps.server.EXPECT().GetCertificate(fingerprint).Return(nil, "", errNotFound)
@@ -976,10 +975,10 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoveWithGetServerError(c *tc.
 	}
 	clientCert := containerLXD.NewCertificate([]byte(coretesting.CACert), []byte(coretesting.CAKey))
 	clientX509Cert, err := clientCert.X509()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	clientX509Base64 := base64.StdEncoding.EncodeToString(clientX509Cert.Raw)
 	fingerprint, err := clientCert.Fingerprint()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	deps.serverFactory.EXPECT().InsecureRemoteServer(insecureSpec).Return(deps.server, nil)
 	deps.server.EXPECT().GetCertificate(fingerprint).Return(nil, "", errNotFound)
@@ -1029,10 +1028,10 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithNewRemoteServerError(
 	}
 	clientCert := containerLXD.NewCertificate([]byte(coretesting.CACert), []byte(coretesting.CAKey))
 	clientX509Cert, err := clientCert.X509()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	clientX509Base64 := base64.StdEncoding.EncodeToString(clientX509Cert.Raw)
 	fingerprint, err := clientCert.Fingerprint()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	deps.serverFactory.EXPECT().InsecureRemoteServer(insecureSpec).Return(deps.server, nil)
 	deps.server.EXPECT().GetCertificate(fingerprint).Return(nil, "", errNotFound)
@@ -1068,10 +1067,10 @@ func (s *credentialsSuite) TestInteractiveFinalizeCredentialWithValidCredentials
 			"server-cert": "server-cert",
 		}),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(out.AuthType(), tc.Equals, cloud.AuthType("certificate"))
-	c.Assert(out.Attributes(), jc.DeepEquals, map[string]string{
+	c.Assert(out.Attributes(), tc.DeepEquals, map[string]string{
 		"client-cert": coretesting.CACert,
 		"client-key":  coretesting.CAKey,
 		"server-cert": "server-cert",
@@ -1098,10 +1097,10 @@ func (s *credentialsSuite) TestInteractiveFinalizeCredentialWithTrustPassword(c 
 			"trust-password": "password1",
 		}),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(out.AuthType(), tc.Equals, cloud.CertificateAuthType)
-	c.Assert(out.Attributes(), jc.DeepEquals, map[string]string{
+	c.Assert(out.Attributes(), tc.DeepEquals, map[string]string{
 		"client-cert": coretesting.CACert,
 		"client-key":  coretesting.CAKey,
 		"server-cert": "server-cert",
@@ -1128,10 +1127,10 @@ func (s *credentialsSuite) TestInteractiveFinalizeCredentialWithTrustToken(c *tc
 			"trust-token": "token1",
 		}),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(out.AuthType(), tc.Equals, cloud.CertificateAuthType)
-	c.Assert(out.Attributes(), jc.DeepEquals, map[string]string{
+	c.Assert(out.Attributes(), tc.DeepEquals, map[string]string{
 		"client-cert": coretesting.CACert,
 		"client-key":  coretesting.CAKey,
 		"server-cert": "server-cert",
@@ -1166,7 +1165,7 @@ func (s *credentialsSuite) clientCert() *containerLXD.Certificate {
 
 func (s *credentialsSuite) clientCertFingerprint(c *tc.C) string {
 	fp, err := s.clientCert().Fingerprint()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return fp
 }
 
@@ -1178,7 +1177,7 @@ func (s *credentialsSuite) TestGetCertificates(c *tc.C) {
 	})
 	cert, server, ok := lxd.GetCertificates(cred)
 	c.Assert(ok, tc.Equals, true)
-	c.Assert(cert, jc.DeepEquals, s.clientCert())
+	c.Assert(cert, tc.DeepEquals, s.clientCert())
 	c.Assert(server, tc.Equals, "server.crt")
 }
 

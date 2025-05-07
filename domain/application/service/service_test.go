@@ -5,7 +5,6 @@ package service
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/domain/application/architecture"
@@ -28,7 +27,7 @@ func (s *serviceSuite) TestEncodeChannelAndPlatform(c *tc.C) {
 			Channel:      "24.04",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(ch, tc.DeepEquals, &deployment.Channel{
 		Track:  "track",
 		Risk:   deployment.RiskStable,
@@ -50,7 +49,7 @@ func (s *serviceSuite) TestEncodeChannelAndPlatformInvalidArch(c *tc.C) {
 			Channel:      "24.04",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(ch, tc.DeepEquals, &deployment.Channel{
 		Track:  "track",
 		Risk:   deployment.RiskStable,

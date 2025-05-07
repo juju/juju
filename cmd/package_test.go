@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 )
 
 func Test(t *stdtesting.T) {
@@ -103,7 +102,7 @@ func (s *OSCallTest) TestNoRestrictedCalls(c *tc.C) {
 			s.parseDir(fset, calls, path)
 			return nil
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(calls, tc.HasLen, 0)
 }
 

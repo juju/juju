@@ -6,7 +6,6 @@ package jujuclient_test
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/yaml.v3"
 
@@ -32,7 +31,7 @@ func (p *proxyWrapperSuite) TestMarshalling(c *tc.C) {
 	proxier := proxy.NewProxier(config)
 	wrapper := &jujuclient.ProxyConfWrapper{proxier}
 	data, err := yaml.Marshal(wrapper)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(data), tc.Equals, `
 type: kubernetes-port-forward
 config:
@@ -81,9 +80,9 @@ config:
     service: test
     service-account-token: token====
 `[1:]), &wrapper)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(wrapper.Proxier.Type(), tc.Equals, "kubernetes-port-forward")
 	rCfg, err := wrapper.Proxier.RawConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rCfg, tc.DeepEquals, rawConfig)
 }

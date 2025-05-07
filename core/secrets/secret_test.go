@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/rs/xid"
 
 	"github.com/juju/juju/core/secrets"
@@ -76,7 +75,7 @@ func (s *SecretURISuite) TestParseURI(c *tc.C) {
 		if t.err != "" || result == nil {
 			c.Check(err, tc.ErrorMatches, t.err)
 		} else {
-			c.Check(result, jc.DeepEquals, t.expected)
+			c.Check(result, tc.DeepEquals, t.expected)
 			if t.str != "" {
 				c.Check(result.String(), tc.Equals, t.str)
 			} else {
@@ -93,8 +92,8 @@ func (s *SecretURISuite) TestString(c *tc.C) {
 	str := expected.String()
 	c.Assert(str, tc.Equals, secretURI)
 	uri, err := secrets.ParseURI(str)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uri, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(uri, tc.DeepEquals, expected)
 }
 
 func (s *SecretURISuite) TestStringWithSource(c *tc.C) {
@@ -105,8 +104,8 @@ func (s *SecretURISuite) TestStringWithSource(c *tc.C) {
 	str := expected.String()
 	c.Assert(str, tc.Equals, fmt.Sprintf("secret://%s/%s", secretSource, secretID))
 	uri, err := secrets.ParseURI(str)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uri, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(uri, tc.DeepEquals, expected)
 }
 
 func (s *SecretURISuite) TestName(c *tc.C) {
@@ -118,7 +117,7 @@ func (s *SecretURISuite) TestName(c *tc.C) {
 func (s *SecretURISuite) TestNew(c *tc.C) {
 	uri := secrets.NewURI()
 	_, err := xid.FromString(uri.ID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *SecretURISuite) TestWithSource(c *tc.C) {
@@ -130,10 +129,10 @@ func (s *SecretURISuite) TestWithSource(c *tc.C) {
 
 func (s *SecretURISuite) TestIsLocal(c *tc.C) {
 	uri := secrets.NewURI()
-	c.Assert(uri.IsLocal("other-uuid"), jc.IsTrue)
+	c.Assert(uri.IsLocal("other-uuid"), tc.IsTrue)
 	uri2 := uri.WithSource("some-uuid")
-	c.Assert(uri2.IsLocal("some-uuid"), jc.IsTrue)
-	c.Assert(uri2.IsLocal("other-uuid"), jc.IsFalse)
+	c.Assert(uri2.IsLocal("some-uuid"), tc.IsTrue)
+	c.Assert(uri2.IsLocal("other-uuid"), tc.IsFalse)
 }
 
 type SecretSuite struct{}

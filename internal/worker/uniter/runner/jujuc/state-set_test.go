@@ -7,7 +7,6 @@ import (
 	"bytes"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -78,7 +77,7 @@ func (s *stateSetSuite) TestStateSet(c *tc.C) {
 		}
 
 		toolCmd, err := jujuc.NewCommand(s.mockContext, "state-set")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		ctx := cmdtesting.Context(c)
 		if test.content != "" {
@@ -97,7 +96,7 @@ func (s *stateSetSuite) TestStateSetExistingEmpty(c *tc.C) {
 	s.expectStateSetOneEmpty()
 
 	toolCmd, err := jujuc.NewCommand(s.mockContext, "state-set")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := cmdtesting.Context(c)
 

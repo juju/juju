@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/featureflag"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -52,7 +51,7 @@ func (s *logSuite) TestFlagSet(c *tc.C) {
 	err := errors.New("test error")
 	err2 := loggedErrorStack(logger, err)
 	c.Assert(err, tc.Equals, err2)
-	c.Assert(entries, jc.SameContents, []string{
+	c.Assert(entries, tc.SameContents, []string{
 		"ERROR: error stack:\n[test error]",
 	})
 }

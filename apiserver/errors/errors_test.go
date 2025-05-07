@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
 	"gopkg.in/macaroon.v2"
 
@@ -320,7 +319,7 @@ func (s *errorsSuite) TestErrorTransform(c *tc.C) {
 		c.Assert(err1.Message, tc.Equals, t.err.Error())
 		c.Assert(err1.Code, tc.Equals, t.code)
 		if t.helperFunc != nil {
-			c.Assert(err1, jc.Satisfies, t.helperFunc)
+			c.Assert(err1, tc.Satisfies, t.helperFunc)
 		}
 
 		// TODO(ericsnow) Remove this switch once the other error types are supported.
@@ -341,16 +340,16 @@ func (s *errorsSuite) TestErrorTransform(c *tc.C) {
 		c.Logf("  checking restore (%#v)", err1)
 		restored := apiservererrors.RestoreError(err1)
 		if t.err == nil {
-			c.Check(restored, jc.ErrorIsNil)
+			c.Check(restored, tc.ErrorIsNil)
 		} else if t.code == "" {
 			c.Check(restored.Error(), tc.Equals, t.err.Error())
 		}
 
 		if t.targetTester == nil {
-			c.Check(restored, jc.ErrorIs, t.err)
+			c.Check(restored, tc.ErrorIs, t.err)
 			c.Check(restored.Error(), tc.Equals, t.err.Error())
 		} else {
-			c.Check(t.targetTester(restored), jc.IsTrue)
+			c.Check(t.targetTester(restored), tc.IsTrue)
 			c.Check(restored.Error(), tc.Equals, t.err.Error())
 		}
 	}
@@ -368,7 +367,7 @@ func (s *errorsSuite) TestDestroyErr(c *tc.C) {
 		"id3",
 	}
 
-	c.Assert(apiservererrors.DestroyErr("entities", ids, nil), jc.ErrorIsNil)
+	c.Assert(apiservererrors.DestroyErr("entities", ids, nil), tc.ErrorIsNil)
 
 	err := apiservererrors.DestroyErr("entities", ids, errs)
 	c.Assert(err, tc.ErrorMatches, "no entities were destroyed: error one; error two; error three")

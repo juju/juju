@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/storage"
@@ -46,21 +45,21 @@ func (s *exportSuite) TestExport(c *tc.C) {
 	c.Assert(dst.StoragePools(), tc.HasLen, 0)
 
 	sc, err := storage.NewConfig("ebs-fast", "ebs", map[string]any{"foo": "bar"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	builtIn, err := storage.NewConfig("loop", "loop", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.service.EXPECT().AllStoragePools(gomock.Any()).
 		Times(1).
 		Return([]*storage.Config{sc, builtIn}, nil)
 
 	op := s.newExportOperation()
 	err = op.Execute(context.Background(), dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	pools := dst.StoragePools()
 	c.Assert(pools, tc.HasLen, 1)
 	sp := pools[0]
 	c.Check(sp.Name(), tc.Equals, "ebs-fast")
 	c.Check(sp.Provider(), tc.Equals, "ebs")
-	c.Assert(sp.Attributes(), jc.DeepEquals, map[string]any{"foo": "bar"})
+	c.Assert(sp.Attributes(), tc.DeepEquals, map[string]any{"foo": "bar"})
 }

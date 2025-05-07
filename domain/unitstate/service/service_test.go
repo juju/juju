@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	unittesting "github.com/juju/juju/core/unit/testing"
@@ -40,7 +39,7 @@ func (s *serviceSuite) TestSetState(c *tc.C) {
 	exp.SetUnitState(gomock.Any(), as)
 
 	err := NewService(s.st).SetState(context.Background(), as)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestSetStateUnitNotFound(c *tc.C) {
@@ -57,7 +56,7 @@ func (s *serviceSuite) TestSetStateUnitNotFound(c *tc.C) {
 	exp.SetUnitState(gomock.Any(), as).Return(errors.UnitNotFound)
 
 	err := NewService(s.st).SetState(context.Background(), as)
-	c.Check(err, jc.ErrorIs, unitstateerrors.UnitNotFound)
+	c.Check(err, tc.ErrorIs, unitstateerrors.UnitNotFound)
 }
 
 func (s *serviceSuite) TestGetState(c *tc.C) {
@@ -67,7 +66,7 @@ func (s *serviceSuite) TestGetState(c *tc.C) {
 	s.st.EXPECT().GetUnitState(gomock.Any(), name)
 
 	_, err := NewService(s.st).GetState(context.Background(), name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestGetStateUnitNotFound(c *tc.C) {
@@ -77,7 +76,7 @@ func (s *serviceSuite) TestGetStateUnitNotFound(c *tc.C) {
 	s.st.EXPECT().GetUnitState(gomock.Any(), name).Return(unitstate.RetrievedUnitState{}, unitstateerrors.UnitNotFound)
 
 	_, err := NewService(s.st).GetState(context.Background(), name)
-	c.Assert(err, jc.ErrorIs, unitstateerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, unitstateerrors.UnitNotFound)
 }
 
 func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {

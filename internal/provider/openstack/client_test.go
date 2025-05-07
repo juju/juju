@@ -8,7 +8,6 @@ import (
 	"github.com/go-goose/goose/v5/identity"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cloud"
@@ -29,7 +28,7 @@ func (s *clientSuite) TestFactoryInit(c *tc.C) {
 	factory := s.setupMockFactory(ctrl, 1)
 
 	err := factory.Init()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *clientSuite) TestFactoryNova(c *tc.C) {
@@ -39,10 +38,10 @@ func (s *clientSuite) TestFactoryNova(c *tc.C) {
 	factory := s.setupMockFactory(ctrl, 1)
 
 	err := factory.Init()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	nova, err := factory.Nova()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(nova, tc.NotNil)
 }
 
@@ -53,10 +52,10 @@ func (s *clientSuite) TestFactoryNeutron(c *tc.C) {
 	factory := s.setupMockFactory(ctrl, 2)
 
 	err := factory.Init()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	nova, err := factory.Neutron()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(nova, tc.NotNil)
 }
 

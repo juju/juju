@@ -5,7 +5,6 @@ package netplan
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	goyaml "gopkg.in/yaml.v2"
 )
 
@@ -209,15 +208,15 @@ func (s *NetplanConfigurationMergeSuite) assertMergeResult(c *tc.C, base, src, e
 		baseMap, srcMap, expMap map[interface{}]interface{}
 	)
 
-	c.Assert(goyaml.Unmarshal([]byte(base), &baseMap), jc.ErrorIsNil)
-	c.Assert(goyaml.Unmarshal([]byte(src), &srcMap), jc.ErrorIsNil)
-	c.Assert(goyaml.Unmarshal([]byte(exp), &expMap), jc.ErrorIsNil)
+	c.Assert(goyaml.Unmarshal([]byte(base), &baseMap), tc.ErrorIsNil)
+	c.Assert(goyaml.Unmarshal([]byte(src), &srcMap), tc.ErrorIsNil)
+	c.Assert(goyaml.Unmarshal([]byte(exp), &expMap), tc.ErrorIsNil)
 
 	mergeRes, err := mergeNetplanConfigs(baseMap, srcMap)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	mergeResMap, ok := mergeRes.(map[interface{}]interface{})
-	c.Assert(ok, jc.IsTrue, tc.Commentf("expected merge result to be a map[interface{}]interface{}; got %T", mergeRes))
+	c.Assert(ok, tc.IsTrue, tc.Commentf("expected merge result to be a map[interface{}]interface{}; got %T", mergeRes))
 	c.Assert(mergeResMap, tc.DeepEquals, expMap)
 }
 
@@ -226,8 +225,8 @@ func (s *NetplanConfigurationMergeSuite) assertMergeError(c *tc.C, base, src, ex
 		baseMap, srcMap map[interface{}]interface{}
 	)
 
-	c.Assert(goyaml.Unmarshal([]byte(base), &baseMap), jc.ErrorIsNil)
-	c.Assert(goyaml.Unmarshal([]byte(src), &srcMap), jc.ErrorIsNil)
+	c.Assert(goyaml.Unmarshal([]byte(base), &baseMap), tc.ErrorIsNil)
+	c.Assert(goyaml.Unmarshal([]byte(src), &srcMap), tc.ErrorIsNil)
 
 	_, err := mergeNetplanConfigs(baseMap, srcMap)
 	c.Assert(err, tc.ErrorMatches, expErr)

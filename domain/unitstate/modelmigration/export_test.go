@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coreunit "github.com/juju/juju/core/unit"
@@ -56,7 +55,7 @@ func (s *exportSuite) TestExportOperation(c *tc.C) {
 	exportOp := exportOperation{service: s.service}
 
 	err := exportOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unit.CharmState(), tc.DeepEquals, map[string]string{
 		"charm": "state",
 	})
@@ -84,7 +83,7 @@ func (s *exportSuite) TestExportInvalidUnitName(c *tc.C) {
 	exportOp := exportOperation{service: s.service}
 
 	err := exportOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
+	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
 }
 
 func (s *exportSuite) TestExportError(c *tc.C) {
@@ -106,5 +105,5 @@ func (s *exportSuite) TestExportError(c *tc.C) {
 	exportOp := exportOperation{service: s.service}
 
 	err := exportOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIs, unitstateerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, unitstateerrors.UnitNotFound)
 }

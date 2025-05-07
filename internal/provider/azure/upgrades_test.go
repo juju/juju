@@ -13,7 +13,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/provider/azure"
@@ -119,7 +118,7 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeployment(
 	deploymentSender := azuretesting.NewSenderWithValue(&armresources.Deployment{})
 	deploymentSender.PathPattern = ".*/deployments/common"
 	s.sender = append(s.sender, vmListSender, nsgSender, deploymentSender)
-	c.Assert(op0.Steps[0].Run(context.Background()), jc.ErrorIsNil)
+	c.Assert(op0.Steps[0].Run(context.Background()), tc.ErrorIsNil)
 	c.Assert(s.requests, tc.HasLen, 3)
 
 	var actual armresources.Deployment
@@ -127,7 +126,7 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeployment(
 	c.Assert(actual.Properties, tc.NotNil)
 	c.Assert(actual.Properties.Template, tc.NotNil)
 	resources, ok := actual.Properties.Template.(map[string]interface{})["resources"].([]interface{})
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	c.Assert(resources, tc.HasLen, 2)
 }
 
@@ -152,7 +151,7 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeploymentC
 	s.sender = append(s.sender, vmListSender)
 
 	op0 := upgrader.UpgradeOperations(context.Background(), environs.UpgradeOperationsParams{})[0]
-	c.Assert(op0.Steps[0].Run(context.Background()), jc.ErrorIsNil)
+	c.Assert(op0.Steps[0].Run(context.Background()), tc.ErrorIsNil)
 }
 
 func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeploymentControllerModelWithInvalidCredential(c *tc.C) {
@@ -169,8 +168,8 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeploymentC
 	unauthSender.AppendAndRepeatResponse(azuretesting.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized), 3)
 	s.sender = append(s.sender, unauthSender, unauthSender, unauthSender)
 
-	c.Assert(s.invalidatedCredential, jc.IsFalse)
+	c.Assert(s.invalidatedCredential, tc.IsFalse)
 	op0 := upgrader.UpgradeOperations(context.Background(), environs.UpgradeOperationsParams{})[0]
 	c.Assert(op0.Steps[0].Run(context.Background()), tc.NotNil)
-	c.Assert(s.invalidatedCredential, jc.IsTrue)
+	c.Assert(s.invalidatedCredential, tc.IsTrue)
 }

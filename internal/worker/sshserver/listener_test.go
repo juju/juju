@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -91,7 +90,7 @@ func (s *listenerSuite) TestAcceptOnceListener(c *tc.C) {
 	}()
 
 	err := acceptOnceListener.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-done:
@@ -108,7 +107,7 @@ func (s *listenerSuite) TestAcceptOnceListenerDoesNotStop(c *tc.C) {
 	acceptOnceListener := newTestingSSHServerListener(s.listener, time.Millisecond*50)
 
 	err := acceptOnceListener.Close()
-	c.Assert(err, jc.ErrorIs, context.DeadlineExceeded)
+	c.Assert(err, tc.ErrorIs, context.DeadlineExceeded)
 }
 
 func (s *listenerSuite) setupMocks(c *tc.C) *gomock.Controller {

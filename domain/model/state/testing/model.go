@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
@@ -29,7 +28,7 @@ import (
 // This avoids the need for introducing cyclic imports with tests.
 func CreateInternalSecretBackend(c *tc.C, runner database.TxnRunner) {
 	backendUUID, err := corecredential.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(context.Background(),
@@ -40,7 +39,7 @@ func CreateInternalSecretBackend(c *tc.C, runner database.TxnRunner) {
 		`, backendUUID.String(), juju.BackendName, 0)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // CreateKubernetesSecretBackend creates the kubernetes secret backend on a controller.
@@ -48,7 +47,7 @@ func CreateInternalSecretBackend(c *tc.C, runner database.TxnRunner) {
 // This avoids the need for introducing cyclic imports with tests.
 func CreateKubernetesSecretBackend(c *tc.C, runner database.TxnRunner) {
 	backendUUID, err := corecredential.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(context.Background(),
@@ -59,7 +58,7 @@ func CreateKubernetesSecretBackend(c *tc.C, runner database.TxnRunner) {
 		`, backendUUID.String(), kubernetes.BackendName, 1)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // CreateTestModel is a testing utility function for creating a basic model for
@@ -74,21 +73,21 @@ func CreateTestModel(
 	name string,
 ) coremodel.UUID {
 	userUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cloudUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	regionName := name + "-region"
 	cloudRegionUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	credId, err := corecredential.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	userName := usertesting.GenNewName(c, "test-user"+name)
 	runner, err := txnRunner()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	CreateInternalSecretBackend(c, runner)
 
@@ -143,7 +142,7 @@ func CreateTestModel(
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	modelUUID := modeltesting.GenModelUUID(c)
 	modelSt := modelstate.NewState(txnRunner)
@@ -164,10 +163,10 @@ func CreateTestModel(
 			SecretBackend: juju.BackendName,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = modelSt.Activate(context.Background(), modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return modelUUID
 }
@@ -177,5 +176,5 @@ func CreateTestModel(
 func DeleteTestModel(c *tc.C, ctx context.Context, txnRunner database.TxnRunnerFactory, modelUUID coremodel.UUID) {
 	modelSt := modelstate.NewState(txnRunner)
 	err := modelSt.Delete(ctx, modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

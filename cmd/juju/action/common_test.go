@@ -5,7 +5,6 @@ package action_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/action"
 )
@@ -60,6 +59,6 @@ func (s *CommonSuite) TestAddValueToMap(c *tc.C) {
 			action.AddValueToMap(sVal.valuePath, sVal.value, t.startingMap)
 		}
 		// note addValueToMap mutates target.
-		c.Check(t.startingMap, jc.DeepEquals, t.expectedMap)
+		c.Check(t.startingMap, tc.DeepEquals, t.expectedMap)
 	}
 }

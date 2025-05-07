@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
@@ -44,7 +43,7 @@ func (*HousingSuite) TestEmptyHousingPopulatedManifold(c *tc.C) {
 		Filter: panicFilter,
 	})
 
-	c.Check(manifold.Inputs, jc.DeepEquals, []string{"x", "y", "z"})
+	c.Check(manifold.Inputs, tc.DeepEquals, []string{"x", "y", "z"})
 	c.Check(func() {
 		manifold.Start(context.Background(), nil)
 	}, tc.PanicMatches, "panicStart")
@@ -78,7 +77,7 @@ func (*HousingSuite) TestFlagsNoInput(c *tc.C) {
 	}.Decorate(dependency.Manifold{})
 
 	expect := []string{"foo", "bar"}
-	c.Check(manifold.Inputs, jc.DeepEquals, expect)
+	c.Check(manifold.Inputs, tc.DeepEquals, expect)
 }
 
 func (*HousingSuite) TestFlagsNewInput(c *tc.C) {
@@ -89,7 +88,7 @@ func (*HousingSuite) TestFlagsNewInput(c *tc.C) {
 	})
 
 	expect := []string{"ping", "pong", "foo", "bar"}
-	c.Check(manifold.Inputs, jc.DeepEquals, expect)
+	c.Check(manifold.Inputs, tc.DeepEquals, expect)
 }
 
 func (*HousingSuite) TestFlagsExistingInput(c *tc.C) {
@@ -100,7 +99,7 @@ func (*HousingSuite) TestFlagsExistingInput(c *tc.C) {
 	})
 
 	expect := []string{"a", "b", "c", "d"}
-	c.Check(manifold.Inputs, jc.DeepEquals, expect)
+	c.Check(manifold.Inputs, tc.DeepEquals, expect)
 }
 
 func (*HousingSuite) TestFlagMissing(c *tc.C) {
@@ -157,7 +156,7 @@ func (*HousingSuite) TestFlagSuccess(c *tc.C) {
 
 	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, tc.Equals, expectWorker)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (*HousingSuite) TestOccupyNewInput(c *tc.C) {
@@ -168,7 +167,7 @@ func (*HousingSuite) TestOccupyNewInput(c *tc.C) {
 	})
 
 	expect := []string{"ping", "pong", "fortress"}
-	c.Check(manifold.Inputs, jc.DeepEquals, expect)
+	c.Check(manifold.Inputs, tc.DeepEquals, expect)
 }
 
 func (*HousingSuite) TestOccupyExistingInput(c *tc.C) {
@@ -179,7 +178,7 @@ func (*HousingSuite) TestOccupyExistingInput(c *tc.C) {
 	})
 
 	expect := []string{"citadel", "fortress", "bastion"}
-	c.Check(manifold.Inputs, jc.DeepEquals, expect)
+	c.Check(manifold.Inputs, tc.DeepEquals, expect)
 }
 
 func (*HousingSuite) TestFlagBlocksOccupy(c *tc.C) {
@@ -279,7 +278,7 @@ func (*HousingSuite) TestOccupySuccess(c *tc.C) {
 		defer close(started)
 		worker, err := manifold.Start(context.Background(), getter)
 		c.Check(worker, tc.Equals, expectWorker)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}()
 	select {
 	case <-started:

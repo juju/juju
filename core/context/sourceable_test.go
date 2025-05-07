@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/internal/errors"
@@ -30,7 +29,7 @@ func (s *contextSuite) TestSourceableErrorIsNilIfErrorIsNotContextError(c *tc.C)
 
 	ctx := WithSourceableError(context.Background(), &tomb)
 	err := ctx.Err()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *contextSuite) TestSourceableErrorIsIgnoredIfNotInErrorState(c *tc.C) {
@@ -41,7 +40,7 @@ func (s *contextSuite) TestSourceableErrorIsIgnoredIfNotInErrorState(c *tc.C) {
 
 	ctx = WithSourceableError(ctx, &tomb)
 	err := ctx.Err()
-	c.Assert(err, jc.ErrorIs, context.Canceled)
+	c.Assert(err, tc.ErrorIs, context.Canceled)
 }
 
 func (s *contextSuite) TestSourceableErrorIsTombError(c *tc.C) {

@@ -9,7 +9,6 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/application"
 	corerelation "github.com/juju/juju/core/relation"
@@ -70,7 +69,7 @@ func (s *relatedUnitWatcherSuite) TestGetRelatedEndpointUUIDForUnit(c *tc.C) {
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotEndpoint, tc.Equals, relationEndpoint{
 		UUID:            corerelation.EndpointUUID(expectedEndpoint),
 		ApplicationUUID: appUUID2,
@@ -101,7 +100,7 @@ func (s *relatedUnitWatcherSuite) TestGetRelatedEndpointUUIDForUnitPeerRelation(
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotEndpointUUID, tc.Equals, relationEndpoint{})
 }
 
@@ -150,8 +149,8 @@ func (s *relatedUnitWatcherSuite) TestGetRelatedUnits(c *tc.C) {
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotUnits, jc.SameContents, expectedUnits)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(gotUnits, tc.SameContents, expectedUnits)
 }
 
 func (s *relatedUnitWatcherSuite) TestGetRelatedUnitsPeerRelation(c *tc.C) {
@@ -191,6 +190,6 @@ func (s *relatedUnitWatcherSuite) TestGetRelatedUnitsPeerRelation(c *tc.C) {
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotUnits, jc.SameContents, expectedUnits)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(gotUnits, tc.SameContents, expectedUnits)
 }

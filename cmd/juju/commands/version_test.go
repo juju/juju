@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
@@ -28,7 +27,7 @@ func (s *VersionSuite) TestVersion(c *tc.C) {
 	s.PatchValue(&jujuversion.Current, semversion.MustParse("2.99.0"))
 	command := newVersionCommand()
 	cctx, err := cmdtesting.RunCommand(c, command)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	output := fmt.Sprintf("2.99.0-%s-%s\n",
 		coreos.HostOSTypeName(), arch.HostArch())
 
@@ -44,7 +43,7 @@ func (s *VersionSuite) TestVersionDetail(c *tc.C) {
 	s.PatchValue(&jujuversion.GoBuildTags, "a,b,c,d")
 	command := newVersionCommand()
 	cctx, err := cmdtesting.RunCommand(c, command, "--all")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	outputTemplate := `
 version: 2.99.0-%s-%s
 git-commit: 0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f
@@ -66,7 +65,7 @@ func (s *VersionSuite) TestVersionDetailJSON(c *tc.C) {
 	s.PatchValue(&jujuversion.GoBuildTags, "a,b,c,d")
 	command := newVersionCommand()
 	cctx, err := cmdtesting.RunCommand(c, command, "--all", "--format", "json")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	outputTemplate := `
 {"version":"2.99.0-%s-%s","git-commit":"0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f","git-tree-state":"clean","compiler":"gc","go-build-tags":"a,b,c,d"}
 `[1:]
@@ -84,7 +83,7 @@ func (s *VersionSuite) TestVersionDetailYAML(c *tc.C) {
 	s.PatchValue(&jujuversion.GoBuildTags, "a,b,c,d")
 	command := newVersionCommand()
 	cctx, err := cmdtesting.RunCommand(c, command, "--all", "--format", "yaml")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	outputTemplate := `
 version: 2.99.0-%s-%s
 git-commit: 0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f

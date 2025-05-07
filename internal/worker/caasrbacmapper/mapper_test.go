@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -62,7 +61,7 @@ func (m *MapperSuite) TestMapperAdditionSync(c *tc.C) {
 		})
 
 	mapper, err := caasrbacmapper.NewMapper(loggertesting.WrapCheckLog(c), m.mockSAInformer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	waitGroup.Wait()
 
 	appName := "test"
@@ -118,7 +117,7 @@ func (m *MapperSuite) TestRBACMapperUpdateSync(c *tc.C) {
 		})
 
 	mapper, err := caasrbacmapper.NewMapper(loggertesting.WrapCheckLog(c), m.mockSAInformer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	waitGroup.Wait()
 
 	appName := "test"
@@ -200,7 +199,7 @@ func (m *MapperSuite) TestRBACMapperDeleteSync(c *tc.C) {
 		})
 
 	mapper, err := caasrbacmapper.NewMapper(loggertesting.WrapCheckLog(c), m.mockSAInformer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	waitGroup.Wait()
 
 	appName := "test"
@@ -245,7 +244,7 @@ func (m *MapperSuite) TestRBACMapperDeleteSync(c *tc.C) {
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		_, err = mapper.AppNameForServiceAccount(uid)
 		if err != nil {
-			c.Assert(err, jc.ErrorIs, errors.NotFound)
+			c.Assert(err, tc.ErrorIs, errors.NotFound)
 			break
 		}
 		if !a.HasNext() {
@@ -259,8 +258,8 @@ func (m *MapperSuite) TestRBACMapperNotFound(c *tc.C) {
 	m.mockSharedIndexInformer.EXPECT().AddEventHandler(gomock.Any())
 
 	mapper, err := caasrbacmapper.NewMapper(loggertesting.WrapCheckLog(c), m.mockSAInformer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = mapper.AppNameForServiceAccount("testing")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }

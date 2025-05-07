@@ -11,7 +11,6 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/dbrootkeystore"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"gopkg.in/macaroon.v2"
 
 	domainmacaroon "github.com/juju/juju/domain/macaroon"
@@ -46,10 +45,10 @@ func (s *expirableStorageSuite) TestNewExpirableStorage(c *tc.C) {
 	expireableStorage := internalmacaroon.NewExpirableStorage(s.macaroonService, time.Minute, s.clock)
 
 	key1, id, err := expireableStorage.RootKey(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	key2, err := expireableStorage.Get(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(key1, tc.DeepEquals, key2)
 }
 
@@ -60,14 +59,14 @@ func (s *expirableStorageSuite) TestExpiredRootKeyRemovedGet(c *tc.C) {
 		Expires: s.now.Add(-time.Second),
 		RootKey: []byte("key"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expireableStorage := internalmacaroon.NewExpirableStorage(s.macaroonService, time.Minute, s.clock)
 	_, err = expireableStorage.Get(context.Background(), []byte("id"))
-	c.Assert(err, jc.ErrorIs, bakery.ErrNotFound)
+	c.Assert(err, tc.ErrorIs, bakery.ErrNotFound)
 
 	_, err = s.macaroonService.GetKeyContext(context.Background(), []byte("id"))
-	c.Assert(err, jc.ErrorIs, bakery.ErrNotFound)
+	c.Assert(err, tc.ErrorIs, bakery.ErrNotFound)
 }
 
 func (s *expirableStorageSuite) TestExpiredRootKeyRemovedRootKey(c *tc.C) {
@@ -77,14 +76,14 @@ func (s *expirableStorageSuite) TestExpiredRootKeyRemovedRootKey(c *tc.C) {
 		Expires: s.now.Add(-time.Second),
 		RootKey: []byte("key"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expireableStorage := internalmacaroon.NewExpirableStorage(s.macaroonService, time.Minute, s.clock)
 	_, _, err = expireableStorage.RootKey(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.macaroonService.GetKeyContext(context.Background(), []byte("id"))
-	c.Assert(err, jc.ErrorIs, bakery.ErrNotFound)
+	c.Assert(err, tc.ErrorIs, bakery.ErrNotFound)
 }
 
 func (s *expirableStorageSuite) TestCheckNewMacaroon(c *tc.C) {
@@ -96,12 +95,12 @@ func (s *expirableStorageSuite) TestCheckNewMacaroon(c *tc.C) {
 
 	cav := []checkers.Caveat{{Condition: "something"}}
 	mac, err := b.Oven.NewMacaroon(context.Background(), bakery.LatestVersion, cav, bakery.NoOp)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	op, conditions, err := b.Oven.VerifyMacaroon(context.Background(), macaroon.Slice{mac.M()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, jc.DeepEquals, []bakery.Op{bakery.NoOp})
-	c.Assert(conditions, jc.DeepEquals, []string{"something"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op, tc.DeepEquals, []bakery.Op{bakery.NoOp})
+	c.Assert(conditions, tc.DeepEquals, []string{"something"})
 }
 
 func (s *expirableStorageSuite) TestExpiryTime(c *tc.C) {
@@ -112,7 +111,7 @@ func (s *expirableStorageSuite) TestExpiryTime(c *tc.C) {
 	})
 
 	mac, err := b.Oven.NewMacaroon(context.Background(), bakery.LatestVersion, nil, bakery.NoOp)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	for i := 0; i < 15; i++ {
 		_, _, err = b.Oven.VerifyMacaroon(context.Background(), macaroon.Slice{mac.M()})
@@ -220,11 +219,11 @@ func (s *expirableStorageSuite) TestRootKeyUsesKeysValidWithPolicy(c *tc.C) {
 		s.now = test.now
 		// Prime the collection with the root key document.
 		err := s.macaroonService.InsertKeyContext(context.Background(), test.key)
-		c.Assert(err, jc.ErrorIsNil, tc.Commentf(test.about))
+		c.Assert(err, tc.ErrorIsNil, tc.Commentf(test.about))
 
 		store := internalmacaroon.NewExpirableStorage(s.macaroonService, test.policy.ExpiryDuration, s.clock)
 		key, id, err := store.RootKey(context.Background())
-		c.Assert(err, jc.ErrorIsNil, tc.Commentf(test.about))
+		c.Assert(err, tc.ErrorIsNil, tc.Commentf(test.about))
 		if test.expect {
 			c.Assert(string(id), tc.Equals, "id", tc.Commentf(test.about))
 			c.Assert(string(key), tc.Equals, "key", tc.Commentf(test.about))
@@ -234,7 +233,7 @@ func (s *expirableStorageSuite) TestRootKeyUsesKeysValidWithPolicy(c *tc.C) {
 			c.Assert(key, tc.HasLen, 24, tc.Commentf(test.about))
 			c.Assert(id, tc.HasLen, 32, tc.Commentf(test.about))
 		}
-		c.Assert(err, jc.ErrorIsNil, tc.Commentf(test.about))
+		c.Assert(err, tc.ErrorIsNil, tc.Commentf(test.about))
 
 		s.TearDownTest(c)
 	}
@@ -243,7 +242,7 @@ func (s *expirableStorageSuite) TestRootKeyUsesKeysValidWithPolicy(c *tc.C) {
 func (s *expirableStorageSuite) TestRootKey(c *tc.C) {
 	store := internalmacaroon.NewExpirableStorage(s.macaroonService, 5*time.Minute, s.clock)
 	key, id, err := store.RootKey(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(key, tc.HasLen, 24)
 	c.Assert(id, tc.HasLen, 32)
 
@@ -251,21 +250,21 @@ func (s *expirableStorageSuite) TestRootKey(c *tc.C) {
 	// get the same one.
 	s.now = moment.Add(time.Minute)
 	key1, id1, err := store.RootKey(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(key1, tc.DeepEquals, key)
 	c.Assert(id1, tc.DeepEquals, id)
 
 	// A different store instance should get the same root key.
 	store1 := internalmacaroon.NewExpirableStorage(s.macaroonService, 5*time.Minute, s.clock)
 	key1, id1, err = store1.RootKey(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(key1, tc.DeepEquals, key)
 	c.Assert(id1, tc.DeepEquals, id)
 
 	// After the generation interval has passed, we should generate a new key.
 	s.now = moment.Add(5*time.Minute + time.Second)
 	key1, id1, err = store.RootKey(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(key, tc.HasLen, 24)
 	c.Assert(id, tc.HasLen, 32)
 	c.Assert(key1, tc.Not(tc.DeepEquals), key)
@@ -273,7 +272,7 @@ func (s *expirableStorageSuite) TestRootKey(c *tc.C) {
 
 	// The other store should pick it up too.
 	key2, id2, err := store1.RootKey(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(key2, tc.DeepEquals, key1)
 	c.Assert(id2, tc.DeepEquals, id1)
 }
@@ -334,12 +333,12 @@ func (s *expirableStorageSuite) TestPreferredRootKeyFromDatabase(c *tc.C) {
 
 		for _, key := range test.keys {
 			err := s.macaroonService.InsertKeyContext(context.Background(), key)
-			c.Assert(err, jc.ErrorIsNil, tc.Commentf(test.about))
+			c.Assert(err, tc.ErrorIsNil, tc.Commentf(test.about))
 		}
 		store := internalmacaroon.NewExpirableStorage(s.macaroonService, test.expiryDuration, s.clock)
 		s.now = test.now
 		_, id, err := store.RootKey(context.Background())
-		c.Assert(err, jc.ErrorIsNil, tc.Commentf(test.about))
+		c.Assert(err, tc.ErrorIsNil, tc.Commentf(test.about))
 		c.Assert(id, tc.DeepEquals, test.expectId, tc.Commentf(test.about))
 
 		s.TearDownTest(c)
@@ -356,14 +355,14 @@ func (s *expirableStorageSuite) TestGet(c *tc.C) {
 	keyIds := make(map[string]bool)
 	for i := 0; i < 20; i++ {
 		key, id, err := store.RootKey(context.Background())
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(keyIds[string(id)], tc.Equals, false)
 		keys = append(keys, idKey{string(id), key})
 		s.now = s.now.Add(time.Minute + time.Second)
 	}
 	for i, k := range keys {
 		key, err := store.Get(context.Background(), []byte(k.id))
-		c.Assert(err, jc.ErrorIsNil, tc.Commentf("key %d (%s)", i, k.id))
+		c.Assert(err, tc.ErrorIsNil, tc.Commentf("key %d (%s)", i, k.id))
 		c.Assert(key, tc.DeepEquals, k.key, tc.Commentf("key %d (%s)", i, k.id))
 	}
 }

@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -37,9 +36,9 @@ func (s *tryInOrderLoginProviderSuite) TestInOrderLoginProvider(c *tc.C) {
 	_, err = lp.AuthHeader()
 	c.Check(err, tc.ErrorMatches, api.ErrorLoginFirst.Error())
 	_, err = lp.Login(context.Background(), nil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	got, err := lp.AuthHeader()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, header)
 }
 

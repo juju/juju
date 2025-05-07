@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/trace"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -525,7 +524,7 @@ func (root *Root) testCall(c *tc.C, args testCallParams) {
 		c.Check(response, tc.Equals, stringVal{args.request().Action + " ret"})
 	}
 	if !args.testErr {
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
 
 	// Check that the call was actually made, the right
@@ -580,7 +579,7 @@ func (root *Root) assertServerNotified(c *tc.C, p testCallParams, requestId uint
 		c.Assert(serverReply.body, tc.Equals, stringVal{p.request().Action + " ret"})
 	}
 	if p.retErr && p.testErr {
-		c.Assert(serverReply.hdr, jc.DeepEquals, rpc.Header{
+		c.Assert(serverReply.hdr, tc.DeepEquals, rpc.Header{
 			RequestId:  requestId,
 			Error:      p.errorMessage(),
 			Version:    1,
@@ -589,7 +588,7 @@ func (root *Root) assertServerNotified(c *tc.C, p testCallParams, requestId uint
 			TraceFlags: 1,
 		})
 	} else {
-		c.Assert(serverReply.hdr, jc.DeepEquals, rpc.Header{
+		c.Assert(serverReply.hdr, tc.DeepEquals, rpc.Header{
 			RequestId:  requestId,
 			Version:    1,
 			TraceID:    "foobar",
@@ -737,7 +736,7 @@ func (*rpcSuite) TestConcurrentCalls(c *tc.C) {
 	call := func(id string, done chan<- struct{}) {
 		var r stringVal
 		err := client.Call(context.Background(), rpc.Request{"DelayedMethods", 0, id, "Delay"}, nil, &r)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		c.Check(r.Val, tc.Equals, "return "+id)
 		done <- struct{}{}
 	}
@@ -806,7 +805,7 @@ func (*rpcSuite) TestErrorInfo(c *tc.C) {
 	defer closeClient(c, client, srvDone)
 	err := client.Call(context.Background(), rpc.Request{Type: "ErrorMethods", Version: 0, Id: "", Action: "Call"}, nil, nil)
 	c.Assert(err, tc.ErrorMatches, `message`)
-	c.Assert(errors.Cause(err).(rpc.ErrorInfoProvider).ErrorInfo(), jc.DeepEquals, info)
+	c.Assert(errors.Cause(err).(rpc.ErrorInfoProvider).ErrorInfo(), tc.DeepEquals, info)
 }
 
 func (*rpcSuite) TestTransformErrors(c *tc.C) {
@@ -848,7 +847,7 @@ func (*rpcSuite) TestTransformErrors(c *tc.C) {
 
 	root.errorInst.err = nil
 	err = client.Call(context.Background(), rpc.Request{Type: "ErrorMethods", Version: 0, Id: "", Action: "Call"}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	root.errorInst = nil
 	err = client.Call(context.Background(), rpc.Request{Type: "ErrorMethods", Version: 0, Id: "", Action: "Call"}, nil, nil)
@@ -901,7 +900,7 @@ func (*rpcSuite) TestClientCallCancelled(c *tc.C) {
 		cancel()
 
 		err := client.Call(ctx, rpc.Request{Type: "SimpleMethods", Version: 0, Id: "0", Action: "Call"}, nil, nil)
-		c.Check(err, jc.ErrorIs, context.Canceled)
+		c.Check(err, tc.ErrorIs, context.Canceled)
 
 		close(done)
 	}()
@@ -934,7 +933,7 @@ func (*rpcSuite) TestCompatibility(c *tc.C) {
 	call := func(method string, arg, ret interface{}) (passedArg interface{}) {
 		root.calls = nil
 		err := client.Call(context.Background(), rpc.Request{Type: "SimpleMethods", Version: 0, Id: "a0", Action: method}, arg, ret)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(root.calls, tc.HasLen, 1)
 		info := root.calls[0]
 		c.Assert(info.rcvr, tc.Equals, a0)
@@ -1077,28 +1076,28 @@ func (*rpcSuite) TestContinueAfterReadBodyError(c *tc.C) {
 		X: []string{"one"},
 	}
 	err = client.Call(context.Background(), rpc.Request{Type: "SimpleMethods", Version: 0, Id: "a0", Action: "SliceArg"}, arg1, &ret)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ret.Val, tc.Equals, "SliceArg ret")
 }
 
 func (*rpcSuite) TestErrorAfterClientClose(c *tc.C) {
 	client, _, srvDone, _ := newRPCClientServer(c, &Root{}, nil, false)
 	err := client.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = client.Call(context.Background(), rpc.Request{Type: "Foo", Version: 0, Id: "", Action: "Bar"}, nil, nil)
 	c.Assert(errors.Cause(err), tc.Equals, rpc.ErrShutdown)
 	err = chanReadError(c, srvDone, "server done")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (*rpcSuite) TestClientCloseIdempotent(c *tc.C) {
 	client, _, _, _ := newRPCClientServer(c, &Root{}, nil, false)
 	err := client.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = client.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = client.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (*rpcSuite) TestBidirectional(c *tc.C) {
@@ -1109,7 +1108,7 @@ func (*rpcSuite) TestBidirectional(c *tc.C) {
 	client.Serve(clientRoot, nil, nil)
 	var r int64val
 	err := client.Call(context.Background(), rpc.Request{Type: "CallbackMethods", Version: 0, Id: "", Action: "Factorial"}, int64val{12}, &r)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(r.I, tc.Equals, int64(479001600))
 }
 
@@ -1130,11 +1129,11 @@ func (*rpcSuite) TestChangeAPI(c *tc.C) {
 	err := client.Call(context.Background(), rpc.Request{Type: "NewlyAvailable", Version: 0, Id: "", Action: "NewMethod"}, nil, &s)
 	c.Assert(err, tc.ErrorMatches, `unknown facade type "NewlyAvailable" \(not implemented\)`)
 	err = client.Call(context.Background(), rpc.Request{Type: "ChangeAPIMethods", Version: 0, Id: "", Action: "ChangeAPI"}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = client.Call(context.Background(), rpc.Request{Type: "ChangeAPIMethods", Version: 0, Id: "", Action: "ChangeAPI"}, nil, nil)
 	c.Assert(err, tc.ErrorMatches, `unknown facade type "ChangeAPIMethods" \(not implemented\)`)
 	err = client.Call(context.Background(), rpc.Request{Type: "NewlyAvailable", Version: 0, Id: "", Action: "NewMethod"}, nil, &s)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s, tc.Equals, stringVal{Val: "new method result"})
 }
 
@@ -1144,7 +1143,7 @@ func (*rpcSuite) TestChangeAPIToNil(c *tc.C) {
 	defer closeClient(c, client, srvDone)
 
 	err := client.Call(context.Background(), rpc.Request{Type: "ChangeAPIMethods", Version: 0, Id: "", Action: "RemoveAPI"}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = client.Call(context.Background(), rpc.Request{Type: "ChangeAPIMethods", Version: 0, Id: "", Action: "RemoveAPI"}, nil, nil)
 	c.Assert(err, tc.ErrorMatches, "no service")
@@ -1171,7 +1170,7 @@ func (*rpcSuite) TestChangeAPIWhileServingRequest(c *tc.C) {
 	chanRead(c, ready, "method ready")
 
 	err := client.Call(context.Background(), rpc.Request{Type: "ChangeAPIMethods", Version: 0, Id: "", Action: "ChangeAPI"}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Ensure that not only does the request in progress complete,
 	// but that the original transformErrors function is called.
@@ -1199,7 +1198,7 @@ func (*rpcSuite) TestRequestContext(c *tc.C) {
 		root.calls = nil
 		root.contextInst.callContext = nil
 		err := client.Call(context.Background(), rpc.Request{Type: "ContextMethods", Version: 0, Id: "", Action: method}, arg, ret)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(root.calls, tc.HasLen, 1)
 		info := root.calls[0]
 		c.Assert(info.rcvr, tc.Equals, root.contextInst)
@@ -1239,10 +1238,10 @@ func (*rpcSuite) TestConnectionContextCloseClient(c *tc.C) {
 
 	<-root.contextInst.waiting
 	err := client.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = <-errch
-	c.Assert(err, jc.Satisfies, rpc.IsShutdownErr)
+	c.Assert(err, tc.Satisfies, rpc.IsShutdownErr)
 }
 
 func (*rpcSuite) TestConnectionContextCloseServer(c *tc.C) {
@@ -1262,7 +1261,7 @@ func (*rpcSuite) TestConnectionContextCloseServer(c *tc.C) {
 
 	<-root.contextInst.waiting
 	err := server.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = <-errch
 	c.Assert(err, tc.ErrorMatches, "context canceled")
@@ -1284,7 +1283,7 @@ func (s *rpcSuite) TestRecorderErrorPreventsRequest(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "explodo")
 
 	err = server.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(root.calls, tc.HasLen, 0)
 }
@@ -1336,7 +1335,7 @@ func (s *rpcSuite) TestRequestErrorInfoUnmarshaling(c *tc.C) {
 		err := re.UnmarshalInfo(spec.to)
 		if spec.err == "" {
 			c.Assert(err, tc.IsNil)
-			c.Assert(spec.to, jc.DeepEquals, spec.exp)
+			c.Assert(spec.to, tc.DeepEquals, spec.exp)
 		} else {
 			c.Assert(err, tc.ErrorMatches, spec.err)
 		}
@@ -1364,7 +1363,7 @@ func newRPCClientServer(
 	bidir bool,
 ) (client, server *rpc.Conn, srvDone chan error, serverNotifier *notifier) {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	srvDone = make(chan error, 1)
 	serverNotifier = new(notifier)
@@ -1401,7 +1400,7 @@ func newRPCClientServer(
 		srvDone <- rpcConn.Close()
 	}()
 	conn, err := net.Dial("tcp", l.Addr().String())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	server = <-srvStarted
 	if server == nil {
 		conn.Close()
@@ -1418,9 +1417,9 @@ func newRPCClientServer(
 
 func closeClient(c *tc.C, client *rpc.Conn, srvDone <-chan error) {
 	err := client.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = chanReadError(c, srvDone, "server done")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // testCodec wraps an rpc.Codec with extra error checking code.

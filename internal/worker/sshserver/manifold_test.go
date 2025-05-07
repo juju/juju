@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
@@ -34,7 +33,7 @@ var _ = tc.Suite(&manifoldSuite{})
 
 func (s *manifoldSuite) SetUpTest(c *tc.C) {
 	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, featureflag.SSHJump)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
@@ -54,37 +53,37 @@ func (s *manifoldSuite) TestConfigValidate(c *tc.C) {
 		cfg.GetControllerConfigService = nil
 		cfg.Logger = nil
 	})
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
 	// Missing domain services name.
 	cfg = s.newManifoldConfig(c, func(cfg *ManifoldConfig) {
 		cfg.DomainServicesName = ""
 	})
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
 	// Missing NewServerWrapperWorker.
 	cfg = s.newManifoldConfig(c, func(cfg *ManifoldConfig) {
 		cfg.NewServerWrapperWorker = nil
 	})
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
 	// Missing NewServerWorker.
 	cfg = s.newManifoldConfig(c, func(cfg *ManifoldConfig) {
 		cfg.NewServerWorker = nil
 	})
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
 	// Missing GetControllerConfigService.
 	cfg = s.newManifoldConfig(c, func(cfg *ManifoldConfig) {
 		cfg.GetControllerConfigService = nil
 	})
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
 	// Missing Logger.
 	cfg = s.newManifoldConfig(c, func(cfg *ManifoldConfig) {
 		cfg.Logger = nil
 	})
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
 }
 
@@ -113,7 +112,7 @@ func (s *manifoldSuite) TestManifoldStart(c *tc.C) {
 		context.Background(),
 		dt.StubGetter(map[string]interface{}{}),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, result)
 
 	c.Check(result, tc.NotNil)
@@ -181,5 +180,5 @@ func (s *manifoldSuite) TestManifoldUninstall(c *tc.C) {
 		context.Background(),
 		dt.StubGetter(map[string]interface{}{}),
 	)
-	c.Assert(err, jc.ErrorIs, dependency.ErrUninstall)
+	c.Assert(err, tc.ErrorIs, dependency.ErrUninstall)
 }

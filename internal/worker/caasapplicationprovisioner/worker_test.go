@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -77,9 +76,9 @@ func (s *CAASApplicationSuite) TestWorkerStart(c *tc.C) {
 
 	called := false
 	newWorker := func(config caasapplicationprovisioner.AppWorkerConfig) func() (worker.Worker, error) {
-		c.Assert(called, jc.IsFalse)
+		c.Assert(called, tc.IsFalse)
 		called = true
-		mc := jc.NewMultiChecker()
+		mc := tc.NewMultiChecker()
 		mc.AddExpr("_.Facade", tc.NotNil)
 		mc.AddExpr("_.Broker", tc.NotNil)
 		mc.AddExpr("_.Clock", tc.NotNil)
@@ -103,12 +102,12 @@ func (s *CAASApplicationSuite) TestWorkerStart(c *tc.C) {
 		NewAppWorker: newWorker,
 	}
 	provisioner, err := caasapplicationprovisioner.NewProvisionerWorkerForTest(config, runner)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(provisioner, tc.NotNil)
 
 	select {
 	case <-done:
-		c.Assert(called, jc.IsTrue)
+		c.Assert(called, tc.IsTrue)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for worker to start")
 	}
@@ -149,9 +148,9 @@ func (s *CAASApplicationSuite) TestWorkerStartUnmanaged(c *tc.C) {
 
 	called := false
 	newWorker := func(config caasapplicationprovisioner.AppWorkerConfig) func() (worker.Worker, error) {
-		c.Assert(called, jc.IsFalse)
+		c.Assert(called, tc.IsFalse)
 		called = true
-		mc := jc.NewMultiChecker()
+		mc := tc.NewMultiChecker()
 		mc.AddExpr("_.Facade", tc.NotNil)
 		mc.AddExpr("_.Broker", tc.NotNil)
 		mc.AddExpr("_.Clock", tc.NotNil)
@@ -176,12 +175,12 @@ func (s *CAASApplicationSuite) TestWorkerStartUnmanaged(c *tc.C) {
 		NewAppWorker: newWorker,
 	}
 	provisioner, err := caasapplicationprovisioner.NewProvisionerWorkerForTest(config, runner)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(provisioner, tc.NotNil)
 
 	select {
 	case <-done:
-		c.Assert(called, jc.IsTrue)
+		c.Assert(called, tc.IsTrue)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for worker to start")
 	}
@@ -246,7 +245,7 @@ func (s *CAASApplicationSuite) TestWorkerStartOnceNotify(c *tc.C) {
 	called := 0
 	newWorker := func(config caasapplicationprovisioner.AppWorkerConfig) func() (worker.Worker, error) {
 		called++
-		mc := jc.NewMultiChecker()
+		mc := tc.NewMultiChecker()
 		mc.AddExpr("_.Facade", tc.NotNil)
 		mc.AddExpr("_.Broker", tc.NotNil)
 		mc.AddExpr("_.Clock", tc.NotNil)
@@ -269,7 +268,7 @@ func (s *CAASApplicationSuite) TestWorkerStartOnceNotify(c *tc.C) {
 		NewAppWorker: newWorker,
 	}
 	provisioner, err := caasapplicationprovisioner.NewProvisionerWorkerForTest(config, runner)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(provisioner, tc.NotNil)
 
 	select {

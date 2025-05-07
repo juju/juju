@@ -5,7 +5,6 @@ package factory_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/internal/container"
@@ -36,7 +35,7 @@ func (*factorySuite) TestNewContainerManager(c *tc.C) {
 		conf := container.ManagerConfig{container.ConfigModelUUID: testing.ModelTag.Id()}
 		manager, err := factory.NewContainerManager(test.containerType, conf)
 		if test.valid {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(manager, tc.NotNil)
 		} else {
 			c.Assert(err, tc.ErrorMatches, `unknown container type: ".*"`)

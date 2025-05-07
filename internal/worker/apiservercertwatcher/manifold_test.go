@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
@@ -54,7 +53,7 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *ManifoldSuite) TestInputs(c *tc.C) {
-	c.Assert(s.manifold.Inputs, jc.SameContents, []string{"agent"})
+	c.Assert(s.manifold.Inputs, tc.SameContents, []string{"agent"})
 }
 
 func (s *ManifoldSuite) TestNoAgent(c *tc.C) {
@@ -82,12 +81,12 @@ func (s *ManifoldSuite) TestOutput(c *tc.C) {
 
 	var authority pki.Authority
 	err := s.manifold.Output(w, &authority)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ManifoldSuite) startWorkerClean(c *tc.C) worker.Worker {
 	w, err := s.manifold.Start(context.Background(), s.getter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w
 }

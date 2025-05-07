@@ -8,7 +8,6 @@ import (
 	"database/sql"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/database/schema"
@@ -65,7 +64,7 @@ func DumpChangeLogState(c *tc.C, runner database.TxnRunner) {
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Logf("Change log witness: %v", witness)
 	c.Logf("Change log entries:")

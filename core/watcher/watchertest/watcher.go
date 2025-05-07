@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/core/watcher"
@@ -22,7 +21,7 @@ type WatcherAssert[T any] func(c *tc.C, changes []T) bool
 func SliceAssert[T any](expect ...T) WatcherAssert[T] {
 	return func(c *tc.C, changes []T) bool {
 		if len(changes) >= len(expect) {
-			c.Assert(changes, jc.SameContents, expect)
+			c.Assert(changes, tc.SameContents, expect)
 			return true
 		}
 		return false
@@ -39,7 +38,7 @@ func StringSliceAssert[T string](expect ...T) WatcherAssert[[]T] {
 			received = append(received, change...)
 		}
 		if len(received) >= len(expect) {
-			c.Assert(received, jc.SameContents, expect)
+			c.Assert(received, tc.SameContents, expect)
 			return true
 		}
 		return false
@@ -56,8 +55,8 @@ func SecretTriggerSliceAssert[T watcher.SecretTriggerChange](expect ...T) Watche
 			received = append(received, change...)
 		}
 		if len(received) >= len(expect) {
-			mc := jc.NewMultiChecker()
-			mc.AddExpr(`_[_].NextTriggerTime`, jc.Almost, jc.ExpectedValue)
+			mc := tc.NewMultiChecker()
+			mc.AddExpr(`_[_].NextTriggerTime`, tc.Almost, tc.ExpectedValue)
 			c.Assert(received, mc, expect)
 			return true
 		}
@@ -110,7 +109,7 @@ func (w WatcherC[T]) AssertNChanges(n int) {
 	for {
 		select {
 		case _, ok := <-w.Watcher.Changes():
-			w.c.Assert(ok, jc.IsTrue)
+			w.c.Assert(ok, tc.IsTrue)
 			received++
 
 			if received < n {
@@ -179,7 +178,7 @@ func (w *WatcherC[T]) AssertKilled() {
 	case <-time.After(testing.LongWait):
 		w.c.Fatalf("watcher never stopped")
 	case err := <-wait:
-		w.c.Assert(err, jc.ErrorIsNil)
+		w.c.Assert(err, tc.ErrorIsNil)
 	}
 
 	select {
@@ -204,7 +203,7 @@ func (w *WatcherC[T]) AssertKilled() {
 func CleanKill[T any](c *tc.C, w watcher.Watcher[T]) {
 	workertest.CleanKill(c, w)
 	_, ok := <-w.Changes()
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 }
 
 // DirtyKill calls CheckKill with the supplied arguments, and logs the returned

@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -62,20 +61,20 @@ func (t configTest) check(c *tc.C) {
 		"type": "ec2",
 	}).Merge(t.config)
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	e, err := environs.New(context.Background(), environs.OpenParams{
 		Cloud:  cloudSpec,
 		Config: cfg,
 	}, environs.NoopCredentialInvalidator())
 	if t.change != nil {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		// Testing a change in configuration.
 		var old, changed, valid *config.Config
 		ec2env := e.(*environ)
 		old = ec2env.ecfg().Config
 		changed, err = old.Apply(t.change)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		// Keep err for validation below.
 		valid, err = providerInstance.Validate(context.Background(), changed, old)
@@ -87,7 +86,7 @@ func (t configTest) check(c *tc.C) {
 		c.Check(err, tc.ErrorMatches, t.err)
 		return
 	}
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ecfg := e.(*environ).ecfg()
 	c.Assert(ecfg.Name(), tc.Equals, "testmodel")
@@ -99,7 +98,7 @@ func (t configTest) check(c *tc.C) {
 	}
 	for name, expect := range t.expect {
 		actual, found := ecfg.UnknownAttrs()[name]
-		c.Check(found, jc.IsTrue)
+		c.Check(found, tc.IsTrue)
 		c.Check(actual, tc.Equals, expect)
 	}
 }
@@ -295,7 +294,7 @@ func (s *ConfigSuite) TestConfig(c *tc.C) {
 // considered.
 func (s *ConfigSuite) TestModelConfigDefaults(c *tc.C) {
 	defaults, err := providerInstance.ModelConfigDefaults(context.Background())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(defaults[config.StorageDefaultBlockSourceKey], tc.Equals, "ebs")
 }
 
@@ -306,6 +305,6 @@ func (*ConfigSuite) TestSchema(c *tc.C) {
 	globalFields, err := config.Schema(nil)
 	c.Assert(err, tc.IsNil)
 	for name, field := range globalFields {
-		c.Check(fields[name], jc.DeepEquals, field)
+		c.Check(fields[name], tc.DeepEquals, field)
 	}
 }

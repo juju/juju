@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/instance"
@@ -43,11 +42,11 @@ func (*utilSuite) TestMachineInfoCloudinitRunCmd(c *tc.C) {
 	filename := "/var/lib/juju/MAASmachine.txt"
 	dataDir := paths.DataDir(paths.OSUnixLike)
 	cloudcfg, err := cloudinit.New("ubuntu")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	script, err := info.cloudinitRunCmd(cloudcfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	yaml, err := goyaml.Marshal(info)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := fmt.Sprintf("mkdir -p '%s'\ncat > '%s' << 'EOF'\n'%s'\nEOF\nchmod 0755 '%s'", dataDir, filename, yaml, filename)
 	c.Check(script, tc.Equals, expected)
 }
@@ -63,6 +62,6 @@ func (*utilSuite) TestMachineInfoLoad(c *tc.C) {
 
 	err := info.load()
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.Hostname, tc.Equals, hostname)
 }

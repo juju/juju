@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	core "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -271,9 +270,9 @@ func (s *K8sMetadataSuite) TestListHostCloudRegions(c *tc.C) {
 			clientSet.CoreV1().Nodes(),
 			clientSet.StorageV1().StorageClasses(),
 		)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		c.Check(metadata.Cloud, tc.Equals, v.expectedCloud)
-		c.Check(metadata.Regions, jc.DeepEquals, v.expectedRegions)
+		c.Check(metadata.Regions, tc.DeepEquals, v.expectedRegions)
 	}
 }
 
@@ -652,8 +651,8 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *tc.C) {
 			clientSet.CoreV1().Nodes(),
 			clientSet.StorageV1().StorageClasses(),
 		)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(*metadata, jc.DeepEquals, test.Result)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(*metadata, tc.DeepEquals, test.Result)
 	}
 }
 
@@ -673,7 +672,7 @@ func (s *K8sMetadataSuite) TestNominatedStorageNotFound(c *tc.C) {
 
 	var notFoundError *environs.NominatedStorageNotFound
 	c.Assert(err, tc.NotNil)
-	c.Assert(errors.As(err, &notFoundError), jc.IsTrue)
+	c.Assert(errors.As(err, &notFoundError), tc.IsTrue)
 	c.Assert(notFoundError.StorageName, tc.Equals, "my-nominated-storage")
 }
 
@@ -694,6 +693,6 @@ func (s *K8sMetadataSuite) TestNominatedStorageNotFoundWithNilStorageClasses(c *
 
 	var notFoundError *environs.NominatedStorageNotFound
 	c.Assert(err, tc.NotNil)
-	c.Assert(errors.As(err, &notFoundError), jc.IsTrue)
+	c.Assert(errors.As(err, &notFoundError), tc.IsTrue)
 	c.Assert(notFoundError.StorageName, tc.Equals, "my-nominated-storage")
 }

@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/lease"
@@ -28,7 +27,7 @@ func (s *secretaryFinderSuite) TestRegisterNil(c *tc.C) {
 	})
 
 	sec, err := finder.SecretaryFor("foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(sec, tc.IsNil)
 }
 
@@ -40,7 +39,7 @@ func (s *secretaryFinderSuite) TestRegister(c *tc.C) {
 	})
 
 	sec, err := finder.SecretaryFor("foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(sec, tc.Equals, s.secretary)
 }
 
@@ -48,7 +47,7 @@ func (s *secretaryFinderSuite) TestSecretaryFor(c *tc.C) {
 	finder := NewSecretaryFinder(uuid.MustNewUUID().String())
 
 	sec, err := finder.SecretaryFor("foo")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(sec, tc.IsNil)
 }
 

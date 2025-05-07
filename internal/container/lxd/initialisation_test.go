@@ -13,7 +13,6 @@ import (
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/base"
@@ -98,7 +97,7 @@ func (s *InitialiserSuite) TestSnapInstalled(c *tc.C) {
 	PatchGetSnapManager(s, mgr)
 
 	err := s.containerInitialiser(nil, true, "local").Initialise()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(s.calledCmds, tc.DeepEquals, []string{})
 }
@@ -118,7 +117,7 @@ func (s *InitialiserSuite) TestSnapChannelMismatch(c *tc.C) {
 	PatchGetSnapManager(s, mgr)
 
 	err := s.containerInitialiser(nil, true, "local").Initialise()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *InitialiserSuite) TestSnapChannelPrefixMatch(c *tc.C) {
@@ -139,7 +138,7 @@ func (s *InitialiserSuite) TestSnapChannelPrefixMatch(c *tc.C) {
 	PatchGetSnapManager(s, mgr)
 
 	err := s.containerInitialiser(nil, true, "local").Initialise()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *InitialiserSuite) TestInstallViaSnap(c *tc.C) {
@@ -150,7 +149,7 @@ func (s *InitialiserSuite) TestInstallViaSnap(c *tc.C) {
 	paccmder := commands.NewSnapPackageCommander()
 
 	err := s.containerInitialiser(nil, true, "local").Initialise()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(s.calledCmds, tc.DeepEquals, []string{
 		paccmder.InstallCmd("--classic --channel latest/stable lxd"),
@@ -169,7 +168,7 @@ func (s *InitialiserSuite) TestLXDAlreadyInitialized(c *tc.C) {
 
 	// the above error should be ignored by the code that calls lxd init.
 	err := ci.Initialise()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *InitialiserSuite) TestInitializeSetsProxies(c *tc.C) {
@@ -204,10 +203,10 @@ func (s *InitialiserSuite) TestInitializeSetsProxies(c *tc.C) {
 		return exec.Command(cmd, args...)
 	}
 	err := ci.Initialise()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// We want update server to ve called last, after the lxd init command is run.
-	c.Assert(calls, jc.DeepEquals, []string{
+	c.Assert(calls, tc.DeepEquals, []string{
 		"exec command",
 		"update server",
 	})
@@ -225,7 +224,7 @@ func (s *InitialiserSuite) TestConfigureProxiesLXDNotRunning(c *tc.C) {
 	// No expected calls.
 	ci := s.containerInitialiser(cSvr, false, "local")
 	err := ci.Initialise()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type ConfigureInitialiserSuite struct {

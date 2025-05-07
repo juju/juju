@@ -12,7 +12,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -68,7 +67,7 @@ func fakeServicePrincipalCredential() *cloud.Credential {
 
 func (s *environProviderSuite) TestPrepareConfig(c *tc.C) {
 	err := s.provider.ValidateCloud(context.Background(), s.spec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *environProviderSuite) TestOpen(c *tc.C) {
@@ -81,7 +80,7 @@ func (s *environProviderSuite) TestOpen(c *tc.C) {
 		Cloud:  s.spec,
 		Config: makeTestModelConfig(c),
 	}, environs.NoopCredentialInvalidator())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(env, tc.NotNil)
 }
 
@@ -126,6 +125,6 @@ func newProvider(c *tc.C, config azure.ProviderConfig) environs.EnvironProvider 
 		MaxRetries: -1,
 	}
 	environProvider, err := azure.NewProvider(config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return environProvider
 }

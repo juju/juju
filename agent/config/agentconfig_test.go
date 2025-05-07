@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/agent"
@@ -28,8 +27,8 @@ func (s *agentConfSuite) TestChangeConfigSuccess(c *tc.C) {
 		return nil
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mcsw.WriteCalled, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(mcsw.WriteCalled, tc.IsTrue)
 }
 
 func (s *agentConfSuite) TestChangeConfigMutateFailure(c *tc.C) {
@@ -41,7 +40,7 @@ func (s *agentConfSuite) TestChangeConfigMutateFailure(c *tc.C) {
 	})
 
 	c.Assert(err, tc.ErrorMatches, "blam")
-	c.Assert(mcsw.WriteCalled, jc.IsFalse)
+	c.Assert(mcsw.WriteCalled, tc.IsFalse)
 }
 
 func (s *agentConfSuite) TestChangeConfigWriteFailure(c *tc.C) {
@@ -54,7 +53,7 @@ func (s *agentConfSuite) TestChangeConfigWriteFailure(c *tc.C) {
 	})
 
 	c.Assert(err, tc.ErrorMatches, "cannot write agent configuration: boom")
-	c.Assert(mcsw.WriteCalled, jc.IsTrue)
+	c.Assert(mcsw.WriteCalled, tc.IsTrue)
 }
 
 type readAgentConfigSuite struct {
@@ -71,7 +70,7 @@ func (s *readAgentConfigSuite) TestReadAgentConfigMachine(c *tc.C) {
 	s.agentConfigReader.EXPECT().ReadConfig("machine-0").Return(nil)
 
 	err := ReadAgentConfig(s.agentConfigReader, "0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *readAgentConfigSuite) TestReadAgentConfigController(c *tc.C) {
@@ -81,7 +80,7 @@ func (s *readAgentConfigSuite) TestReadAgentConfigController(c *tc.C) {
 	s.agentConfigReader.EXPECT().ReadConfig("controller-0").Return(nil)
 
 	err := ReadAgentConfig(s.agentConfigReader, "0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *readAgentConfigSuite) TestReadAgentConfigFallback(c *tc.C) {

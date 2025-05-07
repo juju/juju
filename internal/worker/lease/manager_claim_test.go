@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/mattn/go-sqlite3"
 
 	corelease "github.com/juju/juju/core/lease"
@@ -40,7 +39,7 @@ func (s *ClaimSuite) TestClaimLease_Success(c *tc.C) {
 	}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	})
 }
 
@@ -84,10 +83,10 @@ func (s *ClaimSuite) TestClaimLease_Success_SameHolder(c *tc.C) {
 		wg.Add(1)
 		go func() {
 			err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			wg.Done()
 		}()
-		c.Check(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 2), jc.ErrorIsNil)
+		c.Check(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 2), tc.ErrorIsNil)
 		wg.Wait()
 	})
 }
@@ -125,7 +124,7 @@ func (s *ClaimSuite) TestClaimLeaseFailureHeldByClaimer(c *tc.C) {
 			c.Check(err, tc.Equals, corelease.ErrClaimDenied)
 			wg.Done()
 		}()
-		c.Check(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 2), jc.ErrorIsNil)
+		c.Check(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 2), tc.ErrorIsNil)
 		wg.Wait()
 	})
 }
@@ -197,7 +196,7 @@ func (s *ClaimSuite) TestExtendLease_Success(c *tc.C) {
 	}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	})
 }
 
@@ -244,10 +243,10 @@ func (s *ClaimSuite) TestExtendLease_Success_Expired(c *tc.C) {
 		wg.Add(1)
 		go func() {
 			err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			wg.Done()
 		}()
-		c.Check(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 2), jc.ErrorIsNil)
+		c.Check(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 2), tc.ErrorIsNil)
 		wg.Wait()
 	})
 }
@@ -291,7 +290,7 @@ func (s *ClaimSuite) TestExtendLease_Failure_OtherHolder(c *tc.C) {
 			c.Check(err, tc.Equals, corelease.ErrClaimDenied)
 			wg.Done()
 		}()
-		c.Check(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 2), jc.ErrorIsNil)
+		c.Check(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 2), tc.ErrorIsNil)
 		wg.Wait()
 	})
 }
@@ -335,7 +334,7 @@ func (s *ClaimSuite) TestExtendLease_Failure_Retryable(c *tc.C) {
 			c.Check(err, tc.Equals, corelease.ErrClaimDenied)
 			wg.Done()
 		}()
-		c.Check(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 2), jc.ErrorIsNil)
+		c.Check(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 2), tc.ErrorIsNil)
 		wg.Wait()
 	})
 }
@@ -383,6 +382,6 @@ func (s *ClaimSuite) TestOtherHolder_Failure(c *tc.C) {
 
 func getClaimer(c *tc.C, manager *lease.Manager) corelease.Claimer {
 	claimer, err := manager.Claimer("namespace", "modelUUID")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return claimer
 }

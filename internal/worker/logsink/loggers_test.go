@@ -9,7 +9,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
@@ -44,7 +43,7 @@ func (s *LoggersSuite) TestLoggerLogs(c *tc.C) {
 
 	logger := s.newModelLogger(c)
 	err := logger.Log([]corelogger.LogRecord{{Message: "foo"}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CheckKill(c, logger)
 }
@@ -90,7 +89,7 @@ func (s *LoggersSuite) TestLoggerConfigureLoggers(c *tc.C) {
 	// The debug log, should not be logged by the logger.
 
 	err := logger.ConfigureLoggers("<root>=INFO")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	fooLogger.Debugf(context.Background(), "message me")
 
@@ -114,7 +113,7 @@ func (s *LoggersSuite) newModelLogger(c *tc.C) *modelLogger {
 	s.modelUUID = uuid.MustNewUUID().String()
 
 	w, err := NewModelLogger(s.logWriter, model.UUID(s.modelUUID), names.NewUnitTag("foo/0"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return w.(*modelLogger)
 }

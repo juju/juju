@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
 
@@ -47,20 +46,20 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationUpdateExtraConfig(c *tc
 	s.client.virtualMachines = []*mo.VirtualMachine{vm1, vm2, vm3}
 
 	err := step.Run(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.client.CheckCallNames(c, "VirtualMachines", "UpdateVirtualMachineExtraConfig", "UpdateVirtualMachineExtraConfig", "Close")
 
 	updateCall1 := s.client.Calls()[1]
 	c.Assert(updateCall1.Args[1], tc.Equals, vm1)
-	c.Assert(updateCall1.Args[2], jc.DeepEquals, map[string]string{
+	c.Assert(updateCall1.Args[2], tc.DeepEquals, map[string]string{
 		"juju-controller-uuid": "foo",
 		"juju-model-uuid":      "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
 	})
 
 	updateCall2 := s.client.Calls()[2]
 	c.Assert(updateCall2.Args[1], tc.Equals, vm2)
-	c.Assert(updateCall2.Args[2], jc.DeepEquals, map[string]string{
+	c.Assert(updateCall2.Args[2], tc.DeepEquals, map[string]string{
 		"juju-controller-uuid": "foo",
 		"juju-model-uuid":      "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
 		"juju-is-controller":   "true",
@@ -80,7 +79,7 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationModelFolders(c *tc.C) {
 	s.client.virtualMachines = []*mo.VirtualMachine{vm1, vm2, vm3}
 
 	err := step.Run(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.client.CheckCallNames(c, "EnsureVMFolder", "VirtualMachines", "MoveVMsInto", "Close")
 	ensureVMFolderCall := s.client.Calls()[0]
@@ -89,7 +88,7 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationModelFolders(c *tc.C) {
 		`Juju Controller (foo)/Model "testmodel" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`)
 	c.Assert(moveVMsIntoCall.Args[1], tc.Equals,
 		`Juju Controller (foo)/Model "testmodel" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`)
-	c.Assert(moveVMsIntoCall.Args[2], jc.DeepEquals,
+	c.Assert(moveVMsIntoCall.Args[2], tc.DeepEquals,
 		[]types.ManagedObjectReference{vm1.Reference(), vm2.Reference(), vm3.Reference()},
 	)
 }

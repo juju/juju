@@ -8,7 +8,6 @@ import (
 	"errors"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/internal/cmd"
@@ -27,7 +26,7 @@ type listCommandSuite struct {
 func (s *listCommandSuite) TestInit(c *tc.C) {
 	cmd := s.listCommand(nil, nil)
 	err := cmdtesting.InitCommand(cmd, nil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	err = cmdtesting.InitCommand(cmd, []string{"anything"})
 	c.Check(err.Error(), tc.Equals, `unrecognized args: ["anything"]`)
@@ -40,7 +39,7 @@ func (*listCommandSuite) listCommand(api *mockListClient, err error) cmd.Command
 
 func (s *listCommandSuite) TestListEmpty(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, s.listCommand(&mockListClient{}, nil))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "No commands are currently disabled.\n")
 }
 
@@ -85,7 +84,7 @@ func (s *listCommandSuite) mock() *mockListClient {
 func (s *listCommandSuite) TestList(c *tc.C) {
 	cmd := s.listCommand(s.mock(), nil)
 	ctx, err := cmdtesting.RunCommand(c, cmd)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "")
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, ""+
 		"Disabled commands  Message\n"+
@@ -97,7 +96,7 @@ func (s *listCommandSuite) TestList(c *tc.C) {
 func (s *listCommandSuite) TestListYAML(c *tc.C) {
 	cmd := s.listCommand(s.mock(), nil)
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--format", "yaml")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, ""+
 		"- command-set: destroy-model\n"+
 		"  message: Sysadmins in control.\n"+
@@ -108,14 +107,14 @@ func (s *listCommandSuite) TestListYAML(c *tc.C) {
 
 func (s *listCommandSuite) TestListJSONEmpty(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, s.listCommand(&mockListClient{}, nil), "--format", "json")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "[]\n")
 }
 
 func (s *listCommandSuite) TestListJSON(c *tc.C) {
 	cmd := s.listCommand(s.mock(), nil)
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--format", "json")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, ""+
 		`[{"command-set":"destroy-model","message":"Sysadmins in control."},`+
 		`{"command-set":"all","message":"just temporary"}]`+"\n")
@@ -124,7 +123,7 @@ func (s *listCommandSuite) TestListJSON(c *tc.C) {
 func (s *listCommandSuite) TestListAll(c *tc.C) {
 	cmd := s.listCommand(s.mock(), nil)
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--all")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "")
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, ""+
 		"Name        Model UUID   Owner             Disabled commands\n"+
@@ -136,7 +135,7 @@ func (s *listCommandSuite) TestListAll(c *tc.C) {
 func (s *listCommandSuite) TestListAllYAML(c *tc.C) {
 	cmd := s.listCommand(s.mock(), nil)
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--format", "yaml", "--all")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, ""+
 		"- name: controller\n"+
 		"  model-uuid: fake-uuid-1\n"+
@@ -160,7 +159,7 @@ func (s *listCommandSuite) TestListAllYAML(c *tc.C) {
 func (s *listCommandSuite) TestListAllJSON(c *tc.C) {
 	cmd := s.listCommand(s.mock(), nil)
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--format", "json", "--all")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "["+
 		`{"name":"controller","model-uuid":"fake-uuid-1","owner":"admin","disabled-commands":["destroy-model","remove-object"]},`+
 		`{"name":"model-a","model-uuid":"fake-uuid-2","owner":"bob@external","disabled-commands":["all"]},`+

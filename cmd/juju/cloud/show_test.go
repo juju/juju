@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	cloudapi "github.com/juju/juju/api/client/cloud"
 	jujucloud "github.com/juju/juju/cloud"
@@ -52,7 +51,7 @@ func (s *showSuite) assertShowLocal(c *tc.C, expectedOutput string) {
 			return s.api, nil
 		})
 	ctx, err := cmdtesting.RunCommand(c, command, "aws-china", "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, tc.Equals, expectedOutput)
 }
@@ -112,7 +111,7 @@ func (s *showSuite) TestShowKubernetes(c *tc.C) {
 			return s.api, nil
 		})
 	ctx, err := cmdtesting.RunCommand(c, command, "--controller", "mycontroller", "beehive")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api.CheckCallNames(c, "CloudInfo", "Close")
 	c.Assert(command.ControllerName, tc.Equals, "mycontroller")
 	out := cmdtesting.Stdout(ctx)
@@ -159,7 +158,7 @@ func (s *showSuite) TestShowControllerCloudNoLocal(c *tc.C) {
 			return s.api, nil
 		})
 	ctx, err := cmdtesting.RunCommand(c, command, "beehive", "-c", "mycontroller")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api.CheckCallNames(c, "CloudInfo", "Close")
 	c.Assert(command.ControllerName, tc.Equals, "mycontroller")
 	out := cmdtesting.Stdout(ctx)
@@ -189,7 +188,7 @@ func (s *showSuite) TestShowControllerAndLocalCloud(c *tc.C) {
 			return s.api, nil
 		})
 	ctx, err := cmdtesting.RunCommand(c, command, "aws-china")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api.CheckCallNames(c, "CloudInfo", "Close")
 	c.Assert(command.ControllerName, tc.Equals, "mycontroller")
 	out := cmdtesting.Stdout(ctx)
@@ -240,9 +239,9 @@ clouds:
       use-default-secgroup: true
 `[1:]
 	err := os.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewShowCloudCommand(), "homestack", "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, tc.Equals, `
 Client cloud "homestack":
@@ -302,9 +301,9 @@ clouds:
         bootstrap-timeout: 1800
 `[1:]
 	err := os.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewShowCloudCommand(), "homestack", "--include-config", "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, tc.Equals, strings.Join([]string{`
 Client cloud "homestack":
@@ -391,9 +390,9 @@ ca-credentials:
 
 func (s *showSuite) TestShowWithCACertificate(c *tc.C) {
 	err := os.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(yamlWithCert), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewShowCloudCommand(), "homestack", "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, tc.Equals, resultWithCert)
 }

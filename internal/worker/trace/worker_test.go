@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -44,7 +43,7 @@ func (s *workerSuite) TestKilledGetTracerErrDying(c *tc.C) {
 
 	worker := w.(*tracerWorker)
 	_, err := worker.GetTracer(context.Background(), coretrace.Namespace("agent", "anything"))
-	c.Assert(err, jc.ErrorIs, coretrace.ErrTracerDying)
+	c.Assert(err, tc.ErrorIs, coretrace.ErrTracerDying)
 }
 
 func (s *workerSuite) TestGetTracer(c *tc.C) {
@@ -66,7 +65,7 @@ func (s *workerSuite) TestGetTracer(c *tc.C) {
 
 	worker := w.(*tracerWorker)
 	tracer, err := worker.GetTracer(context.Background(), coretrace.Namespace("agent", "anything"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.trackedTracer.EXPECT().Start(gomock.Any(), "foo")
 
@@ -95,7 +94,7 @@ func (s *workerSuite) TestGetTracerIsCached(c *tc.C) {
 	worker := w.(*tracerWorker)
 	for i := 0; i < 10; i++ {
 		_, err := worker.GetTracer(context.Background(), coretrace.Namespace("agent", "anything"))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	close(done)
@@ -123,7 +122,7 @@ func (s *workerSuite) TestGetTracerIsNotCachedForDifferentNamespaces(c *tc.C) {
 	worker := w.(*tracerWorker)
 	for i := 0; i < 10; i++ {
 		_, err := worker.GetTracer(context.Background(), coretrace.Namespace("agent", fmt.Sprintf("anything-%d", i)))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	close(done)
@@ -156,7 +155,7 @@ func (s *workerSuite) TestGetTracerConcurrently(c *tc.C) {
 		go func(i int) {
 			defer wg.Done()
 			_, err := worker.GetTracer(context.Background(), coretrace.Namespace("agent", fmt.Sprintf("anything-%d", i)))
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}(i)
 	}
 
@@ -178,7 +177,7 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 		Tag:  names.NewMachineTag("0"),
 		Kind: coretrace.KindController,
 	}, s.states)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }
 

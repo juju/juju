@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 type ovsSuite struct {
@@ -42,7 +41,7 @@ func (s *ovsSuite) TestExistingOvsManagedBridgeInterfaces(c *tc.C) {
 	}
 
 	ovsIfaces, err := OvsManagedBridgeInterfaces(ifaces)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ovsIfaces, tc.HasLen, 1, tc.Commentf("expected ovs-managed bridge list to contain a single entry"))
 	c.Assert(ovsIfaces[0].InterfaceName, tc.Equals, "ovsbr1", tc.Commentf("expected ovs-managed bridge list to contain iface 'ovsbr1'"))
 }
@@ -63,13 +62,13 @@ func (s *ovsSuite) TestNonExistingOvsManagedBridgeInterfaces(c *tc.C) {
 	}
 
 	ovsIfaces, err := OvsManagedBridgeInterfaces(ifaces)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ovsIfaces, tc.HasLen, 0, tc.Commentf("expected ovs-managed bridge list to be empty"))
 }
 
 func (s *ovsSuite) TestMissingOvsTools(c *tc.C) {
 	ifaces := InterfaceInfos{{InterfaceName: "eth0"}}
 	ovsIfaces, err := OvsManagedBridgeInterfaces(ifaces)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ovsIfaces, tc.HasLen, 0, tc.Commentf("expected ovs-managed bridge list to be empty"))
 }

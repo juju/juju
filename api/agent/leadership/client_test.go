@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/agent/leadership"
 	"github.com/juju/juju/api/base"
@@ -54,7 +53,7 @@ func (s *ClientSuite) TestClaimLeadershipTranslation(c *tc.C) {
 	apiCaller := s.apiCaller(c, func(request string, arg, result interface{}) error {
 		numStubCalls++
 		c.Check(request, tc.Equals, "ClaimLeadership")
-		c.Check(arg, jc.DeepEquals, params.ClaimLeadershipBulkParams{
+		c.Check(arg, tc.DeepEquals, params.ClaimLeadershipBulkParams{
 			Params: []params.ClaimLeadershipParams{{
 				ApplicationTag:  "application-stub-application",
 				UnitTag:         "unit-stub-unit-0",
@@ -72,7 +71,7 @@ func (s *ClientSuite) TestClaimLeadershipTranslation(c *tc.C) {
 
 	client := leadership.NewClient(apiCaller)
 	err := client.ClaimLeadership(context.Background(), StubApplicationNm, StubUnitNm, claimTime)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(numStubCalls, tc.Equals, 1)
 }
 
@@ -142,7 +141,7 @@ func (s *ClientSuite) TestBlockUntilLeadershipReleasedTranslation(c *tc.C) {
 	apiCaller := s.apiCaller(c, func(request string, arg, result interface{}) error {
 		numStubCalls++
 		c.Check(request, tc.Equals, "BlockUntilLeadershipReleased")
-		c.Check(arg, jc.DeepEquals, names.NewApplicationTag(StubApplicationNm))
+		c.Check(arg, tc.DeepEquals, names.NewApplicationTag(StubApplicationNm))
 		switch result := result.(type) {
 		case *params.ErrorResult:
 		default:
@@ -155,7 +154,7 @@ func (s *ClientSuite) TestBlockUntilLeadershipReleasedTranslation(c *tc.C) {
 	err := client.BlockUntilLeadershipReleased(context.Background(), StubApplicationNm)
 
 	c.Check(numStubCalls, tc.Equals, 1)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *ClientSuite) TestBlockUntilLeadershipReleasedError(c *tc.C) {

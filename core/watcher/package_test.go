@@ -7,7 +7,6 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coretesting "github.com/juju/juju/internal/testing"
 )
@@ -24,7 +23,7 @@ func (s *ImportTest) TestImports(c *tc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/watcher")
 
 	// This package brings in nothing else from outside juju/juju/core
-	c.Assert(found, jc.SameContents, []string{
+	c.Assert(found, tc.SameContents, []string{
 		"core/credential",
 		"core/errors",
 		"core/life",

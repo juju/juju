@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/internal/testing"
@@ -29,34 +28,34 @@ var (
 func (s *RegistrySuite) TestRegister(c *tc.C) {
 	registry := &facade.Registry{}
 	err := registry.Register("myfacade", 123, testFacade, interfaceType)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	factory, err := registry.GetFactory("myfacade", 123)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	val, err := factory(context.Background(), nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(val, tc.Equals, "myobject")
 }
 
 func (s *RegistrySuite) TestRegisterForMultiModel(c *tc.C) {
 	registry := &facade.Registry{}
 	err := registry.RegisterForMultiModel("myfacade", 123, testFacadeModel, interfaceType)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	factory, err := registry.GetFactory("myfacade", 123)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	val, err := factory(context.Background(), nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(val, tc.Equals, "myobject")
 }
 
 func (s *RegistrySuite) TestListDetails(c *tc.C) {
 	registry := &facade.Registry{}
 	err := registry.Register("f2", 6, testFacade, interfaceType)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = registry.Register("f1", 9, validIdFactory, intPtrType)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	details := registry.ListDetails()
 	c.Assert(details, tc.HasLen, 2)
@@ -76,7 +75,7 @@ func (s *RegistrySuite) TestListDetails(c *tc.C) {
 func (*RegistrySuite) TestGetFactoryUnknown(c *tc.C) {
 	registry := &facade.Registry{}
 	factory, err := registry.GetFactory("name", 0)
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(err, tc.ErrorIs, errors.NotFound)
 	c.Check(err, tc.ErrorMatches, `name\(0\) not found`)
 	c.Check(factory, tc.IsNil)
 }
@@ -86,7 +85,7 @@ func (*RegistrySuite) TestGetFactoryUnknownVersion(c *tc.C) {
 	assertRegister(c, registry, "name", 0)
 
 	factory, err := registry.GetFactory("name", 1)
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(err, tc.ErrorIs, errors.NotFound)
 	c.Check(err, tc.ErrorMatches, `name\(1\) not found`)
 	c.Check(factory, tc.IsNil)
 }
@@ -95,7 +94,7 @@ func (*RegistrySuite) TestRegisterAndList(c *tc.C) {
 	registry := &facade.Registry{}
 	assertRegister(c, registry, "name", 0)
 
-	c.Check(registry.List(), jc.DeepEquals, []facade.Description{
+	c.Check(registry.List(), tc.DeepEquals, []facade.Description{
 		{Name: "name", Versions: []int{0}},
 	})
 }
@@ -106,7 +105,7 @@ func (*RegistrySuite) TestRegisterAndListSorted(c *tc.C) {
 	assertRegister(c, registry, "name", 0)
 	assertRegister(c, registry, "name", 101)
 
-	c.Check(registry.List(), jc.DeepEquals, []facade.Description{
+	c.Check(registry.List(), tc.DeepEquals, []facade.Description{
 		{Name: "name", Versions: []int{0, 10, 101}},
 	})
 }
@@ -118,7 +117,7 @@ func (*RegistrySuite) TestRegisterAndListMultiple(c *tc.C) {
 	assertRegister(c, registry, "third", 2)
 	assertRegister(c, registry, "third", 3)
 
-	c.Check(registry.List(), jc.DeepEquals, []facade.Description{
+	c.Check(registry.List(), tc.DeepEquals, []facade.Description{
 		{Name: "name", Versions: []int{0}},
 		{Name: "other", Versions: []int{0}},
 		{Name: "third", Versions: []int{2, 3}},
@@ -136,10 +135,10 @@ func (*RegistrySuite) TestRegisterAlreadyPresent(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `object "name\(0\)" already registered`)
 
 	factory, err := registry.GetFactory("name", 0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(factory, tc.NotNil)
 	val, err := factory(context.Background(), nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	asIntPtr := val.(*int)
 	c.Check(*asIntPtr, tc.Equals, 100)
 }
@@ -149,10 +148,10 @@ func (*RegistrySuite) TestGetFactory(c *tc.C) {
 	assertRegister(c, registry, "name", 0)
 
 	factory, err := registry.GetFactory("name", 0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(factory, tc.NotNil)
 	res, err := factory(context.Background(), nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.NotNil)
 	asIntPtr := res.(*int)
 	c.Check(*asIntPtr, tc.Equals, 100)
@@ -163,7 +162,7 @@ func (*RegistrySuite) TestGetType(c *tc.C) {
 	assertRegister(c, registry, "name", 0)
 
 	typ, err := registry.GetType("name", 0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(typ, tc.Equals, intPtrType)
 }
 
@@ -176,14 +175,14 @@ func (*RegistrySuite) TestDiscardRemovesEntry(c *tc.C) {
 	registry := &facade.Registry{}
 	assertRegister(c, registry, "name", 0)
 	_, err := registry.GetFactory("name", 0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	registry.Discard("name", 0)
 	factory, err := registry.GetFactory("name", 0)
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(err, tc.ErrorIs, errors.NotFound)
 	c.Check(err, tc.ErrorMatches, `name\(0\) not found`)
 	c.Check(factory, tc.IsNil)
-	c.Check(registry.List(), jc.DeepEquals, []facade.Description{})
+	c.Check(registry.List(), tc.DeepEquals, []facade.Description{})
 }
 
 func (*RegistrySuite) TestDiscardLeavesOtherVersions(c *tc.C) {
@@ -193,8 +192,8 @@ func (*RegistrySuite) TestDiscardLeavesOtherVersions(c *tc.C) {
 
 	registry.Discard("name", 0)
 	_, err := registry.GetFactory("name", 1)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(registry.List(), jc.DeepEquals, []facade.Description{
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(registry.List(), tc.DeepEquals, []facade.Description{
 		{Name: "name", Versions: []int{1}},
 	})
 }

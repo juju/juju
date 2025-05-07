@@ -7,7 +7,6 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/testing"
@@ -22,6 +21,6 @@ func TestAll(t *stdtesting.T) {
 
 func newUserUUID(c *tc.C) user.UUID {
 	uuid, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return uuid
 }

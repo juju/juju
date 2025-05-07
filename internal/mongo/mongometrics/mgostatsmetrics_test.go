@@ -7,7 +7,6 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 
@@ -82,12 +81,12 @@ func (s *MgoStatsCollectorSuite) TestCollect(c *tc.C) {
 	registry := prometheus.NewPedanticRegistry()
 	registry.Register(s.collector)
 	metricFamilies, err := registry.Gather()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(metricFamilies, tc.HasLen, 9)
 
-	mc := jc.NewMultiChecker()
+	mc := tc.NewMultiChecker()
 	mc.AddExpr("_.CreatedTimestamp", tc.NotNil)
-	mc.AddExpr("_.CreatedTimestamp", jc.Ignore)
+	mc.AddExpr("_.CreatedTimestamp", tc.Ignore)
 	c.Assert(metricFamilies, mc, []*dto.MetricFamily{{
 		Name: stringptr("mgo_clusters"),
 		Help: stringptr("Current number of clusters"),
@@ -167,11 +166,11 @@ func (s *MgoStatsCollectorSuite) TestCollectCounterDelta(c *tc.C) {
 
 	sentOps = 1
 	metricFamilies, err := registry.Gather()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metricFamilies[4].Metric[0].Counter.Value, jc.DeepEquals, float64ptr(1))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(metricFamilies[4].Metric[0].Counter.Value, tc.DeepEquals, float64ptr(1))
 
 	sentOps = 3
 	metricFamilies, err = registry.Gather()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metricFamilies[4].Metric[0].Counter.Value, jc.DeepEquals, float64ptr(3))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(metricFamilies[4].Metric[0].Counter.Value, tc.DeepEquals, float64ptr(3))
 }

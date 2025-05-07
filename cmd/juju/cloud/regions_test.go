@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
@@ -50,13 +49,13 @@ clouds:
          endpoint: "http://paris/1.0"
 `[1:]
 	err := os.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *regionsSuite) TestListRegionsInvalidCloud(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "invalid", "--client")
 	c.Assert(err, tc.DeepEquals, cmd.ErrSilent)
-	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, "ERROR cloud invalid not found")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Contains, "ERROR cloud invalid not found")
 }
 
 func (s *regionsSuite) TestListRegionsInvalidArgs(c *tc.C) {
@@ -66,9 +65,9 @@ func (s *regionsSuite) TestListRegionsInvalidArgs(c *tc.C) {
 
 func (s *regionsSuite) TestListRegionsLocalOnly(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "kloud", "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, jc.DeepEquals, "\nClient Cloud Regions\nlondon\nparis\n")
+	c.Assert(out, tc.DeepEquals, "\nClient Cloud Regions\nlondon\nparis\n")
 }
 
 func (s *regionsSuite) setupControllerData(c *tc.C) cmd.Command {
@@ -99,9 +98,9 @@ func (s *regionsSuite) setupControllerData(c *tc.C) cmd.Command {
 func (s *regionsSuite) TestListRegions(c *tc.C) {
 	aCommand := s.setupControllerData(c)
 	ctx, err := cmdtesting.RunCommand(c, aCommand, "kloud", "--format", "yaml")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, jc.DeepEquals, `
+	c.Assert(out, tc.DeepEquals, `
 client-cloud-regions:
   london:
     endpoint: http://london/1.0
@@ -118,23 +117,23 @@ controller-cloud-regions:
 func (s *regionsSuite) TestListRegionsControllerOnly(c *tc.C) {
 	aCommand := s.setupControllerData(c)
 	ctx, err := cmdtesting.RunCommand(c, aCommand, "kloud", "-c", "mycontroller")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, jc.DeepEquals, "\nController Cloud Regions\nhive  \nmind  \n")
+	c.Assert(out, tc.DeepEquals, "\nController Cloud Regions\nhive  \nmind  \n")
 }
 
 func (s *regionsSuite) TestListRegionsBuiltInCloud(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "localhost", "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, jc.DeepEquals, "\nClient Cloud Regions\nlocalhost\n")
+	c.Assert(out, tc.DeepEquals, "\nClient Cloud Regions\nlocalhost\n")
 }
 
 func (s *regionsSuite) TestListRegionsYaml(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "kloud", "--format", "yaml", "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, jc.DeepEquals, `
+	c.Assert(out, tc.DeepEquals, `
 client-cloud-regions:
   london:
     endpoint: http://london/1.0
@@ -148,9 +147,9 @@ func (s *regionsSuite) TestListNoController(c *tc.C) {
 	ctx.Stdin = strings.NewReader("n\ny\n")
 	command := cloud.NewListRegionsCommand()
 	err := cmdtesting.InitCommand(command, []string{"kloud"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = command.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 
 Client Cloud Regions
@@ -162,6 +161,6 @@ paris
 
 func (s *regionsSuite) TestListRegionsJson(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "kloud", "--format", "json", "--client")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, "{\"client-cloud-regions\":{\"london\":{\"endpoint\":\"http://london/1.0\"},\"paris\":{\"endpoint\":\"http://paris/1.0\"}}}\n")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.DeepEquals, "{\"client-cloud-regions\":{\"london\":{\"endpoint\":\"http://london/1.0\"},\"paris\":{\"endpoint\":\"http://paris/1.0\"}}}\n")
 }

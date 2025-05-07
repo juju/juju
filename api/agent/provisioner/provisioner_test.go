@@ -9,7 +9,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/agent/provisioner"
@@ -75,7 +74,7 @@ func (s *provisionerSuite) TestMachines(c *tc.C) {
 
 	client := provisioner.NewClient(caller)
 	result, err := client.Machines(context.Background(), names.NewMachineTag("666"), names.NewMachineTag("42"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.HasLen, 2)
 	c.Assert(result[1].Err.Message, tc.Equals, "FAIL")
 
@@ -105,13 +104,13 @@ func (s *provisionerSuite) TestMachinesWithTransientErrors(c *tc.C) {
 
 	client := provisioner.NewClient(caller)
 	result, err := client.MachinesWithTransientErrors(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	machine := result[0].Machine
 	c.Assert(machine, tc.FitsTypeOf, &provisioner.Machine{})
 	c.Assert(machine.Tag(), tc.Equals, names.NewMachineTag("666"))
 	c.Assert(machine.Id(), tc.Equals, "666")
 	c.Assert(machine.Life(), tc.Equals, life.Alive)
-	c.Assert(result[0].Status, jc.DeepEquals, params.StatusResult{
+	c.Assert(result[0].Status, tc.DeepEquals, params.StatusResult{
 		Id:     "666",
 		Life:   "alive",
 		Status: "error",
@@ -138,8 +137,8 @@ func (s *provisionerSuite) TestDistributionGroupByMachineId(c *tc.C) {
 
 	client := provisioner.NewClient(caller)
 	result, err := client.DistributionGroupByMachineId(context.Background(), names.NewMachineTag("666"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, []provisioner.DistributionGroupResult{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []provisioner.DistributionGroupResult{{
 		MachineIds: []string{"id-1", "id-2"},
 	}})
 }
@@ -162,8 +161,8 @@ func (s *provisionerSuite) TestProvisioningInfo(c *tc.C) {
 
 	client := provisioner.NewClient(caller)
 	result, err := client.ProvisioningInfo(context.Background(), []names.MachineTag{names.NewMachineTag("666")})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, results)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, results)
 }
 
 func (s *provisionerSuite) TestHostChangesForContainer(c *tc.C) {
@@ -188,8 +187,8 @@ func (s *provisionerSuite) TestHostChangesForContainer(c *tc.C) {
 
 	client := provisioner.NewClient(caller)
 	result, err := client.HostChangesForContainer(context.Background(), names.NewMachineTag("666"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, []network.DeviceToBridge{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "host",
 		BridgeName: "bridge",
 		MACAddress: "mac",
@@ -212,8 +211,8 @@ func (s *provisionerSuite) TestContainerManagerConfig(c *tc.C) {
 
 	client := provisioner.NewClient(caller)
 	result, err := client.ContainerManagerConfig(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, results)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, results)
 }
 
 func (s *provisionerSuite) TestFindTools(c *tc.C) {
@@ -241,8 +240,8 @@ func (s *provisionerSuite) TestFindTools(c *tc.C) {
 
 	client := provisioner.NewClient(caller)
 	result, err := client.FindTools(context.Background(), vers, "ubuntu", "arm64")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, tools.List{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, tools.List{{
 		Version: semversion.MustParseBinary("6.6.6-ubuntu-arm64"),
 		URL:     "http://here",
 		SHA256:  "deadbeaf",
@@ -263,8 +262,8 @@ func (s *provisionerSuite) TestContainerConfig(c *tc.C) {
 
 	client := provisioner.NewClient(caller)
 	result, err := client.ContainerConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, cfg)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, cfg)
 }
 
 func (s *provisionerSuite) TestWatchModelMachines(c *tc.C) {
@@ -296,7 +295,7 @@ func (s *provisionerSuite) setupMachines(c *tc.C, ctrl *gomock.Controller) (*moc
 
 	client := provisioner.NewClient(caller)
 	result, err := client.Machines(context.Background(), names.NewMachineTag("666"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.HasLen, 1)
 	return caller, result[0].Machine
 }
@@ -321,7 +320,7 @@ func (s *provisionerSuite) TestSetStatus(c *tc.C) {
 	s.expectCall(caller, "SetStatus", args, results)
 
 	err := machine.SetStatus(context.Background(), status.Error, "failed", map[string]interface{}{"foo": "bar"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *provisionerSuite) TestStatus(c *tc.C) {
@@ -343,7 +342,7 @@ func (s *provisionerSuite) TestStatus(c *tc.C) {
 	s.expectCall(caller, "Status", args, results)
 
 	st, info, err := machine.Status(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(st, tc.Equals, status.Error)
 	c.Assert(info, tc.Equals, "failed")
 }
@@ -368,7 +367,7 @@ func (s *provisionerSuite) TestSetInstanceStatus(c *tc.C) {
 	s.expectCall(caller, "SetInstanceStatus", args, results)
 
 	err := machine.SetInstanceStatus(context.Background(), status.Error, "failed", map[string]interface{}{"foo": "bar"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *provisionerSuite) TestInstanceStatus(c *tc.C) {
@@ -390,7 +389,7 @@ func (s *provisionerSuite) TestInstanceStatus(c *tc.C) {
 	s.expectCall(caller, "InstanceStatus", args, results)
 
 	st, info, err := machine.InstanceStatus(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(st, tc.Equals, status.Error)
 	c.Assert(info, tc.Equals, "failed")
 }
@@ -411,7 +410,7 @@ func (s *provisionerSuite) TestEnsureDead(c *tc.C) {
 	s.expectCall(caller, "EnsureDead", args, results)
 
 	err := machine.EnsureDead(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *provisionerSuite) TestRemove(c *tc.C) {
@@ -430,7 +429,7 @@ func (s *provisionerSuite) TestRemove(c *tc.C) {
 	s.expectCall(caller, "Remove", args, results)
 
 	err := machine.Remove(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *provisionerSuite) TestMarkForRemoval(c *tc.C) {
@@ -449,7 +448,7 @@ func (s *provisionerSuite) TestMarkForRemoval(c *tc.C) {
 	s.expectCall(caller, "MarkMachinesForRemoval", args, results)
 
 	err := machine.MarkForRemoval(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *provisionerSuite) TestRefresh(c *tc.C) {
@@ -466,7 +465,7 @@ func (s *provisionerSuite) TestRefresh(c *tc.C) {
 	}
 	s.expectCall(caller, "Life", args, results)
 	err := machine.Refresh(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(machine.Life(), tc.Equals, life.Dying)
 }
 
@@ -488,7 +487,7 @@ func (s *provisionerSuite) TestInstanceId(c *tc.C) {
 	s.expectCall(caller, "InstanceId", args, results)
 
 	id, err := machine.InstanceId(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(id, tc.Equals, instance.Id("id-666"))
 }
 
@@ -535,7 +534,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *tc.C) {
 		context.Background(),
 		"i-will", "my machine", "fake_nonce", &hwChars, nil, volumes, volumeAttachments, []string{"profile1"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *provisionerSuite) TestAvailabilityZone(c *tc.C) {
@@ -556,7 +555,7 @@ func (s *provisionerSuite) TestAvailabilityZone(c *tc.C) {
 	s.expectCall(caller, "AvailabilityZone", args, results)
 
 	zone, err := machine.AvailabilityZone(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(zone, tc.Equals, "az-666")
 }
 
@@ -579,7 +578,7 @@ func (s *provisionerSuite) TestSetCharmProfiles(c *tc.C) {
 	s.expectCall(caller, "SetCharmProfiles", args, results)
 
 	err := machine.SetCharmProfiles(context.Background(), []string{"profile"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *provisionerSuite) TestKeepInstance(c *tc.C) {
@@ -598,8 +597,8 @@ func (s *provisionerSuite) TestKeepInstance(c *tc.C) {
 	s.expectCall(caller, "KeepInstance", args, results)
 
 	result, err := machine.KeepInstance(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.IsTrue)
 }
 
 func (s *provisionerSuite) TestDistributionGroup(c *tc.C) {
@@ -618,8 +617,8 @@ func (s *provisionerSuite) TestDistributionGroup(c *tc.C) {
 	s.expectCall(caller, "DistributionGroup", args, results)
 
 	result, err := machine.DistributionGroup(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.SameContents, []instance.Id{"id-1", "id-2"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.SameContents, []instance.Id{"id-1", "id-2"})
 }
 
 func (s *provisionerSuite) TestWatchContainers(c *tc.C) {
@@ -674,7 +673,7 @@ func (s *provisionerSuite) TestSetSupportedContainers(c *tc.C) {
 	s.expectCall(caller, "SetSupportedContainers", args, results)
 
 	err := machine.SetSupportedContainers(context.Background(), []instance.ContainerType{"lxd"}...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 }
 
@@ -694,9 +693,9 @@ func (s *provisionerSuite) TestSupportedContainers(c *tc.C) {
 	s.expectCall(caller, "SupportedContainers", args, results)
 
 	result, determined, err := machine.SupportedContainers(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.SameContents, []instance.ContainerType{"lxd"})
-	c.Assert(determined, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.SameContents, []instance.ContainerType{"lxd"})
+	c.Assert(determined, tc.IsTrue)
 }
 
 var _ = tc.Suite(&provisionerContainerSuite{})
@@ -737,7 +736,7 @@ func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoNoValues(c 
 
 	networkInfo, err := provisionerApi.PrepareContainerInterfaceInfo(context.Background(), s.containerTag)
 	c.Assert(err, tc.IsNil)
-	c.Check(networkInfo, jc.DeepEquals, corenetwork.InterfaceInfos{})
+	c.Check(networkInfo, tc.DeepEquals, corenetwork.InterfaceInfos{})
 }
 
 func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoSingleNIC(c *tc.C) {
@@ -790,7 +789,7 @@ func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoSingleNIC(c
 
 	networkInfo, err := provisionerApi.PrepareContainerInterfaceInfo(context.Background(), s.containerTag)
 	c.Assert(err, tc.IsNil)
-	c.Check(networkInfo, jc.DeepEquals, corenetwork.InterfaceInfos{{
+	c.Check(networkInfo, tc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:         1,
 		MACAddress:          "de:ad:be:ff:11:22",
 		MTU:                 9000,
@@ -860,7 +859,7 @@ func (s *provisionerContainerSuite) TestGetContainerProfileInfo(c *tc.C) {
 	provisionerApi := provisioner.NewClient(caller)
 
 	obtainedResults, err := provisionerApi.GetContainerProfileInfo(context.Background(), s.containerTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtainedResults, tc.DeepEquals, []*provisioner.LXDProfileResult{
 		{
 			Config: map[string]string{

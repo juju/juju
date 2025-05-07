@@ -11,7 +11,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/arch"
@@ -43,7 +42,7 @@ func (s *imageutilsSuite) SetUpTest(c *tc.C) {
 	}
 	var err error
 	s.client, err = armcompute.NewVirtualMachineImagesClient("subscription-id", &azuretesting.FakeCredential{}, opts)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *imageutilsSuite) TestBaseImageOldStyleGen2(c *tc.C) {
@@ -53,9 +52,9 @@ func (s *imageutilsSuite) TestBaseImageOldStyleGen2(c *tc.C) {
 		`[{"name": "20_04-lts-gen2"}, {"name": "20_04-lts"}, {"name": "20_04-lts-arm64"}]`,
 	))
 	image, err := imageutils.BaseImage(context.Background(), s.invalidator, corebase.MakeDefaultBase("ubuntu", "20.04"), "released", "westus", "", s.client, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(image, tc.NotNil)
-	c.Check(image, jc.DeepEquals, &instances.Image{
+	c.Check(image, tc.DeepEquals, &instances.Image{
 		Id:       "Canonical:0001-com-ubuntu-server-focal:20_04-lts-gen2:latest",
 		Arch:     arch.AMD64,
 		VirtType: "Hyper-V",
@@ -69,9 +68,9 @@ func (s *imageutilsSuite) TestBaseImageOldStyleARM64(c *tc.C) {
 		`[{"name": "20_04-lts-gen2"}, {"name": "20_04-lts"}, {"name": "20_04-lts-arm64"}]`,
 	))
 	image, err := imageutils.BaseImage(context.Background(), s.invalidator, corebase.MakeDefaultBase("ubuntu", "20.04"), "released", "westus", "arm64", s.client, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(image, tc.NotNil)
-	c.Check(image, jc.DeepEquals, &instances.Image{
+	c.Check(image, tc.DeepEquals, &instances.Image{
 		Id:       "Canonical:0001-com-ubuntu-server-focal:20_04-lts-arm64:latest",
 		Arch:     arch.ARM64,
 		VirtType: "Hyper-V",
@@ -85,9 +84,9 @@ func (s *imageutilsSuite) TestBaseImageOldStyleFallbackToGen1(c *tc.C) {
 		`[{"name": "20_04-lts-gen2"}, {"name": "20_04-lts"}, {"name": "20_04-lts-arm64"}]`,
 	))
 	image, err := imageutils.BaseImage(context.Background(), s.invalidator, corebase.MakeDefaultBase("ubuntu", "20.04"), "released", "westus", "", s.client, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(image, tc.NotNil)
-	c.Check(image, jc.DeepEquals, &instances.Image{
+	c.Check(image, tc.DeepEquals, &instances.Image{
 		Id:       "Canonical:0001-com-ubuntu-server-focal:20_04-lts:latest",
 		Arch:     arch.AMD64,
 		VirtType: "Hyper-V",
@@ -101,9 +100,9 @@ func (s *imageutilsSuite) TestBaseImageOldStyleInvalidSKU(c *tc.C) {
 		`[{"name": "22_04-invalid"}, {"name": "22_04-lts"}]`,
 	))
 	image, err := imageutils.BaseImage(context.Background(), s.invalidator, corebase.MakeDefaultBase("ubuntu", "22.04"), "released", "westus", "", s.client, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(image, tc.NotNil)
-	c.Check(image, jc.DeepEquals, &instances.Image{
+	c.Check(image, tc.DeepEquals, &instances.Image{
 		Id:       "Canonical:0001-com-ubuntu-server-jammy:22_04-lts:latest",
 		Arch:     arch.AMD64,
 		VirtType: "Hyper-V",
@@ -117,9 +116,9 @@ func (s *imageutilsSuite) TestBaseImageGen2(c *tc.C) {
 		`[{"name": "server"}, {"name": "server-gen1"}, {"name": "server-arm64"}]`,
 	))
 	image, err := imageutils.BaseImage(context.Background(), s.invalidator, corebase.MakeDefaultBase("ubuntu", "24.04"), "released", "westus", "", s.client, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(image, tc.NotNil)
-	c.Check(image, jc.DeepEquals, &instances.Image{
+	c.Check(image, tc.DeepEquals, &instances.Image{
 		Id:       "Canonical:ubuntu-24_04-lts:server:latest",
 		Arch:     arch.AMD64,
 		VirtType: "Hyper-V",
@@ -133,9 +132,9 @@ func (s *imageutilsSuite) TestBaseImageFallbackToGen1(c *tc.C) {
 		`[{"name": "server"}, {"name": "server-gen1"}, {"name": "server-arm64"}]`,
 	))
 	image, err := imageutils.BaseImage(context.Background(), s.invalidator, corebase.MakeDefaultBase("ubuntu", "24.04"), "released", "westus", "", s.client, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(image, tc.NotNil)
-	c.Check(image, jc.DeepEquals, &instances.Image{
+	c.Check(image, tc.DeepEquals, &instances.Image{
 		Id:       "Canonical:ubuntu-24_04-lts:server-gen1:latest",
 		Arch:     arch.AMD64,
 		VirtType: "Hyper-V",
@@ -149,9 +148,9 @@ func (s *imageutilsSuite) TestBaseImageARM64(c *tc.C) {
 		`[{"name": "server"}, {"name": "server-gen1"}, {"name": "server-arm64"}]`,
 	))
 	image, err := imageutils.BaseImage(context.Background(), s.invalidator, corebase.MakeDefaultBase("ubuntu", "24.04"), "released", "westus", "arm64", s.client, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(image, tc.NotNil)
-	c.Check(image, jc.DeepEquals, &instances.Image{
+	c.Check(image, tc.DeepEquals, &instances.Image{
 		Id:       "Canonical:ubuntu-24_04-lts:server-arm64:latest",
 		Arch:     arch.ARM64,
 		VirtType: "Hyper-V",
@@ -165,9 +164,9 @@ func (s *imageutilsSuite) TestBaseImageNonLTS(c *tc.C) {
 		`[{"name": "server"}, {"name": "server-gen1"}, {"name": "server-arm64"}]`,
 	))
 	image, err := imageutils.BaseImage(context.Background(), s.invalidator, corebase.MakeDefaultBase("ubuntu", "25.04"), "released", "westus", "", s.client, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(image, tc.NotNil)
-	c.Check(image, jc.DeepEquals, &instances.Image{
+	c.Check(image, tc.DeepEquals, &instances.Image{
 		Id:       "Canonical:ubuntu-25_04:server:latest",
 		Arch:     arch.AMD64,
 		VirtType: "Hyper-V",
@@ -182,7 +181,7 @@ func (s *imageutilsSuite) TestBaseImageStreamDaily(c *tc.C) {
 	base := corebase.MakeDefaultBase("ubuntu", "24.04")
 
 	image, err := imageutils.BaseImage(context.Background(), s.invalidator, base, "daily", "westus", "", s.client, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(image.Id, tc.Equals, "Canonical:ubuntu-24_04-lts-daily:server:latest")
 }
 
@@ -220,7 +219,7 @@ func (s *imageutilsSuite) TestBaseImageStreamThrewCredentialError(c *tc.C) {
 	s.invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(nil)
 
 	_, err := imageutils.BaseImage(context.Background(), s.invalidator, corebase.MakeDefaultBase("ubuntu", "22.04"), "whatever", "westus", "", s.client, false)
-	c.Assert(err.Error(), jc.Contains, "RESPONSE 401")
+	c.Assert(err.Error(), tc.Contains, "RESPONSE 401")
 }
 
 func (s *imageutilsSuite) TestBaseImageStreamThrewNonCredentialError(c *tc.C) {
@@ -229,7 +228,7 @@ func (s *imageutilsSuite) TestBaseImageStreamThrewNonCredentialError(c *tc.C) {
 	s.mockSender.AppendResponse(azuretesting.NewResponseWithStatus("308 Permanent Redirect", http.StatusPermanentRedirect))
 
 	_, err := imageutils.BaseImage(context.Background(), s.invalidator, corebase.MakeDefaultBase("ubuntu", "22.04"), "whatever", "westus", "", s.client, false)
-	c.Assert(err.Error(), jc.Contains, "RESPONSE 308")
+	c.Assert(err.Error(), tc.Contains, "RESPONSE 308")
 }
 
 func (s *imageutilsSuite) setupMocks(c *tc.C) *gomock.Controller {

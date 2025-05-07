@@ -14,7 +14,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
@@ -170,7 +169,7 @@ func (s *instanceSuite) getInstance(c *tc.C, instID instance.Id) instances.Insta
 func (s *instanceSuite) getInstances(c *tc.C, ids ...instance.Id) []instances.Instance {
 	s.sender = s.getInstancesSender()
 	instances, err := s.env.Instances(context.Background(), ids)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.sender = azuretesting.Senders{}
 	s.requests = nil
 	return instances
@@ -241,7 +240,7 @@ func (s *instanceSuite) TestInstanceStatusUnsetProvisioningState(c *tc.C) {
 }
 
 func assertInstanceStatus(c *tc.C, actual instance.Status, status status.Status, message string) {
-	c.Assert(actual, jc.DeepEquals, instance.Status{
+	c.Assert(actual, tc.DeepEquals, instance.Status{
 		Status:  status,
 		Message: message,
 	})
@@ -249,7 +248,7 @@ func assertInstanceStatus(c *tc.C, actual instance.Status, status status.Status,
 
 func (s *instanceSuite) TestInstanceAddressesEmpty(c *tc.C) {
 	addresses, err := s.getInstance(c, "machine-0").Addresses(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(addresses, tc.HasLen, 0)
 }
 
@@ -275,8 +274,8 @@ func (s *instanceSuite) TestInstanceAddresses(c *tc.C) {
 		makePublicIPAddress("pip-2", "machine-1", "1.2.3.6"),
 	}
 	addresses, err := s.getInstance(c, "machine-0").Addresses(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addresses, jc.DeepEquals, corenetwork.NewMachineAddresses([]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(addresses, tc.DeepEquals, corenetwork.NewMachineAddresses([]string{
 		"10.0.0.4", "10.0.0.5", "1.2.3.4", "1.2.3.5",
 	}).AsProviderAddresses())
 }
@@ -296,14 +295,14 @@ func (s *instanceSuite) TestMultipleInstanceAddresses(c *tc.C) {
 	c.Assert(instances, tc.HasLen, 2)
 
 	inst0Addresses, err := instances[0].Addresses(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(inst0Addresses, jc.DeepEquals, corenetwork.NewMachineAddresses([]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(inst0Addresses, tc.DeepEquals, corenetwork.NewMachineAddresses([]string{
 		"10.0.0.4", "1.2.3.4",
 	}).AsProviderAddresses())
 
 	inst1Addresses, err := instances[1].Addresses(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(inst1Addresses, jc.DeepEquals, corenetwork.NewMachineAddresses([]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(inst1Addresses, tc.DeepEquals, corenetwork.NewMachineAddresses([]string{
 		"10.0.0.5", "1.2.3.5",
 	}).AsProviderAddresses())
 }
@@ -315,7 +314,7 @@ func (s *instanceSuite) TestIngressRulesEmpty(c *tc.C) {
 	nsgSender := networkSecurityGroupSender(nil)
 	s.sender = azuretesting.Senders{nsgSender}
 	rules, err := fwInst.IngressRules(context.Background(), "0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rules, tc.HasLen, 0)
 }
 
@@ -443,8 +442,8 @@ func (s *instanceSuite) TestIngressRules(c *tc.C) {
 	c.Assert(ok, tc.Equals, true)
 
 	rules, err := fwInst.IngressRules(context.Background(), "0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rules, jc.DeepEquals, firewall.IngressRules{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rules, tc.DeepEquals, firewall.IngressRules{
 		firewall.NewIngressRule(corenetwork.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 		firewall.NewIngressRule(corenetwork.MustParsePortRange("1000-2000/tcp"), firewall.AllNetworksIPV4CIDR, "192.168.1.0/24", "10.0.0.0/24"),
 		firewall.NewIngressRule(corenetwork.MustParsePortRange("1-65535/udp"), firewall.AllNetworksIPV4CIDR),
@@ -470,7 +469,7 @@ func (s *instanceSuite) TestInstanceClosePorts(c *tc.C) {
 		firewall.NewIngressRule(corenetwork.MustParsePortRange("1000-2000/udp")),
 		firewall.NewIngressRule(corenetwork.MustParsePortRange("1000-2000/udp"), "192.168.1.0/24", "10.0.0.0/24"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(s.requests, tc.HasLen, 5)
 	c.Assert(s.requests[0].Method, tc.Equals, "GET")
@@ -500,7 +499,7 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *tc.C) {
 		firewall.NewIngressRule(corenetwork.MustParsePortRange("1000-2000/udp")),
 		firewall.NewIngressRule(corenetwork.MustParsePortRange("1000-2000/tcp"), "192.168.1.0/24", "10.0.0.0/24"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(s.requests, tc.HasLen, 5)
 	c.Assert(s.requests[0].Method, tc.Equals, "GET")
@@ -591,7 +590,7 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *tc.C) {
 		firewall.NewIngressRule(corenetwork.MustParsePortRange("1000/tcp")),
 		firewall.NewIngressRule(corenetwork.MustParsePortRange("1000-2000/udp")),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(s.requests, tc.HasLen, 2)
 	c.Assert(s.requests[0].Method, tc.Equals, "GET")
@@ -621,14 +620,14 @@ func (s *instanceSuite) TestInstanceOpenPortsNoInternalAddress(c *tc.C) {
 	fwInst, ok := inst.(instances.InstanceFirewaller)
 	c.Assert(ok, tc.Equals, true)
 	err := fwInst.OpenPorts(context.Background(), "0", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.requests, tc.HasLen, 0)
 }
 
 func (s *instanceSuite) TestAllInstances(c *tc.C) {
 	s.sender = s.getInstancesSender()
 	instances, err := s.env.AllInstances(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(instances, tc.HasLen, 2)
 	c.Assert(instances[0].Id(), tc.Equals, instance.Id("machine-0"))
 	c.Assert(instances[1].Id(), tc.Equals, instance.Id("machine-1"))
@@ -637,7 +636,7 @@ func (s *instanceSuite) TestAllInstances(c *tc.C) {
 func (s *instanceSuite) TestAllRunningInstances(c *tc.C) {
 	s.sender = s.getInstancesSender()
 	instances, err := s.env.AllRunningInstances(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(instances, tc.HasLen, 2)
 	c.Assert(instances[0].Id(), tc.Equals, instance.Id("machine-0"))
 	c.Assert(instances[1].Id(), tc.Equals, instance.Id("machine-1"))
@@ -647,7 +646,7 @@ func (s *instanceSuite) TestControllerInstancesSomePending(c *tc.C) {
 	*((s.deployments[1].Properties.Dependencies)[0].DependsOn)[0].ResourceName = "juju-controller"
 	s.sender = s.getInstancesSender()
 	ids, err := s.env.ControllerInstances(context.Background(), testing.ControllerTag.Id())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ids, tc.HasLen, 2)
 	c.Assert(ids[0], tc.Equals, instance.Id("machine-0"))
 	c.Assert(ids[1], tc.Equals, instance.Id("machine-1"))
@@ -656,7 +655,7 @@ func (s *instanceSuite) TestControllerInstancesSomePending(c *tc.C) {
 func (s *instanceSuite) TestControllerInstances(c *tc.C) {
 	s.sender = s.getInstancesSender()
 	ids, err := s.env.ControllerInstances(context.Background(), testing.ControllerTag.Id())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ids, tc.HasLen, 1)
 	c.Assert(ids[0], tc.Equals, instance.Id("machine-0"))
 }

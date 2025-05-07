@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/base"
@@ -87,9 +86,9 @@ func (s *modelmanagerSuite) TestCreateModel(c *tc.C) {
 		names.CloudCredentialTag{},
 		map[string]interface{}{"abc": 123},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(newModel, jc.DeepEquals, base.ModelInfo{
+	c.Assert(newModel, tc.DeepEquals, base.ModelInfo{
 		Name:           "dowhatimean",
 		Type:           model.IAAS,
 		UUID:           "youyoueyedee",
@@ -148,8 +147,8 @@ func (s *modelmanagerSuite) TestListModels(c *tc.C) {
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
 	models, err := client.ListModels(context.Background(), "user@remote")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(models, jc.DeepEquals, []base.UserModel{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(models, tc.DeepEquals, []base.UserModel{{
 		Name:           "yo",
 		UUID:           "wei",
 		Type:           model.CAAS,
@@ -187,7 +186,7 @@ func (s *modelmanagerSuite) testDestroyModel(c *tc.C, destroyStorage, force *boo
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.DestroyModel(context.Background(), coretesting.ModelTag, destroyStorage, force, maxWait, &timeout)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *modelmanagerSuite) TestDestroyModel(c *tc.C) {
@@ -228,9 +227,9 @@ func (s *modelmanagerSuite) TestModelDefaults(c *tc.C) {
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.ModelDefaults(context.Background(), "aws")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(result, jc.DeepEquals, config.ModelDefaultAttributes{
+	c.Assert(result, tc.DeepEquals, config.ModelDefaultAttributes{
 		"foo": {"bar", "model", []config.RegionDefaultValue{{
 			"dummy-region",
 			"dummy-value"}}},
@@ -264,7 +263,7 @@ func (s *modelmanagerSuite) TestSetModelDefaults(c *tc.C) {
 		"some-name":  "value",
 		"other-name": true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *modelmanagerSuite) TestUnsetModelDefaults(c *tc.C) {
@@ -288,7 +287,7 @@ func (s *modelmanagerSuite) TestUnsetModelDefaults(c *tc.C) {
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.UnsetModelDefaults(context.Background(), "mycloud", "region", "foo", "bar")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *modelmanagerSuite) TestModelStatus(c *tc.C) {
@@ -328,8 +327,8 @@ func (s *modelmanagerSuite) TestModelStatus(c *tc.C) {
 	client := common.NewModelStatusAPI(mockFacadeCaller)
 
 	results, err := client.ModelStatus(context.Background(), coretesting.ModelTag, coretesting.ModelTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results[0], jc.DeepEquals, base.ModelStatus{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results[0], tc.DeepEquals, base.ModelStatus{
 		UUID:               coretesting.ModelTag.Id(),
 		TotalMachineCount:  1,
 		HostedMachineCount: 2,
@@ -357,8 +356,8 @@ func (s *modelmanagerSuite) TestModelStatusEmpty(c *tc.C) {
 	client := common.NewModelStatusAPI(mockFacadeCaller)
 
 	results, err := client.ModelStatus(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []base.ModelStatus{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, []base.ModelStatus{})
 }
 
 func (s *modelmanagerSuite) TestModelStatusError(c *tc.C) {
@@ -425,10 +424,10 @@ func (s *modelmanagerSuite) TestListModelSummaries(c *tc.C) {
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
 	results, err := client.ListModelSummaries(context.Background(), userTag.Id(), true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(results, tc.HasLen, 2)
-	c.Assert(results[0], jc.DeepEquals, base.UserModelSummary{Name: testModelInfo.Name,
+	c.Assert(results[0], tc.DeepEquals, base.UserModelSummary{Name: testModelInfo.Name,
 		UUID:            testModelInfo.UUID,
 		Type:            model.IAAS,
 		ControllerUUID:  testModelInfo.ControllerUUID,
@@ -479,7 +478,7 @@ func (s *modelmanagerSuite) TestListModelSummariesParsingErrors(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListModelSummaries", args, res).SetArg(3, ress).Return(nil)
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 	results, err := client.ListModelSummaries(context.Background(), "commander", true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 3)
 	c.Assert(results[0].Error, tc.ErrorMatches, `while parsing model owner tag: "owner-user" is not a valid tag`)
 	c.Assert(results[1].Error, tc.ErrorMatches, `while parsing model cloud tag: "not-cloud" is not a valid tag`)
@@ -537,7 +536,7 @@ func (s *modelmanagerSuite) TestChangeModelCredential(c *tc.C) {
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.ChangeModelCredential(context.Background(), coretesting.ModelTag, credentialTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *modelmanagerSuite) TestChangeModelCredentialManyResults(c *tc.C) {
@@ -641,8 +640,8 @@ func (s *dumpModelSuite) TestDumpModelDB(c *tc.C) {
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
 	out, err := client.DumpModelDB(context.Background(), coretesting.ModelTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(out, tc.DeepEquals, expected)
 }
 
 func (s *dumpModelSuite) TestDumpModelDBError(c *tc.C) {

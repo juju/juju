@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/controller"
 	jujuversion "github.com/juju/juju/core/version"
@@ -47,24 +46,24 @@ func (s *identitySuite) TestWriteSystemIdentityFile(c *tc.C) {
 	params := attributeParams
 	params.Paths.DataDir = c.MkDir()
 	conf, err := NewStateMachineConfig(params, servingInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = WriteSystemIdentityFile(conf)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	contents, err := os.ReadFile(conf.SystemIdentityPath())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(string(contents), tc.Equals, servingInfo.SystemIdentity)
 
 	fi, err := os.Stat(conf.SystemIdentityPath())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(fi.Mode().Perm(), tc.Equals, os.FileMode(0600))
 	// ensure that file is deleted when SystemIdentity is empty
 	info := servingInfo
 	info.SystemIdentity = ""
 	conf, err = NewStateMachineConfig(params, info)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = WriteSystemIdentityFile(conf)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = os.Stat(conf.SystemIdentityPath())
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
+	c.Assert(err, tc.Satisfies, os.IsNotExist)
 }

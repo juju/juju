@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -32,7 +31,7 @@ func (s *providerSuite) TestProviderRunner(c *tc.C) {
 
 	runner := ProviderRunner[Provider](s.providerFactory, "foo")
 	v, err := runner(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(v, tc.DeepEquals, s.provider)
 }
 
@@ -45,7 +44,7 @@ func (s *providerSuite) TestProviderRunnerSubsetType(c *tc.C) {
 
 	runner := ProviderRunner[FooProvider](s.providerFactory, "foo")
 	v, err := runner(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(v, tc.DeepEquals, provider)
 }
 
@@ -58,7 +57,7 @@ func (s *providerSuite) TestProviderRunnerIsNotSubsetType(c *tc.C) {
 
 	runner := ProviderRunner[BarProvider](s.providerFactory, "foo")
 	_, err := runner(context.Background())
-	c.Assert(err, jc.ErrorIs, coreerrors.NotSupported)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
 func (s *providerSuite) TestEphemeralProviderRunnerFromConfig(c *tc.C) {
@@ -77,7 +76,7 @@ func (s *providerSuite) TestEphemeralProviderRunnerFromConfig(c *tc.C) {
 		provider = p
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(provider, tc.DeepEquals, s.provider)
 }
 
@@ -101,7 +100,7 @@ func (s *providerSuite) TestEphemeralProviderRunnerFromConfigSubsetType(c *tc.C)
 		provider = p
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(provider, tc.DeepEquals, fooProvider)
 }
 
@@ -123,7 +122,7 @@ func (s *providerSuite) TestEphemeralProviderRunnerFromConfigIsNotSubsetType(c *
 		c.Fail()
 		return nil
 	})
-	c.Assert(err, jc.ErrorIs, coreerrors.NotSupported)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
 func (s *providerSuite) setupMocks(c *tc.C) *gomock.Controller {

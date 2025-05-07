@@ -7,7 +7,6 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coretesting "github.com/juju/juju/internal/testing"
 )
@@ -22,7 +21,7 @@ type importSuite struct {
 var _ = tc.Suite(&importSuite{})
 
 func (*importSuite) TestDependencies(c *tc.C) {
-	c.Assert(coretesting.FindJujuCoreImports(c, "github.com/juju/juju/juju/osenv"), jc.SameContents, []string{
+	c.Assert(coretesting.FindJujuCoreImports(c, "github.com/juju/juju/juju/osenv"), tc.SameContents, []string{
 		"internal/featureflag",
 	})
 }

@@ -11,7 +11,6 @@ import (
 	"github.com/juju/mutex/v2"
 	"github.com/juju/tc"
 	envtesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/charm/hooks"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -130,7 +129,7 @@ func (s *LoopSuite) TestErrWaitingNoOnIdle(c *tc.C) {
 	close(s.abort)
 	_, err := s.loop(c)
 	c.Assert(err, tc.Equals, resolver.ErrLoopAborted)
-	c.Assert(onIdleCalled, jc.IsFalse)
+	c.Assert(onIdleCalled, tc.IsFalse)
 }
 
 func (s *LoopSuite) TestInitialFinalLocalState(c *tc.C) {
@@ -148,10 +147,10 @@ func (s *LoopSuite) TestInitialFinalLocalState(c *tc.C) {
 	close(s.abort)
 	lastLocal, err := s.loop(c)
 	c.Assert(err, tc.Equals, resolver.ErrLoopAborted)
-	c.Assert(local, jc.DeepEquals, resolver.LocalState{
+	c.Assert(local, tc.DeepEquals, resolver.LocalState{
 		CharmURL: s.charmURL,
 	})
-	c.Assert(lastLocal, jc.DeepEquals, local)
+	c.Assert(lastLocal, tc.DeepEquals, local)
 }
 
 func (s *LoopSuite) TestLoop(c *tc.C) {
@@ -235,7 +234,7 @@ func (s *LoopSuite) TestLoopWithChange(c *tc.C) {
 			// wait for changes to propagate
 			select {
 			case _, ok := <-rs:
-				c.Assert(ok, jc.IsTrue)
+				c.Assert(ok, tc.IsTrue)
 				remoteStateSnapshotCount++
 			case <-time.After(testing.ShortWait):
 				c.Fatalf("timed out waiting for remote state snapshot")
@@ -253,7 +252,7 @@ func (s *LoopSuite) TestLoopWithChange(c *tc.C) {
 	c.Assert(remoteStateSnapshotCount, tc.Equals, 5)
 	select {
 	case _, ok := <-remoteStateSnapshotChan:
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		c.Fatalf("remote state snapshot channel fired more than once")
 	default:
 	}

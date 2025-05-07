@@ -8,7 +8,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
@@ -68,7 +67,7 @@ func (s *watcherSuite) TestWatchCloud(c *tc.C) {
 	s.createCloudCredential(c, st, key)
 
 	watcher, err := service.WatchCredential(context.Background(), key)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
@@ -85,7 +84,7 @@ func (s *watcherSuite) TestWatchCloud(c *tc.C) {
 		err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 			return st.UpsertCloudCredential(ctx, key, credInfo)
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		// Get the change.
 		w.AssertChange()
@@ -99,14 +98,14 @@ func (s *watcherSuite) addCloud(c *tc.C, userName user.Name, cloud cloud.Cloud) 
 	ctx := context.Background()
 	cloudUUID := uuid.MustNewUUID().String()
 	err := cloudSt.CreateCloud(ctx, userName, cloudUUID, cloud)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return cloudUUID
 }
 
 func (s *watcherSuite) addOwner(c *tc.C, name user.Name) user.UUID {
 	userUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	userState := userstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err = userState.AddUserWithPermission(
 		context.Background(),
@@ -123,7 +122,7 @@ func (s *watcherSuite) addOwner(c *tc.C, name user.Name) user.UUID {
 			},
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return userUUID
 }
 
@@ -140,6 +139,6 @@ func (s *watcherSuite) createCloudCredential(c *tc.C, st *state.State, key corec
 		Attributes: attributes,
 	}
 	err := st.UpsertCloudCredential(context.Background(), key, credInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return credInfo
 }

@@ -18,7 +18,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -154,10 +153,10 @@ func (s *simplestreamsSuite) TestOfficialSources(c *tc.C) {
 		imagemetadata.SetSigningPublicKey(origKey)
 	}()
 	ds, err := imagemetadata.OfficialDataSources(ss, "daily")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ds, tc.HasLen, 1)
 	url, err := ds[0].URL("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(url, tc.Equals, "http://cloud-images.ubuntu.com/daily/")
 	c.Assert(ds[0].PublicSigningKey(), tc.Equals, sstesting.SignedMetadataPublicKey)
 }
@@ -325,12 +324,12 @@ func (s *simplestreamsSuite) TestFetch(c *tc.C) {
 			Releases:  []string{"12.04"},
 			Arches:    t.arches,
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		// Add invalid datasource and check later that resolveInfo is correct.
 		invalidSource := sstesting.InvalidDataSource(s.RequireSigned)
 		images, resolveInfo, err := imagemetadata.Fetch(context.Background(), ss,
 			[]simplestreams.DataSource{invalidSource, s.Source}, imageConstraint)
-		if !c.Check(err, jc.ErrorIsNil) {
+		if !c.Check(err, tc.ErrorIsNil) {
 			continue
 		}
 		for _, testImage := range t.images {
@@ -355,11 +354,11 @@ func (s *productSpecSuite) TestIdWithDefaultStream(c *tc.C) {
 		Releases: []string{"12.04"},
 		Arches:   []string{"amd64"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	for _, stream := range []string{"", "released"} {
 		imageConstraint.Stream = stream
 		ids, err := imageConstraint.ProductIds()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(ids, tc.DeepEquals, []string{"com.ubuntu.cloud:server:12.04:amd64"})
 	}
 }
@@ -370,9 +369,9 @@ func (s *productSpecSuite) TestId(c *tc.C) {
 		Arches:   []string{"amd64"},
 		Stream:   "daily",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ids, err := imageConstraint.ProductIds()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ids, tc.DeepEquals, []string{"com.ubuntu.cloud.daily:server:12.04:amd64"})
 }
 
@@ -382,9 +381,9 @@ func (s *productSpecSuite) TestIdMultiArch(c *tc.C) {
 		Arches:   []string{"amd64", "arm64"},
 		Stream:   "daily",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ids, err := imageConstraint.ProductIds()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ids, tc.DeepEquals, []string{
 		"com.ubuntu.cloud.daily:server:12.04:amd64",
 		"com.ubuntu.cloud.daily:server:12.04:arm64"})
@@ -425,9 +424,9 @@ func (s *signedSuite) TestSignedImageMetadata(c *tc.C) {
 		Releases: []string{"12.04"},
 		Arches:   []string{"amd64"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	images, resolveInfo, err := imagemetadata.Fetch(context.Background(), ss, []simplestreams.DataSource{signedSource}, imageConstraint)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(images), tc.Equals, 1)
 	c.Assert(images[0].Id, tc.Equals, "ami-123456")
 	c.Check(resolveInfo, tc.DeepEquals, &simplestreams.ResolveInfo{
@@ -455,7 +454,7 @@ func (s *signedSuite) TestSignedImageMetadataInvalidSignature(c *tc.C) {
 		Releases: []string{"12.04"},
 		Arches:   []string{"amd64"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	imagemetadata.SetSigningPublicKey(s.origKey)
 	_, _, err = imagemetadata.Fetch(context.Background(), ss, []simplestreams.DataSource{signedSource}, imageConstraint)
 	c.Assert(err, tc.ErrorMatches, "cannot read index data.*")

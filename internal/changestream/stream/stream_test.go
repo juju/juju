@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	gomock "go.uber.org/mock/gomock"
 
@@ -1180,7 +1179,7 @@ func (s *streamSuite) TestReadChangesWithNoChanges(c *tc.C) {
 	s.insertNamespace(c, 1000, "foo")
 
 	results, err := stream.readChanges()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(results, tc.HasLen, 0)
 }
@@ -1197,7 +1196,7 @@ func (s *streamSuite) TestReadChangesWithOneChange(c *tc.C) {
 	s.insertChange(c, first)
 
 	results, err := stream.readChanges()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(results, tc.HasLen, 1)
 	c.Check(results[0].Namespace(), tc.Equals, "foo")
@@ -1219,7 +1218,7 @@ func (s *streamSuite) TestReadChangesWithMultipleSameChange(c *tc.C) {
 	}
 
 	results, err := stream.readChanges()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(results, tc.HasLen, 1)
 	c.Assert(results[0].Namespace(), tc.Equals, "foo")
@@ -1242,7 +1241,7 @@ func (s *streamSuite) TestReadChangesWithMultipleChanges(c *tc.C) {
 	}
 
 	results, err := stream.readChanges()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(results, tc.HasLen, 10)
 	for i := range results {
@@ -1275,7 +1274,7 @@ func (s *streamSuite) TestReadChangesWithMultipleChangesGroupsCorrectly(c *tc.C)
 	}
 
 	results, err := stream.readChanges()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(results, tc.HasLen, 10)
 	for i := range results {
@@ -1350,7 +1349,7 @@ func (s *streamSuite) TestReadChangesWithMultipleChangesInterweavedGroupsCorrect
 	}
 
 	results, err := stream.readChanges()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 4, tc.Commentf("expected 4, received %v", len(results)))
 
 	type changeResults struct {
@@ -1382,7 +1381,7 @@ func (s *streamSuite) TestProcessWatermark(c *tc.C) {
 		c.Fatalf("unexpected call to process watermark")
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Insert 1 item into the buffer. This will be the first watermark. As the
 	// buffer isn't full we should not see a process watermark call.
@@ -1392,7 +1391,7 @@ func (s *streamSuite) TestProcessWatermark(c *tc.C) {
 		c.Fatalf("unexpected call to process watermark")
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Fill the buffer and witness the view.
 	for i := int64(0); i < int64(changestream.DefaultNumTermWatermarks-1); i++ {
@@ -1408,15 +1407,15 @@ func (s *streamSuite) TestProcessWatermark(c *tc.C) {
 			c.Check(tv.upper, tc.Equals, upper)
 			return nil
 		})
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(called, jc.IsTrue)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(called, tc.IsTrue)
 
 		// We won't witness the watermark again until we've added another term view.
 		err = stream.processWatermark(func(tv *termView) error {
 			c.Fatalf("unexpected call to process watermark")
 			return nil
 		})
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
 
 	witnessWatermark(1, 2)
@@ -1438,7 +1437,7 @@ func (s *streamSuite) TestProcessWatermarkBufferFull(c *tc.C) {
 		c.Fatalf("unexpected call to process watermark")
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Overfilling the buffer should cause us to witness the watermark. The
 	// buffer is capped FIFO, so we will only witness the last view of the
@@ -1457,15 +1456,15 @@ func (s *streamSuite) TestProcessWatermarkBufferFull(c *tc.C) {
 			c.Check(tv.upper, tc.Equals, upper)
 			return nil
 		})
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(called, jc.IsTrue)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(called, tc.IsTrue)
 
 		// We won't witness the watermark again until we've added another term view.
 		err = stream.processWatermark(func(tv *termView) error {
 			c.Fatalf("unexpected call to process watermark")
 			return nil
 		})
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
 
 	witnessWatermark(total-int64(changestream.DefaultNumTermWatermarks), total-int64(changestream.DefaultNumTermWatermarks-1))
@@ -1487,7 +1486,7 @@ func (s *streamSuite) TestUpperBound(c *tc.C) {
 		err := stream.processWatermark(func(tv *termView) error {
 			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		c.Check(stream.upperBound(), tc.Equals, int64(changestream.DefaultNumTermWatermarks+2))
 	}
@@ -1495,17 +1494,17 @@ func (s *streamSuite) TestUpperBound(c *tc.C) {
 	err := stream.processWatermark(func(tv *termView) error {
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(stream.upperBound(), tc.Equals, int64(changestream.DefaultNumTermWatermarks+2))
 }
 
 func (s *streamSuite) TestCreateWatermarkTwice(c *tc.C) {
 	stream := s.newStream()
 	err := stream.createWatermark()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = stream.createWatermark()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *streamSuite) newStream() *Stream {
@@ -1522,7 +1521,7 @@ func (s *streamSuite) insertNamespace(c *tc.C, id int, name string) {
 INSERT INTO change_log_namespace VALUES (?, ?, ?);
 `[1:]
 	_, err := s.DB().Exec(q, id, name, "blah")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type change struct {
@@ -1545,7 +1544,7 @@ func (s *streamSuite) insertChangeForType(c *tc.C, changeType changestream.Chang
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Logf("Committed insert change")
 }
 
@@ -1568,10 +1567,10 @@ func (s *streamSuite) expectWaterMark(c *tc.C, id string, changeLogIndex int) {
 	}
 	var w witness
 	err := row.Scan(&w.id, &w.lowerBound, &w.upperBound, &w.updatedAt)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(w.id, tc.Equals, id)
 	c.Check(w.lowerBound, tc.Equals, changeLogIndex)
-	c.Check(w.upperBound >= changeLogIndex, jc.IsTrue)
+	c.Check(w.upperBound >= changeLogIndex, tc.IsTrue)
 	c.Check(w.updatedAt, tc.Not(tc.Equals), time.Time{})
 }

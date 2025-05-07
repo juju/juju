@@ -14,7 +14,6 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -73,7 +72,7 @@ func (s *MacaroonSuite) SetUpTest(c *tc.C) {
 		"",
 		s.AdminUserUUID,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *MacaroonSuite) TearDownTest(c *tc.C) {
@@ -107,7 +106,7 @@ func (s *MacaroonSuite) AddModelUser(c *tc.C, username user.Name) {
 			Access: permission.WriteAccess,
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // AddControllerUser is a convenience function that adds
@@ -128,7 +127,7 @@ func (s *MacaroonSuite) AddControllerUser(c *tc.C, username user.Name, accessLev
 		AccessSpec: perm,
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // OpenAPI opens a connection to the API using the given information.
@@ -159,7 +158,7 @@ func (s *MacaroonSuite) APIInfo(c *tc.C) *api.Info {
 	// Fill in any old macaroon to ensure we don't attempt
 	// an anonymous login.
 	mac, err := NewMacaroon("test")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	info.Macaroons = []macaroon.Slice{{mac}}
 	return info
 }
@@ -221,8 +220,8 @@ func MacaroonsEqual(c *tc.C, ms1, ms2 []macaroon.Slice) error {
 }
 
 func MacaroonEquals(c *tc.C, m1, m2 *macaroon.Macaroon) {
-	c.Assert(m1.Id(), jc.DeepEquals, m2.Id())
-	c.Assert(m1.Signature(), jc.DeepEquals, m2.Signature())
+	c.Assert(m1.Id(), tc.DeepEquals, m2.Id())
+	c.Assert(m1.Signature(), tc.DeepEquals, m2.Signature())
 	c.Assert(m1.Location(), tc.Equals, m2.Location())
 }
 

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/constraints"
@@ -39,7 +38,7 @@ func (s *exportCharmSuite) TestApplicationExportMinimalCharm(c *tc.C) {
 	model := description.NewModel(description.ModelArgs{})
 
 	err := exportOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(model.Applications(), tc.HasLen, 1)
 
 	app := model.Applications()[0]
@@ -156,7 +155,7 @@ func (s *exportCharmSuite) TestExportCharmMetadata(c *tc.C) {
 	exportOp := s.newExportOperation()
 
 	args, err := exportOp.exportCharmMetadata(meta, "{}")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// As the description package exposes interfaces, it becomes difficult to
 	// test it nicely. To work around this, we'll check the individual fields
@@ -208,7 +207,7 @@ func (s *exportCharmSuite) TestExportCharmMetadata(c *tc.C) {
 	c.Check(stor.CountMax(), tc.Equals, 2)
 	c.Check(stor.MinimumSize(), tc.Equals, 1024)
 	c.Check(stor.Location(), tc.Equals, "/var/lib/foo")
-	c.Check(stor.Properties(), jc.DeepEquals, []string{"foo", "bar"})
+	c.Check(stor.Properties(), tc.DeepEquals, []string{"foo", "bar"})
 	args.Storage = nil
 
 	devices := args.Devices
@@ -277,13 +276,13 @@ func (s *exportCharmSuite) TestExportCharmManifest(c *tc.C) {
 	exportOp := s.newExportOperation()
 
 	args, err := exportOp.exportCharmManifest(manifest)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(args.Bases, tc.HasLen, 1)
 	base := args.Bases[0]
 	c.Check(base.Name(), tc.Equals, "ubuntu")
 	c.Check(base.Channel(), tc.Equals, "devel/edge/foo")
-	c.Check(base.Architectures(), jc.DeepEquals, []string{"amd64"})
+	c.Check(base.Architectures(), tc.DeepEquals, []string{"amd64"})
 }
 
 func (s *exportCharmSuite) TestExportCharmConfig(c *tc.C) {
@@ -302,7 +301,7 @@ func (s *exportCharmSuite) TestExportCharmConfig(c *tc.C) {
 	exportOp := s.newExportOperation()
 
 	args, err := exportOp.exportCharmConfig(config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(args.Configs, tc.HasLen, 1)
 	option := args.Configs["foo"]
@@ -330,14 +329,14 @@ func (s *exportCharmSuite) TestExportCharmActions(c *tc.C) {
 	exportOp := s.newExportOperation()
 
 	args, err := exportOp.exportCharmActions(actions)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(args.Actions, tc.HasLen, 1)
 	action := args.Actions["foo"]
 	c.Check(action.Description(), tc.Equals, "foo action")
 	c.Check(action.Parallel(), tc.Equals, true)
 	c.Check(action.ExecutionGroup(), tc.Equals, "group")
-	c.Check(action.Parameters(), jc.DeepEquals, map[string]interface{}{
+	c.Check(action.Parameters(), tc.DeepEquals, map[string]interface{}{
 		"foo": "bar",
 	})
 }

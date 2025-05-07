@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/pkg/errors"
 	gomock "go.uber.org/mock/gomock"
 
@@ -85,15 +84,15 @@ func (s *runSuite) TestRunRequiresAdmin(c *tc.C) {
 	}
 	st := s.ControllerModel(c).State()
 	client, err := action.NewActionAPI(st, nil, auth, action.FakeLeadership{}, s.applicationService, s.blockCommandService, s.modelInfoService, modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = client.Run(context.Background(), params.RunParams{})
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 
 	auth.AdminTag = alpha
 	client, err = action.NewActionAPI(st, nil, auth, action.FakeLeadership{}, s.applicationService, s.blockCommandService, s.modelInfoService, modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = client.Run(context.Background(), params.RunParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *runSuite) TestRunOnAllMachinesRequiresAdmin(c *tc.C) {
@@ -111,15 +110,15 @@ func (s *runSuite) TestRunOnAllMachinesRequiresAdmin(c *tc.C) {
 	}
 	st := s.ControllerModel(c).State()
 	client, err := action.NewActionAPI(st, nil, auth, action.FakeLeadership{}, s.applicationService, s.blockCommandService, s.modelInfoService, modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = client.RunOnAllMachines(context.Background(), params.RunParams{})
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 
 	auth.AdminTag = alpha
 	client, err = action.NewActionAPI(st, nil, auth, action.FakeLeadership{}, s.applicationService, s.blockCommandService, s.modelInfoService, modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = client.RunOnAllMachines(context.Background(), params.RunParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *runSuite) setupMocks(c *tc.C) *gomock.Controller {
@@ -135,13 +134,13 @@ func (s *runSuite) setupMocks(c *tc.C) *gomock.Controller {
 	}
 	modelUUID := modeltesting.GenModelUUID(c)
 	s.client, err = action.NewActionAPI(s.ControllerModel(c).State(), nil, auth, action.FakeLeadership{}, s.applicationService, s.blockCommandService, s.modelInfoService, modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return ctrl
 }
 
 func (s *runSuite) assertBlocked(c *tc.C, err error, msg string) {
-	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue, tc.Commentf("error: %#v", err))
+	c.Assert(params.IsCodeOperationBlocked(err), tc.IsTrue, tc.Commentf("error: %#v", err))
 	c.Assert(errors.Cause(err), tc.DeepEquals, &params.Error{
 		Message: msg,
 		Code:    "operation is blocked",

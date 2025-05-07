@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
@@ -40,7 +39,7 @@ func addContainerToMachine(
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := st.AddMachineInsideMachine(containerTemplate, machine.Id(), instance.LXD)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return container
 }
 
@@ -64,7 +63,7 @@ func (s *containerProvisionerSuite) TestPrepareContainerInterfaceInfoPermission(
 		DomainServices_: s.ControllerDomainServices(c),
 		Logger_:         loggertesting.WrapCheckLog(c),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(aProvisioner, tc.NotNil)
 
 	args := params.Entities{
@@ -83,7 +82,7 @@ func (s *containerProvisionerSuite) TestPrepareContainerInterfaceInfoPermission(
 	results, err := aProvisioner.PrepareContainerInterfaceInfo(context.Background(), args)
 	c.Assert(err, tc.ErrorMatches, "dummy provider network config not supported")
 	// Overall request is ok
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	errors := make([]*params.Error, 0)
 	c.Check(results.Results, tc.HasLen, 4)
@@ -121,7 +120,7 @@ func (s *containerProvisionerSuite) TestHostChangesForContainersPermission(c *tc
 		DomainServices_: s.ControllerDomainServices(c),
 		Logger_:         loggertesting.WrapCheckLog(c),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(aProvisioner, tc.NotNil)
 
 	args := params.Entities{
@@ -141,7 +140,7 @@ func (s *containerProvisionerSuite) TestHostChangesForContainersPermission(c *tc
 	c.Assert(err, tc.ErrorMatches, "dummy provider network config not supported")
 
 	// Overall request is ok
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	errors := make([]*params.Error, 0)
 	c.Check(results.Results, tc.HasLen, 4)

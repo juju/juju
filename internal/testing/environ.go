@@ -7,7 +7,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/ssh"
 
 	"github.com/juju/juju/cloud"
@@ -131,7 +130,7 @@ func CustomModelConfig(c *tc.C, extra Attrs) *config.Config {
 		"charmhub-url":  charmhub.DefaultServerURL,
 	}).Merge(extra).Delete("admin-secret")
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return cfg
 }
 

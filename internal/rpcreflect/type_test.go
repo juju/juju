@@ -8,7 +8,6 @@ import (
 	"reflect"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/rpcreflect"
 )
@@ -40,7 +39,7 @@ func (*reflectSuite) TestTypeOf(c *tc.C) {
 	c.Assert(rtype.MethodNames(), tc.HasLen, len(expect))
 	for name, expectGoType := range expect {
 		m, err := rtype.Method(name)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(m, tc.NotNil)
 		c.Assert(m.Call, tc.NotNil)
 		c.Assert(m.ObjType, tc.Equals, rpcreflect.ObjTypeOf(expectGoType))
@@ -83,7 +82,7 @@ func (*reflectSuite) TestObjTypeOf(c *tc.C) {
 	c.Assert(objType.MethodNames(), tc.HasLen, len(expect))
 	for name, expectMethod := range expect {
 		m, err := objType.Method(name)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		c.Assert(m, tc.NotNil)
 		c.Check(m.Call, tc.NotNil)
 		c.Check(m.Params, tc.Equals, expectMethod.Params)
@@ -96,12 +95,12 @@ func (*reflectSuite) TestObjTypeOf(c *tc.C) {
 
 func (*reflectSuite) TestValueOf(c *tc.C) {
 	v := rpcreflect.ValueOf(reflect.ValueOf(nil))
-	c.Check(v.IsValid(), jc.IsFalse)
+	c.Check(v.IsValid(), tc.IsFalse)
 	c.Check(func() { v.FindMethod("foo", 0, "bar") }, tc.PanicMatches, "FindMethod called on invalid Value")
 
 	root := &Root{}
 	v = rpcreflect.ValueOf(reflect.ValueOf(root))
-	c.Check(v.IsValid(), jc.IsTrue)
+	c.Check(v.IsValid(), tc.IsTrue)
 	c.Check(v.GoValue().Interface(), tc.Equals, root)
 }
 
@@ -126,12 +125,12 @@ func (*reflectSuite) TestFindMethod(c *tc.C) {
 	c.Assert(m, tc.IsNil)
 
 	m, err = v.FindMethod("SimpleMethods", 0, "Call1r1e")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(m.ParamsType(), tc.Equals, reflect.TypeOf(stringVal{}))
 	c.Assert(m.ResultType(), tc.Equals, reflect.TypeOf(stringVal{}))
 
 	ret, err := m.Call(context.Background(), "a99", reflect.ValueOf(stringVal{"foo"}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ret.Interface(), tc.Equals, stringVal{"Call1r1e ret"})
 }
 
@@ -143,12 +142,12 @@ func (*reflectSuite) TestFindMethodAcceptsAnyVersion(c *tc.C) {
 	v := rpcreflect.ValueOf(reflect.ValueOf(root))
 
 	m, err := v.FindMethod("SimpleMethods", 0, "Call1r1e")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(m.ParamsType(), tc.Equals, reflect.TypeOf(stringVal{}))
 	c.Assert(m.ResultType(), tc.Equals, reflect.TypeOf(stringVal{}))
 
 	m, err = v.FindMethod("SimpleMethods", 1, "Call1r1e")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(m.ParamsType(), tc.Equals, reflect.TypeOf(stringVal{}))
 	c.Assert(m.ResultType(), tc.Equals, reflect.TypeOf(stringVal{}))
 }
@@ -169,7 +168,7 @@ func (*reflectSuite) TestTypeRemoveMethod(c *tc.C) {
 		"SimpleMethods":    reflect.TypeOf(&SimpleMethods{}),
 	}
 	ok := rtype.RemoveMethod("ContextMethods")
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	m, err := rtype.Method("ContextMethods")
 	c.Assert(err, tc.Equals, rpcreflect.ErrMethodNotFound)
@@ -185,7 +184,7 @@ func (*reflectSuite) TestTypeRemoveMethod(c *tc.C) {
 	c.Assert(rtype.MethodNames(), tc.HasLen, len(expect))
 	for name, expectGoType := range expect {
 		m, err := rtype.Method(name)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(m, tc.NotNil)
 		c.Assert(m.Call, tc.NotNil)
 		c.Assert(m.ObjType, tc.Equals, rpcreflect.ObjTypeOf(expectGoType))
@@ -225,7 +224,7 @@ func (*reflectSuite) TestObjTypeRemoveMethod(c *tc.C) {
 	c.Assert(objType.MethodNames(), tc.HasLen, len(expect))
 	for name, expectMethod := range expect {
 		m, err := objType.Method(name)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		c.Assert(m, tc.NotNil)
 		c.Check(m.Call, tc.NotNil)
 		c.Check(m.Params, tc.Equals, expectMethod.Params)
@@ -233,7 +232,7 @@ func (*reflectSuite) TestObjTypeRemoveMethod(c *tc.C) {
 	}
 
 	ok := objType.RemoveMethod("SliceArg")
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	m, err := objType.Method("SliceArg")
 	c.Check(err, tc.Equals, rpcreflect.ErrMethodNotFound)

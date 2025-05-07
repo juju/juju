@@ -13,7 +13,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/base"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -114,13 +113,13 @@ func (s *DestroySuite) NewDestroyCommand() cmd.Command {
 func checkModelExistsInStore(c *tc.C, name string, store jujuclient.ClientStore) {
 	controller, amodel := modelcmd.SplitModelName(name)
 	_, err := store.ModelByName(controller, amodel)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func checkModelRemovedFromStore(c *tc.C, name string, store jujuclient.ClientStore) {
 	controller, amodel := modelcmd.SplitModelName(name)
 	_, err := store.ModelByName(controller, amodel)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *DestroySuite) TestDestroyNoModelNameError(c *tc.C) {
@@ -152,7 +151,7 @@ func (s *DestroySuite) TestDestroyUnknownModelCallsRefresh(c *tc.C) {
 
 	command := model.NewDestroyCommandForTest(s.api, s.clock, refresh, s.store)
 	_, err := cmdtesting.RunCommand(c, command, "foo")
-	c.Check(called, jc.IsTrue)
+	c.Check(called, tc.IsTrue)
 	c.Check(err, tc.ErrorMatches, `model test1:admin/foo not found`)
 }
 
@@ -162,7 +161,7 @@ func (s *DestroySuite) TestDestroyCannotConnectToAPI(c *tc.C) {
 	s.api.modelInfoErr = []*params.Error{nil}
 	_, err := s.runDestroyCommand(c, "test2", "--no-prompt")
 	c.Assert(err, tc.ErrorMatches, "cannot destroy model: connection refused")
-	c.Check(c.GetTestLog(), jc.Contains, "failed to destroy model \"test2\"")
+	c.Check(c.GetTestLog(), tc.Contains, "failed to destroy model \"test2\"")
 	checkModelExistsInStore(c, "test1:admin/test2", s.store)
 }
 
@@ -177,7 +176,7 @@ func (s *DestroySuite) TestDestroy(c *tc.C) {
 	s.api.modelStatusPayload = []base.ModelStatus{{}}
 	s.api.modelInfoErr = []*params.Error{nil}
 	_, err := s.runDestroyCommand(c, "test2", "--no-prompt")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
 	s.stub.CheckCalls(c, []jutesting.StubCall{
 		{"DestroyModel",
@@ -190,7 +189,7 @@ func (s *DestroySuite) TestDestroyWithPartModelUUID(c *tc.C) {
 	s.api.modelStatusPayload = []base.ModelStatus{{}}
 	s.api.modelInfoErr = []*params.Error{nil}
 	_, err := s.runDestroyCommand(c, "test2-uu", "--no-prompt")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
 	s.stub.CheckCalls(c, []jutesting.StubCall{
 		{"DestroyModel",
@@ -203,7 +202,7 @@ func (s *DestroySuite) TestDestroyWithForce(c *tc.C) {
 	s.api.modelStatusPayload = []base.ModelStatus{{}}
 	s.api.modelInfoErr = []*params.Error{nil}
 	_, err := s.runDestroyCommand(c, "test2", "--no-prompt", "--force")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
 	force := true
 	s.stub.CheckCalls(c, []jutesting.StubCall{
@@ -216,7 +215,7 @@ func (s *DestroySuite) TestDestroyWithForceTimeout(c *tc.C) {
 	s.api.modelStatusPayload = []base.ModelStatus{{}}
 	s.api.modelInfoErr = []*params.Error{nil}
 	_, err := s.runDestroyCommand(c, "test2", "--no-prompt", "--force", "--timeout", "30m")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
 	force := true
 	timeout := 30 * time.Minute
@@ -236,7 +235,7 @@ func (s *DestroySuite) TestDestroyWithForceNoWait(c *tc.C) {
 	s.api.modelStatusPayload = []base.ModelStatus{{}}
 	s.api.modelInfoErr = []*params.Error{nil}
 	_, err := s.runDestroyCommand(c, "test2", "--no-prompt", "--force", "--no-wait")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
 	force := true
 	maxWait := 0 * time.Second
@@ -250,7 +249,7 @@ func (s *DestroySuite) TestDestroyBlocks(c *tc.C) {
 	s.api.modelStatusPayload = []base.ModelStatus{{}}
 	s.api.modelInfoErr = []*params.Error{nil, {}, {Code: params.CodeNotFound}}
 	_, err := s.runDestroyCommand(c, "test2", "--no-prompt")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
 	c.Assert(s.api.statusCallCount, tc.Equals, 2)
 }
@@ -267,7 +266,7 @@ func (s *DestroySuite) TestFailedDestroyModel(c *tc.C) {
 func (s *DestroySuite) TestDestroyDestroyStorage(c *tc.C) {
 	s.api.modelInfoErr = []*params.Error{nil}
 	_, err := s.runDestroyCommand(c, "test2", "--no-prompt", "--destroy-storage")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	destroyStorage := true
 	s.stub.CheckCalls(c, []jutesting.StubCall{
 		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), &destroyStorage, (*bool)(nil), (*time.Duration)(nil), (*time.Duration)(nil)}},
@@ -277,7 +276,7 @@ func (s *DestroySuite) TestDestroyDestroyStorage(c *tc.C) {
 func (s *DestroySuite) TestDestroyReleaseStorage(c *tc.C) {
 	s.api.modelInfoErr = []*params.Error{nil}
 	_, err := s.runDestroyCommand(c, "test2", "--no-prompt", "--release-storage")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	destroyStorage := false
 	s.stub.CheckCalls(c, []jutesting.StubCall{
 		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), &destroyStorage, (*bool)(nil), (*time.Duration)(nil), (*time.Duration)(nil)}},
@@ -319,7 +318,7 @@ func (s *DestroySuite) TestDestroyDestroyFlagUnspecifiedWithStorageNotDetachable
 	}}
 	s.api.modelInfoErr = []*params.Error{nil}
 	_, err := s.runDestroyCommand(c, "test2", "--no-prompt")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
 	s.stub.CheckCalls(c, []jutesting.StubCall{
 		{"DestroyModel",
@@ -339,7 +338,7 @@ func (s *DestroySuite) resetModel(c *tc.C) {
 func (s *DestroySuite) TestDestroyCommandConfirmation(c *tc.C) {
 	var stdin, stdout, stderr bytes.Buffer
 	ctx, err := cmd.DefaultContext()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx.Stdout = &stdout
 	ctx.Stdin = &stdin
 	ctx.Stderr = &stderr
@@ -382,7 +381,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *tc.C) {
 	errc = cmdtesting.RunCommandWithContext(ctx, s.NewDestroyCommand(), "test2")
 	select {
 	case err := <-errc:
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}

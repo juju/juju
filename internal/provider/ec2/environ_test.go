@@ -9,7 +9,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -139,7 +138,7 @@ func (*Suite) TestRootDiskBlockDeviceMapping(c *tc.C) {
 		c.Logf("Test %s", t.name)
 		cons := constraints.Value{RootDisk: t.constraint}
 		mappings, err := getBlockDeviceMappings(cons, t.series, false, t.rootDiskParams)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		expected := append([]types.BlockDeviceMapping{t.device}, commonInstanceStoreDisks...)
 		c.Assert(mappings, tc.DeepEquals, expected)
 	}
@@ -239,15 +238,15 @@ func (*Suite) TestPortsToIPPerms(c *tc.C) {
 func (*Suite) TestSupportsNetworking(c *tc.C) {
 	var env *environ
 	_, supported := environs.SupportsNetworking(env)
-	c.Assert(supported, jc.IsTrue)
+	c.Assert(supported, tc.IsTrue)
 }
 
 func (*Suite) TestSupportsSpaces(c *tc.C) {
 	var env *environ
 	supported, err := env.SupportsSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(supported, jc.IsTrue)
-	c.Check(environs.SupportsSpaces(env), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(supported, tc.IsTrue)
+	c.Check(environs.SupportsSpaces(env), tc.IsTrue)
 }
 
 func (*Suite) TestSupportsSpaceDiscovery(c *tc.C) {
@@ -255,17 +254,17 @@ func (*Suite) TestSupportsSpaceDiscovery(c *tc.C) {
 	// TODO(jam): 2016-02-01 the comment on the interface says the error should
 	// conform to IsNotSupported, but all of the implementations just return
 	// nil for error and 'false' for supported.
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(supported, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(supported, tc.IsFalse)
 }
 
 func (*Suite) TestSupportsContainerAddresses(c *tc.C) {
 	callCtx := context.Background()
 	env := new(environ)
 	supported, err := env.SupportsContainerAddresses(callCtx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(supported, jc.IsFalse)
-	c.Check(environs.SupportsContainerAddresses(callCtx, env), jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(supported, tc.IsFalse)
+	c.Check(environs.SupportsContainerAddresses(callCtx, env), tc.IsFalse)
 }
 
 func (*Suite) TestGetValidSubnetZoneMapOneSpaceConstraint(c *tc.C) {
@@ -279,7 +278,7 @@ func (*Suite) TestGetValidSubnetZoneMapOneSpaceConstraint(c *tc.C) {
 	}
 
 	subnetZones, err := getValidSubnetZoneMap(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(subnetZones, tc.DeepEquals, allSubnetZones[0])
 }
 
@@ -299,7 +298,7 @@ func (*Suite) TestGetValidSubnetZoneMapOneBindingFanFiltered(c *tc.C) {
 	}
 
 	subnetZones, err := getValidSubnetZoneMap(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(subnetZones, tc.DeepEquals, map[network.Id][]string{
 		"sub-1": {"az-1"},
 	})
@@ -349,7 +348,7 @@ func (*Suite) TestGetValidSubnetZoneMapIntersectionSelectsCorrectIndex(c *tc.C) 
 	// subnets-to-zones map.
 
 	subnetZones, err := getValidSubnetZoneMap(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(subnetZones, tc.DeepEquals, allSubnetZones[1])
 }
 

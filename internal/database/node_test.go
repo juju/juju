@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/yaml.v3"
 
@@ -57,18 +56,18 @@ func (s *nodeManagerSuite) TestEnsureDataDirSuccess(c *tc.C) {
 
 	// Call twice to check both the creation and extant scenarios.
 	dir, err := m.EnsureDataDir()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(dir, tc.Equals, expected)
 
 	_, err = os.Stat(expected)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	dir, err = m.EnsureDataDir()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(dir, tc.Equals, expected)
 
 	_, err = os.Stat(expected)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *nodeManagerSuite) TestIsLoopbackPreferred(c *tc.C) {
@@ -84,12 +83,12 @@ func (s *nodeManagerSuite) TestIsLoopbackPreferred(c *tc.C) {
 	m0 := NewNodeManager(cfg, true, loggertesting.WrapCheckLog(c), coredatabase.NoopSlowQueryLogger{})
 
 	ok := m0.IsLoopbackPreferred()
-	c.Check(ok, jc.IsTrue)
+	c.Check(ok, tc.IsTrue)
 
 	m1 := NewNodeManager(cfg, false, loggertesting.WrapCheckLog(c), coredatabase.NoopSlowQueryLogger{})
 
 	ok = m1.IsLoopbackPreferred()
-	c.Check(ok, jc.IsFalse)
+	c.Check(ok, tc.IsFalse)
 }
 
 func (s *nodeManagerSuite) TestIsExistingNode(c *tc.C) {
@@ -102,20 +101,20 @@ func (s *nodeManagerSuite) TestIsExistingNode(c *tc.C) {
 
 	// Empty directory indicates we've never started.
 	extant, err := m.IsExistingNode()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(extant, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(extant, tc.IsFalse)
 
 	// Non-empty indicates we've come up before.
 	dataDir, err := m.EnsureDataDir()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	someFile := path.Join(dataDir, "a-file.txt")
 	err = os.WriteFile(someFile, nil, 06000)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	extant, err = m.IsExistingNode()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(extant, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(extant, tc.IsTrue)
 }
 
 func (s *nodeManagerSuite) TestIsBootstrappedNode(c *tc.C) {
@@ -129,11 +128,11 @@ func (s *nodeManagerSuite) TestIsBootstrappedNode(c *tc.C) {
 
 	// Empty directory indicates we are not the bootstrapped node.
 	asBootstrapped, err := m.IsLoopbackBound(ctx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(asBootstrapped, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(asBootstrapped, tc.IsFalse)
 
 	dataDir, err := m.EnsureDataDir()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	clusterFile := path.Join(dataDir, dqliteClusterFileName)
 
@@ -148,11 +147,11 @@ func (s *nodeManagerSuite) TestIsBootstrappedNode(c *tc.C) {
 `[1:]
 
 	err = os.WriteFile(clusterFile, []byte(data), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	asBootstrapped, err = m.IsLoopbackBound(ctx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(asBootstrapped, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(asBootstrapped, tc.IsFalse)
 
 	// Non-loopback address indicates node was reconfigured since bootstrap.
 	data = `
@@ -162,11 +161,11 @@ func (s *nodeManagerSuite) TestIsBootstrappedNode(c *tc.C) {
 `[1:]
 
 	err = os.WriteFile(clusterFile, []byte(data), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	asBootstrapped, err = m.IsLoopbackBound(ctx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(asBootstrapped, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(asBootstrapped, tc.IsFalse)
 
 	// Loopback IP address indicates the node is as we bootstrapped it.
 	data = `
@@ -176,11 +175,11 @@ func (s *nodeManagerSuite) TestIsBootstrappedNode(c *tc.C) {
 `[1:]
 
 	err = os.WriteFile(clusterFile, []byte(data), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	asBootstrapped, err = m.IsLoopbackBound(ctx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(asBootstrapped, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(asBootstrapped, tc.IsTrue)
 }
 
 func (s *nodeManagerSuite) TestSetClusterServersSuccess(c *tc.C) {
@@ -193,7 +192,7 @@ func (s *nodeManagerSuite) TestSetClusterServersSuccess(c *tc.C) {
 	ctx := context.Background()
 
 	dataDir, err := m.EnsureDataDir()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	clusterFile := path.Join(dataDir, dqliteClusterFileName)
 
@@ -205,7 +204,7 @@ func (s *nodeManagerSuite) TestSetClusterServersSuccess(c *tc.C) {
 `[1:])
 
 	err = os.WriteFile(clusterFile, data, 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	servers := []dqlite.NodeInfo{
 		{
@@ -216,16 +215,16 @@ func (s *nodeManagerSuite) TestSetClusterServersSuccess(c *tc.C) {
 	}
 
 	err = m.SetClusterServers(ctx, servers)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	data, err = os.ReadFile(clusterFile)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// cluster.yaml should reflect the new server list.
 	var result []dqlite.NodeInfo
 	err = yaml.Unmarshal(data, &result)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, servers)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, servers)
 }
 
 func (s *nodeManagerSuite) TestSetGetNodeInfoSuccess(c *tc.C) {
@@ -236,7 +235,7 @@ func (s *nodeManagerSuite) TestSetGetNodeInfoSuccess(c *tc.C) {
 
 	m := NewNodeManager(cfg, true, loggertesting.WrapCheckLog(c), coredatabase.NoopSlowQueryLogger{})
 	dataDir, err := m.EnsureDataDir()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	infoFile := path.Join(dataDir, "info.yaml")
 
@@ -249,7 +248,7 @@ Role: 0
 `[1:])
 
 	err = os.WriteFile(infoFile, data, 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	server := dqlite.NodeInfo{
 		ID:      3297041220608546238,
@@ -258,12 +257,12 @@ Role: 0
 	}
 
 	err = m.SetNodeInfo(server)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// info.yaml should reflect the new node info.
 	result, err := m.NodeInfo()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, server)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, server)
 }
 
 func (s *nodeManagerSuite) TestSetClusterToLocalNodeSuccess(c *tc.C) {
@@ -276,7 +275,7 @@ func (s *nodeManagerSuite) TestSetClusterToLocalNodeSuccess(c *tc.C) {
 	ctx := context.Background()
 
 	_, err := m.EnsureDataDir()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	servers := []dqlite.NodeInfo{
 		{
@@ -291,16 +290,16 @@ func (s *nodeManagerSuite) TestSetClusterToLocalNodeSuccess(c *tc.C) {
 	}
 
 	err = m.SetClusterServers(ctx, servers)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = m.SetNodeInfo(servers[0])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = m.SetClusterToLocalNode(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newServers, err := m.ClusterServers(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(newServers, tc.DeepEquals, []dqlite.NodeInfo{servers[0]})
 }
 
@@ -309,10 +308,10 @@ func (s *nodeManagerSuite) TestWithAddressOptionIPv4Success(c *tc.C) {
 	m.port = dqlitetesting.FindTCPPort(c)
 
 	dqliteApp, err := app.New(c.MkDir(), m.WithAddressOption("127.0.0.1"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = dqliteApp.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *nodeManagerSuite) TestWithAddressOptionIPv6Success(c *tc.C) {
@@ -320,10 +319,10 @@ func (s *nodeManagerSuite) TestWithAddressOptionIPv6Success(c *tc.C) {
 	m.port = dqlitetesting.FindTCPPort(c)
 
 	dqliteApp, err := app.New(c.MkDir(), m.WithAddressOption("::1"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = dqliteApp.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *nodeManagerSuite) TestWithTLSOptionSuccess(c *tc.C) {
@@ -331,13 +330,13 @@ func (s *nodeManagerSuite) TestWithTLSOptionSuccess(c *tc.C) {
 	m := NewNodeManager(cfg, true, loggertesting.WrapCheckLog(c), coredatabase.NoopSlowQueryLogger{})
 
 	withTLS, err := m.WithTLSOption()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	dqliteApp, err := app.New(c.MkDir(), withTLS)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = dqliteApp.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *nodeManagerSuite) TestWithClusterOptionIPv4Success(c *tc.C) {
@@ -345,10 +344,10 @@ func (s *nodeManagerSuite) TestWithClusterOptionIPv4Success(c *tc.C) {
 	m := NewNodeManager(cfg, true, loggertesting.WrapCheckLog(c), coredatabase.NoopSlowQueryLogger{})
 
 	dqliteApp, err := app.New(c.MkDir(), m.WithClusterOption([]string{"10.6.6.6"}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = dqliteApp.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *nodeManagerSuite) TestWithClusterOptionIPv6Success(c *tc.C) {
@@ -356,10 +355,10 @@ func (s *nodeManagerSuite) TestWithClusterOptionIPv6Success(c *tc.C) {
 	m := NewNodeManager(cfg, true, loggertesting.WrapCheckLog(c), coredatabase.NoopSlowQueryLogger{})
 
 	dqliteApp, err := app.New(c.MkDir(), m.WithClusterOption([]string{"::1"}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = dqliteApp.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *nodeManagerSuite) TestWithPreferredCloudLocalAddressOptionNoAddrFallback(c *tc.C) {
@@ -374,15 +373,15 @@ func (s *nodeManagerSuite) TestWithPreferredCloudLocalAddressOptionNoAddrFallbac
 	m.port = dqlitetesting.FindTCPPort(c)
 
 	opt, err := m.WithPreferredCloudLocalAddressOption(src)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	dqliteApp, err := app.New(c.MkDir(), opt)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(strings.Split(dqliteApp.Address(), ":")[0], tc.Equals, "127.0.0.1")
 
 	err = dqliteApp.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *nodeManagerSuite) TestWithPreferredCloudLocalAddressOptionSingleAddrSuccess(c *tc.C) {
@@ -417,7 +416,7 @@ func (s *nodeManagerSuite) TestWithPreferredCloudLocalAddressOptionSingleAddrSuc
 	m.port = dqlitetesting.FindTCPPort(c)
 
 	opt, err := m.WithPreferredCloudLocalAddressOption(src)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	dqliteApp, err := app.New(c.MkDir(), opt)
 
@@ -425,11 +424,11 @@ func (s *nodeManagerSuite) TestWithPreferredCloudLocalAddressOptionSingleAddrSuc
 	// to have the address we've chosen above, but we can verify the correct
 	// behaviour either way.
 	if err != nil {
-		c.Check(err.Error(), jc.Contains, localCloudIP)
+		c.Check(err.Error(), tc.Contains, localCloudIP)
 	} else {
 		c.Check(strings.Split(dqliteApp.Address(), ":")[0], tc.Equals, localCloudIP)
 		err = dqliteApp.Close()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }
 
@@ -583,7 +582,7 @@ func (s *slowQuerySuite) TestSlowQueryParsing(c *tc.C) {
 	for _, test := range tests {
 		c.Logf("test %q", test.name)
 		queryType, duration, stmt := parseSlowQuery(test.msg, test.args, test.threshold)
-		c.Assert(queryType, jc.DeepEquals, test.expectedQueryType)
+		c.Assert(queryType, tc.DeepEquals, test.expectedQueryType)
 		c.Assert(duration, tc.Equals, test.expectedDuration)
 		c.Assert(stmt, tc.Equals, test.expectedStmt)
 	}

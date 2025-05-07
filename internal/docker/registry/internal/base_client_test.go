@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/docker"
@@ -53,7 +52,7 @@ func (s *baseSuite) getRegistry(c *tc.C) (*internal.BaseClient, *gomock.Controll
 		// registry.Ping() 1st try failed - bearer token was missing.
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, jc.DeepEquals, http.Header{})
+				c.Assert(req.Header, tc.DeepEquals, http.Header{})
 				c.Assert(req.Method, tc.Equals, `GET`)
 				c.Assert(req.URL.String(), tc.Equals, `https://example.com/v2`)
 				return &http.Response{
@@ -72,7 +71,7 @@ func (s *baseSuite) getRegistry(c *tc.C) (*internal.BaseClient, *gomock.Controll
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
 				if s.isPrivate {
-					c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + authToken}})
+					c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Basic " + authToken}})
 				}
 				c.Assert(req.Method, tc.Equals, `GET`)
 				c.Assert(req.URL.String(), tc.Equals, `https://auth.example.com/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=registry.example.com`)
@@ -85,7 +84,7 @@ func (s *baseSuite) getRegistry(c *tc.C) (*internal.BaseClient, *gomock.Controll
 		),
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + `jwt-token`}})
+				c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + `jwt-token`}})
 				c.Assert(req.Method, tc.Equals, `GET`)
 				c.Assert(req.URL.String(), tc.Equals, `https://example.com/v2`)
 				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
@@ -95,11 +94,11 @@ func (s *baseSuite) getRegistry(c *tc.C) (*internal.BaseClient, *gomock.Controll
 	s.PatchValue(&registry.DefaultTransport, s.mockRoundTripper)
 
 	reg, err := registry.New(s.imageRepoDetails)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	client, ok := reg.(*internal.BaseClient)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	err = reg.Ping()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return client, ctrl
 }
 

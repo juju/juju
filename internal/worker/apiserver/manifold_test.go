@@ -14,7 +14,6 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
@@ -184,7 +183,7 @@ var expectedInputs = []string{
 }
 
 func (s *ManifoldSuite) TestInputs(c *tc.C) {
-	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
+	c.Assert(s.manifold.Inputs, tc.SameContents, expectedInputs)
 }
 
 func (s *ManifoldSuite) TestMissingInputs(c *tc.C) {
@@ -193,7 +192,7 @@ func (s *ManifoldSuite) TestMissingInputs(c *tc.C) {
 			input: dependency.ErrMissing,
 		})
 		_, err := s.manifold.Start(context.Background(), getter)
-		c.Assert(err, jc.ErrorIs, dependency.ErrMissing)
+		c.Assert(err, tc.ErrorIs, dependency.ErrMissing)
 
 		// The state tracker must have either no calls, or a Use and a Done.
 		if len(s.state.Calls()) > 0 {
@@ -233,7 +232,7 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 	c.Assert(config.EmbeddedCommand, tc.NotNil)
 	config.EmbeddedCommand = nil
 
-	c.Assert(config, jc.DeepEquals, apiserver.Config{
+	c.Assert(config, tc.DeepEquals, apiserver.Config{
 		AgentConfig:                &s.agent.conf,
 		LocalMacaroonAuthenticator: s.authenticator,
 		Clock:                      s.clock,
@@ -267,7 +266,7 @@ func (s *ManifoldSuite) TestStopWorkerClosesState(c *tc.C) {
 
 func (s *ManifoldSuite) startWorkerClean(c *tc.C) worker.Worker {
 	w, err := s.manifold.Start(context.Background(), s.getter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w
 }

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/caasmodelconfigmanager"
@@ -46,11 +45,11 @@ func (s *caasmodelconfigmanagerSuite) TestControllerConfig(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cfg, err := client.ControllerConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg, jc.DeepEquals, controller.Config{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg, tc.DeepEquals, controller.Config{
 		"caas-image-repo": `
 {
     "serveraddress": "quay.io",

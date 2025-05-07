@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
 
@@ -54,8 +53,8 @@ func (s *cloudSuite) TestCloud(c *tc.C) {
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.Cloud(context.Background(), names.NewCloudTag("foo"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, cloud.Cloud{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, cloud.Cloud{
 		Name:      "foo",
 		Type:      "dummy",
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
@@ -115,8 +114,8 @@ func (s *cloudSuite) TestCloudInfo(c *tc.C) {
 		names.NewCloudTag("foo"),
 		names.NewCloudTag("bar"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, []cloudapi.CloudInfo{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []cloudapi.CloudInfo{{
 		Cloud: cloud.Cloud{
 			Name:      "foo",
 			Type:      "dummy",
@@ -170,8 +169,8 @@ func (s *cloudSuite) TestClouds(c *tc.C) {
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	clouds, err := client.Clouds(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(clouds, jc.DeepEquals, map[names.CloudTag]cloud.Cloud{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(clouds, tc.DeepEquals, map[names.CloudTag]cloud.Cloud{
 		names.NewCloudTag("foo"): {
 			Name: "foo",
 			Type: "bar",
@@ -207,8 +206,8 @@ func (s *cloudSuite) TestUserCredentials(c *tc.C) {
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.UserCredentials(context.Background(), names.NewUserTag("bob"), names.NewCloudTag("foo"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.SameContents, []names.CloudCredentialTag{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.SameContents, []names.CloudCredentialTag{
 		names.NewCloudCredentialTag("foo/bob/one"),
 		names.NewCloudCredentialTag("foo/bob/two"),
 	})
@@ -238,7 +237,7 @@ func (s *cloudSuite) TestUpdateCredential(c *tc.C) {
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.UpdateCredentialsCheckModels(context.Background(), testCredentialTag, testCredential)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.IsNil)
 }
 
@@ -342,7 +341,7 @@ func (s *cloudSuite) TestUpdateCredentialModelErrors(c *tc.C) {
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	errs, err := client.UpdateCredentialsCheckModels(context.Background(), testCredentialTag, testCredential)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs, tc.DeepEquals, []params.UpdateCredentialModelResult{
 		{
 			ModelUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
@@ -382,7 +381,7 @@ func (s *cloudSuite) TestRevokeCredential(c *tc.C) {
 
 	tag := names.NewCloudCredentialTag("foo/bob/bar")
 	err := client.RevokeCredential(context.Background(), tag, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *cloudSuite) TestCredentials(c *tc.C) {
@@ -416,8 +415,8 @@ func (s *cloudSuite) TestCredentials(c *tc.C) {
 
 	tag := names.NewCloudCredentialTag("foo/bob/bar")
 	result, err := client.Credentials(context.Background(), tag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, []params.CloudCredentialResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []params.CloudCredentialResult{
 		{
 			Result: &params.CloudCredential{
 				AuthType:   "userpass",
@@ -457,7 +456,7 @@ func (s *cloudSuite) TestAddCloudForce(c *tc.C) {
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.AddCloud(context.Background(), testCloud, force)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *cloudSuite) TestCredentialContentsArgumentCheck(c *tc.C) {
@@ -516,8 +515,8 @@ func (s *cloudSuite) TestCredentialContentsAll(c *tc.C) {
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	ress, err := client.CredentialContents(context.Background(), "", "", true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ress, jc.DeepEquals, expectedResults)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ress, tc.DeepEquals, expectedResults)
 }
 
 func (s *cloudSuite) TestCredentialContentsOne(c *tc.C) {
@@ -541,7 +540,7 @@ func (s *cloudSuite) TestCredentialContentsOne(c *tc.C) {
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	results, err := client.CredentialContents(context.Background(), "cloud-name", "credential-name", true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 1)
 }
 
@@ -630,7 +629,7 @@ func (s *cloudSuite) TestRemoveCloudErrorMapping(c *tc.C) {
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.RemoveCloud(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, errors.NotFound, tc.Commentf("expected client to be map server error into a NotFound error"))
+	c.Assert(err, tc.ErrorIs, errors.NotFound, tc.Commentf("expected client to be map server error into a NotFound error"))
 }
 
 func (s *cloudSuite) TestGrantCloud(c *tc.C) {
@@ -712,7 +711,7 @@ func (s *cloudSuite) TestUpdateCloud(c *tc.C) {
 
 	err := client.UpdateCloud(context.Background(), updatedCloud)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *cloudSuite) TestUpdateCloudsCredentials(c *tc.C) {
@@ -740,7 +739,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentials(c *tc.C) {
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.UpdateCloudsCredentials(context.Background(), createCredentials(1), true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, []params.UpdateCredentialResult{{}})
 }
 
@@ -773,7 +772,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsError(c *tc.C) {
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	errs, err := client.UpdateCloudsCredentials(context.Background(), createCredentials(1), false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs, tc.DeepEquals, []params.UpdateCredentialResult{
 		{CredentialTag: "cloudcred-foo_bob_bar0", Error: apiservererrors.ServerError(errors.New("validation failure"))},
 	})
@@ -839,7 +838,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsManyMatchingResults(c *tc.C) {
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.UpdateCloudsCredentials(context.Background(), createCredentials(count), false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.HasLen, count)
 }
 
@@ -881,7 +880,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsModelErrors(c *tc.C) {
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	errs, err := client.UpdateCloudsCredentials(context.Background(), createCredentials(1), false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs, tc.DeepEquals, []params.UpdateCredentialResult{
 		{CredentialTag: "cloudcred-foo_bob_bar",
 			Models: []params.UpdateCredentialModelResult{
@@ -921,7 +920,7 @@ func (s *cloudSuite) TestAddCloudsCredentials(c *tc.C) {
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.AddCloudsCredentials(context.Background(), createCredentials(1))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, []params.UpdateCredentialResult{{}})
 }
 

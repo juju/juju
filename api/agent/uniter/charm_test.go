@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/agent/uniter"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -38,8 +37,8 @@ func (s *charmSuite) TestCharm(c *tc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	curl := "ch:mysql"
 	ch, err := client.Charm(curl)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.URL(), jc.DeepEquals, curl)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ch.URL(), tc.DeepEquals, curl)
 }
 
 func (s *charmSuite) TestArchiveSha256(c *tc.C) {
@@ -48,7 +47,7 @@ func (s *charmSuite) TestArchiveSha256(c *tc.C) {
 		c.Assert(objType, tc.Equals, "Uniter")
 		c.Assert(id, tc.Equals, "")
 		c.Assert(request, tc.Equals, "CharmArchiveSha256")
-		c.Assert(arg, jc.DeepEquals, params.CharmURLs{
+		c.Assert(arg, tc.DeepEquals, params.CharmURLs{
 			URLs: []params.CharmURL{{URL: curl}},
 		})
 		c.Assert(result, tc.FitsTypeOf, &params.StringResults{})
@@ -61,9 +60,9 @@ func (s *charmSuite) TestArchiveSha256(c *tc.C) {
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	ch, err := client.Charm(curl)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	sha, err := ch.ArchiveSha256(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(sha, tc.Equals, "deadbeef")
 }
 
@@ -73,7 +72,7 @@ func (s *charmSuite) TestLXDProfileRequired(c *tc.C) {
 		c.Assert(objType, tc.Equals, "Uniter")
 		c.Assert(id, tc.Equals, "")
 		c.Assert(request, tc.Equals, "LXDProfileRequired")
-		c.Assert(arg, jc.DeepEquals, params.CharmURLs{
+		c.Assert(arg, tc.DeepEquals, params.CharmURLs{
 			URLs: []params.CharmURL{{URL: curl}},
 		})
 		c.Assert(result, tc.FitsTypeOf, &params.BoolResults{})
@@ -86,8 +85,8 @@ func (s *charmSuite) TestLXDProfileRequired(c *tc.C) {
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	ch, err := client.Charm(curl)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	required, err := ch.LXDProfileRequired(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(required, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(required, tc.IsTrue)
 }

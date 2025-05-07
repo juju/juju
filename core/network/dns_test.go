@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/network"
 )
@@ -27,7 +26,7 @@ func (*dnsSuite) TestParseResolvConfEmptyOrMissingPath(c *tc.C) {
 
 	for _, path := range []string{emptyPath, missingPath} {
 		result, err := network.ParseResolvConf(path)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		c.Check(result, tc.IsNil)
 	}
 }
@@ -43,16 +42,16 @@ func (*dnsSuite) TestParseResolvConfNotReadablePath(c *tc.C) {
 func makeResolvConf(c *tc.C, content string, perms os.FileMode) string {
 	fakeConfPath := filepath.Join(c.MkDir(), "fake")
 	err := os.WriteFile(fakeConfPath, []byte(content), perms)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	return fakeConfPath
 }
 
 func (*dnsSuite) TestParseResolvConfEmptyFile(c *tc.C) {
 	emptyConf := makeResolvConf(c, "", 0644)
 	result, err := network.ParseResolvConf(emptyConf)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	// Expected non-nil, but empty result.
-	c.Check(result, jc.DeepEquals, &network.DNSConfig{})
+	c.Check(result, tc.DeepEquals, &network.DNSConfig{})
 }
 
 func (*dnsSuite) TestParseResolvConfCommentsAndWhitespaceHandling(c *tc.C) {
@@ -67,8 +66,8 @@ nameserver 8.8.8.8 #comment #still the same comment
 `
 	fakeConf := makeResolvConf(c, exampleConf, 0644)
 	result, err := network.ParseResolvConf(fakeConf)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(result, jc.DeepEquals, &network.DNSConfig{
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, &network.DNSConfig{
 		Nameservers:   []string{"8.8.8.8"},
 		SearchDomains: []string{"foo", "example.com", "bar."},
 	})
@@ -111,8 +110,8 @@ search two three #comment ;also-comment still-comment
 `
 	fakeConf := makeResolvConf(c, multiSearchConf, 0644)
 	result, err := network.ParseResolvConf(fakeConf)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(result, jc.DeepEquals, &network.DNSConfig{
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, &network.DNSConfig{
 		SearchDomains: []string{"two", "three"},
 	})
 }

@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"go.uber.org/mock/gomock"
 
@@ -41,7 +40,7 @@ func (s *NewRebootSuite) TestExecuteReboot(c *tc.C) {
 	s.expectScheduleAction()
 
 	err := s.newRebootWaiter().ExecuteReboot(params.ShouldReboot)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *NewRebootSuite) TestExecuteRebootWaitForContainers(c *tc.C) {
@@ -53,7 +52,7 @@ func (s *NewRebootSuite) TestExecuteRebootWaitForContainers(c *tc.C) {
 	s.expectScheduleAction()
 
 	err := s.newRebootWaiter().ExecuteReboot(params.ShouldReboot)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *NewRebootSuite) newRebootWaiter() *reboot.Reboot {
@@ -150,7 +149,7 @@ func (s *NixRebootSuite) SetUpTest(c *tc.C) {
 func (s *NixRebootSuite) TestReboot(c *tc.C) {
 	expectedParams := s.commandParams()
 	err := reboot.ScheduleAction(params.ShouldReboot, 15)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	testing.AssertEchoArgs(c, rebootBin, expectedParams...)
 	ft.File{Path: s.rebootScriptName, Data: expectedRebootScript, Perm: 0755}.Check(c, s.tmpDir)
 }
@@ -159,7 +158,7 @@ func (s *NixRebootSuite) TestShutdownNoContainers(c *tc.C) {
 	expectedParams := s.commandParams()
 
 	err := reboot.ScheduleAction(params.ShouldShutdown, 15)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	testing.AssertEchoArgs(c, rebootBin, expectedParams...)
 	ft.File{Path: s.rebootScriptName, Data: expectedShutdownScript, Perm: 0755}.Check(c, s.tmpDir)
 }

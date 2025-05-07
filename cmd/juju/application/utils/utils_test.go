@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/client/application"
@@ -28,8 +27,8 @@ var _ = tc.Suite(&utilsSuite{})
 
 func (s *utilsSuite) TestParsePlacement(c *tc.C) {
 	obtained, err := utils.ParsePlacement("lxd:1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*obtained, jc.DeepEquals, instance.Placement{Scope: "lxd", Directive: "1"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(*obtained, tc.DeepEquals, instance.Placement{Scope: "lxd", Directive: "1"})
 
 }
 
@@ -39,7 +38,7 @@ func (s *utilsSuite) TestGetFlags(c *tc.C) {
 	flagSet.String("to", "", "to")
 	flagSet.String("m", "default", "model")
 	err := flagSet.Set("to", "lxd")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	obtained := utils.GetFlags(flagSet, []string{"to", "force"})
 	c.Assert(obtained, tc.DeepEquals, []string{"--to"})
 }
@@ -58,7 +57,7 @@ func (s *utilsResourceSuite) TestGetMetaResources(c *tc.C) {
 	s.expectCharmInfo(curl)
 
 	obtained, err := utils.GetMetaResources(context.Background(), curl, s.charmClient)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.DeepEquals, map[string]charmresource.Meta{
 		"test": {Name: "Testme"}})
 }
@@ -258,7 +257,7 @@ func (s *utilsResourceSuite) assertGetUpgradeResources(
 		"snappass-test", cliResources, resourcesInMetadata,
 	)
 	if len(errString) == 0 {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	} else {
 		c.Assert(err, tc.ErrorMatches, errString)
 	}
@@ -285,7 +284,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResourcesRepositoryNoChange(c *tc.C) 
 		repoCharmID(), s.charmClient, s.resourceFacade,
 		"snappass-test", cliResources, repoResourcesInMetadata,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := map[string]charmresource.Meta{}
 	c.Assert(filtered, tc.DeepEquals, expected)
 }
@@ -305,7 +304,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResourcesRepositoryChange(c *tc.C) {
 		repoCharmID(), s.charmClient, s.resourceFacade,
 		"snappass-test", cliResources, repoResourcesInMetadata,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := map[string]charmresource.Meta{"redis-image": {Name: "redis-image", Type: charmresource.TypeContainerImage}}
 	c.Assert(filtered, tc.DeepEquals, expected)
 }
@@ -325,7 +324,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResourcesRepositoryCLIRevision(c *tc.
 		repoCharmID(), s.charmClient, s.resourceFacade,
 		"snappass-test", cliResources, repoResourcesInMetadata,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := map[string]charmresource.Meta{"test-file": {Name: "test-file", Type: charmresource.TypeFile, Path: "test.txt"}}
 	c.Assert(filtered, tc.DeepEquals, expected)
 }
@@ -345,7 +344,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResourcesRepositoryCLIRevisionAlready
 		repoCharmID(), s.charmClient, s.resourceFacade,
 		"snappass-test", cliResources, repoResourcesInMetadata,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := map[string]charmresource.Meta{}
 	c.Assert(filtered, tc.DeepEquals, expected)
 }

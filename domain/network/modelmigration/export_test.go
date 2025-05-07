@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -70,7 +69,7 @@ func (s *exportSuite) TestExport(c *tc.C) {
 
 	op := s.newExportOperation(c)
 	err := op.Execute(context.Background(), dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	actualSpaces := dst.Spaces()
 	c.Assert(len(actualSpaces), tc.Equals, 1)
@@ -81,7 +80,7 @@ func (s *exportSuite) TestExport(c *tc.C) {
 	c.Assert(len(actualSubnets), tc.Equals, 1)
 	c.Assert(actualSubnets[0].CIDR(), tc.Equals, subnets[0].CIDR)
 	c.Assert(actualSubnets[0].VLANTag(), tc.Equals, subnets[0].VLANTag)
-	c.Assert(actualSubnets[0].AvailabilityZones(), jc.SameContents, subnets[0].AvailabilityZones)
+	c.Assert(actualSubnets[0].AvailabilityZones(), tc.SameContents, subnets[0].AvailabilityZones)
 	c.Assert(actualSubnets[0].SpaceID(), tc.Equals, subnets[0].SpaceID)
 	c.Assert(actualSubnets[0].SpaceName(), tc.Equals, subnets[0].SpaceName)
 	c.Assert(actualSubnets[0].ProviderId(), tc.Equals, string(subnets[0].ProviderId))

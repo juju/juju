@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/space"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -133,7 +132,7 @@ func (s *BaseSpaceSuite) AssertRunFails(c *tc.C, expectErr string, args ...strin
 // nil.
 func (s *BaseSpaceSuite) AssertRunSucceeds(c *tc.C, expectStderr, expectStdout string, args ...string) {
 	stdout, stderr, err := s.RunCommand(c, args...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(stdout, tc.Equals, expectStdout)
 	c.Assert(stderr, tc.Matches, expectStderr)
 }

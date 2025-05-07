@@ -10,7 +10,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/internal/worker/lease"
@@ -54,13 +53,13 @@ func (s *LeasesSuite) TestLeases(c *tc.C) {
 	fix := &Fixture{leases: leases}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		leases, err := getReader(c, manager).Leases()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(leases, tc.DeepEquals, map[string]string{s.appName: "redis/0"})
 	})
 }
 
 func getReader(c *tc.C, manager *lease.Manager) corelease.Reader {
 	reader, err := manager.Reader("namespace", "modelUUID")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return reader
 }

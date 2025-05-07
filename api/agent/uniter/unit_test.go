@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/agent/uniter"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -46,7 +45,7 @@ func (s *unitSuite) TestUnitAndUnitTag(c *tc.C) {
 	tag := names.NewUnitTag("mysql/0")
 	client := uniter.NewClient(apiCaller, tag)
 	unit, err := client.Unit(context.Background(), tag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unit.Name(), tc.Equals, "mysql/0")
 	c.Assert(unit.Tag(), tc.Equals, tag)
 	c.Assert(unit.Life(), tc.Equals, life.Alive)
@@ -61,7 +60,7 @@ func (s *unitSuite) TestUnitAndUnitTagNotImplemented(c *tc.C) {
 	tag := names.NewUnitTag("mysql/0")
 	client := uniter.NewClient(apiCaller, tag)
 	_, err := client.Unit(context.Background(), tag)
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestSetAgentStatus(c *tc.C) {
@@ -95,7 +94,7 @@ func (s *unitSuite) TestSetAgentStatusNotImplemented(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.SetAgentStatus(context.Background(), status.Idle, "blah", map[string]interface{}{"foo": "bar"})
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestSetUnitStatus(c *tc.C) {
@@ -129,7 +128,7 @@ func (s *unitSuite) TestSetUnitStatusNotImplemented(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.SetUnitStatus(context.Background(), status.Idle, "blah", map[string]interface{}{"foo": "bar"})
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestUnitStatus(c *tc.C) {
@@ -155,7 +154,7 @@ func (s *unitSuite) TestUnitStatus(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	statusInfo, err := unit.UnitStatus(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(statusInfo, tc.DeepEquals, params.StatusResult{
 		Id:     "mysql/0",
 		Life:   life.Alive,
@@ -175,7 +174,7 @@ func (s *unitSuite) TestUnitStatusNotImplemented(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	_, err := unit.UnitStatus(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestEnsureDead(c *tc.C) {
@@ -205,7 +204,7 @@ func (s *unitSuite) TestEnsureDeadNotImplemented(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.EnsureDead(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestDestroy(c *tc.C) {
@@ -235,7 +234,7 @@ func (s *unitSuite) TestDestroyNotImplemented(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.Destroy(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestDestroyAllSubordinates(c *tc.C) {
@@ -265,7 +264,7 @@ func (s *unitSuite) TestDestroyAllSubordinatesNotImplemented(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.DestroyAllSubordinates(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestRefresh(c *tc.C) {
@@ -287,7 +286,7 @@ func (s *unitSuite) TestRefresh(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.Refresh(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(unit.Life(), tc.Equals, life.Dying)
 	c.Check(unit.ProviderID(), tc.Equals, "666")
 }
@@ -301,7 +300,7 @@ func (s *unitSuite) TestRefreshNotImplemented(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.Refresh(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestClearResolved(c *tc.C) {
@@ -331,7 +330,7 @@ func (s *unitSuite) TestClearResolvedNotImplemented(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.ClearResolved(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestWatch(c *tc.C) {
@@ -355,14 +354,14 @@ func (s *unitSuite) TestWatch(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.Watch(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.
 	select {
 	case _, ok := <-w.Changes():
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("watcher did not send change")
 	}
@@ -377,7 +376,7 @@ func (s *unitSuite) TestWatchNotImplemented(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	_, err := unit.Watch(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestWatchResolveMode(c *tc.C) {
@@ -402,14 +401,14 @@ func (s *unitSuite) TestWatchResolveMode(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchResolveMode(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.
 	select {
 	case _, ok := <-w.Changes():
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("watcher did not send change")
 	}
@@ -424,7 +423,7 @@ func (s *unitSuite) TestWatchResolveModeNotImplemented(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	_, err := unit.WatchResolveMode(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestWatchRelations(c *tc.C) {
@@ -451,7 +450,7 @@ func (s *unitSuite) TestWatchRelations(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchRelations(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 
@@ -468,7 +467,7 @@ func (s *unitSuite) TestWatchRelationsNotImplemented(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	_, err := unit.WatchRelations(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestAssignedMachine(c *tc.C) {
@@ -488,7 +487,7 @@ func (s *unitSuite) TestAssignedMachine(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	tag, err := unit.AssignedMachine(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(tag, tc.Equals, names.NewMachineTag("666"))
 }
 
@@ -501,7 +500,7 @@ func (s *unitSuite) TestAssignedMachineNotImplemented(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	_, err := unit.AssignedMachine(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestPrincipalName(c *tc.C) {
@@ -522,9 +521,9 @@ func (s *unitSuite) TestPrincipalName(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	name, ok, err := unit.PrincipalName(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(name, tc.Equals, "wordpress/0")
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 }
 
 func (s *unitSuite) TestPrincipalNameNotImplemented(c *tc.C) {
@@ -536,7 +535,7 @@ func (s *unitSuite) TestPrincipalNameNotImplemented(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	_, _, err := unit.PrincipalName(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestHasSubordinates(c *tc.C) {
@@ -556,8 +555,8 @@ func (s *unitSuite) TestHasSubordinates(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	ok, err := unit.HasSubordinates(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ok, tc.IsTrue)
 }
 
 func (s *unitSuite) TestHasSubordinatesNotImplemented(c *tc.C) {
@@ -569,7 +568,7 @@ func (s *unitSuite) TestHasSubordinatesNotImplemented(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	_, err := unit.HasSubordinates(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestPublicAddress(c *tc.C) {
@@ -589,7 +588,7 @@ func (s *unitSuite) TestPublicAddress(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	address, err := unit.PublicAddress(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(address, tc.Equals, "1.1.1.1")
 }
 
@@ -602,7 +601,7 @@ func (s *unitSuite) TestPublicAddressNotImplemented(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	_, err := unit.PublicAddress(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestPrivateAddress(c *tc.C) {
@@ -622,7 +621,7 @@ func (s *unitSuite) TestPrivateAddress(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	address, err := unit.PrivateAddress(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(address, tc.Equals, "1.1.1.1")
 }
 
@@ -635,7 +634,7 @@ func (s *unitSuite) TestPrivateAddressNotImplemented(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	_, err := unit.PrivateAddress(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestAvailabilityZone(c *tc.C) {
@@ -655,7 +654,7 @@ func (s *unitSuite) TestAvailabilityZone(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	address, err := unit.AvailabilityZone(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(address, tc.Equals, "a-zone")
 }
 
@@ -668,7 +667,7 @@ func (s *unitSuite) TestAvailabilityZoneNotImplemented(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	_, err := unit.AvailabilityZone(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestCharmURL(c *tc.C) {
@@ -688,7 +687,7 @@ func (s *unitSuite) TestCharmURL(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	curl, err := unit.CharmURL(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(curl, tc.Equals, "ch:mysql")
 }
 
@@ -701,7 +700,7 @@ func (s *unitSuite) TestCharmURLNotImplemented(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	_, err := unit.CharmURL(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestSetCharmURL(c *tc.C) {
@@ -735,7 +734,7 @@ func (s *unitSuite) TestSetCharmURLNotImplemented(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.SetCharmURL(context.Background(), "ch:mysql")
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestNetworkInfo(c *tc.C) {
@@ -764,7 +763,7 @@ func (s *unitSuite) TestNetworkInfo(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	result, err := unit.NetworkInfo(context.Background(), []string{"server"}, &relId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result["db"].Error, tc.ErrorMatches, "FAIL")
 }
 
@@ -779,7 +778,7 @@ func (s *unitSuite) TestNetworkInfoNotImplemented(c *tc.C) {
 
 	relId := 2
 	_, err := unit.NetworkInfo(context.Background(), []string{"server"}, &relId)
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestConfigSettings(c *tc.C) {
@@ -800,7 +799,7 @@ func (s *unitSuite) TestConfigSettings(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	settings, err := unit.ConfigSettings(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(settings, tc.DeepEquals, charm.Settings{
 		"foo": "bar",
 	})
@@ -816,7 +815,7 @@ func (s *unitSuite) TestConfigSettingsNotImplemented(c *tc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 
 	_, err := unit.ConfigSettings(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestWatchConfigSettingsHash(c *tc.C) {
@@ -843,7 +842,7 @@ func (s *unitSuite) TestWatchConfigSettingsHash(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchConfigSettingsHash(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 
@@ -861,7 +860,7 @@ func (s *unitSuite) TestWatchConfigSettingsHashNotImplemented(c *tc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 
 	_, err := unit.WatchConfigSettingsHash(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestWatchTrustConfigSettingsHash(c *tc.C) {
@@ -888,7 +887,7 @@ func (s *unitSuite) TestWatchTrustConfigSettingsHash(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchTrustConfigSettingsHash(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 
@@ -906,7 +905,7 @@ func (s *unitSuite) TestWatchTrustConfigSettingsHashNotImplemented(c *tc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 
 	_, err := unit.WatchTrustConfigSettingsHash(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestWatchAddressesHash(c *tc.C) {
@@ -933,7 +932,7 @@ func (s *unitSuite) TestWatchAddressesHash(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchAddressesHash(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 
@@ -951,7 +950,7 @@ func (s *unitSuite) TestWatchAddressesHashNotImplemented(c *tc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 
 	_, err := unit.WatchAddressesHash(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestRelationStatus(c *tc.C) {
@@ -975,8 +974,8 @@ func (s *unitSuite) TestRelationStatus(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	relStatus, err := unit.RelationsStatus(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(relStatus, jc.DeepEquals, []uniter.RelationStatus{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(relStatus, tc.DeepEquals, []uniter.RelationStatus{{
 		Tag:       names.NewRelationTag("wordpress:server mysql:db"),
 		Suspended: true,
 		InScope:   true,
@@ -993,7 +992,7 @@ func (s *unitSuite) TestRelationStatusNotImplemented(c *tc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 
 	_, err := unit.RelationsStatus(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestUnitState(c *tc.C) {
@@ -1018,8 +1017,8 @@ func (s *unitSuite) TestUnitState(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	result, err := unit.State(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, unitState)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, unitState)
 }
 
 func (s *unitSuite) TestUnitStateNotImplemented(c *tc.C) {
@@ -1032,7 +1031,7 @@ func (s *unitSuite) TestUnitStateNotImplemented(c *tc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 
 	_, err := unit.State(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestSetState(c *tc.C) {
@@ -1070,7 +1069,7 @@ func (s *unitSuite) TestSetStateNotImplemented(c *tc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 
 	err := unit.SetState(context.Background(), params.SetUnitStateArg{})
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestWatchInstanceData(c *tc.C) {
@@ -1096,14 +1095,14 @@ func (s *unitSuite) TestWatchInstanceData(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchInstanceData(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.
 	select {
 	case _, ok := <-w.Changes():
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("watcher did not send change")
 	}
@@ -1119,7 +1118,7 @@ func (s *unitSuite) TestWatchInstanceDataNotImplemented(c *tc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 
 	_, err := unit.WatchInstanceData(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestLXDProfileName(c *tc.C) {
@@ -1138,7 +1137,7 @@ func (s *unitSuite) TestLXDProfileName(c *tc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	profile, err := unit.LXDProfileName(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(profile, tc.Equals, "juju-default-mysql-0")
 }
 
@@ -1152,7 +1151,7 @@ func (s *unitSuite) TestLXDProfileNameNotImplemented(c *tc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 
 	_, err := unit.LXDProfileName(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestCanApplyLXDProfile(c *tc.C) {
@@ -1171,8 +1170,8 @@ func (s *unitSuite) TestCanApplyLXDProfile(c *tc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	canApply, err := unit.CanApplyLXDProfile(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(canApply, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(canApply, tc.IsTrue)
 }
 
 func (s *unitSuite) TestCanApplyLXDProfileNotImplemented(c *tc.C) {
@@ -1185,5 +1184,5 @@ func (s *unitSuite) TestCanApplyLXDProfileNotImplemented(c *tc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 
 	_, err := unit.CanApplyLXDProfile(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/provider/ec2/internal/testing"
 )
@@ -23,13 +22,13 @@ var _ = tc.Suite(&IAMSuite{})
 
 func (i *IAMSuite) SetUpTest(c *tc.C) {
 	server, err := testing.NewIAMServer()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	i.server = server
 }
 
 func (i *IAMSuite) TestEnsureControllerInstanceProfileFromScratch(c *tc.C) {
 	ip, _, err := ensureControllerInstanceProfile(context.Background(), i.server, "test", "AABBCC")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(*ip.InstanceProfileName, tc.Equals, "juju-controller-test")
 	c.Assert(*ip.Path, tc.Equals, "/juju/controller/AABBCC/")
 
@@ -37,7 +36,7 @@ func (i *IAMSuite) TestEnsureControllerInstanceProfileFromScratch(c *tc.C) {
 		RoleName: aws.String("juju-controller-test"),
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(*roleOutput.Role.RoleName, tc.Equals, "juju-controller-test")
 }
 
@@ -45,10 +44,10 @@ func (i *IAMSuite) TestEnsureControllerInstanceProfileAlreadyExists(c *tc.C) {
 	_, err := i.server.CreateInstanceProfile(context.Background(), &iam.CreateInstanceProfileInput{
 		InstanceProfileName: aws.String("juju-controller-test"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	instanceProfile, _, err := ensureControllerInstanceProfile(context.Background(), i.server, "test", "ABCD")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(*instanceProfile.InstanceProfileName, tc.Equals, "juju-controller-test")
 }
 
@@ -56,17 +55,17 @@ func (i *IAMSuite) TestFindInstanceProfileExists(c *tc.C) {
 	_, err := i.server.CreateInstanceProfile(context.Background(), &iam.CreateInstanceProfileInput{
 		InstanceProfileName: aws.String("juju-controller-test"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	instanceProfile, err := findInstanceProfileFromName(context.Background(), i.server, "juju-controller-test")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(*instanceProfile.InstanceProfileName, tc.Equals, "juju-controller-test")
 }
 
 func (i *IAMSuite) TestFindInstanceProfileWithNotFoundError(c *tc.C) {
 	instanceProfile, err := findInstanceProfileFromName(context.Background(), i.server, "test")
 	c.Assert(instanceProfile, tc.IsNil)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (i *IAMSuite) TestFindRoleExists(c *tc.C) {
@@ -74,9 +73,9 @@ func (i *IAMSuite) TestFindRoleExists(c *tc.C) {
 		RoleName:    aws.String("test-role"),
 		Description: aws.String("test-description"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	role, err := findRoleFromName(context.Background(), i.server, "test-role")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(*role.RoleName, tc.Equals, "test-role")
 }

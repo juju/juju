@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/space"
 )
@@ -72,7 +71,7 @@ func (s *ListSuite) TestInit(c *tc.C) {
 		if test.expectErr != "" {
 			c.Check(err, tc.ErrorMatches, test.expectErr)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			command := command.(*space.ListCommand)
 			c.Check(command.ListFormat(), tc.Equals, test.expectFormat)
 			c.Check(command.Short, tc.Equals, test.expectShort)
@@ -237,7 +236,7 @@ space2
 	}
 	assertOutput := func(format, expected string, short bool) {
 		outFile := filepath.Join(outDir, "output")
-		c.Assert(outFile, jc.DoesNotExist)
+		c.Assert(outFile, tc.DoesNotExist)
 		defer func() { _ = os.Remove(outFile) }()
 
 		// Check -o works.
@@ -247,32 +246,32 @@ space2
 		assertAPICalls()
 
 		data, err := os.ReadFile(outFile)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(string(data), tc.Equals, expected)
 
 		// Check the last output argument takes precedence when both
 		// -o and --output are given (and also that --output works the
 		// same as -o).
 		outFile1 := filepath.Join(outDir, "output1")
-		c.Assert(outFile1, jc.DoesNotExist)
+		c.Assert(outFile1, tc.DoesNotExist)
 		defer func() { _ = os.Remove(outFile1) }()
 
 		outFile2 := filepath.Join(outDir, "output2")
-		c.Assert(outFile2, jc.DoesNotExist)
+		c.Assert(outFile2, tc.DoesNotExist)
 		defer func() { _ = os.Remove(outFile2) }()
 
 		// Write something in outFile2 to verify its contents are
 		// overwritten.
 		err = os.WriteFile(outFile2, []byte("some contents"), 0644)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		args = makeArgs(format, short, "-o", outFile1, "--output", outFile2)
 		s.AssertRunSucceeds(c, "", "", args...)
 		// Check only the last output file was used, and the output
 		// file was overwritten.
-		c.Assert(outFile1, jc.DoesNotExist)
+		c.Assert(outFile1, tc.DoesNotExist)
 		data, err = os.ReadFile(outFile2)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(string(data), tc.Equals, expected)
 		assertAPICalls()
 
@@ -337,7 +336,7 @@ func (s *ListSuite) TestRunWhenSpacesNotSupported(c *tc.C) {
 	s.api.SetErrors(errors.NewNotSupported(nil, "spaces not supported"))
 
 	err := s.AssertRunSpacesNotSupported(c, "cannot list spaces: spaces not supported")
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 
 	s.api.CheckCallNames(c, "ListSpaces", "Close")
 	s.api.CheckCall(c, 0, "ListSpaces")

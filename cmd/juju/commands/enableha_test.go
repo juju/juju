@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	goyaml "gopkg.in/yaml.v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -117,11 +116,11 @@ func (s *EnableHASuite) runEnableHA(c *tc.C, args ...string) (*cmd.Context, erro
 
 func (s *EnableHASuite) TestEnableHA(c *tc.C) {
 	ctx, err := s.runEnableHA(c, "-n", "1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
 
 	c.Assert(s.fake.numControllers, tc.Equals, 1)
-	c.Assert(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)
+	c.Assert(&s.fake.cons, tc.Satisfies, constraints.IsEmpty)
 	c.Assert(len(s.fake.placement), tc.Equals, 0)
 }
 
@@ -129,7 +128,7 @@ func (s *EnableHASuite) TestBlockEnableHA(c *tc.C) {
 	s.fake.err = apiservererrors.OperationBlockedError("TestBlockEnableHA")
 	_, err := s.runEnableHA(c, "-n", "1")
 	c.Assert(err, tc.NotNil)
-	c.Assert(strings.Contains(err.Error(), "All operations that change model have been disabled for the current model"), jc.IsTrue)
+	c.Assert(strings.Contains(err.Error(), "All operations that change model have been disabled for the current model"), tc.IsTrue)
 }
 
 func (s *EnableHASuite) TestEnableHAFormatYaml(c *tc.C) {
@@ -139,15 +138,15 @@ func (s *EnableHASuite) TestEnableHAFormatYaml(c *tc.C) {
 	}
 
 	ctx, err := s.runEnableHA(c, "-n", "3", "--format", "yaml")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(s.fake.numControllers, tc.Equals, 3)
-	c.Assert(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)
+	c.Assert(&s.fake.cons, tc.Satisfies, constraints.IsEmpty)
 	c.Assert(len(s.fake.placement), tc.Equals, 0)
 
 	var result map[string][]string
 	err = goyaml.Unmarshal(ctx.Stdout.(*bytes.Buffer).Bytes(), &result)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, expected)
 }
 
@@ -158,34 +157,34 @@ func (s *EnableHASuite) TestEnableHAFormatJson(c *tc.C) {
 	}
 
 	ctx, err := s.runEnableHA(c, "-n", "3", "--format", "json")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(s.fake.numControllers, tc.Equals, 3)
-	c.Assert(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)
+	c.Assert(&s.fake.cons, tc.Satisfies, constraints.IsEmpty)
 	c.Assert(len(s.fake.placement), tc.Equals, 0)
 
 	var result map[string][]string
 	err = json.Unmarshal(ctx.Stdout.(*bytes.Buffer).Bytes(), &result)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, expected)
 }
 
 func (s *EnableHASuite) TestEnableHAWithFive(c *tc.C) {
 	// Also test with -n 5 to validate numbers other than 1 and 3
 	ctx, err := s.runEnableHA(c, "-n", "5")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals,
 		"maintaining machines: 0\n"+
 			"adding machines: 1, 2, 3, 4\n")
 
 	c.Assert(s.fake.numControllers, tc.Equals, 5)
-	c.Assert(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)
+	c.Assert(&s.fake.cons, tc.Satisfies, constraints.IsEmpty)
 	c.Assert(len(s.fake.placement), tc.Equals, 0)
 }
 
 func (s *EnableHASuite) TestEnableHAWithConstraints(c *tc.C) {
 	ctx, err := s.runEnableHA(c, "--constraints", "mem=4G", "-n", "3")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals,
 		"maintaining machines: 0\n"+
 			"adding machines: 1, 2\n")
@@ -198,7 +197,7 @@ func (s *EnableHASuite) TestEnableHAWithConstraints(c *tc.C) {
 
 func (s *EnableHASuite) TestEnableHAWithMultipleConstraints(c *tc.C) {
 	ctx, err := s.runEnableHA(c, "--constraints", "cores=4", "--constraints", "mem=4G", "-n", "3")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals,
 		"maintaining machines: 0\n"+
 			"adding machines: 1, 2\n")
@@ -211,13 +210,13 @@ func (s *EnableHASuite) TestEnableHAWithMultipleConstraints(c *tc.C) {
 
 func (s *EnableHASuite) TestEnableHAWithPlacement(c *tc.C) {
 	ctx, err := s.runEnableHA(c, "--to", "valid", "-n", "3")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals,
 		"maintaining machines: 0\n"+
 			"adding machines: 1, 2\n")
 
 	c.Assert(s.fake.numControllers, tc.Equals, 3)
-	c.Assert(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)
+	c.Assert(&s.fake.cons, tc.Satisfies, constraints.IsEmpty)
 	expectedPlacement := []string{"valid"}
 	c.Assert(s.fake.placement, tc.DeepEquals, expectedPlacement)
 }
@@ -244,13 +243,13 @@ func (s *EnableHASuite) TestEnableHAAllows0(c *tc.C) {
 	// If the number of controllers is specified as "0", the API will
 	// then use the default number of 3.
 	ctx, err := s.runEnableHA(c, "-n", "0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals,
 		"maintaining machines: 0\n"+
 			"adding machines: 1, 2\n")
 
 	c.Assert(s.fake.numControllers, tc.Equals, 0)
-	c.Assert(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)
+	c.Assert(&s.fake.cons, tc.Satisfies, constraints.IsEmpty)
 	c.Assert(len(s.fake.placement), tc.Equals, 0)
 }
 
@@ -258,26 +257,26 @@ func (s *EnableHASuite) TestEnableHADefaultsTo0(c *tc.C) {
 	// If the number of controllers is not specified, we pass in 0 to the
 	// API.  The API will then use the default number of 3.
 	ctx, err := s.runEnableHA(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals,
 		"maintaining machines: 0\n"+
 			"adding machines: 1, 2\n")
 
 	c.Assert(s.fake.numControllers, tc.Equals, 0)
-	c.Assert(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)
+	c.Assert(&s.fake.cons, tc.Satisfies, constraints.IsEmpty)
 	c.Assert(len(s.fake.placement), tc.Equals, 0)
 }
 
 func (s *EnableHASuite) TestEnableHAToExisting(c *tc.C) {
 	ctx, err := s.runEnableHA(c, "--to", "1,2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cmdtesting.Stdout(ctx), tc.Equals, `
 maintaining machines: 0
 converting machines: 1, 2
 `[1:])
 
 	c.Check(s.fake.numControllers, tc.Equals, 0)
-	c.Check(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)
+	c.Check(&s.fake.cons, tc.Satisfies, constraints.IsEmpty)
 	c.Check(len(s.fake.placement), tc.Equals, 2)
 }
 

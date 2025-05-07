@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/core/changestream"
@@ -66,13 +65,13 @@ func (s *namespaceSuite) TestInitialStateSent(c *tc.C) {
 		_, err := tx.ExecContext(ctx, "INSERT INTO random_namespace(key_name) VALUES ('some-key')")
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	w, err := NewNamespaceWatcher(
 		s.newBaseWatcher(c), InitialNamespaceChanges("SELECT key_name FROM random_namespace"),
 		NamespaceFilter("random_namespace", changestream.All),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -119,7 +118,7 @@ func (s *namespaceSuite) TestInitialStateSentByMapper(c *tc.C) {
 		_, err := tx.ExecContext(ctx, "INSERT INTO random_namespace(key_name) VALUES ('some-key')")
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Notice that even if the mapper returns an empty list of change events,
 	// the initial state is still sent. This is a hard requirement of the API.
@@ -131,7 +130,7 @@ func (s *namespaceSuite) TestInitialStateSentByMapper(c *tc.C) {
 		},
 		NamespaceFilter("random_namespace", changestream.All),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	select {
@@ -177,7 +176,7 @@ func (s *namespaceSuite) TestDeltasSent(c *tc.C) {
 		s.newBaseWatcher(c), InitialNamespaceChanges("SELECT uuid FROM external_controller"),
 		NamespaceFilter("external_controller", changestream.All),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	// No initial data.
@@ -248,7 +247,7 @@ func (s *namespaceSuite) TestDeltasSentByMapper(c *tc.C) {
 		},
 		NamespaceFilter("external_controller", changestream.All),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	// No initial data.
@@ -326,7 +325,7 @@ func (s *namespaceSuite) TestDeltasSentByMapperError(c *tc.C) {
 		},
 		NamespaceFilter("external_controller", changestream.All),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	// No initial data.
@@ -350,7 +349,7 @@ func (s *namespaceSuite) TestDeltasSentByMapperError(c *tc.C) {
 	select {
 	case _, ok := <-w.Changes():
 		// Ensure the channel is closed, when the mapper dies.
-		c.Assert(ok, jc.IsFalse)
+		c.Assert(ok, tc.IsFalse)
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for watcher delta")
 	}
@@ -383,11 +382,11 @@ func (s *namespaceSuite) TestSubscriptionDoneKillsWorker(c *tc.C) {
 		s.newBaseWatcher(c), InitialNamespaceChanges("SELECT uuid FROM external_controller"),
 		NamespaceFilter("external_controller", changestream.All),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	err = workertest.CheckKilled(c, w)
-	c.Check(err, jc.ErrorIs, ErrSubscriptionClosed)
+	c.Check(err, tc.ErrorIs, ErrSubscriptionClosed)
 }
 
 func (s *namespaceSuite) TestNilOption(c *tc.C) {
@@ -398,7 +397,7 @@ func (s *namespaceSuite) TestNilOption(c *tc.C) {
 		InitialNamespaceChanges("SELECT uuid FROM external_controller"),
 		nil,
 	)
-	c.Assert(err, tc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
 func (s *namespaceSuite) TestNilPredicate(c *tc.C) {
@@ -409,7 +408,7 @@ func (s *namespaceSuite) TestNilPredicate(c *tc.C) {
 		InitialNamespaceChanges("SELECT uuid FROM external_controller"),
 		PredicateFilter("random_namespace", changestream.All, nil),
 	)
-	c.Assert(err, tc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
 type schemaDDLApplier struct{}
@@ -425,5 +424,5 @@ CREATE TABLE external_controller (
 		`),
 	)
 	_, err := schema.Ensure(ctx, runner)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

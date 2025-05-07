@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -35,11 +34,11 @@ func (s *RelationSetSuite) TestHelp(c *tc.C) {
 		c.Logf("test %d", i)
 		hctx, _ := s.newHookContext(t.relid, "", "")
 		com, err := jujuc.NewCommand(hctx, "relation-set")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
 		c.Assert(code, tc.Equals, 0)
-		c.Assert(strings.Contains(bufferString(ctx.Stdout), t.expect), jc.IsTrue)
+		c.Assert(strings.Contains(bufferString(ctx.Stdout), t.expect), tc.IsTrue)
 	}
 }
 
@@ -78,7 +77,7 @@ func (t relationSetInitTest) init(c *tc.C, s *RelationSetSuite) (cmd.Command, []
 
 	hctx, _ := s.newHookContext(t.ctxrelid, "", "")
 	com, err := jujuc.NewCommand(hctx, "relation-set")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := cmdtesting.Context(c)
 
@@ -90,7 +89,7 @@ func (t relationSetInitTest) init(c *tc.C, s *RelationSetSuite) (cmd.Command, []
 		filename = filepath.Join(c.MkDir(), filename)
 		args[i] = filename
 		err := os.WriteFile(filename, []byte(t.content), 0644)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	return com, args, ctx
@@ -98,7 +97,7 @@ func (t relationSetInitTest) init(c *tc.C, s *RelationSetSuite) (cmd.Command, []
 
 func (t relationSetInitTest) check(c *tc.C, com cmd.Command, err error) {
 	if t.err == "" {
-		if !c.Check(err, jc.ErrorIsNil) {
+		if !c.Check(err, tc.ErrorIsNil) {
 			return
 		}
 
@@ -110,7 +109,7 @@ func (t relationSetInitTest) check(c *tc.C, com cmd.Command, err error) {
 		if settings == nil {
 			settings = map[string]string{}
 		}
-		c.Check(rset.Settings, jc.DeepEquals, settings)
+		c.Check(rset.Settings, tc.DeepEquals, settings)
 	} else {
 		c.Logf("%#v", com.(*jujuc.RelationSetCommand).Settings)
 		c.Check(err, tc.ErrorMatches, t.err)
@@ -339,13 +338,13 @@ func (s *RelationSetSuite) TestRun(c *tc.C) {
 
 		// Run the command.
 		com, err := jujuc.NewCommand(hctx, "relation-set")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		rset := com.(*jujuc.RelationSetCommand)
 		rset.RelationId = 1
 		rset.Settings = t.change
 		ctx := cmdtesting.Context(c)
 		err = com.Run(ctx)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		// Check changes.
 		c.Assert(info.rels[0].Units["u/0"], tc.DeepEquals, pristine)
@@ -360,7 +359,7 @@ func (s *RelationSetSuite) TestRunDeprecationWarning(c *tc.C) {
 	// The rel= is needed to make this a valid command.
 	ctx, err := cmdtesting.RunCommand(c, com, "--format", "foo", "rel=")
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "--format flag deprecated for command \"relation-set\"")
 }

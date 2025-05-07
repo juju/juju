@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/macaroon.v2"
 
@@ -86,7 +85,7 @@ func (s *CrossModelSecretsSuite) SetUpTest(c *tc.C) {
 	s.AddCleanup(func(*tc.C) { s.resources.StopAll() })
 
 	key, err := bakery.GenerateKey()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	locator := testLocator{key.Public}
 	bakery := bakery.New(bakery.BakeryParams{
 		Locator:       locator,
@@ -97,7 +96,7 @@ func (s *CrossModelSecretsSuite) SetUpTest(c *tc.C) {
 	s.authContext, err = crossmodel.NewAuthContext(
 		nil, nil, coretesting.ModelTag, key, crossmodel.NewOfferBakeryForTest(s.bakery, clock.WallClock),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *CrossModelSecretsSuite) setup(c *tc.C) *gomock.Controller {
@@ -124,7 +123,7 @@ func (s *CrossModelSecretsSuite) setup(c *tc.C) *gomock.Controller {
 		s.stateBackend,
 		loggertesting.WrapCheckLog(c),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return ctrl
 }
@@ -153,7 +152,7 @@ func (m backendConfigParamsMatcher) Matches(x interface{}) bool {
 	}
 	m.c.Assert(obtained.GrantedSecretsGetter, tc.NotNil)
 	obtained.GrantedSecretsGetter = nil
-	m.c.Assert(obtained, jc.DeepEquals, m.expected)
+	m.c.Assert(obtained, tc.DeepEquals, m.expected)
 	return true
 }
 
@@ -216,7 +215,7 @@ func (s *CrossModelSecretsSuite) assertGetSecretContentInfo(c *tc.C, newConsumer
 			checkers.DeclaredCaveat("source-model-uuid", coretesting.ModelTag.Id()),
 			checkers.DeclaredCaveat("relation-key", relation.Id()),
 		}, bakery.Op{"consume", "mysql-uuid"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	args := params.GetRemoteSecretContentArgs{
 		Args: []params.GetRemoteSecretContentArg{{
@@ -242,8 +241,8 @@ func (s *CrossModelSecretsSuite) assertGetSecretContentInfo(c *tc.C, newConsumer
 		}},
 	}
 	results, err := s.facade.GetSecretContentInfo(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.SecretContentResults{
 		Results: []params.SecretContentResult{{
 			Content: params.SecretContentParams{
 				ValueRef: &params.SecretValueRef{

@@ -18,7 +18,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jtesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
@@ -85,7 +84,7 @@ func (s *BootstrapSuite) SetUpSuite(c *tc.C) {
 	storageDir := c.MkDir()
 	restorer := jtesting.PatchValue(&envtools.DefaultBaseURL, storageDir)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.toolsStorage = stor
 
 	s.BaseSuite.SetUpSuite(c)
@@ -119,18 +118,18 @@ func (s *BootstrapSuite) SetUpTest(c *tc.C) {
 	current := testing.CurrentVersion()
 	toolsDir := filepath.FromSlash(agenttools.SharedToolsDir(s.dataDir, current))
 	err := os.MkdirAll(toolsDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = os.WriteFile(filepath.Join(toolsDir, "tools.tar.gz"), nil, 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.writeDownloadedTools(c, &tools.Tools{Version: current})
 
 	// Create fake local controller charm.
 	controllerCharmPath := filepath.Join(s.dataDir, "charms")
 	err = os.MkdirAll(controllerCharmPath, 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	pathToArchive := testcharms.Repo.CharmArchivePath(controllerCharmPath, "juju-controller")
 	err = os.Rename(pathToArchive, filepath.Join(controllerCharmPath, "controller.charm"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.bootstrapAgentFunc = agentbootstrap.NewAgentBootstrap
 	s.dqliteInitializerFunc = getBootstrapDqliteWithDummyCloudTypeWithAssertions
@@ -144,11 +143,11 @@ func (s *BootstrapSuite) TearDownTest(c *tc.C) {
 func (s *BootstrapSuite) writeDownloadedTools(c *tc.C, tools *tools.Tools) {
 	toolsDir := filepath.FromSlash(agenttools.SharedToolsDir(s.dataDir, tools.Version))
 	err := os.MkdirAll(toolsDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	data, err := json.Marshal(tools)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = os.WriteFile(filepath.Join(toolsDir, "downloaded-tools.txt"), data, 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *BootstrapSuite) getSystemState(c *tc.C) (*state.State, func()) {
@@ -158,9 +157,9 @@ func (s *BootstrapSuite) getSystemState(c *tc.C) (*state.State, func()) {
 		ControllerModelTag: testing.ModelTag,
 		MongoSession:       s.Session,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	systemState, err := pool.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return systemState, func() { pool.Close() }
 }
 
@@ -204,9 +203,9 @@ func (s *BootstrapSuite) initBootstrapCommand(c *tc.C, jobs []model.MachineJob, 
 	}
 
 	machineConf, err = agent.NewStateMachineConfig(agentParams, servingInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = machineConf.Write()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cmd = NewBootstrapCommand()
 	cmd.BootstrapAgent = s.bootstrapAgentFunc
@@ -225,15 +224,15 @@ func (s *BootstrapSuite) TestInitializeModel(c *tc.C) {
 			}, loggertesting.WrapCheckLog(c))
 
 			data, err := modelState.GetModelConstraints(context.Background())
-			c.Check(err, jc.ErrorIsNil)
-			c.Check(data, jc.DeepEquals, domainconstraints.Constraints{})
+			c.Check(err, tc.ErrorIsNil)
+			c.Check(data, tc.DeepEquals, domainconstraints.Constraints{})
 			return nil
 		},
 	)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = cmd.Run(cmdtesting.Context(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(s.fakeEnsureMongo.MongoDataDir, tc.Equals, s.dataDir)
 	c.Assert(s.fakeEnsureMongo.InitiateCount, tc.Equals, 1)
@@ -241,7 +240,7 @@ func (s *BootstrapSuite) TestInitializeModel(c *tc.C) {
 	c.Assert(s.fakeEnsureMongo.OplogSize, tc.Equals, 1234)
 
 	expectInfo, exists := machConf.StateServingInfo()
-	c.Assert(exists, jc.IsTrue)
+	c.Assert(exists, tc.IsTrue)
 	c.Assert(expectInfo.SharedSecret, tc.Equals, "")
 	c.Assert(expectInfo.SystemIdentity, tc.Equals, "")
 
@@ -250,7 +249,7 @@ func (s *BootstrapSuite) TestInitializeModel(c *tc.C) {
 	c.Assert(len(servingInfo.SystemIdentity), tc.Not(tc.Equals), 0)
 	servingInfo.SharedSecret = ""
 	servingInfo.SystemIdentity = ""
-	c.Assert(servingInfo, jc.DeepEquals, expectInfo)
+	c.Assert(servingInfo, tc.DeepEquals, expectInfo)
 	expectDialAddrs := []string{fmt.Sprintf("localhost:%d", expectInfo.StatePort)}
 	gotDialAddrs := s.fakeEnsureMongo.InitiateParams.DialInfo.Addrs
 	c.Assert(gotDialAddrs, tc.DeepEquals, expectDialAddrs)
@@ -266,7 +265,7 @@ func (s *BootstrapSuite) TestInitializeModel(c *tc.C) {
 	st, closer := s.getSystemState(c)
 	defer closer()
 	machines, err := st.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(machines, tc.HasLen, 1)
 
 }
@@ -274,7 +273,7 @@ func (s *BootstrapSuite) TestInitializeModel(c *tc.C) {
 func (s *BootstrapSuite) TestInitializeModelInvalidOplogSize(c *tc.C) {
 	s.mongoOplogSize = "NaN"
 	_, cmd, err := s.initBootstrapCommand(c, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = cmd.Run(cmdtesting.Context(c))
 	c.Assert(err, tc.ErrorMatches, `failed to start mongo: invalid oplog size: "NaN"`)
 }
@@ -293,23 +292,23 @@ func (s *BootstrapSuite) TestSetConstraints(c *tc.C) {
 
 			expectedModelCons := domainconstraints.DecodeConstraints(s.bootstrapParams.ModelConstraints)
 			data, err := modelState.GetModelConstraints(context.Background())
-			c.Check(err, jc.ErrorIsNil)
-			c.Assert(data, jc.DeepEquals, expectedModelCons)
+			c.Check(err, tc.ErrorIsNil)
+			c.Assert(data, tc.DeepEquals, expectedModelCons)
 			return nil
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = cmd.Run(cmdtesting.Context(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	st, closer := s.getSystemState(c)
 	defer closer()
 
 	machines, err := st.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(machines, tc.HasLen, 1)
 	cons, err := machines[0].Constraints()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cons, tc.DeepEquals, s.bootstrapParams.BootstrapMachineConstraints)
 }
 
@@ -323,23 +322,23 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *tc.C) {
 		state.JobHostUnits,
 	}
 	_, cmd, err := s.initBootstrapCommand(c, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = cmd.Run(cmdtesting.Context(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	st, closer := s.getSystemState(c)
 	defer closer()
 	m, err := st.Machine("0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(m.Jobs(), tc.DeepEquals, expectedJobs)
 }
 
 func (s *BootstrapSuite) TestInitialPassword(c *tc.C) {
 	machineConf, cmd, err := s.initBootstrapCommand(c, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = cmd.Run(cmdtesting.Context(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check we can log in to mongo as admin.
 	info := mongo.MongoInfo{
@@ -352,7 +351,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *tc.C) {
 		Password: testPassword,
 	}
 	session, err := mongo.DialWithInfo(info, mongotest.DialOpts())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer session.Close()
 
 	// We're running Mongo with --noauth; let's explicitly verify
@@ -362,40 +361,40 @@ func (s *BootstrapSuite) TestInitialPassword(c *tc.C) {
 	err = adminDB.Login("admin", "invalid-password")
 	c.Assert(err, tc.ErrorMatches, "(auth|(.*Authentication)) fail(s|ed)\\.?")
 	err = adminDB.Login("admin", info.Password)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that the machine configuration has been given a new
 	// password and that we can connect to mongo as that machine
 	// and that the in-mongo password also verifies correctly.
 	machineConf1, err := agent.ReadConfig(agent.ConfigPath(machineConf.DataDir(), names.NewMachineTag("0")))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	machineMongoInfo, ok := machineConf1.MongoInfo()
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	session, err = mongo.DialWithInfo(*machineMongoInfo, mongotest.DialOpts())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer session.Close()
 
 	st, closer := s.getSystemState(c)
 	defer closer()
 
 	node, err := st.ControllerNode("0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(node.HasVote(), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(node.HasVote(), tc.IsTrue)
 }
 
 func (s *BootstrapSuite) TestInitializeStateArgs(c *tc.C) {
 	var called int
 	s.bootstrapAgentFunc = func(args agentbootstrap.AgentBootstrapArgs) (*agentbootstrap.AgentBootstrap, error) {
 		called++
-		c.Assert(args.MongoDialOpts.Direct, jc.IsTrue)
+		c.Assert(args.MongoDialOpts.Direct, tc.IsTrue)
 		c.Assert(args.MongoDialOpts.Timeout, tc.Equals, 30*time.Second)
 		c.Assert(args.MongoDialOpts.SocketTimeout, tc.Equals, 123*time.Second)
 		return nil, errors.New("failed to initialize state")
 	}
 
 	_, cmd, err := s.initBootstrapCommand(c, nil, "--timeout", "123s")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = cmd.Run(cmdtesting.Context(c))
 	c.Assert(err, tc.ErrorMatches, "failed to initialize state")
 	c.Assert(called, tc.Equals, 1)
@@ -405,12 +404,12 @@ func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *tc.C) {
 	var called int
 	s.bootstrapAgentFunc = func(args agentbootstrap.AgentBootstrapArgs) (*agentbootstrap.AgentBootstrap, error) {
 		called++
-		c.Assert(args.MongoDialOpts.Direct, jc.IsTrue)
+		c.Assert(args.MongoDialOpts.Direct, tc.IsTrue)
 		c.Assert(args.MongoDialOpts.SocketTimeout, tc.Equals, 1*time.Minute)
 		return nil, errors.New("failed to initialize state")
 	}
 	_, cmd, err := s.initBootstrapCommand(c, nil, "--timeout", "13s")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = cmd.Run(cmdtesting.Context(c))
 	c.Assert(err, tc.ErrorMatches, "failed to initialize state")
 	c.Assert(called, tc.Equals, 1)
@@ -418,15 +417,15 @@ func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *tc.C) {
 
 func (s *BootstrapSuite) TestSystemIdentityWritten(c *tc.C) {
 	_, err := os.Stat(filepath.Join(s.dataDir, agent.SystemIdentity))
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
+	c.Assert(err, tc.Satisfies, os.IsNotExist)
 
 	_, cmd, err := s.initBootstrapCommand(c, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = cmd.Run(cmdtesting.Context(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	data, err := os.ReadFile(filepath.Join(s.dataDir, agent.SystemIdentity))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(data), tc.Equals, "private-key")
 }
 
@@ -437,30 +436,30 @@ func (s *BootstrapSuite) makeTestModel(c *tc.C) {
 		},
 	).Delete("admin-secret", "ca-private-key")
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	provider, err := environs.Provider(cfg.Type())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	controllerCfg := testing.FakeControllerConfig()
 	env, err := environs.Open(context.Background(), provider, environs.OpenParams{
 		Cloud:  testing.FakeCloudSpec(),
 		Config: cfg,
 	}, environs.NoopCredentialInvalidator())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = env.PrepareForBootstrap(nullContext(), "controller-1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.AddCleanup(func(c *tc.C) {
 		err := env.DestroyController(context.Background(), controllerCfg.ControllerUUID())
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	})
 
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	envtesting.UploadFakeTools(c, s.toolsStorage, "released")
 	inst, _, _, err := jujutesting.StartInstance(env, testing.FakeControllerConfig().ControllerUUID(), "0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	addresses, err := inst.Addresses(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	addr, _ := addresses.OneMatchingScope(network.ScopeMatchPublic)
 	s.bootstrapName = addr.Value
 	s.initialModelUUID = uuid.MustNewUUID().String()
@@ -483,9 +482,9 @@ func (s *BootstrapSuite) makeTestModel(c *tc.C) {
 
 func (s *BootstrapSuite) writeBootstrapParamsFile(c *tc.C) {
 	data, err := s.bootstrapParams.Marshal()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = os.WriteFile(filepath.Join(s.dataDir, "bootstrap-params"), data, 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func nullContext() environs.BootstrapContext {

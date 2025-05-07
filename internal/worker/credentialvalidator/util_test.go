@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/api/base"
@@ -81,7 +80,7 @@ func validConfig(c *tc.C) credentialvalidator.Config {
 func checkNotValid(c *tc.C, config credentialvalidator.Config, expect string) {
 	check := func(err error) {
 		c.Check(err, tc.ErrorMatches, expect)
-		c.Check(err, jc.ErrorIs, errors.NotValid)
+		c.Check(err, tc.ErrorIs, errors.NotValid)
 	}
 
 	err := config.Validate()
@@ -108,7 +107,7 @@ func validManifoldConfig(c *tc.C) credentialvalidator.ManifoldConfig {
 func checkManifoldNotValid(c *tc.C, config credentialvalidator.ManifoldConfig, expect string) {
 	err := config.Validate()
 	c.Check(err, tc.ErrorMatches, expect)
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 }
 
 // stubCaller is a base.APICaller that only implements ModelTag.

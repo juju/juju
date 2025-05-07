@@ -10,7 +10,6 @@ import (
 
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/arch"
@@ -90,7 +89,7 @@ func (s *environBrokerSuite) TestStartInstanceDefaultNIC(c *tc.C) {
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
 	_, err := env.StartInstance(context.Background(), s.GetStartInstanceArgs(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *environBrokerSuite) TestStartInstanceNonDefaultNIC(c *tc.C) {
@@ -131,7 +130,7 @@ func (s *environBrokerSuite) TestStartInstanceNonDefaultNIC(c *tc.C) {
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
 	_, err := env.StartInstance(context.Background(), s.GetStartInstanceArgs(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *tc.C) {
@@ -188,7 +187,7 @@ func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *tc.C) {
 				"parent":  "ovs-br0",
 			},
 		})
-		c.Assert(matchedNICs, jc.IsTrue, tc.Commentf("the expected NICs for space-related subnets were not injected; got %v", spec.Devices))
+		c.Assert(matchedNICs, tc.IsTrue, tc.Commentf("the expected NICs for space-related subnets were not injected; got %v", spec.Devices))
 
 		return spec.Config[containerlxd.NetworkConfigKey] == cloudinit.CloudInitNetworkConfigDisabled
 	}
@@ -224,7 +223,7 @@ func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *tc.C) {
 		},
 	}
 	_, err := env.StartInstance(context.Background(), startArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *environBrokerSuite) TestStartInstanceWithPlacementAvailable(c *tc.C) {
@@ -244,7 +243,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementAvailable(c *tc.C) {
 	tExp.GetImage("").Return(image, lxdtesting.ETag, nil)
 
 	jujuTarget, err := containerlxd.NewServer(target)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	members := []api.ClusterMember{
 		{
@@ -286,7 +285,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementAvailable(c *tc.C) {
 	args.Placement = "zone=node01"
 
 	_, err = env.StartInstance(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *environBrokerSuite) TestStartInstanceWithPlacementNotPresent(c *tc.C) {
@@ -406,7 +405,7 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraints(c *tc.C) {
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
 	_, err := env.StartInstance(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *environBrokerSuite) TestStartInstanceWithConstraintsAndVirtType(c *tc.C) {
@@ -450,7 +449,7 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraintsAndVirtType(c *tc.C
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
 	_, err := env.StartInstance(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *environBrokerSuite) TestStartInstanceWithCharmLXDProfile(c *tc.C) {
@@ -490,7 +489,7 @@ func (s *environBrokerSuite) TestStartInstanceWithCharmLXDProfile(c *tc.C) {
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
 	_, err := env.StartInstance(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *environBrokerSuite) TestStartInstanceNoTools(c *tc.C) {
@@ -542,7 +541,7 @@ func (s *environBrokerSuite) TestStopInstances(c *tc.C) {
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
 	err := env.StopInstances(context.Background(), "juju-f75cba-1", "juju-f75cba-2", "not-in-namespace-so-ignored")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *environBrokerSuite) TestStopInstancesInvalidCredentials(c *tc.C) {
@@ -568,7 +567,7 @@ func (s *environBrokerSuite) TestImageSourcesDefault(c *tc.C) {
 	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
 
 	sources, err := lxd.GetImageSources(s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkSources(c, sources, []string{
 		"https://cloud-images.ubuntu.com/releases/",
@@ -588,7 +587,7 @@ func (s *environBrokerSuite) TestImageMetadataURL(c *tc.C) {
 	}, environscloudspec.CloudSpec{}, invalidator)
 
 	sources, err := lxd.GetImageSources(env)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkSources(c, sources, []string{
 		"https://my-test.com/images/",
@@ -610,7 +609,7 @@ func (s *environBrokerSuite) TestImageMetadataURLEnsuresHTTPS(c *tc.C) {
 	}, environscloudspec.CloudSpec{}, invalidator)
 
 	sources, err := lxd.GetImageSources(env)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkSources(c, sources, []string{
 		"https://my-test.com/images/",
@@ -631,7 +630,7 @@ func (s *environBrokerSuite) TestImageStreamReleased(c *tc.C) {
 	}, environscloudspec.CloudSpec{}, invalidator)
 
 	sources, err := lxd.GetImageSources(env)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkSources(c, sources, []string{
 		"https://cloud-images.ubuntu.com/releases/",
@@ -651,7 +650,7 @@ func (s *environBrokerSuite) TestImageStreamDaily(c *tc.C) {
 	}, environscloudspec.CloudSpec{}, invalidator)
 
 	sources, err := lxd.GetImageSources(env)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkSources(c, sources, []string{
 		"https://cloud-images.ubuntu.com/daily/",

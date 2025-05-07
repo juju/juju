@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jtesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/core/arch"
@@ -52,7 +51,7 @@ func (s *brokerSuite) SetUpSuite(c *tc.C) {
 func (s *brokerSuite) TestCombinedCloudInitDataNoCloudInitUserData(c *tc.C) {
 	obtained, err := broker.CombinedCloudInitData(nil, "ca-certs,apt-primary",
 		corebase.MakeDefaultBase("ubuntu", "16.04"), loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	assertCloudInitUserData(obtained, map[string]interface{}{
 		"apt": map[string]interface{}{
@@ -74,7 +73,7 @@ func (s *brokerSuite) TestCombinedCloudInitDataNoContainerInheritProperties(c *t
 	containerConfig := fakeContainerConfig()
 	obtained, err := broker.CombinedCloudInitData(containerConfig.CloudInitUserData, "",
 		corebase.MakeDefaultBase("ubuntu", "16.04"), loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertCloudInitUserData(obtained, containerConfig.CloudInitUserData, c)
 }
 
@@ -289,7 +288,7 @@ nameserver ns2.dummy
 
 	fakeResolvConf := filepath.Join(c.MkDir(), "fakeresolv.conf")
 	err := os.WriteFile(fakeResolvConf, []byte(fakeConf), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.PatchValue(broker.ResolvConfFiles, []string{fakeResolvConf})
 }
 
@@ -300,7 +299,7 @@ func makeInstanceConfig(c *tc.C, s patcher, machineId string) *instancecfg.Insta
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, machineNonce,
 		"released", corebase.MakeDefaultBase("ubuntu", "22.04"), apiInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return instanceConfig
 }
 
@@ -334,14 +333,14 @@ func assertCloudInitUserData(obtained, expected map[string]interface{}, c *tc.C)
 	c.Assert(obtained, tc.HasLen, len(expected))
 	for obtainedK, obtainedV := range obtained {
 		expectedV, ok := expected[obtainedK]
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		switch obtainedK {
 		case "package_upgrade":
 			c.Assert(obtainedV, tc.Equals, expectedV)
 		case "apt", "ca-certs":
-			c.Assert(obtainedV, jc.DeepEquals, expectedV)
+			c.Assert(obtainedV, tc.DeepEquals, expectedV)
 		default:
-			c.Assert(obtainedV, jc.SameContents, expectedV)
+			c.Assert(obtainedV, tc.SameContents, expectedV)
 		}
 	}
 }

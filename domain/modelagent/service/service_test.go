@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
@@ -42,13 +41,13 @@ func (s *suite) TestGetModelAgentVersionSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	expectedVersion, err := semversion.Parse("4.21.65")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(expectedVersion, nil)
 
 	svc := NewService(s.state)
 	ver, err := svc.GetModelTargetAgentVersion(context.Background())
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(ver, jc.DeepEquals, expectedVersion)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(ver, tc.DeepEquals, expectedVersion)
 }
 
 // TestGetModelAgentVersionNotFound tests that Service.GetModelAgentVersion
@@ -60,7 +59,7 @@ func (s *suite) TestGetModelAgentVersionModelNotFound(c *tc.C) {
 
 	svc := NewService(s.state)
 	_, err := svc.GetModelTargetAgentVersion(context.Background())
-	c.Check(err, jc.ErrorIs, modelagenterrors.AgentVersionNotFound)
+	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotFound)
 }
 
 // TestGetMachineTargetAgentVersion is asserting the happy path for getting
@@ -79,7 +78,7 @@ func (s *suite) TestGetMachineTargetAgentVersion(c *tc.C) {
 	s.state.EXPECT().GetMachineTargetAgentVersion(gomock.Any(), uuid).Return(ver, nil)
 
 	rval, err := NewService(s.state).GetMachineTargetAgentVersion(context.Background(), machineName)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(rval, tc.Equals, ver)
 }
 
@@ -97,7 +96,7 @@ func (s *suite) TestGetMachineTargetAgentVersionNotFound(c *tc.C) {
 		context.Background(),
 		coremachine.Name("0"),
 	)
-	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
+	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 // TestGetUnitTargetAgentVersion is asserting the happy path for getting
@@ -115,7 +114,7 @@ func (s *suite) TestGetUnitTargetAgentVersion(c *tc.C) {
 	s.state.EXPECT().GetUnitTargetAgentVersion(gomock.Any(), uuid).Return(ver, nil)
 
 	rval, err := NewService(s.state).GetUnitTargetAgentVersion(context.Background(), "foo/0")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(rval, tc.Equals, ver)
 }
 
@@ -133,7 +132,7 @@ func (s *suite) TestGetUnitTargetAgentVersionNotFound(c *tc.C) {
 		context.Background(),
 		"foo/0",
 	)
-	c.Check(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 // TestWatchUnitTargetAgentVersionNotFound is testing that the service
@@ -150,7 +149,7 @@ func (s *suite) TestWatchUnitTargetAgentVersionNotFound(c *tc.C) {
 		context.Background(),
 		"foo/0",
 	)
-	c.Check(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 // TestWatchMachineTargetAgentVersionNotFound is testing that the service
@@ -164,7 +163,7 @@ func (s *suite) TestWatchMachineTargetAgentVersionNotFound(c *tc.C) {
 	)
 
 	_, err := NewWatchableService(s.state, nil).WatchMachineTargetAgentVersion(context.Background(), "0")
-	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
+	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 // TestSetMachineReportedAgentVersionInvalid is here to assert that if pass a
@@ -180,7 +179,7 @@ func (s *suite) TestSetMachineReportedAgentVersionInvalid(c *tc.C) {
 			Number: semversion.Zero,
 		},
 	)
-	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 // TestSetMachineReportedAgentVersionSuccess asserts that if we try to set the
@@ -204,11 +203,11 @@ func (s *suite) TestSetMachineReportedAgentVersionNotFound(c *tc.C) {
 			Arch:   corearch.ARM64,
 		},
 	)
-	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
+	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 
 	// MachineNotFound error location 2.
 	machineUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetMachineUUIDByName(gomock.Any(), coremachine.Name("0")).Return(
 		machineUUID.String(), nil,
@@ -231,14 +230,14 @@ func (s *suite) TestSetMachineReportedAgentVersionNotFound(c *tc.C) {
 			Arch:   corearch.ARM64,
 		},
 	)
-	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
+	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 func (s *suite) TestSetMachineReportedAgentVersionDead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	machineUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetMachineUUIDByName(gomock.Any(), coremachine.Name("0")).Return(
 		machineUUID.String(), nil,
@@ -261,7 +260,7 @@ func (s *suite) TestSetMachineReportedAgentVersionDead(c *tc.C) {
 			Arch:   corearch.ARM64,
 		},
 	)
-	c.Check(err, jc.ErrorIs, machineerrors.MachineIsDead)
+	c.Check(err, tc.ErrorIs, machineerrors.MachineIsDead)
 }
 
 // TestSetMachineReportedAgentVersion asserts the happy path of
@@ -270,7 +269,7 @@ func (s *suite) TestSetMachineReportedAgentVersion(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	machineUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetMachineUUIDByName(gomock.Any(), coremachine.Name("0")).Return(
 		machineUUID.String(), nil,
@@ -292,7 +291,7 @@ func (s *suite) TestSetMachineReportedAgentVersion(c *tc.C) {
 			Arch:   corearch.ARM64,
 		},
 	)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 // TestSetReportedUnitAgentVersionInvalid is here to assert that if pass a
@@ -308,7 +307,7 @@ func (s *suite) TestSetReportedUnitAgentVersionInvalid(c *tc.C) {
 			Number: semversion.Zero,
 		},
 	)
-	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 // TestSetReportedUnitAgentVersionNotFound asserts that if we try to set the
@@ -332,7 +331,7 @@ func (s *suite) TestSetReportedUnitAgentVersionNotFound(c *tc.C) {
 			Arch:   corearch.ARM64,
 		},
 	)
-	c.Check(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 
 	// UnitNotFound error location 2.
 	unitUUID := unittesting.GenUnitUUID(c)
@@ -358,7 +357,7 @@ func (s *suite) TestSetReportedUnitAgentVersionNotFound(c *tc.C) {
 			Arch:   corearch.ARM64,
 		},
 	)
-	c.Check(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 // TestSetReportedUnitAgentVersionDead asserts that if we try to set the
@@ -390,7 +389,7 @@ func (s *suite) TestSetReportedUnitAgentVersionDead(c *tc.C) {
 			Arch:   corearch.ARM64,
 		},
 	)
-	c.Check(err, jc.ErrorIs, applicationerrors.UnitIsDead)
+	c.Check(err, tc.ErrorIs, applicationerrors.UnitIsDead)
 }
 
 // TestSetReportedUnitAgentVersion asserts the happy path of
@@ -421,7 +420,7 @@ func (s *suite) TestSetReportedUnitAgentVersion(c *tc.C) {
 			Arch:   corearch.ARM64,
 		},
 	)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 // TestGetMachineReportedAgentVersionMachineNotFound asserts that if we ask for
@@ -438,7 +437,7 @@ func (s *suite) TestGetMachineReportedAgentVersionMachineNotFound(c *tc.C) {
 
 	svc := NewService(s.state)
 	_, err := svc.GetMachineReportedAgentVersion(context.Background(), machineName)
-	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
+	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 
 	// Section test of MachineNotFound when using the uuid to fetch the running
 	// version.
@@ -449,7 +448,7 @@ func (s *suite) TestGetMachineReportedAgentVersionMachineNotFound(c *tc.C) {
 	)
 
 	_, err = svc.GetMachineReportedAgentVersion(context.Background(), machineName)
-	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
+	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 // TestGetMachineReportedAgentVersionAgentVersionNotFound asserts that if we ask
@@ -468,7 +467,7 @@ func (s *suite) TestGetMachineReportedAgentVersionAgentVersionNotFound(c *tc.C) 
 
 	svc := NewService(s.state)
 	_, err := svc.GetMachineReportedAgentVersion(context.Background(), machineName)
-	c.Check(err, jc.ErrorIs, modelagenterrors.AgentVersionNotFound)
+	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotFound)
 }
 
 // TestGetMachineReportedAgentVersion is a happy path test of
@@ -489,8 +488,8 @@ func (s *suite) TestGetMachineReportedAgentVersion(c *tc.C) {
 
 	svc := NewService(s.state)
 	ver, err := svc.GetMachineReportedAgentVersion(context.Background(), machineName)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(ver, jc.DeepEquals, coreagentbinary.Version{
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(ver, tc.DeepEquals, coreagentbinary.Version{
 		Number: semversion.MustParse("4.1.1"),
 		Arch:   corearch.ARM64,
 	})
@@ -510,7 +509,7 @@ func (s *suite) TestGetUnitReportedAgentVersionUnitNotFound(c *tc.C) {
 
 	svc := NewService(s.state)
 	_, err := svc.GetUnitReportedAgentVersion(context.Background(), unitName)
-	c.Check(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 
 	// Section test of UnitNotFound when using the uuid to fetch the running
 	// version.
@@ -521,7 +520,7 @@ func (s *suite) TestGetUnitReportedAgentVersionUnitNotFound(c *tc.C) {
 	)
 
 	_, err = svc.GetUnitReportedAgentVersion(context.Background(), unitName)
-	c.Check(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 // TestGetUnitReportedAgentVersionAgentVersionNotFound asserts that if we ask
@@ -540,7 +539,7 @@ func (s *suite) TestGetUnitReportedAgentVersionAgentVersionNotFound(c *tc.C) {
 
 	svc := NewService(s.state)
 	_, err := svc.GetUnitReportedAgentVersion(context.Background(), unitName)
-	c.Check(err, jc.ErrorIs, modelagenterrors.AgentVersionNotFound)
+	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotFound)
 }
 
 // TestGetUnitReportedAgentVersion is a happy path test of
@@ -561,8 +560,8 @@ func (s *suite) TestGetUnitReportedAgentVersion(c *tc.C) {
 
 	svc := NewService(s.state)
 	ver, err := svc.GetUnitReportedAgentVersion(context.Background(), unitName)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(ver, jc.DeepEquals, coreagentbinary.Version{
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(ver, tc.DeepEquals, coreagentbinary.Version{
 		Number: semversion.MustParse("4.1.1"),
 		Arch:   corearch.ARM64,
 	})
@@ -578,7 +577,7 @@ func (s *suite) TestGetMachinesReportedAgentVersionAgentVersionNotSet(c *tc.C) {
 	)
 	svc := NewService(s.state)
 	_, err := svc.GetMachinesAgentBinaryMetadata(context.Background())
-	c.Check(err, jc.ErrorIs, modelagenterrors.AgentVersionNotSet)
+	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotSet)
 }
 
 // TestGetMachinesReportedAgentVersionMissingAgentBinaries asserts error pass
@@ -591,7 +590,7 @@ func (s *suite) TestGetMachinesReportedAgentVersionMissingAgentBinaries(c *tc.C)
 	)
 	svc := NewService(s.state)
 	_, err := svc.GetMachinesAgentBinaryMetadata(context.Background())
-	c.Check(err, jc.ErrorIs, modelagenterrors.MissingAgentBinaries)
+	c.Check(err, tc.ErrorIs, modelagenterrors.MissingAgentBinaries)
 }
 
 // TestGetUnitReportedAgentVersionAgentVersionNotSet asserts error pass
@@ -604,7 +603,7 @@ func (s *suite) TestGetUnitReportedAgentVersionAgentVersionNotSet(c *tc.C) {
 	)
 	svc := NewService(s.state)
 	_, err := svc.GetUnitsAgentBinaryMetadata(context.Background())
-	c.Check(err, jc.ErrorIs, modelagenterrors.AgentVersionNotSet)
+	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotSet)
 }
 
 // TestGetUnitReportedAgentVersionMissingAgentBinaries asserts error pass
@@ -617,7 +616,7 @@ func (s *suite) TestGetUnitReportedAgentVersionMissingAgentBinaries(c *tc.C) {
 	)
 	svc := NewService(s.state)
 	_, err := svc.GetUnitsAgentBinaryMetadata(context.Background())
-	c.Check(err, jc.ErrorIs, modelagenterrors.MissingAgentBinaries)
+	c.Check(err, tc.ErrorIs, modelagenterrors.MissingAgentBinaries)
 }
 
 // TestSetAgentStreamNotValidAgentStream is testing that if we supply an
@@ -633,7 +632,7 @@ func (s *suite) TestSetAgentStreamNotValidAgentStream(c *tc.C) {
 		context.Background(),
 		agentStream,
 	)
-	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 // TestSetAgentStream is testing the happy path of setting the model's agent
@@ -650,5 +649,5 @@ func (s *suite) TestSetAgentStream(c *tc.C) {
 		context.Background(),
 		coreagentbinary.AgentStreamTesting,
 	)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }

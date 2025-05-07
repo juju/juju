@@ -9,7 +9,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coresecrets "github.com/juju/juju/core/secrets"
@@ -34,12 +33,12 @@ func (s *backendSuite) TestSaveContent(c *tc.C) {
 
 	backends := set.NewStrings("somebackend1", "somebackend2")
 	s.PatchValue(&secrets.GetBackend, func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
-		c.Assert(backends.Contains(cfg.BackendType), jc.IsTrue)
+		c.Assert(backends.Contains(cfg.BackendType), tc.IsTrue)
 		return backend, nil
 	})
 
 	client, err := secrets.NewClient(jujuapi)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	jujuapi.EXPECT().GetSecretBackendConfig(gomock.Any(), nil).Return(&provider.ModelBackendConfigInfo{
 		ActiveID: "backend-id2",
@@ -64,8 +63,8 @@ func (s *backendSuite) TestSaveContent(c *tc.C) {
 	backend.EXPECT().SaveContent(gomock.Any(), uri, 666, secretValue).Return("rev-id", nil)
 
 	val, err := client.SaveContent(context.Background(), uri, 666, secretValue)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(val, jc.DeepEquals, coresecrets.ValueRef{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(val, tc.DeepEquals, coresecrets.ValueRef{
 		BackendID:  "backend-id2",
 		RevisionID: "rev-id",
 	})
@@ -80,12 +79,12 @@ func (s *backendSuite) TestGetContent(c *tc.C) {
 
 	backends := set.NewStrings("somebackend1", "somebackend2")
 	s.PatchValue(&secrets.GetBackend, func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
-		c.Assert(backends.Contains(cfg.BackendType), jc.IsTrue)
+		c.Assert(backends.Contains(cfg.BackendType), tc.IsTrue)
 		return backend, nil
 	})
 
 	client, err := secrets.NewClient(jujuapi)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	uri := coresecrets.NewURI()
 	jujuapi.EXPECT().GetContentInfo(gomock.Any(), uri, "label", true, false).Return(&secrets.ContentParams{
@@ -103,8 +102,8 @@ func (s *backendSuite) TestGetContent(c *tc.C) {
 	backend.EXPECT().GetContent(gomock.Any(), "rev-id").Return(secretValue, nil)
 
 	val, err := client.GetContent(context.Background(), uri, "label", true, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(val, jc.DeepEquals, secretValue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(val, tc.DeepEquals, secretValue)
 }
 
 func (s *backendSuite) TestGetContentSecretDrained(c *tc.C) {
@@ -116,12 +115,12 @@ func (s *backendSuite) TestGetContentSecretDrained(c *tc.C) {
 
 	backends := set.NewStrings("somebackend1", "somebackend2", "somebackend3")
 	s.PatchValue(&secrets.GetBackend, func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
-		c.Assert(backends.Contains(cfg.BackendType), jc.IsTrue)
+		c.Assert(backends.Contains(cfg.BackendType), tc.IsTrue)
 		return backend, nil
 	})
 
 	client, err := secrets.NewClient(jujuapi)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	uri := coresecrets.NewURI()
 	secretValue := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
@@ -171,8 +170,8 @@ func (s *backendSuite) TestGetContentSecretDrained(c *tc.C) {
 	)
 
 	val, err := client.GetContent(context.Background(), uri, "label", true, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(val, jc.DeepEquals, secretValue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(val, tc.DeepEquals, secretValue)
 }
 
 func (s *backendSuite) TestDeleteContent(c *tc.C) {
@@ -184,12 +183,12 @@ func (s *backendSuite) TestDeleteContent(c *tc.C) {
 
 	backends := set.NewStrings("somebackend1", "somebackend2")
 	s.PatchValue(&secrets.GetBackend, func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
-		c.Assert(backends.Contains(cfg.BackendType), jc.IsTrue)
+		c.Assert(backends.Contains(cfg.BackendType), tc.IsTrue)
 		return backend, nil
 	})
 
 	client, err := secrets.NewClient(jujuapi)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	uri := coresecrets.NewURI()
 	jujuapi.EXPECT().GetRevisionContentInfo(gomock.Any(), uri, 666, true).Return(&secrets.ContentParams{
@@ -207,7 +206,7 @@ func (s *backendSuite) TestDeleteContent(c *tc.C) {
 	backend.EXPECT().DeleteContent(gomock.Any(), "rev-id").Return(nil)
 
 	err = client.DeleteContent(context.Background(), uri, 666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *backendSuite) TestDeleteContentDrained(c *tc.C) {
@@ -219,12 +218,12 @@ func (s *backendSuite) TestDeleteContentDrained(c *tc.C) {
 
 	backends := set.NewStrings("somebackend1", "somebackend2", "somebackend3")
 	s.PatchValue(&secrets.GetBackend, func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
-		c.Assert(backends.Contains(cfg.BackendType), jc.IsTrue)
+		c.Assert(backends.Contains(cfg.BackendType), tc.IsTrue)
 		return backend, nil
 	})
 
 	client, err := secrets.NewClient(jujuapi)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	uri := coresecrets.NewURI()
 	gomock.InOrder(
@@ -271,7 +270,7 @@ func (s *backendSuite) TestDeleteContentDrained(c *tc.C) {
 	)
 
 	err = client.DeleteContent(context.Background(), uri, 666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *backendSuite) TestGetBackend(c *tc.C) {
@@ -284,7 +283,7 @@ func (s *backendSuite) TestGetBackend(c *tc.C) {
 	backends := set.NewStrings("somebackend1", "somebackend2", "somebackend3")
 	called := 0
 	s.PatchValue(&secrets.GetBackend, func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
-		c.Assert(backends.Contains(cfg.BackendType), jc.IsTrue)
+		c.Assert(backends.Contains(cfg.BackendType), tc.IsTrue)
 		called++
 		if called == 1 {
 			c.Assert(cfg.BackendType, tc.Equals, "somebackend2")
@@ -295,7 +294,7 @@ func (s *backendSuite) TestGetBackend(c *tc.C) {
 	})
 
 	client, err := secrets.NewClient(jujuapi)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	backendID := "backend-id1"
 
 	gomock.InOrder(
@@ -343,17 +342,17 @@ func (s *backendSuite) TestGetBackend(c *tc.C) {
 		),
 	)
 	result, activeBackendID, err := client.GetBackend(context.Background(), nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(activeBackendID, tc.Equals, "backend-id2")
 	c.Assert(result, tc.Equals, backend)
 
 	result, activeBackendID, err = client.GetBackend(context.Background(), &backendID, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(activeBackendID, tc.Equals, "backend-id2")
 	c.Assert(result, tc.Equals, backend)
 
 	result, activeBackendID, err = client.GetBackend(context.Background(), &backendID, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(activeBackendID, tc.Equals, "backend-id1")
 	c.Assert(result, tc.Equals, backend)
 }
@@ -367,12 +366,12 @@ func (s *backendSuite) TestGetRevisionContent(c *tc.C) {
 
 	backends := set.NewStrings("somebackend1", "somebackend2", "somebackend3")
 	s.PatchValue(&secrets.GetBackend, func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
-		c.Assert(backends.Contains(cfg.BackendType), jc.IsTrue)
+		c.Assert(backends.Contains(cfg.BackendType), tc.IsTrue)
 		return backend, nil
 	})
 
 	client, err := secrets.NewClient(jujuapi)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	uri := coresecrets.NewURI()
 	secretValue := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
@@ -409,7 +408,7 @@ func (s *backendSuite) TestGetRevisionContent(c *tc.C) {
 	)
 
 	val, err := client.GetRevisionContent(context.Background(), uri, 666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(val, tc.Equals, secretValue)
 }
 

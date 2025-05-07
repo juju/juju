@@ -8,7 +8,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
@@ -66,7 +65,7 @@ func (s *keyUpdaterSuite) SetUpTest(c *tc.C) {
 		false,
 		s.userID,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cloudName := "test"
 	fn := cloudbootstrap.InsertCloud(user.AdminUserName, cloud.Cloud{
@@ -76,7 +75,7 @@ func (s *keyUpdaterSuite) SetUpTest(c *tc.C) {
 	})
 
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	credentialName := "test"
 	fn = credentialbootstrap.InsertCredential(credential.Key{
@@ -88,7 +87,7 @@ func (s *keyUpdaterSuite) SetUpTest(c *tc.C) {
 	)
 
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	testing.CreateInternalSecretBackend(c, s.ControllerTxnRunner())
 
@@ -106,11 +105,11 @@ func (s *keyUpdaterSuite) SetUpTest(c *tc.C) {
 	s.modelID = modelUUID
 
 	err = modelFn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = modelbootstrap.CreateLocalModelRecord(modelUUID, uuid.MustNewUUID(), jujuversion.Current)(
 		context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.createMachine(c, "0")
 }
@@ -139,7 +138,7 @@ func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *tc.C) {
 	)
 
 	watcher, err := svc.WatchAuthorisedKeysForMachine(ctx, machine.Name("0"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	keyManagerSt := keymanagerstate.NewState(s.ControllerSuite.TxnRunnerFactory())
 	keyManagerSvc := keymanagerservice.NewService(s.modelID, keyManagerSt)
@@ -153,7 +152,7 @@ func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *tc.C) {
 			"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC one@juju.is",
 			"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe two@juju.is",
 		)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
@@ -164,7 +163,7 @@ func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *tc.C) {
 			s.userID,
 			"one@juju.is",
 		)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
@@ -175,14 +174,14 @@ func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *tc.C) {
 
 	harness.AddTest(func(c *tc.C) {
 		err = userSvc.DisableUserAuthentication(ctx, user.AdminUserName)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 
 	harness.AddTest(func(c *tc.C) {
 		keys, err := svc.GetAuthorisedKeysForMachine(ctx, machine.Name("0"))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(len(keys), tc.Equals, 0)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
@@ -190,15 +189,15 @@ func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *tc.C) {
 
 	harness.AddTest(func(c *tc.C) {
 		err = userSvc.EnableUserAuthentication(ctx, user.AdminUserName)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 
 	harness.AddTest(func(c *tc.C) {
 		keys, err := svc.GetAuthorisedKeysForMachine(ctx, machine.Name("0"))
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(keys, jc.DeepEquals, []string{
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(keys, tc.DeepEquals, []string{
 			"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe two@juju.is",
 		})
 	}, func(w watchertest.WatcherC[struct{}]) {
@@ -207,14 +206,14 @@ func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *tc.C) {
 
 	harness.AddTest(func(c *tc.C) {
 		err = userSvc.RemoveUser(ctx, user.AdminUserName)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 
 	harness.AddTest(func(c *tc.C) {
 		keys, err := svc.GetAuthorisedKeysForMachine(ctx, machine.Name("0"))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(len(keys), tc.Equals, 0)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
@@ -225,9 +224,9 @@ func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *tc.C) {
 
 func (s *keyUpdaterSuite) createMachine(c *tc.C, machineId machine.Name) {
 	nodeUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	machineUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	query := `
 INSERT INTO machine (*)
@@ -241,11 +240,11 @@ VALUES ($createMachine.*)
 	}
 
 	createMachineStmt, err := sqlair.Prepare(query, machine)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	createNode := `INSERT INTO net_node (uuid) VALUES ($createMachine.net_node_uuid)`
 	createNodeStmt, err := sqlair.Prepare(createNode, machine)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.ModelTxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, createNodeStmt, machine).Run(); err != nil {
@@ -257,7 +256,7 @@ VALUES ($createMachine.*)
 		return nil
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type createMachine struct {

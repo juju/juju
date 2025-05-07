@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 
@@ -28,7 +27,7 @@ type fixture struct {
 
 func newFixture(c *tc.C, errs ...error) *fixture {
 	fix := &fixture{}
-	c.Assert(nil, jc.ErrorIsNil)
+	c.Assert(nil, tc.ErrorIsNil)
 	fix.SetErrors(errs...)
 	return fix
 }
@@ -47,7 +46,7 @@ func (fix *fixture) Run(c *tc.C, test func(worker.Worker)) {
 	}
 
 	w, err := retrystrategy.NewRetryStrategyWorker(stubConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	done := make(chan struct{})
 	go func() {
 		defer close(done)

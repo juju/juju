@@ -6,7 +6,6 @@ package apiserver_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/internal/testing"
@@ -29,7 +28,7 @@ func (r *restrictedRootSuite) SetUpTest(c *tc.C) {
 
 func (r *restrictedRootSuite) TestAllowedMethod(c *tc.C) {
 	caller, err := r.root.FindMethod("Client", 8, "FullStatus")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(caller, tc.NotNil)
 }
 

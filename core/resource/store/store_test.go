@@ -6,7 +6,6 @@ package store_test
 import (
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/core/resource/store"
@@ -22,10 +21,10 @@ var _ = tc.Suite(&resourcesStoreSuite{})
 func (*resourcesStoreSuite) TestFileResourceStoreID(c *tc.C) {
 	expectedUUID := objectstoretesting.GenObjectStoreUUID(c)
 	storeID, err := store.NewFileResourceID(expectedUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	uuid, err := storeID.ObjectStoreUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(uuid, tc.Equals, expectedUUID)
 
 	_, err = storeID.ContainerImageMetadataStoreID()
@@ -35,10 +34,10 @@ func (*resourcesStoreSuite) TestFileResourceStoreID(c *tc.C) {
 func (*resourcesStoreSuite) TestContainerImageMetadataResourceID(c *tc.C) {
 	expectedID := "test-id"
 	storeID, err := store.NewContainerImageMetadataResourceID(expectedID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	id, err := storeID.ContainerImageMetadataStoreID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(id, tc.Equals, expectedID)
 
 	_, err = storeID.ObjectStoreUUID()

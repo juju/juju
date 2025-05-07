@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -72,7 +71,7 @@ func (s *ResolvedSuite) TestResolved(c *tc.C) {
 			c.Assert(err, tc.ErrorMatches, t.err)
 			continue
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
 		s.mockAPI.CheckCallNames(c, "ResolveUnitErrors", "Close")
 		s.mockAPI.CheckCall(c, 0, "ResolveUnitErrors", t.units, t.all, t.retry)

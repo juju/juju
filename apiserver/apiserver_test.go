@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/apiserver"
@@ -34,10 +33,10 @@ func (s *apiserverSuite) getHealth(c *tc.C) (string, int) {
 	uri := s.URL("/health", url.Values{}).String()
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
 	body, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result := string(body)
 	// Ensure that the last value is a carriage return.
-	c.Assert(strings.HasSuffix(result, "\n"), jc.IsTrue)
+	c.Assert(strings.HasSuffix(result, "\n"), tc.IsTrue)
 	return strings.TrimSuffix(result, "\n"), resp.StatusCode
 }
 

@@ -6,7 +6,6 @@ package jujuc_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/cmd"
@@ -75,7 +74,7 @@ func (s *PortsSuite) TestOpenClose(c *tc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	for _, t := range portsTests {
 		com, err := jujuc.NewCommand(hctx, t.cmd[0])
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.cmd[1:])
 		c.Check(code, tc.Equals, 0)
@@ -99,7 +98,7 @@ func (s *PortsSuite) TestOpenCloseDeprecation(c *tc.C) {
 	for _, t := range portsFormatDeprecationTests {
 		name := t.cmd[0]
 		com, err := jujuc.NewCommand(hctx, name)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.cmd[1:])
 		c.Assert(code, tc.Equals, 0)

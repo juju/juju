@@ -3,10 +3,7 @@
 
 package instance
 
-import (
-	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
-)
+import "github.com/juju/tc"
 
 type VirtTypeSuite struct{}
 
@@ -34,7 +31,7 @@ func (s *VirtTypeSuite) TestParseVirtType(c *tc.C) {
 		c.Logf("test %d: %s", i, t.arg)
 		v, err := ParseVirtType(t.arg)
 		if t.err == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			c.Check(v, tc.Equals, t.value)
 		} else {
 			c.Check(err, tc.ErrorMatches, t.err)

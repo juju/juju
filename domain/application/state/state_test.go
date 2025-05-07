@@ -9,7 +9,6 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
@@ -30,7 +29,7 @@ func (s *stateSuite) TestCheckApplicationNameAvailable(c *tc.C) {
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return st.checkApplicationNameAvailable(ctx, tx, "foo")
 	})
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationAlreadyExists)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationAlreadyExists)
 }
 
 func (s *stateSuite) TestCheckApplicationNameAvailableNoApplication(c *tc.C) {
@@ -39,7 +38,7 @@ func (s *stateSuite) TestCheckApplicationNameAvailableNoApplication(c *tc.C) {
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return st.checkApplicationNameAvailable(ctx, tx, "foo")
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *stateSuite) TestCheckApplication(c *tc.C) {
@@ -50,7 +49,7 @@ func (s *stateSuite) TestCheckApplication(c *tc.C) {
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return st.checkApplicationNotDead(ctx, tx, id)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *stateSuite) TestCheckApplicationExistsNotFound(c *tc.C) {
@@ -59,7 +58,7 @@ func (s *stateSuite) TestCheckApplicationExistsNotFound(c *tc.C) {
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return st.checkApplicationNotDead(ctx, tx, "foo")
 	})
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *stateSuite) TestCheckApplicationDying(c *tc.C) {
@@ -70,7 +69,7 @@ func (s *stateSuite) TestCheckApplicationDying(c *tc.C) {
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return st.checkApplicationNotDead(ctx, tx, id)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *stateSuite) TestCheckApplicationExistsDead(c *tc.C) {
@@ -81,7 +80,7 @@ func (s *stateSuite) TestCheckApplicationExistsDead(c *tc.C) {
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return st.checkApplicationNotDead(ctx, tx, id)
 	})
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationIsDead)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationIsDead)
 }
 
 func (s *stateSuite) TestCheckApplicationExistsAlive(c *tc.C) {
@@ -92,5 +91,5 @@ func (s *stateSuite) TestCheckApplicationExistsAlive(c *tc.C) {
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return st.checkApplicationAlive(ctx, tx, id)
 	})
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotAlive)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)
 }

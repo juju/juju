@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/unit"
@@ -35,7 +34,7 @@ func (s *migrationServiceSuite) TestGetAllUnitPasswordHashes(c *tc.C) {
 
 	service := NewMigrationService(s.state)
 	result, err := service.GetAllUnitPasswordHashes(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, hashes)
 }
 
@@ -60,7 +59,7 @@ func (s *migrationServiceSuite) TestSetUnitPasswordHash(c *tc.C) {
 
 	unitName := unit.Name("unit/0")
 	rand, err := internalpassword.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	passwordHash := agentpassword.PasswordHash(rand)
 
@@ -69,7 +68,7 @@ func (s *migrationServiceSuite) TestSetUnitPasswordHash(c *tc.C) {
 
 	service := NewMigrationService(s.state)
 	err = service.SetUnitPasswordHash(context.Background(), unitName, passwordHash)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *migrationServiceSuite) TestSetUnitPasswordHashNotFound(c *tc.C) {
@@ -79,7 +78,7 @@ func (s *migrationServiceSuite) TestSetUnitPasswordHashNotFound(c *tc.C) {
 
 	unitName := unit.Name("unit/0")
 	rand, err := internalpassword.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	passwordHash := agentpassword.PasswordHash(rand)
 
@@ -87,7 +86,7 @@ func (s *migrationServiceSuite) TestSetUnitPasswordHashNotFound(c *tc.C) {
 
 	service := NewMigrationService(s.state)
 	err = service.SetUnitPasswordHash(context.Background(), unitName, passwordHash)
-	c.Assert(err, jc.ErrorIs, agentpassworderrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, agentpassworderrors.UnitNotFound)
 }
 
 func (s *migrationServiceSuite) TestSetUnitPasswordHashSettingError(c *tc.C) {
@@ -97,7 +96,7 @@ func (s *migrationServiceSuite) TestSetUnitPasswordHashSettingError(c *tc.C) {
 
 	unitName := unit.Name("unit/0")
 	rand, err := internalpassword.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	passwordHash := agentpassword.PasswordHash(rand)
 

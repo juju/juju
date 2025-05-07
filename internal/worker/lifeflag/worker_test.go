@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 
 	apilifeflag "github.com/juju/juju/api/controller/lifeflag"
@@ -35,7 +34,7 @@ func (*WorkerSuite) TestCreateNotFoundError(c *tc.C) {
 
 	worker, err := lifeflag.New(context.Background(), config)
 	c.Check(worker, tc.IsNil)
-	c.Check(err, jc.ErrorIs, apilifeflag.ErrEntityNotFound)
+	c.Check(err, tc.ErrorIs, apilifeflag.ErrEntityNotFound)
 	checkCalls(c, stub, "Life")
 }
 
@@ -64,11 +63,11 @@ func (*WorkerSuite) TestWatchNotFoundError(c *tc.C) {
 	}
 
 	worker, err := lifeflag.New(context.Background(), config)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(worker.Check(), jc.IsFalse)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(worker.Check(), tc.IsFalse)
 
 	err = workertest.CheckKilled(c, worker)
-	c.Check(err, jc.ErrorIs, apilifeflag.ErrEntityNotFound)
+	c.Check(err, tc.ErrorIs, apilifeflag.ErrEntityNotFound)
 	checkCalls(c, stub, "Life", "Watch")
 }
 
@@ -82,8 +81,8 @@ func (*WorkerSuite) TestWatchRandomError(c *tc.C) {
 	}
 
 	worker, err := lifeflag.New(context.Background(), config)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(worker.Check(), jc.IsFalse)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(worker.Check(), tc.IsFalse)
 
 	err = workertest.CheckKilled(c, worker)
 	c.Check(err, tc.ErrorMatches, "pew pew")
@@ -100,11 +99,11 @@ func (*WorkerSuite) TestLifeNotFoundError(c *tc.C) {
 	}
 
 	worker, err := lifeflag.New(context.Background(), config)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(worker.Check(), jc.IsFalse)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(worker.Check(), tc.IsFalse)
 
 	err = workertest.CheckKilled(c, worker)
-	c.Check(err, jc.ErrorIs, apilifeflag.ErrEntityNotFound)
+	c.Check(err, tc.ErrorIs, apilifeflag.ErrEntityNotFound)
 	checkCalls(c, stub, "Life", "Watch", "Life")
 }
 
@@ -118,8 +117,8 @@ func (*WorkerSuite) TestLifeRandomError(c *tc.C) {
 	}
 
 	worker, err := lifeflag.New(context.Background(), config)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(worker.Check(), jc.IsFalse)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(worker.Check(), tc.IsFalse)
 
 	err = workertest.CheckKilled(c, worker)
 	c.Check(err, tc.ErrorMatches, "rawr")
@@ -135,8 +134,8 @@ func (*WorkerSuite) TestResultImmediateRealChange(c *tc.C) {
 	}
 
 	worker, err := lifeflag.New(context.Background(), config)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(worker.Check(), jc.IsFalse)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(worker.Check(), tc.IsFalse)
 
 	err = workertest.CheckKilled(c, worker)
 	c.Check(err, tc.Equals, lifeflag.ErrValueChanged)
@@ -151,8 +150,8 @@ func (*WorkerSuite) TestResultSubsequentRealChange(c *tc.C) {
 		Result: life.IsNotDead,
 	}
 	worker, err := lifeflag.New(context.Background(), config)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(worker.Check(), jc.IsTrue)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(worker.Check(), tc.IsTrue)
 
 	err = workertest.CheckKilled(c, worker)
 	c.Check(err, tc.Equals, lifeflag.ErrValueChanged)
@@ -167,8 +166,8 @@ func (*WorkerSuite) TestResultNoRealChange(c *tc.C) {
 		Result: life.IsNotDead,
 	}
 	worker, err := lifeflag.New(context.Background(), config)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(worker.Check(), jc.IsTrue)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(worker.Check(), tc.IsTrue)
 
 	workertest.CheckAlive(c, worker)
 	workertest.CleanKill(c, worker)

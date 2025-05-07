@@ -6,7 +6,6 @@ package engine_test
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/agent/engine"
@@ -38,7 +37,7 @@ func (*FlagSuite) TestFlagOutputSuccess(c *tc.C) {
 	in := &stubFlagWorker{}
 	var out engine.Flag
 	err := engine.FlagOutput(in, &out)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(out, tc.Equals, in)
 }
 

@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	applicationtesting "github.com/juju/juju/core/application/testing"
@@ -64,7 +63,7 @@ func (s *leaderServiceSuite) TestSetRelationStatus(c *tc.C) {
 	err := s.service.SetRelationStatus(context.Background(), unitName, relationUUID, sts)
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *leaderServiceSuite) TestSetRelationStatusRelationNotFound(c *tc.C) {
@@ -92,7 +91,7 @@ func (s *leaderServiceSuite) TestSetRelationStatusRelationNotFound(c *tc.C) {
 	err := s.service.SetRelationStatus(context.Background(), unitName, relationUUID, sts)
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, statuserrors.RelationNotFound)
+	c.Assert(err, tc.ErrorIs, statuserrors.RelationNotFound)
 }
 
 func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeader(c *tc.C) {
@@ -122,7 +121,7 @@ func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeader(c *tc.C) {
 		Data:    map[string]interface{}{"foo": "bar"},
 		Since:   &now,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeaderNotLeader(c *tc.C) {
@@ -146,7 +145,7 @@ func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeaderNotLeader(c *t
 		Data:    map[string]interface{}{"foo": "bar"},
 		Since:   &now,
 	})
-	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotLeader)
+	c.Assert(err, tc.ErrorIs, statuserrors.UnitNotLeader)
 }
 
 func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeaderInvalidUnitName(c *tc.C) {
@@ -161,7 +160,7 @@ func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeaderInvalidUnitNam
 		Data:    map[string]interface{}{"foo": "bar"},
 		Since:   &now,
 	})
-	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
+	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
 }
 
 func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeaderNoUnitFound(c *tc.C) {
@@ -181,7 +180,7 @@ func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeaderNoUnitFound(c 
 		Data:    map[string]interface{}{"foo": "bar"},
 		Since:   &now,
 	})
-	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, statuserrors.UnitNotFound)
 }
 
 func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderNotLeader(c *tc.C) {
@@ -198,14 +197,14 @@ func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderN
 		})
 
 	_, _, err := s.service.GetApplicationAndUnitStatusesForUnitWithLeader(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotLeader)
+	c.Assert(err, tc.ErrorIs, statuserrors.UnitNotLeader)
 }
 
 func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderInvalidUnitName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, _, err := s.service.GetApplicationAndUnitStatusesForUnitWithLeader(context.Background(), coreunit.Name("!!!"))
-	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
+	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
 }
 
 func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderNoApplication(c *tc.C) {
@@ -215,7 +214,7 @@ func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderN
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("", statuserrors.ApplicationNotFound)
 	_, _, err := s.service.GetApplicationAndUnitStatusesForUnitWithLeader(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIs, statuserrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, statuserrors.ApplicationNotFound)
 }
 
 func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderApplicationStatusSet(c *tc.C) {
@@ -269,14 +268,14 @@ func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderA
 		}, nil)
 
 	applicationStatus, unitWorkloadStatuses, err := s.service.GetApplicationAndUnitStatusesForUnitWithLeader(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(applicationStatus, jc.DeepEquals, corestatus.StatusInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(applicationStatus, tc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
 		Since:   &now,
 	})
-	c.Check(unitWorkloadStatuses, jc.DeepEquals, map[coreunit.Name]corestatus.StatusInfo{
+	c.Check(unitWorkloadStatuses, tc.DeepEquals, map[coreunit.Name]corestatus.StatusInfo{
 		"foo/0": {
 			Status:  corestatus.Active,
 			Message: "boink",
@@ -352,14 +351,14 @@ func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderA
 		}, nil)
 
 	applicationStatus, unitWorkloadStatuses, err := s.service.GetApplicationAndUnitStatusesForUnitWithLeader(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(applicationStatus, jc.DeepEquals, corestatus.StatusInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(applicationStatus, tc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Blocked,
 		Message: "zoink",
 		Data:    map[string]interface{}{"foo": "baz"},
 		Since:   &now,
 	})
-	c.Check(unitWorkloadStatuses, jc.DeepEquals, map[coreunit.Name]corestatus.StatusInfo{
+	c.Check(unitWorkloadStatuses, tc.DeepEquals, map[coreunit.Name]corestatus.StatusInfo{
 		"foo/0": {
 			Status:  corestatus.Active,
 			Message: "boink",

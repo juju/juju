@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
@@ -52,7 +51,7 @@ func (s *modelConfigSuite) SetUpTest(c *tc.C) {
 	controllerUUID := s.SeedControllerUUID(c)
 
 	userID, err := coreuser.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	accessState := accessstate.NewState(s.ControllerSuite.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err = accessState.AddUserWithPermission(
 		context.Background(), userID,
@@ -68,7 +67,7 @@ func (s *modelConfigSuite) SetUpTest(c *tc.C) {
 			},
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cloudName := "test"
 	fn := cloudbootstrap.InsertCloud(coreuser.AdminUserName, cloud.Cloud{
@@ -78,7 +77,7 @@ func (s *modelConfigSuite) SetUpTest(c *tc.C) {
 	})
 
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	credentialName := "test"
 	fn = credentialbootstrap.InsertCredential(credential.Key{
@@ -90,7 +89,7 @@ func (s *modelConfigSuite) SetUpTest(c *tc.C) {
 	)
 
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	testing.CreateInternalSecretBackend(c, s.ControllerTxnRunner())
 
@@ -108,11 +107,11 @@ func (s *modelConfigSuite) SetUpTest(c *tc.C) {
 	s.modelID = modelUUID
 
 	err = modelFn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = modelbootstrap.CreateLocalModelRecord(modelUUID, uuid.MustNewUUID(), jujuversion.Current)(
 		context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *modelConfigSuite) TestWatchModelConfig(c *tc.C) {
@@ -141,10 +140,10 @@ func (s *modelConfigSuite) TestWatchModelConfig(c *tc.C) {
 	svc := service.NewWatchableService(defaults, config.ModelValidator(), st, factory)
 
 	watcher, err := svc.Watch()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = bootstrap.SetModelConfig(s.modelID, attrs, defaults)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	w := watchertest.NewStringsWatcherC(c, watcher)
 
@@ -159,7 +158,7 @@ func (s *modelConfigSuite) TestWatchModelConfig(c *tc.C) {
 	attrs["logging-config"] = "<root>=WARNING"
 
 	err = svc.SetModelConfig(ctx, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.ModelSuite.AssertChangeStreamIdle(c)
 

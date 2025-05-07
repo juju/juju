@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
@@ -95,7 +94,7 @@ func (s *uniterLegacySuite) TestLife(c *tc.C) {
 		// {Tag: "relation-blah"},
 	}}
 	result, err := s.uniter.Life(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Error: apiservertesting.ErrUnauthorized},
@@ -134,7 +133,7 @@ func (s *uniterLegacySuite) TestWatch(c *tc.C) {
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("2", nil)
 	result, err := uniterAPI.Watch(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			{Error: apiservertesting.ErrUnauthorized},
@@ -150,7 +149,7 @@ func (s *uniterLegacySuite) TestWatch(c *tc.C) {
 func (s *uniterLegacySuite) TestWatchNoArgsNoError(c *tc.C) {
 	uniterAPI := s.newUniterAPIv19(c, s.ControllerModel(c).State(), s.authorizer)
 	result, err := uniterAPI.Watch(context.Background(), params.Entities{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 0)
 }
 
@@ -161,7 +160,7 @@ func (s *uniterLegacySuite) TestApplicationWatch(c *tc.C) {
 	args := params.Entity{Tag: "application-wordpress"}
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
 	result, err := uniterAPI.WatchApplication(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{
 		NotifyWatcherId: "1",
 	})
@@ -170,8 +169,8 @@ func (s *uniterLegacySuite) TestApplicationWatch(c *tc.C) {
 func (s *uniterLegacySuite) TestWatchApplicationBadTag(c *tc.C) {
 	uniterAPI := s.newUniterAPI(c, s.ControllerModel(c).State(), s.authorizer)
 	result, err := uniterAPI.WatchApplication(context.Background(), params.Entity{Tag: "bad-tag"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.NotifyWatchResult{Error: &params.Error{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{Error: &params.Error{
 		Code:    params.CodeUnauthorized,
 		Message: "permission denied",
 	}})
@@ -182,8 +181,8 @@ func (s *uniterLegacySuite) TestWatchApplicationNoPermission(c *tc.C) {
 	// Permissions for mysql will be denied by the accessApplication function
 	// defined in test set up.
 	result, err := uniterAPI.WatchApplication(context.Background(), params.Entity{Tag: "application-mysql"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.NotifyWatchResult{Error: &params.Error{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{Error: &params.Error{
 		Code:    params.CodeUnauthorized,
 		Message: "permission denied",
 	}})
@@ -196,7 +195,7 @@ func (s *uniterLegacySuite) TestUnitWatch(c *tc.C) {
 	args := params.Entity{Tag: "unit-wordpress-0"}
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
 	result, err := uniterAPI.WatchUnit(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{
 		NotifyWatcherId: "1",
 	})
@@ -205,8 +204,8 @@ func (s *uniterLegacySuite) TestUnitWatch(c *tc.C) {
 func (s *uniterLegacySuite) TestWatchUnitBadTag(c *tc.C) {
 	uniterAPI := s.newUniterAPI(c, s.ControllerModel(c).State(), s.authorizer)
 	result, err := uniterAPI.WatchUnit(context.Background(), params.Entity{Tag: "bad-tag"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.NotifyWatchResult{Error: &params.Error{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{Error: &params.Error{
 		Code:    params.CodeUnauthorized,
 		Message: "permission denied",
 	}})
@@ -217,8 +216,8 @@ func (s *uniterLegacySuite) TestWatchUnitNoPermission(c *tc.C) {
 	// Permissions for mysql will be denied by the accessUnit function
 	// defined in test set up.
 	result, err := uniterAPI.WatchUnit(context.Background(), params.Entity{Tag: "unit-mysql-0"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.NotifyWatchResult{Error: &params.Error{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{Error: &params.Error{
 		Code:    params.CodeUnauthorized,
 		Message: "permission denied",
 	}})
@@ -296,7 +295,7 @@ func (s *uniterLegacySuite) TestWatchActionNotificationsMalformedTag(c *tc.C) {
 		{Tag: "ewenit-mysql-0"},
 	}}
 	results, err := s.uniter.WatchActionNotifications(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.NotNil)
 	c.Assert(len(results.Results), tc.Equals, 1)
 	result := results.Results[0]
@@ -309,7 +308,7 @@ func (s *uniterLegacySuite) TestWatchActionNotificationsMalformedUnitName(c *tc.
 		{Tag: "unit-mysql-01"},
 	}}
 	results, err := s.uniter.WatchActionNotifications(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.NotNil)
 	c.Assert(len(results.Results), tc.Equals, 1)
 	result := results.Results[0]
@@ -325,7 +324,7 @@ func (s *uniterLegacySuite) TestWatchActionNotificationsPermissionDenied(c *tc.C
 		{Tag: "unit-nonexistentgarbage-0"},
 	}}
 	results, err := s.uniter.WatchActionNotifications(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.NotNil)
 	c.Assert(len(results.Results), tc.Equals, 1)
 	result := results.Results[0]
@@ -338,9 +337,9 @@ func (s *uniterLegacySuite) TestConfigSettings(c *tc.C) {
 
 func (s *uniterLegacySuite) TestCurrentModel(c *tc.C) {
 	result, err := s.uniter.CurrentModel(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	modelInfo, err := s.ControllerDomainServices(c).ModelInfo().GetModelInfo(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := params.ModelResult{
 		Name: modelInfo.Name,
 		UUID: modelInfo.UUID.String(),
@@ -354,14 +353,14 @@ func (s *uniterLegacySuite) TestActions(c *tc.C) {
 
 func (s *uniterLegacySuite) TestActionsNotPresent(c *tc.C) {
 	uuid, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{
 			Tag: names.NewActionTag(uuid.String()).String(),
 		}},
 	}
 	results, err := s.uniter.Actions(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(results.Results, tc.HasLen, 1)
 	actionsQueryResult := results.Results[0]
@@ -395,10 +394,10 @@ func (s *uniterLegacySuite) TestBeginActions(c *tc.C) {
 
 func (s *uniterLegacySuite) TestProviderType(c *tc.C) {
 	modelInfo, err := s.ControllerDomainServices(c).ModelInfo().GetModelInfo(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := s.uniter.ProviderType(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.StringResult{Result: modelInfo.CloudType})
 }
 
@@ -427,14 +426,14 @@ func (s *uniterLegacySuite) TestAPIAddresses(c *tc.C) {
 	}
 
 	controllerConfig, err := s.controllerConfig(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	st := s.ControllerModel(c).State()
 	err = st.SetAPIHostPorts(controllerConfig, hostPorts, hostPorts)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := s.uniter.APIAddresses(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.StringsResult{
 		Result: []string{"0.1.2.3:1234"},
 	})
@@ -451,7 +450,7 @@ func (s *uniterLegacySuite) TestWatchUnitAddressesHash(c *tc.C) {
 		{Tag: "application-wordpress"},
 	}}
 	result, err := s.uniter.WatchUnitAddressesHash(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
 			{Error: apiservertesting.ErrUnauthorized},
@@ -495,7 +494,7 @@ func (s *uniterLegacySuite) TestWatchCAASUnitAddressesHash(c *tc.C) {
 	uniterAPI := s.newUniterAPI(c, cm.State(), s.authorizer)
 
 	result, err := uniterAPI.WatchUnitAddressesHash(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
 			{Error: apiservertesting.ErrUnauthorized},
@@ -527,28 +526,28 @@ func (s *uniterLegacySuite) TestStorageAttachments(c *tc.C) {
 
 func (s *uniterLegacySuite) TestOpenedMachinePortRangesByEndpoint(c *tc.C) {
 	_, err := s.machineService.CreateMachine(context.Background(), "0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.applicationService.AddUnits(context.Background(), "mysql", domainapplication.StorageParentDir,
 		applicationservice.AddUnitArg{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	wordpressUnitUUID, err := s.applicationService.GetUnitUUID(context.Background(), "wordpress/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	mysqlUnitUUID, err := s.applicationService.GetUnitUUID(context.Background(), "mysql/1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Open some ports on both units using different endpoints.
 	err = s.portService.UpdateUnitPorts(context.Background(), wordpressUnitUUID, network.GroupedPortRanges{
 		allEndpoints:      []network.PortRange{network.MustParsePortRange("100-200/tcp")},
 		"monitoring-port": []network.PortRange{network.MustParsePortRange("10-20/udp")},
 	}, network.GroupedPortRanges{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.portService.UpdateUnitPorts(context.Background(), mysqlUnitUUID, network.GroupedPortRanges{
 		"server": []network.PortRange{network.MustParsePortRange("3306/tcp")},
 	}, network.GroupedPortRanges{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Get the open port ranges
 	args := params.Entities{Entities: []params.Entity{
@@ -578,7 +577,7 @@ func (s *uniterLegacySuite) TestOpenedMachinePortRangesByEndpoint(c *tc.C) {
 		},
 	}
 	result, err := s.uniter.OpenedMachinePortRangesByEndpoint(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.OpenPortRangesByEndpointResults{
 		Results: []params.OpenPortRangesByEndpointResult{
 			{Error: apiservertesting.ErrUnauthorized},
@@ -633,19 +632,19 @@ func (s *uniterLegacySuite) TestRefresh(c *tc.C) {
 
 func (s *uniterLegacySuite) TestRefreshNoArgs(c *tc.C) {
 	results, err := s.uniter.Refresh(context.Background(), params.Entities{Entities: []params.Entity{}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.UnitRefreshResults{Results: []params.UnitRefreshResult{}})
 }
 
 func (s *uniterLegacySuite) TestOpenedPortRangesByEndpoint(c *tc.C) {
 	unitUUID, err := s.applicationService.GetUnitUUID(context.Background(), "mysql/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.portService.UpdateUnitPorts(context.Background(), unitUUID, network.GroupedPortRanges{
 		allEndpoints: []network.PortRange{network.MustParsePortRange("1000/tcp")},
 		"db":         []network.PortRange{network.MustParsePortRange("1111/udp")},
 	}, network.GroupedPortRanges{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Get the open port ranges
 	expectPortRanges := []params.OpenUnitPortRangesByEndpoint{
@@ -662,7 +661,7 @@ func (s *uniterLegacySuite) TestOpenedPortRangesByEndpoint(c *tc.C) {
 	uniterAPI := s.makeMysqlUniter(c)
 
 	result, err := uniterAPI.OpenedPortRangesByEndpoint(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.OpenPortRangesByEndpointResults{
 		Results: []params.OpenPortRangesByEndpointResult{
 			{
@@ -711,10 +710,10 @@ func (s *uniterLegacySuite) TestCommitHookChangesWithPortsSidecarApplication(c *
 		DomainServices_:    s.DefaultModelDomainServices(c),
 		Logger_:            loggertesting.WrapCheckLog(c),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := uniterAPI.CommitHookChanges(context.Background(), req)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
@@ -722,11 +721,11 @@ func (s *uniterLegacySuite) TestCommitHookChangesWithPortsSidecarApplication(c *
 	})
 
 	unitUUID, err := s.applicationService.GetUnitUUID(context.Background(), coreunit.Name(unit.Tag().Id()))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	portRanges, err := s.portService.GetUnitOpenedPorts(context.Background(), unitUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(portRanges, jc.DeepEquals, network.GroupedPortRanges{
+	c.Assert(portRanges, tc.DeepEquals, network.GroupedPortRanges{
 		"db": []network.PortRange{network.MustParsePortRange("80/tcp")},
 	})
 }
@@ -742,6 +741,6 @@ func (s *uniterLegacySuite) TestNetworkInfoCAASModelNoRelation(c *tc.C) {
 
 func (s *uniterLegacySuite) TestGetCloudSpecDeniesAccessWhenNotTrusted(c *tc.C) {
 	result, err := s.uniter.CloudSpec(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.CloudSpecResult{Error: apiservertesting.ErrUnauthorized})
 }

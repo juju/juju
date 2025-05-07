@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/voyeur"
 	"go.uber.org/mock/gomock"
 
@@ -114,14 +113,14 @@ func (s *containerUnitAgentSuite) TestParseSuccess(c *tc.C) {
 		"--append-env", "PATH=$PATH:test-bin",
 		"--append-env", "DELETE=",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(s.cmd.DataDir(), tc.Equals, s.dataDir)
-	c.Assert(s.cmd.Tag().String(), jc.DeepEquals, `unit-wordpress-0`)
-	c.Assert(s.cmd.CurrentConfig().Controller().String(), jc.DeepEquals, `controller-deadbeef-1bad-500d-9000-4b1d0d06f00d`)
-	c.Assert(s.cmd.CurrentConfig().Model().String(), jc.DeepEquals, `model-deadbeef-0bad-400d-8000-4b1d0d06f00d`)
+	c.Assert(s.cmd.Tag().String(), tc.DeepEquals, `unit-wordpress-0`)
+	c.Assert(s.cmd.CurrentConfig().Controller().String(), tc.DeepEquals, `controller-deadbeef-1bad-500d-9000-4b1d0d06f00d`)
+	c.Assert(s.cmd.CurrentConfig().Model().String(), tc.DeepEquals, `model-deadbeef-0bad-400d-8000-4b1d0d06f00d`)
 	c.Assert(s.cmd.CharmModifiedVersion(), tc.Equals, 10)
-	c.Assert(s.cmd.GetContainerNames(), jc.DeepEquals, []string{"a", "b", "c"})
+	c.Assert(s.cmd.GetContainerNames(), tc.DeepEquals, []string{"a", "b", "c"})
 }
 
 func (s *containerUnitAgentSuite) TestParseSuccessNoContainer(c *tc.C) {
@@ -150,12 +149,12 @@ func (s *containerUnitAgentSuite) TestParseSuccessNoContainer(c *tc.C) {
 		"--append-env", "PATH=$PATH:test-bin",
 		"--append-env", "DELETE=",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(s.cmd.DataDir(), tc.Equals, s.dataDir)
-	c.Assert(s.cmd.Tag().String(), jc.DeepEquals, `unit-wordpress-0`)
-	c.Assert(s.cmd.CurrentConfig().Controller().String(), jc.DeepEquals, `controller-deadbeef-1bad-500d-9000-4b1d0d06f00d`)
-	c.Assert(s.cmd.CurrentConfig().Model().String(), jc.DeepEquals, `model-deadbeef-0bad-400d-8000-4b1d0d06f00d`)
+	c.Assert(s.cmd.Tag().String(), tc.DeepEquals, `unit-wordpress-0`)
+	c.Assert(s.cmd.CurrentConfig().Controller().String(), tc.DeepEquals, `controller-deadbeef-1bad-500d-9000-4b1d0d06f00d`)
+	c.Assert(s.cmd.CurrentConfig().Model().String(), tc.DeepEquals, `model-deadbeef-0bad-400d-8000-4b1d0d06f00d`)
 	c.Assert(s.cmd.CharmModifiedVersion(), tc.Equals, 10)
 	c.Assert(len(s.cmd.GetContainerNames()), tc.Equals, 0)
 }
@@ -192,12 +191,12 @@ func (s *containerUnitAgentSuite) TestChangeConfig(c *tc.C) {
 	}()
 
 	err := s.cmd.ChangeConfig(mutate)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(mutateCalled, jc.IsTrue)
+	c.Check(mutateCalled, tc.IsTrue)
 	select {
 	case result := <-configChangedCh:
-		c.Check(result, jc.IsTrue)
+		c.Check(result, tc.IsTrue)
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for config changed signal")
 	}
@@ -221,19 +220,19 @@ func (s *containerUnitAgentSuite) TestEnsureAgentConf(c *tc.C) {
 		AgentLogfileMaxBackups: 4,
 	}
 	templateConfig, err := agent.NewAgentConfig(params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	templateBytes, err := templateConfig.Render()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = os.WriteFile(path.Join(dataDir, "template-agent.conf"), templateBytes, 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ac := agentconf.NewAgentConf(dataDir)
 	err = unit.EnsureAgentConf(ac)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Ensure the agent.conf was seeded from the template-agent.conf.
 	agentConfBytes, err := os.ReadFile(path.Join(dataDir, "agents", "unit-app-0", "agent.conf"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(agentConfBytes), tc.Equals, string(templateBytes))
 
 	// Change the agent.conf to be different than the template-agent.conf
@@ -242,13 +241,13 @@ func (s *containerUnitAgentSuite) TestEnsureAgentConf(c *tc.C) {
 		cs.SetOldPassword("password2")
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ac.CurrentConfig().OldPassword(), tc.Equals, "password2")
 
 	// Start a new "agent" and make sure it has password2.
 	ac2 := agentconf.NewAgentConf(dataDir)
 	err = unit.EnsureAgentConf(ac2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ac2.CurrentConfig().OldPassword(), tc.Equals, "password2")
 }
 

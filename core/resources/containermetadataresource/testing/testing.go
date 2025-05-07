@@ -5,7 +5,6 @@ package testing
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/resources/containermetadataresource"
 )
@@ -15,6 +14,6 @@ import (
 // instance.
 func GenContainerMetadataResourceUUID(c *tc.C) containermetadataresource.UUID {
 	id, err := containermetadataresource.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return id
 }

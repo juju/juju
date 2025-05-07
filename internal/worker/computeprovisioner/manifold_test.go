@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
 
@@ -59,7 +58,7 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 
 func (s *ManifoldSuite) TestManifold(c *tc.C) {
 	manifold := s.makeManifold(c)
-	c.Check(manifold.Inputs, jc.SameContents, []string{"agent", "api-caller", "environ", "fake-domain-services"})
+	c.Check(manifold.Inputs, tc.SameContents, []string{"agent", "api-caller", "environ", "fake-domain-services"})
 	c.Check(manifold.Output, tc.IsNil)
 	c.Check(manifold.Start, tc.NotNil)
 }
@@ -105,7 +104,7 @@ func (s *ManifoldSuite) TestStarts(c *tc.C) {
 		"environ":    struct{ environs.Environ }{},
 	}))
 	c.Check(w, tc.NotNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	s.stub.CheckCallNames(c, "GetMachineService", "NewProvisionerFunc")
 }
 

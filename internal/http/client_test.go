@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 )
 
@@ -44,13 +43,13 @@ func (s *httpSuite) SetUpTest(c *tc.C) {
 func (s *httpSuite) TestInsecureClientAllowAccess(c *tc.C) {
 	client := NewClient(WithSkipHostnameVerification(true))
 	_, err := client.Get(context.TODO(), s.server.URL)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *httpSuite) TestSecureClientAllowAccess(c *tc.C) {
 	client := NewClient()
 	_, err := client.Get(context.TODO(), s.server.URL)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // NewClient with a default config used to overwrite http.DefaultClient.Jar
@@ -59,7 +58,7 @@ func (s *httpSuite) TestDefaultClientJarNotOverwritten(c *tc.C) {
 	oldJar := http.DefaultClient.Jar
 
 	jar, err := cookiejar.New(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	client := NewClient(WithCookieJar(jar))
 
@@ -82,11 +81,11 @@ func (s *httpSuite) TestRequestRecorder(c *tc.C) {
 
 	validTarget := fmt.Sprintf("%s/tin/foil", dummyServer.URL)
 	validTargetURL, err := url.Parse(validTarget)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	invalidTarget := "btc://secret/wallet"
 	invalidTargetURL, err := url.Parse(invalidTarget)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	recorder := NewMockRequestRecorder(ctrl)
 	recorder.EXPECT().Record("GET", validTargetURL, gomock.AssignableToTypeOf(&http.Response{}), gomock.AssignableToTypeOf(time.Duration(42)))
@@ -94,13 +93,13 @@ func (s *httpSuite) TestRequestRecorder(c *tc.C) {
 
 	client := NewClient(WithRequestRecorder(recorder))
 	res, err := client.Get(context.TODO(), validTarget)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer res.Body.Close()
 
 	req, err := http.NewRequestWithContext(context.TODO(), "PUT", invalidTarget, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = client.Do(req)
-	c.Assert(err, tc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
 func (s *httpSuite) TestRetry(c *tc.C) {
@@ -122,7 +121,7 @@ func (s *httpSuite) TestRetry(c *tc.C) {
 
 	validTarget := fmt.Sprintf("%s/tin/foil", dummyServer.URL)
 	validTargetURL, err := url.Parse(validTarget)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	recorder := NewMockRequestRecorder(ctrl)
 	recorder.EXPECT().Record("GET", validTargetURL, gomock.AssignableToTypeOf(&http.Response{}), gomock.AssignableToTypeOf(time.Duration(42))).Times(retries)
@@ -138,7 +137,7 @@ func (s *httpSuite) TestRetry(c *tc.C) {
 		}),
 	)
 	res, err := client.Get(context.TODO(), validTarget)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer res.Body.Close()
 }
 
@@ -155,7 +154,7 @@ func (s *httpSuite) TestRetryExceeded(c *tc.C) {
 
 	validTarget := fmt.Sprintf("%s/tin/foil", dummyServer.URL)
 	validTargetURL, err := url.Parse(validTarget)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	recorder := NewMockRequestRecorder(ctrl)
 	recorder.EXPECT().Record("GET", validTargetURL, gomock.AssignableToTypeOf(&http.Response{}), gomock.AssignableToTypeOf(time.Duration(42))).Times(retries)

@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
@@ -100,7 +99,7 @@ func (s *ManifoldSuite) newStateAuthenticator(
 var expectedInputs = []string{"state", "clock", "domain-services"}
 
 func (s *ManifoldSuite) TestInputs(c *tc.C) {
-	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
+	c.Assert(s.manifold.Inputs, tc.SameContents, expectedInputs)
 }
 
 func (s *ManifoldSuite) TestMissingInputs(c *tc.C) {
@@ -119,7 +118,7 @@ func (s *ManifoldSuite) TestMuxOutput(c *tc.C) {
 
 	var mux *apiserverhttp.Mux
 	err := s.manifold.Output(w, &mux)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(mux, tc.NotNil)
 }
 
@@ -131,7 +130,7 @@ func (s *ManifoldSuite) TestAuthenticatorOutput(c *tc.C) {
 	var auth2 macaroon.LocalMacaroonAuthenticator
 	for _, out := range []any{&auth1, &auth2} {
 		err := s.manifold.Output(w, out)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	c.Assert(auth1, tc.NotNil)
 	c.Assert(auth1, tc.Equals, auth2)
@@ -139,7 +138,7 @@ func (s *ManifoldSuite) TestAuthenticatorOutput(c *tc.C) {
 
 func (s *ManifoldSuite) startWorkerClean(c *tc.C) worker.Worker {
 	w, err := s.manifold.Start(context.Background(), s.getter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w
 }

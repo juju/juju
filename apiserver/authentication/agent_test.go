@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -45,7 +44,7 @@ func (s *agentAuthenticatorSuite) TestUserLogin(c *tc.C) {
 	_, err := authenticatorGetter.Authenticator().Authenticate(context.Background(), authentication.AuthParams{
 		AuthTag: authTag,
 	})
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrBadRequest)
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrBadRequest)
 }
 
 func (s *agentAuthenticatorSuite) TestUnitLogin(c *tc.C) {
@@ -60,7 +59,7 @@ func (s *agentAuthenticatorSuite) TestUnitLogin(c *tc.C) {
 		AuthTag:     authTag,
 		Credentials: "password",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(entity.Tag(), tc.DeepEquals, authTag)
 }
 
@@ -76,7 +75,7 @@ func (s *agentAuthenticatorSuite) TestUnitLoginEmptyCredentials(c *tc.C) {
 		AuthTag:     authTag,
 		Credentials: "",
 	})
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrBadRequest)
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrBadRequest)
 }
 
 func (s *agentAuthenticatorSuite) TestUnitLoginInvalidCredentials(c *tc.C) {
@@ -91,7 +90,7 @@ func (s *agentAuthenticatorSuite) TestUnitLoginInvalidCredentials(c *tc.C) {
 		AuthTag:     authTag,
 		Credentials: "",
 	})
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrUnauthorized)
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrUnauthorized)
 }
 
 func (s *agentAuthenticatorSuite) TestUnitLoginUnitNotFound(c *tc.C) {
@@ -106,7 +105,7 @@ func (s *agentAuthenticatorSuite) TestUnitLoginUnitNotFound(c *tc.C) {
 		AuthTag:     authTag,
 		Credentials: "",
 	})
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrUnauthorized)
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrUnauthorized)
 }
 
 func (s *agentAuthenticatorSuite) TestUnitLoginUnitError(c *tc.C) {

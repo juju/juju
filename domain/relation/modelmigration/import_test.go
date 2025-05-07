@@ -9,7 +9,6 @@ import (
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coremodel "github.com/juju/juju/core/model"
@@ -89,7 +88,7 @@ func (s *importSuite) TestImportBadKey(c *tc.C) {
 	err := importOp.Execute(context.Background(), model)
 
 	// Assert
-	c.Assert(err, tc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
 func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
@@ -145,7 +144,7 @@ func (m relationArgMatcher) Matches(x interface{}) bool {
 	if !ok {
 		return false
 	}
-	return m.c.Check(obtained, jc.SameContents, m.expected)
+	return m.c.Check(obtained, tc.SameContents, m.expected)
 }
 
 func (relationArgMatcher) String() string {

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/os/v2/series"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/core/arch"
@@ -62,7 +61,7 @@ func (s *JujuOSEnvSuite) SetUpTest(c *tc.C) {
 	s.oldHomeEnv = utils.Home()
 	os.Setenv(osenv.JujuXDGDataHomeEnvKey, c.MkDir())
 	err := utils.SetHome("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Update the feature flag set to be the requested initial set.
 	// For tests, setting with the environment variable isolates us
@@ -77,7 +76,7 @@ func (s *JujuOSEnvSuite) TearDownTest(c *tc.C) {
 		os.Setenv(name, value)
 	}
 	err := utils.SetHome(s.oldHomeEnv)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // SkipIfPPC64EL skips the test if the arch is PPC64EL and the
@@ -280,6 +279,6 @@ func CurrentVersion() semversion.Binary {
 // HostSeries returns series.HostSeries(), asserting on error.
 func HostBase(c *tc.C) base.Base {
 	hostBase, err := coreos.HostBase()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return hostBase
 }

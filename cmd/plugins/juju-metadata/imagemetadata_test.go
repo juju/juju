@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/version"
@@ -74,33 +73,33 @@ func (s *ImageMetadataSuite) assertCommandOutput(c *tc.C, expected expectedMetad
 	c.Check(strippedOut, tc.Matches, `Image metadata files have been written to.*`)
 	indexpath := filepath.Join(s.dir, "images", "streams", "v1", indexFileName)
 	data, err := os.ReadFile(indexpath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	content := string(data)
 	var indices interface{}
 	err = json.Unmarshal(data, &indices)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(indices.(map[string]interface{})["format"], tc.Equals, "index:1.0")
 	prodId := fmt.Sprintf("com.ubuntu.cloud:server:%s:%s", expected.version, expected.arch)
-	c.Assert(content, jc.Contains, prodId)
-	c.Assert(content, jc.Contains, fmt.Sprintf(`"region": %q`, expected.region))
-	c.Assert(content, jc.Contains, fmt.Sprintf(`"endpoint": %q`, expected.endpoint))
-	c.Assert(content, jc.Contains, fmt.Sprintf(`"path": "streams/v1/%s"`, imageFileName))
+	c.Assert(content, tc.Contains, prodId)
+	c.Assert(content, tc.Contains, fmt.Sprintf(`"region": %q`, expected.region))
+	c.Assert(content, tc.Contains, fmt.Sprintf(`"endpoint": %q`, expected.endpoint))
+	c.Assert(content, tc.Contains, fmt.Sprintf(`"path": "streams/v1/%s"`, imageFileName))
 
 	imagepath := filepath.Join(s.dir, "images", "streams", "v1", imageFileName)
 	data, err = os.ReadFile(imagepath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	content = string(data)
 	var images interface{}
 	err = json.Unmarshal(data, &images)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(images.(map[string]interface{})["format"], tc.Equals, "products:1.0")
-	c.Assert(content, jc.Contains, prodId)
-	c.Assert(content, jc.Contains, `"id": "1234"`)
+	c.Assert(content, tc.Contains, prodId)
+	c.Assert(content, tc.Contains, `"id": "1234"`)
 	if expected.virtType != "" {
-		c.Assert(content, jc.Contains, fmt.Sprintf(`"virt": %q`, expected.virtType))
+		c.Assert(content, tc.Contains, fmt.Sprintf(`"virt": %q`, expected.virtType))
 	}
 	if expected.storage != "" {
-		c.Assert(content, jc.Contains, fmt.Sprintf(`"root_store": %q`, expected.storage))
+		c.Assert(content, tc.Contains, fmt.Sprintf(`"root_store": %q`, expected.storage))
 	}
 }
 
@@ -114,7 +113,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesNoEnv(c *tc.C) {
 		"-d", s.dir, "-i", "1234", "-r", "region", "-a", "arch", "-u", "endpoint",
 		"--base", "ubuntu@13.04", "--virt-type=pv", "--storage=root",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	expected := expectedMetadata{
 		version:  "13.04",
@@ -129,7 +128,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesDefaultArch(c *tc.C) {
 	ctx, err := runImageMetadata(c, s.store,
 		"-d", s.dir, "-i", "1234", "-r", "region", "-u", "endpoint", "--base", "ubuntu@13.04",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	expected := expectedMetadata{
 		version: "13.04",
@@ -146,7 +145,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLTS(c *tc.C) {
 		"controller-uuid": testing.ControllerTag.Id(),
 		"region":          "us-east-1",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.store.BootstrapConfig["ec2-controller"] = jujuclient.BootstrapConfig{
 		ControllerConfig: testing.FakeControllerConfig(),
 		Cloud:            "ec2",
@@ -158,7 +157,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLTS(c *tc.C) {
 		"-c", "ec2-controller",
 		"-d", s.dir, "-i", "1234", "-r", "region", "-a", "arch", "-u", "endpoint",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	expected := expectedMetadata{
 		version: version.DefaultSupportedLTSBase().Channel.Track,
@@ -171,7 +170,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnv(c *tc.C) {
 	ctx, err := runImageMetadata(c, s.store,
 		"-d", s.dir, "-c", "ec2-controller", "-i", "1234", "--virt-type=pv", "--storage=root",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	expected := expectedMetadata{
 		version:  "22.04",
@@ -188,7 +187,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithoutUsingBase(c *t
 	ctx, err := runImageMetadata(c, s.store,
 		"-d", s.dir, "-c", "ec2-controller", "-i", "1234", "--virt-type=pv", "--storage=root", "--base=ubuntu@20.04",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	expected := expectedMetadata{
 		version:  "20.04",
@@ -205,7 +204,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithRegionOverride(c 
 	ctx, err := runImageMetadata(c, s.store,
 		"-d", s.dir, "-c", "ec2-controller", "-r", "us-west-1", "-u", "https://ec2.us-west-1.amazonaws.com", "-i", "1234",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	expected := expectedMetadata{
 		version:  "22.04",

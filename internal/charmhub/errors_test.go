@@ -5,7 +5,6 @@ package charmhub
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/charmhub/transport"
 )
@@ -19,7 +18,7 @@ var _ = tc.Suite(&ErrorsSuite{})
 func (s *ErrorsSuite) TestHandleBasicAPIErrors(c *tc.C) {
 	var list transport.APIErrors
 	err := handleBasicAPIErrors(list, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ErrorsSuite) TestHandleBasicAPIErrorsNotFound(c *tc.C) {

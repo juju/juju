@@ -9,7 +9,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agenttest"
@@ -68,7 +67,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	c.Assert(keys, jc.SameContents, expectedKeys)
+	c.Assert(keys, tc.SameContents, expectedKeys)
 }
 
 func (s *ManifoldsSuite) TestMigrationGuards(c *tc.C) {

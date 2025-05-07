@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/agent/agent"
 	"github.com/juju/juju/api/base"
@@ -27,7 +26,7 @@ var _ = tc.Suite(&FacadeSuite{})
 func (s *FacadeSuite) TestLifeCallError(c *tc.C) {
 	apiCaller := apiCaller(c, func(request string, arg, _ interface{}) error {
 		c.Check(request, tc.Equals, "GetEntities")
-		c.Check(arg, jc.DeepEquals, params.Entities{
+		c.Check(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
 				Tag: "application-omg",
 			}},
@@ -35,7 +34,7 @@ func (s *FacadeSuite) TestLifeCallError(c *tc.C) {
 		return errors.New("splat")
 	})
 	facade, err := agent.NewConnFacade(apiCaller)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	life, err := facade.Life(context.Background(), names.NewApplicationTag("omg"))
 	c.Check(err, tc.ErrorMatches, "splat")
@@ -45,7 +44,7 @@ func (s *FacadeSuite) TestLifeCallError(c *tc.C) {
 func (s *FacadeSuite) TestLifeNoResult(c *tc.C) {
 	result := params.AgentGetEntitiesResults{}
 	facade, err := agent.NewConnFacade(lifeChecker(c, result))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	life, err := facade.Life(context.Background(), names.NewApplicationTag("omg"))
 	c.Check(err, tc.ErrorMatches, "expected 1 result, got 0")
@@ -57,7 +56,7 @@ func (s *FacadeSuite) TestLifeOversizedResult(c *tc.C) {
 		Entities: []params.AgentGetEntitiesResult{{}, {}},
 	}
 	facade, err := agent.NewConnFacade(lifeChecker(c, result))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	life, err := facade.Life(context.Background(), names.NewApplicationTag("omg"))
 	c.Check(err, tc.ErrorMatches, "expected 1 result, got 2")
@@ -105,7 +104,7 @@ func (s *FacadeSuite) TestLifeAlive(c *tc.C) {
 		Life: "alive",
 	}
 	life, err := testLifeAPIResult(c, result)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(life, tc.Equals, agent.Alive)
 }
 
@@ -114,7 +113,7 @@ func (s *FacadeSuite) TestLifeDying(c *tc.C) {
 		Life: "dying",
 	}
 	life, err := testLifeAPIResult(c, result)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(life, tc.Equals, agent.Dying)
 }
 
@@ -123,14 +122,14 @@ func (s *FacadeSuite) TestLifeDead(c *tc.C) {
 		Life: "dead",
 	}
 	life, err := testLifeAPIResult(c, result)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(life, tc.Equals, agent.Dead)
 }
 
 func (s *FacadeSuite) TestSetPasswordCallError(c *tc.C) {
 	apiCaller := apiCaller(c, func(request string, arg, _ interface{}) error {
 		c.Check(request, tc.Equals, "SetPasswords")
-		c.Check(arg, jc.DeepEquals, params.EntityPasswords{
+		c.Check(arg, tc.DeepEquals, params.EntityPasswords{
 			Changes: []params.EntityPassword{{
 				Tag:      "application-omg",
 				Password: "seekr1t",
@@ -139,7 +138,7 @@ func (s *FacadeSuite) TestSetPasswordCallError(c *tc.C) {
 		return errors.New("splat")
 	})
 	facade, err := agent.NewConnFacade(apiCaller)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = facade.SetPassword(context.Background(), names.NewApplicationTag("omg"), "seekr1t")
 	c.Check(err, tc.ErrorMatches, "splat")
@@ -148,7 +147,7 @@ func (s *FacadeSuite) TestSetPasswordCallError(c *tc.C) {
 func (s *FacadeSuite) TestSetPasswordNoResult(c *tc.C) {
 	result := params.ErrorResults{}
 	facade, err := agent.NewConnFacade(passwordChecker(c, result))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = facade.SetPassword(context.Background(), names.NewApplicationTag("omg"), "blah")
 	c.Check(err, tc.ErrorMatches, "expected 1 result, got 0")
@@ -159,7 +158,7 @@ func (s *FacadeSuite) TestSetPasswordOversizedResult(c *tc.C) {
 		Results: []params.ErrorResult{{}, {}},
 	}
 	facade, err := agent.NewConnFacade(passwordChecker(c, result))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = facade.SetPassword(context.Background(), names.NewApplicationTag("omg"), "blah")
 	c.Check(err, tc.ErrorMatches, "expected 1 result, got 2")
@@ -200,14 +199,14 @@ func (s *FacadeSuite) TestSetPasswordErrUnauthorized(c *tc.C) {
 func (s *FacadeSuite) TestSetPasswordSuccess(c *tc.C) {
 	result := params.ErrorResult{}
 	err := testPasswordAPIResult(c, result)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func testLifeAPIResult(c *tc.C, result params.AgentGetEntitiesResult) (agent.Life, error) {
 	facade, err := agent.NewConnFacade(lifeChecker(c, params.AgentGetEntitiesResults{
 		Entities: []params.AgentGetEntitiesResult{result},
 	}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return facade.Life(context.Background(), names.NewApplicationTag("omg"))
 }
@@ -215,7 +214,7 @@ func testLifeAPIResult(c *tc.C, result params.AgentGetEntitiesResult) (agent.Lif
 func lifeChecker(c *tc.C, result params.AgentGetEntitiesResults) base.APICaller {
 	return apiCaller(c, func(_ string, _, out interface{}) error {
 		typed, ok := out.(*params.AgentGetEntitiesResults)
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		*typed = result
 		return nil
 	})
@@ -225,7 +224,7 @@ func testPasswordAPIResult(c *tc.C, result params.ErrorResult) error {
 	facade, err := agent.NewConnFacade(passwordChecker(c, params.ErrorResults{
 		Results: []params.ErrorResult{result},
 	}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return facade.SetPassword(context.Background(), names.NewApplicationTag("omg"), "blah")
 }
@@ -233,7 +232,7 @@ func testPasswordAPIResult(c *tc.C, result params.ErrorResult) error {
 func passwordChecker(c *tc.C, result params.ErrorResults) base.APICaller {
 	return apiCaller(c, func(_ string, _, out interface{}) error {
 		typed, ok := out.(*params.ErrorResults)
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		*typed = result
 		return nil
 	})

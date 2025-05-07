@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cloud"
@@ -44,8 +43,8 @@ func (s *providerServiceSuite) TestCloudCredential(c *tc.C) {
 	s.state.EXPECT().CloudCredential(gomock.Any(), key).Return(cred, nil)
 
 	result, err := s.service().CloudCredential(context.Background(), key)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false))
 }
 
 func (s *providerServiceSuite) TestCloudCredentialInvalidKey(c *tc.C) {
@@ -65,7 +64,7 @@ func (s *providerServiceSuite) TestWatchCredential(c *tc.C) {
 	s.state.EXPECT().WatchCredential(gomock.Any(), gomock.Any(), key).Return(nw, nil)
 
 	w, err := s.service().WatchCredential(context.Background(), key)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(w, tc.NotNil)
 }
 
@@ -86,7 +85,7 @@ func (s *providerServiceSuite) TestInvalidateCredential(c *tc.C) {
 	s.state.EXPECT().InvalidateCloudCredential(gomock.Any(), uuid, "bad")
 
 	err := s.service().InvalidateCredential(context.Background(), key, "bad")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *providerServiceSuite) TestInvalidateCredentialInvalidKey(c *tc.C) {

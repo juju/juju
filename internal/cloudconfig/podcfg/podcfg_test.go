@@ -5,7 +5,6 @@ package podcfg_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/constraints"
@@ -53,7 +52,7 @@ func (*podcfgSuite) TestPodLabelsUserSpecified(c *tc.C) {
 
 func testPodLabels(c *tc.C, cfg *config.Config, jobs []model.MachineJob, expectTags map[string]string) {
 	tags := podcfg.PodLabels(testing.ModelTag.Id(), testing.ControllerTag.Id(), cfg, jobs)
-	c.Assert(tags, jc.DeepEquals, expectTags)
+	c.Assert(tags, tc.DeepEquals, expectTags)
 }
 
 func (*podcfgSuite) TestOperatorImagesDefaultRepo(c *tc.C) {
@@ -65,13 +64,13 @@ func (*podcfgSuite) TestOperatorImagesDefaultRepo(c *tc.C) {
 		"ubuntu",
 		constraints.Value{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podConfig.JujuVersion = semversion.MustParse("6.6.6.666")
 	path, err := podConfig.GetControllerImagePath()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(path, tc.Equals, "docker.io/jujusolutions/jujud-operator:6.6.6.666")
 	path, err = podConfig.GetJujuDbOCIImagePath()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(path, tc.Equals, "docker.io/jujusolutions/juju-db:9.9")
 }
 
@@ -85,14 +84,14 @@ func (*podcfgSuite) TestOperatorImagesCustomRepo(c *tc.C) {
 		"ubuntu",
 		constraints.Value{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podConfig.JujuVersion = semversion.MustParse("6.6.6.666")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	path, err := podConfig.GetControllerImagePath()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(path, tc.Equals, "path/to/my/repo/jujud-operator:6.6.6.666")
 	path, err = podConfig.GetJujuDbOCIImagePath()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(path, tc.Equals, "path/to/my/repo/juju-db:9.9")
 }
 
@@ -105,7 +104,7 @@ func (*podcfgSuite) TestBootstrapConstraints(c *tc.C) {
 		"ubuntu",
 		cons,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(podConfig.Bootstrap.BootstrapMachineConstraints, tc.DeepEquals, cons)
 }
 
@@ -121,15 +120,15 @@ func (*podcfgSuite) TestFinishControllerPodConfig(c *tc.C) {
 		"ubuntu",
 		constraints.Value{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podcfg.FinishControllerPodConfig(
 		podConfig,
 		cfg,
 		map[string]string{"foo": "bar"},
 	)
-	c.Assert(podConfig.DisableSSLHostnameVerification, jc.IsTrue)
+	c.Assert(podConfig.DisableSSLHostnameVerification, tc.IsTrue)
 	c.Assert(podConfig.ProxySettings.Https, tc.Equals, "https-proxy")
-	c.Assert(podConfig.AgentEnvironment, jc.DeepEquals, map[string]string{
+	c.Assert(podConfig.AgentEnvironment, tc.DeepEquals, map[string]string{
 		"PROVIDER_TYPE": "kubernetes",
 		"foo":           "bar",
 	})
@@ -149,11 +148,11 @@ func (*podcfgSuite) TestUnitAgentConfig(c *tc.C) {
 	}
 	podConfig.Bootstrap.StateServingInfo.APIPort = 1234
 	podConfig.JujuVersion = semversion.MustParse("6.6.6")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	agentCfg, err := podConfig.UnitAgentConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	apiInfo, ok := agentCfg.APIInfo()
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	c.Assert(agentCfg.OldPassword(), tc.Equals, apiInfo.Password)
 	c.Assert(apiInfo.Addrs, tc.DeepEquals, []string{"localhost:1234"})
 }

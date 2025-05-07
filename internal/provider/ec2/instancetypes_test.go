@@ -8,7 +8,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 type InstanceTypesSuite struct {
@@ -136,7 +135,7 @@ func (s *InstanceTypesSuite) TestParseInstanceType(c *tc.C) {
 
 	for _, test := range tests {
 		it, err := parseInstanceType(test.InstType)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(it, jc.DeepEquals, test.Expected)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(it, tc.DeepEquals, test.Expected)
 	}
 }

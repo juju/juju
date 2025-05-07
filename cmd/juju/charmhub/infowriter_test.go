@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/charm"
 )
@@ -24,7 +23,7 @@ func (s *printInfoSuite) TestCharmPrintInfo(c *tc.C) {
 	ctx := commandContextForTest(c)
 	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeBoth, &ir, -1)
 	err := iw.Print()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `name: wordpress
@@ -58,7 +57,7 @@ func (s *printInfoSuite) TestCharmPrintInfoModeNone(c *tc.C) {
 	ctx := commandContextForTest(c)
 	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeNone, &ir, -1)
 	err := iw.Print()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `name: wordpress
@@ -92,7 +91,7 @@ func (s *printInfoSuite) TestCharmPrintInfoModeArches(c *tc.C) {
 	ctx := commandContextForTest(c)
 	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeArches, &ir, -1)
 	err := iw.Print()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `name: wordpress
@@ -127,7 +126,7 @@ func (s *printInfoSuite) TestCharmPrintInfoModeBases(c *tc.C) {
 	ctx := commandContextForTest(c)
 	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeBases, &ir, -1)
 	err := iw.Print()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `name: wordpress
@@ -161,7 +160,7 @@ func (s *printInfoSuite) TestCharmPrintInfoWithConfig(c *tc.C) {
 	ctx := commandContextForTest(c)
 	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, true, "never", baseModeNone, &ir, -1)
 	err := iw.Print()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `name: wordpress
@@ -205,7 +204,7 @@ func (s *printInfoSuite) TestBundleChannelClosed(c *tc.C) {
 	ctx := commandContextForTest(c)
 	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeBoth, &ir, -1)
 	err := iw.Print()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `name: osm
@@ -227,7 +226,7 @@ func (s *printInfoSuite) TestBundleChannelClosedWithUnicode(c *tc.C) {
 	ctx := commandContextForTest(c)
 	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "always", baseModeBoth, &ir, -1)
 	err := iw.Print()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `name: osm
@@ -249,7 +248,7 @@ func (s *printInfoSuite) TestBundlePrintInfo(c *tc.C) {
 	ctx := commandContextForTest(c)
 	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeBoth, &ir, -1)
 	err := iw.Print()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `name: osm

@@ -5,7 +5,6 @@ package jujuclient_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/internal/testing"
@@ -51,21 +50,21 @@ func (s *CredentialsSuite) TestCredentialForCloudNoneExists(c *tc.C) {
 func (s *CredentialsSuite) TestCredentialForCloud(c *tc.C) {
 	name := firstTestCloudName(c)
 	found, err := s.store.CredentialForCloud(name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := s.getCredentials(c)[name]
 	c.Assert(found, tc.DeepEquals, &expected)
 }
 
 func (s *CredentialsSuite) TestUpdateCredentialAddFirst(c *tc.C) {
 	err := s.store.UpdateCredential(s.cloudName, s.credentials)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertUpdateSucceeded(c)
 }
 
 func (s *CredentialsSuite) TestUpdateCredentialAddNew(c *tc.C) {
 	s.assertCredentialsNotExists(c)
 	err := s.store.UpdateCredential(s.cloudName, s.credentials)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertUpdateSucceeded(c)
 }
 
@@ -73,7 +72,7 @@ func (s *CredentialsSuite) TestUpdateCredential(c *tc.C) {
 	s.cloudName = firstTestCloudName(c)
 
 	err := s.store.UpdateCredential(s.cloudName, s.credentials)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertUpdateSucceeded(c)
 }
 
@@ -82,14 +81,14 @@ func (s *CredentialsSuite) TestUpdateCredentialRemovesDefaultIfNecessary(c *tc.C
 
 	store := jujuclient.NewFileCredentialStore()
 	err := store.UpdateCredential(s.cloudName, s.credentials)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	newCreds := s.credentials
 	// "peter" is the default credential
 	delete(newCreds.AuthCredentials, "peter")
 	err = store.UpdateCredential(s.cloudName, newCreds)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	creds, err := store.AllCredentials()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(creds[s.cloudName].DefaultCredential, tc.Equals, "")
 }
 
@@ -98,23 +97,23 @@ func (s *CredentialsSuite) TestUpdateCredentialRemovesCloudWhenNoCredentialLeft(
 
 	store := jujuclient.NewFileCredentialStore()
 	err := store.UpdateCredential(s.cloudName, s.credentials)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// delete all
 	err = store.UpdateCredential(s.cloudName, cloud.CloudCredential{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	creds, err := store.AllCredentials()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, exists := creds[s.cloudName]
-	c.Assert(exists, jc.IsFalse)
+	c.Assert(exists, tc.IsFalse)
 }
 
 func (s *CredentialsSuite) assertCredentialsNotExists(c *tc.C) {
 	all := writeTestCredentialsFile(c)
 	_, exists := all[s.cloudName]
-	c.Assert(exists, jc.IsFalse)
+	c.Assert(exists, tc.IsFalse)
 }
 
 func (s *CredentialsSuite) assertUpdateSucceeded(c *tc.C) {
@@ -123,7 +122,7 @@ func (s *CredentialsSuite) assertUpdateSucceeded(c *tc.C) {
 
 func (s *CredentialsSuite) getCredentials(c *tc.C) map[string]cloud.CloudCredential {
 	credentials, err := s.store.AllCredentials()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return credentials
 }
 

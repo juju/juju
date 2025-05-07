@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -66,7 +65,7 @@ func (s *deployerSuite) TestDeployRecallRemovePrincipals(c *tc.C) {
 	machine.EXPECT().WatchUnits(gomock.Any()).Return(watch, nil)
 
 	dep, err := deployer.NewDeployer(client, loggertesting.WrapCheckLog(c), ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer stop(c, dep)
 
 	u0 := mocks.NewMockUnit(ctrl)
@@ -130,7 +129,7 @@ func (s *deployerSuite) TestInitialStatusMessages(c *tc.C) {
 	machine.EXPECT().WatchUnits(gomock.Any()).Return(watch, nil)
 
 	dep, err := deployer.NewDeployer(client, loggertesting.WrapCheckLog(c), ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer stop(c, dep)
 
 	u0 := mocks.NewMockUnit(ctrl)
@@ -177,7 +176,7 @@ func (s *deployerSuite) TestRemoveNonAlivePrincipals(c *tc.C) {
 	// When the deployer is started, in each case (1) no unit agent is deployed
 	// and (2) the non-Alive unit is been removed from state.
 	dep, err := deployer.NewDeployer(client, loggertesting.WrapCheckLog(c), ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer stop(c, dep)
 
 	s.sendUnitChange(c, ch, "mysql/0", "mysql/1")
@@ -220,7 +219,7 @@ func isDeployed(ctx deployer.Context, expected ...string) func(*tc.C) bool {
 	return func(c *tc.C) bool {
 		sort.Strings(expected)
 		current, err := ctx.DeployedUnits()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		sort.Strings(current)
 		return strings.Join(expected, ":") == strings.Join(current, ":")
 	}
@@ -229,7 +228,7 @@ func isDeployed(ctx deployer.Context, expected ...string) func(*tc.C) bool {
 func isNotDeployed(ctx deployer.Context, expected ...string) func(*tc.C) bool {
 	return func(c *tc.C) bool {
 		current, err := ctx.DeployedUnits()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		return set.NewStrings(current...).Intersection(set.NewStrings(expected...)).IsEmpty()
 	}
 }

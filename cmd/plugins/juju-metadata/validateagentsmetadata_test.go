@@ -8,7 +8,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/arch"
@@ -85,7 +84,7 @@ func (s *ValidateToolsMetadataSuite) makeLocalMetadata(c *tc.C, stream, version,
 		Release: osType,
 	}}
 	targetStorage, err := filestorage.NewFileStorageWriter(s.metadataDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	streamMetadata := map[string][]*tools.ToolsMetadata{
 		stream: tm,
 	}
@@ -115,15 +114,15 @@ func (s *ValidateToolsMetadataSuite) SetUpTest(c *tc.C) {
 func (s *ValidateToolsMetadataSuite) setupEc2LocalMetadata(c *tc.C, region string) {
 	resolver := ec2.NewDefaultEndpointResolver()
 	ep, err := resolver.ResolveEndpoint(region, ec2.EndpointResolverOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.makeLocalMetadata(c, "released", "1.11.4", region, "ubuntu", ep.URL)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataUsingEnvironment(c *tc.C) {
 	s.setupEc2LocalMetadata(c, "us-east-1")
 	ctx, err := runValidateAgentsMetadata(c, s.store, "-c", "ec2-controller", "-j", "1.11.4", "-d", s.metadataDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Assert(strippedOut, tc.Matches, `Matching Agent Binary Versions:.*Resolve Metadata.*`)
@@ -144,7 +143,7 @@ func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataWithManualParams(c *tc.
 		"-p", "ec2", "-t", "ubuntu", "-r", "us-west-1", "-j", "1.11.4",
 		"-u", "https://ec2.us-west-1.amazonaws.com", "-d", s.metadataDir,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, tc.Matches, `Matching Agent Binary Versions:.*Resolve Metadata.*`)
@@ -172,7 +171,7 @@ func (s *ValidateToolsMetadataSuite) TestOpenstackLocalMetadataWithManualParams(
 		"-p", "openstack", "-t", "windows", "-r", "region-2", "-j", "1.11.4",
 		"-u", "some-auth-url", "-d", s.metadataDir,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, tc.Matches, `Matching Agent Binary Versions:.*Resolve Metadata.*`)
@@ -198,7 +197,7 @@ func (s *ValidateToolsMetadataSuite) TestDefaultVersion(c *tc.C) {
 		"-p", "openstack", "-t", "windows", "-r", "region-2",
 		"-u", "some-auth-url", "-d", s.metadataDir,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, tc.Matches, `Matching Agent Binary Versions:.*Resolve Metadata.*`)
@@ -210,7 +209,7 @@ func (s *ValidateToolsMetadataSuite) TestStream(c *tc.C) {
 		"-p", "openstack", "-t", "windows", "-r", "region-2",
 		"-u", "some-auth-url", "-d", s.metadataDir, "--stream", "proposed",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, tc.Matches, `Matching Agent Binary Versions:.*Resolve Metadata.*`)
@@ -222,7 +221,7 @@ func (s *ValidateToolsMetadataSuite) TestMajorVersionMatch(c *tc.C) {
 		"-p", "openstack", "-t", "windows", "-r", "region-2",
 		"-u", "some-auth-url", "-d", s.metadataDir, "--majorminor-version", "1",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, tc.Matches, `Matching Agent Binary Versions:.*Resolve Metadata.*`)
@@ -234,7 +233,7 @@ func (s *ValidateToolsMetadataSuite) TestMajorMinorVersionMatch(c *tc.C) {
 		"-p", "openstack", "-t", "windows", "-r", "region-2",
 		"-u", "some-auth-url", "-d", s.metadataDir, "--majorminor-version", "1.12",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, tc.Matches, `Matching Agent Binary Versions:.*Resolve Metadata.*`)
@@ -245,7 +244,7 @@ func (s *ValidateToolsMetadataSuite) TestJustDirectory(c *tc.C) {
 	ctx, err := runValidateAgentsMetadata(c, s.store,
 		"-t", "windows", "-d", s.metadataDir,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, tc.Matches, `Matching Agent Binary Versions:.*Resolve Metadata.*`)

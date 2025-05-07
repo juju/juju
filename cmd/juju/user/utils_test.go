@@ -6,7 +6,6 @@ package user_test
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/caas/kubernetes/provider/proxy"
@@ -44,6 +43,6 @@ func (s *utilsSuite) TestGenerateUserControllerAccessToken(c *tc.C) {
 	}, nil)
 
 	token, error := user.GenerateUserControllerAccessToken(controllerCMD, "foo", []byte("bar"))
-	c.Assert(error, jc.ErrorIsNil)
+	c.Assert(error, tc.ErrorIsNil)
 	c.Assert(token, tc.Equals, "MIHOEwNmb28wAhMABANiYXITDWNvbnRyb2xsZXItazEMga50eXBlOiBrdWJlcm5ldGVzLXBvcnQtZm9yd2FyZApjb25maWc6CiAgYXBpLWhvc3Q6IGh0dHBzOi8vbG9jYWxob3N0OjEyMzQKICBjYS1jZXJ0OiAiIgogIG5hbWVzcGFjZTogdGVzdAogIHJlbW90ZS1wb3J0OiAiODEyMyIKICBzZXJ2aWNlOiB0ZXN0CiAgc2VydmljZS1hY2NvdW50LXRva2VuOiB0b2tlbgoA")
 }

@@ -6,7 +6,6 @@ package caasupgrader_test
 import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/core/arch"
@@ -61,7 +60,7 @@ func (s *UpgraderSuite) makeUpgrader(c *tc.C, agent names.Tag) *caasupgrader.Upg
 		UpgradeStepsWaiter:          s.upgradeStepsComplete,
 		InitialUpgradeCheckComplete: s.initialCheckComplete,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	s.ch <- struct{}{}
 	return w
@@ -157,9 +156,9 @@ func (s *UpgraderSuite) TestUpgraderDowngradeMinor(c *tc.C) {
 }
 
 func (s *UpgraderSuite) expectInitialUpgradeCheckDone(c *tc.C) {
-	c.Assert(s.initialCheckComplete.IsUnlocked(), jc.IsTrue)
+	c.Assert(s.initialCheckComplete.IsUnlocked(), tc.IsTrue)
 }
 
 func (s *UpgraderSuite) expectInitialUpgradeCheckNotDone(c *tc.C) {
-	c.Assert(s.initialCheckComplete.IsUnlocked(), jc.IsFalse)
+	c.Assert(s.initialCheckComplete.IsUnlocked(), tc.IsFalse)
 }

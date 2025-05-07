@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	importererrors "github.com/juju/juju/internal/ssh/importer/errors"
@@ -49,7 +48,7 @@ func (l *launchpadSuite) TestSubjectNotFound(c *tc.C) {
 
 	lp := LaunchpadResolver{l.client}
 	_, err := lp.PublicKeysForSubject(context.Background(), "tlm")
-	c.Check(err, jc.ErrorIs, importererrors.SubjectNotFound)
+	c.Check(err, tc.ErrorIs, importererrors.SubjectNotFound)
 }
 
 // TestSubjectPublicKeys is asserting the happy path for the [LaunchpadResolver].
@@ -78,7 +77,7 @@ ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe
 
 	lp := LaunchpadResolver{l.client}
 	keys, err := lp.PublicKeysForSubject(context.Background(), "tlm")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	expected := []string{
 		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC key1",
@@ -88,5 +87,5 @@ ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe
 	slices.Sort(keys)
 	slices.Sort(expected)
 
-	c.Check(keys, jc.DeepEquals, expected)
+	c.Check(keys, tc.DeepEquals, expected)
 }

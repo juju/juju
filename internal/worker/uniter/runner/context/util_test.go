@@ -13,7 +13,6 @@ import (
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
@@ -50,31 +49,31 @@ func (m hookCommitMatcher) Matches(x interface{}) bool {
 		return false
 	}
 	match := func(got, wanted params.CommitHookChangesArg) bool {
-		if !m.c.Check(got.RelationUnitSettings, jc.SameContents, wanted.RelationUnitSettings) {
+		if !m.c.Check(got.RelationUnitSettings, tc.SameContents, wanted.RelationUnitSettings) {
 			return false
 		}
-		if !m.c.Check(got.AddStorage, jc.SameContents, wanted.AddStorage) {
+		if !m.c.Check(got.AddStorage, tc.SameContents, wanted.AddStorage) {
 			return false
 		}
-		if !m.c.Check(got.OpenPorts, jc.SameContents, wanted.OpenPorts) {
+		if !m.c.Check(got.OpenPorts, tc.SameContents, wanted.OpenPorts) {
 			return false
 		}
-		if !m.c.Check(got.ClosePorts, jc.SameContents, wanted.ClosePorts) {
+		if !m.c.Check(got.ClosePorts, tc.SameContents, wanted.ClosePorts) {
 			return false
 		}
-		if !m.c.Check(got.SecretCreates, jc.SameContents, wanted.SecretCreates) {
+		if !m.c.Check(got.SecretCreates, tc.SameContents, wanted.SecretCreates) {
 			return false
 		}
-		if !m.c.Check(got.SecretUpdates, jc.SameContents, wanted.SecretUpdates) {
+		if !m.c.Check(got.SecretUpdates, tc.SameContents, wanted.SecretUpdates) {
 			return false
 		}
-		if !m.c.Check(got.SecretDeletes, jc.SameContents, wanted.SecretDeletes) {
+		if !m.c.Check(got.SecretDeletes, tc.SameContents, wanted.SecretDeletes) {
 			return false
 		}
-		if !m.c.Check(got.SecretGrants, jc.SameContents, wanted.SecretGrants) {
+		if !m.c.Check(got.SecretGrants, tc.SameContents, wanted.SecretGrants) {
 			return false
 		}
-		if !m.c.Check(got.SecretRevokes, jc.SameContents, wanted.SecretRevokes) {
+		if !m.c.Check(got.SecretRevokes, tc.SameContents, wanted.SecretRevokes) {
 			return false
 		}
 		if got.UpdateNetworkInfo != wanted.UpdateNetworkInfo {
@@ -125,7 +124,7 @@ func (s *BaseHookContextSuite) SetUpTest(c *tc.C) {
 
 func (s *BaseHookContextSuite) GetContext(c *tc.C, ctrl *gomock.Controller, relId int, remoteName string, storageTag names.StorageTag) jujuc.Context {
 	uuid, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return s.getHookContext(c, ctrl, uuid.String(), relId, remoteName, storageTag)
 }
 
@@ -174,7 +173,7 @@ func (s *BaseHookContextSuite) setupUniter(ctrl *gomock.Controller) names.Machin
 func (s *BaseHookContextSuite) getHookContext(c *tc.C, ctrl *gomock.Controller, uuid string, relid int, remote string, storageTag names.StorageTag) *runnercontext.HookContext {
 	if relid != -1 {
 		_, found := s.relunits[relid]
-		c.Assert(found, jc.IsTrue)
+		c.Assert(found, tc.IsTrue)
 	}
 	machineTag := s.setupUniter(ctrl)
 
@@ -205,20 +204,20 @@ func (s *BaseHookContextSuite) getHookContext(c *tc.C, ctrl *gomock.Controller, 
 		Clock:               s.clock,
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return context
 }
 
 func (s *BaseHookContextSuite) AssertCoreContext(c *tc.C, ctx *runnercontext.HookContext) {
 	c.Assert(ctx.UnitName(), tc.Equals, "u/0")
-	c.Assert(runnercontext.ContextMachineTag(ctx), jc.DeepEquals, names.NewMachineTag("0"))
+	c.Assert(runnercontext.ContextMachineTag(ctx), tc.DeepEquals, names.NewMachineTag("0"))
 
 	actual, err := ctx.PrivateAddress()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(actual, tc.Equals, "u-0.testing.invalid")
 
 	actual, err = ctx.PublicAddress(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(actual, tc.Equals, "u-0.testing.invalid")
 
 	name, uuid := runnercontext.ContextEnvInfo(ctx)
@@ -226,30 +225,30 @@ func (s *BaseHookContextSuite) AssertCoreContext(c *tc.C, ctx *runnercontext.Hoo
 	c.Assert(uuid, tc.Equals, coretesting.ModelTag.Id())
 
 	ids, err := ctx.RelationIds()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ids, tc.HasLen, 2)
 
 	r, err := ctx.Relation(0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(r.Name(), tc.Equals, "db")
 	c.Assert(r.FakeId(), tc.Equals, "db:0")
 
 	r, err = ctx.Relation(1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(r.Name(), tc.Equals, "db")
 	c.Assert(r.FakeId(), tc.Equals, "db:1")
 
 	az, err := ctx.AvailabilityZone()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(az, tc.Equals, "a-zone")
 
 	info, err := ctx.SecretMetadata()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info, tc.HasLen, 1)
 	for id, v := range info {
 		c.Assert(id, tc.Equals, "9m4e2mr0ui3e8a215n4g")
 		c.Assert(v.Label, tc.Equals, "label")
-		c.Assert(v.Owner, jc.DeepEquals, secrets.Owner{Kind: secrets.ApplicationOwner, ID: "mariadb"})
+		c.Assert(v.Owner, tc.DeepEquals, secrets.Owner{Kind: secrets.ApplicationOwner, ID: "mariadb"})
 		c.Assert(v.Description, tc.Equals, "description")
 		c.Assert(v.RotatePolicy, tc.Equals, secrets.RotateHourly)
 		c.Assert(v.LatestRevision, tc.Equals, 666)
@@ -266,7 +265,7 @@ func (s *BaseHookContextSuite) AssertNotActionContext(c *tc.C, ctx *runnercontex
 func (s *BaseHookContextSuite) AssertActionContext(c *tc.C, ctx *runnercontext.HookContext) {
 	actionData, err := ctx.ActionData()
 	c.Assert(actionData, tc.NotNil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *BaseHookContextSuite) AssertNotStorageContext(c *tc.C, ctx *runnercontext.HookContext) {
@@ -277,7 +276,7 @@ func (s *BaseHookContextSuite) AssertNotStorageContext(c *tc.C, ctx *runnerconte
 
 func (s *BaseHookContextSuite) AssertStorageContext(c *tc.C, ctx *runnercontext.HookContext, id string, attachment storage.StorageAttachmentInfo) {
 	fromCache, err := ctx.HookStorage(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(fromCache, tc.NotNil)
 	c.Assert(fromCache.Tag().Id(), tc.Equals, id)
 	c.Assert(fromCache.Kind(), tc.Equals, attachment.Kind)
@@ -290,7 +289,7 @@ func (s *BaseHookContextSuite) AssertRelationContext(c *tc.C, ctx *runnercontext
 	actualRemoteApp, _ := ctx.RemoteApplicationName()
 	c.Assert(actualRemoteApp, tc.Equals, remoteApp)
 	rel, err := ctx.HookRelation()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rel.Id(), tc.Equals, relId)
 	return rel.(*runnercontext.ContextRelation)
 }

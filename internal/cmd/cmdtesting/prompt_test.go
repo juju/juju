@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 )
@@ -131,6 +130,6 @@ more!
 func readStr(c *tc.C, r io.Reader, nb int) string {
 	buf := make([]byte, nb)
 	n, err := r.Read(buf)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return string(buf[0:n])
 }

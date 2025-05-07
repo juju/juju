@@ -6,7 +6,6 @@ package context_test
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
@@ -43,8 +42,8 @@ func (s *LeaderSuite) TestIsLeaderSuccess(c *tc.C) {
 		// The first call succeeds...
 		s.tracker.results = []StubTicket{true}
 		leader, err := s.context.IsLeader()
-		c.Check(leader, jc.IsTrue)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(leader, tc.IsTrue)
+		c.Check(err, tc.ErrorIsNil)
 	})
 
 	s.CheckCalls(c, []testing.StubCall{{
@@ -53,8 +52,8 @@ func (s *LeaderSuite) TestIsLeaderSuccess(c *tc.C) {
 		// ...and so does the second.
 		s.tracker.results = []StubTicket{true}
 		leader, err := s.context.IsLeader()
-		c.Check(leader, jc.IsTrue)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(leader, tc.IsTrue)
+		c.Check(err, tc.ErrorIsNil)
 	})
 }
 
@@ -65,15 +64,15 @@ func (s *LeaderSuite) TestIsLeaderFailure(c *tc.C) {
 		// The first call fails...
 		s.tracker.results = []StubTicket{false}
 		leader, err := s.context.IsLeader()
-		c.Check(leader, jc.IsFalse)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(leader, tc.IsFalse)
+		c.Check(err, tc.ErrorIsNil)
 	})
 
 	s.CheckCalls(c, nil, func() {
 		// ...and the second doesn't even try.
 		leader, err := s.context.IsLeader()
-		c.Check(leader, jc.IsFalse)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(leader, tc.IsFalse)
+		c.Check(err, tc.ErrorIsNil)
 	})
 }
 
@@ -84,8 +83,8 @@ func (s *LeaderSuite) TestIsLeaderFailureAfterSuccess(c *tc.C) {
 		// The first call succeeds...
 		s.tracker.results = []StubTicket{true}
 		leader, err := s.context.IsLeader()
-		c.Check(leader, jc.IsTrue)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(leader, tc.IsTrue)
+		c.Check(err, tc.ErrorIsNil)
 	})
 
 	s.CheckCalls(c, []testing.StubCall{{
@@ -94,15 +93,15 @@ func (s *LeaderSuite) TestIsLeaderFailureAfterSuccess(c *tc.C) {
 		// The second fails...
 		s.tracker.results = []StubTicket{false}
 		leader, err := s.context.IsLeader()
-		c.Check(leader, jc.IsFalse)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(leader, tc.IsFalse)
+		c.Check(err, tc.ErrorIsNil)
 	})
 
 	s.CheckCalls(c, nil, func() {
 		// The third doesn't even try.
 		leader, err := s.context.IsLeader()
-		c.Check(leader, jc.IsFalse)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(leader, tc.IsFalse)
+		c.Check(err, tc.ErrorIsNil)
 	})
 }
 

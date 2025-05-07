@@ -13,7 +13,6 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
@@ -149,7 +148,7 @@ func (s *InstancePollerSuite) TestWatchModelMachinesFailure(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 	err := s.setupAPI(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertMachineWatcherFails(c, "WatchModelMachines", s.api.WatchModelMachines)
 }
@@ -158,7 +157,7 @@ func (s *InstancePollerSuite) TestWatchModelMachinesSuccess(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 	err := s.setupAPI(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertMachineWatcherSucceeds(c, "WatchModelMachines", s.api.WatchModelMachines)
 }
@@ -167,7 +166,7 @@ func (s *InstancePollerSuite) TestWatchModelMachineStartTimesFailure(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 	err := s.setupAPI(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertMachineWatcherFails(c, "WatchModelMachineStartTimes", s.api.WatchModelMachineStartTimes)
 }
@@ -176,7 +175,7 @@ func (s *InstancePollerSuite) TestWatchModelMachineStartTimesSuccess(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 	err := s.setupAPI(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertMachineWatcherFails(c, "WatchModelMachineStartTimes", s.api.WatchModelMachineStartTimes)
 }
@@ -188,7 +187,7 @@ func (s *InstancePollerSuite) assertMachineWatcherFails(c *tc.C, watchFacadeName
 
 	result, err := getWatcherFn(context.Background())
 	c.Assert(err, tc.ErrorMatches, "cannot obtain initial model machines: boom")
-	c.Assert(result, jc.DeepEquals, params.StringsWatchResult{})
+	c.Assert(result, tc.DeepEquals, params.StringsWatchResult{})
 
 	c.Assert(s.resources.Count(), tc.Equals, 0) // no watcher registered
 	s.st.CheckCallNames(c, watchFacadeName)
@@ -205,8 +204,8 @@ func (s *InstancePollerSuite) assertMachineWatcherSucceeds(c *tc.C, watchFacadeN
 		Changes:          []string{"1", "2"}, // initial event (sorted ids)
 	}
 	result, err := getWatcherFn(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, expectedResult)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, expectedResult)
 
 	// Verify the watcher resource was registered.
 	c.Assert(s.resources.Count(), tc.Equals, 1)
@@ -225,9 +224,9 @@ func (s *InstancePollerSuite) assertMachineWatcherSucceeds(c *tc.C, watchFacadeN
 
 	// Add another watcher to verify events coalescence.
 	result, err = getWatcherFn(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedResult.StringsWatcherId = "2"
-	c.Assert(result, jc.DeepEquals, expectedResult)
+	c.Assert(result, tc.DeepEquals, expectedResult)
 	s.st.CheckCallNames(c, watchFacadeName, watchFacadeName)
 	c.Assert(s.resources.Count(), tc.Equals, 2)
 	resource2 := s.resources.Get("2")
@@ -248,7 +247,7 @@ func (s *InstancePollerSuite) assertMachineWatcherSucceeds(c *tc.C, watchFacadeN
 
 	// Stop the first watcher and assert its changes chan is closed.
 	resource1.Kill()
-	c.Assert(resource1.Wait(), jc.ErrorIsNil)
+	c.Assert(resource1.Wait(), tc.ErrorIsNil)
 	wc1.AssertKilled()
 	resource1 = nil
 }
@@ -257,14 +256,14 @@ func (s *InstancePollerSuite) TestLifeSuccess(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 	err := s.setupAPI(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.st.SetMachineInfo(c, machineInfo{id: "1", life: state.Alive})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", life: state.Dying})
 
 	result, err := s.api.Life(context.Background(), s.mixedEntities)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.LifeResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Life: life.Alive},
 			{Life: life.Dying},
@@ -288,7 +287,7 @@ func (s *InstancePollerSuite) TestLifeFailure(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 	err := s.setupAPI(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.st.SetErrors(
 		errors.New("pow!"),                   // m1 := FindEntity("1"); Life not called
@@ -301,8 +300,8 @@ func (s *InstancePollerSuite) TestLifeFailure(c *tc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "3", life: state.Dying})
 
 	result, err := s.api.Life(context.Background(), s.machineEntities)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.LifeResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Error: apiservertesting.ServerError("pow!")},
 			{Life: life.Dead},
@@ -320,7 +319,7 @@ func (s *InstancePollerSuite) TestInstanceIdSuccess(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 	err := s.setupAPI(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("uuid-1", nil)
 	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("uuid-1")).Return("i-foo", nil)
@@ -329,8 +328,8 @@ func (s *InstancePollerSuite) TestInstanceIdSuccess(c *tc.C) {
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("42")).Return("", machineerrors.MachineNotFound)
 
 	result, err := s.api.InstanceId(context.Background(), s.mixedEntities)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.StringResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
 			{Result: "i-foo"},
 			{Result: ""},
@@ -348,7 +347,7 @@ func (s *InstancePollerSuite) TestInstanceIdFailure(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 	err := s.setupAPI(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("", errors.New("pow!"))
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("uuid-2", nil)
@@ -356,8 +355,8 @@ func (s *InstancePollerSuite) TestInstanceIdFailure(c *tc.C) {
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("3")).Return("uuid-3", nil)
 	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("uuid-3")).Return("", machineerrors.NotProvisioned)
 	result, err := s.api.InstanceId(context.Background(), s.machineEntities)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.StringResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
 			{Error: apiservertesting.ServerError("pow!")},
 			{Error: apiservertesting.ServerError("FAIL")},
@@ -370,7 +369,7 @@ func (s *InstancePollerSuite) TestStatusSuccess(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 	err := s.setupAPI(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	now := time.Now()
 	s1 := status.StatusInfo{
@@ -388,8 +387,8 @@ func (s *InstancePollerSuite) TestStatusSuccess(c *tc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "2", status: s2})
 
 	result, err := s.api.Status(context.Background(), s.mixedEntities)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.StatusResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
 			{
 				Status: status.Error.String(),
@@ -418,7 +417,7 @@ func (s *InstancePollerSuite) TestStatusFailure(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 	err := s.setupAPI(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.st.SetErrors(
 		errors.New("pow!"),                   // m1 := FindEntity("1"); Status not called
@@ -430,8 +429,8 @@ func (s *InstancePollerSuite) TestStatusFailure(c *tc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "2"})
 
 	result, err := s.api.Status(context.Background(), s.machineEntities)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.StatusResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
 			{Error: apiservertesting.ServerError("pow!")},
 			{Error: apiservertesting.ServerError("FAIL")},
@@ -449,14 +448,14 @@ func (s *InstancePollerSuite) TestInstanceStatusSuccess(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 	err := s.setupAPI(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: statusInfo("")})
 
 	result, err := s.api.InstanceStatus(context.Background(), s.mixedEntities)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.StatusResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
 			{Status: "foo"},
 			{Status: ""},
@@ -481,7 +480,7 @@ func (s *InstancePollerSuite) TestInstanceStatusFailure(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 	err := s.setupAPI(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.st.SetErrors(
 		errors.New("pow!"),                   // m1 := FindEntity("1")
@@ -493,8 +492,8 @@ func (s *InstancePollerSuite) TestInstanceStatusFailure(c *tc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: statusInfo("")})
 
 	result, err := s.api.InstanceStatus(context.Background(), s.machineEntities)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.StatusResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
 			{Error: apiservertesting.ServerError("pow!")},
 			{Error: apiservertesting.ServerError("FAIL")},
@@ -512,7 +511,7 @@ func (s *InstancePollerSuite) TestSetInstanceStatusSuccess(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 	err := s.setupAPI(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: statusInfo("")})
@@ -529,8 +528,8 @@ func (s *InstancePollerSuite) TestSetInstanceStatusSuccess(c *tc.C) {
 			{Tag: "42", Status: ""},
 		}},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, s.mixedErrorResults)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, s.mixedErrorResults)
 
 	now := s.clock.Now()
 	s.st.CheckMachineCall(c, 0, "1")
@@ -541,18 +540,18 @@ func (s *InstancePollerSuite) TestSetInstanceStatusSuccess(c *tc.C) {
 
 	// Ensure machines were updated.
 	machine, err := s.st.Machine("1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// TODO (perrito666) there should not be an empty StatusInfo here,
 	// this is certainly a smell.
 	setStatus, err := machine.InstanceStatus()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	setStatus.Since = nil
 	c.Assert(setStatus, tc.DeepEquals, status.StatusInfo{})
 
 	machine, err = s.st.Machine("2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	setStatus, err = machine.InstanceStatus()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	setStatus.Since = nil
 	c.Assert(setStatus, tc.DeepEquals, status.StatusInfo{Status: "new status"})
 }
@@ -561,7 +560,7 @@ func (s *InstancePollerSuite) TestSetInstanceStatusFailure(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 	err := s.setupAPI(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.st.SetErrors(
 		errors.New("pow!"),                   // m1 := FindEntity("1")
@@ -579,8 +578,8 @@ func (s *InstancePollerSuite) TestSetInstanceStatusFailure(c *tc.C) {
 			{Tag: "machine-3", Status: ""},
 		}},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, s.machineErrorResults)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, s.machineErrorResults)
 
 	s.st.CheckMachineCall(c, 0, "1")
 	s.st.CheckMachineCall(c, 1, "2")
@@ -593,14 +592,14 @@ func (s *InstancePollerSuite) TestAreManuallyProvisionedSuccess(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 	err := s.setupAPI(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.st.SetMachineInfo(c, machineInfo{id: "1", isManual: true})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", isManual: false})
 
 	result, err := s.api.AreManuallyProvisioned(context.Background(), s.mixedEntities)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.BoolResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
 			{Result: true},
 			{Result: false},
@@ -624,7 +623,7 @@ func (s *InstancePollerSuite) TestAreManuallyProvisionedFailure(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 	err := s.setupAPI(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.st.SetErrors(
 		errors.New("pow!"),                   // m1 := FindEntity("1")
@@ -636,8 +635,8 @@ func (s *InstancePollerSuite) TestAreManuallyProvisionedFailure(c *tc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "2", isManual: false})
 
 	result, err := s.api.AreManuallyProvisioned(context.Background(), s.machineEntities)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.BoolResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
 			{Error: apiservertesting.ServerError("pow!")},
 			{Error: apiservertesting.ServerError("FAIL")},
@@ -655,7 +654,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigSuccess(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 	err := s.setupAPI(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectDefaultSpaces()
 
@@ -705,10 +704,10 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigSuccess(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	result := results.Results[0]
-	c.Assert(result.Modified, jc.IsTrue)
+	c.Assert(result.Modified, tc.IsTrue)
 	c.Assert(result.Addresses, tc.HasLen, 5)
 	c.Assert(result.Addresses[0], tc.DeepEquals, params.Address{
 		Value:     "10.0.0.42",
@@ -742,7 +741,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigSuccess(c *tc.C) {
 	})
 
 	machine, err := s.st.Machine("1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	providerAddrs := machine.ProviderAddresses()
 
 	c.Assert(providerAddrs, tc.DeepEquals, network.SpaceAddresses{
@@ -758,7 +757,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigNoChange(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 	err := s.setupAPI(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectDefaultSpaces()
 
@@ -808,10 +807,10 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigNoChange(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	result := results.Results[0]
-	c.Assert(result.Modified, jc.IsFalse)
+	c.Assert(result.Modified, tc.IsFalse)
 	c.Assert(result.Addresses, tc.HasLen, 4)
 	c.Assert(result.Addresses[0], tc.DeepEquals, params.Address{
 		Value:     "10.0.0.42",
@@ -843,7 +842,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigNotAlive(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 	err := s.setupAPI(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.st.SetMachineInfo(c, machineInfo{id: "1", life: state.Dying})
 	s.expectDefaultSpaces()
@@ -856,8 +855,8 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigNotAlive(c *tc.C) {
 			}},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, jc.DeepEquals, params.SetProviderNetworkConfigResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, params.SetProviderNetworkConfigResults{
 		Results: []params.SetProviderNetworkConfigResult{{}},
 	})
 
@@ -869,7 +868,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigRelinquishUnseen(c *tc
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 	err := s.setupAPI(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectDefaultSpaces()
 
@@ -900,7 +899,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigRelinquishUnseen(c *tc
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0].Error, tc.IsNil)
 
@@ -915,14 +914,14 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigRelinquishUnseen(c *tc
 			}})
 		}
 	}
-	c.Assert(buildCalled, jc.IsTrue)
+	c.Assert(buildCalled, tc.IsTrue)
 }
 
 func (s *InstancePollerSuite) TestSetProviderNetworkProviderIDGoesToEthernetDev(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 	err := s.setupAPI(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectDefaultSpaces()
 
@@ -963,7 +962,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkProviderIDGoesToEthernetDev(
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0].Error, tc.IsNil)
 
@@ -973,14 +972,14 @@ func (s *InstancePollerSuite) TestSetProviderNetworkProviderIDGoesToEthernetDev(
 			buildCalled = true
 		}
 	}
-	c.Assert(buildCalled, jc.IsTrue)
+	c.Assert(buildCalled, tc.IsTrue)
 }
 
 func (s *InstancePollerSuite) TestSetProviderNetworkProviderIDMultipleRefsError(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 	err := s.setupAPI(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectDefaultSpaces()
 
@@ -1025,7 +1024,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkProviderIDMultipleRefsError(
 	})
 
 	// The error is logged but not returned.
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0].Error, tc.IsNil)
 
@@ -1037,7 +1036,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkProviderIDMultipleRefsError(
 			buildCalled = true
 		}
 	}
-	c.Assert(buildCalled, jc.IsFalse)
+	c.Assert(buildCalled, tc.IsFalse)
 }
 
 func (s *InstancePollerSuite) expectDefaultSpaces() {

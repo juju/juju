@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
@@ -77,8 +76,8 @@ func (s *imagemetadataSuite) TestList(c *tc.C) {
 		[]corebase.Base{base}, []string{arch},
 		virtType, rootStorageType,
 	)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(found, jc.DeepEquals, instances)
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(found, tc.DeepEquals, instances)
 }
 
 func (s *imagemetadataSuite) TestListFacadeCallError(c *tc.C) {
@@ -122,7 +121,7 @@ func (s *imagemetadataSuite) TestSave(c *tc.C) {
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.Save(context.Background(), []params.CloudImageMetadata{m, m})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *imagemetadataSuite) TestSaveFacadeCallError(c *tc.C) {
@@ -187,7 +186,7 @@ func (s *imagemetadataSuite) TestDelete(c *tc.C) {
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.Delete(context.Background(), imageId)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *imagemetadataSuite) TestDeleteMultipleResult(c *tc.C) {

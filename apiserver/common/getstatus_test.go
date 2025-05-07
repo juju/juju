@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -51,9 +50,9 @@ func (s *statusGetterSuite) TestUnauthorized(c *tc.C) {
 			Tag: tag.String(),
 		}}},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *statusGetterSuite) TestNotATag(c *tc.C) {
@@ -64,7 +63,7 @@ func (s *statusGetterSuite) TestNotATag(c *tc.C) {
 			Tag: "not a tag",
 		}}},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0].Error, tc.ErrorMatches, `"not a tag" is not a valid tag`)
 }
@@ -80,9 +79,9 @@ func (s *statusGetterSuite) TestNotFound(c *tc.C) {
 			Tag: tag.String(),
 		}}},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *statusGetterSuite) TestGetMachineStatus(c *tc.C) {
@@ -102,7 +101,7 @@ func (s *statusGetterSuite) TestGetMachineStatus(c *tc.C) {
 			Tag: tag.String(),
 		}}},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
 	machineStatus := result.Results[0]
 	c.Assert(machineStatus.Error, tc.IsNil)
@@ -123,9 +122,9 @@ func (s *statusGetterSuite) TestGetUnitStatus(c *tc.C) {
 			Tag: tag.String(),
 		}}},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *statusGetterSuite) TestGetApplicationStatus(c *tc.C) {
@@ -145,7 +144,7 @@ func (s *statusGetterSuite) TestGetApplicationStatus(c *tc.C) {
 			Tag: tag.String(),
 		}}},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
 	appStatus := result.Results[0]
 	c.Assert(appStatus.Error, tc.IsNil)
@@ -175,9 +174,9 @@ func (s *statusGetterSuite) TestBulk(c *tc.C) {
 			Tag: "bad-tag",
 		}}},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 3)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(result.Results[1].Error, tc.IsNil)
 	c.Assert(result.Results[1].Status, tc.Equals, status.Pending.String())
 	c.Assert(result.Results[2].Error, tc.ErrorMatches, `"bad-tag" is not a valid tag`)

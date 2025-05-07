@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/internal/worker/lease"
@@ -34,7 +33,7 @@ func (s *TokenSuite) TestSuccess(c *tc.C) {
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		token := getChecker(c, manager).Token("redis", "redis/0")
 		err := token.Check()
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	})
 }
 
@@ -65,6 +64,6 @@ func (s *TokenSuite) TestFailureOtherHolder(c *tc.C) {
 
 func getChecker(c *tc.C, manager *lease.Manager) corelease.Checker {
 	checker, err := manager.Checker("namespace", "modelUUID")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return checker
 }

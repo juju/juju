@@ -6,7 +6,6 @@ package credential
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/user"
@@ -21,7 +20,7 @@ type typeSuite struct {
 var _ = tc.Suite(&typeSuite{})
 
 func (s *typeSuite) TestCredentialKeyIsZero(c *tc.C) {
-	c.Assert(Key{}.IsZero(), jc.IsTrue)
+	c.Assert(Key{}.IsZero(), tc.IsTrue)
 }
 
 func (s *typeSuite) TestCredentialKeyIsNotZero(c *tc.C) {
@@ -43,7 +42,7 @@ func (s *typeSuite) TestCredentialKeyIsNotZero(c *tc.C) {
 	}
 
 	for _, test := range tests {
-		c.Assert(test.IsZero(), jc.IsFalse)
+		c.Assert(test.IsZero(), tc.IsFalse)
 	}
 }
 
@@ -89,9 +88,9 @@ func (s *typeSuite) TestCredentialKeyValidate(c *tc.C) {
 	for _, test := range tests {
 		err := test.Key.Validate()
 		if test.Err == nil {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		} else {
-			c.Assert(err, jc.ErrorIs, test.Err)
+			c.Assert(err, tc.ErrorIs, test.Err)
 		}
 	}
 }
@@ -123,6 +122,6 @@ func (*typeSuite) TestUUIDValidate(c *tc.C) {
 			continue
 		}
 
-		c.Check(err, jc.ErrorIs, test.err)
+		c.Check(err, tc.ErrorIs, test.err)
 	}
 }

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
@@ -97,13 +96,13 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithSet(c *tc.C) {
 		CpuPower: uintptr(75),
 	}
 	watcher, err := s.svc.WatchMachineCloudInstances(context.Background(), machineUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Should notify when the machine cloud instance is set.
 	harness.AddTest(func(c *tc.C) {
 		err = s.svc.SetMachineCloudInstance(context.Background(), machineUUID, "42", "", hc)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})
@@ -125,13 +124,13 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithDelete(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 
 	watcher, err := s.svc.WatchMachineCloudInstances(context.Background(), machineUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Should notify when the machine cloud instance is deleted.
 	harness.AddTest(func(c *tc.C) {
 		err = s.svc.DeleteMachineCloudInstance(context.Background(), machineUUID)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})
@@ -141,22 +140,22 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithDelete(c *tc.C) {
 
 func (s *watcherSuite) TestWatchLXDProfiles(c *tc.C) {
 	machineUUIDm0, err := s.svc.CreateMachine(context.Background(), "machine-1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.svc.SetMachineCloudInstance(context.Background(), machineUUIDm0, instance.Id("123"), "", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	machineUUIDm1, err := s.svc.CreateMachine(context.Background(), "machine-2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.svc.SetMachineCloudInstance(context.Background(), machineUUIDm1, instance.Id("456"), "", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	watcher, err := s.svc.WatchLXDProfiles(context.Background(), machineUUIDm0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Should notify when a new profile is added.
 	harness.AddTest(func(c *tc.C) {
 		err := s.svc.SetAppliedLXDProfileNames(context.Background(), machineUUIDm0, []string{"profile-0"})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})
@@ -164,7 +163,7 @@ func (s *watcherSuite) TestWatchLXDProfiles(c *tc.C) {
 	// Should notify when profiles are overwritten.
 	harness.AddTest(func(c *tc.C) {
 		err := s.svc.SetAppliedLXDProfileNames(context.Background(), machineUUIDm0, []string{"profile-0", "profile-1", "profile-2"})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})
@@ -173,7 +172,7 @@ func (s *watcherSuite) TestWatchLXDProfiles(c *tc.C) {
 	// watched) machine.
 	harness.AddTest(func(c *tc.C) {
 		err := s.svc.SetAppliedLXDProfileNames(context.Background(), machineUUIDm1, []string{"profile-0"})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
@@ -193,9 +192,9 @@ func (s *watcherSuite) TestWatchMachineForReboot(c *tc.C) {
 	parentUUID, err := s.svc.CreateMachine(context.Background(), "parent")
 	c.Assert(err, tc.IsNil)
 	childUUID, err := s.svc.CreateMachineWithParent(context.Background(), "child", "parent")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	controlUUID, err := s.svc.CreateMachineWithParent(context.Background(), "control", "parent")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Create watcher for child
 	watcher, err := s.svc.WatchMachineReboot(context.Background(), childUUID)
@@ -206,7 +205,7 @@ func (s *watcherSuite) TestWatchMachineForReboot(c *tc.C) {
 	// Ensure that the watcher is not notified when a sibling is asked for reboot
 	harness.AddTest(func(c *tc.C) {
 		err := s.svc.RequireMachineReboot(context.Background(), controlUUID)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
@@ -214,7 +213,7 @@ func (s *watcherSuite) TestWatchMachineForReboot(c *tc.C) {
 	// Ensure that the watcher is notified when the child is directly asked for reboot
 	harness.AddTest(func(c *tc.C) {
 		err := s.svc.RequireMachineReboot(context.Background(), childUUID)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})
@@ -222,7 +221,7 @@ func (s *watcherSuite) TestWatchMachineForReboot(c *tc.C) {
 	// Ensure that the watcher is notified when the parent is required for reboot
 	harness.AddTest(func(c *tc.C) {
 		err := s.svc.RequireMachineReboot(context.Background(), parentUUID)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})
@@ -230,7 +229,7 @@ func (s *watcherSuite) TestWatchMachineForReboot(c *tc.C) {
 	// Ensure that the watcher is not notified when a sibling is cleared from reboot
 	harness.AddTest(func(c *tc.C) {
 		err := s.svc.ClearMachineReboot(context.Background(), controlUUID)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
@@ -238,7 +237,7 @@ func (s *watcherSuite) TestWatchMachineForReboot(c *tc.C) {
 	// Ensure that the watcher is notified when the child is directly cleared from reboot
 	harness.AddTest(func(c *tc.C) {
 		err := s.svc.ClearMachineReboot(context.Background(), childUUID)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})
@@ -246,7 +245,7 @@ func (s *watcherSuite) TestWatchMachineForReboot(c *tc.C) {
 	// Ensure that the watcher is notified when the parent is cleared from reboot
 	harness.AddTest(func(c *tc.C) {
 		err := s.svc.ClearMachineReboot(context.Background(), parentUUID)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})

@@ -6,7 +6,6 @@ package space_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/space"
 )
@@ -76,7 +75,7 @@ func (s *RenameSuite) TestInit(c *tc.C) {
 			prefixedErr := "invalid arguments specified: " + test.expectErr
 			c.Check(err, tc.ErrorMatches, prefixedErr)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			command := command.(*space.RenameCommand)
 			c.Check(command.Name, tc.Equals, test.expectName)
 			c.Check(command.NewName, tc.Equals, test.expectNewName)

@@ -6,7 +6,6 @@ package instancemutater_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -436,9 +435,9 @@ func (s *lxdProfileWatcherSuite) assertStartLxdProfileWatcher(c *tc.C) worker.Wo
 
 func (s *lxdProfileWatcherSuite) assertCharmNotFound(c *tc.C, chURLStr string) {
 	curl, err := internalcharm.ParseURL(chURLStr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	source, err := applicationcharm.ParseCharmSchema(internalcharm.Schema(curl.Schema))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.applicationService.EXPECT().GetCharmLXDProfile(gomock.Any(), applicationcharm.CharmLocator{
 		Source:   source,
@@ -449,9 +448,9 @@ func (s *lxdProfileWatcherSuite) assertCharmNotFound(c *tc.C, chURLStr string) {
 
 func (s *lxdProfileWatcherSuite) assertCharmWithLXDProfile(c *tc.C, chURLStr string) {
 	curl, err := internalcharm.ParseURL(chURLStr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	source, err := applicationcharm.ParseCharmSchema(internalcharm.Schema(curl.Schema))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.applicationService.EXPECT().GetCharmLXDProfile(gomock.Any(), applicationcharm.CharmLocator{
 		Source:   source,
@@ -464,9 +463,9 @@ func (s *lxdProfileWatcherSuite) assertCharmWithLXDProfile(c *tc.C, chURLStr str
 
 func (s *lxdProfileWatcherSuite) assertCharmWithoutLXDProfile(c *tc.C, chURLStr string) {
 	curl, err := internalcharm.ParseURL(chURLStr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	source, err := applicationcharm.ParseCharmSchema(internalcharm.Schema(curl.Schema))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.applicationService.EXPECT().GetCharmLXDProfile(gomock.Any(), applicationcharm.CharmLocator{
 		Source:   source,

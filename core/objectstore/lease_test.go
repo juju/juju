@@ -6,7 +6,6 @@ package objectstore
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	coreerrors "github.com/juju/juju/core/errors"
 )
@@ -31,6 +30,6 @@ func (s *LeaseSuite) TestParseLeaseHolderName(c *tc.C) {
 
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.name)
-		c.Assert(ParseLeaseHolderName(test.name), jc.ErrorIs, test.expected)
+		c.Assert(ParseLeaseHolderName(test.name), tc.ErrorIs, test.expected)
 	}
 }

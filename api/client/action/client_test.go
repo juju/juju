@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
@@ -114,8 +113,8 @@ func (s *actionSuite) TestApplicationCharmActions(c *tc.C) {
 		if t.expectedErr != "" {
 			c.Check(err, tc.ErrorMatches, t.expectedErr)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
-			c.Check(result, jc.DeepEquals, t.expectedResult)
+			c.Check(err, tc.ErrorIsNil)
+			c.Check(result, tc.DeepEquals, t.expectedResult)
 		}
 	}
 }
@@ -213,8 +212,8 @@ func (s *actionSuite) TestListOperations(c *tc.C) {
 		Offset:       &offset,
 		Limit:        &limit,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, action.Operations{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, action.Operations{
 		Operations: []action.Operation{{
 			ID:      "1",
 			Summary: "hello",
@@ -250,8 +249,8 @@ func (s *actionSuite) TestOperation(c *tc.C) {
 	client := action.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.Operation(context.Background(), "666")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, action.Operation{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, action.Operation{
 		ID:      "1",
 		Summary: "hello",
 		Fail:    "fail",
@@ -294,8 +293,8 @@ func (s *actionSuite) TestEnqueueOperation(c *tc.C) {
 	client := action.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.EnqueueOperation(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, action.EnqueuedActions{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, action.EnqueuedActions{
 		Actions: []action.ActionResult{{
 			Error: &params.Error{Message: "FAIL"},
 		}},

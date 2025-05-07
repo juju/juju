@@ -11,7 +11,6 @@ import (
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coremodel "github.com/juju/juju/core/model"
@@ -40,7 +39,7 @@ func (s *importSuite) TestImportBlank(c *tc.C) {
 	}
 
 	err := importOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *importSuite) TestImportApplicationStatus(c *tc.C) {
@@ -74,7 +73,7 @@ func (s *importSuite) TestImportApplicationStatus(c *tc.C) {
 	}
 
 	err := importOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *importSuite) TestImportUnitStatus(c *tc.C) {
@@ -154,7 +153,7 @@ func (s *importSuite) TestImportUnitStatus(c *tc.C) {
 	}
 
 	err := importOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *importSuite) TestImportRelationStatus(c *tc.C) {
@@ -204,7 +203,7 @@ func (s *importSuite) TestImportRelationStatus(c *tc.C) {
 	}
 
 	err := importOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *importSuite) setUpMocks(c *tc.C) *gomock.Controller {

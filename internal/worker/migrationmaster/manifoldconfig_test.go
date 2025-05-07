@@ -8,7 +8,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/api/base"
@@ -40,7 +39,7 @@ func (s *ManifoldConfigSuite) validConfig() migrationmaster.ManifoldConfig {
 }
 
 func (s *ManifoldConfigSuite) TestValid(c *tc.C) {
-	c.Check(s.config.Validate(), jc.ErrorIsNil)
+	c.Check(s.config.Validate(), tc.ErrorIsNil)
 }
 
 func (s *ManifoldConfigSuite) TestMissingAgentName(c *tc.C) {
@@ -81,5 +80,5 @@ func (s *ManifoldConfigSuite) TestMissingNewWorker(c *tc.C) {
 func (s *ManifoldConfigSuite) checkNotValid(c *tc.C, expect string) {
 	err := s.config.Validate()
 	c.Check(err, tc.ErrorMatches, expect)
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 }

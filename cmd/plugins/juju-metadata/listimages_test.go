@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	corebase "github.com/juju/juju/core/base"
@@ -261,7 +260,7 @@ func (s *ListSuite) TestListMetadataFewFilters(c *tc.C) {
 
 func (s *ListSuite) assertValidList(c *tc.C, expectedValid, expectedErr string, args ...string) {
 	context, err := runList(c, args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtainedErr := cmdtesting.Stderr(context)
 	c.Assert(obtainedErr, tc.Matches, expectedErr)

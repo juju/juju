@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/semversion"
@@ -29,7 +28,7 @@ func (s *baseSuite) TestTagsPublicRegistry(c *tc.C) {
 
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{})
+			c.Assert(req.Header, tc.DeepEquals, http.Header{})
 			c.Assert(req.Method, tc.Equals, `GET`)
 			c.Assert(req.URL.String(), tc.Equals, `https://example.com/v2/jujuqa/jujud-operator/tags/list`)
 			return &http.Response{
@@ -46,7 +45,7 @@ func (s *baseSuite) TestTagsPublicRegistry(c *tc.C) {
 		// Refresh OAuth Token without credential.
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, jc.DeepEquals, http.Header{})
+				c.Assert(req.Header, tc.DeepEquals, http.Header{})
 				c.Assert(req.Method, tc.Equals, `GET`)
 				c.Assert(req.URL.String(), tc.Equals, `https://auth.example.com/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=registry.example.com`)
 				return &http.Response{
@@ -57,7 +56,7 @@ func (s *baseSuite) TestTagsPublicRegistry(c *tc.C) {
 			},
 		),
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
+			c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
 			c.Assert(req.Method, tc.Equals, `GET`)
 			c.Assert(req.URL.String(), tc.Equals, `https://example.com/v2/jujuqa/jujud-operator/tags/list`)
 			resps := &http.Response{
@@ -69,8 +68,8 @@ func (s *baseSuite) TestTagsPublicRegistry(c *tc.C) {
 		}),
 	)
 	vers, err := reg.Tags("jujud-operator")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vers, jc.DeepEquals, tools.Versions{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(vers, tc.DeepEquals, tools.Versions{
 		image.NewImageInfo(semversion.MustParse("2.9.10.1")),
 		image.NewImageInfo(semversion.MustParse("2.9.10.2")),
 		image.NewImageInfo(semversion.MustParse("2.9.10")),
@@ -89,7 +88,7 @@ func (s *baseSuite) TestTagsPrivateRegistry(c *tc.C) {
 
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{})
+			c.Assert(req.Header, tc.DeepEquals, http.Header{})
 			c.Assert(req.Method, tc.Equals, `GET`)
 			c.Assert(req.URL.String(), tc.Equals, `https://example.com/v2/jujuqa/jujud-operator/tags/list`)
 			return &http.Response{
@@ -106,7 +105,7 @@ func (s *baseSuite) TestTagsPrivateRegistry(c *tc.C) {
 		// Refresh OAuth Token.
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.getAuthToken("username", "pwd")}})
+				c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.getAuthToken("username", "pwd")}})
 				c.Assert(req.Method, tc.Equals, `GET`)
 				c.Assert(req.URL.String(), tc.Equals, `https://auth.example.com/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=registry.example.com`)
 				return &http.Response{
@@ -117,7 +116,7 @@ func (s *baseSuite) TestTagsPrivateRegistry(c *tc.C) {
 			},
 		),
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
+			c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
 			c.Assert(req.Method, tc.Equals, `GET`)
 			c.Assert(req.URL.String(), tc.Equals, `https://example.com/v2/jujuqa/jujud-operator/tags/list`)
 			resps := &http.Response{
@@ -129,8 +128,8 @@ func (s *baseSuite) TestTagsPrivateRegistry(c *tc.C) {
 		}),
 	)
 	vers, err := reg.Tags("jujud-operator")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vers, jc.DeepEquals, tools.Versions{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(vers, tc.DeepEquals, tools.Versions{
 		image.NewImageInfo(semversion.MustParse("2.9.10.1")),
 		image.NewImageInfo(semversion.MustParse("2.9.10.2")),
 		image.NewImageInfo(semversion.MustParse("2.9.10")),
@@ -148,7 +147,7 @@ func (s *baseSuite) TestTagsErrorResponse(c *tc.C) {
 
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{})
+			c.Assert(req.Header, tc.DeepEquals, http.Header{})
 			c.Assert(req.Method, tc.Equals, `GET`)
 			c.Assert(req.URL.String(), tc.Equals, `https://example.com/v2/jujuqa/jujud-operator/tags/list`)
 			return &http.Response{
@@ -165,7 +164,7 @@ func (s *baseSuite) TestTagsErrorResponse(c *tc.C) {
 		// Refresh OAuth Token
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.getAuthToken("username", "pwd")}})
+				c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.getAuthToken("username", "pwd")}})
 				c.Assert(req.Method, tc.Equals, `GET`)
 				c.Assert(req.URL.String(), tc.Equals, `https://auth.example.com/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=registry.example.com`)
 				return &http.Response{
@@ -176,7 +175,7 @@ func (s *baseSuite) TestTagsErrorResponse(c *tc.C) {
 			},
 		),
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
+			c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
 			c.Assert(req.Method, tc.Equals, `GET`)
 			c.Assert(req.URL.String(), tc.Equals, `https://example.com/v2/jujuqa/jujud-operator/tags/list`)
 			resps := &http.Response{

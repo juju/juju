@@ -5,7 +5,6 @@ package specs_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/caas/specs"
 )
@@ -62,7 +61,7 @@ func (s *typesSuite) TestServiceAccountSpecV3Validate(c *tc.C) {
 			Verbs:     []string{"get", "watch", "list"},
 		},
 	}
-	c.Assert(spec.Validate(), jc.ErrorIsNil)
+	c.Assert(spec.Validate(), tc.ErrorIsNil)
 }
 
 func (s *typesSuite) TestPrimeServiceAccountSpecV3Validate(c *tc.C) {

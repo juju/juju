@@ -8,7 +8,6 @@ import (
 	"errors"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/manual"
@@ -41,7 +40,7 @@ func (s *addressesSuite) SetUpTest(c *tc.C) {
 func (s *addressesSuite) TestHostAddress(c *tc.C) {
 	addr, err := manual.HostAddress(validHost)
 	c.Assert(s.netLookupHostCalled, tc.Equals, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(addr, tc.Equals, network.NewMachineAddress(validHost, network.WithScope(network.ScopePublic)).AsProviderAddress())
 }
 
@@ -55,13 +54,13 @@ func (s *addressesSuite) TestHostAddressError(c *tc.C) {
 func (s *addressesSuite) TestHostAddressIPv4(c *tc.C) {
 	addr, err := manual.HostAddress("127.0.0.1")
 	c.Assert(s.netLookupHostCalled, tc.Equals, 0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(addr, tc.Equals, network.NewMachineAddress("127.0.0.1", network.WithScope(network.ScopePublic)).AsProviderAddress())
 }
 
 func (s *addressesSuite) TestHostAddressIPv6(c *tc.C) {
 	addr, err := manual.HostAddress("::1")
 	c.Assert(s.netLookupHostCalled, tc.Equals, 0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(addr, tc.Equals, network.NewMachineAddress("::1", network.WithScope(network.ScopePublic)).AsProviderAddress())
 }

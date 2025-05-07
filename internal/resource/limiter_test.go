@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 
 	coretesting "github.com/juju/juju/internal/testing"
@@ -40,7 +39,7 @@ func (s *LimiterSuite) TestNoLimitsInvalidLimits(c *tc.C) {
 func (s *LimiterSuite) TestNoLimits(c *tc.C) {
 	const totalToAcquire = 10
 	limiter, err := NewResourceDownloadLimiter(0, 0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	totalAcquiredCount := int32(0)
 	trigger := make(chan struct{})
@@ -79,7 +78,7 @@ func (s *LimiterSuite) TestNoLimits(c *tc.C) {
 			break
 		}
 	}
-	c.Assert(allLocksAcquired, jc.IsTrue)
+	c.Assert(allLocksAcquired, tc.IsTrue)
 
 	for i := 0; i < totalToAcquire; i++ {
 		trigger <- struct{}{}
@@ -99,7 +98,7 @@ func (s *LimiterSuite) TestGlobalLimit(c *tc.C) {
 		totalToAcquire = 10
 	)
 	limiter, err := NewResourceDownloadLimiter(globalLimit, 0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	totalAcquiredCount := int32(0)
 	trigger := make(chan struct{})
@@ -138,7 +137,7 @@ func (s *LimiterSuite) TestGlobalLimit(c *tc.C) {
 			break
 		}
 	}
-	c.Assert(limitReached, jc.IsTrue)
+	c.Assert(limitReached, tc.IsTrue)
 
 	// Ensure we don't acquire more than allowed.
 	for a := shortAttempt.Start(); a.Next(); a.HasNext() {
@@ -167,7 +166,7 @@ func (s *LimiterSuite) TestApplicationLimit(c *tc.C) {
 		totalToAcquirePerApplication = 10
 	)
 	limiter, err := NewResourceDownloadLimiter(0, applicationLimit)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	totalAcquiredCount := int32(0)
 	trigger := make(chan struct{})
@@ -211,7 +210,7 @@ func (s *LimiterSuite) TestApplicationLimit(c *tc.C) {
 		}
 	}
 	c.Logf("got %d", totalAcquiredCount)
-	c.Assert(limitReached, jc.IsTrue)
+	c.Assert(limitReached, tc.IsTrue)
 
 	// Ensure we don't acquire more than allowed.
 	for a := shortAttempt.Start(); a.Next(); a.HasNext() {
@@ -241,7 +240,7 @@ func (s *LimiterSuite) TestGlobalAndApplicationLimit(c *tc.C) {
 		totalToAcquirePerApplication = 2
 	)
 	limiter, err := NewResourceDownloadLimiter(globalLimit, applicationLimit)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	totalAcquiredCount := int32(0)
 	trigger := make(chan struct{})
@@ -287,7 +286,7 @@ func (s *LimiterSuite) TestGlobalAndApplicationLimit(c *tc.C) {
 			break
 		}
 	}
-	c.Assert(limitReached, jc.IsTrue)
+	c.Assert(limitReached, tc.IsTrue)
 
 	// Ensure we don't acquire more than allowed.
 	for a := shortAttempt.Start(); a.Next(); a.HasNext() {

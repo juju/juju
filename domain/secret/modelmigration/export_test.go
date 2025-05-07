@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/yaml.v2"
 
@@ -324,17 +323,17 @@ func (s *exportSuite) TestExport(c *tc.C) {
 
 	op := s.newExportOperation(c)
 	err := op.Execute(context.Background(), dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	actualSecrets := dst.Secrets()
 	c.Assert(len(actualSecrets), tc.Equals, 3)
 	out, err := yaml.Marshal(actualSecrets)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(out), tc.Equals, serialisedSecrets(uri, uri2, uri3, nextRotate, expire, timestamp))
 
 	actualRemoteSecrets := dst.RemoteSecrets()
 	c.Assert(len(actualRemoteSecrets), tc.Equals, 1)
 	out, err = yaml.Marshal(actualRemoteSecrets)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(out), tc.Equals, serialisedRemoteSecrets(uri4))
 }

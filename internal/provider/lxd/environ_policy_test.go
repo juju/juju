@@ -10,7 +10,6 @@ import (
 
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/arch"
@@ -33,7 +32,7 @@ var _ = tc.Suite(&environPolicySuite{})
 func (s *environPolicySuite) TestPrecheckInstanceDefaults(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	err := s.env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase()})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *environPolicySuite) TestPrecheckInstanceHasInstanceType(c *tc.C) {
@@ -43,7 +42,7 @@ func (s *environPolicySuite) TestPrecheckInstanceHasInstanceType(c *tc.C) {
 	err := s.env.PrecheckInstance(
 		context.Background(), environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase(), Constraints: cons})
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *environPolicySuite) TestPrecheckInstanceDiskSize(c *tc.C) {
@@ -53,7 +52,7 @@ func (s *environPolicySuite) TestPrecheckInstanceDiskSize(c *tc.C) {
 	err := s.env.PrecheckInstance(
 		context.Background(), environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase(), Constraints: cons})
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *environPolicySuite) TestPrecheckInstanceUnsupportedArch(c *tc.C) {
@@ -63,7 +62,7 @@ func (s *environPolicySuite) TestPrecheckInstanceUnsupportedArch(c *tc.C) {
 	err := s.env.PrecheckInstance(
 		context.Background(), environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase(), Constraints: cons})
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *environPolicySuite) TestPrecheckInstanceAvailZone(c *tc.C) {
@@ -97,11 +96,11 @@ func (s *environPolicySuite) TestConstraintsValidatorArch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	validator, err := s.env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64")
 	unsupported, err := validator.Validate(cons)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(unsupported, tc.HasLen, 0)
 }
@@ -120,12 +119,12 @@ func (s *environPolicySuite) TestConstraintsValidatorArchWithUnsupportedArches(c
 	s.env = s.NewEnviron(c, s.svr, nil, environscloudspec.CloudSpec{}, invalidator)
 
 	validator, err := s.env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	for _, arches := range []string{"arm64", "amd64"} {
 		cons := constraints.MustParse(fmt.Sprintf("arch=%s", arches))
 		unsupported, err := validator.Validate(cons)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		c.Check(unsupported, tc.HasLen, 0)
 	}
@@ -135,11 +134,11 @@ func (s *environPolicySuite) TestConstraintsValidatorVirtType(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	validator, err := s.env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("virt-type=container")
 	unsupported, err := validator.Validate(cons)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(unsupported, tc.HasLen, 0)
 }
@@ -148,11 +147,11 @@ func (s *environPolicySuite) TestConstraintsValidatorEmptyVirtType(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	validator, err := s.env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("virt-type=")
 	unsupported, err := validator.Validate(cons)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(unsupported, tc.HasLen, 0)
 }
@@ -161,10 +160,10 @@ func (s *environPolicySuite) TestConstraintsValidatorEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	validator, err := s.env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	unsupported, err := validator.Validate(constraints.Value{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(unsupported, tc.HasLen, 0)
 }
@@ -173,7 +172,7 @@ func (s *environPolicySuite) TestConstraintsValidatorUnsupported(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	validator, err := s.env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse(strings.Join([]string{
 		"arch=amd64",
@@ -185,32 +184,32 @@ func (s *environPolicySuite) TestConstraintsValidatorUnsupported(c *tc.C) {
 		"virt-type=virtual-machine",
 	}, " "))
 	unsupported, err := validator.Validate(cons)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected := []string{
 		"tags",
 		"cpu-power",
 	}
-	c.Check(unsupported, jc.SameContents, expected)
+	c.Check(unsupported, tc.SameContents, expected)
 }
 
 func (s *environPolicySuite) TestConstraintsValidatorVocabArchKnown(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	validator, err := s.env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64")
 	_, err = validator.Validate(cons)
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *environPolicySuite) TestConstraintsValidatorVocabArchUnknown(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	validator, err := s.env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)
@@ -224,7 +223,7 @@ func (s *environPolicySuite) TestConstraintsValidatorVocabContainerUnknown(c *tc
 	defer s.setupMocks(c).Finish()
 
 	validator, err := s.env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("container=lxd")
 	_, err = validator.Validate(cons)
@@ -236,16 +235,16 @@ func (s *environPolicySuite) TestConstraintsValidatorConflicts(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	validator, err := s.env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("instance-type=n1-standard-1")
 	consFallback := constraints.MustParse("cores=2 cpu-power=1000 mem=10000 tags=bar")
 	merged, err := validator.Merge(consFallback, cons)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// tags is not supported, but we're not validating here...
 	expected := constraints.MustParse("instance-type=n1-standard-1 tags=bar cores=2 cpu-power=1000 mem=10000")
-	c.Check(merged, jc.DeepEquals, expected)
+	c.Check(merged, tc.DeepEquals, expected)
 }
 
 func (s *environPolicySuite) TestSupportNetworks(c *tc.C) {
@@ -255,7 +254,7 @@ func (s *environPolicySuite) TestSupportNetworks(c *tc.C) {
 		SupportNetworks(context.Context) bool
 	}).SupportNetworks(context.Background())
 
-	c.Check(isSupported, jc.IsFalse)
+	c.Check(isSupported, tc.IsFalse)
 }
 
 func (s *environPolicySuite) TestShouldApplyControllerConstraints(c *tc.C) {
@@ -264,7 +263,7 @@ func (s *environPolicySuite) TestShouldApplyControllerConstraints(c *tc.C) {
 	cons := constraints.MustParse("")
 
 	ok := s.env.(environs.DefaultConstraintsChecker).ShouldApplyControllerConstraints(cons)
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 }
 
 func (s *environPolicySuite) TestShouldApplyControllerConstraintsInvalid(c *tc.C) {
@@ -273,7 +272,7 @@ func (s *environPolicySuite) TestShouldApplyControllerConstraintsInvalid(c *tc.C
 	cons := constraints.MustParse("virt-type=invalid")
 
 	ok := s.env.(environs.DefaultConstraintsChecker).ShouldApplyControllerConstraints(cons)
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 }
 
 func (s *environPolicySuite) TestShouldApplyControllerConstraintsForVirtualMachine(c *tc.C) {
@@ -282,7 +281,7 @@ func (s *environPolicySuite) TestShouldApplyControllerConstraintsForVirtualMachi
 	cons := constraints.MustParse("virt-type=virtual-machine")
 
 	ok := s.env.(environs.DefaultConstraintsChecker).ShouldApplyControllerConstraints(cons)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 }
 
 func (s *environPolicySuite) setupMocks(c *tc.C) *gomock.Controller {

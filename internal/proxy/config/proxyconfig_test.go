@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	proxyconfig "github.com/juju/juju/internal/proxy/config"
 )
@@ -19,11 +18,11 @@ var _ = tc.Suite(&Suite{})
 
 func checkProxy(c *tc.C, settings proxy.Settings, requestURL, expectedURL string) {
 	pc := proxyconfig.ProxyConfig{}
-	c.Assert(pc.Set(settings), jc.ErrorIsNil)
+	c.Assert(pc.Set(settings), tc.ErrorIsNil)
 	req, err := http.NewRequest("GET", requestURL, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	proxyURL, err := pc.GetProxy(req)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	if expectedURL == "" {
 		c.Check(proxyURL, tc.IsNil)
 	} else {
@@ -107,12 +106,12 @@ func (s *Suite) TestInstall(c *tc.C) {
 	pc.InstallInDefaultTransport()
 
 	transport, ok := http.DefaultTransport.(*http.Transport)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	req, err := http.NewRequest("GET", "https://risky.biz", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	proxyURL, err := transport.Proxy(req)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(proxyURL, tc.Not(tc.IsNil))
 	c.Assert(proxyURL.String(), tc.Equals, "https://https.proxy")
 }

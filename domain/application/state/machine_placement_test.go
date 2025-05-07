@@ -11,7 +11,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/machine"
 	domainapplication "github.com/juju/juju/domain/application"
@@ -42,11 +41,11 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnset(c *tc.C) {
 		})
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(netNode, tc.Not(tc.Equals), "")
 
 	resultNetNode, err := s.state.GetMachineNetNodeUUIDFromName(context.Background(), machine.Name("0"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(resultNetNode, tc.Equals, netNode)
 
 	s.ensureSequenceForMachineNamespace(c, 0)
@@ -72,12 +71,12 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetMultipleTimes(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var resultNetNodes []string
 	for i := range total {
 		netNode, err := s.state.GetMachineNetNodeUUIDFromName(context.Background(), machine.Name(strconv.Itoa(i)))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		resultNetNodes = append(resultNetNodes, netNode)
 	}
 	c.Check(resultNetNodes, tc.DeepEquals, netNodes)
@@ -110,14 +109,14 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetMultipleTimesWithGaps(c *t
 			}
 			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	deleteLastMachine := func() {
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			_, err := tx.Exec("DELETE FROM machine WHERE net_node_uuid = ?", netNodes[len(netNodes)-1])
 			return err
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		netNodes = netNodes[:len(netNodes)-1]
 	}
@@ -141,7 +140,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetMultipleTimesWithGaps(c *t
 			c.Logf("machine %d not found, this is expected", i)
 			continue
 		}
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		resultNetNodes = append(resultNetNodes, netNode)
 	}
 	c.Check(resultNetNodes, tc.DeepEquals, netNodes)
@@ -158,7 +157,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesExistingMachine(c *tc.C) {
 		})
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var resultNetNode string
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
@@ -169,7 +168,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesExistingMachine(c *tc.C) {
 		})
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(resultNetNode, tc.Equals, netNode)
 }
 
@@ -183,7 +182,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesExistingMachineNotFound(c *tc.C
 		})
 		return err
 	})
-	c.Assert(err, jc.ErrorIs, applicationerrors.MachineNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.MachineNotFound)
 }
 
 func (s *unitStateSuite) TestPlaceNetNodeMachinesContainer(c *tc.C) {
@@ -198,11 +197,11 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainer(c *tc.C) {
 		})
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(netNode, tc.Not(tc.Equals), "")
 
 	resultNetNode, err := s.state.GetMachineNetNodeUUIDFromName(context.Background(), machine.Name("0/lxd/0"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(resultNetNode, tc.Equals, netNode)
 
 	s.ensureSequenceForMachineNamespace(c, 0)
@@ -219,7 +218,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerWithDirective(c *tc.C)
 		})
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var netNode string
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
@@ -231,11 +230,11 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerWithDirective(c *tc.C)
 		})
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(netNode, tc.Not(tc.Equals), "")
 
 	resultNetNode, err := s.state.GetMachineNetNodeUUIDFromName(context.Background(), machine.Name("0/lxd/0"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(resultNetNode, tc.Equals, netNode)
 
 	s.ensureSequenceForMachineNamespace(c, 0)
@@ -251,7 +250,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerWithDirectiveMachineNo
 		})
 		return err
 	})
-	c.Assert(err, jc.ErrorIs, applicationerrors.MachineNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.MachineNotFound)
 }
 
 func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerMultipleTimes(c *tc.C) {
@@ -275,13 +274,13 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerMultipleTimes(c *tc.C)
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var resultNetNodes []string
 	for i := range total {
 		name := fmt.Sprintf("%d/lxd/0", i)
 		netNode, err := s.state.GetMachineNetNodeUUIDFromName(context.Background(), machine.Name(name))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		resultNetNodes = append(resultNetNodes, netNode)
 	}
 	c.Check(resultNetNodes, tc.DeepEquals, netNodes)
@@ -318,7 +317,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerMultipleTimesWithGaps(
 			}
 			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	deleteLastMachine := func() {
 		// Delete the parent and the child.
@@ -350,7 +349,7 @@ WHERE m.net_node_uuid = ?
 
 			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		netNodes = netNodes[:len(netNodes)-1]
 	}
@@ -375,7 +374,7 @@ WHERE m.net_node_uuid = ?
 			c.Logf("machine %d not found, this is expected", i)
 			continue
 		}
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		resultNetNodes = append(resultNetNodes, netNode)
 	}
 	c.Check(resultNetNodes, tc.DeepEquals, netNodes)
@@ -394,11 +393,11 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesProvider(c *tc.C) {
 		})
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(netNode, tc.Not(tc.Equals), "")
 
 	resultNetNode, err := s.state.GetMachineNetNodeUUIDFromName(context.Background(), machine.Name("0"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(resultNetNode, tc.Equals, netNode)
 
 	s.ensureSequenceForMachineNamespace(c, 0)
@@ -416,7 +415,7 @@ WHERE m.net_node_uuid = ?
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(directive, tc.Equals, "zone=eu-west-1")
 }
 
@@ -426,7 +425,7 @@ func (s *unitStateSuite) ensureSequenceForMachineNamespace(c *tc.C, expected int
 		namespace := domainapplication.MachineSequenceNamespace
 		return tx.QueryRow("SELECT value FROM sequence WHERE namespace = ?", namespace).Scan(&seq)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(seq, tc.Equals, expected)
 }
 
@@ -436,6 +435,6 @@ func (s *unitStateSuite) ensureSequenceForContainerNamespace(c *tc.C, parentName
 		namespace := sequence.MakePrefixNamespace(domainapplication.ContainerSequenceNamespace, parentName.String()).String()
 		return tx.QueryRow("SELECT value FROM sequence WHERE namespace = ?", namespace).Scan(&seq)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(seq, tc.Equals, expected)
 }

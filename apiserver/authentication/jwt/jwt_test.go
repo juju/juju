@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/authentication/jwt"
@@ -39,7 +38,7 @@ func (s *loginTokenSuite) TestAuthenticate(c *tc.C) {
 			applicationOfferTag.String():   "consume",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	params := authentication.AuthParams{
 		Token: base64.StdEncoding.EncodeToString(tok),
@@ -48,49 +47,49 @@ func (s *loginTokenSuite) TestAuthenticate(c *tc.C) {
 	authenticator := jwt.NewAuthenticator(&testJWTParser{})
 
 	req, err := http.NewRequest("", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	req.Header.Add("Authorization", "Bearer "+params.Token)
 	authInfo, err := authenticator.Authenticate(req)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(authInfo.Entity.Tag().String(), tc.Equals, "user-fred")
 	perm, err := authInfo.SubjectPermissions(context.Background(), permission.ID{
 		ObjectType: permission.Model,
 		Key:        modelTag.Id(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(perm, tc.Equals, permission.WriteAccess)
 
 	perm, err = authInfo.SubjectPermissions(context.Background(), permission.ID{
 		ObjectType: permission.Controller,
 		Key:        testing.ControllerTag.Id(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(perm, tc.Equals, permission.LoginAccess)
 
 	perm, err = authInfo.SubjectPermissions(context.Background(), permission.ID{
 		ObjectType: permission.Offer,
 		Key:        applicationOfferTag.Id(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(perm, tc.Equals, permission.ConsumeAccess)
 }
 
 func (s *loginTokenSuite) TestAuthenticateInvalidHeader(c *tc.C) {
 	authenticator := jwt.NewAuthenticator(&testJWTParser{})
 	req, err := http.NewRequest("", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = authenticator.Authenticate(req)
 	c.Assert(err, tc.ErrorMatches, ".*authorization header missing.*")
 
 	req, err = http.NewRequest("", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	req.Header.Add("Authorization", "Bad Format aaaaa")
 	_, err = authenticator.Authenticate(req)
 	c.Assert(err, tc.ErrorMatches, ".*authorization header format.*")
 
 	req, err = http.NewRequest("", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	req.Header.Add("Authorization", "Bearer aaaaa")
 	_, err = authenticator.Authenticate(req)
 	c.Assert(err, tc.ErrorMatches, ".*parsing jwt.*")
@@ -98,7 +97,7 @@ func (s *loginTokenSuite) TestAuthenticateInvalidHeader(c *tc.C) {
 
 func (s *loginTokenSuite) TestUsesLoginToken(c *tc.C) {
 	uuid, err := coremodel.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	modelTag := names.NewModelTag(uuid.String())
 	applicationOfferTag := names.NewApplicationOfferTag("f47ac10b-58cc-4372-a567-0e02b2c3d479")
 	tok, err := EncodedJWT(JWTParams{
@@ -110,7 +109,7 @@ func (s *loginTokenSuite) TestUsesLoginToken(c *tc.C) {
 			applicationOfferTag.String():   "consume",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	params := authentication.AuthParams{
 		Token: base64.StdEncoding.EncodeToString(tok),
@@ -119,28 +118,28 @@ func (s *loginTokenSuite) TestUsesLoginToken(c *tc.C) {
 	authenticator := jwt.NewAuthenticator(&testJWTParser{})
 
 	authInfo, err := authenticator.AuthenticateLoginRequest(context.Background(), "", "", params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(authInfo.Entity.Tag().String(), tc.Equals, "user-fred")
 	perm, err := authInfo.SubjectPermissions(context.Background(), permission.ID{
 		ObjectType: permission.Model,
 		Key:        modelTag.Id(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(perm, tc.Equals, permission.WriteAccess)
 
 	perm, err = authInfo.SubjectPermissions(context.Background(), permission.ID{
 		ObjectType: permission.Controller,
 		Key:        testing.ControllerTag.Id(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(perm, tc.Equals, permission.LoginAccess)
 
 	perm, err = authInfo.SubjectPermissions(context.Background(), permission.ID{
 		ObjectType: permission.Offer,
 		Key:        applicationOfferTag.Id(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(perm, tc.Equals, permission.ConsumeAccess)
 }
 
@@ -159,7 +158,7 @@ func (s *loginTokenSuite) TestPermissionsForDifferentEntity(c *tc.C) {
 			modelTag.String():              "write",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	params := authentication.AuthParams{
 		Token: base64.StdEncoding.EncodeToString(tok),
@@ -168,7 +167,7 @@ func (s *loginTokenSuite) TestPermissionsForDifferentEntity(c *tc.C) {
 	authenticator := jwt.NewAuthenticator(&testJWTParser{})
 
 	authInfo, err := authenticator.AuthenticateLoginRequest(context.Background(), "", "", params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	badUser := jwt.TokenEntity{
 		User: names.NewUserTag("wallyworld"),
@@ -177,8 +176,8 @@ func (s *loginTokenSuite) TestPermissionsForDifferentEntity(c *tc.C) {
 		ObjectType: permission.Model,
 		Key:        modelTag.Id(),
 	})
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
-	c.Assert(err, jc.ErrorIs, authentication.ErrorEntityMissingPermission)
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
+	c.Assert(err, tc.ErrorIs, authentication.ErrorEntityMissingPermission)
 	c.Assert(perm, tc.Equals, permission.NoAccess)
 
 	badUser = jwt.TokenEntity{
@@ -188,7 +187,7 @@ func (s *loginTokenSuite) TestPermissionsForDifferentEntity(c *tc.C) {
 		ObjectType: permission.Model,
 		Key:        modelTag.Id(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(perm, tc.Equals, permission.NoAccess)
 }
 
@@ -200,7 +199,7 @@ func (s *loginTokenSuite) TestControllerSuperuser(c *tc.C) {
 			testing.ControllerTag.String(): "superuser",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	params := authentication.AuthParams{
 		Token: base64.StdEncoding.EncodeToString(tok),
@@ -209,7 +208,7 @@ func (s *loginTokenSuite) TestControllerSuperuser(c *tc.C) {
 	authenticator := jwt.NewAuthenticator(&testJWTParser{})
 
 	authInfo, err := authenticator.AuthenticateLoginRequest(context.Background(), "", "", params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(authInfo.Entity.Tag().String(), tc.Equals, "user-fred")
 
@@ -217,7 +216,7 @@ func (s *loginTokenSuite) TestControllerSuperuser(c *tc.C) {
 		ObjectType: permission.Controller,
 		Key:        testing.ControllerTag.Id(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(perm, tc.Equals, permission.SuperuserAccess)
 }
 
@@ -226,11 +225,11 @@ func (s *loginTokenSuite) TestNotAvailableJWTParser(c *tc.C) {
 
 	params := authentication.AuthParams{Token: "token"}
 	_, err := authenticator.AuthenticateLoginRequest(context.Background(), "", "", params)
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 
 	req, err := http.NewRequest("", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	req.Header.Add("Authorization", "Bearer aaaaa")
 	_, err = authenticator.Authenticate(req)
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }

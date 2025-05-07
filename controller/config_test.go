@@ -12,7 +12,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/controller"
@@ -68,7 +67,7 @@ func (s *ConfigSuite) TestValidate(c *tc.C) {
 		if test.expectError != "" {
 			c.Check(err, tc.ErrorMatches, test.expectError)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		}
 	}
 }
@@ -469,14 +468,14 @@ func (s *ConfigSuite) TestNewConfig(c *tc.C) {
 		if test.expectError != "" {
 			c.Check(err, tc.ErrorMatches, test.expectError)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		}
 	}
 }
 
 func (s *ConfigSuite) TestAPIPortDefaults(c *tc.C) {
 	cfg, err := controller.NewConfig(testing.ControllerTag.Id(), testing.CACert, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.APIPortOpenDelay(), tc.Equals, 2*time.Second)
 }
 
@@ -489,14 +488,14 @@ func (s *ConfigSuite) TestResourceDownloadLimits(c *tc.C) {
 			"controller-resource-download-limit":  "666",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.ApplicationResourceDownloadLimit(), tc.Equals, 42)
 	c.Assert(cfg.ControllerResourceDownloadLimit(), tc.Equals, 666)
 }
 
 func (s *ConfigSuite) TestTxnLogConfigDefault(c *tc.C) {
 	cfg, err := controller.NewConfig(testing.ControllerTag.Id(), testing.CACert, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.MaxTxnLogSizeMB(), tc.Equals, 10)
 }
 
@@ -508,13 +507,13 @@ func (s *ConfigSuite) TestTxnLogConfigValue(c *tc.C) {
 			"max-txn-log-size": "8G",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.MaxTxnLogSizeMB(), tc.Equals, 8192)
 }
 
 func (s *ConfigSuite) TestMaxPruneTxnConfigDefault(c *tc.C) {
 	cfg, err := controller.NewConfig(testing.ControllerTag.Id(), testing.CACert, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cfg.MaxPruneTxnBatchSize(), tc.Equals, 1*1000*1000)
 	c.Check(cfg.MaxPruneTxnPasses(), tc.Equals, 100)
 }
@@ -528,7 +527,7 @@ func (s *ConfigSuite) TestMaxPruneTxnConfigValue(c *tc.C) {
 			"max-prune-txn-passes":     "10",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cfg.MaxPruneTxnBatchSize(), tc.Equals, 12345678)
 	c.Check(cfg.MaxPruneTxnPasses(), tc.Equals, 10)
 }
@@ -542,7 +541,7 @@ func (s *ConfigSuite) TestPruneTxnQueryCount(c *tc.C) {
 			"prune-txn-sleep-time":  "5ms",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cfg.PruneTxnQueryCount(), tc.Equals, 500)
 	c.Check(cfg.PruneTxnSleepTime(), tc.Equals, 5*time.Millisecond)
 }
@@ -555,7 +554,7 @@ func (s *ConfigSuite) TestPublicDNSAddressConfigValue(c *tc.C) {
 			"public-dns-address": "controller.test.com:12345",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cfg.PublicDNSAddress(), tc.Equals, "controller.test.com:12345")
 }
 
@@ -571,7 +570,7 @@ func (s *ConfigSuite) TestNetworkSpaceConfigValues(c *tc.C) {
 			controller.JujuManagementSpace: managementSpace,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.JujuHASpace(), tc.Equals, haSpace)
 	c.Assert(cfg.JujuManagementSpace(), tc.Equals, managementSpace)
 }
@@ -582,14 +581,14 @@ func (s *ConfigSuite) TestNetworkSpaceConfigDefaults(c *tc.C) {
 		testing.CACert,
 		map[string]interface{}{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.JujuHASpace(), tc.Equals, "")
 	c.Assert(cfg.JujuManagementSpace(), tc.Equals, "")
 }
 
 func (s *ConfigSuite) TestAuditLogDefaults(c *tc.C) {
 	cfg, err := controller.NewConfig(testing.ControllerTag.Id(), testing.CACert, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.AuditingEnabled(), tc.Equals, true)
 	c.Assert(cfg.AuditLogCaptureArgs(), tc.Equals, false)
 	c.Assert(cfg.AuditLogMaxSizeMB(), tc.Equals, 300)
@@ -610,7 +609,7 @@ func (s *ConfigSuite) TestAuditLogValues(c *tc.C) {
 			"audit-log-exclude-methods": "Fleet.Foxes,King.Gizzard,ReadOnlyMethods",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.AuditingEnabled(), tc.Equals, false)
 	c.Assert(cfg.AuditLogCaptureArgs(), tc.Equals, true)
 	c.Assert(cfg.AuditLogMaxSizeMB(), tc.Equals, 100)
@@ -648,7 +647,7 @@ func (s *ConfigSuite) TestConfigManagementSpaceAsConstraint(c *tc.C) {
 		testing.CACert,
 		map[string]interface{}{controller.JujuHASpace: managementSpace},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(*cfg.AsSpaceConstraints(nil), tc.DeepEquals, []string{managementSpace})
 }
 
@@ -659,7 +658,7 @@ func (s *ConfigSuite) TestConfigHASpaceAsConstraint(c *tc.C) {
 		testing.CACert,
 		map[string]interface{}{controller.JujuHASpace: haSpace},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(*cfg.AsSpaceConstraints(nil), tc.DeepEquals, []string{haSpace})
 }
 
@@ -676,7 +675,7 @@ func (s *ConfigSuite) TestConfigAllSpacesAsMergedConstraints(c *tc.C) {
 			controller.JujuManagementSpace: managementSpace,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	got := *cfg.AsSpaceConstraints(&[]string{constraintSpace})
 	c.Check(got, tc.DeepEquals, []string{constraintSpace, haSpace, managementSpace})
@@ -688,7 +687,7 @@ func (s *ConfigSuite) TestConfigNoSpacesNilSpaceConfigPreserved(c *tc.C) {
 		testing.CACert,
 		map[string]interface{}{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cfg.AsSpaceConstraints(nil), tc.IsNil)
 }
 
@@ -731,9 +730,9 @@ func (s *ConfigSuite) TestCAASImageRepo(c *tc.C) {
 				controller.CAASImageRepo: imageRepo.content,
 			},
 		)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		imageRepoDetails, err := docker.NewImageRepoDetails(cfg.CAASImageRepo())
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		c.Check(imageRepoDetails.Repository, tc.Equals, imageRepo.expected)
 	}
 }
@@ -751,7 +750,7 @@ func (s *ConfigSuite) TestControllerNameSetGet(c *tc.C) {
 			controller.ControllerName: "test",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cfg.ControllerName(), tc.Equals, "test")
 }
 
@@ -763,7 +762,7 @@ func (s *ConfigSuite) TestMaxDebugLogDuration(c *tc.C) {
 			"max-debug-log-duration": "90m",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.MaxDebugLogDuration(), tc.Equals, 90*time.Minute)
 }
 
@@ -786,8 +785,8 @@ func (s *ConfigSuite) TestFeatureFlags(c *tc.C) {
 			controller.Features: "foo,bar",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cfg.Features().Values(), jc.SameContents, []string{"foo", "bar"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cfg.Features().Values(), tc.SameContents, []string{"foo", "bar"})
 }
 
 func (s *ConfigSuite) TestDefaults(c *tc.C) {
@@ -796,7 +795,7 @@ func (s *ConfigSuite) TestDefaults(c *tc.C) {
 		testing.CACert,
 		map[string]interface{}{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.AgentRateLimitMax(), tc.Equals, controller.DefaultAgentRateLimitMax)
 	c.Assert(cfg.AgentRateLimitRate(), tc.Equals, controller.DefaultAgentRateLimitRate)
 	c.Assert(cfg.MaxDebugLogDuration(), tc.Equals, controller.DefaultMaxDebugLogDuration)
@@ -821,7 +820,7 @@ func (s *ConfigSuite) TestAgentLogfile(c *tc.C) {
 			"agent-logfile-max-backups": "17",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.AgentLogfileMaxBackups(), tc.Equals, 17)
 	c.Assert(cfg.AgentLogfileMaxSizeMB(), tc.Equals, 35)
 }
@@ -846,7 +845,7 @@ func (s *ConfigSuite) TestModelLogfile(c *tc.C) {
 			"model-logfile-max-backups": "15",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.ModelLogfileMaxBackups(), tc.Equals, 15)
 	c.Assert(cfg.ModelLogfileMaxSizeMB(), tc.Equals, 25)
 }
@@ -870,7 +869,7 @@ func (s *ConfigSuite) TestAgentRateLimitMax(c *tc.C) {
 			"agent-ratelimit-max": "0",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.AgentRateLimitMax(), tc.Equals, 0)
 }
 
@@ -878,7 +877,7 @@ func (s *ConfigSuite) TestAgentRateLimitRate(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.AgentRateLimitRate(), tc.Equals, controller.DefaultAgentRateLimitRate)
 
 	cfg[controller.AgentRateLimitRate] = time.Second
@@ -894,7 +893,7 @@ func (s *ConfigSuite) TestJujuDBSnapChannel(c *tc.C) {
 		testing.CACert,
 		map[string]interface{}{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.JujuDBSnapChannel(), tc.Equals, controller.DefaultJujuDBSnapChannel)
 
 	cfg, err = controller.NewConfig(
@@ -904,7 +903,7 @@ func (s *ConfigSuite) TestJujuDBSnapChannel(c *tc.C) {
 			"juju-db-snap-channel": "latest/candidate",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.JujuDBSnapChannel(), tc.Equals, "latest/candidate")
 }
 
@@ -912,7 +911,7 @@ func (s *ConfigSuite) TestMigrationMinionWaitMax(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(cfg.MigrationMinionWaitMax(), tc.Equals, controller.DefaultMigrationMinionWaitMax)
 
@@ -924,7 +923,7 @@ func (s *ConfigSuite) TestQueryTraceEnabled(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(cfg.QueryTracingEnabled(), tc.Equals, controller.DefaultQueryTracingEnabled)
 
@@ -936,7 +935,7 @@ func (s *ConfigSuite) TestQueryTraceThreshold(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(cfg.QueryTracingThreshold(), tc.Equals, controller.DefaultQueryTracingThreshold)
 
@@ -947,11 +946,11 @@ func (s *ConfigSuite) TestQueryTraceThreshold(c *tc.C) {
 	cfg[controller.QueryTracingThreshold] = d.String()
 
 	bytes, err := json.Marshal(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var cfg2 controller.Config
 	err = json.Unmarshal(bytes, &cfg2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(cfg2.QueryTracingThreshold(), tc.Equals, time.Second*10)
 }
@@ -960,7 +959,7 @@ func (s *ConfigSuite) TestOpenTelemetryEnabled(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(cfg.OpenTelemetryEnabled(), tc.Equals, controller.DefaultOpenTelemetryEnabled)
 
@@ -972,7 +971,7 @@ func (s *ConfigSuite) TestOpenTelemetryInsecure(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(cfg.OpenTelemetryInsecure(), tc.Equals, controller.DefaultOpenTelemetryInsecure)
 
@@ -984,7 +983,7 @@ func (s *ConfigSuite) TestOpenTelemetryStackTraces(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(cfg.OpenTelemetryStackTraces(), tc.Equals, controller.DefaultOpenTelemetryStackTraces)
 
@@ -1001,7 +1000,7 @@ func (s *ConfigSuite) TestOpenTelemetryEndpointSettingValue(c *tc.C) {
 			controller.OpenTelemetryEndpoint: mURL,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.OpenTelemetryEndpoint(), tc.Equals, mURL)
 }
 
@@ -1009,7 +1008,7 @@ func (s *ConfigSuite) TestOpenTelemetrySampleRatio(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(cfg.OpenTelemetrySampleRatio(), tc.Equals, controller.DefaultOpenTelemetrySampleRatio)
 
@@ -1021,7 +1020,7 @@ func (s *ConfigSuite) TestOpenTelemetryTailSamplingThreshold(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(cfg.OpenTelemetryTailSamplingThreshold(), tc.Equals, controller.DefaultOpenTelemetryTailSamplingThreshold)
 
@@ -1037,7 +1036,7 @@ func (s *ConfigSuite) TestSSHServerPort(c *tc.C) {
 			controller.SSHServerPort: 10,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.SSHServerPort(), tc.Equals, 10)
 }
 
@@ -1049,7 +1048,7 @@ func (s *ConfigSuite) TestSSHServerConcurrentConnections(c *tc.C) {
 			controller.SSHMaxConcurrentConnections: 10,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.SSHMaxConcurrentConnections(), tc.Equals, 10)
 }
 
@@ -1062,7 +1061,7 @@ func (s *ConfigSuite) TestObjectStoreType(c *tc.C) {
 			controller.ObjectStoreType: backendType,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.ObjectStoreType(), tc.Equals, objectstore.FileBackend)
 }
 
@@ -1074,7 +1073,7 @@ func (s *ConfigSuite) TestObjectStoreS3Endpoint(c *tc.C) {
 			controller.ObjectStoreS3Endpoint: "http://localhost:9000",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.ObjectStoreS3Endpoint(), tc.Equals, "http://localhost:9000")
 }
 
@@ -1088,7 +1087,7 @@ func (s *ConfigSuite) TestObjectStoreS3Credentials(c *tc.C) {
 			controller.ObjectStoreS3StaticSession: "session",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.ObjectStoreS3StaticKey(), tc.Equals, "key")
 	c.Assert(cfg.ObjectStoreS3StaticSecret(), tc.Equals, "secret")
 	c.Assert(cfg.ObjectStoreS3StaticSession(), tc.Equals, "session")

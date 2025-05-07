@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver/common"
 )
@@ -48,7 +47,7 @@ func (resourceSuite) TestRegisterNamedGetCount(c *tc.C) {
 	defer rs.StopAll()
 	r1 := &fakeResource{}
 	err := rs.RegisterNamed("fake1", r1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(rs.Count(), tc.Equals, 1)
 	c.Check(rs.Get("fake1"), tc.Equals, r1)
 }
@@ -59,7 +58,7 @@ func (resourceSuite) TestRegisterNamedRepeatedName(c *tc.C) {
 	r1 := &fakeResource{}
 	r2 := &fakeResource{}
 	err := rs.RegisterNamed("fake1", r1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(rs.Count(), tc.Equals, 1)
 	err = rs.RegisterNamed("fake1", r2)
 	c.Check(err, tc.ErrorMatches, `resource "fake1" already registered`)
@@ -82,7 +81,7 @@ func (resourceSuite) TestRegisterNamedIntegerStart(c *tc.C) {
 	defer rs.StopAll()
 	r1 := &fakeResource{}
 	err := rs.RegisterNamed("1fake", r1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(rs.Count(), tc.Equals, 1)
 	c.Check(rs.Get("1fake"), tc.Equals, r1)
 }
@@ -132,9 +131,9 @@ func (resourceSuite) TestStop(c *tc.C) {
 	r2 := &fakeResource{}
 	rs.Register(r2)
 	rs.Stop("1")
-	c.Assert(r1.stopped, jc.IsTrue)
+	c.Assert(r1.stopped, tc.IsTrue)
 	c.Assert(rs.Get("1"), tc.IsNil)
-	c.Assert(r2.stopped, jc.IsFalse)
+	c.Assert(r2.stopped, tc.IsFalse)
 	c.Assert(rs.Get("2"), tc.Equals, r2)
 	c.Assert(rs.Count(), tc.Equals, 1)
 }
@@ -147,9 +146,9 @@ func (resourceSuite) TestStopAll(c *tc.C) {
 	rs.Register(r2)
 	rs.StopAll()
 
-	c.Assert(r1.stopped, jc.IsTrue)
+	c.Assert(r1.stopped, tc.IsTrue)
 	c.Assert(rs.Get("1"), tc.IsNil)
-	c.Assert(r2.stopped, jc.IsTrue)
+	c.Assert(r2.stopped, tc.IsTrue)
 	c.Assert(rs.Get("2"), tc.IsNil)
 
 	c.Assert(rs.Count(), tc.Equals, 0)

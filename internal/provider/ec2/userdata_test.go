@@ -6,7 +6,6 @@ package ec2_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/core/os/ostype"
@@ -26,8 +25,8 @@ func (s *UserdataSuite) TestAmazonUnix(c *tc.C) {
 	cloudcfg := &cloudinittest.CloudConfig{YAML: []byte("yaml")}
 
 	result, err := renderer.Render(cloudcfg, ostype.Ubuntu)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, utils.Gzip(cloudcfg.YAML))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, utils.Gzip(cloudcfg.YAML))
 }
 
 func (s *UserdataSuite) TestAmazonUnknownOS(c *tc.C) {

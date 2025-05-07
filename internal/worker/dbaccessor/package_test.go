@@ -11,7 +11,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
@@ -150,7 +149,7 @@ func (s *baseSuite) newWorkerWithDB(c *tc.C, db TrackedDB) worker.Worker {
 	}
 
 	w, err := NewWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }
 

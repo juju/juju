@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	agenterrors "github.com/juju/juju/agent/errors"
 	agenttools "github.com/juju/juju/agent/tools"
@@ -59,7 +58,7 @@ func (s *ToolsFixture) TearDownTest(c *tc.C) {
 // s.UploadArches for each LTS release to the specified directory.
 func (s *ToolsFixture) UploadFakeToolsToDirectory(c *tc.C, dir, stream string) {
 	stor, err := filestorage.NewFileStorageWriter(dir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.UploadFakeTools(c, stor, stream)
 }
 
@@ -72,10 +71,10 @@ func (s *ToolsFixture) UploadFakeTools(c *tc.C, stor storage.Storage, stream str
 // RemoveFakeToolsMetadata deletes the fake simplestreams tools metadata from the supplied storage.
 func RemoveFakeToolsMetadata(c *tc.C, stor storage.Storage) {
 	files, err := stor.List("tools/streams")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	for _, file := range files {
 		err = stor.Remove(file)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
 }
 
@@ -108,15 +107,15 @@ func CheckUpgraderReadyError(c *tc.C, obtained error, expected *agenterrors.Upgr
 // makes sure that they're available in the dataDir.
 func PrimeTools(c *tc.C, stor storage.Storage, dataDir, stream string, vers semversion.Binary) *coretools.Tools {
 	err := os.RemoveAll(filepath.Join(dataDir, "tools"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	agentTools, err := uploadFakeToolsVersion(stor, stream, vers)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	client := http.NewClient()
 	resp, err := client.Get(context.Background(), agentTools.URL)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer resp.Body.Close()
 	err = agenttools.UnpackTools(dataDir, agentTools, resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return agentTools
 }
 
@@ -145,7 +144,7 @@ func InstallFakeDownloadedTools(c *tc.C, dataDir string, vers semversion.Binary)
 		SHA256:  checksum,
 	}
 	err := agenttools.UnpackTools(dataDir, agentTools, bytes.NewReader(tgz))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return agentTools
 }
 
@@ -228,7 +227,7 @@ func SignFileData(stor storage.Storage, fileName string) error {
 // AssertUploadFakeToolsVersions puts fake tools in the supplied storage for the supplied versions.
 func AssertUploadFakeToolsVersions(c *tc.C, stor storage.Storage, stream string, versions ...semversion.Binary) []*coretools.Tools {
 	agentTools, err := UploadFakeToolsVersions(stor, stream, versions...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return agentTools
 }
 
@@ -258,7 +257,7 @@ func UploadFakeTools(c *tc.C, stor storage.Storage, stream string, arches ...str
 	}
 	c.Logf("uploading fake tool versions: %v", versions)
 	_, err := UploadFakeToolsVersions(stor, stream, versions...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // RemoveFakeTools deletes the fake tools from the supplied storage.
@@ -267,13 +266,13 @@ func RemoveFakeTools(c *tc.C, stor storage.Storage, toolsDir string) {
 	toolsVersion := coretesting.CurrentVersion()
 	name := envtools.StorageName(toolsVersion, toolsDir)
 	err := stor.Remove(name)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	defaultBase := jujuversion.DefaultSupportedLTSBase()
 	if !defaultBase.IsCompatible(coretesting.HostBase(c)) {
 		toolsVersion.Release = "ubuntu"
 		name := envtools.StorageName(toolsVersion, toolsDir)
 		err := stor.Remove(name)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
 	RemoveFakeToolsMetadata(c, stor)
 }
@@ -281,11 +280,11 @@ func RemoveFakeTools(c *tc.C, stor storage.Storage, toolsDir string) {
 // RemoveTools deletes all tools from the supplied storage.
 func RemoveTools(c *tc.C, stor storage.Storage, toolsDir string) {
 	names, err := storage.List(stor, fmt.Sprintf("tools/%s/juju-", toolsDir))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Logf("removing files: %v", names)
 	for _, name := range names {
 		err = stor.Remove(name)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
 	RemoveFakeToolsMetadata(c, stor)
 }

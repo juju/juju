@@ -5,7 +5,6 @@ package jujuclient_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/testing"
@@ -34,7 +33,7 @@ func (s *SetModelsSuite) SetUpTest(c *tc.C) {
 	}
 
 	err := s.store.AddController(s.controllerName, s.controller)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = s.store.AllModels(s.controllerName)
 	c.Assert(err, tc.ErrorMatches, "models for controller test.controller not found")
 }
@@ -48,12 +47,12 @@ func (s *SetModelsSuite) TearDownTest(c *tc.C) {
 
 func (s *SetModelsSuite) TestSetModelsUnknownController(c *tc.C) {
 	err := s.store.SetModels("some-kontroller-not-in-store", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *SetModelsSuite) TestSetModelsNoControllerModels(c *tc.C) {
 	err := s.store.SetModels(s.controllerName, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = s.store.AllModels(s.controllerName)
 	c.Assert(err, tc.ErrorMatches, "models for controller test.controller not found")
 }
@@ -93,7 +92,7 @@ func (s *SetModelsSuite) TestSetModelsDeleteOne(c *tc.C) {
 	}
 
 	storedModels, err := s.store.AllModels(s.controllerName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(storedModels, tc.DeepEquals, before)
 	s.assertSetModels(c, after)
 }
@@ -104,7 +103,7 @@ func (s *SetModelsSuite) TestSetModelsDeleteAll(c *tc.C) {
 		"admin/another-model": s.assertUpdateModel(c, "admin/another-model", "test.model.uuid.2"),
 	}
 	storedModels, err := s.store.AllModels(s.controllerName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(storedModels, tc.DeepEquals, before)
 	s.assertSetModels(c, nil)
 }
@@ -124,7 +123,7 @@ func (s *SetModelsSuite) TestSetModelsAddUpdateDeleteCombination(c *tc.C) {
 	}
 
 	storedModels, err := s.store.AllModels(s.controllerName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(storedModels, tc.DeepEquals, before)
 	s.assertSetModels(c, after)
 }
@@ -136,11 +135,11 @@ func (s *SetModelsSuite) TestSetModelsDoesNotUpdateCurrentModel(c *tc.C) {
 	s.store.SetCurrentModel(s.controllerName, "admin/delete-model")
 
 	storedModels, err := s.store.AllModels(s.controllerName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(storedModels, tc.DeepEquals, before)
 	s.assertSetModels(c, nil)
 	currentModel, err := s.store.CurrentModel(s.controllerName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(currentModel, tc.DeepEquals, "admin/delete-model")
 }
 
@@ -151,7 +150,7 @@ func (s *SetModelsSuite) TestSetModelsControllerIsolated(c *tc.C) {
 
 	s.controller.ControllerUUID = "another.test.kontroller.uuid"
 	err := s.store.AddController("another-kontroller", s.controller)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	otherModels := map[string]jujuclient.ModelDetails{
 		"admin/foreign-model": {
 			ModelUUID: "test.foreign.model.uuid",
@@ -159,19 +158,19 @@ func (s *SetModelsSuite) TestSetModelsControllerIsolated(c *tc.C) {
 		},
 	}
 	err = s.store.SetModels("another-kontroller", otherModels)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// initial controller un-touched
 	storedModels, err := s.store.AllModels(s.controllerName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(storedModels, tc.DeepEquals, before)
 }
 
 func (s *SetModelsSuite) assertSetModels(c *tc.C, models map[string]jujuclient.ModelDetails) {
 	err := s.store.SetModels(s.controllerName, models)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	storedModels, err := s.store.AllModels(s.controllerName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(storedModels, tc.DeepEquals, models)
 }
 
@@ -181,6 +180,6 @@ func (s *SetModelsSuite) assertUpdateModel(c *tc.C, modelName, modelUUID string)
 		ModelType: model.IAAS,
 	}
 	err := s.store.UpdateModel(s.controllerName, modelName, modelDetails)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return modelDetails
 }

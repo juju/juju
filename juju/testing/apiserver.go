@@ -22,7 +22,6 @@ import (
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -212,7 +211,7 @@ func (s *ApiServerSuite) setupHttpServer(c *tc.C) {
 	s.mux = apiserverhttp.NewMux()
 
 	certPool, err := api.CreateCertPool(coretesting.CACert)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	tlsConfig := api.NewTLSConfig(certPool)
 	tlsConfig.ServerName = "juju-apiserver"
 	tlsConfig.Certificates = []tls.Certificate{*coretesting.ServerTLSCert}
@@ -221,7 +220,7 @@ func (s *ApiServerSuite) setupHttpServer(c *tc.C) {
 	// TestAPIServerCanListenOnBothIPv4AndIPv6 assumes
 	// that we listen on IPv6 too, and listening on localhost does not do that.
 	listener, err := net.Listen("tcp", ":0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.httpServer = &httptest.Server{
 		Listener: listener,
 		Config:   &http.Server{Handler: s.mux},
@@ -231,13 +230,13 @@ func (s *ApiServerSuite) setupHttpServer(c *tc.C) {
 	s.httpServer.StartTLS()
 
 	baseURL, err := url.Parse(s.httpServer.URL)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.baseURL = baseURL
 }
 
 func (s *ApiServerSuite) setupControllerModel(c *tc.C, controllerCfg controller.Config) {
 	session, err := mongo.DialWithInfo(mongoInfo(), mongotest.DialOpts())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer session.Close()
 
 	apiPort := s.httpServer.Listener.Addr().(*net.TCPAddr).Port
@@ -308,7 +307,7 @@ func (s *ApiServerSuite) setupControllerModel(c *tc.C, controllerCfg controller.
 		CharmServiceGetter: charmServiceGetter,
 		SSHServerHostKey:   coretesting.SSHServerHostKey,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.controller = ctrl
 
 	// Set the api host ports in state.
@@ -322,13 +321,13 @@ func (s *ApiServerSuite) setupControllerModel(c *tc.C, controllerCfg controller.
 		},
 	}}
 	st, err := ctrl.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.SetAPIHostPorts(controllerCfg, sHsPs, sHsPs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Allow "dummy" cloud.
 	err = InsertDummyCloudType(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Seed the test database with the controller cloud and credential etc.
 	s.AdminUserUUID = s.DomainServicesSuite.AdminUserUUID
@@ -362,7 +361,7 @@ func (s *ApiServerSuite) setupApiServer(c *tc.C, controllerCfg controller.Config
 	}
 	if s.WithLeaseManager {
 		leaseManager, err := leaseManager(c, coretesting.ControllerTag.Id(), databasetesting.SingularDBGetter(s.TxnRunner()), s.Clock)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		cfg.LeaseManager = leaseManager
 		s.LeaseManager = leaseManager
 	}
@@ -379,7 +378,7 @@ func (s *ApiServerSuite) setupApiServer(c *tc.C, controllerCfg controller.Config
 	factory := s.ControllerDomainServices(c)
 
 	systemState, err := cfg.StatePool.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	agentAuthGetter := authentication.NewAgentAuthenticatorGetter(factory.AgentPassword(), systemState, nil)
 
 	authenticator, err := stateauthenticator.NewAuthenticator(
@@ -395,13 +394,13 @@ func (s *ApiServerSuite) setupApiServer(c *tc.C, controllerCfg controller.Config
 		agentAuthGetter,
 		cfg.Clock,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cfg.LocalMacaroonAuthenticator = authenticator
 	err = authenticator.AddHandlers(s.mux)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.Server, err = apiserver.NewServer(context.Background(), cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.apiInfo = api.Info{
 		Addrs:  []string{fmt.Sprintf("localhost:%d", s.httpServer.Listener.Addr().(*net.TCPAddr).Port)},
 		CACert: coretesting.CACert,
@@ -455,7 +454,7 @@ func (s *ApiServerSuite) TearDownTest(c *tc.C) {
 	if s.Server != nil {
 		err := s.Server.Stop()
 		if err != nil {
-			c.Assert(err, jc.ErrorIs, apiserver.ErrAPIServerDying)
+			c.Assert(err, tc.ErrorIs, apiserver.ErrAPIServerDying)
 		}
 	}
 	if s.httpServer != nil {
@@ -494,7 +493,7 @@ func (s *ApiServerSuite) URL(path string, queryParams url.Values) *url.URL {
 // ObjectStore returns the object store for the given model uuid.
 func (s *ApiServerSuite) ObjectStore(c *tc.C, uuid string) objectstore.ObjectStore {
 	store, err := s.ObjectStoreGetter.GetObjectStore(context.Background(), uuid)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return store
 }
 
@@ -509,7 +508,7 @@ func (s *ApiServerSuite) openAPIAs(c *tc.C, tag names.Tag, password, nonce strin
 		apiInfo.ModelTag = names.NewModelTag(modelUUID)
 	}
 	conn, err := api.Open(context.Background(), &apiInfo, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(conn, tc.NotNil)
 	s.apiConns = append(s.apiConns, conn)
 	return conn
@@ -566,13 +565,13 @@ func (s *ApiServerSuite) OpenAPIAsNewMachine(c *tc.C, jobs ...state.MachineJob) 
 
 	st := s.ControllerModel(c).State()
 	machine, err := st.AddMachine(state.UbuntuBase("12.10"), jobs...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	password, err := password.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = machine.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = machine.SetProvisioned("foo", "", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return s.openAPIAs(c, machine.Tag(), password, "fake_nonce", s.ControllerModelUUID()), machine
 }
 
@@ -590,17 +589,17 @@ func (s *ApiServerSuite) NewFactory(c *tc.C, modelUUID string) (*factory.Factory
 	)
 	if modelUUID == s.DomainServicesSuite.ControllerModelUUID.String() {
 		st, err = s.controller.SystemState()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		releaser = func() bool { return true }
 	} else {
 		pooledSt, err := s.controller.GetState(names.NewModelTag(modelUUID))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		releaser = pooledSt.Release
 		st = pooledSt.State
 	}
 
 	modelDomainServices, err := s.DomainServicesGetter(c, s.NoopObjectStore(c), servicefactorytesting.TestingLeaseManager{}).ServicesForModel(context.Background(), coremodel.UUID(modelUUID))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	applicationService := modelDomainServices.Application()
 	return factory.NewFactory(st, s.controller.StatePool(), coretesting.FakeControllerConfig()).
@@ -615,16 +614,16 @@ func (s *ApiServerSuite) ControllerModelUUID() string {
 // ControllerModel returns the controller model.
 func (s *ApiServerSuite) ControllerModel(c *tc.C) *state.Model {
 	st, err := s.controller.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return m
 }
 
 // Model returns the specified model.
 func (s *ApiServerSuite) Model(c *tc.C, uuid string) (*state.Model, func() bool) {
 	m, helper, err := s.controller.StatePool().GetModel(uuid)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return m, helper.Release
 }
 
@@ -636,13 +635,13 @@ func (s *ApiServerSuite) tearDownConn(c *tc.C) {
 	for _, st := range s.apiConns {
 		err := st.Close()
 		if !serverDead {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		}
 	}
 	s.apiConns = nil
 	if s.controller != nil {
 		err := s.controller.Close()
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
 }
 
@@ -656,9 +655,9 @@ func (s *ApiServerSuite) SeedCAASCloud(c *tc.C) {
 	}
 
 	cloudUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	credUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return cloudstate.CreateCloud(ctx, tx, AdminName, cloudUUID.String(), cloud.Cloud{
@@ -667,7 +666,7 @@ func (s *ApiServerSuite) SeedCAASCloud(c *tc.C) {
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.AccessKeyAuthType, cloud.UserPassAuthType},
 		})
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return credentialstate.CreateCredential(ctx, tx, credUUID.String(), corecredential.Key{
 			Cloud: "caascloud",
@@ -675,7 +674,7 @@ func (s *ApiServerSuite) SeedCAASCloud(c *tc.C) {
 			Name:  "dummy-credential",
 		}, cred)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // SeedDatabase the database with a supplied controller config, and dummy
@@ -683,7 +682,7 @@ func (s *ApiServerSuite) SeedCAASCloud(c *tc.C) {
 func SeedDatabase(c *tc.C, controller database.TxnRunner, domainServices services.DomainServices, controllerConfig controller.Config) {
 	bakeryConfigService := domainServices.Macaroon()
 	err := bakeryConfigService.InitialiseBakeryConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // DefaultServerConfig returns a minimal server config.

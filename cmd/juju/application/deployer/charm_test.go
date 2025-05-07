@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/base"
@@ -66,7 +65,7 @@ func (s *charmSuite) TestSimpleCharmDeploy(c *tc.C) {
 	s.deployerAPI.EXPECT().Deploy(gomock.Any(), gomock.Any()).Return(nil)
 
 	err := s.newDeployCharm().deploy(s.ctx, s.deployerAPI)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *charmSuite) TestRepositoryCharmDeployDryRunDefaultSeriesForce(c *tc.C) {
@@ -118,7 +117,7 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRunDefaultSeriesForce(c *tc.C) 
 	s.deployerAPI.EXPECT().DeployFromRepository(gomock.Any(), gomock.Any()).Return(dInfo, nil, nil)
 
 	err := repoCharm.PrepareAndDeploy(ctx, s.deployerAPI, s.resolver)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(output.String(), tc.Equals, "\"testme\" from charm-hub charm \"testme\", revision 1 in channel latest/stable on ubuntu@20.04 would be deployed\n")
 }
 
@@ -167,7 +166,7 @@ func (s *charmSuite) TestDeployFromRepositoryCharmAppNameVSCharmName(c *tc.C) {
 	s.deployerAPI.EXPECT().DeployFromRepository(gomock.Any(), gomock.Any()).Return(dInfo, nil, nil)
 
 	err := repoCharm.PrepareAndDeploy(ctx, s.deployerAPI, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(output.String(), tc.Equals,
 		"Deployed \"differentThanCharmName\" from charm-hub charm \"testme\", "+
 			"revision 1 in channel latest/stable on ubuntu@20.04\n")
@@ -232,7 +231,7 @@ func (s *charmSuite) TestDeployFromPredeployed(c *tc.C) {
 	}
 
 	err := predeployedCharm.PrepareAndDeploy(ctx, s.deployerAPI, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *charmSuite) newDeployCharm() *deployCharm {

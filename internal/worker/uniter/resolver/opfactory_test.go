@@ -8,7 +8,6 @@ import (
 	"errors"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/juju/juju/internal/testing"
@@ -32,8 +31,8 @@ func (s *ResolverOpFactorySuite) SetUpTest(c *tc.C) {
 
 func (s *ResolverOpFactorySuite) TestInitialState(c *tc.C) {
 	f := resolver.NewResolverOpFactory(s.opFactory)
-	c.Assert(f.LocalState, jc.DeepEquals, &resolver.LocalState{})
-	c.Assert(f.RemoteState, jc.DeepEquals, remotestate.Snapshot{})
+	c.Assert(f.LocalState, tc.DeepEquals, &resolver.LocalState{})
+	c.Assert(f.RemoteState, tc.DeepEquals, remotestate.Snapshot{})
 }
 
 func (s *ResolverOpFactorySuite) TestUpdateStatusChanged(c *tc.C) {
@@ -48,11 +47,11 @@ func (s *ResolverOpFactorySuite) testUpdateStatusChanged(
 	f.RemoteState.UpdateStatusVersion = 1
 
 	op, err := f.NewRunHook(hook.Info{Kind: hooks.UpdateStatus})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	f.RemoteState.UpdateStatusVersion = 2
 
 	_, err = op.Commit(context.Background(), operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Local state's UpdateStatusVersion should be set to what
 	// RemoteState's UpdateStatusVersion was when the operation
@@ -87,14 +86,14 @@ func (s *ResolverOpFactorySuite) testConfigChanged(
 	f.RemoteState.UpdateStatusVersion = 3
 
 	op, err := f.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	f.RemoteState.ConfigHash = "newhash"
 	f.RemoteState.TrustHash = "badhash"
 	f.RemoteState.AddressesHash = "differenthash"
 	f.RemoteState.UpdateStatusVersion = 4
 
 	resultState, err := op.Commit(context.Background(), operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(resultState, tc.NotNil)
 
 	// Local state's UpdateStatusVersion should be set to what
@@ -121,11 +120,11 @@ func (s *ResolverOpFactorySuite) testUpgrade(
 	f.LocalState.Conflicted = true
 	curl := "ch:trusty/mysql"
 	op, err := meth(f, curl)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = op.Commit(context.Background(), operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(f.LocalState.CharmURL, jc.DeepEquals, curl)
-	c.Assert(f.LocalState.Conflicted, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(f.LocalState.CharmURL, tc.DeepEquals, curl)
+	c.Assert(f.LocalState.Conflicted, tc.IsFalse)
 }
 
 func (s *ResolverOpFactorySuite) TestNewUpgradeError(c *tc.C) {
@@ -151,7 +150,7 @@ func (s *ResolverOpFactorySuite) TestCommitError(c *tc.C) {
 		return nil, errors.New("commit fails")
 	}
 	op, err := f.NewUpgrade("ch:trusty/mysql")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = op.Commit(context.Background(), operation.State{})
 	c.Assert(err, tc.ErrorMatches, "commit fails")
 	// Local state should not have been updated. We use the same code
@@ -165,9 +164,9 @@ func (s *ResolverOpFactorySuite) TestActionsCommit(c *tc.C) {
 	f.RemoteState.ActionsPending = []string{"action 1", "action 2", "action 3"}
 	f.LocalState.CompletedActions = map[string]struct{}{}
 	op, err := f.NewAction(context.Background(), "action 1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = op.Commit(context.Background(), operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(f.LocalState.CompletedActions, tc.DeepEquals, map[string]struct{}{
 		"action 1": {},
 	})
@@ -182,9 +181,9 @@ func (s *ResolverOpFactorySuite) TestActionsTrimming(c *tc.C) {
 		"c": {},
 	}
 	op, err := f.NewAction(context.Background(), "d")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = op.Commit(context.Background(), operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(f.LocalState.CompletedActions, tc.DeepEquals, map[string]struct{}{
 		"c": {},
 		"d": {},
@@ -196,9 +195,9 @@ func (s *ResolverOpFactorySuite) TestFailActionsCommit(c *tc.C) {
 	f.RemoteState.ActionsPending = []string{"action 1", "action 2", "action 3"}
 	f.LocalState.CompletedActions = map[string]struct{}{}
 	op, err := f.NewFailAction("action 1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = op.Commit(context.Background(), operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(f.LocalState.CompletedActions, tc.DeepEquals, map[string]struct{}{
 		"action 1": {},
 	})
@@ -213,9 +212,9 @@ func (s *ResolverOpFactorySuite) TestFailActionsTrimming(c *tc.C) {
 		"c": {},
 	}
 	op, err := f.NewFailAction("d")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = op.Commit(context.Background(), operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(f.LocalState.CompletedActions, tc.DeepEquals, map[string]struct{}{
 		"c": {},
 		"d": {},

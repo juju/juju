@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cloud"
@@ -32,7 +31,7 @@ func (s *serviceSuite) TestCreateCloudSuccess(c *tc.C) {
 	s.state.EXPECT().CreateCloud(gomock.Any(), usertesting.GenNewName(c, "owner-name"), gomock.Any(), cloud).Return(nil)
 
 	err := NewWatchableService(s.state, s.watcherFactory).CreateCloud(context.Background(), usertesting.GenNewName(c, "owner-name"), cloud)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestCreateCloudFail(c *tc.C) {
@@ -56,7 +55,7 @@ func (s *serviceSuite) TestUpdateCloudSuccess(c *tc.C) {
 	s.state.EXPECT().UpdateCloud(gomock.Any(), cloud).Return(nil)
 
 	err := NewWatchableService(s.state, s.watcherFactory).UpdateCloud(context.Background(), cloud)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestUpdateCloudError(c *tc.C) {
@@ -77,7 +76,7 @@ func (s *serviceSuite) TestDeleteCloudSuccess(c *tc.C) {
 	s.state.EXPECT().DeleteCloud(gomock.Any(), "fluffy").Return(nil)
 
 	err := NewWatchableService(s.state, s.watcherFactory).DeleteCloud(context.Background(), "fluffy")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestListAll(c *tc.C) {
@@ -89,8 +88,8 @@ func (s *serviceSuite) TestListAll(c *tc.C) {
 	s.state.EXPECT().ListClouds(gomock.Any()).Return(clouds, nil)
 
 	result, err := NewWatchableService(s.state, s.watcherFactory).ListAll(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.DeepEquals, clouds)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, clouds)
 }
 
 func (s *serviceSuite) TestCloud(c *tc.C) {
@@ -102,8 +101,8 @@ func (s *serviceSuite) TestCloud(c *tc.C) {
 	s.state.EXPECT().Cloud(gomock.Any(), "fluffy").Return(one, nil)
 
 	result, err := NewWatchableService(s.state, s.watcherFactory).Cloud(context.Background(), "fluffy")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.DeepEquals, one)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, one)
 }
 
 func (s *serviceSuite) TestCloudNotFound(c *tc.C) {
@@ -113,7 +112,7 @@ func (s *serviceSuite) TestCloudNotFound(c *tc.C) {
 
 	result, err := NewWatchableService(s.state, s.watcherFactory).Cloud(context.Background(), "fluffy")
 	c.Assert(err, tc.ErrorMatches, `cloud "fluffy" not found`)
-	c.Check(err, jc.ErrorIs, coreerrors.NotFound)
+	c.Check(err, tc.ErrorIs, coreerrors.NotFound)
 	c.Check(result, tc.IsNil)
 }
 
@@ -125,6 +124,6 @@ func (s *serviceSuite) TestWatchCloud(c *tc.C) {
 	s.state.EXPECT().WatchCloud(gomock.Any(), gomock.Any(), "cirrus").Return(nw, nil)
 
 	w, err := NewWatchableService(s.state, s.watcherFactory).WatchCloud(context.Background(), "cirrus")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(w, tc.NotNil)
 }

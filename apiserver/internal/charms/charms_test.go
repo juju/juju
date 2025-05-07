@@ -6,7 +6,6 @@ package charms
 import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/rpc/params"
 )
@@ -21,27 +20,27 @@ func (s *charmOriginSuite) TestValidateCharmOriginSuccessCharmHub(c *tc.C) {
 		ID:     "myID",
 		Source: "charm-hub",
 	})
-	c.Assert(err, tc.Not(jc.ErrorIs), errors.BadRequest)
+	c.Assert(err, tc.Not(tc.ErrorIs), errors.BadRequest)
 }
 
 func (s *charmOriginSuite) TestValidateCharmOriginSuccessLocal(c *tc.C) {
 	err := ValidateCharmOrigin(&params.CharmOrigin{Source: "local"})
-	c.Assert(err, tc.Not(jc.ErrorIs), errors.BadRequest)
+	c.Assert(err, tc.Not(tc.ErrorIs), errors.BadRequest)
 }
 
 func (s *charmOriginSuite) TestValidateCharmOriginNil(c *tc.C) {
 	err := ValidateCharmOrigin(nil)
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 }
 
 func (s *charmOriginSuite) TestValidateCharmOriginNilSource(c *tc.C) {
 	err := ValidateCharmOrigin(&params.CharmOrigin{Source: ""})
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 }
 
 func (s *charmOriginSuite) TestValidateCharmOriginBadSource(c *tc.C) {
 	err := ValidateCharmOrigin(&params.CharmOrigin{Source: "charm-store"})
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 }
 
 func (s *charmOriginSuite) TestValidateCharmOriginCharmHubIDNoHash(c *tc.C) {
@@ -49,7 +48,7 @@ func (s *charmOriginSuite) TestValidateCharmOriginCharmHubIDNoHash(c *tc.C) {
 		ID:     "myID",
 		Source: "charm-hub",
 	})
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 }
 
 func (s *charmOriginSuite) TestValidateCharmOriginCharmHubHashNoID(c *tc.C) {
@@ -57,5 +56,5 @@ func (s *charmOriginSuite) TestValidateCharmOriginCharmHubHashNoID(c *tc.C) {
 		Hash:   "myHash",
 		Source: "charm-hub",
 	})
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 }

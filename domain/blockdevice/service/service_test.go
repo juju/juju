@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/blockdevice"
@@ -58,8 +57,8 @@ func (s *serviceSuite) TestBlockDevices(c *tc.C) {
 	s.state.EXPECT().BlockDevices(gomock.Any(), "666").Return(bd, nil)
 
 	result, err := s.service(c).BlockDevices(context.Background(), "666")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, bd)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, bd)
 }
 
 func (s *serviceSuite) TestAllBlockDevices(c *tc.C) {
@@ -90,8 +89,8 @@ func (s *serviceSuite) TestAllBlockDevices(c *tc.C) {
 	s.state.EXPECT().MachineBlockDevices(gomock.Any()).Return(mbd, nil)
 
 	result, err := s.service(c).AllBlockDevices(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, map[string]blockdevice.BlockDevice{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, map[string]blockdevice.BlockDevice{
 		"666": mbd[0].BlockDevice,
 		"667": mbd[1].BlockDevice,
 	})
@@ -117,7 +116,7 @@ func (s *serviceSuite) TestUpdateDevices(c *tc.C) {
 	s.state.EXPECT().SetMachineBlockDevices(gomock.Any(), "666", bd)
 
 	err := s.service(c).UpdateBlockDevices(context.Background(), "666", bd...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestUpdateDevicesNoFilesystemType(c *tc.C) {
@@ -142,7 +141,7 @@ func (s *serviceSuite) TestUpdateDevicesNoFilesystemType(c *tc.C) {
 	in := bd[0]
 	in.FilesystemType = ""
 	err := s.service(c).UpdateBlockDevices(context.Background(), "666", in)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestWatchBlockDevice(c *tc.C) {
@@ -153,6 +152,6 @@ func (s *serviceSuite) TestWatchBlockDevice(c *tc.C) {
 	s.state.EXPECT().WatchBlockDevices(gomock.Any(), gomock.Any(), "666").Return(nw, nil)
 
 	w, err := s.service(c).WatchBlockDevices(context.Background(), "666")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(w, tc.NotNil)
 }

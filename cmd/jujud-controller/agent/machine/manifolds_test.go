@@ -10,7 +10,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
@@ -228,7 +227,7 @@ func (*ManifoldsSuite) assertManifoldNames(c *tc.C, manifolds dependency.Manifol
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	c.Assert(keys, jc.SameContents, expectedKeys)
+	c.Assert(keys, tc.SameContents, expectedKeys)
 }
 
 func (*ManifoldsSuite) TestUpgradesBlockMigration(c *tc.C) {
@@ -237,7 +236,7 @@ func (*ManifoldsSuite) TestUpgradesBlockMigration(c *tc.C) {
 		PreUpgradeSteps: preUpgradeSteps,
 	})
 	manifold, ok := manifolds["migration-fortress"]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	checkContains(c, manifold.Inputs, "upgrade-check-flag")
 	checkContains(c, manifold.Inputs, "upgrade-steps-flag")
@@ -410,7 +409,7 @@ func (*ManifoldsSuite) TestObjectStoreDoesNotUseDomainServices(c *tc.C) {
 	// domain-services.
 
 	dependencies := agenttest.ManifoldDependencies(manifolds, manifold)
-	c.Check(dependencies.Contains("domain-services"), jc.IsFalse)
+	c.Check(dependencies.Contains("domain-services"), tc.IsFalse)
 }
 
 func (*ManifoldsSuite) TestProviderTrackerDoesNotUseDomainServices(c *tc.C) {
@@ -434,7 +433,7 @@ func (*ManifoldsSuite) TestProviderTrackerDoesNotUseDomainServices(c *tc.C) {
 	// domain-services.
 
 	dependencies := agenttest.ManifoldDependencies(manifolds, manifold)
-	c.Check(dependencies.Contains("domain-services"), jc.IsFalse)
+	c.Check(dependencies.Contains("domain-services"), tc.IsFalse)
 }
 
 func (*ManifoldsSuite) TestAPICallerNonRecoverableErrorHandling(c *tc.C) {
@@ -489,12 +488,12 @@ func (*ManifoldsSuite) TestUpgradeGates(c *tc.C) {
 
 func assertGate(c *tc.C, manifold dependency.Manifold, unlocker gate.Unlocker) {
 	w, err := manifold.Start(context.Background(), nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer worker.Stop(w)
 
 	var waiter gate.Waiter
 	err = manifold.Output(w, &waiter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-waiter.Unlocked():

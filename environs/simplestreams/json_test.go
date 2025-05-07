@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/environs/simplestreams"
 )
@@ -26,13 +25,13 @@ func (s *jsonSuite) TestItemCollectionMarshalling(c *tc.C) {
             "c": 123 
         }
     }`), &m)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(m.Items, tc.DeepEquals, map[string]interface{}{
 		"a": "b",
 		"c": float64(123),
 	})
 	// Ensure marshalling works as expected, too.
 	b, err := json.Marshal(&m)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(b), tc.Equals, `{"items":{"a":"b","c":123}}`)
 }

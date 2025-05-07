@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
@@ -38,7 +37,7 @@ func (s *fileResourceStoreSuite) SetUpTest(c *tc.C) {
 	sha384hash.Write([]byte(data))
 	fp := fmt.Sprintf("%x", sha384hash.Sum(nil))
 	fingerprint, err := charmresource.ParseFingerprint(fp)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.resource = coreresource.Resource{
 		UUID: resourcestesting.GenResourceUUID(c),
 		Resource: charmresource.Resource{
@@ -84,10 +83,10 @@ func (s *fileResourceStoreSuite) TestFileResourceStorePut(c *tc.C) {
 		size,
 		fingerprint,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	id, err := storageUUID.ObjectStoreUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(id, tc.Equals, expectedStorageUUID)
 	c.Check(returnedSize, tc.Equals, size)
 	c.Check(returnedFingerprint, tc.DeepEquals, fingerprint)
@@ -152,7 +151,7 @@ func (s *fileResourceStoreSuite) TestFileResourceStoreGet(c *tc.C) {
 	s.objectStore.EXPECT().Get(context.Background(), s.resource.UUID.String()).Return(s.file, s.resource.Size, nil)
 
 	reader, size, err := store.Get(context.Background(), s.resource.UUID.String())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(reader, tc.Equals, s.file)
 	c.Check(size, tc.Equals, s.resource.Size)
 }
@@ -174,7 +173,7 @@ func (s *fileResourceStoreSuite) TestFileResourceStoreRemove(c *tc.C) {
 	s.objectStore.EXPECT().Remove(context.Background(), s.resource.UUID.String()).Return(nil)
 
 	err := store.Remove(context.Background(), s.resource.UUID.String())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *fileResourceStoreSuite) TestFileResourceStoreRemoveBadStorageKey(c *tc.C) {

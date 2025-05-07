@@ -9,7 +9,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common/secrets"
@@ -72,7 +71,7 @@ func (s *secretsDrainSuite) setup(c *tc.C) *gomock.Controller {
 		s.secretBackendService,
 		s.watcherRegistry,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return ctrl
 }
 
@@ -136,8 +135,8 @@ func (s *secretsDrainSuite) assertGetSecretsToDrain(c *tc.C, expectedRevions ...
 		Return(revInfo, nil)
 
 	results, err := s.facade.GetSecretsToDrain(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.SecretRevisionsToDrainResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.SecretRevisionsToDrainResults{
 		Results: []params.SecretRevisionsToDrainResult{{
 			URI:       uri.String(),
 			Revisions: expectedRevions,
@@ -242,8 +241,8 @@ func (s *secretsDrainSuite) TestGetUserSecretsToDrain(c *tc.C) {
 		Return(revInfo, nil)
 
 	results, err := s.facade.GetSecretsToDrain(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.SecretRevisionsToDrainResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.SecretRevisionsToDrainResults{
 		Results: []params.SecretRevisionsToDrainResult{{
 			URI:       uri.String(),
 			Revisions: expectedRevions,
@@ -305,8 +304,8 @@ func (s *secretsDrainSuite) TestChangeSecretBackend(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}, {Error: nil}},
 	})
 }
@@ -322,8 +321,8 @@ func (s *secretsDrainSuite) TestWatchSecretBackendChanged(c *tc.C) {
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("11", nil)
 
 	result, err := s.facade.WatchSecretBackendChanged(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.NotifyWatchResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{
 		NotifyWatcherId: "11",
 	})
 }

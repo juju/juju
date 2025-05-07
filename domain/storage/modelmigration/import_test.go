@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	corestorage "github.com/juju/juju/core/storage"
@@ -57,7 +56,7 @@ func (s *importSuite) TestNoStoragePools(c *tc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// No import executed.
 	s.service.EXPECT().CreateStoragePool(gomock.All(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 }
@@ -75,5 +74,5 @@ func (s *importSuite) TestImport(c *tc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

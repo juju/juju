@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/juju/worker/v4/workertest"
@@ -54,7 +53,7 @@ func (s *suite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	authority, err := pkitest.NewTestAuthority()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.authority = authority
 
 	s.workerC = make(chan *mockWorker, 100)
@@ -375,7 +374,7 @@ func (s *suite) TestReport(c *tc.C) {
 		s.assertStarts(c, activatedModelUUID1.String())
 
 		reporter, ok := w.(worker.Reporter)
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		report := reporter.Report()
 		c.Assert(report, tc.NotNil)
 		// TODO: pass a clock through in the worker config so it can be passed
@@ -416,7 +415,7 @@ func (s *suite) runKillTest(c *tc.C, kill killFunc, test testFunc) {
 		},
 	}
 	w, err := modelworkermanager.New(config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer kill(c, w)
 	test(w)
 }
@@ -496,7 +495,7 @@ func (s *suite) assertStarts(c *tc.C, expect ...string) {
 		actual[i] = worker.config.ModelUUID
 		c.Assert(worker.config.ModelType, tc.Equals, coremodel.IAAS)
 	}
-	c.Assert(actual, jc.SameContents, expect)
+	c.Assert(actual, tc.SameContents, expect)
 }
 
 func (s *suite) waitWorkers(c *tc.C, expectedCount int) []*mockWorker {

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/rpc/params"
@@ -36,7 +35,7 @@ func (testsuite) TestAssignUnits(c *tc.C) {
 			{Tag: "unit-mysql-1"},
 		}},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs, tc.DeepEquals, []error{nil, nil})
 }
 
@@ -55,9 +54,9 @@ func (testsuite) TestAssignUnitsNotFound(c *tc.C) {
 			{Tag: "unit-mysql-0"},
 		}},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs, tc.HasLen, 1)
-	c.Assert(errs[0], jc.ErrorIs, errors.NotFound)
+	c.Assert(errs[0], tc.ErrorIs, errors.NotFound)
 }
 
 func (testsuite) TestWatchUnitAssignment(c *tc.C) {
@@ -70,7 +69,7 @@ func (testsuite) TestWatchUnitAssignment(c *tc.C) {
 	f.Lock()
 	c.Assert(f.request, tc.Equals, "WatchUnitAssignments")
 	c.Assert(f.params, tc.IsNil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(w, tc.NotNil)
 }
 

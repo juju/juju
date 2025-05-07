@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/client/modelmanager"
@@ -48,8 +47,8 @@ func (s *modelInfoSuite) assertExpectedModelInfo(c *tc.C, expectedInfo params.Mo
 		input = append(input, testing.ModelTag)
 	}
 	info, err := client.ModelInfo(context.Background(), input)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, expectedInfo.Results)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, expectedInfo.Results)
 }
 
 func (s *modelInfoSuite) TestModelInfo(c *tc.C) {
@@ -104,7 +103,7 @@ func (s *modelInfoSuite) TestInvalidResultCount(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, a, result interface{}) error {
 			s.checkCall(c, objType, id, request)
-			c.Assert(a, jc.DeepEquals, params.Entities{
+			c.Assert(a, tc.DeepEquals, params.Entities{
 				Entities: []params.Entity{{testing.ModelTag.String()}, {testing.ModelTag.String()}},
 			})
 			resp := s.assertResponse(c, result)

@@ -6,7 +6,6 @@ package base
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 type ChannelSuite struct {
@@ -17,14 +16,14 @@ var _ = tc.Suite(&ChannelSuite{})
 
 func (s *ChannelSuite) TestParse(c *tc.C) {
 	ch, err := ParseChannel("22.04")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch, jc.DeepEquals, Channel{Track: "22.04"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ch, tc.DeepEquals, Channel{Track: "22.04"})
 	ch, err = ParseChannel("22.04/edge")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch, jc.DeepEquals, Channel{Track: "22.04", Risk: "edge"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ch, tc.DeepEquals, Channel{Track: "22.04", Risk: "edge"})
 	ch, err = ParseChannel("all")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch, jc.DeepEquals, Channel{Track: "all"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ch, tc.DeepEquals, Channel{Track: "all"})
 }
 
 func (s *ChannelSuite) TestParseError(c *tc.C) {
@@ -36,16 +35,16 @@ func (s *ChannelSuite) TestParseError(c *tc.C) {
 
 func (s *ChannelSuite) TestParseNormalise(c *tc.C) {
 	ch, err := ParseChannelNormalize("22.04")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch, jc.DeepEquals, Channel{Track: "22.04", Risk: "stable"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ch, tc.DeepEquals, Channel{Track: "22.04", Risk: "stable"})
 	ch, err = ParseChannelNormalize("22.04/edge")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch, jc.DeepEquals, Channel{Track: "22.04", Risk: "edge"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ch, tc.DeepEquals, Channel{Track: "22.04", Risk: "edge"})
 }
 
 func (s *ChannelSuite) TestMakeDefaultChannel(c *tc.C) {
 	ch := MakeDefaultChannel("22.04")
-	c.Assert(ch, jc.DeepEquals, Channel{Track: "22.04", Risk: "stable"})
+	c.Assert(ch, tc.DeepEquals, Channel{Track: "22.04", Risk: "stable"})
 }
 
 func (s *ChannelSuite) TestString(c *tc.C) {

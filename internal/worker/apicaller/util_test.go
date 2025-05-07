@@ -12,7 +12,6 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/agent"
@@ -151,7 +150,7 @@ type dummyWorker struct {
 }
 
 func assertStop(c *tc.C, w worker.Worker) {
-	c.Assert(worker.Stop(w), jc.ErrorIsNil)
+	c.Assert(worker.Stop(w), tc.ErrorIsNil)
 }
 
 func assertStopError(c *tc.C, w worker.Worker, match string) {

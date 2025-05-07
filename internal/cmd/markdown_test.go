@@ -9,7 +9,6 @@ import (
 	"os"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/cmd"
 )
@@ -93,7 +92,7 @@ func (*markdownSuite) TestOutput(c *tc.C) {
 	}
 
 	expected, err := os.ReadFile("testdata/add-cloud.md")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var buf bytes.Buffer
 	err = cmd.PrintMarkdown(&buf, command, cmd.MarkdownOptions{
@@ -102,6 +101,6 @@ func (*markdownSuite) TestOutput(c *tc.C) {
 		LinkForCommand:    linkForCommand,
 		LinkForSubcommand: linkForSubcommand,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(buf.String(), tc.Equals, string(expected))
 }

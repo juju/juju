@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
@@ -63,9 +62,9 @@ func (s *crossmodelMockSuite) TestOffer(c *tc.C) {
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
 	results, err := client.Offer(context.Background(), "uuid", application, []string{endPointA, endPointB}, owner, offer, desc)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 2)
-	c.Assert(results, jc.DeepEquals,
+	c.Assert(results, tc.DeepEquals,
 		[]params.ErrorResult{
 			{},
 			{Error: apiservererrors.ServerError(errors.New(msg))},
@@ -163,8 +162,8 @@ func (s *crossmodelMockSuite) TestList(c *tc.C) {
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
 	results, err := client.ListOffers(context.Background(), filter)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []*jujucrossmodel.ApplicationOfferDetails{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, []*jujucrossmodel.ApplicationOfferDetails{{
 		OfferURL:        url,
 		OfferName:       offerName,
 		Endpoints:       []charm.Relation{{Name: "endPointA"}},
@@ -260,9 +259,9 @@ func (s *crossmodelMockSuite) TestShow(c *tc.C) {
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
 	results, err := client.ApplicationOffer(context.Background(), url)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(results, jc.DeepEquals, &jujucrossmodel.ApplicationOfferDetails{
+	c.Assert(results, tc.DeepEquals, &jujucrossmodel.ApplicationOfferDetails{
 		OfferURL:  url,
 		OfferName: offerName,
 		Endpoints: []charm.Relation{
@@ -417,8 +416,8 @@ func (s *crossmodelMockSuite) TestFind(c *tc.C) {
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
 	results, err := client.FindApplicationOffers(context.Background(), filter)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []*jujucrossmodel.ApplicationOfferDetails{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, []*jujucrossmodel.ApplicationOfferDetails{{
 		OfferURL:  url,
 		OfferName: offerName,
 		Endpoints: []charm.Relation{{Name: "endPointA"}},
@@ -480,7 +479,7 @@ func (s *crossmodelMockSuite) TestGetConsumeDetails(c *tc.C) {
 		Addrs: []string{"1.2.3.4"},
 	}
 	mac, err := jujutesting.NewMacaroon("id")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	args := params.ConsumeOfferDetailsArg{
 		OfferURLs: params.OfferURLs{
@@ -507,8 +506,8 @@ func (s *crossmodelMockSuite) TestGetConsumeDetails(c *tc.C) {
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
 	details, err := client.GetConsumeDetails(context.Background(), "me/prod.app")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(details, jc.DeepEquals, params.ConsumeOfferDetails{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(details, tc.DeepEquals, params.ConsumeOfferDetails{
 		Offer:          &offer,
 		Macaroon:       mac,
 		ControllerInfo: controllerInfo,

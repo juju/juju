@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
@@ -36,7 +35,7 @@ func (*ImportTest) TestImports(c *tc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/watcher/eventsource")
 
 	// This package brings in nothing else from outside juju/juju/core
-	c.Assert(found, jc.SameContents, []string{
+	c.Assert(found, tc.SameContents, []string{
 		"core/changestream",
 		"core/credential",
 		"core/database",

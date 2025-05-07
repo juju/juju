@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coremodel "github.com/juju/juju/core/model"
@@ -30,7 +29,7 @@ func (s *metadataSuite) TestFindNil(c *tc.C) {
 	s.metadataService.EXPECT().FindMetadata(gomock.Any(), cloudimagemetadata.MetadataFilter{}).Return(nil, nil)
 
 	found, err := s.api.List(context.Background(), params.ImageMetadataFilter{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Result, tc.HasLen, 0)
 }
 
@@ -40,7 +39,7 @@ func (s *metadataSuite) TestFindEmpty(c *tc.C) {
 	s.metadataService.EXPECT().FindMetadata(gomock.Any(), gomock.Any()).Return(map[string][]cloudimagemetadata.Metadata{}, nil)
 
 	found, err := s.api.List(context.Background(), params.ImageMetadataFilter{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Result, tc.HasLen, 0)
 }
 
@@ -53,7 +52,7 @@ func (s *metadataSuite) TestFindEmptyGroups(c *tc.C) {
 	}, nil)
 
 	found, err := s.api.List(context.Background(), params.ImageMetadataFilter{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Result, tc.HasLen, 0)
 }
 
@@ -88,10 +87,10 @@ func (s *metadataSuite) TestFindOrder(c *tc.C) {
 	}, nil)
 
 	found, err := s.api.List(context.Background(), params.ImageMetadataFilter{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Result, tc.HasLen, 4)
 
-	c.Assert(found.Result, jc.SameContents, []params.CloudImageMetadata{
+	c.Assert(found.Result, tc.SameContents, []params.CloudImageMetadata{
 		{ImageId: customImageId, Priority: 87},
 		{ImageId: customImageId3, Priority: 56},
 		{ImageId: customImageId2, Priority: 20},
@@ -109,7 +108,7 @@ func (s *metadataSuite) TestSaveEmpty(c *tc.C) {
 	)
 
 	errs, err := s.api.Save(context.Background(), params.MetadataSaveParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs.Results, tc.HasLen, 0)
 }
 
@@ -161,7 +160,7 @@ func (s *metadataSuite) TestSave(c *tc.C) {
 			Metadata: []params.CloudImageMetadata{m1, m1},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs.Results, tc.HasLen, 3)
 	c.Assert(errs.Results[0].Error, tc.IsNil)
 	c.Assert(errs.Results[1].Error, tc.IsNil)
@@ -197,7 +196,7 @@ func (s *metadataSuite) TestDeleteEmpty(c *tc.C) {
 	defer s.setupAPI(c).Finish()
 
 	errs, err := s.api.Delete(context.Background(), params.MetadataImageIds{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs.Results, tc.HasLen, 0)
 }
 
@@ -212,7 +211,7 @@ func (s *metadataSuite) TestDelete(c *tc.C) {
 	s.metadataService.EXPECT().DeleteMetadataWithImageID(gomock.Any(), idOk).Return(nil)
 
 	errs, err := s.api.Delete(context.Background(), params.MetadataImageIds{[]string{idOk, idFail}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs.Results, tc.HasLen, 2)
 	c.Assert(errs.Results[0].Error, tc.IsNil)
 	c.Assert(errs.Results[1].Error, tc.ErrorMatches, msg)

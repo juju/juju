@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
@@ -71,7 +70,7 @@ func (s *ManifoldSuite) TestInputs(c *tc.C) {
 		AgentName:     "wut",
 		APICallerName: "exactly",
 	})
-	c.Check(manifold.Inputs, jc.DeepEquals, []string{"wut", "exactly"})
+	c.Check(manifold.Inputs, tc.DeepEquals, []string{"wut", "exactly"})
 }
 
 func (s *ManifoldSuite) TestStartMissingAgent(c *tc.C) {
@@ -128,7 +127,7 @@ func (s *ManifoldSuite) TestStartSuccess(c *tc.C) {
 	})
 
 	w, err := manifold.Start(context.Background(), s.getter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(w, tc.Equals, fakeWorker)
 }
 

@@ -6,7 +6,6 @@ package model
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -25,7 +24,7 @@ func (*ModelSuite) TestValidModelTypes(c *tc.C) {
 	}
 
 	for _, vt := range validTypes {
-		c.Assert(vt.IsValid(), jc.IsTrue)
+		c.Assert(vt.IsValid(), tc.IsTrue)
 	}
 }
 
@@ -37,8 +36,8 @@ func (*ModelSuite) TestParseModelTypes(c *tc.C) {
 
 	for _, vt := range validTypes {
 		mt, err := ParseModelType(vt)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(mt.IsValid(), jc.IsTrue)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(mt.IsValid(), tc.IsTrue)
 	}
 }
 
@@ -74,6 +73,6 @@ func (*ModelSuite) TestUUIDValidate(c *tc.C) {
 			continue
 		}
 
-		c.Check(err, jc.ErrorIs, test.err)
+		c.Check(err, tc.ErrorIs, test.err)
 	}
 }

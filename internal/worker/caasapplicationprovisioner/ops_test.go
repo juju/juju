@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	charmscommon "github.com/juju/juju/api/common/charms"
@@ -65,8 +64,8 @@ func (s *OpsSuite) TestCheckCharmFormatV1(c *tc.C) {
 	facade.EXPECT().ApplicationCharmInfo(gomock.Any(), "test").Return(charmInfoV1, nil)
 
 	isOk, err := caasapplicationprovisioner.AppOps.CheckCharmFormat(context.Background(), "test", facade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(isOk, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(isOk, tc.IsFalse)
 }
 
 func (s *OpsSuite) TestCheckCharmFormatV2(c *tc.C) {
@@ -84,8 +83,8 @@ func (s *OpsSuite) TestCheckCharmFormatV2(c *tc.C) {
 	facade.EXPECT().ApplicationCharmInfo(gomock.Any(), "test").Return(charmInfoV2, nil)
 
 	isOk, err := caasapplicationprovisioner.AppOps.CheckCharmFormat(context.Background(), "test", facade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(isOk, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(isOk, tc.IsTrue)
 }
 
 func (s *OpsSuite) TestCheckCharmFormatNotFound(c *tc.C) {
@@ -99,8 +98,8 @@ func (s *OpsSuite) TestCheckCharmFormatNotFound(c *tc.C) {
 	})
 
 	isOk, err := caasapplicationprovisioner.AppOps.CheckCharmFormat(context.Background(), "test", facade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(isOk, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(isOk, tc.IsFalse)
 }
 
 func (s *OpsSuite) TestEnsureTrust(c *tc.C) {
@@ -116,7 +115,7 @@ func (s *OpsSuite) TestEnsureTrust(c *tc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.EnsureTrust(context.Background(), "test", app, unitFacade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *OpsSuite) TestUpdateState(c *tc.C) {
@@ -236,8 +235,8 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 		},
 	}
 	currentReportedStatus, err := caasapplicationprovisioner.AppOps.UpdateState(context.Background(), "test", app, lastReportedStatus, broker, facade, unitFacade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(currentReportedStatus, jc.DeepEquals, map[string]status.StatusInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(currentReportedStatus, tc.DeepEquals, map[string]status.StatusInfo{
 		"a": {Status: "active", Message: "different"},
 		"b": {Status: "allocating", Message: "same"},
 	})
@@ -266,7 +265,7 @@ func (s *OpsSuite) TestRefreshApplicationStatus(c *tc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.RefreshApplicationStatus(context.Background(), "test", app, appLife, facade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *OpsSuite) TestWaitForTerminated(c *tc.C) {
@@ -292,7 +291,7 @@ func (s *OpsSuite) TestWaitForTerminated(c *tc.C) {
 		app.EXPECT().Exists().Return(caas.DeploymentState{}, nil),
 	)
 	err = caasapplicationprovisioner.AppOps.WaitForTerminated("test", app, clk)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *OpsSuite) TestReconcileDeadUnitScale(c *tc.C) {
@@ -332,7 +331,7 @@ func (s *OpsSuite) TestReconcileDeadUnitScale(c *tc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale(context.Background(), "test", app, facade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *OpsSuite) TestEnsureScaleAlive(c *tc.C) {
@@ -363,7 +362,7 @@ func (s *OpsSuite) TestEnsureScaleAlive(c *tc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.EnsureScale(context.Background(), "test", app, life.Alive, facade, unitFacade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *OpsSuite) TestEnsureScaleAliveRetry(c *tc.C) {
@@ -423,7 +422,7 @@ func (s *OpsSuite) TestEnsureScaleDyingDead(c *tc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.EnsureScale(context.Background(), "test", app, life.Dead, facade, unitFacade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *OpsSuite) TestAppAlive(c *tc.C) {
@@ -553,7 +552,7 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.AppAlive(context.Background(), "test", app, password, &lastApplied, facade, clk, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *OpsSuite) TestAppDying(c *tc.C) {
@@ -580,7 +579,7 @@ func (s *OpsSuite) TestAppDying(c *tc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.AppDying(context.Background(), "test", app, life.Dying, facade, unitFacade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *OpsSuite) TestAppDead(c *tc.C) {
@@ -608,7 +607,7 @@ func (s *OpsSuite) TestAppDead(c *tc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.AppDead(context.Background(), "test", app, broker, facade, unitFacade, clk, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func intPtr(i int) *int {

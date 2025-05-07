@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	model "github.com/juju/juju/core/crossmodel"
@@ -85,9 +84,9 @@ func (s *ListSuite) TestListError(c *tc.C) {
 func (s *ListSuite) TestListFilterArgs(c *tc.C) {
 	_, err := s.runList(c, []string{
 		"--interface", "mysql", "--application", "mysql-lite", "--connected-user", "user", "--allowed-consumer", "consumer"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.mockAPI.filters, tc.HasLen, 1)
-	c.Assert(s.mockAPI.filters[0], jc.DeepEquals, model.ApplicationOfferFilter{
+	c.Assert(s.mockAPI.filters[0], tc.DeepEquals, model.ApplicationOfferFilter{
 		OwnerName:       "fred",
 		ModelName:       "test",
 		ApplicationName: "mysql-lite",
@@ -101,9 +100,9 @@ func (s *ListSuite) TestListFilterArgs(c *tc.C) {
 
 func (s *ListSuite) TestListOfferArg(c *tc.C) {
 	_, err := s.runList(c, []string{"mysql-lite"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.mockAPI.filters, tc.HasLen, 1)
-	c.Assert(s.mockAPI.filters[0], jc.DeepEquals, model.ApplicationOfferFilter{
+	c.Assert(s.mockAPI.filters[0], tc.DeepEquals, model.ApplicationOfferFilter{
 		OwnerName: "fred",
 		ModelName: "test",
 		OfferName: "^mysql-lite$",
@@ -312,7 +311,7 @@ func (s *ListSuite) runList(c *tc.C, args []string) (*cmd.Context, error) {
 
 func (s *ListSuite) assertValidList(c *tc.C, args []string, expectedValid, expectedErr string) {
 	context, err := s.runList(c, args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtainedErr := strings.Replace(cmdtesting.Stderr(context), "\n", "", -1)
 	c.Assert(obtainedErr, tc.Matches, expectedErr)

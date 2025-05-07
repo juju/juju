@@ -6,7 +6,6 @@ package agenttest
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/dependency"
 )
 
@@ -29,7 +28,7 @@ func AssertManifoldsDependencies(c *tc.C, manifolds dependency.Manifolds, expect
 	c.Assert(expectedNames.Difference(names), tc.DeepEquals, empty)
 
 	for _, n := range manifoldNames.SortedValues() {
-		if !c.Check(dependencies[n], jc.SameContents, expected[n], tc.Commentf("mismatched dependencies for worker %q", n)) {
+		if !c.Check(dependencies[n], tc.SameContents, expected[n], tc.Commentf("mismatched dependencies for worker %q", n)) {
 			// Make life easier when attempting to interpret the output.
 			// We already know the answer, just tell us what to do!
 			add := set.NewStrings(dependencies[n]...).Difference(set.NewStrings(expected[n]...)).SortedValues()

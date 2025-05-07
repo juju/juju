@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -29,7 +28,7 @@ func (s *providerSuite) SetUpTest(c *tc.C) {
 
 	var err error
 	s.provider, err = environs.Provider("gce")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	s.spec = gce.MakeTestCloudSpec()
 }
@@ -43,7 +42,7 @@ func (s *providerSuite) TestOpen(c *tc.C) {
 		Cloud:  s.spec,
 		Config: s.Config,
 	}, environs.NoopCredentialInvalidator())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	envConfig := env.Config()
 	c.Assert(envConfig.Name(), tc.Equals, "testmodel")
@@ -75,12 +74,12 @@ func (s *providerSuite) testOpenError(c *tc.C, spec environscloudspec.CloudSpec,
 
 func (s *providerSuite) TestValidateCloud(c *tc.C) {
 	err := s.provider.ValidateCloud(context.Background(), gce.MakeTestCloudSpec())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *providerSuite) TestValidate(c *tc.C) {
 	validCfg, err := s.provider.Validate(context.Background(), s.Config, nil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	validAttrs := validCfg.AllAttrs()
 	c.Assert(s.Config.AllAttrs(), tc.DeepEquals, validAttrs)

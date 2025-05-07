@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cloud"
@@ -52,7 +51,7 @@ func (s *serviceSuite) TestUpdateCloudCredential(c *tc.C) {
 	err := s.service(c).UpdateCloudCredential(
 		context.Background(), key,
 		cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestUpdateCloudCredentialInvalidID(c *tc.C) {
@@ -90,8 +89,8 @@ func (s *serviceSuite) TestCloudCredentials(c *tc.C) {
 	}, nil)
 
 	creds, err := s.service(c).CloudCredentialsForOwner(context.Background(), usertesting.GenNewName(c, "fred"), "cirrus")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(creds, jc.DeepEquals, map[string]cloud.Credential{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(creds, tc.DeepEquals, map[string]cloud.Credential{
 		"foo":    cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false),
 		"foobar": cloud.NewNamedCredential("foobar", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false),
 	})
@@ -113,8 +112,8 @@ func (s *serviceSuite) TestCloudCredential(c *tc.C) {
 	s.state.EXPECT().CloudCredential(gomock.Any(), key).Return(cred, nil)
 
 	result, err := s.service(c).CloudCredential(context.Background(), key)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false))
 }
 
 func (s *serviceSuite) TestCloudCredentialInvalidID(c *tc.C) {
@@ -132,7 +131,7 @@ func (s *serviceSuite) TestRemoveCloudCredential(c *tc.C) {
 	s.state.EXPECT().RemoveCloudCredential(gomock.Any(), key)
 
 	err := s.service(c).RemoveCloudCredential(context.Background(), key)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestRemoveCloudCredentialInvalidID(c *tc.C) {
@@ -152,7 +151,7 @@ func (s *serviceSuite) TestInvalidateCloudCredential(c *tc.C) {
 	s.state.EXPECT().InvalidateCloudCredential(gomock.Any(), uuid, "gone bad")
 
 	err := s.service(c).InvalidateCredential(context.Background(), key, "gone bad")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestInvalidateCloudCredentialInvalidID(c *tc.C) {
@@ -179,9 +178,9 @@ func (s *serviceSuite) TestAllCloudCredentials(c *tc.C) {
 		map[corecredential.Key]credential.CloudCredentialResult{credId: credInfoResult}, nil)
 
 	result, err := s.service(c).AllCloudCredentialsForOwner(context.Background(), usertesting.GenNewName(c, "fred"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cred := cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false)
-	c.Assert(result, jc.DeepEquals, map[corecredential.Key]cloud.Credential{credId: cred})
+	c.Assert(result, tc.DeepEquals, map[corecredential.Key]cloud.Credential{credId: cred})
 }
 
 func (s *serviceSuite) TestWatchCredential(c *tc.C) {
@@ -193,7 +192,7 @@ func (s *serviceSuite) TestWatchCredential(c *tc.C) {
 	s.state.EXPECT().WatchCredential(gomock.Any(), gomock.Any(), key).Return(nw, nil)
 
 	w, err := s.service(c).WatchCredential(context.Background(), key)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(w, tc.NotNil)
 }
 
@@ -222,7 +221,7 @@ func (s *serviceSuite) TestCheckAndUpdateCredentialsNoModelsFound(c *tc.C) {
 	service := s.service(c)
 
 	results, err := service.CheckAndUpdateCredential(context.Background(), key, cloud.Credential{}, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 0)
 }
 
@@ -272,8 +271,8 @@ func (s *serviceSuite) TestCheckAndUpdateCredential(c *tc.C) {
 	service := s.service(c)
 
 	results, err := service.CheckAndUpdateCredential(context.Background(), key, cred, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []UpdateCredentialModelResult{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, []UpdateCredentialModelResult{{
 		ModelUUID: coremodel.UUID(jujutesting.ModelTag.Id()), ModelName: "mymodel",
 	}})
 }
@@ -351,7 +350,7 @@ func (s *serviceSuite) TestRevokeCredentialsHasModelForce(c *tc.C) {
 	service := s.service(c)
 
 	err := service.CheckAndRevokeCredential(context.Background(), key, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestRevokeCredentialsHasModelsForce(c *tc.C) {
@@ -372,7 +371,7 @@ func (s *serviceSuite) TestRevokeCredentialsHasModelsForce(c *tc.C) {
 	service := s.service(c)
 
 	err := service.CheckAndRevokeCredential(context.Background(), key, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestCheckAndRevokeCredentialInvalidID(c *tc.C) {
@@ -400,7 +399,7 @@ func (s *serviceSuite) TestInvalidateModelCloudCredentialNotFound(c *tc.C) {
 		modelUUID,
 		"some reason",
 	)
-	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 // TestInvalidateModelCloudCredentialNotSet is asserting that if we try to
@@ -421,7 +420,7 @@ func (s *serviceSuite) TestInvalidateModelCloudCredentialNotSet(c *tc.C) {
 		modelUUID,
 		"some reason",
 	)
-	c.Check(err, jc.ErrorIs, credentialerrors.ModelCredentialNotSet)
+	c.Check(err, tc.ErrorIs, credentialerrors.ModelCredentialNotSet)
 }
 
 // TestInvalidateModelCloudCredenntialInvalidModelUUID is asserting that if we
@@ -437,7 +436,7 @@ func (s *serviceSuite) TestInvalidateModelCloudCredenntialInvalidModelUUID(c *tc
 		modelUUID,
 		"some reason",
 	)
-	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 // TestInvalidateModelCloudCredential asserts the happy path of invalidating the
@@ -457,7 +456,7 @@ func (s serviceSuite) TestInvalidateModelCloudCredential(c *tc.C) {
 		modelUUID,
 		"some reason",
 	)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 // TestModelCredentialStatus represents a test for the happy path of getting
@@ -476,18 +475,18 @@ func (s *serviceSuite) TestModelCredentialStatus(c *tc.C) {
 		credentialKey, true, nil,
 	)
 	key, valid, err := s.service(c).GetModelCredentialStatus(context.Background(), modelUUID)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(key, tc.Equals, credentialKey)
-	c.Check(valid, jc.IsTrue)
+	c.Check(valid, tc.IsTrue)
 
 	// Check the invalid case as well to be complete.
 	s.state.EXPECT().GetModelCredentialStatus(gomock.Any(), modelUUID).Return(
 		credentialKey, false, nil,
 	)
 	key, valid, err = s.service(c).GetModelCredentialStatus(context.Background(), modelUUID)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(key, tc.Equals, credentialKey)
-	c.Check(valid, jc.IsFalse)
+	c.Check(valid, tc.IsFalse)
 }
 
 // TestModelCredentialStatusNotFound asserts that if we ask for the credential
@@ -502,7 +501,7 @@ func (s *serviceSuite) TestModelCredentialStatusNotFound(c *tc.C) {
 		corecredential.Key{}, false, modelerrors.NotFound,
 	)
 	_, _, err := s.service(c).GetModelCredentialStatus(context.Background(), modelUUID)
-	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 // TestModelCredentialStatusNotSet asserts that we ask for the credential and
@@ -517,5 +516,5 @@ func (s *serviceSuite) TestModelCredentialStatusNotSet(c *tc.C) {
 		corecredential.Key{}, false, credentialerrors.ModelCredentialNotSet,
 	)
 	_, _, err := s.service(c).GetModelCredentialStatus(context.Background(), modelUUID)
-	c.Check(err, jc.ErrorIs, credentialerrors.ModelCredentialNotSet)
+	c.Check(err, tc.ErrorIs, credentialerrors.ModelCredentialNotSet)
 }

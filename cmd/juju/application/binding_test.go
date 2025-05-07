@@ -9,7 +9,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/network"
 )
@@ -106,7 +105,7 @@ func (s *ParseBindSuite) TestMergeBindingsNewBindingsInheritDefaultSpace(c *tc.C
 
 	mergedBindings, changeLog := mergeBindings(newCharmEndpoints, oldEndpointsMap, userBindings, network.AlphaSpaceName)
 	c.Check(mergedBindings, tc.DeepEquals, expMergedBindings)
-	c.Check(changeLog, jc.SameContents, []string{
+	c.Check(changeLog, tc.SameContents, []string{
 		`moving endpoint "ep1" from space "sp1" to "sp-foo"`,
 		`adding endpoint "ep2" to default space "alpha"`,
 		`adding endpoint "ep3" to space "sp1"`,
@@ -116,8 +115,8 @@ func (s *ParseBindSuite) TestMergeBindingsNewBindingsInheritDefaultSpace(c *tc.C
 
 func (s *ParseBindSuite) checkParseOKForExpr(c *tc.C, expr string, knownSpaceNames set.Strings, expectedBindings map[string]string) {
 	parsedBindings, err := parseBindExpr(expr, knownSpaceNames)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(parsedBindings, jc.DeepEquals, expectedBindings)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(parsedBindings, tc.DeepEquals, expectedBindings)
 }
 
 func (s *ParseBindSuite) checkParseFailsForExpr(c *tc.C, expr string, knownSpaceNames set.Strings, expectedErrorSuffix string) {

@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -30,7 +29,7 @@ var _ = tc.Suite(&ControllerCommandSuite{})
 
 func (s *ControllerCommandSuite) TestControllerCommandNoneSpecified(c *tc.C) {
 	command, err := runTestControllerCommand(c, jujuclient.NewMemStore())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	controllerName, err := command.ControllerName()
 	c.Assert(errors.Cause(err), tc.Equals, modelcmd.ErrNoControllersDefined)
 	c.Assert(controllerName, tc.Equals, "")
@@ -66,7 +65,7 @@ func (s *ControllerCommandSuite) TestCurrentControllerEnvVarConflict(c *tc.C) {
 	store.Controllers["foo"] = jujuclient.ControllerDetails{}
 	store.Controllers["bar"] = jujuclient.ControllerDetails{}
 	command, err := runTestControllerCommand(c, store)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = command.ControllerName()
 	c.Assert(err, tc.ErrorMatches, regexp.QuoteMeta("controller name from JUJU_MODEL (buzz) conflicts with value in JUJU_CONTROLLER (bar)"))
 }
@@ -131,9 +130,9 @@ func (c *testControllerCommand) Run(ctx *cmd.Context) error {
 
 func testEnsureControllerName(c *tc.C, store jujuclient.ClientStore, expect string, args ...string) {
 	command, err := runTestControllerCommand(c, store, args...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	controllerName, err := command.ControllerName()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(controllerName, tc.Equals, expect)
 }
 
@@ -176,7 +175,7 @@ func (s *OptionalControllerCommandSuite) assertPrompt(c *tc.C,
 	in ...string,
 ) (*cmd.Context, *testOptionalControllerCommand, error) {
 	ctx, command, err := runOptionalControllerCommand(c, store, in...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx.Stdin = strings.NewReader(userAnswer)
 	err = command.MaybePrompt(ctx, action)
 	return ctx, command, err
@@ -194,7 +193,7 @@ type testData struct {
 
 func (s *OptionalControllerCommandSuite) assertPrompted(c *tc.C, store jujuclient.ClientStore, t testData) {
 	ctx, command, err := s.assertPrompt(c, store, t.action, t.userAnswer, t.args...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(command.ControllerName, tc.Equals, t.expectedControllerName)
 	c.Assert(command.Client, tc.Equals, t.expectedClientOperation)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, t.expectedPrompt)
@@ -329,13 +328,13 @@ func (s *OptionalControllerCommandSuite) assertNoPromptForReadOnlyCommands(c *tc
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store, ReadOnly: true},
 	}
 	ctx, err := cmdtesting.RunCommand(c, command)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = command.MaybePrompt(ctx, "add a cloud")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, expectedOut)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, expectedErr)
 	c.Assert(command.ControllerName, tc.Equals, expectedController)
-	c.Assert(command.Client, jc.IsTrue)
+	c.Assert(command.Client, tc.IsTrue)
 
 }
 

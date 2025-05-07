@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/agent/upgrader"
 	"github.com/juju/juju/api/base/testing"
@@ -29,7 +28,7 @@ func (s *machineUpgraderSuite) TestSetVersion(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "SetTools")
-		c.Check(arg, jc.DeepEquals, params.EntitiesVersion{
+		c.Check(arg, tc.DeepEquals, params.EntitiesVersion{
 			AgentTools: []params.EntityVersion{{
 				Tag:   "machine-666",
 				Tools: &params.Version{Version: coretesting.CurrentVersion()},
@@ -54,7 +53,7 @@ func (s *machineUpgraderSuite) TestTools(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "Tools")
-		c.Check(arg, jc.DeepEquals, params.Entities{
+		c.Check(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "machine-666"}},
 		})
 		c.Assert(result, tc.FitsTypeOf, &params.ToolsResults{})
@@ -66,8 +65,8 @@ func (s *machineUpgraderSuite) TestTools(c *tc.C) {
 	})
 	client := upgrader.NewClient(apiCaller)
 	t, err := client.Tools(context.Background(), "machine-666")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(t, jc.DeepEquals, toolsResult)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(t, tc.DeepEquals, toolsResult)
 }
 
 func (s *machineUpgraderSuite) TestWatchAPIVersion(c *tc.C) {
@@ -76,7 +75,7 @@ func (s *machineUpgraderSuite) TestWatchAPIVersion(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "WatchAPIVersion")
-		c.Check(arg, jc.DeepEquals, params.Entities{
+		c.Check(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "machine-666"}},
 		})
 		c.Assert(result, tc.FitsTypeOf, &params.NotifyWatchResults{})
@@ -98,7 +97,7 @@ func (s *machineUpgraderSuite) TestDesiredVersion(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "DesiredVersion")
-		c.Check(arg, jc.DeepEquals, params.Entities{
+		c.Check(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "machine-666"}},
 		})
 		c.Assert(result, tc.FitsTypeOf, &params.VersionResults{})
@@ -110,6 +109,6 @@ func (s *machineUpgraderSuite) TestDesiredVersion(c *tc.C) {
 	})
 	client := upgrader.NewClient(apiCaller)
 	v, err := client.DesiredVersion(context.Background(), "machine-666")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(v, jc.DeepEquals, versResult)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(v, tc.DeepEquals, versResult)
 }

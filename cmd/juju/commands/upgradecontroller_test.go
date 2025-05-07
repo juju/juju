@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cmd/juju/commands/mocks"
@@ -102,7 +101,7 @@ func (s *upgradeControllerSuite) TestUpgradeModelProvidedAgentVersionUpToDate(c 
 	s.modelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(cfg, nil)
 
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--agent-version", coretesting.FakeVersionNumber.String())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "no upgrades available\n")
 }
 
@@ -150,7 +149,7 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersion(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cmd,
 		"--agent-version", semversion.MustParse("3.9.99").String(),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
 best version:
     3.9.99
@@ -206,7 +205,7 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionUploadLocalOffi
 	ctx, err := cmdtesting.RunCommand(c, cmd,
 		"--agent-version", targetVersion.String(),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, fmt.Sprintf(`
 best version:
     %s
@@ -245,7 +244,7 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionAlreadyUpToDate
 	ctx, err := cmdtesting.RunCommand(c, cmd,
 		"--agent-version", targetVersion.ToPatch().String(),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "no upgrades available\n")
 }
 
@@ -270,7 +269,7 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionFailedExpectUpl
 
 	targetVersion := current
 	targetVersion.Patch++ // wrong target version (It has to be equal to local snap version).
-	c.Assert(targetVersion.Compare(current) == 0, jc.IsFalse)
+	c.Assert(targetVersion.Compare(current) == 0, tc.IsFalse)
 
 	gomock.InOrder(
 		s.modelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(cfg, nil),
@@ -287,7 +286,7 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionFailedExpectUpl
 	ctx, err := cmdtesting.RunCommand(c, cmd,
 		"--agent-version", targetVersion.String(),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "no upgrades available\n")
 }
 
@@ -322,7 +321,7 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionExpectUploadFai
 	ctx, err := cmdtesting.RunCommand(c, cmd,
 		"--agent-version", targetVersion.String(),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "no upgrades available\n")
 }
 
@@ -351,7 +350,7 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionDryRun(c *tc.C)
 	ctx, err := cmdtesting.RunCommand(c, cmd,
 		"--agent-version", semversion.MustParse("3.9.99").String(), "--dry-run",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
 best version:
     3.9.99
@@ -424,7 +423,7 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithBuildAgent(c *tc.C) {
 	)
 
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--build-agent")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, fmt.Sprintf(`
 best version:
     %s
@@ -456,7 +455,7 @@ func (s *upgradeControllerSuite) TestUpgradeModelUpToDate(c *tc.C) {
 	)
 
 	ctx, err := cmdtesting.RunCommand(c, cmd)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "no upgrades available\n")
 }
 
@@ -481,7 +480,7 @@ func (s *upgradeControllerSuite) TestUpgradeModelUpgradeToPublishedVersion(c *tc
 	)
 
 	ctx, err := cmdtesting.RunCommand(c, cmd)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
 best version:
     3.9.99
@@ -512,7 +511,7 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithStream(c *tc.C) {
 	)
 
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--agent-stream", "proposed")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
 best version:
     3.9.99
@@ -532,7 +531,7 @@ func (s *upgradeControllerSuite) TestCheckCanImplicitUploadIAASModel(c *tc.C) {
 		semversion.MustParse("3.0.0"),
 		semversion.MustParse("3.9.99.1"),
 	)
-	c.Check(canImplicitUpload, jc.IsFalse)
+	c.Check(canImplicitUpload, tc.IsFalse)
 
 	// not official client.
 	canImplicitUpload = checkCanImplicitUpload(
@@ -540,7 +539,7 @@ func (s *upgradeControllerSuite) TestCheckCanImplicitUploadIAASModel(c *tc.C) {
 		semversion.MustParse("3.9.99"),
 		semversion.MustParse("3.0.0"),
 	)
-	c.Check(canImplicitUpload, jc.IsFalse)
+	c.Check(canImplicitUpload, tc.IsFalse)
 
 	// non newer client.
 	canImplicitUpload = checkCanImplicitUpload(
@@ -548,7 +547,7 @@ func (s *upgradeControllerSuite) TestCheckCanImplicitUploadIAASModel(c *tc.C) {
 		semversion.MustParse("2.9.99"),
 		semversion.MustParse("3.0.0"),
 	)
-	c.Check(canImplicitUpload, jc.IsFalse)
+	c.Check(canImplicitUpload, tc.IsFalse)
 
 	// client version with build number.
 	canImplicitUpload = checkCanImplicitUpload(
@@ -556,7 +555,7 @@ func (s *upgradeControllerSuite) TestCheckCanImplicitUploadIAASModel(c *tc.C) {
 		semversion.MustParse("3.0.0.1"),
 		semversion.MustParse("3.0.0"),
 	)
-	c.Check(canImplicitUpload, jc.IsTrue)
+	c.Check(canImplicitUpload, tc.IsTrue)
 
 	// agent version with build number.
 	canImplicitUpload = checkCanImplicitUpload(
@@ -564,7 +563,7 @@ func (s *upgradeControllerSuite) TestCheckCanImplicitUploadIAASModel(c *tc.C) {
 		semversion.MustParse("3.0.0"),
 		semversion.MustParse("3.0.0.1"),
 	)
-	c.Check(canImplicitUpload, jc.IsTrue)
+	c.Check(canImplicitUpload, tc.IsTrue)
 
 	// both client and agent version with build number == 0.
 	canImplicitUpload = checkCanImplicitUpload(
@@ -572,5 +571,5 @@ func (s *upgradeControllerSuite) TestCheckCanImplicitUploadIAASModel(c *tc.C) {
 		semversion.MustParse("3.0.0"),
 		semversion.MustParse("3.0.0"),
 	)
-	c.Check(canImplicitUpload, jc.IsFalse)
+	c.Check(canImplicitUpload, tc.IsFalse)
 }

@@ -8,7 +8,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
@@ -46,8 +45,8 @@ func (s *spaceSuite) TestGetByID(c *tc.C) {
 }
 
 func (s *spaceSuite) TestContainsName(c *tc.C) {
-	c.Assert(s.spaces.ContainsName("space3"), jc.IsTrue)
-	c.Assert(s.spaces.ContainsName("space666"), jc.IsFalse)
+	c.Assert(s.spaces.ContainsName("space3"), tc.IsTrue)
+	c.Assert(s.spaces.ContainsName("space666"), tc.IsFalse)
 }
 
 func (s *spaceSuite) TestMinus(c *tc.C) {
@@ -78,7 +77,7 @@ func (s *spaceSuite) TestInferSpaceFromAddress(c *tc.C) {
 
 	for addr, expSpaceName := range queries {
 		si, err := s.spaces.InferSpaceFromAddress(addr)
-		c.Assert(err, jc.ErrorIsNil, tc.Commentf("infer space for address %q", addr))
+		c.Assert(err, tc.ErrorIsNil, tc.Commentf("infer space for address %q", addr))
 		c.Assert(si.Name, tc.Equals, expSpaceName, tc.Commentf("infer space for address %q", addr))
 	}
 
@@ -103,7 +102,7 @@ func (s *spaceSuite) TestInferSpaceFromCIDRAndSubnetID(c *tc.C) {
 	}
 
 	si, err := infos.InferSpaceFromCIDRAndSubnetID("10.0.0.0/24", "1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(si.Name, tc.Equals, network.SpaceName("space1"))
 
 	// Check for same CIDR/different provider
@@ -117,11 +116,11 @@ func (s *spaceSuite) TestInferSpaceFromCIDRAndSubnetID(c *tc.C) {
 	)
 
 	si, err = infos.InferSpaceFromCIDRAndSubnetID("10.0.1.0/24", "2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(si.Name, tc.Equals, network.SpaceName("space2"))
 
 	si, err = infos.InferSpaceFromCIDRAndSubnetID("10.0.1.0/24", "3")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(si.Name, tc.Equals, network.SpaceName("inverse"))
 
 	// Check for no-match-found
@@ -131,7 +130,7 @@ func (s *spaceSuite) TestInferSpaceFromCIDRAndSubnetID(c *tc.C) {
 
 func (s *spaceSuite) TestAllSubnetInfos(c *tc.C) {
 	subnets, err := s.spaces.AllSubnetInfos()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(subnets, tc.DeepEquals, network.SubnetInfos{
 		{ID: "11", CIDR: "10.0.0.0/24"},
@@ -142,13 +141,13 @@ func (s *spaceSuite) TestAllSubnetInfos(c *tc.C) {
 
 func (s *spaceSuite) TestMoveSubnets(c *tc.C) {
 	_, err := s.spaces.MoveSubnets(network.MakeIDSet("11", "12"), "space4")
-	c.Check(err, jc.ErrorIs, coreerrors.NotFound)
+	c.Check(err, tc.ErrorIs, coreerrors.NotFound)
 
 	_, err = s.spaces.MoveSubnets(network.MakeIDSet("666"), "space3")
-	c.Check(err, jc.ErrorIs, coreerrors.NotFound)
+	c.Check(err, tc.ErrorIs, coreerrors.NotFound)
 
 	spaces, err := s.spaces.MoveSubnets(network.MakeIDSet("11", "12"), "space3")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(spaces, tc.DeepEquals, network.SpaceInfos{
 		{ID: "1", Name: "space1", Subnets: nil},
 		{ID: "2", Name: "space2", Subnets: nil},
@@ -214,7 +213,7 @@ func (s *spaceSuite) TestAlphaSpaceID(c *tc.C) {
 	// Juju UUID namespace that we (should) use for all Juju well-known UUIDs.
 	jujuUUIDNamespace := "96bb15e6-8b85-448b-9fce-ede1a1700e64"
 	namespaceUUID, err := uuid.Parse(jujuUUIDNamespace)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	alphaSpaceUUID := uuid.NewSHA1(namespaceUUID, []byte("juju.network.space.alpha"))
 	c.Assert(alphaSpaceUUID.String(), tc.Equals, network.AlphaSpaceId)

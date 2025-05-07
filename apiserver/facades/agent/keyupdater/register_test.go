@@ -6,7 +6,6 @@ package keyupdater
 import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -47,5 +46,5 @@ func (r *registerSuite) TestMakeKeyUpdaterAPIRefusesNonMachineAgent(c *tc.C) {
 
 	_, err := makeKeyUpdaterAPI(r.modelContext)
 	c.Check(err, tc.ErrorMatches, "permission denied")
-	c.Check(err, jc.ErrorIs, apiservererrors.ErrPerm)
+	c.Check(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }

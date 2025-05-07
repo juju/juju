@@ -15,7 +15,6 @@ import (
 	"github.com/juju/mutex/v2"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/vmware/govmomi"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/session"
@@ -590,25 +589,25 @@ func (s *clientSuite) TestDial(c *tc.C) {
 	defer server.Close()
 
 	url, err := url.Parse(server.URL)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := context.Background()
 	client, err := Dial(ctx, url, "dc", loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(client, tc.NotNil)
 }
 
 func (s *clientSuite) TestClose(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	err := client.Close(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.roundTripper.CheckCallNames(c, "Logout")
 }
 
 func (s *clientSuite) TestComputeResources(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	result, err := client.ComputeResources(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.roundTripper.CheckCalls(c, []testing.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
@@ -627,7 +626,7 @@ func (s *clientSuite) TestComputeResources(c *tc.C) {
 func (s *clientSuite) TestFolders(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	result, err := client.Folders(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.roundTripper.CheckCalls(c, []testing.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
@@ -644,7 +643,7 @@ func (s *clientSuite) TestFolders(c *tc.C) {
 func (s *clientSuite) TestDestroyVMFolder(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	err := client.DestroyVMFolder(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.roundTripper.CheckCalls(c, []testing.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
@@ -667,13 +666,13 @@ func (s *clientSuite) TestDestroyVMFolderRace(c *tc.C) {
 	}
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	err := client.DestroyVMFolder(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *clientSuite) TestEnsureVMFolder(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	folder, err := client.EnsureVMFolder(context.Background(), "", "foo/bar")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(folder, tc.NotNil)
 
 	s.roundTripper.CheckCalls(c, []testing.StubCall{
@@ -690,7 +689,7 @@ func (s *clientSuite) TestEnsureVMFolder(c *tc.C) {
 func (s *clientSuite) TestFindFolder(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	folder, err := client.FindFolder(context.Background(), "foo/bar")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(folder, tc.NotNil)
 	c.Assert(folder.InventoryPath, tc.Equals, "/dc0/vm/foo/bar")
 }
@@ -698,7 +697,7 @@ func (s *clientSuite) TestFindFolder(c *tc.C) {
 func (s *clientSuite) TestFindFolderRelativePath(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	folder, err := client.FindFolder(context.Background(), "./foo/bar")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(folder, tc.NotNil)
 	c.Assert(folder.InventoryPath, tc.Equals, "/dc0/vm/foo/bar")
 }
@@ -713,7 +712,7 @@ func (s *clientSuite) TestFindFolderAbsolutePath(c *tc.C) {
 func (s *clientSuite) TestFindFolderSubPath(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	folder, err := client.FindFolder(context.Background(), "/dc0/vm/foo/bar")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(folder, tc.NotNil)
 	c.Assert(folder.InventoryPath, tc.Equals, "/dc0/vm/foo/bar")
 }
@@ -721,7 +720,7 @@ func (s *clientSuite) TestFindFolderSubPath(c *tc.C) {
 func (s *clientSuite) TestMoveVMFolderInto(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	err := client.MoveVMFolderInto(context.Background(), "foo", "foo/bar")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.roundTripper.CheckCalls(c, []testing.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
@@ -759,7 +758,7 @@ func (s *clientSuite) TestMoveVMsInto(c *tc.C) {
 			Value: "vm-1",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.roundTripper.CheckCalls(c, []testing.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
@@ -779,7 +778,7 @@ func (s *clientSuite) TestMoveVMsInto(c *tc.C) {
 func (s *clientSuite) TestRemoveVirtualMachines(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	err := client.RemoveVirtualMachines(context.Background(), "foo/bar/*")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.roundTripper.CheckCalls(c, []testing.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
@@ -815,7 +814,7 @@ func (s *clientSuite) TestRemoveVirtualMachinesDestroyRace(c *tc.C) {
 	}
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	err := client.RemoveVirtualMachines(context.Background(), "foo/bar/*")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *clientSuite) TestMaybeUpgradeVMVersionNotSet(c *tc.C) {
@@ -831,7 +830,7 @@ func (s *clientSuite) TestMaybeUpgradeVMVersionNotSet(c *tc.C) {
 
 	vmObj := object.NewVirtualMachine(client.client.Client, vm.Reference())
 	err := client.maybeUpgradeVMHardware(context.Background(), args, vmObj, &taskWaiter{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// No calls should be made. ForceVMHardwareVersion was not set.
 	s.roundTripper.CheckCalls(c, []testing.StubCall{})
@@ -928,7 +927,7 @@ func (s *clientSuite) TestMaybeUpgradeVMVersion(c *tc.C) {
 	})
 
 	// We ignore the request and log the event.
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// No calls should be made. ForceVMHardwareVersion was not set.
 	s.roundTripper.CheckCalls(c, []testing.StubCall{
@@ -974,7 +973,7 @@ func (s *clientSuite) TestUpdateVirtualMachineExtraConfig(c *tc.C) {
 			"k1": "",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.roundTripper.CheckCallNames(c,
 		"ReconfigVM_Task",
@@ -987,7 +986,7 @@ func (s *clientSuite) TestUpdateVirtualMachineExtraConfig(c *tc.C) {
 func (s *clientSuite) TestVirtualMachines(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	result, err := client.VirtualMachines(context.Background(), "foo/bar/*")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.roundTripper.CheckCalls(c, []testing.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
@@ -1011,7 +1010,7 @@ func (s *clientSuite) TestVirtualMachines(c *tc.C) {
 func (s *clientSuite) TestListVMTemplates(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	result, err := client.ListVMTemplates(context.Background(), "foo/bar/*")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.roundTripper.CheckCalls(c, []testing.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
@@ -1033,7 +1032,7 @@ func (s *clientSuite) TestListVMTemplates(c *tc.C) {
 func (s *clientSuite) TestDatastores(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	result, err := client.Datastores(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.roundTripper.CheckCalls(c, []testing.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
@@ -1052,7 +1051,7 @@ func (s *clientSuite) TestDatastores(c *tc.C) {
 func (s *clientSuite) TestDeleteDatastoreFile(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	err := client.DeleteDatastoreFile(context.Background(), "[datastore1] file/path")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.roundTripper.CheckCalls(c, []testing.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
@@ -1071,7 +1070,7 @@ func (s *clientSuite) TestDeleteDatastoreFileNotFound(c *tc.C) {
 
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	err := client.DeleteDatastoreFile(context.Background(), "[datastore1] file/path")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *clientSuite) TestDeleteDatastoreError(c *tc.C) {
@@ -1102,7 +1101,7 @@ func (s *clientSuite) TestResourcePools(c *tc.C) {
 		retrievePropertiesStubCall("FakeResourcePoolOther"),
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.HasLen, 4)
 	c.Check(result[0].InventoryPath, tc.Equals, "/z0/Resources")
 	c.Check(result[1].InventoryPath, tc.Equals, "/z0/Resources/parent")
@@ -1113,7 +1112,7 @@ func (s *clientSuite) TestResourcePools(c *tc.C) {
 func (s *clientSuite) TestUserHasRootLevelPrivilege(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	result, err := client.UserHasRootLevelPrivilege(context.Background(), "Some.Privilege")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.Equals, true)
 
 	s.roundTripper.CheckCalls(c, []testing.StubCall{
@@ -1128,7 +1127,7 @@ func (s *clientSuite) TestUserHasRootLevelPrivilege(c *tc.C) {
 
 	s.roundTripper.SetErrors(nil, permissionError)
 	result, err = client.UserHasRootLevelPrivilege(context.Background(), "System.Read")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.Equals, false)
 
 	s.roundTripper.SetErrors(nil, permissionError)

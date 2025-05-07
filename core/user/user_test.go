@@ -6,7 +6,6 @@ package user
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 type userSuite struct {
@@ -87,7 +86,7 @@ func (s *userSuite) TestNewName(c *tc.C) {
 		}} {
 		c.Logf("test %d: %s", i, t.input)
 		name, err := NewName(t.input)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(name.Name(), tc.Equals, t.name)
 		c.Check(name.IsLocal(), tc.Equals, t.isLocal)
 	}

@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/secrets"
@@ -253,7 +252,7 @@ func (s *importSuite) TestImport(c *tc.C) {
 	model := serialisedModel(uri, uri2, uri3, uri4, nextRotate, expire, timestamp)
 
 	dst, err := description.Deserialize([]byte(model))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.backendService.EXPECT().ListBackendIDs(gomock.Any()).Return([]string{"backend-id"}, nil)
 	forImport := backendSecrets(uri, uri2, uri3, uri4, nextRotate, expire, timestamp)
@@ -261,7 +260,7 @@ func (s *importSuite) TestImport(c *tc.C) {
 
 	op := s.newImportOperation(c)
 	err = op.Execute(context.Background(), dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *importSuite) TestImportMissingBackend(c *tc.C) {
@@ -278,11 +277,11 @@ func (s *importSuite) TestImportMissingBackend(c *tc.C) {
 	model := serialisedModel(uri, uri2, uri3, uri4, nextRotate, expire, timestamp)
 
 	dst, err := description.Deserialize([]byte(model))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.backendService.EXPECT().ListBackendIDs(gomock.Any()).Return([]string{"backend-id2"}, nil)
 
 	op := s.newImportOperation(c)
 	err = op.Execute(context.Background(), dst)
-	c.Assert(err, jc.ErrorIs, secreterrors.MissingSecretBackendID)
+	c.Assert(err, tc.ErrorIs, secreterrors.MissingSecretBackendID)
 }

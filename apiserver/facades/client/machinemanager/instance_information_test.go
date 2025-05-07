@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/constraints"
@@ -54,7 +53,7 @@ func (s *instanceTypesSuite) TestInstanceTypes(c *tc.C) {
 	}
 
 	r, err := instanceTypes(context.Background(), s.instanceTypesFetcher, cons)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(r.Results, tc.HasLen, 3)
 	expected := []params.InstanceTypesResult{
 		{

@@ -7,7 +7,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/provider/ec2"
 )
@@ -87,10 +86,10 @@ func checkSubnetMatch(c *tc.C, query, expectedSubnetID string) {
 	for _, subnet := range cannedSubnets {
 		match := matcher.Match(subnet)
 		if aws.ToString(subnet.SubnetId) == expectedSubnetID {
-			c.Check(match, jc.IsTrue,
+			c.Check(match, tc.IsTrue,
 				tc.Commentf("query %q was supposed to match subnet %#v", query, subnet))
 		} else {
-			c.Check(match, jc.IsFalse,
+			c.Check(match, tc.IsFalse,
 				tc.Commentf("query %q was not supposed to match subnet %#v", query, subnet))
 		}
 		if match {
@@ -98,9 +97,9 @@ func checkSubnetMatch(c *tc.C, query, expectedSubnetID string) {
 		}
 	}
 	if expectedSubnetID == "" {
-		c.Check(anyMatch, jc.IsFalse, tc.Commentf("we expected there to be no matches"))
+		c.Check(anyMatch, tc.IsFalse, tc.Commentf("we expected there to be no matches"))
 	} else {
-		c.Check(anyMatch, jc.IsTrue, tc.Commentf("we expected to find at least one match, but found none"))
+		c.Check(anyMatch, tc.IsTrue, tc.Commentf("we expected to find at least one match, but found none"))
 	}
 }
 

@@ -6,7 +6,6 @@ package cmd_test
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/cmd"
 )
@@ -23,9 +22,9 @@ func (StringMapSuite) TestStringMapNilOk(c *tc.C) {
 	c.Assert(values, tc.IsNil)
 	sm := cmd.StringMap{Mapping: &values}
 	err := sm.Set("foo=foovalue")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = sm.Set("bar=barvalue")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// now the map is non-nil and filled
 	c.Assert(values, tc.DeepEquals, map[string]string{
@@ -43,7 +42,7 @@ func (StringMapSuite) TestStringMapBadVal(c *tc.C) {
 func (StringMapSuite) TestStringMapDupVal(c *tc.C) {
 	sm := cmd.StringMap{Mapping: &map[string]string{}}
 	err := sm.Set("bar=somevalue")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = sm.Set("bar=someothervalue")
 	c.Assert(err, tc.ErrorMatches, "duplicate key specified")
 }

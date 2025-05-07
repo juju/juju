@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/resource/store"
@@ -29,7 +28,7 @@ func (s *resourceStoreSuite) TestGetResourceStoreTypeFile(c *tc.C) {
 	s.modelObjectStoreGetter.EXPECT().GetObjectStore(gomock.Any()).Return(s.objectStore, nil)
 
 	store, err := s.factory().GetResourceStore(context.Background(), charmresource.TypeFile)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(store, tc.Equals, fileResourceStore{s.objectStore})
 }
 
@@ -40,14 +39,14 @@ func (s *resourceStoreSuite) TestGetResourceStoreTypeFileError(c *tc.C) {
 	s.modelObjectStoreGetter.EXPECT().GetObjectStore(gomock.Any()).Return(nil, kaboom)
 
 	_, err := s.factory().GetResourceStore(context.Background(), charmresource.TypeFile)
-	c.Assert(err, jc.ErrorIs, kaboom)
+	c.Assert(err, tc.ErrorIs, kaboom)
 }
 
 func (s *resourceStoreSuite) TestGetResourceStoreNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.factory().GetResourceStore(context.Background(), charmresource.Type(0))
-	c.Assert(err, jc.ErrorIs, UnknownResourceType)
+	c.Assert(err, tc.ErrorIs, UnknownResourceType)
 }
 
 func (s *resourceStoreSuite) TestGetResourceStoreTypeContainerImage(c *tc.C) {
@@ -56,9 +55,9 @@ func (s *resourceStoreSuite) TestGetResourceStoreTypeContainerImage(c *tc.C) {
 	s.resourceStore.EXPECT().Remove(context.Background(), gomock.Any()).Return(nil)
 
 	store, err := s.factory().GetResourceStore(context.Background(), charmresource.TypeContainerImage)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = store.Remove(context.Background(), "string")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *resourceStoreSuite) setupMocks(c *tc.C) *gomock.Controller {

@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -25,7 +24,7 @@ func (s *credentialsSuite) SetUpTest(c *tc.C) {
 
 	var err error
 	s.provider, err = environs.Provider("vsphere")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *credentialsSuite) TestCredentialSchemas(c *tc.C) {
@@ -45,5 +44,5 @@ func (s *credentialsSuite) TestUserPassHiddenAttributes(c *tc.C) {
 
 func (s *credentialsSuite) TestDetectCredentialsNotFound(c *tc.C) {
 	_, err := s.provider.DetectCredentials("")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }

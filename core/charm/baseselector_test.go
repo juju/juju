@@ -7,7 +7,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/base"
@@ -143,8 +142,8 @@ func (s *baseSelectorSuite) TestCharmBase(c *tc.C) {
 		if test.err != "" {
 			c.Check(err, tc.ErrorMatches, test.err)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
-			c.Check(base.IsCompatible(test.expectedBase), jc.IsTrue,
+			c.Check(err, tc.ErrorIsNil)
+			c.Check(base.IsCompatible(test.expectedBase), tc.IsTrue,
 				tc.Commentf("%q compatible with %q", base, test.expectedBase))
 		}
 	}
@@ -202,7 +201,7 @@ func (s *baseSelectorSuite) TestValidate(c *tc.C) {
 		if test.err != "" {
 			c.Check(err, tc.ErrorMatches, test.err)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		}
 	}
 }
@@ -222,7 +221,7 @@ func (s *baseSelectorSuite) TestConfigureBaseSelector(c *tc.C) {
 	}
 
 	obtained, err := ConfigureBaseSelector(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtained.supportedBases, tc.DeepEquals, []base.Base{jammy, focal})
 }
 
@@ -244,7 +243,7 @@ func (s *baseSelectorSuite) TestConfigureBaseSelectorCentos(c *tc.C) {
 	}
 
 	obtained, err := ConfigureBaseSelector(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtained.supportedBases, tc.DeepEquals, []base.Base{c7, c8})
 }
 
@@ -263,15 +262,15 @@ func (s *baseSelectorSuite) TestConfigureBaseSelectorDefaultBase(c *tc.C) {
 	}
 
 	baseSelector, err := ConfigureBaseSelector(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(baseSelector.supportedBases, jc.SameContents, []base.Base{jammy, focal})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(baseSelector.supportedBases, tc.SameContents, []base.Base{jammy, focal})
 	c.Check(baseSelector.defaultBase, tc.DeepEquals, focal)
-	c.Check(baseSelector.explicitDefaultBase, jc.IsTrue)
+	c.Check(baseSelector.explicitDefaultBase, tc.IsTrue)
 
 	obtained, err := baseSelector.CharmBase()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedBase := base.MustParseBaseFromString("ubuntu@20.04")
-	c.Check(obtained.IsCompatible(expectedBase), jc.IsTrue, tc.Commentf("obtained: %q, expected %q", obtained, expectedBase))
+	c.Check(obtained.IsCompatible(expectedBase), tc.IsTrue, tc.Commentf("obtained: %q, expected %q", obtained, expectedBase))
 }
 
 func (s *baseSelectorSuite) TestConfigureBaseSelectorDefaultBaseFail(c *tc.C) {
@@ -289,7 +288,7 @@ func (s *baseSelectorSuite) TestConfigureBaseSelectorDefaultBaseFail(c *tc.C) {
 	}
 
 	baseSelector, err := ConfigureBaseSelector(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = baseSelector.CharmBase()
 	c.Assert(err, tc.ErrorMatches, `base: ubuntu@18.04/stable not supported`)
 }

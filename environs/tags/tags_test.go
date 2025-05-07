@@ -6,7 +6,6 @@ package tags_test
 import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/testing"
@@ -62,7 +61,7 @@ func (*tagsSuite) TestResourceTagsResourceTaggers(c *tc.C) {
 
 func testResourceTags(c *tc.C, controller names.ControllerTag, model names.ModelTag, taggers []tags.ResourceTagger, expectTags map[string]string) {
 	tags := tags.ResourceTags(model, controller, taggers...)
-	c.Assert(tags, jc.DeepEquals, expectTags)
+	c.Assert(tags, tc.DeepEquals, expectTags)
 }
 
 type resourceTagger func() (map[string]string, bool)

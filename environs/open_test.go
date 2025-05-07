@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/model"
 	jujuversion "github.com/juju/juju/core/version"
@@ -49,7 +48,7 @@ func (s *OpenSuite) TestNewDummyEnviron(c *tc.C) {
 	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
 	// matches *Settings.Map()
 	cfg, err := config.New(config.NoDefaults, testing.FakeConfig())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := envtesting.BootstrapContext(context.Background(), c)
 	cache := jujuclient.NewMemStore()
 	controllerCfg := testing.FakeControllerConfig()
@@ -60,13 +59,13 @@ func (s *OpenSuite) TestNewDummyEnviron(c *tc.C) {
 		Cloud:            testing.FakeCloudSpec(),
 		AdminSecret:      "admin-secret",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	env := bootstrapEnviron.(environs.Environ)
 
 	storageDir := c.MkDir()
 	s.PatchValue(&envtools.DefaultBaseURL, storageDir)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	envtesting.UploadFakeTools(c, stor, "released")
 	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{
 		ControllerConfig:        controllerCfg,
@@ -74,11 +73,11 @@ func (s *OpenSuite) TestNewDummyEnviron(c *tc.C) {
 		CAPrivateKey:            testing.CAKey,
 		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// New controller should have been added to collection.
 	foundController, err := cache.ControllerByName(cfg.Name())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(foundController.ControllerUUID, tc.DeepEquals, controllerCfg.ControllerUUID())
 }
 
@@ -91,7 +90,7 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *tc.C) {
 		"name": "admin-model",
 		"uuid": uuid,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	controllerCfg := testing.FakeControllerConfig()
 	_, err = bootstrap.PrepareController(false, ctx, store, bootstrap.PrepareParams{
 		ControllerConfig: controllerCfg,
@@ -100,15 +99,15 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *tc.C) {
 		Cloud:            testing.FakeCloudSpec(),
 		AdminSecret:      "admin-secret",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	foundController, err := store.ControllerByName("controller-name")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(foundController.ControllerUUID, tc.Not(tc.Equals), "")
 	c.Assert(foundController.CACert, tc.Not(tc.Equals), "")
 	foundModel, err := store.ModelByName("controller-name", "admin/admin-model")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(foundModel, jc.DeepEquals, &jujuclient.ModelDetails{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(foundModel, tc.DeepEquals, &jujuclient.ModelDetails{
 		ModelUUID: cfg.UUID(),
 		ModelType: model.IAAS,
 	})
@@ -131,13 +130,13 @@ func (*OpenSuite) TestNew(c *tc.C) {
 			"name":       "erewhemos",
 		},
 	))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := context.Background()
 	e, err := environs.New(ctx, environs.OpenParams{
 		Cloud:  testing.FakeCloudSpec(),
 		Config: cfg,
 	}, environs.NoopCredentialInvalidator())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = e.ControllerInstances(ctx, "uuid")
 	c.Assert(err, tc.ErrorMatches, "model is not prepared")
 }
@@ -148,7 +147,7 @@ func (*OpenSuite) TestDestroy(c *tc.C) {
 			"name": "erewhemos",
 		},
 	))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	store := jujuclient.NewMemStore()
 	// Prepare the environment and sanity-check that
@@ -162,27 +161,27 @@ func (*OpenSuite) TestDestroy(c *tc.C) {
 		Cloud:            testing.FakeCloudSpec(),
 		AdminSecret:      "admin-secret",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	e := bootstrapEnviron.(environs.Environ)
 	_, err = store.ControllerByName("controller-name")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = environs.Destroy("controller-name", e, context.Background(), store)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that the environment has actually been destroyed
 	// and that the controller details been removed too.
 	_, err = e.ControllerInstances(context.Background(), controllerCfg.ControllerUUID())
 	c.Assert(err, tc.ErrorMatches, "model is not prepared")
 	_, err = store.ControllerByName("controller-name")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (*OpenSuite) TestDestroyNotFound(c *tc.C) {
 	var env destroyControllerEnv
 	store := jujuclient.NewMemStore()
 	err := environs.Destroy("fnord", &env, context.Background(), store)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	env.CheckCallNames(c) // no controller details, no call
 }
 

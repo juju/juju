@@ -8,7 +8,6 @@ import (
 	"database/sql"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain/modelconfig/state"
@@ -75,25 +74,25 @@ func (s *stateSuite) TestModelConfigUpdate(c *tc.C) {
 			test.UpdateAttrs,
 			test.RemoveAttrs,
 		)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		config, err := st.ModelConfig(context.Background())
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(config, jc.DeepEquals, test.Expected)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(config, tc.DeepEquals, test.Expected)
 	}
 }
 
 func (s *stateSuite) TestModelConfigHasAttributesNil(c *tc.C) {
 	st := state.NewState(s.TxnRunnerFactory())
 	rval, err := st.ModelConfigHasAttributes(context.Background(), nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(rval), tc.Equals, 0)
 }
 
 func (s *stateSuite) TestModelConfigHasAttributesEmpty(c *tc.C) {
 	st := state.NewState(s.TxnRunnerFactory())
 	rval, err := st.ModelConfigHasAttributes(context.Background(), []string{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(rval), tc.Equals, 0)
 }
 
@@ -103,10 +102,10 @@ func (s *stateSuite) TestModelConfigHasAttributes(c *tc.C) {
 		"wallyworld": "peachy",
 		"foo":        "bar",
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	rval, err := st.ModelConfigHasAttributes(context.Background(), []string{"wallyworld", "doesnotexist"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rval, tc.DeepEquals, []string{"wallyworld"})
 }
 
@@ -133,11 +132,11 @@ func (s *stateSuite) TestSetModelConfig(c *tc.C) {
 
 	for _, test := range tests {
 		err := st.SetModelConfig(context.Background(), test.Config)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		config, err := st.ModelConfig(context.Background())
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(config, jc.DeepEquals, test.Config)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(config, tc.DeepEquals, test.Config)
 	}
 }
 
@@ -147,7 +146,7 @@ func (s *stateSuite) TestSetModelConfig(c *tc.C) {
 func (s *stateSuite) TestGetModelAgentVersionAndStreamNotFound(c *tc.C) {
 	st := state.NewState(s.TxnRunnerFactory())
 	version, stream, err := st.GetModelAgentVersionAndStream(context.Background())
-	c.Check(err, jc.ErrorIs, coreerrors.NotFound)
+	c.Check(err, tc.ErrorIs, coreerrors.NotFound)
 	c.Check(version, tc.Equals, "")
 	c.Check(stream, tc.Equals, "")
 }
@@ -159,11 +158,11 @@ func (s *stateSuite) TestGetModelAgentVersionAndStream(c *tc.C) {
 		_, err := tx.ExecContext(ctx, "INSERT INTO agent_version (stream_id, target_version) VALUES (0, '1.2.3')")
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	st := state.NewState(s.TxnRunnerFactory())
 	version, stream, err := st.GetModelAgentVersionAndStream(context.Background())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(version, tc.Equals, "1.2.3")
 	c.Check(stream, tc.Equals, "released")
 }
@@ -173,13 +172,13 @@ func (s *stateSuite) TestCheckSpace(c *tc.C) {
 	db := s.DB()
 
 	_, err := db.Exec("INSERT INTO space (uuid, name) VALUES ('1', 'foo')")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	exists, err := st.SpaceExists(context.Background(), "bar")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(exists, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsFalse)
 
 	exists, err = st.SpaceExists(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(exists, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsTrue)
 }

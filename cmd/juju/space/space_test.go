@@ -5,7 +5,6 @@ package space_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cmd/juju/space"
@@ -102,9 +101,9 @@ func (s *SpaceCommandSuite) TestInit(c *tc.C) {
 			prefixedErr := "invalid arguments specified: " + test.expectErr
 			c.Check(err, tc.ErrorMatches, prefixedErr)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		}
 		c.Check(name, tc.Equals, test.expectName)
-		c.Check(cidrs.SortedValues(), jc.DeepEquals, test.expectCIDRs)
+		c.Check(cidrs.SortedValues(), tc.DeepEquals, test.expectCIDRs)
 	}
 }

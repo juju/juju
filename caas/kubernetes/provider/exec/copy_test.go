@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -107,7 +106,7 @@ func (s *execSuite) TestCopyToPod(c *tc.C) {
 	s.suiteMocks.EXPECT().RemoteCmdExecutorGetter(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(s.mockRemoteCmdExecutor, nil)
 
 	srcPath, err := os.CreateTemp(c.MkDir(), "testfile")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer srcPath.Close()
 	defer os.Remove(srcPath.Name())
 
@@ -202,7 +201,7 @@ func (s *execSuite) TestCopyToPod(c *tc.C) {
 	}()
 	select {
 	case err := <-errChan:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for Copy return")
 	}
@@ -215,10 +214,10 @@ func (s *execSuite) TestCopyFromPod(c *tc.C) {
 	s.suiteMocks.EXPECT().RemoteCmdExecutorGetter(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(s.mockRemoteCmdExecutor, nil)
 
 	srcPath, err := os.CreateTemp(c.MkDir(), "testfile")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	fileContent := `test data`
 	_, err = srcPath.WriteString(fileContent)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer srcPath.Close()
 	defer os.Remove(srcPath.Name())
 
@@ -285,11 +284,11 @@ func (s *execSuite) TestCopyFromPod(c *tc.C) {
 					Mode: 0600,
 					Size: int64(len(fileContent)),
 				})
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				_, err = tarWriter.Write([]byte(fileContent))
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				err = tarWriter.Close()
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				return nil
 			},
 		),
@@ -302,9 +301,9 @@ func (s *execSuite) TestCopyFromPod(c *tc.C) {
 	}()
 	select {
 	case err := <-errChan:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		data, err := os.ReadFile(destPath)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(string(data), tc.DeepEquals, fileContent)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for Copy return")

@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common/crossmodel"
@@ -61,7 +60,7 @@ func (s *applicationOffersSuite) SetUpTest(c *tc.C) {
 		s.mockState, nil, testing.ModelTag, thirdPartyKey,
 		crossmodel.NewOfferBakeryForTest(s.bakery, clock.WallClock),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // Creates the API to use in testing.
@@ -79,7 +78,7 @@ func (s *applicationOffersSuite) setupAPI(c *tc.C) {
 		uuid.MustNewUUID().String(),
 		s.mockModelService,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api = api
 }
 
@@ -129,7 +128,7 @@ func (s *applicationOffersSuite) assertOffer(c *tc.C, expectedErr error) {
 	}
 
 	errs, err := s.api.Offer(context.Background(), all)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs.Results, tc.HasLen, len(all.Offers))
 	if expectedErr != nil {
 		c.Assert(errs.Results[0].Error, tc.ErrorMatches, expectedErr.Error())
@@ -192,7 +191,7 @@ func (s *applicationOffersSuite) TestAddOfferUpdatesExistingOffer(c *tc.C) {
 
 	errs, err := s.api.Offer(context.Background(), all)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs.Results, tc.HasLen, len(all.Offers))
 	c.Assert(errs.Results[0].Error, tc.IsNil)
 	s.applicationOffers.CheckCallNames(c, offerCall, updateOfferBackendCall)
@@ -271,7 +270,7 @@ func (s *applicationOffersSuite) TestOfferError(c *tc.C) {
 	s.mockApplicationService.EXPECT().GetCharmMetadataDescription(gomock.Any(), locator).Return("A pretty popular blog engine", nil)
 
 	errs, err := s.api.Offer(context.Background(), all)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs.Results, tc.HasLen, len(all.Offers))
 	c.Assert(errs.Results[0].Error, tc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
 	s.applicationOffers.CheckCallNames(c, offerCall, addOffersBackendCall)
@@ -309,7 +308,7 @@ func (s *applicationOffersSuite) TestOfferErrorApplicationError(c *tc.C) {
 	s.mockApplicationService.EXPECT().GetCharmLocatorByApplicationName(gomock.Any(), applicationName).Return(locator, applicationerrors.ApplicationNotFound)
 
 	errs, err := s.api.Offer(context.Background(), all)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs.Results, tc.HasLen, len(all.Offers))
 	c.Assert(errs.Results[0].Error, tc.ErrorMatches, `getting offered application "test" not found`)
 	s.applicationOffers.CheckCallNames(c)
@@ -348,7 +347,7 @@ func (s *applicationOffersSuite) TestOfferErrorApplicationCharmError(c *tc.C) {
 	s.mockApplicationService.EXPECT().GetCharmMetadataDescription(gomock.Any(), locator).Return("", applicationerrors.CharmNotFound)
 
 	errs, err := s.api.Offer(context.Background(), all)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs.Results, tc.HasLen, len(all.Offers))
 	c.Assert(errs.Results[0].Error, tc.ErrorMatches, `getting offered application "test" charm not found`)
 	s.applicationOffers.CheckCallNames(c)
@@ -382,7 +381,7 @@ func (s *applicationOffersSuite) assertList(c *tc.C, offerUUID string, expectedC
 	}, nil)
 
 	found, err := s.api.ListApplicationOffers(context.Background(), filter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedOfferDetails := []params.ApplicationOfferAdminDetailsV5{
 		{
@@ -410,7 +409,7 @@ func (s *applicationOffersSuite) assertList(c *tc.C, offerUUID string, expectedC
 			}},
 		},
 	}
-	c.Assert(found, jc.DeepEquals, params.QueryApplicationOffersResultsV5{
+	c.Assert(found, tc.DeepEquals, params.QueryApplicationOffersResultsV5{
 		Results: expectedOfferDetails,
 	})
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall)
@@ -523,8 +522,8 @@ func (s *applicationOffersSuite) assertShow(c *tc.C, url, offerUUID string, expe
 	filter := params.OfferURLs{OfferURLs: []string{url}, BakeryVersion: bakery.LatestVersion}
 
 	found, err := s.api.ApplicationOffers(context.Background(), filter)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(found.Results, tc.DeepEquals, expected)
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall)
 	if len(expected) > 0 {
 		return
@@ -695,7 +694,7 @@ func (s *applicationOffersSuite) TestShowError(c *tc.C) {
 		return nil, errors.New(msg)
 	}
 	fredUser, err := coreuser.NewName("fred@external")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "prod", fredUser).Return(
 		coremodel.Model{
@@ -723,7 +722,7 @@ func (s *applicationOffersSuite) TestShowNotFound(c *tc.C) {
 	}
 
 	fredUser, err := coreuser.NewName("fred@external")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "prod", fredUser).Return(
 		coremodel.Model{
@@ -739,7 +738,7 @@ func (s *applicationOffersSuite) TestShowNotFound(c *tc.C) {
 	}, nil)
 
 	found, err := s.api.ApplicationOffers(context.Background(), filter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 1)
 	c.Assert(found.Results[0].Error.Error(), tc.Matches, `application offer "fred@external/prod.hosted-db2" not found`)
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall)
@@ -753,7 +752,7 @@ func (s *applicationOffersSuite) TestShowRejectsEndpoints(c *tc.C) {
 	filter := params.OfferURLs{OfferURLs: urls, BakeryVersion: bakery.LatestVersion}
 
 	found, err := s.api.ApplicationOffers(context.Background(), filter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 1)
 	c.Assert(found.Results[0].Error.Message, tc.Equals, `saas application "fred@external/prod.hosted-db2:db" shouldn't include endpoint`)
 }
@@ -777,7 +776,7 @@ func (s *applicationOffersSuite) TestShowErrorMsgMultipleURLs(c *tc.C) {
 	}, nil).Times(2)
 
 	userFred, err := coreuser.NewName("fred@external")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "prod", userFred).Return(
 		coremodel.Model{
@@ -797,7 +796,7 @@ func (s *applicationOffersSuite) TestShowErrorMsgMultipleURLs(c *tc.C) {
 	)
 
 	found, err := s.api.ApplicationOffers(context.Background(), filter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 2)
 	c.Assert(found.Results[0].Error.Error(), tc.Matches, `application offer "fred@external/prod.hosted-mysql" not found`)
 	c.Assert(found.Results[1].Error.Error(), tc.Matches, `application offer "fred@external/test.hosted-db2" not found`)
@@ -886,13 +885,13 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *tc.C) {
 	)
 
 	found, err := s.api.ApplicationOffers(context.Background(), filter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	var results []params.ApplicationOfferAdminDetailsV5
 	for _, r := range found.Results {
 		c.Assert(r.Error, tc.IsNil)
 		results = append(results, *r.Result)
 	}
-	c.Assert(results, jc.DeepEquals, []params.ApplicationOfferAdminDetailsV5{
+	c.Assert(results, tc.DeepEquals, []params.ApplicationOfferAdminDetailsV5{
 		{
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 				SourceModelTag:         names.NewModelTag(s.modelUUID.String()).String(),
@@ -933,8 +932,8 @@ func (s *applicationOffersSuite) assertFind(c *tc.C, expected []params.Applicati
 		},
 	}
 	found, err := s.api.FindApplicationOffers(context.Background(), filter)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found, jc.DeepEquals, params.QueryApplicationOffersResultsV5{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(found, tc.DeepEquals, params.QueryApplicationOffersResultsV5{
 		Results: expected,
 	})
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall)
@@ -1237,8 +1236,8 @@ func (s *applicationOffersSuite) TestFindMulti(c *tc.C) {
 	)
 
 	found, err := s.api.FindApplicationOffers(context.Background(), filter)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found, jc.DeepEquals, params.QueryApplicationOffersResultsV5{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(found, tc.DeepEquals, params.QueryApplicationOffersResultsV5{
 		Results: []params.ApplicationOfferAdminDetailsV5{
 			{
 				ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
@@ -1307,7 +1306,7 @@ func (s *applicationOffersSuite) TestFindError(c *tc.C) {
 		return nil, errors.New(msg)
 	}
 	userFred, err := coreuser.NewName("fred@external")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.mockModelService.EXPECT().ListAllModels(gomock.Any()).Return(
 		[]coremodel.Model{
@@ -1375,7 +1374,7 @@ func (s *consumeSuite) SetUpTest(c *tc.C) {
 		s.mockState, nil, testing.ModelTag, thirdPartyKey,
 		crossmodel.NewOfferBakeryForTest(s.bakery, clock.WallClock),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // Creates the API to use in testing.
@@ -1394,7 +1393,7 @@ func (s *consumeSuite) setupAPI(c *tc.C) {
 		testing.ControllerTag.Id(),
 		s.mockModelService,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api = api
 }
 
@@ -1409,9 +1408,9 @@ func (s *consumeSuite) TestConsumeDetailsRejectsEndpoints(c *tc.C) {
 				OfferURLs: []string{"fred@external/prod.application:db"},
 			}},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
-	c.Assert(results.Results[0].Error != nil, jc.IsTrue)
+	c.Assert(results.Results[0].Error != nil, tc.IsTrue)
 	c.Assert(results.Results[0].Error.Message, tc.Equals, `saas application "fred@external/prod.application:db" shouldn't include endpoint`)
 }
 
@@ -1442,11 +1441,11 @@ func (s *consumeSuite) TestConsumeDetailsNoPermission(c *tc.C) {
 				OfferURLs: []string{"fred@external/prod.hosted-mysql"},
 			}},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := []params.ConsumeOfferDetailsResult{{
 		Error: apiservererrors.ServerError(errors.NotFoundf("application offer %q", "fred@external/prod.hosted-mysql")),
 	}}
-	c.Assert(results.Results, jc.DeepEquals, expected)
+	c.Assert(results.Results, tc.DeepEquals, expected)
 }
 
 func (s *consumeSuite) TestConsumeDetailsWithPermission(c *tc.C) {
@@ -1515,10 +1514,10 @@ func (s *consumeSuite) assertConsumeDetailsWithPermission(
 				OfferURLs: []string{"fred@external/prod.hosted-mysql"},
 			}},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Error, tc.IsNil)
-	c.Assert(results.Results[0].Offer, jc.DeepEquals, &params.ApplicationOfferDetailsV5{
+	c.Assert(results.Results[0].Offer, tc.DeepEquals, &params.ApplicationOfferDetailsV5{
 		SourceModelTag:         names.NewModelTag(s.modelUUID.String()).String(),
 		OfferURL:               "fred@external/prod.hosted-mysql",
 		OfferName:              "hosted-mysql",
@@ -1529,16 +1528,16 @@ func (s *consumeSuite) assertConsumeDetailsWithPermission(
 			{UserName: "someone", DisplayName: "someone", Access: "consume"},
 		},
 	})
-	c.Assert(results.Results[0].ControllerInfo, jc.DeepEquals, &params.ExternalControllerInfo{
+	c.Assert(results.Results[0].ControllerInfo, tc.DeepEquals, &params.ExternalControllerInfo{
 		ControllerTag: testing.ControllerTag.String(),
 		Addrs:         []string{"192.168.1.1:17070"},
 		CACert:        testing.CACert,
 	})
-	c.Assert(results.Results[0].Macaroon.Id(), jc.DeepEquals, []byte("id"))
+	c.Assert(results.Results[0].Macaroon.Id(), tc.DeepEquals, []byte("id"))
 
 	cav := s.bakery.caveats[string(results.Results[0].Macaroon.Id())]
 	c.Check(cav, tc.HasLen, 4)
-	c.Check(strings.HasPrefix(cav[0].Condition, "time-before "), jc.IsTrue)
+	c.Check(strings.HasPrefix(cav[0].Condition, "time-before "), tc.IsTrue)
 	c.Check(cav[1].Condition, tc.Equals, fmt.Sprintf("declared source-model-uuid %v", s.modelUUID))
 	c.Check(cav[2].Condition, tc.Equals, "declared username someone")
 	c.Check(cav[3].Condition, tc.Equals, "declared offer-uuid "+offerUUID)
@@ -1560,7 +1559,7 @@ func (s *consumeSuite) TestConsumeDetailsNonAdminSpecifiedUser(c *tc.C) {
 				OfferURLs: []string{"fred@external/prod.hosted-mysql"},
 			}},
 	)
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
 func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *tc.C) {
@@ -1600,10 +1599,10 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *tc.C) {
 		},
 	)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Error, tc.IsNil)
-	c.Assert(results.Results[0].Offer, jc.DeepEquals, &params.ApplicationOfferDetailsV5{
+	c.Assert(results.Results[0].Offer, tc.DeepEquals, &params.ApplicationOfferDetailsV5{
 		SourceModelTag:         names.NewModelTag(s.modelUUID.String()).String(),
 		OfferURL:               "fred@external/prod.hosted-mysql",
 		OfferName:              "hosted-mysql",
@@ -1621,7 +1620,7 @@ func (s *consumeSuite) setupOffer(c *tc.C) string {
 	offerName := "hosted-mysql"
 
 	userFred, err := coreuser.NewName("fred@external")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.mockModelService.EXPECT().ListAllModels(gomock.Any()).Return(
 		[]coremodel.Model{
@@ -1690,10 +1689,10 @@ func (s *consumeSuite) TestRemoteApplicationInfo(c *tc.C) {
 	results, err := s.api.RemoteApplicationInfo(context.Background(), params.OfferURLs{
 		OfferURLs: []string{"fred@external/prod.hosted-mysql", "fred@external/prod.unknown"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 2)
 	c.Assert(results.Results[0].Error, tc.IsNil)
-	c.Assert(results.Results, jc.DeepEquals, []params.RemoteApplicationInfoResult{
+	c.Assert(results.Results, tc.DeepEquals, []params.RemoteApplicationInfoResult{
 		{Result: &params.RemoteApplicationInfo{
 			ModelTag:         names.NewModelTag(s.modelUUID.String()).String(),
 			Name:             "hosted-mysql",
@@ -1735,9 +1734,9 @@ func (s *consumeSuite) assertDestroyOffersNoForce(c *tc.C) {
 		OfferURLs: []string{
 			"fred@external/prod.hosted-mysql"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
-	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
+	c.Assert(results.Results, tc.DeepEquals, []params.ErrorResult{
 		{
 			Error: &params.Error{Message: `offer has 1 relations`},
 		},
@@ -1752,7 +1751,7 @@ func (s *consumeSuite) assertDestroyOffersNoForce(c *tc.C) {
 	}, nil)
 
 	found, err := s.api.ApplicationOffers(context.Background(), filter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 1)
 	c.Assert(found.Results[0].Error.Error(), tc.Matches, `application offer "fred@external/prod.hosted-db2" not found`)
 }
@@ -1786,10 +1785,10 @@ func (s *consumeSuite) TestDestroyOffersForce(c *tc.C) {
 		OfferURLs: []string{
 			"fred@external/prod.hosted-mysql", "fred@external/prod.unknown", "garbage/badmodel.someoffer", "badmodel.someoffer"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 4)
 	c.Assert(results.Results[0].Error, tc.IsNil)
-	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
+	c.Assert(results.Results, tc.DeepEquals, []params.ErrorResult{
 		{},
 		{
 			Error: &params.Error{Message: `application offer "unknown" not found`, Code: "not found"},
@@ -1809,7 +1808,7 @@ func (s *consumeSuite) TestDestroyOffersForce(c *tc.C) {
 	}, nil)
 
 	found, err := s.api.ApplicationOffers(context.Background(), filter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 1)
 	c.Assert(found.Results[0].Error.Error(), tc.Matches, `application offer "fred@external/prod.hosted-db2" not found`)
 }
@@ -1824,7 +1823,7 @@ func (s *consumeSuite) TestDestroyOffersPermission(c *tc.C) {
 	results, err := s.api.DestroyOffers(context.Background(), params.DestroyApplicationOffers{
 		OfferURLs: []string{"fred@external/prod.hosted-mysql"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Error, tc.ErrorMatches, apiservererrors.ErrPerm.Error())
 }

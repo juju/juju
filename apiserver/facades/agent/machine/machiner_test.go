@@ -11,7 +11,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -60,7 +59,7 @@ func (s *machinerSuite) makeAPI(c *tc.C) {
 		common.NewResources(),
 		s.authorizer,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.machiner = machiner
 }
 
@@ -100,14 +99,14 @@ func (s *machinerSuite) TestSetStatus(c *tc.C) {
 		Since:   &now,
 	}
 	err := s.machine0.SetStatus(sInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	sInfo = status.StatusInfo{
 		Status:  status.Stopped,
 		Message: "foo",
 		Since:   &now,
 	}
 	err = s.machine1.SetStatus(sInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
@@ -116,7 +115,7 @@ func (s *machinerSuite) TestSetStatus(c *tc.C) {
 			{Tag: "machine-42", Status: status.Started.String(), Info: "blah"},
 		}}
 	result, err := s.machiner.SetStatus(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
@@ -127,12 +126,12 @@ func (s *machinerSuite) TestSetStatus(c *tc.C) {
 
 	// Verify machine 0 - no change.
 	statusInfo, err := s.machine0.Status()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(statusInfo.Status, tc.Equals, status.Started)
 	c.Assert(statusInfo.Message, tc.Equals, "blah")
 	// ...machine 1 is fine though.
 	statusInfo, err = s.machine1.Status()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(statusInfo.Status, tc.Equals, status.Error)
 	c.Assert(statusInfo.Message, tc.Equals, "not really")
 }
@@ -142,9 +141,9 @@ func (s *machinerSuite) TestLife(c *tc.C) {
 	s.makeAPI(c)
 
 	err := s.machine1.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.machine1.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.machine1.Life(), tc.Equals, state.Dead)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -153,7 +152,7 @@ func (s *machinerSuite) TestLife(c *tc.C) {
 		{Tag: "machine-42"},
 	}}
 	result, err := s.machiner.Life(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Life: "dead"},
@@ -177,7 +176,7 @@ func (s *machinerSuite) TestEnsureDead(c *tc.C) {
 	}}
 	s.machineService.EXPECT().EnsureDeadMachine(gomock.Any(), coremachine.Name("1")).Return(nil).Times(2)
 	result, err := s.machiner.EnsureDead(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
@@ -187,10 +186,10 @@ func (s *machinerSuite) TestEnsureDead(c *tc.C) {
 	})
 
 	err = s.machine0.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.machine0.Life(), tc.Equals, state.Alive)
 	err = s.machine1.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.machine1.Life(), tc.Equals, state.Dead)
 
 	// Try it again on a Dead machine; should work.
@@ -198,14 +197,14 @@ func (s *machinerSuite) TestEnsureDead(c *tc.C) {
 		Entities: []params.Entity{{Tag: "machine-1"}},
 	}
 	result, err = s.machiner.EnsureDead(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},
 	})
 
 	// Verify Life is unchanged.
 	err = s.machine1.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.machine1.Life(), tc.Equals, state.Dead)
 }
 
@@ -229,7 +228,7 @@ func (s *machinerSuite) TestSetMachineAddresses(c *tc.C) {
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
 
 	result, err := s.machiner.SetMachineAddresses(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
@@ -239,12 +238,12 @@ func (s *machinerSuite) TestSetMachineAddresses(c *tc.C) {
 	})
 
 	err = s.machine1.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedAddresses := network.NewSpaceAddresses("8.8.8.8", "127.0.0.1")
 	c.Assert(s.machine1.MachineAddresses(), tc.DeepEquals, expectedAddresses)
 	err = s.machine0.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.machine0.MachineAddresses(), tc.HasLen, 0)
 }
 
@@ -262,19 +261,19 @@ func (s *machinerSuite) TestSetEmptyMachineAddresses(c *tc.C) {
 	}}
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Times(2)
 	result, err := s.machiner.SetMachineAddresses(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 		},
 	})
 	err = s.machine1.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.machine1.MachineAddresses(), tc.HasLen, 2)
 
 	args.MachineAddresses[0].Addresses = nil
 	result, err = s.machiner.SetMachineAddresses(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
@@ -282,7 +281,7 @@ func (s *machinerSuite) TestSetEmptyMachineAddresses(c *tc.C) {
 	})
 
 	err = s.machine1.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.machine1.MachineAddresses(), tc.HasLen, 0)
 }
 
@@ -301,7 +300,7 @@ func (s *machinerSuite) TestWatch(c *tc.C) {
 		{Tag: "machine-42"},
 	}}
 	result, err := s.machiner.Watch(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			{NotifyWatcherId: "1"},
@@ -322,7 +321,7 @@ func (s *machinerSuite) TestRecordAgentStartInformation(c *tc.C) {
 	}}
 
 	result, err := s.machiner.RecordAgentStartInformation(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
@@ -332,6 +331,6 @@ func (s *machinerSuite) TestRecordAgentStartInformation(c *tc.C) {
 	})
 
 	err = s.machine1.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.machine1.Hostname(), tc.Equals, "thundering-herds", tc.Commentf("expected the machine hostname to be updated"))
 }

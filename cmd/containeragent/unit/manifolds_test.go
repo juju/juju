@@ -6,7 +6,6 @@ package unit_test
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agenttest"
@@ -70,7 +69,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 	for k := range manifolds {
 		keys = append(keys, k)
 	}
-	c.Assert(keys, jc.SameContents, expectedKeys)
+	c.Assert(keys, tc.SameContents, expectedKeys)
 }
 
 func (s *ManifoldsSuite) TestManifoldNamesColocatedController(c *tc.C) {
@@ -113,7 +112,7 @@ func (s *ManifoldsSuite) TestManifoldNamesColocatedController(c *tc.C) {
 	for k := range manifolds {
 		keys = append(keys, k)
 	}
-	c.Assert(keys, jc.SameContents, expectedKeys)
+	c.Assert(keys, tc.SameContents, expectedKeys)
 }
 
 func (*ManifoldsSuite) TestMigrationGuards(c *tc.C) {

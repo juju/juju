@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/controller"
 	coremodel "github.com/juju/juju/core/model"
@@ -46,26 +45,26 @@ func (s *controllerconfigSuite) TestControllerConfigRoundTrips(c *tc.C) {
 		jujutesting.CACert,
 		cfgMap,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	controllerModelUUID := coremodel.UUID(jujutesting.ModelTag.Id())
 
 	err = bootstrap.InsertInitialControllerConfig(cfgIn, controllerModelUUID)(ctx.Background(), s.TxnRunner(), s.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cfgOut, err := srv.ControllerConfig(ctx.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	selected := filterConfig(cfgOut)
 
 	err = srv.UpdateControllerConfig(ctx.Background(), selected, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cfgOut, err = srv.ControllerConfig(ctx.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(cfgOut.AuditingEnabled(), jc.IsTrue)
-	c.Assert(cfgOut.AuditLogCaptureArgs(), jc.IsFalse)
+	c.Assert(cfgOut.AuditingEnabled(), tc.IsTrue)
+	c.Assert(cfgOut.AuditLogCaptureArgs(), tc.IsFalse)
 	c.Assert(cfgOut.AuditLogMaxBackups(), tc.Equals, 10)
 	c.Assert(cfgOut.PublicDNSAddress(), tc.Equals, "controller.test.com:1234")
 	c.Assert(cfgOut.APIPortOpenDelay(), tc.Equals, 100*time.Millisecond)

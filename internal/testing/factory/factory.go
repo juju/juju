@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
@@ -182,7 +181,7 @@ func (factory *Factory) paramsFillDefaults(c *tc.C, params *MachineParams) *Mach
 	if params.Password == "" {
 		var err error
 		params.Password, err = password.RandomPassword()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	if params.Characteristics == nil {
 		arch := arch.DefaultArchitecture
@@ -215,12 +214,12 @@ func (factory *Factory) MakeMachineNested(c *tc.C, parentId string, params *Mach
 		parentId,
 		instance.LXD,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = m.SetProvisioned(params.InstanceId, params.DisplayName, params.Nonce, params.Characteristics)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	current := testing.CurrentVersion()
 	err = m.SetAgentVersion(current)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return m
 }
 
@@ -279,20 +278,20 @@ func (factory *Factory) makeMachineReturningPassword(c *tc.C, params *MachinePar
 		machineTemplate.HardwareCharacteristics = *params.Characteristics
 	}
 	machine, err := factory.st.AddOneMachine(machineTemplate)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	if setProvisioned {
 		err = machine.SetProvisioned(params.InstanceId, params.DisplayName, params.Nonce, params.Characteristics)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	err = machine.SetPassword(params.Password)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	if len(params.Addresses) > 0 {
 		err = machine.SetProviderAddresses(factory.controllerConfig, params.Addresses...)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	current := testing.CurrentVersion()
 	err = machine.SetAgentVersion(current)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return machine, params.Password
 }
 
@@ -326,7 +325,7 @@ func (factory *Factory) MakeModel(c *tc.C, params *ModelParams) *state.State {
 	}
 	if params.Owner == nil {
 		origEnv, err := factory.st.Model()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		params.Owner = origEnv.Owner()
 	}
 	if params.StorageProviderRegistry == nil {
@@ -360,9 +359,9 @@ func (factory *Factory) MakeModel(c *tc.C, params *ModelParams) *state.State {
 		Owner:           params.Owner.(names.UserTag),
 		EnvironVersion:  params.EnvironVersion,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = factory.pool.StartWorkers(st)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return st
 }
 
@@ -378,7 +377,7 @@ func (factory *Factory) MakeCAASModel(c *tc.C, params *ModelParams) *state.State
 	params.Type = state.ModelTypeCAAS
 	if params.Owner == nil {
 		origEnv, err := factory.st.Model()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		params.Owner = origEnv.Owner()
 	}
 	if params.CloudName == "" {
@@ -387,7 +386,7 @@ func (factory *Factory) MakeCAASModel(c *tc.C, params *ModelParams) *state.State
 	if params.CloudCredential.IsZero() {
 		if params.Owner == nil {
 			origEnv, err := factory.st.Model()
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			params.Owner = origEnv.Owner()
 		}
 		tag := names.NewCloudCredentialTag(
@@ -411,6 +410,6 @@ func NewObjectStore(c *tc.C, modelUUID string, metadataService internalobjectsto
 		internalobjectstore.WithClaimer(claimer),
 		internalobjectstore.WithLogger(loggertesting.WrapCheckLog(c)),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return store
 }

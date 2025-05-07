@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	gomock "go.uber.org/mock/gomock"
 
@@ -80,7 +79,7 @@ func (s *machineWorkerSuite) TestRunUpgrades(c *tc.C) {
 		atomic.AddInt64(&called, 1)
 
 		// Ensure that the targets are correct.
-		c.Check(targets, jc.DeepEquals, []upgrades.Target{upgrades.HostMachine})
+		c.Check(targets, tc.DeepEquals, []upgrades.Target{upgrades.HostMachine})
 		return nil
 	}
 	w := newMachineWorker(baseWorker)
@@ -162,7 +161,7 @@ func (s *machineWorkerSuite) TestRunUpgradesFailedWithNotAPIError(c *tc.C) {
 	c.Check(atomic.LoadInt64(&called), tc.Equals, int64(1))
 
 	err := workertest.CheckKill(c, w)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *machineWorkerSuite) newWorker(c *tc.C) *machineWorker {

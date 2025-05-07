@@ -9,7 +9,6 @@ import (
 	"io"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/simplestreams/testing"
@@ -132,7 +131,7 @@ func (s *fetchDataSuite) setupDataSource(key string) {
 
 func (s *fetchDataSuite) assertFetchData(c *tc.C) {
 	data, _, err := simplestreams.FetchData(context.Background(), s.source, "this.path.doesnt.matter.for.test.either", s.requireSigned)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert([]byte(s.expectedData), tc.DeepEquals, data)
 	s.source.CheckCallNames(c, s.expectedCalls...)
 }

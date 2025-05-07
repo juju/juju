@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/agent/credentialvalidator"
 	"github.com/juju/juju/api/base"
@@ -41,8 +40,8 @@ func (s *CredentialValidatorSuite) TestModelCredential(c *tc.C) {
 
 	client := credentialvalidator.NewFacade(apiCaller)
 	found, exists, err := client.ModelCredential(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exists, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(exists, tc.IsTrue)
 	c.Assert(found, tc.DeepEquals, base.StoredCredential{CloudCredential: "cloud/user/credential", Valid: true})
 }
 
@@ -57,8 +56,8 @@ func (s *CredentialValidatorSuite) TestModelCredentialIsNotNeeded(c *tc.C) {
 
 	client := credentialvalidator.NewFacade(apiCaller)
 	_, exists, err := client.ModelCredential(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exists, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(exists, tc.IsFalse)
 }
 
 func (s *CredentialValidatorSuite) TestModelCredentialInvalidCredentialTag(c *tc.C) {
@@ -74,7 +73,7 @@ func (s *CredentialValidatorSuite) TestModelCredentialInvalidCredentialTag(c *tc
 	client := credentialvalidator.NewFacade(apiCaller)
 	_, exists, err := client.ModelCredential(context.Background())
 	c.Assert(err, tc.ErrorMatches, `"some-invalid-cloud-credential-tag-as-string" is not a valid tag`)
-	c.Assert(exists, jc.IsFalse)
+	c.Assert(exists, tc.IsFalse)
 }
 
 func (s *CredentialValidatorSuite) TestModelCredentialCallError(c *tc.C) {

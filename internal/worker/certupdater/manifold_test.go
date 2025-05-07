@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
@@ -59,7 +58,7 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.stub.ResetCalls()
 
 	authority, err := pkitest.NewTestAuthority()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.authority = authority
 
 	s.getter = s.newGetter(nil)
@@ -105,7 +104,7 @@ func (s *ManifoldSuite) newMachineAddressWatcher(st *state.State, machineId stri
 var expectedInputs = []string{"agent", "authority", "state", "domain-services"}
 
 func (s *ManifoldSuite) TestInputs(c *tc.C) {
-	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
+	c.Assert(s.manifold.Inputs, tc.SameContents, expectedInputs)
 }
 
 func (s *ManifoldSuite) TestMissingInputs(c *tc.C) {
@@ -120,7 +119,7 @@ func (s *ManifoldSuite) TestMissingInputs(c *tc.C) {
 
 func (s *ManifoldSuite) TestStart(c *tc.C) {
 	w, err := s.manifold.Start(context.Background(), s.getter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.stub.CheckCallNames(c, "NewMachineAddressWatcher", "NewWorker")
@@ -131,7 +130,7 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 	c.Assert(args[0], tc.FitsTypeOf, certupdater.Config{})
 	config := args[0].(certupdater.Config)
 
-	c.Assert(config, jc.DeepEquals, certupdater.Config{
+	c.Assert(config, tc.DeepEquals, certupdater.Config{
 		AddressWatcher:         &s.addressWatcher,
 		Authority:              s.authority,
 		APIHostPortsGetter:     &s.stateTracker.state,
@@ -151,7 +150,7 @@ func (s *ManifoldSuite) TestStartErrorClosesState(c *tc.C) {
 
 func (s *ManifoldSuite) TestStopWorkerClosesState(c *tc.C) {
 	w, err := s.manifold.Start(context.Background(), s.getter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.stateTracker.CheckCallNames(c, "Use")

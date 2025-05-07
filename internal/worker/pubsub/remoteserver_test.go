@@ -15,7 +15,6 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/api"
@@ -68,7 +67,7 @@ func (s *RemoteServerSuite) SetUpTest(c *tc.C) {
 
 func (s *RemoteServerSuite) TestCleanShutdown(c *tc.C) {
 	server, err := psworker.NewRemoteServer(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, server)
 }
 
@@ -79,10 +78,10 @@ func (s *RemoteServerSuite) TestConnectPublished(c *tc.C) {
 		c.Check(data["origin"], tc.Equals, "machine-42")
 		close(done)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer unsub()
 	server, err := psworker.NewRemoteServer(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, server)
 
 	select {
@@ -92,7 +91,7 @@ func (s *RemoteServerSuite) TestConnectPublished(c *tc.C) {
 	}
 	// Make sure that it is reported as started.
 	r, ok := server.(psworker.Reporter)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	// Since we are just testing the remote, the code that makes sure the
 	// published message is forwarded is the subscriber, so we will always
 	// show empty queue and none sent.
@@ -101,7 +100,7 @@ func (s *RemoteServerSuite) TestConnectPublished(c *tc.C) {
 		"  Addresses: [localhost]\n"+
 		"  Queue length: 0\n"+
 		"  Sent count: 0\n")
-	c.Check(r.Report(), jc.DeepEquals, map[string]interface{}{
+	c.Check(r.Report(), tc.DeepEquals, map[string]interface{}{
 		"status":    "connected",
 		"addresses": []string{"localhost"},
 		"queue-len": 0,
@@ -121,7 +120,7 @@ func (s *RemoteServerSuite) TestDisconnectPublishedOnWriteError(c *tc.C) {
 			close(done)
 		}
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer unsub()
 	s.connectionOpener.forwardErr = errors.New("forward fail")
 
@@ -148,7 +147,7 @@ func (s *RemoteServerSuite) TestConnectErrorRetryDelay(c *tc.C) {
 	}
 
 	server, err := psworker.NewRemoteServer(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, server)
 
 	for i := 0; i < 1200; i++ {
@@ -156,7 +155,7 @@ func (s *RemoteServerSuite) TestConnectErrorRetryDelay(c *tc.C) {
 	}
 	// Starts immediately, with a one second delay doubling each failure
 	// up to a max wait time of 5 minutes.
-	c.Assert(delays, jc.DeepEquals, []string{
+	c.Assert(delays, tc.DeepEquals, []string{
 		"0s", "1s", "2s", "4s", "8s", "16s", "32s",
 		"1m4s", "2m8s", "4m16s",
 		"5m0s", "5m0s",
@@ -174,7 +173,7 @@ func (s *RemoteServerSuite) TestConnectRetryInterruptedOnTargetConnection(c *tc.
 	}
 
 	server, err := psworker.NewRemoteServer(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, server)
 
 	for i := 0; i < 35; i++ {
@@ -185,7 +184,7 @@ func (s *RemoteServerSuite) TestConnectRetryInterruptedOnTargetConnection(c *tc.
 		Target: s.origin,
 		Origin: "target",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(done):
 	case <-time.After(coretesting.LongWait):
@@ -197,7 +196,7 @@ func (s *RemoteServerSuite) TestConnectRetryInterruptedOnTargetConnection(c *tc.
 		s.clock.WaitAdvance(time.Second, coretesting.ShortWait, 2)
 	}
 
-	c.Assert(delays, jc.DeepEquals, []string{
+	c.Assert(delays, tc.DeepEquals, []string{
 		"0s", "1s", "2s", "4s", "8s", "16s", // standard fallback
 		"5s",             // 4s due to interruption, 1s due to loop delay on failure
 		"1s", "2s", "4s", // standard fallback
@@ -210,14 +209,14 @@ func (s *RemoteServerSuite) TestConnectRetryInterruptedWithNewAddresses(c *tc.C)
 	expected := []string{"localhost"}
 	s.connectionOpener.err = errors.New("oops")
 	s.connectionOpener.callback = func(info *api.Info) {
-		c.Check(info.Addrs, jc.DeepEquals, expected)
+		c.Check(info.Addrs, tc.DeepEquals, expected)
 		delay := s.clock.Now().Sub(now)
 		now = s.clock.Now()
 		delays = append(delays, fmt.Sprint(delay))
 	}
 
 	server, err := psworker.NewRemoteServer(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, server)
 
 	for i := 0; i < 35; i++ {
@@ -233,7 +232,7 @@ func (s *RemoteServerSuite) TestConnectRetryInterruptedWithNewAddresses(c *tc.C)
 		s.clock.WaitAdvance(time.Second, coretesting.ShortWait, 2)
 	}
 
-	c.Assert(delays, jc.DeepEquals, []string{
+	c.Assert(delays, tc.DeepEquals, []string{
 		"0s", "1s", "2s", "4s", "8s", "16s", // standard fallback
 		"5s",             // 4s due to interruption, 1s due to loop delay on failure
 		"1s", "2s", "4s", // standard fallback
@@ -245,11 +244,11 @@ func (s *RemoteServerSuite) newConnectedServer(c *tc.C) psworker.RemoteServer {
 	unsub, err := s.config.Hub.Subscribe(forwarder.ConnectedTopic, func(_ string, _ map[string]interface{}) {
 		close(connected)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer unsub()
 
 	server, err := psworker.NewRemoteServer(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AddCleanup(func(*tc.C) { workertest.CleanKill(c, server) })
 
 	select {

@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
@@ -35,7 +34,7 @@ func (s *objectStoreFactorySuite) TestNewObjectStore(c *tc.C) {
 		WithLogger(loggertesting.WrapCheckLog(c)),
 		WithMetadataService(stubMetadataService{}),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obj, tc.NotNil)
 
 	workertest.CleanKill(c, obj)
@@ -51,7 +50,7 @@ func (s *objectStoreFactorySuite) TestNewObjectStoreInvalidBackend(c *tc.C) {
 		WithLogger(loggertesting.WrapCheckLog(c)),
 		WithMetadataService(stubMetadataService{}),
 	)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
 func (s *objectStoreFactorySuite) setupMocks(c *tc.C) *gomock.Controller {

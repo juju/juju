@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -26,19 +25,19 @@ var _ = tc.Suite(&FacadeSuite{})
 
 func (*FacadeSuite) TestAcceptsMachineAgent(c *tc.C) {
 	facade, err := migrationflag.New(nil, nil, agentAuth{machine: true})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(facade, tc.NotNil)
 }
 
 func (*FacadeSuite) TestAcceptsUnitAgent(c *tc.C) {
 	facade, err := migrationflag.New(nil, nil, agentAuth{machine: true})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(facade, tc.NotNil)
 }
 
 func (*FacadeSuite) TestAcceptsApplicationAgent(c *tc.C) {
 	facade, err := migrationflag.New(nil, nil, agentAuth{application: true})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(facade, tc.NotNil)
 }
 
@@ -52,7 +51,7 @@ func (*FacadeSuite) TestPhaseSuccess(c *tc.C) {
 	stub := &testing.Stub{}
 	backend := newMockBackend(stub)
 	facade, err := migrationflag.New(backend, nil, authOK)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	results := facade.Phase(context.Background(), entities(
 		coretesting.ModelTag.String(),
@@ -72,7 +71,7 @@ func (*FacadeSuite) TestPhaseErrors(c *tc.C) {
 	stub.SetErrors(errors.New("ouch"))
 	backend := newMockBackend(stub)
 	facade, err := migrationflag.New(backend, nil, authOK)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// 3 entities: unparseable, unauthorized, call error.
 	results := facade.Phase(context.Background(), entities(
@@ -83,7 +82,7 @@ func (*FacadeSuite) TestPhaseErrors(c *tc.C) {
 	c.Assert(results.Results, tc.HasLen, 3)
 	stub.CheckCallNames(c, "MigrationPhase")
 
-	c.Check(results.Results, jc.DeepEquals, []params.PhaseResult{{
+	c.Check(results.Results, tc.DeepEquals, []params.PhaseResult{{
 		Error: &params.Error{
 			Message: `"urgle" is not a valid tag`,
 		}}, {
@@ -102,7 +101,7 @@ func (*FacadeSuite) TestWatchSuccess(c *tc.C) {
 	backend := newMockBackend(stub)
 	resources := common.NewResources()
 	facade, err := migrationflag.New(backend, resources, authOK)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	results := facade.Watch(context.Background(), entities(
 		coretesting.ModelTag.String(),
@@ -129,7 +128,7 @@ func (*FacadeSuite) TestWatchErrors(c *tc.C) {
 	backend := newMockBackend(stub)
 	resources := common.NewResources()
 	facade, err := migrationflag.New(backend, resources, authOK)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// 3 entities: unparseable, unauthorized, closed channel.
 	results := facade.Watch(context.Background(), entities(
@@ -140,7 +139,7 @@ func (*FacadeSuite) TestWatchErrors(c *tc.C) {
 	c.Assert(results.Results, tc.HasLen, 3)
 	stub.CheckCallNames(c, "WatchMigrationPhase")
 
-	c.Check(results.Results, jc.DeepEquals, []params.NotifyWatchResult{{
+	c.Check(results.Results, tc.DeepEquals, []params.NotifyWatchResult{{
 		Error: &params.Error{
 			Message: `"urgle" is not a valid tag`,
 		}}, {

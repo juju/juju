@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
@@ -42,8 +41,8 @@ func (s *actionSuite) TestRunOnAllMachines(c *tc.C) {
 	client := action.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.RunOnAllMachines(context.Background(), "pwd", time.Millisecond)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, action.EnqueuedActions{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, action.EnqueuedActions{
 		OperationID: "1",
 		Actions: []action.ActionResult{{
 			Action: &action.Action{
@@ -83,8 +82,8 @@ func (s *actionSuite) TestRun(c *tc.C) {
 		Timeout:  time.Millisecond,
 		Machines: []string{"0"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, action.EnqueuedActions{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, action.EnqueuedActions{
 		OperationID: "1",
 		Actions: []action.ActionResult{{
 			Action: &action.Action{

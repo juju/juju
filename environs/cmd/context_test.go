@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	environscmd "github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/internal/cmd"
@@ -22,10 +21,10 @@ var _ = tc.Suite(&contextSuite{})
 
 func (s *contextSuite) TestBootstrapContext(c *tc.C) {
 	ctx := environscmd.BootstrapContext(context.Background(), &cmd.Context{})
-	c.Assert(ctx.ShouldVerifyCredentials(), jc.IsTrue)
+	c.Assert(ctx.ShouldVerifyCredentials(), tc.IsTrue)
 }
 
 func (s *contextSuite) TestBootstrapContextNoVerify(c *tc.C) {
 	ctx := environscmd.BootstrapContextNoVerify(context.Background(), &cmd.Context{})
-	c.Assert(ctx.ShouldVerifyCredentials(), jc.IsFalse)
+	c.Assert(ctx.ShouldVerifyCredentials(), tc.IsFalse)
 }

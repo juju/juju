@@ -5,7 +5,6 @@ package testing
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coreunit "github.com/juju/juju/core/unit"
 )
@@ -14,7 +13,7 @@ import (
 // for subsequent errors using the test suits go check instance.
 func GenUnitUUID(c *tc.C) coreunit.UUID {
 	uuid, err := coreunit.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return uuid
 }
 
@@ -22,6 +21,6 @@ func GenUnitUUID(c *tc.C) coreunit.UUID {
 // It asserts that the unit name is valid.
 func GenNewName(c *tc.C, name string) coreunit.Name {
 	un, err := coreunit.NewName(name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return un
 }

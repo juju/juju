@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api"
@@ -90,7 +89,7 @@ func (s *LoginCommandSuite) TestLogin(c *tc.C) {
 	c.Check(stdout, tc.Equals, "")
 	c.Check(stderr, tc.Equals, "")
 	s.assertStorePassword(c, "current-user", "old-password", "superuser")
-	c.Assert(s.apiConnectionParams.AccountDetails, jc.DeepEquals, &jujuclient.AccountDetails{
+	c.Assert(s.apiConnectionParams.AccountDetails, tc.DeepEquals, &jujuclient.AccountDetails{
 		User:     "current-user",
 		Password: "old-password",
 	})
@@ -98,7 +97,7 @@ func (s *LoginCommandSuite) TestLogin(c *tc.C) {
 
 func (s *LoginCommandSuite) TestLoginNewUser(c *tc.C) {
 	err := s.store.RemoveAccount("testing")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	stdout, stderr, code := runLogin(c, "", "-u", "new-user")
 	c.Check(stdout, tc.Equals, "")
 	c.Check(stderr, tc.Matches, `
@@ -107,7 +106,7 @@ Welcome, new-user. You are now logged into "testing".
 There are no models available(.|\n)*`[1:])
 	c.Assert(code, tc.Equals, 0)
 	s.assertStorePassword(c, "new-user", "", "superuser")
-	c.Assert(s.apiConnectionParams.AccountDetails, jc.DeepEquals, &jujuclient.AccountDetails{
+	c.Assert(s.apiConnectionParams.AccountDetails, tc.DeepEquals, &jujuclient.AccountDetails{
 		User: "new-user",
 	})
 }
@@ -129,7 +128,7 @@ func (s *LoginCommandSuite) TestLoginWithOneAvailableModel(c *tc.C) {
 		}}, nil
 	})
 	err := s.store.RemoveAccount("testing")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	stdout, stderr, code := runLogin(c, "")
 	c.Assert(code, tc.Equals, 0)
 	c.Check(stdout, tc.Equals, "")
@@ -154,7 +153,7 @@ func (s *LoginCommandSuite) TestLoginWithSeveralAvailableModels(c *tc.C) {
 		}}, nil
 	})
 	err := s.store.RemoveAccount("testing")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	stdout, stderr, code := runLogin(c, "")
 	c.Assert(code, tc.Equals, 0)
 	c.Check(stdout, tc.Equals, "")
@@ -231,7 +230,7 @@ Welcome, other-user. (.|\n)+`)
 
 func (s *LoginCommandSuite) TestLoginWithMacaroons(c *tc.C) {
 	err := s.store.RemoveAccount("testing")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	stdout, stderr, code := runLogin(c, "")
 	c.Check(stderr, tc.Matches, `
 Welcome, user@external. You are now logged into "testing".
@@ -239,12 +238,12 @@ Welcome, user@external. You are now logged into "testing".
 There are no models available(.|\n)*`[1:])
 	c.Check(stdout, tc.Equals, ``)
 	c.Assert(code, tc.Equals, 0)
-	c.Assert(s.apiConnectionParams.AccountDetails, jc.DeepEquals, &jujuclient.AccountDetails{})
+	c.Assert(s.apiConnectionParams.AccountDetails, tc.DeepEquals, &jujuclient.AccountDetails{})
 }
 
 func (s *LoginCommandSuite) TestLoginWithMacaroonsNotSupported(c *tc.C) {
 	err := s.store.RemoveAccount("testing")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	*user.NewAPIConnection = func(ctx context.Context, p juju.NewAPIConnectionParams) (api.Connection, error) {
 		if !c.Check(p.AccountDetails, tc.NotNil) {
 			return nil, errors.New("no account details")
@@ -268,7 +267,7 @@ There are no models available(.|\n)*`[1:])
 func (s *LoginCommandSuite) TestLoginWithCAVerification(c *tc.C) {
 	caCert := testing.CACertX509
 	fingerprint, _, err := pki.Fingerprint([]byte(testing.CACert))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	specs := []struct {
 		descr     string
@@ -389,7 +388,7 @@ ERROR cannot log into "127.0.0.1:443": controller CA not trusted
 		// gets persisted in the controller store
 		if code == 0 {
 			ctrl, err := s.store.ControllerByName("foo")
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(ctrl.CACert, tc.Equals, testing.CACert)
 		}
 	}
@@ -506,7 +505,7 @@ func (s *LoginCommandSuite) TestLoginToPublicControllerWithOIDC(c *tc.C) {
 	*user.APIOpen = func(cmd *modelcmd.CommandBase, ctx context.Context, info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		checkPatchFuncCalled = true
 		_, err := opts.LoginProvider.Login(ctx, nil)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		return s.apiConnection, nil
 	}
 

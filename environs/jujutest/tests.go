@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/cloud"
@@ -127,7 +126,7 @@ func (t *Tests) SetUpTest(c *tc.C) {
 	t.DefaultBaseURL = utils.MakeFileURL(baseURLPath)
 	t.ToolsFixture.SetUpTest(c)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	t.UploadFakeTools(c, stor, "released")
 	t.toolsStorage = stor
 	t.ControllerStore = jujuclient.NewMemStore()
@@ -147,12 +146,12 @@ func (t *Tests) TestStartStop(c *tc.C) {
 	cfg, err := e.Config().Apply(map[string]interface{}{
 		"agent-version": jujuversion.Current.String(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = e.SetConfig(context.Background(), cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	insts, err := e.Instances(context.Background(), nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(insts, tc.HasLen, 0)
 
 	inst0, hc := testing.AssertStartInstance(c, e, t.ControllerUUID, "0")
@@ -168,28 +167,28 @@ func (t *Tests) TestStartStop(c *tc.C) {
 	id1 := inst1.Id()
 
 	insts, err = e.Instances(context.Background(), []instance.Id{id0, id1})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(insts, tc.HasLen, 2)
 	c.Assert(insts[0].Id(), tc.Equals, id0)
 	c.Assert(insts[1].Id(), tc.Equals, id1)
 
 	// order of results is not specified
 	insts, err = e.AllInstances(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(insts, tc.HasLen, 2)
 	c.Assert(insts[0].Id(), tc.Not(tc.Equals), insts[1].Id())
 
 	err = e.StopInstances(context.Background(), inst0.Id())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	insts, err = e.Instances(context.Background(), []instance.Id{id0, id1})
-	c.Assert(err, jc.ErrorIs, environs.ErrPartialInstances)
+	c.Assert(err, tc.ErrorIs, environs.ErrPartialInstances)
 	c.Assert(insts, tc.HasLen, 2)
 	c.Assert(insts[0], tc.IsNil)
 	c.Assert(insts[1].Id(), tc.Equals, id1)
 
 	insts, err = e.AllInstances(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(insts[0].Id(), tc.Equals, id1)
 }
 
@@ -227,27 +226,27 @@ func (t *Tests) TestBootstrap(c *tc.C) {
 
 	e := t.Prepare(c)
 	err := bootstrap.Bootstrap(t.BootstrapContext, e, args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	controllerInstances, err := e.ControllerInstances(context.Background(), t.ControllerUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(controllerInstances, tc.Not(tc.HasLen), 0)
 
 	e2 := t.Open(c, t.BootstrapContext, e.Config())
 	controllerInstances2, err := e2.ControllerInstances(context.Background(), t.ControllerUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(controllerInstances2, tc.Not(tc.HasLen), 0)
-	c.Assert(controllerInstances2, jc.SameContents, controllerInstances)
+	c.Assert(controllerInstances2, tc.SameContents, controllerInstances)
 
 	err = environs.Destroy(e2.Config().Name(), e2, context.Background(), t.ControllerStore)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Prepare again because Destroy invalidates old environments.
 	e3 := t.Prepare(c)
 
 	err = bootstrap.Bootstrap(t.BootstrapContext, e3, args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = environs.Destroy(e3.Config().Name(), e3, context.Background(), t.ControllerStore)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

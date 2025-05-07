@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/client/highavailability"
 	"github.com/juju/juju/api/common"
@@ -181,8 +180,8 @@ func (s *DebugLogSuite) TestArgParsing(c *tc.C) {
 		command.SetClientStore(jujuclienttesting.MinimalStore())
 		err := cmdtesting.InitCommand(modelcmd.Wrap(command), test.args)
 		if test.errMatch == "" {
-			c.Check(err, jc.ErrorIsNil)
-			c.Check(command.params, jc.DeepEquals, test.expected)
+			c.Check(err, tc.ErrorIsNil)
+			c.Check(command.params, tc.DeepEquals, test.expected)
 		} else {
 			c.Check(err, tc.ErrorMatches, test.errMatch)
 		}
@@ -200,7 +199,7 @@ func (s *DebugLogSuite) TestParamsPassed(c *tc.C) {
 		"--lines=500",
 		"--level=WARNING",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(fake.params, tc.DeepEquals, common.DebugLogParams{
 		IncludeEntity: []string{"machine-1*"},
 		IncludeModule: []string{"juju.provisioner"},
@@ -230,7 +229,7 @@ func (s *DebugLogSuite) TestLogOutput(c *tc.C) {
 		count := len(args)
 		args, expected := args[:count-1], args[count-1]
 		ctx, err := cmdtesting.RunCommand(c, newDebugLogCommandTZ(jujuclienttesting.MinimalStore(), tz), args...)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
 
 	}
@@ -260,7 +259,7 @@ func (s *DebugLogSuite) TestSpecifiedController(c *tc.C) {
 	// test timezone is 6 hours east of UTC
 	tz := time.FixedZone("test", 6*60*60)
 	s.PatchValue(&getDebugLogAPI, func(_ context.Context, _ *debugLogCommand, addr []string) (DebugLogAPI, error) {
-		c.Assert(addr, jc.SameContents, []string{"address-666"})
+		c.Assert(addr, tc.SameContents, []string{"address-666"})
 		return &fakeDebugLogAPI{log: []common.LogMessage{
 			{
 				Entity:    "machine-0",
@@ -279,7 +278,7 @@ func (s *DebugLogSuite) TestSpecifiedController(c *tc.C) {
 		count := len(args)
 		args, expected := args[:count-1], args[count-1]
 		ctx, err := cmdtesting.RunCommand(c, newDebugLogCommandTZ(jujuclienttesting.MinimalStore(), tz), args...)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
 
 	}
@@ -324,7 +323,7 @@ func (s *DebugLogSuite) TestAllControllers(c *tc.C) {
 	s.PatchValue(&getDebugLogAPI, func(_ context.Context, _ *debugLogCommand, addr []string) (DebugLogAPI, error) {
 		c.Assert(addr, tc.HasLen, 1)
 		api, ok := debugStreams[addr[0]]
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		return api, nil
 	})
 	s.PatchValue(&getControllerDetailsClient, func(_ context.Context, _ *debugLogCommand) (ControllerDetailsAPI, error) {
@@ -334,7 +333,7 @@ func (s *DebugLogSuite) TestAllControllers(c *tc.C) {
 		count := len(args)
 		args, expected := args[:count-1], args[count-1]
 		ctx, err := cmdtesting.RunCommand(c, newDebugLogCommandTZ(jujuclienttesting.MinimalStore(), tz), args...)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		out := cmdtesting.Stdout(ctx)
 		lines := strings.Split(out, "\n")
 		c.Assert(lines, tc.Not(tc.HasLen), 0)
@@ -370,7 +369,7 @@ func (s *DebugLogSuite) TestLogOutputWithLogs(c *tc.C) {
 		count := len(args)
 		args, expected := args[:count-1], args[count-1]
 		ctx, err := cmdtesting.RunCommand(c, newDebugLogCommandTZ(jujuclienttesting.MinimalStore(), tz), args...)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
 
 	}

@@ -17,7 +17,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/core/logger"
@@ -356,7 +355,7 @@ LOOP:
 			break LOOP
 		}
 	}
-	c.Assert(flushes >= expected, jc.IsTrue, tc.Commentf("expected more than 1 flush, got %d", flushes))
+	c.Assert(flushes >= expected, tc.IsTrue, tc.Commentf("expected more than 1 flush, got %d", flushes))
 }
 
 func (s *logSinkSuite) expectTick(c *tc.C) {
@@ -379,7 +378,7 @@ func parseLog(c *tc.C, reader io.Reader) []logger.LogRecord {
 	for scanner.Scan() {
 		var record logger.LogRecord
 		err := json.Unmarshal(scanner.Bytes(), &record)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		records = append(records, record)
 	}
 

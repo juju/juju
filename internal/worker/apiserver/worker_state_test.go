@@ -9,7 +9,6 @@ import (
 	"github.com/juju/collections/set"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
@@ -35,7 +34,7 @@ func (s *WorkerStateSuite) SetUpSuite(c *tc.C) {
 	s.workerFixture.SetUpSuite(c)
 	mgotesting.MgoServer.EnableReplicaSet = true
 	err := mgotesting.MgoServer.Start(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.workerFixture.AddCleanup(func(*tc.C) { mgotesting.MgoServer.Destroy() })
 
 	s.StateSuite.SetUpSuite(c)
@@ -89,7 +88,7 @@ func (s *WorkerStateSuite) TestStart(c *tc.C) {
 		UUID: s.controllerModelUUID,
 	}, nil)
 	w, err := apiserver.NewWorker(context.Background(), s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	// The server is started some time after the worker
@@ -126,7 +125,7 @@ func (s *WorkerStateSuite) TestStart(c *tc.C) {
 
 	jwtAuthenticator := jwt.NewAuthenticator(&jwtparser.Parser{})
 
-	c.Assert(config, jc.DeepEquals, coreapiserver.ServerConfig{
+	c.Assert(config, tc.DeepEquals, coreapiserver.ServerConfig{
 		StatePool:                  s.StatePool,
 		LocalMacaroonAuthenticator: s.authenticator,
 		Mux:                        s.mux,

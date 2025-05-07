@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -47,7 +46,7 @@ func (s *suite) TestGetModelConfigKeyValues(c *tc.C) {
 		"key1": "val1",
 		"key2": "val2",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	state := NewState(s.TxnRunnerFactory())
 	modelConfig, err := state.GetModelConfigKeyValues(context.Background(),
@@ -59,8 +58,8 @@ func (s *suite) TestGetModelConfigKeyValues(c *tc.C) {
 		// show up in the result
 		"key3", "key4",
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(modelConfig, jc.DeepEquals, map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(modelConfig, tc.DeepEquals, map[string]string{
 		config.LXDSnapChannel:                            "5.0/stable",
 		config.ContainerImageMetadataURLKey:              "https://images.linuxcontainers.org/",
 		config.ContainerImageMetadataDefaultsDisabledKey: "true",
@@ -79,8 +78,8 @@ func (s *suite) TestGetModelConfigKeyValuesEmptyModelConfig(c *tc.C) {
 		config.ContainerImageMetadataDefaultsDisabledKey,
 		config.ContainerImageStreamKey,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(modelConfig, jc.DeepEquals, map[string]string{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(modelConfig, tc.DeepEquals, map[string]string{})
 }
 
 // TestGetModelConfigKeyValuesGetNoKeys tests that if
@@ -95,12 +94,12 @@ func (s *suite) TestGetModelConfigKeyValuesGetNoKeys(c *tc.C) {
 		config.ContainerImageMetadataDefaultsDisabledKey: "true",
 		config.ContainerImageStreamKey:                   "released",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	state := NewState(s.TxnRunnerFactory())
 	modelConfig, err := state.GetModelConfigKeyValues(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(modelConfig, jc.DeepEquals, map[string]string{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(modelConfig, tc.DeepEquals, map[string]string{})
 }
 
 // TestModelID tests that State.ModelID works as expected.
@@ -118,10 +117,10 @@ func (s *suite) TestModelID(c *tc.C) {
 		Cloud:          "aws",
 		CloudType:      "ec2",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	state := NewState(s.TxnRunnerFactory())
 	returned, err := state.ModelID(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(returned, jc.DeepEquals, modelID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(returned, tc.DeepEquals, modelID)
 }

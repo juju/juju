@@ -8,7 +8,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/internal/worker/retrystrategy"
@@ -23,7 +22,7 @@ var _ = tc.Suite(&WorkerSuite{})
 func (s *WorkerSuite) testValidate(c *tc.C, config retrystrategy.WorkerConfig, errMsg string) {
 	check := func(err error) {
 		c.Check(err, tc.ErrorMatches, errMsg)
-		c.Check(err, jc.ErrorIs, errors.NotValid)
+		c.Check(err, tc.ErrorIs, errors.NotValid)
 	}
 
 	err := config.Validate()

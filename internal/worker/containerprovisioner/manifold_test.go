@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/instance"
@@ -74,7 +73,7 @@ func (s *containerManifoldSuite) TestConfigValidateSuccess(c *tc.C) {
 		ContainerType: instance.LXD,
 	}
 	err := cfg.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *containerManifoldSuite) TestContainerProvisioningManifold(c *tc.C) {
@@ -92,7 +91,7 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifold(c *tc.C) {
 		ContainerType: instance.LXD,
 	}
 	m, err := containerprovisioner.MachineSupportsContainers(cfg, s.getter, tag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(m, tc.NotNil)
 }
 
@@ -111,7 +110,7 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifoldContainersNotK
 		ContainerType: instance.LXD,
 	}
 	_, err := containerprovisioner.MachineSupportsContainers(cfg, s.getter, tag)
-	c.Assert(err, jc.ErrorIs, errors.NotYetAvailable)
+	c.Assert(err, tc.ErrorIs, errors.NotYetAvailable)
 }
 
 func (s *containerManifoldSuite) TestContainerProvisioningManifoldNoContainerSupport(c *tc.C) {

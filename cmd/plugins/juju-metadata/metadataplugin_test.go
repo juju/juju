@@ -12,7 +12,6 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/testing"
 )
@@ -78,7 +77,7 @@ func getHelpCommandNames(c *tc.C) []string {
 func (s *MetadataSuite) TestHelpCommands(c *tc.C) {
 	// Check that we have correctly registered all the sub commands
 	// by checking the help output.
-	c.Assert(getHelpCommandNames(c), jc.SameContents, metadataCommandNames)
+	c.Assert(getHelpCommandNames(c), tc.SameContents, metadataCommandNames)
 }
 
 func (s *MetadataSuite) assertHelpOutput(c *tc.C, cmd string) {

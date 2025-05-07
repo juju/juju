@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/terminationworker"
@@ -26,16 +25,16 @@ func (s *TerminationWorkerSuite) TestStartStop(c *tc.C) {
 	w := terminationworker.NewWorker()
 	w.Kill()
 	err := w.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *TerminationWorkerSuite) TestSignal(c *tc.C) {
 	w := terminationworker.NewWorker()
 	proc, err := os.FindProcess(os.Getpid())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer proc.Release()
 	err = proc.Signal(terminationworker.TerminationSignal)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = w.Wait()
 	c.Assert(err, tc.Equals, worker.ErrTerminateAgent)
 }

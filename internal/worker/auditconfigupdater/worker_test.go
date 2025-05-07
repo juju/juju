@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	gomock "go.uber.org/mock/gomock"
 
@@ -34,7 +33,7 @@ func (s *workerSuite) TestNewWorker(c *tc.C) {
 	s.expectControllerConfigWatcher(c)
 
 	worker, err := s.newWorker(cfg, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, worker)
 
 	s.ensureStartup(c)
@@ -60,7 +59,7 @@ func (s *workerSuite) TestNewWorkerUpdatedCurrentConfig(c *tc.C) {
 	worker, err := s.newWorker(cfg, func(c auditlog.Config) auditlog.AuditLog {
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, worker)
 
 	s.ensureStartup(c)

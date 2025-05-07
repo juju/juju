@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/controller"
@@ -38,7 +37,7 @@ func (s *apiAddresserSuite) SetUpTest(c *tc.C) {
 
 func (s *apiAddresserSuite) TestAPIAddresses(c *tc.C) {
 	result, err := s.addresser.APIAddresses(context.Background(), coretesting.FakeControllerConfig())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Result, tc.DeepEquals, []string{"apiaddresses:1", "apiaddresses:2"})
 }
 
@@ -62,7 +61,7 @@ func (s *apiAddresserSuite) TestAPIAddressesPrivateFirst(c *tc.C) {
 	}
 
 	result, err := s.addresser.APIAddresses(context.Background(), coretesting.FakeControllerConfig())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(result.Result, tc.DeepEquals, []string{
 		"apiaddresses:1",

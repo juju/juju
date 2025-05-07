@@ -9,7 +9,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	coretesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -49,7 +48,7 @@ func (s *AuthFuncSuite) TestAuthFuncForMachineAgent(c *tc.C) {
 
 	fn, err := authFunc(context.Background())
 	c.Assert(err, tc.IsNil)
-	c.Assert(fn(machineTag), jc.IsTrue)
+	c.Assert(fn(machineTag), tc.IsTrue)
 }
 
 func (s *AuthFuncSuite) TestAuthFuncForMachineAgentInvalidMachineTag(c *tc.C) {
@@ -62,7 +61,7 @@ func (s *AuthFuncSuite) TestAuthFuncForMachineAgentInvalidMachineTag(c *tc.C) {
 
 	fn, err := authFunc(context.Background())
 	c.Assert(err, tc.IsNil)
-	c.Assert(fn(invalidTag), jc.IsFalse)
+	c.Assert(fn(invalidTag), tc.IsFalse)
 }
 
 func (s *AuthFuncSuite) TestAuthFuncForMachineAgentInvalidAuthTag(c *tc.C) {
@@ -75,5 +74,5 @@ func (s *AuthFuncSuite) TestAuthFuncForMachineAgentInvalidAuthTag(c *tc.C) {
 
 	fn, err := authFunc(context.Background())
 	c.Assert(err, tc.IsNil)
-	c.Assert(fn(machineTag), jc.IsFalse)
+	c.Assert(fn(machineTag), tc.IsFalse)
 }

@@ -8,7 +8,6 @@ import (
 	"runtime"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	semversion "github.com/juju/juju/core/semversion"
 )
@@ -102,12 +101,12 @@ func (s *suite) TestCheckJujuMinVersion(c *tc.C) {
 	} {
 		err := CheckJujuMinVersion(test.toCheck, test.jujuVersion)
 		if test.error {
-			c.Assert(err, jc.Satisfies, IsMinVersionError)
+			c.Assert(err, tc.Satisfies, IsMinVersionError)
 			c.Assert(err.Error(), tc.Equals,
 				fmt.Sprintf("charm's min version (%s) is higher than this juju model's version (%s)",
 					test.toCheck, test.jujuVersion))
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
 	}
 }

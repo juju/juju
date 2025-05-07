@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -34,8 +33,8 @@ func (s *migrationSuite) TestMigrationService(c *tc.C) {
 
 	leadershipService := NewMigrationService(s.state)
 	leaders, err := leadershipService.GetApplicationLeadershipForModel(context.Background(), modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(leaders, jc.DeepEquals, map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(leaders, tc.DeepEquals, map[string]string{
 		"foo": "bar",
 	})
 }

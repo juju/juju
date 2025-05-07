@@ -5,7 +5,6 @@ package instance_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/instance"
 )
@@ -24,7 +23,7 @@ func (s *NamespaceSuite) TestInvalidModelTag(c *tc.C) {
 
 func (s *NamespaceSuite) newNamespace(c *tc.C) instance.Namespace {
 	ns, err := instance.NewNamespace(modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return ns
 }
 
@@ -39,12 +38,12 @@ func (s *NamespaceSuite) TestHostname(c *tc.C) {
 	ns := s.newNamespace(c)
 	hostname, err := ns.Hostname("2")
 	c.Assert(hostname, tc.Equals, "juju-c3d479-2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *NamespaceSuite) TestContainerHostname(c *tc.C) {
 	ns := s.newNamespace(c)
 	hostname, err := ns.Hostname("2/lxd/4")
 	c.Assert(hostname, tc.Equals, "juju-c3d479-2-lxd-4")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

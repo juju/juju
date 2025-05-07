@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"gopkg.in/macaroon.v2"
@@ -87,7 +86,7 @@ func waitForStubCalls(c *tc.C, stub *jujutesting.Stub, expected []jujutesting.St
 			return
 		}
 	}
-	c.Assert(expected, jc.DeepEquals, calls)
+	c.Assert(expected, tc.DeepEquals, calls)
 }
 
 func (s *remoteRelationsSuite) assertRemoteApplicationWorkers(c *tc.C) worker.Worker {
@@ -98,7 +97,7 @@ func (s *remoteRelationsSuite) assertRemoteApplicationWorkers(c *tc.C) worker.Wo
 	s.relationsFacade.controllerInfo["remote-model-uuid"] = s.remoteControllerInfo
 
 	w, err := remoterelations.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"WatchRemoteApplications", nil},
 	}
@@ -106,7 +105,7 @@ func (s *remoteRelationsSuite) assertRemoteApplicationWorkers(c *tc.C) worker.Wo
 	s.stub.ResetCalls()
 
 	mac, err := testing.NewMacaroon("test")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"db2"}
 	expected = []jujutesting.StubCall{
 		{"RemoteApplications", []interface{}{[]string{"db2"}}},
@@ -130,7 +129,7 @@ func (s *remoteRelationsSuite) assertRemoteApplicationWorkers(c *tc.C) worker.Wo
 	applicationNames := []string{"db2", "mysql"}
 	for _, app := range applicationNames {
 		w, ok := s.relationsFacade.remoteApplicationRelationsWatcher(app)
-		c.Check(ok, jc.IsTrue)
+		c.Check(ok, tc.IsTrue)
 		waitForStubCalls(c, &w.Stub, []jujutesting.StubCall{
 			{"Changes", nil},
 		})
@@ -146,8 +145,8 @@ func (s *remoteRelationsSuite) TestRemoteApplicationWorkers(c *tc.C) {
 	applicationNames := []string{"db2", "mysql"}
 	for _, app := range applicationNames {
 		w, ok := s.relationsFacade.remoteApplicationRelationsWatcher(app)
-		c.Check(ok, jc.IsTrue)
-		c.Check(w.killed(), jc.IsTrue)
+		c.Check(ok, tc.IsTrue)
+		c.Check(w.killed(), tc.IsTrue)
 	}
 }
 
@@ -160,7 +159,7 @@ func (s *remoteRelationsSuite) TestExternalControllerError(c *tc.C) {
 	s.relationsFacade.controllerInfo["remote-model-uuid"] = s.remoteControllerInfo
 
 	w, err := remoterelations.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
@@ -201,11 +200,11 @@ func (s *remoteRelationsSuite) TestRemoteApplicationWorkersRedirect(c *tc.C) {
 	s.relationsFacade.controllerInfo["remote-model-uuid"] = s.remoteControllerInfo
 
 	w, err := remoterelations.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	mac, err := testing.NewMacaroon("test")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
 	expected := []jujutesting.StubCall{
@@ -255,7 +254,7 @@ func (s *remoteRelationsSuite) TestRemoteApplicationWorkersRedirectControllerUpd
 	s.relationsFacade.controllerInfo["remote-model-uuid"] = s.remoteControllerInfo
 
 	w, err := remoterelations.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
@@ -290,7 +289,7 @@ func (s *remoteRelationsSuite) TestRemoteApplicationRemoved(c *tc.C) {
 	s.stub.ResetCalls()
 
 	appWorker, err := s.config.Runner.Worker("mysql", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	relWatcher, _ := s.relationsFacade.removeApplication("mysql")
 	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
@@ -300,14 +299,14 @@ func (s *remoteRelationsSuite) TestRemoteApplicationRemoved(c *tc.C) {
 			break
 		}
 	}
-	c.Check(relWatcher.killed(), jc.IsTrue)
+	c.Check(relWatcher.killed(), tc.IsTrue)
 	expected := []jujutesting.StubCall{
 		{"RemoteApplications", []interface{}{[]string{"mysql"}}},
 		{"Close", nil},
 	}
 	s.waitForWorkerStubCalls(c, expected)
 	err = workertest.CheckKilled(c, appWorker)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *remoteRelationsSuite) TestRemoteApplicationTerminated(c *tc.C) {
@@ -318,10 +317,10 @@ func (s *remoteRelationsSuite) TestRemoteApplicationTerminated(c *tc.C) {
 	s.stub.ResetCalls()
 
 	appWorker, err := s.config.Runner.Worker("mysql", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	relWatcher, ok := s.relationsFacade.remoteApplicationRelationsWatchers["mysql"]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	s.relationsFacade.remoteApplications["mysql"].status = status.Terminated
 	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
 
@@ -331,9 +330,9 @@ func (s *remoteRelationsSuite) TestRemoteApplicationTerminated(c *tc.C) {
 	}
 	s.waitForWorkerStubCalls(c, expected)
 
-	c.Check(relWatcher.killed(), jc.IsTrue)
+	c.Check(relWatcher.killed(), tc.IsTrue)
 	err = workertest.CheckKilled(c, appWorker)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *remoteRelationsSuite) TestRemoteApplicationOfferChanged(c *tc.C) {
@@ -344,12 +343,12 @@ func (s *remoteRelationsSuite) TestRemoteApplicationOfferChanged(c *tc.C) {
 	s.stub.ResetCalls()
 
 	oldAppWorker, err := s.config.Runner.Worker("mysql", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	relWatcher, ok := s.relationsFacade.remoteApplicationRelationsWatchers["mysql"]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	mac, err := testing.NewMacaroon("test")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.relationsFacade.remoteApplications["mysql"].offeruuid = "different-uuid"
 	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
@@ -363,9 +362,9 @@ func (s *remoteRelationsSuite) TestRemoteApplicationOfferChanged(c *tc.C) {
 	}
 	s.waitForWorkerStubCalls(c, expected)
 
-	c.Check(relWatcher.killed(), jc.IsTrue)
+	c.Check(relWatcher.killed(), tc.IsTrue)
 	err = workertest.CheckKilled(c, oldAppWorker)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnWatching(c *tc.C) {
@@ -374,7 +373,7 @@ func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnWatching(c *tc.C) {
 	s.relationsFacade.controllerInfo["remote-model-uuid"] = s.remoteControllerInfo
 
 	w, err := remoterelations.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	expected := []jujutesting.StubCall{
@@ -386,7 +385,7 @@ func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnWatching(c *tc.C) {
 	s.stub.SetErrors(nil, nil, nil, params.Error{Code: params.CodeNotFound})
 
 	mac, err := testing.NewMacaroon("test")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"db2"}
 	expected = []jujutesting.StubCall{
 		{"RemoteApplications", []interface{}{[]string{"db2"}}},
@@ -436,7 +435,7 @@ func (s *remoteRelationsSuite) TestOfferStatusTerminatedStopsWatcher(c *tc.C) {
 		{"SetRemoteApplicationStatus", []interface{}{"mysql", "terminated", ""}},
 	}
 	s.waitForWorkerStubCalls(c, expected)
-	c.Check(statusWatcher.killed(), jc.IsTrue)
+	c.Check(statusWatcher.killed(), tc.IsTrue)
 }
 
 func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnChange(c *tc.C) {
@@ -461,7 +460,7 @@ func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnChange(c *tc.C) {
 	relWatcher.changes <- []string{"db2:db django:db"}
 
 	mac, err := testing.NewMacaroon("test")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	relTag := names.NewRelationTag("db2:db django:db")
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
@@ -509,7 +508,7 @@ func (s *remoteRelationsSuite) TestRemoteWatcherNotFoundError(c *tc.C) {
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
 	}
 	changeWatcher, ok := s.remoteRelationsFacade.remoteRelationWatcher("token-db2:db django:db")
-	c.Check(ok, jc.IsTrue)
+	c.Check(ok, tc.IsTrue)
 	changeWatcher.kill(params.Error{Code: params.CodeNotFound})
 	s.waitForWorkerStubCalls(c, expected)
 }
@@ -533,9 +532,9 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *tc.C) worker.Work
 	relWatcher.changes <- []string{"db2:db django:db"}
 
 	mac, err := testing.NewMacaroon("test")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	apiMac, err := testing.NewMacaroon("apimac")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	relTag := names.NewRelationTag("db2:db django:db")
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
@@ -566,17 +565,17 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *tc.C) worker.Work
 	s.waitForWorkerStubCalls(c, expected)
 
 	changeWatcher, ok := s.relationsFacade.remoteRelationWatcher("db2:db django:db")
-	c.Check(ok, jc.IsTrue)
+	c.Check(ok, tc.IsTrue)
 	waitForStubCalls(c, &changeWatcher.Stub, []jujutesting.StubCall{
 		{"Changes", nil},
 	})
 	changeWatcher, ok = s.remoteRelationsFacade.remoteRelationWatcher("token-db2:db django:db")
-	c.Check(ok, jc.IsTrue)
+	c.Check(ok, tc.IsTrue)
 	waitForStubCalls(c, &changeWatcher.Stub, []jujutesting.StubCall{
 		{"Changes", nil},
 	})
 	relationStatusWatcher, ok := s.remoteRelationsFacade.relationsStatusWatcher("token-db2:db django:db")
-	c.Check(ok, jc.IsTrue)
+	c.Check(ok, tc.IsTrue)
 	waitForStubCalls(c, &relationStatusWatcher.Stub, []jujutesting.StubCall{
 		{"Changes", nil},
 	})
@@ -589,12 +588,12 @@ func (s *remoteRelationsSuite) TestRemoteRelationsWorkers(c *tc.C) {
 
 	// Check that relation unit watchers are stopped with the worker.
 	relWatcher, ok := s.relationsFacade.remoteRelationWatchers["db2:db django:db"]
-	c.Check(ok, jc.IsTrue)
-	c.Check(relWatcher.killed(), jc.IsTrue)
+	c.Check(ok, tc.IsTrue)
+	c.Check(relWatcher.killed(), tc.IsTrue)
 
 	relWatcher, ok = s.remoteRelationsFacade.remoteRelationWatchers["token-db2:db django:db"]
-	c.Check(ok, jc.IsTrue)
-	c.Check(relWatcher.killed(), jc.IsTrue)
+	c.Check(ok, tc.IsTrue)
+	c.Check(relWatcher.killed(), tc.IsTrue)
 }
 
 func (s *remoteRelationsSuite) TestRemoteRelationsRevoked(c *tc.C) {
@@ -624,7 +623,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsRevoked(c *tc.C) {
 	relWatcher.changes <- []string{"db2:db django:db"}
 
 	mac, err := testing.NewMacaroon("test")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	relTag := names.NewRelationTag("db2:db django:db")
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
@@ -678,11 +677,11 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDying(c *tc.C) {
 	// We keep the relation units watcher alive when the relation
 	// goes to Dying; they're only stopped when the relation is
 	// finally removed.
-	c.Assert(unitsWatcher.killed(), jc.IsFalse)
+	c.Assert(unitsWatcher.killed(), tc.IsFalse)
 	apiMac, err := testing.NewMacaroon("apimac")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	mac, err := testing.NewMacaroon("test")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	relTag := names.NewRelationTag("db2:db django:db")
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
@@ -743,7 +742,7 @@ func (s *remoteRelationsSuite) TestLocalRelationsRemoved(c *tc.C) {
 	}
 
 	mac, err := testing.NewMacaroon("apimac")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"PublishRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
@@ -825,7 +824,7 @@ func (s *remoteRelationsSuite) TestLocalRelationsRemoved(c *tc.C) {
 		ApplicationOrOfferToken: "token-django",
 		DepartedUnits:           []int{2},
 	}
-	c.Assert(unitsWatcher.killed(), jc.IsTrue)
+	c.Assert(unitsWatcher.killed(), tc.IsTrue)
 	expected = []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
 	}
@@ -849,7 +848,7 @@ func (s *remoteRelationsSuite) TestLocalRelationsChangedNotifies(c *tc.C) {
 	}
 
 	mac, err := testing.NewMacaroon("apimac")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"PublishRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
@@ -887,7 +886,7 @@ func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnPublish(c *tc.C) {
 	}
 
 	mac, err := testing.NewMacaroon("apimac")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"PublishRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
@@ -923,7 +922,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedConsumes(c *tc.C) {
 	}
 
 	mac, err := testing.NewMacaroon("apimac")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"ConsumeRemoteRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
@@ -989,7 +988,7 @@ func (s *remoteRelationsSuite) assertRemoteRelationsChangedError(c *tc.C, dying 
 
 	// The error causes relation change publication to fail.
 	apiMac, err := testing.NewMacaroon("apimac")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"PublishRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
@@ -1016,7 +1015,7 @@ func (s *remoteRelationsSuite) assertRemoteRelationsChangedError(c *tc.C, dying 
 	s.config.Clock.(*testclock.Clock).WaitAdvance(10*time.Second, coretesting.LongWait, 1)
 
 	mac, err := testing.NewMacaroon("test")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected = []jujutesting.StubCall{
 		{"WatchRemoteApplicationRelations", []interface{}{"db2"}},
 		{"ControllerAPIInfoForModel", []interface{}{"remote-model-uuid"}},
@@ -1121,9 +1120,9 @@ func (s *remoteRelationsSuite) TestRemoteSecretNotImplemented(c *tc.C) {
 	relWatcher.changes <- []string{"db2:db django:db"}
 
 	mac, err := testing.NewMacaroon("test")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	apiMac, err := testing.NewMacaroon("apimac")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	relTag := names.NewRelationTag("db2:db django:db")
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
@@ -1154,17 +1153,17 @@ func (s *remoteRelationsSuite) TestRemoteSecretNotImplemented(c *tc.C) {
 	s.waitForWorkerStubCalls(c, expected)
 
 	changeWatcher, ok := s.relationsFacade.remoteRelationWatcher("db2:db django:db")
-	c.Check(ok, jc.IsTrue)
+	c.Check(ok, tc.IsTrue)
 	waitForStubCalls(c, &changeWatcher.Stub, []jujutesting.StubCall{
 		{"Changes", nil},
 	})
 	changeWatcher, ok = s.remoteRelationsFacade.remoteRelationWatcher("token-db2:db django:db")
-	c.Check(ok, jc.IsTrue)
+	c.Check(ok, tc.IsTrue)
 	waitForStubCalls(c, &changeWatcher.Stub, []jujutesting.StubCall{
 		{"Changes", nil},
 	})
 	relationStatusWatcher, ok := s.remoteRelationsFacade.relationsStatusWatcher("token-db2:db django:db")
-	c.Check(ok, jc.IsTrue)
+	c.Check(ok, tc.IsTrue)
 	waitForStubCalls(c, &relationStatusWatcher.Stub, []jujutesting.StubCall{
 		{"Changes", nil},
 	})
@@ -1180,7 +1179,7 @@ func (s *remoteRelationsSuite) TestRegisteredApplicationNotRegistered(c *tc.C) {
 	s.relationsFacade.remoteApplicationsWatcher.changes <- applicationNames
 
 	w, err := remoterelations.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	expected := []jujutesting.StubCall{
@@ -1225,8 +1224,8 @@ func (s *remoteRelationsSuite) TestRemoteRelationSuspended(c *tc.C) {
 	}
 	s.waitForWorkerStubCalls(c, expected)
 	unitsWatcher, ok := s.relationsFacade.remoteRelationWatchers["db2:db django:db"]
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(unitsWatcher.killed(), jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(unitsWatcher.killed(), tc.IsTrue)
 	s.stub.ResetCalls()
 
 	// Now resume the relation.
@@ -1234,9 +1233,9 @@ func (s *remoteRelationsSuite) TestRemoteRelationSuspended(c *tc.C) {
 	relWatcher.changes <- []string{"db2:db django:db"}
 
 	mac, err := testing.NewMacaroon("test")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	apiMac, err := testing.NewMacaroon("apimac")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	relTag := names.NewRelationTag("db2:db django:db")
 	// When resuming, it's similar to setting things up for a new relation
@@ -1284,6 +1283,6 @@ func (s *remoteRelationsSuite) TestDyingRelationSuspended(c *tc.C) {
 	s.waitForWorkerStubCalls(c, expected)
 	// Suspending a dying relation does not stop workers.
 	unitsWatcher, ok := s.relationsFacade.remoteRelationWatchers["db2:db django:db"]
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(unitsWatcher.killed(), jc.IsFalse)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(unitsWatcher.killed(), tc.IsFalse)
 }

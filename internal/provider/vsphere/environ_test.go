@@ -6,7 +6,6 @@ package vsphere_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
 	"golang.org/x/net/context"
@@ -58,8 +57,8 @@ func (s *environSuite) TestDestroy(c *tc.C) {
 		return nil
 	})
 	err := s.env.Destroy(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(destroyCalled, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(destroyCalled, tc.IsTrue)
 	s.client.CheckCallNames(c, "DestroyVMFolder", "Close")
 	destroyVMFolderCall := s.client.Calls()[0]
 	c.Assert(destroyVMFolderCall.Args, tc.HasLen, 2)
@@ -91,8 +90,8 @@ func (s *environSuite) TestDestroyController(c *tc.C) {
 		return nil
 	})
 	err := s.env.DestroyController(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(destroyCalled, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(destroyCalled, tc.IsTrue)
 
 	s.dialStub.CheckCallNames(c, "Dial")
 	s.client.CheckCallNames(c,
@@ -122,7 +121,7 @@ func (s *environSuite) TestDestroyController(c *tc.C) {
 
 func (s *environSuite) TestAdoptResources(c *tc.C) {
 	err := s.env.AdoptResources(context.Background(), "foo", semversion.Number{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.dialStub.CheckCallNames(c, "Dial")
 	s.client.CheckCallNames(c, "MoveVMFolderInto", "Close")
@@ -137,12 +136,12 @@ func (s *environSuite) TestAdoptResources(c *tc.C) {
 
 func (s *environSuite) TestPrepareForBootstrap(c *tc.C) {
 	err := s.env.PrepareForBootstrap(envtesting.BootstrapContext(context.Background(), c), "controller-1")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *environSuite) TestSupportsNetworking(c *tc.C) {
 	_, ok := environs.SupportsNetworking(s.env)
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 }
 
 func (s *environSuite) TestAdoptResourcesPermissionError(c *tc.C) {

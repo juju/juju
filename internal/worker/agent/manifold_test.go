@@ -9,7 +9,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 
 	coreagent "github.com/juju/juju/agent"
@@ -35,13 +34,13 @@ func (s *ManifoldSuite) TestOutput(c *tc.C) {
 	manifold := agent.Manifold(inputAgent)
 
 	agentWorker, err := manifold.Start(context.Background(), nil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	defer assertStop(c, agentWorker)
 
 	var outputAgent coreagent.Agent
 	err = manifold.Output(agentWorker, &outputAgent)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(outputAgent, jc.DeepEquals, inputAgent)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(outputAgent, tc.DeepEquals, inputAgent)
 }
 
 func (s *ManifoldSuite) TestOutputStoppedWorker(c *tc.C) {
@@ -49,15 +48,15 @@ func (s *ManifoldSuite) TestOutputStoppedWorker(c *tc.C) {
 	manifold := agent.Manifold(inputAgent)
 
 	agentWorker, err := manifold.Start(context.Background(), nil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	// The lifetime is irrelevant -- the output func will still function
 	// whether the (degenerate) worker is alive or not -- so no defer here.
 	assertStop(c, agentWorker)
 
 	var outputAgent coreagent.Agent
 	err = manifold.Output(agentWorker, &outputAgent)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(outputAgent, jc.DeepEquals, inputAgent)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(outputAgent, tc.DeepEquals, inputAgent)
 }
 
 func (s *ManifoldSuite) TestOutputBadWorker(c *tc.C) {
@@ -76,7 +75,7 @@ func (s *ManifoldSuite) TestOutputBadTarget(c *tc.C) {
 	manifold := agent.Manifold(inputAgent)
 
 	agentWorker, err := manifold.Start(context.Background(), nil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	defer assertStop(c, agentWorker)
 
 	var outputNonsense interface{}
@@ -91,12 +90,12 @@ func (s *ManifoldSuite) TestReport(c *tc.C) {
 	manifold := agent.Manifold(inputAgent)
 
 	agentWorker, err := manifold.Start(context.Background(), nil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	defer assertStop(c, agentWorker)
 
 	reporter, ok := agentWorker.(worker.Reporter)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(reporter.Report(), jc.DeepEquals, map[string]interface{}{
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(reporter.Report(), tc.DeepEquals, map[string]interface{}{
 		"agent":      "machine-42",
 		"model-uuid": "model-uuid",
 		"version":    "3.2.1",
@@ -112,7 +111,7 @@ func (dummyAgent) CurrentConfig() coreagent.Config {
 }
 
 func assertStop(c *tc.C, w worker.Worker) {
-	c.Assert(worker.Stop(w), jc.ErrorIsNil)
+	c.Assert(worker.Stop(w), tc.ErrorIsNil)
 }
 
 type fakeConfig struct {

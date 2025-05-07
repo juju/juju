@@ -9,7 +9,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 type AllFacadesSuite struct {
@@ -49,7 +48,7 @@ func (s *AllFacadesSuite) TestFacadeVersionsInSync(c *tc.C) {
 		})
 
 		versions, ok := m[name]
-		c.Assert(ok, jc.IsTrue, tc.Commentf("facade %q not registered", name))
+		c.Assert(ok, tc.IsTrue, tc.Commentf("facade %q not registered", name))
 
 		// Ensure there is a complete overlap.
 		c.Check(versions.Intersection(set.NewInts(facadeVersion...)).SortedValues(), tc.DeepEquals, []int(facadeVersion), tc.Commentf("facade %q versions not in sync", name))

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/permission"
@@ -40,8 +39,8 @@ func (r *PermissionSuite) TestNoUserTagLacksPermission(c *tc.C) {
 	nonUser := names.NewModelTag("beef1beef1-0000-0000-000011112222")
 	target := names.NewModelTag("beef1beef2-0000-0000-000011112222")
 	hasPermission, err := common.HasPermission(context.Background(), (&fakeUserAccess{}).call, nonUser, permission.ReadAccess, target)
-	c.Assert(hasPermission, jc.IsFalse)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hasPermission, tc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (r *PermissionSuite) TestHasPermission(c *tc.C) {
@@ -157,7 +156,7 @@ func (r *PermissionSuite) TestHasPermission(c *tc.C) {
 		c.Logf("HasPermission test n %d: %s", i, t.title)
 		hasPermission, err := common.HasPermission(context.Background(), userGetter.call, t.user, t.access, t.target)
 		c.Assert(hasPermission, tc.Equals, t.expected)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 }
@@ -170,8 +169,8 @@ func (r *PermissionSuite) TestUserGetterErrorReturns(c *tc.C) {
 		err:    accesserrors.AccessNotFound,
 	}
 	hasPermission, err := common.HasPermission(context.Background(), userGetter.call, userTag, permission.ReadAccess, target)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hasPermission, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hasPermission, tc.IsFalse)
 	c.Assert(userGetter.userNames, tc.HasLen, 1)
 	c.Assert(userGetter.userNames[0], tc.DeepEquals, user.NameFromTag(userTag))
 	c.Assert(userGetter.targets, tc.HasLen, 1)

@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
@@ -141,7 +140,7 @@ func (s *detectCredentialsSuite) runWithCloudsFunc(c *tc.C, stdin io.Reader,
 	ctx := cmdtesting.Context(c)
 	ctx.Stdin = stdin
 	err := cmdtesting.InitCommand(command, args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return ctx, command.Run(ctx)
 }
 
@@ -172,17 +171,17 @@ func (s *detectCredentialsSuite) assertDetectCredential(c *tc.C, t detectCredent
 
 	stdin := strings.NewReader(fmt.Sprintf("1\n%s\nQ\n", t.cloudName))
 	ctx, err := s.run(c, stdin, clouds, "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	if t.expectedStderr == "" {
 		if t.expectedRegion != "" {
 			s.aCredential.DefaultRegion = t.expectedRegion
 		}
-		c.Assert(s.store.Credentials["test-cloud"], jc.DeepEquals, s.aCredential)
+		c.Assert(s.store.Credentials["test-cloud"], tc.DeepEquals, s.aCredential)
 	} else {
 		c.Assert(cmdtesting.Stderr(ctx), tc.DeepEquals, t.expectedStderr)
 	}
 	if t.expectedWarn != "" {
-		c.Assert(c.GetTestLog(), jc.Contains, t.expectedWarn)
+		c.Assert(c.GetTestLog(), tc.Contains, t.expectedWarn)
 	}
 }
 
@@ -252,7 +251,7 @@ Select a credential to save by number, or type Q to quit:
 func (s *detectCredentialsSuite) TestNewDetectCredentialNoneFound(c *tc.C) {
 	stdin := strings.NewReader("")
 	ctx, err := s.run(c, stdin, nil, "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	output := strings.Replace(cmdtesting.Stderr(ctx), "\n", "", -1)
 	c.Assert(output, tc.Matches, ".*No cloud credentials found.*")
 	c.Assert(s.store.Credentials, tc.HasLen, 0)
@@ -275,7 +274,7 @@ func (s *detectCredentialsSuite) TestNewDetectCredentialFilter(c *tc.C) {
 
 	stdin := strings.NewReader("")
 	ctx, err := s.run(c, stdin, clouds, "some-provider", "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	output := strings.Replace(cmdtesting.Stderr(ctx), "\n", "", -1)
 	c.Assert(output, tc.Matches, ".*No cloud credentials found.*")
 	c.Assert(s.store.Credentials, tc.HasLen, 0)
@@ -291,7 +290,7 @@ func (s *detectCredentialsSuite) TestDetectCredentialInvalidChoice(c *tc.C) {
 
 	stdin := strings.NewReader("3\nQ\n")
 	ctx, err := s.run(c, stdin, nil, "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	output := strings.Replace(cmdtesting.Stderr(ctx), "\n", "", -1)
 	c.Assert(output, tc.Matches, ".*Invalid choice, enter a number between 1 and 2.*")
 	c.Assert(s.store.Credentials, tc.HasLen, 0)
@@ -319,7 +318,7 @@ func (s *detectCredentialsSuite) TestDetectCredentialCloudMismatch(c *tc.C) {
 
 	stdin := strings.NewReader("1\naws\nQ\n")
 	ctx, err := s.run(c, stdin, clouds, "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
 
 1. credential 2 (new)
@@ -345,7 +344,7 @@ func (s *detectCredentialsSuite) TestDetectCredentialQuitOnCloud(c *tc.C) {
 
 	stdin := strings.NewReader("1\nQ\n")
 	ctx, err := s.run(c, stdin, nil, "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
 
 1. credential a (new)
@@ -412,7 +411,7 @@ func (s *detectCredentialsSuite) TestRemoteLoad(c *tc.C) {
 
 	stdin := strings.NewReader(fmt.Sprintf("3\n1\n%s\nQ\n", cloudName))
 	ctx, err := s.runWithCloudsFunc(c, stdin, nil, cloudByNameFunc)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.DeepEquals, `
 This operation can be applied to both a copy on this client and to the one on a controller.
 
@@ -431,7 +430,7 @@ Select a credential to save by number, or type Q to quit:
 Controller credential "blah" for user "admin@local" for cloud "test-cloud" on controller "controller" loaded.
 For more information, see 'juju show-credential test-cloud blah'.
 `[1:])
-	c.Assert(called, jc.IsTrue)
+	c.Assert(called, tc.IsTrue)
 	c.Assert(cmdtesting.Stdout(ctx), tc.DeepEquals, `
 Do you want to add a credential to:
     1. client only (--client)
@@ -480,10 +479,10 @@ func (s *detectCredentialsSuite) assertAutoloadCredentials(c *tc.C, expectedStde
 
 	stdin := strings.NewReader(fmt.Sprintf("1\n%s\nQ\n", cloudName))
 	ctx, err := s.run(c, stdin, clouds, args...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(cmdtesting.Stderr(ctx), tc.DeepEquals, expectedStderr)
-	c.Assert(called, jc.IsFalse)
+	c.Assert(called, tc.IsFalse)
 }
 
 func (s *detectCredentialsSuite) TestRemoteLoadNoRemoteCloud(c *tc.C) {

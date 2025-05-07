@@ -20,7 +20,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	_ "github.com/mattn/go-sqlite3"
 
 	coredatabase "github.com/juju/juju/core/database"
@@ -75,7 +74,7 @@ func (s *DqliteSuite) SetUpTest(c *tc.C) {
 
 	path := filepath.Join(s.rootPath, "dqlite")
 	err := os.Mkdir(path, 0700)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.dbPath = path
 
 	endpoint := ""
@@ -114,13 +113,13 @@ func (s *DqliteSuite) SetUpTest(c *tc.C) {
 			}
 		}),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Enable super verbose mode.
 	s.Verbose = verbose && includeSQLOutput != ""
 
 	err = s.dqlite.Ready(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.trackedDB, s.db = s.OpenDB(c)
 }
@@ -133,14 +132,14 @@ func (s *DqliteSuite) TearDownTest(c *tc.C) {
 	for _, ref := range s.references {
 		for _, db := range ref {
 			err := db.Close()
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		}
 	}
 	s.mutex.Unlock()
 
 	if s.dqlite != nil {
 		err := s.dqlite.Close()
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
 
 	s.IsolationSuite.TearDownTest(c)
@@ -201,10 +200,10 @@ func (s *DqliteSuite) OpenDBForNamespace(c *tc.C, domain string, foreignKey bool
 	c.Assert(domain, tc.Not(tc.Equals), "", tc.Commentf("cannot open a database for a empty domain"))
 
 	db, err := s.dqlite.Open(context.Background(), domain)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = pragma.SetPragma(context.Background(), db, pragma.ForeignKeysPragma, foreignKey)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	trackedDB := &txnRunner{
 		db: sqlair.NewDB(db),
@@ -253,8 +252,8 @@ func (s *DqliteSuite) cleanupDB(c *tc.C, namespace string, db *sql.DB) {
 // The chances of this should be negligible during testing.
 func FindTCPPort(c *tc.C) int {
 	l, err := net.Listen("tcp", ":0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(l.Close(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(l.Close(), tc.ErrorIsNil)
 	return l.Addr().(*net.TCPAddr).Port
 }
 

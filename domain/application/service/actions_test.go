@@ -6,7 +6,6 @@ package service
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/domain/application/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -101,12 +100,12 @@ func (s *metadataSuite) TestConvertActions(c *tc.C) {
 		c.Logf("Running test case %q", tc.name)
 
 		result, err := decodeActions(tc.input)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(result, tc.DeepEquals, tc.output)
 
 		// Ensure that the conversion is idempotent.
 		converted, err := encodeActions(&result)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(converted, jc.DeepEquals, tc.input)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(converted, tc.DeepEquals, tc.input)
 	}
 }

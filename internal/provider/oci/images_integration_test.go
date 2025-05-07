@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 	"go.uber.org/mock/gomock"
 
@@ -224,8 +223,8 @@ func (s *imagesSuite) TestNewInstanceImageUbuntuMinimalNotSupported(c *tc.C) {
 
 	for _, test := range tests {
 		img, _, err := oci.NewInstanceImage(test.Image, &s.testCompartment)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(img.IsMinimal, jc.IsTrue)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(img.IsMinimal, tc.IsTrue)
 	}
 }
 

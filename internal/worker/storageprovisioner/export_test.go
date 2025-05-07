@@ -6,7 +6,6 @@ package storageprovisioner
 import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 )
 
@@ -25,7 +24,7 @@ func NewStorageWorker(c *tc.C, parent worker.Worker, appName string) {
 	cfg := p.config
 	cfg.Scope = names.NewApplicationTag(appName)
 	w, err := NewStorageProvisioner(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	p.saveApplicationWorker(appName, w)
 	_ = p.catacomb.Add(w)
 }

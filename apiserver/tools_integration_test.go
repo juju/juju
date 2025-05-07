@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	apiauthentication "github.com/juju/juju/api/authentication"
 	apitesting "github.com/juju/juju/apiserver/testing"
@@ -72,7 +71,7 @@ func assertResponse(c *tc.C, resp *http.Response, expStatus int) params.ToolsRes
 	body := apitesting.AssertResponse(c, resp, expStatus, params.ContentTypeJSON)
 	var toolsResponse params.ToolsResult
 	err := json.Unmarshal(body, &toolsResponse)
-	c.Assert(err, jc.ErrorIsNil, tc.Commentf("body: %s", body))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("body: %s", body))
 	return toolsResponse
 }
 
@@ -93,7 +92,7 @@ func (s *toolsWithMacaroonsIntegrationSuite) SetUpTest(c *tc.C) {
 
 	apiInfo := s.APIInfo(c)
 	baseURL, err := url.Parse(fmt.Sprintf("https://%s/", apiInfo.Addrs[0]))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.baseURL = baseURL
 	s.modelUUID = s.ControllerModelUUID()
@@ -147,7 +146,7 @@ func (s *toolsWithMacaroonsIntegrationSuite) TestCanPostWithLocalLogin(c *tc.C) 
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Install a "web-page" visitor that deals with the interaction
 	// method that Juju controllers support for authenticating local
@@ -183,7 +182,7 @@ func (s *toolsWithMacaroonsIntegrationSuite) TestCanPostWithLocalLogin(c *tc.C) 
 		Do:       bakeryDo,
 	})
 	s.assertJSONErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
-	c.Assert(prompted, jc.IsTrue)
+	c.Assert(prompted, tc.IsTrue)
 }
 
 // doer returns a Do function that can make a bakery request

@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coremodel "github.com/juju/juju/core/model"
@@ -58,7 +57,7 @@ func (s *importSuite) TestNoModelUserPermissions(c *tc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *importSuite) TestImport(c *tc.C) {
@@ -112,7 +111,7 @@ func (s *importSuite) TestImport(c *tc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestImportPermissionAlreadyExists tests that permissions that already exist
@@ -146,7 +145,7 @@ func (s *importSuite) TestImportPermissionAlreadyExists(c *tc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestImportPermissionUserDisabled tests that this error is returned to the
@@ -179,5 +178,5 @@ func (s *importSuite) TestImportPermissionUserDisabled(c *tc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIs, accesserrors.UserAuthenticationDisabled)
+	c.Assert(err, tc.ErrorIs, accesserrors.UserAuthenticationDisabled)
 }

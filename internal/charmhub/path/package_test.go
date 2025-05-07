@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 )
 
 func Test(t *testing.T) {
@@ -17,7 +16,7 @@ func Test(t *testing.T) {
 
 func MustParseURL(c *tc.C, path string) *url.URL {
 	u, err := url.Parse(path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return u
 }
 

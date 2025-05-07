@@ -6,7 +6,6 @@ package uuid
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 type uuidSuite struct {
@@ -22,7 +21,7 @@ func (*uuidSuite) TestUUID(c *tc.C) {
 	uuidRaw := uuid.Raw()
 	uuidStr := uuid.String()
 	c.Assert(uuidRaw, tc.HasLen, 16)
-	c.Assert(uuidStr, jc.Satisfies, IsValidUUIDString)
+	c.Assert(uuidStr, tc.Satisfies, IsValidUUIDString)
 	uuid[0] = 0x00
 	uuidCopy[0] = 0xFF
 	c.Assert(uuid, tc.Not(tc.DeepEquals), uuidCopy)

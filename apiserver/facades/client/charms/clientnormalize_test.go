@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/internal/charm"
@@ -34,7 +33,7 @@ func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginNoAll(c *tc.C) {
 		Architecture: "all",
 	}
 	obtained, err := normalizeCharmOrigin(context.Background(), origin, "amd64", loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	origin.Architecture = "amd64"
 	c.Assert(obtained, tc.DeepEquals, origin)
 }
@@ -50,7 +49,7 @@ func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginWithEmpty(c *tc.C) 
 		Base:         params.Base{Channel: "all"},
 	}
 	obtained, err := normalizeCharmOrigin(context.Background(), origin, "amd64", loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	origin.Architecture = "amd64"
 	origin.Base.Channel = ""
 	c.Assert(obtained, tc.DeepEquals, origin)
@@ -69,7 +68,7 @@ func (s *clientValidateOriginSuite) TestValidateOrigin(c *tc.C) {
 	}
 
 	err := validateOrigin(origin, charm.MustParseURL("ch:ubuntu"), false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *clientValidateOriginSuite) TestValidateOriginWithEmptyArch(c *tc.C) {

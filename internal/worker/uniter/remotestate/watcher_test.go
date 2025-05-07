@@ -9,7 +9,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/core/life"
@@ -136,7 +135,7 @@ func (s *WatcherSuiteIAAS) SetUpTest(c *tc.C) {
 	s.uniterClient.unit.instanceDataWatcher = newMockNotifyWatcher()
 
 	w, err := remotestate.NewWatcher(s.setupWatcherConfig(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.watcher = w
 }
@@ -148,7 +147,7 @@ func (s *WatcherSuiteSidecar) SetUpTest(c *tc.C) {
 	s.applicationWatcher = s.uniterClient.unit.application.applicationWatcher
 
 	w, err := remotestate.NewWatcher(s.setupWatcherConfig(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.watcher = w
 }
@@ -207,13 +206,13 @@ func (s *WatcherSuite) TearDownTest(c *tc.C) {
 	if s.watcher != nil {
 		s.watcher.Kill()
 		err := s.watcher.Wait()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }
 
 func (s *WatcherSuiteIAAS) TestInitialSnapshot(c *tc.C) {
 	snap := s.watcher.Snapshot()
-	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
+	c.Assert(snap, tc.DeepEquals, remotestate.Snapshot{
 		Relations:               map[int]remotestate.RelationSnapshot{},
 		Storage:                 map[names.StorageTag]remotestate.StorageSnapshot{},
 		ActionChanged:           map[string]int{},
@@ -224,7 +223,7 @@ func (s *WatcherSuiteIAAS) TestInitialSnapshot(c *tc.C) {
 
 func (s *WatcherSuiteSidecar) TestInitialSnapshot(c *tc.C) {
 	snap := s.watcher.Snapshot()
-	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
+	c.Assert(snap, tc.DeepEquals, remotestate.Snapshot{
 		Relations:               map[int]remotestate.RelationSnapshot{},
 		Storage:                 map[names.StorageTag]remotestate.StorageSnapshot{},
 		ActionChanged:           map[string]int{},
@@ -281,7 +280,7 @@ func (s *WatcherSuite) TestSnapshot(c *tc.C) {
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	snap := s.watcher.Snapshot()
-	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
+	c.Assert(snap, tc.DeepEquals, remotestate.Snapshot{
 		Life:                    s.uniterClient.unit.life,
 		Relations:               map[int]remotestate.RelationSnapshot{},
 		Storage:                 map[names.StorageTag]remotestate.StorageSnapshot{},
@@ -304,7 +303,7 @@ func (s *WatcherSuiteSidecar) TestSnapshot(c *tc.C) {
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	snap := s.watcher.Snapshot()
-	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
+	c.Assert(snap, tc.DeepEquals, remotestate.Snapshot{
 		Life:                    s.uniterClient.unit.life,
 		Relations:               map[int]remotestate.RelationSnapshot{},
 		Storage:                 map[names.StorageTag]remotestate.StorageSnapshot{},
@@ -352,17 +351,17 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *tc.C) {
 	secretURIs := []string{"secret:999e2mr0ui3e8a215n4g", "secret:9m4e2mr0ui3e8a215n4g", "secret:8b4e2mr1wi3e8a215n5h"}
 	rotateWatcher.ch <- secretURIs
 	assertOneChange()
-	c.Assert(s.watcher.Snapshot().SecretRotations, jc.DeepEquals, secretURIs)
+	c.Assert(s.watcher.Snapshot().SecretRotations, tc.DeepEquals, secretURIs)
 
 	expireWatcher := remotestate.SecretExpiryWatcherFunc(s.watcher).(*mockSecretTriggerWatcher)
 	secretRevisions := []string{"secret:999e2mr0ui3e8a215n4g/666", "secret:9m4e2mr0ui3e8a215n4g/667", "secret:8b4e2mr1wi3e8a215n5h/668"}
 	expireWatcher.ch <- secretRevisions
 	assertOneChange()
-	c.Assert(s.watcher.Snapshot().ExpiredSecretRevisions, jc.DeepEquals, secretRevisions)
+	c.Assert(s.watcher.Snapshot().ExpiredSecretRevisions, tc.DeepEquals, secretRevisions)
 
 	s.secretsClient.secretsWatcher.changes <- secretURIs
 	assertOneChange()
-	c.Assert(s.watcher.Snapshot().ConsumedSecretInfo, jc.DeepEquals, map[string]secrets.SecretRevisionInfo{
+	c.Assert(s.watcher.Snapshot().ConsumedSecretInfo, tc.DeepEquals, map[string]secrets.SecretRevisionInfo{
 		"secret:9m4e2mr0ui3e8a215n4g": {
 			LatestRevision: 666,
 			Label:          "label-secret:9m4e2mr0ui3e8a215n4g",
@@ -372,14 +371,14 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *tc.C) {
 			Label:          "label-secret:8b4e2mr1wi3e8a215n5h",
 		},
 	})
-	c.Assert(s.watcher.Snapshot().DeletedSecrets, jc.DeepEquals, []string{"secret:999e2mr0ui3e8a215n4g"})
+	c.Assert(s.watcher.Snapshot().DeletedSecrets, tc.DeepEquals, []string{"secret:999e2mr0ui3e8a215n4g"})
 
 	s.secretsClient.secretsRevisionsWatcher.changes <- []string{"secret:9m4e2mr0ui3e8a215n4g/666", "secret:9m4e2mr0ui3e8a215n4g/668", "secret:666e2mr0ui3e8a215n4g"}
 	assertOneChange()
-	c.Assert(s.watcher.Snapshot().ObsoleteSecretRevisions, jc.DeepEquals, map[string][]int{
+	c.Assert(s.watcher.Snapshot().ObsoleteSecretRevisions, tc.DeepEquals, map[string][]int{
 		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
 	})
-	c.Assert(s.watcher.Snapshot().DeletedSecrets, jc.DeepEquals, []string{"secret:666e2mr0ui3e8a215n4g", "secret:999e2mr0ui3e8a215n4g"})
+	c.Assert(s.watcher.Snapshot().DeletedSecrets, tc.DeepEquals, []string{"secret:666e2mr0ui3e8a215n4g", "secret:999e2mr0ui3e8a215n4g"})
 
 	s.uniterClient.unit.configSettingsWatcher.changes <- []string{"confighash2"}
 	assertOneChange()
@@ -399,7 +398,7 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *tc.C) {
 	s.uniterClient.unit.application.forceUpgrade = true
 	s.applicationWatcher.changes <- struct{}{}
 	assertOneChange()
-	c.Assert(s.watcher.Snapshot().ForceCharmUpgrade, jc.IsTrue)
+	c.Assert(s.watcher.Snapshot().ForceCharmUpgrade, tc.IsTrue)
 
 	s.clock.Advance(5 * time.Minute)
 	assertOneChange()
@@ -450,15 +449,15 @@ func (s *WatcherSuite) TestLeadershipChanged(c *tc.C) {
 	s.leadership.claimTicket.result = false
 	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(s.watcher.Snapshot().Leader, jc.IsFalse)
+	c.Assert(s.watcher.Snapshot().Leader, tc.IsFalse)
 
 	s.leadership.leaderTicket.ch <- struct{}{}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(s.watcher.Snapshot().Leader, jc.IsTrue)
+	c.Assert(s.watcher.Snapshot().Leader, tc.IsTrue)
 
 	s.leadership.minionTicket.ch <- struct{}{}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(s.watcher.Snapshot().Leader, jc.IsFalse)
+	c.Assert(s.watcher.Snapshot().Leader, tc.IsFalse)
 }
 
 func (s *WatcherSuite) TestLeadershipMinionUnchanged(c *tc.C) {
@@ -522,7 +521,7 @@ func (s *WatcherSuite) TestStorageChanged(c *tc.C) {
 	storageTag1Watcher.changes <- struct{}{}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
-	c.Assert(s.watcher.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
+	c.Assert(s.watcher.Snapshot().Storage, tc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
 		storageTag0: {
 			Life: life.Alive,
 		},
@@ -546,7 +545,7 @@ func (s *WatcherSuite) TestStorageChanged(c *tc.C) {
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	s.uniterClient.unit.storageWatcher.changes <- []string{"blob/1"}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(s.watcher.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
+	c.Assert(s.watcher.Snapshot().Storage, tc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
 		storageTag0: {
 			Life:     life.Dying,
 			Attached: true,
@@ -578,7 +577,7 @@ func (s *WatcherSuite) TestStorageUnattachedChanged(c *tc.C) {
 	storageTag0Watcher.changes <- struct{}{}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
-	c.Assert(s.watcher.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
+	c.Assert(s.watcher.Snapshot().Storage, tc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
 		storageTag0: {
 			Life: life.Alive,
 		},
@@ -595,7 +594,7 @@ func (s *WatcherSuite) TestStorageUnattachedChanged(c *tc.C) {
 	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
 	s.uniterClient.unit.storageWatcher.changes <- []string{"blob/0"}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(s.watcher.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
+	c.Assert(s.watcher.Snapshot().Storage, tc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
 		storageTag0: {
 			Life: life.Dying,
 		},
@@ -624,7 +623,7 @@ func (s *WatcherSuite) TestStorageAttachmentRemoved(c *tc.C) {
 	storageTag0Watcher.changes <- struct{}{}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
-	c.Assert(s.watcher.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
+	c.Assert(s.watcher.Snapshot().Storage, tc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
 		storageTag0: {
 			Life: life.Dying,
 		},
@@ -637,7 +636,7 @@ func (s *WatcherSuite) TestStorageAttachmentRemoved(c *tc.C) {
 	delete(s.uniterClient.storageAttachment, storageAttachmentId0)
 	storageTag0Watcher.changes <- struct{}{}
 	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
-	c.Assert(storageTag0Watcher.Stopped(), jc.IsTrue)
+	c.Assert(storageTag0Watcher.Stopped(), tc.IsTrue)
 	s.uniterClient.unit.storageWatcher.changes <- []string{"blob/0"}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(s.watcher.Snapshot().Storage, tc.HasLen, 0)
@@ -677,7 +676,7 @@ func (s *WatcherSuite) TestRelationsChanged(c *tc.C) {
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(
 		s.watcher.Snapshot().Relations,
-		jc.DeepEquals,
+		tc.DeepEquals,
 		map[int]remotestate.RelationSnapshot{
 			123: {
 				Life:               life.Alive,
@@ -701,7 +700,7 @@ func (s *WatcherSuite) TestRelationsChanged(c *tc.C) {
 	s.uniterClient.unit.relationsWatcher.changes <- []string{relationTag.Id()}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(s.watcher.Snapshot().Relations, tc.HasLen, 0)
-	c.Assert(s.uniterClient.relationUnitsWatchers[relationTag].Stopped(), jc.IsTrue)
+	c.Assert(s.uniterClient.relationUnitsWatchers[relationTag].Stopped(), tc.IsTrue)
 }
 
 func (s *WatcherSuite) TestRelationsSuspended(c *tc.C) {
@@ -724,8 +723,8 @@ func (s *WatcherSuite) TestRelationsSuspended(c *tc.C) {
 	s.uniterClient.relations[relationTag].suspended = true
 	s.uniterClient.unit.relationsWatcher.changes <- []string{relationTag.Id()}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(s.watcher.Snapshot().Relations[123].Suspended, jc.IsTrue)
-	c.Assert(s.uniterClient.relationUnitsWatchers[relationTag].Stopped(), jc.IsTrue)
+	c.Assert(s.watcher.Snapshot().Relations[123].Suspended, tc.IsTrue)
+	c.Assert(s.uniterClient.relationUnitsWatchers[relationTag].Stopped(), tc.IsTrue)
 }
 
 func (s *WatcherSuite) TestRelationUnitsChanged(c *tc.C) {
@@ -751,12 +750,12 @@ func (s *WatcherSuite) TestRelationUnitsChanged(c *tc.C) {
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert( // Members is updated
 		s.watcher.Snapshot().Relations[123].Members,
-		jc.DeepEquals,
+		tc.DeepEquals,
 		map[string]int64{"mysql/1": 2, "mysql/2": 1},
 	)
 	c.Assert( // ApplicationMembers doesn't change
 		s.watcher.Snapshot().Relations[123].ApplicationMembers,
-		jc.DeepEquals,
+		tc.DeepEquals,
 		map[string]int64{"mysql": 1},
 	)
 
@@ -766,12 +765,12 @@ func (s *WatcherSuite) TestRelationUnitsChanged(c *tc.C) {
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert( // Members doesn't change
 		s.watcher.Snapshot().Relations[123].Members,
-		jc.DeepEquals,
+		tc.DeepEquals,
 		map[string]int64{"mysql/1": 2, "mysql/2": 1},
 	)
 	c.Assert( // But ApplicationMembers is updated
 		s.watcher.Snapshot().Relations[123].ApplicationMembers,
-		jc.DeepEquals,
+		tc.DeepEquals,
 		map[string]int64{"mysql": 2},
 	)
 
@@ -781,7 +780,7 @@ func (s *WatcherSuite) TestRelationUnitsChanged(c *tc.C) {
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(
 		s.watcher.Snapshot().Relations[123].Members,
-		jc.DeepEquals,
+		tc.DeepEquals,
 		map[string]int64{"mysql/2": 1},
 	)
 }
@@ -806,7 +805,7 @@ func (s *WatcherSuite) TestRelationUnitsDontLeakReferences(c *tc.C) {
 	snapshot.Relations[123].Members["pwned"] = 2600
 	c.Assert(
 		s.watcher.Snapshot().Relations[123].Members,
-		jc.DeepEquals,
+		tc.DeepEquals,
 		map[string]int64{"mysql/1": 1},
 	)
 }
@@ -890,7 +889,7 @@ func (s *WatcherSuiteSidecar) TestWatcherConfig(c *tc.C) {
 		Sidecar:   true,
 		Logger:    loggertesting.WrapCheckLog(c),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *WatcherSuite) TestWatcherConfigMissingLogger(c *tc.C) {
@@ -932,17 +931,17 @@ func (s *WatcherSuiteSidecarCharmModVer) TestRemoteStateChanged(c *tc.C) {
 	secretURIs := []string{"secret:999e2mr0ui3e8a215n4g", "secret:9m4e2mr0ui3e8a215n4g", "secret:8b4e2mr1wi3e8a215n5h"}
 	rotateWatcher.ch <- secretURIs
 	assertOneChange()
-	c.Assert(s.watcher.Snapshot().SecretRotations, jc.DeepEquals, secretURIs)
+	c.Assert(s.watcher.Snapshot().SecretRotations, tc.DeepEquals, secretURIs)
 
 	expireWatcher := remotestate.SecretExpiryWatcherFunc(s.watcher).(*mockSecretTriggerWatcher)
 	secretRevisions := []string{"secret:999e2mr0ui3e8a215n4g/666", "secret:9m4e2mr0ui3e8a215n4g/667", "secret:8b4e2mr1wi3e8a215n5h/668"}
 	expireWatcher.ch <- secretRevisions
 	assertOneChange()
-	c.Assert(s.watcher.Snapshot().ExpiredSecretRevisions, jc.DeepEquals, secretRevisions)
+	c.Assert(s.watcher.Snapshot().ExpiredSecretRevisions, tc.DeepEquals, secretRevisions)
 
 	s.secretsClient.secretsWatcher.changes <- secretURIs
 	assertOneChange()
-	c.Assert(s.watcher.Snapshot().ConsumedSecretInfo, jc.DeepEquals, map[string]secrets.SecretRevisionInfo{
+	c.Assert(s.watcher.Snapshot().ConsumedSecretInfo, tc.DeepEquals, map[string]secrets.SecretRevisionInfo{
 		"secret:9m4e2mr0ui3e8a215n4g": {
 			LatestRevision: 666,
 			Label:          "label-secret:9m4e2mr0ui3e8a215n4g",
@@ -952,14 +951,14 @@ func (s *WatcherSuiteSidecarCharmModVer) TestRemoteStateChanged(c *tc.C) {
 			Label:          "label-secret:8b4e2mr1wi3e8a215n5h",
 		},
 	})
-	c.Assert(s.watcher.Snapshot().DeletedSecrets, jc.DeepEquals, []string{"secret:999e2mr0ui3e8a215n4g"})
+	c.Assert(s.watcher.Snapshot().DeletedSecrets, tc.DeepEquals, []string{"secret:999e2mr0ui3e8a215n4g"})
 
 	s.secretsClient.secretsRevisionsWatcher.changes <- []string{"secret:9m4e2mr0ui3e8a215n4g/666", "secret:9m4e2mr0ui3e8a215n4g/668", "secret:666e2mr0ui3e8a215n4g"}
 	assertOneChange()
-	c.Assert(s.watcher.Snapshot().ObsoleteSecretRevisions, jc.DeepEquals, map[string][]int{
+	c.Assert(s.watcher.Snapshot().ObsoleteSecretRevisions, tc.DeepEquals, map[string][]int{
 		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
 	})
-	c.Assert(s.watcher.Snapshot().DeletedSecrets, jc.DeepEquals, []string{"secret:666e2mr0ui3e8a215n4g", "secret:999e2mr0ui3e8a215n4g"})
+	c.Assert(s.watcher.Snapshot().DeletedSecrets, tc.DeepEquals, []string{"secret:666e2mr0ui3e8a215n4g", "secret:999e2mr0ui3e8a215n4g"})
 
 	s.uniterClient.unit.applicationConfigSettingsWatcher.changes <- []string{"trusthash2"}
 	assertOneChange()
@@ -991,7 +990,7 @@ func (s *WatcherSuiteSidecarCharmModVer) TestSnapshot(c *tc.C) {
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	snap := s.watcher.Snapshot()
-	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
+	c.Assert(snap, tc.DeepEquals, remotestate.Snapshot{
 		Life:                    s.uniterClient.unit.life,
 		Relations:               map[int]remotestate.RelationSnapshot{},
 		Storage:                 map[names.StorageTag]remotestate.StorageSnapshot{},
@@ -1044,7 +1043,7 @@ func (s *WatcherSuite) TestInitialWorkloadEventIDs(c *tc.C) {
 		Logger:                  loggertesting.WrapCheckLog(c),
 	}
 	w, err := remotestate.NewWatcher(config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	snapshot := w.Snapshot()
 	c.Assert(snapshot.WorkloadEvents, tc.DeepEquals, []string{"a", "b", "c"})
@@ -1055,7 +1054,7 @@ func (s *WatcherSuite) TestShutdown(c *tc.C) {
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	snap := s.watcher.Snapshot()
-	c.Assert(snap.Shutdown, jc.IsFalse)
+	c.Assert(snap.Shutdown, tc.IsFalse)
 
 	select {
 	case s.shutdownChannel <- true:
@@ -1065,7 +1064,7 @@ func (s *WatcherSuite) TestShutdown(c *tc.C) {
 
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	snap = s.watcher.Snapshot()
-	c.Assert(snap.Shutdown, jc.IsTrue)
+	c.Assert(snap.Shutdown, tc.IsTrue)
 }
 
 func (s *WatcherSuite) TestRotateSecretsSignal(c *tc.C) {
@@ -1181,7 +1180,7 @@ func (s *WatcherSuite) TestLeaderRunsSecretTriggerWatchers(c *tc.C) {
 	s.leadership.claimTicket.result = false
 	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(s.watcher.Snapshot().Leader, jc.IsFalse)
+	c.Assert(s.watcher.Snapshot().Leader, tc.IsFalse)
 
 	s.leadership.leaderTicket.ch <- struct{}{}
 
@@ -1193,17 +1192,17 @@ func (s *WatcherSuite) TestLeaderRunsSecretTriggerWatchers(c *tc.C) {
 	}
 
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(s.watcher.Snapshot().Leader, jc.IsTrue)
+	c.Assert(s.watcher.Snapshot().Leader, tc.IsTrue)
 
 	rotateWatcher := remotestate.SecretRotateWatcher(s.watcher).(*mockSecretTriggerWatcher)
 	rotateWatcher.ch <- []string{"secret:8b4e2mr1wi3e8a215n5h"}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(s.watcher.Snapshot().SecretRotations, jc.DeepEquals, []string{"secret:8b4e2mr1wi3e8a215n5h"})
+	c.Assert(s.watcher.Snapshot().SecretRotations, tc.DeepEquals, []string{"secret:8b4e2mr1wi3e8a215n5h"})
 
 	expiryWatcher := remotestate.SecretExpiryWatcherFunc(s.watcher).(*mockSecretTriggerWatcher)
 	expiryWatcher.ch <- []string{"secret:8b4e2mr1wi3e8a215n5h/666"}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(s.watcher.Snapshot().ExpiredSecretRevisions, jc.DeepEquals, []string{"secret:8b4e2mr1wi3e8a215n5h/666"})
+	c.Assert(s.watcher.Snapshot().ExpiredSecretRevisions, tc.DeepEquals, []string{"secret:8b4e2mr1wi3e8a215n5h/666"})
 
 	// When not a leader anymore, stop the worker.
 	s.leadership.minionTicket.ch <- struct{}{}
@@ -1218,5 +1217,5 @@ func (s *WatcherSuite) TestLeaderRunsSecretTriggerWatchers(c *tc.C) {
 	c.Assert(s.watcher.Snapshot().ExpiredSecretRevisions, tc.HasLen, 0)
 
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(s.watcher.Snapshot().Leader, jc.IsFalse)
+	c.Assert(s.watcher.Snapshot().Leader, tc.IsFalse)
 }

@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/unit"
@@ -29,14 +28,14 @@ func (s *serviceSuite) TestSetUnitPassword(c *tc.C) {
 
 	unitName := unit.Name("unit/0")
 	password, err := internalpassword.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.state.EXPECT().SetUnitPasswordHash(gomock.Any(), unitUUID, hashPassword(password)).Return(nil)
 
 	service := NewService(s.state)
 	err = service.SetUnitPassword(context.Background(), unitName, password)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestSetUnitPasswordUnitNotFound(c *tc.C) {
@@ -46,13 +45,13 @@ func (s *serviceSuite) TestSetUnitPasswordUnitNotFound(c *tc.C) {
 
 	unitName := unit.Name("unit/0")
 	password, err := internalpassword.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, agentpassworderrors.UnitNotFound)
 
 	service := NewService(s.state)
 	err = service.SetUnitPassword(context.Background(), unitName, password)
-	c.Assert(err, jc.ErrorIs, agentpassworderrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, agentpassworderrors.UnitNotFound)
 }
 
 func (s *serviceSuite) TestSetUnitPasswordInvalidName(c *tc.C) {
@@ -60,11 +59,11 @@ func (s *serviceSuite) TestSetUnitPasswordInvalidName(c *tc.C) {
 
 	unitName := unit.Name("!!!")
 	password, err := internalpassword.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	service := NewService(s.state)
 	err = service.SetUnitPassword(context.Background(), unitName, password)
-	c.Assert(err, jc.ErrorIs, unit.InvalidUnitName)
+	c.Assert(err, tc.ErrorIs, unit.InvalidUnitName)
 }
 
 func (s *serviceSuite) TestSetUnitPasswordInvalidPassword(c *tc.C) {
@@ -85,15 +84,15 @@ func (s *serviceSuite) TestMatchesUnitPasswordHash(c *tc.C) {
 
 	unitName := unit.Name("unit/0")
 	password, err := internalpassword.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.state.EXPECT().MatchesUnitPasswordHash(gomock.Any(), unitUUID, hashPassword(password)).Return(true, nil)
 
 	service := NewService(s.state)
 	valid, err := service.MatchesUnitPasswordHash(context.Background(), unitName, password)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(valid, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(valid, tc.IsTrue)
 }
 
 func (s *serviceSuite) TestMatchesUnitPasswordHashUnitNotFound(c *tc.C) {
@@ -103,13 +102,13 @@ func (s *serviceSuite) TestMatchesUnitPasswordHashUnitNotFound(c *tc.C) {
 
 	unitName := unit.Name("unit/0")
 	password, err := internalpassword.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, agentpassworderrors.UnitNotFound)
 
 	service := NewService(s.state)
 	_, err = service.MatchesUnitPasswordHash(context.Background(), unitName, password)
-	c.Assert(err, jc.ErrorIs, agentpassworderrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, agentpassworderrors.UnitNotFound)
 }
 
 func (s *serviceSuite) TestMatchesUnitPasswordHashInvalidName(c *tc.C) {
@@ -117,11 +116,11 @@ func (s *serviceSuite) TestMatchesUnitPasswordHashInvalidName(c *tc.C) {
 
 	unitName := unit.Name("!!!")
 	password, err := internalpassword.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	service := NewService(s.state)
 	_, err = service.MatchesUnitPasswordHash(context.Background(), unitName, password)
-	c.Assert(err, jc.ErrorIs, unit.InvalidUnitName)
+	c.Assert(err, tc.ErrorIs, unit.InvalidUnitName)
 }
 
 func (s *serviceSuite) TestMatchesUnitPasswordHashEmptyPassword(c *tc.C) {
@@ -131,7 +130,7 @@ func (s *serviceSuite) TestMatchesUnitPasswordHashEmptyPassword(c *tc.C) {
 
 	service := NewService(s.state)
 	_, err := service.MatchesUnitPasswordHash(context.Background(), unitName, "")
-	c.Assert(err, jc.ErrorIs, agentpassworderrors.EmptyPassword)
+	c.Assert(err, tc.ErrorIs, agentpassworderrors.EmptyPassword)
 }
 
 func (s *serviceSuite) TestMatchesUnitPasswordHashInvalidPassword(c *tc.C) {
@@ -141,7 +140,7 @@ func (s *serviceSuite) TestMatchesUnitPasswordHashInvalidPassword(c *tc.C) {
 
 	service := NewService(s.state)
 	_, err := service.MatchesUnitPasswordHash(context.Background(), unitName, "abc")
-	c.Assert(err, jc.ErrorIs, agentpassworderrors.InvalidPassword)
+	c.Assert(err, tc.ErrorIs, agentpassworderrors.InvalidPassword)
 }
 
 func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {

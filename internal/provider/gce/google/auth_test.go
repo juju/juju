@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	jujuhttp "github.com/juju/juju/internal/http"
 )
@@ -20,17 +19,17 @@ var _ = tc.Suite(&authSuite{})
 
 func (s *authSuite) TestNewComputeService(c *tc.C) {
 	_, err := newComputeService(context.Background(), s.Credentials, jujuhttp.NewClient())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *authSuite) TestCreateJWTConfig(c *tc.C) {
 	cfg, err := newJWTConfig(s.Credentials)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.Scopes, jc.DeepEquals, scopes)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.Scopes, tc.DeepEquals, scopes)
 }
 
 func (s *authSuite) TestCreateJWTConfigWithNoJSONKey(c *tc.C) {
 	cfg, err := newJWTConfig(&Credentials{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.Scopes, jc.DeepEquals, scopes)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.Scopes, tc.DeepEquals, scopes)
 }

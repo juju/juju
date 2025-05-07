@@ -8,11 +8,10 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 )
 
 func AuthCheck(c *tc.C, mm *ModelManagerAPI, user names.UserTag) bool {
 	err := mm.authCheck(context.Background(), user)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return mm.isAdmin
 }

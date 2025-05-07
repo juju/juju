@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/life"
@@ -54,7 +53,7 @@ func (s *resolverSuite) TestNextOpAcceptLeader(c *tc.C) {
 	}, remotestate.Snapshot{
 		Leader: true,
 	}, f)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.Equals, op)
 }
 
@@ -72,7 +71,7 @@ func (s *resolverSuite) TestNextOpResignLeader(c *tc.C) {
 	result, err := r.NextOp(context.Background(), resolver.LocalState{
 		State: operation.State{Installed: true, Leader: true, Kind: operation.Continue},
 	}, remotestate.Snapshot{}, f)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.Equals, op)
 }
 
@@ -92,6 +91,6 @@ func (s *resolverSuite) TestNextOpResignLeaderDying(c *tc.C) {
 	}, remotestate.Snapshot{
 		Leader: true, Life: life.Dying,
 	}, f)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.Equals, op)
 }

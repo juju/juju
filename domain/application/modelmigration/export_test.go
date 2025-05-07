@@ -9,7 +9,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	charmtesting "github.com/juju/juju/core/charm/testing"
@@ -40,7 +39,7 @@ func (s *exportApplicationSuite) TestApplicationExportEmpty(c *tc.C) {
 
 	model := description.NewModel(description.ModelArgs{})
 	err := exportOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(model.Applications(), tc.HasLen, 0)
 }
 
@@ -127,7 +126,7 @@ func (s *exportApplicationSuite) TestApplicationExportMultipleApplications(c *tc
 
 	model := description.NewModel(description.ModelArgs{})
 	err := exportOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(model.Applications(), tc.HasLen, 2)
 
 	apps := model.Applications()
@@ -139,12 +138,12 @@ func (s *exportApplicationSuite) TestApplicationExportMultipleApplications(c *tc
 
 	// Check that the scaling state is not set for the first application.
 	c.Check(apps[0].ProvisioningState().ScaleTarget(), tc.Equals, 0)
-	c.Check(apps[0].ProvisioningState().Scaling(), jc.IsFalse)
+	c.Check(apps[0].ProvisioningState().Scaling(), tc.IsFalse)
 	c.Check(apps[0].DesiredScale(), tc.Equals, 0)
 
 	// Check that the scaling state is set for the second application.
 	c.Check(apps[1].ProvisioningState().ScaleTarget(), tc.Equals, 2)
-	c.Check(apps[1].ProvisioningState().Scaling(), jc.IsTrue)
+	c.Check(apps[1].ProvisioningState().Scaling(), tc.IsTrue)
 	c.Check(apps[1].DesiredScale(), tc.Equals, 1)
 }
 
@@ -182,7 +181,7 @@ func (s *exportApplicationSuite) TestApplicationExportUnits(c *tc.C) {
 	err := exportOp.Execute(context.Background(), model)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(model.Applications(), tc.HasLen, 1)
 
 	apps := model.Applications()
@@ -233,7 +232,7 @@ func (s *exportApplicationSuite) TestApplicationExportConstraints(c *tc.C) {
 	model := description.NewModel(description.ModelArgs{})
 
 	err := exportOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(model.Applications(), tc.HasLen, 1)
 
 	app := model.Applications()[0]
@@ -295,12 +294,12 @@ func (s *exportApplicationSuite) TestExportScalingState(c *tc.C) {
 	model := description.NewModel(description.ModelArgs{})
 
 	err := exportOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(model.Applications(), tc.HasLen, 1)
 
 	app := model.Applications()[0]
 	c.Check(app.ProvisioningState().ScaleTarget(), tc.Equals, 42)
-	c.Check(app.ProvisioningState().Scaling(), jc.IsTrue)
+	c.Check(app.ProvisioningState().Scaling(), tc.IsTrue)
 	c.Check(app.DesiredScale(), tc.Equals, 1)
 }
 
@@ -328,14 +327,14 @@ func (s *exportApplicationSuite) TestApplicationExportExposedEndpoints(c *tc.C) 
 	model := description.NewModel(description.ModelArgs{})
 
 	err := exportOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(model.Applications(), tc.HasLen, 1)
 
 	app := model.Applications()[0]
 	c.Check(app.ExposedEndpoints(), tc.HasLen, 2)
-	c.Check(app.ExposedEndpoints()[""].ExposeToSpaceIDs(), jc.SameContents, []string{"beta"})
-	c.Check(app.ExposedEndpoints()["foo"].ExposeToSpaceIDs(), jc.SameContents, []string{"space0", "space1"})
-	c.Check(app.ExposedEndpoints()["foo"].ExposeToCIDRs(), jc.SameContents, []string{"10.0.0.0/24", "10.0.1.0/24"})
+	c.Check(app.ExposedEndpoints()[""].ExposeToSpaceIDs(), tc.SameContents, []string{"beta"})
+	c.Check(app.ExposedEndpoints()["foo"].ExposeToSpaceIDs(), tc.SameContents, []string{"space0", "space1"})
+	c.Check(app.ExposedEndpoints()["foo"].ExposeToCIDRs(), tc.SameContents, []string{"10.0.0.0/24", "10.0.1.0/24"})
 }
 
 func (s *exportApplicationSuite) TestApplicationExportEndpointBindings(c *tc.C) {
@@ -374,7 +373,7 @@ func (s *exportApplicationSuite) TestApplicationExportEndpointBindings(c *tc.C) 
 	err := exportOp.Execute(context.Background(), model)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(model.Applications(), tc.HasLen, 1)
 
 	app := model.Applications()[0]

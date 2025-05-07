@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/container/lxd"
 	lxdtesting "github.com/juju/juju/internal/container/lxd/testing"
@@ -23,18 +22,18 @@ type certSuite struct {
 
 func (s *certSuite) TestGenerateClientCertificate(c *tc.C) {
 	cert, err := lxd.GenerateClientCertificate()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cert.Validate(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cert.Validate(), tc.ErrorIsNil)
 }
 
 func (s *certSuite) TestValidateMissingCertPEM(c *tc.C) {
 	cert := lxd.NewCertificate([]byte(testCertPEM), nil)
-	c.Check(cert.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cert.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *certSuite) TestValidateMissingKeyPEM(c *tc.C) {
 	cert := lxd.NewCertificate(nil, []byte(testKeyPEM))
-	c.Check(cert.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cert.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *certSuite) TestWriteCertPEM(c *tc.C) {
@@ -42,7 +41,7 @@ func (s *certSuite) TestWriteCertPEM(c *tc.C) {
 
 	var buf bytes.Buffer
 	err := cert.WriteCertPEM(&buf)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(buf.String(), tc.Equals, testCertPEM)
 }
 
@@ -51,14 +50,14 @@ func (s *certSuite) TestWriteKeyPEM(c *tc.C) {
 
 	var buf bytes.Buffer
 	err := cert.WriteKeyPEM(&buf)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(buf.String(), tc.Equals, testKeyPEM)
 }
 
 func (s *certSuite) TestFingerprint(c *tc.C) {
 	cert := lxd.NewCertificate([]byte(testCertPEM), []byte(testKeyPEM))
 	fingerprint, err := cert.Fingerprint()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(fingerprint, tc.Equals, testCertFingerprint)
 }
@@ -66,7 +65,7 @@ func (s *certSuite) TestFingerprint(c *tc.C) {
 func (s *certSuite) TestX509Okay(c *tc.C) {
 	cert := lxd.NewCertificate([]byte(testCertPEM), []byte(testKeyPEM))
 	x509Cert, err := cert.X509()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	block, _ := pem.Decode([]byte(testCertPEM))
 	c.Assert(block, tc.NotNil)
@@ -89,7 +88,7 @@ func (s *certSuite) TestAsCreateRequestValidCert(c *tc.C) {
 	cert := lxd.NewCertificate([]byte(testCertPEM), []byte(testKeyPEM))
 	cert.Name = "juju-client-cert"
 	req, err := cert.AsCreateRequest()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(req.Name, tc.Equals, "juju-client-cert")
 	c.Check(req.Type, tc.Equals, "client")

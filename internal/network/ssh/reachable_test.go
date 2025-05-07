@@ -9,7 +9,6 @@ import (
 
 	_ "github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/network/ssh"
@@ -57,7 +56,7 @@ func (s *SSHReachableHostPortSuite) TestReachableValidPublicKey(c *tc.C) {
 	}
 	checker := makeChecker()
 	best, err := checker.FindHost(hostPorts, []string{sshtesting.SSHPub1})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(best, tc.Equals, hostPorts[0])
 }
 
@@ -73,8 +72,8 @@ func (s *SSHReachableHostPortSuite) TestReachableMixedPublicKeys(c *tc.C) {
 	}
 	checker := makeChecker()
 	best, err := checker.FindHost(hostPorts, []string{sshtesting.SSHPub1})
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(best, jc.DeepEquals, hostPorts[3])
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(best, tc.DeepEquals, hostPorts[3])
 }
 
 func (s *SSHReachableHostPortSuite) TestReachableNoPublicKeysPassed(c *tc.C) {
@@ -87,8 +86,8 @@ func (s *SSHReachableHostPortSuite) TestReachableNoPublicKeysPassed(c *tc.C) {
 	checker := makeChecker()
 	// Without a list of public keys, we should just check that the remote host is an SSH server
 	best, err := checker.FindHost(hostPorts, nil)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(best, jc.DeepEquals, hostPorts[2]) // the only real ssh server
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(best, tc.DeepEquals, hostPorts[2]) // the only real ssh server
 }
 
 func (s *SSHReachableHostPortSuite) TestReachableNoPublicKeysAvailable(c *tc.C) {
@@ -109,7 +108,7 @@ func (s *SSHReachableHostPortSuite) TestMultiplePublicKeys(c *tc.C) {
 	}
 	checker := makeChecker()
 	best, err := checker.FindHost(hostPorts, []string{sshtesting.SSHPub1, sshtesting.SSHPub2})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(best, tc.Equals, hostPorts[0])
 }
 
@@ -120,11 +119,11 @@ func closedTCPHostPorts(c *tc.C, count int) network.HostPorts {
 	ports := make(network.MachineHostPorts, count)
 	for i := 0; i < count; i++ {
 		listener, err := net.Listen("tcp", "127.0.0.1:0")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		defer func() { _ = listener.Close() }()
 		listenAddress := listener.Addr().String()
 		port, err := network.ParseMachineHostPort(listenAddress)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		ports[i] = *port
 	}
 	// By the time we return all the listeners are closed
@@ -142,7 +141,7 @@ func testTCPServer(c *tc.C, cleaner Cleaner) network.HostPort {
 		_ = tcpConn.Close()
 	})
 	hostPort, err := network.ParseMachineHostPort(listenAddress)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cleaner.AddCleanup(func(*tc.C) { close(shutdown) })
 
 	return *hostPort
@@ -153,7 +152,7 @@ func testTCPServer(c *tc.C, cleaner Cleaner) network.HostPort {
 func testSSHServer(c *tc.C, cleaner Cleaner, privateKeys ...string) network.HostPort {
 	address, shutdown := sshtesting.CreateSSHServer(c, privateKeys...)
 	hostPort, err := network.ParseMachineHostPort(address)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cleaner.AddCleanup(func(*tc.C) { close(shutdown) })
 
 	return *hostPort

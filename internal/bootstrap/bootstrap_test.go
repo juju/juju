@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 type BootstrapSuite struct {
@@ -29,7 +28,7 @@ func (s *BootstrapSuite) TestBootstrapParamsPath(c *tc.C) {
 func (s *BootstrapSuite) TestIsBootstrapController(c *tc.C) {
 	dir := c.MkDir()
 	_, err := os.Create(filepath.Join(dir, "bootstrap-params"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(IsBootstrapController(dir), tc.Equals, true)
 }

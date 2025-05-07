@@ -21,7 +21,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/semversion"
@@ -276,12 +275,12 @@ func (s *simplestreamsSuite) TestFetch(c *tc.C) {
 		invalidSource := sstesting.InvalidDataSource(s.RequireSigned)
 		ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 		toolsMetadata, resolveInfo, err := tools.Fetch(context.Background(), ss, []simplestreams.DataSource{invalidSource, s.Source}, toolsConstraint)
-		if !c.Check(err, jc.ErrorIsNil) {
+		if !c.Check(err, tc.ErrorIsNil) {
 			continue
 		}
 		for _, tm := range t.tools {
 			tm.FullPath, err = s.Source.URL(tm.Path)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
 		c.Check(toolsMetadata, tc.DeepEquals, t.tools)
 		c.Check(resolveInfo, tc.DeepEquals, &simplestreams.ResolveInfo{
@@ -316,7 +315,7 @@ func (s *simplestreamsSuite) TestFetchWithMirror(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	toolsMetadata, resolveInfo, err := tools.Fetch(context.Background(), ss,
 		[]simplestreams.DataSource{s.Source}, toolsConstraint)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(toolsMetadata), tc.Equals, 1)
 
 	expectedMetadata := &tools.ToolsMetadata{
@@ -329,7 +328,7 @@ func (s *simplestreamsSuite) TestFetchWithMirror(c *tc.C) {
 		FileType: "tar.gz",
 		SHA256:   "447aeb6a934a5eaec4f703eda4ef2dde",
 	}
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(toolsMetadata[0], tc.DeepEquals, expectedMetadata)
 	c.Assert(resolveInfo, tc.DeepEquals, &simplestreams.ResolveInfo{
 		Source:    "test",
@@ -373,7 +372,7 @@ func (s *simplestreamsSuite) TestWriteMetadataNoFetch(c *tc.C) {
 	// We need to support this case for times when a new Ubuntu os type
 	// is released and jujud does not know about it yet.
 	vers, err := semversion.ParseBinary("3.2.1-xuanhuaceratops-amd64")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	toolsList = append(toolsList, &coretools.Tools{
 		Version: vers,
 		Size:    456,
@@ -382,10 +381,10 @@ func (s *simplestreamsSuite) TestWriteMetadataNoFetch(c *tc.C) {
 
 	dir := c.MkDir()
 	writer, err := filestorage.NewFileStorageWriter(dir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	err = tools.MergeAndWriteMetadata(context.Background(), ss, writer, "proposed", "proposed", toolsList, tools.DoNotWriteMirrors)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	metadata := toolstesting.ParseMetadataFromDir(c, dir, "proposed", false)
 	assertMetadataMatches(c, "proposed", expected, metadata)
 }
@@ -411,14 +410,14 @@ func (s *simplestreamsSuite) assertWriteMetadata(c *tc.C, withMirrors bool) {
 		},
 	}
 	writer, err := filestorage.NewFileStorageWriter(dir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	writeMirrors := tools.DoNotWriteMirrors
 	if withMirrors {
 		writeMirrors = tools.WriteMirrors
 	}
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	err = tools.MergeAndWriteMetadata(context.Background(), ss, writer, "proposed", "proposed", toolsList, writeMirrors)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	metadata := toolstesting.ParseMetadataFromDir(c, dir, "proposed", withMirrors)
 	assertMetadataMatches(c, "proposed", toolsList, metadata)
@@ -450,11 +449,11 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *tc.C) {
 		},
 	}
 	writer, err := filestorage.NewFileStorageWriter(dir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	err = tools.MergeAndWriteMetadata(context.Background(), ss, writer, "testing", "testing", existingToolsList, tools.WriteMirrors)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newToolsList := coretools.List{
 		existingToolsList[0],
@@ -465,13 +464,13 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *tc.C) {
 		},
 	}
 	err = tools.MergeAndWriteMetadata(context.Background(), ss, writer, "testing", "testing", newToolsList, tools.WriteMirrors)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	requiredToolsList := append(existingToolsList, newToolsList[1])
 	metadata := toolstesting.ParseMetadataFromDir(c, dir, "testing", true)
 	assertMetadataMatches(c, "testing", requiredToolsList, metadata)
 
 	err = tools.MergeAndWriteMetadata(context.Background(), ss, writer, "devel", "devel", newToolsList, tools.WriteMirrors)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	metadata = toolstesting.ParseMetadataFromDir(c, dir, "testing", true)
 	assertMetadataMatches(c, "testing", requiredToolsList, metadata)
@@ -509,7 +508,7 @@ func (s *productSpecSuite) TestProductId(c *tc.C) {
 		Arches:   []string{"amd64"},
 	})
 	ids, err := toolsConstraint.ProductIds()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ids, tc.DeepEquals, []string{"com.ubuntu.juju:ubuntu:amd64"})
 }
 
@@ -519,7 +518,7 @@ func (s *productSpecSuite) TestIdMultiArch(c *tc.C) {
 		Arches:   []string{"amd64", "arm"},
 	})
 	ids, err := toolsConstraint.ProductIds()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ids, tc.DeepEquals, []string{
 		"com.ubuntu.juju:ubuntu:amd64",
 		"com.ubuntu.juju:ubuntu:arm"})
@@ -532,7 +531,7 @@ func (s *productSpecSuite) TestIdMultiOSType(c *tc.C) {
 		Stream:   "released",
 	})
 	ids, err := toolsConstraint.ProductIds()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ids, tc.DeepEquals, []string{
 		"com.ubuntu.juju:ubuntu:amd64",
 		"com.ubuntu.juju:windows:amd64"})
@@ -545,7 +544,7 @@ func (s *productSpecSuite) TestIdIgnoresInvalidOSType(c *tc.C) {
 		Stream:   "released",
 	})
 	ids, err := toolsConstraint.ProductIds()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ids, tc.DeepEquals, []string{"com.ubuntu.juju:ubuntu:amd64"})
 }
 
@@ -556,7 +555,7 @@ func (s *productSpecSuite) TestIdWithMajorVersionOnly(c *tc.C) {
 		Stream:   "released",
 	})
 	ids, err := toolsConstraint.ProductIds()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ids, tc.DeepEquals, []string{`com.ubuntu.juju:ubuntu:amd64`})
 }
 
@@ -567,7 +566,7 @@ func (s *productSpecSuite) TestIdWithMajorMinorVersion(c *tc.C) {
 		Stream:   "released",
 	})
 	ids, err := toolsConstraint.ProductIds()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ids, tc.DeepEquals, []string{`com.ubuntu.juju:ubuntu:amd64`})
 }
 
@@ -598,7 +597,7 @@ func (s *productSpecSuite) TestLargeNumber(c *tc.C) {
         }
     }`
 	cloudMetadata, err := simplestreams.ParseCloudMetadata([]byte(json), "products:1.0", "", tools.ToolsMetadata{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cloudMetadata.Products, tc.HasLen, 1)
 	product := cloudMetadata.Products["com.ubuntu.juju:1.10.0:amd64"]
 	c.Assert(product, tc.NotNil)
@@ -670,15 +669,15 @@ func (*metadataHelperSuite) TestResolveMetadata(c *tc.C) {
 	}}
 
 	stor, err := filestorage.NewFileStorageReader(dir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = tools.ResolveMetadata(stor, "released", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// We already have size/sha256, so ensure that storage isn't consulted.
 	countingStorage := &countingStorage{StorageReader: stor}
 	metadata := tools.MetadataFromTools(toolsList, "released")
 	err = tools.ResolveMetadata(countingStorage, "released", metadata)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(countingStorage.counter, tc.Equals, 0)
 
 	// Now clear size/sha256, and check that it is called, and
@@ -686,7 +685,7 @@ func (*metadataHelperSuite) TestResolveMetadata(c *tc.C) {
 	metadata[0].Size = 0
 	metadata[0].SHA256 = ""
 	err = tools.ResolveMetadata(countingStorage, "released", metadata)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(countingStorage.counter, tc.Equals, 1)
 	c.Assert(metadata[0].Size, tc.Not(tc.Equals), 0)
 	c.Assert(metadata[0].SHA256, tc.Not(tc.Equals), "")
@@ -789,7 +788,7 @@ func (*metadataHelperSuite) TestMergeMetadata(c *tc.C) {
 		c.Logf("test %d: %s", i, test.name)
 		merged, err := tools.MergeMetadata(test.lhs, test.rhs)
 		if test.err == "" {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(merged, tc.DeepEquals, test.merged)
 		} else {
 			c.Assert(err, tc.ErrorMatches, test.err)
@@ -810,18 +809,18 @@ func (*metadataHelperSuite) TestReadWriteMetadataSingleStream(c *tc.C) {
 
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	store, err := filestorage.NewFileStorageWriter(c.MkDir())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	out, err := tools.ReadAllMetadata(context.Background(), ss, store)
-	c.Assert(err, jc.ErrorIsNil) // non-existence is not an error
+	c.Assert(err, tc.ErrorIsNil) // non-existence is not an error
 	c.Assert(out, tc.HasLen, 0)
 
 	err = tools.WriteMetadata(store, metadata, []string{"released"}, tools.DoNotWriteMirrors)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Read back what was just written.
 	out, err = tools.ReadAllMetadata(context.Background(), ss, store)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	for _, outMetadata := range out {
 		for _, md := range outMetadata {
 			// FullPath is set by ReadAllMetadata.
@@ -829,7 +828,7 @@ func (*metadataHelperSuite) TestReadWriteMetadataSingleStream(c *tc.C) {
 			md.FullPath = ""
 		}
 	}
-	c.Assert(out, jc.DeepEquals, metadata)
+	c.Assert(out, tc.DeepEquals, metadata)
 }
 
 func (*metadataHelperSuite) writeMetadataMultipleStream(c *tc.C) (*simplestreams.Simplestreams, storage.StorageReader, map[string][]*tools.ToolsMetadata) {
@@ -850,14 +849,14 @@ func (*metadataHelperSuite) writeMetadataMultipleStream(c *tc.C) (*simplestreams
 
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	store, err := filestorage.NewFileStorageWriter(c.MkDir())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	out, err := tools.ReadAllMetadata(context.Background(), ss, store)
 	c.Assert(out, tc.HasLen, 0)
-	c.Assert(err, jc.ErrorIsNil) // non-existence is not an error
+	c.Assert(err, tc.ErrorIsNil) // non-existence is not an error
 
 	err = tools.WriteMetadata(store, metadata, []string{"released", "proposed"}, tools.DoNotWriteMirrors)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return ss, store, metadata
 }
 
@@ -865,7 +864,7 @@ func (s *metadataHelperSuite) TestReadWriteMetadataMultipleStream(c *tc.C) {
 	ss, store, metadata := s.writeMetadataMultipleStream(c)
 	// Read back what was just written.
 	out, err := tools.ReadAllMetadata(context.Background(), ss, store)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	for _, outMetadata := range out {
 		for _, md := range outMetadata {
 			// FullPath is set by ReadAllMetadata.
@@ -873,7 +872,7 @@ func (s *metadataHelperSuite) TestReadWriteMetadataMultipleStream(c *tc.C) {
 			md.FullPath = ""
 		}
 	}
-	c.Assert(out, jc.DeepEquals, metadata)
+	c.Assert(out, tc.DeepEquals, metadata)
 }
 
 func (s *metadataHelperSuite) TestWriteMetadataLegacyIndex(c *tc.C) {
@@ -881,12 +880,12 @@ func (s *metadataHelperSuite) TestWriteMetadataLegacyIndex(c *tc.C) {
 	// Read back the legacy index
 	rdr, err := stor.Get("tools/streams/v1/index.json")
 	defer rdr.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	data, err := io.ReadAll(rdr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	var indices simplestreams.Indices
 	err = json.Unmarshal(data, &indices)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(indices.Indexes, tc.HasLen, 1)
 	indices.Updated = ""
 	c.Assert(indices.Indexes["com.ubuntu.juju:released:agents"], tc.NotNil)
@@ -902,7 +901,7 @@ func (s *metadataHelperSuite) TestWriteMetadataLegacyIndex(c *tc.C) {
 			},
 		},
 	}
-	c.Assert(indices, jc.DeepEquals, expected)
+	c.Assert(indices, tc.DeepEquals, expected)
 }
 
 func (s *metadataHelperSuite) TestReadWriteMetadataUnchanged(c *tc.C) {
@@ -921,9 +920,9 @@ func (s *metadataHelperSuite) TestReadWriteMetadataUnchanged(c *tc.C) {
 	}
 
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = tools.WriteMetadata(stor, metadata, []string{"released"}, tools.DoNotWriteMirrors)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.PatchValue(tools.WriteMetadataFiles, func(stor storage.Storage, metadataInfo []tools.MetadataFile) error {
 		// The product data is the same, we only write the indices.
@@ -933,7 +932,7 @@ func (s *metadataHelperSuite) TestReadWriteMetadataUnchanged(c *tc.C) {
 		return nil
 	})
 	err = tools.WriteMetadata(stor, metadata, []string{"released"}, tools.DoNotWriteMirrors)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (*metadataHelperSuite) TestReadMetadataPrefersNewIndex(c *tc.C) {
@@ -955,14 +954,14 @@ func (*metadataHelperSuite) TestReadMetadataPrefersNewIndex(c *tc.C) {
 		}},
 	}
 	store, err := filestorage.NewFileStorageWriter(metadataDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = tools.WriteMetadata(store, metadata, []string{"proposed", "released"}, tools.DoNotWriteMirrors)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = os.Rename(
 		filepath.Join(metadataDir, "tools", "streams", "v1", "index2.json"),
 		filepath.Join(metadataDir, "tools", "streams", "v1", "index.json"),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Generate different metadata with index2.json
 	metadata = map[string][]*tools.ToolsMetadata{
@@ -974,12 +973,12 @@ func (*metadataHelperSuite) TestReadMetadataPrefersNewIndex(c *tc.C) {
 		}},
 	}
 	err = tools.WriteMetadata(store, metadata, []string{"released"}, tools.DoNotWriteMirrors)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Read back all metadata, expecting to find metadata in index2.json.
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	out, err := tools.ReadAllMetadata(context.Background(), ss, store)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	for _, outMetadata := range out {
 		for _, md := range outMetadata {
 			// FullPath is set by ReadAllMetadata.
@@ -987,7 +986,7 @@ func (*metadataHelperSuite) TestReadMetadataPrefersNewIndex(c *tc.C) {
 			md.FullPath = ""
 		}
 	}
-	c.Assert(out, jc.DeepEquals, metadata)
+	c.Assert(out, tc.DeepEquals, metadata)
 }
 
 type signedSuite struct {
@@ -1025,7 +1024,7 @@ func (s *signedSuite) TestSignedToolsMetadata(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	toolsMetadata, resolveInfo, err := tools.Fetch(context.Background(), ss,
 		[]simplestreams.DataSource{signedSource}, toolsConstraint)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(toolsMetadata), tc.Equals, 1)
 	c.Assert(toolsMetadata[0].Path, tc.Equals, "tools/releases/20130806/juju-1.13.1-ubuntu-amd64.tgz")
 	c.Assert(resolveInfo, tc.DeepEquals, &simplestreams.ResolveInfo{

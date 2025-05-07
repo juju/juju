@@ -5,7 +5,6 @@ package testing
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coreuser "github.com/juju/juju/core/user"
 )
@@ -14,7 +13,7 @@ import (
 // checked for subsequent errors using the test suits go check instance.
 func GenUserUUID(c *tc.C) coreuser.UUID {
 	uuid, err := coreuser.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return uuid
 }
 
@@ -22,6 +21,6 @@ func GenUserUUID(c *tc.C) coreuser.UUID {
 // valid.
 func GenNewName(c *tc.C, name string) coreuser.Name {
 	un, err := coreuser.NewName(name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return un
 }

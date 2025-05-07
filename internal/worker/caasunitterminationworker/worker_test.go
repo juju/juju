@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/agent"
@@ -53,18 +52,18 @@ func (s *TerminationWorkerSuite) TestStartStop(c *tc.C) {
 	w := s.newWorker(c, false)
 	w.Kill()
 	err := w.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *TerminationWorkerSuite) TestAgentWillRestart(c *tc.C) {
 	w := s.newWorker(c, true)
 	proc, err := os.FindProcess(os.Getpid())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer proc.Release()
 	err = proc.Signal(caasunitterminationworker.TerminationSignal)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = w.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.state.CheckCallNames(c, "UnitTerminating")
 	c.Assert(s.state.Calls()[0].Args[0], tc.DeepEquals, names.NewUnitTag("gitlab/0"))
 	s.terminator.CheckCallNames(c, "Terminate")
@@ -73,12 +72,12 @@ func (s *TerminationWorkerSuite) TestAgentWillRestart(c *tc.C) {
 func (s *TerminationWorkerSuite) TestAgentDying(c *tc.C) {
 	w := s.newWorker(c, false)
 	proc, err := os.FindProcess(os.Getpid())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer proc.Release()
 	err = proc.Signal(caasunitterminationworker.TerminationSignal)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = w.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.state.CheckCallNames(c, "UnitTerminating")
 	c.Assert(s.state.Calls()[0].Args[0], tc.DeepEquals, names.NewUnitTag("gitlab/0"))
 	s.terminator.CheckCallNames(c)

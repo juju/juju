@@ -9,7 +9,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorupgrader"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -38,7 +37,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *tc.C) {
 	}
 
 	api, err := caasoperatorupgrader.NewCAASOperatorUpgraderAPI(s.authorizer, s.broker, loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api = api
 }
 
@@ -56,7 +55,7 @@ func (s *CAASProvisionerSuite) TestUpgradeOperator(c *tc.C) {
 		AgentTag: s.authorizer.Tag.String(),
 		Version:  vers,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Error, tc.IsNil)
 	s.broker.CheckCall(c, 0, "Upgrade", s.authorizer.Tag.String(), vers)
 }
@@ -68,14 +67,14 @@ func (s *CAASProvisionerSuite) assertUpgradeController(c *tc.C, tag names.Tag) {
 	}
 
 	api, err := caasoperatorupgrader.NewCAASOperatorUpgraderAPI(s.authorizer, s.broker, loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	vers := semversion.MustParse("6.6.6")
 	result, err := api.UpgradeOperator(context.Background(), params.KubernetesUpgradeArg{
 		AgentTag: s.authorizer.Tag.String(),
 		Version:  vers,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Error, tc.IsNil)
 	s.broker.CheckCall(c, 0, "Upgrade", tag.String(), vers)
 }

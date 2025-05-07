@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -88,7 +87,7 @@ func (s *execSuite) TestProcessEnv(c *tc.C) {
 			"AAA=1", "BBB=1 2", "CCC=1\n2", "DDD=1='2'", "EEE=1;2;\"foo\"",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.Equals, "export AAA=1; export BBB='1 2'; export CCC='1\n2'; export DDD=1=\\'2\\'; export EEE=1\\;2\\;\\\"foo\\\"; ")
 }
 
@@ -201,7 +200,7 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *tc.C) {
 		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
-	c.Assert(params.Validate(context.Background(), s.mockPodGetter), jc.ErrorIsNil)
+	c.Assert(params.Validate(context.Background(), s.mockPodGetter), tc.ErrorIsNil)
 
 	// all good - container name specified.
 	params = exec.ExecParams{
@@ -230,7 +229,7 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *tc.C) {
 		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
-	c.Assert(params.Validate(context.Background(), s.mockPodGetter), jc.ErrorIsNil)
+	c.Assert(params.Validate(context.Background(), s.mockPodGetter), tc.ErrorIsNil)
 
 	// non fatal error - container not running - container name specified.
 	params = exec.ExecParams{
@@ -288,7 +287,7 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *tc.C) {
 		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
-	c.Assert(params.Validate(context.Background(), s.mockPodGetter), jc.ErrorIsNil)
+	c.Assert(params.Validate(context.Background(), s.mockPodGetter), tc.ErrorIsNil)
 	c.Assert(params.ContainerName, tc.Equals, "gitlab-container")
 }
 
@@ -363,7 +362,7 @@ func (s *execSuite) TestExec(c *tc.C) {
 
 	select {
 	case err := <-errChan:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	case <-time.After(coretesting.ShortWait):
 		c.Fatalf("timed out waiting for Exec return")
 	}
@@ -435,14 +434,14 @@ func (s *execSuite) TestExecCancel(c *tc.C) {
 	s.restClient.EXPECT().Post().AnyTimes().DoAndReturn(func() *rest.Request {
 		mut.Lock()
 		defer mut.Unlock()
-		c.Assert(callNum, jc.LessThan, len(requests))
+		c.Assert(callNum, tc.LessThan, len(requests))
 		return requests[callNum]
 	})
 	s.suiteMocks.EXPECT().RemoteCmdExecutorGetter(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().
 		DoAndReturn(func(config *rest.Config, method string, url *url.URL) (remotecommand.Executor, error) {
 			mut.Lock()
 			defer mut.Unlock()
-			c.Assert(callNum, jc.LessThan, len(urls))
+			c.Assert(callNum, tc.LessThan, len(urls))
 			c.Check(url.String(), tc.Equals, urls[callNum])
 			return s.mockRemoteCmdExecutor, nil
 		})
@@ -455,7 +454,7 @@ func (s *execSuite) TestExecCancel(c *tc.C) {
 		case 0:
 			close(cancel)
 			err := s.clock.WaitAdvance(waitTime, coretesting.LongWait, 1)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		case 1:
 		case 2:
 		case 3:
@@ -471,7 +470,7 @@ func (s *execSuite) TestExecCancel(c *tc.C) {
 
 	select {
 	case err := <-errChan:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	case <-time.After(coretesting.ShortWait):
 		c.Fatalf("timed out waiting for Exec return")
 	}

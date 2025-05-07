@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/agent"
@@ -62,11 +61,11 @@ func (s *AgentSuite) SetUpTest(c *tc.C) {
 
 	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	st := s.ControllerModel(c).State()
 	err = st.SetAPIHostPorts(controllerConfig, hostPorts, hostPorts)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.PatchValue(&proxyupdater.NewWorker, func(proxyupdater.Config) (worker.Worker, error) {
 		return jworker.NoopWorker(), nil
 	})

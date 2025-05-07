@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/charm"
 )
@@ -105,7 +104,7 @@ func (s *ProfileSuite) TestValidate(c *tc.C) {
 			c.Assert(err.Error(), tc.Equals, test.expectedError)
 		} else {
 
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
 	}
 
@@ -128,7 +127,7 @@ devices:
     path: /dev/net/tun
     type: unix-char
 `))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(profile, tc.NotNil)
 }
 
@@ -137,9 +136,9 @@ func (s *ProfileSuite) TestLXDProfileEmptyFile(c *tc.C) {
  
 `))
 	c.Assert(profile, tc.DeepEquals, charm.NewLXDProfile())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(profile.Empty(), jc.IsTrue)
-	c.Assert(profile.ValidateConfigDevices(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(profile.Empty(), tc.IsTrue)
+	c.Assert(profile.ValidateConfigDevices(), tc.ErrorIsNil)
 }
 
 func (s *ProfileSuite) TestReadLXDProfileFailUnmarshall(c *tc.C) {

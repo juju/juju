@@ -6,7 +6,6 @@ package storage_test
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/domain/storage"
 )
@@ -19,19 +18,19 @@ var _ = tc.Suite(&mountSuite{})
 
 func (s *mountSuite) TestMountPointSingleton(c *tc.C) {
 	path, err := storage.FilesystemMountPoint("/var/lib/juju/storage", "here", 1, "data/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(path, tc.Equals, "here")
 }
 
 func (s *mountSuite) TestMountPointLocation(c *tc.C) {
 	path, err := storage.FilesystemMountPoint("/var/lib/juju/storage", "/path/to/here", 2, "data/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(path, tc.Equals, "/path/to/here/data/0")
 }
 
 func (s *mountSuite) TestMountPointNoLocation(c *tc.C) {
 	path, err := storage.FilesystemMountPoint("/var/lib/juju/storage", "", 2, "data/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(path, tc.Equals, "/var/lib/juju/storage/data/0")
 }
 

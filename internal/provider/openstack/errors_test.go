@@ -7,7 +7,6 @@ import (
 	gooseerrors "github.com/go-goose/goose/v5/errors"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/testing"
 )
@@ -20,19 +19,19 @@ var _ = tc.Suite(&ErrorSuite{})
 
 func (s *ErrorSuite) TestIsUnauthorisedError(c *tc.C) {
 	e := gooseerrors.NewUnauthorisedf(nil, "", "not on")
-	c.Assert(IsAuthorisationFailure(e), jc.IsTrue)
-	c.Assert(IsAuthorisationFailure(errors.Cause(e)), jc.IsTrue)
+	c.Assert(IsAuthorisationFailure(e), tc.IsTrue)
+	c.Assert(IsAuthorisationFailure(errors.Cause(e)), tc.IsTrue)
 
 	traced := errors.Trace(e)
-	c.Assert(IsAuthorisationFailure(traced), jc.IsTrue)
+	c.Assert(IsAuthorisationFailure(traced), tc.IsTrue)
 
 	annotated := errors.Annotatef(e, "more and more")
-	c.Assert(IsAuthorisationFailure(annotated), jc.IsTrue)
+	c.Assert(IsAuthorisationFailure(annotated), tc.IsTrue)
 }
 
 func (s *ErrorSuite) TestIsNotUnauthorisedErro(c *tc.C) {
 	e := errors.New("fluffy")
-	c.Assert(IsAuthorisationFailure(e), jc.IsFalse)
+	c.Assert(IsAuthorisationFailure(e), tc.IsFalse)
 
-	c.Assert(IsAuthorisationFailure(nil), jc.IsFalse)
+	c.Assert(IsAuthorisationFailure(nil), tc.IsFalse)
 }

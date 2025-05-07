@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coremodel "github.com/juju/juju/core/model"
@@ -78,7 +77,7 @@ func (s *exportSuite) TestExport(c *tc.C) {
 
 	op := s.newExportOperation()
 	err := op.Execute(context.Background(), dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	users := dst.Users()
 	c.Assert(users, tc.HasLen, 2)

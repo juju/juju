@@ -11,7 +11,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/domain/cloudimagemetadata"
@@ -90,7 +89,7 @@ func (s *importSuite) TestImport(c *tc.C) {
 	err := op.Execute(context.Background(), dst)
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Most validation is done through the mock, checking that the given parameters are correct.
 }
 
@@ -131,7 +130,7 @@ func (s *importSuite) TestImportWithNonCustomSource(c *tc.C) {
 	err := op.Execute(context.Background(), dst)
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Most validation is done through the mock, checking that the given parameters are correct.
 }
 
@@ -154,7 +153,7 @@ func (s *importSuite) TestImportFailureWhenSaveMetadata(c *tc.C) {
 	err := op.Execute(context.Background(), dst)
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, expectedError)
+	c.Assert(err, tc.ErrorIs, expectedError)
 }
 
 // argsOpts is a type alias for a function that takes and returns a CloudImageMetadataArgs struct, enabling functional options.

@@ -6,7 +6,6 @@ package model
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/credential"
@@ -123,9 +122,9 @@ func (*typesSuite) TestModelCreationArgsValidation(c *tc.C) {
 
 		err := test.Args.Validate()
 		if test.ErrTest == nil {
-			c.Check(err, jc.ErrorIsNil, tc.Commentf("%s", test.Name))
+			c.Check(err, tc.ErrorIsNil, tc.Commentf("%s", test.Name))
 		} else {
-			c.Check(err, jc.ErrorIs, test.ErrTest, tc.Commentf("%s", test.Name))
+			c.Check(err, tc.ErrorIs, test.ErrTest, tc.Commentf("%s", test.Name))
 		}
 	}
 }
@@ -182,9 +181,9 @@ func (*typesSuite) TestModelImportArgsValidation(c *tc.C) {
 
 		err := test.Args.Validate()
 		if test.ErrTest == nil {
-			c.Check(err, jc.ErrorIsNil, tc.Commentf("%s", test.Name))
+			c.Check(err, tc.ErrorIsNil, tc.Commentf("%s", test.Name))
 		} else {
-			c.Check(err, jc.ErrorIs, test.ErrTest, tc.Commentf("%s", test.Name))
+			c.Check(err, tc.ErrorIs, test.ErrTest, tc.Commentf("%s", test.Name))
 		}
 	}
 }
@@ -279,7 +278,7 @@ func (*typesSuite) TestFromCoreConstraints(c *tc.C) {
 
 	for _, test := range tests {
 		rval := constraints.DecodeConstraints(test.In)
-		c.Check(rval, jc.DeepEquals, test.Out, tc.Commentf(test.Comment))
+		c.Check(rval, tc.DeepEquals, test.Out, tc.Commentf(test.Comment))
 	}
 }
 
@@ -373,6 +372,6 @@ func (*typesSuite) TestToCoreConstraints(c *tc.C) {
 
 	for _, test := range tests {
 		rval := constraints.EncodeConstraints(test.In)
-		c.Check(rval, jc.DeepEquals, test.Out, tc.Commentf(test.Comment))
+		c.Check(rval, tc.DeepEquals, test.Out, tc.Commentf(test.Comment))
 	}
 }

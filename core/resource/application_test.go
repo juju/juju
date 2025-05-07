@@ -6,7 +6,6 @@ package resource_test
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/resource"
 	resourcetesting "github.com/juju/juju/core/resource/testing"
@@ -33,7 +32,7 @@ func (s *ServiceResourcesSuite) TestUpdatesUploaded(c *tc.C) {
 	}
 
 	updates, err := sr.Updates()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(updates, tc.HasLen, 0)
 }
@@ -55,9 +54,9 @@ func (s *ServiceResourcesSuite) TestUpdatesDifferent(c *tc.C) {
 	}
 
 	updates, err := sr.Updates()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(updates, jc.DeepEquals, []charmresource.Resource{expected})
+	c.Check(updates, tc.DeepEquals, []charmresource.Resource{expected})
 }
 
 func (s *ServiceResourcesSuite) TestUpdatesBadOrdering(c *tc.C) {
@@ -77,9 +76,9 @@ func (s *ServiceResourcesSuite) TestUpdatesBadOrdering(c *tc.C) {
 	}
 
 	updates, err := sr.Updates()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(updates, jc.DeepEquals, []charmresource.Resource{expected})
+	c.Check(updates, tc.DeepEquals, []charmresource.Resource{expected})
 }
 
 func (s *ServiceResourcesSuite) TestUpdatesNone(c *tc.C) {
@@ -99,7 +98,7 @@ func (s *ServiceResourcesSuite) TestUpdatesNone(c *tc.C) {
 	}
 
 	updates, err := sr.Updates()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(updates, tc.HasLen, 0)
 }
@@ -111,6 +110,6 @@ func newStoreResource(c *tc.C, name, applicationName string, revision int) resou
 	res.Origin = charmresource.OriginStore
 	res.Revision = revision
 	err := res.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return res
 }

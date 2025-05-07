@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/container/broker"
@@ -128,7 +127,7 @@ func (s *hostPreparerSuite) TestPrepareHostNoChanges(c *tc.C) {
 	preparer := s.createPreparer(c, nil, nil)
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(context.Background(), containerTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// If HostChangesForContainer returns nothing to change, then we don't
 	// instantiate a Bridger, or do any bridging.
 	s.Stub.CheckCalls(c, []jujutesting.StubCall{
@@ -184,7 +183,7 @@ func (s *hostPreparerSuite) TestPrepareHostCreateBridge(c *tc.C) {
 	preparer := s.createPreparer(c, devices, cannedObservedNetworkConfig)
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(context.Background(), containerTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// This should be the normal flow if there are changes necessary. We read
 	// the changes, grab a bridger, then acquire a lock, do the bridging,
 	// observe the results, report the results, and release the lock.
@@ -217,7 +216,7 @@ func (s *hostPreparerSuite) TestPrepareHostNothingObserved(c *tc.C) {
 	preparer := s.createPreparer(c, devices, observed)
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(context.Background(), containerTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.Stub.CheckCalls(c, []jujutesting.StubCall{
 		{
 			FuncName: "AcquireLock",

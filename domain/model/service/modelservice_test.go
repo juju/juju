@@ -10,7 +10,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/agentbinary"
@@ -85,7 +84,7 @@ func (s *modelServiceSuite) TestGetModelConstraints(c *tc.C) {
 		DefaultAgentBinaryFinder(),
 	)
 	result, err := svc.GetModelConstraints(context.Background())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	cons := coreconstraints.Value{
 		Arch:      ptr("amd64"),
@@ -118,7 +117,7 @@ func (s *modelServiceSuite) TestGetModelConstraintsNotFound(c *tc.C) {
 		DefaultAgentBinaryFinder(),
 	)
 	result, err := svc.GetModelConstraints(context.Background())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, coreconstraints.Value{})
 }
 
@@ -139,7 +138,7 @@ func (s *modelServiceSuite) TestGetModelConstraintsFailedModelNotFound(c *tc.C) 
 		DefaultAgentBinaryFinder(),
 	)
 	_, err := svc.GetModelConstraints(context.Background())
-	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 func (s *modelServiceSuite) TestSetModelConstraints(c *tc.C) {
@@ -159,7 +158,7 @@ func (s *modelServiceSuite) TestSetModelConstraints(c *tc.C) {
 	}
 	s.mockModelState.EXPECT().SetModelConstraints(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, m constraints.Constraints) error {
-			c.Check(m, jc.DeepEquals, modelCons)
+			c.Check(m, tc.DeepEquals, modelCons)
 			return nil
 		})
 
@@ -180,7 +179,7 @@ func (s *modelServiceSuite) TestSetModelConstraints(c *tc.C) {
 		Spaces:    ptr([]string{"space1", "^space2"}),
 	}
 	err := svc.SetModelConstraints(context.Background(), cons)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 // TestSetModelConstraintsInvalidContainerType is asserting that if we provide
@@ -199,7 +198,7 @@ func (s *modelServiceSuite) TestSetModelConstraintsInvalidContainerType(c *tc.C)
 
 	s.mockModelState.EXPECT().SetModelConstraints(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, m constraints.Constraints) error {
-			c.Check(m, jc.DeepEquals, modelCons)
+			c.Check(m, tc.DeepEquals, modelCons)
 			return machineerrors.InvalidContainerType
 		})
 
@@ -211,7 +210,7 @@ func (s *modelServiceSuite) TestSetModelConstraintsInvalidContainerType(c *tc.C)
 		DefaultAgentBinaryFinder(),
 	)
 	err := svc.SetModelConstraints(context.Background(), badConstraints)
-	c.Check(err, jc.ErrorIs, machineerrors.InvalidContainerType)
+	c.Check(err, tc.ErrorIs, machineerrors.InvalidContainerType)
 }
 
 func (s *modelServiceSuite) TestSetModelConstraintsFailedSpaceNotFound(c *tc.C) {
@@ -238,7 +237,7 @@ func (s *modelServiceSuite) TestSetModelConstraintsFailedSpaceNotFound(c *tc.C) 
 	}
 	s.mockModelState.EXPECT().SetModelConstraints(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, m constraints.Constraints) error {
-			c.Check(m, jc.DeepEquals, modelCons)
+			c.Check(m, tc.DeepEquals, modelCons)
 			return networkerrors.SpaceNotFound
 		})
 
@@ -250,7 +249,7 @@ func (s *modelServiceSuite) TestSetModelConstraintsFailedSpaceNotFound(c *tc.C) 
 		DefaultAgentBinaryFinder(),
 	)
 	err := svc.SetModelConstraints(context.Background(), cons)
-	c.Check(err, jc.ErrorIs, networkerrors.SpaceNotFound)
+	c.Check(err, tc.ErrorIs, networkerrors.SpaceNotFound)
 }
 
 func (s *modelServiceSuite) TestSetModelConstraintsFailedModelNotFound(c *tc.C) {
@@ -273,7 +272,7 @@ func (s *modelServiceSuite) TestSetModelConstraintsFailedModelNotFound(c *tc.C) 
 	}
 	s.mockModelState.EXPECT().SetModelConstraints(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, m constraints.Constraints) error {
-			c.Check(m, jc.DeepEquals, modelCons)
+			c.Check(m, tc.DeepEquals, modelCons)
 			return modelerrors.NotFound
 		})
 
@@ -285,7 +284,7 @@ func (s *modelServiceSuite) TestSetModelConstraintsFailedModelNotFound(c *tc.C) 
 		DefaultAgentBinaryFinder(),
 	)
 	err := svc.SetModelConstraints(context.Background(), cons)
-	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 func (s *modelServiceSuite) TestGetModelMetrics(c *tc.C) {
@@ -315,7 +314,7 @@ func (s *modelServiceSuite) TestGetModelMetrics(c *tc.C) {
 		DefaultAgentBinaryFinder(),
 	)
 	result, err := svc.GetModelMetrics(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, metrics)
 }
 
@@ -333,7 +332,7 @@ func (s *modelServiceSuite) TestCreateModelAgentVersionUnsupportedGreater(c *tc.
 		gomock.Any(), modelUUID).Return(coremodel.ModelInfo{}, nil)
 
 	agentVersion, err := semversion.Parse("99.9.9")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	svc := NewModelService(
 		modelUUID,
@@ -346,7 +345,7 @@ func (s *modelServiceSuite) TestCreateModelAgentVersionUnsupportedGreater(c *tc.
 	err = svc.CreateModelWithAgentVersion(
 		context.Background(), agentVersion,
 	)
-	c.Assert(err, jc.ErrorIs, modelerrors.AgentVersionNotSupported)
+	c.Assert(err, tc.ErrorIs, modelerrors.AgentVersionNotSupported)
 }
 
 // TestAgentVersionUnsupportedLess is asserting that if we try and create a
@@ -364,7 +363,7 @@ func (s *modelServiceSuite) TestAgentVersionUnsupportedLess(c *tc.C) {
 	).Return(coremodel.ModelInfo{}, nil)
 
 	agentVersion, err := semversion.Parse("1.9.9")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	svc := NewModelService(
 		modelUUID,
@@ -402,7 +401,7 @@ func (s *modelServiceSuite) TestCreateModelForVersionInvalidStream(c *tc.C) {
 		jujuversion.Current,
 		agentbinary.AgentStream("bad stream"),
 	)
-	c.Check(err, jc.ErrorIs, modelerrors.AgentStreamNotValid)
+	c.Check(err, tc.ErrorIs, modelerrors.AgentStreamNotValid)
 }
 
 func (s *modelServiceSuite) TestDeleteModel(c *tc.C) {
@@ -421,7 +420,7 @@ func (s *modelServiceSuite) TestDeleteModel(c *tc.C) {
 	s.mockModelState.EXPECT().Delete(gomock.Any(), modelUUID).Return(nil)
 
 	err := svc.DeleteModel(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *modelServiceSuite) TestDeleteModelFailedNotFound(c *tc.C) {
@@ -440,7 +439,7 @@ func (s *modelServiceSuite) TestDeleteModelFailedNotFound(c *tc.C) {
 	s.mockModelState.EXPECT().Delete(gomock.Any(), modelUUID).Return(modelerrors.NotFound)
 
 	err := svc.DeleteModel(context.Background())
-	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 func (s *modelServiceSuite) TestStatusSuspended(c *tc.C) {
@@ -464,11 +463,11 @@ func (s *modelServiceSuite) TestStatusSuspended(c *tc.C) {
 	}, nil)
 
 	status, err := svc.GetStatus(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(status.Status, tc.Equals, corestatus.Suspended)
 	c.Check(status.Message, tc.Equals, "suspended since cloud credential is not valid")
 	c.Check(status.Reason, tc.Equals, "invalid credential")
-	c.Check(status.Since, jc.Almost, now)
+	c.Check(status.Since, tc.Almost, now)
 }
 
 func (s *modelServiceSuite) TestStatusDestroying(c *tc.C) {
@@ -491,10 +490,10 @@ func (s *modelServiceSuite) TestStatusDestroying(c *tc.C) {
 	}, nil)
 
 	status, err := svc.GetStatus(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(status.Status, tc.Equals, corestatus.Destroying)
 	c.Check(status.Message, tc.Equals, "the model is being destroyed")
-	c.Check(status.Since, jc.Almost, now)
+	c.Check(status.Since, tc.Almost, now)
 }
 
 func (s *modelServiceSuite) TestStatusBusy(c *tc.C) {
@@ -517,10 +516,10 @@ func (s *modelServiceSuite) TestStatusBusy(c *tc.C) {
 	}, nil)
 
 	status, err := svc.GetStatus(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(status.Status, tc.Equals, corestatus.Busy)
 	c.Check(status.Message, tc.Equals, "the model is being migrated")
-	c.Check(status.Since, jc.Almost, now)
+	c.Check(status.Since, tc.Almost, now)
 }
 
 func (s *modelServiceSuite) TestStatus(c *tc.C) {
@@ -541,9 +540,9 @@ func (s *modelServiceSuite) TestStatus(c *tc.C) {
 	s.mockControllerState.EXPECT().GetModelState(gomock.Any(), modelUUID).Return(model.ModelState{}, nil)
 
 	status, err := svc.GetStatus(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(status.Status, tc.Equals, corestatus.Available)
-	c.Check(status.Since, jc.Almost, now)
+	c.Check(status.Since, tc.Almost, now)
 }
 
 func (s *modelServiceSuite) TestStatusFailedModelNotFound(c *tc.C) {
@@ -563,7 +562,7 @@ func (s *modelServiceSuite) TestStatusFailedModelNotFound(c *tc.C) {
 	s.mockControllerState.EXPECT().GetModelState(gomock.Any(), modelUUID).Return(model.ModelState{}, modelerrors.NotFound)
 
 	_, err := svc.GetStatus(context.Background())
-	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 func (s *modelServiceSuite) TestGetEnvironVersion(c *tc.C) {
@@ -583,7 +582,7 @@ func (s *modelServiceSuite) TestGetEnvironVersion(c *tc.C) {
 	s.mockEnvironVersionProvider.EXPECT().Version().Return(2)
 
 	version, err := svc.GetEnvironVersion(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(version, tc.Equals, 2)
 }
 
@@ -603,7 +602,7 @@ func (s *modelServiceSuite) TestGetEnvironVersionFailedModelNotFound(c *tc.C) {
 	s.mockModelState.EXPECT().GetModelCloudType(gomock.Any()).Return("", modelerrors.NotFound)
 
 	_, err := svc.GetEnvironVersion(context.Background())
-	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 func (s *modelServiceSuite) TestGetModelCloudType(c *tc.C) {
@@ -622,7 +621,7 @@ func (s *modelServiceSuite) TestGetModelCloudType(c *tc.C) {
 	s.mockModelState.EXPECT().GetModelCloudType(gomock.Any()).Return("ec2", nil)
 
 	cloudType, err := svc.GetModelCloudType(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cloudType, tc.Equals, "ec2")
 }
 
@@ -642,7 +641,7 @@ func (s *modelServiceSuite) TestGetModelCloudTypeFailedModelNotFound(c *tc.C) {
 	s.mockModelState.EXPECT().GetModelCloudType(gomock.Any()).Return("", modelerrors.NotFound)
 
 	_, err := svc.GetModelCloudType(context.Background())
-	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 type providerModelServiceSuite struct {
@@ -701,7 +700,7 @@ func (s *providerModelServiceSuite) TestCreateModel(c *tc.C) {
 		DefaultAgentBinaryFinder(),
 	)
 	err := svc.CreateModel(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *providerModelServiceSuite) TestCreateModelFailedErrorAlreadyExists(c *tc.C) {
@@ -741,7 +740,7 @@ func (s *providerModelServiceSuite) TestCreateModelFailedErrorAlreadyExists(c *t
 		DefaultAgentBinaryFinder(),
 	)
 	err := svc.CreateModel(context.Background())
-	c.Assert(err, jc.ErrorIs, modelerrors.AlreadyExists)
+	c.Assert(err, tc.ErrorIs, modelerrors.AlreadyExists)
 }
 
 func (s *providerModelServiceSuite) TestCloudAPIVersion(c *tc.C) {
@@ -762,7 +761,7 @@ func (s *providerModelServiceSuite) TestCloudAPIVersion(c *tc.C) {
 		DefaultAgentBinaryFinder(),
 	)
 	vers, err := svc.CloudAPIVersion(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(vers, tc.Equals, "666")
 }
 
@@ -781,8 +780,8 @@ func (s *modelServiceSuite) TestIsControllerModel(c *tc.C) {
 		DefaultAgentBinaryFinder(),
 	)
 	isControllerModel, err := svc.IsControllerModel(context.Background())
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(isControllerModel, jc.IsTrue)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(isControllerModel, tc.IsTrue)
 
 	modelUUID = modeltesting.GenModelUUID(c)
 	s.mockModelState.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
@@ -795,8 +794,8 @@ func (s *modelServiceSuite) TestIsControllerModel(c *tc.C) {
 		DefaultAgentBinaryFinder(),
 	)
 	isControllerModel, err = svc.IsControllerModel(context.Background())
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(isControllerModel, jc.IsFalse)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(isControllerModel, tc.IsFalse)
 }
 
 func (s *modelServiceSuite) TestIsControllerModelNotFound(c *tc.C) {
@@ -814,7 +813,7 @@ func (s *modelServiceSuite) TestIsControllerModelNotFound(c *tc.C) {
 		DefaultAgentBinaryFinder(),
 	)
 	_, err := svc.IsControllerModel(context.Background())
-	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 // GetModelType asserts the happy path of getting the models current
@@ -836,7 +835,7 @@ func (s *modelServiceSuite) GetModelType(c *tc.C) {
 	)
 
 	modelType, err := svc.GetModelType(context.Background())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(modelType, tc.Equals, coremodel.IAAS)
 }
 
@@ -860,5 +859,5 @@ func (s *modelServiceSuite) GetModelTypeNotFound(c *tc.C) {
 	)
 
 	_, err := svc.GetModelType(context.Background())
-	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
 }

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloud"
@@ -84,7 +83,7 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	storageDir := c.MkDir()
 	s.PatchValue(&envtools.DefaultBaseURL, storageDir)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	envtesting.UploadFakeTools(c, stor, "released")
 }
@@ -131,7 +130,7 @@ func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *tc.C) {
 			SupportedBootstrapBases: supportedJujuBases,
 			SSHServerHostKey:        coretesting.SSHServerHostKey,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *bootstrapSuite) TestBootstrapCredentialMismatch(c *tc.C) {
@@ -178,9 +177,9 @@ func (s *bootstrapSuite) TestBootstrapTestingOptions(c *tc.C) {
 			SupportedBootstrapBases:    supportedJujuBases,
 			ExtraAgentValuesForTesting: map[string]string{"foo": "bar"},
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, tc.Equals, 1)
-	c.Assert(env.instanceConfig.AgentEnvironment, jc.DeepEquals, map[string]string{"foo": "bar"})
+	c.Assert(env.instanceConfig.AgentEnvironment, tc.DeepEquals, map[string]string{"foo": "bar"})
 }
 
 func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *tc.C) {
@@ -194,7 +193,7 @@ func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *tc.C) {
 			SupportedBootstrapBases: supportedJujuBases,
 			SSHServerHostKey:        coretesting.SSHServerHostKey,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, tc.Equals, 1)
 	env.args.AvailableTools = nil
 	env.args.SupportedBootstrapBases = nil
@@ -218,7 +217,7 @@ func (s *bootstrapSuite) TestBootstrapControllerModelAuthorizedKeys(c *tc.C) {
 			ControllerModelAuthorizedKeys: []string{"key1"},
 			SupportedBootstrapBases:       supportedJujuBases,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, tc.Equals, 1)
 	env.args.AvailableTools = nil
 	env.args.SupportedBootstrapBases = nil
@@ -244,7 +243,7 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *tc.C) {
 			SupportedBootstrapBases: supportedJujuBases,
 			SSHServerHostKey:        coretesting.SSHServerHostKey,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, tc.Equals, 1)
 	c.Assert(env.args.BootstrapConstraints, tc.DeepEquals, bootstrapCons)
 	c.Assert(env.args.ModelConstraints, tc.DeepEquals, modelCons)
@@ -267,7 +266,7 @@ func (s *bootstrapSuite) TestBootstrapWithStoragePools(c *tc.C) {
 				},
 			},
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, tc.Equals, 1)
 	c.Assert(env.args.StoragePools, tc.DeepEquals, map[string]corestorage.Attrs{
 		"spool": {
@@ -283,7 +282,7 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedBootstrapBase(c *tc.C) {
 	cfg, err := env.Config().Apply(map[string]interface{}{
 		"default-base": "ubuntu@20.04",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	env.cfg = cfg
 
 	err = bootstrap.Bootstrap(envtesting.BootstrapTestContext(c), env,
@@ -295,10 +294,10 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedBootstrapBase(c *tc.C) {
 			SupportedBootstrapBases: supportedJujuBases,
 			SSHServerHostKey:        coretesting.SSHServerHostKey,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(env.bootstrapCount, tc.Equals, 1)
 	c.Check(env.args.BootstrapBase, tc.Equals, jammyBootstrapBase)
-	c.Check(env.args.AvailableTools.AllReleases(), jc.SameContents, []string{"ubuntu"})
+	c.Check(env.args.AvailableTools.AllReleases(), tc.SameContents, []string{"ubuntu"})
 }
 
 func (s *bootstrapSuite) TestBootstrapFallbackBootstrapBase(c *tc.C) {
@@ -307,7 +306,7 @@ func (s *bootstrapSuite) TestBootstrapFallbackBootstrapBase(c *tc.C) {
 	cfg, err := env.Config().Apply(map[string]interface{}{
 		"default-base": jujuversion.DefaultSupportedLTSBase().String(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	env.cfg = cfg
 
 	err = bootstrap.Bootstrap(envtesting.BootstrapTestContext(c), env,
@@ -318,9 +317,9 @@ func (s *bootstrapSuite) TestBootstrapFallbackBootstrapBase(c *tc.C) {
 			SupportedBootstrapBases: supportedJujuBases,
 			SSHServerHostKey:        coretesting.SSHServerHostKey,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(env.bootstrapCount, tc.Equals, 1)
-	c.Check(env.args.AvailableTools.AllReleases(), jc.SameContents, []string{"ubuntu"})
+	c.Check(env.args.AvailableTools.AllReleases(), tc.SameContents, []string{"ubuntu"})
 }
 
 func (s *bootstrapSuite) TestBootstrapForcedBootstrapBase(c *tc.C) {
@@ -329,7 +328,7 @@ func (s *bootstrapSuite) TestBootstrapForcedBootstrapBase(c *tc.C) {
 	cfg, err := env.Config().Apply(map[string]interface{}{
 		"default-base": "ubuntu@22.04",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	env.cfg = cfg
 
 	err = bootstrap.Bootstrap(envtesting.BootstrapTestContext(c), env,
@@ -342,10 +341,10 @@ func (s *bootstrapSuite) TestBootstrapForcedBootstrapBase(c *tc.C) {
 			SupportedBootstrapBases: supportedJujuBases,
 			Force:                   true,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(env.bootstrapCount, tc.Equals, 1)
 	c.Check(env.args.BootstrapBase, tc.Equals, focalBootstrapBase)
-	c.Check(env.args.AvailableTools.AllReleases(), jc.SameContents, []string{"ubuntu"})
+	c.Check(env.args.AvailableTools.AllReleases(), tc.SameContents, []string{"ubuntu"})
 }
 
 func (s *bootstrapSuite) TestBootstrapWithInvalidBootstrapBase(c *tc.C) {
@@ -354,7 +353,7 @@ func (s *bootstrapSuite) TestBootstrapWithInvalidBootstrapBase(c *tc.C) {
 	cfg, err := env.Config().Apply(map[string]interface{}{
 		"default-base": "ubuntu@22.04",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	env.cfg = cfg
 
 	err = bootstrap.Bootstrap(envtesting.BootstrapTestContext(c), env,
@@ -382,7 +381,7 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *tc.C) {
 			Placement:               placement,
 			SupportedBootstrapBases: supportedJujuBases,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, tc.Equals, 1)
 	c.Assert(env.args.Placement, tc.DeepEquals, placement)
 }
@@ -402,12 +401,12 @@ func (s *bootstrapSuite) assertFinalizePodBootstrapConfig(c *tc.C, serviceType, 
 		"ubuntu",
 		constraints.Value{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	modelCfg, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"agent-version": "6.6.6",
 	}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	params := bootstrap.BootstrapParams{
 		CAPrivateKey:               coretesting.CAKey,
 		SSHServerHostKey:           coretesting.SSHServerHostKey,
@@ -417,12 +416,12 @@ func (s *bootstrapSuite) assertFinalizePodBootstrapConfig(c *tc.C, serviceType, 
 		ExtraAgentValuesForTesting: map[string]string{"foo": "bar"},
 	}
 	err = bootstrap.FinalizePodBootstrapConfig(envtesting.BootstrapTestContext(c), podConfig, params, modelCfg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(podConfig.Bootstrap.ControllerModelConfig, jc.DeepEquals, modelCfg)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(podConfig.Bootstrap.ControllerModelConfig, tc.DeepEquals, modelCfg)
 	c.Assert(podConfig.Bootstrap.ControllerServiceType, tc.Equals, serviceType)
 	c.Assert(podConfig.Bootstrap.ControllerExternalName, tc.Equals, externalName)
-	c.Assert(podConfig.Bootstrap.ControllerExternalIPs, jc.DeepEquals, externalIps)
-	c.Assert(podConfig.AgentEnvironment, jc.DeepEquals, map[string]string{"foo": "bar"})
+	c.Assert(podConfig.Bootstrap.ControllerExternalIPs, tc.DeepEquals, externalIps)
+	c.Assert(podConfig.AgentEnvironment, tc.DeepEquals, map[string]string{"foo": "bar"})
 }
 
 func intPtr(i uint64) *uint64 {
@@ -434,7 +433,7 @@ func (s *bootstrapSuite) TestBootstrapImage(c *tc.C) {
 
 	metadataDir, metadata := createImageMetadata(c)
 	stor, err := filestorage.NewFileStorageWriter(metadataDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	envtesting.UploadFakeTools(c, stor, "released")
 
 	env := bootstrapEnvironWithRegion{
@@ -459,10 +458,10 @@ func (s *bootstrapSuite) TestBootstrapImage(c *tc.C) {
 			BootstrapConstraints:    bootstrapCons,
 			MetadataDir:             metadataDir,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, tc.Equals, 1)
 	c.Assert(env.args.ImageMetadata, tc.HasLen, 1)
-	c.Assert(env.args.ImageMetadata[0], jc.DeepEquals, &imagemetadata.ImageMetadata{
+	c.Assert(env.args.ImageMetadata[0], tc.DeepEquals, &imagemetadata.ImageMetadata{
 		Id:         "img-id",
 		Arch:       "amd64",
 		Version:    "22.04",
@@ -471,11 +470,11 @@ func (s *bootstrapSuite) TestBootstrapImage(c *tc.C) {
 		Stream:     "released",
 	})
 	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata, tc.HasLen, 2)
-	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata[0], jc.DeepEquals, metadata[0])
-	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata[1], jc.DeepEquals, env.args.ImageMetadata[0])
+	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata[0], tc.DeepEquals, metadata[0])
+	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata[1], tc.DeepEquals, env.args.ImageMetadata[0])
 	expectedCons := bootstrapCons
 	expectedCons.Mem = intPtr(3584)
-	c.Assert(env.instanceConfig.Bootstrap.BootstrapMachineConstraints, jc.DeepEquals, expectedCons)
+	c.Assert(env.instanceConfig.Bootstrap.BootstrapMachineConstraints, tc.DeepEquals, expectedCons)
 	c.Assert(env.instanceConfig.Bootstrap.ControllerModelEnvironVersion, tc.Equals, 123)
 }
 
@@ -499,7 +498,7 @@ func (s *bootstrapSuite) TestBootstrapAddsArchFromImageToExistingProviderSupport
 			BootstrapConstraints:    bootstrapCons,
 			MetadataDir:             data.metadataDir,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedCons := bootstrapCons
 	expectedCons.Mem = intPtr(3584)
 	s.assertBootstrapImageMetadata(c, env.bootstrapEnviron, data, expectedCons)
@@ -518,7 +517,7 @@ func (s *bootstrapSuite) setupImageMetadata(c *tc.C) testImageMetadata {
 
 	metadataDir, metadata := createImageMetadataForArch(c, testArch)
 	stor, err := filestorage.NewFileStorageWriter(metadataDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	envtesting.UploadFakeTools(c, stor, "released")
 
 	return testImageMetadata{testArch, metadataDir, metadata}
@@ -527,7 +526,7 @@ func (s *bootstrapSuite) setupImageMetadata(c *tc.C) testImageMetadata {
 func (s *bootstrapSuite) assertBootstrapImageMetadata(c *tc.C, env *bootstrapEnviron, testData testImageMetadata, bootstrapCons constraints.Value) {
 	c.Assert(env.bootstrapCount, tc.Equals, 1)
 	c.Assert(env.args.ImageMetadata, tc.HasLen, 1)
-	c.Assert(env.args.ImageMetadata[0], jc.DeepEquals, &imagemetadata.ImageMetadata{
+	c.Assert(env.args.ImageMetadata[0], tc.DeepEquals, &imagemetadata.ImageMetadata{
 		Id:         "img-id",
 		Arch:       testData.architecture,
 		Version:    "22.04",
@@ -536,9 +535,9 @@ func (s *bootstrapSuite) assertBootstrapImageMetadata(c *tc.C, env *bootstrapEnv
 		Stream:     "released",
 	})
 	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata, tc.HasLen, 2)
-	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata[0], jc.DeepEquals, testData.metadata[0])
-	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata[1], jc.DeepEquals, env.args.ImageMetadata[0])
-	c.Assert(env.instanceConfig.Bootstrap.BootstrapMachineConstraints, jc.DeepEquals, bootstrapCons)
+	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata[0], tc.DeepEquals, testData.metadata[0])
+	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata[1], tc.DeepEquals, env.args.ImageMetadata[0])
+	c.Assert(env.instanceConfig.Bootstrap.BootstrapMachineConstraints, tc.DeepEquals, bootstrapCons)
 
 }
 
@@ -554,10 +553,10 @@ func (s *bootstrapSuite) setupProviderWithSomeSupportedArches(c *tc.C) bootstrap
 
 	// test provider constraints only has amd64 and arm64 as supported architectures
 	consBefore, err := env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	desiredArch := constraints.MustParse("arch=s390x")
 	unsupported, err := consBefore.Validate(desiredArch)
-	c.Assert(err.Error(), jc.Contains, `invalid constraint value: arch=s390x`)
+	c.Assert(err.Error(), tc.Contains, `invalid constraint value: arch=s390x`)
 	c.Assert(unsupported, tc.HasLen, 0)
 
 	return env
@@ -583,7 +582,7 @@ func (s *bootstrapSuite) TestBootstrapAddsArchFromImageToProviderWithNoSupported
 			BootstrapConstraints:    bootstrapCons,
 			MetadataDir:             data.metadataDir,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedCons := bootstrapCons
 	expectedCons.Mem = intPtr(3584)
 	s.assertBootstrapImageMetadata(c, env.bootstrapEnviron, data, expectedCons)
@@ -602,11 +601,11 @@ func (s *bootstrapSuite) setupProviderWithNoSupportedArches(c *tc.C) bootstrapEn
 	s.setDummyStorage(c, env.bootstrapEnviron)
 
 	consBefore, err := env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// test provider constraints only has amd64 and arm64 as supported architectures
 	desiredArch := constraints.MustParse("arch=s390x")
 	unsupported, err := consBefore.Validate(desiredArch)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unsupported, tc.HasLen, 0)
 
 	return env
@@ -632,7 +631,7 @@ func (s *bootstrapSuite) TestBootstrapImageMetadataFromAllSources(c *tc.C) {
 	// We should continue looking despite it.
 	metadataDir, _ := createImageMetadata(c)
 	stor, err := filestorage.NewFileStorageWriter(metadataDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	envtesting.UploadFakeTools(c, stor, "released")
 
 	env := bootstrapEnvironWithRegion{
@@ -656,13 +655,13 @@ func (s *bootstrapSuite) TestBootstrapImageMetadataFromAllSources(c *tc.C) {
 			MetadataDir:             metadataDir,
 			SupportedBootstrapBases: supportedJujuBases,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	datasources, err := environs.ImageMetadataSources(env, ss)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	for _, source := range datasources {
 		// make sure we looked in each and all...
-		c.Assert(c.GetTestLog(), jc.Contains, fmt.Sprintf("image metadata in %s", source.Description()))
+		c.Assert(c.GetTestLog(), tc.Contains, fmt.Sprintf("image metadata in %s", source.Description()))
 	}
 }
 
@@ -688,11 +687,11 @@ func (s *bootstrapSuite) TestBootstrapLocalTools(c *tc.C) {
 			BootstrapBase:           jammyBootstrapBase,
 			SupportedBootstrapBases: supportedJujuBases,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(env.bootstrapCount, tc.Equals, 1)
 	c.Check(env.args.BootstrapBase, tc.Equals, jammyBootstrapBase)
-	c.Check(env.args.AvailableTools.AllReleases(), jc.SameContents, []string{"ubuntu"})
+	c.Check(env.args.AvailableTools.AllReleases(), tc.SameContents, []string{"ubuntu"})
 }
 
 func (s *bootstrapSuite) TestBootstrapLocalToolsMismatchingOS(c *tc.C) {
@@ -743,11 +742,11 @@ func (s *bootstrapSuite) TestBootstrapLocalToolsDifferentLinuxes(c *tc.C) {
 			BootstrapBase:           jammyBootstrapBase,
 			SupportedBootstrapBases: supportedJujuBases,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(env.bootstrapCount, tc.Equals, 1)
 	c.Check(env.args.BootstrapBase, tc.Equals, jammyBootstrapBase)
-	c.Check(env.args.AvailableTools.AllReleases(), jc.SameContents, []string{"ubuntu"})
+	c.Check(env.args.AvailableTools.AllReleases(), tc.SameContents, []string{"ubuntu"})
 }
 
 func (s *bootstrapSuite) TestBootstrapBuildAgent(c *tc.C) {
@@ -772,7 +771,7 @@ func (s *bootstrapSuite) TestBootstrapBuildAgent(c *tc.C) {
 			) (*sync.BuiltAgent, error) {
 				ver := getForceVersion(semversion.Zero)
 				c.Logf("BuildAgentTarball version %s", ver)
-				c.Assert(build, jc.IsTrue)
+				c.Assert(build, tc.IsTrue)
 				c.Assert(ver.String(), tc.Equals, "2.99.0.1")
 				localVer := ver
 				return &sync.BuiltAgent{
@@ -788,11 +787,11 @@ func (s *bootstrapSuite) TestBootstrapBuildAgent(c *tc.C) {
 			},
 			SupportedBootstrapBases: supportedJujuBases,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Check that the model config has the correct version set.
 	cfg := env.instanceConfig.Bootstrap.ControllerModelConfig
 	agentVersion, valid := cfg.AgentVersion()
-	c.Check(valid, jc.IsTrue)
+	c.Check(valid, tc.IsTrue)
 	c.Check(agentVersion.String(), tc.Equals, "2.99.0")
 }
 
@@ -830,8 +829,8 @@ func (s *bootstrapSuite) assertBootstrapPackagedToolsAvailable(c *tc.C, clientAr
 				return nil, nil
 			},
 		})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(findToolsOk, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(findToolsOk, tc.IsTrue)
 }
 
 func (s *bootstrapSuite) TestBootstrapPackagedTools(c *tc.C) {
@@ -862,7 +861,7 @@ func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *tc.C) {
 		})
 	// bootstrap.Bootstrap leaves it to the provider to
 	// locate bootstrap tools.
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *bootstrapSuite) TestBootstrapNoToolsDevelopmentConfig(c *tc.C) {
@@ -885,7 +884,7 @@ func (s *bootstrapSuite) TestBootstrapNoToolsDevelopmentConfig(c *tc.C) {
 		})
 	// bootstrap.Bootstrap leaves it to the provider to
 	// locate bootstrap tools.
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *bootstrapSuite) TestBootstrapToolsVersion(c *tc.C) {
@@ -928,12 +927,12 @@ func (s *bootstrapSuite) TestBootstrapToolsVersion(c *tc.C) {
 	for i, t := range tests {
 		c.Logf("test %d: %+v", i, t)
 		cfg, err := env.Config().Remove([]string{"agent-version"})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = env.SetConfig(context.Background(), cfg)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		s.PatchValue(&jujuversion.Current, t.currentVersion)
 		tools, err := bootstrap.GetBootstrapToolsVersion(context.Background(), availableTools)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(tools, tc.Not(tc.HasLen), 0)
 		toolsVersion, _ := tools.Newest()
 		c.Assert(toolsVersion, tc.Equals, t.expectedTools)
@@ -953,7 +952,7 @@ func (s *bootstrapSuite) TestBootstrapControllerCharmLocal(c *tc.C) {
 			SupportedBootstrapBases: supportedJujuBases,
 			ControllerCharmPath:     path,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(env.instanceConfig.Bootstrap.ControllerCharm, tc.Equals, path)
 }
 
@@ -970,7 +969,7 @@ func (s *bootstrapSuite) TestBootstrapControllerCharmChannel(c *tc.C) {
 			SupportedBootstrapBases: supportedJujuBases,
 			ControllerCharmChannel:  ch,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(env.instanceConfig.Bootstrap.ControllerCharmChannel, tc.Equals, ch)
 }
 
@@ -996,11 +995,11 @@ func createImageMetadataForArch(c *tc.C, arch string) (dir string, _ []*imagemet
 	}
 	sourceDir := c.MkDir()
 	sourceStor, err := filestorage.NewFileStorageWriter(sourceDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	base := corebase.MustParseBaseFromString("ubuntu@22.04")
 	err = imagemetadata.MergeAndWriteMetadata(context.Background(), ss, base, im, cloudSpec, sourceStor)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return sourceDir, im
 }
 
@@ -1012,7 +1011,7 @@ func (s *bootstrapSuite) TestBootstrapMetadata(c *tc.C) {
 
 	metadataDir, metadata := createImageMetadata(c)
 	stor, err := filestorage.NewFileStorageWriter(metadataDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	envtesting.UploadFakeTools(c, stor, "released")
 
 	ctx, ss := bootstrapContext(c)
@@ -1027,12 +1026,12 @@ func (s *bootstrapSuite) TestBootstrapMetadata(c *tc.C) {
 			MetadataDir:             metadataDir,
 			SupportedBootstrapBases: supportedJujuBases,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, tc.Equals, 1)
 	c.Assert(envtools.DefaultBaseURL, tc.Equals, metadataDir)
 
 	datasources, err := environs.ImageMetadataSources(env, ss)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(datasources, tc.HasLen, 2)
 	c.Assert(datasources[0].Description(), tc.Equals, "bootstrap metadata")
 	// This data source does not require to contain signed data.
@@ -1088,12 +1087,12 @@ func (s *bootstrapSuite) TestBootstrapMetadataImagesNoTools(c *tc.C) {
 				MetadataDir:             filepath.Join(metadataDir, suffix),
 				SupportedBootstrapBases: supportedJujuBases,
 			})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(env.bootstrapCount, tc.Equals, i+1)
 		c.Assert(envtools.DefaultBaseURL, tc.Equals, startingDefaultBaseURL)
 
 		datasources, err := environs.ImageMetadataSources(env, ss)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(datasources, tc.HasLen, 2)
 		c.Assert(datasources[0].Description(), tc.Equals, "bootstrap metadata")
 	}
@@ -1108,7 +1107,7 @@ func (s *bootstrapSuite) TestBootstrapMetadataToolsNoImages(c *tc.C) {
 
 	metadataDir := c.MkDir()
 	stor, err := filestorage.NewFileStorageWriter(metadataDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	envtesting.UploadFakeTools(c, stor, "released")
 
 	env := newEnviron("foo", useDefaultKeys, nil)
@@ -1124,12 +1123,12 @@ func (s *bootstrapSuite) TestBootstrapMetadataToolsNoImages(c *tc.C) {
 				MetadataDir:             filepath.Join(metadataDir, suffix),
 				SupportedBootstrapBases: supportedJujuBases,
 			})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(env.bootstrapCount, tc.Equals, i+1)
 		c.Assert(envtools.DefaultBaseURL, tc.Equals, metadataDir)
 
 		datasources, err := environs.ImageMetadataSources(env, ss)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(datasources, tc.HasLen, 1)
 		c.Assert(datasources[0].Description(), tc.Not(tc.Equals), "bootstrap metadata")
 	}
@@ -1156,13 +1155,13 @@ func (s *bootstrapSuite) TestBootstrapCloudCredential(c *tc.C) {
 		SupportedBootstrapBases: supportedJujuBases,
 	}
 	err := bootstrap.Bootstrap(envtesting.BootstrapTestContext(c), env, args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, tc.Equals, 1)
 	c.Assert(env.instanceConfig, tc.NotNil)
-	c.Assert(env.instanceConfig.Bootstrap.ControllerCloud, jc.DeepEquals, args.Cloud)
-	c.Assert(env.instanceConfig.Bootstrap.ControllerCloudRegion, jc.DeepEquals, args.CloudRegion)
-	c.Assert(env.instanceConfig.Bootstrap.ControllerCloudCredential, jc.DeepEquals, args.CloudCredential)
-	c.Assert(env.instanceConfig.Bootstrap.ControllerCloudCredentialName, jc.DeepEquals, args.CloudCredentialName)
+	c.Assert(env.instanceConfig.Bootstrap.ControllerCloud, tc.DeepEquals, args.Cloud)
+	c.Assert(env.instanceConfig.Bootstrap.ControllerCloudRegion, tc.DeepEquals, args.CloudRegion)
+	c.Assert(env.instanceConfig.Bootstrap.ControllerCloudCredential, tc.DeepEquals, args.CloudCredential)
+	c.Assert(env.instanceConfig.Bootstrap.ControllerCloudCredentialName, tc.DeepEquals, args.CloudCredentialName)
 }
 
 func (s *bootstrapSuite) TestPublicKeyEnvVar(c *tc.C) {
@@ -1179,7 +1178,7 @@ func (s *bootstrapSuite) TestPublicKeyEnvVar(c *tc.C) {
 			SSHServerHostKey:        coretesting.SSHServerHostKey,
 			SupportedBootstrapBases: supportedJujuBases,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(env.instanceConfig.PublicImageSigningKey, tc.Equals, "publickey")
 }
 
@@ -1213,16 +1212,16 @@ func (s *bootstrapSuite) TestFinishBootstrapConfig(c *tc.C) {
 			SSHServerHostKey:          coretesting.SSHServerHostKey,
 			SupportedBootstrapBases:   supportedJujuBases,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	icfg := env.instanceConfig
 
-	c.Check(icfg.APIInfo, jc.DeepEquals, &api.Info{
+	c.Check(icfg.APIInfo, tc.DeepEquals, &api.Info{
 		Password: password,
 		CACert:   coretesting.CACert,
 		ModelTag: coretesting.ModelTag,
 	})
 	c.Check(icfg.Bootstrap.ControllerInheritedConfig, tc.DeepEquals, map[string]interface{}{"ftp-proxy": "http://proxy"})
-	c.Check(icfg.Bootstrap.RegionInheritedConfig, jc.DeepEquals, cloud.RegionConfig{
+	c.Check(icfg.Bootstrap.RegionInheritedConfig, tc.DeepEquals, cloud.RegionConfig{
 		"a-region": cloud.Attrs{
 			"a-key": "a-value",
 		},
@@ -1242,7 +1241,7 @@ func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *tc.C) {
 
 	noImagesDir := c.MkDir()
 	stor, err := filestorage.NewFileStorageWriter(noImagesDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	envtesting.UploadFakeTools(c, stor, "released")
 
 	ctx, ss := bootstrapContext(c)
@@ -1258,11 +1257,11 @@ func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *tc.C) {
 			MetadataDir:             noImagesDir,
 			SupportedBootstrapBases: supportedJujuBases,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, tc.Equals, 1)
 
 	datasources, err := environs.ImageMetadataSources(env, ss)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(datasources, tc.HasLen, 1)
 	c.Assert(datasources[0].Description(), tc.Equals, "default ubuntu cloud images")
 }
@@ -1293,14 +1292,14 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *tc.C, clientMajor, cli
 		currentVersion.Tag = toolsVersion.Tag
 	}
 	_, err := envtesting.UploadFakeToolsVersions(env.storage, stream, toolsBinaries...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	env.checkToolsFunc = func(t tools.List) {
 		mockInstanceCfg := &instancecfg.InstanceConfig{}
 		// All providers call SetTools on instance config during StartInstance
 		// (which is called by Bootstrap). Checking here that the call will pass.
 		err := mockInstanceCfg.SetTools(t)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	err = bootstrap.Bootstrap(envtesting.BootstrapTestContext(c), env,
@@ -1316,7 +1315,7 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *tc.C, clientMajor, cli
 			) (*sync.BuiltAgent, error) {
 				ver := getForceVersion(semversion.Zero)
 				c.Logf("BuildAgentTarball version %s", ver)
-				c.Assert(build, jc.IsFalse)
+				c.Assert(build, tc.IsFalse)
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
 			SupportedBootstrapBases: supportedJujuBases,
@@ -1328,7 +1327,7 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *tc.C, clientMajor, cli
 func (s *bootstrapSuite) TestBootstrapSpecificVersion(c *tc.C) {
 	toolsVersion := semversion.MustParse("10.11.12")
 	err, bootstrapCount, vers := s.setupBootstrapSpecificVersion(c, 10, 11, &toolsVersion)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(bootstrapCount, tc.Equals, 1)
 	c.Assert(vers, tc.DeepEquals, semversion.Number{
 		Major: 10,
@@ -1340,7 +1339,7 @@ func (s *bootstrapSuite) TestBootstrapSpecificVersion(c *tc.C) {
 func (s *bootstrapSuite) TestBootstrapSpecificVersionWithTag(c *tc.C) {
 	toolsVersion := semversion.MustParse("10.11-beta1")
 	err, bootstrapCount, vers := s.setupBootstrapSpecificVersion(c, 10, 11, &toolsVersion)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(bootstrapCount, tc.Equals, 1)
 	c.Assert(vers, tc.DeepEquals, semversion.Number{
 		Major: 10,
@@ -1353,7 +1352,7 @@ func (s *bootstrapSuite) TestBootstrapSpecificVersionWithTag(c *tc.C) {
 func (s *bootstrapSuite) TestBootstrapNoSpecificVersion(c *tc.C) {
 	// bootstrap with no specific version will use latest major.minor tools version.
 	err, bootstrapCount, vers := s.setupBootstrapSpecificVersion(c, 10, 11, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(bootstrapCount, tc.Equals, 1)
 	c.Assert(vers, tc.DeepEquals, semversion.Number{
 		Major: 10,
@@ -1403,7 +1402,7 @@ func (s *bootstrapSuite) TestAvailableToolsInvalidArch(c *tc.C) {
 			) (*sync.BuiltAgent, error) {
 				ver := getForceVersion(semversion.Zero)
 				c.Logf("BuildAgentTarball version %s", ver)
-				c.Assert(build, jc.IsTrue)
+				c.Assert(build, tc.IsTrue)
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
 			SupportedBootstrapBases: supportedJujuBases,
@@ -1440,7 +1439,7 @@ func (s *bootstrapSuite) TestTargetArchOverride(c *tc.C) {
 			) (*sync.BuiltAgent, error) {
 				ver := getForceVersion(semversion.Zero)
 				c.Logf("BuildAgentTarball version %s", ver)
-				c.Assert(build, jc.IsTrue)
+				c.Assert(build, tc.IsTrue)
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
 		})
@@ -1455,7 +1454,7 @@ func (s *bootstrapSuite) TestTargetSeriesAndArchOverridePriority(c *tc.C) {
 	metadataDir := c.MkDir()
 	s.PatchValue(&envtools.DefaultBaseURL, metadataDir)
 	stor, err := filestorage.NewFileStorageWriter(metadataDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	envtesting.UploadFakeTools(c, stor, "released")
 
 	env := newBootstrapEnvironWithHardwareDetection("foo", corebase.MustParseBaseFromString("ubuntu@17.04"), "riscv", useDefaultKeys, nil)
@@ -1472,7 +1471,7 @@ func (s *bootstrapSuite) TestTargetSeriesAndArchOverridePriority(c *tc.C) {
 			) (*sync.BuiltAgent, error) {
 				ver := getForceVersion(semversion.Zero)
 				c.Logf("BuildAgentTarball version %s", ver)
-				c.Assert(build, jc.IsTrue)
+				c.Assert(build, tc.IsTrue)
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
 			// Operator provided constraints must always supersede
@@ -1482,7 +1481,7 @@ func (s *bootstrapSuite) TestTargetSeriesAndArchOverridePriority(c *tc.C) {
 			MetadataDir:          metadataDir,
 		})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(env.bootstrapEnviron.instanceConfig.ToolsList().String(), tc.Matches, ".*-ubuntu-amd64", tc.Commentf("expected bootstrap constraints to supersede the values detected by the environment"))
 }
 
@@ -1690,6 +1689,6 @@ func (s *BootstrapContextSuite) TestContextDone(c *tc.C) {
 	for _, t := range testCases {
 		c.Logf("test %q", t.name)
 		done := bootstrap.IsContextDone(t.ctx)
-		c.Assert(done, jc.DeepEquals, t.done)
+		c.Assert(done, tc.DeepEquals, t.done)
 	}
 }

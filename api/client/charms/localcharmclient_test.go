@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/httprequest.v1"
 
@@ -66,19 +65,19 @@ func (s *addCharmSuite) TestAddLocalCharm(c *tc.C) {
 
 	// Upload an archive with its original revision.
 	savedURL, err := client.AddLocalCharm(curl, charmArchive, false, vers)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(savedURL.String(), tc.Equals, curl.String())
 
 	// Upload a charm directory with changed revision.
 	resp.Header.Set(params.JujuCharmURLHeader, "local:quantal/dummy-42")
 	savedURL, err = client.AddLocalCharm(curl, charmArchive, false, vers)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(savedURL.Revision, tc.Equals, 42)
 
 	// Upload a charm directory again, revision should be bumped.
 	resp.Header.Set(params.JujuCharmURLHeader, "local:quantal/dummy-43")
 	savedURL, err = client.AddLocalCharm(curl, charmArchive, false, vers)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(savedURL.String(), tc.Equals, curl.WithRevision(43).String())
 }
 
@@ -133,7 +132,7 @@ func (s *addCharmSuite) TestAddLocalCharmWithLXDProfile(c *tc.C) {
 
 	vers := semversion.MustParse("2.6.6")
 	savedURL, err := client.AddLocalCharm(curl, charmArchive, false, vers)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(savedURL.String(), tc.Equals, "local:quantal/lxd-profile-0")
 }
 
@@ -203,7 +202,7 @@ func (s *addCharmSuite) testAddLocalCharmWithForceSucceeds(name string, c *tc.C)
 
 	vers := semversion.MustParse("2.6.6")
 	savedURL, err := client.AddLocalCharm(curl, charmArchive, false, vers)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(savedURL.String(), tc.Equals, "local:quantal/lxd-profile-0")
 }
 
@@ -261,7 +260,7 @@ func (s *addCharmSuite) TestAddLocalCharmDefinitelyWithHooks(c *tc.C) {
 
 	vers := semversion.MustParse("2.6.6")
 	savedCURL, err := client.AddLocalCharm(curl, ch, false, vers)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(savedCURL.String(), tc.Equals, curl.String())
 }
 

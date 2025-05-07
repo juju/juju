@@ -8,7 +8,6 @@ import (
 	"github.com/go-goose/goose/v5/identity"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 )
@@ -35,14 +34,14 @@ func (s *cinderInternalSuite) TestStorageProviderTypes(c *tc.C) {
 			},
 		}}
 	types, err := env.StorageProviderTypes()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(types, tc.HasLen, 1)
 }
 
 func (s *cinderInternalSuite) TestStorageProviderTypesNotSupported(c *tc.C) {
 	env := &Environ{clientUnlocked: &testAuthClient{}}
 	types, err := env.StorageProviderTypes()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(types, tc.HasLen, 0)
 }
 

@@ -5,7 +5,6 @@ package modeloperator_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agenttest"
@@ -41,7 +40,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 		keys = append(keys, k)
 	}
 
-	c.Check(keys, jc.SameContents, []string{
+	c.Check(keys, tc.SameContents, []string{
 		"caas-broker-tracker",
 		"api-caller",
 		"log-sender",

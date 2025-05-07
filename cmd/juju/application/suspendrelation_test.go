@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/application"
@@ -51,7 +50,7 @@ func (s *SuspendRelationSuite) TestSuspendRelationInvalidArguments(c *tc.C) {
 
 func (s *SuspendRelationSuite) TestSuspendRelationSuccess(c *tc.C) {
 	err := s.runSuspendRelation(c, "123", "456", "--message", "message")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.mockAPI.CheckCall(c, 0, "SetRelationSuspended", []int{123, 456}, true, "message")
 	s.mockAPI.CheckCall(c, 1, "Close")
 }

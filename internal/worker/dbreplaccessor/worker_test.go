@@ -5,7 +5,6 @@ package dbreplaccessor
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -40,7 +39,7 @@ func (s *workerSuite) TestKilledGetDBErrDying(c *tc.C) {
 	w.Kill()
 
 	_, err := dbw.GetDB("anything")
-	c.Assert(err, jc.ErrorIs, database.ErrDBReplAccessorDying)
+	c.Assert(err, tc.ErrorIs, database.ErrDBReplAccessorDying)
 }
 
 func (s *workerSuite) TestGetDB(c *tc.C) {
@@ -66,7 +65,7 @@ func (s *workerSuite) TestGetDB(c *tc.C) {
 	ensureStartup(c, dbw)
 
 	runner, err := dbw.GetDB("anything")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(runner, tc.NotNil)
 }
 
@@ -93,7 +92,7 @@ func (s *workerSuite) TestGetDBNotFound(c *tc.C) {
 
 	// The error isn't passed through, although we really should expose this
 	// in the runner.
-	c.Assert(err, jc.ErrorIs, worker.ErrDead)
+	c.Assert(err, tc.ErrorIs, worker.ErrDead)
 }
 
 func (s *workerSuite) TestGetDBFound(c *tc.C) {
@@ -119,13 +118,13 @@ func (s *workerSuite) TestGetDBFound(c *tc.C) {
 	ensureStartup(c, dbw)
 
 	runner, err := dbw.GetDB("anything")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(runner, tc.NotNil)
 
 	// Notice that no additional changes are expected.
 
 	runner, err = dbw.GetDB("anything")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(runner, tc.NotNil)
 }
 

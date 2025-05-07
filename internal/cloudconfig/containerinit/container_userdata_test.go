@@ -9,7 +9,6 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
@@ -73,13 +72,13 @@ func CloudInitDataExcludingOutputSection(data string) []string {
 // CloudInitUserData.
 func (s *UserDataSuite) TestCloudInitUserDataNoNetworkConfig(c *tc.C) {
 	instanceConfig, err := containertesting.MockMachineConfig("1/lxd/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cfg, err := cloudinit.New(instanceConfig.Base.OS)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	data, err := containerinit.CloudInitUserData(cfg, instanceConfig, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(data, tc.NotNil)
 
 	linesToMatch := CloudInitDataExcludingOutputSection(string(data))
@@ -91,7 +90,7 @@ func (s *UserDataSuite) TestCloudInitUserDataNoNetworkConfig(c *tc.C) {
 // cloudinit.AddNetworkConfig is applied properly.
 func (s *UserDataSuite) TestCloudInitUserDataSomeNetworkConfig(c *tc.C) {
 	instanceConfig, err := containertesting.MockMachineConfig("1/lxd/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	nics := network.InterfaceInfos{{
 		InterfaceName: "eth0",
@@ -100,10 +99,10 @@ func (s *UserDataSuite) TestCloudInitUserDataSomeNetworkConfig(c *tc.C) {
 	}}
 
 	cfg, err := cloudinit.New(instanceConfig.Base.OS)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	data, err := containerinit.CloudInitUserData(cfg, instanceConfig, container.BridgeNetworkConfig(0, nics))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(data, tc.NotNil)
 
 	linesToMatch := CloudInitDataExcludingOutputSection(string(data))

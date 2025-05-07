@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/permission"
 	usertesting "github.com/juju/juju/core/user/testing"
@@ -38,13 +37,13 @@ func (s *bootstrapSuite) TestAddUserWithPassword(c *tc.C) {
 		},
 	})
 	err := addAdminUser(ctx, s.TxnRunner(), s.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uuid.Validate(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(uuid.Validate(), tc.ErrorIsNil)
 
 	// Check that the user was created.
 	var name string
 	row := s.DB().QueryRow(`
 SELECT name FROM user WHERE name = ?`, "admin")
-	c.Assert(row.Scan(&name), jc.ErrorIsNil)
+	c.Assert(row.Scan(&name), tc.ErrorIsNil)
 	c.Assert(name, tc.Equals, "admin")
 }

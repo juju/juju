@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/resource"
@@ -24,23 +23,23 @@ var _ = tc.Suite(&SerializationSuite{})
 func (s *SerializationSuite) TestDeserializeFingerprintOkay(c *tc.C) {
 	content := "some data\n..."
 	expected, err := charmresource.GenerateFingerprint(strings.NewReader(content))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	fp, err := resource.DeserializeFingerprint(expected.Bytes())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(fp, jc.DeepEquals, expected)
+	c.Check(fp, tc.DeepEquals, expected)
 }
 
 func (s *SerializationSuite) TestDeserializeFingerprintInvalid(c *tc.C) {
 	_, err := resource.DeserializeFingerprint([]byte("<too short>"))
 
-	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *SerializationSuite) TestDeserializeFingerprintZeroValue(c *tc.C) {
 	fp, err := resource.DeserializeFingerprint(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(fp, jc.DeepEquals, charmresource.Fingerprint{})
+	c.Check(fp, tc.DeepEquals, charmresource.Fingerprint{})
 }

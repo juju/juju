@@ -5,7 +5,6 @@ package linklayerdevice
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
@@ -21,7 +20,7 @@ var _ = tc.Suite(&deviceSuite{})
 func (s *deviceSuite) TestLinkLayerDeviceTypeDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, name FROM link_layer_device_type")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer rows.Close()
 
 	dbValues := make(map[DeviceType]string)
@@ -31,10 +30,10 @@ func (s *deviceSuite) TestLinkLayerDeviceTypeDBValues(c *tc.C) {
 			name string
 		)
 		err := rows.Scan(&id, &name)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		dbValues[DeviceType(id)] = name
 	}
-	c.Assert(dbValues, jc.DeepEquals, map[DeviceType]string{
+	c.Assert(dbValues, tc.DeepEquals, map[DeviceType]string{
 		DeviceTypeUnknown:  "unknown",
 		DeviceTypeLoopback: "loopback",
 		DeviceTypeEthernet: "ethernet",
@@ -50,7 +49,7 @@ func (s *deviceSuite) TestLinkLayerDeviceTypeDBValues(c *tc.C) {
 func (s *deviceSuite) TestVirtualPortTypeDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, name FROM virtual_port_type")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer rows.Close()
 
 	dbValues := make(map[VirtualPortType]string)
@@ -60,10 +59,10 @@ func (s *deviceSuite) TestVirtualPortTypeDBValues(c *tc.C) {
 			name string
 		)
 		err := rows.Scan(&id, &name)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		dbValues[VirtualPortType(id)] = name
 	}
-	c.Assert(dbValues, jc.DeepEquals, map[VirtualPortType]string{
+	c.Assert(dbValues, tc.DeepEquals, map[VirtualPortType]string{
 		NonVirtualPortType:         "nonvirtualport",
 		OpenVswitchVirtualPortType: "openvswitch",
 	})

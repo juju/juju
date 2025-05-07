@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/common/charmrunner"
@@ -49,8 +48,8 @@ func (s *actionsSuite) TestActionStateKindContinue(c *tc.C) {
 		ActionsPending: []string{"actionA", "actionB"},
 	}
 	op, err := actionResolver.NextOp(context.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, jc.DeepEquals, mockOp("actionA"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op, tc.DeepEquals, mockOp("actionA"))
 }
 
 func (s *actionsSuite) TestActionRunHook(c *tc.C) {
@@ -65,8 +64,8 @@ func (s *actionsSuite) TestActionRunHook(c *tc.C) {
 		ActionsPending: []string{"actionA", "actionB"},
 	}
 	op, err := actionResolver.NextOp(context.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, jc.DeepEquals, mockOp("actionA"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op, tc.DeepEquals, mockOp("actionA"))
 }
 
 func (s *actionsSuite) TestNextAction(c *tc.C) {
@@ -81,8 +80,8 @@ func (s *actionsSuite) TestNextAction(c *tc.C) {
 		ActionsPending: []string{"actionA", "actionB"},
 	}
 	op, err := actionResolver.NextOp(context.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, jc.DeepEquals, mockOp("actionB"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op, tc.DeepEquals, mockOp("actionB"))
 }
 
 func (s *actionsSuite) TestNextActionNotAvailable(c *tc.C) {
@@ -97,8 +96,8 @@ func (s *actionsSuite) TestNextActionNotAvailable(c *tc.C) {
 		ActionsPending: []string{"actionA", "actionB"},
 	}
 	op, err := actionResolver.NextOp(context.Background(), localState, remoteState, &mockOperations{err: charmrunner.ErrActionNotAvailable})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, jc.DeepEquals, mockFailAction("actionB"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op, tc.DeepEquals, mockFailAction("actionB"))
 }
 
 func (s *actionsSuite) TestActionStateKindRunAction(c *tc.C) {
@@ -116,8 +115,8 @@ func (s *actionsSuite) TestActionStateKindRunAction(c *tc.C) {
 		ActionsPending: []string{},
 	}
 	op, err := actionResolver.NextOp(context.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, jc.DeepEquals, mockOp(actionA))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op, tc.DeepEquals, mockOp(actionA))
 }
 
 func (s *actionsSuite) TestActionStateKindRunActionSkipHook(c *tc.C) {
@@ -136,8 +135,8 @@ func (s *actionsSuite) TestActionStateKindRunActionSkipHook(c *tc.C) {
 		ActionsPending: []string{},
 	}
 	op, err := actionResolver.NextOp(context.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, jc.DeepEquals, mockSkipHook(*localState.Hook))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op, tc.DeepEquals, mockSkipHook(*localState.Hook))
 }
 
 func (s *actionsSuite) TestActionStateKindRunActionPendingRemote(c *tc.C) {
@@ -155,8 +154,8 @@ func (s *actionsSuite) TestActionStateKindRunActionPendingRemote(c *tc.C) {
 		ActionsPending: []string{actionA, "actionB"},
 	}
 	op, err := actionResolver.NextOp(context.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, jc.DeepEquals, mockFailAction(actionA))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op, tc.DeepEquals, mockFailAction(actionA))
 }
 
 func (s *actionsSuite) TestPendingActionNotAvailable(c *tc.C) {
@@ -175,8 +174,8 @@ func (s *actionsSuite) TestPendingActionNotAvailable(c *tc.C) {
 		ActionsPending: []string{"666"},
 	}
 	op, err := actionResolver.NextOp(context.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, jc.DeepEquals, mockFailAction(actionA))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op, tc.DeepEquals, mockFailAction(actionA))
 }
 
 type mockOperations struct {

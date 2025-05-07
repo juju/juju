@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
@@ -54,7 +53,7 @@ func (s *GenerateAgentsSuite) SetUpTest(c *tc.C) {
 		"controller-uuid": coretesting.ControllerTag.Id(),
 		"conroller":       true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	e, err := bootstrap.PrepareController(
 		false,
 		environscmd.BootstrapContextNoVerify(context.Background(), cmdtesting.Context(c)),
@@ -67,7 +66,7 @@ func (s *GenerateAgentsSuite) SetUpTest(c *tc.C) {
 			AdminSecret:      "admin-secret",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.env = e.(environs.Environ)
 	loggo.GetLogger("").SetLogLevel(loggo.INFO)
 
@@ -218,7 +217,7 @@ func (s *GenerateAgentsSuite) TestGenerateDeleteExisting(c *tc.C) {
 
 	// Remove existing proposed tarballs, and create some different ones.
 	err := os.RemoveAll(filepath.Join(metadataDir, "tools", "proposed"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	toolstesting.MakeTools(c, metadataDir, "proposed", currentVersionStrings)
 
 	// Generate proposed metadata again, using --clean.

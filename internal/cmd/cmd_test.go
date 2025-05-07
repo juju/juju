@@ -15,7 +15,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/internal/cmd"
@@ -39,7 +38,7 @@ func (s *CmdSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *CmdSuite) TestContext(c *tc.C) {
-	c.Check(s.ctx.Context, jc.DeepEquals, context.Background())
+	c.Check(s.ctx.Context, tc.DeepEquals, context.Background())
 	c.Check(s.ctx.AbsPath("/foo/bar"), tc.Equals, "/foo/bar")
 	c.Check(s.ctx.AbsPath("/foo/../bar"), tc.Equals, "/bar")
 	c.Check(s.ctx.AbsPath("foo/bar"), tc.Equals, filepath.Join(s.ctx.Dir, "foo/bar"))
@@ -51,7 +50,7 @@ func (s *CmdSuite) TestWith(c *tc.C) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ctx := s.ctx.With(cancelCtx)
-	c.Assert(ctx.Context, jc.DeepEquals, cancelCtx)
+	c.Assert(ctx.Context, tc.DeepEquals, cancelCtx)
 }
 
 func (s *CmdSuite) TestContextGetenv(c *tc.C) {

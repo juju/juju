@@ -6,7 +6,6 @@ package providerservices
 import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 
@@ -26,23 +25,23 @@ func (s *workerSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.getConfig()
-	c.Check(cfg.Validate(), jc.ErrorIsNil)
+	c.Check(cfg.Validate(), tc.ErrorIsNil)
 
 	cfg = s.getConfig()
 	cfg.Logger = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.DBGetter = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.NewProviderServices = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.NewProviderServicesGetter = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *workerSuite) getConfig() Config {
@@ -65,7 +64,7 @@ func (s *workerSuite) TestWorkerServicesGetter(c *tc.C) {
 	defer workertest.CleanKill(c, w)
 
 	srvFact, ok := w.(*servicesWorker)
-	c.Assert(ok, jc.IsTrue, tc.Commentf("worker does not implement servicesWorker"))
+	c.Assert(ok, tc.IsTrue, tc.Commentf("worker does not implement servicesWorker"))
 
 	factory := srvFact.ServicesGetter()
 	c.Assert(factory, tc.NotNil)
@@ -75,6 +74,6 @@ func (s *workerSuite) TestWorkerServicesGetter(c *tc.C) {
 
 func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 	w, err := NewWorker(s.getConfig())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }

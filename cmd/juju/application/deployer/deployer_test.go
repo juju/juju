@@ -13,7 +13,6 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/base"
@@ -75,7 +74,7 @@ func (s *deployerSuite) TestGetDeployerPredeployedLocalCharm(c *tc.C) {
 
 	factory := s.newDeployerFactory()
 	deployer, err := factory.GetDeployer(context.Background(), cfg, s.charmDeployAPI, s.resolver)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(deployer.String(), tc.Equals, fmt.Sprintf("deploy pre-deployed local charm: %s", ch))
 }
 
@@ -91,14 +90,14 @@ func (s *deployerSuite) TestGetDeployerLocalCharm(c *tc.C) {
 	archivePath := filepath.Join(dir, "archive.charm")
 
 	err := chDir.ArchiveToPath(archivePath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectStat(archivePath, nil)
 	cfg.CharmOrBundle = archivePath
 
 	factory := s.newDeployerFactory()
 	deployer, err := factory.GetDeployer(context.Background(), cfg, s.charmDeployAPI, s.resolver)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ch := "local:multi-series-1"
 	c.Assert(deployer.String(), tc.Equals, fmt.Sprintf("deploy local charm: %s", ch))
 }
@@ -115,7 +114,7 @@ func (s *deployerSuite) TestGetDeployerLocalCharmPathWithSchema(c *tc.C) {
 	archivePath := filepath.Join(dir, "archive.charm")
 
 	err := chDir.ArchiveToPath(archivePath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	archivePath = "local:" + archivePath
 
@@ -124,7 +123,7 @@ func (s *deployerSuite) TestGetDeployerLocalCharmPathWithSchema(c *tc.C) {
 
 	factory := s.newDeployerFactory()
 	deployer, err := factory.GetDeployer(context.Background(), cfg, s.charmDeployAPI, s.resolver)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ch := "local:multi-series-1"
 	c.Assert(deployer.String(), tc.Equals, fmt.Sprintf("deploy local charm: %s", ch))
 }
@@ -156,7 +155,7 @@ func (s *deployerSuite) TestGetDeployerCharmHubCharm(c *tc.C) {
 
 	factory := s.newDeployerFactory()
 	deployer, err := factory.GetDeployer(context.Background(), cfg, s.charmDeployAPI, s.resolver)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(deployer.String(), tc.Equals, fmt.Sprintf("deploy charm: %s", ch))
 }
 
@@ -166,7 +165,7 @@ func (s *deployerSuite) TestGetDeployerCharmHubCharmWithRevision(c *tc.C) {
 	cfg.Channel, _ = charm.ParseChannel("stable")
 	curl := "ch:test-charm"
 	deployer, err := s.testGetDeployerRepositoryCharmWithRevision(c, curl, cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	str := fmt.Sprintf("deploy charm: %s with revision %d will refresh from channel %s", curl, cfg.Revision, cfg.Channel.String())
 	c.Assert(deployer.String(), tc.Equals, str)
 }
@@ -205,7 +204,7 @@ func (s *deployerSuite) TestBaseOverride(c *tc.C) {
 
 	factory := s.newDeployerFactory()
 	deployer, err := factory.GetDeployer(context.Background(), cfg, s.charmDeployAPI, s.resolver)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(deployer.String(), tc.Equals, fmt.Sprintf("deploy charm: %s", curl))
 
 	charmDeployer := deployer.(*repositoryCharm)
@@ -238,7 +237,7 @@ func (s *deployerSuite) TestGetDeployerLocalBundle(c *tc.C) {
 
 	factory := s.newDeployerFactory()
 	deployer, err := factory.GetDeployer(context.Background(), cfg, s.charmDeployAPI, s.resolver)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(deployer.String(), tc.Equals, fmt.Sprintf("deploy local bundle from: %s", bundlePath))
 }
 
@@ -261,7 +260,7 @@ func (s *deployerSuite) TestGetDeployerCharmHubBundleWithChannel(c *tc.C) {
 
 	factory := s.newDeployerFactory()
 	deployer, err := factory.GetDeployer(context.Background(), cfg, s.charmDeployAPI, s.resolver)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(deployer.String(), tc.Equals, fmt.Sprintf("deploy bundle: %s from channel edge", bundle))
 }
 
@@ -283,7 +282,7 @@ func (s *deployerSuite) TestGetDeployerCharmHubBundleWithRevision(c *tc.C) {
 	s.expectResolveBundleURL(nil, 1)
 	factory := s.newDeployerFactory()
 	deployer, err := factory.GetDeployer(context.Background(), cfg, s.charmDeployAPI, s.resolver)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(deployer.String(), tc.Equals, fmt.Sprintf("deploy bundle: %s with revision 8", bundle))
 }
 
@@ -344,7 +343,7 @@ func (s *deployerSuite) TestResolveCharmURL(c *tc.C) {
 		if test.err != nil {
 			c.Assert(err, tc.ErrorMatches, test.err.Error())
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(url, tc.DeepEquals, test.url)
 		}
 	}
@@ -360,7 +359,7 @@ func (s *deployerSuite) TestValidateResourcesNeededForLocalDeployCAAS(c *tc.C) {
 	}
 
 	err := f.validateResourcesNeededForLocalDeploy(context.Background(), &charm.Meta{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *deployerSuite) TestValidateResourcesNeededForLocalDeployIAAS(c *tc.C) {
@@ -373,16 +372,16 @@ func (s *deployerSuite) TestValidateResourcesNeededForLocalDeployIAAS(c *tc.C) {
 	}
 
 	err := f.validateResourcesNeededForLocalDeploy(context.Background(), &charm.Meta{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *deployerSuite) makeBundleDir(c *tc.C, content string) string {
 	bundlePath := filepath.Join(c.MkDir(), "example")
-	c.Assert(os.Mkdir(bundlePath, 0777), jc.ErrorIsNil)
+	c.Assert(os.Mkdir(bundlePath, 0777), tc.ErrorIsNil)
 	err := os.WriteFile(filepath.Join(bundlePath, "bundle.yaml"), []byte(content), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = os.WriteFile(filepath.Join(bundlePath, "README.md"), []byte("README"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return bundlePath
 }
 
@@ -480,7 +479,7 @@ func (s *deployerSuite) expectModelGet(c *tc.C) {
 		"ca-private-key": coretesting.CAKey,
 	}
 	cfg, err := config.New(true, minimal)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.charmDeployAPI.EXPECT().ModelGet(gomock.Any()).Return(cfg.AllAttrs(), nil)
 }
 

@@ -6,7 +6,6 @@ package life_test
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
@@ -24,7 +23,7 @@ func (*LifeSuite) TestValidateValid(c *tc.C) {
 	} {
 		c.Logf("test %d: %s", i, test)
 		err := test.Validate()
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
 }
 
@@ -35,13 +34,13 @@ func (*LifeSuite) TestValidateInvalid(c *tc.C) {
 	} {
 		c.Logf("test %d: %s", i, test)
 		err := test.Validate()
-		c.Check(err, jc.ErrorIs, coreerrors.NotValid)
+		c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 		c.Check(err, tc.ErrorMatches, `life value ".*" not valid`)
 	}
 }
 
 func (*LifeSuite) TestIsAliveSuccess(c *tc.C) {
-	c.Check(life.IsAlive(life.Alive), jc.IsTrue)
+	c.Check(life.IsAlive(life.Alive), tc.IsTrue)
 }
 
 func (*LifeSuite) TestIsAliveFailure(c *tc.C) {
@@ -49,12 +48,12 @@ func (*LifeSuite) TestIsAliveFailure(c *tc.C) {
 		life.Dying, life.Dead, "", "bad", "ALIVE",
 	} {
 		c.Logf("test %d: %s", i, test)
-		c.Check(life.IsAlive(test), jc.IsFalse)
+		c.Check(life.IsAlive(test), tc.IsFalse)
 	}
 }
 
 func (*LifeSuite) TestIsNotAliveFailure(c *tc.C) {
-	c.Check(life.IsNotAlive(life.Alive), jc.IsFalse)
+	c.Check(life.IsNotAlive(life.Alive), tc.IsFalse)
 }
 
 func (*LifeSuite) TestIsNotAliveSuccess(c *tc.C) {
@@ -62,12 +61,12 @@ func (*LifeSuite) TestIsNotAliveSuccess(c *tc.C) {
 		life.Dying, life.Dead, "", "bad", "ALIVE",
 	} {
 		c.Logf("test %d: %s", i, test)
-		c.Check(life.IsNotAlive(test), jc.IsTrue)
+		c.Check(life.IsNotAlive(test), tc.IsTrue)
 	}
 }
 
 func (*LifeSuite) TestIsNotDeadFailure(c *tc.C) {
-	c.Check(life.IsNotDead(life.Dead), jc.IsFalse)
+	c.Check(life.IsNotDead(life.Dead), tc.IsFalse)
 }
 
 func (*LifeSuite) TestIsNotDeadSuccess(c *tc.C) {
@@ -75,12 +74,12 @@ func (*LifeSuite) TestIsNotDeadSuccess(c *tc.C) {
 		life.Alive, life.Dying, "", "bad", "DEAD",
 	} {
 		c.Logf("test %d: %s", i, test)
-		c.Check(life.IsNotDead(test), jc.IsTrue)
+		c.Check(life.IsNotDead(test), tc.IsTrue)
 	}
 }
 
 func (*LifeSuite) TestIsDeadSuccess(c *tc.C) {
-	c.Check(life.IsDead(life.Dead), jc.IsTrue)
+	c.Check(life.IsDead(life.Dead), tc.IsTrue)
 }
 
 func (*LifeSuite) TestIsDeadFailure(c *tc.C) {
@@ -88,6 +87,6 @@ func (*LifeSuite) TestIsDeadFailure(c *tc.C) {
 		life.Alive, life.Dying, "", "bad", "DEAD",
 	} {
 		c.Logf("test %d: %s", i, test)
-		c.Check(life.IsDead(test), jc.IsFalse)
+		c.Check(life.IsDead(test), tc.IsFalse)
 	}
 }

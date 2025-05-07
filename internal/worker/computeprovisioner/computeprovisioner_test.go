@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
@@ -127,7 +126,7 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *tc.C,
 	attrs := coretesting.FakeConfig()
 	attrs[config.ProvisionerHarvestModeKey] = config.HarvestDestroyed.String()
 	modelCfg, err := config.New(config.UseDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.controllerAPI.EXPECT().ModelConfig(gomock.Any()).Return(modelCfg, nil)
 
 	if !container {
@@ -173,7 +172,7 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCou
 		attrs[config.NumProvisionWorkersKey] = 20
 	}
 	modelCfg, err := config.New(config.UseDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.controllerAPI.EXPECT().ModelConfig(gomock.Any()).Return(modelCfg, nil)
 
 	if !container {
@@ -250,7 +249,7 @@ func (s *CommonProvisionerSuite) newEnvironProvisioner(c *tc.C) computeprovision
 			Controller:        coretesting.ControllerTag,
 			Model:             coretesting.ModelTag,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	w, err := computeprovisioner.NewEnvironProvisioner(
 		s.controllerAPI, s.machineService, s.machinesAPI,
@@ -259,7 +258,7 @@ func (s *CommonProvisionerSuite) newEnvironProvisioner(c *tc.C) computeprovision
 		agentConfig,
 		loggertesting.WrapCheckLog(c),
 		s.broker)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.waitForProvisioner(c)
 	return w

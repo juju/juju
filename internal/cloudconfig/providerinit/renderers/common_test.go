@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/cloudconfig/cloudinit/cloudinittest"
 	"github.com/juju/juju/internal/cloudconfig/providerinit/renderers"
@@ -37,7 +36,7 @@ func (s *RenderersSuite) TestRenderYAML(c *tc.C) {
 		return []byte("2." + string(in))
 	}
 	out, err := renderers.RenderYAML(cloudcfg, d2, d1)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(out), jc.DeepEquals, "1.2.yaml")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(out), tc.DeepEquals, "1.2.yaml")
 	cloudcfg.CheckCallNames(c, "RenderYAML")
 }

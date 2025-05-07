@@ -8,7 +8,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
@@ -59,49 +58,49 @@ func (s *UnitAgentSuite) SetUpTest(c *tc.C) {
 func (s *UnitAgentSuite) TestConfigMissingName(c *tc.C) {
 	s.config.Name = ""
 	err := s.config.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), tc.Equals, "missing Name not valid")
 }
 
 func (s *UnitAgentSuite) TestConfigMissingDataDir(c *tc.C) {
 	s.config.DataDir = ""
 	err := s.config.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), tc.Equals, "missing DataDir not valid")
 }
 
 func (s *UnitAgentSuite) TestConfigMissingClock(c *tc.C) {
 	s.config.Clock = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), tc.Equals, "missing Clock not valid")
 }
 
 func (s *UnitAgentSuite) TestConfigMissingLogger(c *tc.C) {
 	s.config.Logger = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), tc.Equals, "missing Logger not valid")
 }
 
 func (s *UnitAgentSuite) TestConfigMissingSetupLogging(c *tc.C) {
 	s.config.SetupLogging = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), tc.Equals, "missing SetupLogging not valid")
 }
 
 func (s *UnitAgentSuite) TestConfigMissingUnitEngineConfig(c *tc.C) {
 	s.config.UnitEngineConfig = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), tc.Equals, "missing UnitEngineConfig not valid")
 }
 
 func (s *UnitAgentSuite) TestConfigMissingUnitManifolds(c *tc.C) {
 	s.config.UnitManifolds = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), tc.Equals, "missing UnitManifolds not valid")
 }
 
@@ -124,15 +123,15 @@ func (s *UnitAgentSuite) writeAgentConf(c *tc.C) {
 			// that it gets updated.
 			UpgradedToVersion: semversion.Number{Major: 2, Minor: 2},
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = conf.Write()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *UnitAgentSuite) newUnitAgent(c *tc.C) *deployer.UnitAgent {
 	s.InitializeCurrentToolsDir(c, s.config.DataDir)
 	agent, err := deployer.NewUnitAgent(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return agent
 }
 
@@ -150,7 +149,7 @@ func (s *UnitAgentSuite) TestChangeConfigWritesChanges(c *tc.C) {
 		setter.SetValue("foo", "bar")
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ub := s.newUnitAgent(c)
 	config := ub.CurrentConfig()
 	c.Assert(config.Value("foo"), tc.Equals, "bar")

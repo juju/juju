@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/juju/user"
@@ -45,14 +44,14 @@ Welcome, bob@external. You are now logged into "bighost".
 	// name from the auth tag.
 
 	controller, err := s.store.ControllerByName("bighost")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controller, jc.DeepEquals, &jujuclient.ControllerDetails{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(controller, tc.DeepEquals, &jujuclient.ControllerDetails{
 		ControllerUUID: mockControllerUUID,
 		APIEndpoints:   []string{"bighost.jujucharms.com:443"},
 	})
 	account, err := s.store.AccountDetails("bighost")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(account, jc.DeepEquals, &jujuclient.AccountDetails{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(account, tc.DeepEquals, &jujuclient.AccountDetails{
 		User:            "bob@external",
 		LastKnownAccess: "login",
 	})
@@ -78,14 +77,14 @@ Welcome, bob@external. You are now logged into "0.1.2.3".
 	// the specified controller name and user
 	// name from the auth tag.
 	controller, err := s.store.ControllerByName("0.1.2.3")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controller, jc.DeepEquals, &jujuclient.ControllerDetails{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(controller, tc.DeepEquals, &jujuclient.ControllerDetails{
 		ControllerUUID: mockControllerUUID,
 		APIEndpoints:   []string{"0.1.2.3:443"},
 	})
 	account, err := s.store.AccountDetails("0.1.2.3")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(account, jc.DeepEquals, &jujuclient.AccountDetails{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(account, tc.DeepEquals, &jujuclient.AccountDetails{
 		User:            "bob@external",
 		LastKnownAccess: "login",
 	})
@@ -105,14 +104,14 @@ Welcome, bob@external. You are now logged into "foo".
 	// the specified controller name and user
 	// name from the auth tag.
 	controller, err := s.store.ControllerByName("foo")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controller, jc.DeepEquals, &jujuclient.ControllerDetails{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(controller, tc.DeepEquals, &jujuclient.ControllerDetails{
 		ControllerUUID: mockControllerUUID,
 		APIEndpoints:   []string{"mycontroller.com:443/bar"},
 	})
 	account, err := s.store.AccountDetails("foo")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(account, jc.DeepEquals, &jujuclient.AccountDetails{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(account, tc.DeepEquals, &jujuclient.AccountDetails{
 		User:            "bob@external",
 		LastKnownAccess: "login",
 	})
@@ -142,8 +141,8 @@ Welcome, bob@external. You are now logged into "foo".
 	// the specified controller name and user
 	// name from the auth tag.
 	controller, err := s.store.ControllerByName("foo")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controller, jc.DeepEquals, &jujuclient.ControllerDetails{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(controller, tc.DeepEquals, &jujuclient.ControllerDetails{
 		ControllerUUID: mockControllerUUID,
 		APIEndpoints:   []string{"0.1.2.3:5678"},
 	})

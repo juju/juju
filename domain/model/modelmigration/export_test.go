@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/constraints"
@@ -93,9 +92,9 @@ func (e *exportSuite) TestModelConstraintsExport(c *tc.C) {
 	_ = exportOp.Execute(context.Background(), model)
 
 	// Test values that we know should be set
-	c.Check(model.Constraints().AllocatePublicIP(), jc.IsTrue)
+	c.Check(model.Constraints().AllocatePublicIP(), tc.IsTrue)
 	c.Check(model.Constraints().Architecture(), tc.Equals, "arm64")
-	c.Check(model.Constraints().Spaces(), jc.DeepEquals, []string{"space1", "space2"})
+	c.Check(model.Constraints().Spaces(), tc.DeepEquals, []string{"space1", "space2"})
 
 	// Test values that we know should not be set
 	c.Check(model.Constraints().CpuCores(), tc.Equals, uint64(0))

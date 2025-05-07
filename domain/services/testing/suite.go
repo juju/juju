@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
@@ -123,7 +122,7 @@ func (s *DomainServicesSuite) SeedControllerConfig(c *tc.C) {
 		s.ControllerModelUUID,
 	)
 	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *DomainServicesSuite) SeedAdminUser(c *tc.C) {
@@ -141,14 +140,14 @@ func (s *DomainServicesSuite) SeedAdminUser(c *tc.C) {
 	)
 	s.AdminUserUUID = uuid
 	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *DomainServicesSuite) SeedCloudAndCredential(c *tc.C) {
 	ctx := context.Background()
 
 	err := cloudstate.AllowCloudType(ctx, s.ControllerTxnRunner(), 99, "dummy")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.CloudName = "dummy"
 	s.CloudType = "dummy"
@@ -162,7 +161,7 @@ func (s *DomainServicesSuite) SeedCloudAndCredential(c *tc.C) {
 			},
 		},
 	})(ctx, s.ControllerTxnRunner(), s.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.CredentialKey = credential.Key{
 		Cloud: s.CloudName,
@@ -176,7 +175,7 @@ func (s *DomainServicesSuite) SeedCloudAndCredential(c *tc.C) {
 			"password": "secret",
 		}),
 	)(ctx, s.ControllerTxnRunner(), s.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // SeedModelDatabases makes sure that model's for both the controller and default
@@ -185,7 +184,7 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *tc.C) {
 	ctx := context.Background()
 
 	controllerUUID, err := uuid.UUIDFromString(jujutesting.ControllerTag.Id())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	controllerArgs := modeldomain.GlobalModelCreationArgs{
 		Cloud:       s.CloudName,
@@ -197,13 +196,13 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *tc.C) {
 
 	fn := modelbootstrap.CreateGlobalModelRecord(s.ControllerModelUUID, controllerArgs)
 	c.Assert(backendbootstrap.CreateDefaultBackends(model.IAAS)(
-		ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.ControllerModelUUID.String())), jc.ErrorIsNil)
+		ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.ControllerModelUUID.String())), tc.ErrorIsNil)
 	err = fn(ctx, s.ControllerTxnRunner(), s.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = modelbootstrap.CreateLocalModelRecord(s.ControllerModelUUID, controllerUUID, jujuversion.Current)(
 		ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.ControllerModelUUID.String()))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	fn = modelconfigbootstrap.SetModelConfig(
 		s.ControllerModelUUID,
@@ -211,7 +210,7 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *tc.C) {
 		modeldefaultsbootstrap.ModelDefaultsProvider(nil, nil, s.CloudType),
 	)
 	err = fn(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.ControllerModelUUID.String()))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	modelArgs := modeldomain.GlobalModelCreationArgs{
 		Cloud:      s.CloudName,
@@ -222,11 +221,11 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *tc.C) {
 
 	fn = modelbootstrap.CreateGlobalModelRecord(s.DefaultModelUUID, modelArgs)
 	err = fn(ctx, s.ControllerTxnRunner(), s.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = modelbootstrap.CreateLocalModelRecord(s.DefaultModelUUID, controllerUUID, jujuversion.Current)(
 		ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.DefaultModelUUID.String()))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	fn = modelconfigbootstrap.SetModelConfig(
 		s.DefaultModelUUID,
@@ -234,7 +233,7 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *tc.C) {
 		modeldefaultsbootstrap.ModelDefaultsProvider(nil, nil, s.CloudType),
 	)
 	err = fn(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.DefaultModelUUID.String()))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // DomainServicesGetter provides an implementation of the DomainServicesGetter

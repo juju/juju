@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -81,13 +80,13 @@ func (s *ControllerUpgraderSuite) TestControllerUpgrade(c *tc.C) {
 				},
 			},
 		}, meta.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(controllerUpgrade(context.Background(), appName, semversion.MustParse("9.9.9"), s.broker), jc.ErrorIsNil)
+	c.Assert(controllerUpgrade(context.Background(), appName, semversion.MustParse("9.9.9"), s.broker), tc.ErrorIsNil)
 
 	ss, err := s.broker.Client().AppsV1().StatefulSets(s.broker.Namespace()).
 		Get(context.Background(), appName, meta.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ss.Spec.Template.Spec.Containers[0].Image, tc.Equals, newImagePath)
 
 	c.Assert(ss.Annotations[utils.AnnotationVersionKey(k8sconstants.LabelVersion2)], tc.Equals, semversion.MustParse("9.9.9").String())
@@ -100,5 +99,5 @@ func (s *ControllerUpgraderSuite) TestControllerDoesNotExist(c *tc.C) {
 	)
 	err := controllerUpgrade(context.Background(), appName, semversion.MustParse("9.9.9"), s.broker)
 	c.Assert(err, tc.NotNil)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }

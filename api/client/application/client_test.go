@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/base/mocks"
@@ -83,7 +82,7 @@ func (s *applicationSuite) TestDeploy(c *tc.C) {
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	err := client.Deploy(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *applicationSuite) TestDeployAlreadyExists(c *tc.C) {
@@ -179,8 +178,8 @@ func (s *applicationSuite) TestAddUnits(c *tc.C) {
 		Placement:       []*instance.Placement{{Scope: "scope", Directive: "directive"}},
 		AttachStorage:   []string{"data/0"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, jc.DeepEquals, []string{"foo/0"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(units, tc.DeepEquals, []string{"foo/0"})
 }
 
 func (s *applicationSuite) TestAddUnitsAttachStorageMultipleUnits(c *tc.C) {
@@ -213,7 +212,7 @@ func (s *applicationSuite) TestApplicationGetCharmURLOrigin(c *tc.C) {
 	client := application.NewClientFromCaller(mockFacadeCaller)
 
 	curl, origin, err := client.GetCharmURLOrigin(context.Background(), "application")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(curl, tc.DeepEquals, charm.MustParseURL("ch:curl"))
 	c.Assert(origin, tc.DeepEquals, apicharm.Origin{
 		Risk: "edge",
@@ -255,7 +254,7 @@ func (s *applicationSuite) TestSetCharm(c *tc.C) {
 	c.Assert(args.Force, tc.Equals, true)
 	c.Assert(args.ForceBase, tc.Equals, true)
 	c.Assert(args.ForceUnits, tc.Equals, true)
-	c.Assert(args.StorageDirectives, jc.DeepEquals, map[string]params.StorageDirectives{
+	c.Assert(args.StorageDirectives, tc.DeepEquals, map[string]params.StorageDirectives{
 		"a": {Pool: "radiant"},
 		"b": {Count: toUint64Ptr(123)},
 		"c": {Size: toUint64Ptr(123)},
@@ -289,7 +288,7 @@ func (s *applicationSuite) TestSetCharm(c *tc.C) {
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	err := client.SetCharm(context.Background(), cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *applicationSuite) TestDestroyApplications(c *tc.C) {
@@ -323,8 +322,8 @@ func (s *applicationSuite) TestDestroyApplications(c *tc.C) {
 		Force:        true,
 		MaxWait:      &delay,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, jc.DeepEquals, expectedResults)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, expectedResults)
 }
 
 func (s *applicationSuite) TestDestroyApplicationsArity(c *tc.C) {
@@ -369,8 +368,8 @@ func (s *applicationSuite) TestDestroyApplicationsInvalidIds(c *tc.C) {
 	res, err := client.DestroyApplications(context.Background(), application.DestroyApplicationsParams{
 		Applications: []string{"!", "foo"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, jc.DeepEquals, expectedResults)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, expectedResults)
 }
 
 func (s *applicationSuite) TestDestroyConsumedApplicationsArity(c *tc.C) {
@@ -424,7 +423,7 @@ func (s *applicationSuite) TestDestroyConsumedApplications(c *tc.C) {
 		[]string{"foo", "bar"}, force, &noWait,
 	}
 	res, err = client.DestroyConsumedApplication(context.Background(), destroyParams)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(res, tc.HasLen, 2)
 }
 
@@ -459,8 +458,8 @@ func (s *applicationSuite) TestDestroyUnits(c *tc.C) {
 		Force:   true,
 		MaxWait: &delay,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, jc.DeepEquals, expectedResults)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, expectedResults)
 }
 
 func (s *applicationSuite) TestDestroyUnitsArity(c *tc.C) {
@@ -506,8 +505,8 @@ func (s *applicationSuite) TestDestroyUnitsInvalidIds(c *tc.C) {
 	res, err := client.DestroyUnits(context.Background(), application.DestroyUnitsParams{
 		Units: []string{"!", "foo/0"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, jc.DeepEquals, expectedResults)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, expectedResults)
 }
 
 func (s *applicationSuite) TestConsume(c *tc.C) {
@@ -523,7 +522,7 @@ func (s *applicationSuite) TestConsume(c *tc.C) {
 		Endpoints:              []params.RemoteEndpoint{{Name: "endpoint"}},
 	}
 	mac, err := jujutesting.NewMacaroon("id")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	controllerInfo := &params.ExternalControllerInfo{
 		ControllerTag: coretesting.ControllerTag.String(),
 		Alias:         "controller-alias",
@@ -558,7 +557,7 @@ func (s *applicationSuite) TestConsume(c *tc.C) {
 			CACert:         controllerInfo.CACert,
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(name, tc.Equals, "alias")
 }
 
@@ -590,7 +589,7 @@ func (s *applicationSuite) TestDestroyRelation(c *tc.C) {
 
 		client := application.NewClientFromCaller(mockFacadeCaller)
 		err := client.DestroyRelation(context.Background(), t.force, t.maxWait, "ep1", "ep2")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }
 
@@ -622,7 +621,7 @@ func (s *applicationSuite) TestDestroyRelationId(c *tc.C) {
 
 		client := application.NewClientFromCaller(mockFacadeCaller)
 		err := client.DestroyRelationId(context.Background(), 123, t.force, t.maxWait)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }
 
@@ -651,7 +650,7 @@ func (s *applicationSuite) TestSetRelationSuspended(c *tc.C) {
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	err := client.SetRelationSuspended(context.Background(), []int{123, 456}, true, "message")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *applicationSuite) TestSetRelationSuspendedArity(c *tc.C) {
@@ -700,8 +699,8 @@ func (s *applicationSuite) TestAddRelation(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddRelation", args, result).SetArg(3, results).Return(nil)
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	res, err := client.AddRelation(context.Background(), []string{"ep1", "ep2"}, []string{"cidr1", "cidr2"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Endpoints, jc.DeepEquals, map[string]params.CharmRelation{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Endpoints, tc.DeepEquals, map[string]params.CharmRelation{
 		"ep1": {Name: "foo"},
 	})
 }
@@ -753,8 +752,8 @@ func (s *applicationSuite) TestGetConfig(c *tc.C) {
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	res, err := client.GetConfig(context.Background(), "foo", "bar")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, jc.DeepEquals, []map[string]interface{}{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, []map[string]interface{}{
 		fooConfig, barConfig,
 	})
 }
@@ -780,8 +779,8 @@ func (s *applicationSuite) TestGetConstraints(c *tc.C) {
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	res, err := client.GetConstraints(context.Background(), "foo", "bar")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, jc.DeepEquals, []constraints.Value{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, []constraints.Value{
 		fooConstraints, barConstraints,
 	})
 }
@@ -887,7 +886,7 @@ func (s *applicationSuite) TestResolveUnitErrors(c *tc.C) {
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	err := client.ResolveUnitErrors(context.Background(), units, false, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *applicationSuite) TestResolveUnitErrorsUnitsAll(c *tc.C) {
@@ -945,7 +944,7 @@ func (s *applicationSuite) TestResolveUnitErrorsAll(c *tc.C) {
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	err := client.ResolveUnitErrors(context.Background(), nil, true, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *applicationSuite) TestScaleApplication(c *tc.C) {
@@ -971,8 +970,8 @@ func (s *applicationSuite) TestScaleApplication(c *tc.C) {
 		Scale:           5,
 		Force:           true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, jc.DeepEquals, params.ScaleApplicationResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, params.ScaleApplicationResult{
 		Info: &params.ScaleApplicationInfo{Scale: 5},
 	})
 }
@@ -999,8 +998,8 @@ func (s *applicationSuite) TestChangeScaleApplication(c *tc.C) {
 		ApplicationName: "foo",
 		ScaleChange:     5,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, jc.DeepEquals, params.ScaleApplicationResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, params.ScaleApplicationResult{
 		Info: &params.ScaleApplicationInfo{Scale: 7},
 	})
 }
@@ -1159,7 +1158,7 @@ func (s *applicationSuite) TestApplicationsInfo(c *tc.C) {
 			names.NewApplicationTag("bar"),
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, []params.ApplicationInfoResult{
 		{Error: &params.Error{Message: "boom"}},
 		{Result: &params.ApplicationResult{
@@ -1270,7 +1269,7 @@ func (s *applicationSuite) TestUnitsInfo(c *tc.C) {
 			names.NewUnitTag("bar/1"),
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, []application.UnitInfo{
 		{Error: stderrors.New("boom")},
 		{
@@ -1355,7 +1354,7 @@ func (s *applicationSuite) TestExpose(c *tc.C) {
 				ExposeToSpaces: []string{"outer"},
 			},
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *applicationSuite) TestUnexpose(c *tc.C) {
@@ -1371,7 +1370,7 @@ func (s *applicationSuite) TestUnexpose(c *tc.C) {
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	err := client.Unexpose(context.Background(), "foo", []string{"foo"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *applicationSuite) TestLeader(c *tc.C) {
@@ -1386,7 +1385,7 @@ func (s *applicationSuite) TestLeader(c *tc.C) {
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	obtainedUnit, err := client.Leader(context.Background(), "ubuntu")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtainedUnit, tc.Equals, "ubuntu/42")
 }
 

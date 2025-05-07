@@ -9,7 +9,6 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/errors"
@@ -55,7 +54,7 @@ func genListPublicKey(c *tc.C, keys []string) []coressh.PublicKey {
 	rval := make([]coressh.PublicKey, 0, len(keys))
 	for _, key := range keys {
 		parsedKey, err := ssh.ParsePublicKey(key)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		rval = append(rval, coressh.PublicKey{
 			Key:         key,
 			Fingerprint: parsedKey.Fingerprint(),
@@ -109,7 +108,7 @@ func (s *keyManagerSuite) TestListKeysForUserNotFound(c *tc.C) {
 	)
 
 	results, err := api.ListKeys(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
 			{
@@ -160,7 +159,7 @@ func (s *keyManagerSuite) TestListKeys(c *tc.C) {
 	)
 
 	results, err := api.ListKeys(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
 			{
@@ -208,7 +207,7 @@ func (s *keyManagerSuite) TestListKeysFingerprintMode(c *tc.C) {
 	)
 
 	results, err := api.ListKeys(context.Background(), args)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
 			{
@@ -244,7 +243,7 @@ func (s *keyManagerSuite) TestListKeysNoPermission(c *tc.C) {
 	)
 
 	_, err := api.ListKeys(context.Background(), args)
-	c.Check(err, jc.DeepEquals, &params.Error{
+	c.Check(err, tc.DeepEquals, &params.Error{
 		Code:    params.CodeUnauthorized,
 		Message: "permission denied",
 	})
@@ -281,8 +280,8 @@ func (s *keyManagerSuite) TestAddKeysForUser(c *tc.C) {
 	)
 
 	res, err := api.AddKeys(context.Background(), args)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(res, jc.DeepEquals, params.ErrorResults{})
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(res, tc.DeepEquals, params.ErrorResults{})
 }
 
 // TestAddKeysSuperUser is testing that a user with superuser permissions can
@@ -318,8 +317,8 @@ func (s *keyManagerSuite) TestAddKeysSuperUser(c *tc.C) {
 	)
 
 	res, err := api.AddKeys(context.Background(), args)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(res, jc.DeepEquals, params.ErrorResults{})
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(res, tc.DeepEquals, params.ErrorResults{})
 }
 
 // TestAddKeysModelAdmin is testing that model admin's have permissions to add
@@ -355,8 +354,8 @@ func (s *keyManagerSuite) TestAddKeysModelAdmin(c *tc.C) {
 	)
 
 	res, err := api.AddKeys(context.Background(), args)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(res, jc.DeepEquals, params.ErrorResults{})
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(res, tc.DeepEquals, params.ErrorResults{})
 }
 
 // TestAddKeysNonAuthorised is testing that if a user that isn't authorised for
@@ -380,7 +379,7 @@ func (s *keyManagerSuite) TestAddKeysNonAuthorised(c *tc.C) {
 	)
 
 	_, err := api.AddKeys(context.Background(), args)
-	c.Check(err, jc.DeepEquals, &params.Error{
+	c.Check(err, tc.DeepEquals, &params.Error{
 		Code:    params.CodeUnauthorized,
 		Message: "permission denied",
 	})
@@ -408,7 +407,7 @@ func (s *keyManagerSuite) TestBlockAddKeys(c *tc.C) {
 	)
 
 	_, err := api.AddKeys(context.Background(), args)
-	c.Check(err, jc.DeepEquals, &params.Error{
+	c.Check(err, tc.DeepEquals, &params.Error{
 		Code:    params.CodeOperationBlocked,
 		Message: "TestAddKeys",
 	})
@@ -445,8 +444,8 @@ func (s *keyManagerSuite) TesDeleteKeys(c *tc.C) {
 	)
 
 	res, err := api.DeleteKeys(context.Background(), args)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(res, jc.DeepEquals, params.ErrorResults{})
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(res, tc.DeepEquals, params.ErrorResults{})
 }
 
 // TestDeleteKeysSuperUser is asserting that a super user can remove public ssh
@@ -482,8 +481,8 @@ func (s *keyManagerSuite) TestDeleteKeysSuperUser(c *tc.C) {
 	)
 
 	res, err := api.DeleteKeys(context.Background(), args)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(res, jc.DeepEquals, params.ErrorResults{})
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(res, tc.DeepEquals, params.ErrorResults{})
 }
 
 // TestDeleteKeysModelAdmin is asserting that model admins can removed public
@@ -519,8 +518,8 @@ func (s *keyManagerSuite) TestDeleteKeysModelAdmin(c *tc.C) {
 	)
 
 	res, err := api.DeleteKeys(context.Background(), args)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(res, jc.DeepEquals, params.ErrorResults{})
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(res, tc.DeepEquals, params.ErrorResults{})
 }
 
 // TestDeleteKeysNonAuthorised is asserting that user that is not authorised for
@@ -545,7 +544,7 @@ func (s *keyManagerSuite) TestDeleteKeysNonAuthorised(c *tc.C) {
 	)
 
 	_, err := api.DeleteKeys(context.Background(), args)
-	c.Check(err, jc.DeepEquals, &params.Error{
+	c.Check(err, tc.DeepEquals, &params.Error{
 		Code:    params.CodeUnauthorized,
 		Message: "permission denied",
 	})
@@ -574,7 +573,7 @@ func (s *keyManagerSuite) TestBlockDeleteKeys(c *tc.C) {
 	)
 
 	_, err := api.DeleteKeys(context.Background(), args)
-	c.Check(err, jc.DeepEquals, &params.Error{
+	c.Check(err, tc.DeepEquals, &params.Error{
 		Code:    params.CodeOperationBlocked,
 		Message: "TestDeleteKeys",
 	})

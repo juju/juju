@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/changestream"
@@ -35,7 +34,7 @@ func (s *watcherSuite) TestWatchControllerConfig(c *tc.C) {
 		),
 	)
 	watcher, err := svc.WatchControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness[[]string](s, watchertest.NewWatcherC[[]string](c, watcher))
 
@@ -49,7 +48,7 @@ func (s *watcherSuite) TestWatchControllerConfig(c *tc.C) {
 		}
 
 		err = svc.UpdateControllerConfig(context.Background(), cfgMap, nil)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		// Get the change.
 		w.Check(
@@ -69,7 +68,7 @@ func (s *watcherSuite) TestWatchControllerConfig(c *tc.C) {
 		}
 
 		err = svc.UpdateControllerConfig(context.Background(), cfgMap, nil)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		// Get the change.
 		w.Check(
@@ -85,7 +84,7 @@ func (s *watcherSuite) TestWatchControllerConfig(c *tc.C) {
 		}
 
 		err = svc.UpdateControllerConfig(context.Background(), cfgMap, nil)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		// The value is the same, we shouldn't get a change.
 		w.AssertNoChange()

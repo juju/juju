@@ -6,7 +6,6 @@ package network
 import (
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	coreerrors "github.com/juju/juju/core/errors"
 )
@@ -29,9 +28,9 @@ func (s *zoneSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *zoneSuite) TestAvailabilityZones(c *tc.C) {
-	c.Assert(s.zones.Validate("zone1"), jc.ErrorIsNil)
+	c.Assert(s.zones.Validate("zone1"), tc.ErrorIsNil)
 	c.Assert(s.zones.Validate("zone2"), tc.ErrorMatches, `zone "zone2" is unavailable`)
-	c.Assert(s.zones.Validate("zone3"), jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(s.zones.Validate("zone3"), tc.ErrorIs, coreerrors.NotValid)
 }
 
 type az struct {

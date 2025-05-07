@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	gomock "go.uber.org/mock/gomock"
@@ -46,7 +45,7 @@ func (s *workerSuite) TestKilledGetLogger(c *tc.C) {
 
 	worker := w.(*LogSink)
 	_, err := worker.GetLogWriter(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, logger.ErrLoggerDying)
+	c.Assert(err, tc.ErrorIs, logger.ErrLoggerDying)
 }
 
 func (s *workerSuite) TestKilledGetLoggerContext(c *tc.C) {
@@ -63,7 +62,7 @@ func (s *workerSuite) TestKilledGetLoggerContext(c *tc.C) {
 
 	worker := w.(*LogSink)
 	_, err := worker.GetLoggerContext(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, logger.ErrLoggerDying)
+	c.Assert(err, tc.ErrorIs, logger.ErrLoggerDying)
 }
 
 func (s *workerSuite) TestGetLogWriter(c *tc.C) {
@@ -78,7 +77,7 @@ func (s *workerSuite) TestGetLogWriter(c *tc.C) {
 
 	worker := w.(*LogSink)
 	logger, err := worker.GetLogWriter(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(logger, tc.NotNil)
 
 	workertest.CheckKill(c, w)
@@ -98,7 +97,7 @@ func (s *workerSuite) TestGetLogWriterIsCached(c *tc.C) {
 
 	for i := 0; i < 10; i++ {
 		logger, err := worker.GetLogWriter(context.Background(), id)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(logger, tc.NotNil)
 	}
 
@@ -120,7 +119,7 @@ func (s *workerSuite) TestGetLoggerContext(c *tc.C) {
 	worker := w.(*LogSink)
 
 	logger, err := worker.GetLoggerContext(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(logger, tc.NotNil)
 
 	workertest.CheckKill(c, w)
@@ -140,7 +139,7 @@ func (s *workerSuite) TestGetLoggerContextIsCached(c *tc.C) {
 
 	for i := 0; i < 10; i++ {
 		logger, err := worker.GetLoggerContext(context.Background(), id)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(logger, tc.NotNil)
 	}
 
@@ -166,12 +165,12 @@ func (s *workerSuite) TestGetLogWriterAndGetLoggerContextIsCachedTogether(c *tc.
 	for i := 0; i < 10; i++ {
 		if i%2 == 0 {
 			_, err := worker.GetLogWriter(context.Background(), id)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			continue
 		}
 
 		_, err := worker.GetLoggerContext(context.Background(), id)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	workertest.CheckKill(c, w)
@@ -199,7 +198,7 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 
 		Clock: clock.WallClock,
 	}, s.states)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }
 

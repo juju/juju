@@ -5,7 +5,6 @@ package registry_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry"
@@ -33,7 +32,7 @@ func (s *registrySuite) TestSelectsAWSPrivate(c *tc.C) {
 		},
 		Region: "us-west-1",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(reg, tc.NotNil)
 	c.Assert(reg.String(), tc.Equals, "*.dkr.ecr.*.amazonaws.com")
 }
@@ -42,7 +41,7 @@ func (s *registrySuite) TestSelectsDockerHub(c *tc.C) {
 	reg, err := registry.New(docker.ImageRepoDetails{
 		Repository: "docker.io/jujusolutions",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(reg, tc.NotNil)
 	c.Assert(reg.String(), tc.Equals, "docker.io")
 }
@@ -51,7 +50,7 @@ func (s *registrySuite) TestSelectsGithubContainerRegistry(c *tc.C) {
 	reg, err := registry.New(docker.ImageRepoDetails{
 		Repository: "ghcr.io/juju",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(reg, tc.NotNil)
 	c.Assert(reg.String(), tc.Equals, "ghcr.io")
 }
@@ -60,7 +59,7 @@ func (s *registrySuite) TestSelectsAWSPublic(c *tc.C) {
 	reg, err := registry.New(docker.ImageRepoDetails{
 		Repository: "public.ecr.aws/juju",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(reg, tc.NotNil)
 	c.Assert(reg.String(), tc.Equals, "public.ecr.aws")
 }

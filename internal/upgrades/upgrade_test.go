@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -351,11 +350,11 @@ func (s *upgradeSuite) TestPerformUpgradeSteps(c *tc.C) {
 		s.PatchValue(&jujuversion.Current, toVersion)
 		err := upgrades.PerformUpgradeSteps(fromVersion, test.targets, ctx)
 		if test.err == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
 			c.Check(err, tc.ErrorMatches, test.err)
 		}
-		c.Check(ctx.messages, jc.DeepEquals, test.expectedSteps)
+		c.Check(ctx.messages, tc.DeepEquals, test.expectedSteps)
 	}
 }
 

@@ -17,7 +17,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	coretesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 )
@@ -48,13 +47,13 @@ func (s *workerSuite) TestIDRequest(c *tc.C) {
 	s.ensureStartup(c, states)
 
 	resp, err := newRequest(c, socket, "/agent-id", http.MethodGet)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = resp.Body.Close() }()
 
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 
 	content, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(string(content), tc.Equals, "99")
 
 	workertest.CleanKill(c, w)
@@ -132,7 +131,7 @@ func (s *workerSuite) TestWatchWithNoChange(c *tc.C) {
 	s.ensureStartup(c, states)
 
 	watcher, err := w.Watcher()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer watcher.Unsubscribe()
 
 	changes := watcher.Changes()
@@ -152,7 +151,7 @@ func (s *workerSuite) TestWatchWithSubscribe(c *tc.C) {
 	s.ensureStartup(c, states)
 
 	watcher, err := w.Watcher()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer watcher.Unsubscribe()
 
 	s.requestReload(c, socket)
@@ -190,7 +189,7 @@ func (s *workerSuite) TestWatchAfterUnsubscribe(c *tc.C) {
 	s.ensureStartup(c, states)
 
 	watcher, err := w.Watcher()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer watcher.Unsubscribe()
 
 	s.requestReload(c, socket)
@@ -203,7 +202,7 @@ func (s *workerSuite) TestWatchAfterUnsubscribe(c *tc.C) {
 	// The channel should be closed.
 	select {
 	case _, ok := <-changes:
-		c.Assert(ok, jc.IsFalse)
+		c.Assert(ok, tc.IsFalse)
 	case <-time.After(coretesting.ShortWait * 10):
 	}
 
@@ -219,7 +218,7 @@ func (s *workerSuite) TestWatchWithKilledWorker(c *tc.C) {
 	s.ensureStartup(c, states)
 
 	watcher, err := w.Watcher()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer watcher.Unsubscribe()
 
 	workertest.CleanKill(c, w)
@@ -228,7 +227,7 @@ func (s *workerSuite) TestWatchWithKilledWorker(c *tc.C) {
 
 	select {
 	case _, ok := <-changes:
-		c.Assert(ok, jc.IsFalse)
+		c.Assert(ok, tc.IsFalse)
 	case <-time.After(coretesting.ShortWait * 10):
 	}
 
@@ -246,7 +245,7 @@ func (s *workerSuite) TestWatchMultiple(c *tc.C) {
 	watchers := make([]ConfigWatcher, 10)
 	for i := range watchers {
 		watcher, err := w.Watcher()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		defer watcher.Unsubscribe()
 		watchers[i] = watcher
 	}
@@ -266,7 +265,7 @@ func (s *workerSuite) TestWatchMultiple(c *tc.C) {
 			select {
 			case _, ok := <-changes:
 				atomic.AddInt64(&count, 1)
-				c.Assert(ok, jc.IsTrue)
+				c.Assert(ok, tc.IsTrue)
 			case <-time.After(coretesting.ShortWait * 10):
 				c.Fatal("should have received a change")
 			}
@@ -299,7 +298,7 @@ func (s *workerSuite) TestWatchMultipleWithUnsubscribe(c *tc.C) {
 	watchers := make([]ConfigWatcher, 10)
 	for i := range watchers {
 		watcher, err := w.Watcher()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		watchers[i] = watcher
 	}
 
@@ -328,7 +327,7 @@ func (s *workerSuite) TestWatchMultipleWithUnsubscribe(c *tc.C) {
 			select {
 			case _, ok := <-changes:
 				atomic.AddInt64(&count, 1)
-				c.Assert(ok, jc.IsTrue)
+				c.Assert(ok, tc.IsTrue)
 			case <-time.After(coretesting.ShortWait * 10):
 				c.Fatal("should have received a change")
 			}
@@ -370,7 +369,7 @@ func (s *workerSuite) newWorker(c *tc.C) (*configWorker, string, chan string) {
 		SocketName:        socket,
 		NewSocketListener: NewSocketListener,
 	}, states)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w, socket, states
 }
 
@@ -394,18 +393,18 @@ func (s *workerSuite) ensureReload(c *tc.C, states chan string) {
 
 func (s *workerSuite) requestReload(c *tc.C, socket string) {
 	resp, err := newRequest(c, socket, "/reload", http.MethodPost)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusNoContent)
 }
 
 func (s *workerSuite) ensureReloadRequestRefused(c *tc.C, socket string) {
 	_, err := newRequest(c, socket, "/reload", http.MethodPost)
-	c.Assert(err, jc.ErrorIs, syscall.ECONNREFUSED)
+	c.Assert(err, tc.ErrorIs, syscall.ECONNREFUSED)
 }
 
 func (s *workerSuite) ensureEndpointNotFound(c *tc.C, socket, method string) {
 	resp, err := newRequest(c, socket, method, http.MethodPost)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusNotFound)
 }
 
@@ -424,7 +423,7 @@ func newRequest(c *tc.C, socket, path, method string) (*http.Response, error) {
 		serverURL,
 		nil,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return client(socket).Do(req)
 }

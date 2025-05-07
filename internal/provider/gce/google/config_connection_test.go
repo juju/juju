@@ -5,7 +5,6 @@ package google_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/internal/provider/gce/google"
@@ -25,7 +24,7 @@ func (*connConfigSuite) TestValidateValid(c *tc.C) {
 	}
 	err := cfg.Validate()
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (*connConfigSuite) TestValidateMissingRegion(c *tc.C) {

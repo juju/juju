@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/semversion"
@@ -84,7 +83,7 @@ func (s *MetaSuite) TestValidTermFormat(c *tc.C) {
 		c.Logf("valid test %d: %s", i, s)
 		meta := charm.Meta{Terms: []string{s}}
 		err := meta.Check(charm.FormatV2, charm.SelectionManifest)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
 
 	for i, s := range invalid {
@@ -179,7 +178,7 @@ func (s *MetaSuite) TestCheckTerms(c *tc.C) {
 		meta := charm.Meta{Terms: test.terms}
 		err := meta.Check(charm.FormatV2, charm.SelectionManifest)
 		if test.expectError == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
 			c.Check(err, tc.ErrorMatches, test.expectError)
 		}
@@ -261,7 +260,7 @@ func (s *MetaSuite) TestParseTerms(c *tc.C) {
 		c.Logf("running test %v: %v", i, test.about)
 		term, err := charm.ParseTerm(test.term)
 		if test.expectError == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			c.Check(term, tc.DeepEquals, &test.expectTerm)
 		} else {
 			c.Check(err, tc.ErrorMatches, test.expectError)
@@ -273,15 +272,15 @@ func (s *MetaSuite) TestParseTerms(c *tc.C) {
 func (s *MetaSuite) TestReadCategory(c *tc.C) {
 	meta, err := charm.ReadMeta(repoMeta(c, "category"))
 	c.Assert(err, tc.IsNil)
-	c.Assert(meta.Categories, jc.DeepEquals, []string{"database"})
+	c.Assert(meta.Categories, tc.DeepEquals, []string{"database"})
 }
 
 func (s *MetaSuite) TestReadTerms(c *tc.C) {
 	meta, err := charm.ReadMeta(repoMeta(c, "terms"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = meta.Check(charm.FormatV2, charm.SelectionManifest)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(meta.Terms, jc.DeepEquals, []string{"term1/1", "term2", "owner/term3/1"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(meta.Terms, tc.DeepEquals, []string{"term1/1", "term2", "owner/term3/1"})
 }
 
 var metaDataWithInvalidTermsId = `
@@ -295,7 +294,7 @@ terms: ["!!!/abc"]
 func (s *MetaSuite) TestCheckReadInvalidTerms(c *tc.C) {
 	reader := strings.NewReader(metaDataWithInvalidTermsId)
 	meta, err := charm.ReadMeta(reader)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = meta.Check(charm.FormatV2, charm.SelectionManifest)
 	c.Assert(err, tc.ErrorMatches, `wrong owner format "!!!"`)
 }
@@ -303,7 +302,7 @@ func (s *MetaSuite) TestCheckReadInvalidTerms(c *tc.C) {
 func (s *MetaSuite) TestReadTags(c *tc.C) {
 	meta, err := charm.ReadMeta(repoMeta(c, "category"))
 	c.Assert(err, tc.IsNil)
-	c.Assert(meta.Tags, jc.DeepEquals, []string{"openstack", "storage"})
+	c.Assert(meta.Tags, tc.DeepEquals, []string{"openstack", "storage"})
 }
 
 func (s *MetaSuite) TestSubordinate(c *tc.C) {
@@ -317,7 +316,7 @@ func (s *MetaSuite) TestCheckSubordinateWithoutContainerRelation(c *tc.C) {
 	hackYaml := ReadYaml(r)
 	hackYaml["subordinate"] = true
 	meta, err := charm.ReadMeta(hackYaml.Reader())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = meta.Check(charm.FormatV2, charm.SelectionManifest)
 	c.Assert(err, tc.ErrorMatches, "subordinate charm \"dummy\" lacks \"requires\" relation with container scope")
 }
@@ -436,7 +435,7 @@ func (s *MetaSuite) TestCombinedRelations(c *tc.C) {
 	combinedRelations := meta.CombinedRelations()
 	expectedLength := len(meta.Provides) + len(meta.Requires) + len(meta.Peers)
 	c.Assert(combinedRelations, tc.HasLen, expectedLength)
-	c.Assert(combinedRelations, jc.DeepEquals, map[string]charm.Relation{
+	c.Assert(combinedRelations, tc.DeepEquals, map[string]charm.Relation{
 		"endpoint": {
 			Name:      "endpoint",
 			Role:      charm.RoleProvider,
@@ -498,7 +497,7 @@ func (s *MetaSuite) TestInvalidMinJujuVersion(c *tc.C) {
 
 func (s *MetaSuite) TestNoMinJujuVersion(c *tc.C) {
 	meta, err := charm.ReadMeta(strings.NewReader(dummyMetadata))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(meta.MinJujuVersion, tc.Equals, semversion.Zero)
 }
 
@@ -545,20 +544,20 @@ func (s *MetaSuite) TestIfaceExpander(c *tc.C) {
 	// Shorthand is properly rewritten
 	v, err := e.Coerce("http", path)
 	c.Assert(err, tc.IsNil)
-	c.Assert(v, jc.DeepEquals, map[string]interface{}{"interface": "http", "limit": nil, "optional": false, "scope": string(charm.ScopeGlobal)})
+	c.Assert(v, tc.DeepEquals, map[string]interface{}{"interface": "http", "limit": nil, "optional": false, "scope": string(charm.ScopeGlobal)})
 
 	// Defaults are properly applied
 	v, err = e.Coerce(map[string]interface{}{"interface": "http"}, path)
 	c.Assert(err, tc.IsNil)
-	c.Assert(v, jc.DeepEquals, map[string]interface{}{"interface": "http", "limit": nil, "optional": false, "scope": string(charm.ScopeGlobal)})
+	c.Assert(v, tc.DeepEquals, map[string]interface{}{"interface": "http", "limit": nil, "optional": false, "scope": string(charm.ScopeGlobal)})
 
 	v, err = e.Coerce(map[string]interface{}{"interface": "http", "limit": 2}, path)
 	c.Assert(err, tc.IsNil)
-	c.Assert(v, jc.DeepEquals, map[string]interface{}{"interface": "http", "limit": int64(2), "optional": false, "scope": string(charm.ScopeGlobal)})
+	c.Assert(v, tc.DeepEquals, map[string]interface{}{"interface": "http", "limit": int64(2), "optional": false, "scope": string(charm.ScopeGlobal)})
 
 	v, err = e.Coerce(map[string]interface{}{"interface": "http", "optional": true}, path)
 	c.Assert(err, tc.IsNil)
-	c.Assert(v, jc.DeepEquals, map[string]interface{}{"interface": "http", "limit": nil, "optional": true, "scope": string(charm.ScopeGlobal)})
+	c.Assert(v, tc.DeepEquals, map[string]interface{}{"interface": "http", "limit": nil, "optional": true, "scope": string(charm.ScopeGlobal)})
 
 	// Invalid data raises an error.
 	_, err = e.Coerce(42, path)
@@ -574,7 +573,7 @@ func (s *MetaSuite) TestIfaceExpander(c *tc.C) {
 	e = charm.IfaceExpander(1)
 	v, err = e.Coerce(map[string]interface{}{"interface": "http"}, path)
 	c.Assert(err, tc.IsNil)
-	c.Assert(v, jc.DeepEquals, map[string]interface{}{"interface": "http", "limit": int64(1), "optional": false, "scope": string(charm.ScopeGlobal)})
+	c.Assert(v, tc.DeepEquals, map[string]interface{}{"interface": "http", "limit": int64(1), "optional": false, "scope": string(charm.ScopeGlobal)})
 }
 
 func (s *MetaSuite) TestMetaHooks(c *tc.C) {
@@ -621,7 +620,7 @@ func (s *MetaSuite) TestMetaHooks(c *tc.C) {
 		"secret-remove":                     true,
 		"secret-rotate":                     true,
 	}
-	c.Assert(hooks, jc.DeepEquals, expectedHooks)
+	c.Assert(hooks, tc.DeepEquals, expectedHooks)
 }
 
 func (s *MetaSuite) TestCodecRoundTripEmpty(c *tc.C) {
@@ -633,7 +632,7 @@ func (s *MetaSuite) TestCodecRoundTripEmpty(c *tc.C) {
 		var empty_output charm.Meta
 		err = codec.Unmarshal(data, &empty_output)
 		c.Assert(err, tc.IsNil)
-		c.Assert(empty_input, jc.DeepEquals, empty_output)
+		c.Assert(empty_input, tc.DeepEquals, empty_output)
 	}
 }
 
@@ -688,7 +687,7 @@ func (s *MetaSuite) TestCodecRoundTrip(c *tc.C) {
 		var output charm.Meta
 		err = codec.Unmarshal(data, &output)
 		c.Assert(err, tc.IsNil)
-		c.Assert(output, jc.DeepEquals, input, tc.Commentf("data: %q", data))
+		c.Assert(output, tc.DeepEquals, input, tc.Commentf("data: %q", data))
 	}
 }
 
@@ -770,7 +769,7 @@ func (s *MetaSuite) TestCodecRoundTripKubernetes(c *tc.C) {
 		var output charm.Meta
 		err = codec.Unmarshal(data, &output)
 		c.Assert(err, tc.IsNil)
-		c.Assert(output, jc.DeepEquals, input, tc.Commentf("data: %q", data))
+		c.Assert(output, tc.DeepEquals, input, tc.Commentf("data: %q", data))
 	}
 }
 
@@ -907,7 +906,7 @@ func (s *MetaSuite) TestYAMLMarshal(c *tc.C) {
 		c.Assert(err, tc.IsNil)
 		gotCh, err := charm.ReadMeta(bytes.NewReader(gotYAML))
 		c.Assert(err, tc.IsNil)
-		c.Assert(gotCh, jc.DeepEquals, ch)
+		c.Assert(gotCh, tc.DeepEquals, ch)
 	}
 }
 
@@ -934,7 +933,7 @@ extra-bindings:
 	var x interface{}
 	err = yaml.Unmarshal(gotYAML, &x)
 	c.Assert(err, tc.IsNil)
-	c.Assert(x, jc.DeepEquals, map[interface{}]interface{}{
+	c.Assert(x, tc.DeepEquals, map[interface{}]interface{}{
 		"name":        "minimal",
 		"description": "d",
 		"summary":     "s",
@@ -1043,7 +1042,7 @@ func testCheckErrors(c *tc.C, prefix string, tests []testErrorPayload) {
 		c.Logf("test %d: %s", i, test.desc)
 		c.Logf("\n%s\n", prefix+test.yaml)
 		meta, err := charm.ReadMeta(strings.NewReader(prefix + test.yaml))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = meta.Check(charm.FormatV2, charm.SelectionManifest)
 		c.Assert(err, tc.ErrorMatches, test.err)
 	}
@@ -1261,7 +1260,7 @@ storage:
 	c.Assert(err, tc.IsNil)
 	store := meta.Storage["store0"]
 	c.Assert(store, tc.NotNil)
-	c.Assert(store.Properties, jc.SameContents, []string{"transient"})
+	c.Assert(store.Properties, tc.SameContents, []string{"transient"})
 }
 
 func (s *MetaSuite) TestExtraBindings(c *tc.C) {
@@ -1342,7 +1341,7 @@ resources:
 `))
 	c.Assert(err, tc.IsNil)
 
-	c.Check(meta.Resources, jc.DeepEquals, map[string]resource.Meta{
+	c.Check(meta.Resources, tc.DeepEquals, map[string]resource.Meta{
 		"resource-name": {
 			Name:        "resource-name",
 			Type:        resource.TypeFile,
@@ -1370,9 +1369,9 @@ func (s *MetaSuite) TestParseResourceMetaOkay(c *tc.C) {
 		"description": "One line that is useful when operators need to push it.",
 	}
 	res, err := charm.ParseResourceMeta(name, data)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(res, jc.DeepEquals, resource.Meta{
+	c.Check(res, tc.DeepEquals, resource.Meta{
 		Name:        "my-resource",
 		Type:        resource.TypeFile,
 		Path:        "filename.tgz",
@@ -1388,9 +1387,9 @@ func (s *MetaSuite) TestParseResourceMetaMissingName(c *tc.C) {
 		"description": "One line that is useful when operators need to push it.",
 	}
 	res, err := charm.ParseResourceMeta(name, data)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(res, jc.DeepEquals, resource.Meta{
+	c.Check(res, tc.DeepEquals, resource.Meta{
 		Name:        "",
 		Type:        resource.TypeFile,
 		Path:        "filename.tgz",
@@ -1405,9 +1404,9 @@ func (s *MetaSuite) TestParseResourceMetaMissingType(c *tc.C) {
 		"description": "One line that is useful when operators need to push it.",
 	}
 	res, err := charm.ParseResourceMeta(name, data)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(res, jc.DeepEquals, resource.Meta{
+	c.Check(res, tc.DeepEquals, resource.Meta{
 		Name: "my-resource",
 		// Type is the zero value.
 		Path:        "filename.tgz",
@@ -1446,9 +1445,9 @@ func (s *MetaSuite) TestParseResourceMetaMissingPath(c *tc.C) {
 		"description": "One line that is useful when operators need to push it.",
 	}
 	res, err := charm.ParseResourceMeta(name, data)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(res, jc.DeepEquals, resource.Meta{
+	c.Check(res, tc.DeepEquals, resource.Meta{
 		Name:        "my-resource",
 		Type:        resource.TypeFile,
 		Path:        "",
@@ -1463,9 +1462,9 @@ func (s *MetaSuite) TestParseResourceMetaMissingComment(c *tc.C) {
 		"filename": "filename.tgz",
 	}
 	res, err := charm.ParseResourceMeta(name, data)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(res, jc.DeepEquals, resource.Meta{
+	c.Check(res, tc.DeepEquals, resource.Meta{
 		Name:        "my-resource",
 		Type:        resource.TypeFile,
 		Path:        "filename.tgz",
@@ -1477,9 +1476,9 @@ func (s *MetaSuite) TestParseResourceMetaEmpty(c *tc.C) {
 	name := "my-resource"
 	data := make(map[string]interface{})
 	res, err := charm.ParseResourceMeta(name, data)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(res, jc.DeepEquals, resource.Meta{
+	c.Check(res, tc.DeepEquals, resource.Meta{
 		Name: "my-resource",
 	})
 }
@@ -1488,9 +1487,9 @@ func (s *MetaSuite) TestParseResourceMetaNil(c *tc.C) {
 	name := "my-resource"
 	var data map[string]interface{}
 	res, err := charm.ParseResourceMeta(name, data)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(res, jc.DeepEquals, resource.Meta{
+	c.Check(res, tc.DeepEquals, resource.Meta{
 		Name: "my-resource",
 	})
 }
@@ -1516,7 +1515,7 @@ storage:
     type: filesystem
 `))
 	c.Assert(err, tc.IsNil)
-	c.Assert(meta.Containers, jc.DeepEquals, map[string]charm.Container{
+	c.Assert(meta.Containers, tc.DeepEquals, map[string]charm.Container{
 		"foo": {
 			Resource: "test-os",
 			Mounts: []charm.Mount{{
@@ -1709,14 +1708,14 @@ var _ = tc.Suite(&FormatMetaSuite{})
 func (FormatMetaSuite) TestCheckV1Fails(c *tc.C) {
 	meta := charm.Meta{}
 	err := meta.Check(charm.FormatV1)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(err, tc.ErrorMatches, "charm metadata without bases in manifest not valid")
 }
 
 func (FormatMetaSuite) TestCheckV2(c *tc.C) {
 	meta := charm.Meta{}
 	err := meta.Check(charm.FormatV2, charm.SelectionManifest, charm.SelectionBases)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (FormatMetaSuite) TestCheckV2NoReasons(c *tc.C) {

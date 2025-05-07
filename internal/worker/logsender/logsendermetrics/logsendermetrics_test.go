@@ -7,7 +7,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 
@@ -83,13 +82,13 @@ func (s *bufferedLogWriterSuite) TestCollect(c *tc.C) {
 	for i, metric := range metrics {
 		dtoMetrics[i] = &dto.Metric{}
 		err := metric.Write(dtoMetrics[i])
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	float64ptr := func(v float64) *float64 {
 		return &v
 	}
-	c.Assert(dtoMetrics, jc.DeepEquals, [4]*dto.Metric{
+	c.Assert(dtoMetrics, tc.DeepEquals, [4]*dto.Metric{
 		{Counter: &dto.Counter{Value: float64ptr(3)}},
 		{Counter: &dto.Counter{Value: float64ptr(5)}},
 		{Counter: &dto.Counter{Value: float64ptr(3)}},

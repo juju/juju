@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -49,11 +48,11 @@ func (s *storageSuite) TestWatchUnitStorageAttachments(c *tc.C) {
 	blockDeviceService := &mockBlockDeviceService{}
 
 	storage, err := uniter.NewStorageAPI(st, st, blockDeviceService, resources, getCanAccess)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	watches, err := storage.WatchUnitStorageAttachments(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: unitTag.String()}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(watches, tc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{{
 			StringsWatcherId: "1",
@@ -123,14 +122,14 @@ func (s *storageSuite) TestWatchStorageAttachmentVolume(c *tc.C) {
 	}
 
 	storage, err := uniter.NewStorageAPI(st, st, blockDeviceService, resources, getCanAccess)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	watches, err := storage.WatchStorageAttachments(context.Background(), params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{{
 			StorageTag: storageTag.String(),
 			UnitTag:    unitTag.String(),
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(watches, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{{
 			NotifyWatcherId: "1",
@@ -207,14 +206,14 @@ func (s *storageSuite) assertWatchStorageAttachmentFilesystem(c *tc.C, assignedM
 	blockDeviceService := &mockBlockDeviceService{}
 
 	storage, err := uniter.NewStorageAPI(st, st, blockDeviceService, resources, getCanAccess)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	watches, err := storage.WatchStorageAttachments(context.Background(), params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{{
 			StorageTag: storageTag.String(),
 			UnitTag:    unitTag.String(),
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(watches, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{{
 			NotifyWatcherId: "1",
@@ -247,15 +246,15 @@ func (s *storageSuite) TestDestroyUnitStorageAttachments(c *tc.C) {
 	blockDeviceService := &mockBlockDeviceService{}
 
 	storage, err := uniter.NewStorageAPI(st, st, blockDeviceService, resources, getCanAccess)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	destroyErrors, err := storage.DestroyUnitStorageAttachments(context.Background(), params.Entities{
 		Entities: []params.Entity{{
 			Tag: unitTag.String(),
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(calls, jc.DeepEquals, []string{"DestroyUnitStorageAttachments"})
-	c.Assert(destroyErrors, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(calls, tc.DeepEquals, []string{"DestroyUnitStorageAttachments"})
+	c.Assert(destroyErrors, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
 	})
 }
@@ -288,7 +287,7 @@ func (s *storageSuite) TestRemoveStorageAttachments(c *tc.C) {
 	blockDeviceService := &mockBlockDeviceService{}
 
 	storage, err := uniter.NewStorageAPI(st, st, blockDeviceService, resources, getCanAccess)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	removeErrors, err := storage.RemoveStorageAttachments(context.Background(), params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{{
 			StorageTag: storageTag0.String(),
@@ -307,8 +306,8 @@ func (s *storageSuite) TestRemoveStorageAttachments(c *tc.C) {
 			UnitTag:    storageTag0.String(), // oops
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(removeErrors, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(removeErrors, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 			{Error: &params.Error{Message: "badness"}},
@@ -577,7 +576,7 @@ func (s *watchStorageAttachmentSuite) testWatchStorageAttachment(c *tc.C, change
 		s.machineTag,
 		s.unitTag,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc := watchertest.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 	change()

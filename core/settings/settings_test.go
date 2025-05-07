@@ -3,10 +3,7 @@
 
 package settings
 
-import (
-	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
-)
+import "github.com/juju/tc"
 
 type settingsSuite struct{}
 
@@ -17,9 +14,9 @@ func (*settingsSuite) TestItemChangeType(c *tc.C) {
 	m := MakeModification("key", "old-val", "new-val")
 	d := MakeDeletion("key", "old-val")
 
-	c.Check(a.IsAddition(), jc.IsTrue)
-	c.Check(m.IsModification(), jc.IsTrue)
-	c.Check(d.IsDeletion(), jc.IsTrue)
+	c.Check(a.IsAddition(), tc.IsTrue)
+	c.Check(m.IsModification(), tc.IsTrue)
+	c.Check(d.IsDeletion(), tc.IsTrue)
 }
 
 func (*settingsSuite) TestItemChangesMapNonUniqueError(c *tc.C) {
@@ -38,7 +35,7 @@ func (*settingsSuite) TestItemChangesMapSuccess(c *tc.C) {
 		MakeDeletion("key3", "gone-val"),
 	}.Map()
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(mapped, tc.DeepEquals, map[string]ItemChange{
 		"key1": MakeAddition("key1", "new-val"),
 		"key2": MakeModification("key2", "old-val", "other-val"),
@@ -77,7 +74,7 @@ func (*settingsSuite) TestApplyDeltaSource(c *tc.C) {
 	// The old values present in original are represented against the
 	// matching keys in latest.
 	latest, err := latest.ApplyDeltaSource(original)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	exp := ItemChanges{
 		MakeAddition("key1", "new-val"),

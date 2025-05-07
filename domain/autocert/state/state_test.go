@@ -8,7 +8,6 @@ import (
 	"database/sql"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	autocerterrors "github.com/juju/juju/domain/autocert/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -45,11 +44,11 @@ Hn+GmxZA
 	// Insert a cert.
 	_, err := db.Exec(`INSERT INTO autocert_cache VALUES
 (?, "cert1", ?, 0)`, certUUID, x509Cert)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the inserted cert.
 	retrievedCertBytes, err := st.Get(context.Background(), "cert1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(string(retrievedCertBytes), tc.Equals, x509Cert)
 }
@@ -67,11 +66,11 @@ abc123!?$*&()'-=@~;\|/"
 	// Insert a cert.
 	_, err := db.Exec(`INSERT INTO autocert_cache VALUES
 (?, "cert1", ?, 0)`, certUUID, specialCharsCert)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the inserted cert.
 	retrievedCertBytes, err := st.Get(context.Background(), "cert1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(string(retrievedCertBytes), tc.Equals, specialCharsCert)
 }
@@ -81,7 +80,7 @@ func (s *stateSuite) TestRetrieveNoCert(c *tc.C) {
 
 	// Retrieve an arbitrary non existent cert.
 	_, err := st.Get(context.Background(), "cert1")
-	c.Assert(err, jc.ErrorIs, autocerterrors.NotFound)
+	c.Assert(err, tc.ErrorIs, autocerterrors.NotFound)
 }
 
 func (s *stateSuite) TestInsertX509(c *tc.C) {
@@ -105,7 +104,7 @@ Hn+GmxZA
 -----END CERTIFICATE-----`
 
 	err := st.Put(context.Background(), "cert1", []byte(x509Cert))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the inserted cert.
 	row := db.QueryRow("SELECT name, data FROM autocert_cache WHERE name = 'cert1'")
@@ -113,7 +112,7 @@ Hn+GmxZA
 		name, data string
 	)
 	err = row.Scan(&name, &data)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(name, tc.Equals, "cert1")
 	c.Check(data, tc.Equals, x509Cert)
 }
@@ -128,7 +127,7 @@ abc123!?$*&()'-=@~;\|/"
 -----END CERTIFICATE-----`
 
 	err := st.Put(context.Background(), "cert1", []byte(specialCharsCert))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the inserted cert.
 	row := db.QueryRow("SELECT name, data FROM autocert_cache WHERE name = 'cert1'")
@@ -136,7 +135,7 @@ abc123!?$*&()'-=@~;\|/"
 		name, data string
 	)
 	err = row.Scan(&name, &data)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(name, tc.Equals, "cert1")
 	c.Check(data, tc.Equals, specialCharsCert)
 }
@@ -165,11 +164,11 @@ Hn+GmxZA
 	// Insert a cert.
 	_, err := db.Exec(`INSERT INTO autocert_cache VALUES
 (?, "cert1", ?, 0)`, certUUID, x509Cert)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Delete the inserted cert.
 	err = st.Delete(context.Background(), "cert1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	row := db.QueryRow("SELECT name, data FROM autocert_cache WHERE name = 'cert1'")
 	var (
@@ -192,11 +191,11 @@ abc123!?$*&()'-=@~;\|/"
 	// Insert a cert.
 	_, err := db.Exec(`INSERT INTO autocert_cache VALUES
 (?, "cert1", ?, 0)`, certUUID, specialCharsCert)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Delete the inserted cert.
 	err = st.Delete(context.Background(), "cert1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	row := db.QueryRow("SELECT name, data FROM autocert_cache WHERE name = 'cert1'")
 	var (
@@ -215,7 +214,7 @@ func (s *stateSuite) TestReplaceCert(c *tc.C) {
 abc123!?$*&()'-=@~;\|/"
 -----END CERTIFICATE-----`
 	err := st.Put(context.Background(), "cert1", []byte(specialCharsCert))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Replace the contents of the cert "cert1".
 	x509Cert := `
@@ -236,11 +235,11 @@ Hn+GmxZA
 
 	// Insert a cert.
 	err = st.Put(context.Background(), "cert1", []byte(x509Cert))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the inserted cert.
 	retrievedCertBytes, err := st.Get(context.Background(), "cert1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(retrievedCertBytes), tc.Equals, x509Cert)
 }
 
@@ -265,18 +264,18 @@ Hn+GmxZA
 
 	// Insert a cert.
 	err := st.Put(context.Background(), "cert1", []byte(x509Cert))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the inserted cert.
 	retrievedCertBytes, err := st.Get(context.Background(), "cert1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(retrievedCertBytes), tc.Equals, x509Cert)
 
 	// Delete the inserted cert.
 	err = st.Delete(context.Background(), "cert1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the non-existent cert.
 	_, err = st.Get(context.Background(), "cert1")
-	c.Assert(err, jc.ErrorIs, autocerterrors.NotFound)
+	c.Assert(err, tc.ErrorIs, autocerterrors.NotFound)
 }

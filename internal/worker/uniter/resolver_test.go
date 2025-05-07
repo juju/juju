@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/charm/hooks"
@@ -94,9 +93,9 @@ func (s *rebootResolverSuite) SetUpTest(_ *tc.C) {
 
 func (s *baseResolverSuite) SetUpTest(c *tc.C, modelType model.ModelType, rebootDetected bool) {
 	attachments, err := storage.NewAttachments(context.Background(), &dummyStorageAccessor{}, names.NewUnitTag("u/0"), &fakeRW{}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	secretsTracker, err := secrets.NewSecrets(context.Background(), &dummySecretsAccessor{}, names.NewUnitTag("u/0"), &fakeRW{}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	logger := loggertesting.WrapCheckLog(c)
 
 	s.workloadEvents = container.NewWorkloadEvents()
@@ -177,7 +176,7 @@ func (s *resolverSuite) TestNotStartedNotInstalled(c *tc.C) {
 		},
 	}
 	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run install hook")
 }
 
@@ -199,7 +198,7 @@ func (s *resolverSuite) TestQueuedHookOnAgentRestart(c *tc.C) {
 		},
 	}
 	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run config-changed hook")
 	s.stub.CheckNoCalls(c)
 }
@@ -228,7 +227,7 @@ func (s *resolverSuite) TestPendingHookOnAgentRestart(c *tc.C) {
 	}
 	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
-	c.Assert(hookError, jc.IsTrue)
+	c.Assert(hookError, tc.IsTrue)
 	s.stub.CheckNoCalls(c)
 }
 
@@ -300,7 +299,7 @@ func (s *resolverSuite) TestHookErrorStartRetryTimerAgain(c *tc.C) {
 
 	s.remoteState.RetryHookVersion = 1
 	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run config-changed hook")
 	s.stub.CheckCallNames(c, "StartRetryHookTimer") // no change
 	localState.RetryHookVersion = 1
@@ -343,7 +342,7 @@ func (s *resolverSuite) testResolveHookErrorStopRetryTimer(c *tc.C, mode params.
 
 	s.remoteState.ResolvedMode = mode
 	_, err = s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.stub.CheckCallNames(c, "StartRetryHookTimer", "StopRetryHookTimer")
 }
 
@@ -385,7 +384,7 @@ func (s *resolverSuite) TestRunsConfigChangedIfConfigHashChanges(c *tc.C) {
 	s.remoteState.ConfigHash = "differenthash"
 
 	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run config-changed hook")
 }
 
@@ -402,7 +401,7 @@ func (s *resolverSuite) TestRunsConfigChangedIfTrustHashChanges(c *tc.C) {
 	s.remoteState.TrustHash = "differenthash"
 
 	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run config-changed hook")
 }
 
@@ -419,7 +418,7 @@ func (s *resolverSuite) TestRunsConfigChangedIfAddressesHashChanges(c *tc.C) {
 	s.remoteState.AddressesHash = "differenthash"
 
 	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run config-changed hook")
 }
 
@@ -454,7 +453,7 @@ func (s *resolverSuite) TestUpgradeOperation(c *tc.C) {
 		},
 	}
 	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, opFactory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, fmt.Sprintf("upgrade to %s", s.charmURL))
 }
 
@@ -485,7 +484,7 @@ func (s *resolverSuite) TestContinueUpgradeOperation(c *tc.C) {
 	}
 	s.setupForceCharmModifiedTrue()
 	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, opFactory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, fmt.Sprintf("upgrade to %s", s.charmURL))
 }
 
@@ -530,7 +529,7 @@ func (s *resolverSuite) TestOperationWithOptionalResolvers(c *tc.C) {
 	s.firstOptionalResolver.op = &fakeNoOp{}
 
 	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op, tc.Equals, s.firstOptionalResolver.op)
 	c.Assert(s.firstOptionalResolver.callCount, tc.Equals, 1)
 	c.Assert(s.lastOptionalResolver.callCount, tc.Equals, 0)
@@ -566,7 +565,7 @@ func (s *resolverSuite) TestRunHookPendingUpgradeOperation(c *tc.C) {
 	}
 	s.setupForceCharmModifiedTrue()
 	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, opFactory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, fmt.Sprintf("upgrade to %s", s.charmURL))
 }
 
@@ -583,7 +582,7 @@ func (s *resolverSuite) TestRunsSecretRotated(c *tc.C) {
 	s.remoteState.SecretRotations = []string{"secret:9m4e2mr0ui3e8a215n4g"}
 
 	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run secret-rotate (secret:9m4e2mr0ui3e8a215n4g) hook")
 }
 
@@ -637,7 +636,7 @@ func (s *conflictedResolverSuite) TestNextOpConflictedNewResolvedUpgrade(c *tc.C
 	}
 	s.remoteState.ResolvedMode = params.ResolvedRetryHooks
 	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, opFactory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, fmt.Sprintf("continue upgrade to %s", s.charmURL))
 }
 
@@ -655,7 +654,7 @@ func (s *conflictedResolverSuite) TestNextOpConflictedNewRevertUpgrade(c *tc.C) 
 	}
 	s.setupForceCharmModifiedTrue()
 	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, opFactory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, fmt.Sprintf("switch upgrade to %s", s.charmURL))
 }
 
@@ -671,7 +670,7 @@ func (s *rebootResolverSuite) TestNopResolverForNonIAASModels(c *tc.C) {
 		},
 	}
 	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *rebootResolverSuite) TestStartHookTriggerPostReboot(c *tc.C) {
@@ -687,7 +686,7 @@ func (s *rebootResolverSuite) TestStartHookTriggerPostReboot(c *tc.C) {
 	}
 
 	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run start hook")
 
 	// Ensure that start-post-reboot is only triggered once

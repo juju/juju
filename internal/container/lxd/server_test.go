@@ -6,7 +6,6 @@ package lxd_test
 import (
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/container/lxd"
@@ -31,10 +30,10 @@ func (s *serverSuite) TestUpdateServerConfig(c *tc.C) {
 	)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = jujuSvr.UpdateServerConfig(map[string]string{"key1": "val1"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serverSuite) TestUpdateContainerConfig(c *tc.C) {
@@ -53,10 +52,10 @@ func (s *serverSuite) TestUpdateContainerConfig(c *tc.C) {
 		op.EXPECT().Wait().Return(nil),
 	)
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = jujuSvr.UpdateContainerConfig("juju-lxd-1", newConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serverSuite) TestHasProfile(c *tc.C) {
@@ -67,15 +66,15 @@ func (s *serverSuite) TestHasProfile(c *tc.C) {
 	cSvr.EXPECT().GetProfileNames().Return([]string{"default", "custom"}, nil).Times(2)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	has, err := jujuSvr.HasProfile("default")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(has, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(has, tc.IsTrue)
 
 	has, err = jujuSvr.HasProfile("unknown")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(has, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(has, tc.IsFalse)
 }
 
 func (s *serverSuite) TestCreateProfileWithConfig(c *tc.C) {
@@ -94,9 +93,9 @@ func (s *serverSuite) TestCreateProfileWithConfig(c *tc.C) {
 	cSvr.EXPECT().CreateProfile(req).Return(nil)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = jujuSvr.CreateProfileWithConfig("custom", map[string]string{"boot.autostart": "false"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serverSuite) TestGetServerName(c *tc.C) {
@@ -111,7 +110,7 @@ func (s *serverSuite) TestGetServerName(c *tc.C) {
 
 	cSvr := s.NewMockServer(ctrl, mutate)
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jujuSvr.Name(), tc.Equals, serverName)
 }
 
@@ -126,7 +125,7 @@ func (s *serverSuite) TestGetServerNameReturnsNoneIfServerNameIsEmpty(c *tc.C) {
 
 	cSvr := s.NewMockServer(ctrl, mutate)
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jujuSvr.Name(), tc.Equals, "none")
 }
 
@@ -141,7 +140,7 @@ func (s *serverSuite) TestGetServerNameReturnsEmptyIfServerNameIsEmptyAndCluster
 
 	cSvr := s.NewMockServer(ctrl, mutate)
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jujuSvr.Name(), tc.Equals, "")
 }
 
@@ -165,9 +164,9 @@ func (s *serverSuite) TestReplaceOrAddContainerProfile(c *tc.C) {
 	cSvr.EXPECT().UpdateInstance(instId, gomock.Any(), gomock.Any()).Return(updateOp, nil)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = jujuSvr.ReplaceOrAddContainerProfile(instId, old, new)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serverSuite) TestUseProject(c *tc.C) {
@@ -178,7 +177,7 @@ func (s *serverSuite) TestUseProject(c *tc.C) {
 	cSvr.EXPECT().UseProject("my-project").Return(cSvr)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	jujuSvr.UseProject("my-project")
 }

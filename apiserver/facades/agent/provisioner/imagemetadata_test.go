@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
@@ -74,10 +73,10 @@ func (s *ImageMetadataSuite) TestMetadataNone(c *tc.C) {
 		DomainServices_: s.ControllerDomainServices(c),
 		Logger_:         loggertesting.WrapCheckLog(c),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := api.ProvisioningInfo(context.Background(), s.getTestMachinesTags(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected := make([][]params.CloudImageMetadata, len(s.machines))
 	for i := range result.Results {
@@ -98,7 +97,7 @@ func (s *ImageMetadataSuite) TestMetadataFromState(c *tc.C) {
 		DomainServices_: domainServices,
 		Logger_:         loggertesting.WrapCheckLog(c),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected := s.expectedDataSourceImageMetadata()
 
@@ -106,11 +105,11 @@ func (s *ImageMetadataSuite) TestMetadataFromState(c *tc.C) {
 	metadata := s.convertCloudImageMetadata(expected[0])
 	for _, m := range metadata {
 		err := metadataService.SaveMetadata(context.Background(), []cloudimagemetadata.Metadata{m})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	result, err := api.ProvisioningInfo(context.Background(), s.getTestMachinesTags(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertImageMetadataResults(c, result, expected...)
 }

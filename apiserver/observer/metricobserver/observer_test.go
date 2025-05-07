@@ -11,7 +11,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/apiserver/observer"
@@ -75,6 +74,6 @@ func (s *observerSuite) createFactory(c *tc.C) (observer.ObserverFactory, func()
 		Clock:            s.clock,
 		MetricsCollector: metricsCollector,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return factory, finish
 }

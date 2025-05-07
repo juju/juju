@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/agent/hostkeyreporter"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -44,7 +43,7 @@ func (s *facadeSuite) TestReportKeys(c *tc.C) {
 	facade := hostkeyreporter.NewFacade(apiCaller)
 
 	err := facade.ReportKeys(context.Background(), "42", []string{"rsa", "dsa"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	stub.CheckCalls(c, []testing.StubCall{{
 		"ReportKeys", []interface{}{params.SSHHostKeySet{

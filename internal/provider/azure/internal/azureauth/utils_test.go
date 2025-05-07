@@ -7,7 +7,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/microsoft/kiota-abstractions-go/store"
 	"github.com/microsoftgraph/msgraph-sdk-go/models/odataerrors"
 
@@ -29,14 +28,14 @@ func (ErrorSuite) TestAsDataError(c *tc.C) {
 	dataErr.SetErrorEscaped(me)
 
 	de, ok := azureauth.AsDataError(dataErr)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	c.Assert(de.Error(), tc.Equals, "code: message")
 
 	_, ok = azureauth.AsDataError(nil)
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 
 	azDataErr := &azureauth.DataError{}
 	de, ok = azureauth.AsDataError(azDataErr)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(de, jc.DeepEquals, azDataErr)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(de, tc.DeepEquals, azDataErr)
 }

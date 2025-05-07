@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/internal/testing"
@@ -42,7 +41,7 @@ func (s *DockerConfigSuite) TestExtractRegistryURL(c *tc.C) {
 		if registryTest.err != "" {
 			c.Assert(err, tc.ErrorMatches, registryTest.err)
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
 		c.Assert(result, tc.Equals, registryTest.expectedURL)
 	}
@@ -54,13 +53,13 @@ func (s *DockerConfigSuite) TestCreateDockerConfigJSON(c *tc.C) {
 	password := "hunter2"
 
 	config, err := utils.CreateDockerConfigJSON(username, password, imagePath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var result utils.DockerConfigJSON
 	err = json.Unmarshal(config, &result)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(result, jc.DeepEquals, utils.DockerConfigJSON{
+	c.Assert(result, tc.DeepEquals, utils.DockerConfigJSON{
 		Auths: map[string]utils.DockerConfigEntry{
 			"registry.staging.jujucharms.com": {
 				Username: "docker-registry",

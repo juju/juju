@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/exec"
 
 	jujucmd "github.com/juju/juju/cmd"
@@ -97,7 +96,7 @@ func (s *ServerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.socket = s.osDependentSockPath(c)
 	srv, err := jujuc.NewServer(factory, s.socket)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(srv, tc.NotNil)
 	s.server = srv
 	s.err = make(chan error)
@@ -108,13 +107,13 @@ func (s *ServerSuite) TearDownTest(c *tc.C) {
 	s.server.Close()
 	c.Assert(<-s.err, tc.IsNil)
 	_, err := os.Open(s.socket.Address)
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
+	c.Assert(err, tc.Satisfies, os.IsNotExist)
 	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *ServerSuite) Call(c *tc.C, req jujuc.Request) (resp exec.ExecResponse, err error) {
 	client, err := sockets.Dial(s.socket)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer client.Close()
 	err = client.Call("Jujuc.Main", req, &resp)
 	return resp, err
@@ -130,12 +129,12 @@ func (s *ServerSuite) TestHappyPath(c *tc.C) {
 		StdinSet:    true,
 		Stdin:       []byte("wool of bat\n"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(resp.Code, tc.Equals, 0)
 	c.Assert(string(resp.Stdout), tc.Equals, "wool of bat\neye of newt\n")
 	c.Assert(string(resp.Stderr), tc.Equals, "toe of frog\n")
 	content, err := os.ReadFile(filepath.Join(dir, "local"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(content), tc.Equals, "something")
 }
 
@@ -163,14 +162,14 @@ func (s *ServerSuite) TestLocks(c *tc.C) {
 				CommandName: "remote",
 				Args:        []string{"--slow"},
 			})
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(resp.Code, tc.Equals, 0)
 			wg.Done()
 		}()
 	}
 	wg.Wait()
 	t1 := time.Now()
-	c.Assert(t0.Add(4*testing.ShortWait).Before(t1), jc.IsTrue)
+	c.Assert(t0.Add(4*testing.ShortWait).Before(t1), tc.IsTrue)
 }
 
 func (s *ServerSuite) TestBadCommandName(c *tc.C) {
@@ -218,7 +217,7 @@ func (s *ServerSuite) AssertBadCommand(c *tc.C, args []string, code int) exec.Ex
 		CommandName: args[0],
 		Args:        args[1:],
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(resp.Code, tc.Equals, code)
 	return resp
 }
@@ -270,7 +269,7 @@ func (s *NewCommandSuite) TestNewCommand(c *tc.C) {
 		if t.err == "" {
 			// At this level, just check basic sanity; commands are tested in
 			// more detail elsewhere.
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(com.Info().Name, tc.Equals, t.name)
 		} else {
 			c.Assert(com, tc.IsNil)

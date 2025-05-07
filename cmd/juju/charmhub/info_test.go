@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cmd/juju/charmhub/mocks"
@@ -45,7 +44,7 @@ func (s *infoSuite) TestInitSuccess(c *tc.C) {
 		},
 	}
 	err := command.Init([]string{"test"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *infoSuite) TestInitFailCS(c *tc.C) {
@@ -53,7 +52,7 @@ func (s *infoSuite) TestInitFailCS(c *tc.C) {
 		charmHubCommand: &charmHubCommand{},
 	}
 	err := command.Init([]string{"cs:test"})
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
 func (s *infoSuite) TestRun(c *tc.C) {
@@ -65,11 +64,11 @@ func (s *infoSuite) TestRun(c *tc.C) {
 	}
 
 	err := cmdtesting.InitCommand(command, []string{"test"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *infoSuite) TestRunJSON(c *tc.C) {
@@ -81,11 +80,11 @@ func (s *infoSuite) TestRunJSON(c *tc.C) {
 	}
 
 	err := cmdtesting.InitCommand(command, []string{"test", "--format", "json"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(indentJSON(c, cmdtesting.Stdout(ctx)), tc.Equals, `
 {
   "type": "charm",
@@ -213,11 +212,11 @@ func (s *infoSuite) TestRunJSONSpecifySeriesNotDefault(c *tc.C) {
 	}
 
 	err := cmdtesting.InitCommand(command, []string{"test", "--format", "json", "--base", "ubuntu@16.04"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(indentJSON(c, cmdtesting.Stdout(ctx)), tc.Equals, `
 {
   "type": "charm",
@@ -338,11 +337,11 @@ func (s *infoSuite) TestRunJSONSpecifyArch(c *tc.C) {
 	}
 
 	err := cmdtesting.InitCommand(command, []string{"test", "--format", "json", "--arch", "amd64"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(indentJSON(c, cmdtesting.Stdout(ctx)), tc.Equals, `
 {
   "type": "charm",
@@ -463,11 +462,11 @@ func (s *infoSuite) TestRunJSONWithSeriesFoundChannel(c *tc.C) {
 	}
 
 	err := cmdtesting.InitCommand(command, []string{"test", "--base", "ubuntu@20.04", "--format", "json"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(indentJSON(c, cmdtesting.Stdout(ctx)), tc.Equals, `
 {
   "type": "charm",
@@ -562,11 +561,11 @@ func (s *infoSuite) TestRunYAML(c *tc.C) {
 	}
 
 	err := cmdtesting.InitCommand(command, []string{"test", "--format", "yaml"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 type: charm
 id: charmCHARMcharmCHARMcharmCHARM01

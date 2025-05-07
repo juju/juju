@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/ssh"
 
@@ -30,16 +29,16 @@ func (s *AuthKeysSuite) SetUpTest(c *tc.C) {
 	old := utils.Home()
 	newhome := c.MkDir()
 	err := utils.SetHome(newhome)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AddCleanup(func(c *tc.C) {
 		ssh.ClearClientKeys()
 		err := utils.SetHome(old)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	})
 
 	s.dotssh = filepath.Join(newhome, ".ssh")
 	err = os.Mkdir(s.dotssh, 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *AuthKeysSuite) TestReadAuthorizedKeysErrors(c *tc.C) {
@@ -54,7 +53,7 @@ func (s *AuthKeysSuite) TestReadAuthorizedKeysErrors(c *tc.C) {
 
 func writeFile(c *tc.C, filename string, contents string) {
 	err := os.WriteFile(filename, []byte(contents), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *AuthKeysSuite) TestReadAuthorizedKeys(c *tc.C) {
@@ -65,10 +64,10 @@ func (s *AuthKeysSuite) TestReadAuthorizedKeys(c *tc.C) {
 	writeFile(c, filepath.Join(s.dotssh, "identity.pub"), "identity")
 	writeFile(c, filepath.Join(s.dotssh, "test.pub"), "test")
 	keys, err := common.ReadAuthorizedKeys(ctx, "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(keys, tc.Equals, "id_ed25519\nid_rsa\nidentity\n")
 	keys, err = common.ReadAuthorizedKeys(ctx, "test.pub") // relative to ~/.ssh
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(keys, tc.Equals, "test\n")
 }
 
@@ -76,22 +75,22 @@ func (s *AuthKeysSuite) TestReadAuthorizedKeysClientKeys(c *tc.C) {
 	ctx := cmdtesting.Context(c)
 	keydir := filepath.Join(s.dotssh, "juju")
 	err := ssh.LoadClientKeys(keydir) // auto-generates a key pair
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	pubkeyFiles := ssh.PublicKeyFiles()
 	c.Assert(pubkeyFiles, tc.HasLen, 1)
 	data, err := os.ReadFile(pubkeyFiles[0])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	prefix := strings.Trim(string(data), "\n") + "\n"
 
 	writeFile(c, filepath.Join(s.dotssh, "id_rsa.pub"), "id_rsa")
 	writeFile(c, filepath.Join(s.dotssh, "test.pub"), "test")
 	keys, err := common.ReadAuthorizedKeys(ctx, "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(keys, tc.Equals, prefix+"id_rsa\n")
 	keys, err = common.ReadAuthorizedKeys(ctx, "test.pub")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(keys, tc.Equals, prefix+"test\n")
 	keys, err = common.ReadAuthorizedKeys(ctx, "notthere.pub")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(keys, tc.Equals, prefix)
 }

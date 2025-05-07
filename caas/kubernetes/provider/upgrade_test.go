@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	core "k8s.io/api/core/v1"
 
 	"github.com/juju/juju/core/semversion"
@@ -51,7 +50,7 @@ func (u *UpgraderSuite) TestUpgradePodTemplateSpec(c *tc.C) {
 
 	for _, test := range tests {
 		containers, err := upgradePodTemplateSpec(test.PodTemplateSpec.Spec.Containers, test.ImagePath, test.Version)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(test.ExpectedPodTemplateSpec.Spec.Containers[0].Image, tc.Equals, containers[0].Image)
 	}
 }

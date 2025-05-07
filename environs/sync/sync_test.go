@@ -17,7 +17,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/tar"
 	"go.uber.org/mock/gomock"
 
@@ -61,7 +60,7 @@ func (s *syncSuite) setUpTest(c *tc.C) {
 	// Create a source storage.
 	baseDir := c.MkDir()
 	stor, err := filestorage.NewFileStorageWriter(baseDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.storage = stor
 
 	// Create a local tools directory.
@@ -77,7 +76,7 @@ func (s *syncSuite) setUpTest(c *tc.C) {
 
 	// Switch the default tools location.
 	baseURL, err := s.storage.URL(storage.BaseToolsPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.PatchValue(&envtools.DefaultBaseURL, baseURL)
 }
 
@@ -155,10 +154,10 @@ func (s *syncSuite) TestSyncing(c *tc.C) {
 			test.ctx.TargetToolsUploader = &uploader
 
 			err := sync.SyncTools(context.Background(), test.ctx)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 
 			ds, err := sync.SelectSourceDatasource(context.Background(), test.ctx)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 
 			// This data source does not require to contain signed data.
 			// However, it may still contain it.
@@ -172,7 +171,7 @@ func (s *syncSuite) TestSyncing(c *tc.C) {
 			for v := range uploader.uploaded {
 				uploaded = append(uploaded, v)
 			}
-			c.Assert(uploaded, jc.SameContents, test.tools)
+			c.Assert(uploaded, tc.SameContents, test.tools)
 		}()
 	}
 }
@@ -193,7 +192,7 @@ func (s *syncSuite) TestSyncToolsOldPatchVersion(c *tc.C) {
 			uploaded: make(map[semversion.Binary]bool),
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type fakeToolsUploader struct {
@@ -234,7 +233,7 @@ func (s *uploadSuite) SetUpTest(c *tc.C) {
 
 	// Create a target storage.
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.targetStorage = stor
 }
 
@@ -245,7 +244,7 @@ func (s *uploadSuite) TearDownTest(c *tc.C) {
 
 func bundleTools(c *tc.C) (semversion.Binary, bool, string, error) {
 	f, err := os.CreateTemp("", "juju-tgz")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = f.Close() }()
 	defer func() { _ = os.Remove(f.Name()) }()
 
@@ -287,7 +286,7 @@ func (s *badBuildSuite) SetUpTest(c *tc.C) {
 	s.PatchEnvPathPrepend(testPath)
 	path := filepath.Join(testPath, "go")
 	err := os.WriteFile(path, []byte(badGo), 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check mocked go cmd errors
 	out, err := exec.Command("go").CombinedOutput()
@@ -312,7 +311,7 @@ func (s *badBuildSuite) TestBundleToolsBadBuild(c *tc.C) {
 	// Test that original bundleTools Func fails as expected
 	vers, official, sha256Hash, err := bundleTools(c)
 	c.Assert(vers, tc.DeepEquals, semversion.Binary{})
-	c.Assert(official, jc.IsFalse)
+	c.Assert(official, tc.IsFalse)
 	c.Assert(sha256Hash, tc.Equals, "")
 	c.Assert(err, tc.ErrorMatches, `(?m)cannot build jujud agent binary from source: .*`)
 
@@ -321,9 +320,9 @@ func (s *badBuildSuite) TestBundleToolsBadBuild(c *tc.C) {
 	// Test that BundleTools func passes after it is
 	// mocked out
 	vers, official, sha256Hash, err = bundleTools(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(vers.Number, tc.Equals, jujuversion.Current)
-	c.Assert(official, jc.IsFalse)
+	c.Assert(official, tc.IsFalse)
 	c.Assert(sha256Hash, tc.Equals, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
 }
 
@@ -353,7 +352,7 @@ func (s *badBuildSuite) TestBuildToolsBadBuild(c *tc.C) {
 		func(semversion.Number) semversion.Number { return forceVersion },
 	)
 	s.assertEqualsCurrentVersion(c, builtTools.Version)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *badBuildSuite) TestBuildToolsNoBinaryAvailable(c *tc.C) {
@@ -380,10 +379,10 @@ func (s *uploadSuite) TestMockBundleTools(c *tc.C) {
 			build bool, writerArg io.Writer,
 			getForceVersion func(semversion.Number) semversion.Number,
 		) (vers semversion.Binary, fVersion semversion.Number, official bool, sha256Hash string, err error) {
-			c.Assert(build, jc.IsTrue)
+			c.Assert(build, tc.IsTrue)
 			writer = writerArg
 			n, err = writer.Write(p.Bytes())
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			forceVersion = getForceVersion(semversion.Zero)
 			fVersion = forceVersion
 			vers.Number = jujuversion.Current
@@ -394,7 +393,7 @@ func (s *uploadSuite) TestMockBundleTools(c *tc.C) {
 	_, err := sync.BuildAgentTarball(true, "released",
 		func(semversion.Number) semversion.Number { return jujuversion.Current },
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(forceVersion, tc.Equals, jujuversion.Current)
 	c.Assert(writer, tc.NotNil)
 	c.Assert(n, tc.Equals, len(p.Bytes()))
@@ -403,20 +402,20 @@ func (s *uploadSuite) TestMockBundleTools(c *tc.C) {
 func (s *uploadSuite) TestMockBuildTools(c *tc.C) {
 	checkTools := func(tools *sync.BuiltAgent, vers semversion.Binary) {
 		c.Check(tools.StorageName, tc.Equals, "name")
-		c.Check(tools.Version, jc.DeepEquals, vers)
+		c.Check(tools.Version, tc.DeepEquals, vers)
 
 		f, err := os.Open(filepath.Join(tools.Dir, "name"))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		defer f.Close()
 
 		gzr, err := gzip.NewReader(f)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		_, tr, err := tar.FindFile(gzr, names.Jujud)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		content, err := io.ReadAll(tr)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(string(content), tc.Equals, fmt.Sprintf("jujud contents %s", vers))
 	}
 
@@ -428,14 +427,14 @@ func (s *uploadSuite) TestMockBuildTools(c *tc.C) {
 	builtTools, err := buildToolsFunc(true, "released",
 		func(semversion.Number) semversion.Number { return jujuversion.Current },
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkTools(builtTools, current)
 
 	vers := semversion.MustParseBinary("1.5.3-ubuntu-amd64")
 	builtTools, err = buildToolsFunc(true, "released",
 		func(semversion.Number) semversion.Number { return vers.Number },
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkTools(builtTools, vers)
 }
 
@@ -456,7 +455,7 @@ func (s *uploadSuite) testStorageToolsUploaderWriteMirrors(c *tc.C, writeMirrors
 
 	storageDir := c.MkDir()
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	uploader := &sync.StorageToolsUploader{
 		Fetcher:       ss,
@@ -474,18 +473,18 @@ func (s *uploadSuite) testStorageToolsUploaderWriteMirrors(c *tc.C, writeMirrors
 			Size:    7,
 			SHA256:  "ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73",
 		}, []byte("content"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	mirrorsPath := simplestreams.MirrorsPath(envtools.StreamsVersionV1) + simplestreams.UnsignedSuffix
 	r, err := stor.Get(path.Join(storage.BaseToolsPath, mirrorsPath))
 	if writeMirrors == envtools.WriteMirrors {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		data, err := io.ReadAll(r)
 		r.Close()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(string(data), jc.Contains, `"mirrors":`)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(string(data), tc.Contains, `"mirrors":`)
 	} else {
-		c.Assert(err, jc.ErrorIs, errors.NotFound)
+		c.Assert(err, tc.ErrorIs, errors.NotFound)
 	}
 }
 

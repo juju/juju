@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -437,7 +436,7 @@ func (s *TrackerSuite) TestWithStableLeadership(c *tc.C) {
 	finishWithStableLeadership := make(chan struct{})
 	go func(c *tc.C) {
 		err := s.finishLeadershipFunc(ctx, started, finishWithStableLeadership)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}(c)
 
 	// Wait long enough for a single refresh.
@@ -455,8 +454,8 @@ func (s *TrackerSuite) TestWithStableLeadership(c *tc.C) {
 		}
 		return ctx.Err()
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(called, tc.IsTrue)
 	workertest.CleanKill(c, tracker)
 }
 
@@ -500,8 +499,8 @@ func (s *TrackerSuite) TestWithStableLeadershipLeadershipChanged(c *tc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timeout waiting for leader func")
 	}
-	c.Assert(called, jc.IsTrue)
-	c.Assert(err, jc.ErrorIs, coreleadership.ErrLeadershipChanged)
+	c.Assert(called, tc.IsTrue)
+	c.Assert(err, tc.ErrorIs, coreleadership.ErrLeadershipChanged)
 	workertest.CleanKill(c, tracker)
 }
 

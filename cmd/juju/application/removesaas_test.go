@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/client/application"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -41,7 +40,7 @@ func (s *RemoveSaasSuite) runRemoveSaas(c *tc.C, args ...string) (*cmd.Context, 
 
 func (s *RemoveSaasSuite) TestRemove(c *tc.C) {
 	_, err := s.runRemoveSaas(c, "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	destroyParams := application.DestroyConsumedApplicationParams{
 		SaasNames: []string{"foo"},
 		Force:     false,

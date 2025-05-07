@@ -7,7 +7,6 @@ import (
 	"bytes"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/testing"
@@ -22,7 +21,7 @@ var _ = tc.Suite(&versionSuite{})
 func getVersions(c *tc.C) *tools.Versions {
 	r := bytes.NewReader([]byte(data))
 	versions, err := tools.ParseVersions(r)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return versions
 }
 
@@ -47,14 +46,14 @@ func (s *versionSuite) TestParseVersions(c *tc.C) {
 func (s *versionSuite) TestVersionsMatching(c *tc.C) {
 	v := getVersions(c)
 	results, err := v.VersionsMatching(bytes.NewReader([]byte(fakeContent1)))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, []string{
 		"2.2.4-ubuntu-amd64",
 		"2.2.4-windows-amd64",
 		"2.2.4-centos-amd64",
 	})
 	results, err = v.VersionsMatching(bytes.NewReader([]byte(fakeContent2)))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, []string{
 		"2.2.4-ubuntu-arm64",
 	})

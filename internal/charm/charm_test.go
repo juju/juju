@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/internal/charm"
@@ -22,7 +21,7 @@ func checkDummy(c *tc.C, f charm.Charm) {
 	c.Assert(f.Revision(), tc.Equals, 1)
 	c.Assert(f.Meta().Name, tc.Equals, "dummy")
 	c.Assert(f.Config().Options["title"].Default, tc.Equals, "My Title")
-	c.Assert(f.Actions(), jc.DeepEquals,
+	c.Assert(f.Actions(), tc.DeepEquals,
 		&charm.Actions{
 			ActionSpecs: map[string]charm.ActionSpec{
 				"snapshot": {
@@ -39,8 +38,8 @@ func checkDummy(c *tc.C, f charm.Charm) {
 							}},
 						"additionalProperties": false}}}})
 	lpc, ok := f.(charm.LXDProfiler)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(lpc.LXDProfile(), jc.DeepEquals, &charm.LXDProfile{
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(lpc.LXDProfile(), tc.DeepEquals, &charm.LXDProfile{
 		Config: map[string]string{
 			"security.nesting":    "true",
 			"security.privileged": "true",
@@ -96,7 +95,7 @@ func bundleDirPath(c *tc.C, name string) string {
 
 func assertIsDir(c *tc.C, path string) {
 	info, err := os.Stat(path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info.IsDir(), tc.Equals, true)
 }
 
@@ -105,7 +104,7 @@ func assertIsDir(c *tc.C, path string) {
 func readCharmDir(c *tc.C, name string) *charmtesting.CharmDir {
 	path := charmDirPath(c, name)
 	ch, err := charmtesting.ReadCharmDir(path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return ch
 }
 
@@ -114,7 +113,7 @@ func readCharmDir(c *tc.C, name string) *charmtesting.CharmDir {
 func readBundleDir(c *tc.C, name string) *charmtesting.BundleDir {
 	path := bundleDirPath(c, name)
 	ch, err := charmtesting.ReadBundleDir(path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return ch
 }
 
@@ -129,10 +128,10 @@ func archivePath(c *tc.C, a ArchiverTo) string {
 	dir := c.MkDir()
 	path := filepath.Join(dir, "archive")
 	file, err := os.Create(path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer file.Close()
 	err = a.ArchiveTo(file)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return path
 }
 
@@ -142,6 +141,6 @@ func archivePath(c *tc.C, a ArchiverTo) string {
 func cloneDir(c *tc.C, path string) string {
 	newPath := filepath.Join(c.MkDir(), filepath.Base(path))
 	err := fs.Copy(path, newPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return newPath
 }

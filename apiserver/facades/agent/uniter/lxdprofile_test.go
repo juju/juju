@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -69,7 +68,7 @@ func (s *lxdProfileSuite) TestWatchInstanceData(c *tc.C) {
 
 	api := s.newAPI(c)
 	results, err := api.WatchInstanceData(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			{NotifyWatcherId: "", Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
@@ -96,7 +95,7 @@ func (s *lxdProfileSuite) TestLXDProfileName(c *tc.C) {
 
 	api := s.newAPI(c)
 	results, err := api.LXDProfileName(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
 			{Result: "", Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
@@ -133,7 +132,7 @@ func (s *lxdProfileSuite) TestLXDProfileRequired(c *tc.C) {
 
 	api := s.newAPI(c)
 	results, err := api.LXDProfileRequired(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
 			{Result: true, Error: nil},
@@ -157,7 +156,7 @@ func (s *lxdProfileSuite) TestCanApplyLXDProfileUnauthorized(c *tc.C) {
 	}
 	api := s.newAPI(c)
 	results, err := api.CanApplyLXDProfile(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
 			{Result: false, Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
@@ -233,7 +232,7 @@ func (s *lxdProfileSuite) testCanApplyLXDProfile(c *tc.C, result bool) {
 	}
 	api := s.newAPI(c)
 	results, err := api.CanApplyLXDProfile(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{{Result: result, Error: nil}},
 	})
@@ -252,7 +251,7 @@ func (s *lxdProfileSuite) newAPI(c *tc.C) *uniter.LXDProfileAPI {
 		}, nil
 	}
 	watcherRegistry, err := registry.NewRegistry(clock.WallClock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	api := uniter.NewLXDProfileAPI(
 		s.backend,
 		s.machineService,

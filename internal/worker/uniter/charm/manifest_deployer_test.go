@@ -13,7 +13,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"go.uber.org/mock/gomock"
 
@@ -57,16 +56,16 @@ func (s *ManifestDeployerSuite) addCharm(c *tc.C, revision int, content ...ft.En
 func (s *ManifestDeployerSuite) deployCharm(c *tc.C, revision int, content ...ft.Entry) charm.BundleInfo {
 	info := s.addCharm(c, revision, content...)
 	err := s.deployer.Stage(context.Background(), info, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.deployer.Deploy()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertCharm(c, revision, content...)
 	return info
 }
 
 func (s *ManifestDeployerSuite) assertCharm(c *tc.C, revision int, content ...ft.Entry) {
 	url, err := charm.ReadCharmURL(filepath.Join(s.targetPath, ".juju-charm"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(url, tc.Equals, charmURL(revision).String())
 	ft.Entries(content).Check(c, s.targetPath)
 }
@@ -94,7 +93,7 @@ func (s *ManifestDeployerSuite) TestDontAbortStageWhenNotClosed(c *tc.C) {
 	}()
 	close(stopWaiting)
 	err := <-errors
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ManifestDeployerSuite) TestDeployWithoutStage(c *tc.C) {
@@ -193,7 +192,7 @@ func (s *ManifestDeployerSuite) TestUpgradeConflictResolveRetrySameCharm(c *tc.C
 	}
 	info := s.addMockCharm(2, mockCharm)
 	err := s.deployer.Stage(context.Background(), info, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// ...and see it fail to expand. We're not too bothered about the actual
 	// content of the target dir at this stage, but we do want to check it's
@@ -206,7 +205,7 @@ func (s *ManifestDeployerSuite) TestUpgradeConflictResolveRetrySameCharm(c *tc.C
 	// same charm...
 	failDeploy = false
 	err = s.deployer.Deploy()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// ...we end up with the right stuff in play.
 	s.assertCharm(c, 2, upgradeContent...)
@@ -236,7 +235,7 @@ func (s *ManifestDeployerSuite) TestUpgradeConflictRevertRetryDifferentCharm(c *
 	}
 	badInfo := s.addMockCharm(2, badCharm)
 	err := s.deployer.Stage(context.Background(), badInfo, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.deployer.Deploy()
 	c.Assert(err, tc.Equals, charm.ErrConflict)
 
@@ -273,12 +272,12 @@ func (s *RetryingBundleReaderSuite) TestReadBundleMaxAttemptsExceeded(c *tc.C) {
 		// times to exceed the max retry attempts (the first attempt
 		// does not use the clock).
 		for i := 0; i < 9; i++ {
-			c.Assert(s.clock.WaitAdvance(10*time.Second, time.Second, 1), jc.ErrorIsNil)
+			c.Assert(s.clock.WaitAdvance(10*time.Second, time.Second, 1), tc.ErrorIsNil)
 		}
 	}()
 
 	_, err := s.rbr.Read(context.Background(), s.bundleInfo, nil)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *RetryingBundleReaderSuite) TestReadBundleEventuallySucceeds(c *tc.C) {
@@ -293,11 +292,11 @@ func (s *RetryingBundleReaderSuite) TestReadBundleEventuallySucceeds(c *tc.C) {
 	go func() {
 		// The first attempt should fail; advance the clock to trigger
 		// another attempt which should succeed.
-		c.Assert(s.clock.WaitAdvance(10*time.Second, time.Second, 1), jc.ErrorIsNil)
+		c.Assert(s.clock.WaitAdvance(10*time.Second, time.Second, 1), tc.ErrorIsNil)
 	}()
 
 	got, err := s.rbr.Read(context.Background(), s.bundleInfo, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.Equals, s.bundle)
 }
 

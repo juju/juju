@@ -6,7 +6,6 @@ package machine
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	coreerrors "github.com/juju/juju/core/errors"
 )
@@ -42,7 +41,7 @@ func (*machineSuite) TestNameValidate(c *tc.C) {
 			continue
 		}
 
-		c.Check(err, jc.ErrorIs, test.err)
+		c.Check(err, tc.ErrorIs, test.err)
 	}
 }
 
@@ -85,9 +84,9 @@ func (*machineSuite) TestNamedChild(c *tc.C) {
 
 		name, err := test.name.NamedChild(test.scope, test.childName)
 		if test.err != nil {
-			c.Assert(err, jc.ErrorIs, test.err)
+			c.Assert(err, tc.ErrorIs, test.err)
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
 		c.Check(test.output, tc.Equals, name)
 	}

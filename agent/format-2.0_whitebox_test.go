@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 
 	agentconstants "github.com/juju/juju/agent/constants"
@@ -33,23 +32,23 @@ func (s *format_2_0Suite) TestStatePortNotParsedWithoutSecret(c *tc.C) {
 	dataDir := c.MkDir()
 	configPath := filepath.Join(dataDir, agentconstants.AgentConfigFilename)
 	err := utils.AtomicWriteFile(configPath, []byte(agentConfig2_0NotStateMachine), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	readConfig, err := ReadConfig(configPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, available := readConfig.StateServingInfo()
-	c.Assert(available, jc.IsFalse)
+	c.Assert(available, tc.IsFalse)
 }
 
 func (*format_2_0Suite) TestReadConfWithExisting2_0ConfigFileContents(c *tc.C) {
 	dataDir := c.MkDir()
 	configPath := filepath.Join(dataDir, agentconstants.AgentConfigFilename)
 	err := utils.AtomicWriteFile(configPath, []byte(agentConfig2_0Contents), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	config, err := ReadConfig(configPath)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(config.UpgradedToVersion(), jc.DeepEquals, semversion.MustParse("1.17.5.1"))
-	c.Assert(config.Jobs(), jc.DeepEquals, []model.MachineJob{model.JobManageModel})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(config.UpgradedToVersion(), tc.DeepEquals, semversion.MustParse("1.17.5.1"))
+	c.Assert(config.Jobs(), tc.DeepEquals, []model.MachineJob{model.JobManageModel})
 }
 
 func (*format_2_0Suite) TestMarshalUnmarshal(c *tc.C) {
@@ -61,9 +60,9 @@ func (*format_2_0Suite) TestMarshalUnmarshal(c *tc.C) {
 	config.SetLoggingConfig(loggingConfig)
 
 	data, err := format_2_0.marshal(config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	newConfig, err := format_2_0.unmarshal(data)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(newConfig, tc.DeepEquals, config)
 	c.Check(newConfig.LoggingConfig(), tc.Equals, loggingConfig)
@@ -78,12 +77,12 @@ func (*format_2_0Suite) TestQueryTracing(c *tc.C) {
 	config.SetQueryTracingThreshold(time.Second)
 
 	data, err := format_2_0.marshal(config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	newConfig, err := format_2_0.unmarshal(data)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(newConfig, tc.DeepEquals, config)
-	c.Check(newConfig.QueryTracingEnabled(), jc.IsTrue)
+	c.Check(newConfig.QueryTracingEnabled(), tc.IsTrue)
 	c.Check(newConfig.QueryTracingThreshold(), tc.Equals, time.Second)
 }
 
@@ -100,15 +99,15 @@ func (*format_2_0Suite) TestOpenTelemetry(c *tc.C) {
 	config.SetOpenTelemetryTailSamplingThreshold(time.Second)
 
 	data, err := format_2_0.marshal(config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	newConfig, err := format_2_0.unmarshal(data)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(newConfig, tc.DeepEquals, config)
-	c.Check(newConfig.OpenTelemetryEnabled(), jc.IsTrue)
+	c.Check(newConfig.OpenTelemetryEnabled(), tc.IsTrue)
 	c.Check(newConfig.OpenTelemetryEndpoint(), tc.Equals, "http://foo.bar")
-	c.Check(newConfig.OpenTelemetryInsecure(), jc.IsTrue)
-	c.Check(newConfig.OpenTelemetryStackTraces(), jc.IsTrue)
+	c.Check(newConfig.OpenTelemetryInsecure(), tc.IsTrue)
+	c.Check(newConfig.OpenTelemetryStackTraces(), tc.IsTrue)
 	c.Check(newConfig.OpenTelemetrySampleRatio(), tc.Equals, 0.5)
 	c.Check(newConfig.OpenTelemetryTailSamplingThreshold(), tc.Equals, time.Second)
 }
@@ -121,9 +120,9 @@ func (*format_2_0Suite) TestObjectStore(c *tc.C) {
 	config.SetObjectStoreType(objectstore.FileBackend)
 
 	data, err := format_2_0.marshal(config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	newConfig, err := format_2_0.unmarshal(data)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(newConfig, tc.DeepEquals, config)
 	c.Check(newConfig.ObjectStoreType(), tc.Equals, objectstore.FileBackend)

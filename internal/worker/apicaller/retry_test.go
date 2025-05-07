@@ -13,7 +13,6 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -58,7 +57,7 @@ func (s *RetryStrategySuite) TestOnlyConnectSuccess(c *tc.C) {
 	})
 	checkOpenCalls(c, stub, "new", "new", "new")
 	c.Check(conn, tc.NotNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *RetryStrategySuite) TestOnlyConnectOldPasswordSuccess(c *tc.C) {
@@ -73,7 +72,7 @@ func (s *RetryStrategySuite) TestOnlyConnectOldPasswordSuccess(c *tc.C) {
 		return apicaller.OnlyConnect(context.Background(), &mockAgent{stub: stub, entity: testEntity}, apiOpen, loggertesting.WrapCheckLog(c))
 	})
 	checkOpenCalls(c, stub, "new", "old", "old", "old")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(conn, tc.NotNil)
 }
 

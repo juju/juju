@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver"
@@ -203,7 +202,7 @@ func (s *SSHSuite) TestSSHCommand(c *tc.C) {
 		if t.expectedErr != "" {
 			c.Check(err, tc.ErrorMatches, t.expectedErr)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			c.Check(cmdtesting.Stderr(ctx), tc.Equals, "")
 			stdout := cmdtesting.Stdout(ctx)
 			t.expected.check(c, stdout)
@@ -220,7 +219,7 @@ func (s *SSHSuite) TestSSHCommandModelConfigProxySSH(c *tc.C) {
 	sshCmd := NewSSHCommandForTest(app, ssh, status, s.hostChecker, nil, baseTestingRetryStrategy, baseTestingRetryStrategy)
 
 	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(sshCmd), "0")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(ctx), tc.Equals, "")
 	expectedArgs := argsSpec{
 		hostKeyChecking: "yes",
@@ -239,7 +238,7 @@ func (s *SSHSuite) TestSSHCommandModelConfigProxySSHAddressMatch(c *tc.C) {
 	sshCmd := NewSSHCommandForTest(app, ssh, status, s.hostChecker, nil, baseTestingRetryStrategy, baseTestingRetryStrategy)
 
 	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(sshCmd), "0")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(ctx), tc.Equals, "")
 	expectedArgs := argsSpec{
 		hostKeyChecking: "yes",
@@ -268,7 +267,7 @@ func (s *SSHSuite) TestSSHWillWorkInUpgrade(c *tc.C) {
 			continue
 		}
 		c.Logf("checking %q", name)
-		c.Check(apiserver.IsMethodAllowedDuringUpgrade("SSHClient", name), jc.IsTrue)
+		c.Check(apiserver.IsMethodAllowedDuringUpgrade("SSHClient", name), tc.IsTrue)
 	}
 }
 
@@ -318,7 +317,7 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *tc.C, proxy bool) {
 	sshCmd = NewSSHCommandForTest(app, ssh, status, s.hostChecker, nil, baseTestingRetryStrategy, baseTestingRetryStrategy)
 	sshCmd.retryStrategy = retryStrategy
 	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(sshCmd), args...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *SSHSuite) TestMaybeResolveLeaderUnit(c *tc.C) {
@@ -330,7 +329,7 @@ func (s *SSHSuite) TestMaybeResolveLeaderUnit(c *tc.C) {
 
 	ldr := leaderResolver{leaderAPI: leaderAPI}
 	resolvedUnit, err := ldr.maybeResolveLeaderUnit(context.Background(), "loop/leader")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(resolvedUnit, tc.Equals, "loop/1", tc.Commentf("expected leader to resolve to loop/1 for principal application"))
 }
 
@@ -372,7 +371,7 @@ func (s *SSHSuite) TestKeyFetchRetries(c *tc.C) {
 	cmd := NewSSHCommandForTest(app, ssh, status, validAddresses("1.public"), isTerminal, baseTestingRetryStrategy, publicKeyRetry)
 
 	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(cmd), "1")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(ctx), tc.Equals, "")
 
 	select {

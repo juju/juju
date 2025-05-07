@@ -9,7 +9,6 @@ import (
 	lxdapi "github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/instance"
@@ -94,7 +93,7 @@ func (s *environNetSuite) TestSubnetsForClustered(c *tc.C) {
 
 	ctx := context.Background()
 	subnets, err := env.Subnets(ctx, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expSubnets := []network.SubnetInfo{
 		{
@@ -155,7 +154,7 @@ func (s *environNetSuite) TestSubnetsForSubnetFiltering(c *tc.C) {
 	// Filter list so we only get a single subnet
 	ctx := context.Background()
 	subnets, err := env.Subnets(ctx, []network.Id{"subnet-lxdbr0-10.55.158.0/24"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expSubnets := []network.SubnetInfo{
 		{
@@ -246,7 +245,7 @@ func (s *environNetSuite) TestNetworkInterfaces(c *tc.C) {
 
 	ctx := context.Background()
 	infos, err := env.NetworkInterfaces(ctx, []instance.Id{"woot"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expInfos := []network.InterfaceInfos{
 		{
 			{

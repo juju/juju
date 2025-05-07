@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
@@ -57,17 +56,17 @@ func (s *ControllersSuite) TestControllerByNameNoneExists(c *tc.C) {
 func (s *ControllersSuite) TestControllerByName(c *tc.C) {
 	name := firstTestControllerName(c)
 	found, err := s.store.ControllerByName(name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := s.getControllers(c)[name]
-	c.Assert(found, jc.DeepEquals, &expected)
+	c.Assert(found, tc.DeepEquals, &expected)
 }
 
 func (s *ControllersSuite) TestControllerByAPIEndpoints(c *tc.C) {
 	name := firstTestControllerName(c)
 	expected := s.getControllers(c)[name]
 	found, foundName, err := s.store.ControllerByAPIEndpoints(expected.APIEndpoints...)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found, jc.DeepEquals, &expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(found, tc.DeepEquals, &expected)
 	c.Assert(foundName, tc.Equals, name)
 }
 
@@ -81,13 +80,13 @@ func (s *ControllersSuite) TestControllerByAPIEndpointsNoneExists(c *tc.C) {
 
 func (s *ControllersSuite) TestAddController(c *tc.C) {
 	err := s.store.AddController(s.controllerName, s.controller)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertUpdateSucceeded(c)
 }
 
 func (s *ControllersSuite) TestAddControllerDupUUIDFails(c *tc.C) {
 	err := s.store.AddController(s.controllerName, s.controller)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertUpdateSucceeded(c)
 	// Try to add it again
 	err = s.store.AddController(s.controllerName+"-copy", s.controller)
@@ -96,7 +95,7 @@ func (s *ControllersSuite) TestAddControllerDupUUIDFails(c *tc.C) {
 
 func (s *ControllersSuite) TestAddControllerDupNameFails(c *tc.C) {
 	err := s.store.AddController(s.controllerName, s.controller)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertUpdateSucceeded(c)
 	// Try to add it again
 	err = s.store.AddController(s.controllerName, s.controller)
@@ -124,7 +123,7 @@ func (s *ControllersSuite) TestUpdateController(c *tc.C) {
 	// This is not a restore (backup), so update with the existing UUID.
 	s.controller.ControllerUUID = all.Controllers[s.controllerName].ControllerUUID
 	err := s.store.UpdateController(s.controllerName, s.controller)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertUpdateSucceeded(c)
 }
 
@@ -145,20 +144,20 @@ func (s *ControllersSuite) TestUpdateControllerDupUUID(c *tc.C) {
 
 func (s *ControllersSuite) TestRemoveControllerNoFile(c *tc.C) {
 	err := s.store.RemoveController(s.controllerName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ControllersSuite) TestRemoveControllerUnknown(c *tc.C) {
 	s.assertControllerNotExists(c)
 	err := s.store.RemoveController(s.controllerName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ControllersSuite) TestRemoveController(c *tc.C) {
 	name := firstTestControllerName(c)
 
 	err := s.store.RemoveController(name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	found, err := s.store.ControllerByName(name)
 	c.Assert(err, tc.ErrorMatches, fmt.Sprintf("controller %v not found", name))
@@ -167,7 +166,7 @@ func (s *ControllersSuite) TestRemoveController(c *tc.C) {
 
 func (s *ControllersSuite) TestCurrentControllerNoneExists(c *tc.C) {
 	_, err := s.store.CurrentController()
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 	c.Assert(err, tc.ErrorMatches, "current controller not found")
 }
 
@@ -175,16 +174,16 @@ func (s *ControllersSuite) TestRemoveControllerRemovesCookieJar(c *tc.C) {
 	name := firstTestControllerName(c)
 
 	jar, err := s.store.CookieJar(name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = jar.Save()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Sanity-check that the cookie jar file exists.
 	_, err = os.Stat(jujuclient.JujuCookiePath(name))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.store.RemoveController(name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	found, err := s.store.ControllerByName(name)
 	c.Assert(err, tc.ErrorMatches, fmt.Sprintf("controller %v not found", name))
@@ -192,49 +191,49 @@ func (s *ControllersSuite) TestRemoveControllerRemovesCookieJar(c *tc.C) {
 
 	// Check that the cookie jar has been removed.
 	_, err = os.Stat(jujuclient.JujuCookiePath(name))
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
+	c.Assert(err, tc.Satisfies, os.IsNotExist)
 }
 
 func (s *ControllersSuite) TestCurrentController(c *tc.C) {
 	writeTestControllersFile(c)
 
 	current, err := s.store.CurrentController()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(current, tc.Equals, "mallards")
 }
 
 func (s *ControllersSuite) TestSetCurrentController(c *tc.C) {
 	err := s.store.AddController(s.controllerName, s.controller)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.store.SetCurrentController(s.controllerName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	controllers, err := jujuclient.ReadControllersFile(jujuclient.JujuControllersPath())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(controllers.CurrentController, tc.Equals, s.controllerName)
 }
 
 func (s *ControllersSuite) TestSetCurrentControllerNoneExists(c *tc.C) {
 	err := s.store.SetCurrentController(s.controllerName)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 	c.Assert(err, tc.ErrorMatches, "controller test.controller not found")
 }
 
 func (s *ControllersSuite) assertControllerNotExists(c *tc.C) {
 	all := writeTestControllersFile(c)
 	_, exists := all.Controllers[s.controllerName]
-	c.Assert(exists, jc.IsFalse)
+	c.Assert(exists, tc.IsFalse)
 }
 
 func (s *ControllersSuite) assertUpdateSucceeded(c *tc.C) {
 	ctl := s.getControllers(c)[s.controllerName]
 	ctl.DNSCache = nil
-	c.Assert(ctl, jc.DeepEquals, s.controller)
+	c.Assert(ctl, tc.DeepEquals, s.controller)
 }
 
 func (s *ControllersSuite) getControllers(c *tc.C) map[string]jujuclient.ControllerDetails {
 	controllers, err := s.store.AllControllers()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return controllers
 }
 

@@ -6,7 +6,6 @@ package storage_test
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	coremodel "github.com/juju/juju/core/model"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -41,8 +40,8 @@ func (s *defaultsSuite) assertAddApplicationStorageDirectivesDefaults(c *tc.C, p
 		makeStorageDefaults(pool, ""),
 		cons,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, expect)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, expect)
 }
 
 func (s *defaultsSuite) TestAddApplicationStorageDirectivesNoConstraintsUsed(c *tc.C) {
@@ -128,8 +127,8 @@ func (s *defaultsSuite) TestAddApplicationStorageDirectivesDefaultSizeFromCharm(
 		makeStorageDefaults("", ""),
 		storageCons,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, expectedCons)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, expectedCons)
 }
 
 func (s *defaultsSuite) TestProviderFallbackToType(c *tc.C) {
@@ -147,8 +146,8 @@ func (s *defaultsSuite) TestProviderFallbackToType(c *tc.C) {
 		makeStorageDefaults("", ""),
 		storageCons,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, expectedCons)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, expectedCons)
 }
 
 func (s *defaultsSuite) TestProviderFallbackToTypeCaas(c *tc.C) {
@@ -164,8 +163,8 @@ func (s *defaultsSuite) TestProviderFallbackToTypeCaas(c *tc.C) {
 		makeStorageDefaults("", ""),
 		storageCons,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, expectedCons)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, expectedCons)
 }
 
 func (s *defaultsSuite) TestProviderFallbackToTypeWithoutConstraints(c *tc.C) {
@@ -183,8 +182,8 @@ func (s *defaultsSuite) TestProviderFallbackToTypeWithoutConstraints(c *tc.C) {
 		makeStorageDefaults("ebs", "tmpfs"),
 		storageCons,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, expectedCons)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, expectedCons)
 }
 
 func (s *defaultsSuite) TestProviderFallbackToTypeWithoutConstraintsCaas(c *tc.C) {
@@ -200,8 +199,8 @@ func (s *defaultsSuite) TestProviderFallbackToTypeWithoutConstraintsCaas(c *tc.C
 		makeStorageDefaults("", "tmpfs"),
 		storageCons,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, expectedCons)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, expectedCons)
 }
 
 func (s *defaultsSuite) TestProviderFallbackToDefaults(c *tc.C) {
@@ -222,8 +221,8 @@ func (s *defaultsSuite) TestProviderFallbackToDefaults(c *tc.C) {
 		makeStorageDefaults("ebs", "tmpfs"),
 		storageCons,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, expectedCons)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, expectedCons)
 }
 
 func (s *defaultsSuite) TestProviderFallbackToDefaultsCaas(c *tc.C) {
@@ -241,6 +240,6 @@ func (s *defaultsSuite) TestProviderFallbackToDefaultsCaas(c *tc.C) {
 		makeStorageDefaults("", "tmpfs"),
 		storageCons,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, expectedCons)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, expectedCons)
 }

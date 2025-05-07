@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/container"
@@ -58,8 +57,8 @@ func (s *suite) TestContainerManagerConfigForType(c *tc.C) {
 
 	service := NewService(s.state, s.providerGetter)
 	cfg, err := service.ContainerManagerConfigForType(context.Background(), instance.LXD)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cfg, jc.DeepEquals, containermanager.Config{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cfg, tc.DeepEquals, containermanager.Config{
 		ImageMetadataURL:         "https://images.linuxcontainers.org/",
 		ImageStream:              "released",
 		LXDSnapChannel:           "5.0/stable",
@@ -80,7 +79,7 @@ func (s *suite) TestContainerNetworkingMethodUserDefined(c *tc.C) {
 
 	service := NewService(s.state, s.providerGetter)
 	method, err := service.ContainerNetworkingMethod(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(method, tc.Equals, containermanager.NetworkingMethodLocal)
 }
 
@@ -98,7 +97,7 @@ func (s *suite) TestDetermineNetworkingMethodProviderNotSupported(c *tc.C) {
 
 	service := NewService(s.state, providerGetter)
 	method, err := service.ContainerNetworkingMethod(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(method, tc.Equals, containermanager.NetworkingMethodLocal)
 }
 
@@ -115,7 +114,7 @@ func (s *suite) TestDetermineNetworkingMethodProviderSupports(c *tc.C) {
 
 	service := NewService(s.state, s.providerGetter)
 	method, err := service.ContainerNetworkingMethod(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(method, tc.Equals, containermanager.NetworkingMethodProvider)
 }
 
@@ -132,7 +131,7 @@ func (s *suite) TestDetermineNetworkingMethodProviderDoesntSupport(c *tc.C) {
 
 	service := NewService(s.state, s.providerGetter)
 	method, err := service.ContainerNetworkingMethod(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(method, tc.Equals, containermanager.NetworkingMethodLocal)
 }
 
@@ -149,7 +148,7 @@ func (s *suite) TestDetermineNetworkingMethodProviderReturnsNotSupported(c *tc.C
 
 	service := NewService(s.state, s.providerGetter)
 	method, err := service.ContainerNetworkingMethod(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(method, tc.Equals, containermanager.NetworkingMethodLocal)
 }
 
@@ -185,8 +184,8 @@ func (s *suite) TestContainerConfig(c *tc.C) {
 
 	service := NewService(s.state, s.providerGetter)
 	containerConfig, err := service.ContainerConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(containerConfig, jc.DeepEquals, container.Config{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(containerConfig, tc.DeepEquals, container.Config{
 		EnableOSRefreshUpdate:   true,
 		EnableOSUpgrade:         true,
 		ProviderType:            "ec2",

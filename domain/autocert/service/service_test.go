@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 	"golang.org/x/crypto/acme/autocert"
 
@@ -43,7 +42,7 @@ func (s *serviceSuite) TestCheckCacheMiss(c *tc.C) {
 
 	certbytes, err := svc.Get(context.Background(), certName)
 	c.Assert(certbytes, tc.IsNil)
-	c.Assert(err, jc.ErrorIs, autocert.ErrCacheMiss)
+	c.Assert(err, tc.ErrorIs, autocert.ErrCacheMiss)
 }
 
 func (s *serviceSuite) TestCheckAnyError(c *tc.C) {

@@ -11,7 +11,6 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
@@ -38,7 +37,7 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *ManifoldSuite) TestInputs(c *tc.C) {
-	c.Check(s.manifold().Inputs, jc.DeepEquals, []string{"agent", "central-hub"})
+	c.Check(s.manifold().Inputs, tc.DeepEquals, []string{"agent", "central-hub"})
 }
 
 func (s *ManifoldSuite) TestAgentMissing(c *tc.C) {
@@ -47,7 +46,7 @@ func (s *ManifoldSuite) TestAgentMissing(c *tc.C) {
 	})
 
 	worker, err := s.manifold().Start(context.Background(), getter)
-	c.Assert(err, jc.ErrorIs, dependency.ErrMissing)
+	c.Assert(err, tc.ErrorIs, dependency.ErrMissing)
 	c.Check(worker, tc.IsNil)
 }
 
@@ -58,7 +57,7 @@ func (s *ManifoldSuite) TestCentralHubMissing(c *tc.C) {
 	})
 
 	worker, err := s.manifold().Start(context.Background(), getter)
-	c.Assert(err, jc.ErrorIs, dependency.ErrMissing)
+	c.Assert(err, tc.ErrorIs, dependency.ErrMissing)
 	c.Check(worker, tc.IsNil)
 }
 
@@ -69,7 +68,7 @@ func (s *ManifoldSuite) TestAgentAPIInfoNotReady(c *tc.C) {
 	})
 
 	worker, err := s.manifold().Start(context.Background(), getter)
-	c.Assert(err, jc.ErrorIs, dependency.ErrMissing)
+	c.Assert(err, tc.ErrorIs, dependency.ErrMissing)
 	c.Check(worker, tc.IsNil)
 }
 
@@ -88,7 +87,7 @@ func (s *ManifoldSuite) TestNewWorkerArgs(c *tc.C) {
 	})
 
 	worker, err := s.manifold().Start(context.Background(), getter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(worker, tc.NotNil)
 
 	c.Check(config.Origin, tc.Equals, names.NewMachineTag("42"))

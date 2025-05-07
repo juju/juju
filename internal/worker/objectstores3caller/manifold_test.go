@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dependencytesting "github.com/juju/worker/v4/dependency/testing"
@@ -31,23 +30,23 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.getConfig()
-	c.Check(cfg.Validate(), jc.ErrorIsNil)
+	c.Check(cfg.Validate(), tc.ErrorIsNil)
 
 	cfg = s.getConfig()
 	cfg.ObjectStoreServicesName = ""
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.HTTPClientName = ""
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.NewClient = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.Logger = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) newGetter() dependency.Getter {
@@ -79,7 +78,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 var expectedInputs = []string{"http-client", "object-store-services"}
 
 func (s *manifoldSuite) TestInputs(c *tc.C) {
-	c.Assert(Manifold(s.getConfig()).Inputs, jc.SameContents, expectedInputs)
+	c.Assert(Manifold(s.getConfig()).Inputs, tc.SameContents, expectedInputs)
 }
 
 func (s *manifoldSuite) TestStart(c *tc.C) {
@@ -88,17 +87,17 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	s.expectControllerConfig(c, testing.FakeControllerConfig())
 
 	w, err := Manifold(s.getConfig()).Start(context.Background(), s.newGetter())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	// This should still be a worker, just a useless one.
 	nw, ok := w.(*noopWorker)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	err = nw.Session(context.Background(), func(context.Context, objectstore.Session) error {
 		c.Fatalf("unexpected call to Session")
 		return nil
 	})
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 
 func (s *manifoldSuite) TestStartS3Backend(c *tc.C) {
@@ -119,7 +118,7 @@ func (s *manifoldSuite) TestStartS3Backend(c *tc.C) {
 	s.expectHTTPClient(c)
 
 	w, err := Manifold(s.getConfig()).Start(context.Background(), s.newGetter())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
 
@@ -142,14 +141,14 @@ func (s *manifoldSuite) TestOutput(c *tc.C) {
 
 	manifold := Manifold(s.getConfig())
 	w, err := manifold.Start(context.Background(), s.newGetter())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	s.ensureStartup(c)
 
 	var client objectstore.Client
 	err = manifold.Output(w, &client)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(client, tc.NotNil)
 
@@ -158,7 +157,7 @@ func (s *manifoldSuite) TestOutput(c *tc.C) {
 		session = s
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(session, tc.Equals, s.session)
 

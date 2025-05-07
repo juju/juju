@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	admission "k8s.io/api/admissionregistration/v1"
 
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
@@ -50,7 +49,7 @@ func (a *AdmissionSuite) TestAdmissionCreatorObject(c *tc.C) {
 	)
 
 	authority, err := pkitest.NewTestAuthority()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	serviceRef := &admission.ServiceReference{
 		Namespace: namespace,
@@ -79,12 +78,12 @@ func (a *AdmissionSuite) TestAdmissionCreatorObject(c *tc.C) {
 			return func() { ensureWebhookCleanupCalled = true }, nil
 		}, serviceRef)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cleanup, err := admissionCreator.EnsureMutatingWebhookConfiguration(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ensureWebhookCalled, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ensureWebhookCalled, tc.IsTrue)
 
 	cleanup()
-	c.Assert(ensureWebhookCleanupCalled, jc.IsTrue)
+	c.Assert(ensureWebhookCleanupCalled, tc.IsTrue)
 }

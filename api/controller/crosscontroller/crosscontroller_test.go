@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/crosscontroller"
@@ -47,8 +46,8 @@ func (s *CrossControllerSuite) TestControllerInfo(c *tc.C) {
 	})
 	client := crosscontroller.NewClient(apiCaller)
 	info, err := client.ControllerInfo(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, &crosscontroller.ControllerInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, &crosscontroller.ControllerInfo{
 		Addrs:  []string{"foo"},
 		CACert: "bar",
 	})

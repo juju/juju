@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/caasmodeloperator"
@@ -29,7 +28,7 @@ func (m *ModelOperatorSuite) TestProvisioningInfo(c *tc.C) {
 		imagePath    = "juju/juju"
 	)
 	ver, err := semversion.Parse("1.2.3")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, tc.Equals, "CAASModelOperator")
@@ -48,11 +47,11 @@ func (m *ModelOperatorSuite) TestProvisioningInfo(c *tc.C) {
 
 	client := caasmodeloperator.NewClient(apiCaller)
 	result, err := client.ModelOperatorProvisioningInfo(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(result.APIAddresses, jc.DeepEquals, apiAddresses)
-	c.Assert(result.ImageDetails, jc.DeepEquals, resource.DockerImageDetails{RegistryPath: imagePath})
-	c.Assert(result.Version, jc.DeepEquals, ver)
+	c.Assert(result.APIAddresses, tc.DeepEquals, apiAddresses)
+	c.Assert(result.ImageDetails, tc.DeepEquals, resource.DockerImageDetails{RegistryPath: imagePath})
+	c.Assert(result.Version, tc.DeepEquals, ver)
 }
 
 func (m *ModelOperatorSuite) TestSetPassword(c *tc.C) {
@@ -65,7 +64,7 @@ func (m *ModelOperatorSuite) TestSetPassword(c *tc.C) {
 		c.Check(objType, tc.Equals, "CAASModelOperator")
 		c.Check(id, tc.Equals, "")
 		c.Assert(request, tc.Equals, "SetPasswords")
-		c.Assert(a, jc.DeepEquals, params.EntityPasswords{
+		c.Assert(a, tc.DeepEquals, params.EntityPasswords{
 			Changes: []params.EntityPassword{{Tag: "model-deadbeef-0bad-400d-8000-4b1d0d06f00d", Password: password}},
 		})
 		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
@@ -77,6 +76,6 @@ func (m *ModelOperatorSuite) TestSetPassword(c *tc.C) {
 
 	client := caasmodeloperator.NewClient(apiCaller)
 	err := client.SetPassword(context.Background(), password)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(called, tc.IsTrue)
 }

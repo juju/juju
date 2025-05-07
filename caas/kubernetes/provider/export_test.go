@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -54,13 +53,13 @@ type ControllerStackerForTest interface {
 
 func (cs *controllerStack) GetControllerAgentConfigContent(c *tc.C) string {
 	agentCfg, err := cs.agentConfig.Render()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return string(agentCfg)
 }
 
 func (cs *controllerStack) GetControllerUnitAgentConfigContent(c *tc.C) string {
 	agentCfg, err := cs.unitAgentConfig.Render()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return string(agentCfg)
 }
 
@@ -70,7 +69,7 @@ func (cs *controllerStack) GetControllerUnitAgentPassword() string {
 
 func (cs *controllerStack) GetSharedSecretAndSSLKey(c *tc.C) (string, string) {
 	si, ok := cs.agentConfig.StateServingInfo()
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	return si.SharedSecret, mongo.GenerateSSLKey(si.Cert, si.PrivateKey)
 }
 

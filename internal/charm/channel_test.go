@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/charm"
 )
@@ -153,14 +152,14 @@ func (s channelSuite) TestMakeChannel(c *tc.C) {
 		c.Logf("test %q at %d", test.Name, k)
 		ch, err := charm.MakeChannel(test.Track, test.Risk, test.Branch)
 		if test.ErrorType == nil {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(ch, tc.DeepEquals, charm.Channel{
 				Track:  test.Track,
 				Risk:   charm.Risk(test.Risk),
 				Branch: test.Branch,
 			})
 		} else {
-			c.Assert(err, jc.ErrorIs, errors.NotValid)
+			c.Assert(err, tc.ErrorIs, errors.NotValid)
 		}
 	}
 }
@@ -190,5 +189,5 @@ func (s channelSuite) TestMakePermissiveChannelAndEmpty(c *tc.C) {
 }
 
 func (s channelSuite) TestEmpty(c *tc.C) {
-	c.Assert(charm.Channel{}.Empty(), jc.IsTrue)
+	c.Assert(charm.Channel{}.Empty(), tc.IsTrue)
 }

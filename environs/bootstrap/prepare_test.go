@@ -6,7 +6,6 @@ package bootstrap_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/bootstrap"
@@ -53,7 +52,7 @@ func (s *PrepareSuite) assertPrepare(c *tc.C, skipVerify bool) {
 		"admin-secret",
 	)
 	cfg, err := config.New(config.NoDefaults, baselineAttrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	controllerStore := jujuclient.NewMemStore()
 	ctx := envtesting.BootstrapTestContext(c)
 	controllerCfg := controller.Config{
@@ -77,19 +76,19 @@ func (s *PrepareSuite) assertPrepare(c *tc.C, skipVerify bool) {
 		Cloud:            cloudSpec,
 		AdminSecret:      "admin-secret",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that controller was cached
 	foundController, err := controllerStore.ControllerByName(cfg.Name())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(foundController.ControllerUUID, tc.DeepEquals, controllerCfg.ControllerUUID())
 	c.Assert(foundController.Cloud, tc.Equals, "dummy")
 	c.Assert(foundController.CloudType, tc.Equals, "dummy")
 
 	// Check that bootstrap config was written
 	bootstrapCfg, err := controllerStore.BootstrapConfigForController(cfg.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bootstrapCfg, jc.DeepEquals, &jujuclient.BootstrapConfig{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(bootstrapCfg, tc.DeepEquals, &jujuclient.BootstrapConfig{
 		ControllerConfig: controller.Config{
 			controller.APIPort:                 17777,
 			controller.StatePort:               1234,
@@ -124,6 +123,6 @@ func (s *PrepareSuite) assertPrepare(c *tc.C, skipVerify bool) {
 		Cloud:            testing.FakeCloudSpec(),
 		AdminSecret:      "admin-secret",
 	})
-	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
+	c.Assert(err, tc.ErrorIs, errors.AlreadyExists)
 	c.Assert(err, tc.ErrorMatches, `controller "erewhemos" already exists`)
 }

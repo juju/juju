@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/agent/logger"
 	"github.com/juju/juju/api/base/testing"
@@ -28,7 +27,7 @@ func (s *loggerSuite) TestLoggingConfig(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "LoggingConfig")
-		c.Check(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{
+		c.Check(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{
 			Tag: "machine-666",
 		}}})
 		c.Assert(result, tc.FitsTypeOf, &params.StringResults{})
@@ -41,7 +40,7 @@ func (s *loggerSuite) TestLoggingConfig(c *tc.C) {
 	client := logger.NewClient(apiCaller)
 	tag := names.NewMachineTag("666")
 	result, err := client.LoggingConfig(context.Background(), tag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.Equals, "juju.worker=TRACE")
 }
 
@@ -51,7 +50,7 @@ func (s *loggerSuite) TestWatchLoggingConfig(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "WatchLoggingConfig")
-		c.Check(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{
+		c.Check(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{
 			Tag: "machine-666",
 		}}})
 		c.Assert(result, tc.FitsTypeOf, &params.NotifyWatchResults{})

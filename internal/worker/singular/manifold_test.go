@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dependencytesting "github.com/juju/worker/v4/dependency/testing"
@@ -43,27 +42,27 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 
 func (s *ManifoldSuite) TestValidate(c *tc.C) {
 	config := s.newConfig()
-	c.Assert(config.Validate(), jc.ErrorIsNil)
+	c.Assert(config.Validate(), tc.ErrorIsNil)
 
 	config = s.newConfig()
 	config.AgentName = ""
-	c.Assert(config.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(config.Validate(), tc.ErrorIs, errors.NotValid)
 
 	config = s.newConfig()
 	config.LeaseManagerName = ""
-	c.Assert(config.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(config.Validate(), tc.ErrorIs, errors.NotValid)
 
 	config = s.newConfig()
 	config.Clock = nil
-	c.Assert(config.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(config.Validate(), tc.ErrorIs, errors.NotValid)
 
 	config = s.newConfig()
 	config.NewWorker = nil
-	c.Assert(config.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(config.Validate(), tc.ErrorIs, errors.NotValid)
 
 	config = s.newConfig()
 	config.Claimant = names.NewUserTag("bob")
-	c.Assert(config.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(config.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *ManifoldSuite) newConfig() ManifoldConfig {
@@ -91,7 +90,7 @@ func (s *ManifoldSuite) newGetter() dependency.Getter {
 var expectedInputs = []string{"agent", "lease-manager"}
 
 func (s *ManifoldSuite) TestInputs(c *tc.C) {
-	c.Assert(Manifold(s.newConfig()).Inputs, jc.SameContents, expectedInputs)
+	c.Assert(Manifold(s.newConfig()).Inputs, tc.SameContents, expectedInputs)
 }
 
 func (s *ManifoldSuite) TestStart(c *tc.C) {
@@ -100,7 +99,7 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 	s.expectAgentConfig(c)
 
 	w, err := Manifold(s.newConfig()).Start(context.Background(), s.newGetter())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 }
 
@@ -122,7 +121,7 @@ func (s *ManifoldSuite) TestWorkerBounceOnStart(c *tc.C) {
 	}
 
 	_, err := Manifold(config).Start(context.Background(), s.newGetter())
-	c.Assert(err, jc.ErrorIs, dependency.ErrBounce)
+	c.Assert(err, tc.ErrorIs, dependency.ErrBounce)
 }
 
 func (s *ManifoldSuite) expectAgentConfig(c *tc.C) {

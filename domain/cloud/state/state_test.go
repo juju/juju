@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/cloud"
@@ -97,11 +96,11 @@ func (s *stateSuite) assertCloud(c *tc.C, cloud cloud.Cloud) string {
 
 	// Check the cloud record.
 	row := db.QueryRow("SELECT uuid, name, cloud_type, endpoint, identity_endpoint, storage_endpoint, skip_tls_verify FROM v_cloud WHERE name = ?", "fluffy")
-	c.Assert(row.Err(), jc.ErrorIsNil)
+	c.Assert(row.Err(), tc.ErrorIsNil)
 
 	var dbCloud dbCloud
 	err := row.Scan(&dbCloud.UUID, &dbCloud.Name, &dbCloud.Type, &dbCloud.Endpoint, &dbCloud.IdentityEndpoint, &dbCloud.StorageEndpoint, &dbCloud.SkipTLSVerify)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	if !utils.IsValidUUIDString(dbCloud.UUID) {
 		c.Fatalf("invalid cloud uuid %q", dbCloud.UUID)
 	}
@@ -125,7 +124,7 @@ func (s *stateSuite) assertAuthTypes(c *tc.C, cloudUUID string, expected cloud.A
 	var dbAuthTypes = map[int]string{}
 
 	rows, err := db.Query("SELECT id, type FROM auth_type")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
@@ -134,27 +133,27 @@ func (s *stateSuite) assertAuthTypes(c *tc.C, cloudUUID string, expected cloud.A
 			value string
 		)
 		err := rows.Scan(&id, &value)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		dbAuthTypes[id] = value
 	}
-	c.Assert(rows.Err(), jc.ErrorIsNil)
+	c.Assert(rows.Err(), tc.ErrorIsNil)
 
 	rows, err = db.Query("SELECT auth_type_id FROM cloud_auth_type WHERE cloud_uuid = ?", cloudUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = rows.Close() }()
 
 	authTypes := set.NewStrings()
 	for rows.Next() {
 		var id int
 		err = rows.Scan(&id)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		authTypes.Add(dbAuthTypes[id])
 	}
-	c.Assert(rows.Err(), jc.ErrorIsNil)
+	c.Assert(rows.Err(), tc.ErrorIsNil)
 
 	c.Check(authTypes, tc.HasLen, len(expected))
 	for _, a := range expected {
-		c.Check(authTypes.Contains(string(a)), jc.IsTrue)
+		c.Check(authTypes.Contains(string(a)), tc.IsTrue)
 	}
 }
 
@@ -162,19 +161,19 @@ func (s *stateSuite) assertCaCerts(c *tc.C, cloudUUID string, expected []string)
 	db := s.DB()
 
 	rows, err := db.Query("SELECT ca_cert FROM cloud_ca_cert WHERE cloud_uuid = ?", cloudUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = rows.Close() }()
 
 	certs := set.NewStrings()
 	for rows.Next() {
 		var cert string
 		err = rows.Scan(&cert)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		certs.Add(cert)
 	}
-	c.Assert(rows.Err(), jc.ErrorIsNil)
+	c.Assert(rows.Err(), tc.ErrorIsNil)
 
-	c.Check(certs.Values(), jc.SameContents, expected)
+	c.Check(certs.Values(), tc.SameContents, expected)
 }
 
 func regionsFromDbRegions(dbRegions []cloudRegion) []cloud.Region {
@@ -194,26 +193,26 @@ func (s *stateSuite) assertRegions(c *tc.C, cloudUUID string, expected []cloud.R
 	db := s.DB()
 
 	rows, err := db.Query("SELECT name, endpoint, identity_endpoint, storage_endpoint FROM cloud_region WHERE cloud_uuid = ?", cloudUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = rows.Close() }()
 
 	var dbRegions []cloudRegion
 	for rows.Next() {
 		var dbRegion cloudRegion
 		err = rows.Scan(&dbRegion.Name, &dbRegion.Endpoint, &dbRegion.IdentityEndpoint, &dbRegion.StorageEndpoint)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		dbRegions = append(dbRegions, dbRegion)
 	}
-	c.Assert(rows.Err(), jc.ErrorIsNil)
+	c.Assert(rows.Err(), tc.ErrorIsNil)
 
 	regions := regionsFromDbRegions(dbRegions)
-	c.Check(regions, jc.SameContents, expected)
+	c.Check(regions, tc.SameContents, expected)
 }
 
 func (s *stateSuite) assertInsertCloud(c *tc.C, st *State, cloud cloud.Cloud) string {
 	cloudUUID := uuid.MustNewUUID()
 	err := st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), cloudUUID.String(), cloud)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	foundCloudUUID := s.assertCloud(c, cloud)
 	s.checkPermissionRow(c, permission.AdminAccess, "admin", cloud.Name)
@@ -267,7 +266,7 @@ func (s *stateSuite) TestCreateCloudUpdateExisting(c *tc.C) {
 	}
 
 	err := st.UpdateCloud(context.Background(), cld)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cloudUUID := s.assertCloud(c, cld)
 	c.Assert(originalUUID, tc.Equals, cloudUUID)
@@ -288,7 +287,7 @@ func (s *stateSuite) TestCloudWithEmptyNameFails(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory())
 	err := st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), uuid.MustNewUUID().String(), cld)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *stateSuite) TestCreateCloudInvalidAuthType(c *tc.C) {
@@ -303,31 +302,31 @@ func (s *stateSuite) TestCreateCloudInvalidAuthType(c *tc.C) {
 func (s *stateSuite) TestListClouds(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	err := st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), uuid.MustNewUUID().String(), testCloud)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), uuid.MustNewUUID().String(), testCloud2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	clouds, err := st.ListClouds(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(clouds, tc.HasLen, 2)
 	if clouds[0].Name == testCloud.Name {
-		c.Assert(clouds[0], jc.DeepEquals, testCloud)
-		c.Assert(clouds[1], jc.DeepEquals, testCloud2)
+		c.Assert(clouds[0], tc.DeepEquals, testCloud)
+		c.Assert(clouds[1], tc.DeepEquals, testCloud2)
 	} else {
-		c.Assert(clouds[1], jc.DeepEquals, testCloud)
-		c.Assert(clouds[0], jc.DeepEquals, testCloud2)
+		c.Assert(clouds[1], tc.DeepEquals, testCloud)
+		c.Assert(clouds[0], tc.DeepEquals, testCloud2)
 	}
 }
 
 func (s *stateSuite) TestCloudIsControllerCloud(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	err := st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), uuid.MustNewUUID().String(), testCloud)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), uuid.MustNewUUID().String(), testCloud2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	clouds, err := st.ListClouds(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(clouds, tc.HasLen, 2)
 
 	for _, cloud := range clouds {
@@ -337,7 +336,7 @@ func (s *stateSuite) TestCloudIsControllerCloud(c *tc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 	modelSt := modelstate.NewState(s.TxnRunnerFactory())
 	modelstatetesting.CreateInternalSecretBackend(c, s.ControllerTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = modelSt.Create(
 		context.Background(),
 		modelUUID,
@@ -349,13 +348,13 @@ func (s *stateSuite) TestCloudIsControllerCloud(c *tc.C) {
 			SecretBackend: juju.BackendName,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = modelSt.Activate(context.Background(), modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	clouds, err = st.ListClouds(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(clouds, tc.HasLen, 2)
 
 	for _, cloud := range clouds {
@@ -370,16 +369,16 @@ func (s *stateSuite) TestCloudIsControllerCloud(c *tc.C) {
 func (s *stateSuite) TestCloud(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	err := st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), uuid.MustNewUUID().String(), testCloud)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), uuid.MustNewUUID().String(), testCloud2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = st.Cloud(context.Background(), "fluffy3")
-	c.Assert(err, jc.ErrorIs, clouderrors.NotFound)
+	c.Assert(err, tc.ErrorIs, clouderrors.NotFound)
 
 	cloud, err := st.Cloud(context.Background(), "fluffy2")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cloud, jc.DeepEquals, &testCloud2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cloud, tc.DeepEquals, &testCloud2)
 }
 
 func (s *stateSuite) TestDeleteCloud(c *tc.C) {
@@ -387,10 +386,10 @@ func (s *stateSuite) TestDeleteCloud(c *tc.C) {
 	s.assertInsertCloud(c, st, testCloud)
 
 	err := st.DeleteCloud(context.Background(), "fluffy")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = st.Cloud(context.Background(), "fluffy")
-	c.Assert(err, jc.ErrorIs, clouderrors.NotFound)
+	c.Assert(err, tc.ErrorIs, clouderrors.NotFound)
 
 	// Do not find the permission
 	row := s.DB().QueryRow(`
@@ -398,7 +397,7 @@ SELECT uuid, access_type, grant_to, grant_on
 FROM v_permission p
 WHERE p.grant_to = ?
 `, "fluffy")
-	c.Assert(row.Err(), jc.ErrorIsNil)
+	c.Assert(row.Err(), tc.ErrorIsNil)
 	var grantOn string
 	err = row.Scan(&grantOn)
 	c.Assert(err, tc.ErrorMatches, "sql: no rows in result set")
@@ -427,14 +426,14 @@ WHERE cloud.name = ?
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(numRows, tc.Equals, int64(1))
 
 	err = st.DeleteCloud(context.Background(), "fluffy")
 	c.Assert(err, tc.ErrorMatches, "cannot delete cloud as it is still in use")
 
 	cloud, err := st.Cloud(context.Background(), "fluffy")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cloud.Name, tc.Equals, "fluffy")
 }
 
@@ -445,7 +444,7 @@ func (s *stateSuite) TestNullCloudType(c *tc.C) {
 		_, err := tx.ExecContext(ctx, "INSERT INTO cloud_type (id, type) VALUES (99, NULL)")
 		return err
 	})
-	c.Assert(jujudb.IsErrConstraintNotNull(err), jc.IsTrue)
+	c.Assert(jujudb.IsErrConstraintNotNull(err), tc.IsTrue)
 }
 
 func (s *stateSuite) ensureUser(c *tc.C, userUUID, name, createdByUUID string) {
@@ -456,7 +455,7 @@ func (s *stateSuite) ensureUser(c *tc.C, userUUID, name, createdByUUID string) {
 		`, userUUID, name, name, false, false, createdByUUID, time.Now())
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO user_authentication (user_uuid, disabled)
@@ -464,7 +463,7 @@ func (s *stateSuite) ensureUser(c *tc.C, userUUID, name, createdByUUID string) {
 		`, userUUID, false)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *stateSuite) checkPermissionRow(c *tc.C, access permission.Access, expectedGrantTo, expectedGrantON string) {
@@ -475,22 +474,22 @@ SELECT uuid
 FROM user
 WHERE name = ?
 `, expectedGrantTo)
-	c.Assert(row.Err(), jc.ErrorIsNil)
+	c.Assert(row.Err(), tc.ErrorIsNil)
 	var userUUID string
 	err := row.Scan(&userUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Find the permission
 	row = db.QueryRow(`
 SELECT uuid, access_type, grant_to, grant_on
 FROM v_permission
 `)
-	c.Assert(row.Err(), jc.ErrorIsNil)
+	c.Assert(row.Err(), tc.ErrorIsNil)
 	var (
 		accessType, userUuid, grantTo, grantOn string
 	)
 	err = row.Scan(&userUuid, &accessType, &grantTo, &grantOn)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Verify the permission as expected.
 	c.Check(userUuid, tc.Not(tc.Equals), "")
@@ -503,7 +502,7 @@ func (s *stateSuite) TestGetCloudForNonExistentID(c *tc.C) {
 	fakeID := cloudtesting.GenCloudUUID(c)
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.GetCloudForUUID(context.Background(), fakeID)
-	c.Check(err, jc.ErrorIs, clouderrors.NotFound)
+	c.Check(err, tc.ErrorIs, clouderrors.NotFound)
 }
 
 func (s *stateSuite) TestGetCloudForUUID(c *tc.C) {
@@ -513,10 +512,10 @@ func (s *stateSuite) TestGetCloudForUUID(c *tc.C) {
 	db := s.DB()
 	var uuid corecloud.UUID
 	err := db.QueryRow("SELECT uuid FROM v_cloud where name = ?", testCloud.Name).Scan(&uuid)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cloud, err := st.GetCloudForUUID(context.Background(), uuid)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(cloud, jc.DeepEquals, testCloud)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(cloud, tc.DeepEquals, testCloud)
 }

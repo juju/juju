@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/blockdevice"
@@ -69,14 +68,14 @@ func (s *exportSuite) TestExport(c *tc.C) {
 
 	op := s.newExportOperation()
 	err := op.Execute(context.Background(), dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	m = dst.Machines()
 	c.Assert(m, tc.HasLen, 1)
 	c.Assert(m[0].BlockDevices(), tc.HasLen, 1)
 	bd := m[0].BlockDevices()[0]
 	c.Check(bd.Name(), tc.Equals, "foo")
-	c.Check(bd.Links(), jc.DeepEquals, []string{"a-link"})
+	c.Check(bd.Links(), tc.DeepEquals, []string{"a-link"})
 	c.Check(bd.Label(), tc.Equals, "label")
 	c.Check(bd.UUID(), tc.Equals, "device-uuid")
 	c.Check(bd.HardwareID(), tc.Equals, "hardware-id")
@@ -85,7 +84,7 @@ func (s *exportSuite) TestExport(c *tc.C) {
 	c.Check(bd.SerialID(), tc.Equals, "serial-id")
 	c.Check(bd.Size(), tc.Equals, uint64(100))
 	c.Check(bd.FilesystemType(), tc.Equals, "ext4")
-	c.Check(bd.InUse(), jc.IsTrue)
+	c.Check(bd.InUse(), tc.IsTrue)
 	c.Check(bd.MountPoint(), tc.Equals, "/path/to/here")
 }
 
@@ -102,5 +101,5 @@ func (s *exportSuite) TestExportMachineNotFound(c *tc.C) {
 
 	op := s.newExportOperation()
 	err := op.Execute(context.Background(), dst)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 }

@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -41,7 +40,7 @@ func (s *statusSetSuite) TestStatusSetInit(c *tc.C) {
 		c.Logf("test %d: %#v", i, t.args)
 		hctx := s.GetStatusHookContext(c)
 		com, err := jujuc.NewCommand(hctx, "status-set")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		cmdtesting.TestInit(c, com, t.args, t.err)
 	}
 }
@@ -54,14 +53,14 @@ func (s *statusSetSuite) TestStatus(c *tc.C) {
 		c.Logf("test %d: %#v", i, args)
 		hctx := s.GetStatusHookContext(c)
 		com, err := jujuc.NewCommand(hctx, "status-set")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, args)
 		c.Assert(code, tc.Equals, 0)
 		c.Assert(bufferString(ctx.Stderr), tc.Equals, "")
 		c.Assert(bufferString(ctx.Stdout), tc.Equals, "")
 		status, err := hctx.UnitStatus(context.Background())
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(status.Status, tc.Equals, args[0])
 		c.Assert(status.Info, tc.Equals, args[1])
 	}
@@ -75,17 +74,17 @@ func (s *statusSetSuite) TestApplicationStatus(c *tc.C) {
 		c.Logf("test %d: %#v", i, args)
 		hctx := s.GetStatusHookContext(c)
 		com, err := jujuc.NewCommand(hctx, "status-set")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, args)
 		c.Assert(code, tc.Equals, 0)
 		c.Assert(bufferString(ctx.Stderr), tc.Equals, "")
 		c.Assert(bufferString(ctx.Stdout), tc.Equals, "")
 		status, err := hctx.ApplicationStatus(context.Background())
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(status.Application.Status, tc.Equals, args[1])
 		c.Assert(status.Application.Info, tc.Equals, args[2])
-		c.Assert(status.Units, jc.DeepEquals, []jujuc.StatusInfo{})
+		c.Assert(status.Units, tc.DeepEquals, []jujuc.StatusInfo{})
 
 	}
 }

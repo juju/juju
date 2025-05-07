@@ -6,7 +6,6 @@ package deployment
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/instance"
 )
@@ -115,7 +114,7 @@ func (s *PlacementSuite) TestPlacement(c *tc.C) {
 		if test.err != nil {
 			c.Assert(err, tc.ErrorMatches, *test.err)
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
 		c.Check(result, tc.Equals, test.output)
 	}

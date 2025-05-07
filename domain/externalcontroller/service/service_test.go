@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/crossmodel"
@@ -41,7 +40,7 @@ func (s *serviceSuite) TestUpdateExternalControllerSuccess(c *tc.C) {
 	s.state.EXPECT().UpdateExternalController(gomock.Any(), ec).Return(nil)
 
 	err := NewService(s.state).UpdateExternalController(context.Background(), ec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestUpdateExternalControllerError(c *tc.C) {
@@ -74,7 +73,7 @@ func (s *serviceSuite) TestRetrieveExternalControllerSuccess(c *tc.C) {
 	s.state.EXPECT().Controller(gomock.Any(), ctrlUUID).Return(&ec, nil)
 
 	res, err := NewService(s.state).Controller(context.Background(), ctrlUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.Equals, &ec)
 }
 
@@ -104,7 +103,7 @@ func (s *serviceSuite) TestRetrieveExternalControllerForModelSuccess(c *tc.C) {
 	s.state.EXPECT().ControllersForModels(gomock.Any(), modelUUID).Return(ec, nil)
 
 	res, err := NewService(s.state).ControllerForModel(context.Background(), modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.Equals, &ec[0])
 }
 

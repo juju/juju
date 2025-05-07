@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
@@ -25,39 +24,39 @@ var _ = tc.Suite(&environPolSuite{})
 
 func (s *environPolSuite) TestConstraintsValidator(c *tc.C) {
 	validator, err := s.env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64")
 	unsupported, err := validator.Validate(cons)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(unsupported, tc.HasLen, 0)
 }
 
 func (s *environPolSuite) TestConstraintsValidatorEmpty(c *tc.C) {
 	validator, err := s.env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	unsupported, err := validator.Validate(constraints.Value{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(unsupported, tc.HasLen, 0)
 }
 
 func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *tc.C) {
 	validator, err := s.env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64 tags=foo virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(unsupported, jc.SameContents, []string{"tags", "virt-type"})
+	c.Check(unsupported, tc.SameContents, []string{"tags", "virt-type"})
 }
 
 func (s *environPolSuite) TestConstraintsValidatorVocabArch(c *tc.C) {
 	validator, err := s.env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)
@@ -81,7 +80,7 @@ func (s *environPolSuite) TestPrecheckInstanceChecksPlacementZone(c *tc.C) {
 	err = s.env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
 		Placement: "zone=z1",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *environPolSuite) TestPrecheckInstanceChecksConstraintZones(c *tc.C) {
@@ -113,7 +112,7 @@ func (s *environPolSuite) TestPrecheckInstanceChecksConstraintZones(c *tc.C) {
 	err = s.env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
 		Constraints: constraints.MustParse("zones=z1,z2/child"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *environPolSuite) TestPrecheckInstanceChecksConstraintDatastore(c *tc.C) {
@@ -139,5 +138,5 @@ func (s *environPolSuite) TestPrecheckInstanceChecksConstraintDatastore(c *tc.C)
 	err = s.env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
 		Constraints: constraints.MustParse("root-disk-source=bar"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

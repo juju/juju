@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 )
 
 // CheckWriteFileCommand verifies that the given shell command
@@ -33,5 +32,5 @@ func CheckWriteFileCommand(c *tc.C, cmd, filename, expected string, parse func(l
 
 	// Check the conf portion.
 	expectedParsed := parse(strings.Split(expected, "\n"))
-	c.Check(parsed, jc.DeepEquals, expectedParsed)
+	c.Check(parsed, tc.DeepEquals, expectedParsed)
 }

@@ -7,7 +7,6 @@ package jujuc_test
 import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -22,13 +21,13 @@ var _ = tc.Suite(&JujuRebootSuite{})
 
 func (s *JujuRebootSuite) TestNewJujuRebootCommand(c *tc.C) {
 	cmd, err := jujuc.NewJujuRebootCommand(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmd, tc.DeepEquals, &jujuc.JujuRebootCommand{})
 }
 
 func (s *JujuRebootSuite) TestInfo(c *tc.C) {
 	rebootCmd, err := jujuc.NewJujuRebootCommand(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cmdInfo := rebootCmd.Info()
 
 	c.Assert(cmdInfo.Name, tc.Equals, "juju-reboot")
@@ -92,7 +91,7 @@ func (s *JujuRebootSuite) TestJujuRebootCommand(c *tc.C) {
 		hctx.shouldError = t.hctx.shouldError
 		hctx.rebootPriority = t.hctx.rebootPriority
 		com, err := jujuc.NewCommand(hctx, "juju-reboot")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
 		c.Check(code, tc.Equals, t.code)
@@ -103,7 +102,7 @@ func (s *JujuRebootSuite) TestJujuRebootCommand(c *tc.C) {
 func (s *JujuRebootSuite) TestRebootInActions(c *tc.C) {
 	jujucCtx := &actionGetContext{}
 	com, err := jujuc.NewCommand(jujucCtx, "juju-reboot")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cmdCtx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), cmdCtx, nil)
 	c.Check(code, tc.Equals, 1)

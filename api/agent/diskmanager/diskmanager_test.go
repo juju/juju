@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/agent/diskmanager"
 	"github.com/juju/juju/api/base/testing"
@@ -64,7 +63,7 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevices(c *tc.C) {
 
 	st := diskmanager.NewState(apiCaller, names.NewMachineTag("123"))
 	err := st.SetMachineBlockDevices(context.Background(), devices)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(callCount, tc.Equals, 1)
 }
 
@@ -87,7 +86,7 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevicesNil(c *tc.C) {
 	})
 	st := diskmanager.NewState(apiCaller, names.NewMachineTag("123"))
 	err := st.SetMachineBlockDevices(context.Background(), nil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(callCount, tc.Equals, 1)
 }
 

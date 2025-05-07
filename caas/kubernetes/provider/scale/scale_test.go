@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,7 +33,7 @@ func (s *ScaleSuite) SetUpTest(c *tc.C) {
 			},
 		},
 		meta.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ScaleSuite) TestDeploymentScale(c *tc.C) {
@@ -49,7 +48,7 @@ func (s *ScaleSuite) TestDeploymentScale(c *tc.C) {
 			},
 		},
 		meta.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = scale.PatchReplicasToScale(
 		context.Background(),
@@ -57,14 +56,14 @@ func (s *ScaleSuite) TestDeploymentScale(c *tc.C) {
 		3,
 		scale.DeploymentScalePatcher(s.client.AppsV1().Deployments("test")),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	dep, err := s.client.AppsV1().Deployments("test").Get(
 		context.Background(),
 		"test",
 		meta.GetOptions{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(*dep.Spec.Replicas, tc.Equals, int32(3))
 
 	err = scale.PatchReplicasToScale(
@@ -73,14 +72,14 @@ func (s *ScaleSuite) TestDeploymentScale(c *tc.C) {
 		0,
 		scale.DeploymentScalePatcher(s.client.AppsV1().Deployments("test")),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	dep, err = s.client.AppsV1().Deployments("test").Get(
 		context.Background(),
 		"test",
 		meta.GetOptions{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(*dep.Spec.Replicas, tc.Equals, int32(0))
 }
 
@@ -91,7 +90,7 @@ func (s *ScaleSuite) TestDeploymentScaleNotFound(c *tc.C) {
 		3,
 		scale.DeploymentScalePatcher(s.client.AppsV1().Deployments("test")),
 	)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *ScaleSuite) TestStatefulSetScaleNotFound(c *tc.C) {
@@ -101,7 +100,7 @@ func (s *ScaleSuite) TestStatefulSetScaleNotFound(c *tc.C) {
 		3,
 		scale.StatefulSetScalePatcher(s.client.AppsV1().StatefulSets("test")),
 	)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *ScaleSuite) TestStatefulSetScale(c *tc.C) {
@@ -116,7 +115,7 @@ func (s *ScaleSuite) TestStatefulSetScale(c *tc.C) {
 			},
 		},
 		meta.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = scale.PatchReplicasToScale(
 		context.Background(),
@@ -124,14 +123,14 @@ func (s *ScaleSuite) TestStatefulSetScale(c *tc.C) {
 		3,
 		scale.StatefulSetScalePatcher(s.client.AppsV1().StatefulSets("test")),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ss, err := s.client.AppsV1().StatefulSets("test").Get(
 		context.Background(),
 		"test",
 		meta.GetOptions{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(*ss.Spec.Replicas, tc.Equals, int32(3))
 
 	err = scale.PatchReplicasToScale(
@@ -140,14 +139,14 @@ func (s *ScaleSuite) TestStatefulSetScale(c *tc.C) {
 		0,
 		scale.StatefulSetScalePatcher(s.client.AppsV1().StatefulSets("test")),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ss, err = s.client.AppsV1().StatefulSets("test").Get(
 		context.Background(),
 		"test",
 		meta.GetOptions{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(*ss.Spec.Replicas, tc.Equals, int32(0))
 }
 
@@ -158,5 +157,5 @@ func (s *ScaleSuite) TestInvalidScale(c *tc.C) {
 		-1,
 		scale.StatefulSetScalePatcher(s.client.AppsV1().StatefulSets("test")),
 	)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }

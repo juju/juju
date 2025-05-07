@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/filestorage"
@@ -31,14 +30,14 @@ func (s *StorageSuite) TestStorageName(c *tc.C) {
 
 func (s *StorageSuite) TestReadListEmpty(c *tc.C) {
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = envtools.ReadList(context.Background(), stor, "released", 2, 0)
 	c.Assert(err, tc.Equals, envtools.ErrNoTools)
 }
 
 func (s *StorageSuite) TestReadList(c *tc.C) {
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	v100 := semversion.MustParseBinary("1.0.0-ubuntu-amd64")
 	v101 := semversion.MustParseBinary("1.0.1-ubuntu-amd64")
 	v111 := semversion.MustParseBinary("1.1.1-ubuntu-amd64")
@@ -69,7 +68,7 @@ func (s *StorageSuite) TestReadList(c *tc.C) {
 		c.Logf("test %d", i)
 		list, err := envtools.ReadList(context.Background(), stor, "proposed", t.majorVersion, t.minorVersion)
 		if t.list != nil {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			// ReadList doesn't set the Size or SHA256, so blank out those attributes.
 			for _, tool := range t.list {
 				tool.Size = 0

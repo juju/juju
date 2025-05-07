@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	apiresources "github.com/juju/juju/api/client/resources"
@@ -83,9 +82,9 @@ func (s *resourcesSuite) TestListResourcesOkay(c *tc.C) {
 			Tag: appTag.String(),
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, params.ResourcesResults{
+	c.Check(results, tc.DeepEquals, params.ResourcesResults{
 		Results: []params.ResourcesResult{{
 			Resources: []params.Resource{
 				apiRes1,
@@ -128,9 +127,9 @@ func (s *resourcesSuite) TestListResourcesEmpty(c *tc.C) {
 			Tag: tag.String(),
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, params.ResourcesResults{
+	c.Check(results, tc.DeepEquals, params.ResourcesResults{
 		Results: []params.ResourcesResult{{}},
 	})
 }
@@ -146,9 +145,9 @@ func (s *resourcesSuite) TestListResourcesErrorGetAppID(c *tc.C) {
 			Tag: tag.String(),
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, params.ResourcesResults{
+	c.Check(results, tc.DeepEquals, params.ResourcesResults{
 		Results: []params.ResourcesResult{{
 			ErrorResult: params.ErrorResult{Error: &params.Error{
 				Message: "<failure>",
@@ -169,9 +168,9 @@ func (s *resourcesSuite) TestListResourcesError(c *tc.C) {
 			Tag: tag.String(),
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, params.ResourcesResults{
+	c.Check(results, tc.DeepEquals, params.ResourcesResults{
 		Results: []params.ResourcesResult{{
 			ErrorResult: params.ErrorResult{Error: &params.Error{
 				Message: "<failure>",
@@ -223,7 +222,7 @@ func (s *resourcesSuite) TestServiceResources2API(c *tc.C) {
 	apiChRes1 := apiresources.CharmResource2API(chres1)
 	apiChRes2 := apiresources.CharmResource2API(chres2)
 
-	c.Check(result, jc.DeepEquals, params.ResourcesResult{
+	c.Check(result, tc.DeepEquals, params.ResourcesResult{
 		Resources: []params.Resource{
 			apiRes1,
 			apiRes2,
@@ -274,7 +273,7 @@ func (s *addPendingResourceSuite) SetUpTest(c *tc.C) {
 	s.curl = charm.MustParseURL("testcharm")
 	var err error
 	s.charmLoc, err = charms.CharmLocatorFromURL(s.curl.String())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.pendingResourceIDOne = resourcetesting.GenResourceUUID(c)
 	s.pendingResourceIDTwo = resourcetesting.GenResourceUUID(c)
 	s.resourceNameOne = "foo"
@@ -311,7 +310,7 @@ func (s *addPendingResourceSuite) TestAddPendingResourcesBeforeApplication(c *tc
 		},
 	}
 	results, err := s.newFacade(c).AddPendingResources(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Error, tc.IsNil)
 	c.Assert(results.ErrorResult.Error, tc.IsNil)
 	c.Assert(results.PendingIDs, tc.DeepEquals, []string{
@@ -350,7 +349,7 @@ func (s *addPendingResourceSuite) TestAddPendingResourcesUpdateStoreResource(c *
 		PendingIDs:  []string{newUUIDTwo.String()},
 	}
 	results, err := s.newFacade(c).AddPendingResources(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, expectedResults)
 }
 
@@ -382,7 +381,7 @@ func (s *addPendingResourceSuite) TestAddPendingResourcesUpdateUploadResource(c 
 		PendingIDs:  []string{newUUIDTwo.String()},
 	}
 	results, err := s.newFacade(c).AddPendingResources(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, expectedResults)
 }
 

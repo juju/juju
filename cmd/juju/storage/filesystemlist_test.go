@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cmd/juju/storage"
@@ -43,7 +42,7 @@ func (s *ListSuite) TestFilesystemListArgs(c *tc.C) {
 	var called bool
 	expectedArgs := []string{"a", "b", "c"}
 	s.mockAPI.listFilesystems = func(arg []string) ([]params.FilesystemDetailsListResult, error) {
-		c.Assert(arg, jc.DeepEquals, expectedArgs)
+		c.Assert(arg, tc.DeepEquals, expectedArgs)
 		called = true
 		return nil, nil
 	}
@@ -52,7 +51,7 @@ func (s *ListSuite) TestFilesystemListArgs(c *tc.C) {
 		append([]string{"--format", "yaml"}, expectedArgs...),
 		"",
 	)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(called, tc.IsTrue)
 }
 
 func (s *ListSuite) TestFilesystemListYaml(c *tc.C) {
@@ -167,16 +166,16 @@ func (s *ListSuite) TestCAASFilesystemListTabular(c *tc.C) {
 
 func (s *ListSuite) assertUnmarshalledOutput(c *tc.C, unmarshal unmarshaller, expectedErr string, args ...string) {
 	context, err := s.runFilesystemList(c, args...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var result struct {
 		Filesystems map[string]storage.FilesystemInfo
 	}
 	err = unmarshal([]byte(cmdtesting.Stdout(context)), &result)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected := s.expect(c, nil)
-	c.Assert(result.Filesystems, jc.DeepEquals, expected)
+	c.Assert(result.Filesystems, tc.DeepEquals, expected)
 
 	obtainedErr := cmdtesting.Stderr(context)
 	c.Assert(obtainedErr, tc.Equals, expectedErr)
@@ -186,7 +185,7 @@ func (s *ListSuite) assertUnmarshalledOutput(c *tc.C, unmarshal unmarshaller, ex
 // from rendered YAML or JSON.
 func (s *ListSuite) expect(c *tc.C, machines []string) map[string]storage.FilesystemInfo {
 	all, err := s.mockAPI.ListFilesystems(context.Background(), machines)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var valid []params.FilesystemDetails
 	for _, result := range all {
@@ -195,13 +194,13 @@ func (s *ListSuite) expect(c *tc.C, machines []string) map[string]storage.Filesy
 		}
 	}
 	result, err := storage.ConvertToFilesystemInfo(valid)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return result
 }
 
 func (s *ListSuite) assertValidFilesystemList(c *tc.C, args []string, expectedOut string) {
 	context, err := s.runFilesystemList(c, args...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertUserFacingOutput(c, context, expectedOut, "")
 }
 

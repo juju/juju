@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	apisecretbackends "github.com/juju/juju/api/client/secretbackends"
@@ -90,7 +89,7 @@ func (s *AddSuite) TestAdd(c *tc.C) {
 	_, err := cmdtesting.RunCommand(c, secretbackends.NewAddCommandForTest(s.store, s.addSecretBackendsAPI),
 		"myvault", "vault", "endpoint=http://vault", "token-rotate=666m",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *AddSuite) TestAddWithID(c *tc.C) {
@@ -109,7 +108,7 @@ func (s *AddSuite) TestAddWithID(c *tc.C) {
 	_, err := cmdtesting.RunCommand(c, secretbackends.NewAddCommandForTest(s.store, s.addSecretBackendsAPI),
 		"myvault", "vault", "endpoint=http://vault", "--import-id", "backend-id",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *AddSuite) TestAddFromFile(c *tc.C) {
@@ -117,7 +116,7 @@ func (s *AddSuite) TestAddFromFile(c *tc.C) {
 
 	fname := filepath.Join(c.MkDir(), "cfg.yaml")
 	err := os.WriteFile(fname, []byte("endpoint: http://vault"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.addSecretBackendsAPI.EXPECT().AddSecretBackend(
 		gomock.Any(),
 		apisecretbackends.CreateSecretBackend{
@@ -134,5 +133,5 @@ func (s *AddSuite) TestAddFromFile(c *tc.C) {
 	_, err = cmdtesting.RunCommand(c, secretbackends.NewAddCommandForTest(s.store, s.addSecretBackendsAPI),
 		"myvault", "vault", "token=s.666", "token-rotate=666m", "--config", fname,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

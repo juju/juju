@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cloud"
 	coreuser "github.com/juju/juju/core/user"
@@ -23,10 +22,10 @@ var _ = tc.Suite(&bootstrapSuite{})
 func (s *bootstrapSuite) TestInsertCloud(c *tc.C) {
 	cld := cloud.Cloud{Name: "cirrus", Type: "ec2", AuthTypes: cloud.AuthTypes{cloud.UserPassAuthType}}
 	err := InsertCloud(coreuser.AdminUserName, cld)(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var name string
 	row := s.DB().QueryRow("SELECT name FROM cloud where cloud_type_id = ?", 5) // 5 = ec2
-	c.Assert(row.Scan(&name), jc.ErrorIsNil)
+	c.Assert(row.Scan(&name), tc.ErrorIsNil)
 	c.Assert(name, tc.Equals, "cirrus")
 }

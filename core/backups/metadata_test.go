@@ -10,7 +10,6 @@ import (
 	"time" // Only used for time types and funcs, not Now().
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/backups"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -67,14 +66,14 @@ func (s *metadataSuite) createTestMetadata(c *tc.C) *backups.Metadata {
 
 func (s *metadataSuite) assertMetadata(c *tc.C, meta *backups.Metadata, expected string) {
 	err := meta.MarkComplete(10, "123af2cef")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	finished := meta.Started.Add(time.Minute)
 	meta.Finished = &finished
 
 	buf, err := meta.AsJSONBuffer()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(buf.(*bytes.Buffer).String(), jc.DeepEquals, expected)
+	c.Check(buf.(*bytes.Buffer).String(), tc.DeepEquals, expected)
 }
 
 func (s *metadataSuite) TestAsJSONBufferV1NonHA(c *tc.C) {
@@ -160,7 +159,7 @@ func (s *metadataSuite) TestNewMetadataJSONReaderV1(c *tc.C) {
 		`"ControllerMachineInstanceID":"inst-10101010"` +
 		`}` + "\n")
 	meta, err := backups.NewMetadataJSONReader(file)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(meta.ID(), tc.Equals, "20140909-115934.asdf-zxcv-qwe")
 	c.Check(meta.Checksum(), tc.Equals, "123af2cef")
@@ -203,21 +202,21 @@ func (s *metadataSuite) TestNewMetadataJSONReaderUnsupported(c *tc.C) {
 		`}` + "\n")
 	meta, err := backups.NewMetadataJSONReader(file)
 	c.Assert(meta, tc.IsNil)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotSupported)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
 func (s *metadataSuite) TestBuildMetadata(c *tc.C) {
 	archive, err := os.Create(filepath.Join(c.MkDir(), "juju-backup.tgz"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = archive.Write([]byte("<compressed data>"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	fi, err := archive.Stat()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	finished := backups.FileTimestamp(fi).Unix()
 
 	meta, err := backups.BuildMetadata(archive)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(meta.ID(), tc.Equals, "")
 	c.Check(meta.Checksum(), tc.Equals, "2jmj7l5rSw0yVb/vlWAYkK/YBwk=")

@@ -5,7 +5,6 @@ package testing
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/relation"
 )
@@ -15,7 +14,7 @@ import (
 // instance.
 func GenRelationUUID(c *tc.C) relation.UUID {
 	id, err := relation.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return id
 }
 
@@ -24,7 +23,7 @@ func GenRelationUUID(c *tc.C) relation.UUID {
 // go check instance.
 func GenEndpointUUID(c *tc.C) relation.EndpointUUID {
 	id, err := relation.NewEndpointUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return id
 }
 
@@ -33,7 +32,7 @@ func GenEndpointUUID(c *tc.C) relation.EndpointUUID {
 // go check instance.
 func GenRelationUnitUUID(c *tc.C) relation.UnitUUID {
 	id, err := relation.NewUnitUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return id
 }
 
@@ -42,6 +41,6 @@ func GenRelationUnitUUID(c *tc.C) relation.UnitUUID {
 // instance.
 func GenNewKey(c *tc.C, keyString string) relation.Key {
 	key, err := relation.NewKeyFromString(keyString)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return key
 }

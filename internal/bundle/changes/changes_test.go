@@ -17,7 +17,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	corebase "github.com/juju/juju/core/base"
 	bundlechanges "github.com/juju/juju/internal/bundle/changes"
@@ -35,7 +34,7 @@ var _ = tc.Suite(&changesSuite{})
 func (s *changesSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	err := loggo.ConfigureLoggers("bundlechanges=trace")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // record holds expected information about the contents of a change value.
@@ -191,9 +190,9 @@ func (s *changesSuite) TestBundleURLAnnotationSet(c *tc.C) {
 	}}
 
 	data, err := charm.ReadBundleData(strings.NewReader(content))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = data.Verify(nil, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Retrieve the changes, and convert them to a sequence of records.
 	changes, err := bundlechanges.FromData(context.Background(),
 		bundlechanges.ChangesConfig{
@@ -201,7 +200,7 @@ func (s *changesSuite) TestBundleURLAnnotationSet(c *tc.C) {
 			BundleURL: "ch:bundle/blog",
 			Logger:    loggertesting.WrapCheckLog(c),
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	records := make([]record, len(changes))
 	for i, change := range changes {
 		r := record{
@@ -212,7 +211,7 @@ func (s *changesSuite) TestBundleURLAnnotationSet(c *tc.C) {
 		}
 		records[i] = r
 	}
-	c.Check(records, jc.DeepEquals, expected)
+	c.Check(records, tc.DeepEquals, expected)
 }
 
 func (s *changesSuite) TestMinimalBundleWithDevices(c *tc.C) {
@@ -2678,11 +2677,11 @@ func (s *changesSuite) assertParseData(c *tc.C, content string, expected []recor
 func (s *changesSuite) assertParseDataWithModel(c *tc.C, model *bundlechanges.Model, content string, expected []record) {
 	// Retrieve and validate the bundle data merging any overlays in the bundle contents.
 	bundleSrc, err := charm.StreamBundleDataSource(strings.NewReader(content), "./")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	data, err := charm.ReadAndMergeBundleData(bundleSrc)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = data.Verify(nil, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the changes, and convert them to a sequence of records.
 	changes, err := bundlechanges.FromData(context.Background(), bundlechanges.ChangesConfig{
@@ -2696,11 +2695,11 @@ func (s *changesSuite) assertParseDataWithModel(c *tc.C, model *bundlechanges.Mo
 			return "stable", -1, nil
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	records := make([]record, len(changes))
 	for i, change := range changes {
 		args, err := change.Args()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		requires := change.Requires()
 		sort.Sort(sort.StringSlice(requires))
 		r := record{
@@ -2716,30 +2715,30 @@ func (s *changesSuite) assertParseDataWithModel(c *tc.C, model *bundlechanges.Mo
 
 	// Output the records for debugging.
 	b, err := json.MarshalIndent(records, "", "  ")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Logf("obtained records: %s", b)
 
 	// Check that the obtained records are what we expect.
-	c.Check(records, jc.DeepEquals, expected)
+	c.Check(records, tc.DeepEquals, expected)
 }
 
 func (s *changesSuite) assertParseDataWithDevices(c *tc.C, content string, expected []record) {
 	// Retrieve and validate the bundle data.
 	data, err := charm.ReadBundleData(strings.NewReader(content))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = data.Verify(nil, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the changes, and convert them to a sequence of records.
 	changes, err := bundlechanges.FromData(context.Background(), bundlechanges.ChangesConfig{
 		Bundle: data,
 		Logger: loggertesting.WrapCheckLog(c),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	records := make([]record, len(changes))
 	for i, change := range changes {
 		args, err := change.Args()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		r := record{
 			Id:       change.Id(),
 			Requires: change.Requires(),
@@ -2753,11 +2752,11 @@ func (s *changesSuite) assertParseDataWithDevices(c *tc.C, content string, expec
 
 	// Output the records for debugging.
 	b, err := json.MarshalIndent(records, "", "  ")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Logf("obtained records: %s", b)
 
 	// Check that the obtained records are what we expect.
-	c.Check(records, jc.DeepEquals, expected)
+	c.Check(records, tc.DeepEquals, expected)
 }
 
 func (s *changesSuite) assertLocalBundleChanges(c *tc.C, charmDir, bundleContent, base string) {
@@ -2838,7 +2837,7 @@ series:
     - bionic
 `[1:]
 	err := os.WriteFile(filepath.Join(charmDir, "metadata.yaml"), []byte(charmMeta), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertLocalBundleChanges(c, charmDir, bundleContent, "ubuntu@16.04/stable")
 	s.assertLocalBundleChangesWithDevices(c, charmDir, bundleContent, "ubuntu@16.04/stable")
 }
@@ -2847,7 +2846,7 @@ func (s *changesSuite) TestLocalCharmWithSeriesFromCharm(c *tc.C) {
 	tmpDir := filepath.Join(c.MkDir(), "multiseries")
 	charmPath := filepath.Join(tmpDir, "multiseries.charm")
 	err := os.Mkdir(tmpDir, 0700)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	bundleContent := fmt.Sprintf(`
         applications:
             django:
@@ -2868,14 +2867,14 @@ bases:
   channel: "18.04"  
 `[1:]
 	err = os.WriteFile(filepath.Join(tmpDir, "metadata.yaml"), []byte(charmMeta), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = os.WriteFile(filepath.Join(tmpDir, "manifest.yaml"), []byte(charmManifest), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	charmDir, err := charmtesting.ReadCharmDir(tmpDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = charmDir.ArchiveToPath(charmPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertLocalBundleChanges(c, charmPath, bundleContent, "ubuntu@22.04/stable")
 	s.assertLocalBundleChangesWithDevices(c, charmPath, bundleContent, "ubuntu@22.04/stable")
@@ -2905,14 +2904,14 @@ bases:
   channel: "18.04"  
 `[1:]
 	err := os.WriteFile(filepath.Join(tmpDir, "metadata.yaml"), []byte(charmMeta), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = os.WriteFile(filepath.Join(tmpDir, "manifest.yaml"), []byte(charmManifest), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	charmDir, err := charmtesting.ReadCharmDir(tmpDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = charmDir.ArchiveToPath(charmPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertLocalBundleChanges(c, charmPath, bundleContent, "ubuntu@20.04/stable")
 	s.assertLocalBundleChangesWithDevices(c, charmPath, bundleContent, "ubuntu@20.04/stable")
@@ -5145,11 +5144,11 @@ func (s *changesSuite) checkBundleImpl(c *tc.C,
 ) {
 	// Retrieve and validate the bundle data merging any overlays in the bundle contents.
 	bundleSrc, err := charm.StreamBundleDataSource(strings.NewReader(bundleContent), "./")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	data, err := charm.ReadAndMergeBundleData(bundleSrc)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = data.Verify(nil, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the changes, and convert them to a sequence of records.
 	changes, err := bundlechanges.FromData(context.Background(), bundlechanges.ChangesConfig{
@@ -5162,7 +5161,7 @@ func (s *changesSuite) checkBundleImpl(c *tc.C,
 	if errMatch != "" {
 		c.Assert(err, tc.ErrorMatches, errMatch)
 	} else {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		var obtained []string
 		for _, change := range changes {
 			c.Log(change.Description())
@@ -5171,7 +5170,7 @@ func (s *changesSuite) checkBundleImpl(c *tc.C,
 				obtained = append(obtained, descr)
 			}
 		}
-		c.Check(obtained, jc.DeepEquals, expectedChanges)
+		c.Check(obtained, tc.DeepEquals, expectedChanges)
 	}
 }
 

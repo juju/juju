@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/agent"
@@ -48,7 +47,7 @@ func (s *manifoldSuite) TestMachineDiskmanager(c *tc.C) {
 		c.Assert(b, tc.NotNil)
 
 		api, ok := b.(*apidiskmanager.State)
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		c.Assert(api, tc.NotNil)
 
 		return nil
@@ -62,8 +61,8 @@ func (s *manifoldSuite) TestMachineDiskmanager(c *tc.C) {
 	}
 
 	_, err := diskmanager.NewWorkerFunc(context.Background(), a, apiCaller)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(called, tc.IsTrue)
 }
 
 type dummyAgent struct {

@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -45,7 +44,7 @@ func (s *URLsSuite) env(c *tc.C, toolsMetadataURL string) environs.Environ {
 			AdminSecret:      "admin-secret",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return env.(environs.Environ)
 }
 
@@ -53,7 +52,7 @@ func (s *URLsSuite) TestToolsURLsNoConfigURL(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	env := s.env(c, "")
 	sources, err := tools.GetMetadataSources(env, ss)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{{"https://streams.canonical.com/juju/tools/", keys.JujuPublicKey, true}})
 }
 
@@ -61,7 +60,7 @@ func (s *URLsSuite) TestToolsSources(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	env := s.env(c, "config-tools-metadata-url")
 	sources, err := tools.GetMetadataSources(env, ss)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{
 		{"config-tools-metadata-url/", keys.JujuPublicKey, false},
 		{"https://streams.canonical.com/juju/tools/", keys.JujuPublicKey, true},
@@ -95,7 +94,7 @@ func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncs(c *tc.C) {
 
 	env := s.env(c, "config-tools-metadata-url")
 	sources, err := tools.GetMetadataSources(env, ss)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{
 		{"config-tools-metadata-url/", keys.JujuPublicKey, false},
 		{"betwixt/releases/", "", false},

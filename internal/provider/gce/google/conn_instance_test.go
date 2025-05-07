@@ -6,7 +6,6 @@ package google_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"google.golang.org/api/compute/v1"
 
 	"github.com/juju/juju/internal/provider/gce/google"
@@ -17,9 +16,9 @@ func (s *connSuite) TestConnectionSimpleAddInstance(c *tc.C) {
 
 	inst := &s.RawInstance
 	err := google.ConnAddInstance(s.Conn, inst, "mtype", "a-zone")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(inst, jc.DeepEquals, &s.RawInstanceFull)
+	c.Check(inst, tc.DeepEquals, &s.RawInstanceFull)
 }
 
 func (s *connSuite) TestConnectionSimpleAddInstanceAPI(c *tc.C) {
@@ -29,7 +28,7 @@ func (s *connSuite) TestConnectionSimpleAddInstanceAPI(c *tc.C) {
 
 	inst := &s.RawInstance
 	err := google.ConnAddInstance(s.Conn, inst, "mtype", "a-zone")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, tc.HasLen, 2)
 	c.Check(s.FakeConn.Calls[0].FuncName, tc.Equals, "AddInstance")
@@ -46,13 +45,13 @@ func (s *instanceSuite) TestConnectionAddInstance(c *tc.C) {
 	s.FakeConn.Instance = &s.RawInstanceFull
 
 	inst, err := s.Conn.AddInstance(s.InstanceSpec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(inst.ID, tc.Equals, "spam")
 	c.Check(inst.ZoneName, tc.Equals, "a-zone")
 	c.Check(inst.Status(), tc.Equals, google.StatusRunning)
-	c.Check(inst.Metadata(), jc.DeepEquals, s.Metadata)
-	c.Check(inst.Addresses(), jc.DeepEquals, s.Addresses)
+	c.Check(inst.Metadata(), tc.DeepEquals, s.Metadata)
+	c.Check(inst.Addresses(), tc.DeepEquals, s.Addresses)
 	spec := google.GetInstanceSpec(inst)
 	c.Check(spec, tc.DeepEquals, &s.InstanceSpec)
 }
@@ -61,7 +60,7 @@ func (s *instanceSuite) TestConnectionAddInstanceAPI(c *tc.C) {
 	s.FakeConn.Instance = &s.RawInstanceFull
 
 	_, err := s.Conn.AddInstance(s.InstanceSpec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, tc.HasLen, 2)
 	c.Check(s.FakeConn.Calls[0].FuncName, tc.Equals, "AddInstance")
@@ -144,13 +143,13 @@ func (s *connSuite) TestConnectionInstance(c *tc.C) {
 	s.FakeConn.Instance = &s.RawInstanceFull
 
 	inst, err := s.Conn.Instance("spam", "a-zone")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(inst.ID, tc.Equals, "spam")
 	c.Check(inst.ZoneName, tc.Equals, "a-zone")
 	c.Check(inst.Status(), tc.Equals, google.StatusRunning)
-	c.Check(inst.Metadata(), jc.DeepEquals, s.Metadata)
-	c.Check(inst.Addresses(), jc.DeepEquals, s.Addresses)
+	c.Check(inst.Metadata(), tc.DeepEquals, s.Metadata)
+	c.Check(inst.Addresses(), tc.DeepEquals, s.Addresses)
 	spec := google.GetInstanceSpec(&inst)
 	c.Check(spec, tc.IsNil)
 }
@@ -159,7 +158,7 @@ func (s *connSuite) TestConnectionInstanceAPI(c *tc.C) {
 	s.FakeConn.Instance = &s.RawInstanceFull
 
 	_, err := s.Conn.Instance("ham", "a-zone")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, tc.HasLen, 1)
 	c.Check(s.FakeConn.Calls[0].FuncName, tc.Equals, "GetInstance")
@@ -181,10 +180,10 @@ func (s *connSuite) TestConnectionInstances(c *tc.C) {
 	s.FakeConn.Instances = []*compute.Instance{&s.RawInstanceFull}
 
 	insts, err := s.Conn.Instances("sp", google.StatusRunning)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	google.SetInstanceSpec(&s.Instance, nil)
-	c.Check(insts, jc.DeepEquals, []google.Instance{s.Instance})
+	c.Check(insts, tc.DeepEquals, []google.Instance{s.Instance})
 }
 
 func (s *connSuite) TestConnectionInstancesFailure(c *tc.C) {
@@ -198,12 +197,12 @@ func (s *connSuite) TestConnectionInstancesFailure(c *tc.C) {
 func (s *connSuite) TestConnectionRemoveInstance(c *tc.C) {
 	err := google.ConnRemoveInstance(s.Conn, "spam", "a-zone")
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *connSuite) TestConnectionRemoveInstanceAPI(c *tc.C) {
 	err := google.ConnRemoveInstance(s.Conn, "spam", "a-zone")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, tc.HasLen, 2)
 	c.Check(s.FakeConn.Calls[0].FuncName, tc.Equals, "RemoveInstance")
@@ -240,14 +239,14 @@ func (s *connSuite) TestConnectionRemoveInstances(c *tc.C) {
 
 	err := s.Conn.RemoveInstances("sp", "spam")
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *connSuite) TestConnectionRemoveInstancesAPI(c *tc.C) {
 	s.FakeConn.Instances = []*compute.Instance{&s.RawInstanceFull}
 
 	err := s.Conn.RemoveInstances("sp", "spam")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, tc.HasLen, 3)
 	c.Check(s.FakeConn.Calls[0].FuncName, tc.Equals, "ListInstances")
@@ -267,7 +266,7 @@ func (s *connSuite) TestConnectionRemoveInstancesMultiple(c *tc.C) {
 	}
 
 	err := s.Conn.RemoveInstances("", "spam", "special")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, tc.HasLen, 5)
 	c.Check(s.FakeConn.Calls[0].FuncName, tc.Equals, "ListInstances")
@@ -291,7 +290,7 @@ func (s *connSuite) TestConnectionRemoveInstancesPartialMatch(c *tc.C) {
 	}
 
 	err := s.Conn.RemoveInstances("", "spam")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, tc.HasLen, 3)
 	c.Check(s.FakeConn.Calls[0].FuncName, tc.Equals, "ListInstances")
@@ -327,7 +326,7 @@ func (s *connSuite) TestUpdateMetadataNewAttribute(c *tc.C) {
 	s.FakeConn.Instances = []*compute.Instance{&s.RawInstanceFull}
 
 	err := s.Conn.UpdateMetadata("business", "time", s.RawInstanceFull.Name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, tc.HasLen, 2)
 	c.Check(s.FakeConn.Calls[0].FuncName, tc.Equals, "ListInstances")
@@ -351,7 +350,7 @@ func (s *connSuite) TestUpdateMetadataExistingAttribute(c *tc.C) {
 	s.FakeConn.Instances = []*compute.Instance{&s.RawInstanceFull}
 
 	err := s.Conn.UpdateMetadata("eggs", "beans", s.RawInstanceFull.Name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, tc.HasLen, 2)
 	c.Check(s.FakeConn.Calls[0].FuncName, tc.Equals, "ListInstances")
@@ -395,7 +394,7 @@ func (s *connSuite) TestUpdateMetadataMultipleInstances(c *tc.C) {
 	s.FakeConn.Instances = []*compute.Instance{&s.RawInstanceFull, &instance2, &instance3}
 
 	err := s.Conn.UpdateMetadata("rick", "morty", "spam", "boats")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, tc.HasLen, 3)
 	c.Check(s.FakeConn.Calls[0].FuncName, tc.Equals, "ListInstances")
@@ -456,7 +455,7 @@ func (s *connSuite) TestUpdateMetadataError(c *tc.C) {
 func (s *connSuite) TestUpdateMetadataChecksCurrentValue(c *tc.C) {
 	s.FakeConn.Instances = []*compute.Instance{&s.RawInstanceFull}
 	err := s.Conn.UpdateMetadata("eggs", "steak", "spam")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Since the instance already has the right value we don't issue
 	// the update.

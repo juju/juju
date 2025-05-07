@@ -6,7 +6,6 @@ package upgradevalidation_test
 import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/base"
@@ -48,13 +47,13 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *tc.C
 	validators := upgradevalidation.ValidatorsForControllerModelUpgrade(targetVersion)
 	checker := upgradevalidation.NewModelUpgradeCheck(ctrlState, "test-model", agentVersion, validators...)
 	blockers, err := checker.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(blockers, tc.IsNil)
 
 	validators = upgradevalidation.ModelValidatorsForControllerModelUpgrade(targetVersion)
 	checker = upgradevalidation.NewModelUpgradeCheck(state1, "test-model", agentVersion, validators...)
 	blockers, err = checker.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(blockers, tc.IsNil)
 }
 
@@ -76,6 +75,6 @@ func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju3(c *tc.C) {
 	validators := upgradevalidation.ValidatorsForModelUpgrade(false, targetVersion)
 	checker := upgradevalidation.NewModelUpgradeCheck(st, "test-model", agentService, validators...)
 	blockers, err := checker.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(blockers, tc.IsNil)
 }

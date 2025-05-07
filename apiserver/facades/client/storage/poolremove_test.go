@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -34,7 +33,7 @@ func (s *poolRemoveSuite) TestRemovePool(c *tc.C) {
 		}},
 	}
 	results, err := s.api.RemovePool(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Error, tc.IsNil)
 }
@@ -51,7 +50,7 @@ func (s *poolRemoveSuite) TestRemoveNotExists(c *tc.C) {
 		}},
 	}
 	results, err := s.api.RemovePool(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Error, tc.ErrorMatches, "storage pool is not found")
 }
@@ -66,12 +65,12 @@ func (s *poolRemoveSuite) TestRemoveInUse(c *tc.C) {
 		}},
 	}
 	results, err := s.api.RemovePool(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Error, tc.ErrorMatches, fmt.Sprintf("storage pool %q in use", poolName))
 
 	pools, err := s.storageService.ListStoragePools(context.Background(), domainstorage.NilNames, domainstorage.NilProviders)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(pools, tc.HasLen, 1)
 }
 
@@ -88,12 +87,12 @@ func (s *poolRemoveSuite) TestRemoveSomeInUse(c *tc.C) {
 		}},
 	}
 	results, err := s.api.RemovePool(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 2)
 	c.Assert(results.Results[0].Error, tc.ErrorMatches, fmt.Sprintf("storage pool %q in use", poolNameInUse))
 	c.Assert(results.Results[1].Error, tc.IsNil)
 
 	pools, err := s.storageService.ListStoragePools(context.Background(), domainstorage.NilNames, domainstorage.NilProviders)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(pools, tc.HasLen, 1)
 }

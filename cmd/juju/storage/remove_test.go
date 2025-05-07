@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/core/model"
@@ -32,7 +31,7 @@ func (s *RemoveStorageSuite) TestRemoveStorage(c *tc.C) {
 	}}
 	command := storage.NewRemoveStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
 	ctx, err := cmdtesting.RunCommand(c, command, "pgdata/0", "pgdata/1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	fake.CheckCallNames(c, "NewStorageRemoverCloser", "Remove", "Close")
 	force := false
 	fake.CheckCall(c, 1, "Remove", []string{"pgdata/0", "pgdata/1"}, false, true, &force, (*time.Duration)(nil))
@@ -49,7 +48,7 @@ func (s *RemoveStorageSuite) TestRemoveStorageForce(c *tc.C) {
 	}}
 	command := storage.NewRemoveStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, command, "--force", "pgdata/0", "pgdata/1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	force := true
 	fake.CheckCall(c, 1, "Remove", []string{"pgdata/0", "pgdata/1"}, true, true, &force, (*time.Duration)(nil))
 }
@@ -61,7 +60,7 @@ func (s *RemoveStorageSuite) TestRemoveStorageNoDestroy(c *tc.C) {
 	}}
 	command := storage.NewRemoveStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, command, "--no-destroy", "--force", "pgdata/0", "pgdata/1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	force := true
 	fake.CheckCall(c, 1, "Remove", []string{"pgdata/0", "pgdata/1"}, true, false, &force, (*time.Duration)(nil))
 }

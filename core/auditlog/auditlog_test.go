@@ -11,7 +11,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/paths"
@@ -34,7 +33,7 @@ func (s *AuditLogSuite) TestAuditLogFile(c *tc.C) {
 		ConversationID: "0123456789abcdef",
 		ConnectionID:   "AC1",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = logFile.AddRequest(auditlog.Request{
 		ConversationID: "0123456789abcdef",
 		ConnectionID:   "AC1",
@@ -45,7 +44,7 @@ func (s *AuditLogSuite) TestAuditLogFile(c *tc.C) {
 		Version:        4,
 		Args:           `{"applications": [{"application": "prometheus"}]}`,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = logFile.AddResponse(auditlog.ResponseErrors{
 		ConversationID: "0123456789abcdef",
 		ConnectionID:   "AC1",
@@ -55,12 +54,12 @@ func (s *AuditLogSuite) TestAuditLogFile(c *tc.C) {
 			{Message: "oops", Code: "unauthorized access"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = logFile.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	bytes, err := os.ReadFile(filepath.Join(dir, "audit.log"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(bytes), tc.Equals, expectedLogContents)
 }
 
@@ -68,10 +67,10 @@ func (s *AuditLogSuite) TestAuditLogFilePriming(c *tc.C) {
 	dir := c.MkDir()
 	logFile := auditlog.NewLogFile(dir, 300, 10)
 	err := logFile.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info, err := os.Stat(filepath.Join(dir, "audit.log"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info.Mode(), tc.Equals, paths.LogfilePermission)
 	// The chown will only work when run as root.
 }
@@ -79,7 +78,7 @@ func (s *AuditLogSuite) TestAuditLogFilePriming(c *tc.C) {
 func (s *AuditLogSuite) TestRecorder(c *tc.C) {
 	var log fakeLog
 	logTime, err := time.Parse(time.RFC3339, "2017-11-27T15:45:23Z")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	clock := testclock.NewClock(logTime)
 	rec, err := auditlog.NewRecorder(&log, clock, auditlog.ConversationArgs{
 		Who:          "wildbirds and peacedrums",
@@ -87,7 +86,7 @@ func (s *AuditLogSuite) TestRecorder(c *tc.C) {
 		ModelName:    "admin/default",
 		ConnectionID: 687,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	clock.Advance(time.Second)
 	err = rec.AddRequest(auditlog.RequestArgs{
 		RequestID: 246,
@@ -96,7 +95,7 @@ func (s *AuditLogSuite) TestRecorder(c *tc.C) {
 		Version:   5,
 		Args:      `{"a": "something"}`,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	clock.Advance(time.Second)
 	err = rec.AddResponse(auditlog.ResponseErrorsArgs{
 		RequestID: 246,
@@ -105,7 +104,7 @@ func (s *AuditLogSuite) TestRecorder(c *tc.C) {
 			Code:    "bad request",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	log.stub.CheckCallNames(c, "AddConversation", "AddRequest", "AddResponse")
 	calls := log.stub.Calls()

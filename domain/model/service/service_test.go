@@ -12,7 +12,6 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cloud"
@@ -61,7 +60,7 @@ var _ = tc.Suite(&serviceSuite{})
 func (s *serviceSuite) SetUpTest(c *tc.C) {
 	var err error
 	s.userUUID = usertesting.GenUserUUID(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.state = &dummyState{
 		clouds:             map[string]dummyStateCloud{},
 		models:             map[coremodel.UUID]coremodel.Model{},
@@ -115,8 +114,8 @@ func (s *serviceSuite) setupControllerModel(c *tc.C) {
 		Owner:       adminUUID,
 		Name:        coremodel.ControllerModelName,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activator(context.Background()), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(activator(context.Background()), tc.ErrorIsNil)
 	s.state.controllerModelUUID = modelID
 }
 
@@ -145,7 +144,7 @@ func (s *serviceSuite) TestControllerModelOwnerUsername(c *tc.C) {
 func (s *serviceSuite) TestCreateModelInvalidArgs(c *tc.C) {
 	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
 	_, _, err := svc.CreateModel(context.Background(), model.GlobalModelCreationArgs{})
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *serviceSuite) TestModelCreation(c *tc.C) {
@@ -169,15 +168,15 @@ func (s *serviceSuite) TestModelCreation(c *tc.C) {
 		Owner:       s.userUUID,
 		Name:        "my-awesome-model",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activator(context.Background()), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(activator(context.Background()), tc.ErrorIsNil)
 
 	exists, err := svc.CheckModelExists(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exists, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(exists, tc.IsTrue)
 
 	modelList, err := svc.ListModelIDs(context.Background())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(len(modelList), tc.Equals, 2)
 }
 
@@ -185,8 +184,8 @@ func (s *serviceSuite) TestCheckExistsNoModel(c *tc.C) {
 	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
 	id := modeltesting.GenModelUUID(c)
 	exists, err := svc.CheckModelExists(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exists, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(exists, tc.IsFalse)
 }
 
 // TestModelCreationSecretBackendNotFound is asserting that if we try and add a
@@ -215,7 +214,7 @@ func (s *serviceSuite) TestModelCreationSecretBackendNotFound(c *tc.C) {
 		SecretBackend: "no-exist",
 	})
 
-	c.Assert(err, jc.ErrorIs, secretbackenderrors.NotFound)
+	c.Assert(err, tc.ErrorIs, secretbackenderrors.NotFound)
 }
 
 func (s *serviceSuite) TestModelCreationInvalidCloud(c *tc.C) {
@@ -228,7 +227,7 @@ func (s *serviceSuite) TestModelCreationInvalidCloud(c *tc.C) {
 		Name:        "my-awesome-model",
 	})
 
-	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 }
 
 func (s *serviceSuite) TestModelCreationNoCloudRegion(c *tc.C) {
@@ -244,7 +243,7 @@ func (s *serviceSuite) TestModelCreationNoCloudRegion(c *tc.C) {
 		Name:        "my-awesome-model",
 	})
 
-	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 }
 
 // TestModelCreationOwnerNotFound is testing that if we make a model with an
@@ -256,7 +255,7 @@ func (s *serviceSuite) TestModelCreationOwnerNotFound(c *tc.C) {
 	}
 
 	notFoundUser, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
 	_, _, err = svc.CreateModel(context.Background(), model.GlobalModelCreationArgs{
@@ -266,7 +265,7 @@ func (s *serviceSuite) TestModelCreationOwnerNotFound(c *tc.C) {
 		Name:        "my-awesome-model",
 	})
 
-	c.Assert(err, jc.ErrorIs, accesserrors.UserNotFound)
+	c.Assert(err, tc.ErrorIs, accesserrors.UserNotFound)
 }
 
 func (s *serviceSuite) TestModelCreationNoCloudCredential(c *tc.C) {
@@ -288,7 +287,7 @@ func (s *serviceSuite) TestModelCreationNoCloudCredential(c *tc.C) {
 		Name:  "my-awesome-model",
 	})
 
-	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 }
 
 func (s *serviceSuite) TestModelCreationNameOwnerConflict(c *tc.C) {
@@ -304,8 +303,8 @@ func (s *serviceSuite) TestModelCreationNameOwnerConflict(c *tc.C) {
 		Owner:       s.userUUID,
 		Name:        "my-awesome-model",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activator(context.Background()), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(activator(context.Background()), tc.ErrorIsNil)
 
 	_, _, err = svc.CreateModel(context.Background(), model.GlobalModelCreationArgs{
 		Cloud:       "aws",
@@ -314,7 +313,7 @@ func (s *serviceSuite) TestModelCreationNameOwnerConflict(c *tc.C) {
 		Name:        "my-awesome-model",
 	})
 
-	c.Assert(err, jc.ErrorIs, modelerrors.AlreadyExists)
+	c.Assert(err, tc.ErrorIs, modelerrors.AlreadyExists)
 }
 
 func (s *serviceSuite) TestUpdateModelCredentialForInvalidModel(c *tc.C) {
@@ -326,7 +325,7 @@ func (s *serviceSuite) TestUpdateModelCredentialForInvalidModel(c *tc.C) {
 		Name:  "foo",
 		Cloud: "aws",
 	})
-	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 func (s *serviceSuite) TestUpdateModelCredential(c *tc.C) {
@@ -350,11 +349,11 @@ func (s *serviceSuite) TestUpdateModelCredential(c *tc.C) {
 		Owner:       s.userUUID,
 		Name:        "my-awesome-model",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activator(context.Background()), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(activator(context.Background()), tc.ErrorIsNil)
 
 	err = svc.UpdateCredential(context.Background(), id, cred)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestUpdateModelCredentialReplace(c *tc.C) {
@@ -385,11 +384,11 @@ func (s *serviceSuite) TestUpdateModelCredentialReplace(c *tc.C) {
 		Owner:       s.userUUID,
 		Name:        "my-awesome-model",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activator(context.Background()), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(activator(context.Background()), tc.ErrorIsNil)
 
 	err = svc.UpdateCredential(context.Background(), id, cred2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestUpdateModelCredentialZeroValue(c *tc.C) {
@@ -413,11 +412,11 @@ func (s *serviceSuite) TestUpdateModelCredentialZeroValue(c *tc.C) {
 		Owner:       s.userUUID,
 		Name:        "my-awesome-model",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activator(context.Background()), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(activator(context.Background()), tc.ErrorIsNil)
 
 	err = svc.UpdateCredential(context.Background(), id, credential.Key{})
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *serviceSuite) TestUpdateModelCredentialDifferentCloud(c *tc.C) {
@@ -453,11 +452,11 @@ func (s *serviceSuite) TestUpdateModelCredentialDifferentCloud(c *tc.C) {
 		Owner:       s.userUUID,
 		Name:        "my-awesome-model",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activator(context.Background()), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(activator(context.Background()), tc.ErrorIsNil)
 
 	err = svc.UpdateCredential(context.Background(), id, cred2)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *serviceSuite) TestUpdateModelCredentialNotFound(c *tc.C) {
@@ -487,11 +486,11 @@ func (s *serviceSuite) TestUpdateModelCredentialNotFound(c *tc.C) {
 		Owner:       s.userUUID,
 		Name:        "my-awesome-model",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activator(context.Background()), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(activator(context.Background()), tc.ErrorIsNil)
 
 	err = svc.UpdateCredential(context.Background(), id, cred2)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 }
 
 func (s *serviceSuite) TestDeleteModel(c *tc.C) {
@@ -515,19 +514,19 @@ func (s *serviceSuite) TestDeleteModel(c *tc.C) {
 		Owner:       s.userUUID,
 		Name:        "my-awesome-model",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activator(context.Background()), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(activator(context.Background()), tc.ErrorIsNil)
 
 	_, exists := s.state.models[id]
-	c.Assert(exists, jc.IsTrue)
+	c.Assert(exists, tc.IsTrue)
 
 	err = svc.DeleteModel(context.Background(), id, model.WithDeleteDB())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, exists = s.state.models[id]
-	c.Assert(exists, jc.IsFalse)
+	c.Assert(exists, tc.IsFalse)
 
 	_, exists = s.deleter.deleted[id.String()]
-	c.Assert(exists, jc.IsTrue)
+	c.Assert(exists, tc.IsTrue)
 }
 
 type notFoundDeleter struct{}
@@ -539,7 +538,7 @@ func (d notFoundDeleter) DeleteDB(string) error {
 func (s *serviceSuite) TestDeleteModelNotFound(c *tc.C) {
 	svc := NewService(s.state, notFoundDeleter{}, loggertesting.WrapCheckLog(c))
 	err := svc.DeleteModel(context.Background(), modeltesting.GenModelUUID(c), model.WithDeleteDB())
-	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 // TestListAllModelsNoResults is asserting that when no models exist the return
@@ -547,7 +546,7 @@ func (s *serviceSuite) TestDeleteModelNotFound(c *tc.C) {
 func (s *serviceSuite) TestListAllModelsNoResults(c *tc.C) {
 	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
 	models, err := svc.ListAllModels(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(len(models), tc.Equals, 1)
 }
 
@@ -601,8 +600,8 @@ func (s *serviceSuite) TestListAllModels(c *tc.C) {
 	}, nil)
 
 	models, err := svc.ListAllModels(context.Background())
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(models, jc.DeepEquals, []coremodel.Model{
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(models, tc.DeepEquals, []coremodel.Model{
 		{
 			Name:         "my-awesome-model",
 			AgentVersion: jujuversion.Current,
@@ -644,7 +643,7 @@ func (s *serviceSuite) TestListModelsForNonExistentUser(c *tc.C) {
 	fakeUserID := usertesting.GenUserUUID(c)
 	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
 	models, err := svc.ListModelsForUser(context.Background(), fakeUserID)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(len(models), tc.Equals, 0)
 }
 
@@ -672,8 +671,8 @@ func (s *serviceSuite) TestListModelsForUser(c *tc.C) {
 		Owner:       usr1,
 		Name:        "my-awesome-model",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activator(context.Background()), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(activator(context.Background()), tc.ErrorIsNil)
 
 	id2, activator, err := svc.CreateModel(context.Background(), model.GlobalModelCreationArgs{
 		Cloud:       "aws",
@@ -682,11 +681,11 @@ func (s *serviceSuite) TestListModelsForUser(c *tc.C) {
 		Owner:       usr1,
 		Name:        "my-awesome-model1",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activator(context.Background()), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(activator(context.Background()), tc.ErrorIsNil)
 
 	models, err := svc.ListModelsForUser(context.Background(), usr1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	slices.SortFunc(models, func(a, b coremodel.Model) int {
 		return strings.Compare(a.Name, b.Name)
@@ -745,11 +744,11 @@ func (s *serviceSuite) TestImportModel(c *tc.C) {
 		},
 		UUID: modelID,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activator(context.Background()), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(activator(context.Background()), tc.ErrorIsNil)
 
 	_, exists := s.state.models[modelID]
-	c.Assert(exists, jc.IsTrue)
+	c.Assert(exists, tc.IsTrue)
 }
 
 // TestControllerModelNotFound is testing that if we ask the service for the
@@ -769,7 +768,7 @@ func (s *serviceSuite) TestControllerModelNotFound(c *tc.C) {
 		loggertesting.WrapCheckLog(c),
 	)
 	_, err := svc.ControllerModel(context.Background())
-	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 // TestControllerModel is asserting the happy path of [Service.ControllerModel].
@@ -797,12 +796,12 @@ func (s *serviceSuite) TestControllerModel(c *tc.C) {
 		Owner:       adminUUID,
 		Name:        coremodel.ControllerModelName,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activator(context.Background()), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(activator(context.Background()), tc.ErrorIsNil)
 	s.state.controllerModelUUID = modelID
 
 	model, err := svc.ControllerModel(context.Background())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(model, tc.DeepEquals, coremodel.Model{
 		Name:        coremodel.ControllerModelName,
 		Life:        life.Alive,
@@ -818,7 +817,7 @@ func (s *serviceSuite) TestControllerModel(c *tc.C) {
 
 func (s *serviceSuite) TestGetModelUsers(c *tc.C) {
 	uuid, err := coremodel.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	bobName := usertesting.GenNewName(c, "bob")
 	jimName := usertesting.GenNewName(c, "jim")
 	adminName := usertesting.GenNewName(c, "admin")
@@ -830,7 +829,7 @@ func (s *serviceSuite) TestGetModelUsers(c *tc.C) {
 	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
 	modelUserInfo, err := svc.GetModelUsers(context.Background(), uuid)
 	c.Assert(err, tc.IsNil)
-	c.Check(modelUserInfo, jc.SameContents, []coremodel.ModelUserInfo{{
+	c.Check(modelUserInfo, tc.SameContents, []coremodel.ModelUserInfo{{
 		Name:           bobName,
 		DisplayName:    bobName.Name(),
 		Access:         permission.AdminAccess,
@@ -851,7 +850,7 @@ func (s *serviceSuite) TestGetModelUsers(c *tc.C) {
 func (s *serviceSuite) TestGetModelUsersBadUUID(c *tc.C) {
 	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
 	_, err := svc.GetModelUsers(context.Background(), "bad-uuid)")
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *serviceSuite) TestGetModelUser(c *tc.C) {
@@ -878,20 +877,20 @@ func (s *serviceSuite) TestGetModelUser(c *tc.C) {
 func (s *serviceSuite) TestGetModelUserBadUUID(c *tc.C) {
 	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
 	_, err := svc.GetModelUser(context.Background(), "bad-uuid", usertesting.GenNewName(c, "bob"))
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *serviceSuite) TestGetModelUserZeroUserName(c *tc.C) {
 	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
 	_, err := svc.GetModelUser(context.Background(), modeltesting.GenModelUUID(c), user.Name{})
-	c.Assert(err, jc.ErrorIs, accesserrors.UserNameNotValid)
+	c.Assert(err, tc.ErrorIs, accesserrors.UserNameNotValid)
 }
 
 func (s *serviceSuite) TestListAllModelSummaries(c *tc.C) {
 	uuid1, err := coremodel.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	uuid2, err := coremodel.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.state.controllerModelUUID = uuid1
 	s.state.models = map[coremodel.UUID]coremodel.Model{
 		uuid1: {
@@ -917,8 +916,8 @@ func (s *serviceSuite) TestListAllModelSummaries(c *tc.C) {
 	}
 	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
 	models, err := svc.ListAllModelSummaries(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(models, jc.SameContents, []coremodel.ModelSummary{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(models, tc.SameContents, []coremodel.ModelSummary{{
 		Name:           "my-awesome-model",
 		AgentVersion:   jujuversion.Current,
 		UUID:           uuid1,
@@ -946,12 +945,12 @@ func (s *serviceSuite) TestListAllModelSummaries(c *tc.C) {
 func (s *serviceSuite) TestListModelsForUserBadName(c *tc.C) {
 	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
 	_, err := svc.ListModelsForUser(context.Background(), "((*)(")
-	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *serviceSuite) TestListModelSummariesForUser(c *tc.C) {
 	uuid1, err := coremodel.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.state.controllerModelUUID = uuid1
 	s.state.models = map[coremodel.UUID]coremodel.Model{
 		uuid1: {
@@ -967,7 +966,7 @@ func (s *serviceSuite) TestListModelSummariesForUser(c *tc.C) {
 	}
 	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
 	models, err := svc.ListModelSummariesForUser(context.Background(), usertesting.GenNewName(c, "admin"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(models, tc.DeepEquals, []coremodel.UserModelSummary{{
 		UserAccess: permission.AdminAccess,
 		ModelSummary: coremodel.ModelSummary{
@@ -1022,7 +1021,7 @@ func (s *serviceSuite) TestCreateModelEmptyCredentialNotSupported(c *tc.C) {
 		Owner:       usertesting.GenUserUUID(c),
 		Name:        "new-test-model",
 	})
-	c.Check(err, jc.ErrorIs, modelerrors.CredentialNotValid)
+	c.Check(err, tc.ErrorIs, modelerrors.CredentialNotValid)
 }
 
 // TestDefaultModelCloudNameAndCredentialNotFound is a white box test that
@@ -1043,7 +1042,7 @@ func (s *serviceSuite) TestDefaultModelCloudNameAndCredentialNotFound(c *tc.C) {
 	)
 
 	_, _, err := svc.DefaultModelCloudNameAndCredential(context.Background())
-	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
 
 	// There exists to ways for the controller model to not be found. This is
 	// asserting the second path where the code get's the uuid but the model
@@ -1058,7 +1057,7 @@ func (s *serviceSuite) TestDefaultModelCloudNameAndCredentialNotFound(c *tc.C) {
 	)
 
 	_, _, err = svc.DefaultModelCloudNameAndCredential(context.Background())
-	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 // TestDefaultModelCloudNameAndCredential is asserting the happy path that when
@@ -1091,9 +1090,9 @@ func (s *serviceSuite) TestDefaultModelCloudNameAndCredential(c *tc.C) {
 	)
 
 	cloud, cred, err := svc.DefaultModelCloudNameAndCredential(context.Background())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(cloud, tc.Equals, "test")
-	c.Check(cred, jc.DeepEquals, credential.Key{
+	c.Check(cred, tc.DeepEquals, credential.Key{
 		Cloud: "test",
 		Owner: usertesting.GenNewName(c, "admin"),
 		Name:  "test-cred",
@@ -1139,7 +1138,7 @@ func (s *serviceSuite) TestWatchActivatedModels(c *tc.C) {
 
 	// Verifies that the service returns a watcher with the correct model UUIDs string.
 	watcher, err := svc.WatchActivatedModels(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case change := <-watcher.Changes():
@@ -1198,7 +1197,7 @@ func (s *serviceSuite) TestWatchActivatedModelsMapper(c *tc.C) {
 
 	// Use service mapper to retrieve change events containing only model UUIDs of activated models.
 	retrievedChangeEvents, err := mapper(ctx, s.ControllerTxnRunner(), inputChangeEvents)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(retrievedChangeEvents, tc.DeepEquals, expectedChangeEvents)
 }
 
@@ -1238,7 +1237,7 @@ func (s *serviceSuite) TestGetModelByNameAndOwnerSuccess(c *tc.C) {
 	)
 
 	svcModel, err := svc.GetModelByNameAndOwner(context.Background(), modelName, ownerUserName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(model, tc.Equals, svcModel)
 }
 
@@ -1258,7 +1257,7 @@ func (s *serviceSuite) TestGetModelByNameAndOwnerInvalidUsername(c *tc.C) {
 	ownerUserName := user.Name{}
 
 	_, err := svc.GetModelByNameAndOwner(context.Background(), modelName, ownerUserName)
-	c.Assert(err, jc.ErrorIs, accesserrors.UserNameNotValid)
+	c.Assert(err, tc.ErrorIs, accesserrors.UserNameNotValid)
 }
 
 // TestGetModelByNameAndOwnerNotFound verifies that GetModelByNameAndOwner
@@ -1281,7 +1280,7 @@ func (s *serviceSuite) TestGetModelByNameAndOwnerNotFound(c *tc.C) {
 	)
 
 	_, err := svc.GetModelByNameAndOwner(context.Background(), modelName, ownerUserName)
-	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 func (s *serviceSuite) TestGetModelLife(c *tc.C) {
@@ -1301,7 +1300,7 @@ func (s *serviceSuite) TestGetModelLife(c *tc.C) {
 	)
 
 	result, err := svc.GetModelLife(context.Background(), modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.Equals, life.Alive)
 }
 
@@ -1335,7 +1334,7 @@ func (s *serviceSuite) TestGetModelLifeNotFound(c *tc.C) {
 	)
 
 	_, err := svc.GetModelLife(context.Background(), modelUUID)
-	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 func (s *serviceSuite) TestWatchModelCloudCredential(c *tc.C) {
@@ -1359,7 +1358,7 @@ func (s *serviceSuite) TestWatchModelCloudCredential(c *tc.C) {
 		s.mockWatcherFactory,
 	)
 	w, err := svc.WatchModelCloudCredential(context.Background(), modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case ch <- struct{}{}:

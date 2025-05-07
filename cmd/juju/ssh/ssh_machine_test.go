@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/ssh"
 	"go.uber.org/mock/gomock"
 
@@ -190,11 +189,11 @@ func (s *SSHMachineSuite) SetUpTest(c *tc.C) {
 	s.PatchEnvPathPrepend(s.binDir)
 	for _, name := range patchedCommands {
 		f, err := os.OpenFile(filepath.Join(s.binDir, name), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0777)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		_, err = f.Write([]byte(fakecommand))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = f.Close()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	client, _ := ssh.NewOpenSSHClient()
@@ -219,7 +218,7 @@ func (s *SSHMachineSuite) TestMaybePopulateTargetViaFieldForHostMachineTarget(c 
 	}
 
 	err := new(sshMachine).maybePopulateTargetViaField(context.Background(), target, statusGetter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(target.via, tc.IsNil, tc.Commentf("expected target.via not to be populated for a non-container target"))
 }
@@ -250,7 +249,7 @@ func (s *SSHMachineSuite) TestMaybePopulateTargetViaFieldForContainerMachineTarg
 	}
 
 	err := new(sshMachine).maybePopulateTargetViaField(context.Background(), target, statusGetter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(target.via, tc.Not(tc.IsNil), tc.Commentf("expected target.via to be populated for container target"))
 	c.Assert(target.via.user, tc.Equals, "ubuntu")

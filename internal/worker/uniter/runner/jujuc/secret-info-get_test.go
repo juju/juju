@@ -5,7 +5,6 @@ package jujuc_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/cmd"
@@ -33,7 +32,7 @@ func (s *SecretInfoGetSuite) TestSecretGetInit(c *tc.C) {
 	}} {
 		hctx, _ := s.ContextSuite.NewHookContext()
 		com, err := jujuc.NewCommand(hctx, "secret-info-get")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
 		c.Check(code, tc.Equals, 2)
@@ -45,7 +44,7 @@ func (s *SecretInfoGetSuite) TestSecretInfoGetURI(c *tc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
 	com, err := jujuc.NewCommand(hctx, "secret-info-get")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"secret:9m4e2mr0ui3e8a215n4g"})
 	c.Assert(code, tc.Equals, 0)
@@ -72,7 +71,7 @@ func (s *SecretInfoGetSuite) TestSecretInfoGetWithGrants(c *tc.C) {
 	}
 
 	com, err := jujuc.NewCommand(hctx, "secret-info-get")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"secret:9m4e2mr0ui3e8a215n4g"})
 	c.Assert(code, tc.Equals, 0)
@@ -96,7 +95,7 @@ func (s *SecretInfoGetSuite) TestSecretInfoGetFailedNotFound(c *tc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
 	com, err := jujuc.NewCommand(hctx, "secret-info-get")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"secret:cd88u16ffbaql5kgmlh0"})
 	c.Assert(code, tc.Equals, 1)
@@ -109,7 +108,7 @@ func (s *SecretInfoGetSuite) TestSecretInfoGetByLabelFailedNotFound(c *tc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
 	com, err := jujuc.NewCommand(hctx, "secret-info-get")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--label", "not-found-label"})
 	c.Assert(code, tc.Equals, 1)
@@ -122,7 +121,7 @@ func (s *SecretInfoGetSuite) TestSecretInfoGetByLabel(c *tc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
 	com, err := jujuc.NewCommand(hctx, "secret-info-get")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--label", "label"})
 	c.Assert(code, tc.Equals, 0)

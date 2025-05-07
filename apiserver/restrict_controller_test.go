@@ -6,7 +6,6 @@ package apiserver_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/internal/testing"
@@ -37,12 +36,12 @@ func (s *restrictControllerSuite) TestAllowed(c *tc.C) {
 func (s *restrictControllerSuite) TestNotAllowed(c *tc.C) {
 	caller, err := s.root.FindMethod("Client", clientFacadeVersion, "FullStatus")
 	c.Assert(err, tc.ErrorMatches, `facade "Client" not supported for controller API connection`)
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 	c.Assert(caller, tc.IsNil)
 }
 
 func (s *restrictControllerSuite) assertMethod(c *tc.C, facadeName string, version int, method string) {
 	caller, err := s.root.FindMethod(facadeName, version, method)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(caller, tc.NotNil)
 }

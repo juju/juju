@@ -6,7 +6,6 @@ package firewall
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/network"
 )
@@ -44,7 +43,7 @@ func (IngressRuleSuite) TestRuleValidation(c *tc.C) {
 	c.Assert(r2.Validate(), tc.ErrorMatches, ".*invalid CIDR address: bogus")
 
 	r3 := NewIngressRule(pr, "100.0.0.0/8")
-	c.Assert(r3.Validate(), jc.ErrorIsNil)
+	c.Assert(r3.Validate(), tc.ErrorIsNil)
 }
 
 func (IngressRuleSuite) TestRuleEquality(c *tc.C) {
@@ -118,9 +117,9 @@ func (IngressRuleSuite) TestRulesEquality(c *tc.C) {
 		NewIngressRule(network.MustParsePortRange("90/tcp"), "10.0.0.0/24", "192.168.0.0/24"),
 	}
 
-	c.Assert(setA.EqualTo(setB), jc.IsTrue)
-	c.Assert(setA.EqualTo(setC), jc.IsFalse)
-	c.Assert(setB.EqualTo(setC), jc.IsFalse)
+	c.Assert(setA.EqualTo(setB), tc.IsTrue)
+	c.Assert(setA.EqualTo(setC), tc.IsFalse)
+	c.Assert(setB.EqualTo(setC), tc.IsFalse)
 }
 
 func (IngressRuleSuite) TestUniqueRules(c *tc.C) {
@@ -148,7 +147,7 @@ func (IngressRuleSuite) TestDiffOpenAll(c *tc.C) {
 
 	toOpen, toClose := IngressRules{}.Diff(wanted)
 	c.Assert(toClose, tc.HasLen, 0)
-	c.Assert(toOpen, jc.DeepEquals, wanted)
+	c.Assert(toOpen, tc.DeepEquals, wanted)
 }
 
 func (IngressRuleSuite) TestDiffCloseAll(c *tc.C) {
@@ -161,7 +160,7 @@ func (IngressRuleSuite) TestDiffCloseAll(c *tc.C) {
 
 	toOpen, toClose := current.Diff(nil)
 	c.Assert(toOpen, tc.HasLen, 0)
-	c.Assert(toClose, jc.DeepEquals, current)
+	c.Assert(toClose, tc.DeepEquals, current)
 }
 
 func (IngressRuleSuite) TestDiffNoPortRangeOverlap(c *tc.C) {
@@ -181,7 +180,7 @@ func (IngressRuleSuite) TestDiffNoPortRangeOverlap(c *tc.C) {
 	c.Assert(toClose, tc.HasLen, 0)
 
 	extra.Sort()
-	c.Assert(toOpen, jc.DeepEquals, extra)
+	c.Assert(toOpen, tc.DeepEquals, extra)
 }
 
 func (IngressRuleSuite) TestPortRangeOverlapToOpen(c *tc.C) {
@@ -199,7 +198,7 @@ func (IngressRuleSuite) TestPortRangeOverlapToOpen(c *tc.C) {
 	toOpen, toClose := current.Diff(wanted)
 	c.Assert(toClose, tc.HasLen, 0)
 
-	c.Assert(toOpen, jc.DeepEquals, IngressRules{
+	c.Assert(toOpen, tc.DeepEquals, IngressRules{
 		NewIngressRule(network.MustParsePortRange("80-90/tcp"), "192.168.1.0/24"),
 		NewIngressRule(network.MustParsePortRange("8080/tcp"), "10.0.0.0/24", "192.168.1.0/24"),
 		NewIngressRule(network.MustParsePortRange("67/udp"), "0.0.0.0/0"),
@@ -221,7 +220,7 @@ func (IngressRuleSuite) TestPortRangeOverlapToClose(c *tc.C) {
 	toOpen, toClose := current.Diff(wanted)
 	c.Assert(toOpen, tc.HasLen, 0)
 
-	c.Assert(toClose, jc.DeepEquals, IngressRules{
+	c.Assert(toClose, tc.DeepEquals, IngressRules{
 		NewIngressRule(network.MustParsePortRange("80-90/tcp"), "192.168.1.0/24"),
 	})
 }
@@ -238,10 +237,10 @@ func (IngressRuleSuite) TestPortRangeOverlap(c *tc.C) {
 	}
 
 	toOpen, toClose := current.Diff(wanted)
-	c.Assert(toOpen, jc.DeepEquals, IngressRules{
+	c.Assert(toOpen, tc.DeepEquals, IngressRules{
 		NewIngressRule(network.MustParsePortRange("80-90/udp"), "0.0.0.0/0"),
 	})
-	c.Assert(toClose, jc.DeepEquals, IngressRules{
+	c.Assert(toClose, tc.DeepEquals, IngressRules{
 		NewIngressRule(network.MustParsePortRange("80-90/tcp"), "192.168.1.0/24"),
 	})
 }

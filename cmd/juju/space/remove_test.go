@@ -7,7 +7,6 @@ import (
 	"bytes"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cmd/juju/space"
@@ -39,10 +38,10 @@ func (s *RemoveSuite) SetUpTest(c *tc.C) {
 	}
 	err := s.store.UpdateModel("foo", "bar/currentfoo",
 		jujuclient.ModelDetails{ModelUUID: "uuidfoo1", ModelType: model.IAAS})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.store.SetCurrentModel("foo", "bar/currentfoo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *RemoveSuite) runCommand(c *tc.C, api space.API, args ...string) (*cmd.Context, *space.RemoveCommand, error) {
@@ -90,7 +89,7 @@ func (s *RemoveSuite) TestInit(c *tc.C) {
 			prefixedErr := "invalid arguments specified: " + test.expectErr
 			c.Check(err, tc.ErrorMatches, prefixedErr)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			c.Check(cmd.Name(), tc.Equals, test.expectName)
 		}
 	}
@@ -118,7 +117,7 @@ func (s *RemoveSuite) TestRunWithForceNoConfirmation(c *tc.C) {
 
 	_, _, err := s.runCommand(c, api, spaceName, "--force", "-y")
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *RemoveSuite) TestRunWithForceWithConfirmation(c *tc.C) {

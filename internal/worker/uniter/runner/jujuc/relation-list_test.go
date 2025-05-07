@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -124,7 +123,7 @@ func (s *RelationListSuite) TestRelationList(c *tc.C) {
 		info.setRelations(1, t.members1)
 		c.Logf("%#v %#v", info.rels[t.relid], t.members1)
 		com, err := jujuc.NewCommand(hctx, "relation-list")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
 		c.Logf(bufferString(ctx.Stderr))
@@ -154,10 +153,10 @@ func (s *RelationListSuite) TestRelationListHelp(c *tc.C) {
 		c.Logf("test relid %d", relid)
 		hctx, _ := s.newHookContext(relid, "", "")
 		com, err := jujuc.NewCommand(hctx, "relation-list")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
 		c.Assert(code, tc.Equals, 0)
-		c.Assert(strings.Contains(bufferString(ctx.Stdout), t.usage), jc.IsTrue)
+		c.Assert(strings.Contains(bufferString(ctx.Stdout), t.usage), tc.IsTrue)
 	}
 }

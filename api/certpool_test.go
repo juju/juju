@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/internal/pki"
@@ -34,13 +33,13 @@ func (s *certPoolSuite) SetUpTest(c *tc.C) {
 
 func (*certPoolSuite) TestCreateCertPoolNoCert(c *tc.C) {
 	pool, err := api.CreateCertPool("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(pool.Subjects(), tc.HasLen, 0)
 }
 
 func (*certPoolSuite) TestCreateCertPoolTestCert(c *tc.C) {
 	pool, err := api.CreateCertPool(testing.CACert)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(pool.Subjects(), tc.HasLen, 1)
 }
 
@@ -49,7 +48,7 @@ func (s *certPoolSuite) TestCreateCertPoolNoDir(c *tc.C) {
 	s.PatchValue(api.CertDir, certDir)
 
 	pool, err := api.CreateCertPool("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(pool.Subjects(), tc.HasLen, 0)
 
 	c.Assert(s.logs.messages, tc.HasLen, 1)
@@ -63,10 +62,10 @@ func (s *certPoolSuite) TestCreateCertPoolNotADir(c *tc.C) {
 	certDir := filepath.Join(c.MkDir(), "missing")
 	s.PatchValue(api.CertDir, certDir)
 	// Make the certDir a file instead...
-	c.Assert(os.WriteFile(certDir, []byte("blah"), 0644), jc.ErrorIsNil)
+	c.Assert(os.WriteFile(certDir, []byte("blah"), 0644), tc.ErrorIsNil)
 
 	pool, err := api.CreateCertPool("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(pool.Subjects(), tc.HasLen, 0)
 
 	c.Assert(s.logs.messages, tc.HasLen, 1)
@@ -78,7 +77,7 @@ func (s *certPoolSuite) TestCreateCertPoolEmptyDir(c *tc.C) {
 	s.PatchValue(api.CertDir, certDir)
 
 	pool, err := api.CreateCertPool("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(pool.Subjects(), tc.HasLen, 0)
 	c.Assert(s.logs.messages, tc.HasLen, 1)
 	c.Assert(s.logs.messages[0], tc.Matches, `DEBUG added 0 certs to the pool from .*`)
@@ -92,7 +91,7 @@ func (s *certPoolSuite) TestCreateCertPoolLoadsPEMFiles(c *tc.C) {
 	s.addCert(c, filepath.Join(certDir, "third.pem"))
 
 	pool, err := api.CreateCertPool("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(pool.Subjects(), tc.HasLen, 3)
 	c.Assert(s.logs.messages, tc.HasLen, 1)
 	c.Assert(s.logs.messages[0], tc.Matches, `DEBUG added 3 certs to the pool from .*`)
@@ -102,10 +101,10 @@ func (s *certPoolSuite) TestCreateCertPoolLoadsOnlyPEMFiles(c *tc.C) {
 	certDir := c.MkDir()
 	s.PatchValue(api.CertDir, certDir)
 	s.addCert(c, filepath.Join(certDir, "first.pem"))
-	c.Assert(os.WriteFile(filepath.Join(certDir, "second.cert"), []byte("blah"), 0644), jc.ErrorIsNil)
+	c.Assert(os.WriteFile(filepath.Join(certDir, "second.cert"), []byte("blah"), 0644), tc.ErrorIsNil)
 
 	pool, err := api.CreateCertPool("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(pool.Subjects(), tc.HasLen, 1)
 	c.Assert(s.logs.messages, tc.HasLen, 1)
 	c.Assert(s.logs.messages[0], tc.Matches, `DEBUG added 1 certs to the pool from .*`)
@@ -114,10 +113,10 @@ func (s *certPoolSuite) TestCreateCertPoolLoadsOnlyPEMFiles(c *tc.C) {
 func (s *certPoolSuite) TestCreateCertPoolLogsBadCerts(c *tc.C) {
 	certDir := c.MkDir()
 	s.PatchValue(api.CertDir, certDir)
-	c.Assert(os.WriteFile(filepath.Join(certDir, "broken.pem"), []byte("blah"), 0644), jc.ErrorIsNil)
+	c.Assert(os.WriteFile(filepath.Join(certDir, "broken.pem"), []byte("blah"), 0644), tc.ErrorIsNil)
 
 	pool, err := api.CreateCertPool("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(pool.Subjects(), tc.HasLen, 0)
 	c.Assert(s.logs.messages, tc.HasLen, 2)
 	c.Assert(s.logs.messages[0], tc.Matches, `INFO error parsing cert ".*broken.pem": .*`)
@@ -126,17 +125,17 @@ func (s *certPoolSuite) TestCreateCertPoolLogsBadCerts(c *tc.C) {
 
 func (s *certPoolSuite) addCert(c *tc.C, filename string) {
 	signer, err := pki.DefaultKeyProfile()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	caCert, err := pki.NewCA("random model name", signer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	caCertPem, err := pki.CertificateToPemString(pki.DefaultPemHeaders, caCert)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = os.WriteFile(filename, []byte(caCertPem), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type certLogs struct {

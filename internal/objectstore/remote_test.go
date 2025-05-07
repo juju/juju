@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -50,12 +49,12 @@ func (s *remoteFileObjectStoreSuite) TestNewRemoteFileObjectStoreGet(c *tc.C) {
 	workertest.CheckAlive(c, remoteStore)
 
 	reader, size, err := remoteStore.Get(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(reader, tc.Equals, s.reader)
 	c.Check(size, tc.Equals, int64(12))
 
 	data, err := io.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(string(data), tc.Equals, "hello, world")
 
 	workertest.CheckKill(c, remoteStore)
@@ -72,12 +71,12 @@ func (s *remoteFileObjectStoreSuite) TestNewRemoteFileObjectStoreGetBySHA256(c *
 	workertest.CheckAlive(c, remoteStore)
 
 	reader, size, err := remoteStore.GetBySHA256(context.Background(), "09ca7e4eaa6e8ae9c7d261167129184883644d07dfba7cbfbc4c8a2e08360d5b")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(reader, tc.Equals, s.reader)
 	c.Check(size, tc.Equals, int64(12))
 
 	data, err := io.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(string(data), tc.Equals, "hello, world")
 
 	workertest.CheckKill(c, remoteStore)
@@ -94,12 +93,12 @@ func (s *remoteFileObjectStoreSuite) TestNewRemoteFileObjectStoreGetBySHA256Pref
 	workertest.CheckAlive(c, remoteStore)
 
 	reader, size, err := remoteStore.GetBySHA256Prefix(context.Background(), "09ca7e4")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(reader, tc.Equals, s.reader)
 	c.Check(size, tc.Equals, int64(12))
 
 	data, err := io.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(string(data), tc.Equals, "hello, world")
 
 	workertest.CheckKill(c, remoteStore)
@@ -116,7 +115,7 @@ func (s *remoteFileObjectStoreSuite) TestNewRemoteFileObjectStorePut(c *tc.C) {
 	workertest.CheckAlive(c, remoteStore)
 
 	uuid, err := remoteStore.Put(context.Background(), "foo", s.reader, 12)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(uuid, tc.Equals, objectstore.UUID("abc"))
 
 	workertest.CheckKill(c, remoteStore)
@@ -133,7 +132,7 @@ func (s *remoteFileObjectStoreSuite) TestNewRemoteFileObjectStorePutAndCheckHash
 	workertest.CheckAlive(c, remoteStore)
 
 	uuid, err := remoteStore.PutAndCheckHash(context.Background(), "foo", s.reader, 12, "xyz")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(uuid, tc.Equals, objectstore.UUID("abc"))
 
 	workertest.CheckKill(c, remoteStore)
@@ -141,7 +140,7 @@ func (s *remoteFileObjectStoreSuite) TestNewRemoteFileObjectStorePutAndCheckHash
 
 func (s *remoteFileObjectStoreSuite) newRemoteFileObjectStore(c *tc.C) *remoteFileObjectStore {
 	remoteStore, err := newRemoteFileObjectStore(newTrackedWorker(s.tracked), s.remote)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return remoteStore
 }

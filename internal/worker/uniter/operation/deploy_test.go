@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/charm/hooks"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -39,7 +38,7 @@ func (s *DeploySuite) testPrepareAlreadyDone(
 		Logger:    loggertesting.WrapCheckLog(c),
 	})
 	op, err := newDeploy(factory, "ch:quantal/hive-23")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	newState, err := op.Prepare(context.Background(), operation.State{
 		Kind:     kind,
 		Step:     operation.Done,
@@ -91,7 +90,7 @@ func (s *DeploySuite) testPrepareArchiveInfoError(c *tc.C, newDeploy newDeploy) 
 		Logger:    loggertesting.WrapCheckLog(c),
 	})
 	op, err := newDeploy(factory, "ch:quantal/hive-23")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Prepare(context.Background(), operation.State{})
 	c.Check(newState, tc.IsNil)
@@ -132,7 +131,7 @@ func (s *DeploySuite) testPrepareStageError(c *tc.C, newDeploy newDeploy) {
 		Logger:    loggertesting.WrapCheckLog(c),
 	})
 	op, err := newDeploy(factory, "ch:quantal/hive-23")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Prepare(context.Background(), operation.State{})
 	c.Check(newState, tc.IsNil)
@@ -174,7 +173,7 @@ func (s *DeploySuite) testPrepareSetCharmError(c *tc.C, newDeploy newDeploy) {
 	})
 
 	op, err := newDeploy(factory, "ch:quantal/hive-23")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Prepare(context.Background(), operation.State{})
 	c.Check(newState, tc.IsNil)
@@ -211,10 +210,10 @@ func (s *DeploySuite) testPrepareSuccess(c *tc.C, newDeploy newDeploy, before, a
 		Logger:    loggertesting.WrapCheckLog(c),
 	})
 	op, err := newDeploy(factory, "ch:quantal/nyancat-4")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Prepare(context.Background(), before)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(newState, tc.DeepEquals, &after)
 	c.Check(callbacks.MockSetCurrentCharm.gotCharmURL, tc.Equals, "ch:quantal/nyancat-4")
 }
@@ -346,14 +345,14 @@ func (s *DeploySuite) testExecuteError(c *tc.C, newDeploy newDeploy) {
 		Logger:    loggertesting.WrapCheckLog(c),
 	})
 	op, err := newDeploy(factory, "ch:quantal/nyancat-4")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = op.Prepare(context.Background(), operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Execute(context.Background(), operation.State{})
 	c.Check(newState, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "rasp")
-	c.Check(deployer.MockDeploy.called, jc.IsTrue)
+	c.Check(deployer.MockDeploy.called, tc.IsTrue)
 }
 
 func (s *DeploySuite) TestExecuteError_Install(c *tc.C) {
@@ -383,16 +382,16 @@ func (s *DeploySuite) testExecuteSuccess(
 		Logger:    loggertesting.WrapCheckLog(c),
 	})
 	op, err := newDeploy(factory, "ch:quantal/lol-1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	midState, err := op.Prepare(context.Background(), before)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(midState, tc.NotNil)
 
 	newState, err := op.Execute(context.Background(), *midState)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(newState, tc.DeepEquals, &after)
-	c.Check(deployer.MockDeploy.called, jc.IsTrue)
+	c.Check(deployer.MockDeploy.called, tc.IsTrue)
 }
 
 func (s *DeploySuite) TestExecuteSuccess_Install_BlankSlate(c *tc.C) {
@@ -504,13 +503,13 @@ func (s *DeploySuite) TestCommitQueueInstallHook(c *tc.C) {
 		Logger:    loggertesting.WrapCheckLog(c),
 	})
 	op, err := factory.NewInstall("ch:quantal/x-0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	newState, err := op.Commit(context.Background(), operation.State{
 		Kind:     operation.Install,
 		Step:     operation.Done,
 		CharmURL: "", // doesn't actually matter here
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(newState, tc.DeepEquals, &operation.State{
 		Kind: operation.RunHook,
 		Step: operation.Queued,
@@ -531,13 +530,13 @@ func (s *DeploySuite) testCommitQueueUpgradeHook(c *tc.C, newDeploy newDeploy) {
 	})
 
 	op, err := newDeploy(factory, "ch:quantal/x-0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	newState, err := op.Commit(context.Background(), operation.State{
 		Kind:     operation.Upgrade,
 		Step:     operation.Done,
 		CharmURL: "", // doesn't actually matter here
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(newState, tc.DeepEquals, &operation.State{
 		Kind: operation.RunHook,
 		Step: operation.Queued,
@@ -570,7 +569,7 @@ func (s *DeploySuite) testCommitInterruptedHook(c *tc.C, newDeploy newDeploy) {
 	})
 
 	op, err := newDeploy(factory, "ch:quantal/x-0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	hookStep := operation.Done
 	newState, err := op.Commit(context.Background(), operation.State{
 		Kind:     operation.Upgrade,
@@ -579,7 +578,7 @@ func (s *DeploySuite) testCommitInterruptedHook(c *tc.C, newDeploy newDeploy) {
 		Hook:     &hook.Info{Kind: hooks.ConfigChanged},
 		HookStep: &hookStep,
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(newState, tc.DeepEquals, &operation.State{
 		Kind:     operation.RunHook,
 		Step:     operation.Pending,
@@ -610,8 +609,8 @@ func (s *DeploySuite) testDoesNotNeedGlobalMachineLock(c *tc.C, newDeploy newDep
 		Logger:   loggertesting.WrapCheckLog(c),
 	})
 	op, err := newDeploy(factory, "ch:quantal/x-0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.NeedsGlobalMachineLock(), jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op.NeedsGlobalMachineLock(), tc.IsFalse)
 }
 
 func (s *DeploySuite) TestDoesNotNeedGlobalMachineLock_Install(c *tc.C) {

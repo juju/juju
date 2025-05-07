@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -138,8 +137,8 @@ func (s *modelconfigSuite) TestModelGetModelAdmin(c *tc.C) {
 	s.expectModelAdminAccess()
 
 	result, err := api.ModelGet(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Config, jc.DeepEquals, map[string]params.ConfigValue{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Config, tc.DeepEquals, map[string]params.ConfigValue{
 		"type":          {Value: "dummy", Source: "model"},
 		"ftp-proxy":     {Value: "http://proxy", Source: "model"},
 		"agent-version": {Value: "1.2.3.4", Source: "model"},
@@ -154,8 +153,8 @@ func (s *modelconfigSuite) TestModelGetControllerAdmin(c *tc.C) {
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, names.NewControllerTag(s.controllerUUID)).Times(2)
 
 	result, err := api.ModelGet(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Config, jc.DeepEquals, map[string]params.ConfigValue{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Config, tc.DeepEquals, map[string]params.ConfigValue{
 		"type":          {Value: "dummy", Source: "model"},
 		"ftp-proxy":     {Value: "http://proxy", Source: "model"},
 		"agent-version": {Value: "1.2.3.4", Source: "model"},
@@ -171,8 +170,8 @@ func (s *modelconfigSuite) TestModelGetReadAccess(c *tc.C) {
 	s.expectNoModelAdminAccess()
 
 	result, err := api.ModelGet(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Config, jc.DeepEquals, map[string]params.ConfigValue{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Config, tc.DeepEquals, map[string]params.ConfigValue{
 		"type":          {Value: "dummy", Source: "model"},
 		"ftp-proxy":     {Value: "http://proxy", Source: "model"},
 		"agent-version": {Value: "1.2.3.4", Source: "model"},
@@ -205,7 +204,7 @@ func (s *modelconfigSuite) TestModelSetModelAdmin(c *tc.C) {
 		gomock.Any(),
 	)
 	err := api.ModelSet(context.Background(), params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestSetModelConfigAgentStream tests that the agent stream can be set via
@@ -235,7 +234,7 @@ func (s *modelconfigSuite) TestSetModelConfigAgentStream(c *tc.C) {
 			"agent-stream": "released",
 		},
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 // TestSetModelConfigAgentStreamInvalid tests that an invalid agent stream
@@ -259,12 +258,12 @@ func (s *modelconfigSuite) TestSetModelConfigAgentStreamInvalid(c *tc.C) {
 			"agent-stream": "invalid",
 		},
 	})
-	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *modelconfigSuite) assertBlocked(c *tc.C, err error, msg string) {
-	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue, tc.Commentf("error: %#v", err))
-	c.Assert(errors.Cause(err), jc.DeepEquals, &params.Error{
+	c.Assert(params.IsCodeOperationBlocked(err), tc.IsTrue, tc.Commentf("error: %#v", err))
+	c.Assert(errors.Cause(err), tc.DeepEquals, &params.Error{
 		Message: msg,
 		Code:    "operation is blocked",
 	})
@@ -295,7 +294,7 @@ func (s *modelconfigSuite) TestAdminCanSetLogTrace(c *tc.C) {
 		config.TypeKey:   "caas",
 		"logging-config": "<root>=DEBUG",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newConfig, err := config.New(config.NoDefaults, map[string]any{
 		config.UUIDKey:   modelUUID.String(),
@@ -303,11 +302,11 @@ func (s *modelconfigSuite) TestAdminCanSetLogTrace(c *tc.C) {
 		config.TypeKey:   "caas",
 		"logging-config": "<root>=DEBUG;somepackage=TRACE",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cfg, err := LogTracingValidator(true)(context.Background(), newConfig, oldConfig)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(cfg.AllAttrs(), jc.DeepEquals, newConfig.AllAttrs())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(cfg.AllAttrs(), tc.DeepEquals, newConfig.AllAttrs())
 }
 
 func (s *modelconfigSuite) TestUserCanSetLogNoTrace(c *tc.C) {
@@ -318,7 +317,7 @@ func (s *modelconfigSuite) TestUserCanSetLogNoTrace(c *tc.C) {
 		config.TypeKey:   "caas",
 		"logging-config": "<root>=DEBUG",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newConfig, err := config.New(config.NoDefaults, map[string]any{
 		config.UUIDKey:   modelUUID.String(),
@@ -326,11 +325,11 @@ func (s *modelconfigSuite) TestUserCanSetLogNoTrace(c *tc.C) {
 		config.TypeKey:   "caas",
 		"logging-config": "<root>=DEBUG;somepackage=ERROR",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cfg, err := LogTracingValidator(true)(context.Background(), newConfig, oldConfig)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(cfg.AllAttrs(), jc.DeepEquals, newConfig.AllAttrs())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(cfg.AllAttrs(), tc.DeepEquals, newConfig.AllAttrs())
 }
 
 func (s *modelconfigSuite) TestModelSetNoWriteAccess(c *tc.C) {
@@ -352,7 +351,7 @@ func (s *modelconfigSuite) TestUserCannotSetLogTrace(c *tc.C) {
 		config.TypeKey:   "caas",
 		"logging-config": "<root>=DEBUG",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newConfig, err := config.New(config.NoDefaults, map[string]any{
 		config.UUIDKey:   modelUUID.String(),
@@ -360,12 +359,12 @@ func (s *modelconfigSuite) TestUserCannotSetLogTrace(c *tc.C) {
 		config.TypeKey:   "caas",
 		"logging-config": "<root>=DEBUG;somepackage=TRACE",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = LogTracingValidator(false)(context.Background(), newConfig, oldConfig)
 	var validationErr *config.ValidationError
-	c.Check(errors.As(err, &validationErr), jc.IsTrue)
-	c.Check(*validationErr, jc.DeepEquals, config.ValidationError{
+	c.Check(errors.As(err, &validationErr), tc.IsTrue)
+	c.Check(*validationErr, tc.DeepEquals, config.ValidationError{
 		InvalidAttrs: []string{config.LoggingConfigKey},
 		Reason:       "only controller admins can set a model's logging level to TRACE",
 	})
@@ -387,7 +386,7 @@ func (s *modelconfigSuite) TestModelUnset(c *tc.C) {
 
 	args := params.ModelUnset{Keys: []string{"abc"}}
 	err := api.ModelUnset(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *modelconfigSuite) TestBlockModelUnset(c *tc.C) {
@@ -418,7 +417,7 @@ func (s *modelconfigSuite) TestModelUnsetMissing(c *tc.C) {
 	)
 	args := params.ModelUnset{Keys: []string{"not_there"}}
 	err := api.ModelUnset(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *modelconfigSuite) TestClientSetModelConstraints(c *tc.C) {
@@ -427,7 +426,7 @@ func (s *modelconfigSuite) TestClientSetModelConstraints(c *tc.C) {
 
 	// Set constraints for the model.
 	cons, err := constraints.Parse("mem=4096", "cores=2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectModelWriteAccess()
 	s.expectNoBlocks()
@@ -437,7 +436,7 @@ func (s *modelconfigSuite) TestClientSetModelConstraints(c *tc.C) {
 		ApplicationName: "app",
 		Constraints:     cons,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *modelconfigSuite) TestClientSetModelConstraintsFailedModelNotFound(c *tc.C) {
@@ -445,7 +444,7 @@ func (s *modelconfigSuite) TestClientSetModelConstraintsFailedModelNotFound(c *t
 	api := s.getAPI(c)
 
 	cons, err := constraints.Parse("mem=4096", "cores=2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectModelWriteAccess()
 	s.expectNoBlocks()
@@ -455,7 +454,7 @@ func (s *modelconfigSuite) TestClientSetModelConstraintsFailedModelNotFound(c *t
 		ApplicationName: "app",
 		Constraints:     cons,
 	})
-	c.Assert(err, jc.Satisfies, params.IsCodeModelNotFound)
+	c.Assert(err, tc.Satisfies, params.IsCodeModelNotFound)
 }
 
 func (s *modelconfigSuite) TestClientSetModelConstraintsFailedSpaceNotFound(c *tc.C) {
@@ -463,7 +462,7 @@ func (s *modelconfigSuite) TestClientSetModelConstraintsFailedSpaceNotFound(c *t
 	api := s.getAPI(c)
 
 	cons, err := constraints.Parse("mem=4096", "cores=2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectModelWriteAccess()
 	s.expectNoBlocks()
@@ -473,7 +472,7 @@ func (s *modelconfigSuite) TestClientSetModelConstraintsFailedSpaceNotFound(c *t
 		ApplicationName: "app",
 		Constraints:     cons,
 	})
-	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
+	c.Assert(err, tc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *modelconfigSuite) TestClientSetModelConstraintsFailedInvalidContainerType(c *tc.C) {
@@ -481,7 +480,7 @@ func (s *modelconfigSuite) TestClientSetModelConstraintsFailedInvalidContainerTy
 	api := s.getAPI(c)
 
 	cons, err := constraints.Parse("mem=4096", "cores=2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectModelWriteAccess()
 	s.expectNoBlocks()
@@ -500,7 +499,7 @@ func (s *modelconfigSuite) assertSetModelConstraintsBlocked(c *tc.C, msg string)
 
 	// Set constraints for the model.
 	cons, err := constraints.Parse("mem=4096", "cores=2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectModelWriteAccess()
 	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("TestBlockChangesClientSetModelConstraints", nil)
@@ -524,12 +523,12 @@ func (s *modelconfigSuite) TestClientGetModelConstraints(c *tc.C) {
 
 	// Set constraints for the model.
 	cons, err := constraints.Parse("mem=4096", "cores=2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.mockModelService.EXPECT().GetModelConstraints(gomock.Any()).Return(cons, nil)
 
 	obtained, err := api.GetModelConstraints(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained.Constraints, tc.DeepEquals, cons)
 }
 
@@ -542,7 +541,7 @@ func (s *modelconfigSuite) TestClientGetModelConstraintsFailedModelNotFound(c *t
 	s.mockModelService.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Value{}, modelerrors.NotFound)
 
 	_, err := api.GetModelConstraints(context.Background())
-	c.Assert(err, jc.Satisfies, params.IsCodeModelNotFound)
+	c.Assert(err, tc.Satisfies, params.IsCodeModelNotFound)
 }
 
 func (s *modelconfigSuite) TestGetModelSecretBackendFailedPermissionDenied(c *tc.C) {
@@ -555,7 +554,7 @@ func (s *modelconfigSuite) TestGetModelSecretBackendFailedPermissionDenied(c *tc
 
 	_, err := facade.GetModelSecretBackend(context.Background())
 	c.Assert(err, tc.ErrorMatches, "permission denied")
-	c.Assert(err, jc.ErrorIs, authentication.ErrorEntityMissingPermission)
+	c.Assert(err, tc.ErrorIs, authentication.ErrorEntityMissingPermission)
 }
 
 func (s *modelconfigSuite) TestGetModelSecretBackendFailedModelNotFound(c *tc.C) {
@@ -566,7 +565,7 @@ func (s *modelconfigSuite) TestGetModelSecretBackendFailedModelNotFound(c *tc.C)
 	s.mockModelSecretBackendService.EXPECT().GetModelSecretBackend(gomock.Any()).Return("", modelerrors.NotFound)
 
 	result, err := facade.GetModelSecretBackend(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Error, tc.ErrorMatches, "model not found")
 	c.Assert(result.Error.Code, tc.Equals, params.CodeModelNotFound)
 }
@@ -579,7 +578,7 @@ func (s *modelconfigSuite) TestGetModelSecretBackend(c *tc.C) {
 	s.mockModelSecretBackendService.EXPECT().GetModelSecretBackend(gomock.Any()).Return("myvault", nil)
 
 	result, err := facade.GetModelSecretBackend(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Result, tc.Equals, "myvault")
 }
 
@@ -593,7 +592,7 @@ func (s *modelconfigSuite) TestSetModelSecretBackendFailedPermissionDenied(c *tc
 
 	_, err := facade.SetModelSecretBackend(context.Background(), params.SetModelSecretBackendArg{})
 	c.Assert(err, tc.ErrorMatches, "permission denied")
-	c.Assert(err, jc.ErrorIs, authentication.ErrorEntityMissingPermission)
+	c.Assert(err, tc.ErrorIs, authentication.ErrorEntityMissingPermission)
 }
 
 func (s *modelconfigSuite) TestSetModelSecretBackendFailedModelNotFound(c *tc.C) {
@@ -606,7 +605,7 @@ func (s *modelconfigSuite) TestSetModelSecretBackendFailedModelNotFound(c *tc.C)
 	result, err := facade.SetModelSecretBackend(context.Background(), params.SetModelSecretBackendArg{
 		SecretBackendName: "myvault",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Error, tc.ErrorMatches, "model not found")
 	c.Assert(result.Error.Code, tc.Equals, params.CodeModelNotFound)
 }
@@ -621,7 +620,7 @@ func (s *modelconfigSuite) TestSetModelSecretBackendFailedSecretBackendNotFound(
 	result, err := facade.SetModelSecretBackend(context.Background(), params.SetModelSecretBackendArg{
 		SecretBackendName: "myvault",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Error, tc.ErrorMatches, "secret backend not found")
 	c.Assert(result.Error.Code, tc.Equals, params.CodeSecretBackendNotFound)
 }
@@ -636,7 +635,7 @@ func (s *modelconfigSuite) TestSetModelSecretBackendFailedSecretBackendNotValid(
 	result, err := facade.SetModelSecretBackend(context.Background(), params.SetModelSecretBackendArg{
 		SecretBackendName: "myvault",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Error, tc.ErrorMatches, "secret backend not valid")
 	c.Assert(result.Error.Code, tc.Equals, params.CodeSecretBackendNotValid)
 }
@@ -651,7 +650,7 @@ func (s *modelconfigSuite) TestSetModelSecretBackend(c *tc.C) {
 	result, err := facade.SetModelSecretBackend(context.Background(), params.SetModelSecretBackendArg{
 		SecretBackendName: "myvault",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Error, tc.IsNil)
 }
 

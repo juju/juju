@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/apiserver"
@@ -84,32 +83,32 @@ func (s *apiservermetricsSuite) TestLabelNames(c *tc.C) {
 		{
 			name:    "api connections label names",
 			labels:  apiserver.MetricAPIConnectionsLabelNames,
-			checker: jc.IsTrue,
+			checker: tc.IsTrue,
 		},
 		{
 			name:    "ping failure label names",
 			labels:  apiserver.MetricPingFailureLabelNames,
-			checker: jc.IsTrue,
+			checker: tc.IsTrue,
 		},
 		{
 			name:    "log failure label names",
 			labels:  apiserver.MetricLogLabelNames,
-			checker: jc.IsTrue,
+			checker: tc.IsTrue,
 		},
 		{
 			name:    "total requests with status label names",
 			labels:  apiserver.MetricTotalRequestsWithStatusLabelNames,
-			checker: jc.IsTrue,
+			checker: tc.IsTrue,
 		},
 		{
 			name:    "total requests label names",
 			labels:  apiserver.MetricTotalRequestsLabelNames,
-			checker: jc.IsTrue,
+			checker: tc.IsTrue,
 		},
 		{
 			name:    "invalid names",
 			labels:  []string{"model-uuid"},
-			checker: jc.IsFalse,
+			checker: tc.IsFalse,
 		},
 	}
 

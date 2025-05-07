@@ -25,7 +25,6 @@ import (
 	"github.com/juju/mutex/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils/v4"
 	"github.com/juju/worker/v4"
@@ -188,7 +187,7 @@ func (ctx *testContext) run(c *tc.C, steps []stepper) {
 					c.Logf("ignoring lock acquire cancelled by stop")
 					return
 				}
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 			} else {
 				c.Assert(err, tc.ErrorMatches, ctx.expectedError)
 			}
@@ -261,7 +260,7 @@ func (ctx *testContext) expectHookContext(c *tc.C) {
 	cfg := coretesting.ModelConfig(c)
 	ctx.api.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
 	m, err := ctx.unit.AssignedMachine(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx.api.EXPECT().OpenedMachinePortRangesByEndpoint(gomock.Any(), m).Return(nil, nil).AnyTimes()
 	ctx.secretsClient.EXPECT().SecretMetadata(gomock.Any()).Return(nil, nil).AnyTimes()
 }
@@ -361,7 +360,7 @@ func (s createCharm) step(c *tc.C, ctx *testContext) {
 	}
 
 	dir, err := charmtesting.ReadCharmDir(base)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	step(c, ctx, addCharm{dir, curl(s.revision), s.revision})
 }
 
@@ -374,10 +373,10 @@ type addCharm struct {
 func (s addCharm) step(c *tc.C, ctx *testContext) {
 	var buf bytes.Buffer
 	err := s.dir.ArchiveTo(&buf)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	body := buf.Bytes()
 	hash, _, err := utils.ReadSHA256(&buf)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	storagePath := fmt.Sprintf("/charms/%s/%d", s.dir.Meta().Name, s.revision)
 	ctx.charms[storagePath] = body
@@ -543,7 +542,7 @@ func (m unitStateMatcher) Matches(x interface{}) bool {
 	if !found {
 		m.c.Logf("Unit state mismatch\nGot: \n%s\nWant:\n%s", *obtained.UniterState, m.expected)
 	}
-	m.c.Assert(found, jc.IsTrue)
+	m.c.Assert(found, tc.IsTrue)
 	return true
 }
 
@@ -880,7 +879,7 @@ func (s startUniter) setupUniter(c *tc.C, ctx *testContext) {
 		Kind:     "install",
 		Step:     "pending",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	st := string(data)
 	ctx.unit.EXPECT().SetState(gomock.Any(), unitStateMatcher{c: c, expected: st}).Return(nil).MaxTimes(1)
 
@@ -889,7 +888,7 @@ func (s startUniter) setupUniter(c *tc.C, ctx *testContext) {
 		Kind:     "install",
 		Step:     "done",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	st = string(data)
 	ctx.unit.EXPECT().SetState(gomock.Any(), unitStateMatcher{c: c, expected: st}).Return(nil).MaxTimes(1)
 }
@@ -1029,7 +1028,7 @@ func (s startUniter) step(c *tc.C, ctx *testContext) {
 	}
 	var err error
 	ctx.uniter, err = uniter.NewUniter(&uniterParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type waitUniterDead struct {
@@ -1091,7 +1090,7 @@ func (s stopUniter) step(c *tc.C, ctx *testContext) {
 	ctx.uniter = nil
 	err := worker.Stop(u)
 	if s.err == "" {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	} else {
 		c.Assert(err, tc.ErrorMatches, s.err)
 	}
@@ -1143,8 +1142,8 @@ func (s startupError) step(c *tc.C, ctx *testContext) {
 type verifyDeployed struct{}
 
 func (s verifyDeployed) step(c *tc.C, ctx *testContext) {
-	c.Assert(ctx.deployer.staged, jc.DeepEquals, curl(0))
-	c.Assert(ctx.deployer.deployed, jc.IsTrue)
+	c.Assert(ctx.deployer.staged, tc.DeepEquals, curl(0))
+	c.Assert(ctx.deployer.deployed, tc.IsTrue)
 }
 
 type quickStart struct {
@@ -1257,7 +1256,7 @@ func (s waitUnitAgent) step(c *tc.C, ctx *testContext) {
 				continue
 			}
 			statusInfo, err := s.statusGetter(ctx)()
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			if string(statusInfo.Status) != string(s.status) {
 				c.Logf("want unit status %q, got %q; still waiting", s.status, statusInfo.Status)
 				continue
@@ -1397,7 +1396,7 @@ findMatch:
 			}
 		}
 		// if we finish the whole thing without finding a match, we failed.
-		c.Assert(actualIn, jc.DeepEquals, expectIn)
+		c.Assert(actualIn, tc.DeepEquals, expectIn)
 	}
 	c.Assert(matches, tc.Equals, desiredMatches)
 }
@@ -1416,7 +1415,7 @@ type updateStatusHookTick struct{}
 
 func (s updateStatusHookTick) step(c *tc.C, ctx *testContext) {
 	err := ctx.updateStatusHookTicker.Tick()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type changeConfig map[string]interface{}
@@ -1792,9 +1791,9 @@ func (s writeFile) step(c *tc.C, ctx *testContext) {
 	path := filepath.Join(ctx.path, s.path)
 	dir := filepath.Dir(path)
 	err := os.MkdirAll(dir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = os.WriteFile(path, nil, s.mode)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type removeCharmDir struct{}
@@ -1802,7 +1801,7 @@ type removeCharmDir struct{}
 func (s removeCharmDir) step(c *tc.C, ctx *testContext) {
 	path := filepath.Join(ctx.path, "charm")
 	err := os.RemoveAll(path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type custom struct {
@@ -1882,7 +1881,7 @@ func (h *hookLock) acquire() *hookStep {
 			Comment: "hookLock",
 			Cancel:  make(chan struct{}), // clearly suboptimal
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		h.releaser = releaser
 	}}
 }
@@ -1906,7 +1905,7 @@ func (cmds runCommands) step(c *tc.C, ctx *testContext) {
 		UnitName:       "u/0",
 	}
 	result, err := ctx.uniter.RunCommands(args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Code, tc.Equals, 0)
 	c.Check(string(result.Stdout), tc.Equals, "test")
 	c.Check(string(result.Stderr), tc.Equals, "")
@@ -2118,8 +2117,8 @@ type getSecret struct{}
 
 func (s getSecret) step(c *tc.C, ctx *testContext) {
 	val, err := ctx.secretBackends.GetContent(context.Background(), ctx.createdSecretURI, "foorbar", false, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{"foo": "bar"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(val.EncodedValues(), tc.DeepEquals, map[string]string{"foo": "bar"})
 }
 
 type rotateSecret struct {
@@ -2248,5 +2247,5 @@ type triggerShutdown struct {
 
 func (t triggerShutdown) step(c *tc.C, ctx *testContext) {
 	err := ctx.uniter.Terminate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

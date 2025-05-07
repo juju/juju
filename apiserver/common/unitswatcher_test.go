@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -77,8 +76,8 @@ func (*unitsWatcherSuite) TestWatchUnits(c *tc.C) {
 		{Tag: "unit-x-0"}, {Tag: "unit-x-1"}, {Tag: "unit-x-2"}, {Tag: "unit-x-3"},
 	}}
 	result, err := w.WatchUnits(context.Background(), entities)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.StringsWatchResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
 			{Error: &params.Error{Message: "x0 fails"}},
 			{StringsWatcherId: "1", Changes: []string{"foo", "bar"}, Error: nil},
@@ -113,6 +112,6 @@ func (*unitsWatcherSuite) TestWatchNoArgsNoError(c *tc.C) {
 		getCanWatch,
 	)
 	result, err := w.WatchUnits(context.Background(), params.Entities{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 0)
 }

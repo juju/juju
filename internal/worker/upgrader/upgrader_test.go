@@ -13,7 +13,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/symlink"
 	"github.com/juju/worker/v4"
@@ -67,7 +66,7 @@ func (s *UpgraderSuite) SetUpTest(c *tc.C) {
 
 	s.dataDir = c.MkDir()
 	store, err := filestorage.NewFileStorageWriter(c.MkDir())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.store = store
 
 	// For expediency we assume that upgrade-steps have run as the default.
@@ -116,7 +115,7 @@ func (s *UpgraderSuite) makeUpgrader(c *tc.C, client upgrader.UpgraderClient) *u
 		InitialUpgradeCheckComplete: s.initialCheckComplete,
 		CheckDiskSpace:              func(string, uint64) error { return nil },
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }
 
@@ -223,7 +222,7 @@ func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *tc.C) {
 		DataDir:   s.dataDir,
 	})
 	foundTools, err := agenttools.ReadTools(s.dataDir, newVersion)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	envtesting.CheckTools(c, foundTools, newTools)
 }
 
@@ -258,7 +257,7 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *tc.C) {
 
 	for i := 0; i < retryCount; i++ {
 		err := s.clock.WaitAdvance(5*time.Second, coretesting.LongWait, 1)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	// Make it upgrade to some newer tools that can be
@@ -290,7 +289,7 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *tc.C) {
 		c.Fatalf("upgrader did not quit after upgrading")
 	}
 	foundTools, err := agenttools.ReadTools(s.dataDir, newerVersion)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	envtesting.CheckTools(c, foundTools, newTools)
 }
 
@@ -308,12 +307,12 @@ func (s *UpgraderSuite) TestChangeAgentTools(c *tc.C) {
 		DataDir:   s.dataDir,
 	}
 	err := ugErr.ChangeAgentTools(loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	target := agenttools.ToolsDir(s.dataDir, newToolsBinary)
 	link, err := symlink.Read(agenttools.ToolsDir(s.dataDir, "anAgent"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(link, jc.SamePath, target)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(link, tc.SamePath, target)
 }
 
 func (s *UpgraderSuite) TestUsesAlreadyDownloadedToolsIfAvailable(c *tc.C) {
@@ -389,7 +388,7 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradingMinorVersions(c *tc.C) {
 		DataDir:   s.dataDir,
 	})
 	foundTools, err := agenttools.ReadTools(s.dataDir, downgradeTools.Version)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	envtesting.CheckTools(c, foundTools, downgradeTools)
 }
 
@@ -422,7 +421,7 @@ func (s *UpgraderSuite) TestUpgraderForbidsDowngradingToMajorVersion(c *tc.C) {
 	err := worker.Stop(u)
 
 	// If the upgrade had been allowed we would get an UpgradeReadyError.
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = agenttools.ReadTools(s.dataDir, downgradeTools.Version)
 	// TODO: ReadTools *should* be returning some form of
 	// errors.NotFound, however, it just passes back a fmt.Errorf so
@@ -466,7 +465,7 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradingPatchVersions(c *tc.C) {
 		DataDir:   s.dataDir,
 	})
 	foundTools, err := agenttools.ReadTools(s.dataDir, downgradeTools.Version)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	envtesting.CheckTools(c, foundTools, downgradeTools)
 }
 
@@ -510,7 +509,7 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradeToPriorMinorVersion(c *tc.C) 
 		DataDir:   s.dataDir,
 	})
 	foundTools, err := agenttools.ReadTools(s.dataDir, prevTools.Version)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	envtesting.CheckTools(c, foundTools, prevTools)
 }
 
@@ -562,7 +561,7 @@ func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *tc.C) {
 			return diskSpaceStub.NextErr()
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-diskSpaceChecked:
@@ -590,7 +589,7 @@ func (s *UpgraderSuite) waitForUpgradeCheck(c *tc.C) {
 }
 
 func (s *UpgraderSuite) expectInitialUpgradeCheckNotDone(c *tc.C) {
-	c.Assert(s.initialCheckComplete.IsUnlocked(), jc.IsFalse)
+	c.Assert(s.initialCheckComplete.IsUnlocked(), tc.IsFalse)
 }
 
 type allowedTest struct {

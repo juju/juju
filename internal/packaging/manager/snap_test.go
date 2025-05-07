@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/packaging/commands"
 	"github.com/juju/juju/internal/packaging/manager"
@@ -267,7 +266,7 @@ func (s *SnapSuite) TestChangeChannel(c *tc.C) {
 
 	pacman := manager.NewSnapPackageManager()
 	err := pacman.ChangeChannel("lxd", "latest/candidate")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	setCmd := <-cmdChan
 	c.Assert(setCmd.Args, tc.DeepEquals, []string{"snap", "refresh", "--channel", "latest/candidate", "lxd"})

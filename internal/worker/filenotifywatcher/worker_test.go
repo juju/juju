@@ -7,7 +7,6 @@ import (
 	time "time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 
@@ -45,24 +44,24 @@ func (s *workerSuite) TestChanges(c *tc.C) {
 	defer workertest.CleanKill(c, w)
 
 	watcher, ok := w.(FileNotifyWatcher)
-	c.Assert(ok, jc.IsTrue, tc.Commentf("worker does not implement FileNotifyWatcher"))
+	c.Assert(ok, tc.IsTrue, tc.Commentf("worker does not implement FileNotifyWatcher"))
 
 	ch1, err := watcher.Changes("controller")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case v := <-ch1:
-		c.Assert(v, jc.IsTrue)
+		c.Assert(v, tc.IsTrue)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for changes")
 	}
 
 	ch2, err := watcher.Changes("controller")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case v := <-ch2:
-		c.Assert(v, jc.IsTrue)
+		c.Assert(v, tc.IsTrue)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for changes")
 	}
@@ -86,6 +85,6 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 	}
 
 	w, err := newWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }

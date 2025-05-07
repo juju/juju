@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
 
@@ -74,7 +73,7 @@ func (s *EnvironFixture) SetUpTest(c *tc.C) {
 			"image-metadata-url": s.imageServer.URL,
 		}),
 	}, common.NewCredentialInvalidator(s.invalidator, vsphere.IsAuthorisationFailure))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.env = env
 
 	// Make sure we don't fall back to the public image sources.
@@ -148,5 +147,5 @@ func AssertInvalidatesCredential(c *tc.C, client *mockClient, f func(context.Con
 	}), errors.New("find folder failed"))
 	err := f(context.Background())
 	c.Assert(err, tc.ErrorMatches, ".*ServerFaultCode: No way José$")
-	c.Assert(client.invalid, jc.IsTrue)
+	c.Assert(client.invalid, tc.IsTrue)
 }

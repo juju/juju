@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 type BundleDataSourceSuite struct {
@@ -29,7 +28,7 @@ func (s *BundleDataSourceSuite) TestReadBundleFromLocalFile(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 
 	raw, err := os.ReadFile(bundlePath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertBundleSourceProcessed(c, src, string(raw))
 }
 
@@ -39,7 +38,7 @@ func (s *BundleDataSourceSuite) TestReadBundleFromExplodedArchiveFolder(c *tc.C)
 	c.Assert(err, tc.IsNil)
 
 	raw, err := os.ReadFile(bundlePath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertBundleSourceProcessed(c, src, string(raw))
 }
 
@@ -49,7 +48,7 @@ func (s *BundleDataSourceSuite) TestReadBundleFromArchive(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 
 	raw, err := os.ReadFile(bundlePath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertBundleSourceProcessed(c, src, string(raw))
 }
 
@@ -147,7 +146,7 @@ applications:
 		"unmarshal document 0: yaml: unmarshal errors:\n"+
 		"  line 5: field constrain not found in applications\n"+
 		"  line 8: field num_uns not found in applications")
-	c.Assert(parts[1].UnmarshallError, jc.ErrorIsNil)
+	c.Assert(parts[1].UnmarshallError, tc.ErrorIsNil)
 	c.Assert(parts[2].UnmarshallError, tc.NotNil)
 	c.Assert(parts[2].UnmarshallError.Error(), tc.Matches, ""+
 		"unmarshal document 2: yaml: unmarshal errors:\n"+

@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -48,31 +47,31 @@ func (s *rootfsSuite) rootfsProvider(c *tc.C) storage.Provider {
 func (s *rootfsSuite) TestFilesystemSource(c *tc.C) {
 	p := s.rootfsProvider(c)
 	cfg, err := storage.NewConfig("name", provider.RootfsProviderType, map[string]interface{}{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = p.FilesystemSource(cfg)
 	c.Assert(err, tc.ErrorMatches, "storage directory not specified")
 	cfg, err = storage.NewConfig("name", provider.RootfsProviderType, map[string]interface{}{
 		"storage-dir": c.MkDir(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = p.FilesystemSource(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *rootfsSuite) TestValidateConfig(c *tc.C) {
 	p := s.rootfsProvider(c)
 	cfg, err := storage.NewConfig("name", provider.RootfsProviderType, map[string]interface{}{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = p.ValidateConfig(cfg)
 	// The rootfs provider does not have any user
 	// configuration, so an empty map will pass.
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *rootfsSuite) TestSupports(c *tc.C) {
 	p := s.rootfsProvider(c)
-	c.Assert(p.Supports(storage.StorageKindBlock), jc.IsFalse)
-	c.Assert(p.Supports(storage.StorageKindFilesystem), jc.IsTrue)
+	c.Assert(p.Supports(storage.StorageKindBlock), tc.IsFalse)
+	c.Assert(p.Supports(storage.StorageKindFilesystem), tc.IsTrue)
 }
 
 func (s *rootfsSuite) TestScope(c *tc.C) {
@@ -101,9 +100,9 @@ func (s *rootfsSuite) TestCreateFilesystems(c *tc.C) {
 		Tag:  names.NewFilesystemTag("7"),
 		Size: 4,
 	}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(results, jc.DeepEquals, []storage.CreateFilesystemsResult{{
+	c.Assert(results, tc.DeepEquals, []storage.CreateFilesystemsResult{{
 		Filesystem: &storage.Filesystem{
 			Tag: names.NewFilesystemTag("6"),
 			FilesystemInfo: storage.FilesystemInfo{
@@ -128,7 +127,7 @@ func (s *rootfsSuite) TestCreateFilesystemsIsUse(c *tc.C) {
 		Tag:  names.NewFilesystemTag("666"), // magic; see mockDirFuncs
 		Size: 1,
 	}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results[0].Error, tc.ErrorMatches, "\".*/666\" is not empty")
 }
 
@@ -139,7 +138,7 @@ func (s *rootfsSuite) TestAttachFilesystemsPathNotDir(c *tc.C) {
 		FilesystemId: "6",
 		Path:         "file",
 	}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results[0].Error, tc.ErrorMatches, `path "file" must be a directory`)
 }
 
@@ -152,7 +151,7 @@ func (s *rootfsSuite) TestCreateFilesystemsNotEnoughSpace(c *tc.C) {
 		Tag:  names.NewFilesystemTag("6"),
 		Size: 4,
 	}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results[0].Error, tc.ErrorMatches, "filesystem is not big enough \\(2M < 4M\\)")
 }
 
@@ -165,7 +164,7 @@ func (s *rootfsSuite) TestCreateFilesystemsInvalidPath(c *tc.C) {
 		Tag:  names.NewFilesystemTag("6"),
 		Size: 2,
 	}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results[0].Error, tc.ErrorMatches, "getting size: error creating directory")
 }
 
@@ -175,7 +174,7 @@ func (s *rootfsSuite) TestAttachFilesystemsNoPathSpecified(c *tc.C) {
 		Filesystem:   names.NewFilesystemTag("6"),
 		FilesystemId: "6",
 	}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results[0].Error, tc.ErrorMatches, "filesystem mount point not specified")
 }
 
@@ -190,8 +189,8 @@ func (s *rootfsSuite) TestAttachFilesystemsBind(c *tc.C) {
 		FilesystemId: "6",
 		Path:         "/srv",
 	}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []storage.AttachFilesystemsResult{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, []storage.AttachFilesystemsResult{{
 		FilesystemAttachment: &storage.FilesystemAttachment{
 			Filesystem: names.NewFilesystemTag("6"),
 			FilesystemAttachmentInfo: storage.FilesystemAttachmentInfo{
@@ -211,8 +210,8 @@ func (s *rootfsSuite) TestAttachFilesystemsBound(c *tc.C) {
 		FilesystemId: "6",
 		Path:         "/srv",
 	}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []storage.AttachFilesystemsResult{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, []storage.AttachFilesystemsResult{{
 		FilesystemAttachment: &storage.FilesystemAttachment{
 			Filesystem: names.NewFilesystemTag("6"),
 			FilesystemAttachmentInfo: storage.FilesystemAttachmentInfo{
@@ -232,8 +231,8 @@ func (s *rootfsSuite) TestAttachFilesystemsBoundViaParent(c *tc.C) {
 		FilesystemId: "6",
 		Path:         "/srv",
 	}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []storage.AttachFilesystemsResult{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, []storage.AttachFilesystemsResult{{
 		FilesystemAttachment: &storage.FilesystemAttachment{
 			Filesystem: names.NewFilesystemTag("6"),
 			FilesystemAttachmentInfo: storage.FilesystemAttachmentInfo{
@@ -254,8 +253,8 @@ func (s *rootfsSuite) TestAttachFilesystemsBoundViaMultipleParents(c *tc.C) {
 		FilesystemId: "6",
 		Path:         "/srv",
 	}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []storage.AttachFilesystemsResult{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, []storage.AttachFilesystemsResult{{
 		FilesystemAttachment: &storage.FilesystemAttachment{
 			Filesystem: names.NewFilesystemTag("6"),
 			FilesystemAttachmentInfo: storage.FilesystemAttachmentInfo{
@@ -278,7 +277,7 @@ func (s *rootfsSuite) TestAttachFilesystemsBindFailsDifferentFS(c *tc.C) {
 		FilesystemId: "6",
 		Path:         "/srv",
 	}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results[0].Error, tc.ErrorMatches, `".*/6" \("/dev"\) and "/srv" \("/proc"\) are on different filesystems`)
 }
 
@@ -295,8 +294,8 @@ func (s *rootfsSuite) TestAttachFilesystemsBindSameFSEmptyDir(c *tc.C) {
 		FilesystemId: "6",
 		Path:         "/srv",
 	}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []storage.AttachFilesystemsResult{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, []storage.AttachFilesystemsResult{{
 		FilesystemAttachment: &storage.FilesystemAttachment{
 			Filesystem: names.NewFilesystemTag("6"),
 			FilesystemAttachmentInfo: storage.FilesystemAttachmentInfo{
@@ -319,7 +318,7 @@ func (s *rootfsSuite) TestAttachFilesystemsBindSameFSNonEmptyDirUnclaimed(c *tc.
 		FilesystemId: "6",
 		Path:         "/srv/666",
 	}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results[0].Error, tc.ErrorMatches, `"/srv/666" is not empty`)
 }
 
@@ -338,8 +337,8 @@ func (s *rootfsSuite) TestAttachFilesystemsBindSameFSNonEmptyDirClaimed(c *tc.C)
 		FilesystemId: "6",
 		Path:         "/srv/666",
 	}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []storage.AttachFilesystemsResult{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, []storage.AttachFilesystemsResult{{
 		FilesystemAttachment: &storage.FilesystemAttachment{
 			Filesystem: names.NewFilesystemTag("6"),
 			FilesystemAttachmentInfo: storage.FilesystemAttachmentInfo{

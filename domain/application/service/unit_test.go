@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
 
@@ -45,7 +44,7 @@ func (s *unitServiceSuite) TestGetUnitUUID(c *tc.C) {
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(uuid, nil)
 
 	u, err := s.service.GetUnitUUID(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(u, tc.Equals, uuid)
 }
 
@@ -56,7 +55,7 @@ func (s *unitServiceSuite) TestGetUnitUUIDErrors(c *tc.C) {
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return("", applicationerrors.UnitNotFound)
 
 	_, err := s.service.GetUnitUUID(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 type registerArgMatcher struct {
@@ -122,7 +121,7 @@ func (s *unitServiceSuite) TestRegisterCAASUnit(c *tc.C) {
 		ProviderID:      "foo-666",
 	}
 	unitName, password, err := s.service.RegisterCAASUnit(context.Background(), p)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unitName.String(), tc.Equals, "foo/666")
 	c.Assert(password, tc.Not(tc.Equals), "")
 }
@@ -159,7 +158,7 @@ func (s *unitServiceSuite) TestRegisterCAASUnitApplicationNoPods(c *tc.C) {
 		ProviderID:      "foo-666",
 	}
 	_, _, err := s.service.RegisterCAASUnit(context.Background(), p)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 }
 
 func (s *unitServiceSuite) TestUpdateCAASUnit(c *tc.C) {
@@ -226,8 +225,8 @@ func (s *unitServiceSuite) TestUpdateCAASUnit(c *tc.C) {
 	})
 
 	err := s.service.UpdateCAASUnit(context.Background(), unitName, params)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(unitArgs, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(unitArgs, tc.DeepEquals, expected)
 }
 
 func (s *unitServiceSuite) TestUpdateCAASUnitNotAlive(c *tc.C) {
@@ -237,7 +236,7 @@ func (s *unitServiceSuite) TestUpdateCAASUnitNotAlive(c *tc.C) {
 	s.state.EXPECT().GetApplicationLife(gomock.Any(), "foo").Return(id, life.Dying, nil)
 
 	err := s.service.UpdateCAASUnit(context.Background(), coreunit.Name("foo/666"), UpdateCAASUnitParams{})
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotAlive)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)
 }
 
 func (s *unitServiceSuite) TestGetUnitRefreshAttributes(c *tc.C) {
@@ -250,7 +249,7 @@ func (s *unitServiceSuite) TestGetUnitRefreshAttributes(c *tc.C) {
 	s.state.EXPECT().GetUnitRefreshAttributes(gomock.Any(), unitName).Return(attrs, nil)
 
 	refreshAttrs, err := s.service.GetUnitRefreshAttributes(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(refreshAttrs, tc.Equals, attrs)
 }
 
@@ -260,7 +259,7 @@ func (s *unitServiceSuite) TestGetUnitRefreshAttributesInvalidName(c *tc.C) {
 	unitName := coreunit.Name("!!!")
 
 	_, err := s.service.GetUnitRefreshAttributes(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
+	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
 }
 
 func (s *unitServiceSuite) TestGetUnitRefreshAttributesError(c *tc.C) {
@@ -284,8 +283,8 @@ func (s *unitServiceSuite) TestGetAllUnitNames(c *tc.C) {
 	s.state.EXPECT().GetAllUnitNames(gomock.Any()).Return(unitNames, nil)
 
 	names, err := s.service.GetAllUnitNames(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(names, jc.SameContents, unitNames)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(names, tc.SameContents, unitNames)
 }
 
 func (s *unitServiceSuite) TestGetAllUnitNamesError(c *tc.C) {
@@ -308,8 +307,8 @@ func (s *unitServiceSuite) TestGetUnitNamesForApplication(c *tc.C) {
 	s.state.EXPECT().GetUnitNamesForApplication(gomock.Any(), appID).Return(unitNames, nil)
 
 	names, err := s.service.GetUnitNamesForApplication(context.Background(), appName)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(names, jc.SameContents, unitNames)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(names, tc.SameContents, unitNames)
 }
 
 func (s *unitServiceSuite) TestGetUnitNamesForApplicationNotFound(c *tc.C) {
@@ -318,7 +317,7 @@ func (s *unitServiceSuite) TestGetUnitNamesForApplicationNotFound(c *tc.C) {
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("", applicationerrors.ApplicationNotFound)
 
 	_, err := s.service.GetUnitNamesForApplication(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *unitServiceSuite) TestGetUnitNamesForApplicationDead(c *tc.C) {
@@ -331,7 +330,7 @@ func (s *unitServiceSuite) TestGetUnitNamesForApplicationDead(c *tc.C) {
 	s.state.EXPECT().GetUnitNamesForApplication(gomock.Any(), appID).Return(nil, applicationerrors.ApplicationIsDead)
 
 	_, err := s.service.GetUnitNamesForApplication(context.Background(), appName)
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationIsDead)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationIsDead)
 }
 
 func (s *unitServiceSuite) TestGetUnitNamesOnMachineNotFound(c *tc.C) {
@@ -340,7 +339,7 @@ func (s *unitServiceSuite) TestGetUnitNamesOnMachineNotFound(c *tc.C) {
 	s.state.EXPECT().GetMachineNetNodeUUIDFromName(gomock.Any(), machine.Name("0")).Return("", applicationerrors.MachineNotFound)
 
 	_, err := s.service.GetUnitNamesOnMachine(context.Background(), machine.Name("0"))
-	c.Assert(err, jc.ErrorIs, applicationerrors.MachineNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.MachineNotFound)
 }
 
 func (s *unitServiceSuite) TestGetUnitNamesOnMachine(c *tc.C) {
@@ -351,8 +350,8 @@ func (s *unitServiceSuite) TestGetUnitNamesOnMachine(c *tc.C) {
 	s.state.EXPECT().GetUnitNamesForNetNode(gomock.Any(), netNodeUUID).Return([]coreunit.Name{"foo/666", "bar/667"}, nil)
 
 	names, err := s.service.GetUnitNamesOnMachine(context.Background(), machine.Name("0"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(names, jc.DeepEquals, []coreunit.Name{"foo/666", "bar/667"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(names, tc.DeepEquals, []coreunit.Name{"foo/666", "bar/667"})
 }
 
 func (s *unitServiceSuite) TestAddSubordinateUnit(c *tc.C) {
@@ -378,7 +377,7 @@ func (s *unitServiceSuite) TestAddSubordinateUnit(c *tc.C) {
 	err := s.service.AddSubordinateUnit(context.Background(), appID, unitName)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(foundApp, tc.Equals, appID)
 	c.Assert(foundUnit, tc.Equals, unitName)
 }
@@ -397,7 +396,7 @@ func (s *unitServiceSuite) TestAddSubordinateUnitUnitAlreadyHasSubordinate(c *tc
 	err := s.service.AddSubordinateUnit(context.Background(), appID, unitName)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *unitServiceSuite) TestAddSubordinateUnitServiceError(c *tc.C) {
@@ -416,7 +415,7 @@ func (s *unitServiceSuite) TestAddSubordinateUnitServiceError(c *tc.C) {
 	err := s.service.AddSubordinateUnit(context.Background(), appID, unitName)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, boom)
+	c.Assert(err, tc.ErrorIs, boom)
 }
 
 func (s *unitServiceSuite) TestAddSubordinateUnitApplicationNotSubordinate(c *tc.C) {
@@ -431,7 +430,7 @@ func (s *unitServiceSuite) TestAddSubordinateUnitApplicationNotSubordinate(c *tc
 	err := s.service.AddSubordinateUnit(context.Background(), appID, unitName)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotSubordinate)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotSubordinate)
 }
 
 func (s *unitServiceSuite) TestAddSubordinateUnitBadUnitName(c *tc.C) {
@@ -444,7 +443,7 @@ func (s *unitServiceSuite) TestAddSubordinateUnitBadUnitName(c *tc.C) {
 	err := s.service.AddSubordinateUnit(context.Background(), appID, "bad-name")
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
+	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
 }
 
 func (s *unitServiceSuite) TestAddSubordinateUnitBadAppName(c *tc.C) {
@@ -456,7 +455,7 @@ func (s *unitServiceSuite) TestAddSubordinateUnitBadAppName(c *tc.C) {
 	err := s.service.AddSubordinateUnit(context.Background(), "bad-app-uuid", unitName)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *unitServiceSuite) TestSetUnitWorkloadVersion(c *tc.C) {
@@ -468,7 +467,7 @@ func (s *unitServiceSuite) TestSetUnitWorkloadVersion(c *tc.C) {
 	s.state.EXPECT().SetUnitWorkloadVersion(gomock.Any(), unitName, workloadVersion).Return(nil)
 
 	err := s.service.SetUnitWorkloadVersion(context.Background(), unitName, workloadVersion)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *unitServiceSuite) TestSetUnitWorkloadVersionError(c *tc.C) {
@@ -490,7 +489,7 @@ func (s *unitServiceSuite) TestSetUnitWorkloadVersionInvalidName(c *tc.C) {
 	workloadVersion := "v1.0.0"
 
 	err := s.service.SetUnitWorkloadVersion(context.Background(), unitName, workloadVersion)
-	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
+	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
 }
 
 func (s *unitServiceSuite) TestGetUnitWorkloadVersion(c *tc.C) {
@@ -502,7 +501,7 @@ func (s *unitServiceSuite) TestGetUnitWorkloadVersion(c *tc.C) {
 	s.state.EXPECT().GetUnitWorkloadVersion(gomock.Any(), unitName).Return(workloadVersion, nil)
 
 	version, err := s.service.GetUnitWorkloadVersion(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(version, tc.Equals, workloadVersion)
 }
 
@@ -525,9 +524,9 @@ func (s *unitServiceSuite) TestGetUnitPrincipal(c *tc.C) {
 	s.state.EXPECT().GetUnitPrincipal(gomock.Any(), unitName).Return(principalUnitName, true, nil)
 
 	u, ok, err := s.service.GetUnitPrincipal(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(u, tc.Equals, principalUnitName)
-	c.Check(ok, jc.IsTrue)
+	c.Check(ok, tc.IsTrue)
 }
 
 func (s *unitServiceSuite) TestGetUnitPrincipalError(c *tc.C) {
@@ -538,7 +537,7 @@ func (s *unitServiceSuite) TestGetUnitPrincipalError(c *tc.C) {
 	s.state.EXPECT().GetUnitPrincipal(gomock.Any(), unitName).Return("", false, boom)
 
 	_, _, err := s.service.GetUnitPrincipal(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIs, boom)
+	c.Assert(err, tc.ErrorIs, boom)
 }
 
 func (s *unitServiceSuite) TestGetUnitMachineName(c *tc.C) {
@@ -548,7 +547,7 @@ func (s *unitServiceSuite) TestGetUnitMachineName(c *tc.C) {
 	s.state.EXPECT().GetUnitMachineName(gomock.Any(), unitName).Return("0", nil)
 
 	name, err := s.service.GetUnitMachineName(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(name, tc.Equals, machine.Name("0"))
 }
 
@@ -560,7 +559,7 @@ func (s *unitServiceSuite) TestGetUnitMachineNameError(c *tc.C) {
 	s.state.EXPECT().GetUnitMachineName(gomock.Any(), unitName).Return("", boom)
 
 	_, err := s.service.GetUnitMachineName(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIs, boom)
+	c.Assert(err, tc.ErrorIs, boom)
 }
 
 func (s *unitServiceSuite) TestGetUnitMachineUUID(c *tc.C) {
@@ -570,7 +569,7 @@ func (s *unitServiceSuite) TestGetUnitMachineUUID(c *tc.C) {
 	s.state.EXPECT().GetUnitMachineUUID(gomock.Any(), unitName).Return("fake-uuid", nil)
 
 	uuid, err := s.service.GetUnitMachineUUID(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(uuid, tc.Equals, machine.UUID("fake-uuid"))
 }
 
@@ -582,7 +581,7 @@ func (s *unitServiceSuite) TestGetUnitMachineUUIDError(c *tc.C) {
 	s.state.EXPECT().GetUnitMachineUUID(gomock.Any(), unitName).Return("", boom)
 
 	_, err := s.service.GetUnitMachineUUID(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIs, boom)
+	c.Assert(err, tc.ErrorIs, boom)
 }
 
 func (s *unitServiceSuite) TestGetPublicAddressUnitNotFound(c *tc.C) {
@@ -698,7 +697,7 @@ func (s *unitServiceSuite) TestGetPublicAddressMatchingAddress(c *tc.C) {
 	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo")).Return(matchingScopeAddrs, nil)
 
 	addr, err := s.service.GetUnitPublicAddress(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Since the second address is higher in hierarchy of scope match, it should
 	// be returned.
 	c.Check(addr, tc.DeepEquals, matchingScopeAddrs[1])
@@ -746,7 +745,7 @@ func (s *unitServiceSuite) TestGetPublicAddressMatchingAddressSameOrigin(c *tc.C
 	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo")).Return(matchingScopeAddrs, nil)
 
 	addr, err := s.service.GetUnitPublicAddress(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Since the second address is higher in hierarchy of scope match, it should
 	// be returned.
 	c.Check(addr, tc.DeepEquals, matchingScopeAddrs[1])
@@ -794,7 +793,7 @@ func (s *unitServiceSuite) TestGetPublicAddressMatchingAddressOneProviderOnly(c 
 	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo")).Return(matchingScopeAddrs, nil)
 
 	addr, err := s.service.GetUnitPublicAddress(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Since the second address is higher in hierarchy of scope match, it should
 	// be returned.
 	c.Check(addr, tc.DeepEquals, matchingScopeAddrs[2])
@@ -842,7 +841,7 @@ func (s *unitServiceSuite) TestGetPublicAddressMatchingAddressOneProviderOtherUn
 	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo")).Return(matchingScopeAddrs, nil)
 
 	addr, err := s.service.GetUnitPublicAddress(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Since the second address is higher in hierarchy of scope match, it should
 	// be returned.
 	c.Check(addr, tc.DeepEquals, matchingScopeAddrs[2])
@@ -919,7 +918,7 @@ func (s *unitServiceSuite) TestGetPrivateAddressNonMatchingAddresses(c *tc.C) {
 	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo-uuid")).Return(nonMatchingScopeAddrs, nil)
 
 	addr, err := s.service.GetUnitPrivateAddress(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// We always return the (first) container address even if it doesn't match
 	// the scope.
 	c.Assert(addr, tc.DeepEquals, nonMatchingScopeAddrs[0])
@@ -964,7 +963,7 @@ func (s *unitServiceSuite) TestGetPrivateAddressMatchingAddress(c *tc.C) {
 	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo-uuid")).Return(matchingScopeAddrs, nil)
 
 	addrs, err := s.service.GetUnitPrivateAddress(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Since the second address is higher in hierarchy of scope match, it should
 	// be returned.
 	c.Check(addrs, tc.DeepEquals, matchingScopeAddrs[1])

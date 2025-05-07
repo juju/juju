@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	actionapi "github.com/juju/juju/api/client/action"
 	"github.com/juju/juju/cmd/juju/action"
@@ -70,7 +69,7 @@ func (s *ListOperationsSuite) TestInit(c *tc.C) {
 			args := append([]string{modelFlag, "admin"}, t.args...)
 			err := cmdtesting.InitCommand(s.wrappedCommand, args)
 			if t.expectedErr == "" {
-				c.Check(err, jc.ErrorIsNil)
+				c.Check(err, tc.ErrorIsNil)
 			} else {
 				c.Check(err, tc.ErrorMatches, t.expectedErr)
 			}
@@ -96,8 +95,8 @@ func (s *ListOperationsSuite) TestRunQueryArgs(c *tc.C) {
 		args = append([]string{modelFlag, "admin", "--utc"}, args...)
 
 		_, err := cmdtesting.RunCommand(c, s.wrappedCommand, args...)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(fakeClient.operationQueryArgs, jc.DeepEquals, actionapi.OperationQueryArgs{
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(fakeClient.operationQueryArgs, tc.DeepEquals, actionapi.OperationQueryArgs{
 			Applications: []string{"mysql", "mediawiki"},
 			Units:        []string{"mysql/1", "mediawiki/0"},
 			Machines:     []string{"0", "1"},
@@ -169,7 +168,7 @@ func (s *ListOperationsSuite) TestRunNoResults(c *tc.C) {
 	for _, modelFlag := range s.modelFlags {
 		s.wrappedCommand, s.command = action.NewListOperationsCommandForTest(s.store)
 		ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, modelFlag, "admin")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(ctx.Stdout.(*bytes.Buffer).String(), tc.Equals, "")
 		c.Check(ctx.Stderr.(*bytes.Buffer).String(), tc.Equals, "no matching operations\n")
 	}
@@ -186,7 +185,7 @@ func (s *ListOperationsSuite) TestRunPlain(c *tc.C) {
 	for _, modelFlag := range s.modelFlags {
 		s.wrappedCommand, s.command = action.NewListOperationsCommandForTest(s.store)
 		ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, modelFlag, "admin", "--utc")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		expected := `
 ID  Status   Started  Finished             Task IDs  Summary
  1  error                                  2         operation 1
@@ -210,7 +209,7 @@ func (s *ListOperationsSuite) TestRunPlainTruncated(c *tc.C) {
 	for _, modelFlag := range s.modelFlags {
 		s.wrappedCommand, s.command = action.NewListOperationsCommandForTest(s.store)
 		ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, modelFlag, "admin", "--utc", "--offset=12", "--limit=4")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		expected := `
 Displaying operation results 13 to 16.
 Run the command again with --offset=16 --limit=4 to see the next batch.
@@ -280,7 +279,7 @@ func (s *ListOperationsSuite) TestRunPlainManyTasks(c *tc.C) {
 	for _, modelFlag := range s.modelFlags {
 		s.wrappedCommand, s.command = action.NewListOperationsCommandForTest(s.store)
 		ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, modelFlag, "admin", "--utc")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		expected := `
 ID  Status     Started              Finished  Task IDs      Summary
  1  completed  2015-02-14T06:06:06            2,3,4,5,6...  operation 1
@@ -300,7 +299,7 @@ func (s *ListOperationsSuite) TestRunYaml(c *tc.C) {
 	for _, modelFlag := range s.modelFlags {
 		s.wrappedCommand, s.command = action.NewListOperationsCommandForTest(s.store)
 		ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, modelFlag, "admin", "--format", "yaml", "--utc")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		expected := `
 "1":
   summary: operation 1

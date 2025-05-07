@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/agent"
@@ -57,8 +56,8 @@ func (s *MachineManifoldSuite) TestMachine(c *tc.C) {
 		storageprovisioner.MachineManifold(s.config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
 		&fakeAPIConn{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.newCalled, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.newCalled, tc.IsTrue)
 }
 
 func (s *MachineManifoldSuite) TestMissingClock(c *tc.C) {
@@ -67,9 +66,9 @@ func (s *MachineManifoldSuite) TestMissingClock(c *tc.C) {
 		storageprovisioner.MachineManifold(s.config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
 		&fakeAPIConn{})
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), tc.Equals, "missing Clock not valid")
-	c.Assert(s.newCalled, jc.IsFalse)
+	c.Assert(s.newCalled, tc.IsFalse)
 }
 
 func (s *MachineManifoldSuite) TestMissingLogger(c *tc.C) {
@@ -78,9 +77,9 @@ func (s *MachineManifoldSuite) TestMissingLogger(c *tc.C) {
 		storageprovisioner.MachineManifold(s.config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
 		&fakeAPIConn{})
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), tc.Equals, "missing Logger not valid")
-	c.Assert(s.newCalled, jc.IsFalse)
+	c.Assert(s.newCalled, tc.IsFalse)
 }
 
 func (s *MachineManifoldSuite) TestNonAgent(c *tc.C) {
@@ -89,7 +88,7 @@ func (s *MachineManifoldSuite) TestNonAgent(c *tc.C) {
 		&fakeAgent{tag: names.NewUserTag("foo")},
 		&fakeAPIConn{})
 	c.Assert(err, tc.ErrorMatches, "this manifold may only be used inside a machine agent")
-	c.Assert(s.newCalled, jc.IsFalse)
+	c.Assert(s.newCalled, tc.IsFalse)
 }
 
 type fakeAgent struct {

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/base"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -73,7 +72,7 @@ func (s *UserAddCommandSuite) TestInit(c *tc.C) {
 		wrappedCommand, command := user.NewAddCommandForTest(s.mockAPI, s.store, &mockModelAPI{})
 		err := cmdtesting.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			c.Check(command.User, tc.Equals, test.user)
 			c.Check(command.DisplayName, tc.Equals, test.displayname)
 		} else {
@@ -84,7 +83,7 @@ func (s *UserAddCommandSuite) TestInit(c *tc.C) {
 
 func (s *UserAddCommandSuite) TestAddUserWithUsername(c *tc.C) {
 	context, err := s.run(c, "foobar")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.mockAPI.username, tc.Equals, "foobar")
 	c.Assert(s.mockAPI.displayname, tc.Equals, "")
 	expected := `
@@ -100,7 +99,7 @@ Please send this command to foobar:
 
 func (s *UserAddCommandSuite) TestAddUserWithUsernameAndDisplayname(c *tc.C) {
 	context, err := s.run(c, "foobar", "Foo Bar")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.mockAPI.username, tc.Equals, "foobar")
 	c.Assert(s.mockAPI.displayname, tc.Equals, "Foo Bar")
 	expected := `
@@ -119,7 +118,7 @@ func (s *UserAddCommandSuite) TestUserRegistrationString(c *tc.C) {
 	for i := 0; i < 3; i++ {
 		s.mockAPI.secretKey = []byte(strings.Repeat("X", 32+i))
 		context, err := s.run(c, "foobar", "Foo Bar")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		lines := strings.Split(cmdtesting.Stdout(context), "\n")
 		c.Assert(lines, tc.HasLen, 6)
 		c.Assert(lines[2], tc.Matches, `^\s+juju register [A-Za-z0-9]+$`)

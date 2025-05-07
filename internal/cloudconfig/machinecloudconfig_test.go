@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	corebase "github.com/juju/juju/core/base"
 	coreos "github.com/juju/juju/core/os"
@@ -95,7 +94,7 @@ func (s *fromHostSuite) TestGetMachineCloudInitDataVerifySeries(c *tc.C) {
 
 func (s *fromHostSuite) TestMissingVendorDataFile(c *tc.C) {
 	dir := c.MkDir()
-	c.Assert(os.RemoveAll(dir), jc.ErrorIsNil)
+	c.Assert(os.RemoveAll(dir), tc.ErrorIsNil)
 	s.tempCloudInitDir = dir
 
 	obtained, err := s.newMachineInitReader(corebase.MakeDefaultBase("ubuntu", "22.04")).GetInitConfig()
@@ -105,7 +104,7 @@ func (s *fromHostSuite) TestMissingVendorDataFile(c *tc.C) {
 
 func (s *fromHostSuite) TestGetMachineCloudCfgDirDataReadDirFailed(c *tc.C) {
 	dir := c.MkDir()
-	c.Assert(os.RemoveAll(dir), jc.ErrorIsNil)
+	c.Assert(os.RemoveAll(dir), tc.ErrorIsNil)
 	s.tempCloudCfgDir = dir
 
 	obtained, err := s.newMachineInitReader(corebase.MakeDefaultBase("ubuntu", "22.04")).GetInitConfig()
@@ -200,7 +199,7 @@ func (s *fromHostSuite) newMachineInitReader(base corebase.Base) cloudconfig.Ini
 }
 
 func seedData(c *tc.C, dir, name, data string) {
-	c.Assert(os.WriteFile(path.Join(dir, name), []byte(data), 0644), jc.ErrorIsNil)
+	c.Assert(os.WriteFile(path.Join(dir, name), []byte(data), 0644), tc.ErrorIsNil)
 }
 
 var dpkgLocalCloudConfig = `

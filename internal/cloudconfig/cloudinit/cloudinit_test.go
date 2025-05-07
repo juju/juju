@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	sshtesting "github.com/juju/utils/v4/ssh/testing"
 	"go.uber.org/mock/gomock"
 	"golang.org/x/crypto/ssh"
@@ -502,23 +501,23 @@ func (S) TestOutput(c *tc.C) {
 	for i, t := range ctests {
 		c.Logf("test %d: %s", i, t.name)
 		cfg, err := cloudinit.New("ubuntu")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = t.setOption(cfg)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		data, err := cfg.RenderYAML()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(data, tc.NotNil)
-		c.Assert(string(data), jc.YAMLEquals, t.expect)
+		c.Assert(string(data), tc.YAMLEquals, t.expect)
 		data, err = cfg.RenderYAML()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(data, tc.NotNil)
-		c.Assert(string(data), jc.YAMLEquals, t.expect)
+		c.Assert(string(data), tc.YAMLEquals, t.expect)
 	}
 }
 
 func (S) TestRunCmds(c *tc.C) {
 	cfg, err := cloudinit.New("ubuntu")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.RunCmds(), tc.HasLen, 0)
 	cfg.AddScripts("a", "b")
 	cfg.AddRunCmd("e")
@@ -529,7 +528,7 @@ func (S) TestRunCmds(c *tc.C) {
 
 func (S) TestPackages(c *tc.C) {
 	cfg, err := cloudinit.New("ubuntu")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.Packages(), tc.HasLen, 0)
 	cfg.AddPackage("a b c")
 	cfg.AddPackage("d!")
@@ -557,7 +556,7 @@ func (S) TestSetOutput(c *tc.C) {
 	}
 
 	cfg, err := cloudinit.New("ubuntu")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	stdout, stderr := cfg.Output(cloudinit.OutAll)
 	c.Assert(stdout, tc.Equals, "")
 	c.Assert(stderr, tc.Equals, "")
@@ -578,7 +577,7 @@ func (S) TestFileTransporter(c *tc.C) {
 	ft.EXPECT().SendBytes("/dev/nonsense", []byte{0, 1, 2, 3}).Return("/tmp/dev-nonsense")
 
 	cfg, err := cloudinit.New("ubuntu")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cfg.SetFileTransporter(ft)
 
 	cfg.AddRunBinaryFile(
@@ -588,11 +587,11 @@ func (S) TestFileTransporter(c *tc.C) {
 	)
 
 	out, err := cfg.RenderYAML()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	unmarshalled := map[string]any{}
 	err = yaml.Unmarshal(out, unmarshalled)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(unmarshalled, tc.DeepEquals, map[string]any{
 		"runcmd": []any{

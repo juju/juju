@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	sshtesting "github.com/juju/utils/v4/ssh/testing"
 
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -42,7 +41,7 @@ func (s *ListKeysSuite) TestListKeys(c *tc.C) {
 		c.Assert(objType, tc.Equals, "KeyManager")
 		c.Assert(id, tc.Equals, "")
 		c.Assert(request, tc.Equals, "ListKeys")
-		c.Assert(arg, jc.DeepEquals, params.ListSSHKeys{
+		c.Assert(arg, tc.DeepEquals, params.ListSSHKeys{
 			Mode:     params.SSHListModeFingerprint,
 			Entities: params.Entities{Entities: []params.Entity{{Tag: "admin"}}},
 		})
@@ -58,9 +57,9 @@ func (s *ListKeysSuite) TestListKeys(c *tc.C) {
 	keysCmd := &listKeysCommand{SSHKeysBase: SSHKeysBase{apiRoot: apiCaller}}
 	keysCmd.SetClientStore(jujuclienttesting.MinimalStore())
 	context, err := cmdtesting.RunCommand(c, modelcmd.Wrap(keysCmd))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(output, tc.Matches, "Keys used in model: king/sword\n.*\\(user@host\\)\n.*\\(another@host\\)")
 }
 
@@ -71,7 +70,7 @@ func (s *ListKeysSuite) TestListKeysWithModelUUID(c *tc.C) {
 		c.Assert(objType, tc.Equals, "KeyManager")
 		c.Assert(id, tc.Equals, "")
 		c.Assert(request, tc.Equals, "ListKeys")
-		c.Assert(arg, jc.DeepEquals, params.ListSSHKeys{
+		c.Assert(arg, tc.DeepEquals, params.ListSSHKeys{
 			Mode:     params.SSHListModeFingerprint,
 			Entities: params.Entities{Entities: []params.Entity{{Tag: "admin"}}},
 		})
@@ -89,9 +88,9 @@ func (s *ListKeysSuite) TestListKeysWithModelUUID(c *tc.C) {
 	store.Models["arthur"].Models["queen/dagger"] = store.Models["arthur"].Models["king/sword"]
 	keysCmd.SetClientStore(store)
 	context, err := cmdtesting.RunCommand(c, modelcmd.Wrap(keysCmd), "-m", "queen/dagger")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(output, tc.Matches, "Keys used in model: queen/dagger\n.*\\(user@host\\)\n.*\\(another@host\\)")
 }
 
@@ -102,7 +101,7 @@ func (s *ListKeysSuite) TestListFullKeys(c *tc.C) {
 		c.Assert(objType, tc.Equals, "KeyManager")
 		c.Assert(id, tc.Equals, "")
 		c.Assert(request, tc.Equals, "ListKeys")
-		c.Assert(arg, jc.DeepEquals, params.ListSSHKeys{
+		c.Assert(arg, tc.DeepEquals, params.ListSSHKeys{
 			Mode:     params.SSHListModeFull,
 			Entities: params.Entities{Entities: []params.Entity{{Tag: "admin"}}},
 		})
@@ -118,9 +117,9 @@ func (s *ListKeysSuite) TestListFullKeys(c *tc.C) {
 	keysCmd := &listKeysCommand{SSHKeysBase: SSHKeysBase{apiRoot: apiCaller}}
 	keysCmd.SetClientStore(jujuclienttesting.MinimalStore())
 	context, err := cmdtesting.RunCommand(c, modelcmd.Wrap(keysCmd), "--full")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(output, tc.Matches, "Keys used in model: king/sword\n.*\\(user@host\\)\n.*\\(another@host\\)")
 }
 
@@ -145,7 +144,7 @@ func (s *AddKeySuite) TestAddKey(c *tc.C) {
 		c.Assert(objType, tc.Equals, "KeyManager")
 		c.Assert(id, tc.Equals, "")
 		c.Assert(request, tc.Equals, "AddKeys")
-		c.Assert(arg, jc.DeepEquals, params.ModifyUserSSHKeys{
+		c.Assert(arg, tc.DeepEquals, params.ModifyUserSSHKeys{
 			User: "admin",
 			Keys: []string{key1, key2},
 		})
@@ -160,8 +159,8 @@ func (s *AddKeySuite) TestAddKey(c *tc.C) {
 	keysCmd := &addKeysCommand{SSHKeysBase: SSHKeysBase{apiRoot: apiCaller}}
 	keysCmd.SetClientStore(jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(keysCmd), key1, key2)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(added, jc.DeepEquals, []string{key1, key2})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(added, tc.DeepEquals, []string{key1, key2})
 }
 
 func (s *AddKeySuite) TestBlockAddKey(c *tc.C) {
@@ -171,7 +170,7 @@ func (s *AddKeySuite) TestBlockAddKey(c *tc.C) {
 		c.Assert(objType, tc.Equals, "KeyManager")
 		c.Assert(id, tc.Equals, "")
 		c.Assert(request, tc.Equals, "AddKeys")
-		c.Assert(arg, jc.DeepEquals, params.ModifyUserSSHKeys{
+		c.Assert(arg, tc.DeepEquals, params.ModifyUserSSHKeys{
 			User: "admin",
 			Keys: []string{key1, key2},
 		})
@@ -186,7 +185,7 @@ func (s *AddKeySuite) TestBlockAddKey(c *tc.C) {
 	keysCmd.SetClientStore(jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(keysCmd), key1, key2)
 	c.Assert(err, tc.NotNil)
-	c.Assert(strings.Contains(err.Error(), "All operations that change model have been disabled for the current model"), jc.IsTrue)
+	c.Assert(strings.Contains(err.Error(), "All operations that change model have been disabled for the current model"), tc.IsTrue)
 }
 
 type RemoveKeySuite struct {
@@ -203,7 +202,7 @@ func (s *RemoveKeySuite) TestRemoveKeys(c *tc.C) {
 		c.Assert(objType, tc.Equals, "KeyManager")
 		c.Assert(id, tc.Equals, "")
 		c.Assert(request, tc.Equals, "DeleteKeys")
-		c.Assert(arg, jc.DeepEquals, params.ModifyUserSSHKeys{
+		c.Assert(arg, tc.DeepEquals, params.ModifyUserSSHKeys{
 			User: "admin",
 			Keys: []string{key1, key2},
 		})
@@ -218,8 +217,8 @@ func (s *RemoveKeySuite) TestRemoveKeys(c *tc.C) {
 	keysCmd := &removeKeysCommand{SSHKeysBase: SSHKeysBase{apiRoot: apiCaller}}
 	keysCmd.SetClientStore(jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(keysCmd), key1, key2)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(removed, jc.DeepEquals, []string{key1, key2})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(removed, tc.DeepEquals, []string{key1, key2})
 }
 
 func (s *RemoveKeySuite) TestBlockRemoveKeys(c *tc.C) {
@@ -229,7 +228,7 @@ func (s *RemoveKeySuite) TestBlockRemoveKeys(c *tc.C) {
 		c.Assert(objType, tc.Equals, "KeyManager")
 		c.Assert(id, tc.Equals, "")
 		c.Assert(request, tc.Equals, "DeleteKeys")
-		c.Assert(arg, jc.DeepEquals, params.ModifyUserSSHKeys{
+		c.Assert(arg, tc.DeepEquals, params.ModifyUserSSHKeys{
 			User: "admin",
 			Keys: []string{key1, key2},
 		})
@@ -244,7 +243,7 @@ func (s *RemoveKeySuite) TestBlockRemoveKeys(c *tc.C) {
 	keysCmd.SetClientStore(jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(keysCmd), key1, key2)
 	c.Assert(err, tc.NotNil)
-	c.Assert(strings.Contains(err.Error(), "All operations that change model have been disabled for the current model"), jc.IsTrue)
+	c.Assert(strings.Contains(err.Error(), "All operations that change model have been disabled for the current model"), tc.IsTrue)
 }
 
 type ImportKeySuite struct {
@@ -261,7 +260,7 @@ func (s *ImportKeySuite) TestImportKeys(c *tc.C) {
 		c.Assert(objType, tc.Equals, "KeyManager")
 		c.Assert(id, tc.Equals, "")
 		c.Assert(request, tc.Equals, "ImportKeys")
-		c.Assert(arg, jc.DeepEquals, params.ModifyUserSSHKeys{
+		c.Assert(arg, tc.DeepEquals, params.ModifyUserSSHKeys{
 			User: "admin",
 			Keys: []string{key1, key2},
 		})
@@ -276,8 +275,8 @@ func (s *ImportKeySuite) TestImportKeys(c *tc.C) {
 	keysCmd := &importKeysCommand{SSHKeysBase: SSHKeysBase{apiRoot: apiCaller}}
 	keysCmd.SetClientStore(jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(keysCmd), key1, key2)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(imported, jc.DeepEquals, []string{key1, key2})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(imported, tc.DeepEquals, []string{key1, key2})
 }
 
 func (s *ImportKeySuite) TestBlockImportKeys(c *tc.C) {
@@ -287,7 +286,7 @@ func (s *ImportKeySuite) TestBlockImportKeys(c *tc.C) {
 		c.Assert(objType, tc.Equals, "KeyManager")
 		c.Assert(id, tc.Equals, "")
 		c.Assert(request, tc.Equals, "ImportKeys")
-		c.Assert(arg, jc.DeepEquals, params.ModifyUserSSHKeys{
+		c.Assert(arg, tc.DeepEquals, params.ModifyUserSSHKeys{
 			User: "admin",
 			Keys: []string{key1, key2},
 		})
@@ -302,5 +301,5 @@ func (s *ImportKeySuite) TestBlockImportKeys(c *tc.C) {
 	keysCmd.SetClientStore(jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(keysCmd), key1, key2)
 	c.Assert(err, tc.NotNil)
-	c.Assert(strings.Contains(err.Error(), "All operations that change model have been disabled for the current model"), jc.IsTrue)
+	c.Assert(strings.Contains(err.Error(), "All operations that change model have been disabled for the current model"), tc.IsTrue)
 }

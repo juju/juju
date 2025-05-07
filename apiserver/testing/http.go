@@ -8,7 +8,6 @@ import (
 	"net/http"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/testing/httptesting"
 
 	jujuversion "github.com/juju/juju/core/version"
@@ -99,7 +98,7 @@ func SendHTTPRequest(c *tc.C, p HTTPRequestParams) *http.Response {
 func AssertResponse(c *tc.C, resp *http.Response, expHTTPStatus int, expContentType string) []byte {
 	body, err := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(resp.StatusCode, tc.Equals, expHTTPStatus, tc.Commentf("body: %s", body))
 	ctype := resp.Header.Get("Content-Type")
 	c.Assert(ctype, tc.Equals, expContentType)

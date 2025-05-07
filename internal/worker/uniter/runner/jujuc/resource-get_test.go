@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/cmd"
@@ -49,7 +48,7 @@ func (s *ResourceGetCmdSuite) TestRun(c *tc.C) {
 	hctx.EXPECT().DownloadResource(gomock.Any(), "spam").Return(expected, nil)
 
 	com, err := jujuc.NewCommand(hctx, "resource-get")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"spam"})
 	c.Assert(code, tc.Equals, 0)
@@ -65,7 +64,7 @@ func (s *ResourceGetCmdSuite) TestRunDownloadFailure(c *tc.C) {
 	hctx.EXPECT().DownloadResource(gomock.Any(), "spam").Return("", errors.New("<failure>"))
 
 	com, err := jujuc.NewCommand(hctx, "resource-get")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"spam"})
 	c.Assert(code, tc.Equals, 1)

@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/internal/testing"
@@ -46,9 +45,9 @@ func (s *personalCloudSuite) TestWritePersonalClouds(c *tc.C) {
 		},
 	}
 	err := cloud.WritePersonalCloudMetadata(clouds)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	data, err := os.ReadFile(osenv.JujuXDGDataHomePath("clouds.yaml"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(data), tc.Equals, `
 clouds:
   azurestack:
@@ -73,14 +72,14 @@ clouds:
 
 func (s *personalCloudSuite) TestReadPersonalCloudsNone(c *tc.C) {
 	clouds, err := cloud.PersonalCloudMetadata()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(clouds, tc.IsNil)
 }
 
 func (s *personalCloudSuite) TestReadPersonalClouds(c *tc.C) {
 	s.setupReadClouds(c, osenv.JujuXDGDataHomePath("clouds.yaml"))
 	clouds, err := cloud.PersonalCloudMetadata()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertPersonalClouds(c, clouds)
 }
 
@@ -88,12 +87,12 @@ func (s *personalCloudSuite) TestReadUserSpecifiedClouds(c *tc.C) {
 	file := osenv.JujuXDGDataHomePath("somemoreclouds.yaml")
 	s.setupReadClouds(c, file)
 	clouds, err := cloud.ParseCloudMetadataFile(file)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertPersonalClouds(c, clouds)
 }
 
 func (s *personalCloudSuite) assertPersonalClouds(c *tc.C, clouds map[string]cloud.Cloud) {
-	c.Assert(clouds, jc.DeepEquals, map[string]cloud.Cloud{
+	c.Assert(clouds, tc.DeepEquals, map[string]cloud.Cloud{
 		"homestack": {
 			Name:        "homestack",
 			Type:        "openstack",
@@ -143,5 +142,5 @@ clouds:
         endpoint: http://azurestack.local
 `[1:]
 	err := os.WriteFile(destPath, []byte(data), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

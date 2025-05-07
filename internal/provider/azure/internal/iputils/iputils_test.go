@@ -8,7 +8,6 @@ import (
 	"net"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/provider/azure/internal/iputils"
 	"github.com/juju/juju/internal/testing"
@@ -61,7 +60,7 @@ func assertNextSubnetIP(c *tc.C, ipnetString string, inuseStrings []string, expe
 	ipnet := parseIPNet(c, ipnetString)
 	inuse := parseIPs(c, inuseStrings...)
 	next, err := iputils.NextSubnetIP(ipnet, inuse)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(next.String(), tc.Equals, expectedString)
 }
 
@@ -95,6 +94,6 @@ func parseIPs(c *tc.C, ipStrings ...string) []net.IP {
 
 func parseIPNet(c *tc.C, cidr string) *net.IPNet {
 	_, ipnet, err := net.ParseCIDR(cidr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return ipnet
 }

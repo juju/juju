@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	corecharm "github.com/juju/juju/core/charm"
@@ -56,7 +55,7 @@ func (s *serviceSuite) SetUpTest(c *tc.C) {
 		`, s.modelUUID, coretesting.ControllerTag.Id())
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestDeleteSecretInternal(c *tc.C) {
@@ -72,10 +71,10 @@ func (s *serviceSuite) TestDeleteSecretInternal(c *tc.C) {
 		},
 		Revisions: []int{1},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.svc.GetSecret(context.Background(), uri)
-	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
+	c.Assert(err, tc.ErrorIs, secreterrors.SecretNotFound)
 }
 
 func (s *serviceSuite) TestDeleteSecretExternal(c *tc.C) {
@@ -95,10 +94,10 @@ func (s *serviceSuite) TestDeleteSecretExternal(c *tc.C) {
 		},
 		Revisions: []int{1},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.svc.GetSecret(context.Background(), uri)
-	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
+	c.Assert(err, tc.ErrorIs, secreterrors.SecretNotFound)
 }
 
 func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
@@ -156,7 +155,7 @@ func (s *serviceSuite) createSecret(c *tc.C, data map[string]string, valueRef *c
 	}, applicationservice.AddApplicationArgs{
 		ReferenceName: "mariadb",
 	}, u)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	uri := coresecrets.NewURI()
 	err = s.svc.CreateCharmSecret(ctx, uri, service.CreateCharmSecretParams{
@@ -170,7 +169,7 @@ func (s *serviceSuite) createSecret(c *tc.C, data map[string]string, valueRef *c
 			ID:   "mariadb/0",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return uri
 }
 

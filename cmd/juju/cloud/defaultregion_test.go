@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
@@ -58,7 +57,7 @@ func (s *defaultRegionSuite) assertSetCustomDefaultRegion(c *tc.C, cmd cmd.Comma
 		c.Assert(store.Credentials[cloud].DefaultRegion, tc.Equals, "")
 		return
 	}
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(output, tc.Equals, fmt.Sprintf(`Default region in %s set to %q.`, cloud, desiredDefault))
 	c.Assert(store.Credentials[cloud].DefaultRegion, tc.Equals, desiredDefault)
 }
@@ -105,7 +104,7 @@ func (s *defaultRegionSuite) TestCaseInsensitiveRegionSpecification(c *tc.C) {
 
 	command := cloud.NewSetDefaultRegionCommandForTest(store)
 	_, err := cmdtesting.RunCommand(c, command, "aws", "us-WEST-1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(store.Credentials["aws"].DefaultRegion, tc.Equals, "us-west-1")
 }
 
@@ -117,7 +116,7 @@ func (s *defaultRegionSuite) TestReadDefaultRegion(c *tc.C) {
 	}
 	command := cloud.NewSetDefaultRegionCommandForTest(store)
 	ctx, err := cmdtesting.RunCommand(c, command, cloudName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	output := cmdtesting.Stderr(ctx)
 	output = strings.Replace(output, "\n", "", -1)
 	c.Assert(output, tc.Equals, fmt.Sprintf(`Default region for cloud %q is "us-east-1" on this client.`, cloudName))
@@ -129,7 +128,7 @@ func (s *defaultRegionSuite) TestReadDefaultRegionNoneSet(c *tc.C) {
 	store.Credentials[cloudName] = jujucloud.CloudCredential{}
 	command := cloud.NewSetDefaultRegionCommandForTest(store)
 	ctx, err := cmdtesting.RunCommand(c, command, cloudName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	output := cmdtesting.Stderr(ctx)
 	output = strings.Replace(output, "\n", "", -1)
 	c.Assert(output, tc.Equals, fmt.Sprintf(`Default region for cloud %q is not set on this client.`, cloudName))
@@ -143,7 +142,7 @@ func (s *defaultRegionSuite) TestResetDefaultRegion(c *tc.C) {
 	}
 	command := cloud.NewSetDefaultRegionCommandForTest(store)
 	ctx, err := cmdtesting.RunCommand(c, command, cloudName, "--reset")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	output := cmdtesting.Stderr(ctx)
 	output = strings.Replace(output, "\n", "", -1)
 	c.Assert(output, tc.Equals, fmt.Sprintf(`Default region for cloud %q is no longer set on this client.`, cloudName))

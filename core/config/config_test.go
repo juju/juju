@@ -7,7 +7,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/schema"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/internal/configschema"
@@ -62,13 +61,13 @@ func (s *ConfigSuite) assertNewConfig(c *tc.C) *config.Config {
 	cfg, err := config.NewConfig(
 		map[string]interface{}{"field2": "field 2 value", "field4": true, "field5": map[string]interface{}{"a": "b"}},
 		testFields, testDefaults)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return cfg
 }
 
 func (s *ConfigSuite) TestAttributes(c *tc.C) {
 	cfg := s.assertNewConfig(c)
-	c.Assert(cfg.Attributes(), jc.DeepEquals, config.ConfigAttributes{
+	c.Assert(cfg.Attributes(), tc.DeepEquals, config.ConfigAttributes{
 		"field1": "field 1 default",
 		"field2": "field 2 value",
 		"field3": 42,
@@ -115,11 +114,11 @@ func (s *ConfigSuite) TestGetStringMap(c *tc.C) {
 	cfg := s.assertNewConfig(c)
 	expected := map[string]string{"a": "b"}
 	val, err := cfg.Attributes().GetStringMap("field5", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(val, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(val, tc.DeepEquals, expected)
 	val, err = cfg.Attributes().GetStringMap("missing", expected)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(val, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(val, tc.DeepEquals, expected)
 }
 
 func (s *ConfigSuite) TestInvalidStringMap(c *tc.C) {

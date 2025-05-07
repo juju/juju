@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
@@ -42,7 +41,7 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *ManifoldSuite) TestInputs(c *tc.C) {
-	c.Check(s.manifold.Inputs, jc.DeepEquals, []string{"agent-name", "api-caller-name"})
+	c.Check(s.manifold.Inputs, tc.DeepEquals, []string{"agent-name", "api-caller-name"})
 }
 
 func (s *ManifoldSuite) TestStartClockMissing(c *tc.C) {
@@ -51,7 +50,7 @@ func (s *ManifoldSuite) TestStartClockMissing(c *tc.C) {
 	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(err.Error(), tc.Equals, "missing Clock not valid")
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 }
 
 func (s *ManifoldSuite) TestStartAgentMissing(c *tc.C) {
@@ -111,7 +110,7 @@ func (s *ManifoldSuite) TestStartSuccess(c *tc.C) {
 	})
 
 	worker, err := s.manifold.Start(context.Background(), getter)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(worker, tc.Equals, dummyWorker)
 	s.CheckCalls(c, []testing.StubCall{{
 		FuncName: "newManifoldWorker",
@@ -137,7 +136,7 @@ func (s *ManifoldSuite) TestOutputSuccess(c *tc.C) {
 	source := &leadership.Tracker{}
 	var target coreleadership.Tracker
 	err := s.manifold.Output(source, &target)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(target, tc.Equals, source)
 }
 

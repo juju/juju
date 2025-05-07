@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/base/testing"
@@ -52,8 +51,8 @@ func (s *storageSuite) TestUnitStorageAttachments(c *tc.C) {
 	caller := testing.BestVersionCaller{apiCaller, 2}
 	client := uniter.NewClient(caller, names.NewUnitTag("mysql/0"))
 	attachmentIds, err := client.UnitStorageAttachments(context.Background(), names.NewUnitTag("mysql/0"))
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(called, jc.IsTrue)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(called, tc.IsTrue)
 	c.Assert(attachmentIds, tc.DeepEquals, storageAttachmentIds)
 }
 
@@ -78,8 +77,8 @@ func (s *storageSuite) TestDestroyUnitStorageAttachments(c *tc.C) {
 	caller := testing.BestVersionCaller{apiCaller, 2}
 	client := uniter.NewClient(caller, names.NewUnitTag("mysql/0"))
 	err := client.DestroyUnitStorageAttachments(context.Background(), names.NewUnitTag("mysql/0"))
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(called, jc.IsTrue)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(called, tc.IsTrue)
 }
 
 func (s *storageSuite) TestStorageAttachmentResultCountMismatch(c *tc.C) {
@@ -129,7 +128,7 @@ func (s *storageSuite) TestWatchUnitStorageAttachments(c *tc.C) {
 	client := uniter.NewClient(caller, names.NewUnitTag("mysql/0"))
 	_, err := client.WatchUnitStorageAttachments(context.Background(), names.NewUnitTag("mysql/0"))
 	c.Check(err, tc.ErrorMatches, "FAIL")
-	c.Check(called, jc.IsTrue)
+	c.Check(called, tc.IsTrue)
 }
 
 func (s *storageSuite) TestWatchStorageAttachments(c *tc.C) {
@@ -159,7 +158,7 @@ func (s *storageSuite) TestWatchStorageAttachments(c *tc.C) {
 	client := uniter.NewClient(caller, names.NewUnitTag("mysql/0"))
 	_, err := client.WatchStorageAttachment(context.Background(), names.NewStorageTag("data/0"), names.NewUnitTag("mysql/0"))
 	c.Check(err, tc.ErrorMatches, "FAIL")
-	c.Check(called, jc.IsTrue)
+	c.Check(called, tc.IsTrue)
 }
 
 func (s *storageSuite) TestStorageAttachments(c *tc.C) {
@@ -196,8 +195,8 @@ func (s *storageSuite) TestStorageAttachments(c *tc.C) {
 	caller := testing.BestVersionCaller{apiCaller, 2}
 	client := uniter.NewClient(caller, names.NewUnitTag("mysql/0"))
 	attachment, err := client.StorageAttachment(context.Background(), names.NewStorageTag("data/0"), names.NewUnitTag("mysql/0"))
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(called, jc.IsTrue)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(called, tc.IsTrue)
 	c.Assert(attachment, tc.DeepEquals, storageAttachment)
 }
 
@@ -228,8 +227,8 @@ func (s *storageSuite) TestStorageAttachmentLife(c *tc.C) {
 		StorageTag: "storage-data-0",
 		UnitTag:    "unit-mysql-0",
 	}})
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []params.LifeResult{{Life: life.Dying}})
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, []params.LifeResult{{Life: life.Dying}})
 }
 
 func (s *storageSuite) TestRemoveStorageAttachment(c *tc.C) {

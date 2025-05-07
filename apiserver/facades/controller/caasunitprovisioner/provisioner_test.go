@@ -11,7 +11,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
@@ -80,7 +79,7 @@ func (s *CAASProvisionerSuite) setUpFacade(c *tc.C) *gomock.Controller {
 	var err error
 	facade, err := caasunitprovisioner.NewFacade(
 		s.watcherRegistry, s.resources, s.authorizer, nil, s.applicationService, s.st, s.clock, loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.facade = facade
 	return ctrl
 }
@@ -109,10 +108,10 @@ func (s *CAASProvisionerSuite) TestWatchApplicationsScale(c *tc.C) {
 			{Tag: "unit-gitlab-0"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 2)
 	c.Assert(results.Results[0].Error, tc.IsNil)
-	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
+	c.Assert(results.Results[1].Error, tc.DeepEquals, &params.Error{
 		Message: `"unit-gitlab-0" is not a valid application tag`,
 	})
 
@@ -130,10 +129,10 @@ func (s *CAASProvisionerSuite) TestWatchApplicationsConfigSetingsHash(c *tc.C) {
 			{Tag: "unit-gitlab-0"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 2)
 	c.Assert(results.Results[0].Error, tc.IsNil)
-	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
+	c.Assert(results.Results[1].Error, tc.DeepEquals, &params.Error{
 		Message: `"unit-gitlab-0" is not a valid application tag`,
 	})
 
@@ -153,8 +152,8 @@ func (s *CAASProvisionerSuite) TestApplicationScale(c *tc.C) {
 			{Tag: "unit-gitlab-0"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.IntResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.IntResults{
 		Results: []params.IntResult{{
 			Result: 5,
 		}, {

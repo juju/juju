@@ -12,7 +12,6 @@ import (
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 	gossh "golang.org/x/crypto/ssh"
 	"google.golang.org/grpc/test/bufconn"
@@ -136,7 +135,7 @@ func (s *machineSessionSuite) TestMachineSessionProxy(c *tc.C) {
 	defer testServer.listener.Close()
 
 	machineConn, err := testServer.listener.Dial()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	machineConn = &closeChecker{Conn: machineConn}
 	defer machineConn.Close()
 
@@ -158,7 +157,7 @@ func (s *machineSessionSuite) TestMachineSessionProxy(c *tc.C) {
 	}
 
 	err = sessionHandler.machineSessionProxy(s.userSession, virtualhostname.Info{})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(s.userSession.stdout.String(), tc.Equals, "Hello from the server!\r\n")
 	c.Check(s.userSession.stderr.String(), tc.Equals, "An error from the server!\n")
 	c.Check(string(testServer.serverRx), tc.Equals, "Hello from the client!\n")
@@ -179,7 +178,7 @@ func (s *machineSessionSuite) TestMachineCommandProxy(c *tc.C) {
 	defer testServer.listener.Close()
 
 	conn, err := testServer.listener.Dial()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.mockConnector.EXPECT().Connect(gomock.Any()).DoAndReturn(
 		func(destination virtualhostname.Info) (*gossh.Client, error) {
@@ -199,7 +198,7 @@ func (s *machineSessionSuite) TestMachineCommandProxy(c *tc.C) {
 	}
 
 	err = sessionHandler.machineSessionProxy(s.userSession, virtualhostname.Info{})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(s.userSession.stdout.String(), tc.Equals, "No PTY requested.\n")
 	c.Check(s.userSession.stderr.String(), tc.Equals, "An error from the server!\n")
 	c.Check(string(testServer.serverRx), tc.Equals, "neovim")

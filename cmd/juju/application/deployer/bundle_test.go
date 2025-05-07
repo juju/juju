@@ -5,7 +5,6 @@ package deployer
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/internal/charm"
@@ -493,7 +492,7 @@ func (s *bundleSuite) TestCheckExplicitBase(c *tc.C) {
 		if test.expectedError != "" {
 			c.Check(err, tc.ErrorMatches, test.expectedError)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		}
 	}
 }

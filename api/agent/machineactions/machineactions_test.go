@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/agent/machineactions"
 	apitesting "github.com/juju/juju/api/base/testing"
@@ -128,7 +127,7 @@ func (s *ClientSuite) TestActionBeginSuccess(c *tc.C) {
 
 	client := machineactions.NewClient(apiCaller)
 	err := client.ActionBegin(context.Background(), tag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	stub.CheckCalls(c, expectedCalls)
 }
 
@@ -238,7 +237,7 @@ func (s *ClientSuite) TestActionFinishSuccess(c *tc.C) {
 
 	client := machineactions.NewClient(apiCaller)
 	err := client.ActionFinish(context.Background(), tag, status, actionResults, message)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	stub.CheckCalls(c, expectedCalls)
 }
 
@@ -366,10 +365,10 @@ func (s *ClientSuite) TestGetActionSuccess(c *tc.C) {
 
 	client := machineactions.NewClient(apiCaller)
 	action, err := client.Action(context.Background(), tag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(action.Name(), tc.Equals, expectedName)
 	c.Assert(action.Params(), tc.DeepEquals, expectedParams)
-	c.Assert(action.Parallel(), jc.IsTrue)
+	c.Assert(action.Parallel(), tc.IsTrue)
 	c.Assert(action.ExecutionGroup(), tc.Equals, "group")
 	stub.CheckCalls(c, expectedCalls)
 }
@@ -482,8 +481,8 @@ func (s *ClientSuite) TestRunningActionSuccess(c *tc.C) {
 
 	client := machineactions.NewClient(apiCaller)
 	actions, err := client.RunningActions(context.Background(), tag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actions, jc.DeepEquals, actionsList)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(actions, tc.DeepEquals, actionsList)
 	stub.CheckCalls(c, expectedCalls)
 }
 

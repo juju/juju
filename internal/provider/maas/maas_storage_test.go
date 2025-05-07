@@ -11,7 +11,6 @@ import (
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 type maasStorageSuite struct {
@@ -32,7 +31,7 @@ func (s *maasStorageSuite) makeStorage(c *tc.C, controller gomaasapi.Controller)
 	env := s.makeEnviron(c, controller)
 	env.uuid = "prefix"
 	storage, ok := NewStorage(env).(*maasStorage)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	return storage
 }
 
@@ -57,7 +56,7 @@ func (s *maasStorageSuite) TestGetNotFound(c *tc.C) {
 		gomaasapi.NewNoMatchError("wee"),
 	))
 	_, err := storage.Get("grasshopper.avi")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *maasStorageSuite) TestGetSuccess(c *tc.C) {
@@ -66,10 +65,10 @@ func (s *maasStorageSuite) TestGetSuccess(c *tc.C) {
 	)
 	storage := s.makeStorage(c, controller)
 	reader, err := storage.Get("grasshopper.avi")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer reader.Close()
 	result, err := io.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, []byte("The man in the high castle"))
 	controller.Stub.CheckCall(c, 0, "GetFile", "prefix-grasshopper.avi")
 }
@@ -89,8 +88,8 @@ func (s *maasStorageSuite) TestListSuccess(c *tc.C) {
 	)
 	storage := s.makeStorage(c, controller)
 	result, err := storage.List("grasshopper")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, []string{"frank", "julianna"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []string{"frank", "julianna"})
 	controller.Stub.CheckCall(c, 0, "Files", "prefix-grasshopper")
 }
 
@@ -107,7 +106,7 @@ func (s *maasStorageSuite) TestURLSuccess(c *tc.C) {
 	)
 	storage := s.makeStorage(c, controller)
 	result, err := storage.URL("grasshopper.avi")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.Equals, "heavy lies")
 	checkCalls(c, controller.Stub, makeCall("GetFile", "prefix-grasshopper.avi"))
 }
@@ -158,5 +157,5 @@ func (s *maasStorageSuite) TestRemoveAll(c *tc.C) {
 	for i, file := range controller.files {
 		deleteds[i] = file.(*fakeFile).deleted
 	}
-	c.Assert(deleteds, jc.DeepEquals, []bool{true, true, true, true})
+	c.Assert(deleteds, tc.DeepEquals, []bool{true, true, true, true})
 }

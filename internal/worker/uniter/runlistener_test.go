@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/exec"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -37,12 +36,12 @@ func (s *ListenerSuite) SetUpTest(c *tc.C) {
 // Mirror the params to uniter.NewRunListener, but add cleanup to close it.
 func (s *ListenerSuite) NewRunListener(c *tc.C) *uniter.RunListener {
 	listener, err := uniter.NewRunListener(s.socketPath, loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	listener.RegisterRunner("test/0", &mockCommandRunner{
 		c: c,
 	})
 	s.AddCleanup(func(c *tc.C) {
-		c.Assert(listener.Close(), jc.ErrorIsNil)
+		c.Assert(listener.Close(), tc.ErrorIsNil)
 	})
 	return listener
 }
@@ -56,7 +55,7 @@ func (s *ListenerSuite) TestClientCall(c *tc.C) {
 	s.NewRunListener(c)
 
 	client, err := sockets.Dial(s.socketPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer client.Close()
 
 	var result exec.ExecResponse
@@ -68,7 +67,7 @@ func (s *ListenerSuite) TestClientCall(c *tc.C) {
 		UnitName:        "test/0",
 	}
 	err = client.Call(uniter.JujuExecEndpoint, args, &result)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(string(result.Stdout), tc.Equals, "some-command stdout")
 	c.Assert(string(result.Stderr), tc.Equals, "some-command stderr")
@@ -80,7 +79,7 @@ func (s *ListenerSuite) TestUnregisterRunner(c *tc.C) {
 	listener.UnregisterRunner("test/0")
 
 	client, err := sockets.Dial(s.socketPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer client.Close()
 
 	var result exec.ExecResponse
@@ -115,7 +114,7 @@ func (s *ChannelCommandRunnerSuite) SetUpTest(c *tc.C) {
 		Commands:       s.commands,
 		CommandChannel: s.commandChannel,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.runner = runner
 }
 

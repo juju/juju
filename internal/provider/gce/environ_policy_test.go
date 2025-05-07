@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/version"
@@ -37,7 +36,7 @@ func (s *environPolSuite) SetUpTest(c *tc.C) {
 func (s *environPolSuite) TestPrecheckInstanceDefaults(c *tc.C) {
 	err := s.Env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
 		Base: version.DefaultSupportedLTSBase()})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, tc.HasLen, 0)
 }
@@ -51,7 +50,7 @@ func (s *environPolSuite) TestPrecheckInstanceFullAPI(c *tc.C) {
 	placement := "zone=home-zone"
 	err := s.Env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
 		Base: version.DefaultSupportedLTSBase(), Constraints: cons, Placement: placement})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, tc.HasLen, 3)
 	c.Check(s.FakeConn.Calls[0].FuncName, tc.Equals, "AvailabilityZones")
@@ -70,7 +69,7 @@ func (s *environPolSuite) TestPrecheckInstanceValidInstanceType(c *tc.C) {
 	err := s.Env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
 		Base: version.DefaultSupportedLTSBase(), Constraints: cons})
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *environPolSuite) TestPrecheckInstanceInvalidInstanceType(c *tc.C) {
@@ -87,7 +86,7 @@ func (s *environPolSuite) TestPrecheckInstanceDiskSize(c *tc.C) {
 	err := s.Env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
 		Base: version.DefaultSupportedLTSBase(), Constraints: cons, Placement: placement})
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *environPolSuite) TestPrecheckInstanceUnsupportedArch(c *tc.C) {
@@ -95,7 +94,7 @@ func (s *environPolSuite) TestPrecheckInstanceUnsupportedArch(c *tc.C) {
 	err := s.Env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
 		Base: version.DefaultSupportedLTSBase(), Constraints: cons})
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *environPolSuite) TestPrecheckInstanceAvailZone(c *tc.C) {
@@ -107,7 +106,7 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZone(c *tc.C) {
 	err := s.Env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
 		Base: version.DefaultSupportedLTSBase(), Placement: placement})
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *environPolSuite) TestPrecheckInstanceAvailZoneUnavailable(c *tc.C) {
@@ -131,7 +130,7 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZoneUnknown(c *tc.C) {
 	err := s.Env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
 		Base: version.DefaultSupportedLTSBase(), Placement: placement})
 
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *environPolSuite) TestPrecheckInstanceVolumeAvailZoneNoPlacement(c *tc.C) {
@@ -154,7 +153,7 @@ func (s *environPolSuite) testPrecheckInstanceVolumeAvailZone(c *tc.C, placement
 			VolumeId: "away-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
 		}},
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *environPolSuite) TestPrecheckInstanceAvailZoneConflictsVolume(c *tc.C) {
@@ -175,38 +174,38 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZoneConflictsVolume(c *tc.C) 
 
 func (s *environPolSuite) TestConstraintsValidator(c *tc.C) {
 	validator, err := s.Env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64")
 	unsupported, err := validator.Validate(cons)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(unsupported, tc.HasLen, 0)
 }
 
 func (s *environPolSuite) TestConstraintsValidatorEmpty(c *tc.C) {
 	validator, err := s.Env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	unsupported, err := validator.Validate(constraints.Value{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(unsupported, tc.HasLen, 0)
 }
 
 func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *tc.C) {
 	validator, err := s.Env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64 tags=foo virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(unsupported, jc.SameContents, []string{"tags", "virt-type"})
+	c.Check(unsupported, tc.SameContents, []string{"tags", "virt-type"})
 }
 
 func (s *environPolSuite) TestConstraintsValidatorVocabInstType(c *tc.C) {
 	validator, err := s.Env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
@@ -216,7 +215,7 @@ func (s *environPolSuite) TestConstraintsValidatorVocabInstType(c *tc.C) {
 
 func (s *environPolSuite) TestConstraintsValidatorVocabContainer(c *tc.C) {
 	validator, err := s.Env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("container=lxd")
 	_, err = validator.Validate(cons)
@@ -226,22 +225,22 @@ func (s *environPolSuite) TestConstraintsValidatorVocabContainer(c *tc.C) {
 
 func (s *environPolSuite) TestConstraintsValidatorConflicts(c *tc.C) {
 	validator, err := s.Env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("instance-type=n1-standard-2")
 	// We do not check arch or container since there is only one valid
 	// value for each and will always match.
 	consFallback := constraints.MustParse("cores=2 cpu-power=1000 mem=10000 tags=bar")
 	merged, err := validator.Merge(consFallback, cons)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// tags is not supported, but we're not validating here...
 	expected := constraints.MustParse("instance-type=n1-standard-2 tags=bar")
-	c.Check(merged, jc.DeepEquals, expected)
+	c.Check(merged, tc.DeepEquals, expected)
 }
 
 func (s *environPolSuite) TestSupportNetworks(c *tc.C) {
 	isSupported := s.Env.SupportNetworks(context.Background())
 
-	c.Check(isSupported, jc.IsFalse)
+	c.Check(isSupported, tc.IsFalse)
 }

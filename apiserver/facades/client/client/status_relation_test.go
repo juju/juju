@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	corerelation "github.com/juju/juju/core/relation"
@@ -150,7 +149,7 @@ func (s *relationStatusSuite) TestFetchRelationWithError(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 	c.Check(out, tc.DeepEquals, expectedOut)
 	c.Check(outByID, tc.DeepEquals, expectedOutById)
-	c.Check(c.GetTestLog(), jc.Contains, `WARNING: no status for relation 42 "sink:consumer source:provider"`)
+	c.Check(c.GetTestLog(), tc.Contains, `WARNING: no status for relation 42 "sink:consumer source:provider"`)
 }
 
 // TestFetchRelationNoRelation ensures that fetchRelations correctly handles
@@ -185,7 +184,7 @@ func (s *relationStatusSuite) TestFetchRelationAllWithGetRelationError(c *tc.C) 
 	_, _, err := fetchRelations(context.Background(), s.relationService, s.statusService)
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, expectedError)
+	c.Assert(err, tc.ErrorIs, expectedError)
 }
 
 // TestFetchRelationAllWithGetStatusesError checks the behavior of fetchRelations when
@@ -206,5 +205,5 @@ func (s *relationStatusSuite) TestFetchRelationAllWithGetStatusesError(c *tc.C) 
 	_, _, err := fetchRelations(context.Background(), s.relationService, s.statusService)
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, expectedError)
+	c.Assert(err, tc.ErrorIs, expectedError)
 }

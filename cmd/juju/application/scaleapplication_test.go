@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/core/model"
@@ -60,7 +59,7 @@ func (s *ScaleApplicationSuite) runScaleApplication(c *tc.C, args ...string) (*c
 
 func (s *ScaleApplicationSuite) TestScaleApplication(c *tc.C) {
 	ctx, err := s.runScaleApplication(c, "foo", "2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	stderr := cmdtesting.Stderr(ctx)
 	out := strings.Replace(stderr, "\n", "", -1)
@@ -70,8 +69,8 @@ func (s *ScaleApplicationSuite) TestScaleApplication(c *tc.C) {
 func (s *ScaleApplicationSuite) TestScaleApplicationBlocked(c *tc.C) {
 	s.mockAPI.SetErrors(&params.Error{Code: params.CodeOperationBlocked, Message: "nope"})
 	_, err := s.runScaleApplication(c, "foo", "2")
-	c.Assert(err.Error(), jc.Contains, `could not scale application "foo": nope`)
-	c.Assert(err.Error(), jc.Contains, `All operations that change model have been disabled for the current model.`)
+	c.Assert(err.Error(), tc.Contains, `could not scale application "foo": nope`)
+	c.Assert(err.Error(), tc.Contains, `All operations that change model have been disabled for the current model.`)
 }
 
 func (s *ScaleApplicationSuite) TestScaleApplicationWrongModel(c *tc.C) {

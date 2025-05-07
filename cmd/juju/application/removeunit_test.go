@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	apiapplication "github.com/juju/juju/api/client/application"
@@ -155,7 +154,7 @@ func (s *RemoveUnitSuite) TestRemoveUnitDryRun(c *tc.C) {
 	}}, nil)
 
 	ctx, err := s.runRemoveUnit(c, "--dry-run", "unit/0", "unit/1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	stdout := cmdtesting.Stdout(ctx)
 	c.Assert(stdout, tc.Equals, `
@@ -201,7 +200,7 @@ func (s *RemoveUnitSuite) TestRemoveUnitWithPrompt(c *tc.C) {
 
 	select {
 	case err := <-errc:
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	case <-time.After(testing.LongWait):
 		c.Fatal("command took too long")
 	}
@@ -233,7 +232,7 @@ func (s *RemoveUnitSuite) TestRemoveUnitWithPromptOldFacade(c *tc.C) {
 
 	select {
 	case err := <-errc:
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	case <-time.After(testing.LongWait):
 		c.Fatal("command took too long")
 	}
@@ -259,7 +258,7 @@ func (s *RemoveUnitSuite) TestCAASRemoveUnit(c *tc.C) {
 	}, nil)
 
 	ctx, err := s.runRemoveUnit(c, "some-application-name", "--num-units", "2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	stderr := cmdtesting.Stderr(ctx)
 	c.Assert(stderr, tc.Equals, `
@@ -303,5 +302,5 @@ func (s *RemoveUnitSuite) TestCAASAllowsNumUnitsOnly(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "only single application supported")
 
 	_, err = s.runRemoveUnit(c, "some-application-name", "--num-units", "2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

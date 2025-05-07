@@ -10,7 +10,6 @@ import (
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/lease"
@@ -48,7 +47,7 @@ func (s *importSuite) TestSetup(c *tc.C) {
 	// We don't currently need the model DB, so for this instance we can just
 	// pass nil.
 	err := op.Setup(modelmigration.NewScope(nil, nil, nil))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *importSuite) TestExecuteWithNoApplications(c *tc.C) {
@@ -59,7 +58,7 @@ func (s *importSuite) TestExecuteWithNoApplications(c *tc.C) {
 	s.expectNoLeases(c)
 
 	err := op.Execute(context.Background(), description.NewModel(description.ModelArgs{}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 }
 
@@ -93,7 +92,7 @@ func (s *importSuite) TestExecuteWithApplications(c *tc.C) {
 	s.expectLease(c, key, req)
 
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *importSuite) TestExecuteWithMultipleApplications(c *tc.C) {
@@ -142,7 +141,7 @@ func (s *importSuite) TestExecuteWithMultipleApplications(c *tc.C) {
 	s.expectLease(c, key, req)
 
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *importSuite) TestExecuteWithError(c *tc.C) {

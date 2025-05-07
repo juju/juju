@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -78,7 +77,7 @@ func (s *ApplicationWorkerSuite) startAppWorker(
 	startFunc := caasapplicationprovisioner.NewAppWorker(config)
 	c.Assert(startFunc, tc.NotNil)
 	appWorker, err := startFunc()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(appWorker, tc.NotNil)
 	return appWorker
 }

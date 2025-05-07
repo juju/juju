@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/agent/reboot"
 	"github.com/juju/juju/api/base/testing"
@@ -56,7 +55,7 @@ func (s *machineRebootSuite) TestRequestReboot(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "RequestReboot")
-		c.Check(arg, jc.DeepEquals, params.Entities{
+		c.Check(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "machine-666"}},
 		})
 		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
@@ -68,7 +67,7 @@ func (s *machineRebootSuite) TestRequestReboot(c *tc.C) {
 	tag := names.NewMachineTag("666")
 	client := reboot.NewClient(apiCaller, tag)
 	err := client.RequestReboot(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *machineRebootSuite) TestRequestRebootError(c *tc.C) {
@@ -77,7 +76,7 @@ func (s *machineRebootSuite) TestRequestRebootError(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "RequestReboot")
-		c.Check(arg, jc.DeepEquals, params.Entities{
+		c.Check(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "machine-666"}},
 		})
 		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
@@ -98,7 +97,7 @@ func (s *machineRebootSuite) TestGetRebootAction(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "GetRebootAction")
-		c.Check(arg, jc.DeepEquals, params.Entities{
+		c.Check(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "machine-666"}},
 		})
 		c.Assert(result, tc.FitsTypeOf, &params.RebootActionResults{})
@@ -112,7 +111,7 @@ func (s *machineRebootSuite) TestGetRebootAction(c *tc.C) {
 	tag := names.NewMachineTag("666")
 	client := reboot.NewClient(apiCaller, tag)
 	rAction, err := client.GetRebootAction(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rAction, tc.Equals, params.ShouldDoNothing)
 }
 
@@ -122,7 +121,7 @@ func (s *machineRebootSuite) TestGetRebootActionMultipleResults(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "GetRebootAction")
-		c.Check(arg, jc.DeepEquals, params.Entities{
+		c.Check(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "machine-666"}},
 		})
 		c.Assert(result, tc.FitsTypeOf, &params.RebootActionResults{})
@@ -147,7 +146,7 @@ func (s *machineRebootSuite) TestClearReboot(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "ClearReboot")
-		c.Check(arg, jc.DeepEquals, params.Entities{
+		c.Check(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "machine-666"}},
 		})
 		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
@@ -159,7 +158,7 @@ func (s *machineRebootSuite) TestClearReboot(c *tc.C) {
 	tag := names.NewMachineTag("666")
 	client := reboot.NewClient(apiCaller, tag)
 	err := client.ClearReboot(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *machineRebootSuite) TestClearRebootError(c *tc.C) {
@@ -168,7 +167,7 @@ func (s *machineRebootSuite) TestClearRebootError(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "ClearReboot")
-		c.Check(arg, jc.DeepEquals, params.Entities{
+		c.Check(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "machine-666"}},
 		})
 		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})

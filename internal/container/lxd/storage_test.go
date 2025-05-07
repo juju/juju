@@ -6,7 +6,6 @@ package lxd_test
 import (
 	lxdapi "github.com/canonical/lxd/shared/api"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/container/lxd"
@@ -38,9 +37,9 @@ func (s *storageSuite) TestStorageIsSupported(c *tc.C) {
 	cSvr := s.NewMockServerWithExtensions(ctrl, "storage")
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(jujuSvr.StorageSupported(), jc.IsTrue)
+	c.Check(jujuSvr.StorageSupported(), tc.IsTrue)
 }
 
 func (s *storageSuite) TestStorageNotSupported(c *tc.C) {
@@ -49,9 +48,9 @@ func (s *storageSuite) TestStorageNotSupported(c *tc.C) {
 	cSvr := s.NewMockServerWithExtensions(ctrl, "network")
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(jujuSvr.StorageSupported(), jc.IsFalse)
+	c.Check(jujuSvr.StorageSupported(), tc.IsFalse)
 }
 
 func (s *storageSuite) TestCreatePool(c *tc.C) {
@@ -71,10 +70,10 @@ func (s *storageSuite) TestCreatePool(c *tc.C) {
 	cSvr.EXPECT().CreateStoragePool(req).Return(nil)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = jujuSvr.CreatePool("new-pool", "dir", cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *storageSuite) TestCreateVolume(c *tc.C) {
@@ -94,10 +93,10 @@ func (s *storageSuite) TestCreateVolume(c *tc.C) {
 	cSvr.EXPECT().CreateStoragePoolVolume("default-pool", req).Return(nil)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = jujuSvr.CreateVolume("default-pool", "volume", cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *storageSuite) TestEnsureDefaultStorageDevicePresent(c *tc.C) {
@@ -106,9 +105,9 @@ func (s *storageSuite) TestEnsureDefaultStorageDevicePresent(c *tc.C) {
 	cSvr := s.NewMockServerWithExtensions(ctrl, "storage")
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(jujuSvr.EnsureDefaultStorage(defaultProfileWithDisk(), ""), jc.ErrorIsNil)
+	c.Assert(jujuSvr.EnsureDefaultStorage(defaultProfileWithDisk(), ""), tc.ErrorIsNil)
 }
 
 func (s *storageSuite) TestEnsureDefaultStoragePoolExistsDeviceCreated(c *tc.C) {
@@ -123,10 +122,10 @@ func (s *storageSuite) TestEnsureDefaultStoragePoolExistsDeviceCreated(c *tc.C) 
 	)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	profile.Devices = nil
-	c.Assert(jujuSvr.EnsureDefaultStorage(profile, lxdtesting.ETag), jc.ErrorIsNil)
+	c.Assert(jujuSvr.EnsureDefaultStorage(profile, lxdtesting.ETag), tc.ErrorIsNil)
 }
 
 func (s *storageSuite) TestEnsureDefaultStorageNonDefaultPoolExistsDeviceCreated(c *tc.C) {
@@ -142,10 +141,10 @@ func (s *storageSuite) TestEnsureDefaultStorageNonDefaultPoolExistsDeviceCreated
 	)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	profile.Devices = nil
-	c.Assert(jujuSvr.EnsureDefaultStorage(profile, lxdtesting.ETag), jc.ErrorIsNil)
+	c.Assert(jujuSvr.EnsureDefaultStorage(profile, lxdtesting.ETag), tc.ErrorIsNil)
 }
 
 func (s *storageSuite) TestEnsureDefaultStoragePoolAndDeviceCreated(c *tc.C) {
@@ -165,8 +164,8 @@ func (s *storageSuite) TestEnsureDefaultStoragePoolAndDeviceCreated(c *tc.C) {
 	)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	profile.Devices = nil
-	c.Assert(jujuSvr.EnsureDefaultStorage(profile, lxdtesting.ETag), jc.ErrorIsNil)
+	c.Assert(jujuSvr.EnsureDefaultStorage(profile, lxdtesting.ETag), tc.ErrorIsNil)
 }

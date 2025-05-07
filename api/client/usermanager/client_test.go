@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/base/mocks"
@@ -104,7 +103,7 @@ func (s *usermanagerSuite) TestRemoveUser(c *tc.C) {
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	// Delete the user.
 	err := client.RemoveUser(context.Background(), "jjam")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *usermanagerSuite) TestDisableUser(c *tc.C) {
@@ -124,7 +123,7 @@ func (s *usermanagerSuite) TestDisableUser(c *tc.C) {
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	err := client.DisableUser(context.Background(), user.Name())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *usermanagerSuite) TestEnableUser(c *tc.C) {
@@ -139,7 +138,7 @@ func (s *usermanagerSuite) TestEnableUser(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "EnableUser", args, result).SetArg(3, results).Return(nil)
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	err := client.EnableUser(context.Background(), user.Name())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *usermanagerSuite) TestCantRemoveAdminUser(c *tc.C) {
@@ -189,7 +188,7 @@ func (s *usermanagerSuite) TestUserInfo(c *tc.C) {
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	obtained, err := client.UserInfo(context.Background(), []string{"foobar"}, usermanager.AllUsers)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := []params.UserInfo{
 		{
 			Username:    "foobar",
@@ -199,7 +198,7 @@ func (s *usermanagerSuite) TestUserInfo(c *tc.C) {
 		},
 	}
 
-	c.Assert(obtained, jc.DeepEquals, expected)
+	c.Assert(obtained, tc.DeepEquals, expected)
 }
 
 func (s *usermanagerSuite) TestUserInfoMoreThanOneResult(c *tc.C) {
@@ -221,14 +220,14 @@ func (s *usermanagerSuite) TestUserInfoMoreThanOneResult(c *tc.C) {
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	obtained, err := client.UserInfo(context.Background(), nil, usermanager.AllUsers)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected := []params.UserInfo{
 		{Username: "first"},
 		{Username: "second"},
 	}
 
-	c.Assert(obtained, jc.DeepEquals, expected)
+	c.Assert(obtained, tc.DeepEquals, expected)
 }
 
 func (s *usermanagerSuite) TestUserInfoMoreThanOneError(c *tc.C) {
@@ -274,8 +273,8 @@ func (s *usermanagerSuite) TestModelUserInfo(c *tc.C) {
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	obtained, err := client.ModelUserInfo(context.Background(), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, jc.DeepEquals, []params.ModelUserInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained, tc.DeepEquals, []params.ModelUserInfo{
 		{UserName: "one"},
 		{UserName: "two"},
 		{UserName: "three"},
@@ -297,7 +296,7 @@ func (s *usermanagerSuite) TestSetUserPassword(c *tc.C) {
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	err := client.SetPassword(context.Background(), tag.Name(), "new-password")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *usermanagerSuite) TestSetUserPasswordCanonical(c *tc.C) {
@@ -313,7 +312,7 @@ func (s *usermanagerSuite) TestSetUserPasswordCanonical(c *tc.C) {
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	err := client.SetPassword(context.Background(), tag.Id(), "new-password")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *usermanagerSuite) TestSetUserPasswordBadName(c *tc.C) {
@@ -359,7 +358,7 @@ func (s *usermanagerSuite) TestResetPassword(c *tc.C) {
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	res, err := client.ResetPassword(context.Background(), "foobar")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, key)
 }
 

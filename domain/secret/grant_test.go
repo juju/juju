@@ -5,7 +5,6 @@ package secret
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coresecrets "github.com/juju/juju/core/secrets"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -22,7 +21,7 @@ var _ = tc.Suite(&grantSuite{})
 func (s *grantSuite) TestRoleDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, role FROM secret_role")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer rows.Close()
 
 	dbValues := make(map[Role]string)
@@ -32,10 +31,10 @@ func (s *grantSuite) TestRoleDBValues(c *tc.C) {
 			value string
 		)
 		err := rows.Scan(&id, &value)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		dbValues[Role(id)] = value
 	}
-	c.Assert(dbValues, jc.DeepEquals, map[Role]string{
+	c.Assert(dbValues, tc.DeepEquals, map[Role]string{
 		RoleNone:   "none",
 		RoleView:   "view",
 		RoleManage: "manage",
@@ -45,14 +44,14 @@ func (s *grantSuite) TestRoleDBValues(c *tc.C) {
 		if p == "none" {
 			p = ""
 		}
-		c.Assert(coresecrets.SecretRole(p).IsValid(), jc.IsTrue)
+		c.Assert(coresecrets.SecretRole(p).IsValid(), tc.IsTrue)
 	}
 }
 
 func (s *grantSuite) TestGrantSubjectTypeDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, type FROM secret_grant_subject_type")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer rows.Close()
 
 	dbValues := make(map[GrantSubjectType]string)
@@ -62,10 +61,10 @@ func (s *grantSuite) TestGrantSubjectTypeDBValues(c *tc.C) {
 			value string
 		)
 		err := rows.Scan(&id, &value)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		dbValues[GrantSubjectType(id)] = value
 	}
-	c.Assert(dbValues, jc.DeepEquals, map[GrantSubjectType]string{
+	c.Assert(dbValues, tc.DeepEquals, map[GrantSubjectType]string{
 		SubjectUnit:              "unit",
 		SubjectApplication:       "application",
 		SubjectModel:             "model",
@@ -76,7 +75,7 @@ func (s *grantSuite) TestGrantSubjectTypeDBValues(c *tc.C) {
 func (s *grantSuite) TestGrantScopeTypeDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, type FROM secret_grant_scope_type")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer rows.Close()
 
 	dbValues := make(map[GrantScopeType]string)
@@ -86,10 +85,10 @@ func (s *grantSuite) TestGrantScopeTypeDBValues(c *tc.C) {
 			value string
 		)
 		err := rows.Scan(&id, &value)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		dbValues[GrantScopeType(id)] = value
 	}
-	c.Assert(dbValues, jc.DeepEquals, map[GrantScopeType]string{
+	c.Assert(dbValues, tc.DeepEquals, map[GrantScopeType]string{
 		ScopeUnit:        "unit",
 		ScopeApplication: "application",
 		ScopeModel:       "model",

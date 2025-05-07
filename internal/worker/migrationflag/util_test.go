@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
@@ -94,7 +93,7 @@ func (mock *mockWatcher) Changes() watcher.NotifyChannel {
 func checkCalls(c *tc.C, stub *testing.Stub, names ...string) {
 	stub.CheckCallNames(c, names...)
 	for _, call := range stub.Calls() {
-		c.Check(call.Args, jc.DeepEquals, []interface{}{validUUID})
+		c.Check(call.Args, tc.DeepEquals, []interface{}{validUUID})
 	}
 }
 
@@ -135,7 +134,7 @@ func validConfig() migrationflag.Config {
 func checkNotValid(c *tc.C, config migrationflag.Config, expect string) {
 	check := func(err error) {
 		c.Check(err, tc.ErrorMatches, expect)
-		c.Check(err, jc.ErrorIs, errors.NotValid)
+		c.Check(err, tc.ErrorIs, errors.NotValid)
 	}
 
 	err := config.Validate()
@@ -164,7 +163,7 @@ func checkManifoldNotValid(c *tc.C, config migrationflag.ManifoldConfig, expect 
 	worker, err := manifold.Start(context.Background(), dt.StubGetter(nil))
 	c.Check(worker, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, expect)
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 }
 
 // stubCaller is a base.APICaller that only implements ModelTag.

@@ -5,7 +5,6 @@ package oci_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/provider/oci"
 	"github.com/juju/juju/internal/storage"
@@ -45,15 +44,15 @@ func (s *storageSuite) TestVolumeSource(c *tc.C) {
 
 func (s *storageSuite) TestSupports(c *tc.C) {
 	ok := s.provider.Supports(storage.StorageKindBlock)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	ok = s.provider.Supports(storage.StorageKindFilesystem)
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 }
 
 func (s *storageSuite) TestDynamic(c *tc.C) {
 	ok := s.provider.Dynamic()
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 }
 
 func (s *storageSuite) TestValidateConfig(c *tc.C) {

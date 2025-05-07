@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/webbrowser"
 
 	"github.com/juju/juju/api/controller/controller"
@@ -106,7 +105,7 @@ func (s *dashboardSuite) TestDashboardSuccessWithBrowser(c *tc.C) {
 		return nil
 	})
 	out, err := s.run(c, "--browser", "--hide-credential")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	dashboardURL := "http://10.1.1.1:6767"
 	expectOut := "Opening the Juju Dashboard in your browser.\nIf it does not open, open this URL:\n" + dashboardURL + "\nReceived signal interrupt, stopping dashboard proxy connection"
 	c.Assert(out, tc.Equals, expectOut)
@@ -116,8 +115,8 @@ func (s *dashboardSuite) TestDashboardSuccessWithBrowser(c *tc.C) {
 func (s *dashboardSuite) TestDashboardSuccessWithCredential(c *tc.C) {
 	s.patchBrowser(nil)
 	out, err := s.run(c)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, jc.Contains, `
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(out, tc.Contains, `
 Your login credential is:
   username: admin
   password: s3kret!`[1:])
@@ -126,15 +125,15 @@ Your login credential is:
 func (s *dashboardSuite) TestDashboardSuccessNoCredential(c *tc.C) {
 	s.patchBrowser(nil)
 	out, err := s.run(c, "--hide-credential")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, tc.Not(jc.Contains), "Password")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(out, tc.Not(tc.Contains), "Password")
 }
 
 func (s *dashboardSuite) TestDashboardSuccessNoBrowser(c *tc.C) {
 	// There is no need to patch the browser open function here.
 	out, err := s.run(c, "--hide-credential")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, jc.Contains, `
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(out, tc.Contains, `
 Dashboard for controller "kontroll" is enabled at:
   http://10.1.1.1:6767`[1:])
 }
@@ -144,9 +143,9 @@ func (s *dashboardSuite) TestDashboardSuccessBrowserNotFound(c *tc.C) {
 		return webbrowser.ErrNoBrowser
 	})
 	out, err := s.run(c, "--browser", "--hide-credential")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectOut := "Open this URL in your browser:\nhttp://10.1.1.1:6767"
-	c.Assert(out, jc.Contains, expectOut)
+	c.Assert(out, tc.Contains, expectOut)
 }
 
 func (s *dashboardSuite) TestDashboardErrorBrowser(c *tc.C) {
@@ -211,7 +210,7 @@ func (s *dashboardSuite) testResolveSSHTarget(
 	s.sshCmd = fakeSSHCmd
 
 	_, err := s.run(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(fakeSSHCmd.model, tc.Equals, model)
 	c.Check(fakeSSHCmd.args, tc.DeepEquals, args)
 }

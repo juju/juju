@@ -8,7 +8,6 @@ import (
 	"os"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
@@ -46,7 +45,7 @@ func MockMachineConfig(machineId string) (*instancecfg.InstanceConfig, error) {
 
 func CreateContainer(c *tc.C, manager container.Manager, machineId string) instances.Instance {
 	instanceConfig, err := MockMachineConfig(machineId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return CreateContainerWithMachineConfig(c, manager, instanceConfig)
 }
 
@@ -75,16 +74,16 @@ func CreateContainerWithMachineAndNetworkAndStorageConfig(
 		context.Background(),
 		instanceConfig, constraints.Value{}, corebase.MakeDefaultBase("ubuntu", "18.04"),
 		networkConfig, storageConfig, callback)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(hardware, tc.NotNil)
 	c.Assert(hardware.String(), tc.Not(tc.Equals), "")
 	return inst
 }
 
 func AssertCloudInit(c *tc.C, filename string) []byte {
-	c.Assert(filename, jc.IsNonEmptyFile)
+	c.Assert(filename, tc.IsNonEmptyFile)
 	data, err := os.ReadFile(filename)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), jc.HasPrefix, "#cloud-config\n")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(data), tc.HasPrefix, "#cloud-config\n")
 	return data
 }

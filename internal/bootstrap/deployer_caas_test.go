@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/network"
@@ -37,7 +36,7 @@ func (s *deployerCAASSuite) TestValidate(c *tc.C) {
 	cfg = s.newConfig(c)
 	cfg.CloudServiceGetter = nil
 	err = cfg.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
 func (s *deployerCAASSuite) TestControllerAddress(c *tc.C) {
@@ -50,7 +49,7 @@ func (s *deployerCAASSuite) TestControllerAddress(c *tc.C) {
 
 	deployer := s.newDeployerWithConfig(c, cfg)
 	address, err := deployer.ControllerAddress(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(address, tc.Equals, "10.0.0.1:0")
 }
 
@@ -66,7 +65,7 @@ func (s *deployerCAASSuite) TestControllerAddressMultipleAddresses(c *tc.C) {
 
 	deployer := s.newDeployerWithConfig(c, cfg)
 	address, err := deployer.ControllerAddress(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(address, tc.Equals, "10.0.0.1:0")
 }
 
@@ -82,7 +81,7 @@ func (s *deployerCAASSuite) TestControllerAddressMultipleAddressesScopeNonLocal(
 
 	deployer := s.newDeployerWithConfig(c, cfg)
 	address, err := deployer.ControllerAddress(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(address, tc.Equals, "10.0.0.2:0")
 }
 
@@ -99,7 +98,7 @@ func (s *deployerCAASSuite) TestControllerAddressScopeNonLocal(c *tc.C) {
 
 	deployer := s.newDeployerWithConfig(c, cfg)
 	address, err := deployer.ControllerAddress(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(address, tc.Equals, "2.201.120.241:0")
 }
 
@@ -113,7 +112,7 @@ func (s *deployerCAASSuite) TestControllerAddressNoAddresses(c *tc.C) {
 
 	deployer := s.newDeployerWithConfig(c, cfg)
 	address, err := deployer.ControllerAddress(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(address, tc.Equals, "")
 }
 
@@ -122,7 +121,7 @@ func (s *deployerCAASSuite) TestControllerCharmBase(c *tc.C) {
 
 	deployer := s.newDeployer(c)
 	base, err := deployer.ControllerCharmBase()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(base, tc.DeepEquals, version.DefaultSupportedLTSBase())
 }
 
@@ -140,7 +139,7 @@ func (s *deployerCAASSuite) TestCompleteProcess(c *tc.C) {
 
 	deployer := s.newDeployerWithConfig(c, cfg)
 	err := deployer.CompleteProcess(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *deployerCAASSuite) newDeployer(c *tc.C) *CAASDeployer {

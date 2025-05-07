@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/instance"
@@ -70,7 +69,7 @@ func (s *provisionerMockSuite) TestManuallyProvisionedHostsUseDHCPForContainers(
 
 	// ProviderCallContext is not required by this logical path and can be nil
 	err := ctx.ProcessOneContainer(context.Background(), s.environ, s.policy, 0, s.host, s.container, "", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results[0].Config, tc.HasLen, 1)
 
 	cfg := res.Results[0].Config[0]
@@ -162,7 +161,7 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfo(c *tc.C) {
 	// ProviderCallContext and BridgePolicy are not
 	// required by this logical path and can be nil.
 	err := ctx.ProcessOneContainer(context.Background(), s.environ, nil, 0, s.host, s.container, "", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 1)
 	c.Assert(res.Results[0].Error, tc.IsNil)
 	c.Assert(res.Results[0].LXDProfiles, tc.HasLen, 1)
@@ -204,7 +203,7 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfoNoProfile(c *tc.C) {
 	// ProviderCallContext and BridgePolicy are not
 	// required by this logical path and can be nil.
 	err := ctx.ProcessOneContainer(context.Background(), s.environ, nil, 0, s.host, s.container, "", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 1)
 	c.Assert(res.Results[0].Error, tc.IsNil)
 	c.Assert(res.Results[0].LXDProfiles, tc.HasLen, 0)

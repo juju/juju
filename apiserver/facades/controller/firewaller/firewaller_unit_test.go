@@ -9,7 +9,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -95,7 +94,7 @@ func (s *RemoteFirewallerSuite) setupAPI(c *tc.C) {
 		s.modelInfoService,
 		loggertesting.WrapCheckLog(c),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelations(c *tc.C) {
@@ -114,9 +113,9 @@ func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelations(c *tc.C) {
 		}}},
 	)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
-	c.Assert(result.Results[0].Changes, jc.SameContents, []string{"1.2.3.4/32"})
+	c.Assert(result.Results[0].Changes, tc.SameContents, []string{"1.2.3.4/32"})
 	c.Assert(result.Results[0].Error, tc.IsNil)
 	c.Assert(result.Results[0].StringsWatcherId, tc.Equals, "1")
 
@@ -131,7 +130,7 @@ func (s *RemoteFirewallerSuite) TestMacaroonForRelations(c *tc.C) {
 	s.setupAPI(c)
 
 	mac, err := jujutesting.NewMacaroon("apimac")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	entity := names.NewRelationTag("mysql:db wordpress:db")
 	s.st.EXPECT().GetMacaroon(entity).Return(mac, nil)
 
@@ -142,10 +141,10 @@ func (s *RemoteFirewallerSuite) TestMacaroonForRelations(c *tc.C) {
 		}}},
 	)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0].Error, tc.IsNil)
-	c.Assert(result.Results[0].Result, jc.DeepEquals, mac)
+	c.Assert(result.Results[0].Result, tc.DeepEquals, mac)
 }
 
 func (s *RemoteFirewallerSuite) TestSetRelationStatus(c *tc.C) {
@@ -165,10 +164,10 @@ func (s *RemoteFirewallerSuite) TestSetRelationStatus(c *tc.C) {
 			Status: "suspended",
 			Info:   "a message",
 		}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0].Error, tc.IsNil)
-	c.Assert(db2Relation.status, jc.DeepEquals, status.StatusInfo{Status: status.Suspended, Message: "a message"})
+	c.Assert(db2Relation.status, tc.DeepEquals, status.StatusInfo{Status: status.Suspended, Message: "a message"})
 }
 
 var _ = tc.Suite(&FirewallerSuite{})
@@ -235,7 +234,7 @@ func (s *FirewallerSuite) setupAPI(c *tc.C) {
 		s.modelInfoService,
 		loggertesting.WrapCheckLog(c),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *FirewallerSuite) TestModelFirewallRules(c *tc.C) {
@@ -256,7 +255,7 @@ func (s *FirewallerSuite) TestModelFirewallRules(c *tc.C) {
 
 	rules, err := s.api.ModelFirewallRules(context.Background())
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rules, tc.DeepEquals, params.IngressRulesResult{Rules: []params.IngressRule{{
 		PortRange:   params.FromNetworkPortRange(network.MustParsePortRange("22")),
 		SourceCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
@@ -283,7 +282,7 @@ func (s *FirewallerSuite) TestModelFirewallRulesController(c *tc.C) {
 	)
 	rules, err := s.api.ModelFirewallRules(context.Background())
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rules, tc.DeepEquals, params.IngressRulesResult{Rules: []params.IngressRule{{
 		PortRange:   params.FromNetworkPortRange(network.MustParsePortRange("22")),
 		SourceCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
@@ -312,7 +311,7 @@ func (s *FirewallerSuite) TestWatchModelFirewallRules(c *tc.C) {
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
 
 	result, err := s.api.WatchModelFirewallRules(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Error, tc.IsNil)
 	c.Assert(result.NotifyWatcherId, tc.Equals, "1")
 }
@@ -352,7 +351,7 @@ func (s *FirewallerSuite) TestAllSpaceInfos(c *tc.C) {
 		FilterBySpaceIDs: []string{network.AlphaSpaceId, "42"},
 	}
 	res, err := s.api.SpaceInfos(context.Background(), req)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Hydrate a network.SpaceInfos from the response
 	gotSpaceInfos := params.ToNetworkSpaceInfos(res)
@@ -377,11 +376,11 @@ func (s *FirewallerSuite) TestWatchSubnets(c *tc.C) {
 		}},
 	}
 	got, err := s.api.WatchSubnets(context.Background(), entities)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	want := params.StringsWatchResult{
 		StringsWatcherId: "1",
 		Changes:          []string{"0195847b-95bb-7ca1-a7ee-2211d802d5b3"},
 	}
 	c.Assert(got.StringsWatcherId, tc.Equals, want.StringsWatcherId)
-	c.Assert(got.Changes, jc.SameContents, want.Changes)
+	c.Assert(got.Changes, tc.SameContents, want.Changes)
 }

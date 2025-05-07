@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/arch"
@@ -44,7 +43,7 @@ func (s *ControllerSuite) TestPopulateControllerCharmLocalCharm(c *tc.C) {
 	s.expectCompletion()
 
 	err := PopulateControllerCharm(context.Background(), s.deployer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ControllerSuite) TestPopulateControllerCharmLocalCharmFails(c *tc.C) {
@@ -74,7 +73,7 @@ func (s *ControllerSuite) TestPopulateControllerCharmCharmhubCharm(c *tc.C) {
 	s.expectCompletion()
 
 	err := PopulateControllerCharm(context.Background(), s.deployer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ControllerSuite) TestPopulateControllerAlreadyExists(c *tc.C) {
@@ -97,7 +96,7 @@ func (s *ControllerSuite) TestPopulateControllerAlreadyExists(c *tc.C) {
 	s.expectCompletion()
 
 	err := PopulateControllerCharm(context.Background(), s.deployer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ControllerSuite) expectControllerAddress() {

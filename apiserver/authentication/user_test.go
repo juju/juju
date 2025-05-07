@@ -17,7 +17,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -71,7 +70,7 @@ func (s *userAuthenticatorSuite) TestValidUserLogin(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	authenticator := &authentication.LocalUserAuthenticator{
 		UserService: s.ControllerDomainServices(c).Access(),
@@ -80,7 +79,7 @@ func (s *userAuthenticatorSuite) TestValidUserLogin(c *tc.C) {
 		AuthTag:     names.NewUserTag("bobbrown"),
 		Credentials: "password",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(entity.Tag(), tc.Equals, names.NewUserTag("bobbrown"))
 }
 
@@ -100,9 +99,9 @@ func (s *userAuthenticatorSuite) TestDisabledUserLogin(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = userService.DisableUserAuthentication(context.Background(), name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	authenticator := &authentication.LocalUserAuthenticator{
 		UserService: s.ControllerDomainServices(c).Access(),
@@ -111,7 +110,7 @@ func (s *userAuthenticatorSuite) TestDisabledUserLogin(c *tc.C) {
 		AuthTag:     names.NewUserTag("bobbrown"),
 		Credentials: "password",
 	})
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrUnauthorized)
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrUnauthorized)
 }
 
 func (s *userAuthenticatorSuite) TestRemovedUserLogin(c *tc.C) {
@@ -130,9 +129,9 @@ func (s *userAuthenticatorSuite) TestRemovedUserLogin(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = userService.RemoveUser(context.Background(), name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// User login
 	authenticator := &authentication.LocalUserAuthenticator{
@@ -142,7 +141,7 @@ func (s *userAuthenticatorSuite) TestRemovedUserLogin(c *tc.C) {
 		AuthTag:     names.NewUserTag("bobbrown"),
 		Credentials: "password",
 	})
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrUnauthorized)
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrUnauthorized)
 }
 
 func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *tc.C) {
@@ -161,7 +160,7 @@ func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// User login
 	authenticator := &authentication.LocalUserAuthenticator{
@@ -171,7 +170,7 @@ func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *tc.C) {
 		AuthTag:     names.NewUserTag(name.Name()),
 		Credentials: "wrongpassword",
 	})
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrUnauthorized)
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrUnauthorized)
 }
 
 func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *tc.C) {
@@ -189,12 +188,12 @@ func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	mac, err := macaroon.New(nil, nil, "", macaroon.LatestVersion)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = mac.AddFirstPartyCaveat([]byte("declared username bob"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	macaroons := []macaroon.Slice{{mac}}
 	bakeryService := mockBakeryService{}
 
@@ -208,12 +207,12 @@ func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *tc.C) {
 		AuthTag:   names.NewUserTag(name.Name()),
 		Macaroons: macaroons,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	bakeryService.CheckCallNames(c, "Auth")
 	call := bakeryService.Calls()[0]
 	c.Assert(call.Args, tc.HasLen, 1)
-	c.Assert(call.Args[0], jc.DeepEquals, macaroons)
+	c.Assert(call.Args[0], tc.DeepEquals, macaroons)
 	c.Check(entity.Tag(), tc.Equals, names.NewUserTag(name.Name()))
 }
 
@@ -231,12 +230,12 @@ func (s *userAuthenticatorSuite) TestInvalidMacaroonUserLogin(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	mac, err := macaroon.New(nil, nil, "", macaroon.LatestVersion)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = mac.AddFirstPartyCaveat([]byte("declared username fred"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	macaroons := []macaroon.Slice{{mac}}
 	bakeryService := mockBakeryService{}
 
@@ -250,7 +249,7 @@ func (s *userAuthenticatorSuite) TestInvalidMacaroonUserLogin(c *tc.C) {
 		AuthTag:   names.NewUserTag("bob"),
 		Macaroons: macaroons,
 	})
-	c.Assert(err, jc.ErrorIs, authentication.ErrInvalidLoginMacaroon)
+	c.Assert(err, tc.ErrorIs, authentication.ErrInvalidLoginMacaroon)
 }
 
 func (s *userAuthenticatorSuite) TestDisabledMacaroonUserLogin(c *tc.C) {
@@ -268,14 +267,14 @@ func (s *userAuthenticatorSuite) TestDisabledMacaroonUserLogin(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = userService.DisableUserAuthentication(context.Background(), name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	mac, err := macaroon.New(nil, nil, "", macaroon.LatestVersion)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = mac.AddFirstPartyCaveat([]byte("declared username bob"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	macaroons := []macaroon.Slice{{mac}}
 	bakeryService := mockBakeryService{}
 
@@ -289,7 +288,7 @@ func (s *userAuthenticatorSuite) TestDisabledMacaroonUserLogin(c *tc.C) {
 		AuthTag:   names.NewUserTag("bob"),
 		Macaroons: macaroons,
 	})
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrUnauthorized)
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrUnauthorized)
 }
 
 func (s *userAuthenticatorSuite) TestRemovedMacaroonUserLogin(c *tc.C) {
@@ -307,14 +306,14 @@ func (s *userAuthenticatorSuite) TestRemovedMacaroonUserLogin(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = userService.RemoveUser(context.Background(), name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	mac, err := macaroon.New(nil, nil, "", macaroon.LatestVersion)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = mac.AddFirstPartyCaveat([]byte("declared username bob"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	macaroons := []macaroon.Slice{{mac}}
 	bakeryService := mockBakeryService{}
 
@@ -328,7 +327,7 @@ func (s *userAuthenticatorSuite) TestRemovedMacaroonUserLogin(c *tc.C) {
 		AuthTag:   names.NewUserTag("bob"),
 		Macaroons: macaroons,
 	})
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrUnauthorized)
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrUnauthorized)
 }
 
 func (s *userAuthenticatorSuite) TestInvalidRelationLogin(c *tc.C) {
@@ -347,7 +346,7 @@ func (s *userAuthenticatorSuite) TestCreateLocalLoginMacaroon(c *tc.C) {
 		context.Background(),
 		names.NewUserTag("bobbrown"), &service, clock, bakery.LatestVersion,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	service.CheckCallNames(c, "NewMacaroon")
 	service.CheckCall(c, 0, "NewMacaroon", []checkers.Caveat{
 		{Condition: "is-authenticated-user bobbrown"},
@@ -375,8 +374,8 @@ func (s *userAuthenticatorSuite) TestAuthenticateLocalLoginMacaroon(c *tc.C) {
 
 	service.CheckCallNames(c, "Auth", "ExpireStorageAfter", "NewMacaroon")
 	calls := service.Calls()
-	c.Assert(calls[1].Args, jc.DeepEquals, []interface{}{24 * time.Hour})
-	c.Assert(calls[2].Args, jc.DeepEquals, []interface{}{
+	c.Assert(calls[1].Args, tc.DeepEquals, []interface{}{24 * time.Hour})
+	c.Assert(calls[2].Args, tc.DeepEquals, []interface{}{
 		[]checkers.Caveat{
 			{Condition: "time-before 0001-01-02T00:00:00Z", Namespace: "std"},
 			checkers.NeedDeclaredCaveat(
@@ -506,7 +505,7 @@ func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *tc.C) {
 		dischargeErr := errors.Cause(err).(*apiservererrors.DischargeRequiredError)
 		client := httpbakery.NewClient()
 		ms, err := client.DischargeAll(context.Background(), dischargeErr.Macaroon)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		// Authenticate again with the discharged macaroon.
 		entity, err := authenticator.Authenticate(context.Background(), authentication.AuthParams{
@@ -516,7 +515,7 @@ func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *tc.C) {
 			c.Assert(err, tc.ErrorMatches, test.expectError)
 			c.Assert(entity, tc.Equals, nil)
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(entity.Tag().String(), tc.Equals, test.expectTag)
 		}
 	}

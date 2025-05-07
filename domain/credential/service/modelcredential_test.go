@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/caas"
@@ -76,7 +75,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesSuccess(c *tc.C) {
 	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef")).Return("wind-up", nil)
 
 	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 0)
 }
 
@@ -91,7 +90,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesInstancesMissing(c *tc.C) {
 	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef-1")).Return("birds", nil)
 
 	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(results, tc.HasLen, 1)
 	c.Check(results[0], tc.ErrorMatches, `couldn't find instance "birds" for machine 2`)
@@ -110,7 +109,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesExtraInstances(c *tc.C) {
 	}
 
 	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.IsNil)
 }
 
@@ -126,7 +125,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesExtraInstancesWhenMigrating(c *tc.
 		return []instances.Instance{s.instance, instance2}, nil
 	}
 	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(results, tc.HasLen, 1)
 	c.Check(results[0], tc.ErrorMatches, `no machine with instance "analyse"`)
@@ -168,7 +167,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesHandlesContainers(c *tc.C) {
 	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef")).Return("wind-up", nil)
 
 	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 0)
 }
 
@@ -182,7 +181,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesHandlesManual(c *tc.C) {
 	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef")).Return("wind-up", nil)
 
 	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 0)
 }
 
@@ -212,7 +211,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceId(c *t
 	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef-1")).Return("", errors.New("retrieval failure"))
 
 	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 1)
 	c.Check(results[0], tc.ErrorMatches, "getting instance id for machine 2: retrieval failure")
 }
@@ -230,7 +229,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceIdNonFa
 	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef-1")).Return("", errors.New("retrieval failure"))
 
 	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 2)
 	c.Check(results[0], tc.ErrorMatches, "getting instance id for machine 1: retrieval failure")
 	c.Check(results[1], tc.ErrorMatches, "getting instance id for machine 2: retrieval failure")
@@ -249,7 +248,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceIdNonFa
 	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef-1")).Return("", errors.New("retrieval failure"))
 
 	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// There should be 3 errors here:
 	// * 2 of them because failing to get an instance id from one machine should not stop the processing the rest of the machines;
 	// * 1 because we no longer can link test instance (s.instance) to a test machine (s.machine).
@@ -272,7 +271,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesNotProvisionedError(c *tc.C) {
 	// We should ignore the unprovisioned machine - we wouldn't expect
 	// the cloud to know about it.
 	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 0)
 }
 
@@ -351,7 +350,7 @@ func (s *ModelCredentialSuite) TestValidateNewModelCredentialForIAASModel(c *tc.
 			Name:  "default",
 		},
 		&testCredential, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 0)
 }
 
@@ -397,7 +396,7 @@ func (s *ModelCredentialSuite) TestCAASCredentialCheckSucceeds(c *tc.C) {
 		}, nil
 	})
 	results, err := checkCAASModelCredential(context.Background(), environs.OpenParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 0)
 }
 
@@ -416,7 +415,7 @@ func (s *ModelCredentialSuite) TestValidateNewModelCredentialForCAASModel(c *tc.
 			Name:  "default",
 		},
 		&testCredential, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 0)
 }
 

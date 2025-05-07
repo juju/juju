@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api"
 	jujucmd "github.com/juju/juju/cmd"
@@ -118,7 +117,7 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyRetriesWithOpenEOFErr(c *tc.C)
 	runInCommand(c, func(ctx *cmd.Context, base *modelcmd.ModelCommandBase) {
 		bootstrapCtx := environscmd.BootstrapContext(context.Background(), ctx)
 		err := WaitForAgentInitialisation(bootstrapCtx, base, false, "controller")
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	})
 	c.Check(s.mockBlockClient.retryCount, tc.Equals, 1)
 }
@@ -130,7 +129,7 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyStopsRetriesWithOpenErr(c *tc.
 	runInCommand(c, func(ctx *cmd.Context, base *modelcmd.ModelCommandBase) {
 		bootstrapCtx := environscmd.BootstrapContext(context.Background(), ctx)
 		err := WaitForAgentInitialisation(bootstrapCtx, base, false, "controller")
-		c.Check(err, jc.ErrorIs, errors.Unauthorized)
+		c.Check(err, tc.ErrorIs, errors.Unauthorized)
 	})
 	c.Check(s.mockBlockClient.retryCount, tc.Equals, 0)
 }
@@ -156,7 +155,7 @@ func runInCommand(c *tc.C, run func(ctx *cmd.Context, base *modelcmd.ModelComman
 	})
 
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(cmd))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type testCommand struct {

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common/crossmodel"
@@ -52,7 +51,7 @@ func (s *crossmodelSuite) TestExpandChangeWhenRelationHasGone(c *tc.C) {
 	}
 	result, err := crossmodel.ExpandChange(
 		&mockBackend{}, "some-relation", "some-app", change)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.RemoteRelationChangeEvent{
 		RelationToken:           "some-relation",
 		ApplicationOrOfferToken: "some-app",
@@ -65,7 +64,7 @@ func (s *crossmodelSuite) TestGetOfferStatusChangeOfferGoneNotMigrating(c *tc.C)
 
 	st := &mockBackend{}
 	ch, err := crossmodel.GetOfferStatusChange(context.Background(), st, s.statusService, "uuid", "mysql")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ch, tc.DeepEquals, &params.OfferStatusChange{
 		OfferName: "mysql",
 		Status:    params.EntityStatus{Status: status.Terminated, Info: "offer has been removed"},
@@ -92,7 +91,7 @@ func (s *crossmodelSuite) TestGetOfferStatusChangeApplicationGoneNotMigrating(c 
 	s.statusService.EXPECT().GetApplicationDisplayStatus(gomock.Any(), "mysql-app").Return(status.StatusInfo{}, statuserrors.ApplicationNotFound)
 
 	ch, err := crossmodel.GetOfferStatusChange(context.Background(), st, s.statusService, "deadbeef", "mysql")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ch, tc.DeepEquals, &params.OfferStatusChange{
 		OfferName: "mysql",
 		Status:    params.EntityStatus{Status: status.Terminated, Info: "application has been removed"},
@@ -119,7 +118,7 @@ func (s *crossmodelSuite) TestGetOfferStatusChange(c *tc.C) {
 
 	st := &mockBackend{appName: "mysql-app"}
 	ch, err := crossmodel.GetOfferStatusChange(context.Background(), st, s.statusService, "deadbeef", "mysql")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ch, tc.DeepEquals, &params.OfferStatusChange{
 		OfferName: "mysql",
 		Status:    params.EntityStatus{Status: status.Active},

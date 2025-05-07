@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
 
@@ -32,7 +31,7 @@ func (s *relationUnitsWatcherSuite) TestRelationUnitsWatcherFromDomain(c *tc.C) 
 		return nil
 	})
 	w, err := common.RelationUnitsWatcherFromDomain(source)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(source.Err(), tc.Equals, tomb.ErrStillAlive)
 
@@ -69,9 +68,9 @@ func (s *relationUnitsWatcherSuite) TestRelationUnitsWatcherFromDomain(c *tc.C) 
 		c.Fatalf("timed out waiting for output event")
 	}
 
-	c.Assert(worker.Stop(w), jc.ErrorIsNil)
+	c.Assert(worker.Stop(w), tc.ErrorIsNil)
 	// Ensure that stopping the watcher has stopped the source.
-	c.Assert(source.Err(), jc.ErrorIsNil)
+	c.Assert(source.Err(), tc.ErrorIsNil)
 
 	select {
 	case _, ok := <-w.Changes():
@@ -91,7 +90,7 @@ func (s *relationUnitsWatcherSuite) TestCanStopWithAPendingSend(c *tc.C) {
 		return nil
 	})
 	w, err := common.RelationUnitsWatcherFromDomain(source)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer w.Kill()
 
 	event := watcher.RelationUnitsChange{
@@ -110,7 +109,7 @@ func (s *relationUnitsWatcherSuite) TestCanStopWithAPendingSend(c *tc.C) {
 
 	select {
 	case err := <-stopped:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for watcher to stop with pending send")
 	}
@@ -126,7 +125,7 @@ func (s *relationUnitsWatcherSuite) TestNilChanged(c *tc.C) {
 		return nil
 	})
 	w, err := common.RelationUnitsWatcherFromDomain(source)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	event := watcher.RelationUnitsChange{
 		Departed: []string{"happy", "birthday"},

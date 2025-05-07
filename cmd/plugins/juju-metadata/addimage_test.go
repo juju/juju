@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	corebase "github.com/juju/juju/core/base"
@@ -114,7 +113,7 @@ func (s *addImageSuite) assertValidAddImageMetadata(c *tc.C, m params.CloudImage
 	args := getAddImageMetadataCmdFlags(c, m)
 
 	_, err := runAddImageMetadata(c, args...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Need to make sure that defaults are populated
 	if m.Arch == "" {

@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	goyaml "gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/core/semversion"
@@ -49,9 +48,9 @@ func (*suite) TestCompare(c *tc.C) {
 	for i, test := range cmpTests {
 		c.Logf("test %d: %q == %q", i, test.v1, test.v2)
 		v1, err := semversion.Parse(test.v1)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		v2, err := semversion.Parse(test.v2)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		compare := v1.Compare(v2)
 		c.Check(compare, tc.Equals, test.compare)
 		// Check that reversing the operands has
@@ -92,9 +91,9 @@ func (*suite) TestCompareAfterPatched(c *tc.C) {
 	for i, test := range cmpTests {
 		c.Logf("test %d: %q == %q", i, test.v1, test.v2)
 		v1, err := semversion.Parse(test.v1)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		v2, err := semversion.Parse(test.v2)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		compare := v1.ToPatch().Compare(v2)
 		c.Check(compare, tc.Equals, test.compare)
 		// Check that reversing the operands has
@@ -185,7 +184,7 @@ func (*suite) TestParse(c *tc.C) {
 		if test.err != "" {
 			c.Assert(err, tc.ErrorMatches, test.err)
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(got, tc.Equals, test.expect)
 			c.Check(got.String(), tc.Equals, test.v)
 		}
@@ -220,7 +219,7 @@ func (*suite) TestParseNonStrict(c *tc.C) {
 		if test.err != "" {
 			c.Assert(err, tc.ErrorMatches, test.err)
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			c.Check(got.String(), tc.Equals, test.expect)
 		}
 	}
@@ -290,7 +289,7 @@ func (*suite) TestParseBinary(c *tc.C) {
 		if test.err != "" {
 			c.Assert(err, tc.ErrorMatches, test.err)
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(got, tc.Equals, test.expect)
 		}
 	}
@@ -307,7 +306,7 @@ func (*suite) TestParseBinary(c *tc.C) {
 		if test.err != "" {
 			c.Assert(err, tc.ErrorMatches, strings.Replace(test.err, "version", "binary version", 1))
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(got, tc.Equals, expect)
 		}
 	}
@@ -338,10 +337,10 @@ func (*suite) TestBinaryMarshalUnmarshal(c *tc.C) {
 		bp := semversion.MustParseBinary("1.2.3-ubuntu-amd64")
 		v := doc{&bp}
 		data, err := m.marshal(&v)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		var bv doc
 		err = m.unmarshal(data, &bv)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(bv, tc.DeepEquals, v)
 	}
 }
@@ -357,10 +356,10 @@ func (*suite) TestNumberMarshalUnmarshal(c *tc.C) {
 		np := semversion.MustParse("1.2.3")
 		v := doc{&np}
 		data, err := m.marshal(&v)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		var nv doc
 		err = m.unmarshal(data, &nv)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(nv, tc.DeepEquals, v)
 	}
 }
@@ -394,7 +393,7 @@ func (*suite) TestParseMajorMinor(c *tc.C) {
 		if test.err != "" {
 			c.Check(err, tc.ErrorMatches, test.err)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			c.Check(major, tc.Equals, test.expectMajor)
 			c.Check(minor, tc.Equals, test.expectMinor)
 		}

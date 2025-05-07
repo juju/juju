@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/agent/uniter"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -62,7 +61,7 @@ func (s *relationSuite) TestRelation(c *tc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	tag := names.NewRelationTag("wordpress:db mysql:server")
 	rel, err := client.Relation(context.Background(), tag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rel.Id(), tc.Equals, 666)
 	c.Assert(rel.Tag(), tc.Equals, tag)
 	c.Assert(rel.Life(), tc.Equals, life.Alive)
@@ -70,8 +69,8 @@ func (s *relationSuite) TestRelation(c *tc.C) {
 	c.Assert(rel.OtherApplication(), tc.Equals, "mysql")
 	c.Assert(rel.OtherModelUUID(), tc.Equals, testing.ModelTag.Id())
 	ep, err := rel.Endpoint(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ep, jc.DeepEquals, &uniter.Endpoint{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ep, tc.DeepEquals, &uniter.Endpoint{
 		charm.Relation{
 			Name:      "db",
 			Role:      "requirer",
@@ -106,9 +105,9 @@ func (s *relationSuite) TestRefresh(c *tc.C) {
 	tag := names.NewRelationTag("wordpress:db mysql:server")
 	rel := uniter.CreateRelation(client, tag)
 	err := rel.Refresh(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rel.Life(), tc.Equals, life.Dying)
-	c.Assert(rel.Suspended(), jc.IsTrue)
+	c.Assert(rel.Suspended(), tc.IsTrue)
 }
 
 func (s *relationSuite) TestSuspended(c *tc.C) {
@@ -118,9 +117,9 @@ func (s *relationSuite) TestSuspended(c *tc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	tag := names.NewRelationTag("wordpress:db mysql:server")
 	rel := uniter.CreateRelation(client, tag)
-	c.Assert(rel.Suspended(), jc.IsFalse)
+	c.Assert(rel.Suspended(), tc.IsFalse)
 	rel.UpdateSuspended(true)
-	c.Assert(rel.Suspended(), jc.IsTrue)
+	c.Assert(rel.Suspended(), tc.IsTrue)
 }
 
 func (s *relationSuite) TestSetStatus(c *tc.C) {
@@ -146,8 +145,8 @@ func (s *relationSuite) TestSetStatus(c *tc.C) {
 	tag := names.NewRelationTag("wordpress:db mysql:server")
 	rel := uniter.CreateRelation(client, tag)
 	err := rel.SetStatus(context.Background(), relation.Suspended)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusSet, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(statusSet, tc.IsTrue)
 }
 
 func (s *relationSuite) TestRelationById(c *tc.C) {
@@ -169,11 +168,11 @@ func (s *relationSuite) TestRelationById(c *tc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	rel, err := client.RelationById(context.Background(), 666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rel.Id(), tc.Equals, 666)
 	c.Assert(rel.Tag(), tc.Equals, names.NewRelationTag("wordpress:db mysql:server"))
 	c.Assert(rel.Life(), tc.Equals, life.Alive)
-	c.Assert(rel.Suspended(), jc.IsTrue)
+	c.Assert(rel.Suspended(), tc.IsTrue)
 	c.Assert(rel.String(), tc.Equals, "wordpress:db mysql:server")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

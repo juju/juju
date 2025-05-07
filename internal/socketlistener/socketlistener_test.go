@@ -15,7 +15,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"gopkg.in/tomb.v2"
 
@@ -54,28 +53,28 @@ func (s *socketListenerSuite) TestStartStopWorker(c *tc.C) {
 		RegisterHandlers: registerTestHandlers,
 		ShutdownTimeout:  coretesting.LongWait,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check socket is created with correct permissions.
 	fi, err := os.Stat(socket)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(fi.Mode(), tc.Equals, fs.ModeSocket|0700)
 
 	// Check server is up.
 	cl := client(socket)
 	resp, err := cl.Get("http://localhost:8080/foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusNotFound)
 
 	// Check server is serving.
 	cl = client(socket)
 	resp, err = cl.Get("http://localhost:8080/test-endpoint")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 
 	sl.Kill()
 	err = sl.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check server has stopped.
 	_, err = cl.Get("http://localhost:8080/foo")
@@ -103,7 +102,7 @@ func (s *socketListenerSuite) TestEnsureShutdown(c *tc.C) {
 			},
 			ShutdownTimeout: coretesting.LongWait,
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		defer workertest.DirtyKill(c, sl)
 		var tomb tomb.Tomb
 		tomb.Go(func() error {

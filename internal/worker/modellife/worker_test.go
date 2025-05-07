@@ -11,7 +11,6 @@ import (
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -41,15 +40,15 @@ func (s *workerSuite) TestValidateConfig(c *tc.C) {
 
 	cfg = s.getConfig()
 	cfg.ModelUUID = ""
-	c.Check(cfg.Validate(), jc.ErrorIs, jujuerrors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, jujuerrors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.Result = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, jujuerrors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, jujuerrors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.ModelService = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, jujuerrors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, jujuerrors.NotValid)
 }
 
 func (s *workerSuite) TestStartAlive(c *tc.C) {
@@ -72,7 +71,7 @@ func (s *workerSuite) TestStartAlive(c *tc.C) {
 		c.Fatal("timed out waiting for worker to start")
 	}
 
-	c.Assert(w.Check(), jc.IsTrue)
+	c.Assert(w.Check(), tc.IsTrue)
 
 	workertest.CleanKill(c, w)
 }
@@ -97,7 +96,7 @@ func (s *workerSuite) TestStartDead(c *tc.C) {
 		c.Fatal("timed out waiting for worker to start")
 	}
 
-	c.Assert(w.Check(), jc.IsFalse)
+	c.Assert(w.Check(), tc.IsFalse)
 
 	workertest.CleanKill(c, w)
 }
@@ -110,7 +109,7 @@ func (s *workerSuite) TestStartError(c *tc.C) {
 	cfg := s.getConfig()
 
 	_, err := NewWorker(context.Background(), cfg)
-	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 func (s *workerSuite) TestWatchModelError(c *tc.C) {
@@ -169,7 +168,7 @@ func (s *workerSuite) TestWatchModelStillAlive(c *tc.C) {
 		c.Fatal("timed out waiting for worker to start")
 	}
 
-	c.Assert(w.Check(), jc.IsTrue)
+	c.Assert(w.Check(), tc.IsTrue)
 
 	workertest.CleanKill(c, w)
 }
@@ -205,10 +204,10 @@ func (s *workerSuite) TestWatchModelTransitionAliveToDying(c *tc.C) {
 		c.Fatal("timed out waiting for worker to start")
 	}
 
-	c.Assert(w.Check(), jc.IsTrue)
+	c.Assert(w.Check(), tc.IsTrue)
 
 	err := workertest.CheckKilled(c, w)
-	c.Assert(err, jc.ErrorIs, dependency.ErrBounce)
+	c.Assert(err, tc.ErrorIs, dependency.ErrBounce)
 }
 
 func (s *workerSuite) TestWatchModelTransitionDyingToDead(c *tc.C) {
@@ -248,7 +247,7 @@ func (s *workerSuite) TestWatchModelTransitionDyingToDead(c *tc.C) {
 		c.Fatal("timed out waiting for worker to start")
 	}
 
-	c.Assert(w.Check(), jc.IsFalse)
+	c.Assert(w.Check(), tc.IsFalse)
 
 	workertest.CleanKill(c, w)
 }
@@ -265,7 +264,7 @@ func (s *workerSuite) newWorker(c *tc.C) *Worker {
 	cfg := s.getConfig()
 
 	w, err := NewWorker(context.Background(), cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return w.(*Worker)
 }

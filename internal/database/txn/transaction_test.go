@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/mattn/go-sqlite3"
 	"go.uber.org/mock/gomock"
 
@@ -43,7 +42,7 @@ func (s *transactionRunnerSuite) TestTxn(c *tc.C) {
 		defer rows.Close()
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type logRecorder struct {
@@ -75,7 +74,7 @@ func (s *transactionRunnerSuite) TestTxnLogging(c *tc.C) {
 		defer rows.Close()
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(buffer.String(), tc.Equals, `
 running txn (id: 1) with query: BEGIN
@@ -121,7 +120,7 @@ func (s *transactionRunnerSuite) TestTxnParallelCancelledContext(c *tc.C) {
 			}
 			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}()
 
 	go func() {
@@ -174,18 +173,18 @@ func (s *transactionRunnerSuite) TestTxnInserts(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Now verify that the transaction was rolled back.
 	rows, err := s.DB().Query("SELECT COUNT(*) FROM foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	defer rows.Close()
 
 	for !rows.Next() {
 		var n int
 		err := rows.Scan(&n)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(n, tc.Equals, 1)
 	}
 }
@@ -206,14 +205,14 @@ func (s *transactionRunnerSuite) TestTxnRollback(c *tc.C) {
 
 	// Now verify that the transaction was rolled back.
 	rows, err := s.DB().Query("SELECT COUNT(*) FROM foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	defer rows.Close()
 
 	for !rows.Next() {
 		var n int
 		err := rows.Scan(&n)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(n, tc.Equals, 0)
 	}
 }
@@ -269,7 +268,7 @@ func (s *transactionRunnerSuite) TestRetryForRetryableError(c *tc.C) {
 
 func (s *transactionRunnerSuite) createTable(c *tc.C) {
 	_, err := s.DB().Exec("CREATE TEMP TABLE foo (id INT PRIMARY KEY, name VARCHAR(255))")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *transactionRunnerSuite) setupMocks(c *tc.C) *gomock.Controller {

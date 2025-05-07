@@ -9,7 +9,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/agent"
@@ -56,7 +55,7 @@ func (s *CAASApplicationSuite) setupMocks(c *tc.C, authTag string) *gomock.Contr
 	ctrl := gomock.NewController(c)
 
 	tag, err := names.ParseTag(authTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: tag,
 	}
@@ -71,8 +70,8 @@ func (s *CAASApplicationSuite) setupMocks(c *tc.C, authTag string) *gomock.Contr
 	s.facade = caasapplication.NewFacade(s.resources, s.authorizer, s.controllerState,
 		coretesting.ControllerTag.Id(), s.modelUUID,
 		s.controllerConfigService, s.applicationService, s.modelAgentService, loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return ctrl
 }
@@ -83,8 +82,8 @@ func (s *CAASApplicationSuite) TestUnitIntroductionMissingName(c *tc.C) {
 	result, err := s.facade.UnitIntroduction(context.Background(), params.CAASUnitIntroductionArgs{
 		PodUUID: "pod-uuid",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.CAASUnitIntroductionResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.CAASUnitIntroductionResult{
 		Error: &params.Error{Code: "not valid", Message: "pod-name not valid"},
 	})
 }
@@ -95,8 +94,8 @@ func (s *CAASApplicationSuite) TestUnitIntroductionMissingUUID(c *tc.C) {
 	result, err := s.facade.UnitIntroduction(context.Background(), params.CAASUnitIntroductionArgs{
 		PodName: "gitlab-666",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.CAASUnitIntroductionResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.CAASUnitIntroductionResult{
 		Error: &params.Error{Code: "not valid", Message: "pod-uuid not valid"},
 	})
 }
@@ -141,16 +140,16 @@ func (s *CAASApplicationSuite) TestUnitIntroduction(c *tc.C) {
 			UpgradedToVersion: vers,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	confBytes, err := expectedConf.Render()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := s.facade.UnitIntroduction(context.Background(), params.CAASUnitIntroductionArgs{
 		PodName: "gitlab-666",
 		PodUUID: "pod-uuid",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.CAASUnitIntroductionResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.CAASUnitIntroductionResult{
 		Result: &params.CAASUnitIntroduction{
 			UnitName:  "gitlab/666",
 			AgentConf: confBytes,
@@ -179,8 +178,8 @@ func (s *CAASApplicationSuite) TestUnitIntroductionApplicationNotFound(c *tc.C) 
 		PodName: "gitlab-666",
 		PodUUID: "pod-uuid",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.CAASUnitIntroductionResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.CAASUnitIntroductionResult{
 		Error: &params.Error{Code: "not found", Message: "application gitlab not found"},
 	})
 }
@@ -196,8 +195,8 @@ func (s *CAASApplicationSuite) TestUnitIntroductionApplicationNotAlive(c *tc.C) 
 		PodName: "gitlab-666",
 		PodUUID: "pod-uuid",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.CAASUnitIntroductionResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.CAASUnitIntroductionResult{
 		Error: &params.Error{Code: "not provisioned", Message: "application gitlab not provisioned"},
 	})
 }
@@ -213,8 +212,8 @@ func (s *CAASApplicationSuite) TestUnitIntroductionUnitNotAssigned(c *tc.C) {
 		PodName: "gitlab-666",
 		PodUUID: "pod-uuid",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.CAASUnitIntroductionResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.CAASUnitIntroductionResult{
 		Error: &params.Error{Code: "not assigned", Message: "unit for pod gitlab-666 not assigned"},
 	})
 }
@@ -230,8 +229,8 @@ func (s *CAASApplicationSuite) TestUnitIntroductionUnitAlreadyExists(c *tc.C) {
 		PodName: "gitlab-666",
 		PodUUID: "pod-uuid",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.CAASUnitIntroductionResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.CAASUnitIntroductionResult{
 		Error: &params.Error{Code: "already exists", Message: "unit for pod gitlab-666 already exists"},
 	})
 }
@@ -244,8 +243,8 @@ func (s *CAASApplicationSuite) TestUnitTerminating(c *tc.C) {
 	result, err := s.facade.UnitTerminating(context.Background(), params.Entity{
 		Tag: "unit-gitlab-666",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.CAASUnitTerminationResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.CAASUnitTerminationResult{
 		WillRestart: true,
 	})
 }
@@ -258,8 +257,8 @@ func (s *CAASApplicationSuite) TestUnitTerminatingNotFound(c *tc.C) {
 	result, err := s.facade.UnitTerminating(context.Background(), params.Entity{
 		Tag: "unit-gitlab-666",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.CAASUnitTerminationResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.CAASUnitTerminationResult{
 		Error: &params.Error{
 			Code:    "not found",
 			Message: "unit gitlab/666 not found",

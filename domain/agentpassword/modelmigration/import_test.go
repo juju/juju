@@ -9,7 +9,6 @@ import (
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/unit"
@@ -44,7 +43,7 @@ func (s *importSuite) TestImportUnitPasswordHash(c *tc.C) {
 	})
 
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *importSuite) TestImportUnitPasswordHashError(c *tc.C) {
@@ -85,7 +84,7 @@ func (s *importSuite) TestImportUnitPasswordHashMissingHash(c *tc.C) {
 	})
 
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *importSuite) TestImportUnitPasswordHashNoApplications(c *tc.C) {
@@ -98,7 +97,7 @@ func (s *importSuite) TestImportUnitPasswordHashNoApplications(c *tc.C) {
 	model := description.NewModel(description.ModelArgs{})
 
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *importSuite) TestImportUnitPasswordHashNoUnits(c *tc.C) {
@@ -114,7 +113,7 @@ func (s *importSuite) TestImportUnitPasswordHashNoUnits(c *tc.C) {
 	})
 
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {

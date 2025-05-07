@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/logger"
@@ -28,7 +27,7 @@ var _ = tc.Suite(&ValidateSuite{})
 
 func (*ValidateSuite) TestValid(c *tc.C) {
 	err := validConfig().Validate()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (*ValidateSuite) TestMissingModelUUID(c *tc.C) {
@@ -95,7 +94,7 @@ func validConfig() migrationmaster.Config {
 func checkNotValid(c *tc.C, config migrationmaster.Config, expect string) {
 	check := func(err error) {
 		c.Check(err, tc.ErrorMatches, expect)
-		c.Check(err, jc.ErrorIs, errors.NotValid)
+		c.Check(err, tc.ErrorIs, errors.NotValid)
 	}
 
 	err := config.Validate()

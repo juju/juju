@@ -9,7 +9,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/network"
@@ -109,9 +108,9 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigNoInterfaceAddresses(c 
 	s.source.EXPECT().Interfaces().Return([]network.ConfigSourceNIC{nic}, nil)
 
 	observedConfig, err := network.GetObservedNetworkConfig(s.source)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(observedConfig, jc.DeepEquals, network.InterfaceInfos{{
+	c.Check(observedConfig, tc.DeepEquals, network.InterfaceInfos{{
 		DeviceIndex:   2,
 		MACAddress:    "aa:bb:cc:dd:ee:ff",
 		MTU:           1500,
@@ -127,7 +126,7 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigDefaultGatewayWithAddre
 	defer ctrl.Finish()
 
 	ip1, ipNet1, err := net.ParseCIDR("1.2.3.4/24")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	addr1 := NewMockConfigSourceAddr(ctrl)
 	addr1.EXPECT().IP().Return(ip1)
@@ -155,9 +154,9 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigDefaultGatewayWithAddre
 	s.source.EXPECT().Interfaces().Return([]network.ConfigSourceNIC{nic}, nil)
 
 	observedConfig, err := network.GetObservedNetworkConfig(s.source)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(observedConfig, jc.DeepEquals, network.InterfaceInfos{
+	c.Check(observedConfig, tc.DeepEquals, network.InterfaceInfos{
 		{
 			DeviceIndex:      2,
 			MACAddress:       "aa:bb:cc:dd:ee:ff",
@@ -206,9 +205,9 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigForOVSDevice(c *tc.C) {
 	s.source.EXPECT().Interfaces().Return([]network.ConfigSourceNIC{nic}, nil)
 
 	observedConfig, err := network.GetObservedNetworkConfig(s.source)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(observedConfig, jc.DeepEquals, network.InterfaceInfos{{
+	c.Check(observedConfig, tc.DeepEquals, network.InterfaceInfos{{
 		DeviceIndex:     2,
 		MACAddress:      "aa:bb:cc:dd:ee:ff",
 		MTU:             1500,
@@ -251,9 +250,9 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigBridgePortsHaveParentSe
 	s.source.EXPECT().Interfaces().Return([]network.ConfigSourceNIC{nic1, nic2}, nil)
 
 	observedConfig, err := network.GetObservedNetworkConfig(s.source)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(observedConfig, jc.DeepEquals, network.InterfaceInfos{
+	c.Check(observedConfig, tc.DeepEquals, network.InterfaceInfos{
 		{
 			DeviceIndex:         2,
 			MACAddress:          "aa:bb:cc:dd:ee:ff",
@@ -297,6 +296,6 @@ func (s *networkConfigSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func parseMAC(c *tc.C, val string) net.HardwareAddr {
 	mac, err := net.ParseMAC(val)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return mac
 }

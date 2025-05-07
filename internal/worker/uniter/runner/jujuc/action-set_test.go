@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -46,7 +45,7 @@ func (a *nonActionSettingContext) UpdateActionResults(keys []string, value inter
 func (s *ActionSetSuite) TestActionSetOnNonActionContextFails(c *tc.C) {
 	hctx := &nonActionSettingContext{}
 	com, err := jujuc.NewCommand(hctx, "action-set")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"oops=nope"})
 	c.Check(code, tc.Equals, 1)
@@ -132,12 +131,12 @@ func (s *ActionSetSuite) TestActionSet(c *tc.C) {
 		c.Logf("test %d: %s", i, t.summary)
 		hctx := &actionSettingContext{}
 		com, err := jujuc.NewCommand(hctx, "action-set")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		c.Logf("  command list: %#v", t.command)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.command)
 		c.Check(code, tc.Equals, t.code)
 		c.Check(bufferString(ctx.Stderr), tc.Equals, t.errMsg)
-		c.Check(hctx.commands, jc.DeepEquals, t.expected)
+		c.Check(hctx.commands, tc.DeepEquals, t.expected)
 	}
 }

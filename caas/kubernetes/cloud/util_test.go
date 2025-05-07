@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 )
 
 type utilSuite struct {
@@ -42,15 +41,15 @@ func (u *utilSuite) TestDataOrFile(c *tc.C) {
 		if len(test.fileContents) > 0 {
 			f, err := os.CreateTemp("", "")
 			fileName = f.Name()
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			n, err := f.Write(test.fileContents)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(n, tc.Equals, len(test.fileContents))
 		}
 
 		r, err := dataOrFile(test.dataContents, fileName)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(r, jc.DeepEquals, test.expectedContents)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(r, tc.DeepEquals, test.expectedContents)
 	}
 }
 
@@ -78,14 +77,14 @@ func (u *utilSuite) TestStringOrFile(c *tc.C) {
 		if test.fileContents != "" {
 			f, err := os.CreateTemp("", "")
 			fileName = f.Name()
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			n, err := f.Write([]byte(test.fileContents))
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(n, tc.Equals, len(test.fileContents))
 		}
 
 		r, err := stringOrFile(test.dataContents, fileName)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(r, jc.DeepEquals, test.expectedContents)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(r, tc.DeepEquals, test.expectedContents)
 	}
 }

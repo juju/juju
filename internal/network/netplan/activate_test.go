@@ -11,7 +11,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/network/netplan"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -66,13 +65,13 @@ func (s *ActivateSuite) TestActivateSuccess(c *tc.C) {
 	for i, file := range files {
 		var err error
 		contents[i], err = os.ReadFile(path.Join("testdata/TestReadWriteBackup", file))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = os.WriteFile(path.Join(tempDir, file), contents[i], 0644)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	result, err := netplan.BridgeAndActivate(params)
 	c.Check(result, tc.IsNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *ActivateSuite) TestActivateDeviceAndVLAN(c *tc.C) {
@@ -99,13 +98,13 @@ func (s *ActivateSuite) TestActivateDeviceAndVLAN(c *tc.C) {
 	for i, file := range files {
 		var err error
 		contents[i], err = os.ReadFile(path.Join("testdata/TestReadWriteBackup", file))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = os.WriteFile(path.Join(tempDir, file), contents[i], 0644)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	result, err := netplan.BridgeAndActivate(params)
 	c.Check(result, tc.IsNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *ActivateSuite) TestActivateFailure(c *tc.C) {
@@ -132,9 +131,9 @@ func (s *ActivateSuite) TestActivateFailure(c *tc.C) {
 	for i, file := range files {
 		var err error
 		contents[i], err = os.ReadFile(path.Join("testdata/TestReadWriteBackup", file))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = os.WriteFile(path.Join(tempDir, file), contents[i], 0644)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	result, err := netplan.BridgeAndActivate(params)
 	c.Assert(result, tc.NotNil)
@@ -146,12 +145,12 @@ func (s *ActivateSuite) TestActivateFailure(c *tc.C) {
 	// old files are in place and unchanged
 	for i, file := range files {
 		content, err := os.ReadFile(path.Join(tempDir, file))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(string(content), tc.Equals, string(contents[i]))
 	}
 	// there are no other YAML files in this directory
 	dirEntries, err := os.ReadDir(tempDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	yamlCount := 0
 	for _, entry := range dirEntries {
@@ -188,9 +187,9 @@ func (s *ActivateSuite) TestActivateTimeout(c *tc.C) {
 	for i, file := range files {
 		var err error
 		contents[i], err = os.ReadFile(path.Join("testdata/TestReadWriteBackup", file))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = os.WriteFile(path.Join(tempDir, file), contents[i], 0644)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	result, err := netplan.BridgeAndActivate(params)
 	c.Check(result, tc.NotNil)

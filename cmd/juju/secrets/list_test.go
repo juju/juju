@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	apisecrets "github.com/juju/juju/api/client/secrets"
@@ -68,7 +67,7 @@ func (s *ListSuite) TestListTabular(c *tc.C) {
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, tc.Equals, fmt.Sprintf(`
 ID                    Name       Owner    Rotation  Revision  Last updated
@@ -108,7 +107,7 @@ func (s *ListSuite) TestListYAML(c *tc.C) {
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--format", "yaml")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, tc.Equals, fmt.Sprintf(`
 %s:
@@ -149,7 +148,7 @@ func (s *ListSuite) TestListJSON(c *tc.C) {
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--format", "json")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, tc.Equals, fmt.Sprintf(`
 {"%s":{"revision":2,"owner":"mariadb","created":"0001-01-01T00:00:00Z","updated":"0001-01-01T00:00:00Z"}}

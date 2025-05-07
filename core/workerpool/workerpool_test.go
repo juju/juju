@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -52,7 +51,7 @@ func (s *ProvisionerWorkerPoolSuite) TestProcessMoreTasksThanWorkers(c *tc.C) {
 	}
 
 	// Shutdown the pool and ensure that no errors got reported.
-	c.Assert(wp.Close(), jc.ErrorIsNil)
+	c.Assert(wp.Close(), tc.ErrorIsNil)
 }
 
 func (s *ProvisionerWorkerPoolSuite) TestConsolidateErrors(c *tc.C) {

@@ -5,7 +5,6 @@ package docker_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/docker"
 )
@@ -27,7 +26,7 @@ func (s *DockerResourceSuite) TestValidRegistryPath(c *tc.C) {
 		registryPath: "me/mygitlab:latest",
 	}} {
 		err := docker.ValidateDockerRegistryPath(registryTest.registryPath)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }
 
@@ -39,7 +38,7 @@ func (s *DockerResourceSuite) TestInvalidRegistryPath(c *tc.C) {
 func (s *DockerResourceSuite) TestDockerImageDetailsUnmarshalJson(c *tc.C) {
 	data := []byte(`{"ImageName":"testing@sha256:beef-deed","Username":"docker-registry","Password":"fragglerock"}`)
 	result, err := docker.UnmarshalDockerResource(data)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, docker.DockerImageDetails{
 		RegistryPath: "testing@sha256:beef-deed",
 		ImageRepoDetails: docker.ImageRepoDetails{
@@ -58,7 +57,7 @@ username: docker-registry
 password: fragglerock
 `[1:])
 	result, err := docker.UnmarshalDockerResource(data)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, docker.DockerImageDetails{
 		RegistryPath: "testing@sha256:beef-deed",
 		ImageRepoDetails: docker.ImageRepoDetails{

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 type ErrorSuite struct {
@@ -56,11 +55,11 @@ func (ErrorSuite) TestExtras(c *tc.C) {
 		},
 	}
 	bytes, err := json.Marshal(expected)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var result APIError
 	err = json.Unmarshal(bytes, &result)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(result, tc.DeepEquals, expected)
 }

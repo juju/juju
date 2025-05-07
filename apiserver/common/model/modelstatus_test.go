@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -91,7 +90,7 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *tc.C) {
 		Entities: []params.Entity{{Tag: controllerModelTag}},
 	}
 	result, err := api.ModelStatus(context.Background(), req)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results[0].Error, tc.ErrorMatches, "permission denied")
 }
 
@@ -114,12 +113,12 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *tc.C) {
 	)
 
 	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: model.ModelTag().String()}},
 	}
 	_, err = api.ModelStatus(context.Background(), req)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *tc.C) {
@@ -155,8 +154,8 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *tc.C) {
 		s.authorizer.GetAuthTag().(names.UserTag),
 	)
 	result, err := modelStatusAPI.ModelStatus(context.Background(), req)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, expected)
 }
 
 func (s *modelStatusSuite) machineServiceGetter(ctx context.Context, uuid coremodel.UUID) (model.MachineService, error) {

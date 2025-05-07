@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/externalcontrollerupdater"
@@ -55,8 +54,8 @@ func (s *ExternalControllerUpdaterSuite) TestExternalControllerInfo(c *tc.C) {
 	})
 	client := externalcontrollerupdater.New(apiCaller)
 	info, err := client.ExternalControllerInfo(context.Background(), coretesting.ControllerTag.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, &crossmodel.ControllerInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, &crossmodel.ControllerInfo{
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		Alias:          "foo",
 		Addrs:          []string{"bar"},
@@ -75,7 +74,7 @@ func (s *ExternalControllerUpdaterSuite) TestExternalControllerInfoError(c *tc.C
 	})
 	client := externalcontrollerupdater.New(apiCaller)
 	info, err := client.ExternalControllerInfo(context.Background(), coretesting.ControllerTag.Id())
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 	c.Assert(info, tc.IsNil)
 }
 
@@ -85,7 +84,7 @@ func (s *ExternalControllerUpdaterSuite) TestSetExternalControllerInfo(c *tc.C) 
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "SetExternalControllerInfo")
-		c.Check(arg, jc.DeepEquals, params.SetExternalControllersInfoParams{
+		c.Check(arg, tc.DeepEquals, params.SetExternalControllersInfoParams{
 			Controllers: []params.SetExternalControllerInfoParams{{
 				Info: params.ExternalControllerInfo{
 					ControllerTag: coretesting.ControllerTag.String(),

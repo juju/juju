@@ -17,7 +17,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 
 	actionapi "github.com/juju/juju/api/client/action"
@@ -55,9 +54,9 @@ var _ = tc.Suite(&RunSuite{})
 func (s *RunSuite) SetUpTest(c *tc.C) {
 	s.BaseActionSuite.SetUpTest(c)
 	s.dir = c.MkDir()
-	c.Assert(utf8.ValidString(validParamsYaml), jc.IsTrue)
-	c.Assert(utf8.ValidString(invalidParamsYaml), jc.IsTrue)
-	c.Assert(utf8.ValidString(invalidUTFYaml), jc.IsFalse)
+	c.Assert(utf8.ValidString(validParamsYaml), tc.IsTrue)
+	c.Assert(utf8.ValidString(invalidParamsYaml), tc.IsTrue)
+	c.Assert(utf8.ValidString(invalidUTFYaml), tc.IsFalse)
 	setupValueFile(c, s.dir, "validParams.yml", validParamsYaml)
 	setupValueFile(c, s.dir, "invalidParams.yml", invalidParamsYaml)
 	setupValueFile(c, s.dir, "invalidUTF.yml", invalidUTFYaml)
@@ -237,7 +236,7 @@ func (s *RunSuite) TestInit(c *tc.C) {
 				c.Check(command.UnitNames(), tc.DeepEquals, t.expectUnits)
 				c.Check(command.ActionName(), tc.Equals, t.expectAction)
 				c.Check(command.ParamsYAML().Path, tc.Equals, t.expectParamsYamlPath)
-				c.Check(command.Args(), jc.DeepEquals, t.expectKVArgs)
+				c.Check(command.Args(), tc.DeepEquals, t.expectKVArgs)
 				c.Check(command.ParseStrings(), tc.Equals, t.expectParseStrings)
 				if t.expectWait != 0 {
 					c.Check(command.Wait(), tc.Equals, t.expectWait)
@@ -1026,9 +1025,9 @@ hello
 		// Run command
 		runCmd, _ := action.NewRunCommandForTest(s.store, s.clock, nil)
 		err := cmdtesting.InitCommand(runCmd, []string{"-m", "admin", validUnitId, "some-action"})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = runCmd.Run(ctx)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(output.String(), tc.Equals, t.output)
 	}
 }
@@ -1051,7 +1050,7 @@ func (s *RunSuite) testRunHelper(c *tc.C, client *fakeAPIClient,
 					Timestamp: time.Date(2015, time.February, 14, 6, 6, 6, 0, time.UTC),
 				}
 				msgData, err := json.Marshal(msg)
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				encodedLogs[n] = string(msgData)
 			}
 			client.logMessageCh <- encodedLogs
@@ -1112,7 +1111,7 @@ func (s *RunSuite) testRunHelper(c *tc.C, client *fakeAPIClient,
 		// Make sure the action sent to the API to be
 		// enqueued was indeed the expected map
 		enqueued := client.enqueuedActions
-		c.Assert(enqueued, jc.DeepEquals, expectedActionEnqueued)
+		c.Assert(enqueued, tc.DeepEquals, expectedActionEnqueued)
 
 		if expectedOutput == "" {
 			outputResult := ctx.Stderr.(*bytes.Buffer).Bytes()
@@ -1120,7 +1119,7 @@ func (s *RunSuite) testRunHelper(c *tc.C, client *fakeAPIClient,
 
 			expectedID := client.actionResults[0].Action.ID
 			valid := names.IsValidAction(expectedID)
-			c.Assert(valid, jc.IsTrue)
+			c.Assert(valid, tc.IsTrue)
 
 			// Make sure the CLI responded with the expected tag
 			c.Assert(outString, tc.Equals, fmt.Sprintf(`

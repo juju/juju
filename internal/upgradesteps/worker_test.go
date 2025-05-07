@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/semversion"
@@ -31,7 +30,7 @@ func (s *baseWorkerSuite) TestAlreadyUpgraded(c *tc.C) {
 	s.lock.EXPECT().IsUnlocked().Return(true)
 
 	upgraded := w.AlreadyUpgraded()
-	c.Assert(upgraded, jc.IsTrue)
+	c.Assert(upgraded, tc.IsTrue)
 }
 
 func (s *baseWorkerSuite) TestAlreadyUpgradedVersionMatching(c *tc.C) {
@@ -43,7 +42,7 @@ func (s *baseWorkerSuite) TestAlreadyUpgradedVersionMatching(c *tc.C) {
 	s.lock.EXPECT().Unlock()
 
 	upgraded := w.AlreadyUpgraded()
-	c.Assert(upgraded, jc.IsTrue)
+	c.Assert(upgraded, tc.IsTrue)
 }
 
 func (s *baseWorkerSuite) TestAlreadyUpgradedVersionNotMatching(c *tc.C) {
@@ -54,7 +53,7 @@ func (s *baseWorkerSuite) TestAlreadyUpgradedVersionNotMatching(c *tc.C) {
 	s.lock.EXPECT().IsUnlocked().Return(false)
 
 	upgraded := w.AlreadyUpgraded()
-	c.Assert(upgraded, jc.IsFalse)
+	c.Assert(upgraded, tc.IsFalse)
 }
 
 func (s *baseWorkerSuite) TestRunUpgradeSteps(c *tc.C) {
@@ -67,7 +66,7 @@ func (s *baseWorkerSuite) TestRunUpgradeSteps(c *tc.C) {
 	w := s.newBaseWorker(c, semversion.MustParse("6.6.6"), semversion.MustParse("6.6.6"))
 	fn := w.RunUpgradeSteps(context.Background(), []upgrades.Target{upgrades.Controller})
 	err := fn(s.configSetter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *baseWorkerSuite) TestRunUpgradeStepsFailureBreakableTrue(c *tc.C) {

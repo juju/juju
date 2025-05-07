@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
@@ -164,7 +163,7 @@ test-master  fred/model.db2  consume  IBM DB2 Express Server Edition is an entry
 
 func (s *showSuite) assertShow(c *tc.C, args []string, expected string) {
 	context, err := s.runShow(c, args...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained := cmdtesting.Stdout(context)
 	c.Assert(obtained, tc.Matches, expected)

@@ -7,7 +7,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jtesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common/crossmodel"
@@ -115,7 +114,7 @@ func (s *baseSuite) setupOffersForUUID(c *tc.C, offerUUID, filterAppName string,
 				Interface: "db2",
 			}}
 		}
-		c.Assert(filters[0], jc.DeepEquals, expectedFilter)
+		c.Assert(filters[0], tc.DeepEquals, expectedFilter)
 		return []jujucrossmodel.ApplicationOffer{anOffer}, nil
 	}
 	s.mockState.applications = map[string]crossmodel.Application{
@@ -126,7 +125,7 @@ func (s *baseSuite) setupOffersForUUID(c *tc.C, offerUUID, filterAppName string,
 		},
 	}
 	userFred, err := coreuser.NewName("fred@external")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.mockModelService.EXPECT().ListAllModels(gomock.Any()).Return(
 		[]coremodel.Model{

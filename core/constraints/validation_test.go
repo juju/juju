@@ -7,7 +7,6 @@ import (
 	"regexp"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/internal/errors"
@@ -175,8 +174,8 @@ func (s *validationSuite) TestValidation(c *tc.C) {
 		cons := constraints.MustParse(t.cons)
 		unsupported, err := validator.Validate(cons)
 		if t.err == "" {
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(unsupported, jc.SameContents, t.unsupported)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(unsupported, tc.SameContents, t.unsupported)
 		} else {
 			c.Assert(err, tc.ErrorMatches, t.err)
 		}
@@ -196,7 +195,7 @@ func (s *validationSuite) TestConstraintResolver(c *tc.C) {
 		return errors.Errorf("instance-type=%q and arch=%q are incompatible", attrValues["instance-type"], attrValues["arch"])
 	})
 	_, err = validator.Validate(cons)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons = constraints.MustParse("arch=arm64 instance-type=foo-s390x")
 	_, err = validator.Validate(cons)
@@ -394,7 +393,7 @@ func (s *validationSuite) TestMerge(c *tc.C) {
 		consFallback := constraints.MustParse(t.consFallback)
 		cons := constraints.MustParse(t.cons)
 		merged, err := validator.Merge(consFallback, cons)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		expected := constraints.MustParse(t.expected)
 		c.Check(merged, tc.DeepEquals, expected)
 	}
@@ -419,7 +418,7 @@ func (s *validationSuite) TestUpdateVocabulary(c *tc.C) {
 
 	cons := constraints.MustParse("arch=amd64")
 	_, err := validator.Validate(cons)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons2 := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons2)
@@ -430,7 +429,7 @@ valid values are: amd64`))
 	validator.UpdateVocabulary(attributeName, additionalValues)
 
 	_, err = validator.Validate(cons)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = validator.Validate(cons2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

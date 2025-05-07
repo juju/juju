@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/worker/lifeflag"
 )
@@ -23,7 +22,7 @@ var _ = tc.Suite(&ValidateSuite{})
 func (*ValidateSuite) TestValidConfig(c *tc.C) {
 	config := validConfig()
 	err := config.Validate()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (*ValidateSuite) TestNilFacade(c *tc.C) {
@@ -46,7 +45,7 @@ func (*ValidateSuite) TestNilResult(c *tc.C) {
 
 func checkInvalid(c *tc.C, config lifeflag.Config, message string) {
 	check := func(err error) {
-		c.Check(err, jc.ErrorIs, errors.NotValid)
+		c.Check(err, tc.ErrorIs, errors.NotValid)
 		c.Check(err, tc.ErrorMatches, message)
 	}
 	err := config.Validate()

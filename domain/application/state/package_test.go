@@ -11,7 +11,6 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/devices"
@@ -54,7 +53,7 @@ func (s *baseSuite) SetUpTest(c *tc.C) {
 		`, modelUUID.String(), coretesting.ControllerTag.Id())
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *baseSuite) minimalMetadata(c *tc.C, name string) charm.Metadata {
@@ -147,7 +146,7 @@ INSERT INTO object_store_metadata_path (path, metadata_uuid) VALUES (?, ?)
 `, path, uuid.String())
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return uuid
 }
 
@@ -199,10 +198,10 @@ func (s *baseSuite) addApplicationArgForStorage(c *tc.C,
 		provider.CommonStorageProviders(),
 	}
 	types, err := registry.StorageProviderTypes()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	for _, t := range types {
 		p, err := registry.StorageProvider(t)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		if p.Supports(storage.StorageKindFilesystem) {
 			args.StoragePoolKind[string(t)] = storage.StorageKindFilesystem
 		} else {
@@ -281,13 +280,13 @@ func (s *baseSuite) createApplication(c *tc.C, name string, l life.Life, units .
 			},
 		},
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	modelType, err := state.GetModelType(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	db, err := state.DB()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	for _, u := range units {
 		err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			if modelType == coremodel.IAAS {
@@ -295,7 +294,7 @@ func (s *baseSuite) createApplication(c *tc.C, name string, l life.Life, units .
 			}
 			return state.insertCAASUnit(ctx, tx, appID, u)
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE application SET life_id = ? WHERE name = ?", l, name)
@@ -306,7 +305,7 @@ func (s *baseSuite) createApplication(c *tc.C, name string, l life.Life, units .
 		_, err = tx.ExecContext(ctx, "UPDATE unit SET life_id = ? WHERE application_uuid = ?", l, appID)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return appID
 }
@@ -359,13 +358,13 @@ func (s *baseSuite) createScalingApplication(c *tc.C, name string, l life.Life, 
 		},
 		Scale: scale,
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE application SET life_id = ? WHERE name = ?", l, name)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return appID
 }
@@ -413,10 +412,10 @@ func (s *baseSuite) assertApplication(
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotName, tc.Equals, name)
-	c.Check(gotPlatform, jc.DeepEquals, platform)
-	c.Check(gotScale, jc.DeepEquals, scale)
+	c.Check(gotPlatform, tc.DeepEquals, platform)
+	c.Check(gotScale, tc.DeepEquals, scale)
 	c.Check(gotAvailable, tc.Equals, available)
 
 	// Channel is optional, so we need to check it separately.

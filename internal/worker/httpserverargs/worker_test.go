@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	gomock "go.uber.org/mock/gomock"
@@ -49,7 +48,7 @@ func (s *workerConfigSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *workerConfigSuite) TestConfigValid(c *tc.C) {
-	c.Assert(s.config.Validate(), jc.ErrorIsNil)
+	c.Assert(s.config.Validate(), tc.ErrorIsNil)
 }
 
 func (s *workerConfigSuite) TestMissing(c *tc.C) {
@@ -66,7 +65,7 @@ func (s *workerConfigSuite) TestMissing(c *tc.C) {
 	for _, test := range tests {
 		cfg := test.fn(s.config)
 		err := cfg.Validate()
-		c.Assert(err, jc.ErrorIs, errors.NotValid)
+		c.Assert(err, tc.ErrorIs, errors.NotValid)
 	}
 }
 
@@ -133,7 +132,7 @@ func (s *workerSuite) TestWorkerControllerConfigContext(c *tc.C) {
 	}
 
 	config, err := w.(*argsWorker).managedServices.ControllerConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(config, tc.NotNil)
 
 	workertest.CleanKill(c, w)
@@ -186,7 +185,7 @@ func (s *workerSuite) TestWorkerServicesForModelContext(c *tc.C) {
 	}
 
 	config, err := w.(*argsWorker).managedServices.ServicesForModel(context.Background(), "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(config, tc.NotNil)
 
 	workertest.CleanKill(c, w)
@@ -219,7 +218,7 @@ func (s *workerSuite) TestWorkerServicesForModelContextDeadline(c *tc.C) {
 
 func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 	w, err := newWorker(s.newWorkerConfig(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }
 

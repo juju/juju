@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	jtesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/internal/testing"
@@ -60,8 +59,8 @@ func (t *testNextPeriod) nextPeriod(period time.Duration, jitter float64) time.D
 func (s *periodicWorkerSuite) TestNextPeriod(c *tc.C) {
 	for i := 0; i < 100; i++ {
 		p := nextPeriod(time.Second, 0.1)
-		c.Assert(p.Seconds()/time.Second.Seconds() <= 1.1, jc.IsTrue)
-		c.Assert(p.Seconds()/time.Second.Seconds() >= 0.9, jc.IsTrue)
+		c.Assert(p.Seconds()/time.Second.Seconds() <= 1.1, tc.IsTrue)
+		c.Assert(p.Seconds()/time.Second.Seconds() >= 0.9, tc.IsTrue)
 	}
 }
 

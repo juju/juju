@@ -5,7 +5,6 @@ package machine_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/internal/cmd"
@@ -29,7 +28,7 @@ func (s *MachineShowCommandSuite) SetUpTest(c *tc.C) {
 
 func (s *MachineShowCommandSuite) TestShowMachine(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, newMachineShowCommand())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// TODO(macgreagoir) Spaces in dummyenv?
 	c.Assert(cmdtesting.Stdout(context), tc.Equals, ""+
 		"model: dummyenv\n"+
@@ -105,7 +104,7 @@ func (s *MachineShowCommandSuite) TestShowMachine(c *tc.C) {
 
 func (s *MachineShowCommandSuite) TestShowSingleMachine(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, newMachineShowCommand(), "0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// TODO(macgreagoir) Spaces in dummyenv?
 	c.Assert(cmdtesting.Stdout(context), tc.Equals, ""+
 		"model: dummyenv\n"+
@@ -134,7 +133,7 @@ func (s *MachineShowCommandSuite) TestShowSingleMachine(c *tc.C) {
 
 func (s *MachineShowCommandSuite) TestShowTabularMachine(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, newMachineShowCommand(), "--format", "tabular", "0", "1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), tc.Equals, ""+
 		"Machine  State    Address   Inst id              Base          AZ         Message\n"+
 		"0        started  10.0.0.1  juju-badd06-0        ubuntu@22.04  us-east-1  \n"+
@@ -144,7 +143,7 @@ func (s *MachineShowCommandSuite) TestShowTabularMachine(c *tc.C) {
 
 func (s *MachineShowCommandSuite) TestShowJsonMachine(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, newMachineShowCommand(), "--format", "json", "0", "1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// TODO(macgreagoir) Spaces in dummyenv?
 	// Make the test more readable by putting all the JSON in a expanded form.
 	// Then to test it, marshal it back into json, so that map equality ordering
@@ -245,8 +244,8 @@ func (s *MachineShowCommandSuite) TestShowJsonMachine(c *tc.C) {
 		"	   }" +
 		"	}" +
 		" }\n")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	actualJSON, err := unmarshalStringAsJSON(cmdtesting.Stdout(context))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(actualJSON, tc.DeepEquals, expectedJSON)
 }

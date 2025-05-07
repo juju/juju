@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -140,14 +139,14 @@ func (*suite) TestRead(c *tc.C) {
 			c.Assert(err, tc.ErrorMatches, test.expectErr)
 			continue
 		}
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(hdr, tc.DeepEquals, test.expectHdr)
 
 		c.Assert(hdr.IsRequest(), tc.Equals, test.expectHdr.IsRequest())
 
 		body := reflect.New(reflect.ValueOf(test.expectBody).Type().Elem()).Interface()
 		err = codec.ReadBody(body, test.expectHdr.IsRequest())
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(body, tc.DeepEquals, test.expectBody)
 
 		err = codec.ReadHeader(&hdr)
@@ -165,8 +164,8 @@ func (*suite) TestErrorAfterClose(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "receiving message: some error")
 
 	err = codec.Close()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conn.closed, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(conn.closed, tc.IsTrue)
 
 	err = codec.ReadHeader(&hdr)
 	c.Assert(err, tc.Equals, io.EOF)
@@ -286,7 +285,7 @@ func (*suite) TestWrite(c *tc.C) {
 			c.Assert(err, tc.ErrorMatches, test.expectErr)
 			continue
 		}
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(conn.writeMsgs, tc.HasLen, 1)
 
 		assertJSONEqual(c, conn.writeMsgs[0], test.expect)
@@ -410,13 +409,13 @@ func (*suite) TestDumpRequest(c *tc.C) {
 func assertJSONEqual(c *tc.C, v0, v1 string) {
 	var m0, m1 interface{}
 	err := json.Unmarshal([]byte(v0), &m0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = json.Unmarshal([]byte(v1), &m1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	data0, err := json.Marshal(m0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	data1, err := json.Marshal(m1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(data0), tc.Equals, string(data1))
 }
 

@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	goyaml "gopkg.in/yaml.v2"
 
@@ -55,28 +54,28 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *tc.C) {
 		"authorized-keys":    "we-are-the-keys",
 		"cloudinit-userdata": validCloudInitUserData,
 	}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	icfg := &instancecfg.InstanceConfig{
 		APIInfo: &api.Info{Tag: userTag},
 	}
 	err = instancecfg.FinishInstanceConfig(icfg, cfg)
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(icfg, jc.DeepEquals, expectedMcfg)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(icfg, tc.DeepEquals, expectedMcfg)
 
 	// Test when updates/upgrades are set to false.
 	cfg, err = config.New(config.NoDefaults, testing.FakeConfig().Merge(testing.Attrs{
 		"enable-os-refresh-update": false,
 		"enable-os-upgrade":        false,
 	}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = instancecfg.FinishInstanceConfig(icfg, cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedMcfg.EnableOSRefreshUpdate = false
 	expectedMcfg.EnableOSUpgrade = false
 	expectedMcfg.CloudInitUserData = nil
-	c.Assert(icfg, jc.DeepEquals, expectedMcfg)
+	c.Assert(icfg, tc.DeepEquals, expectedMcfg)
 }
 
 func (s *CloudInitSuite) TestFinishInstanceConfigNonDefault(c *tc.C) {
@@ -85,13 +84,13 @@ func (s *CloudInitSuite) TestFinishInstanceConfigNonDefault(c *tc.C) {
 		"ssl-hostname-verification": false,
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	icfg := &instancecfg.InstanceConfig{
 		APIInfo: &api.Info{Tag: userTag},
 	}
 	err = instancecfg.FinishInstanceConfig(icfg, cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(icfg, jc.DeepEquals, &instancecfg.InstanceConfig{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(icfg, tc.DeepEquals, &instancecfg.InstanceConfig{
 		AgentEnvironment: map[string]string{
 			agent.ProviderType:  "dummy",
 			agent.ContainerType: "",
@@ -123,7 +122,7 @@ func (*CloudInitSuite) testUserData(c *tc.C, base corebase.Base, bootstrap bool)
 		},
 	}
 	envConfig, err := config.New(config.NoDefaults, testing.FakeConfig())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	allJobs := []model.MachineJob{
 		model.JobManageModel,
@@ -153,7 +152,7 @@ func (*CloudInitSuite) testUserData(c *tc.C, base corebase.Base, bootstrap bool)
 		CloudInitUserData:       cloudInitUserDataMap,
 	}
 	err = cfg.SetTools(toolsList)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	if bootstrap {
 		controllerCfg := testing.FakeControllerConfig()
 		cfg.Bootstrap = &instancecfg.BootstrapConfig{
@@ -173,18 +172,18 @@ func (*CloudInitSuite) testUserData(c *tc.C, base corebase.Base, bootstrap bool)
 	script1 := "script1"
 	script2 := "script2"
 	cloudcfg, err := cloudinit.New(base.OS)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cloudcfg.AddRunCmd(script1)
 	cloudcfg.AddRunCmd(script2)
 	result, err := providerinit.ComposeUserData(cfg, cloudcfg, &openstack.OpenstackRenderer{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	unzipped, err := utils.Gunzip(result)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	config := make(map[interface{}]interface{})
 	err = goyaml.Unmarshal(unzipped, &config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	if bootstrap {
 		// The cloudinit config should have nothing but the basics:
@@ -221,12 +220,12 @@ func (*CloudInitSuite) testUserData(c *tc.C, base corebase.Base, bootstrap bool)
 				},
 			},
 		}
-		c.Check(config, jc.DeepEquals, expected)
+		c.Check(config, tc.DeepEquals, expected)
 	} else {
 		// Just check that the cloudinit config looks good,
 		// and that there are more runcmds than the additional
 		// ones we passed into ComposeUserData.
-		c.Check(config["package_upgrade"], jc.IsFalse)
+		c.Check(config["package_upgrade"], tc.IsFalse)
 		runCmd := config["runcmd"].([]interface{})
 		c.Assert(runCmd[:4], tc.DeepEquals, []interface{}{
 			`mkdir /tmp/preruncmd`,

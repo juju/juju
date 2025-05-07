@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
@@ -44,13 +43,13 @@ users:
 `
 
 	conf, err := k8scloud.ConfigFromReader(strings.NewReader(rawConf))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, exists := conf.Contexts["jujukube"]
-	c.Assert(exists, jc.IsTrue)
+	c.Assert(exists, tc.IsTrue)
 	_, exists = conf.Clusters["jujukube"]
-	c.Assert(exists, jc.IsTrue)
+	c.Assert(exists, tc.IsTrue)
 	_, exists = conf.AuthInfos["wallyworld"]
-	c.Assert(exists, jc.IsTrue)
+	c.Assert(exists, tc.IsTrue)
 }
 
 func (s *cloudSuite) TestCloudsFromKubeConfigContexts(c *tc.C) {
@@ -89,9 +88,9 @@ users:
 `
 
 	conf, err := k8scloud.ConfigFromReader(strings.NewReader(rawConf))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	clouds, err := k8scloud.CloudsFromKubeConfigContexts(conf)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(clouds), tc.Equals, 2)
 
 	foundCloud1 := false
@@ -100,14 +99,14 @@ users:
 			foundCloud1 = true
 		}
 	}
-	c.Assert(foundCloud1, jc.IsTrue)
+	c.Assert(foundCloud1, tc.IsTrue)
 	foundCloud2 := false
 	for _, cloud := range clouds {
 		if cloud.Name == "jujukube1" {
 			foundCloud2 = true
 		}
 	}
-	c.Assert(foundCloud2, jc.IsTrue)
+	c.Assert(foundCloud2, tc.IsTrue)
 }
 
 func (s *cloudSuite) TestCloudFromKubeConfigContext(c *tc.C) {
@@ -134,7 +133,7 @@ users:
 `
 
 	conf, err := k8scloud.ConfigFromReader(strings.NewReader(rawConf))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cl, err := k8scloud.CloudFromKubeConfigContext(
 		"jujukube",
 		conf,
@@ -149,13 +148,13 @@ users:
 			},
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(cl.Name, tc.Equals, "test1")
 	c.Assert(cl.Type, tc.Equals, constants.CAASProviderType)
 	c.Assert(cl.HostCloudRegion, tc.Equals, "jujutest")
 	c.Assert(cl.Description, tc.Equals, "description")
-	c.Assert(cl.Regions, jc.DeepEquals, []cloud.Region{
+	c.Assert(cl.Regions, tc.DeepEquals, []cloud.Region{
 		{
 			Name: "juju test",
 		},
@@ -199,12 +198,12 @@ users:
 			},
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cl.Name, tc.Equals, "test1")
 	c.Assert(cl.Type, tc.Equals, constants.CAASProviderType)
 	c.Assert(cl.HostCloudRegion, tc.Equals, "jujutest")
 	c.Assert(cl.Description, tc.Equals, "description")
-	c.Assert(cl.Regions, jc.DeepEquals, []cloud.Region{
+	c.Assert(cl.Regions, tc.DeepEquals, []cloud.Region{
 		{
 			Name: "juju test",
 		},
@@ -235,7 +234,7 @@ users:
 `
 
 	conf, err := k8scloud.ConfigFromReader(strings.NewReader(rawConf))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cl, err := k8scloud.CloudFromKubeConfigCluster(
 		"jujukube",
 		conf,
@@ -250,13 +249,13 @@ users:
 			},
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(cl.Name, tc.Equals, "test1")
 	c.Assert(cl.Type, tc.Equals, constants.CAASProviderType)
 	c.Assert(cl.HostCloudRegion, tc.Equals, "jujutest")
 	c.Assert(cl.Description, tc.Equals, "description")
-	c.Assert(cl.Regions, jc.DeepEquals, []cloud.Region{
+	c.Assert(cl.Regions, tc.DeepEquals, []cloud.Region{
 		{
 			Name: "juju test",
 		},
@@ -287,7 +286,7 @@ users:
 `
 
 	conf, err := k8scloud.ConfigFromReader(strings.NewReader(rawConf))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = k8scloud.CloudFromKubeConfigContext(
 		"jujukube-doest-not-exist",
 		conf,
@@ -302,7 +301,7 @@ users:
 			},
 		},
 	)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *cloudSuite) TestCloudFromKubeConfigContextClusterDoesNotExist(c *tc.C) {
@@ -329,7 +328,7 @@ users:
 `
 
 	conf, err := k8scloud.ConfigFromReader(strings.NewReader(rawConf))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = k8scloud.CloudFromKubeConfigContext(
 		"jujukube",
 		conf,
@@ -344,7 +343,7 @@ users:
 			},
 		},
 	)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *cloudSuite) CloudFromKubeConfigClusterReader(c *tc.C) {
@@ -384,13 +383,13 @@ users:
 			},
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(cl.Name, tc.Equals, "test1")
 	c.Assert(cl.Type, tc.Equals, constants.CAASProviderType)
 	c.Assert(cl.HostCloudRegion, tc.Equals, "jujutest")
 	c.Assert(cl.Description, tc.Equals, "description")
-	c.Assert(cl.Regions, jc.DeepEquals, []cloud.Region{
+	c.Assert(cl.Regions, tc.DeepEquals, []cloud.Region{
 		{
 			Name: "juju test",
 		},
@@ -421,7 +420,7 @@ users:
 `
 
 	conf, err := k8scloud.ConfigFromReader(strings.NewReader(rawConf))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = k8scloud.CloudFromKubeConfigCluster(
 		"does-not-exist",
 		conf,
@@ -436,5 +435,5 @@ users:
 			},
 		},
 	)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }

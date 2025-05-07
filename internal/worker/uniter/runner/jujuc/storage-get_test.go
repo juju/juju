@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/internal/cmd"
@@ -39,7 +38,7 @@ func (s *storageGetSuite) TestOutputFormatKey(c *tc.C) {
 		c.Logf("test %d: %#v", i, t.args)
 		hctx, _ := s.newHookContext()
 		com, err := jujuc.NewCommand(hctx, "storage-get")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
 		c.Assert(code, tc.Equals, 0)
@@ -64,14 +63,14 @@ func (s *storageGetSuite) TestOutputFormatKey(c *tc.C) {
 func (s *storageGetSuite) TestOutputPath(c *tc.C) {
 	hctx, _ := s.newHookContext()
 	com, err := jujuc.NewCommand(hctx, "storage-get")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--format", "yaml", "--output", "some-file", "-s", "data/0"})
 	c.Assert(code, tc.Equals, 0)
 	c.Assert(bufferString(ctx.Stderr), tc.Equals, "")
 	c.Assert(bufferString(ctx.Stdout), tc.Equals, "")
 	content, err := os.ReadFile(filepath.Join(ctx.Dir, "some-file"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var out map[string]interface{}
 	c.Assert(goyaml.Unmarshal(content, &out), tc.IsNil)

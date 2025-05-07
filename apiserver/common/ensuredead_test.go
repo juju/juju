@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -65,7 +64,7 @@ func (*deadEnsurerSuite) TestEnsureDead(c *tc.C) {
 		{"unit-x-0"}, {"unit-x-1"}, {"unit-x-2"}, {"unit-x-3"}, {"unit-x-4"}, {"unit-x-5"},
 	}}
 	result, err := d.EnsureDead(context.Background(), entities)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{&params.Error{Message: "x0 fails"}},
@@ -97,6 +96,6 @@ func (*deadEnsurerSuite) TestEnsureDeadNoArgsNoError(c *tc.C) {
 	defer ctrl.Finish()
 	d := common.NewDeadEnsurer(&fakeState{}, getCanModify, mocks.NewMockEnsureDeadMachineService(ctrl))
 	result, err := d.EnsureDead(context.Background(), params.Entities{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 0)
 }

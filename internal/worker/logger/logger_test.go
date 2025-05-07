@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 
 	corelogger "github.com/juju/juju/core/logger"
@@ -60,7 +59,7 @@ func (s *LoggerSuite) TestMissingContext(c *tc.C) {
 	s.config.Context = nil
 	w, err := logger.NewLogger(s.config)
 	c.Assert(w, tc.IsNil)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), tc.Equals, "missing logging context not valid")
 }
 
@@ -68,7 +67,7 @@ func (s *LoggerSuite) TestMissingAPI(c *tc.C) {
 	s.config.API = nil
 	w, err := logger.NewLogger(s.config)
 	c.Assert(w, tc.IsNil)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), tc.Equals, "missing api not valid")
 }
 
@@ -76,7 +75,7 @@ func (s *LoggerSuite) TestMissingLogger(c *tc.C) {
 	s.config.Logger = nil
 	w, err := logger.NewLogger(s.config)
 	c.Assert(w, tc.IsNil)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), tc.Equals, "missing logger not valid")
 }
 
@@ -99,7 +98,7 @@ func (s *LoggerSuite) waitLoggingInfo(c *tc.C, expected string) {
 
 func (s *LoggerSuite) makeLogger(c *tc.C) worker.Worker {
 	w, err := logger.NewLogger(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }
 
@@ -116,12 +115,12 @@ func (s *LoggerSuite) TestInitialState(c *tc.C) {
 
 	s.context.ResetLoggerLevels()
 	err := s.context.ConfigureLoggers(initial)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	loggingWorker := s.makeLogger(c)
 	s.waitLoggingInfo(c, expected)
 	err = worker.Stop(loggingWorker)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.value, tc.Equals, expected)
 	c.Check(s.loggerAPI.loggingTag, tc.Equals, s.agent)
@@ -133,7 +132,7 @@ func (s *LoggerSuite) TestConfigOverride(c *tc.C) {
 
 	s.context.ResetLoggerLevels()
 	err := s.context.ConfigureLoggers("<root>=DEBUG;wibble=ERROR")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	loggingWorker := s.makeLogger(c)
 	defer worker.Stop(loggingWorker)

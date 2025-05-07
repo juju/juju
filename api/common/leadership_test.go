@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/base/mocks"
@@ -43,7 +42,7 @@ func (s *LeadershipSuite) TestPinnedLeadership(c *tc.C) {
 	s.facade.EXPECT().FacadeCall(gomock.Any(), "PinnedLeadership", nil, gomock.Any()).SetArg(3, resultSource)
 
 	res, err := s.client.PinnedLeadership(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, map[string][]names.Tag{"redis": {names.NewMachineTag("0"), names.NewMachineTag("1")}})
 }
 
@@ -64,7 +63,7 @@ func (s *LeadershipSuite) TestPinMachineApplicationsSuccess(c *tc.C) {
 	s.facade.EXPECT().FacadeCall(gomock.Any(), "PinMachineApplications", nil, gomock.Any()).SetArg(3, resultSource)
 
 	res, err := s.client.PinMachineApplications(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, s.pinApplicationsClientSuccessResults())
 }
 
@@ -78,7 +77,7 @@ func (s *LeadershipSuite) TestPinMachineApplicationsPartialError(c *tc.C) {
 	s.facade.EXPECT().FacadeCall(gomock.Any(), "PinMachineApplications", nil, gomock.Any()).SetArg(3, resultSource)
 
 	res, err := s.client.PinMachineApplications(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	exp := s.pinApplicationsClientSuccessResults()
 	exp["wordpress"] = errorRes
@@ -92,7 +91,7 @@ func (s *LeadershipSuite) TestUnpinMachineApplicationsSuccess(c *tc.C) {
 	s.facade.EXPECT().FacadeCall(gomock.Any(), "UnpinMachineApplications", nil, gomock.Any()).SetArg(3, resultSource)
 
 	res, err := s.client.UnpinMachineApplications(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, s.pinApplicationsClientSuccessResults())
 }
 
@@ -115,7 +114,7 @@ func (s *LeadershipSuite) TestUnpinMachineApplicationsPartialError(c *tc.C) {
 	s.facade.EXPECT().FacadeCall(gomock.Any(), "UnpinMachineApplications", nil, gomock.Any()).SetArg(3, resultSource)
 
 	res, err := s.client.UnpinMachineApplications(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	exp := s.pinApplicationsClientSuccessResults()
 	exp["redis"] = errorRes

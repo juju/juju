@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -107,7 +106,7 @@ func (s *workerSuite) TestConfigValidate(c *tc.C) {
 		Clock:        s.clock,
 		RegistryFunc: func(i docker.ImageRepoDetails) (registry.Registry, error) { return nil, nil },
 	}
-	c.Check(cfg.Validate(), jc.ErrorIsNil)
+	c.Check(cfg.Validate(), tc.ErrorIsNil)
 }
 
 func (s *workerSuite) getWorkerStarter(c *tc.C) (func(...any) worker.Worker, *gomock.Controller) {
@@ -131,7 +130,7 @@ func (s *workerSuite) getWorkerStarter(c *tc.C) (func(...any) worker.Worker, *go
 	return func(calls ...any) worker.Worker {
 		gomock.InOrder(calls...)
 		w, err := caasmodelconfigmanager.NewWorker(cfg)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		return w
 	}, ctrl
 }
@@ -306,6 +305,6 @@ func (s *workerSuite) TestWorkerNoOpsForPublicRepo(c *tc.C) {
 
 func (s *workerSuite) CAASImageRepo(c *tc.C) docker.ImageRepoDetails {
 	r, err := docker.NewImageRepoDetails(s.controllerConfig.CAASImageRepo())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return r
 }

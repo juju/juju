@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/cmd/jujud-controller/agent/model"
@@ -22,30 +21,30 @@ var _ = tc.Suite(&ErrorsSuite{})
 
 func (*ErrorsSuite) TestIsFatal_Nil(c *tc.C) {
 	result := model.IsFatal(nil)
-	c.Check(result, jc.IsFalse)
+	c.Check(result, tc.IsFalse)
 }
 
 func (*ErrorsSuite) TestIsFatal_Random(c *tc.C) {
 	err := errors.New("whatever")
 	result := model.IsFatal(err)
-	c.Check(result, jc.IsFalse)
+	c.Check(result, tc.IsFalse)
 }
 
 func (*ErrorsSuite) TestIsFatal_Exact(c *tc.C) {
 	err := model.ErrRemoved
 	result := model.IsFatal(err)
-	c.Check(result, jc.IsTrue)
+	c.Check(result, tc.IsTrue)
 }
 
 func (*ErrorsSuite) TestIsFatal_Traced(c *tc.C) {
 	err := errors.Trace(model.ErrRemoved)
 	result := model.IsFatal(err)
-	c.Check(result, jc.IsTrue)
+	c.Check(result, tc.IsTrue)
 }
 
 func (*ErrorsSuite) TestIgnoreErrRemoved_Nil(c *tc.C) {
 	result := model.IgnoreErrRemoved(nil)
-	c.Check(result, jc.ErrorIsNil)
+	c.Check(result, tc.ErrorIsNil)
 }
 
 func (*ErrorsSuite) TestIgnoreErrRemoved_Random(c *tc.C) {
@@ -57,18 +56,18 @@ func (*ErrorsSuite) TestIgnoreErrRemoved_Random(c *tc.C) {
 func (*ErrorsSuite) TestIgnoreErrRemoved_Exact(c *tc.C) {
 	err := model.ErrRemoved
 	result := model.IgnoreErrRemoved(err)
-	c.Check(result, jc.ErrorIsNil)
+	c.Check(result, tc.ErrorIsNil)
 }
 
 func (*ErrorsSuite) TestIgnoreErrRemoved_Traced(c *tc.C) {
 	err := errors.Trace(model.ErrRemoved)
 	result := model.IgnoreErrRemoved(err)
-	c.Check(result, jc.ErrorIsNil)
+	c.Check(result, tc.ErrorIsNil)
 }
 
 func (*ErrorsSuite) TestLifeFilter_Nil(c *tc.C) {
 	result := model.LifeFilter(nil)
-	c.Check(result, jc.ErrorIsNil)
+	c.Check(result, tc.ErrorIsNil)
 }
 
 func (*ErrorsSuite) TestLifeFilter_Random(c *tc.C) {

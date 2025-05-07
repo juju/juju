@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"google.golang.org/api/compute/v1"
 
 	"github.com/juju/juju/cloud"
@@ -188,14 +187,14 @@ func (s *BaseSuiteUnpatched) initInst(c *tc.C) {
 
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons,
 		jujuversion.DefaultSupportedLTSBase(), "", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = instanceConfig.SetTools(tools)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	instanceConfig.AuthorizedKeys = s.Config.AuthorizedKeys()
 
 	userData, err := providerinit.ComposeUserData(instanceConfig, nil, GCERenderer{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.UbuntuMetadata = map[string]string{
 		tags.JujuIsController: "true",
@@ -213,7 +212,7 @@ func (s *BaseSuiteUnpatched) initInst(c *tc.C) {
 	s.Instance = s.NewInstance(c, "spam")
 	s.BaseInstance = s.Instance.base
 	s.InstName, err = s.Env.namespace.Hostname("42")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.StartInstArgs = environs.StartInstanceParams{
 		ControllerUUID: s.ControllerUUID,
@@ -258,13 +257,13 @@ func (s *BaseSuiteUnpatched) initNet(c *tc.C) {
 func (s *BaseSuiteUnpatched) setConfig(c *tc.C, cfg *config.Config) {
 	s.Config = cfg
 	ecfg, err := newConfig(context.Background(), cfg, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.EnvConfig = ecfg
 	uuid := cfg.UUID()
 	s.Env.uuid = uuid
 	s.Env.ecfg = s.EnvConfig
 	namespace, err := instance.NewNamespace(uuid)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.Env.namespace = namespace
 }
 
@@ -272,15 +271,15 @@ func (s *BaseSuiteUnpatched) NewConfig(c *tc.C, updates testing.Attrs) *config.C
 	var err error
 	cfg := testing.ModelConfig(c)
 	cfg, err = cfg.Apply(ConfigAttrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cfg, err = cfg.Apply(updates)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return cfg
 }
 
 func (s *BaseSuiteUnpatched) UpdateConfig(c *tc.C, attrs map[string]interface{}) {
 	cfg, err := s.Config.Apply(attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.setConfig(c, cfg)
 }
 
@@ -392,7 +391,7 @@ func (f *fake) addCall(funcName string, args FakeCallArgs) {
 }
 
 func (f *fake) CheckCalls(c *tc.C, expected []FakeCall) {
-	c.Check(f.calls, jc.DeepEquals, expected)
+	c.Check(f.calls, tc.DeepEquals, expected)
 }
 
 type fakeCommon struct {

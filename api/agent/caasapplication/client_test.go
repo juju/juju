@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/agent/caasapplication"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -48,11 +47,11 @@ func (s *provisionerSuite) TestUnitIntroduction(c *tc.C) {
 		return nil
 	})
 	unitConfig, err := client.UnitIntroduction(context.Background(), "pod-name", "pod-uuid")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(called, tc.IsTrue)
 	c.Assert(unitConfig, tc.NotNil)
 	c.Assert(unitConfig.UnitTag.String(), tc.Equals, "unit-app-0")
-	c.Assert(unitConfig.AgentConf, jc.SameContents, []byte("config data"))
+	c.Assert(unitConfig.AgentConf, tc.SameContents, []byte("config data"))
 }
 
 func (s *provisionerSuite) TestUnitIntroductionFail(c *tc.C) {
@@ -74,7 +73,7 @@ func (s *provisionerSuite) TestUnitIntroductionFail(c *tc.C) {
 	})
 	_, err := client.UnitIntroduction(context.Background(), "pod-name", "pod-uuid")
 	c.Assert(err, tc.ErrorMatches, "FAIL")
-	c.Assert(called, jc.IsTrue)
+	c.Assert(called, tc.IsTrue)
 }
 
 func (s *provisionerSuite) TestUnitIntroductionFailAlreadyExists(c *tc.C) {
@@ -95,8 +94,8 @@ func (s *provisionerSuite) TestUnitIntroductionFailAlreadyExists(c *tc.C) {
 		return nil
 	})
 	_, err := client.UnitIntroduction(context.Background(), "pod-name", "pod-uuid")
-	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIs, errors.AlreadyExists)
+	c.Assert(called, tc.IsTrue)
 }
 
 func (s *provisionerSuite) TestUnitIntroductionFailNotAssigned(c *tc.C) {
@@ -117,8 +116,8 @@ func (s *provisionerSuite) TestUnitIntroductionFailNotAssigned(c *tc.C) {
 		return nil
 	})
 	_, err := client.UnitIntroduction(context.Background(), "pod-name", "pod-uuid")
-	c.Assert(err, jc.ErrorIs, errors.NotAssigned)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIs, errors.NotAssigned)
+	c.Assert(called, tc.IsTrue)
 }
 
 func (s *provisionerSuite) TestUnitTerminating(c *tc.C) {
@@ -153,11 +152,11 @@ func (s *provisionerSuite) TestUnitTerminating(c *tc.C) {
 		})
 		unitTermination, err := client.UnitTerminating(context.Background(), names.NewUnitTag("app/0"))
 		if test.err == nil {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		} else {
 			c.Assert(err, tc.ErrorMatches, test.err.Error())
 		}
-		c.Assert(called, jc.IsTrue)
+		c.Assert(called, tc.IsTrue)
 		c.Assert(unitTermination, tc.DeepEquals, caasapplication.UnitTermination{WillRestart: test.willRestart})
 	}
 }

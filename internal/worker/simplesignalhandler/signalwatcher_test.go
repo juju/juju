@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	ssh "github.com/juju/juju/internal/worker/simplesignalhandler"
@@ -30,12 +29,12 @@ func (*signalSuite) TestSignalHandling(c *tc.C) {
 	sigChan := make(chan os.Signal)
 
 	watcher, err := ssh.NewSignalWatcher(loggertesting.WrapCheckLog(c), sigChan, handler)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	sigChan <- syscall.SIGTERM
 
 	err = watcher.Wait()
-	c.Assert(err, jc.ErrorIs, testErr)
+	c.Assert(err, tc.ErrorIs, testErr)
 }
 
 func (*signalSuite) TestSignalHandlingClosed(c *tc.C) {
@@ -46,7 +45,7 @@ func (*signalSuite) TestSignalHandlingClosed(c *tc.C) {
 	sigChan := make(chan os.Signal)
 
 	watcher, err := ssh.NewSignalWatcher(loggertesting.WrapCheckLog(c), sigChan, handler)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	close(sigChan)
 
@@ -57,7 +56,7 @@ func (*signalSuite) TestSignalHandlingClosed(c *tc.C) {
 func (*signalSuite) TestDefaultSignalHandlerNilMap(c *tc.C) {
 	testErr := errors.ConstError("test")
 	err := ssh.SignalHandler(testErr, nil)(syscall.SIGTERM)
-	c.Assert(err, jc.ErrorIs, testErr)
+	c.Assert(err, tc.ErrorIs, testErr)
 }
 
 func (*signalSuite) TestDefaultSignalHandlerNoMap(c *tc.C) {
@@ -65,7 +64,7 @@ func (*signalSuite) TestDefaultSignalHandlerNoMap(c *tc.C) {
 	err := ssh.SignalHandler(testErr, map[os.Signal]error{
 		syscall.SIGINT: errors.New("test error"),
 	})(syscall.SIGTERM)
-	c.Assert(err, jc.ErrorIs, testErr)
+	c.Assert(err, tc.ErrorIs, testErr)
 }
 
 func (*signalSuite) TestDefaultSignalHandlerMap(c *tc.C) {
@@ -73,6 +72,6 @@ func (*signalSuite) TestDefaultSignalHandlerMap(c *tc.C) {
 	err := ssh.SignalHandler(testErr, map[os.Signal]error{
 		syscall.SIGINT: errors.New("test error"),
 	})(syscall.SIGINT)
-	c.Assert(err, tc.Not(jc.ErrorIs), testErr)
+	c.Assert(err, tc.Not(tc.ErrorIs), testErr)
 	c.Assert(err.Error(), tc.Equals, "test error")
 }

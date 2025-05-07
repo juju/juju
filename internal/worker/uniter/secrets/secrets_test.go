@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/yaml.v2"
 
@@ -42,7 +41,7 @@ func ptr[T any](v T) *T {
 
 func (s *secretsSuite) yamlString(c *tc.C, st *secrets.State) string {
 	data, err := yaml.Marshal(st)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return string(data)
 }
 
@@ -80,7 +79,7 @@ func (s *secretsSuite) TestCommitSecretChanged(c *tc.C) {
 
 	tag := names.NewUnitTag("foo/0")
 	tracker, err := secrets.NewSecrets(context.Background(), s.secretsClient, tag, s.stateReadWriter, loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info := hook.Info{
 		Kind:           hooks.SecretChanged,
@@ -88,7 +87,7 @@ func (s *secretsSuite) TestCommitSecretChanged(c *tc.C) {
 		SecretRevision: 666,
 	}
 	err = tracker.CommitHook(context.Background(), info)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *secretsSuite) TestCommitSecretRemove(c *tc.C) {
@@ -122,7 +121,7 @@ func (s *secretsSuite) TestCommitSecretRemove(c *tc.C) {
 
 	tag := names.NewUnitTag("foo/0")
 	tracker, err := secrets.NewSecrets(context.Background(), s.secretsClient, tag, s.stateReadWriter, loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info := hook.Info{
 		Kind:           hooks.SecretRemove,
@@ -130,7 +129,7 @@ func (s *secretsSuite) TestCommitSecretRemove(c *tc.C) {
 		SecretRevision: 666,
 	}
 	err = tracker.CommitHook(context.Background(), info)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *secretsSuite) TestCommitNoOpSecretsRemoved(c *tc.C) {
@@ -173,8 +172,8 @@ func (s *secretsSuite) TestCommitNoOpSecretsRemoved(c *tc.C) {
 
 	tag := names.NewUnitTag("foo/0")
 	tracker, err := secrets.NewSecrets(context.Background(), s.secretsClient, tag, s.stateReadWriter, loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = tracker.SecretsRemoved(context.Background(), []string{"secret:666e2mr0ui3e8a215n4g"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

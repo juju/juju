@@ -11,7 +11,6 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/environs/filestorage"
@@ -37,10 +36,10 @@ func (s *datasourceSuite) SetUpTest(c *tc.C) {
 
 	storageDir := c.MkDir()
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.stor = stor
 	s.baseURL, err = s.stor.URL("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *datasourceSuite) TestFetch(c *tc.C) {
@@ -48,11 +47,11 @@ func (s *datasourceSuite) TestFetch(c *tc.C) {
 	s.stor.Put("foo/bar/data.txt", bytes.NewReader([]byte(sampleData)), int64(len(sampleData)))
 	ds := storage.NewStorageSimpleStreamsDataSource("test datasource", s.stor, "", simplestreams.DEFAULT_CLOUD_DATA, false)
 	rc, url, err := ds.Fetch(context.Background(), "foo/bar/data.txt")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer rc.Close()
 	c.Assert(url, tc.Equals, s.baseURL+"/foo/bar/data.txt")
 	data, err := io.ReadAll(rc)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(data, tc.DeepEquals, []byte(sampleData))
 }
 
@@ -61,11 +60,11 @@ func (s *datasourceSuite) TestFetchWithBasePath(c *tc.C) {
 	s.stor.Put("base/foo/bar/data.txt", bytes.NewReader([]byte(sampleData)), int64(len(sampleData)))
 	ds := storage.NewStorageSimpleStreamsDataSource("test datasource", s.stor, "base", simplestreams.DEFAULT_CLOUD_DATA, false)
 	rc, url, err := ds.Fetch(context.Background(), "foo/bar/data.txt")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer rc.Close()
 	c.Assert(url, tc.Equals, s.baseURL+"/base/foo/bar/data.txt")
 	data, err := io.ReadAll(rc)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(data, tc.DeepEquals, []byte(sampleData))
 }
 
@@ -83,7 +82,7 @@ func (s *datasourceSuite) TestURL(c *tc.C) {
 	s.stor.Put("bar/data.txt", bytes.NewReader([]byte(sampleData)), int64(len(sampleData)))
 	ds := storage.NewStorageSimpleStreamsDataSource("test datasource", s.stor, "", simplestreams.DEFAULT_CLOUD_DATA, false)
 	url, err := ds.URL("bar")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedURL, _ := s.stor.URL("bar")
 	c.Assert(url, tc.Equals, expectedURL)
 }
@@ -93,7 +92,7 @@ func (s *datasourceSuite) TestURLWithBasePath(c *tc.C) {
 	s.stor.Put("base/bar/data.txt", bytes.NewReader([]byte(sampleData)), int64(len(sampleData)))
 	ds := storage.NewStorageSimpleStreamsDataSource("test datasource", s.stor, "base", simplestreams.DEFAULT_CLOUD_DATA, false)
 	url, err := ds.URL("bar")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedURL, _ := s.stor.URL("base/bar")
 	c.Assert(url, tc.Equals, expectedURL)
 }

@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/charmhub"
@@ -30,7 +29,7 @@ func (s *downloaderSuite) TestDownload(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cURL, err := url.Parse("https://example.com/foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.downloadClient.EXPECT().Download(gomock.Any(), cURL, gomock.Any(), gomock.Any()).Return(&charmhub.Digest{
 		SHA256: "sha256",
@@ -40,13 +39,13 @@ func (s *downloaderSuite) TestDownload(c *tc.C) {
 
 	downloader := NewCharmDownloader(s.downloadClient, loggertesting.WrapCheckLog(c))
 	result, err := downloader.Download(context.Background(), cURL, "sha256")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Ensure the path is not empty and that the temp file still exists.
 	c.Assert(result.Path, tc.Not(tc.Equals), "")
 
 	_, err = os.Stat(result.Path)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(result.Size, tc.Equals, int64(123))
 }
 
@@ -54,7 +53,7 @@ func (s *downloaderSuite) TestDownloadFailure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cURL, err := url.Parse("https://example.com/foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var tmpPath string
 
@@ -74,14 +73,14 @@ func (s *downloaderSuite) TestDownloadFailure(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `.*boom`)
 
 	_, err = os.Stat(tmpPath)
-	c.Check(os.IsNotExist(err), jc.IsTrue)
+	c.Check(os.IsNotExist(err), tc.IsTrue)
 }
 
 func (s *downloaderSuite) TestDownloadInvalidDigestHash(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cURL, err := url.Parse("https://example.com/foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var tmpPath string
 
@@ -98,10 +97,10 @@ func (s *downloaderSuite) TestDownloadInvalidDigestHash(c *tc.C) {
 
 	downloader := NewCharmDownloader(s.downloadClient, loggertesting.WrapCheckLog(c))
 	_, err = downloader.Download(context.Background(), cURL, "hash")
-	c.Assert(err, jc.ErrorIs, ErrInvalidDigestHash)
+	c.Assert(err, tc.ErrorIs, ErrInvalidDigestHash)
 
 	_, err = os.Stat(tmpPath)
-	c.Check(os.IsNotExist(err), jc.IsTrue)
+	c.Check(os.IsNotExist(err), tc.IsTrue)
 }
 
 func (s *downloaderSuite) setupMocks(c *tc.C) *gomock.Controller {

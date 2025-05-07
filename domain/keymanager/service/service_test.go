@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -74,7 +73,7 @@ func (s *serviceSuite) SetUpTest(c *tc.C) {
 	s.userID = usertesting.GenUserUUID(c)
 
 	uri, err := url.Parse("gh:tlm")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	s.subjectURI = uri
 	s.modelUUID = modeltesting.GenModelUUID(c)
 }
@@ -86,7 +85,7 @@ func (s *serviceSuite) TestAddKeysForInvalidUser(c *tc.C) {
 
 	err := NewService(s.modelUUID, s.state).
 		AddPublicKeysForUser(context.Background(), user.UUID("notvalid"), "key")
-	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 // TestAddKeysForNonExistentUser is testing that if a user id doesn't exist that
@@ -96,7 +95,7 @@ func (s *serviceSuite) TestAddKeysForNonExistentUser(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	keyInfo, err := ssh.ParsePublicKey(testingPublicKeys[0])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedKeys := []keymanager.PublicKey{
 		{
 			Comment:         keyInfo.Comment,
@@ -112,7 +111,7 @@ func (s *serviceSuite) TestAddKeysForNonExistentUser(c *tc.C) {
 
 	svc := NewService(s.modelUUID, s.state)
 	err = svc.AddPublicKeysForUser(context.Background(), s.userID, testingPublicKeys[0])
-	c.Check(err, jc.ErrorIs, accesserrors.UserNotFound)
+	c.Check(err, tc.ErrorIs, accesserrors.UserNotFound)
 }
 
 // TestAddKeysForNonExistentModel is testing that if we add keys for a model
@@ -123,7 +122,7 @@ func (s *serviceSuite) TestAddKeysForNonExistentModel(c *tc.C) {
 	badModelId := modeltesting.GenModelUUID(c)
 
 	keyInfo, err := ssh.ParsePublicKey(testingPublicKeys[0])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedKeys := []keymanager.PublicKey{
 		{
 			Comment:         keyInfo.Comment,
@@ -139,7 +138,7 @@ func (s *serviceSuite) TestAddKeysForNonExistentModel(c *tc.C) {
 
 	svc := NewService(badModelId, s.state)
 	err = svc.AddPublicKeysForUser(context.Background(), s.userID, testingPublicKeys[0])
-	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 // TestAddInvalidPublicKeys is testing that if we try and add one or more keys
@@ -151,13 +150,13 @@ func (s *serviceSuite) TestAddInvalidPublicKeys(c *tc.C) {
 	svc := NewService(s.modelUUID, s.state)
 
 	err := svc.AddPublicKeysForUser(context.Background(), s.userID, "notvalid")
-	c.Check(err, jc.ErrorIs, keyserrors.InvalidPublicKey)
+	c.Check(err, tc.ErrorIs, keyserrors.InvalidPublicKey)
 
 	err = svc.AddPublicKeysForUser(context.Background(), s.userID, "notvalid", testingPublicKeys[0])
-	c.Check(err, jc.ErrorIs, keyserrors.InvalidPublicKey)
+	c.Check(err, tc.ErrorIs, keyserrors.InvalidPublicKey)
 
 	err = svc.AddPublicKeysForUser(context.Background(), s.userID, testingPublicKeys[0], "notvalid")
-	c.Check(err, jc.ErrorIs, keyserrors.InvalidPublicKey)
+	c.Check(err, tc.ErrorIs, keyserrors.InvalidPublicKey)
 
 	err = svc.AddPublicKeysForUser(
 		context.Background(),
@@ -166,7 +165,7 @@ func (s *serviceSuite) TestAddInvalidPublicKeys(c *tc.C) {
 		"notvalid",
 		testingPublicKeys[1],
 	)
-	c.Check(err, jc.ErrorIs, keyserrors.InvalidPublicKey)
+	c.Check(err, tc.ErrorIs, keyserrors.InvalidPublicKey)
 }
 
 // TestAddReservedKeys is testing that if we try and add public keys with
@@ -178,7 +177,7 @@ func (s *serviceSuite) TestAddReservedPublicKeys(c *tc.C) {
 	svc := NewService(s.modelUUID, s.state)
 
 	err := svc.AddPublicKeysForUser(context.Background(), s.userID, reservedPublicKeys...)
-	c.Check(err, jc.ErrorIs, keyserrors.ReservedCommentViolation)
+	c.Check(err, tc.ErrorIs, keyserrors.ReservedCommentViolation)
 
 	err = svc.AddPublicKeysForUser(
 		context.Background(),
@@ -186,7 +185,7 @@ func (s *serviceSuite) TestAddReservedPublicKeys(c *tc.C) {
 		testingPublicKeys[0],
 		reservedPublicKeys[0],
 	)
-	c.Check(err, jc.ErrorIs, keyserrors.ReservedCommentViolation)
+	c.Check(err, tc.ErrorIs, keyserrors.ReservedCommentViolation)
 }
 
 // TestAddExistingKeysForUser is asserting that when we try and add a key for a
@@ -198,9 +197,9 @@ func (s *serviceSuite) TestAddExistingKeysForUser(c *tc.C) {
 	svc := NewService(s.modelUUID, s.state)
 
 	keyInfo1, err := ssh.ParsePublicKey(existingUserPublicKeys[1])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	keyInfo2, err := ssh.ParsePublicKey(testingPublicKeys[1])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedKeys := []keymanager.PublicKey{
 		{
 			Comment:         keyInfo1.Comment,
@@ -219,7 +218,7 @@ func (s *serviceSuite) TestAddExistingKeysForUser(c *tc.C) {
 		s.userID,
 		existingUserPublicKeys[1],
 	)
-	c.Check(err, jc.ErrorIs, keyserrors.PublicKeyAlreadyExists)
+	c.Check(err, tc.ErrorIs, keyserrors.PublicKeyAlreadyExists)
 
 	expectedKeys = []keymanager.PublicKey{
 		{
@@ -249,7 +248,7 @@ func (s *serviceSuite) TestAddExistingKeysForUser(c *tc.C) {
 		testingPublicKeys[1],
 		existingUserPublicKeys[1],
 	)
-	c.Check(err, jc.ErrorIs, keyserrors.PublicKeyAlreadyExists)
+	c.Check(err, tc.ErrorIs, keyserrors.PublicKeyAlreadyExists)
 }
 
 // TestAddKeysForUser is testing the happy path of [Service.AddKeysForUser]
@@ -259,7 +258,7 @@ func (s *serviceSuite) TestAddKeysForUser(c *tc.C) {
 	expectedKeys := make([]keymanager.PublicKey, 0, len(testingPublicKeys))
 	for _, key := range testingPublicKeys {
 		keyInfo, err := ssh.ParsePublicKey(key)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		expectedKeys = append(expectedKeys, keymanager.PublicKey{
 			Comment:         keyInfo.Comment,
 			FingerprintHash: keymanager.FingerprintHashAlgorithmSHA256,
@@ -278,7 +277,7 @@ func (s *serviceSuite) TestAddKeysForUser(c *tc.C) {
 	svc := NewService(s.modelUUID, s.state)
 
 	err := svc.AddPublicKeysForUser(context.Background(), s.userID, testingPublicKeys...)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 // TestListKeysForInvalidUserId is testing that if we pass in a junk non valid
@@ -289,7 +288,7 @@ func (s *serviceSuite) TestListKeysForInvalidUserId(c *tc.C) {
 	svc := NewService(s.modelUUID, s.state)
 
 	_, err := svc.ListPublicKeysForUser(context.Background(), user.UUID("not-valid"))
-	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 // TestListKeysForNonExistentUser is testing that if we ask for the keys for a
@@ -303,7 +302,7 @@ func (s *serviceSuite) TestListKeysForNonExistentUser(c *tc.C) {
 	svc := NewService(s.modelUUID, s.state)
 
 	_, err := svc.ListPublicKeysForUser(context.Background(), s.userID)
-	c.Check(err, jc.ErrorIs, accesserrors.UserNotFound)
+	c.Check(err, tc.ErrorIs, accesserrors.UserNotFound)
 }
 
 // TestListKeysForUser is testing the happy path for
@@ -324,8 +323,8 @@ func (s *serviceSuite) TestListKeysForUser(c *tc.C) {
 	svc := NewService(s.modelUUID, s.state)
 
 	keys, err := svc.ListPublicKeysForUser(context.Background(), s.userID)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(keys, jc.DeepEquals, publicKeys)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(keys, tc.DeepEquals, publicKeys)
 }
 
 // TestDeleteKeysForInvalidUser is asserting that if we pass an invalid user id
@@ -335,7 +334,7 @@ func (s *serviceSuite) TestDeleteKeysForInvalidUser(c *tc.C) {
 
 	err := NewService(s.modelUUID, s.state).
 		DeleteKeysForUser(context.Background(), user.UUID("notvalid"), "key")
-	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 // TestDeleteKeysForUserNotFound is asserting that if the state layer
@@ -353,7 +352,7 @@ func (s *serviceSuite) TestDeleteKeysForUserNotFound(c *tc.C) {
 
 	err := NewService(s.modelUUID, s.state).
 		DeleteKeysForUser(context.Background(), s.userID, testingPublicKeys[0])
-	c.Check(err, jc.ErrorIs, accesserrors.UserNotFound)
+	c.Check(err, tc.ErrorIs, accesserrors.UserNotFound)
 }
 
 // TestDeleteKeysForUserWithFingerprint is asserting that we can remove keys for
@@ -362,7 +361,7 @@ func (s *serviceSuite) TestDeleteKeysForUserWithFingerprint(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	key, err := ssh.ParsePublicKey(existingUserPublicKeys[0])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().DeletePublicKeysForUser(
 		gomock.Any(), s.modelUUID, s.userID, []string{key.Fingerprint()},
@@ -370,7 +369,7 @@ func (s *serviceSuite) TestDeleteKeysForUserWithFingerprint(c *tc.C) {
 
 	err = NewService(s.modelUUID, s.state).
 		DeleteKeysForUser(context.Background(), s.userID, key.Fingerprint())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 // TestDeleteKeysForUserWithComment is asserting that we can remove keys for a
@@ -379,7 +378,7 @@ func (s *serviceSuite) TestDeleteKeysForUserWithComment(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	key, err := ssh.ParsePublicKey(existingUserPublicKeys[0])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().DeletePublicKeysForUser(
 		gomock.Any(),
@@ -390,7 +389,7 @@ func (s *serviceSuite) TestDeleteKeysForUserWithComment(c *tc.C) {
 
 	err = NewService(s.modelUUID, s.state).
 		DeleteKeysForUser(context.Background(), s.userID, key.Comment)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 // TestDeleteKeysForUserData is asserting that we can remove ssh keys for a user
@@ -407,7 +406,7 @@ func (s *serviceSuite) TestDeleteKeysForUserData(c *tc.C) {
 
 	err := NewService(s.modelUUID, s.state).
 		DeleteKeysForUser(context.Background(), s.userID, existingUserPublicKeys[0])
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 // TestDeleteKeysForUserCombination is asserting multiple deletes using
@@ -417,7 +416,7 @@ func (s *serviceSuite) TestDeleteKeysForUserCombination(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	key, err := ssh.ParsePublicKey(existingUserPublicKeys[0])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().DeletePublicKeysForUser(
 		gomock.Any(),
@@ -433,7 +432,7 @@ func (s *serviceSuite) TestDeleteKeysForUserCombination(c *tc.C) {
 			key.Comment,
 			existingUserPublicKeys[1],
 		)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 // TestImportKeyForUnknownSource is asserting that if we try and import keys for
@@ -448,7 +447,7 @@ func (s *serviceSuite) TestImportKeysForUnknownSource(c *tc.C) {
 
 	err := NewImporterService(s.modelUUID, s.keyImporter, s.state).
 		ImportPublicKeysForUser(context.Background(), s.userID, s.subjectURI)
-	c.Check(err, jc.ErrorIs, keyserrors.UnknownImportSource)
+	c.Check(err, tc.ErrorIs, keyserrors.UnknownImportSource)
 }
 
 // TestImportKeyForUnknownSubject is asserting that if we ask to import keys for
@@ -464,7 +463,7 @@ func (s *serviceSuite) TestImportKeysForUnknownSubject(c *tc.C) {
 
 	err := NewImporterService(s.modelUUID, s.keyImporter, s.state).
 		ImportPublicKeysForUser(context.Background(), s.userID, s.subjectURI)
-	c.Check(err, jc.ErrorIs, keyserrors.ImportSubjectNotFound)
+	c.Check(err, tc.ErrorIs, keyserrors.ImportSubjectNotFound)
 }
 
 // TestImportKeysInvalidPublicKeys is asserting that if the key importer returns
@@ -479,7 +478,7 @@ func (s *serviceSuite) TestImportKeysInvalidPublicKeys(c *tc.C) {
 
 	err := NewImporterService(s.modelUUID, s.keyImporter, s.state).
 		ImportPublicKeysForUser(context.Background(), s.userID, s.subjectURI)
-	c.Check(err, jc.ErrorIs, keyserrors.InvalidPublicKey)
+	c.Check(err, tc.ErrorIs, keyserrors.InvalidPublicKey)
 }
 
 // TestImportKeysWithReservedComment is asserting that if we import keys where
@@ -495,7 +494,7 @@ func (s *serviceSuite) TestImportKeysWithReservedComment(c *tc.C) {
 
 	err := NewImporterService(s.modelUUID, s.keyImporter, s.state).
 		ImportPublicKeysForUser(context.Background(), s.userID, s.subjectURI)
-	c.Check(err, jc.ErrorIs, keyserrors.ReservedCommentViolation)
+	c.Check(err, tc.ErrorIs, keyserrors.ReservedCommentViolation)
 }
 
 // TestImportPublicKeysForUser is asserting the happy path of
@@ -511,7 +510,7 @@ func (s *serviceSuite) TestImportPublicKeysForUser(c *tc.C) {
 	expectedKeys := make([]keymanager.PublicKey, 0, len(testingPublicKeys))
 	for _, key := range testingPublicKeys {
 		keyInfo, err := ssh.ParsePublicKey(key)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		expectedKeys = append(expectedKeys, keymanager.PublicKey{
 			Comment:         keyInfo.Comment,
 			FingerprintHash: keymanager.FingerprintHashAlgorithmSHA256,
@@ -529,7 +528,7 @@ func (s *serviceSuite) TestImportPublicKeysForUser(c *tc.C) {
 
 	err := NewImporterService(s.modelUUID, s.keyImporter, s.state).
 		ImportPublicKeysForUser(context.Background(), s.userID, s.subjectURI)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 // TestGetAllUsersPublicKeys is responsible for assuring that the happy path of
@@ -553,8 +552,8 @@ func (s *serviceSuite) TestGetAllUsersPublicKeys(c *tc.C) {
 	)
 
 	allKeys, err := NewService(s.modelUUID, s.state).GetAllUsersPublicKeys(context.Background())
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(allKeys, jc.DeepEquals, map[user.Name][]string{
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(allKeys, tc.DeepEquals, map[user.Name][]string{
 		usertesting.GenNewName(c, "tlm"): {
 			"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC existing1",
 			"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe existing2",
@@ -577,6 +576,6 @@ func (s *serviceSuite) TestGetAllUsersPublicKeysEmpty(c *tc.C) {
 	)
 
 	allKeys, err := NewService(s.modelUUID, s.state).GetAllUsersPublicKeys(context.Background())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(len(allKeys), tc.Equals, 0)
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/instance"
@@ -40,9 +39,9 @@ func (s *environInstSuite) TestInstancesOkay(c *tc.C) {
 	s.Client.Containers = containers
 
 	insts, err := s.Env.Instances(context.Background(), ids)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(insts, jc.DeepEquals, expected)
+	c.Check(insts, tc.DeepEquals, expected)
 }
 
 func (s *environInstSuite) TestInstancesAPI(c *tc.C) {
@@ -77,7 +76,7 @@ func (s *environInstSuite) TestInstancesInstancesFailed(c *tc.C) {
 	ids := []instance.Id{"spam"}
 	insts, err := s.Env.Instances(context.Background(), ids)
 
-	c.Check(insts, jc.DeepEquals, []instances.Instance{nil})
+	c.Check(insts, tc.DeepEquals, []instances.Instance{nil})
 	c.Check(errors.Cause(err), tc.Equals, failure)
 }
 
@@ -91,7 +90,7 @@ func (s *environInstSuite) TestInstancesPartialMatch(c *tc.C) {
 	ids := []instance.Id{"spam", "eggs"}
 	insts, err := s.Env.Instances(context.Background(), ids)
 
-	c.Check(insts, jc.DeepEquals, []instances.Instance{expected, nil})
+	c.Check(insts, tc.DeepEquals, []instances.Instance{expected, nil})
 	c.Check(errors.Cause(err), tc.Equals, environs.ErrPartialInstances)
 }
 
@@ -104,7 +103,7 @@ func (s *environInstSuite) TestInstancesNoMatch(c *tc.C) {
 	ids := []instance.Id{"eggs"}
 	insts, err := s.Env.Instances(context.Background(), ids)
 
-	c.Check(insts, jc.DeepEquals, []instances.Instance{nil})
+	c.Check(insts, tc.DeepEquals, []instances.Instance{nil})
 	c.Check(errors.Cause(err), tc.Equals, environs.ErrNoInstances)
 }
 
@@ -127,9 +126,9 @@ func (s *environInstSuite) TestControllerInstancesOkay(c *tc.C) {
 	s.Client.Containers = []containerlxd.Container{*s.Container}
 
 	ids, err := s.Env.ControllerInstances(context.Background(), coretesting.ControllerTag.Id())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
+	c.Check(ids, tc.DeepEquals, []instance.Id{"spam"})
 	s.BaseSuite.Client.CheckCallNames(c, "AliveContainers")
 	s.BaseSuite.Client.CheckCall(
 		c, 0, "AliveContainers", "juju-",
@@ -152,9 +151,9 @@ func (s *environInstSuite) TestControllerInstancesMixed(c *tc.C) {
 	s.Client.Containers = []containerlxd.Container{*s.Container, other}
 
 	ids, err := s.Env.ControllerInstances(context.Background(), coretesting.ControllerTag.Id())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
+	c.Check(ids, tc.DeepEquals, []instance.Id{"spam"})
 }
 
 func (s *environInstSuite) TestControllerInvalidCredentials(c *tc.C) {
@@ -178,7 +177,7 @@ func (s *environInstSuite) TestAdoptResources(c *tc.C) {
 	s.Client.Containers = []containerlxd.Container{*one, *two, *three}
 
 	err := s.Env.AdoptResources(context.Background(), "target-uuid", semversion.MustParse("3.4.5"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.BaseSuite.Client.Calls(), tc.HasLen, 4)
 	s.BaseSuite.Client.CheckCall(c, 0, "AliveContainers", "juju-f75cba-")
 	s.BaseSuite.Client.CheckCall(

@@ -8,7 +8,6 @@ import (
 	"errors"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/internal/cmd"
@@ -52,7 +51,7 @@ func (s *enableCommandSuite) TestInit(c *tc.C) {
 		cmd := s.enableCommand(nil, nil)
 		err := cmdtesting.InitCommand(cmd, test.args)
 		if test.err == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
 			c.Check(err.Error(), tc.Equals, test.err)
 		}
@@ -82,7 +81,7 @@ func (s *enableCommandSuite) TestRun(c *tc.C) {
 		mockClient := &mockUnblockClient{}
 		cmd := s.enableCommand(mockClient, nil)
 		_, err := cmdtesting.RunCommand(c, cmd, test.args...)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		c.Check(mockClient.blockType, tc.Equals, test.type_)
 	}
 }

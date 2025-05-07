@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
@@ -58,7 +57,7 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 
 	var err error
 	s.authority, err = pkitest.NewTestAuthority()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.BaseSuite.SetUpTest(c)
 
@@ -134,7 +133,7 @@ func (s *ManifoldSuite) newModelWorker(config modelworkermanager.NewModelConfig)
 var expectedInputs = []string{"authority", "lease-manager", "log-sink", "domain-services", "provider-services", "http-client"}
 
 func (s *ManifoldSuite) TestInputs(c *tc.C) {
-	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
+	c.Assert(s.manifold.Inputs, tc.SameContents, expectedInputs)
 }
 
 func (s *ManifoldSuite) TestMissingInputs(c *tc.C) {
@@ -168,7 +167,7 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 		ModelMetrics: dummyMetricSink{},
 	}
 	mw, err := config.NewModelWorker(modelConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, mw)
 	s.stub.CheckCallNames(c, "NewWorker", "NewModelWorker")
 	s.stub.CheckCall(c, 1, "NewModelWorker", modelConfig)
@@ -176,7 +175,7 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 	config.NewModelWorker = nil
 	config.GetControllerConfig = nil
 
-	c.Assert(config, jc.DeepEquals, modelworkermanager.Config{
+	c.Assert(config, tc.DeepEquals, modelworkermanager.Config{
 		Authority:              s.authority,
 		ModelMetrics:           dummyModelMetrics{},
 		ErrorDelay:             jworker.RestartDelay,
@@ -199,7 +198,7 @@ func (s *ManifoldSuite) TestStopWorkerClosesState(c *tc.C) {
 
 func (s *ManifoldSuite) startWorkerClean(c *tc.C) worker.Worker {
 	w, err := s.manifold.Start(context.Background(), s.getter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w
 }

@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
@@ -106,7 +105,7 @@ func (s *lxdProvisionerSuite) newLXDProvisioner(c *tc.C, ctrl *gomock.Controller
 			Controller:        coretesting.ControllerTag,
 			Model:             coretesting.ModelTag,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.containersCh = make(chan []string)
 	m0 := &testMachine{containersCh: s.containersCh}
@@ -117,7 +116,7 @@ func (s *lxdProvisionerSuite) newLXDProvisioner(c *tc.C, ctrl *gomock.Controller
 	w, err := containerprovisioner.NewContainerProvisioner(
 		instance.LXD, s.controllerAPI, s.machinesAPI, loggertesting.WrapCheckLog(c),
 		cfg, s.broker, &mockToolsFinder{}, &mockDistributionGroupFinder{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.waitForProvisioner(c)
 	return w
@@ -239,7 +238,7 @@ func (s *lxdProvisionerSuite) assertProvisionerObservesConfigChanges(c *tc.C, p 
 	attrs := coretesting.FakeConfig()
 	attrs[config.ProvisionerHarvestModeKey] = config.HarvestDestroyed.String()
 	modelCfg, err := config.New(config.UseDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.controllerAPI.EXPECT().ModelConfig(gomock.Any()).Return(modelCfg, nil)
 
 	if !container {
@@ -285,7 +284,7 @@ func (s *lxdProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCount(
 		attrs[config.NumProvisionWorkersKey] = 20
 	}
 	modelCfg, err := config.New(config.UseDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.controllerAPI.EXPECT().ModelConfig(gomock.Any()).Return(modelCfg, nil)
 
 	if !container {

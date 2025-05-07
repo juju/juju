@@ -5,7 +5,6 @@ package storageregistry
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
@@ -26,7 +25,7 @@ func (s *trackedWorkerSuite) TestKilled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, err := NewTrackedWorker(s.registry)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CheckKill(c, w)
 
 	w.Kill()
@@ -38,11 +37,11 @@ func (s *trackedWorkerSuite) TestStorageProviderTypesWithCommon(c *tc.C) {
 	s.registry.EXPECT().StorageProviderTypes().Return([]storage.ProviderType{"ebs"}, nil)
 
 	w, err := NewTrackedWorker(s.registry)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CheckKill(c, w)
 
 	types, err := w.(*trackedWorker).StorageProviderTypes()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(types, tc.DeepEquals, []storage.ProviderType{"ebs", "loop", "rootfs", "tmpfs"})
 }
 
@@ -52,11 +51,11 @@ func (s *trackedWorkerSuite) TestStorageProviderTypesWithEmptyProviderTypes(c *t
 	s.registry.EXPECT().StorageProviderTypes().Return([]storage.ProviderType{}, nil)
 
 	w, err := NewTrackedWorker(s.registry)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CheckKill(c, w)
 
 	types, err := w.(*trackedWorker).StorageProviderTypes()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(types, tc.DeepEquals, []storage.ProviderType{"loop", "rootfs", "tmpfs"})
 }
 
@@ -66,11 +65,11 @@ func (s *trackedWorkerSuite) TestStorageProvider(c *tc.C) {
 	s.registry.EXPECT().StorageProvider(storage.ProviderType("rootfs")).Return(s.provider, nil)
 
 	w, err := NewTrackedWorker(s.registry)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CheckKill(c, w)
 
 	provider, err := w.(*trackedWorker).StorageProvider(storage.ProviderType("rootfs"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(provider, tc.DeepEquals, s.provider)
 }
 

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/environs/tags"
@@ -50,8 +49,8 @@ func (*volumesSuite) testVolumeParams(c *tc.C, volumeParams *state.VolumeParams,
 		&fakeStoragePoolGetter{},
 		provider.CommonStorageProviders(),
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p, jc.DeepEquals, params.VolumeParams{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(p, tc.DeepEquals, params.VolumeParams{
 		VolumeTag: "volume-100",
 		Provider:  "loop",
 		Size:      1024,
@@ -80,8 +79,8 @@ func (*volumesSuite) TestVolumeParamsStorageTags(c *tc.C) {
 		&fakeStoragePoolGetter{},
 		provider.CommonStorageProviders(),
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p, jc.DeepEquals, params.VolumeParams{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(p, tc.DeepEquals, params.VolumeParams{
 		VolumeTag: "volume-100",
 		Provider:  "loop",
 		Size:      1024,

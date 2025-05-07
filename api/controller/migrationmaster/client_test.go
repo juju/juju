@@ -17,7 +17,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"gopkg.in/httprequest.v1"
 	"gopkg.in/macaroon.v2"
 
@@ -53,12 +52,12 @@ func (s *ClientSuite) TestWatch(c *tc.C) {
 	expectWatch := &struct{ watcher.NotifyWatcher }{}
 	newWatcher := func(caller base.APICaller, result params.NotifyWatchResult) watcher.NotifyWatcher {
 		c.Check(caller, tc.NotNil)
-		c.Check(result, jc.DeepEquals, params.NotifyWatchResult{NotifyWatcherId: "123"})
+		c.Check(result, tc.DeepEquals, params.NotifyWatchResult{NotifyWatcherId: "123"})
 		return expectWatch
 	}
 	client := migrationmaster.NewClient(apiCaller, newWatcher)
 	w, err := client.Watch(context.Background())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(w, tc.Equals, expectWatch)
 	stub.CheckCalls(c, []jujutesting.StubCall{{FuncName: "MigrationMaster.Watch", Args: []interface{}{"", nil}}})
 }
@@ -74,10 +73,10 @@ func (s *ClientSuite) TestWatchCallError(c *tc.C) {
 
 func (s *ClientSuite) TestMigrationStatus(c *tc.C) {
 	mac, err := macaroon.New([]byte("secret"), []byte("id"), "location", macaroon.LatestVersion)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	macs := []macaroon.Slice{{mac}}
 	macsJSON, err := json.Marshal(macs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	modelUUID := uuid.MustNewUUID().String()
 	controllerUUID := uuid.MustNewUUID().String()
@@ -105,7 +104,7 @@ func (s *ClientSuite) TestMigrationStatus(c *tc.C) {
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
 	status, err := client.MigrationStatus(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Extract macaroons so we can compare them separately
 	// (as they can't be compared using DeepEquals due to 'UnmarshaledAs')
 	statusMacs := status.TargetInfo.Macaroons
@@ -134,7 +133,7 @@ func (s *ClientSuite) TestSetPhase(c *tc.C) {
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
 	err := client.SetPhase(context.Background(), migration.QUIESCE)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedArg := params.SetMigrationPhaseArgs{Phase: "QUIESCE"}
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{FuncName: "MigrationMaster.SetPhase", Args: []interface{}{"", expectedArg}},
@@ -158,7 +157,7 @@ func (s *ClientSuite) TestSetStatusMessage(c *tc.C) {
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
 	err := client.SetStatusMessage(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedArg := params.SetMigrationStatusMessageArgs{Message: "foo"}
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{FuncName: "MigrationMaster.SetStatusMessage", Args: []interface{}{"", expectedArg}},
@@ -190,12 +189,12 @@ func (s *ClientSuite) TestModelInfoWithoutModelDescription(c *tc.C) {
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
 	model, err := client.ModelInfo(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{FuncName: "MigrationMaster.ModelInfo", Args: []interface{}{"", nil}},
 	})
-	c.Check(model, jc.DeepEquals, migration.ModelInfo{
+	c.Check(model, tc.DeepEquals, migration.ModelInfo{
 		UUID:                   "uuid",
 		Name:                   "name",
 		Owner:                  owner,
@@ -209,7 +208,7 @@ func (s *ClientSuite) TestModelInfoWithModelDescription(c *tc.C) {
 		Config: make(map[string]interface{}),
 	})
 	serialized, err := description.Serialize(modelDescription)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var stub jujutesting.Stub
 	owner := names.NewUserTag("owner")
@@ -227,12 +226,12 @@ func (s *ClientSuite) TestModelInfoWithModelDescription(c *tc.C) {
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
 	model, err := client.ModelInfo(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{FuncName: "MigrationMaster.ModelInfo", Args: []interface{}{"", nil}},
 	})
-	c.Check(model, jc.DeepEquals, migration.ModelInfo{
+	c.Check(model, tc.DeepEquals, migration.ModelInfo{
 		UUID:                   "uuid",
 		Name:                   "name",
 		Owner:                  owner,
@@ -260,14 +259,14 @@ func (s *ClientSuite) TestSourceControllerInfo(c *tc.C) {
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{FuncName: "MigrationMaster.SourceControllerInfo", Args: []interface{}{"", nil}},
 	})
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(info, jc.DeepEquals, migration.SourceControllerInfo{
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(info, tc.DeepEquals, migration.SourceControllerInfo{
 		ControllerTag:   coretesting.ControllerTag,
 		ControllerAlias: "mycontroller",
 		Addrs:           []string{"source-addr"},
 		CACert:          "cacert",
 	})
-	c.Assert(relatedModels, jc.SameContents, []string{"related-model-uuid"})
+	c.Assert(relatedModels, tc.SameContents, []string{"related-model-uuid"})
 }
 
 func (s *ClientSuite) TestPrechecks(c *tc.C) {
@@ -294,7 +293,7 @@ func (s *ClientSuite) TestProcessRelations(c *tc.C) {
 
 	client := migrationmaster.NewClient(apiCaller, nil)
 	err := client.ProcessRelations(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ClientSuite) TestProcessRelationsError(c *tc.C) {
@@ -341,7 +340,7 @@ func (s *ClientSuite) TestExport(c *tc.C) {
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
 	out, err := client.Export(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{FuncName: "MigrationMaster.Export", Args: []interface{}{"", nil}},
 	})
@@ -398,7 +397,7 @@ func setupFakeHTTP() (*migrationmaster.Client, *fakeDoer) {
 func (s *ClientSuite) TestOpenResource(c *tc.C) {
 	client, doer := setupFakeHTTP()
 	r, err := client.OpenResource(context.Background(), "app", "blob")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkReader(c, r, "resourceful")
 	c.Check(doer.method, tc.Equals, "GET")
 	c.Check(doer.url, tc.Equals, "/applications/app/resources/blob")
@@ -412,7 +411,7 @@ func (s *ClientSuite) TestReap(c *tc.C) {
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
 	err := client.Reap(context.Background())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{FuncName: "MigrationMaster.Reap", Args: []interface{}{"", nil}},
 	})
@@ -440,12 +439,12 @@ func (s *ClientSuite) TestWatchMinionReports(c *tc.C) {
 	expectWatch := &struct{ watcher.NotifyWatcher }{}
 	newWatcher := func(caller base.APICaller, result params.NotifyWatchResult) watcher.NotifyWatcher {
 		c.Check(caller, tc.NotNil)
-		c.Check(result, jc.DeepEquals, params.NotifyWatchResult{NotifyWatcherId: "123"})
+		c.Check(result, tc.DeepEquals, params.NotifyWatchResult{NotifyWatcherId: "123"})
 		return expectWatch
 	}
 	client := migrationmaster.NewClient(apiCaller, newWatcher)
 	w, err := client.WatchMinionReports(context.Background())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(w, tc.Equals, expectWatch)
 	stub.CheckCalls(c, []jujutesting.StubCall{{FuncName: "MigrationMaster.WatchMinionReports", Args: []interface{}{"", nil}}})
 }
@@ -486,7 +485,7 @@ func (s *ClientSuite) TestMinionReports(c *tc.C) {
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
 	out, err := client.MinionReports(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{FuncName: "MigrationMaster.MinionReports", Args: []interface{}{"", nil}},
 	})
@@ -567,7 +566,7 @@ func (s *ClientSuite) TestMinionReportTimeout(c *tc.C) {
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
 	timeout, err := client.MinionReportTimeout(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(timeout, tc.Equals, 30*time.Second)
 }
 
@@ -636,6 +635,6 @@ func (d *fakeDoer) Do(req *http.Request) (*http.Response, error) {
 
 func checkReader(c *tc.C, r io.Reader, expected string) {
 	actual, err := io.ReadAll(r)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(string(actual), tc.Equals, expected)
 }

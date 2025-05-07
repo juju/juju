@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/blockdevice"
@@ -53,7 +52,7 @@ func (s *importSuite) TestNoBlockDevices(c *tc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// No import executed.
 	s.service.EXPECT().UpdateBlockDevices(gomock.All(), gomock.Any(), gomock.Any()).Times(0)
 }
@@ -83,7 +82,7 @@ func (s *importSuite) TestImport(c *tc.C) {
 		InUse:          true,
 		MountPoint:     "/path/to/here",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.service.EXPECT().UpdateBlockDevices(gomock.Any(), "666", blockdevice.BlockDevice{
 		DeviceName:     "foo",
 		DeviceLinks:    []string{"a-link"},
@@ -101,5 +100,5 @@ func (s *importSuite) TestImport(c *tc.C) {
 
 	op := s.newImportOperation()
 	err = op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

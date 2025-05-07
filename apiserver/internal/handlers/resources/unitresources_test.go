@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coreresource "github.com/juju/juju/core/resource"
@@ -70,7 +69,7 @@ func (s *UnitResourcesHandlerSuite) TestWrongMethod(c *tc.C) {
 	)
 
 	req, err := http.NewRequest("POST", s.urlStr, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	handler.ServeHTTP(s.recorder, req)
 
@@ -87,7 +86,7 @@ func (s *UnitResourcesHandlerSuite) TestOpenerCreationError(c *tc.C) {
 	)
 
 	req, err := http.NewRequest("GET", s.urlStr, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	handler.ServeHTTP(s.recorder, req)
 
@@ -105,7 +104,7 @@ func (s *UnitResourcesHandlerSuite) TestOpenResourceError(c *tc.C) {
 	s.opener.EXPECT().OpenResource(gomock.Any(), "blob").Return(coreresource.Opened{}, failure)
 
 	req, err := http.NewRequest("GET", s.urlStr, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	handler.ServeHTTP(s.recorder, req)
 
@@ -116,7 +115,7 @@ func (s *UnitResourcesHandlerSuite) TestSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	const body = "some data"
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(body))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	size := int64(len(body))
 	handler := s.newUnitResourceHander(c)
 
@@ -133,7 +132,7 @@ func (s *UnitResourcesHandlerSuite) TestSuccess(c *tc.C) {
 	s.opener.EXPECT().SetResourceUsed(gomock.Any(), "blob").Return(nil)
 
 	req, err := http.NewRequest("GET", s.urlStr, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	handler.ServeHTTP(s.recorder, req)
 
@@ -147,6 +146,6 @@ func (s *UnitResourcesHandlerSuite) checkResp(c *tc.C, status int, ctype, body s
 	c.Check(hdr.Get("Content-Length"), tc.Equals, strconv.Itoa(len(body)))
 
 	actualBody, err := io.ReadAll(s.recorder.Body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(string(actualBody), tc.Equals, body)
 }

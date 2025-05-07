@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -82,7 +81,7 @@ func (s *CmdSuite) TestDeployCommandInit(c *tc.C) {
 			c.Assert(err, tc.ErrorMatches, t.expectError)
 			continue
 		}
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		deployCmd := modelcmd.InnerCommand(wrappedDeployCmd).(*DeployCommand)
 		c.Assert(deployCmd.ApplicationName, tc.Equals, t.expectApplicationName)
 		c.Assert(deployCmd.CharmOrBundle, tc.Equals, t.expectCharmOrBundle)
@@ -90,7 +89,7 @@ func (s *CmdSuite) TestDeployCommandInit(c *tc.C) {
 		if t.expectConfigFile != "" {
 			ctx := cmdtesting.Context(c)
 			absFiles, err := deployCmd.ConfigOptions.AbsoluteFileNames(ctx)
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			c.Check(absFiles, tc.HasLen, 1)
 			c.Assert(absFiles[0], tc.Equals, filepath.Join(ctx.Dir, t.expectConfigFile))
 		}

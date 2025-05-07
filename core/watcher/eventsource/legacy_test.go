@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -31,7 +30,7 @@ func (*multiWatcherSuite) TestNotifyMultiWatcher(c *tc.C) {
 	ch1 <- struct{}{}
 
 	w, err := NewMultiNotifyWatcher(context.Background(), w0, w1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer workertest.DirtyKill(c, w)
@@ -62,7 +61,7 @@ func (*multiWatcherSuite) TestStringsMultiWatcher(c *tc.C) {
 	ch1 <- []string{}
 
 	w, err := NewMultiStringsWatcher(context.Background(), w0, w1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	wc := watchertest.NewStringsWatcherC(c, w)
 	defer workertest.DirtyKill(c, w)
@@ -100,7 +99,7 @@ func (*multiWatcherSuite) TestMultiWatcherStop(c *tc.C) {
 	ch1 <- struct{}{}
 
 	w, err := NewMultiNotifyWatcher(context.Background(), w0, w1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer workertest.DirtyKill(c, w)

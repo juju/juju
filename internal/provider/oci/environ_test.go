@@ -5,7 +5,6 @@ package oci
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 
 	"github.com/juju/juju/core/constraints"
@@ -107,7 +106,7 @@ func (s *environSuite) TestEnsureShapeConfig(c *tc.C) {
 			Mem:         test.mem,
 		}
 		cons, err := constraints.Parse(test.constraints)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		instanceDetails := ociCore.LaunchInstanceDetails{}
 		ensureShapeConfig(instanceSpec, cons, &instanceDetails)
 		c.Check(instanceDetails.ShapeConfig, tc.DeepEquals, test.want)

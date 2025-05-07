@@ -5,7 +5,6 @@ package jujuclient_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/testing"
@@ -28,7 +27,7 @@ func (s *ModelValidationSuite) SetUpTest(c *tc.C) {
 var _ = tc.Suite(&ModelValidationSuite{})
 
 func (s *ModelValidationSuite) TestValidateModelName(c *tc.C) {
-	c.Assert(jujuclient.ValidateModelName("foo@bar/baz"), jc.ErrorIsNil)
+	c.Assert(jujuclient.ValidateModelName("foo@bar/baz"), tc.ErrorIsNil)
 	c.Assert(jujuclient.ValidateModelName("foo"), tc.ErrorMatches, `validating model name "foo": unqualified model name "foo" not valid`)
 	c.Assert(jujuclient.ValidateModelName(""), tc.ErrorMatches, `validating model name "": unqualified model name "" not valid`)
 	c.Assert(jujuclient.ValidateModelName("!"), tc.ErrorMatches, `validating model name "!": unqualified model name "!" not valid`)

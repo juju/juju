@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	vault "github.com/mittwald/vaultgo"
 	"go.uber.org/mock/gomock"
 
@@ -48,7 +47,7 @@ func (s *providerSuite) newVaultClient(c *tc.C, returnErr error) (*gomock.Contro
 
 	return ctrl, func(addr string, tlsConf *vault.TLSConfig, opts ...vault.ClientOpts) (*vault.Client, error) {
 		c.Assert(addr, tc.Equals, "http://vault-ip:8200/")
-		c.Assert(tlsConf, jc.DeepEquals, &vault.TLSConfig{
+		c.Assert(tlsConf, tc.DeepEquals, &vault.TLSConfig{
 			TLSConfig: &api.TLSConfig{
 				CACertBytes:   []byte(coretesting.CACert),
 				TLSServerName: "tls-server",
@@ -56,10 +55,10 @@ func (s *providerSuite) newVaultClient(c *tc.C, returnErr error) (*gomock.Contro
 		})
 
 		client, err := vault.NewClient(addr, tlsConf, opts...)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(opts, tc.HasLen, 1)
 		err = opts[0](client)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(client.Token(), tc.Equals, "vault-token")
 		if returnErr != nil {
 			return nil, returnErr
@@ -69,11 +68,11 @@ func (s *providerSuite) newVaultClient(c *tc.C, returnErr error) (*gomock.Contro
 		conf.Address = addr
 		if tlsConf != nil {
 			err = conf.ConfigureTLS(tlsConf.TLSConfig)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
 		conf.HttpClient.Transport = s.mockRoundTripper
 		client.Client, err = api.NewClient(conf)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		return client, nil
 	}
@@ -85,7 +84,7 @@ func (s *providerSuite) TestBackendConfigBadClient(c *tc.C) {
 
 	s.PatchValue(&jujuvault.NewVaultClient, newVaultClient)
 	p, err := provider.Provider(jujuvault.BackendType)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	adminCfg := &provider.ModelBackendConfig{
 		ControllerUUID: coretesting.ControllerTag.Id(),
@@ -150,7 +149,7 @@ func (s *providerSuite) TestBackendConfigAdmin(c *tc.C) {
 
 	s.PatchValue(&jujuvault.NewVaultClient, newVaultClient)
 	p, err := provider.Provider(jujuvault.BackendType)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	adminCfg := &provider.ModelBackendConfig{
 		ControllerUUID: coretesting.ControllerTag.Id(),
@@ -173,7 +172,7 @@ func (s *providerSuite) TestBackendConfigAdmin(c *tc.C) {
 		ID:   coretesting.ModelTag.Id(),
 	}
 	cfg, err := p.RestrictedConfig(context.Background(), adminCfg, true, false, accessor, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.Config["token"], tc.Equals, "foo")
 }
 
@@ -224,7 +223,7 @@ func (s *providerSuite) TestBackendConfigNonAdmin(c *tc.C) {
 
 	s.PatchValue(&jujuvault.NewVaultClient, newVaultClient)
 	p, err := provider.Provider(jujuvault.BackendType)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	adminCfg := &provider.ModelBackendConfig{
 		ControllerUUID: coretesting.ControllerTag.Id(),
@@ -253,7 +252,7 @@ func (s *providerSuite) TestBackendConfigNonAdmin(c *tc.C) {
 		ID:   "ubuntu/0",
 	}
 	cfg, err := p.RestrictedConfig(context.Background(), adminCfg, true, false, accessor, ownedRevs, readRevs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.Config["token"], tc.Equals, "foo")
 }
 
@@ -314,7 +313,7 @@ func (s *providerSuite) TestBackendConfigForDrain(c *tc.C) {
 
 	s.PatchValue(&jujuvault.NewVaultClient, newVaultClient)
 	p, err := provider.Provider(jujuvault.BackendType)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	adminCfg := &provider.ModelBackendConfig{
 		ControllerUUID: coretesting.ControllerTag.Id(),
@@ -343,7 +342,7 @@ func (s *providerSuite) TestBackendConfigForDrain(c *tc.C) {
 		ID:   coretesting.ModelTag.Id(),
 	}
 	cfg, err := p.RestrictedConfig(context.Background(), adminCfg, true, true, accessor, ownedRevs, readRevs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.Config["token"], tc.Equals, "foo")
 }
 
@@ -352,7 +351,7 @@ func (s *providerSuite) TestNewBackend(c *tc.C) {
 	defer ctrl.Finish()
 	s.PatchValue(&jujuvault.NewVaultClient, newVaultClient)
 	p, err := provider.Provider(jujuvault.BackendType)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cfg := &provider.ModelBackendConfig{
 		ModelName: "fred",
@@ -369,6 +368,6 @@ func (s *providerSuite) TestNewBackend(c *tc.C) {
 		},
 	}
 	b, err := p.NewBackend(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jujuvault.MountPath(b), tc.Equals, "fred-06f00d")
 }

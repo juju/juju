@@ -5,7 +5,6 @@ package user_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/testing"
@@ -40,14 +39,14 @@ func (s *BaseSuite) SetUpTest(c *tc.C) {
 
 func (s *BaseSuite) setPassword(c *tc.C, controller, pass string) {
 	details, ok := s.store.Accounts[controller]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	details.Password = pass
 	s.store.Accounts[controller] = details
 }
 
 func (s *BaseSuite) assertStorePassword(c *tc.C, user, pass, access string) {
 	details, err := s.store.AccountDetails("testing")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(details.User, tc.Equals, user)
 	c.Assert(details.Password, tc.Equals, pass)
 	c.Assert(details.LastKnownAccess, tc.Equals, access)

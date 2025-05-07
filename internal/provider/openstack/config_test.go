@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/testing"
@@ -46,20 +45,20 @@ func (t configTest) check(c *tc.C) {
 	}).Merge(t.config)
 
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	e := &Environ{}
 	err = e.SetConfig(context.Background(), cfg)
 
 	if t.change != nil {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		// Testing a change in configuration.
 		var old, changed, valid *config.Config
 		osenv := e
 		old = osenv.ecfg().Config
 		changed, err = old.Apply(t.change)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		// Keep err for validation below.
 		valid, err = providerInstance.Validate(context.Background(), changed, old)
@@ -71,7 +70,7 @@ func (t configTest) check(c *tc.C) {
 		c.Check(err, tc.ErrorMatches, t.err)
 		return
 	}
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ecfg := e.ecfg()
 	c.Check(ecfg.Name(), tc.Equals, "testmodel")
@@ -89,12 +88,12 @@ func (t configTest) check(c *tc.C) {
 	c.Check(ecfg.SSLHostnameVerification(), tc.Equals, expectedHostnameVerification)
 	for name, expect := range t.expect {
 		actual, found := ecfg.UnknownAttrs()[name]
-		c.Check(found, jc.IsTrue)
+		c.Check(found, tc.IsTrue)
 		c.Check(actual, tc.Equals, expect)
 	}
 	if t.blockStorageSource != "" {
 		storage, ok := ecfg.StorageDefaultBlockSource()
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		c.Check(storage, tc.Equals, t.blockStorageSource)
 	}
 }
@@ -248,15 +247,15 @@ func (s *ConfigSuite) TestDeprecatedAttributesRemoved(c *tc.C) {
 	})
 
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Keep err for validation below.
 	valid, err := providerInstance.Validate(context.Background(), cfg, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Check deprecated attributes removed.
 	allAttrs := valid.AllAttrs()
 	for _, attr := range []string{"default-image-id", "default-instance-type"} {
 		_, ok := allAttrs[attr]
-		c.Assert(ok, jc.IsFalse)
+		c.Assert(ok, tc.IsFalse)
 	}
 }
 
@@ -267,6 +266,6 @@ func (*ConfigSuite) TestSchema(c *tc.C) {
 	globalFields, err := config.Schema(nil)
 	c.Assert(err, tc.IsNil)
 	for name, field := range globalFields {
-		c.Check(fields[name], jc.DeepEquals, field)
+		c.Check(fields[name], tc.DeepEquals, field)
 	}
 }

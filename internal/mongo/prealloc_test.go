@@ -6,7 +6,6 @@ package mongo_test
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/mongo"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -56,7 +55,7 @@ func (s *preallocSuite) TestOplogSize(c *tc.C) {
 		s.PatchValue(mongo.RuntimeGOOS, test.runtimeGOOS)
 		availSpace = test.availSpace
 		size, err := mongo.DefaultOplogSize("")
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		c.Check(size, tc.Equals, test.expected)
 	}
 }
@@ -67,7 +66,7 @@ func (s *preallocSuite) TestFsAvailSpace(c *tc.C) {
 	testing.PatchExecutable(c, s, "df", "#!/bin/sh\ncat<<EOF\n"+output+"\nEOF")
 
 	mb, err := mongo.FsAvailSpace("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(mb, tc.Equals, float64(12345)/1024)
 }
 

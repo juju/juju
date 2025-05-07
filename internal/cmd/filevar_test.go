@@ -13,7 +13,6 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
 	gitjujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/internal/cmd"
@@ -47,48 +46,48 @@ func (s *FileVarSuite) SetUpTest(c *tc.C) {
 func (s *FileVarSuite) TestSetStdin(c *tc.C) {
 	var config cmd.FileVar
 	c.Assert(config.Path, tc.Equals, "")
-	c.Assert(config.StdinMarkers, jc.DeepEquals, []string{})
+	c.Assert(config.StdinMarkers, tc.DeepEquals, []string{})
 
 	config.SetStdin()
 	c.Assert(config.Path, tc.Equals, "")
-	c.Assert(config.StdinMarkers, jc.DeepEquals, []string{"-"})
+	c.Assert(config.StdinMarkers, tc.DeepEquals, []string{"-"})
 
 	config.SetStdin("<>", "@")
 	c.Assert(config.Path, tc.Equals, "")
-	c.Assert(config.StdinMarkers, jc.DeepEquals, []string{"<>", "@"})
+	c.Assert(config.StdinMarkers, tc.DeepEquals, []string{"<>", "@"})
 }
 
 func (s *FileVarSuite) TestIsStdin(c *tc.C) {
 	var config cmd.FileVar
-	c.Check(config.IsStdin(), jc.IsFalse)
+	c.Check(config.IsStdin(), tc.IsFalse)
 
 	config.StdinMarkers = []string{"-"}
-	c.Check(config.IsStdin(), jc.IsFalse)
+	c.Check(config.IsStdin(), tc.IsFalse)
 
 	config.Path = "spam"
-	c.Check(config.IsStdin(), jc.IsFalse)
+	c.Check(config.IsStdin(), tc.IsFalse)
 
 	config.Path = "-"
-	c.Check(config.IsStdin(), jc.IsTrue)
+	c.Check(config.IsStdin(), tc.IsTrue)
 
 	config.StdinMarkers = nil
-	c.Check(config.IsStdin(), jc.IsFalse)
+	c.Check(config.IsStdin(), tc.IsFalse)
 
 	config.StdinMarkers = []string{"<>", "@"}
-	c.Check(config.IsStdin(), jc.IsFalse)
+	c.Check(config.IsStdin(), tc.IsFalse)
 
 	config.Path = "<>"
-	c.Check(config.IsStdin(), jc.IsTrue)
+	c.Check(config.IsStdin(), tc.IsTrue)
 
 	config.Path = "@"
-	c.Check(config.IsStdin(), jc.IsTrue)
+	c.Check(config.IsStdin(), tc.IsTrue)
 }
 
 func (FileVarSuite) checkOpen(c *tc.C, file io.ReadCloser, expected string) {
 	defer file.Close()
 
 	data, err := ioutil.ReadAll(file)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(string(data), tc.Equals, expected)
 }
 
@@ -121,7 +120,7 @@ func (s *FileVarSuite) TestOpenNotStdin(c *tc.C) {
 	config.Set("-")
 	_, err := config.Open(s.ctx)
 
-	c.Check(err, jc.Satisfies, os.IsNotExist)
+	c.Check(err, tc.Satisfies, os.IsNotExist)
 }
 
 func (s *FileVarSuite) TestOpenValid(c *tc.C) {
@@ -170,7 +169,7 @@ func (s *FileVarSuite) TestReadNotStdin(c *tc.C) {
 	config.Set("-")
 	_, err := config.Read(s.ctx)
 
-	c.Check(err, jc.Satisfies, os.IsNotExist)
+	c.Check(err, tc.Satisfies, os.IsNotExist)
 }
 
 func (s *FileVarSuite) TestReadValid(c *tc.C) {

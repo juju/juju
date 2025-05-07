@@ -10,7 +10,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/caas"
@@ -110,7 +109,7 @@ func (s *removeCAASSuite) TestMissingName(c *tc.C) {
 func (s *removeCAASSuite) TestRemove(c *tc.C) {
 	command := s.makeCommand()
 	_, err := s.runCommand(c, command, "myk8s", "-c", "foo", "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.fakeCloudAPI.CheckCallNames(c, "RemoveCloud")
 	s.fakeCloudAPI.CheckCall(c, 0, "RemoveCloud", "myk8s")
@@ -125,7 +124,7 @@ func (s *removeCAASSuite) TestRemove(c *tc.C) {
 func (s *removeCAASSuite) TestRemoveControllerOnly(c *tc.C) {
 	command := s.makeCommand()
 	_, err := s.runCommand(c, command, "myk8s", "-c", "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// controller side operations
 	s.fakeCloudAPI.CheckCallNames(c, "RemoveCloud")
@@ -139,7 +138,7 @@ func (s *removeCAASSuite) TestRemoveControllerOnly(c *tc.C) {
 func (s *removeCAASSuite) TestRemoveClientOnly(c *tc.C) {
 	command := s.makeCommand()
 	_, err := s.runCommand(c, command, "myk8s", "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// controller side operations
 	s.fakeCloudAPI.CheckNoCalls(c)
@@ -162,7 +161,7 @@ func (s *removeCAASSuite) TestRemoveNotInController(c *tc.C) {
 func (s *removeCAASSuite) TestRemoveNotInLocal(c *tc.C) {
 	command := s.makeCommand()
 	_, err := s.runCommand(c, command, "yourk8s", "-c", "foo", "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.fakeCloudAPI.CheckCallNames(c, "RemoveCloud")
 	s.fakeCloudAPI.CheckCall(c, 0, "RemoveCloud", "yourk8s")

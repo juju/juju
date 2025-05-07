@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"google.golang.org/api/compute/v1"
 
 	jujuhttp "github.com/juju/juju/internal/http"
@@ -29,7 +28,7 @@ func (s *connSuite) TestConnect(c *tc.C) {
 	})
 
 	conn, err := google.Connect(context.Background(), s.ConnCfg, s.Credentials)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(google.ExposeRawService(conn), tc.Equals, service)
 }
@@ -38,13 +37,13 @@ func (s *connSuite) TestConnectionVerifyCredentials(c *tc.C) {
 	s.FakeConn.Project = &compute.Project{}
 	err := s.Conn.VerifyCredentials()
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *connSuite) TestConnectionVerifyCredentialsAPI(c *tc.C) {
 	s.FakeConn.Project = &compute.Project{}
 	err := s.Conn.VerifyCredentials()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, tc.HasLen, 1)
 	c.Check(s.FakeConn.Calls[0].FuncName, tc.Equals, "GetProject")

@@ -5,7 +5,6 @@ package specs_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/caas/specs"
 )
@@ -337,6 +336,6 @@ func (s *typesSuite) TestSortKeysForFiles(c *tc.C) {
 
 	for _, test := range tests {
 		keys := specs.SortKeysForFiles(test.Files)
-		c.Assert(keys, jc.DeepEquals, test.ExpectedKeys)
+		c.Assert(keys, tc.DeepEquals, test.ExpectedKeys)
 	}
 }

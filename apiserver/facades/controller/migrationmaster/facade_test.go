@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/macaroon.v2"
 
@@ -131,7 +130,7 @@ func (s *Suite) TestMigrationStatus(c *tc.C) {
 	mig := mocks.NewMockModelMigration(ctrl)
 
 	mac, err := macaroon.New([]byte(password), []byte("id"), "location", macaroon.LatestVersion)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	targetInfo := coremigration.TargetInfo{
 		ControllerTag: names.NewControllerTag(s.controllerUUID),
@@ -154,7 +153,7 @@ func (s *Suite) TestMigrationStatus(c *tc.C) {
 
 	api := s.mustMakeAPI(c)
 	status, err := api.MigrationStatus(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(status, tc.DeepEquals, params.MasterMigrationStatus{
 		Spec: params.MigrationSpec{
@@ -188,7 +187,7 @@ func (s *Suite) TestModelInfo(c *tc.C) {
 	s.modelExporter.EXPECT().ExportModel(gomock.Any(), gomock.Any()).Return(modelDescription, nil)
 
 	mod, err := s.mustMakeAPI(c).ModelInfo(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(mod.UUID, tc.Equals, "model-uuid")
 	c.Check(mod.Name, tc.Equals, "model-name")
@@ -196,7 +195,7 @@ func (s *Suite) TestModelInfo(c *tc.C) {
 	c.Check(mod.AgentVersion, tc.Equals, semversion.MustParse("1.2.3"))
 
 	bytes, err := description.Serialize(modelDescription)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(mod.ModelDescription, tc.DeepEquals, bytes)
 }
 
@@ -221,9 +220,9 @@ func (s *Suite) TestSourceControllerInfo(c *tc.C) {
 	s.controllerBackend.EXPECT().APIHostPortsForClients(cfg).Return(apiAddr, nil)
 
 	info, err := s.mustMakeAPI(c).SourceControllerInfo(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(info, jc.DeepEquals, params.MigrationSourceInfo{
+	c.Assert(info, tc.DeepEquals, params.MigrationSourceInfo{
 		LocalRelatedModels: []string{"related-model-uuid"},
 		ControllerTag:      coretesting.ControllerTag.String(),
 		ControllerAlias:    "mycontroller",
@@ -242,7 +241,7 @@ func (s *Suite) TestSetPhase(c *tc.C) {
 	s.backend.EXPECT().LatestMigration().Return(mig, nil)
 
 	err := s.mustMakeAPI(c).SetPhase(context.Background(), params.SetMigrationPhaseArgs{Phase: "ABORT"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 }
 
@@ -283,7 +282,7 @@ func (s *Suite) TestSetStatusMessage(c *tc.C) {
 	s.backend.EXPECT().LatestMigration().Return(mig, nil)
 
 	err := s.mustMakeAPI(c).SetStatusMessage(context.Background(), params.SetMigrationStatusMessageArgs{Message: "foo"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *Suite) TestSetStatusMessageNoMigration(c *tc.C) {
@@ -320,7 +319,7 @@ func (s *Suite) TestPrechecksModelError(c *tc.C) {
 func (s *Suite) TestProcessRelations(c *tc.C) {
 	api := s.mustMakeAPI(c)
 	err := api.ProcessRelations(context.Background(), params.ProcessRelations{ControllerAlias: "foo"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *Suite) TestExportIAAS(c *tc.C) {
@@ -386,18 +385,18 @@ func (s *Suite) assertExport(c *tc.C, modelType string) {
 	s.modelExporter.EXPECT().ExportModel(gomock.Any(), s.store).Return(s.model, nil)
 
 	serialized, err := s.mustMakeAPI(c).Export(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// We don't want to tie this test the serialisation output (that's
 	// tested elsewhere). Just check that at least one thing we expect
 	// is in the serialised output.
-	c.Check(string(serialized.Bytes), jc.Contains, jujuversion.Current.String())
+	c.Check(string(serialized.Bytes), tc.Contains, jujuversion.Current.String())
 
 	c.Check(serialized.Charms, tc.DeepEquals, []string{"ch:foo-0"})
 	if modelType == "caas" {
 		c.Check(serialized.Tools, tc.HasLen, 0)
 	} else {
-		c.Check(serialized.Tools, jc.SameContents, []params.SerializedModelTools{
+		c.Check(serialized.Tools, tc.SameContents, []params.SerializedModelTools{
 			{Version: tools0, URI: "/tools/" + tools0, SHA256: "439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3dbbb"},
 			{Version: tools1, URI: "/tools/" + tools1, SHA256: "439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3d09e"},
 			{Version: tools2, URI: "/tools/" + tools2, SHA256: "439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3daaa"},
@@ -434,7 +433,7 @@ func (s *Suite) TestReap(c *tc.C) {
 	mig.EXPECT().SetPhase(coremigration.DONE).Return(nil)
 
 	err := s.mustMakeAPI(c).Reap(context.Background())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 }
 
@@ -515,7 +514,7 @@ func (s *Suite) TestMinionReports(c *tc.C) {
 	s.backend.EXPECT().LatestMigration().Return(mig, nil)
 
 	reports, err := s.mustMakeAPI(c).MinionReports(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Expect the sample of unknowns to be in order and be limited to
 	// the first 10.
@@ -550,7 +549,7 @@ func (s *Suite) TestMinionReportTimeout(c *tc.C) {
 	}, nil)
 
 	res, err := s.mustMakeAPI(c).MinionReportTimeout(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Error, tc.IsNil)
 	c.Check(res.Result, tc.Equals, timeout)
 }
@@ -577,7 +576,7 @@ func (s *Suite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *Suite) mustMakeAPI(c *tc.C) *migrationmaster.API {
 	api, err := s.makeAPI()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return api
 }
 

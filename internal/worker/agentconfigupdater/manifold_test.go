@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
@@ -54,7 +53,7 @@ func (s *AgentConfigUpdaterSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *AgentConfigUpdaterSuite) TestInputs(c *tc.C) {
-	c.Assert(s.manifold.Inputs, jc.SameContents, []string{
+	c.Assert(s.manifold.Inputs, tc.SameContents, []string{
 		"agent",
 		"api-caller",
 		"central-hub",
@@ -271,11 +270,11 @@ func (s *AgentConfigUpdaterSuite) TestJobManageEnviron(c *tc.C) {
 	a := &mockAgent{}
 	w, err := s.startManifold(c, a, mockAPIPort)
 	c.Assert(w, tc.NotNil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 
 	// Verify that the state serving info was actually set.
-	c.Assert(a.conf.ssiSet, jc.IsTrue)
+	c.Assert(a.conf.ssiSet, tc.IsTrue)
 	c.Assert(a.conf.ssi.APIPort, tc.Equals, mockAPIPort)
 	c.Assert(a.conf.ssi.Cert, tc.Equals, "cert")
 	c.Assert(a.conf.ssi.PrivateKey, tc.Equals, "key")
@@ -295,11 +294,11 @@ func (s *AgentConfigUpdaterSuite) TestJobManageEnvironNotOverwriteCert(c *tc.C) 
 
 	w, err := s.startManifold(c, a, mockAPIPort)
 	c.Assert(w, tc.NotNil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 
 	// Verify that the state serving info was actually set.
-	c.Assert(a.conf.ssiSet, jc.IsTrue)
+	c.Assert(a.conf.ssiSet, tc.IsTrue)
 	c.Assert(a.conf.ssi.APIPort, tc.Equals, mockAPIPort)
 	c.Assert(a.conf.ssi.Cert, tc.Equals, existingCert)
 	c.Assert(a.conf.ssi.PrivateKey, tc.Equals, existingKey)
@@ -337,7 +336,7 @@ func (s *AgentConfigUpdaterSuite) checkNotController(c *tc.C, job model.MachineJ
 	c.Assert(err, tc.Equals, dependency.ErrUninstall)
 
 	// State serving info shouldn't have been set for this job type.
-	c.Assert(a.conf.ssiSet, jc.IsFalse)
+	c.Assert(a.conf.ssiSet, tc.IsFalse)
 }
 
 type mockAgent struct {

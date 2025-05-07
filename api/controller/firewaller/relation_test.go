@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/firewaller"
@@ -29,7 +28,7 @@ func (s *relationSuite) TestRelation(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "Life")
-		c.Assert(arg, jc.DeepEquals, params.Entities{
+		c.Assert(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "relation-mysql.db#wordpress.db"}},
 		})
 		c.Assert(result, tc.FitsTypeOf, &params.LifeResults{})
@@ -40,9 +39,9 @@ func (s *relationSuite) TestRelation(c *tc.C) {
 	})
 	tag := names.NewRelationTag("mysql:db wordpress:db")
 	client, err := firewaller.NewClient(apiCaller)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	r, err := client.Relation(context.Background(), tag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(r.Life(), tc.Equals, life.Alive)
-	c.Assert(r.Tag(), jc.DeepEquals, tag)
+	c.Assert(r.Tag(), tc.DeepEquals, tag)
 }

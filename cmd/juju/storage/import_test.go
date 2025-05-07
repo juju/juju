@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/internal/cmd"
@@ -54,7 +53,7 @@ func (s *ImportFilesystemSuite) TestInitErrors(c *tc.C) {
 
 func (s *ImportFilesystemSuite) TestImportSuccess(c *tc.C) {
 	ctx, err := s.run(c, "foo", "bar", "baz")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `

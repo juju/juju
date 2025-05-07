@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/life"
@@ -76,7 +75,7 @@ func (s *attachmentsSuite) TestNewAttachments(c *tc.C) {
 	}
 
 	_, err := storage.NewAttachments(context.Background(), st, unitTag, s.mockStateOps, abort)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *attachmentsSuite) assertNewAttachments(c *tc.C, storageTag names.StorageTag) *storage.Attachments {
@@ -109,7 +108,7 @@ func (s *attachmentsSuite) assertNewAttachments(c *tc.C, storageTag names.Storag
 	}
 
 	att, err := storage.NewAttachments(context.Background(), storSt, unitTag, s.mockStateOps, abort)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return att
 }
 
@@ -125,7 +124,7 @@ func (s *attachmentsSuite) TestNewAttachmentsInitHavePending(c *tc.C) {
 		Kind:      hooks.StorageAttached,
 		StorageId: storageTag.Id(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *attachmentsSuite) TestNewAttachmentsInit(c *tc.C) {
@@ -136,7 +135,7 @@ func (s *attachmentsSuite) TestNewAttachmentsInit(c *tc.C) {
 	// Setup a storage tag which should be ignored by init.
 	s.storSt.Attach("data/3")
 	err := s.storSt.Detach("data/3")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.expectState(c)
 
 	att := s.assertNewAttachments(c, storageTag)
@@ -162,7 +161,7 @@ func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *tc.C) {
 	}
 
 	att, err := storage.NewAttachments(context.Background(), st, unitTag, s.mockStateOps, abort)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	r := storage.NewResolver(loggertesting.WrapCheckLog(c), att, s.modelType)
 
 	// First make sure we create a storage-attached hook operation for
@@ -184,7 +183,7 @@ func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *tc.C) {
 			},
 		},
 	}, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	for _, storageTag := range []names.StorageTag{storageTag0, storageTag1} {
 		_, err = r.NextOp(context.Background(), localState, remotestate.Snapshot{
@@ -195,7 +194,7 @@ func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *tc.C) {
 		}, nil)
 		c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 	}
-	c.Assert(removed.SortedValues(), jc.DeepEquals, []names.Tag{
+	c.Assert(removed.SortedValues(), tc.DeepEquals, []names.Tag{
 		storageTag0, storageTag1,
 	})
 }
@@ -227,7 +226,7 @@ func (s *attachmentsSuite) testAttachmentsStorage(c *tc.C, opState operation.Sta
 	}
 
 	att, err := storage.NewAttachments(context.Background(), st, unitTag, s.mockStateOps, abort)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	r := storage.NewResolver(loggertesting.WrapCheckLog(c), att, s.modelType)
 
 	storageTag := names.NewStorageTag("data/0")
@@ -245,7 +244,7 @@ func (s *attachmentsSuite) testAttachmentsStorage(c *tc.C, opState operation.Sta
 			},
 		},
 	}, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run hook storage-attached")
 }
 
@@ -262,7 +261,7 @@ func (s *caasAttachmentsSuite) TestAttachmentsStorageNotStarted(c *tc.C) {
 	}
 
 	att, err := storage.NewAttachments(context.Background(), st, unitTag, s.mockStateOps, abort)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	r := storage.NewResolver(loggertesting.WrapCheckLog(c), att, s.modelType)
 
 	storageTag := names.NewStorageTag("data/0")
@@ -308,7 +307,7 @@ func (s *attachmentsSuite) TestAttachmentsCommitHook(c *tc.C) {
 	}
 
 	att, err := storage.NewAttachments(context.Background(), st, unitTag, s.mockStateOps, abort)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	r := storage.NewResolver(loggertesting.WrapCheckLog(c), att, s.modelType)
 
 	// Inform the resolver of an attachment.
@@ -326,7 +325,7 @@ func (s *attachmentsSuite) TestAttachmentsCommitHook(c *tc.C) {
 			},
 		},
 	}, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(att.Pending(), tc.Equals, 1)
 
 	s.storSt.Attach(storageTag.Id())
@@ -335,18 +334,18 @@ func (s *attachmentsSuite) TestAttachmentsCommitHook(c *tc.C) {
 		Kind:      hooks.StorageAttached,
 		StorageId: storageTag.Id(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.storSt.Detach(storageTag.Id())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.expectSetState(c, "")
-	c.Assert(removed, jc.IsFalse)
+	c.Assert(removed, tc.IsFalse)
 	err = att.CommitHook(context.Background(), hook.Info{
 		Kind:      hooks.StorageDetaching,
 		StorageId: storageTag.Id(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(removed, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(removed, tc.IsTrue)
 }
 
 func (s *attachmentsSuite) TestAttachmentsSetDying(c *tc.C) {
@@ -379,7 +378,7 @@ func (s *attachmentsSuite) TestAttachmentsSetDying(c *tc.C) {
 			return nil
 		},
 		remove: func(s names.StorageTag, u names.UnitTag) error {
-			c.Assert(removed, jc.IsFalse)
+			c.Assert(removed, tc.IsFalse)
 			c.Assert(s, tc.Equals, storageTag)
 			c.Assert(u, tc.Equals, unitTag)
 			removed = true
@@ -388,7 +387,7 @@ func (s *attachmentsSuite) TestAttachmentsSetDying(c *tc.C) {
 	}
 
 	att, err := storage.NewAttachments(context.Background(), st, unitTag, s.mockStateOps, abort)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(att.Pending(), tc.Equals, 1)
 	r := storage.NewResolver(loggertesting.WrapCheckLog(c), att, s.modelType)
 
@@ -410,9 +409,9 @@ func (s *attachmentsSuite) TestAttachmentsSetDying(c *tc.C) {
 		},
 	}, &mockOperations{})
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
-	c.Assert(destroyed, jc.IsTrue)
+	c.Assert(destroyed, tc.IsTrue)
 	c.Assert(att.Pending(), tc.Equals, 0)
-	c.Assert(removed, jc.IsTrue)
+	c.Assert(removed, tc.IsTrue)
 }
 
 func (s *attachmentsSuite) TestAttachmentsWaitPending(c *tc.C) {
@@ -429,7 +428,7 @@ func (s *attachmentsSuite) TestAttachmentsWaitPending(c *tc.C) {
 	}
 
 	att, err := storage.NewAttachments(context.Background(), st, unitTag, s.mockStateOps, abort)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	r := storage.NewResolver(loggertesting.WrapCheckLog(c), att, s.modelType)
 
 	nextOp := func(installed bool) error {

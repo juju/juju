@@ -12,7 +12,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/status"
@@ -37,7 +36,7 @@ func (s *statusHistorySuite) TestGetStatusHistoryNoData(c *tc.C) {
 	results, err := service.GetStatusHistory(context.Background(), StatusHistoryRequest{
 		Kind: status.KindUnit,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.HasLen, 0)
 }
 
@@ -53,7 +52,7 @@ func (s *statusHistorySuite) TestGetStatusHistoryContextCancelled(c *tc.C) {
 	_, err := service.GetStatusHistory(ctx, StatusHistoryRequest{
 		Kind: status.KindUnit,
 	})
-	c.Assert(err, jc.ErrorIs, context.Canceled)
+	c.Assert(err, tc.ErrorIs, context.Canceled)
 }
 
 func (s *statusHistorySuite) TestGetStatusHistoryError(c *tc.C) {
@@ -102,7 +101,7 @@ func (s *statusHistorySuite) TestGetStatusHistoryMatchesData(c *tc.C) {
 	results, err := service.GetStatusHistory(context.Background(), StatusHistoryRequest{
 		Kind: status.KindUnit,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, []status.DetailedStatus{{
 		Kind:   status.KindUnit,
 		Status: status.Active,
@@ -146,7 +145,7 @@ func (s *statusHistorySuite) TestGetStatusHistoryMatchesMultipleData(c *tc.C) {
 	results, err := service.GetStatusHistory(context.Background(), StatusHistoryRequest{
 		Kind: status.KindUnit,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, expected)
 }
 
@@ -187,7 +186,7 @@ func (s *statusHistorySuite) TestGetStatusHistoryMatchesMultipleDataSize(c *tc.C
 			Size: total - 5,
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, expected[:total-5])
 }
 
@@ -218,7 +217,7 @@ func (s *statusHistorySuite) TestGetStatusHistoryMatchesKindData(c *tc.C) {
 	results, err := service.GetStatusHistory(context.Background(), StatusHistoryRequest{
 		Kind: status.KindUnit,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, []status.DetailedStatus{{
 		Kind:   status.KindUnit,
 		Status: status.Active,
@@ -356,7 +355,7 @@ func (s *statusHistorySuite) TestMatches(c *tc.C) {
 		if test.err != nil {
 			c.Assert(err, tc.ErrorMatches, test.err.Error())
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
 
 		c.Check(result, tc.Equals, test.expected)
@@ -407,7 +406,7 @@ func (s *statusHistorySuite) TestMatchesDate(c *tc.C) {
 		c.Logf("test %d: %v(%v) - %v(%v)", i, test.record.Kind, test.record.Tag, test.request.Kind, test.request.Tag)
 
 		result, err := matches(test.record, test.request, s.now)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(result, tc.Equals, test.expected)
 	}
 }
@@ -456,7 +455,7 @@ func (s *statusHistorySuite) TestMatchesDelta(c *tc.C) {
 		c.Logf("test %d: %v(%v) - %v(%v)", i, test.record.Kind, test.record.Tag, test.request.Kind, test.request.Tag)
 
 		result, err := matches(test.record, test.request, s.now)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(result, tc.Equals, test.expected)
 	}
 }

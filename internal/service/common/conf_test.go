@@ -6,7 +6,6 @@ package common_test
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/shell"
 
 	"github.com/juju/juju/internal/service/common"
@@ -24,7 +23,7 @@ func (*confSuite) TestIsZeroTrue(c *tc.C) {
 	var conf common.Conf
 	isZero := conf.IsZero()
 
-	c.Check(isZero, jc.IsTrue)
+	c.Check(isZero, tc.IsTrue)
 }
 
 func (*confSuite) TestIsZero(c *tc.C) {
@@ -34,7 +33,7 @@ func (*confSuite) TestIsZero(c *tc.C) {
 	}
 	isZero := conf.IsZero()
 
-	c.Check(isZero, jc.IsFalse)
+	c.Check(isZero, tc.IsFalse)
 }
 
 func (*confSuite) TestValidateOkay(c *tc.C) {
@@ -44,7 +43,7 @@ func (*confSuite) TestValidateOkay(c *tc.C) {
 	}
 	err := conf.Validate(renderer)
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (*confSuite) TestValidateSingleQuotedExecutable(c *tc.C) {
@@ -54,7 +53,7 @@ func (*confSuite) TestValidateSingleQuotedExecutable(c *tc.C) {
 	}
 	err := conf.Validate(renderer)
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (*confSuite) TestValidateDoubleQuotedExecutable(c *tc.C) {
@@ -64,7 +63,7 @@ func (*confSuite) TestValidateDoubleQuotedExecutable(c *tc.C) {
 	}
 	err := conf.Validate(renderer)
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (*confSuite) TestValidatePartiallyQuotedExecutable(c *tc.C) {
@@ -127,7 +126,7 @@ func (*confSuite) TestGoodLimits(c *tc.C) {
 		},
 	}
 	err := conf.Validate(renderer)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (*confSuite) TestLimitNotInt(c *tc.C) {

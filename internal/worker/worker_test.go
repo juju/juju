@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 
@@ -26,7 +25,7 @@ func (*WorkerSuite) TestStopReturnsNoError(c *tc.C) {
 	w := workertest.NewDeadWorker(nil)
 
 	err := worker.Stop(w)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (*WorkerSuite) TestStopReturnsError(c *tc.C) {
@@ -75,7 +74,7 @@ func (*WorkerSuite) TestDeadAlready(c *tc.C) {
 
 	select {
 	case _, ok := <-worker.Dead(w):
-		c.Check(ok, jc.IsFalse)
+		c.Check(ok, tc.IsFalse)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("Dead never sent")
 	}
@@ -99,7 +98,7 @@ func (*WorkerSuite) TestDeadWaits(c *tc.C) {
 	w.Kill()
 	select {
 	case _, ok := <-dead:
-		c.Check(ok, jc.IsFalse)
+		c.Check(ok, tc.IsFalse)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("Dead never closed")
 	}

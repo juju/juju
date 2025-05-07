@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	apiapplication "github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/cmd/juju/application"
@@ -65,7 +64,7 @@ type showUnitTest struct {
 func (s *ShowUnitSuite) assertRunShow(c *tc.C, t showUnitTest) {
 	context, err := s.runShow(c, t.args...)
 	if t.err == "" {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	} else {
 		c.Assert(err, tc.ErrorMatches, t.err)
 	}

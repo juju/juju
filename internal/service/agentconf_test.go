@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/agent"
@@ -48,7 +47,7 @@ func (s *agentConfSuite) SetUpTest(c *tc.C) {
 	s.dataDir = c.MkDir()
 	s.systemdDir = path.Join(s.dataDir, "etc", "systemd", "system")
 	s.systemdMultiUserDir = path.Join(s.systemdDir, "multi-user.target.wants")
-	c.Assert(os.MkdirAll(s.systemdMultiUserDir, os.ModeDir|os.ModePerm), jc.ErrorIsNil)
+	c.Assert(os.MkdirAll(s.systemdMultiUserDir, os.ModeDir|os.ModePerm), tc.ErrorIsNil)
 	s.systemdDataDir = path.Join(s.dataDir, "lib", "systemd", "system")
 
 	s.machineName = "machine-0"
@@ -83,10 +82,10 @@ func (s *agentConfSuite) setUpAgentConf(c *tc.C) {
 	}
 
 	agentConf, err := agent.NewAgentConfig(configParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = agentConf.Write()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.agentConf = agentConf
 }
@@ -113,19 +112,19 @@ func (s *agentConfSuite) newService(name string, _ common.Conf) (service.Service
 func (s *agentConfSuite) assertSetupAgentsForTest(c *tc.C) {
 	agentsDir := path.Join(s.dataDir, "agents")
 	err := os.MkdirAll(path.Join(agentsDir, s.machineName), os.ModeDir|os.ModePerm)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	for _, unit := range s.unitNames {
 		err = os.Mkdir(path.Join(agentsDir, unit), os.ModeDir|os.ModePerm)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }
 
 func (s *agentConfSuite) TestFindAgents(c *tc.C) {
 	machineAgent, unitAgents, errAgents, err := s.manager.FindAgents(s.dataDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(machineAgent, tc.Equals, s.machineName)
-	c.Assert(unitAgents, jc.SameContents, s.unitNames)
+	c.Assert(unitAgents, tc.SameContents, s.unitNames)
 	c.Assert(errAgents, tc.HasLen, 0)
 }
 
@@ -133,25 +132,25 @@ func (s *agentConfSuite) TestFindAgentsUnexpectedTagType(c *tc.C) {
 	unexpectedAgent := names.NewApplicationTag("failme").String()
 	unexpectedAgentDir := path.Join(s.dataDir, "agents", unexpectedAgent)
 	err := os.MkdirAll(unexpectedAgentDir, os.ModeDir|os.ModePerm)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	machineAgent, unitAgents, unexpectedAgents, err := s.manager.FindAgents(s.dataDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(machineAgent, tc.Equals, s.machineName)
-	c.Assert(unitAgents, jc.SameContents, s.unitNames)
+	c.Assert(unitAgents, tc.SameContents, s.unitNames)
 	c.Assert(unexpectedAgents, tc.DeepEquals, []string{unexpectedAgent})
 }
 
 func (s *agentConfSuite) TestCreateAgentConfDesc(c *tc.C) {
 	conf, err := s.manager.CreateAgentConf("machine-2", s.dataDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Spot check Conf
 	c.Assert(conf.Desc, tc.Equals, "juju agent for machine-2")
 }
 
 func (s *agentConfSuite) TestCreateAgentConfLogPath(c *tc.C) {
 	conf, err := s.manager.CreateAgentConf("machine-2", s.dataDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(conf.Logfile, tc.Equals, "/var/log/juju/machine-2.log")
 }
 
@@ -169,7 +168,7 @@ func (s *agentConfSuite) TestWriteSystemdAgent(c *tc.C) {
 
 	err := s.manager.WriteSystemdAgent(
 		s.machineName, s.systemdDataDir, s.systemdMultiUserDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *agentConfSuite) TestWriteSystemdAgentSystemdNotRunning(c *tc.C) {
@@ -186,7 +185,7 @@ func (s *agentConfSuite) TestWriteSystemdAgentSystemdNotRunning(c *tc.C) {
 
 	err := s.manager.WriteSystemdAgent(
 		s.machineName, s.systemdDataDir, s.systemdMultiUserDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *agentConfSuite) TestWriteSystemdAgentWriteServiceFail(c *tc.C) {

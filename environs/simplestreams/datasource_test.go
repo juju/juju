@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -33,14 +32,14 @@ func (s *datasourceSuite) assertFetch(c *tc.C, compressed bool) {
 	defer server.Close()
 	ds := testing.VerifyDefaultCloudDataSource("test", server.URL)
 	rc, url, err := ds.Fetch(context.Background(), "streams/v1/tools_metadata.json")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = rc.Close() }()
 	c.Assert(url, tc.Equals, fmt.Sprintf("%s/streams/v1/tools_metadata.json", server.URL))
 	data, err := io.ReadAll(rc)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cloudMetadata, err := simplestreams.ParseCloudMetadata(data, testing.Product_v1, url, imagemetadata.ImageMetadata{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(cloudMetadata.Products), jc.GreaterThan, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(cloudMetadata.Products), tc.GreaterThan, 0)
 }
 
 func (s *datasourceSuite) TestFetch(c *tc.C) {
@@ -54,7 +53,7 @@ func (s *datasourceSuite) TestFetchGzip(c *tc.C) {
 func (s *datasourceSuite) TestURL(c *tc.C) {
 	ds := testing.VerifyDefaultCloudDataSource("test", "foo")
 	url, err := ds.URL("bar")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(url, tc.Equals, "foo/bar")
 }
 
@@ -170,7 +169,7 @@ func (s *datasourceHTTPSSuite) TearDownTest(c *tc.C) {
 func (s *datasourceHTTPSSuite) TestNormalClientFails(c *tc.C) {
 	ds := testing.VerifyDefaultCloudDataSource("test", s.server.URL)
 	url, err := ds.URL("bar")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(url, tc.Equals, s.server.URL+"/bar")
 	reader, _, err := ds.Fetch(context.Background(), "bar")
 	c.Assert(err, tc.ErrorMatches, `.*x509: certificate signed by unknown authority`)
@@ -186,13 +185,13 @@ func (s *datasourceHTTPSSuite) TestNonVerifyingClientSucceeds(c *tc.C) {
 		Clock:                s.clock,
 	})
 	url, err := ds.URL("bar")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(url, tc.Equals, s.server.URL+"/bar")
 	reader, _, err := ds.Fetch(context.Background(), "bar")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = reader.Close() }()
 	byteContent, err := io.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(string(byteContent), tc.Equals, "Greetings!\n")
 }
 
@@ -207,6 +206,6 @@ func (s *datasourceHTTPSSuite) TestClientTransportCompression(c *tc.C) {
 	httpClient := simplestreams.HttpClient(ds)
 	c.Assert(httpClient, tc.NotNil)
 	tr, ok := httpClient.HTTPClient.(*http.Client).Transport.(*http.Transport)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(tr.DisableCompression, jc.IsFalse)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(tr.DisableCompression, tc.IsFalse)
 }

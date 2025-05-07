@@ -6,7 +6,6 @@ package space_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/space"
 )
@@ -87,7 +86,7 @@ func (s *MoveSuite) TestInit(c *tc.C) {
 		if test.expectErr != "" {
 			c.Check(err, tc.ErrorMatches, test.expectErr)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			command := command.(*space.MoveCommand)
 			c.Check(command.Name, tc.Equals, test.expectName)
 			c.Check(command.CIDRs.SortedValues(), tc.DeepEquals, test.expectCIDRs)

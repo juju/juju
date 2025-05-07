@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
@@ -32,7 +31,7 @@ func (s *initialisationSuite) TestDetectBase(c *tc.C) {
 	}, "\n")
 	defer installFakeSSH(c, sshprovisioner.DetectionScript, response, 0)()
 	_, base, err := sshprovisioner.DetectBaseAndHardwareCharacteristics("whatever", "vmuser")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(base, tc.Equals, corebase.MustParseBaseFromString("ubuntu@6.10"))
 }
 
@@ -52,7 +51,7 @@ func (s *initialisationSuite) TestDetectionError(c *tc.C) {
 	// if the script doesn't fail, stderr is simply ignored.
 	defer installFakeSSH(c, sshprovisioner.DetectionScript, []string{scriptResponse, "non-empty-stderr"}, 0)()
 	hc, _, err := sshprovisioner.DetectBaseAndHardwareCharacteristics("hostname", "vmuser")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(hc.String(), tc.Equals, "arch=ppc64el cores=1 mem=4M")
 }
 
@@ -124,7 +123,7 @@ func (s *initialisationSuite) TestDetectHardwareCharacteristics(c *tc.C) {
 		scriptResponse := strings.Join(test.scriptResponse, "\n")
 		defer installFakeSSH(c, sshprovisioner.DetectionScript, scriptResponse, 0)()
 		hc, _, err := sshprovisioner.DetectBaseAndHardwareCharacteristics("hostname", "vmuser")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(hc.String(), tc.Equals, test.expectedHc)
 	}
 }
@@ -133,24 +132,24 @@ func (s *initialisationSuite) TestCheckProvisioned(c *tc.C) {
 	listCmd := service.ListServicesScript()
 	defer installFakeSSH(c, listCmd, "", 0)()
 	provisioned, err := sshprovisioner.CheckProvisioned("example.com", "vmuser")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provisioned, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(provisioned, tc.IsFalse)
 
 	defer installFakeSSH(c, listCmd, "snap.juju.fetch-oci", 0)()
 	provisioned, err = sshprovisioner.CheckProvisioned("example.com", "vmuser")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provisioned, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(provisioned, tc.IsFalse)
 
 	defer installFakeSSH(c, listCmd, "jujud-machine-42", 0)()
 	provisioned, err = sshprovisioner.CheckProvisioned("example.com", "vmuser")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provisioned, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(provisioned, tc.IsTrue)
 
 	// stderr should not affect result.
 	defer installFakeSSH(c, listCmd, []string{"", "non-empty-stderr"}, 0)()
 	provisioned, err = sshprovisioner.CheckProvisioned("example.com", "vmuser")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provisioned, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(provisioned, tc.IsFalse)
 
 	// if the script fails for whatever reason, then checkProvisioned
 	// will return an error. stderr will be included in the error message.
@@ -163,7 +162,7 @@ func (s *initialisationSuite) TestInitUbuntuUserNonExisting(c *tc.C) {
 	defer installFakeSSH(c, "", "", 0)() // successful creation of ubuntu user
 	defer installFakeSSH(c, "", "", 1)() // simulate failure of ubuntu@ login
 	err := sshprovisioner.InitUbuntuUser("testhost", "testuser", "", "", nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *initialisationSuite) TestInitUbuntuUserExisting(c *tc.C) {

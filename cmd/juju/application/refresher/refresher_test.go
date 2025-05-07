@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
@@ -47,7 +46,7 @@ func (s *refresherFactorySuite) TestRefresh(c *tc.C) {
 	}
 
 	charmID2, err := f.Run(context.Background(), cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(charmID2, tc.DeepEquals, charmID)
 }
 
@@ -105,7 +104,7 @@ func (s *refresherFactorySuite) TestRefreshCallsAllRefreshers(c *tc.C) {
 	}
 
 	charmID2, err := f.Run(context.Background(), cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(charmID2, tc.DeepEquals, charmID)
 }
 
@@ -146,7 +145,7 @@ func (s *refresherFactorySuite) TestRefreshCallsRefreshersEvenAfterExhaustedErro
 	}
 
 	charmID2, err := f.Run(context.Background(), cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(charmID2, tc.DeepEquals, charmID)
 }
 
@@ -178,7 +177,7 @@ func (s *baseRefresherSuite) TestResolveCharm(c *tc.C) {
 		logger:          fakeLogger{},
 	}
 	url, obtainedOrigin, err := refresher.ResolveCharm(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(url, tc.DeepEquals, charm.MustParseURL("ch:meshuggah-1"))
 	c.Assert(obtainedOrigin, tc.DeepEquals, origin)
 }
@@ -264,10 +263,10 @@ func (s *localCharmRefresherSuite) TestRefresh(c *tc.C) {
 
 	refresher := (&factory{}).maybeReadLocal(charmAdder, charmRepo)
 	task, err := refresher(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	charmID, err := task.Refresh(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(charmID.URL, tc.Equals, curl)
 	c.Assert(charmID.Origin.Source, tc.Equals, corecharm.Local)
 }
@@ -287,7 +286,7 @@ func (s *localCharmRefresherSuite) TestRefreshBecomesExhausted(c *tc.C) {
 
 	refresher := (&factory{}).maybeReadLocal(charmAdder, charmRepo)
 	task, err := refresher(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = task.Refresh(context.Background())
 	c.Assert(err, tc.Equals, ErrExhausted)
@@ -308,7 +307,7 @@ func (s *localCharmRefresherSuite) TestRefreshDoesNotFindLocal(c *tc.C) {
 
 	refresher := (&factory{}).maybeReadLocal(charmAdder, charmRepo)
 	task, err := refresher(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = task.Refresh(context.Background())
 	c.Assert(err, tc.ErrorMatches, `no charm found at "local:meshuggah"`)
@@ -343,10 +342,10 @@ func (s *charmHubCharmRefresherSuite) TestRefresh(c *tc.C) {
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
 	task, err := refresher(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	charmID, err := task.Refresh(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(charmID, tc.DeepEquals, &CharmID{
 		URL:    newCurl,
 		Origin: actualOrigin.CoreCharmOrigin(),
@@ -376,10 +375,10 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithNoOrigin(c *tc.C) {
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
 	task, err := refresher(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	charmID, err := task.Refresh(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(charmID, tc.DeepEquals, &CharmID{
 		URL:    newCurl,
 		Origin: origin.CoreCharmOrigin(),
@@ -407,7 +406,7 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithNoUpdates(c *tc.C) {
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
 	task, err := refresher(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = task.Refresh(context.Background())
 	c.Assert(err, tc.ErrorMatches, `charm "meshuggah": already up-to-date`)
@@ -434,7 +433,7 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithARevision(c *tc.C) {
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
 	task, err := refresher(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = task.Refresh(context.Background())
 	c.Assert(err, tc.ErrorMatches, `charm "meshuggah", revision 1: already up-to-date`)
@@ -469,7 +468,7 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithOriginChannel(c *tc.C) {
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
 	task, err := refresher(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = task.Refresh(context.Background())
 	c.Assert(err, tc.ErrorMatches, `charm "meshuggah", revision 1: already up-to-date`)
@@ -506,7 +505,7 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithCharmSwitch(c *tc.C) {
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
 	task, err := refresher(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = task.Refresh(context.Background())
 	c.Assert(err, tc.ErrorMatches, `charm "aloupi", revision 1: already up-to-date`)
@@ -526,11 +525,11 @@ func (s *charmHubCharmRefresherSuite) TestAllowed(c *tc.C) {
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
 	task, err := refresher(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	allowed, err := task.Allowed(context.Background(), cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(allowed, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(allowed, tc.IsTrue)
 }
 
 func (s *charmHubCharmRefresherSuite) TestAllowedWithSwitch(c *tc.C) {
@@ -550,11 +549,11 @@ func (s *charmHubCharmRefresherSuite) TestAllowedWithSwitch(c *tc.C) {
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
 	task, err := refresher(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	allowed, err := task.Allowed(context.Background(), cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(allowed, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(allowed, tc.IsTrue)
 }
 
 func (s *charmHubCharmRefresherSuite) TestAllowedError(c *tc.C) {
@@ -574,20 +573,20 @@ func (s *charmHubCharmRefresherSuite) TestAllowedError(c *tc.C) {
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
 	task, err := refresher(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	allowed, err := task.Allowed(context.Background(), cfg)
 	c.Assert(err, tc.ErrorMatches, "trap")
-	c.Assert(allowed, jc.IsFalse)
+	c.Assert(allowed, tc.IsFalse)
 }
 
 func (s *charmHubCharmRefresherSuite) TestCharmHubResolveOriginEmpty(c *tc.C) {
 	origin := corecharm.Origin{}
 	channel := charm.Channel{}
 	result, err := charmHubOriginResolver(nil, origin, channel)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	coreOrigin, err := commoncharm.CoreCharmOrigin(origin)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, coreOrigin)
 }
 
@@ -598,14 +597,14 @@ func (s *charmHubCharmRefresherSuite) TestCharmHubResolveOrigin(c *tc.C) {
 		Track: track,
 	}
 	result, err := charmHubOriginResolver(nil, origin, channel)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	coreOrigin, err := commoncharm.CoreCharmOrigin(corecharm.Origin{
 		Channel: &charm.Channel{
 			Track: track,
 			Risk:  "stable",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, coreOrigin)
 }
 
@@ -617,13 +616,13 @@ func (s *charmHubCharmRefresherSuite) TestCharmHubResolveOriginEmptyTrackNonEmpt
 		Risk: "edge",
 	}
 	result, err := charmHubOriginResolver(nil, origin, channel)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	coreOrigin, err := commoncharm.CoreCharmOrigin(corecharm.Origin{
 		Channel: &charm.Channel{
 			Risk: "edge",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, coreOrigin)
 }
 
@@ -633,11 +632,11 @@ func (s *charmHubCharmRefresherSuite) TestCharmHubResolveOriginEmptyTrackEmptyCh
 		Risk: "edge",
 	}
 	result, err := charmHubOriginResolver(nil, origin, channel)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	coreOrigin, err := commoncharm.CoreCharmOrigin(corecharm.Origin{
 		Channel: &charm.Channel{},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, coreOrigin)
 }
 

@@ -7,7 +7,6 @@ import (
 	"sort"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"google.golang.org/api/compute/v1"
 
 	"github.com/juju/juju/core/network"
@@ -78,7 +77,7 @@ func (s *networkSuite) TestFirewallSpec(c *tc.C) {
 	for i := range fw.Allowed {
 		sort.Strings(fw.Allowed[i].Ports)
 	}
-	c.Check(fw, jc.DeepEquals, &compute.Firewall{
+	c.Check(fw, tc.DeepEquals, &compute.Firewall{
 		Name:         "spam",
 		TargetTags:   []string{"target"},
 		SourceRanges: []string{"192.168.1.0/24", "10.0.0.0/24"},
@@ -89,7 +88,7 @@ func (s *networkSuite) TestFirewallSpec(c *tc.C) {
 func (s *networkSuite) TestExtractAddresses(c *tc.C) {
 	addresses := google.ExtractAddresses(&s.NetworkInterface)
 
-	c.Check(addresses, jc.DeepEquals, []network.ProviderAddress{
+	c.Check(addresses, tc.DeepEquals, []network.ProviderAddress{
 		network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)).AsProviderAddress(),
 	})
 }
@@ -99,7 +98,7 @@ func (s *networkSuite) TestExtractAddressesExternal(c *tc.C) {
 	s.NetworkInterface.AccessConfigs[0].NatIP = "8.8.8.8"
 	addresses := google.ExtractAddresses(&s.NetworkInterface)
 
-	c.Check(addresses, jc.DeepEquals, []network.ProviderAddress{
+	c.Check(addresses, tc.DeepEquals, []network.ProviderAddress{
 		network.NewMachineAddress("8.8.8.8", network.WithScope(network.ScopePublic)).AsProviderAddress(),
 	})
 }

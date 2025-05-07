@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/agentpassword"
@@ -37,12 +36,12 @@ func (s *stateSuite) TestSetUnitPassword(c *tc.C) {
 	unitName := s.createUnit(c)
 
 	unitUUID, err := st.GetUnitUUID(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	passwordHash := s.genPasswordHash(c)
 
 	err = st.SetUnitPasswordHash(context.Background(), unitUUID, passwordHash)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that the password hash was set correctly.
 	var hash string
@@ -50,7 +49,7 @@ func (s *stateSuite) TestSetUnitPassword(c *tc.C) {
 		err := tx.QueryRowContext(ctx, "SELECT password_hash FROM unit WHERE uuid = ?", unitUUID).Scan(&hash)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(hash, tc.Equals, string(passwordHash))
 }
 
@@ -58,7 +57,7 @@ func (s *stateSuite) TestSetUnitPasswordUnitDoesNotExist(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	_, err := st.GetUnitUUID(context.Background(), unit.Name("foo/0"))
-	c.Assert(err, jc.ErrorIs, agentpassworderrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, agentpassworderrors.UnitNotFound)
 }
 
 func (s *stateSuite) TestSetUnitPasswordUnitNotFound(c *tc.C) {
@@ -67,7 +66,7 @@ func (s *stateSuite) TestSetUnitPasswordUnitNotFound(c *tc.C) {
 	passwordHash := s.genPasswordHash(c)
 
 	err := st.SetUnitPasswordHash(context.Background(), unit.UUID("foo"), passwordHash)
-	c.Assert(err, jc.ErrorIs, agentpassworderrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, agentpassworderrors.UnitNotFound)
 }
 
 func (s *stateSuite) TestMatchesUnitPasswordHash(c *tc.C) {
@@ -77,16 +76,16 @@ func (s *stateSuite) TestMatchesUnitPasswordHash(c *tc.C) {
 	unitName := s.createUnit(c)
 
 	unitUUID, err := st.GetUnitUUID(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	passwordHash := s.genPasswordHash(c)
 
 	err = st.SetUnitPasswordHash(context.Background(), unitUUID, passwordHash)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	valid, err := st.MatchesUnitPasswordHash(context.Background(), unitUUID, passwordHash)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(valid, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(valid, tc.IsTrue)
 }
 
 func (s *stateSuite) TestMatchesUnitPasswordHashUnitNotFound(c *tc.C) {
@@ -95,7 +94,7 @@ func (s *stateSuite) TestMatchesUnitPasswordHashUnitNotFound(c *tc.C) {
 	passwordHash := s.genPasswordHash(c)
 
 	_, err := st.MatchesUnitPasswordHash(context.Background(), unit.UUID("foo"), passwordHash)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *stateSuite) TestMatchesUnitPasswordHashInvalidPassword(c *tc.C) {
@@ -105,16 +104,16 @@ func (s *stateSuite) TestMatchesUnitPasswordHashInvalidPassword(c *tc.C) {
 	unitName := s.createUnit(c)
 
 	unitUUID, err := st.GetUnitUUID(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	passwordHash := s.genPasswordHash(c)
 
 	err = st.SetUnitPasswordHash(context.Background(), unitUUID, passwordHash)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	valid, err := st.MatchesUnitPasswordHash(context.Background(), unitUUID, passwordHash+"1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(valid, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(valid, tc.IsFalse)
 }
 
 func (s *stateSuite) TestGetAllUnitPasswordHashes(c *tc.C) {
@@ -124,16 +123,16 @@ func (s *stateSuite) TestGetAllUnitPasswordHashes(c *tc.C) {
 	unitName := s.createUnit(c)
 
 	unitUUID, err := st.GetUnitUUID(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	passwordHash := s.genPasswordHash(c)
 
 	err = st.SetUnitPasswordHash(context.Background(), unitUUID, passwordHash)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	hashes, err := st.GetAllUnitPasswordHashes(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hashes, jc.DeepEquals, agentpassword.UnitPasswordHashes{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hashes, tc.DeepEquals, agentpassword.UnitPasswordHashes{
 		unitName: passwordHash,
 	})
 }
@@ -145,8 +144,8 @@ func (s *stateSuite) TestGetAllUnitPasswordHashesPasswordNotSet(c *tc.C) {
 	s.createUnit(c)
 
 	hashes, err := st.GetAllUnitPasswordHashes(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hashes, jc.DeepEquals, agentpassword.UnitPasswordHashes{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hashes, tc.DeepEquals, agentpassword.UnitPasswordHashes{
 		"foo/0": "",
 	})
 }
@@ -155,13 +154,13 @@ func (s *stateSuite) TestGetAllUnitPasswordHashesNoUnits(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	hashes, err := st.GetAllUnitPasswordHashes(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hashes, jc.DeepEquals, agentpassword.UnitPasswordHashes{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hashes, tc.DeepEquals, agentpassword.UnitPasswordHashes{})
 }
 
 func (s *stateSuite) genPasswordHash(c *tc.C) agentpassword.PasswordHash {
 	rand, err := internalpassword.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return agentpassword.PasswordHash(internalpassword.AgentPasswordHash(rand))
 }
@@ -186,7 +185,7 @@ func (s *stateSuite) createApplication(c *tc.C) {
 			Source:        charm.LocalSource,
 		},
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *stateSuite) createUnit(c *tc.C) unit.Name {
@@ -196,13 +195,13 @@ func (s *stateSuite) createUnit(c *tc.C) unit.Name {
 	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	appID, err := applicationSt.GetApplicationIDByName(ctx, "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	charmUUID, err := applicationSt.GetCharmIDByApplicationName(ctx, "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	unitNames, err := applicationSt.AddIAASUnits(ctx, c.MkDir(), appID, charmUUID, application.AddUnitArg{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unitNames, tc.HasLen, 1)
 	unitName := unitNames[0]
 
@@ -219,6 +218,6 @@ func (s *stateSuite) createUnit(c *tc.C) unit.Name {
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return unitName
 }

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
@@ -147,8 +146,8 @@ ACCEPT     icmp --  0.0.0.0/0            0.0.0.0/0    icmptype 8 /* juju ingress
 
 func assertParseIngressRules(c *tc.C, in string, expect firewall.IngressRules) {
 	rules, err := iptables.ParseIngressRules(strings.NewReader(in))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rules, jc.DeepEquals, expect)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rules, tc.DeepEquals, expect)
 }
 
 type renderer interface {

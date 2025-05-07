@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -97,7 +96,7 @@ func (s *destroyControllerSuite) SetUpTest(c *tc.C) {
 
 	var err error
 	s.otherModel, err = s.otherState.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // controllerAPI sets up and returns a new instance of the controller API,
@@ -201,7 +200,7 @@ func (s *destroyControllerSuite) controllerAPI(c *tc.C) *controller.ControllerAP
 		ctx.ObjectStore(),
 		ctx.ControllerUUID(),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return api
 }
 
@@ -246,10 +245,10 @@ func (s *destroyControllerSuite) TestDestroyControllerReturnsBlockedModelErr(c *
 	err := s.controller.DestroyController(context.Background(), params.DestroyControllerArgs{
 		DestroyModels: true,
 	})
-	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
+	c.Assert(params.IsCodeOperationBlocked(err), tc.IsTrue)
 
 	numBlocks, err := s.DefaultModelDomainServices(c).BlockCommand().GetBlocks(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(numBlocks), tc.Equals, 2)
 }
 
@@ -263,7 +262,7 @@ func (s *destroyControllerSuite) TestDestroyControllerKillsHostedModels(c *tc.C)
 	err := s.controller.DestroyController(context.Background(), params.DestroyControllerArgs{
 		DestroyModels: true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(s.ControllerModel(c).Life(), tc.Equals, state.Dying)
 }
@@ -283,7 +282,7 @@ func (s *destroyControllerSuite) TestDestroyControllerLeavesBlocksIfNotKillAll(c
 	c.Assert(err, tc.ErrorMatches, "found blocks in controller models")
 
 	numBlocks, err := s.DefaultModelDomainServices(c).BlockCommand().GetBlocks(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(numBlocks), tc.Equals, 2)
 }
 
@@ -296,11 +295,11 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedModels(c *tc.C) {
 		domainServices.BlockCommand(), domainServices.ModelInfo(),
 		nil, nil, nil, nil,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.otherModel.Refresh(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.otherModel.Refresh(), tc.ErrorIsNil)
 	c.Assert(s.otherModel.Life(), tc.Equals, state.Dying)
-	c.Assert(s.otherModel.State().RemoveDyingModel(), jc.ErrorIsNil)
-	c.Assert(s.otherModel.Refresh(), jc.ErrorIs, errors.NotFound)
+	c.Assert(s.otherModel.State().RemoveDyingModel(), tc.ErrorIsNil)
+	c.Assert(s.otherModel.Refresh(), tc.ErrorIs, errors.NotFound)
 
 	s.mockModelService.EXPECT().ListModelIDs(gomock.Any()).Return(
 		[]coremodel.UUID{
@@ -309,7 +308,7 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedModels(c *tc.C) {
 		}, nil,
 	)
 	err = s.controller.DestroyController(context.Background(), params.DestroyControllerArgs{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(s.ControllerModel(c).Life(), tc.Equals, state.Dying)
 }
@@ -328,7 +327,7 @@ func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedModelsWithBl
 		domainServices.BlockCommand(), domainServices.ModelInfo(),
 		nil, nil, nil, nil,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
@@ -347,7 +346,7 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedModelsWithBlockFai
 		domainServices.BlockCommand(), domainServices.ModelInfo(),
 		nil, nil, nil, nil,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
@@ -359,36 +358,36 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedModelsWithBlockFai
 		}, nil,
 	)
 	err = s.controller.DestroyController(context.Background(), params.DestroyControllerArgs{})
-	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
+	c.Assert(params.IsCodeOperationBlocked(err), tc.IsTrue)
 
 	numBlocks, err := domainServices.BlockCommand().GetBlocks(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(numBlocks), tc.Equals, 2)
 }
 
 // BlockAllChanges blocks all operations that could change the model.
 func (s *destroyControllerSuite) BlockAllChanges(c *tc.C, msg string) {
 	err := s.DefaultModelDomainServices(c).BlockCommand().SwitchBlockOn(context.Background(), blockcommand.ChangeBlock, msg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // BlockRemoveObject blocks all operations that remove
 // machines, services, units or relations.
 func (s *destroyControllerSuite) BlockRemoveObject(c *tc.C, msg string) {
 	err := s.DefaultModelDomainServices(c).BlockCommand().SwitchBlockOn(context.Background(), blockcommand.RemoveBlock, msg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // BlockDestroyModel blocks destroy-model.
 func (s *destroyControllerSuite) BlockDestroyModel(c *tc.C, msg string) {
 	err := s.DefaultModelDomainServices(c).BlockCommand().SwitchBlockOn(context.Background(), blockcommand.DestroyBlock, msg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // AssertBlocked checks if given error is
 // related to switched block.
 func (s *destroyControllerSuite) AssertBlocked(c *tc.C, err error, msg string) {
-	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue, tc.Commentf("error: %#v", err))
+	c.Assert(params.IsCodeOperationBlocked(err), tc.IsTrue, tc.Commentf("error: %#v", err))
 	c.Assert(errors.Cause(err), tc.DeepEquals, &params.Error{
 		Message: msg,
 		Code:    "operation is blocked",

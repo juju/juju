@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/remoterelations"
@@ -130,7 +129,7 @@ func (s *remoteRelationsSuite) TestExportEntities(c *tc.C) {
 	})
 	client := remoterelations.NewClient(apiCaller)
 	result, err := client.ExportEntities(context.Background(), []names.Tag{names.NewApplicationTag("foo")})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(result, tc.HasLen, 1)
 	c.Check(result[0].Error, tc.ErrorMatches, "FAIL")
 	c.Check(callCount, tc.Equals, 1)
@@ -170,7 +169,7 @@ func (s *remoteRelationsSuite) TestRelations(c *tc.C) {
 	})
 	client := remoterelations.NewClient(apiCaller)
 	result, err := client.Relations(context.Background(), []string{"foo:db bar:db"})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(result, tc.HasLen, 1)
 	c.Check(result[0].Error, tc.ErrorMatches, "FAIL")
 	c.Check(callCount, tc.Equals, 1)
@@ -210,7 +209,7 @@ func (s *remoteRelationsSuite) TestRemoteApplications(c *tc.C) {
 	})
 	client := remoterelations.NewClient(apiCaller)
 	result, err := client.RemoteApplications(context.Background(), []string{"foo"})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(result, tc.HasLen, 1)
 	c.Check(result[0].Error, tc.ErrorMatches, "FAIL")
 	c.Check(callCount, tc.Equals, 1)
@@ -341,7 +340,7 @@ func (s *remoteRelationsSuite) TestConsumeRemoteRelationChange(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "ConsumeRemoteRelationChanges")
-		c.Check(arg, jc.DeepEquals, changes)
+		c.Check(arg, tc.DeepEquals, changes)
 		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{
@@ -382,7 +381,7 @@ func (s *remoteRelationsSuite) TestControllerAPIInfoForModel(c *tc.C) {
 func (s *remoteRelationsSuite) TestSaveMacaroon(c *tc.C) {
 	rel := names.NewRelationTag("mysql:db wordpress:db")
 	mac, err := jujutesting.NewMacaroon("id")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	var callCount int
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, tc.Equals, "RemoteRelations")
@@ -480,7 +479,7 @@ func (s *remoteRelationsSuite) TestUpdateControllerForModelResultSuccess(c *tc.C
 
 	client := remoterelations.NewClient(apiCaller)
 	err := client.UpdateControllerForModel(context.Background(), crossmodel.ControllerInfo{}, "some-model-uuid")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *remoteRelationsSuite) TestConsumeRemoteSecretChange(c *tc.C) {
@@ -491,7 +490,7 @@ func (s *remoteRelationsSuite) TestConsumeRemoteSecretChange(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "ConsumeRemoteSecretChanges")
-		c.Check(arg, jc.DeepEquals, params.LatestSecretRevisionChanges{
+		c.Check(arg, tc.DeepEquals, params.LatestSecretRevisionChanges{
 			Changes: []params.SecretRevisionChange{{
 				URI:            uri.String(),
 				LatestRevision: 666,

@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/user"
 )
@@ -20,6 +19,6 @@ func TestPackage(t *testing.T) {
 
 func newUUID(c *tc.C) user.UUID {
 	uuid, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return uuid
 }

@@ -6,7 +6,6 @@ package lxdprofile_test
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/lxdprofile"
@@ -64,5 +63,5 @@ func (*LXDProfileSuite) TestNotEmpty(c *tc.C) {
 	lxdprofiler.EXPECT().LXDProfile().Return(profile)
 
 	result := lxdprofile.NotEmpty(lxdprofiler)
-	c.Assert(result, jc.IsFalse)
+	c.Assert(result, tc.IsFalse)
 }

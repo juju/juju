@@ -18,7 +18,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"gopkg.in/macaroon.v2"
@@ -379,7 +378,7 @@ func (s *Suite) TestPreviouslyAbortedMigration(c *tc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.ABORTDONE))
 
 	w, err := migrationmaster.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.waitForStubCalls(c, []string{
@@ -419,7 +418,7 @@ func (s *Suite) TestStatusNotFound(c *tc.C) {
 	s.facade.triggerWatcher()
 
 	w, err := migrationmaster.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.waitForStubCalls(c, []string{
@@ -634,7 +633,7 @@ func (s *Suite) TestVALIDATIONFailedAgent(c *tc.C) {
 	s.facade.queueStatus(sts)
 
 	w, err := migrationmaster.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Queue the reports *after* the watcher is started.
 	// The test will only pass if the minion wait timeout
@@ -807,7 +806,7 @@ func (s *Suite) TestSUCCESSMinionWaitTimeout(c *tc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.SUCCESS))
 
 	w, err := migrationmaster.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -878,7 +877,7 @@ func (s *Suite) assertAPIConnectWithMacaroon(c *tc.C, authUser names.UserTag) {
 
 	// Set up macaroon based auth to the target.
 	mac, err := macaroon.New([]byte("secret"), []byte("id"), "location", macaroon.LatestVersion)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	macs := []macaroon.Slice{{mac}}
 	status.TargetInfo.Password = ""
 	status.TargetInfo.Macaroons = macs
@@ -1009,7 +1008,7 @@ func (s *Suite) TestLogTransferErrorWriting(c *tc.C) {
 
 func (s *Suite) TestLogTransferSendsRecords(c *tc.C) {
 	t1, err := time.Parse("2006-01-02 15:04", "2016-11-28 16:11")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.facade.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
 	messages := []common.LogMessage{
 		{Message: "the go team"},
@@ -1070,12 +1069,12 @@ func (s *Suite) TestLogTransferReportsProgress(c *tc.C) {
 	s.facade.logMessages = func(d chan<- common.LogMessage) {
 		for _, message := range messages {
 			safeSend(c, d, message)
-			c.Assert(s.clock.WaitAdvance(20*time.Second, coretesting.LongWait, 1), jc.ErrorIsNil)
+			c.Assert(s.clock.WaitAdvance(20*time.Second, coretesting.LongWait, 1), tc.ErrorIsNil)
 		}
 	}
 
 	var logWriter loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("migrationmaster-tests", &logWriter), jc.ErrorIsNil)
+	c.Assert(loggo.RegisterWriter("migrationmaster-tests", &logWriter), tc.ErrorIsNil)
 	defer func() {
 		_, _ = loggo.RemoveWriter("migrationmaster-tests")
 		logWriter.Clear()
@@ -1083,7 +1082,7 @@ func (s *Suite) TestLogTransferReportsProgress(c *tc.C) {
 
 	s.checkWorkerReturns(c, migrationmaster.ErrMigrated)
 
-	c.Assert(logWriter.Log()[:3], jc.LogMatches, []string{
+	c.Assert(logWriter.Log()[:3], tc.LogMatches, []string{
 		"successful, transferring logs to target controller \\(0 sent\\)",
 		// This is a bit of a punt, but without accepting a range
 		// we sometimes see this test failing on loaded test machines.
@@ -1134,7 +1133,7 @@ func (s *Suite) checkWorkerErr(c *tc.C, expected string) {
 
 func (s *Suite) runWorker(c *tc.C) error {
 	w, err := migrationmaster.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 	return workertest.CheckKilled(c, w)
 }
@@ -1177,14 +1176,14 @@ func assertExpectedCallArgs(c *tc.C, stub *jujutesting.Stub, expectedCalls []juj
 		stubCall := stub.Calls()[i]
 
 		if call.FuncName == "MigrationTarget.Prechecks" {
-			mc := jc.NewMultiChecker()
+			mc := tc.NewMultiChecker()
 			mc.AddExpr("_.FacadeVersions", tc.Not(tc.HasLen), 0)
 
 			c.Assert(stubCall.Args, mc, call.Args, tc.Commentf("call %s", call.FuncName))
 			continue
 		}
 
-		c.Assert(stubCall, jc.DeepEquals, call, tc.Commentf("call %s", call.FuncName))
+		c.Assert(stubCall, tc.DeepEquals, call, tc.Commentf("call %s", call.FuncName))
 	}
 }
 

@@ -6,7 +6,6 @@ package service
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	internalcharm "github.com/juju/juju/internal/charm"
 )
@@ -61,18 +60,18 @@ func (s *metadataSuite) TestConvertLXDProfile(c *tc.C) {
 		c.Logf("Running test case %q", tc.name)
 
 		result, err := decodeLXDProfile(tc.input)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(result, tc.DeepEquals, tc.output)
 
 		// Ensure that the conversion is idempotent.
 		converted, err := encodeLXDProfile(&result)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(converted, jc.DeepEquals, tc.input)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(converted, tc.DeepEquals, tc.input)
 	}
 }
 
 func (s *metadataSuite) TestConvertNilLXDProfile(c *tc.C) {
 	converted, err := encodeLXDProfile(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(converted, tc.IsNil)
 }

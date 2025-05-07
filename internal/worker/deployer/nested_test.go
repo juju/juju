@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/juju/worker/v4/workertest"
 
@@ -65,12 +64,12 @@ func (s *NestedContextSuite) SetUpTest(c *tc.C) {
 			AgentLogfileMaxBackups: 7,
 			AgentLogfileMaxSizeMB:  123,
 		})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(config.Write(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(config.Write(), tc.ErrorIsNil)
 
 	s.agent = agentconfig.NewAgentConfig(datadir)
 	err = s.agent.ReadConfig(machine.String())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.workers = &unitWorkersStub{
 		started: make(chan string, 10), // eval size later
@@ -95,48 +94,48 @@ func (s *NestedContextSuite) SetUpTest(c *tc.C) {
 func (s *NestedContextSuite) TestConfigMissingAgentConfig(c *tc.C) {
 	s.config.Agent = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), tc.Equals, "missing Agent not valid")
 }
 
 func (s *NestedContextSuite) TestConfigMissingClock(c *tc.C) {
 	s.config.Clock = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), tc.Equals, "missing Clock not valid")
 }
 
 func (s *NestedContextSuite) TestConfigMissingLogger(c *tc.C) {
 	s.config.Logger = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), tc.Equals, "missing Logger not valid")
 }
 
 func (s *NestedContextSuite) TestConfigMissingSetupLogging(c *tc.C) {
 	s.config.SetupLogging = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), tc.Equals, "missing SetupLogging not valid")
 }
 
 func (s *NestedContextSuite) TestConfigMissingUnitEngineConfig(c *tc.C) {
 	s.config.UnitEngineConfig = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), tc.Equals, "missing UnitEngineConfig not valid")
 }
 
 func (s *NestedContextSuite) TestConfigMissingUnitManifolds(c *tc.C) {
 	s.config.UnitManifolds = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), tc.Equals, "missing UnitManifolds not valid")
 }
 
 func (s *NestedContextSuite) newContext(c *tc.C) deployer.Context {
 	context, err := deployer.NewNestedContext(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AddCleanup(func(c *tc.C) { workertest.CleanKill(c, context) })
 	s.InitializeCurrentToolsDir(c, s.agent.DataDir())
 	return context
@@ -146,7 +145,7 @@ func (s *NestedContextSuite) TestContextStops(c *tc.C) {
 	// Create a context and make sure the clean kill is good.
 	ctx := s.newContext(c)
 	report := ctx.Report()
-	c.Assert(report, jc.DeepEquals, map[string]interface{}{
+	c.Assert(report, tc.DeepEquals, map[string]interface{}{
 		"deployed": []string{},
 		"units": map[string]interface{}{
 			"workers": map[string]interface{}{},
@@ -158,14 +157,14 @@ func (s *NestedContextSuite) TestDeployUnit(c *tc.C) {
 	ctx := s.newContext(c)
 	unitName := "something/0"
 	err := ctx.DeployUnit(unitName, "password")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Wait for unit to start.
 	s.workers.waitForStart(c, unitName)
 
 	// Unit agent dir exists.
 	unitConfig := agent.ConfigPath(s.agent.DataDir(), names.NewUnitTag(unitName))
-	c.Assert(unitConfig, jc.IsNonEmptyFile)
+	c.Assert(unitConfig, tc.IsNonEmptyFile)
 
 	// Unit written into the config value as deployed units.
 	c.Assert(s.agent.CurrentConfig().Value("deployed-units"), tc.Equals, unitName)
@@ -179,7 +178,7 @@ func (s *NestedContextSuite) TestRecallUnit(c *tc.C) {
 	s.config.RebootMonitorStatePurger = &fakeRebootMonitor{c: c, tag: tag}
 	ctx := s.newContext(c)
 	err := ctx.DeployUnit(unitName, "password")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Wait for unit to start.
 	s.workers.waitForStart(c, unitName)
@@ -193,20 +192,20 @@ func (s *NestedContextSuite) TestRecallUnit(c *tc.C) {
 	// Waiting for the socket file to be present on disk is more robust.
 	socketPath := path.Join(agent.Dir(s.agent.DataDir(), tag), addons.IntrospectionSocketName)
 	err = waitForFile(socketPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = ctx.RecallUnit(unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Unit agent dir no longer exists.
-	c.Assert(agent.Dir(s.agent.DataDir(), tag), jc.DoesNotExist)
+	c.Assert(agent.Dir(s.agent.DataDir(), tag), tc.DoesNotExist)
 
 	// Unit written into the config value as deployed units.
 	c.Assert(s.agent.CurrentConfig().Value("deployed-units"), tc.HasLen, 0)
 
 	// Recall is idempotent.
 	err = ctx.RecallUnit(unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func waitForFile(filePath string) error {
@@ -230,7 +229,7 @@ func (s *NestedContextSuite) deployThreeUnits(c *tc.C, ctx deployer.Context) {
 	// Units are conveniently in alphabetical order.
 	for _, unitName := range []string{"first/0", "second/0", "third/0"} {
 		err := ctx.DeployUnit(unitName, "password")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		// Wait for unit to start.
 		s.workers.waitForStart(c, unitName)
 	}
@@ -266,9 +265,9 @@ func (s *NestedContextSuite) TestReport(c *tc.C) {
 	ctx := s.newContext(c)
 	s.deployThreeUnits(c, ctx)
 
-	check := jc.NewMultiChecker()
-	check.AddExpr(`_["units"][_][_][_][_][_]["started"]`, jc.Ignore)
-	check.AddExpr(`_["units"][_][_]["started"]`, jc.Ignore)
+	check := tc.NewMultiChecker()
+	check.AddExpr(`_["units"][_][_][_][_][_]["started"]`, tc.Ignore)
+	check.AddExpr(`_["units"][_][_]["started"]`, tc.Ignore)
 	// Dates are shown here as an example, but are ignored by the checker.
 	c.Assert(ctx.Report(), check, map[string]interface{}{
 		"deployed": []string{"first/0", "second/0", "third/0"},

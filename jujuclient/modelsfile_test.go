@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/testing"
@@ -85,48 +84,48 @@ var ctrlAdminModelDetails = jujuclient.ModelDetails{
 func (s *ModelsFileSuite) TestWriteFile(c *tc.C) {
 	writeTestModelsFile(c)
 	data, err := os.ReadFile(osenv.JujuXDGDataHomePath("models.yaml"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(data), tc.Equals, testModelsYAML[1:])
 }
 
 func (s *ModelsFileSuite) TestReadNoFile(c *tc.C) {
 	models, err := jujuclient.ReadModelsFile("nowhere.yaml")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(models, tc.IsNil)
 }
 
 func (s *ModelsFileSuite) TestReadEmptyFile(c *tc.C) {
 	err := os.WriteFile(osenv.JujuXDGDataHomePath("models.yaml"), []byte(""), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	models, err := jujuclient.ReadModelsFile(jujuclient.JujuModelsPath())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(models, tc.HasLen, 0)
 }
 
 func (s *ModelsFileSuite) TestMigrateLegacyLocal(c *tc.C) {
 	err := os.WriteFile(jujuclient.JujuModelsPath(), []byte(testLegacyModelsYAML), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	models, err := jujuclient.ReadModelsFile(jujuclient.JujuModelsPath())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	migratedData, err := os.ReadFile(jujuclient.JujuModelsPath())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	migratedModels, err := jujuclient.ParseModels(migratedData)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(migratedData), jc.DeepEquals, testModelsYAML[1:])
-	c.Assert(migratedModels, jc.DeepEquals, models)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(migratedData), tc.DeepEquals, testModelsYAML[1:])
+	c.Assert(migratedModels, tc.DeepEquals, models)
 }
 
 func writeTestModelsFile(c *tc.C) {
 	err := jujuclient.WriteModelsFile(testControllerModels)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ModelsFileSuite) TestParseModels(c *tc.C) {
 	models, err := jujuclient.ParseModels([]byte(testModelsYAML))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(models, jc.DeepEquals, testControllerModels)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(models, tc.DeepEquals, testControllerModels)
 }
 
 func (s *ModelsFileSuite) TestParseModelMetadataError(c *tc.C) {

@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/juju/juju/internal/worker/uniter/hook"
@@ -25,11 +24,11 @@ var _ = tc.Suite(&FailActionSuite{})
 func (s *FailActionSuite) TestPrepare(c *tc.C) {
 	factory := newOpFactory(c, nil, nil)
 	op, err := factory.NewFailAction(someActionId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Prepare(stdcontext.Background(), operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newState, jc.DeepEquals, &operation.State{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(newState, tc.DeepEquals, &operation.State{
 		Kind:     operation.RunAction,
 		Step:     operation.Pending,
 		ActionId: &someActionId,
@@ -65,14 +64,14 @@ func (s *FailActionSuite) TestExecuteSuccess(c *tc.C) {
 		callbacks := &RunActionCallbacks{MockFailAction: &MockFailAction{}}
 		factory := newOpFactory(c, nil, callbacks)
 		op, err := factory.NewFailAction(someActionId)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		midState, err := op.Prepare(stdcontext.Background(), test.before)
 		c.Assert(midState, tc.NotNil)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		newState, err := op.Execute(stdcontext.Background(), *midState)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(newState, jc.DeepEquals, &test.after)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(newState, tc.DeepEquals, &test.after)
 		c.Assert(*callbacks.MockFailAction.gotMessage, tc.Equals, "action terminated")
 		c.Assert(*callbacks.MockFailAction.gotActionId, tc.Equals, someActionId)
 	}
@@ -87,10 +86,10 @@ func (s *FailActionSuite) TestExecuteFail(c *tc.C) {
 	callbacks := &RunActionCallbacks{MockFailAction: &MockFailAction{err: errors.New("squelch")}}
 	factory := newOpFactory(c, nil, callbacks)
 	op, err := factory.NewFailAction(someActionId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	midState, err := op.Prepare(stdcontext.Background(), st)
 	c.Assert(midState, tc.NotNil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = op.Execute(stdcontext.Background(), *midState)
 	c.Assert(err, tc.ErrorMatches, "squelch")
@@ -143,17 +142,17 @@ func (s *FailActionSuite) TestCommit(c *tc.C) {
 		c.Logf("test %d: %s", i, test.description)
 		factory := newOpFactory(c, nil, nil)
 		op, err := factory.NewFailAction(someActionId)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		newState, err := op.Commit(stdcontext.Background(), test.before)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(newState, jc.DeepEquals, &test.after)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(newState, tc.DeepEquals, &test.after)
 	}
 }
 
 func (s *FailActionSuite) TestNeedsGlobalMachineLock(c *tc.C) {
 	factory := newOpFactory(c, nil, nil)
 	op, err := factory.NewFailAction(someActionId)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.NeedsGlobalMachineLock(), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op.NeedsGlobalMachineLock(), tc.IsTrue)
 }

@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
@@ -62,7 +61,7 @@ func (s *removeCredentialSuite) TestMissingLocalCredential(c *tc.C) {
 	}
 	command := cloud.NewRemoveCredentialCommandForTest(store, s.cloudByNameFunc, s.clientF)
 	ctx, err := cmdtesting.RunCommand(c, command, "aws", "foo", "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	output := cmdtesting.Stderr(ctx)
 	output = strings.Replace(output, "\n", "", -1)
 	c.Assert(output, tc.Equals, `Found local cloud "aws" on this client.No credential called "foo" exists for cloud "aws" on this client`)
@@ -77,7 +76,7 @@ No cloud "somecloud" is found.
 To view all available clouds, use 'juju clouds'.
 To add new cloud, use 'juju add-cloud'.
 `[1:])
-	c.Assert(c.GetTestLog(), jc.Contains, "cloud somecloud not valid")
+	c.Assert(c.GetTestLog(), tc.Contains, "cloud somecloud not valid")
 }
 
 func (s *removeCredentialSuite) TestRemove(c *tc.C) {
@@ -93,13 +92,13 @@ func (s *removeCredentialSuite) TestRemove(c *tc.C) {
 	}
 	command := cloud.NewRemoveCredentialCommandForTest(store, s.cloudByNameFunc, s.clientF)
 	ctx, err := cmdtesting.RunCommand(c, command, "aws", "my-credential", "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
 Found local cloud "aws" on this client.
 Credential "my-credential" for cloud "aws" removed from this client.
 `[1:])
 	_, stillThere := store.Credentials["aws"].AuthCredentials["my-credential"]
-	c.Assert(stillThere, jc.IsFalse)
+	c.Assert(stillThere, tc.IsFalse)
 	c.Assert(store.Credentials["aws"].AuthCredentials, tc.HasLen, 1)
 }
 
@@ -140,7 +139,7 @@ func (s *removeCredentialSuite) TestGettingApiClientErrorButLocal(c *tc.C) {
 	}
 	command := cloud.NewRemoveCredentialCommandForTest(store, s.cloudByNameFunc, s.clientF)
 	_, err := cmdtesting.RunCommand(c, command, "aws", "foo", "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.fakeClient.CheckNoCalls(c)
 }
 
@@ -180,7 +179,7 @@ func (s *removeCredentialSuite) TestRemoveRemoteCredential(c *tc.C) {
 	}
 	command := cloud.NewRemoveCredentialCommandForTest(store, s.cloudByNameFunc, s.clientF)
 	ctx, err := cmdtesting.RunCommand(c, command, "somecloud", "foo", "-c", "controller")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
 Found remote cloud "somecloud" from the controller.
 Credential "foo" for cloud "somecloud" removed from the controller "controller".
@@ -211,7 +210,7 @@ func (s *removeCredentialSuite) TestRemoveRemoteCredentialForce(c *tc.C) {
 	}
 	command := cloud.NewRemoveCredentialCommandForTest(store, s.cloudByNameFunc, s.clientF)
 	_, err := cmdtesting.RunCommand(c, command, "somecloud", "foo", "-c", "controller", "--force")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.fakeClient.CheckCallNames(c, "Clouds", "RevokeCredential", "Close")
 	s.fakeClient.CheckCall(c, 1, "RevokeCredential", names.NewCloudCredentialTag("somecloud/admin/foo"), true)
 }

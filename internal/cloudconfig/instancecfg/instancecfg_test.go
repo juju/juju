@@ -6,7 +6,6 @@ package instancecfg_test
 import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/controller"
@@ -26,9 +25,9 @@ var _ = tc.Suite(&instancecfgSuite{})
 
 func (*instancecfgSuite) TestIsController(c *tc.C) {
 	cfg := instancecfg.InstanceConfig{}
-	c.Assert(cfg.IsController(), jc.IsFalse)
+	c.Assert(cfg.IsController(), tc.IsFalse)
 	cfg.Jobs = []model.MachineJob{model.JobManageModel}
-	c.Assert(cfg.IsController(), jc.IsTrue)
+	c.Assert(cfg.IsController(), tc.IsTrue)
 }
 
 func (*instancecfgSuite) TestInstanceTagsController(c *tc.C) {
@@ -58,7 +57,7 @@ func (*instancecfgSuite) TestInstanceTagsUserSpecified(c *tc.C) {
 
 func testInstanceTags(c *tc.C, cfg *config.Config, isController bool, expectTags map[string]string) {
 	tags := instancecfg.InstanceTags(testing.ModelTag.Id(), testing.ControllerTag.Id(), cfg, isController)
-	c.Assert(tags, jc.DeepEquals, expectTags)
+	c.Assert(tags, tc.DeepEquals, expectTags)
 }
 
 func (*instancecfgSuite) TestAgentVersionZero(c *tc.C) {
@@ -72,7 +71,7 @@ func (*instancecfgSuite) TestAgentVersion(c *tc.C) {
 		&coretools.Tools{Version: semversion.MustParseBinary("2.3.4-ubuntu-amd64")},
 	}
 	err := icfg.SetTools(list)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(icfg.AgentVersion(), tc.Equals, list[0].Version)
 }
 
@@ -83,8 +82,8 @@ func (*instancecfgSuite) TestSetToolsSameVersions(c *tc.C) {
 		&coretools.Tools{Version: semversion.MustParseBinary("2.3.4-ubuntu-amd64")},
 	}
 	err := icfg.SetTools(list)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(icfg.ToolsList(), jc.DeepEquals, list)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(icfg.ToolsList(), tc.DeepEquals, list)
 }
 
 func (*instancecfgSuite) TestSetToolsDifferentVersions(c *tc.C) {
@@ -108,7 +107,7 @@ func (*instancecfgSuite) TestJujuTools(c *tc.C) {
 			URL:     "/tools/2.3.4-ubuntu-amd64",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(icfg.JujuTools(), tc.Equals, "/path/to/datadir/tools/2.3.4-ubuntu-amd64")
 }
@@ -136,7 +135,7 @@ func (*instancecfgSuite) TestAgentConfigLogParams(c *tc.C) {
 		DataDir:       "/path/to/datadir/",
 	}
 	config, err := icfg.AgentConfig(names.NewMachineTag("foo"), semversion.MustParse("1.2.3"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(config.AgentLogfileMaxSizeMB(), tc.Equals, 123)
 	c.Assert(config.AgentLogfileMaxBackups(), tc.Equals, 7)
 }

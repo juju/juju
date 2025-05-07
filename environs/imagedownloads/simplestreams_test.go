@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"golang.org/x/crypto/openpgp"
 	openpgperrors "golang.org/x/crypto/openpgp/errors"
 
@@ -57,12 +56,12 @@ func (s *Suite) SetUpTest(c *tc.C) {
 func (*Suite) TestNewSignedImagesSource(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	got := imagedownloads.DefaultSource(ss)()
-	c.Check(got.Description(), jc.DeepEquals, "ubuntu cloud images")
-	c.Check(got.PublicSigningKey(), jc.DeepEquals, imagemetadata.SimplestreamsImagesPublicKey)
-	c.Check(got.RequireSigned(), jc.IsTrue)
+	c.Check(got.Description(), tc.DeepEquals, "ubuntu cloud images")
+	c.Check(got.PublicSigningKey(), tc.DeepEquals, imagemetadata.SimplestreamsImagesPublicKey)
+	c.Check(got.RequireSigned(), tc.IsTrue)
 	gotURL, err := got.URL("")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotURL, jc.DeepEquals, "http://cloud-images.ubuntu.com/releases/")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(gotURL, tc.DeepEquals, "http://cloud-images.ubuntu.com/releases/")
 }
 
 func (*Suite) TestFetchManyDefaultFilter(c *tc.C) {
@@ -78,17 +77,17 @@ func (*Suite) TestFetchManyDefaultFilter(c *tc.C) {
 			Stream:   "released",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	got, resolveInfo, err := imagedownloads.Fetch(context.Background(), ss, tds, constraints, nil)
-	c.Check(resolveInfo.Signed, jc.IsTrue)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(len(got), jc.DeepEquals, 27)
+	c.Check(resolveInfo.Signed, tc.IsTrue)
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(len(got), tc.DeepEquals, 27)
 	for _, v := range got {
 		gotURL, err := v.DownloadURL(ts.URL)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(strings.HasSuffix(gotURL.String(), v.FType), jc.IsTrue)
-		c.Check(strings.Contains(gotURL.String(), v.Release), jc.IsTrue)
-		c.Check(strings.Contains(gotURL.String(), v.Version), jc.IsTrue)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(strings.HasSuffix(gotURL.String(), v.FType), tc.IsTrue)
+		c.Check(strings.Contains(gotURL.String(), v.Release), tc.IsTrue)
+		c.Check(strings.Contains(gotURL.String(), v.Version), tc.IsTrue)
 	}
 }
 
@@ -105,20 +104,20 @@ func (*Suite) TestFetchManyDefaultFilterAndCustomImageDownloadURL(c *tc.C) {
 			Stream:   "released",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	got, resolveInfo, err := imagedownloads.Fetch(context.Background(), ss, tds, constraints, nil)
-	c.Check(resolveInfo.Signed, jc.IsTrue)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(len(got), jc.DeepEquals, 27)
+	c.Check(resolveInfo.Signed, tc.IsTrue)
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(len(got), tc.DeepEquals, 27)
 	for _, v := range got {
 		// Note: instead of the index URL, we are pulling the actual
 		// images from a different operator-provided URL.
 		gotURL, err := v.DownloadURL("https://tasty-cloud-images.ubuntu.com")
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(strings.HasPrefix(gotURL.String(), "https://tasty-cloud-images.ubuntu.com"), jc.IsTrue, tc.Commentf("expected image download URL to use the operator-provided URL"))
-		c.Check(strings.HasSuffix(gotURL.String(), v.FType), jc.IsTrue)
-		c.Check(strings.Contains(gotURL.String(), v.Release), jc.IsTrue)
-		c.Check(strings.Contains(gotURL.String(), v.Version), jc.IsTrue)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(strings.HasPrefix(gotURL.String(), "https://tasty-cloud-images.ubuntu.com"), tc.IsTrue, tc.Commentf("expected image download URL to use the operator-provided URL"))
+		c.Check(strings.HasSuffix(gotURL.String(), v.FType), tc.IsTrue)
+		c.Check(strings.Contains(gotURL.String(), v.Release), tc.IsTrue)
+		c.Check(strings.Contains(gotURL.String(), v.Version), tc.IsTrue)
 	}
 }
 
@@ -134,14 +133,14 @@ func (*Suite) TestFetchSingleDefaultFilter(c *tc.C) {
 			Releases: []string{"16.04"},
 		}}
 	got, resolveInfo, err := imagedownloads.Fetch(context.Background(), ss, tds, constraints, nil)
-	c.Check(resolveInfo.Signed, jc.IsTrue)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(len(got), jc.DeepEquals, 8)
-	c.Check(got[0].Arch, jc.DeepEquals, "ppc64el")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(resolveInfo.Signed, tc.IsTrue)
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(len(got), tc.DeepEquals, 8)
+	c.Check(got[0].Arch, tc.DeepEquals, "ppc64el")
+	c.Check(err, tc.ErrorIsNil)
 	for _, v := range got {
 		_, err := v.DownloadURL(ts.URL)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
 }
 
@@ -157,18 +156,18 @@ func (*Suite) TestFetchOneWithFilter(c *tc.C) {
 			Releases: []string{"16.04"},
 		}}
 	got, resolveInfo, err := imagedownloads.Fetch(context.Background(), ss, tds, constraints, imagedownloads.Filter("disk1.img"))
-	c.Check(resolveInfo.Signed, jc.IsTrue)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(len(got), jc.DeepEquals, 1)
-	c.Check(got[0].Arch, jc.DeepEquals, "ppc64el")
+	c.Check(resolveInfo.Signed, tc.IsTrue)
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(len(got), tc.DeepEquals, 1)
+	c.Check(got[0].Arch, tc.DeepEquals, "ppc64el")
 	// Assuming that the operator has not overridden the image download URL
 	// parameter we pass the default empty value which should fall back to
 	// the default cloud-images.ubuntu.com URL.
 	gotURL, err := got[0].DownloadURL("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
 		gotURL.String(),
-		jc.DeepEquals,
+		tc.DeepEquals,
 		"http://cloud-images.ubuntu.com/server/releases/xenial/release-20211001/ubuntu-16.04-server-cloudimg-ppc64el-disk1.img")
 }
 
@@ -184,20 +183,20 @@ func (*Suite) TestFetchManyWithFilter(c *tc.C) {
 			Releases: []string{"16.04"},
 		}}
 	got, resolveInfo, err := imagedownloads.Fetch(context.Background(), ss, tds, constraints, imagedownloads.Filter("disk1.img"))
-	c.Check(resolveInfo.Signed, jc.IsTrue)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(len(got), jc.DeepEquals, 3)
-	c.Check(got[0].Arch, jc.DeepEquals, "amd64")
-	c.Check(got[1].Arch, jc.DeepEquals, "arm64")
-	c.Check(got[2].Arch, jc.DeepEquals, "ppc64el")
+	c.Check(resolveInfo.Signed, tc.IsTrue)
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(len(got), tc.DeepEquals, 3)
+	c.Check(got[0].Arch, tc.DeepEquals, "amd64")
+	c.Check(got[1].Arch, tc.DeepEquals, "arm64")
+	c.Check(got[2].Arch, tc.DeepEquals, "ppc64el")
 	for i, arch := range []string{"amd64", "arm64", "ppc64el"} {
 		wantURL := fmt.Sprintf("http://cloud-images.ubuntu.com/server/releases/xenial/release-20211001/ubuntu-16.04-server-cloudimg-%s-disk1.img", arch)
 		// Assuming that the operator has not overridden the image
 		// download URL parameter we pass the default empty value which
 		// should fall back to the default cloud-images.ubuntu.com URL.
 		gotURL, err := got[i].DownloadURL("")
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(gotURL.String(), jc.DeepEquals, wantURL)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(gotURL.String(), tc.DeepEquals, wantURL)
 	}
 }
 
@@ -206,8 +205,8 @@ func (*Suite) TestOneAmd64XenialTarGz(c *tc.C) {
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
 	got, err := imagedownloads.One(context.Background(), ss, "amd64", "22.04", "", "tar.gz", newTestDataSourceFunc(ts.URL))
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(got, jc.DeepEquals, &imagedownloads.Metadata{
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(got, tc.DeepEquals, &imagedownloads.Metadata{
 		Arch:    "amd64",
 		Release: "jammy",
 		Version: "22.04",
@@ -223,8 +222,8 @@ func (*Suite) TestOneArm64JammyImg(c *tc.C) {
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
 	got, err := imagedownloads.One(context.Background(), ss, "arm64", "22.04", "released", "disk1.img", newTestDataSourceFunc(ts.URL))
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(got, jc.DeepEquals, &imagedownloads.Metadata{
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(got, tc.DeepEquals, &imagedownloads.Metadata{
 		Arch:    "arm64",
 		Release: "jammy",
 		Version: "22.04",
@@ -240,8 +239,8 @@ func (*Suite) TestOneArm64FocalImg(c *tc.C) {
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
 	got, err := imagedownloads.One(context.Background(), ss, "arm64", "20.04", "released", "disk1.img", newTestDataSourceFunc(ts.URL))
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(got, jc.DeepEquals, &imagedownloads.Metadata{
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(got, tc.DeepEquals, &imagedownloads.Metadata{
 		Arch:    "arm64",
 		Release: "focal",
 		Version: "20.04",

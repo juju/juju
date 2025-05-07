@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"gopkg.in/yaml.v2"
 	storagev1 "k8s.io/api/storage/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -122,7 +121,7 @@ func (s *updateCAASSuite) SetUpTest(c *tc.C) {
 	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(defaultClusterMetadata, nil)
 
 	clouds, err := cloud.ParseCloudMetadata([]byte(cloudYaml))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.fakeCloudAPI.cloud = clouds["myk8s"]
 	s.cloudMetadataStore.Call("ReadCloudData", "mycloud.yaml").Returns(cloudYaml, nil)
 	s.cloudMetadataStore.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloud.Cloud{}, false, nil)
@@ -180,7 +179,7 @@ func (s *updateCAASSuite) assertUpdateCloudResult(
 	testRun()
 
 	_, region, err := cloud.SplitHostCloudRegion(cloudRegion)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.fakeK8sClusterMetadataChecker.CheckNoCalls(c)
 	expectedCloudToUpdate := cloud.Cloud{
 		Name:             cloudName,
@@ -240,7 +239,7 @@ func (s *updateCAASSuite) TestLocalOnly(c *tc.C) {
 	s.assertUpdateCloudResult(c, func() {
 		command := s.makeCommand()
 		ctx, err := s.runCommand(c, command, "myk8s", "-f", "mycloud.yaml", "--client")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		expected := `k8s cloud "myk8s" updated on this client.`
 		c.Assert(strings.Replace(cmdtesting.Stderr(ctx), "\n", "", -1), tc.Equals, expected)
 	}, "myk8s", "gce/us-east1", "workload-sc", testData{client: true})
@@ -267,7 +266,7 @@ func (s *updateCAASSuite) TestControllerAndClient(c *tc.C) {
 	s.assertUpdateCloudResult(c, func() {
 		command := s.makeCommand()
 		ctx, err := s.runCommand(c, command, "myk8s", "-f", "mycloud.yaml", "-c", "foo", "--client")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(strings.Replace(cmdtesting.Stderr(ctx), "\n", "", -1), tc.Equals,
 			`k8s cloud "myk8s" updated on this client.k8s cloud "myk8s" updated on controller "foo".`)
 	}, "myk8s", "gce/us-east1", "workload-sc", testData{client: true, controller: true})
@@ -276,15 +275,15 @@ func (s *updateCAASSuite) TestControllerAndClient(c *tc.C) {
 func (s *updateCAASSuite) TestBuiltinLocal(c *tc.C) {
 	command := s.makeCommand()
 	ctx, err := s.runCommand(c, command, "microk8s", "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := `k8s cloud "microk8s" updated on this client.`
 	c.Assert(strings.Replace(cmdtesting.Stderr(ctx), "\n", "", -1), tc.Equals, expected)
 	ctrl, ok := s.clientStore.Controllers["foo"]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	p, ok := ctrl.Proxy.Proxier.(*proxy.Proxier)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	y, err := yaml.Marshal(p)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(strings.ReplaceAll(string(y), "\n", ""), tc.Matches, ".*api-host: 10.1.0.0:666.*")
 }
 
@@ -308,7 +307,7 @@ func (s *updateCAASSuite) TestBuiltinToController(c *tc.C) {
 
 	command := s.makeCommand()
 	_, err := s.runCommand(c, command, "microk8s", "-c", "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.fakeK8sClusterMetadataChecker.CheckCall(c, 0, "GetClusterMetadata")
 	expectedCloudToUpdate := cloud.Cloud{
 		Name:            "microk8s",
@@ -383,5 +382,5 @@ Credential invalid for:
 Failed models may require a different credential.
 Use ‘juju set-credential’ to change credential for these models before repeating this update.
 `[1:])
-	c.Assert(c.GetTestLog(), jc.Contains, `Controller credential "default" for user "foouser" for cloud "microk8s" on controller "foo" not updated: some error`)
+	c.Assert(c.GetTestLog(), tc.Contains, `Controller credential "default" for user "foouser" for cloud "microk8s" on controller "foo" not updated: some error`)
 }

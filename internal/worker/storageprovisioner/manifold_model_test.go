@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
 
@@ -30,7 +29,7 @@ func (s *ManifoldSuite) TestManifold(c *tc.C) {
 		APICallerName:       "grenouille",
 		StorageRegistryName: "environ",
 	})
-	c.Check(manifold.Inputs, jc.DeepEquals, []string{"grenouille", "environ"})
+	c.Check(manifold.Inputs, tc.DeepEquals, []string{"grenouille", "environ"})
 	c.Check(manifold.Output, tc.IsNil)
 	c.Check(manifold.Start, tc.NotNil)
 	// ...Start is *not* well-tested, in common with many manifold configs.

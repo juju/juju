@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/controller"
@@ -39,14 +38,14 @@ func (s *enableDestroyControllerSuite) newCommand() cmd.Command {
 
 func (s *enableDestroyControllerSuite) TestRemove(c *tc.C) {
 	_, err := cmdtesting.RunCommand(c, s.newCommand())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.api.called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.api.called, tc.IsTrue)
 }
 
 func (s *enableDestroyControllerSuite) TestUnrecognizedArg(c *tc.C) {
 	_, err := cmdtesting.RunCommand(c, s.newCommand(), "whoops")
 	c.Assert(err, tc.ErrorMatches, `unrecognized args: \["whoops"\]`)
-	c.Assert(s.api.called, jc.IsFalse)
+	c.Assert(s.api.called, tc.IsFalse)
 }
 
 func (s *enableDestroyControllerSuite) TestEnvironmentsError(c *tc.C) {

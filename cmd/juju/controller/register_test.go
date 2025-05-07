@@ -18,7 +18,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"golang.org/x/crypto/nacl/secretbox"
 
 	"github.com/juju/juju/api"
@@ -62,7 +61,7 @@ func (s *RegisterSuite) SetUpTest(c *tc.C) {
 	}))
 
 	serverURL, err := url.Parse(s.server.URL)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.apiConnection = &mockAPIConnection{
 		controllerTag: names.NewControllerTag(mockControllerUUID),
 		addr:          serverURL,
@@ -170,7 +169,7 @@ one of them:
 	// Instead, the command will output the list of models and inform
 	// the user how to set the current model.
 	_, err := s.store.CurrentModel("controller-name")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 // testRegisterSuccess tests that the register command when the given
@@ -233,7 +232,7 @@ Welcome, bob. You are now logged into "controller-name".
 		args = append(args, "--replace")
 	}
 	err := s.run(c, stdio, args...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// There should have been one POST command to "/register".
 	c.Assert(srv.requests, tc.HasLen, 1)
@@ -241,34 +240,34 @@ Welcome, bob. You are now logged into "controller-name".
 	c.Assert(srv.requests[0].URL.Path, tc.Equals, "/register")
 	var request params.SecretKeyLoginRequest
 	err = json.Unmarshal(srv.requestBodies[0], &request)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(request.User, jc.DeepEquals, "user-bob")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(request.User, tc.DeepEquals, "user-bob")
 	c.Assert(request.Nonce, tc.HasLen, 24)
 	requestPayloadPlaintext, err := json.Marshal(params.SecretKeyLoginRequestPayload{
 		Password: "hunter2",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedCiphertext := s.seal(c, requestPayloadPlaintext, mockSecretKey, request.Nonce)
-	c.Assert(request.PayloadCiphertext, jc.DeepEquals, expectedCiphertext)
+	c.Assert(request.PayloadCiphertext, tc.DeepEquals, expectedCiphertext)
 
 	// The controller and account details should be recorded with
 	// the specified controller name and user
 	// name from the registration string.
 
 	controller, err := s.store.ControllerByName(controllerName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(controller.ControllerUUID, tc.Equals, mockControllerUUID)
-	c.Assert(controller.APIEndpoints, jc.DeepEquals, []string{s.apiConnection.addr.String()})
-	c.Assert(controller.CACert, jc.DeepEquals, testing.CACert)
+	c.Assert(controller.APIEndpoints, tc.DeepEquals, []string{s.apiConnection.addr.String()})
+	c.Assert(controller.CACert, tc.DeepEquals, testing.CACert)
 	if withProxy {
 		c.Assert(controller.Proxy.Proxier.Type(), tc.Equals, "kubernetes-port-forward")
 		rcfg, err := controller.Proxy.Proxier.RawConfig()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(rcfg, jc.DeepEquals, rawConfig)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(rcfg, tc.DeepEquals, rawConfig)
 	}
 	account, err := s.store.AccountDetails(controllerName)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(account, jc.DeepEquals, &jujuclient.AccountDetails{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(account, tc.DeepEquals, &jujuclient.AccountDetails{
 		User:            "bob",
 		LastKnownAccess: "login",
 	})
@@ -313,7 +312,7 @@ func (s *RegisterSuite) TestRegisterControllerNameExists(c *tc.C) {
 		ControllerUUID: "0d75314a-5266-4f4f-8523-415be76f92dc",
 		CACert:         testing.CACert,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	prompter := cmdtesting.NewSeqPrompter(c, "»", `
 Enter a new password: »hunter2
 
@@ -337,7 +336,7 @@ func (s *RegisterSuite) TestControllerUUIDExists(c *tc.C) {
 		ControllerUUID: mockControllerUUID,
 		CACert:         testing.CACert,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.listModels = func(ctx context.Context, _ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 		return []base.UserModel{{
@@ -386,11 +385,11 @@ func (s *RegisterSuite) TestReplaceLoggedInController(c *tc.C) {
 		ControllerUUID: mockControllerUUID,
 		CACert:         testing.CACert,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	accountDetails := jujuclient.AccountDetails{User: "bob"}
 	err = s.store.UpdateAccount(controllerName, accountDetails)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	registrationData := s.encodeRegistrationData(c, jujuclient.RegistrationInfo{
 		User:           "mary",
@@ -429,7 +428,7 @@ func (s *RegisterSuite) TestProposedControllerNameExists(c *tc.C) {
 		ControllerUUID: "0d75314a-5266-4f4f-8523-415be76f92dc",
 		CACert:         testing.CACert,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.listModels = func(ctx context.Context, _ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 		return []base.UserModel{{
@@ -463,7 +462,7 @@ func (s *RegisterSuite) TestRegisterControllerNameExistsReplace(c *tc.C) {
 		ControllerUUID: "0d75314a-5266-4f4f-8523-415be76f92dc",
 		CACert:         testing.CACert,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	prompter := cmdtesting.NewSeqPrompter(c, "»", `
 Enter a new password: »hunter2
 
@@ -485,7 +484,7 @@ func (s *RegisterSuite) TestControllerUUIDExistsReplace(c *tc.C) {
 		ControllerUUID: mockControllerUUID,
 		CACert:         testing.CACert,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.listModels = func(ctx context.Context, _ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 		return []base.UserModel{{
@@ -522,7 +521,7 @@ func (s *RegisterSuite) TestControllerUUIDExistsRenameNotAllowed(c *tc.C) {
 		ControllerUUID: mockControllerUUID,
 		CACert:         testing.CACert,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.listModels = func(ctx context.Context, _ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 		return []base.UserModel{{
@@ -622,7 +621,7 @@ func (s *RegisterSuite) TestRegisterServerError(c *tc.C) {
 	s.httpHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, err = w.Write(response)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	})
 	prompter := cmdtesting.NewSeqPrompter(c, "»", `
 Enter a new password: »hunter2
@@ -646,7 +645,7 @@ See "juju help change-user-password" for more information.`[1:])
 
 	// Check that the controller hasn't been added.
 	_, err = s.store.ControllerByName("controller-name")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *RegisterSuite) TestRegisterPublic(c *tc.C) {
@@ -659,21 +658,21 @@ Welcome, bob@external. You are now logged into "public-controller-name".
 `[1:]+noModelsText)
 	defer prompter.CheckDone()
 	err := s.run(c, prompter, "0.1.2.3")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// The controller and account details should be recorded with
 	// the specified controller name and user
 	// name from the auth tag.
 
 	controller, err := s.store.ControllerByName("public-controller-name")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controller, jc.DeepEquals, &jujuclient.ControllerDetails{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(controller, tc.DeepEquals, &jujuclient.ControllerDetails{
 		ControllerUUID: mockControllerUUID,
 		APIEndpoints:   []string{"0.1.2.3:443"},
 	})
 	account, err := s.store.AccountDetails("public-controller-name")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(account, jc.DeepEquals, &jujuclient.AccountDetails{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(account, tc.DeepEquals, &jujuclient.AccountDetails{
 		User:            "bob@external",
 		LastKnownAccess: "login",
 	})
@@ -688,7 +687,7 @@ func (s *RegisterSuite) TestRegisterAlreadyKnownPublicControllerEndpoint(c *tc.C
 		ControllerUUID: "0d75314a-5266-4f4f-8523-415be76f92dc",
 		CACert:         testing.CACert,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.run(c, prompter, "foo.com:17070")
 	c.Assert(err, tc.Not(tc.IsNil))
@@ -703,7 +702,7 @@ func (s *RegisterSuite) TestRegisterAlreadyKnownControllerEndpointWithReplace(c 
 		ControllerUUID: mockControllerUUID,
 		CACert:         testing.CACert,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	registrationData := s.encodeRegistrationDataWithAddrs(c, jujuclient.RegistrationInfo{
 		User:           "bob",
@@ -726,7 +725,7 @@ Initial password successfully set for bob.
 Welcome, bob. You are now logged into "controller-name".
 `[1:]+noModelsText)
 	err = s.run(c, prompter, registrationData, "--replace")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	prompter.CheckDone()
 }
 
@@ -739,7 +738,7 @@ func (s *RegisterSuite) TestRegisterAlreadyKnownControllerEndpointAndUser(c *tc.
 		ControllerUUID: "0d75314a-5266-4f4f-8523-415be76f92dc",
 		CACert:         testing.CACert,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.store.Accounts["foo"] = jujuclient.AccountDetails{
 		User: "bob",
@@ -773,7 +772,7 @@ func (s *RegisterSuite) TestRegisterAlreadyKnownControllerEndpointAndUserByBase6
 		ControllerUUID: "0d75314a-5266-4f4f-8523-415be76f92dc",
 		CACert:         testing.CACert,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.store.Accounts["foo"] = jujuclient.AccountDetails{
 		User: "bob",
@@ -810,15 +809,15 @@ Welcome, bob@external. You are now logged into "public-controller-name".
 `[1:]+noModelsText)
 	defer prompter.CheckDone()
 	err := s.run(c, prompter, "0.1.2.3:5678")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// The controller and account details should be recorded with
 	// the specified controller name and user
 	// name from the auth tag.
 
 	controller, err := s.store.ControllerByName("public-controller-name")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controller, jc.DeepEquals, &jujuclient.ControllerDetails{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(controller, tc.DeepEquals, &jujuclient.ControllerDetails{
 		ControllerUUID: mockControllerUUID,
 		APIEndpoints:   []string{"0.1.2.3:5678"},
 	})
@@ -848,12 +847,12 @@ func (s *RegisterSuite) mockServer(c *tc.C, proxy *params.Proxy) *mockServer {
 		ControllerUUID: mockControllerUUID,
 		ProxyConfig:    proxy,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	response, err := json.Marshal(params.SecretKeyLoginResponse{
 		Nonce:             respNonce,
 		PayloadCiphertext: s.seal(c, responsePayloadPlaintext, mockSecretKey, respNonce),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return &mockServer{
 		response: response,
 	}
@@ -869,7 +868,7 @@ func (s *RegisterSuite) encodeRegistrationData(c *tc.C, info jujuclient.Registra
 // encodeRegistrationData encodes the given registration info into a base64 string.
 func (s *RegisterSuite) encodeRegistrationDataWithAddrs(c *tc.C, info jujuclient.RegistrationInfo) string {
 	data, err := asn1.Marshal(info)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Append some junk to the end of the encoded data to
 	// ensure that, if we have to pad the data in add-user,
 	// register can still decode it.
@@ -910,7 +909,7 @@ func (s *RegisterSuite) run(c *tc.C, stdio io.ReadWriter, args ...string) error 
 
 	command := controller.NewRegisterCommandForTest(s.apiOpen, s.listModels, s.store)
 	err := cmdtesting.InitCommand(command, args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return command.Run(&cmd.Context{
 		Dir:    c.MkDir(),
 		Stdin:  stdio,

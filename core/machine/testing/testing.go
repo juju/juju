@@ -5,7 +5,6 @@ package testing
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coremachine "github.com/juju/juju/core/machine"
 )
@@ -14,6 +13,6 @@ import (
 // checked for errors using the test suit's go check instance.
 func GenUUID(c *tc.C) coremachine.UUID {
 	uuid, err := coremachine.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return uuid
 }

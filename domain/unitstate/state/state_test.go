@@ -10,7 +10,6 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	modeltesting "github.com/juju/juju/core/model/testing"
 	coreunit "github.com/juju/juju/core/unit"
@@ -46,7 +45,7 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 		`, modelUUID.String(), coretesting.ControllerTag.Id())
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	appState := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
@@ -73,12 +72,12 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 
 	ctx := context.Background()
 	_, err = appState.CreateApplication(ctx, "app", appArg, unitArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit").Scan(&s.unitUUID)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *stateSuite) TestSetUnitState(c *tc.C) {
@@ -103,7 +102,7 @@ func (s *stateSuite) TestSetUnitState(c *tc.C) {
 	}
 
 	state, err := st.GetUnitState(context.Background(), s.unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(state, tc.DeepEquals, expectedAgentState)
 }
 
@@ -121,7 +120,7 @@ func (s *stateSuite) TestSetUnitStateJustUniterState(c *tc.C) {
 	}
 
 	state, err := st.GetUnitState(context.Background(), s.unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(state, tc.DeepEquals, expectedAgentState)
 }
 
@@ -129,7 +128,7 @@ func (s *stateSuite) TestGetUnitStateUnitNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	_, err := st.GetUnitState(context.Background(), "bad-uuid")
-	c.Assert(err, jc.ErrorIs, unitstateerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, unitstateerrors.UnitNotFound)
 }
 
 func (s *stateSuite) TestEnsureUnitStateRecord(c *tc.C) {
@@ -139,25 +138,25 @@ func (s *stateSuite) TestEnsureUnitStateRecord(c *tc.C) {
 	err := s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return st.ensureUnitStateRecord(ctx, tx, unitUUID{UUID: s.unitUUID})
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var uuid coreunit.UUID
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit").Scan(&uuid)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(uuid, tc.Equals, s.unitUUID)
 
 	// Running again makes no change.
 	err = s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return st.ensureUnitStateRecord(ctx, tx, unitUUID{UUID: s.unitUUID})
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit").Scan(&uuid)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(uuid, tc.Equals, s.unitUUID)
 }
 
@@ -172,14 +171,14 @@ func (s *stateSuite) TestUpdateUnitStateUniter(c *tc.C) {
 		}
 		return st.updateUnitStateUniter(ctx, tx, unitUUID{UUID: s.unitUUID}, expState)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var gotState string
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		q := "SELECT uniter_state FROM unit_state where unit_uuid = ?"
 		return tx.QueryRowContext(ctx, q, s.unitUUID).Scan(&gotState)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotState, tc.Equals, expState)
 }
 
@@ -194,14 +193,14 @@ func (s *stateSuite) TestUpdateUnitStateStorage(c *tc.C) {
 		}
 		return st.updateUnitStateStorage(ctx, tx, unitUUID{UUID: s.unitUUID}, expState)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var gotState string
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		q := "SELECT storage_state FROM unit_state where unit_uuid = ?"
 		return tx.QueryRowContext(ctx, q, s.unitUUID).Scan(&gotState)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotState, tc.Equals, expState)
 }
 
@@ -216,14 +215,14 @@ func (s *stateSuite) TestUpdateUnitStateSecret(c *tc.C) {
 		}
 		return st.updateUnitStateSecret(ctx, tx, unitUUID{UUID: s.unitUUID}, expState)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var gotState string
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		q := "SELECT secret_state FROM unit_state where unit_uuid = ?"
 		return tx.QueryRowContext(ctx, q, s.unitUUID).Scan(&gotState)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotState, tc.Equals, expState)
 }
 
@@ -237,7 +236,7 @@ func (s *stateSuite) TestUpdateUnitStateCharm(c *tc.C) {
 		_, err := tx.ExecContext(ctx, q, s.unitUUID)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expState := map[string]string{
 		"two-key":   "two-val",
@@ -247,7 +246,7 @@ func (s *stateSuite) TestUpdateUnitStateCharm(c *tc.C) {
 	err = s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return st.setUnitStateCharm(ctx, tx, unitUUID{UUID: s.unitUUID}, expState)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	gotState := make(map[string]string)
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -267,7 +266,7 @@ func (s *stateSuite) TestUpdateUnitStateCharm(c *tc.C) {
 		}
 		return rows.Err()
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(gotState, tc.DeepEquals, expState)
 }
@@ -282,7 +281,7 @@ func (s *stateSuite) TestUpdateUnitStateRelation(c *tc.C) {
 		_, err := tx.ExecContext(ctx, q, s.unitUUID)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expState := map[int]string{
 		2: "two-val",
@@ -292,7 +291,7 @@ func (s *stateSuite) TestUpdateUnitStateRelation(c *tc.C) {
 	err = s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return st.setUnitStateRelation(ctx, tx, unitUUID{UUID: s.unitUUID}, expState)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	gotState := make(map[int]string)
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -313,7 +312,7 @@ func (s *stateSuite) TestUpdateUnitStateRelation(c *tc.C) {
 		}
 		return rows.Err()
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(gotState, tc.DeepEquals, expState)
 }
@@ -328,12 +327,12 @@ func (s *stateSuite) TestUpdateUnitStateRelationEmptyMap(c *tc.C) {
 		_, err := tx.ExecContext(ctx, q, s.unitUUID)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return st.setUnitStateRelation(ctx, tx, unitUUID{UUID: s.unitUUID}, map[int]string{})
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var rowCount int
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -349,7 +348,7 @@ func (s *stateSuite) TestUpdateUnitStateRelationEmptyMap(c *tc.C) {
 		}
 		return rows.Err()
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(rowCount, tc.DeepEquals, 0)
 }

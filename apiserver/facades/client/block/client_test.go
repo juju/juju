@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/permission"
@@ -95,7 +94,7 @@ func (s *blockSuite) TestSwitchBlockOff(c *tc.C) {
 
 func (s *blockSuite) assertBlockList(c *tc.C, length int) {
 	all, err := s.api.List(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(all.Results, tc.HasLen, length)
 }
 

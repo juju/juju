@@ -5,7 +5,6 @@ package watcher_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/core/watcher"
@@ -21,7 +20,7 @@ func (s *normaliseWatcherSuite) TestStringsWatcher(c *tc.C) {
 	source := watchertest.NewMockStringsWatcher(ch)
 
 	nw, err := watcher.Normalise[[]string](source)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	nwC := watchertest.NewNotifyWatcherC(c, nw)
 
@@ -41,7 +40,7 @@ func (s *normaliseWatcherSuite) TestSourceDies(c *tc.C) {
 	source := watchertest.NewMockStringsWatcher(ch)
 
 	nw, err := watcher.Normalise[[]string](source)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	nwC := watchertest.NewNotifyWatcherC(c, nw)
 
@@ -63,6 +62,6 @@ func (s *normaliseWatcherSuite) TestNotifyWatcherElided(c *tc.C) {
 	source := watchertest.NewMockNotifyWatcher(ch)
 
 	nw, err := watcher.Normalise[struct{}](source)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(nw, tc.Equals, source)
 }

@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/core/model"
@@ -44,7 +43,7 @@ func (s *PoolCreateSuite) TestPoolCreateNoArgs(c *tc.C) {
 
 func (s *PoolCreateSuite) TestPoolCreateTwoArgs(c *tc.C) {
 	_, err := s.runPoolCreate(c, []string{"sunshine", "lollypop"})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(len(s.mockAPI.Creates), tc.Equals, 1)
 	createdConfigs := s.mockAPI.Creates[0]
 	c.Assert(createdConfigs.Name, tc.Equals, "sunshine")
@@ -74,7 +73,7 @@ func (s *PoolCreateSuite) TestPoolCreateAttrMissingValue(c *tc.C) {
 
 func (s *PoolCreateSuite) TestPoolCreateAttrEmptyValue(c *tc.C) {
 	_, err := s.runPoolCreate(c, []string{"sunshine", "lollypop", `something=""`})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(len(s.mockAPI.Creates), tc.Equals, 1)
 	createdConfigs := s.mockAPI.Creates[0]
 	c.Assert(createdConfigs.Name, tc.Equals, "sunshine")
@@ -84,7 +83,7 @@ func (s *PoolCreateSuite) TestPoolCreateAttrEmptyValue(c *tc.C) {
 
 func (s *PoolCreateSuite) TestPoolCreateOneAttr(c *tc.C) {
 	_, err := s.runPoolCreate(c, []string{"sunshine", "lollypop", "something=too"})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(len(s.mockAPI.Creates), tc.Equals, 1)
 	createdConfigs := s.mockAPI.Creates[0]
 	c.Assert(createdConfigs.Name, tc.Equals, "sunshine")
@@ -94,7 +93,7 @@ func (s *PoolCreateSuite) TestPoolCreateOneAttr(c *tc.C) {
 
 func (s *PoolCreateSuite) TestPoolCreateManyAttrs(c *tc.C) {
 	_, err := s.runPoolCreate(c, []string{"sunshine", "lollypop", "something=too", "another=one"})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(len(s.mockAPI.Creates), tc.Equals, 1)
 	createdConfigs := s.mockAPI.Creates[0]
 	c.Assert(createdConfigs.Name, tc.Equals, "sunshine")
@@ -107,7 +106,7 @@ func (s *PoolCreateSuite) TestCAASPoolCreateDefaultProvider(c *tc.C) {
 	m.ModelType = model.CAAS
 	s.store.Models["testing"].Models["admin/controller"] = m
 	_, err := s.runPoolCreate(c, []string{"sunshine"})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(len(s.mockAPI.Creates), tc.Equals, 1)
 	createdConfigs := s.mockAPI.Creates[0]
 	c.Assert(createdConfigs.Name, tc.Equals, "sunshine")
@@ -120,7 +119,7 @@ func (s *PoolCreateSuite) TestCAASPoolCreateDefaultProviderWithArgs(c *tc.C) {
 	m.ModelType = model.CAAS
 	s.store.Models["testing"].Models["admin/controller"] = m
 	_, err := s.runPoolCreate(c, []string{"sunshine", "something=too"})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(len(s.mockAPI.Creates), tc.Equals, 1)
 	createdConfigs := s.mockAPI.Creates[0]
 	c.Assert(createdConfigs.Name, tc.Equals, "sunshine")
@@ -133,7 +132,7 @@ func (s *PoolCreateSuite) TestCAASPoolCreateNonDefaultProvider(c *tc.C) {
 	m.ModelType = model.CAAS
 	s.store.Models["testing"].Models["admin/controller"] = m
 	_, err := s.runPoolCreate(c, []string{"sunshine", "tmpfs", "something=too"})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(len(s.mockAPI.Creates), tc.Equals, 1)
 	createdConfigs := s.mockAPI.Creates[0]
 	c.Assert(createdConfigs.Name, tc.Equals, "sunshine")

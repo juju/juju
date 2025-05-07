@@ -6,7 +6,6 @@ package providertracker
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 type trackerTypeSuite struct {
@@ -18,12 +17,12 @@ var _ = tc.Suite(&trackerTypeSuite{})
 func (s *trackerTypeSuite) TestSingularNamespace(c *tc.C) {
 	single := SingularType("foo")
 	namespace, ok := single.SingularNamespace()
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	c.Check(namespace, tc.Equals, "foo")
 }
 
 func (s *trackerTypeSuite) TestMultiType(c *tc.C) {
 	namespace, ok := MultiType().SingularNamespace()
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 	c.Check(namespace, tc.Equals, "")
 }

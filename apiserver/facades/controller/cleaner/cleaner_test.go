@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -60,7 +59,7 @@ func (s *CleanerSuite) TestNewCleanerAPIRequiresController(c *tc.C) {
 	})
 	c.Assert(api, tc.IsNil)
 	c.Assert(err, tc.ErrorMatches, "permission denied")
-	c.Assert(apiservererrors.ServerError(err), jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(apiservererrors.ServerError(err), tc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *CleanerSuite) TestWatchCleanupsSuccess(c *tc.C) {
@@ -72,10 +71,10 @@ func (s *CleanerSuite) TestWatchCleanupsSuccess(c *tc.C) {
 		Auth_:           s.authoriser,
 		DomainServices_: s.domainServices,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = api.WatchCleanups(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.st.CheckCallNames(c, "WatchCleanups")
 }
 
@@ -88,12 +87,12 @@ func (s *CleanerSuite) TestWatchCleanupsFailure(c *tc.C) {
 		Auth_:           s.authoriser,
 		DomainServices_: s.domainServices,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.st.SetErrors(errors.New("boom!"))
 	s.st.watchCleanupsFails = true
 
 	result, err := api.WatchCleanups(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Error.Error(), tc.Equals, "boom!")
 	s.st.CheckCallNames(c, "WatchCleanups")
 }
@@ -107,10 +106,10 @@ func (s *CleanerSuite) TestCleanupSuccess(c *tc.C) {
 		Auth_:           s.authoriser,
 		DomainServices_: s.domainServices,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = api.Cleanup(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.st.CheckCallNames(c, "Cleanup")
 }
 
@@ -123,7 +122,7 @@ func (s *CleanerSuite) TestCleanupFailure(c *tc.C) {
 		Auth_:           s.authoriser,
 		DomainServices_: s.domainServices,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.st.SetErrors(errors.New("Boom!"))
 	err = api.Cleanup(context.Background())

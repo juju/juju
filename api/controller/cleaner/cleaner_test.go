@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
@@ -79,7 +78,7 @@ func (s *CleanerSuite) TestWatchCleanups(c *tc.C) {
 	t := Init(c, "", "", nil, nil, nil)
 	m, err := t.api.WatchCleanups(context.Background())
 	AssertNumReceives(c, t.called, 2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(m, tc.NotNil)
 }
 
@@ -87,7 +86,7 @@ func (s *CleanerSuite) TestCleanup(c *tc.C) {
 	t := Init(c, "Cleaner", "Cleanup", nil, nil, nil)
 	err := t.api.Cleanup(context.Background())
 	AssertNumReceives(c, t.called, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *CleanerSuite) TestWatchCleanupsFailFacadeCall(c *tc.C) {

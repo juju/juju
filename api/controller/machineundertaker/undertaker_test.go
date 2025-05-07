@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/base/testing"
@@ -32,7 +31,7 @@ func (s *undertakerSuite) TestRequiresModelConnection(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "machine undertaker client requires a model API connection")
 	c.Assert(api, tc.IsNil)
 	api, err = machineundertaker.NewAPI(&fakeAPICaller{hasModelTag: true}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(api, tc.NotNil)
 }
 
@@ -49,7 +48,7 @@ func (s *undertakerSuite) TestAllMachineRemovals(c *tc.C) {
 	}
 	api := makeAPI(c, caller)
 	results, err := api.AllMachineRemovals(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, []names.MachineTag{
 		names.NewMachineTag("23"),
 		names.NewMachineTag("42"),
@@ -150,7 +149,7 @@ func (*undertakerSuite) TestGetInfo(c *tc.C) {
 	}
 	api := makeAPI(c, caller)
 	results, err := api.GetProviderInterfaceInfo(context.Background(), names.NewMachineTag("100"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, []network.ProviderInterfaceInfo{{
 		InterfaceName:   "hamster huey",
 		HardwareAddress: "calvin",
@@ -305,15 +304,15 @@ func (*undertakerSuite) TestWatchMachineRemovals_Success(c *tc.C) {
 	}
 
 	api, err := machineundertaker.NewAPI(testing.APICallerFunc(caller), newWatcher)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	w, err := api.WatchMachineRemovals(context.Background())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(w, tc.Equals, expectWatcher)
 }
 
 func makeAPI(c *tc.C, caller testing.APICallerFunc) *machineundertaker.API {
 	api, err := machineundertaker.NewAPI(caller, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return api
 }
 

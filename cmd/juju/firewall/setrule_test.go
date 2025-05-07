@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/firewall"
 	"github.com/juju/juju/environs/config"
@@ -41,13 +40,13 @@ func (s *SetRuleSuite) TestInitMissingWhitelist(c *tc.C) {
 
 func (s *SetRuleSuite) TestSetRuleSSH(c *tc.C) {
 	_, err := s.runSetRule(c, "--allowlist", "10.2.1.0/8,192.168.1.0/8", "ssh")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.mockAPI.sshRule, tc.Equals, "10.2.1.0/8,192.168.1.0/8")
 }
 
 func (s *SetRuleSuite) TestSetRuleSAAS(c *tc.C) {
 	_, err := s.runSetRule(c, "--allowlist", "10.2.1.0/8,192.168.1.0/8", "juju-application-offer")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.mockAPI.saasRule, tc.Equals, "10.2.1.0/8,192.168.1.0/8")
 }
 

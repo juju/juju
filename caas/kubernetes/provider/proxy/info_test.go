@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	core "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -37,7 +36,7 @@ func (i *infoSuite) SetUpTest(c *tc.C) {
 		},
 		meta.CreateOptions{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (i *infoSuite) TestGetControllerProxier(c *tc.C) {
@@ -62,7 +61,7 @@ func (i *infoSuite) TestGetControllerProxier(c *tc.C) {
 			core.ServiceAccountTokenKey: []byte("token"),
 		},
 	}, meta.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = proxy.CreateControllerProxy(
 		context.Background(),
 		config,
@@ -74,7 +73,7 @@ func (i *infoSuite) TestGetControllerProxier(c *tc.C) {
 		i.client.CoreV1().ServiceAccounts(testNamespace),
 		i.client.CoreV1().Secrets(testNamespace),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = proxy.GetControllerProxy(
 		context.Background(),
@@ -84,5 +83,5 @@ func (i *infoSuite) TestGetControllerProxier(c *tc.C) {
 		i.client.CoreV1().ServiceAccounts(testNamespace),
 		i.client.CoreV1().Secrets(testNamespace),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/instance"
 	jujuversion "github.com/juju/juju/core/version"
@@ -80,14 +79,14 @@ func (s *DestroySuite) TestSuccessWhenStorageErrors(c *tc.C) {
 		config: configGetter(c),
 	}
 	err := common.Destroy(env, context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *DestroySuite) TestSuccess(c *tc.C) {
 	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
 	stor := newStorage(s, c)
 	err := stor.Put("somewhere", strings.NewReader("stuff"), 5)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	env := &mockEnviron{
 		storage: stor,
@@ -104,11 +103,11 @@ func (s *DestroySuite) TestSuccess(c *tc.C) {
 		config: configGetter(c),
 	}
 	err = common.Destroy(env, context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// common.Destroy doesn't touch provider/object storage anymore.
 	r, err := stor.Get("somewhere")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	r.Close()
 }
 
@@ -116,7 +115,7 @@ func (s *DestroySuite) TestSuccessWhenNoInstances(c *tc.C) {
 	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
 	stor := newStorage(s, c)
 	err := stor.Put("elsewhere", strings.NewReader("stuff"), 5)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	env := &mockEnviron{
 		storage: stor,
@@ -126,7 +125,7 @@ func (s *DestroySuite) TestSuccessWhenNoInstances(c *tc.C) {
 		config: configGetter(c),
 	}
 	err = common.Destroy(env, context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *DestroySuite) TestDestroyEnvScopedVolumes(c *tc.C) {
@@ -158,7 +157,7 @@ func (s *DestroySuite) TestDestroyEnvScopedVolumes(c *tc.C) {
 		},
 	}
 	err := common.Destroy(env, context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// common.Destroy will ignore machine-scoped storage providers.
 	storageProvider.CheckCallNames(c, "Dynamic", "Scope", "Supports", "VolumeSource")
@@ -223,7 +222,7 @@ func (s *DestroySuite) TestIgnoreStaticVolumes(c *tc.C) {
 		},
 	}
 	err := common.Destroy(env, context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// common.Destroy will ignore static storage providers.
 	staticProvider.CheckCallNames(c, "Dynamic")
@@ -247,7 +246,7 @@ func (s *DestroySuite) TestIgnoreMachineScopedVolumes(c *tc.C) {
 		},
 	}
 	err := common.Destroy(env, context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// common.Destroy will ignore machine-scoped storage providers.
 	staticProvider.CheckCallNames(c, "Dynamic", "Scope")
@@ -274,7 +273,7 @@ func (s *DestroySuite) TestIgnoreNoVolumeSupport(c *tc.C) {
 		},
 	}
 	err := common.Destroy(env, context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// common.Destroy will ignore storage providers that don't support
 	// volumes (until we have persistent filesystems, that is).

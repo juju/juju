@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver/observer"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -31,7 +30,7 @@ func (s *RequestLoggerSuite) TestAgentLoginWritesLog(c *tc.C) {
 	model := names.NewModelTag("fake-uuid")
 	notifier.Login(context.Background(), agent, model, "abc", false, "user data")
 
-	c.Assert(logger.entries, jc.SameContents, []string{
+	c.Assert(logger.entries, tc.SameContents, []string{
 		`INFO: connection agent login: machine-42 for fake-uuid`,
 	})
 }

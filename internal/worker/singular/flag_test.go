@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
@@ -44,33 +43,33 @@ func (s *FlagSuite) SetUpTest(c *tc.C) {
 
 func (s *FlagSuite) TestValidateConfig(c *tc.C) {
 	config := s.newConfig()
-	c.Assert(config.Validate(), jc.ErrorIsNil)
+	c.Assert(config.Validate(), tc.ErrorIsNil)
 }
 
 func (s *FlagSuite) TestValidateConfigNotValid(c *tc.C) {
 	config := s.newConfig()
 	config.LeaseManager = nil
-	c.Assert(config.Validate(), jc.ErrorIs, jujuerrors.NotValid)
+	c.Assert(config.Validate(), tc.ErrorIs, jujuerrors.NotValid)
 
 	config = s.newConfig()
 	config.ModelUUID = ""
-	c.Assert(config.Validate(), jc.ErrorIs, jujuerrors.NotValid)
+	c.Assert(config.Validate(), tc.ErrorIs, jujuerrors.NotValid)
 
 	config = s.newConfig()
 	config.Claimant = nil
-	c.Assert(config.Validate(), jc.ErrorIs, jujuerrors.NotValid)
+	c.Assert(config.Validate(), tc.ErrorIs, jujuerrors.NotValid)
 
 	config = s.newConfig()
 	config.Entity = nil
-	c.Assert(config.Validate(), jc.ErrorIs, jujuerrors.NotValid)
+	c.Assert(config.Validate(), tc.ErrorIs, jujuerrors.NotValid)
 
 	config = s.newConfig()
 	config.Clock = nil
-	c.Assert(config.Validate(), jc.ErrorIs, jujuerrors.NotValid)
+	c.Assert(config.Validate(), tc.ErrorIs, jujuerrors.NotValid)
 
 	config = s.newConfig()
 	config.Duration = -time.Second
-	c.Assert(config.Validate(), jc.ErrorIs, jujuerrors.NotValid)
+	c.Assert(config.Validate(), tc.ErrorIs, jujuerrors.NotValid)
 }
 
 func (s *FlagSuite) TestNewWorkerValidate(c *tc.C) {
@@ -80,7 +79,7 @@ func (s *FlagSuite) TestNewWorkerValidate(c *tc.C) {
 	config.LeaseManager = nil
 
 	_, err := NewFlagWorker(context.Background(), config)
-	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, jujuerrors.NotValid)
 }
 
 func (s *FlagSuite) TestSuccessClaimOnCreation(c *tc.C) {
@@ -109,7 +108,7 @@ func (s *FlagSuite) TestSuccessClaimOnCreation(c *tc.C) {
 		c.Fatal("timed out waiting for claim to expire")
 	}
 
-	c.Assert(w.Check(), jc.IsTrue)
+	c.Assert(w.Check(), tc.IsTrue)
 
 	workertest.CleanKill(c, w)
 }
@@ -154,10 +153,10 @@ func (s *FlagSuite) TestDeniedClaimOnCreationCausesWait(c *tc.C) {
 		c.Fatal("timed out waiting for claim to expire")
 	}
 
-	c.Assert(w.Check(), jc.IsFalse)
+	c.Assert(w.Check(), tc.IsFalse)
 
 	err := workertest.CheckKilled(c, w)
-	c.Assert(err, jc.ErrorIs, ErrRefresh)
+	c.Assert(err, tc.ErrorIs, ErrRefresh)
 }
 
 func (s *FlagSuite) TestDeniedClaimOnCreationCausesWaitError(c *tc.C) {
@@ -256,7 +255,7 @@ func (s *FlagSuite) TestRepeatedClaimFails(c *tc.C) {
 	}
 
 	err := workertest.CheckKilled(c, w)
-	c.Assert(err, jc.ErrorIs, ErrRefresh)
+	c.Assert(err, tc.ErrorIs, ErrRefresh)
 }
 
 func (s *FlagSuite) TestRepeatedClaimFailsWithError(c *tc.C) {
@@ -297,7 +296,7 @@ func (s *FlagSuite) TestRepeatedClaimFailsWithError(c *tc.C) {
 
 func (s *FlagSuite) newWorker(c *tc.C) *FlagWorker {
 	w, err := NewFlagWorker(context.Background(), s.newConfig())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w.(*FlagWorker)
 }
 

@@ -5,7 +5,6 @@ package jujuc_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -46,7 +45,7 @@ func (s *SecretRevokeSuite) TestRevokeSecretInvalidArgs(c *tc.C) {
 		},
 	} {
 		com, err := jujuc.NewCommand(hctx, "secret-revoke")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
 
@@ -59,7 +58,7 @@ func (s *SecretRevokeSuite) TestRevokeSecretForApp(c *tc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
 	com, err := jujuc.NewCommand(hctx, "secret-revoke")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{
 		"secret:9m4e2mr0ui3e8a215n4g", "--app", "mediawiki",
@@ -77,7 +76,7 @@ func (s *SecretRevokeSuite) TestRevokeSecretForRelation(c *tc.C) {
 	hctx, _ := s.newHookContext(1, "mediawiki/0", "mediawiki")
 
 	com, err := jujuc.NewCommand(hctx, "secret-revoke")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{
 		"secret:9m4e2mr0ui3e8a215n4g", "--relation", "db:1",
@@ -95,7 +94,7 @@ func (s *SecretRevokeSuite) TestRevokeSecretForRelationUnit(c *tc.C) {
 	hctx, _ := s.newHookContext(1, "mediawiki/0", "mediawiki")
 
 	com, err := jujuc.NewCommand(hctx, "secret-revoke")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{
 		"secret:9m4e2mr0ui3e8a215n4g", "--relation", "db:1", "--unit", "mediawiki/0",

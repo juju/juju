@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade/facadetest"
@@ -47,7 +46,7 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevices(c *tc.C) {
 			BlockDevices: devices,
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},
 	})
@@ -55,7 +54,7 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevices(c *tc.C) {
 
 func (s *DiskManagerSuite) TestSetMachineBlockDevicesEmptyArgs(c *tc.C) {
 	results, err := s.api.SetMachineBlockDevices(context.Background(), params.SetMachineBlockDevices{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 0)
 }
 
@@ -78,7 +77,7 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevicesInvalidTags(c *tc.C) {
 			Machine: "unit-mysql-0",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{
 			Error: nil,
@@ -98,7 +97,7 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevicesStateError(c *tc.C) {
 			Machine: "machine-0",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{
 			Error: &params.Error{Message: "boom", Code: ""},

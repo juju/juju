@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -74,7 +73,7 @@ func (s *Suite) TestAuthNotAgent(c *tc.C) {
 func (s *Suite) TestWatch(c *tc.C) {
 	api := s.mustMakeAPI(c)
 	result, err := api.Watch(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.resources.Get(result.NotifyWatcherId), tc.NotNil)
 }
 
@@ -85,7 +84,7 @@ func (s *Suite) TestReport(c *tc.C) {
 		Phase:       "IMPORT",
 		Success:     true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{
 		{"Migration", []interface{}{"id"}},
 		{"Report", []interface{}{s.authorizer.Tag, migration.IMPORT, true}},
@@ -120,7 +119,7 @@ func (s *Suite) makeAPI() (*migrationminion.API, error) {
 
 func (s *Suite) mustMakeAPI(c *tc.C) *migrationminion.API {
 	api, err := s.makeAPI()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return api
 }
 

@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cloud"
@@ -50,7 +49,7 @@ func (s *ModelCredentialCommandSuite) SetUpTest(c *tc.C) {
 		ModelUUID: testing.ModelTag.Id(),
 		ModelType: coremodel.IAAS,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.store.Models["testing"].CurrentModel = "admin/mymodel"
 
 	s.rootFunc = func(ctx context.Context) (base.APICallCloser, error) { return &fakeRoot{}, nil }
@@ -156,7 +155,7 @@ func (s *ModelCredentialCommandSuite) TestSetCredentialFoundRemote(c *tc.C) {
 Found credential remotely, on the controller. Not looking locally...
 Changed cloud credential on model "admin/mymodel" to "credential".
 `[1:])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ModelCredentialCommandSuite) TestSetCredentialErred(c *tc.C) {
@@ -172,8 +171,8 @@ func (s *ModelCredentialCommandSuite) TestSetCredentialBlocked(c *tc.C) {
 	err := s.assertRemoteCredentialFound(c, `
 Found credential remotely, on the controller. Not looking locally...
 `[1:])
-	c.Assert(err.Error(), jc.Contains, `could not set model credential: nope`)
-	c.Assert(err.Error(), jc.Contains, `All operations that change model have been disabled for the current model.`)
+	c.Assert(err.Error(), tc.Contains, `could not set model credential: nope`)
+	c.Assert(err.Error(), tc.Contains, `All operations that change model have been disabled for the current model.`)
 }
 
 func (s *ModelCredentialCommandSuite) assertRemoteCredentialFound(c *tc.C, expectedStderr string) error {
@@ -209,7 +208,7 @@ Did not find credential remotely. Looking locally...
 Uploading local credential to the controller.
 Changed cloud credential on model "admin/mymodel" to "credential".
 `[1:])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.modelClient.CheckCalls(c, []jujutesting.StubCall{
 		{"ChangeModelCredential", []interface{}{

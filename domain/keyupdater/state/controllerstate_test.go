@@ -9,7 +9,6 @@ import (
 	"slices"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
@@ -52,14 +51,14 @@ INSERT INTO controller_config (key, value) VALUES(?, ?)
 		_, err := tx.ExecContext(ctx, stmt, controller.SystemSSHKeys, keys)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func generatePublicKeys(c *tc.C, publicKeys []string) []keymanager.PublicKey {
 	rval := make([]keymanager.PublicKey, 0, len(publicKeys))
 	for _, pk := range publicKeys {
 		parsedKey, err := ssh.ParsePublicKey(pk)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		rval = append(rval, keymanager.PublicKey{
 			Comment:         parsedKey.Comment,
@@ -81,7 +80,7 @@ func (s *controllerStateSuite) SetUpTest(c *tc.C) {
 	model, err := modelstate.NewState(s.TxnRunnerFactory()).GetModel(
 		context.Background(), s.modelUUID,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.userUUID = model.Owner
 }
 
@@ -92,7 +91,7 @@ func (s *controllerStateSuite) TestControllerConfigKeysEmpty(c *tc.C) {
 		context.Background(),
 		[]string{"does-not-exist"},
 	)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(len(kv), tc.Equals, 0)
 }
 
@@ -104,7 +103,7 @@ func (s *controllerStateSuite) TestControllerConfigKeys(c *tc.C) {
 		context.Background(),
 		[]string{controller.SystemSSHKeys},
 	)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(len(kv), tc.Equals, 1)
 	c.Check(kv[controller.SystemSSHKeys], tc.Equals, controllerSSHKeys)
 }
@@ -114,7 +113,7 @@ func (s *controllerStateSuite) TestControllerConfigKeys(c *tc.C) {
 func (s *controllerStateSuite) TestGetUserAuthorizedKeysForModelNotFound(c *tc.C) {
 	st := NewControllerState(s.TxnRunnerFactory())
 	_, err := st.GetUserAuthorizedKeysForModel(context.Background(), modeltesting.GenModelUUID(c))
-	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 // TestGetUserAuthorizedKeysForModel is asserting the happy path of getting all
@@ -125,7 +124,7 @@ func (s *controllerStateSuite) TestGetUserAuthorizedKeysForModel(c *tc.C) {
 	keysToAdd := generatePublicKeys(c, testingPublicKeys)
 
 	err := kmSt.AddPublicKeysForUser(context.Background(), s.modelUUID, s.userUUID, keysToAdd[0:1])
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	secondUserId := usertesting.GenUserUUID(c)
 	userSt := userstate.NewUserState(s.TxnRunnerFactory())
@@ -137,15 +136,15 @@ func (s *controllerStateSuite) TestGetUserAuthorizedKeysForModel(c *tc.C) {
 		false,
 		s.userUUID,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = kmSt.AddPublicKeysForUser(context.Background(), s.modelUUID, secondUserId, keysToAdd[1:3])
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	st := NewControllerState(s.TxnRunnerFactory())
 	keys, err := st.GetUserAuthorizedKeysForModel(context.Background(), s.modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
-	c.Check(keys, jc.DeepEquals, testingPublicKeys)
+	c.Check(keys, tc.DeepEquals, testingPublicKeys)
 }

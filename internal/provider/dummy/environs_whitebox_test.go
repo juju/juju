@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/environs"
 )
@@ -25,7 +24,7 @@ func (s *environWhiteboxSuite) TestSupportsContainerAddresses(c *tc.C) {
 
 	env := new(environ)
 	supported, err := env.SupportsContainerAddresses(callCtx)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(supported, jc.IsFalse)
-	c.Check(environs.SupportsContainerAddresses(callCtx, env), jc.IsFalse)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(supported, tc.IsFalse)
+	c.Check(environs.SupportsContainerAddresses(callCtx, env), tc.IsFalse)
 }

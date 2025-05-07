@@ -9,7 +9,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"golang.org/x/net/context"
 
 	"github.com/juju/juju/core/annotations"
@@ -38,7 +37,7 @@ func (s *stateSuite) TestGetAnnotations(c *tc.C) {
 		Kind: annotations.KindMachine,
 		Name: "my-machine",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(annotations, tc.HasLen, 2)
 }
 
@@ -54,7 +53,7 @@ func (s *stateSuite) TestGetCharmAnnotations(c *tc.C) {
 		Name:     "mycharmurl",
 		Revision: 5,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(annotations, tc.DeepEquals, map[string]string{"foo": "5", "bar": "6"})
 }
 
@@ -67,7 +66,7 @@ func (s *stateSuite) TestGetAnnotationsModel(c *tc.C) {
 	annotations, err := st.GetAnnotations(context.Background(), annotations.ID{
 		Kind: annotations.KindModel,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(annotations, tc.HasLen, 2)
 }
 
@@ -83,19 +82,19 @@ func (s *stateSuite) TestSetAnnotations(c *tc.C) {
 	}
 
 	err := st.SetAnnotations(context.Background(), id, map[string]string{"bar": "6", "foo": "15"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the final annotation set
 	annotations, err := st.GetAnnotations(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(annotations, tc.DeepEquals, map[string]string{"bar": "6", "foo": "15"})
 
 	err = st.SetAnnotations(context.Background(), id, map[string]string{"bar": "6", "baz": "7"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the final annotation set
 	annotations, err = st.GetAnnotations(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(annotations, tc.DeepEquals, map[string]string{"bar": "6", "baz": "7"})
 }
 
@@ -112,20 +111,20 @@ func (s *stateSuite) TestSetCharmAnnotations(c *tc.C) {
 
 	// Set annotations bar:6 and foo:15
 	err := st.SetCharmAnnotations(context.Background(), args, map[string]string{"bar": "6", "foo": "15"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the final annotation set
 	annotations, err := st.GetCharmAnnotations(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(annotations, tc.DeepEquals, map[string]string{"bar": "6", "foo": "15"})
 
 	// Set annotations bar:6 and foo:15
 	err = st.SetCharmAnnotations(context.Background(), args, map[string]string{"bar": "6", "baz": "7"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the final annotation set
 	annotations, err = st.GetCharmAnnotations(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(annotations, tc.DeepEquals, map[string]string{"bar": "6", "baz": "7"})
 }
 
@@ -206,16 +205,16 @@ func (s *stateSuite) TestSetAnnotationsUpdateModel(c *tc.C) {
 func testAnnotationUpdate(c *tc.C, st *State, id annotations.ID) {
 	// Check that we only have the foo:5
 	annotations1, err := st.GetAnnotations(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(annotations1, tc.DeepEquals, map[string]string{"foo": "5"})
 
 	// Add bar:6 and update foo:15
 	err = st.SetAnnotations(context.Background(), id, map[string]string{"bar": "6", "foo": "15"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the final annotation set
 	annotations2, err := st.GetAnnotations(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(annotations2, tc.DeepEquals, map[string]string{"bar": "6", "foo": "15"})
 }
 
@@ -235,16 +234,16 @@ func (s *stateSuite) TestSetAnnotationsUnset(c *tc.C) {
 
 	// Check that we only have the foo:5
 	annotations1, err := st.GetAnnotations(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(annotations1, tc.DeepEquals, map[string]string{"foo": "5"})
 
 	// Unset foo
 	err = st.SetAnnotations(context.Background(), id, map[string]string{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the final annotation set
 	annotations2, err := st.GetAnnotations(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(annotations2, tc.HasLen, 0)
 }
 
@@ -261,25 +260,25 @@ func (s *stateSuite) TestSetAnnotationsUnsetModel(c *tc.C) {
 
 	// Unset foo
 	err := st.SetAnnotations(context.Background(), id, map[string]string{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the final annotation set
 	annotations2, err := st.GetAnnotations(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(annotations2, tc.HasLen, 0)
 }
 
 // TestUUIDQueryForID asserts the happy path of the utility uuidQueryForID
 func (s *stateSuite) TestUUIDQueryForIDMachine(c *tc.C) {
 	kindQuery, kindQueryParam, err := uuidQueryForID(annotations.ID{Kind: annotations.KindMachine, Name: "my-machine"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(kindQuery, tc.Equals, `SELECT &annotationUUID.uuid FROM machine WHERE name = $M.entity_name`)
 	c.Check(kindQueryParam, tc.DeepEquals, sqlair.M{"entity_name": "my-machine"})
 }
 
 func (s *stateSuite) TestUUIDQueryForIDApplication(c *tc.C) {
 	kindQuery, kindQueryParam, err := uuidQueryForID(annotations.ID{Kind: annotations.KindApplication, Name: "appname"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(kindQuery, tc.Equals, `SELECT &annotationUUID.uuid FROM application WHERE name = $M.entity_name`)
 	c.Check(kindQueryParam, tc.DeepEquals, sqlair.M{"entity_name": "appname"})
 }
@@ -290,27 +289,27 @@ func (s *stateSuite) TestUUIDQueryForIDApplication(c *tc.C) {
 // the future.
 func (s *stateSuite) TestAnnotationTableNameFromID(c *tc.C) {
 	t1, err := annotationTableNameFromID(annotations.ID{Kind: annotations.KindMachine, Name: "foo"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(t1, tc.Equals, "annotation_machine")
 
 	t2, err := annotationTableNameFromID(annotations.ID{Kind: annotations.KindUnit, Name: "foo"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(t2, tc.Equals, "annotation_unit")
 
 	t3, err := annotationTableNameFromID(annotations.ID{Kind: annotations.KindApplication, Name: "foo"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(t3, tc.Equals, "annotation_application")
 
 	t4, err := annotationTableNameFromID(annotations.ID{Kind: annotations.KindStorage, Name: "foo"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(t4, tc.Equals, "annotation_storage_instance")
 
 	t6, err := annotationTableNameFromID(annotations.ID{Kind: annotations.KindModel, Name: "foo"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(t6, tc.Equals, "annotation_model")
 
 	_, err = annotationTableNameFromID(annotations.ID{Kind: 12, Name: "foo"})
-	c.Assert(err, jc.ErrorIs, annotationerrors.UnknownKind)
+	c.Assert(err, tc.ErrorIs, annotationerrors.UnknownKind)
 
 }
 
@@ -331,7 +330,7 @@ VALUES (?, ?)
 				`, key, value)
 			return err
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	} else {
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			_, err := tx.ExecContext(ctx, fmt.Sprintf(`
@@ -340,7 +339,7 @@ VALUES (?, ?, ?)
 				`, id), uuid, key, value)
 			return err
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }
 
@@ -353,7 +352,7 @@ INSERT INTO machine (uuid, net_node_uuid, name, life_id)
 VALUES (?, "node2", ?, "0")`, uuid, id)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // ensureApplication manually inserts a row into the application table.
@@ -378,7 +377,7 @@ INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
 VALUES (?, ?, ?, "0", ?)`, uuid, uuid, name, network.AlphaSpaceId)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // ensureUnit manually inserts a row into the unit table.
@@ -394,13 +393,13 @@ VALUES (?, ?, ?, ?, ?, ?)
 `, uuid, unitName, "234", "345", "456", "0")
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // ensureCharm manually inserts a row into the charm table.
 func (s *stateSuite) ensureCharm(c *tc.C, url, storageName, uuid string) {
 	parts, err := charm.ParseURL(url)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	source := 0
 	if charm.CharmHub.Matches(parts.Schema) {
@@ -433,7 +432,7 @@ VALUES (?, ?, ?, ?, ?)
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // ensureStorage inserts a row into the storage_instance table
@@ -445,7 +444,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)
 		`, uuid, name+"/0", "loop", 100, charmUUID, name, 0)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // ensureNetNode inserts a row into the net_node table, mostly used as a foreign
@@ -455,5 +454,5 @@ func (s *stateSuite) ensureNetNode(c *tc.C, uuid string) {
 		_, err := tx.ExecContext(ctx, `INSERT INTO net_node (uuid) VALUES (?)`, uuid)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

@@ -8,7 +8,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/environs/instances"
@@ -39,7 +38,7 @@ func (s *InstanceTypeSuite) TestStandard(c *tc.C) {
 		OSDiskSizeInMB: to.Ptr(int32(1024 * 1024)),
 	}
 	inst := newInstanceType(corearch.AMD64, vm)
-	c.Assert(inst, jc.DeepEquals, instances.InstanceType{
+	c.Assert(inst, tc.DeepEquals, instances.InstanceType{
 		Id:       "Standard_A2",
 		Name:     "Standard_A2",
 		Arch:     corearch.AMD64,
@@ -59,7 +58,7 @@ func (s *InstanceTypeSuite) TestStandardARM64(c *tc.C) {
 		OSDiskSizeInMB: to.Ptr(int32(1024 * 1024)),
 	}
 	inst := newInstanceType(corearch.ARM64, vm)
-	c.Assert(inst, jc.DeepEquals, instances.InstanceType{
+	c.Assert(inst, tc.DeepEquals, instances.InstanceType{
 		Id:       "Standard_A2",
 		Name:     "Standard_A2",
 		Arch:     corearch.ARM64,
@@ -79,7 +78,7 @@ func (s *InstanceTypeSuite) TestStandardVersioned(c *tc.C) {
 		OSDiskSizeInMB: to.Ptr(int32(1024 * 1024)),
 	}
 	inst := newInstanceType(corearch.AMD64, vm)
-	c.Assert(inst, jc.DeepEquals, instances.InstanceType{
+	c.Assert(inst, tc.DeepEquals, instances.InstanceType{
 		Id:       "Standard_A2_v4",
 		Name:     "Standard_A2_v4",
 		Arch:     corearch.AMD64,
@@ -99,7 +98,7 @@ func (s *InstanceTypeSuite) TestStandardPromo(c *tc.C) {
 		OSDiskSizeInMB: to.Ptr(int32(1024 * 1024)),
 	}
 	inst := newInstanceType(corearch.AMD64, vm)
-	c.Assert(inst, jc.DeepEquals, instances.InstanceType{
+	c.Assert(inst, tc.DeepEquals, instances.InstanceType{
 		Id:       "Standard_A2_v4_Promo",
 		Name:     "Standard_A2_v4_Promo",
 		Arch:     corearch.AMD64,
@@ -119,7 +118,7 @@ func (s *InstanceTypeSuite) TestBasic(c *tc.C) {
 		OSDiskSizeInMB: to.Ptr(int32(1024 * 1024)),
 	}
 	inst := newInstanceType(corearch.AMD64, vm)
-	c.Assert(inst, jc.DeepEquals, instances.InstanceType{
+	c.Assert(inst, tc.DeepEquals, instances.InstanceType{
 		Id:       "Basic_A2",
 		Name:     "Basic_A2",
 		Arch:     corearch.AMD64,
@@ -139,7 +138,7 @@ func (s *InstanceTypeSuite) TestBasicARM64(c *tc.C) {
 		OSDiskSizeInMB: to.Ptr(int32(1024 * 1024)),
 	}
 	inst := newInstanceType(corearch.ARM64, vm)
-	c.Assert(inst, jc.DeepEquals, instances.InstanceType{
+	c.Assert(inst, tc.DeepEquals, instances.InstanceType{
 		Id:       "Basic_A2",
 		Name:     "Basic_A2",
 		Arch:     corearch.ARM64,
@@ -161,7 +160,7 @@ func (s *InstanceTypeSuite) TestDeleteInstanceFamily(c *tc.C) {
 		"A2_v2":          {Name: "Standard_A2_v2"},
 	}
 	deleteInstanceFamily(instanceTypes, "Standard_D6_v5")
-	c.Assert(instanceTypes, jc.DeepEquals, map[string]instances.InstanceType{
+	c.Assert(instanceTypes, tc.DeepEquals, map[string]instances.InstanceType{
 		"Standard_A2_v2": {Name: "Standard_A2_v2"},
 		"A2_v2":          {Name: "Standard_A2_v2"},
 	})

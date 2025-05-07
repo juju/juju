@@ -9,7 +9,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -64,7 +63,7 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationScopeGlobal(c *tc.C
 
 	// Assert
 	c.Assert(err, tc.IsNil)
-	c.Assert(change, jc.IsTrue)
+	c.Assert(change, tc.IsTrue)
 }
 
 // TestSubordinateSendChangeEventRelationAnotherSubordinate tests that if the
@@ -99,7 +98,7 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationAnotherSubordinate(
 
 	// Assert
 	c.Assert(err, tc.IsNil)
-	c.Assert(change, jc.IsTrue)
+	c.Assert(change, tc.IsTrue)
 }
 
 // TestSubordinateSendChangeEventRelationPrincipal tests that if the
@@ -132,7 +131,7 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationPrincipal(c *tc.C) 
 
 	// Assert
 	c.Assert(err, tc.IsNil)
-	c.Assert(change, jc.IsTrue)
+	c.Assert(change, tc.IsTrue)
 }
 
 // TestSubordinateSendChangeEventRelationNoChange checks that no change is
@@ -167,7 +166,7 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationNoChange(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.IsNil)
-	c.Assert(change, jc.IsFalse)
+	c.Assert(change, tc.IsFalse)
 }
 
 func (s *watcherSuite) TestChangeEventsForSubordinateLifeSuspendedStatusMapper(c *tc.C) {
@@ -259,10 +258,10 @@ func (s *watcherSuite) TestChangeEventsForSubordinateLifeSuspendedStatusMapper(c
 	c.Assert(err, tc.IsNil)
 	c.Assert(obtainedChanges, tc.HasLen, 2)
 	for _, change := range obtainedChanges {
-		c.Check(expectedChanged.Contains(change.Changed()), jc.IsTrue)
+		c.Check(expectedChanged.Contains(change.Changed()), tc.IsTrue)
 	}
 	c.Check(watcher.currentRelations, tc.DeepEquals, currentRelations)
-	c.Check(relationsIgnored.Contains(unrelatedRelUUID.String()), jc.IsTrue)
+	c.Check(relationsIgnored.Contains(unrelatedRelUUID.String()), tc.IsTrue)
 }
 
 func (s *watcherSuite) setupMocks(c *tc.C) *gomock.Controller {

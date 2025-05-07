@@ -12,7 +12,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	environs "github.com/juju/juju/environs"
@@ -42,20 +41,20 @@ func (s *ErrorSuite) TestNoValidation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	handled, err := errorutils.HandleCredentialError(context.Background(), nil, s.azureError)
-	c.Assert(err, jc.ErrorIs, s.azureError)
-	c.Check(handled, jc.IsFalse)
-	c.Check(c.GetTestLog(), jc.Contains, "no credential invalidator provided to handle error")
+	c.Assert(err, tc.ErrorIs, s.azureError)
+	c.Check(handled, tc.IsFalse)
+	c.Check(c.GetTestLog(), tc.Contains, "no credential invalidator provided to handle error")
 }
 
 func (s *ErrorSuite) TestHasDenialStatusCode(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	c.Assert(errorutils.HasDenialStatusCode(
-		&azcore.ResponseError{StatusCode: http.StatusUnauthorized}), jc.IsTrue)
+		&azcore.ResponseError{StatusCode: http.StatusUnauthorized}), tc.IsTrue)
 	c.Assert(errorutils.HasDenialStatusCode(
-		&azcore.ResponseError{StatusCode: http.StatusNotFound}), jc.IsFalse)
-	c.Assert(errorutils.HasDenialStatusCode(nil), jc.IsFalse)
-	c.Assert(errorutils.HasDenialStatusCode(errors.New("FAIL")), jc.IsFalse)
+		&azcore.ResponseError{StatusCode: http.StatusNotFound}), tc.IsFalse)
+	c.Assert(errorutils.HasDenialStatusCode(nil), tc.IsFalse)
+	c.Assert(errorutils.HasDenialStatusCode(errors.New("FAIL")), tc.IsFalse)
 }
 
 func (s *ErrorSuite) TestInvalidationCallbackErrorOnlyLogs(c *tc.C) {
@@ -64,9 +63,9 @@ func (s *ErrorSuite) TestInvalidationCallbackErrorOnlyLogs(c *tc.C) {
 	s.invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(errors.New("kaboom"))
 
 	handled, err := errorutils.HandleCredentialError(context.Background(), s.invalidator, s.azureError)
-	c.Assert(err, jc.ErrorIs, s.azureError)
-	c.Check(handled, jc.IsTrue)
-	c.Check(c.GetTestLog(), jc.Contains, "could not invalidate stored cloud credential on the controller")
+	c.Assert(err, tc.ErrorIs, s.azureError)
+	c.Check(handled, tc.IsTrue)
+	c.Check(c.GetTestLog(), tc.Contains, "could not invalidate stored cloud credential on the controller")
 }
 
 func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *tc.C) {
@@ -74,7 +73,7 @@ func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *tc.C) {
 
 	var called bool
 	s.invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, reason environs.CredentialInvalidReason) error {
-		c.Assert(string(reason), jc.Contains, "azure cloud denied access")
+		c.Assert(string(reason), tc.Contains, "azure cloud denied access")
 		called = true
 		return nil
 	}).Times(common.AuthorisationFailureStatusCodes.Size())
@@ -82,9 +81,9 @@ func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *tc.C) {
 	// First test another status code.
 	s.azureError.StatusCode = http.StatusAccepted
 	handled, err := errorutils.HandleCredentialError(context.Background(), s.invalidator, s.azureError)
-	c.Assert(err, jc.ErrorIs, s.azureError)
-	c.Check(handled, jc.IsFalse)
-	c.Check(called, jc.IsFalse)
+	c.Assert(err, tc.ErrorIs, s.azureError)
+	c.Check(handled, tc.IsFalse)
+	c.Check(called, tc.IsFalse)
 
 	for t := range common.AuthorisationFailureStatusCodes {
 		called = false
@@ -94,9 +93,9 @@ func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *tc.C) {
 		s.azureError.RawResponse = &http.Response{}
 
 		handled, err := errorutils.HandleCredentialError(context.Background(), s.invalidator, s.azureError)
-		c.Assert(err, jc.ErrorIs, s.azureError)
-		c.Check(handled, jc.IsTrue)
-		c.Check(called, jc.IsTrue)
+		c.Assert(err, tc.ErrorIs, s.azureError)
+		c.Check(handled, tc.IsTrue)
+		c.Check(called, tc.IsTrue)
 	}
 }
 
@@ -104,8 +103,8 @@ func (s *ErrorSuite) TestNilAzureError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	handled, returnedErr := errorutils.HandleCredentialError(context.Background(), s.invalidator, nil)
-	c.Assert(returnedErr, jc.ErrorIsNil)
-	c.Assert(handled, jc.IsFalse)
+	c.Assert(returnedErr, tc.ErrorIsNil)
+	c.Assert(handled, tc.IsFalse)
 }
 
 func (*ErrorSuite) TestMaybeQuotaExceededError(c *tc.C) {
@@ -118,7 +117,7 @@ func (*ErrorSuite) TestMaybeQuotaExceededError(c *tc.C) {
 		},
 	}
 	quotaErr, ok := errorutils.MaybeQuotaExceededError(re)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	c.Assert(quotaErr, tc.ErrorMatches, "boom")
 }
 
@@ -133,7 +132,7 @@ func (*ErrorSuite) TestMaybeHypervisorGenNotSupportedError(c *tc.C) {
 		},
 	}
 	_, ok := errorutils.MaybeHypervisorGenNotSupportedError(re)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 }
 
 func (*ErrorSuite) TestIsConflictError(c *tc.C) {
@@ -146,13 +145,13 @@ func (*ErrorSuite) TestIsConflictError(c *tc.C) {
 		},
 	}
 	ok := errorutils.IsConflictError(re)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	se2 := &azcore.ResponseError{
 		StatusCode: http.StatusConflict,
 	}
 	ok = errorutils.IsConflictError(se2)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 }
 
 func (*ErrorSuite) TestStatusCode(c *tc.C) {

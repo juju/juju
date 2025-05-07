@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/internal/storage"
@@ -25,9 +24,9 @@ func (FlagSuite) TestStringMapNilOk(c *tc.C) {
 	c.Assert(values, tc.IsNil)
 	sm := stringMap{&values}
 	err := sm.Set("foo=foovalue")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = sm.Set("bar=barvalue")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// now the map is non-nil and filled
 	c.Assert(values, tc.DeepEquals, map[string]string{
@@ -39,14 +38,14 @@ func (FlagSuite) TestStringMapNilOk(c *tc.C) {
 func (FlagSuite) TestStringMapBadVal(c *tc.C) {
 	sm := stringMap{&map[string]string{}}
 	err := sm.Set("foo")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(err, tc.ErrorMatches, "badly formatted name value pair: foo")
 }
 
 func (FlagSuite) TestStringMapDupVal(c *tc.C) {
 	sm := stringMap{&map[string]string{}}
 	err := sm.Set("bar=somevalue")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = sm.Set("bar=someothervalue")
 	c.Assert(err, tc.ErrorMatches, ".*duplicate.*bar.*")
 }
@@ -55,8 +54,8 @@ func (FlagSuite) TestStorageFlag(c *tc.C) {
 	var stores map[string]storage.Directive
 	flag := storageFlag{&stores, nil}
 	err := flag.Set("foo=bar")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stores, jc.DeepEquals, map[string]storage.Directive{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(stores, tc.DeepEquals, map[string]storage.Directive{
 		"foo": {Pool: "bar", Count: 1},
 	})
 }
@@ -76,13 +75,13 @@ func (FlagSuite) TestStorageFlagBundleStorage(c *tc.C) {
 	var bundleStores map[string]map[string]storage.Directive
 	flag := storageFlag{&stores, &bundleStores}
 	err := flag.Set("foo=bar")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = flag.Set("app:baz=qux")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stores, jc.DeepEquals, map[string]storage.Directive{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(stores, tc.DeepEquals, map[string]storage.Directive{
 		"foo": {Pool: "bar", Count: 1},
 	})
-	c.Assert(bundleStores, jc.DeepEquals, map[string]map[string]storage.Directive{
+	c.Assert(bundleStores, tc.DeepEquals, map[string]map[string]storage.Directive{
 		"app": {
 			"baz": {Pool: "qux", Count: 1},
 		},
@@ -99,8 +98,8 @@ func (FlagSuite) TestAttachStorageFlag(c *tc.C) {
 	var stores []string
 	flag := attachStorageFlag{&stores}
 	err := flag.Set("foo/0,bar/1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stores, jc.DeepEquals, []string{"foo/0", "bar/1"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(stores, tc.DeepEquals, []string{"foo/0", "bar/1"})
 }
 
 func (FlagSuite) TestAttachStorageFlagErrors(c *tc.C) {
@@ -113,8 +112,8 @@ func (FlagSuite) TestDevicesFlag(c *tc.C) {
 	var devs map[string]devices.Constraints
 	flag := devicesFlag{&devs, nil}
 	err := flag.Set("foo=3,nvidia.com/gpu,gpu=nvidia-tesla-p100")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(devs, jc.DeepEquals, map[string]devices.Constraints{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(devs, tc.DeepEquals, map[string]devices.Constraints{
 		"foo": {
 			Type:  "nvidia.com/gpu",
 			Count: 3,
@@ -148,13 +147,13 @@ func (FlagSuite) TestDevicesFlagBundleDevices(c *tc.C) {
 	var bundleDevices map[string]map[string]devices.Constraints
 	flag := devicesFlag{&devs, &bundleDevices}
 	err := flag.Set("foo=bar")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = flag.Set("app:baz=qux")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(devs, jc.DeepEquals, map[string]devices.Constraints{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(devs, tc.DeepEquals, map[string]devices.Constraints{
 		"foo": {Type: "bar", Count: 1},
 	})
-	c.Assert(bundleDevices, jc.DeepEquals, map[string]map[string]devices.Constraints{
+	c.Assert(bundleDevices, tc.DeepEquals, map[string]map[string]devices.Constraints{
 		"app": {
 			"baz": {Type: "qux", Count: 1},
 		},

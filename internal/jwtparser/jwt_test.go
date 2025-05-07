@@ -15,7 +15,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 )
@@ -47,7 +46,7 @@ func (s *jwtParserSuite) TestCacheRegistration(c *tc.C) {
 	defer done()
 	authenticator := NewParserWithHTTPClient(ctx, s.client)
 	err := authenticator.SetJWKSCache(context.Background(), s.url)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *jwtParserSuite) TestCacheRegistrationFailureWithBadURL(c *tc.C) {
@@ -64,7 +63,7 @@ func (s *jwtParserSuite) TestParseJWT(c *tc.C) {
 	defer done()
 	authenticator := NewParserWithHTTPClient(ctx, s.client)
 	err := authenticator.SetJWKSCache(context.Background(), s.url)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	params := JWTParams{
 		audience: "controller-1",
@@ -72,19 +71,19 @@ func (s *jwtParserSuite) TestParseJWT(c *tc.C) {
 		claims:   map[string]string{"model-1": "read"},
 	}
 	jwt, err := EncodedJWT(params, s.keySet, s.signingKey)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	base64jwt := base64.StdEncoding.EncodeToString(jwt)
 
 	token, err := authenticator.Parse(context.Background(), base64jwt)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(token, tc.NotNil)
 
 	claims := token.PrivateClaims()
 	c.Assert(token.Subject(), tc.Equals, "alice")
 	c.Assert(token.Issuer(), tc.Equals, "test")
-	c.Assert(token.Audience(), jc.DeepEquals, []string{"controller-1"})
+	c.Assert(token.Audience(), tc.DeepEquals, []string{"controller-1"})
 	c.Assert(token.Expiration().After(token.IssuedAt()), tc.Equals, true)
-	c.Assert(claims["access"], jc.DeepEquals, map[string]interface{}{"model-1": "read"})
+	c.Assert(claims["access"], tc.DeepEquals, map[string]interface{}{"model-1": "read"})
 }
 
 // NewJWKSet returns a new key set and signing key.
@@ -94,17 +93,17 @@ func NewJWKSet(c *tc.C) (jwk.Set, jwk.Key) {
 	block, _ := pem.Decode(pkeyPem)
 
 	pkeyDecoded, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	signingKey, err := jwk.FromRaw(pkeyDecoded)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return jwkSet, signingKey
 }
 
 func getJWKS(c *tc.C) (jwk.Set, []byte) {
 	keySet, err := rsa.GenerateKey(rand.Reader, 4096)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	privateKeyPEM := pem.EncodeToMemory(
 		&pem.Block{
@@ -114,22 +113,22 @@ func getJWKS(c *tc.C) (jwk.Set, []byte) {
 	)
 
 	kid, err := uuid.NewRandom()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	jwks, err := jwk.FromRaw(keySet.PublicKey)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = jwks.Set(jwk.KeyIDKey, kid.String())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = jwks.Set(jwk.KeyUsageKey, "sig")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = jwks.Set(jwk.AlgorithmKey, jwa.RS256)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ks := jwk.NewSet()
 	err = ks.AddKey(jwks)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return ks, privateKeyPEM
 }

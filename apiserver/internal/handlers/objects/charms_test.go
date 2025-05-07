@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
@@ -68,7 +67,7 @@ func (s *objectsCharmHandlerSuite) TestServeMethodNotSupported(c *tc.C) {
 
 	url := fmt.Sprintf("%s/model-%s/charms/testcharm-%s", s.srv.URL, modelUUID, hashPrefix)
 	resp, err := http.Post(url, "application/octet-stream", strings.NewReader("charm-content"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusNotImplemented)
 }
@@ -92,11 +91,11 @@ func (s *objectsCharmHandlerSuite) TestServeGet(c *tc.C) {
 
 	url := fmt.Sprintf("%s/model-%s/charms/testcharm-%s", s.srv.URL, modelUUID, hashPrefix)
 	resp, err := http.Get(url)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 	body, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(body), tc.Equals, "charm-content")
 }
 
@@ -119,7 +118,7 @@ func (s *objectsCharmHandlerSuite) TestServeGetNotFound(c *tc.C) {
 
 	url := fmt.Sprintf("%s/model-%s/charms/testcharm-%s", s.srv.URL, modelUUID, hashPrefix)
 	resp, err := http.Get(url)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusNotFound)
 }
@@ -139,12 +138,12 @@ func (s *objectsCharmHandlerSuite) TestServePutIncorrectEncoding(c *tc.C) {
 
 	url := fmt.Sprintf("%s/model-%s/charms/testcharm-%s", s.srv.URL, modelUUID, hashPrefix)
 	req, err := http.NewRequest("PUT", url, strings.NewReader("charm-content"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusBadRequest)
 }
@@ -169,12 +168,12 @@ func (s *objectsCharmHandlerSuite) TestServePutNoJujuCharmURL(c *tc.C) {
 
 	url := fmt.Sprintf("%s/model-%s/charms/testcharm-%s", s.srv.URL, modelUUID, hashPrefix)
 	req, err := http.NewRequest("PUT", url, strings.NewReader("charm-content"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	req.Header.Set("Content-Type", "application/zip")
 
 	resp, err := http.DefaultClient.Do(req)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(resp.StatusCode, tc.Equals, http.StatusBadRequest)
 }
@@ -199,13 +198,13 @@ func (s *objectsCharmHandlerSuite) TestServePutInvalidSHA256Prefix(c *tc.C) {
 
 	url := fmt.Sprintf("%s/model-%s/charms/testcharm-%s", s.srv.URL, modelUUID, hashPrefix)
 	req, err := http.NewRequest("PUT", url, strings.NewReader("charm-content"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	req.Header.Set("Content-Type", "application/zip")
 	req.Header.Set(params.JujuCharmURLHeader, "ch:testcharm-1")
 
 	resp, err := http.DefaultClient.Do(req)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(resp.StatusCode, tc.Equals, http.StatusBadRequest)
 }
@@ -230,13 +229,13 @@ func (s *objectsCharmHandlerSuite) TestServePutInvalidCharmURL(c *tc.C) {
 
 	url := fmt.Sprintf("%s/model-%s/charms/testcharm_%s", s.srv.URL, modelUUID, hashPrefix)
 	req, err := http.NewRequest("PUT", url, strings.NewReader("charm-content"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	req.Header.Set("Content-Type", "application/zip")
 	req.Header.Set(params.JujuCharmURLHeader, "ch:testcharm-1")
 
 	resp, err := http.DefaultClient.Do(req)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(resp.StatusCode, tc.Equals, http.StatusBadRequest)
 }
@@ -261,7 +260,7 @@ func (s *objectsCharmHandlerSuite) TestServePut(c *tc.C) {
 
 	url := fmt.Sprintf("%s/model-%s/charms/testcharm-%s", s.srv.URL, modelUUID, hashPrefix)
 	req, err := http.NewRequest("PUT", url, strings.NewReader("charm-content"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	req.Header.Set("Content-Type", "application/zip")
 	req.Header.Set(params.JujuCharmURLHeader, "ch:testcharm-1")
@@ -281,7 +280,7 @@ func (s *objectsCharmHandlerSuite) TestServePut(c *tc.C) {
 	})
 
 	resp, err := http.DefaultClient.Do(req)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(resp.StatusCode, tc.Equals, http.StatusOK)
 	c.Check(resp.Header.Get(params.JujuCharmURLHeader), tc.Equals, "ch:amd64/testcharm-2")
@@ -297,7 +296,7 @@ func (s *objectsCharmHandlerSuite) TestCharmURLFromLocator(c *tc.C) {
 
 	for _, includeArch := range []bool{true, false} {
 		url, err := CharmURLFromLocator(locator, includeArch)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(url.String(), tc.Equals, "ch:amd64/testcharm-1")
 	}
 }
@@ -326,7 +325,7 @@ func (s *objectsCharmHandlerSuite) TestCharmURLFromLocatorDuringMigration(c *tc.
 
 	for _, test := range tests {
 		url, err := CharmURLFromLocatorDuringMigration(locator, test.includeArch)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(url.String(), tc.Equals, test.result)
 	}
 }

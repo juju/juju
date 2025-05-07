@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/base"
@@ -85,7 +84,7 @@ func (s *upgradeValidationSuite) TestModelUpgradeCheck(c *tc.C) {
 	)
 
 	blockers, err := checker.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(blockers.String(), tc.Equals, `
 "test-model":
 - model migration is in process`[1:])
@@ -104,7 +103,7 @@ func (s *upgradeValidationSuite) TestCheckForDeprecatedUbuntuSeriesForModel(c *t
 	st.EXPECT().AllMachinesCount().Return(5, nil)
 
 	blocker, err := upgradevalidation.CheckForDeprecatedUbuntuSeriesForModel(st, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(blocker.Error(), tc.Equals, `the model hosts 1 ubuntu machine(s) with an unsupported base. The supported bases are: ubuntu@24.04, ubuntu@22.04, ubuntu@20.04`)
 }
 
@@ -128,14 +127,14 @@ func (s *upgradeValidationSuite) TestGetCheckTargetVersionForControllerModel(c *
 		semversion.MustParse("3.0.0"),
 		upgradevalidation.UpgradeControllerAllowed,
 	)(nil, agentService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(blocker, tc.ErrorMatches, `current model \("2.9.29"\) has to be upgraded to "2.9.30" at least`)
 
 	blocker, err = upgradevalidation.GetCheckTargetVersionForModel(
 		semversion.MustParse("3.0.0"),
 		upgradevalidation.UpgradeControllerAllowed,
 	)(nil, agentService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(blocker, tc.IsNil)
 
 	blocker, err = upgradevalidation.GetCheckTargetVersionForModel(

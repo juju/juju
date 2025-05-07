@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/testing/filetesting"
 
 	"github.com/juju/juju/core/resource"
@@ -45,7 +44,7 @@ func NewDockerResource(c *tc.C, stub *testing.Stub, name, applicationID, content
 // and content. The origin is set to "upload".
 func NewCharmResource(c *tc.C, name, content string) charmresource.Resource {
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	res := charmresource.Resource{
 		Meta: charmresource.Meta{
 			Name:        name,
@@ -59,7 +58,7 @@ func NewCharmResource(c *tc.C, name, content string) charmresource.Resource {
 		Size:        int64(len(content)),
 	}
 	err = res.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return res
 }
@@ -79,7 +78,7 @@ func NewCharmDockerResource(c *tc.C, name, content string) charmresource.Resourc
 		Size:        0,
 	}
 	err := res.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return res
 }
@@ -100,7 +99,7 @@ func newResource(c *tc.C, name, applicationName, username, content string, charm
 		timestamp = time.Now().UTC()
 	}
 	uuid, err := resource.NewUUID()
-	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) cannot generate uuid for resource %q ", name))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) cannot generate uuid for resource %q ", name))
 
 	res := resource.Resource{
 		Resource:        charmResourceFunc(c, name, content),
@@ -110,7 +109,7 @@ func newResource(c *tc.C, name, applicationName, username, content string, charm
 		Timestamp:       timestamp,
 	}
 	err = res.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return res
 }
 
@@ -132,6 +131,6 @@ func newStubReadCloser(stub *testing.Stub, content string) io.ReadCloser {
 // checked for subsequent errors using the test suit's go check instance.
 func GenResourceUUID(c *tc.C) resource.UUID {
 	id, err := resource.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return id
 }

@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/internal/uuid"
@@ -106,7 +105,7 @@ func (s *commonSuite) TestAuthAnyCoversEither(c *tc.C) {
 		authAny := common.AuthAny(test.a, test.b)
 		any, err := authAny(context.Background())
 		if test.err == "" {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			ok := any(test.tag)
 			c.Assert(ok, tc.Equals, test.expect)
 		} else {
@@ -119,18 +118,18 @@ func (s *commonSuite) TestAuthAnyCoversEither(c *tc.C) {
 func (s *commonSuite) TestAuthAnyAlwaysFalseWithNoFuncs(c *tc.C) {
 	getAuth := common.AuthAny()
 	auth, err := getAuth(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(auth(names.NewUserTag("foo")), jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(auth(names.NewUserTag("foo")), tc.IsFalse)
 }
 
 func (s *commonSuite) TestAuthAnyWith3(c *tc.C) {
 	getAuth := common.AuthAny(fooAuth, barAuth, bazAuth)
 	auth, err := getAuth(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(auth(names.NewUserTag("foo")), jc.IsTrue)
-	c.Check(auth(names.NewUserTag("bar")), jc.IsTrue)
-	c.Check(auth(names.NewUserTag("baz")), jc.IsTrue)
-	c.Check(auth(names.NewUserTag("quux")), jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(auth(names.NewUserTag("foo")), tc.IsTrue)
+	c.Check(auth(names.NewUserTag("bar")), tc.IsTrue)
+	c.Check(auth(names.NewUserTag("baz")), tc.IsTrue)
+	c.Check(auth(names.NewUserTag("quux")), tc.IsFalse)
 }
 
 func u(unit string) names.Tag { return names.NewUnitTag(unit) }
@@ -139,7 +138,7 @@ func (s *commonSuite) TestAuthFuncForTagKind(c *tc.C) {
 	// TODO(dimitern): This list of all supported tags and kinds needs
 	// to live in juju/names.
 	uuid, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	allTags := []names.Tag{
 		nil, // invalid tag
@@ -170,7 +169,7 @@ func (s *commonSuite) TestAuthFuncForTagKind(c *tc.C) {
 			c.Check(err, tc.ErrorMatches, "tag kind cannot be empty")
 			c.Check(authFunc, tc.IsNil)
 			continue
-		} else if !c.Check(err, jc.ErrorIsNil) {
+		} else if !c.Check(err, tc.ErrorIsNil) {
 			continue
 		}
 
@@ -182,9 +181,9 @@ func (s *commonSuite) TestAuthFuncForTagKind(c *tc.C) {
 				givenKind = givenTag.Kind()
 			}
 			if allowedKind == givenKind {
-				c.Check(authFunc(givenTag), jc.IsTrue)
+				c.Check(authFunc(givenTag), tc.IsTrue)
 			} else {
-				c.Check(authFunc(givenTag), jc.IsFalse)
+				c.Check(authFunc(givenTag), tc.IsFalse)
 			}
 		}
 	}

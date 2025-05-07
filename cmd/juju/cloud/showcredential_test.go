@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	jujucloud "github.com/juju/juju/cloud"
@@ -75,7 +74,7 @@ func (s *ShowCredentialSuite) TestShowCredentialAPICallError(c *tc.C) {
 	s.api.SetErrors(errors.New("boom"), nil)
 	cmd := cloud.NewShowCredentialCommandForTest(s.store, s.api)
 	ctx, err := cmdtesting.RunCommand(c, cmd, "-c", "controller")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
 ERROR credential content lookup on the controller failed: boom
 No credentials from this client or from a controller to display.
@@ -88,7 +87,7 @@ func (s *ShowCredentialSuite) TestShowCredentialNone(c *tc.C) {
 	s.api.contents = []params.CredentialContentResult{}
 	cmd := cloud.NewShowCredentialCommandForTest(s.store, s.api)
 	ctx, err := cmdtesting.RunCommand(c, cmd, "-c", "controller")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "No credentials from this client or from a controller to display.\n")
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, ``)
 	s.api.CheckCallNames(c, "CredentialContents", "Close")
@@ -119,7 +118,7 @@ func (s *ShowCredentialSuite) TestShowCredentialBothClientAndController(c *tc.C)
 	}
 	cmd := cloud.NewShowCredentialCommandForTest(s.store, s.api)
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--show-secrets")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, ``)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 controller-credentials:
@@ -154,7 +153,7 @@ client-credentials:
         secret-key: secret
 `[1:])
 	s.api.CheckCallNames(c, "CredentialContents", "Close")
-	c.Assert(s.api.inclsecrets, jc.IsTrue)
+	c.Assert(s.api.inclsecrets, tc.IsTrue)
 }
 
 func (s *ShowCredentialSuite) TestShowCredentialMany(c *tc.C) {
@@ -214,7 +213,7 @@ func (s *ShowCredentialSuite) TestShowCredentialMany(c *tc.C) {
 	}
 	cmd := cloud.NewShowCredentialCommandForTest(s.store, s.api)
 	ctx, err := cmdtesting.RunCommand(c, cmd, "-c", "controller")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "boom\n")
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 controller-credentials:

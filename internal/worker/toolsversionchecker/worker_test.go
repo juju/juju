@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/toolsversionchecker"
@@ -48,7 +47,7 @@ func (s *ToolsCheckerSuite) TestWorker(c *tc.C) {
 	)
 	s.AddCleanup(func(c *tc.C) {
 		checker.Kill()
-		c.Assert(checker.Wait(), jc.ErrorIsNil)
+		c.Assert(checker.Wait(), tc.ErrorIsNil)
 	})
 
 	select {

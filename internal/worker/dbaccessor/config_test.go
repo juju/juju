@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 type configSuite struct {
@@ -33,10 +32,10 @@ db-bind-addresses:
   controller/2: 10.246.27.218`[1:]
 
 	err := os.WriteFile(s.configPath, []byte(data), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	addrs, err := controllerConfigReader{configPath: s.configPath}.DBBindAddresses()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(addrs, tc.DeepEquals, map[string]string{
 		"controller/0": "10.246.27.225",
@@ -53,7 +52,7 @@ func (s *configSuite) TestReadConfigWrongFileError(c *tc.C) {
 
 func (s *configSuite) TestReadConfigBadContentsError(c *tc.C) {
 	err := os.WriteFile(s.configPath, []byte("can't parse this do-do-do-do"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	addrs, err := controllerConfigReader{configPath: s.configPath}.DBBindAddresses()
 	c.Check(addrs, tc.IsNil)

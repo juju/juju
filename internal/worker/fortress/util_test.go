@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
@@ -29,7 +28,7 @@ type fixture struct {
 func newFixture(c *tc.C) *fixture {
 	manifold := fortress.Manifold()
 	worker, err := manifold.Start(context.Background(), nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return &fixture{
 		manifold: manifold,
 		worker:   worker,
@@ -44,14 +43,14 @@ func (fix *fixture) TearDown(c *tc.C) {
 // Guard returns a fortress.Guard backed by the fixture's worker.
 func (fix *fixture) Guard(c *tc.C) (out fortress.Guard) {
 	err := fix.manifold.Output(fix.worker, &out)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return out
 }
 
 // Guest returns a fortress.Guest backed by the fixture's worker.
 func (fix *fixture) Guest(c *tc.C) (out fortress.Guest) {
 	err := fix.manifold.Output(fix.worker, &out)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return out
 }
 
@@ -62,7 +61,7 @@ func (fix *fixture) Guest(c *tc.C) (out fortress.Guest) {
 // the visit).
 func (fix *fixture) startBlockingVisit(c *tc.C) chan<- struct{} {
 	err := fix.Guard(c).Unlock()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	visitStarted := make(chan struct{}, 1)
 	defer close(visitStarted)
 	unblockVisit := make(chan struct{}, 1)
@@ -72,7 +71,7 @@ func (fix *fixture) startBlockingVisit(c *tc.C) chan<- struct{} {
 			<-unblockVisit
 			return nil
 		}, nil)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}()
 	select {
 	case <-visitStarted:
@@ -125,7 +124,7 @@ func AssertLocked(c *tc.C, guest fortress.Guest) {
 
 // CheckStop stops the worker and checks it encountered no error.
 func CheckStop(c *tc.C, w worker.Worker) {
-	c.Check(worker.Stop(w), jc.ErrorIsNil)
+	c.Check(worker.Stop(w), tc.ErrorIsNil)
 }
 
 // badVisit is a Vist that always fails.

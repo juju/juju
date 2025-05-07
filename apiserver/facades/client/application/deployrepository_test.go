@@ -8,7 +8,6 @@ import (
 	"errors"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	corecharm "github.com/juju/juju/core/charm"
@@ -131,7 +130,7 @@ func (s *deployRepositorySuite) TestResolveResourcesWithResourcesWithOverride(c 
 
 	// Assert
 	c.Check(result, tc.DeepEquals, expectedResult, tc.Commentf("(Assert) expected result did not match"))
-	c.Check(resourcesToUpload, jc.SameContents, expectedResourcesToUpload, tc.Commentf("(Assert) expected resourceToUpload did not match"))
+	c.Check(resourcesToUpload, tc.SameContents, expectedResourcesToUpload, tc.Commentf("(Assert) expected resourceToUpload did not match"))
 }
 
 func (s *deployRepositorySuite) TestResolveResourcesWithResourcesErrorWhileCharmRepositoryResolve(c *tc.C) {
@@ -154,7 +153,7 @@ func (s *deployRepositorySuite) TestResolveResourcesWithResourcesErrorWhileCharm
 	_, _, err := validator.resolveResources(context.Background(), charmURL, origin, map[string]string{}, resMeta)
 
 	// Assert
-	c.Check(err, jc.ErrorIs, mockRepoError,
+	c.Check(err, tc.ErrorIs, mockRepoError,
 		tc.Commentf("(Assert) should return the same error as returned when resolving resources on charm repository"))
 }
 

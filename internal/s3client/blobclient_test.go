@@ -9,7 +9,6 @@ import (
 	"io"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coretesting "github.com/juju/juju/internal/testing"
@@ -35,10 +34,10 @@ func (s *charmsS3ClientSuite) TestGetCharm(c *tc.C) {
 
 	cli := NewBlobsS3Client(s.session)
 	body, err := cli.GetCharm(context.Background(), coretesting.ModelTag.Id(), "somecharm-abcd0123")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	bytes, err := io.ReadAll(body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(bytes, tc.DeepEquals, []byte("blob"))
 }
 
@@ -51,9 +50,9 @@ func (s *charmsS3ClientSuite) TestGetObject(c *tc.C) {
 
 	cli := NewBlobsS3Client(s.session)
 	body, _, err := cli.GetObject(context.Background(), coretesting.ModelTag.Id(), hash)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	bytes, err := io.ReadAll(body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(bytes, tc.DeepEquals, []byte("blob"))
 }

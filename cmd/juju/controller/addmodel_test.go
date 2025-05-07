@@ -13,7 +13,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	"gopkg.in/yaml.v2"
 
@@ -48,7 +47,7 @@ func (s *AddModelSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	agentVersion, err := semversion.Parse("2.55.5")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.fakeAddModelAPI = &fakeAddClient{
 		model: base.ModelInfo{
 			Name:         "test",
@@ -182,16 +181,16 @@ func (s *AddModelSuite) TestInit(c *tc.C) {
 			continue
 		}
 
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(command.Name, tc.Equals, test.name)
 		c.Assert(command.Owner, tc.Equals, test.owner)
 		c.Assert(command.CloudRegion, tc.Equals, test.cloudRegion)
 		attrs, err := command.Config.ReadAttrs(nil)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		if len(test.values) == 0 {
 			c.Assert(attrs, tc.HasLen, 0)
 		} else {
-			c.Assert(attrs, jc.DeepEquals, test.values)
+			c.Assert(attrs, tc.DeepEquals, test.values)
 		}
 	}
 }
@@ -205,14 +204,14 @@ func (s *AddModelSuite) TestAddExistingName(c *tc.C) {
 		ModelUUID: "stale-uuid",
 		ModelType: model.IAAS,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.run(c, "test")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	details, err := s.store.ModelByName("test-master", "bob/test")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(details, jc.DeepEquals, &jujuclient.ModelDetails{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(details, tc.DeepEquals, &jujuclient.ModelDetails{
 		ModelUUID: "fake-model-uuid",
 		ModelType: model.IAAS,
 	})
@@ -230,21 +229,21 @@ func (s *AddModelSuite) TestAddModelUnauthorizedMentionsJujuGrant(c *tc.C) {
 
 func (s *AddModelSuite) TestCredentialsPassedThrough(c *tc.C) {
 	_, err := s.run(c, "test", "--credential", "secrets")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(s.fakeAddModelAPI.cloudCredential, tc.Equals, names.NewCloudCredentialTag("aws/bob/secrets"))
 }
 
 func (s *AddModelSuite) TestCredentialsOtherUserPassedThrough(c *tc.C) {
 	_, err := s.run(c, "test", "--credential", "other/secrets")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(s.fakeAddModelAPI.cloudCredential, tc.Equals, names.NewCloudCredentialTag("aws/other/secrets"))
 }
 
 func (s *AddModelSuite) TestCredentialsOtherUserPassedThroughWhenCloud(c *tc.C) {
 	_, err := s.run(c, "test", "--credential", "other/secrets", "aws/us-west-1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(s.fakeAddModelAPI.cloudCredential, tc.Equals, names.NewCloudCredentialTag("aws/other/secrets"))
 }
@@ -262,7 +261,7 @@ Use
 * 'juju add-model --credential' to use a local credential.
 Use 'juju credentials' to list all available credentials.
 `[1:])
-	c.Assert(c.GetTestLog(), jc.Contains, "credential 'other/secrets' not found")
+	c.Assert(c.GetTestLog(), tc.Contains, "credential 'other/secrets' not found")
 
 	// There should be no detection or UpdateCredentials call.
 	s.fakeCloudAPI.CheckCallNames(c, "Clouds", "Cloud", "UserCredentials")
@@ -288,7 +287,7 @@ func (s *AddModelSuite) TestCredentialsOneCached(c *tc.C) {
 	s.PatchValue(&s.fakeCloudAPI.credentials, []names.CloudCredentialTag{credentialTag})
 
 	_, err := s.run(c, "test", "aws/us-west-1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// The cached credential should be used, along with
 	// the user-specified cloud region.
@@ -309,7 +308,7 @@ func (s *AddModelSuite) TestControllerCredentialsDetected(c *tc.C) {
 	delete(s.store.Credentials, "aws")
 
 	_, err := s.run(c, "test")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	credentialTag := names.NewCloudCredentialTag("aws/bob/default")
 	credential := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{})
@@ -348,7 +347,7 @@ Use
 Use 'juju credentials' to list all available credentials.
 `[1:])
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
-	c.Assert(c.GetTestLog(), jc.Contains, `
+	c.Assert(c.GetTestLog(), tc.Contains, `
 more than one credential detected. Add all detected credentials
 to the client with:
 
@@ -359,7 +358,7 @@ and then run the add-model command again with the --credential option.`[1:])
 
 func (s *AddModelSuite) TestCloudRegionPassedThrough(c *tc.C) {
 	_, err := s.run(c, "test", "aws/us-west-1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(s.fakeAddModelAPI.cloudName, tc.Equals, "aws")
 	c.Assert(s.fakeAddModelAPI.cloudRegion, tc.Equals, "us-west-1")
@@ -367,7 +366,7 @@ func (s *AddModelSuite) TestCloudRegionPassedThrough(c *tc.C) {
 
 func (s *AddModelSuite) TestDefaultCloudPassedThrough(c *tc.C) {
 	_, err := s.run(c, "test")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.fakeCloudAPI.CheckCallNames(c, "Clouds", "Cloud")
 	c.Assert(s.fakeAddModelAPI.cloudName, tc.Equals, "aws")
@@ -376,7 +375,7 @@ func (s *AddModelSuite) TestDefaultCloudPassedThrough(c *tc.C) {
 
 func (s *AddModelSuite) TestDefaultCloudRegionPassedThrough(c *tc.C) {
 	_, err := s.run(c, "test", "us-west-1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.fakeCloudAPI.CheckCalls(c, []jujutesting.StubCall{
 		{"Cloud", []interface{}{names.NewCloudTag("us-west-1")}},
@@ -392,7 +391,7 @@ func (s *AddModelSuite) TestNoDefaultCloudRegion(c *tc.C) {
 	ctx, err := s.run(c, "test", "us-west-1")
 	c.Assert(err, tc.DeepEquals, cmd.ErrSilent)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "Use 'juju clouds' to see a list of all available clouds or 'juju add-cloud' to a add one.\n")
-	c.Assert(c.GetTestLog(), jc.Contains, `
+	c.Assert(c.GetTestLog(), tc.Contains, `
 you do not have add-model access to any clouds on this controller.
 Please ask the controller administrator to grant you add-model permission
 for a particular cloud to which you want to add a model.`[1:])
@@ -407,7 +406,7 @@ func (s *AddModelSuite) TestAmbiguousCloud(c *tc.C) {
 	ctx, err := s.run(c, "test", "us-west-1")
 	c.Assert(err, tc.DeepEquals, cmd.ErrSilent)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "Use 'juju clouds' to see a list of all available clouds or 'juju add-cloud' to a add one.\n")
-	c.Assert(c.GetTestLog(), jc.Contains, `
+	c.Assert(c.GetTestLog(), tc.Contains, `
 this controller manages more than one cloud.
 Please specify which cloud/region to use:
 
@@ -438,7 +437,7 @@ func (s *AddModelSuite) TestCloudUnspecifiedRegionPassedThrough(c *tc.C) {
 		},
 	}
 	_, err := s.run(c, "test", "aws")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(s.fakeAddModelAPI.cloudName, tc.Equals, "aws")
 	c.Assert(s.fakeAddModelAPI.cloudRegion, tc.Equals, "")
@@ -466,7 +465,7 @@ func (s *AddModelSuite) TestCloudDefaultRegionUsedIfSet(c *tc.C) {
 		},
 	}
 	_, err := s.run(c, "test", "aws")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(s.fakeAddModelAPI.cloudName, tc.Equals, "aws")
 	c.Assert(s.fakeAddModelAPI.cloudRegion, tc.Equals, "us-west-1")
@@ -481,7 +480,7 @@ func (s *AddModelSuite) TestExplicitCloudRegionUsed(c *tc.C) {
 	delete(s.store.Credentials, "aws")
 
 	_, err := s.run(c, "test", "aws/us-east-1", "--credential", "other/secrets")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(s.fakeAddModelAPI.cloudName, tc.Equals, "aws")
 	c.Assert(s.fakeAddModelAPI.cloudRegion, tc.Equals, "us-east-1")
@@ -491,7 +490,7 @@ func (s *AddModelSuite) TestInvalidCloudOrRegionName(c *tc.C) {
 	ctx, err := s.run(c, "test", "oro")
 	c.Assert(err, tc.DeepEquals, cmd.ErrSilent)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "Use 'juju clouds' to see a list of all available clouds or 'juju add-cloud' to a add one.\n")
-	c.Assert(c.GetTestLog(), jc.Contains, `
+	c.Assert(c.GetTestLog(), tc.Contains, `
 "oro" is neither a cloud supported by this controller,
 nor a region in the controller's default cloud "aws".
 The clouds/regions supported by this controller are:
@@ -503,7 +502,7 @@ aws    us-east-1, us-west-1
 
 func (s *AddModelSuite) TestComandLineConfigPassedThrough(c *tc.C) {
 	_, err := s.run(c, "test", "--config", "account=magic", "--config", "cloud=special")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(s.fakeAddModelAPI.config["account"], tc.Equals, "magic")
 	c.Assert(s.fakeAddModelAPI.config["cloud"], tc.Equals, "special")
@@ -515,14 +514,14 @@ func (s *AddModelSuite) TestConfigFileValuesPassedThrough(c *tc.C) {
 		"cloud":   "9",
 	}
 	bytes, err := yaml.Marshal(config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	file, err := os.CreateTemp(c.MkDir(), "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	file.Write(bytes)
 	file.Close()
 
 	_, err = s.run(c, "test", "--config", file.Name())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.fakeAddModelAPI.config["account"], tc.Equals, "magic")
 	c.Assert(s.fakeAddModelAPI.config["cloud"], tc.Equals, "9")
 }
@@ -538,16 +537,16 @@ func (s *AddModelSuite) TestConfigFileWithNestedMaps(c *tc.C) {
 	}
 
 	bytes, err := yaml.Marshal(config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	file, err := os.CreateTemp(c.MkDir(), "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	file.Write(bytes)
 	file.Close()
 
 	_, err = s.run(c, "test", "--config", file.Name())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.fakeAddModelAPI.config["foo"], tc.Equals, "bar")
-	c.Assert(s.fakeAddModelAPI.config["nested"], jc.DeepEquals, nestedConfig)
+	c.Assert(s.fakeAddModelAPI.config["nested"], tc.DeepEquals, nestedConfig)
 }
 
 func (s *AddModelSuite) TestConfigFileFailsToConform(c *tc.C) {
@@ -559,9 +558,9 @@ func (s *AddModelSuite) TestConfigFileFailsToConform(c *tc.C) {
 		"nested": nestedConfig,
 	}
 	bytes, err := yaml.Marshal(config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	file, err := os.CreateTemp(c.MkDir(), "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	file.Write(bytes)
 	file.Close()
 
@@ -571,7 +570,7 @@ func (s *AddModelSuite) TestConfigFileFailsToConform(c *tc.C) {
 
 func (s *AddModelSuite) TestConfigFileFormatError(c *tc.C) {
 	file, err := os.CreateTemp(c.MkDir(), "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	file.Write(([]byte)("not: valid: yaml"))
 	file.Close()
 
@@ -591,14 +590,14 @@ func (s *AddModelSuite) TestConfigValuePrecedence(c *tc.C) {
 		"cloud":   "9",
 	}
 	bytes, err := yaml.Marshal(config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	file, err := os.CreateTemp(c.MkDir(), "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	file.Write(bytes)
 	file.Close()
 
 	_, err = s.run(c, "test", "--config", file.Name(), "--config", "account=magic", "--config", "cloud=special")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.fakeAddModelAPI.config["account"], tc.Equals, "magic")
 	c.Assert(s.fakeAddModelAPI.config["cloud"], tc.Equals, "special")
 }
@@ -610,23 +609,23 @@ func (s *AddModelSuite) TestAddErrorRemoveConfigstoreInfo(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "bah humbug")
 
 	_, err = s.store.ModelByName("test-master", "bob/test")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *AddModelSuite) TestAddStoresValues(c *tc.C) {
 	const controllerName = "test-master"
 
 	_, err := s.run(c, "test")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.store.CurrentControllerName, tc.Equals, controllerName)
 	modelName, err := s.store.CurrentModel(controllerName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(modelName, tc.Equals, "bob/test")
 
 	m, err := s.store.ModelByName(controllerName, modelName)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m, jc.DeepEquals, &jujuclient.ModelDetails{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(m, tc.DeepEquals, &jujuclient.ModelDetails{
 		ModelUUID: "fake-model-uuid",
 		ModelType: model.IAAS,
 	})
@@ -639,10 +638,10 @@ func (s *AddModelSuite) TestSwitch(c *tc.C) {
 	s.store.HasControllerChangedOnPreviousSwitch = true
 
 	_, err := s.run(c, "test")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	modelName, err := s.store.CurrentModel(controllerName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.store.HasControllerChangedOnPreviousSwitch, tc.Equals, false)
 	c.Check(s.store.CurrentControllerName, tc.Equals, controllerName)
@@ -653,19 +652,19 @@ func (s *AddModelSuite) TestNoSwitch(c *tc.C) {
 	const controllerName = "test-master"
 	checkNoModelSelected := func() {
 		_, err := s.store.CurrentModel(controllerName)
-		c.Check(err, jc.ErrorIs, errors.NotFound)
+		c.Check(err, tc.ErrorIs, errors.NotFound)
 	}
 	checkNoModelSelected()
 
 	_, err := s.run(c, "test", "--no-switch")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// New model should not be selected by should still exist in the
 	// store.
 	checkNoModelSelected()
 	m, err := s.store.ModelByName(controllerName, "bob/test")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m, jc.DeepEquals, &jujuclient.ModelDetails{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(m, tc.DeepEquals, &jujuclient.ModelDetails{
 		ModelUUID: "fake-model-uuid",
 		ModelType: model.IAAS,
 	})
@@ -673,11 +672,11 @@ func (s *AddModelSuite) TestNoSwitch(c *tc.C) {
 
 func (s *AddModelSuite) TestNoEnvCacheOtherUser(c *tc.C) {
 	_, err := s.run(c, "test", "--owner", "zeus")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Creating a model for another user does not update the model cache.
 	_, err = s.store.ModelByName("test-master", "bob/test")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *AddModelSuite) TestNamespaceAnnotationsErr(c *tc.C) {

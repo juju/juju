@@ -9,7 +9,6 @@ import (
 	"net/url"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	"golang.org/x/net/context"
 	"gopkg.in/yaml.v2"
@@ -27,7 +26,7 @@ var _ = tc.Suite(&providerSuite{})
 
 func (s *providerSuite) TestRegistered(c *tc.C) {
 	provider, err := environs.Provider("vsphere")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(provider, tc.NotNil)
 }
 
@@ -37,7 +36,7 @@ func (s *providerSuite) TestOpen(c *tc.C) {
 		Cloud:  fakeCloudSpec(),
 		Config: config,
 	}, environs.NoopCredentialInvalidator())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	envConfig := env.Config()
 	c.Assert(envConfig.Name(), tc.Equals, "testmodel")
@@ -72,13 +71,13 @@ func (s *providerSuite) testOpenError(c *tc.C, spec environscloudspec.CloudSpec,
 
 func (s *providerSuite) TestValidateCloud(c *tc.C) {
 	err := s.provider.ValidateCloud(context.Background(), fakeCloudSpec())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *providerSuite) TestValidate(c *tc.C) {
 	config := fakeConfig(c)
 	validCfg, err := s.provider.Validate(context.Background(), config, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	validAttrs := validCfg.AllAttrs()
 	c.Assert(config.AllAttrs(), tc.DeepEquals, validAttrs)
@@ -94,12 +93,12 @@ regions:
 `[1:])
 	var v interface{}
 	err := yaml.Unmarshal(y, &v)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	v, err = utils.ConformYAML(v)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.provider.CloudSchema().Validate(v)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type pingSuite struct {
@@ -147,13 +146,13 @@ func (s *pingSuite) TestPingLoginSucceeded(c *tc.C) {
 	// login succeeds, Ping returns nil.
 
 	err := s.provider.Ping(context.Background(), "testing.invalid")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.dialStub.CheckCallNames(c, "Dial")
 	call := s.dialStub.Calls()[0]
 	c.Assert(call.Args, tc.HasLen, 3)
 	c.Assert(call.Args[0], tc.Implements, new(context.Context))
-	c.Assert(call.Args[1], jc.DeepEquals, &url.URL{
+	c.Assert(call.Args[1], tc.DeepEquals, &url.URL{
 		Scheme: "https",
 		Host:   "testing.invalid",
 		Path:   "/sdk",

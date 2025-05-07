@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/yaml.v2"
 
@@ -262,7 +261,7 @@ func (s *StateOpsSuite) runTest(c *tc.C, t stateTest) {
 	}
 	err = ops.Write(context.Background(), &t.st)
 	if t.err == "" {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	} else {
 		c.Assert(err, tc.ErrorMatches, "invalid operation state: "+t.err)
 		s.expectState(c, t.st)
@@ -272,8 +271,8 @@ func (s *StateOpsSuite) runTest(c *tc.C, t stateTest) {
 	}
 	s.expectState(c, t.st)
 	st, err := ops.Read(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st, jc.DeepEquals, &t.st)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(st, tc.DeepEquals, &t.st)
 }
 
 func (s *StateOpsSuite) setupMocks(c *tc.C) *gomock.Controller {
@@ -287,7 +286,7 @@ func (s *StateOpsSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *StateOpsSuite) expectSetState(c *tc.C, st operation.State, errStr string) {
 	data, err := yaml.Marshal(st)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	strUniterState := string(data)
 	if errStr != "" {
 		err = errors.New(`validation of uniter state: invalid operation state: ` + errStr)
@@ -299,7 +298,7 @@ func (s *StateOpsSuite) expectSetState(c *tc.C, st operation.State, errStr strin
 
 func (s *StateOpsSuite) expectState(c *tc.C, st operation.State) {
 	data, err := yaml.Marshal(st)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	stStr := string(data)
 
 	mExp := s.mockStateRW.EXPECT()

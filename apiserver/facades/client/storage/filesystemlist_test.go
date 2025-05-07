@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -59,7 +58,7 @@ func (s *filesystemSuite) TestListFilesystemsEmptyFilter(c *tc.C) {
 	found, err := s.api.ListFilesystems(context.Background(), params.FilesystemFilters{
 		[]params.FilesystemFilter{{}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 1)
 	c.Assert(found.Results[0].Result, tc.HasLen, 1)
 	c.Assert(found.Results[0].Result[0], tc.DeepEquals, s.expectedFilesystemDetails())
@@ -75,7 +74,7 @@ func (s *filesystemSuite) TestListFilesystemsError(c *tc.C) {
 	results, err := s.api.ListFilesystems(context.Background(), params.FilesystemFilters{
 		[]params.FilesystemFilter{{}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Error, tc.ErrorMatches, msg)
 }
@@ -87,7 +86,7 @@ func (s *filesystemSuite) TestListFilesystemsNoFilesystems(c *tc.C) {
 		return nil, nil
 	}
 	results, err := s.api.ListFilesystems(context.Background(), params.FilesystemFilters{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 0)
 }
 
@@ -98,10 +97,10 @@ func (s *filesystemSuite) TestListFilesystemsFilter(c *tc.C) {
 		Machines: []string{s.machineTag.String()},
 	}}
 	found, err := s.api.ListFilesystems(context.Background(), params.FilesystemFilters{filters})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 1)
 	c.Assert(found.Results[0].Result, tc.HasLen, 1)
-	c.Assert(found.Results[0].Result[0], jc.DeepEquals, s.expectedFilesystemDetails())
+	c.Assert(found.Results[0].Result[0], tc.DeepEquals, s.expectedFilesystemDetails())
 }
 
 func (s *filesystemSuite) TestListFilesystemsFilterNonMatching(c *tc.C) {
@@ -111,7 +110,7 @@ func (s *filesystemSuite) TestListFilesystemsFilterNonMatching(c *tc.C) {
 		Machines: []string{"machine-42"},
 	}}
 	found, err := s.api.ListFilesystems(context.Background(), params.FilesystemFilters{filters})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 1)
 	c.Assert(found.Results[0].Error, tc.IsNil)
 	c.Assert(found.Results[0].Result, tc.HasLen, 0)
@@ -128,10 +127,10 @@ func (s *filesystemSuite) TestListFilesystemsFilesystemInfo(c *tc.C) {
 	found, err := s.api.ListFilesystems(context.Background(), params.FilesystemFilters{
 		[]params.FilesystemFilter{{}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 1)
 	c.Assert(found.Results[0].Result, tc.HasLen, 1)
-	c.Assert(found.Results[0].Result[0], jc.DeepEquals, expected)
+	c.Assert(found.Results[0].Result[0], tc.DeepEquals, expected)
 }
 
 func (s *filesystemSuite) TestListFilesystemsAttachmentInfo(c *tc.C) {
@@ -155,10 +154,10 @@ func (s *filesystemSuite) TestListFilesystemsAttachmentInfo(c *tc.C) {
 	found, err := s.api.ListFilesystems(context.Background(), params.FilesystemFilters{
 		[]params.FilesystemFilter{{}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 1)
 	c.Assert(found.Results[0].Result, tc.HasLen, 1)
-	c.Assert(found.Results[0].Result[0], jc.DeepEquals, expected)
+	c.Assert(found.Results[0].Result[0], tc.DeepEquals, expected)
 }
 
 func (s *filesystemSuite) TestListFilesystemsVolumeBacked(c *tc.C) {
@@ -170,8 +169,8 @@ func (s *filesystemSuite) TestListFilesystemsVolumeBacked(c *tc.C) {
 	found, err := s.api.ListFilesystems(context.Background(), params.FilesystemFilters{
 		[]params.FilesystemFilter{{}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 1)
 	c.Assert(found.Results[0].Result, tc.HasLen, 1)
-	c.Assert(found.Results[0].Result[0], jc.DeepEquals, expected)
+	c.Assert(found.Results[0].Result[0], tc.DeepEquals, expected)
 }

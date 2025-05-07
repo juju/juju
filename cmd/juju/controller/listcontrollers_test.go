@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/juju/controller"
@@ -244,8 +243,8 @@ func (s *ListControllersSuite) TestListControllersJson(c *tc.C) {
 	jsonOut := s.assertListControllers(c, "--format", "json")
 	var result controller.ControllerSet
 	err := json.Unmarshal([]byte(jsonOut), &result)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, controller.ControllerSet{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, controller.ControllerSet{
 		Controllers: map[string]controller.ControllerItem{
 			"aws-test": {
 				ControllerUUID: "this-is-the-aws-test-uuid",
@@ -341,7 +340,7 @@ another controller that you have been given access to using "juju register".
 func (s *ListControllersSuite) TestListControllersManagedFlag(c *tc.C) {
 	s.createTestClientStore(c)
 	_, err := s.runListControllers(c, "--managed")
-	c.Assert(err, jc.ErrorIs, cmd.ErrCommandMissing)
+	c.Assert(err, tc.ErrorIs, cmd.ErrCommandMissing)
 }
 
 func (s *ListControllersSuite) runListControllers(c *tc.C, args ...string) (*cmd.Context, error) {
@@ -355,7 +354,7 @@ func (s *ListControllersSuite) assertListControllersFailed(c *tc.C, args ...stri
 
 func (s *ListControllersSuite) assertListControllers(c *tc.C, args ...string) string {
 	context, err := s.runListControllers(c, args...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	output := cmdtesting.Stdout(context)
 	if s.expectedOutput != "" {
 		c.Assert(output, tc.Equals, s.expectedOutput)

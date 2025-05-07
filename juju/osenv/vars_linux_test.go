@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/juju/osenv"
 )
@@ -30,7 +29,7 @@ func (s *varsSuite) TestJujuXDGDataHomeNoSnapHome(c *tc.C) {
 	s.PatchEnvironment(osenv.XDGDataHome, "")
 	s.PatchEnvironment("SNAP_REAL_HOME", "")
 	err := os.Unsetenv("SNAP_REAL_HOME")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.PatchEnvironment("HOME", path)
 	c.Assert(osenv.JujuXDGDataHomeLinux(), tc.Equals, filepath.Join(path, ".local", "share", "juju"))
 }

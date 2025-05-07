@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/firewaller"
@@ -29,7 +28,7 @@ func (s *unitSuite) TestUnit(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "Life")
-		c.Assert(arg, jc.DeepEquals, params.Entities{
+		c.Assert(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "unit-mysql-666"}},
 		})
 		c.Assert(result, tc.FitsTypeOf, &params.LifeResults{})
@@ -40,11 +39,11 @@ func (s *unitSuite) TestUnit(c *tc.C) {
 	})
 	tag := names.NewUnitTag("mysql/666")
 	client, err := firewaller.NewClient(apiCaller)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	u, err := client.Unit(context.Background(), tag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(u.Life(), tc.Equals, life.Alive)
-	c.Assert(u.Name(), jc.DeepEquals, "mysql/666")
+	c.Assert(u.Name(), tc.DeepEquals, "mysql/666")
 }
 
 func (s *unitSuite) TestRefresh(c *tc.C) {
@@ -54,7 +53,7 @@ func (s *unitSuite) TestRefresh(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "Life")
-		c.Assert(arg, jc.DeepEquals, params.Entities{
+		c.Assert(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "unit-mysql-666"}},
 		})
 		c.Assert(result, tc.FitsTypeOf, &params.LifeResults{})
@@ -70,11 +69,11 @@ func (s *unitSuite) TestRefresh(c *tc.C) {
 	})
 	tag := names.NewUnitTag("mysql/666")
 	client, err := firewaller.NewClient(apiCaller)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	u, err := client.Unit(context.Background(), tag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = u.Refresh(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(u.Life(), tc.Equals, life.Dead)
 	c.Assert(calls, tc.Equals, 2)
 }
@@ -85,7 +84,7 @@ func (s *unitSuite) TestAssignedMachine(c *tc.C) {
 		c.Check(objType, tc.Equals, "Firewaller")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
-		c.Assert(arg, jc.DeepEquals, params.Entities{
+		c.Assert(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "unit-mysql-666"}},
 		})
 		if calls > 0 {
@@ -106,11 +105,11 @@ func (s *unitSuite) TestAssignedMachine(c *tc.C) {
 	})
 	tag := names.NewUnitTag("mysql/666")
 	client, err := firewaller.NewClient(apiCaller)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	u, err := client.Unit(context.Background(), tag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	m, err := u.AssignedMachine(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(m.Id(), tc.Equals, "666")
 	c.Assert(calls, tc.Equals, 2)
 }
@@ -120,7 +119,7 @@ func (s *unitSuite) TestApplication(c *tc.C) {
 		c.Check(objType, tc.Equals, "Firewaller")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
-		c.Assert(arg, jc.DeepEquals, params.Entities{
+		c.Assert(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "unit-mysql-666"}},
 		})
 		c.Assert(result, tc.FitsTypeOf, &params.LifeResults{})
@@ -132,10 +131,10 @@ func (s *unitSuite) TestApplication(c *tc.C) {
 	})
 	tag := names.NewUnitTag("mysql/666")
 	client, err := firewaller.NewClient(apiCaller)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	u, err := client.Unit(context.Background(), tag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	app, err := u.Application()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(app.Name(), tc.Equals, "mysql")
 }

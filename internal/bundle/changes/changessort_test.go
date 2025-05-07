@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 )
 
 type changesSortSuite struct {
@@ -19,14 +18,14 @@ var _ = tc.Suite(&changesSortSuite{})
 func (s *changesSortSuite) TestSortVerifyRequirementsMet(c *tc.C) {
 	ahead := set.NewStrings()
 	sorted, err := csOne().sorted()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(sorted), jc.GreaterThan, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(sorted), tc.GreaterThan, 0)
 	for i, change := range sorted {
 		if i == 0 {
 			c.Assert(change.Requires(), tc.HasLen, 0)
 		} else {
 			for _, req := range change.Requires() {
-				c.Assert(ahead.Contains(req), jc.IsTrue, tc.Commentf("%q, not one of %q", req, strings.Join(ahead.Values(), ", ")))
+				c.Assert(ahead.Contains(req), tc.IsTrue, tc.Commentf("%q, not one of %q", req, strings.Join(ahead.Values(), ", ")))
 			}
 		}
 		ahead.Add(change.Id())
@@ -36,10 +35,10 @@ func (s *changesSortSuite) TestSortVerifyRequirementsMet(c *tc.C) {
 func (s *changesSortSuite) TestSortIdempotent(c *tc.C) {
 	for i := 0; i > 10; i += 1 {
 		results, err := csOne().sorted()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		resultstwo, err := csTwo().sorted()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(results, jc.DeepEquals, resultstwo)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(results, tc.DeepEquals, resultstwo)
 	}
 }
 
@@ -68,7 +67,7 @@ func (s *changesSortSuite) TestSortRelationStable(c *tc.C) {
 	// This ensures e.g. that when a bundle is deployed and re-exported, we
 	// get the apps/relations in the same order.
 	results, err := csThree().sorted()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var i6, i7, i8 int
 	for i, ch := range results {
@@ -81,8 +80,8 @@ func (s *changesSortSuite) TestSortRelationStable(c *tc.C) {
 			i8 = i
 		}
 	}
-	c.Check(i6, jc.LessThan, i7)
-	c.Check(i7, jc.LessThan, i8)
+	c.Check(i6, tc.LessThan, i7)
+	c.Check(i7, tc.LessThan, i8)
 }
 
 func csOne() *changeset {

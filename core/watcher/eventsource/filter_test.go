@@ -6,7 +6,6 @@ package eventsource
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/changestream"
 )
@@ -27,8 +26,8 @@ func (s *filterSuite) TestPredicateFilter(c *tc.C) {
 
 	received := f.ChangePredicate()
 	c.Assert(received, tc.NotNil)
-	c.Check(received("bar"), jc.IsTrue)
-	c.Check(received("foo"), jc.IsFalse)
+	c.Check(received("bar"), tc.IsTrue)
+	c.Check(received("foo"), tc.IsFalse)
 }
 
 func (s *filterSuite) TestNamespaceFilter(c *tc.C) {
@@ -38,6 +37,6 @@ func (s *filterSuite) TestNamespaceFilter(c *tc.C) {
 
 	received := f.ChangePredicate()
 	c.Assert(received, tc.NotNil)
-	c.Check(received("bar"), jc.IsTrue)
-	c.Check(received("foo"), jc.IsTrue)
+	c.Check(received("bar"), tc.IsTrue)
+	c.Check(received("foo"), tc.IsTrue)
 }

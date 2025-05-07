@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	storageerrors "github.com/juju/juju/domain/storage/errors"
@@ -39,7 +38,7 @@ func (s *poolUpdateSuite) TestUpdatePool(c *tc.C) {
 		}},
 	}
 	results, err := s.api.UpdatePool(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Error, tc.IsNil)
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
@@ -141,7 +140,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateNoImageMetadataSuppliedButImageExist
 	)
 
 	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), base.MustParseBaseFromString("ubuntu@22.04"), "amd64")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(tpl, tc.NotNil)
 	c.Assert(arch, tc.Equals, "amd64")
 	v.client.CheckCallNames(c, "ListVMTemplates", "EnsureVMFolder", "CreateTemplateVM")
@@ -156,7 +155,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateNoImageMetadataSuppliedAndImageDoesN
 	)
 
 	_, _, err := tplMgr.EnsureTemplate(context.Background(), base.MustParseBaseFromString("ubuntu@16.04"), "amd64")
-	c.Assert(err, jc.ErrorIs, environs.ErrAvailabilityZoneIndependent)
+	c.Assert(err, tc.ErrorIs, environs.ErrAvailabilityZoneIndependent)
 	c.Assert(err.Error(), tc.Matches, "no matching images found for given constraints.*")
 	v.client.CheckCallNames(c, "ListVMTemplates", "EnsureVMFolder")
 }
@@ -178,8 +177,8 @@ func (v *vmTemplateSuite) TestEnsureTemplateWithImageMetadataSupplied(c *tc.C) {
 		coretesting.FakeControllerConfig().ControllerUUID(),
 	)
 	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), base.MustParseBaseFromString("ubuntu@22.04"), "amd64")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(tpl, jc.DeepEquals, v.client.virtualMachineTemplates[0].vm)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(tpl, tc.DeepEquals, v.client.virtualMachineTemplates[0].vm)
 	c.Assert(arch, tc.Equals, "amd64")
 	v.client.CheckCallNames(c, "ListVMTemplates")
 }
@@ -204,7 +203,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateImageNotFoundLocally(c *tc.C) {
 	)
 	// jammy exists in the image-download simplestreams
 	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), base.MustParseBaseFromString("ubuntu@22.04"), "amd64")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(tpl, tc.NotNil)
 	c.Assert(arch, tc.Equals, "amd64")
 	// List of calls should be identical to when no custom simplestreams are supplied.
@@ -221,7 +220,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateImageCachedImage(c *tc.C) {
 	)
 
 	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), base.MustParseBaseFromString("ubuntu@22.04"), "amd64")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(tpl, tc.NotNil)
 	c.Assert(arch, tc.Equals, "amd64")
 	v.client.CheckCallNames(c, "ListVMTemplates", "VirtualMachineObjectToManagedObject")
@@ -237,7 +236,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateImageCachedImageNoArch(c *tc.C) {
 	)
 
 	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), base.MustParseBaseFromString("ubuntu@22.04"), "amd64")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(tpl, tc.NotNil)
 	c.Assert(arch, tc.Equals, "")
 	v.client.CheckCallNames(c, "ListVMTemplates", "VirtualMachineObjectToManagedObject")

@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/storage"
@@ -128,7 +127,7 @@ shared-fs/0:
 
 func (s *ShowSuite) assertValidShow(c *tc.C, args []string, expected string) {
 	context, err := s.runShow(c, args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained := cmdtesting.Stdout(context)
 	c.Assert(obtained, tc.Equals, expected)

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/tomb.v2"
 
@@ -35,7 +34,7 @@ func (s *baseObjectStoreSuite) TestScopedContext(c *tc.C) {
 	c.Assert(ctx.Err(), tc.IsNil)
 
 	cancel()
-	c.Assert(ctx.Err(), jc.ErrorIs, context.Canceled)
+	c.Assert(ctx.Err(), tc.ErrorIs, context.Canceled)
 }
 
 func (s *baseObjectStoreSuite) TestScopedContextTomb(c *tc.C) {
@@ -46,7 +45,7 @@ func (s *baseObjectStoreSuite) TestScopedContextTomb(c *tc.C) {
 
 	w.tomb.Kill(nil)
 
-	c.Assert(ctx.Err(), jc.ErrorIs, context.Canceled)
+	c.Assert(ctx.Err(), tc.ErrorIs, context.Canceled)
 }
 
 func (s *baseObjectStoreSuite) TestLockOnCancelledContext(c *tc.C) {
@@ -60,14 +59,14 @@ func (s *baseObjectStoreSuite) TestLockOnCancelledContext(c *tc.C) {
 	}
 
 	ctx, cancel := w.scopedContext()
-	c.Assert(ctx.Err(), jc.ErrorIsNil)
+	c.Assert(ctx.Err(), tc.ErrorIsNil)
 
 	cancel()
 
 	err := w.withLock(ctx, "hash", func(ctx context.Context) error {
 		return nil
 	})
-	c.Assert(err, jc.ErrorIs, context.Canceled)
+	c.Assert(err, tc.ErrorIs, context.Canceled)
 }
 
 func (s *baseObjectStoreSuite) TestLocking(c *tc.C) {
@@ -89,15 +88,15 @@ func (s *baseObjectStoreSuite) TestLocking(c *tc.C) {
 	}
 
 	ctx, _ := w.scopedContext()
-	c.Assert(ctx.Err(), jc.ErrorIsNil)
+	c.Assert(ctx.Err(), tc.ErrorIsNil)
 
 	var called bool
 	err := w.withLock(ctx, "hash", func(ctx context.Context) error {
 		called = true
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(called, tc.IsTrue)
 }
 
 func (s *baseObjectStoreSuite) TestLockingForBlockedFunc(c *tc.C) {
@@ -121,7 +120,7 @@ func (s *baseObjectStoreSuite) TestLockingForBlockedFunc(c *tc.C) {
 	}
 
 	ctx, _ := w.scopedContext()
-	c.Assert(ctx.Err(), jc.ErrorIsNil)
+	c.Assert(ctx.Err(), tc.ErrorIsNil)
 
 	s.claimExtender.EXPECT().Extend(gomock.Any()).DoAndReturn(func(ctx context.Context) error {
 		close(block)
@@ -139,7 +138,7 @@ func (s *baseObjectStoreSuite) TestLockingForBlockedFunc(c *tc.C) {
 			return nil
 		}
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *baseObjectStoreSuite) TestBlockedLock(c *tc.C) {
@@ -162,7 +161,7 @@ func (s *baseObjectStoreSuite) TestBlockedLock(c *tc.C) {
 	}
 
 	ctx, _ := w.scopedContext()
-	c.Assert(ctx.Err(), jc.ErrorIsNil)
+	c.Assert(ctx.Err(), tc.ErrorIsNil)
 
 	var called bool
 	err := w.withLock(ctx, "hash", func(ctx context.Context) error {
@@ -170,13 +169,13 @@ func (s *baseObjectStoreSuite) TestBlockedLock(c *tc.C) {
 		called = true
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(called, tc.IsTrue)
 
 	// Make sure we've extended the lock. 5 is just arbitrary, but should be
 	// enough to ensure we've extended the lock. In theory it should be at
 	// least 9, but we have to account for slowness of runners.
-	c.Check(attempts > 5, jc.IsTrue)
+	c.Check(attempts > 5, tc.IsTrue)
 }
 
 func (s *baseObjectStoreSuite) TestLockingForTombKill(c *tc.C) {
@@ -197,7 +196,7 @@ func (s *baseObjectStoreSuite) TestLockingForTombKill(c *tc.C) {
 	}
 
 	ctx, _ := w.scopedContext()
-	c.Assert(ctx.Err(), jc.ErrorIsNil)
+	c.Assert(ctx.Err(), tc.ErrorIsNil)
 
 	wait := make(chan struct{})
 
@@ -216,7 +215,7 @@ func (s *baseObjectStoreSuite) TestLockingForTombKill(c *tc.C) {
 		time.Sleep(time.Millisecond * 100)
 		return nil
 	})
-	c.Assert(err, jc.ErrorIs, tomb.ErrDying)
+	c.Assert(err, tc.ErrorIs, tomb.ErrDying)
 
 	select {
 	case <-wait:
@@ -245,7 +244,7 @@ func (s *baseObjectStoreSuite) TestPruneWithNoData(c *tc.C) {
 	}
 
 	err := w.prune(context.Background(), list, delete)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *baseObjectStoreSuite) TestPruneWithJustMetadata(c *tc.C) {
@@ -270,7 +269,7 @@ func (s *baseObjectStoreSuite) TestPruneWithJustMetadata(c *tc.C) {
 	}
 
 	err := w.prune(context.Background(), list, delete)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *baseObjectStoreSuite) TestPruneWithJustObjects(c *tc.C) {
@@ -296,7 +295,7 @@ func (s *baseObjectStoreSuite) TestPruneWithJustObjects(c *tc.C) {
 	}
 
 	err := w.prune(context.Background(), list, delete)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *baseObjectStoreSuite) TestPruneWithMatches(c *tc.C) {
@@ -325,7 +324,7 @@ func (s *baseObjectStoreSuite) TestPruneWithMatches(c *tc.C) {
 	}
 
 	err := w.prune(context.Background(), list, delete)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *baseObjectStoreSuite) setupMocks(c *tc.C) *gomock.Controller {

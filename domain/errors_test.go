@@ -8,7 +8,6 @@ import (
 
 	dqlite "github.com/canonical/go-dqlite/v2/driver"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/mattn/go-sqlite3"
 
 	"github.com/juju/juju/internal/errors"
@@ -30,7 +29,7 @@ var _ = tc.Suite(&errorsSuite{})
 // get back a nil error.
 func (e *errorsSuite) TestCoerceForNilError(c *tc.C) {
 	err := CoerceError(nil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 // TestMaskErrorIsHidesSqlErrors is testing that if we construct a maskError
@@ -71,7 +70,7 @@ func (e *errorsSuite) TestMaskErrorIsHidesSqlErrors(c *tc.C) {
 
 	for _, test := range tests {
 		err := maskError{errors.Errorf("%q %w", test.Name, test.Error)}
-		c.Check(errors.Is(err, test.Error), jc.IsFalse, tc.Commentf(test.Name))
+		c.Check(errors.Is(err, test.Error), tc.IsFalse, tc.Commentf(test.Name))
 	}
 }
 
@@ -105,7 +104,7 @@ func (e *errorsSuite) TestMaskErrorIsNoHide(c *tc.C) {
 	origError := errors.New("test error")
 	err := errors.Errorf("wrap orig error: %w", origError)
 	maskErr := maskError{err}
-	c.Check(errors.Is(maskErr, origError), jc.IsTrue)
+	c.Check(errors.Is(maskErr, origError), tc.IsTrue)
 
 	sqlErr := sqlite3.Error{
 		Code:         sqlite3.ErrAbort,
@@ -114,7 +113,7 @@ func (e *errorsSuite) TestMaskErrorIsNoHide(c *tc.C) {
 
 	err = errors.Errorf("double wrap %w %w", sqlErr, origError)
 	maskErr = maskError{err}
-	c.Check(errors.Is(maskErr, origError), jc.IsTrue)
+	c.Check(errors.Is(maskErr, origError), tc.IsTrue)
 }
 
 // TestMaskErrorAsNoHide is here to check that if maskError contains non sql
@@ -125,7 +124,7 @@ func (e *errorsSuite) TestMaskErrorAsNoHide(c *tc.C) {
 	maskErr := maskError{err}
 
 	var rval asError
-	c.Check(errors.As(maskErr, &rval), jc.IsTrue)
+	c.Check(errors.As(maskErr, &rval), tc.IsTrue)
 
 	sqlErr := sqlite3.Error{
 		Code:         sqlite3.ErrAbort,
@@ -134,7 +133,7 @@ func (e *errorsSuite) TestMaskErrorAsNoHide(c *tc.C) {
 
 	err = errors.Errorf("double wrap %w %w", sqlErr, origError)
 	maskErr = maskError{err}
-	c.Check(errors.As(maskErr, &rval), jc.IsTrue)
+	c.Check(errors.As(maskErr, &rval), tc.IsTrue)
 }
 
 // TestMaskErrorAsHidesSqlLiteErrors is here to assert that if we try and
@@ -147,7 +146,7 @@ func (e *errorsSuite) TestMaskErrorAsHidesSqlLiteErrors(c *tc.C) {
 		ExtendedCode: sqlite3.ErrBusyRecovery,
 	}}
 
-	c.Check(errors.As(err, &rval), jc.IsFalse)
+	c.Check(errors.As(err, &rval), tc.IsFalse)
 }
 
 // TestMaskErrorAsHidesSqlLiteErrors is here to assert that if we try and
@@ -160,5 +159,5 @@ func (e *errorsSuite) TestMaskErrorAsHidesDQLiteErrors(c *tc.C) {
 		Message: "something went wrong",
 	}}
 
-	c.Check(errors.As(err, &rval), jc.IsFalse)
+	c.Check(errors.As(err, &rval), tc.IsFalse)
 }

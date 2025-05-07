@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/storageprovisioner/internal/schedule"
@@ -116,7 +115,7 @@ func assertNextOp(c *tc.C, s *schedule.Schedule, clock *testclock.Clock, d time.
 
 	select {
 	case _, ok := <-next:
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		// the time value is unimportant to us
 	default:
 		c.Fatal("Next channel not signalled")
@@ -125,5 +124,5 @@ func assertNextOp(c *tc.C, s *schedule.Schedule, clock *testclock.Clock, d time.
 
 func assertReady(c *tc.C, s *schedule.Schedule, clock *testclock.Clock, expect ...interface{}) {
 	ready := s.Ready(clock.Now())
-	c.Assert(ready, jc.DeepEquals, expect)
+	c.Assert(ready, tc.DeepEquals, expect)
 }

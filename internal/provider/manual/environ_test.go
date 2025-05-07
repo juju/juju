@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
@@ -32,7 +31,7 @@ func (s *baseEnvironSuite) SetUpTest(c *tc.C) {
 		Cloud:  CloudSpec(),
 		Config: MinimalConfig(c),
 	}, environs.NoopCredentialInvalidator())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.env = env.(*manualEnviron)
 }
 
@@ -51,13 +50,13 @@ func (s *environSuite) TestInstances(c *tc.C) {
 
 	ids = append(ids, BootstrapInstanceId)
 	instances, err = s.env.Instances(context.Background(), ids)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(instances, tc.HasLen, 1)
 	c.Assert(instances[0], tc.NotNil)
 
 	ids = append(ids, BootstrapInstanceId)
 	instances, err = s.env.Instances(context.Background(), ids)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(instances, tc.HasLen, 2)
 	c.Assert(instances[0], tc.NotNil)
 	c.Assert(instances[1], tc.NotNil)
@@ -138,7 +137,7 @@ exit 0
 		resultStdout, resultErr = t.stdout, t.err
 		err := s.env.DestroyController(context.Background(), "controller-uuid")
 		if t.match == "" {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		} else {
 			c.Assert(err, tc.ErrorMatches, t.match)
 		}
@@ -156,11 +155,11 @@ func (s *environSuite) TestConstraintsValidator(c *tc.C) {
 	)
 
 	validator, err := s.env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cons := constraints.MustParse("arch=amd64 instance-type=foo tags=bar cpu-power=10 cores=2 mem=1G virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "instance-type", "tags", "virt-type"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(unsupported, tc.SameContents, []string{"cpu-power", "instance-type", "tags", "virt-type"})
 }
 
 func (s *environSuite) TestConstraintsValidatorInsideController(c *tc.C) {
@@ -170,10 +169,10 @@ func (s *environSuite) TestConstraintsValidatorInsideController(c *tc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
 
 	validator, err := s.env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cons := constraints.MustParse("arch=arm64")
 	_, err = validator.Validate(cons)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *environSuite) TestPrecheck(c *tc.C) {
@@ -196,7 +195,7 @@ func (s *environSuite) TestPrecheck(c *tc.C) {
 	err = s.env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
 		Constraints: constraint,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type controllerInstancesSuite struct {
@@ -237,7 +236,7 @@ func (s *controllerInstancesSuite) TestControllerInstances(c *tc.C) {
 		errResult = test.err
 		instances, err := s.env.ControllerInstances(context.Background(), "not-used")
 		if test.expectedErr == "" {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(instances, tc.DeepEquals, []instance.Id{BootstrapInstanceId})
 		} else {
 			c.Assert(err, tc.ErrorMatches, test.expectedErr)
@@ -250,7 +249,7 @@ func (s *controllerInstancesSuite) TestControllerInstancesStderr(c *tc.C) {
 	// Stderr should not affect the behaviour of ControllerInstances.
 	testing.PatchExecutable(c, s, "ssh", "#!/bin/sh\nhead -n1 > /dev/null; echo abc >&2; exit 0")
 	_, err := s.env.ControllerInstances(context.Background(), "not-used")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *controllerInstancesSuite) TestControllerInstancesError(c *tc.C) {
@@ -267,6 +266,6 @@ func (s *controllerInstancesSuite) TestControllerInstancesInternal(c *tc.C) {
 	// were to call it.
 	testing.PatchExecutable(c, s, "ssh", "#!/bin/sh\nhead -n1 > /dev/null; echo abc >&2; exit 1")
 	instances, err := s.env.ControllerInstances(context.Background(), "not-used")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(instances, tc.DeepEquals, []instance.Id{BootstrapInstanceId})
 }

@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/backups"
@@ -88,7 +87,7 @@ func (s *BaseBackupsSuite) TearDownTest(c *tc.C) {
 	if s.filename != "" {
 		err := os.Remove(s.filename)
 		if !os.IsNotExist(err) {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		}
 	}
 
@@ -143,7 +142,7 @@ func (s *BaseBackupsSuite) createCommandForGlobalOptionTesting(subcommand cmd.Co
 func (s *BaseBackupsSuite) checkArchive(c *tc.C) {
 	c.Assert(s.filename, tc.Not(tc.Equals), "")
 	archive, err := os.Open(s.filename)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer archive.Close()
 
 	// Test file created successfully. Clean it up after the test is run.
@@ -155,7 +154,7 @@ func (s *BaseBackupsSuite) checkArchive(c *tc.C) {
 	})
 
 	data, err := io.ReadAll(archive)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(string(data), tc.Equals, s.data)
 }
 
@@ -173,17 +172,17 @@ type fakeAPIClient struct {
 }
 
 func (f *fakeAPIClient) Check(c *tc.C, id, notes string, calls ...string) {
-	c.Check(f.calls, jc.DeepEquals, calls)
+	c.Check(f.calls, tc.DeepEquals, calls)
 	c.Check(f.idArg, tc.Equals, id)
 	c.Check(f.notes, tc.Equals, notes)
 }
 
 func (f *fakeAPIClient) CheckCalls(c *tc.C, calls ...string) {
-	c.Check(f.calls, jc.DeepEquals, calls)
+	c.Check(f.calls, tc.DeepEquals, calls)
 }
 
 func (f *fakeAPIClient) CheckArgs(c *tc.C, args ...string) {
-	c.Check(f.args, jc.DeepEquals, args)
+	c.Check(f.args, tc.DeepEquals, args)
 }
 
 func (c *fakeAPIClient) Create(ctx context.Context, notes string, noDownload bool) (*params.BackupsMetadataResult, error) {

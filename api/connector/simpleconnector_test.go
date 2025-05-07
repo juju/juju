@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/internal/testing"
@@ -130,7 +129,7 @@ func (s *simpleConnectorSuite) TestSimpleConnectorConnect(c *tc.C) {
 			do.InsecureSkipVerify = true
 			do.Timeout = 5 * time.Minute
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(called, tc.Equals, true)
 }

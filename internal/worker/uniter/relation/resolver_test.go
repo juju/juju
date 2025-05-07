@@ -13,7 +13,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
@@ -73,13 +72,13 @@ func mockAPICaller(c *tc.C, callNumber *int32, apiCalls ...apiCall) apitesting.A
 			return nil
 		case "Uniter":
 			index := int(atomic.AddInt32(callNumber, 1)) - 1
-			c.Check(index <= len(apiCalls), jc.IsTrue, tc.Commentf("index = %d; len(apiCalls) = %d", index, len(apiCalls)))
+			c.Check(index <= len(apiCalls), tc.IsTrue, tc.Commentf("index = %d; len(apiCalls) = %d", index, len(apiCalls)))
 			call := apiCalls[index]
 			c.Logf("request %d, %s", index, request)
 			c.Check(version, tc.Equals, 0)
 			c.Check(id, tc.Equals, "")
 			c.Check(request, tc.Equals, call.request)
-			c.Check(arg, jc.DeepEquals, call.args)
+			c.Check(arg, tc.DeepEquals, call.args)
 			if call.err != nil {
 				return apiservererrors.ServerError(call.err)
 			}
@@ -112,9 +111,9 @@ requires:
 func (s *relationResolverSuite) SetUpTest(c *tc.C) {
 	s.charmDir = filepath.Join(c.MkDir(), "charm")
 	err := os.MkdirAll(s.charmDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = os.WriteFile(filepath.Join(s.charmDir, "metadata.yaml"), []byte(minimalMetadata), 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.leadershipContext = &stubLeadershipContext{isLeader: true}
 }
 
@@ -127,7 +126,7 @@ func (s *relationResolverSuite) newRelationStateTracker(c *tc.C, apiCaller base.
 	abort := make(chan struct{})
 	client := apiuniter.NewClient(apiCaller, unitTag)
 	u, err := client.Unit(stdcontext.Background(), unitTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	r, err := relation.NewRelationStateTracker(stdcontext.Background(),
 		relation.RelationStateTrackerConfig{
 			Client:            uniterapi.UniterClientShim{Client: client},
@@ -137,7 +136,7 @@ func (s *relationResolverSuite) newRelationStateTracker(c *tc.C, apiCaller base.
 			LeadershipContext: s.leadershipContext,
 			Abort:             abort,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return r
 }
 
@@ -224,7 +223,7 @@ func (s *relationResolverSuite) assertNewRelationsWithExistingRelations(c *tc.C,
 	c.Assert(info, tc.HasLen, 1)
 	oneInfo := info[1]
 	c.Assert(oneInfo.RelationUnit.Relation().Tag(), tc.Equals, names.NewRelationTag("wordpress:db mysql:db"))
-	c.Assert(oneInfo.RelationUnit.Endpoint(), jc.DeepEquals, apiuniter.Endpoint{
+	c.Assert(oneInfo.RelationUnit.Endpoint(), tc.DeepEquals, apiuniter.Endpoint{
 		Relation: charm.Relation{Name: "mysql", Role: "provider", Interface: "db", Optional: false, Limit: 0, Scope: ""},
 	})
 	c.Assert(oneInfo.MemberNames, tc.HasLen, 0)
@@ -404,14 +403,14 @@ func (s *relationResolverSuite) assertHookRelationJoined(c *tc.C, numCalls *int3
 	}
 	relationsResolver := s.newRelationResolver(c, r, nil)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertNumCalls(c, numCalls, 11)
 	c.Assert(op.String(), tc.Equals, "run hook relation-joined on unit wordpress/0 with relation 1")
 
 	_, err = r.PrepareHook(op.(*mockOperation).hookInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = r.CommitHook(stdcontext.Background(), op.(*mockOperation).hookInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return r
 }
 
@@ -438,15 +437,15 @@ func (s *relationResolverSuite) assertHookRelationChanged(
 	}
 	relationsResolver := s.newRelationResolver(c, r, nil)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertNumCalls(c, numCalls, numCallsBefore)
 	c.Assert(op.String(), tc.Equals, "run hook relation-changed on unit wordpress/0 with relation 1")
 
 	// Commit the operation so we save local state for any next operation.
 	_, err = r.PrepareHook(op.(*mockOperation).hookInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = r.CommitHook(stdcontext.Background(), op.(*mockOperation).hookInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *relationResolverSuite) TestHookRelationChanged(c *tc.C) {
@@ -540,7 +539,7 @@ func (s *relationResolverSuite) TestHookRelationChangedApplication(c *tc.C) {
 	}
 	relationsResolver := s.newRelationResolver(c, r, nil)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// No new calls
 	assertNumCalls(c, &numCalls, numCallsBefore)
 	c.Assert(op.String(), tc.Equals, "run hook relation-changed on app wordpress with relation 1")
@@ -558,7 +557,7 @@ func (s *relationResolverSuite) TestHookRelationChangedSuspended(c *tc.C) {
 		Life:      life.Alive,
 		Suspended: true,
 	}, &numCalls)
-	c.Assert(r.GetInfo()[1].RelationUnit.Relation().Suspended(), jc.IsTrue)
+	c.Assert(r.GetInfo()[1].RelationUnit.Relation().Suspended(), tc.IsTrue)
 
 	numCallsBefore := numCalls
 
@@ -578,7 +577,7 @@ func (s *relationResolverSuite) TestHookRelationChangedSuspended(c *tc.C) {
 
 	relationsResolver := s.newRelationResolver(c, r, nil)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertNumCalls(c, &numCalls, numCallsBefore+2) // Refresh/Life calls made by the resolver prior to emitting a RelationDeparted hook
 	c.Assert(op.String(), tc.Equals, "run hook relation-departed on unit wordpress/0 with relation 1")
 }
@@ -608,15 +607,15 @@ func (s *relationResolverSuite) assertHookRelationDeparted(c *tc.C, numCalls *in
 	}
 	relationsResolver := s.newRelationResolver(c, r, nil)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertNumCalls(c, numCalls, numCallsBefore+2) // Refresh/Life calls made by the resolver prior to emitting a RelationDeparted hook
 	c.Assert(op.String(), tc.Equals, "run hook relation-departed on unit wordpress/0 with relation 1")
 
 	// Commit the operation so we save local state for any next operation.
 	_, err = r.PrepareHook(op.(*mockOperation).hookInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = r.CommitHook(stdcontext.Background(), op.(*mockOperation).hookInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return r
 }
 
@@ -647,7 +646,7 @@ func (s *relationResolverSuite) TestHookRelationBroken(c *tc.C) {
 	}
 	relationsResolver := s.newRelationResolver(c, r, nil)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertNumCalls(c, &numCalls, 16)
 	c.Assert(op.String(), tc.Equals, "run hook relation-broken with relation 1")
 }
@@ -673,7 +672,7 @@ func (s *relationResolverSuite) TestHookRelationBrokenWhenSuspended(c *tc.C) {
 	}
 	relationsResolver := s.newRelationResolver(c, r, nil)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertNumCalls(c, &numCalls, 16)
 	c.Assert(op.String(), tc.Equals, "run hook relation-broken with relation 1")
 }
@@ -716,14 +715,14 @@ func (s *relationResolverSuite) TestHookRelationBrokenOnlyOnce(c *tc.C) {
 	// Get RelationBroken once.
 	relationsResolver := s.newRelationResolver(c, r, nil)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Commit the RelationBroken, so the NextOp will do the correct thing.
 	mockOp, ok := op.(*mockOperation)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	c.Assert(mockOp.hookInfo.Kind, tc.Equals, hooks.RelationBroken)
 	err = r.CommitHook(stdcontext.Background(), mockOp.hookInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
 	c.Assert(errors.Cause(err), tc.Equals, resolver.ErrNoOperation)
@@ -766,7 +765,7 @@ func (s *relationResolverSuite) TestCommitHook(c *tc.C) {
 		RelationId:        1,
 		ChangeVersion:     2,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = r.CommitHook(stdcontext.Background(), hook.Info{
 		Kind:              hooks.RelationDeparted,
@@ -774,7 +773,7 @@ func (s *relationResolverSuite) TestCommitHook(c *tc.C) {
 		RemoteApplication: "wordpress",
 		RelationId:        1,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *relationResolverSuite) TestImplicitRelationNoHooks(c *tc.C) {
@@ -1007,7 +1006,7 @@ func (s *relationResolverSuite) TestSubSubPrincipalRelationDyingDestroysUnit(c *
 
 	relationResolver := s.newRelationResolver(c, r, nil)
 	_, err := relationResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that we've made the destroy unit call.
 	//
@@ -1015,7 +1014,7 @@ func (s *relationResolverSuite) TestSubSubPrincipalRelationDyingDestroysUnit(c *
 	// This test intermittently makes either 17 or 18
 	// calls.  Number 17 is destroy, so ensure we've
 	// called at least that.
-	c.Assert(atomic.LoadInt32(&numCalls), jc.GreaterThan, 16)
+	c.Assert(atomic.LoadInt32(&numCalls), tc.GreaterThan, 16)
 }
 
 func (s *relationResolverSuite) TestSubSubOtherRelationDyingNotDestroyed(c *tc.C) {
@@ -1037,7 +1036,7 @@ func (s *relationResolverSuite) TestSubSubOtherRelationDyingNotDestroyed(c *tc.C
 	// This test intermittently makes either 16 or 17
 	// calls.  Number 16 is destroy, so ensure we've
 	// called at least that.
-	c.Assert(atomic.LoadInt32(&numCalls), jc.GreaterThan, 15)
+	c.Assert(atomic.LoadInt32(&numCalls), tc.GreaterThan, 15)
 
 	// So now we have a relations object with two relations, one to
 	// wordpress and one to ntp. We want to ensure that if the
@@ -1068,7 +1067,7 @@ func (s *relationResolverSuite) TestSubSubOtherRelationDyingNotDestroyed(c *tc.C
 
 	relationResolver := s.newRelationResolver(c, r, nil)
 	_, err := relationResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that we didn't try to make a destroy call (the apiCaller
 	// should panic in that case anyway).
@@ -1076,7 +1075,7 @@ func (s *relationResolverSuite) TestSubSubOtherRelationDyingNotDestroyed(c *tc.C
 	// This test intermittently makes either 16 or 17
 	// calls.  Number 16 is destroy, so ensure we've
 	// called at least that.
-	c.Assert(atomic.LoadInt32(&numCalls), jc.GreaterThan, 15)
+	c.Assert(atomic.LoadInt32(&numCalls), tc.GreaterThan, 15)
 }
 
 func principalWithSubordinateAPICalls() []apiCall {
@@ -1181,7 +1180,7 @@ func (s *relationResolverSuite) TestPrincipalDyingDestroysSubordinates(c *tc.C) 
 	destroyer.EXPECT().DestroyAllSubordinates(gomock.Any()).Return(nil)
 	relationResolver := s.newRelationResolver(c, r, destroyer)
 	_, err := relationResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that we've made the destroy unit call.
 	assertNumCalls(c, &numCalls, callsAfterDestroy)
@@ -1274,7 +1273,7 @@ func (s *relationCreatedResolverSuite) TestCreatedRelationResolverFordRelationNo
 
 	createdRelationsResolver := relation.NewCreatedRelationResolver(r, loggertesting.WrapCheckLog(c))
 	op, err := createdRelationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op, tc.DeepEquals, &mockOperation{
 		hookInfo: hook.Info{
 			Kind:              hooks.RelationCreated,
@@ -1363,7 +1362,7 @@ func (s *mockRelationResolverSuite) TestHookRelationJoined(c *tc.C) {
 
 	relationsResolver := s.newRelationResolver(c, s.mockRelStTracker, s.mockSupDestroyer)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run hook relation-joined on unit wordpress/0 with relation 1")
 }
 
@@ -1407,7 +1406,7 @@ func (s *mockRelationResolverSuite) TestHookRelationChangedApplication(c *tc.C) 
 
 	relationsResolver := s.newRelationResolver(c, s.mockRelStTracker, s.mockSupDestroyer)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run hook relation-changed on app wordpress with relation 1")
 }
 
@@ -1446,7 +1445,7 @@ func (s *mockRelationResolverSuite) TestHookRelationChangedSuspended(c *tc.C) {
 
 	relationsResolver := s.newRelationResolver(c, s.mockRelStTracker, s.mockSupDestroyer)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run hook relation-departed on unit wordpress/0 with relation 1")
 }
 
@@ -1485,7 +1484,7 @@ func (s *mockRelationResolverSuite) TestHookRelationDeparted(c *tc.C) {
 
 	relationsResolver := s.newRelationResolver(c, s.mockRelStTracker, s.mockSupDestroyer)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run hook relation-departed on unit wordpress/0 with relation 1")
 }
 
@@ -1532,7 +1531,7 @@ func (s *mockRelationResolverSuite) TestHookRelationBroken(c *tc.C) {
 
 	relationsResolver := s.newRelationResolver(c, s.mockRelStTracker, s.mockSupDestroyer)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run hook relation-broken with relation 1")
 }
 
@@ -1568,7 +1567,7 @@ func (s *mockRelationResolverSuite) TestHookRelationBrokenWhenSuspended(c *tc.C)
 
 	relationsResolver := s.newRelationResolver(c, s.mockRelStTracker, s.mockSupDestroyer)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run hook relation-broken with relation 1")
 }
 
@@ -1675,7 +1674,7 @@ func (s *mockRelationResolverSuite) TestPrincipalDyingDestroysSubordinates(c *tc
 
 	relationsResolver := s.newRelationResolver(c, s.mockRelStTracker, destroyer)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run hook relation-broken with relation 1")
 }
 

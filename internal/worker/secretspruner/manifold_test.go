@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"go.uber.org/mock/gomock"
@@ -44,7 +43,7 @@ func (s *manifoldSuite) validConfig(c *tc.C) secretspruner.ManifoldConfig {
 }
 
 func (s *manifoldSuite) TestValid(c *tc.C) {
-	c.Check(s.config.Validate(), jc.ErrorIsNil)
+	c.Check(s.config.Validate(), tc.ErrorIsNil)
 }
 
 func (s *manifoldSuite) TestMissingAPICallerName(c *tc.C) {
@@ -69,7 +68,7 @@ func (s *manifoldSuite) TestMissingNewFacade(c *tc.C) {
 func (s *manifoldSuite) checkNotValid(c *tc.C, expect string) {
 	err := s.config.Validate()
 	c.Check(err, tc.ErrorMatches, expect)
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) TestStart(c *tc.C) {
@@ -84,7 +83,7 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	called := false
 	s.config.NewWorker = func(config secretspruner.Config) (worker.Worker, error) {
 		called = true
-		mc := jc.NewMultiChecker()
+		mc := tc.NewMultiChecker()
 		mc.AddExpr(`_.Logger`, tc.NotNil)
 		c.Check(config, mc, secretspruner.Config{SecretsFacade: facade})
 		return nil, nil
@@ -94,8 +93,8 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 		"api-caller": struct{ base.APICaller }{&mockAPICaller{}},
 	}))
 	c.Assert(w, tc.IsNil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(called, tc.IsTrue)
 }
 
 type mockAPICaller struct {

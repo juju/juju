@@ -8,7 +8,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/domain/life"
@@ -24,7 +23,7 @@ var _ = tc.Suite(&stateSuite{})
 
 func (s *stateSuite) TestBlockDevicesNone(c *tc.C) {
 	result, err := NewState(s.TxnRunnerFactory()).BlockDevices(context.Background(), "666")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.HasLen, 0)
 }
 
@@ -37,13 +36,13 @@ func (s *stateSuite) createMachineWithLife(c *tc.C, name string, life life.Life)
 
 	netNodeUUID := uuid.MustNewUUID().String()
 	_, err := db.ExecContext(context.Background(), "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	machineUUID := uuid.MustNewUUID().String()
 	_, err = db.ExecContext(context.Background(), `
 INSERT INTO machine (uuid, life_id, name, net_node_uuid)
 VALUES (?, ?, ?, ?)
 `, machineUUID, life, name, netNodeUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return machineUUID
 }
 
@@ -58,14 +57,14 @@ func (s *stateSuite) insertBlockDevice(c *tc.C, bd blockdevice.BlockDevice, bloc
 INSERT INTO block_device (uuid, machine_uuid, name, label, device_uuid, hardware_id, wwn, bus_address, serial_id, mount_point, filesystem_type_id, Size_mib, in_use)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 4, ?, ?)
 `, blockDeviceUUID, machineUUID, bd.DeviceName, bd.Label, bd.UUID, bd.HardwareId, bd.WWN, bd.BusAddress, bd.SerialId, bd.MountPoint, bd.SizeMiB, inUse)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	for _, link := range bd.DeviceLinks {
 		_, err = db.ExecContext(context.Background(), `
 INSERT INTO block_device_link_device (block_device_uuid, name)
 VALUES (?, ?)
 `, blockDeviceUUID, link)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }
 
@@ -89,8 +88,8 @@ func (s *stateSuite) TestBlockDevicesOne(c *tc.C) {
 	s.insertBlockDevice(c, bd, blockDeviceUUID, machineUUID)
 
 	result, err := NewState(s.TxnRunnerFactory()).BlockDevices(context.Background(), "666")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, []blockdevice.BlockDevice{bd})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []blockdevice.BlockDevice{bd})
 }
 
 func (s *stateSuite) TestBlockDevicesMany(c *tc.C) {
@@ -128,8 +127,8 @@ func (s *stateSuite) TestBlockDevicesMany(c *tc.C) {
 	s.insertBlockDevice(c, bd2, blockDevice2UUID, machineUUID)
 
 	result, err := NewState(s.TxnRunnerFactory()).BlockDevices(context.Background(), "666")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.SameContents, []blockdevice.BlockDevice{bd1, bd2})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.SameContents, []blockdevice.BlockDevice{bd1, bd2})
 }
 
 func (s *stateSuite) TestBlockDevicesFilersOnMachine(c *tc.C) {
@@ -168,8 +167,8 @@ func (s *stateSuite) TestBlockDevicesFilersOnMachine(c *tc.C) {
 	s.insertBlockDevice(c, bd2, blockDevice2UUID, machine2UUID)
 
 	result, err := NewState(s.TxnRunnerFactory()).BlockDevices(context.Background(), "667")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.SameContents, []blockdevice.BlockDevice{bd2})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.SameContents, []blockdevice.BlockDevice{bd2})
 }
 
 func (s *stateSuite) TestMachineBlockDevices(c *tc.C) {
@@ -208,8 +207,8 @@ func (s *stateSuite) TestMachineBlockDevices(c *tc.C) {
 	s.insertBlockDevice(c, bd2, blockDevice2UUID, machine2UUID)
 
 	result, err := NewState(s.TxnRunnerFactory()).MachineBlockDevices(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.SameContents, []blockdevice.MachineBlockDevice{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.SameContents, []blockdevice.MachineBlockDevice{
 		{MachineId: "666", BlockDevice: bd1},
 		{MachineId: "667", BlockDevice: bd2},
 	})
@@ -262,17 +261,17 @@ func (s *stateSuite) TestSetMachineBlockDevices(c *tc.C) {
 	}
 
 	err := NewState(s.TxnRunnerFactory()).SetMachineBlockDevices(context.Background(), "666", bd)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result, err := NewState(s.TxnRunnerFactory()).BlockDevices(context.Background(), "666")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, []blockdevice.BlockDevice{bd})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []blockdevice.BlockDevice{bd})
 
 	// Idempotent.
 	err = NewState(s.TxnRunnerFactory()).SetMachineBlockDevices(context.Background(), "666", bd)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result, err = NewState(s.TxnRunnerFactory()).BlockDevices(context.Background(), "666")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, []blockdevice.BlockDevice{bd})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []blockdevice.BlockDevice{bd})
 }
 
 func (s *stateSuite) TestSetMachineBlockDevicesUpdates(c *tc.C) {
@@ -294,28 +293,28 @@ func (s *stateSuite) TestSetMachineBlockDevicesUpdates(c *tc.C) {
 	}
 
 	err := NewState(s.TxnRunnerFactory()).SetMachineBlockDevices(context.Background(), "666", bd)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result, err := NewState(s.TxnRunnerFactory()).BlockDevices(context.Background(), "666")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, []blockdevice.BlockDevice{bd})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []blockdevice.BlockDevice{bd})
 
 	bd.DeviceLinks = []string{"dev_link3", "dev_link4"}
 	bd.DeviceName = "device-667"
 	err = NewState(s.TxnRunnerFactory()).SetMachineBlockDevices(context.Background(), "666", bd)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result, err = NewState(s.TxnRunnerFactory()).BlockDevices(context.Background(), "666")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, []blockdevice.BlockDevice{bd})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []blockdevice.BlockDevice{bd})
 
 	db := s.DB()
 	var num int
 
 	err = db.QueryRowContext(context.Background(), "SELECT count(*) FROM block_device").Scan(&num)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(num, tc.Equals, 1)
 
 	err = db.QueryRowContext(context.Background(), "SELECT count(*) FROM block_device_link_device").Scan(&num)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(num, tc.Equals, 2)
 }
 
@@ -351,26 +350,26 @@ func (s *stateSuite) TestSetMachineBlockDevicesReplacesExisting(c *tc.C) {
 	}
 
 	err := NewState(s.TxnRunnerFactory()).SetMachineBlockDevices(context.Background(), "666", bd, bd2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result, err := NewState(s.TxnRunnerFactory()).BlockDevices(context.Background(), "666")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.SameContents, []blockdevice.BlockDevice{bd, bd2})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.SameContents, []blockdevice.BlockDevice{bd, bd2})
 
 	err = NewState(s.TxnRunnerFactory()).SetMachineBlockDevices(context.Background(), "666", bd)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result, err = NewState(s.TxnRunnerFactory()).BlockDevices(context.Background(), "666")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, []blockdevice.BlockDevice{bd})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []blockdevice.BlockDevice{bd})
 
 	db := s.DB()
 	var num int
 
 	err = db.QueryRowContext(context.Background(), "SELECT count(*) FROM block_device").Scan(&num)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(num, tc.Equals, 1)
 
 	err = db.QueryRowContext(context.Background(), "SELECT count(*) FROM block_device_link_device").Scan(&num)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(num, tc.Equals, 2)
 }
 
@@ -396,20 +395,20 @@ func (s *stateSuite) TestSetMachineBlockDevicesToEmpty(c *tc.C) {
 	s.insertBlockDevice(c, bd, blockDevice1UUID, machineUUID)
 
 	err := NewState(s.TxnRunnerFactory()).SetMachineBlockDevices(context.Background(), "666")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result, err := NewState(s.TxnRunnerFactory()).BlockDevices(context.Background(), "666")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.HasLen, 0)
 
 	db := s.DB()
 	var num int
 
 	err = db.QueryRowContext(context.Background(), "SELECT count(*) FROM block_device").Scan(&num)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(num, tc.Equals, 0)
 
 	err = db.QueryRowContext(context.Background(), "SELECT count(*) FROM block_device_link_device").Scan(&num)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(num, tc.Equals, 0)
 }
 
@@ -437,19 +436,19 @@ func (s *stateSuite) TestRemoveMachineBlockDevices(c *tc.C) {
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return RemoveMachineBlockDevices(context.Background(), tx, machineUUID)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result, err := NewState(s.TxnRunnerFactory()).BlockDevices(context.Background(), "666")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.HasLen, 0)
 
 	db := s.DB()
 	var num int
 
 	err = db.QueryRowContext(context.Background(), "SELECT count(*) FROM block_device").Scan(&num)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(num, tc.Equals, 0)
 
 	err = db.QueryRowContext(context.Background(), "SELECT count(*) FROM block_device_link_device").Scan(&num)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(num, tc.Equals, 0)
 }

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	jtesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cloud"
@@ -60,9 +59,9 @@ func (s *serviceSuite) TestGetCloudSpec(c *tc.C) {
 
 	svc := NewService(modelUUID, st, loggertesting.WrapCheckLog(c), nil)
 	spec, err := svc.GetCloudSpec(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cred := cloud.NewCredential(testCredential.AuthType, testCredential.Attributes)
-	c.Assert(spec, jc.DeepEquals, cloudspec.CloudSpec{
+	c.Assert(spec, tc.DeepEquals, cloudspec.CloudSpec{
 		Type:              "ec2",
 		Name:              "test",
 		Region:            "test-region",
@@ -86,8 +85,8 @@ func (s *serviceSuite) TestGetCloudSpecNoCredential(c *tc.C) {
 
 	svc := NewService(modelUUID, st, loggertesting.WrapCheckLog(c), nil)
 	spec, err := svc.GetCloudSpec(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(spec, jc.DeepEquals, cloudspec.CloudSpec{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(spec, tc.DeepEquals, cloudspec.CloudSpec{
 		Type:              "ec2",
 		Name:              "test",
 		Region:            "test-region",
@@ -110,7 +109,7 @@ func (s *serviceSuite) TestGetCloudSpecModelNotFound(c *tc.C) {
 
 	svc := NewService(modelUUID, st, loggertesting.WrapCheckLog(c), nil)
 	_, err := svc.GetCloudSpec(context.Background())
-	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 }
 
 func (s *serviceSuite) TestGetCloudSpecForSSH(c *tc.C) {
@@ -128,12 +127,12 @@ func (s *serviceSuite) TestGetCloudSpecForSSH(c *tc.C) {
 		return provider, nil
 	})
 	spec, err := svc.GetCloudSpecForSSH(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	testCredential.Attributes["Token"] = "secret"
 	testCredential.Attributes["username"] = ""
 	testCredential.Attributes["password"] = ""
 	cred := cloud.NewCredential(testCredential.AuthType, testCredential.Attributes)
-	c.Assert(spec, jc.DeepEquals, cloudspec.CloudSpec{
+	c.Assert(spec, tc.DeepEquals, cloudspec.CloudSpec{
 		Type:              "ec2",
 		Name:              "test",
 		Region:            "test-region",
@@ -158,5 +157,5 @@ func (s *serviceSuite) TestGetCloudSpecForSSHNotSupported(c *tc.C) {
 		return nil, coreerrors.NotSupported
 	})
 	_, err := svc.GetCloudSpecForSSH(context.Background())
-	c.Assert(err, jc.ErrorIs, coreerrors.NotSupported)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }

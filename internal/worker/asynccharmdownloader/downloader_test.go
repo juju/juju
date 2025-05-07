@@ -9,7 +9,6 @@ import (
 	time "time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -57,7 +56,7 @@ func (s *asyncWorkerSuite) TestDownloadWorker(c *tc.C) {
 	}
 
 	curl, err := url.Parse("https://example.com/foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.applicationService.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appID).Return(reserveInfo, nil)
 	s.downloader.EXPECT().Download(gomock.Any(), curl, "hash").Return(downloadResult, nil)
@@ -107,7 +106,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownload(c *tc.C) {
 	}
 
 	curl, err := url.Parse("https://example.com/foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.applicationService.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appID).Return(reserveInfo, nil)
 
@@ -164,7 +163,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownloadAndFails(c *tc.C) {
 	}
 
 	curl, err := url.Parse("https://example.com/foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.applicationService.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appID).Return(reserveInfo, nil)
 
@@ -251,7 +250,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyResolved(c *tc.C) {
 	}
 
 	curl, err := url.Parse("https://example.com/foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.applicationService.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appID).Return(reserveInfo, nil)
 	s.downloader.EXPECT().Download(gomock.Any(), curl, "hash").Return(downloadResult, nil)

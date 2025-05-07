@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	tomb "gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/testing"
@@ -74,7 +73,7 @@ type StringsWatcherC struct {
 func (c StringsWatcherC) AssertOneChange() {
 	select {
 	case _, ok := <-c.Watcher.Changes():
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("watcher did not send change")
 	}
@@ -88,7 +87,7 @@ func (c StringsWatcherC) AssertChanges() {
 	select {
 	case change, ok := <-c.Watcher.Changes():
 		c.Logf("received change: %#v", change)
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("watcher did not send change")
 	}
@@ -100,7 +99,7 @@ func (c StringsWatcherC) AssertChanges() {
 func (c StringsWatcherC) AssertAtLeastOneChange() {
 	select {
 	case _, ok := <-c.Watcher.Changes():
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("watcher did not send change")
 	}
@@ -143,7 +142,7 @@ func (c StringsWatcherC) assertStops(changesClosed bool) {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("watcher never stopped")
 	case err := <-wait:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	select {
@@ -173,7 +172,7 @@ func (c StringsWatcherC) AssertChangeMaybeIncluding(expect ...string) {
 		c.Assert(actual, tc.HasLen, 0)
 	} else {
 		actualCount := len(actual)
-		c.Assert(actualCount <= maxCount, jc.IsTrue, tc.Commentf("expected at most %d, got %d", maxCount, actualCount))
+		c.Assert(actualCount <= maxCount, tc.IsTrue, tc.Commentf("expected at most %d, got %d", maxCount, actualCount))
 		unexpected := set.NewStrings(actual...).Difference(set.NewStrings(expect...))
 		c.Assert(unexpected.Values(), tc.HasLen, 0)
 	}
@@ -186,7 +185,7 @@ func (c StringsWatcherC) assertChange(single bool, expect ...string) {
 	if len(expect) == 0 {
 		c.Assert(actual, tc.HasLen, 0)
 	} else {
-		c.Assert(actual, jc.SameContents, expect)
+		c.Assert(actual, tc.SameContents, expect)
 	}
 }
 
@@ -200,7 +199,7 @@ loop:
 	for {
 		select {
 		case changes, ok := <-c.Watcher.Changes():
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 			gotOneChange = true
 			actual = append(actual, changes...)
 			if single || len(actual) >= max {

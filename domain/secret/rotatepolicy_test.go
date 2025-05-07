@@ -5,7 +5,6 @@ package secret
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coresecrets "github.com/juju/juju/core/secrets"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -22,7 +21,7 @@ var _ = tc.Suite(&rotatePolicySuite{})
 func (s *rotatePolicySuite) TestRotatePolicyDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, policy FROM secret_rotate_policy")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer rows.Close()
 
 	dbValues := make(map[RotatePolicy]string)
@@ -32,10 +31,10 @@ func (s *rotatePolicySuite) TestRotatePolicyDBValues(c *tc.C) {
 			value string
 		)
 		err := rows.Scan(&id, &value)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		dbValues[RotatePolicy(id)] = value
 	}
-	c.Assert(dbValues, jc.DeepEquals, map[RotatePolicy]string{
+	c.Assert(dbValues, tc.DeepEquals, map[RotatePolicy]string{
 		RotateNever:     "never",
 		RotateHourly:    "hourly",
 		RotateDaily:     "daily",
@@ -46,6 +45,6 @@ func (s *rotatePolicySuite) TestRotatePolicyDBValues(c *tc.C) {
 	})
 	// Also check the core secret enums match.
 	for _, p := range dbValues {
-		c.Assert(coresecrets.RotatePolicy(p).IsValid(), jc.IsTrue)
+		c.Assert(coresecrets.RotatePolicy(p).IsValid(), tc.IsTrue)
 	}
 }

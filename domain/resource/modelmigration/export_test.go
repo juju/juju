@@ -10,7 +10,6 @@ import (
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coreresouces "github.com/juju/juju/core/resource"
@@ -45,7 +44,7 @@ func (s *exportSuite) TestResourceExportEmpty(c *tc.C) {
 	}
 
 	err := exportOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *exportSuite) TestResourceExport(c *tc.C) {
@@ -62,7 +61,7 @@ func (s *exportSuite) TestResourceExport(c *tc.C) {
 	})
 
 	fp, err := resource.NewFingerprint(fingerprint)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Arrange: create resource data.
 	res1Name := "resource-1"
@@ -137,7 +136,7 @@ func (s *exportSuite) TestResourceExport(c *tc.C) {
 	err = exportOp.Execute(context.Background(), model)
 
 	// Assert: check no errors occurred.
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert the app has resources.
 	apps := model.Applications()

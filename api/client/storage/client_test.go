@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
@@ -71,10 +70,10 @@ func (s *storageMockSuite) TestStorageDetails(c *tc.C) {
 
 	tags := []names.StorageTag{oneTag, twoTag}
 	found, err := storageClient.StorageDetails(context.Background(), tags)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found, tc.HasLen, 3)
-	c.Assert(expected.Contains(found[0].Result.StorageTag), jc.IsTrue)
-	c.Assert(expected.Contains(found[1].Result.StorageTag), jc.IsTrue)
+	c.Assert(expected.Contains(found[0].Result.StorageTag), tc.IsTrue)
+	c.Assert(expected.Contains(found[1].Result.StorageTag), tc.IsTrue)
 	c.Assert(found[2].Error, tc.ErrorMatches, msg)
 }
 
@@ -118,7 +117,7 @@ func (s *storageMockSuite) TestListStorageDetails(c *tc.C) {
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	found, err := storageClient.ListStorageDetails(context.Background())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(found, tc.HasLen, 1)
 	expected := []params.StorageDetails{{
 		StorageTag: "storage-db-dir-1000",
@@ -128,7 +127,7 @@ func (s *storageMockSuite) TestListStorageDetails(c *tc.C) {
 		Persistent: true,
 	}}
 
-	c.Assert(found, jc.DeepEquals, expected)
+	c.Assert(found, tc.DeepEquals, expected)
 }
 
 func (s *storageMockSuite) TestListStorageDetailsFacadeCallError(c *tc.C) {
@@ -185,7 +184,7 @@ func (s *storageMockSuite) TestListPools(c *tc.C) {
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 
 	found, err := storageClient.ListPools(context.Background(), types, someNames)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found, tc.HasLen, want)
 	c.Assert(found, tc.DeepEquals, expected)
 }
@@ -233,7 +232,7 @@ func (s *storageMockSuite) TestCreatePool(c *tc.C) {
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	err := storageClient.CreatePool(context.Background(), poolName, poolType, poolConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *storageMockSuite) TestCreatePoolFacadeCallError(c *tc.C) {
@@ -281,10 +280,10 @@ func (s *storageMockSuite) TestListVolumes(c *tc.C) {
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	found, err := storageClient.ListVolumes(context.Background(), []string{"0", "1"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found, tc.HasLen, 2)
 	for i := 0; i < 2; i++ {
-		c.Assert(found[i].Result, jc.DeepEquals, []params.VolumeDetails{{
+		c.Assert(found[i].Result, tc.DeepEquals, []params.VolumeDetails{{
 			VolumeTag: "volume-0",
 			MachineAttachments: map[string]params.VolumeAttachmentDetails{
 				"machine-0": {},
@@ -314,7 +313,7 @@ func (s *storageMockSuite) TestListVolumesEmptyFilter(c *tc.C) {
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	found, err := storageClient.ListVolumes(context.Background(), nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found, tc.HasLen, 1)
 	c.Assert(found[0].Result, tc.HasLen, 1)
 	c.Assert(found[0].Result[0].VolumeTag, tc.Equals, tag)
@@ -381,10 +380,10 @@ func (s *storageMockSuite) TestListFilesystems(c *tc.C) {
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	found, err := storageClient.ListFilesystems(context.Background(), []string{"1", "2"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found, tc.HasLen, 2)
-	c.Assert(found[0].Result, jc.DeepEquals, []params.FilesystemDetails{expected})
-	c.Assert(found[1].Result, jc.DeepEquals, []params.FilesystemDetails{})
+	c.Assert(found[0].Result, tc.DeepEquals, []params.FilesystemDetails{expected})
+	c.Assert(found[1].Result, tc.DeepEquals, []params.FilesystemDetails{})
 }
 
 func (s *storageMockSuite) TestListFilesystemsEmptyFilter(c *tc.C) {
@@ -404,7 +403,7 @@ func (s *storageMockSuite) TestListFilesystemsEmptyFilter(c *tc.C) {
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	_, err := storageClient.ListFilesystems(context.Background(), nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *storageMockSuite) TestListFilesystemsFacadeCallError(c *tc.C) {
@@ -471,14 +470,14 @@ func (s *storageMockSuite) TestAddToUnit(c *tc.C) {
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	r, err := storageClient.AddToUnit(context.Background(), unitStorages)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(r, tc.HasLen, storageN)
 	expected := []params.AddStorageResult{
 		{Result: expectedDetails},
 		{Error: expectedError},
 		{Result: expectedDetails},
 	}
-	c.Assert(r, jc.SameContents, expected)
+	c.Assert(r, tc.SameContents, expected)
 }
 
 func (s *storageMockSuite) TestAddToUnitFacadeCallError(c *tc.C) {
@@ -524,10 +523,10 @@ func (s *storageMockSuite) TestRemove(c *tc.C) {
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	obtained, err := storageClient.Remove(context.Background(), []string{"foo/0", "bar/1"}, false, false, &false_, nil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.HasLen, 2)
 	c.Assert(obtained[0].Error, tc.IsNil)
-	c.Assert(obtained[1].Error, jc.DeepEquals, &params.Error{Message: "baz"})
+	c.Assert(obtained[1].Error, tc.DeepEquals, &params.Error{Message: "baz"})
 }
 
 func (s *storageMockSuite) TestRemoveDestroyAttachments(c *tc.C) {
@@ -547,7 +546,7 @@ func (s *storageMockSuite) TestRemoveDestroyAttachments(c *tc.C) {
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	obtained, err := storageClient.Remove(context.Background(), []string{"foo/0"}, true, true, &true_, nil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.HasLen, 1)
 	c.Assert(obtained[0].Error, tc.IsNil)
 }
@@ -584,10 +583,10 @@ func (s *storageMockSuite) TestDetach(c *tc.C) {
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	obtained, err := storageClient.Detach(context.Background(), []string{"foo/0", "bar/1"}, nil, nil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.HasLen, 2)
 	c.Assert(obtained[0].Error, tc.IsNil)
-	c.Assert(obtained[1].Error, jc.DeepEquals, &params.Error{Message: "baz"})
+	c.Assert(obtained[1].Error, tc.DeepEquals, &params.Error{Message: "baz"})
 }
 
 func (s *storageMockSuite) TestDetachArityMismatch(c *tc.C) {
@@ -630,10 +629,10 @@ func (s *storageMockSuite) TestAttach(c *tc.C) {
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	obtained, err := storageClient.Attach(context.Background(), "foo/0", []string{"bar/1", "baz/2"})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.HasLen, 2)
 	c.Assert(obtained[0].Error, tc.IsNil)
-	c.Assert(obtained[1].Error, jc.DeepEquals, &params.Error{Message: "qux"})
+	c.Assert(obtained[1].Error, tc.DeepEquals, &params.Error{Message: "qux"})
 }
 
 func (s *storageMockSuite) TestAttachArityMismatch(c *tc.C) {
@@ -673,7 +672,7 @@ func (s *storageMockSuite) TestImport(c *tc.C) {
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	storageTag, err := storageClient.Import(context.Background(), jujustorage.StorageKindBlock, "foo", "bar", "baz")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(storageTag, tc.Equals, names.NewStorageTag("qux/0"))
 }
 
@@ -729,7 +728,7 @@ func (s *storageMockSuite) TestRemovePool(c *tc.C) {
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	err := storageClient.RemovePool(context.Background(), poolName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *storageMockSuite) TestRemovePoolFacadeCallError(c *tc.C) {
@@ -775,7 +774,7 @@ func (s *storageMockSuite) TestUpdatePool(c *tc.C) {
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	err := storageClient.UpdatePool(context.Background(), poolName, providerType, poolConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *storageMockSuite) TestUpdatePoolFacadeCallError(c *tc.C) {

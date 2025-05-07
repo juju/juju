@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 )
@@ -64,41 +63,41 @@ func (s *baseSuite) readFile(c *tc.C, reader io.ReadCloser) string {
 	defer reader.Close()
 
 	content, err := io.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return string(content)
 }
 
 func (s *baseSuite) calculateHexSHA384(c *tc.C, contents string) string {
 	hasher := sha512.New384()
 	_, err := io.Copy(hasher, strings.NewReader(contents))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return hex.EncodeToString(hasher.Sum(nil))
 }
 
 func (s *baseSuite) calculateHexSHA256(c *tc.C, contents string) string {
 	hasher := sha256.New()
 	_, err := io.Copy(hasher, strings.NewReader(contents))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return hex.EncodeToString(hasher.Sum(nil))
 }
 
 func (s *baseSuite) calculateBase64SHA256(c *tc.C, contents string) string {
 	hasher := sha256.New()
 	_, err := io.Copy(hasher, strings.NewReader(contents))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return base64.StdEncoding.EncodeToString(hasher.Sum(nil))
 }
 
 func (s *baseSuite) createFile(c *tc.C, path, name, contents string) (int64, string, string) {
 	// Ensure the directory exists.
 	err := os.MkdirAll(path, 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Create a file in a temporary directory.
 	dir := c.MkDir()
 
 	f, err := os.Create(filepath.Join(dir, name))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer f.Close()
 
 	// Create a hash of the contents when writing the file. The hash will
@@ -107,10 +106,10 @@ func (s *baseSuite) createFile(c *tc.C, path, name, contents string) (int64, str
 	hasher256 := sha256.New()
 
 	size, err := io.Copy(f, io.TeeReader(strings.NewReader(contents), io.MultiWriter(hasher384, hasher256)))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info, err := f.Stat()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	if info.Size() != size {
 		c.Fatalf("file size %d does not match expected size %d", info.Size(), size)
@@ -118,7 +117,7 @@ func (s *baseSuite) createFile(c *tc.C, path, name, contents string) (int64, str
 
 	hash384 := hex.EncodeToString(hasher384.Sum(nil))
 	err = os.Rename(filepath.Join(dir, name), filepath.Join(path, hash384))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return info.Size(), hash384, hex.EncodeToString(hasher256.Sum(nil))
 }

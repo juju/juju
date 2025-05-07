@@ -7,7 +7,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
@@ -37,11 +36,11 @@ func (s *rebootSuite) TestStartStop(c *tc.C) {
 	lock := mocks.NewMockLock(ctrl)
 
 	w, err := reboot.NewReboot(client, names.NewMachineTag("666"), lock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	w.Kill()
 	err = workertest.CheckKilled(c, w)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *rebootSuite) TestWorkerReboot(c *tc.C) {
@@ -65,9 +64,9 @@ func (s *rebootSuite) TestWorkerReboot(c *tc.C) {
 	}).Return(func() {}, nil)
 
 	w, err := reboot.NewReboot(client, names.NewMachineTag("666"), lock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
-	c.Assert(err, jc.ErrorIs, worker.ErrRebootMachine)
+	c.Assert(err, tc.ErrorIs, worker.ErrRebootMachine)
 }
 
 func (s *rebootSuite) TestContainerShutdown(c *tc.C) {
@@ -91,7 +90,7 @@ func (s *rebootSuite) TestContainerShutdown(c *tc.C) {
 	}).Return(func() {}, nil)
 
 	w, err := reboot.NewReboot(client, names.NewMachineTag("666/lxd/0"), lock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
-	c.Assert(err, jc.ErrorIs, worker.ErrShutdownMachine)
+	c.Assert(err, tc.ErrorIs, worker.ErrShutdownMachine)
 }

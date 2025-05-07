@@ -11,7 +11,6 @@ import (
 	lxdapi "github.com/canonical/lxd/shared/api"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api"
@@ -56,7 +55,7 @@ func (s *managerSuite) makeManager(c *tc.C) {
 
 func (s *managerSuite) makeManagerForConfig(c *tc.C, cfg container.ManagerConfig) {
 	manager, err := lxd.NewContainerManager(cfg, func() (*lxd.Server, error) { return lxd.NewServer(s.cSvr) })
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.manager = manager
 }
 
@@ -85,7 +84,7 @@ func prepInstanceConfig(c *tc.C) *instancecfg.InstanceConfig {
 		corebase.MakeDefaultBase("ubuntu", "16.04"),
 		apiInfo,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = instancecfg.PopulateInstanceConfig(
 		icfg,
@@ -97,13 +96,13 @@ func prepInstanceConfig(c *tc.C) *instancecfg.InstanceConfig {
 		nil,
 		nil,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	list := coretools.List{
 		&coretools.Tools{Version: semversion.MustParseBinary("2.3.4-ubuntu-amd64")},
 	}
 	err = icfg.SetTools(list)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return icfg
 }
 
@@ -124,7 +123,7 @@ func (s *managerSuite) TestContainerCreateDestroy(c *tc.C) {
 
 	iCfg := prepInstanceConfig(c)
 	hostName, err := s.manager.Namespace().Hostname(iCfg.MachineId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Operation arrangements.
 	s.expectStartOp(ctrl)
@@ -173,7 +172,7 @@ func (s *managerSuite) TestContainerCreateDestroy(c *tc.C) {
 	instance, hc, err := s.manager.CreateContainer(
 		context.Background(), iCfg, constraints.Value{}, corebase.MakeDefaultBase("ubuntu", "16.04"), prepNetworkConfig(), &container.StorageConfig{}, lxdtesting.NoOpCallback,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	instanceId := instance.Id()
 	c.Check(string(instanceId), tc.Equals, hostName)
@@ -185,7 +184,7 @@ func (s *managerSuite) TestContainerCreateDestroy(c *tc.C) {
 	c.Check(*hc.AvailabilityZone, tc.Equals, "test-availability-zone")
 
 	err = s.manager.DestroyContainer(instanceId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *managerSuite) TestContainerCreateUpdateIPv4Network(c *tc.C) {
@@ -197,7 +196,7 @@ func (s *managerSuite) TestContainerCreateUpdateIPv4Network(c *tc.C) {
 	s.makeManager(c)
 	iCfg := prepInstanceConfig(c)
 	hostName, err := s.manager.Namespace().Hostname(iCfg.MachineId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	exp := s.cSvr.EXPECT()
 
@@ -234,7 +233,7 @@ func (s *managerSuite) TestContainerCreateUpdateIPv4Network(c *tc.C) {
 	_, _, err = s.manager.CreateContainer(
 		context.Background(), iCfg, constraints.Value{}, corebase.MakeDefaultBase("ubuntu", "16.04"), netConfig, &container.StorageConfig{}, lxdtesting.NoOpCallback,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *managerSuite) TestCreateContainerCreateFailed(c *tc.C) {
@@ -294,7 +293,7 @@ func (s *managerSuite) TestCreateContainerStartFailed(c *tc.C) {
 
 	iCfg := prepInstanceConfig(c)
 	hostName, err := s.manager.Namespace().Hostname(iCfg.MachineId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectUpdateOp(ctrl, "", errors.New("start failed"))
 	s.expectDeleteOp(ctrl)
@@ -340,7 +339,7 @@ func (s *managerSuite) TestListContainers(c *tc.C) {
 	s.cSvr.EXPECT().GetInstances(lxdapi.InstanceTypeAny).Return(containers, nil)
 
 	result, err := s.manager.ListContainers()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.HasLen, 2)
 	c.Check(string(result[0].Id()), tc.Equals, prefix+"-0")
 	c.Check(string(result[1].Id()), tc.Equals, prefix+"-1")
@@ -348,7 +347,7 @@ func (s *managerSuite) TestListContainers(c *tc.C) {
 
 func (s *managerSuite) TestIsInitialized(c *tc.C) {
 	mgr, err := lxd.NewContainerManager(getBaseConfig(), nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(mgr.IsInitialized(), tc.Equals, lxd.SocketPath(lxd.IsUnixSocket) != "")
 }
@@ -399,8 +398,8 @@ func (s *managerSuite) TestNetworkDevicesFromConfigWithParentDevice(c *tc.C) {
 		Interfaces: interfaces,
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, expected)
 	c.Check(unknown, tc.HasLen, 0)
 }
 
@@ -419,7 +418,7 @@ func (s *managerSuite) TestNetworkDevicesFromConfigUnknownCIDR(c *tc.C) {
 		Interfaces: interfaces,
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(unknown, tc.DeepEquals, []string{"br-eth0"})
 }
 
@@ -431,7 +430,7 @@ func (s *managerSuite) TestNetworkDevicesFromConfigNoInputGetsProfileNICs(c *tc.
 
 	s.makeManager(c)
 	result, _, err := lxd.NetworkDevicesFromConfig(s.manager, &container.NetworkConfig{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	exp := map[string]map[string]string{
 		"eth0": {
@@ -453,7 +452,7 @@ func (s *managerSuite) TestGetImageSourcesDefaultConfig(c *tc.C) {
 	s.makeManager(c)
 
 	sources, err := lxd.GetImageSources(s.manager)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sources, tc.DeepEquals, []lxd.ServerSpec{lxd.CloudImagesRemote, lxd.CloudImagesDailyRemote, lxd.CloudImagesLinuxContainersRemote})
 }
 
@@ -465,7 +464,7 @@ func (s *managerSuite) TestGetImageSourcesNoDefaults(c *tc.C) {
 	s.makeManagerForConfig(c, cfg)
 
 	sources, err := lxd.GetImageSources(s.manager)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sources, tc.HasLen, 0)
 }
 
@@ -478,7 +477,7 @@ func (s *managerSuite) TestGetImageSourcesNoDefaultsCustomURL(c *tc.C) {
 	s.makeManagerForConfig(c, cfg)
 
 	sources, err := lxd.GetImageSources(s.manager)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedSources := []lxd.ServerSpec{
 		{
 			Name:     "special.container.sauce",
@@ -497,7 +496,7 @@ func (s *managerSuite) TestGetImageSourcesNonStandardStreamDefaultConfig(c *tc.C
 	s.makeManagerForConfig(c, cfg)
 
 	sources, err := lxd.GetImageSources(s.manager)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sources, tc.DeepEquals, []lxd.ServerSpec{lxd.CloudImagesRemote, lxd.CloudImagesDailyRemote, lxd.CloudImagesLinuxContainersRemote})
 }
 
@@ -508,7 +507,7 @@ func (s *managerSuite) TestGetImageSourcesDailyOnly(c *tc.C) {
 	cfg[config.ContainerImageStreamKey] = "daily"
 	s.makeManagerForConfig(c, cfg)
 	sources, err := lxd.GetImageSources(s.manager)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sources, tc.DeepEquals, []lxd.ServerSpec{lxd.CloudImagesDailyRemote, lxd.CloudImagesLinuxContainersRemote})
 }
 
@@ -520,7 +519,7 @@ func (s *managerSuite) TestGetImageSourcesImageMetadataURLExpectedHTTPSSources(c
 	s.makeManagerForConfig(c, cfg)
 
 	sources, err := lxd.GetImageSources(s.manager)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedSources := []lxd.ServerSpec{
 		{
@@ -544,7 +543,7 @@ func (s *managerSuite) TestGetImageSourcesImageMetadataURLDailyStream(c *tc.C) {
 	s.makeManagerForConfig(c, cfg)
 
 	sources, err := lxd.GetImageSources(s.manager)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedSources := []lxd.ServerSpec{
 		{
@@ -563,7 +562,7 @@ func (s *managerSuite) TestMaybeWriteLXDProfile(c *tc.C) {
 
 	s.makeManager(c)
 	proMgr, ok := s.manager.(container.LXDProfileManager)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	put := lxdprofile.Profile{
 		Config: map[string]string{
@@ -593,7 +592,7 @@ func (s *managerSuite) TestMaybeWriteLXDProfile(c *tc.C) {
 	s.cSvr.EXPECT().GetProfile(post.Name).Return(&expProfile, "etag", nil)
 
 	err := proMgr.MaybeWriteLXDProfile("juju-default-lxd-0", put)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *managerSuite) TestAssignLXDProfiles(c *tc.C) {
@@ -623,10 +622,10 @@ func (s *managerSuite) TestAssignLXDProfiles(c *tc.C) {
 
 	s.makeManager(c)
 	proMgr, ok := s.manager.(container.LXDProfileManager)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	obtained, err := proMgr.AssignLXDProfiles("testme", newProfiles, profilePosts)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.DeepEquals, newProfiles)
 }
 

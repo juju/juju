@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/model"
@@ -73,36 +72,36 @@ func (s *grantRevokeSuite) TestPassesModelValues(c *tc.C) {
 	user := "sam"
 	models := []string{fooModelUUID, barModelUUID, bazModelUUID}
 	_, err := s.run(c, "sam", "read", "foo", "bar", "baz")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fakeModelAPI.user, jc.DeepEquals, user)
-	c.Assert(s.fakeModelAPI.modelUUIDs, jc.DeepEquals, models)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.fakeModelAPI.user, tc.DeepEquals, user)
+	c.Assert(s.fakeModelAPI.modelUUIDs, tc.DeepEquals, models)
 	c.Assert(s.fakeModelAPI.access, tc.Equals, "read")
 }
 
 func (s *grantRevokeSuite) TestPassesOfferValues(c *tc.C) {
 	offers := []string{"bob/foo.hosted-mysql", "bob/bar.mysql", "bob/baz.hosted-db2"}
 	_, err := s.run(c, "sam", "read", offers[0], offers[1], offers[2])
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fakeOffersAPI.user, jc.DeepEquals, "sam")
-	c.Assert(s.fakeOffersAPI.offerURLs, jc.SameContents, []string{"bob/foo.hosted-mysql", "bob/bar.mysql", "bob/baz.hosted-db2"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.fakeOffersAPI.user, tc.DeepEquals, "sam")
+	c.Assert(s.fakeOffersAPI.offerURLs, tc.SameContents, []string{"bob/foo.hosted-mysql", "bob/bar.mysql", "bob/baz.hosted-db2"})
 	c.Assert(s.fakeOffersAPI.access, tc.Equals, "read")
 }
 
 func (s *grantRevokeSuite) TestPassesOfferWithDefaultModelUser(c *tc.C) {
 	offer := "foo.hosted-mysql"
 	_, err := s.run(c, "sam", "read", offer)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fakeOffersAPI.user, jc.DeepEquals, "sam")
-	c.Assert(s.fakeOffersAPI.offerURLs, jc.SameContents, []string{"bob/foo.hosted-mysql"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.fakeOffersAPI.user, tc.DeepEquals, "sam")
+	c.Assert(s.fakeOffersAPI.offerURLs, tc.SameContents, []string{"bob/foo.hosted-mysql"})
 	c.Assert(s.fakeOffersAPI.access, tc.Equals, "read")
 }
 
 func (s *grantRevokeSuite) TestModelAccess(c *tc.C) {
 	sam := "sam"
 	_, err := s.run(c, "sam", "write", "model1", "model2")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fakeModelAPI.user, jc.DeepEquals, sam)
-	c.Assert(s.fakeModelAPI.modelUUIDs, jc.DeepEquals, []string{model1ModelUUID, model2ModelUUID})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.fakeModelAPI.user, tc.DeepEquals, sam)
+	c.Assert(s.fakeModelAPI.modelUUIDs, tc.DeepEquals, []string{model1ModelUUID, model2ModelUUID})
 	c.Assert(s.fakeModelAPI.access, tc.Equals, "write")
 }
 
@@ -132,10 +131,10 @@ func (s *grantSuite) TestInitModels(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "no user specified")
 
 	err = cmdtesting.InitCommand(wrappedCmd, []string{"bob", "read", "model1", "model2"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(grantCmd.User, tc.Equals, "bob")
-	c.Assert(grantCmd.ModelNames, jc.DeepEquals, []string{"model1", "model2"})
+	c.Assert(grantCmd.ModelNames, tc.DeepEquals, []string{"model1", "model2"})
 	c.Assert(grantCmd.OfferURLs, tc.HasLen, 0)
 
 	err = cmdtesting.InitCommand(wrappedCmd, []string{})
@@ -146,14 +145,14 @@ func (s *grantSuite) TestInitOffers(c *tc.C) {
 	wrappedCmd, grantCmd := model.NewGrantCommandForTest(nil, nil, s.store)
 
 	err := cmdtesting.InitCommand(wrappedCmd, []string{"bob", "read", "fred/model.offer1", "mary/model.offer2"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(grantCmd.User, tc.Equals, "bob")
 	url1, err := crossmodel.ParseOfferURL("fred/model.offer1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	url2, err := crossmodel.ParseOfferURL("mary/model.offer2")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(grantCmd.OfferURLs, jc.DeepEquals, []*crossmodel.OfferURL{url1, url2})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(grantCmd.OfferURLs, tc.DeepEquals, []*crossmodel.OfferURL{url1, url2})
 	c.Assert(grantCmd.ModelNames, tc.HasLen, 0)
 }
 
@@ -177,10 +176,10 @@ func (s *revokeSuite) TestInit(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "no user specified")
 
 	err = cmdtesting.InitCommand(wrappedCmd, []string{"bob", "read", "model1", "model2"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(revokeCmd.User, tc.Equals, "bob")
-	c.Assert(revokeCmd.ModelNames, jc.DeepEquals, []string{"model1", "model2"})
+	c.Assert(revokeCmd.ModelNames, tc.DeepEquals, []string{"model1", "model2"})
 
 	err = cmdtesting.InitCommand(wrappedCmd, []string{})
 	c.Assert(err, tc.ErrorMatches, `no user specified`)

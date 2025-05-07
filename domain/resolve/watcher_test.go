@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
@@ -41,7 +40,7 @@ func (s *watcherSuite) TestWatchUnitResolveModeNotFound(c *tc.C) {
 	svc := s.setupService(c)
 
 	_, err := svc.WatchUnitResolveMode(context.Background(), "foo/0")
-	c.Assert(err, jc.ErrorIs, resolveerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, resolveerrors.UnitNotFound)
 }
 
 func (s *watcherSuite) TestWatchUnitResoloveMode(c *tc.C) {
@@ -52,7 +51,7 @@ func (s *watcherSuite) TestWatchUnitResoloveMode(c *tc.C) {
 	svc := s.setupService(c)
 
 	watcher, err := svc.WatchUnitResolveMode(context.Background(), "foo/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
@@ -64,7 +63,7 @@ func (s *watcherSuite) TestWatchUnitResoloveMode(c *tc.C) {
 	// Assert that a notification is emitted if a unit is resolved
 	harness.AddTest(func(c *tc.C) {
 		err := svc.ResolveUnit(context.Background(), "foo/0", resolve.ResolveModeRetryHooks)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
@@ -72,7 +71,7 @@ func (s *watcherSuite) TestWatchUnitResoloveMode(c *tc.C) {
 	// Assert that a notification is emitted if a unit resolve mode is changed
 	harness.AddTest(func(c *tc.C) {
 		err := svc.ResolveUnit(context.Background(), "foo/0", resolve.ResolveModeNoHooks)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
@@ -80,7 +79,7 @@ func (s *watcherSuite) TestWatchUnitResoloveMode(c *tc.C) {
 	// Assert that a notification is emitted if a unit resolve mode is cleared
 	harness.AddTest(func(c *tc.C) {
 		err := svc.ClearResolved(context.Background(), "foo/0")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
@@ -93,7 +92,7 @@ func (s *watcherSuite) TestWatchUnitResoloveMode(c *tc.C) {
 	// Assert no notification is emitted if another unit is resolved
 	harness.AddTest(func(c *tc.C) {
 		err := svc.ResolveUnit(context.Background(), "foo/1", resolve.ResolveModeRetryHooks)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
@@ -162,13 +161,13 @@ func (s *watcherSuite) createApplication(c *tc.C, name string, units ...applicat
 		},
 		Scale: len(units),
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	charmUUID, err := appState.GetCharmIDByApplicationName(ctx, name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	unitNames, err := appState.AddIAASUnits(ctx, "", appID, charmUUID, units...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var unitUUIDs = make([]coreunit.UUID, len(units))
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -182,14 +181,14 @@ func (s *watcherSuite) createApplication(c *tc.C, name string, units ...applicat
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Put the units in error status so they can be resolved
 	for _, u := range unitUUIDs {
 		err := statusSt.SetUnitAgentStatus(ctx, u, status.StatusInfo[status.UnitAgentStatusType]{
 			Status: status.UnitAgentStatusError,
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	return unitUUIDs

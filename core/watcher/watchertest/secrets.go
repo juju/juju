@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/testing"
@@ -48,11 +47,11 @@ func (c SecretsTriggerWatcherC) AssertChange(expect ...watcher.SecretTriggerChan
 		select {
 		case actual, ok := <-c.Watcher.Changes():
 			c.Logf("Secrets Trigger Watcher.Changes() => %# v", actual)
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 			received = append(received, actual...)
 			if len(received) >= len(expect) {
-				mc := jc.NewMultiChecker()
-				mc.AddExpr(`_[_].NextTriggerTime`, jc.Almost, jc.ExpectedValue)
+				mc := tc.NewMultiChecker()
+				mc.AddExpr(`_[_].NextTriggerTime`, tc.Almost, tc.ExpectedValue)
 				c.Assert(received, mc, expect)
 				return
 			}
@@ -65,7 +64,7 @@ func (c SecretsTriggerWatcherC) AssertChange(expect ...watcher.SecretTriggerChan
 func (c SecretsTriggerWatcherC) AssertClosed() {
 	select {
 	case _, ok := <-c.Watcher.Changes():
-		c.Assert(ok, jc.IsFalse)
+		c.Assert(ok, tc.IsFalse)
 	default:
 		c.Fatalf("watcher not closed")
 	}
@@ -105,14 +104,14 @@ func (c SecretBackendRotateWatcherC) AssertChanges(expect ...watcher.SecretBacke
 		select {
 		case actual, ok := <-c.Watcher.Changes():
 			c.Logf("Secrets Trigger Watcher.Changes() => %# v", actual)
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 			sort.Slice(actual, func(i, j int) bool {
 				return actual[i].Name < actual[j].Name
 			})
 			received = append(received, actual...)
 			if len(received) >= len(expect) {
-				mc := jc.NewMultiChecker()
-				mc.AddExpr(`_[_].NextTriggerTime`, jc.Almost, jc.ExpectedValue)
+				mc := tc.NewMultiChecker()
+				mc.AddExpr(`_[_].NextTriggerTime`, tc.Almost, tc.ExpectedValue)
 				c.Assert(received, mc, expect)
 				return
 			}
@@ -125,7 +124,7 @@ func (c SecretBackendRotateWatcherC) AssertChanges(expect ...watcher.SecretBacke
 func (c SecretBackendRotateWatcherC) AssertClosed() {
 	select {
 	case _, ok := <-c.Watcher.Changes():
-		c.Assert(ok, jc.IsFalse)
+		c.Assert(ok, tc.IsFalse)
 	default:
 		c.Fatalf("watcher not closed")
 	}

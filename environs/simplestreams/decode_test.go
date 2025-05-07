@@ -7,7 +7,6 @@ import (
 	"bytes"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/environs/simplestreams"
 )
@@ -19,7 +18,7 @@ var _ = tc.Suite(&decodeSuite{})
 func (s *decodeSuite) TestDecodeCheckValidSignature(c *tc.C) {
 	r := bytes.NewReader([]byte(signedData))
 	txt, err := simplestreams.DecodeCheckSignature(r, testSigningKey)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(txt, tc.DeepEquals, []byte(unsignedData[1:]))
 }
 
@@ -28,14 +27,14 @@ func (s *decodeSuite) TestDecodeCheckInvalidSignature(c *tc.C) {
 	_, err := simplestreams.DecodeCheckSignature(r, testSigningKey)
 	c.Assert(err, tc.Not(tc.IsNil))
 	_, ok := err.(*simplestreams.NotPGPSignedError)
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 }
 
 func (s *decodeSuite) TestDecodeCheckMissingSignature(c *tc.C) {
 	r := bytes.NewReader([]byte("foo"))
 	_, err := simplestreams.DecodeCheckSignature(r, testSigningKey)
 	_, ok := err.(*simplestreams.NotPGPSignedError)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 }
 
 func (s *decodeSuite) TestDecodeCheckMissingKey(c *tc.C) {

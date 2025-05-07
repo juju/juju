@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	blockcommand "github.com/juju/juju/domain/blockcommand"
@@ -33,7 +32,7 @@ func (s *storageAddSuite) assertStorageAddedNoErrors(c *tc.C, args params.Storag
 
 func (s *storageAddSuite) assertStoragesAddedNoErrors(c *tc.C, args params.StoragesAddParams) {
 	failures, err := s.api.AddToUnit(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(failures.Results, tc.HasLen, len(args.Storages))
 	for _, one := range failures.Results {
 		c.Assert(one.Error, tc.IsNil)
@@ -90,7 +89,7 @@ func (s *storageAddSuite) TestStorageAddUnitInvalidName(c *tc.C) {
 		StorageName: "data",
 	}
 	failures, err := s.api.AddToUnit(context.Background(), params.StoragesAddParams{Storages: []params.StorageAddParams{args}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(failures.Results, tc.HasLen, 1)
 	c.Assert(failures.Results[0].Error.Error(), tc.Matches, "\"invalid-unit-name\" is not a valid tag")
 
@@ -112,7 +111,7 @@ func (s *storageAddSuite) TestStorageAddUnitStateError(c *tc.C) {
 		StorageName: "data",
 	}
 	failures, err := s.api.AddToUnit(context.Background(), params.StoragesAddParams{Storages: []params.StorageAddParams{args}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(failures.Results, tc.HasLen, 1)
 	c.Assert(failures.Results[0].Error.Error(), tc.Matches, fmt.Sprintf(".*%v.*", msg))
 
@@ -147,7 +146,7 @@ func (s *storageAddSuite) TestStorageAddUnitResultOrder(c *tc.C) {
 			wrong1,
 		}},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(failures.Results, tc.HasLen, 3)
 	c.Assert(failures.Results[0].Error.Error(), tc.Matches, ".*is not a valid tag.*")
 	c.Assert(failures.Results[1].Error, tc.IsNil)
@@ -169,8 +168,8 @@ func (s *storageAddSuite) TestStorageAddUnitTags(c *tc.C) {
 		StorageName: "data",
 	}
 	results, err := s.api.AddToUnit(context.Background(), params.StoragesAddParams{[]params.StorageAddParams{args}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, jc.DeepEquals, []params.AddStorageResult{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.DeepEquals, []params.AddStorageResult{{
 		Result: &params.AddStorageDetails{
 			StorageTags: []string{"storage-foo-0", "storage-foo-1"},
 		},
@@ -191,10 +190,10 @@ func (s *storageAddSuite) TestStorageAddUnitNotFoundErr(c *tc.C) {
 		StorageName: "data",
 	}
 	failures, err := s.api.AddToUnit(context.Background(), params.StoragesAddParams{[]params.StorageAddParams{args}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(failures.Results, tc.HasLen, 1)
 	c.Assert(failures.Results[0].Error.Error(), tc.Matches, "sanity not found")
-	c.Assert(failures.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
+	c.Assert(failures.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *storageAddSuite) setupMocks(c *tc.C) *gomock.Controller {

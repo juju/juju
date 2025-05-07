@@ -9,7 +9,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
@@ -41,10 +40,10 @@ func (s *environSuite) TestSubnetsSuccessOld(c *tc.C) {
 	}
 
 	netEnv, ok := environs.SupportsNetworking(env)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	subs, err := netEnv.Subnets(context.Background(), nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(subs, tc.HasLen, 1)
 	c.Check(subs[0].ProviderId, tc.Equals, corenetwork.Id("provider-sub-id"))
@@ -78,10 +77,10 @@ func (s *environSuite) TestSubnetsSuccessNew(c *tc.C) {
 	}
 
 	netEnv, ok := environs.SupportsNetworking(env)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	subs, err := netEnv.Subnets(context.Background(), nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(subs, tc.HasLen, 1)
 	c.Check(subs[0].ProviderId, tc.Equals, corenetwork.Id("provider-sub-id"))
@@ -195,10 +194,10 @@ func (s *environSuite) TestNetworkInterfacesSuccess(c *tc.C) {
 	}
 
 	netEnv, ok := environs.SupportsNetworking(env)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	res, err := netEnv.NetworkInterfaces(context.Background(), []instance.Id{"machine-0"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(res, tc.HasLen, 1)
 	c.Assert(res[0], tc.HasLen, 2, tc.Commentf("expected to get 2 NICs for machine-0"))
@@ -271,7 +270,7 @@ func (s *environSuite) TestNetworkInterfacesPartialMatch(c *tc.C) {
 	}
 
 	netEnv, ok := environs.SupportsNetworking(env)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	res, err := netEnv.NetworkInterfaces(context.Background(), []instance.Id{"machine-0", "bogus-0"})
 	c.Assert(err, tc.Equals, environs.ErrPartialInstances)

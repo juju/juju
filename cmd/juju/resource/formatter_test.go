@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/core/resource"
@@ -30,7 +29,7 @@ func (s *CharmFormatterSuite) TestFormatCharmResource(c *tc.C) {
 
 	formatted := resourcecmd.FormatCharmResource(res)
 
-	c.Check(formatted, jc.DeepEquals, resourcecmd.FormattedCharmResource{
+	c.Check(formatted, tc.DeepEquals, resourcecmd.FormattedCharmResource{
 		Name:        "spam",
 		Type:        "file",
 		Path:        "spam.tgz",
@@ -50,7 +49,7 @@ type SvcFormatterSuite struct {
 
 func (s *SvcFormatterSuite) TestFormatSvcResource(c *tc.C) {
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader("something"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	r := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -93,7 +92,7 @@ func (s *SvcFormatterSuite) TestFormatSvcResource(c *tc.C) {
 
 func (s *SvcFormatterSuite) TestFormatSvcResourceUpload(c *tc.C) {
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader("something"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	r := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -138,7 +137,7 @@ func (s *SvcFormatterSuite) TestNotUsed(c *tc.C) {
 		Timestamp: time.Time{},
 	}
 	f := resourcecmd.FormatAppResource(r)
-	c.Assert(f.Used, jc.IsFalse)
+	c.Assert(f.Used, tc.IsFalse)
 }
 
 func (s *SvcFormatterSuite) TestUsed(c *tc.C) {
@@ -146,7 +145,7 @@ func (s *SvcFormatterSuite) TestUsed(c *tc.C) {
 		Timestamp: time.Now(),
 	}
 	f := resourcecmd.FormatAppResource(r)
-	c.Assert(f.Used, jc.IsTrue)
+	c.Assert(f.Used, tc.IsTrue)
 }
 
 func (s *SvcFormatterSuite) TestOriginUploadDeployed(c *tc.C) {
@@ -180,7 +179,7 @@ type DetailFormatterSuite struct {
 
 func (s *DetailFormatterSuite) TestFormatDetail(c *tc.C) {
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader("something"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	svc := resource.Resource{
 		Resource: charmresource.Resource{
@@ -202,7 +201,7 @@ func (s *DetailFormatterSuite) TestFormatDetail(c *tc.C) {
 	}
 
 	fp2, err := charmresource.GenerateFingerprint(strings.NewReader("other"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	unit := resource.Resource{
 		Resource: charmresource.Resource{
@@ -239,7 +238,7 @@ func (s *DetailFormatterSuite) TestFormatDetail(c *tc.C) {
 
 func (s *DetailFormatterSuite) TestFormatDetailEmpty(c *tc.C) {
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader("something"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	svc := resource.Resource{
 		Resource: charmresource.Resource{

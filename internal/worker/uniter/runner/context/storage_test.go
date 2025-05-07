@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coretesting "github.com/juju/juju/internal/testing"
@@ -61,7 +60,7 @@ func (s *StorageSuite) assertUnitStorageAdded(c *tc.C, ctrl *gomock.Controller, 
 			})
 		}
 		err := ctx.AddUnitStorage(one)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
 
 	s.unit.EXPECT().CommitHookChanges(gomock.Any(), hookCommitMatcher{c: c, expected: params.CommitHookChangesArgs{
@@ -70,7 +69,7 @@ func (s *StorageSuite) assertUnitStorageAdded(c *tc.C, ctrl *gomock.Controller, 
 
 	// Flush the context with a success.
 	err := ctx.Flush(context.Background(), "success", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *StorageSuite) TestRunHookAddStorageOnFailure(c *tc.C) {
@@ -85,7 +84,7 @@ func (s *StorageSuite) TestRunHookAddStorageOnFailure(c *tc.C) {
 		map[string]params.StorageDirectives{
 			"allecto": {Size: &size},
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Flush the context with an error.
 	msg := "test fail run hook"

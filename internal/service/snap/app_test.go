@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 type confinementSuite struct {
@@ -52,7 +51,7 @@ var _ = tc.Suite(&appSuite{})
 func (s *appSuite) TestValidate(c *tc.C) {
 	app := &App{name: "meshuggah"}
 	err := app.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *appSuite) TestValidateWithConfinement(c *tc.C) {
@@ -60,7 +59,7 @@ func (s *appSuite) TestValidateWithConfinement(c *tc.C) {
 	app.confinementPolicy = StrictPolicy
 
 	err := app.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *appSuite) TestNestedValidate(c *tc.C) {
@@ -68,7 +67,7 @@ func (s *appSuite) TestNestedValidate(c *tc.C) {
 	app.prerequisites = []Installable{&App{name: "faceless"}}
 
 	err := app.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *appSuite) TestInvalidNestedValidate(c *tc.C) {

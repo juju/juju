@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
@@ -28,15 +27,15 @@ func (*validatorSuite) TestControllerNotContainingValidator(c *tc.C) {
 		controller.AllowModelAccessKey: "bar",
 		controller.ControllerName:      "bar",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	rval, err := config.NoControllerAttributesValidator().Validate(context.Background(), cfg, nil)
 	valErr, is := errors.AsType[*config.ValidationError](err)
-	c.Assert(is, jc.IsTrue)
-	c.Assert(valErr.InvalidAttrs, jc.DeepEquals, []string{controller.AllowModelAccessKey, controller.ControllerName})
+	c.Assert(is, tc.IsTrue)
+	c.Assert(valErr.InvalidAttrs, tc.DeepEquals, []string{controller.AllowModelAccessKey, controller.ControllerName})
 
 	// Confirm no modification was done to the config.
-	c.Assert(rval.AllAttrs(), jc.DeepEquals, cfg.AllAttrs())
+	c.Assert(rval.AllAttrs(), tc.DeepEquals, cfg.AllAttrs())
 }
 
 func (*validatorSuite) TestModelValidator(c *tc.C) {
@@ -46,15 +45,15 @@ func (*validatorSuite) TestModelValidator(c *tc.C) {
 		config.TypeKey:         "peachy",
 		config.AgentVersionKey: "3.11.1",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	rval, err := config.ModelValidator().Validate(context.Background(), cfg, nil)
 	valErr, is := errors.AsType[*config.ValidationError](err)
-	c.Assert(is, jc.IsTrue)
-	c.Assert(valErr.InvalidAttrs, jc.DeepEquals, []string{config.AgentVersionKey})
+	c.Assert(is, tc.IsTrue)
+	c.Assert(valErr.InvalidAttrs, tc.DeepEquals, []string{config.AgentVersionKey})
 
 	// Confirm no modification was done to the config.
-	c.Assert(rval.AllAttrs(), jc.DeepEquals, cfg.AllAttrs())
+	c.Assert(rval.AllAttrs(), tc.DeepEquals, cfg.AllAttrs())
 }
 
 // Asserting the fact that model config validation when controller only config
@@ -67,13 +66,13 @@ func (*validatorSuite) TestModelValidatorFailsForControllerAttrs(c *tc.C) {
 		controller.AllowModelAccessKey: "bar",
 		controller.ControllerName:      "bar",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	rval, err := config.ModelValidator().Validate(context.Background(), cfg, nil)
 	valErr, is := errors.AsType[*config.ValidationError](err)
-	c.Assert(is, jc.IsTrue)
-	c.Assert(valErr.InvalidAttrs, jc.DeepEquals, []string{controller.AllowModelAccessKey, controller.ControllerName})
+	c.Assert(is, tc.IsTrue)
+	c.Assert(valErr.InvalidAttrs, tc.DeepEquals, []string{controller.AllowModelAccessKey, controller.ControllerName})
 
 	// Confirm no modification was done to the config.
-	c.Assert(rval.AllAttrs(), jc.DeepEquals, cfg.AllAttrs())
+	c.Assert(rval.AllAttrs(), tc.DeepEquals, cfg.AllAttrs())
 }

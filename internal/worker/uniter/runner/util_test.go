@@ -15,7 +15,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/fs"
 	"go.uber.org/mock/gomock"
 
@@ -128,7 +127,7 @@ func (s *ContextSuite) setupFactory(c *tc.C, ctrl *gomock.Controller) {
 		Clock:            testclock.NewClock(time.Time{}),
 		Logger:           internallogger.GetLogger("test"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.contextFactory = contextFactory
 
 	s.paths = runnertesting.NewRealPaths(c)
@@ -144,14 +143,14 @@ func (s *ContextSuite) setupFactory(c *tc.C, ctrl *gomock.Controller) {
 		Clock:            testclock.NewClock(time.Time{}),
 		Logger:           internallogger.GetLogger("test"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	factory, err := runner.NewFactory(
 		s.paths,
 		s.contextFactory,
 		runner.NewRunner,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.factory = factory
 
 	s.AddContextRelation(c, ctrl, "db0")
@@ -160,9 +159,9 @@ func (s *ContextSuite) setupFactory(c *tc.C, ctrl *gomock.Controller) {
 
 func (s *ContextSuite) setCharm(c *tc.C, name string) {
 	err := os.RemoveAll(s.paths.GetCharmDir())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = fs.Copy(testcharms.Repo.CharmDirPath(name), s.paths.GetCharmDir())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ContextSuite) getRelationInfos() map[int]*context.RelationInfo {
@@ -207,7 +206,7 @@ func makeCharm(c *tc.C, spec hookSpec, charmDir string) {
 	if spec.dir != "" {
 		dir = filepath.Join(dir, spec.dir)
 		err := os.Mkdir(dir, 0755)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	if !spec.charmMissing {
 		makeCharmMetadata(c, charmDir)
@@ -216,14 +215,14 @@ func makeCharm(c *tc.C, spec hookSpec, charmDir string) {
 	hook, err := os.OpenFile(
 		filepath.Join(dir, spec.name), os.O_CREATE|os.O_WRONLY, spec.perm,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() {
 		c.Assert(hook.Close(), tc.IsNil)
 	}()
 
 	printf := func(f string, a ...interface{}) {
 		_, err := fmt.Fprintf(hook, f+"\n", a...)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	if !spec.missingShebang {
 		printf("#!/bin/bash")
@@ -248,7 +247,7 @@ func makeCharm(c *tc.C, spec hookSpec, charmDir string) {
 
 func makeCharmMetadata(c *tc.C, charmDir string) {
 	err := os.MkdirAll(charmDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = os.WriteFile(path.Join(charmDir, "metadata.yaml"), nil, 0664)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

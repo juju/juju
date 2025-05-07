@@ -5,7 +5,6 @@ package manual_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -25,7 +24,7 @@ func (s *credentialsSuite) SetUpTest(c *tc.C) {
 
 	var err error
 	s.provider, err = environs.Provider("manual")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *credentialsSuite) TestCredentialSchemas(c *tc.C) {
@@ -34,6 +33,6 @@ func (s *credentialsSuite) TestCredentialSchemas(c *tc.C) {
 
 func (s *credentialsSuite) TestDetectCredentials(c *tc.C) {
 	credentials, err := s.provider.DetectCredentials("")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credentials, jc.DeepEquals, cloud.NewEmptyCloudCredential())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(credentials, tc.DeepEquals, cloud.NewEmptyCloudCredential())
 }

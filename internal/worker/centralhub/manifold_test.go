@@ -10,7 +10,6 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
@@ -40,7 +39,7 @@ func (s *ManifoldSuite) manifold() dependency.Manifold {
 }
 
 func (s *ManifoldSuite) TestInputs(c *tc.C) {
-	c.Check(s.manifold().Inputs, jc.DeepEquals, []string{"state-config-watcher"})
+	c.Check(s.manifold().Inputs, tc.DeepEquals, []string{"state-config-watcher"})
 }
 
 func (s *ManifoldSuite) TestStateConfigWatcherMissing(c *tc.C) {
@@ -71,7 +70,7 @@ func (s *ManifoldSuite) TestMissingHub(c *tc.C) {
 
 	worker, err := s.manifold().Start(context.Background(), getter)
 	c.Check(worker, tc.IsNil)
-	c.Check(errors.Cause(err), jc.ErrorIs, errors.NotValid)
+	c.Check(errors.Cause(err), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *ManifoldSuite) TestHubOutput(c *tc.C) {
@@ -81,12 +80,12 @@ func (s *ManifoldSuite) TestHubOutput(c *tc.C) {
 
 	manifold := s.manifold()
 	worker, err := manifold.Start(context.Background(), getter)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(worker, tc.NotNil)
 	defer workertest.CleanKill(c, worker)
 
 	var hub *pubsub.StructuredHub
 	err = manifold.Output(worker, &hub)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(hub, tc.Equals, s.hub)
 }

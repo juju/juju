@@ -9,7 +9,6 @@ import (
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/domain/agentpassword"
@@ -45,7 +44,7 @@ func (s *exportSuite) TestExportUnitPasswordHashes(c *tc.C) {
 	})
 
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(unit.PasswordHash(), tc.Equals, "hash")
 }
@@ -70,7 +69,7 @@ func (s *exportSuite) TestExportUnitPasswordHashesNoPasswords(c *tc.C) {
 	})
 
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(unit.PasswordHash(), tc.Equals, "")
 }
@@ -97,7 +96,7 @@ func (s *exportSuite) TestExportUnitPasswordHashesNoPasswordForUnit(c *tc.C) {
 	})
 
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(unit.PasswordHash(), tc.Equals, "")
 }

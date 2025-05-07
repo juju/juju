@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common/model"
@@ -69,7 +68,7 @@ func (s *modelWatcherSuite) TestWatchSuccess(c *tc.C) {
 
 	facade := model.NewModelConfigWatcher(s.modelConfigService, s.watcherRegistry)
 	result, err := facade.WatchForModelConfigChanges(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{NotifyWatcherId: "1", Error: nil})
 }
 
@@ -107,10 +106,10 @@ func (s *modelWatcherSuite) TestModelConfigSuccess(c *tc.C) {
 
 	facade := model.NewModelConfigWatcher(s.modelConfigService, s.watcherRegistry)
 	result, err := facade.ModelConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Make sure we can read the secret attribute (i.e. it's not masked).
 	c.Check(result.Config["secret"], tc.Equals, "pork")
-	c.Check(map[string]any(result.Config), jc.DeepEquals, testingModelConfig.AllAttrs())
+	c.Check(map[string]any(result.Config), tc.DeepEquals, testingModelConfig.AllAttrs())
 }
 
 func (s *modelWatcherSuite) TestModelConfigFetchError(c *tc.C) {
@@ -138,6 +137,6 @@ func testingEnvConfig(c *tc.C) *config.Config {
 			AdminSecret:      "admin-secret",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return env.Config()
 }

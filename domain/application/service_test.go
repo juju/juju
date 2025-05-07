@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/caas"
@@ -89,25 +88,25 @@ func (s *serviceSuite) SetUpTest(c *tc.C) {
 		`, modelUUID.String(), coretesting.ControllerTag.Id())
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestGetApplicationLife(c *tc.C) {
 	s.createApplication(c, "foo")
 
 	lifeValue, err := s.svc.GetApplicationLife(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(lifeValue, tc.Equals, life.Alive)
 
 	_, err = s.svc.GetApplicationLife(context.Background(), "bar")
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *serviceSuite) TestDestroyApplication(c *tc.C) {
 	appID := s.createApplication(c, "foo")
 
 	err := s.svc.DestroyApplication(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var gotLife int
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -118,7 +117,7 @@ func (s *serviceSuite) TestDestroyApplication(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotLife, tc.Equals, 1)
 }
 
@@ -131,7 +130,7 @@ func (s *serviceSuite) createSecrets(c *tc.C, appUUID coreapplication.ID, unitNa
 	}
 	_ = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		err := s.secretState.CreateCharmApplicationSecret(ctx, 1, appSecretURI, appUUID, sp)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		return nil
 	})
 	if unitName == "" {
@@ -145,9 +144,9 @@ func (s *serviceSuite) createSecrets(c *tc.C, appUUID coreapplication.ID, unitNa
 	}
 	_ = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		unitUUID, err := s.secretState.GetUnitUUID(ctx, unitName)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = s.secretState.CreateCharmUnitSecret(ctx, 1, unitSecretURI, unitUUID, sp2)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		return nil
 	})
 	return appSecretURI, unitSecretURI
@@ -161,7 +160,7 @@ func (s *serviceSuite) TestDeleteApplication(c *tc.C) {
 	s.createSecrets(c, appUUID, "")
 
 	err := s.svc.DeleteApplication(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var (
 		gotAppCount    int
@@ -172,7 +171,7 @@ func (s *serviceSuite) TestDeleteApplication(c *tc.C) {
 			Scan(&gotAppCount)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotAppCount, tc.Equals, 0)
 	c.Assert(gotSecretCount, tc.Equals, 0)
 }
@@ -182,7 +181,7 @@ func (s *serviceSuite) TestDeleteApplicationNotFound(c *tc.C) {
 	defer ctrl.Finish()
 
 	err := s.svc.DeleteApplication(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *serviceSuite) TestMarkApplicationDead(c *tc.C) {
@@ -192,7 +191,7 @@ func (s *serviceSuite) TestMarkApplicationDead(c *tc.C) {
 	s.createApplication(c, "foo")
 
 	err := s.svc.MarkApplicationDead(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var gotLife domainlife.Life
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -203,7 +202,7 @@ func (s *serviceSuite) TestMarkApplicationDead(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotLife, tc.Equals, domainlife.Dead)
 }
 
@@ -212,25 +211,25 @@ func (s *serviceSuite) TestMarkApplicationDeadNotFound(c *tc.C) {
 	defer ctrl.Finish()
 
 	err := s.svc.MarkApplicationDead(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *serviceSuite) TestGetUnitLife(c *tc.C) {
 	s.createApplication(c, "foo", service.AddUnitArg{})
 
 	lifeValue, err := s.svc.GetUnitLife(context.Background(), "foo/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(lifeValue, tc.Equals, life.Alive)
 
 	_, err = s.svc.GetUnitLife(context.Background(), "foo/1")
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *serviceSuite) TestDestroyUnit(c *tc.C) {
 	s.createApplication(c, "foo", service.AddUnitArg{})
 
 	err := s.svc.DestroyUnit(context.Background(), "foo/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var gotLife int
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -241,7 +240,7 @@ func (s *serviceSuite) TestDestroyUnit(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotLife, tc.Equals, 1)
 }
 
@@ -255,7 +254,7 @@ func (s *serviceSuite) TestEnsureUnitDead(c *tc.C) {
 	revoker.EXPECT().RevokeLeadership("foo", coreunit.Name("foo/0"))
 
 	err := s.svc.EnsureUnitDead(context.Background(), "foo/0", revoker)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var gotLife int
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -266,7 +265,7 @@ func (s *serviceSuite) TestEnsureUnitDead(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotLife, tc.Equals, 2)
 }
 
@@ -279,7 +278,7 @@ func (s *serviceSuite) TestEnsureUnitDeadNotFound(c *tc.C) {
 	revoker := application.NewMockRevoker(ctrl)
 
 	err := s.svc.EnsureUnitDead(context.Background(), coreunit.Name("foo/666"), revoker)
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *serviceSuite) TestDeleteUnit(c *tc.C) {
@@ -293,10 +292,10 @@ func (s *serviceSuite) TestDeleteUnit(c *tc.C) {
 		_, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 2 WHERE name = ?", "foo/0")
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.svc.DeleteUnit(context.Background(), "foo/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var (
 		gotUnitCount   int
@@ -307,7 +306,7 @@ func (s *serviceSuite) TestDeleteUnit(c *tc.C) {
 			Scan(&gotUnitCount)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotUnitCount, tc.Equals, 0)
 	c.Assert(gotSecretCount, tc.Equals, 0)
 }
@@ -319,7 +318,7 @@ func (s *serviceSuite) TestDeleteUnitNotFound(c *tc.C) {
 	s.createApplication(c, "foo")
 
 	err := s.svc.DeleteUnit(context.Background(), "foo/666")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestRemoveUnit(c *tc.C) {
@@ -332,13 +331,13 @@ func (s *serviceSuite) TestRemoveUnit(c *tc.C) {
 		_, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 2 WHERE name = ?", "foo/0")
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	revoker := application.NewMockRevoker(ctrl)
 	revoker.EXPECT().RevokeLeadership("foo", coreunit.Name("foo/0"))
 
 	err = s.svc.RemoveUnit(context.Background(), "foo/0", revoker)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var gotCount int
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -349,7 +348,7 @@ func (s *serviceSuite) TestRemoveUnit(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotCount, tc.Equals, 0)
 }
 
@@ -362,7 +361,7 @@ func (s *serviceSuite) TestRemoveUnitStillAlive(c *tc.C) {
 	revoker := application.NewMockRevoker(ctrl)
 
 	err := s.svc.RemoveUnit(context.Background(), "foo/0", revoker)
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitIsAlive)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitIsAlive)
 }
 
 func (s *serviceSuite) TestRemoveUnitNotFound(c *tc.C) {
@@ -374,14 +373,14 @@ func (s *serviceSuite) TestRemoveUnitNotFound(c *tc.C) {
 	revoker := application.NewMockRevoker(ctrl)
 
 	err := s.svc.RemoveUnit(context.Background(), "foo/666", revoker)
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *serviceSuite) TestSetScalingState(c *tc.C) {
 	appID := s.createApplication(c, "foo", service.AddUnitArg{})
 
 	err := s.svc.SetApplicationScalingState(context.Background(), "foo", 1, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var (
 		gotScaleTarget int
@@ -395,9 +394,9 @@ func (s *serviceSuite) TestSetScalingState(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotScaleTarget, tc.Equals, 1)
-	c.Assert(gotScaling, jc.IsTrue)
+	c.Assert(gotScaling, tc.IsTrue)
 }
 
 func (s *serviceSuite) TestSetScalingStateAlreadyScaling(c *tc.C) {
@@ -407,10 +406,10 @@ func (s *serviceSuite) TestSetScalingStateAlreadyScaling(c *tc.C) {
 		_, err := tx.ExecContext(ctx, "UPDATE application_scale SET scaling = true WHERE application_uuid = ?", appID)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.svc.SetApplicationScalingState(context.Background(), "foo", 666, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var (
 		gotScaleTarget int
@@ -424,9 +423,9 @@ func (s *serviceSuite) TestSetScalingStateAlreadyScaling(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotScaleTarget, tc.Equals, 666)
-	c.Assert(gotScaling, jc.IsTrue)
+	c.Assert(gotScaling, tc.IsTrue)
 }
 
 func (s *serviceSuite) TestSetScalingStateDying(c *tc.C) {
@@ -436,10 +435,10 @@ func (s *serviceSuite) TestSetScalingStateDying(c *tc.C) {
 		_, err := tx.ExecContext(ctx, "UPDATE application SET life_id = 1 WHERE uuid = ?", appID)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.svc.SetApplicationScalingState(context.Background(), "foo", 666, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var (
 		gotScaleTarget int
@@ -453,16 +452,16 @@ func (s *serviceSuite) TestSetScalingStateDying(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotScaleTarget, tc.Equals, 666)
-	c.Assert(gotScaling, jc.IsTrue)
+	c.Assert(gotScaling, tc.IsTrue)
 }
 
 func (s *serviceSuite) TestSetScalingStateInconsistent(c *tc.C) {
 	s.createApplication(c, "foo")
 
 	err := s.svc.SetApplicationScalingState(context.Background(), "foo", 666, true)
-	c.Assert(err, jc.ErrorIs, applicationerrors.ScalingStateInconsistent)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ScalingStateInconsistent)
 }
 
 func (s *serviceSuite) TestGetScalingState(c *tc.C) {
@@ -472,14 +471,14 @@ func (s *serviceSuite) TestGetScalingState(c *tc.C) {
 		_, err := tx.ExecContext(ctx, "UPDATE application_scale SET scaling = true WHERE application_uuid = ?", appID)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.svc.SetApplicationScalingState(context.Background(), "foo", 666, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	got, err := s.svc.GetApplicationScalingState(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, jc.DeepEquals, service.ScalingState{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.DeepEquals, service.ScalingState{
 		Scaling:     true,
 		ScaleTarget: 666,
 	})
@@ -489,7 +488,7 @@ func (s *serviceSuite) TestSetScale(c *tc.C) {
 	appID := s.createApplication(c, "foo")
 
 	err := s.svc.SetApplicationScale(context.Background(), "foo", 666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var gotScale int
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -500,7 +499,7 @@ func (s *serviceSuite) TestSetScale(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotScale, tc.Equals, 666)
 }
 
@@ -508,10 +507,10 @@ func (s *serviceSuite) TestGetScale(c *tc.C) {
 	s.createApplication(c, "foo")
 
 	err := s.svc.SetApplicationScale(context.Background(), "foo", 666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	got, err := s.svc.GetApplicationScale(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.Equals, 666)
 }
 
@@ -519,7 +518,7 @@ func (s *serviceSuite) TestChangeScale(c *tc.C) {
 	appID := s.createApplication(c, "foo", service.AddUnitArg{})
 
 	newScale, err := s.svc.ChangeApplicationScale(context.Background(), "foo", 2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(newScale, tc.Equals, 3)
 
 	var gotScale int
@@ -530,7 +529,7 @@ func (s *serviceSuite) TestChangeScale(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotScale, tc.Equals, 3)
 }
 
@@ -538,7 +537,7 @@ func (s *serviceSuite) TestChangeScaleInvalid(c *tc.C) {
 	s.createApplication(c, "foo", service.AddUnitArg{})
 
 	_, err := s.svc.ChangeApplicationScale(context.Background(), "foo", -2)
-	c.Assert(err, jc.ErrorIs, applicationerrors.ScaleChangeInvalid)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ScaleChangeInvalid)
 }
 
 func (s *serviceSuite) TestCAASUnitTerminatingUnitNumLessThanScale(c *tc.C) {
@@ -554,8 +553,8 @@ func (s *serviceSuite) TestCAASUnitTerminatingUnitNumLessThanScale(c *tc.C) {
 	s.caasApplicationProvider = application.NewMockBroker(ctrl)
 	s.caasApplicationProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
 	willRestart, err := s.svc.CAASUnitTerminating(context.Background(), "foo/1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(willRestart, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(willRestart, tc.IsTrue)
 }
 
 func (s *serviceSuite) TestCAASUnitTerminatingUnitNumGreaterThanScale(c *tc.C) {
@@ -571,8 +570,8 @@ func (s *serviceSuite) TestCAASUnitTerminatingUnitNumGreaterThanScale(c *tc.C) {
 	s.caasApplicationProvider = application.NewMockBroker(ctrl)
 	s.caasApplicationProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
 	willRestart, err := s.svc.CAASUnitTerminating(context.Background(), "foo/2")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(willRestart, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(willRestart, tc.IsFalse)
 }
 
 func (s *serviceSuite) TestCAASUnitTerminatingUnitNotAlive(c *tc.C) {
@@ -582,21 +581,21 @@ func (s *serviceSuite) TestCAASUnitTerminatingUnitNotAlive(c *tc.C) {
 		_, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 2 WHERE name = ?", "foo/0")
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	s.caasApplicationProvider = application.NewMockBroker(ctrl)
 	willRestart, err := s.svc.CAASUnitTerminating(context.Background(), "foo/0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(willRestart, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(willRestart, tc.IsFalse)
 }
 
 func (s *serviceSuite) TestCAASUnitTerminatingUnitNumLessThanDesired(c *tc.C) {
 	s.createApplication(c, "foo", service.AddUnitArg{}, service.AddUnitArg{}, service.AddUnitArg{})
 	err := s.svc.SetApplicationScalingState(context.Background(), "foo", 6, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -608,14 +607,14 @@ func (s *serviceSuite) TestCAASUnitTerminatingUnitNumLessThanDesired(c *tc.C) {
 	s.caasApplicationProvider = application.NewMockBroker(ctrl)
 	s.caasApplicationProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
 	willRestart, err := s.svc.CAASUnitTerminating(context.Background(), "foo/2")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(willRestart, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(willRestart, tc.IsTrue)
 }
 
 func (s *serviceSuite) TestCAASUnitTerminatingUnitNumGreaterThanDesired(c *tc.C) {
 	s.createApplication(c, "foo", service.AddUnitArg{}, service.AddUnitArg{}, service.AddUnitArg{})
 	err := s.svc.SetApplicationScalingState(context.Background(), "foo", 6, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -628,8 +627,8 @@ func (s *serviceSuite) TestCAASUnitTerminatingUnitNumGreaterThanDesired(c *tc.C)
 	s.caasApplicationProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
 
 	willRestart, err := s.svc.CAASUnitTerminating(context.Background(), "foo/2")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(willRestart, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(willRestart, tc.IsFalse)
 }
 
 func (s *serviceSuite) createApplication(c *tc.C, name string, units ...service.AddUnitArg) coreapplication.ID {
@@ -647,7 +646,7 @@ func (s *serviceSuite) createApplication(c *tc.C, name string, units ...service.
 			DownloadURL: "https://example.com",
 		},
 	}, units...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return appID
 }
 

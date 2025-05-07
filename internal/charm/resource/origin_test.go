@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/charm/resource"
 )
@@ -26,7 +25,7 @@ func (OriginSuite) TestParseOriginKnown(c *tc.C) {
 	for value, expected := range recognized {
 		origin, err := resource.ParseOrigin(value)
 
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		c.Check(origin, tc.Equals, expected)
 	}
 }
@@ -45,7 +44,7 @@ func (OriginSuite) TestValidateKnown(c *tc.C) {
 	for _, origin := range recognized {
 		err := origin.Validate()
 
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
 }
 
@@ -53,6 +52,6 @@ func (OriginSuite) TestValidateUnknown(c *tc.C) {
 	var origin resource.Origin
 	err := origin.Validate()
 
-	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
+	c.Check(errors.Cause(err), tc.Satisfies, errors.IsNotValid)
 	c.Check(err, tc.ErrorMatches, `.*unknown origin.*`)
 }

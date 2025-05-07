@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/database/schema"
 	databasetesting "github.com/juju/juju/internal/database/testing"
@@ -34,7 +33,7 @@ func (s *schemaBaseSuite) NewCleanDB(c *tc.C) *sql.DB {
 	c.Logf("Opening sqlite3 db with: %v", url)
 
 	db, err := sql.Open("sqlite3", url)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return db
 }
@@ -47,7 +46,7 @@ func (s *schemaBaseSuite) applyDDL(c *tc.C, ddl *schema.Schema) {
 		})
 	}
 	changeSet, err := ddl.Ensure(context.Background(), s.TxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(changeSet.Current, tc.Equals, 0)
 	c.Check(changeSet.Post, tc.Equals, ddl.Len())
 }
@@ -57,7 +56,7 @@ func (s *schemaBaseSuite) assertExecSQL(c *tc.C, q string, args ...any) {
 		_, err := tx.ExecContext(ctx, q, args...)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *schemaBaseSuite) assertExecSQLError(c *tc.C, q string, errMsg string, args ...any) {
@@ -80,22 +79,22 @@ func readEntityNames(c *tc.C, db *sql.DB, entity_type string) []string {
 	defer cancel()
 
 	tx, err := db.BeginTx(ctx, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	rows, err := tx.QueryContext(ctx, `SELECT DISTINCT name FROM sqlite_master WHERE type = ? ORDER BY name ASC;`, entity_type)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = rows.Close() }()
 
 	var names []string
 	for rows.Next() {
 		var name string
 		err = rows.Scan(&name)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		names = append(names, name)
 	}
 
 	err = tx.Commit()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return names
 }

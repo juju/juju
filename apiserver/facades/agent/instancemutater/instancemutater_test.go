@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	coretesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -417,9 +416,9 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtraction(c *t
 
 func (s *InstanceMutaterAPICharmProfilingInfoSuite) assertCharmWithLXDProfile(c *tc.C, chURLStr string) {
 	curl, err := internalcharm.ParseURL(chURLStr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	source, err := applicationcharm.ParseCharmSchema(internalcharm.Schema(curl.Schema))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.applicationService.EXPECT().GetCharmLXDProfile(gomock.Any(), applicationcharm.CharmLocator{
 		Source:   source,
@@ -453,9 +452,9 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtractionWithE
 
 func (s *InstanceMutaterAPICharmProfilingInfoSuite) assertCharmWithoutLXDProfile(c *tc.C, chURLStr string) {
 	curl, err := internalcharm.ParseURL(chURLStr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	source, err := applicationcharm.ParseCharmSchema(internalcharm.Schema(curl.Schema))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.applicationService.EXPECT().GetCharmLXDProfile(gomock.Any(), applicationcharm.CharmLocator{
 		Source:   source,

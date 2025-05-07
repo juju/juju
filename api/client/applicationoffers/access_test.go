@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
@@ -67,7 +66,7 @@ func (s *accessSuite) readOnlyUser(c *tc.C, action params.OfferAction) {
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
 	err := accessCall(client, action, "bob", "read", someOffer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *accessSuite) TestGrantOfferAdminUser(c *tc.C) {
@@ -100,7 +99,7 @@ func (s *accessSuite) adminUser(c *tc.C, action params.OfferAction) {
 
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 	err := accessCall(client, action, "bob", "consume", someOffer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *accessSuite) TestGrantThreeOffers(c *tc.C) {
@@ -145,7 +144,7 @@ func (s *accessSuite) threeOffers(c *tc.C, action params.OfferAction) {
 
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 	err := accessCall(client, action, "carol", "read", someOffer, someOffer, someOffer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *accessSuite) TestGrantErrorResult(c *tc.C) {

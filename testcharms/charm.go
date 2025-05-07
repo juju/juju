@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/charm"
 	jtesting "github.com/juju/juju/internal/testing"
@@ -52,11 +51,11 @@ func CharmRepo() *repo.CharmRepo {
 func CheckCharmReady(c *tc.C, charmArchive *charm.CharmArchive) {
 	fileSize := func() int64 {
 		f, err := os.Open(charmArchive.Path)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		defer func() { _ = f.Close() }()
 
 		fi, err := f.Stat()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		return fi.Size()
 	}
 

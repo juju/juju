@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -105,7 +104,7 @@ func (s *BindSuite) TestBind(c *tc.C) {
 	}
 
 	_, err := s.runBind(c, "foo", "ep1=sp1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.spacesClient.CheckCallNames(c, "ListSpaces")
 	s.applicationClient.CheckCallNames(c, "Get", "MergeBindings")
 	s.applicationClient.CheckCall(c, 1, "MergeBindings", params.ApplicationMergeBindingsArgs{

@@ -14,7 +14,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	actionapi "github.com/juju/juju/api/client/action"
 	"github.com/juju/juju/cmd/juju/action"
@@ -260,7 +259,7 @@ func (s *ExecSuite) TestExecForMachineAndUnit(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, runCmd,
 		"--format=yaml", "--machine=0", "--unit=mysql/0", "hostname", "--utc",
 	)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	expected := `
 "0":
@@ -319,7 +318,7 @@ func (s *ExecSuite) TestAllMachines(c *tc.C) {
 	runCmd, _ := newTestExecCommand(testClock(), model.IAAS)
 	context, err := cmdtesting.RunCommand(c, runCmd,
 		"--format=yaml", "--all", "hostname", "--utc")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(cmdtesting.Stdout(context), tc.Equals, `
 "0":
@@ -606,11 +605,11 @@ use 'juju show-task' to inspect the failure
 		// Run command
 		runCmd, _ := newTestExecCommand(testClock(), model.IAAS)
 		err := cmdtesting.InitCommand(runCmd, t.args)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		err = runCmd.Run(ctx)
 		if t.error == "" {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		} else {
 			c.Assert(err, tc.NotNil)
 			c.Check(err, tc.ErrorMatches, t.error)
@@ -736,7 +735,7 @@ use 'juju show-task' to inspect the failure
 		if test.err != "" {
 			c.Check(err, tc.ErrorMatches, test.err)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		}
 		c.Check(cmdtesting.Stdout(context), tc.Equals, test.stdout)
 		c.Check(cmdtesting.Stderr(context), tc.Equals, "")
@@ -796,7 +795,7 @@ result112
 		runCmd, _ := newTestExecCommand(testClock(), model.IAAS)
 		context, err := cmdtesting.RunCommand(c, runCmd,
 			"--format=plain", unitFlag, "do-stuff")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		c.Check(cmdtesting.Stdout(context), tc.Equals, stdout)
 		c.Check(cmdtesting.Stderr(context), tc.Equals, "")

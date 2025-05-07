@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/watcher"
@@ -31,7 +30,7 @@ func (s *converterSuite) TestSetUp(c *tc.C) {
 
 	conv := s.newConverter(c)
 	_, err := conv.SetUp(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *converterSuite) TestSetupMachinerErr(c *tc.C) {
@@ -41,7 +40,7 @@ func (s *converterSuite) TestSetupMachinerErr(c *tc.C) {
 
 	conv := s.newConverter(c)
 	w, err := conv.SetUp(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(w, tc.IsNil)
 }
 
@@ -53,7 +52,7 @@ func (s *converterSuite) TestSetupWatchErr(c *tc.C) {
 
 	conv := s.newConverter(c)
 	w, err := conv.SetUp(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(w, tc.IsNil)
 }
 

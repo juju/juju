@@ -7,7 +7,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
@@ -42,8 +41,8 @@ func (s *ManifoldSuite) TestMachine(c *tc.C) {
 		identityfilewriter.Manifold(config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
 		mockAPICaller(model.JobManageModel))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.newCalled, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.newCalled, tc.IsTrue)
 }
 
 func (s *ManifoldSuite) TestMachineNotModelManagerErrors(c *tc.C) {
@@ -53,7 +52,7 @@ func (s *ManifoldSuite) TestMachineNotModelManagerErrors(c *tc.C) {
 		&fakeAgent{tag: names.NewMachineTag("42")},
 		mockAPICaller(model.JobHostUnits))
 	c.Assert(err, tc.Equals, dependency.ErrMissing)
-	c.Assert(s.newCalled, jc.IsFalse)
+	c.Assert(s.newCalled, tc.IsFalse)
 }
 
 func (s *ManifoldSuite) TestNonMachineAgent(c *tc.C) {
@@ -63,7 +62,7 @@ func (s *ManifoldSuite) TestNonMachineAgent(c *tc.C) {
 		&fakeAgent{tag: names.NewUnitTag("foo/0")},
 		mockAPICaller(""))
 	c.Assert(err, tc.ErrorMatches, "this manifold may only be used inside a machine or controller agent")
-	c.Assert(s.newCalled, jc.IsFalse)
+	c.Assert(s.newCalled, tc.IsFalse)
 }
 
 type fakeAgent struct {

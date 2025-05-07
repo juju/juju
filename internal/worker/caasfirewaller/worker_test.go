@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -162,7 +161,7 @@ func (s *workerSuite) TestStartStop(c *tc.C) {
 	})
 
 	w, err := caasfirewaller.NewWorkerForTest(s.config, workerCreator)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -206,7 +205,7 @@ func (s *workerSuite) TestV1CharmSkipsProcessing(c *tc.C) {
 	})
 
 	w, err := caasfirewaller.NewWorkerForTest(s.config, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -247,7 +246,7 @@ func (s *workerSuite) TestNotFoundCharmSkipsProcessing(c *tc.C) {
 	})
 
 	w, err := caasfirewaller.NewWorkerForTest(s.config, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	select {

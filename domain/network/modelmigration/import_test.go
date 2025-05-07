@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/network"
@@ -62,7 +61,7 @@ func (s *importSuite) TestImportSubnetWithoutSpaces(c *tc.C) {
 
 	op := s.newImportOperation(c)
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *importSuite) TestImportSubnetAndSpaceNotLinked(c *tc.C) {
@@ -97,7 +96,7 @@ func (s *importSuite) TestImportSubnetAndSpaceNotLinked(c *tc.C) {
 
 	op := s.newImportOperation(c)
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *importSuite) TestImportSpaceWithSubnet(c *tc.C) {
@@ -145,5 +144,5 @@ func (s *importSuite) TestImportSpaceWithSubnet(c *tc.C) {
 
 	op := s.newImportOperation(c)
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

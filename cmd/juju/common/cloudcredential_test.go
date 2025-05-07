@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cloud"
@@ -52,7 +51,7 @@ func testResolveCloudCredentialTag(
 	expect string,
 ) {
 	tag, err := common.ResolveCloudCredentialTag(user, cloud, credentialName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(tag.Id(), tc.Equals, expect)
 }
 
@@ -86,7 +85,7 @@ func (*cloudCredentialSuite) TestRegisterCredentials(c *tc.C) {
 			Name: "fake",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(stderr.String(), tc.Equals, "")
 }
 
@@ -109,7 +108,7 @@ func (*cloudCredentialSuite) TestRegisterCredentialsWithNoCredentials(c *tc.C) {
 			Name: "fake",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (*cloudCredentialSuite) TestRegisterCredentialsWithCallFailure(c *tc.C) {
@@ -155,7 +154,7 @@ func (*cloudCredentialSuite) assertInvalidCredentialName(c *tc.C, in modelcmd.Ge
 		in,
 	)
 	c.Assert(errors.Cause(err), tc.ErrorMatches, `credential name "new one" not valid`)
-	c.Assert(errors.Cause(err), jc.ErrorIs, errors.NotValid)
+	c.Assert(errors.Cause(err), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *cloudCredentialSuite) TestGetOrDetectCredentialInvalidCredentialNameProvided(c *tc.C) {

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
@@ -40,7 +39,7 @@ func (s *checkConnectionSuite) TestRunComplainsAboutConnectionErrors(c *tc.C) {
 		func(_ context.Context, a agent.Agent) (io.Closer, error) {
 			return nil, errors.Errorf("hartz-timor swarm detected")
 		})
-	c.Assert(cmd.Init([]string{"unit-artemis-5"}), jc.ErrorIsNil)
+	c.Assert(cmd.Init([]string{"unit-artemis-5"}), tc.ErrorIsNil)
 	err := cmd.Run(nil)
 	c.Assert(err, tc.ErrorMatches, "checking connection for unit-artemis-5: hartz-timor swarm detected")
 }
@@ -50,7 +49,7 @@ func (s *checkConnectionSuite) TestRunClosesConnection(c *tc.C) {
 		func(_ context.Context, a agent.Agent) (io.Closer, error) {
 			return &mockConnection{}, nil
 		})
-	c.Assert(cmd.Init([]string{"unit-artemis-5"}), jc.ErrorIsNil)
+	c.Assert(cmd.Init([]string{"unit-artemis-5"}), tc.ErrorIsNil)
 	err := cmd.Run(nil)
 	c.Assert(err, tc.ErrorMatches, "closing connection for unit-artemis-5: seal integrity check failed")
 }

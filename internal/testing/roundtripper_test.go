@@ -9,7 +9,6 @@ import (
 	"net/url"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/testing"
 )
@@ -27,10 +26,10 @@ func (s *metadataSuite) TestCannedRoundTripper(c *tc.C) {
 	c.Assert(vrt, tc.NotNil)
 	req := &http.Request{URL: &url.URL{Path: "a"}}
 	resp, err := vrt.RoundTrip(req)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(resp, tc.NotNil)
 	content, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(content), tc.Equals, aContent)
 	c.Assert(resp.ContentLength, tc.Equals, int64(len(aContent)))
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
@@ -42,10 +41,10 @@ func (s *metadataSuite) TestCannedRoundTripperMissing(c *tc.C) {
 	c.Assert(vrt, tc.NotNil)
 	req := &http.Request{URL: &url.URL{Path: "no-such-file"}}
 	resp, err := vrt.RoundTrip(req)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(resp, tc.NotNil)
 	content, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(content), tc.Equals, "")
 	c.Assert(resp.ContentLength, tc.Equals, int64(0))
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusNotFound)

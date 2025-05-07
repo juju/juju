@@ -9,7 +9,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/domain/cloudimagemetadata"
@@ -51,7 +50,7 @@ func (s *serviceSuite) TestSaveMetadataSuccess(c *tc.C) {
 	err := NewService(s.state).SaveMetadata(context.Background(), inserted)
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestSaveMetadataEmptyImageID verifies that the SaveMetadata function returns an error when given metadata with an empty ImageID.
@@ -64,8 +63,8 @@ func (s *serviceSuite) TestSaveMetadataEmptyImageID(c *tc.C) {
 	err := NewService(s.state).SaveMetadata(context.Background(), []cloudimagemetadata.Metadata{{ImageID: ""}})
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, cloudimageerrors.NotValid)
-	c.Assert(err, jc.ErrorIs, cloudimageerrors.EmptyImageID)
+	c.Assert(err, tc.ErrorIs, cloudimageerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, cloudimageerrors.EmptyImageID)
 	c.Assert(err, tc.ErrorMatches, "image id is empty: invalid metadata")
 }
 
@@ -79,7 +78,7 @@ func (s *serviceSuite) TestSaveMetadataInvalidFields(c *tc.C) {
 	err := NewService(s.state).SaveMetadata(context.Background(), []cloudimagemetadata.Metadata{{ImageID: "dead-beaf" /* some field are required */}})
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, cloudimageerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, cloudimageerrors.NotValid)
 	c.Assert(err, tc.ErrorMatches, "missing version, stream, source, arch, region: invalid metadata for image dead-beaf")
 }
 
@@ -93,7 +92,7 @@ func (s *serviceSuite) TestSaveMetadataEmptyInsert(c *tc.C) {
 	err := NewService(s.state).SaveMetadata(context.Background(), nil /* empty array */)
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestSaveMetadataInvalidArchitectureName verifies that the SaveMetadata method returns an error when given an unsupported architecture.
@@ -116,7 +115,7 @@ func (s *serviceSuite) TestSaveMetadataInvalidArchitectureName(c *tc.C) { // Arr
 	)
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, cloudimageerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, cloudimageerrors.NotValid)
 	c.Assert(err, tc.ErrorMatches, "unsupported architecture risc \\(should be any of \\[(amd64 arm64|arm64 amd64)\\]\\): invalid metadata")
 }
 
@@ -141,7 +140,7 @@ func (s *serviceSuite) TestSaveMetadataError(c *tc.C) { // Arrange
 	err := NewService(s.state).SaveMetadata(context.Background(), validMetadata)
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, errExpected)
+	c.Assert(err, tc.ErrorIs, errExpected)
 }
 
 // TestDeleteMetadataSuccess verifies that deleting metadata by image ID calls the right function in the underlying state.
@@ -154,7 +153,7 @@ func (s *serviceSuite) TestDeleteMetadataSuccess(c *tc.C) {
 	err := NewService(s.state).DeleteMetadataWithImageID(context.Background(), "dead-beaf")
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestDeleteMetadataEmptyImageID tests that trying to delete metadata with an empty image ID causes a EmptyImageID error
@@ -166,7 +165,7 @@ func (s *serviceSuite) TestDeleteMetadataEmptyImageID(c *tc.C) {
 	err := NewService(s.state).DeleteMetadataWithImageID(context.Background(), "")
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, cloudimageerrors.EmptyImageID)
+	c.Assert(err, tc.ErrorIs, cloudimageerrors.EmptyImageID)
 }
 
 // TestDeleteMetadataError verifies that the DeleteMetadataWithImageID method returns the underlying error when deletion fails.
@@ -180,7 +179,7 @@ func (s *serviceSuite) TestDeleteMetadataError(c *tc.C) {
 	err := NewService(s.state).DeleteMetadataWithImageID(context.Background(), "dead-beaf")
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, errExpected)
+	c.Assert(err, tc.ErrorIs, errExpected)
 }
 
 // TestFindMetadataSuccessOneSource is a unit test that verifies the FindMetadata method returns metadata grouped by source
@@ -213,7 +212,7 @@ func (s *serviceSuite) TestFindMetadataSuccessOneSource(c *tc.C) {
 	result, err := NewService(s.state).FindMetadata(context.Background(), criteria)
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, map[string][]cloudimagemetadata.Metadata{
 		"source": {metadata1, metadata1, metadata1},
 	})
@@ -252,7 +251,7 @@ func (s *serviceSuite) TestFindMetadataSuccessSeveralSources(c *tc.C) {
 	result, err := NewService(s.state).FindMetadata(context.Background(), criteria)
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, map[string][]cloudimagemetadata.Metadata{
 		"source": {metadata1, metadata1, metadata1},
 		"alt":    {metadataAlt, metadataAlt},
@@ -272,7 +271,7 @@ func (s *serviceSuite) TestFindMetadataNotFound(c *tc.C) {
 	_, err := NewService(s.state).FindMetadata(context.Background(), criteria)
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, cloudimageerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, cloudimageerrors.NotFound)
 }
 
 // TestFindMetadataError tests the behavior of the service's FindMetadata method when an error is returned by the state.
@@ -290,7 +289,7 @@ func (s *serviceSuite) TestFindMetadataError(c *tc.C) {
 	_, err := NewService(s.state).FindMetadata(context.Background(), criteria)
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, errExpected)
+	c.Assert(err, tc.ErrorIs, errExpected)
 }
 
 // TestAllCloudImageMetadataSuccess verifies that the AllCloudImageMetadata function successfully retrieves metadata.
@@ -314,7 +313,7 @@ func (s *serviceSuite) TestAllCloudImageMetadataSuccess(c *tc.C) {
 	result, err := NewService(s.state).AllCloudImageMetadata(context.Background())
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, expected)
 }
 
@@ -331,5 +330,5 @@ func (s *serviceSuite) TestAllCloudImageMetadataError(c *tc.C) {
 	_, err := NewService(s.state).AllCloudImageMetadata(context.Background())
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, errExpected)
+	c.Assert(err, tc.ErrorIs, errExpected)
 }

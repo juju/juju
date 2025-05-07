@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -68,9 +67,9 @@ func (s *blockCheckerSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *blockCheckerSuite) assertErrorBlocked(c *tc.C, blocked bool, err error, msg string) {
 	if blocked {
-		c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
+		c.Assert(params.IsCodeOperationBlocked(err), tc.IsTrue)
 		c.Assert(err, tc.ErrorMatches, msg)
 	} else {
-		c.Assert(errors.Cause(err), jc.ErrorIsNil)
+		c.Assert(errors.Cause(err), tc.ErrorIsNil)
 	}
 }

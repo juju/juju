@@ -9,7 +9,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	corestorage "github.com/juju/juju/core/storage"
@@ -61,7 +60,7 @@ func (s *storageSuite) TestAttachStorage(c *tc.C) {
 	s.mockState.EXPECT().AttachStorage(gomock.Any(), application.StorageParentDir, storageUUID, unitUUID)
 
 	err := s.service.AttachStorage(context.Background(), "pgdata/0", "postgresql/666")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *storageSuite) TestAttachStorageAlreadyAttached(c *tc.C) {
@@ -74,16 +73,16 @@ func (s *storageSuite) TestAttachStorageAlreadyAttached(c *tc.C) {
 	s.mockState.EXPECT().AttachStorage(gomock.Any(), application.StorageParentDir, storageUUID, unitUUID).Return(errors.StorageAlreadyAttached)
 
 	err := s.service.AttachStorage(context.Background(), "pgdata/0", "postgresql/666")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *storageSuite) TestAttachStorageValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := s.service.AttachStorage(context.Background(), "pgdata/0", "666")
-	c.Assert(err, jc.ErrorIs, unit.InvalidUnitName)
+	c.Assert(err, tc.ErrorIs, unit.InvalidUnitName)
 	err = s.service.AttachStorage(context.Background(), "0", "postgresql/666")
-	c.Assert(err, jc.ErrorIs, corestorage.InvalidStorageID)
+	c.Assert(err, tc.ErrorIs, corestorage.InvalidStorageID)
 }
 
 func (s *storageSuite) TestAddStorageToUnit(c *tc.C) {
@@ -95,17 +94,17 @@ func (s *storageSuite) TestAddStorageToUnit(c *tc.C) {
 	s.mockState.EXPECT().AddStorageForUnit(gomock.Any(), corestorage.Name("pgdata"), unitUUID, stor).Return([]corestorage.ID{"pgdata/0"}, nil)
 
 	result, err := s.service.AddStorageForUnit(context.Background(), "pgdata", "postgresql/666", stor)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, []corestorage.ID{"pgdata/0"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []corestorage.ID{"pgdata/0"})
 }
 
 func (s *storageSuite) TestAddStorageForUnitValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.AddStorageForUnit(context.Background(), "pgdata", "666", storage.Directive{})
-	c.Assert(err, jc.ErrorIs, unit.InvalidUnitName)
+	c.Assert(err, tc.ErrorIs, unit.InvalidUnitName)
 	_, err = s.service.AddStorageForUnit(context.Background(), "0", "postgresql/666", storage.Directive{})
-	c.Assert(err, jc.ErrorIs, corestorage.InvalidStorageName)
+	c.Assert(err, tc.ErrorIs, corestorage.InvalidStorageName)
 }
 
 func (s *storageSuite) TestDetachStorageForUnit(c *tc.C) {
@@ -118,16 +117,16 @@ func (s *storageSuite) TestDetachStorageForUnit(c *tc.C) {
 	s.mockState.EXPECT().DetachStorageForUnit(gomock.Any(), storageUUID, unitUUID)
 
 	err := s.service.DetachStorageForUnit(context.Background(), "pgdata/0", "postgresql/666")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *storageSuite) TestDetachStorageForUnitValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := s.service.DetachStorageForUnit(context.Background(), "pgdata/0", "666")
-	c.Assert(err, jc.ErrorIs, unit.InvalidUnitName)
+	c.Assert(err, tc.ErrorIs, unit.InvalidUnitName)
 	err = s.service.DetachStorageForUnit(context.Background(), "0", "postgresql/666")
-	c.Assert(err, jc.ErrorIs, corestorage.InvalidStorageID)
+	c.Assert(err, tc.ErrorIs, corestorage.InvalidStorageID)
 }
 
 func (s *storageSuite) TestDetachStorage(c *tc.C) {
@@ -138,12 +137,12 @@ func (s *storageSuite) TestDetachStorage(c *tc.C) {
 	s.mockState.EXPECT().DetachStorage(gomock.Any(), storageUUID)
 
 	err := s.service.DetachStorage(context.Background(), "pgdata/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *storageSuite) TestDetachStorageValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := s.service.DetachStorage(context.Background(), "0")
-	c.Assert(err, jc.ErrorIs, corestorage.InvalidStorageID)
+	c.Assert(err, tc.ErrorIs, corestorage.InvalidStorageID)
 }

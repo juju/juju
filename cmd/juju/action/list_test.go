@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	actionapi "github.com/juju/juju/api/client/action"
 	"github.com/juju/juju/cmd/juju/action"
@@ -78,7 +77,7 @@ func (s *ListSuite) TestInit(c *tc.C) {
 			args := append([]string{modelFlag, "admin"}, t.args...)
 			err := cmdtesting.InitCommand(s.wrappedCommand, args)
 			if t.expectedErr == "" {
-				c.Check(err, jc.ErrorIsNil)
+				c.Check(err, tc.ErrorIsNil)
 				c.Check(s.command.ApplicationName(), tc.Equals, t.expectedApp)
 				c.Check(s.command.FullSchema(), tc.Equals, t.expectedOutputSchema)
 			} else {
@@ -176,5 +175,5 @@ func checkFullSchema(c *tc.C, expected map[string]actionapi.ActionSpec, actual [
 	for k, v := range expected {
 		expectedOutput[k] = v.Params
 	}
-	c.Check(string(actual), jc.YAMLEquals, expectedOutput)
+	c.Check(string(actual), tc.YAMLEquals, expectedOutput)
 }

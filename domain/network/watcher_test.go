@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
@@ -39,7 +38,7 @@ func (s *watcherSuite) TestWatchWithAdd(c *tc.C) {
 		loggertesting.WrapCheckLog(c),
 	)
 	watcher, err := svc.WatchSubnets(context.Background(), set.NewStrings())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	watcherC := watchertest.NewStringsWatcherC(c, watcher)
 	// Initial event.
 	watcherC.AssertOneChange()
@@ -52,7 +51,7 @@ func (s *watcherSuite) TestWatchWithAdd(c *tc.C) {
 		ProviderNetworkId: "subnet-provider-network-id",
 	}
 	createdSubnetID, err := svc.AddSubnet(context.Background(), subnet)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Get the change.
 	watcherC.AssertChange(createdSubnetID.String())
@@ -70,7 +69,7 @@ func (s *watcherSuite) TestWatchWithDelete(c *tc.C) {
 		loggertesting.WrapCheckLog(c),
 	)
 	watcher, err := svc.WatchSubnets(context.Background(), set.NewStrings())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	watcherC := watchertest.NewStringsWatcherC(c, watcher)
 	// Initial event.
 	watcherC.AssertOneChange()
@@ -83,10 +82,10 @@ func (s *watcherSuite) TestWatchWithDelete(c *tc.C) {
 		ProviderNetworkId: "subnet-provider-network-id",
 	}
 	createdSubnetID, err := svc.AddSubnet(context.Background(), subnet)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Delete the subnet.
 	err = svc.RemoveSubnet(context.Background(), createdSubnetID.String())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Get the change.
 	watcherC.AssertChange(createdSubnetID.String())

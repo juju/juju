@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/container"
@@ -58,8 +57,8 @@ func (s *provisionerSuite) TestContainerManagerConfig(c *tc.C) {
 	containerManagerConfig, err := api.ContainerManagerConfig(context.Background(),
 		params.ContainerManagerConfigParams{Type: instance.LXD},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(containerManagerConfig, jc.DeepEquals, params.ContainerManagerConfig{ManagerConfig: map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(containerManagerConfig, tc.DeepEquals, params.ContainerManagerConfig{ManagerConfig: map[string]string{
 		"model-uuid":                                 modelID.String(),
 		"lxd-snap-channel":                           "5.0/stable",
 		"container-image-metadata-url":               "https://images.linuxcontainers.org/",
@@ -95,8 +94,8 @@ func (s *provisionerSuite) TestContainerConfig(c *tc.C) {
 	}, nil)
 
 	containerManagerConfig, err := api.ContainerConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(containerManagerConfig, jc.DeepEquals, params.ContainerConfig{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(containerManagerConfig, tc.DeepEquals, params.ContainerConfig{
 		UpdateBehavior: &params.UpdateBehavior{
 			EnableOSRefreshUpdate: true,
 			EnableOSUpgrade:       false,

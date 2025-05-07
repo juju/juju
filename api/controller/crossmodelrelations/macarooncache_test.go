@@ -9,7 +9,6 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/controller/crossmodelrelations"
@@ -28,17 +27,17 @@ type MacaroonCacheSuite struct {
 func (s *MacaroonCacheSuite) TestGetMacaroonMissing(c *tc.C) {
 	cache := crossmodelrelations.NewMacaroonCache(testclock.NewClock(time.Now()))
 	_, ok := cache.Get("missing")
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 }
 
 func (s *MacaroonCacheSuite) TestGetMacaroon(c *tc.C) {
 	cache := crossmodelrelations.NewMacaroonCache(testclock.NewClock(time.Now()))
 	mac, err := jujutesting.NewMacaroon("id")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cache.Upsert("token", macaroon.Slice{mac})
 	ms, ok := cache.Get("token")
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(ms, jc.DeepEquals, macaroon.Slice{mac})
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(ms, tc.DeepEquals, macaroon.Slice{mac})
 }
 
 func (s *MacaroonCacheSuite) TestGetMacaroonNotExpired(c *tc.C) {
@@ -48,14 +47,14 @@ func (s *MacaroonCacheSuite) TestGetMacaroonNotExpired(c *tc.C) {
 	mac, err := jujutesting.NewMacaroon("id")
 	cav := checkers.TimeBeforeCaveat(clock.Now().Add(10 * time.Second))
 	mac.AddFirstPartyCaveat([]byte(cav.Condition))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cache.Upsert("token", macaroon.Slice{mac})
 	clock.WaitAdvance(9*time.Second, coretesting.ShortWait, 1)
 
 	ms, ok := cache.Get("token")
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(ms, jc.DeepEquals, macaroon.Slice{mac})
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(ms, tc.DeepEquals, macaroon.Slice{mac})
 }
 
 func (s *MacaroonCacheSuite) TestGetMacaroonExpiredBeforeCleanup(c *tc.C) {
@@ -65,13 +64,13 @@ func (s *MacaroonCacheSuite) TestGetMacaroonExpiredBeforeCleanup(c *tc.C) {
 	mac, err := jujutesting.NewMacaroon("id")
 	cav := checkers.TimeBeforeCaveat(clock.Now().Add(10 * time.Second))
 	mac.AddFirstPartyCaveat([]byte(cav.Condition))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cache.Upsert("token", macaroon.Slice{mac})
 	clock.WaitAdvance(20*time.Second, coretesting.ShortWait, 1)
 
 	_, ok := cache.Get("token")
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 }
 
 func (s *MacaroonCacheSuite) TestGetMacaroonAfterCleanup(c *tc.C) {
@@ -81,14 +80,14 @@ func (s *MacaroonCacheSuite) TestGetMacaroonAfterCleanup(c *tc.C) {
 	mac, err := jujutesting.NewMacaroon("id")
 	cav := checkers.TimeBeforeCaveat(clock.Now().Add(60 * time.Minute))
 	mac.AddFirstPartyCaveat([]byte(cav.Condition))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cache.Upsert("token", macaroon.Slice{mac})
 	clock.WaitAdvance(longerThanExpiryTime, coretesting.ShortWait, 1)
 
 	ms, ok := cache.Get("token")
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(ms, jc.DeepEquals, macaroon.Slice{mac})
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(ms, tc.DeepEquals, macaroon.Slice{mac})
 }
 
 func (s *MacaroonCacheSuite) TestMacaroonRemovedByCleanup(c *tc.C) {
@@ -98,13 +97,13 @@ func (s *MacaroonCacheSuite) TestMacaroonRemovedByCleanup(c *tc.C) {
 	mac, err := jujutesting.NewMacaroon("id")
 	cav := checkers.TimeBeforeCaveat(clock.Now().Add(2 * time.Minute))
 	mac.AddFirstPartyCaveat([]byte(cav.Condition))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cache.Upsert("token", macaroon.Slice{mac})
 	clock.WaitAdvance(longerThanExpiryTime, coretesting.ShortWait, 1)
 
 	_, ok := cache.Get("token")
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 }
 
 func (s *MacaroonCacheSuite) TestCleanupIgnoresMacaroonsWithoutTimeBefore(c *tc.C) {
@@ -112,12 +111,12 @@ func (s *MacaroonCacheSuite) TestCleanupIgnoresMacaroonsWithoutTimeBefore(c *tc.
 	cache := crossmodelrelations.NewMacaroonCache(clock)
 
 	mac, err := jujutesting.NewMacaroon("id")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cache.Upsert("token", macaroon.Slice{mac})
 	clock.WaitAdvance(longerThanExpiryTime, coretesting.ShortWait, 1)
 
 	ms, ok := cache.Get("token")
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(ms, jc.DeepEquals, macaroon.Slice{mac})
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(ms, tc.DeepEquals, macaroon.Slice{mac})
 }

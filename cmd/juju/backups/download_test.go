@@ -6,7 +6,6 @@ package backups_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/internal/cmd"
@@ -50,7 +49,7 @@ func (s *downloadSuite) TestOkay(c *tc.C) {
 	s.setSuccess()
 	s.filename = "juju-backup-" + s.metaresult.ID + ".tar.gz"
 	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, s.filename)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	c.Check(cmdtesting.Stderr(ctx), tc.Equals, "")
 	c.Check(cmdtesting.Stdout(ctx), tc.Equals, s.filename+"\n")
@@ -60,7 +59,7 @@ func (s *downloadSuite) TestOkay(c *tc.C) {
 func (s *downloadSuite) TestFilename(c *tc.C) {
 	s.setSuccess()
 	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, s.metaresult.ID, "--filename", "backup.tar.gz")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	s.filename = "backup.tar.gz"
 	c.Check(cmdtesting.Stderr(ctx), tc.Equals, "")

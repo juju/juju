@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	apimocks "github.com/juju/juju/api/base/mocks"
@@ -43,7 +42,7 @@ func (s *modelwatcherTests) TestModelConfig(c *tc.C) {
 
 	client := common.NewModelConfigWatcher(facade)
 	cfg, err := client.ModelConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(testing.Attrs(cfg.AllAttrs()), tc.DeepEquals, attrs)
 }
 
@@ -62,7 +61,7 @@ func (s *modelwatcherTests) TestWatchForModelConfigChanges(c *tc.C) {
 
 	client := common.NewModelConfigWatcher(facade)
 	w, err := client.WatchForModelConfigChanges(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// watch for the changes
 	for i := 0; i < 2; i++ {

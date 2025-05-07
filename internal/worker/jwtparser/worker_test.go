@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
@@ -44,11 +43,11 @@ func (s *workerSuite) TestJWTParserWorkerWithNoConfig(c *tc.C) {
 	s.controllerConfig.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{}, nil)
 
 	w, err := NewWorker(s.controllerConfig, s.client)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(workertest.CheckKill(c, w), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(workertest.CheckKill(c, w), tc.ErrorIsNil)
 
 	parserWorker, ok := w.(*jwtParserWorker)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	c.Assert(parserWorker.jwtParser, tc.Not(tc.IsNil))
 }
 
@@ -64,10 +63,10 @@ func (s *workerSuite) TestJWTParserWorkerWithLoginRefreshURL(c *tc.C) {
 	}, nil)
 
 	w, err := NewWorker(s.controllerConfig, s.client)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(workertest.CheckKill(c, w), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(workertest.CheckKill(c, w), tc.ErrorIsNil)
 
 	parserWorker, ok := w.(*jwtParserWorker)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	c.Assert(parserWorker.jwtParser, tc.Not(tc.IsNil))
 }

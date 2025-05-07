@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
@@ -64,10 +63,10 @@ func (s *SubnetsSuite) TestListSubnetsNoResults(c *tc.C) {
 
 	obtainedResults, err := client.ListSubnets(context.Background(), &space, zone)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var expectedResults []params.Subnet
-	c.Assert(obtainedResults, jc.DeepEquals, expectedResults)
+	c.Assert(obtainedResults, tc.DeepEquals, expectedResults)
 }
 
 func (s *SubnetsSuite) TestListSubnetsFails(c *tc.C) {
@@ -87,7 +86,7 @@ func (s *SubnetsSuite) TestListSubnetsFails(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "bang")
 
 	var expectedResults []params.Subnet
-	c.Assert(obtainedResults, jc.DeepEquals, expectedResults)
+	c.Assert(obtainedResults, tc.DeepEquals, expectedResults)
 }
 
 func (s *SubnetsSuite) testSubnetsByCIDR(c *tc.C,
@@ -108,7 +107,7 @@ func (s *SubnetsSuite) testSubnetsByCIDR(c *tc.C,
 	client := subnets.NewAPIFromCaller(mockFacadeCaller)
 
 	gotResult, gotErr := client.SubnetsByCIDR(context.Background(), cidrs)
-	c.Assert(gotResult, jc.DeepEquals, results)
+	c.Assert(gotResult, tc.DeepEquals, results)
 
 	if expectErr != "" {
 		c.Assert(gotErr, tc.ErrorMatches, expectErr)
@@ -116,9 +115,9 @@ func (s *SubnetsSuite) testSubnetsByCIDR(c *tc.C,
 	}
 
 	if err != nil {
-		c.Assert(gotErr, jc.DeepEquals, err)
+		c.Assert(gotErr, tc.DeepEquals, err)
 	} else {
-		c.Assert(gotErr, jc.ErrorIsNil)
+		c.Assert(gotErr, tc.ErrorIsNil)
 	}
 }
 

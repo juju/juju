@@ -8,7 +8,6 @@ import (
 	"database/sql"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/domain/schema"
 	"github.com/juju/juju/internal/database"
@@ -40,7 +39,7 @@ func (s *deleteDBSuite) TestDeleteDBContentsOnControllerDB(c *tc.C) {
 
 	err := database.NewDBMigration(
 		runner, logger, schema.ControllerDDL()).Apply(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return deleteDBContents(ctx, tx, logger)
@@ -57,7 +56,7 @@ func (s *deleteDBSuite) TestDeleteDBContentsOnModelDB(c *tc.C) {
 
 	err := database.NewDBMigration(
 		runner, logger, schema.ModelDDL()).Apply(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return deleteDBContents(ctx, tx, logger)
@@ -71,6 +70,6 @@ func (s *deleteDBSuite) ensureEmpty(c *tc.C, db *sql.DB) {
 	schemaStmt := `SELECT COUNT(*) FROM sqlite_master WHERE name NOT LIKE 'sqlite_%';`
 	var count int
 	err := db.QueryRow(schemaStmt).Scan(&count)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 0)
 }

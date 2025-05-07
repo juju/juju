@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/status"
@@ -67,8 +66,8 @@ func (s *statusSuite) TestEncodeK8sPodStatus(c *tc.C) {
 	for i, test := range testCases {
 		c.Logf("test %d: %v", i, test.input)
 		output, err := encodeK8sPodStatus(&test.input)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(output, jc.DeepEquals, &test.output)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(output, tc.DeepEquals, &test.output)
 	}
 }
 
@@ -130,14 +129,14 @@ func (s *statusSuite) TestEncodeUnitAgentStatus(c *tc.C) {
 	for i, test := range testCases {
 		c.Logf("test %d: %v", i, test.input)
 		output, err := encodeUnitAgentStatus(&test.input)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(output, jc.DeepEquals, &test.output)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(output, tc.DeepEquals, &test.output)
 		result, err := decodeUnitAgentStatus(&status.UnitStatusInfo[status.UnitAgentStatusType]{
 			StatusInfo: *output,
 			Present:    true,
 		})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result, jc.DeepEquals, &test.input)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(result, tc.DeepEquals, &test.input)
 	}
 }
 
@@ -145,8 +144,8 @@ func (s *statusSuite) TestEncodingUnitAgentStatusError(c *tc.C) {
 	output, err := encodeUnitAgentStatus(&corestatus.StatusInfo{
 		Status: corestatus.Error,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(output, jc.DeepEquals, &status.StatusInfo[status.UnitAgentStatusType]{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(output, tc.DeepEquals, &status.StatusInfo[status.UnitAgentStatusType]{
 		Status: status.UnitAgentStatusError,
 	})
 
@@ -161,8 +160,8 @@ func (s *statusSuite) TestEncodingUnitAgentStatusError(c *tc.C) {
 		},
 		Present: true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(input, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(input, tc.DeepEquals, &corestatus.StatusInfo{
 		Status: corestatus.Idle,
 	})
 }
@@ -247,13 +246,13 @@ func (s *statusSuite) TestEncodeWorkloadStatus(c *tc.C) {
 	for i, test := range testCases {
 		c.Logf("test %d: %v", i, test.input)
 		output, err := encodeWorkloadStatus(&test.input)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(output, jc.DeepEquals, &test.output)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(output, tc.DeepEquals, &test.output)
 		result, err := decodeUnitWorkloadStatus(&status.UnitStatusInfo[status.WorkloadStatusType]{
 			StatusInfo: *output,
 			Present:    true,
 		})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result, jc.DeepEquals, &test.input)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(result, tc.DeepEquals, &test.input)
 	}
 }

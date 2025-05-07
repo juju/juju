@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
@@ -53,8 +52,8 @@ func (s *MachinemanagerSuite) TestAddMachines(c *tc.C) {
 	st := machinemanager.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := st.AddMachines(context.Background(), machines)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, apiResult)
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, apiResult)
 }
 
 func (s *MachinemanagerSuite) TestAddMachinesClientError(c *tc.C) {
@@ -94,8 +93,8 @@ func (s *MachinemanagerSuite) TestAddMachinesServerError(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddMachines", args, res).SetArg(3, ress).Return(nil)
 	st := machinemanager.NewClientFromCaller(mockFacadeCaller)
 	results, err := st.AddMachines(context.Background(), machines)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, apiResult)
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, apiResult)
 }
 
 func (s *MachinemanagerSuite) TestAddMachinesResultCountInvalid(c *tc.C) {
@@ -146,8 +145,8 @@ func (s *MachinemanagerSuite) TestRetryProvisioning(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "RetryProvisioning", args, res).SetArg(3, ress).Return(nil)
 	client := machinemanager.NewClientFromCaller(mockFacadeCaller)
 	result, err := client.RetryProvisioning(context.Background(), false, names.NewMachineTag("0"), names.NewMachineTag("1"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, []params.ErrorResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []params.ErrorResult{
 		{Error: &params.Error{Code: "boom"}},
 		{},
 	})
@@ -170,8 +169,8 @@ func (s *MachinemanagerSuite) TestRetryProvisioningAll(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "RetryProvisioning", args, res).SetArg(3, ress).Return(nil)
 	client := machinemanager.NewClientFromCaller(mockFacadeCaller)
 	result, err := client.RetryProvisioning(context.Background(), true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, []params.ErrorResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []params.ErrorResult{
 		{Error: &params.Error{Code: "boom"}},
 		{},
 	})
@@ -199,7 +198,7 @@ func (s *MachinemanagerSuite) TestProvisioningScript(c *tc.C) {
 		DataDir:                "/path/to/data",
 		DisablePackageCommands: true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(script, tc.Equals, "script")
 }
 
@@ -238,8 +237,8 @@ func (s *MachinemanagerSuite) TestDestroyMachinesWithParamsNoWait(c *tc.C) {
 	noWait := 0 * time.Second
 	client, expected := s.clientToTestDestroyMachinesWithParams(&noWait, ctrl)
 	results, err := client.DestroyMachinesWithParams(context.Background(), true, true, false, &noWait, "0", "0/lxd/1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, expected)
 }
 
 func (s *MachinemanagerSuite) TestDestroyMachinesWithParamsNilWait(c *tc.C) {
@@ -247,6 +246,6 @@ func (s *MachinemanagerSuite) TestDestroyMachinesWithParamsNilWait(c *tc.C) {
 	defer ctrl.Finish()
 	client, expected := s.clientToTestDestroyMachinesWithParams((*time.Duration)(nil), ctrl)
 	results, err := client.DestroyMachinesWithParams(context.Background(), true, true, false, (*time.Duration)(nil), "0", "0/lxd/1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, expected)
 }

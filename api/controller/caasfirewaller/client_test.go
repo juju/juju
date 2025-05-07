@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/base"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -49,7 +48,7 @@ func (s *firewallerSuite) TestIsExposed(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "IsExposed")
-		c.Check(arg, jc.DeepEquals, params.Entities{
+		c.Check(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
 				Tag: "application-gitlab",
 			}},
@@ -65,8 +64,8 @@ func (s *firewallerSuite) TestIsExposed(c *tc.C) {
 
 	client := s.newFunc(apiCaller)
 	exposed, err := client.IsExposed(context.Background(), "gitlab")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exposed, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(exposed, tc.IsTrue)
 }
 
 func (s *firewallerSuite) TestIsExposedError(c *tc.C) {
@@ -83,7 +82,7 @@ func (s *firewallerSuite) TestIsExposedError(c *tc.C) {
 	client := s.newFunc(apiCaller)
 	_, err := client.IsExposed(context.Background(), "gitlab")
 	c.Assert(err, tc.ErrorMatches, "bletch")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *firewallerSuite) TestIsExposedInvalidEntityame(c *tc.C) {
@@ -101,7 +100,7 @@ func (s *firewallerSuite) TestLife(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "Life")
-		c.Check(arg, jc.DeepEquals, params.Entities{
+		c.Check(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
 				Tag: tag.String(),
 			}},
@@ -117,7 +116,7 @@ func (s *firewallerSuite) TestLife(c *tc.C) {
 
 	client := s.newFunc(apiCaller)
 	lifeValue, err := client.Life(context.Background(), tag.Id())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(lifeValue, tc.Equals, life.Alive)
 }
 
@@ -135,7 +134,7 @@ func (s *firewallerSuite) TestLifeError(c *tc.C) {
 	client := s.newFunc(apiCaller)
 	_, err := client.Life(context.Background(), "gitlab")
 	c.Assert(err, tc.ErrorMatches, "bletch")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *firewallerSuite) TestLifeInvalidEntityame(c *tc.C) {
@@ -171,7 +170,7 @@ func (s *firewallerSuite) TestWatchApplication(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "Watch")
-		c.Assert(arg, jc.DeepEquals, params.Entities{
+		c.Assert(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
 				Tag: "application-gitlab",
 			}},
@@ -197,7 +196,7 @@ func (s *firewallerSuite) TestApplicationConfig(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "ApplicationsConfig")
-		c.Assert(arg, jc.DeepEquals, params.Entities{
+		c.Assert(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
 				Tag: "application-gitlab",
 			}},
@@ -213,6 +212,6 @@ func (s *firewallerSuite) TestApplicationConfig(c *tc.C) {
 
 	client := s.newFunc(apiCaller)
 	cfg, err := client.ApplicationConfig(context.Background(), "gitlab")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg, jc.DeepEquals, config.ConfigAttributes{"foo": "bar"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg, tc.DeepEquals, config.ConfigAttributes{"foo": "bar"})
 }

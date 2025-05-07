@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	core "k8s.io/api/core/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -165,14 +164,14 @@ func (s *BaseSuite) SetUpTest(c *tc.C) {
 	}
 	var err error
 	s.k8sRestConfig, err = provider.CloudSpecToK8sRestConfig(cloudSpec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// init config for each test for easier changing config inside test.
 	cfg, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
 		config.NameKey:                  "test",
 		k8sconstants.WorkloadStorageKey: "",
 	}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.cfg = cfg
 
 	s.namespace = s.cfg.Name()
@@ -243,7 +242,7 @@ func (s *BaseSuite) setupBroker(
 	s.broker, err = provider.NewK8sBroker(context.Background(), controllerUUID, s.k8sRestConfig, s.cfg, s.getNamespace(), newK8sClientFunc, newK8sRestFunc,
 		watcherFn, stringsWatcherFn, randomPrefixFunc, s.clock)
 	if expectErr == "" {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	} else {
 		c.Assert(err, tc.ErrorMatches, expectErr)
 	}
@@ -369,7 +368,7 @@ func (s *BaseSuite) setupK8sRestClient(
 			c.Assert(cfg.Username, tc.Equals, "fred")
 			c.Assert(cfg.Password, tc.Equals, "secret")
 			c.Assert(cfg.Host, tc.Equals, "some-host")
-			c.Assert(cfg.TLSClientConfig, jc.DeepEquals, rest.TLSClientConfig{
+			c.Assert(cfg.TLSClientConfig, tc.DeepEquals, rest.TLSClientConfig{
 				CertData: []byte("cert-data"),
 				KeyData:  []byte("cert-key"),
 				CAData:   []byte(coretesting.CACert),
@@ -490,13 +489,13 @@ func (s *fakeClientSuite) SetUpTest(c *tc.C) {
 	}
 	var err error
 	s.k8sRestConfig, err = provider.CloudSpecToK8sRestConfig(cloudSpec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.cfg, err = config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
 		config.NameKey:                  "test",
 		k8sconstants.WorkloadStorageKey: "",
 	}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.namespace = s.cfg.Name()
 	s.clock = testclock.NewClock(time.Time{})
@@ -545,7 +544,7 @@ func (s *fakeClientSuite) setupBroker(
 	var err error
 	s.broker, err = provider.NewK8sBroker(context.Background(), coretesting.ControllerTag.Id(), s.k8sRestConfig, s.cfg, s.getNamespace(), newK8sClientFunc, newK8sRestFunc,
 		watcherFn, stringsWatcherFn, randomPrefixFunc, s.clock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *fakeClientSuite) setupK8sRestClient(c *tc.C, namespace string) (provider.NewK8sClientFunc, provider.NewK8sRestClientFunc) {
@@ -599,7 +598,7 @@ func (s *fakeClientSuite) setupK8sRestClient(c *tc.C, namespace string) (provide
 			c.Assert(cfg.Username, tc.Equals, "fred")
 			c.Assert(cfg.Password, tc.Equals, "secret")
 			c.Assert(cfg.Host, tc.Equals, "some-host")
-			c.Assert(cfg.TLSClientConfig, jc.DeepEquals, rest.TLSClientConfig{
+			c.Assert(cfg.TLSClientConfig, tc.DeepEquals, rest.TLSClientConfig{
 				CertData: []byte("cert-data"),
 				KeyData:  []byte("cert-key"),
 				CAData:   []byte(coretesting.CACert),

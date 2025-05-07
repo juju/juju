@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
 
@@ -63,7 +62,7 @@ func (s *annotationsMockSuite) TestSetEntitiesAnnotation(c *tc.C) {
 
 	annotationsClient := annotations.NewClientFromCaller(mockFacadeCaller)
 	callErrs, err := annotationsClient.Set(context.Background(), setParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(callErrs, tc.HasLen, 0)
 }
 
@@ -91,7 +90,7 @@ func (s *annotationsMockSuite) TestGetEntitiesAnnotations(c *tc.C) {
 
 	annotationsClient := annotations.NewClientFromCaller(mockFacadeCaller)
 	found, err := annotationsClient.Get(context.Background(), []string{"charm"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found, tc.HasLen, 1)
 }
 
@@ -111,12 +110,12 @@ func (c annotationsSetMatcher) Matches(x interface{}) bool {
 		var found bool
 		for _, exp := range c.expectedArgs.Annotations {
 			if obt.EntityTag == exp.EntityTag {
-				c.m.Assert(obt, jc.DeepEquals, exp)
+				c.m.Assert(obt, tc.DeepEquals, exp)
 				found = true
 				break
 			}
 		}
-		c.m.Assert(found, jc.IsTrue, tc.Commentf("unexpected annotation entity tag %s"))
+		c.m.Assert(found, tc.IsTrue, tc.Commentf("unexpected annotation entity tag %s"))
 	}
 	return true
 }

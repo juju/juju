@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/testing"
@@ -24,7 +23,7 @@ var _ = tc.Suite(&ConfigSuite{})
 
 func (*ConfigSuite) TestDefaultConfig(c *tc.C) {
 	cfg, err := bootstrap.NewConfig(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// These four things are generated.
 	c.Assert(cfg.AdminSecret, tc.Not(tc.HasLen), 0)
@@ -55,9 +54,9 @@ func (*ConfigSuite) TestConfigValuesSpecified(c *tc.C) {
 			"controller-external-name":  "externalName",
 			"controller-external-ips":   externalIps,
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
-		c.Assert(cfg, jc.DeepEquals, bootstrap.Config{
+		c.Assert(cfg, tc.DeepEquals, bootstrap.Config{
 			AdminSecret:             "sekrit",
 			CACert:                  testing.CACert,
 			CAPrivateKey:            testing.CAKey,
@@ -86,7 +85,7 @@ func (s *ConfigSuite) TestDefaultConfigReadsDefaultCACertKeyFiles(c *tc.C) {
 	}...)
 
 	cfg, err := bootstrap.NewConfig(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(cfg.CACert, tc.Equals, testing.CACert)
 	c.Assert(cfg.CAPrivateKey, tc.Equals, testing.CAKey)
@@ -102,7 +101,7 @@ func (s *ConfigSuite) TestConfigReadsCACertKeyFilesFromPaths(c *tc.C) {
 		"ca-cert-path":        "ca-cert-2.pem",
 		"ca-private-key-path": "ca-private-key-2.pem",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(cfg.CACert, tc.Equals, testing.OtherCACert)
 	c.Assert(cfg.CAPrivateKey, tc.Equals, testing.OtherCAKey)
@@ -153,7 +152,7 @@ func (*ConfigSuite) testConfigError(c *tc.C, attrs map[string]interface{}, expec
 }
 
 func (*ConfigSuite) TestValidate(c *tc.C) {
-	c.Assert(validConfig().Validate(), jc.ErrorIsNil)
+	c.Assert(validConfig().Validate(), tc.ErrorIsNil)
 }
 
 func (*ConfigSuite) TestValidateAdminSecret(c *tc.C) {

@@ -8,7 +8,6 @@ import (
 	"database/sql"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
@@ -54,7 +53,7 @@ func (s *stateSuite) ensureNetNode(c *tc.C, uuid string) {
 			VALUES (?)`, uuid)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *stateSuite) ensureMachine(c *tc.C, name coremachine.Name, uuid string) {
@@ -65,7 +64,7 @@ func (s *stateSuite) ensureMachine(c *tc.C, name coremachine.Name, uuid string) 
 		VALUES (?, "node2", ?, "0")`, uuid, name)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *stateSuite) SetUpTest(c *tc.C) {
@@ -83,7 +82,7 @@ func (s *stateSuite) TestCheckMachineExists(c *tc.C) {
 		context.Background(),
 		s.machineName,
 	)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 // TestCheckMachineDoesNotExist is asserting the if we ask for a machine that
@@ -93,7 +92,7 @@ func (s *stateSuite) TestCheckMachineDoesNotExist(c *tc.C) {
 		context.Background(),
 		coremachine.Name("100"),
 	)
-	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
+	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 func (s *stateSuite) TestGetModelId(c *tc.C) {
@@ -114,9 +113,9 @@ func (s *stateSuite) TestGetModelId(c *tc.C) {
 		CredentialName:  "mycredential",
 	}
 	err := mst.Create(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	rval, err := NewState(s.TxnRunnerFactory()).GetModelUUID(context.Background())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(rval, tc.Equals, modelUUID)
 }

@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/testing"
 )
@@ -45,7 +44,7 @@ func (wct WriteConfTest) checkWriteExecScript(c *tc.C, commands []string) {
 	testing.CheckWriteFileCommand(c, commands[0], wct.scriptName(), script, nil)
 
 	// Check the remaining commands.
-	c.Check(commands[1:], jc.DeepEquals, []string{
+	c.Check(commands[1:], tc.DeepEquals, []string{
 		"chmod 0755 " + wct.scriptName(),
 	})
 }
@@ -58,7 +57,7 @@ func (wct WriteConfTest) checkWriteConf(c *tc.C, commands []string) {
 	testing.CheckWriteFileCommand(c, commands[0], wct.fileName(), wct.Expected, parse)
 
 	// Check the remaining commands.
-	c.Check(commands[1:], jc.DeepEquals, []string{
+	c.Check(commands[1:], tc.DeepEquals, []string{
 		"/bin/systemctl link " + wct.fileName(),
 		"/bin/systemctl daemon-reload",
 		"/bin/systemctl enable " + wct.fileName(),

@@ -18,7 +18,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/logger"
@@ -73,7 +72,7 @@ func (s *statusHistorySuite) TestRecordStatus(c *tc.C) {
 		},
 		Since: &now,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *statusHistorySuite) TestRecordStatusWithError(c *tc.C) {
@@ -130,7 +129,7 @@ func (s *statusHistorySuite) TestRecordStatusNoID(c *tc.C) {
 		},
 		Since: &now,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *statusHistorySuite) TestRecordStatusNoData(c *tc.C) {
@@ -153,7 +152,7 @@ func (s *statusHistorySuite) TestRecordStatusNoData(c *tc.C) {
 		Message: "foo",
 		Since:   &now,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *statusHistorySuite) TestRecordStatusNoSince(c *tc.C) {
@@ -172,7 +171,7 @@ func (s *statusHistorySuite) TestRecordStatusNoSince(c *tc.C) {
 		Status:  status.Active,
 		Message: "foo",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(record.Time, tc.Not(tc.Equals), "")
 }
 
@@ -226,7 +225,7 @@ func (s *statusHistoryReaderSuite) TestWalk(c *tc.C) {
 				Time:      time.Now(),
 				Labels:    labels,
 			})
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 
 			expected = append(expected, HistoryRecord{
 				ModelUUID: model.UUID(modelUUID),
@@ -252,14 +251,14 @@ func (s *statusHistoryReaderSuite) TestWalk(c *tc.C) {
 	})
 
 	history, err := ModelStatusHistoryReaderFromFile(model.UUID(modelUUID), path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var records []HistoryRecord
 	err = history.Walk(func(rec HistoryRecord) (bool, error) {
 		records = append(records, rec)
 		return false, nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(records, tc.DeepEquals, expected)
 }
 
@@ -299,7 +298,7 @@ func (s *statusHistoryReaderSuite) TestWalkWhilstAdding(c *tc.C) {
 				Time:      time.Now(),
 				Labels:    labels,
 			})
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 
 			expected = append(expected, HistoryRecord{
 				ModelUUID: model.UUID(modelUUID),
@@ -325,7 +324,7 @@ func (s *statusHistoryReaderSuite) TestWalkWhilstAdding(c *tc.C) {
 	})
 
 	history, err := ModelStatusHistoryReaderFromFile(model.UUID(modelUUID), path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var records []HistoryRecord
 	err = history.Walk(func(rec HistoryRecord) (bool, error) {
@@ -358,7 +357,7 @@ func (s *statusHistoryReaderSuite) TestWalkWhilstAdding(c *tc.C) {
 					Time:      time.Now(),
 					Labels:    labels,
 				})
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 			}
 		})
 		if rec.ModelUUID != model.UUID(modelUUID) {
@@ -368,7 +367,7 @@ func (s *statusHistoryReaderSuite) TestWalkWhilstAdding(c *tc.C) {
 		records = append(records, rec)
 		return false, nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(records, tc.DeepEquals, expected)
 }
 
@@ -406,19 +405,19 @@ func (s *statusHistoryReaderSuite) TestWalkWithDifferentLabel(c *tc.C) {
 				Time:      time.Now(),
 				Labels:    labels,
 			})
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
 	})
 
 	history, err := ModelStatusHistoryReaderFromFile(model.UUID(modelUUID), path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var records []HistoryRecord
 	err = history.Walk(func(rec HistoryRecord) (bool, error) {
 		records = append(records, rec)
 		return false, nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(records, tc.DeepEquals, expected)
 }
 
@@ -430,14 +429,14 @@ func (s *statusHistoryReaderSuite) TestWalkNoDocuments(c *tc.C) {
 	path := s.createFile(c, func(c *tc.C, w io.Writer) {})
 
 	history, err := ModelStatusHistoryReaderFromFile(model.UUID(modelUUID), path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var records []HistoryRecord
 	err = history.Walk(func(rec HistoryRecord) (bool, error) {
 		records = append(records, rec)
 		return false, nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(records, tc.DeepEquals, expected)
 }
 
@@ -477,7 +476,7 @@ func (s *statusHistoryReaderSuite) TestWalkCorruptLine(c *tc.C) {
 				Time:      time.Now(),
 				Labels:    labels,
 			})
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 
 			// Corrupt a line, by adding a non-JSON prefix to the line, after
 			// the current has been written.
@@ -509,14 +508,14 @@ func (s *statusHistoryReaderSuite) TestWalkCorruptLine(c *tc.C) {
 	})
 
 	history, err := ModelStatusHistoryReaderFromFile(model.UUID(modelUUID), path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var records []HistoryRecord
 	err = history.Walk(func(rec HistoryRecord) (bool, error) {
 		records = append(records, rec)
 		return false, nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(records, tc.DeepEquals, expected)
 }
 
@@ -525,7 +524,7 @@ func (s *statusHistoryReaderSuite) createFile(c *tc.C, fn func(*tc.C, io.Writer)
 
 	filePath := filepath.Join(path, "logsink.log")
 	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY, 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() {
 		_ = file.Close()
 	}()
@@ -533,14 +532,14 @@ func (s *statusHistoryReaderSuite) createFile(c *tc.C, fn func(*tc.C, io.Writer)
 	fn(c, file)
 
 	err = file.Sync()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return filePath
 }
 
 func (s *statusHistoryReaderSuite) appendToFile(c *tc.C, path string, fn func(*tc.C, io.Writer)) {
 	file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() {
 		_ = file.Close()
 	}()
@@ -548,5 +547,5 @@ func (s *statusHistoryReaderSuite) appendToFile(c *tc.C, path string, fn func(*t
 	fn(c, file)
 
 	err = file.Sync()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

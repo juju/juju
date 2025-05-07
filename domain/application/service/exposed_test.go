@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -42,8 +41,8 @@ func (s *exposedServiceSuite) TestApplicationExposed(c *tc.C) {
 	s.state.EXPECT().IsApplicationExposed(gomock.Any(), applicationUUID).Return(true, nil)
 
 	exposed, err := s.service.IsApplicationExposed(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(exposed, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exposed, tc.IsTrue)
 }
 
 func (s *exposedServiceSuite) TestExposedEndpointsNotFound(c *tc.C) {
@@ -71,7 +70,7 @@ func (s *exposedServiceSuite) TestExposedEndpoints(c *tc.C) {
 	s.state.EXPECT().GetExposedEndpoints(gomock.Any(), applicationUUID).Return(expected, nil)
 
 	obtained, err := s.service.GetExposedEndpoints(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtained, tc.DeepEquals, expected)
 }
 
@@ -93,7 +92,7 @@ func (s *exposedServiceSuite) TestUnsetExposeSettings(c *tc.C) {
 	s.state.EXPECT().UnsetExposeSettings(gomock.Any(), applicationUUID, exposedEndpoints).Return(nil)
 
 	err := s.service.UnsetExposeSettings(context.Background(), "foo", exposedEndpoints)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *exposedServiceSuite) TestMergeExposeSettingsNotFound(c *tc.C) {
@@ -163,7 +162,7 @@ func (s *exposedServiceSuite) TestMergeExposeSettingsEmptyEndpointsList(c *tc.C)
 	}).Return(nil)
 
 	err := s.service.MergeExposeSettings(context.Background(), "foo", map[string]application.ExposedEndpoint{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *exposedServiceSuite) TestMergeExposeSettingsWildcard(c *tc.C) {
@@ -190,7 +189,7 @@ func (s *exposedServiceSuite) TestMergeExposeSettingsWildcard(c *tc.C) {
 			ExposeToCIDRs: set.NewStrings("10.0.0.0/24", "10.0.1.0/24"),
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *exposedServiceSuite) TestMergeExposeSettings(c *tc.C) {
@@ -217,5 +216,5 @@ func (s *exposedServiceSuite) TestMergeExposeSettings(c *tc.C) {
 			ExposeToCIDRs: set.NewStrings("10.0.0.0/24", "10.0.1.0/24"),
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

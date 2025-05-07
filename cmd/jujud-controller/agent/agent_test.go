@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
@@ -59,11 +58,11 @@ func (s *AgentSuite) SetUpTest(c *tc.C) {
 
 	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	st := s.ControllerModel(c).State()
 	err = st.SetAPIHostPorts(controllerConfig, hostPorts, hostPorts)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type agentLoggingSuite struct {

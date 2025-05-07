@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -61,8 +60,8 @@ func (s *controllerConfigSuite) TestControllerConfigSuccess(c *tc.C) {
 	)
 
 	result, err := s.ctrlConfigAPI.ControllerConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(map[string]interface{}(result.Config), jc.DeepEquals, map[string]interface{}{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(map[string]interface{}(result.Config), tc.DeepEquals, map[string]interface{}{
 		"ca-cert":         testing.CACert,
 		"controller-uuid": "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 		"state-port":      1234,
@@ -95,7 +94,7 @@ func (s *controllerConfigSuite) TestControllerInfo(c *tc.C) {
 
 	results, err := s.ctrlConfigAPI.ControllerAPIInfoForModels(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: testing.ModelTag.String()}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Addresses, tc.DeepEquals, []string{"192.168.1.1:17070"})
 	c.Assert(results.Results[0].CACert, tc.Equals, testing.CACert)
@@ -121,7 +120,7 @@ func (s *controllerInfoSuite) SetUpTest(c *tc.C) {
 		s.localState.Close()
 	})
 	model, err := s.localState.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.localModel = model
 }
 
@@ -133,12 +132,12 @@ func (s *controllerInfoSuite) TestControllerInfoLocalModel(c *tc.C) {
 		Entities: []params.Entity{{
 			Tag: names.NewModelTag(s.DefaultModelUUID.String()).String(),
 		}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 
 	systemState := s.ControllerModel(c).State()
 	apiAddr, err := systemState.APIHostPortsForClients(testing.FakeControllerConfig())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results[0].Addresses, tc.HasLen, 1)
 	c.Assert(results.Results[0].Addresses[0], tc.Equals, apiAddr[0][0].String())
 	c.Assert(results.Results[0].CACert, tc.Equals, testing.CACert)
@@ -154,13 +153,13 @@ func (s *controllerInfoSuite) TestControllerInfoExternalModel(c *tc.C) {
 	}
 	domainServices := s.ControllerDomainServices(c)
 	err := domainServices.ExternalController().UpdateExternalController(context.Background(), info)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	controllerConfig := common.NewControllerConfigAPI(s.localState, domainServices.ControllerConfig(), domainServices.ExternalController())
 	results, err := controllerConfig.ControllerAPIInfoForModels(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: names.NewModelTag(modelUUID).String()}}})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Addresses, tc.DeepEquals, info.Addrs)
 	c.Assert(results.Results[0].CACert, tc.Equals, info.CACert)
@@ -192,17 +191,17 @@ func (s *controllerInfoSuite) TestControllerInfoMigratedController(c *tc.C) {
 			Password:        "secret",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	for _, phase := range migration.SuccessfulMigrationPhases() {
-		c.Assert(mig.SetPhase(phase), jc.ErrorIsNil)
+		c.Assert(mig.SetPhase(phase), tc.ErrorIsNil)
 	}
 
-	c.Assert(s.localModel.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
-	c.Assert(model.RemoveDyingModel(), jc.ErrorIsNil)
+	c.Assert(s.localModel.Destroy(state.DestroyModelParams{}), tc.ErrorIsNil)
+	c.Assert(model.RemoveDyingModel(), tc.ErrorIsNil)
 
 	externalControllerInfo, err := controllerConfig.ControllerAPIInfoForModels(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: names.NewModelTag(s.DefaultModelUUID.String()).String()}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(externalControllerInfo.Results), tc.Equals, 1)
 	c.Assert(externalControllerInfo.Results[0].Addresses[0], tc.Equals, controllerIP)
 }

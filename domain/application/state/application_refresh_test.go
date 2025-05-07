@@ -11,7 +11,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -59,7 +58,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmNoRelation(c *tc.C) {
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestSetApplicationCharmSuccessWithRelationEstablished verifies that an
@@ -99,7 +98,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmSuccessWithRelationEsta
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestSetApplicationCharmErrorWithRelation verifies that an application charm cannot
@@ -213,7 +212,7 @@ func (s *applicationRefreshSuite) createApplication(c *tc.C, args createApplicat
 		Scale:             1,
 		Channel:           channel,
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to create application %q", appName))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to create application %q", appName))
 	return appID
 }
 
@@ -309,7 +308,7 @@ func (s *applicationRefreshSuite) establishRelationWith(c *tc.C, currentAppID co
 		return nil
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // createApplicationArgs represents the arguments required to create a

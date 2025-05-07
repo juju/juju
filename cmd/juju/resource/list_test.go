@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/core/resource"
@@ -40,13 +39,13 @@ func (*ShowApplicationSuite) TestInitEmpty(c *tc.C) {
 	s := resourcecmd.NewListCommandForTest(nil)
 
 	err := s.Init([]string{})
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 }
 
 func (*ShowApplicationSuite) TestInitGood(c *tc.C) {
 	s := resourcecmd.NewListCommandForTest(nil)
 	err := s.Init([]string{"foo"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(resourcecmd.ListCommandTarget(s), tc.Equals, "foo")
 }
 
@@ -54,7 +53,7 @@ func (*ShowApplicationSuite) TestInitTooManyArgs(c *tc.C) {
 	s := resourcecmd.NewListCommandForTest(nil)
 
 	err := s.Init([]string{"foo", "bar"})
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 }
 
 func (s *ShowApplicationSuite) TestInfo(c *tc.C) {
@@ -67,7 +66,7 @@ func (s *ShowApplicationSuite) TestInfo(c *tc.C) {
 	c.Check(info.Purpose, tc.Not(tc.Equals), "")
 	c.Check(info.Doc, tc.Not(tc.Equals), "")
 	c.Check(info.FlagKnownAs, tc.Not(tc.Equals), "")
-	c.Check(len(info.ShowSuperFlags), jc.GreaterThan, 2)
+	c.Check(len(info.ShowSuperFlags), tc.GreaterThan, 2)
 }
 
 func (s *ShowApplicationSuite) TestRunNoResourcesForApplication(c *tc.C) {

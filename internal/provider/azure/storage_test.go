@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/microsoftgraph/msgraph-sdk-go/models/odataerrors"
 
 	"github.com/juju/juju/core/instance"
@@ -53,7 +52,7 @@ func (s *storageSuite) SetUpTest(c *tc.C) {
 	var err error
 	env := openEnviron(c, envProvider, s.credentialInvalidator, &s.sender)
 	s.provider, err = env.StorageProvider("azure")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.invalidatedCredential = false
 	s.credentialInvalidator = azure.CredentialInvalidator(func(context.Context, environs.CredentialInvalidReason) error {
@@ -64,11 +63,11 @@ func (s *storageSuite) SetUpTest(c *tc.C) {
 
 func (s *storageSuite) volumeSource(c *tc.C, attrs ...testing.Attrs) storage.VolumeSource {
 	storageConfig, err := storage.NewConfig("azure", "azure", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.sender = azuretesting.Senders{}
 	volumeSource, err := s.provider.VolumeSource(storageConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return volumeSource
 }
 
@@ -79,20 +78,20 @@ func (s *storageSuite) TestVolumeSource(c *tc.C) {
 
 func (s *storageSuite) TestFilesystemSource(c *tc.C) {
 	storageConfig, err := storage.NewConfig("azure", "azure", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.provider.FilesystemSource(storageConfig)
 	c.Assert(err, tc.ErrorMatches, "filesystems not supported")
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 
 func (s *storageSuite) TestSupports(c *tc.C) {
-	c.Assert(s.provider.Supports(storage.StorageKindBlock), jc.IsTrue)
-	c.Assert(s.provider.Supports(storage.StorageKindFilesystem), jc.IsFalse)
+	c.Assert(s.provider.Supports(storage.StorageKindBlock), tc.IsTrue)
+	c.Assert(s.provider.Supports(storage.StorageKindFilesystem), tc.IsFalse)
 }
 
 func (s *storageSuite) TestDynamic(c *tc.C) {
-	c.Assert(s.provider.Dynamic(), jc.IsTrue)
+	c.Assert(s.provider.Dynamic(), tc.IsTrue)
 }
 
 func (s *storageSuite) TestScope(c *tc.C) {
@@ -142,11 +141,11 @@ func (s *storageSuite) TestCreateVolumes(c *tc.C) {
 	}
 
 	results, err := volumeSource.CreateVolumes(context.Background(), params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, len(params))
-	c.Check(results[0].Error, jc.ErrorIsNil)
-	c.Check(results[1].Error, jc.ErrorIsNil)
-	c.Check(results[2].Error, jc.ErrorIsNil)
+	c.Check(results[0].Error, tc.ErrorIsNil)
+	c.Check(results[1].Error, tc.ErrorIsNil)
+	c.Check(results[2].Error, tc.ErrorIsNil)
 
 	// Attachments are deferred.
 	c.Check(results[0].VolumeAttachment, tc.IsNil)
@@ -163,9 +162,9 @@ func (s *storageSuite) TestCreateVolumes(c *tc.C) {
 			},
 		}
 	}
-	c.Check(results[0].Volume, jc.DeepEquals, makeVolume("0", 32*1024))
-	c.Check(results[1].Volume, jc.DeepEquals, makeVolume("1", 2*1024))
-	c.Check(results[2].Volume, jc.DeepEquals, makeVolume("2", 1*1024))
+	c.Check(results[0].Volume, tc.DeepEquals, makeVolume("0", 32*1024))
+	c.Check(results[1].Volume, tc.DeepEquals, makeVolume("1", 2*1024))
+	c.Check(results[2].Volume, tc.DeepEquals, makeVolume("2", 1*1024))
 
 	// Validate HTTP request bodies.
 	c.Assert(s.requests, tc.HasLen, 3)
@@ -231,9 +230,9 @@ func (s *storageSuite) TestCreateVolumesWithInvalidCredential(c *tc.C) {
 	s.requests = nil
 	s.createSenderWithUnauthorisedStatusCode()
 
-	c.Assert(s.invalidatedCredential, jc.IsFalse)
+	c.Assert(s.invalidatedCredential, tc.IsFalse)
 	results, err := volumeSource.CreateVolumes(context.Background(), params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, len(params))
 	c.Check(results[0].Error, tc.NotNil)
 	c.Check(results[1].Error, tc.NotNil)
@@ -243,7 +242,7 @@ func (s *storageSuite) TestCreateVolumesWithInvalidCredential(c *tc.C) {
 	c.Check(results[0].VolumeAttachment, tc.IsNil)
 	c.Check(results[1].VolumeAttachment, tc.IsNil)
 	c.Check(results[2].VolumeAttachment, tc.IsNil)
-	c.Assert(s.invalidatedCredential, jc.IsTrue)
+	c.Assert(s.invalidatedCredential, tc.IsTrue)
 
 	// Validate HTTP request bodies.
 	// The authorised workflow attempts to refresh to token so
@@ -293,18 +292,18 @@ func (s *storageSuite) TestListVolumes(c *tc.C) {
 	s.sender = azuretesting.Senders{volumeSender}
 
 	volumeIds, err := volumeSource.ListVolumes(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(volumeIds, jc.SameContents, []string{"volume-0", "volume-1"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(volumeIds, tc.SameContents, []string{"volume-0", "volume-1"})
 }
 
 func (s *storageSuite) TestListVolumesWithInvalidCredential(c *tc.C) {
 	volumeSource := s.volumeSource(c)
 	s.createSenderWithUnauthorisedStatusCode()
 
-	c.Assert(s.invalidatedCredential, jc.IsFalse)
+	c.Assert(s.invalidatedCredential, tc.IsFalse)
 	_, err := volumeSource.ListVolumes(context.Background())
 	c.Assert(err, tc.NotNil)
-	c.Assert(s.invalidatedCredential, jc.IsTrue)
+	c.Assert(s.invalidatedCredential, tc.IsTrue)
 }
 
 func (s *storageSuite) TestListVolumesErrors(c *tc.C) {
@@ -330,8 +329,8 @@ func (s *storageSuite) TestDescribeVolumes(c *tc.C) {
 	s.sender = azuretesting.Senders{volumeSender}
 
 	results, err := volumeSource.DescribeVolumes(context.Background(), []string{"volume-0"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []storage.DescribeVolumesResult{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, []storage.DescribeVolumesResult{{
 		VolumeInfo: &storage.VolumeInfo{
 			VolumeId:   "volume-0",
 			Size:       1024 * 1024,
@@ -344,13 +343,13 @@ func (s *storageSuite) TestDescribeVolumesWithInvalidCredential(c *tc.C) {
 	volumeSource := s.volumeSource(c)
 	s.createSenderWithUnauthorisedStatusCode()
 
-	c.Assert(s.invalidatedCredential, jc.IsFalse)
+	c.Assert(s.invalidatedCredential, tc.IsFalse)
 	_, err := volumeSource.DescribeVolumes(context.Background(), []string{"volume-0"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	results, err := volumeSource.DescribeVolumes(context.Background(), []string{"volume-0"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results[0].Error, tc.NotNil)
-	c.Assert(s.invalidatedCredential, jc.IsTrue)
+	c.Assert(s.invalidatedCredential, tc.IsTrue)
 }
 
 func (s *storageSuite) TestDescribeVolumesNotFound(c *tc.C) {
@@ -364,9 +363,9 @@ func (s *storageSuite) TestDescribeVolumesNotFound(c *tc.C) {
 	volumeSender.AppendResponse(response)
 	s.sender = azuretesting.Senders{volumeSender}
 	results, err := volumeSource.DescribeVolumes(context.Background(), []string{"volume-42"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 1)
-	c.Assert(results[0].Error, jc.ErrorIs, errors.NotFound)
+	c.Assert(results[0].Error, tc.ErrorIs, errors.NotFound)
 	c.Assert(results[0].Error, tc.ErrorMatches, `.*disk volume-42 not found`)
 }
 
@@ -378,21 +377,21 @@ func (s *storageSuite) TestDestroyVolumes(c *tc.C) {
 	s.sender = azuretesting.Senders{volume0Sender}
 
 	results, err := volumeSource.DestroyVolumes(context.Background(), []string{"volume-0"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 1)
-	c.Assert(results[0], jc.ErrorIsNil)
+	c.Assert(results[0], tc.ErrorIsNil)
 }
 
 func (s *storageSuite) TestDestroyVolumesWithInvalidCredential(c *tc.C) {
 	volumeSource := s.volumeSource(c)
 
 	s.createSenderWithUnauthorisedStatusCode()
-	c.Assert(s.invalidatedCredential, jc.IsFalse)
+	c.Assert(s.invalidatedCredential, tc.IsFalse)
 	results, err := volumeSource.DestroyVolumes(context.Background(), []string{"volume-0"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 1)
 	c.Assert(results[0], tc.NotNil)
-	c.Assert(s.invalidatedCredential, jc.IsTrue)
+	c.Assert(s.invalidatedCredential, tc.IsTrue)
 }
 
 func (s *storageSuite) TestDestroyVolumesNotFound(c *tc.C) {
@@ -405,9 +404,9 @@ func (s *storageSuite) TestDestroyVolumesNotFound(c *tc.C) {
 	s.sender = azuretesting.Senders{volume42Sender}
 
 	results, err := volumeSource.DestroyVolumes(context.Background(), []string{"volume-42"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 1)
-	c.Assert(results[0], jc.ErrorIsNil)
+	c.Assert(results[0], tc.ErrorIsNil)
 }
 
 func (s *storageSuite) TestAttachVolumes(c *tc.C) {
@@ -482,12 +481,12 @@ func (s *storageSuite) TestAttachVolumes(c *tc.C) {
 	}
 
 	results, err := volumeSource.AttachVolumes(context.Background(), params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, len(params))
 
-	c.Check(results[0].Error, jc.ErrorIsNil)
-	c.Check(results[1].Error, jc.ErrorIsNil)
-	c.Check(results[2].Error, jc.ErrorIsNil)
+	c.Check(results[0].Error, tc.ErrorIsNil)
+	c.Check(results[1].Error, tc.ErrorIsNil)
+	c.Check(results[2].Error, tc.ErrorIsNil)
 	c.Check(results[3].Error, tc.ErrorMatches, "instance machine-42 not found")
 	c.Check(results[4].Error, tc.ErrorMatches, "choosing LUN: all LUNs are in use")
 
@@ -586,12 +585,12 @@ func (s *storageSuite) TestDetachVolumes(c *tc.C) {
 	}
 
 	results, err := volumeSource.DetachVolumes(context.Background(), params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, len(params))
 
-	c.Check(results[0], jc.ErrorIsNil)
-	c.Check(results[1], jc.ErrorIsNil)
-	c.Check(results[2], jc.ErrorIsNil)
+	c.Check(results[0], tc.ErrorIsNil)
+	c.Check(results[1], tc.ErrorIsNil)
+	c.Check(results[2], tc.ErrorIsNil)
 	c.Check(results[3], tc.ErrorMatches, "instance machine-42 not found")
 
 	// Validate HTTP request bodies.
@@ -652,9 +651,9 @@ func (s *storageSuite) TestDetachVolumesFinal(c *tc.C) {
 	}
 
 	results, err := volumeSource.DetachVolumes(context.Background(), params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, len(params))
-	c.Assert(results[0], jc.ErrorIsNil)
+	c.Assert(results[0], tc.ErrorIsNil)
 
 	// Validate HTTP request bodies.
 	c.Assert(s.requests, tc.HasLen, 2)

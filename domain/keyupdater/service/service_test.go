@@ -8,7 +8,6 @@ import (
 	"slices"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coremachine "github.com/juju/juju/core/machine"
@@ -70,11 +69,11 @@ func (s *serviceSuite) TestAuthorisedKeysForMachine(c *tc.C) {
 		context.Background(),
 		coremachine.Name("0"),
 	)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	slices.Sort(expected)
 	slices.Sort(keys)
-	c.Check(keys, jc.DeepEquals, expected)
+	c.Check(keys, tc.DeepEquals, expected)
 }
 
 // TestAuthorisedKeysForMachineNoControllerKeys is asserting that if no
@@ -94,11 +93,11 @@ func (s *serviceSuite) TestAuthorisedKeysForMachineNoControllerKeys(c *tc.C) {
 		context.Background(),
 		coremachine.Name("0"),
 	)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	slices.Sort(expected)
 	slices.Sort(keys)
-	c.Check(keys, jc.DeepEquals, expected)
+	c.Check(keys, tc.DeepEquals, expected)
 }
 
 // TestAuthorisedKeysForMachineNotFound is asserting that if we ask for
@@ -113,7 +112,7 @@ func (s *serviceSuite) TestAuthorisedKeysForMachineNotFound(c *tc.C) {
 		context.Background(),
 		coremachine.Name("0"),
 	)
-	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
+	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 // TestGetInitialAuthorisedKeysForContainerSuccess tests the happy path for
@@ -127,8 +126,8 @@ func (s *serviceSuite) TestGetInitialAuthorisedKeysForContainerSuccess(c *tc.C) 
 
 	keys, err := NewService(s.controllerKeyProvider, s.controllerState, s.state).
 		GetInitialAuthorisedKeysForContainer(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(keys, jc.DeepEquals, controllerKeys)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(keys, tc.DeepEquals, controllerKeys)
 }
 
 // TestGetInitialAuthorisedKeysForContainerSuccess checks that
@@ -147,5 +146,5 @@ func (s *serviceSuite) TestGetInitialAuthorisedKeysForContainerFailure(c *tc.C) 
 
 	_, err := NewService(s.controllerKeyProvider, s.controllerState, s.state).
 		GetInitialAuthorisedKeysForContainer(context.Background())
-	c.Check(err, jc.ErrorIs, boom)
+	c.Check(err, tc.ErrorIs, boom)
 }

@@ -10,7 +10,6 @@ import (
 	"net/http/httptest"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"gopkg.in/httprequest.v1"
 )
 
@@ -26,7 +25,7 @@ func (s *downloadSuite) TestDownload(c *tc.C) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.URL.String(), tc.Equals, "/backups")
 		_, err := w.Write([]byte("success"))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}))
 	defer srv.Close()
 	httpClient := &httprequest.Client{BaseURL: srv.URL}
@@ -35,10 +34,10 @@ func (s *downloadSuite) TestDownload(c *tc.C) {
 
 	client := s.newClient()
 	rdr, err := client.Download(context.Background(), "/path/to/backup")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = rdr.Close() }()
 
 	data, err := io.ReadAll(rdr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(data), tc.Equals, "success")
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/trace"
@@ -57,14 +56,14 @@ func (s *CrossSuite) testClaims(c *tc.C, lease1, lease2 corelease.Key) {
 	}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		claimer1, err := manager.Claimer(lease1.Namespace, lease1.ModelUUID)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		claimer2, err := manager.Claimer(lease2.Namespace, lease2.ModelUUID)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		err = claimer1.Claim(lease1.Lease, "sgt-howie", time.Minute)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = claimer2.Claim(lease2.Lease, "rowan", time.Minute)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		err = claimer1.Claim(lease1.Lease, "lord-summerisle", time.Minute)
 		c.Assert(err, tc.Equals, corelease.ErrClaimDenied)
@@ -108,7 +107,7 @@ func (s *CrossSuite) testWaits(c *tc.C, lease1, lease2 corelease.Key) {
 		clock.Advance(2 * time.Second)
 
 		err := b1.assertUnblocked(c)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		b2.assertBlocked(c)
 	})
 }
@@ -138,9 +137,9 @@ func (s *CrossSuite) testChecks(c *tc.C, lease1, lease2 corelease.Key) {
 	}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		checker1, err := manager.Checker(lease1.Namespace, lease1.ModelUUID)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		checker2, err := manager.Checker(lease2.Namespace, lease2.ModelUUID)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		t1 := checker1.Token(lease1.Lease, "sgt-howie")
 		c.Assert(t1.Check(), tc.Equals, nil)
@@ -186,11 +185,11 @@ func (s *CrossSuite) TestDifferentNamespaceValidation(c *tc.C) {
 		PrometheusRegisterer: noopRegisterer{},
 		Tracer:               trace.NoopTracer{},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() {
 		manager.Kill()
 		err := manager.Wait()
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}()
 	defer store.Wait(c)
 
@@ -198,12 +197,12 @@ func (s *CrossSuite) TestDifferentNamespaceValidation(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "bad namespace!")
 
 	c1, err := manager.Claimer("ns1", "model")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = c1.Claim("INVALID", "sgt-howie", time.Minute)
 	c.Assert(err, tc.ErrorMatches, `cannot claim lease "INVALID": name not valid`)
 
 	c2, err := manager.Claimer("ns2", "model")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = c2.Claim("INVALID", "sgt-howie", time.Minute)
 	c.Assert(err, tc.ErrorMatches, `cannot claim lease "INVALID": lease name not valid`)
 }

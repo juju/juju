@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -73,7 +72,7 @@ func (s *credentialsSuite) TestServicePrincipalSecretHiddenAttributes(c *tc.C) {
 
 func (s *credentialsSuite) TestDetectCredentialsNoAccounts(c *tc.C) {
 	_, err := s.provider.DetectCredentials("")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 	calls := s.azureCLI.Calls()
 	c.Assert(calls, tc.HasLen, 1)
 	c.Assert(calls[0].FuncName, tc.Equals, "ListAccounts")
@@ -82,7 +81,7 @@ func (s *credentialsSuite) TestDetectCredentialsNoAccounts(c *tc.C) {
 func (s *credentialsSuite) TestDetectCredentialsListError(c *tc.C) {
 	s.azureCLI.SetErrors(errors.New("test error"))
 	_, err := s.provider.DetectCredentials("")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *credentialsSuite) TestDetectCredentialsOneAccount(c *tc.C) {
@@ -100,7 +99,7 @@ func (s *credentialsSuite) TestDetectCredentialsOneAccount(c *tc.C) {
 		Name:     "AzureCloud",
 	}}
 	cred, err := s.provider.DetectCredentials("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cred, tc.Not(tc.IsNil))
 	c.Assert(cred.DefaultCredential, tc.Equals, "test-account")
 	c.Assert(cred.DefaultRegion, tc.Equals, "")
@@ -116,9 +115,9 @@ func (s *credentialsSuite) TestDetectCredentialsOneAccount(c *tc.C) {
 	c.Assert(calls, tc.HasLen, 1)
 	c.Assert(calls[0].FuncName, tc.Equals, "Create")
 	params, ok := calls[0].Args[1].(azureauth.ServicePrincipalParams)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	params.Credential = nil
-	c.Assert(params, jc.DeepEquals, azureauth.ServicePrincipalParams{
+	c.Assert(params, tc.DeepEquals, azureauth.ServicePrincipalParams{
 		SubscriptionId: "test-account-id",
 		TenantId:       "tenant-id",
 	})
@@ -139,7 +138,7 @@ func (s *credentialsSuite) TestDetectCredentialsCloudError(c *tc.C) {
 	}}
 	s.azureCLI.SetErrors(nil, errors.New("test error"))
 	cred, err := s.provider.DetectCredentials("")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 	c.Assert(cred, tc.IsNil)
 
 	calls := s.azureCLI.Calls()
@@ -172,7 +171,7 @@ func (s *credentialsSuite) TestDetectCredentialsTwoAccounts(c *tc.C) {
 		Name:     "AzureCloud",
 	}}
 	cred, err := s.provider.DetectCredentials("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cred, tc.Not(tc.IsNil))
 	c.Assert(cred.DefaultCredential, tc.Equals, "test-account1")
 	c.Assert(cred.DefaultRegion, tc.Equals, "")
@@ -189,17 +188,17 @@ func (s *credentialsSuite) TestDetectCredentialsTwoAccounts(c *tc.C) {
 	c.Assert(calls, tc.HasLen, 2)
 	c.Assert(calls[0].FuncName, tc.Equals, "Create")
 	params, ok := calls[0].Args[1].(azureauth.ServicePrincipalParams)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	params.Credential = nil
-	c.Assert(params, jc.DeepEquals, azureauth.ServicePrincipalParams{
+	c.Assert(params, tc.DeepEquals, azureauth.ServicePrincipalParams{
 		SubscriptionId: "test-account1-id",
 		TenantId:       "tenant-id",
 	})
 	c.Assert(calls[1].FuncName, tc.Equals, "Create")
 	params, ok = calls[1].Args[1].(azureauth.ServicePrincipalParams)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	params.Credential = nil
-	c.Assert(params, jc.DeepEquals, azureauth.ServicePrincipalParams{
+	c.Assert(params, tc.DeepEquals, azureauth.ServicePrincipalParams{
 		SubscriptionId: "test-account2-id",
 		TenantId:       "tenant-id2",
 	})
@@ -227,7 +226,7 @@ func (s *credentialsSuite) TestDetectCredentialsTwoAccountsOneError(c *tc.C) {
 	}}
 	s.servicePrincipalCreator.SetErrors(nil, errors.New("test error"))
 	cred, err := s.provider.DetectCredentials("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cred, tc.Not(tc.IsNil))
 	c.Assert(cred.DefaultCredential, tc.Equals, "")
 	c.Assert(cred.DefaultRegion, tc.Equals, "")
@@ -243,17 +242,17 @@ func (s *credentialsSuite) TestDetectCredentialsTwoAccountsOneError(c *tc.C) {
 	c.Assert(calls, tc.HasLen, 2)
 	c.Assert(calls[0].FuncName, tc.Equals, "Create")
 	params, ok := calls[0].Args[1].(azureauth.ServicePrincipalParams)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	params.Credential = nil
-	c.Assert(params, jc.DeepEquals, azureauth.ServicePrincipalParams{
+	c.Assert(params, tc.DeepEquals, azureauth.ServicePrincipalParams{
 		SubscriptionId: "test-account1-id",
 		TenantId:       "tenant-id",
 	})
 	c.Assert(calls[1].FuncName, tc.Equals, "Create")
 	params, ok = calls[1].Args[1].(azureauth.ServicePrincipalParams)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	params.Credential = nil
-	c.Assert(params, jc.DeepEquals, azureauth.ServicePrincipalParams{
+	c.Assert(params, tc.DeepEquals, azureauth.ServicePrincipalParams{
 		SubscriptionId: "test-account2-id",
 		TenantId:       "tenant-id2",
 	})
@@ -270,10 +269,10 @@ func (s *credentialsSuite) TestFinalizeCredentialInteractive(c *tc.C) {
 		CloudStorageEndpoint:  "https://core.invalid",
 		CloudIdentityEndpoint: "https://graph.invalid",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out, tc.NotNil)
 	c.Assert(out.AuthType(), tc.Equals, cloud.AuthType("service-principal-secret"))
-	c.Assert(out.Attributes(), jc.DeepEquals, map[string]string{
+	c.Assert(out.Attributes(), tc.DeepEquals, map[string]string{
 		"application-id":        "appid",
 		"application-password":  "service-principal-password",
 		"application-object-id": "application-object-id",
@@ -282,7 +281,7 @@ func (s *credentialsSuite) TestFinalizeCredentialInteractive(c *tc.C) {
 
 	s.servicePrincipalCreator.CheckCallNames(c, "InteractiveCreate")
 	args := s.servicePrincipalCreator.Calls()[0].Args
-	c.Assert(args[2], jc.DeepEquals, azureauth.ServicePrincipalParams{
+	c.Assert(args[2], tc.DeepEquals, azureauth.ServicePrincipalParams{
 		CloudName:      "AzureCloud",
 		SubscriptionId: fakeSubscriptionId,
 		TenantId:       fakeTenantId,
@@ -317,10 +316,10 @@ func (s *credentialsSuite) TestFinalizeCredentialInstanceRole(c *tc.C) {
 		CloudStorageEndpoint:  "https://core.invalid",
 		CloudIdentityEndpoint: "https://graph.invalid",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out, tc.NotNil)
 	c.Assert(out.AuthType(), tc.Equals, cloud.AuthType("managed-identity"))
-	c.Assert(out.Attributes(), jc.DeepEquals, map[string]string{
+	c.Assert(out.Attributes(), tc.DeepEquals, map[string]string{
 		"managed-identity-path": "mymid",
 		"subscription-id":       fakeSubscriptionId,
 	})
@@ -365,7 +364,7 @@ func (s *credentialsSuite) TestFinalizeCredentialAzureCLI(c *tc.C) {
 		Credential: in,
 		CloudName:  "azure",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cred, tc.Not(tc.IsNil))
 	c.Assert(cred.AuthType(), tc.Equals, cloud.AuthType("service-principal-secret"))
 	attrs := cred.Attributes()

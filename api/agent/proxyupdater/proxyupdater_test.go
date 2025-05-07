@@ -9,7 +9,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/agent/proxyupdater"
 	"github.com/juju/juju/api/base"
@@ -74,8 +73,8 @@ func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *tc.C
 	})
 
 	watcher, err := api.WatchForProxyConfigAndAPIHostPortChanges(context.Background())
-	c.Check(*called, jc.GreaterThan, 0)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(*called, tc.GreaterThan, 0)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(watcher, tc.Equals, fake)
 }
 
@@ -115,25 +114,25 @@ func (s *ProxyUpdaterSuite) TestProxyConfig(c *tc.C) {
 
 	config, err := api.ProxyConfig(context.Background())
 	c.Assert(*called, tc.Equals, 1)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(config.LegacyProxy, jc.DeepEquals, proxy.Settings{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config.LegacyProxy, tc.DeepEquals, proxy.Settings{
 		Http:    "http-legacy",
 		Https:   "https-legacy",
 		Ftp:     "ftp-legacy",
 		NoProxy: "no-proxy-legacy",
 	})
-	c.Check(config.JujuProxy, jc.DeepEquals, proxy.Settings{
+	c.Check(config.JujuProxy, tc.DeepEquals, proxy.Settings{
 		Http:    "http-juju",
 		Https:   "https-juju",
 		Ftp:     "ftp-juju",
 		NoProxy: "no-proxy-juju",
 	})
-	c.Check(config.APTProxy, jc.DeepEquals, proxy.Settings{
+	c.Check(config.APTProxy, tc.DeepEquals, proxy.Settings{
 		Http:  "http-apt",
 		Https: "https-apt",
 		Ftp:   "ftp-apt",
 	})
-	c.Check(config.SnapProxy, jc.DeepEquals, proxy.Settings{
+	c.Check(config.SnapProxy, tc.DeepEquals, proxy.Settings{
 		Http:  "http-snap",
 		Https: "https-snap",
 	})

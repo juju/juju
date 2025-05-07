@@ -12,7 +12,6 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coreapplication "github.com/juju/juju/core/application"
 	coreapplicationtesting "github.com/juju/juju/core/application/testing"
@@ -58,7 +57,7 @@ func (s *baseRelationSuite) SetUpTest(c *tc.C) {
 // ensuring proper error handling and assertion.
 func (s *baseRelationSuite) Txn(c *tc.C, fn func(ctx context.Context, tx *sqlair.TX) error) error {
 	db, err := s.state.DB()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return db.Txn(context.Background(), fn)
 }
 
@@ -73,7 +72,7 @@ func (s *baseRelationSuite) query(c *tc.C, query string, args ...any) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v",
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v",
 		errors.ErrorStack(err)))
 }
 
@@ -160,7 +159,7 @@ WHERE  uuid = ?
 		found = true
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return found
 }
 
@@ -198,7 +197,7 @@ func (s *baseRelationSuite) encodeScopeID(role charm.RelationScope) int {
 // newEndpointIdentifier converts an endpoint string into a relation.EndpointIdentifier and asserts no parsing errors.
 func (s *baseRelationSuite) newEndpointIdentifier(c *tc.C, endpoint string) relation.CandidateEndpointIdentifier {
 	result, err := relation.NewCandidateEndpointIdentifier(endpoint)
-	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to parse endpoint %q: %v", endpoint,
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to parse endpoint %q: %v", endpoint,
 		errors.ErrorStack(err)))
 	return result
 }

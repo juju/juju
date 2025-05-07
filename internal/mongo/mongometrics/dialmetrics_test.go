@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 
@@ -76,7 +75,7 @@ func (s *DialCollectorSuite) TestCollect(c *tc.C) {
 	for i, metric := range metrics {
 		dtoMetrics[i] = &dto.Metric{}
 		err := metric.Write(dtoMetrics[i])
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	float64ptr := func(v float64) *float64 {

@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	"golang.org/x/net/context"
 
@@ -80,10 +79,10 @@ func (s *SimpleStreamsToolsSuite) reset(c *tc.C, attrs map[string]interface{}) {
 func (s *SimpleStreamsToolsSuite) removeTools(c *tc.C) {
 	for _, dir := range []string{s.customToolsDir, s.publicToolsDir} {
 		files, err := os.ReadDir(dir)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		for _, f := range files {
 			err := os.RemoveAll(filepath.Join(dir, f.Name()))
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
 	}
 }
@@ -113,7 +112,7 @@ func (s *SimpleStreamsToolsSuite) resetEnv(c *tc.C, attrs map[string]interface{}
 			AdminSecret:      "admin-secret",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.env = env.(environs.Environ)
 	s.removeTools(c)
 }
@@ -183,7 +182,7 @@ func (s *SimpleStreamsToolsSuite) TestFindTools(c *tc.C) {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
 			}
-			c.Check(err, jc.ErrorIs, errors.NotFound)
+			c.Check(err, tc.ErrorIs, errors.NotFound)
 			continue
 		}
 		expect := map[semversion.Binary][]string{}
@@ -210,24 +209,24 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	_, err := envtools.FindTools(context.Background(), ss,
 		s.env, 1, -1, []string{"released"}, coretools.Filter{Number: semversion.Number{Major: 1, Minor: 2, Patch: 3}})
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 	// This is slightly overly prescriptive, but feel free to change or add
 	// messages. This still helps to ensure that all log messages are
 	// properly formed.
-	messages := []jc.SimpleMessage{
+	messages := []tc.SimpleMessage{
 		{loggo.DEBUG, "reading agent binaries with major version 1"},
 		{loggo.DEBUG, "filtering agent binaries by version: \\d+\\.\\d+\\.\\d+"},
 		{loggo.TRACE, "no architecture specified when finding agent binaries, looking for "},
 		{loggo.TRACE, "no os type specified when finding agent binaries, looking for .*"},
 	}
 	sources, err := envtools.GetMetadataSources(s.env, ss)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	for i := 0; i < len(sources); i++ {
 		messages = append(messages,
-			jc.SimpleMessage{loggo.TRACE, `fetchData failed for .*`},
-			jc.SimpleMessage{loggo.DEBUG, `cannot load index .*`})
+			tc.SimpleMessage{loggo.TRACE, `fetchData failed for .*`},
+			tc.SimpleMessage{loggo.DEBUG, `cannot load index .*`})
 	}
-	c.Check(tw.Log(), jc.LogMatches, messages)
+	c.Check(tw.Log(), tc.LogMatches, messages)
 }
 
 var findExactToolsTests = []struct {
@@ -275,7 +274,7 @@ func (s *SimpleStreamsToolsSuite) TestFindExactTools(c *tc.C) {
 		public := s.uploadPublic(c, test.public...)
 		actual, err := envtools.FindExactTools(context.Background(), ss, s.env, test.seek.Number, test.seek.Release, test.seek.Arch)
 		if test.err == nil {
-			if !c.Check(err, jc.ErrorIsNil) {
+			if !c.Check(err, tc.ErrorIsNil) {
 				continue
 			}
 			c.Check(actual.Version, tc.Equals, test.seek)
@@ -285,7 +284,7 @@ func (s *SimpleStreamsToolsSuite) TestFindExactTools(c *tc.C) {
 				c.Check(actual.URL, tc.DeepEquals, public[actual.Version])
 			}
 		} else {
-			c.Check(err, jc.ErrorIs, errors.NotFound)
+			c.Check(err, tc.ErrorIs, errors.NotFound)
 		}
 	}
 }
@@ -362,7 +361,7 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsWithStreamFallback(c *tc.C) {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
 			}
-			c.Check(err, jc.ErrorIs, errors.NotFound)
+			c.Check(err, tc.ErrorIs, errors.NotFound)
 			continue
 		}
 		expect := map[semversion.Binary][]string{}
@@ -471,7 +470,7 @@ func (s *ToolsListSuite) TestCheckToolsReleaseAcceptsOneSetOfTools(c *tc.C) {
 	for _, release := range names {
 		list := fakeToolsList(release)
 		err := envtools.CheckToolsReleases(list, release)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
 }
 
@@ -479,7 +478,7 @@ func (s *ToolsListSuite) TestCheckToolsReleaseAcceptsMultipleForSameOSType(c *tc
 	osType := "ubuntu"
 	list := fakeToolsList(osType, osType, osType)
 	err := envtools.CheckToolsReleases(list, osType)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *ToolsListSuite) TestCheckToolsReleaseRejectsToolsForOthers(c *tc.C) {

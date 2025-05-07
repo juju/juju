@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"google.golang.org/api/compute/v1"
 
 	"github.com/juju/juju/core/instance"
@@ -29,7 +28,7 @@ var _ = tc.Suite(&environNetSuite{})
 func (s *environNetSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	netEnv, ok := environs.SupportsNetworking(s.Env)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	s.NetEnv = netEnv
 }
 
@@ -82,17 +81,17 @@ func (s *environNetSuite) cannedData() {
 
 func (s *environNetSuite) TestSubnetsInvalidCredentialError(c *tc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
-	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
 	_, err := s.NetEnv.Subnets(context.Background(), nil)
 	c.Check(err, tc.NotNil)
-	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }
 
 func (s *environNetSuite) TestGettingAllSubnets(c *tc.C) {
 	s.cannedData()
 
 	subnets, err := s.NetEnv.Subnets(context.Background(), nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(subnets, tc.DeepEquals, []corenetwork.SubnetInfo{{
 		ProviderId:        "go-team",
@@ -119,7 +118,7 @@ func (s *environNetSuite) TestRestrictingToSubnets(c *tc.C) {
 	s.cannedData()
 
 	subnets, err := s.NetEnv.Subnets(context.Background(), []corenetwork.Id{"shellac"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(subnets, tc.DeepEquals, []corenetwork.SubnetInfo{{
 		ProviderId:        "shellac",
 		ProviderNetworkId: "albini",
@@ -134,7 +133,7 @@ func (s *environNetSuite) TestRestrictingToSubnetsWithMissing(c *tc.C) {
 
 	subnets, err := s.NetEnv.Subnets(context.Background(), []corenetwork.Id{"shellac", "brunettes"})
 	c.Assert(err, tc.ErrorMatches, `subnets \["brunettes"\] not found`)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 	c.Assert(subnets, tc.IsNil)
 }
 
@@ -143,7 +142,7 @@ func (s *environNetSuite) TestInterfaces(c *tc.C) {
 	s.FakeEnviron.Insts = []instances.Instance{s.NewInstance(c, "moana")}
 
 	infoList, err := s.NetEnv.NetworkInterfaces(context.Background(), []instance.Id{"moana"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(infoList, tc.HasLen, 1)
 	infos := infoList[0]
 
@@ -167,7 +166,7 @@ func (s *environNetSuite) TestInterfaces(c *tc.C) {
 
 func (s *environNetSuite) TestNetworkInterfaceInvalidCredentialError(c *tc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
-	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
 	s.cannedData()
 	baseInst := s.NewBaseInstance(c, "moana")
 	// This isn't possible in GCE at the moment, but we don't want to
@@ -188,7 +187,7 @@ func (s *environNetSuite) TestNetworkInterfaceInvalidCredentialError(c *tc.C) {
 
 	_, err := s.NetEnv.NetworkInterfaces(context.Background(), []instance.Id{"moana"})
 	c.Check(err, tc.NotNil)
-	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }
 
 func (s *environNetSuite) TestInterfacesForMultipleInstances(c *tc.C) {
@@ -227,7 +226,7 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *tc.C) {
 		"i-1",
 		"i-2",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(infoLists, tc.HasLen, 2)
 
 	// Check interfaces for first instance
@@ -339,7 +338,7 @@ func (s *environNetSuite) TestInterfacesMulti(c *tc.C) {
 	s.FakeEnviron.Insts = []instances.Instance{s.NewInstanceFromBase(baseInst)}
 
 	infoList, err := s.NetEnv.NetworkInterfaces(context.Background(), []instance.Id{"moana"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(infoList, tc.HasLen, 1)
 	infos := infoList[0]
 
@@ -398,7 +397,7 @@ func (s *environNetSuite) TestInterfacesLegacy(c *tc.C) {
 	s.FakeEnviron.Insts = []instances.Instance{s.NewInstanceFromBase(baseInst)}
 
 	infoList, err := s.NetEnv.NetworkInterfaces(context.Background(), []instance.Id{"moana"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(infoList, tc.HasLen, 1)
 	infos := infoList[0]
 
@@ -443,7 +442,7 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *tc.C) {
 	s.FakeEnviron.Insts = []instances.Instance{s.NewInstanceFromBase(baseInst)}
 
 	infoList, err := s.NetEnv.NetworkInterfaces(context.Background(), []instance.Id{"moana"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(infoList, tc.HasLen, 1)
 	infos := infoList[0]
 

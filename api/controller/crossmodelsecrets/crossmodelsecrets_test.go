@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base/testing"
@@ -48,7 +47,7 @@ func (s *CrossControllerSuite) TestGetRemoteSecretContentInfo(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "GetSecretContentInfo")
-		c.Check(arg, jc.DeepEquals, params.GetRemoteSecretContentArgs{
+		c.Check(arg, tc.DeepEquals, params.GetRemoteSecretContentArgs{
 			Args: []params.GetRemoteSecretContentArg{{
 				SourceControllerUUID: coretesting.ControllerTag.Id(),
 				ApplicationToken:     "token",
@@ -87,16 +86,16 @@ func (s *CrossControllerSuite) TestGetRemoteSecretContentInfo(c *tc.C) {
 	})
 	client := crossmodelsecrets.NewClient(apiCaller)
 	content, backend, latestRevision, draining, err := client.GetRemoteSecretContentInfo(context.Background(), uri, 665, true, true, coretesting.ControllerTag.Id(), "token", 666, macs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(latestRevision, tc.Equals, 666)
-	c.Assert(draining, jc.IsTrue)
-	c.Assert(content, jc.DeepEquals, &secrets.ContentParams{
+	c.Assert(draining, tc.IsTrue)
+	c.Assert(content, tc.DeepEquals, &secrets.ContentParams{
 		ValueRef: &coresecrets.ValueRef{
 			BackendID:  "backend-id",
 			RevisionID: "rev-id",
 		},
 	})
-	c.Assert(backend, jc.DeepEquals, &secretsprovider.ModelBackendConfig{
+	c.Assert(backend, tc.DeepEquals, &secretsprovider.ModelBackendConfig{
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		ModelUUID:      coretesting.ModelTag.Id(),
 		ModelName:      "fred",
@@ -134,7 +133,7 @@ func (s *CrossControllerSuite) TestGetSecretAccessScope(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "GetSecretAccessScope")
-		c.Check(arg, jc.DeepEquals, params.GetRemoteSecretAccessArgs{
+		c.Check(arg, tc.DeepEquals, params.GetRemoteSecretAccessArgs{
 			Args: []params.GetRemoteSecretAccessArg{{
 				ApplicationToken: "app-token",
 				UnitId:           666,
@@ -151,6 +150,6 @@ func (s *CrossControllerSuite) TestGetSecretAccessScope(c *tc.C) {
 	})
 	client := crossmodelsecrets.NewClient(apiCaller)
 	scope, err := client.GetSecretAccessScope(context.Background(), uri, "app-token", 666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(scope, tc.Equals, "scope-token")
 }

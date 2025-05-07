@@ -5,7 +5,6 @@ package charm_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/charm"
 )
@@ -18,7 +17,7 @@ type extraBindingsSuite struct {
 
 func (s *extraBindingsSuite) SetUpTest(c *tc.C) {
 	riakMeta, err := charm.ReadMeta(repoMeta(c, "riak"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.riakMeta = *riakMeta
 }
 
@@ -28,9 +27,9 @@ func (s *extraBindingsSuite) TestSchemaOkay(c *tc.C) {
 		"bar": nil,
 	}
 	v, err := charm.ExtraBindingsSchema.Coerce(raw, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(v, jc.DeepEquals, map[interface{}]interface{}{
+	c.Check(v, tc.DeepEquals, map[interface{}]interface{}{
 		"foo": nil,
 		"bar": nil,
 	})

@@ -6,7 +6,6 @@ package schema
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	_ "github.com/mattn/go-sqlite3"
 
@@ -288,7 +287,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 	)
 	got := readEntityNames(c, s.DB(), "table")
 	wanted := expected.Union(internalTableNames)
-	c.Assert(got, jc.SameContents, wanted.SortedValues(), tc.Commentf(
+	c.Assert(got, tc.SameContents, wanted.SortedValues(), tc.Commentf(
 		"additive: %v, deletion: %v",
 		set.NewStrings(got...).Difference(wanted).SortedValues(),
 		wanted.Difference(set.NewStrings(got...)).SortedValues(),
@@ -364,7 +363,7 @@ func (s *modelSchemaSuite) TestModelViews(c *tc.C) {
 		"v_agent_binary_store",
 	)
 	got := readEntityNames(c, s.DB(), "view")
-	c.Assert(got, jc.SameContents, expected.SortedValues(), tc.Commentf(
+	c.Assert(got, tc.SameContents, expected.SortedValues(), tc.Commentf(
 		"additive: %v, deletion: %v",
 		set.NewStrings(got...).Difference(expected).SortedValues(),
 		expected.Difference(set.NewStrings(got...)).SortedValues(),
@@ -562,7 +561,7 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 
 	got := readEntityNames(c, s.DB(), "trigger")
 	wanted := expected.Union(additional)
-	c.Assert(got, jc.SameContents, wanted.SortedValues(), tc.Commentf(
+	c.Assert(got, tc.SameContents, wanted.SortedValues(), tc.Commentf(
 		"additive: %v, deletion: %v",
 		set.NewStrings(got...).Difference(wanted).SortedValues(),
 		wanted.Difference(set.NewStrings(got...)).SortedValues(),

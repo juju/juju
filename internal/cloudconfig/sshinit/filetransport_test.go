@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/ssh"
 	gomock "go.uber.org/mock/gomock"
 
@@ -37,13 +36,13 @@ func (s *sshInitSuite) TestFileTransport(c *tc.C) {
 		c.Check(args[1], tc.Matches, ":/tmp.*/juju-.*-(?:foo|bar)")
 		c.Check(optionsIn, tc.Equals, options)
 		data, err := os.ReadFile(args[0])
-		if !c.Check(err, jc.ErrorIsNil) {
+		if !c.Check(err, tc.ErrorIsNil) {
 			return err
 		}
 		if strings.HasSuffix(args[0], "foo") {
-			c.Check(data, jc.SameContents, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
+			c.Check(data, tc.SameContents, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
 		} else if strings.HasSuffix(args[0], "bar") {
-			c.Check(data, jc.SameContents, []byte{9, 8, 7, 6, 5, 4, 3, 2, 1, 0})
+			c.Check(data, tc.SameContents, []byte{9, 8, 7, 6, 5, 4, 3, 2, 1, 0})
 		}
 		return nil
 	})
@@ -59,7 +58,7 @@ func (s *sshInitSuite) TestFileTransport(c *tc.C) {
 	c.Assert(pathBar, tc.Matches, "/tmp.*/juju-.*-bar")
 
 	err := ft.Dispatch(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *sshInitSuite) TestFileTransportErrors(c *tc.C) {
@@ -74,13 +73,13 @@ func (s *sshInitSuite) TestFileTransportErrors(c *tc.C) {
 		c.Check(args[1], tc.Matches, ":/tmp.*/juju-.*-(?:foo|bar)")
 		c.Check(optionsIn, tc.Equals, options)
 		data, err := os.ReadFile(args[0])
-		if !c.Check(err, jc.ErrorIsNil) {
+		if !c.Check(err, tc.ErrorIsNil) {
 			return err
 		}
 		if strings.HasSuffix(args[0], "foo") {
-			c.Check(data, jc.SameContents, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
+			c.Check(data, tc.SameContents, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
 		} else if strings.HasSuffix(args[0], "bar") {
-			c.Check(data, jc.SameContents, []byte{9, 8, 7, 6, 5, 4, 3, 2, 1, 0})
+			c.Check(data, tc.SameContents, []byte{9, 8, 7, 6, 5, 4, 3, 2, 1, 0})
 			return fmt.Errorf("bar had some problems")
 		}
 		return nil
@@ -112,10 +111,10 @@ func (s *sshInitSuite) TestFileTransportParallel(c *tc.C) {
 		c.Check(args[1], tc.Matches, ":/tmp.*/juju-.*")
 		c.Check(optionsIn, tc.Equals, options)
 		data, err := os.ReadFile(args[0])
-		if !c.Check(err, jc.ErrorIsNil) {
+		if !c.Check(err, tc.ErrorIsNil) {
 			return err
 		}
-		c.Check(data, jc.SameContents, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
+		c.Check(data, tc.SameContents, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
 		time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
 		return nil
 	})
@@ -132,5 +131,5 @@ func (s *sshInitSuite) TestFileTransportParallel(c *tc.C) {
 	}
 
 	err := ft.Dispatch(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

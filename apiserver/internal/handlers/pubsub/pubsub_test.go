@@ -16,7 +16,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver/websocket/websockettest"
 	"github.com/juju/juju/core/permission"
@@ -80,7 +79,7 @@ func (s *pubsubSuite) TestRejectsUserLogins(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	header := jujuhttp.BasicAuthHeader(userTag.String(), "hunter2")
 	s.checkAuthFails(c, header, http.StatusForbidden, "authorization failed: user .* is not a controller")
@@ -118,7 +117,7 @@ func (s *pubsubSuite) checkAuthFails(c *tc.C, header http.Header, code int, mess
 	defer resp.Body.Close()
 	c.Check(resp.StatusCode, tc.Equals, code)
 	out, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(out), tc.Matches, message+"\n")
 }
 
@@ -135,7 +134,7 @@ func (s *pubsubSuite) TestMessage(c *tc.C) {
 		})
 		done <- struct{}{}
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	conn := s.dialWebsocket(c)
 	defer conn.Close()
@@ -150,7 +149,7 @@ func (s *pubsubSuite) TestMessage(c *tc.C) {
 			"message": "first message",
 		}}
 	err = conn.WriteJSON(&message1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	message2 := params.PubSubMessage{
 		Topic: "second",
@@ -159,7 +158,7 @@ func (s *pubsubSuite) TestMessage(c *tc.C) {
 			"value":  false,
 		}}
 	err = conn.WriteJSON(&message2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-done:
@@ -175,14 +174,14 @@ func (s *pubsubSuite) TestMessage(c *tc.C) {
 
 	// Close connection.
 	err = conn.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(messages, jc.DeepEquals, []params.PubSubMessage{message1, message2})
+	c.Assert(messages, tc.DeepEquals, []params.PubSubMessage{message1, message2})
 }
 
 func (s *pubsubSuite) dialWebsocket(c *tc.C) *websocket.Conn {
 	conn, _, err := s.dialWebsocketInternal(c, s.makeAuthHeader())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return conn
 }
 

@@ -5,7 +5,6 @@ package testing
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coremodel "github.com/juju/juju/core/model"
 )
@@ -14,6 +13,6 @@ import (
 // checked for subsequent errors using the test suits go check instance.
 func GenModelUUID(c *tc.C) coremodel.UUID {
 	uuid, err := coremodel.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return uuid
 }

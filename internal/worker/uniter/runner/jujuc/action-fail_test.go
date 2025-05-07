@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -77,7 +76,7 @@ func (s *ActionFailSuite) TestActionFail(c *tc.C) {
 		c.Logf("test %d: %s", i, t.summary)
 		hctx := &actionFailContext{}
 		com, err := jujuc.NewCommand(hctx, "action-fail")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.command)
 		c.Check(code, tc.Equals, t.code)
@@ -90,7 +89,7 @@ func (s *ActionFailSuite) TestActionFail(c *tc.C) {
 func (s *ActionFailSuite) TestNonActionSetActionFailedFails(c *tc.C) {
 	hctx := &nonActionFailContext{}
 	com, err := jujuc.NewCommand(hctx, "action-fail")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"oops"})
 	c.Check(code, tc.Equals, 1)

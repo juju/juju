@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/agent/agent"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -51,10 +50,10 @@ func (s *clientSuite) TestStateServingInfo(c *tc.C) {
 		return nil
 	})
 	client, err := agent.NewClient(apiCaller)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	info, err := client.StateServingInfo(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, controller.StateServingInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, controller.StateServingInfo{
 		APIPort:           666,
 		ControllerAPIPort: 668,
 		StatePort:         669,
@@ -68,8 +67,8 @@ func (s *clientSuite) TestStateServingInfo(c *tc.C) {
 
 func (s *clientSuite) TestIsControllerShortCircuits(c *tc.C) {
 	result, err := agent.IsController(context.Background(), nil, names.NewControllerAgentTag("0"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.IsTrue)
 }
 
 func (s *clientSuite) TestMachineEntity(c *tc.C) {
@@ -78,7 +77,7 @@ func (s *clientSuite) TestMachineEntity(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "GetEntities")
-		c.Assert(arg, jc.DeepEquals, params.Entities{
+		c.Assert(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "machine-42"}},
 		})
 		c.Assert(result, tc.FitsTypeOf, &params.AgentGetEntitiesResults{})
@@ -92,9 +91,9 @@ func (s *clientSuite) TestMachineEntity(c *tc.C) {
 	})
 	tag := names.NewMachineTag("42")
 	client, err := agent.NewClient(apiCaller)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	m, err := client.Entity(context.Background(), tag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(m.Tag(), tc.Equals, tag.String())
 	c.Assert(m.Life(), tc.Equals, life.Alive)
 	c.Assert(m.Jobs(), tc.DeepEquals, []model.MachineJob{model.JobHostUnits})

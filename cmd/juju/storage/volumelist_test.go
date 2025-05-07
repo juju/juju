@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cmd/juju/storage"
@@ -44,7 +43,7 @@ func (s *ListSuite) TestVolumeListArgs(c *tc.C) {
 	var called bool
 	expectedArgs := []string{"a", "b", "c"}
 	s.mockAPI.listVolumes = func(arg []string) ([]params.VolumeDetailsListResult, error) {
-		c.Assert(arg, jc.DeepEquals, expectedArgs)
+		c.Assert(arg, tc.DeepEquals, expectedArgs)
 		called = true
 		return nil, nil
 	}
@@ -53,7 +52,7 @@ func (s *ListSuite) TestVolumeListArgs(c *tc.C) {
 		append([]string{"--format", "yaml"}, expectedArgs...),
 		"",
 	)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(called, tc.IsTrue)
 }
 
 func (s *ListSuite) TestVolumeListYaml(c *tc.C) {
@@ -169,16 +168,16 @@ func (s *ListSuite) TestCAASVolumeListTabular(c *tc.C) {
 
 func (s *ListSuite) assertUnmarshalledVolumeOutput(c *tc.C, unmarshal unmarshaller, expectedErr string, args ...string) {
 	context, err := s.runVolumeList(c, args...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var result struct {
 		Volumes map[string]storage.VolumeInfo
 	}
 	err = unmarshal([]byte(cmdtesting.Stdout(context)), &result)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected := s.expectVolume(c, nil)
-	c.Assert(result.Volumes, jc.DeepEquals, expected)
+	c.Assert(result.Volumes, tc.DeepEquals, expected)
 
 	obtainedErr := cmdtesting.Stderr(context)
 	c.Assert(obtainedErr, tc.Equals, expectedErr)
@@ -188,7 +187,7 @@ func (s *ListSuite) assertUnmarshalledVolumeOutput(c *tc.C, unmarshal unmarshall
 // from rendered YAML or JSON.
 func (s *ListSuite) expectVolume(c *tc.C, machines []string) map[string]storage.VolumeInfo {
 	all, err := s.mockAPI.ListVolumes(context.Background(), machines)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var valid []params.VolumeDetails
 	for _, result := range all {
@@ -197,13 +196,13 @@ func (s *ListSuite) expectVolume(c *tc.C, machines []string) map[string]storage.
 		}
 	}
 	result, err := storage.ConvertToVolumeInfo(valid)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return result
 }
 
 func (s *ListSuite) assertValidVolumeList(c *tc.C, args []string, expectedOut string) {
 	context, err := s.runVolumeList(c, args...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertUserFacingVolumeOutput(c, context, expectedOut, "")
 }
 

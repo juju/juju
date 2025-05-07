@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api"
@@ -131,11 +130,11 @@ func (s *RemoveMachineSuite) TestInit(c *tc.C) {
 		wrappedCommand, removeCmd := machine.NewRemoveCommandForTest(s.apiConnection, s.mockApi, s.mockModelConfigApi)
 		err := cmdtesting.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			c.Check(removeCmd.Force, tc.Equals, test.force)
 			c.Check(removeCmd.KeepInstance, tc.Equals, test.keep)
 			c.Check(removeCmd.DryRun, tc.Equals, test.dryRun)
-			c.Check(removeCmd.MachineIds, jc.DeepEquals, test.machines)
+			c.Check(removeCmd.MachineIds, tc.DeepEquals, test.machines)
 		} else {
 			c.Check(err, tc.ErrorMatches, test.errorString)
 		}
@@ -148,7 +147,7 @@ func (s *RemoveMachineSuite) TestRemove(c *tc.C) {
 	s.mockApi.EXPECT().DestroyMachinesWithParams(gomock.Any(), false, false, false, gomock.Any(), "1", "2/lxd/1")
 
 	_, err := s.run(c, "--no-prompt", "1", "2/lxd/1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *RemoveMachineSuite) TestRemoveNoWaitWithoutForce(c *tc.C) {
@@ -194,7 +193,7 @@ func (s *RemoveMachineSuite) TestRemoveKeep(c *tc.C) {
 	s.mockApi.EXPECT().DestroyMachinesWithParams(gomock.Any(), false, true, false, gomock.Any(), "1", "2")
 
 	_, err := s.run(c, "--no-prompt", "--keep-instance", "1", "2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *RemoveMachineSuite) TestRemoveOutputKeep(c *tc.C) {
@@ -203,7 +202,7 @@ func (s *RemoveMachineSuite) TestRemoveOutputKeep(c *tc.C) {
 	s.mockApi.EXPECT().DestroyMachinesWithParams(gomock.Any(), false, true, false, gomock.Any(), "1", "2").DoAndReturn(defaultDestroyMachineResult)
 
 	ctx, err := s.run(c, "--no-prompt", "--keep-instance", "1", "2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	stdout := cmdtesting.Stdout(ctx)
 	c.Assert(stdout, tc.Equals, `
 will remove machine 1 (but retaining cloud instance)
@@ -217,7 +216,7 @@ func (s *RemoveMachineSuite) TestRemoveForce(c *tc.C) {
 	s.mockApi.EXPECT().DestroyMachinesWithParams(gomock.Any(), true, false, false, gomock.Any(), "1", "2/lxd/1")
 
 	_, err := s.run(c, "--no-prompt", "--force", "1", "2/lxd/1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *RemoveMachineSuite) TestRemoveWithContainers(c *tc.C) {
@@ -242,7 +241,7 @@ func (s *RemoveMachineSuite) TestRemoveWithContainers(c *tc.C) {
 	s.mockApi.EXPECT().DestroyMachinesWithParams(gomock.Any(), true, false, false, gomock.Any(), "1").Return(results, nil)
 
 	ctx, err := s.run(c, "--no-prompt", "--force", "1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	stdout := cmdtesting.Stdout(ctx)
 	c.Assert(stdout, tc.Equals, `
 will remove machine 1
@@ -262,7 +261,7 @@ func (s *RemoveMachineSuite) TestRemoveDryRun(c *tc.C) {
 	s.mockApi.EXPECT().DestroyMachinesWithParams(gomock.Any(), false, false, true, gomock.Any(), "1", "2")
 
 	_, err := s.run(c, "--dry-run", "1", "2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *RemoveMachineSuite) TestRemoveOutputDryRun(c *tc.C) {
@@ -271,7 +270,7 @@ func (s *RemoveMachineSuite) TestRemoveOutputDryRun(c *tc.C) {
 	s.mockApi.EXPECT().DestroyMachinesWithParams(gomock.Any(), false, false, true, gomock.Any(), "1", "2").DoAndReturn(defaultDestroyMachineResult)
 
 	ctx, err := s.run(c, "--dry-run", "1", "2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	stdout := cmdtesting.Stdout(ctx)
 	c.Assert(stdout, tc.Equals, `
 will remove machine 1
@@ -305,7 +304,7 @@ func (s *RemoveMachineSuite) TestRemovePromptOldFacade(c *tc.C) {
 
 	select {
 	case err := <-errc:
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	case <-time.After(testing.LongWait):
 		c.Fatal("command took too long")
 	}
@@ -328,7 +327,7 @@ func (s *RemoveMachineSuite) TestRemovePrompt(c *tc.C) {
 
 	select {
 	case err := <-errc:
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	case <-time.After(testing.LongWait):
 		c.Fatal("command took too long")
 	}

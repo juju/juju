@@ -6,7 +6,6 @@ package charmhub
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
@@ -550,7 +549,7 @@ func (filterSuite) TestFilterChannels(c *tc.C) {
 	for k, v := range tests {
 		c.Logf("Test %d %s", k, v.Name)
 		_, got, err := filterChannels(v.Input, v.Arch, v.Risk, v.Revision, v.Track, v.Base)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(got, jc.DeepEquals, v.Expected)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(got, tc.DeepEquals, v.Expected)
 	}
 }

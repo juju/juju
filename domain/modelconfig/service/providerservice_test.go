@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -37,8 +36,8 @@ func (s *providerServiceSuite) TestModelConfig(c *tc.C) {
 
 	svc := NewProviderService(s.mockState)
 	cfg, err := svc.ModelConfig(context.Background())
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(cfg.AllAttrs(), jc.DeepEquals, map[string]any{
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(cfg.AllAttrs(), tc.DeepEquals, map[string]any{
 		"name":           "wallyworld",
 		"uuid":           "a677bdfd-3c96-46b2-912f-38e25faceaf7",
 		"type":           "sometype",

@@ -5,7 +5,6 @@ package repository
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
@@ -31,7 +30,7 @@ func (s *sanitiseCharmOriginSuite) TestSanitise(c *tc.C) {
 		},
 	}
 	got, err := sanitiseCharmOrigin(received, requested)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.DeepEquals, corecharm.Origin{
 		Platform: corecharm.Platform{
 			Architecture: arch.DefaultArchitecture,
@@ -57,7 +56,7 @@ func (s *sanitiseCharmOriginSuite) TestSanitiseWithValues(c *tc.C) {
 		},
 	}
 	got, err := sanitiseCharmOrigin(received, requested)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.DeepEquals, corecharm.Origin{
 		Platform: corecharm.Platform{
 			Architecture: "arm64",
@@ -83,7 +82,7 @@ func (s *sanitiseCharmOriginSuite) TestSanitiseWithEmptyValues(c *tc.C) {
 		},
 	}
 	got, err := sanitiseCharmOrigin(received, requested)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.DeepEquals, corecharm.Origin{
 		Platform: corecharm.Platform{
 			Architecture: "",
@@ -109,7 +108,7 @@ func (s *sanitiseCharmOriginSuite) TestSanitiseWithRequestedEmptyValues(c *tc.C)
 		},
 	}
 	got, err := sanitiseCharmOrigin(received, requested)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.DeepEquals, corecharm.Origin{
 		Platform: corecharm.Platform{
 			Architecture: "",
@@ -135,7 +134,7 @@ func (s *sanitiseCharmOriginSuite) TestSanitiseWithRequestedEmptyValuesAlt(c *tc
 		},
 	}
 	got, err := sanitiseCharmOrigin(received, requested)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.DeepEquals, corecharm.Origin{
 		Platform: corecharm.Platform{
 			Architecture: "",
@@ -161,7 +160,7 @@ func (s *sanitiseCharmOriginSuite) TestSanitiseWithRequestedEmptyValuesOSVersusC
 		},
 	}
 	got, err := sanitiseCharmOrigin(received, requested)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.DeepEquals, corecharm.Origin{
 		Platform: corecharm.Platform{
 			Architecture: "",
@@ -177,7 +176,7 @@ func (s *sanitiseCharmOriginSuite) TestSanitiseChannel(c *tc.C) {
 		Channel: &ch,
 	}
 	got, err := sanitiseCharmOrigin(received, corecharm.Origin{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(*got.Channel, tc.Equals, corecharm.MustParseChannel("latest/stable"))
 }
 
@@ -187,7 +186,7 @@ func (s *sanitiseCharmOriginSuite) TestSanitiseChannelNop(c *tc.C) {
 		Channel: &ch,
 	}
 	got, err := sanitiseCharmOrigin(received, corecharm.Origin{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(*got.Channel, tc.Equals, corecharm.MustParseChannel("latest/stable"))
 }
 
@@ -197,6 +196,6 @@ func (s *sanitiseCharmOriginSuite) TestSanitiseChannelNopOtherTrack(c *tc.C) {
 		Channel: &ch,
 	}
 	got, err := sanitiseCharmOrigin(received, corecharm.Origin{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(*got.Channel, tc.Equals, corecharm.MustParseChannel("5/stable"))
 }

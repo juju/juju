@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	statuscmd "github.com/juju/juju/cmd/juju/status"
 	"github.com/juju/juju/core/status"
@@ -110,7 +109,7 @@ Time                  Type       Status       Message
 2017-11-28 12:41:56Z  model      suspended    invalid credentials
 `[1:]
 	ctx, err := cmdtesting.RunCommand(c, s.newCommand(), "missing/0", "--utc")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(ctx), tc.Equals, "")
 	c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
 }
@@ -153,7 +152,7 @@ func (s *StatusHistorySuite) TestYaml(c *tc.C) {
   type: model
 `[1:]
 	ctx, err := cmdtesting.RunCommand(c, s.newCommand(), "missing/0", "--utc", "--format", "yaml")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(ctx), tc.Equals, "")
 	c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
 }

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/leadership"
@@ -81,7 +80,7 @@ func checkDurationEquals(c *tc.C, actual, expect time.Duration) {
 	if delta < 0 {
 		delta = -delta
 	}
-	c.Check(delta, jc.LessThan, time.Microsecond)
+	c.Check(delta, tc.LessThan, time.Microsecond)
 }
 
 func newLeadershipService(
@@ -91,7 +90,7 @@ func newLeadershipService(
 		authorizer = stubAuthorizer{tag: names.NewUnitTag(StubUnitNm)}
 	}
 	result, err := leadership.NewLeadershipService(claimer, authorizer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return result
 }
 
@@ -117,7 +116,7 @@ func (s *leadershipSuite) TestClaimLeadershipTranslation(c *tc.C) {
 		},
 	})
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Check(results.Results[0].Error, tc.IsNil)
 }
@@ -147,7 +146,7 @@ func (s *leadershipSuite) TestClaimLeadershipApplicationAgent(c *tc.C) {
 		},
 	})
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Check(results.Results[0].Error, tc.IsNil)
 }
@@ -174,9 +173,9 @@ func (s *leadershipSuite) TestClaimLeadershipDeniedError(c *tc.C) {
 		},
 	})
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
-	c.Check(results.Results[0].Error, jc.Satisfies, params.IsCodeLeadershipClaimDenied)
+	c.Check(results.Results[0].Error, tc.Satisfies, params.IsCodeLeadershipClaimDenied)
 }
 
 func (s *leadershipSuite) TestClaimLeadershipBadService(c *tc.C) {
@@ -191,9 +190,9 @@ func (s *leadershipSuite) TestClaimLeadershipBadService(c *tc.C) {
 			},
 		},
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
-	c.Check(results.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Check(results.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *leadershipSuite) TestClaimLeadershipBadUnit(c *tc.C) {
@@ -208,9 +207,9 @@ func (s *leadershipSuite) TestClaimLeadershipBadUnit(c *tc.C) {
 			},
 		},
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
-	c.Check(results.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Check(results.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *leadershipSuite) TestClaimLeadershipDurationTooShort(c *tc.C) {
@@ -225,7 +224,7 @@ func (s *leadershipSuite) TestClaimLeadershipDurationTooShort(c *tc.C) {
 			},
 		},
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Check(results.Results[0].Error, tc.ErrorMatches, "invalid duration")
 }
@@ -242,7 +241,7 @@ func (s *leadershipSuite) TestClaimLeadershipDurationTooLong(c *tc.C) {
 			},
 		},
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Check(results.Results[0].Error, tc.ErrorMatches, "invalid duration")
 }
@@ -261,7 +260,7 @@ func (s *leadershipSuite) TestBlockUntilLeadershipReleasedTranslation(c *tc.C) {
 		names.NewApplicationTag(StubAppNm),
 	)
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(result.Error, tc.IsNil)
 }
 
@@ -282,7 +281,7 @@ func (s *leadershipSuite) TestBlockUntilLeadershipReleasedContext(c *tc.C) {
 		names.NewApplicationTag(StubAppNm),
 	)
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(result.Error, tc.ErrorMatches, "waiting for leadership cancelled by client")
 }
 
@@ -302,10 +301,10 @@ func (s *leadershipSuite) TestClaimLeadershipFailBadUnit(c *tc.C) {
 		},
 	})
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Check(results.Results[0].Error, tc.ErrorMatches, "permission denied")
-	c.Check(results.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Check(results.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *leadershipSuite) TestClaimLeadershipFailBadService(c *tc.C) {
@@ -320,10 +319,10 @@ func (s *leadershipSuite) TestClaimLeadershipFailBadService(c *tc.C) {
 		},
 	})
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Check(results.Results[0].Error, tc.ErrorMatches, "permission denied")
-	c.Check(results.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Check(results.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *leadershipSuite) TestCreateUnauthorized(c *tc.C) {
@@ -334,5 +333,5 @@ func (s *leadershipSuite) TestCreateUnauthorized(c *tc.C) {
 	ldrSvc, err := leadership.NewLeadershipService(nil, authorizer)
 	c.Check(ldrSvc, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "permission denied")
-	c.Check(err, jc.ErrorIs, errors.Unauthorized)
+	c.Check(err, tc.ErrorIs, errors.Unauthorized)
 }

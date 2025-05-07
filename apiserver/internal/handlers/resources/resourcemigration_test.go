@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
@@ -57,7 +56,7 @@ func (s *resourcesUploadSuite) SetUpTest(c *tc.C) {
 	s.size = int64(len(s.content))
 	s.sizeStr = strconv.Itoa(int(s.size))
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(s.content))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.fingerprint = fp
 	s.fingerprintStr = fp.String()
 
@@ -106,9 +105,9 @@ func (s *resourcesUploadSuite) TestServeMethodNotSupported(c *tc.C) {
 	for _, method := range unsupportedMethods {
 		// Act
 		request, err := http.NewRequest(method, url, nil)
-		c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) unexpected error while building request. method: %s", method))
+		c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while building request. method: %s", method))
 		response, err := http.DefaultClient.Do(request)
-		c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request. method: %s", method))
+		c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request. method: %s", method))
 
 		// Assert
 		c.Check(response.StatusCode, tc.Equals, http.StatusMethodNotAllowed,
@@ -134,7 +133,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationResourceNotFound(c *tc.
 
 	// Act
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", nil)
-	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
 
 	// Assert
 	c.Check(response.StatusCode, tc.Equals, http.StatusNotFound,
@@ -171,7 +170,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationStoreResourceError(c *t
 
 	// Act
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", nil)
-	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
 
 	// Assert
 	c.Check(response.StatusCode, tc.Equals, http.StatusInternalServerError,
@@ -202,7 +201,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationGetResourceError(c *tc.
 
 	// Act
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", nil)
-	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
 
 	// Assert
 	c.Check(response.StatusCode, tc.Equals, http.StatusInternalServerError,
@@ -222,7 +221,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationWithPlaceholder(c *tc.C
 
 	// Act
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
-	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
 
 	// Assert
 	c.Check(response.StatusCode, tc.Equals, http.StatusOK,
@@ -268,15 +267,15 @@ func (s *resourcesUploadSuite) TestServeUploadApplication(c *tc.C) {
 
 	// Act
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
-	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
 
 	// Assert
 	var obtained params.ResourceUploadResult
 	c.Check(response.StatusCode, tc.Equals, http.StatusOK,
 		tc.Commentf("(Assert) unexpected status code."))
 	body, err := io.ReadAll(response.Body)
-	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Assert) unexpected error while reading response body"))
-	c.Assert(json.Unmarshal(body, &obtained), jc.ErrorIsNil,
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) unexpected error while reading response body"))
+	c.Assert(json.Unmarshal(body, &obtained), tc.ErrorIsNil,
 		tc.Commentf("(Assert) unexpected error while unmarshalling response"))
 	c.Check(obtained, tc.Equals, params.ResourceUploadResult{
 		ID:        "res-uuid",
@@ -323,7 +322,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByUser(c *tc.C
 
 	// Act
 	_, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
-	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
 }
 
 // TestServeUploadApplicationRetrievedByApplication tests that the RetrievedBy
@@ -367,7 +366,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByApplication(
 
 	// Act
 	_, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
-	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
 }
 
 // TestServeUploadApplicationRetrievedByUnit tests that the RetrievedBy and
@@ -410,7 +409,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByUnit(c *tc.C
 
 	// Act
 	_, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
-	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
 }
 
 // TestServeUploadUnitWithPlaceholder tests the upload functionality for a unit
@@ -426,7 +425,7 @@ func (s *resourcesUploadSuite) TestServeUploadUnitWithPlaceholder(c *tc.C) {
 
 	// Act
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
-	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
 
 	// Assert
 	c.Check(response.StatusCode, tc.Equals, http.StatusOK,
@@ -447,7 +446,7 @@ func (s *resourcesUploadSuite) TestServeUploadUnit(c *tc.C) {
 
 	// Act
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
-	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
 
 	// Assert
 	c.Check(response.StatusCode, tc.Equals, http.StatusOK,
@@ -466,7 +465,7 @@ func (s *resourcesUploadSuite) setupHandler(c *tc.C) Finisher {
 	)
 
 	err := s.mux.AddHandler("POST", migrateResourcesPrefix, handler)
-	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) unexpected error while adding handler"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) unexpected error while adding handler"))
 
 	return &finisherWrapper{
 		finish: func() {

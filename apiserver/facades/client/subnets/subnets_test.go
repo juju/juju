@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/facade/facadetest"
@@ -69,7 +68,7 @@ func (s *SubnetsSuite) TestSubnetsByCIDR(c *tc.C) {
 
 	arg := params.CIDRParams{CIDRS: cidrs}
 	res, err := s.facade.SubnetsByCIDR(context.Background(), arg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	results := res.Results
 	c.Assert(results, tc.HasLen, 3)
@@ -126,14 +125,14 @@ func (s *SubnetsSuite) TestAllZonesUsesBackingZonesWhenAvailable(c *tc.C) {
 	s.mockNetworkService.EXPECT().GetProviderAvailabilityZones(gomock.Any()).Return(zoneResults, nil)
 
 	results, err := s.facade.AllZones(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected := make([]params.ZoneResult, len(zoneResults))
 	for i, zone := range zoneResults {
 		expected[i].Name = zone.Name()
 		expected[i].Available = zone.Available()
 	}
-	c.Assert(results, jc.DeepEquals, params.ZoneResults{Results: expected})
+	c.Assert(results, tc.DeepEquals, params.ZoneResults{Results: expected})
 }
 
 func (s *SubnetsSuite) TestListSubnetsAndFiltering(c *tc.C) {
@@ -178,28 +177,28 @@ func (s *SubnetsSuite) TestListSubnetsAndFiltering(c *tc.C) {
 			},
 		}, nil).Times(4)
 	subnets, err := s.facade.ListSubnets(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnets.Results, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subnets.Results, tc.DeepEquals, expected)
 
 	// Filter by space only.
 	args.SpaceTag = "space-dmz"
 	subnets, err = s.facade.ListSubnets(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnets.Results, jc.DeepEquals, expected[1:])
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subnets.Results, tc.DeepEquals, expected[1:])
 
 	// Filter by zone only.
 	args.SpaceTag = ""
 	args.Zone = "zone3"
 	subnets, err = s.facade.ListSubnets(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnets.Results, jc.DeepEquals, expected[1:])
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subnets.Results, tc.DeepEquals, expected[1:])
 
 	// Filter by both space and zone.
 	args.SpaceTag = "space-private"
 	args.Zone = "zone1"
 	subnets, err = s.facade.ListSubnets(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnets.Results, jc.DeepEquals, expected[:1])
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subnets.Results, tc.DeepEquals, expected[:1])
 }
 
 func (s *SubnetsSuite) TestListSubnetsInvalidSpaceTag(c *tc.C) {

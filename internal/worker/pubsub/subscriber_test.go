@@ -14,7 +14,6 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 
@@ -114,9 +113,9 @@ func (*WorkerConfigSuite) TestValidate(c *tc.C) {
 		err := test.cfg.Validate()
 		if test.errMatch != "" {
 			c.Check(err, tc.ErrorMatches, test.errMatch)
-			c.Check(err, jc.ErrorIs, errors.NotValid)
+			c.Check(err, tc.ErrorIs, errors.NotValid)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		}
 	}
 }
@@ -171,13 +170,13 @@ func (s *SubscriberSuite) TestBadConfig(c *tc.C) {
 
 func (s *SubscriberSuite) TestCleanShutdown(c *tc.C) {
 	w, err := psworker.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 }
 
 func (s *SubscriberSuite) TestNoInitialRemotes(c *tc.C) {
 	w, err := psworker.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	c.Assert(s.remotes.remotes, tc.HasLen, 0)
@@ -201,7 +200,7 @@ func (s *SubscriberSuite) enableHA(c *tc.C) {
 		},
 		LocalOnly: true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-pubsub.Wait(done):
@@ -212,7 +211,7 @@ func (s *SubscriberSuite) enableHA(c *tc.C) {
 
 func (s *SubscriberSuite) newHAWorker(c *tc.C) worker.Worker {
 	w, err := psworker.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AddCleanup(func(c *tc.C) { workertest.CleanKill(c, w) })
 	s.enableHA(c)
 	return w
@@ -223,14 +222,14 @@ func (s *SubscriberSuite) TestEnableHA(c *tc.C) {
 
 	c.Assert(s.remotes.remotes, tc.HasLen, 2)
 	remote3 := s.remotes.remotes["machine-3"]
-	c.Assert(remote3.config.APIInfo.Addrs, jc.DeepEquals, []string{"10.1.2.3"})
+	c.Assert(remote3.config.APIInfo.Addrs, tc.DeepEquals, []string{"10.1.2.3"})
 	remote5 := s.remotes.remotes["machine-5"]
-	c.Assert(remote5.config.APIInfo.Addrs, jc.DeepEquals, []string{"10.1.2.5"})
+	c.Assert(remote5.config.APIInfo.Addrs, tc.DeepEquals, []string{"10.1.2.5"})
 }
 
 func (s *SubscriberSuite) TestEnableHAInternalAddress(c *tc.C) {
 	w, err := psworker.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AddCleanup(func(c *tc.C) { workertest.CleanKill(c, w) })
 	done, err := s.hub.Publish(apiserver.DetailsTopic, apiserver.Details{
 		Servers: map[string]apiserver.APIServer{
@@ -252,7 +251,7 @@ func (s *SubscriberSuite) TestEnableHAInternalAddress(c *tc.C) {
 		},
 		LocalOnly: true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-pubsub.Wait(done):
@@ -261,9 +260,9 @@ func (s *SubscriberSuite) TestEnableHAInternalAddress(c *tc.C) {
 	}
 	c.Assert(s.remotes.remotes, tc.HasLen, 2)
 	remote3 := s.remotes.remotes["machine-3"]
-	c.Assert(remote3.config.APIInfo.Addrs, jc.DeepEquals, []string{"10.5.4.3"})
+	c.Assert(remote3.config.APIInfo.Addrs, tc.DeepEquals, []string{"10.5.4.3"})
 	remote5 := s.remotes.remotes["machine-5"]
-	c.Assert(remote5.config.APIInfo.Addrs, jc.DeepEquals, []string{"10.5.4.4"})
+	c.Assert(remote5.config.APIInfo.Addrs, tc.DeepEquals, []string{"10.5.4.4"})
 }
 
 func (s *SubscriberSuite) TestSameMessagesForwardedForMachine(c *tc.C) {
@@ -278,7 +277,7 @@ func (s *SubscriberSuite) TestSameMessagesForwardedForMachine(c *tc.C) {
 		}
 		expected = append(expected, message)
 		done, err := s.hub.Publish(message.Topic, nil)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		last = pubsub.Wait(done)
 	}
 	select {
@@ -292,8 +291,8 @@ func (s *SubscriberSuite) TestSameMessagesForwardedForMachine(c *tc.C) {
 	remote3 := s.remotes.remotes["machine-3"]
 	remote5 := s.remotes.remotes["machine-5"]
 
-	c.Assert(remote3.messages, jc.DeepEquals, expected)
-	c.Assert(remote5.messages, jc.DeepEquals, expected)
+	c.Assert(remote3.messages, tc.DeepEquals, expected)
+	c.Assert(remote5.messages, tc.DeepEquals, expected)
 }
 
 func (s *SubscriberSuite) TestSameMessagesForwardedForController(c *tc.C) {
@@ -315,7 +314,7 @@ func (s *SubscriberSuite) TestSameMessagesForwardedForController(c *tc.C) {
 		}
 		expected = append(expected, message)
 		done, err := s.hub.Publish(message.Topic, nil)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		last = pubsub.Wait(done)
 	}
 	select {
@@ -329,8 +328,8 @@ func (s *SubscriberSuite) TestSameMessagesForwardedForController(c *tc.C) {
 	remote3 := s.remotes.remotes["controller-3"]
 	remote5 := s.remotes.remotes["controller-5"]
 
-	c.Assert(remote3.messages, jc.DeepEquals, expected)
-	c.Assert(remote5.messages, jc.DeepEquals, expected)
+	c.Assert(remote3.messages, tc.DeepEquals, expected)
+	c.Assert(remote5.messages, tc.DeepEquals, expected)
 }
 
 func (s *SubscriberSuite) TestLocalMessagesNotForwarded(c *tc.C) {
@@ -342,7 +341,7 @@ func (s *SubscriberSuite) TestLocalMessagesNotForwarded(c *tc.C) {
 			"foo":        "bar",
 			"local-only": true,
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		last = pubsub.Wait(done)
 	}
 	select {
@@ -369,7 +368,7 @@ func (s *SubscriberSuite) TestOtherOriginMessagesNotForwarded(c *tc.C) {
 			"foo":    "bar",
 			"origin": "other",
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		last = pubsub.Wait(done)
 	}
 	select {
@@ -391,7 +390,7 @@ func (s *SubscriberSuite) TestIntrospectionReport(c *tc.C) {
 	w := s.newHAWorker(c)
 
 	r, ok := w.(psworker.Reporter)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	c.Assert(r.IntrospectionReport(), tc.Equals, ""+
 		"Source: machine-42\n"+
 		"\n"+
@@ -408,8 +407,8 @@ func (s *SubscriberSuite) TestReport(c *tc.C) {
 	w := s.newHAWorker(c)
 
 	r, ok := w.(psworker.Reporter)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(r.Report(), jc.DeepEquals, map[string]interface{}{
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(r.Report(), tc.DeepEquals, map[string]interface{}{
 		"source": "machine-42",
 		"targets": map[string]interface{}{
 			"machine-3": map[string]interface{}{
@@ -427,7 +426,7 @@ func (s *SubscriberSuite) TestRequestsDetailsOnceSubscribed(c *tc.C) {
 	subscribed := make(chan apiserver.DetailsRequest)
 	s.config.Hub.Subscribe(apiserver.DetailsRequestTopic,
 		func(_ string, req apiserver.DetailsRequest, err error) {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			subscribed <- req
 		},
 	)

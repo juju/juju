@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/internal/observability/probe"
@@ -56,15 +55,15 @@ func (s *ControllerSuite) TestControllerMuxRegistration(c *tc.C) {
 			c.Check(m, tc.Equals, http.MethodGet)
 			switch p {
 			case k8sconstants.AgentHTTPPathLiveness:
-				c.Check(livenessRegistered, jc.IsFalse)
+				c.Check(livenessRegistered, tc.IsFalse)
 				livenessRegistered = true
 				waitGroup.Done()
 			case k8sconstants.AgentHTTPPathReadiness:
-				c.Check(readinessRegistered, jc.IsFalse)
+				c.Check(readinessRegistered, tc.IsFalse)
 				readinessRegistered = true
 				waitGroup.Done()
 			case k8sconstants.AgentHTTPPathStartup:
-				c.Check(startupRegistered, jc.IsFalse)
+				c.Check(startupRegistered, tc.IsFalse)
 				startupRegistered = true
 				waitGroup.Done()
 			default:
@@ -76,15 +75,15 @@ func (s *ControllerSuite) TestControllerMuxRegistration(c *tc.C) {
 			c.Check(m, tc.Equals, http.MethodGet)
 			switch p {
 			case k8sconstants.AgentHTTPPathLiveness:
-				c.Check(livenessDeRegistered, jc.IsFalse)
+				c.Check(livenessDeRegistered, tc.IsFalse)
 				livenessDeRegistered = true
 				waitGroup.Done()
 			case k8sconstants.AgentHTTPPathReadiness:
-				c.Check(readinessDeRegistered, jc.IsFalse)
+				c.Check(readinessDeRegistered, tc.IsFalse)
 				readinessDeRegistered = true
 				waitGroup.Done()
 			case k8sconstants.AgentHTTPPathStartup:
-				c.Check(startupDeRegistered, jc.IsFalse)
+				c.Check(startupDeRegistered, tc.IsFalse)
 				startupDeRegistered = true
 				waitGroup.Done()
 			default:
@@ -102,7 +101,7 @@ func (s *ControllerSuite) TestControllerMuxRegistration(c *tc.C) {
 	startupAgg.AddProber("test", probe.NotImplemented)
 
 	controller, err := caasprober.NewController(probes, &mux)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	waitGroup.Wait()
 	waitGroup.Add(3)
@@ -110,14 +109,14 @@ func (s *ControllerSuite) TestControllerMuxRegistration(c *tc.C) {
 
 	waitGroup.Wait()
 	err = controller.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(livenessRegistered, jc.IsTrue)
-	c.Assert(livenessDeRegistered, jc.IsTrue)
-	c.Assert(readinessRegistered, jc.IsTrue)
-	c.Assert(readinessDeRegistered, jc.IsTrue)
-	c.Assert(startupRegistered, jc.IsTrue)
-	c.Assert(startupDeRegistered, jc.IsTrue)
+	c.Assert(livenessRegistered, tc.IsTrue)
+	c.Assert(livenessDeRegistered, tc.IsTrue)
+	c.Assert(readinessRegistered, tc.IsTrue)
+	c.Assert(readinessDeRegistered, tc.IsTrue)
+	c.Assert(startupRegistered, tc.IsTrue)
+	c.Assert(startupDeRegistered, tc.IsTrue)
 }
 
 func (s *ControllerSuite) TestControllerNotImplemented(c *tc.C) {
@@ -145,12 +144,12 @@ func (s *ControllerSuite) TestControllerNotImplemented(c *tc.C) {
 	startupAgg.AddProber("test", probe.NotImplemented)
 
 	controller, err := caasprober.NewController(probes, &mux)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	waitGroup.Wait()
 	controller.Kill()
 	err = controller.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ControllerSuite) TestControllerProbeError(c *tc.C) {
@@ -181,12 +180,12 @@ func (s *ControllerSuite) TestControllerProbeError(c *tc.C) {
 	startupAgg, _ := probes.ProbeAggregate(probe.ProbeStartup)
 	startupAgg.AddProber("test", probeErr)
 	controller, err := caasprober.NewController(probes, &mux)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	waitGroup.Wait()
 	controller.Kill()
 	err = controller.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ControllerSuite) TestControllerProbeFail(c *tc.C) {
@@ -217,12 +216,12 @@ func (s *ControllerSuite) TestControllerProbeFail(c *tc.C) {
 	startupAgg, _ := probes.ProbeAggregate(probe.ProbeStartup)
 	startupAgg.AddProber("test", probeFail)
 	controller, err := caasprober.NewController(probes, &mux)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	waitGroup.Wait()
 	controller.Kill()
 	err = controller.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ControllerSuite) TestControllerProbePass(c *tc.C) {
@@ -250,12 +249,12 @@ func (s *ControllerSuite) TestControllerProbePass(c *tc.C) {
 	startupAgg.AddProber("test", probe.Success)
 
 	controller, err := caasprober.NewController(probes, &mux)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	waitGroup.Wait()
 	controller.Kill()
 	err = controller.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ControllerSuite) TestControllerProbePassDetailed(c *tc.C) {
@@ -284,12 +283,12 @@ func (s *ControllerSuite) TestControllerProbePassDetailed(c *tc.C) {
 	startupAgg.AddProber("test", probe.Success)
 
 	controller, err := caasprober.NewController(probes, &mux)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	waitGroup.Wait()
 	controller.Kill()
 	err = controller.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ControllerSuite) TestControllerProbeFailDetailed(c *tc.C) {
@@ -321,10 +320,10 @@ func (s *ControllerSuite) TestControllerProbeFailDetailed(c *tc.C) {
 	startupAgg, _ := probes.ProbeAggregate(probe.ProbeStartup)
 	startupAgg.AddProber("test", probeFail)
 	controller, err := caasprober.NewController(probes, &mux)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	waitGroup.Wait()
 	controller.Kill()
 	err = controller.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

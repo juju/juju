@@ -6,7 +6,6 @@ package charm_test
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/charm"
 )
@@ -19,12 +18,12 @@ var _ = tc.Suite(&sourceSuite{})
 
 func (s sourceSuite) TestMatches(c *tc.C) {
 	ok := charm.Source("xxx").Matches("xxx")
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 }
 
 func (s sourceSuite) TestNotMatches(c *tc.C) {
 	ok := charm.Source("xxx").Matches("yyy")
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 }
 
 type platformSuite struct {

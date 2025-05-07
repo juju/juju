@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/yaml.v2"
 
@@ -55,17 +54,17 @@ func (s *containerImageResourceStoreSuite) SetUpTest(c *tc.C) {
 		},
 	}
 	jsonData, err := json.Marshal(s.imageMetadata)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.jsonBlob = io.NopCloser(bytes.NewReader(jsonData))
 
 	reader := bytes.NewReader(jsonData)
 	s.size = int64(reader.Len())
 	fingerprint, err := charmresource.GenerateFingerprint(reader)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.fingerprint = resourcestore.NewFingerprint(fingerprint.Fingerprint)
 
 	yamlData, err := yaml.Marshal(s.imageMetadata)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.yamlBlob = io.NopCloser(bytes.NewReader(yamlData))
 }
 
@@ -76,7 +75,7 @@ func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutJso
 
 	storageKey := resourcetesting.GenResourceUUID(c).String()
 	expectedUUID, err := resourcestore.NewContainerImageMetadataResourceID("expected-uuid")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.containerImageResourceState.EXPECT().PutContainerImageMetadata(
 		gomock.Any(),
 		storageKey,
@@ -92,7 +91,7 @@ func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutJso
 		0,
 		resourcestore.Fingerprint{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(storageUUID, tc.Equals, expectedUUID)
 	c.Assert(size, tc.Equals, s.size)
 	c.Assert(fingerprint, tc.DeepEquals, s.fingerprint)
@@ -105,7 +104,7 @@ func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutYam
 
 	storageKey := resourcetesting.GenResourceUUID(c).String()
 	expectedUUID, err := resourcestore.NewContainerImageMetadataResourceID("expected-uuid")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.containerImageResourceState.EXPECT().PutContainerImageMetadata(
 		gomock.Any(),
 		storageKey,
@@ -121,7 +120,7 @@ func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutYam
 		0,
 		resourcestore.Fingerprint{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(storageUUID, tc.Equals, expectedUUID)
 	c.Assert(size, tc.Equals, s.size)
 	c.Assert(fingerprint, tc.DeepEquals, s.fingerprint)
@@ -166,7 +165,7 @@ func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutErr
 		0,
 		resourcestore.Fingerprint{},
 	)
-	c.Assert(err, jc.ErrorIs, kaboom)
+	c.Assert(err, tc.ErrorIs, kaboom)
 }
 
 func (s *containerImageResourceStoreSuite) TestFileResourceStoreGet(c *tc.C) {
@@ -189,13 +188,13 @@ func (s *containerImageResourceStoreSuite) TestFileResourceStoreGet(c *tc.C) {
 		context.Background(),
 		storageKey,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedReaderContents := new(bytes.Buffer)
 	expectedSize, err := expectedReaderContents.ReadFrom(s.jsonBlob)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	readerContents := new(bytes.Buffer)
 	_, err = readerContents.ReadFrom(r)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(expectedReaderContents.String(), tc.Equals, readerContents.String())
 	c.Assert(size, tc.Equals, expectedSize)
 }
@@ -216,7 +215,7 @@ func (s *containerImageResourceStoreSuite) TestFileResourceStoreGetError(c *tc.C
 		context.Background(),
 		storageKey,
 	)
-	c.Assert(err, jc.ErrorIs, kaboom)
+	c.Assert(err, tc.ErrorIs, kaboom)
 }
 
 func (s *containerImageResourceStoreSuite) TestFileResourceStoreRemove(c *tc.C) {
@@ -234,7 +233,7 @@ func (s *containerImageResourceStoreSuite) TestFileResourceStoreRemove(c *tc.C) 
 		context.Background(),
 		storageKey,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *containerImageResourceStoreSuite) TestFileResourceStoreRemoveError(c *tc.C) {
@@ -253,5 +252,5 @@ func (s *containerImageResourceStoreSuite) TestFileResourceStoreRemoveError(c *t
 		context.Background(),
 		storageKey,
 	)
-	c.Assert(err, jc.ErrorIs, kaboom)
+	c.Assert(err, tc.ErrorIs, kaboom)
 }

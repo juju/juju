@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"go.uber.org/mock/gomock"
@@ -50,7 +49,7 @@ func (s *ManifoldSuite) validConfig(c *tc.C) secretsdrainworker.ManifoldConfig {
 }
 
 func (s *ManifoldSuite) TestValid(c *tc.C) {
-	c.Check(s.config.Validate(), jc.ErrorIsNil)
+	c.Check(s.config.Validate(), tc.ErrorIsNil)
 }
 
 func (s *ManifoldSuite) TestMissingAPICallerName(c *tc.C) {
@@ -80,7 +79,7 @@ func (s *ManifoldSuite) TestMissingNewBackendsClient(c *tc.C) {
 func (s *ManifoldSuite) checkNotValid(c *tc.C, expect string) {
 	err := s.config.Validate()
 	c.Check(err, tc.ErrorMatches, expect)
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 }
 
 func (s *ManifoldSuite) TestStart(c *tc.C) {
@@ -100,7 +99,7 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 	called := false
 	s.config.NewWorker = func(config secretsdrainworker.Config) (worker.Worker, error) {
 		called = true
-		mc := jc.NewMultiChecker()
+		mc := tc.NewMultiChecker()
 		mc.AddExpr(`_.Facade`, tc.NotNil)
 		mc.AddExpr(`_.Logger`, tc.NotNil)
 		mc.AddExpr(`_.SecretsBackendGetter`, tc.NotNil)
@@ -114,8 +113,8 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 		"leadership-tracker": struct{ leadership.TrackerWorker }{&mockLeadershipTracker{}},
 	}))
 	c.Assert(w, tc.IsNil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(called, tc.IsTrue)
 }
 
 func (s *ManifoldSuite) TestStartNoLeadershipTracker(c *tc.C) {
@@ -136,7 +135,7 @@ func (s *ManifoldSuite) TestStartNoLeadershipTracker(c *tc.C) {
 	called := false
 	s.config.NewWorker = func(config secretsdrainworker.Config) (worker.Worker, error) {
 		called = true
-		mc := jc.NewMultiChecker()
+		mc := tc.NewMultiChecker()
 		mc.AddExpr(`_.Facade`, tc.NotNil)
 		mc.AddExpr(`_.Logger`, tc.NotNil)
 		mc.AddExpr(`_.SecretsBackendGetter`, tc.NotNil)
@@ -149,8 +148,8 @@ func (s *ManifoldSuite) TestStartNoLeadershipTracker(c *tc.C) {
 		"api-caller": struct{ base.APICaller }{&mockAPICaller{}},
 	}))
 	c.Assert(w, tc.IsNil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(called, tc.IsTrue)
 }
 
 type mockAPICaller struct {

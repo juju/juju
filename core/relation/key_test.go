@@ -7,7 +7,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/charm"
@@ -62,7 +61,7 @@ func (s *relationKeySuite) TestParseRelationKey(c *tc.C) {
 	for i, test := range tests {
 		c.Logf("test %d of %d: %s", count, i+1, test.summary)
 		key, err := NewKeyFromString(test.keyString)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		c.Check(key, tc.DeepEquals, test.expectedKey)
 		// Check a string can be turned to a key and back.
 		c.Check(key.String(), tc.Equals, test.keyString)
@@ -152,7 +151,7 @@ func (s *relationKeySuite) TestNewKey(c *tc.C) {
 	for i, test := range tests {
 		c.Logf("test %d of %d: %s", count, i+1, test.summary)
 		key, err := NewKey(test.endpointIdentifiers)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		c.Check(key, tc.DeepEquals, test.expectedKey)
 	}
 }
@@ -273,7 +272,7 @@ func (s *relationKeySuite) TestValidate(c *tc.C) {
 	count := len(tests)
 	for i, test := range tests {
 		c.Logf("test %d of %d: %s", count, i+1, test.summary)
-		c.Check(test.key.Validate(), jc.ErrorIsNil)
+		c.Check(test.key.Validate(), tc.ErrorIsNil)
 	}
 }
 
@@ -334,7 +333,7 @@ func (s *relationKeySuite) TestValidateError(c *tc.C) {
 	for i, test := range tests {
 		c.Logf("test %d of %d: %s", count, i+1, test.summary)
 		err := test.key.Validate()
-		c.Check(err, jc.ErrorIs, coreerrors.NotValid)
+		c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 	}
 }
 
@@ -369,7 +368,7 @@ func (*relationKeySuite) TestParseKeyFromTagString(c *tc.C) {
 	relationTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	key, err := ParseKeyFromTagString(relationTag.String())
 	c.Assert(err, tc.IsNil)
-	c.Check(key, jc.DeepEquals, Key([]EndpointIdentifier{{
+	c.Check(key, tc.DeepEquals, Key([]EndpointIdentifier{{
 		ApplicationName: "mysql",
 		EndpointName:    "database",
 		Role:            "requirer",

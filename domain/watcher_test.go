@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
@@ -51,7 +50,7 @@ func (s *watcherSuite) TestNewUUIDsWatcherSuccess(c *tc.C) {
 	}, nil)
 
 	w, err := factory.NewUUIDsWatcher("external_controller", changestream.All)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-w.Changes():
@@ -86,7 +85,7 @@ func (s *watcherSuite) TestNewNamespaceWatcherSuccess(c *tc.C) {
 		eventsource.InitialNamespaceChanges("SELECT uuid from some_namespace"),
 		eventsource.NamespaceFilter("some_namespace", changestream.All),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-w.Changes():
@@ -124,7 +123,7 @@ func (s *watcherSuite) TestNewNamespaceMapperWatcherSuccess(c *tc.C) {
 		},
 		eventsource.NamespaceFilter("some_namespace", changestream.All),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-w.Changes():

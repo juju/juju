@@ -8,7 +8,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/model"
@@ -34,7 +33,7 @@ func (s *sharedServerContextSuite) TestConfigNoStatePool(c *tc.C) {
 
 	config.statePool = nil
 	err := config.validate()
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 	c.Check(err, tc.ErrorMatches, "nil statePool not valid")
 }
 
@@ -45,7 +44,7 @@ func (s *sharedServerContextSuite) TestConfigNoHub(c *tc.C) {
 
 	config.centralHub = nil
 	err := config.validate()
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 	c.Check(err, tc.ErrorMatches, "nil centralHub not valid")
 }
 
@@ -56,7 +55,7 @@ func (s *sharedServerContextSuite) TestConfigNoLeaseManager(c *tc.C) {
 
 	config.leaseManager = nil
 	err := config.validate()
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 	c.Check(err, tc.ErrorMatches, "nil leaseManager not valid")
 }
 
@@ -67,7 +66,7 @@ func (s *sharedServerContextSuite) TestConfigNoControllerConfig(c *tc.C) {
 
 	config.controllerConfig = nil
 	err := config.validate()
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 	c.Check(err, tc.ErrorMatches, "nil controllerConfig not valid")
 }
 
@@ -78,7 +77,7 @@ func (s *sharedServerContextSuite) TestNewCallsConfigValidate(c *tc.C) {
 
 	config.statePool = nil
 	ctx, err := newSharedServerContext(config)
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 	c.Check(err, tc.ErrorMatches, "nil statePool not valid")
 	c.Check(ctx, tc.IsNil)
 }
@@ -89,7 +88,7 @@ func (s *sharedServerContextSuite) TestValidConfig(c *tc.C) {
 	config := s.newConfig(c)
 
 	ctx, err := newSharedServerContext(config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Normally you wouldn't directly access features.
 	c.Assert(ctx.features, tc.HasLen, 0)
 }

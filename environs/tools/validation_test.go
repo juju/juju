@@ -8,7 +8,6 @@ import (
 	"path"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/environs/filestorage"
@@ -37,12 +36,12 @@ func (s *ValidateSuite) makeLocalMetadata(c *tc.C, stream, version, osType strin
 	}}
 
 	stor, err := filestorage.NewFileStorageWriter(s.metadataDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	streamMetadata := map[string][]*ToolsMetadata{
 		stream: tm,
 	}
 	err = WriteMetadata(stor, streamMetadata, []string{stream}, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ValidateSuite) SetUpTest(c *tc.C) {
@@ -70,7 +69,7 @@ func (s *ValidateSuite) TestExactVersionMatch(c *tc.C) {
 	}
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	versions, resolveInfo, err := ValidateToolsMetadata(context.Background(), ss, params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(versions, tc.DeepEquals, []string{"1.11.2-ubuntu-amd64"})
 	c.Check(resolveInfo, tc.DeepEquals, &simplestreams.ResolveInfo{
 		Source:    "test",
@@ -96,7 +95,7 @@ func (s *ValidateSuite) TestMajorVersionMatch(c *tc.C) {
 	}
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	versions, resolveInfo, err := ValidateToolsMetadata(context.Background(), ss, params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(versions, tc.DeepEquals, []string{"1.11.2-ubuntu-amd64"})
 	c.Check(resolveInfo, tc.DeepEquals, &simplestreams.ResolveInfo{
 		Source:    "test",
@@ -121,7 +120,7 @@ func (s *ValidateSuite) TestMajorMinorVersionMatch(c *tc.C) {
 	}
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	versions, resolveInfo, err := ValidateToolsMetadata(context.Background(), ss, params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(versions, tc.DeepEquals, []string{"1.11.2-ubuntu-amd64"})
 	c.Check(resolveInfo, tc.DeepEquals, &simplestreams.ResolveInfo{
 		Source:    "test",

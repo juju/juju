@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -97,9 +96,9 @@ func (s *clientCredentialsLoginProviderProviderSuite) TestClientCredentialsLogin
 	}, api.DialOpts{
 		LoginProvider: lp,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = apiState.Close() }()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 // A separate suite for tests that don't need to communicate with a Juju controller.
@@ -115,6 +114,6 @@ func (s *clientCredentialsLoginProviderBasicSuite) TestClientCredentialsAuthHead
 	lp := api.NewClientCredentialsLoginProvider(clientID, clientSecret)
 	expectedHeader := jujuhttp.BasicAuthHeader(clientID, clientSecret)
 	got, err := lp.AuthHeader()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(got, jc.DeepEquals, expectedHeader)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, expectedHeader)
 }

@@ -12,7 +12,6 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/application/testing"
@@ -89,7 +88,7 @@ WHERE u.name=?`,
 		)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotProviderID, tc.Equals, providerID)
 	c.Assert(gotValue, tc.Equals, addressValue)
 	c.Assert(gotType, tc.Equals, int(addressType))
@@ -127,8 +126,8 @@ WHERE u.name=?`,
 		}
 		return rows.Close()
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotPorts, jc.SameContents, ports)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(gotPorts, tc.SameContents, ports)
 }
 
 func (s *unitStateSuite) TestUpdateCAASUnitCloudContainer(c *tc.C) {
@@ -154,7 +153,7 @@ func (s *unitStateSuite) TestUpdateCAASUnitCloudContainer(c *tc.C) {
 	s.createApplication(c, "foo", life.Alive, u)
 
 	err := s.state.UpdateCAASUnit(context.Background(), "foo/667", application.UpdateCAASUnitParams{})
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 
 	cc := application.UpdateCAASUnitParams{
 		ProviderID: ptr("another-id"),
@@ -162,7 +161,7 @@ func (s *unitStateSuite) TestUpdateCAASUnitCloudContainer(c *tc.C) {
 		Address:    ptr("2001:db8::1"),
 	}
 	err = s.state.UpdateCAASUnit(context.Background(), "foo/666", cc)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var (
 		providerId string
@@ -180,7 +179,7 @@ WHERE u.name=?`,
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(providerId, tc.Equals, "another-id")
 
 	s.assertContainerAddressValues(c, "foo/666", "another-id", "2001:db8::1",
@@ -211,7 +210,7 @@ func (s *unitStateSuite) TestUpdateCAASUnitStatuses(c *tc.C) {
 	s.createApplication(c, "foo", life.Alive, u)
 
 	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), u.UnitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	now := ptr(time.Now())
 	params := application.UpdateCAASUnitParams{
@@ -235,7 +234,7 @@ func (s *unitStateSuite) TestUpdateCAASUnitStatuses(c *tc.C) {
 		}),
 	}
 	err = s.state.UpdateCAASUnit(context.Background(), "foo/666", params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertUnitStatus(
 		c, "unit_agent", unitUUID, int(status.UnitAgentStatusIdle), "agent status", now, []byte(`{"foo": "bar"}`),
 	)
@@ -261,9 +260,9 @@ func (s *unitStateSuite) TestRegisterCAASUnit(c *tc.C) {
 		StorageParentDir: c.MkDir(),
 	}
 	err := s.state.RegisterCAASUnit(context.Background(), "foo", p)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertCAASUnit(c, "foo/666", "passwordhash", "10.6.6.6", []string{"666"})
 }
 
@@ -310,13 +309,13 @@ JOIN unit u ON u.uuid = cc.unit_uuid WHERE u.name = ?
 		}
 		return rows.Err()
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotPasswordHash, tc.Equals, passwordHash)
 	c.Check(gotAddress, tc.Equals, addressValue)
 	c.Check(gotAddressType, tc.Equals, ipaddress.AddressTypeIPv4)
 	c.Check(gotAddressScope, tc.Equals, ipaddress.ScopeMachineLocal)
 	c.Check(gotAddressOrigin, tc.Equals, ipaddress.OriginProvider)
-	c.Check(gotPorts, jc.DeepEquals, ports)
+	c.Check(gotPorts, tc.DeepEquals, ports)
 }
 
 func (s *unitStateSuite) TestRegisterCAASUnitAlreadyExists(c *tc.C) {
@@ -337,7 +336,7 @@ func (s *unitStateSuite) TestRegisterCAASUnitAlreadyExists(c *tc.C) {
 		StorageParentDir: c.MkDir(),
 	}
 	err := s.state.RegisterCAASUnit(context.Background(), "foo", p)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var (
 		providerId   string
@@ -360,7 +359,7 @@ WHERE unit.name=?`,
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(providerId, tc.Equals, "some-id")
 	c.Check(passwordHash, tc.Equals, "passwordhash")
 }
@@ -374,7 +373,7 @@ func (s *unitStateSuite) TestRegisterCAASUnitReplaceDead(c *tc.C) {
 		_, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 2 WHERE name = ?", "foo/0")
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	p := application.RegisterCAASUnitArg{
 		UnitName:         coreunit.Name("foo/0"),
@@ -387,7 +386,7 @@ func (s *unitStateSuite) TestRegisterCAASUnitReplaceDead(c *tc.C) {
 		StorageParentDir: c.MkDir(),
 	}
 	err = s.state.RegisterCAASUnit(context.Background(), "foo", p)
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitAlreadyExists)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitAlreadyExists)
 }
 
 func (s *unitStateSuite) TestRegisterCAASUnitApplicationNotALive(c *tc.C) {
@@ -406,7 +405,7 @@ func (s *unitStateSuite) TestRegisterCAASUnitApplicationNotALive(c *tc.C) {
 	}
 
 	err := s.state.RegisterCAASUnit(context.Background(), "foo", p)
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotAlive)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)
 }
 
 func (s *unitStateSuite) TestRegisterCAASUnitExceedsScale(c *tc.C) {
@@ -421,7 +420,7 @@ SET scale = ?, scale_target = ?
 WHERE application_uuid = ?`, 1, 3, appUUID)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	p := application.RegisterCAASUnitArg{
 		UnitName:         "foo/2",
@@ -435,7 +434,7 @@ WHERE application_uuid = ?`, 1, 3, appUUID)
 	}
 
 	err = s.state.RegisterCAASUnit(context.Background(), "foo", p)
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotAssigned)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotAssigned)
 }
 
 func (s *unitStateSuite) TestRegisterCAASUnitExceedsScaleTarget(c *tc.C) {
@@ -450,7 +449,7 @@ SET scaling = ?, scale = ?, scale_target = ?
 WHERE application_uuid = ?`, true, 3, 1, appUUID)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	p := application.RegisterCAASUnitArg{
 		UnitName:         "foo/2",
@@ -464,7 +463,7 @@ WHERE application_uuid = ?`, true, 3, 1, appUUID)
 	}
 
 	err = s.state.RegisterCAASUnit(context.Background(), "foo", p)
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotAssigned)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotAssigned)
 }
 
 func (s *unitStateSuite) TestGetUnitLife(c *tc.C) {
@@ -474,13 +473,13 @@ func (s *unitStateSuite) TestGetUnitLife(c *tc.C) {
 	s.createApplication(c, "foo", life.Alive, u)
 
 	unitLife, err := s.state.GetUnitLife(context.Background(), "foo/666")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(unitLife, tc.Equals, life.Alive)
 }
 
 func (s *unitStateSuite) TestGetUnitLifeNotFound(c *tc.C) {
 	_, err := s.state.GetUnitLife(context.Background(), "foo/666")
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *unitStateSuite) TestSetUnitLife(c *tc.C) {
@@ -497,27 +496,27 @@ func (s *unitStateSuite) TestSetUnitLife(c *tc.C) {
 				Scan(&gotLife)
 			return err
 		})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(gotLife, jc.DeepEquals, want)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(gotLife, tc.DeepEquals, want)
 	}
 
 	err := s.state.SetUnitLife(ctx, "foo/666", life.Dying)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkResult(life.Dying)
 
 	err = s.state.SetUnitLife(ctx, "foo/666", life.Dead)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkResult(life.Dead)
 
 	// Can't go backwards.
 	err = s.state.SetUnitLife(ctx, "foo/666", life.Dying)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkResult(life.Dead)
 }
 
 func (s *unitStateSuite) TestSetUnitLifeNotFound(c *tc.C) {
 	err := s.state.SetUnitLife(context.Background(), "foo/666", life.Dying)
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *unitStateSuite) TestDeleteUnit(c *tc.C) {
@@ -576,7 +575,7 @@ func (s *unitStateSuite) TestDeleteUnit(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		if err := s.state.setK8sPodStatus(ctx, tx, unitUUID, &status.StatusInfo[status.K8sPodStatusType]{
@@ -589,7 +588,7 @@ func (s *unitStateSuite) TestDeleteUnit(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	portSt := portstate.NewState(s.TxnRunnerFactory())
 	err = portSt.UpdateUnitPorts(context.Background(), unitUUID, network.GroupedPortRanges{
@@ -601,11 +600,11 @@ func (s *unitStateSuite) TestDeleteUnit(c *tc.C) {
 			{Protocol: "tcp", FromPort: 8080, ToPort: 8080},
 		},
 	}, network.GroupedPortRanges{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	gotIsLast, err := s.state.DeleteUnit(context.Background(), "foo/666")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotIsLast, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(gotIsLast, tc.IsFalse)
 
 	var (
 		unitCount                 int
@@ -648,7 +647,7 @@ func (s *unitStateSuite) TestDeleteUnit(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(addressCount, tc.Equals, 0)
 	c.Check(portCount, tc.Equals, 0)
 	c.Check(deviceCount, tc.Equals, 0)
@@ -671,11 +670,11 @@ func (s *unitStateSuite) TestDeleteUnitLastUnitAppAlive(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	gotIsLast, err := s.state.DeleteUnit(context.Background(), "foo/666")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotIsLast, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(gotIsLast, tc.IsFalse)
 
 	var unitCount int
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -685,7 +684,7 @@ func (s *unitStateSuite) TestDeleteUnitLastUnitAppAlive(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unitCount, tc.Equals, 0)
 }
 
@@ -700,11 +699,11 @@ func (s *unitStateSuite) TestDeleteUnitLastUnit(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	gotIsLast, err := s.state.DeleteUnit(context.Background(), "foo/666")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotIsLast, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(gotIsLast, tc.IsTrue)
 
 	var unitCount int
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -714,7 +713,7 @@ func (s *unitStateSuite) TestDeleteUnitLastUnit(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unitCount, tc.Equals, 0)
 }
 
@@ -725,13 +724,13 @@ func (s *unitStateSuite) TestGetUnitUUIDByName(c *tc.C) {
 	_ = s.createApplication(c, "foo", life.Alive, u1)
 
 	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), u1.UnitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unitUUID, tc.NotNil)
 }
 
 func (s *unitStateSuite) TestGetUnitUUIDByNameNotFound(c *tc.C) {
 	_, err := s.state.GetUnitUUIDByName(context.Background(), "failme")
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *unitStateSuite) assertUnitStatus(c *tc.C, statusType, unitUUID coreunit.UUID, statusID int, message string, since *time.Time, data []byte) {
@@ -749,28 +748,28 @@ func (s *unitStateSuite) assertUnitStatus(c *tc.C, statusType, unitUUID coreunit
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotStatusID, tc.Equals, statusID)
 	c.Check(gotMessage, tc.Equals, message)
-	c.Check(gotSince, jc.DeepEquals, since)
-	c.Check(gotData, jc.DeepEquals, data)
+	c.Check(gotSince, tc.DeepEquals, since)
+	c.Check(gotData, tc.DeepEquals, data)
 }
 
 func (s *unitStateSuite) TestAddUnitsApplicationNotFound(c *tc.C) {
 	uuid := testing.GenApplicationUUID(c)
 	charmUUID := charmtesting.GenCharmID(c)
 	_, err := s.state.AddIAASUnits(context.Background(), c.MkDir(), uuid, charmUUID, application.AddUnitArg{})
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *unitStateSuite) TestAddUnitsApplicationNotAlive(c *tc.C) {
 	appID := s.createApplication(c, "foo", life.Dying)
 
 	charmUUID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.state.AddIAASUnits(context.Background(), c.MkDir(), appID, charmUUID, application.AddUnitArg{})
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotAlive)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)
 }
 
 func (s *unitStateSuite) TestAddIAASUnits(c *tc.C) {
@@ -785,7 +784,7 @@ func (s *unitStateSuite) assertAddUnits(c *tc.C, modelType model.ModelType) {
 	appID := s.createApplication(c, "foo", life.Alive)
 
 	charmUUID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	now := ptr(time.Now())
 	u := application.AddUnitArg{
@@ -811,7 +810,7 @@ func (s *unitStateSuite) assertAddUnits(c *tc.C, modelType model.ModelType) {
 	} else {
 		unitNames, err = s.state.AddCAASUnits(context.Background(), c.MkDir(), appID, charmUUID, u)
 	}
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unitNames, tc.HasLen, 1)
 	unitName := unitNames[0]
 	c.Check(unitName, tc.Equals, coreunit.Name("foo/0"))
@@ -824,7 +823,7 @@ func (s *unitStateSuite) assertAddUnits(c *tc.C, modelType model.ModelType) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertUnitStatus(
 		c, "unit_agent", coreunit.UUID(unitUUID),
 		int(u.UnitStatusArg.AgentStatus.Status), u.UnitStatusArg.AgentStatus.Message,
@@ -853,14 +852,14 @@ func (s *unitStateSuite) TestInitialWatchStatementUnitLife(c *tc.C) {
 		err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/667").Scan(&unitID2)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	table, queryFunc := s.state.InitialWatchStatementUnitLife("foo")
 	c.Assert(table, tc.Equals, "unit")
 
 	result, err := queryFunc(context.Background(), s.TxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.SameContents, []string{unitID1, unitID2})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.SameContents, []string{unitID1, unitID2})
 }
 
 func (s *unitStateSuite) TestGetUnitRefreshAttributes(c *tc.C) {
@@ -875,10 +874,10 @@ func (s *unitStateSuite) TestGetUnitRefreshAttributes(c *tc.C) {
 		Address:    ptr("2001:db8::1"),
 	}
 	err := s.state.UpdateCAASUnit(context.Background(), "foo/666", cc)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	refreshAttributes, err := s.state.GetUnitRefreshAttributes(context.Background(), u.UnitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(refreshAttributes, tc.DeepEquals, application.UnitAttributes{
 		Life:        life.Alive,
 		ProviderID:  "another-id",
@@ -893,7 +892,7 @@ func (s *unitStateSuite) TestGetUnitRefreshAttributesNoProviderID(c *tc.C) {
 	s.createApplication(c, "foo", life.Alive, u)
 
 	refreshAttributes, err := s.state.GetUnitRefreshAttributes(context.Background(), u.UnitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(refreshAttributes, tc.DeepEquals, application.UnitAttributes{
 		Life:        life.Alive,
 		ResolveMode: "none",
@@ -907,16 +906,16 @@ func (s *unitStateSuite) TestGetUnitRefreshAttributesWithResolveMode(c *tc.C) {
 	s.createApplication(c, "foo", life.Alive, u)
 
 	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), u.UnitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "INSERT INTO unit_resolved (unit_uuid, mode_id) VALUES (?, 0)", unitUUID)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	refreshAttributes, err := s.state.GetUnitRefreshAttributes(context.Background(), u.UnitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(refreshAttributes, tc.DeepEquals, application.UnitAttributes{
 		Life:        life.Alive,
 		ResolveMode: "retry-hooks",
@@ -933,10 +932,10 @@ func (s *unitStateSuite) TestGetUnitRefreshAttributesDeadLife(c *tc.C) {
 		_, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 2 WHERE name = ?", u.UnitName)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	refreshAttributes, err := s.state.GetUnitRefreshAttributes(context.Background(), u.UnitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(refreshAttributes, tc.DeepEquals, application.UnitAttributes{
 		Life:        life.Dead,
 		ResolveMode: "none",
@@ -953,10 +952,10 @@ func (s *unitStateSuite) TestGetUnitRefreshAttributesDyingLife(c *tc.C) {
 		_, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 1 WHERE name = ?", u.UnitName)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	refreshAttributes, err := s.state.GetUnitRefreshAttributes(context.Background(), u.UnitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(refreshAttributes, tc.DeepEquals, application.UnitAttributes{
 		Life:        life.Dying,
 		ResolveMode: "none",
@@ -972,7 +971,7 @@ func (s *unitStateSuite) TestSetConstraintFull(c *tc.C) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", u.UnitName).Scan(&unitUUID)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.Constraints{
 		Arch:             ptr("amd64"),
@@ -1005,18 +1004,18 @@ func (s *unitStateSuite) TestSetConstraintFull(c *tc.C) {
 		_, err = tx.ExecContext(ctx, insertSpace1Stmt, "space1-uuid", "space1")
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.SetUnitConstraints(context.Background(), unitUUID, cons)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	constraintSpaces, constraintTags, constraintZones := s.assertUnitConstraints(c, unitUUID, cons)
 
-	c.Check(constraintSpaces, jc.DeepEquals, []applicationSpace{
+	c.Check(constraintSpaces, tc.DeepEquals, []applicationSpace{
 		{SpaceName: "space0", SpaceExclude: false},
 		{SpaceName: "space1", SpaceExclude: true},
 	})
-	c.Check(constraintTags, jc.DeepEquals, []string{"tag0", "tag1"})
-	c.Check(constraintZones, jc.DeepEquals, []string{"zone0", "zone1"})
+	c.Check(constraintTags, tc.DeepEquals, []string{"tag0", "tag1"})
+	c.Check(constraintZones, tc.DeepEquals, []string{"zone0", "zone1"})
 }
 
 func (s *unitStateSuite) TestSetConstraintInvalidContainerType(c *tc.C) {
@@ -1028,13 +1027,13 @@ func (s *unitStateSuite) TestSetConstraintInvalidContainerType(c *tc.C) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", u.UnitName).Scan(&unitUUID)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.Constraints{
 		Container: ptr(instance.ContainerType("invalid-container-type")),
 	}
 	err = s.state.SetUnitConstraints(context.Background(), unitUUID, cons)
-	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidUnitConstraints)
+	c.Assert(err, tc.ErrorIs, applicationerrors.InvalidUnitConstraints)
 }
 
 func (s *unitStateSuite) TestSetConstraintInvalidSpace(c *tc.C) {
@@ -1046,7 +1045,7 @@ func (s *unitStateSuite) TestSetConstraintInvalidSpace(c *tc.C) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", u.UnitName).Scan(&unitUUID)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.Constraints{
 		Spaces: ptr([]constraints.SpaceConstraint{
@@ -1054,18 +1053,18 @@ func (s *unitStateSuite) TestSetConstraintInvalidSpace(c *tc.C) {
 		}),
 	}
 	err = s.state.SetUnitConstraints(context.Background(), unitUUID, cons)
-	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidUnitConstraints)
+	c.Assert(err, tc.ErrorIs, applicationerrors.InvalidUnitConstraints)
 }
 
 func (s *unitStateSuite) TestSetConstraintsUnitNotFound(c *tc.C) {
 	err := s.state.SetUnitConstraints(context.Background(), "foo", constraints.Constraints{Mem: ptr(uint64(8))})
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *unitStateSuite) TestGetAllUnitNamesNoUnits(c *tc.C) {
 	names, err := s.state.GetAllUnitNames(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(names, jc.DeepEquals, []coreunit.Name{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(names, tc.DeepEquals, []coreunit.Name{})
 }
 
 func (s *unitStateSuite) TestGetAllUnitNames(c *tc.C) {
@@ -1079,26 +1078,26 @@ func (s *unitStateSuite) TestGetAllUnitNames(c *tc.C) {
 	})
 
 	names, err := s.state.GetAllUnitNames(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(names, jc.SameContents, []coreunit.Name{"foo/666", "foo/667", "bar/666"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(names, tc.SameContents, []coreunit.Name{"foo/666", "foo/667", "bar/666"})
 }
 
 func (s *unitStateSuite) TestGetUnitNamesForApplicationNotFound(c *tc.C) {
 	_, err := s.state.GetUnitNamesForApplication(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *unitStateSuite) TestGetUnitNamesForApplicationDead(c *tc.C) {
 	appUUID := s.createApplication(c, "deadapp", life.Dead)
 	_, err := s.state.GetUnitNamesForApplication(context.Background(), appUUID)
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationIsDead)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationIsDead)
 }
 
 func (s *unitStateSuite) TestGetUnitNamesForApplicationNoUnits(c *tc.C) {
 	appUUID := s.createApplication(c, "foo", life.Alive)
 	names, err := s.state.GetUnitNamesForApplication(context.Background(), appUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(names, jc.DeepEquals, []coreunit.Name{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(names, tc.DeepEquals, []coreunit.Name{})
 }
 
 func (s *unitStateSuite) TestGetUnitNamesForApplication(c *tc.C) {
@@ -1112,13 +1111,13 @@ func (s *unitStateSuite) TestGetUnitNamesForApplication(c *tc.C) {
 	})
 
 	names, err := s.state.GetUnitNamesForApplication(context.Background(), appUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(names, jc.SameContents, []coreunit.Name{"foo/666", "foo/667"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(names, tc.SameContents, []coreunit.Name{"foo/666", "foo/667"})
 }
 
 func (s *unitStateSuite) TestGetUnitNamesForNetNodeNotFound(c *tc.C) {
 	_, err := s.state.GetUnitNamesForNetNode(context.Background(), "doink")
-	c.Assert(err, jc.ErrorIs, applicationerrors.NetNodeNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.NetNodeNotFound)
 }
 
 func (s *unitStateSuite) TestGetUnitNamesForNetNodeNoUnits(c *tc.C) {
@@ -1130,12 +1129,12 @@ func (s *unitStateSuite) TestGetUnitNamesForNetNodeNoUnits(c *tc.C) {
 		})
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(netNode, tc.Not(tc.Equals), "")
 
 	names, err := s.state.GetUnitNamesForNetNode(context.Background(), netNode)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(names, jc.DeepEquals, []coreunit.Name{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(names, tc.DeepEquals, []coreunit.Name{})
 }
 
 func (s *unitStateSuite) TestGetUnitNamesForNetNode(c *tc.C) {
@@ -1158,11 +1157,11 @@ func (s *unitStateSuite) TestGetUnitNamesForNetNode(c *tc.C) {
 	})
 
 	netNodeUUID, err := s.state.GetMachineNetNodeUUIDFromName(context.Background(), "0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	names, err := s.state.GetUnitNamesForNetNode(context.Background(), netNodeUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(names, jc.DeepEquals, []coreunit.Name{"foo/0", "foo/1"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(names, tc.DeepEquals, []coreunit.Name{"foo/0", "foo/1"})
 }
 
 func (s *unitStateSuite) TestGetUnitWorkloadVersion(c *tc.C) {
@@ -1172,13 +1171,13 @@ func (s *unitStateSuite) TestGetUnitWorkloadVersion(c *tc.C) {
 	s.createApplication(c, "foo", life.Alive, u)
 
 	workloadVersion, err := s.state.GetUnitWorkloadVersion(context.Background(), u.UnitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(workloadVersion, tc.Equals, "")
 }
 
 func (s *unitStateSuite) TestGetUnitWorkloadVersionNotFound(c *tc.C) {
 	_, err := s.state.GetUnitWorkloadVersion(context.Background(), coreunit.Name("foo/666"))
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *unitStateSuite) TestSetUnitWorkloadVersion(c *tc.C) {
@@ -1188,10 +1187,10 @@ func (s *unitStateSuite) TestSetUnitWorkloadVersion(c *tc.C) {
 	s.createApplication(c, "foo", life.Alive, u)
 
 	err := s.state.SetUnitWorkloadVersion(context.Background(), u.UnitName, "v1.0.0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	workloadVersion, err := s.state.GetUnitWorkloadVersion(context.Background(), u.UnitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(workloadVersion, tc.Equals, "v1.0.0")
 }
 
@@ -1207,21 +1206,21 @@ func (s *unitStateSuite) TestSetUnitWorkloadVersionMultiple(c *tc.C) {
 	s.assertApplicationWorkloadVersion(c, appID, "")
 
 	err := s.state.SetUnitWorkloadVersion(context.Background(), u1.UnitName, "v1.0.0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertApplicationWorkloadVersion(c, appID, "v1.0.0")
 
 	err = s.state.SetUnitWorkloadVersion(context.Background(), u2.UnitName, "v2.0.0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertApplicationWorkloadVersion(c, appID, "v2.0.0")
 
 	workloadVersion, err := s.state.GetUnitWorkloadVersion(context.Background(), u1.UnitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(workloadVersion, tc.Equals, "v1.0.0")
 
 	workloadVersion, err = s.state.GetUnitWorkloadVersion(context.Background(), u2.UnitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(workloadVersion, tc.Equals, "v2.0.0")
 
 	s.assertApplicationWorkloadVersion(c, appID, "v2.0.0")
@@ -1234,7 +1233,7 @@ func (s *unitStateSuite) TestGetUnitMachineUUID(c *tc.C) {
 	_, machineUUID := s.addMachineToUnit(c, unitUUID)
 
 	machine, err := s.state.GetUnitMachineUUID(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(machine, tc.Equals, machineUUID)
 }
 
@@ -1244,14 +1243,14 @@ func (s *unitStateSuite) TestGetUnitMachineUUIDNotAssigned(c *tc.C) {
 	s.addUnit(c, unitName, appUUID)
 
 	_, err := s.state.GetUnitMachineUUID(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitMachineNotAssigned)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitMachineNotAssigned)
 }
 
 func (s *unitStateSuite) TestGetUnitMachineUUIDUnitNotFound(c *tc.C) {
 	unitName := coreunittesting.GenNewName(c, "foo/666")
 
 	_, err := s.state.GetUnitMachineUUID(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *unitStateSuite) TestGetUnitMachineUUIDIsDead(c *tc.C) {
@@ -1260,7 +1259,7 @@ func (s *unitStateSuite) TestGetUnitMachineUUIDIsDead(c *tc.C) {
 	s.addUnitWithLife(c, unitName, appUUID, life.Dead)
 
 	_, err := s.state.GetUnitMachineUUID(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitIsDead)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitIsDead)
 }
 
 func (s *unitStateSuite) TestGetUnitMachineName(c *tc.C) {
@@ -1270,7 +1269,7 @@ func (s *unitStateSuite) TestGetUnitMachineName(c *tc.C) {
 	machineName, _ := s.addMachineToUnit(c, unitUUID)
 
 	machine, err := s.state.GetUnitMachineName(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(machine, tc.Equals, machineName)
 }
 
@@ -1280,14 +1279,14 @@ func (s *unitStateSuite) TestGetUnitMachineNameNotAssigned(c *tc.C) {
 	s.addUnit(c, unitName, appUUID)
 
 	_, err := s.state.GetUnitMachineName(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitMachineNotAssigned)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitMachineNotAssigned)
 }
 
 func (s *unitStateSuite) TestGetUnitMachineNameUnitNotFound(c *tc.C) {
 	unitName := coreunittesting.GenNewName(c, "foo/666")
 
 	_, err := s.state.GetUnitMachineName(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *unitStateSuite) TestGetUnitMachineNameIsDead(c *tc.C) {
@@ -1296,7 +1295,7 @@ func (s *unitStateSuite) TestGetUnitMachineNameIsDead(c *tc.C) {
 	s.addUnitWithLife(c, unitName, appUUID, life.Dead)
 
 	_, err := s.state.GetUnitMachineName(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitIsDead)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitIsDead)
 }
 
 func (s *unitStateSuite) assertApplicationWorkloadVersion(c *tc.C, appID coreapplication.ID, expected string) {
@@ -1305,13 +1304,13 @@ func (s *unitStateSuite) assertApplicationWorkloadVersion(c *tc.C, appID coreapp
 		err := tx.QueryRowContext(ctx, "SELECT version FROM application_workload_version WHERE application_uuid=?", appID).Scan(&version)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(version, tc.Equals, expected)
 }
 
 func (s *unitStateSuite) TestSetUnitWorkloadVersionNotFound(c *tc.C) {
 	err := s.state.SetUnitWorkloadVersion(context.Background(), coreunit.Name("foo/666"), "v1.0.0")
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *unitStateSuite) TestGetUnitAddressesIncludingK8sService(c *tc.C) {
@@ -1319,7 +1318,7 @@ func (s *unitStateSuite) TestGetUnitAddressesIncludingK8sService(c *tc.C) {
 		UnitName: "foo/0",
 	})
 	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), "foo/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		insertNetNode0 := `INSERT INTO net_node (uuid) VALUES (?)`
@@ -1374,10 +1373,10 @@ func (s *unitStateSuite) TestGetUnitAddressesIncludingK8sService(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	addr, err := s.state.GetUnitAddresses(context.Background(), unitUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(addr, tc.DeepEquals, network.SpaceAddresses{
 		{
 			SpaceID: "space0-uuid",
@@ -1407,7 +1406,7 @@ func (s *unitStateSuite) TestGetUnitAddressesWithoutK8sService(c *tc.C) {
 		UnitName: "foo/0",
 	})
 	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), "foo/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		insertNetNode0 := `INSERT INTO net_node (uuid) VALUES (?)`
@@ -1442,10 +1441,10 @@ func (s *unitStateSuite) TestGetUnitAddressesWithoutK8sService(c *tc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	addr, err := s.state.GetUnitAddresses(context.Background(), unitUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(addr, tc.DeepEquals, network.SpaceAddresses{
 		{
 			SpaceID: "space0-uuid",
@@ -1541,7 +1540,7 @@ WHERE uuid=?`, constraintUUID)
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(constraintUUID, tc.Not(tc.Equals), "")
 	c.Check(unitUUID, tc.Equals, inUnitUUID.String())
@@ -1588,7 +1587,7 @@ WHERE uuid = ?
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return unitUUID
 }
 
@@ -1607,7 +1606,7 @@ WHERE uuid = ?
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return machineName, machineUUID
 }
 
@@ -1634,7 +1633,7 @@ func (s *unitStateSubordinateSuite) TestAddSubordinateUnit(c *tc.C) {
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(sUnitName, tc.Equals, coreunittesting.GenNewName(c, "subordinate/0"))
 	s.assertUnitPrincipal(c, pUnitName, sUnitName)
 	s.assertUnitMachinesMatch(c, pUnitName, sUnitName)
@@ -1659,7 +1658,7 @@ func (s *unitStateSubordinateSuite) TestAddSubordinateUnitSecondSubordinate(c *t
 		PrincipalUnitName: pUnitName1,
 		ModelType:         model.IAAS,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Act: Add a second subordinate unit
 	sUnitName2, err := s.state.AddSubordinateUnit(context.Background(), application.SubordinateUnitArg{
@@ -1669,7 +1668,7 @@ func (s *unitStateSubordinateSuite) TestAddSubordinateUnitSecondSubordinate(c *t
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(sUnitName2, tc.Equals, coreunittesting.GenNewName(c, "subordinate/1"))
 	s.assertUnitPrincipal(c, pUnitName2, sUnitName2)
 	s.assertUnitMachinesMatch(c, pUnitName2, sUnitName2)
@@ -1692,7 +1691,7 @@ func (s *unitStateSubordinateSuite) TestAddSubordinateUnitCAAS(c *tc.C) {
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(sUnitName, tc.Equals, coreunittesting.GenNewName(c, "subordinate/0"))
 	s.assertUnitPrincipal(c, pUnitName, sUnitName)
 }
@@ -1712,7 +1711,7 @@ func (s *unitStateSubordinateSuite) TestAddSubordinateUnitTwiceToSameUnit(c *tc.
 		PrincipalUnitName: pUnitName,
 		ModelType:         model.IAAS,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Act: try adding a second subordinate to the same unit.
 	_, err = s.state.AddSubordinateUnit(context.Background(), application.SubordinateUnitArg{
@@ -1722,7 +1721,7 @@ func (s *unitStateSubordinateSuite) TestAddSubordinateUnitTwiceToSameUnit(c *tc.
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitAlreadyHasSubordinate)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitAlreadyHasSubordinate)
 }
 
 func (s *unitStateSubordinateSuite) TestAddSubordinateUnitWithoutMachine(c *tc.C) {
@@ -1741,7 +1740,7 @@ func (s *unitStateSubordinateSuite) TestAddSubordinateUnitWithoutMachine(c *tc.C
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, applicationerrors.MachineNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.MachineNotFound)
 }
 
 func (s *unitStateSubordinateSuite) TestAddSubordinateUnitApplicationNotAlive(c *tc.C) {
@@ -1758,7 +1757,7 @@ func (s *unitStateSubordinateSuite) TestAddSubordinateUnitApplicationNotAlive(c 
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotAlive)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)
 }
 
 func (s *unitStateSubordinateSuite) TestIsSubordinateApplication(c *tc.C) {
@@ -1769,8 +1768,8 @@ func (s *unitStateSubordinateSuite) TestIsSubordinateApplication(c *tc.C) {
 	isSub, err := s.state.IsSubordinateApplication(context.Background(), appID)
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(isSub, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(isSub, tc.IsTrue)
 }
 
 func (s *unitStateSubordinateSuite) TestIsSubordinateApplicationFalse(c *tc.C) {
@@ -1781,8 +1780,8 @@ func (s *unitStateSubordinateSuite) TestIsSubordinateApplicationFalse(c *tc.C) {
 	isSub, err := s.state.IsSubordinateApplication(context.Background(), appID)
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(isSub, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(isSub, tc.IsFalse)
 }
 
 func (s *unitStateSubordinateSuite) TestIsSubordinateApplicationNotFound(c *tc.C) {
@@ -1790,7 +1789,7 @@ func (s *unitStateSubordinateSuite) TestIsSubordinateApplicationNotFound(c *tc.C
 	_, err := s.state.IsSubordinateApplication(context.Background(), "notfound")
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *unitStateSubordinateSuite) TestGetUnitPrincipal(c *tc.C) {
@@ -1803,9 +1802,9 @@ func (s *unitStateSubordinateSuite) TestGetUnitPrincipal(c *tc.C) {
 	s.addUnitPrincipal(c, principalUUID, subUUID)
 
 	foundPrincipalName, ok, err := s.state.GetUnitPrincipal(context.Background(), subName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(foundPrincipalName, tc.Equals, principalName)
-	c.Check(ok, jc.IsTrue)
+	c.Check(ok, tc.IsTrue)
 }
 
 func (s *unitStateSubordinateSuite) TestGetUnitPrincipalSubordinateNotPrincipal(c *tc.C) {
@@ -1817,16 +1816,16 @@ func (s *unitStateSubordinateSuite) TestGetUnitPrincipalSubordinateNotPrincipal(
 	s.addUnit(c, subName, subAppID)
 
 	_, ok, err := s.state.GetUnitPrincipal(context.Background(), subName)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(ok, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(ok, tc.IsFalse)
 }
 
 func (s *unitStateSubordinateSuite) TestGetUnitPrincipalNoUnitExists(c *tc.C) {
 	subName := coreunittesting.GenNewName(c, "sub/0")
 
 	_, ok, err := s.state.GetUnitPrincipal(context.Background(), subName)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(ok, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(ok, tc.IsFalse)
 }
 
 func (s *unitStateSubordinateSuite) assertUnitMachinesMatch(c *tc.C, unit1, unit2 coreunit.Name) {
@@ -1847,7 +1846,7 @@ WHERE unit.name = ?
 `, unitName).Scan(&machineName)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return machineName
 }
 
@@ -1859,7 +1858,7 @@ VALUES (?, ?)
 `, principal, sub)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *unitStateSubordinateSuite) assertUnitPrincipal(c *tc.C, principalName, subordinateName coreunit.Name) {
@@ -1873,7 +1872,7 @@ JOIN unit u2 ON u2.uuid = up.unit_uuid
 WHERE u2.name = ?
 `, subordinateName).Scan(&foundPrincipalName)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(foundPrincipalName, tc.Equals, principalName)
 }
 
@@ -1892,13 +1891,13 @@ func (s *unitStateSubordinateSuite) createSubordinateApplication(c *tc.C, name s
 			Revision:      42,
 		},
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE application SET life_id = ? WHERE name = ?", l, name)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return appID
 }

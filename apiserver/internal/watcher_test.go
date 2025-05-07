@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/tomb.v2"
 
@@ -35,8 +34,8 @@ func (s *suite) TestFirstResultReturnsChanges(c *tc.C) {
 	s.watcher.EXPECT().Changes().Return(changes)
 
 	res, err := internal.FirstResult[[]string](context.Background(), s.watcher)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, jc.SameContents, contents)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.SameContents, contents)
 }
 
 func (s *suite) TestFirstResultWorkerKilled(c *tc.C) {
@@ -83,9 +82,9 @@ func (s *suite) TestEnsureRegisterWatcher(c *tc.C) {
 	s.watcherRegistry.EXPECT().Register(s.watcher).Return("id", nil)
 
 	id, res, err := internal.EnsureRegisterWatcher[[]string](context.Background(), s.watcherRegistry, s.watcher)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(id, tc.Equals, "id")
-	c.Assert(res, jc.SameContents, contents)
+	c.Assert(res, tc.SameContents, contents)
 }
 
 func (s *suite) TestEnsureRegisterWatcherWithError(c *tc.C) {

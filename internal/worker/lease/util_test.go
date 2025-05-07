@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/lease"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -214,7 +213,7 @@ func (store *Store) call(method string, args []interface{}) error {
 	}
 
 	if method == expect.method {
-		if ok, _ := jc.DeepEqual(args, expect.args); ok {
+		if ok, _ := tc.DeepEqual(args, expect.args); ok {
 			return expect.err
 		}
 	}

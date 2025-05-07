@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/agent/instancemutater"
@@ -55,7 +54,7 @@ func (s *instanceMutaterMachineSuite) TestSetCharmProfiles(c *tc.C) {
 	)
 
 	err := m.SetCharmProfiles(context.Background(), s.profiles)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *instanceMutaterMachineSuite) TestSetCharmProfilesError(c *tc.C) {
@@ -77,7 +76,7 @@ func (s *instanceMutaterMachineSuite) TestWatchLXDProfileVerificationNeeded(c *t
 		s.expectNotifyWatcher,
 	)
 	ch, err := api.WatchLXDProfileVerificationNeeded(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// watch for the changes
 	for i := 0; i < 2; i++ {
@@ -106,7 +105,7 @@ func (s *instanceMutaterMachineSuite) TestWatchLXDProfileVerificationNeededNotSu
 		s.expectWatchLXDProfileVerificationNeededWithError("not supported", "failed"),
 	)
 	_, err := api.WatchLXDProfileVerificationNeeded(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 
 func (s *instanceMutaterMachineSuite) TestWatchContainers(c *tc.C) {
@@ -117,7 +116,7 @@ func (s *instanceMutaterMachineSuite) TestWatchContainers(c *tc.C) {
 		s.expectStringsWatcher,
 	)
 	ch, err := api.WatchContainers(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// watch for the changes
 	for i := 0; i < 2; i++ {
@@ -159,7 +158,7 @@ func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessChanges(c *tc
 	fExp.FacadeCall(gomock.Any(), "CharmProfilingInfo", args, gomock.Any()).SetArg(3, results).Return(nil)
 
 	info, err := s.setupMachine().CharmProfilingInfo(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info.InstanceId, tc.Equals, results.InstanceId)
 	c.Assert(info.ModelName, tc.Equals, results.ModelName)
 	c.Assert(info.CurrentProfiles, tc.DeepEquals, results.CurrentProfiles)
@@ -184,7 +183,7 @@ func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessChangesWithNo
 	fExp.FacadeCall(gomock.Any(), "CharmProfilingInfo", args, gomock.Any()).SetArg(3, results).Return(nil)
 
 	info, err := s.setupMachine().CharmProfilingInfo(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info.InstanceId, tc.Equals, results.InstanceId)
 	c.Assert(info.ModelName, tc.Equals, results.ModelName)
 	c.Assert(info.CurrentProfiles, tc.DeepEquals, results.CurrentProfiles)
@@ -199,7 +198,7 @@ func (s *instanceMutaterMachineSuite) TestSetModificationStatus(c *tc.C) {
 	)
 
 	err := m.SetModificationStatus(context.Background(), status.Applied, "applied", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *instanceMutaterMachineSuite) TestSetModificationStatusReturnsError(c *tc.C) {

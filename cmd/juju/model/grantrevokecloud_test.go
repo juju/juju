@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/model"
@@ -57,9 +56,9 @@ func (s *grantRevokeCloudSuite) run(c *tc.C, args ...string) (*cmd.Context, erro
 func (s *grantRevokeCloudSuite) TestAccess(c *tc.C) {
 	sam := "sam"
 	_, err := s.run(c, "sam", "add-model", "cloud1", "cloud2")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fakeCloudAPI.user, jc.DeepEquals, sam)
-	c.Assert(s.fakeCloudAPI.clouds, jc.DeepEquals, []string{"cloud1", "cloud2"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.fakeCloudAPI.user, tc.DeepEquals, sam)
+	c.Assert(s.fakeCloudAPI.clouds, tc.DeepEquals, []string{"cloud1", "cloud2"})
 	c.Assert(s.fakeCloudAPI.access, tc.Equals, "add-model")
 }
 
@@ -89,11 +88,11 @@ func (s *grantCloudSuite) TestInitGrantAddModel(c *tc.C) {
 	wrappedCmd, grantCmd := model.NewGrantCloudCommandForTest(nil, s.store)
 	// The documented case, add-model.
 	err := cmdtesting.InitCommand(wrappedCmd, []string{"bob", "add-model", "cloud"})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	// The backwards-compatible case, addmodel.
 	err = cmdtesting.InitCommand(wrappedCmd, []string{"bob", "addmodel", "cloud"})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(grantCmd.Access, tc.Equals, "add-model")
 }
 
@@ -117,10 +116,10 @@ func (s *revokeCloudSuite) TestInit(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "no user specified")
 
 	err = cmdtesting.InitCommand(wrappedCmd, []string{"bob", "add-model", "cloud1", "cloud2"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(revokeCmd.User, tc.Equals, "bob")
-	c.Assert(revokeCmd.Clouds, jc.DeepEquals, []string{"cloud1", "cloud2"})
+	c.Assert(revokeCmd.Clouds, tc.DeepEquals, []string{"cloud1", "cloud2"})
 
 	err = cmdtesting.InitCommand(wrappedCmd, []string{})
 	c.Assert(err, tc.ErrorMatches, `no user specified`)
@@ -133,11 +132,11 @@ func (s *grantCloudSuite) TestInitRevokeAddModel(c *tc.C) {
 	wrappedCmd, revokeCmd := model.NewRevokeCloudCommandForTest(nil, s.store)
 	// The documented case, add-model.
 	err := cmdtesting.InitCommand(wrappedCmd, []string{"bob", "add-model", "cloud"})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	// The backwards-compatible case, addmodel.
 	err = cmdtesting.InitCommand(wrappedCmd, []string{"bob", "addmodel", "cloud"})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(revokeCmd.Access, tc.Equals, "add-model")
 }
 

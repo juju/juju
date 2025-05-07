@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 
 	changestreamtesting "github.com/juju/juju/core/changestream/testing"
@@ -45,7 +44,7 @@ func (s *subscriptionSuite) TestSubscriptionUnsubscriptionIsCalled(c *tc.C) {
 	defer workertest.CleanKill(c, sub)
 
 	sub.Unsubscribe()
-	c.Assert(called, jc.IsTrue)
+	c.Assert(called, tc.IsTrue)
 
 	workertest.CleanKill(c, sub)
 }
@@ -66,7 +65,7 @@ func (s *subscriptionSuite) TestSubscriptionWitnessChanges(c *tc.C) {
 
 	go func() {
 		err := sub.dispatch(context.Background(), changes)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}()
 
 	var witnessed ChangeSet
@@ -77,7 +76,7 @@ func (s *subscriptionSuite) TestSubscriptionWitnessChanges(c *tc.C) {
 	}
 
 	c.Assert(witnessed, tc.HasLen, len(changes))
-	c.Check(witnessed, jc.SameContents, changes)
+	c.Check(witnessed, tc.SameContents, changes)
 
 	workertest.CleanKill(c, sub)
 }
@@ -104,7 +103,7 @@ func (s *subscriptionSuite) TestSubscriptionDoesNoteWitnessChangesWithCancelledC
 		cancel()
 
 		err := sub.dispatch(ctx, changes)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}()
 
 	select {
@@ -147,7 +146,7 @@ func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithUnsub(c *tc
 		time.Sleep(time.Millisecond)
 
 		err := sub.dispatch(ctx, changes)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}()
 
 	select {
@@ -187,7 +186,7 @@ func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithDying(c *tc
 		defer close(syncPoint)
 
 		err := sub.close()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		err = sub.dispatch(context.Background(), changes)
 		c.Assert(err, tc.ErrorMatches, "tomb: dying")

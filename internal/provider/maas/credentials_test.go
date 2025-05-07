@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -26,7 +25,7 @@ func (s *credentialsSuite) SetUpTest(c *tc.C) {
 
 	var err error
 	s.provider, err = environs.Provider("maas")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *credentialsSuite) TestCredentialSchemas(c *tc.C) {
@@ -49,7 +48,7 @@ func (s *credentialsSuite) TestDetectCredentials(c *tc.C) {
 		Data: `{"Server": "http://10.0.0.1/MAAS", "OAuth": "key"}`,
 	})
 	creds, err := s.provider.DetectCredentials("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(creds.DefaultRegion, tc.Equals, "")
 	expected := cloud.NewCredential(
 		cloud.OAuth1AuthType, map[string]string{
@@ -57,7 +56,7 @@ func (s *credentialsSuite) TestDetectCredentials(c *tc.C) {
 		},
 	)
 	expected.Label = "MAAS credential for http://10.0.0.1/MAAS"
-	c.Assert(creds.AuthCredentials["default"], jc.DeepEquals, expected)
+	c.Assert(creds.AuthCredentials["default"], tc.DeepEquals, expected)
 }
 
 func (s *credentialsSuite) TestDetectCredentialsNoServer(c *tc.C) {
@@ -66,7 +65,7 @@ func (s *credentialsSuite) TestDetectCredentialsNoServer(c *tc.C) {
 		Data: `{"OAuth": "key"}`,
 	})
 	creds, err := s.provider.DetectCredentials("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(creds.DefaultRegion, tc.Equals, "")
 	expected := cloud.NewCredential(
 		cloud.OAuth1AuthType, map[string]string{
@@ -74,10 +73,10 @@ func (s *credentialsSuite) TestDetectCredentialsNoServer(c *tc.C) {
 		},
 	)
 	expected.Label = "MAAS credential for unspecified server"
-	c.Assert(creds.AuthCredentials["default"], jc.DeepEquals, expected)
+	c.Assert(creds.AuthCredentials["default"], tc.DeepEquals, expected)
 }
 
 func (s *credentialsSuite) TestDetectCredentialsNoFile(c *tc.C) {
 	_, err := s.provider.DetectCredentials("")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }

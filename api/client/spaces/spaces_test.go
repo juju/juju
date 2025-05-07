@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/base/mocks"
@@ -150,8 +149,8 @@ func (s *spacesSuite) TestRemoveSpaceConstraintsBindings(c *tc.C) {
 		},
 		ControllerSettings: []string{"jujuhaspace", "juuuu-space"},
 	}
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bounds, jc.DeepEquals, expectedBounds)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(bounds, tc.DeepEquals, expectedBounds)
 }
 func (s *spacesSuite) TestRemoveSpaceConstraints(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
@@ -174,8 +173,8 @@ func (s *spacesSuite) TestRemoveSpaceConstraints(c *tc.C) {
 			{Tag: "application-mysql"},
 		},
 	}
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bounds, jc.DeepEquals, expectedBounds)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(bounds, tc.DeepEquals, expectedBounds)
 }
 
 func (s *spacesSuite) TestRemoveSpaceForce(c *tc.C) {
@@ -265,7 +264,7 @@ func (s *spacesSuite) TestCreateSpace(c *tc.C) {
 		}
 		s.fCaller.EXPECT().FacadeCall(gomock.Any(), "CreateSpaces", args, res).SetArg(3, ress).Return(nil)
 		err := s.API.CreateSpace(context.Background(), name, subnets, true)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }
 
@@ -338,12 +337,12 @@ func (s *spacesSuite) testShowSpaces(c *tc.C, spaceName string, results []params
 	} else {
 		c.Assert(results, tc.NotNil)
 		c.Assert(len(results), tc.Equals, 1)
-		c.Assert(gotResults, jc.DeepEquals, results[0])
+		c.Assert(gotResults, tc.DeepEquals, results[0])
 	}
 	if err != nil {
-		c.Assert(gotErr, jc.DeepEquals, err)
+		c.Assert(gotErr, tc.DeepEquals, err)
 	} else {
-		c.Assert(gotErr, jc.ErrorIsNil)
+		c.Assert(gotErr, tc.ErrorIsNil)
 	}
 }
 
@@ -408,15 +407,15 @@ func (s *spacesSuite) testListSpaces(c *tc.C, results []params.Space, err error,
 
 	s.fCaller.EXPECT().FacadeCall(gomock.Any(), "ListSpaces", nil, res).SetArg(3, expectResults).Return(err)
 	gotResults, gotErr := s.API.ListSpaces(context.Background())
-	c.Assert(gotResults, jc.DeepEquals, results)
+	c.Assert(gotResults, tc.DeepEquals, results)
 	if expectErr != "" {
 		c.Assert(gotErr, tc.ErrorMatches, expectErr)
 		return
 	}
 	if err != nil {
-		c.Assert(gotErr, jc.DeepEquals, err)
+		c.Assert(gotErr, tc.DeepEquals, err)
 	} else {
-		c.Assert(gotErr, jc.ErrorIsNil)
+		c.Assert(gotErr, tc.ErrorIsNil)
 	}
 }
 
@@ -474,9 +473,9 @@ func (s *spacesSuite) testMoveSubnets(c *tc.C,
 	s.fCaller.EXPECT().FacadeCall(gomock.Any(), "MoveSubnets", args, res).SetArg(3, expectedResults).Return(err)
 	gotResult, gotErr := s.API.MoveSubnets(context.Background(), space, subnets, false)
 	if len(results) > 0 {
-		c.Assert(gotResult, jc.DeepEquals, results[0])
+		c.Assert(gotResult, tc.DeepEquals, results[0])
 	} else {
-		c.Assert(gotResult, jc.DeepEquals, params.MoveSubnetsResult{})
+		c.Assert(gotResult, tc.DeepEquals, params.MoveSubnetsResult{})
 	}
 
 	if expectErr != "" {
@@ -485,9 +484,9 @@ func (s *spacesSuite) testMoveSubnets(c *tc.C,
 	}
 
 	if err != nil {
-		c.Assert(gotErr, jc.DeepEquals, err)
+		c.Assert(gotErr, tc.DeepEquals, err)
 	} else {
-		c.Assert(gotErr, jc.ErrorIsNil)
+		c.Assert(gotErr, tc.ErrorIsNil)
 	}
 }
 

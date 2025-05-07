@@ -5,7 +5,6 @@ package utils_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/mongo/utils"
 )
@@ -15,25 +14,25 @@ type ValidFieldSuite struct{}
 var _ = tc.Suite(&ValidFieldSuite{})
 
 func (s *ValidFieldSuite) TestOk(c *tc.C) {
-	c.Check(utils.IsValidFieldName("foo"), jc.IsTrue)
+	c.Check(utils.IsValidFieldName("foo"), tc.IsTrue)
 }
 
 func (s *ValidFieldSuite) TestEmpty(c *tc.C) {
-	c.Check(utils.IsValidFieldName(""), jc.IsFalse)
+	c.Check(utils.IsValidFieldName(""), tc.IsFalse)
 }
 
 func (s *ValidFieldSuite) TestDollarPrefix(c *tc.C) {
-	c.Check(utils.IsValidFieldName("$foo"), jc.IsFalse)
+	c.Check(utils.IsValidFieldName("$foo"), tc.IsFalse)
 }
 
 func (s *ValidFieldSuite) TestEmbeddedDollar(c *tc.C) {
-	c.Check(utils.IsValidFieldName("foo$bar"), jc.IsTrue)
+	c.Check(utils.IsValidFieldName("foo$bar"), tc.IsTrue)
 }
 
 func (s *ValidFieldSuite) TestDot(c *tc.C) {
-	c.Check(utils.IsValidFieldName(".foo"), jc.IsFalse)
-	c.Check(utils.IsValidFieldName("foo.bar"), jc.IsFalse)
-	c.Check(utils.IsValidFieldName("bar."), jc.IsFalse)
+	c.Check(utils.IsValidFieldName(".foo"), tc.IsFalse)
+	c.Check(utils.IsValidFieldName("foo.bar"), tc.IsFalse)
+	c.Check(utils.IsValidFieldName("bar."), tc.IsFalse)
 }
 
 func (s *ValidFieldSuite) TestCheckStorableOk(c *tc.C) {
@@ -48,7 +47,7 @@ func (s *ValidFieldSuite) TestCheckStorableOk(c *tc.C) {
 			"some":  "thing",
 			"other": "thing",
 		},
-	}), jc.ErrorIsNil)
+	}), tc.ErrorIsNil)
 }
 
 func (s *ValidFieldSuite) TestCheckStorableBad(c *tc.C) {

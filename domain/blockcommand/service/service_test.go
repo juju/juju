@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/domain/blockcommand"
@@ -32,7 +31,7 @@ func (s *serviceSuite) TestSwitchOnBlock(c *tc.C) {
 	s.state.EXPECT().SetBlock(gomock.Any(), blockcommand.RemoveBlock, "block-message").Return(nil)
 
 	err := s.service(c).SwitchBlockOn(context.Background(), blockcommand.RemoveBlock, "block-message")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestSwitchOnBlockWithTooLargeMessage(c *tc.C) {
@@ -50,7 +49,7 @@ func (s *serviceSuite) TestSwitchOnBlockAlreadyExists(c *tc.C) {
 	s.state.EXPECT().SetBlock(gomock.Any(), blockcommand.RemoveBlock, "block-message").Return(blockcommanderrors.AlreadyExists)
 
 	err := s.service(c).SwitchBlockOn(context.Background(), blockcommand.RemoveBlock, "block-message")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestSwitchOffBlock(c *tc.C) {
@@ -60,7 +59,7 @@ func (s *serviceSuite) TestSwitchOffBlock(c *tc.C) {
 	s.state.EXPECT().RemoveBlock(gomock.Any(), blockcommand.RemoveBlock).Return(nil)
 
 	err := s.service(c).SwitchBlockOff(context.Background(), blockcommand.RemoveBlock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestGetBlocks(c *tc.C) {
@@ -72,9 +71,9 @@ func (s *serviceSuite) TestGetBlocks(c *tc.C) {
 	}, nil)
 
 	blocks, err := s.service(c).GetBlocks(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(blocks, tc.HasLen, 1)
-	c.Check(blocks, jc.DeepEquals, []blockcommand.Block{
+	c.Check(blocks, tc.DeepEquals, []blockcommand.Block{
 		{Type: blockcommand.RemoveBlock, Message: "block-message"},
 	})
 }
@@ -86,7 +85,7 @@ func (s *serviceSuite) TestGetBlockMessage(c *tc.C) {
 	s.state.EXPECT().GetBlockMessage(gomock.Any(), blockcommand.RemoveBlock).Return("foo", nil)
 
 	message, err := s.service(c).GetBlockSwitchedOn(context.Background(), blockcommand.RemoveBlock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(message, tc.Equals, "foo")
 }
 
@@ -97,7 +96,7 @@ func (s *serviceSuite) TestRemoveAllBlocks(c *tc.C) {
 	s.state.EXPECT().RemoveAllBlocks(gomock.Any()).Return(nil)
 
 	err := s.service(c).RemoveAllBlocks(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) service(c *tc.C) *Service {

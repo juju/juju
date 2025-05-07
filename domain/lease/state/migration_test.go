@@ -8,7 +8,6 @@ import (
 	"database/sql"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	modeltesting "github.com/juju/juju/core/model/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -25,7 +24,7 @@ func (s *migrationSuite) TestGetApplicationLeadershipForModelNoLeaders(c *tc.C) 
 
 	state := NewMigrationState(s.TxnRunnerFactory())
 	leases, err := state.GetApplicationLeadershipForModel(context.Background(), modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(leases, tc.HasLen, 0)
 }
 
@@ -43,7 +42,7 @@ VALUES ('1', 1, ?, 'foo', 'unit', date('now'), date('now', '+1 day'))
 	})
 
 	leases, err := state.GetApplicationLeadershipForModel(context.Background(), modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(leases, tc.DeepEquals, map[string]string{
 		"foo": "unit",
 	})
@@ -70,7 +69,7 @@ VALUES ('2', 0, ?, 'controller', 'abc', date('now'), date('now', '+1 day'))
 	})
 
 	leases, err := state.GetApplicationLeadershipForModel(context.Background(), modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(leases, tc.DeepEquals, map[string]string{
 		"foo": "unit",
 	})
@@ -90,6 +89,6 @@ VALUES ('1', 1, ?, 'foo', 'unit', date('now', '-2 day'), date('now', '-1 day'))
 	})
 
 	leases, err := state.GetApplicationLeadershipForModel(context.Background(), modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(leases, tc.HasLen, 0)
 }

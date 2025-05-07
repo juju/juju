@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/facade"
@@ -35,7 +34,7 @@ func (s *GenSuite) TestResult(c *tc.C) {
 		s.expectGetType,
 	)
 	result, err := Generate(s.pkgRegistry, s.apiServer)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	objtype := rpcreflect.ObjTypeOf(reflect.TypeOf(ResourcesFacade{}))
 	c.Check(result, tc.DeepEquals, []FacadeSchema{

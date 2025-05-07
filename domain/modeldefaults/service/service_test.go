@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/schema"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/cloud"
@@ -53,7 +52,7 @@ func (s *serviceSuite) TestModelDefaults(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cloudUUID, err := cloud.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetModelCloudUUID(gomock.Any(), s.modelUUID).Return(cloudUUID, nil)
 
@@ -112,7 +111,7 @@ func (s *serviceSuite) TestModelDefaults(c *tc.C) {
 
 	svc := NewService(s.modelConfigProviderFunc(c), s.state)
 	defaults, err := svc.ModelDefaults(context.Background(), s.modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(defaults["provider-default"].Default, tc.Equals, "val")
 
@@ -140,7 +139,7 @@ func (s *serviceSuite) TestModelDefaultsModelNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cloudUUID, err := cloud.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetModelCloudUUID(gomock.Any(), s.modelUUID).Return(cloudUUID, nil)
 
@@ -150,7 +149,7 @@ func (s *serviceSuite) TestModelDefaultsModelNotFound(c *tc.C) {
 
 	svc := NewService(s.modelConfigProviderFunc(c), s.state)
 	_, err = svc.ModelDefaults(context.Background(), s.modelUUID)
-	c.Assert(err, jc.ErrorIs, clouderrors.NotFound)
+	c.Assert(err, tc.ErrorIs, clouderrors.NotFound)
 }
 
 // TestModelDefaultsProviderNotSupported is asserting that when we asked for the
@@ -161,7 +160,7 @@ func (s *serviceSuite) TestModelDefaultsProviderNotSupported(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cloudUUID, err := cloud.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetModelCloudUUID(gomock.Any(), s.modelUUID).Return(cloudUUID, nil)
 
@@ -203,7 +202,7 @@ func (s *serviceSuite) TestModelDefaultsProviderNotSupported(c *tc.C) {
 
 	svc := NewService(providerGetter, s.state)
 	defaults, err := svc.ModelDefaults(context.Background(), s.modelUUID)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	c.Check(defaults["foo"].Default, tc.Equals, "juju-default")
 
@@ -226,11 +225,11 @@ func (s *serviceSuite) TestModelDefaultsForNonExistentCloud(c *tc.C) {
 	svc := NewService(s.modelConfigProviderFunc(c), s.state)
 
 	defaults, err := svc.ModelDefaults(context.Background(), s.modelUUID)
-	c.Assert(err, jc.ErrorIs, clouderrors.NotFound)
+	c.Assert(err, tc.ErrorIs, clouderrors.NotFound)
 	c.Assert(len(defaults), tc.Equals, 0)
 
 	defaults, err = svc.ModelDefaultsProvider(s.modelUUID)(context.Background())
-	c.Assert(err, jc.ErrorIs, clouderrors.NotFound)
+	c.Assert(err, tc.ErrorIs, clouderrors.NotFound)
 	c.Assert(len(defaults), tc.Equals, 0)
 }
 
@@ -238,7 +237,7 @@ func (s *serviceSuite) TestUpdateCloudDefaults(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cloudUUID, err := cloud.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetCloudUUID(gomock.Any(), "test").Return(cloudUUID, nil)
 
@@ -248,7 +247,7 @@ func (s *serviceSuite) TestUpdateCloudDefaults(c *tc.C) {
 
 	attr := map[string]any{"wallyworld": "peachy2", "lucifer": 668}
 	err = svc.UpdateCloudDefaults(context.Background(), "test", attr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestUpdateCloudDefaultsNotFound is asserting that is we try and update the
@@ -268,7 +267,7 @@ func (s *serviceSuite) TestUpdateCloudDefaultsNotFound(c *tc.C) {
 			"foo": "bar",
 		},
 	)
-	c.Check(err, jc.ErrorIs, clouderrors.NotFound)
+	c.Check(err, tc.ErrorIs, clouderrors.NotFound)
 
 	// Assert that if we still pass a cloud that doesn't exist but would be
 	// considered a noop we still check the cloud exists.
@@ -277,14 +276,14 @@ func (s *serviceSuite) TestUpdateCloudDefaultsNotFound(c *tc.C) {
 		"noexist",
 		nil,
 	)
-	c.Check(err, jc.ErrorIs, clouderrors.NotFound)
+	c.Check(err, tc.ErrorIs, clouderrors.NotFound)
 }
 
 func (s *serviceSuite) TestRemoveCloudDefaults(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cloudUUID, err := cloud.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetCloudUUID(gomock.Any(), "test").Return(cloudUUID, nil)
 	s.state.EXPECT().DeleteCloudDefaults(gomock.Any(), cloudUUID, []string{"wallyworld"})
@@ -292,7 +291,7 @@ func (s *serviceSuite) TestRemoveCloudDefaults(c *tc.C) {
 	svc := NewService(s.modelConfigProviderFunc(c), s.state)
 
 	err = svc.RemoveCloudDefaults(context.Background(), "test", []string{"wallyworld"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestRemoveCloudDefaultsCloudNotFound is asserting that if we attempt to
@@ -307,14 +306,14 @@ func (s *serviceSuite) TestRemoveCloudDefaultsCloudNotFound(c *tc.C) {
 		"test",
 		nil,
 	)
-	c.Check(err, jc.ErrorIs, clouderrors.NotFound)
+	c.Check(err, tc.ErrorIs, clouderrors.NotFound)
 }
 
 func (s *serviceSuite) TestUpdateCloudRegionDefaults(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cloudUUID, err := cloud.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetCloudUUID(gomock.Any(), "test").Return(cloudUUID, nil)
 
@@ -324,7 +323,7 @@ func (s *serviceSuite) TestUpdateCloudRegionDefaults(c *tc.C) {
 
 	attr := map[string]any{"wallyworld": "peachy2", "lucifer": 668}
 	err = svc.UpdateCloudRegionDefaults(context.Background(), "test", "east", attr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestUpdateCloudRegionDefaultsNotFoundCloud is a test to assert that if the
@@ -340,7 +339,7 @@ func (s *serviceSuite) TestUpdateCloudRegionDefaultsNotFoundCloud(c *tc.C) {
 		"east",
 		map[string]any{"foo": "bar"},
 	)
-	c.Check(err, jc.ErrorIs, clouderrors.NotFound)
+	c.Check(err, tc.ErrorIs, clouderrors.NotFound)
 }
 
 // TestUpdateCloudRegionDeaultsNotFoundRegion is a test to assert that if the
@@ -362,21 +361,21 @@ func (s *serviceSuite) TestUpdateCloudRegionDefaultsNotFoundRegion(c *tc.C) {
 		"east",
 		map[string]any{"foo": "bar"},
 	)
-	c.Check(err, jc.ErrorIs, clouderrors.NotFound)
+	c.Check(err, tc.ErrorIs, clouderrors.NotFound)
 }
 
 func (s *serviceSuite) TestRemoveCloudRegionDefaultValues(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cloudUUID, err := cloud.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetCloudUUID(gomock.Any(), "test").Return(cloudUUID, nil)
 	s.state.EXPECT().DeleteCloudRegionDefaults(gomock.Any(), cloudUUID, "east", []string{"wallyworld"})
 
 	svc := NewService(s.modelConfigProviderFunc(c), s.state)
 	err = svc.RemoveCloudRegionDefaults(context.Background(), "test", "east", []string{"wallyworld"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestRemoveCloudRegionDefaultsCloudNotFound is testing that if we attempt to
@@ -393,7 +392,7 @@ func (s *serviceSuite) TestRemoveCloudRegionDefaultsCloudNotFound(c *tc.C) {
 		"east",
 		[]string{"foo"},
 	)
-	c.Check(err, jc.ErrorIs, clouderrors.NotFound)
+	c.Check(err, tc.ErrorIs, clouderrors.NotFound)
 }
 
 // TestRemoveCloudRegionDefaultsCloudRegionNotFound is asserting that we try
@@ -417,7 +416,7 @@ func (s *serviceSuite) TestRemoveCloudRegionDefaultsCloudRegionNotFound(c *tc.C)
 		"east",
 		[]string{"foo"},
 	)
-	c.Check(err, jc.ErrorIs, clouderrors.NotFound)
+	c.Check(err, tc.ErrorIs, clouderrors.NotFound)
 }
 
 // TestModelDefaultsNoProviderDefaults is a regression test to ensure a bug fix.
@@ -456,7 +455,7 @@ func (s *serviceSuite) TestModelDefaultsNoProviderDefaults(c *tc.C) {
 		context.Background(),
 		modelUUID,
 	)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(defaults["test-provider-key"].Region, tc.IsNil)
 	c.Check(defaults["test-provider-key"].Controller, tc.IsNil)
 }

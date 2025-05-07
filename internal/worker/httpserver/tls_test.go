@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
 
@@ -60,7 +59,7 @@ func (s *TLSStateSuite) TestNewTLSConfig(c *tc.C) {
 	cert, err := tlsConfig.GetCertificate(&tls.ClientHelloInfo{
 		ServerName: "anything.invalid",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cert, tc.Equals, s.cert)
 }
 
@@ -100,7 +99,7 @@ func (s *TLSAutocertSuite) TestAutocertExceptions(c *tc.C) {
 	s.testGetCertificate(c, tlsConfig, "127.0.0.1")
 	s.testGetCertificate(c, tlsConfig, "juju-apiserver")
 	s.testGetCertificate(c, tlsConfig, "testing1.invalid")
-	c.Assert(s.autocertQueried, jc.IsFalse)
+	c.Assert(s.autocertQueried, tc.IsFalse)
 }
 
 func (s *TLSAutocertSuite) TestAutocert(c *tc.C) {
@@ -112,8 +111,8 @@ func (s *TLSAutocertSuite) TestAutocert(c *tc.C) {
 		loggertesting.WrapCheckLog(c),
 	)
 	s.testGetCertificate(c, tlsConfig, "public.invalid")
-	c.Assert(s.autocertQueried, jc.IsTrue)
-	c.Assert(tlsConfig.NextProtos, jc.DeepEquals, []string{"h2", "http/1.1", acme.ALPNProto})
+	c.Assert(s.autocertQueried, tc.IsTrue)
+	c.Assert(tlsConfig.NextProtos, tc.DeepEquals, []string{"h2", "http/1.1", acme.ALPNProto})
 }
 
 func (s *TLSAutocertSuite) TestAutocertHostPolicy(c *tc.C) {
@@ -125,7 +124,7 @@ func (s *TLSAutocertSuite) TestAutocertHostPolicy(c *tc.C) {
 		loggertesting.WrapCheckLog(c),
 	)
 	s.testGetCertificate(c, tlsConfig, "always.invalid")
-	c.Assert(s.autocertQueried, jc.IsFalse)
+	c.Assert(s.autocertQueried, tc.IsFalse)
 }
 
 func (s *TLSAutocertSuite) TestAutoCertNotCalledBadDNS(c *tc.C) {
@@ -137,14 +136,14 @@ func (s *TLSAutocertSuite) TestAutoCertNotCalledBadDNS(c *tc.C) {
 		loggertesting.WrapCheckLog(c),
 	)
 	s.testGetCertificate(c, tlsConfig, "invalid")
-	c.Assert(s.autocertQueried, jc.IsFalse)
+	c.Assert(s.autocertQueried, tc.IsFalse)
 }
 
 func (s *TLSAutocertSuite) testGetCertificate(c *tc.C, tlsConfig *tls.Config, serverName string) {
 	cert, err := tlsConfig.GetCertificate(&tls.ClientHelloInfo{
 		ServerName: serverName,
 	})
-	c.Assert(err, jc.ErrorIsNil, tc.Commentf("server name %q", serverName))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("server name %q", serverName))
 	// NOTE(axw) we always expect to get back s.cert, because we don't have
 	// a functioning autocert test server. We do check that we attempt to
 	// query the autocert server, but that's as far as we test here.

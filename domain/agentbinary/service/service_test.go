@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/semversion"
@@ -90,7 +89,7 @@ func (s *serviceSuite) TestListAgentBinaries(c *tc.C) {
 	svc := NewAgentBinaryService(s.mockControllerState, s.mockModelState, nil, nil, nil)
 	result, err := svc.ListAgentBinaries(context.Background())
 	c.Assert(err, tc.IsNil)
-	c.Assert(result, jc.SameContents, expected)
+	c.Assert(result, tc.SameContents, expected)
 }
 
 func (s *serviceSuite) TestGetEnvironAgentBinariesFinder(c *tc.C) {
@@ -103,7 +102,7 @@ func (s *serviceSuite) TestGetEnvironAgentBinariesFinder(c *tc.C) {
 		"development":  true,
 	})
 	modelCfg, err := config.New(config.NoDefaults, modelAttrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	provider.EXPECT().Config().Return(modelCfg)
 
 	called := 0
@@ -113,7 +112,7 @@ func (s *serviceSuite) TestGetEnvironAgentBinariesFinder(c *tc.C) {
 		stream string,
 	) []string {
 		called++
-		c.Assert(*vers, jc.DeepEquals, semversion.MustParse("4.0.1"))
+		c.Assert(*vers, tc.DeepEquals, semversion.MustParse("4.0.1"))
 		c.Assert(forceDevel, tc.Equals, true)
 		c.Assert(stream, tc.Equals, "stream2")
 		return []string{"stream1", "stream2"}
@@ -150,6 +149,6 @@ func (s *serviceSuite) TestGetEnvironAgentBinariesFinder(c *tc.C) {
 		4, 0, semversion.MustParse("4.0.1"), "", coretools.Filter{Arch: "amd64"},
 	)
 	c.Assert(called, tc.Equals, 2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, expected)
 }

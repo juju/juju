@@ -9,7 +9,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/caasunitprovisioner"
@@ -51,7 +50,7 @@ func (s *unitprovisionerSuite) TestWatchApplicationScale(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "WatchApplicationsScale")
-		c.Assert(arg, jc.DeepEquals, params.Entities{
+		c.Assert(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
 				Tag: "application-gitlab",
 			}},
@@ -77,7 +76,7 @@ func (s *unitprovisionerSuite) TestApplicationScale(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "ApplicationsScale")
-		c.Assert(arg, jc.DeepEquals, params.Entities{
+		c.Assert(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
 				Tag: "application-gitlab",
 			}},
@@ -93,7 +92,7 @@ func (s *unitprovisionerSuite) TestApplicationScale(c *tc.C) {
 
 	client := caasunitprovisioner.NewClient(apiCaller)
 	scale, err := client.ApplicationScale(context.Background(), "gitlab")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(scale, tc.Equals, 5)
 }
 
@@ -104,7 +103,7 @@ func (s *unitprovisionerSuite) TestUpdateApplicationService(c *tc.C) {
 		c.Check(objType, tc.Equals, "CAASUnitProvisioner")
 		c.Check(id, tc.Equals, "")
 		c.Assert(request, tc.Equals, "UpdateApplicationsService")
-		c.Assert(a, jc.DeepEquals, params.UpdateApplicationServiceArgs{
+		c.Assert(a, tc.DeepEquals, params.UpdateApplicationServiceArgs{
 			Args: []params.UpdateApplicationServiceArg{
 				{
 					ApplicationTag: "application-app",
@@ -124,8 +123,8 @@ func (s *unitprovisionerSuite) TestUpdateApplicationService(c *tc.C) {
 		ProviderId:     "id",
 		Addresses:      []params.Address{{Value: "10.0.0.1"}},
 	})
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(called, jc.IsTrue)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(called, tc.IsTrue)
 }
 
 func (s *unitprovisionerSuite) TestUpdateApplicationServiceCount(c *tc.C) {
@@ -152,7 +151,7 @@ func (s *unitprovisionerSuite) TestWatchApplicationTrustHash(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "WatchApplicationsTrustHash")
-		c.Assert(arg, jc.DeepEquals, params.Entities{
+		c.Assert(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
 				Tag: "application-gitlab",
 			}},
@@ -178,7 +177,7 @@ func (s *unitprovisionerSuite) TestApplicationTrust(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "ApplicationsTrust")
-		c.Assert(arg, jc.DeepEquals, params.Entities{
+		c.Assert(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
 				Tag: "application-gitlab",
 			}},
@@ -194,6 +193,6 @@ func (s *unitprovisionerSuite) TestApplicationTrust(c *tc.C) {
 
 	client := caasunitprovisioner.NewClient(apiCaller)
 	trust, err := client.ApplicationTrust(context.Background(), "gitlab")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(trust, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(trust, tc.IsTrue)
 }

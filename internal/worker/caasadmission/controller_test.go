@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -52,8 +51,8 @@ func (s *ControllerSuite) TestControllerStartup(c *tc.C) {
 	waitGroup.Add(2)
 	mux := &dummyMux{
 		AddHandlerFunc: func(m, p string, _ http.Handler) error {
-			c.Assert(m, jc.DeepEquals, http.MethodPost)
-			c.Assert(p, jc.DeepEquals, path)
+			c.Assert(m, tc.DeepEquals, http.MethodPost)
+			c.Assert(p, tc.DeepEquals, path)
 			waitGroup.Done()
 			return nil
 		},
@@ -69,7 +68,7 @@ func (s *ControllerSuite) TestControllerStartup(c *tc.C) {
 	}
 
 	ctrl, err := caasadmission.NewController(logger, mux, path, constants.LabelVersion1, creator, rbacMapper)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	waitGroup.Wait()
 	waitGroup.Add(2)
@@ -78,7 +77,7 @@ func (s *ControllerSuite) TestControllerStartup(c *tc.C) {
 	// Cleanup function counter
 	waitGroup.Wait()
 	err = ctrl.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ControllerSuite) TestControllerStartupMuxError(c *tc.C) {
@@ -93,20 +92,20 @@ func (s *ControllerSuite) TestControllerStartupMuxError(c *tc.C) {
 	mux := &dummyMux{
 		AddHandlerFunc: func(m, p string, _ http.Handler) error {
 			waitGroup.Done()
-			c.Assert(m, jc.DeepEquals, http.MethodPost)
-			c.Assert(p, jc.DeepEquals, path)
+			c.Assert(m, tc.DeepEquals, http.MethodPost)
+			c.Assert(p, tc.DeepEquals, path)
 			return errors.NewNotValid(nil, "not valid")
 		},
 	}
 	creator := &dummyAdmissionCreator{}
 
 	ctrl, err := caasadmission.NewController(logger, mux, path, constants.LabelVersion1, creator, rbacMapper)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	waitGroup.Wait()
 	ctrl.Kill()
 	err = ctrl.Wait()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
 func (s *ControllerSuite) TestControllerStartupAdmissionError(c *tc.C) {
@@ -127,10 +126,10 @@ func (s *ControllerSuite) TestControllerStartupAdmissionError(c *tc.C) {
 	}
 
 	ctrl, err := caasadmission.NewController(logger, mux, path, constants.LabelVersion1, creator, rbacMapper)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	waitGroup.Wait()
 	ctrl.Kill()
 	err = ctrl.Wait()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }

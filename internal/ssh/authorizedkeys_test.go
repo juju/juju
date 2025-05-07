@@ -11,7 +11,6 @@ import (
 	"testing/fstest"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 )
 
 type authorizedKeysSuite struct {
@@ -80,7 +79,7 @@ func (*authorizedKeysSuite) TestGetCommonUserPublicKeys(c *tc.C) {
 
 	for i, test := range tests {
 		keys, err := GetCommonUserPublicKeys(context.Background(), test.FS)
-		c.Assert(err, jc.ErrorIsNil, tc.Commentf("unexpected error for test %d %q", i, test.Name))
+		c.Assert(err, tc.ErrorIsNil, tc.Commentf("unexpected error for test %d %q", i, test.Name))
 		slices.Sort(test.Expected)
 		slices.Sort(keys)
 		c.Assert(keys, tc.DeepEquals, test.Expected)
@@ -134,7 +133,7 @@ func (*authorizedKeysSuite) TestGetFileSystemPublicKeys(c *tc.C) {
 
 	for i, test := range tests {
 		keys, err := GetFileSystemPublicKeys(context.Background(), test.FS)
-		c.Assert(err, jc.ErrorIsNil, tc.Commentf("unexpected error for test %d", i))
+		c.Assert(err, tc.ErrorIsNil, tc.Commentf("unexpected error for test %d", i))
 		slices.Sort(test.Expected)
 		slices.Sort(keys)
 		c.Assert(keys, tc.DeepEquals, test.Expected)
@@ -152,16 +151,16 @@ ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe
 `
 	file := strings.NewReader(fileStr)
 	keys, err := SplitAuthorizedKeysReaderByDelimiter('\n', file)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(keys, jc.DeepEquals, []string{
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(keys, tc.DeepEquals, []string{
 		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC jimbo@juju.is",
 		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe barry@juju.is",
 	})
 
 	file = strings.NewReader(fileStr)
 	keys, err = SplitAuthorizedKeysReader(file)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(keys, jc.DeepEquals, []string{
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(keys, tc.DeepEquals, []string{
 		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC jimbo@juju.is",
 		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe barry@juju.is",
 	})
@@ -174,8 +173,8 @@ func (*authorizedKeysSuite) TestSplitAuthorizedKeysConfig(c *tc.C) {
 	configStr := `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC jimbo@juju.is;# This is a comment line for some reason;ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe barry@juju.is;# This is another comment line indented with two tabs`
 	configReader := strings.NewReader(configStr)
 	keys, err := SplitAuthorizedKeysReaderByDelimiter(';', configReader)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(keys, jc.DeepEquals, []string{
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(keys, tc.DeepEquals, []string{
 		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC jimbo@juju.is",
 		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe barry@juju.is",
 	})

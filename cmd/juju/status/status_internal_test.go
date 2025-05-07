@@ -18,7 +18,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
 	goyaml "gopkg.in/yaml.v2"
 
@@ -3071,7 +3070,7 @@ type recordAgentStartInformation struct {
 
 func (ri recordAgentStartInformation) step(c *tc.C, ctx *ctx) {
 	m, ok := ctx.api.result.Machines[ri.machineId]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	m.DisplayName = fmt.Sprintf("controller-%s", ri.machineId)
 	ctx.nextinstanceId++
@@ -3091,7 +3090,7 @@ type addContainer struct {
 
 func (ac addContainer) step(c *tc.C, ctx *ctx) {
 	m, ok := getMachine(ctx, ac.parentId)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	now := time.Now()
 	m.Containers[ac.machineId] = params.MachineStatus{
@@ -3123,7 +3122,7 @@ type startMachine struct {
 
 func (sm startMachine) step(c *tc.C, ctx *ctx) {
 	m, ok := ctx.api.result.Machines[sm.machineId]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	if strings.Contains(sm.machineId, "/") {
 		m.InstanceId = instance.Id(fmt.Sprintf("controller-%d", ctx.nextinstanceId))
@@ -3141,7 +3140,7 @@ type startMissingMachine struct {
 
 func (sm startMissingMachine) step(c *tc.C, ctx *ctx) {
 	m, ok := ctx.api.result.Machines[sm.machineId]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	m.InstanceId = "i-missing"
 	m.Hardware = "arch=amd64 cores=1 mem=1024M root-disk=8192M"
@@ -3161,7 +3160,7 @@ type startAliveMachine struct {
 
 func (sam startAliveMachine) step(c *tc.C, ctx *ctx) {
 	m, ok := getMachine(ctx, sam.machineId)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	if strings.Contains(sam.machineId, "/") {
 		m.InstanceId = instance.Id(fmt.Sprintf("controller-%d", ctx.nextinstanceId))
@@ -3192,7 +3191,7 @@ type startMachineWithHardware struct {
 
 func (sm startMachineWithHardware) step(c *tc.C, ctx *ctx) {
 	m, ok := ctx.api.result.Machines[sm.machineId]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	m.InstanceId = instance.Id(fmt.Sprintf("controller-%s", m.Id))
 	m.Hardware = sm.hc.String()
@@ -3207,7 +3206,7 @@ type setMachineInstanceStatus struct {
 
 func (sm setMachineInstanceStatus) step(c *tc.C, ctx *ctx) {
 	m, ok := ctx.api.result.Machines[sm.machineId]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	now := time.Now()
 	m.InstanceStatus = params.DetailedStatus{
@@ -3226,7 +3225,7 @@ type setMachineModificationStatus struct {
 
 func (sm setMachineModificationStatus) step(c *tc.C, ctx *ctx) {
 	m, ok := ctx.api.result.Machines[sm.machineId]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	now := time.Now()
 	m.ModificationStatus = params.DetailedStatus{
@@ -3316,7 +3315,7 @@ type setAddresses struct {
 
 func (sa setAddresses) step(c *tc.C, ctx *ctx) {
 	m, ok := getMachine(ctx, sa.machineId)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	m.DNSName = sa.addresses[0].Value
 	for _, a := range sa.addresses {
@@ -3350,7 +3349,7 @@ type setTools struct {
 
 func (st setTools) step(c *tc.C, ctx *ctx) {
 	m, ok := ctx.api.result.Machines[st.machineId]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	m.AgentStatus.Version = st.version.Number.String()
 	ctx.api.result.Machines[st.machineId] = m
@@ -3363,7 +3362,7 @@ type setUnitTools struct {
 
 func (st setUnitTools) step(c *tc.C, ctx *ctx) {
 	u, ok := unitByName(ctx, st.unitName)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	u.AgentStatus.Version = st.version.String()
 	updateUnit(ctx, st.unitName, &u)
@@ -3435,7 +3434,7 @@ type addApplication struct {
 
 func (as addApplication) step(c *tc.C, ctx *ctx) {
 	info, ok := ctx.charms[as.charm]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	curl := charm.MustParseURL(info.url)
 	var channel string
@@ -3508,14 +3507,14 @@ type addRemoteApplication struct {
 
 func (as addRemoteApplication) step(c *tc.C, ctx *ctx) {
 	info, ok := ctx.charms[as.charm]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	var endpoints []params.RemoteEndpoint
 	for _, ep := range as.endpoints {
 		r, ok := info.charm.Meta().Requires[ep]
 		if !ok {
 			r, ok = info.charm.Meta().Provides[ep]
 		}
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		endpoints = append(endpoints, params.RemoteEndpoint{
 			Name:      r.Name,
 			Role:      r.Role,
@@ -3555,11 +3554,11 @@ type addApplicationOffer struct {
 
 func (ao addApplicationOffer) step(c *tc.C, ctx *ctx) {
 	app, ok := ctx.api.result.Applications[ao.applicationName]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	curl := charm.MustParseURL(app.Charm)
 	info, ok := ctx.charms[curl.Name]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	endpoints := make(map[string]params.RemoteEndpoint)
 	for _, ep := range ao.endpoints {
@@ -3567,7 +3566,7 @@ func (ao addApplicationOffer) step(c *tc.C, ctx *ctx) {
 		if !ok {
 			r, ok = info.charm.Meta().Provides[ep]
 		}
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		endpoints[r.Name] = params.RemoteEndpoint{
 			Name:      r.Name,
 			Role:      r.Role,
@@ -3594,7 +3593,7 @@ type addOfferConnection struct {
 
 func (oc addOfferConnection) step(c *tc.C, ctx *ctx) {
 	offer, ok := ctx.api.result.Offers[oc.name]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	offer.TotalConnectedCount++
 	if oc.relationKey != "" {
 		offer.ActiveConnectedCount++
@@ -3609,7 +3608,7 @@ type setApplicationExposed struct {
 
 func (sse setApplicationExposed) step(c *tc.C, ctx *ctx) {
 	app, ok := ctx.api.result.Applications[sse.name]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	app.Exposed = sse.exposed
 	ctx.api.result.Applications[sse.name] = app
@@ -3622,7 +3621,7 @@ type setApplicationCharm struct {
 
 func (ssc setApplicationCharm) step(c *tc.C, ctx *ctx) {
 	app, ok := ctx.api.result.Applications[ssc.name]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	curl := charm.MustParseURL(ssc.charm)
 	var channel string
@@ -3665,10 +3664,10 @@ type addUnit struct {
 
 func (au addUnit) step(c *tc.C, ctx *ctx) {
 	app, ok := ctx.api.result.Applications[au.applicationName]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	m, ok := ctx.api.result.Machines[au.machineId]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	unitId := 0
 	for u := range app.Units {
@@ -3707,10 +3706,10 @@ type addAliveUnit struct {
 
 func (aau addAliveUnit) step(c *tc.C, ctx *ctx) {
 	app, ok := ctx.api.result.Applications[aau.applicationName]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	m, ok := getMachine(ctx, aau.machineId)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	unitId := 0
 	for u := range app.Units {
@@ -3749,7 +3748,7 @@ type setUnitAsLeader struct {
 
 func (s setUnitAsLeader) step(c *tc.C, ctx *ctx) {
 	u, ok := unitByName(ctx, s.unitName)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	u.Leader = true
 	updateUnit(ctx, s.unitName, &u)
@@ -3799,7 +3798,7 @@ type setUnitStatus struct {
 
 func (sus setUnitStatus) step(c *tc.C, ctx *ctx) {
 	u, ok := unitByName(ctx, sus.unitName)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	now := time.Now()
 	u.WorkloadStatus = params.DetailedStatus{
@@ -3838,7 +3837,7 @@ type setAgentStatus struct {
 
 func (sus setAgentStatus) step(c *tc.C, ctx *ctx) {
 	u, ok := unitByName(ctx, sus.unitName)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	now := time.Now()
 	if sus.status == status.Error {
@@ -3886,7 +3885,7 @@ type setUnitCharmURL struct {
 func (uc setUnitCharmURL) step(c *tc.C, ctx *ctx) {
 	appName, _ := names.UnitApplication(uc.unitName)
 	u, ok := ctx.api.result.Applications[appName].Units[uc.unitName]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	u.Charm = uc.charm
 
@@ -3910,7 +3909,7 @@ type setUnitWorkloadVersion struct {
 func (wv setUnitWorkloadVersion) step(c *tc.C, ctx *ctx) {
 	appName, _ := names.UnitApplication(wv.unitName)
 	app, ok := ctx.api.result.Applications[appName]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	app.WorkloadVersion = wv.version
 	ctx.api.result.Applications[appName] = app
@@ -3925,7 +3924,7 @@ type openUnitPort struct {
 func (oup openUnitPort) step(c *tc.C, ctx *ctx) {
 	appName, _ := names.UnitApplication(oup.unitName)
 	u, ok := ctx.api.result.Applications[appName].Units[oup.unitName]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	u.OpenedPorts = append(u.OpenedPorts, fmt.Sprintf("%d/%s", oup.number, oup.protocol))
 	sort.Slice(u.OpenedPorts, func(i, j int) bool {
@@ -3949,7 +3948,7 @@ type ensureDyingApplication struct {
 
 func (e ensureDyingApplication) step(c *tc.C, ctx *ctx) {
 	app, ok := ctx.api.result.Applications[e.applicationName]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	app.Life = "dying"
 	ctx.api.result.Applications[e.applicationName] = app
@@ -3961,7 +3960,7 @@ type ensureDeadMachine struct {
 
 func (e ensureDeadMachine) step(c *tc.C, ctx *ctx) {
 	m, ok := ctx.api.result.Machines[e.machineId]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	m.AgentStatus.Life = "dead"
 	ctx.api.result.Machines[e.machineId] = m
@@ -3975,7 +3974,7 @@ type setMachineStatus struct {
 
 func (sms setMachineStatus) step(c *tc.C, ctx *ctx) {
 	m, ok := getMachine(ctx, sms.machineId)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	now := time.Now()
 	m.AgentStatus = params.DetailedStatus{
@@ -4026,10 +4025,10 @@ func appEndpoints(c *tc.C, ctx *ctx, appName string) ([]charm.Relation, bool) {
 		return result, false
 	}
 	app, ok := ctx.api.result.Applications[appName]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	curl := charm.MustParseURL(app.Charm)
 	ch, ok := ctx.charms[curl.Name]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	var result []charm.Relation
 	for _, ep := range ch.charm.Meta().Requires {
@@ -4201,7 +4200,7 @@ func (as addSubordinate) step(c *tc.C, ctx *ctx) {
 				continue
 			}
 			m, ok := ctx.api.result.Machines[u.Machine]
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 			unitId := ctx.subordinateUnits[as.subApplication]
 			subName := fmt.Sprintf("%s/%d", as.subApplication, unitId)
 			u.Subordinates[subName] = params.UnitStatus{
@@ -4222,7 +4221,7 @@ type setCharmProfiles struct {
 
 func (s setCharmProfiles) step(c *tc.C, ctx *ctx) {
 	m, ok := ctx.api.result.Machines[s.machineId]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	for _, p := range s.profiles {
 		info := ctx.charms["lxd-profile"]
@@ -4261,7 +4260,7 @@ func (e expect) step(c *tc.C, ctx *ctx) {
 
 		// Prepare the output in the same format.
 		buf, err := format.marshal(e.output)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		// we have to force the timestamp into the correct format as the model
 		// is in string.
@@ -4269,16 +4268,16 @@ func (e expect) step(c *tc.C, ctx *ctx) {
 
 		expected := make(M)
 		err = format.unmarshal([]byte(ts), &expected)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		// Check the output is as expected.
 		actual := make(M)
 		out := substituteFakeTime(c, "since", stdout, ctx.expectIsoTime)
 		out = substituteFakeTimestamp(c, out, ctx.expectIsoTime)
 		err = format.unmarshal([]byte(out), &actual)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		pretty.Ldiff(c, actual, expected)
-		c.Assert(actual, jc.DeepEquals, expected)
+		c.Assert(actual, tc.DeepEquals, expected)
 	}
 }
 
@@ -4299,7 +4298,7 @@ func substituteFakeTime(c *tc.C, key string, in string, expectIsoTime bool) stri
 				timeFormat = "2006-01-02 15:04:05Z"
 			}
 			_, err := time.Parse(timeFormat, matches[i])
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
 	}
 
@@ -4332,7 +4331,7 @@ func substituteFakeTimestamp(c *tc.C, in string, expectIsoTime bool) string {
 				value = fmt.Sprintf("%sZ", value[:8])
 			}
 			_, err := time.Parse(timeFormat, value)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
 	}
 
@@ -4653,8 +4652,8 @@ func (s *StatusSuite) TestStatusWithFormatYaml(c *tc.C) {
 	code, stdout, stderr := runStatus(c, ctx, "--no-color", "--format", "yaml")
 	c.Check(code, tc.Equals, 0)
 	c.Check(stderr, tc.Equals, "")
-	c.Assert(stdout, jc.Contains, "display-name: snowflake")
-	c.Assert(stdout, jc.Contains, "stable")
+	c.Assert(stdout, tc.Contains, "display-name: snowflake")
+	c.Assert(stdout, tc.Contains, "stable")
 }
 
 func (s *StatusSuite) TestStatusWithFormatJson(c *tc.C) {
@@ -4664,7 +4663,7 @@ func (s *StatusSuite) TestStatusWithFormatJson(c *tc.C) {
 	code, stdout, stderr := runStatus(c, ctx, "--no-color", "--format", "json")
 	c.Check(code, tc.Equals, 0)
 	c.Check(stderr, tc.Equals, "")
-	c.Assert(stdout, jc.Contains, `"display-name":"snowflake"`)
+	c.Assert(stdout, tc.Contains, `"display-name":"snowflake"`)
 }
 
 func (s *StatusSuite) TestFormatTabularHookActionName(c *tc.C) {
@@ -4698,7 +4697,7 @@ func (s *StatusSuite) TestFormatTabularHookActionName(c *tc.C) {
 	}
 	out := &bytes.Buffer{}
 	err := FormatTabular(out, false, status)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out.String(), tc.Equals, `
 Model  Controller  Cloud/Region  Version
                                  
@@ -4747,7 +4746,7 @@ func (s *StatusSuite) TestFormatTabularCAASModel(c *tc.C) {
 	}
 	out := &bytes.Buffer{}
 	err := FormatTabular(out, false, status)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out.String(), tc.Equals, `
 Model  Controller  Cloud/Region  Version
                                  
@@ -4818,7 +4817,7 @@ func (s *StatusSuite) TestFormatTabularCAASModelTruncatedVersion(c *tc.C) {
 	}
 	out := &bytes.Buffer{}
 	err := FormatTabular(out, false, status)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out.String(), tc.Equals, `
 Model  Controller  Cloud/Region  Version
                                  
@@ -4864,7 +4863,7 @@ func (s *StatusSuite) TestFormatTabularStatusMessage(c *tc.C) {
 	}
 	out := &bytes.Buffer{}
 	err := FormatTabular(out, false, fStatus)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out.String(), tc.Equals, `
 Model  Controller  Cloud/Region  Version
                                  
@@ -4903,7 +4902,7 @@ func (s *StatusSuite) TestFormatTabularManyPorts(c *tc.C) {
 	}
 	out := &bytes.Buffer{}
 	err := FormatTabular(out, false, fStatus)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out.String(), tc.Equals, `
 Model  Controller  Cloud/Region  Version
                                  
@@ -4942,7 +4941,7 @@ func (s *StatusSuite) TestFormatTabularManyPortsGrouped(c *tc.C) {
 	}
 	out := &bytes.Buffer{}
 	err := FormatTabular(out, false, fStatus)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out.String(), tc.Equals, `
 Model  Controller  Cloud/Region  Version
                                  
@@ -4981,7 +4980,7 @@ func (s *StatusSuite) TestFormatTabularManyPortsCommonGrouped(c *tc.C) {
 	}
 	out := &bytes.Buffer{}
 	err := FormatTabular(out, false, fStatus)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out.String(), tc.Equals, `
 Model  Controller  Cloud/Region  Version
                                  
@@ -5076,7 +5075,7 @@ func (s *StatusSuite) TestFormatTabularTruncateMessage(c *tc.C) {
 
 	out := &bytes.Buffer{}
 	err := FormatTabular(out, false, status)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out.String(), tc.Equals, `
 Model  Controller  Cloud/Region  Version  Notes
 m      c           localhost     3.0.0    Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...
@@ -5193,7 +5192,7 @@ func (s *StatusSuite) TestFilterArgs(c *tc.C) {
 	ctx.api.expectIncludeStorage = true
 	ctx.api.result = nil
 	runStatus(c, ctx, "--no-color", "--format", "oneline", "active")
-	c.Assert(ctx.api.patterns, jc.DeepEquals, []string{"active"})
+	c.Assert(ctx.api.patterns, tc.DeepEquals, []string{"active"})
 }
 
 // TestSummaryStatusWithUnresolvableDns is result of bug# 1410320.
@@ -5239,7 +5238,7 @@ func (s *StatusSuite) TestStatusCommandInit(c *tc.C) {
 		if t.err != "" {
 			c.Check(err, tc.ErrorMatches, t.err)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		}
 		c.Check(com.isoTime, tc.DeepEquals, t.isoTime)
 	}
@@ -5346,9 +5345,9 @@ func (s *StatusSuite) TestFormatProvisioningError(c *tc.C) {
 		ISOTime: isoTime,
 	})
 	formatted, err := formatter.Format()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(formatted, jc.DeepEquals, formattedStatus{
+	c.Check(formatted, tc.DeepEquals, formattedStatus{
 		Model: modelStatus{
 			Cloud: "dummy",
 		},
@@ -5397,9 +5396,9 @@ func (s *StatusSuite) TestMissingControllerTimestampInFullStatus(c *tc.C) {
 		ISOTime: isoTime,
 	})
 	formatted, err := formatter.Format()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(formatted, jc.DeepEquals, formattedStatus{
+	c.Check(formatted, tc.DeepEquals, formattedStatus{
 		Model: modelStatus{
 			Cloud: "dummy",
 		},
@@ -5448,9 +5447,9 @@ func (s *StatusSuite) TestControllerTimestampInFullStatus(c *tc.C) {
 		ISOTime: isoTime,
 	})
 	formatted, err := formatter.Format()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(formatted, jc.DeepEquals, formattedStatus{
+	c.Check(formatted, tc.DeepEquals, formattedStatus{
 		Model: modelStatus{
 			Cloud: "dummy",
 		},
@@ -5479,7 +5478,7 @@ func (s *StatusSuite) TestTabularNoRelations(c *tc.C) {
 
 	_, stdout, stderr := runStatus(c, ctx, "--no-color")
 	c.Assert(stderr, tc.HasLen, 0)
-	c.Assert(strings.Contains(stdout, "Integration provider"), jc.IsFalse)
+	c.Assert(strings.Contains(stdout, "Integration provider"), tc.IsFalse)
 }
 
 func (s *StatusSuite) TestTabularDisplayRelations(c *tc.C) {
@@ -5487,7 +5486,7 @@ func (s *StatusSuite) TestTabularDisplayRelations(c *tc.C) {
 
 	_, stdout, stderr := runStatus(c, ctx, "--no-color", "--relations")
 	c.Assert(stderr, tc.HasLen, 0)
-	c.Assert(strings.Contains(stdout, "Integration provider"), jc.IsTrue)
+	c.Assert(strings.Contains(stdout, "Integration provider"), tc.IsTrue)
 }
 
 func (s *StatusSuite) TestNonTabularDisplayRelations(c *tc.C) {
@@ -5497,8 +5496,8 @@ func (s *StatusSuite) TestNonTabularDisplayRelations(c *tc.C) {
 	_, stdout, stderr := runStatus(c, ctx, "--no-color", "--format=yaml", "--relations")
 	c.Assert(stderr, tc.Equals, "provided relations option is always enabled in non tabular formats\n")
 	logger.Debugf(context.TODO(), "stdout -> \n%q", stdout)
-	c.Assert(strings.Contains(stdout, "    relations:"), jc.IsTrue)
-	c.Assert(strings.Contains(stdout, "storage:"), jc.IsTrue)
+	c.Assert(strings.Contains(stdout, "    relations:"), tc.IsTrue)
+	c.Assert(strings.Contains(stdout, "storage:"), tc.IsTrue)
 }
 
 func (s *StatusSuite) TestNonTabularDisplayStorage(c *tc.C) {
@@ -5507,8 +5506,8 @@ func (s *StatusSuite) TestNonTabularDisplayStorage(c *tc.C) {
 
 	_, stdout, stderr := runStatus(c, ctx, "--no-color", "--format=yaml", "--storage")
 	c.Assert(stderr, tc.Equals, "provided storage option is always enabled in non tabular formats\n")
-	c.Assert(strings.Contains(stdout, "    relations:"), jc.IsTrue)
-	c.Assert(strings.Contains(stdout, "storage:"), jc.IsTrue)
+	c.Assert(strings.Contains(stdout, "    relations:"), tc.IsTrue)
+	c.Assert(strings.Contains(stdout, "storage:"), tc.IsTrue)
 }
 
 func (s *StatusSuite) TestNonTabularDisplayRelationsAndStorage(c *tc.C) {
@@ -5517,8 +5516,8 @@ func (s *StatusSuite) TestNonTabularDisplayRelationsAndStorage(c *tc.C) {
 
 	_, stdout, stderr := runStatus(c, ctx, "--no-color", "--format=yaml", "--relations", "--storage")
 	c.Assert(stderr, tc.Equals, "provided relations, storage options are always enabled in non tabular formats\n")
-	c.Assert(strings.Contains(stdout, "    relations:"), jc.IsTrue)
-	c.Assert(strings.Contains(stdout, "storage:"), jc.IsTrue)
+	c.Assert(strings.Contains(stdout, "    relations:"), tc.IsTrue)
+	c.Assert(strings.Contains(stdout, "storage:"), tc.IsTrue)
 }
 
 func (s *StatusSuite) TestNonTabularRelations(c *tc.C) {
@@ -5527,8 +5526,8 @@ func (s *StatusSuite) TestNonTabularRelations(c *tc.C) {
 
 	_, stdout, stderr := runStatus(c, ctx, "--no-color", "--format=yaml")
 	c.Assert(stderr, tc.HasLen, 0)
-	c.Assert(strings.Contains(stdout, "    relations:"), jc.IsTrue)
-	c.Assert(strings.Contains(stdout, "storage:"), jc.IsTrue)
+	c.Assert(strings.Contains(stdout, "    relations:"), tc.IsTrue)
+	c.Assert(strings.Contains(stdout, "storage:"), tc.IsTrue)
 }
 
 func (s *StatusSuite) TestStatusFormatTabularEmptyModel(c *tc.C) {
@@ -5562,9 +5561,9 @@ controller  kontroll    dummy/dummy-region  1.2.3    15:04:05+07:00
 
 func (s *StatusSuite) TestStatusArgs(c *tc.C) {
 	cmd, err := initStatusCommand(s.store)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	statusArgsGNUStyle := []string{"juju", "status", "--relations"}
 	expectedArgsGNUStyle := []string{"juju", "status", "--relations", "--color"}
-	c.Check(cmd.statusCommandAllArgs(statusArgsGNUStyle), jc.SameContents, expectedArgsGNUStyle)
+	c.Check(cmd.statusCommandAllArgs(statusArgsGNUStyle), tc.SameContents, expectedArgsGNUStyle)
 }

@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
@@ -33,7 +32,7 @@ func (s *FactorySuite) AssertPaths(c *tc.C, rnr runner.Runner) {
 
 func (s *FactorySuite) TestNewCommandRunnerNoRelation(c *tc.C) {
 	rnr, err := s.factory.NewCommandRunner(stdcontext.Background(), context.CommandInfo{RelationId: -1})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AssertPaths(c, rnr)
 }
 
@@ -103,7 +102,7 @@ func (s *FactorySuite) TestNewCommandRunnerForceNoRemoteUnit(c *tc.C) {
 	rnr, err := s.factory.NewCommandRunner(stdcontext.Background(), context.CommandInfo{
 		RelationId: 0, ForceRemoteUnit: true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AssertPaths(c, rnr)
 }
 
@@ -125,13 +124,13 @@ func (s *FactorySuite) TestNewCommandRunnerInferRemoteUnit(c *tc.C) {
 
 	s.membership[0] = []string{"foo/2"}
 	rnr, err := s.factory.NewCommandRunner(stdcontext.Background(), context.CommandInfo{RelationId: 0})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AssertPaths(c, rnr)
 }
 
 func (s *FactorySuite) TestNewHookRunner(c *tc.C) {
 	rnr, err := s.factory.NewHookRunner(stdcontext.Background(), hook.Info{Kind: hooks.ConfigChanged})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AssertPaths(c, rnr)
 }
 
@@ -155,7 +154,7 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *tc.C) {
 		Kind:      hooks.StorageAttached,
 		StorageId: "data/0",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AssertPaths(c, rnr)
 	ctx := rnr.Context()
 	c.Assert(ctx, tc.NotNil)
@@ -171,7 +170,7 @@ func (s *FactorySuite) TestNewHookRunnerWithRelation(c *tc.C) {
 		Kind:       hooks.RelationBroken,
 		RelationId: 1,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AssertPaths(c, rnr)
 }
 
@@ -232,12 +231,12 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *tc.C) {
 		)
 		s.setCharm(c, test.charmName)
 		rnr, err := s.factory.NewActionRunner(stdcontext.Background(), action, nil)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		s.AssertPaths(c, rnr)
 		ctx := rnr.Context()
 		data, err := ctx.ActionData()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(data, jc.DeepEquals, &context.ActionData{
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(data, tc.DeepEquals, &context.ActionData{
 			Name:       test.actionName,
 			Tag:        actionTag,
 			Params:     test.payload,
@@ -260,8 +259,8 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *tc.C) {
 				return "", false
 			},
 		))
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(len(vars) > 0, jc.IsTrue, tc.Commentf("expected HookVars but found none"))
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(len(vars) > 0, tc.IsTrue, tc.Commentf("expected HookVars but found none"))
 		combined := strings.Join(vars, "|")
 		c.Assert(combined, tc.Matches, `(^|.*\|)JUJU_ACTION_NAME=`+test.actionName+`(\|.*|$)`)
 		c.Assert(combined, tc.Matches, `(^|.*\|)JUJU_ACTION_UUID=`+actionTag.Id()+`(\|.*|$)`)
@@ -280,7 +279,7 @@ func (s *FactorySuite) TestNewActionRunnerBadName(c *tc.C) {
 	rnr, err := s.factory.NewActionRunner(stdcontext.Background(), action, nil)
 	c.Check(rnr, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "cannot run \"no-such-action\" action: not defined")
-	c.Check(err, jc.Satisfies, charmrunner.IsBadActionError)
+	c.Check(err, tc.Satisfies, charmrunner.IsBadActionError)
 }
 
 func (s *FactorySuite) TestNewActionRunnerBadParams(c *tc.C) {
@@ -290,7 +289,7 @@ func (s *FactorySuite) TestNewActionRunnerBadParams(c *tc.C) {
 	rnr, err := s.factory.NewActionRunner(stdcontext.Background(), action, nil)
 	c.Check(rnr, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "cannot run \"snapshot\" action: .*")
-	c.Check(err, jc.Satisfies, charmrunner.IsBadActionError)
+	c.Check(err, tc.Satisfies, charmrunner.IsBadActionError)
 }
 
 func (s *FactorySuite) TestNewActionRunnerWithCancel(c *tc.C) {
@@ -314,12 +313,12 @@ func (s *FactorySuite) TestNewActionRunnerWithCancel(c *tc.C) {
 	)
 	s.setCharm(c, "dummy")
 	rnr, err := s.factory.NewActionRunner(stdcontext.Background(), action, cancel)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AssertPaths(c, rnr)
 	ctx := rnr.Context()
 	data, err := ctx.ActionData()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, jc.DeepEquals, &context.ActionData{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(data, tc.DeepEquals, &context.ActionData{
 		Name:       actionName,
 		Tag:        actionTag,
 		Params:     payload,
@@ -343,8 +342,8 @@ func (s *FactorySuite) TestNewActionRunnerWithCancel(c *tc.C) {
 			return "", false
 		},
 	))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(vars) > 0, jc.IsTrue, tc.Commentf("expected HookVars but found none"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(vars) > 0, tc.IsTrue, tc.Commentf("expected HookVars but found none"))
 	combined := strings.Join(vars, "|")
 	c.Assert(combined, tc.Matches, `(^|.*\|)JUJU_ACTION_NAME=`+actionName+`(\|.*|$)`)
 	c.Assert(combined, tc.Matches, `(^|.*\|)JUJU_ACTION_UUID=`+actionTag.ID+`(\|.*|$)`)

@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
@@ -49,7 +48,7 @@ func (s *clientSuite) TestClientEnableHA(c *tc.C) {
 	client := highavailability.NewClientFromCaller(mockFacadeCaller, mockClient)
 
 	result, err := client.EnableHA(context.Background(), 3, emptyCons, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(result.Maintained, tc.DeepEquals, []string{"machine-0"})
 	c.Assert(result.Added, tc.DeepEquals, []string{"machine-1", "machine-2"})
@@ -74,8 +73,8 @@ func (s *clientSuite) TestControllerDetails(c *tc.C) {
 	client := highavailability.NewClientFromCaller(mockFacadeCaller, mockClient)
 
 	result, err := client.ControllerDetails(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, map[string]highavailability.ControllerDetails{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, map[string]highavailability.ControllerDetails{
 		"666": {
 			ControllerID: "666",
 			APIEndpoints: []string{"address"},

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 func TestPackage(t *testing.T) {
@@ -27,11 +26,11 @@ func (*ImportTest) TestImports(c *tc.C) {
 	const jujuPkgPrefix = "github.com/juju/juju/"
 
 	found, err := jujutesting.FindImports("github.com/juju/juju/core/user", jujuPkgPrefix)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// This package should only depend on other core packages.
 	// If this test fails with a non-core package, please check the dependencies.
-	c.Assert(found, jc.SameContents, []string{
+	c.Assert(found, tc.SameContents, []string{
 		"core/errors",
 		"internal/errors",
 		"internal/uuid",

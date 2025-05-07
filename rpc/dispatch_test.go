@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc"
@@ -89,12 +88,12 @@ func websocketHandler(f func(*websocket.Conn)) http.Handler {
 
 func (s *dispatchSuite) TestWSWithoutParamsV0(c *tc.C) {
 	err := s.requestV0(c, `{"RequestId":1,"Type": "DispatchDummy","Id": "without","Request":"DoSomething"}`)
-	c.Assert(errors.Is(err, errors.NotSupported), jc.IsTrue)
+	c.Assert(errors.Is(err, errors.NotSupported), tc.IsTrue)
 }
 
 func (s *dispatchSuite) TestWSWithParamsV0(c *tc.C) {
 	err := s.requestV0(c, `{"RequestId":2,"Type": "DispatchDummy","Id": "with","Request":"DoSomething", "Params": {}}`)
-	c.Assert(errors.Is(err, errors.NotSupported), jc.IsTrue)
+	c.Assert(errors.Is(err, errors.NotSupported), tc.IsTrue)
 }
 
 func (s *dispatchSuite) TestWSWithoutParamsV1(c *tc.C) {
@@ -142,10 +141,10 @@ func (s *dispatchSuite) requestV1(c *tc.C, req string) string {
 
 	go func() {
 		_, resp, err := ws.ReadMessage()
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 
 		err = ws.Close()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		result <- string(resp)
 	}()
@@ -160,7 +159,7 @@ func (s *dispatchSuite) requestV1(c *tc.C, req string) string {
 	// Wait for the server to close the connection, before returning.
 	select {
 	case err := <-s.dead:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timeout waiting for response")
 	}
@@ -173,11 +172,11 @@ func (s *dispatchSuite) request(c *tc.C, req string) *websocket.Conn {
 	ws, _, err := websocket.DefaultDialer.Dial(url, http.Header{
 		"Origin": {"http://localhost"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	reqData := []byte(req)
 	err = ws.WriteMessage(websocket.TextMessage, reqData)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return ws
 }

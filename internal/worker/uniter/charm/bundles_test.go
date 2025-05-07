@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 
 	jujucharm "github.com/juju/juju/internal/charm"
@@ -54,7 +53,7 @@ func (f fakeBundleInfo) ArchiveSha256(ctx context.Context) (string, error) {
 func (s *BundlesDirSuite) testCharm(c *tc.C) *charmtesting.CharmDir {
 	base := testcharms.Repo.ClonedDirPath(c.MkDir(), "wordpress")
 	dir, err := charmtesting.ReadCharmDir(base)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return dir
 }
 
@@ -66,9 +65,9 @@ func (s *BundlesDirSuite) TestGet(c *tc.C) {
 
 	var buf bytes.Buffer
 	err := sch.ArchiveTo(&buf)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	hash, _, err := utils.ReadSHA256(&buf)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	dlr := &downloader.Downloader{
 		OpenBlob: func(req downloader.Request) (io.ReadCloser, error) {
@@ -85,13 +84,13 @@ func (s *BundlesDirSuite) TestGet(c *tc.C) {
 
 	checkDownloadsEmpty := func() {
 		files, err := os.ReadDir(filepath.Join(bunsDir, "downloads"))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(files, tc.HasLen, 0)
 	}
 
 	// Check it doesn't get created until it's needed.
 	_, err = os.Stat(bunsDir)
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
+	c.Assert(err, tc.Satisfies, os.IsNotExist)
 
 	// Add a charm to state that we can try to get.
 	apiCharm := &fakeBundleInfo{
@@ -111,19 +110,19 @@ func (s *BundlesDirSuite) TestGet(c *tc.C) {
 
 	// Get a charm whose bundle exists and whose content matches.
 	ch, err := d.Read(context.Background(), apiCharm, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertCharm(c, ch, sch)
 	checkDownloadsEmpty()
 
 	// Get the same charm again, without preparing a response from the server.
 	ch, err = d.Read(context.Background(), apiCharm, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertCharm(c, ch, sch)
 	checkDownloadsEmpty()
 
 	// Check the abort chan is honoured.
 	err = os.RemoveAll(bunsDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	abort := make(chan struct{})
 	close(abort)
 
@@ -150,12 +149,12 @@ func (s *ClearDownloadsSuite) TestWorks(c *tc.C) {
 	baseDir := c.MkDir()
 	bunsDir := filepath.Join(baseDir, "bundles")
 	downloadDir := filepath.Join(bunsDir, "downloads")
-	c.Assert(os.MkdirAll(downloadDir, 0777), jc.ErrorIsNil)
-	c.Assert(os.WriteFile(filepath.Join(downloadDir, "stuff"), []byte("foo"), 0755), jc.ErrorIsNil)
-	c.Assert(os.WriteFile(filepath.Join(downloadDir, "thing"), []byte("bar"), 0755), jc.ErrorIsNil)
+	c.Assert(os.MkdirAll(downloadDir, 0777), tc.ErrorIsNil)
+	c.Assert(os.WriteFile(filepath.Join(downloadDir, "stuff"), []byte("foo"), 0755), tc.ErrorIsNil)
+	c.Assert(os.WriteFile(filepath.Join(downloadDir, "thing"), []byte("bar"), 0755), tc.ErrorIsNil)
 
 	err := charm.ClearDownloads(bunsDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkMissing(c, downloadDir)
 }
 
@@ -163,10 +162,10 @@ func (s *ClearDownloadsSuite) TestEmptyOK(c *tc.C) {
 	baseDir := c.MkDir()
 	bunsDir := filepath.Join(baseDir, "bundles")
 	downloadDir := filepath.Join(bunsDir, "downloads")
-	c.Assert(os.MkdirAll(downloadDir, 0777), jc.ErrorIsNil)
+	c.Assert(os.MkdirAll(downloadDir, 0777), tc.ErrorIsNil)
 
 	err := charm.ClearDownloads(bunsDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkMissing(c, downloadDir)
 }
 
@@ -175,7 +174,7 @@ func (s *ClearDownloadsSuite) TestMissingOK(c *tc.C) {
 	bunsDir := filepath.Join(baseDir, "bundles")
 
 	err := charm.ClearDownloads(bunsDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func checkMissing(c *tc.C, p string) {

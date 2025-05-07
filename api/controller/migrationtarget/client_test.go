@@ -20,7 +20,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api/base"
@@ -60,7 +59,7 @@ func (s *ClientSuite) TestPrechecks(c *tc.C) {
 	modelDescription := description.NewModel(description.ModelArgs{})
 
 	bytes, err := description.Serialize(modelDescription)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = client.Prechecks(context.Background(), coremigration.ModelInfo{
 		UUID:                   "uuid",
@@ -84,7 +83,7 @@ func (s *ClientSuite) TestPrechecks(c *tc.C) {
 
 	arg := stub.Calls()[0].Args[1].(params.MigrationModelInfo)
 
-	mc := jc.NewMultiChecker()
+	mc := tc.NewMultiChecker()
 	mc.AddExpr("_.FacadeVersions", tc.Not(tc.HasLen), 0)
 
 	c.Check(arg, mc, expectedArg)
@@ -155,7 +154,7 @@ func (s *ClientSuite) TestLatestLogTime(c *tc.C) {
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		target, ok := result.(*time.Time)
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		*target = t1
 		stub.AddCall(objType+"."+request, id, arg)
 		return nil
@@ -189,7 +188,7 @@ func (s *ClientSuite) TestCheckMachines(c *tc.C) {
 	var stub jujutesting.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		target, ok := result.(*params.ErrorResults)
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		*target = params.ErrorResults{Results: []params.ErrorResult{
 			{Error: &params.Error{Message: "oops"}},
 			{Error: &params.Error{Message: "oh no"}},
@@ -215,7 +214,7 @@ func (s *ClientSuite) TestUploadCharm(c *tc.C) {
 	}
 	client := migrationtarget.NewClient(caller)
 	outCurl, err := client.UploadCharm(context.Background(), "uuid", curl, charmRef, strings.NewReader(charmBody))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(outCurl, tc.DeepEquals, curl)
 	c.Assert(doer.method, tc.Equals, "PUT")
 	c.Assert(doer.url, tc.Equals, "/migrate/charms/foo-abcdef0")
@@ -233,7 +232,7 @@ func (s *ClientSuite) TestUploadCharmHubCharm(c *tc.C) {
 	}
 	client := migrationtarget.NewClient(caller)
 	outCurl, err := client.UploadCharm(context.Background(), "uuid", curl, charmRef, strings.NewReader(charmBody))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(outCurl, tc.DeepEquals, curl)
 	c.Assert(doer.method, tc.Equals, "PUT")
 	c.Assert(doer.url, tc.Equals, "/migrate/charms/juju-qa-test-abcdef0")
@@ -258,7 +257,7 @@ func (s *ClientSuite) TestUploadTools(c *tc.C) {
 		strings.NewReader(toolsBody),
 		vers,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(toolsList, tc.HasLen, 1)
 	c.Assert(toolsList[0], tc.DeepEquals, someTools)
 	c.Assert(doer.method, tc.Equals, "POST")
@@ -278,7 +277,7 @@ func (s *ClientSuite) TestUploadResource(c *tc.C) {
 	res.Revision = 1
 
 	err := client.UploadResource(context.Background(), "uuid", res, strings.NewReader(resourceBody))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(doer.method, tc.Equals, "POST")
 	expectedURL := fmt.Sprintf("/migrate/resources?application=app&fingerprint=%s&name=blob&origin=upload&revision=1&size=11&timestamp=%d&type=file&user=a-user", res.Fingerprint.Hex(), res.Timestamp.UnixNano())
 	c.Assert(doer.url, tc.Equals, expectedURL)
@@ -296,7 +295,7 @@ func (s *ClientSuite) TestCACert(c *tc.C) {
 	}
 	client := migrationtarget.NewClient(apitesting.APICallerFunc(call))
 	r, err := client.CACert(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(r, tc.Equals, "foo cert")
 }
 
@@ -308,7 +307,7 @@ func (s *ClientSuite) AssertModelCall(c *tc.C, stub *jujutesting.Stub, tag names
 	if expectError {
 		c.Assert(err, tc.ErrorMatches, "boom")
 	} else {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }
 
@@ -347,7 +346,7 @@ func (*fakeHTTPCaller) Context() context.Context {
 
 func newFakeDoer(c *tc.C, respBody interface{}, respHeaders map[string]string) *fakeDoer {
 	body, err := json.Marshal(respBody)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	resp := &http.Response{
 		StatusCode: 200,
 		Body:       io.NopCloser(bytes.NewReader(body)),

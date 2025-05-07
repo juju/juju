@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -119,7 +118,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *tc.C) {
 		SessionHandler:       &stubSessionHandler{},
 	}
 	w, err := NewServerWrapperWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	// Check all workers alive properly.
@@ -130,9 +129,9 @@ func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *tc.C) {
 	workertest.CleanKill(c, w)
 
 	// Check all workers killed.
-	c.Check(workertest.CheckKilled(c, w), jc.ErrorIsNil)
-	c.Check(workertest.CheckKilled(c, serverWorker), jc.ErrorIsNil)
-	c.Check(workertest.CheckKilled(c, controllerConfigWatcher), jc.ErrorIsNil)
+	c.Check(workertest.CheckKilled(c, w), tc.ErrorIsNil)
+	c.Check(workertest.CheckKilled(c, serverWorker), tc.ErrorIsNil)
+	c.Check(workertest.CheckKilled(c, controllerConfigWatcher), tc.ErrorIsNil)
 }
 
 func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *tc.C) {
@@ -198,7 +197,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *tc.C) {
 		SessionHandler:       &stubSessionHandler{},
 	}
 	w, err := NewServerWrapperWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	// Check all workers alive properly.
@@ -221,8 +220,8 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *tc.C) {
 
 	// Check all workers killed.
 	c.Check(workertest.CheckKilled(c, w), tc.ErrorMatches, "changes detected, stopping SSH server worker")
-	c.Check(workertest.CheckKilled(c, serverWorker), jc.ErrorIsNil)
-	c.Check(workertest.CheckKilled(c, controllerConfigWatcher), jc.ErrorIsNil)
+	c.Check(workertest.CheckKilled(c, serverWorker), tc.ErrorIsNil)
+	c.Check(workertest.CheckKilled(c, controllerConfigWatcher), tc.ErrorIsNil)
 }
 
 func (s *workerSuite) TestWrapperWorkerReport(c *tc.C) {
@@ -261,7 +260,7 @@ func (s *workerSuite) TestWrapperWorkerReport(c *tc.C) {
 		SessionHandler:       &stubSessionHandler{},
 	}
 	w, err := NewServerWrapperWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	// Check all workers alive properly.
@@ -271,9 +270,9 @@ func (s *workerSuite) TestWrapperWorkerReport(c *tc.C) {
 
 	// Check the wrapper worker is a reporter.
 	reporter, ok := w.(worker.Reporter)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
-	c.Assert(reporter.Report(), jc.DeepEquals, map[string]interface{}{
+	c.Assert(reporter.Report(), tc.DeepEquals, map[string]interface{}{
 		"workers": map[string]any{
 			"ssh-server": map[string]any{
 				"test": "test",

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -42,7 +41,7 @@ func (s *serviceSuite) TestGetConnectionProxyInfo(c *tc.C) {
 		return s.provider, nil
 	})
 	proxier, err := service.GetConnectionProxyInfo(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(proxier, tc.Equals, s.proxier)
 }
 
@@ -53,7 +52,7 @@ func (s *serviceSuite) TestGetConnectionProxyInfoNotSupported(c *tc.C) {
 		return s.provider, coreerrors.NotSupported
 	})
 	_, err := service.GetConnectionProxyInfo(context.Background())
-	c.Assert(err, jc.ErrorIs, proxyerrors.ProxyInfoNotSupported)
+	c.Assert(err, tc.ErrorIs, proxyerrors.ProxyInfoNotSupported)
 }
 
 func (s *serviceSuite) TestGetConnectionProxyInfoNotFound(c *tc.C) {
@@ -65,7 +64,7 @@ func (s *serviceSuite) TestGetConnectionProxyInfoNotFound(c *tc.C) {
 		return s.provider, nil
 	})
 	_, err := service.GetConnectionProxyInfo(context.Background())
-	c.Assert(err, jc.ErrorIs, proxyerrors.ProxyInfoNotFound)
+	c.Assert(err, tc.ErrorIs, proxyerrors.ProxyInfoNotFound)
 }
 
 func (s *serviceSuite) TestGetProxyToApplication(c *tc.C) {
@@ -77,7 +76,7 @@ func (s *serviceSuite) TestGetProxyToApplication(c *tc.C) {
 		return s.provider, nil
 	})
 	proxier, err := service.GetProxyToApplication(context.Background(), "foo", "8080")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(proxier, tc.Equals, s.proxier)
 }
 
@@ -88,5 +87,5 @@ func (s *serviceSuite) TestGetProxyToApplicationNotSupported(c *tc.C) {
 		return s.provider, coreerrors.NotSupported
 	})
 	_, err := service.GetProxyToApplication(context.Background(), "foo", "8080")
-	c.Assert(err, jc.ErrorIs, proxyerrors.ProxyNotSupported)
+	c.Assert(err, tc.ErrorIs, proxyerrors.ProxyNotSupported)
 }

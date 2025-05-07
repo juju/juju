@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -56,21 +55,21 @@ func (m *ModelOperatorSuite) TestProvisioningInfo(c *tc.C) {
 	}))
 
 	info, err := m.api.ModelOperatorProvisioningInfo(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	controllerConf, err := m.state.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	imagePath, err := podcfg.GetJujuOCIImagePath(controllerConf, info.Version)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(imagePath, tc.Equals, info.ImageDetails.RegistryPath)
 
 	c.Assert(info.ImageDetails.Auth, tc.Equals, `xxxxx==`)
 	c.Assert(info.ImageDetails.Repository, tc.Equals, `test-account`)
 
 	expectedVersion, err := semversion.Parse("4.0.0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.Version, jc.DeepEquals, expectedVersion)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info.Version, tc.DeepEquals, expectedVersion)
 }
 
 func (m *ModelOperatorSuite) TestWatchProvisioningInfo(c *tc.C) {
@@ -95,7 +94,7 @@ func (m *ModelOperatorSuite) TestWatchProvisioningInfo(c *tc.C) {
 	modelConfigChanged <- []string{}
 
 	results, err := m.api.WatchModelOperatorProvisioningInfo(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Error, tc.IsNil)
 	res := m.resources.Get("1")
 	c.Assert(res, tc.FitsTypeOf, (*eventsource.MultiWatcher[struct{}])(nil))
@@ -120,7 +119,7 @@ func (s *ModelOperatorSuite) TestSetUnitPassword(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{
@@ -149,7 +148,7 @@ func (s *ModelOperatorSuite) TestSetUnitPasswordUnitNotFound(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{
@@ -185,7 +184,7 @@ func (m *ModelOperatorSuite) setupMocks(c *tc.C) *gomock.Controller {
 		m.passwordService,
 		m.controllerConfigService, m.modelConfigService,
 		loggertesting.WrapCheckLog(c), model.UUID(internaltesting.ModelTag.Id()))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	m.api = api
 

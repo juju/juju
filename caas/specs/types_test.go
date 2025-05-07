@@ -5,7 +5,6 @@ package specs_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/caas/specs"
 	"github.com/juju/juju/internal/testing"
@@ -32,21 +31,21 @@ func (s *typesSuite) TestIntValue(c *tc.C) {
 
 func (s *typesSuite) TestMarshalJSON(c *tc.C) {
 	o, err := strVal.MarshalJSON()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(o, tc.DeepEquals, []byte(`"10%"`))
 
 	o, err = intVal.MarshalJSON()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(o, tc.DeepEquals, []byte(`10`))
 }
 
 func (s *typesSuite) TestUnmarshalJSON(c *tc.C) {
 	var strVal1, intVal1 specs.IntOrString
 	err := strVal1.UnmarshalJSON([]byte(`"10%"`))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(strVal1, tc.DeepEquals, strVal)
 
 	err = intVal1.UnmarshalJSON([]byte(`10`))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(intVal1, tc.DeepEquals, intVal)
 }

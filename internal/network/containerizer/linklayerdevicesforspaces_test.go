@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/network"
@@ -38,11 +37,11 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpaces(c *tc.C) {
 	s.expectMachineAddressesDevices()
 
 	res, err := s.policy().linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: "1"}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.HasLen, 1)
 
 	devices, ok := res["1"]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	c.Check(devices, tc.HasLen, 1)
 	c.Check(devices[0].Name(), tc.Equals, "br-eth0")
 	c.Check(devices[0].Type(), tc.Equals, network.BridgeDevice)
@@ -56,7 +55,7 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesNoSuchSpace(c 
 	s.expectMachineAddressesDevices()
 
 	res, err := s.policy().linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: "2"}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.HasLen, 0)
 }
 
@@ -68,11 +67,11 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesNoBridge(c *tc
 	s.expectMachineAddressesDevices()
 
 	res, err := s.policy().linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: "1"}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.HasLen, 1)
 
 	devices, ok := res["1"]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	c.Check(devices, tc.HasLen, 1)
 	c.Check(devices[0].Name(), tc.Equals, "eth0")
 	c.Check(devices[0].Type(), tc.Equals, network.EthernetDevice)
@@ -89,15 +88,15 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesMultipleSpaces
 	s.expectMachineAddressesDevices()
 
 	res, err := s.policy().linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: "1"}, {ID: "2"}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.HasLen, 2)
 
 	somespaceDevices, ok := res["1"]
-	c.Check(ok, jc.IsTrue)
+	c.Check(ok, tc.IsTrue)
 	c.Check(somespaceDevices, tc.HasLen, 1)
 	c.Check(somespaceDevices[0].Name(), tc.Equals, "br-eth0")
 	dmzDevices, ok := res["2"]
-	c.Check(ok, jc.IsTrue)
+	c.Check(ok, tc.IsTrue)
 	c.Check(dmzDevices, tc.HasLen, 1)
 	c.Check(dmzDevices[0].Name(), tc.Equals, "eth1")
 }
@@ -116,11 +115,11 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesWithExtraAddre
 	s.expectMachineAddressesDevices()
 
 	res, err := s.policy().linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: "1"}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.HasLen, 1)
 
 	defaultDevices, ok := res["1"]
-	c.Check(ok, jc.IsTrue)
+	c.Check(ok, tc.IsTrue)
 	c.Check(defaultDevices, tc.HasLen, 1)
 	c.Check(defaultDevices[0].Name(), tc.Equals, "br-eth0")
 }
@@ -134,11 +133,11 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesInDefaultSpace
 	s.expectMachineAddressesDevices()
 
 	res, err := s.policy().linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: network.AlphaSpaceId}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.HasLen, 1)
 
 	devices, ok := res[network.AlphaSpaceId]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	c.Assert(devices, tc.HasLen, 2)
 	c.Check(devices[0].Name(), tc.Equals, "ens4")
 	c.Check(devices[0].Type(), tc.Equals, network.EthernetDevice)
@@ -157,17 +156,17 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesWithUnknown(c 
 
 	spaces := network.SpaceInfos{{ID: network.AlphaSpaceId}, {ID: "1"}}
 	res, err := s.policy().linkLayerDevicesForSpaces(s.machine, spaces)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.HasLen, 2)
 
 	devices, ok := res[network.AlphaSpaceId]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	c.Assert(devices, tc.HasLen, 1)
 	c.Check(devices[0].Name(), tc.Equals, "ens5")
 	c.Check(devices[0].Type(), tc.Equals, network.EthernetDevice)
 
 	devices, ok = res["1"]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	c.Assert(devices, tc.HasLen, 1)
 	c.Check(devices[0].Name(), tc.Equals, "br-ens4")
 	c.Check(devices[0].Type(), tc.Equals, network.BridgeDevice)
@@ -185,11 +184,11 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesWithNoAddress(
 	s.expectMachineAddressesDevices()
 
 	res, err := s.policy().linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: network.AlphaSpaceId}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.HasLen, 1)
 
 	devices, ok := res[network.AlphaSpaceId]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	c.Assert(devices, tc.HasLen, 1)
 	names := make([]string, len(devices))
 	for i, dev := range devices {
@@ -214,10 +213,10 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesUnknownIgnores
 	s.expectMachineAddressesDevices()
 
 	res, err := s.policy().linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: network.AlphaSpaceId}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.HasLen, 1)
 	devices, ok := res[network.AlphaSpaceId]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	names := make([]string, len(devices))
 	for i, dev := range devices {
 		names[i] = dev.Name()
@@ -234,10 +233,10 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesSortOrder(c *t
 	s.expectMachineAddressesDevices()
 
 	res, err := s.policy().linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: network.AlphaSpaceId}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.HasLen, 1)
 	defaultDevices, ok := res[network.AlphaSpaceId]
-	c.Check(ok, jc.IsTrue)
+	c.Check(ok, tc.IsTrue)
 	names := make([]string, 0, len(defaultDevices))
 	for _, dev := range defaultDevices {
 		names = append(names, dev.Name())

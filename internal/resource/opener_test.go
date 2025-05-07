@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -93,10 +92,10 @@ func (s *OpenerSuite) TestOpenResource(c *tc.C) {
 		c,
 		0,
 	).OpenResource(context.Background(), "wal-e")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(opened.Size, tc.Equals, res.Size)
 	c.Check(opened.Fingerprint.String(), tc.Equals, res.Fingerprint.String())
-	c.Assert(opened.Close(), jc.ErrorIsNil)
+	c.Assert(opened.Close(), tc.ErrorIsNil)
 }
 
 func (s *OpenerSuite) TestOpenResourceThrottle(c *tc.C) {
@@ -146,14 +145,14 @@ func (s *OpenerSuite) TestOpenResourceThrottle(c *tc.C) {
 				c,
 				maxConcurrentRequests,
 			).OpenResource(context.Background(), "wal-e")
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			c.Check(opened.Size, tc.Equals, res.Size)
 			c.Check(
 				opened.Fingerprint.String(),
 				tc.Equals,
 				res.Fingerprint.String(),
 			)
-			c.Assert(opened.Close(), jc.ErrorIsNil)
+			c.Assert(opened.Close(), tc.ErrorIsNil)
 		}()
 	}
 	// Let all the test routines queue up then unleash.
@@ -205,11 +204,11 @@ func (s *OpenerSuite) TestOpenResourceApplication(c *tc.C) {
 		context.Background(),
 		"wal-e",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(opened.Size, tc.Equals, res.Size)
 	c.Check(opened.Fingerprint.String(), tc.Equals, res.Fingerprint.String())
 	err = opened.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *OpenerSuite) setupMocks(c *tc.C, includeUnit bool) *gomock.Controller {
@@ -240,7 +239,7 @@ func (s *OpenerSuite) setupMocks(c *tc.C, includeUnit bool) *gomock.Controller {
 	s.resourceRevision = 3
 	var err error
 	s.resourceFingerprint, err = charmresource.GenerateFingerprint(strings.NewReader(s.resourceContent))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.resourceReader = io.NopCloser(strings.NewReader(s.resourceContent))
 
 	s.charmURL, _ = charm.ParseURL("postgresql")
@@ -415,7 +414,7 @@ func (s *OpenerSuite) TestSetResourceUsedUnit(c *tc.C) {
 		context.Background(),
 		"wal-e",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *OpenerSuite) TestSetResourceUsedUnitError(c *tc.C) {
@@ -439,7 +438,7 @@ func (s *OpenerSuite) TestSetResourceUsedUnitError(c *tc.C) {
 		context.Background(),
 		"wal-e",
 	)
-	c.Assert(err, jc.ErrorIs, expectedErr)
+	c.Assert(err, tc.ErrorIs, expectedErr)
 }
 
 func (s *OpenerSuite) TestSetResourceUsedApplication(c *tc.C) {
@@ -460,7 +459,7 @@ func (s *OpenerSuite) TestSetResourceUsedApplication(c *tc.C) {
 		context.Background(),
 		"wal-e",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *OpenerSuite) TestSetResourceUsedApplicationError(c *tc.C) {
@@ -482,7 +481,7 @@ func (s *OpenerSuite) TestSetResourceUsedApplicationError(c *tc.C) {
 		context.Background(),
 		"wal-e",
 	)
-	c.Assert(err, jc.ErrorIs, expectedErr)
+	c.Assert(err, tc.ErrorIs, expectedErr)
 }
 
 func (s *OpenerSuite) expectNewUnitResourceOpener(c *tc.C) {
@@ -517,7 +516,7 @@ func (s *OpenerSuite) newUnitResourceOpener(
 		limiter = s.limiter
 	} else {
 		limiter, err = NewResourceDownloadLimiter(maxRequests, 0)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	opener, err := newResourceOpenerForUnit(
@@ -533,7 +532,7 @@ func (s *OpenerSuite) newUnitResourceOpener(
 		},
 		s.unitName,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return opener
 }
 
@@ -562,7 +561,7 @@ func (s *OpenerSuite) newApplicationResourceOpener(c *tc.C) coreresource.Opener 
 		},
 		s.appName,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return opener
 }
 

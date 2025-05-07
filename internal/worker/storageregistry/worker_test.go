@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -44,7 +43,7 @@ func (s *workerSuite) TestKilledGetStorageRegistryErrDying(c *tc.C) {
 
 	worker := w.(*storageRegistryWorker)
 	_, err := worker.GetStorageRegistry(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, corestorage.ErrStorageRegistryDying)
+	c.Assert(err, tc.ErrorIs, corestorage.ErrStorageRegistryDying)
 }
 
 func (s *workerSuite) TestGetStorageRegistry(c *tc.C) {
@@ -68,7 +67,7 @@ func (s *workerSuite) TestGetStorageRegistry(c *tc.C) {
 
 	worker := w.(*storageRegistryWorker)
 	storageRegistry, err := worker.GetStorageRegistry(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(storageRegistry, tc.NotNil)
 
 	close(done)
@@ -102,7 +101,7 @@ func (s *workerSuite) TestGetStorageRegistryIsCached(c *tc.C) {
 	for i := 0; i < 10; i++ {
 
 		_, err := worker.GetStorageRegistry(context.Background(), "foo")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	close(done)
@@ -139,7 +138,7 @@ func (s *workerSuite) TestGetStorageRegistryIsNotCachedForDifferentNamespaces(c 
 		})
 
 		_, err := worker.GetStorageRegistry(context.Background(), name)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	close(done)
@@ -182,7 +181,7 @@ func (s *workerSuite) TestGetStorageRegistryConcurrently(c *tc.C) {
 			})
 
 			_, err := worker.GetStorageRegistry(context.Background(), name)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}(i)
 	}
 
@@ -203,7 +202,7 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 			return s.trackedWorker, nil
 		},
 	}, s.states)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }
 

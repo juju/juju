@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -45,7 +44,7 @@ func (s *SecretsSuite) setup(c *tc.C) (*SecretBackendsAPI, *gomock.Controller) {
 	s.authorizer.EXPECT().AuthClient().Return(true)
 	s.mockBackendService = NewMockSecretBackendService(ctrl)
 	api, err := NewTestAPI(s.authorizer, s.mockBackendService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return api, ctrl
 }
 
@@ -89,8 +88,8 @@ func (s *SecretsSuite) TestAddSecretBackends(c *tc.C) {
 			},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.DeepEquals, []params.ErrorResult{
 		{},
 		{Error: &params.Error{
 			Code:    "secret backend already exists",
@@ -157,8 +156,8 @@ func (s *SecretsSuite) assertListSecretBackends(c *tc.C, reveal bool) {
 		params.ListSecretBackendsArgs{
 			Names: []string{"myvault"}, Reveal: reveal,
 		})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ListSecretBackendsResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ListSecretBackendsResults{
 		Results: []params.SecretBackendResult{
 			{
 				Result: params.SecretBackend{
@@ -246,8 +245,8 @@ func (s *SecretsSuite) TestUpdateSecretBackends(c *tc.C) {
 			Name: "not-existing-name",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.DeepEquals, []params.ErrorResult{
 		{},
 		{Error: &params.Error{
 			Code:    "secret backend not found",
@@ -293,8 +292,8 @@ func (s *SecretsSuite) TestRemoveSecretBackends(c *tc.C) {
 			Name: "myvault2",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.DeepEquals, []params.ErrorResult{
 		{},
 		{Error: &params.Error{
 			Code:    "not supported",

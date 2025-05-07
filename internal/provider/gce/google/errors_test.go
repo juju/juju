@@ -9,7 +9,6 @@ import (
 	"net/url"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/provider/gce/google"
 	"github.com/juju/juju/internal/testing"
@@ -34,20 +33,20 @@ func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *tc.C) {
 	// First test another status code.
 	s.internalError.SetMessage(http.StatusAccepted, "Accepted")
 	denied := google.IsAuthorisationFailure(s.internalError)
-	c.Assert(denied, jc.IsFalse)
+	c.Assert(denied, tc.IsFalse)
 
 	for code, descs := range google.AuthorisationFailureStatusCodes {
 		for _, desc := range descs {
 			s.internalError.SetMessage(code, desc)
 			denied = google.IsAuthorisationFailure(s.googleError)
-			c.Assert(denied, jc.IsTrue)
+			c.Assert(denied, tc.IsTrue)
 		}
 	}
 
 	for code := range google.AuthorisationFailureStatusCodes {
 		s.internalError.SetMessage(code, "Some strange error")
 		denied = google.IsAuthorisationFailure(s.googleError)
-		c.Assert(denied, jc.IsFalse)
+		c.Assert(denied, tc.IsFalse)
 	}
 }
 

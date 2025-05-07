@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	apisecretbackends "github.com/juju/juju/api/client/secretbackends"
@@ -72,7 +71,7 @@ func (s *ListSuite) TestListTabular(c *tc.C) {
 	s.secretBackendsAPI.EXPECT().Close().Return(nil)
 
 	ctx, err := cmdtesting.RunCommand(c, secretbackends.NewListCommandForTest(s.store, s.secretBackendsAPI))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, tc.Equals, `
 Name      Type        Secrets  Message
@@ -108,7 +107,7 @@ func (s *ListSuite) TestListYAML(c *tc.C) {
 	s.secretBackendsAPI.EXPECT().Close().Return(nil)
 
 	ctx, err := cmdtesting.RunCommand(c, secretbackends.NewListCommandForTest(s.store, s.secretBackendsAPI), "--reveal", "--format", "yaml")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, tc.Equals, `
 error-999:
@@ -145,7 +144,7 @@ func (s *ListSuite) TestListJSON(c *tc.C) {
 	s.secretBackendsAPI.EXPECT().Close().Return(nil)
 
 	ctx, err := cmdtesting.RunCommand(c, secretbackends.NewListCommandForTest(s.store, s.secretBackendsAPI), "--reveal", "--format", "json")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, tc.Equals, `
 {"internal":{"backend":"controller","secrets":668,"status":"active"}}

@@ -5,7 +5,6 @@ package secretbackend
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
 )
@@ -28,7 +27,7 @@ func (s *paramsSuite) TestBackendIdentifierString(c *tc.C) {
 func (s *paramsSuite) TestCreateSecretBackendParamsValidate(c *tc.C) {
 	p := CreateSecretBackendParams{}
 	err := p.Validate()
-	c.Check(err, jc.ErrorIs, backenderrors.NotValid)
+	c.Check(err, tc.ErrorIs, backenderrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `secret backend not valid: ID is missing`)
 
 	p = CreateSecretBackendParams{
@@ -37,7 +36,7 @@ func (s *paramsSuite) TestCreateSecretBackendParamsValidate(c *tc.C) {
 		},
 	}
 	err = p.Validate()
-	c.Check(err, jc.ErrorIs, backenderrors.NotValid)
+	c.Check(err, tc.ErrorIs, backenderrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `secret backend not valid: name is missing`)
 
 	p = CreateSecretBackendParams{
@@ -47,7 +46,7 @@ func (s *paramsSuite) TestCreateSecretBackendParamsValidate(c *tc.C) {
 		},
 	}
 	err = p.Validate()
-	c.Check(err, jc.ErrorIs, backenderrors.NotValid)
+	c.Check(err, tc.ErrorIs, backenderrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `secret backend not valid: type is missing`)
 
 	p = CreateSecretBackendParams{
@@ -61,7 +60,7 @@ func (s *paramsSuite) TestCreateSecretBackendParamsValidate(c *tc.C) {
 		},
 	}
 	err = p.Validate()
-	c.Check(err, jc.ErrorIs, backenderrors.NotValid)
+	c.Check(err, tc.ErrorIs, backenderrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `secret backend not valid: empty config key for "backend-name"`)
 
 	p = CreateSecretBackendParams{
@@ -75,14 +74,14 @@ func (s *paramsSuite) TestCreateSecretBackendParamsValidate(c *tc.C) {
 		},
 	}
 	err = p.Validate()
-	c.Check(err, jc.ErrorIs, backenderrors.NotValid)
+	c.Check(err, tc.ErrorIs, backenderrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `secret backend not valid: empty config value for "backend-name"`)
 }
 
 func (s *paramsSuite) TestUpdateSecretBackendParamsValidate(c *tc.C) {
 	p := UpdateSecretBackendParams{}
 	err := p.Validate()
-	c.Check(err, jc.ErrorIs, backenderrors.NotValid)
+	c.Check(err, tc.ErrorIs, backenderrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `secret backend not valid: both ID and name are missing`)
 
 	p = UpdateSecretBackendParams{
@@ -92,7 +91,7 @@ func (s *paramsSuite) TestUpdateSecretBackendParamsValidate(c *tc.C) {
 		},
 	}
 	err = p.Validate()
-	c.Check(err, jc.ErrorIs, backenderrors.NotValid)
+	c.Check(err, tc.ErrorIs, backenderrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `secret backend not valid: both ID and name are set`)
 
 	p = UpdateSecretBackendParams{
@@ -102,7 +101,7 @@ func (s *paramsSuite) TestUpdateSecretBackendParamsValidate(c *tc.C) {
 		NewName: ptr(""),
 	}
 	err = p.Validate()
-	c.Check(err, jc.ErrorIs, backenderrors.NotValid)
+	c.Check(err, tc.ErrorIs, backenderrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `secret backend not valid: name cannot be set to empty`)
 
 	p = UpdateSecretBackendParams{
@@ -114,7 +113,7 @@ func (s *paramsSuite) TestUpdateSecretBackendParamsValidate(c *tc.C) {
 		},
 	}
 	err = p.Validate()
-	c.Check(err, jc.ErrorIs, backenderrors.NotValid)
+	c.Check(err, tc.ErrorIs, backenderrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `secret backend not valid: empty config key for "backend-id"`)
 
 	p = UpdateSecretBackendParams{
@@ -126,7 +125,7 @@ func (s *paramsSuite) TestUpdateSecretBackendParamsValidate(c *tc.C) {
 		},
 	}
 	err = p.Validate()
-	c.Check(err, jc.ErrorIs, backenderrors.NotValid)
+	c.Check(err, tc.ErrorIs, backenderrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `secret backend not valid: empty config value for "backend-id"`)
 }
 

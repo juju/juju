@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus"
 
 	corelease "github.com/juju/juju/core/lease"
@@ -81,7 +80,7 @@ func (fix *Fixture) RunTest(c *tc.C, test func(*lease.Manager, *testclock.Clock)
 		PrometheusRegisterer: noopRegisterer{},
 		Tracer:               trace.NoopTracer{},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	var wg sync.WaitGroup
 	testDone := make(chan struct{})
 	storeDone := make(chan struct{})
@@ -106,7 +105,7 @@ func (fix *Fixture) RunTest(c *tc.C, test func(*lease.Manager, *testclock.Clock)
 		manager.Kill()
 		err := manager.Wait()
 		if !fix.expectDirty {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		}
 	}()
 	wg.Add(1)

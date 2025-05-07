@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
@@ -48,13 +47,13 @@ func (s *ContextRelationSuite) assertSettingsCaching(c *tc.C, members ...string)
 
 	// Check that uncached settings are read once.
 	m, err := ctx.ReadSettings(stdcontext.Background(), "u/1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectSettings := convertMap(map[string]interface{}{"blib": "blob"})
 	c.Assert(m, tc.DeepEquals, expectSettings)
 
 	// Check that another call does not hit the api.
 	m, err = ctx.ReadSettings(stdcontext.Background(), "u/1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(m, tc.DeepEquals, expectSettings)
 }
 
@@ -79,7 +78,7 @@ func (s *ContextRelationSuite) TestSuspended(c *tc.C) {
 
 	s.rel.EXPECT().Suspended().Return(true)
 	ctx := context.NewContextRelation(s.relUnit, nil, false)
-	c.Assert(ctx.Suspended(), jc.IsTrue)
+	c.Assert(ctx.Suspended(), tc.IsTrue)
 }
 
 func (s *ContextRelationSuite) TestSetStatus(c *tc.C) {
@@ -89,7 +88,7 @@ func (s *ContextRelationSuite) TestSetStatus(c *tc.C) {
 
 	ctx := context.NewContextRelation(s.relUnit, nil, false)
 	err := ctx.SetStatus(stdcontext.Background(), relation.Suspended)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ContextRelationSuite) TestRemoteApplicationName(c *tc.C) {

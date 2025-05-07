@@ -13,7 +13,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"go.uber.org/mock/gomock"
 
@@ -72,7 +71,7 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnitWrongUnitTag(c *tc.C)
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
 func (s *watcherrelationunitSuite) TestWatchOneRelationUnitCannotAccess(c *tc.C) {
@@ -90,7 +89,7 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnitCannotAccess(c *tc.C)
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
 func (s *watcherrelationunitSuite) TestWatchOneRelationUnitWrongRelationKey(c *tc.C) {
@@ -108,7 +107,7 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnitWrongRelationKey(c *t
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
 func (s *watcherrelationunitSuite) TestWatchOneRelationUnitKeyNotFound(c *tc.C) {
@@ -129,7 +128,7 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnitKeyNotFound(c *tc.C) 
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
 func (s *watcherrelationunitSuite) TestWatchOneRelationUnitKeyDomainError(c *tc.C) {
@@ -151,7 +150,7 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnitKeyDomainError(c *tc.
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, domainError)
+	c.Assert(err, tc.ErrorIs, domainError)
 }
 
 // TestWatchOneRelationUnit tests the watchOneRelationUnit facade method. It
@@ -190,7 +189,7 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnit(c *tc.C) {
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).DoAndReturn(func(worker worker.Worker) (string, error) {
 		var ok bool
 		relUnitsWatcher, ok = worker.(common.RelationUnitsWatcher)
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		return watcherID, nil
 	})
 
@@ -331,7 +330,7 @@ func (s *watcherrelationunitSuite) TestRelationUnitsWatcher(c *tc.C) {
 
 	// Act:
 	relUnitsWatcher, err := newRelationUnitsWatcher(unitTag, relationUUID, s.relationService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert:
 	// Start the watcher event consumer, simulating the uniter.

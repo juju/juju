@@ -3,10 +3,7 @@
 
 package juju
 
-import (
-	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
-)
+import "github.com/juju/tc"
 
 type APIHelperSuite struct {
 }
@@ -43,7 +40,7 @@ func (s *APIHelperSuite) TestMoveToFront(c *tc.C) {
 	for i, test := range moveToFrontTests {
 		c.Logf("test %d: moveToFront %q %v", i, test.item, test.items)
 		moveToFront(test.item, test.items)
-		c.Check(test.items, jc.DeepEquals, test.expect)
+		c.Check(test.items, tc.DeepEquals, test.expect)
 	}
 }
 

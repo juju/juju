@@ -6,7 +6,6 @@ package network_test
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coretesting "github.com/juju/juju/internal/testing"
 )
@@ -34,5 +33,5 @@ var allowedCoreImports = set.NewStrings(
 func (*ImportSuite) TestImports(c *tc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/network")
 
-	c.Assert(found, jc.SameContents, allowedCoreImports.SortedValues())
+	c.Assert(found, tc.SameContents, allowedCoreImports.SortedValues())
 }

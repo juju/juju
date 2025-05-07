@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
 
@@ -60,9 +59,9 @@ func (s *UploadSuite) TestUpload(c *tc.C) {
 
 	data := "<data>"
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	req, err := http.NewRequest("PUT", "/applications/a-application/resources/spam", strings.NewReader(data))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("Content-SHA384", fp.String())
 	req.Header.Set("Content-Length", fmt.Sprint(len(data)))
@@ -72,7 +71,7 @@ func (s *UploadSuite) TestUpload(c *tc.C) {
 	s.mockHTTPClient.EXPECT().Do(ctx, reqMatcher{c, req}, gomock.Any())
 
 	err = s.client.Upload(context.Background(), "a-application", "spam", "foo.zip", "", strings.NewReader(data))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type reqMatcher struct {
@@ -87,13 +86,13 @@ func (m reqMatcher) Matches(x interface{}) bool {
 	}
 	obtainedCopy := *obtained
 	obtainedBody, err := io.ReadAll(obtainedCopy.Body)
-	m.c.Assert(err, jc.ErrorIsNil)
+	m.c.Assert(err, tc.ErrorIsNil)
 	obtainedCopy.Body = nil
 	obtainedCopy.GetBody = nil
 
 	reqCopy := *m.req
 	reqBody, err := io.ReadAll(reqCopy.Body)
-	m.c.Assert(err, jc.ErrorIsNil)
+	m.c.Assert(err, tc.ErrorIsNil)
 	reqCopy.Body = nil
 	reqCopy.GetBody = nil
 	if string(obtainedBody) != string(reqBody) {
@@ -118,9 +117,9 @@ func (s *UploadSuite) TestUploadFailed(c *tc.C) {
 
 	data := "<data>"
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	req, err := http.NewRequest("PUT", "/applications/a-application/resources/spam", strings.NewReader(data))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("Content-SHA384", fp.String())
 	req.Header.Set("Content-Length", fmt.Sprint(len(data)))
@@ -139,7 +138,7 @@ func (s *UploadSuite) TestAddPendingResources(c *tc.C) {
 	res, apiResult := newResourceResult(c, "spam")
 	addArgs := newAddPendingResourcesArgsV2(apiResult)
 	uuid, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := []string{uuid.String()}
 	result := new(params.AddPendingResourcesResult)
 	results := params.AddPendingResourcesResult{
@@ -163,8 +162,8 @@ func (s *UploadSuite) TestAddPendingResources(c *tc.C) {
 			},
 			Resources: []charmresource.Resource{res[0].Resource},
 		})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pendingIDs, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pendingIDs, tc.DeepEquals, expected)
 }
 
 func (s *UploadSuite) TestUploadPendingResource(c *tc.C) {
@@ -173,18 +172,18 @@ func (s *UploadSuite) TestUploadPendingResource(c *tc.C) {
 	res, apiResult := newResourceResult(c, "spam")
 	addArgs := newAddPendingResourcesArgsV2(apiResult)
 	uuid, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := uuid.String()
 	results := params.AddPendingResourcesResult{
 		PendingIDs: []string{expected},
 	}
 	data := "<data>"
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	url := fmt.Sprintf("/applications/a-application/resources/spam?pendingid=%v", expected)
 	req, err := http.NewRequest("PUT", url, strings.NewReader(data))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("Content-SHA384", fp.String())
 	req.Header.Set("Content-Length", fmt.Sprint(len(data)))
@@ -197,7 +196,7 @@ func (s *UploadSuite) TestUploadPendingResource(c *tc.C) {
 
 	uploadArgs := newUploadPendingResourceArgs(res, data)
 	uploadID, err := s.client.UploadPendingResource(ctx, uploadArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(uploadID, tc.Equals, expected)
 }
 
@@ -207,7 +206,7 @@ func (s *UploadSuite) TestUploadPendingResourceNoFile(c *tc.C) {
 	res, apiResult := newResourceResult(c, "spam")
 	addArgs := newAddPendingResourcesArgsV2(apiResult)
 	uuid, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := uuid.String()
 	results := params.AddPendingResourcesResult{
 		PendingIDs: []string{expected},
@@ -216,7 +215,7 @@ func (s *UploadSuite) TestUploadPendingResourceNoFile(c *tc.C) {
 
 	uploadArgs := newUploadPendingResourceArgsNoData(res)
 	uploadID, err := s.client.UploadPendingResource(context.Background(), uploadArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(uploadID, tc.Equals, expected)
 }
 
@@ -234,17 +233,17 @@ func (s *UploadSuite) TestUploadPendingResourceFailed(c *tc.C) {
 	res, apiResult := newResourceResult(c, "spam")
 	addArgs := newAddPendingResourcesArgsV2(apiResult)
 	uuid, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := uuid.String()
 	results := params.AddPendingResourcesResult{
 		PendingIDs: []string{expected},
 	}
 	data := "<data>"
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	url := fmt.Sprintf("/applications/a-application/resources/spam?pendingid=%v", expected)
 	req, err := http.NewRequest("PUT", url, strings.NewReader(data))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("Content-SHA384", fp.String())
 	req.Header.Set("Content-Length", fmt.Sprint(len(data)))

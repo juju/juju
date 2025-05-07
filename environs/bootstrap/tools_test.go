@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
@@ -43,7 +42,7 @@ func (s *toolsSuite) TestValidateUploadAllowedIncompatibleHostArch(c *tc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	arch := arch.PPC64EL
 	validator, err := env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = bootstrap.ValidateUploadAllowed(env, &arch, nil, validator)
 	c.Assert(err, tc.ErrorMatches, `cannot use agent built for "ppc64el" using a machine running on "amd64"`)
 }
@@ -59,7 +58,7 @@ func (s *toolsSuite) TestValidateUploadAllowedIncompatibleTargetArch(c *tc.C) {
 	s.PatchValue(&jujuversion.Current, devVersion)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	validator, err := env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = bootstrap.ValidateUploadAllowed(env, nil, nil, validator)
 	c.Assert(err, tc.ErrorMatches, `model "foo" of type dummy does not support instances running on "ppc64el"`)
 }
@@ -72,9 +71,9 @@ func (s *toolsSuite) TestValidateUploadAllowed(c *tc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return arm64 })
 	s.PatchValue(&os.HostOS, func() ostype.OSType { return ostype.Ubuntu })
 	validator, err := env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = bootstrap.ValidateUploadAllowed(env, &arm64, &ubuntuFocal, validator)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *toolsSuite) TestFindBootstrapTools(c *tc.C) {
@@ -181,7 +180,7 @@ func (s *toolsSuite) TestFindAvailableToolsNoUpload(c *tc.C) {
 	})
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	_, err := bootstrap.FindPackagedTools(context.Background(), env, ss, nil, nil, nil)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *tc.C) {
@@ -207,9 +206,9 @@ func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *tc.C) {
 	toolsVersion := semversion.MustParse("10.11.12")
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	result, err := bootstrap.FindPackagedTools(context.Background(), env, ss, &toolsVersion, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(findToolsCalled, tc.Equals, 1)
-	c.Assert(result, jc.DeepEquals, tools.List{
+	c.Assert(result, tc.DeepEquals, tools.List{
 		&tools.Tools{
 			Version: currentVersion,
 			URL:     "http://testing.invalid/tools.tar.gz",
@@ -237,7 +236,7 @@ func (s *toolsSuite) TestFindAvailableToolsCompleteNoValidate(c *tc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	availableTools, err := bootstrap.FindPackagedTools(context.Background(), env, ss, nil, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(availableTools, tc.HasLen, len(allTools))
 	c.Assert(env.constraintsValidatorCount, tc.Equals, 0)
 }

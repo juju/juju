@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/client/usermanager"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -71,7 +70,7 @@ func (*fakeUserInfoAPI) UserInfo(ctx context.Context, usernames []string, all us
 
 func (s *UserInfoCommandSuite) TestUserInfo(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, s.NewShowUserCommand())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), tc.Equals, `user-name: current-user
 access: add-model
 date-created: "1981-02-27"
@@ -81,7 +80,7 @@ last-connection: "2014-01-01"
 
 func (s *UserInfoCommandSuite) TestUserInfoExactTime(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, s.NewShowUserCommand(), "--exact-time")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), tc.Equals, `user-name: current-user
 access: add-model
 date-created: 1981-02-27 16:10:05 +0000 UTC
@@ -91,7 +90,7 @@ last-connection: 2014-01-01 00:00:00 +0000 UTC
 
 func (s *UserInfoCommandSuite) TestUserInfoWithUsername(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, s.NewShowUserCommand(), "foobar")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), tc.Equals, `user-name: foobar
 display-name: Foo Bar
 access: login
@@ -102,7 +101,7 @@ last-connection: "2014-01-01"
 
 func (s *UserInfoCommandSuite) TestUserInfoExternalUser(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, s.NewShowUserCommand(), "fred@external")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), tc.Equals, `user-name: fred@external
 display-name: Fred External
 access: add-model
@@ -116,7 +115,7 @@ func (s *UserInfoCommandSuite) TestUserInfoUserDoesNotExist(c *tc.C) {
 
 func (s *UserInfoCommandSuite) TestUserInfoFormatJson(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, s.NewShowUserCommand(), "--format", "json")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), tc.Equals, `
 {"user-name":"current-user","access":"add-model","date-created":"1981-02-27","last-connection":"2014-01-01"}
 `[1:])
@@ -124,7 +123,7 @@ func (s *UserInfoCommandSuite) TestUserInfoFormatJson(c *tc.C) {
 
 func (s *UserInfoCommandSuite) TestUserInfoFormatJsonWithUsername(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, s.NewShowUserCommand(), "foobar", "--format", "json")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), tc.Equals, `
 {"user-name":"foobar","display-name":"Foo Bar","access":"login","date-created":"1981-02-27","last-connection":"2014-01-01"}
 `[1:])
@@ -132,7 +131,7 @@ func (s *UserInfoCommandSuite) TestUserInfoFormatJsonWithUsername(c *tc.C) {
 
 func (s *UserInfoCommandSuite) TestUserInfoFormatYaml(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, s.NewShowUserCommand(), "--format", "yaml")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), tc.Equals, `user-name: current-user
 access: add-model
 date-created: "1981-02-27"

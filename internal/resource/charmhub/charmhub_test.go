@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/charm"
@@ -43,7 +42,7 @@ func (s *CharmHubSuite) TestGetResource(c *tc.C) {
 	reader := io.NopCloser(strings.NewReader("blob"))
 	resURL := s.expectRefresh(size, fingerprint)
 	parsedURL, err := url.Parse(resURL)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.downloader.EXPECT().Download(gomock.Any(), parsedURL, fingerprint, size).Return(reader, nil)
 
@@ -69,7 +68,7 @@ func (s *CharmHubSuite) TestGetResource(c *tc.C) {
 			Name:     "wal-e",
 			Revision: 8,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(result.Resource, tc.DeepEquals, charmresource.Resource{
 		Meta: charmresource.Meta{

@@ -6,7 +6,6 @@ package google
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"google.golang.org/api/compute/v1"
 
 	"github.com/juju/juju/core/network"
@@ -32,7 +31,7 @@ func makeRuleSet() ruleSet {
 
 func (s *RuleSetSuite) TestNewRuleSetFromRules(c *tc.C) {
 	rs := makeRuleSet()
-	c.Assert(rs, jc.DeepEquals, ruleSet{
+	c.Assert(rs, tc.DeepEquals, ruleSet{
 		"b42e18366a": &firewall{
 			SourceCIDRs: []string{"0.0.0.0/0"},
 			AllowedPorts: protocolPorts{
@@ -75,7 +74,7 @@ func (s *RuleSetSuite) TestNewRuleSetFromFirewalls(c *tc.C) {
 	fw1 := newFirewall("weeps", "target", []string{"1.2.3.0/24", "2.3.4.0/24"}, ports)
 	fw2 := newFirewall("blackbird", "somewhere", nil, ports)
 	ruleset, err := newRuleSetFromFirewalls(fw1, fw2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ruleset, tc.DeepEquals, ruleSet{
 		"b42e18366a": &firewall{
 			Name:        "blackbird",
@@ -105,7 +104,7 @@ func (s *RuleSetSuite) TestProtocolPortsUnion(c *tc.C) {
 		"udp": []network.PortRange{{67, 67, "udp"}},
 	}
 	result := p1.union(p2)
-	c.Assert(result, jc.DeepEquals, protocolPorts{
+	c.Assert(result, tc.DeepEquals, protocolPorts{
 		"tcp": []network.PortRange{{8000, 8099, "tcp"}, {80, 80, "tcp"}, {79, 81, "tcp"}, {80, 100, "tcp"}, {443, 443, "tcp"}},
 		"udp": []network.PortRange{{67, 67, "udp"}},
 	})
@@ -117,7 +116,7 @@ func (s *RuleSetSuite) TestProtocolPortsRemove(c *tc.C) {
 		"tcp": []network.PortRange{{80, 100, "tcp"}, {443, 443, "tcp"}, {80, 80, "tcp"}},
 	}
 	result := p1.remove(p2)
-	c.Assert(result, jc.DeepEquals, protocolPorts{
+	c.Assert(result, tc.DeepEquals, protocolPorts{
 		"tcp": []network.PortRange{{8000, 8099, "tcp"}, {79, 81, "tcp"}},
 	})
 }
@@ -130,9 +129,9 @@ func (s *RuleSetSuite) TestRuleSetToIngressRules(c *tc.C) {
 	fw1 := newFirewall("weeps", "target", []string{"1.2.3.0/24", "2.3.4.0/24"}, ports)
 	fw2 := newFirewall("blackbird", "somewhere", nil, ports)
 	ruleset, err := newRuleSetFromFirewalls(fw1, fw2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	rules, err := ruleset.toIngressRules()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rules, tc.DeepEquals, corefirewall.IngressRules{
 		corefirewall.NewIngressRule(network.MustParsePortRange("80/tcp"), corefirewall.AllNetworksIPV4CIDR),
 		corefirewall.NewIngressRule(network.MustParsePortRange("80/tcp"), "1.2.3.0/24", "2.3.4.0/24"),
@@ -150,7 +149,7 @@ func (s *RuleSetSuite) TestMatchPorts(c *tc.C) {
 	fw, ok := ruleset.matchProtocolPorts(protocolPorts{
 		"udp": {{5123, 8099, "udp"}},
 	})
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	c.Assert(fw, tc.DeepEquals, &firewall{
 		AllowedPorts: protocolPorts{
 			"udp": {{5123, 8099, "udp"}},
@@ -161,7 +160,7 @@ func (s *RuleSetSuite) TestMatchPorts(c *tc.C) {
 	fw, ok = ruleset.matchProtocolPorts(protocolPorts{
 		"tcp": {{80, 80, "tcp"}},
 	})
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 	c.Assert(fw, tc.IsNil)
 }
 
@@ -170,7 +169,7 @@ func (s *RuleSetSuite) TestMatchSourceCIDRs(c *tc.C) {
 	c.Logf("%#v", ruleset)
 	c.Logf("%s", sourcecidrs([]string{"0.0.0.0/0"}).key())
 	fw, ok := ruleset.matchSourceCIDRs([]string{"0.0.0.0/0"})
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	c.Assert(fw, tc.DeepEquals, &firewall{
 		SourceCIDRs: []string{"0.0.0.0/0"},
 		AllowedPorts: protocolPorts{
@@ -179,7 +178,7 @@ func (s *RuleSetSuite) TestMatchSourceCIDRs(c *tc.C) {
 		},
 	})
 	fw, ok = ruleset.matchSourceCIDRs([]string{"1.2.3.0/24"})
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 	c.Assert(fw, tc.IsNil)
 }
 
@@ -188,7 +187,7 @@ func (s *RuleSetSuite) TestAllNames(c *tc.C) {
 	fw1 := newFirewall("weeps", "target", []string{"1.2.3.0/24", "2.3.4.0/24"}, ports)
 	fw2 := newFirewall("blackbird", "somewhere", nil, ports)
 	ruleset, err := newRuleSetFromFirewalls(fw1, fw2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ruleset.allNames(), tc.DeepEquals, set.NewStrings("weeps", "blackbird"))
 }
 

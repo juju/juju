@@ -11,7 +11,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	jujucloud "github.com/juju/juju/cloud"
@@ -152,7 +151,7 @@ func (s *listCredentialsSuite) TestListCredentialsTabularInvalidCredential(c *tc
 
 	var logWriter loggo.TestWriter
 	writerName := "TestListCredentialsTabularInvalidCredential"
-	c.Assert(loggo.RegisterWriter(writerName, &logWriter), jc.ErrorIsNil)
+	c.Assert(loggo.RegisterWriter(writerName, &logWriter), tc.ErrorIsNil)
 	defer func() {
 		loggo.RemoveWriter(writerName)
 		logWriter.Clear()
@@ -167,7 +166,7 @@ aws     down*, bob
 azure   azhja
 google  default
 `[1:])
-	c.Check(logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
+	c.Check(logWriter.Log(), tc.LogMatches, []tc.SimpleMessage{
 		{
 			Level:   loggo.WARNING,
 			Message: `error loading credential for cloud mycloud: expected error`,
@@ -177,7 +176,7 @@ google  default
 
 func (s *listCredentialsSuite) TestListCredentialsTabularShowsNoSecrets(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCredentialsCommandForTest(s.store, s.personalCloudsFunc, s.cloudByNameFunc, s.apiF), "--show-secrets", "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "secrets are not shown in tabular format\n")
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 
@@ -229,7 +228,7 @@ aws    down*, bob
 
 func (s *listCredentialsSuite) TestListRemoteCredentialsWithSecrets(c *tc.C) {
 	s.testAPI.credentialContentsF = func(cloud, credential string, withSecrets bool) ([]params.CredentialContentResult, error) {
-		c.Assert(withSecrets, jc.IsTrue)
+		c.Assert(withSecrets, tc.IsTrue)
 		return nil, nil
 	}
 	out := s.listCredentials(c, "aws", "--show-secrets", "--format", "yaml", "--client")
@@ -348,7 +347,7 @@ func (s *listCredentialsSuite) TestListCredentialsYAMLWithSecretsInvalidCredenti
 
 	var logWriter loggo.TestWriter
 	writerName := "TestListCredentialsYAMLWithSecretsInvalidCredential"
-	c.Assert(loggo.RegisterWriter(writerName, &logWriter), jc.ErrorIsNil)
+	c.Assert(loggo.RegisterWriter(writerName, &logWriter), tc.ErrorIsNil)
 	defer func() {
 		loggo.RemoveWriter(writerName)
 		logWriter.Clear()
@@ -387,7 +386,7 @@ client-credentials:
       access-key: key
       secret-key: secret
 `[1:])
-	c.Check(logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
+	c.Check(logWriter.Log(), tc.LogMatches, []tc.SimpleMessage{
 		{
 			Level:   loggo.WARNING,
 			Message: `error loading credential for cloud mycloud: expected error`,
@@ -468,7 +467,7 @@ func (s *listCredentialsSuite) TestListCredentialsJSONWithSecretsInvalidCredenti
 
 	var logWriter loggo.TestWriter
 	writerName := "TestListCredentialsJSONWithSecretsInvalidCredential"
-	c.Assert(loggo.RegisterWriter(writerName, &logWriter), jc.ErrorIsNil)
+	c.Assert(loggo.RegisterWriter(writerName, &logWriter), tc.ErrorIsNil)
 	defer func() {
 		loggo.RemoveWriter(writerName)
 		logWriter.Clear()
@@ -478,7 +477,7 @@ func (s *listCredentialsSuite) TestListCredentialsJSONWithSecretsInvalidCredenti
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 {"client-credentials":{"aws":{"default-credential":"down","default-region":"ap-southeast-2","cloud-credentials":{"bob":{"auth-type":"access-key","details":{"access-key":"key","secret-key":"secret"}},"down":{"auth-type":"userpass","details":{"password":"password","username":"user"}}}},"azure":{"cloud-credentials":{"azhja":{"auth-type":"userpass","details":{"application-id":"app-id","application-password":"app-secret","subscription-id":"subscription-id","tenant-id":"tenant-id"}}}},"google":{"cloud-credentials":{"default":{"auth-type":"oauth2","details":{"client-email":"email","client-id":"id","private-key":"key"}}}}}}
 `[1:])
-	c.Check(logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
+	c.Check(logWriter.Log(), tc.LogMatches, []tc.SimpleMessage{
 		{
 			Level:   loggo.WARNING,
 			Message: `error loading credential for cloud mycloud: expected error`,
@@ -526,19 +525,19 @@ func (s *listCredentialsSuite) TestListCredentialsClient(c *tc.C) {
 func (s *listCredentialsSuite) TestListCredentialsNone(c *tc.C) {
 	listCmd := cloud.NewListCredentialsCommandForTest(jujuclient.NewMemStore(), s.personalCloudsFunc, s.cloudByNameFunc, s.apiF)
 	ctx, err := cmdtesting.RunCommand(c, listCmd, "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "")
 	out := strings.Replace(cmdtesting.Stdout(ctx), "\n", "", -1)
 	c.Assert(out, tc.Equals, "No credentials from this client to display.")
 
 	ctx, err = cmdtesting.RunCommand(c, listCmd, "--client", "--format", "yaml")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "")
 	out = strings.Replace(cmdtesting.Stdout(ctx), "\n", "", -1)
 	c.Assert(out, tc.Equals, "{}")
 
 	ctx, err = cmdtesting.RunCommand(c, listCmd, "--client", "--format", "json")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "")
 	out = strings.Replace(cmdtesting.Stdout(ctx), "\n", "", -1)
 	c.Assert(out, tc.Equals, `{}`)
@@ -552,7 +551,7 @@ func (s *listCredentialsSuite) listCredentials(c *tc.C, args ...string) string {
 
 func (s *listCredentialsSuite) listCredentialsWithStore(c *tc.C, store jujuclient.ClientStore, args ...string) *cmd.Context {
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCredentialsCommandForTest(store, s.personalCloudsFunc, s.cloudByNameFunc, s.apiF), args...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return ctx
 }
 

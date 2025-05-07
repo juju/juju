@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/domain/removal"
@@ -48,8 +47,8 @@ func (s *serviceSuite) TestGetAllJobsSuccess(c *tc.C) {
 	s.state.EXPECT().GetAllJobs(gomock.Any()).Return(dbJobs, nil)
 
 	jobs, err := s.newService(c).GetAllJobs(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(jobs, jc.DeepEquals, dbJobs)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobs, tc.DeepEquals, dbJobs)
 }
 
 func (s *serviceSuite) TestGetAllJobsError(c *tc.C) {
@@ -70,5 +69,5 @@ func (s *serviceSuite) TestExecuteJobUnsupportedType(c *tc.C) {
 	}
 
 	err := s.newService(c).ExecuteJob(context.Background(), job)
-	c.Check(err, jc.ErrorIs, removalerrors.RemovalJobTypeNotSupported)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobTypeNotSupported)
 }

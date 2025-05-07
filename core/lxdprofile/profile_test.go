@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/lxdprofile"
 )
@@ -21,7 +20,7 @@ var _ = tc.Suite(&ProfileSuite{})
 
 func (*ProfileSuite) TestEmptyTrue(c *tc.C) {
 	p := lxdprofile.Profile{}
-	c.Assert(p.Empty(), jc.IsTrue)
+	c.Assert(p.Empty(), tc.IsTrue)
 }
 
 func (*ProfileSuite) TestEmptyFalse(c *tc.C) {
@@ -29,7 +28,7 @@ func (*ProfileSuite) TestEmptyFalse(c *tc.C) {
 		Config: map[string]string{
 			"hello": "testing",
 		}}
-	c.Assert(p.Empty(), jc.IsFalse)
+	c.Assert(p.Empty(), tc.IsFalse)
 }
 
 func (*ProfileSuite) TestValidateConfigDevices(c *tc.C) {
@@ -37,7 +36,7 @@ func (*ProfileSuite) TestValidateConfigDevices(c *tc.C) {
 		Config: map[string]string{
 			"hello": "testing",
 		}}
-	c.Assert(p.ValidateConfigDevices(), jc.ErrorIsNil)
+	c.Assert(p.ValidateConfigDevices(), tc.ErrorIsNil)
 }
 
 func (*ProfileSuite) TestValidateConfigDevicesBadConfigBoot(c *tc.C) {
@@ -88,6 +87,6 @@ func testValidateConfigDevicesGoodDevices(deviceType string, c *tc.C) {
 			"test": {
 				"type": deviceType,
 			}}}
-	c.Assert(p.ValidateConfigDevices(), jc.ErrorIsNil)
+	c.Assert(p.ValidateConfigDevices(), tc.ErrorIsNil)
 
 }

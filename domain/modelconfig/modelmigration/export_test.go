@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -54,7 +53,7 @@ func (s *exportSuite) TestNilModelConfig(c *tc.C) {
 
 	op := s.newExportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *exportSuite) TestEmptyModelConfig(c *tc.C) {
@@ -68,7 +67,7 @@ func (s *exportSuite) TestEmptyModelConfig(c *tc.C) {
 
 	op := s.newExportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *exportSuite) TestModelConfig(c *tc.C) {
@@ -79,7 +78,7 @@ func (s *exportSuite) TestModelConfig(c *tc.C) {
 		"uuid": "a677bdfd-3c96-46b2-912f-38e25faceaf7",
 		"type": "sometype",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.service.EXPECT().ModelConfig(gomock.Any()).Return(config, nil)
 
@@ -89,7 +88,7 @@ func (s *exportSuite) TestModelConfig(c *tc.C) {
 
 	op := s.newExportOperation()
 	err = op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(model.Config(), jc.DeepEquals, config.AllAttrs())
+	c.Assert(model.Config(), tc.DeepEquals, config.AllAttrs())
 }

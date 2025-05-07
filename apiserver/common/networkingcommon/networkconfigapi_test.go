@@ -10,7 +10,6 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
@@ -113,7 +112,7 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfigCallsApplyOperation(c *
 		},
 	})
 
-	c.Check(s.modelOp.devs, jc.DeepEquals, network.InterfaceInfos{
+	c.Check(s.modelOp.devs, tc.DeepEquals, network.InterfaceInfos{
 		{
 			InterfaceName: "lo",
 			InterfaceType: "loopback",
@@ -267,7 +266,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpMultipleAddressSuccess(
 	}, false)
 
 	ops, err := op.Build(0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// No ops for the unchanged device/address.
 	// One each for:
@@ -338,7 +337,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpUnobservedParentNotRemo
 	}, false)
 
 	_, err := op.Build(0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpNewSubnetsAdded(c *tc.C) {
@@ -390,7 +389,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpNewSubnetsAdded(c *tc.C
 	}, true)
 
 	ops, err := op.Build(0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Expected ops are:
 	// - One each for the 3 new devices.
@@ -447,7 +446,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerAddressOpNewSubnetsAdded(
 	}, true)
 
 	ops, err := op.Build(0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Expected ops are:
 	// - One for the new device address.
@@ -528,7 +527,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpBridgedDeviceMovesAddre
 	}, false)
 
 	_, err := op.Build(0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpReprocessesDevices(c *tc.C) {
@@ -563,11 +562,11 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpReprocessesDevices(c *t
 	}, false)
 
 	_, err := op.Build(0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Simulate transaction churn.
 	_, err = op.Build(1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *networkConfigSuite) setupMocks(c *tc.C) *gomock.Controller {
@@ -594,7 +593,7 @@ func (s *networkConfigSuite) callAPI(c *tc.C, config []params.NetworkConfig) {
 			Tag:    s.tag.String(),
 			Config: config,
 		},
-	), jc.ErrorIsNil)
+	), tc.ErrorIsNil)
 }
 
 func (s *networkConfigSuite) getModelOp(

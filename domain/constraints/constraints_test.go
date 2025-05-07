@@ -6,7 +6,6 @@ package constraints
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -108,7 +107,7 @@ func (*constraintsSuite) TestFromCoreConstraints(c *tc.C) {
 
 	for _, test := range tests {
 		rval := DecodeConstraints(test.In)
-		c.Check(rval, jc.DeepEquals, test.Out, tc.Commentf(test.Comment))
+		c.Check(rval, tc.DeepEquals, test.Out, tc.Commentf(test.Comment))
 	}
 }
 
@@ -202,7 +201,7 @@ func (*constraintsSuite) TestToCoreConstraints(c *tc.C) {
 
 	for _, test := range tests {
 		rval := EncodeConstraints(test.In)
-		c.Check(rval, jc.DeepEquals, test.Out, tc.Commentf(test.Comment))
+		c.Check(rval, tc.DeepEquals, test.Out, tc.Commentf(test.Comment))
 	}
 }
 

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
@@ -44,7 +43,7 @@ func (s *drainSuite) setup(c *tc.C) *gomock.Controller {
 
 	var err error
 	s.facade, err = usersecretsdrain.NewTestAPI(s.authorizer, s.secretService, s.secretBackendService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return ctrl
 }
@@ -58,7 +57,7 @@ func (m backendConfigParamsMatcher) Matches(x interface{}) bool {
 	if obtained, ok := x.(secretbackendservice.BackendConfigParams); ok {
 		m.c.Assert(obtained.GrantedSecretsGetter, tc.NotNil)
 		obtained.GrantedSecretsGetter = nil
-		m.c.Assert(obtained, jc.DeepEquals, m.expected)
+		m.c.Assert(obtained, tc.DeepEquals, m.expected)
 		return true
 	}
 	obtained, ok := x.(secretbackendservice.DrainBackendConfigParams)
@@ -67,7 +66,7 @@ func (m backendConfigParamsMatcher) Matches(x interface{}) bool {
 	}
 	m.c.Assert(obtained.GrantedSecretsGetter, tc.NotNil)
 	obtained.GrantedSecretsGetter = nil
-	m.c.Assert(obtained, jc.DeepEquals, m.expected)
+	m.c.Assert(obtained, tc.DeepEquals, m.expected)
 	return true
 }
 
@@ -104,8 +103,8 @@ func (s *drainSuite) TestGetSecretBackendConfigs(c *tc.C) {
 	result, err := s.facade.GetSecretBackendConfigs(context.Background(), params.SecretBackendArgs{
 		BackendIDs: []string{"backend-id"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.SecretBackendConfigResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.SecretBackendConfigResults{
 		ActiveID: "backend-id",
 		Results: map[string]params.SecretBackendConfigResult{
 			"backend-id": {
@@ -128,7 +127,7 @@ func (s *drainSuite) TestGetSecretContentInvalidArg(c *tc.C) {
 	results, err := s.facade.GetSecretContentInfo(context.Background(), params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{{}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results[0].Error, tc.ErrorMatches, `empty URI`)
 }
 
@@ -151,8 +150,8 @@ func (s *drainSuite) TestGetSecretContentInternal(c *tc.C) {
 			{URI: uri.String()},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.SecretContentResults{
 		Results: []params.SecretContentResult{{
 			Content: params.SecretContentParams{Data: data},
 		}},
@@ -202,8 +201,8 @@ func (s *drainSuite) TestGetSecretContentExternal(c *tc.C) {
 			{URI: uri.String()},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.SecretContentResults{
 		Results: []params.SecretContentResult{{
 			Content: params.SecretContentParams{
 				ValueRef: &params.SecretValueRef{
@@ -242,8 +241,8 @@ func (s *drainSuite) TestGetSecretRevisionContentInfoInternal(c *tc.C) {
 		URI:       uri.String(),
 		Revisions: []int{666},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.SecretContentResults{
 		Results: []params.SecretContentResult{{
 			Content: params.SecretContentParams{Data: data},
 		}},
@@ -291,8 +290,8 @@ func (s *drainSuite) TestGetSecretRevisionContentInfoExternal(c *tc.C) {
 		URI:       uri.String(),
 		Revisions: []int{666},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.SecretContentResults{
 		Results: []params.SecretContentResult{{
 			Content: params.SecretContentParams{
 				ValueRef: &params.SecretValueRef{

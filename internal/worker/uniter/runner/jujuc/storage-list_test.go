@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/internal/cmd"
@@ -77,7 +76,7 @@ func (s *storageListSuite) TestOutputNoMatches(c *tc.C) {
 func (s *storageListSuite) testOutputFormat(c *tc.C, args []string, format int, expect interface{}) {
 	hctx := s.newHookContext()
 	com, err := jujuc.NewCommand(hctx, "storage-list")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, args)
 	c.Assert(code, tc.Equals, 0)
@@ -95,5 +94,5 @@ func (s *storageListSuite) testOutputFormat(c *tc.C, args []string, format int, 
 	default:
 		out = string(bufferBytes(ctx.Stdout))
 	}
-	c.Assert(out, jc.DeepEquals, expect)
+	c.Assert(out, tc.DeepEquals, expect)
 }

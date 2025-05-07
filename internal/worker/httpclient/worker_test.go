@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -45,7 +44,7 @@ func (s *workerSuite) TestKilledGetHTTPClientErrDying(c *tc.C) {
 
 	worker := w.(*httpClientWorker)
 	_, err := worker.GetHTTPClient(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, corehttp.ErrHTTPClientDying)
+	c.Assert(err, tc.ErrorIs, corehttp.ErrHTTPClientDying)
 }
 
 func (s *workerSuite) TestGetHTTPClient(c *tc.C) {
@@ -67,7 +66,7 @@ func (s *workerSuite) TestGetHTTPClient(c *tc.C) {
 
 	worker := w.(*httpClientWorker)
 	httpClient, err := worker.GetHTTPClient(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(httpClient, tc.NotNil)
 
 	close(done)
@@ -101,7 +100,7 @@ func (s *workerSuite) TestGetHTTPClientIsCached(c *tc.C) {
 	for i := 0; i < 10; i++ {
 
 		_, err := worker.GetHTTPClient(context.Background(), "foo")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	close(done)
@@ -138,7 +137,7 @@ func (s *workerSuite) TestGetHTTPClientIsNotCachedForDifferentNamespaces(c *tc.C
 		}
 
 		_, err := worker.GetHTTPClient(context.Background(), corehttp.Purpose(name))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	close(done)
@@ -181,7 +180,7 @@ func (s *workerSuite) TestGetHTTPClientConcurrently(c *tc.C) {
 			name := fmt.Sprintf("anything-%d", i)
 
 			_, err := worker.GetHTTPClient(context.Background(), corehttp.Purpose(name))
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}(i)
 	}
 
@@ -207,7 +206,7 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 			return s.trackedWorker, nil
 		},
 	}, s.states)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }
 

@@ -9,7 +9,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/storage"
@@ -109,7 +108,7 @@ func (s *ConfigSuite) TestNilLogger(c *tc.C) {
 
 func (s *ConfigSuite) checkNotValid(c *tc.C, match string) {
 	err := s.config.Validate()
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 	c.Check(err, tc.ErrorMatches, match)
 }
 

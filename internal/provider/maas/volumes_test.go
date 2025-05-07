@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/internal/storage"
@@ -24,7 +23,7 @@ var _ = tc.Suite(&volumeSuite{})
 
 func (s *volumeSuite) TestBuildMAASVolumeParametersNoVolumes(c *tc.C) {
 	vInfo, err := buildMAASVolumeParameters(nil, constraints.Value{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(vInfo, tc.HasLen, 0)
 }
 
@@ -33,8 +32,8 @@ func (s *volumeSuite) TestBuildMAASVolumeParametersJustRootDisk(c *tc.C) {
 	rootSize := uint64(20000)
 	cons.RootDisk = &rootSize
 	vInfo, err := buildMAASVolumeParameters(nil, cons)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vInfo, jc.DeepEquals, []volumeInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(vInfo, tc.DeepEquals, []volumeInfo{
 		{"root", 20, nil},
 	})
 }
@@ -43,8 +42,8 @@ func (s *volumeSuite) TestBuildMAASVolumeParametersNoTags(c *tc.C) {
 	vInfo, err := buildMAASVolumeParameters([]storage.VolumeParams{
 		{Tag: names.NewVolumeTag("1"), Size: 2000000},
 	}, constraints.Value{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vInfo, jc.DeepEquals, []volumeInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(vInfo, tc.DeepEquals, []volumeInfo{
 		{"root", 0, nil}, //root disk
 		{"1", 1954, nil},
 	})
@@ -57,8 +56,8 @@ func (s *volumeSuite) TestBuildMAASVolumeParametersWithRootDisk(c *tc.C) {
 	vInfo, err := buildMAASVolumeParameters([]storage.VolumeParams{
 		{Tag: names.NewVolumeTag("1"), Size: 2000000},
 	}, cons)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vInfo, jc.DeepEquals, []volumeInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(vInfo, tc.DeepEquals, []volumeInfo{
 		{"root", 20, nil}, //root disk
 		{"1", 1954, nil},
 	})
@@ -68,8 +67,8 @@ func (s *volumeSuite) TestBuildMAASVolumeParametersWithTags(c *tc.C) {
 	vInfo, err := buildMAASVolumeParameters([]storage.VolumeParams{
 		{Tag: names.NewVolumeTag("1"), Size: 2000000, Attributes: map[string]interface{}{"tags": "tag1,tag2"}},
 	}, constraints.Value{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vInfo, jc.DeepEquals, []volumeInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(vInfo, tc.DeepEquals, []volumeInfo{
 		{"root", 0, nil}, //root disk
 		{"1", 1954, []string{"tag1", "tag2"}},
 	})
@@ -110,12 +109,12 @@ func (s *volumeSuite) TestInstanceVolumesMAAS2(c *tc.C) {
 			names.NewVolumeTag("5"),
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Expect 4 volumes - root volume is ignored, as are volumes
 	// with tags we did not request.
 	c.Assert(volumes, tc.HasLen, 5)
 	c.Assert(attachments, tc.HasLen, 5)
-	c.Check(volumes, jc.SameContents, []storage.Volume{{
+	c.Check(volumes, tc.SameContents, []storage.Volume{{
 		names.NewVolumeTag("1"),
 		storage.VolumeInfo{
 			VolumeId: "volume-1",
@@ -148,7 +147,7 @@ func (s *volumeSuite) TestInstanceVolumesMAAS2(c *tc.C) {
 			Size:     267374,
 		},
 	}})
-	c.Assert(attachments, jc.SameContents, []storage.VolumeAttachment{{
+	c.Assert(attachments, tc.SameContents, []storage.VolumeAttachment{{
 		names.NewVolumeTag("1"),
 		mTag,
 		storage.VolumeAttachmentInfo{
@@ -189,9 +188,9 @@ func (*storageProviderSuite) TestValidateConfigTags(c *tc.C) {
 		cfg, err := storage.NewConfig("foo", maasStorageProviderType, map[string]interface{}{
 			"tags": tags,
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = p.ValidateConfig(cfg)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	validate("singular")
 	validate("mul,ti,ple")
@@ -205,7 +204,7 @@ func (*storageProviderSuite) TestValidateConfigInvalidConfig(c *tc.C) {
 	cfg, err := storage.NewConfig("foo", maasStorageProviderType, map[string]interface{}{
 		"tags": "white space",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = p.ValidateConfig(cfg)
 	c.Assert(err, tc.ErrorMatches, `tags may not contain whitespace: "white space"`)
 }
@@ -215,15 +214,15 @@ func (*storageProviderSuite) TestValidateConfigUnknownAttribute(c *tc.C) {
 	cfg, err := storage.NewConfig("foo", maasStorageProviderType, map[string]interface{}{
 		"unknown": "config",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = p.ValidateConfig(cfg)
-	c.Assert(err, jc.ErrorIsNil) // unknown attributes are ignored
+	c.Assert(err, tc.ErrorIsNil) // unknown attributes are ignored
 }
 
 func (s *storageProviderSuite) TestSupports(c *tc.C) {
 	p := maasStorageProvider{}
-	c.Assert(p.Supports(storage.StorageKindBlock), jc.IsTrue)
-	c.Assert(p.Supports(storage.StorageKindFilesystem), jc.IsFalse)
+	c.Assert(p.Supports(storage.StorageKindBlock), tc.IsTrue)
+	c.Assert(p.Supports(storage.StorageKindFilesystem), tc.IsFalse)
 }
 
 func (s *storageProviderSuite) TestScope(c *tc.C) {

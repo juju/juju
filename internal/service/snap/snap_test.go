@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/service/common"
@@ -43,7 +42,7 @@ func (*validationSuite) TestValidateJujuDbDaemon(c *tc.C) {
 	}
 	err := service.Validate()
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (*validationSuite) TestValidateJujuDbSnap(c *tc.C) {
@@ -63,7 +62,7 @@ func (*validationSuite) TestValidateJujuDbSnap(c *tc.C) {
 		prerequisites:      deps,
 	}
 	err := jujudb.Validate()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	// via NewService
 	jujudbService, err := NewService(ServiceConfig{
@@ -74,8 +73,8 @@ func (*validationSuite) TestValidateJujuDbSnap(c *tc.C) {
 		Channel:           "edge",
 		ConfinementPolicy: "jailmode",
 	})
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(jujudbService.Validate(), jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(jujudbService.Validate(), tc.ErrorIsNil)
 }
 
 func (*validationSuite) TestValidateLocalSnap(c *tc.C) {
@@ -84,11 +83,11 @@ func (*validationSuite) TestValidateLocalSnap(c *tc.C) {
 	assertPath := filepath.Join(dir, "juju-db_123.assert")
 
 	f, err := os.Create(snapPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	f.Close()
 
 	f, err = os.Create(assertPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	f.Close()
 
 	// manually
@@ -98,7 +97,7 @@ func (*validationSuite) TestValidateLocalSnap(c *tc.C) {
 		assertsPath: assertPath,
 	}
 	err = jujudb.Validate()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	// via NewService
 	jujudbService, err := NewService(ServiceConfig{
@@ -106,8 +105,8 @@ func (*validationSuite) TestValidateLocalSnap(c *tc.C) {
 		SnapPath:        snapPath,
 		SnapAssertsPath: assertPath,
 	})
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(jujudbService.Validate(), jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(jujudbService.Validate(), tc.ErrorIsNil)
 }
 
 type snapSuite struct {
@@ -138,7 +137,7 @@ func (*snapSuite) TestConfigOverride(c *tc.C) {
 			Name: "daemon",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	dir := c.MkDir()
 
@@ -147,10 +146,10 @@ func (*snapSuite) TestConfigOverride(c *tc.C) {
 	svc = *s
 
 	err = svc.ConfigOverride()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	data, err := os.ReadFile(filepath.Join(dir, "snap.juju-db.daemon.service.d/overrides.conf"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(data), tc.Equals, `
 [Service]
 LimitNOFILE=64000
@@ -192,7 +191,7 @@ func (*serviceSuite) TestInstall(c *tc.C) {
 		BackgroundServices: backgroundServices,
 		Prerequisites:      prerequisites,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s := &service
 	s.runnable = runnable
@@ -200,7 +199,7 @@ func (*serviceSuite) TestInstall(c *tc.C) {
 	service = *s
 
 	err = service.Install()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (*serviceSuite) TestInstallWithRetry(c *tc.C) {
@@ -240,7 +239,7 @@ func (*serviceSuite) TestInstallWithRetry(c *tc.C) {
 		BackgroundServices: backgroundServices,
 		Prerequisites:      prerequisites,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s := &service
 	s.runnable = runnable
@@ -248,7 +247,7 @@ func (*serviceSuite) TestInstallWithRetry(c *tc.C) {
 	service = *s
 
 	err = service.Install()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (*serviceSuite) TestInstallLocalSnapWithRetry(c *tc.C) {
@@ -260,11 +259,11 @@ func (*serviceSuite) TestInstallLocalSnapWithRetry(c *tc.C) {
 	assertPath := filepath.Join(dir, "juju-db_123.assert")
 
 	f, err := os.Create(snapPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	f.Close()
 
 	f, err = os.Create(assertPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	f.Close()
 
 	clock := NewMockClock(ctrl)
@@ -290,7 +289,7 @@ func (*serviceSuite) TestInstallLocalSnapWithRetry(c *tc.C) {
 		SnapExecutable:  Command,
 		Channel:         "9.9/stable",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s := &service
 	s.runnable = runnable
@@ -298,5 +297,5 @@ func (*serviceSuite) TestInstallLocalSnapWithRetry(c *tc.C) {
 	service = *s
 
 	err = service.Install()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/downloader"
 	"github.com/juju/juju/internal/testing"
@@ -46,7 +45,7 @@ var _ = tc.Suite(&DownloaderSuite{})
 func (s *DownloaderSuite) URL(c *tc.C, path string) *url.URL {
 	urlStr := s.HTTPSuite.URL(path)
 	url, err := url.Parse(urlStr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return url
 }
 
@@ -83,7 +82,7 @@ func (s *DownloaderSuite) TestDownload(c *tc.C) {
 		URL:       s.URL(c, "/archive.tgz"),
 		TargetDir: tmp,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	dir, _ := filepath.Split(filename)
 	c.Assert(filepath.Clean(dir), tc.Equals, tmp)
 	assertFileContents(c, filename, "archive")
@@ -97,5 +96,5 @@ func (s *DownloaderSuite) TestDownloadHandles409Responses(c *tc.C) {
 		URL:       s.URL(c, "/archive.tgz"),
 		TargetDir: tmp,
 	})
-	c.Assert(err, jc.ErrorIs, errors.NotYetAvailable)
+	c.Assert(err, tc.ErrorIs, errors.NotYetAvailable)
 }

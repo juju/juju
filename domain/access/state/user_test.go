@@ -10,7 +10,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"golang.org/x/net/context"
 
 	coremodel "github.com/juju/juju/core/model"
@@ -62,7 +61,7 @@ func (s *userStateSuite) TestSingletonActiveUser(c *tc.C) {
 		`, "123", "bob", "Bob", false, true, "123", time.Now())
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
@@ -71,7 +70,7 @@ func (s *userStateSuite) TestSingletonActiveUser(c *tc.C) {
 		`, "124", "bob", "Bob", false, true, "123", time.Now())
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
@@ -80,7 +79,7 @@ func (s *userStateSuite) TestSingletonActiveUser(c *tc.C) {
 		`, "125", "bob", "Bob", false, true, "123", time.Now())
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Insert the first non-removed (active) Bob user.
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -90,7 +89,7 @@ func (s *userStateSuite) TestSingletonActiveUser(c *tc.C) {
 		`, "126", "bob", "Bob", false, false, "123", time.Now())
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Try and insert the second non-removed (active) Bob user. This should blow
 	// up the constraint.
@@ -101,7 +100,7 @@ func (s *userStateSuite) TestSingletonActiveUser(c *tc.C) {
 		`, "127", "bob", "Bob", false, false, "123", time.Now())
 		return err
 	})
-	c.Assert(database.IsErrConstraintUnique(err), jc.IsTrue)
+	c.Assert(database.IsErrConstraintUnique(err), tc.IsTrue)
 }
 
 func generateActivationKey() ([]byte, error) {
@@ -117,10 +116,10 @@ func generateActivationKey() ([]byte, error) {
 func (s *userStateSuite) TestBootstrapAddUserWithPassword(c *tc.C) {
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	salt, err := auth.NewSalt()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add user with no password authorization.
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
@@ -131,7 +130,7 @@ func (s *userStateSuite) TestBootstrapAddUserWithPassword(c *tc.C) {
 		)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that the user was added correctly.
 	db := s.DB()
@@ -142,14 +141,14 @@ FROM user
 WHERE uuid = ?
 	`, adminUUID)
 
-	c.Assert(row.Err(), jc.ErrorIsNil)
+	c.Assert(row.Err(), tc.ErrorIsNil)
 
 	var uuid, name, displayName string
 	var creatorUUID user.UUID
 	var removed bool
 	var createdAt time.Time
 	err = row.Scan(&uuid, &name, &displayName, &removed, &creatorUUID, &createdAt)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(name, tc.Equals, "admin")
 	c.Check(removed, tc.Equals, false)
 	c.Check(displayName, tc.Equals, "admin")
@@ -164,7 +163,7 @@ func (s *userStateSuite) TestAddUser(c *tc.C) {
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	name := usertesting.GenNewName(c, "admin")
 	err = st.AddUser(
@@ -172,13 +171,13 @@ func (s *userStateSuite) TestAddUser(c *tc.C) {
 		name, "admin", false,
 		adminUUID,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newUser, err := st.GetUser(context.Background(), adminUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(newUser.Name, tc.Equals, name)
 	c.Check(newUser.UUID, tc.Equals, adminUUID)
-	c.Check(newUser.Disabled, jc.IsFalse)
+	c.Check(newUser.Disabled, tc.IsFalse)
 	c.Check(newUser.CreatorUUID, tc.Equals, adminUUID)
 }
 
@@ -189,7 +188,7 @@ func (s *userStateSuite) TestAddUserAlreadyExists(c *tc.C) {
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	name := usertesting.GenNewName(c, "admin")
 	err = st.AddUser(
@@ -197,17 +196,17 @@ func (s *userStateSuite) TestAddUserAlreadyExists(c *tc.C) {
 		name, "admin", false,
 		adminUUID,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Try and add admin user again.
 	adminCloneUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddUser(
 		context.Background(), adminCloneUUID,
 		name, "admin", false,
 		adminCloneUUID,
 	)
-	c.Assert(err, jc.ErrorIs, usererrors.UserAlreadyExists)
+	c.Assert(err, tc.ErrorIs, usererrors.UserAlreadyExists)
 }
 
 // TestAddUserCreatorNotFound asserts that we get an error when we try
@@ -217,18 +216,18 @@ func (s *userStateSuite) TestAddUserCreatorNotFound(c *tc.C) {
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Try and add admin user with a creator that does not exist.
 	nonExistingUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	name := usertesting.GenNewName(c, "admin")
 	err = st.AddUser(
 		context.Background(), adminUUID,
 		name, "admin", false,
 		nonExistingUUID,
 	)
-	c.Assert(err, jc.ErrorIs, usererrors.UserCreatorUUIDNotFound)
+	c.Assert(err, tc.ErrorIs, usererrors.UserCreatorUUIDNotFound)
 }
 
 // TestAddUserWithPermission asserts a new user is added, enabled, and has
@@ -238,7 +237,7 @@ func (s *userStateSuite) TestAddUserWithPermission(c *tc.C) {
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	loginAccess := s.controllerLoginAccess()
 	name := usertesting.GenNewName(c, "admin")
@@ -247,19 +246,19 @@ func (s *userStateSuite) TestAddUserWithPermission(c *tc.C) {
 		name, "admin", false,
 		adminUUID, loginAccess,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newUser, err := st.GetUser(context.Background(), adminUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(newUser.Name, tc.Equals, name)
 	c.Check(newUser.UUID, tc.Equals, adminUUID)
-	c.Check(newUser.Disabled, jc.IsFalse)
+	c.Check(newUser.Disabled, tc.IsFalse)
 	c.Check(newUser.CreatorUUID, tc.Equals, adminUUID)
 	c.Check(newUser.CreatorName, tc.Equals, user.AdminUserName)
 
 	pSt := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	newUserAccess, err := pSt.ReadUserAccessForTarget(context.Background(), usertesting.GenNewName(c, "admin"), loginAccess.Target)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(newUserAccess.Access, tc.Equals, loginAccess.Access)
 	c.Check(newUserAccess.UserName, tc.Equals, newUser.Name)
 	c.Check(newUserAccess.Object, tc.Equals, loginAccess.Target)
@@ -272,10 +271,10 @@ func (s *userStateSuite) TestAddUserWithPermissionInvalid(c *tc.C) {
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	salt, err := auth.NewSalt()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	name := usertesting.GenNewName(c, "admin")
 	err = st.AddUserWithPasswordHash(
@@ -291,7 +290,7 @@ func (s *userStateSuite) TestAddUserWithPermissionInvalid(c *tc.C) {
 		},
 		"passwordHash", salt,
 	)
-	c.Assert(err, jc.ErrorIs, usererrors.PermissionTargetInvalid)
+	c.Assert(err, tc.ErrorIs, usererrors.PermissionTargetInvalid)
 }
 
 // TestGetUser asserts that we can get a user from the database.
@@ -300,10 +299,10 @@ func (s *userStateSuite) TestGetUser(c *tc.C) {
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	salt, err := auth.NewSalt()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	name := usertesting.GenNewName(c, "admin")
 	err = st.AddUserWithPasswordHash(
@@ -313,11 +312,11 @@ func (s *userStateSuite) TestGetUser(c *tc.C) {
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Get the user.
 	u, err := st.GetUser(context.Background(), adminUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(u.Name, tc.Equals, name)
 	c.Check(u.DisplayName, tc.Equals, "admin")
@@ -332,7 +331,7 @@ func (s *userStateSuite) TestGetRemovedUser(c *tc.C) {
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	adminName := usertesting.GenNewName(c, "admin")
 	err = st.AddUserWithPermission(
@@ -341,14 +340,14 @@ func (s *userStateSuite) TestGetRemovedUser(c *tc.C) {
 		adminUUID,
 		s.controllerLoginAccess(),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add userToRemove.
 	userToRemoveUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	salt, err := auth.NewSalt()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	userToRemoveName := usertesting.GenNewName(c, "userToRemove")
 	err = st.AddUserWithPasswordHash(
@@ -358,15 +357,15 @@ func (s *userStateSuite) TestGetRemovedUser(c *tc.C) {
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Remove userToRemove.
 	err = st.RemoveUser(context.Background(), userToRemoveName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Get the user.
 	u, err := st.GetUser(context.Background(), userToRemoveUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(u.Name, tc.Equals, userToRemoveName)
 	c.Check(u.DisplayName, tc.Equals, "userToRemove")
@@ -382,11 +381,11 @@ func (s *userStateSuite) TestGetUserNotFound(c *tc.C) {
 
 	// Generate a random UUID.
 	userUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Get the user.
 	_, err = st.GetUser(context.Background(), userUUID)
-	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
+	c.Assert(err, tc.ErrorIs, usererrors.UserNotFound)
 }
 
 // TestGetUserByName asserts that we can get a user by name from the database.
@@ -395,10 +394,10 @@ func (s *userStateSuite) TestGetUserByName(c *tc.C) {
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	salt, err := auth.NewSalt()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	name := usertesting.GenNewName(c, "admin")
 	err = st.AddUserWithPasswordHash(
@@ -408,11 +407,11 @@ func (s *userStateSuite) TestGetUserByName(c *tc.C) {
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Get the user.
 	u, err := st.GetUserByName(context.Background(), name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(u.Name, tc.Equals, name)
 	c.Check(u.DisplayName, tc.Equals, "admin")
@@ -429,7 +428,7 @@ func (s *userStateSuite) TestGetRemovedUserByName(c *tc.C) {
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	adminName := usertesting.GenNewName(c, "admin")
 	err = st.AddUserWithPermission(
@@ -439,11 +438,11 @@ func (s *userStateSuite) TestGetRemovedUserByName(c *tc.C) {
 		adminUUID,
 		s.controllerLoginAccess(),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add userToRemove.
 	userToRemoveUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	userToRemoveName := usertesting.GenNewName(c, "userToRemove")
 	err = st.AddUserWithPermission(
@@ -453,15 +452,15 @@ func (s *userStateSuite) TestGetRemovedUserByName(c *tc.C) {
 		adminUUID,
 		s.controllerLoginAccess(),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Remove userToRemove.
 	err = st.RemoveUser(context.Background(), userToRemoveName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Get the user.
 	_, err = st.GetUserByName(context.Background(), userToRemoveName)
-	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
+	c.Assert(err, tc.ErrorIs, usererrors.UserNotFound)
 }
 
 // TestGetUserByNameMultipleUsers asserts that we get a non-removed user when we try to
@@ -471,7 +470,7 @@ func (s *userStateSuite) TestGetUserByNameMultipleUsers(c *tc.C) {
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	name := usertesting.GenNewName(c, "admin")
 	err = st.AddUserWithPermission(
@@ -481,18 +480,18 @@ func (s *userStateSuite) TestGetUserByNameMultipleUsers(c *tc.C) {
 		adminUUID,
 		s.controllerLoginAccess(),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Remove admin user.
 	err = st.RemoveUser(context.Background(), name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add admin2 user.
 	admin2UUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	salt, err := auth.NewSalt()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = st.AddUserWithPasswordHash(
 		context.Background(),
@@ -502,11 +501,11 @@ func (s *userStateSuite) TestGetUserByNameMultipleUsers(c *tc.C) {
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Get the user.
 	u, err := st.GetUserByName(context.Background(), name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(u.Name, tc.Equals, name)
 	c.Check(u.DisplayName, tc.Equals, "admin2")
@@ -522,7 +521,7 @@ func (s *userStateSuite) TestGetUserByNameNotFound(c *tc.C) {
 
 	// Get the user.
 	_, err := st.GetUserByName(context.Background(), usertesting.GenNewName(c, "admin"))
-	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
+	c.Assert(err, tc.ErrorIs, usererrors.UserNotFound)
 }
 
 // TestGetUserWithAuthInfoByName asserts that we can get a user with auth info
@@ -532,10 +531,10 @@ func (s *userStateSuite) TestGetUserWithAuthInfoByName(c *tc.C) {
 
 	// Add admin user with password hash.
 	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	salt, err := auth.NewSalt()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	name := usertesting.GenNewName(c, "admin")
 	err = st.AddUserWithPasswordHash(
@@ -545,11 +544,11 @@ func (s *userStateSuite) TestGetUserWithAuthInfoByName(c *tc.C) {
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Get the user.
 	u, err := st.GetUserByName(context.Background(), name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(u.Name, tc.Equals, name)
 	c.Check(u.DisplayName, tc.Equals, "admin")
@@ -566,13 +565,13 @@ func (s *userStateSuite) TestGetUserByAuth(c *tc.C) {
 
 	// Add admin user with password hash.
 	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	salt, err := auth.NewSalt()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	passwordHash, err := auth.HashPassword(auth.NewPassword("password"), salt)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	name := usertesting.GenNewName(c, "admin")
 	err = st.AddUserWithPasswordHash(
@@ -582,18 +581,18 @@ func (s *userStateSuite) TestGetUserByAuth(c *tc.C) {
 		adminUUID,
 		s.controllerLoginAccess(),
 		passwordHash, salt)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Get the user.
 	u, err := st.GetUserByAuth(context.Background(), name, auth.NewPassword("password"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(u.Name, tc.Equals, name)
 	c.Check(u.DisplayName, tc.Equals, "admin")
 	c.Check(u.CreatorUUID, tc.Equals, adminUUID)
 	c.Check(u.CreatorName, tc.Equals, user.AdminUserName)
 	c.Check(u.CreatedAt, tc.NotNil)
-	c.Check(u.Disabled, jc.IsFalse)
+	c.Check(u.Disabled, tc.IsFalse)
 }
 
 // TestGetUserByAuthWithInvalidSalt asserts that we correctly send an
@@ -603,7 +602,7 @@ func (s *userStateSuite) TestGetUserByAuthWithInvalidSalt(c *tc.C) {
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	name := usertesting.GenNewName(c, "admin")
 	err = st.AddUserWithPasswordHash(
@@ -613,11 +612,11 @@ func (s *userStateSuite) TestGetUserByAuthWithInvalidSalt(c *tc.C) {
 		s.controllerLoginAccess(),
 		"passwordHash", []byte{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Get the user.
 	_, err = st.GetUserByAuth(context.Background(), name, auth.NewPassword("passwordHash"))
-	c.Assert(err, jc.ErrorIs, usererrors.UserUnauthorized)
+	c.Assert(err, tc.ErrorIs, usererrors.UserUnauthorized)
 }
 
 // TestGetUserByAuthDisabled asserts that we can get a user by auth from the
@@ -627,13 +626,13 @@ func (s *userStateSuite) TestGetUserByAuthDisabled(c *tc.C) {
 
 	// Add admin user with password hash.
 	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	salt, err := auth.NewSalt()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	passwordHash, err := auth.HashPassword(auth.NewPassword("password"), salt)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	name := usertesting.GenNewName(c, "admin")
 	err = st.AddUserWithPasswordHash(
@@ -643,21 +642,21 @@ func (s *userStateSuite) TestGetUserByAuthDisabled(c *tc.C) {
 		adminUUID,
 		s.controllerLoginAccess(),
 		passwordHash, salt)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = st.DisableUserAuthentication(context.Background(), name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Get the user.
 	u, err := st.GetUserByAuth(context.Background(), name, auth.NewPassword("password"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(u.Name, tc.Equals, name)
 	c.Check(u.DisplayName, tc.Equals, "admin")
 	c.Check(u.CreatorUUID, tc.Equals, adminUUID)
 	c.Check(u.CreatorName, tc.Equals, user.AdminUserName)
 	c.Check(u.CreatedAt, tc.NotNil)
-	c.Check(u.Disabled, jc.IsTrue)
+	c.Check(u.Disabled, tc.IsTrue)
 }
 
 // TestGetUserByAuthUnauthorized asserts that we get an error when we try to
@@ -667,13 +666,13 @@ func (s *userStateSuite) TestGetUserByAuthUnauthorized(c *tc.C) {
 
 	// Add admin user with password hash.
 	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	salt, err := auth.NewSalt()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	passwordHash, err := auth.HashPassword(auth.NewPassword("password"), salt)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	name := usertesting.GenNewName(c, "admin")
 	err = st.AddUserWithPasswordHash(
@@ -683,11 +682,11 @@ func (s *userStateSuite) TestGetUserByAuthUnauthorized(c *tc.C) {
 		s.controllerLoginAccess(),
 		passwordHash, salt,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Get the user.
 	_, err = st.GetUserByAuth(context.Background(), name, auth.NewPassword("wrong"))
-	c.Assert(err, jc.ErrorIs, usererrors.UserUnauthorized)
+	c.Assert(err, tc.ErrorIs, usererrors.UserUnauthorized)
 }
 
 // TestGetUserByAuthDoesNotExist asserts that we get an error when we try to
@@ -697,7 +696,7 @@ func (s *userStateSuite) TestGetUserByAuthDoesNotExist(c *tc.C) {
 
 	// Get the user.
 	_, err := st.GetUserByAuth(context.Background(), usertesting.GenNewName(c, "admin"), auth.NewPassword("password"))
-	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
+	c.Assert(err, tc.ErrorIs, usererrors.UserNotFound)
 }
 
 // TestRemoveUser asserts that we can remove a user from the database.
@@ -706,7 +705,7 @@ func (s *userStateSuite) TestRemoveUser(c *tc.C) {
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	adminName := usertesting.GenNewName(c, "admin")
 	err = st.AddUserWithPermission(
@@ -716,11 +715,11 @@ func (s *userStateSuite) TestRemoveUser(c *tc.C) {
 		adminUUID,
 		s.controllerLoginAccess(),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add userToRemove.
 	userToRemoveUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	userToRemoveName := usertesting.GenNewName(c, "userToRemove")
 	err = st.AddUserWithPermission(
@@ -730,11 +729,11 @@ func (s *userStateSuite) TestRemoveUser(c *tc.C) {
 		adminUUID,
 		s.controllerLoginAccess(),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Remove userToRemove.
 	err = st.RemoveUser(context.Background(), userToRemoveName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that the user has been successfully removed.
 	db := s.DB()
@@ -747,7 +746,7 @@ WHERE user_uuid = ?
 	`, userToRemoveUUID)
 	// ErrNoRows is not returned by row.Err, it is deferred until row.Scan
 	// is called.
-	c.Assert(row.Scan(nil), jc.ErrorIs, sql.ErrNoRows)
+	c.Assert(row.Scan(nil), tc.ErrorIs, sql.ErrNoRows)
 
 	// Check that the user activation key was removed
 	row = db.QueryRow(`
@@ -757,7 +756,7 @@ WHERE user_uuid = ?
 	`, userToRemoveUUID)
 	// ErrNoRows is not returned by row.Err, it is deferred until row.Scan
 	// is called.
-	c.Assert(row.Scan(nil), jc.ErrorIs, sql.ErrNoRows)
+	c.Assert(row.Scan(nil), tc.ErrorIs, sql.ErrNoRows)
 
 	// Check that the user was marked as removed.
 	row = db.QueryRow(`
@@ -765,10 +764,10 @@ SELECT removed
 FROM user
 WHERE uuid = ?
 	`, userToRemoveUUID)
-	c.Assert(row.Err(), jc.ErrorIsNil)
+	c.Assert(row.Err(), tc.ErrorIsNil)
 	var removed bool
 	err = row.Scan(&removed)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(removed, tc.Equals, true)
 
 }
@@ -780,7 +779,7 @@ func (s *userStateSuite) TestRemoveUserSSHKeys(c *tc.C) {
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	adminName := usertesting.GenNewName(c, "admin")
 	err = st.AddUser(
@@ -789,11 +788,11 @@ func (s *userStateSuite) TestRemoveUserSSHKeys(c *tc.C) {
 		false,
 		adminUUID,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add userToRemove.
 	userToRemoveUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	userToRemoveName := usertesting.GenNewName(c, "userToRemove")
 	err = st.AddUser(
@@ -802,7 +801,7 @@ func (s *userStateSuite) TestRemoveUserSSHKeys(c *tc.C) {
 		false,
 		adminUUID,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	modelId := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-model")
 
@@ -816,11 +815,11 @@ func (s *userStateSuite) TestRemoveUserSSHKeys(c *tc.C) {
 			Key:             "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN8h8XBpjS9aBUG5cdoSWubs7wT2Lc/BEZIUQCqoaOZR juju2@example.com",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Remove userToRemove.
 	err = st.RemoveUser(context.Background(), userToRemoveName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that the user has been successfully removed.
 	db := s.DB()
@@ -829,14 +828,14 @@ func (s *userStateSuite) TestRemoveUserSSHKeys(c *tc.C) {
 SELECT model_uuid
 FROM model_authorized_keys
 `)
-	c.Assert(row.Scan(nil), jc.ErrorIs, sql.ErrNoRows)
+	c.Assert(row.Scan(nil), tc.ErrorIs, sql.ErrNoRows)
 
 	row = db.QueryRow(`
 SELECT id
 FROM user_public_ssh_key
 WHERE user_uuid = ?
 `, userToRemoveUUID)
-	c.Assert(row.Scan(nil), jc.ErrorIs, sql.ErrNoRows)
+	c.Assert(row.Scan(nil), tc.ErrorIs, sql.ErrNoRows)
 
 	// Check that the user password was removed
 	row = db.QueryRow(`
@@ -846,7 +845,7 @@ WHERE user_uuid = ?
 	`, userToRemoveUUID)
 	// ErrNoRows is not returned by row.Err, it is deferred until row.Scan
 	// is called.
-	c.Assert(row.Scan(nil), jc.ErrorIs, sql.ErrNoRows)
+	c.Assert(row.Scan(nil), tc.ErrorIs, sql.ErrNoRows)
 
 	// Check that the user activation key was removed
 	row = db.QueryRow(`
@@ -856,7 +855,7 @@ WHERE user_uuid = ?
 	`, userToRemoveUUID)
 	// ErrNoRows is not returned by row.Err, it is deferred until row.Scan
 	// is called.
-	c.Assert(row.Scan(nil), jc.ErrorIs, sql.ErrNoRows)
+	c.Assert(row.Scan(nil), tc.ErrorIs, sql.ErrNoRows)
 
 	// Check that the user was marked as removed.
 	row = db.QueryRow(`
@@ -864,10 +863,10 @@ SELECT removed
 FROM user
 WHERE uuid = ?
 	`, userToRemoveUUID)
-	c.Assert(row.Err(), jc.ErrorIsNil)
+	c.Assert(row.Err(), tc.ErrorIsNil)
 	var removed bool
 	err = row.Scan(&removed)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(removed, tc.Equals, true)
 
 }
@@ -879,10 +878,10 @@ func (s *userStateSuite) TestGetAllUsersWihAuthInfo(c *tc.C) {
 
 	// Add admin1 user with password hash.
 	admin1UUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	salt, err := auth.NewSalt()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	admin1Name := usertesting.GenNewName(c, "admin1")
 	err = st.AddUserWithPasswordHash(
@@ -892,14 +891,14 @@ func (s *userStateSuite) TestGetAllUsersWihAuthInfo(c *tc.C) {
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add admin2 user with activation key.
 	admin2UUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	admin2ActivationKey, err := generateActivationKey()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	admin2Name := usertesting.GenNewName(c, "admin2")
 	err = st.AddUserWithActivationKey(
@@ -909,15 +908,15 @@ func (s *userStateSuite) TestGetAllUsersWihAuthInfo(c *tc.C) {
 		s.controllerLoginAccess(),
 		admin2ActivationKey,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Disable admin2 user.
 	err = st.DisableUserAuthentication(context.Background(), admin2Name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Get all users with auth info, including disabled users.
 	users, err := st.GetAllUsers(context.Background(), true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(users, tc.HasLen, 2)
 
@@ -939,7 +938,7 @@ func (s *userStateSuite) TestGetAllUsersWihAuthInfo(c *tc.C) {
 
 	// Get all users with auth info, excluding disabled users
 	users, err = st.GetAllUsers(context.Background(), false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(users, tc.HasLen, 1)
 
@@ -958,12 +957,12 @@ func (s *userStateSuite) TestUserWithAuthInfo(c *tc.C) {
 	st := NewUserState(s.TxnRunnerFactory())
 
 	uuid, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	name := usertesting.GenNewName(c, "newguy")
 
 	salt, err := auth.NewSalt()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = st.AddUserWithPasswordHash(
 		context.Background(),
@@ -972,13 +971,13 @@ func (s *userStateSuite) TestUserWithAuthInfo(c *tc.C) {
 		uuid,
 		s.controllerLoginAccess(),
 		"passwordHash", salt)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = st.DisableUserAuthentication(context.Background(), name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	u, err := st.GetUser(context.Background(), uuid)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(u.Name, tc.Equals, name)
 	c.Check(u.DisplayName, tc.Equals, name.Name())
@@ -994,10 +993,10 @@ func (s *userStateSuite) TestSetPasswordHash(c *tc.C) {
 
 	// Add admin user with activation key.
 	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newActivationKey, err := generateActivationKey()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	name := usertesting.GenNewName(c, "admin")
 	err = st.AddUserWithActivationKey(
 		context.Background(), adminUUID,
@@ -1006,14 +1005,14 @@ func (s *userStateSuite) TestSetPasswordHash(c *tc.C) {
 		s.controllerLoginAccess(),
 		newActivationKey,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	salt, err := auth.NewSalt()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Set password hash.
 	err = st.SetPasswordHash(context.Background(), name, "passwordHash", salt)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that the password hash was set correctly.
 	db := s.DB()
@@ -1023,11 +1022,11 @@ SELECT disabled
 FROM user_authentication
 WHERE user_uuid = ?
 	`, adminUUID)
-	c.Assert(rowAuth.Err(), jc.ErrorIsNil)
+	c.Assert(rowAuth.Err(), tc.ErrorIsNil)
 
 	var disabled bool
 	err = rowAuth.Scan(&disabled)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(disabled, tc.Equals, false)
 
@@ -1036,11 +1035,11 @@ SELECT password_hash
 FROM user_password
 WHERE user_uuid = ?
 	`, adminUUID)
-	c.Assert(row.Err(), jc.ErrorIsNil)
+	c.Assert(row.Err(), tc.ErrorIsNil)
 
 	var passwordHash string
 	err = row.Scan(&passwordHash)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(passwordHash, tc.Equals, "passwordHash")
 
@@ -1049,11 +1048,11 @@ SELECT activation_key
 FROM user_activation_key
 WHERE user_uuid = ?
 	`, adminUUID)
-	c.Assert(row.Err(), jc.ErrorIsNil)
+	c.Assert(row.Err(), tc.ErrorIsNil)
 
 	var activationKey string
 	err = row.Scan(&activationKey)
-	c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
+	c.Assert(err, tc.ErrorIs, sql.ErrNoRows)
 }
 
 // TestSetPasswordHash asserts that we can set a password hash for a user twice.
@@ -1062,10 +1061,10 @@ func (s *userStateSuite) TestSetPasswordHashTwice(c *tc.C) {
 
 	// Add admin user with activation key.
 	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newActivationKey, err := generateActivationKey()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	name := usertesting.GenNewName(c, "admin")
 	err = st.AddUserWithActivationKey(
 		context.Background(), adminUUID,
@@ -1074,18 +1073,18 @@ func (s *userStateSuite) TestSetPasswordHashTwice(c *tc.C) {
 		s.controllerLoginAccess(),
 		newActivationKey,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	salt, err := auth.NewSalt()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Set password hash.
 	err = st.SetPasswordHash(context.Background(), name, "passwordHash", salt)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Set password hash again
 	err = st.SetPasswordHash(context.Background(), name, "passwordHashAgain", salt)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that the password hash was set correctly.
 	db := s.DB()
@@ -1095,11 +1094,11 @@ SELECT password_hash
 FROM user_password
 WHERE user_uuid = ?
 	`, adminUUID)
-	c.Assert(row.Err(), jc.ErrorIsNil)
+	c.Assert(row.Err(), tc.ErrorIsNil)
 
 	var passwordHash string
 	err = row.Scan(&passwordHash)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(passwordHash, tc.Equals, "passwordHashAgain")
 }
@@ -1111,10 +1110,10 @@ func (s *userStateSuite) TestAddUserWithPasswordHash(c *tc.C) {
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	salt, err := auth.NewSalt()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add user with password hash.
 	name := usertesting.GenNewName(c, "admin")
@@ -1125,17 +1124,17 @@ func (s *userStateSuite) TestAddUserWithPasswordHash(c *tc.C) {
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that the password hash was set correctly.
 	db := s.DB()
 
 	row := db.QueryRow(`SELECT password_hash FROM user_password WHERE user_uuid = ?`, adminUUID)
-	c.Assert(row.Err(), jc.ErrorIsNil)
+	c.Assert(row.Err(), tc.ErrorIsNil)
 
 	var passwordHash string
 	err = row.Scan(&passwordHash)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(passwordHash, tc.Equals, "passwordHash")
 }
@@ -1148,12 +1147,12 @@ func (s *userStateSuite) TestAddUserWithPasswordWhichCreatorDoesNotExist(c *tc.C
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	nonExistedCreatorUuid, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	salt, err := auth.NewSalt()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Try and add admin user with a creator that does not exist.
 	name := usertesting.GenNewName(c, "admin")
@@ -1164,7 +1163,7 @@ func (s *userStateSuite) TestAddUserWithPasswordWhichCreatorDoesNotExist(c *tc.C
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
 	)
-	c.Assert(err, jc.ErrorIs, usererrors.UserCreatorUUIDNotFound)
+	c.Assert(err, tc.ErrorIs, usererrors.UserCreatorUUIDNotFound)
 }
 
 // TestAddUserWithActivationKey asserts that we can add a user with an
@@ -1174,10 +1173,10 @@ func (s *userStateSuite) TestAddUserWithActivationKey(c *tc.C) {
 
 	// Add admin user with activation key.
 	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	adminActivationKey, err := generateActivationKey()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	name := usertesting.GenNewName(c, "admin")
 	err = st.AddUserWithActivationKey(
 		context.Background(), adminUUID,
@@ -1186,11 +1185,11 @@ func (s *userStateSuite) TestAddUserWithActivationKey(c *tc.C) {
 		s.controllerLoginAccess(),
 		adminActivationKey,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that the activation key was set correctly.
 	activationKey, err := st.GetActivationKey(context.Background(), name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(activationKey, tc.DeepEquals, adminActivationKey)
 }
@@ -1202,7 +1201,7 @@ func (s *userStateSuite) TestGetActivationKeyNotFound(c *tc.C) {
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	name := usertesting.GenNewName(c, "admin")
 	err = st.AddUserWithPermission(
@@ -1212,11 +1211,11 @@ func (s *userStateSuite) TestGetActivationKeyNotFound(c *tc.C) {
 		adminUUID,
 		s.controllerLoginAccess(),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that the activation key was set correctly.
 	_, err = st.GetActivationKey(context.Background(), name)
-	c.Assert(err, jc.ErrorIs, usererrors.ActivationKeyNotFound)
+	c.Assert(err, tc.ErrorIs, usererrors.ActivationKeyNotFound)
 }
 
 // TestAddUserWithActivationKeyWhichCreatorDoesNotExist asserts that we get an
@@ -1227,13 +1226,13 @@ func (s *userStateSuite) TestAddUserWithActivationKeyWhichCreatorDoesNotExist(c 
 
 	// Add admin user with activation key.
 	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	nonExistedCreatorUuid, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Try and add admin user with an activation key with a creator that does not exist.
 	newActivationKey, err := generateActivationKey()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	name := usertesting.GenNewName(c, "admin")
 	err = st.AddUserWithActivationKey(
 		context.Background(), adminUUID,
@@ -1242,7 +1241,7 @@ func (s *userStateSuite) TestAddUserWithActivationKeyWhichCreatorDoesNotExist(c 
 		s.controllerLoginAccess(),
 		newActivationKey,
 	)
-	c.Assert(err, jc.ErrorIs, usererrors.UserCreatorUUIDNotFound)
+	c.Assert(err, tc.ErrorIs, usererrors.UserCreatorUUIDNotFound)
 }
 
 // TestSetActivationKey asserts that we can set an activation key for a user.
@@ -1251,10 +1250,10 @@ func (s *userStateSuite) TestSetActivationKey(c *tc.C) {
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	salt, err := auth.NewSalt()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add user with password hash.
 	name := usertesting.GenNewName(c, "admin")
@@ -1265,13 +1264,13 @@ func (s *userStateSuite) TestSetActivationKey(c *tc.C) {
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Set activation key.
 	adminActivationKey, err := generateActivationKey()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.SetActivationKey(context.Background(), name, adminActivationKey)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that the activation key was set correctly, and the password hash was removed.
 	db := s.DB()
@@ -1281,11 +1280,11 @@ SELECT activation_key
 FROM user_activation_key
 WHERE user_uuid = ?
 	`, adminUUID)
-	c.Assert(row.Err(), jc.ErrorIsNil)
+	c.Assert(row.Err(), tc.ErrorIsNil)
 
 	var activationKey string
 	err = row.Scan(&activationKey)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(activationKey, tc.Equals, string(adminActivationKey))
 
@@ -1294,11 +1293,11 @@ SELECT password_hash, password_salt
 FROM user_password
 WHERE user_uuid = ?
 	`, adminUUID)
-	c.Assert(row.Err(), jc.ErrorIsNil)
+	c.Assert(row.Err(), tc.ErrorIsNil)
 
 	var passwordHash, passwordSalt string
 	err = row.Scan(&passwordHash, &passwordSalt)
-	c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
+	c.Assert(err, tc.ErrorIs, sql.ErrNoRows)
 }
 
 // TestDisableUserAuthentication asserts that we can disable a user.
@@ -1307,10 +1306,10 @@ func (s *userStateSuite) TestDisableUserAuthentication(c *tc.C) {
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	salt, err := auth.NewSalt()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add user with password hash.
 	name := usertesting.GenNewName(c, "admin")
@@ -1321,11 +1320,11 @@ func (s *userStateSuite) TestDisableUserAuthentication(c *tc.C) {
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Disable user.
 	err = st.DisableUserAuthentication(context.Background(), name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that the user was disabled correctly.
 	db := s.DB()
@@ -1335,11 +1334,11 @@ SELECT disabled
 FROM user_authentication
 WHERE user_uuid = ?
 	`, adminUUID)
-	c.Assert(row.Err(), jc.ErrorIsNil)
+	c.Assert(row.Err(), tc.ErrorIsNil)
 
 	var disabled bool
 	err = row.Scan(&disabled)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(disabled, tc.Equals, true)
 }
@@ -1350,10 +1349,10 @@ func (s *userStateSuite) TestEnableUserAuthentication(c *tc.C) {
 
 	// Add admin user with activation key.
 	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	salt, err := auth.NewSalt()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add user with password hash.
 	name := usertesting.GenNewName(c, "admin")
@@ -1364,15 +1363,15 @@ func (s *userStateSuite) TestEnableUserAuthentication(c *tc.C) {
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Disable user.
 	err = st.DisableUserAuthentication(context.Background(), name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Enable user.
 	err = st.EnableUserAuthentication(context.Background(), name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that the user was enabled correctly.
 	db := s.DB()
@@ -1382,11 +1381,11 @@ SELECT disabled
 FROM user_authentication
 WHERE user_uuid = ?
 	`, adminUUID)
-	c.Assert(row.Err(), jc.ErrorIsNil)
+	c.Assert(row.Err(), tc.ErrorIsNil)
 
 	var disabled bool
 	err = row.Scan(&disabled)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(disabled, tc.Equals, false)
 }
@@ -1394,7 +1393,7 @@ WHERE user_uuid = ?
 func (s *userStateSuite) TestGetUserUUIDByName(c *tc.C) {
 	st := NewUserState(s.TxnRunnerFactory())
 	uuid, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	name := usertesting.GenNewName(c, "dnuof")
 	err = st.AddUserWithPermission(
@@ -1405,7 +1404,7 @@ func (s *userStateSuite) TestGetUserUUIDByName(c *tc.C) {
 		uuid,
 		s.controllerLoginAccess(),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().Txn(context.Background(),
 		func(ctx context.Context, tx *sqlair.TX) error {
@@ -1414,7 +1413,7 @@ func (s *userStateSuite) TestGetUserUUIDByName(c *tc.C) {
 		},
 	)
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 // TestGetUserUUIDByNameNotFound is asserting that if try and find the uuid for
@@ -1427,7 +1426,7 @@ func (s *userStateSuite) TestGetUserUUIDByNameNotFound(c *tc.C) {
 		},
 	)
 
-	c.Check(err, jc.ErrorIs, usererrors.UserNotFound)
+	c.Check(err, tc.ErrorIs, usererrors.UserNotFound)
 }
 
 // TestUpdateLastModelLogin asserts that the model_last_login table is updated
@@ -1440,7 +1439,7 @@ func (s *userStateSuite) TestUpdateLastModelLogin(c *tc.C) {
 
 	// Update last login.
 	err := st.UpdateLastModelLogin(context.Background(), name, modelUUID, loginTime)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that the last login was updated correctly.
 	db := s.DB()
@@ -1450,13 +1449,13 @@ SELECT user_uuid, model_uuid, time
 FROM model_last_login
 WHERE user_uuid = ?
 	`, adminUUID)
-	c.Assert(row.Err(), jc.ErrorIsNil)
+	c.Assert(row.Err(), tc.ErrorIsNil)
 
 	var lastLogin time.Time
 	var dbModelUUID string
 	var dbUserUUID string
 	err = row.Scan(&dbUserUUID, &dbModelUUID, &lastLogin)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(lastLogin.UTC(), tc.Equals, loginTime.Truncate(time.Second).UTC())
 	c.Assert(dbUserUUID, tc.Equals, string(adminUUID))
@@ -1467,12 +1466,12 @@ func (s *userStateSuite) TestUpdateLastModelLoginModelNotFound(c *tc.C) {
 	st := NewUserState(s.TxnRunnerFactory())
 	name, _ := s.addTestUser(c, st, "admin")
 	badModelUUID, err := coremodel.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Update last login.
 	err = st.UpdateLastModelLogin(context.Background(), name, badModelUUID, time.Time{})
 	c.Assert(err, tc.ErrorMatches, ".*model not found.*")
-	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 func (s *userStateSuite) TestLastModelLogin(c *tc.C) {
@@ -1485,26 +1484,26 @@ func (s *userStateSuite) TestLastModelLogin(c *tc.C) {
 
 	// Simulate two logins to the model.
 	err := st.UpdateLastModelLogin(context.Background(), username1, modelUUID, expectedTime1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.UpdateLastModelLogin(context.Background(), username2, modelUUID, expectedTime2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check login times.
 	time1, err := st.LastModelLogin(context.Background(), username1, modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(time1.UTC(), tc.Equals, expectedTime1.Truncate(time.Second).UTC())
 	time2, err := st.LastModelLogin(context.Background(), username2, modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(time2.UTC(), tc.Equals, expectedTime2.Truncate(time.Second).UTC())
 
 	// Simulate a new login from user1
 	expectedTime3 := expectedTime2.Add(time.Minute)
 	err = st.UpdateLastModelLogin(context.Background(), username1, modelUUID, expectedTime3)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the time for user1 was updated.
 	time3, err := st.LastModelLogin(context.Background(), username1, modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(time3, tc.Equals, expectedTime3.Truncate(time.Second).UTC())
 }
 
@@ -1512,12 +1511,12 @@ func (s *userStateSuite) TestLastModelLoginModelNotFound(c *tc.C) {
 	st := NewUserState(s.TxnRunnerFactory())
 	name, _ := s.addTestUser(c, st, "admin")
 	badModelUUID, err := coremodel.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Get users last login for non existent model.
 	_, err = st.LastModelLogin(context.Background(), name, badModelUUID)
 	c.Assert(err, tc.ErrorMatches, ".*model not found.*")
-	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 func (s *userStateSuite) TestLastModelLoginModelUserNeverAccessedModel(c *tc.C) {
@@ -1527,15 +1526,15 @@ func (s *userStateSuite) TestLastModelLoginModelUserNeverAccessedModel(c *tc.C) 
 
 	// Get users last login for non existent model.
 	_, err := st.LastModelLogin(context.Background(), name, modelUUID)
-	c.Assert(err, jc.ErrorIs, usererrors.UserNeverAccessedModel)
+	c.Assert(err, tc.ErrorIs, usererrors.UserNeverAccessedModel)
 }
 
 func (s *userStateSuite) addTestUser(c *tc.C, st *UserState, name string) (user.Name, user.UUID) {
 	userUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	salt, err := auth.NewSalt()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	userName := usertesting.GenNewName(c, name)
 	// Add user with password hash.
@@ -1546,7 +1545,7 @@ func (s *userStateSuite) addTestUser(c *tc.C, st *UserState, name string) (user.
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return userName, userUUID
 }
 

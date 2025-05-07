@@ -5,7 +5,6 @@ package cloud_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cloud"
 )
@@ -54,9 +53,9 @@ func (s *cloudSuite) TestValidateInvalidCloud(c *tc.C) {
 
 	yaml := []byte(validCloud)
 	err := cloud.ValidateCloudSet(yaml)
-	c.Assert(err.Error(), jc.Contains, `"endpont" is invalid. Perhaps you mean "endpoint"`)
-	c.Assert(err.Error(), jc.Contains, `"descript" is invalid. Perhaps you mean "description"`)
-	c.Assert(err.Error(), jc.Contains, `"tpe" is invalid. Perhaps you mean "type"`)
+	c.Assert(err.Error(), tc.Contains, `"endpont" is invalid. Perhaps you mean "endpoint"`)
+	c.Assert(err.Error(), tc.Contains, `"descript" is invalid. Perhaps you mean "description"`)
+	c.Assert(err.Error(), tc.Contains, `"tpe" is invalid. Perhaps you mean "type"`)
 }
 
 func (s *cloudSuite) TestValidateMultipleValidClouds(c *tc.C) {
@@ -118,8 +117,8 @@ func (s *cloudSuite) TestValidateMultipleInvalidClouds(c *tc.C) {
 
 	yaml := []byte(validCloud)
 	err := cloud.ValidateCloudSet(yaml)
-	c.Assert(err.Error(), jc.Contains, `"endpoit" is invalid. Perhaps you mean "endpoint"`)
-	c.Assert(err.Error(), jc.Contains, `"auth-tpes" is invalid. Perhaps you mean "auth-types"`)
+	c.Assert(err.Error(), tc.Contains, `"endpoit" is invalid. Perhaps you mean "endpoint"`)
+	c.Assert(err.Error(), tc.Contains, `"auth-tpes" is invalid. Perhaps you mean "auth-types"`)
 }
 
 func (s *cloudSuite) TestValidateInvalidPropertyWithNoSuggestion(c *tc.C) {
@@ -151,8 +150,8 @@ func (s *cloudSuite) TestValidateInvalidPropertyWithNoSuggestion(c *tc.C) {
 
 	yaml := []byte(validCloud)
 	err := cloud.ValidateCloudSet(yaml)
-	c.Assert(err.Error(), jc.Contains, `"endpoit" is invalid. Perhaps you mean "endpoint"`)
-	c.Assert(err.Error(), jc.Contains, `"invalidProperty" is invalid.`)
+	c.Assert(err.Error(), tc.Contains, `"endpoit" is invalid. Perhaps you mean "endpoint"`)
+	c.Assert(err.Error(), tc.Contains, `"invalidProperty" is invalid.`)
 }
 
 func (s *cloudSuite) TestValidateOneValidCloud(c *tc.C) {
@@ -192,6 +191,6 @@ func (s *cloudSuite) TestValidateOneInvalidCloud(c *tc.C) {
 
 	yaml := []byte(validCloud)
 	err := cloud.ValidateOneCloud(yaml)
-	c.Assert(err.Error(), jc.Contains, `"nae" is invalid. Perhaps you mean "name"`)
-	c.Assert(err.Error(), jc.Contains, `"escription" is invalid. Perhaps you mean "description"`)
+	c.Assert(err.Error(), tc.Contains, `"nae" is invalid. Perhaps you mean "name"`)
+	c.Assert(err.Error(), tc.Contains, `"escription" is invalid. Perhaps you mean "description"`)
 }

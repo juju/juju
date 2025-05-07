@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/mongo"
@@ -42,7 +41,7 @@ func (s *MongodFinderSuite) TestFindJujuMongodb(c *tc.C) {
 		exp.Exists("/snap/bin/juju-db.mongod").Return(true),
 	)
 	path, err := s.finder.InstalledAt()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(path, tc.Equals, "/snap/bin/juju-db.mongod")
 }
 
@@ -67,17 +66,17 @@ func (s *OSSearchToolsSuite) TestExists(c *tc.C) {
 	dir := c.MkDir()
 	path := filepath.Join(dir, "filename")
 	f, err := os.Create(path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	f.Close()
 	tools := mongo.OSSearchTools{}
-	c.Check(tools.Exists(path), jc.IsTrue)
-	c.Check(tools.Exists(path+"-not-there"), jc.IsFalse)
+	c.Check(tools.Exists(path), tc.IsTrue)
+	c.Check(tools.Exists(path+"-not-there"), tc.IsFalse)
 }
 
 func (s *OSSearchToolsSuite) TestGetCommandOutputValid(c *tc.C) {
 	tools := mongo.OSSearchTools{}
 	out, err := tools.GetCommandOutput("/bin/echo", "argument")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(out, tc.Equals, "argument\n")
 }
 
@@ -88,7 +87,7 @@ func (s *OSSearchToolsSuite) TestGetCommandOutputExitNonzero(c *tc.C) {
 echo "hello $1"
 exit 1
 `), 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	tools := mongo.OSSearchTools{}
 	out, err := tools.GetCommandOutput(path, "argument")
 	c.Assert(err, tc.NotNil)
@@ -101,7 +100,7 @@ func (s *OSSearchToolsSuite) TestGetCommandOutputNonExecutable(c *tc.C) {
 	err := os.WriteFile(path, []byte(`#!/bin/bash --norc
 echo "shouldn't happen $1"
 `), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	tools := mongo.OSSearchTools{}
 	out, err := tools.GetCommandOutput(path, "argument")
 	c.Assert(err, tc.NotNil)

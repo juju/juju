@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
@@ -62,7 +61,7 @@ func (s *workerSuite) getWorkerNewer(c *tc.C) (func(string), *gomock.Controller)
 			},
 			LeadershipTrackerFunc: func() leadership.ChangeTracker { return s.leadershipTracker },
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(w, tc.NotNil)
 		s.AddCleanup(func(c *tc.C) {
 			if expectedErr == "" {

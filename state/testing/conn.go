@@ -10,7 +10,6 @@ import (
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
@@ -43,7 +42,7 @@ func InitializeWithArgs(c *tc.C, args InitializeArgs) *state.Controller {
 	}
 
 	session, err := mgotesting.MgoServer.Dial()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer session.Close()
 
 	controllerCfg := testing.FakeControllerConfig()
@@ -74,7 +73,7 @@ func InitializeWithArgs(c *tc.C, args InitializeArgs) *state.Controller {
 		NewPolicy:                 args.NewPolicy,
 		AdminPassword:             args.AdminPassword,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return ctlr
 }
 

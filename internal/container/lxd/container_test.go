@@ -11,7 +11,6 @@ import (
 	"github.com/canonical/lxd/shared/osarch"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/arch"
@@ -77,7 +76,7 @@ func (s *containerSuite) TestContainerMem(c *tc.C) {
 func (s *containerSuite) TestContainerAddDiskNoDevices(c *tc.C) {
 	container := lxd.Container{}
 	err := container.AddDisk("root", "/", "source", "default", true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected := map[string]string{
 		"type":     "disk",
@@ -126,10 +125,10 @@ func (s *containerSuite) TestFilterContainers(c *tc.C) {
 	cSvr.EXPECT().GetInstances(api.InstanceTypeAny).Return(ret, nil)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	filtered, err := jujuSvr.FilterContainers("prefix", "Starting", "Stopped")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected := make([]lxd.Container, len(matching))
 	for i, v := range matching {
@@ -165,10 +164,10 @@ func (s *containerSuite) TestAliveContainers(c *tc.C) {
 	cSvr.EXPECT().GetInstances(api.InstanceTypeAny).Return(ret, nil)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	filtered, err := jujuSvr.AliveContainers("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected := make([]lxd.Container, len(matching))
 	for i, v := range matching {
@@ -237,10 +236,10 @@ func (s *containerSuite) TestContainerAddresses(c *tc.C) {
 	cSvr.EXPECT().GetInstanceState("c1").Return(&state, lxdtesting.ETag, nil)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	addrs, err := jujuSvr.ContainerAddresses("c1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected := []corenetwork.ProviderAddress{
 		corenetwork.NewMachineAddress("10.0.8.173", corenetwork.WithScope(corenetwork.ScopeCloudLocal)).AsProviderAddress(),
@@ -309,10 +308,10 @@ func (s *containerSuite) TestCreateContainerFromSpecSuccess(c *tc.C) {
 	)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	container, err := jujuSvr.CreateContainerFromSpec(spec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(container, tc.NotNil)
 }
 
@@ -371,10 +370,10 @@ func (s *containerSuite) TestCreateContainerFromSpecAlreadyExists(c *tc.C) {
 	)
 
 	jujuSvr, err := lxd.NewTestingServer(cSvr, clock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	container, err := jujuSvr.CreateContainerFromSpec(spec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(container, tc.NotNil)
 }
 
@@ -430,7 +429,7 @@ func (s *containerSuite) TestCreateContainerFromSpecAlreadyExistsNotCorrectSpec(
 	)
 
 	jujuSvr, err := lxd.NewTestingServer(cSvr, clock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = jujuSvr.CreateContainerFromSpec(spec)
 	c.Assert(err, tc.ErrorMatches, `Container 'juju-5bcbde-5-lxd-6' already exists`)
@@ -499,7 +498,7 @@ func (s *containerSuite) TestCreateContainerFromSpecStartFailed(c *tc.C) {
 	)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	container, err := jujuSvr.CreateContainerFromSpec(spec)
 	c.Assert(err, tc.ErrorMatches, "start failed")
@@ -533,10 +532,10 @@ func (s *containerSuite) TestRemoveContainersSuccess(c *tc.C) {
 	exp.DeleteInstance("c2").Return(deleteOp, nil)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = jujuSvr.RemoveContainers([]string{"c1", "c2"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *containerSuite) TestRemoveContainersSuccessWithNotFound(c *tc.C) {
@@ -566,10 +565,10 @@ func (s *containerSuite) TestRemoveContainersSuccessWithNotFound(c *tc.C) {
 	exp.DeleteInstance("c2").Return(deleteOp, api.StatusErrorf(http.StatusNotFound, ""))
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = jujuSvr.RemoveContainers([]string{"c1", "c2"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *containerSuite) TestRemoveContainersPartialFailure(c *tc.C) {
@@ -601,7 +600,7 @@ func (s *containerSuite) TestRemoveContainersPartialFailure(c *tc.C) {
 	exp.DeleteInstance("c3").Return(deleteOp, nil)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = jujuSvr.RemoveContainers([]string{"c1", "c2", "c3"})
 	c.Assert(err, tc.ErrorMatches, "failed to remove containers: c1, c2")
@@ -643,7 +642,7 @@ func (s *containerSuite) TestDeleteInstancesPartialFailure(c *tc.C) {
 	}()
 
 	jujuSvr, err := lxd.NewTestingServer(cSvr, clock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = jujuSvr.RemoveContainers([]string{"c1", "c2"})
 	c.Assert(err, tc.ErrorMatches, "failed to remove containers: c2")

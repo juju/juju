@@ -8,7 +8,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/domain/application/charm"
@@ -209,7 +208,7 @@ func (s *manifestSuite) TestDecodeManifest(c *tc.C) {
 		c.Logf("Running test case %q", tc.name)
 
 		decoded, err := decodeManifest(tc.input)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(decoded, tc.DeepEquals, tc.output)
 	}
 }
@@ -219,7 +218,7 @@ func (s *manifestSuite) TestEncodeManifest(c *tc.C) {
 		c.Logf("Running test case %q", tc.name)
 
 		encoded, err := encodeManifest(tc.id, tc.input)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(encoded, tc.DeepEquals, tc.output)
 	}
 }
@@ -244,7 +243,7 @@ SELECT os.* AS &osType.* FROM os ORDER BY id;
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt).GetAll(&results)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 1)
 
 	m := []string{
@@ -254,7 +253,7 @@ SELECT os.* AS &osType.* FROM os ORDER BY id;
 	for i, value := range m {
 		c.Logf("result %d: %#v", i, value)
 		result, err := encodeManifestOS(value)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(result, tc.DeepEquals, results[i].ID)
 	}
 }
@@ -273,7 +272,7 @@ SELECT architecture.* AS &archType.* FROM architecture ORDER BY id;
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt).GetAll(&results)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 5)
 
 	m := []string{
@@ -287,7 +286,7 @@ SELECT architecture.* AS &archType.* FROM architecture ORDER BY id;
 	for i, value := range m {
 		c.Logf("result %d: %#v", i, value)
 		result, err := encodeManifestArchitecture(value)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(result, tc.DeepEquals, results[i].ID)
 	}
 }

@@ -5,7 +5,6 @@ package testing
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 )
@@ -15,6 +14,6 @@ import (
 // instance.
 func GenObjectStoreUUID(c *tc.C) coreobjectstore.UUID {
 	id, err := coreobjectstore.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return id
 }

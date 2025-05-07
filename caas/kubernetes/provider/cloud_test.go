@@ -11,7 +11,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -94,8 +93,8 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8s(c *tc.C) {
 
 	ctx := mockContext{Context: context.Background()}
 	cloud, err := cloudFinalizer.FinalizeCloud(&ctx, defaultK8sCloud)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloud, jc.DeepEquals, jujucloud.Cloud{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cloud, tc.DeepEquals, jujucloud.Cloud{
 		Name:            k8s.K8sCloudMicrok8s,
 		Type:            jujucloud.CloudTypeKubernetes,
 		AuthTypes:       []jujucloud.AuthType{jujucloud.UserPassAuthType},
@@ -148,7 +147,7 @@ func (s *cloudSuite) TestEnsureMicroK8sSuitableSuccess(c *tc.C) {
 			},
 		},
 	}, nil)
-	c.Assert(provider.EnsureMicroK8sSuitable(context.Background(), &s.fakeBroker), jc.ErrorIsNil)
+	c.Assert(provider.EnsureMicroK8sSuitable(context.Background(), &s.fakeBroker), tc.ErrorIsNil)
 }
 
 func (s *cloudSuite) TestEnsureMicroK8sSuitableStorageNotEnabled(c *tc.C) {

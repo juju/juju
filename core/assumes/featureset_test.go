@@ -6,7 +6,6 @@ package assumes
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 type FeatureSetSuite struct {
@@ -63,8 +62,8 @@ func (s *SatCheckerSuite) TestGet(c *tc.C) {
 	)
 
 	_, found := fs.Get("zzz")
-	c.Assert(found, jc.IsTrue)
+	c.Assert(found, tc.IsTrue)
 
 	_, found = fs.Get("bogus!")
-	c.Assert(found, jc.IsFalse)
+	c.Assert(found, tc.IsFalse)
 }

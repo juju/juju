@@ -16,7 +16,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/shell"
 
 	"github.com/juju/juju/agent"
@@ -87,7 +86,7 @@ func (m *mockMachineManager) DestroyMachinesWithParams(ctx context.Context, forc
 
 func (s *provisionerSuite) getArgs(c *tc.C) manual.ProvisionMachineArgs {
 	hostname, err := os.Hostname()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	client := &mockMachineManager{}
 	return manual.ProvisionMachineArgs{
 		Host:           hostname,
@@ -124,7 +123,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *tc.C) {
 			c.Assert(err, tc.ErrorMatches, fmt.Sprintf("subprocess encountered error code %d", errorCode))
 			c.Assert(machineId, tc.Equals, "")
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			c.Check(machineId, tc.Not(tc.Equals), "")
 			// machine ID will be incremented. Even though we failed and the
 			// machine is removed, the ID is not reused.
@@ -189,20 +188,20 @@ func (s *provisionerSuite) TestProvisioningScript(c *tc.C) {
 		URL:     "https://example.org",
 	}}
 	err := icfg.SetTools(tools)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	script, err := sshprovisioner.ProvisioningScript(icfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cloudcfg, err := cloudinit.New("ubuntu")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	udata, err := cloudconfig.NewUserdataConfig(icfg, cloudcfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = udata.ConfigureJuju()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cloudcfg.SetSystemUpgrade(false)
 	provisioningScript, err := cloudcfg.RenderScript()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	removeLogFile := "rm -f '/var/log/cloud-init-output.log'\n"
 	expectedScript := removeLogFile + shell.DumpFileOnErrorScript("/var/log/cloud-init-output.log") + provisioningScript

@@ -7,7 +7,6 @@ import (
 	"errors"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/container/lxd"
@@ -30,10 +29,10 @@ func (s *imageSuite) TestUseTargetGoodNode(c *tc.C) {
 	c1Svr.EXPECT().UseTarget("cluster-2").Return(c2Svr)
 
 	jujuSvr, err := lxd.NewServer(c1Svr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = jujuSvr.UseTargetServer("cluster-2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *imageSuite) TestUseTargetBadNode(c *tc.C) {
@@ -47,7 +46,7 @@ func (s *imageSuite) TestUseTargetBadNode(c *tc.C) {
 	c2Svr.EXPECT().GetServer().Return(nil, "", errors.New("not a cluster member"))
 
 	jujuSvr, err := lxd.NewServer(c1Svr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = jujuSvr.UseTargetServer("cluster-2")
 	c.Assert(err, tc.ErrorMatches, "not a cluster member")

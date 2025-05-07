@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/base"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -33,8 +32,8 @@ func (s *UndertakerSuite) TestModelInfo(c *tc.C) {
 	})
 
 	result, err := client.ModelInfo(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(called, tc.IsTrue)
 	c.Assert(result, tc.Equals, params.UndertakerModelInfoResult{})
 }
 
@@ -45,8 +44,8 @@ func (s *UndertakerSuite) TestProcessDyingModel(c *tc.C) {
 		c.Assert(response, tc.IsNil)
 	})
 
-	c.Assert(client.ProcessDyingModel(context.Background()), jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(client.ProcessDyingModel(context.Background()), tc.ErrorIsNil)
+	c.Assert(called, tc.IsTrue)
 }
 
 func (s *UndertakerSuite) TestRemoveModel(c *tc.C) {
@@ -57,8 +56,8 @@ func (s *UndertakerSuite) TestRemoveModel(c *tc.C) {
 	})
 
 	err := client.RemoveModel(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(called, tc.IsTrue)
 }
 
 func (s *UndertakerSuite) mockClient(c *tc.C, expectedRequest string, callback func(response interface{})) *undertaker.Client {
@@ -73,14 +72,14 @@ func (s *UndertakerSuite) mockClient(c *tc.C, expectedRequest string, callback f
 		c.Check(request, tc.Equals, expectedRequest)
 
 		a, ok := args.(params.Entities)
-		c.Check(ok, jc.IsTrue)
+		c.Check(ok, tc.IsTrue)
 		c.Check(a.Entities, tc.DeepEquals, []params.Entity{{Tag: coretesting.ModelTag.String()}})
 
 		callback(response)
 		return nil
 	})
 	client, err := undertaker.NewClient(apiCaller, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return client
 }
 
@@ -96,11 +95,11 @@ func (s *UndertakerSuite) TestWatchModelResourcesCreatesWatcher(c *tc.C) {
 		c.Check(request, tc.Equals, "WatchModelResources")
 
 		a, ok := args.(params.Entities)
-		c.Check(ok, jc.IsTrue)
+		c.Check(ok, tc.IsTrue)
 		c.Check(a.Entities, tc.DeepEquals, []params.Entity{{Tag: coretesting.ModelTag.String()}})
 
 		resp, ok := response.(*params.NotifyWatchResults)
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		resp.Results = []params.NotifyWatchResult{{
 			NotifyWatcherId: "1001",
 		}}
@@ -117,9 +116,9 @@ func (s *UndertakerSuite) TestWatchModelResourcesCreatesWatcher(c *tc.C) {
 	}
 
 	client, err := undertaker.NewClient(apiCaller, newWatcher)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	w, err := client.WatchModelResources(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(w, tc.Equals, expectWatcher)
 }
 
@@ -128,13 +127,13 @@ func (s *UndertakerSuite) TestWatchModelResourcesError(c *tc.C) {
 	client := s.mockClient(c, "WatchModelResources", func(response interface{}) {
 		called = true
 		_, ok := response.(*params.NotifyWatchResults)
-		c.Check(ok, jc.IsTrue)
+		c.Check(ok, tc.IsTrue)
 	})
 
 	w, err := client.WatchModelResources(context.Background())
 	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 0")
 	c.Assert(w, tc.IsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(called, tc.IsTrue)
 }
 
 type fakeWatcher struct {

@@ -8,7 +8,6 @@ import (
 	"runtime"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"
@@ -48,10 +47,10 @@ func (s *varsSuite) TestMergeEnvironment(c *tc.C) {
 	newValues := map[string]string{"a": "baz", "c": "omg"}
 	created := osenv.MergeEnvironment(nil, newValues)
 	expected := map[string]string{"a": "baz", "c": "omg"}
-	c.Check(created, jc.DeepEquals, expected)
+	c.Check(created, tc.DeepEquals, expected)
 	// Show that the map returned isn't the one passed in.
 	newValues["d"] = "another"
-	c.Check(created, jc.DeepEquals, expected)
+	c.Check(created, tc.DeepEquals, expected)
 }
 
 func (s *varsSuite) TestMergeEnvWin(c *tc.C) {
@@ -61,8 +60,8 @@ func (s *varsSuite) TestMergeEnvWin(c *tc.C) {
 	created := osenv.MergeEnvWin(initial, newValues)
 	expected := map[string]string{"a": "baz", "b": "bar", "c": "omg", "foo": "val2", "d": "another"}
 	// The returned value is the initial map.
-	c.Check(created, jc.DeepEquals, expected)
-	c.Check(initial, jc.DeepEquals, expected)
+	c.Check(created, tc.DeepEquals, expected)
+	c.Check(initial, tc.DeepEquals, expected)
 }
 
 func (s *varsSuite) TestMergeEnvUnix(c *tc.C) {
@@ -72,6 +71,6 @@ func (s *varsSuite) TestMergeEnvUnix(c *tc.C) {
 	created := osenv.MergeEnvUnix(initial, newValues)
 	expected := map[string]string{"a": "baz", "b": "bar", "c": "omg", "d": "another"}
 	// The returned value is the initial map.
-	c.Check(created, jc.DeepEquals, expected)
-	c.Check(initial, jc.DeepEquals, expected)
+	c.Check(created, tc.DeepEquals, expected)
+	c.Check(initial, tc.DeepEquals, expected)
 }

@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/instance"
 )
@@ -22,11 +21,11 @@ var _ = tc.Suite(&InstanceSuite{})
 
 func (s *InstanceSuite) TestParseContainerType(c *tc.C) {
 	ctype, err := instance.ParseContainerType("lxd")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ctype, tc.Equals, instance.LXD)
 
 	ctype, err = instance.ParseContainerType("lxd")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ctype, tc.Equals, instance.LXD)
 
 	_, err = instance.ParseContainerType("none")
@@ -38,15 +37,15 @@ func (s *InstanceSuite) TestParseContainerType(c *tc.C) {
 
 func (s *InstanceSuite) TestParseContainerTypeOrNone(c *tc.C) {
 	ctype, err := instance.ParseContainerTypeOrNone("lxd")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ctype, tc.Equals, instance.LXD)
 
 	ctype, err = instance.ParseContainerTypeOrNone("lxd")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ctype, tc.Equals, instance.LXD)
 
 	ctype, err = instance.ParseContainerTypeOrNone("none")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ctype, tc.Equals, instance.NONE)
 
 	_, err = instance.ParseContainerTypeOrNone("omg")

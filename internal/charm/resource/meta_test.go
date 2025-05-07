@@ -6,7 +6,6 @@ package resource_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/charm/resource"
 )
@@ -24,14 +23,14 @@ func (s *MetaSuite) TestValidateFull(c *tc.C) {
 	}
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *MetaSuite) TestValidateZeroValue(c *tc.C) {
 	var res resource.Meta
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 }
 
 func (s *MetaSuite) TestValidateMissingName(c *tc.C) {
@@ -42,7 +41,7 @@ func (s *MetaSuite) TestValidateMissingName(c *tc.C) {
 	}
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 	c.Check(err, tc.ErrorMatches, `resource missing name`)
 }
 
@@ -54,7 +53,7 @@ func (s *MetaSuite) TestValidateMissingType(c *tc.C) {
 	}
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 	c.Check(err, tc.ErrorMatches, `resource missing type`)
 }
 
@@ -66,7 +65,7 @@ func (s *MetaSuite) TestValidateMissingPath(c *tc.C) {
 	}
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 	c.Check(err, tc.ErrorMatches, `resource missing filename`)
 }
 
@@ -78,7 +77,7 @@ func (s *MetaSuite) TestValidateNestedPath(c *tc.C) {
 	}
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 	c.Check(err, tc.ErrorMatches, `.*filename cannot contain "/" .*`)
 }
 
@@ -90,7 +89,7 @@ func (s *MetaSuite) TestValidateAbsolutePath(c *tc.C) {
 	}
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 	c.Check(err, tc.ErrorMatches, `.*filename cannot contain "/" .*`)
 }
 
@@ -102,7 +101,7 @@ func (s *MetaSuite) TestValidateSuspectPath(c *tc.C) {
 	}
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 	c.Check(err, tc.ErrorMatches, `.*filename cannot contain "/" .*`)
 }
 
@@ -114,5 +113,5 @@ func (s *MetaSuite) TestValidateMissingComment(c *tc.C) {
 	}
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }

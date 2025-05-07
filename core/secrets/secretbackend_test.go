@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/secrets"
 )
@@ -24,13 +23,13 @@ func (s *SecretBackendSuite) TestNextBackendRotateTimeTooShort(c *tc.C) {
 func (s *SecretBackendSuite) TestNextBackendRotateTime(c *tc.C) {
 	now := time.Now()
 	next, err := secrets.NextBackendRotateTime(now, 200*time.Minute)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(next.Sub(now), tc.Equals, 150*time.Minute)
 }
 
 func (s *SecretBackendSuite) TestNextBackendRotateTimeMax(c *tc.C) {
 	now := time.Now()
 	next, err := secrets.NextBackendRotateTime(now, 60*24*time.Hour)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(next.Sub(now), tc.Equals, 24*time.Hour)
 }

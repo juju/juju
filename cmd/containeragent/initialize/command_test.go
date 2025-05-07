@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/yaml.v2"
 
@@ -50,13 +49,13 @@ var podEnv = map[string]string{
 
 func (s *initCommandSuit) SetUpTest(c *tc.C) {
 	for k, v := range podEnv {
-		c.Assert(os.Setenv(k, v), jc.ErrorIsNil)
+		c.Assert(os.Setenv(k, v), tc.ErrorIsNil)
 	}
 }
 
 func (s *initCommandSuit) TearDownTest(c *tc.C) {
 	for k := range podEnv {
-		c.Assert(os.Unsetenv(k), jc.ErrorIsNil)
+		c.Assert(os.Unsetenv(k), tc.ErrorIsNil)
 	}
 
 	s.applicationAPI = nil
@@ -127,7 +126,7 @@ checks:
 `
 	var y any
 	err := yaml.Unmarshal([]byte(expectedCAPebbleService), &y)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	pebbleWritten := bytes.NewBuffer(nil)
 	containerAgentWritten := bytes.NewBuffer(nil)
@@ -167,11 +166,11 @@ checks:
 		"--data-dir", "/var/lib/juju",
 		"--bin-dir", "/charm/bin",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(pebbleWritten.Bytes(), jc.SameContents, expectedPebble)
-	c.Assert(containerAgentWritten.Bytes(), jc.SameContents, expectedContainerAgent)
-	c.Assert(jujucWritten.Bytes(), jc.SameContents, expectedJujuc)
+	c.Assert(pebbleWritten.Bytes(), tc.SameContents, expectedPebble)
+	c.Assert(containerAgentWritten.Bytes(), tc.SameContents, expectedContainerAgent)
+	c.Assert(jujucWritten.Bytes(), tc.SameContents, expectedJujuc)
 }
 
 func (s *initCommandSuit) TestRunController(c *tc.C) {
@@ -245,11 +244,11 @@ checks:
 		"--bin-dir", "/charm/bin",
 		"--controller",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(pebbleWritten.Bytes(), jc.SameContents, expectedPebble)
-	c.Assert(containerAgentWritten.Bytes(), jc.SameContents, expectedContainerAgent)
-	c.Assert(jujucWritten.Bytes(), jc.SameContents, expectedJujuc)
+	c.Assert(pebbleWritten.Bytes(), tc.SameContents, expectedPebble)
+	c.Assert(containerAgentWritten.Bytes(), tc.SameContents, expectedContainerAgent)
+	c.Assert(jujucWritten.Bytes(), tc.SameContents, expectedJujuc)
 }
 
 func (s *initCommandSuit) TestRunConfExists(c *tc.C) {
@@ -280,11 +279,11 @@ func (s *initCommandSuit) TestRunConfExists(c *tc.C) {
 		"--data-dir", "/var/lib/juju",
 		"--bin-dir", "/charm/bin",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(pebbleWritten.Bytes(), jc.SameContents, expectedPebble)
-	c.Assert(containerAgentWritten.Bytes(), jc.SameContents, expectedContainerAgent)
-	c.Assert(jujucWritten.Bytes(), jc.SameContents, expectedJujuc)
+	c.Assert(pebbleWritten.Bytes(), tc.SameContents, expectedPebble)
+	c.Assert(containerAgentWritten.Bytes(), tc.SameContents, expectedContainerAgent)
+	c.Assert(jujucWritten.Bytes(), tc.SameContents, expectedJujuc)
 }
 
 func (s *initCommandSuit) TestInstallProfileFunctions(c *tc.C) {
@@ -319,11 +318,11 @@ func (s *initCommandSuit) TestInstallProfileFunctions(c *tc.C) {
 		"--bin-dir", "/charm/bin",
 		"--profile-dir", "/etc/profile.d/",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(pebbleWritten.Bytes(), jc.SameContents, expectedPebble)
-	c.Assert(containerAgentWritten.Bytes(), jc.SameContents, expectedContainerAgent)
-	c.Assert(jujucWritten.Bytes(), jc.SameContents, expectedJujuc)
+	c.Assert(pebbleWritten.Bytes(), tc.SameContents, expectedPebble)
+	c.Assert(containerAgentWritten.Bytes(), tc.SameContents, expectedContainerAgent)
+	c.Assert(jujucWritten.Bytes(), tc.SameContents, expectedJujuc)
 }
 
 type nopWriterCloser struct {

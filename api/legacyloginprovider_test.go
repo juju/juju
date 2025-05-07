@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/macaroon.v2"
 
@@ -81,8 +80,8 @@ func (s *legacyLoginProviderSuite) TestLegacyProviderLogin(c *tc.C) {
 	defer ctrl.Finish()
 
 	s.mockAdminAPI.EXPECT().Login(gomock.Any()).DoAndReturn(func(lr params.LoginRequest) (params.LoginResult, error) {
-		mc := jc.NewMultiChecker()
-		mc.AddExpr("_.CLIArgs", jc.Ignore)
+		mc := tc.NewMultiChecker()
+		mc.AddExpr("_.CLIArgs", tc.Ignore)
 		c.Check(lr, mc, params.LoginRequest{
 			AuthTag:       "user-admin",
 			Credentials:   "dummy-secret",
@@ -112,9 +111,9 @@ func (s *legacyLoginProviderSuite) TestLegacyProviderLogin(c *tc.C) {
 	}, api.DialOpts{
 		LoginProvider: lp,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer apiState.Close()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *legacyLoginProviderSuite) TestLegacyProviderWithNilTag(c *tc.C) {
@@ -122,8 +121,8 @@ func (s *legacyLoginProviderSuite) TestLegacyProviderWithNilTag(c *tc.C) {
 	defer ctrl.Finish()
 
 	s.mockAdminAPI.EXPECT().Login(gomock.Any()).DoAndReturn(func(lr params.LoginRequest) (params.LoginResult, error) {
-		mc := jc.NewMultiChecker()
-		mc.AddExpr("_.CLIArgs", jc.Ignore)
+		mc := tc.NewMultiChecker()
+		mc.AddExpr("_.CLIArgs", tc.Ignore)
 		c.Check(lr, mc, params.LoginRequest{
 			AuthTag:       "",
 			Credentials:   "dummy-secret",
@@ -171,7 +170,7 @@ func (s *legacyLoginProviderBasicSuite) TestLegacyProviderAuthHeader(c *tc.C) {
 		nil,
 	)
 	got, err := lp.AuthHeader()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, header)
 }
 
@@ -190,6 +189,6 @@ func (s *legacyLoginProviderBasicSuite) TestLegacyProviderAuthHeaderWithNilTag(c
 		nil,
 	)
 	got, err := lp.AuthHeader()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, header)
 }

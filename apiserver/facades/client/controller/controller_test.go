@@ -17,7 +17,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/macaroon.v2"
@@ -111,7 +110,7 @@ func (s *controllerSuite) SetUpTest(c *tc.C) {
 
 	var err error
 	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AddCleanup(func(c *tc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
 
 	s.resources = common.NewResources()
@@ -245,7 +244,7 @@ func (s *controllerSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		ctx.ObjectStore(),
 		ctx.ControllerUUID(),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return api
 }
 
@@ -298,7 +297,7 @@ func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *tc.
 		}, nil,
 	)
 	results, err := s.controller.HostedModelConfigs(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(results.Models), tc.Equals, 2)
 
 	one := results.Models[0]
@@ -329,7 +328,7 @@ func (s *controllerSuite) makeCloudSpec(c *tc.C, pSpec *params.CloudSpec) enviro
 		StorageEndpoint:  pSpec.StorageEndpoint,
 		Credential:       credential,
 	}
-	c.Assert(spec.Validate(), jc.ErrorIsNil)
+	c.Assert(spec.Validate(), tc.ErrorIsNil)
 	return spec
 }
 
@@ -346,20 +345,20 @@ func (s *controllerSuite) TestHostedModelConfigs_CanOpenEnviron(c *tc.C) {
 	defer func() { _ = st2.Close() }()
 
 	results, err := s.controller.HostedModelConfigs(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(results.Models), tc.Equals, 2)
 
 	for _, model := range results.Models {
 		c.Assert(model.Error, tc.IsNil)
 
 		cfg, err := config.New(config.NoDefaults, model.Config)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		spec := s.makeCloudSpec(c, model.CloudSpec)
 		_, err = environs.New(context.Background(), environs.OpenParams{
 			Cloud:  spec,
 			Config: cfg,
 		}, environs.NoopCredentialInvalidator())
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }
 
@@ -368,9 +367,9 @@ func (s *controllerSuite) TestListBlockedModels(c *tc.C) {
 	otherDomainServices := s.DefaultModelDomainServices(c)
 	otherBlockCommands := otherDomainServices.BlockCommand()
 	err := otherBlockCommands.SwitchBlockOn(context.Background(), blockcommand.ChangeBlock, "ChangeBlock")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = otherBlockCommands.SwitchBlockOn(context.Background(), blockcommand.DestroyBlock, "DestroyBlock")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	models := []model.Model{
 		{
 			UUID:      s.DomainServicesSuite.DefaultModelUUID,
@@ -384,9 +383,9 @@ func (s *controllerSuite) TestListBlockedModels(c *tc.C) {
 	)
 
 	list, err := s.controller.ListBlockedModels(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(list.Models, jc.DeepEquals, []params.ModelBlockInfo{
+	c.Assert(list.Models, tc.DeepEquals, []params.ModelBlockInfo{
 		{
 			Name:     "test",
 			UUID:     s.DomainServicesSuite.DefaultModelUUID.String(),
@@ -406,19 +405,19 @@ func (s *controllerSuite) TestListBlockedModelsNoBlocks(c *tc.C) {
 		nil, nil,
 	)
 	list, err := s.controller.ListBlockedModels(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(list.Models, tc.HasLen, 0)
 }
 
 func (s *controllerSuite) TestControllerConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	cfg, err := s.controller.ControllerConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
 
 	cfgFromDB, err := controllerConfigService.ControllerConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.Config["controller-uuid"], tc.Equals, cfgFromDB.ControllerUUID())
 	c.Assert(cfg.Config["state-port"], tc.Equals, cfgFromDB.StatePort())
 	c.Assert(cfg.Config["api-port"], tc.Equals, cfgFromDB.APIPort())
@@ -441,14 +440,14 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *tc.C) {
 				Logger_:         loggertesting.WrapCheckLog(c),
 			},
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cfg, err := controller.ControllerConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
 
 	cfgFromDB, err := controllerConfigService.ControllerConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.Config["controller-uuid"], tc.Equals, cfgFromDB.ControllerUUID())
 	c.Assert(cfg.Config["state-port"], tc.Equals, cfgFromDB.StatePort())
 	c.Assert(cfg.Config["api-port"], tc.Equals, cfgFromDB.APIPort())
@@ -463,7 +462,7 @@ func (s *controllerSuite) TestRemoveBlocks(c *tc.C) {
 	otherBlockCommands.SwitchBlockOn(context.Background(), blockcommand.DestroyBlock, "TestChangeBlock")
 
 	otherBlocks, err := otherBlockCommands.GetBlocks(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(otherBlocks, tc.HasLen, 2)
 
 	s.mockModelService.EXPECT().ListModelIDs(gomock.Any()).Return(
@@ -472,10 +471,10 @@ func (s *controllerSuite) TestRemoveBlocks(c *tc.C) {
 		}, nil,
 	)
 	err = s.controller.RemoveBlocks(context.Background(), params.RemoveBlocksArgs{All: true})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	otherBlocks, err = otherBlockCommands.GetBlocks(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(otherBlocks, tc.HasLen, 0)
 }
 
@@ -491,7 +490,7 @@ func (s *controllerSuite) TestInitiateMigration(c *tc.C) {
 	st1 := s.Factory.MakeModel(c, nil)
 	defer func() { _ = st1.Close() }()
 	model1, err := st1.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.mockModelService.EXPECT().Model(gomock.Any(), model.UUID(model1.ModelTag().Id())).Return(
 		model.Model{
 			UUID:      model.UUID(model1.UUID()),
@@ -503,7 +502,7 @@ func (s *controllerSuite) TestInitiateMigration(c *tc.C) {
 	st2 := s.Factory.MakeModel(c, nil)
 	defer func() { _ = st2.Close() }()
 	model2, err := st2.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.mockModelService.EXPECT().Model(gomock.Any(), model.UUID(model2.ModelTag().Id())).Return(
 		model.Model{
 			UUID:      model.UUID(model2.UUID()),
@@ -513,9 +512,9 @@ func (s *controllerSuite) TestInitiateMigration(c *tc.C) {
 	)
 
 	mac, err := macaroon.New([]byte("secret"), []byte("id"), "location", macaroon.LatestVersion)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	macsJSON, err := json.Marshal([]macaroon.Slice{{mac}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	controller.SetPrecheckResult(s, nil)
 
@@ -548,7 +547,7 @@ func (s *controllerSuite) TestInitiateMigration(c *tc.C) {
 	}
 
 	out, err := s.controller.InitiateMigration(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out.Results, tc.HasLen, 2)
 
 	states := []*state.State{st1, st2}
@@ -562,21 +561,21 @@ func (s *controllerSuite) TestInitiateMigration(c *tc.C) {
 
 		// Ensure the migration made it into the DB correctly.
 		mig, err := st.LatestMigration()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(mig.InitiatedBy(), tc.Equals, s.Owner.Id())
 
 		targetInfo, err := mig.TargetInfo()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(targetInfo.ControllerTag.String(), tc.Equals, spec.TargetInfo.ControllerTag)
 		c.Check(targetInfo.ControllerAlias, tc.Equals, spec.TargetInfo.ControllerAlias)
-		c.Check(targetInfo.Addrs, jc.SameContents, spec.TargetInfo.Addrs)
+		c.Check(targetInfo.Addrs, tc.SameContents, spec.TargetInfo.Addrs)
 		c.Check(targetInfo.CACert, tc.Equals, spec.TargetInfo.CACert)
 		c.Check(targetInfo.AuthTag.String(), tc.Equals, spec.TargetInfo.AuthTag)
 		c.Check(targetInfo.Password, tc.Equals, spec.TargetInfo.Password)
 
 		if spec.TargetInfo.Macaroons != "" {
 			macJSONdb, err := json.Marshal(targetInfo.Macaroons)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			c.Check(string(macJSONdb), tc.Equals, spec.TargetInfo.Macaroons)
 		}
 	}
@@ -588,7 +587,7 @@ func (s *controllerSuite) TestInitiateMigrationSpecError(c *tc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer func() { _ = st.Close() }()
 	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Kick off the migration with missing details.
 	args := params.InitiateMigrationArgs{
@@ -606,7 +605,7 @@ func (s *controllerSuite) TestInitiateMigrationSpecError(c *tc.C) {
 		}, nil,
 	)
 	out, err := s.controller.InitiateMigration(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out.Results, tc.HasLen, 1)
 	result := out.Results[0]
 	c.Check(result.ModelTag, tc.Equals, args.Specs[0].ModelTag)
@@ -621,7 +620,7 @@ func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *tc.C) {
 	controller.SetPrecheckResult(s, nil)
 
 	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.mockModelService.EXPECT().Model(gomock.Any(), model.UUID(m.ModelTag().Id())).Return(
 		model.Model{
 			UUID:      model.UUID(m.UUID()),
@@ -654,7 +653,7 @@ func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *tc.C) {
 		},
 	}
 	out, err := s.controller.InitiateMigration(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out.Results, tc.HasLen, 2)
 
 	c.Check(out.Results[0].ModelTag, tc.Equals, m.ModelTag().String())
@@ -670,7 +669,7 @@ func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *tc.C) {
 	defer st.Close()
 
 	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	args := params.InitiateMigrationArgs{
 		Specs: []params.MigrationSpec{
@@ -694,7 +693,7 @@ func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *tc.C) {
 		}, nil,
 	)
 	out, err := s.controller.InitiateMigration(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out.Results, tc.HasLen, 1)
 	result := out.Results[0]
 	c.Check(result.ModelTag, tc.Equals, args.Specs[0].ModelTag)
@@ -721,7 +720,7 @@ func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *tc.C) {
 		}, nil,
 	)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	args := params.InitiateMigrationArgs{
 		Specs: []params.MigrationSpec{{
@@ -736,13 +735,13 @@ func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *tc.C) {
 		}},
 	}
 	out, err := s.controller.InitiateMigration(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out.Results, tc.HasLen, 1)
 	c.Check(out.Results[0].Error, tc.ErrorMatches, "boom")
 
 	active, err := st.IsMigrationActive()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(active, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(active, tc.IsFalse)
 }
 
 func randomControllerTag() string {
@@ -809,7 +808,7 @@ func (s *controllerSuite) TestGrantControllerInvalidUserTag(c *tc.C) {
 			}}}
 
 		result, err := s.controller.ModifyControllerAccess(context.Background(), args)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(result.OneError(), tc.ErrorMatches, expectedErr)
 	}
 }
@@ -822,7 +821,7 @@ func (s *controllerSuite) TestModelStatus(c *tc.C) {
 	}, {
 		Tag: s.Model.ModelTag().String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 2)
 	c.Assert(results.Results[0].Error, tc.ErrorMatches, `"bad-tag" is not a valid tag`)
 
@@ -832,7 +831,7 @@ func (s *controllerSuite) TestModelStatus(c *tc.C) {
 	}, {
 		Tag: "bad-tag",
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 2)
 	c.Assert(results.Results[1].Error, tc.ErrorMatches, `"bad-tag" is not a valid tag`)
 
@@ -840,7 +839,7 @@ func (s *controllerSuite) TestModelStatus(c *tc.C) {
 	results, err = s.controller.ModelStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: s.Model.ModelTag().String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 }
 
@@ -849,7 +848,7 @@ func (s *controllerSuite) TestConfigSet(c *tc.C) {
 	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
 
 	config, err := controllerConfigService.ControllerConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Sanity check.
 	c.Assert(config.AuditingEnabled(), tc.Equals, false)
 	c.Assert(config.SSHServerPort(), tc.Equals, 17022)
@@ -857,10 +856,10 @@ func (s *controllerSuite) TestConfigSet(c *tc.C) {
 	err = s.controller.ConfigSet(context.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
 		"auditing-enabled": true,
 	}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	config, err = controllerConfigService.ControllerConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(config.AuditingEnabled(), tc.Equals, true)
 }
 
@@ -879,7 +878,7 @@ func (s *controllerSuite) TestConfigSetRequiresSuperUser(c *tc.C) {
 				Logger_:         loggertesting.WrapCheckLog(c),
 			},
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = endpoint.ConfigSet(context.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
 		"something": 23,
@@ -894,7 +893,7 @@ func (s *controllerSuite) TestConfigSetCAASImageRepo(c *tc.C) {
 	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
 
 	config, err := controllerConfigService.ControllerConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(config.CAASImageRepo(), tc.Equals, "")
 
 	err = s.controller.ConfigSet(context.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
@@ -907,7 +906,7 @@ func (s *controllerSuite) TestConfigSetCAASImageRepo(c *tc.C) {
 		map[string]interface{}{
 			"caas-image-repo": "jujusolutions",
 		}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.controller.ConfigSet(context.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
 		"caas-image-repo": "juju-repo.local",
@@ -924,17 +923,17 @@ func (s *controllerSuite) TestConfigSetCAASImageRepo(c *tc.C) {
 		map[string]interface{}{
 			"caas-image-repo": `{"repository":"jujusolutions","username":"bar","password":"foo"}`,
 		}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.controller.ConfigSet(context.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
 		"caas-image-repo": `{"repository":"jujusolutions","username":"foo","password":"bar"}`,
 	}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	config, err = controllerConfigService.ControllerConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	repoDetails, err := docker.NewImageRepoDetails(config.CAASImageRepo())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(repoDetails, tc.DeepEquals, docker.ImageRepoDetails{
 		Repository: "jujusolutions",
 		BasicAuthConfig: docker.BasicAuthConfig{
@@ -947,7 +946,7 @@ func (s *controllerSuite) TestConfigSetCAASImageRepo(c *tc.C) {
 func (s *controllerSuite) TestMongoVersion(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	result, err := s.controller.MongoVersion(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var resErr *params.Error
 	c.Assert(result.Error, tc.Equals, resErr)
@@ -966,7 +965,7 @@ func (s *controllerSuite) TestIdentityProviderURL(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	// Our default test configuration does not specify an IdentityURL
 	urlRes, err := s.controller.IdentityProviderURL(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(urlRes.Result, tc.Equals, "")
 	ctrl.Finish()
 
@@ -984,7 +983,7 @@ func (s *controllerSuite) TestIdentityProviderURL(c *tc.C) {
 	defer ctrl.Finish()
 
 	urlRes, err = s.controller.IdentityProviderURL(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(urlRes.Result, tc.Equals, expURL)
 }
 
@@ -992,7 +991,7 @@ func (s *controllerSuite) newSummaryWatcherFacade(c *tc.C, id string) *apiserver
 	context := s.context
 	context.ID_ = id
 	watcher, err := apiserver.NewModelSummaryWatcher(context)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return watcher
 }
 
@@ -1002,21 +1001,21 @@ func (s *controllerSuite) TestWatchAllModelSummariesByAdmin(c *tc.C) {
 	c.Skip("watch model summaries to be implemented")
 	// Default authorizer is an admin.
 	result, err := s.controller.WatchAllModelSummaries(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	watcherAPI := s.newSummaryWatcherFacade(c, result.WatcherID)
 
 	resultC := make(chan params.SummaryWatcherNextResults)
 	go func() {
 		result, err := watcherAPI.Next(context.Background())
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		resultC <- result
 	}()
 
 	select {
 	case result := <-resultC:
 		// Expect to see the initial environment be reported.
-		c.Assert(result, jc.DeepEquals, params.SummaryWatcherNextResults{
+		c.Assert(result, tc.DeepEquals, params.SummaryWatcherNextResults{
 			Models: []params.ModelAbstract{
 				{
 					UUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
@@ -1048,7 +1047,7 @@ func (s *controllerSuite) TestWatchAllModelSummariesByNonAdmin(c *tc.C) {
 				Logger_:         loggertesting.WrapCheckLog(c),
 			},
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = endPoint.WatchAllModelSummaries(context.Background())
 	c.Assert(err, tc.ErrorMatches, "permission denied")
@@ -1062,21 +1061,21 @@ func (s *controllerSuite) TestWatchModelSummariesByNonAdmin(c *tc.C) {
 	// Default authorizer is an admin. As a user, admin can't see
 	// Bob's model.
 	result, err := s.controller.WatchModelSummaries(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	watcherAPI := s.newSummaryWatcherFacade(c, result.WatcherID)
 
 	resultC := make(chan params.SummaryWatcherNextResults)
 	go func() {
 		result, err := watcherAPI.Next(context.Background())
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		resultC <- result
 	}()
 
 	select {
 	case result := <-resultC:
 		// Expect to see the initial environment be reported.
-		c.Assert(result, jc.DeepEquals, params.SummaryWatcherNextResults{
+		c.Assert(result, tc.DeepEquals, params.SummaryWatcherNextResults{
 			Models: []params.ModelAbstract{
 				{
 					UUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
@@ -1174,7 +1173,7 @@ func (s *accessSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		nil,
 		s.controllerUUID,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return api
 }
@@ -1203,7 +1202,7 @@ func (s *accessSuite) TestModifyControllerAccess(c *tc.C) {
 	}}}
 
 	result, err := s.controllerAPI(c).ModifyControllerAccess(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
 }
 
@@ -1231,9 +1230,9 @@ func (s *accessSuite) TestGetControllerAccessPermissions(c *tc.C) {
 		Entities: []params.Entity{{Tag: userTag.String()}, {Tag: names.NewUserTag(differentUser).String()}},
 	}
 	results, err := s.controllerAPI(c).GetControllerAccess(context.Background(), req)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 2)
-	c.Assert(*results.Results[0].Result, jc.DeepEquals, params.UserAccess{
+	c.Assert(*results.Results[0].Result, tc.DeepEquals, params.UserAccess{
 		Access:  "superuser",
 		UserTag: userTag.String(),
 	})
@@ -1281,7 +1280,7 @@ func (s *accessSuite) TestAllModels(c *tc.C) {
 	slices.SortFunc(response.UserModels, func(x params.UserModel, y params.UserModel) int {
 		return strings.Compare(x.Name, y.Name)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	for i, userModel := range response.UserModels {
 		c.Assert(userModel.Type, tc.DeepEquals, model.IAAS.String())
 		c.Assert(models[i].Name, tc.DeepEquals, userModel.Name)

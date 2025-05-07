@@ -18,7 +18,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	abstractions "github.com/microsoft/kiota-abstractions-go"
 	"github.com/microsoft/kiota-abstractions-go/authentication"
 	"github.com/microsoft/kiota-abstractions-go/serialization"
@@ -135,7 +134,7 @@ func (s *InteractiveSuite) SetUpTest(c *tc.C) {
 
 func (s *InteractiveSuite) TestInteractive(c *tc.C) {
 	ra, err := nethttplibrary.NewNetHttpRequestAdapter(&authentication.AnonymousAuthenticationProvider{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	sp := models.NewServicePrincipal()
 	sp.SetAppId(to.Ptr("app-id"))
@@ -184,7 +183,7 @@ func (s *InteractiveSuite) TestInteractive(c *tc.C) {
 		TenantId:       fakeTenantId,
 		Credential:     &azuretesting.FakeCredential{},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(appId, tc.Equals, "app-id")
 	c.Assert(password, tc.Equals, "33333333-3333-3333-3333-333333333333")
 	c.Assert(spObjectId, tc.Equals, "sp-object-id")
@@ -196,7 +195,7 @@ Initiating interactive authentication.
 
 func (s *InteractiveSuite) TestInteractiveRoleAssignmentAlreadyExists(c *tc.C) {
 	ra, err := nethttplibrary.NewNetHttpRequestAdapter(&authentication.AnonymousAuthenticationProvider{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	sp := models.NewServicePrincipal()
 	sp.SetAppId(to.Ptr("app-id"))
@@ -244,7 +243,7 @@ func (s *InteractiveSuite) TestInteractiveRoleAssignmentAlreadyExists(c *tc.C) {
 		TenantId:       fakeTenantId,
 		Credential:     &azuretesting.FakeCredential{},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(appId, tc.Equals, "app-id")
 	c.Assert(password, tc.Equals, "33333333-3333-3333-3333-333333333333")
 	c.Assert(spObjectId, tc.Equals, "sp-object-id")
@@ -266,7 +265,7 @@ func dataError(code string) error {
 
 func (s *InteractiveSuite) TestInteractiveServicePrincipalNotFound(c *tc.C) {
 	ra, err := nethttplibrary.NewNetHttpRequestAdapter(&authentication.AnonymousAuthenticationProvider{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	sp := models.NewServicePrincipal()
 	sp.SetAppId(to.Ptr("app-id"))
@@ -317,7 +316,7 @@ func (s *InteractiveSuite) TestInteractiveServicePrincipalNotFound(c *tc.C) {
 		TenantId:       fakeTenantId,
 		Credential:     &azuretesting.FakeCredential{},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(appId, tc.Equals, "app-id")
 	c.Assert(password, tc.Equals, "33333333-3333-3333-3333-333333333333")
 	c.Assert(spObjectId, tc.Equals, "sp-object-id")
@@ -325,7 +324,7 @@ func (s *InteractiveSuite) TestInteractiveServicePrincipalNotFound(c *tc.C) {
 
 func (s *InteractiveSuite) TestInteractiveServicePrincipalNotFoundRace(c *tc.C) {
 	ra, err := nethttplibrary.NewNetHttpRequestAdapter(&authentication.AnonymousAuthenticationProvider{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	sp := models.NewServicePrincipal()
 	sp.SetAppId(to.Ptr("app-id"))
@@ -378,7 +377,7 @@ func (s *InteractiveSuite) TestInteractiveServicePrincipalNotFoundRace(c *tc.C) 
 		SubscriptionId: subscriptionId,
 		TenantId:       fakeTenantId, Credential: &azuretesting.FakeCredential{},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(appId, tc.Equals, "app-id")
 	c.Assert(password, tc.Equals, "33333333-3333-3333-3333-333333333333")
 	c.Assert(spObjectId, tc.Equals, "sp-object-id")
@@ -386,7 +385,7 @@ func (s *InteractiveSuite) TestInteractiveServicePrincipalNotFoundRace(c *tc.C) 
 
 func (s *InteractiveSuite) TestInteractiveRetriesRoleAssignment(c *tc.C) {
 	ra, err := nethttplibrary.NewNetHttpRequestAdapter(&authentication.AnonymousAuthenticationProvider{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	sp := models.NewServicePrincipal()
 	sp.SetAppId(to.Ptr("app-id"))
@@ -433,7 +432,7 @@ func (s *InteractiveSuite) TestInteractiveRetriesRoleAssignment(c *tc.C) {
 		SubscriptionId: subscriptionId,
 		TenantId:       fakeTenantId, Credential: &azuretesting.FakeCredential{},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(appId, tc.Equals, "app-id")
 	c.Assert(password, tc.Equals, "33333333-3333-3333-3333-333333333333")
 	c.Assert(spObjectId, tc.Equals, "sp-object-id")

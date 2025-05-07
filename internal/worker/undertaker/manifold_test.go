@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
@@ -59,7 +58,7 @@ func (s *manifoldSuite) namesConfig(c *tc.C) undertaker.ManifoldConfig {
 
 func (s *manifoldSuite) TestInputs(c *tc.C) {
 	manifold := undertaker.Manifold(s.namesConfig(c))
-	c.Check(manifold.Inputs, jc.DeepEquals, []string{
+	c.Check(manifold.Inputs, tc.DeepEquals, []string{
 		"api-caller",
 	})
 }
@@ -125,7 +124,7 @@ func (s *manifoldSuite) TestNewWorkerSuccess(c *tc.C) {
 	resources := resourcesMissing()
 
 	worker, err := manifold.Start(context.Background(), resources.Getter())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(worker, tc.Equals, expectWorker)
 	c.Assert(gotConfig.Logger, tc.Equals, loggertesting.WrapCheckLog(c))
 }

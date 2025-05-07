@@ -8,7 +8,6 @@ import (
 	"slices"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/controller"
@@ -43,7 +42,7 @@ func (s *controllerKeySuite) TestNoControllerKeys(c *tc.C) {
 	).Return(map[string]string{}, nil)
 
 	keys, err := NewControllerKeyService(s.state).ControllerAuthorisedKeys(context.Background())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(keys, tc.NotNil)
 	c.Check(len(keys), tc.Equals, 0)
 }
@@ -64,11 +63,11 @@ func (s *controllerKeySuite) TestControllerKeys(c *tc.C) {
 	}
 
 	keys, err := NewControllerKeyService(s.state).ControllerAuthorisedKeys(context.Background())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	// Sort expected v actual so we not hardcoded onto implementation anymore
 	// then we have to be.
 	slices.Sort(expectedKeys)
 	slices.Sort(keys)
-	c.Check(keys, jc.DeepEquals, expectedKeys)
+	c.Check(keys, tc.DeepEquals, expectedKeys)
 }

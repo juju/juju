@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -54,7 +53,7 @@ func (s *serviceSuite) TestAdoptResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	sourceControllerVersion, err := semversion.Parse("4.1.1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetControllerUUID(gomock.Any()).Return(
 		"deadbeef-1bad-500d-9000-4b1d0d06f00d",
@@ -71,7 +70,7 @@ func (s *serviceSuite) TestAdoptResources(c *tc.C) {
 		s.resourceProviderGetter(c),
 		s.state,
 	).AdoptResources(context.Background(), sourceControllerVersion)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 // TestAdoptResourcesProviderNotSupported is asserting that if the provider does
@@ -85,7 +84,7 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotSupported(c *tc.C) {
 	}
 
 	sourceControllerVersion, err := semversion.Parse("4.1.1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetControllerUUID(gomock.Any()).Return(
 		"deadbeef-1bad-500d-9000-4b1d0d06f00d",
@@ -97,7 +96,7 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotSupported(c *tc.C) {
 		resourceGetter,
 		s.state,
 	).AdoptResources(context.Background(), sourceControllerVersion)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 // TestAdoptResourcesProviderNotImplemented is asserting that if the resource
@@ -107,7 +106,7 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotImplemented(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	sourceControllerVersion, err := semversion.Parse("4.1.1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetControllerUUID(gomock.Any()).Return(
 		"deadbeef-1bad-500d-9000-4b1d0d06f00d",
@@ -124,7 +123,7 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotImplemented(c *tc.C) {
 		s.resourceProviderGetter(c),
 		s.state,
 	).AdoptResources(context.Background(), sourceControllerVersion)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 // TestMachinesFromProviderDiscrepancy is testing the return value from

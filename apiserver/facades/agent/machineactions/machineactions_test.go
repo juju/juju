@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -29,7 +28,7 @@ var _ = tc.Suite(&FacadeSuite{})
 
 func (*FacadeSuite) TestAcceptsMachineAgent(c *tc.C) {
 	facade, err := machineactions.NewFacade(nil, nil, agentAuth{machine: true})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(facade, tc.NotNil)
 }
 
@@ -49,7 +48,7 @@ func (*FacadeSuite) TestRunningActions(c *tc.C) {
 	}
 
 	facade, err := machineactions.NewFacade(backend, nil, auth)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	stub.SetErrors(errors.New("boom"))
 	results := facade.RunningActions(context.Background(), entities(

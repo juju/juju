@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/core/permission"
@@ -35,7 +34,7 @@ func (s *clientMacaroonIntegrationSuite) createTestClient(c *tc.C) *charms.Local
 	s.DischargerLogin = func() string { return username.Name() }
 	api := s.OpenAPI(c, nil, cookieJar)
 	charmClient, err := charms.NewLocalCharmClient(api)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Even though we've logged into the API, we want
 	// the tests below to exercise the discharging logic

@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -64,9 +63,9 @@ func (s *ApplicationStatusAPISuite) TestSetApplicationStatusUnauthorised(c *tc.C
 	result, err := s.api.SetApplicationStatus(context.Background(), params.SetStatus{
 		Entities: []params.EntityStatusArgs{{Tag: tag.String()}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Results, tc.HasLen, 1)
-	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Check(result.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *ApplicationStatusAPISuite) TestSetApplicationStatusNotATag(c *tc.C) {
@@ -75,7 +74,7 @@ func (s *ApplicationStatusAPISuite) TestSetApplicationStatusNotATag(c *tc.C) {
 	result, err := s.api.SetApplicationStatus(context.Background(), params.SetStatus{
 		Entities: []params.EntityStatusArgs{{Tag: "not a tag"}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Error, tc.ErrorMatches, `"not a tag" is not a valid tag`)
 }
@@ -99,9 +98,9 @@ func (s *ApplicationStatusAPISuite) TestSetApplicationStatusNotFound(c *tc.C) {
 			Data:   map[string]any{"foo": "bar"},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Results, tc.HasLen, 1)
-	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
+	c.Check(result.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *ApplicationStatusAPISuite) TestSetApplicationStatusMachineTag(c *tc.C) {
@@ -114,7 +113,7 @@ func (s *ApplicationStatusAPISuite) TestSetApplicationStatusMachineTag(c *tc.C) 
 			Tag: machineTag.String(),
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Results, tc.HasLen, 1)
 	// Can't call set application status on a machine.
 	c.Check(result.Results[0].Error, tc.ErrorMatches, ".*is not a valid unit tag.*")
@@ -130,7 +129,7 @@ func (s *ApplicationStatusAPISuite) TestSetApplicationStatusApplicationTag(c *tc
 			Tag: appTag.String(),
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Results, tc.HasLen, 1)
 	// Can't call set application status on an application.
 	c.Check(result.Results[0].Error, tc.ErrorMatches, ".*is not a valid unit tag.*")
@@ -155,9 +154,9 @@ func (s *ApplicationStatusAPISuite) TestSetApplicationStatusUnitNotLeader(c *tc.
 			Data:   map[string]any{"foo": "bar"},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Results, tc.HasLen, 1)
-	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Check(result.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *ApplicationStatusAPISuite) TestSetApplicationStatus(c *tc.C) {
@@ -179,7 +178,7 @@ func (s *ApplicationStatusAPISuite) TestSetApplicationStatus(c *tc.C) {
 			Data:   map[string]any{"foo": "bar"},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Error, tc.IsNil)
 }
@@ -192,9 +191,9 @@ func (s *ApplicationStatusAPISuite) TestApplicationStatusUnauthorised(c *tc.C) {
 	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: tag.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Results, tc.HasLen, 1)
-	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Check(result.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *ApplicationStatusAPISuite) TesApplicationStatustNotATag(c *tc.C) {
@@ -203,7 +202,7 @@ func (s *ApplicationStatusAPISuite) TesApplicationStatustNotATag(c *tc.C) {
 	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: "not a tag",
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Error, tc.ErrorMatches, `"not a tag" is not a valid tag`)
 }
@@ -216,9 +215,9 @@ func (s *ApplicationStatusAPISuite) TesApplicationStatustNotFound(c *tc.C) {
 	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: names.NewUnitTag("foo/0").String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Results, tc.HasLen, 1)
-	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
+	c.Check(result.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *ApplicationStatusAPISuite) TestApplicationStatusMachineTag(c *tc.C) {
@@ -229,7 +228,7 @@ func (s *ApplicationStatusAPISuite) TestApplicationStatusMachineTag(c *tc.C) {
 	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: machineTag.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Results, tc.HasLen, 1)
 	// Can't call application status on a machine.
 	c.Check(result.Results[0].Error, tc.ErrorMatches, ".*is not a valid unit tag.*")
@@ -243,7 +242,7 @@ func (s *ApplicationStatusAPISuite) TestApplicationStatusApplicationTag(c *tc.C)
 	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: appTag.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Results, tc.HasLen, 1)
 	// Can't call unit status on an application.
 	c.Check(result.Results[0].Error, tc.ErrorMatches, ".*is not a valid unit tag.*")
@@ -259,9 +258,9 @@ func (s *ApplicationStatusAPISuite) TestApplicationStatusUnitNotLeader(c *tc.C) 
 	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: unitTag.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Results, tc.HasLen, 1)
-	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Check(result.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *ApplicationStatusAPISuite) TestApplicationStatus(c *tc.C) {
@@ -281,7 +280,7 @@ func (s *ApplicationStatusAPISuite) TestApplicationStatus(c *tc.C) {
 	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: unitTag.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Results, tc.HasLen, 1)
 	r := result.Results[0]
 	c.Check(r.Error, tc.IsNil)
@@ -290,7 +289,7 @@ func (s *ApplicationStatusAPISuite) TestApplicationStatus(c *tc.C) {
 	units := r.Units
 	c.Check(units, tc.HasLen, 1)
 	unitStatus, ok := units["foo/0"]
-	c.Check(ok, jc.IsTrue)
+	c.Check(ok, tc.IsTrue)
 	c.Check(unitStatus.Error, tc.IsNil)
 	c.Check(unitStatus.Status, tc.Equals, status.Maintenance.String())
 }
@@ -304,9 +303,9 @@ func (s *ApplicationStatusAPISuite) TestApplicationStatusBulk(c *tc.C) {
 	}, {
 		Tag: "bad-tag",
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Results, tc.HasLen, 2)
-	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Check(result.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 	c.Check(result.Results[1].Error, tc.ErrorMatches, `"bad-tag" is not a valid tag`)
 }
 
@@ -325,9 +324,9 @@ func (s *UnitStatusAPISuite) TestSetUnitStatusUnauthorised(c *tc.C) {
 		Tag:    tag.String(),
 		Status: status.Active.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Results, tc.HasLen, 1)
-	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Check(result.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *UnitStatusAPISuite) TestSetUnitStatusNotATag(c *tc.C) {
@@ -337,7 +336,7 @@ func (s *UnitStatusAPISuite) TestSetUnitStatusNotATag(c *tc.C) {
 		Tag:    "not a tag",
 		Status: status.Active.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Error, tc.ErrorMatches, `"not a tag" is not a valid tag`)
 }
@@ -351,7 +350,7 @@ func (s *UnitStatusAPISuite) TestSetUnitStatusNotAUnitTag(c *tc.C) {
 		Tag:    tag.String(),
 		Status: status.Active.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Error, tc.ErrorMatches, `"machine-42" is not a valid unit tag`)
 }
@@ -367,9 +366,9 @@ func (s *UnitStatusAPISuite) TestSetUnitStatusUnitNotFound(c *tc.C) {
 		Tag:    tag.String(),
 		Status: status.Active.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Results, tc.HasLen, 1)
-	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
+	c.Check(result.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *UnitStatusAPISuite) TestSetUnitStatus(c *tc.C) {
@@ -396,7 +395,7 @@ func (s *UnitStatusAPISuite) TestSetUnitStatus(c *tc.C) {
 			"key": "value",
 		},
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Error, tc.IsNil)
 }
@@ -409,9 +408,9 @@ func (s *UnitStatusAPISuite) TestUnitStatusUnauthorised(c *tc.C) {
 	result, err := s.api.UnitStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: tag.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Results, tc.HasLen, 1)
-	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Check(result.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *UnitStatusAPISuite) TestUnitStatusNotATag(c *tc.C) {
@@ -420,7 +419,7 @@ func (s *UnitStatusAPISuite) TestUnitStatusNotATag(c *tc.C) {
 	result, err := s.api.UnitStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: "not a tag",
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Error, tc.ErrorMatches, `"not a tag" is not a valid tag`)
 }
@@ -433,7 +432,7 @@ func (s *UnitStatusAPISuite) TestUnitStatusNotAUnitTag(c *tc.C) {
 	result, err := s.api.UnitStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: tag.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Error, tc.ErrorMatches, `"machine-42" is not a valid unit tag`)
 }
@@ -448,9 +447,9 @@ func (s *UnitStatusAPISuite) TestUnitStatusUnitNotFound(c *tc.C) {
 	result, err := s.api.UnitStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: tag.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Results, tc.HasLen, 1)
-	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
+	c.Check(result.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *UnitStatusAPISuite) TestUnitStatus(c *tc.C) {
@@ -472,7 +471,7 @@ func (s *UnitStatusAPISuite) TestUnitStatus(c *tc.C) {
 	result, err := s.api.UnitStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: tag.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Error, tc.IsNil)
 	c.Check(result.Results[0].Status, tc.Equals, status.Active.String())

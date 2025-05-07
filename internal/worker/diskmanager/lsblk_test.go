@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/blockdevice"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -51,8 +50,8 @@ KNAME="fd1" SIZE="1024" TYPE="disk" MAJ:MIN="2:1"
 EOF`)
 
 	devices, err := diskmanager.ListBlockDevices(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(devices, jc.DeepEquals, []blockdevice.BlockDevice{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(devices, tc.DeepEquals, []blockdevice.BlockDevice{{
 		DeviceName: "sda",
 		SizeMiB:    228936,
 	}, {
@@ -183,8 +182,8 @@ EOF`)
 	expect.SizeMiB = 228936
 
 	devices, err := diskmanager.ListBlockDevices(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(devices, jc.DeepEquals, []blockdevice.BlockDevice{expect})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(devices, tc.DeepEquals, []blockdevice.BlockDevice{expect})
 }
 
 func (s *ListBlockDevicesSuite) TestListBlockDevicesLsblkError(c *tc.C) {
@@ -206,8 +205,8 @@ EOF`)
 	// If the in-use check errors, the block device will be marked "in use"
 	// to prevent it from being used, but no error will be returned.
 	devices, err := diskmanager.ListBlockDevices(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(devices, jc.DeepEquals, []blockdevice.BlockDevice{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(devices, tc.DeepEquals, []blockdevice.BlockDevice{{
 		DeviceName: "sda",
 		SizeMiB:    228936,
 		InUse:      true,
@@ -224,8 +223,8 @@ KNAME="sdb" SIZE="1048576" LABEL="" UUID="" BOB="DOBBS" TYPE="disk"
 EOF`)
 
 	devices, err := diskmanager.ListBlockDevices(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(devices, jc.DeepEquals, []blockdevice.BlockDevice{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(devices, tc.DeepEquals, []blockdevice.BlockDevice{{
 		DeviceName: "sda",
 		SizeMiB:    0,
 	}, {
@@ -245,7 +244,7 @@ KNAME="sdb" SIZE="32017047552" LABEL="" UUID="" TYPE="disk"
 EOF`)
 
 	devices, err := diskmanager.ListBlockDevices(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(devices, tc.HasLen, 0)
 }
 
@@ -261,7 +260,7 @@ EOF`)
 
 	devices, err := diskmanager.ListBlockDevices(context.Background())
 	c.Assert(err, tc.IsNil)
-	c.Assert(devices, jc.DeepEquals, []blockdevice.BlockDevice{{
+	c.Assert(devices, tc.DeepEquals, []blockdevice.BlockDevice{{
 		DeviceName: "sda",
 		SizeMiB:    228936,
 	}, {

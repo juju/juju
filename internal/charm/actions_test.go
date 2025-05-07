@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 )
 
 type ActionsSuite struct{}
@@ -17,7 +16,7 @@ var _ = tc.Suite(&ActionsSuite{})
 
 func (s *ActionsSuite) TestNewActions(c *tc.C) {
 	emptyAction := NewActions()
-	c.Assert(emptyAction, jc.DeepEquals, &Actions{})
+	c.Assert(emptyAction, tc.DeepEquals, &Actions{})
 }
 
 func (s *ActionsSuite) TestValidateOk(c *tc.C) {
@@ -122,7 +121,7 @@ func (s *ActionsSuite) TestValidateOk(c *tc.C) {
 	}} {
 		c.Logf("test %d: %s", i, test.description)
 		err := test.actionSpec.ValidateParams(test.objectToValidate)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }
 
@@ -306,7 +305,7 @@ func (s *ActionsSuite) TestCleanseOk(c *tc.C) {
 		c.Logf("test %d: %s", i, test.description)
 		cleansedInterfaceMap, err := cleanse(test.acceptableInterface)
 		c.Assert(err, tc.IsNil)
-		c.Assert(cleansedInterfaceMap, jc.DeepEquals, test.expectedInterface)
+		c.Assert(cleansedInterfaceMap, tc.DeepEquals, test.expectedInterface)
 	}
 }
 
@@ -669,7 +668,7 @@ snapshot:
 		reader := bytes.NewReader([]byte(test.yaml))
 		loadedAction, err := ReadActionsYaml("somecharm", reader)
 		c.Assert(err, tc.IsNil)
-		c.Check(loadedAction, jc.DeepEquals, test.expectedActions)
+		c.Check(loadedAction, tc.DeepEquals, test.expectedActions)
 	}
 }
 
@@ -700,7 +699,7 @@ juju-snapshot:
 	reader := bytes.NewReader([]byte(actionsYaml))
 	loadedAction, err := ReadActionsYaml("juju-charm", reader)
 	c.Assert(err, tc.IsNil)
-	c.Check(loadedAction, jc.DeepEquals, expectedActions)
+	c.Check(loadedAction, tc.DeepEquals, expectedActions)
 }
 
 func (s *ActionsSuite) TestReadBadActionsYaml(c *tc.C) {
@@ -952,7 +951,7 @@ func (s *ActionsSuite) TestRecurseMapOnKeys(c *tc.C) {
 		obtained, failed := recurseMapOnKeys(t.givenKeys, t.givenMap)
 		c.Assert(!failed, tc.Equals, t.shouldFail)
 		if !t.shouldFail {
-			c.Check(obtained, jc.DeepEquals, t.expected)
+			c.Check(obtained, tc.DeepEquals, t.expected)
 		}
 	}
 }
@@ -1082,8 +1081,8 @@ act:
 			c.Check(err, tc.ErrorMatches, t.expectedError)
 			continue
 		}
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result, jc.DeepEquals, t.expectedResult)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(result, tc.DeepEquals, t.expectedResult)
 	}
 }
 

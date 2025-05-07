@@ -6,7 +6,6 @@ package environs_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/environs"
 	_ "github.com/juju/juju/internal/provider/manual"
@@ -77,11 +76,11 @@ func (s *suite) TestRegisterProvider(c *tc.C) {
 		registered := &dummyProvider{}
 		environs.RegisterProvider(name, registered, aliases...)
 		p, err := environs.Provider(name)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(p, tc.Equals, registered)
 		for _, alias := range aliases {
 			p, err := environs.Provider(alias)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(p, tc.Equals, registered)
 			c.Assert(p, tc.Equals, registered)
 		}
@@ -98,7 +97,7 @@ func (s *suite) TestRegisterProvider(c *tc.C) {
 		for _, step := range test {
 			err := registerProvider(step.name, step.aliases)
 			if step.err == "" {
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 			} else {
 				c.Assert(err, tc.ErrorMatches, step.err)
 			}
@@ -113,9 +112,9 @@ func (s *suite) TestUnregisterProvider(c *tc.C) {
 	unreg := environs.RegisterProvider("test", registered, "alias1", "alias2")
 	unreg()
 	_, err := environs.Provider("test")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 	_, err = environs.Provider("alias1")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 	_, err = environs.Provider("alias2")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }

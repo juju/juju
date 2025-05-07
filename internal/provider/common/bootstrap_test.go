@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/ssh"
 	cryptossh "golang.org/x/crypto/ssh"
 
@@ -91,7 +90,7 @@ func minimalConfigWithBase(c *tc.C, base corebase.Base) *config.Config {
 		"cloudinit-userdata": validCloudInitUserData,
 	}
 	cfg, err := config.New(config.UseDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return cfg
 }
 
@@ -129,7 +128,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *tc.C) {
 			"",
 			nil,
 		)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		expectedMcfg.EnableOSRefreshUpdate = env.Config().EnableOSRefreshUpdate()
 		expectedMcfg.EnableOSUpgrade = env.Config().EnableOSUpgrade()
@@ -140,7 +139,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *tc.C) {
 		}
 		expectedMcfg.NetBondReconfigureDelay = env.Config().NetBondReconfigureDelay()
 		args.InstanceConfig.Bootstrap.InitialSSHHostKeys = nil
-		c.Assert(args.InstanceConfig, jc.DeepEquals, expectedMcfg)
+		c.Assert(args.InstanceConfig, tc.DeepEquals, expectedMcfg)
 		return nil, nil, nil, rvalErr
 	}
 
@@ -158,7 +157,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "cannot start bootstrap instance: meh, not started")
 	// We do this check to make sure that errors propagated from start instance
 	// are then passed on through Bootstrap().
-	c.Assert(err, jc.ErrorIs, rvalErr)
+	c.Assert(err, tc.ErrorIs, rvalErr)
 }
 
 func (s *BootstrapSuite) TestBootstrapInstanceCancelled(c *tc.C) {
@@ -205,7 +204,7 @@ func (s *BootstrapSuite) TestBootstrapBase(c *tc.C) {
 		AvailableTools:          availableTools,
 		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Arch, tc.Equals, "ppc64el") // based on hardware characteristics
 	c.Check(result.Base.String(), tc.Equals, jujuversion.DefaultSupportedLTSBase().String())
 }
@@ -226,7 +225,7 @@ func (s *BootstrapSuite) TestBootstrapFallbackBase(c *tc.C) {
 		AvailableTools:          availableTools,
 		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Arch, tc.Equals, "ppc64el") // based on hardware characteristics
 	c.Check(result.Base.String(), tc.Equals, jujuversion.DefaultSupportedLTSBase().String())
 }
@@ -247,7 +246,7 @@ func (s *BootstrapSuite) TestBootstrapSeriesWithForce(c *tc.C) {
 		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 		Force:                   true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Arch, tc.Equals, "ppc64el") // based on hardware characteristics
 	c.Check(result.Base.String(), tc.Equals, corebase.MakeDefaultBase("ubuntu", "16.04").String())
 }
@@ -323,7 +322,7 @@ func (s *BootstrapSuite) TestStartInstanceAttemptAllZones(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches,
 		`(?ms)cannot start bootstrap instance in any availability zone \(z0, z2\).*`,
 	)
-	c.Assert(callZones, jc.SameContents, []string{"z0", "z2"})
+	c.Assert(callZones, tc.SameContents, []string{"z0", "z2"})
 }
 
 func (s *BootstrapSuite) TestStartInstanceAttemptZoneConstrained(c *tc.C) {
@@ -368,7 +367,7 @@ func (s *BootstrapSuite) TestStartInstanceAttemptZoneConstrained(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches,
 		`(?ms)cannot start bootstrap instance in any availability zone \(z0, z2\).*`,
 	)
-	c.Assert(callZones, jc.SameContents, []string{"z0", "z2"})
+	c.Assert(callZones, tc.SameContents, []string{"z0", "z2"})
 }
 
 func (s *BootstrapSuite) TestStartInstanceNoMatchingConstraintZones(c *tc.C) {
@@ -451,7 +450,7 @@ func (s *BootstrapSuite) TestStartInstanceStopOnZoneIndependentError(c *tc.C) {
 		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 	})
 	c.Assert(err, tc.ErrorMatches, `cannot start bootstrap instance: bloop`)
-	c.Assert(callZones, jc.SameContents, []string{"z0"})
+	c.Assert(callZones, tc.SameContents, []string{"z0"})
 }
 
 func (s *BootstrapSuite) TestStartInstanceNoUsableZones(c *tc.C) {
@@ -486,7 +485,7 @@ func (s *BootstrapSuite) TestStartInstanceRootDisk(c *tc.C) {
 		network.InterfaceInfos,
 		error,
 	) {
-		c.Assert(args.RootDisk, jc.DeepEquals, &corestorage.VolumeParams{
+		c.Assert(args.RootDisk, tc.DeepEquals, &corestorage.VolumeParams{
 			Provider: "dummy",
 			Attributes: map[string]interface{}{
 				"type": "dummy",
@@ -514,7 +513,7 @@ func (s *BootstrapSuite) TestStartInstanceRootDisk(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Arch, tc.Equals, "ppc64el")
 }
 
@@ -540,14 +539,14 @@ func (s *BootstrapSuite) TestSuccess(c *tc.C) {
 		c.Assert(icfg.Bootstrap.InitialSSHHostKeys, tc.HasLen, 3)
 		for _, key := range icfg.Bootstrap.InitialSSHHostKeys {
 			privKey, err := cryptossh.ParseRawPrivateKey([]byte(key.Private))
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			_, fits := privKey.(interface {
 				Public() crypto.PublicKey
 				Equal(crypto.PrivateKey) bool
 			})
-			c.Assert(fits, jc.IsTrue)
+			c.Assert(fits, tc.IsTrue)
 			pubKey, _, _, _, err := cryptossh.ParseAuthorizedKey([]byte(key.Public))
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(pubKey.Type(), tc.Equals, key.PublicKeyAlgorithm)
 		}
 		return inst, &checkHardware, nil, nil
@@ -582,7 +581,7 @@ func (s *BootstrapSuite) TestSuccess(c *tc.C) {
 		AvailableTools:          fakeAvailableTools(),
 		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Arch, tc.Equals, "ppc64el") // based on hardware characteristics
 	c.Assert(result.Base, tc.Equals, config.PreferredBase(mocksConfig))
 	c.Assert(result.CloudBootstrapFinalizer, tc.NotNil)
@@ -639,7 +638,7 @@ func (s *BootstrapSuite) TestSuccess(c *tc.C) {
 		tc.Equals,
 		computedKnownHosts,
 	)
-	c.Assert(strings.Split(hostKeyAlgos, ","), jc.SameContents, computedHostKeyAlgos)
+	c.Assert(strings.Split(hostKeyAlgos, ","), tc.SameContents, computedHostKeyAlgos)
 }
 
 func (s *BootstrapSuite) TestBootstrapFinalizeCloudInitUserData(c *tc.C) {
@@ -681,7 +680,7 @@ func (s *BootstrapSuite) TestBootstrapFinalizeCloudInitUserData(c *tc.C) {
 		AvailableTools:          availableTools,
 		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(result.CloudBootstrapFinalizer, tc.NotNil)
 	err = result.CloudBootstrapFinalizer(ctx, innerInstanceConfig, environs.BootstrapDialOpts{

@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/tomb.v2"
@@ -33,7 +32,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForController(c *tc.C) {
 	}
 
 	err := w.ensureNamespace(context.Background(), database.ControllerNS)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *namespaceSuite) TestEnsureNamespaceForModelNotFound(c *tc.C) {
@@ -68,7 +67,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelNotFound(c *tc.C) {
 	ensureStartup(c, dbw)
 
 	err := dbw.ensureNamespace(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, database.ErrDBNotFound)
+	c.Assert(err, tc.ErrorIs, database.ErrDBNotFound)
 
 	workertest.CleanKill(c, w)
 }
@@ -103,7 +102,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModel(c *tc.C) {
 	defer workertest.DirtyKill(c, dbw)
 
 	err := dbw.ensureNamespace(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, dbw)
 }
@@ -138,7 +137,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelLoopbackPreferred(c *tc.C) {
 	defer workertest.DirtyKill(c, dbw)
 
 	err := dbw.ensureNamespace(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, dbw)
 }
@@ -194,18 +193,18 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelWithCache(c *tc.C) {
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(num, tc.Equals, int64(1))
 
 	dbw := w.(*dbWorker)
 	ensureStartup(c, dbw)
 
 	err = dbw.ensureNamespace(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// The second query will be cached.
 	err = dbw.ensureNamespace(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(attempt, tc.Equals, 1)
 
@@ -271,7 +270,7 @@ func (s *namespaceSuite) TestCloseDatabaseForModel(c *tc.C) {
 	s.clusterConfig.EXPECT().DBBindAddresses().Return(nil, errors.New("simulates absent config for initial check"))
 
 	db, err := s.DBApp().Open(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.dbApp.EXPECT().Open(gomock.Any(), "foo").Return(db, nil)
 
 	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
@@ -281,10 +280,10 @@ func (s *namespaceSuite) TestCloseDatabaseForModel(c *tc.C) {
 	defer workertest.DirtyKill(c, dbw)
 
 	_, err = dbw.GetDB("foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = dbw.deleteDatabase(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, dbw)
 }
@@ -313,7 +312,7 @@ func (s *namespaceSuite) TestCloseDatabaseForModelLoopbackPreferred(c *tc.C) {
 	s.clusterConfig.EXPECT().DBBindAddresses().Return(nil, errors.New("simulates absent config for initial check"))
 
 	db, err := s.DBApp().Open(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.dbApp.EXPECT().Open(gomock.Any(), "foo").Return(db, nil)
 
 	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
@@ -323,10 +322,10 @@ func (s *namespaceSuite) TestCloseDatabaseForModelLoopbackPreferred(c *tc.C) {
 	defer workertest.DirtyKill(c, dbw)
 
 	_, err = dbw.GetDB("foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = dbw.deleteDatabase(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, dbw)
 }
@@ -363,7 +362,7 @@ func (s *namespaceSuite) TestCloseDatabaseForUnknownModel(c *tc.C) {
 	ensureStartup(c, dbw)
 
 	err := dbw.deleteDatabase(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 
 	workertest.CleanKill(c, w)
 }
@@ -388,7 +387,7 @@ func (s *namespaceSuite) startWorker(c *tc.C, ctx context.Context) *dbWorker {
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(num, tc.Equals, int64(1))
 
 	dbw := w.(*dbWorker)

@@ -5,7 +5,6 @@ package cloud_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cloud"
 )
@@ -20,7 +19,7 @@ func (s *cloudSuite) TestWhitelistString(c *tc.C) {
 }
 
 func (s *cloudSuite) TestCheckWhitelistSuccess(c *tc.C) {
-	c.Assert(cloud.CurrentWhiteList().Check("maas", "maas"), jc.ErrorIsNil)
+	c.Assert(cloud.CurrentWhiteList().Check("maas", "maas"), tc.ErrorIsNil)
 }
 
 func (s *cloudSuite) TestCheckWhitelistFail(c *tc.C) {

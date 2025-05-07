@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent/agent"
@@ -62,7 +61,7 @@ func testEntityFine(c *tc.C, life apiagent.Life) {
 
 	conn, err := lifeTest(c, stub, apiagent.Alive, connect)
 	c.Check(conn, tc.Equals, expectConn)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "Life",
 		Args:     []interface{}{entity},
@@ -276,15 +275,15 @@ func checkSaneChange(c *tc.C, calls []testing.StubCall) {
 		c.Fatalf("very bad new password: %q", chosePassword)
 	}
 
-	c.Check(localSet, jc.DeepEquals, testing.StubCall{
+	c.Check(localSet, tc.DeepEquals, testing.StubCall{
 		FuncName: "SetPassword",
 		Args:     []interface{}{chosePassword},
 	})
-	c.Check(localSetOld, jc.DeepEquals, testing.StubCall{
+	c.Check(localSetOld, tc.DeepEquals, testing.StubCall{
 		FuncName: "SetOldPassword",
 		Args:     []interface{}{"old"},
 	})
-	c.Check(remoteSet, jc.DeepEquals, testing.StubCall{
+	c.Check(remoteSet, tc.DeepEquals, testing.StubCall{
 		FuncName: "SetPassword",
 		Args:     []interface{}{names.NewApplicationTag("omg"), chosePassword},
 	})

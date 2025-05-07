@@ -8,7 +8,6 @@ import (
 	"database/sql"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/changestream"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -48,7 +47,7 @@ func (s *mapperSuite) TestUuidToNameMapper(c *tc.C) {
 		_, err := tx.ExecContext(ctx, stmt, uuid2, "0/lxd/0", uuid2, 0)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	changesIn := []changestream.ChangeEvent{
 		changeEventShim{
@@ -64,9 +63,9 @@ func (s *mapperSuite) TestUuidToNameMapper(c *tc.C) {
 	}
 
 	changesOut, err := uuidToNameMapper(noContainersFilter)(context.Background(), s.TxnRunner(), changesIn)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(changesOut, jc.SameContents, []changestream.ChangeEvent{
+	c.Check(changesOut, tc.SameContents, []changestream.ChangeEvent{
 		changeEventShim{
 			changeType: 1,
 			namespace:  "machine",

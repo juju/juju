@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/core/changestream"
@@ -45,7 +44,7 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *tc.C) {
 	)
 
 	watcher, err := svc.WatchSecretBackendRotationChanges(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, watcher)
 
 	wC := watchertest.NewSecretBackendRotateWatcherC(c, watcher)
@@ -173,7 +172,7 @@ func (s *watcherSuite) TestWatchModelSecretBackendChanged(c *tc.C) {
 	modelUUID, internalBackendName, vaultBackendName := s.createModel(c, state, txnRunnerFactory, "test-model")
 
 	watcher, err := svc.WatchModelSecretBackendChanged(context.Background(), modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, watcher)
 
 	wc := watchertest.NewNotifyWatcherC(c, watcher)
@@ -182,16 +181,16 @@ func (s *watcherSuite) TestWatchModelSecretBackendChanged(c *tc.C) {
 
 	ctx := context.Background()
 	err = state.SetModelSecretBackend(ctx, modelUUID, vaultBackendName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	err = state.SetModelSecretBackend(ctx, modelUUID, internalBackendName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Pretend that the agent restarted and the watcher is re-created.
 	watcher1, err := svc.WatchModelSecretBackendChanged(context.Background(), modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, watcher1)
 	wc1 := watchertest.NewNotifyWatcherC(c, watcher1)
 	// Wait for the initial change.

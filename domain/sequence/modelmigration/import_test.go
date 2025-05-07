@@ -9,7 +9,6 @@ import (
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -36,7 +35,7 @@ func (s *importSuite) TestImportSequences(c *tc.C) {
 	model.SetSequence("bar", 2)
 
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *importSuite) TestImportSequencesEmpty(c *tc.C) {
@@ -47,7 +46,7 @@ func (s *importSuite) TestImportSequencesEmpty(c *tc.C) {
 	model := description.NewModel(description.ModelArgs{})
 
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {

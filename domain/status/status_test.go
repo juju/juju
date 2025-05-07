@@ -5,7 +5,6 @@ package status
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
@@ -22,7 +21,7 @@ var _ = tc.Suite(&statusSuite{})
 func (s *statusSuite) TestK8sPodStatusDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, status FROM k8s_pod_status_value")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer rows.Close()
 
 	dbValues := make(map[K8sPodStatusType]string)
@@ -32,10 +31,10 @@ func (s *statusSuite) TestK8sPodStatusDBValues(c *tc.C) {
 			name string
 		)
 		err := rows.Scan(&id, &name)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		dbValues[K8sPodStatusType(id)] = name
 	}
-	c.Assert(dbValues, jc.DeepEquals, map[K8sPodStatusType]string{
+	c.Assert(dbValues, tc.DeepEquals, map[K8sPodStatusType]string{
 		K8sPodStatusUnset:   "unset",
 		K8sPodStatusWaiting: "waiting",
 		K8sPodStatusBlocked: "blocked",
@@ -49,7 +48,7 @@ func (s *statusSuite) TestK8sPodStatusDBValues(c *tc.C) {
 func (s *statusSuite) TestUnitAgentStatusDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, status FROM unit_agent_status_value")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer rows.Close()
 
 	dbValues := make(map[UnitAgentStatusType]string)
@@ -59,10 +58,10 @@ func (s *statusSuite) TestUnitAgentStatusDBValues(c *tc.C) {
 			name string
 		)
 		err := rows.Scan(&id, &name)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		dbValues[UnitAgentStatusType(id)] = name
 	}
-	c.Assert(dbValues, jc.DeepEquals, map[UnitAgentStatusType]string{
+	c.Assert(dbValues, tc.DeepEquals, map[UnitAgentStatusType]string{
 		UnitAgentStatusAllocating: "allocating",
 		UnitAgentStatusExecuting:  "executing",
 		UnitAgentStatusIdle:       "idle",
@@ -79,7 +78,7 @@ func (s *statusSuite) TestUnitAgentStatusDBValues(c *tc.C) {
 func (s *statusSuite) TestWorkloadStatusDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, status FROM workload_status_value")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer rows.Close()
 
 	dbValues := make(map[WorkloadStatusType]string)
@@ -89,10 +88,10 @@ func (s *statusSuite) TestWorkloadStatusDBValues(c *tc.C) {
 			name string
 		)
 		err := rows.Scan(&id, &name)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		dbValues[WorkloadStatusType(id)] = name
 	}
-	c.Assert(dbValues, jc.DeepEquals, map[WorkloadStatusType]string{
+	c.Assert(dbValues, tc.DeepEquals, map[WorkloadStatusType]string{
 		WorkloadStatusUnset:       "unset",
 		WorkloadStatusUnknown:     "unknown",
 		WorkloadStatusMaintenance: "maintenance",

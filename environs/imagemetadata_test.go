@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -55,14 +54,14 @@ func (s *ImageMetadataSuite) env(c *tc.C, imageMetadataURL, stream string, defau
 			AdminSecret:      "admin-secret",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return env.(environs.Environ)
 }
 
 func (s *ImageMetadataSuite) TestImageMetadataURLsNoConfigURL(c *tc.C) {
 	env := s.env(c, "", "", false)
 	sources, err := environs.ImageMetadataSources(env, sstesting.TestDataSourceFactory())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{
 		{"http://cloud-images.ubuntu.com/releases/", imagemetadata.SimplestreamsImagesPublicKey, true},
 	})
@@ -71,7 +70,7 @@ func (s *ImageMetadataSuite) TestImageMetadataURLsNoConfigURL(c *tc.C) {
 func (s *ImageMetadataSuite) TestImageMetadataURLs(c *tc.C) {
 	env := s.env(c, "config-image-metadata-url", "", false)
 	sources, err := environs.ImageMetadataSources(env, sstesting.TestDataSourceFactory())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{
 		{"config-image-metadata-url/", "", false},
 		{"http://cloud-images.ubuntu.com/releases/", imagemetadata.SimplestreamsImagesPublicKey, true},
@@ -81,7 +80,7 @@ func (s *ImageMetadataSuite) TestImageMetadataURLs(c *tc.C) {
 func (s *ImageMetadataSuite) TestImageMetadataURLsNoDefaults(c *tc.C) {
 	env := s.env(c, "https://custom.meta.data/", "", true)
 	sources, err := environs.ImageMetadataSources(env, sstesting.TestDataSourceFactory())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{
 		{"https://custom.meta.data/", "", false},
 	})
@@ -90,7 +89,7 @@ func (s *ImageMetadataSuite) TestImageMetadataURLsNoDefaults(c *tc.C) {
 func (s *ImageMetadataSuite) TestImageMetadataURLsNoDefaultsNoConfigURL(c *tc.C) {
 	env := s.env(c, "", "", true)
 	sources, err := environs.ImageMetadataSources(env, sstesting.TestDataSourceFactory())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{})
 }
 
@@ -127,7 +126,7 @@ func (s *ImageMetadataSuite) TestImageMetadataURLsRegisteredFuncs(c *tc.C) {
 
 	env := s.env(c, "config-image-metadata-url", "", false)
 	sources, err := environs.ImageMetadataSources(env, sstesting.TestDataSourceFactory())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{
 		{"config-image-metadata-url/", "", false},
 		{"foobar/", "", false},
@@ -169,7 +168,7 @@ func (s *ImageMetadataSuite) TestImageMetadataURLsRegisteredFuncsNoDefaultsNoCon
 
 	env := s.env(c, "", "", true)
 	sources, err := environs.ImageMetadataSources(env, sstesting.TestDataSourceFactory())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{
 		{"foobar/", "", false},
 		{"betwixt/releases/", "", false},
@@ -190,7 +189,7 @@ func (s *ImageMetadataSuite) TestImageMetadataURLsRegisteredFuncsError(c *tc.C) 
 func (s *ImageMetadataSuite) TestImageMetadataURLsNonReleaseStream(c *tc.C) {
 	env := s.env(c, "", "daily", false)
 	sources, err := environs.ImageMetadataSources(env, sstesting.TestDataSourceFactory())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{
 		{"http://cloud-images.ubuntu.com/daily/", imagemetadata.SimplestreamsImagesPublicKey, true},
 	})

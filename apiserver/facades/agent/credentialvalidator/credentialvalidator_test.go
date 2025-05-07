@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -70,7 +69,7 @@ func (s *CredentialValidatorSuite) TestModelCredential(c *tc.C) {
 	credTag := names.NewCloudCredentialTag("cloud/user/credential")
 
 	result, err := s.api.ModelCredential(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ModelCredential{
 		Model:           names.NewModelTag(s.modelUUID.String()).String(),
 		Exists:          true,
@@ -88,7 +87,7 @@ func (s *CredentialValidatorSuite) TestModelCredentialNotSet(c *tc.C) {
 	)
 
 	result, err := s.api.ModelCredential(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ModelCredential{
 		Model:  names.NewModelTag(s.modelUUID.String()).String(),
 		Exists: false,
@@ -108,7 +107,7 @@ func (s *CredentialValidatorSuite) TestWatchModelCredential(c *tc.C) {
 	s.modelCredentialWatcher.EXPECT().Changes().Return(ch)
 
 	result, err := s.api.WatchModelCredential(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{"1", nil})
 }
 

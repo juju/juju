@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
@@ -46,48 +45,48 @@ credentials:
 func (s *CredentialsFileSuite) TestWriteFile(c *tc.C) {
 	writeTestCredentialsFile(c)
 	data, err := os.ReadFile(osenv.JujuXDGDataHomePath("credentials.yaml"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var original map[string]interface{}
 	err = yaml.Unmarshal([]byte(testCredentialsYAML), &original)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	var written map[string]interface{}
 	err = yaml.Unmarshal(data, &written)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(written, tc.DeepEquals, original)
 }
 
 func (s *CredentialsFileSuite) TestReadNoFile(c *tc.C) {
 	credentials, err := jujuclient.ReadCredentialsFile("nohere.yaml")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(credentials, tc.NotNil)
 }
 
 func (s *CredentialsFileSuite) TestReadEmptyFile(c *tc.C) {
 	err := os.WriteFile(osenv.JujuXDGDataHomePath("credentials.yaml"), []byte(""), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	credentialstore := jujuclient.NewFileCredentialStore()
 	_, err = credentialstore.CredentialForCloud("foo")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func parseCredentials(c *tc.C) *cloud.CredentialCollection {
 	credentials, err := cloud.ParseCredentialCollection([]byte(testCredentialsYAML))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return credentials
 }
 
 func writeTestCredentialsFile(c *tc.C) map[string]cloud.CloudCredential {
 	credentials := parseCredentials(c)
 	err := jujuclient.WriteCredentialsFile(credentials)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	allCredentials := make(map[string]cloud.CloudCredential)
 	names := credentials.CloudNames()
 	for _, cloudName := range names {
 		cred, err := credentials.CloudCredential(cloudName)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(cred, tc.NotNil)
 		allCredentials[cloudName] = *cred
 	}

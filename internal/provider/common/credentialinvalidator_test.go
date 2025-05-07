@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/environs"
@@ -30,7 +29,7 @@ func (*ErrorsSuite) TestWrapZoneIndependentError(c *tc.C) {
 	err1 := errors.New("foo")
 	err2 := errors.Annotate(err1, "bar")
 	wrapped := environs.ZoneIndependentError(err2)
-	c.Assert(wrapped, jc.ErrorIs, environs.ErrAvailabilityZoneIndependent)
+	c.Assert(wrapped, tc.ErrorIs, environs.ErrAvailabilityZoneIndependent)
 	c.Assert(wrapped, tc.ErrorMatches, "bar: foo")
 }
 
@@ -40,7 +39,7 @@ func (s *ErrorsSuite) TestInvalidCredentialWrapped(c *tc.C) {
 	err := common.CredentialNotValidError(err2)
 
 	// This is to confirm that Is(err, ErrorCredentialNotValid) is correct.
-	c.Assert(err, jc.ErrorIs, common.ErrorCredentialNotValid)
+	c.Assert(err, tc.ErrorIs, common.ErrorCredentialNotValid)
 	c.Check(err, tc.ErrorMatches, "bar: foo")
 }
 
@@ -48,19 +47,19 @@ func (s *ErrorsSuite) TestCredentialNotValidErrorLocationer(c *tc.C) {
 	err := errors.New("some error")
 	err = common.CredentialNotValidError(err)
 	_, ok := err.(errors.Locationer)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 }
 
 func (s *ErrorsSuite) TestInvalidCredentialNew(c *tc.C) {
 	err := fmt.Errorf("%w: Your account is blocked.", common.ErrorCredentialNotValid)
-	c.Assert(err, jc.ErrorIs, common.ErrorCredentialNotValid)
+	c.Assert(err, tc.ErrorIs, common.ErrorCredentialNotValid)
 	c.Check(err, tc.ErrorMatches, "credential not valid: Your account is blocked.")
 }
 
 func (s *ErrorsSuite) TestInvalidCredentialf(c *tc.C) {
 	err1 := errors.New("foo")
 	err := fmt.Errorf("bar: %w", common.CredentialNotValidError(err1))
-	c.Assert(err, jc.ErrorIs, common.ErrorCredentialNotValid)
+	c.Assert(err, tc.ErrorIs, common.ErrorCredentialNotValid)
 	c.Check(err, tc.ErrorMatches, "bar: foo")
 }
 
@@ -71,9 +70,9 @@ func (s *ErrorsSuite) TestNoValidation(c *tc.C) {
 		return true
 	}
 	denied, err := common.HandleCredentialError(context.Background(), nil, isAuthF, authFailureError)
-	c.Assert(c.GetTestLog(), jc.Contains, "no credential invalidator provided")
+	c.Assert(c.GetTestLog(), tc.Contains, "no credential invalidator provided")
 	c.Assert(err, tc.Equals, authFailureError)
-	c.Check(denied, jc.IsFalse)
+	c.Check(denied, tc.IsFalse)
 }
 
 func (s *ErrorsSuite) TestInvalidationCallbackErrorOnlyLogs(c *tc.C) {
@@ -86,9 +85,9 @@ func (s *ErrorsSuite) TestInvalidationCallbackErrorOnlyLogs(c *tc.C) {
 	s.credentialInvalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(errors.New("boom"))
 
 	denied, err := common.HandleCredentialError(context.Background(), s.credentialInvalidator, isAuthF, authFailureError)
-	c.Assert(c.GetTestLog(), jc.Contains, "could not invalidate stored cloud credential on the controller")
+	c.Assert(c.GetTestLog(), tc.Contains, "could not invalidate stored cloud credential on the controller")
 	c.Assert(err, tc.Equals, authFailureError)
-	c.Check(denied, jc.IsTrue)
+	c.Check(denied, tc.IsTrue)
 }
 
 func (s *ErrorsSuite) TestHandleCredentialErrorPermissionError(c *tc.C) {
@@ -106,9 +105,9 @@ func (s *ErrorsSuite) TestHandleCredentialErrorPermissionError(c *tc.C) {
 	})
 
 	denied, err := common.HandleCredentialError(context.Background(), s.credentialInvalidator, isAuthF, authFailureError)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(called, tc.IsTrue)
 	c.Assert(err, tc.Equals, authFailureError)
-	c.Check(denied, jc.IsTrue)
+	c.Check(denied, tc.IsTrue)
 }
 
 func (s *ErrorsSuite) TestHandleCredentialErrorPermissionErrorTraced(c *tc.C) {
@@ -126,9 +125,9 @@ func (s *ErrorsSuite) TestHandleCredentialErrorPermissionErrorTraced(c *tc.C) {
 	})
 
 	denied, err := common.HandleCredentialError(context.Background(), s.credentialInvalidator, isAuthF, errors.Trace(authFailureError))
-	c.Assert(called, jc.IsTrue)
-	c.Assert(err, jc.ErrorIs, authFailureError)
-	c.Check(denied, jc.IsTrue)
+	c.Assert(called, tc.IsTrue)
+	c.Assert(err, tc.ErrorIs, authFailureError)
+	c.Check(denied, tc.IsTrue)
 }
 
 func (s *ErrorsSuite) TestHandleCredentialErrorPermissionErrorAnnotated(c *tc.C) {
@@ -146,9 +145,9 @@ func (s *ErrorsSuite) TestHandleCredentialErrorPermissionErrorAnnotated(c *tc.C)
 	})
 
 	denied, err := common.HandleCredentialError(context.Background(), s.credentialInvalidator, isAuthF, errors.Annotatef(authFailureError, "annotated"))
-	c.Assert(called, jc.IsTrue)
-	c.Assert(err, jc.ErrorIs, authFailureError)
-	c.Check(denied, jc.IsTrue)
+	c.Assert(called, tc.IsTrue)
+	c.Assert(err, tc.ErrorIs, authFailureError)
+	c.Check(denied, tc.IsTrue)
 }
 
 func (s *ErrorsSuite) TestHandleCredentialErrorAnotherError(c *tc.C) {
@@ -160,7 +159,7 @@ func (s *ErrorsSuite) TestHandleCredentialErrorAnotherError(c *tc.C) {
 
 	denied, err := common.HandleCredentialError(context.Background(), s.credentialInvalidator, isAuthF, errors.New("some other error"))
 	c.Assert(err, tc.ErrorMatches, "some other error")
-	c.Assert(denied, jc.IsFalse)
+	c.Assert(denied, tc.IsFalse)
 }
 
 func (s *ErrorsSuite) TestNilError(c *tc.C) {
@@ -171,8 +170,8 @@ func (s *ErrorsSuite) TestNilError(c *tc.C) {
 	}
 
 	denied, err := common.HandleCredentialError(context.Background(), s.credentialInvalidator, isAuthF, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(denied, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(denied, tc.IsFalse)
 }
 
 func (s *ErrorsSuite) setupMocks(c *tc.C) *gomock.Controller {

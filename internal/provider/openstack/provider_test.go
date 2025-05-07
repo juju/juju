@@ -14,7 +14,6 @@ import (
 	"github.com/go-goose/goose/v5/nova"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/yaml.v2"
@@ -338,7 +337,7 @@ func (*localTests) TestPortsToRuleInfo(c *tc.C) {
 		c.Logf("test %d: %s", i, t.about)
 		rules := PortsToRuleInfo(groupId, t.rules)
 		c.Check(len(rules), tc.Equals, len(t.expected))
-		c.Check(rules, jc.SameContents, t.expected)
+		c.Check(rules, tc.SameContents, t.expected)
 	}
 }
 
@@ -470,15 +469,15 @@ func (s *localTests) TestDetectRegions(c *tc.C) {
 	s.PatchEnvironment("OS_REGION_NAME", "oceania")
 	s.PatchEnvironment("OS_AUTH_URL", "http://keystone.internal")
 	regions, err := s.detectRegions(c)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(regions, jc.DeepEquals, []cloud.Region{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(regions, tc.DeepEquals, []cloud.Region{
 		{Name: "oceania", Endpoint: "http://keystone.internal"},
 	})
 }
 
 func (s *localTests) detectRegions(c *tc.C) ([]cloud.Region, error) {
 	provider, err := environs.Provider("openstack")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(provider, tc.Implements, new(environs.CloudRegionDetector))
 	return provider.(environs.CloudRegionDetector).DetectRegions()
 }
@@ -495,14 +494,14 @@ regions:
 `[1:])
 	var v interface{}
 	err := yaml.Unmarshal(y, &v)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	v, err = utils.ConformYAML(v)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	p, err := environs.Provider("openstack")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = p.CloudSchema().Validate(v)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (localTests) TestPingInvalidHost(c *tc.C) {
@@ -513,7 +512,7 @@ func (localTests) TestPingInvalidHost(c *tc.C) {
 	}
 
 	p, err := environs.Provider("openstack")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	callCtx := context.Background()
 	for _, t := range tests {
 		err = p.Ping(callCtx, t)
@@ -528,7 +527,7 @@ func (localTests) TestPingNoEndpoint(c *tc.C) {
 	server := httptest.NewServer(http.HandlerFunc(http.NotFound))
 	defer server.Close()
 	p, err := environs.Provider("openstack")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = p.Ping(context.Background(), server.URL)
 	c.Assert(err, tc.ErrorMatches, "(?m)No Openstack server running at "+server.URL+".*")
 }
@@ -539,7 +538,7 @@ func (localTests) TestPingInvalidResponse(c *tc.C) {
 	}))
 	defer server.Close()
 	p, err := environs.Provider("openstack")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = p.Ping(context.Background(), server.URL)
 	c.Assert(err, tc.ErrorMatches, "(?m)No Openstack server running at "+server.URL+".*")
 }
@@ -558,9 +557,9 @@ func (localTests) TestPingOK(c *tc.C) {
 
 func pingOk(c *tc.C, server *httptest.Server) {
 	p, err := environs.Provider("openstack")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = p.Ping(context.Background(), server.URL)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 var handlerFunc = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -642,7 +641,7 @@ func checkIdentityClientVersionInvalid(c *tc.C, url string) {
 
 func checkIdentityClientVersion(c *tc.C, url string, expversion int) {
 	version, err := identityClientVersion(url)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(version, tc.Equals, expversion)
 }
 func (s *providerUnitTests) TestIdentityClientVersion_BadURLErrors(c *tc.C) {
@@ -687,7 +686,7 @@ func (s *providerUnitTests) TestNewCredentialsWithVersion3(c *tc.C) {
 		Credential: &creds,
 	}
 	cred, authmode, err := newCredentials(clouldSpec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cred, tc.Equals, identity.Credentials{
 		URL:           "http://endpoint",
 		User:          "user",
@@ -738,7 +737,7 @@ func (s *providerUnitTests) TestNewCredentialsWithoutVersion(c *tc.C) {
 		Credential: &creds,
 	}
 	cred, authmode, err := newCredentials(clouldSpec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cred, tc.Equals, identity.Credentials{
 		URL:           "http://endpoint",
 		User:          "user",
@@ -790,7 +789,7 @@ func (s *providerUnitTests) TestNewCredentialsWithoutVersionWithProjectDomain(c 
 		Credential: &creds,
 	}
 	cred, authmode, err := newCredentials(clouldSpec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cred, tc.Equals, identity.Credentials{
 		URL:           "http://endpoint",
 		User:          "user",
@@ -821,7 +820,7 @@ func (s *providerUnitTests) TestNewCredentialsWithoutVersionWithUserDomain(c *tc
 		Credential: &creds,
 	}
 	cred, authmode, err := newCredentials(clouldSpec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cred, tc.Equals, identity.Credentials{
 		URL:           "http://endpoint",
 		User:          "user",
@@ -853,7 +852,7 @@ func (s *providerUnitTests) TestNewCredentialsWithVersion2(c *tc.C) {
 		Credential: &creds,
 	}
 	cred, authmode, err := newCredentials(clouldSpec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cred, tc.Equals, identity.Credentials{
 		URL:           "http://endpoint",
 		User:          "user",
@@ -886,7 +885,7 @@ func (s *providerUnitTests) TestNewCredentialsWithVersion2AndDomain(c *tc.C) {
 		Credential: &creds,
 	}
 	cred, authmode, err := newCredentials(clouldSpec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cred, tc.Equals, identity.Credentials{
 		URL:           "http://endpoint",
 		User:          "user",
@@ -919,7 +918,7 @@ func (s *providerUnitTests) TestNetworksForInstance(c *tc.C) {
 
 	result, err := envWithNetworking(mockNetworking, netID).networksForInstance(context.Background(), siParams, netCfg)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, []nova.ServerNetworks{
 		{
 			NetworkId: netID,
@@ -947,7 +946,7 @@ func (s *providerUnitTests) TestNetworksForInstanceNoConfigMultiNet(c *tc.C) {
 
 	result, err := envWithNetworking(mockNetworking, "").networksForInstance(context.Background(), siParams, netCfg)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, []nova.ServerNetworks{
 		{NetworkId: "network-id-foo"},
 		{NetworkId: "network-id-bar"},
@@ -972,7 +971,7 @@ func (s *providerUnitTests) TestNetworksForInstanceMultiConfigMultiNet(c *tc.C) 
 
 	result, err := envWithNetworking(mockNetworking, "network-id-foo,network-id-bar").networksForInstance(context.Background(), siParams, netCfg)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, []nova.ServerNetworks{
 		{NetworkId: "network-id-foo"},
 		{NetworkId: "network-id-bar"},
@@ -1017,7 +1016,7 @@ func (s *providerUnitTests) TestNetworksForInstanceWithAZ(c *tc.C) {
 
 	result, err := envWithNetworking(mockNetworking, netID).networksForInstance(context.Background(), siParams, netCfg)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, []nova.ServerNetworks{
 		{
 			NetworkId: netID,
@@ -1090,7 +1089,7 @@ func (s *providerUnitTests) TestNetworksForInstanceWithAZNoConfigMultiNet(c *tc.
 
 	result, err := envWithNetworking(mockNetworking, "").networksForInstance(context.Background(), siParams, netCfg)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, []nova.ServerNetworks{
 		{
 			NetworkId: "network-id-foo",
@@ -1172,7 +1171,7 @@ func (s *providerUnitTests) TestNetworksForInstanceNoSubnetAZsStillConsidered(c 
 
 	result, err := envWithNetworking(mockNetworking, netID).networksForInstance(context.Background(), siParams, netCfg)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, []nova.ServerNetworks{
 		{
 			NetworkId: netID,

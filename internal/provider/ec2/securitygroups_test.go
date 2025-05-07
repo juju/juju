@@ -15,7 +15,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/provider/ec2"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -47,7 +46,7 @@ func (s *SecurityGroupSuite) SetUpTest(c *tc.C) {
 
 func (s *SecurityGroupSuite) TestDeleteSecurityGroupSuccess(c *tc.C) {
 	err := s.deleteFunc(context.Background(), s.clientStub, types.GroupIdentifier{}, testclock.NewClock(time.Time{}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.clientStub.CheckCallNames(c, "DeleteSecurityGroup")
 }
 
@@ -56,7 +55,7 @@ func (s *SecurityGroupSuite) TestDeleteSecurityGroupInvalidGroupNotFound(c *tc.C
 		return nil, &smithy.GenericAPIError{Code: "InvalidGroup.NotFound"}
 	}
 	err := s.deleteFunc(context.Background(), s.clientStub, types.GroupIdentifier{}, testclock.NewClock(time.Time{}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.clientStub.CheckCallNames(c, "DeleteSecurityGroup")
 }
 
@@ -81,7 +80,7 @@ func (s *SecurityGroupSuite) TestDeleteSecurityGroupFewCalls(c *tc.C) {
 		return nil, nil
 	}
 	err := s.deleteFunc(context.Background(), s.clientStub, types.GroupIdentifier{}, clock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedCalls := make([]string, maxCalls+1)
 	for i := 0; i < maxCalls+1; i++ {

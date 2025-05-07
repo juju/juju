@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/agent/instancemutater"
@@ -50,7 +49,7 @@ func (s *instanceMutaterSuite) TestMachineCallsLife(c *tc.C) {
 	apiCaller := successAPICaller(c, "Life", entitiesArgs, expectedResults)
 	api := instancemutater.NewClient(apiCaller)
 	m, err := api.Machine(context.Background(), names.NewMachineTag("0"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(apiCaller.CallCount, tc.Equals, 1)
 	c.Assert(m.Tag().String(), tc.Equals, s.tag.String())
 }
@@ -63,7 +62,7 @@ func (s *instanceMutaterSuite) TestWatchMachines(c *tc.C) {
 		s.expectStringsWatcher,
 	)
 	ch, err := api.WatchModelMachines(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// watch for the changes
 	for i := 0; i < 2; i++ {

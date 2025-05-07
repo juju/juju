@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	internalpassword "github.com/juju/juju/internal/password"
 )
@@ -62,7 +61,7 @@ func (*passwordSuite) TestPasswordValidation(c *tc.C) {
 
 	for _, test := range tests {
 		err := NewPassword(test).Validate()
-		c.Assert(err, jc.ErrorIs, ErrPasswordNotValid,
+		c.Assert(err, tc.ErrorIs, ErrPasswordNotValid,
 			tc.Commentf("expected password %q to return ErrPasswordNotValid", test),
 		)
 	}
@@ -74,9 +73,9 @@ func (*passwordSuite) TestPasswordValidation(c *tc.C) {
 func (*passwordSuite) TestPasswordValidationDestroyed(c *tc.C) {
 	p := NewPassword("topsecret")
 	p.Destroy()
-	c.Assert(p.IsDestroyed(), jc.IsTrue)
+	c.Assert(p.IsDestroyed(), tc.IsTrue)
 	err := p.Validate()
-	c.Assert(err, jc.ErrorIs, ErrPasswordDestroyed)
+	c.Assert(err, tc.ErrorIs, ErrPasswordDestroyed)
 }
 
 // TestPasswordHashing is testing some known password and their respective
@@ -117,7 +116,7 @@ func (*passwordSuite) TestPasswordHashing(c *tc.C) {
 	for _, test := range tests {
 		p := NewPassword(test.Password)
 		hash, err := HashPassword(p, []byte(test.Salt))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(hash, tc.Equals, test.Hash,
 			tc.Commentf("computed hash %q != expected hash %q for password %q and salt %q",
 				hash, test.Hash, test.Password, test.Salt),
@@ -139,9 +138,9 @@ func (*passwordSuite) TestPasswordHashing(c *tc.C) {
 func (*passwordSuite) TestPasswordHashingDestroyed(c *tc.C) {
 	p := NewPassword("topsecret")
 	p.Destroy()
-	c.Assert(p.IsDestroyed(), jc.IsTrue)
+	c.Assert(p.IsDestroyed(), tc.IsTrue)
 	_, err := HashPassword(p, []byte("secretsauce"))
-	c.Assert(err, jc.ErrorIs, ErrPasswordDestroyed)
+	c.Assert(err, tc.ErrorIs, ErrPasswordDestroyed)
 }
 
 // TestPasswordHashWithUtils is testing the password hashing inside of Juju with
@@ -163,7 +162,7 @@ func (*passwordSuite) TestPasswordHashWithUtils(c *tc.C) {
 	for _, test := range tests {
 		utilsHash := internalpassword.UserPasswordHash(test, salt)
 		jujuHash, err := HashPassword(NewPassword(test), []byte(salt))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(utilsHash, tc.Equals, jujuHash,
 			tc.Commentf("juju/utils/v4 hash %q != internal/password hash %q for password %q",
 				utilsHash, jujuHash, test),
@@ -175,8 +174,8 @@ func (*passwordSuite) TestPasswordHashWithUtils(c *tc.C) {
 // the length of the salt is equal to that of what we expect.
 func (*passwordSuite) TestNewSalt(c *tc.C) {
 	salt, err := NewSalt()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(salt) != 0, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(salt) != 0, tc.IsTrue)
 }
 
 // TestDestroyPasswordMultiple checks that we can call Destroy() on a password
@@ -187,7 +186,7 @@ func (*passwordSuite) TestDestroyPasswordMultiple(c *tc.C) {
 	p.Destroy()
 	p.Destroy()
 	p.Destroy()
-	c.Assert(p.IsDestroyed(), jc.IsTrue)
+	c.Assert(p.IsDestroyed(), tc.IsTrue)
 }
 
 // FuzzPasswordHashing is a fuzz test to both try and break our password hashing

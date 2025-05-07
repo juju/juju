@@ -11,7 +11,6 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/domain/cloudimagemetadata"
 	"github.com/juju/juju/domain/cloudimagemetadata/errors"
@@ -41,23 +40,23 @@ type architecture struct {
 
 func (s *stateSuite) TestArchitectureIDsByName(c *tc.C) {
 	db, err := s.state.DB()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var loadArchsStmt *sqlair.Statement
 	loadArchsStmt, err = sqlair.Prepare(`SELECT &architecture.* FROM architecture;`, architecture{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var archs []architecture
 	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, loadArchsStmt).GetAll(&archs)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained := make(map[string]int, len(archs))
 	for _, arch := range archs {
 		obtained[arch.Name] = arch.ID
 	}
-	c.Assert(obtained, jc.DeepEquals, architectureIDsByName)
+	c.Assert(obtained, tc.DeepEquals, architectureIDsByName)
 }
 
 // TestSaveMetadata verifies that the metadata is saved correctly in the database
@@ -80,16 +79,16 @@ func (s *stateSuite) TestSaveMetadata(c *tc.C) {
 
 	//  Act
 	err := s.state.SaveMetadata(context.Background(), expected)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert
 	obtained, err := s.retrieveMetadataFromDB()
 	for i := range obtained {
-		c.Check(obtained[i].CreationTime, jc.After, testBeginTime)
+		c.Check(obtained[i].CreationTime, tc.After, testBeginTime)
 		obtained[i].CreationTime = time.Time{} // ignore time since already checked.
 	}
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, jc.SameContents, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained, tc.SameContents, expected)
 }
 
 // TestSaveMetadataWithDateCreated tests the SaveMetadata method by ensuring metadata is saved with the correct creation date.
@@ -111,12 +110,12 @@ func (s *stateSuite) TestSaveMetadataWithDateCreated(c *tc.C) {
 
 	//  Act
 	err := s.state.SaveMetadata(context.Background(), expected)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert
 	obtained, err := s.retrieveMetadataFromDB()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, jc.SameContents, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained, tc.SameContents, expected)
 }
 
 // TestSaveMetadataSeveralMetadata verifies that multiple metadata entries are saved correctly in the database.
@@ -147,16 +146,16 @@ func (s *stateSuite) TestSaveMetadataSeveralMetadata(c *tc.C) {
 
 	//  Act
 	err := s.state.SaveMetadata(context.Background(), expected)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert
 	obtained, err := s.retrieveMetadataFromDB()
 	for i := range obtained {
-		c.Check(obtained[i].CreationTime, jc.After, testBeginTime)
+		c.Check(obtained[i].CreationTime, tc.After, testBeginTime)
 		obtained[i].CreationTime = time.Time{} // ignore time since already checked.
 	}
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, jc.SameContents, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained, tc.SameContents, expected)
 }
 
 func (s *stateSuite) TestSaveMetadataUpdateMetadata(c *tc.C) {
@@ -178,20 +177,20 @@ func (s *stateSuite) TestSaveMetadataUpdateMetadata(c *tc.C) {
 	err := s.state.SaveMetadata(context.Background(), []cloudimagemetadata.Metadata{
 		{MetadataAttributes: attrs1, ImageID: "1"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.state.SaveMetadata(context.Background(), []cloudimagemetadata.Metadata{
 		{MetadataAttributes: attrs2, ImageID: "2"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert
 	obtained, err := s.retrieveMetadataFromDB()
 	for i := range obtained {
-		c.Check(obtained[i].CreationTime, jc.After, testBeginTime)
+		c.Check(obtained[i].CreationTime, tc.After, testBeginTime)
 		obtained[i].CreationTime = time.Time{} // ignore time since already checked.
 	}
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, jc.SameContents, []cloudimagemetadata.Metadata{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained, tc.SameContents, []cloudimagemetadata.Metadata{
 		{MetadataAttributes: attrs1, ImageID: "2"}, // Imageid has been updated, but other attributes don't.
 	})
 }
@@ -217,7 +216,7 @@ func (s *stateSuite) TestSaveMetadataWithSameAttributes(c *tc.C) {
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, errors.ImageMetadataAlreadyExists)
+	c.Assert(err, tc.ErrorIs, errors.ImageMetadataAlreadyExists)
 }
 
 // TestSaveMetadataSeveralMetadataWithInvalidArchitecture verifies that metadata with an invalid architecture is ignored
@@ -268,13 +267,13 @@ VALUES
 	err := s.state.DeleteMetadataWithImageID(context.Background(), "to-delete")
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	obtained, err := s.retrieveMetadataFromDB()
 	for i := range obtained {
 		obtained[i].CreationTime = time.Time{} // ignore time
 	}
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, jc.SameContents, []cloudimagemetadata.Metadata{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained, tc.SameContents, []cloudimagemetadata.Metadata{
 		{MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 			Stream:          "stream",
 			Region:          "region-1",
@@ -303,9 +302,9 @@ VALUES
 ('h',datetime('now','localtime'), 'non-custom', 'stream', 'region', '22.04',2, 'virtType', 'storage', 1, 'id'),
 ('i',datetime('now','localtime'), 'non-custom', 'stream', 'region', '24.04',3, 'virtType', 'storage', 42, 'unique');
 `)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedBase, err := s.retrieveMetadataFromDB()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	for _, testCase := range []struct {
 		description string
@@ -357,10 +356,10 @@ VALUES
 
 		// Act
 		obtained, err := s.state.FindMetadata(context.Background(), testCase.filter)
-		c.Check(err, jc.ErrorIsNil, tc.Commentf("test: %s\n - unexpected error: %s", testCase.description, err))
+		c.Check(err, tc.ErrorIsNil, tc.Commentf("test: %s\n - unexpected error: %s", testCase.description, err))
 
 		// Assert
-		c.Check(obtained, jc.SameContents, filter(expectedBase, testCase.accept), tc.Commentf("test: %s\n - obtained value mismatched", testCase.description))
+		c.Check(obtained, tc.SameContents, filter(expectedBase, testCase.accept), tc.Commentf("test: %s\n - obtained value mismatched", testCase.description))
 	}
 }
 
@@ -373,13 +372,13 @@ VALUES
 ('a',datetime('now','localtime'), 'non-custom', 'stream', 'unique', '08.04',0, 'virtType', 'storage', 42, 'id'),
 ('b',datetime('now','localtime'), 'non-custom', 'unique', 'region', '10.04',1, 'virtType', 'storage', 42, 'id');
 `)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
 	_, err = s.state.FindMetadata(context.Background(), cloudimagemetadata.MetadataFilter{Stream: "unique", Region: "unique"})
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 // TestFindMetadataExpired checks that non custom expired metadata entries are correctly excluded from query results.
@@ -393,17 +392,17 @@ VALUES
 ('c',datetime('now','-3 days'), 'non-custom', 'stream', 'region', '12.04',1, 'virtType', 'storage', 42, 'id'),
 ('d',datetime('now','-2 days'), 'custom', 'stream', 'region', '14.04',1, 'virtType', 'storage', 42, 'id');
 `)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
 	obtained, err := s.state.FindMetadata(context.Background(), cloudimagemetadata.MetadataFilter{})
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	for i := range obtained {
 		obtained[i].CreationTime = time.Time{} // ignore time
 	}
-	c.Assert(obtained, jc.SameContents, []cloudimagemetadata.Metadata{{
+	c.Assert(obtained, tc.SameContents, []cloudimagemetadata.Metadata{{
 		MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 			Stream:          "stream",
 			Region:          "region",
@@ -443,17 +442,17 @@ VALUES
 ('c',datetime('now','-3 days'), 'non-custom', 'stream', 'region', '12.04',1, 'virtType', 'storage', 42, 'id'),
 ('d',datetime('now','localtime'), 'non-custom', 'stream', 'region', '16.04',1, 'virtType', 'storage', 42, 'id');
 `)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
 	obtained, err := s.state.AllCloudImageMetadata(context.Background())
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	for i := range obtained {
 		obtained[i].CreationTime = time.Time{} // ignore time
 	}
-	c.Assert(obtained, jc.SameContents, []cloudimagemetadata.Metadata{
+	c.Assert(obtained, tc.SameContents, []cloudimagemetadata.Metadata{
 		{
 			MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 				Stream:          "stream",
@@ -493,14 +492,14 @@ VALUES
 ('a',datetime('now','-3 days'), 'non-custom', 'stream', 'region', '08.04',0, 'virtType', 'storage', 42, 'id'),
 ('b',datetime('now','-3 days'), 'non-custom', 'stream', 'region', '12.04',1, 'virtType', 'storage', 42, 'id');
 `)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
 	obtained, err := s.state.AllCloudImageMetadata(context.Background())
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, jc.SameContents, []cloudimagemetadata.Metadata{}) // No non expired metadata
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained, tc.SameContents, []cloudimagemetadata.Metadata{}) // No non expired metadata
 }
 
 // TestCleanupMetatada verifies that the metadata is properly cleaned up on a new insert in the
@@ -514,7 +513,7 @@ VALUES
 ('a',datetime('now','-3 days'), 'cloud', 'stream', 'region', '08.04',0, 'virtType', 'storage', 128, 42, 'id'),
 ('b',datetime('now','-3 days'), 'custom', 'stream', 'region', '12.04',1, 'virtType', 'storage', 1024, 42, 'id');
 `)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:          "stream",
 		Region:          "region-test",
@@ -530,15 +529,15 @@ VALUES
 
 	//  Act
 	err = s.state.SaveMetadata(context.Background(), expected)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert
 	obtained, err := s.retrieveMetadataFromDB()
 	for i := range obtained {
 		obtained[i].CreationTime = time.Time{} // ignore time for simplicity
 	}
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, jc.SameContents, append(expected,
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained, tc.SameContents, append(expected,
 		// Custom that has not expired
 		cloudimagemetadata.Metadata{MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 			Stream:          "stream",

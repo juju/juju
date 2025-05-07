@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"google.golang.org/api/compute/v1"
 )
 
@@ -69,7 +68,7 @@ func (s *rawConnSuite) TestConnectionCheckOperationZone(c *tc.C) {
 	original := &compute.Operation{Zone: "a-zone"}
 	op, err := s.rawConn.checkOperation("proj", original)
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(op, tc.NotNil)
 	c.Check(op, tc.Not(tc.Equals), original)
 	c.Check(s.callCount, tc.Equals, 1)
@@ -79,7 +78,7 @@ func (s *rawConnSuite) TestConnectionCheckOperationRegion(c *tc.C) {
 	original := &compute.Operation{Region: "a"}
 	op, err := s.rawConn.checkOperation("proj", original)
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(op, tc.NotNil)
 	c.Check(op, tc.Not(tc.Equals), original)
 	c.Check(s.callCount, tc.Equals, 1)
@@ -89,7 +88,7 @@ func (s *rawConnSuite) TestConnectionCheckOperationGlobal(c *tc.C) {
 	original := &compute.Operation{}
 	op, err := s.rawConn.checkOperation("proj", original)
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(op, tc.NotNil)
 	c.Check(op, tc.Not(tc.Equals), original)
 	c.Check(s.callCount, tc.Equals, 1)
@@ -99,7 +98,7 @@ func (s *rawConnSuite) TestConnectionWaitOperation(c *tc.C) {
 	original := &compute.Operation{}
 	err := s.rawConn.waitOperation("proj", original, s.strategy, s.handleOperationErrorsF)
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(s.callCount, tc.Equals, 1)
 }
 
@@ -109,7 +108,7 @@ func (s *rawConnSuite) TestConnectionWaitOperationAlreadyDone(c *tc.C) {
 	}
 	err := s.rawConn.waitOperation("proj", original, s.strategy, s.handleOperationErrorsF)
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(s.callCount, tc.Equals, 0)
 }
 
@@ -126,7 +125,7 @@ func (s *rawConnSuite) TestConnectionWaitOperationWaiting(c *tc.C) {
 	original := &compute.Operation{}
 	err := s.rawConn.waitOperation("proj", original, s.strategy, s.handleOperationErrorsF)
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(s.callCount, tc.Equals, 2)
 }
 

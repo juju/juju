@@ -18,7 +18,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	api "github.com/juju/juju/api/client/resources"
@@ -70,7 +69,7 @@ func (s *ResourcesHandlerSuite) SetUpTest(c *tc.C) {
 
 	// Generating the fingerprint exhausts the reader so a new one is used.
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(s.resourceContent))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.resource = coreresource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -129,7 +128,7 @@ func (s *ResourcesHandlerSuite) TestExpectedAuthTags(c *tc.C) {
 	// Arrange: Create auth function that checks the expected tags.
 	expectedTags := set.NewStrings(names.UserTagKind, names.MachineTagKind, names.ControllerAgentTagKind, names.ApplicationTagKind)
 	authFunc := func(req *http.Request, tagKinds ...string) (names.Tag, error) {
-		c.Assert(tagKinds, jc.SameContents, expectedTags.Values())
+		c.Assert(tagKinds, tc.SameContents, expectedTags.Values())
 		tag := names.NewUserTag(s.username)
 		return tag, nil
 	}
@@ -183,7 +182,7 @@ func (s *ResourcesHandlerSuite) TestUnsupportedMethod(c *tc.C) {
 
 	// Arrange:
 	req, err := http.NewRequest("POST", s.requestURL(), nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Act:
 	s.serveHTTP(req)
@@ -492,7 +491,7 @@ func (s *ResourcesHandlerSuite) checkResp(c *tc.C, status int, ctype, body strin
 	c.Check(hdr.Get("Content-Length"), tc.Equals, strconv.Itoa(len(body)))
 
 	actualBody, err := io.ReadAll(s.recorder.Body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(string(actualBody), tc.Equals, body)
 }
 
@@ -504,14 +503,14 @@ func (s *ResourcesHandlerSuite) checkErrResp(c *tc.C, status int, ctype string) 
 
 func (s *ResourcesHandlerSuite) newDownloadRequest(c *tc.C) *http.Request {
 	req, err := http.NewRequest("GET", s.requestURL(), nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return req
 }
 
 func (s *ResourcesHandlerSuite) newUploadRequest(c *tc.C) *http.Request {
 	req, err := http.NewRequest("PUT", s.requestURL(), s.resourceReader)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("Content-Length", fmt.Sprint(s.resource.Size))

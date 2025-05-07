@@ -5,7 +5,6 @@ package migration_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/migration"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -37,46 +36,46 @@ func (s *PhaseSuite) TestInvalid(c *tc.C) {
 func (s *PhaseSuite) TestParseValid(c *tc.C) {
 	phase, ok := migration.ParsePhase("REAP")
 	c.Check(phase, tc.Equals, migration.REAP)
-	c.Check(ok, jc.IsTrue)
+	c.Check(ok, tc.IsTrue)
 }
 
 func (s *PhaseSuite) TestParseInvalid(c *tc.C) {
 	phase, ok := migration.ParsePhase("foo")
 	c.Check(phase, tc.Equals, migration.UNKNOWN)
-	c.Check(ok, jc.IsFalse)
+	c.Check(ok, tc.IsFalse)
 }
 
 func (s *PhaseSuite) TestIsTerminal(c *tc.C) {
-	c.Check(migration.QUIESCE.IsTerminal(), jc.IsFalse)
-	c.Check(migration.SUCCESS.IsTerminal(), jc.IsFalse)
-	c.Check(migration.ABORT.IsTerminal(), jc.IsFalse)
-	c.Check(migration.ABORTDONE.IsTerminal(), jc.IsTrue)
-	c.Check(migration.REAPFAILED.IsTerminal(), jc.IsTrue)
-	c.Check(migration.DONE.IsTerminal(), jc.IsTrue)
+	c.Check(migration.QUIESCE.IsTerminal(), tc.IsFalse)
+	c.Check(migration.SUCCESS.IsTerminal(), tc.IsFalse)
+	c.Check(migration.ABORT.IsTerminal(), tc.IsFalse)
+	c.Check(migration.ABORTDONE.IsTerminal(), tc.IsTrue)
+	c.Check(migration.REAPFAILED.IsTerminal(), tc.IsTrue)
+	c.Check(migration.DONE.IsTerminal(), tc.IsTrue)
 }
 
 func (s *PhaseSuite) TestIsRunning(c *tc.C) {
-	c.Check(migration.UNKNOWN.IsRunning(), jc.IsFalse)
-	c.Check(migration.NONE.IsRunning(), jc.IsFalse)
+	c.Check(migration.UNKNOWN.IsRunning(), tc.IsFalse)
+	c.Check(migration.NONE.IsRunning(), tc.IsFalse)
 
-	c.Check(migration.QUIESCE.IsRunning(), jc.IsTrue)
-	c.Check(migration.IMPORT.IsRunning(), jc.IsTrue)
-	c.Check(migration.PROCESSRELATIONS.IsRunning(), jc.IsTrue)
-	c.Check(migration.SUCCESS.IsRunning(), jc.IsTrue)
+	c.Check(migration.QUIESCE.IsRunning(), tc.IsTrue)
+	c.Check(migration.IMPORT.IsRunning(), tc.IsTrue)
+	c.Check(migration.PROCESSRELATIONS.IsRunning(), tc.IsTrue)
+	c.Check(migration.SUCCESS.IsRunning(), tc.IsTrue)
 
-	c.Check(migration.LOGTRANSFER.IsRunning(), jc.IsFalse)
-	c.Check(migration.REAP.IsRunning(), jc.IsFalse)
-	c.Check(migration.REAPFAILED.IsRunning(), jc.IsFalse)
-	c.Check(migration.DONE.IsRunning(), jc.IsFalse)
-	c.Check(migration.ABORT.IsRunning(), jc.IsFalse)
-	c.Check(migration.ABORTDONE.IsRunning(), jc.IsFalse)
+	c.Check(migration.LOGTRANSFER.IsRunning(), tc.IsFalse)
+	c.Check(migration.REAP.IsRunning(), tc.IsFalse)
+	c.Check(migration.REAPFAILED.IsRunning(), tc.IsFalse)
+	c.Check(migration.DONE.IsRunning(), tc.IsFalse)
+	c.Check(migration.ABORT.IsRunning(), tc.IsFalse)
+	c.Check(migration.ABORTDONE.IsRunning(), tc.IsFalse)
 }
 
 func (s *PhaseSuite) TestCanTransitionTo(c *tc.C) {
-	c.Check(migration.QUIESCE.CanTransitionTo(migration.SUCCESS), jc.IsFalse)
-	c.Check(migration.QUIESCE.CanTransitionTo(migration.ABORT), jc.IsTrue)
-	c.Check(migration.QUIESCE.CanTransitionTo(migration.IMPORT), jc.IsTrue)
-	c.Check(migration.QUIESCE.CanTransitionTo(migration.PROCESSRELATIONS), jc.IsFalse)
-	c.Check(migration.QUIESCE.CanTransitionTo(migration.Phase(-1)), jc.IsFalse)
-	c.Check(migration.ABORT.CanTransitionTo(migration.QUIESCE), jc.IsFalse)
+	c.Check(migration.QUIESCE.CanTransitionTo(migration.SUCCESS), tc.IsFalse)
+	c.Check(migration.QUIESCE.CanTransitionTo(migration.ABORT), tc.IsTrue)
+	c.Check(migration.QUIESCE.CanTransitionTo(migration.IMPORT), tc.IsTrue)
+	c.Check(migration.QUIESCE.CanTransitionTo(migration.PROCESSRELATIONS), tc.IsFalse)
+	c.Check(migration.QUIESCE.CanTransitionTo(migration.Phase(-1)), tc.IsFalse)
+	c.Check(migration.ABORT.CanTransitionTo(migration.QUIESCE), tc.IsFalse)
 }

@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -66,9 +65,9 @@ func (s *unitSetStatusSuite) TestSetStatusUnauthorised(c *tc.C) {
 		Tag:    tag.String(),
 		Status: status.Executing.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *unitSetStatusSuite) TestSetStatusNotATag(c *tc.C) {
@@ -81,7 +80,7 @@ func (s *unitSetStatusSuite) TestSetStatusNotATag(c *tc.C) {
 		Tag:    "not a tag",
 		Status: status.Executing.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0].Error, tc.ErrorMatches, `"not a tag" is not a valid tag`)
 }
@@ -98,7 +97,7 @@ func (s *unitSetStatusSuite) TestSetStatusNotAUnitTag(c *tc.C) {
 		Tag:    tag.String(),
 		Status: status.Executing.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0].Error, tc.ErrorMatches, `"machine-42" is not a valid unit tag`)
 }
@@ -117,9 +116,9 @@ func (s *unitSetStatusSuite) TestSetStatusUnitNotFound(c *tc.C) {
 		Tag:    tag.String(),
 		Status: status.Executing.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *unitSetStatusSuite) TestSetStatus(c *tc.C) {
@@ -151,7 +150,7 @@ func (s *unitSetStatusSuite) TestSetStatus(c *tc.C) {
 			"key": "value",
 		},
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0].Error, tc.IsNil)
 }
@@ -174,9 +173,9 @@ func (s *unitGetStatusSuite) TestStatusUnauthorised(c *tc.C) {
 	result, err := getter.Status(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: tag.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *unitGetStatusSuite) TestStatusNotATag(c *tc.C) {
@@ -188,7 +187,7 @@ func (s *unitGetStatusSuite) TestStatusNotATag(c *tc.C) {
 	result, err := getter.Status(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: "not a tag",
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0].Error, tc.ErrorMatches, `"not a tag" is not a valid tag`)
 }
@@ -204,7 +203,7 @@ func (s *unitGetStatusSuite) TestStatusNotAUnitTag(c *tc.C) {
 	result, err := getter.Status(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: tag.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0].Error, tc.ErrorMatches, `"machine-42" is not a valid unit tag`)
 }
@@ -222,9 +221,9 @@ func (s *unitGetStatusSuite) TestStatusUnitNotFound(c *tc.C) {
 	result, err := getter.Status(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: tag.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *unitGetStatusSuite) TestStatus(c *tc.C) {
@@ -247,7 +246,7 @@ func (s *unitGetStatusSuite) TestStatus(c *tc.C) {
 	result, err := getter.Status(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: tag.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0], tc.DeepEquals, params.StatusResult{
 		Status: status.Active.String(),

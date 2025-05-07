@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/ssh"
 	sshtesting "github.com/juju/utils/v4/ssh/testing"
 	"go.uber.org/mock/gomock"
@@ -46,7 +45,7 @@ func (s *keymanagerSuite) TestListKeys(c *tc.C) {
 
 	client := keymanager.NewClientFromCaller(mockFacadeCaller)
 	keyResults, err := client.ListKeys(context.Background(), ssh.Fingerprints, tag.Name())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(keyResults), tc.Equals, 1)
 	res := keyResults[0]
 	c.Assert(res.Error, tc.IsNil)
@@ -78,7 +77,7 @@ func (s *keymanagerSuite) TestAddKeys(c *tc.C) {
 
 	client := keymanager.NewClientFromCaller(mockFacadeCaller)
 	errResults, err := client.AddKeys(context.Background(), tag.Name(), newKeys...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errResults, tc.DeepEquals, []params.ErrorResult{
 		{Error: nil},
 		{Error: nil},
@@ -109,7 +108,7 @@ func (s *keymanagerSuite) TestDeleteKeys(c *tc.C) {
 
 	client := keymanager.NewClientFromCaller(mockFacadeCaller)
 	errResults, err := client.DeleteKeys(context.Background(), tag.Name(), sshtesting.ValidKeyTwo.Fingerprint, "user@host", "missing")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errResults, tc.DeepEquals, []params.ErrorResult{
 		{Error: nil},
 		{Error: nil},
@@ -140,7 +139,7 @@ func (s *keymanagerSuite) TestImportKeys(c *tc.C) {
 
 	client := keymanager.NewClientFromCaller(mockFacadeCaller)
 	errResults, err := client.ImportKeys(context.Background(), tag.Name(), keyIds...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errResults, tc.DeepEquals, []params.ErrorResult{
 		{Error: nil},
 		{Error: clientError("invalid ssh key id: invalid-key")},

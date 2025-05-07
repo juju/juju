@@ -13,7 +13,6 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
@@ -44,7 +43,7 @@ func (s *ManifoldSuite) manifold() dependency.Manifold {
 }
 
 func (s *ManifoldSuite) TestInputs(c *tc.C) {
-	c.Check(s.manifold().Inputs, jc.DeepEquals, []string{"agent", "central-hub"})
+	c.Check(s.manifold().Inputs, tc.DeepEquals, []string{"agent", "central-hub"})
 }
 
 func (s *ManifoldSuite) TestAgentMissing(c *tc.C) {
@@ -94,7 +93,7 @@ func (s *ManifoldSuite) TestNewWorkerArgs(c *tc.C) {
 	})
 
 	worker, err := s.manifold().Start(context.Background(), getter)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(worker, tc.NotNil)
 
 	c.Check(config.Origin, tc.Equals, "machine-42")

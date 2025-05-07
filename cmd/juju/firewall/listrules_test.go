@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/firewall"
 	"github.com/juju/juju/environs/config"
@@ -89,7 +88,7 @@ func (s *ListSuite) runList(c *tc.C, args []string) (*cmd.Context, error) {
 
 func (s *ListSuite) assertValidList(c *tc.C, args []string, expectedValid, expectedErr string) {
 	context, err := s.runList(c, args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtainedErr := strings.Replace(cmdtesting.Stderr(context), "\n", "", -1)
 	c.Assert(obtainedErr, tc.Matches, expectedErr)

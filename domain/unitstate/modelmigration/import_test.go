@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coreunit "github.com/juju/juju/core/unit"
@@ -63,7 +62,7 @@ func (s *importSuite) TestImport(c *tc.C) {
 
 	importOp := importOperation{service: s.service}
 	err := importOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *importSuite) TestImportPartial(c *tc.C) {
@@ -89,7 +88,7 @@ func (s *importSuite) TestImportPartial(c *tc.C) {
 
 	importOp := importOperation{service: s.service}
 	err := importOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *importSuite) TestImportError(c *tc.C) {
@@ -115,7 +114,7 @@ func (s *importSuite) TestImportError(c *tc.C) {
 
 	importOp := importOperation{service: s.service}
 	err := importOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIs, unitstateerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, unitstateerrors.UnitNotFound)
 }
 
 func ptr[T any](v T) *T {

@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/arch"
@@ -77,9 +76,9 @@ func AssertStartControllerInstance(
 ) {
 	params := environs.StartInstanceParams{ControllerUUID: controllerUUID}
 	err := FillInStartInstanceParams(env, machineId, true, &params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result, err := env.StartInstance(context.Background(), params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return result.Instance, result.Hardware
 }
 
@@ -91,7 +90,7 @@ func AssertStartInstance(
 	instances.Instance, *instance.HardwareCharacteristics,
 ) {
 	inst, hc, _, err := StartInstance(env, controllerUUID, machineId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return inst, hc
 }
 
@@ -115,7 +114,7 @@ func AssertStartInstanceWithConstraints(
 	instances.Instance, *instance.HardwareCharacteristics,
 ) {
 	inst, hc, _, err := StartInstanceWithConstraints(env, controllerUUID, machineId, cons)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return inst, hc
 }
 

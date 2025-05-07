@@ -19,7 +19,6 @@ import (
 	jujuos "github.com/juju/os/v2"
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 
@@ -159,7 +158,7 @@ func (s *ProxyUpdaterSuite) waitForFile(c *tc.C, filename, expected string) {
 			if os.IsNotExist(err) {
 				continue
 			}
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			if string(fileContent) != expected {
 				c.Logf("file content not matching, still waiting")
 				continue
@@ -171,7 +170,7 @@ func (s *ProxyUpdaterSuite) waitForFile(c *tc.C, filename, expected string) {
 
 func (s *ProxyUpdaterSuite) TestRunStop(c *tc.C) {
 	updater, err := proxyupdater.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, updater)
 }
 
@@ -219,7 +218,7 @@ func (s *ProxyUpdaterSuite) TestInitialStateLegacyProxy(c *tc.C) {
 	proxySettings, aptProxySettings := s.useLegacyConfig(c)
 
 	updater, err := proxyupdater.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer worker.Stop(updater)
 
 	s.waitProxySettings(c, proxySettings)
@@ -238,7 +237,7 @@ func (s *ProxyUpdaterSuite) TestInitialStateJujuProxy(c *tc.C) {
 	proxySettings, aptProxySettings := s.useJujuConfig(c)
 
 	updater, err := proxyupdater.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer worker.Stop(updater)
 
 	s.waitProxySettings(c, proxySettings)
@@ -264,7 +263,7 @@ func (s *ProxyUpdaterSuite) TestEnvironmentVariablesLegacyProxy(c *tc.C) {
 
 	proxySettings, _ := s.useLegacyConfig(c)
 	updater, err := proxyupdater.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer worker.Stop(updater)
 	s.waitProxySettings(c, proxySettings)
 
@@ -290,7 +289,7 @@ func (s *ProxyUpdaterSuite) TestEnvironmentVariablesJujuProxy(c *tc.C) {
 
 	proxySettings, _ := s.useJujuConfig(c)
 	updater, err := proxyupdater.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer worker.Stop(updater)
 	s.waitProxySettings(c, proxySettings)
 
@@ -318,7 +317,7 @@ func (s *ProxyUpdaterSuite) TestExternalFuncCalled(c *tc.C) {
 			return nil
 		}
 		updater, err := proxyupdater.NewWorker(s.config)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		defer worker.Stop(updater)
 		// We need to close done before stopping the worker, so the
 		// defer comes after the worker stop.
@@ -335,11 +334,11 @@ func (s *ProxyUpdaterSuite) TestExternalFuncCalled(c *tc.C) {
 
 	proxySettings, _ := s.useLegacyConfig(c)
 	externalSettings := externalProxySet()
-	c.Assert(externalSettings, jc.DeepEquals, proxySettings)
+	c.Assert(externalSettings, tc.DeepEquals, proxySettings)
 
 	proxySettings, _ = s.useJujuConfig(c)
 	externalSettings = externalProxySet()
-	c.Assert(externalSettings, jc.DeepEquals, proxySettings)
+	c.Assert(externalSettings, tc.DeepEquals, proxySettings)
 }
 
 func (s *ProxyUpdaterSuite) TestErrorSettingInProcessLogs(c *tc.C) {
@@ -355,14 +354,14 @@ func (s *ProxyUpdaterSuite) TestErrorSettingInProcessLogs(c *tc.C) {
 	}
 
 	var logWriter loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("proxyupdater-tests", &logWriter), jc.ErrorIsNil)
+	c.Assert(loggo.RegisterWriter("proxyupdater-tests", &logWriter), tc.ErrorIsNil)
 	defer func() {
 		loggo.RemoveWriter("proxyupdater-tests")
 		logWriter.Clear()
 	}()
 
 	updater, err := proxyupdater.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.waitProxySettings(c, proxySettings)
 	workertest.CleanKill(c, updater)
 
@@ -374,7 +373,7 @@ func (s *ProxyUpdaterSuite) TestErrorSettingInProcessLogs(c *tc.C) {
 			break
 		}
 	}
-	c.Assert(foundMessage, jc.IsTrue)
+	c.Assert(foundMessage, tc.IsTrue)
 }
 
 func nextCall(c *tc.C, calls <-chan []string) []string {
@@ -403,13 +402,13 @@ func (s *ProxyUpdaterSuite) TestSnapProxySetNoneSet(c *tc.C) {
 	s.api.proxies = proxyupdaterapi.ProxyConfiguration{}
 
 	updater, err := proxyupdater.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, updater)
 
 	// The worker doesn't precheck any of the snap proxy values, as it is expected
 	// that the set call is cheap. Every time the worker starts, we call set for the current
 	// values.
-	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{"", "snap", "set", "system",
+	c.Assert(nextCall(c, calls), tc.DeepEquals, []string{"", "snap", "set", "system",
 		"proxy.http=",
 		"proxy.https=",
 		"proxy.store=",
@@ -437,13 +436,13 @@ func (s *ProxyUpdaterSuite) TestSnapProxySet(c *tc.C) {
 	}
 
 	updater, err := proxyupdater.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, updater)
 
 	// The snap store is set to the empty string because as the agent is starting
 	// and it doesn't check to see what the store was set to, so to be sure, it just
 	// calls the set value.
-	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{"", "snap", "set", "system",
+	c.Assert(nextCall(c, calls), tc.DeepEquals, []string{"", "snap", "set", "system",
 		"proxy.http=http://snap-proxy",
 		"proxy.https=https://snap-proxy",
 		"proxy.store=",
@@ -469,13 +468,13 @@ func (s *ProxyUpdaterSuite) TestSnapStoreProxy(c *tc.C) {
 	}
 
 	updater, err := proxyupdater.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, updater)
 
-	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{"please trust us", "snap", "ack", "/dev/stdin"})
+	c.Assert(nextCall(c, calls), tc.DeepEquals, []string{"please trust us", "snap", "ack", "/dev/stdin"})
 
 	// The http and https proxy values are set to be empty as it is the first pass through.
-	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{"", "snap", "set", "system",
+	c.Assert(nextCall(c, calls), tc.DeepEquals, []string{"", "snap", "set", "system",
 		"proxy.http=",
 		"proxy.https=",
 		"proxy.store=42",
@@ -523,13 +522,13 @@ DATA...
 	}
 
 	updater, err := proxyupdater.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, updater)
 
-	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{proxyRes, "snap", "ack", "/dev/stdin"})
+	c.Assert(nextCall(c, calls), tc.DeepEquals, []string{proxyRes, "snap", "ack", "/dev/stdin"})
 
 	// The http and https proxy values are set to be empty as it is the first pass through.
-	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{"", "snap", "set", "system",
+	c.Assert(nextCall(c, calls), tc.DeepEquals, []string{"", "snap", "set", "system",
 		"proxy.http=",
 		"proxy.https=",
 		"proxy.store=WhatDoesTheBigRedButtonDo",
@@ -579,13 +578,13 @@ DATA...
 	}
 
 	updater, err := proxyupdater.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, updater)
 
-	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{proxyRes, "snap", "ack", "/dev/stdin"})
+	c.Assert(nextCall(c, calls), tc.DeepEquals, []string{proxyRes, "snap", "ack", "/dev/stdin"})
 
 	// The http and https proxy values are set to be empty as it is the first pass through.
-	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{"", "snap", "set", "system",
+	c.Assert(nextCall(c, calls), tc.DeepEquals, []string{"", "snap", "set", "system",
 		"proxy.http=",
 		"proxy.https=",
 		"proxy.store=WhatDoesTheBigRedButtonDo",
@@ -610,15 +609,15 @@ func (s *ProxyUpdaterSuite) TestAptMirror(c *tc.C) {
 	}
 
 	updater, err := proxyupdater.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, updater)
 
-	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{"", "snap", "set", "system",
+	c.Assert(nextCall(c, calls), tc.DeepEquals, []string{"", "snap", "set", "system",
 		"proxy.http=",
 		"proxy.https=",
 		"proxy.store=",
 	})
-	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{"", "/bin/bash", "-c", `
+	c.Assert(nextCall(c, calls), tc.DeepEquals, []string{"", "/bin/bash", "-c", `
 #!/bin/bash
 set -e
 (

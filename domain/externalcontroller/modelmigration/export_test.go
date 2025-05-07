@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/crossmodel"
@@ -65,15 +64,15 @@ func (s *exportSuite) TestExportExternalController(c *tc.C) {
 	c.Assert(dst.ExternalControllers(), tc.HasLen, 0)
 	op := s.newExportOperation()
 	err := op.Execute(context.Background(), dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Assert that the destination description model has one external
 	// controller after the migration:
 	c.Check(dst.ExternalControllers(), tc.HasLen, 1)
 	c.Assert(dst.ExternalControllers()[0].ID(), tc.Equals, ctrlUUID)
-	c.Assert(dst.ExternalControllers()[0].Addrs(), jc.SameContents, []string{"192.168.1.1:8080"})
+	c.Assert(dst.ExternalControllers()[0].Addrs(), tc.SameContents, []string{"192.168.1.1:8080"})
 	c.Assert(dst.ExternalControllers()[0].Alias(), tc.Equals, "external ctrl1")
 	c.Assert(dst.ExternalControllers()[0].CACert(), tc.Equals, "ca-cert-1")
-	c.Assert(dst.ExternalControllers()[0].Models(), jc.SameContents, []string{"model1", "model2"})
+	c.Assert(dst.ExternalControllers()[0].Models(), tc.SameContents, []string{"model1", "model2"})
 }
 
 func (s *exportSuite) TestExportExternalControllerRequestsExternalControllerOnceWithSameUUID(c *tc.C) {
@@ -109,15 +108,15 @@ func (s *exportSuite) TestExportExternalControllerRequestsExternalControllerOnce
 	c.Assert(dst.ExternalControllers(), tc.HasLen, 0)
 	op := s.newExportOperation()
 	err := op.Execute(context.Background(), dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Assert that the destination description model has one external
 	// controller after the migration:
 	c.Assert(dst.ExternalControllers(), tc.HasLen, 1)
 	c.Assert(dst.ExternalControllers()[0].ID(), tc.Equals, ctrlUUID)
-	c.Assert(dst.ExternalControllers()[0].Addrs(), jc.SameContents, []string{"192.168.1.1:8080"})
+	c.Assert(dst.ExternalControllers()[0].Addrs(), tc.SameContents, []string{"192.168.1.1:8080"})
 	c.Assert(dst.ExternalControllers()[0].Alias(), tc.Equals, "external ctrl1")
 	c.Assert(dst.ExternalControllers()[0].CACert(), tc.Equals, "ca-cert-1")
-	c.Assert(dst.ExternalControllers()[0].Models(), jc.SameContents, []string{"model1", "model2"})
+	c.Assert(dst.ExternalControllers()[0].Models(), tc.SameContents, []string{"model1", "model2"})
 }
 
 func (s *exportSuite) TestExportExternalControllerRequestsExternalControllerOnceWithSameController(c *tc.C) {
@@ -154,15 +153,15 @@ func (s *exportSuite) TestExportExternalControllerRequestsExternalControllerOnce
 	c.Assert(dst.ExternalControllers(), tc.HasLen, 0)
 	op := s.newExportOperation()
 	err := op.Execute(context.Background(), dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Assert that the destination description model has one external
 	// controller after the migration:
 	c.Assert(dst.ExternalControllers(), tc.HasLen, 1)
 	c.Assert(dst.ExternalControllers()[0].ID(), tc.Equals, ctrlUUID)
-	c.Assert(dst.ExternalControllers()[0].Addrs(), jc.SameContents, []string{"192.168.1.1:8080"})
+	c.Assert(dst.ExternalControllers()[0].Addrs(), tc.SameContents, []string{"192.168.1.1:8080"})
 	c.Assert(dst.ExternalControllers()[0].Alias(), tc.Equals, "external ctrl1")
 	c.Assert(dst.ExternalControllers()[0].CACert(), tc.Equals, "ca-cert-1")
-	c.Assert(dst.ExternalControllers()[0].Models(), jc.SameContents, []string{"model1", "model2"})
+	c.Assert(dst.ExternalControllers()[0].Models(), tc.SameContents, []string{"model1", "model2"})
 }
 
 func (s *exportSuite) TestExportExternalControllerWithNoControllerNotFound(c *tc.C) {

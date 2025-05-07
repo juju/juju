@@ -8,7 +8,6 @@ import (
 
 	lxdapi "github.com/canonical/lxd/shared/api"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	corenetwork "github.com/juju/juju/core/network"
@@ -65,11 +64,11 @@ func (s *networkSuite) TestEnsureIPv4NoChange(c *tc.C) {
 	cSvr.EXPECT().GetNetwork("some-net-name").Return(net, lxdtesting.ETag, nil)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	mod, err := jujuSvr.EnsureIPv4("some-net-name")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(mod, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(mod, tc.IsFalse)
 }
 
 func (s *networkSuite) TestEnsureIPv4Modified(c *tc.C) {
@@ -89,11 +88,11 @@ func (s *networkSuite) TestEnsureIPv4Modified(c *tc.C) {
 	)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	mod, err := jujuSvr.EnsureIPv4(network.DefaultLXDBridge)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(mod, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(mod, tc.IsTrue)
 }
 
 func (s *networkSuite) TestGetNICsFromProfile(c *tc.C) {
@@ -106,10 +105,10 @@ func (s *networkSuite) TestGetNICsFromProfile(c *tc.C) {
 	cSvr.EXPECT().GetProfile("default").Return(defaultLegacyProfileWithNIC(), lxdtesting.ETag, nil)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	nics, err := jujuSvr.GetNICsFromProfile("default")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	exp := map[string]map[string]string{
 		"eth0": {
@@ -136,10 +135,10 @@ func (s *networkSuite) TestVerifyNetworkDevicePresentValid(c *tc.C) {
 	cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(net, "", nil)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = jujuSvr.VerifyNetworkDevice(defaultProfileWithNIC(), "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *networkSuite) TestVerifyNetworkDevicePresentValidLegacy(c *tc.C) {
@@ -150,10 +149,10 @@ func (s *networkSuite) TestVerifyNetworkDevicePresentValidLegacy(c *tc.C) {
 	cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(&lxdapi.Network{}, "", nil)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = jujuSvr.VerifyNetworkDevice(defaultLegacyProfileWithNIC(), "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *networkSuite) TestVerifyNetworkDeviceMultipleNICsOneValid(c *tc.C) {
@@ -178,10 +177,10 @@ func (s *networkSuite) TestVerifyNetworkDeviceMultipleNICsOneValid(c *tc.C) {
 	cSvr.EXPECT().GetNetwork("valid-net").Return(&lxdapi.Network{}, "", nil)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = jujuSvr.VerifyNetworkDevice(profile, "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(jujuSvr.LocalBridgeName(), tc.Equals, "valid-net")
 }
@@ -202,7 +201,7 @@ func (s *networkSuite) TestVerifyNetworkDevicePresentBadNicType(c *tc.C) {
 	cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(net, "", nil)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = jujuSvr.VerifyNetworkDevice(profile, "")
 	c.Assert(err, tc.ErrorMatches,
@@ -228,10 +227,10 @@ func (s *networkSuite) TestVerifyNetworkDeviceIPv6PresentNoFail(c *tc.C) {
 	cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(net, "", nil)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = jujuSvr.VerifyNetworkDevice(defaultLegacyProfileWithNIC(), "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *networkSuite) TestVerifyNetworkDeviceNotPresentCreated(c *tc.C) {
@@ -269,10 +268,10 @@ func (s *networkSuite) TestVerifyNetworkDeviceNotPresentCreated(c *tc.C) {
 	delete(profile.Devices, "eth0")
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = jujuSvr.VerifyNetworkDevice(profile, lxdtesting.ETag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *networkSuite) TestVerifyNetworkDeviceNotPresentNoNetAPIError(c *tc.C) {
@@ -283,7 +282,7 @@ func (s *networkSuite) TestVerifyNetworkDeviceNotPresentNoNetAPIError(c *tc.C) {
 	cSvr := s.NewMockServer(ctrl)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	profile := defaultLegacyProfileWithNIC()
 	delete(profile.Devices, "eth0")
@@ -300,7 +299,7 @@ func (s *networkSuite) TestVerifyNetworkDevicePresentNoNetAPIError(c *tc.C) {
 	cSvr := s.NewMockServer(ctrl)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	profile := defaultLegacyProfileWithNIC()
 
@@ -348,10 +347,10 @@ func (s *networkSuite) TestVerifyNetworkDeviceNotPresentCreatedWithUnusedName(c 
 	profile.Devices["eth1"] = map[string]string{}
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = jujuSvr.VerifyNetworkDevice(profile, lxdtesting.ETag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *networkSuite) TestVerifyNetworkDeviceNotPresentErrorForCluster(c *tc.C) {
@@ -363,7 +362,7 @@ func (s *networkSuite) TestVerifyNetworkDeviceNotPresentErrorForCluster(c *tc.C)
 	delete(profile.Devices, "eth0")
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = jujuSvr.VerifyNetworkDevice(profile, lxdtesting.ETag)
 	c.Assert(err, tc.ErrorMatches, `profile "default" does not have any devices configured with type "nic"`)
@@ -386,7 +385,7 @@ func (s *networkSuite) TestInterfaceInfoFromDevices(c *tc.C) {
 	}
 
 	info, err := lxd.InterfaceInfoFromDevices(nics)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	exp := corenetwork.InterfaceInfos{
 		{
@@ -404,7 +403,7 @@ func (s *networkSuite) TestInterfaceInfoFromDevices(c *tc.C) {
 			Origin:              corenetwork.OriginProvider,
 		},
 	}
-	c.Check(info, jc.DeepEquals, exp)
+	c.Check(info, tc.DeepEquals, exp)
 }
 
 func (s *networkSuite) TestEnableHTTPSListener(c *tc.C) {
@@ -424,10 +423,10 @@ func (s *networkSuite) TestEnableHTTPSListener(c *tc.C) {
 	)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = jujuSvr.EnableHTTPSListener()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *networkSuite) TestEnableHTTPSListenerWithFallbackToIPv4(c *tc.C) {
@@ -453,10 +452,10 @@ func (s *networkSuite) TestEnableHTTPSListenerWithFallbackToIPv4(c *tc.C) {
 	)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = jujuSvr.EnableHTTPSListener()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *networkSuite) TestEnableHTTPSListenerWithErrors(c *tc.C) {
@@ -469,7 +468,7 @@ func (s *networkSuite) TestEnableHTTPSListenerWithErrors(c *tc.C) {
 	cSvr.EXPECT().GetServer().Return(cfg, lxdtesting.ETag, nil)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// check on the first request
 	cSvr.EXPECT().GetServer().Return(cfg, lxdtesting.ETag, errors.New("bad"))

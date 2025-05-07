@@ -13,7 +13,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
@@ -85,7 +84,7 @@ func (s *watcherSuite) TestWatchUnitRelations(c *tc.C) {
 
 	svc := s.setupService(c, factory)
 	watcher, err := svc.WatchApplicationSettings(context.Background(), relationUUID, s.appUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
@@ -133,7 +132,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *tc.C) {
 
 	svc := s.setupService(c, factory)
 	watcher, err := svc.WatchLifeSuspendedStatus(context.Background(), unitUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	relationKey := relationtesting.GenNewKey(c, "two:fake-1 my-application:fake-0").String()
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -146,7 +145,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *tc.C) {
 			}
 			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		// Assert: received changed of relation key.
 		w.Check(
@@ -162,7 +161,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *tc.C) {
 			}
 			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		// Assert: no change received. Change received only if status changes to
 		// suspended.
@@ -177,7 +176,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *tc.C) {
 			}
 			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		// Assert: received changed of relation key, relation status changed to suspended.
 		w.Check(
@@ -204,7 +203,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *tc.C) {
 			}
 			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		// Assert: with changes in both tables at the same time, the relation
 		// key is sent once.
@@ -231,7 +230,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusSubordinate(c *tc.C) {
 
 	svc := s.setupService(c, factory)
 	watcher, err := svc.WatchLifeSuspendedStatus(context.Background(), subordinateUnitUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	relationKey := relationtesting.GenNewKey(c, "two:fake-1 my-application:fake-0").String()
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -244,7 +243,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusSubordinate(c *tc.C) {
 			}
 			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		// Assert: received changed of relation key.
 		w.Check(
@@ -260,7 +259,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusSubordinate(c *tc.C) {
 			}
 			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		// Assert: no change received. Change received only if status changes to
 		// suspended.
@@ -275,7 +274,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusSubordinate(c *tc.C) {
 			}
 			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		// Assert: received changed of relation key, relation status changed to suspended.
 		w.Check(
@@ -307,7 +306,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusSubordinate(c *tc.C) {
 			}
 			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		// Assert: with changes in both tables at the same time, the relation
 		// key is sent once.
@@ -381,7 +380,7 @@ func (s *watcherSuite) TestWatchRelatedUnitsApplicationSettings(c *tc.C) {
 
 	svc := s.setupService(c, factory)
 	watcher, err := svc.WatchRelatedUnits(context.Background(), config.watchedUnit1, config.relationUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
@@ -422,7 +421,7 @@ func (s *watcherSuite) TestWatchRelatedUnitsUnitScope(c *tc.C) {
 
 	svc := s.setupService(c, factory)
 	watcher, err := svc.WatchRelatedUnits(context.Background(), config.watchedUnit1, config.relationUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
@@ -510,7 +509,7 @@ func (s *watcherSuite) TestWatchRelatedUnitsUnitSettings(c *tc.C) {
 
 	svc := s.setupService(c, factory)
 	watcher, err := svc.WatchRelatedUnits(context.Background(), config.watchedUnit1, config.relationUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
@@ -762,5 +761,5 @@ func (s *watcherSuite) query(c *tc.C, comment func(error) tc.CommentInterface, q
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil, comment(err))
+	c.Assert(err, tc.ErrorIsNil, comment(err))
 }

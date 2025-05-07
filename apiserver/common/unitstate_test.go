@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -106,7 +105,7 @@ func (s *unitStateSuite) TestState(c *tc.C) {
 		},
 	}
 	result, err := s.api.State(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.UnitStateResults{
 		Results: []params.UnitStateResult{
 			{Error: &params.Error{Message: `"not-a-unit-tag" is not a valid tag`}},
@@ -144,7 +143,7 @@ func (s *unitStateSuite) TestSetStateUniterState(c *tc.C) {
 	s.unitStateService.EXPECT().SetState(gomock.Any(), expectedState).Return(nil)
 
 	result, err := s.api.SetState(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: &params.Error{Message: `"not-a-unit-tag" is not a valid tag`}},

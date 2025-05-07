@@ -5,7 +5,6 @@ package main
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -46,11 +45,11 @@ func (s *containerAgentSuite) TestMainWrapper(c *tc.C) {
 
 func (s *containerAgentSuite) TestRegisteredSubCommandsForContainerAgentCommand(c *tc.C) {
 	ctx, err := cmd.DefaultContext()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	containerAgentCmd, err := containerAgentCommand(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx, err = cmdtesting.RunCommand(c, containerAgentCmd, []string{"help", "commands"}...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 documentation  Generate the documentation for all commands
 help           Show help on a command or other topic.

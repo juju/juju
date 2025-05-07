@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	importererrors "github.com/juju/juju/internal/ssh/importer/errors"
@@ -51,7 +50,7 @@ func (g *githubSuite) TestSubjectNotFound(c *tc.C) {
 
 	gh := GithubResolver{g.client}
 	_, err := gh.PublicKeysForSubject(context.Background(), "tlm")
-	c.Check(err, jc.ErrorIs, importererrors.SubjectNotFound)
+	c.Check(err, tc.ErrorIs, importererrors.SubjectNotFound)
 }
 
 // TestSubjectPublicKeys is asserting the happy path for the [GithubResolver].
@@ -75,7 +74,7 @@ func (g *githubSuite) TestSubjectPublicKeys(c *tc.C) {
 			}
 
 			data, err := json.Marshal(res)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 
 			return &http.Response{
 				Body: io.NopCloser(bytes.NewReader(data)),
@@ -89,7 +88,7 @@ func (g *githubSuite) TestSubjectPublicKeys(c *tc.C) {
 
 	gh := GithubResolver{g.client}
 	keys, err := gh.PublicKeysForSubject(context.Background(), "tlm")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	expected := []string{
 		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC existing1",
@@ -99,5 +98,5 @@ func (g *githubSuite) TestSubjectPublicKeys(c *tc.C) {
 	slices.Sort(keys)
 	slices.Sort(expected)
 
-	c.Check(keys, jc.DeepEquals, expected)
+	c.Check(keys, tc.DeepEquals, expected)
 }

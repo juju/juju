@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -55,9 +54,9 @@ func (s *RemoveUserCommandSuite) TestInit(c *tc.C) {
 	for _, test := range table {
 		wrappedCommand, command := user.NewRemoveCommandForTest(s.mockAPI, s.store)
 		err := cmdtesting.InitCommand(wrappedCommand, test.args)
-		c.Check(command.ConfirmDelete, jc.DeepEquals, test.confirm)
+		c.Check(command.ConfirmDelete, tc.DeepEquals, test.confirm)
 		if test.errorString == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
 			c.Check(err, tc.ErrorMatches, test.errorString)
 		}
@@ -68,7 +67,7 @@ func (s *RemoveUserCommandSuite) TestRemove(c *tc.C) {
 	username := "testing"
 	command, _ := user.NewRemoveCommandForTest(s.mockAPI, s.store)
 	_, err := cmdtesting.RunCommand(c, command, "-y", username)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.mockAPI.username, tc.Equals, username)
 
 }
@@ -85,6 +84,6 @@ If you wish to temporarily disable the user please use the` + " `juju disable-us
 Continue (y/N)? `
 	command, _ := user.NewRemoveCommandForTest(s.mockAPI, s.store)
 	ctx, _ := cmdtesting.RunCommand(c, command, username)
-	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, expected)
+	c.Assert(cmdtesting.Stdout(ctx), tc.DeepEquals, expected)
 
 }

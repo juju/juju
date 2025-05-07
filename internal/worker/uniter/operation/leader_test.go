@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/charm/hooks"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -31,7 +30,7 @@ func (s *LeaderSuite) newFactory(c *tc.C) operation.Factory {
 func (s *LeaderSuite) TestAcceptLeadership_Prepare_BadState(c *tc.C) {
 	factory := s.newFactory(c)
 	op, err := factory.NewAcceptLeadership()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Prepare(stdcontext.Background(), operation.State{})
 	c.Check(newState, tc.IsNil)
@@ -43,7 +42,7 @@ func (s *LeaderSuite) TestAcceptLeadership_Prepare_BadState(c *tc.C) {
 func (s *LeaderSuite) TestAcceptLeadership_Prepare_NotLeader(c *tc.C) {
 	factory := s.newFactory(c)
 	op, err := factory.NewAcceptLeadership()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Prepare(stdcontext.Background(), operation.State{Kind: operation.Continue})
 	c.Check(newState, tc.IsNil)
@@ -54,7 +53,7 @@ func (s *LeaderSuite) TestAcceptLeadership_Prepare_NotLeader(c *tc.C) {
 func (s *LeaderSuite) TestAcceptLeadership_Prepare_AlreadyLeader(c *tc.C) {
 	factory := s.newFactory(c)
 	op, err := factory.NewAcceptLeadership()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Prepare(stdcontext.Background(), operation.State{
 		Kind:   operation.Continue,
@@ -68,14 +67,14 @@ func (s *LeaderSuite) TestAcceptLeadership_Prepare_AlreadyLeader(c *tc.C) {
 func (s *LeaderSuite) TestAcceptLeadership_Commit_NotLeader_BlankSlate(c *tc.C) {
 	factory := s.newFactory(c)
 	op, err := factory.NewAcceptLeadership()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = op.Prepare(stdcontext.Background(), operation.State{Kind: operation.Continue})
 	c.Check(err, tc.Equals, operation.ErrSkipExecute)
 
 	newState, err := op.Commit(stdcontext.Background(), operation.State{
 		Kind: operation.Continue,
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(newState, tc.DeepEquals, &operation.State{
 		Kind:   operation.RunHook,
 		Step:   operation.Queued,
@@ -87,7 +86,7 @@ func (s *LeaderSuite) TestAcceptLeadership_Commit_NotLeader_BlankSlate(c *tc.C) 
 func (s *LeaderSuite) TestAcceptLeadership_Commit_NotLeader_Preserve(c *tc.C) {
 	factory := s.newFactory(c)
 	op, err := factory.NewAcceptLeadership()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = op.Prepare(stdcontext.Background(), operation.State{Kind: operation.Continue})
 	c.Check(err, tc.Equals, operation.ErrSkipExecute)
 
@@ -96,7 +95,7 @@ func (s *LeaderSuite) TestAcceptLeadership_Commit_NotLeader_Preserve(c *tc.C) {
 		Started: true,
 		Hook:    &hook.Info{Kind: hooks.Install},
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(newState, tc.DeepEquals, &operation.State{
 		Kind:    operation.RunHook,
 		Step:    operation.Queued,
@@ -109,7 +108,7 @@ func (s *LeaderSuite) TestAcceptLeadership_Commit_NotLeader_Preserve(c *tc.C) {
 func (s *LeaderSuite) TestAcceptLeadership_Commit_AlreadyLeader(c *tc.C) {
 	factory := s.newFactory(c)
 	op, err := factory.NewAcceptLeadership()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = op.Prepare(stdcontext.Background(), operation.State{Kind: operation.Continue})
 	c.Check(err, tc.Equals, operation.ErrSkipExecute)
 
@@ -118,30 +117,30 @@ func (s *LeaderSuite) TestAcceptLeadership_Commit_AlreadyLeader(c *tc.C) {
 		Leader: true,
 	})
 	c.Check(newState, tc.IsNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *LeaderSuite) TestAcceptLeadership_DoesNotNeedGlobalMachineLock(c *tc.C) {
 	factory := s.newFactory(c)
 	op, err := factory.NewAcceptLeadership()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.NeedsGlobalMachineLock(), jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op.NeedsGlobalMachineLock(), tc.IsFalse)
 }
 
 func (s *LeaderSuite) TestResignLeadership_Prepare_Leader(c *tc.C) {
 	factory := s.newFactory(c)
 	op, err := factory.NewResignLeadership()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Prepare(stdcontext.Background(), operation.State{Leader: true})
 	c.Check(newState, tc.IsNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *LeaderSuite) TestResignLeadership_Prepare_NotLeader(c *tc.C) {
 	factory := s.newFactory(c)
 	op, err := factory.NewResignLeadership()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Prepare(stdcontext.Background(), operation.State{})
 	c.Check(newState, tc.IsNil)
@@ -151,52 +150,52 @@ func (s *LeaderSuite) TestResignLeadership_Prepare_NotLeader(c *tc.C) {
 func (s *LeaderSuite) TestResignLeadership_Execute(c *tc.C) {
 	factory := s.newFactory(c)
 	op, err := factory.NewResignLeadership()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = op.Prepare(stdcontext.Background(), operation.State{Leader: true})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	// Execute is a no-op (which logs that we should run leader-deposed)
 	newState, err := op.Execute(stdcontext.Background(), operation.State{})
 	c.Check(newState, tc.IsNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *LeaderSuite) TestResignLeadership_Commit_ClearLeader(c *tc.C) {
 	factory := s.newFactory(c)
 	op, err := factory.NewResignLeadership()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Commit(stdcontext.Background(), operation.State{Leader: true})
 	c.Check(newState, tc.DeepEquals, &operation.State{})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *LeaderSuite) TestResignLeadership_Commit_PreserveOthers(c *tc.C) {
 	factory := s.newFactory(c)
 	op, err := factory.NewResignLeadership()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Commit(stdcontext.Background(), overwriteState)
 	c.Check(newState, tc.DeepEquals, &overwriteState)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *LeaderSuite) TestResignLeadership_Commit_All(c *tc.C) {
 	factory := s.newFactory(c)
 	op, err := factory.NewResignLeadership()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	leaderState := overwriteState
 	leaderState.Leader = true
 	newState, err := op.Commit(stdcontext.Background(), leaderState)
 	c.Check(newState, tc.DeepEquals, &overwriteState)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *LeaderSuite) TestResignLeadership_DoesNotNeedGlobalMachineLock(c *tc.C) {
 	factory := s.newFactory(c)
 	op, err := factory.NewResignLeadership()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.NeedsGlobalMachineLock(), jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op.NeedsGlobalMachineLock(), tc.IsFalse)
 }

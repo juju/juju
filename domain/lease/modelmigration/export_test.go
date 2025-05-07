@@ -9,7 +9,6 @@ import (
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/model"
@@ -56,7 +55,7 @@ func (s *exportSuite) TestExportLeader(c *tc.C) {
 	})
 
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	leader := application.Leader()
 	c.Assert(leader, tc.Equals, "prometheus/0")
@@ -105,7 +104,7 @@ func (s *exportSuite) TestExportLeaderNoApplications(c *tc.C) {
 	})
 
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *exportSuite) setupMocks(c *tc.C) *gomock.Controller {

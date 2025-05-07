@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	corecloud "github.com/juju/juju/core/cloud"
@@ -82,7 +81,7 @@ func (s *providerServiceSuite) TestModel(c *tc.C) {
 	s.state.model = &model
 
 	got, err := svc.Model(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(got, tc.Equals, model)
 }
@@ -107,7 +106,7 @@ func (s *providerServiceSuite) TestWatchModelCloudCredential(c *tc.C) {
 		s.mockWatcherFactory,
 	)
 	w, err := svc.WatchModelCloudCredential(context.Background(), modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case ch <- struct{}{}:

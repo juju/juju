@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/core/life"
@@ -68,12 +67,12 @@ func (s *MachinerSuite) TestMachinerConfigValidate(c *tc.C) {
 		MachineAccessor: &mockMachineAccessor{},
 		Tag:             names.NewMachineTag("123"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// must stop the worker to prevent a data race when cleanup suite
 	// rolls back the patches
 	err = stopWorker(w)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *MachinerSuite) TestMachinerSetUpMachineNotFound(c *tc.C) {
@@ -83,7 +82,7 @@ func (s *MachinerSuite) TestMachinerSetUpMachineNotFound(c *tc.C) {
 	w, err := machiner.NewMachiner(machiner.Config{
 		s.accessor, s.machineTag, false,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = stopWorker(w)
 	c.Assert(errors.Cause(err), tc.Equals, jworker.ErrTerminateAgent)
 }
@@ -108,10 +107,10 @@ func (s *MachinerSuite) testMachinerMachineRefreshNotFoundOrUnauthorized(c *tc.C
 	w, err := machiner.NewMachiner(machiner.Config{
 		s.accessor, s.machineTag, false,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	err = stopWorker(w)
-	c.Assert(err, jc.ErrorIs, jworker.ErrTerminateAgent)
+	c.Assert(err, tc.ErrorIs, jworker.ErrTerminateAgent)
 }
 
 func (s *MachinerSuite) TestMachinerSetStatusStopped(c *tc.C) {
@@ -125,7 +124,7 @@ func (s *MachinerSuite) TestMachinerSetStatusStopped(c *tc.C) {
 		MachineAccessor: s.accessor,
 		Tag:             s.machineTag,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	err = stopWorker(w)
 	c.Assert(
@@ -159,7 +158,7 @@ func (s *MachinerSuite) TestMachinerMachineEnsureDeadError(c *tc.C) {
 		MachineAccessor: s.accessor,
 		Tag:             s.machineTag,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	err = stopWorker(w)
 	c.Check(
@@ -186,13 +185,13 @@ func (s *MachinerSuite) TestMachinerMachineAssignedUnits(c *tc.C) {
 		MachineAccessor: s.accessor,
 		Tag:             s.machineTag,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	err = stopWorker(w)
 
 	// If EnsureDead fails with "machine has assigned units", then
 	// the worker will not fail, but will wait for more events.
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	s.accessor.machine.CheckCallNames(c,
 		"Life",
@@ -216,13 +215,13 @@ func (s *MachinerSuite) TestMachinerMachineHasContainers(c *tc.C) {
 		MachineAccessor: s.accessor,
 		Tag:             s.machineTag,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	err = stopWorker(w)
 
 	// If EnsureDead fails with "machine has containers", then
 	// the worker will fail and restart.
-	c.Check(err, jc.Satisfies, params.IsCodeMachineHasContainers)
+	c.Check(err, tc.Satisfies, params.IsCodeMachineHasContainers)
 
 	s.accessor.machine.CheckCallNames(c,
 		"Life",
@@ -249,10 +248,10 @@ func (s *MachinerSuite) TestMachinerStorageAttached(c *tc.C) {
 	worker, err := machiner.NewMachiner(machiner.Config{
 		MachineAccessor: s.accessor, Tag: s.machineTag,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	err = stopWorker(worker)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	s.accessor.CheckCalls(c, []jujutesting.StubCall{{
 		FuncName: "Machine",
@@ -294,10 +293,10 @@ func (s *MachinerSuite) TestMachinerTryAgain(c *tc.C) {
 	worker, err := machiner.NewMachiner(machiner.Config{
 		MachineAccessor: s.accessor, Tag: s.machineTag,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	err = stopWorker(worker)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	s.accessor.CheckCalls(c, []jujutesting.StubCall{{
 		FuncName: "Machine",
@@ -326,7 +325,7 @@ func (s *MachinerSuite) TestMachinerTryAgain(c *tc.C) {
 
 func (s *MachinerSuite) TestRunStop(c *tc.C) {
 	mr := s.makeMachiner(c, false)
-	c.Assert(worker.Stop(mr), jc.ErrorIsNil)
+	c.Assert(worker.Stop(mr), tc.ErrorIsNil)
 	s.accessor.machine.CheckCallNames(c,
 		"Life",
 		"SetMachineAddresses",
@@ -338,7 +337,7 @@ func (s *MachinerSuite) TestRunStop(c *tc.C) {
 func (s *MachinerSuite) TestStartSetsStatus(c *tc.C) {
 	mr := s.makeMachiner(c, false)
 	err := stopWorker(mr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.accessor.machine.CheckCallNames(c,
 		"Life",
 		"SetMachineAddresses",
@@ -357,7 +356,7 @@ func (s *MachinerSuite) TestSetDead(c *tc.C) {
 	s.accessor.machine.watcher.changes <- struct{}{}
 
 	err := stopWorker(mr)
-	c.Assert(err, jc.ErrorIs, jworker.ErrTerminateAgent)
+	c.Assert(err, tc.ErrorIs, jworker.ErrTerminateAgent)
 }
 
 func (s *MachinerSuite) TestSetMachineAddresses(c *tc.C) {
@@ -383,7 +382,7 @@ func (s *MachinerSuite) TestSetMachineAddresses(c *tc.C) {
 	})
 
 	mr := s.makeMachiner(c, false)
-	c.Assert(stopWorker(mr), jc.ErrorIsNil)
+	c.Assert(stopWorker(mr), tc.ErrorIsNil)
 	s.accessor.machine.CheckCall(c, 1, "SetMachineAddresses", []corenetwork.MachineAddress{
 		corenetwork.NewMachineAddress("10.0.0.1", corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
 		corenetwork.NewMachineAddress("127.0.0.1", corenetwork.WithScope(corenetwork.ScopeMachineLocal)),
@@ -395,14 +394,14 @@ func (s *MachinerSuite) TestSetMachineAddresses(c *tc.C) {
 func (s *MachinerSuite) TestSetMachineAddressesEmpty(c *tc.C) {
 	s.addresses = []net.Addr{}
 	mr := s.makeMachiner(c, false)
-	c.Assert(stopWorker(mr), jc.ErrorIsNil)
+	c.Assert(stopWorker(mr), tc.ErrorIsNil)
 	// No call to SetMachineAddresses
 	s.accessor.machine.CheckCallNames(c, "Life", "SetStatus", "Watch")
 }
 
 func (s *MachinerSuite) TestMachineAddressesWithClearFlag(c *tc.C) {
 	mr := s.makeMachiner(c, true)
-	c.Assert(stopWorker(mr), jc.ErrorIsNil)
+	c.Assert(stopWorker(mr), tc.ErrorIsNil)
 	s.accessor.machine.CheckCall(c, 1, "SetMachineAddresses", []corenetwork.MachineAddress(nil))
 }
 
@@ -413,7 +412,7 @@ func (s *MachinerSuite) TestGetObservedNetworkConfigEmpty(c *tc.C) {
 
 	mr := s.makeMachiner(c, false)
 	s.accessor.machine.watcher.changes <- struct{}{}
-	c.Assert(stopWorker(mr), jc.ErrorIsNil)
+	c.Assert(stopWorker(mr), tc.ErrorIsNil)
 
 	s.accessor.machine.CheckCallNames(c,
 		"Life",
@@ -432,7 +431,7 @@ func (s *MachinerSuite) TestSetObservedNetworkConfig(c *tc.C) {
 
 	mr := s.makeMachiner(c, false)
 	s.accessor.machine.watcher.changes <- struct{}{}
-	c.Assert(stopWorker(mr), jc.ErrorIsNil)
+	c.Assert(stopWorker(mr), tc.ErrorIsNil)
 
 	s.accessor.machine.CheckCallNames(c,
 		"Life",
@@ -473,7 +472,7 @@ func (s *MachinerSuite) makeMachiner(
 		Tag:                          s.machineTag,
 		ClearMachineAddressesOnStart: ignoreAddresses,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }
 

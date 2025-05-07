@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/instance"
@@ -40,8 +39,8 @@ func (*addressFinderSuite) TestBootstrapAddressFinderNotSupported(c *tc.C) {
 			return nil, errors.NotSupported
 		},
 	)(context.Background(), instance.Id("12345"))
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(addresses, jc.DeepEquals, expected)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(addresses, tc.DeepEquals, expected)
 }
 
 // TestBootstrapAddressFinderProviderError is asserting that if getting a
@@ -53,7 +52,7 @@ func (*addressFinderSuite) TestBootstrapAddressFinderProviderError(c *tc.C) {
 			return nil, boom
 		},
 	)(context.Background(), instance.Id("12345"))
-	c.Check(err, jc.ErrorIs, boom)
+	c.Check(err, tc.ErrorIs, boom)
 }
 
 // TestBootstrapAddressFinder is asserting the happy path of finding an instance
@@ -81,6 +80,6 @@ func (s *addressFinderSuite) TestBoostrapAddressFinder(c *tc.C) {
 			return s.instanceLister, nil
 		},
 	)(context.Background(), instance.Id("12345"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(foundAddresses, jc.DeepEquals, addresses)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(foundAddresses, tc.DeepEquals, addresses)
 }

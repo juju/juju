@@ -5,7 +5,6 @@ package resources
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -19,7 +18,7 @@ type FacadeSuite struct {
 func (s *FacadeSuite) TestNewFacadeOkay(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	_, err := NewResourcesAPI(s.applicationService, s.resourceService, s.factory, loggertesting.WrapCheckLog(c))
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *FacadeSuite) TestNewFacadeMissingApplicationService(c *tc.C) {

@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
@@ -35,7 +34,7 @@ func (*WorkerSuite) TestInvalidFacade(c *tc.C) {
 		Facade: nil,
 	})
 	c.Assert(err, tc.ErrorMatches, "nil Facade not valid")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(worker, tc.IsNil)
 }
 
@@ -45,7 +44,7 @@ func (s *WorkerSuite) TestInvalidMachineTag(c *tc.C) {
 		MachineTag: names.MachineTag{},
 	})
 	c.Assert(err, tc.ErrorMatches, "unspecified MachineTag not valid")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(worker, tc.IsNil)
 }
 
@@ -57,7 +56,7 @@ func (s *WorkerSuite) TestInvalidHandleAction(c *tc.C) {
 		HandleAction: nil,
 	})
 	c.Assert(err, tc.ErrorMatches, "nil HandleAction not valid")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(worker, tc.IsNil)
 }
 
@@ -77,7 +76,7 @@ func (s *WorkerSuite) TestRunningActionsError(c *tc.C) {
 
 	stub := &testing.Stub{}
 	worker, err := machineactions.NewMachineActionsWorker(defaultConfig(stub, s.facade, s.lock))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = workertest.CheckKilled(c, worker)
 	c.Check(err, tc.ErrorMatches, "splash")
@@ -97,7 +96,7 @@ func (s *WorkerSuite) TestInvalidActionId(c *tc.C) {
 
 	stub := &testing.Stub{}
 	worker, err := machineactions.NewMachineActionsWorker(defaultConfig(stub, s.facade, s.lock))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = workertest.CheckKilled(c, worker)
 	c.Check(err, tc.ErrorMatches, "got invalid action id invalid-action-id")
@@ -113,7 +112,7 @@ func (s *WorkerSuite) TestWatchErrorNonEmptyRunningActions(c *tc.C) {
 
 	stub := &testing.Stub{}
 	worker, err := machineactions.NewMachineActionsWorker(defaultConfig(stub, s.facade, s.lock))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = workertest.CheckKilled(c, worker)
 	c.Check(errors.Cause(err), tc.ErrorMatches, "kuso")
 	stub.CheckNoCalls(c)
@@ -136,7 +135,7 @@ func (s *WorkerSuite) TestCannotRetrieveAction(c *tc.C) {
 
 	stub := &testing.Stub{}
 	worker, err := machineactions.NewMachineActionsWorker(defaultConfig(stub, s.facade, s.lock))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, worker)
 
 	// Ensure we're still alive if the action can't be retrieved. Instead we'll
@@ -180,7 +179,7 @@ func (s *WorkerSuite) TestRunActions(c *tc.C) {
 
 	stub := &testing.Stub{}
 	worker, err := machineactions.NewMachineActionsWorker(defaultConfig(stub, s.facade, s.lock))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = workertest.CheckKilled(c, worker)
 	c.Check(errors.Cause(err), tc.ErrorMatches, "got invalid action id invalid-action-id")
 	stub.CheckCallsUnordered(c, []testing.StubCall{{
@@ -190,7 +189,7 @@ func (s *WorkerSuite) TestRunActions(c *tc.C) {
 		FuncName: "HandleAction",
 		Args:     []interface{}{thirdAction.Name()},
 	}})
-	c.Assert(released, jc.IsTrue)
+	c.Assert(released, tc.IsTrue)
 }
 
 func (s *WorkerSuite) TestActionHandleError(c *tc.C) {
@@ -220,7 +219,7 @@ func (s *WorkerSuite) TestActionHandleError(c *tc.C) {
 	stub := &testing.Stub{}
 	stub.SetErrors(errors.New("slob"))
 	worker, err := machineactions.NewMachineActionsWorker(defaultConfig(stub, s.facade, s.lock))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, worker)
 
 	// Ensure we're still alive if the action can't be retrieved. Instead we'll
@@ -249,7 +248,7 @@ func (s *WorkerSuite) TestWorkerNoError(c *tc.C) {
 
 	stub := &testing.Stub{}
 	worker, err := machineactions.NewMachineActionsWorker(defaultConfig(stub, s.facade, s.lock))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CheckAlive(c, worker)
 	workertest.CleanKill(c, worker)

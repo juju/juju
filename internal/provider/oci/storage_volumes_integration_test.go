@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 
 	"github.com/juju/juju/core/instance"
@@ -117,7 +116,7 @@ func (s *storageVolumeSuite) TestCreateVolumes(c *tc.C) {
 	})
 	c.Assert(err, tc.IsNil)
 	c.Assert(results, tc.HasLen, 1)
-	c.Assert(results[0].Error, jc.ErrorIsNil)
+	c.Assert(results[0].Error, tc.ErrorIsNil)
 }
 
 func (s *storageVolumeSuite) TestCreateVolumesInvalidSize(c *tc.C) {
@@ -188,7 +187,7 @@ func (s *storageVolumeSuite) TestListVolumes(c *tc.C) {
 	volumes, err := source.ListVolumes(context.Background())
 	c.Assert(err, tc.IsNil)
 	c.Assert(len(volumes), tc.Equals, 2)
-	c.Assert(volumes, jc.SameContents, []string{"fakeVolumeId", "fakeVolumeId2"})
+	c.Assert(volumes, tc.SameContents, []string{"fakeVolumeId", "fakeVolumeId2"})
 }
 
 func (s *storageVolumeSuite) TestDescribeVolumes(c *tc.C) {

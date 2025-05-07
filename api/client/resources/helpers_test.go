@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -27,7 +26,7 @@ var _ = tc.Suite(&HelpersSuite{})
 
 func (HelpersSuite) TestResource2API(c *tc.C) {
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	now := time.Now()
 	res := resource.Resource{
 		Resource: charmresource.Resource{
@@ -48,10 +47,10 @@ func (HelpersSuite) TestResource2API(c *tc.C) {
 		Timestamp:       now,
 	}
 	err = res.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	apiRes := Resource2API(res)
 
-	c.Check(apiRes, jc.DeepEquals, params.Resource{
+	c.Check(apiRes, tc.DeepEquals, params.Resource{
 		CharmResource: params.CharmResource{
 			Name:        "spam",
 			Type:        "file",
@@ -71,9 +70,9 @@ func (HelpersSuite) TestResource2API(c *tc.C) {
 
 func (HelpersSuite) TestAPIResult2ApplicationResourcesOkay(c *tc.C) {
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	resUUID, err := resource.NewUUID()
-	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) cannot create resource UUID"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) cannot create resource UUID"))
 
 	now := time.Now()
 	expected := resource.Resource{
@@ -95,7 +94,7 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesOkay(c *tc.C) {
 		Timestamp:       now,
 	}
 	err = expected.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	unitExpected := resource.Resource{
 		Resource: charmresource.Resource{
@@ -116,7 +115,7 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesOkay(c *tc.C) {
 		Timestamp:       now,
 	}
 	err = unitExpected.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	apiRes := params.Resource{
 		CharmResource: params.CharmResource{
@@ -153,7 +152,7 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesOkay(c *tc.C) {
 	}
 
 	fp2, err := charmresource.GenerateFingerprint(strings.NewReader("boo!"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	chRes := params.CharmResource{
 		Name:        "unitspam2",
@@ -200,7 +199,7 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesOkay(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	serviceResource := resource.ApplicationResources{
 		Resources: []resource.Resource{
@@ -219,12 +218,12 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesOkay(c *tc.C) {
 		},
 	}
 
-	c.Check(res, jc.DeepEquals, serviceResource)
+	c.Check(res, tc.DeepEquals, serviceResource)
 }
 
 func (HelpersSuite) TestAPIResult2ApplicationResourcesBadUnitTag(c *tc.C) {
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	now := time.Now()
 	expected := resource.Resource{
 		Resource: charmresource.Resource{
@@ -245,7 +244,7 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesBadUnitTag(c *tc.C) {
 		Timestamp:       now,
 	}
 	err = expected.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	unitExpected := resource.Resource{
 		Resource: charmresource.Resource{
@@ -266,7 +265,7 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesBadUnitTag(c *tc.C) {
 		Timestamp:       now,
 	}
 	err = unitExpected.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	apiRes := params.Resource{
 		CharmResource: params.CharmResource{
@@ -378,13 +377,13 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesNotFound(c *tc.C) {
 		},
 	})
 
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (HelpersSuite) TestAPI2Resource(c *tc.C) {
 	now := time.Now()
 	resUUID, err := resource.NewUUID()
-	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) cannot create resource UUID"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) cannot create resource UUID"))
 
 	res, err := API2Resource(params.Resource{
 		CharmResource: params.CharmResource{
@@ -402,10 +401,10 @@ func (HelpersSuite) TestAPI2Resource(c *tc.C) {
 		Username:        "a-user",
 		Timestamp:       now,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -425,14 +424,14 @@ func (HelpersSuite) TestAPI2Resource(c *tc.C) {
 		Timestamp:       now,
 	}
 	err = expected.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(res, jc.DeepEquals, expected)
+	c.Check(res, tc.DeepEquals, expected)
 }
 
 func (HelpersSuite) TestCharmResource2API(c *tc.C) {
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	res := charmresource.Resource{
 		Meta: charmresource.Meta{
 			Name:        "spam",
@@ -446,10 +445,10 @@ func (HelpersSuite) TestCharmResource2API(c *tc.C) {
 		Size:        10,
 	}
 	err = res.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	apiInfo := CharmResource2API(res)
 
-	c.Check(apiInfo, jc.DeepEquals, params.CharmResource{
+	c.Check(apiInfo, tc.DeepEquals, params.CharmResource{
 		Name:        "spam",
 		Type:        "file",
 		Path:        "spam.tgz",
@@ -472,10 +471,10 @@ func (HelpersSuite) TestAPI2CharmResource(c *tc.C) {
 		Fingerprint: []byte(fingerprint),
 		Size:        10,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := charmresource.Resource{
 		Meta: charmresource.Meta{
 			Name:        "spam",
@@ -489,7 +488,7 @@ func (HelpersSuite) TestAPI2CharmResource(c *tc.C) {
 		Size:        10,
 	}
 	err = expected.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(res, jc.DeepEquals, expected)
+	c.Check(res, tc.DeepEquals, expected)
 }

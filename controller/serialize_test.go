@@ -6,7 +6,6 @@ package controller_test
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/controller"
 	jujutesting "github.com/juju/juju/internal/testing"
@@ -22,7 +21,7 @@ func (s *EncodeToStringSuite) TestEncodeToString(c *tc.C) {
 	cfg := jujutesting.FakeControllerConfig()
 
 	encoded, err := controller.EncodeToString(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(encoded, tc.DeepEquals, map[string]string{
 		"controller-uuid":           jujutesting.ControllerTag.Id(),

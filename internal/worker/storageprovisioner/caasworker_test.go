@@ -12,7 +12,6 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -74,14 +73,14 @@ func (s *WorkerSuite) testValidateConfig(c *tc.C, f func(*storageprovisioner.Con
 
 func (s *WorkerSuite) TestStartStop(c *tc.C) {
 	w, err := storageprovisioner.NewCaasWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	workertest.CleanKill(c, w)
 }
 
 func (s *WorkerSuite) TestWatchApplicationDead(c *tc.C) {
 	w, err := storageprovisioner.NewCaasWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	select {
@@ -103,7 +102,7 @@ func (s *WorkerSuite) TestWatchApplicationDead(c *tc.C) {
 		},
 	}
 	err = retry.Call(retryCallArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, w)
 	// Only call is to watch model.
@@ -119,7 +118,7 @@ func (s *WorkerSuite) TestStopsWatchingApplicationBecauseApplicationRemoved(c *t
 
 func (s *WorkerSuite) assertStopsWatchingApplication(c *tc.C, lifeGetterInjecter func()) {
 	w, err := storageprovisioner.NewCaasWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	select {
@@ -143,7 +142,7 @@ func (s *WorkerSuite) assertStopsWatchingApplication(c *tc.C, lifeGetterInjecter
 		},
 	}
 	err = retry.Call(startingRetryCallArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add an additional app worker so we can check that the correct one is accessed.
 	storageprovisioner.NewStorageWorker(c, w, "postgresql")
@@ -159,7 +158,7 @@ func (s *WorkerSuite) assertStopsWatchingApplication(c *tc.C, lifeGetterInjecter
 
 	// The mariadb worker should still be running.
 	_, ok := storageprovisioner.StorageWorker(w, "mariadb")
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	// Check that the postgresql worker is running or not;
 	// given it time to shutdown.
@@ -176,7 +175,7 @@ func (s *WorkerSuite) assertStopsWatchingApplication(c *tc.C, lifeGetterInjecter
 		},
 	}
 	err = retry.Call(stoppingRetryCallArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, w)
 	workertest.CheckKilled(c, s.applicationsWatcher.watcher)
@@ -188,7 +187,7 @@ func (s *WorkerSuite) TestStopsWatchingApplicationBecauseApplicationDead(c *tc.C
 
 func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *tc.C) {
 	w, err := storageprovisioner.NewCaasWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	select {

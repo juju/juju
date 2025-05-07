@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
 
@@ -37,7 +36,7 @@ func newNotifyHandlerWorker(c *tc.C, setupError, handlerError, teardownError err
 		setupDone:     make(chan struct{}),
 	}
 	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{Handler: nh})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-nh.setupDone:
 	case <-time.After(coretesting.ShortWait):
@@ -121,7 +120,7 @@ func (s *notifyWorkerSuite) stopWorker(c *tc.C) {
 		done <- worker.Stop(s.worker)
 	}()
 	err := waitForTimeout(c, done, coretesting.LongWait)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	s.actor = nil
 	s.worker = nil
 }
@@ -210,15 +209,15 @@ func waitForHandledNotify(c *tc.C, handled chan struct{}) {
 func (s *notifyWorkerSuite) TestKill(c *tc.C) {
 	s.worker.Kill()
 	err := waitForWorkerStopped(c, s.worker)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *notifyWorkerSuite) TestStop(c *tc.C) {
 	err := worker.Stop(s.worker)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// After stop, Wait should return right away
 	err = waitForWorkerStopped(c, s.worker)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *notifyWorkerSuite) TestWait(c *tc.C) {
@@ -234,7 +233,7 @@ func (s *notifyWorkerSuite) TestWait(c *tc.C) {
 	}
 	s.worker.Kill()
 	err := waitForTimeout(c, done, coretesting.LongWait)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *notifyWorkerSuite) TestCallSetUpAndTearDown(c *tc.C) {
@@ -243,9 +242,9 @@ func (s *notifyWorkerSuite) TestCallSetUpAndTearDown(c *tc.C) {
 	// If we kill the worker, it should notice, and call teardown
 	s.worker.Kill()
 	err := waitForWorkerStopped(c, s.worker)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	s.actor.CheckActions(c, "setup", "teardown")
-	c.Check(s.actor.watcher.Stopped(), jc.IsTrue)
+	c.Check(s.actor.watcher.Stopped(), tc.IsTrue)
 }
 
 func (s *notifyWorkerSuite) TestChangesTriggerHandler(c *tc.C) {
@@ -269,7 +268,7 @@ func (s *notifyWorkerSuite) TestSetUpFailureStopsWithTearDown(c *tc.C) {
 	err := waitForWorkerStopped(c, w)
 	c.Check(err, tc.ErrorMatches, "my special error")
 	actor.CheckActions(c, "setup", "teardown")
-	c.Check(actor.watcher.Stopped(), jc.IsTrue)
+	c.Check(actor.watcher.Stopped(), tc.IsTrue)
 }
 
 func (s *notifyWorkerSuite) TestWatcherStopFailurePropagates(c *tc.C) {
@@ -296,7 +295,7 @@ func (s *notifyWorkerSuite) TestHandleErrorStopsWorkerAndWatcher(c *tc.C) {
 	err := waitForWorkerStopped(c, w)
 	c.Check(err, tc.ErrorMatches, "my handling error")
 	actor.CheckActions(c, "setup", "handler", "teardown")
-	c.Check(actor.watcher.Stopped(), jc.IsTrue)
+	c.Check(actor.watcher.Stopped(), tc.IsTrue)
 }
 
 func (s *notifyWorkerSuite) TestNoticesStoppedWatcher(c *tc.C) {
@@ -320,8 +319,8 @@ func (s *notifyWorkerSuite) TestWorkerReport(c *tc.C) {
 	// Check that the worker has a report method, and it calls through to the
 	// handler.
 	reporter, ok := s.worker.(worker.Reporter)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(reporter.Report(), jc.DeepEquals, map[string]interface{}{
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(reporter.Report(), tc.DeepEquals, map[string]interface{}{
 		"test": true,
 	})
 }

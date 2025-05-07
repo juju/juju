@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 	ociIdentity "github.com/oracle/oci-go-sdk/v65/identity"
 	"go.uber.org/mock/gomock"
@@ -346,11 +345,11 @@ func (s *environSuite) TestPrepareForBootstrap(c *tc.C) {
 
 func (s *environSuite) TestConstraintsValidator(c *tc.C) {
 	validator, err := s.env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64")
 	unsupported, err := validator.Validate(cons)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(unsupported, tc.HasLen, 0)
 
@@ -358,28 +357,28 @@ func (s *environSuite) TestConstraintsValidator(c *tc.C) {
 
 func (s *environSuite) TestConstraintsValidatorEmpty(c *tc.C) {
 	validator, err := s.env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	unsupported, err := validator.Validate(constraints.Value{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(unsupported, tc.HasLen, 0)
 }
 
 func (s *environSuite) TestConstraintsValidatorUnsupported(c *tc.C) {
 	validator, err := s.env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64 tags=foo virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(unsupported, jc.SameContents, []string{"tags", "virt-type"})
+	c.Check(unsupported, tc.SameContents, []string{"tags", "virt-type"})
 }
 
 func (s *environSuite) TestConstraintsValidatorWrongArch(c *tc.C) {
 	validator, err := s.env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)
@@ -415,20 +414,20 @@ func (s *environSuite) TestControllerInstancesOneController(c *tc.C) {
 
 func (s *environSuite) TestCloudInit(c *tc.C) {
 	cfg, err := oci.GetCloudInitConfig(s.env, "ubuntu", 1234, 4321)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	script, err := cfg.RenderScript()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(script, jc.Contains, "/sbin/iptables -I INPUT -p tcp --dport 1234 -j ACCEPT")
-	c.Check(script, jc.Contains, "/sbin/iptables -I INPUT -p tcp --dport 4321 -j ACCEPT")
-	c.Check(script, jc.Contains, "/etc/init.d/netfilter-persistent save")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(script, tc.Contains, "/sbin/iptables -I INPUT -p tcp --dport 1234 -j ACCEPT")
+	c.Check(script, tc.Contains, "/sbin/iptables -I INPUT -p tcp --dport 4321 -j ACCEPT")
+	c.Check(script, tc.Contains, "/etc/init.d/netfilter-persistent save")
 
 	cfg, err = oci.GetCloudInitConfig(s.env, "ubuntu", 0, 0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	script, err = cfg.RenderScript()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(script, tc.Not(jc.Contains), "/sbin/iptables -I INPUT -p tcp --dport 1234 -j ACCEPT")
-	c.Check(script, tc.Not(jc.Contains), "/sbin/iptables -I INPUT -p tcp --dport 4321 -j ACCEPT")
-	c.Check(script, tc.Not(jc.Contains), "/etc/init.d/netfilter-persistent save")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(script, tc.Not(tc.Contains), "/sbin/iptables -I INPUT -p tcp --dport 1234 -j ACCEPT")
+	c.Check(script, tc.Not(tc.Contains), "/sbin/iptables -I INPUT -p tcp --dport 4321 -j ACCEPT")
+	c.Check(script, tc.Not(tc.Contains), "/etc/init.d/netfilter-persistent save")
 }
 
 type instanceTermination struct {

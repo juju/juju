@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
 
@@ -57,7 +56,7 @@ func (s *bundleSuite) makeAPI(c *tc.C) *bundle.APIv8 {
 		s.applicationService,
 		loggertesting.WrapCheckLog(c),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return &bundle.APIv8{api}
 }
 
@@ -89,9 +88,9 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleVerificationErrors(c *tc.C) {
         `,
 	}
 	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(r.Changes, tc.IsNil)
-	c.Assert(r.Errors, jc.SameContents, []string{
+	c.Assert(r.Errors, tc.SameContents, []string{
 		`placement "1" refers to a machine not defined in this bundle`,
 		`too many units specified in unit placement for application "django"`,
 		`invalid charm URL in application "haproxy": cannot parse name and/or revision in URL "42": name "42" not valid`,
@@ -113,9 +112,9 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleConstraintsError(c *tc.C) {
         `,
 	}
 	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(r.Changes, tc.IsNil)
-	c.Assert(r.Errors, jc.SameContents, []string{
+	c.Assert(r.Errors, tc.SameContents, []string{
 		`invalid constraints "bad=wolf" in application "django": unknown constraint "bad"`,
 	})
 }
@@ -135,9 +134,9 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleStorageError(c *tc.C) {
         `,
 	}
 	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(r.Changes, tc.IsNil)
-	c.Assert(r.Errors, jc.SameContents, []string{
+	c.Assert(r.Errors, tc.SameContents, []string{
 		`invalid storage "bad" in application "django": cannot parse count: count must be greater than zero, got "0"`,
 	})
 }
@@ -157,9 +156,9 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleDevicesError(c *tc.C) {
         `,
 	}
 	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(r.Changes, tc.IsNil)
-	c.Assert(r.Errors, jc.SameContents, []string{
+	c.Assert(r.Errors, tc.SameContents, []string{
 		`invalid device "bad-gpu" in application "django": count must be greater than zero, got "-1"`,
 	})
 }
@@ -190,8 +189,8 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *tc.C) {
         `,
 	}
 	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(r.Changes, jc.DeepEquals, []*params.BundleChangesMapArgs{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(r.Changes, tc.DeepEquals, []*params.BundleChangesMapArgs{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Args: map[string]interface{}{
@@ -261,8 +260,8 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccessCharmHubRevision(c *tc.C) {
         `,
 	}
 	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(r.Changes, jc.DeepEquals, []*params.BundleChangesMapArgs{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(r.Changes, tc.DeepEquals, []*params.BundleChangesMapArgs{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Args: map[string]interface{}{
@@ -312,8 +311,8 @@ func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *tc.C) {
         `,
 	}
 	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(r.Changes, jc.DeepEquals, []*params.BundleChangesMapArgs{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(r.Changes, tc.DeepEquals, []*params.BundleChangesMapArgs{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Args: map[string]interface{}{
@@ -383,11 +382,11 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleEndpointBindingsSuccess(c *tc.C
         `,
 	}
 	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	for _, change := range r.Changes {
 		if change.Method == "deploy" {
-			c.Assert(change, jc.DeepEquals, &params.BundleChangesMapArgs{
+			c.Assert(change, tc.DeepEquals, &params.BundleChangesMapArgs{
 				Id:     "deploy-1",
 				Method: "deploy",
 				Args: map[string]interface{}{

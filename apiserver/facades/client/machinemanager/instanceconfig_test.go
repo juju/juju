@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	commonmocks "github.com/juju/juju/apiserver/common/mocks"
@@ -65,7 +64,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *tc.C) {
 		"enable-os-upgrade":        true,
 		"enable-os-refresh-update": true,
 	}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(
 		cfg, nil,
 	)
@@ -115,7 +114,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *tc.C) {
 	}
 
 	icfg, err := InstanceConfig(context.Background(), modelID, providerGetter, s.ctrlSt, s.st, services, "0", "nonce", "")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(icfg.APIInfo.Addrs, tc.DeepEquals, []string{"1.2.3.4:1"})
 	c.Check(icfg.ToolsList().URLs(), tc.DeepEquals, map[semversion.Binary][]string{
 		icfg.AgentVersion(): {fmt.Sprintf("https://1.2.3.4:1/model/%s/tools/2.6.6-ubuntu-amd64", modelID.String())},

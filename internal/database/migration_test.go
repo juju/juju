@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/database/schema"
 	"github.com/juju/juju/internal/database/testing"
@@ -29,14 +28,14 @@ func (s *migrationSuite) TestMigrationSuccess(c *tc.C) {
 
 	db := s.DB()
 	m := NewDBMigration(&txnRunner{db: db}, loggertesting.WrapCheckLog(c), patches)
-	c.Assert(m.Apply(context.Background()), jc.ErrorIsNil)
+	c.Assert(m.Apply(context.Background()), tc.ErrorIsNil)
 
 	rows, err := db.Query("SELECT * from band;")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AddCleanup(func(*tc.C) { _ = rows.Close() })
 
 	var band string
-	c.Assert(rows.Next(), jc.IsTrue)
-	c.Assert(rows.Scan(&band), jc.ErrorIsNil)
+	c.Assert(rows.Next(), tc.IsTrue)
+	c.Assert(rows.Scan(&band), tc.ErrorIsNil)
 	c.Check(band, tc.Equals, "Blood Incantation")
 }

@@ -5,7 +5,6 @@ package specs_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/caas/specs"
 	"github.com/juju/juju/internal/testing"
@@ -59,7 +58,7 @@ version: 3
 	} {
 		c.Logf("#%d: testing GetVersion: %d", i, tc.version)
 		v, err := specs.GetVersion(tc.strSpec)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		c.Check(v, tc.DeepEquals, tc.version)
 	}
 }
@@ -73,12 +72,12 @@ func (s *baseSuite) TestValidateServiceSpec(c *tc.C) {
 	spec = specs.ServiceSpec{
 		ScalePolicy: "parallel",
 	}
-	c.Assert(spec.Validate(), jc.ErrorIsNil)
+	c.Assert(spec.Validate(), tc.ErrorIsNil)
 
 	spec = specs.ServiceSpec{
 		ScalePolicy: "serial",
 	}
-	c.Assert(spec.Validate(), jc.ErrorIsNil)
+	c.Assert(spec.Validate(), tc.ErrorIsNil)
 
 	spec = specs.ServiceSpec{
 		UpdateStrategy: &specs.UpdateStrategy{
@@ -89,7 +88,7 @@ func (s *baseSuite) TestValidateServiceSpec(c *tc.C) {
 			},
 		},
 	}
-	c.Assert(spec.Validate(), jc.ErrorIsNil)
+	c.Assert(spec.Validate(), tc.ErrorIsNil)
 
 	spec = specs.ServiceSpec{
 		UpdateStrategy: &specs.UpdateStrategy{
@@ -107,7 +106,7 @@ func (s *baseSuite) TestValidateServiceSpec(c *tc.C) {
 			Type: "Recreate",
 		},
 	}
-	c.Assert(spec.Validate(), jc.ErrorIsNil)
+	c.Assert(spec.Validate(), tc.ErrorIsNil)
 
 	var partition int32 = 3
 	spec = specs.ServiceSpec{
@@ -187,7 +186,7 @@ func (s *baseSuite) TestValidateContainerSpec(c *tc.C) {
 		c.Logf("#%d: testing FileSet.Validate", i)
 		err := tc.spec.Validate()
 		if tc.errStr == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
 			c.Check(err, tc.ErrorMatches, tc.errStr)
 		}
@@ -205,13 +204,13 @@ func (s *baseSuite) TestValidatePodSpecBase(c *tc.C) {
 			},
 		},
 	}
-	c.Assert(minSpecs.Validate(specs.VersionLegacy), jc.ErrorIsNil)
+	c.Assert(minSpecs.Validate(specs.VersionLegacy), tc.ErrorIsNil)
 	minSpecs.Version = specs.VersionLegacy
-	c.Assert(minSpecs.Validate(specs.VersionLegacy), jc.ErrorIsNil)
+	c.Assert(minSpecs.Validate(specs.VersionLegacy), tc.ErrorIsNil)
 
 	c.Assert(minSpecs.Validate(specs.Version2), tc.ErrorMatches, `expected version 2, but found 0`)
 	minSpecs.Version = specs.Version2
-	c.Assert(minSpecs.Validate(specs.Version2), jc.ErrorIsNil)
+	c.Assert(minSpecs.Validate(specs.Version2), tc.ErrorIsNil)
 }
 
 func (s *baseSuite) TestValidateCaaSContainers(c *tc.C) {
@@ -247,7 +246,7 @@ func (s *baseSuite) TestValidateCaaSContainers(c *tc.C) {
 			},
 		},
 	}
-	c.Assert(k8sSpec.Validate(), jc.ErrorIsNil)
+	c.Assert(k8sSpec.Validate(), tc.ErrorIsNil)
 
 	k8sSpec = specs.CaasContainers{}
 	k8sSpec.Containers = []specs.ContainerSpec{
@@ -442,5 +441,5 @@ func (s *baseSuite) TestValidateCaaSContainers(c *tc.C) {
 			},
 		},
 	}
-	c.Assert(k8sSpec.Validate(), jc.ErrorIsNil)
+	c.Assert(k8sSpec.Validate(), tc.ErrorIsNil)
 }

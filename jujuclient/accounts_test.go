@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
@@ -29,7 +28,7 @@ func (s *AccountsSuite) SetUpTest(c *tc.C) {
 
 func (s *AccountsSuite) TestAccountDetailsNoFile(c *tc.C) {
 	err := os.Remove(jujuclient.JujuAccountsPath())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	details, err := s.store.AccountDetails("not-found")
 	c.Assert(err, tc.ErrorMatches, "account details for controller not-found not found")
 	c.Assert(details, tc.IsNil)
@@ -43,9 +42,9 @@ func (s *AccountsSuite) TestAccountDetailsControllerNotFound(c *tc.C) {
 
 func (s *AccountsSuite) TestAccountDetails(c *tc.C) {
 	details, err := s.store.AccountDetails("kontroll")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(details, tc.NotNil)
-	c.Assert(*details, jc.DeepEquals, kontrollBobRemoteAccountDetails)
+	c.Assert(*details, tc.DeepEquals, kontrollBobRemoteAccountDetails)
 }
 
 func (s *AccountsSuite) TestUpdateAccountIgnoresEmptyAccess(c *tc.C) {
@@ -54,21 +53,21 @@ func (s *AccountsSuite) TestUpdateAccountIgnoresEmptyAccess(c *tc.C) {
 		Password: "fnord",
 	}
 	err := s.store.UpdateAccount("ctrl", testAccountDetails)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	details, err := s.store.AccountDetails("ctrl")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	testAccountDetails.LastKnownAccess = ctrlAdminAccountDetails.LastKnownAccess
 	c.Assert(testAccountDetails.LastKnownAccess, tc.Equals, "superuser")
-	c.Assert(*details, jc.DeepEquals, testAccountDetails)
+	c.Assert(*details, tc.DeepEquals, testAccountDetails)
 }
 
 func (s *AccountsSuite) TestUpdateAccountNewController(c *tc.C) {
 	testAccountDetails := jujuclient.AccountDetails{User: "admin"}
 	err := s.store.UpdateAccount("new-controller", testAccountDetails)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	details, err := s.store.AccountDetails("new-controller")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*details, jc.DeepEquals, testAccountDetails)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(*details, tc.DeepEquals, testAccountDetails)
 }
 
 func (s *AccountsSuite) TestUpdateAccountOverwrites(c *tc.C) {
@@ -81,30 +80,30 @@ func (s *AccountsSuite) TestUpdateAccountOverwrites(c *tc.C) {
 		// Twice so we exercise the code path of updating with
 		// identical details.
 		err := s.store.UpdateAccount("kontroll", testAccountDetails)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		details, err := s.store.AccountDetails("kontroll")
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(*details, jc.DeepEquals, testAccountDetails)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(*details, tc.DeepEquals, testAccountDetails)
 	}
 }
 
 func (s *AccountsSuite) TestRemoveAccountNoFile(c *tc.C) {
 	err := os.Remove(jujuclient.JujuAccountsPath())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.store.RemoveAccount("not-found")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *AccountsSuite) TestRemoveAccountControllerNotFound(c *tc.C) {
 	err := s.store.RemoveAccount("not-found")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *AccountsSuite) TestRemoveAccount(c *tc.C) {
 	err := s.store.RemoveAccount("kontroll")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = s.store.AccountDetails("kontroll")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *AccountsSuite) TestRemoveControllerRemovesaccounts(c *tc.C) {
@@ -113,12 +112,12 @@ func (s *AccountsSuite) TestRemoveControllerRemovesaccounts(c *tc.C) {
 		ControllerUUID: "abc",
 		CACert:         "woop",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = store.RemoveController("kontroll")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	accounts, err := jujuclient.ReadAccountsFile(jujuclient.JujuAccountsPath())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, ok := accounts["kontroll"]
-	c.Assert(ok, jc.IsFalse) // kontroll accounts are removed
+	c.Assert(ok, tc.IsFalse) // kontroll accounts are removed
 }

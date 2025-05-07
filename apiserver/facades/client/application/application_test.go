@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/application"
@@ -93,7 +92,7 @@ func (s *applicationSuite) TestSetCharm(c *tc.C) {
 		ConfigSettingsYAML: `foo: {"stringOption": "bar"}`,
 		ForceUnits:         true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(result.CharmOrigin, tc.DeepEquals, &state.CharmOrigin{
 		Type:     "charm",
@@ -121,7 +120,7 @@ func (s *applicationSuite) TestSetCharmInvalidCharmOrigin(c *tc.C) {
 		CharmURL:        "local:foo-42",
 		CharmOrigin:     &params.CharmOrigin{},
 	})
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 }
 
 func (s *applicationSuite) TestSetCharmApplicationNotFound(c *tc.C) {
@@ -146,7 +145,7 @@ func (s *applicationSuite) TestSetCharmApplicationNotFound(c *tc.C) {
 			Risk:         "stable",
 		},
 	})
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *applicationSuite) TestSetCharmEndpointBindings(c *tc.C) {
@@ -191,7 +190,7 @@ func (s *applicationSuite) TestSetCharmEndpointBindings(c *tc.C) {
 		},
 		ForceUnits: true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.CharmOrigin, tc.DeepEquals, &state.CharmOrigin{
 		Type:     "charm",
 		Source:   "local",
@@ -239,7 +238,7 @@ func (s *applicationSuite) TestSetCharmEndpointBindingsNotFound(c *tc.C) {
 			"baz": "bar",
 		},
 	})
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *applicationSuite) TestSetCharmGetCharmNotFound(c *tc.C) {
@@ -270,7 +269,7 @@ func (s *applicationSuite) TestSetCharmGetCharmNotFound(c *tc.C) {
 		},
 		ConfigSettingsYAML: `foo: {"stringOption": "bar"}`,
 	})
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *applicationSuite) TestSetCharmInvalidConfig(c *tc.C) {
@@ -343,7 +342,7 @@ func (s *applicationSuite) TestSetCharmWithoutTrust(c *tc.C) {
 		ConfigSettingsYAML: `foo: {"stringOption": "bar"}`,
 		ForceUnits:         true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(result.CharmOrigin, tc.DeepEquals, &state.CharmOrigin{
 		Type:     "charm",
@@ -425,7 +424,7 @@ func (s *applicationSuite) TestDeploy(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errorResults.Results, tc.HasLen, 1)
 	c.Assert(errorResults.Results[0].Error, tc.IsNil)
 }
@@ -471,7 +470,7 @@ func (s *applicationSuite) TestDeployWithPendingResources(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errorResults.Results, tc.HasLen, 1)
 	c.Assert(errorResults.Results[0].Error, tc.IsNil)
 }
@@ -513,7 +512,7 @@ func (s *applicationSuite) TestDeployFailureDeletesPendingResources(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errorResults.Results, tc.HasLen, 1)
 	c.Assert(errorResults.Results[0].Error, tc.NotNil)
 }
@@ -557,7 +556,7 @@ func (s *applicationSuite) TestDeployMismatchedResources(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errorResults.Results, tc.HasLen, 1)
 	c.Assert(errorResults.Results[0].Error, tc.NotNil)
 }
@@ -587,7 +586,7 @@ func (s *applicationSuite) TestDeployInvalidSource(c *tc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errorResults.Results, tc.HasLen, 1)
 	c.Assert(errorResults.Results[0].Error, tc.ErrorMatches, "\"bad\" not a valid charm origin source")
 }
@@ -602,7 +601,7 @@ func (s *applicationSuite) TestGetApplicationConstraintsAppNotFound(c *tc.C) {
 	res, err := s.api.GetConstraints(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: "application-foo"}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res.Results[0].Error, tc.ErrorMatches, "application foo not found")
 }
 
@@ -617,7 +616,7 @@ func (s *applicationSuite) TestGetApplicationConstraintsError(c *tc.C) {
 	res, err := s.api.GetConstraints(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: "application-foo"}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res.Results[0].Error, tc.ErrorMatches, "boom")
 }
 
@@ -632,7 +631,7 @@ func (s *applicationSuite) TestGetApplicationConstraints(c *tc.C) {
 	res, err := s.api.GetConstraints(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: "application-foo"}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res.Results[0].Constraints, tc.DeepEquals, constraints.Value{Mem: ptr(uint64(42))})
 }
 
@@ -681,7 +680,7 @@ func (s *applicationSuite) TestSetApplicationConstraints(c *tc.C) {
 		ApplicationName: "foo",
 		Constraints:     constraints.Value{Mem: ptr(uint64(42))},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *applicationSuite) TestAddRelation(c *tc.C) {
@@ -722,8 +721,8 @@ func (s *applicationSuite) TestAddRelation(c *tc.C) {
 	})
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.AddRelationResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.AddRelationResults{
 		Endpoints: map[string]params.CharmRelation{
 			appName1: encodeRelation(ep1.Relation),
 			appName2: encodeRelation(ep2.Relation),
@@ -749,7 +748,7 @@ func (s *applicationSuite) TestAddRelationError(c *tc.C) {
 	})
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, boom)
+	c.Assert(err, tc.ErrorIs, boom)
 }
 
 func (s *applicationSuite) TestAddRelationNoEndpointsError(c *tc.C) {
@@ -764,7 +763,7 @@ func (s *applicationSuite) TestAddRelationNoEndpointsError(c *tc.C) {
 	})
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 }
 
 func (s *applicationSuite) TestAddRelationOneEndpoint(c *tc.C) {
@@ -779,7 +778,7 @@ func (s *applicationSuite) TestAddRelationOneEndpoint(c *tc.C) {
 	})
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 }
 
 func (s *applicationSuite) TestAddRelationTooManyEndpointsError(c *tc.C) {
@@ -794,7 +793,7 @@ func (s *applicationSuite) TestAddRelationTooManyEndpointsError(c *tc.C) {
 	})
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 }
 
 func (s *applicationSuite) TestCharmConfigApplicationNotFound(c *tc.C) {
@@ -809,9 +808,9 @@ func (s *applicationSuite) TestCharmConfigApplicationNotFound(c *tc.C) {
 			ApplicationName: "foo",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 1)
-	c.Assert(res.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
+	c.Assert(res.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *applicationSuite) TestCharmConfig(c *tc.C) {
@@ -848,7 +847,7 @@ func (s *applicationSuite) TestCharmConfig(c *tc.C) {
 			ApplicationName: "foo",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 1)
 	c.Assert(res.Results[0].Error, tc.IsNil)
 	c.Assert(res.Results[0].Config, tc.DeepEquals, map[string]interface{}{
@@ -879,9 +878,9 @@ func (s *applicationSuite) TestSetConfigsYAMLNotImplemented(c *tc.C) {
 			ConfigYAML:      "foo: bar",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 1)
-	c.Assert(res.Results[0].Error, jc.Satisfies, params.IsCodeNotImplemented)
+	c.Assert(res.Results[0].Error, tc.Satisfies, params.IsCodeNotImplemented)
 }
 
 func (s *applicationSuite) TestSetConfigsApplicationNotFound(c *tc.C) {
@@ -897,9 +896,9 @@ func (s *applicationSuite) TestSetConfigsApplicationNotFound(c *tc.C) {
 			Config:          map[string]string{"foo": "bar"},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 1)
-	c.Assert(res.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
+	c.Assert(res.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *applicationSuite) TestSetConfigsNotValidApplicationName(c *tc.C) {
@@ -915,9 +914,9 @@ func (s *applicationSuite) TestSetConfigsNotValidApplicationName(c *tc.C) {
 			Config:          map[string]string{"foo": "bar"},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 1)
-	c.Assert(res.Results[0].Error, jc.Satisfies, params.IsCodeNotValid)
+	c.Assert(res.Results[0].Error, tc.Satisfies, params.IsCodeNotValid)
 }
 
 func (s *applicationSuite) TestSetConfigsInvalidConfig(c *tc.C) {
@@ -935,9 +934,9 @@ func (s *applicationSuite) TestSetConfigsInvalidConfig(c *tc.C) {
 			Config:          map[string]string{"foo": "bar"},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 1)
-	c.Assert(res.Results[0].Error, jc.Satisfies, params.IsCodeNotValid)
+	c.Assert(res.Results[0].Error, tc.Satisfies, params.IsCodeNotValid)
 }
 
 func (s *applicationSuite) TestSetConfigs(c *tc.C) {
@@ -955,7 +954,7 @@ func (s *applicationSuite) TestSetConfigs(c *tc.C) {
 			Config:          map[string]string{"foo": "bar"},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 1)
 	c.Assert(res.Results[0].Error, tc.IsNil)
 }
@@ -971,7 +970,7 @@ func (s *applicationSuite) TestResolveUnitErrorsAllAndEntitesMutuallyExclusive(c
 		},
 		All: true,
 	})
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 }
 
 func (s *applicationSuite) TestResolveUnitErrorsAllNoRetry(c *tc.C) {
@@ -984,7 +983,7 @@ func (s *applicationSuite) TestResolveUnitErrorsAllNoRetry(c *tc.C) {
 	res, err := s.api.ResolveUnitErrors(context.Background(), params.UnitsResolved{
 		All: true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 0)
 }
 
@@ -999,7 +998,7 @@ func (s *applicationSuite) TestResolveUnitErrorsAllRetryHooks(c *tc.C) {
 		All:   true,
 		Retry: true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 0)
 }
 
@@ -1016,7 +1015,7 @@ func (s *applicationSuite) TestResolveUnitErrorsSpecificNoRetry(c *tc.C) {
 			Entities: []params.Entity{{Tag: names.NewUnitTag(unitName.String()).String()}},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 1)
 	c.Assert(res.Results[0].Error, tc.IsNil)
 }
@@ -1035,7 +1034,7 @@ func (s *applicationSuite) TestResolveUnitErrorsSpecificRetryHooks(c *tc.C) {
 		},
 		Retry: true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 1)
 	c.Assert(res.Results[0].Error, tc.IsNil)
 }
@@ -1053,9 +1052,9 @@ func (s *applicationSuite) TestResolveUnitErrorsUnitNotFound(c *tc.C) {
 			Entities: []params.Entity{{Tag: names.NewUnitTag(unitName.String()).String()}},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 1)
-	c.Assert(res.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
+	c.Assert(res.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *applicationSuite) TestDestroyRelationByEndpoints(c *tc.C) {
@@ -1077,7 +1076,7 @@ func (s *applicationSuite) TestDestroyRelationByEndpoints(c *tc.C) {
 	err := s.api.DestroyRelation(context.Background(), arg)
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *applicationSuite) TestDestroyRelationRelationNotFound(c *tc.C) {
@@ -1097,7 +1096,7 @@ func (s *applicationSuite) TestDestroyRelationRelationNotFound(c *tc.C) {
 	err := s.api.DestroyRelation(context.Background(), arg)
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
 func (s *applicationSuite) TestDestroyRelationByID(c *tc.C) {
@@ -1120,7 +1119,7 @@ func (s *applicationSuite) TestDestroyRelationByID(c *tc.C) {
 	err := s.api.DestroyRelation(context.Background(), arg)
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *applicationSuite) TestDestroyRelationWithForceMaxWait(c *tc.C) {
@@ -1145,7 +1144,7 @@ func (s *applicationSuite) TestDestroyRelationWithForceMaxWait(c *tc.C) {
 	err := s.api.DestroyRelation(context.Background(), arg)
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *applicationSuite) TestSetRelationsSuspendedStub(c *tc.C) {
@@ -1240,7 +1239,7 @@ options:
         description: string option
         type: string
     `))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.charm.EXPECT().Config().Return(cfg).Times(times)
 }
@@ -1333,7 +1332,7 @@ func (s *applicationSuite) expectSetCharm(c *tc.C, name string, fn func(*tc.C, s
 
 func (s *applicationSuite) expectSetCharmWithTrust(c *tc.C) {
 	appSchema, appDefaults, err := ConfigSchema()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.application.EXPECT().UpdateApplicationConfig(map[string]any{
 		"trust": true,

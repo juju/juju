@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -30,7 +29,7 @@ func (s *serviceSuite) TestSetFlag(c *tc.C) {
 
 	service := NewService(s.state)
 	err := service.SetFlag(context.Background(), "foo", true, "foo set to true")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestGetFlag(c *tc.C) {
@@ -40,8 +39,8 @@ func (s *serviceSuite) TestGetFlag(c *tc.C) {
 
 	service := NewService(s.state)
 	value, err := service.GetFlag(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(value, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(value, tc.IsTrue)
 }
 
 func (s *serviceSuite) TestGetFlagNotFound(c *tc.C) {
@@ -51,8 +50,8 @@ func (s *serviceSuite) TestGetFlagNotFound(c *tc.C) {
 
 	service := NewService(s.state)
 	value, err := service.GetFlag(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(value, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(value, tc.IsFalse)
 }
 
 func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {

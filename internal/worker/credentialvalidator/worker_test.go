@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/api/base"
@@ -55,28 +54,28 @@ func (s *WorkerSuite) SetUpTest(c *tc.C) {
 
 func (s *WorkerSuite) TestStartStop(c *tc.C) {
 	w, err := testWorker(context.Background(), s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	workertest.CleanKill(c, w)
 
 	err = workertest.CheckKilled(c, w)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = workertest.CheckKilled(c, s.facade.modelWatcher)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.facade.CheckCallNames(c, "ModelCredential", "WatchModelCredential")
 }
 
 func (s *WorkerSuite) TestStartStopNoCredential(c *tc.C) {
 	s.facade.setupModelHasNoCredential()
 	w, err := testWorker(context.Background(), s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	workertest.CleanKill(c, w)
 
 	err = workertest.CheckKilled(c, w)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = workertest.CheckKilled(c, s.facade.modelWatcher)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.facade.CheckCallNames(c, "ModelCredential", "WatchModelCredential")
 }
 
@@ -114,7 +113,7 @@ func (s *WorkerSuite) TestWatchError(c *tc.C) {
 func (s *WorkerSuite) TestModelCredentialNotNeeded(c *tc.C) {
 	s.facade.setupModelHasNoCredential()
 	worker, err := testWorker(context.Background(), s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CheckAlive(c, worker)
 	workertest.CleanKill(c, worker)
@@ -123,7 +122,7 @@ func (s *WorkerSuite) TestModelCredentialNotNeeded(c *tc.C) {
 
 func (s *WorkerSuite) TestCredentialChangeToInvalid(c *tc.C) {
 	worker, err := testWorker(context.Background(), s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.facade.credential.Valid = false
 	s.sendChange(c)
@@ -136,7 +135,7 @@ func (s *WorkerSuite) TestCredentialChangeToInvalid(c *tc.C) {
 func (s *WorkerSuite) TestCredentialChangeFromInvalid(c *tc.C) {
 	s.facade.credential.Valid = false
 	worker, err := testWorker(context.Background(), s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.facade.credential.Valid = true
 	s.sendChange(c)
@@ -148,7 +147,7 @@ func (s *WorkerSuite) TestCredentialChangeFromInvalid(c *tc.C) {
 
 func (s *WorkerSuite) TestNoRelevantCredentialChange(c *tc.C) {
 	worker, err := testWorker(context.Background(), s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.sendChange(c)
 	s.sendChange(c)
@@ -160,7 +159,7 @@ func (s *WorkerSuite) TestNoRelevantCredentialChange(c *tc.C) {
 
 func (s *WorkerSuite) TestModelCredentialNoChanged(c *tc.C) {
 	worker, err := testWorker(context.Background(), s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.sendChange(c)
 
@@ -171,7 +170,7 @@ func (s *WorkerSuite) TestModelCredentialNoChanged(c *tc.C) {
 
 func (s *WorkerSuite) TestModelCredentialChanged(c *tc.C) {
 	worker, err := testWorker(context.Background(), s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.facade.credential.CloudCredential = names.NewCloudCredentialTag("cloud/anotheruser/credential").String()
 	s.sendChange(c)

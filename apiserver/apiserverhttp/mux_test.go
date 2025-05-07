@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -38,7 +37,7 @@ func (s *MuxSuite) SetUpTest(c *tc.C) {
 
 func (s *MuxSuite) TestNotFound(c *tc.C) {
 	resp, err := s.client.Get(s.server.URL + "/")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer resp.Body.Close()
 
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusNotFound)
@@ -46,10 +45,10 @@ func (s *MuxSuite) TestNotFound(c *tc.C) {
 
 func (s *MuxSuite) TestAddHandler(c *tc.C) {
 	err := s.mux.AddHandler("GET", "/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	resp, err := s.client.Get(s.server.URL + "/")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer resp.Body.Close()
 
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
@@ -60,7 +59,7 @@ func (s *MuxSuite) TestAddRemoveNotFound(c *tc.C) {
 	s.mux.RemoveHandler("GET", "/")
 
 	resp, err := s.client.Get(s.server.URL + "/")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer resp.Body.Close()
 
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusNotFound)
@@ -79,7 +78,7 @@ func (s *MuxSuite) TestRemoveHandlerMissing(c *tc.C) {
 func (s *MuxSuite) TestMethodNotSupported(c *tc.C) {
 	s.mux.AddHandler("POST", "/", http.NotFoundHandler())
 	resp, err := s.client.Get(s.server.URL + "/")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer resp.Body.Close()
 
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusMethodNotAllowed)
@@ -87,7 +86,7 @@ func (s *MuxSuite) TestMethodNotSupported(c *tc.C) {
 
 func (s *MuxSuite) TestConcurrentAddHandler(c *tc.C) {
 	err := s.mux.AddHandler("GET", "/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Concurrently add and remove another handler to show that
 	// adding and removing handlers will not race with request
@@ -108,7 +107,7 @@ func (s *MuxSuite) TestConcurrentAddHandler(c *tc.C) {
 
 	for i := 0; i < bN; i++ {
 		resp, err := s.client.Get(s.server.URL + "/")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		resp.Body.Close()
 		c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 	}
@@ -149,7 +148,7 @@ out:
 		default:
 		}
 		resp, err := s.client.Get(s.server.URL + "/")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		resp.Body.Close()
 		switch resp.StatusCode {
 		case http.StatusOK:

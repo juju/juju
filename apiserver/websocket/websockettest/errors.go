@@ -9,7 +9,6 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/rpc/params"
 )
@@ -24,7 +23,7 @@ func AssertWebsocketClosed(c *tc.C, ws *websocket.Conn) {
 		websocket.CloseNoStatusReceived,
 	}
 	c.Logf("%#v", err)
-	c.Assert(websocket.IsCloseError(err, goodClose...), jc.IsTrue)
+	c.Assert(websocket.IsCloseError(err, goodClose...), tc.IsTrue)
 }
 
 // AssertJSONError checks the JSON encoded error returned by the log
@@ -46,12 +45,12 @@ func AssertJSONInitialErrorNil(c *tc.C, ws *websocket.Conn) {
 // logsink APIS.
 func ReadJSONErrorLine(c *tc.C, ws *websocket.Conn) params.ErrorResult {
 	messageType, reader, err := ws.NextReader()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(messageType, tc.Equals, websocket.TextMessage)
 	line, err := bufio.NewReader(reader).ReadSlice('\n')
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	var errResult params.ErrorResult
 	err = json.Unmarshal(line, &errResult)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return errResult
 }

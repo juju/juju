@@ -11,7 +11,6 @@ import (
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
@@ -59,7 +58,7 @@ func (s *ManifoldSuite) manifold() dependency.Manifold {
 }
 
 func (s *ManifoldSuite) TestInputs(c *tc.C) {
-	c.Check(s.manifold().Inputs, jc.DeepEquals, []string{"agent-name", "api-caller-name"})
+	c.Check(s.manifold().Inputs, tc.DeepEquals, []string{"agent-name", "api-caller-name"})
 }
 
 func (s *ManifoldSuite) TestWorkerFuncMissing(c *tc.C) {
@@ -118,12 +117,12 @@ func (s *ManifoldSuite) TestStartSuccess(c *tc.C) {
 	})
 
 	worker, err := s.manifold().Start(context.Background(), getter)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	dummy, ok := worker.(*dummyWorker)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	c.Check(dummy.config.SystemdFiles, tc.DeepEquals, []string{"/etc/juju-proxy-systemd.conf"})
 	c.Check(dummy.config.EnvFiles, tc.DeepEquals, []string{"/etc/juju-proxy.conf"})
-	c.Check(dummy.config.SupportLegacyValues, jc.IsTrue)
+	c.Check(dummy.config.SupportLegacyValues, tc.IsTrue)
 	c.Check(dummy.config.API, tc.NotNil)
 	// Checking function equality is problematic, use the errors they
 	// return.

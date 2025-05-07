@@ -12,7 +12,6 @@ import (
 	"github.com/juju/mgo/v3/bson"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/internal/mongo"
@@ -47,19 +46,19 @@ func (s *oplogSuite) TestWithRealOplog(c *tc.C) {
 
 		var actualObj bson.D
 		err := doc.UnmarshalObject(&actualObj)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		// In Mongo 3.6, the documents add a "$V" to every document
 		// https://jira.mongodb.org/browse/SERVER-32240
 		// It seems to track the client information about what created the doc.
 		if len(actualObj) > 1 && actualObj[0].Name == "$v" {
 			actualObj = actualObj[1:]
 		}
-		c.Assert(actualObj, jc.DeepEquals, expectedObj)
+		c.Assert(actualObj, tc.DeepEquals, expectedObj)
 
 		var actualUpdate bson.D
 		err = doc.UnmarshalUpdate(&actualUpdate)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(actualUpdate, jc.DeepEquals, expectedUpdate)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(actualUpdate, tc.DeepEquals, expectedUpdate)
 	}
 
 	// Insert into foo.bar and see that the oplog entry is reported.
@@ -70,7 +69,7 @@ func (s *oplogSuite) TestWithRealOplog(c *tc.C) {
 
 	// Update foo.bar and see the update reported.
 	err := coll.UpdateId("thing", bson.M{"$set": bson.M{"blah": 42}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertOplog("u", bson.D{{"$set", bson.D{{"blah", 42}}}}, bson.D{{"_id", "thing"}})
 
 	// Insert into another collection (shouldn't be reported due to filter).
@@ -121,10 +120,10 @@ func (s *oplogSuite) TestStops(c *tc.C) {
 	s.getNextOplog(c, tailer)
 
 	err := tailer.Stop()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertStopped(c, tailer)
-	c.Assert(tailer.Err(), jc.ErrorIsNil)
+	c.Assert(tailer.Err(), tc.ErrorIsNil)
 }
 
 func (s *oplogSuite) TestRestartsOnErrCursor(c *tc.C) {
@@ -229,7 +228,7 @@ func (s *oplogSuite) TestNewMongoTimestampBeforeUnixEpoch(c *tc.C) {
 func (s *oplogSuite) startMongoWithReplicaset(c *tc.C) (*mgotesting.MgoInstance, *mgo.Session) {
 	inst := &mgotesting.MgoInstance{EnableReplicaSet: true}
 	err := inst.Start(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AddCleanup(func(*tc.C) { inst.Destroy() })
 
 	// Initiate replicaset.
@@ -239,7 +238,7 @@ func (s *oplogSuite) startMongoWithReplicaset(c *tc.C) (*mgotesting.MgoInstance,
 		MemberHostPort: inst.Addr(),
 	}
 	err = peergrouper.InitiateMongoServer(args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return inst, s.dialMongo(c, inst)
 }
@@ -247,14 +246,14 @@ func (s *oplogSuite) startMongoWithReplicaset(c *tc.C) (*mgotesting.MgoInstance,
 func (s *oplogSuite) startMongo(c *tc.C) (*mgotesting.MgoInstance, *mgo.Session) {
 	var inst mgotesting.MgoInstance
 	err := inst.Start(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AddCleanup(func(*tc.C) { inst.Destroy() })
 	return &inst, s.dialMongo(c, &inst)
 }
 
 func (s *oplogSuite) dialMongo(c *tc.C, inst *mgotesting.MgoInstance) *mgo.Session {
 	session, err := inst.Dial()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AddCleanup(func(*tc.C) { session.Close() })
 	return session
 }
@@ -266,10 +265,10 @@ func (s *oplogSuite) makeFakeOplog(c *tc.C, session *mgo.Session) *mgo.Collectio
 		Capped:   true,
 		MaxBytes: 1024 * 1024,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AddCleanup(func(c *tc.C) {
 		err := oplog.DropCollection()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	})
 	return oplog
 }
@@ -278,7 +277,7 @@ func (s *oplogSuite) insertDoc(c *tc.C, srcSession *mgo.Session, coll *mgo.Colle
 	session := srcSession.Copy()
 	defer session.Close()
 	err := coll.With(session).Insert(doc)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *oplogSuite) getNextOplog(c *tc.C, tailer *mongo.OplogTailer) *mongo.OplogDoc {
@@ -310,7 +309,7 @@ func (s *oplogSuite) assertStopped(c *tc.C, tailer *mongo.OplogTailer) {
 	// Output should close.
 	select {
 	case _, ok := <-tailer.Out():
-		c.Assert(ok, jc.IsFalse)
+		c.Assert(ok, tc.IsFalse)
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("tailer output should have closed")
 	}

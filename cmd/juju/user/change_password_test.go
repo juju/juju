@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/juju/user"
@@ -93,7 +92,7 @@ func (s *ChangePasswordCommandSuite) assertAPICalls(c *tc.C, user, pass string) 
 
 func (s *ChangePasswordCommandSuite) TestChangePassword(c *tc.C) {
 	context, args, err := s.run(c, "sekrit\nsekrit\n")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertAPICalls(c, "current-user", "sekrit")
 	c.Assert(cmdtesting.Stdout(context), tc.Equals, "")
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, `
@@ -102,14 +101,14 @@ type new password again:
 Your password has been changed.
 `[1:])
 	// The command should have logged in without a password to get a macaroon.
-	c.Assert(args.AccountDetails, jc.DeepEquals, &jujuclient.AccountDetails{
+	c.Assert(args.AccountDetails, tc.DeepEquals, &jujuclient.AccountDetails{
 		User: "current-user",
 	})
 }
 
 func (s *ChangePasswordCommandSuite) TestChangePasswordNoPrompt(c *tc.C) {
 	context, args, err := s.run(c, "sneaky-password\n", "--no-prompt")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertAPICalls(c, "current-user", "sneaky-password")
 	c.Assert(cmdtesting.Stdout(context), tc.Equals, "")
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, `
@@ -117,7 +116,7 @@ reading password from stdin...
 Your password has been changed.
 `[1:])
 	// The command should have logged in without a password to get a macaroon.
-	c.Assert(args.AccountDetails, jc.DeepEquals, &jujuclient.AccountDetails{
+	c.Assert(args.AccountDetails, tc.DeepEquals, &jujuclient.AccountDetails{
 		User: "current-user",
 	})
 }
@@ -133,7 +132,7 @@ func (s *ChangePasswordCommandSuite) TestChangeOthersPassword(c *tc.C) {
 	// The checks for user existence and admin rights are tested
 	// at the apiserver level.
 	_, _, err := s.run(c, "sekrit\nsekrit\n", "other")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertAPICalls(c, "other", "sekrit")
 }
 
@@ -165,7 +164,7 @@ func (s *ChangePasswordCommandSuite) TestResetOthersPassword(c *tc.C) {
 	// at the apiserver level.
 	s.mockAPI.key = []byte("no cats or dragons")
 	context, _, err := s.run(c, "", "other", "--reset")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.mockAPI.CheckCalls(c, []testing.StubCall{
 		{"ResetPassword", []interface{}{"other"}},
 	})
@@ -178,7 +177,7 @@ Ask the user to run:
 }
 
 func (s *ChangePasswordCommandSuite) assertResetSelfPasswordFail(c *tc.C, context *cmd.Context, err error) {
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.mockAPI.CheckCalls(c, nil)
 	c.Assert(cmdtesting.Stdout(context), tc.Equals, "")
 	c.Assert(cmdtesting.Stderr(context), tc.Matches, `

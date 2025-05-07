@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/model"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -97,7 +96,7 @@ func (s *verifySuite) TestNewResolverCAAS(c *tc.C) {
 	r := verifycharmprofile.NewResolver(loggertesting.WrapCheckLog(c), model.CAAS)
 	op, err := r.NextOp(context.Background(), resolver.LocalState{}, remotestate.Snapshot{}, nil)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
-	c.Assert(op, jc.ErrorIsNil)
+	c.Assert(op, tc.ErrorIsNil)
 }
 
 func newVerifyCharmProfileResolver(c *tc.C) resolver.Resolver {

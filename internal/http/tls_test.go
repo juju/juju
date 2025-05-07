@@ -12,7 +12,6 @@ import (
 	"runtime"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 )
 
 type TLSSuite struct{}
@@ -36,9 +35,9 @@ func (TLSSuite) TestWinCipher(c *tc.C) {
 (New-Object System.Net.WebClient).DownloadFile("https://127.0.0.1:10443", "%s")
 `, out)
 	err := runPS(d, script)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	b, err := ioutil.ReadFile(out)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(b), tc.Equals, "This is an example server.\n")
 }
 
@@ -56,13 +55,13 @@ func runServer(dir string, c *tc.C) {
 
 	certFile := filepath.Join(dir, "cert.pem")
 	err := ioutil.WriteFile(certFile, []byte(cert), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	keyFile := filepath.Join(dir, "key.pem")
 	err = ioutil.WriteFile(keyFile, []byte(key), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.ListenAndServeTLS(certFile, keyFile)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func runPS(dir, script string) error {

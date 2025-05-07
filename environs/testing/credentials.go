@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -20,7 +19,7 @@ func AssertProviderAuthTypes(c *tc.C, p environs.EnvironProvider, expectedAuthTy
 	for authType := range p.CredentialSchemas() {
 		authTypes = append(authTypes, authType)
 	}
-	c.Assert(authTypes, jc.SameContents, expectedAuthTypes)
+	c.Assert(authTypes, tc.SameContents, expectedAuthTypes)
 }
 
 // AssertProviderCredentialsValid asserts that the given provider is
@@ -29,7 +28,7 @@ func AssertProviderAuthTypes(c *tc.C, p environs.EnvironProvider, expectedAuthTy
 // the validation to fail.
 func AssertProviderCredentialsValid(c *tc.C, p environs.EnvironProvider, authType cloud.AuthType, attrs map[string]string) {
 	schema, ok := p.CredentialSchemas()[authType]
-	c.Assert(ok, jc.IsTrue, tc.Commentf("missing schema for %q auth-type", authType))
+	c.Assert(ok, tc.IsTrue, tc.Commentf("missing schema for %q auth-type", authType))
 	validate := func(attrs map[string]string) error {
 		_, err := schema.Finalize(attrs, func(path string) ([]byte, error) {
 			return []byte("contentsOf(" + path + ")"), nil
@@ -38,7 +37,7 @@ func AssertProviderCredentialsValid(c *tc.C, p environs.EnvironProvider, authTyp
 	}
 
 	err := validate(attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	for excludedKey := range attrs {
 		field, _ := schema.Attribute(excludedKey)
@@ -69,11 +68,11 @@ func AssertProviderCredentialsValid(c *tc.C, p environs.EnvironProvider, authTyp
 func AssertProviderCredentialsAttributesHidden(c *tc.C, p environs.EnvironProvider, authType cloud.AuthType, expectedHidden ...string) {
 	var hidden []string
 	schema, ok := p.CredentialSchemas()[authType]
-	c.Assert(ok, jc.IsTrue, tc.Commentf("missing schema for %q auth-type", authType))
+	c.Assert(ok, tc.IsTrue, tc.Commentf("missing schema for %q auth-type", authType))
 	for _, field := range schema {
 		if field.Hidden {
 			hidden = append(hidden, field.Name)
 		}
 	}
-	c.Assert(hidden, jc.SameContents, expectedHidden)
+	c.Assert(hidden, tc.SameContents, expectedHidden)
 }

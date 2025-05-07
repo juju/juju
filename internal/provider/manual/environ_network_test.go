@@ -5,7 +5,6 @@ package manual
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/environs"
 )
@@ -18,9 +17,9 @@ var _ = tc.Suite(&environNetworkSuite{})
 
 func (s *environNetworkSuite) TestSupportsSpaces(c *tc.C) {
 	netEnv, ok := environs.SupportsNetworking(s.env)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	spaceSupport, err := netEnv.SupportsSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(spaceSupport, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(spaceSupport, tc.IsTrue)
 }

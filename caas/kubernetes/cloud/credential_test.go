@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
@@ -122,12 +121,12 @@ func (s *credentialSuite) TestValidCredentials(c *tc.C) {
 	for _, test := range tests {
 		if test.PreSetup != nil {
 			err := test.PreSetup(test.AuthInfo)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
 		cred, err := k8scloud.CredentialFromAuthInfo(test.Name, test.AuthInfo)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(cred.AuthType(), tc.Equals, test.AuthType)
-		c.Assert(cred.Attributes(), jc.DeepEquals, test.Attributes)
+		c.Assert(cred.Attributes(), tc.DeepEquals, test.Attributes)
 	}
 }
 
@@ -148,7 +147,7 @@ func (s *credentialSuite) TestUnsuportedCredentialMigration(c *tc.C) {
 		false)
 
 	_, err := k8scloud.MigrateLegacyCredential(&cred)
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 
 func (s *credentialSuite) TestCertificateAuthMigrationMissingToken(c *tc.C) {
@@ -172,10 +171,10 @@ func (s *credentialSuite) TestCertificateAuthMigration(c *tc.C) {
 		false)
 
 	cred, err := k8scloud.MigrateLegacyCredential(&cred)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cred.AuthType(), tc.Equals, cloud.OAuth2AuthType)
 	c.Assert(cred.Label, tc.Equals, "missingtoken")
-	c.Assert(cred.Attributes(), jc.DeepEquals, map[string]string{
+	c.Assert(cred.Attributes(), tc.DeepEquals, map[string]string{
 		"Token": "mytoken",
 	})
 }
@@ -191,10 +190,10 @@ func (s *credentialSuite) TestCertificateAuthMigrationRBACId(c *tc.C) {
 		false)
 
 	cred, err := k8scloud.MigrateLegacyCredential(&cred)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cred.AuthType(), tc.Equals, cloud.OAuth2AuthType)
 	c.Assert(cred.Label, tc.Equals, "missingtoken")
-	c.Assert(cred.Attributes(), jc.DeepEquals, map[string]string{
+	c.Assert(cred.Attributes(), tc.DeepEquals, map[string]string{
 		"Token":   "mytoken",
 		"rbac-id": "id",
 	})
@@ -211,10 +210,10 @@ func (s *credentialSuite) TestOAuth2CertMigrationWithoutToken(c *tc.C) {
 		false)
 
 	cred, err := k8scloud.MigrateLegacyCredential(&cred)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cred.AuthType(), tc.Equals, cloud.ClientCertificateAuthType)
 	c.Assert(cred.Label, tc.Equals, "missingtoken")
-	c.Assert(cred.Attributes(), jc.DeepEquals, map[string]string{
+	c.Assert(cred.Attributes(), tc.DeepEquals, map[string]string{
 		"ClientCertificateData": "data",
 		"ClientKeyData":         "key",
 	})
@@ -243,10 +242,10 @@ func (s *credentialSuite) TestOAuth2CertMigrationWithToken(c *tc.C) {
 		false)
 
 	cred, err := k8scloud.MigrateLegacyCredential(&cred)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cred.AuthType(), tc.Equals, cloud.OAuth2AuthType)
 	c.Assert(cred.Label, tc.Equals, "missingtoken")
-	c.Assert(cred.Attributes(), jc.DeepEquals, map[string]string{
+	c.Assert(cred.Attributes(), tc.DeepEquals, map[string]string{
 		"Token": "mytoken",
 	})
 }
@@ -364,8 +363,8 @@ func (s *credentialSuite) TestCredentialMigrationToLegacy(c *tc.C) {
 
 	for _, test := range tests {
 		rval, err := k8scloud.CredentialToLegacy(&test.PreCred)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(rval, jc.DeepEquals, test.PostCred)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(rval, tc.DeepEquals, test.PostCred)
 	}
 }
 
@@ -378,7 +377,7 @@ func (s *credentialSuite) TestPatchCloudCredentialForCloudSpec(c *tc.C) {
 		},
 	)
 	updatedCredential, err := k8scloud.UpdateCredentialWithToken(credential, "token")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	c.Check(updatedCredential.AuthType(), tc.Equals, cloud.AuthType("auth-type"))
 	c.Check(updatedCredential.Attributes(), tc.DeepEquals, map[string]string{
@@ -389,7 +388,7 @@ func (s *credentialSuite) TestPatchCloudCredentialForCloudSpec(c *tc.C) {
 
 	credential = cloud.NewCredential("auth-type", nil)
 	updatedCredential, err = k8scloud.UpdateCredentialWithToken(credential, "token")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	c.Check(updatedCredential.AuthType(), tc.Equals, cloud.AuthType("auth-type"))
 	c.Check(updatedCredential.Attributes(), tc.DeepEquals, map[string]string{

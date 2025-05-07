@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -289,7 +288,7 @@ func (s *workerEnvironSuite) TestNoMachineFound(c *tc.C) {
 	s.expectFacadeReturnsNoMachine()
 
 	err := s.errorKill(c, s.workerForScenario(c))
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *workerEnvironSuite) TestCharmProfilingInfoNotProvisioned(c *tc.C) {
@@ -315,7 +314,7 @@ func (s *workerEnvironSuite) TestCharmProfilingInfoError(c *tc.C) {
 	s.expectContextKillError()
 
 	err := s.errorKill(c, s.workerForScenarioWithContext(c))
-	c.Assert(err, jc.Satisfies, params.IsCodeNotSupported)
+	c.Assert(err, tc.Satisfies, params.IsCodeNotSupported)
 }
 
 func (s *workerEnvironSuite) TestMachineContainerTypeNotSupported(c *tc.C) {
@@ -383,7 +382,7 @@ func (s *workerSuite) workerForScenario(c *tc.C) worker.Worker {
 	w, err := s.newWorkerFunc(config, func(ctx instancemutater.MutaterContext) instancemutater.MutaterContext {
 		return ctx
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }
 
@@ -404,7 +403,7 @@ func (s *workerSuite) workerForScenarioWithContext(c *tc.C) worker.Worker {
 		}
 		return c
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }
 

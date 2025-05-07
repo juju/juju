@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/instance"
@@ -28,7 +27,7 @@ func (s *serviceSuite) TestRetrieveHardwareCharacteristics(c *tc.C) {
 		Return(expected, nil)
 
 	hc, err := NewService(s.state).HardwareCharacteristics(context.Background(), "42")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(hc, tc.DeepEquals, expected)
 }
 
@@ -50,7 +49,7 @@ func (s *serviceSuite) TestRetrieveAvailabilityZone(c *tc.C) {
 		Return("foo", nil)
 
 	hc, err := NewService(s.state).AvailabilityZone(context.Background(), "42")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(hc, tc.DeepEquals, "foo")
 }
 
@@ -72,7 +71,7 @@ func (s *serviceSuite) TestSetMachineCloudInstance(c *tc.C) {
 	).Return(nil)
 
 	err := NewService(s.state).SetMachineCloudInstance(context.Background(), "42", "instance-42", "42", hc)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestSetMachineCloudInstanceFails(c *tc.C) {
@@ -102,7 +101,7 @@ func (s *serviceSuite) TestDeleteMachineCloudInstance(c *tc.C) {
 	s.state.EXPECT().DeleteMachineCloudInstance(gomock.Any(), machine.UUID("42")).Return(nil)
 
 	err := NewService(s.state).DeleteMachineCloudInstance(context.Background(), "42")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestDeleteMachineCloudInstanceFails(c *tc.C) {

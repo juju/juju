@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/core/logger"
@@ -102,7 +101,7 @@ func (s *toolSuite) TestConnectionIsFatal(c *tc.C) {
 			c.Logf("test %d.%d: %s", i, j, test.err)
 			fatal := agenterrors.ConnectionIsFatal(context.Background(), s.logger, conn)(test.err)
 			if test.isFatal {
-				c.Check(fatal, jc.IsTrue)
+				c.Check(fatal, tc.IsTrue)
 			} else {
 				c.Check(fatal, tc.Equals, i == 0)
 			}
@@ -118,15 +117,15 @@ func (s *toolSuite) TestConnectionIsFatalWithMultipleConns(c *tc.C) {
 
 	ctx := context.Background()
 	c.Assert(agenterrors.ConnectionIsFatal(ctx, s.logger, okConn, okConn)(someErr),
-		jc.IsFalse)
+		tc.IsFalse)
 	c.Assert(agenterrors.ConnectionIsFatal(ctx, s.logger, okConn, okConn, okConn)(someErr),
-		jc.IsFalse)
+		tc.IsFalse)
 	c.Assert(agenterrors.ConnectionIsFatal(ctx, s.logger, okConn, errConn)(someErr),
-		jc.IsTrue)
+		tc.IsTrue)
 	c.Assert(agenterrors.ConnectionIsFatal(ctx, s.logger, okConn, okConn, errConn)(someErr),
-		jc.IsTrue)
+		tc.IsTrue)
 	c.Assert(agenterrors.ConnectionIsFatal(ctx, s.logger, errConn, okConn, okConn)(someErr),
-		jc.IsTrue)
+		tc.IsTrue)
 }
 
 func (s *toolSuite) TestPingerIsFatal(c *tc.C) {
@@ -141,7 +140,7 @@ func (s *toolSuite) TestPingerIsFatal(c *tc.C) {
 			c.Logf("test %d.%d: %s", i, j, test.err)
 			fatal := agenterrors.PingerIsFatal(s.logger, pinger)(test.err)
 			if test.isFatal {
-				c.Check(fatal, jc.IsTrue)
+				c.Check(fatal, tc.IsTrue)
 			} else {
 				c.Check(fatal, tc.Equals, i == 0)
 			}
@@ -158,15 +157,15 @@ func (s *toolSuite) TestPingerIsFatalWithMultipleConns(c *tc.C) {
 	}
 	someErr := stderrors.New("foo")
 	c.Assert(agenterrors.PingerIsFatal(s.logger, okPinger, okPinger)(someErr),
-		jc.IsFalse)
+		tc.IsFalse)
 	c.Assert(agenterrors.PingerIsFatal(s.logger, okPinger, okPinger, okPinger)(someErr),
-		jc.IsFalse)
+		tc.IsFalse)
 	c.Assert(agenterrors.PingerIsFatal(s.logger, okPinger, errPinger)(someErr),
-		jc.IsTrue)
+		tc.IsTrue)
 	c.Assert(agenterrors.PingerIsFatal(s.logger, okPinger, okPinger, errPinger)(someErr),
-		jc.IsTrue)
+		tc.IsTrue)
 	c.Assert(agenterrors.PingerIsFatal(s.logger, errPinger, okPinger, okPinger)(someErr),
-		jc.IsTrue)
+		tc.IsTrue)
 }
 
 func (*toolSuite) TestIsFatal(c *tc.C) {

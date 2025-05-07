@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	ociCommon "github.com/oracle/oci-go-sdk/v65/common"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 	"go.uber.org/mock/gomock"
@@ -149,7 +148,7 @@ func (s *computeClientSuite) TestListImages(c *tc.C) {
 	}, nil)
 
 	obtained, err := s.client.ListImages(ctx.TODO(), &compartmentID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.DeepEquals, s.images)
 }
 
@@ -170,7 +169,7 @@ func (s *computeClientSuite) TestListImagesPageN(c *tc.C) {
 	}, nil)
 
 	obtained, err := s.client.ListImages(ctx.TODO(), &compartmentID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.DeepEquals, s.images)
 }
 
@@ -181,7 +180,7 @@ func (s *computeClientSuite) TestListImagesFail(c *tc.C) {
 	s.mockAPI.EXPECT().ListImages(gomock.Any(), gomock.Any()).Return(ociCore.ListImagesResponse{}, errors.BadRequestf("test fail"))
 
 	obtained, err := s.client.ListImages(ctx.TODO(), &compartmentID)
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 	c.Assert(obtained, tc.HasLen, 0)
 }
 
@@ -196,7 +195,7 @@ func (s *computeClientSuite) TestListImagesFailPageN(c *tc.C) {
 	s.mockAPI.EXPECT().ListImages(gomock.Any(), gomock.Any()).Return(ociCore.ListImagesResponse{}, errors.BadRequestf("test fail"))
 
 	obtained, err := s.client.ListImages(ctx.TODO(), &compartmentID)
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 	c.Assert(obtained, tc.HasLen, 0)
 }
 
@@ -224,7 +223,7 @@ func (s *computeClientSuite) TestListShapes(c *tc.C) {
 	s.mockAPI.EXPECT().ListShapes(gomock.Any(), req).Return(resp, nil)
 
 	obtained, err := s.client.ListShapes(ctx.TODO(), &compartmentID, s.images[1].Id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.HasLen, 2)
 	c.Assert(obtained[0].Shape, tc.Equals, &shape1)
 	c.Assert(obtained[1].Shape, tc.Equals, &shape2)
@@ -256,7 +255,7 @@ func (s *computeClientSuite) TestListShapesPageN(c *tc.C) {
 	}, nil)
 
 	obtained, err := s.client.ListShapes(ctx.TODO(), &compartmentID, req.ImageId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.HasLen, 2)
 	c.Assert(obtained[0].Shape, tc.Equals, &shape1)
 	c.Assert(obtained[1].Shape, tc.Equals, &shape2)
@@ -269,7 +268,7 @@ func (s *computeClientSuite) TestListShapesFail(c *tc.C) {
 	s.mockAPI.EXPECT().ListShapes(gomock.Any(), gomock.Any()).Return(ociCore.ListShapesResponse{}, errors.BadRequestf("test fail"))
 
 	obtained, err := s.client.ListShapes(ctx.TODO(), &compartmentID, makeStringPointer("testFail"))
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 	c.Assert(obtained, tc.HasLen, 0)
 }
 
@@ -296,7 +295,7 @@ func (s *computeClientSuite) TestListShapesFailPageN(c *tc.C) {
 		ociCore.ListShapesResponse{}, errors.BadRequestf("test fail"))
 
 	obtained, err := s.client.ListShapes(ctx.TODO(), &compartmentID, req.ImageId)
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 	c.Assert(obtained, tc.HasLen, 0)
 }
 
@@ -309,7 +308,7 @@ func (s *computeClientSuite) TestListInstances(c *tc.C) {
 	}, nil)
 
 	obtained, err := s.client.ListInstances(ctx.TODO(), &compartmentID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.DeepEquals, s.instances)
 }
 
@@ -326,7 +325,7 @@ func (s *computeClientSuite) TestListInstancesPageN(c *tc.C) {
 	}, nil)
 
 	obtained, err := s.client.ListInstances(ctx.TODO(), &compartmentID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.DeepEquals, s.instances)
 }
 
@@ -337,7 +336,7 @@ func (s *computeClientSuite) TestListInstancesFail(c *tc.C) {
 	s.mockAPI.EXPECT().ListInstances(gomock.Any(), gomock.Any()).Return(ociCore.ListInstancesResponse{}, errors.BadRequestf("test fail"))
 
 	obtained, err := s.client.ListInstances(ctx.TODO(), &compartmentID)
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 	c.Assert(obtained, tc.HasLen, 0)
 }
 
@@ -352,7 +351,7 @@ func (s *computeClientSuite) TestListInstancesFailPageN(c *tc.C) {
 	s.mockAPI.EXPECT().ListInstances(gomock.Any(), gomock.Any()).Return(ociCore.ListInstancesResponse{}, errors.BadRequestf("test fail"))
 
 	obtained, err := s.client.ListInstances(ctx.TODO(), &compartmentID)
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 	c.Assert(obtained, tc.HasLen, 0)
 }
 
@@ -365,7 +364,7 @@ func (s *computeClientSuite) TestListVnicAttachments(c *tc.C) {
 	}, nil)
 
 	obtained, err := s.client.ListVnicAttachments(ctx.TODO(), &compartmentID, s.vnics[0].InstanceId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.DeepEquals, s.vnics)
 }
 
@@ -389,7 +388,7 @@ func (s *computeClientSuite) TestListVnicAttachmentsPageN(c *tc.C) {
 		}, nil)
 
 	obtained, err := s.client.ListVnicAttachments(ctx.TODO(), &compartmentID, s.vnics[0].InstanceId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.DeepEquals, s.vnics)
 }
 
@@ -400,7 +399,7 @@ func (s *computeClientSuite) TestListVnicAttachmentsFail(c *tc.C) {
 	s.mockAPI.EXPECT().ListVnicAttachments(gomock.Any(), gomock.Any()).Return(ociCore.ListVnicAttachmentsResponse{}, errors.BadRequestf("test fail"))
 
 	obtained, err := s.client.ListVnicAttachments(ctx.TODO(), &compartmentID, s.vnics[0].InstanceId)
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 	c.Assert(obtained, tc.HasLen, 0)
 }
 
@@ -421,7 +420,7 @@ func (s *computeClientSuite) TestListVnicAttachmentsFailPageN(c *tc.C) {
 	s.mockAPI.EXPECT().ListVnicAttachments(gomock.Any(), req).Return(ociCore.ListVnicAttachmentsResponse{}, errors.BadRequestf("test fail"))
 
 	obtained, err := s.client.ListVnicAttachments(ctx.TODO(), &compartmentID, s.vnics[0].InstanceId)
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 	c.Assert(obtained, tc.HasLen, 0)
 }
 
@@ -439,7 +438,7 @@ func (s *computeClientSuite) TestListVolumeAttachments(c *tc.C) {
 	s.mockAPI.EXPECT().ListVolumeAttachments(gomock.Any(), req).Return(resp, nil)
 
 	obtained, err := s.client.ListVolumeAttachments(ctx.TODO(), &compartmentID, s.volumes[0].GetInstanceId())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.DeepEquals, s.volumes)
 }
 
@@ -463,7 +462,7 @@ func (s *computeClientSuite) TestListVolumeAttachmentsPageN(c *tc.C) {
 		}, nil)
 
 	obtained, err := s.client.ListVolumeAttachments(ctx.TODO(), &compartmentID, s.volumes[0].GetInstanceId())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.DeepEquals, s.volumes)
 }
 
@@ -474,7 +473,7 @@ func (s *computeClientSuite) TestListVolumeAttachmentsFail(c *tc.C) {
 	s.mockAPI.EXPECT().ListVolumeAttachments(gomock.Any(), gomock.Any()).Return(ociCore.ListVolumeAttachmentsResponse{}, errors.BadRequestf("test fail"))
 
 	obtained, err := s.client.ListVolumeAttachments(ctx.TODO(), &compartmentID, s.volumes[0].GetInstanceId())
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 	c.Assert(obtained, tc.HasLen, 0)
 }
 
@@ -495,7 +494,7 @@ func (s *computeClientSuite) TestListVolumeAttachmentsFailPageN(c *tc.C) {
 	s.mockAPI.EXPECT().ListVolumeAttachments(gomock.Any(), req).Return(ociCore.ListVolumeAttachmentsResponse{}, errors.BadRequestf("test fail"))
 
 	obtained, err := s.client.ListVolumeAttachments(ctx.TODO(), &compartmentID, s.volumes[0].GetInstanceId())
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 	c.Assert(obtained, tc.HasLen, 0)
 }
 
@@ -606,7 +605,7 @@ func (s *networkClientSuite) TestListVcns(c *tc.C) {
 	}, nil)
 
 	obtained, err := s.client.ListVcns(ctx.TODO(), &compartmentID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.DeepEquals, s.vcns)
 }
 
@@ -628,7 +627,7 @@ func (s *networkClientSuite) TestListVcnsPageN(c *tc.C) {
 	}, nil)
 
 	obtained, err := s.client.ListVcns(ctx.TODO(), &compartmentID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.DeepEquals, s.vcns)
 }
 
@@ -639,7 +638,7 @@ func (s *networkClientSuite) TestListVcnsFail(c *tc.C) {
 	s.mockAPI.EXPECT().ListVcns(gomock.Any(), gomock.Any()).Return(ociCore.ListVcnsResponse{}, errors.BadRequestf("test fail"))
 
 	obtained, err := s.client.ListVcns(ctx.TODO(), &compartmentID)
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 	c.Assert(obtained, tc.HasLen, 0)
 }
 
@@ -659,7 +658,7 @@ func (s *networkClientSuite) TestListVcnsFailPageN(c *tc.C) {
 	s.mockAPI.EXPECT().ListVcns(gomock.Any(), req).Return(ociCore.ListVcnsResponse{}, errors.BadRequestf("test fail"))
 
 	obtained, err := s.client.ListVcns(ctx.TODO(), &compartmentID)
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 	c.Assert(obtained, tc.HasLen, 0)
 }
 
@@ -676,7 +675,7 @@ func (s *networkClientSuite) TestListSubnets(c *tc.C) {
 	}, nil)
 
 	obtained, err := s.client.ListSubnets(ctx.TODO(), &compartmentID, s.vcns[0].Id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.DeepEquals, s.subnets)
 }
 
@@ -699,7 +698,7 @@ func (s *networkClientSuite) TestListSubnetsPageN(c *tc.C) {
 	}, nil)
 
 	obtained, err := s.client.ListSubnets(ctx.TODO(), &compartmentID, s.vcns[0].Id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.DeepEquals, s.subnets)
 }
 
@@ -714,7 +713,7 @@ func (s *networkClientSuite) TestListSubnetsFail(c *tc.C) {
 	s.mockAPI.EXPECT().ListSubnets(gomock.Any(), req).Return(ociCore.ListSubnetsResponse{}, errors.BadRequestf("test fail"))
 
 	obtained, err := s.client.ListSubnets(ctx.TODO(), &compartmentID, s.vcns[0].Id)
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 	c.Assert(obtained, tc.HasLen, 0)
 }
 
@@ -735,7 +734,7 @@ func (s *networkClientSuite) TestListSubnetsFailPageN(c *tc.C) {
 	s.mockAPI.EXPECT().ListSubnets(gomock.Any(), req).Return(ociCore.ListSubnetsResponse{}, errors.BadRequestf("test fail"))
 
 	obtained, err := s.client.ListSubnets(ctx.TODO(), &compartmentID, s.vcns[0].Id)
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 	c.Assert(obtained, tc.HasLen, 0)
 }
 
@@ -752,7 +751,7 @@ func (s *networkClientSuite) TestListInternetGateways(c *tc.C) {
 	}, nil)
 
 	obtained, err := s.client.ListInternetGateways(ctx.TODO(), &compartmentID, s.vcns[0].Id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.DeepEquals, s.gateways)
 }
 
@@ -775,7 +774,7 @@ func (s *networkClientSuite) TestListInternetGatewaysPageN(c *tc.C) {
 	}, nil)
 
 	obtained, err := s.client.ListInternetGateways(ctx.TODO(), &compartmentID, s.vcns[0].Id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.DeepEquals, s.gateways)
 }
 
@@ -790,7 +789,7 @@ func (s *networkClientSuite) TestListInternetGatewaysFail(c *tc.C) {
 	s.mockAPI.EXPECT().ListInternetGateways(gomock.Any(), req).Return(ociCore.ListInternetGatewaysResponse{}, errors.BadRequestf("test fail"))
 
 	obtained, err := s.client.ListInternetGateways(ctx.TODO(), &compartmentID, s.vcns[0].Id)
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 	c.Assert(obtained, tc.HasLen, 0)
 }
 
@@ -811,7 +810,7 @@ func (s *networkClientSuite) TestListInternetGatewaysFailPageN(c *tc.C) {
 	s.mockAPI.EXPECT().ListInternetGateways(gomock.Any(), req).Return(ociCore.ListInternetGatewaysResponse{}, errors.BadRequestf("test fail"))
 
 	obtained, err := s.client.ListInternetGateways(ctx.TODO(), &compartmentID, s.vcns[0].Id)
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 	c.Assert(obtained, tc.HasLen, 0)
 }
 
@@ -828,7 +827,7 @@ func (s *networkClientSuite) TestListRouteTables(c *tc.C) {
 	}, nil)
 
 	obtained, err := s.client.ListRouteTables(ctx.TODO(), &compartmentID, s.vcns[0].Id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.DeepEquals, s.tables)
 }
 
@@ -851,7 +850,7 @@ func (s *networkClientSuite) TestListRouteTablesPageN(c *tc.C) {
 	}, nil)
 
 	obtained, err := s.client.ListRouteTables(ctx.TODO(), &compartmentID, s.vcns[0].Id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.DeepEquals, s.tables)
 }
 
@@ -866,7 +865,7 @@ func (s *networkClientSuite) TestListRouteTablesFail(c *tc.C) {
 	s.mockAPI.EXPECT().ListRouteTables(gomock.Any(), req).Return(ociCore.ListRouteTablesResponse{}, errors.BadRequestf("test fail"))
 
 	obtained, err := s.client.ListRouteTables(ctx.TODO(), &compartmentID, s.vcns[0].Id)
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 	c.Assert(obtained, tc.HasLen, 0)
 }
 
@@ -887,7 +886,7 @@ func (s *networkClientSuite) TestListRouteTablesFailPageN(c *tc.C) {
 	s.mockAPI.EXPECT().ListRouteTables(gomock.Any(), req).Return(ociCore.ListRouteTablesResponse{}, errors.BadRequestf("test fail"))
 
 	obtained, err := s.client.ListRouteTables(ctx.TODO(), &compartmentID, s.vcns[0].Id)
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 	c.Assert(obtained, tc.HasLen, 0)
 }
 
@@ -904,7 +903,7 @@ func (s *networkClientSuite) TestListSecurityLists(c *tc.C) {
 	}, nil)
 
 	obtained, err := s.client.ListSecurityLists(ctx.TODO(), &compartmentID, s.vcns[0].Id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.DeepEquals, s.securityLists)
 }
 
@@ -927,7 +926,7 @@ func (s *networkClientSuite) TestListSecurityListsPageN(c *tc.C) {
 	}, nil)
 
 	obtained, err := s.client.ListSecurityLists(ctx.TODO(), &compartmentID, s.vcns[0].Id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.DeepEquals, s.securityLists)
 }
 
@@ -942,7 +941,7 @@ func (s *networkClientSuite) TestListSecurityListsFail(c *tc.C) {
 	s.mockAPI.EXPECT().ListSecurityLists(gomock.Any(), req).Return(ociCore.ListSecurityListsResponse{}, errors.BadRequestf("test fail"))
 
 	obtained, err := s.client.ListSecurityLists(ctx.TODO(), &compartmentID, s.vcns[0].Id)
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 	c.Assert(obtained, tc.HasLen, 0)
 }
 
@@ -963,7 +962,7 @@ func (s *networkClientSuite) TestListSecurityListsFailPageN(c *tc.C) {
 	s.mockAPI.EXPECT().ListSecurityLists(gomock.Any(), req).Return(ociCore.ListSecurityListsResponse{}, errors.BadRequestf("test fail"))
 
 	obtained, err := s.client.ListSecurityLists(ctx.TODO(), &compartmentID, s.vcns[0].Id)
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 	c.Assert(obtained, tc.HasLen, 0)
 }
 
@@ -990,7 +989,7 @@ func (s *storageClientSuite) TestListVolumes(c *tc.C) {
 	}, nil)
 
 	obtained, err := s.client.ListVolumes(ctx.TODO(), &compartmentID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.DeepEquals, []ociCore.Volume{vol})
 }
 
@@ -1010,7 +1009,7 @@ func (s *storageClientSuite) TestListVolumesPageN(c *tc.C) {
 	}, nil)
 
 	obtained, err := s.client.ListVolumes(ctx.TODO(), &compartmentID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.DeepEquals, []ociCore.Volume{vol, vol2})
 }
 
@@ -1022,7 +1021,7 @@ func (s *storageClientSuite) TestListVolumesFail(c *tc.C) {
 		ociCore.ListVolumesResponse{}, errors.BadRequestf("test fail"))
 
 	obtained, err := s.client.ListVolumes(ctx.TODO(), &compartmentID)
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 	c.Assert(obtained, tc.HasLen, 0)
 }
 
@@ -1039,7 +1038,7 @@ func (s *storageClientSuite) TestListVolumesFailPageN(c *tc.C) {
 		ociCore.ListVolumesResponse{}, errors.BadRequestf("test fail"))
 
 	obtained, err := s.client.ListVolumes(ctx.TODO(), &compartmentID)
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 	c.Assert(obtained, tc.HasLen, 0)
 }
 

@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
@@ -41,8 +40,8 @@ func (s *modelconfigSuite) TestModelGet(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelGet", args, res).SetArg(3, results).Return(nil)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	result, err := client.ModelGet(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, map[string]interface{}{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, map[string]interface{}{
 		"foo": "bar",
 	})
 }
@@ -62,8 +61,8 @@ func (s *modelconfigSuite) TestModelGetWithMetadata(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelGet", args, res).SetArg(3, results).Return(nil)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	result, err := client.ModelGetWithMetadata(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, config.ConfigValues{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, config.ConfigValues{
 		"foo": {"bar", "model"},
 	})
 }
@@ -86,7 +85,7 @@ func (s *modelconfigSuite) TestModelSet(c *tc.C) {
 		"some-name":  "value",
 		"other-name": true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *modelconfigSuite) TestModelUnset(c *tc.C) {
@@ -101,7 +100,7 @@ func (s *modelconfigSuite) TestModelUnset(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelUnset", args, res).Return(nil)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	err := client.ModelUnset(context.Background(), "foo", "bar")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *modelconfigSuite) TestSequences(c *tc.C) {
@@ -117,8 +116,8 @@ func (s *modelconfigSuite) TestSequences(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Sequences", args, res).SetArg(3, results).Return(nil)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	sequences, err := client.Sequences(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sequences, jc.DeepEquals, map[string]int{"foo": 5, "bar": 2})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(sequences, tc.DeepEquals, map[string]int{"foo": 5, "bar": 2})
 }
 
 func (s *modelconfigSuite) TestGetModelConstraints(c *tc.C) {
@@ -134,8 +133,8 @@ func (s *modelconfigSuite) TestGetModelConstraints(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "GetModelConstraints", args, res).SetArg(3, results).Return(nil)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	result, err := client.GetModelConstraints(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, constraints.MustParse("arch=amd64"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, constraints.MustParse("arch=amd64"))
 }
 
 func (s *modelconfigSuite) TestSetModelConstraints(c *tc.C) {
@@ -150,7 +149,7 @@ func (s *modelconfigSuite) TestSetModelConstraints(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SetModelConstraints", args, res).Return(nil)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	err := client.SetModelConstraints(context.Background(), constraints.MustParse("arch=amd64"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *modelconfigSuite) TestGetModelSecretBackendNotSupported(c *tc.C) {
@@ -162,7 +161,7 @@ func (s *modelconfigSuite) TestGetModelSecretBackendNotSupported(c *tc.C) {
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	_, err := client.GetModelSecretBackend(context.Background())
 	c.Assert(err, tc.ErrorMatches, "getting model secret backend not supported")
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 
 func (s *modelconfigSuite) TestGetModelSecretBackendModelNotFound(c *tc.C) {
@@ -182,7 +181,7 @@ func (s *modelconfigSuite) TestGetModelSecretBackendModelNotFound(c *tc.C) {
 
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	_, err := client.GetModelSecretBackend(context.Background())
-	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 	c.Assert(err, tc.ErrorMatches, fmt.Sprintf("model %q not found", modelID))
 }
 
@@ -199,7 +198,7 @@ func (s *modelconfigSuite) TestGetModelSecretBackend(c *tc.C) {
 
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	result, err := client.GetModelSecretBackend(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.Equals, "backend-id")
 }
 
@@ -212,7 +211,7 @@ func (s *modelconfigSuite) TestSetModelSecretBackendNotSupported(c *tc.C) {
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	err := client.SetModelSecretBackend(context.Background(), "backend-id")
 	c.Assert(err, tc.ErrorMatches, "setting model secret backend not supported")
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 
 func (s *modelconfigSuite) TestSetModelSecretBackend(c *tc.C) {
@@ -227,7 +226,7 @@ func (s *modelconfigSuite) TestSetModelSecretBackend(c *tc.C) {
 	}, gomock.Any()).SetArg(3, results).Return(nil)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	err := client.SetModelSecretBackend(context.Background(), "backend-id")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *modelconfigSuite) TestSetModelSecretBackendFaildBackendNotFound(c *tc.C) {
@@ -246,7 +245,7 @@ func (s *modelconfigSuite) TestSetModelSecretBackendFaildBackendNotFound(c *tc.C
 	}, gomock.Any()).SetArg(3, results).Return(nil)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	err := client.SetModelSecretBackend(context.Background(), "backend-id")
-	c.Assert(err, jc.ErrorIs, secretbackenderrors.NotFound)
+	c.Assert(err, tc.ErrorIs, secretbackenderrors.NotFound)
 }
 
 func (s *modelconfigSuite) TestSetModelSecretBackendFaildBackendNotValid(c *tc.C) {
@@ -265,7 +264,7 @@ func (s *modelconfigSuite) TestSetModelSecretBackendFaildBackendNotValid(c *tc.C
 	}, gomock.Any()).SetArg(3, results).Return(nil)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	err := client.SetModelSecretBackend(context.Background(), "backend-id")
-	c.Assert(err, jc.ErrorIs, secretbackenderrors.NotValid)
+	c.Assert(err, tc.ErrorIs, secretbackenderrors.NotValid)
 }
 
 func (s *modelconfigSuite) TestSetModelSecretBackendFaildModelNotFound(c *tc.C) {
@@ -286,6 +285,6 @@ func (s *modelconfigSuite) TestSetModelSecretBackendFaildModelNotFound(c *tc.C) 
 	}, gomock.Any()).SetArg(3, results).Return(nil)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	err := client.SetModelSecretBackend(context.Background(), "backend-id")
-	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 	c.Assert(err, tc.ErrorMatches, fmt.Sprintf("model %q not found", modelID))
 }

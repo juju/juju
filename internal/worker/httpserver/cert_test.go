@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/internal/logger"
@@ -69,11 +68,11 @@ func (s *certSuite) TestAutocertFailure(c *tc.C) {
 	s.config.TLSConfig = tlsConfig
 
 	worker, err := httpserver.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, worker)
 
 	parsed, err := url.Parse(worker.URL())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	entries := gatherLog(func() {
 		_, err := tls.Dial("tcp", parsed.Host, &tls.Config{
@@ -85,7 +84,7 @@ func (s *certSuite) TestAutocertFailure(c *tc.C) {
 		c.Assert(err, tc.ErrorMatches, expectedErr)
 	})
 	// We will log the failure to get the certificate, thus assuring us that we actually tried.
-	c.Assert(entries, jc.LogMatches, jc.SimpleMessages{{
+	c.Assert(entries, tc.LogMatches, tc.SimpleMessages{{
 		Level:   loggo.DEBUG,
 		Message: `getting certificate for server name "somewhere.example"`,
 	}, {
@@ -96,11 +95,11 @@ func (s *certSuite) TestAutocertFailure(c *tc.C) {
 
 func (s *certSuite) TestAutocertNoAutocertDNSName(c *tc.C) {
 	worker, err := httpserver.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, worker)
 
 	parsed, err := url.Parse(worker.URL())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	entries := gatherLog(func() {
 		_, err := tls.Dial("tcp", parsed.Host, &tls.Config{
@@ -112,7 +111,7 @@ func (s *certSuite) TestAutocertNoAutocertDNSName(c *tc.C) {
 		c.Assert(err, tc.ErrorMatches, expectedErr)
 	})
 	// Check that we never logged a failure to get the certificate.
-	c.Assert(entries, tc.Not(jc.LogMatches), jc.SimpleMessages{{
+	c.Assert(entries, tc.Not(tc.LogMatches), tc.SimpleMessages{{
 		Level:   loggo.ERROR,
 		Message: `.*cannot get autocert certificate.*`,
 	}})

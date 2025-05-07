@@ -5,7 +5,6 @@ package storage_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	core "k8s.io/api/core/v1"
 
 	"github.com/juju/juju/caas/kubernetes/provider/storage"
@@ -24,10 +23,10 @@ func (s *storageSuite) TestParseStorageConfig(c *tc.C) {
 		"storage-provisioner": "ebs",
 		"parameters.type":     "gp2",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.StorageClass, tc.Equals, "juju-ebs")
 	c.Assert(cfg.StorageProvisioner, tc.Equals, "ebs")
-	c.Assert(cfg.Parameters, jc.DeepEquals, map[string]string{"type": "gp2"})
+	c.Assert(cfg.Parameters, tc.DeepEquals, map[string]string{"type": "gp2"})
 }
 
 func (s *storageSuite) TestGetStorageMode(c *tc.C) {
@@ -84,8 +83,8 @@ func (s *storageSuite) TestGetStorageMode(c *tc.C) {
 		c.Logf("testing get storage mode %d", i)
 		mode, err := storage.ParseStorageMode(t.attrs)
 		if t.err == "" {
-			c.Check(err, jc.ErrorIsNil)
-			c.Check(*mode, jc.DeepEquals, t.mode)
+			c.Check(err, tc.ErrorIsNil)
+			c.Check(*mode, tc.DeepEquals, t.mode)
 		} else {
 			c.Check(err, tc.ErrorMatches, t.err)
 		}
@@ -118,32 +117,32 @@ func (s *storageSuite) TestPushUniqueVolume(c *tc.C) {
 		},
 	}
 	err := storage.PushUniqueVolume(podSpec, vol1, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(podSpec.Volumes, jc.DeepEquals, []core.Volume{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(podSpec.Volumes, tc.DeepEquals, []core.Volume{
 		vol1,
 	})
 
 	err = storage.PushUniqueVolume(podSpec, vol1, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(podSpec.Volumes, jc.DeepEquals, []core.Volume{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(podSpec.Volumes, tc.DeepEquals, []core.Volume{
 		vol1,
 	})
 
 	err = storage.PushUniqueVolume(podSpec, vol2, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(podSpec.Volumes, jc.DeepEquals, []core.Volume{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(podSpec.Volumes, tc.DeepEquals, []core.Volume{
 		vol1, vol2,
 	})
 
 	err = storage.PushUniqueVolume(podSpec, aDifferentVol2, false)
 	c.Assert(err, tc.ErrorMatches, `duplicated volume "vol2" not valid`)
-	c.Assert(podSpec.Volumes, jc.DeepEquals, []core.Volume{
+	c.Assert(podSpec.Volumes, tc.DeepEquals, []core.Volume{
 		vol1, vol2,
 	})
 
 	err = storage.PushUniqueVolume(podSpec, aDifferentVol2, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(podSpec.Volumes, jc.DeepEquals, []core.Volume{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(podSpec.Volumes, tc.DeepEquals, []core.Volume{
 		vol1, aDifferentVol2,
 	})
 }

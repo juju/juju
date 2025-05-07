@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/arch"
@@ -51,37 +50,37 @@ func (s *deployerSuite) TestValidate(c *tc.C) {
 	cfg = s.newConfig(c)
 	cfg.DataDir = ""
 	err = cfg.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
 	cfg.ObjectStore = nil
 	err = cfg.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
 	cfg.ControllerConfig = nil
 	err = cfg.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
 	cfg.NewCharmHubRepo = nil
 	err = cfg.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
 	cfg.NewCharmDownloader = nil
 	err = cfg.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
 	cfg.CharmhubHTTPClient = nil
 	err = cfg.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
 	cfg.Logger = nil
 	err = cfg.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
 func (s *deployerSuite) TestControllerCharmArchWithDefaultArch(c *tc.C) {
@@ -118,7 +117,7 @@ func (s *deployerSuite) TestDeployLocalCharmThatDoesNotExist(c *tc.C) {
 	deployer := makeBaseDeployer(cfg)
 
 	_, err := deployer.DeployLocalCharm(context.Background(), arch.DefaultArchitecture, base.MakeDefaultBase("ubuntu", "22.04"))
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *deployerSuite) TestDeployLocalCharm(c *tc.C) {
@@ -143,7 +142,7 @@ func (s *deployerSuite) TestDeployLocalCharm(c *tc.C) {
 	deployer := s.newBaseDeployer(c, cfg)
 
 	info, err := deployer.DeployLocalCharm(context.Background(), "arm64", base.MakeDefaultBase("ubuntu", "22.04"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info.URL.String(), tc.Equals, "local:juju-controller-0")
 	c.Assert(info.Origin, tc.DeepEquals, &corecharm.Origin{
 		Source:   corecharm.Local,
@@ -172,7 +171,7 @@ func (s *deployerSuite) TestDeployCharmhubCharm(c *tc.C) {
 	deployer := s.newBaseDeployer(c, cfg)
 
 	info, err := deployer.DeployCharmhubCharm(context.Background(), "arm64", base.MakeDefaultBase("ubuntu", "22.04"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info.URL.String(), tc.Equals, "ch:arm64/juju-controller-1")
 	c.Assert(info.Origin, tc.DeepEquals, &corecharm.Origin{
 		Source:   corecharm.CharmHub,
@@ -202,7 +201,7 @@ func (s *deployerSuite) TestDeployCharmhubCharmWithCustomName(c *tc.C) {
 	deployer := s.newBaseDeployer(c, cfg)
 
 	info, err := deployer.DeployCharmhubCharm(context.Background(), "arm64", base.MakeDefaultBase("ubuntu", "22.04"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info.URL.String(), tc.Equals, "ch:arm64/inferi-1")
 	c.Assert(info.Origin, tc.DeepEquals, &corecharm.Origin{
 		Source:   corecharm.CharmHub,
@@ -302,7 +301,7 @@ func (s *deployerSuite) TestAddControllerApplication(c *tc.C) {
 		ArchivePath:     "path",
 		ObjectStoreUUID: "1234",
 	}, address)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unit, tc.NotNil)
 }
 
@@ -334,31 +333,31 @@ bases:
 
 	dir := c.MkDir()
 	err := os.WriteFile(filepath.Join(dir, "metadata.yaml"), []byte(metadata), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = os.WriteFile(filepath.Join(dir, "manifest.yaml"), []byte(manifest), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	charmDir, err := charmtesting.ReadCharmDir(dir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var buf bytes.Buffer
 	charmDir.ArchiveTo(&buf)
 
 	path := filepath.Join(dataDir, "charms")
 	err = os.MkdirAll(path, 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	path = filepath.Join(path, bootstrap.ControllerCharmArchive)
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	defer f.Close()
 
 	size, err := f.Write(buf.Bytes())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = f.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return path, int64(size)
 }
@@ -379,7 +378,7 @@ func (s *deployerSuite) expectDownloadAndResolve(c *tc.C, name string) {
 		"uuid":         uuid,
 		"charmhub-url": "https://api.staging.charmhub.io",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
 
 	curl := &charm.URL{
@@ -423,7 +422,7 @@ func (s *deployerSuite) expectDownloadAndResolve(c *tc.C, name string) {
 	}, nil)
 
 	url, err := url.Parse("https://inferi.com")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.charmDownloader.EXPECT().Download(gomock.Any(), url, "sha-256").Return(&charmdownloader.DownloadResult{
 		SHA256: "sha-256",

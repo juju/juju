@@ -10,7 +10,6 @@ import (
 	"text/template"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
@@ -207,15 +206,15 @@ type newK8sClientConfigTestCase struct {
 func (s *k8sConfigSuite) assertNewK8sClientConfig(c *tc.C, testCase newK8sClientConfigTestCase) {
 	f, err := s.writeTempKubeConfig(c, testCase.configYamlFileName, testCase.configYamlContent)
 	defer f.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Logf("test: %s", testCase.title)
 	cfg, err := clientconfig.NewK8sClientConfigFromReader("", f, testCase.contextName, testCase.clusterName, nil)
 	if testCase.errMatch != "" {
 		c.Check(err, tc.ErrorMatches, testCase.errMatch)
 	} else {
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(cfg, jc.DeepEquals, testCase.expected)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(cfg, tc.DeepEquals, testCase.expected)
 	}
 }
 
@@ -248,7 +247,7 @@ func (s *k8sConfigSuite) TestGetSingleConfig(c *tc.C) {
 func (s *k8sConfigSuite) TestKubeConfigPathSnapHome(c *tc.C) {
 	f, err := s.writeTempKubeConfig(c, ".kube/config", singleConfigYAML)
 	defer f.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_ = os.Unsetenv("KUBECONFIG")
 	_ = os.Setenv("SNAP_REAL_HOME", s.dir)
 
@@ -261,13 +260,13 @@ func (s *k8sConfigSuite) TestGetSingleConfigSnapHome(c *tc.C) {
 		map[string]string{"username": "theuser", "password": "thepassword"}, false)
 	f, err := s.writeTempKubeConfig(c, ".kube/config", singleConfigYAML)
 	defer f.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_ = os.Unsetenv("KUBECONFIG")
 	_ = os.Setenv("SNAP_REAL_HOME", s.dir)
 
 	cfg, err := clientconfig.NewK8sClientConfigFromReader("", nil, "", "", nil)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(cfg, jc.DeepEquals, &clientconfig.ClientConfig{
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(cfg, tc.DeepEquals, &clientconfig.ClientConfig{
 		Type: "kubernetes",
 		Contexts: map[string]clientconfig.Context{
 			"the-context": {
@@ -409,16 +408,16 @@ func (s *k8sConfigSuite) TestGetMultiConfig(c *tc.C) {
 
 func (s *k8sConfigSuite) TestConfigWithExternalCA(c *tc.C) {
 	caFile, err := os.CreateTemp("", "*")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = caFile.WriteString("QQ==")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(caFile.Close(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(caFile.Close(), tc.ErrorIsNil)
 
 	tpl, err := template.New("").Parse(externalCAYAMLTemplate)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	conf := strings.Builder{}
-	c.Assert(tpl.Execute(&conf, caFile.Name()), jc.ErrorIsNil)
+	c.Assert(tpl.Execute(&conf, caFile.Name()), tc.ErrorIsNil)
 
 	cred := cloud.NewNamedCredential(
 		"the-user", cloud.UserPassAuthType,
@@ -480,13 +479,13 @@ func (s *k8sConfigSuite) TestConfigWithInsecureSkilTLSVerify(c *tc.C) {
 func (s *k8sConfigSuite) TestGetSingleConfigReadsFilePaths(c *tc.C) {
 
 	singleConfig, err := clientcmd.Load([]byte(singleConfigYAML))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	tempdir := c.MkDir()
 	divert := func(name string, data *[]byte, path *string) {
 		*path = filepath.Join(tempdir, name)
 		err := os.WriteFile(*path, *data, 0644)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		*data = nil
 	}
 
@@ -512,7 +511,7 @@ func (s *k8sConfigSuite) TestGetSingleConfigReadsFilePaths(c *tc.C) {
 	}
 
 	singleConfigWithPathsYAML, err := clientcmd.Write(*singleConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cred := cloud.NewNamedCredential(
 		"the-user", cloud.UserPassAuthType,

@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
@@ -180,7 +179,7 @@ different  fred/model.hosted-db2  consume  http:db2, http:log
 
 func (s *findSuite) assertFind(c *tc.C, args []string, expected string) {
 	context, err := s.runFind(c, args...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained := cmdtesting.Stdout(context)
 	c.Assert(obtained, tc.Matches, expected)
@@ -210,7 +209,7 @@ func (s mockFindAPI) FindApplicationOffers(ctx context.Context, filters ...jujuc
 	}
 	if s.expectedFilter != nil {
 		s.c.Assert(filters, tc.HasLen, 1)
-		s.c.Assert(filters[0], jc.DeepEquals, *s.expectedFilter)
+		s.c.Assert(filters[0], tc.DeepEquals, *s.expectedFilter)
 	}
 
 	if s.results != nil {

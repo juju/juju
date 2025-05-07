@@ -6,7 +6,6 @@ package lxdprofile_test
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/lxdprofile"
 )
@@ -143,7 +142,7 @@ func (*LXDProfileNameSuite) TestProfileRevision(c *tc.C) {
 			c.Assert(err, tc.ErrorMatches, tc.err)
 			continue
 		}
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(obtained, tc.Equals, tc.output)
 	}
 }
@@ -185,7 +184,7 @@ func (*LXDProfileNameSuite) TestProfileReplaceRevision(c *tc.C) {
 			c.Assert(err, tc.ErrorMatches, tc.err)
 			continue
 		}
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(obtained, tc.Equals, tc.output)
 	}
 }
@@ -248,7 +247,7 @@ func (*LXDProfileNameSuite) TestMatchProfileNameByAppName(c *tc.C) {
 			c.Assert(err, tc.ErrorMatches, tc.err)
 			continue
 		}
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(obtained, tc.Equals, tc.output)
 	}
 }

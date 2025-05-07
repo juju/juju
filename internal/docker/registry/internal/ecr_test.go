@@ -15,7 +15,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ecr/types"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/semversion"
@@ -77,17 +76,17 @@ func (s *elasticContainerRegistrySuite) getRegistry(c *tc.C, ensureAsserts func(
 			return s.mockECRAPI, nil
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = internal.InitProvider(reg)
 	if !s.imageRepoDetails.IsPrivate() {
 		c.Assert(err, tc.ErrorMatches, `empty credential for elastic container registry`)
 		return nil, ctrl
 	}
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	client, ok := reg.(*internal.ElasticContainerRegistry)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	err = reg.Ping()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return client, ctrl
 }
 
@@ -136,7 +135,7 @@ func (s *elasticContainerRegistrySuite) TestInvalidImageRepoDetails(c *tc.C) {
 
 func setImageRepoDetails(c *tc.C, reg registry.Registry, i docker.ImageRepoDetails) {
 	registry, ok := reg.(*internal.ElasticContainerRegistry)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	registry.SetImageRepoDetails(i)
 }
 
@@ -155,7 +154,7 @@ func (s *elasticContainerRegistrySuite) TestShouldRefreshAuthAuthTokenMissing(c 
 	setImageRepoDetails(c, reg, repoDetails)
 	shouldRefreshAuth, tick := reg.ShouldRefreshAuth()
 	c.Assert(tick, tc.Equals, time.Duration(0))
-	c.Assert(shouldRefreshAuth, jc.IsTrue)
+	c.Assert(shouldRefreshAuth, tc.IsTrue)
 }
 
 func (s *elasticContainerRegistrySuite) TestShouldRefreshNoExpireTime(c *tc.C) {
@@ -174,7 +173,7 @@ func (s *elasticContainerRegistrySuite) TestShouldRefreshNoExpireTime(c *tc.C) {
 	setImageRepoDetails(c, reg, repoDetails)
 	shouldRefreshAuth, tick := reg.ShouldRefreshAuth()
 	c.Assert(tick, tc.Equals, time.Duration(0))
-	c.Assert(shouldRefreshAuth, jc.IsTrue)
+	c.Assert(shouldRefreshAuth, tc.IsTrue)
 }
 
 func (s *elasticContainerRegistrySuite) TestShouldRefreshTokenExpired(c *tc.C) {
@@ -198,7 +197,7 @@ func (s *elasticContainerRegistrySuite) TestShouldRefreshTokenExpired(c *tc.C) {
 	setImageRepoDetails(c, reg, repoDetails)
 	shouldRefreshAuth, tick := reg.ShouldRefreshAuth()
 	c.Assert(tick, tc.Equals, time.Duration(0))
-	c.Assert(shouldRefreshAuth, jc.IsTrue)
+	c.Assert(shouldRefreshAuth, tc.IsTrue)
 
 	// // already expired.
 	expiredTime = time.Now().Add(-1 * time.Second)
@@ -209,7 +208,7 @@ func (s *elasticContainerRegistrySuite) TestShouldRefreshTokenExpired(c *tc.C) {
 	setImageRepoDetails(c, reg, repoDetails)
 	shouldRefreshAuth, tick = reg.ShouldRefreshAuth()
 	c.Assert(tick, tc.Equals, time.Duration(0))
-	c.Assert(shouldRefreshAuth, jc.IsTrue)
+	c.Assert(shouldRefreshAuth, tc.IsTrue)
 }
 
 func (s *elasticContainerRegistrySuite) TestShouldRefreshTokenNoNeedRefresh(c *tc.C) {
@@ -231,7 +230,7 @@ func (s *elasticContainerRegistrySuite) TestShouldRefreshTokenNoNeedRefresh(c *t
 	}
 	setImageRepoDetails(c, reg, repoDetails)
 	shouldRefreshAuth, tick := reg.ShouldRefreshAuth()
-	c.Assert(shouldRefreshAuth, jc.IsFalse)
+	c.Assert(shouldRefreshAuth, tc.IsFalse)
 	c.Assert(tick, tc.NotNil)
 	c.Assert(tick.Round(time.Minute), tc.DeepEquals, 3*time.Minute)
 }
@@ -260,7 +259,7 @@ func (s *elasticContainerRegistrySuite) TestTags(c *tc.C) {
 
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic xxxx==="}})
+			c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Basic xxxx==="}})
 			c.Assert(req.Method, tc.Equals, `GET`)
 			c.Assert(req.URL.String(), tc.Equals, `https://66668888.dkr.ecr.eu-west-1.amazonaws.com/v2/jujud-operator/tags/list`)
 			resps := &http.Response{
@@ -272,8 +271,8 @@ func (s *elasticContainerRegistrySuite) TestTags(c *tc.C) {
 		}),
 	)
 	vers, err := reg.Tags("jujud-operator")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vers, jc.DeepEquals, tools.Versions{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(vers, tc.DeepEquals, tools.Versions{
 		image.NewImageInfo(semversion.MustParse("2.9.10.1")),
 		image.NewImageInfo(semversion.MustParse("2.9.10.2")),
 		image.NewImageInfo(semversion.MustParse("2.9.10")),
@@ -291,7 +290,7 @@ func (s *elasticContainerRegistrySuite) TestTagsErrorResponse(c *tc.C) {
 
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic xxxx==="}})
+			c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Basic xxxx==="}})
 			c.Assert(req.Method, tc.Equals, `GET`)
 			c.Assert(req.URL.String(), tc.Equals, `https://66668888.dkr.ecr.eu-west-1.amazonaws.com/v2/jujud-operator/tags/list`)
 			resps := &http.Response{
@@ -314,7 +313,7 @@ func (s *elasticContainerRegistrySuite) assertGetManifestsSchemaVersion1(c *tc.C
 
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic xxxx==="}})
+			c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Basic xxxx==="}})
 			c.Assert(req.Method, tc.Equals, `GET`)
 			c.Assert(req.URL.String(), tc.Equals, `https://66668888.dkr.ecr.eu-west-1.amazonaws.com/v2/jujud-operator/manifests/2.9.10`)
 			resps := &http.Response{
@@ -329,8 +328,8 @@ func (s *elasticContainerRegistrySuite) assertGetManifestsSchemaVersion1(c *tc.C
 		}),
 	)
 	manifests, err := reg.GetManifests("jujud-operator", "2.9.10")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(manifests, jc.DeepEquals, result)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(manifests, tc.DeepEquals, result)
 }
 
 func (s *elasticContainerRegistrySuite) TestGetManifestsSchemaVersion1(c *tc.C) {
@@ -386,7 +385,7 @@ func (s *elasticContainerRegistrySuite) TestGetBlobs(c *tc.C) {
 
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic xxxx==="}})
+			c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Basic xxxx==="}})
 			c.Assert(req.Method, tc.Equals, `GET`)
 			c.Assert(req.URL.String(), tc.Equals,
 				`https://66668888.dkr.ecr.eu-west-1.amazonaws.com/v2/jujud-operator/blobs/sha256:f0609d8a844f7271411c1a9c5d7a898fd9f9c5a4844e3bc7db6d725b54671ac1`,
@@ -402,6 +401,6 @@ func (s *elasticContainerRegistrySuite) TestGetBlobs(c *tc.C) {
 		}),
 	)
 	manifests, err := reg.GetBlobs("jujud-operator", "sha256:f0609d8a844f7271411c1a9c5d7a898fd9f9c5a4844e3bc7db6d725b54671ac1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(manifests, jc.DeepEquals, &internal.BlobsResponse{Architecture: "amd64"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(manifests, tc.DeepEquals, &internal.BlobsResponse{Architecture: "amd64"})
 }

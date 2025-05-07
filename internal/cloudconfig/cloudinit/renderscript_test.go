@@ -7,7 +7,6 @@ import (
 	"regexp"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
@@ -33,7 +32,7 @@ var aptgetRegexp = "(.|\n)*" + regexp.QuoteMeta("apt-get --option=Dpkg::Options:
 
 func assertScriptMatches(c *tc.C, cfg cloudinit.CloudConfig, pattern string, match bool) {
 	script, err := cfg.RenderScript()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checker := tc.Matches
 	if !match {
 		checker = tc.Not(checker)
@@ -43,17 +42,17 @@ func assertScriptMatches(c *tc.C, cfg cloudinit.CloudConfig, pattern string, mat
 
 func assertScriptContains(c *tc.C, cfg cloudinit.CloudConfig, substring string) {
 	script, err := cfg.RenderScript()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(script, jc.Contains, substring)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(script, tc.Contains, substring)
 }
 
 func (s *configureSuite) TestAptUpdate(c *tc.C) {
 	// apt-get update is run only if AptUpdate is set.
 	aptGetUpdatePattern := aptgetRegexp + "update(.|\n)*"
 	cfg, err := cloudinit.New("ubuntu")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(cfg.SystemUpdate(), jc.IsFalse)
+	c.Assert(cfg.SystemUpdate(), tc.IsFalse)
 	c.Assert(cfg.PackageSources(), tc.HasLen, 0)
 	assertScriptMatches(c, cfg, aptGetUpdatePattern, false)
 
@@ -76,7 +75,7 @@ func (s *configureSuite) TestAptUpgrade(c *tc.C) {
 	// apt-get upgrade is only run if AptUpgrade is set.
 	aptGetUpgradePattern := aptgetRegexp + "upgrade(.|\n)*"
 	cfg, err := cloudinit.New("ubuntu")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cfg.SetSystemUpdate(true)
 	source := source.PackageSource{
 		Name: "source",
@@ -119,7 +118,7 @@ for old in ${old_prefix}_*; do
     fi
 done`
 	cfg, err := cloudinit.New("ubuntu")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cfg.SetPackageMirror("http://woat.com")
 	assertScriptContains(c, cfg, expectedCommands)
 }

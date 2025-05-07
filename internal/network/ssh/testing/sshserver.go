@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -49,7 +48,7 @@ func denyPublicKey(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, 
 func CreateTCPServer(c *tc.C, callback func(net.Conn)) (string, chan struct{}) {
 	// We explicitly listen on IPv4 loopback instead of 'localhost'
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	localAddress := listener.Addr().String()
 
 	shutdown := make(chan struct{}, 0)
@@ -103,7 +102,7 @@ func CreateSSHServer(c *tc.C, privateKeys ...string) (string, chan struct{}) {
 	}
 	for _, privateStr := range privateKeys {
 		privateKey, err := ssh.ParsePrivateKey([]byte(privateStr))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		serverConf.AddHostKey(privateKey)
 	}
 	return CreateTCPServer(c, func(tcpConn net.Conn) {

@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coretesting "github.com/juju/juju/internal/testing"
 )
@@ -25,7 +24,7 @@ func (*ImportTest) TestImports(c *tc.C) {
 
 	// This package should only depend on the core packages and the utils/stringcompare package.
 	// If this test fails with a non-core package, please check the dependencies.
-	c.Assert(found, jc.SameContents, []string{
+	c.Assert(found, tc.SameContents, []string{
 		"core/arch",
 		"core/errors",
 		"core/instance",

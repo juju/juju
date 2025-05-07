@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/network"
 )
@@ -24,17 +23,17 @@ var _ = tc.Suite(&sourceSuite{})
 func (*sourceSuite) TestParseInterfaceType(c *tc.C) {
 	fakeSysPath := filepath.Join(c.MkDir(), network.SysClassNetPath)
 	err := os.MkdirAll(fakeSysPath, 0700)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	writeFakeUEvent := func(interfaceName string, lines ...string) string {
 		fakeInterfacePath := filepath.Join(fakeSysPath, interfaceName)
 		err := os.MkdirAll(fakeInterfacePath, 0700)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 
 		fakeUEventPath := filepath.Join(fakeInterfacePath, "uevent")
 		contents := strings.Join(lines, "\n")
 		err = os.WriteFile(fakeUEventPath, []byte(contents), 0644)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		return fakeUEventPath
 	}
 
@@ -74,17 +73,17 @@ func (*sourceSuite) TestParseInterfaceType(c *tc.C) {
 func (*sourceSuite) TestGetBridgePorts(c *tc.C) {
 	fakeSysPath := filepath.Join(c.MkDir(), network.SysClassNetPath)
 	err := os.MkdirAll(fakeSysPath, 0700)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	writeFakePorts := func(bridgeName string, portNames ...string) {
 		fakePortsPath := filepath.Join(fakeSysPath, bridgeName, "brif")
 		err := os.MkdirAll(fakePortsPath, 0700)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 
 		for _, portName := range portNames {
 			portPath := filepath.Join(fakePortsPath, portName)
 			err = os.WriteFile(portPath, []byte(""), 0644)
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		}
 	}
 
@@ -97,9 +96,9 @@ func (*sourceSuite) TestGetBridgePorts(c *tc.C) {
 
 	writeFakePorts("br-eth0", "eth0")
 	result = network.GetBridgePorts(fakeSysPath, "br-eth0")
-	c.Check(result, jc.DeepEquals, []string{"eth0"})
+	c.Check(result, tc.DeepEquals, []string{"eth0"})
 
 	writeFakePorts("br-ovs", "eth0", "eth1", "eth2")
 	result = network.GetBridgePorts(fakeSysPath, "br-ovs")
-	c.Check(result, jc.DeepEquals, []string{"eth0", "eth1", "eth2"})
+	c.Check(result, tc.DeepEquals, []string{"eth0", "eth1", "eth2"})
 }

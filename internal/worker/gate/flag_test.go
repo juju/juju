@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
@@ -29,7 +28,7 @@ func (*FlagSuite) TestManifoldInputs(c *tc.C) {
 	manifold := gate.FlagManifold(gate.FlagManifoldConfig{
 		GateName: "emperrasque",
 	})
-	c.Check(manifold.Inputs, jc.DeepEquals, []string{"emperrasque"})
+	c.Check(manifold.Inputs, tc.DeepEquals, []string{"emperrasque"})
 }
 
 func (*FlagSuite) TestManifoldOutputBadWorker(c *tc.C) {
@@ -55,7 +54,7 @@ func (*FlagSuite) TestManifoldOutputSuccess(c *tc.C) {
 	in := &gate.Flag{}
 	var out engine.Flag
 	err := manifold.Output(in, &out)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(out, tc.Equals, in)
 }
 
@@ -75,7 +74,7 @@ func (*FlagSuite) TestManifoldFilterLeavesOtherErrors(c *tc.C) {
 func (*FlagSuite) TestManifoldFilterLeavesNil(c *tc.C) {
 	manifold := gate.FlagManifold(gate.FlagManifoldConfig{})
 	err := manifold.Filter(nil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (*FlagSuite) TestManifoldStartGateMissing(c *tc.C) {
@@ -119,32 +118,32 @@ func (*FlagSuite) TestManifoldStartSuccess(c *tc.C) {
 		},
 	})
 	worker, err := manifold.Start(context.Background(), getter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(worker, tc.Equals, expect)
 }
 
 func (*FlagSuite) TestFlagUnlocked(c *tc.C) {
 	lock := gate.AlreadyUnlocked{}
 	worker, err := gate.NewFlag(lock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, worker)
 	workertest.CheckAlive(c, worker)
-	c.Check(worker.Check(), jc.IsTrue)
+	c.Check(worker.Check(), tc.IsTrue)
 }
 
 func (*FlagSuite) TestFlagLocked(c *tc.C) {
 	lock := gate.NewLock()
 	worker, err := gate.NewFlag(lock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, worker)
 	workertest.CheckAlive(c, worker)
-	c.Check(worker.Check(), jc.IsFalse)
+	c.Check(worker.Check(), tc.IsFalse)
 }
 
 func (*FlagSuite) TestFlagUnlockError(c *tc.C) {
 	lock := gate.NewLock()
 	worker, err := gate.NewFlag(lock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, worker)
 	workertest.CheckAlive(c, worker)
 	lock.Unlock()

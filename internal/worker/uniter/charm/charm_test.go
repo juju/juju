@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	jujucharm "github.com/juju/juju/internal/charm"
 	charmtesting "github.com/juju/juju/internal/charm/testing"
@@ -62,12 +61,12 @@ func (br *bundleReader) AddCustomBundle(c *tc.C, url *jujucharm.URL, customize f
 		customize(dirpath)
 	}
 	dir, err := charmtesting.ReadCharmDir(dirpath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	bunpath := filepath.Join(base, "bundle")
 	err = dir.ArchiveToPath(bunpath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	bundle, err := jujucharm.ReadCharmArchive(bunpath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return br.AddBundle(url, bundle)
 }
 

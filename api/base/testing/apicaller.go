@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api/base"
@@ -156,7 +155,7 @@ func checkArgs(c *tc.C, args APICall, facade string, version int, id, method str
 		c.Check(method, tc.Equals, args.Method)
 	}
 	if args.Args != nil {
-		c.Check(inArgs, jc.DeepEquals, args.Args)
+		c.Check(inArgs, tc.DeepEquals, args.Args)
 	}
 	if args.Results != nil {
 		c.Check(outResults, tc.NotNil)

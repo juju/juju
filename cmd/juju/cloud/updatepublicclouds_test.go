@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/clearsign"
 
@@ -52,19 +51,19 @@ func (s *updatePublicCloudsSuite) SetUpTest(c *tc.C) {
 func encodeCloudYAML(c *tc.C, yaml string) string {
 	// TODO(wallyworld) - move test signing key elsewhere
 	keyring, err := openpgp.ReadArmoredKeyRing(bytes.NewBufferString(sstesting.SignedMetadataPrivateKey))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	privateKey := keyring[0].PrivateKey
 	err = privateKey.Decrypt([]byte(sstesting.PrivateKeyPassphrase))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var buf bytes.Buffer
 	plaintext, err := clearsign.Encode(&buf, privateKey, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = plaintext.Write([]byte(yaml))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = plaintext.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return string(buf.Bytes())
 }
 
@@ -94,7 +93,7 @@ func (s *updatePublicCloudsSuite) run(c *tc.C, url, errMsg string, args ...strin
 	updateCmd := cloud.NewUpdatePublicCloudsCommandForTest(s.store, s.api, url)
 	out, err := cmdtesting.RunCommand(c, updateCmd, args...)
 	if errMsg == "" {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	} else {
 		c.Assert(err, tc.NotNil)
 		errString := strings.Replace(err.Error(), "\n", "", -1)
@@ -144,9 +143,9 @@ clouds:
 
 func (s *updatePublicCloudsSuite) TestNoNewDataOnClient(c *tc.C) {
 	clouds, err := jujucloud.ParseCloudMetadata([]byte(sampleUpdateCloudData))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = jujucloud.WritePublicCloudMetadata(clouds)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ts := s.setupTestServer(c, sampleUpdateCloudData)
 	defer ts.Close()
@@ -158,18 +157,18 @@ func (s *updatePublicCloudsSuite) TestNoNewDataOnClient(c *tc.C) {
 func (s *updatePublicCloudsSuite) TestFirstRunOnClient(c *tc.C) {
 	// make sure there is nothing
 	err := jujucloud.WritePublicCloudMetadata(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ts := s.setupTestServer(c, sampleUpdateCloudData)
 	defer ts.Close()
 
 	msg := s.run(c, ts.URL, "", "--client")
 	publicClouds, fallbackUsed, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicCloudsPath())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fallbackUsed, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(fallbackUsed, tc.IsFalse)
 	clouds, err := jujucloud.ParseCloudMetadata([]byte(sampleUpdateCloudData))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(publicClouds, jc.DeepEquals, clouds)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(publicClouds, tc.DeepEquals, clouds)
 	c.Assert(msg, tc.Matches, `
 Fetching latest public cloud list...
 Updated list of public clouds on this client, 1 cloud added:
@@ -181,9 +180,9 @@ Updated list of public clouds on this client, 1 cloud added:
 
 func (s *updatePublicCloudsSuite) TestNewDataOnClient(c *tc.C) {
 	clouds, err := jujucloud.ParseCloudMetadata([]byte(sampleUpdateCloudData))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = jujucloud.WritePublicCloudMetadata(clouds)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newUpdateCloudData := sampleUpdateCloudData + `
       anotherregion:
@@ -194,11 +193,11 @@ func (s *updatePublicCloudsSuite) TestNewDataOnClient(c *tc.C) {
 
 	msg := s.run(c, ts.URL, "", "--client")
 	publicClouds, fallbackUsed, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicCloudsPath())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fallbackUsed, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(fallbackUsed, tc.IsFalse)
 	clouds, err = jujucloud.ParseCloudMetadata([]byte(newUpdateCloudData))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(publicClouds, jc.DeepEquals, clouds)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(publicClouds, tc.DeepEquals, clouds)
 	c.Assert(msg, tc.Matches, `
 Fetching latest public cloud list...
 Updated list of public clouds on this client, 1 cloud region added:

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	apisecrets "github.com/juju/juju/api/client/secrets"
@@ -88,7 +87,7 @@ func (s *ShowSuite) TestShow(c *tc.C) {
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	ctx, err := cmdtesting.RunCommand(c, secrets.NewShowCommandForTest(s.store, s.secretsAPI), uri.ID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, tc.Equals, fmt.Sprintf(`
 %s:
@@ -130,7 +129,7 @@ func (s *ShowSuite) TestShowByName(c *tc.C) {
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	ctx, err := cmdtesting.RunCommand(c, secrets.NewShowCommandForTest(s.store, s.secretsAPI), "my-secret")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, tc.Equals, fmt.Sprintf(`
 %s:
@@ -166,7 +165,7 @@ func (s *ShowSuite) TestShowReveal(c *tc.C) {
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	ctx, err := cmdtesting.RunCommand(c, secrets.NewShowCommandForTest(s.store, s.secretsAPI), uri.ID, "--reveal")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, tc.Equals, fmt.Sprintf(`
 %s:
@@ -208,7 +207,7 @@ func (s *ShowSuite) TestShowRevisions(c *tc.C) {
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	ctx, err := cmdtesting.RunCommand(c, secrets.NewShowCommandForTest(s.store, s.secretsAPI), uri.ID, "--revisions")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, tc.Equals, fmt.Sprintf(`
 %s:

@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	internallogger "github.com/juju/juju/internal/logger"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -138,7 +137,7 @@ func (s *bufferedLogWriterSuite) TestClose(c *tc.C) {
 	// has finished.
 	select {
 	case _, ok := <-s.writer.Logs():
-		c.Assert(ok, jc.IsFalse)
+		c.Assert(ok, tc.IsFalse)
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for output channel to close")
 	}
@@ -149,7 +148,7 @@ func (s *bufferedLogWriterSuite) TestClose(c *tc.C) {
 
 func (s *bufferedLogWriterSuite) TestInstallBufferedLogWriter(c *tc.C) {
 	bufferedLogger, err := logsender.InstallBufferedLogWriter(loggo.DefaultContext(), 10)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer logsender.UninstallBufferedLogWriter()
 
 	logger := internallogger.GetLogger("bufferedLogWriter-test")
@@ -171,10 +170,10 @@ func (s *bufferedLogWriterSuite) TestInstallBufferedLogWriter(c *tc.C) {
 
 func (s *bufferedLogWriterSuite) TestUninstallBufferedLogWriter(c *tc.C) {
 	_, err := logsender.InstallBufferedLogWriter(loggo.DefaultContext(), 10)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = logsender.UninstallBufferedLogWriter()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Second uninstall attempt should fail
 	err = logsender.UninstallBufferedLogWriter()

@@ -5,7 +5,6 @@ package proxy_test
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"gopkg.in/yaml.v3"
 	"k8s.io/client-go/rest"
 
@@ -29,12 +28,12 @@ func (p *proxySuite) TestProxierMarshalling(c *tc.C) {
 
 	proxier := proxy.NewProxier(config)
 	yamlConf, err := yaml.Marshal(proxier)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	unmarshalledConfig := proxy.ProxierConfig{}
-	c.Assert(yaml.Unmarshal(yamlConf, &unmarshalledConfig), jc.ErrorIsNil)
+	c.Assert(yaml.Unmarshal(yamlConf, &unmarshalledConfig), tc.ErrorIsNil)
 
-	c.Assert(unmarshalledConfig, jc.DeepEquals, config)
+	c.Assert(unmarshalledConfig, tc.DeepEquals, config)
 }
 
 func (p *proxySuite) TestSetAPIHost(c *tc.C) {
@@ -45,13 +44,13 @@ func (p *proxySuite) TestSetAPIHost(c *tc.C) {
 	proxier := proxy.NewProxier(config)
 	proxier.SetAPIHost("https://localhost:666")
 	yamlConf, err := yaml.Marshal(proxier)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	unmarshalledConfig := proxy.ProxierConfig{}
-	c.Assert(yaml.Unmarshal(yamlConf, &unmarshalledConfig), jc.ErrorIsNil)
+	c.Assert(yaml.Unmarshal(yamlConf, &unmarshalledConfig), tc.ErrorIsNil)
 
 	config.APIHost = "https://localhost:666"
-	c.Assert(unmarshalledConfig, jc.DeepEquals, config)
+	c.Assert(unmarshalledConfig, tc.DeepEquals, config)
 }
 
 func (p *proxySuite) TestNewProxier(c *tc.C) {

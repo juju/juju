@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testing"
@@ -24,23 +23,23 @@ var _ = tc.Suite(&FlagsSuite{})
 
 func (*FlagsSuite) TestConfigFlagSet(c *tc.C) {
 	var f ConfigFlag
-	c.Assert(f.Set("a.yaml"), jc.ErrorIsNil)
+	c.Assert(f.Set("a.yaml"), tc.ErrorIsNil)
 	assertConfigFlag(c, f, []string{"a.yaml"}, nil)
-	c.Assert(f.Set("b.yaml"), jc.ErrorIsNil)
+	c.Assert(f.Set("b.yaml"), tc.ErrorIsNil)
 	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, nil)
-	c.Assert(f.Set("k1=v1"), jc.ErrorIsNil)
+	c.Assert(f.Set("k1=v1"), tc.ErrorIsNil)
 	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": "v1"})
-	c.Assert(f.Set("k1="), jc.ErrorIsNil)
+	c.Assert(f.Set("k1="), tc.ErrorIsNil)
 	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": ""})
-	c.Assert(f.Set("k1=v1"), jc.ErrorIsNil)
+	c.Assert(f.Set("k1=v1"), tc.ErrorIsNil)
 	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": "v1"})
-	c.Assert(f.Set("k1==v2"), jc.ErrorIsNil)
+	c.Assert(f.Set("k1==v2"), tc.ErrorIsNil)
 	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": "=v2"})
-	c.Assert(f.Set("k2=3"), jc.ErrorIsNil)
+	c.Assert(f.Set("k2=3"), tc.ErrorIsNil)
 	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": "=v2", "k2": "3"})
-	c.Assert(f.Set("k3="), jc.ErrorIsNil)
+	c.Assert(f.Set("k3="), tc.ErrorIsNil)
 	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": "=v2", "k2": "3", "k3": ""})
-	c.Assert(f.Set("k4=4.0"), jc.ErrorIsNil)
+	c.Assert(f.Set("k4=4.0"), tc.ErrorIsNil)
 	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": "=v2", "k2": "3", "k3": "", "k4": "4.0"})
 }
 
@@ -56,14 +55,14 @@ bar: 2
 `[1:]
 
 	var f ConfigFlag
-	c.Assert(f.SetAttrsFromReader(bytes.NewBufferString(yaml)), jc.ErrorIsNil)
+	c.Assert(f.SetAttrsFromReader(bytes.NewBufferString(yaml)), tc.ErrorIsNil)
 	assertConfigFlag(c, f, nil, map[string]interface{}{"foo": 1, "bar": 2})
 
 	yaml = `
 foo: 3
 baz: 4
 `[1:]
-	c.Assert(f.SetAttrsFromReader(bytes.NewBufferString(yaml)), jc.ErrorIsNil)
+	c.Assert(f.SetAttrsFromReader(bytes.NewBufferString(yaml)), tc.ErrorIsNil)
 	assertConfigFlag(c, f, nil, map[string]interface{}{"foo": 3, "bar": 2, "baz": 4})
 }
 
@@ -91,9 +90,9 @@ func (*FlagsSuite) TestConfigFlagReadAttrs(c *tc.C) {
 	configFile1 := filepath.Join(tmpdir, "config-1.yaml")
 	configFile2 := filepath.Join(tmpdir, "config-2.yaml")
 	err := os.WriteFile(configFile1, []byte(`over: "'n'out"`+"\n"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = os.WriteFile(configFile2, []byte(`over: "'n'under"`+"\n"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var f ConfigFlag
 	assertConfigFlagReadAttrs(c, f, map[string]interface{}{})
@@ -109,14 +108,14 @@ func (*FlagsSuite) TestConfigFlagReadConfigPairs(c *tc.C) {
 	ctx := cmdtesting.Context(c)
 	configFile1 := filepath.Join(ctx.Dir, "config-1.yaml")
 	err := os.WriteFile(configFile1, []byte(`over: "'n'out"`+"\n"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var f ConfigFlag
 	f.files = append(f.files, configFile1)
 	f.attrs = map[string]interface{}{"key": "value"}
 	attrs, err := f.ReadConfigPairs(ctx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(attrs, jc.DeepEquals, map[string]interface{}{"key": "value"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(attrs, tc.DeepEquals, map[string]interface{}{"key": "value"})
 }
 
 func (*FlagsSuite) TestConfigFlagReadAttrsErrors(c *tc.C) {
@@ -127,7 +126,7 @@ func (*FlagsSuite) TestConfigFlagReadAttrsErrors(c *tc.C) {
 	f.files = append(f.files, configFile)
 	ctx := cmdtesting.Context(c)
 	attrs, err := f.ReadAttrs(ctx)
-	c.Assert(errors.Cause(err), jc.Satisfies, os.IsNotExist)
+	c.Assert(errors.Cause(err), tc.Satisfies, os.IsNotExist)
 	c.Assert(attrs, tc.IsNil)
 }
 
@@ -141,22 +140,22 @@ func (*FlagsSuite) TestAbsoluteFilenames(c *tc.C) {
 	f.files = append(f.files, configFile2)
 	ctx := cmdtesting.Context(c)
 	files, err := f.AbsoluteFileNames(ctx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(files, jc.DeepEquals, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(files, tc.DeepEquals, []string{
 		configFile1, configFile2,
 	})
 }
 
 func assertConfigFlag(c *tc.C, f ConfigFlag, files []string, attrs map[string]interface{}) {
-	c.Assert(f.files, jc.DeepEquals, files)
-	c.Assert(f.attrs, jc.DeepEquals, attrs)
+	c.Assert(f.files, tc.DeepEquals, files)
+	c.Assert(f.attrs, tc.DeepEquals, attrs)
 }
 
 func assertConfigFlagReadAttrs(c *tc.C, f ConfigFlag, expect map[string]interface{}) {
 	ctx := cmdtesting.Context(c)
 	attrs, err := f.ReadAttrs(ctx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(attrs, jc.DeepEquals, expect)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(attrs, tc.DeepEquals, expect)
 }
 
 func (*FlagsSuite) TestAutoBoolValue(c *tc.C) {
@@ -164,16 +163,16 @@ func (*FlagsSuite) TestAutoBoolValue(c *tc.C) {
 	c.Assert(f.Get(), tc.IsNil)
 	c.Assert(f.String(), tc.Equals, "nil")
 
-	c.Assert(f.Set("true"), jc.ErrorIsNil)
-	c.Assert(*f.Get(), jc.IsTrue)
+	c.Assert(f.Set("true"), tc.ErrorIsNil)
+	c.Assert(*f.Get(), tc.IsTrue)
 	c.Assert(f.String(), tc.Equals, "true")
 
-	c.Assert(f.Set("false"), jc.ErrorIsNil)
-	c.Assert(*f.Get(), jc.IsFalse)
+	c.Assert(f.Set("false"), tc.ErrorIsNil)
+	c.Assert(*f.Get(), tc.IsFalse)
 	c.Assert(f.String(), tc.Equals, "false")
 
 	c.Assert(f.Set(""), tc.ErrorMatches, `strconv.ParseBool: parsing "": invalid syntax`)
 	c.Assert(f.Set("non-bool"), tc.ErrorMatches, `strconv.ParseBool: parsing "non-bool": invalid syntax`)
 
-	c.Assert(f.IsBoolFlag(), jc.IsTrue)
+	c.Assert(f.IsBoolFlag(), tc.IsTrue)
 }

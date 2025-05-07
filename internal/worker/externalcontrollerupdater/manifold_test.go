@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/internal/worker/externalcontrollerupdater"
@@ -37,7 +36,7 @@ func (s *ManifoldConfigSuite) validConfig() externalcontrollerupdater.ManifoldCo
 }
 
 func (s *ManifoldConfigSuite) TestValid(c *tc.C) {
-	c.Check(s.config.Validate(), jc.ErrorIsNil)
+	c.Check(s.config.Validate(), tc.ErrorIsNil)
 }
 
 func (s *ManifoldConfigSuite) TestMissingAPICallerName(c *tc.C) {
@@ -53,5 +52,5 @@ func (s *ManifoldConfigSuite) TestMissingNewExternalControllerWatcherClient(c *t
 func (s *ManifoldConfigSuite) checkNotValid(c *tc.C, expect string) {
 	err := s.config.Validate()
 	c.Check(err, tc.ErrorMatches, expect)
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 }

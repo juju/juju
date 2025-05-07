@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/domain/macaroon"
 	"github.com/juju/juju/domain/macaroon/errors"
@@ -69,13 +68,13 @@ func (s *rootKeyStateSuite) TestInsertAndGetKey(c *tc.C) {
 	ctx := context.Background()
 
 	_, err := st.GetKey(ctx, key0.ID, now)
-	c.Assert(err, jc.ErrorIs, errors.KeyNotFound)
+	c.Assert(err, tc.ErrorIs, errors.KeyNotFound)
 
 	err = st.InsertKey(ctx, key0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	res, err := st.GetKey(ctx, key0.ID, now)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	compareRootKeys(c, key0, res)
 }
 
@@ -84,13 +83,13 @@ func (s *rootKeyStateSuite) TestInsertKeyIDUniqueness(c *tc.C) {
 	ctx := context.Background()
 
 	_, err := st.GetKey(ctx, key0.ID, now)
-	c.Assert(err, jc.ErrorIs, errors.KeyNotFound)
+	c.Assert(err, tc.ErrorIs, errors.KeyNotFound)
 
 	err = st.InsertKey(ctx, key0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = st.InsertKey(ctx, key0)
-	c.Assert(err, jc.ErrorIs, errors.KeyAlreadyExists)
+	c.Assert(err, tc.ErrorIs, errors.KeyAlreadyExists)
 }
 
 func (s *rootKeyStateSuite) TestFindLatestKeyReturnsMostRecent(c *tc.C) {
@@ -99,7 +98,7 @@ func (s *rootKeyStateSuite) TestFindLatestKeyReturnsMostRecent(c *tc.C) {
 	addAllKeys(c, st)
 
 	res, err := st.FindLatestKey(ctx, time.Unix(0, 0), time.Unix(0, 0), time.Unix(math.MaxInt64, 0), now)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	compareRootKeys(c, key3, res)
 }
 
@@ -109,7 +108,7 @@ func (s *rootKeyStateSuite) TestFindLatestKeyExpiresAfter(c *tc.C) {
 	addAllKeys(c, st)
 
 	res, err := st.FindLatestKey(ctx, time.Unix(0, 0), now.Add(7*time.Second), time.Unix(math.MaxInt64, 0), now)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	compareRootKeys(c, key2, res)
 }
 
@@ -119,11 +118,11 @@ func (s *rootKeyStateSuite) TestFindLatestKeyCreatedAfter(c *tc.C) {
 	addAllKeys(c, st)
 
 	res, err := st.FindLatestKey(ctx, time.Unix(0, 0), time.Unix(0, 0), time.Unix(math.MaxInt64, 0), now)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	compareRootKeys(c, key3, res)
 
 	_, err = st.FindLatestKey(ctx, time.Unix(math.MaxInt64, 0), time.Unix(0, 0), time.Unix(math.MaxInt64, 0), now)
-	c.Assert(err, jc.ErrorIs, errors.KeyNotFound)
+	c.Assert(err, tc.ErrorIs, errors.KeyNotFound)
 }
 
 func (s *rootKeyStateSuite) TestFindLatestKeyExpiresBefore(c *tc.C) {
@@ -132,15 +131,15 @@ func (s *rootKeyStateSuite) TestFindLatestKeyExpiresBefore(c *tc.C) {
 	addAllKeys(c, st)
 
 	res, err := st.FindLatestKey(ctx, time.Unix(0, 0), time.Unix(0, 0), now.Add(5*time.Second), now)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	compareRootKeys(c, key1, res)
 
 	res, err = st.FindLatestKey(ctx, time.Unix(0, 0), time.Unix(0, 0), now.Add(3*time.Second), now)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	compareRootKeys(c, key0, res)
 
 	_, err = st.FindLatestKey(ctx, time.Unix(0, 0), time.Unix(0, 0), now.Add(-2*time.Second), now)
-	c.Assert(err, jc.ErrorIs, errors.KeyNotFound)
+	c.Assert(err, tc.ErrorIs, errors.KeyNotFound)
 }
 
 func (s *rootKeyStateSuite) TestFindLatestKeyEquality(c *tc.C) {
@@ -149,11 +148,11 @@ func (s *rootKeyStateSuite) TestFindLatestKeyEquality(c *tc.C) {
 	addAllKeys(c, st)
 
 	res, err := st.FindLatestKey(ctx, key3.Created, key3.Expires, key3.Expires, now)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	compareRootKeys(c, key3, res)
 
 	_, err = st.FindLatestKey(ctx, key3.Created.Add(1*time.Millisecond), key3.Expires, key3.Expires, now)
-	c.Assert(err, jc.ErrorIs, errors.KeyNotFound)
+	c.Assert(err, tc.ErrorIs, errors.KeyNotFound)
 }
 
 func (s *rootKeyStateSuite) TestExpiredKeysAreRemoved(c *tc.C) {
@@ -162,15 +161,15 @@ func (s *rootKeyStateSuite) TestExpiredKeysAreRemoved(c *tc.C) {
 	addAllKeys(c, st)
 
 	_, err := st.GetKey(ctx, key0.ID, now)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	_, err = st.GetKey(ctx, key1.ID, now)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	_, err = st.GetKey(ctx, key2.ID, now)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	_, err = st.GetKey(ctx, key3.ID, now)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	_, err = st.GetKey(ctx, key4.ID, now)
-	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
+	c.Check(err, tc.ErrorIs, errors.KeyNotFound)
 }
 
 func (s *rootKeyStateSuite) TestRemoveKeysExpiredBeforeNowPlus5(c *tc.C) {
@@ -181,15 +180,15 @@ func (s *rootKeyStateSuite) TestRemoveKeysExpiredBeforeNowPlus5(c *tc.C) {
 	now := now.Add(5 * time.Second)
 
 	_, err := st.GetKey(ctx, key0.ID, now)
-	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
+	c.Check(err, tc.ErrorIs, errors.KeyNotFound)
 	_, err = st.GetKey(ctx, key1.ID, now)
-	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
+	c.Check(err, tc.ErrorIs, errors.KeyNotFound)
 	_, err = st.GetKey(ctx, key2.ID, now)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	_, err = st.GetKey(ctx, key3.ID, now)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	_, err = st.GetKey(ctx, key4.ID, now)
-	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
+	c.Check(err, tc.ErrorIs, errors.KeyNotFound)
 }
 
 func (s *rootKeyStateSuite) TestRemoveKeysExpiredAll(c *tc.C) {
@@ -200,18 +199,18 @@ func (s *rootKeyStateSuite) TestRemoveKeysExpiredAll(c *tc.C) {
 	now := now.Add(10 * time.Second)
 
 	_, err := st.GetKey(ctx, key0.ID, now)
-	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
+	c.Check(err, tc.ErrorIs, errors.KeyNotFound)
 	_, err = st.GetKey(ctx, key1.ID, now)
-	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
+	c.Check(err, tc.ErrorIs, errors.KeyNotFound)
 	_, err = st.GetKey(ctx, key2.ID, now)
-	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
+	c.Check(err, tc.ErrorIs, errors.KeyNotFound)
 	_, err = st.GetKey(ctx, key3.ID, now)
-	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
+	c.Check(err, tc.ErrorIs, errors.KeyNotFound)
 	_, err = st.GetKey(ctx, key4.ID, now)
-	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
+	c.Check(err, tc.ErrorIs, errors.KeyNotFound)
 
 	_, err = st.FindLatestKey(ctx, time.Unix(0, 0), time.Unix(0, 0), time.Unix(math.MaxInt64, 0), now)
-	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
+	c.Check(err, tc.ErrorIs, errors.KeyNotFound)
 }
 
 func (s *rootKeyStateSuite) TestRemoveKeysExpiredNone(c *tc.C) {
@@ -222,30 +221,30 @@ func (s *rootKeyStateSuite) TestRemoveKeysExpiredNone(c *tc.C) {
 	now := now.Add(-10 * time.Second)
 
 	_, err := st.GetKey(ctx, key0.ID, now)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	_, err = st.GetKey(ctx, key1.ID, now)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	_, err = st.GetKey(ctx, key2.ID, now)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	_, err = st.GetKey(ctx, key3.ID, now)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	_, err = st.GetKey(ctx, key4.ID, now)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func addAllKeys(c *tc.C, st *State) {
 	ctx := context.Background()
 
 	err := st.InsertKey(ctx, key0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.InsertKey(ctx, key1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.InsertKey(ctx, key2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.InsertKey(ctx, key3)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.InsertKey(ctx, key4)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func compareRootKeys(c *tc.C, k1, k2 macaroon.RootKey) {

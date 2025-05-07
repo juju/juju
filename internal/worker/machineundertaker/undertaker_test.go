@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"gopkg.in/tomb.v2"
@@ -36,7 +35,7 @@ func (s *undertakerSuite) TestErrorWatching(c *tc.C) {
 	api.SetErrors(errors.New("blam"))
 	w, err := machineundertaker.NewWorker(
 		api, &fakeEnviron{}, loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
 	c.Check(err, tc.ErrorMatches, "blam")
 	api.CheckCallNames(c, "WatchMachineRemovals")
@@ -47,7 +46,7 @@ func (s *undertakerSuite) TestErrorGettingRemovals(c *tc.C) {
 	api.SetErrors(nil, errors.New("explodo"))
 	w, err := machineundertaker.NewWorker(
 		api, &fakeEnviron{}, loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
 	c.Check(err, tc.ErrorMatches, "explodo")
 	api.CheckCallNames(c, "WatchMachineRemovals", "AllMachineRemovals")
@@ -64,7 +63,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_NoNetworking(c *tc.C) {
 	api := fakeAPI{Stub: &testing.Stub{}}
 	u := machineundertaker.Undertaker{API: &api, Logger: loggertesting.WrapCheckLog(c)}
 	err := u.MaybeReleaseAddresses(context.Background(), names.NewMachineTag("3"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	api.CheckCallNames(c)
 }
 
@@ -77,7 +76,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_NotContainer(c *tc.C) {
 		Logger:   loggertesting.WrapCheckLog(c),
 	}
 	err := u.MaybeReleaseAddresses(context.Background(), names.NewMachineTag("4"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	api.CheckCallNames(c)
 }
 
@@ -103,7 +102,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_NoAddresses(c *tc.C) {
 		Logger:   loggertesting.WrapCheckLog(c),
 	}
 	err := u.MaybeReleaseAddresses(context.Background(), names.NewMachineTag("4/lxd/4"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	releaser.CheckCallNames(c)
 }
 
@@ -124,7 +123,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_NotSupported(c *tc.C) {
 		Logger:   loggertesting.WrapCheckLog(c),
 	}
 	err := u.MaybeReleaseAddresses(context.Background(), names.NewMachineTag("4/lxd/4"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	releaser.CheckCall(c, 0, "ReleaseContainerAddresses",
 		[]network.ProviderInterfaceInfo{{InterfaceName: "chloe"}},
 	)
@@ -169,7 +168,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_Success(c *tc.C) {
 		Logger:   loggertesting.WrapCheckLog(c),
 	}
 	err := u.MaybeReleaseAddresses(context.Background(), names.NewMachineTag("4/lxd/4"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	releaser.CheckCall(c, 0, "ReleaseContainerAddresses",
 		[]network.ProviderInterfaceInfo{{InterfaceName: "chloe"}},
 	)
@@ -192,7 +191,7 @@ func (*undertakerSuite) TestHandle_CompletesRemoval(c *tc.C) {
 		Logger:   loggertesting.WrapCheckLog(c),
 	}
 	err := u.Handle(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(releaser.Calls(), tc.HasLen, 1)
 	releaser.CheckCall(c, 0, "ReleaseContainerAddresses",
@@ -220,7 +219,7 @@ func (*undertakerSuite) TestHandle_NoRemovalOnErrorReleasing(c *tc.C) {
 		Logger:   loggertesting.WrapCheckLog(c),
 	}
 	err := u.Handle(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(releaser.Calls(), tc.HasLen, 1)
 	releaser.CheckCall(c, 0, "ReleaseContainerAddresses",
@@ -238,7 +237,7 @@ func (*undertakerSuite) TestHandle_ErrorOnRemoval(c *tc.C) {
 	api.SetErrors(nil, errors.New("couldn't remove machine 3"))
 	u := machineundertaker.Undertaker{API: &api, Logger: loggertesting.WrapCheckLog(c)}
 	err := u.Handle(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkRemovalsMatch(c, api.Stub, "3", "4/lxd/4")
 }
 
@@ -270,7 +269,7 @@ func (s *undertakerSuite) newMockNotifyWatcher() *mockNotifyWatcher {
 	})
 	s.AddCleanup(func(c *tc.C) {
 		err := worker.Stop(m)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	})
 	m.Change()
 	return m

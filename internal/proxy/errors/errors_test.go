@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/proxy/errors"
 )
@@ -20,11 +19,11 @@ type ErrorsSuite struct {
 }
 
 func (*ErrorsSuite) TestIsProxyConnectError(c *tc.C) {
-	c.Assert(errors.IsProxyConnectError(nil), jc.IsFalse)
+	c.Assert(errors.IsProxyConnectError(nil), tc.IsFalse)
 	err := stderrors.New("foo")
-	c.Assert(errors.IsProxyConnectError(err), jc.IsFalse)
+	c.Assert(errors.IsProxyConnectError(err), tc.IsFalse)
 	err = errors.NewProxyConnectError(stderrors.New("foo"), "")
-	c.Assert(errors.IsProxyConnectError(err), jc.IsTrue)
+	c.Assert(errors.IsProxyConnectError(err), tc.IsTrue)
 }
 
 func (*ErrorsSuite) TestProxyType(c *tc.C) {

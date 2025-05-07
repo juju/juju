@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -23,7 +22,7 @@ import (
 
 func fakeConfig(c *tc.C, attrs ...coretesting.Attrs) *config.Config {
 	cfg, err := coretesting.ModelConfig(c).Apply(fakeConfigAttrs(attrs...))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return cfg
 }
 
@@ -72,7 +71,7 @@ func (s *providerSuite) SetUpTest(c *tc.C) {
 
 func (s *providerSuite) TestRegistered(c *tc.C) {
 	provider, err := environs.Provider("kubernetes")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(provider, tc.NotNil)
 }
 
@@ -83,7 +82,7 @@ func (s *providerSuite) TestOpen(c *tc.C) {
 		Cloud:  fakeCloudSpec(),
 		Config: config,
 	}, environs.NoopCredentialInvalidator())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(broker, tc.NotNil)
 }
 
@@ -116,13 +115,13 @@ func (s *providerSuite) testOpenError(c *tc.C, spec environscloudspec.CloudSpec,
 
 func (s *providerSuite) TestValidateCloud(c *tc.C) {
 	err := s.provider.ValidateCloud(context.Background(), fakeCloudSpec())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *providerSuite) TestValidate(c *tc.C) {
 	config := fakeConfig(c)
 	validCfg, err := s.provider.Validate(context.Background(), config, nil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	validAttrs := validCfg.AllAttrs()
 	c.Assert(config.AllAttrs(), tc.DeepEquals, validAttrs)

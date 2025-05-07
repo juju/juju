@@ -5,7 +5,6 @@ package azure
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
@@ -35,8 +34,8 @@ func (s *identitySuite) TestFinaliseBootstrapCredentialNoInstanceRole(c *tc.C) {
 	ctx := envtesting.BootstrapTestContext(c)
 	args := environs.BootstrapParams{}
 	got, err := env.FinaliseBootstrapCredential(ctx, args, &cred)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, jc.DeepEquals, &cred)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.DeepEquals, &cred)
 }
 
 func (s *identitySuite) TestFinaliseBootstrapCredentialInstanceRole(c *tc.C) {
@@ -52,12 +51,12 @@ func (s *identitySuite) TestFinaliseBootstrapCredentialInstanceRole(c *tc.C) {
 		BootstrapConstraints: constraints.MustParse("instance-role=foo"),
 	}
 	got, err := env.FinaliseBootstrapCredential(ctx, args, &cred)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	want := cloud.NewCredential("managed-identity", map[string]string{
 		"subscription-id":       fakeSubscriptionId,
 		"managed-identity-path": "foo",
 	})
-	c.Assert(got, jc.DeepEquals, &want)
+	c.Assert(got, tc.DeepEquals, &want)
 }
 
 func (s *identitySuite) TestManagedIdentityGroup(c *tc.C) {

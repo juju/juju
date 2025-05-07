@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 type sourceOtherSuite struct {
@@ -21,7 +20,7 @@ var _ = tc.Suite(&sourceOtherSuite{})
 
 func (s *sourceOtherSuite) TestNewNetAddr(c *tc.C) {
 	addr, err := newNetAddr("192.168.20.1/24")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(addr.String(), tc.Equals, "192.168.20.1/24")
 	c.Assert(addr.IP(), tc.NotNil)
@@ -30,7 +29,7 @@ func (s *sourceOtherSuite) TestNewNetAddr(c *tc.C) {
 	c.Check(addr.IPNet().String(), tc.Equals, "192.168.20.0/24")
 
 	addr, err = newNetAddr("192.168.20.1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(addr.String(), tc.Equals, "192.168.20.1")
 	c.Assert(addr.IP(), tc.NotNil)
@@ -38,7 +37,7 @@ func (s *sourceOtherSuite) TestNewNetAddr(c *tc.C) {
 	c.Assert(addr.IPNet(), tc.IsNil)
 
 	addr, err = newNetAddr("fe80::5054:ff:fedd:eef0/64")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(addr.String(), tc.Equals, "fe80::5054:ff:fedd:eef0/64")
 	c.Assert(addr.IP(), tc.NotNil)
@@ -47,7 +46,7 @@ func (s *sourceOtherSuite) TestNewNetAddr(c *tc.C) {
 	c.Check(addr.IPNet().String(), tc.Equals, "fe80::/64")
 
 	addr, err = newNetAddr("fe80::5054:ff:fedd:eef0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(addr.String(), tc.Equals, "fe80::5054:ff:fedd:eef0")
 	c.Assert(addr.IP(), tc.NotNil)
@@ -167,7 +166,7 @@ func (s *sourceOtherSuite) TestConfigSourceInterfaces(c *tc.C) {
 	}
 
 	sourceNICs, err := source.Interfaces()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(sourceNICs, tc.HasLen, len(rawNICs))
 
 	for i, nic := range sourceNICs {
@@ -177,7 +176,7 @@ func (s *sourceOtherSuite) TestConfigSourceInterfaces(c *tc.C) {
 		c.Check(nic.Index(), tc.Equals, raw.Index)
 		c.Check(nic.MTU(), tc.Equals, raw.MTU)
 		c.Check(nic.HardwareAddr(), tc.DeepEquals, raw.HardwareAddr)
-		c.Check(nic.IsUp(), jc.IsTrue)
+		c.Check(nic.IsUp(), tc.IsTrue)
 	}
 }
 
@@ -205,6 +204,6 @@ func (s *sourceOtherSuite) TestNICTypeDerivation(c *tc.C) {
 
 func parseMAC(c *tc.C, val string) net.HardwareAddr {
 	mac, err := net.ParseMAC(val)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return mac
 }

@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cloud"
 	jujuversion "github.com/juju/juju/core/version"
@@ -76,7 +75,7 @@ func (s *suite) bootstrapTestEnviron(c *tc.C) environs.NetworkingEnviron {
 	c.Assert(e, tc.NotNil)
 	env := e.(environs.Environ)
 	netenv, supported := environs.SupportsNetworking(env)
-	c.Assert(supported, jc.IsTrue)
+	c.Assert(supported, tc.IsTrue)
 
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(context.Background(), c), netenv,
 		bootstrap.BootstrapParams{
@@ -90,7 +89,7 @@ func (s *suite) bootstrapTestEnviron(c *tc.C) environs.NetworkingEnviron {
 			CAPrivateKey:            testing.CAKey,
 			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return netenv
 }
 
@@ -98,7 +97,7 @@ func (s *suite) TestAvailabilityZone(c *tc.C) {
 	e := s.bootstrapTestEnviron(c)
 	defer func() {
 		err := e.Destroy(context.Background())
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}()
 
 	inst, hwc := jujutesting.AssertStartInstance(c, e, s.ControllerUUID, "0")
@@ -110,52 +109,52 @@ func (s *suite) TestSupportsSpaces(c *tc.C) {
 	e := s.bootstrapTestEnviron(c)
 	defer func() {
 		err := e.Destroy(context.Background())
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}()
 
 	// Without change spaces are supported.
 	ok, err := e.SupportsSpaces()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Now turn it off.
 	isEnabled := dummy.SetSupportsSpaces(false)
-	c.Assert(isEnabled, jc.IsTrue)
+	c.Assert(isEnabled, tc.IsTrue)
 	ok, err = e.SupportsSpaces()
-	c.Assert(ok, jc.IsFalse)
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(ok, tc.IsFalse)
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 
 	// And finally turn it on again.
 	isEnabled = dummy.SetSupportsSpaces(true)
-	c.Assert(isEnabled, jc.IsFalse)
+	c.Assert(isEnabled, tc.IsFalse)
 	ok, err = e.SupportsSpaces()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *suite) TestSupportsSpaceDiscovery(c *tc.C) {
 	e := s.bootstrapTestEnviron(c)
 	defer func() {
 		err := e.Destroy(context.Background())
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}()
 
 	// Without change space discovery is not supported.
 	ok, err := e.SupportsSpaceDiscovery()
-	c.Assert(ok, jc.IsFalse)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ok, tc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Now turn it on.
 	isEnabled := dummy.SetSupportsSpaceDiscovery(true)
-	c.Assert(isEnabled, jc.IsFalse)
+	c.Assert(isEnabled, tc.IsFalse)
 	ok, err = e.SupportsSpaceDiscovery()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// And finally turn it off again.
 	isEnabled = dummy.SetSupportsSpaceDiscovery(false)
-	c.Assert(isEnabled, jc.IsTrue)
+	c.Assert(isEnabled, tc.IsTrue)
 	ok, err = e.SupportsSpaceDiscovery()
-	c.Assert(ok, jc.IsFalse)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ok, tc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
 }

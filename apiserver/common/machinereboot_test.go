@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -49,7 +48,7 @@ func (s *MachineRebootTestSuite) TestRebootRequestedNoEntity(c *tc.C) {
 	result, err := requester.RequestReboot(context.Background(), entitiesToRequest)
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{},
 	})
@@ -71,7 +70,7 @@ func (s *MachineRebootTestSuite) TestRebootRequestedAuthError(c *tc.C) {
 	_, err := requester.RequestReboot(context.Background(), entitiesToRequest)
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, authError)
+	c.Assert(err, tc.ErrorIs, authError)
 }
 
 func (s *MachineRebootTestSuite) TestRebootRequested(c *tc.C) {
@@ -107,7 +106,7 @@ func (s *MachineRebootTestSuite) TestRebootRequested(c *tc.C) {
 	result, err := requester.RequestReboot(context.Background(), entitiesToRequest)
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: apiservertesting.ErrUnauthorized},
@@ -134,7 +133,7 @@ func (s *MachineRebootTestSuite) TestRebootActionGetNoEntity(c *tc.C) {
 	result, err := requester.GetRebootAction(context.Background(), entitiesToRequest)
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{},
 	})
@@ -156,7 +155,7 @@ func (s *MachineRebootTestSuite) TestRebootActionGetAuthError(c *tc.C) {
 	_, err := requester.GetRebootAction(context.Background(), entitiesToRequest)
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, authError)
+	c.Assert(err, tc.ErrorIs, authError)
 }
 
 func (s *MachineRebootTestSuite) TestRebootActionGet(c *tc.C) {
@@ -200,7 +199,7 @@ func (s *MachineRebootTestSuite) TestRebootActionGet(c *tc.C) {
 	result, err := requester.GetRebootAction(context.Background(), entitiesToRequest)
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Error: apiservertesting.ErrUnauthorized},
@@ -229,7 +228,7 @@ func (s *MachineRebootTestSuite) TestRebootClearedNoEntity(c *tc.C) {
 	result, err := requester.ClearReboot(context.Background(), entitiesToRequest)
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{},
 	})
@@ -251,7 +250,7 @@ func (s *MachineRebootTestSuite) TestRebootClearedAuthError(c *tc.C) {
 	_, err := requester.ClearReboot(context.Background(), entitiesToRequest)
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, authError)
+	c.Assert(err, tc.ErrorIs, authError)
 }
 
 func (s *MachineRebootTestSuite) TestRebootCleared(c *tc.C) {
@@ -287,7 +286,7 @@ func (s *MachineRebootTestSuite) TestRebootCleared(c *tc.C) {
 	result, err := requester.ClearReboot(context.Background(), entitiesToRequest)
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: apiservertesting.ErrUnauthorized},

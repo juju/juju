@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
@@ -47,7 +46,7 @@ func (s *trackerWorkerSuite) TestWorkerStartup(c *tc.C) {
 	// Create the worker.
 
 	w, err := s.newWorker(c, s.environ)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.ensureStartup(c)
 
@@ -76,7 +75,7 @@ func (s *trackerWorkerSuite) TestWorkerStartupWithCloudSpec(c *tc.C) {
 	// Create the worker.
 
 	w, err := s.newWorker(c, s.newCloudSpecEnviron())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.ensureStartup(c)
 
@@ -101,7 +100,7 @@ func (s *trackerWorkerSuite) TestWorkerModelConfigUpdatesEnviron(c *tc.C) {
 	// Create the worker.
 
 	w, err := s.newWorker(c, s.environ)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.ensureStartup(c)
 
@@ -141,7 +140,7 @@ func (s *trackerWorkerSuite) TestWorkerCloudUpdatesEnviron(c *tc.C) {
 	// Create the worker.
 
 	w, err := s.newWorker(c, s.newCloudSpecEnviron())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.ensureStartup(c)
 
@@ -181,7 +180,7 @@ func (s *trackerWorkerSuite) TestWorkerCredentialUpdatesEnviron(c *tc.C) {
 	// Create the worker.
 
 	w, err := s.newWorker(c, s.newCloudSpecEnviron())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.ensureStartup(c)
 
@@ -237,7 +236,7 @@ func (s *trackerWorkerSuite) expectModel(c *tc.C) coremodel.UUID {
 
 func (s *trackerWorkerSuite) newCloudSpec(c *tc.C) *config.Config {
 	cfg, err := config.New(config.NoDefaults, testing.FakeConfig())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.configService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
 	s.cloudService.EXPECT().Cloud(gomock.Any(), "cloud").Return(&cloud.Cloud{}, nil)

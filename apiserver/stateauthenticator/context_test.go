@@ -13,7 +13,6 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/macaroon.v2"
 
@@ -74,7 +73,7 @@ func (s *macaroonCommonSuite) setupMocks(c *tc.C) *gomock.Controller {
 		agentAuthGetter,
 		s.clock,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.authenticator = authenticator
 
 	return ctrl
@@ -108,19 +107,19 @@ func (s *macaroonAuthWrongPublicKeySuite) TestDischargeFailsWithWrongPublicKey(c
 	client := httpbakery.NewClient()
 
 	m, err := macaroon.New(nil, nil, "loc", macaroon.LatestVersion)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	mac, err := bakery.NewLegacyMacaroon(m)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cav := checkers.Caveat{
 		Location:  s.discharger.Location(),
 		Condition: "true",
 	}
 	anotherKey, err := bakery.GenerateKey()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	loc := bakery.NewThirdPartyStore()
 	loc.AddInfo(s.discharger.Location(), bakery.ThirdPartyInfo{})
 	err = mac.AddCaveat(ctx, cav, anotherKey, loc)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = client.DischargeAll(ctx, mac)
 	c.Assert(err, tc.ErrorMatches, `cannot get discharge from ".*": third party refused discharge: cannot discharge: discharger cannot decode caveat id: public key mismatch`)
 }

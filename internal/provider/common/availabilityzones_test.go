@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -61,7 +60,7 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllRunningInstanc
 	})
 	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, context.Background(), nil)
 	c.Assert(called, tc.Equals, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// az0 is unavailable, so az1 and az2 come out as equal best;
 	// az1 comes first due to lexicographical ordering on the name.
 	c.Assert(zoneInstances, tc.DeepEquals, []common.AvailabilityZoneInstances{{
@@ -92,7 +91,7 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsPartialInstances(
 	})
 	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, context.Background(), []instance.Id{"nichts", "inst1", "null", "inst2"})
 	c.Assert(called, tc.Equals, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// az2 has fewer instances, so comes first.
 	c.Assert(zoneInstances, tc.DeepEquals, []common.AvailabilityZoneInstances{{
 		ZoneName: "az2",
@@ -123,7 +122,7 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsInstanceAvailabil
 	})
 	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, context.Background(), nil)
 	c.Assert(called, tc.Equals, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(zoneInstances, tc.HasLen, 2)
 }
 
@@ -140,7 +139,7 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsNoZones(c *tc.C) 
 	})
 	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, context.Background(), nil)
 	c.Assert(calls, tc.DeepEquals, []string{"InstanceAvailabilityZoneNames", "AvailabilityZones"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(zoneInstances, tc.HasLen, 0)
 }
 

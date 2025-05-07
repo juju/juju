@@ -9,7 +9,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -56,7 +55,7 @@ func (s *caasagentSuite) SetUpTest(c *tc.C) {
 
 	var err error
 	s.registry, err = registry.NewRegistry(clock.WallClock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.modelUUID = modeltesting.GenModelUUID(c)
 
@@ -131,8 +130,8 @@ func (s *caasagentSuite) TestCloudSpec(c *tc.C) {
 			{machineTag.String()},
 		}},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, jc.DeepEquals, []params.CloudSpecResult{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.DeepEquals, []params.CloudSpecResult{{
 		Result: &params.CloudSpec{
 			Type:             "type",
 			Name:             "name",
@@ -170,8 +169,8 @@ func (s *caasagentSuite) TestCloudSpecCloudSpecError(c *tc.C) {
 			{names.NewModelTag(s.modelUUID.String()).String()},
 		}},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, jc.DeepEquals, []params.CloudSpecResult{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.DeepEquals, []params.CloudSpecResult{{
 		Error: &params.Error{
 			Message: `error`,
 		},
@@ -197,8 +196,8 @@ func (s *caasagentSuite) TestWatchCloudSpecsChanges(c *tc.C) {
 			{machineTag.String()},
 		}},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, jc.DeepEquals, []params.NotifyWatchResult{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.DeepEquals, []params.NotifyWatchResult{{
 		NotifyWatcherId: "w-1",
 	}, {
 		Error: &params.Error{
@@ -225,8 +224,8 @@ func (s *caasagentSuite) TestCloudSpecNilCredential(c *tc.C) {
 			{names.NewModelTag(s.modelUUID.String()).String()},
 		}},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, jc.DeepEquals, []params.CloudSpecResult{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.DeepEquals, []params.CloudSpecResult{{
 		Result: &params.CloudSpec{
 			Type:             "type",
 			Name:             "name",

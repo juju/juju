@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -332,6 +331,6 @@ func (s *baseStorageSuite) blockAllChanges(c *tc.C, msg string) {
 }
 
 func (s *baseStorageSuite) assertBlocked(c *tc.C, err error, msg string) {
-	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
+	c.Assert(params.IsCodeOperationBlocked(err), tc.IsTrue)
 	c.Assert(err, tc.ErrorMatches, msg)
 }

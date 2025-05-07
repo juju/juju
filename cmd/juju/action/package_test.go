@@ -16,7 +16,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/exec"
 
 	actionapi "github.com/juju/juju/api/client/action"
@@ -134,7 +133,7 @@ func setupValueFile(c *tc.C, dir, filename, value string) string {
 	path := ctx.AbsPath(filename)
 	content := []byte(value)
 	err := os.WriteFile(path, content, 0666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return path
 }
 

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/macaroon.v2"
 
@@ -52,7 +51,7 @@ func (s *bakerySuite) getLocalOfferBakery(c *tc.C) (*crossmodel.OfferBakery, *go
 	c.Assert(err, tc.IsNil)
 	c.Assert(b, tc.NotNil)
 	url, err := b.RefreshDischargeURL(context.Background(), "https://example.com/offeraccess")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(url, tc.Equals, "https://example.com/offeraccess")
 	return b, ctrl
 }
@@ -155,14 +154,14 @@ func (s *bakerySuite) TestGetConsumeOfferCaveats(c *tc.C) {
 		"offer-uuid", "model-uuid", "mary",
 	)
 	c.Assert(caveats, tc.HasLen, 4)
-	c.Assert(strings.HasPrefix(caveats[0].Condition, "time-before"), jc.IsTrue)
-	c.Assert(caveats[1], jc.DeepEquals, checkers.Caveat{
+	c.Assert(strings.HasPrefix(caveats[0].Condition, "time-before"), tc.IsTrue)
+	c.Assert(caveats[1], tc.DeepEquals, checkers.Caveat{
 		Condition: "declared source-model-uuid model-uuid", Namespace: "std",
 	})
-	c.Assert(caveats[2], jc.DeepEquals, checkers.Caveat{
+	c.Assert(caveats[2], tc.DeepEquals, checkers.Caveat{
 		Condition: "declared username mary", Namespace: "std",
 	})
-	c.Assert(caveats[3], jc.DeepEquals, checkers.Caveat{
+	c.Assert(caveats[3], tc.DeepEquals, checkers.Caveat{
 		Condition: "declared offer-uuid offer-uuid", Namespace: "std",
 	})
 }
@@ -175,11 +174,11 @@ func (s *bakerySuite) TestGetConsumeOfferCaveatsJaaS(c *tc.C) {
 		"offer-uuid", "model-uuid", "mary",
 	)
 	c.Assert(caveats, tc.HasLen, 3)
-	c.Assert(strings.HasPrefix(caveats[0].Condition, "time-before"), jc.IsTrue)
-	c.Assert(caveats[1], jc.DeepEquals, checkers.Caveat{
+	c.Assert(strings.HasPrefix(caveats[0].Condition, "time-before"), tc.IsTrue)
+	c.Assert(caveats[1], tc.DeepEquals, checkers.Caveat{
 		Condition: "declared source-model-uuid model-uuid", Namespace: "std",
 	})
-	c.Assert(caveats[2], jc.DeepEquals, checkers.Caveat{
+	c.Assert(caveats[2], tc.DeepEquals, checkers.Caveat{
 		Condition: "declared username mary", Namespace: "std",
 	})
 }
@@ -226,13 +225,13 @@ offer-uuid: mysql-uuid
 relation-key: mediawiki:db mysql:server
 permission: consume
 `[1:], coretesting.ModelTag.Id())
-			c.Assert(caveats[0], jc.DeepEquals, checkers.Caveat{
+			c.Assert(caveats[0], tc.DeepEquals, checkers.Caveat{
 				Condition: cavCondition,
 				Location:  "https://example.com/offeraccess",
 			})
-			c.Assert(strings.HasPrefix(caveats[1].Condition, "time-before"), jc.IsTrue)
+			c.Assert(strings.HasPrefix(caveats[1].Condition, "time-before"), tc.IsTrue)
 			c.Assert(ops, tc.HasLen, 1)
-			c.Assert(ops[0], jc.DeepEquals, bakery.Op{Action: "consume", Entity: "mysql-uuid"})
+			c.Assert(ops[0], tc.DeepEquals, bakery.Op{Action: "consume", Entity: "mysql-uuid"})
 			return bakery.NewLegacyMacaroon(jujutesting.MustNewMacaroon("test"))
 		},
 	)
@@ -269,19 +268,19 @@ func (s *bakerySuite) TestCreateDischargeMacaroonJaaS(c *tc.C) {
 				return caveats[i].Condition < caveats[j].Condition
 			})
 			c.Assert(caveats, tc.HasLen, 5)
-			c.Assert(caveats[0], jc.DeepEquals, checkers.Caveat{
+			c.Assert(caveats[0], tc.DeepEquals, checkers.Caveat{
 				Condition: "declared relation-key mediawiki:db mysql:server", Namespace: "std",
 			})
-			c.Assert(caveats[1], jc.DeepEquals, checkers.Caveat{
+			c.Assert(caveats[1], tc.DeepEquals, checkers.Caveat{
 				Condition: "declared source-model-uuid " + coretesting.ModelTag.Id(), Namespace: "std",
 			})
-			c.Assert(caveats[2], jc.DeepEquals, checkers.Caveat{
+			c.Assert(caveats[2], tc.DeepEquals, checkers.Caveat{
 				Condition: "declared username mary", Namespace: "std",
 			})
-			c.Assert(caveats[3], jc.DeepEquals, checkers.Caveat{
+			c.Assert(caveats[3], tc.DeepEquals, checkers.Caveat{
 				Location: "https://example.com/macaroons", Condition: "is-consumer user-mary mysql-uuid",
 			})
-			c.Assert(strings.HasPrefix(caveats[4].Condition, "time-before"), jc.IsTrue)
+			c.Assert(strings.HasPrefix(caveats[4].Condition, "time-before"), tc.IsTrue)
 			return bakery.NewLegacyMacaroon(jujutesting.MustNewMacaroon("test"))
 		},
 	)

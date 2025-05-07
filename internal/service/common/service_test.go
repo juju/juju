@@ -6,7 +6,6 @@ package common_test
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/service/common"
 )
@@ -23,7 +22,7 @@ func (*serviceSuite) TestNoConfMissing(c *tc.C) {
 	}
 	noConf := service.NoConf()
 
-	c.Check(noConf, jc.IsTrue)
+	c.Check(noConf, tc.IsTrue)
 }
 
 func (*serviceSuite) TestNoConfEmpty(c *tc.C) {
@@ -33,7 +32,7 @@ func (*serviceSuite) TestNoConfEmpty(c *tc.C) {
 	}
 	noConf := service.NoConf()
 
-	c.Check(noConf, jc.IsTrue)
+	c.Check(noConf, tc.IsTrue)
 }
 
 func (*serviceSuite) TestNoConfFalse(c *tc.C) {
@@ -46,7 +45,7 @@ func (*serviceSuite) TestNoConfFalse(c *tc.C) {
 	}
 	noConf := service.NoConf()
 
-	c.Check(noConf, jc.IsFalse)
+	c.Check(noConf, tc.IsFalse)
 }
 
 func (*serviceSuite) TestValidateOkay(c *tc.C) {
@@ -59,7 +58,7 @@ func (*serviceSuite) TestValidateOkay(c *tc.C) {
 	}
 	err := service.Validate(renderer)
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (*serviceSuite) TestValidateMissingName(c *tc.C) {

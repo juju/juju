@@ -6,7 +6,6 @@ package lxd
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/semversion"
 )
@@ -24,7 +23,7 @@ type serverSuite struct {
 
 func (s *serverSuite) TestParseAPIVersion(c *tc.C) {
 	ver, err := ParseAPIVersion("5.2")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(ver, tc.Equals, semversion.MustParse("5.2.0"))
 
 	_, err = ParseAPIVersion("5")
@@ -39,7 +38,7 @@ func (s *serverSuite) TestParseAPIVersion(c *tc.C) {
 
 func (s *serverSuite) TestValidateAPIVersion(c *tc.C) {
 	err := ValidateAPIVersion("5.0")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	err = ValidateAPIVersion("4.0")
 	c.Check(err, tc.ErrorMatches, `LXD version has to be at least "5.0.0", but current version is only "4.0.0"`)

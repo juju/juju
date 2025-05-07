@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/juju/worker/v4/workertest"
@@ -64,7 +63,7 @@ func (s *workerSuite) TestKilledGetDBErrDying(c *tc.C) {
 	w.Kill()
 
 	_, err := dbw.GetDB("anything")
-	c.Assert(err, jc.ErrorIs, database.ErrDBAccessorDying)
+	c.Assert(err, tc.ErrorIs, database.ErrDBAccessorDying)
 }
 
 func (s *workerSuite) TestStartupTimeoutSingleControllerReconfigure(c *tc.C) {
@@ -98,7 +97,7 @@ func (s *workerSuite) TestStartupTimeoutSingleControllerReconfigure(c *tc.C) {
 	defer workertest.DirtyKill(c, w)
 
 	err := workertest.CheckKilled(c, w)
-	c.Assert(err, jc.ErrorIs, dependency.ErrBounce)
+	c.Assert(err, tc.ErrorIs, dependency.ErrBounce)
 }
 
 func (s *workerSuite) TestStartupTimeoutMultipleControllerRetry(c *tc.C) {
@@ -459,7 +458,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *tc.C) {
 	defer func() {
 		close(dbDone)
 		err := workertest.CheckKilled(c, w)
-		c.Assert(err, jc.ErrorIs, dependency.ErrBounce)
+		c.Assert(err, tc.ErrorIs, dependency.ErrBounce)
 	}()
 	dbw := w.(*dbWorker)
 

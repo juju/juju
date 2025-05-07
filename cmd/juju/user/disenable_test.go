@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/internal/cmd"
@@ -46,7 +45,7 @@ func (s *DisableUserSuite) testInit(c *tc.C, wrappedCommand cmd.Command, command
 		c.Logf("test %d, args %v", i, test.args)
 		err := cmdtesting.InitCommand(wrappedCommand, test.args)
 		if test.errMatch == "" {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(command.User, tc.Equals, test.user)
 		} else {
 			c.Assert(err, tc.ErrorMatches, test.errMatch)
@@ -65,7 +64,7 @@ func (s *DisableUserSuite) TestDisable(c *tc.C) {
 	username := "testing"
 	disableCommand, _ := user.NewDisableCommandForTest(s.mock, s.store)
 	_, err := cmdtesting.RunCommand(c, disableCommand, username)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.mock.disable, tc.Equals, username)
 }
 
@@ -73,7 +72,7 @@ func (s *DisableUserSuite) TestEnable(c *tc.C) {
 	username := "testing"
 	enableCommand, _ := user.NewEnableCommandForTest(s.mock, s.store)
 	_, err := cmdtesting.RunCommand(c, enableCommand, username)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.mock.enable, tc.Equals, username)
 }
 

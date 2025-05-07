@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api/agent/uniter"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -48,11 +47,11 @@ func (s *actionSuite) TestAction(c *tc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	a, err := client.Action(context.Background(), names.NewActionTag("666"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(a.ID(), tc.Equals, "666")
 	c.Assert(a.Name(), tc.Equals, actionResult.Action.Name)
-	c.Assert(a.Params(), jc.DeepEquals, actionResult.Action.Parameters)
-	c.Assert(a.Parallel(), jc.IsTrue)
+	c.Assert(a.Params(), tc.DeepEquals, actionResult.Action.Parameters)
+	c.Assert(a.Parallel(), tc.IsTrue)
 	c.Assert(a.ExecutionGroup(), tc.Equals, "group")
 }
 
@@ -125,7 +124,7 @@ func (s *actionSuite) TestActionStatus(c *tc.C) {
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	status, err := client.ActionStatus(context.Background(), names.NewActionTag("666"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(status, tc.Equals, "failed")
 }
 
@@ -174,7 +173,7 @@ func (s *actionSuite) TestWatchActionNotifications(c *tc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchActionNotifications(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 

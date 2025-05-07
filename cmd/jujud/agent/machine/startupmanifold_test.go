@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
 
@@ -39,7 +38,7 @@ func (s *MachineStartupSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *MachineStartupSuite) TestInputs(c *tc.C) {
-	c.Assert(s.manifold.Inputs, jc.SameContents, []string{
+	c.Assert(s.manifold.Inputs, tc.SameContents, []string{
 		"api-caller",
 	})
 }
@@ -51,7 +50,7 @@ func (s *MachineStartupSuite) TestStartSuccess(c *tc.C) {
 	worker, err := s.manifold.Start(context.Background(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "resource permanently unavailable")
-	c.Check(s.startCalled, jc.IsTrue)
+	c.Check(s.startCalled, tc.IsTrue)
 }
 
 type mockAPIConn struct {

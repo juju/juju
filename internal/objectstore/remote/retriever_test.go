@@ -15,7 +15,6 @@ import (
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/httprequest.v1"
@@ -48,7 +47,7 @@ func (s *retrieverSuite) TestRetrieverWithNoAPIRemotes(c *tc.C) {
 	defer workertest.DirtyKill(c, ret)
 
 	_, _, err := ret.Retrieve(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, NoRemoteConnections)
+	c.Assert(err, tc.ErrorIs, NoRemoteConnections)
 
 	workertest.CleanKill(c, ret)
 }
@@ -61,7 +60,7 @@ func (s *retrieverSuite) TestRetrieverAlreadyKilled(c *tc.C) {
 	workertest.CleanKill(c, ret)
 
 	_, _, err := ret.Retrieve(context.Background(), "foo")
-	c.Assert(err, tc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
 	workertest.CheckKilled(c, ret)
 }
 
@@ -75,7 +74,7 @@ func (s *retrieverSuite) TestRetrieverAlreadyContextCancelled(c *tc.C) {
 	cancel()
 
 	_, _, err := ret.Retrieve(ctx, "foo")
-	c.Assert(err, jc.ErrorIs, context.Canceled)
+	c.Assert(err, tc.ErrorIs, context.Canceled)
 
 	workertest.CleanKill(c, ret)
 }
@@ -101,14 +100,14 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotes(c *tc.C) {
 	defer workertest.DirtyKill(c, ret)
 
 	readerCloser, size, err := ret.Retrieve(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Ensure that the reader is closed, otherwise the retriever will leak.
 	// You can test this, by commenting out this line!
 	defer readerCloser.Close()
 
 	result, err := io.ReadAll(readerCloser)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, []byte("hello world"))
 	c.Check(size, tc.Equals, int64(11))
 
@@ -196,14 +195,14 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesRace(c *tc.C) {
 	defer workertest.DirtyKill(c, ret)
 
 	readerCloser, size, err := ret.Retrieve(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Ensure that the reader is closed, otherwise the retriever will leak.
 	// You can test this, by commenting out this line!
 	defer readerCloser.Close()
 
 	result, err := io.ReadAll(readerCloser)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, []byte("hello world"))
 	c.Check(size, tc.Equals, int64(11))
 
@@ -278,14 +277,14 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesRaceNotFound(c *tc.C) {
 	defer workertest.DirtyKill(c, ret)
 
 	readerCloser, size, err := ret.Retrieve(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Ensure that the reader is closed, otherwise the retriever will leak.
 	// You can test this, by commenting out this line!
 	defer readerCloser.Close()
 
 	result, err := io.ReadAll(readerCloser)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, []byte("hello world"))
 	c.Check(size, tc.Equals, int64(11))
 
@@ -321,7 +320,7 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesNotFound(c *tc.C) {
 	defer workertest.DirtyKill(c, ret)
 
 	_, _, err := ret.Retrieve(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, BlobNotFound)
+	c.Assert(err, tc.ErrorIs, BlobNotFound)
 
 	workertest.CleanKill(c, ret)
 }
@@ -418,7 +417,7 @@ func (s *retrieverSuite) TestRetrieverWaitingForConnection(c *tc.C) {
 	}()
 
 	_, _, err := ret.Retrieve(ctx, "foo")
-	c.Assert(err, jc.ErrorIs, context.Canceled)
+	c.Assert(err, tc.ErrorIs, context.Canceled)
 
 	workertest.CleanKill(c, ret)
 }
@@ -427,7 +426,7 @@ func (s *retrieverSuite) newRetriever(c *tc.C) *BlobRetriever {
 	ret, err := NewBlobRetriever(s.remoteCallers, "namespace", func(url string, client s3client.HTTPClient, logger logger.Logger) (BlobsClient, error) {
 		return s.client, nil
 	}, s.clock, loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return ret
 }
 

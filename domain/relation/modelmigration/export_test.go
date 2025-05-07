@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
@@ -98,7 +97,7 @@ func (s *exportSuite) TestExport(c *tc.C) {
 	// Act:
 	op := s.newExportOperation(c)
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert:
 	relations := model.Relations()
@@ -130,7 +129,7 @@ func (s *exportSuite) TestExportEmpty(c *tc.C) {
 	// Act:
 	op := s.newExportOperation(c)
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert:
 	relations := model.Relations()
@@ -150,7 +149,7 @@ func (s *exportSuite) TestExportServiceError(c *tc.C) {
 	err := op.Execute(context.Background(), model)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, boom)
+	c.Assert(err, tc.ErrorIs, boom)
 }
 
 func (s *exportSuite) assertEndpointsMatch(c *tc.C, ep description.Endpoint, expected relation.ExportEndpoint) {

@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
@@ -41,7 +40,7 @@ func (s *auditConfigSuite) openAPIWithoutLogin(c *tc.C) api.Connection {
 	info.Macaroons = nil
 	info.SkipLogin = true
 	conn, err := api.Open(context.Background(), info, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return conn
 }
 
@@ -67,7 +66,7 @@ func (s *auditConfigSuite) TestLoginAddsAuditConversationEventually(c *tc.C) {
 	}
 	loginTime := s.Clock.Now()
 	err := conn.APICall(context.Background(), "Admin", 3, "", "Login", request, &result)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.UserInfo, tc.NotNil)
 	// Nothing's logged at this point because there haven't been any
 	// interesting requests.
@@ -81,15 +80,15 @@ func (s *auditConfigSuite) TestLoginAddsAuditConversationEventually(c *tc.C) {
 	}
 	addMachinesTime := s.Clock.Now()
 	err = conn.APICall(context.Background(), "MachineManager", machineManagerFacadeVersion, "", "AddMachines", addReq, &addResults)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	log.CheckCallNames(c, "AddConversation", "AddRequest", "AddResponse")
 
 	convo := log.Calls()[0].Args[0].(auditlog.Conversation)
-	mc := jc.NewMultiChecker()
+	mc := tc.NewMultiChecker()
 	mc.AddExpr("_.ConversationID", tc.HasLen, 16)
-	mc.AddExpr("_.ConnectionID", jc.Ignore)
-	mc.AddExpr("_.When", jc.Satisfies, func(s string) bool {
+	mc.AddExpr("_.ConnectionID", tc.Ignore)
+	mc.AddExpr("_.When", tc.Satisfies, func(s string) bool {
 		t, err := time.Parse(time.RFC3339, s)
 		if err != nil {
 			return false
@@ -104,11 +103,11 @@ func (s *auditConfigSuite) TestLoginAddsAuditConversationEventually(c *tc.C) {
 	})
 
 	auditReq := log.Calls()[1].Args[0].(auditlog.Request)
-	mc = jc.NewMultiChecker()
-	mc.AddExpr("_.ConversationID", jc.Ignore)
-	mc.AddExpr("_.ConnectionID", jc.Ignore)
-	mc.AddExpr("_.RequestID", jc.Ignore)
-	mc.AddExpr("_.When", jc.Satisfies, func(s string) bool {
+	mc = tc.NewMultiChecker()
+	mc.AddExpr("_.ConversationID", tc.Ignore)
+	mc.AddExpr("_.ConnectionID", tc.Ignore)
+	mc.AddExpr("_.RequestID", tc.Ignore)
+	mc.AddExpr("_.When", tc.Satisfies, func(s string) bool {
 		t, err := time.Parse(time.RFC3339, s)
 		if err != nil {
 			return false
@@ -146,7 +145,7 @@ func (s *auditConfigSuite) TestAuditLoggingFailureOnInterestingRequest(c *tc.C) 
 	err := conn.APICall(context.Background(), "Admin", 3, "", "Login", request, &result)
 	// No error yet since logging the conversation is deferred until
 	// something happens.
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var addResults params.AddMachinesResults
 	addReq := &params.AddMachines{
@@ -180,7 +179,7 @@ func (s *auditConfigSuite) TestAuditLoggingUsesExcludeMethods(c *tc.C) {
 		ClientVersion: jujuversion.Current.String(),
 	}
 	err := conn.APICall(context.Background(), "Admin", 3, "", "Login", request, &result)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.UserInfo, tc.NotNil)
 	// Nothing's logged at this point because there haven't been any
 	// interesting requests.
@@ -193,7 +192,7 @@ func (s *auditConfigSuite) TestAuditLoggingUsesExcludeMethods(c *tc.C) {
 		}},
 	}
 	err = conn.APICall(context.Background(), "MachineManager", machineManagerFacadeVersion, "", "AddMachines", addReq, &addResults)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Still nothing logged - the AddMachines call has been filtered out.
 	log.CheckCallNames(c)
@@ -203,7 +202,7 @@ func (s *auditConfigSuite) TestAuditLoggingUsesExcludeMethods(c *tc.C) {
 		MachineTags: []string{addResults.Machines[0].Machine},
 	}
 	err = conn.APICall(context.Background(), "MachineManager", machineManagerFacadeVersion, "", "DestroyMachineWithParams", destroyReq, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Now the conversation and both requests are logged.
 	log.CheckCallNames(c, "AddConversation", "AddRequest", "AddResponse", "AddRequest", "AddResponse")
@@ -243,7 +242,7 @@ func (s *auditConfigSuite) createModelAdminUser(c *tc.C, userTag names.UserTag, 
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = accessService.CreatePermission(context.Background(), permission.UserAccessSpec{
 		AccessSpec: permission.AccessSpec{
@@ -255,5 +254,5 @@ func (s *auditConfigSuite) createModelAdminUser(c *tc.C, userTag names.UserTag, 
 		},
 		User: user.NameFromTag(userTag),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

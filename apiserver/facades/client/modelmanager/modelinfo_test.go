@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -75,7 +74,7 @@ var _ = tc.Suite(&modelInfoSuite{})
 func (s *modelInfoSuite) SetUpTest(c *tc.C) {
 	var err error
 	s.controllerUUID, err = uuid.UUIDFromString(coretesting.ControllerTag.Id())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.BaseSuite.SetUpTest(c)
 	s.authorizer = apiservertesting.FakeAuthorizer{
@@ -258,7 +257,7 @@ func (s *modelInfoSuite) getAPIWithoutModelInfo(c *tc.C) (*modelmanager.ModelMan
 		nil, common.NewBlockChecker(s.mockBlockCommandService),
 		&s.authorizer,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var fs assumes.FeatureSet
 	fs.Add(assumes.Feature{Name: "example"})
@@ -300,7 +299,7 @@ func (s *modelInfoSuite) getAPIWithUser(c *tc.C, user names.UserTag) (*modelmana
 		nil,
 		common.NewBlockChecker(s.mockBlockCommandService), s.authorizer,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var fs assumes.FeatureSet
 	fs.Add(assumes.Feature{Name: "example"})
@@ -418,7 +417,7 @@ func (s *modelInfoSuite) TestModelInfo(c *tc.C) {
 }
 
 func (s *modelInfoSuite) assertModelInfo(c *tc.C, got, expected params.ModelInfo) {
-	c.Assert(got, jc.DeepEquals, expected)
+	c.Assert(got, tc.DeepEquals, expected)
 	s.st.model.CheckCalls(c, []jujutesting.StubCall{
 		{FuncName: "UUID", Args: nil},
 		{FuncName: "Name", Args: nil},
@@ -562,7 +561,7 @@ func (s *modelInfoSuite) getModelInfo(c *tc.C, modelInfo modelInfo, modelUUID st
 			names.NewModelTag(modelUUID).String(),
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Result, tc.NotNil)
 	return *results.Results[0].Result
@@ -633,7 +632,7 @@ func (s *modelInfoSuite) TestRunningMigration(c *tc.C) {
 		Entities: []params.Entity{{coretesting.ModelTag.String()}},
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	migrationResult := results.Results[0].Result.Migration
 	c.Assert(migrationResult.Status, tc.Equals, "computing optimal bin packing")
 	c.Assert(*migrationResult.Start, tc.Equals, start)
@@ -662,7 +661,7 @@ func (s *modelInfoSuite) TestFailedMigration(c *tc.C) {
 		Entities: []params.Entity{{coretesting.ModelTag.String()}},
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	migrationResult := results.Results[0].Result.Migration
 	c.Assert(migrationResult.Status, tc.Equals, "couldn't realign alternate time frames")
 	c.Assert(*migrationResult.Start, tc.Equals, start)
@@ -684,7 +683,7 @@ func (s *modelInfoSuite) TestNoMigration(c *tc.C) {
 	results, err := api.ModelInfo(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: coretesting.ModelTag.String()}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results[0].Result.Migration, tc.IsNil)
 }
 
@@ -1093,7 +1092,7 @@ func (s *modelInfoSuite) testModelInfoError(c *tc.C, api *modelmanager.ModelMana
 	results, err := api.ModelInfo(context.Background(), params.Entities{
 		Entities: []params.Entity{{modelTag}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Result, tc.IsNil)
 	c.Assert(results.Results[0].Error, tc.ErrorMatches, expectedErr)

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/quota"
@@ -23,7 +22,7 @@ func (s *MapKeyValueCheckerSuite) TestNonMapValue(c *tc.C) {
 	chk.Check("not-a-map")
 
 	err := chk.Outcome()
-	c.Assert(err, jc.ErrorIs, coreerrors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotImplemented)
 }
 
 func (s *MapKeyValueCheckerSuite) TestMapWithMixedValueTypes(c *tc.C) {
@@ -36,7 +35,7 @@ func (s *MapKeyValueCheckerSuite) TestMapWithMixedValueTypes(c *tc.C) {
 	})
 
 	err := chk.Outcome()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *MapKeyValueCheckerSuite) TestMapWithStringKeyValues(c *tc.C) {
@@ -47,7 +46,7 @@ func (s *MapKeyValueCheckerSuite) TestMapWithStringKeyValues(c *tc.C) {
 	})
 
 	err := chk.Outcome()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *MapKeyValueCheckerSuite) TestQuotaBypass(c *tc.C) {
@@ -58,7 +57,7 @@ func (s *MapKeyValueCheckerSuite) TestQuotaBypass(c *tc.C) {
 	})
 
 	err := chk.Outcome()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *MapKeyValueCheckerSuite) TestExceedMaxKeySize(c *tc.C) {
@@ -69,7 +68,7 @@ func (s *MapKeyValueCheckerSuite) TestExceedMaxKeySize(c *tc.C) {
 	})
 
 	err := chk.Outcome()
-	c.Assert(err, jc.ErrorIs, coreerrors.QuotaLimitExceeded)
+	c.Assert(err, tc.ErrorIs, coreerrors.QuotaLimitExceeded)
 	c.Assert(err, tc.ErrorMatches, "max allowed key length.*", tc.Commentf("expected error about exceeding max key length"))
 }
 
@@ -81,6 +80,6 @@ func (s *MapKeyValueCheckerSuite) TestExceedMaxValueSize(c *tc.C) {
 	})
 
 	err := chk.Outcome()
-	c.Assert(err, jc.ErrorIs, coreerrors.QuotaLimitExceeded)
+	c.Assert(err, tc.ErrorIs, coreerrors.QuotaLimitExceeded)
 	c.Assert(err, tc.ErrorMatches, "max allowed value length.*", tc.Commentf("expected error about exceeding max value length"))
 }

@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -287,7 +286,7 @@ func (*suite) TestNewAgentConfig(c *tc.C) {
 		c.Logf("%v: %s", i, test.about)
 		config, err := agent.NewAgentConfig(test.params)
 		if test.checkErr == "" {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			if test.inspectConfig != nil {
 				test.inspectConfig(c, config)
 			}
@@ -365,7 +364,7 @@ func (*suite) TestNewStateMachineConfig(c *tc.C) {
 		c.Logf("%v: %s", i, test.about)
 		cfg, err := agent.NewStateMachineConfig(test.params, test.servingInfo)
 		if test.checkErr == "" {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			if test.inspectConfig != nil {
 				test.inspectConfig(c, cfg)
 			}
@@ -394,7 +393,7 @@ var attributeParams = agent.AgentConfigParams{
 
 func (*suite) TestAttributes(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(conf.DataDir(), tc.Equals, "/data/dir")
 	compareSystemIdentityPath := filepath.FromSlash("/data/dir/system-identity")
 	systemIdentityPath := filepath.FromSlash(conf.SystemIdentityPath())
@@ -402,7 +401,7 @@ func (*suite) TestAttributes(c *tc.C) {
 	c.Assert(conf.Tag(), tc.Equals, names.NewMachineTag("1"))
 	c.Assert(conf.Dir(), tc.Equals, "/data/dir/agents/machine-1")
 	c.Assert(conf.Nonce(), tc.Equals, "a nonce")
-	c.Assert(conf.UpgradedToVersion(), jc.DeepEquals, jujuversion.Current)
+	c.Assert(conf.UpgradedToVersion(), tc.DeepEquals, jujuversion.Current)
 	c.Assert(conf.JujuDBSnapChannel(), tc.Equals, "4.4/stable")
 	c.Assert(conf.AgentLogfileMaxSizeMB(), tc.Equals, 150)
 	c.Assert(conf.AgentLogfileMaxBackups(), tc.Equals, 4)
@@ -411,10 +410,10 @@ func (*suite) TestAttributes(c *tc.C) {
 func (*suite) TestStateServingInfo(c *tc.C) {
 	servingInfo := stateServingInfo()
 	conf, err := agent.NewStateMachineConfig(attributeParams, servingInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	gotInfo, ok := conf.StateServingInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(gotInfo, jc.DeepEquals, servingInfo)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(gotInfo, tc.DeepEquals, servingInfo)
 	newInfo := controller.StateServingInfo{
 		APIPort:           147,
 		ControllerAPIPort: 148,
@@ -427,29 +426,29 @@ func (*suite) TestStateServingInfo(c *tc.C) {
 	}
 	conf.SetStateServingInfo(newInfo)
 	gotInfo, ok = conf.StateServingInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(gotInfo, jc.DeepEquals, newInfo)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(gotInfo, tc.DeepEquals, newInfo)
 }
 
 func (*suite) TestStateServingInfoNotAvailable(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, available := conf.StateServingInfo()
-	c.Assert(available, jc.IsFalse)
+	c.Assert(available, tc.IsFalse)
 }
 
 func (s *suite) TestAPIAddressesCannotWriteBack(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	value, err := conf.APIAddresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(value, jc.DeepEquals, []string{"localhost:1235"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(value, tc.DeepEquals, []string{"localhost:1235"})
 	value[0] = "invalidAdr"
 	//Check out change hasn't gone back into the internals
 	newValue, err := conf.APIAddresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newValue, jc.DeepEquals, []string{"localhost:1235"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(newValue, tc.DeepEquals, []string{"localhost:1235"})
 }
 
 func (*suite) TestWriteAndRead(c *tc.C) {
@@ -457,12 +456,12 @@ func (*suite) TestWriteAndRead(c *tc.C) {
 	testParams.Paths.DataDir = c.MkDir()
 	testParams.Paths.LogDir = c.MkDir()
 	conf, err := agent.NewAgentConfig(testParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(conf.Write(), tc.IsNil)
 	reread, err := agent.ReadConfig(agent.ConfigPath(conf.DataDir(), conf.Tag()))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(reread, jc.DeepEquals, conf)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(reread, tc.DeepEquals, conf)
 }
 
 func (*suite) TestParseConfigData(c *tc.C) {
@@ -470,18 +469,18 @@ func (*suite) TestParseConfigData(c *tc.C) {
 	testParams.Paths.DataDir = c.MkDir()
 	testParams.Paths.LogDir = c.MkDir()
 	conf, err := agent.NewAgentConfig(testParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	data, err := conf.Render()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	reread, err := agent.ParseConfigData(data)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(reread, jc.DeepEquals, conf)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(reread, tc.DeepEquals, conf)
 }
 
 func (*suite) TestAPIInfoMissingAddress(c *tc.C) {
 	conf := agent.EmptyConfig()
 	_, ok := conf.APIInfo()
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 }
 
 func (*suite) TestAPIInfoServesLocalhostWhenServingInfoPresent(c *tc.C) {
@@ -489,10 +488,10 @@ func (*suite) TestAPIInfoServesLocalhostWhenServingInfoPresent(c *tc.C) {
 	attrParams.APIAddresses = []string{"foo.example:1235"}
 	servingInfo := stateServingInfo()
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	apiinfo, ok := conf.APIInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Check(apiinfo.Addrs, jc.SameContents, []string{"localhost:52", "foo.example:1235"})
+	c.Assert(ok, tc.IsTrue)
+	c.Check(apiinfo.Addrs, tc.SameContents, []string{"localhost:52", "foo.example:1235"})
 }
 
 func (*suite) TestAPIInfoServesStandardAPIPortWhenControllerAPIPortNotSet(c *tc.C) {
@@ -501,10 +500,10 @@ func (*suite) TestAPIInfoServesStandardAPIPortWhenControllerAPIPortNotSet(c *tc.
 	servingInfo := stateServingInfo()
 	servingInfo.ControllerAPIPort = 0
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	apiinfo, ok := conf.APIInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Check(apiinfo.Addrs, jc.SameContents, []string{"localhost:47", "foo.example:1235"})
+	c.Assert(ok, tc.IsTrue)
+	c.Check(apiinfo.Addrs, tc.SameContents, []string{"localhost:47", "foo.example:1235"})
 }
 
 func (*suite) TestMongoInfo(c *tc.C) {
@@ -512,11 +511,11 @@ func (*suite) TestMongoInfo(c *tc.C) {
 	attrParams.APIAddresses = []string{"foo.example:1235", "bar.example:1236", "localhost:88", "3.4.2.1:1070"}
 	servingInfo := stateServingInfo()
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	mongoInfo, ok := conf.MongoInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Check(mongoInfo.Info.Addrs, jc.DeepEquals, []string{"localhost:69", "3.4.2.1:69"})
-	c.Check(mongoInfo.Info.DisableTLS, jc.IsFalse)
+	c.Assert(ok, tc.IsTrue)
+	c.Check(mongoInfo.Info.Addrs, tc.DeepEquals, []string{"localhost:69", "3.4.2.1:69"})
+	c.Check(mongoInfo.Info.DisableTLS, tc.IsFalse)
 }
 
 func (*suite) TestMongoInfoNoCloudLocalAvailable(c *tc.C) {
@@ -524,21 +523,21 @@ func (*suite) TestMongoInfoNoCloudLocalAvailable(c *tc.C) {
 	attrParams.APIAddresses = []string{"foo.example:1235", "bar.example:1236", "localhost:88"}
 	servingInfo := stateServingInfo()
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	mongoInfo, ok := conf.MongoInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Check(mongoInfo.Info.Addrs, jc.DeepEquals, []string{"localhost:69", "foo.example:69", "bar.example:69"})
-	c.Check(mongoInfo.Info.DisableTLS, jc.IsFalse)
+	c.Assert(ok, tc.IsTrue)
+	c.Check(mongoInfo.Info.Addrs, tc.DeepEquals, []string{"localhost:69", "foo.example:69", "bar.example:69"})
+	c.Check(mongoInfo.Info.DisableTLS, tc.IsFalse)
 }
 
 func (*suite) TestPromotedMongoInfo(c *tc.C) {
 	attrParams := attributeParams
 	attrParams.APIAddresses = []string{"foo.example:1235", "bar.example:1236", "localhost:88", "3.4.2.1:1070"}
 	conf, err := agent.NewAgentConfig(attrParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, ok := conf.MongoInfo()
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 
 	// Promote the agent to a controller by
 	// setting state serving info. As soon
@@ -547,17 +546,17 @@ func (*suite) TestPromotedMongoInfo(c *tc.C) {
 	conf.SetStateServingInfo(stateServingInfo())
 
 	mongoInfo, ok := conf.MongoInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Check(mongoInfo.Info.Addrs, jc.DeepEquals, []string{"localhost:69", "3.4.2.1:69"})
-	c.Check(mongoInfo.Info.DisableTLS, jc.IsFalse)
+	c.Assert(ok, tc.IsTrue)
+	c.Check(mongoInfo.Info.Addrs, tc.DeepEquals, []string{"localhost:69", "3.4.2.1:69"})
+	c.Check(mongoInfo.Info.DisableTLS, tc.IsFalse)
 }
 
 func (*suite) TestAPIInfoDoesNotAddLocalhostWhenNoServingInfo(c *tc.C) {
 	attrParams := attributeParams
 	conf, err := agent.NewAgentConfig(attrParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	apiinfo, ok := conf.APIInfo()
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	c.Assert(apiinfo.Addrs, tc.DeepEquals, attrParams.APIAddresses)
 }
 
@@ -566,7 +565,7 @@ func (*suite) TestSetPassword(c *tc.C) {
 	servingInfo := stateServingInfo()
 	servingInfo.ControllerAPIPort = 1235
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectAPIInfo := &api.Info{
 		Addrs:    attrParams.APIAddresses,
@@ -577,8 +576,8 @@ func (*suite) TestSetPassword(c *tc.C) {
 		ModelTag: attrParams.Model,
 	}
 	apiInfo, ok := conf.APIInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(apiInfo, jc.DeepEquals, expectAPIInfo)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(apiInfo, tc.DeepEquals, expectAPIInfo)
 	addr := fmt.Sprintf("localhost:%d", servingInfo.StatePort)
 	expectStateInfo := &mongo.MongoInfo{
 		Info: mongo.Info{
@@ -589,8 +588,8 @@ func (*suite) TestSetPassword(c *tc.C) {
 		Password: "",
 	}
 	info, ok := conf.MongoInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(info, jc.DeepEquals, expectStateInfo)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(info, tc.DeepEquals, expectStateInfo)
 
 	conf.SetPassword("newpassword")
 
@@ -598,16 +597,16 @@ func (*suite) TestSetPassword(c *tc.C) {
 	expectStateInfo.Password = "newpassword"
 
 	apiInfo, ok = conf.APIInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(apiInfo, jc.DeepEquals, expectAPIInfo)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(apiInfo, tc.DeepEquals, expectAPIInfo)
 	info, ok = conf.MongoInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(info, jc.DeepEquals, expectStateInfo)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(info, tc.DeepEquals, expectStateInfo)
 }
 
 func (*suite) TestSetOldPassword(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(conf.OldPassword(), tc.Equals, attributeParams.Password)
 	conf.SetOldPassword("newoldpassword")
@@ -616,7 +615,7 @@ func (*suite) TestSetOldPassword(c *tc.C) {
 
 func (*suite) TestSetUpgradedToVersion(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(conf.UpgradedToVersion(), tc.Equals, jujuversion.Current)
 
@@ -627,10 +626,10 @@ func (*suite) TestSetUpgradedToVersion(c *tc.C) {
 
 func (*suite) TestSetAPIHostPorts(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	addrs, err := conf.APIAddresses()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(addrs, tc.DeepEquals, attributeParams.APIAddresses)
 
 	// All the best candidate addresses for each server are
@@ -662,7 +661,7 @@ func (*suite) TestSetAPIHostPorts(c *tc.C) {
 		network.SpaceAddressesWithPort(server4, 4444).HostPorts(),
 	})
 	addrs, err = conf.APIAddresses()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(addrs, tc.DeepEquals, []string{
 		"0.1.0.1:1111",
 		"0.1.0.2:1111",
@@ -676,15 +675,15 @@ func (*suite) TestSetAPIHostPorts(c *tc.C) {
 
 func (*suite) TestSetAPIHostPortsErrorOnEmpty(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = conf.SetAPIHostPorts([]network.HostPorts{})
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 }
 
 func (*suite) TestSetCACert(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(conf.CACert(), tc.Equals, "ca cert")
 
 	conf.SetCACert("new ca cert")
@@ -693,7 +692,7 @@ func (*suite) TestSetCACert(c *tc.C) {
 
 func (*suite) TestSetJujuDBSnapChannel(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	snapChannel := conf.JujuDBSnapChannel()
 	c.Assert(snapChannel, tc.Equals, attributeParams.JujuDBSnapChannel)
@@ -705,7 +704,7 @@ func (*suite) TestSetJujuDBSnapChannel(c *tc.C) {
 
 func (*suite) TestSetQueryTracingEnabled(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	queryTracingEnabled := conf.QueryTracingEnabled()
 	c.Assert(queryTracingEnabled, tc.Equals, attributeParams.QueryTracingEnabled)
@@ -717,7 +716,7 @@ func (*suite) TestSetQueryTracingEnabled(c *tc.C) {
 
 func (*suite) TestSetQueryTracingThreshold(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	queryTracingThreshold := conf.QueryTracingThreshold()
 	c.Assert(queryTracingThreshold, tc.Equals, attributeParams.QueryTracingThreshold)
@@ -729,7 +728,7 @@ func (*suite) TestSetQueryTracingThreshold(c *tc.C) {
 
 func (*suite) TestSetOpenTelemetryEnabled(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	queryTracingEnabled := conf.OpenTelemetryEnabled()
 	c.Assert(queryTracingEnabled, tc.Equals, attributeParams.OpenTelemetryEnabled)
@@ -741,7 +740,7 @@ func (*suite) TestSetOpenTelemetryEnabled(c *tc.C) {
 
 func (*suite) TestSetOpenTelemetryEndpoint(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	queryTracingEndpoint := conf.OpenTelemetryEndpoint()
 	c.Assert(queryTracingEndpoint, tc.Equals, attributeParams.OpenTelemetryEndpoint)
@@ -753,7 +752,7 @@ func (*suite) TestSetOpenTelemetryEndpoint(c *tc.C) {
 
 func (*suite) TestSetOpenTelemetryInsecure(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	queryTracingInsecure := conf.OpenTelemetryInsecure()
 	c.Assert(queryTracingInsecure, tc.Equals, attributeParams.OpenTelemetryInsecure)
@@ -765,7 +764,7 @@ func (*suite) TestSetOpenTelemetryInsecure(c *tc.C) {
 
 func (*suite) TestSetOpenTelemetryStackTraces(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	queryTracingStackTraces := conf.OpenTelemetryStackTraces()
 	c.Assert(queryTracingStackTraces, tc.Equals, attributeParams.OpenTelemetryStackTraces)
@@ -777,7 +776,7 @@ func (*suite) TestSetOpenTelemetryStackTraces(c *tc.C) {
 
 func (*suite) TestSetOpenTelemetrySampleRatio(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	queryTracingSampleRatio := conf.OpenTelemetrySampleRatio()
 	c.Assert(queryTracingSampleRatio, tc.Equals, attributeParams.OpenTelemetrySampleRatio)
@@ -789,7 +788,7 @@ func (*suite) TestSetOpenTelemetrySampleRatio(c *tc.C) {
 
 func (*suite) TestSetOpenTelemetryTailSamplingThreshold(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	queryTracingTailSamplingThreshold := conf.OpenTelemetryTailSamplingThreshold()
 	c.Assert(queryTracingTailSamplingThreshold, tc.Equals, attributeParams.OpenTelemetryTailSamplingThreshold)
@@ -801,7 +800,7 @@ func (*suite) TestSetOpenTelemetryTailSamplingThreshold(c *tc.C) {
 
 func (*suite) TestSetObjectStoreType(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	objectStoreType := conf.ObjectStoreType()
 	c.Assert(objectStoreType, tc.Equals, attributeParams.ObjectStoreType)

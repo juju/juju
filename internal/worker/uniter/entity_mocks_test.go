@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
@@ -232,7 +231,7 @@ func (ctx *testContext) makeUnit(c *tc.C, unitTag names.UnitTag, l life.Value) *
 	u.EXPECT().CanApplyLXDProfile(gomock.Any()).DoAndReturn(func(context.Context) (bool, error) {
 		u.mu.Lock()
 		tag, err := u.AssignedMachine(context.Background())
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		u.mu.Unlock()
 		return tag.ContainerType() == "lxd", nil
 	}).AnyTimes()
@@ -311,7 +310,7 @@ func (ctx *testContext) makeRelation(c *tc.C, relTag names.RelationTag, l life.V
 	}
 
 	ep, ok := endpointsForTest[relTag.Id()]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	relId := int(ctx.relCounter.Add(1))
 	r.EXPECT().Tag().Return(relTag).AnyTimes()
@@ -346,7 +345,7 @@ func (ctx *testContext) makeRelationUnit(c *tc.C, rel *relation, u *unit) *relat
 
 	ru.EXPECT().Relation().Return(rel).AnyTimes()
 	ep, err := rel.Endpoint(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ru.EXPECT().Endpoint().Return(*ep).AnyTimes()
 
 	ru.EXPECT().EnterScope(gomock.Any()).DoAndReturn(func(context.Context) error {

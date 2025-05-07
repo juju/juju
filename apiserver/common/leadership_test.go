@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -57,7 +56,7 @@ func (s *LeadershipSuite) TestPinnedLeadershipSuccess(c *tc.C) {
 	s.pinner.EXPECT().PinnedLeadership().Return(pinned, nil)
 
 	res, err := s.api.PinnedLeadership(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res.Result, tc.DeepEquals, pinned)
 }
 
@@ -76,7 +75,7 @@ func (s *LeadershipSuite) TestPinApplicationLeadersSuccess(c *tc.C) {
 	}
 
 	res, err := s.api.PinApplicationLeaders(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, params.PinApplicationsResults{Results: s.pinApplicationsSuccessResults()})
 }
 
@@ -89,7 +88,7 @@ func (s *LeadershipSuite) TestPinApplicationLeadersPartialError(c *tc.C) {
 	s.pinner.EXPECT().PinLeadership("wordpress", s.authTag.String()).Return(errorRes)
 
 	res, err := s.api.PinApplicationLeaders(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	results := s.pinApplicationsSuccessResults()
 	results[2].Error = apiservererrors.ServerError(errorRes)
@@ -104,7 +103,7 @@ func (s *LeadershipSuite) TestUnpinApplicationLeadersSuccess(c *tc.C) {
 	}
 
 	res, err := s.api.UnpinApplicationLeaders(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, params.PinApplicationsResults{Results: s.pinApplicationsSuccessResults()})
 }
 
@@ -117,7 +116,7 @@ func (s *LeadershipSuite) TestUnpinApplicationLeadersPartialError(c *tc.C) {
 	s.pinner.EXPECT().UnpinLeadership("wordpress", s.authTag.String()).Return(nil)
 
 	res, err := s.api.UnpinApplicationLeaders(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	results := s.pinApplicationsSuccessResults()
 	results[1].Error = apiservererrors.ServerError(errorRes)
@@ -139,7 +138,7 @@ func (s *LeadershipSuite) TestGetMachineApplicationNamesSuccess(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	appNames, err := s.api.GetMachineApplicationNames(context.Background(), s.authTag.Id())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(appNames, tc.DeepEquals, s.machineApps)
 }
 
@@ -151,7 +150,7 @@ func (s *LeadershipSuite) TestPinApplicationLeadersByNameSuccess(c *tc.C) {
 	}
 
 	res, err := s.api.PinApplicationLeadersByName(context.Background(), s.authTag, s.machineApps)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, params.PinApplicationsResults{Results: s.pinApplicationsSuccessResults()})
 }
 
@@ -164,7 +163,7 @@ func (s *LeadershipSuite) TestPinApplicationLeadersByNamePartialError(c *tc.C) {
 	s.pinner.EXPECT().PinLeadership("wordpress", s.authTag.String()).Return(nil)
 
 	res, err := s.api.PinApplicationLeadersByName(context.Background(), s.authTag, s.machineApps)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	results := s.pinApplicationsSuccessResults()
 	results[1].Error = apiservererrors.ServerError(errorRes)
@@ -179,7 +178,7 @@ func (s *LeadershipSuite) TestUnpinApplicationLeadersByNameSuccess(c *tc.C) {
 	}
 
 	res, err := s.api.UnpinApplicationLeadersByName(context.Background(), s.authTag, s.machineApps)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, params.PinApplicationsResults{Results: s.pinApplicationsSuccessResults()})
 }
 
@@ -192,7 +191,7 @@ func (s *LeadershipSuite) TestUnpinApplicationLeadersByNamePartialError(c *tc.C)
 	s.pinner.EXPECT().UnpinLeadership("wordpress", s.authTag.String()).Return(nil)
 
 	res, err := s.api.UnpinApplicationLeadersByName(context.Background(), s.authTag, s.machineApps)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	results := s.pinApplicationsSuccessResults()
 	results[1].Error = apiservererrors.ServerError(errorRes)
@@ -220,7 +219,7 @@ func (s *LeadershipSuite) setup(c *tc.C) *gomock.Controller {
 		s.pinner,
 		&apiservertesting.FakeAuthorizer{Tag: s.authTag},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return ctrl
 }

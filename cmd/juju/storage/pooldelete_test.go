@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/internal/cmd"
@@ -35,7 +34,7 @@ func (s *PoolRemoveSuite) runPoolRemove(c *tc.C, args []string) (*cmd.Context, e
 
 func (s *PoolRemoveSuite) TestPoolRemoveOneArg(c *tc.C) {
 	_, err := s.runPoolRemove(c, []string{"sunshine"})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Assert(len(s.mockAPI.RemovedPools), tc.Equals, 1)
 	c.Assert(s.mockAPI.RemovedPools[0], tc.Equals, "sunshine")
 }

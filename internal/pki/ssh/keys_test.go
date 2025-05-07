@@ -8,7 +8,6 @@ import (
 	"crypto/ed25519"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/internal/pki/ssh"
@@ -33,16 +32,16 @@ func (s *KeySuite) TestKeyProfilesForErrors(c *tc.C) {
 	}
 	for _, test := range tests {
 		_, err := test.profile()
-		c.Check(err, jc.ErrorIsNil, tc.Commentf("profile %s", test.name))
+		c.Check(err, tc.ErrorIsNil, tc.Commentf("profile %s", test.name))
 	}
 }
 
 func (s *KeySuite) TestGenerateHostKeys(c *tc.C) {
 	keys, err := ssh.GenerateHostKeys()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(keys, tc.HasLen, 3)
 	keys2, err := ssh.GenerateHostKeys()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(keys2, tc.HasLen, 3)
 	for i, key := range keys {
 		key2 := keys2[i]
@@ -50,9 +49,9 @@ func (s *KeySuite) TestGenerateHostKeys(c *tc.C) {
 		typedKey, ok := key.(interface {
 			Equal(crypto.PrivateKey) bool
 		})
-		c.Assert(ok, jc.IsTrue, tc.Commentf("cast %v", key))
-		c.Assert(typedKey.Equal(key), jc.IsTrue)
-		c.Assert(typedKey.Equal(key2), jc.IsFalse)
+		c.Assert(ok, tc.IsTrue, tc.Commentf("cast %v", key))
+		c.Assert(typedKey.Equal(key), tc.IsTrue)
+		c.Assert(typedKey.Equal(key2), tc.IsFalse)
 	}
 }
 

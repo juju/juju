@@ -6,7 +6,6 @@ package apiserver_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/internal/testing"
@@ -32,12 +31,12 @@ func (s *RestrictCAASModelSuite) TestAllowed(c *tc.C) {
 func (s *RestrictCAASModelSuite) TestNotAllowed(c *tc.C) {
 	caller, err := s.root.FindMethod("Firewaller", 1, "WatchOpenedPorts")
 	c.Assert(err, tc.ErrorMatches, `facade "Firewaller" not supported on container models`)
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 	c.Assert(caller, tc.IsNil)
 }
 
 func (s *RestrictCAASModelSuite) assertMethod(c *tc.C, facadeName string, version int, method string) {
 	caller, err := s.root.FindMethod(facadeName, version, method)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	c.Check(caller, tc.NotNil)
 }

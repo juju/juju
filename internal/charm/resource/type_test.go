@@ -6,7 +6,6 @@ package resource_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/charm/resource"
 )
@@ -21,7 +20,7 @@ func (s *TypeSuite) TestParseTypeOkay(c *tc.C) {
 		"oci-image": resource.TypeContainerImage,
 	} {
 		rt, err := resource.ParseType(resourceType)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		c.Check(rt, tc.Equals, expected)
 	}
@@ -70,7 +69,7 @@ func (s *TypeSuite) TestTypeValidateSupported(c *tc.C) {
 	for _, rt := range supported {
 		err := rt.Validate()
 
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
 }
 
@@ -78,6 +77,6 @@ func (s *TypeSuite) TestTypeValidateUnknown(c *tc.C) {
 	var unknown resource.Type
 	err := unknown.Validate()
 
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 	c.Check(err, tc.ErrorMatches, `unknown resource type`)
 }

@@ -7,7 +7,6 @@ import (
 	"errors"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -52,8 +51,8 @@ func (s *applyConstraintsSuite) TestArch(c *tc.C) {
 	}
 	pod := &corev1.PodSpec{}
 	err := application.ApplyConstraints(pod, "foo", constraints.MustParse("arch=arm64"), configureConstraint)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pod.NodeSelector, jc.DeepEquals, map[string]string{"kubernetes.io/arch": "arm64"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pod.NodeSelector, tc.DeepEquals, map[string]string{"kubernetes.io/arch": "arm64"})
 }
 
 func (s *applyConstraintsSuite) TestPodAffinityJustTopologyKey(c *tc.C) {
@@ -62,8 +61,8 @@ func (s *applyConstraintsSuite) TestPodAffinityJustTopologyKey(c *tc.C) {
 	}
 	pod := &corev1.PodSpec{}
 	err := application.ApplyConstraints(pod, "foo", constraints.MustParse("tags=pod.topology-key=foo"), configureConstraint)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pod.Affinity.PodAffinity, jc.DeepEquals, &corev1.PodAffinity{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pod.Affinity.PodAffinity, tc.DeepEquals, &corev1.PodAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{{
 			LabelSelector: &metav1.LabelSelector{},
 			TopologyKey:   "foo",
@@ -79,8 +78,8 @@ func (s *applyConstraintsSuite) TestAffinityPod(c *tc.C) {
 	}
 	pod := &corev1.PodSpec{}
 	err := application.ApplyConstraints(pod, "foo", constraints.MustParse("tags=pod.hello=world|universe,pod.^goodbye=world"), configureConstraint)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pod.Affinity.PodAffinity, jc.DeepEquals, &corev1.PodAffinity{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pod.Affinity.PodAffinity, tc.DeepEquals, &corev1.PodAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{{
 			LabelSelector: &metav1.LabelSelector{
 				MatchLabels: nil,
@@ -106,8 +105,8 @@ func (s *applyConstraintsSuite) TestPodAffinityAll(c *tc.C) {
 	}
 	pod := &corev1.PodSpec{}
 	err := application.ApplyConstraints(pod, "foo", constraints.MustParse("tags=pod.hello=world,pod.^goodbye=world,pod.topology-key=foo"), configureConstraint)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pod.Affinity.PodAffinity, jc.DeepEquals, &corev1.PodAffinity{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pod.Affinity.PodAffinity, tc.DeepEquals, &corev1.PodAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{{
 			LabelSelector: &metav1.LabelSelector{
 				MatchLabels: nil,
@@ -132,8 +131,8 @@ func (s *applyConstraintsSuite) TestAntiPodAffinityJustTopologyKey(c *tc.C) {
 	}
 	pod := &corev1.PodSpec{}
 	err := application.ApplyConstraints(pod, "foo", constraints.MustParse("tags=anti-pod.topology-key=foo"), configureConstraint)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pod.Affinity.PodAntiAffinity, jc.DeepEquals, &corev1.PodAntiAffinity{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pod.Affinity.PodAntiAffinity, tc.DeepEquals, &corev1.PodAntiAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{{
 			LabelSelector: &metav1.LabelSelector{},
 			TopologyKey:   "foo",
@@ -149,8 +148,8 @@ func (s *applyConstraintsSuite) TestAntiPodAffinity(c *tc.C) {
 	}
 	pod := &corev1.PodSpec{}
 	err := application.ApplyConstraints(pod, "foo", constraints.MustParse("tags=anti-pod.hello=world|universe,anti-pod.^goodbye=world"), configureConstraint)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pod.Affinity.PodAntiAffinity, jc.DeepEquals, &corev1.PodAntiAffinity{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pod.Affinity.PodAntiAffinity, tc.DeepEquals, &corev1.PodAntiAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{{
 			LabelSelector: &metav1.LabelSelector{
 				MatchLabels: nil,
@@ -176,8 +175,8 @@ func (s *applyConstraintsSuite) TestAntiPodAffinityAll(c *tc.C) {
 	}
 	pod := &corev1.PodSpec{}
 	err := application.ApplyConstraints(pod, "foo", constraints.MustParse("tags=anti-pod.hello=world,anti-pod.^goodbye=world,anti-pod.topology-key=foo"), configureConstraint)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pod.Affinity.PodAntiAffinity, jc.DeepEquals, &corev1.PodAntiAffinity{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pod.Affinity.PodAntiAffinity, tc.DeepEquals, &corev1.PodAntiAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{{
 			LabelSelector: &metav1.LabelSelector{
 				MatchLabels: nil,
@@ -204,8 +203,8 @@ func (s *applyConstraintsSuite) TestNodeAntiAffinity(c *tc.C) {
 	}
 	pod := &corev1.PodSpec{}
 	err := application.ApplyConstraints(pod, "foo", constraints.MustParse("tags=node.hello=world|universe,node.^goodbye=world"), configureConstraint)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pod.Affinity.NodeAffinity, jc.DeepEquals, &corev1.NodeAffinity{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pod.Affinity.NodeAffinity, tc.DeepEquals, &corev1.NodeAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
 			NodeSelectorTerms: []corev1.NodeSelectorTerm{{
 				MatchExpressions: []corev1.NodeSelectorRequirement{{

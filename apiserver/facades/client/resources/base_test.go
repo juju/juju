@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coreresource "github.com/juju/juju/core/resource"
@@ -39,7 +38,7 @@ func (s *BaseSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *BaseSuite) newFacade(c *tc.C) *API {
 	facade, err := NewResourcesAPI(s.applicationService, s.resourceService, s.factory,
 		loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return facade
 }
 

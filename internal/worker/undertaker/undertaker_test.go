@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -186,12 +185,12 @@ func (s *OldUndertakerSuite) TestDestroyErrorForced(c *tc.C) {
 	s.fix.info.Result.DestroyTimeout = &destroyTimeout
 	stub := s.fix.run(c, func(w worker.Worker) {
 		err := workertest.CheckKilled(c, w)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	})
 	// Removal continues despite the error calling destroy.
 	mainCalls, destroyCloudCalls := s.sortCalls(c, stub)
-	c.Assert(mainCalls, jc.DeepEquals, []string{"WatchModel", "ModelInfo", "RemoveModel"})
-	c.Assert(destroyCloudCalls, jc.DeepEquals, []string{"ModelConfig", "CloudSpec", "Destroy"})
+	c.Assert(mainCalls, tc.DeepEquals, []string{"WatchModel", "ModelInfo", "RemoveModel"})
+	c.Assert(destroyCloudCalls, tc.DeepEquals, []string{"ModelConfig", "CloudSpec", "Destroy"})
 }
 
 func (s *OldUndertakerSuite) TestRemoveModelErrorFatal(c *tc.C) {
@@ -203,8 +202,8 @@ func (s *OldUndertakerSuite) TestRemoveModelErrorFatal(c *tc.C) {
 		c.Check(err, tc.ErrorMatches, "cannot remove model: pow")
 	})
 	mainCalls, destroyCloudCalls := s.sortCalls(c, stub)
-	c.Assert(mainCalls, jc.DeepEquals, []string{"WatchModel", "ModelInfo", "RemoveModel"})
-	c.Assert(destroyCloudCalls, jc.DeepEquals, []string{"ModelConfig", "CloudSpec", "Destroy"})
+	c.Assert(mainCalls, tc.DeepEquals, []string{"WatchModel", "ModelInfo", "RemoveModel"})
+	c.Assert(destroyCloudCalls, tc.DeepEquals, []string{"ModelConfig", "CloudSpec", "Destroy"})
 }
 
 func (s *OldUndertakerSuite) TestDestroyTimeout(c *tc.C) {
@@ -225,7 +224,7 @@ func (s *OldUndertakerSuite) TestDestroyTimeout(c *tc.C) {
 		}
 		callNames = append(callNames, call.FuncName)
 	}
-	c.Assert(callNames, jc.DeepEquals, []string{"WatchModel", "ModelInfo", "WatchModelResources"})
+	c.Assert(callNames, tc.DeepEquals, []string{"WatchModel", "ModelInfo", "WatchModelResources"})
 }
 
 func (s *OldUndertakerSuite) TestDestroyTimeoutForce(c *tc.C) {
@@ -233,11 +232,11 @@ func (s *OldUndertakerSuite) TestDestroyTimeoutForce(c *tc.C) {
 	s.fix.advance = 2 * time.Minute
 	stub := s.fix.run(c, func(w worker.Worker) {
 		err := workertest.CheckKilled(c, w)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	})
 	mainCalls, destroyCloudCalls := s.sortCalls(c, stub)
-	c.Assert(mainCalls, jc.DeepEquals, []string{"WatchModel", "ModelInfo", "WatchModelResources", "ProcessDyingModel", "RemoveModel"})
-	c.Assert(destroyCloudCalls, jc.DeepEquals, []string{"ModelConfig", "CloudSpec", "Destroy"})
+	c.Assert(mainCalls, tc.DeepEquals, []string{"WatchModel", "ModelInfo", "WatchModelResources", "ProcessDyingModel", "RemoveModel"})
+	c.Assert(destroyCloudCalls, tc.DeepEquals, []string{"ModelConfig", "CloudSpec", "Destroy"})
 }
 
 func (s *OldUndertakerSuite) TestEnvironDestroyTimeout(c *tc.C) {
@@ -246,11 +245,11 @@ func (s *OldUndertakerSuite) TestEnvironDestroyTimeout(c *tc.C) {
 	s.fix.dirty = true
 	stub := s.fix.run(c, func(w worker.Worker) {
 		err := workertest.CheckKilled(c, w)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	})
 	mainCalls, destroyCloudCalls := s.sortCalls(c, stub)
-	c.Assert(mainCalls, jc.DeepEquals, []string{"WatchModel", "ModelInfo", "WatchModelResources", "ProcessDyingModel", "RemoveModel"})
-	c.Assert(destroyCloudCalls, jc.DeepEquals, []string{"ModelConfig", "CloudSpec", "Destroy"})
+	c.Assert(mainCalls, tc.DeepEquals, []string{"WatchModel", "ModelInfo", "WatchModelResources", "ProcessDyingModel", "RemoveModel"})
+	c.Assert(destroyCloudCalls, tc.DeepEquals, []string{"ModelConfig", "CloudSpec", "Destroy"})
 }
 
 func (s *OldUndertakerSuite) TestEnvironDestroyTimeoutForce(c *tc.C) {
@@ -260,11 +259,11 @@ func (s *OldUndertakerSuite) TestEnvironDestroyTimeoutForce(c *tc.C) {
 	s.fix.dirty = true
 	stub := s.fix.run(c, func(w worker.Worker) {
 		err := workertest.CheckKilled(c, w)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	})
 	mainCalls, destroyCloudCalls := s.sortCalls(c, stub)
-	c.Assert(mainCalls, jc.DeepEquals, []string{"WatchModel", "ModelInfo", "WatchModelResources", "ProcessDyingModel", "RemoveModel"})
-	c.Assert(destroyCloudCalls, jc.DeepEquals, []string{"ModelConfig", "CloudSpec", "Destroy"})
+	c.Assert(mainCalls, tc.DeepEquals, []string{"WatchModel", "ModelInfo", "WatchModelResources", "ProcessDyingModel", "RemoveModel"})
+	c.Assert(destroyCloudCalls, tc.DeepEquals, []string{"ModelConfig", "CloudSpec", "Destroy"})
 }
 
 func (s *OldUndertakerSuite) sortCalls(c *tc.C, stub *testing.Stub) (mainCalls []string, destroyCloudCalls []string) {
@@ -287,7 +286,7 @@ func (s *OldUndertakerSuite) TestEnvironDestroyForceTimeoutZero(c *tc.C) {
 	s.fix.dirty = true
 	stub := s.fix.run(c, func(w worker.Worker) {
 		err := workertest.CheckKilled(c, w)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	})
 	stub.CheckCallNames(c, "WatchModel", "ModelInfo", "RemoveModel")
 }
@@ -342,7 +341,7 @@ func (s *UndertakerSuite) TestExitOnModelChanged(c *tc.C) {
 			return &waitDestroyer{}, nil
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Ignore the error from the CheckKilled call, we'll check the specifics
 	// later. We just want to make sure that the worker exits.

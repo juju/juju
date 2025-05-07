@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/controller"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -30,17 +29,17 @@ func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *tc.C) {
 	modelUUID, err := coremodel.NewUUID()
 	c.Assert(err, tc.IsNil)
 	err = InsertInitialControllerConfig(cfg, modelUUID)(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var cert string
 	row := s.DB().QueryRow("SELECT value FROM controller_config where key = ?", controller.CACertKey)
-	c.Assert(row.Scan(&cert), jc.ErrorIsNil)
+	c.Assert(row.Scan(&cert), tc.ErrorIsNil)
 
 	c.Check(cert, tc.Equals, testing.CACert)
 
 	var dbUUID, dbModelUUID string
 	row = s.DB().QueryRow("SELECT uuid, model_uuid FROM controller")
-	c.Assert(row.Scan(&dbUUID, &dbModelUUID), jc.ErrorIsNil)
+	c.Assert(row.Scan(&dbUUID, &dbModelUUID), tc.ErrorIsNil)
 
 	c.Check(dbModelUUID, tc.Equals, modelUUID.String())
 	c.Check(dbUUID, tc.Equals, testing.ControllerTag.Id())
@@ -49,7 +48,7 @@ func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *tc.C) {
 func (s *bootstrapSuite) TestValidModelUUID(c *tc.C) {
 	cfg := controller.Config{controller.CACertKey: testing.CACert}
 	err := InsertInitialControllerConfig(cfg, coremodel.UUID("bad-uuid"))(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *bootstrapSuite) TestInsertMinimalControllerConfig(c *tc.C) {

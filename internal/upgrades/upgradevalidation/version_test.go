@@ -6,7 +6,6 @@ package upgradevalidation_test
 import (
 	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
@@ -76,7 +75,7 @@ func (s *versionSuite) assertUpgradeControllerAllowed(c *tc.C, i int, t versionC
 	c.Check(allowed, tc.Equals, t.allowed)
 	c.Check(vers, tc.DeepEquals, minVers)
 	if t.err == "" {
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	} else {
 		c.Check(err, tc.ErrorMatches, t.err)
 	}

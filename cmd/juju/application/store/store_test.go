@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
@@ -32,9 +31,9 @@ func (s *storeSuite) TestAddCharmFromURLAddCharmSuccess(c *tc.C) {
 	s.expectAddCharm(nil)
 
 	curl, err := charm.ParseURL("ch:testme")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	origin, err := utils.MakeOrigin(charm.CharmHub, -1, charm.Channel{Risk: charm.Beta}, corecharm.Platform{Architecture: arch.DefaultArchitecture})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtainedCurl, _, err := store.AddCharmFromURL(
 		context.Background(),
@@ -43,7 +42,7 @@ func (s *storeSuite) TestAddCharmFromURLAddCharmSuccess(c *tc.C) {
 		origin,
 		true,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtainedCurl.String(), tc.Equals, curl.String())
 }
 
@@ -51,9 +50,9 @@ func (s *storeSuite) TestAddCharmFromURLFailAddCharmFail(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectAddCharm(errors.NotFoundf("testing"))
 	curl, err := charm.ParseURL("ch:testme")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	origin, err := utils.MakeOrigin(charm.CharmHub, -1, charm.Channel{Risk: charm.Beta}, corecharm.Platform{Architecture: arch.DefaultArchitecture})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtainedCurl, _, err := store.AddCharmFromURL(
 		context.Background(),
@@ -62,7 +61,7 @@ func (s *storeSuite) TestAddCharmFromURLFailAddCharmFail(c *tc.C) {
 		origin,
 		true,
 	)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 	c.Assert(obtainedCurl, tc.IsNil)
 }
 
@@ -73,9 +72,9 @@ func (s *storeSuite) TestAddCharmFromURLFailAddCharmFailUnauthorized(c *tc.C) {
 		Message: "permission denied",
 	})
 	curl, err := charm.ParseURL("ch:testme")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	origin, err := utils.MakeOrigin(charm.CharmHub, -1, charm.Channel{Risk: charm.Beta}, corecharm.Platform{Architecture: arch.DefaultArchitecture})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtainedCurl, _, err := store.AddCharmFromURL(
 		context.Background(),
@@ -84,7 +83,7 @@ func (s *storeSuite) TestAddCharmFromURLFailAddCharmFailUnauthorized(c *tc.C) {
 		origin,
 		true,
 	)
-	c.Assert(err, jc.ErrorIs, errors.Forbidden)
+	c.Assert(err, tc.ErrorIs, errors.Forbidden)
 	c.Assert(obtainedCurl, tc.IsNil)
 }
 

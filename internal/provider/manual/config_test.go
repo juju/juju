@@ -5,7 +5,6 @@ package manual
 
 import (
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -44,6 +43,6 @@ func MinimalConfigValues() map[string]interface{} {
 func MinimalConfig(c *tc.C) *config.Config {
 	minimal := MinimalConfigValues()
 	testConfig, err := config.New(config.UseDefaults, minimal)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return testConfig
 }

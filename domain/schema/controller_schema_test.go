@@ -6,7 +6,6 @@ package schema
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -135,7 +134,7 @@ func (s *controllerSchemaSuite) TestControllerTables(c *tc.C) {
 	)
 	got := readEntityNames(c, s.DB(), "table")
 	wanted := expected.Union(internalTableNames)
-	c.Assert(got, jc.SameContents, wanted.SortedValues(), tc.Commentf(
+	c.Assert(got, tc.SameContents, wanted.SortedValues(), tc.Commentf(
 		"additive: %v, deletion: %v",
 		set.NewStrings(got...).Difference(wanted).SortedValues(),
 		wanted.Difference(set.NewStrings(got...)).SortedValues(),
@@ -186,7 +185,7 @@ func (s *controllerSchemaSuite) TestControllerViews(c *tc.C) {
 		// Agent binary store
 		"v_agent_binary_store",
 	)
-	c.Assert(readEntityNames(c, s.DB(), "view"), jc.SameContents, expected.SortedValues())
+	c.Assert(readEntityNames(c, s.DB(), "view"), tc.SameContents, expected.SortedValues())
 }
 
 func (s *controllerSchemaSuite) TestControllerTriggers(c *tc.C) {
@@ -272,7 +271,7 @@ func (s *controllerSchemaSuite) TestControllerTriggers(c *tc.C) {
 	)
 	got := readEntityNames(c, s.DB(), "trigger")
 	wanted := expected.Union(additional)
-	c.Assert(got, jc.SameContents, wanted.SortedValues(), tc.Commentf(
+	c.Assert(got, tc.SameContents, wanted.SortedValues(), tc.Commentf(
 		"additive: %v, deletion: %v",
 		set.NewStrings(got...).Difference(wanted).SortedValues(),
 		wanted.Difference(set.NewStrings(got...)).SortedValues(),

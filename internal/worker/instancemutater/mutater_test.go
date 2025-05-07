@@ -8,7 +8,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	apiinstancemutater "github.com/juju/juju/api/agent/instancemutater"
@@ -57,7 +56,7 @@ func (s *mutaterSuite) TestProcessMachineProfileChanges(c *tc.C) {
 
 	info := s.info(startingProfiles, 1, true)
 	err := instancemutater.ProcessMachineProfileChanges(s.mutaterMachine, info)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *mutaterSuite) TestProcessMachineProfileChangesMachineDead(c *tc.C) {
@@ -69,7 +68,7 @@ func (s *mutaterSuite) TestProcessMachineProfileChangesMachineDead(c *tc.C) {
 
 	info := s.info(startingProfiles, 1, false)
 	err := instancemutater.ProcessMachineProfileChanges(s.mutaterMachine, info)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
 func (s *mutaterSuite) TestProcessMachineProfileChangesError(c *tc.C) {
@@ -92,7 +91,7 @@ func (s *mutaterSuite) TestProcessMachineProfileChangesNilInfo(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	err := instancemutater.ProcessMachineProfileChanges(s.mutaterMachine, &apiinstancemutater.UnitProfileInfo{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *mutaterSuite) TestGatherProfileDataReplace(c *tc.C) {
@@ -102,7 +101,7 @@ func (s *mutaterSuite) TestGatherProfileDataReplace(c *tc.C) {
 		s.mutaterMachine,
 		s.info([]string{"default", "juju-testme", "juju-testme-lxd-profile-0"}, 1, true),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(post, tc.DeepEquals, []lxdprofile.ProfilePost{
 		{Name: "juju-testme-lxd-profile-0", Profile: nil},
 		{Name: "juju-testme-lxd-profile-1", Profile: &testProfile},
@@ -116,7 +115,7 @@ func (s *mutaterSuite) TestGatherProfileDataRemove(c *tc.C) {
 		s.mutaterMachine,
 		s.info([]string{"default", "juju-testme", "juju-testme-lxd-profile-0"}, 0, false),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(post, tc.DeepEquals, []lxdprofile.ProfilePost{
 		{Name: "juju-testme-lxd-profile-0", Profile: nil},
 	})
@@ -129,7 +128,7 @@ func (s *mutaterSuite) TestGatherProfileDataAdd(c *tc.C) {
 		s.mutaterMachine,
 		s.info([]string{"default", "juju-testme"}, 1, true),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(post, tc.DeepEquals, []lxdprofile.ProfilePost{
 		{Name: "juju-testme-lxd-profile-1", Profile: &testProfile},
 	})
@@ -142,7 +141,7 @@ func (s *mutaterSuite) TestGatherProfileDataNoChange(c *tc.C) {
 		s.mutaterMachine,
 		s.info([]string{"default", "juju-testme", "juju-testme-lxd-profile-0"}, 0, true),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(post, tc.DeepEquals, []lxdprofile.ProfilePost{
 		{Name: "juju-testme-lxd-profile-0", Profile: &testProfile},
 	})
@@ -180,9 +179,9 @@ func (s *mutaterSuite) TestVerifyCurrentProfilesTrue(c *tc.C) {
 	s.expectLXDProfileNames(profiles, nil)
 
 	ok, obtained, err := instancemutater.VerifyCurrentProfiles(s.mutaterMachine, s.instId, profiles)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(obtained, jc.DeepEquals, profiles)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(obtained, tc.DeepEquals, profiles)
 }
 
 func (s *mutaterSuite) TestVerifyCurrentProfilesFalseLength(c *tc.C) {
@@ -192,9 +191,9 @@ func (s *mutaterSuite) TestVerifyCurrentProfilesFalseLength(c *tc.C) {
 	s.expectLXDProfileNames(profiles, nil)
 
 	ok, obtained, err := instancemutater.VerifyCurrentProfiles(s.mutaterMachine, s.instId, append(profiles, "juju-testme-next-1"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ok, jc.IsFalse)
-	c.Assert(obtained, jc.DeepEquals, profiles)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ok, tc.IsFalse)
+	c.Assert(obtained, tc.DeepEquals, profiles)
 }
 
 func (s *mutaterSuite) TestVerifyCurrentProfilesFalseContents(c *tc.C) {
@@ -204,9 +203,9 @@ func (s *mutaterSuite) TestVerifyCurrentProfilesFalseContents(c *tc.C) {
 	s.expectLXDProfileNames(profiles, nil)
 
 	ok, obtained, err := instancemutater.VerifyCurrentProfiles(s.mutaterMachine, s.instId, []string{"default", "juju-testme", "juju-testme-lxd-profile-1"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ok, jc.IsFalse)
-	c.Assert(obtained, jc.DeepEquals, profiles)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ok, tc.IsFalse)
+	c.Assert(obtained, tc.DeepEquals, profiles)
 }
 
 func (s *mutaterSuite) TestVerifyCurrentProfilesFalseContentsWithMissingExpectedProfiles(c *tc.C) {
@@ -216,9 +215,9 @@ func (s *mutaterSuite) TestVerifyCurrentProfilesFalseContentsWithMissingExpected
 	s.expectLXDProfileNames(profiles, nil)
 
 	ok, obtained, err := instancemutater.VerifyCurrentProfiles(s.mutaterMachine, s.instId, []string{"default", "juju-testme"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ok, jc.IsFalse)
-	c.Assert(obtained, jc.DeepEquals, profiles)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ok, tc.IsFalse)
+	c.Assert(obtained, tc.DeepEquals, profiles)
 }
 
 func (s *mutaterSuite) TestVerifyCurrentProfilesFalseContentsWithMissingProviderProfiles(c *tc.C) {
@@ -228,9 +227,9 @@ func (s *mutaterSuite) TestVerifyCurrentProfilesFalseContentsWithMissingProvider
 	s.expectLXDProfileNames(profiles, nil)
 
 	ok, obtained, err := instancemutater.VerifyCurrentProfiles(s.mutaterMachine, s.instId, []string{"default", "juju-testme", "juju-testme-lxd-profile-0"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ok, jc.IsFalse)
-	c.Assert(obtained, jc.DeepEquals, profiles)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ok, tc.IsFalse)
+	c.Assert(obtained, tc.DeepEquals, profiles)
 }
 
 func (s *mutaterSuite) TestVerifyCurrentProfilesError(c *tc.C) {
@@ -239,8 +238,8 @@ func (s *mutaterSuite) TestVerifyCurrentProfilesError(c *tc.C) {
 	s.expectLXDProfileNames([]string{}, errors.NotFoundf("instId"))
 
 	ok, obtained, err := instancemutater.VerifyCurrentProfiles(s.mutaterMachine, s.instId, []string{"default"})
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
+	c.Assert(ok, tc.IsFalse)
 	c.Assert(obtained, tc.IsNil)
 }
 

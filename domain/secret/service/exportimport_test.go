@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -83,8 +82,8 @@ func (s *serviceSuite) TestGetSecretsForExport(c *tc.C) {
 	)
 
 	got, err := s.service.GetSecretsForExport(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, jc.DeepEquals, &SecretExport{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.DeepEquals, &SecretExport{
 		Secrets: secrets,
 		Revisions: map[string][]*coresecrets.SecretRevisionMetadata{
 			uri.ID: revisions[0],
@@ -194,7 +193,7 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 	})
 
 	appUUID, err := coreapplication.NewID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetApplicationUUID(domaintesting.IsAtomicContextChecker, "mysql").Return(appUUID, nil)
 	s.state.EXPECT().CheckApplicationSecretLabelExists(domaintesting.IsAtomicContextChecker, appUUID, secrets[0].Label).Return(false, nil)
@@ -334,5 +333,5 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 		}},
 	}
 	err = s.service.ImportSecrets(context.Background(), toImport)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

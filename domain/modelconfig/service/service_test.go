@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
@@ -63,7 +62,7 @@ func (s *serviceSuite) TestGetModelConfigContainsAgentInformation(c *tc.C) {
 
 	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), s.mockState)
 	cfg, err := svc.ModelConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cfg.AgentStream(), tc.Equals, coreagentbinary.AgentStreamReleased.String())
 }
 
@@ -92,7 +91,7 @@ func (s *serviceSuite) TestUpdateModelConfigAgentStream(c *tc.C) {
 	)
 
 	val, is := errors.AsType[*config.ValidationError](err)
-	c.Check(is, jc.IsTrue)
+	c.Check(is, tc.IsTrue)
 	c.Check(val.InvalidAttrs, tc.DeepEquals, []string{"agent-stream"})
 }
 
@@ -125,7 +124,7 @@ func (s *serviceSuite) TestUpdateModelConfigNoAgentStreamChange(c *tc.C) {
 		nil,
 	)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestSetModelConfig(c *tc.C) {
@@ -155,5 +154,5 @@ func (s *serviceSuite) TestSetModelConfig(c *tc.C) {
 
 	svc := NewService(defaults, config.ModelValidator(), s.mockState)
 	err := svc.SetModelConfig(context.Background(), attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

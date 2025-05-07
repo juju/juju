@@ -6,7 +6,6 @@ package testing
 import (
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 const jujuPkgPrefix = "github.com/juju/juju/"
@@ -17,6 +16,6 @@ const jujuPkgPrefix = "github.com/juju/juju/"
 // Suites calling this MUST NOT override HOME or XDG_CACHE_HOME.
 func FindJujuCoreImports(c *tc.C, packageName string) []string {
 	imps, err := testing.FindImports(packageName, jujuPkgPrefix)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return imps
 }

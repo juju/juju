@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	jujucmd "github.com/juju/juju/internal/cmd"
@@ -21,7 +20,7 @@ func charmRes(c *tc.C, name, suffix, description, content string) charmresource.
 	}
 
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	res := charmresource.Resource{
 		Meta: charmresource.Meta{
@@ -36,7 +35,7 @@ func charmRes(c *tc.C, name, suffix, description, content string) charmresource.
 		Size:        int64(len(content)),
 	}
 	err = res.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return res
 }
 

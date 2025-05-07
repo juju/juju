@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	core "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -135,13 +134,13 @@ func (l *LabelSuite) TestDectectModelLabelVersion(c *tc.C) {
 
 	for t, test := range tests {
 		_, err := l.client.CoreV1().Namespaces().Create(context.Background(), test.Namespace, meta.CreateOptions{})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		labelVersion, err := utils.DetectModelLabelVersion(context.Background(), test.Namespace.Name, test.ModelName, test.ModelUUID, test.ControllerUUID, l.client.CoreV1().Namespaces())
 		if test.ErrorString != "" {
 			c.Assert(err, tc.ErrorMatches, test.ErrorString, tc.Commentf("test %d", t))
 		} else {
-			c.Assert(err, jc.ErrorIsNil, tc.Commentf("test %d", t))
+			c.Assert(err, tc.ErrorIsNil, tc.Commentf("test %d", t))
 		}
 		c.Check(labelVersion, tc.Equals, test.LabelVersion, tc.Commentf("test %d", t))
 	}
@@ -197,7 +196,7 @@ func (l *LabelSuite) TestSelectorLabelsForApp(c *tc.C) {
 
 	for _, test := range tests {
 		rval := utils.SelectorLabelsForApp(test.AppName, test.LabelVersion)
-		c.Assert(rval, jc.DeepEquals, test.ExpectedLabels)
+		c.Assert(rval, tc.DeepEquals, test.ExpectedLabels)
 	}
 }
 
@@ -226,7 +225,7 @@ func (l *LabelSuite) TestLabelsForApp(c *tc.C) {
 
 	for _, test := range tests {
 		rval := utils.LabelsForApp(test.AppName, test.LabelVersion)
-		c.Assert(rval, jc.DeepEquals, test.ExpectedLabels)
+		c.Assert(rval, tc.DeepEquals, test.ExpectedLabels)
 	}
 }
 
@@ -254,7 +253,7 @@ func (l *LabelSuite) TestLabelsForStorage(c *tc.C) {
 
 	for _, test := range tests {
 		rval := utils.LabelsForStorage(test.AppName, test.LabelVersion)
-		c.Assert(rval, jc.DeepEquals, test.ExpectedLabels)
+		c.Assert(rval, tc.DeepEquals, test.ExpectedLabels)
 	}
 }
 
@@ -288,7 +287,7 @@ func (l *LabelSuite) TestLabelsForModel(c *tc.C) {
 
 	for _, test := range tests {
 		rval := utils.LabelsForModel(test.ModelName, test.ModelUUID, test.ControllerUUID, test.LabelVersion)
-		c.Assert(rval, jc.DeepEquals, test.ExpectedLabels)
+		c.Assert(rval, tc.DeepEquals, test.ExpectedLabels)
 	}
 }
 
@@ -319,7 +318,7 @@ func (l *LabelSuite) TestLabelsForOperator(c *tc.C) {
 
 	for _, test := range tests {
 		rval := utils.LabelsForOperator(test.AppName, test.Target, test.LabelVersion)
-		c.Assert(rval, jc.DeepEquals, test.ExpectedLabels)
+		c.Assert(rval, tc.DeepEquals, test.ExpectedLabels)
 	}
 }
 
@@ -340,7 +339,7 @@ func (l *LabelSuite) TestLabelForKeyValue(c *tc.C) {
 
 	for _, test := range tests {
 		rval := utils.LabelForKeyValue(test.Key, test.Value)
-		c.Assert(rval, jc.DeepEquals, test.ExpectedLabels)
+		c.Assert(rval, tc.DeepEquals, test.ExpectedLabels)
 	}
 }
 
@@ -348,7 +347,7 @@ func (l *LabelSuite) TestLabelsMerge(c *tc.C) {
 	one := labels.Set{"foo": "bar"}
 	two := labels.Set{"foo": "baz", "up": "down"}
 	result := utils.LabelsMerge(one, two)
-	c.Assert(result, jc.DeepEquals, labels.Set{
+	c.Assert(result, tc.DeepEquals, labels.Set{
 		"foo": "baz",
 		"up":  "down",
 	})

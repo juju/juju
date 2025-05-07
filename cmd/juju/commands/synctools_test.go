@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
 
@@ -117,9 +116,9 @@ func (s *syncToolSuite) TestSyncToolsCommand(c *tc.C) {
 			return nil
 		}
 		ctx, err := run()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(ctx, tc.NotNil)
-		c.Assert(called, jc.IsTrue)
+		c.Assert(called, tc.IsTrue)
 		s.Reset(c)
 	}
 
@@ -136,23 +135,23 @@ func (s *syncToolSuite) TestSyncToolsCommandTargetDirectory(c *tc.C) {
 
 	called := false
 	syncTools = func(_ context.Context, sctx *sync.SyncContext) error {
-		c.Assert(sctx.AllVersions, jc.IsFalse)
-		c.Assert(sctx.DryRun, jc.IsFalse)
+		c.Assert(sctx.AllVersions, tc.IsFalse)
+		c.Assert(sctx.DryRun, tc.IsFalse)
 		c.Assert(sctx.Stream, tc.Equals, "proposed")
 		c.Assert(sctx.Source, tc.Equals, "")
 		c.Assert(sctx.TargetToolsUploader, tc.FitsTypeOf, sync.StorageToolsUploader{})
 		uploader := sctx.TargetToolsUploader.(sync.StorageToolsUploader)
 		c.Assert(uploader.WriteMirrors, tc.Equals, envtools.DoNotWriteMirrors)
 		url, err := uploader.Storage.URL("")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(url, tc.Equals, utils.MakeFileURL(dir))
 		called = true
 		return nil
 	}
 	ctx, err := run()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ctx, tc.NotNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(called, tc.IsTrue)
 }
 
 func (s *syncToolSuite) TestSyncToolsCommandTargetDirectoryPublic(c *tc.C) {
@@ -170,9 +169,9 @@ func (s *syncToolSuite) TestSyncToolsCommandTargetDirectoryPublic(c *tc.C) {
 		return nil
 	}
 	ctx, err := run()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ctx, tc.NotNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(called, tc.IsTrue)
 }
 
 func (s *syncToolSuite) TestAPIAdaptorUploadTools(c *tc.C) {

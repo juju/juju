@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/domain/blockcommand"
@@ -49,9 +48,9 @@ func (s *exportSuite) TestExport(c *tc.C) {
 
 	op := s.newExportOperation()
 	err := op.Execute(context.Background(), dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(dst.Blocks(), jc.DeepEquals, map[string]string{
+	c.Assert(dst.Blocks(), tc.DeepEquals, map[string]string{
 		"all-changes":   "foo",
 		"remove-object": "bar",
 		"destroy-model": "baz",
@@ -67,7 +66,7 @@ func (s *exportSuite) TestExportEmptyBlocks(c *tc.C) {
 
 	op := s.newExportOperation()
 	err := op.Execute(context.Background(), dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(dst.Blocks(), jc.DeepEquals, map[string]string{})
+	c.Assert(dst.Blocks(), tc.DeepEquals, map[string]string{})
 }

@@ -12,7 +12,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/scriptrunner"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -35,21 +34,21 @@ func (s *ScriptRunnerSuite) SetUpSuite(c *tc.C) {
 func (*ScriptRunnerSuite) TestScriptRunnerFails(c *tc.C) {
 	clock := testclock.NewClock(coretesting.ZeroTime())
 	result, err := scriptrunner.RunCommand("exit 1", os.Environ(), clock, 0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Code, tc.Equals, 1)
 }
 
 func (*ScriptRunnerSuite) TestScriptRunnerSucceeds(c *tc.C) {
 	clock := testclock.NewClock(coretesting.ZeroTime())
 	result, err := scriptrunner.RunCommand("exit 0", os.Environ(), clock, 0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Code, tc.Equals, 0)
 }
 
 func (*ScriptRunnerSuite) TestScriptRunnerCheckStdout(c *tc.C) {
 	clock := testclock.NewClock(coretesting.ZeroTime())
 	result, err := scriptrunner.RunCommand("echo -n 42", os.Environ(), clock, 0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Code, tc.Equals, 0)
 	c.Check(string(result.Stdout), tc.Equals, "42")
 	c.Check(string(result.Stderr), tc.Equals, "")
@@ -58,7 +57,7 @@ func (*ScriptRunnerSuite) TestScriptRunnerCheckStdout(c *tc.C) {
 func (*ScriptRunnerSuite) TestScriptRunnerCheckStderr(c *tc.C) {
 	clock := testclock.NewClock(coretesting.ZeroTime())
 	result, err := scriptrunner.RunCommand(">&2 echo -n 3.141", os.Environ(), clock, 0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Code, tc.Equals, 0)
 	c.Check(string(result.Stdout), tc.Equals, "")
 	c.Check(string(result.Stderr), tc.Equals, "3.141")

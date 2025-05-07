@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -65,7 +64,7 @@ func (s *ActionLogSuite) TestActionLog(c *tc.C) {
 		c.Logf("test %d: %s", i, t.summary)
 		hctx := &actionLogContext{}
 		com, err := jujuc.NewCommand(hctx, "action-log")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.command)
 		c.Check(code, tc.Equals, t.code)
@@ -77,7 +76,7 @@ func (s *ActionLogSuite) TestActionLog(c *tc.C) {
 func (s *ActionLogSuite) TestNonActionLogActionFails(c *tc.C) {
 	hctx := &nonActionLogContext{}
 	com, err := jujuc.NewCommand(hctx, "action-log")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"oops"})
 	c.Check(code, tc.Equals, 1)

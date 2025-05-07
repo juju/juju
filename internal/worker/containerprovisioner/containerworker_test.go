@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -84,7 +83,7 @@ func (s *containerWorkerSuite) TestContainerSetupAndProvisioner(c *tc.C) {
 
 	w := s.setUpContainerWorker(c)
 	work, ok := w.(*containerprovisioner.ContainerSetupAndProvisioner)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	// Watch the worker report. We are waiting for the lxd-provisioner
 	// to be started.
@@ -104,7 +103,7 @@ func (s *containerWorkerSuite) TestContainerSetupAndProvisioner(c *tc.C) {
 	// Check that the provisioner is there.
 	select {
 	case _, ok := <-workers:
-		c.Check(ok, jc.IsTrue)
+		c.Check(ok, tc.IsTrue)
 	case <-time.After(coretesting.LongWait):
 		c.Errorf("timed out waiting for runner to start all workers")
 	}
@@ -160,7 +159,7 @@ func (s *containerWorkerSuite) setUpContainerWorker(c *tc.C) worker.Worker {
 			Controller:        names.NewControllerTag(s.controllerUUID.String()),
 			Model:             names.NewModelTag(s.modelUUID.String()),
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	args := containerprovisioner.ContainerSetupParams{
 		Logger:        loggertesting.WrapCheckLog(c),
@@ -181,7 +180,7 @@ func (s *containerWorkerSuite) setUpContainerWorker(c *tc.C) worker.Worker {
 		return s.stringsWatcher, nil
 	}
 	w, err := containerprovisioner.NewContainerSetupAndProvisioner(context.Background(), cs, watcherFunc)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return w
 }

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -64,7 +63,7 @@ func (s *spaceSuite) TestAddSpaceInvalidNameEmpty(c *tc.C) {
 	_, err := NewService(s.st, loggertesting.WrapCheckLog(c)).AddSpace(
 		context.Background(),
 		network.SpaceInfo{})
-	c.Assert(err, jc.ErrorIs, networkerrors.SpaceNameNotValid)
+	c.Assert(err, tc.ErrorIs, networkerrors.SpaceNameNotValid)
 }
 
 func (s *spaceSuite) TestAddSpaceInvalidName(c *tc.C) {
@@ -79,7 +78,7 @@ func (s *spaceSuite) TestAddSpaceInvalidName(c *tc.C) {
 			Name:       "-bad name-",
 			ProviderId: "provider-id",
 		})
-	c.Assert(err, jc.ErrorIs, networkerrors.SpaceNameNotValid)
+	c.Assert(err, tc.ErrorIs, networkerrors.SpaceNameNotValid)
 }
 
 func (s *spaceSuite) TestAddSpaceErrorAdding(c *tc.C) {
@@ -126,7 +125,7 @@ func (s *spaceSuite) TestAddSpace(c *tc.C) {
 			Name:       "space0",
 			ProviderId: "provider-id",
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(returnedUUID.String(), tc.Not(tc.Equals), "")
 	c.Check(returnedUUID.String(), tc.Equals, expectedUUID)
 }
@@ -137,7 +136,7 @@ func (s *spaceSuite) TestUpdateSpaceName(c *tc.C) {
 	newName := "new-space-name"
 	s.st.EXPECT().UpdateSpace(gomock.Any(), network.AlphaSpaceId, newName).Return(nil)
 	err := NewService(s.st, loggertesting.WrapCheckLog(c)).UpdateSpace(context.Background(), network.AlphaSpaceId, newName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestUpdateSpaceNotFound checks that if we try to call Service.UpdateSpace on
@@ -152,7 +151,7 @@ func (s *spaceSuite) TestUpdateSpaceNotFound(c *tc.C) {
 
 	svc := NewService(s.st, loggertesting.WrapCheckLog(c))
 	err := svc.UpdateSpace(context.Background(), spaceID, "newname")
-	c.Assert(err, jc.ErrorIs, networkerrors.SpaceNotFound)
+	c.Assert(err, tc.ErrorIs, networkerrors.SpaceNotFound)
 }
 
 func (s *spaceSuite) TestRetrieveSpaceByID(c *tc.C) {
@@ -160,7 +159,7 @@ func (s *spaceSuite) TestRetrieveSpaceByID(c *tc.C) {
 
 	s.st.EXPECT().GetSpace(gomock.Any(), network.AlphaSpaceId)
 	_, err := NewService(s.st, loggertesting.WrapCheckLog(c)).Space(context.Background(), network.AlphaSpaceId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestRetrieveSpaceByIDNotFound checks that if we try to call Service.Space on
@@ -172,7 +171,7 @@ func (s *spaceSuite) TestRetrieveSpaceByIDNotFound(c *tc.C) {
 	s.st.EXPECT().GetSpace(gomock.Any(), "unknown-space").
 		Return(nil, errors.Errorf("space %q: %w", "unknown-space", networkerrors.SpaceNotFound))
 	_, err := NewService(s.st, loggertesting.WrapCheckLog(c)).Space(context.Background(), "unknown-space")
-	c.Assert(err, jc.ErrorIs, networkerrors.SpaceNotFound)
+	c.Assert(err, tc.ErrorIs, networkerrors.SpaceNotFound)
 }
 
 func (s *spaceSuite) TestRetrieveSpaceByName(c *tc.C) {
@@ -180,7 +179,7 @@ func (s *spaceSuite) TestRetrieveSpaceByName(c *tc.C) {
 
 	s.st.EXPECT().GetSpaceByName(gomock.Any(), network.AlphaSpaceName)
 	_, err := NewService(s.st, loggertesting.WrapCheckLog(c)).SpaceByName(context.Background(), network.AlphaSpaceName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestRetrieveSpaceByNameNotFound checks that if we try to call
@@ -192,7 +191,7 @@ func (s *spaceSuite) TestRetrieveSpaceByNameNotFound(c *tc.C) {
 	s.st.EXPECT().GetSpaceByName(gomock.Any(), "unknown-space-name").
 		Return(nil, errors.Errorf("space with name %q: %w", "unknown-space-name", networkerrors.SpaceNotFound))
 	_, err := NewService(s.st, loggertesting.WrapCheckLog(c)).SpaceByName(context.Background(), "unknown-space-name")
-	c.Assert(err, jc.ErrorIs, networkerrors.SpaceNotFound)
+	c.Assert(err, tc.ErrorIs, networkerrors.SpaceNotFound)
 }
 
 func (s *spaceSuite) TestRetrieveAllSpaces(c *tc.C) {
@@ -200,7 +199,7 @@ func (s *spaceSuite) TestRetrieveAllSpaces(c *tc.C) {
 
 	s.st.EXPECT().GetAllSpaces(gomock.Any())
 	_, err := NewService(s.st, loggertesting.WrapCheckLog(c)).GetAllSpaces(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *spaceSuite) TestRemoveSpace(c *tc.C) {
@@ -208,7 +207,7 @@ func (s *spaceSuite) TestRemoveSpace(c *tc.C) {
 
 	s.st.EXPECT().DeleteSpace(gomock.Any(), "space0")
 	err := NewService(s.st, loggertesting.WrapCheckLog(c)).RemoveSpace(context.Background(), "space0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestRemoveSpaceNotFound checks that if we try to call Service.RemoveSpace on
@@ -223,7 +222,7 @@ func (s *spaceSuite) TestRemoveSpaceNotFound(c *tc.C) {
 
 	svc := NewService(s.st, loggertesting.WrapCheckLog(c))
 	err := svc.RemoveSpace(context.Background(), spaceID)
-	c.Assert(err, jc.ErrorIs, networkerrors.SpaceNotFound)
+	c.Assert(err, tc.ErrorIs, networkerrors.SpaceNotFound)
 }
 
 func (s *spaceSuite) TestSaveProviderSubnetsWithoutSpaceUUID(c *tc.C) {
@@ -248,16 +247,16 @@ func (s *spaceSuite) TestSaveProviderSubnetsWithoutSpaceUUID(c *tc.C) {
 		func(cxt context.Context, subnets []network.SubnetInfo) error {
 			c.Check(subnets, tc.HasLen, 2)
 			c.Check(subnets[0].ProviderId, tc.Equals, twoSubnets[0].ProviderId)
-			c.Check(subnets[0].AvailabilityZones, jc.SameContents, twoSubnets[0].AvailabilityZones)
+			c.Check(subnets[0].AvailabilityZones, tc.SameContents, twoSubnets[0].AvailabilityZones)
 			c.Check(subnets[0].CIDR, tc.Equals, twoSubnets[0].CIDR)
 			c.Check(subnets[1].ProviderId, tc.Equals, twoSubnets[1].ProviderId)
-			c.Check(subnets[1].AvailabilityZones, jc.SameContents, twoSubnets[1].AvailabilityZones)
+			c.Check(subnets[1].AvailabilityZones, tc.SameContents, twoSubnets[1].AvailabilityZones)
 			c.Check(subnets[1].CIDR, tc.Equals, twoSubnets[1].CIDR)
 			return nil
 		})
 
 	err := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c)).saveProviderSubnets(context.Background(), twoSubnets, "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *spaceSuite) TestSaveProviderSubnetsOnlyAddsSubnets(c *tc.C) {
@@ -280,17 +279,17 @@ func (s *spaceSuite) TestSaveProviderSubnetsOnlyAddsSubnets(c *tc.C) {
 		func(ctx context.Context, subnets []network.SubnetInfo) error {
 			c.Check(subnets, tc.HasLen, 2)
 			c.Check(subnets[0].ProviderId, tc.Equals, twoSubnets[0].ProviderId)
-			c.Check(subnets[0].AvailabilityZones, jc.SameContents, twoSubnets[0].AvailabilityZones)
+			c.Check(subnets[0].AvailabilityZones, tc.SameContents, twoSubnets[0].AvailabilityZones)
 			c.Check(subnets[0].CIDR, tc.Equals, twoSubnets[0].CIDR)
 			c.Check(subnets[1].ProviderId, tc.Equals, twoSubnets[1].ProviderId)
-			c.Check(subnets[1].AvailabilityZones, jc.SameContents, twoSubnets[1].AvailabilityZones)
+			c.Check(subnets[1].AvailabilityZones, tc.SameContents, twoSubnets[1].AvailabilityZones)
 			c.Check(subnets[1].CIDR, tc.Equals, twoSubnets[1].CIDR)
 			return nil
 		},
 	)
 
 	err := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c)).saveProviderSubnets(context.Background(), twoSubnets, "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	anotherSubnet := []network.SubnetInfo{
 		{
@@ -304,14 +303,14 @@ func (s *spaceSuite) TestSaveProviderSubnetsOnlyAddsSubnets(c *tc.C) {
 		func(ctx context.Context, subnets []network.SubnetInfo) error {
 			c.Check(subnets, tc.HasLen, 1)
 			c.Check(subnets[0].ProviderId, tc.Equals, anotherSubnet[0].ProviderId)
-			c.Check(subnets[0].AvailabilityZones, jc.SameContents, anotherSubnet[0].AvailabilityZones)
+			c.Check(subnets[0].AvailabilityZones, tc.SameContents, anotherSubnet[0].AvailabilityZones)
 			c.Check(subnets[0].CIDR, tc.Equals, anotherSubnet[0].CIDR)
 			return nil
 		},
 	)
 
 	err = NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c)).saveProviderSubnets(context.Background(), anotherSubnet, "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *spaceSuite) TestSaveProviderSubnetsOnlyIdempotent(c *tc.C) {
@@ -329,27 +328,27 @@ func (s *spaceSuite) TestSaveProviderSubnetsOnlyIdempotent(c *tc.C) {
 		func(ctx context.Context, subnets []network.SubnetInfo) error {
 			c.Check(subnets, tc.HasLen, 1)
 			c.Check(subnets[0].ProviderId, tc.Equals, oneSubnet[0].ProviderId)
-			c.Check(subnets[0].AvailabilityZones, jc.SameContents, oneSubnet[0].AvailabilityZones)
+			c.Check(subnets[0].AvailabilityZones, tc.SameContents, oneSubnet[0].AvailabilityZones)
 			c.Check(subnets[0].CIDR, tc.Equals, oneSubnet[0].CIDR)
 			return nil
 		},
 	)
 
 	err := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c)).saveProviderSubnets(context.Background(), oneSubnet, "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// We expect the same subnets to be passed to the state methods.
 	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
 		func(ctx context.Context, subnets []network.SubnetInfo) error {
 			c.Check(subnets, tc.HasLen, 1)
 			c.Check(subnets[0].ProviderId, tc.Equals, oneSubnet[0].ProviderId)
-			c.Check(subnets[0].AvailabilityZones, jc.SameContents, oneSubnet[0].AvailabilityZones)
+			c.Check(subnets[0].AvailabilityZones, tc.SameContents, oneSubnet[0].AvailabilityZones)
 			c.Check(subnets[0].CIDR, tc.Equals, oneSubnet[0].CIDR)
 			return nil
 		},
 	)
 	err = NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c)).saveProviderSubnets(context.Background(), oneSubnet, "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *spaceSuite) TestSaveProviderSubnetsIgnoreInterfaceLocalMulticast(c *tc.C) {
@@ -365,7 +364,7 @@ func (s *spaceSuite) TestSaveProviderSubnetsIgnoreInterfaceLocalMulticast(c *tc.
 
 	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Times(0)
 	err := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c)).saveProviderSubnets(context.Background(), oneSubnet, "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *spaceSuite) TestSaveProviderSubnetsIgnoreLinkLocalMulticast(c *tc.C) {
@@ -381,7 +380,7 @@ func (s *spaceSuite) TestSaveProviderSubnetsIgnoreLinkLocalMulticast(c *tc.C) {
 
 	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Times(0)
 	err := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c)).saveProviderSubnets(context.Background(), oneSubnet, "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *spaceSuite) TestSaveProviderSubnetsIgnoreIPV6LinkLocalUnicast(c *tc.C) {
@@ -397,7 +396,7 @@ func (s *spaceSuite) TestSaveProviderSubnetsIgnoreIPV6LinkLocalUnicast(c *tc.C) 
 
 	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Times(0)
 	err := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c)).saveProviderSubnets(context.Background(), oneSubnet, "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *spaceSuite) TestSaveProviderSubnetsIgnoreIPV4LinkLocalUnicast(c *tc.C) {
@@ -413,7 +412,7 @@ func (s *spaceSuite) TestSaveProviderSubnetsIgnoreIPV4LinkLocalUnicast(c *tc.C) 
 
 	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Times(0)
 	err := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c)).saveProviderSubnets(context.Background(), oneSubnet, "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *spaceSuite) TestReloadSpacesFromProvider(c *tc.C) {
@@ -499,7 +498,7 @@ func (s *spaceSuite) TestReloadSpacesFromProvider(c *tc.C) {
 
 	err := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c)).
 		ReloadSpaces(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *spaceSuite) TestReloadSpacesUsingSubnets(c *tc.C) {
@@ -524,7 +523,7 @@ func (s *spaceSuite) TestReloadSpacesUsingSubnets(c *tc.C) {
 
 	err := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c)).
 		ReloadSpaces(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *spaceSuite) TestReloadSpacesUsingSubnetsFailsOnSave(c *tc.C) {
@@ -597,7 +596,7 @@ func (s *spaceSuite) TestSaveProviderSpaces(c *tc.C) {
 	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
 	provider := NewProviderSpaces(providerService, loggertesting.WrapCheckLog(c))
 	err := provider.saveSpaces(context.Background(), spaces)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(provider.modelSpaceMap, tc.DeepEquals, map[network.Id]network.SpaceInfo{
 		network.Id("1"): res[0],
 	})
@@ -642,7 +641,7 @@ func (s *spaceSuite) TestSaveProviderSpacesWithoutProviderId(c *tc.C) {
 	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
 	provider := NewProviderSpaces(providerService, loggertesting.WrapCheckLog(c))
 	err := provider.saveSpaces(context.Background(), spaces)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	addedSpace := network.SpaceInfo{
 		ID:         receivedSpaceID,
 		Name:       "empty",
@@ -696,7 +695,7 @@ func (s *spaceSuite) TestSaveProviderSpacesDeltaSpacesAfterNotUpdated(c *tc.C) {
 	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
 	provider := NewProviderSpaces(providerService, loggertesting.WrapCheckLog(c))
 	err := provider.saveSpaces(context.Background(), spaces)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(provider.deltaSpaces(), tc.DeepEquals, network.MakeIDSet(network.Id("1")))
 }
 
@@ -706,7 +705,7 @@ func (s *spaceSuite) TestDeleteProviderSpacesWithNoDeltas(c *tc.C) {
 	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
 	provider := NewProviderSpaces(providerService, loggertesting.WrapCheckLog(c))
 	warnings, err := provider.deleteSpaces(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(warnings, tc.DeepEquals, []string(nil))
 }
 
@@ -727,7 +726,7 @@ func (s *spaceSuite) TestDeleteProviderSpaces(c *tc.C) {
 	}
 
 	warnings, err := provider.deleteSpaces(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(warnings, tc.DeepEquals, []string(nil))
 }
 
@@ -744,7 +743,7 @@ func (s *spaceSuite) TestDeleteProviderSpacesMatchesAlphaSpace(c *tc.C) {
 	}
 
 	warnings, err := provider.deleteSpaces(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(warnings, tc.DeepEquals, []string{
 		`Unable to delete space "alpha". Space is used as the default space.`,
 	})
@@ -765,7 +764,7 @@ func (s *spaceSuite) TestDeleteProviderSpacesMatchesDefaultBindingSpace(c *tc.C)
 	}
 
 	warnings, err := provider.deleteSpaces(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(warnings, tc.DeepEquals, []string{
 		`Unable to delete space "1". Space is used as the default space.`,
 	})
@@ -785,7 +784,7 @@ func (s *spaceSuite) TestDeleteProviderSpacesContainsConstraintsSpace(c *tc.C) {
 	s.st.EXPECT().IsSpaceUsedInConstraints(gomock.Any(), network.SpaceName("1")).Return(true, nil)
 
 	warnings, err := provider.deleteSpaces(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(warnings, tc.DeepEquals, []string{
 		`Unable to delete space "1". Space is used in a constraint.`,
 	})
@@ -832,7 +831,7 @@ func (s *spaceSuite) TestProviderSpacesRun(c *tc.C) {
 	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
 	provider := NewProviderSpaces(providerService, loggertesting.WrapCheckLog(c))
 	err := provider.saveSpaces(context.Background(), spaces)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(provider.modelSpaceMap, tc.DeepEquals, map[network.Id]network.SpaceInfo{
 		network.Id("1"): {
 			ID:         "1",
@@ -847,7 +846,7 @@ func (s *spaceSuite) TestProviderSpacesRun(c *tc.C) {
 	})
 
 	warnings, err := provider.deleteSpaces(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(warnings, tc.DeepEquals, []string(nil))
 }
 
@@ -859,8 +858,8 @@ func (s *spaceSuite) TestSupportsSpaces(c *tc.C) {
 	s.providerWithNetworking.EXPECT().SupportsSpaces().Return(true, nil)
 
 	supported, err := providerService.SupportsSpaces(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(supported, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(supported, tc.IsTrue)
 }
 
 func (s *spaceSuite) TestSupportsSpacesNotSupported(c *tc.C) {
@@ -869,8 +868,8 @@ func (s *spaceSuite) TestSupportsSpacesNotSupported(c *tc.C) {
 	providerService := NewProviderService(s.st, s.notSupportedNetworkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
 
 	supported, err := providerService.SupportsSpaces(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(supported, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(supported, tc.IsFalse)
 }
 
 func (s *spaceSuite) TestSupportsSpaceDiscovery(c *tc.C) {
@@ -881,8 +880,8 @@ func (s *spaceSuite) TestSupportsSpaceDiscovery(c *tc.C) {
 	s.providerWithNetworking.EXPECT().SupportsSpaceDiscovery().Return(true, nil)
 
 	supported, err := providerService.SupportsSpaceDiscovery(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(supported, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(supported, tc.IsTrue)
 }
 
 func (s *spaceSuite) TestSupportsSpaceDiscoveryNotSupported(c *tc.C) {
@@ -891,6 +890,6 @@ func (s *spaceSuite) TestSupportsSpaceDiscoveryNotSupported(c *tc.C) {
 	providerService := NewProviderService(s.st, s.notSupportedNetworkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
 
 	supported, err := providerService.SupportsSpaceDiscovery(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(supported, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(supported, tc.IsFalse)
 }

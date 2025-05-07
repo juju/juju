@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/internal/cmd"
@@ -46,7 +45,7 @@ func (s *createSuite) TearDownTest(c *tc.C) {
 	// However, in situations where s.command.Filename is defined, we want to remove it as well.
 	if s.command.Filename != backups.NotSet && s.command.Filename != s.filename {
 		err := os.Remove(s.command.Filename)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	s.BaseBackupsSuite.TearDownTest(c)
 }
@@ -144,7 +143,7 @@ func (s *createSuite) TestArgParsing(c *tc.C) {
 		c.Logf("%d: %s", i, test.title)
 		err := cmdtesting.InitCommand(s.wrappedCommand, test.args)
 		if test.errMatch == "" {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(s.command.Filename, tc.Equals, test.filename)
 			c.Assert(s.command.NoDownload, tc.Equals, test.noDownload)
 			c.Assert(s.command.Notes, tc.Equals, test.notes)
@@ -157,7 +156,7 @@ func (s *createSuite) TestArgParsing(c *tc.C) {
 func (s *createSuite) TestDefault(c *tc.C) {
 	client := s.setDownload()
 	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	client.CheckCalls(c, "Create", "Download")
 	client.CheckArgs(c, "", "false", "backup-filename")
@@ -168,7 +167,7 @@ func (s *createSuite) TestDefault(c *tc.C) {
 func (s *createSuite) TestDefaultQuiet(c *tc.C) {
 	client := s.setDownload()
 	ctx, err := cmdtesting.RunCommand(c, s.createCommandForGlobalOptionTesting(s.wrappedCommand), "create-backup", "--quiet")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	client.CheckCalls(c, "Create", "Download")
 	client.CheckArgs(c, "", "false", "backup-filename")
@@ -180,7 +179,7 @@ func (s *createSuite) TestDefaultQuiet(c *tc.C) {
 func (s *createSuite) TestNotes(c *tc.C) {
 	client := s.setDownload()
 	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "test notes")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	client.CheckCalls(c, "Create", "Download")
 	client.CheckArgs(c, "test notes", "false", "backup-filename")
@@ -190,7 +189,7 @@ func (s *createSuite) TestNotes(c *tc.C) {
 func (s *createSuite) TestFilename(c *tc.C) {
 	client := s.setDownload()
 	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	client.CheckCalls(c, "Create", "Download")
 	client.CheckArgs(c, "", "false", "backup-filename")
@@ -204,7 +203,7 @@ Downloaded to backup.tgz
 func (s *createSuite) TestNoDownload(c *tc.C) {
 	client := s.setSuccess()
 	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--no-download")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	client.CheckCalls(c, "Create")
 	client.CheckArgs(c, "", "true")
