@@ -12,9 +12,9 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
 	commoncharm "github.com/juju/juju/api/common/charm"
@@ -39,9 +39,9 @@ type diffSuite struct {
 	dir         string
 }
 
-var _ = gc.Suite(&diffSuite{})
+var _ = tc.Suite(&diffSuite{})
 
-func (s *diffSuite) SetUpTest(c *gc.C) {
+func (s *diffSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.apiRoot = &mockAPIRoot{
 		responses: makeAPIResponses(),
@@ -53,7 +53,7 @@ func (s *diffSuite) SetUpTest(c *gc.C) {
 	s.dir = c.MkDir()
 }
 
-func (s *diffSuite) runDiffBundle(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *diffSuite) runDiffBundle(c *tc.C, args ...string) (*cmd.Context, error) {
 	return s.runDiffBundleWithCharmAdaptor(c, func(base.APICallCloser, *charm.URL) (application.BundleResolver, error) {
 		return s.charmHub, nil
 	}, func(ctx context.Context) (application.ModelConstraintsClient, error) {
@@ -61,7 +61,7 @@ func (s *diffSuite) runDiffBundle(c *gc.C, args ...string) (*cmd.Context, error)
 	}, args...)
 }
 
-func (s *diffSuite) runDiffBundleWithCharmAdaptor(c *gc.C,
+func (s *diffSuite) runDiffBundleWithCharmAdaptor(c *tc.C,
 	charmAdataperFn func(base.APICallCloser, *charm.URL) (application.BundleResolver, error),
 	modelConsFn func(ctx context.Context) (application.ModelConstraintsClient, error),
 	args ...string,
@@ -77,22 +77,22 @@ func (s *diffSuite) runDiffBundleWithCharmAdaptor(c *gc.C,
 	return cmdtesting.RunCommandInDir(c, command, args, s.dir)
 }
 
-func (s *diffSuite) TestNoArgs(c *gc.C) {
+func (s *diffSuite) TestNoArgs(c *tc.C) {
 	_, err := s.runDiffBundle(c)
-	c.Assert(err, gc.ErrorMatches, "no bundle specified")
+	c.Assert(err, tc.ErrorMatches, "no bundle specified")
 }
 
-func (s *diffSuite) TestTooManyArgs(c *gc.C) {
+func (s *diffSuite) TestTooManyArgs(c *tc.C) {
 	_, err := s.runDiffBundle(c, "bundle", "somethingelse")
-	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["somethingelse"\]`)
+	c.Assert(err, tc.ErrorMatches, `unrecognized args: \["somethingelse"\]`)
 }
 
-func (s *diffSuite) TestVerifiesBundle(c *gc.C) {
+func (s *diffSuite) TestVerifiesBundle(c *tc.C) {
 	_, err := s.runDiffBundle(c, s.writeLocalBundle(c, invalidBundle))
-	c.Assert(err, gc.ErrorMatches, "(?s)the provided bundle has the following errors:.*")
+	c.Assert(err, tc.ErrorMatches, "(?s)the provided bundle has the following errors:.*")
 }
 
-func (s *diffSuite) TestNotABundle(c *gc.C) {
+func (s *diffSuite) TestNotABundle(c *tc.C) {
 	s.charmHub.url = &charm.URL{
 		Schema:   "ch",
 		Name:     "prometheus",
@@ -115,10 +115,10 @@ func (s *diffSuite) TestNotABundle(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *diffSuite) TestLocalBundle(c *gc.C) {
+func (s *diffSuite) TestLocalBundle(c *tc.C) {
 	ctx, err := s.runDiffBundle(c, s.writeLocalBundle(c, testCharmHubBundle))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 applications:
   grafana:
     missing: bundle
@@ -136,16 +136,16 @@ machines:
 `[1:])
 }
 
-func (s *diffSuite) TestLocalBundleInvalidYaml(c *gc.C) {
+func (s *diffSuite) TestLocalBundleInvalidYaml(c *tc.C) {
 	_, err := s.runDiffBundle(c, s.writeLocalBundle(c, invalidYaml))
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
-	c.Assert(err, gc.ErrorMatches, `.*cannot unmarshal bundle contents.*`[1:])
+	c.Assert(err, tc.ErrorMatches, `.*cannot unmarshal bundle contents.*`[1:])
 }
 
-func (s *diffSuite) TestIncludeAnnotations(c *gc.C) {
+func (s *diffSuite) TestIncludeAnnotations(c *tc.C) {
 	ctx, err := s.runDiffBundle(c, "--annotations", s.writeLocalBundle(c, testCharmHubBundle))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 applications:
   grafana:
     missing: bundle
@@ -167,11 +167,11 @@ machines:
 `[1:])
 }
 
-func (s *diffSuite) TestHandlesIncludes(c *gc.C) {
+func (s *diffSuite) TestHandlesIncludes(c *tc.C) {
 	s.writeFile(c, "include.yaml", "hume")
 	ctx, err := s.runDiffBundle(c, s.writeLocalBundle(c, withInclude))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 applications:
   grafana:
     missing: bundle
@@ -189,7 +189,7 @@ machines:
 `[1:])
 }
 
-func (s *diffSuite) TestHandlesOverlays(c *gc.C) {
+func (s *diffSuite) TestHandlesOverlays(c *tc.C) {
 	path1 := s.writeFile(c, "overlay1.yaml", overlay1)
 	path2 := s.writeFile(c, "overlay2.yaml", overlay2)
 	ctx, err := s.runDiffBundle(c,
@@ -197,7 +197,7 @@ func (s *diffSuite) TestHandlesOverlays(c *gc.C) {
 		"--overlay", path2,
 		s.writeLocalBundle(c, testCharmHubBundle))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 applications:
   grafana:
     missing: bundle
@@ -224,7 +224,7 @@ relations:
 `[1:])
 }
 
-func (s *diffSuite) TestCharmSeriesBundle(c *gc.C) {
+func (s *diffSuite) TestCharmSeriesBundle(c *tc.C) {
 	bundleData, err := charm.ReadBundleData(strings.NewReader(withSeries))
 	c.Assert(err, jc.ErrorIsNil)
 	s.charmHub.url = &charm.URL{
@@ -236,23 +236,23 @@ func (s *diffSuite) TestCharmSeriesBundle(c *gc.C) {
 	ctx, err := s.runDiffBundle(c, "my-bundle")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 {}
 `[1:])
 }
 
-func (s *diffSuite) TestBundleNotFound(c *gc.C) {
+func (s *diffSuite) TestBundleNotFound(c *tc.C) {
 	s.charmHub.stub.SetErrors(errors.NotFoundf(`cannot resolve URL "ch:my-bundle": charm or bundle`))
 	_, err := s.runDiffBundle(c, "ch:my-bundle")
-	c.Assert(err, gc.ErrorMatches, `cannot resolve URL "ch:my-bundle": charm or bundle not found`)
+	c.Assert(err, tc.ErrorMatches, `cannot resolve URL "ch:my-bundle": charm or bundle not found`)
 }
 
-func (s *diffSuite) TestMachineMap(c *gc.C) {
+func (s *diffSuite) TestMachineMap(c *tc.C) {
 	ctx, err := s.runDiffBundle(c,
 		"--map-machines", "0=1",
 		s.writeLocalBundle(c, testCharmHubBundle))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 applications:
   grafana:
     missing: bundle
@@ -274,7 +274,7 @@ machines:
 `[1:])
 }
 
-func (s *diffSuite) TestCharmHubBundle(c *gc.C) {
+func (s *diffSuite) TestCharmHubBundle(c *tc.C) {
 	bundleData, err := charm.ReadBundleData(strings.NewReader(testCharmHubBundle))
 	c.Assert(err, jc.ErrorIsNil)
 	s.charmHub.url = &charm.URL{
@@ -286,7 +286,7 @@ func (s *diffSuite) TestCharmHubBundle(c *gc.C) {
 	ctx, err := s.runDiffBundle(c, "my-bundle")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 applications:
   grafana:
     missing: bundle
@@ -304,7 +304,7 @@ machines:
 `[1:])
 }
 
-func (s *diffSuite) TestRelationsWithMissingEndpoints(c *gc.C) {
+func (s *diffSuite) TestRelationsWithMissingEndpoints(c *tc.C) {
 	rels := []params.RelationStatus{
 		{
 			Endpoints: []params.EndpointStatus{
@@ -334,7 +334,7 @@ relations:
 	c.Assert(strings.Contains(cmdtesting.Stdout(ctx), exp[1:]), jc.IsTrue)
 }
 
-func (s *diffSuite) TestExposedEndpoints(c *gc.C) {
+func (s *diffSuite) TestExposedEndpoints(c *tc.C) {
 	specs := []struct {
 		descr                 string
 		modelExposedEndpoints map[string]params.ExposedEndpoint
@@ -445,15 +445,15 @@ applications:
 		c.Assert(err, jc.ErrorIsNil)
 
 		c.Log(cmdtesting.Stdout(ctx))
-		c.Assert(cmdtesting.Stdout(ctx), gc.Equals, spec.expDiff)
+		c.Assert(cmdtesting.Stdout(ctx), tc.Equals, spec.expDiff)
 	}
 }
 
-func (s *diffSuite) writeLocalBundle(c *gc.C, content string) string {
+func (s *diffSuite) writeLocalBundle(c *tc.C, content string) string {
 	return s.writeFile(c, "bundle.yaml", content)
 }
 
-func (s *diffSuite) writeFile(c *gc.C, name, content string) string {
+func (s *diffSuite) writeFile(c *tc.C, name, content string) string {
 	path := filepath.Join(s.dir, name)
 	err := os.WriteFile(path, []byte(content), 0666)
 	c.Assert(err, jc.ErrorIsNil)

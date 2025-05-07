@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var _ = gc.Suite(&AgentToolsSuite{})
+var _ = tc.Suite(&AgentToolsSuite{})
 
 type AgentToolsSuite struct {
 	coretesting.BaseSuite
@@ -33,14 +33,14 @@ type dummyEnviron struct {
 	environs.Environ
 }
 
-func (s *AgentToolsSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *AgentToolsSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.modelAgentService = NewMockModelAgentService(ctrl)
 	return ctrl
 }
 
-func (s *AgentToolsSuite) TestCheckTools(c *gc.C) {
+func (s *AgentToolsSuite) TestCheckTools(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	expVer, err := semversion.Parse("2.5.0")
@@ -58,9 +58,9 @@ func (s *AgentToolsSuite) TestCheckTools(c *gc.C) {
 		calledWithMinor = min
 		ver := semversion.Binary{Number: semversion.Number{Major: maj, Minor: min}}
 		t := coretools.Tools{Version: ver, URL: "http://example.com", Size: 1}
-		c.Assert(calledWithMajor, gc.Equals, 2)
-		c.Assert(calledWithMinor, gc.Equals, 5)
-		c.Assert(streams, gc.DeepEquals, []string{"released"})
+		c.Assert(calledWithMajor, tc.Equals, 2)
+		c.Assert(calledWithMinor, tc.Equals, 5)
+		c.Assert(streams, tc.DeepEquals, []string{"released"})
 		return coretools.List{&t}, nil
 	}
 
@@ -69,10 +69,10 @@ func (s *AgentToolsSuite) TestCheckTools(c *gc.C) {
 
 	obtainedVer, err := api.checkToolsAvailability(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedVer, gc.Equals, expVer)
+	c.Assert(obtainedVer, tc.Equals, expVer)
 }
 
-func (s *AgentToolsSuite) TestCheckToolsNonReleasedStream(c *gc.C) {
+func (s *AgentToolsSuite) TestCheckToolsNonReleasedStream(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	expVer, err := semversion.Parse("2.5-alpha1")
@@ -100,8 +100,8 @@ func (s *AgentToolsSuite) TestCheckToolsNonReleasedStream(c *gc.C) {
 		}
 		ver := semversion.Binary{Number: semversion.Number{Major: maj, Minor: min}}
 		t := coretools.Tools{Version: ver, URL: "http://example.com", Size: 1}
-		c.Assert(calledWithMajor, gc.Equals, 2)
-		c.Assert(calledWithMinor, gc.Equals, 5)
+		c.Assert(calledWithMajor, tc.Equals, 2)
+		c.Assert(calledWithMinor, tc.Equals, 5)
 		return coretools.List{&t}, nil
 	}
 
@@ -110,8 +110,8 @@ func (s *AgentToolsSuite) TestCheckToolsNonReleasedStream(c *gc.C) {
 
 	obtainedVer, err := api.checkToolsAvailability(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(calledWithStreams, gc.DeepEquals, [][]string{{"proposed", "released"}})
-	c.Assert(obtainedVer, gc.Equals, semversion.Number{Major: 2, Minor: 5, Patch: 0})
+	c.Assert(calledWithStreams, tc.DeepEquals, [][]string{{"proposed", "released"}})
+	c.Assert(obtainedVer, tc.Equals, semversion.Number{Major: 2, Minor: 5, Patch: 0})
 }
 
 type mockState struct{}
@@ -120,7 +120,7 @@ func (e *mockState) Model() (*state.Model, error) {
 	return &state.Model{}, nil
 }
 
-func (s *AgentToolsSuite) TestUpdateToolsAvailability(c *gc.C) {
+func (s *AgentToolsSuite) TestUpdateToolsAvailability(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	expVer, err := semversion.Parse("2.5.0")
@@ -149,10 +149,10 @@ func (s *AgentToolsSuite) TestUpdateToolsAvailability(c *gc.C) {
 
 	err = api.updateToolsAvailability(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ver, gc.Equals, semversion.Number{Major: 2, Minor: 5, Patch: 2})
+	c.Assert(ver, tc.Equals, semversion.Number{Major: 2, Minor: 5, Patch: 2})
 }
 
-func (s *AgentToolsSuite) TestUpdateToolsAvailabilityNoMatches(c *gc.C) {
+func (s *AgentToolsSuite) TestUpdateToolsAvailabilityNoMatches(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	expVer, err := semversion.Parse("2.5.0")

@@ -7,9 +7,9 @@ package common_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -23,9 +23,9 @@ type actionsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&actionsSuite{})
+var _ = tc.Suite(&actionsSuite{})
 
-func (s *actionsSuite) TestTagToActionReceiverFn(c *gc.C) {
+func (s *actionsSuite) TestTagToActionReceiverFn(c *tc.C) {
 	stubActionReceiver := fakeActionReceiver{}
 	stubEntity := fakeEntity{}
 	tagToEntity := map[string]state.Entity{
@@ -54,16 +54,16 @@ func (s *actionsSuite) TestTagToActionReceiverFn(c *gc.C) {
 		c.Logf("test %d", i)
 		receiver, err := tagFn(test.tag)
 		if test.err != nil {
-			c.Check(err.Error(), gc.Equals, test.err.Error())
-			c.Check(receiver, gc.IsNil)
+			c.Check(err.Error(), tc.Equals, test.err.Error())
+			c.Check(receiver, tc.IsNil)
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(receiver, gc.Equals, test.result)
+			c.Assert(receiver, tc.Equals, test.result)
 		}
 	}
 }
 
-func (s *actionsSuite) TestAuthAndActionFromTagFn(c *gc.C) {
+func (s *actionsSuite) TestAuthAndActionFromTagFn(c *tc.C) {
 	notFoundActionTag := names.NewActionTag(uuid.MustNewUUID().String())
 
 	authorizedActionTag := names.NewActionTag(uuid.MustNewUUID().String())
@@ -111,19 +111,19 @@ func (s *actionsSuite) TestAuthAndActionFromTagFn(c *gc.C) {
 		c.Logf("test %d", i)
 		action, err := tagFn(test.tag)
 		if test.errString != "" {
-			c.Check(err, gc.ErrorMatches, test.errString)
-			c.Check(action, gc.IsNil)
+			c.Check(err, tc.ErrorMatches, test.errString)
+			c.Check(action, tc.IsNil)
 		} else if test.err != nil {
-			c.Check(err, gc.Equals, test.err)
-			c.Check(action, gc.IsNil)
+			c.Check(err, tc.Equals, test.err)
+			c.Check(action, tc.IsNil)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
-			c.Check(action, gc.Equals, action)
+			c.Check(action, tc.Equals, action)
 		}
 	}
 }
 
-func (s *actionsSuite) TestBeginActions(c *gc.C) {
+func (s *actionsSuite) TestBeginActions(c *tc.C) {
 	args := entities("success", "fail", "invalid")
 	expectErr := errors.New("explosivo")
 	actionFn := makeGetActionByTagString(map[string]state.Action{
@@ -142,7 +142,7 @@ func (s *actionsSuite) TestBeginActions(c *gc.C) {
 	})
 }
 
-func (s *actionsSuite) TestGetActions(c *gc.C) {
+func (s *actionsSuite) TestGetActions(c *tc.C) {
 	args := entities("success", "fail", "notPending")
 	actionFn := makeGetActionByTagString(map[string]state.Action{
 		"success":    fakeAction{name: "floosh", status: state.ActionPending},
@@ -162,7 +162,7 @@ func (s *actionsSuite) TestGetActions(c *gc.C) {
 	})
 }
 
-func (s *actionsSuite) TestFinishActions(c *gc.C) {
+func (s *actionsSuite) TestFinishActions(c *tc.C) {
 	args := params.ActionExecutionResults{
 		[]params.ActionExecutionResult{
 			{ActionTag: "success", Status: string(state.ActionCompleted)},
@@ -188,7 +188,7 @@ func (s *actionsSuite) TestFinishActions(c *gc.C) {
 	})
 }
 
-func (s *actionsSuite) TestWatchActionNotifications(c *gc.C) {
+func (s *actionsSuite) TestWatchActionNotifications(c *tc.C) {
 	args := entities("invalid-actionreceiver", "machine-1", "machine-2", "machine-3")
 	canAccess := makeCanAccess(map[names.Tag]bool{
 		names.NewMachineTag("2"): true,
@@ -213,7 +213,7 @@ func (s *actionsSuite) TestWatchActionNotifications(c *gc.C) {
 	})
 }
 
-func (s *actionsSuite) TestWatchOneActionReceiverNotifications(c *gc.C) {
+func (s *actionsSuite) TestWatchOneActionReceiverNotifications(c *tc.C) {
 	expectErr := errors.New("zwoosh")
 	registerFunc := func(worker.Worker) string { return "bambalam" }
 	tagToActionReceiver := common.TagToActionReceiverFn(makeFindEntity(map[string]state.Entity{
@@ -241,16 +241,16 @@ func (s *actionsSuite) TestWatchOneActionReceiverNotifications(c *gc.C) {
 		c.Logf(test.tag.String())
 		result, err := watchOneFn(test.tag)
 		if test.err != "" {
-			c.Check(err, gc.ErrorMatches, test.err)
+			c.Check(err, tc.ErrorMatches, test.err)
 			c.Check(result, jc.DeepEquals, params.StringsWatchResult{})
 		} else {
 			c.Check(err, jc.ErrorIsNil)
-			c.Check(result.StringsWatcherId, gc.Equals, test.watcherId)
+			c.Check(result.StringsWatcherId, tc.Equals, test.watcherId)
 		}
 	}
 }
 
-func (s *actionsSuite) TestWatchPendingActionsForReceiver(c *gc.C) {
+func (s *actionsSuite) TestWatchPendingActionsForReceiver(c *tc.C) {
 	expectErr := errors.New("zwoosh")
 	registerFunc := func(worker.Worker) string { return "bambalam" }
 	tagToActionReceiver := common.TagToActionReceiverFn(makeFindEntity(map[string]state.Entity{
@@ -278,11 +278,11 @@ func (s *actionsSuite) TestWatchPendingActionsForReceiver(c *gc.C) {
 		c.Logf(test.tag.String())
 		result, err := watchOneFn(test.tag)
 		if test.err != "" {
-			c.Check(err, gc.ErrorMatches, test.err)
+			c.Check(err, tc.ErrorMatches, test.err)
 			c.Check(result, jc.DeepEquals, params.StringsWatchResult{})
 		} else {
 			c.Check(err, jc.ErrorIsNil)
-			c.Check(result.StringsWatcherId, gc.Equals, test.watcherId)
+			c.Check(result.StringsWatcherId, tc.Equals, test.watcherId)
 		}
 	}
 }

@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/domain/schema/testing"
@@ -27,7 +27,7 @@ type ModelSuite struct {
 
 // SetUpTest is responsible for setting up a testing database suite initialised
 // with the model schema.
-func (s *ModelSuite) SetUpTest(c *gc.C) {
+func (s *ModelSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	s.watchableDB = NewTestWatchableDB(c, s.ModelUUID(), s.TxnRunner())
@@ -38,7 +38,7 @@ func (s *ModelSuite) SetUpTest(c *gc.C) {
 	s.PrimeChangeStream(c)
 }
 
-func (s *ModelSuite) TearDownTest(c *gc.C) {
+func (s *ModelSuite) TearDownTest(c *tc.C) {
 	if s.watchableDB != nil {
 		// We could use workertest.DirtyKill here, but some workers are already
 		// dead when we get here and it causes unwanted logs. This just ensures
@@ -57,7 +57,7 @@ func (s *ModelSuite) GetWatchableDB(namespace string) (changestream.WatchableDB,
 // AssertChangeStreamIdle returns if and when the change stream is idle.
 // This is useful to ensure that the change stream is not processing any
 // events before running a test.
-func (s *ModelSuite) AssertChangeStreamIdle(c *gc.C) {
+func (s *ModelSuite) AssertChangeStreamIdle(c *tc.C) {
 	timeout := time.After(jujutesting.LongWait)
 	for {
 		select {
@@ -77,7 +77,7 @@ func (s *ModelSuite) AssertChangeStreamIdle(c *gc.C) {
 // model, if this changes, we could remove the need for this.
 // This is only for tests as we depend on the change stream to have at least
 // some data, other wise we can't detect if the change stream is idle.
-func (s *ModelSuite) PrimeChangeStream(c *gc.C) {
+func (s *ModelSuite) PrimeChangeStream(c *tc.C) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, `
 INSERT INTO change_log_namespace (id, namespace, description) VALUES (666, 'test', 'all your bases are belong to us')

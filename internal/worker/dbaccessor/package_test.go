@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/logger"
 	domaintesting "github.com/juju/juju/domain/schema/testing"
@@ -30,7 +30,7 @@ import (
 func TestPackage(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type baseSuite struct {
@@ -48,7 +48,7 @@ type baseSuite struct {
 	clusterConfig           *MockClusterConfig
 }
 
-func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.clock = NewMockClock(ctrl)
@@ -132,7 +132,7 @@ func (s *baseSuite) expectWorkerRetry() {
 	})
 }
 
-func (s *baseSuite) newWorkerWithDB(c *gc.C, db TrackedDB) worker.Worker {
+func (s *baseSuite) newWorkerWithDB(c *tc.C, db TrackedDB) worker.Worker {
 	cfg := WorkerConfig{
 		NodeManager:  s.nodeManager,
 		Clock:        s.clock,
@@ -159,17 +159,17 @@ type dbBaseSuite struct {
 	baseSuite
 }
 
-func (s *dbBaseSuite) SetUpTest(c *gc.C) {
+func (s *dbBaseSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 	s.baseSuite.SetUpTest(c)
 }
 
-func (s *dbBaseSuite) TearDownTest(c *gc.C) {
+func (s *dbBaseSuite) TearDownTest(c *tc.C) {
 	s.ControllerSuite.TearDownTest(c)
 	s.baseSuite.TearDownTest(c)
 }
 
-func ensureStartup(c *gc.C, w *dbWorker) {
+func ensureStartup(c *tc.C, w *dbWorker) {
 	select {
 	case <-w.dbReady:
 	case <-time.After(jujutesting.LongWait):

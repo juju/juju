@@ -6,13 +6,13 @@ package upgradevalidation
 import (
 	stdtesting "testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/state_mock.go github.com/juju/juju/internal/upgrades/upgradevalidation State,ModelAgentService
 
 func TestAll(t *stdtesting.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 var (

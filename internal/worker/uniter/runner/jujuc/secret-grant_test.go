@@ -4,8 +4,8 @@
 package jujuc_test
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -16,9 +16,9 @@ type SecretGrantSuite struct {
 	relationSuite
 }
 
-var _ = gc.Suite(&SecretGrantSuite{})
+var _ = tc.Suite(&SecretGrantSuite{})
 
-func (s *SecretGrantSuite) TestGrantSecretInvalidArgs(c *gc.C) {
+func (s *SecretGrantSuite) TestGrantSecretInvalidArgs(c *tc.C) {
 	hctx, _ := s.newHookContext(1, "mediawiki/0", "mediawiki")
 
 	for _, t := range []struct {
@@ -47,12 +47,12 @@ func (s *SecretGrantSuite) TestGrantSecretInvalidArgs(c *gc.C) {
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
 
-		c.Assert(code, gc.Equals, 2)
-		c.Assert(bufferString(ctx.Stderr), gc.Equals, t.err+"\n")
+		c.Assert(code, tc.Equals, 2)
+		c.Assert(bufferString(ctx.Stderr), tc.Equals, t.err+"\n")
 	}
 }
 
-func (s *SecretGrantSuite) TestGrantSecret(c *gc.C) {
+func (s *SecretGrantSuite) TestGrantSecret(c *tc.C) {
 	hctx, _ := s.newHookContext(1, "mediawiki/0", "mediawiki")
 
 	com, err := jujuc.NewCommand(hctx, "secret-grant")
@@ -63,7 +63,7 @@ func (s *SecretGrantSuite) TestGrantSecret(c *gc.C) {
 		"--relation", "db:1",
 	})
 
-	c.Assert(code, gc.Equals, 0)
+	c.Assert(code, tc.Equals, 0)
 	args := &jujuc.SecretGrantRevokeArgs{
 		RelationKey:     ptr("wordpress:db mediawiki:db"),
 		ApplicationName: ptr("mediawiki"),
@@ -72,7 +72,7 @@ func (s *SecretGrantSuite) TestGrantSecret(c *gc.C) {
 	s.Stub.CheckCall(c, 7, "GrantSecret", "secret:9m4e2mr0ui3e8a215n4g", args)
 }
 
-func (s *SecretGrantSuite) TestGrantSecretUnit(c *gc.C) {
+func (s *SecretGrantSuite) TestGrantSecretUnit(c *tc.C) {
 	hctx, _ := s.newHookContext(1, "mediawiki/0", "mediawiki")
 
 	com, err := jujuc.NewCommand(hctx, "secret-grant")
@@ -84,7 +84,7 @@ func (s *SecretGrantSuite) TestGrantSecretUnit(c *gc.C) {
 		"--unit", "mediawiki/0",
 	})
 
-	c.Assert(code, gc.Equals, 0)
+	c.Assert(code, tc.Equals, 0)
 	args := &jujuc.SecretGrantRevokeArgs{
 		RelationKey:     ptr("wordpress:db mediawiki:db"),
 		ApplicationName: ptr("mediawiki"),
@@ -94,7 +94,7 @@ func (s *SecretGrantSuite) TestGrantSecretUnit(c *gc.C) {
 	s.Stub.CheckCall(c, 7, "GrantSecret", "secret:9m4e2mr0ui3e8a215n4g", args)
 }
 
-func (s *SecretGrantSuite) TestGrantSecretWrongUnit(c *gc.C) {
+func (s *SecretGrantSuite) TestGrantSecretWrongUnit(c *tc.C) {
 	hctx, _ := s.newHookContext(1, "mediawiki/0", "mediawiki")
 
 	com, err := jujuc.NewCommand(hctx, "secret-grant")
@@ -106,5 +106,5 @@ func (s *SecretGrantSuite) TestGrantSecretWrongUnit(c *gc.C) {
 		"--unit", "foo/0",
 	})
 
-	c.Assert(code, gc.Equals, 2)
+	c.Assert(code, tc.Equals, 2)
 }

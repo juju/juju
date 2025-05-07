@@ -7,9 +7,9 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/changestream"
@@ -27,9 +27,9 @@ type watcherSuite struct {
 	testing.ModelSuite
 }
 
-var _ = gc.Suite(&watcherSuite{})
+var _ = tc.Suite(&watcherSuite{})
 
-func (s *watcherSuite) createMachine(c *gc.C, name string) string {
+func (s *watcherSuite) createMachine(c *tc.C, name string) string {
 	db := s.TxnRunner()
 
 	netNodeUUID := uuid.MustNewUUID().String()
@@ -58,7 +58,7 @@ VALUES (?, ?, ?, ?)
 	return machineUUID
 }
 
-func (s *watcherSuite) TestWatchBlockDevicesMissingMachine(c *gc.C) {
+func (s *watcherSuite) TestWatchBlockDevicesMissingMachine(c *tc.C) {
 	st := state.NewState(s.TxnRunnerFactory())
 	factory := domain.NewWatcherFactory(
 		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "uuid"),
@@ -66,10 +66,10 @@ func (s *watcherSuite) TestWatchBlockDevicesMissingMachine(c *gc.C) {
 	service := service.NewWatchableService(st, factory, loggertesting.WrapCheckLog(c))
 
 	_, err := service.WatchBlockDevices(context.Background(), "666")
-	c.Assert(err, gc.ErrorMatches, `machine "666" not found`)
+	c.Assert(err, tc.ErrorMatches, `machine "666" not found`)
 }
 
-func (s *watcherSuite) TestStops(c *gc.C) {
+func (s *watcherSuite) TestStops(c *tc.C) {
 	s.createMachine(c, "666")
 
 	st := state.NewState(s.TxnRunnerFactory())
@@ -85,7 +85,7 @@ func (s *watcherSuite) TestStops(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *watcherSuite) TestWatchBlockDevices(c *gc.C) {
+func (s *watcherSuite) TestWatchBlockDevices(c *tc.C) {
 	bd := blockdevice.BlockDevice{
 		DeviceName:     "name-666",
 		SizeMiB:        666,
@@ -129,7 +129,7 @@ func (s *watcherSuite) TestWatchBlockDevices(c *gc.C) {
 	wc.AssertOneChange()
 }
 
-func (s *watcherSuite) TestWatchBlockDevicesIgnoresWrongMachine(c *gc.C) {
+func (s *watcherSuite) TestWatchBlockDevicesIgnoresWrongMachine(c *tc.C) {
 	bd := blockdevice.BlockDevice{
 		DeviceName:     "name-666",
 		SizeMiB:        666,

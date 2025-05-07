@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/cloudimagemetadata"
@@ -22,29 +22,29 @@ type metadataSuite struct {
 	baseImageMetadataSuite
 }
 
-var _ = gc.Suite(&metadataSuite{})
+var _ = tc.Suite(&metadataSuite{})
 
-func (s *metadataSuite) TestFindNil(c *gc.C) {
+func (s *metadataSuite) TestFindNil(c *tc.C) {
 	defer s.setupAPI(c).Finish()
 
 	s.metadataService.EXPECT().FindMetadata(gomock.Any(), cloudimagemetadata.MetadataFilter{}).Return(nil, nil)
 
 	found, err := s.api.List(context.Background(), params.ImageMetadataFilter{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Result, gc.HasLen, 0)
+	c.Assert(found.Result, tc.HasLen, 0)
 }
 
-func (s *metadataSuite) TestFindEmpty(c *gc.C) {
+func (s *metadataSuite) TestFindEmpty(c *tc.C) {
 	defer s.setupAPI(c).Finish()
 
 	s.metadataService.EXPECT().FindMetadata(gomock.Any(), gomock.Any()).Return(map[string][]cloudimagemetadata.Metadata{}, nil)
 
 	found, err := s.api.List(context.Background(), params.ImageMetadataFilter{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Result, gc.HasLen, 0)
+	c.Assert(found.Result, tc.HasLen, 0)
 }
 
-func (s *metadataSuite) TestFindEmptyGroups(c *gc.C) {
+func (s *metadataSuite) TestFindEmptyGroups(c *tc.C) {
 	defer s.setupAPI(c).Finish()
 
 	s.metadataService.EXPECT().FindMetadata(gomock.Any(), gomock.Any()).Return(map[string][]cloudimagemetadata.Metadata{
@@ -54,21 +54,21 @@ func (s *metadataSuite) TestFindEmptyGroups(c *gc.C) {
 
 	found, err := s.api.List(context.Background(), params.ImageMetadataFilter{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Result, gc.HasLen, 0)
+	c.Assert(found.Result, tc.HasLen, 0)
 }
 
-func (s *metadataSuite) TestFindError(c *gc.C) {
+func (s *metadataSuite) TestFindError(c *tc.C) {
 	defer s.setupAPI(c).Finish()
 
 	expectedError := errors.New("find error")
 	s.metadataService.EXPECT().FindMetadata(gomock.Any(), gomock.Any()).Return(nil, expectedError)
 
 	found, err := s.api.List(context.Background(), params.ImageMetadataFilter{})
-	c.Assert(err, gc.ErrorMatches, expectedError.Error())
-	c.Assert(found.Result, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorMatches, expectedError.Error())
+	c.Assert(found.Result, tc.HasLen, 0)
 }
 
-func (s *metadataSuite) TestFindOrder(c *gc.C) {
+func (s *metadataSuite) TestFindOrder(c *tc.C) {
 	defer s.setupAPI(c).Finish()
 
 	customImageId := "custom1"
@@ -89,7 +89,7 @@ func (s *metadataSuite) TestFindOrder(c *gc.C) {
 
 	found, err := s.api.List(context.Background(), params.ImageMetadataFilter{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Result, gc.HasLen, 4)
+	c.Assert(found.Result, tc.HasLen, 4)
 
 	c.Assert(found.Result, jc.SameContents, []params.CloudImageMetadata{
 		{ImageId: customImageId, Priority: 87},
@@ -99,7 +99,7 @@ func (s *metadataSuite) TestFindOrder(c *gc.C) {
 	})
 }
 
-func (s *metadataSuite) TestSaveEmpty(c *gc.C) {
+func (s *metadataSuite) TestSaveEmpty(c *tc.C) {
 	defer s.setupAPI(c).Finish()
 
 	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(
@@ -110,10 +110,10 @@ func (s *metadataSuite) TestSaveEmpty(c *gc.C) {
 
 	errs, err := s.api.Save(context.Background(), params.MetadataSaveParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs.Results, gc.HasLen, 0)
+	c.Assert(errs.Results, tc.HasLen, 0)
 }
 
-func (s *metadataSuite) TestSave(c *gc.C) {
+func (s *metadataSuite) TestSave(c *tc.C) {
 	defer s.setupAPI(c).Finish()
 
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).DoAndReturn(func(v any) (*config.Config, error) {
@@ -138,13 +138,13 @@ func (s *metadataSuite) TestSave(c *gc.C) {
 	s.metadataService.EXPECT().SaveMetadata(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, m []cloudimagemetadata.Metadata) error {
 		saveCalls += 1
 		if m[0].Region != "east" {
-			c.Assert(m[0].Region, gc.Equals, "some-region")
+			c.Assert(m[0].Region, tc.Equals, "some-region")
 		}
 		// TODO (anastasiamac 2016-08-24) This is a check for a band-aid solution.
 		// Once correct value is read from simplestreams, this needs to go.
 		// Bug# 1616295
 		// Ensure empty stream is changed to release
-		c.Assert(m[0].Stream, gc.DeepEquals, "released")
+		c.Assert(m[0].Stream, tc.DeepEquals, "released")
 		if saveCalls < 3 {
 			// don't err on first or second call
 			return nil
@@ -162,13 +162,13 @@ func (s *metadataSuite) TestSave(c *gc.C) {
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs.Results, gc.HasLen, 3)
-	c.Assert(errs.Results[0].Error, gc.IsNil)
-	c.Assert(errs.Results[1].Error, gc.IsNil)
-	c.Assert(errs.Results[2].Error, gc.ErrorMatches, msg)
+	c.Assert(errs.Results, tc.HasLen, 3)
+	c.Assert(errs.Results[0].Error, tc.IsNil)
+	c.Assert(errs.Results[1].Error, tc.IsNil)
+	c.Assert(errs.Results[2].Error, tc.ErrorMatches, msg)
 }
 
-func (s *metadataSuite) TestSaveModelCfgFailed(c *gc.C) {
+func (s *metadataSuite) TestSaveModelCfgFailed(c *tc.C) {
 	defer s.setupAPI(c).Finish()
 
 	m := params.CloudImageMetadata{
@@ -189,19 +189,19 @@ func (s *metadataSuite) TestSaveModelCfgFailed(c *gc.C) {
 	)
 
 	errs, err := s.api.Save(context.Background(), ms)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
-	c.Assert(errs.Results, gc.HasLen, 0)
+	c.Assert(errors.Cause(err), tc.ErrorMatches, msg)
+	c.Assert(errs.Results, tc.HasLen, 0)
 }
 
-func (s *metadataSuite) TestDeleteEmpty(c *gc.C) {
+func (s *metadataSuite) TestDeleteEmpty(c *tc.C) {
 	defer s.setupAPI(c).Finish()
 
 	errs, err := s.api.Delete(context.Background(), params.MetadataImageIds{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs.Results, gc.HasLen, 0)
+	c.Assert(errs.Results, tc.HasLen, 0)
 }
 
-func (s *metadataSuite) TestDelete(c *gc.C) {
+func (s *metadataSuite) TestDelete(c *tc.C) {
 	defer s.setupAPI(c).Finish()
 
 	idOk := "ok"
@@ -213,7 +213,7 @@ func (s *metadataSuite) TestDelete(c *gc.C) {
 
 	errs, err := s.api.Delete(context.Background(), params.MetadataImageIds{[]string{idOk, idFail}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs.Results, gc.HasLen, 2)
-	c.Assert(errs.Results[0].Error, gc.IsNil)
-	c.Assert(errs.Results[1].Error, gc.ErrorMatches, msg)
+	c.Assert(errs.Results, tc.HasLen, 2)
+	c.Assert(errs.Results[0].Error, tc.IsNil)
+	c.Assert(errs.Results[1].Error, tc.ErrorMatches, msg)
 }

@@ -6,8 +6,8 @@ package database
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/database/schema"
 	"github.com/juju/juju/internal/database/testing"
@@ -18,9 +18,9 @@ type migrationSuite struct {
 	testing.DqliteSuite
 }
 
-var _ = gc.Suite(&migrationSuite{})
+var _ = tc.Suite(&migrationSuite{})
 
-func (s *migrationSuite) TestMigrationSuccess(c *gc.C) {
+func (s *migrationSuite) TestMigrationSuccess(c *tc.C) {
 	patches := schema.New()
 	patches.Add(
 		schema.MakePatch("CREATE TABLE band(name TEXT NOT NULL PRIMARY KEY);"),
@@ -33,10 +33,10 @@ func (s *migrationSuite) TestMigrationSuccess(c *gc.C) {
 
 	rows, err := db.Query("SELECT * from band;")
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { _ = rows.Close() })
+	s.AddCleanup(func(*tc.C) { _ = rows.Close() })
 
 	var band string
 	c.Assert(rows.Next(), jc.IsTrue)
 	c.Assert(rows.Scan(&band), jc.ErrorIsNil)
-	c.Check(band, gc.Equals, "Blood Incantation")
+	c.Check(band, tc.Equals, "Blood Incantation")
 }

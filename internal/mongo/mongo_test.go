@@ -15,10 +15,10 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/mongo"
@@ -36,7 +36,7 @@ type MongoSuite struct {
 	mongoSnapService *mongotest.MockMongoSnapService
 }
 
-var _ = gc.Suite(&MongoSuite{})
+var _ = tc.Suite(&MongoSuite{})
 
 var testInfo = struct {
 	StatePort    int
@@ -66,7 +66,7 @@ func makeEnsureServerParams(dataDir, configDir string) mongo.EnsureServerParams 
 	}
 }
 
-func (s *MongoSuite) SetUpTest(c *gc.C) {
+func (s *MongoSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	testing.PatchExecutable(c, s, "juju-db.mongod", "#!/bin/bash\n\nprintf %s 'db version v6.6.6'\n")
@@ -91,7 +91,7 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 	s.clock = testclock.NewClock(time.Now())
 }
 
-func (s *MongoSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *MongoSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.mongoSnapService = mongotest.NewMockMongoSnapService(ctrl)
@@ -124,19 +124,19 @@ func (s *MongoSuite) expectInstallLocalMongoSnap() {
 	})
 }
 
-func (s *MongoSuite) assertTLSKeyFile(c *gc.C, dataDir string) {
+func (s *MongoSuite) assertTLSKeyFile(c *tc.C, dataDir string) {
 	contents, err := os.ReadFile(mongo.SSLKeyPath(dataDir))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(contents), gc.Equals, testInfo.Cert+"\n"+testInfo.PrivateKey)
+	c.Assert(string(contents), tc.Equals, testInfo.Cert+"\n"+testInfo.PrivateKey)
 }
 
-func (s *MongoSuite) assertSharedSecretFile(c *gc.C, dataDir string) {
+func (s *MongoSuite) assertSharedSecretFile(c *tc.C, dataDir string) {
 	contents, err := os.ReadFile(mongo.SharedSecretPath(dataDir))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(contents), gc.Equals, testInfo.SharedSecret)
+	c.Assert(string(contents), tc.Equals, testInfo.SharedSecret)
 }
 
-func (s *MongoSuite) assertMongoConfigFile(c *gc.C, dataDir string, ipV6 bool) {
+func (s *MongoSuite) assertMongoConfigFile(c *tc.C, dataDir string, ipV6 bool) {
 	contents, err := os.ReadFile(s.mongodConfigPath)
 	c.Assert(err, jc.ErrorIsNil)
 	part1 := fmt.Sprintf(`
@@ -164,10 +164,10 @@ tlsCertificateKeyFile = %s/server.pem
 tlsCertificateKeyFilePassword=ignored
 tlsMode = requireTLS`, dataDir, dataDir, dataDir)
 
-	c.Assert(string(contents), gc.Matches, part1+part2)
+	c.Assert(string(contents), tc.Matches, part1+part2)
 }
 
-func (s *MongoSuite) TestEnsureServerInstalled(c *gc.C) {
+func (s *MongoSuite) TestEnsureServerInstalled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectInstallMongoSnap()
 
@@ -183,10 +183,10 @@ func (s *MongoSuite) TestEnsureServerInstalled(c *gc.C) {
 	anyExp := `(.|\n)*`
 	start := "^" + anyExp
 	tail := anyExp + "$"
-	c.Assert(tlog, gc.Matches, start+`using mongod: .*mongod --version:\sdb version v\d\.\d\.\d`+tail)
+	c.Assert(tlog, tc.Matches, start+`using mongod: .*mongod --version:\sdb version v\d\.\d\.\d`+tail)
 }
 
-func (s *MongoSuite) TestEnsureServerInstalledNoIPv6(c *gc.C) {
+func (s *MongoSuite) TestEnsureServerInstalledNoIPv6(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectInstallMongoSnap()
 
@@ -197,7 +197,7 @@ func (s *MongoSuite) TestEnsureServerInstalledNoIPv6(c *gc.C) {
 	s.assertMongoConfigFile(c, dataDir, false)
 }
 
-func (s *MongoSuite) TestEnsureServerInstalledSetsSysctlValues(c *gc.C) {
+func (s *MongoSuite) TestEnsureServerInstalledSetsSysctlValues(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectInstallMongoSnap()
 
@@ -213,7 +213,7 @@ func (s *MongoSuite) TestEnsureServerInstalledSetsSysctlValues(c *gc.C) {
 
 	contents, err := os.ReadFile(dataFilePath)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(contents), gc.Equals, "original value")
+	c.Assert(string(contents), tc.Equals, "original value")
 
 	configDir := c.MkDir()
 	err = mongo.SysctlEditableEnsureServer(
@@ -225,10 +225,10 @@ func (s *MongoSuite) TestEnsureServerInstalledSetsSysctlValues(c *gc.C) {
 
 	contents, err = os.ReadFile(dataFilePath)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(contents), gc.Equals, "new value")
+	c.Assert(string(contents), tc.Equals, "new value")
 }
 
-func (s *MongoSuite) TestEnsureServerInstalledLocalSnap(c *gc.C) {
+func (s *MongoSuite) TestEnsureServerInstalledLocalSnap(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectInstallLocalMongoSnap()
 
@@ -246,7 +246,7 @@ func (s *MongoSuite) TestEnsureServerInstalledLocalSnap(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *MongoSuite) TestEnsureServerInstalledError(c *gc.C) {
+func (s *MongoSuite) TestEnsureServerInstalledError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dataDir := c.MkDir()
@@ -260,10 +260,10 @@ func (s *MongoSuite) TestEnsureServerInstalledError(c *gc.C) {
 	})
 
 	err := mongo.EnsureServerInstalled(context.Background(), makeEnsureServerParams(dataDir, configDir))
-	c.Assert(errors.Cause(err), gc.Equals, failure, gc.Commentf("unexpected error: %v", err))
+	c.Assert(errors.Cause(err), tc.Equals, failure, tc.Commentf("unexpected error: %v", err))
 }
 
-func (s *MongoSuite) assertEnsureServerIPv6(c *gc.C, ipv6 bool) string {
+func (s *MongoSuite) assertEnsureServerIPv6(c *tc.C, ipv6 bool) string {
 	dataDir := c.MkDir()
 	configDir := c.MkDir()
 	s.mongodConfigPath = filepath.Join(dataDir, "juju-db.config")
@@ -279,7 +279,7 @@ func (s *MongoSuite) assertEnsureServerIPv6(c *gc.C, ipv6 bool) string {
 	return dataDir
 }
 
-func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
+func (s *MongoSuite) TestNoMongoDir(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectInstallMongoSnap()
 
@@ -296,7 +296,7 @@ func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *MongoSuite) TestSelectPeerAddress(c *gc.C) {
+func (s *MongoSuite) TestSelectPeerAddress(c *tc.C) {
 	addresses := network.ProviderAddresses{
 		network.NewMachineAddress("126.0.0.1", network.WithScope(network.ScopeMachineLocal)).AsProviderAddress(),
 		network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)).AsProviderAddress(),
@@ -304,13 +304,13 @@ func (s *MongoSuite) TestSelectPeerAddress(c *gc.C) {
 	}
 
 	address := mongo.SelectPeerAddress(addresses)
-	c.Assert(address, gc.Equals, "10.0.0.1")
+	c.Assert(address, tc.Equals, "10.0.0.1")
 }
 
-func (s *MongoSuite) TestGenerateSharedSecret(c *gc.C) {
+func (s *MongoSuite) TestGenerateSharedSecret(c *tc.C) {
 	secret, err := mongo.GenerateSharedSecret()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(secret, gc.HasLen, 1024)
+	c.Assert(secret, tc.HasLen, 1024)
 	_, err = base64.StdEncoding.DecodeString(secret)
 	c.Assert(err, jc.ErrorIsNil)
 }

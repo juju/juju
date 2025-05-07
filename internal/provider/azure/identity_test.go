@@ -4,8 +4,8 @@
 package azure
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
@@ -22,9 +22,9 @@ type identitySuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&identitySuite{})
+var _ = tc.Suite(&identitySuite{})
 
-func (s *identitySuite) TestFinaliseBootstrapCredentialNoInstanceRole(c *gc.C) {
+func (s *identitySuite) TestFinaliseBootstrapCredentialNoInstanceRole(c *tc.C) {
 	env := azureEnviron{subscriptionId: fakeSubscriptionId}
 	cred := cloud.NewCredential("service-principal-secret", map[string]string{
 		"application-id":          "application",
@@ -39,7 +39,7 @@ func (s *identitySuite) TestFinaliseBootstrapCredentialNoInstanceRole(c *gc.C) {
 	c.Assert(got, jc.DeepEquals, &cred)
 }
 
-func (s *identitySuite) TestFinaliseBootstrapCredentialInstanceRole(c *gc.C) {
+func (s *identitySuite) TestFinaliseBootstrapCredentialInstanceRole(c *tc.C) {
 	env := azureEnviron{subscriptionId: fakeSubscriptionId}
 	cred := cloud.NewCredential("service-principal-secret", map[string]string{
 		"application-id":          "application",
@@ -60,16 +60,16 @@ func (s *identitySuite) TestFinaliseBootstrapCredentialInstanceRole(c *gc.C) {
 	c.Assert(got, jc.DeepEquals, &want)
 }
 
-func (s *identitySuite) TestManagedIdentityGroup(c *gc.C) {
+func (s *identitySuite) TestManagedIdentityGroup(c *tc.C) {
 	env := azureEnviron{resourceGroup: "some-group"}
-	c.Assert(env.managedIdentityGroup("myidentity"), gc.Equals, "some-group")
-	c.Assert(env.managedIdentityGroup("mygroup/myidentity"), gc.Equals, "mygroup")
-	c.Assert(env.managedIdentityGroup("mysubscription/mygroup/myidentity"), gc.Equals, "mygroup")
+	c.Assert(env.managedIdentityGroup("myidentity"), tc.Equals, "some-group")
+	c.Assert(env.managedIdentityGroup("mygroup/myidentity"), tc.Equals, "mygroup")
+	c.Assert(env.managedIdentityGroup("mysubscription/mygroup/myidentity"), tc.Equals, "mygroup")
 }
 
-func (s *identitySuite) TestManagedIdentityResourceId(c *gc.C) {
+func (s *identitySuite) TestManagedIdentityResourceId(c *tc.C) {
 	env := azureEnviron{resourceGroup: "some-group", subscriptionId: fakeSubscriptionId}
-	c.Assert(env.managedIdentityResourceId("myidentity"), gc.Equals, "/subscriptions/22222222-2222-2222-2222-222222222222/resourcegroups/some-group/providers/Microsoft.ManagedIdentity/userAssignedIdentities/myidentity")
-	c.Assert(env.managedIdentityResourceId("mygroup/myidentity"), gc.Equals, "/subscriptions/22222222-2222-2222-2222-222222222222/resourcegroups/mygroup/providers/Microsoft.ManagedIdentity/userAssignedIdentities/myidentity")
-	c.Assert(env.managedIdentityResourceId("mysubscription/mygroup/myidentity"), gc.Equals, "/subscriptions/mysubscription/resourcegroups/mygroup/providers/Microsoft.ManagedIdentity/userAssignedIdentities/myidentity")
+	c.Assert(env.managedIdentityResourceId("myidentity"), tc.Equals, "/subscriptions/22222222-2222-2222-2222-222222222222/resourcegroups/some-group/providers/Microsoft.ManagedIdentity/userAssignedIdentities/myidentity")
+	c.Assert(env.managedIdentityResourceId("mygroup/myidentity"), tc.Equals, "/subscriptions/22222222-2222-2222-2222-222222222222/resourcegroups/mygroup/providers/Microsoft.ManagedIdentity/userAssignedIdentities/myidentity")
+	c.Assert(env.managedIdentityResourceId("mysubscription/mygroup/myidentity"), tc.Equals, "/subscriptions/mysubscription/resourcegroups/mygroup/providers/Microsoft.ManagedIdentity/userAssignedIdentities/myidentity")
 }

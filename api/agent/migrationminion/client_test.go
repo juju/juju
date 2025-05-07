@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/migrationminion"
 	apitesting "github.com/juju/juju/api/base/testing"
@@ -24,9 +24,9 @@ type ClientSuite struct {
 	jujutesting.IsolationSuite
 }
 
-var _ = gc.Suite(&ClientSuite{})
+var _ = tc.Suite(&ClientSuite{})
 
-func (s *ClientSuite) TestWatch(c *gc.C) {
+func (s *ClientSuite) TestWatch(c *tc.C) {
 	var stub jujutesting.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
@@ -55,7 +55,7 @@ func (s *ClientSuite) TestWatch(c *gc.C) {
 
 	select {
 	case err := <-errC:
-		c.Assert(err, gc.ErrorMatches, "boom")
+		c.Assert(err, tc.ErrorMatches, "boom")
 		expectedCalls := []jujutesting.StubCall{
 			{FuncName: "Migrationminion.Watch", Args: []interface{}{"", nil}},
 			{FuncName: "MigrationStatusWatcher.Next", Args: []interface{}{"abc", nil}},
@@ -75,16 +75,16 @@ func (s *ClientSuite) TestWatch(c *gc.C) {
 	}
 }
 
-func (s *ClientSuite) TestWatchErr(c *gc.C) {
+func (s *ClientSuite) TestWatchErr(c *tc.C) {
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return errors.New("boom")
 	})
 	client := migrationminion.NewClient(apiCaller)
 	_, err := client.Watch(context.Background())
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *ClientSuite) TestReport(c *gc.C) {
+func (s *ClientSuite) TestReport(c *tc.C) {
 	var stub jujutesting.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, arg)
@@ -104,12 +104,12 @@ func (s *ClientSuite) TestReport(c *gc.C) {
 	})
 }
 
-func (s *ClientSuite) TestReportError(c *gc.C) {
+func (s *ClientSuite) TestReportError(c *tc.C) {
 	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, interface{}, interface{}) error {
 		return errors.New("boom")
 	})
 
 	client := migrationminion.NewClient(apiCaller)
 	err := client.Report(context.Background(), "id", migration.IMPORT, true)
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }

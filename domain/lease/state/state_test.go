@@ -7,8 +7,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/domain/lease/state"
@@ -23,15 +23,15 @@ type stateSuite struct {
 	store *state.State
 }
 
-var _ = gc.Suite(&stateSuite{})
+var _ = tc.Suite(&stateSuite{})
 
-func (s *stateSuite) SetUpTest(c *gc.C) {
+func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 
 	s.store = state.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 }
 
-func (s *stateSuite) TestClaimLeaseSuccessAndLeaseQueries(c *gc.C) {
+func (s *stateSuite) TestClaimLeaseSuccessAndLeaseQueries(c *tc.C) {
 	pgKey := corelease.Key{
 		Namespace: "application-leadership",
 		ModelUUID: "model-uuid",
@@ -59,17 +59,17 @@ func (s *stateSuite) TestClaimLeaseSuccessAndLeaseQueries(c *gc.C) {
 	// Check all the leases.
 	leases, err := s.store.Leases(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(leases, gc.HasLen, 2)
-	c.Check(leases[pgKey].Holder, gc.Equals, "postgresql/0")
+	c.Assert(leases, tc.HasLen, 2)
+	c.Check(leases[pgKey].Holder, tc.Equals, "postgresql/0")
 	c.Check(leases[pgKey].Expiry.After(time.Now().UTC()), jc.IsTrue)
-	c.Check(leases[mmKey].Holder, gc.Equals, "mattermost/0")
+	c.Check(leases[mmKey].Holder, tc.Equals, "mattermost/0")
 	c.Check(leases[mmKey].Expiry.After(time.Now().UTC()), jc.IsTrue)
 
 	// Check with a filter.
 	leases, err = s.store.Leases(context.Background(), pgKey)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(leases, gc.HasLen, 1)
-	c.Check(leases[pgKey].Holder, gc.Equals, "postgresql/0")
+	c.Assert(leases, tc.HasLen, 1)
+	c.Check(leases[pgKey].Holder, tc.Equals, "postgresql/0")
 
 	// Add a lease from a different group,
 	// and check that the group returns the application leases.
@@ -89,12 +89,12 @@ func (s *stateSuite) TestClaimLeaseSuccessAndLeaseQueries(c *gc.C) {
 
 	leases, err = s.store.LeaseGroup(context.Background(), "application-leadership", "model-uuid")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(leases, gc.HasLen, 2)
-	c.Check(leases[pgKey].Holder, gc.Equals, "postgresql/0")
-	c.Check(leases[mmKey].Holder, gc.Equals, "mattermost/0")
+	c.Assert(leases, tc.HasLen, 2)
+	c.Check(leases[pgKey].Holder, tc.Equals, "postgresql/0")
+	c.Check(leases[mmKey].Holder, tc.Equals, "mattermost/0")
 }
 
-func (s *stateSuite) TestClaimLeaseAlreadyHeld(c *gc.C) {
+func (s *stateSuite) TestClaimLeaseAlreadyHeld(c *tc.C) {
 	key := corelease.Key{
 		Namespace: "singular-controller",
 		ModelUUID: "controller-model-uuid",
@@ -113,7 +113,7 @@ func (s *stateSuite) TestClaimLeaseAlreadyHeld(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, corelease.ErrHeld)
 }
 
-func (s *stateSuite) TestExtendLeaseSuccess(c *gc.C) {
+func (s *stateSuite) TestExtendLeaseSuccess(c *tc.C) {
 	key := corelease.Key{
 		Namespace: "application-leadership",
 		ModelUUID: "model-uuid",
@@ -130,7 +130,7 @@ func (s *stateSuite) TestExtendLeaseSuccess(c *gc.C) {
 
 	leases, err := s.store.Leases(context.Background(), key)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(leases, gc.HasLen, 1)
+	c.Assert(leases, tc.HasLen, 1)
 
 	// Save the expiry for later comparison.
 	originalExpiry := leases[key].Expiry
@@ -141,13 +141,13 @@ func (s *stateSuite) TestExtendLeaseSuccess(c *gc.C) {
 
 	leases, err = s.store.Leases(context.Background(), key)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(leases, gc.HasLen, 1)
+	c.Assert(leases, tc.HasLen, 1)
 
 	// Check that we extended.
 	c.Check(leases[key].Expiry.After(originalExpiry), jc.IsTrue)
 }
 
-func (s *stateSuite) TestExtendLeaseNotHeldInvalid(c *gc.C) {
+func (s *stateSuite) TestExtendLeaseNotHeldInvalid(c *tc.C) {
 	key := corelease.Key{
 		Namespace: "application-leadership",
 		ModelUUID: "model-uuid",
@@ -163,7 +163,7 @@ func (s *stateSuite) TestExtendLeaseNotHeldInvalid(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, corelease.ErrInvalid)
 }
 
-func (s *stateSuite) TestRevokeLeaseSuccess(c *gc.C) {
+func (s *stateSuite) TestRevokeLeaseSuccess(c *tc.C) {
 	key := corelease.Key{
 		Namespace: "application-leadership",
 		ModelUUID: "model-uuid",
@@ -182,7 +182,7 @@ func (s *stateSuite) TestRevokeLeaseSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateSuite) TestRevokeLeaseNotHeldInvalid(c *gc.C) {
+func (s *stateSuite) TestRevokeLeaseNotHeldInvalid(c *tc.C) {
 	key := corelease.Key{
 		Namespace: "application-leadership",
 		ModelUUID: "model-uuid",
@@ -193,7 +193,7 @@ func (s *stateSuite) TestRevokeLeaseNotHeldInvalid(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, corelease.ErrInvalid)
 }
 
-func (s *stateSuite) TestPinUnpinLeaseAndPinQueries(c *gc.C) {
+func (s *stateSuite) TestPinUnpinLeaseAndPinQueries(c *tc.C) {
 	pgKey := corelease.Key{
 		Namespace: "application-leadership",
 		ModelUUID: "model-uuid",
@@ -222,7 +222,7 @@ func (s *stateSuite) TestPinUnpinLeaseAndPinQueries(c *gc.C) {
 
 	pins, err := s.store.Pinned(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pins, gc.HasLen, 1)
+	c.Assert(pins, tc.HasLen, 1)
 	c.Check(pins[pgKey], jc.SameContents, []string{"machine/6", "machine/7"})
 
 	// Unpin and check the leases.
@@ -231,11 +231,11 @@ func (s *stateSuite) TestPinUnpinLeaseAndPinQueries(c *gc.C) {
 
 	pins, err = s.store.Pinned(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pins, gc.HasLen, 1)
+	c.Assert(pins, tc.HasLen, 1)
 	c.Check(pins[pgKey], jc.SameContents, []string{"machine/6"})
 }
 
-func (s *stateSuite) TestLeaseOperationCancellation(c *gc.C) {
+func (s *stateSuite) TestLeaseOperationCancellation(c *tc.C) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
@@ -251,10 +251,10 @@ func (s *stateSuite) TestLeaseOperationCancellation(c *gc.C) {
 	}
 
 	err := s.store.ClaimLease(ctx, uuid.MustNewUUID(), key, req)
-	c.Assert(err, gc.ErrorMatches, "context canceled")
+	c.Assert(err, tc.ErrorMatches, "context canceled")
 }
 
-func (s *stateSuite) TestWorkerDeletesExpiredLeases(c *gc.C) {
+func (s *stateSuite) TestWorkerDeletesExpiredLeases(c *tc.C) {
 	// Insert 2 leases, one with an expiry time in the past,
 	// another in the future.
 	q := `
@@ -282,5 +282,5 @@ VALUES (?, 1, 'some-model-uuid', ?, ?, datetime('now'), datetime('now', ?))`[1:]
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(row.Err(), jc.ErrorIsNil)
 
-	c.Check(name, gc.Equals, "postgresql")
+	c.Check(name, tc.Equals, "postgresql")
 }

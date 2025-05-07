@@ -5,11 +5,11 @@ package common_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/common"
@@ -19,23 +19,23 @@ type cleanupSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&cleanupSuite{})
+var _ = tc.Suite(&cleanupSuite{})
 
-func (s *cleanupSuite) TestCleansUpOnce(c *gc.C) {
+func (s *cleanupSuite) TestCleansUpOnce(c *tc.C) {
 	var w fakeWorker
 	cleanup := func() {
 		w.stub.AddCall("cleanup")
 	}
 	w.stub.SetErrors(errors.Errorf("oops"))
 	cw := common.NewCleanupWorker(&w, cleanup)
-	c.Assert(cw.Wait(), gc.ErrorMatches, "oops")
+	c.Assert(cw.Wait(), tc.ErrorMatches, "oops")
 	w.stub.CheckCallNames(c, "Wait", "cleanup")
 	c.Assert(cw.Wait(), jc.ErrorIsNil)
 	// Doesn't call cleanup again.
 	w.stub.CheckCallNames(c, "Wait", "cleanup", "Wait")
 }
 
-func (s *cleanupSuite) TestReport(c *gc.C) {
+func (s *cleanupSuite) TestReport(c *tc.C) {
 	var w fakeWorker
 	cw := common.NewCleanupWorker(&w, func() {})
 	defer workertest.CleanKill(c, cw)

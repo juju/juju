@@ -9,10 +9,10 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -29,9 +29,9 @@ type CharmHubSuite struct {
 	downloader *MockDownloader
 }
 
-var _ = gc.Suite(&CharmHubSuite{})
+var _ = tc.Suite(&CharmHubSuite{})
 
-func (s *CharmHubSuite) TestGetResource(c *gc.C) {
+func (s *CharmHubSuite) TestGetResource(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	s.client = NewMockCharmHub(ctrl)
@@ -71,7 +71,7 @@ func (s *CharmHubSuite) TestGetResource(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(result.Resource, gc.DeepEquals, charmresource.Resource{
+	c.Assert(result.Resource, tc.DeepEquals, charmresource.Resource{
 		Meta: charmresource.Meta{
 			Name: "wal-e",
 			Type: 1,
@@ -82,10 +82,10 @@ func (s *CharmHubSuite) TestGetResource(c *gc.C) {
 		Size:        size,
 	})
 
-	c.Assert(result.ReadCloser, gc.Equals, reader)
+	c.Assert(result.ReadCloser, tc.Equals, reader)
 }
 
-func (s *CharmHubSuite) newCharmHubClient(c *gc.C) *charmhub.CharmHubClient {
+func (s *CharmHubSuite) newCharmHubClient(c *tc.C) *charmhub.CharmHubClient {
 	return charmhub.NewCharmHubClientForTest(s.client, s.downloader, loggertesting.WrapCheckLog(c))
 }
 

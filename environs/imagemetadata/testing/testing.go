@@ -11,9 +11,9 @@ import (
 	"sort"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -30,14 +30,14 @@ func PatchOfficialDataSources(s *testing.CleanupSuite, url string) {
 }
 
 // ParseMetadataFromDir loads ImageMetadata from the specified directory.
-func ParseMetadataFromDir(c *gc.C, metadataDir string) []*imagemetadata.ImageMetadata {
+func ParseMetadataFromDir(c *tc.C, metadataDir string) []*imagemetadata.ImageMetadata {
 	stor, err := filestorage.NewFileStorageReader(metadataDir)
 	c.Assert(err, jc.ErrorIsNil)
 	return ParseMetadataFromStorage(c, stor)
 }
 
 // ParseIndexMetadataFromStorage loads Indices from the specified storage reader.
-func ParseIndexMetadataFromStorage(c *gc.C, stor storage.StorageReader) (*simplestreams.IndexMetadata, simplestreams.DataSource) {
+func ParseIndexMetadataFromStorage(c *tc.C, stor storage.StorageReader) (*simplestreams.IndexMetadata, simplestreams.DataSource) {
 	source := storage.NewStorageSimpleStreamsDataSource("test storage reader", stor, "images", simplestreams.DEFAULT_CLOUD_DATA, false)
 
 	// Find the simplestreams index file.
@@ -54,17 +54,17 @@ func ParseIndexMetadataFromStorage(c *gc.C, stor storage.StorageReader) (*simple
 		context.Background(),
 		source, indexPath, "index:1.0", mirrorsPath, requireSigned, simplestreams.CloudSpec{}, params)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(indexRef.Indexes, gc.HasLen, 1)
+	c.Assert(indexRef.Indexes, tc.HasLen, 1)
 
 	imageIndexMetadata := indexRef.Indexes["com.ubuntu.cloud:custom"]
-	c.Assert(imageIndexMetadata, gc.NotNil)
+	c.Assert(imageIndexMetadata, tc.NotNil)
 	return imageIndexMetadata, source
 }
 
 // ParseMetadataFromStorage loads ImageMetadata from the specified storage reader.
-func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader) []*imagemetadata.ImageMetadata {
+func ParseMetadataFromStorage(c *tc.C, stor storage.StorageReader) []*imagemetadata.ImageMetadata {
 	imageIndexMetadata, source := ParseIndexMetadataFromStorage(c, stor)
-	c.Assert(imageIndexMetadata, gc.NotNil)
+	c.Assert(imageIndexMetadata, tc.NotNil)
 
 	// Read the products file contents.
 	r, err := stor.Get(path.Join("images", imageIndexMetadata.ProductsFilePath))
@@ -96,7 +96,7 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader) []*imagemetad
 
 	// Make sure index's product IDs are all represented in the products metadata.
 	sort.Strings(imageIndexMetadata.ProductIds)
-	c.Assert(imageIndexMetadata.ProductIds, gc.DeepEquals, expectedProductIds.SortedValues())
+	c.Assert(imageIndexMetadata.ProductIds, tc.DeepEquals, expectedProductIds.SortedValues())
 
 	imageMetadata := make([]*imagemetadata.ImageMetadata, len(imageMetadataMap))
 	for i, key := range imageVersions.SortedValues() {

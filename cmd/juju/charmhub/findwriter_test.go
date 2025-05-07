@@ -6,46 +6,46 @@ package charmhub
 import (
 	"bytes"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
 type columnFindSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&columnFindSuite{})
+var _ = tc.Suite(&columnFindSuite{})
 
-func (s *columnFindSuite) TestColumnNames(c *gc.C) {
+func (s *columnFindSuite) TestColumnNames(c *tc.C) {
 	names := DefaultColumns().Names()
 	c.Assert(names, jc.DeepEquals, []string{"Name", "Bundle", "Version", "Architectures", "OS", "Supports", "Publisher", "Summary"})
 }
 
-func (s *columnFindSuite) TestMakeColumns(c *gc.C) {
+func (s *columnFindSuite) TestMakeColumns(c *tc.C) {
 	columns, err := MakeColumns(DefaultColumns(), "nb")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(columns.Names(), jc.DeepEquals, []string{"Name", "Bundle"})
 }
 
-func (s *columnFindSuite) TestMakeColumnsOutOfOrder(c *gc.C) {
+func (s *columnFindSuite) TestMakeColumnsOutOfOrder(c *tc.C) {
 	columns, err := MakeColumns(DefaultColumns(), "vbn")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(columns.Names(), jc.DeepEquals, []string{"Version", "Bundle", "Name"})
 }
 
-func (s *columnFindSuite) TestMakeColumnsInvalidAlias(c *gc.C) {
+func (s *columnFindSuite) TestMakeColumnsInvalidAlias(c *tc.C) {
 	_, err := MakeColumns(DefaultColumns(), "X")
-	c.Assert(err, gc.ErrorMatches, `unexpected column alias 'X'`)
+	c.Assert(err, tc.ErrorMatches, `unexpected column alias 'X'`)
 }
 
 type printFindSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&printFindSuite{})
+var _ = tc.Suite(&printFindSuite{})
 
-func (s *printFindSuite) TestCharmPrintFind(c *gc.C) {
+func (s *printFindSuite) TestCharmPrintFind(c *tc.C) {
 	fr := getCharmFindResponse()
 	ctx := commandContextForTest(c)
 	cols := testDefaultColumns()
@@ -62,10 +62,10 @@ wordpress  -       1.0.3    all            ubuntu@18.04                         
 osm        Y       3.2.3    all            ubuntu@18.04,ubuntu@20.04,ubuntu@22.04  charmed-osm         Single instance OSM bundle.
 
 `[1:]
-	c.Assert(obtained, gc.Equals, expected)
+	c.Assert(obtained, tc.Equals, expected)
 }
 
-func (s *printFindSuite) TestCharmPrintFindWithColumns(c *gc.C) {
+func (s *printFindSuite) TestCharmPrintFindWithColumns(c *tc.C) {
 	fr := getCharmFindResponse()
 	ctx := commandContextForTest(c)
 	cols, err := MakeColumns(DefaultColumns(), "nbvps")
@@ -83,10 +83,10 @@ wordpress  -       1.0.3    WordPress Charmers  WordPress is a full featured web
 osm        Y       3.2.3    charmed-osm         Single instance OSM bundle.
 
 `[1:]
-	c.Assert(obtained, gc.Equals, expected)
+	c.Assert(obtained, tc.Equals, expected)
 }
 
-func (s *printFindSuite) TestCharmPrintFindWithMissingData(c *gc.C) {
+func (s *printFindSuite) TestCharmPrintFindWithMissingData(c *tc.C) {
 	fr := getCharmFindResponse()
 	fr[0].Version = ""
 	fr[0].Arches = make([]string, 0)
@@ -107,10 +107,10 @@ wordpress  -                                                                    
 osm        Y       3.2.3    all            ubuntu@18.04,ubuntu@20.04,ubuntu@22.04  charmed-osm         Single instance OSM bundle.
 
 `[1:]
-	c.Assert(obtained, gc.Equals, expected)
+	c.Assert(obtained, tc.Equals, expected)
 }
 
-func (s *printFindSuite) TestSummary(c *gc.C) {
+func (s *printFindSuite) TestSummary(c *tc.C) {
 	summary, err := oneLine("WordPress is a full featured web blogging tool, this charm deploys it.\nSome addition data\nMore Lines", 0)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -118,16 +118,16 @@ func (s *printFindSuite) TestSummary(c *gc.C) {
 	expected := `
 WordPress is a full featured web blogging
 tool, this charm deploys it.`
-	c.Assert(obtained, gc.Equals, expected[1:])
+	c.Assert(obtained, tc.Equals, expected[1:])
 }
 
-func (s *printFindSuite) TestSummaryEmpty(c *gc.C) {
+func (s *printFindSuite) TestSummaryEmpty(c *tc.C) {
 	summary, err := oneLine("", 0)
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtained := summary
 	expected := ""
-	c.Assert(obtained, gc.Equals, expected)
+	c.Assert(obtained, tc.Equals, expected)
 }
 
 func getCharmFindResponse() []FindResponse {

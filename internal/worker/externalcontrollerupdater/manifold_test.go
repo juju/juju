@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/internal/worker/externalcontrollerupdater"
@@ -20,9 +20,9 @@ type ManifoldConfigSuite struct {
 	config externalcontrollerupdater.ManifoldConfig
 }
 
-var _ = gc.Suite(&ManifoldConfigSuite{})
+var _ = tc.Suite(&ManifoldConfigSuite{})
 
-func (s *ManifoldConfigSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldConfigSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = s.validConfig()
 }
@@ -36,22 +36,22 @@ func (s *ManifoldConfigSuite) validConfig() externalcontrollerupdater.ManifoldCo
 	}
 }
 
-func (s *ManifoldConfigSuite) TestValid(c *gc.C) {
+func (s *ManifoldConfigSuite) TestValid(c *tc.C) {
 	c.Check(s.config.Validate(), jc.ErrorIsNil)
 }
 
-func (s *ManifoldConfigSuite) TestMissingAPICallerName(c *gc.C) {
+func (s *ManifoldConfigSuite) TestMissingAPICallerName(c *tc.C) {
 	s.config.APICallerName = ""
 	s.checkNotValid(c, "empty APICallerName not valid")
 }
 
-func (s *ManifoldConfigSuite) TestMissingNewExternalControllerWatcherClient(c *gc.C) {
+func (s *ManifoldConfigSuite) TestMissingNewExternalControllerWatcherClient(c *tc.C) {
 	s.config.NewExternalControllerWatcherClient = nil
 	s.checkNotValid(c, "nil NewExternalControllerWatcherClient not valid")
 }
 
-func (s *ManifoldConfigSuite) checkNotValid(c *gc.C, expect string) {
+func (s *ManifoldConfigSuite) checkNotValid(c *tc.C, expect string) {
 	err := s.config.Validate()
-	c.Check(err, gc.ErrorMatches, expect)
+	c.Check(err, tc.ErrorMatches, expect)
 	c.Check(err, jc.ErrorIs, errors.NotValid)
 }

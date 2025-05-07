@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -24,27 +24,27 @@ type MuxSuite struct {
 	client *http.Client
 }
 
-var _ = gc.Suite(&MuxSuite{})
+var _ = tc.Suite(&MuxSuite{})
 
-func (s *MuxSuite) SetUpTest(c *gc.C) {
+func (s *MuxSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.mux = apiserverhttp.NewMux()
 	s.server = httptest.NewServer(s.mux)
 	s.client = s.server.Client()
-	s.AddCleanup(func(c *gc.C) {
+	s.AddCleanup(func(c *tc.C) {
 		s.server.Close()
 	})
 }
 
-func (s *MuxSuite) TestNotFound(c *gc.C) {
+func (s *MuxSuite) TestNotFound(c *tc.C) {
 	resp, err := s.client.Get(s.server.URL + "/")
 	c.Assert(err, jc.ErrorIsNil)
 	defer resp.Body.Close()
 
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusNotFound)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusNotFound)
 }
 
-func (s *MuxSuite) TestAddHandler(c *gc.C) {
+func (s *MuxSuite) TestAddHandler(c *tc.C) {
 	err := s.mux.AddHandler("GET", "/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -52,10 +52,10 @@ func (s *MuxSuite) TestAddHandler(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer resp.Body.Close()
 
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 }
 
-func (s *MuxSuite) TestAddRemoveNotFound(c *gc.C) {
+func (s *MuxSuite) TestAddRemoveNotFound(c *tc.C) {
 	s.mux.AddHandler("GET", "/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	s.mux.RemoveHandler("GET", "/")
 
@@ -63,29 +63,29 @@ func (s *MuxSuite) TestAddRemoveNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer resp.Body.Close()
 
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusNotFound)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusNotFound)
 }
 
-func (s *MuxSuite) TestAddHandlerExists(c *gc.C) {
+func (s *MuxSuite) TestAddHandlerExists(c *tc.C) {
 	s.mux.AddHandler("GET", "/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	err := s.mux.AddHandler("GET", "/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
-	c.Assert(err, gc.ErrorMatches, `handler for GET "/" already exists`)
+	c.Assert(err, tc.ErrorMatches, `handler for GET "/" already exists`)
 }
 
-func (s *MuxSuite) TestRemoveHandlerMissing(c *gc.C) {
+func (s *MuxSuite) TestRemoveHandlerMissing(c *tc.C) {
 	s.mux.RemoveHandler("GET", "/") // no-op
 }
 
-func (s *MuxSuite) TestMethodNotSupported(c *gc.C) {
+func (s *MuxSuite) TestMethodNotSupported(c *tc.C) {
 	s.mux.AddHandler("POST", "/", http.NotFoundHandler())
 	resp, err := s.client.Get(s.server.URL + "/")
 	c.Assert(err, jc.ErrorIsNil)
 	defer resp.Body.Close()
 
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusMethodNotAllowed)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusMethodNotAllowed)
 }
 
-func (s *MuxSuite) TestConcurrentAddHandler(c *gc.C) {
+func (s *MuxSuite) TestConcurrentAddHandler(c *tc.C) {
 	err := s.mux.AddHandler("GET", "/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -110,11 +110,11 @@ func (s *MuxSuite) TestConcurrentAddHandler(c *gc.C) {
 		resp, err := s.client.Get(s.server.URL + "/")
 		c.Assert(err, jc.ErrorIsNil)
 		resp.Body.Close()
-		c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+		c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 	}
 }
 
-func (s *MuxSuite) TestConcurrentRemoveHandler(c *gc.C) {
+func (s *MuxSuite) TestConcurrentRemoveHandler(c *tc.C) {
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 
 	// Concurrently add and remove another handler to show that
@@ -165,11 +165,11 @@ out:
 			)
 		}
 	}
-	c.Assert(ok, gc.Not(gc.Equals), 0)
-	c.Assert(notfound, gc.Not(gc.Equals), 0)
+	c.Assert(ok, tc.Not(tc.Equals), 0)
+	c.Assert(notfound, tc.Not(tc.Equals), 0)
 }
 
-func (s *MuxSuite) TestWait(c *gc.C) {
+func (s *MuxSuite) TestWait(c *tc.C) {
 	// Check that mux.Wait() blocks until clients are all finished
 	// with it.
 	s.mux.AddClient()

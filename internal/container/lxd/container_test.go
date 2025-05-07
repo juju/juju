@@ -10,9 +10,9 @@ import (
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/osarch"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
@@ -29,52 +29,52 @@ type containerSuite struct {
 	lxdtesting.BaseSuite
 }
 
-var _ = gc.Suite(&containerSuite{})
+var _ = tc.Suite(&containerSuite{})
 
-func (s *containerSuite) TestContainerMetadata(c *gc.C) {
+func (s *containerSuite) TestContainerMetadata(c *tc.C) {
 	container := lxd.Container{}
 	container.Config = map[string]string{"user.juju-controller-uuid": "something"}
-	c.Check(container.Metadata(tags.JujuController), gc.Equals, "something")
+	c.Check(container.Metadata(tags.JujuController), tc.Equals, "something")
 }
 
-func (s *containerSuite) TestContainerArch(c *gc.C) {
+func (s *containerSuite) TestContainerArch(c *tc.C) {
 	lxdArch, _ := osarch.ArchitectureName(osarch.ARCH_64BIT_INTEL_X86)
 	container := lxd.Container{}
 	container.Architecture = lxdArch
-	c.Check(container.Arch(), gc.Equals, arch.AMD64)
+	c.Check(container.Arch(), tc.Equals, arch.AMD64)
 }
 
-func (s *containerSuite) TestContainerVirtType(c *gc.C) {
+func (s *containerSuite) TestContainerVirtType(c *tc.C) {
 	// This test locks in the fact the names of the instance types are the
 	// same as the api instance types.
 	container := lxd.Container{}
 	container.Type = string(instance.DefaultInstanceType)
-	c.Check(container.VirtType().String(), gc.Equals, string(api.InstanceTypeContainer))
+	c.Check(container.VirtType().String(), tc.Equals, string(api.InstanceTypeContainer))
 	container.Type = string(instance.InstanceTypeContainer)
-	c.Check(container.VirtType().String(), gc.Equals, string(api.InstanceTypeContainer))
+	c.Check(container.VirtType().String(), tc.Equals, string(api.InstanceTypeContainer))
 	container.Type = string(instance.InstanceTypeVM)
-	c.Check(container.VirtType().String(), gc.Equals, string(api.InstanceTypeVM))
+	c.Check(container.VirtType().String(), tc.Equals, string(api.InstanceTypeVM))
 	container.Type = string(instance.AnyInstanceType)
-	c.Check(container.VirtType().String(), gc.Equals, string(api.InstanceTypeAny))
+	c.Check(container.VirtType().String(), tc.Equals, string(api.InstanceTypeAny))
 }
 
-func (s *containerSuite) TestContainerCPUs(c *gc.C) {
+func (s *containerSuite) TestContainerCPUs(c *tc.C) {
 	container := lxd.Container{}
 	container.Config = map[string]string{"limits.cpu": "2"}
-	c.Check(container.CPUs(), gc.Equals, uint(2))
+	c.Check(container.CPUs(), tc.Equals, uint(2))
 }
 
-func (s *containerSuite) TestContainerMem(c *gc.C) {
+func (s *containerSuite) TestContainerMem(c *tc.C) {
 	container := lxd.Container{}
 
 	container.Config = map[string]string{"limits.memory": "1MiB"}
-	c.Check(int(container.Mem()), gc.Equals, 1)
+	c.Check(int(container.Mem()), tc.Equals, 1)
 
 	container.Config = map[string]string{"limits.memory": "2GiB"}
-	c.Check(int(container.Mem()), gc.Equals, 2048)
+	c.Check(int(container.Mem()), tc.Equals, 2048)
 }
 
-func (s *containerSuite) TestContainerAddDiskNoDevices(c *gc.C) {
+func (s *containerSuite) TestContainerAddDiskNoDevices(c *tc.C) {
 	container := lxd.Container{}
 	err := container.AddDisk("root", "/", "source", "default", true)
 	c.Assert(err, jc.ErrorIsNil)
@@ -86,19 +86,19 @@ func (s *containerSuite) TestContainerAddDiskNoDevices(c *gc.C) {
 		"pool":     "default",
 		"readonly": "true",
 	}
-	c.Check(container.Devices["root"], gc.DeepEquals, expected)
+	c.Check(container.Devices["root"], tc.DeepEquals, expected)
 }
 
-func (s *containerSuite) TestContainerAddDiskDevicePresentError(c *gc.C) {
+func (s *containerSuite) TestContainerAddDiskDevicePresentError(c *tc.C) {
 	container := lxd.Container{}
 	container.Name = "seeyounexttuesday"
 	container.Devices = map[string]map[string]string{"root": {}}
 
 	err := container.AddDisk("root", "/", "source", "default", true)
-	c.Check(err, gc.ErrorMatches, `container "seeyounexttuesday" already has a device "root"`)
+	c.Check(err, tc.ErrorMatches, `container "seeyounexttuesday" already has a device "root"`)
 }
 
-func (s *containerSuite) TestFilterContainers(c *gc.C) {
+func (s *containerSuite) TestFilterContainers(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServer(ctrl)
@@ -136,10 +136,10 @@ func (s *containerSuite) TestFilterContainers(c *gc.C) {
 		expected[i] = lxd.Container{v}
 	}
 
-	c.Check(filtered, gc.DeepEquals, expected)
+	c.Check(filtered, tc.DeepEquals, expected)
 }
 
-func (s *containerSuite) TestAliveContainers(c *gc.C) {
+func (s *containerSuite) TestAliveContainers(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServer(ctrl)
@@ -174,10 +174,10 @@ func (s *containerSuite) TestAliveContainers(c *gc.C) {
 	for i, v := range matching {
 		expected[i] = lxd.Container{v}
 	}
-	c.Check(filtered, gc.DeepEquals, expected)
+	c.Check(filtered, tc.DeepEquals, expected)
 }
 
-func (s *containerSuite) TestContainerAddresses(c *gc.C) {
+func (s *containerSuite) TestContainerAddresses(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServer(ctrl)
@@ -245,10 +245,10 @@ func (s *containerSuite) TestContainerAddresses(c *gc.C) {
 	expected := []corenetwork.ProviderAddress{
 		corenetwork.NewMachineAddress("10.0.8.173", corenetwork.WithScope(corenetwork.ScopeCloudLocal)).AsProviderAddress(),
 	}
-	c.Check(addrs, gc.DeepEquals, expected)
+	c.Check(addrs, tc.DeepEquals, expected)
 }
 
-func (s *containerSuite) TestCreateContainerFromSpecSuccess(c *gc.C) {
+func (s *containerSuite) TestCreateContainerFromSpecSuccess(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServer(ctrl)
@@ -313,10 +313,10 @@ func (s *containerSuite) TestCreateContainerFromSpecSuccess(c *gc.C) {
 
 	container, err := jujuSvr.CreateContainerFromSpec(spec)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(container, gc.NotNil)
+	c.Check(container, tc.NotNil)
 }
 
-func (s *containerSuite) TestCreateContainerFromSpecAlreadyExists(c *gc.C) {
+func (s *containerSuite) TestCreateContainerFromSpecAlreadyExists(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServer(ctrl)
@@ -375,10 +375,10 @@ func (s *containerSuite) TestCreateContainerFromSpecAlreadyExists(c *gc.C) {
 
 	container, err := jujuSvr.CreateContainerFromSpec(spec)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(container, gc.NotNil)
+	c.Check(container, tc.NotNil)
 }
 
-func (s *containerSuite) TestCreateContainerFromSpecAlreadyExistsNotCorrectSpec(c *gc.C) {
+func (s *containerSuite) TestCreateContainerFromSpecAlreadyExistsNotCorrectSpec(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServer(ctrl)
@@ -433,10 +433,10 @@ func (s *containerSuite) TestCreateContainerFromSpecAlreadyExistsNotCorrectSpec(
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = jujuSvr.CreateContainerFromSpec(spec)
-	c.Assert(err, gc.ErrorMatches, `Container 'juju-5bcbde-5-lxd-6' already exists`)
+	c.Assert(err, tc.ErrorMatches, `Container 'juju-5bcbde-5-lxd-6' already exists`)
 }
 
-func (s *containerSuite) TestCreateContainerFromSpecStartFailed(c *gc.C) {
+func (s *containerSuite) TestCreateContainerFromSpecStartFailed(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServer(ctrl)
@@ -502,11 +502,11 @@ func (s *containerSuite) TestCreateContainerFromSpecStartFailed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	container, err := jujuSvr.CreateContainerFromSpec(spec)
-	c.Assert(err, gc.ErrorMatches, "start failed")
-	c.Check(container, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "start failed")
+	c.Check(container, tc.IsNil)
 }
 
-func (s *containerSuite) TestRemoveContainersSuccess(c *gc.C) {
+func (s *containerSuite) TestRemoveContainersSuccess(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServer(ctrl)
@@ -539,7 +539,7 @@ func (s *containerSuite) TestRemoveContainersSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *containerSuite) TestRemoveContainersSuccessWithNotFound(c *gc.C) {
+func (s *containerSuite) TestRemoveContainersSuccessWithNotFound(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServer(ctrl)
@@ -572,7 +572,7 @@ func (s *containerSuite) TestRemoveContainersSuccessWithNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *containerSuite) TestRemoveContainersPartialFailure(c *gc.C) {
+func (s *containerSuite) TestRemoveContainersPartialFailure(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServer(ctrl)
@@ -604,10 +604,10 @@ func (s *containerSuite) TestRemoveContainersPartialFailure(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = jujuSvr.RemoveContainers([]string{"c1", "c2", "c3"})
-	c.Assert(err, gc.ErrorMatches, "failed to remove containers: c1, c2")
+	c.Assert(err, tc.ErrorMatches, "failed to remove containers: c1, c2")
 }
 
-func (s *containerSuite) TestDeleteInstancesPartialFailure(c *gc.C) {
+func (s *containerSuite) TestDeleteInstancesPartialFailure(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServer(ctrl)
@@ -646,10 +646,10 @@ func (s *containerSuite) TestDeleteInstancesPartialFailure(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = jujuSvr.RemoveContainers([]string{"c1", "c2"})
-	c.Assert(err, gc.ErrorMatches, "failed to remove containers: c2")
+	c.Assert(err, tc.ErrorMatches, "failed to remove containers: c2")
 }
 
-func (s *managerSuite) TestSpecApplyConstraints(c *gc.C) {
+func (s *managerSuite) TestSpecApplyConstraints(c *tc.C) {
 	mem := uint64(2046)
 	cores := uint64(4)
 	instType := "t2.micro"
@@ -671,6 +671,6 @@ func (s *managerSuite) TestSpecApplyConstraints(c *gc.C) {
 		"limits.cpu":     "4",
 	}
 	spec.ApplyConstraints("3.10.0", cons)
-	c.Check(spec.Config, gc.DeepEquals, exp)
-	c.Check(spec.InstanceType, gc.Equals, instType)
+	c.Check(spec.Config, tc.DeepEquals, exp)
+	c.Check(spec.InstanceType, tc.Equals, instType)
 }

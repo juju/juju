@@ -8,9 +8,9 @@ import (
 	"net/url"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apicharm "github.com/juju/juju/api/client/charms"
 	commoncharm "github.com/juju/juju/api/common/charm"
@@ -27,9 +27,9 @@ type resolveSuite struct {
 	charmReader    *mocks.MockCharmReader
 }
 
-var _ = gc.Suite(&resolveSuite{})
+var _ = tc.Suite(&resolveSuite{})
 
-func (s *resolveSuite) TestResolveCharm(c *gc.C) {
+func (s *resolveSuite) TestResolveCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	curl, err := charm.ParseURL("ch:testme-3")
@@ -43,15 +43,15 @@ func (s *resolveSuite) TestResolveCharm(c *gc.C) {
 	charmAdaptor := s.newCharmAdaptor()
 	obtainedURL, obtainedOrigin, obtainedBases, err := charmAdaptor.ResolveCharm(context.Background(), curl, origin, false)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedOrigin.Risk, gc.Equals, "edge")
+	c.Assert(obtainedOrigin.Risk, tc.Equals, "edge")
 	c.Assert(obtainedBases, jc.SameContents, []base.Base{
 		base.MustParseBaseFromString("ubuntu@18.04"),
 		base.MustParseBaseFromString("ubuntu@20.04"),
 	})
-	c.Assert(obtainedURL, gc.Equals, curl)
+	c.Assert(obtainedURL, tc.Equals, curl)
 }
 
-func (s *resolveSuite) TestResolveCharmWithAPIError(c *gc.C) {
+func (s *resolveSuite) TestResolveCharmWithAPIError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	curl, err := charm.ParseURL("testme")
@@ -64,10 +64,10 @@ func (s *resolveSuite) TestResolveCharmWithAPIError(c *gc.C) {
 	}
 	charmAdaptor := s.newCharmAdaptor()
 	_, _, _, err = charmAdaptor.ResolveCharm(context.Background(), curl, origin, false)
-	c.Assert(err, gc.ErrorMatches, `bad`)
+	c.Assert(err, tc.ErrorMatches, `bad`)
 }
 
-func (s *resolveSuite) TestResolveCharmNotCSCharm(c *gc.C) {
+func (s *resolveSuite) TestResolveCharmNotCSCharm(c *tc.C) {
 	curl, err := charm.ParseURL("local:bionic/testme-3")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -77,11 +77,11 @@ func (s *resolveSuite) TestResolveCharmNotCSCharm(c *gc.C) {
 	}
 	charmAdaptor := s.newCharmAdaptor()
 	_, obtainedOrigin, _, err := charmAdaptor.ResolveCharm(context.Background(), curl, origin, false)
-	c.Assert(err, gc.NotNil)
-	c.Assert(obtainedOrigin.Risk, gc.Equals, "")
+	c.Assert(err, tc.NotNil)
+	c.Assert(obtainedOrigin.Risk, tc.Equals, "")
 }
 
-func (s *resolveSuite) TestResolveBundle(c *gc.C) {
+func (s *resolveSuite) TestResolveBundle(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	curl, err := charm.ParseURL("ch:testme")
@@ -96,11 +96,11 @@ func (s *resolveSuite) TestResolveBundle(c *gc.C) {
 	charmAdaptor := s.newCharmAdaptor()
 	obtainedURL, obtainedChannel, err := charmAdaptor.ResolveBundleURL(context.Background(), curl, origin)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedChannel.Risk, gc.Equals, "edge")
-	c.Assert(obtainedURL, gc.Equals, curl)
+	c.Assert(obtainedChannel.Risk, tc.Equals, "edge")
+	c.Assert(obtainedURL, tc.Equals, curl)
 }
 
-func (s *resolveSuite) TestResolveNotBundle(c *gc.C) {
+func (s *resolveSuite) TestResolveNotBundle(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	curl, err := charm.ParseURL("ch:testme")
@@ -116,7 +116,7 @@ func (s *resolveSuite) TestResolveNotBundle(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *resolveSuite) TestCharmHubGetBundle(c *gc.C) {
+func (s *resolveSuite) TestCharmHubGetBundle(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	curl, err := charm.ParseURL("ch:testme-1")
@@ -132,10 +132,10 @@ func (s *resolveSuite) TestCharmHubGetBundle(c *gc.C) {
 	charmAdaptor := s.newCharmAdaptor()
 	bundle, err := charmAdaptor.GetBundle(context.Background(), curl, origin, "/tmp/bundle.bundle")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bundle, gc.DeepEquals, s.bundle)
+	c.Assert(bundle, tc.DeepEquals, s.bundle)
 }
 
-func (s *resolveSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *resolveSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.charmsAPI = mocks.NewMockCharmsAPI(ctrl)
 	s.downloadClient = mocks.NewMockDownloadBundleClient(ctrl)
@@ -211,7 +211,7 @@ func (s *resolveSuite) expectCharmResolutionCallWithAPIError(curl *charm.URL, ou
 	s.charmsAPI.EXPECT().ResolveCharms(gomock.Any(), gomock.Any()).Return(retVal, nil)
 }
 
-func (s *resolveSuite) expectedCharmHubGetBundle(c *gc.C, curl *charm.URL, origin commoncharm.Origin) {
+func (s *resolveSuite) expectedCharmHubGetBundle(c *tc.C, curl *charm.URL, origin commoncharm.Origin) {
 	surl := "http://messhuggah.com"
 	s.charmsAPI.EXPECT().GetDownloadInfo(gomock.Any(), curl, origin).Return(apicharm.DownloadInfo{
 		URL: surl,

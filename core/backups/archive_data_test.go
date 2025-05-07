@@ -8,9 +8,9 @@ import (
 	"compress/gzip"
 	"io"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/backups"
 	bt "github.com/juju/juju/core/backups/testing"
@@ -21,15 +21,15 @@ type archiveDataSuiteV0 struct {
 	baseArchiveDataSuite
 }
 
-var _ = gc.Suite(&archiveDataSuiteV0{})
-var _ = gc.Suite(&archiveDataSuite{})
+var _ = tc.Suite(&archiveDataSuiteV0{})
+var _ = tc.Suite(&archiveDataSuite{})
 
-func (s *archiveDataSuiteV0) SetUpTest(c *gc.C) {
+func (s *archiveDataSuiteV0) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.baseArchiveDataSuite.setupMetadata(c, testMetadataV1)
 }
 
-func newArchiveFile(c *gc.C, meta *backups.Metadata) io.Reader {
+func newArchiveFile(c *tc.C, meta *backups.Metadata) io.Reader {
 	files := []bt.File{
 		{
 			Name:    "var/lib/juju/tools/1.21-alpha2.1-trusty-amd64/jujud",
@@ -65,24 +65,24 @@ func newArchiveFile(c *gc.C, meta *backups.Metadata) io.Reader {
 	return archiveFile
 }
 
-func (s *archiveDataSuiteV0) TestNewArchiveData(c *gc.C) {
+func (s *archiveDataSuiteV0) TestNewArchiveData(c *tc.C) {
 	ad := backups.NewArchiveData([]byte("<uncompressed>"))
 	data := ad.NewBuffer().String()
 
-	c.Check(ad.ContentDir, gc.Equals, "juju-backup")
-	c.Check(data, gc.Equals, "<uncompressed>")
+	c.Check(ad.ContentDir, tc.Equals, "juju-backup")
+	c.Check(data, tc.Equals, "<uncompressed>")
 }
 
-func (s *archiveDataSuiteV0) TestNewArchiveDataReader(c *gc.C) {
+func (s *archiveDataSuiteV0) TestNewArchiveDataReader(c *tc.C) {
 	ad, err := backups.NewArchiveDataReader(s.archiveFile)
 	c.Assert(err, jc.ErrorIsNil)
 	data := ad.NewBuffer().Bytes()
 
-	c.Check(ad.ContentDir, gc.Equals, "juju-backup")
+	c.Check(ad.ContentDir, tc.Equals, "juju-backup")
 	c.Check(data, jc.DeepEquals, s.data)
 }
 
-func (s *archiveDataSuiteV0) TestNewBuffer(c *gc.C) {
+func (s *archiveDataSuiteV0) TestNewBuffer(c *tc.C) {
 	ad, err := backups.NewArchiveDataReader(s.archiveFile)
 	c.Assert(err, jc.ErrorIsNil)
 	buf := ad.NewBuffer()
@@ -90,18 +90,18 @@ func (s *archiveDataSuiteV0) TestNewBuffer(c *gc.C) {
 	c.Check(buf.Bytes(), jc.DeepEquals, s.data)
 }
 
-func (s *archiveDataSuiteV0) TestNewBufferMultiple(c *gc.C) {
+func (s *archiveDataSuiteV0) TestNewBufferMultiple(c *tc.C) {
 	ad, err := backups.NewArchiveDataReader(s.archiveFile)
 	c.Assert(err, jc.ErrorIsNil)
 
 	buf1 := ad.NewBuffer()
 	buf2 := ad.NewBuffer()
 
-	c.Check(buf2, gc.Not(gc.Equals), buf1)
+	c.Check(buf2, tc.Not(tc.Equals), buf1)
 	c.Check(buf2.Bytes(), jc.DeepEquals, buf1.Bytes())
 }
 
-func (s *archiveDataSuiteV0) TestMetadata(c *gc.C) {
+func (s *archiveDataSuiteV0) TestMetadata(c *tc.C) {
 	ad, err := backups.NewArchiveDataReader(s.archiveFile)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -110,7 +110,7 @@ func (s *archiveDataSuiteV0) TestMetadata(c *gc.C) {
 	c.Check(meta, jc.DeepEquals, s.meta)
 }
 
-func (s *archiveDataSuiteV0) TestVersionFound(c *gc.C) {
+func (s *archiveDataSuiteV0) TestVersionFound(c *tc.C) {
 	ad, err := backups.NewArchiveDataReader(s.archiveFile)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -148,7 +148,7 @@ const (
 		`}` + "\n"
 )
 
-func (s *baseArchiveDataSuite) setupMetadata(c *gc.C, metadata string) {
+func (s *baseArchiveDataSuite) setupMetadata(c *tc.C, metadata string) {
 	meta, err := backups.NewMetadataJSONReader(bytes.NewBufferString(metadata))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -169,7 +169,7 @@ type archiveDataSuite struct {
 	archiveDataSuiteV0
 }
 
-func (s *archiveDataSuite) SetUpTest(c *gc.C) {
+func (s *archiveDataSuite) SetUpTest(c *tc.C) {
 	s.archiveDataSuiteV0.SetUpTest(c)
 	s.setupMetadata(c, testMetadataV1)
 }

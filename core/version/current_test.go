@@ -6,17 +6,17 @@ package version
 import (
 	"os/exec"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coreos "github.com/juju/juju/core/os"
 )
 
 type CurrentSuite struct{}
 
-var _ = gc.Suite(&CurrentSuite{})
+var _ = tc.Suite(&CurrentSuite{})
 
-func (*CurrentSuite) TestCurrentSeries(c *gc.C) {
+func (*CurrentSuite) TestCurrentSeries(c *tc.C) {
 	b, err := coreos.HostBase()
 	if err != nil {
 		c.Fatal(err)
@@ -24,5 +24,5 @@ func (*CurrentSuite) TestCurrentSeries(c *gc.C) {
 	out, err := exec.Command("lsb_release", "-r").CombinedOutput()
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(out), gc.Equals, "Release:\t"+b.Channel.Track+"\n")
+	c.Assert(string(out), tc.Equals, "Release:\t"+b.Channel.Track+"\n")
 }

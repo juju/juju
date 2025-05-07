@@ -7,10 +7,10 @@ import (
 	"context"
 	"errors"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	corerelation "github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
@@ -26,9 +26,9 @@ type relationStatusSuite struct {
 	statusService   *MockStatusService
 }
 
-var _ = gc.Suite(&relationStatusSuite{})
+var _ = tc.Suite(&relationStatusSuite{})
 
-func (s *relationStatusSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *relationStatusSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	logger = loggertesting.WrapCheckLog(c)
 	s.relationService = NewMockRelationService(ctrl)
@@ -37,7 +37,7 @@ func (s *relationStatusSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 // TestFetchRelation verifies the fetchRelations function correctly retrieves and organizes relation details.
-func (s *relationStatusSuite) TestFetchRelation(c *gc.C) {
+func (s *relationStatusSuite) TestFetchRelation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange: create a relation linked to two application
@@ -90,16 +90,16 @@ func (s *relationStatusSuite) TestFetchRelation(c *gc.C) {
 	out, outByID, err := fetchRelations(context.Background(), s.relationService, s.statusService)
 
 	// Assert
-	c.Assert(err, gc.IsNil)
-	c.Check(out, gc.DeepEquals, expectedOut)
-	c.Check(outByID, gc.DeepEquals, expectedOutById)
+	c.Assert(err, tc.IsNil)
+	c.Check(out, tc.DeepEquals, expectedOut)
+	c.Check(outByID, tc.DeepEquals, expectedOutById)
 }
 
 // TestFetchRelationWithError validates the behavior of fetchRelations when
 // handling various error scenarios during processing.
 // Since it is status report, not fetching information from service should
 // generate a log instead of prevent to get the status.
-func (s *relationStatusSuite) TestFetchRelationWithError(c *gc.C) {
+func (s *relationStatusSuite) TestFetchRelationWithError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	okUUID := corerelationtesting.GenRelationUUID(c)
@@ -147,15 +147,15 @@ func (s *relationStatusSuite) TestFetchRelationWithError(c *gc.C) {
 	out, outByID, err := fetchRelations(context.Background(), s.relationService, s.statusService)
 
 	// Assert
-	c.Assert(err, gc.IsNil)
-	c.Check(out, gc.DeepEquals, expectedOut)
-	c.Check(outByID, gc.DeepEquals, expectedOutById)
+	c.Assert(err, tc.IsNil)
+	c.Check(out, tc.DeepEquals, expectedOut)
+	c.Check(outByID, tc.DeepEquals, expectedOutById)
 	c.Check(c.GetTestLog(), jc.Contains, `WARNING: no status for relation 42 "sink:consumer source:provider"`)
 }
 
 // TestFetchRelationNoRelation ensures that fetchRelations correctly handles
 // scenarios where no relations are present.
-func (s *relationStatusSuite) TestFetchRelationNoRelation(c *gc.C) {
+func (s *relationStatusSuite) TestFetchRelationNoRelation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange: No relation
@@ -165,14 +165,14 @@ func (s *relationStatusSuite) TestFetchRelationNoRelation(c *gc.C) {
 	out, outByID, err := fetchRelations(context.Background(), s.relationService, s.statusService)
 
 	// Assert
-	c.Assert(err, gc.IsNil)
-	c.Check(out, gc.DeepEquals, map[string][]relationStatus{})
-	c.Check(outByID, gc.DeepEquals, map[int]relationStatus{})
+	c.Assert(err, tc.IsNil)
+	c.Check(out, tc.DeepEquals, map[string][]relationStatus{})
+	c.Check(outByID, tc.DeepEquals, map[int]relationStatus{})
 }
 
 // TestFetchRelationAllWithGetRelationError checks the behavior of fetchRelations when
 // GetAllRelationDetails returns an error, ensuring proper error handling.
-func (s *relationStatusSuite) TestFetchRelationAllWithGetRelationError(c *gc.C) {
+func (s *relationStatusSuite) TestFetchRelationAllWithGetRelationError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange: GetAll fails
@@ -190,7 +190,7 @@ func (s *relationStatusSuite) TestFetchRelationAllWithGetRelationError(c *gc.C) 
 
 // TestFetchRelationAllWithGetStatusesError checks the behavior of fetchRelations when
 // AllRelations returns an error, ensuring proper error handling.
-func (s *relationStatusSuite) TestFetchRelationAllWithGetStatusesError(c *gc.C) {
+func (s *relationStatusSuite) TestFetchRelationAllWithGetStatusesError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange: GetAll fails

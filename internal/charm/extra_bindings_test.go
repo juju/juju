@@ -4,25 +4,25 @@
 package charm_test
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/charm"
 )
 
-var _ = gc.Suite(&extraBindingsSuite{})
+var _ = tc.Suite(&extraBindingsSuite{})
 
 type extraBindingsSuite struct {
 	riakMeta charm.Meta
 }
 
-func (s *extraBindingsSuite) SetUpTest(c *gc.C) {
+func (s *extraBindingsSuite) SetUpTest(c *tc.C) {
 	riakMeta, err := charm.ReadMeta(repoMeta(c, "riak"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.riakMeta = *riakMeta
 }
 
-func (s *extraBindingsSuite) TestSchemaOkay(c *gc.C) {
+func (s *extraBindingsSuite) TestSchemaOkay(c *tc.C) {
 	raw := map[interface{}]interface{}{
 		"foo": nil,
 		"bar": nil,
@@ -36,34 +36,34 @@ func (s *extraBindingsSuite) TestSchemaOkay(c *gc.C) {
 	})
 }
 
-func (s *extraBindingsSuite) TestValidateWithEmptyNonNilMap(c *gc.C) {
+func (s *extraBindingsSuite) TestValidateWithEmptyNonNilMap(c *tc.C) {
 	s.riakMeta.ExtraBindings = map[string]charm.ExtraBinding{}
 	err := charm.ValidateMetaExtraBindings(s.riakMeta)
-	c.Assert(err, gc.ErrorMatches, "extra bindings cannot be empty when specified")
+	c.Assert(err, tc.ErrorMatches, "extra bindings cannot be empty when specified")
 }
 
-func (s *extraBindingsSuite) TestValidateWithEmptyName(c *gc.C) {
+func (s *extraBindingsSuite) TestValidateWithEmptyName(c *tc.C) {
 	s.riakMeta.ExtraBindings = map[string]charm.ExtraBinding{
 		"": {Name: ""},
 	}
 	err := charm.ValidateMetaExtraBindings(s.riakMeta)
-	c.Assert(err, gc.ErrorMatches, "missing binding name")
+	c.Assert(err, tc.ErrorMatches, "missing binding name")
 }
 
-func (s *extraBindingsSuite) TestValidateWithMismatchedName(c *gc.C) {
+func (s *extraBindingsSuite) TestValidateWithMismatchedName(c *tc.C) {
 	s.riakMeta.ExtraBindings = map[string]charm.ExtraBinding{
 		"bar": {Name: "foo"},
 	}
 	err := charm.ValidateMetaExtraBindings(s.riakMeta)
-	c.Assert(err, gc.ErrorMatches, `mismatched extra binding name: got "foo", expected "bar"`)
+	c.Assert(err, tc.ErrorMatches, `mismatched extra binding name: got "foo", expected "bar"`)
 }
 
-func (s *extraBindingsSuite) TestValidateWithRelationNamesMatchingExtraBindings(c *gc.C) {
+func (s *extraBindingsSuite) TestValidateWithRelationNamesMatchingExtraBindings(c *tc.C) {
 	s.riakMeta.ExtraBindings = map[string]charm.ExtraBinding{
 		"admin": {Name: "admin"},
 		"ring":  {Name: "ring"},
 		"foo":   {Name: "foo"},
 	}
 	err := charm.ValidateMetaExtraBindings(s.riakMeta)
-	c.Assert(err, gc.ErrorMatches, `relation names \(admin, ring\) cannot be used in extra bindings`)
+	c.Assert(err, tc.ErrorMatches, `relation names \(admin, ring\) cannot be used in extra bindings`)
 }

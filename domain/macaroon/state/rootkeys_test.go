@@ -8,8 +8,8 @@ import (
 	"math"
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/domain/macaroon"
 	"github.com/juju/juju/domain/macaroon/errors"
@@ -20,7 +20,7 @@ type rootKeyStateSuite struct {
 	testing.ControllerSuite
 }
 
-var _ = gc.Suite(&rootKeyStateSuite{})
+var _ = tc.Suite(&rootKeyStateSuite{})
 
 var (
 	// Ensure we use one time for all the tests, so that we can reliably compare
@@ -64,7 +64,7 @@ var (
 	}
 )
 
-func (s *rootKeyStateSuite) TestInsertAndGetKey(c *gc.C) {
+func (s *rootKeyStateSuite) TestInsertAndGetKey(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 
@@ -79,7 +79,7 @@ func (s *rootKeyStateSuite) TestInsertAndGetKey(c *gc.C) {
 	compareRootKeys(c, key0, res)
 }
 
-func (s *rootKeyStateSuite) TestInsertKeyIDUniqueness(c *gc.C) {
+func (s *rootKeyStateSuite) TestInsertKeyIDUniqueness(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 
@@ -93,7 +93,7 @@ func (s *rootKeyStateSuite) TestInsertKeyIDUniqueness(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.KeyAlreadyExists)
 }
 
-func (s *rootKeyStateSuite) TestFindLatestKeyReturnsMostRecent(c *gc.C) {
+func (s *rootKeyStateSuite) TestFindLatestKeyReturnsMostRecent(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	addAllKeys(c, st)
@@ -103,7 +103,7 @@ func (s *rootKeyStateSuite) TestFindLatestKeyReturnsMostRecent(c *gc.C) {
 	compareRootKeys(c, key3, res)
 }
 
-func (s *rootKeyStateSuite) TestFindLatestKeyExpiresAfter(c *gc.C) {
+func (s *rootKeyStateSuite) TestFindLatestKeyExpiresAfter(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	addAllKeys(c, st)
@@ -113,7 +113,7 @@ func (s *rootKeyStateSuite) TestFindLatestKeyExpiresAfter(c *gc.C) {
 	compareRootKeys(c, key2, res)
 }
 
-func (s *rootKeyStateSuite) TestFindLatestKeyCreatedAfter(c *gc.C) {
+func (s *rootKeyStateSuite) TestFindLatestKeyCreatedAfter(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	addAllKeys(c, st)
@@ -126,7 +126,7 @@ func (s *rootKeyStateSuite) TestFindLatestKeyCreatedAfter(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.KeyNotFound)
 }
 
-func (s *rootKeyStateSuite) TestFindLatestKeyExpiresBefore(c *gc.C) {
+func (s *rootKeyStateSuite) TestFindLatestKeyExpiresBefore(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	addAllKeys(c, st)
@@ -143,7 +143,7 @@ func (s *rootKeyStateSuite) TestFindLatestKeyExpiresBefore(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.KeyNotFound)
 }
 
-func (s *rootKeyStateSuite) TestFindLatestKeyEquality(c *gc.C) {
+func (s *rootKeyStateSuite) TestFindLatestKeyEquality(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	addAllKeys(c, st)
@@ -156,7 +156,7 @@ func (s *rootKeyStateSuite) TestFindLatestKeyEquality(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.KeyNotFound)
 }
 
-func (s *rootKeyStateSuite) TestExpiredKeysAreRemoved(c *gc.C) {
+func (s *rootKeyStateSuite) TestExpiredKeysAreRemoved(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	addAllKeys(c, st)
@@ -173,7 +173,7 @@ func (s *rootKeyStateSuite) TestExpiredKeysAreRemoved(c *gc.C) {
 	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
 }
 
-func (s *rootKeyStateSuite) TestRemoveKeysExpiredBeforeNowPlus5(c *gc.C) {
+func (s *rootKeyStateSuite) TestRemoveKeysExpiredBeforeNowPlus5(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	addAllKeys(c, st)
@@ -192,7 +192,7 @@ func (s *rootKeyStateSuite) TestRemoveKeysExpiredBeforeNowPlus5(c *gc.C) {
 	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
 }
 
-func (s *rootKeyStateSuite) TestRemoveKeysExpiredAll(c *gc.C) {
+func (s *rootKeyStateSuite) TestRemoveKeysExpiredAll(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	addAllKeys(c, st)
@@ -214,7 +214,7 @@ func (s *rootKeyStateSuite) TestRemoveKeysExpiredAll(c *gc.C) {
 	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
 }
 
-func (s *rootKeyStateSuite) TestRemoveKeysExpiredNone(c *gc.C) {
+func (s *rootKeyStateSuite) TestRemoveKeysExpiredNone(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	addAllKeys(c, st)
@@ -233,7 +233,7 @@ func (s *rootKeyStateSuite) TestRemoveKeysExpiredNone(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func addAllKeys(c *gc.C, st *State) {
+func addAllKeys(c *tc.C, st *State) {
 	ctx := context.Background()
 
 	err := st.InsertKey(ctx, key0)
@@ -248,9 +248,9 @@ func addAllKeys(c *gc.C, st *State) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func compareRootKeys(c *gc.C, k1, k2 macaroon.RootKey) {
-	c.Check(k1.ID, gc.DeepEquals, k2.ID)
-	c.Check(k1.RootKey, gc.DeepEquals, k2.RootKey)
-	c.Check(k1.Created.Compare(k2.Created), gc.Equals, 0)
-	c.Check(k1.Expires.Compare(k2.Expires), gc.Equals, 0)
+func compareRootKeys(c *tc.C, k1, k2 macaroon.RootKey) {
+	c.Check(k1.ID, tc.DeepEquals, k2.ID)
+	c.Check(k1.RootKey, tc.DeepEquals, k2.RootKey)
+	c.Check(k1.Created.Compare(k2.Created), tc.Equals, 0)
+	c.Check(k1.Expires.Compare(k2.Expires), tc.Equals, 0)
 }

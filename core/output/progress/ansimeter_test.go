@@ -23,8 +23,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/output/progress"
 	"github.com/juju/juju/core/output/progress/mocks"
@@ -32,30 +32,30 @@ import (
 
 type ansiSuite struct{}
 
-var _ = gc.Suite(ansiSuite{})
+var _ = tc.Suite(ansiSuite{})
 
-func (ansiSuite) TestNorm(c *gc.C) {
+func (ansiSuite) TestNorm(c *tc.C) {
 	msg := []rune(strings.Repeat("0123456789", 100))
 	high := []rune("🤗🤗🤗🤗🤗")
-	c.Assert(msg, gc.HasLen, 1000)
+	c.Assert(msg, tc.HasLen, 1000)
 	for i := 1; i < 1000; i += 1 {
 		long := progress.Norm(i, msg)
 		short := progress.Norm(i, nil)
 		// a long message is truncated to fit
-		c.Check(long, gc.HasLen, i)
-		c.Check(long[len(long)-1], gc.Equals, rune('…'))
+		c.Check(long, tc.HasLen, i)
+		c.Check(long[len(long)-1], tc.Equals, rune('…'))
 		// a short message is padded to width
-		c.Check(short, gc.HasLen, i)
-		c.Check(string(short), gc.Equals, strings.Repeat(" ", i))
+		c.Check(short, tc.HasLen, i)
+		c.Check(string(short), tc.Equals, strings.Repeat(" ", i))
 		// high unicode? no problem
-		c.Check(progress.Norm(i, high), gc.HasLen, i)
+		c.Check(progress.Norm(i, high), tc.HasLen, i)
 	}
 	// gc it doesn't panic for negative nor zero widths
-	c.Check(progress.Norm(0, []rune("hello")), gc.HasLen, 0)
-	c.Check(progress.Norm(-10, []rune("hello")), gc.HasLen, 0)
+	c.Check(progress.Norm(0, []rune("hello")), tc.HasLen, 0)
+	c.Check(progress.Norm(-10, []rune("hello")), tc.HasLen, 0)
 }
 
-func (ansiSuite) TestPercent(c *gc.C) {
+func (ansiSuite) TestPercent(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -72,13 +72,13 @@ func (ansiSuite) TestPercent(c *gc.C) {
 		for j := -1000.; j < 1000.; j += 3 {
 			p.SetWritten(j)
 			percent := p.Percent()
-			c.Check(percent, gc.HasLen, 4)
-			c.Check(percent[len(percent)-1:], gc.Equals, "%")
+			c.Check(percent, tc.HasLen, 4)
+			c.Check(percent[len(percent)-1:], tc.Equals, "%")
 		}
 	}
 }
 
-func (ansiSuite) TestStart(c *gc.C) {
+func (ansiSuite) TestStart(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -92,11 +92,11 @@ func (ansiSuite) TestStart(c *gc.C) {
 	ec := progress.DefaultEscapeChars()
 	p := progress.NewANSIMeter(buf, term, ec, clock)
 	p.Start("0123456789", 100)
-	c.Check(p.GetWritten(), gc.Equals, 0.)
-	c.Check(buf.String(), gc.Equals, ec.CursorInvisible)
+	c.Check(p.GetWritten(), tc.Equals, 0.)
+	c.Check(buf.String(), tc.Equals, ec.CursorInvisible)
 }
 
-func (ansiSuite) TestFinish(c *gc.C) {
+func (ansiSuite) TestFinish(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -110,7 +110,7 @@ func (ansiSuite) TestFinish(c *gc.C) {
 	ec := progress.DefaultEscapeChars()
 	p := progress.NewANSIMeter(buf, term, ec, clock)
 	p.Finished()
-	c.Check(buf.String(), gc.Equals, fmt.Sprint(
+	c.Check(buf.String(), tc.Equals, fmt.Sprint(
 		"\r",                 // move cursor to start of line
 		ec.ExitAttributeMode, // turn off color, reverse, bold, anything
 		ec.CursorVisible,     // turn the cursor back on
@@ -118,7 +118,7 @@ func (ansiSuite) TestFinish(c *gc.C) {
 	))
 }
 
-func (ansiSuite) TestSetLayout(c *gc.C) {
+func (ansiSuite) TestSetLayout(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -136,7 +136,7 @@ func (ansiSuite) TestSetLayout(c *gc.C) {
 	defer ticker.Stop()
 	p.Start(msg, 1e300)
 	for i := 1; i <= 80; i++ {
-		desc := gc.Commentf("width %d", i)
+		desc := tc.Commentf("width %d", i)
 
 		term.EXPECT().Width().Return(i)
 
@@ -144,23 +144,23 @@ func (ansiSuite) TestSetLayout(c *gc.C) {
 		<-ticker.C
 		p.Set(float64(i))
 		out := buf.String()
-		c.Check([]rune(out), gc.HasLen, i+1, desc)
+		c.Check([]rune(out), tc.HasLen, i+1, desc)
 		switch {
 		case i < len(msg):
-			c.Check(out, gc.Equals, "\r"+msg[:i-1]+"…", desc)
+			c.Check(out, tc.Equals, "\r"+msg[:i-1]+"…", desc)
 		case i <= 15:
-			c.Check(out, gc.Equals, fmt.Sprintf("\r%*s", -i, msg), desc)
+			c.Check(out, tc.Equals, fmt.Sprintf("\r%*s", -i, msg), desc)
 		case i <= 20:
-			c.Check(out, gc.Equals, fmt.Sprintf("\r%*s ages!", -(i-6), msg), desc)
+			c.Check(out, tc.Equals, fmt.Sprintf("\r%*s ages!", -(i-6), msg), desc)
 		case i <= 29:
-			c.Check(out, gc.Equals, fmt.Sprintf("\r%*s   0%% ages!", -(i-11), msg), desc)
+			c.Check(out, tc.Equals, fmt.Sprintf("\r%*s   0%% ages!", -(i-11), msg), desc)
 		default:
-			c.Check(out, gc.Matches, fmt.Sprintf("\r%*s   0%% [0-9\\.]{4}GB/s ages!", -(i-20), msg), desc)
+			c.Check(out, tc.Matches, fmt.Sprintf("\r%*s   0%% [0-9\\.]{4}GB/s ages!", -(i-20), msg), desc)
 		}
 	}
 }
 
-func (ansiSuite) TestSetEscapes(c *gc.C) {
+func (ansiSuite) TestSetEscapes(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -181,11 +181,11 @@ func (ansiSuite) TestSetEscapes(c *gc.C) {
 		// here we're using the fact that the message has the same
 		// length as p's total to make the test simpler :-)
 		expected := "\r<MR>" + msg[:int(i)] + "<ME>" + msg[int(i):]
-		c.Check(buf.String(), gc.Equals, expected, gc.Commentf("%g", i))
+		c.Check(buf.String(), tc.Equals, expected, tc.Commentf("%g", i))
 	}
 }
 
-func (ansiSuite) TestSpin(c *gc.C) {
+func (ansiSuite) TestSpin(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -198,7 +198,7 @@ func (ansiSuite) TestSpin(c *gc.C) {
 
 	p := progress.NewANSIMeter(buf, term, SimpleEscapeChars(), clock)
 	msg := "0123456789"
-	c.Assert(len(msg), gc.Equals, 10)
+	c.Assert(len(msg), tc.Equals, 10)
 	p.Start(msg, 10)
 
 	term.EXPECT().Width().Return(9).Times(len(progress.Spinner))
@@ -208,7 +208,7 @@ func (ansiSuite) TestSpin(c *gc.C) {
 		buf.Reset()
 		p.Spin(msg)
 		expected := "\r" + msg[:8] + "…"
-		c.Check(buf.String(), gc.Equals, expected, gc.Commentf("%d (%s)", i, s))
+		c.Check(buf.String(), tc.Equals, expected, tc.Commentf("%d (%s)", i, s))
 	}
 
 	// term fits msg but not spinner
@@ -217,7 +217,7 @@ func (ansiSuite) TestSpin(c *gc.C) {
 		buf.Reset()
 		p.Spin(msg)
 		expected := "\r" + msg + " "
-		c.Check(buf.String(), gc.Equals, expected, gc.Commentf("%d (%s)", i, s))
+		c.Check(buf.String(), tc.Equals, expected, tc.Commentf("%d (%s)", i, s))
 	}
 
 	// term fits msg and spinner
@@ -226,11 +226,11 @@ func (ansiSuite) TestSpin(c *gc.C) {
 		buf.Reset()
 		p.Spin(msg)
 		expected := "\r" + msg + " " + s
-		c.Check(buf.String(), gc.Equals, expected, gc.Commentf("%d (%s)", i, s))
+		c.Check(buf.String(), tc.Equals, expected, tc.Commentf("%d (%s)", i, s))
 	}
 }
 
-func (ansiSuite) TestNotify(c *gc.C) {
+func (ansiSuite) TestNotify(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -249,7 +249,7 @@ func (ansiSuite) TestNotify(c *gc.C) {
 	p.Set(0)
 	p.Notify("hello there")
 	p.Set(1)
-	c.Check(buf.String(), gc.Equals, "<VI>"+ // the VI from Start()
+	c.Check(buf.String(), tc.Equals, "<VI>"+ // the VI from Start()
 		"\r<MR><ME>working   "+ // the Set(0)
 		"\r<ME><CE>hello\n"+ // first line of the Notify (note it wrapped at word end)
 		"there\n"+
@@ -259,7 +259,7 @@ func (ansiSuite) TestNotify(c *gc.C) {
 	p.Set(0)
 	p.Notify("supercalifragilisticexpialidocious")
 	p.Set(1)
-	c.Check(buf.String(), gc.Equals, ""+ // no Start() this time
+	c.Check(buf.String(), tc.Equals, ""+ // no Start() this time
 		"\r<MR><ME>working   "+ // the Set(0)
 		"\r<ME><CE>supercalif\n"+ // the Notify, word is too long so it's just split
 		"ragilistic\n"+
@@ -272,14 +272,14 @@ func (ansiSuite) TestNotify(c *gc.C) {
 	p.Set(0)
 	p.Notify("hello there")
 	p.Set(1)
-	c.Check(buf.String(), gc.Equals, ""+ // no Start()
+	c.Check(buf.String(), tc.Equals, ""+ // no Start()
 		"\r<MR><ME>working    ages!"+ // the Set(0)
 		"\r<ME><CE>hello there\n"+ // first line of the Notify (no wrap!)
 		"\r<MR><ME>working    ages!") // the Set(1)
 
 }
 
-func (ansiSuite) TestWrite(c *gc.C) {
+func (ansiSuite) TestWrite(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -295,11 +295,11 @@ func (ansiSuite) TestWrite(c *gc.C) {
 	p.Start("123456789x", 10)
 	for i := 0; i < 10; i++ {
 		n, err := fmt.Fprintf(p, "%d", i)
-		c.Assert(err, gc.IsNil)
-		c.Check(n, gc.Equals, 1)
+		c.Assert(err, tc.IsNil)
+		c.Check(n, tc.Equals, 1)
 	}
 
-	c.Check(buf.String(), gc.Equals, strings.Join([]string{
+	c.Check(buf.String(), tc.Equals, strings.Join([]string{
 		"<VI>", // Start()
 		"\r<MR>1<ME>23456789x",
 		"\r<MR>12<ME>3456789x",

@@ -7,8 +7,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -21,13 +21,13 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/watcher_mock.go github.com/juju/juju/state NotifyWatcher,StringsWatcher
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 // NewTestAPI is exported for use by tests that need
 // to create an instance-mutater API facade.
 func NewTestAPI(
-	c *gc.C,
+	c *tc.C,
 	st InstanceMutaterState,
 	machineService MachineService,
 	applicationService ApplicationService,
@@ -57,7 +57,7 @@ func NewTestAPI(
 }
 
 // NewTestLxdProfileWatcher is used by the lxd profile tests.
-func NewTestLxdProfileWatcher(c *gc.C, machine Machine, backend InstanceMutaterState, machineService MachineService, applicationService ApplicationService) *machineLXDProfileWatcher {
+func NewTestLxdProfileWatcher(c *tc.C, machine Machine, backend InstanceMutaterState, machineService MachineService, applicationService ApplicationService) *machineLXDProfileWatcher {
 	w, err := newMachineLXDProfileWatcher(
 		context.Background(),
 		MachineLXDProfileWatcherConfig{

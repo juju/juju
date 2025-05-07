@@ -6,8 +6,8 @@ package tools_test
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/filestorage"
@@ -21,22 +21,22 @@ type StorageSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&StorageSuite{})
+var _ = tc.Suite(&StorageSuite{})
 
-func (s *StorageSuite) TestStorageName(c *gc.C) {
+func (s *StorageSuite) TestStorageName(c *tc.C) {
 	vers := semversion.MustParseBinary("1.2.3-ubuntu-amd64")
 	path := envtools.StorageName(vers, "proposed")
-	c.Assert(path, gc.Equals, "tools/proposed/juju-1.2.3-ubuntu-amd64.tgz")
+	c.Assert(path, tc.Equals, "tools/proposed/juju-1.2.3-ubuntu-amd64.tgz")
 }
 
-func (s *StorageSuite) TestReadListEmpty(c *gc.C) {
+func (s *StorageSuite) TestReadListEmpty(c *tc.C) {
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = envtools.ReadList(context.Background(), stor, "released", 2, 0)
-	c.Assert(err, gc.Equals, envtools.ErrNoTools)
+	c.Assert(err, tc.Equals, envtools.ErrNoTools)
 }
 
-func (s *StorageSuite) TestReadList(c *gc.C) {
+func (s *StorageSuite) TestReadList(c *tc.C) {
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, jc.ErrorIsNil)
 	v100 := semversion.MustParseBinary("1.0.0-ubuntu-amd64")
@@ -75,9 +75,9 @@ func (s *StorageSuite) TestReadList(c *gc.C) {
 				tool.Size = 0
 				tool.SHA256 = ""
 			}
-			c.Assert(list, gc.DeepEquals, t.list)
+			c.Assert(list, tc.DeepEquals, t.list)
 		} else {
-			c.Assert(err, gc.Equals, coretools.ErrNoMatches)
+			c.Assert(err, tc.Equals, coretools.ErrNoMatches)
 		}
 	}
 }

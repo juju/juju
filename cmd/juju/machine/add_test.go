@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/machine"
@@ -29,14 +29,14 @@ type AddMachineSuite struct {
 	fakeAddMachine *fakeAddMachineAPI
 }
 
-var _ = gc.Suite(&AddMachineSuite{})
+var _ = tc.Suite(&AddMachineSuite{})
 
-func (s *AddMachineSuite) SetUpTest(c *gc.C) {
+func (s *AddMachineSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fakeAddMachine = &fakeAddMachineAPI{}
 }
 
-func (s *AddMachineSuite) TestInit(c *gc.C) {
+func (s *AddMachineSuite) TestInit(c *tc.C) {
 	for i, test := range []struct {
 		args        []string
 		base        string
@@ -108,134 +108,134 @@ func (s *AddMachineSuite) TestInit(c *gc.C) {
 		err := cmdtesting.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(err, jc.ErrorIsNil)
-			c.Check(addCmd.Base, gc.Equals, test.base)
-			c.Check(addCmd.Constraints.String(), gc.Equals, test.constraints)
+			c.Check(addCmd.Base, tc.Equals, test.base)
+			c.Check(addCmd.Constraints.String(), tc.Equals, test.constraints)
 			if addCmd.Placement != nil {
-				c.Check(addCmd.Placement.String(), gc.Equals, test.placement)
+				c.Check(addCmd.Placement.String(), tc.Equals, test.placement)
 			} else {
-				c.Check("", gc.Equals, test.placement)
+				c.Check("", tc.Equals, test.placement)
 			}
-			c.Check(addCmd.NumMachines, gc.Equals, test.count)
+			c.Check(addCmd.NumMachines, tc.Equals, test.count)
 		} else {
-			c.Check(err, gc.ErrorMatches, test.errorString)
+			c.Check(err, tc.ErrorMatches, test.errorString)
 		}
 	}
 }
 
-func (s *AddMachineSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *AddMachineSuite) run(c *tc.C, args ...string) (*cmd.Context, error) {
 	add, _ := machine.NewAddCommandForTest(s.fakeAddMachine, s.fakeAddMachine)
 	return cmdtesting.RunCommand(c, add, args...)
 }
 
-func (s *AddMachineSuite) TestAddMachine(c *gc.C) {
+func (s *AddMachineSuite) TestAddMachine(c *tc.C) {
 	context, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "created machine 0\n")
+	c.Assert(cmdtesting.Stderr(context), tc.Equals, "created machine 0\n")
 
-	c.Assert(s.fakeAddMachine.args, gc.HasLen, 1)
+	c.Assert(s.fakeAddMachine.args, tc.HasLen, 1)
 	c.Assert(s.fakeAddMachine.args[0].Jobs, jc.DeepEquals, []model.MachineJob{model.JobHostUnits})
 }
 
-func (s *AddMachineSuite) TestAddMachineUnauthorizedMentionsJujuGrant(c *gc.C) {
+func (s *AddMachineSuite) TestAddMachineUnauthorizedMentionsJujuGrant(c *tc.C) {
 	s.fakeAddMachine.addModelGetError = &params.Error{
 		Message: "permission denied",
 		Code:    params.CodeUnauthorized,
 	}
 	ctx, _ := s.run(c)
 	errString := strings.Replace(cmdtesting.Stderr(ctx), "\n", " ", -1)
-	c.Assert(errString, gc.Matches, `.*juju grant.*`)
+	c.Assert(errString, tc.Matches, `.*juju grant.*`)
 }
 
-func (s *AddMachineSuite) TestSSHPlacement(c *gc.C) {
+func (s *AddMachineSuite) TestSSHPlacement(c *tc.C) {
 	s.PatchValue(machine.SSHProvisioner, func(_ context.Context, args manual.ProvisionMachineArgs) (string, error) {
 		return "42", nil
 	})
 	context, err := s.run(c, "ssh:10.1.2.3")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "created machine 42\n")
+	c.Assert(cmdtesting.Stderr(context), tc.Equals, "created machine 42\n")
 }
 
-func (s *AddMachineSuite) TestSSHPlacementError(c *gc.C) {
+func (s *AddMachineSuite) TestSSHPlacementError(c *tc.C) {
 	s.PatchValue(machine.SSHProvisioner, func(_ context.Context, args manual.ProvisionMachineArgs) (string, error) {
 		return "", errors.New("failed to initialize warp core")
 	})
 	context, err := s.run(c, "ssh:10.1.2.3")
-	c.Assert(err, gc.ErrorMatches, "failed to initialize warp core")
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
+	c.Assert(err, tc.ErrorMatches, "failed to initialize warp core")
+	c.Assert(cmdtesting.Stderr(context), tc.Equals, "")
 }
 
-func (s *AddMachineSuite) TestParamsPassedOn(c *gc.C) {
+func (s *AddMachineSuite) TestParamsPassedOn(c *tc.C) {
 	_, err := s.run(c, "--constraints", "mem=8G", "--base=ubuntu@22.04", "zone=nz")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fakeAddMachine.args, gc.HasLen, 1)
+	c.Assert(s.fakeAddMachine.args, tc.HasLen, 1)
 
 	param := s.fakeAddMachine.args[0]
 
-	c.Assert(param.Placement.String(), gc.Equals, "fake-uuid:zone=nz")
+	c.Assert(param.Placement.String(), tc.Equals, "fake-uuid:zone=nz")
 	c.Assert(param.Base, jc.DeepEquals, &params.Base{Name: "ubuntu", Channel: "22.04/stable"})
-	c.Assert(param.Constraints.String(), gc.Equals, "mem=8192M")
+	c.Assert(param.Constraints.String(), tc.Equals, "mem=8192M")
 }
 
-func (s *AddMachineSuite) TestParamsPassedOnMultipleConstraints(c *gc.C) {
+func (s *AddMachineSuite) TestParamsPassedOnMultipleConstraints(c *tc.C) {
 	_, err := s.run(c, "--constraints", "mem=8G", "--constraints", "cores=4", "--base=ubuntu@22.04", "zone=nz")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fakeAddMachine.args, gc.HasLen, 1)
+	c.Assert(s.fakeAddMachine.args, tc.HasLen, 1)
 
 	param := s.fakeAddMachine.args[0]
 
-	c.Assert(param.Placement.String(), gc.Equals, "fake-uuid:zone=nz")
+	c.Assert(param.Placement.String(), tc.Equals, "fake-uuid:zone=nz")
 	c.Assert(param.Base, jc.DeepEquals, &params.Base{Name: "ubuntu", Channel: "22.04/stable"})
-	c.Assert(param.Constraints.String(), gc.Equals, "cores=4 mem=8192M")
+	c.Assert(param.Constraints.String(), tc.Equals, "cores=4 mem=8192M")
 }
 
-func (s *AddMachineSuite) TestParamsPassedOnNTimes(c *gc.C) {
+func (s *AddMachineSuite) TestParamsPassedOnNTimes(c *tc.C) {
 	_, err := s.run(c, "-n", "3", "--constraints", "mem=8G", "--base=ubuntu@22.04")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fakeAddMachine.args, gc.HasLen, 3)
+	c.Assert(s.fakeAddMachine.args, tc.HasLen, 3)
 
 	param := s.fakeAddMachine.args[0]
 	c.Assert(param.Base, jc.DeepEquals, &params.Base{Name: "ubuntu", Channel: "22.04/stable"})
 
-	c.Assert(param.Constraints.String(), gc.Equals, "mem=8192M")
+	c.Assert(param.Constraints.String(), tc.Equals, "mem=8192M")
 	c.Assert(param, jc.DeepEquals, s.fakeAddMachine.args[1])
 	c.Assert(param, jc.DeepEquals, s.fakeAddMachine.args[2])
 }
 
-func (s *AddMachineSuite) TestParamsPassedOnNTimesMultipleConstraints(c *gc.C) {
+func (s *AddMachineSuite) TestParamsPassedOnNTimesMultipleConstraints(c *tc.C) {
 	_, err := s.run(c, "-n", "3", "--constraints", "mem=8G", "--constraints", "cores=4", "--base=ubuntu@22.04")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fakeAddMachine.args, gc.HasLen, 3)
+	c.Assert(s.fakeAddMachine.args, tc.HasLen, 3)
 
 	param := s.fakeAddMachine.args[0]
 	c.Assert(param.Base, jc.DeepEquals, &params.Base{Name: "ubuntu", Channel: "22.04/stable"})
 
-	c.Assert(param.Constraints.String(), gc.Equals, "cores=4 mem=8192M")
+	c.Assert(param.Constraints.String(), tc.Equals, "cores=4 mem=8192M")
 	c.Assert(param, jc.DeepEquals, s.fakeAddMachine.args[1])
 	c.Assert(param, jc.DeepEquals, s.fakeAddMachine.args[2])
 }
 
-func (s *AddMachineSuite) TestAddThreeMachinesWithTwoFailures(c *gc.C) {
+func (s *AddMachineSuite) TestAddThreeMachinesWithTwoFailures(c *tc.C) {
 	s.fakeAddMachine.successOrder = []bool{true, false, false}
 	expectedOutput := `created machine 0
 failed to create 2 machines
 `
 	context, err := s.run(c, "-n", "3")
-	c.Assert(err, gc.ErrorMatches, "something went wrong, something went wrong")
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, expectedOutput)
+	c.Assert(err, tc.ErrorMatches, "something went wrong, something went wrong")
+	c.Assert(cmdtesting.Stderr(context), tc.Equals, expectedOutput)
 }
 
-func (s *AddMachineSuite) TestBlockedError(c *gc.C) {
+func (s *AddMachineSuite) TestBlockedError(c *tc.C) {
 	s.fakeAddMachine.addError = apiservererrors.OperationBlockedError("TestBlockedError")
 	_, err := s.run(c)
 	testing.AssertOperationWasBlocked(c, err, ".*TestBlockedError.*")
 }
 
-func (s *AddMachineSuite) TestAddMachineWithDisks(c *gc.C) {
+func (s *AddMachineSuite) TestAddMachineWithDisks(c *tc.C) {
 	_, err := s.run(c, "--disks", "2,1G", "--disks", "2G")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fakeAddMachine.args, gc.HasLen, 1)
+	c.Assert(s.fakeAddMachine.args, tc.HasLen, 1)
 	param := s.fakeAddMachine.args[0]
-	c.Assert(param.Disks, gc.DeepEquals, []storage.Directive{
+	c.Assert(param.Disks, tc.DeepEquals, []storage.Directive{
 		{Size: 1024, Count: 2},
 		{Size: 2048, Count: 1},
 	})

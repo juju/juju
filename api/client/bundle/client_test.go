@@ -6,9 +6,9 @@ package bundle_test
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/bundle"
@@ -17,9 +17,9 @@ import (
 
 type bundleMockSuite struct{}
 
-var _ = gc.Suite(&bundleMockSuite{})
+var _ = tc.Suite(&bundleMockSuite{})
 
-func (s *bundleMockSuite) TestGetChangesMapArgs(c *gc.C) {
+func (s *bundleMockSuite) TestGetChangesMapArgs(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -71,11 +71,11 @@ func (s *bundleMockSuite) TestGetChangesMapArgs(c *gc.C) {
 	client := bundle.NewClientFromCaller(mockFacadeCaller)
 	result, err := client.GetChangesMapArgs(context.Background(), bundleURL, bundleYAML)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Errors, gc.DeepEquals, []string(nil))
-	c.Assert(result.Changes, gc.DeepEquals, changes)
+	c.Assert(result.Errors, tc.DeepEquals, []string(nil))
+	c.Assert(result.Changes, tc.DeepEquals, changes)
 }
 
-func (s *bundleMockSuite) TestGetChangesMapArgsReturnsErrors(c *gc.C) {
+func (s *bundleMockSuite) TestGetChangesMapArgsReturnsErrors(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -106,11 +106,11 @@ func (s *bundleMockSuite) TestGetChangesMapArgsReturnsErrors(c *gc.C) {
 	client := bundle.NewClientFromCaller(mockFacadeCaller)
 	result, err := client.GetChangesMapArgs(context.Background(), bundleURL, bundleYAML)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Errors, gc.DeepEquals, []string{"Error returned from request"})
-	c.Assert(result.Changes, gc.DeepEquals, []*params.BundleChangesMapArgs(nil))
+	c.Assert(result.Errors, tc.DeepEquals, []string{"Error returned from request"})
+	c.Assert(result.Changes, tc.DeepEquals, []*params.BundleChangesMapArgs(nil))
 }
 
-func (s *bundleMockSuite) TestExportBundleLatest(c *gc.C) {
+func (s *bundleMockSuite) TestExportBundleLatest(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 

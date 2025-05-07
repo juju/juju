@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -19,7 +19,7 @@ type GoalStateSuite struct {
 	ContextSuite
 }
 
-var _ = gc.Suite(&GoalStateSuite{})
+var _ = tc.Suite(&GoalStateSuite{})
 
 var (
 	goalStateTestResultYaml = `units:
@@ -58,36 +58,36 @@ relations:
 	}
 )
 
-func (s *GoalStateSuite) TestOutputFormatAll(c *gc.C) {
+func (s *GoalStateSuite) TestOutputFormatAll(c *tc.C) {
 	for i, t := range goalStateAllTests {
 		c.Logf("test %d: %#v", i, t.args)
 
 		ctx, code := s.getGoalStateCommand(c, t.args)
 
-		c.Assert(code, gc.Equals, 0)
-		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-		c.Assert(bufferString(ctx.Stdout), gc.Equals, t.out)
+		c.Assert(code, tc.Equals, 0)
+		c.Assert(bufferString(ctx.Stderr), tc.Equals, "")
+		c.Assert(bufferString(ctx.Stdout), tc.Equals, t.out)
 	}
 }
 
-func (s *GoalStateSuite) TestOutputPath(c *gc.C) {
+func (s *GoalStateSuite) TestOutputPath(c *tc.C) {
 
 	for i, t := range goalStateAllOutPutFileTests {
 		c.Logf("test %d: %#v", i, t.args)
 
 		ctx, code := s.getGoalStateCommand(c, t.args)
 
-		c.Assert(code, gc.Equals, 0)
-		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-		c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
+		c.Assert(code, tc.Equals, 0)
+		c.Assert(bufferString(ctx.Stderr), tc.Equals, "")
+		c.Assert(bufferString(ctx.Stdout), tc.Equals, "")
 
 		content, err := os.ReadFile(filepath.Join(ctx.Dir, "some-file"))
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(string(content), gc.Equals, t.out)
+		c.Assert(string(content), tc.Equals, t.out)
 	}
 }
 
-func (s *GoalStateSuite) getGoalStateCommand(c *gc.C, args []string) (*cmd.Context, int) {
+func (s *GoalStateSuite) getGoalStateCommand(c *tc.C, args []string) (*cmd.Context, int) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, "goal-state")
 	c.Assert(err, jc.ErrorIsNil)
@@ -96,7 +96,7 @@ func (s *GoalStateSuite) getGoalStateCommand(c *gc.C, args []string) (*cmd.Conte
 	return ctx, code
 }
 
-func (s *GoalStateSuite) TestUnknownArg(c *gc.C) {
+func (s *GoalStateSuite) TestUnknownArg(c *tc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, "goal-state")
 	c.Assert(err, jc.ErrorIsNil)

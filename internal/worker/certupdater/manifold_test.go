@@ -8,13 +8,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
@@ -44,9 +44,9 @@ type ManifoldSuite struct {
 	stub testing.Stub
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+var _ = tc.Suite(&ManifoldSuite{})
 
-func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.agent = &mockAgent{}
@@ -90,7 +90,7 @@ func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 func (s *ManifoldSuite) newWorker(config certupdater.Config) (worker.Worker, error) {
 	s.stub.MethodCall(s, "NewWorker", config)
 	w := worker.NewRunner(worker.RunnerParams{})
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, w) })
+	s.AddCleanup(func(c *tc.C) { workertest.DirtyKill(c, w) })
 	return w, nil
 }
 
@@ -104,21 +104,21 @@ func (s *ManifoldSuite) newMachineAddressWatcher(st *state.State, machineId stri
 
 var expectedInputs = []string{"agent", "authority", "state", "domain-services"}
 
-func (s *ManifoldSuite) TestInputs(c *gc.C) {
+func (s *ManifoldSuite) TestInputs(c *tc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
 }
 
-func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
+func (s *ManifoldSuite) TestMissingInputs(c *tc.C) {
 	for _, input := range expectedInputs {
 		getter := s.newGetter(map[string]any{
 			input: dependency.ErrMissing,
 		})
 		_, err := s.manifold.Start(context.Background(), getter)
-		c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+		c.Assert(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 	}
 }
 
-func (s *ManifoldSuite) TestStart(c *gc.C) {
+func (s *ManifoldSuite) TestStart(c *tc.C) {
 	w, err := s.manifold.Start(context.Background(), s.getter)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
@@ -127,8 +127,8 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	s.stub.CheckCall(c, 0, "NewMachineAddressWatcher", &s.stateTracker.state, "123")
 
 	args := s.stub.Calls()[1].Args
-	c.Assert(args, gc.HasLen, 1)
-	c.Assert(args[0], gc.FitsTypeOf, certupdater.Config{})
+	c.Assert(args, tc.HasLen, 1)
+	c.Assert(args[0], tc.FitsTypeOf, certupdater.Config{})
 	config := args[0].(certupdater.Config)
 
 	c.Assert(config, jc.DeepEquals, certupdater.Config{
@@ -140,16 +140,16 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	})
 }
 
-func (s *ManifoldSuite) TestStartErrorClosesState(c *gc.C) {
+func (s *ManifoldSuite) TestStartErrorClosesState(c *tc.C) {
 	s.stub.SetErrors(errors.New("boom"))
 
 	_, err := s.manifold.Start(context.Background(), s.getter)
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 
 	s.stateTracker.CheckCallNames(c, "Use", "Done")
 }
 
-func (s *ManifoldSuite) TestStopWorkerClosesState(c *gc.C) {
+func (s *ManifoldSuite) TestStopWorkerClosesState(c *tc.C) {
 	w, err := s.manifold.Start(context.Background(), s.getter)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)

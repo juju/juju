@@ -6,10 +6,10 @@ package statushistory
 import (
 	"context"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
@@ -21,9 +21,9 @@ type loggerSuite struct {
 	logger *MockLogger
 }
 
-var _ = gc.Suite(&loggerSuite{})
+var _ = tc.Suite(&loggerSuite{})
 
-func (s *loggerSuite) TestRecord(c *gc.C) {
+func (s *loggerSuite) TestRecord(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	labels := logger.Labels{
@@ -53,7 +53,7 @@ func (s *loggerSuite) TestRecord(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *loggerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *loggerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.logger = NewMockLogger(ctrl)

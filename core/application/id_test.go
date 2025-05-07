@@ -4,9 +4,9 @@
 package application
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -16,9 +16,9 @@ type ApplicationSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&ApplicationSuite{})
+var _ = tc.Suite(&ApplicationSuite{})
 
-func (*ApplicationSuite) TestIDValidate(c *gc.C) {
+func (*ApplicationSuite) TestIDValidate(c *tc.C) {
 	tests := []struct {
 		uuid string
 		err  error
@@ -41,7 +41,7 @@ func (*ApplicationSuite) TestIDValidate(c *gc.C) {
 		err := ID(test.uuid).Validate()
 
 		if test.err == nil {
-			c.Check(err, gc.IsNil)
+			c.Check(err, tc.IsNil)
 			continue
 		}
 

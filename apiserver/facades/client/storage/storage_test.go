@@ -9,10 +9,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facadestorage "github.com/juju/juju/apiserver/facades/client/storage"
@@ -33,15 +33,15 @@ type storageSuite struct {
 	baseStorageSuite
 }
 
-var _ = gc.Suite(&storageSuite{})
+var _ = tc.Suite(&storageSuite{})
 
-func (s *storageSuite) TestStub(c *gc.C) {
+func (s *storageSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenerios:
 - ListStorageDetails but retrieving units returns an error (is this a useful test?)
 - ListStorageDetails but retrieving the unit's storage attachements returns an error (is this a useful test?)`)
 }
 
-func (s *storageSuite) TestStorageListEmpty(c *gc.C) {
+func (s *storageSuite) TestStorageListEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.storageAccessor.allStorageInstances = func() ([]state.StorageInstance, error) {
@@ -54,13 +54,13 @@ func (s *storageSuite) TestStorageListEmpty(c *gc.C) {
 		params.StorageFilters{Filters: []params.StorageFilter{{}}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Error, gc.IsNil)
-	c.Assert(found.Results[0].Result, gc.HasLen, 0)
+	c.Assert(found.Results, tc.HasLen, 1)
+	c.Assert(found.Results[0].Error, tc.IsNil)
+	c.Assert(found.Results[0].Result, tc.HasLen, 0)
 	s.assertCalls(c, []string{allStorageInstancesCall})
 }
 
-func (s *storageSuite) TestStorageListFilesystem(c *gc.C) {
+func (s *storageSuite) TestStorageListFilesystem(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	found, err := s.api.ListStorageDetails(
@@ -79,14 +79,14 @@ func (s *storageSuite) TestStorageListFilesystem(c *gc.C) {
 	}
 	s.assertCalls(c, expectedCalls)
 
-	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Error, gc.IsNil)
-	c.Assert(found.Results[0].Result, gc.HasLen, 1)
+	c.Assert(found.Results, tc.HasLen, 1)
+	c.Assert(found.Results[0].Error, tc.IsNil)
+	c.Assert(found.Results[0].Result, tc.HasLen, 1)
 	wantedDetails := s.createTestStorageDetails()
 	c.Assert(found.Results[0].Result[0], jc.DeepEquals, wantedDetails)
 }
 
-func (s *storageSuite) TestStorageListVolume(c *gc.C) {
+func (s *storageSuite) TestStorageListVolume(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.storageInstance.kind = state.StorageKindBlock
@@ -105,16 +105,16 @@ func (s *storageSuite) TestStorageListVolume(c *gc.C) {
 	}
 	s.assertCalls(c, expectedCalls)
 
-	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Error, gc.IsNil)
-	c.Assert(found.Results[0].Result, gc.HasLen, 1)
+	c.Assert(found.Results, tc.HasLen, 1)
+	c.Assert(found.Results[0].Error, tc.IsNil)
+	c.Assert(found.Results[0].Result, tc.HasLen, 1)
 	wantedDetails := s.createTestStorageDetails()
 	wantedDetails.Kind = params.StorageKindBlock
 	wantedDetails.Status.Status = status.Attached
 	c.Assert(found.Results[0].Result[0], jc.DeepEquals, wantedDetails)
 }
 
-func (s *storageSuite) TestStorageListError(c *gc.C) {
+func (s *storageSuite) TestStorageListError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	msg := "list test error"
@@ -128,14 +128,14 @@ func (s *storageSuite) TestStorageListError(c *gc.C) {
 		params.StorageFilters{Filters: []params.StorageFilter{{}}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Error, gc.ErrorMatches, msg)
+	c.Assert(found.Results, tc.HasLen, 1)
+	c.Assert(found.Results[0].Error, tc.ErrorMatches, msg)
 
 	expectedCalls := []string{allStorageInstancesCall}
 	s.assertCalls(c, expectedCalls)
 }
 
-func (s *storageSuite) TestStorageListInstanceError(c *gc.C) {
+func (s *storageSuite) TestStorageListInstanceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	msg := "list test error"
@@ -158,13 +158,13 @@ func (s *storageSuite) TestStorageListInstanceError(c *gc.C) {
 		storageInstanceCall,
 	}
 	s.assertCalls(c, expectedCalls)
-	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Error, gc.ErrorMatches,
+	c.Assert(found.Results, tc.HasLen, 1)
+	c.Assert(found.Results[0].Error, tc.ErrorMatches,
 		fmt.Sprintf("getting details for storage data/0: getting storage instance: %v", msg),
 	)
 }
 
-func (s *storageSuite) TestStorageListFilesystemError(c *gc.C) {
+func (s *storageSuite) TestStorageListFilesystemError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	msg := "list test error"
@@ -185,8 +185,8 @@ func (s *storageSuite) TestStorageListFilesystemError(c *gc.C) {
 		storageInstanceFilesystemCall,
 	}
 	s.assertCalls(c, expectedCalls)
-	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Error, gc.ErrorMatches,
+	c.Assert(found.Results, tc.HasLen, 1)
+	c.Assert(found.Results[0].Error, tc.ErrorMatches,
 		fmt.Sprintf("getting details for storage data/0: %v", msg),
 	)
 }
@@ -212,25 +212,25 @@ func (s *storageSuite) createTestStorageDetails() params.StorageDetails {
 	}
 }
 
-func (s *storageSuite) assertInstanceInfoError(c *gc.C, obtained params.StorageDetailsResult, wanted params.StorageDetailsResult, expected string) {
+func (s *storageSuite) assertInstanceInfoError(c *tc.C, obtained params.StorageDetailsResult, wanted params.StorageDetailsResult, expected string) {
 	if expected != "" {
-		c.Assert(errors.Cause(obtained.Error), gc.ErrorMatches, fmt.Sprintf(".*%v.*", expected))
-		c.Assert(obtained.Result, gc.IsNil)
+		c.Assert(errors.Cause(obtained.Error), tc.ErrorMatches, fmt.Sprintf(".*%v.*", expected))
+		c.Assert(obtained.Result, tc.IsNil)
 	} else {
-		c.Assert(obtained.Error, gc.IsNil)
+		c.Assert(obtained.Error, tc.IsNil)
 		c.Assert(obtained, jc.DeepEquals, wanted)
 	}
 }
 
-func (s *storageSuite) TestShowStorageEmpty(c *gc.C) {
+func (s *storageSuite) TestShowStorageEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	found, err := s.api.StorageDetails(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, gc.HasLen, 0)
+	c.Assert(found.Results, tc.HasLen, 0)
 }
 
-func (s *storageSuite) TestShowStorageInvalidTag(c *gc.C) {
+func (s *storageSuite) TestShowStorageInvalidTag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Only storage tags are permitted
@@ -238,11 +238,11 @@ func (s *storageSuite) TestShowStorageInvalidTag(c *gc.C) {
 		Entities: []params.Entity{{Tag: "machine-1"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Error, gc.ErrorMatches, `"machine-1" is not a valid storage tag`)
+	c.Assert(found.Results, tc.HasLen, 1)
+	c.Assert(found.Results[0].Error, tc.ErrorMatches, `"machine-1" is not a valid storage tag`)
 }
 
-func (s *storageSuite) TestShowStorage(c *gc.C) {
+func (s *storageSuite) TestShowStorage(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	entity := params.Entity{Tag: s.storageTag.String()}
@@ -252,10 +252,10 @@ func (s *storageSuite) TestShowStorage(c *gc.C) {
 		params.Entities{Entities: []params.Entity{entity}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, gc.HasLen, 1)
+	c.Assert(found.Results, tc.HasLen, 1)
 
 	one := found.Results[0]
-	c.Assert(one.Error, gc.IsNil)
+	c.Assert(one.Error, tc.IsNil)
 
 	expected := params.StorageDetails{
 		StorageTag: s.storageTag.String(),
@@ -278,7 +278,7 @@ func (s *storageSuite) TestShowStorage(c *gc.C) {
 	c.Assert(one.Result, jc.DeepEquals, &expected)
 }
 
-func (s *storageSuite) TestShowStorageInvalidId(c *gc.C) {
+func (s *storageSuite) TestShowStorageInvalidId(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	storageTag := "foo"
@@ -286,11 +286,11 @@ func (s *storageSuite) TestShowStorageInvalidId(c *gc.C) {
 
 	found, err := s.api.StorageDetails(context.Background(), params.Entities{Entities: []params.Entity{entity}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, gc.HasLen, 1)
+	c.Assert(found.Results, tc.HasLen, 1)
 	s.assertInstanceInfoError(c, found.Results[0], params.StorageDetailsResult{}, `"foo" is not a valid tag`)
 }
 
-func (s *storageSuite) TestRemove(c *gc.C) {
+func (s *storageSuite) TestRemove(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.RemoveBlock).Return("", blockcommanderrors.NotFound)
@@ -323,7 +323,7 @@ func (s *storageSuite) TestRemove(c *gc.C) {
 	s.stub.CheckCall(c, 2, releaseStorageInstanceCall, names.NewStorageTag("foo/1"), true, false)
 }
 
-func (s *storageSuite) TestDetach(c *gc.C) {
+func (s *storageSuite) TestDetach(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
@@ -340,7 +340,7 @@ func (s *storageSuite) TestDetach(c *gc.C) {
 				{StorageTag: "storage-foo-0", UnitTag: "application-bar"},
 			}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 6)
+	c.Assert(results.Results, tc.HasLen, 6)
 	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
 		{Error: nil},
 		{Error: nil},
@@ -361,7 +361,7 @@ func (s *storageSuite) TestDetach(c *gc.C) {
 	})
 }
 
-func (s *storageSuite) TestDetachSpecifiedNotFound(c *gc.C) {
+func (s *storageSuite) TestDetachSpecifiedNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
@@ -373,7 +373,7 @@ func (s *storageSuite) TestDetachSpecifiedNotFound(c *gc.C) {
 				{StorageTag: "storage-data-0", UnitTag: "unit-foo-42"},
 			}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
 		{Error: &params.Error{
 			Code:    params.CodeNotFound,
@@ -392,7 +392,7 @@ func (s *storageSuite) TestDetachSpecifiedNotFound(c *gc.C) {
 	})
 }
 
-func (s *storageSuite) TestDetachAttachmentNotFoundConcurrent(c *gc.C) {
+func (s *storageSuite) TestDetachAttachmentNotFoundConcurrent(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
@@ -417,7 +417,7 @@ func (s *storageSuite) TestDetachAttachmentNotFoundConcurrent(c *gc.C) {
 				{StorageTag: "storage-data-0"},
 			}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{{}})
 	s.assertCalls(c, []string{
 		storageInstanceAttachmentsCall,
@@ -429,7 +429,7 @@ func (s *storageSuite) TestDetachAttachmentNotFoundConcurrent(c *gc.C) {
 	})
 }
 
-func (s *storageSuite) TestDetachNoAttachmentsStorageNotFound(c *gc.C) {
+func (s *storageSuite) TestDetachNoAttachmentsStorageNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
@@ -441,7 +441,7 @@ func (s *storageSuite) TestDetachNoAttachmentsStorageNotFound(c *gc.C) {
 				{StorageTag: "storage-foo-42"},
 			}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
 		{Error: &params.Error{
 			Code:    params.CodeNotFound,
@@ -454,7 +454,7 @@ func (s *storageSuite) TestDetachNoAttachmentsStorageNotFound(c *gc.C) {
 	})
 }
 
-func (s *storageSuite) TestAttach(c *gc.C) {
+func (s *storageSuite) TestAttach(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
@@ -465,7 +465,7 @@ func (s *storageSuite) TestAttach(c *gc.C) {
 		{StorageTag: "volume-0", UnitTag: "unit-mysql-0"},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 3)
+	c.Assert(results.Results, tc.HasLen, 3)
 	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
 		{Error: nil},
 		{Error: &params.Error{Message: `"machine-0" is not a valid unit tag`}},
@@ -476,7 +476,7 @@ func (s *storageSuite) TestAttach(c *gc.C) {
 	})
 }
 
-func (s *storageSuite) TestImportFilesystem(c *gc.C) {
+func (s *storageSuite) TestImportFilesystem(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
@@ -528,7 +528,7 @@ func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 	})
 }
 
-func (s *storageSuite) TestImportFilesystemVolumeBacked(c *gc.C) {
+func (s *storageSuite) TestImportFilesystemVolumeBacked(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
@@ -587,7 +587,7 @@ func (s *storageSuite) TestImportFilesystemVolumeBacked(c *gc.C) {
 	})
 }
 
-func (s *storageSuite) TestImportFilesystemError(c *gc.C) {
+func (s *storageSuite) TestImportFilesystemError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
@@ -621,7 +621,7 @@ func (s *storageSuite) TestImportFilesystemError(c *gc.C) {
 	s.stub.CheckCallNames(c)
 }
 
-func (s *storageSuite) TestImportFilesystemNotSupported(c *gc.C) {
+func (s *storageSuite) TestImportFilesystemNotSupported(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
@@ -657,7 +657,7 @@ func (s *storageSuite) TestImportFilesystemNotSupported(c *gc.C) {
 	s.stub.CheckCallNames(c)
 }
 
-func (s *storageSuite) TestImportFilesystemVolumeBackedNotSupported(c *gc.C) {
+func (s *storageSuite) TestImportFilesystemVolumeBackedNotSupported(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
@@ -696,7 +696,7 @@ func (s *storageSuite) TestImportFilesystemVolumeBackedNotSupported(c *gc.C) {
 	s.stub.CheckCallNames(c)
 }
 
-func (s *storageSuite) TestImportValidationErrors(c *gc.C) {
+func (s *storageSuite) TestImportValidationErrors(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
@@ -719,7 +719,7 @@ func (s *storageSuite) TestImportValidationErrors(c *gc.C) {
 	})
 }
 
-func (s *storageSuite) TestListStorageAsAdminOnNotOwnedModel(c *gc.C) {
+func (s *storageSuite) TestListStorageAsAdminOnNotOwnedModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
@@ -738,7 +738,7 @@ func (s *storageSuite) TestListStorageAsAdminOnNotOwnedModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *storageSuite) TestListStorageAsNonAdminOnNotOwnedModel(c *gc.C) {
+func (s *storageSuite) TestListStorageAsNonAdminOnNotOwnedModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.authorizer = apiservertesting.FakeAuthorizer{

@@ -4,9 +4,9 @@
 package upgradevalidation_test
 
 import (
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
@@ -16,7 +16,7 @@ type versionSuite struct {
 	jujutesting.IsolationSuite
 }
 
-var _ = gc.Suite(&versionSuite{})
+var _ = tc.Suite(&versionSuite{})
 
 type versionCheckTC struct {
 	from    string
@@ -26,7 +26,7 @@ type versionCheckTC struct {
 	err     string
 }
 
-func (s *versionSuite) TestUpgradeControllerAllowed(c *gc.C) {
+func (s *versionSuite) TestUpgradeControllerAllowed(c *tc.C) {
 	for i, t := range []versionCheckTC{
 		{
 			from:    "2.8.0",
@@ -61,7 +61,7 @@ func (s *versionSuite) TestUpgradeControllerAllowed(c *gc.C) {
 	}
 }
 
-func (s *versionSuite) assertUpgradeControllerAllowed(c *gc.C, i int, t versionCheckTC) {
+func (s *versionSuite) assertUpgradeControllerAllowed(c *tc.C, i int, t versionCheckTC) {
 	c.Logf("testing %d", i)
 
 	restore := jujutesting.PatchValue(&upgradevalidation.MinAgentVersions, map[int]semversion.Number{
@@ -73,11 +73,11 @@ func (s *versionSuite) assertUpgradeControllerAllowed(c *gc.C, i int, t versionC
 	to := semversion.MustParse(t.to)
 	minVers := semversion.MustParse(t.minVers)
 	allowed, vers, err := upgradevalidation.UpgradeControllerAllowed(from, to)
-	c.Check(allowed, gc.Equals, t.allowed)
-	c.Check(vers, gc.DeepEquals, minVers)
+	c.Check(allowed, tc.Equals, t.allowed)
+	c.Check(vers, tc.DeepEquals, minVers)
 	if t.err == "" {
 		c.Check(err, jc.ErrorIsNil)
 	} else {
-		c.Check(err, gc.ErrorMatches, t.err)
+		c.Check(err, tc.ErrorMatches, t.err)
 	}
 }

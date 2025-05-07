@@ -11,10 +11,10 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/life"
@@ -36,7 +36,7 @@ var noProxies = proxy.Settings{}
 var apiAddrs = []string{"a1:123", "a2:123"}
 
 type hookCommitMatcher struct {
-	c        *gc.C
+	c        *tc.C
 	expected params.CommitHookChangesArgs
 }
 
@@ -114,7 +114,7 @@ type BaseHookContextSuite struct {
 	machinePortRanges map[names.UnitTag]network.GroupedPortRanges
 }
 
-func (s *BaseHookContextSuite) SetUpTest(c *gc.C) {
+func (s *BaseHookContextSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.relunits = map[int]*uniterapi.MockRelationUnit{}
@@ -123,13 +123,13 @@ func (s *BaseHookContextSuite) SetUpTest(c *gc.C) {
 	s.clock = testclock.NewClock(time.Time{})
 }
 
-func (s *BaseHookContextSuite) GetContext(c *gc.C, ctrl *gomock.Controller, relId int, remoteName string, storageTag names.StorageTag) jujuc.Context {
+func (s *BaseHookContextSuite) GetContext(c *tc.C, ctrl *gomock.Controller, relId int, remoteName string, storageTag names.StorageTag) jujuc.Context {
 	uuid, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	return s.getHookContext(c, ctrl, uuid.String(), relId, remoteName, storageTag)
 }
 
-func (s *BaseHookContextSuite) AddContextRelation(c *gc.C, ctrl *gomock.Controller, name string) {
+func (s *BaseHookContextSuite) AddContextRelation(c *tc.C, ctrl *gomock.Controller, name string) {
 	num := len(s.relunits)
 	rel := uniterapi.NewMockRelation(ctrl)
 	rel.EXPECT().Id().Return(num).AnyTimes()
@@ -171,7 +171,7 @@ func (s *BaseHookContextSuite) setupUniter(ctrl *gomock.Controller) names.Machin
 	return machineTag
 }
 
-func (s *BaseHookContextSuite) getHookContext(c *gc.C, ctrl *gomock.Controller, uuid string, relid int, remote string, storageTag names.StorageTag) *runnercontext.HookContext {
+func (s *BaseHookContextSuite) getHookContext(c *tc.C, ctrl *gomock.Controller, uuid string, relid int, remote string, storageTag names.StorageTag) *runnercontext.HookContext {
 	if relid != -1 {
 		_, found := s.relunits[relid]
 		c.Assert(found, jc.IsTrue)
@@ -209,109 +209,109 @@ func (s *BaseHookContextSuite) getHookContext(c *gc.C, ctrl *gomock.Controller, 
 	return context
 }
 
-func (s *BaseHookContextSuite) AssertCoreContext(c *gc.C, ctx *runnercontext.HookContext) {
-	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
+func (s *BaseHookContextSuite) AssertCoreContext(c *tc.C, ctx *runnercontext.HookContext) {
+	c.Assert(ctx.UnitName(), tc.Equals, "u/0")
 	c.Assert(runnercontext.ContextMachineTag(ctx), jc.DeepEquals, names.NewMachineTag("0"))
 
 	actual, err := ctx.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actual, gc.Equals, "u-0.testing.invalid")
+	c.Assert(actual, tc.Equals, "u-0.testing.invalid")
 
 	actual, err = ctx.PublicAddress(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actual, gc.Equals, "u-0.testing.invalid")
+	c.Assert(actual, tc.Equals, "u-0.testing.invalid")
 
 	name, uuid := runnercontext.ContextEnvInfo(ctx)
-	c.Assert(name, gc.Equals, "test-model")
-	c.Assert(uuid, gc.Equals, coretesting.ModelTag.Id())
+	c.Assert(name, tc.Equals, "test-model")
+	c.Assert(uuid, tc.Equals, coretesting.ModelTag.Id())
 
 	ids, err := ctx.RelationIds()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ids, gc.HasLen, 2)
+	c.Assert(ids, tc.HasLen, 2)
 
 	r, err := ctx.Relation(0)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Name(), gc.Equals, "db")
-	c.Assert(r.FakeId(), gc.Equals, "db:0")
+	c.Assert(r.Name(), tc.Equals, "db")
+	c.Assert(r.FakeId(), tc.Equals, "db:0")
 
 	r, err = ctx.Relation(1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Name(), gc.Equals, "db")
-	c.Assert(r.FakeId(), gc.Equals, "db:1")
+	c.Assert(r.Name(), tc.Equals, "db")
+	c.Assert(r.FakeId(), tc.Equals, "db:1")
 
 	az, err := ctx.AvailabilityZone()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(az, gc.Equals, "a-zone")
+	c.Assert(az, tc.Equals, "a-zone")
 
 	info, err := ctx.SecretMetadata()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.HasLen, 1)
+	c.Assert(info, tc.HasLen, 1)
 	for id, v := range info {
-		c.Assert(id, gc.Equals, "9m4e2mr0ui3e8a215n4g")
-		c.Assert(v.Label, gc.Equals, "label")
+		c.Assert(id, tc.Equals, "9m4e2mr0ui3e8a215n4g")
+		c.Assert(v.Label, tc.Equals, "label")
 		c.Assert(v.Owner, jc.DeepEquals, secrets.Owner{Kind: secrets.ApplicationOwner, ID: "mariadb"})
-		c.Assert(v.Description, gc.Equals, "description")
-		c.Assert(v.RotatePolicy, gc.Equals, secrets.RotateHourly)
-		c.Assert(v.LatestRevision, gc.Equals, 666)
-		c.Assert(v.LatestChecksum, gc.Equals, "deadbeef")
+		c.Assert(v.Description, tc.Equals, "description")
+		c.Assert(v.RotatePolicy, tc.Equals, secrets.RotateHourly)
+		c.Assert(v.LatestRevision, tc.Equals, 666)
+		c.Assert(v.LatestChecksum, tc.Equals, "deadbeef")
 	}
 }
 
-func (s *BaseHookContextSuite) AssertNotActionContext(c *gc.C, ctx *runnercontext.HookContext) {
+func (s *BaseHookContextSuite) AssertNotActionContext(c *tc.C, ctx *runnercontext.HookContext) {
 	actionData, err := ctx.ActionData()
-	c.Assert(actionData, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "not running an action")
+	c.Assert(actionData, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "not running an action")
 }
 
-func (s *BaseHookContextSuite) AssertActionContext(c *gc.C, ctx *runnercontext.HookContext) {
+func (s *BaseHookContextSuite) AssertActionContext(c *tc.C, ctx *runnercontext.HookContext) {
 	actionData, err := ctx.ActionData()
-	c.Assert(actionData, gc.NotNil)
+	c.Assert(actionData, tc.NotNil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *BaseHookContextSuite) AssertNotStorageContext(c *gc.C, ctx *runnercontext.HookContext) {
+func (s *BaseHookContextSuite) AssertNotStorageContext(c *tc.C, ctx *runnercontext.HookContext) {
 	storageAttachment, err := ctx.HookStorage(context.Background())
-	c.Assert(storageAttachment, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, ".*")
+	c.Assert(storageAttachment, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, ".*")
 }
 
-func (s *BaseHookContextSuite) AssertStorageContext(c *gc.C, ctx *runnercontext.HookContext, id string, attachment storage.StorageAttachmentInfo) {
+func (s *BaseHookContextSuite) AssertStorageContext(c *tc.C, ctx *runnercontext.HookContext, id string, attachment storage.StorageAttachmentInfo) {
 	fromCache, err := ctx.HookStorage(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fromCache, gc.NotNil)
-	c.Assert(fromCache.Tag().Id(), gc.Equals, id)
-	c.Assert(fromCache.Kind(), gc.Equals, attachment.Kind)
-	c.Assert(fromCache.Location(), gc.Equals, attachment.Location)
+	c.Assert(fromCache, tc.NotNil)
+	c.Assert(fromCache.Tag().Id(), tc.Equals, id)
+	c.Assert(fromCache.Kind(), tc.Equals, attachment.Kind)
+	c.Assert(fromCache.Location(), tc.Equals, attachment.Location)
 }
 
-func (s *BaseHookContextSuite) AssertRelationContext(c *gc.C, ctx *runnercontext.HookContext, relId int, remoteUnit string, remoteApp string) *runnercontext.ContextRelation {
+func (s *BaseHookContextSuite) AssertRelationContext(c *tc.C, ctx *runnercontext.HookContext, relId int, remoteUnit string, remoteApp string) *runnercontext.ContextRelation {
 	actualRemoteUnit, _ := ctx.RemoteUnitName()
-	c.Assert(actualRemoteUnit, gc.Equals, remoteUnit)
+	c.Assert(actualRemoteUnit, tc.Equals, remoteUnit)
 	actualRemoteApp, _ := ctx.RemoteApplicationName()
-	c.Assert(actualRemoteApp, gc.Equals, remoteApp)
+	c.Assert(actualRemoteApp, tc.Equals, remoteApp)
 	rel, err := ctx.HookRelation()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rel.Id(), gc.Equals, relId)
+	c.Assert(rel.Id(), tc.Equals, relId)
 	return rel.(*runnercontext.ContextRelation)
 }
 
-func (s *BaseHookContextSuite) AssertNotRelationContext(c *gc.C, ctx *runnercontext.HookContext) {
+func (s *BaseHookContextSuite) AssertNotRelationContext(c *tc.C, ctx *runnercontext.HookContext) {
 	rel, err := ctx.HookRelation()
-	c.Assert(rel, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, ".*")
+	c.Assert(rel, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, ".*")
 }
 
-func (s *BaseHookContextSuite) AssertSecretContext(c *gc.C, ctx *runnercontext.HookContext, secretURI, label string, revision int) {
+func (s *BaseHookContextSuite) AssertSecretContext(c *tc.C, ctx *runnercontext.HookContext, secretURI, label string, revision int) {
 	uri, _ := ctx.SecretURI()
-	c.Assert(uri, gc.Equals, secretURI)
-	c.Assert(ctx.SecretLabel(), gc.Equals, label)
-	c.Assert(ctx.SecretRevision(), gc.Equals, revision)
+	c.Assert(uri, tc.Equals, secretURI)
+	c.Assert(ctx.SecretLabel(), tc.Equals, label)
+	c.Assert(ctx.SecretRevision(), tc.Equals, revision)
 }
 
-func (s *BaseHookContextSuite) AssertNotSecretContext(c *gc.C, ctx *runnercontext.HookContext) {
+func (s *BaseHookContextSuite) AssertNotSecretContext(c *tc.C, ctx *runnercontext.HookContext) {
 	workloadName, err := ctx.SecretURI()
-	c.Assert(err, gc.NotNil)
-	c.Assert(workloadName, gc.Equals, "")
+	c.Assert(err, tc.NotNil)
+	c.Assert(workloadName, tc.Equals, "")
 }
 
 // MockEnvPaths implements Paths for tests that don't need to actually touch

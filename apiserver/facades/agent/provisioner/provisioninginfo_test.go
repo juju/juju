@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
+func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *tc.C) {
 	st := s.ControllerModel(c).State()
 	svc := s.ControllerDomainServices(c)
 	storageService := svc.Storage()
@@ -123,7 +123,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, expected)
 }
 
-func (s *withoutControllerSuite) TestProvisioningInfoRootDiskVolume(c *gc.C) {
+func (s *withoutControllerSuite) TestProvisioningInfoRootDiskVolume(c *tc.C) {
 	st := s.ControllerModel(c).State()
 	svc := s.ControllerDomainServices(c)
 	storageService := svc.Storage()
@@ -143,8 +143,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoRootDiskVolume(c *gc.C) {
 	}}
 	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-	c.Assert(result.Results[0].Result, gc.NotNil)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+	c.Assert(result.Results[0].Result, tc.NotNil)
 
 	c.Assert(result.Results[0].Result.RootDisk, jc.DeepEquals, &params.VolumeParams{
 		Provider:   "static",
@@ -152,7 +152,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoRootDiskVolume(c *gc.C) {
 	})
 }
 
-func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceConstraints(c *gc.C) {
+func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceConstraints(c *tc.C) {
 	s.addSpacesAndSubnets(c)
 
 	st := s.ControllerModel(c).State()
@@ -172,8 +172,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 
 	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
 
 	domainServices := s.ControllerDomainServices(c)
 	controllerCfg, err := domainServices.ControllerConfig().ControllerConfig(context.Background())
@@ -206,7 +206,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 
 	res := result.Results[0].Result
 	c.Assert(res.SubnetAZs, jc.DeepEquals, expected.SubnetAZs)
-	c.Assert(res.SpaceSubnets, gc.HasLen, 2)
+	c.Assert(res.SpaceSubnets, tc.HasLen, 2)
 	c.Assert(res.SpaceSubnets["space1"], jc.SameContents, expected.SpaceSubnets["space1"])
 	c.Assert(res.SpaceSubnets["space2"], jc.SameContents, expected.SpaceSubnets["space2"])
 	expected.ProvisioningNetworkTopology = params.ProvisioningNetworkTopology{}
@@ -214,7 +214,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 	c.Assert(res, jc.DeepEquals, expected)
 }
 
-func (s *withControllerSuite) TestStub(c *gc.C) {
+func (s *withControllerSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - ProvisioningInfo for endpoint bindings to multiple spaces.
   In particular the EndpointBindings and ProvisioningNetworkTopology should be
@@ -230,7 +230,7 @@ func (s *withControllerSuite) TestStub(c *gc.C) {
 `)
 }
 
-func (s *withoutControllerSuite) addSpacesAndSubnets(c *gc.C) network.SpaceInfos {
+func (s *withoutControllerSuite) addSpacesAndSubnets(c *tc.C) network.SpaceInfos {
 	networkService := s.domainServices.Network()
 	// Add a couple of spaces.
 	space1 := network.SpaceInfo{
@@ -310,7 +310,7 @@ func (s *withoutControllerSuite) addSpacesAndSubnets(c *gc.C) network.SpaceInfos
 	}
 }
 
-func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstraints(c *gc.C) {
+func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstraints(c *tc.C) {
 	st := s.ControllerModel(c).State()
 	// Add an empty space.
 	networkService := s.domainServices.Network()
@@ -335,7 +335,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstra
 	}}
 	placementMachines, err := st.AddMachines(templates...)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(placementMachines, gc.HasLen, 2)
+	c.Assert(placementMachines, tc.HasLen, 2)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: placementMachines[0].Tag().String()},
@@ -355,7 +355,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstra
 	c.Assert(result, jc.DeepEquals, expected)
 }
 
-func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
+func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *tc.C) {
 	template := state.MachineTemplate{
 		Base:      state.UbuntuBase("12.10"),
 		Jobs:      []state.MachineJob{state.JobHostUnits},
@@ -415,7 +415,7 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 	})
 }
 
-func (s *withoutControllerSuite) TestStorageProviderVolumes(c *gc.C) {
+func (s *withoutControllerSuite) TestStorageProviderVolumes(c *tc.C) {
 	st := s.ControllerModel(c).State()
 	template := state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
@@ -444,8 +444,8 @@ func (s *withoutControllerSuite) TestStorageProviderVolumes(c *gc.C) {
 	}}
 	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-	c.Assert(result.Results[0].Result, gc.NotNil)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+	c.Assert(result.Results[0].Result, tc.NotNil)
 
 	// volume-0 should be created, as it hasn't yet been provisioned.
 	c.Assert(result.Results[0].Result.Volumes, jc.DeepEquals, []params.VolumeParams{{
@@ -472,7 +472,7 @@ func (s *withoutControllerSuite) TestStorageProviderVolumes(c *gc.C) {
 	}})
 }
 
-func (s *withoutControllerSuite) TestProviderInfoCloudInitUserData(c *gc.C) {
+func (s *withoutControllerSuite) TestProviderInfoCloudInitUserData(c *tc.C) {
 	attrs := map[string]interface{}{"cloudinit-userdata": validCloudInitUserData}
 	err := s.domainServices.Config().UpdateModelConfig(context.Background(), attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -489,7 +489,7 @@ func (s *withoutControllerSuite) TestProviderInfoCloudInitUserData(c *gc.C) {
 	}}
 	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results[0].Result.CloudInitUserData, gc.DeepEquals, map[string]interface{}{
+	c.Assert(result.Results[0].Result.CloudInitUserData, tc.DeepEquals, map[string]interface{}{
 		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
 		"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
 		"postruncmd":      []interface{}{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
@@ -509,7 +509,7 @@ postruncmd:
 package_upgrade: false
 `[1:]
 
-func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
+func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *tc.C) {
 	domainServices := s.ControllerDomainServices(c)
 
 	// Login as a machine agent for machine 0.
@@ -526,7 +526,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 		ControllerUUID_: coretesting.ControllerTag.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(aProvisioner, gc.NotNil)
+	c.Assert(aProvisioner, tc.NotNil)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: s.machines[0].Tag().String()},

@@ -4,8 +4,8 @@
 package migration_test
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/migration"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -15,38 +15,38 @@ type PhaseSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(new(PhaseSuite))
+var _ = tc.Suite(new(PhaseSuite))
 
-func (s *PhaseSuite) TestUNKNOWN(c *gc.C) {
+func (s *PhaseSuite) TestUNKNOWN(c *tc.C) {
 	// 0 should be UNKNOWN to guard against uninitialised struct
 	// fields.
-	c.Check(migration.Phase(0), gc.Equals, migration.UNKNOWN)
+	c.Check(migration.Phase(0), tc.Equals, migration.UNKNOWN)
 }
 
-func (s *PhaseSuite) TestStringValid(c *gc.C) {
-	c.Check(migration.IMPORT.String(), gc.Equals, "IMPORT")
-	c.Check(migration.UNKNOWN.String(), gc.Equals, "UNKNOWN")
-	c.Check(migration.ABORT.String(), gc.Equals, "ABORT")
+func (s *PhaseSuite) TestStringValid(c *tc.C) {
+	c.Check(migration.IMPORT.String(), tc.Equals, "IMPORT")
+	c.Check(migration.UNKNOWN.String(), tc.Equals, "UNKNOWN")
+	c.Check(migration.ABORT.String(), tc.Equals, "ABORT")
 }
 
-func (s *PhaseSuite) TestInvalid(c *gc.C) {
-	c.Check(migration.Phase(-1).String(), gc.Equals, "UNKNOWN")
-	c.Check(migration.Phase(9999).String(), gc.Equals, "UNKNOWN")
+func (s *PhaseSuite) TestInvalid(c *tc.C) {
+	c.Check(migration.Phase(-1).String(), tc.Equals, "UNKNOWN")
+	c.Check(migration.Phase(9999).String(), tc.Equals, "UNKNOWN")
 }
 
-func (s *PhaseSuite) TestParseValid(c *gc.C) {
+func (s *PhaseSuite) TestParseValid(c *tc.C) {
 	phase, ok := migration.ParsePhase("REAP")
-	c.Check(phase, gc.Equals, migration.REAP)
+	c.Check(phase, tc.Equals, migration.REAP)
 	c.Check(ok, jc.IsTrue)
 }
 
-func (s *PhaseSuite) TestParseInvalid(c *gc.C) {
+func (s *PhaseSuite) TestParseInvalid(c *tc.C) {
 	phase, ok := migration.ParsePhase("foo")
-	c.Check(phase, gc.Equals, migration.UNKNOWN)
+	c.Check(phase, tc.Equals, migration.UNKNOWN)
 	c.Check(ok, jc.IsFalse)
 }
 
-func (s *PhaseSuite) TestIsTerminal(c *gc.C) {
+func (s *PhaseSuite) TestIsTerminal(c *tc.C) {
 	c.Check(migration.QUIESCE.IsTerminal(), jc.IsFalse)
 	c.Check(migration.SUCCESS.IsTerminal(), jc.IsFalse)
 	c.Check(migration.ABORT.IsTerminal(), jc.IsFalse)
@@ -55,7 +55,7 @@ func (s *PhaseSuite) TestIsTerminal(c *gc.C) {
 	c.Check(migration.DONE.IsTerminal(), jc.IsTrue)
 }
 
-func (s *PhaseSuite) TestIsRunning(c *gc.C) {
+func (s *PhaseSuite) TestIsRunning(c *tc.C) {
 	c.Check(migration.UNKNOWN.IsRunning(), jc.IsFalse)
 	c.Check(migration.NONE.IsRunning(), jc.IsFalse)
 
@@ -72,7 +72,7 @@ func (s *PhaseSuite) TestIsRunning(c *gc.C) {
 	c.Check(migration.ABORTDONE.IsRunning(), jc.IsFalse)
 }
 
-func (s *PhaseSuite) TestCanTransitionTo(c *gc.C) {
+func (s *PhaseSuite) TestCanTransitionTo(c *tc.C) {
 	c.Check(migration.QUIESCE.CanTransitionTo(migration.SUCCESS), jc.IsFalse)
 	c.Check(migration.QUIESCE.CanTransitionTo(migration.ABORT), jc.IsTrue)
 	c.Check(migration.QUIESCE.CanTransitionTo(migration.IMPORT), jc.IsTrue)

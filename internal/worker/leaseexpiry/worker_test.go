@@ -8,11 +8,11 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/trace"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -24,9 +24,9 @@ type workerSuite struct {
 	jujutesting.IsolationSuite
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
-func (s *workerSuite) TestConfigValidate(c *gc.C) {
+func (s *workerSuite) TestConfigValidate(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -52,7 +52,7 @@ func (s *workerSuite) TestConfigValidate(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
-func (s *workerSuite) TestWorker(c *gc.C) {
+func (s *workerSuite) TestWorker(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 

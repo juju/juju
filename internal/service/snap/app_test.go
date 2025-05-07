@@ -5,18 +5,18 @@ package snap
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
 type confinementSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&confinementSuite{})
+var _ = tc.Suite(&confinementSuite{})
 
-func (s *confinementSuite) TestConfinementPolicy(c *gc.C) {
+func (s *confinementSuite) TestConfinementPolicy(c *tc.C) {
 	tests := []struct {
 		Policy ConfinementPolicy
 		Err    error
@@ -39,7 +39,7 @@ func (s *confinementSuite) TestConfinementPolicy(c *gc.C) {
 		if err == nil && test.Err == nil {
 			continue
 		}
-		c.Assert(err, gc.ErrorMatches, test.Err.Error())
+		c.Assert(err, tc.ErrorMatches, test.Err.Error())
 	}
 }
 
@@ -47,15 +47,15 @@ type appSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&appSuite{})
+var _ = tc.Suite(&appSuite{})
 
-func (s *appSuite) TestValidate(c *gc.C) {
+func (s *appSuite) TestValidate(c *tc.C) {
 	app := &App{name: "meshuggah"}
 	err := app.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *appSuite) TestValidateWithConfinement(c *gc.C) {
+func (s *appSuite) TestValidateWithConfinement(c *tc.C) {
 	app := &App{name: "meshuggah"}
 	app.confinementPolicy = StrictPolicy
 
@@ -63,7 +63,7 @@ func (s *appSuite) TestValidateWithConfinement(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *appSuite) TestNestedValidate(c *gc.C) {
+func (s *appSuite) TestNestedValidate(c *tc.C) {
 	app := &App{name: "meshuggah"}
 	app.prerequisites = []Installable{&App{name: "faceless"}}
 
@@ -71,7 +71,7 @@ func (s *appSuite) TestNestedValidate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *appSuite) TestInvalidNestedValidate(c *gc.C) {
+func (s *appSuite) TestInvalidNestedValidate(c *tc.C) {
 	nested := &App{name: "faceless"}
 	nested.confinementPolicy = ConfinementPolicy("yolo")
 
@@ -79,32 +79,32 @@ func (s *appSuite) TestInvalidNestedValidate(c *gc.C) {
 	app.prerequisites = []Installable{nested}
 
 	err := app.Validate()
-	c.Assert(err, gc.ErrorMatches, "yolo confinement not valid")
+	c.Assert(err, tc.ErrorMatches, "yolo confinement not valid")
 }
 
-func (s *appSuite) TestInstall(c *gc.C) {
+func (s *appSuite) TestInstall(c *tc.C) {
 	app := &App{name: "meshuggah"}
 	cmd := app.InstallArgs()
-	c.Assert(cmd, gc.DeepEquals, []string{"install", "meshuggah"})
+	c.Assert(cmd, tc.DeepEquals, []string{"install", "meshuggah"})
 }
 
-func (s *appSuite) TestNestedInstall(c *gc.C) {
+func (s *appSuite) TestNestedInstall(c *tc.C) {
 	nested := &App{name: "faceless"}
 
 	app := &App{name: "meshuggah"}
 	app.prerequisites = []Installable{nested}
 	cmd := app.InstallArgs()
-	c.Assert(cmd, gc.DeepEquals, []string{"install", "meshuggah"})
+	c.Assert(cmd, tc.DeepEquals, []string{"install", "meshuggah"})
 }
 
-func (s *appSuite) TestInstallLocal(c *gc.C) {
+func (s *appSuite) TestInstallLocal(c *tc.C) {
 	app := &App{name: "meshuggah", channel: "latest/stable", path: "/path/to/meshuggah", assertsPath: "/path/to/asserts"}
 	cmd := app.InstallArgs()
-	c.Assert(cmd, gc.DeepEquals, []string{"install", "/path/to/meshuggah"})
+	c.Assert(cmd, tc.DeepEquals, []string{"install", "/path/to/meshuggah"})
 }
 
-func (s *appSuite) TestInstallLocalWithAsserts(c *gc.C) {
+func (s *appSuite) TestInstallLocalWithAsserts(c *tc.C) {
 	app := &App{name: "meshuggah", channel: "latest/stable", path: "/path/to/meshuggah", assertsPath: "/path/to/asserts"}
 	cmd := app.AcknowledgeAssertsArgs()
-	c.Assert(cmd, gc.DeepEquals, []string{"ack", "/path/to/asserts"})
+	c.Assert(cmd, tc.DeepEquals, []string{"ack", "/path/to/asserts"})
 }

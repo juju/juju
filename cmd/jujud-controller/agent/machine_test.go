@@ -15,12 +15,12 @@ import (
 	"github.com/juju/lumberjack/v2"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/cert"
 	"github.com/juju/worker/v4"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent/engine"
 	agenterrors "github.com/juju/juju/agent/errors"
@@ -69,7 +69,7 @@ type MachineSuite struct {
 	agentStorage envstorage.Storage
 }
 
-var _ = gc.Suite(&MachineSuite{})
+var _ = tc.Suite(&MachineSuite{})
 
 // DefaultVersions returns a slice of unique 'versions' for the current
 // environment's host architecture. Additionally, it ensures that 'versions'
@@ -96,7 +96,7 @@ func defaultVersions(agentVersion semversion.Number) []semversion.Binary {
 	return versions
 }
 
-func (s *MachineSuite) SetUpTest(c *gc.C) {
+func (s *MachineSuite) SetUpTest(c *tc.C) {
 	s.ControllerConfigAttrs = map[string]interface{}{
 		controller.AuditingEnabled: true,
 	}
@@ -131,24 +131,24 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *MachineSuite) TestParseNonsense(c *gc.C) {
+func (s *MachineSuite) TestParseNonsense(c *tc.C) {
 	aCfg := agentconf.NewAgentConf(s.DataDir)
 	err := ParseAgentCommand(&machineAgentCommand{agentInitializer: aCfg}, nil)
-	c.Assert(err, gc.ErrorMatches, "either machine-id or controller-id must be set")
+	c.Assert(err, tc.ErrorMatches, "either machine-id or controller-id must be set")
 	err = ParseAgentCommand(&machineAgentCommand{agentInitializer: aCfg}, []string{"--machine-id", "-4004"})
-	c.Assert(err, gc.ErrorMatches, "--machine-id option must be a non-negative integer")
+	c.Assert(err, tc.ErrorMatches, "--machine-id option must be a non-negative integer")
 	err = ParseAgentCommand(&machineAgentCommand{agentInitializer: aCfg}, []string{"--controller-id", "-4004"})
-	c.Assert(err, gc.ErrorMatches, "--controller-id option must be a non-negative integer")
+	c.Assert(err, tc.ErrorMatches, "--controller-id option must be a non-negative integer")
 }
 
-func (s *MachineSuite) TestParseUnknown(c *gc.C) {
+func (s *MachineSuite) TestParseUnknown(c *tc.C) {
 	aCfg := agentconf.NewAgentConf(s.DataDir)
 	a := &machineAgentCommand{agentInitializer: aCfg}
 	err := ParseAgentCommand(a, []string{"--machine-id", "42", "blistering barnacles"})
-	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["blistering barnacles"\]`)
+	c.Assert(err, tc.ErrorMatches, `unrecognized args: \["blistering barnacles"\]`)
 }
 
-func (s *MachineSuite) TestParseSuccess(c *gc.C) {
+func (s *MachineSuite) TestParseSuccess(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	s.cmdRunner = mocks.NewMockCommandRunner(ctrl)
 
@@ -168,10 +168,10 @@ func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 		return a, aCfg
 	}
 	a := CheckAgentCommand(c, s.DataDir, create, []string{"--machine-id", "42", "--log-to-stderr", "--data-dir", s.DataDir})
-	c.Assert(a.(*machineAgentCommand).machineId, gc.Equals, "42")
+	c.Assert(a.(*machineAgentCommand).machineId, tc.Equals, "42")
 }
 
-func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
+func (s *MachineSuite) TestUseLumberjack(c *tc.C) {
 	ctx := cmdtesting.Context(c)
 	agentConf := FakeAgentConfig{}
 
@@ -191,17 +191,17 @@ func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
 	a.(*machineAgentCommand).machineId = "42"
 
 	err := a.Init(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	l, ok := ctx.Stderr.(*lumberjack.Logger)
 	c.Assert(ok, jc.IsTrue)
-	c.Check(l.MaxAge, gc.Equals, 0)
-	c.Check(l.MaxBackups, gc.Equals, 2)
-	c.Check(l.Filename, gc.Equals, filepath.FromSlash("/var/log/juju/machine-42.log"))
-	c.Check(l.MaxSize, gc.Equals, 100)
+	c.Check(l.MaxAge, tc.Equals, 0)
+	c.Check(l.MaxBackups, tc.Equals, 2)
+	c.Check(l.Filename, tc.Equals, filepath.FromSlash("/var/log/juju/machine-42.log"))
+	c.Check(l.MaxSize, tc.Equals, 100)
 }
 
-func (s *MachineSuite) TestDontUseLumberjack(c *gc.C) {
+func (s *MachineSuite) TestDontUseLumberjack(c *tc.C) {
 	ctx := cmdtesting.Context(c)
 	agentConf := FakeAgentConfig{}
 
@@ -224,13 +224,13 @@ func (s *MachineSuite) TestDontUseLumberjack(c *gc.C) {
 	a.(*machineAgentCommand).logToStdErr = true
 
 	err := a.Init(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	_, ok := ctx.Stderr.(*lumberjack.Logger)
 	c.Assert(ok, jc.IsFalse)
 }
 
-func (s *MachineSuite) TestRunStop(c *gc.C) {
+func (s *MachineSuite) TestRunStop(c *tc.C) {
 	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
 
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
@@ -245,7 +245,7 @@ func (s *MachineSuite) TestRunStop(c *gc.C) {
 	c.Assert(<-done, jc.ErrorIsNil)
 }
 
-func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, currentTools *tools.Tools, upgrader state.Upgrader) {
+func (s *MachineSuite) testUpgradeRequest(c *tc.C, agent runner, tag string, currentTools *tools.Tools, upgrader state.Upgrader) {
 	newVers := coretesting.CurrentVersion()
 	newVers.Patch++
 	newTools := envtesting.AssertUploadFakeToolsVersions(
@@ -270,7 +270,7 @@ func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, cur
 }
 
 // setAgentVersion sets the agent version for the controller model in dqlite.
-func (s *MachineSuite) setAgentVersion(c *gc.C, vers string) {
+func (s *MachineSuite) setAgentVersion(c *tc.C, vers string) {
 	db := s.ModelTxnRunner(c, s.ControllerModelUUID())
 
 	q := "INSERT INTO agent_version (target_version) values ($M.target_version)"
@@ -286,7 +286,7 @@ func (s *MachineSuite) setAgentVersion(c *gc.C, vers string) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *MachineSuite) TestUpgradeRequest(c *gc.C) {
+func (s *MachineSuite) TestUpgradeRequest(c *tc.C) {
 	c.Skip("SetModelAgentVersion needs to be implemented a domain.")
 	m, _, currentTools := s.primeAgent(c, state.JobManageModel, state.JobHostUnits)
 	ctrl, a := s.newAgent(c, m)
@@ -295,7 +295,7 @@ func (s *MachineSuite) TestUpgradeRequest(c *gc.C) {
 	c.Assert(a.initialUpgradeCheckComplete.IsUnlocked(), jc.IsFalse)
 }
 
-func (s *MachineSuite) TestNoUpgradeRequired(c *gc.C) {
+func (s *MachineSuite) TestNoUpgradeRequired(c *tc.C) {
 	m, _, _ := s.primeAgent(c, state.JobManageModel, state.JobHostUnits)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
@@ -311,19 +311,19 @@ func (s *MachineSuite) TestNoUpgradeRequired(c *gc.C) {
 	c.Assert(a.initialUpgradeCheckComplete.IsUnlocked(), jc.IsTrue)
 }
 
-func (s *MachineSuite) TestAgentSetsToolsVersionManageModel(c *gc.C) {
+func (s *MachineSuite) TestAgentSetsToolsVersionManageModel(c *tc.C) {
 	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
 
 	s.assertAgentSetsToolsVersion(c, state.JobManageModel)
 }
 
-func (s *MachineSuite) TestAgentSetsToolsVersionHostUnits(c *gc.C) {
+func (s *MachineSuite) TestAgentSetsToolsVersionHostUnits(c *tc.C) {
 	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
 
 	s.assertAgentSetsToolsVersion(c, state.JobHostUnits)
 }
 
-func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
+func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *tc.C) {
 	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
 
 	// Start the machine agent.
@@ -358,7 +358,7 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 	c.Fatalf("timeout while waiting for agent config to change")
 }
 
-func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
+func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *tc.C) {
 	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
 
 	// Patch out the worker func before starting the agent.
@@ -378,7 +378,7 @@ func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
 	started.assertTriggered(c, "diskmanager worker to start")
 }
 
-func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
+func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *tc.C) {
 	// TODO(wallyworld) - we need the dqlite model database to be available.
 	c.Skip("we need to seed the dqlite database with machine data")
 	expected := []blockdevice.BlockDevice{{DeviceName: "whatever"}}
@@ -398,22 +398,22 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 		devices, err := blockdevicestate.NewState(s.TxnRunnerFactory()).BlockDevices(context.Background(), m.Id())
 		c.Assert(err, jc.ErrorIsNil)
 		if len(devices) > 0 {
-			c.Assert(devices, gc.HasLen, 1)
-			c.Assert(devices[0].DeviceName, gc.Equals, expected[0].DeviceName)
+			c.Assert(devices, tc.HasLen, 1)
+			c.Assert(devices[0].DeviceName, tc.Equals, expected[0].DeviceName)
 			return
 		}
 	}
 	c.Fatalf("timeout while waiting for block devices to be recorded")
 }
 
-func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
+func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *tc.C) {
 	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
 
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 
 	started := newSignal()
 	newWorker := func(config storageprovisioner.Config) (worker.Worker, error) {
-		c.Check(config.Scope, gc.Equals, m.Tag())
+		c.Check(config.Scope, tc.Equals, m.Tag())
 		c.Check(config.Validate(), jc.ErrorIsNil)
 		started.trigger()
 		return jworker.NoopWorker(), nil
@@ -428,7 +428,7 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 	started.assertTriggered(c, "storage worker to start")
 }
 
-func (s *MachineSuite) TestCertificateDNSUpdated(c *gc.C) {
+func (s *MachineSuite) TestCertificateDNSUpdated(c *tc.C) {
 	c.Skip("this should be an integration test and a unit test not this flaky thing")
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
 	ctrl, a := s.newAgent(c, m)
@@ -436,7 +436,7 @@ func (s *MachineSuite) TestCertificateDNSUpdated(c *gc.C) {
 	s.testCertificateDNSUpdated(c, a)
 }
 
-func (s *MachineSuite) TestCertificateDNSUpdatedInvalidPrivateKey(c *gc.C) {
+func (s *MachineSuite) TestCertificateDNSUpdatedInvalidPrivateKey(c *tc.C) {
 	c.Skip("this should be an integration test and a unit test not this flaky thing")
 	m, agentConfig, _ := s.primeAgent(c, state.JobManageModel)
 
@@ -454,7 +454,7 @@ func (s *MachineSuite) TestCertificateDNSUpdatedInvalidPrivateKey(c *gc.C) {
 	s.testCertificateDNSUpdated(c, a)
 }
 
-func (s *MachineSuite) testCertificateDNSUpdated(c *gc.C, a *MachineAgent) {
+func (s *MachineSuite) testCertificateDNSUpdated(c *tc.C, a *MachineAgent) {
 	// Set up a channel which fires when State is opened.
 	started := make(chan struct{}, 16)
 	s.PatchValue(&reportOpenedState, func(*state.State) {
@@ -480,10 +480,10 @@ func (s *MachineSuite) testCertificateDNSUpdated(c *gc.C, a *MachineAgent) {
 	// Check the mongo certificate file too.
 	pemContent, err := os.ReadFile(filepath.Join(s.DataDir, "server.pem"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(string(pemContent), gc.Equals, stateInfo.Cert+"\n"+stateInfo.PrivateKey)
+	c.Check(string(pemContent), tc.Equals, stateInfo.Cert+"\n"+stateInfo.PrivateKey)
 }
 
-func (s *MachineSuite) setupIgnoreAddresses(c *gc.C, expectedIgnoreValue bool) chan bool {
+func (s *MachineSuite) setupIgnoreAddresses(c *tc.C, expectedIgnoreValue bool) chan bool {
 	ignoreAddressCh := make(chan bool, 1)
 	s.AgentSuite.PatchValue(&machiner.NewMachiner, func(cfg machiner.Config) (worker.Worker, error) {
 		select {
@@ -502,7 +502,7 @@ func (s *MachineSuite) setupIgnoreAddresses(c *gc.C, expectedIgnoreValue bool) c
 	return ignoreAddressCh
 }
 
-func (s *MachineSuite) TestMachineAgentIgnoreAddresses(c *gc.C) {
+func (s *MachineSuite) TestMachineAgentIgnoreAddresses(c *tc.C) {
 	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
 
 	for _, expectedIgnoreValue := range []bool{true, false} {
@@ -529,7 +529,7 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddresses(c *gc.C) {
 	}
 }
 
-func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
+func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *tc.C) {
 	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
 
 	ignoreAddressCh := s.setupIgnoreAddresses(c, true)
@@ -568,7 +568,7 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
 	s.waitStopped(c, state.JobHostUnits, a, doneCh)
 }
 
-func (s *MachineSuite) TestMachineWorkers(c *gc.C) {
+func (s *MachineSuite) TestMachineWorkers(c *tc.C) {
 	// TODO(wallyworld) - we need the dqlite model database to be available.
 	c.Skip("we need to seed the dqlite database with machine data")
 	testing.PatchExecutableAsEchoArgs(c, s, "ovs-vsctl", 0)
@@ -590,7 +590,7 @@ func (s *MachineSuite) TestMachineWorkers(c *gc.C) {
 	agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait)
 }
 
-func (s *MachineSuite) TestReplicasetInitForNewController(c *gc.C) {
+func (s *MachineSuite) TestReplicasetInitForNewController(c *tc.C) {
 	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
 
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
@@ -602,11 +602,11 @@ func (s *MachineSuite) TestReplicasetInitForNewController(c *gc.C) {
 	err := a.ensureMongoServer(context.Background(), agentConfig)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.fakeEnsureMongo.EnsureCount, gc.Equals, 1)
-	c.Assert(s.fakeEnsureMongo.InitiateCount, gc.Equals, 0)
+	c.Assert(s.fakeEnsureMongo.EnsureCount, tc.Equals, 1)
+	c.Assert(s.fakeEnsureMongo.InitiateCount, tc.Equals, 0)
 }
 
-func (s *MachineSuite) waitStopped(c *gc.C, job state.MachineJob, a *MachineAgent, done chan error) {
+func (s *MachineSuite) waitStopped(c *tc.C, job state.MachineJob, a *MachineAgent, done chan error) {
 	err := a.Stop()
 	if job == state.JobManageModel {
 		// When shutting down, the API server can be shut down before
@@ -630,7 +630,7 @@ func (s *MachineSuite) waitStopped(c *gc.C, job state.MachineJob, a *MachineAgen
 	}
 }
 
-func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob) {
+func (s *MachineSuite) assertAgentSetsToolsVersion(c *tc.C, job state.MachineJob) {
 	s.PatchValue(&mongo.IsMaster, func(session *mgo.Session, obj mongo.WithAddresses) (bool, error) {
 		addr := obj.Addresses()
 		for _, a := range addr {
@@ -669,7 +669,7 @@ func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob
 			if agentTools.Version.Minor != jujuversion.Current.Minor {
 				continue
 			}
-			c.Assert(agentTools.Version.Number, gc.DeepEquals, jujuversion.Current)
+			c.Assert(agentTools.Version.Number, tc.DeepEquals, jujuversion.Current)
 			done = true
 		}
 	}

@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/removemachine_api_mock.go github.com/juju/juju/cmd/juju/machine RemoveMachineAPI
@@ -16,7 +16,7 @@ import (
 // None of the tests in this package require mongo.
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 func unmarshalStringAsJSON(str string) (interface{}, error) {

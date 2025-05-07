@@ -6,10 +6,10 @@ package usersecretsdrain_test
 import (
 	"context"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/usersecretsdrain"
@@ -32,9 +32,9 @@ type drainSuite struct {
 	facade               *usersecretsdrain.SecretsDrainAPI
 }
 
-var _ = gc.Suite(&drainSuite{})
+var _ = tc.Suite(&drainSuite{})
 
-func (s *drainSuite) setup(c *gc.C) *gomock.Controller {
+func (s *drainSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
@@ -50,13 +50,13 @@ func (s *drainSuite) setup(c *gc.C) *gomock.Controller {
 }
 
 type backendConfigParamsMatcher struct {
-	c        *gc.C
+	c        *tc.C
 	expected any
 }
 
 func (m backendConfigParamsMatcher) Matches(x interface{}) bool {
 	if obtained, ok := x.(secretbackendservice.BackendConfigParams); ok {
-		m.c.Assert(obtained.GrantedSecretsGetter, gc.NotNil)
+		m.c.Assert(obtained.GrantedSecretsGetter, tc.NotNil)
 		obtained.GrantedSecretsGetter = nil
 		m.c.Assert(obtained, jc.DeepEquals, m.expected)
 		return true
@@ -65,7 +65,7 @@ func (m backendConfigParamsMatcher) Matches(x interface{}) bool {
 	if !ok {
 		return false
 	}
-	m.c.Assert(obtained.GrantedSecretsGetter, gc.NotNil)
+	m.c.Assert(obtained.GrantedSecretsGetter, tc.NotNil)
 	obtained.GrantedSecretsGetter = nil
 	m.c.Assert(obtained, jc.DeepEquals, m.expected)
 	return true
@@ -75,7 +75,7 @@ func (m backendConfigParamsMatcher) String() string {
 	return "Match the contents of BackendConfigParams"
 }
 
-func (s *drainSuite) TestGetSecretBackendConfigs(c *gc.C) {
+func (s *drainSuite) TestGetSecretBackendConfigs(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.secretBackendService.EXPECT().DrainBackendConfigInfo(gomock.Any(), backendConfigParamsMatcher{c: c,
@@ -122,17 +122,17 @@ func (s *drainSuite) TestGetSecretBackendConfigs(c *gc.C) {
 	})
 }
 
-func (s *drainSuite) TestGetSecretContentInvalidArg(c *gc.C) {
+func (s *drainSuite) TestGetSecretContentInvalidArg(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	results, err := s.facade.GetSecretContentInfo(context.Background(), params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{{}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, `empty URI`)
+	c.Assert(results.Results[0].Error, tc.ErrorMatches, `empty URI`)
 }
 
-func (s *drainSuite) TestGetSecretContentInternal(c *gc.C) {
+func (s *drainSuite) TestGetSecretContentInternal(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	data := map[string]string{"foo": "bar"}
@@ -159,7 +159,7 @@ func (s *drainSuite) TestGetSecretContentInternal(c *gc.C) {
 	})
 }
 
-func (s *drainSuite) TestGetSecretContentExternal(c *gc.C) {
+func (s *drainSuite) TestGetSecretContentExternal(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -225,7 +225,7 @@ func (s *drainSuite) TestGetSecretContentExternal(c *gc.C) {
 	})
 }
 
-func (s *drainSuite) TestGetSecretRevisionContentInfoInternal(c *gc.C) {
+func (s *drainSuite) TestGetSecretRevisionContentInfoInternal(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -250,7 +250,7 @@ func (s *drainSuite) TestGetSecretRevisionContentInfoInternal(c *gc.C) {
 	})
 }
 
-func (s *drainSuite) TestGetSecretRevisionContentInfoExternal(c *gc.C) {
+func (s *drainSuite) TestGetSecretRevisionContentInfoExternal(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()

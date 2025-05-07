@@ -10,8 +10,8 @@ import (
 	"net"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/pki"
 )
@@ -21,9 +21,9 @@ type AuthoritySuite struct {
 	signer crypto.Signer
 }
 
-var _ = gc.Suite(&AuthoritySuite{})
+var _ = tc.Suite(&AuthoritySuite{})
 
-func (a *AuthoritySuite) SetUpTest(c *gc.C) {
+func (a *AuthoritySuite) SetUpTest(c *tc.C) {
 	signer, err := pki.DefaultKeyProfile()
 	c.Assert(err, jc.ErrorIsNil)
 	a.signer = signer
@@ -33,13 +33,13 @@ func (a *AuthoritySuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	a.ca = ca
-	c.Assert(a.ca.Subject.CommonName, gc.Equals, commonName)
+	c.Assert(a.ca.Subject.CommonName, tc.Equals, commonName)
 	c.Assert(a.ca.Subject.Organization, jc.DeepEquals, pki.Organisation)
-	c.Assert(a.ca.BasicConstraintsValid, gc.Equals, true)
-	c.Assert(a.ca.IsCA, gc.Equals, true)
+	c.Assert(a.ca.BasicConstraintsValid, tc.Equals, true)
+	c.Assert(a.ca.IsCA, tc.Equals, true)
 }
 
-func (a *AuthoritySuite) TestNewAuthority(c *gc.C) {
+func (a *AuthoritySuite) TestNewAuthority(c *tc.C) {
 	authority, err := pki.NewDefaultAuthority(a.ca, a.signer)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(authority.Certificate(), jc.DeepEquals, a.ca)
@@ -48,19 +48,19 @@ func (a *AuthoritySuite) TestNewAuthority(c *gc.C) {
 	// of bignumbers may fail due to superfluous zeros (despite the numbers matching)
 	mc.AddExpr("_.Precomputed", jc.Ignore)
 	c.Assert(authority.Signer(), mc, a.signer)
-	c.Assert(len(authority.Chain()), gc.Equals, 0)
+	c.Assert(len(authority.Chain()), tc.Equals, 0)
 }
 
-func (a *AuthoritySuite) TestMissingLeafGroup(c *gc.C) {
+func (a *AuthoritySuite) TestMissingLeafGroup(c *tc.C) {
 	authority, err := pki.NewDefaultAuthority(a.ca, a.signer)
 	c.Assert(err, jc.ErrorIsNil)
 	leaf, err := authority.LeafForGroup("noexist")
-	c.Assert(err, gc.NotNil)
-	c.Assert(leaf, gc.IsNil)
+	c.Assert(err, tc.NotNil)
+	c.Assert(leaf, tc.IsNil)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
-func (a *AuthoritySuite) TestLeafRequest(c *gc.C) {
+func (a *AuthoritySuite) TestLeafRequest(c *tc.C) {
 	authority, err := pki.NewDefaultAuthority(a.ca, a.signer)
 	c.Assert(err, jc.ErrorIsNil)
 	dnsNames := []string{"test.juju.is"}
@@ -80,7 +80,7 @@ func (a *AuthoritySuite) TestLeafRequest(c *gc.C) {
 	c.Assert(leaf.Certificate().IPAddresses, jc.DeepEquals, ipAddresses)
 }
 
-func (a *AuthoritySuite) TestLeafRequestChain(c *gc.C) {
+func (a *AuthoritySuite) TestLeafRequestChain(c *tc.C) {
 	authority, err := pki.NewDefaultAuthority(a.ca, a.signer)
 	c.Assert(err, jc.ErrorIsNil)
 	dnsNames := []string{"test.juju.is"}
@@ -91,11 +91,11 @@ func (a *AuthoritySuite) TestLeafRequestChain(c *gc.C) {
 		Commit()
 	c.Assert(err, jc.ErrorIsNil)
 	chain := leaf.Chain()
-	c.Assert(len(chain), gc.Equals, 1)
+	c.Assert(len(chain), tc.Equals, 1)
 	c.Assert(chain[0], jc.DeepEquals, authority.Certificate())
 }
 
-func (a *AuthoritySuite) TestLeafFromPem(c *gc.C) {
+func (a *AuthoritySuite) TestLeafFromPem(c *tc.C) {
 	authority, err := pki.NewDefaultAuthority(a.ca, a.signer)
 	c.Assert(err, jc.ErrorIsNil)
 	dnsNames := []string{"test.juju.is"}
@@ -123,10 +123,10 @@ func (a *AuthoritySuite) TestLeafFromPem(c *gc.C) {
 
 	leaf2, err := authority.LeafForGroup("testgroup")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(leaf2, gc.NotNil)
+	c.Assert(leaf2, tc.NotNil)
 }
 
-func (a *AuthoritySuite) TestAuthorityFromPemBlock(c *gc.C) {
+func (a *AuthoritySuite) TestAuthorityFromPemBlock(c *tc.C) {
 	caBytes := bytes.Buffer{}
 	err := pki.CertificateToPemWriter(&caBytes, map[string]string{}, a.ca)
 	c.Assert(err, jc.ErrorIsNil)
@@ -139,7 +139,7 @@ func (a *AuthoritySuite) TestAuthorityFromPemBlock(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (a *AuthoritySuite) TestAuthorityFromPemCAKey(c *gc.C) {
+func (a *AuthoritySuite) TestAuthorityFromPemCAKey(c *tc.C) {
 	caBytes := bytes.Buffer{}
 	err := pki.CertificateToPemWriter(&caBytes, map[string]string{}, a.ca)
 	c.Assert(err, jc.ErrorIsNil)

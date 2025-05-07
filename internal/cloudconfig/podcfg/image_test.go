@@ -4,8 +4,8 @@
 package podcfg_test
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/semversion"
@@ -18,9 +18,9 @@ type imageSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&imageSuite{})
+var _ = tc.Suite(&imageSuite{})
 
-func (*imageSuite) TestGetJujuOCIImagePath(c *gc.C) {
+func (*imageSuite) TestGetJujuOCIImagePath(c *tc.C) {
 	cfg := testing.FakeControllerConfig()
 
 	cfg[controller.CAASImageRepo] = "testing-repo"
@@ -42,51 +42,51 @@ func (*imageSuite) TestGetJujuOCIImagePath(c *gc.C) {
 	c.Assert(path, jc.DeepEquals, "testing-old-repo/jujud-old-operator:2.6-beta3")
 }
 
-func (*imageSuite) TestRebuildOldOperatorImagePath(c *gc.C) {
+func (*imageSuite) TestRebuildOldOperatorImagePath(c *tc.C) {
 	ver := semversion.MustParse("2.6-beta3")
 	path, err := podcfg.RebuildOldOperatorImagePath("docker.io/jujusolutions/jujud-operator:666", ver)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(path, jc.DeepEquals, "docker.io/jujusolutions/jujud-operator:2.6-beta3")
 }
 
-func (*imageSuite) TestImageForBase(c *gc.C) {
+func (*imageSuite) TestImageForBase(c *tc.C) {
 	_, err := podcfg.ImageForBase("", charm.Base{})
-	c.Assert(err, gc.ErrorMatches, `empty base name not valid`)
+	c.Assert(err, tc.ErrorMatches, `empty base name not valid`)
 
 	_, err = podcfg.ImageForBase("", charm.Base{Name: "ubuntu"})
-	c.Assert(err, gc.ErrorMatches, `channel "" not valid`)
+	c.Assert(err, tc.ErrorMatches, `channel "" not valid`)
 
 	_, err = podcfg.ImageForBase("", charm.Base{Name: "ubuntu", Channel: charm.Channel{
 		Track: "20.04",
 	}})
-	c.Assert(err, gc.ErrorMatches, `channel "20.04/" not valid`)
+	c.Assert(err, tc.ErrorMatches, `channel "20.04/" not valid`)
 
 	path, err := podcfg.ImageForBase("", charm.Base{Name: "ubuntu", Channel: charm.Channel{
 		Track: "20.04", Risk: charm.Stable,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(path, gc.DeepEquals, `docker.io/jujusolutions/charm-base:ubuntu-20.04`)
+	c.Assert(path, tc.DeepEquals, `docker.io/jujusolutions/charm-base:ubuntu-20.04`)
 
 	path, err = podcfg.ImageForBase("", charm.Base{Name: "ubuntu", Channel: charm.Channel{
 		Track: "20.04", Risk: charm.Edge,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(path, gc.DeepEquals, `docker.io/jujusolutions/charm-base:ubuntu-20.04-edge`)
+	c.Assert(path, tc.DeepEquals, `docker.io/jujusolutions/charm-base:ubuntu-20.04-edge`)
 }
 
-func (*imageSuite) TestRecoverRepoFromOperatorPath(c *gc.C) {
+func (*imageSuite) TestRecoverRepoFromOperatorPath(c *tc.C) {
 	repo, err := podcfg.RecoverRepoFromOperatorPath("testing-repo/jujud-operator:2.6-beta3.666")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(repo, gc.Equals, "testing-repo")
+	c.Assert(repo, tc.Equals, "testing-repo")
 
 	repo, err = podcfg.RecoverRepoFromOperatorPath("testing-repo:8080/jujud-operator:2.6-beta3.666")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(repo, gc.Equals, "testing-repo:8080")
+	c.Assert(repo, tc.Equals, "testing-repo:8080")
 
 	repo, err = podcfg.RecoverRepoFromOperatorPath("docker.io/jujusolutions/jujud-operator:2.6-beta3")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(repo, gc.Equals, "docker.io/jujusolutions")
+	c.Assert(repo, tc.Equals, "docker.io/jujusolutions")
 
 	_, err = podcfg.RecoverRepoFromOperatorPath("docker.io/jujusolutions/nope:2.6-beta3")
-	c.Assert(err, gc.ErrorMatches, `image path "docker.io/jujusolutions/nope:2.6-beta3" does not match the form somerepo/jujud-operator:\.\*`)
+	c.Assert(err, tc.ErrorMatches, `image path "docker.io/jujusolutions/nope:2.6-beta3" does not match the form somerepo/jujud-operator:\.\*`)
 }

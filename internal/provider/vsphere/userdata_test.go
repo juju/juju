@@ -7,8 +7,8 @@ package vsphere_test
 import (
 	"encoding/base64"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit/cloudinittest"
@@ -20,9 +20,9 @@ type UserdataSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&UserdataSuite{})
+var _ = tc.Suite(&UserdataSuite{})
 
-func (s *UserdataSuite) TestVsphereUnix(c *gc.C) {
+func (s *UserdataSuite) TestVsphereUnix(c *tc.C) {
 	renderer := vsphere.VsphereRenderer{}
 	cloudcfg := &cloudinittest.CloudConfig{YAML: []byte("yaml")}
 
@@ -32,10 +32,10 @@ func (s *UserdataSuite) TestVsphereUnix(c *gc.C) {
 	c.Assert(string(result), jc.DeepEquals, expected)
 }
 
-func (s *UserdataSuite) TestVsphereUnknownOS(c *gc.C) {
+func (s *UserdataSuite) TestVsphereUnknownOS(c *tc.C) {
 	renderer := vsphere.VsphereRenderer{}
 	cloudcfg := &cloudinittest.CloudConfig{}
 	result, err := renderer.Render(cloudcfg, ostype.GenericLinux)
-	c.Assert(result, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "Cannot encode userdata for OS: GenericLinux")
+	c.Assert(result, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "Cannot encode userdata for OS: GenericLinux")
 }

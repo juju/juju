@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/space"
 )
@@ -20,14 +20,14 @@ type ListSuite struct {
 	BaseSpaceSuite
 }
 
-var _ = gc.Suite(&ListSuite{})
+var _ = tc.Suite(&ListSuite{})
 
-func (s *ListSuite) SetUpTest(c *gc.C) {
+func (s *ListSuite) SetUpTest(c *tc.C) {
 	s.BaseSpaceSuite.SetUpTest(c)
 	s.newCommand = space.NewListCommand
 }
 
-func (s *ListSuite) TestInit(c *gc.C) {
+func (s *ListSuite) TestInit(c *tc.C) {
 	for i, test := range []struct {
 		about        string
 		args         []string
@@ -70,12 +70,12 @@ func (s *ListSuite) TestInit(c *gc.C) {
 		c.Logf("test #%d: %s", i, test.about)
 		command, err := s.InitCommand(c, test.args...)
 		if test.expectErr != "" {
-			c.Check(err, gc.ErrorMatches, test.expectErr)
+			c.Check(err, tc.ErrorMatches, test.expectErr)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
 			command := command.(*space.ListCommand)
-			c.Check(command.ListFormat(), gc.Equals, test.expectFormat)
-			c.Check(command.Short, gc.Equals, test.expectShort)
+			c.Check(command.ListFormat(), tc.Equals, test.expectFormat)
+			c.Check(command.Short, tc.Equals, test.expectShort)
 		}
 
 		// No API calls should be recorded at this stage.
@@ -83,7 +83,7 @@ func (s *ListSuite) TestInit(c *gc.C) {
 	}
 }
 
-func (s *ListSuite) TestOutputFormats(c *gc.C) {
+func (s *ListSuite) TestOutputFormats(c *tc.C) {
 	outDir := c.MkDir()
 	expectedYAML := `
 spaces:
@@ -248,7 +248,7 @@ space2
 
 		data, err := os.ReadFile(outFile)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(string(data), gc.Equals, expected)
+		c.Assert(string(data), tc.Equals, expected)
 
 		// Check the last output argument takes precedence when both
 		// -o and --output are given (and also that --output works the
@@ -273,7 +273,7 @@ space2
 		c.Assert(outFile1, jc.DoesNotExist)
 		data, err = os.ReadFile(outFile2)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(string(data), gc.Equals, expected)
+		c.Assert(string(data), tc.Equals, expected)
 		assertAPICalls()
 
 		// Finally, check without --output.
@@ -301,7 +301,7 @@ space2
 	}
 }
 
-func (s *ListSuite) TestRunWhenNoSpacesExistSucceeds(c *gc.C) {
+func (s *ListSuite) TestRunWhenNoSpacesExistSucceeds(c *tc.C) {
 	s.api.Spaces = s.api.Spaces[0:0]
 
 	s.AssertRunSucceeds(c,
@@ -313,7 +313,7 @@ func (s *ListSuite) TestRunWhenNoSpacesExistSucceeds(c *gc.C) {
 	s.api.CheckCall(c, 0, "ListSpaces")
 }
 
-func (s *ListSuite) TestRunWhenNoSpacesExistSucceedsWithProperFormat(c *gc.C) {
+func (s *ListSuite) TestRunWhenNoSpacesExistSucceedsWithProperFormat(c *tc.C) {
 	s.api.Spaces = s.api.Spaces[0:0]
 
 	s.AssertRunSucceeds(c,
@@ -333,7 +333,7 @@ func (s *ListSuite) TestRunWhenNoSpacesExistSucceedsWithProperFormat(c *gc.C) {
 	s.api.CheckCall(c, 2, "ListSpaces")
 }
 
-func (s *ListSuite) TestRunWhenSpacesNotSupported(c *gc.C) {
+func (s *ListSuite) TestRunWhenSpacesNotSupported(c *tc.C) {
 	s.api.SetErrors(errors.NewNotSupported(nil, "spaces not supported"))
 
 	err := s.AssertRunSpacesNotSupported(c, "cannot list spaces: spaces not supported")
@@ -343,7 +343,7 @@ func (s *ListSuite) TestRunWhenSpacesNotSupported(c *gc.C) {
 	s.api.CheckCall(c, 0, "ListSpaces")
 }
 
-func (s *ListSuite) TestRunWhenSpacesAPIFails(c *gc.C) {
+func (s *ListSuite) TestRunWhenSpacesAPIFails(c *tc.C) {
 	s.api.SetErrors(errors.New("boom"))
 
 	_ = s.AssertRunFails(c, "cannot list spaces: boom")

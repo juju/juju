@@ -7,10 +7,10 @@ import (
 	time "time"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
@@ -24,9 +24,9 @@ type workerSuite struct {
 	states chan string
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
-func (s *workerSuite) TestNewWorker(c *gc.C) {
+func (s *workerSuite) TestNewWorker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := auditlog.Config{}
@@ -42,7 +42,7 @@ func (s *workerSuite) TestNewWorker(c *gc.C) {
 	workertest.CleanKill(c, worker)
 }
 
-func (s *workerSuite) TestNewWorkerUpdatedCurrentConfig(c *gc.C) {
+func (s *workerSuite) TestNewWorkerUpdatedCurrentConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := auditlog.Config{}
@@ -74,7 +74,7 @@ func (s *workerSuite) TestNewWorkerUpdatedCurrentConfig(c *gc.C) {
 	s.ensureChanged(c)
 
 	current := worker.CurrentConfig()
-	c.Assert(current, gc.DeepEquals, auditlog.Config{
+	c.Assert(current, tc.DeepEquals, auditlog.Config{
 		Enabled:        true,
 		CaptureAPIArgs: true,
 		MaxSizeMB:      10,
@@ -89,7 +89,7 @@ func (s *workerSuite) newWorker(initial auditlog.Config, logFactory AuditLogFact
 	return newWorker(s.controllerConfigService, initial, logFactory, s.states)
 }
 
-func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	// Ensure we buffer the channel, this is because we might miss the
 	// event if we're too quick at starting up.
 	s.states = make(chan string, 1)
@@ -97,25 +97,25 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return s.baseSuite.setupMocks(c)
 }
 
-func (s *workerSuite) ensureStartup(c *gc.C) {
+func (s *workerSuite) ensureStartup(c *tc.C) {
 	select {
 	case state := <-s.states:
-		c.Assert(state, gc.Equals, stateStarted)
+		c.Assert(state, tc.Equals, stateStarted)
 	case <-time.After(testing.ShortWait * 10):
 		c.Fatalf("timed out waiting for startup")
 	}
 }
 
-func (s *workerSuite) ensureChanged(c *gc.C) {
+func (s *workerSuite) ensureChanged(c *tc.C) {
 	select {
 	case state := <-s.states:
-		c.Assert(state, gc.Equals, stateChanged)
+		c.Assert(state, tc.Equals, stateChanged)
 	case <-time.After(testing.ShortWait * 10):
 		c.Fatalf("timed out waiting for startup")
 	}
 }
 
-func (s *workerSuite) expectControllerConfigWatcher(c *gc.C) chan []string {
+func (s *workerSuite) expectControllerConfigWatcher(c *tc.C) chan []string {
 	ch := make(chan []string)
 	// Seed the initial event.
 	go func() {

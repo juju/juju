@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
@@ -37,9 +37,9 @@ type migrationServiceSuite struct {
 	service *MigrationService
 }
 
-var _ = gc.Suite(&migrationServiceSuite{})
+var _ = tc.Suite(&migrationServiceSuite{})
 
-func (s *migrationServiceSuite) TestGetCharmIDWithoutRevision(c *gc.C) {
+func (s *migrationServiceSuite) TestGetCharmIDWithoutRevision(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.GetCharmID(context.Background(), domaincharm.GetCharmArgs{
@@ -49,7 +49,7 @@ func (s *migrationServiceSuite) TestGetCharmIDWithoutRevision(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *migrationServiceSuite) TestGetCharmIDWithoutSource(c *gc.C) {
+func (s *migrationServiceSuite) TestGetCharmIDWithoutSource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.GetCharmID(context.Background(), domaincharm.GetCharmArgs{
@@ -59,7 +59,7 @@ func (s *migrationServiceSuite) TestGetCharmIDWithoutSource(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmSourceNotValid)
 }
 
-func (s *migrationServiceSuite) TestGetCharmIDInvalidName(c *gc.C) {
+func (s *migrationServiceSuite) TestGetCharmIDInvalidName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.GetCharmID(context.Background(), domaincharm.GetCharmArgs{
@@ -68,7 +68,7 @@ func (s *migrationServiceSuite) TestGetCharmIDInvalidName(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNameNotValid)
 }
 
-func (s *migrationServiceSuite) TestGetCharmIDInvalidSource(c *gc.C) {
+func (s *migrationServiceSuite) TestGetCharmIDInvalidSource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.GetCharmID(context.Background(), domaincharm.GetCharmArgs{
@@ -79,7 +79,7 @@ func (s *migrationServiceSuite) TestGetCharmIDInvalidSource(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmSourceNotValid)
 }
 
-func (s *migrationServiceSuite) TestGetCharmID(c *gc.C) {
+func (s *migrationServiceSuite) TestGetCharmID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
@@ -94,10 +94,10 @@ func (s *migrationServiceSuite) TestGetCharmID(c *gc.C) {
 		Source:   domaincharm.LocalSource,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, gc.Equals, id)
+	c.Check(result, tc.Equals, id)
 }
 
-func (s *migrationServiceSuite) TestGetCharm(c *gc.C) {
+func (s *migrationServiceSuite) TestGetCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Conversion of the metadata tests is done in the types package.
@@ -120,18 +120,18 @@ func (s *migrationServiceSuite) TestGetCharm(c *gc.C) {
 
 	metadata, locator, err := s.service.GetCharmByApplicationName(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(metadata.Meta(), gc.DeepEquals, &charm.Meta{
+	c.Check(metadata.Meta(), tc.DeepEquals, &charm.Meta{
 		Name: "foo",
 
 		// Notice that the RunAs field becomes empty string when being returned.
 	})
-	c.Check(locator, gc.Equals, domaincharm.CharmLocator{
+	c.Check(locator, tc.Equals, domaincharm.CharmLocator{
 		Source:   domaincharm.LocalSource,
 		Revision: 42,
 	})
 }
 
-func (s *migrationServiceSuite) TestGetCharmInvalidMetadata(c *gc.C) {
+func (s *migrationServiceSuite) TestGetCharmInvalidMetadata(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
@@ -148,10 +148,10 @@ func (s *migrationServiceSuite) TestGetCharmInvalidMetadata(c *gc.C) {
 	}, nil, nil)
 
 	_, _, err := s.service.GetCharmByApplicationName(context.Background(), "foo")
-	c.Assert(err, gc.ErrorMatches, `.*decode charm user.*`)
+	c.Assert(err, tc.ErrorMatches, `.*decode charm user.*`)
 }
 
-func (s *migrationServiceSuite) TestGetCharmInvalidManifest(c *gc.C) {
+func (s *migrationServiceSuite) TestGetCharmInvalidManifest(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
@@ -175,10 +175,10 @@ func (s *migrationServiceSuite) TestGetCharmInvalidManifest(c *gc.C) {
 	}, nil, nil)
 
 	_, _, err := s.service.GetCharmByApplicationName(context.Background(), "foo")
-	c.Assert(err, gc.ErrorMatches, `.*decode bases: decode base.*`)
+	c.Assert(err, tc.ErrorMatches, `.*decode bases: decode base.*`)
 }
 
-func (s *migrationServiceSuite) TestGetCharmInvalidActions(c *gc.C) {
+func (s *migrationServiceSuite) TestGetCharmInvalidActions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
@@ -202,10 +202,10 @@ func (s *migrationServiceSuite) TestGetCharmInvalidActions(c *gc.C) {
 	}, nil, nil)
 
 	_, _, err := s.service.GetCharmByApplicationName(context.Background(), "foo")
-	c.Assert(err, gc.ErrorMatches, `.*decode action params: unmarshal.*`)
+	c.Assert(err, tc.ErrorMatches, `.*decode action params: unmarshal.*`)
 }
 
-func (s *migrationServiceSuite) TestGetCharmInvalidConfig(c *gc.C) {
+func (s *migrationServiceSuite) TestGetCharmInvalidConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
@@ -229,10 +229,10 @@ func (s *migrationServiceSuite) TestGetCharmInvalidConfig(c *gc.C) {
 	}, nil, nil)
 
 	_, _, err := s.service.GetCharmByApplicationName(context.Background(), "foo")
-	c.Assert(err, gc.ErrorMatches, `.*decode config.*`)
+	c.Assert(err, tc.ErrorMatches, `.*decode config.*`)
 }
 
-func (s *migrationServiceSuite) TestGetCharmInvalidLXDProfile(c *gc.C) {
+func (s *migrationServiceSuite) TestGetCharmInvalidLXDProfile(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
@@ -250,10 +250,10 @@ func (s *migrationServiceSuite) TestGetCharmInvalidLXDProfile(c *gc.C) {
 	}, nil, nil)
 
 	_, _, err := s.service.GetCharmByApplicationName(context.Background(), "foo")
-	c.Assert(err, gc.ErrorMatches, `.*unmarshal lxd profile.*`)
+	c.Assert(err, tc.ErrorMatches, `.*unmarshal lxd profile.*`)
 }
 
-func (s *migrationServiceSuite) TestGetCharmCharmNotFound(c *gc.C) {
+func (s *migrationServiceSuite) TestGetCharmCharmNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
@@ -265,14 +265,14 @@ func (s *migrationServiceSuite) TestGetCharmCharmNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *migrationServiceSuite) TestGetCharmInvalidUUID(c *gc.C) {
+func (s *migrationServiceSuite) TestGetCharmInvalidUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, _, err := s.service.GetCharmByApplicationName(context.Background(), "")
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
-func (s *migrationServiceSuite) TestGetApplicationCharmOrigin(c *gc.C) {
+func (s *migrationServiceSuite) TestGetApplicationCharmOrigin(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
@@ -285,13 +285,13 @@ func (s *migrationServiceSuite) TestGetApplicationCharmOrigin(c *gc.C) {
 
 	origin, err := s.service.GetApplicationCharmOrigin(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(origin, gc.DeepEquals, application.CharmOrigin{
+	c.Check(origin, tc.DeepEquals, application.CharmOrigin{
 		Name:   "foo",
 		Source: domaincharm.CharmHubSource,
 	})
 }
 
-func (s *migrationServiceSuite) TestGetApplicationCharmOriginGetApplicationError(c *gc.C) {
+func (s *migrationServiceSuite) TestGetApplicationCharmOriginGetApplicationError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
@@ -299,17 +299,17 @@ func (s *migrationServiceSuite) TestGetApplicationCharmOriginGetApplicationError
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(id, errors.Errorf("boom"))
 
 	_, err := s.service.GetApplicationCharmOrigin(context.Background(), "foo")
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *migrationServiceSuite) TestGetApplicationCharmOriginInvalidID(c *gc.C) {
+func (s *migrationServiceSuite) TestGetApplicationCharmOriginInvalidID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.GetApplicationCharmOrigin(context.Background(), "!!!!!!!!!!!")
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
-func (s *migrationServiceSuite) TestGetApplicationConfigAndSettings(c *gc.C) {
+func (s *migrationServiceSuite) TestGetApplicationConfigAndSettings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
@@ -326,15 +326,15 @@ func (s *migrationServiceSuite) TestGetApplicationConfigAndSettings(c *gc.C) {
 
 	results, settings, err := s.service.GetApplicationConfigAndSettings(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, gc.DeepEquals, config.ConfigAttributes{
+	c.Check(results, tc.DeepEquals, config.ConfigAttributes{
 		"foo": "bar",
 	})
-	c.Check(settings, gc.DeepEquals, application.ApplicationSettings{
+	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{
 		Trust: true,
 	})
 }
 
-func (s *migrationServiceSuite) TestGetApplicationConfigWithNameError(c *gc.C) {
+func (s *migrationServiceSuite) TestGetApplicationConfigWithNameError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
@@ -342,11 +342,11 @@ func (s *migrationServiceSuite) TestGetApplicationConfigWithNameError(c *gc.C) {
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appUUID, errors.Errorf("boom"))
 
 	_, _, err := s.service.GetApplicationConfigAndSettings(context.Background(), "foo")
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 
 }
 
-func (s *migrationServiceSuite) TestGetApplicationConfigWithConfigError(c *gc.C) {
+func (s *migrationServiceSuite) TestGetApplicationConfigWithConfigError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
@@ -356,11 +356,11 @@ func (s *migrationServiceSuite) TestGetApplicationConfigWithConfigError(c *gc.C)
 		Return(map[string]application.ApplicationConfig{}, application.ApplicationSettings{}, errors.Errorf("boom"))
 
 	_, _, err := s.service.GetApplicationConfigAndSettings(context.Background(), "foo")
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 
 }
 
-func (s *migrationServiceSuite) TestGetApplicationConfigNoConfig(c *gc.C) {
+func (s *migrationServiceSuite) TestGetApplicationConfigNoConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
@@ -371,11 +371,11 @@ func (s *migrationServiceSuite) TestGetApplicationConfigNoConfig(c *gc.C) {
 
 	results, settings, err := s.service.GetApplicationConfigAndSettings(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, gc.DeepEquals, config.ConfigAttributes{})
-	c.Check(settings, gc.DeepEquals, application.ApplicationSettings{})
+	c.Check(results, tc.DeepEquals, config.ConfigAttributes{})
+	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
 }
 
-func (s *migrationServiceSuite) TestGetApplicationConfigNoConfigWithTrust(c *gc.C) {
+func (s *migrationServiceSuite) TestGetApplicationConfigNoConfigWithTrust(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
@@ -388,28 +388,28 @@ func (s *migrationServiceSuite) TestGetApplicationConfigNoConfigWithTrust(c *gc.
 
 	results, settings, err := s.service.GetApplicationConfigAndSettings(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, gc.DeepEquals, config.ConfigAttributes{})
-	c.Check(settings, gc.DeepEquals, application.ApplicationSettings{
+	c.Check(results, tc.DeepEquals, config.ConfigAttributes{})
+	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{
 		Trust: true,
 	})
 }
 
-func (s *migrationServiceSuite) TestGetApplicationConfigInvalidApplicationName(c *gc.C) {
+func (s *migrationServiceSuite) TestGetApplicationConfigInvalidApplicationName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, _, err := s.service.GetApplicationConfigAndSettings(context.Background(), "!!!")
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
-func (s *migrationServiceSuite) TestImportIAASApplication(c *gc.C) {
+func (s *migrationServiceSuite) TestImportIAASApplication(c *tc.C) {
 	s.assertImportApplication(c, coremodel.IAAS)
 }
 
-func (s *migrationServiceSuite) TestImportCAASApplication(c *gc.C) {
+func (s *migrationServiceSuite) TestImportCAASApplication(c *tc.C) {
 	s.assertImportApplication(c, coremodel.CAAS)
 }
 
-func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType coremodel.ModelType) {
+func (s *migrationServiceSuite) assertImportApplication(c *tc.C, modelType coremodel.ModelType) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
@@ -575,17 +575,17 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 		StorageParentDir: application.StorageParentDir,
 		Principal:        "principal/0",
 	}}
-	c.Check(receivedUnitArgs, gc.DeepEquals, expectedUnitArgs)
+	c.Check(receivedUnitArgs, tc.DeepEquals, expectedUnitArgs)
 }
 
-func (s *migrationServiceSuite) TestRemoveImportedApplication(c *gc.C) {
+func (s *migrationServiceSuite) TestRemoveImportedApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := s.service.RemoveImportedApplication(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *migrationServiceSuite) TestGetUnitUUIDByName(c *gc.C) {
+func (s *migrationServiceSuite) TestGetUnitUUIDByName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uuid := unittesting.GenUnitUUID(c)
@@ -594,17 +594,17 @@ func (s *migrationServiceSuite) TestGetUnitUUIDByName(c *gc.C) {
 
 	got, err := s.service.GetUnitUUIDByName(context.Background(), unit.Name("foo/0"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(got, gc.Equals, uuid)
+	c.Check(got, tc.Equals, uuid)
 }
 
-func (s *migrationServiceSuite) TestGetUnitUUIDByNameInvalidName(c *gc.C) {
+func (s *migrationServiceSuite) TestGetUnitUUIDByNameInvalidName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.GetUnitUUIDByName(context.Background(), unit.Name("!!!!!!!!!!"))
 	c.Assert(err, jc.ErrorIs, unit.InvalidUnitName)
 }
 
-func (s *migrationServiceSuite) TestGetApplications(c *gc.C) {
+func (s *migrationServiceSuite) TestGetApplications(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	apps := []application.ExportApplication{
@@ -617,10 +617,10 @@ func (s *migrationServiceSuite) TestGetApplications(c *gc.C) {
 
 	res, err := s.service.GetApplications(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res, gc.DeepEquals, apps)
+	c.Check(res, tc.DeepEquals, apps)
 }
 
-func (s *migrationServiceSuite) TestGetApplicationsForExportNoApplications(c *gc.C) {
+func (s *migrationServiceSuite) TestGetApplicationsForExportNoApplications(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	apps := []application.ExportApplication{}
@@ -629,10 +629,10 @@ func (s *migrationServiceSuite) TestGetApplicationsForExportNoApplications(c *gc
 
 	res, err := s.service.GetApplications(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res, gc.DeepEquals, apps)
+	c.Check(res, tc.DeepEquals, apps)
 }
 
-func (s *migrationServiceSuite) TestGetApplicationUnits(c *gc.C) {
+func (s *migrationServiceSuite) TestGetApplicationUnits(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appID := applicationtesting.GenApplicationUUID(c)
@@ -649,10 +649,10 @@ func (s *migrationServiceSuite) TestGetApplicationUnits(c *gc.C) {
 
 	res, err := s.service.GetApplicationUnits(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res, gc.DeepEquals, units)
+	c.Check(res, tc.DeepEquals, units)
 }
 
-func (s *migrationServiceSuite) TestGetApplicationUnitsNotFound(c *gc.C) {
+func (s *migrationServiceSuite) TestGetApplicationUnitsNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appID := applicationtesting.GenApplicationUUID(c)
@@ -663,7 +663,7 @@ func (s *migrationServiceSuite) TestGetApplicationUnitsNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *migrationServiceSuite) TestGetApplicationUnitsNoUnits(c *gc.C) {
+func (s *migrationServiceSuite) TestGetApplicationUnitsNoUnits(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appID := applicationtesting.GenApplicationUUID(c)
@@ -675,17 +675,17 @@ func (s *migrationServiceSuite) TestGetApplicationUnitsNoUnits(c *gc.C) {
 
 	res, err := s.service.GetApplicationUnits(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res, gc.DeepEquals, units)
+	c.Check(res, tc.DeepEquals, units)
 }
 
-func (s *migrationServiceSuite) TestGetApplicationUnitsInvalidName(c *gc.C) {
+func (s *migrationServiceSuite) TestGetApplicationUnitsInvalidName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.GetApplicationUnits(context.Background(), "!!!!foo")
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
-func (s *migrationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *migrationServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
 	s.service = NewMigrationService(

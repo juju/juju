@@ -5,19 +5,19 @@ package schema
 
 import (
 	"github.com/juju/collections/set"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	_ "github.com/mattn/go-sqlite3"
-	gc "gopkg.in/check.v1"
 )
 
 type controllerSchemaSuite struct {
 	schemaBaseSuite
 }
 
-var _ = gc.Suite(&controllerSchemaSuite{})
+var _ = tc.Suite(&controllerSchemaSuite{})
 
-func (s *controllerSchemaSuite) TestControllerTables(c *gc.C) {
+func (s *controllerSchemaSuite) TestControllerTables(c *tc.C) {
 	c.Logf("Committing schema DDL")
 
 	s.applyDDL(c, ControllerDDL())
@@ -135,14 +135,14 @@ func (s *controllerSchemaSuite) TestControllerTables(c *gc.C) {
 	)
 	got := readEntityNames(c, s.DB(), "table")
 	wanted := expected.Union(internalTableNames)
-	c.Assert(got, jc.SameContents, wanted.SortedValues(), gc.Commentf(
+	c.Assert(got, jc.SameContents, wanted.SortedValues(), tc.Commentf(
 		"additive: %v, deletion: %v",
 		set.NewStrings(got...).Difference(wanted).SortedValues(),
 		wanted.Difference(set.NewStrings(got...)).SortedValues(),
 	))
 }
 
-func (s *controllerSchemaSuite) TestControllerViews(c *gc.C) {
+func (s *controllerSchemaSuite) TestControllerViews(c *tc.C) {
 	c.Logf("Committing schema DDL")
 
 	s.applyDDL(c, ControllerDDL())
@@ -189,7 +189,7 @@ func (s *controllerSchemaSuite) TestControllerViews(c *gc.C) {
 	c.Assert(readEntityNames(c, s.DB(), "view"), jc.SameContents, expected.SortedValues())
 }
 
-func (s *controllerSchemaSuite) TestControllerTriggers(c *gc.C) {
+func (s *controllerSchemaSuite) TestControllerTriggers(c *tc.C) {
 	s.applyDDL(c, ControllerDDL())
 
 	// Expected changelog triggers. Additional triggers are not included and
@@ -272,14 +272,14 @@ func (s *controllerSchemaSuite) TestControllerTriggers(c *gc.C) {
 	)
 	got := readEntityNames(c, s.DB(), "trigger")
 	wanted := expected.Union(additional)
-	c.Assert(got, jc.SameContents, wanted.SortedValues(), gc.Commentf(
+	c.Assert(got, jc.SameContents, wanted.SortedValues(), tc.Commentf(
 		"additive: %v, deletion: %v",
 		set.NewStrings(got...).Difference(wanted).SortedValues(),
 		wanted.Difference(set.NewStrings(got...)).SortedValues(),
 	))
 }
 
-func (s *controllerSchemaSuite) TestControllerTriggersForImmutableTables(c *gc.C) {
+func (s *controllerSchemaSuite) TestControllerTriggersForImmutableTables(c *tc.C) {
 	s.applyDDL(c, ControllerDDL())
 
 	backendUUID1 := utils.MustNewUUID().String()

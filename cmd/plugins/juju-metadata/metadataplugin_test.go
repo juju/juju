@@ -11,21 +11,21 @@ import (
 	"strings"
 	stdtesting "testing"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/testing"
 )
 
 func Test(t *stdtesting.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type MetadataSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = gc.Suite(&MetadataSuite{})
+var _ = tc.Suite(&MetadataSuite{})
 
 var metadataCommandNames = []string{
 	"add-image",
@@ -51,23 +51,23 @@ func TestRunMain(t *stdtesting.T) {
 	}
 }
 
-func badrun(c *gc.C, exit int, args ...string) string {
+func badrun(c *tc.C, exit int, args ...string) string {
 	localArgs := append([]string{"-test.run", "TestRunMain", "-run-main", "--", "juju-metadata"}, args...)
 
 	ps := exec.Command(os.Args[0], localArgs...)
 	output, err := ps.CombinedOutput()
 	if exit != 0 {
-		c.Assert(err, gc.ErrorMatches, fmt.Sprintf("exit status %d", exit))
+		c.Assert(err, tc.ErrorMatches, fmt.Sprintf("exit status %d", exit))
 	}
 	return string(output)
 }
 
-func getHelpCommandNames(c *gc.C) []string {
+func getHelpCommandNames(c *tc.C) []string {
 	out := badrun(c, 0, "--help")
 	c.Log(out)
 	var names []string
 	commandHelpStrings := strings.SplitAfter(out, "commands:")
-	c.Assert(len(commandHelpStrings), gc.Equals, 2)
+	c.Assert(len(commandHelpStrings), tc.Equals, 2)
 	commandHelp := strings.TrimSpace(commandHelpStrings[1])
 	for _, line := range strings.Split(commandHelp, "\n") {
 		names = append(names, strings.TrimSpace(strings.Split(line, " - ")[0]))
@@ -75,39 +75,39 @@ func getHelpCommandNames(c *gc.C) []string {
 	return names
 }
 
-func (s *MetadataSuite) TestHelpCommands(c *gc.C) {
+func (s *MetadataSuite) TestHelpCommands(c *tc.C) {
 	// Check that we have correctly registered all the sub commands
 	// by checking the help output.
 	c.Assert(getHelpCommandNames(c), jc.SameContents, metadataCommandNames)
 }
 
-func (s *MetadataSuite) assertHelpOutput(c *gc.C, cmd string) {
+func (s *MetadataSuite) assertHelpOutput(c *tc.C, cmd string) {
 	expected := fmt.Sprintf("Usage: juju metadata %s [options]", cmd)
 	out := badrun(c, 0, cmd, "--help")
 	lines := strings.Split(out, "\n")
-	c.Assert(lines[0], gc.Equals, expected)
+	c.Assert(lines[0], tc.Equals, expected)
 }
 
-func (s *MetadataSuite) TestHelpValidateImages(c *gc.C) {
+func (s *MetadataSuite) TestHelpValidateImages(c *tc.C) {
 	s.assertHelpOutput(c, "validate-images")
 }
 
-func (s *MetadataSuite) TestHelpValidateTools(c *gc.C) {
+func (s *MetadataSuite) TestHelpValidateTools(c *tc.C) {
 	s.assertHelpOutput(c, "validate-agent-binaries")
 }
 
-func (s *MetadataSuite) TestHelpGenerateImage(c *gc.C) {
+func (s *MetadataSuite) TestHelpGenerateImage(c *tc.C) {
 	s.assertHelpOutput(c, "generate-image")
 }
 
-func (s *MetadataSuite) TestHelpImages(c *gc.C) {
+func (s *MetadataSuite) TestHelpImages(c *tc.C) {
 	s.assertHelpOutput(c, "images")
 }
 
-func (s *MetadataSuite) TestHelpAddImage(c *gc.C) {
+func (s *MetadataSuite) TestHelpAddImage(c *tc.C) {
 	s.assertHelpOutput(c, "add-image")
 }
 
-func (s *MetadataSuite) TestHelpDeleteImage(c *gc.C) {
+func (s *MetadataSuite) TestHelpDeleteImage(c *tc.C) {
 	s.assertHelpOutput(c, "delete-image")
 }

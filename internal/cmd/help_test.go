@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	"github.com/juju/loggo/v2"
+	"github.com/juju/tc"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -19,19 +19,19 @@ type HelpCommandSuite struct {
 	gitjujutesting.IsolationSuite
 }
 
-var _ = gc.Suite(&HelpCommandSuite{})
+var _ = tc.Suite(&HelpCommandSuite{})
 
-func (s *HelpCommandSuite) SetUpTest(c *gc.C) {
+func (s *HelpCommandSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	loggo.GetLogger("juju.cmd").SetLogLevel(loggo.DEBUG)
 }
 
-func (s *HelpCommandSuite) assertStdOutMatches(c *gc.C, ctx *cmd.Context, match string) {
+func (s *HelpCommandSuite) assertStdOutMatches(c *tc.C, ctx *cmd.Context, match string) {
 	stripped := strings.Replace(cmdtesting.Stdout(ctx), "\n", "", -1)
-	c.Assert(stripped, gc.Matches, match)
+	c.Assert(stripped, tc.Matches, match)
 }
 
-func (s *HelpCommandSuite) TestHelpOutput(c *gc.C) {
+func (s *HelpCommandSuite) TestHelpOutput(c *tc.C) {
 	for i, test := range []struct {
 		message     string
 		args        []string
@@ -88,12 +88,12 @@ func (s *HelpCommandSuite) TestHelpOutput(c *gc.C) {
 			s.assertStdOutMatches(c, ctx, test.helpMatch)
 
 		} else {
-			c.Assert(err, gc.ErrorMatches, test.errMatch)
+			c.Assert(err, tc.ErrorMatches, test.errMatch)
 		}
 	}
 }
 
-func (s *HelpCommandSuite) TestHelpBasics(c *gc.C) {
+func (s *HelpCommandSuite) TestHelpBasics(c *tc.C) {
 	super := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: "jujutest"})
 	super.Register(&TestCommand{Name: "blah"})
 	super.AddHelpTopic("basics", "short", "long help basics")
@@ -103,7 +103,7 @@ func (s *HelpCommandSuite) TestHelpBasics(c *gc.C) {
 	s.assertStdOutMatches(c, ctx, "long help basics")
 }
 
-func (s *HelpCommandSuite) TestMultipleSuperCommands(c *gc.C) {
+func (s *HelpCommandSuite) TestMultipleSuperCommands(c *tc.C) {
 	level1 := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: "level1"})
 	level2 := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: "level2", UsagePrefix: "level1"})
 	level1.Register(level2)
@@ -116,20 +116,20 @@ func (s *HelpCommandSuite) TestMultipleSuperCommands(c *gc.C) {
 	s.assertStdOutMatches(c, ctx, "Usage: level1 level2 level3 blah.*blah-doc.*")
 
 	_, err = cmdtesting.RunCommand(c, level1, "help", "level2", "missing", "blah")
-	c.Assert(err, gc.ErrorMatches, `subcommand "missing" not found`)
+	c.Assert(err, tc.ErrorMatches, `subcommand "missing" not found`)
 }
 
-func (s *HelpCommandSuite) TestAlias(c *gc.C) {
+func (s *HelpCommandSuite) TestAlias(c *tc.C) {
 	super := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: "super"})
 	super.Register(&TestCommand{Name: "blah", Aliases: []string{"alias"}})
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(super, ctx, []string{"help", "alias"})
-	c.Assert(code, gc.Equals, 0)
+	c.Assert(code, tc.Equals, 0)
 	stripped := strings.Replace(bufferString(ctx.Stdout), "\n", "", -1)
-	c.Assert(stripped, gc.Matches, "Usage: super blah .*Aliases: alias")
+	c.Assert(stripped, tc.Matches, "Usage: super blah .*Aliases: alias")
 }
 
-func (s *HelpCommandSuite) TestRegisterSuperAliasHelp(c *gc.C) {
+func (s *HelpCommandSuite) TestRegisterSuperAliasHelp(c *tc.C) {
 	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name: "jujutest",
 	})
@@ -159,13 +159,13 @@ func (s *HelpCommandSuite) TestRegisterSuperAliasHelp(c *gc.C) {
 		c.Logf("args: %v", test.args)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jc, ctx, test.args)
-		c.Check(code, gc.Equals, 0)
+		c.Check(code, tc.Equals, 0)
 		help := "Usage: jujutest bar foo\n\nSummary:\nto be simple\n"
-		c.Check(cmdtesting.Stdout(ctx), gc.Equals, help)
+		c.Check(cmdtesting.Stdout(ctx), tc.Equals, help)
 	}
 }
 
-func (s *HelpCommandSuite) TestNotifyHelp(c *gc.C) {
+func (s *HelpCommandSuite) TestNotifyHelp(c *tc.C) {
 	var called [][]string
 	super := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name: "super",
@@ -178,7 +178,7 @@ func (s *HelpCommandSuite) TestNotifyHelp(c *gc.C) {
 	})
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(super, ctx, []string{"help", "blah"})
-	c.Assert(code, gc.Equals, 0)
+	c.Assert(code, tc.Equals, 0)
 
 	c.Assert(called, jc.DeepEquals, [][]string{{"blah"}})
 }

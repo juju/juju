@@ -8,8 +8,8 @@ import (
 	"errors"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -17,15 +17,15 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(testsuite{})
+var _ = tc.Suite(testsuite{})
 
 type testsuite struct{}
 
-func newHandler(c *gc.C, api UnitAssigner) unitAssignerHandler {
+func newHandler(c *tc.C, api UnitAssigner) unitAssignerHandler {
 	return unitAssignerHandler{api: api, logger: loggertesting.WrapCheckLog(c)}
 }
 
-func (testsuite) TestSetup(c *gc.C) {
+func (testsuite) TestSetup(c *tc.C) {
 	f := &fakeAPI{}
 	ua := newHandler(c, f)
 	_, err := ua.SetUp(context.Background())
@@ -34,40 +34,40 @@ func (testsuite) TestSetup(c *gc.C) {
 
 	f.err = errors.New("boo")
 	_, err = ua.SetUp(context.Background())
-	c.Assert(err, gc.Equals, f.err)
+	c.Assert(err, tc.Equals, f.err)
 }
 
-func (testsuite) TestHandle(c *gc.C) {
+func (testsuite) TestHandle(c *tc.C) {
 	f := &fakeAPI{}
 	ua := newHandler(c, f)
 	ids := []string{"foo/0", "bar/0"}
 	err := ua.Handle(nil, ids)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(f.assignTags, gc.DeepEquals, []names.UnitTag{
+	c.Assert(f.assignTags, tc.DeepEquals, []names.UnitTag{
 		names.NewUnitTag("foo/0"),
 		names.NewUnitTag("bar/0"),
 	})
 
 	f.err = errors.New("boo")
 	err = ua.Handle(nil, ids)
-	c.Assert(err, gc.Equals, f.err)
+	c.Assert(err, tc.Equals, f.err)
 }
 
-func (testsuite) TestHandleError(c *gc.C) {
+func (testsuite) TestHandleError(c *tc.C) {
 	e := errors.New("some error")
 	f := &fakeAPI{assignErrs: []error{e}}
 	ua := newHandler(c, f)
 	ids := []string{"foo/0", "bar/0"}
 	err := ua.Handle(nil, ids)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(f.assignTags, gc.DeepEquals, []names.UnitTag{
+	c.Assert(f.assignTags, tc.DeepEquals, []names.UnitTag{
 		names.NewUnitTag("foo/0"),
 		names.NewUnitTag("bar/0"),
 	})
-	c.Assert(f.status.Entities, gc.NotNil)
+	c.Assert(f.status.Entities, tc.NotNil)
 	entities := f.status.Entities
-	c.Assert(entities, gc.HasLen, 1)
-	c.Assert(entities[0], gc.DeepEquals, params.EntityStatusArgs{
+	c.Assert(entities, tc.HasLen, 1)
+	c.Assert(entities[0], tc.DeepEquals, params.EntityStatusArgs{
 		Tag:    "unit-foo-0",
 		Status: status.Error.String(),
 		Info:   e.Error(),

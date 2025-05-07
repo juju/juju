@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
@@ -53,9 +53,9 @@ type serviceSuite struct {
 	fakeUUID uuid.UUID
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = tc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) SetUpTest(c *gc.C) {
+func (s *serviceSuite) SetUpTest(c *tc.C) {
 	s.modelID = modeltesting.GenModelUUID(c)
 	var err error
 	s.fakeUUID, err = uuid.NewUUID()
@@ -63,7 +63,7 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	s.clock = testclock.NewClock(time.Time{})
 }
 
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.state = NewMockState(ctrl)
 	s.secretBackendState = NewMockSecretBackendState(ctrl)
@@ -87,34 +87,34 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *serviceSuite) TestCreateUserSecretURIs(c *gc.C) {
+func (s *serviceSuite) TestCreateUserSecretURIs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(coremodel.UUID(coretesting.ModelTag.Id()), nil)
 
 	got, err := s.service.CreateSecretURIs(context.Background(), 2)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, gc.HasLen, 2)
-	c.Assert(got[0].SourceUUID, gc.Equals, coretesting.ModelTag.Id())
-	c.Assert(got[1].SourceUUID, gc.Equals, coretesting.ModelTag.Id())
+	c.Assert(got, tc.HasLen, 2)
+	c.Assert(got[0].SourceUUID, tc.Equals, coretesting.ModelTag.Id())
+	c.Assert(got[1].SourceUUID, tc.Equals, coretesting.ModelTag.Id())
 }
 
-func (s *serviceSuite) TestCreateUserSecretInternal(c *gc.C) {
+func (s *serviceSuite) TestCreateUserSecretInternal(c *tc.C) {
 	s.assertCreateUserSecret(c, true, false, false)
 }
-func (s *serviceSuite) TestCreateUserSecretExternalBackend(c *gc.C) {
+func (s *serviceSuite) TestCreateUserSecretExternalBackend(c *tc.C) {
 	s.assertCreateUserSecret(c, false, false, false)
 }
 
-func (s *serviceSuite) TestCreateUserSecretExternalBackendFailedWithCleanup(c *gc.C) {
+func (s *serviceSuite) TestCreateUserSecretExternalBackendFailedWithCleanup(c *tc.C) {
 	s.assertCreateUserSecret(c, false, true, false)
 }
 
-func (s *serviceSuite) TestCreateUserSecretFailedLabelExistsWithCleanup(c *gc.C) {
+func (s *serviceSuite) TestCreateUserSecretFailedLabelExistsWithCleanup(c *tc.C) {
 	s.assertCreateUserSecret(c, false, true, true)
 }
 
-func (s *serviceSuite) assertCreateUserSecret(c *gc.C, isInternal, finalStepFailed, labelExists bool) {
+func (s *serviceSuite) assertCreateUserSecret(c *tc.C, isInternal, finalStepFailed, labelExists bool) {
 	defer s.setupMocks(c).Finish()
 
 	params := domainsecret.UpsertSecretParams{
@@ -242,29 +242,29 @@ func (s *serviceSuite) assertCreateUserSecret(c *gc.C, isInternal, finalStepFail
 		if labelExists {
 			c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
 		} else {
-			c.Assert(err, gc.ErrorMatches, "creating user secret .*some error")
+			c.Assert(err, tc.ErrorMatches, "creating user secret .*some error")
 		}
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
-func (s *serviceSuite) TestUpdateUserSecretInternal(c *gc.C) {
+func (s *serviceSuite) TestUpdateUserSecretInternal(c *tc.C) {
 	s.assertUpdateUserSecret(c, true, false, false)
 }
-func (s *serviceSuite) TestUpdateUserSecretExternalBackend(c *gc.C) {
+func (s *serviceSuite) TestUpdateUserSecretExternalBackend(c *tc.C) {
 	s.assertUpdateUserSecret(c, false, false, false)
 }
 
-func (s *serviceSuite) TestUpdateUserSecretExternalBackendFailedWithCleanup(c *gc.C) {
+func (s *serviceSuite) TestUpdateUserSecretExternalBackendFailedWithCleanup(c *tc.C) {
 	s.assertUpdateUserSecret(c, false, true, false)
 }
 
-func (s *serviceSuite) TestUpdateUserSecretFailedLabelExistsWithCleanup(c *gc.C) {
+func (s *serviceSuite) TestUpdateUserSecretFailedLabelExistsWithCleanup(c *tc.C) {
 	s.assertUpdateUserSecret(c, false, true, true)
 }
 
-func (s *serviceSuite) assertUpdateUserSecret(c *gc.C, isInternal, finalStepFailed, labelExists bool) {
+func (s *serviceSuite) assertUpdateUserSecret(c *tc.C, isInternal, finalStepFailed, labelExists bool) {
 	defer s.setupMocks(c).Finish()
 
 	s.secretBackendState.EXPECT().GetActiveModelSecretBackend(gomock.Any(), s.modelID).Return(
@@ -393,14 +393,14 @@ func (s *serviceSuite) assertUpdateUserSecret(c *gc.C, isInternal, finalStepFail
 		if labelExists {
 			c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
 		} else {
-			c.Assert(err, gc.ErrorMatches, "updating user secret .*some error")
+			c.Assert(err, tc.ErrorMatches, "updating user secret .*some error")
 		}
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
-func (s *serviceSuite) TestCreateCharmUnitSecret(c *gc.C) {
+func (s *serviceSuite) TestCreateCharmUnitSecret(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	exipreTime := s.clock.Now()
@@ -423,7 +423,7 @@ func (s *serviceSuite) TestCreateCharmUnitSecret(c *gc.C) {
 	s.state.EXPECT().CheckUnitSecretLabelExists(domaintesting.IsAtomicContextChecker, unitUUID, "my secret").Return(false, nil)
 	s.state.EXPECT().CreateCharmUnitSecret(domaintesting.IsAtomicContextChecker, 1, uri, unitUUID, gomock.AssignableToTypeOf(p)).
 		DoAndReturn(func(_ domain.AtomicContext, _ int, _ *coresecrets.URI, _ coreunit.UUID, got domainsecret.UpsertSecretParams) error {
-			c.Assert(got.NextRotateTime, gc.NotNil)
+			c.Assert(got.NextRotateTime, tc.NotNil)
 			c.Assert(*got.NextRotateTime, jc.Almost, rotateTime)
 			got.NextRotateTime = nil
 			want := p
@@ -461,7 +461,7 @@ func (s *serviceSuite) TestCreateCharmUnitSecret(c *gc.C) {
 	c.Assert(rollbackCalled, jc.IsFalse)
 }
 
-func (s *serviceSuite) TestCreateCharmUnitSecretFailedLabelAlreadyExists(c *gc.C) {
+func (s *serviceSuite) TestCreateCharmUnitSecretFailedLabelAlreadyExists(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	exipreTime := s.clock.Now()
@@ -502,7 +502,7 @@ func (s *serviceSuite) TestCreateCharmUnitSecretFailedLabelAlreadyExists(c *gc.C
 	c.Assert(rollbackCalled, jc.IsTrue)
 }
 
-func (s *serviceSuite) TestCreateCharmApplicationSecret(c *gc.C) {
+func (s *serviceSuite) TestCreateCharmApplicationSecret(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	exipreTime := s.clock.Now()
@@ -528,7 +528,7 @@ func (s *serviceSuite) TestCreateCharmApplicationSecret(c *gc.C) {
 	s.state.EXPECT().CheckApplicationSecretLabelExists(domaintesting.IsAtomicContextChecker, appUUID, "my secret").Return(false, nil)
 	s.state.EXPECT().CreateCharmApplicationSecret(domaintesting.IsAtomicContextChecker, 1, uri, appUUID, gomock.AssignableToTypeOf(p)).
 		DoAndReturn(func(_ domain.AtomicContext, _ int, _ *coresecrets.URI, _ coreapplication.ID, got domainsecret.UpsertSecretParams) error {
-			c.Assert(got.NextRotateTime, gc.NotNil)
+			c.Assert(got.NextRotateTime, tc.NotNil)
 			c.Assert(*got.NextRotateTime, jc.Almost, rotateTime)
 			got.NextRotateTime = nil
 			want := p
@@ -566,7 +566,7 @@ func (s *serviceSuite) TestCreateCharmApplicationSecret(c *gc.C) {
 	c.Assert(rollbackCalled, jc.IsFalse)
 }
 
-func (s *serviceSuite) TestCreateCharmApplicationSecretFailedLabelExists(c *gc.C) {
+func (s *serviceSuite) TestCreateCharmApplicationSecretFailedLabelExists(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	exipreTime := s.clock.Now()
@@ -609,7 +609,7 @@ func (s *serviceSuite) TestCreateCharmApplicationSecretFailedLabelExists(c *gc.C
 	c.Assert(rollbackCalled, jc.IsTrue)
 }
 
-func (s *serviceSuite) TestUpdateCharmSecretNoRotate(c *gc.C) {
+func (s *serviceSuite) TestUpdateCharmSecretNoRotate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	exipreTime := s.clock.Now()
@@ -657,7 +657,7 @@ func (s *serviceSuite) TestUpdateCharmSecretNoRotate(c *gc.C) {
 	c.Assert(rollbackCalled, jc.IsFalse)
 }
 
-func (s *serviceSuite) TestUpdateCharmSecretForUnitOwned(c *gc.C) {
+func (s *serviceSuite) TestUpdateCharmSecretForUnitOwned(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -693,7 +693,7 @@ func (s *serviceSuite) TestUpdateCharmSecretForUnitOwned(c *gc.C) {
 	s.state.EXPECT().GetSecretOwner(domaintesting.IsAtomicContextChecker, uri).Return(domainsecret.Owner{Kind: domainsecret.UnitOwner, UUID: unitUUID.String()}, nil)
 	s.state.EXPECT().CheckUnitSecretLabelExists(domaintesting.IsAtomicContextChecker, unitUUID, "my secret").Return(false, nil)
 	s.state.EXPECT().UpdateSecret(domaintesting.IsAtomicContextChecker, uri, gomock.Any()).DoAndReturn(func(_ domain.AtomicContext, _ *coresecrets.URI, got domainsecret.UpsertSecretParams) error {
-		c.Assert(got.NextRotateTime, gc.NotNil)
+		c.Assert(got.NextRotateTime, tc.NotNil)
 		c.Assert(*got.NextRotateTime, jc.Almost, *p.NextRotateTime)
 		got.NextRotateTime = nil
 		want := p
@@ -717,7 +717,7 @@ func (s *serviceSuite) TestUpdateCharmSecretForUnitOwned(c *gc.C) {
 	c.Assert(rollbackCalled, jc.IsFalse)
 }
 
-func (s *serviceSuite) TestUpdateCharmSecretForUnitOwnedFailedLabelExists(c *gc.C) {
+func (s *serviceSuite) TestUpdateCharmSecretForUnitOwnedFailedLabelExists(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -758,7 +758,7 @@ func (s *serviceSuite) TestUpdateCharmSecretForUnitOwnedFailedLabelExists(c *gc.
 	c.Assert(rollbackCalled, jc.IsTrue)
 }
 
-func (s *serviceSuite) TestUpdateCharmSecretForAppOwned(c *gc.C) {
+func (s *serviceSuite) TestUpdateCharmSecretForAppOwned(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -794,7 +794,7 @@ func (s *serviceSuite) TestUpdateCharmSecretForAppOwned(c *gc.C) {
 	s.state.EXPECT().GetSecretOwner(domaintesting.IsAtomicContextChecker, uri).Return(domainsecret.Owner{Kind: domainsecret.ApplicationOwner, UUID: appUUID.String()}, nil)
 	s.state.EXPECT().CheckApplicationSecretLabelExists(domaintesting.IsAtomicContextChecker, appUUID, "my secret").Return(false, nil)
 	s.state.EXPECT().UpdateSecret(domaintesting.IsAtomicContextChecker, uri, gomock.Any()).DoAndReturn(func(_ domain.AtomicContext, _ *coresecrets.URI, got domainsecret.UpsertSecretParams) error {
-		c.Assert(got.NextRotateTime, gc.NotNil)
+		c.Assert(got.NextRotateTime, tc.NotNil)
 		c.Assert(*got.NextRotateTime, jc.Almost, *p.NextRotateTime)
 		got.NextRotateTime = nil
 		want := p
@@ -818,7 +818,7 @@ func (s *serviceSuite) TestUpdateCharmSecretForAppOwned(c *gc.C) {
 	c.Assert(rollbackCalled, jc.IsFalse)
 }
 
-func (s *serviceSuite) TestUpdateCharmSecretForAppOwnedFailedLabelExists(c *gc.C) {
+func (s *serviceSuite) TestUpdateCharmSecretForAppOwnedFailedLabelExists(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -859,7 +859,7 @@ func (s *serviceSuite) TestUpdateCharmSecretForAppOwnedFailedLabelExists(c *gc.C
 	c.Assert(rollbackCalled, jc.IsTrue)
 }
 
-func (s *serviceSuite) TestGetSecret(c *gc.C) {
+func (s *serviceSuite) TestGetSecret(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -875,7 +875,7 @@ func (s *serviceSuite) TestGetSecret(c *gc.C) {
 	c.Assert(got, jc.DeepEquals, md)
 }
 
-func (s *serviceSuite) TestGetSecretValue(c *gc.C) {
+func (s *serviceSuite) TestGetSecretValue(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -891,11 +891,11 @@ func (s *serviceSuite) TestGetSecretValue(c *gc.C) {
 		ID:   "mariadb/0",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ref, gc.IsNil)
+	c.Assert(ref, tc.IsNil)
 	c.Assert(data, jc.DeepEquals, coresecrets.NewSecretValue(map[string]string{"foo": "bar"}))
 }
 
-func (s *serviceSuite) TestGetSecretConsumer(c *gc.C) {
+func (s *serviceSuite) TestGetSecretConsumer(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -911,7 +911,7 @@ func (s *serviceSuite) TestGetSecretConsumer(c *gc.C) {
 	c.Assert(got, jc.DeepEquals, consumer)
 }
 
-func (s *serviceSuite) TestGetSecretConsumerAndLatest(c *gc.C) {
+func (s *serviceSuite) TestGetSecretConsumerAndLatest(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -925,10 +925,10 @@ func (s *serviceSuite) TestGetSecretConsumerAndLatest(c *gc.C) {
 	got, latest, err := s.service.GetSecretConsumerAndLatest(context.Background(), uri, "mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, jc.DeepEquals, consumer)
-	c.Assert(latest, gc.Equals, 666)
+	c.Assert(latest, tc.Equals, 666)
 }
 
-func (s *serviceSuite) TestSaveSecretConsumer(c *gc.C) {
+func (s *serviceSuite) TestSaveSecretConsumer(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -943,7 +943,7 @@ func (s *serviceSuite) TestSaveSecretConsumer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestGetUserSecretURIByLabel(c *gc.C) {
+func (s *serviceSuite) TestGetUserSecretURIByLabel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -955,7 +955,7 @@ func (s *serviceSuite) TestGetUserSecretURIByLabel(c *gc.C) {
 	c.Assert(got, jc.DeepEquals, uri)
 }
 
-func (s *serviceSuite) TestListCharmSecretsToDrain(c *gc.C) {
+func (s *serviceSuite) TestListCharmSecretsToDrain(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	md := []*coresecrets.SecretMetadataForDrain{{
@@ -983,7 +983,7 @@ func (s *serviceSuite) TestListCharmSecretsToDrain(c *gc.C) {
 	c.Assert(got, jc.DeepEquals, md)
 }
 
-func (s *serviceSuite) TestListUserSecretsToDrain(c *gc.C) {
+func (s *serviceSuite) TestListUserSecretsToDrain(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	md := []*coresecrets.SecretMetadataForDrain{{
@@ -1004,7 +1004,7 @@ func (s *serviceSuite) TestListUserSecretsToDrain(c *gc.C) {
 	c.Assert(got, jc.DeepEquals, md)
 }
 
-func (s *serviceSuite) TestListCharmSecrets(c *gc.C) {
+func (s *serviceSuite) TestListCharmSecrets(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	owners := []CharmSecretOwner{{
@@ -1026,7 +1026,7 @@ func (s *serviceSuite) TestListCharmSecrets(c *gc.C) {
 	c.Assert(gotRevisions, jc.DeepEquals, revs)
 }
 
-func (s *serviceSuite) TestListCharmJustApplication(c *gc.C) {
+func (s *serviceSuite) TestListCharmJustApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	owners := []CharmSecretOwner{{
@@ -1045,7 +1045,7 @@ func (s *serviceSuite) TestListCharmJustApplication(c *gc.C) {
 	c.Assert(gotRevisions, jc.DeepEquals, revs)
 }
 
-func (s *serviceSuite) TestListCharmJustUnit(c *gc.C) {
+func (s *serviceSuite) TestListCharmJustUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	owners := []CharmSecretOwner{{
@@ -1064,7 +1064,7 @@ func (s *serviceSuite) TestListCharmJustUnit(c *gc.C) {
 	c.Assert(gotRevisions, jc.DeepEquals, revs)
 }
 
-func (s *serviceSuite) TestGetURIByConsumerLabel(c *gc.C) {
+func (s *serviceSuite) TestGetURIByConsumerLabel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1075,7 +1075,7 @@ func (s *serviceSuite) TestGetURIByConsumerLabel(c *gc.C) {
 	c.Assert(got, jc.DeepEquals, uri)
 }
 
-func (s *serviceSuite) TestUpdateRemoteSecretRevision(c *gc.C) {
+func (s *serviceSuite) TestUpdateRemoteSecretRevision(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1085,7 +1085,7 @@ func (s *serviceSuite) TestUpdateRemoteSecretRevision(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestUpdateRemoteConsumedRevision(c *gc.C) {
+func (s *serviceSuite) TestUpdateRemoteConsumedRevision(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1094,10 +1094,10 @@ func (s *serviceSuite) TestUpdateRemoteConsumedRevision(c *gc.C) {
 
 	got, err := s.service.UpdateRemoteConsumedRevision(context.Background(), uri, unittesting.GenNewName(c, "remote-app/0"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, gc.Equals, 666)
+	c.Assert(got, tc.Equals, 666)
 }
 
-func (s *serviceSuite) TestUpdateRemoteConsumedRevisionRefresh(c *gc.C) {
+func (s *serviceSuite) TestUpdateRemoteConsumedRevisionRefresh(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	consumer := &coresecrets.SecretConsumerMetadata{
@@ -1110,10 +1110,10 @@ func (s *serviceSuite) TestUpdateRemoteConsumedRevisionRefresh(c *gc.C) {
 
 	got, err := s.service.UpdateRemoteConsumedRevision(context.Background(), uri, unittesting.GenNewName(c, "remote-app/0"), true)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, gc.Equals, 666)
+	c.Assert(got, tc.Equals, 666)
 }
 
-func (s *serviceSuite) TestUpdateRemoteConsumedRevisionFirstTimeRefresh(c *gc.C) {
+func (s *serviceSuite) TestUpdateRemoteConsumedRevisionFirstTimeRefresh(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	consumer := &coresecrets.SecretConsumerMetadata{
@@ -1126,10 +1126,10 @@ func (s *serviceSuite) TestUpdateRemoteConsumedRevisionFirstTimeRefresh(c *gc.C)
 
 	got, err := s.service.UpdateRemoteConsumedRevision(context.Background(), uri, unittesting.GenNewName(c, "remote-app/0"), true)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, gc.Equals, 666)
+	c.Assert(got, tc.Equals, 666)
 }
 
-func (s *serviceSuite) TestGrantSecretUnitAccess(c *gc.C) {
+func (s *serviceSuite) TestGrantSecretUnitAccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1163,7 +1163,7 @@ func (s *serviceSuite) TestGrantSecretUnitAccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestGrantSecretApplicationAccess(c *gc.C) {
+func (s *serviceSuite) TestGrantSecretApplicationAccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1197,7 +1197,7 @@ func (s *serviceSuite) TestGrantSecretApplicationAccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestGrantSecretModelAccess(c *gc.C) {
+func (s *serviceSuite) TestGrantSecretModelAccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1227,7 +1227,7 @@ func (s *serviceSuite) TestGrantSecretModelAccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestGrantSecretRelationScope(c *gc.C) {
+func (s *serviceSuite) TestGrantSecretRelationScope(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1261,7 +1261,7 @@ func (s *serviceSuite) TestGrantSecretRelationScope(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestRevokeSecretUnitAccess(c *gc.C) {
+func (s *serviceSuite) TestRevokeSecretUnitAccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1287,7 +1287,7 @@ func (s *serviceSuite) TestRevokeSecretUnitAccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestRevokeSecretApplicationAccess(c *gc.C) {
+func (s *serviceSuite) TestRevokeSecretApplicationAccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1313,7 +1313,7 @@ func (s *serviceSuite) TestRevokeSecretApplicationAccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestRevokeSecretModelAccess(c *gc.C) {
+func (s *serviceSuite) TestRevokeSecretModelAccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1339,7 +1339,7 @@ func (s *serviceSuite) TestRevokeSecretModelAccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestGetSecretAccess(c *gc.C) {
+func (s *serviceSuite) TestGetSecretAccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1353,10 +1353,10 @@ func (s *serviceSuite) TestGetSecretAccess(c *gc.C) {
 		ID:   "mysql",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(role, gc.Equals, coresecrets.RoleManage)
+	c.Assert(role, tc.Equals, coresecrets.RoleManage)
 }
 
-func (s *serviceSuite) TestGetSecretAccessNone(c *gc.C) {
+func (s *serviceSuite) TestGetSecretAccessNone(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1370,10 +1370,10 @@ func (s *serviceSuite) TestGetSecretAccessNone(c *gc.C) {
 		ID:   "mysql",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(role, gc.Equals, coresecrets.RoleNone)
+	c.Assert(role, tc.Equals, coresecrets.RoleNone)
 }
 
-func (s *serviceSuite) TestGetSecretAccessApplicationScope(c *gc.C) {
+func (s *serviceSuite) TestGetSecretAccessApplicationScope(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1396,7 +1396,7 @@ func (s *serviceSuite) TestGetSecretAccessApplicationScope(c *gc.C) {
 	})
 }
 
-func (s *serviceSuite) TestGetSecretAccessRelationScope(c *gc.C) {
+func (s *serviceSuite) TestGetSecretAccessRelationScope(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1419,7 +1419,7 @@ func (s *serviceSuite) TestGetSecretAccessRelationScope(c *gc.C) {
 	})
 }
 
-func (s *serviceSuite) TestGetSecretGrants(c *gc.C) {
+func (s *serviceSuite) TestGetSecretGrants(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1446,7 +1446,7 @@ func (s *serviceSuite) TestGetSecretGrants(c *gc.C) {
 	}})
 }
 
-func (s *serviceSuite) TestChangeSecretBackendToExternalBackend(c *gc.C) {
+func (s *serviceSuite) TestChangeSecretBackendToExternalBackend(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1480,7 +1480,7 @@ func (s *serviceSuite) TestChangeSecretBackendToExternalBackend(c *gc.C) {
 	c.Assert(rollbackCalled, jc.IsFalse)
 }
 
-func (s *serviceSuite) TestChangeSecretBackendToInternalBackend(c *gc.C) {
+func (s *serviceSuite) TestChangeSecretBackendToInternalBackend(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1510,7 +1510,7 @@ func (s *serviceSuite) TestChangeSecretBackendToInternalBackend(c *gc.C) {
 	c.Assert(rollbackCalled, jc.IsFalse)
 }
 
-func (s *serviceSuite) TestChangeSecretBackendFailedAndRollback(c *gc.C) {
+func (s *serviceSuite) TestChangeSecretBackendFailedAndRollback(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1536,11 +1536,11 @@ func (s *serviceSuite) TestChangeSecretBackendFailedAndRollback(c *gc.C) {
 		},
 		Data: map[string]string{"foo": "bar"},
 	})
-	c.Assert(err, gc.ErrorMatches, `boom`)
+	c.Assert(err, tc.ErrorMatches, `boom`)
 	c.Assert(rollbackCalled, jc.IsTrue)
 }
 
-func (s *serviceSuite) TestChangeSecretBackendFailedPermissionDenied(c *gc.C) {
+func (s *serviceSuite) TestChangeSecretBackendFailedPermissionDenied(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1563,7 +1563,7 @@ func (s *serviceSuite) TestChangeSecretBackendFailedPermissionDenied(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, secreterrors.PermissionDenied)
 }
 
-func (s *serviceSuite) TestChangeSecretBackendFailedSecretNotFound(c *gc.C) {
+func (s *serviceSuite) TestChangeSecretBackendFailedSecretNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1593,7 +1593,7 @@ func (s *serviceSuite) TestChangeSecretBackendFailedSecretNotFound(c *gc.C) {
 	c.Assert(rollbackCalled, jc.IsTrue)
 }
 
-func (s *serviceSuite) TestSecretsRotated(c *gc.C) {
+func (s *serviceSuite) TestSecretsRotated(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1621,10 +1621,10 @@ func (s *serviceSuite) TestSecretsRotated(c *gc.C) {
 		},
 		OriginalRevision: 666,
 	})
-	c.Assert(err, gc.ErrorMatches, `boom`)
+	c.Assert(err, tc.ErrorMatches, `boom`)
 }
 
-func (s *serviceSuite) TestSecretsRotatedRetry(c *gc.C) {
+func (s *serviceSuite) TestSecretsRotatedRetry(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1652,10 +1652,10 @@ func (s *serviceSuite) TestSecretsRotatedRetry(c *gc.C) {
 		},
 		OriginalRevision: 666,
 	})
-	c.Assert(err, gc.ErrorMatches, `boom`)
+	c.Assert(err, tc.ErrorMatches, `boom`)
 }
 
-func (s *serviceSuite) TestSecretsRotatedForce(c *gc.C) {
+func (s *serviceSuite) TestSecretsRotatedForce(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1684,10 +1684,10 @@ func (s *serviceSuite) TestSecretsRotatedForce(c *gc.C) {
 		},
 		OriginalRevision: 666,
 	})
-	c.Assert(err, gc.ErrorMatches, `boom`)
+	c.Assert(err, tc.ErrorMatches, `boom`)
 }
 
-func (s *serviceSuite) TestSecretsRotatedThenNever(c *gc.C) {
+func (s *serviceSuite) TestSecretsRotatedThenNever(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1712,7 +1712,7 @@ func (s *serviceSuite) TestSecretsRotatedThenNever(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestGetConsumedRevisionFirstTime(c *gc.C) {
+func (s *serviceSuite) TestGetConsumedRevisionFirstTime(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1724,10 +1724,10 @@ func (s *serviceSuite) TestGetConsumedRevisionFirstTime(c *gc.C) {
 
 	rev, err := s.service.GetConsumedRevision(context.Background(), uri, "mariadb/0", false, false, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rev, gc.Equals, 666)
+	c.Assert(rev, tc.Equals, 666)
 }
 
-func (s *serviceSuite) TestGetConsumedRevisionFirstTimeUpdateLabel(c *gc.C) {
+func (s *serviceSuite) TestGetConsumedRevisionFirstTimeUpdateLabel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1740,10 +1740,10 @@ func (s *serviceSuite) TestGetConsumedRevisionFirstTimeUpdateLabel(c *gc.C) {
 
 	rev, err := s.service.GetConsumedRevision(context.Background(), uri, "mariadb/0", false, false, ptr("label"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rev, gc.Equals, 666)
+	c.Assert(rev, tc.Equals, 666)
 }
 
-func (s *serviceSuite) TestGetSecretConsumedRevisionUpdateLabel(c *gc.C) {
+func (s *serviceSuite) TestGetSecretConsumedRevisionUpdateLabel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1759,10 +1759,10 @@ func (s *serviceSuite) TestGetSecretConsumedRevisionUpdateLabel(c *gc.C) {
 
 	rev, err := s.service.GetConsumedRevision(context.Background(), uri, "mariadb/0", false, false, ptr("new-label"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rev, gc.Equals, 666)
+	c.Assert(rev, tc.Equals, 666)
 }
 
-func (s *serviceSuite) TestGetSecretConsumedRevisionRefresh(c *gc.C) {
+func (s *serviceSuite) TestGetSecretConsumedRevisionRefresh(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1778,10 +1778,10 @@ func (s *serviceSuite) TestGetSecretConsumedRevisionRefresh(c *gc.C) {
 
 	rev, err := s.service.GetConsumedRevision(context.Background(), uri, "mariadb/0", true, false, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rev, gc.Equals, 668)
+	c.Assert(rev, tc.Equals, 668)
 }
 
-func (s *serviceSuite) TestGetSecretConsumedRevisionPeek(c *gc.C) {
+func (s *serviceSuite) TestGetSecretConsumedRevisionPeek(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1793,10 +1793,10 @@ func (s *serviceSuite) TestGetSecretConsumedRevisionPeek(c *gc.C) {
 
 	rev, err := s.service.GetConsumedRevision(context.Background(), uri, "mariadb/0", false, true, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rev, gc.Equals, 668)
+	c.Assert(rev, tc.Equals, 668)
 }
 
-func (s *serviceSuite) TestGetSecretConsumedRevisionSecretNotFound(c *gc.C) {
+func (s *serviceSuite) TestGetSecretConsumedRevisionSecretNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1821,10 +1821,10 @@ func (s *serviceSuite) TestGetSecretConsumedRevisionSecretNotFound(c *gc.C) {
 
 	rev, err := s.service.GetConsumedRevision(context.Background(), uri, "mariadb/0", true, false, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rev, gc.Equals, 668)
+	c.Assert(rev, tc.Equals, 668)
 }
 
-func (s *serviceSuite) TestProcessCharmSecretConsumerLabelForUnitOwnedSecretUpdateLabel(c *gc.C) {
+func (s *serviceSuite) TestProcessCharmSecretConsumerLabelForUnitOwnedSecretUpdateLabel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1863,10 +1863,10 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelForUnitOwnedSecretUpda
 	gotURI, gotLabel, err := s.service.ProcessCharmSecretConsumerLabel(context.Background(), "mariadb/0", uri, "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotURI, jc.DeepEquals, uri)
-	c.Assert(gotLabel, gc.IsNil)
+	c.Assert(gotLabel, tc.IsNil)
 }
 
-func (s *serviceSuite) TestProcessCharmSecretConsumerLabelForUnitOwnedSecretLookupURI(c *gc.C) {
+func (s *serviceSuite) TestProcessCharmSecretConsumerLabelForUnitOwnedSecretLookupURI(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1884,10 +1884,10 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelForUnitOwnedSecretLook
 	gotURI, gotLabel, err := s.service.ProcessCharmSecretConsumerLabel(context.Background(), "mariadb/0", nil, "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotURI, jc.DeepEquals, uri)
-	c.Assert(gotLabel, gc.IsNil)
+	c.Assert(gotLabel, tc.IsNil)
 }
 
-func (s *serviceSuite) TestProcessCharmSecretConsumerLabelLookupURI(c *gc.C) {
+func (s *serviceSuite) TestProcessCharmSecretConsumerLabelLookupURI(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1906,10 +1906,10 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelLookupURI(c *gc.C) {
 	gotURI, gotLabel, err := s.service.ProcessCharmSecretConsumerLabel(context.Background(), "mariadb/0", nil, "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotURI, jc.DeepEquals, uri)
-	c.Assert(gotLabel, gc.IsNil)
+	c.Assert(gotLabel, tc.IsNil)
 }
 
-func (s *serviceSuite) TestProcessCharmSecretConsumerLabelUpdateLabel(c *gc.C) {
+func (s *serviceSuite) TestProcessCharmSecretConsumerLabelUpdateLabel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1928,11 +1928,11 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelUpdateLabel(c *gc.C) {
 	gotURI, gotLabel, err := s.service.ProcessCharmSecretConsumerLabel(context.Background(), "mariadb/0", uri, "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotURI, jc.DeepEquals, uri)
-	c.Assert(gotLabel, gc.DeepEquals, ptr("foo"))
+	c.Assert(gotLabel, tc.DeepEquals, ptr("foo"))
 }
 
 func (s *serviceSuite) watcherSetupAssertionsForWatchObsolete(
-	c *gc.C, ctrl *gomock.Controller,
+	c *tc.C, ctrl *gomock.Controller,
 	mockWatcherFactory *MockWatcherFactory, sourceCh chan []string,
 ) {
 	sourceWatcher := NewMockStringsWatcher(ctrl)
@@ -1960,21 +1960,21 @@ func (s *serviceSuite) watcherSetupAssertionsForWatchObsolete(
 			secretFilter eventsource.FilterOption, filters ...eventsource.FilterOption,
 		) (watcher.Watcher[[]string], error) {
 			initialQ(nil, nil)
-			c.Assert(calledCount, gc.Equals, 2)
+			c.Assert(calledCount, tc.Equals, 2)
 
-			c.Assert(secretFilter.Namespace(), gc.Equals, "secret_metadata")
-			c.Assert(secretFilter.ChangeMask(), gc.Equals, changestream.All)
+			c.Assert(secretFilter.Namespace(), tc.Equals, "secret_metadata")
+			c.Assert(secretFilter.ChangeMask(), tc.Equals, changestream.All)
 
-			c.Assert(filters, gc.HasLen, 1)
+			c.Assert(filters, tc.HasLen, 1)
 			obsoleteRevisionFilter := filters[0]
-			c.Assert(obsoleteRevisionFilter.Namespace(), gc.Equals, "secret_revision_obsolete")
-			c.Assert(obsoleteRevisionFilter.ChangeMask(), gc.Equals, changestream.Changed)
+			c.Assert(obsoleteRevisionFilter.Namespace(), tc.Equals, "secret_revision_obsolete")
+			c.Assert(obsoleteRevisionFilter.ChangeMask(), tc.Equals, changestream.Changed)
 			return sourceWatcher, nil
 		},
 	)
 }
 
-func (s *serviceSuite) TestWatchObsoleteSendObsoleteRevisionAndRemovedURIs(c *gc.C) {
+func (s *serviceSuite) TestWatchObsoleteSendObsoleteRevisionAndRemovedURIs(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -2051,7 +2051,7 @@ func (s *serviceSuite) TestWatchObsoleteSendObsoleteRevisionAndRemovedURIs(c *gc
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(w, gc.NotNil)
+	c.Assert(w, tc.NotNil)
 	defer workertest.CleanKill(c, w)
 	wC := watchertest.NewStringsWatcherC(c, w)
 
@@ -2092,7 +2092,7 @@ func (s *serviceSuite) TestWatchObsoleteSendObsoleteRevisionAndRemovedURIs(c *gc
 	wC.AssertNoChange()
 }
 
-func (s *serviceSuite) TestWatchObsoleteSendObsoleteRevisions(c *gc.C) {
+func (s *serviceSuite) TestWatchObsoleteSendObsoleteRevisions(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -2138,7 +2138,7 @@ func (s *serviceSuite) TestWatchObsoleteSendObsoleteRevisions(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(w, gc.NotNil)
+	c.Assert(w, tc.NotNil)
 	defer workertest.CleanKill(c, w)
 	wC := watchertest.NewStringsWatcherC(c, w)
 
@@ -2165,7 +2165,7 @@ func (s *serviceSuite) TestWatchObsoleteSendObsoleteRevisions(c *gc.C) {
 	wC.AssertNoChange()
 }
 
-func (s *serviceSuite) TestWatchObsoleteSendRemovedURIs(c *gc.C) {
+func (s *serviceSuite) TestWatchObsoleteSendRemovedURIs(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -2231,7 +2231,7 @@ func (s *serviceSuite) TestWatchObsoleteSendRemovedURIs(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(w, gc.NotNil)
+	c.Assert(w, tc.NotNil)
 	defer workertest.CleanKill(c, w)
 	wC := watchertest.NewStringsWatcherC(c, w)
 
@@ -2260,7 +2260,7 @@ func (s *serviceSuite) TestWatchObsoleteSendRemovedURIs(c *gc.C) {
 	wC.AssertNoChange()
 }
 
-func (s *serviceSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
+func (s *serviceSuite) TestWatchObsoleteUserSecretsToPrune(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -2289,11 +2289,11 @@ func (s *serviceSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 	s.state.EXPECT().NamespaceForWatchSecretMetadata().Return("secret_metadata")
 
 	mockWatcherFactory.EXPECT().NewNotifyMapperWatcher(gomock.Any(), gomock.Any()).DoAndReturn(func(_ eventsource.Mapper, fo eventsource.FilterOption, _ ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
-		c.Assert(fo.Namespace(), gc.Equals, "secret_revision_obsolete")
+		c.Assert(fo.Namespace(), tc.Equals, "secret_revision_obsolete")
 		return mockObsoleteWatcher, nil
 	})
 	mockWatcherFactory.EXPECT().NewNotifyMapperWatcher(gomock.Any(), gomock.Any()).DoAndReturn(func(_ eventsource.Mapper, fo eventsource.FilterOption, _ ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
-		c.Assert(fo.Namespace(), gc.Equals, "secret_metadata")
+		c.Assert(fo.Namespace(), tc.Equals, "secret_metadata")
 		return mockAutoPruneWatcher, nil
 	})
 
@@ -2301,7 +2301,7 @@ func (s *serviceSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 		s.state, s.secretBackendState, s.ensurer, mockWatcherFactory, loggertesting.WrapCheckLog(c))
 	w, err := svc.WatchObsoleteUserSecretsToPrune(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(w, gc.NotNil)
+	c.Assert(w, tc.NotNil)
 	defer workertest.CleanKill(c, w)
 	wc := watchertest.NewNotifyWatcherC(c, w)
 	// initial change.
@@ -2321,7 +2321,7 @@ func (s *serviceSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 	wc.AssertOneChange()
 }
 
-func (s *serviceSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
+func (s *serviceSuite) TestWatchConsumedSecretsChanges(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -2361,7 +2361,7 @@ func (s *serviceSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 		s.state, s.secretBackendState, s.ensurer, mockWatcherFactory, loggertesting.WrapCheckLog(c))
 	w, err := svc.WatchConsumedSecretsChanges(context.Background(), "mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(w, gc.NotNil)
+	c.Assert(w, tc.NotNil)
 	defer workertest.CleanKill(c, w)
 	wc := watchertest.NewStringsWatcherC(c, w)
 
@@ -2383,7 +2383,7 @@ func (s *serviceSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *serviceSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
+func (s *serviceSuite) TestWatchRemoteConsumedSecretsChanges(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -2405,7 +2405,7 @@ func (s *serviceSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 	mockWatcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any()).Return(mockStringWatcher, nil)
 
 	s.state.EXPECT().GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, appName string, secretIDs ...string) ([]string, error) {
-		c.Assert(appName, gc.Equals, "mysql")
+		c.Assert(appName, tc.Equals, "mysql")
 		c.Assert(secretIDs, jc.SameContents, []string{"revision-uuid-1", "revision-uuid-2"})
 		return []string{uri1.String(), uri2.String()}, nil
 	})
@@ -2414,7 +2414,7 @@ func (s *serviceSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 		s.state, s.secretBackendState, s.ensurer, mockWatcherFactory, loggertesting.WrapCheckLog(c))
 	w, err := svc.WatchRemoteConsumedSecretsChanges(context.Background(), "mysql")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(w, gc.NotNil)
+	c.Assert(w, tc.NotNil)
 	defer workertest.CleanKill(c, w)
 	wC := watchertest.NewStringsWatcherC(c, w)
 
@@ -2431,7 +2431,7 @@ func (s *serviceSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 	wC.AssertNoChange()
 }
 
-func (s *serviceSuite) TestWatchSecretsRotationChanges(c *gc.C) {
+func (s *serviceSuite) TestWatchSecretsRotationChanges(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -2490,7 +2490,7 @@ func (s *serviceSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(w, gc.NotNil)
+	c.Assert(w, tc.NotNil)
 	defer workertest.CleanKill(c, w)
 	wC := watchertest.NewSecretsTriggerWatcherC(c, w)
 
@@ -2515,7 +2515,7 @@ func (s *serviceSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 	wC.AssertNoChange()
 }
 
-func (s *serviceSuite) TestWatchSecretRevisionsExpiryChanges(c *gc.C) {
+func (s *serviceSuite) TestWatchSecretRevisionsExpiryChanges(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -2574,7 +2574,7 @@ func (s *serviceSuite) TestWatchSecretRevisionsExpiryChanges(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(w, gc.NotNil)
+	c.Assert(w, tc.NotNil)
 	defer workertest.CleanKill(c, w)
 	wC := watchertest.NewSecretsTriggerWatcherC(c, w)
 

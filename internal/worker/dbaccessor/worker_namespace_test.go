@@ -9,11 +9,11 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/database"
@@ -23,9 +23,9 @@ type namespaceSuite struct {
 	dbBaseSuite
 }
 
-var _ = gc.Suite(&namespaceSuite{})
+var _ = tc.Suite(&namespaceSuite{})
 
-func (s *namespaceSuite) TestEnsureNamespaceForController(c *gc.C) {
+func (s *namespaceSuite) TestEnsureNamespaceForController(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w := &dbWorker{
@@ -36,7 +36,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *namespaceSuite) TestEnsureNamespaceForModelNotFound(c *gc.C) {
+func (s *namespaceSuite) TestEnsureNamespaceForModelNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -73,7 +73,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelNotFound(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *namespaceSuite) TestEnsureNamespaceForModel(c *gc.C) {
+func (s *namespaceSuite) TestEnsureNamespaceForModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -108,7 +108,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModel(c *gc.C) {
 	workertest.CleanKill(c, dbw)
 }
 
-func (s *namespaceSuite) TestEnsureNamespaceForModelLoopbackPreferred(c *gc.C) {
+func (s *namespaceSuite) TestEnsureNamespaceForModelLoopbackPreferred(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -143,7 +143,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelLoopbackPreferred(c *gc.C) {
 	workertest.CleanKill(c, dbw)
 }
 
-func (s *namespaceSuite) TestEnsureNamespaceForModelWithCache(c *gc.C) {
+func (s *namespaceSuite) TestEnsureNamespaceForModelWithCache(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -195,7 +195,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelWithCache(c *gc.C) {
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(num, gc.Equals, int64(1))
+	c.Assert(num, tc.Equals, int64(1))
 
 	dbw := w.(*dbWorker)
 	ensureStartup(c, dbw)
@@ -207,12 +207,12 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelWithCache(c *gc.C) {
 	err = dbw.ensureNamespace(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(attempt, gc.Equals, 1)
+	c.Assert(attempt, tc.Equals, 1)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *namespaceSuite) TestCloseDatabaseForController(c *gc.C) {
+func (s *namespaceSuite) TestCloseDatabaseForController(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -242,12 +242,12 @@ func (s *namespaceSuite) TestCloseDatabaseForController(c *gc.C) {
 	defer workertest.DirtyKill(c, dbw)
 
 	err := dbw.deleteDatabase(context.Background(), database.ControllerNS)
-	c.Assert(err, gc.ErrorMatches, "cannot delete controller database")
+	c.Assert(err, tc.ErrorMatches, "cannot delete controller database")
 
 	workertest.CleanKill(c, dbw)
 }
 
-func (s *namespaceSuite) TestCloseDatabaseForModel(c *gc.C) {
+func (s *namespaceSuite) TestCloseDatabaseForModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -289,7 +289,7 @@ func (s *namespaceSuite) TestCloseDatabaseForModel(c *gc.C) {
 	workertest.CleanKill(c, dbw)
 }
 
-func (s *namespaceSuite) TestCloseDatabaseForModelLoopbackPreferred(c *gc.C) {
+func (s *namespaceSuite) TestCloseDatabaseForModelLoopbackPreferred(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -331,7 +331,7 @@ func (s *namespaceSuite) TestCloseDatabaseForModelLoopbackPreferred(c *gc.C) {
 	workertest.CleanKill(c, dbw)
 }
 
-func (s *namespaceSuite) TestCloseDatabaseForUnknownModel(c *gc.C) {
+func (s *namespaceSuite) TestCloseDatabaseForUnknownModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -368,7 +368,7 @@ func (s *namespaceSuite) TestCloseDatabaseForUnknownModel(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *namespaceSuite) startWorker(c *gc.C, ctx context.Context) *dbWorker {
+func (s *namespaceSuite) startWorker(c *tc.C, ctx context.Context) *dbWorker {
 	trackedWorkerDB := newWorkerTrackedDB(s.TxnRunner())
 
 	w := s.newWorkerWithDB(c, trackedWorkerDB)
@@ -389,7 +389,7 @@ func (s *namespaceSuite) startWorker(c *gc.C, ctx context.Context) *dbWorker {
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(num, gc.Equals, int64(1))
+	c.Assert(num, tc.Equals, int64(1))
 
 	dbw := w.(*dbWorker)
 	ensureStartup(c, dbw)

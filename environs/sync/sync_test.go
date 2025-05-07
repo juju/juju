@@ -15,11 +15,11 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/tar"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
@@ -45,13 +45,13 @@ type syncSuite struct {
 	localStorage string
 }
 
-var _ = gc.Suite(&syncSuite{})
+var _ = tc.Suite(&syncSuite{})
 
-var _ = gc.Suite(&uploadSuite{})
+var _ = tc.Suite(&uploadSuite{})
 
-var _ = gc.Suite(&badBuildSuite{})
+var _ = tc.Suite(&badBuildSuite{})
 
-func (s *syncSuite) setUpTest(c *gc.C) {
+func (s *syncSuite) setUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 
@@ -81,7 +81,7 @@ func (s *syncSuite) setUpTest(c *gc.C) {
 	s.PatchValue(&envtools.DefaultBaseURL, baseURL)
 }
 
-func (s *syncSuite) tearDownTest(c *gc.C) {
+func (s *syncSuite) tearDownTest(c *tc.C) {
 	s.ToolsFixture.TearDownTest(c)
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
@@ -132,7 +132,7 @@ var tests = []struct {
 	},
 }
 
-func (s *syncSuite) TestSyncing(c *gc.C) {
+func (s *syncSuite) TestSyncing(c *tc.C) {
 	for i, test := range tests {
 		// Perform all tests in a "clean" environment.
 		func() {
@@ -166,7 +166,7 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 			// we want to be able to try to read this signed data
 			// with public key with Juju-known public key for tools.
 			// Bugs #1542127, #1542131
-			c.Assert(ds.PublicSigningKey(), gc.Not(gc.Equals), "")
+			c.Assert(ds.PublicSigningKey(), tc.Not(tc.Equals), "")
 
 			var uploaded []semversion.Binary
 			for v := range uploader.uploaded {
@@ -178,7 +178,7 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 }
 
 // regression test for https://pad.lv/2029881
-func (s *syncSuite) TestSyncToolsOldPatchVersion(c *gc.C) {
+func (s *syncSuite) TestSyncToolsOldPatchVersion(c *tc.C) {
 	s.setUpTest(c)
 	defer s.tearDownTest(c)
 
@@ -228,7 +228,7 @@ type uploadSuite struct {
 	targetStorage storage.Storage
 }
 
-func (s *uploadSuite) SetUpTest(c *gc.C) {
+func (s *uploadSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 
@@ -238,12 +238,12 @@ func (s *uploadSuite) SetUpTest(c *gc.C) {
 	s.targetStorage = stor
 }
 
-func (s *uploadSuite) TearDownTest(c *gc.C) {
+func (s *uploadSuite) TearDownTest(c *tc.C) {
 	s.ToolsFixture.TearDownTest(c)
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
-func bundleTools(c *gc.C) (semversion.Binary, bool, string, error) {
+func bundleTools(c *tc.C) (semversion.Binary, bool, string, error) {
 	f, err := os.CreateTemp("", "juju-tgz")
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = f.Close() }()
@@ -267,17 +267,17 @@ var badGo = `
 exit 1
 `[1:]
 
-func (s *badBuildSuite) SetUpSuite(c *gc.C) {
+func (s *badBuildSuite) SetUpSuite(c *tc.C) {
 	s.CleanupSuite.SetUpSuite(c)
 	s.LoggingSuite.SetUpSuite(c)
 }
 
-func (s *badBuildSuite) TearDownSuite(c *gc.C) {
+func (s *badBuildSuite) TearDownSuite(c *tc.C) {
 	s.LoggingSuite.TearDownSuite(c)
 	s.CleanupSuite.TearDownSuite(c)
 }
 
-func (s *badBuildSuite) SetUpTest(c *gc.C) {
+func (s *badBuildSuite) SetUpTest(c *tc.C) {
 	s.CleanupSuite.SetUpTest(c)
 	s.LoggingSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
@@ -291,30 +291,30 @@ func (s *badBuildSuite) SetUpTest(c *gc.C) {
 
 	// Check mocked go cmd errors
 	out, err := exec.Command("go").CombinedOutput()
-	c.Assert(err, gc.ErrorMatches, "exit status 1")
-	c.Assert(string(out), gc.Equals, "")
+	c.Assert(err, tc.ErrorMatches, "exit status 1")
+	c.Assert(string(out), tc.Equals, "")
 }
 
-func (s *badBuildSuite) TearDownTest(c *gc.C) {
+func (s *badBuildSuite) TearDownTest(c *tc.C) {
 	s.ToolsFixture.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 	s.CleanupSuite.TearDownTest(c)
 }
 
-func (s *badBuildSuite) assertEqualsCurrentVersion(c *gc.C, v semversion.Binary) {
+func (s *badBuildSuite) assertEqualsCurrentVersion(c *tc.C, v semversion.Binary) {
 	current := coretesting.CurrentVersion()
-	c.Assert(v, gc.Equals, current)
+	c.Assert(v, tc.Equals, current)
 }
 
-func (s *badBuildSuite) TestBundleToolsBadBuild(c *gc.C) {
+func (s *badBuildSuite) TestBundleToolsBadBuild(c *tc.C) {
 	s.patchExecCommand(c)
 
 	// Test that original bundleTools Func fails as expected
 	vers, official, sha256Hash, err := bundleTools(c)
-	c.Assert(vers, gc.DeepEquals, semversion.Binary{})
+	c.Assert(vers, tc.DeepEquals, semversion.Binary{})
 	c.Assert(official, jc.IsFalse)
-	c.Assert(sha256Hash, gc.Equals, "")
-	c.Assert(err, gc.ErrorMatches, `(?m)cannot build jujud agent binary from source: .*`)
+	c.Assert(sha256Hash, tc.Equals, "")
+	c.Assert(err, tc.ErrorMatches, `(?m)cannot build jujud agent binary from source: .*`)
 
 	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(jujuversion.Current))
 
@@ -322,12 +322,12 @@ func (s *badBuildSuite) TestBundleToolsBadBuild(c *gc.C) {
 	// mocked out
 	vers, official, sha256Hash, err = bundleTools(c)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vers.Number, gc.Equals, jujuversion.Current)
+	c.Assert(vers.Number, tc.Equals, jujuversion.Current)
 	c.Assert(official, jc.IsFalse)
-	c.Assert(sha256Hash, gc.Equals, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+	c.Assert(sha256Hash, tc.Equals, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
 }
 
-func (s *badBuildSuite) patchExecCommand(c *gc.C) {
+func (s *badBuildSuite) patchExecCommand(c *tc.C) {
 	execCommand := s.GetExecCommand(jujutesting.PatchExecConfig{
 		Stdout: coretesting.CurrentVersion().String(),
 		Args:   make(chan []string, 2),
@@ -335,15 +335,15 @@ func (s *badBuildSuite) patchExecCommand(c *gc.C) {
 	s.PatchValue(&envtools.ExecCommand, execCommand)
 }
 
-func (s *badBuildSuite) TestBuildToolsBadBuild(c *gc.C) {
+func (s *badBuildSuite) TestBuildToolsBadBuild(c *tc.C) {
 	s.patchExecCommand(c)
 
 	// Test that original BuildAgentTarball fails
 	builtTools, err := sync.BuildAgentTarball(true, "released",
 		func(semversion.Number) semversion.Number { return semversion.Zero },
 	)
-	c.Assert(err, gc.ErrorMatches, `(?m)cannot build jujud agent binary from source: .*`)
-	c.Assert(builtTools, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `(?m)cannot build jujud agent binary from source: .*`)
+	c.Assert(builtTools, tc.IsNil)
 
 	// Test that BuildAgentTarball func passes after BundleTools func is
 	// mocked out
@@ -356,17 +356,17 @@ func (s *badBuildSuite) TestBuildToolsBadBuild(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *badBuildSuite) TestBuildToolsNoBinaryAvailable(c *gc.C) {
+func (s *badBuildSuite) TestBuildToolsNoBinaryAvailable(c *tc.C) {
 	s.patchExecCommand(c)
 
 	builtTools, err := sync.BuildAgentTarball(false, "released",
 		func(semversion.Number) semversion.Number { return semversion.Zero },
 	)
-	c.Assert(err, gc.ErrorMatches, `no prepackaged agent available and no jujud binary can be found`)
-	c.Assert(builtTools, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `no prepackaged agent available and no jujud binary can be found`)
+	c.Assert(builtTools, tc.IsNil)
 }
 
-func (s *uploadSuite) TestMockBundleTools(c *gc.C) {
+func (s *uploadSuite) TestMockBundleTools(c *tc.C) {
 	var (
 		writer       io.Writer
 		forceVersion semversion.Number
@@ -395,14 +395,14 @@ func (s *uploadSuite) TestMockBundleTools(c *gc.C) {
 		func(semversion.Number) semversion.Number { return jujuversion.Current },
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(forceVersion, gc.Equals, jujuversion.Current)
-	c.Assert(writer, gc.NotNil)
-	c.Assert(n, gc.Equals, len(p.Bytes()))
+	c.Assert(forceVersion, tc.Equals, jujuversion.Current)
+	c.Assert(writer, tc.NotNil)
+	c.Assert(n, tc.Equals, len(p.Bytes()))
 }
 
-func (s *uploadSuite) TestMockBuildTools(c *gc.C) {
+func (s *uploadSuite) TestMockBuildTools(c *tc.C) {
 	checkTools := func(tools *sync.BuiltAgent, vers semversion.Binary) {
-		c.Check(tools.StorageName, gc.Equals, "name")
+		c.Check(tools.StorageName, tc.Equals, "name")
 		c.Check(tools.Version, jc.DeepEquals, vers)
 
 		f, err := os.Open(filepath.Join(tools.Dir, "name"))
@@ -417,7 +417,7 @@ func (s *uploadSuite) TestMockBuildTools(c *gc.C) {
 
 		content, err := io.ReadAll(tr)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(string(content), gc.Equals, fmt.Sprintf("jujud contents %s", vers))
+		c.Check(string(content), tc.Equals, fmt.Sprintf("jujud contents %s", vers))
 	}
 
 	current := semversion.MustParseBinary("1.9.1-ubuntu-amd64")
@@ -439,15 +439,15 @@ func (s *uploadSuite) TestMockBuildTools(c *gc.C) {
 	checkTools(builtTools, vers)
 }
 
-func (s *uploadSuite) TestStorageToolsUploaderWriteMirrors(c *gc.C) {
+func (s *uploadSuite) TestStorageToolsUploaderWriteMirrors(c *tc.C) {
 	s.testStorageToolsUploaderWriteMirrors(c, envtools.WriteMirrors)
 }
 
-func (s *uploadSuite) TestStorageToolsUploaderDontWriteMirrors(c *gc.C) {
+func (s *uploadSuite) TestStorageToolsUploaderDontWriteMirrors(c *tc.C) {
 	s.testStorageToolsUploaderWriteMirrors(c, envtools.DoNotWriteMirrors)
 }
 
-func (s *uploadSuite) testStorageToolsUploaderWriteMirrors(c *gc.C, writeMirrors envtools.ShouldWriteMirrors) {
+func (s *uploadSuite) testStorageToolsUploaderWriteMirrors(c *tc.C, writeMirrors envtools.ShouldWriteMirrors) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 

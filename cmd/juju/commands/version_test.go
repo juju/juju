@@ -7,9 +7,9 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
@@ -22,9 +22,9 @@ type VersionSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&VersionSuite{})
+var _ = tc.Suite(&VersionSuite{})
 
-func (s *VersionSuite) TestVersion(c *gc.C) {
+func (s *VersionSuite) TestVersion(c *tc.C) {
 	s.PatchValue(&jujuversion.Current, semversion.MustParse("2.99.0"))
 	command := newVersionCommand()
 	cctx, err := cmdtesting.RunCommand(c, command)
@@ -32,11 +32,11 @@ func (s *VersionSuite) TestVersion(c *gc.C) {
 	output := fmt.Sprintf("2.99.0-%s-%s\n",
 		coreos.HostOSTypeName(), arch.HostArch())
 
-	c.Assert(cctx.Stdout.(*bytes.Buffer).String(), gc.Equals, output)
-	c.Assert(cctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
+	c.Assert(cctx.Stdout.(*bytes.Buffer).String(), tc.Equals, output)
+	c.Assert(cctx.Stderr.(*bytes.Buffer).String(), tc.Equals, "")
 }
 
-func (s *VersionSuite) TestVersionDetail(c *gc.C) {
+func (s *VersionSuite) TestVersionDetail(c *tc.C) {
 	s.PatchValue(&jujuversion.Current, semversion.MustParse("2.99.0"))
 	s.PatchValue(&jujuversion.GitCommit, "0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f")
 	s.PatchValue(&jujuversion.GitTreeState, "clean")
@@ -54,11 +54,11 @@ go-build-tags: a,b,c,d
 `[1:]
 	output := fmt.Sprintf(outputTemplate, coreos.HostOSTypeName(), arch.HostArch())
 
-	c.Assert(cctx.Stdout.(*bytes.Buffer).String(), gc.Equals, output)
-	c.Assert(cctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
+	c.Assert(cctx.Stdout.(*bytes.Buffer).String(), tc.Equals, output)
+	c.Assert(cctx.Stderr.(*bytes.Buffer).String(), tc.Equals, "")
 }
 
-func (s *VersionSuite) TestVersionDetailJSON(c *gc.C) {
+func (s *VersionSuite) TestVersionDetailJSON(c *tc.C) {
 	s.PatchValue(&jujuversion.Current, semversion.MustParse("2.99.0"))
 	s.PatchValue(&jujuversion.GitCommit, "0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f")
 	s.PatchValue(&jujuversion.GitTreeState, "clean")
@@ -72,11 +72,11 @@ func (s *VersionSuite) TestVersionDetailJSON(c *gc.C) {
 `[1:]
 	output := fmt.Sprintf(outputTemplate, coreos.HostOSTypeName(), arch.HostArch())
 
-	c.Assert(cctx.Stdout.(*bytes.Buffer).String(), gc.Equals, output)
-	c.Assert(cctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
+	c.Assert(cctx.Stdout.(*bytes.Buffer).String(), tc.Equals, output)
+	c.Assert(cctx.Stderr.(*bytes.Buffer).String(), tc.Equals, "")
 }
 
-func (s *VersionSuite) TestVersionDetailYAML(c *gc.C) {
+func (s *VersionSuite) TestVersionDetailYAML(c *tc.C) {
 	s.PatchValue(&jujuversion.Current, semversion.MustParse("2.99.0"))
 	s.PatchValue(&jujuversion.GitCommit, "0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f")
 	s.PatchValue(&jujuversion.GitTreeState, "clean")
@@ -94,6 +94,6 @@ go-build-tags: a,b,c,d
 `[1:]
 	output := fmt.Sprintf(outputTemplate, coreos.HostOSTypeName(), arch.HostArch())
 
-	c.Assert(cctx.Stdout.(*bytes.Buffer).String(), gc.Equals, output)
-	c.Assert(cctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
+	c.Assert(cctx.Stdout.(*bytes.Buffer).String(), tc.Equals, output)
+	c.Assert(cctx.Stderr.(*bytes.Buffer).String(), tc.Equals, "")
 }

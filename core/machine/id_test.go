@@ -4,9 +4,9 @@
 package machine
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -16,9 +16,9 @@ type MachineSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&MachineSuite{})
+var _ = tc.Suite(&MachineSuite{})
 
-func (*MachineSuite) TestUUIDValidate(c *gc.C) {
+func (*MachineSuite) TestUUIDValidate(c *tc.C) {
 	tests := []struct {
 		uuid string
 		err  error
@@ -41,7 +41,7 @@ func (*MachineSuite) TestUUIDValidate(c *gc.C) {
 		err := UUID(test.uuid).Validate()
 
 		if test.err == nil {
-			c.Check(err, gc.IsNil)
+			c.Check(err, tc.IsNil)
 			continue
 		}
 

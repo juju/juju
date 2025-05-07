@@ -7,10 +7,10 @@ import (
 	stdtesting "testing"
 	time "time"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package asynccharmdownloader -destination package_mocks_test.go github.com/juju/juju/internal/worker/asynccharmdownloader ApplicationService,Downloader
@@ -20,7 +20,7 @@ import (
 func TestAll(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)
 
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type baseSuite struct {
@@ -33,7 +33,7 @@ type baseSuite struct {
 	httpClient         *MockHTTPClient
 }
 
-func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.applicationService = NewMockApplicationService(ctrl)

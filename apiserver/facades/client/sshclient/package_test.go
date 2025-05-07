@@ -6,7 +6,7 @@ package sshclient
 import (
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package sshclient_test -destination leadership_mock_test.go github.com/juju/juju/core/leadership Reader
@@ -15,5 +15,5 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package sshclient_test -destination service_mock_test.go github.com/juju/juju/apiserver/facades/client/sshclient ModelConfigService,ModelProviderService
 
 func Test(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }

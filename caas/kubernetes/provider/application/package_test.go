@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/juju/clock"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/caas"
@@ -18,7 +18,7 @@ import (
 )
 
 func Test(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type (

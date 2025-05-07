@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	actionapi "github.com/juju/juju/api/client/action"
 	"github.com/juju/juju/cmd/juju/action"
@@ -24,14 +24,14 @@ type ListSuite struct {
 	command        *action.ListCommand
 }
 
-var _ = gc.Suite(&ListSuite{})
+var _ = tc.Suite(&ListSuite{})
 
-func (s *ListSuite) SetUpTest(c *gc.C) {
+func (s *ListSuite) SetUpTest(c *tc.C) {
 	s.BaseActionSuite.SetUpTest(c)
 	s.wrappedCommand, s.command = action.NewListCommandForTest(s.store)
 }
 
-func (s *ListSuite) TestInit(c *gc.C) {
+func (s *ListSuite) TestInit(c *tc.C) {
 	tests := []struct {
 		should               string
 		args                 []string
@@ -79,16 +79,16 @@ func (s *ListSuite) TestInit(c *gc.C) {
 			err := cmdtesting.InitCommand(s.wrappedCommand, args)
 			if t.expectedErr == "" {
 				c.Check(err, jc.ErrorIsNil)
-				c.Check(s.command.ApplicationName(), gc.Equals, t.expectedApp)
-				c.Check(s.command.FullSchema(), gc.Equals, t.expectedOutputSchema)
+				c.Check(s.command.ApplicationName(), tc.Equals, t.expectedApp)
+				c.Check(s.command.FullSchema(), tc.Equals, t.expectedOutputSchema)
 			} else {
-				c.Check(err, gc.ErrorMatches, t.expectedErr)
+				c.Check(err, tc.ErrorMatches, t.expectedErr)
 			}
 		}
 	}
 }
 
-func (s *ListSuite) TestRun(c *gc.C) {
+func (s *ListSuite) TestRun(c *tc.C) {
 	simpleOutput := `
 Action          Description
 kill            Kill the database.
@@ -153,16 +153,16 @@ snapshot        Take a snapshot of the database.
 				ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, args...)
 
 				if t.expectedErr != "" || t.withAPIErr != "" {
-					c.Check(err, gc.ErrorMatches, t.expectedErr)
+					c.Check(err, tc.ErrorMatches, t.expectedErr)
 				} else {
-					c.Assert(err, gc.IsNil)
+					c.Assert(err, tc.IsNil)
 					result := ctx.Stdout.(*bytes.Buffer).Bytes()
 					if t.expectFullSchema {
 						checkFullSchema(c, t.withCharmActions, result)
 					} else if t.expectNoResults {
-						c.Check(cmdtesting.Stderr(ctx), gc.Matches, t.expectMessage)
+						c.Check(cmdtesting.Stderr(ctx), tc.Matches, t.expectMessage)
 					} else {
-						c.Check(cmdtesting.Stdout(ctx), gc.Equals, simpleOutput)
+						c.Check(cmdtesting.Stdout(ctx), tc.Equals, simpleOutput)
 					}
 				}
 
@@ -171,7 +171,7 @@ snapshot        Take a snapshot of the database.
 	}
 }
 
-func checkFullSchema(c *gc.C, expected map[string]actionapi.ActionSpec, actual []byte) {
+func checkFullSchema(c *tc.C, expected map[string]actionapi.ActionSpec, actual []byte) {
 	expectedOutput := make(map[string]interface{})
 	for k, v := range expected {
 		expectedOutput[k] = v.Params

@@ -13,10 +13,10 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/internal/testing"
@@ -31,9 +31,9 @@ type trackedDBWorkerSuite struct {
 	states chan string
 }
 
-var _ = gc.Suite(&trackedDBWorkerSuite{})
+var _ = tc.Suite(&trackedDBWorkerSuite{})
 
-func (s *trackedDBWorkerSuite) TestWorkerStartup(c *gc.C) {
+func (s *trackedDBWorkerSuite) TestWorkerStartup(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -47,7 +47,7 @@ func (s *trackedDBWorkerSuite) TestWorkerStartup(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *trackedDBWorkerSuite) TestWorkerReport(c *gc.C) {
+func (s *trackedDBWorkerSuite) TestWorkerReport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -70,7 +70,7 @@ func (s *trackedDBWorkerSuite) TestWorkerReport(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *trackedDBWorkerSuite) TestWorkerDBIsNotNil(c *gc.C) {
+func (s *trackedDBWorkerSuite) TestWorkerDBIsNotNil(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -93,7 +93,7 @@ func (s *trackedDBWorkerSuite) TestWorkerDBIsNotNil(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *trackedDBWorkerSuite) TestWorkerTxnIsNotNil(c *gc.C) {
+func (s *trackedDBWorkerSuite) TestWorkerTxnIsNotNil(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -125,7 +125,7 @@ func (s *trackedDBWorkerSuite) TestWorkerTxnIsNotNil(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *trackedDBWorkerSuite) TestWorkerStdTxnIsNotNil(c *gc.C) {
+func (s *trackedDBWorkerSuite) TestWorkerStdTxnIsNotNil(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -157,7 +157,7 @@ func (s *trackedDBWorkerSuite) TestWorkerStdTxnIsNotNil(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDB(c *gc.C) {
+func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDB(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -184,10 +184,10 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDB(c *gc.C) {
 
 	workertest.CleanKill(c, w)
 
-	c.Assert(count, gc.Equals, uint64(1))
+	c.Assert(count, tc.Equals, uint64(1))
 }
 
-func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *gc.C) {
+func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -228,7 +228,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *gc.C) 
 	workertest.CleanKill(c, w)
 }
 
-func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBRepeatedly(c *gc.C) {
+func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBRepeatedly(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -256,10 +256,10 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBRepeatedly(c *gc.C) {
 
 	workertest.CleanKill(c, w)
 
-	c.Assert(count, gc.Equals, uint64(2))
+	c.Assert(count, tc.Equals, uint64(2))
 }
 
-func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceedsWithDifferentDB(c *gc.C) {
+func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceedsWithDifferentDB(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -319,7 +319,7 @@ loop:
 	workertest.CleanKill(c, w)
 }
 
-func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *gc.C) {
+func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -337,17 +337,17 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *gc.C) {
 
 	s.ensureStartup(c)
 
-	c.Assert(w.Wait(), gc.ErrorMatches, "boom")
+	c.Assert(w.Wait(), tc.ErrorMatches, "boom")
 
 	// Ensure that the DB is dead.
 	err = w.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		c.Fatal("failed if called")
 		return nil
 	})
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *trackedDBWorkerSuite) TestWorkerCancelsTxn(c *gc.C) {
+func (s *trackedDBWorkerSuite) TestWorkerCancelsTxn(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -383,10 +383,10 @@ func (s *trackedDBWorkerSuite) TestWorkerCancelsTxn(c *gc.C) {
 		return nil
 	})
 
-	c.Assert(err, gc.ErrorMatches, "context canceled")
+	c.Assert(err, tc.ErrorMatches, "context canceled")
 }
 
-func (s *trackedDBWorkerSuite) TestWorkerCancelsTxnNoRetry(c *gc.C) {
+func (s *trackedDBWorkerSuite) TestWorkerCancelsTxnNoRetry(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -422,10 +422,10 @@ func (s *trackedDBWorkerSuite) TestWorkerCancelsTxnNoRetry(c *gc.C) {
 		return nil
 	})
 
-	c.Assert(err, gc.ErrorMatches, "context canceled")
+	c.Assert(err, tc.ErrorMatches, "context canceled")
 }
 
-func (s *trackedDBWorkerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *trackedDBWorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.dbBaseSuite.setupMocks(c)
 
 	// Ensure we buffer the channel, this is because we might miss the
@@ -447,25 +447,25 @@ func (s *trackedDBWorkerSuite) newTrackedDBWorker(pingFn func(context.Context, *
 	)
 }
 
-func (s *trackedDBWorkerSuite) ensureStartup(c *gc.C) {
+func (s *trackedDBWorkerSuite) ensureStartup(c *tc.C) {
 	select {
 	case state := <-s.states:
-		c.Assert(state, gc.Equals, stateStarted)
+		c.Assert(state, tc.Equals, stateStarted)
 	case <-time.After(testing.ShortWait * 10):
 		c.Fatalf("timed out waiting for startup")
 	}
 }
 
-func (s *trackedDBWorkerSuite) ensureDBReplaced(c *gc.C) {
+func (s *trackedDBWorkerSuite) ensureDBReplaced(c *tc.C) {
 	select {
 	case state := <-s.states:
-		c.Assert(state, gc.Equals, stateDBReplaced)
+		c.Assert(state, tc.Equals, stateDBReplaced)
 	case <-time.After(testing.ShortWait * 10):
 		c.Fatalf("timed out waiting for startup")
 	}
 }
 
-func readTableNames(c *gc.C, w coredatabase.TxnRunner) []string {
+func readTableNames(c *tc.C, w coredatabase.TxnRunner) []string {
 	// Attempt to use the new db, note there shouldn't be any leases in this
 	// db.
 	var tables []string
@@ -492,11 +492,11 @@ func readTableNames(c *gc.C, w coredatabase.TxnRunner) []string {
 }
 
 type sliceContainsChecker[T comparable] struct {
-	*gc.CheckerInfo
+	*tc.CheckerInfo
 }
 
-var SliceContains gc.Checker = &sliceContainsChecker[string]{
-	&gc.CheckerInfo{Name: "SliceContains", Params: []string{"obtained", "expected"}},
+var SliceContains tc.Checker = &sliceContainsChecker[string]{
+	&tc.CheckerInfo{Name: "SliceContains", Params: []string{"obtained", "expected"}},
 }
 
 func (checker *sliceContainsChecker[T]) Check(params []interface{}, names []string) (result bool, error string) {
@@ -521,11 +521,11 @@ func (checker *sliceContainsChecker[T]) Check(params []interface{}, names []stri
 }
 
 type hasKeysChecker[T comparable] struct {
-	*gc.CheckerInfo
+	*tc.CheckerInfo
 }
 
-var MapHasKeys gc.Checker = &hasKeysChecker[string]{
-	&gc.CheckerInfo{Name: "hasKeysChecker", Params: []string{"obtained", "expected"}},
+var MapHasKeys tc.Checker = &hasKeysChecker[string]{
+	&tc.CheckerInfo{Name: "hasKeysChecker", Params: []string{"obtained", "expected"}},
 }
 
 func (checker *hasKeysChecker[T]) Check(params []interface{}, names []string) (result bool, error string) {

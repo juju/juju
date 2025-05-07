@@ -15,9 +15,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	corebase "github.com/juju/juju/core/base"
 	bundlechanges "github.com/juju/juju/internal/bundle/changes"
@@ -30,9 +30,9 @@ type changesSuite struct {
 	jujutesting.IsolationSuite
 }
 
-var _ = gc.Suite(&changesSuite{})
+var _ = tc.Suite(&changesSuite{})
 
-func (s *changesSuite) SetUpTest(c *gc.C) {
+func (s *changesSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	err := loggo.ConfigureLoggers("bundlechanges=trace")
 	c.Assert(err, jc.ErrorIsNil)
@@ -47,7 +47,7 @@ type record struct {
 	Args     map[string]interface{}
 }
 
-func (s *changesSuite) TestMinimalBundle(c *gc.C) {
+func (s *changesSuite) TestMinimalBundle(c *tc.C) {
 	content := `
         applications:
             django:
@@ -79,7 +79,7 @@ func (s *changesSuite) TestMinimalBundle(c *gc.C) {
 	s.assertParseData(c, content, expected)
 }
 
-func (s *changesSuite) TestMinimalBundleWithRevision(c *gc.C) {
+func (s *changesSuite) TestMinimalBundleWithRevision(c *tc.C) {
 	content := `
         applications:
             django:
@@ -120,7 +120,7 @@ func (s *changesSuite) TestMinimalBundleWithRevision(c *gc.C) {
 	s.assertParseData(c, content, expected)
 }
 
-func (s *changesSuite) TestMinimalBundleWithChannels(c *gc.C) {
+func (s *changesSuite) TestMinimalBundleWithChannels(c *tc.C) {
 	content := `
         applications:
             django:
@@ -157,7 +157,7 @@ func (s *changesSuite) TestMinimalBundleWithChannels(c *gc.C) {
 	s.assertParseData(c, content, expected)
 }
 
-func (s *changesSuite) TestBundleURLAnnotationSet(c *gc.C) {
+func (s *changesSuite) TestBundleURLAnnotationSet(c *tc.C) {
 	content := `
         applications:
             django:
@@ -215,7 +215,7 @@ func (s *changesSuite) TestBundleURLAnnotationSet(c *gc.C) {
 	c.Check(records, jc.DeepEquals, expected)
 }
 
-func (s *changesSuite) TestMinimalBundleWithDevices(c *gc.C) {
+func (s *changesSuite) TestMinimalBundleWithDevices(c *tc.C) {
 	content := `
         applications:
             django:
@@ -249,7 +249,7 @@ func (s *changesSuite) TestMinimalBundleWithDevices(c *gc.C) {
 
 var twentySix = 26
 
-func (s *changesSuite) TestMinimalBundleWithOffer(c *gc.C) {
+func (s *changesSuite) TestMinimalBundleWithOffer(c *tc.C) {
 	content := `
 saas:
   keystone:
@@ -337,7 +337,7 @@ applications:
 	s.assertParseData(c, content, expected)
 }
 
-func (s *changesSuite) TestMinimalBundleWithOfferAndPreDeployedApp(c *gc.C) {
+func (s *changesSuite) TestMinimalBundleWithOfferAndPreDeployedApp(c *tc.C) {
 	content := `
 applications:
   apache2:
@@ -392,7 +392,7 @@ applications:
 	s.assertParseDataWithModel(c, deployedModel, content, expected)
 }
 
-func (s *changesSuite) TestMinimalBundleWithOfferACL(c *gc.C) {
+func (s *changesSuite) TestMinimalBundleWithOfferACL(c *tc.C) {
 	content := `
 applications:
   apache2:
@@ -473,7 +473,7 @@ applications:
 	s.assertParseData(c, content, expected)
 }
 
-func (s *changesSuite) TestMinimalBundleWithOfferUpdate(c *gc.C) {
+func (s *changesSuite) TestMinimalBundleWithOfferUpdate(c *tc.C) {
 	content := `
 applications:
   apache2:
@@ -528,7 +528,7 @@ applications:
 	s.assertParseDataWithModel(c, curModel, content, expected)
 }
 
-func (s *changesSuite) TestMinimalBundleWithOfferAndRelations(c *gc.C) {
+func (s *changesSuite) TestMinimalBundleWithOfferAndRelations(c *tc.C) {
 	content := `
 saas:
   mysql:
@@ -595,7 +595,7 @@ relations:
 	s.assertParseData(c, content, expected)
 }
 
-func (s *changesSuite) TestSimpleBundle(c *gc.C) {
+func (s *changesSuite) TestSimpleBundle(c *tc.C) {
 	content := `
         applications:
             mediawiki:
@@ -747,7 +747,7 @@ func (s *changesSuite) TestSimpleBundle(c *gc.C) {
 	s.assertParseData(c, content, expected)
 }
 
-func (s *changesSuite) TestSimpleBundleWithDevices(c *gc.C) {
+func (s *changesSuite) TestSimpleBundleWithDevices(c *tc.C) {
 	content := `
         applications:
             mediawiki:
@@ -899,7 +899,7 @@ func (s *changesSuite) TestSimpleBundleWithDevices(c *gc.C) {
 	s.assertParseDataWithDevices(c, content, expected)
 }
 
-func (s *changesSuite) TestKubernetesBundle(c *gc.C) {
+func (s *changesSuite) TestKubernetesBundle(c *tc.C) {
 	content := `
         bundle: kubernetes
         applications:
@@ -1027,7 +1027,7 @@ func (s *changesSuite) TestKubernetesBundle(c *gc.C) {
 	s.assertParseDataWithDevices(c, content, expected)
 }
 
-func (s *changesSuite) TestSameCharmReused(c *gc.C) {
+func (s *changesSuite) TestSameCharmReused(c *tc.C) {
 	content := `
         applications:
             mediawiki:
@@ -1092,7 +1092,7 @@ func (s *changesSuite) TestSameCharmReused(c *gc.C) {
 	s.assertParseData(c, content, expected)
 }
 
-func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *gc.C) {
+func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *tc.C) {
 	content := `
         applications:
             django:
@@ -1302,7 +1302,7 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *gc.C) {
 	s.assertParseData(c, content, expected)
 }
 
-func (s *changesSuite) TestMachinesWithConstraintsAndAnnotations(c *gc.C) {
+func (s *changesSuite) TestMachinesWithConstraintsAndAnnotations(c *tc.C) {
 	content := `
         applications:
             django:
@@ -1407,7 +1407,7 @@ func (s *changesSuite) TestMachinesWithConstraintsAndAnnotations(c *gc.C) {
 	s.assertParseData(c, content, expected)
 }
 
-func (s *changesSuite) TestEndpointWithoutRelationName(c *gc.C) {
+func (s *changesSuite) TestEndpointWithoutRelationName(c *tc.C) {
 	content := `
         applications:
             mediawiki:
@@ -1490,7 +1490,7 @@ func (s *changesSuite) TestEndpointWithoutRelationName(c *gc.C) {
 	s.assertParseData(c, content, expected)
 }
 
-func (s *changesSuite) TestUnitPlacedInApplication(c *gc.C) {
+func (s *changesSuite) TestUnitPlacedInApplication(c *tc.C) {
 	content := `
         applications:
             wordpress:
@@ -1607,7 +1607,7 @@ func (s *changesSuite) TestUnitPlacedInApplication(c *gc.C) {
 	s.assertParseData(c, content, expected)
 }
 
-func (s *changesSuite) TestUnitPlacedInApplicationWithDevices(c *gc.C) {
+func (s *changesSuite) TestUnitPlacedInApplicationWithDevices(c *tc.C) {
 	content := `
         applications:
             wordpress:
@@ -1724,7 +1724,7 @@ func (s *changesSuite) TestUnitPlacedInApplicationWithDevices(c *gc.C) {
 	s.assertParseDataWithDevices(c, content, expected)
 }
 
-func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
+func (s *changesSuite) TestUnitColocationWithOtherUnits(c *tc.C) {
 	content := `
         applications:
             memcached:
@@ -2038,7 +2038,7 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
 	s.assertParseData(c, content, expected)
 }
 
-func (s *changesSuite) TestUnitPlacedToMachines(c *gc.C) {
+func (s *changesSuite) TestUnitPlacedToMachines(c *tc.C) {
 	content := `
         applications:
             django:
@@ -2215,7 +2215,7 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *gc.C) {
 
 var fortytwo = 42
 
-func (s *changesSuite) TestUnitPlacedToNewMachineWithConstraints(c *gc.C) {
+func (s *changesSuite) TestUnitPlacedToNewMachineWithConstraints(c *tc.C) {
 	content := `
         applications:
             django:
@@ -2289,7 +2289,7 @@ func (s *changesSuite) TestUnitPlacedToNewMachineWithConstraints(c *gc.C) {
 	s.assertParseData(c, content, expected)
 }
 
-func (s *changesSuite) TestApplicationWithStorage(c *gc.C) {
+func (s *changesSuite) TestApplicationWithStorage(c *tc.C) {
 	content := `
         applications:
             django:
@@ -2366,7 +2366,7 @@ func (s *changesSuite) TestApplicationWithStorage(c *gc.C) {
 	s.assertParseData(c, content, expected)
 }
 
-func (s *changesSuite) TestApplicationWithDevices(c *gc.C) {
+func (s *changesSuite) TestApplicationWithDevices(c *tc.C) {
 	content := `
         applications:
             django:
@@ -2449,7 +2449,7 @@ func (s *changesSuite) TestApplicationWithDevices(c *gc.C) {
 	s.assertParseDataWithDevices(c, content, expected)
 }
 
-func (s *changesSuite) TestApplicationWithEndpointBindings(c *gc.C) {
+func (s *changesSuite) TestApplicationWithEndpointBindings(c *tc.C) {
 	content := `
         applications:
             django:
@@ -2487,7 +2487,7 @@ func (s *changesSuite) TestApplicationWithEndpointBindings(c *gc.C) {
 	s.assertParseData(c, content, expected)
 }
 
-func (s *changesSuite) TestApplicationWithExposeParams(c *gc.C) {
+func (s *changesSuite) TestApplicationWithExposeParams(c *tc.C) {
 	content := `
 applications:
     django:
@@ -2546,7 +2546,7 @@ applications:
 	s.assertParseData(c, content, expected)
 }
 
-func (s *changesSuite) TestApplicationWithNonDefaultBaseAndPlacements(c *gc.C) {
+func (s *changesSuite) TestApplicationWithNonDefaultBaseAndPlacements(c *tc.C) {
 	content := `
 default-base: ubuntu@22.04
 applications:
@@ -2647,14 +2647,14 @@ machines:
 	s.assertParseData(c, content, expected)
 }
 
-func (s *changesSuite) TestAddMachineParamsMachine(c *gc.C) {
+func (s *changesSuite) TestAddMachineParamsMachine(c *tc.C) {
 	param := bundlechanges.NewAddMachineParamsMachine("42")
-	c.Assert(param.Machine(), gc.Equals, "42")
+	c.Assert(param.Machine(), tc.Equals, "42")
 }
 
-func (s *changesSuite) TestAddMachineParamsContainer(c *gc.C) {
+func (s *changesSuite) TestAddMachineParamsContainer(c *tc.C) {
 	param := bundlechanges.NewAddMachineParamsContainer("42", "42/lxd/0")
-	c.Assert(param.Machine(), gc.Equals, "42/lxd/0")
+	c.Assert(param.Machine(), tc.Equals, "42/lxd/0")
 }
 
 func copyParams(value interface{}) interface{} {
@@ -2671,11 +2671,11 @@ func copyParams(value interface{}) interface{} {
 	return target.Interface()
 }
 
-func (s *changesSuite) assertParseData(c *gc.C, content string, expected []record) {
+func (s *changesSuite) assertParseData(c *tc.C, content string, expected []record) {
 	s.assertParseDataWithModel(c, nil, content, expected)
 }
 
-func (s *changesSuite) assertParseDataWithModel(c *gc.C, model *bundlechanges.Model, content string, expected []record) {
+func (s *changesSuite) assertParseDataWithModel(c *tc.C, model *bundlechanges.Model, content string, expected []record) {
 	// Retrieve and validate the bundle data merging any overlays in the bundle contents.
 	bundleSrc, err := charm.StreamBundleDataSource(strings.NewReader(content), "./")
 	c.Assert(err, jc.ErrorIsNil)
@@ -2723,7 +2723,7 @@ func (s *changesSuite) assertParseDataWithModel(c *gc.C, model *bundlechanges.Mo
 	c.Check(records, jc.DeepEquals, expected)
 }
 
-func (s *changesSuite) assertParseDataWithDevices(c *gc.C, content string, expected []record) {
+func (s *changesSuite) assertParseDataWithDevices(c *tc.C, content string, expected []record) {
 	// Retrieve and validate the bundle data.
 	data, err := charm.ReadBundleData(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
@@ -2760,7 +2760,7 @@ func (s *changesSuite) assertParseDataWithDevices(c *gc.C, content string, expec
 	c.Check(records, jc.DeepEquals, expected)
 }
 
-func (s *changesSuite) assertLocalBundleChanges(c *gc.C, charmDir, bundleContent, base string) {
+func (s *changesSuite) assertLocalBundleChanges(c *tc.C, charmDir, bundleContent, base string) {
 	expected := []record{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
@@ -2790,7 +2790,7 @@ func (s *changesSuite) assertLocalBundleChanges(c *gc.C, charmDir, bundleContent
 	s.assertParseData(c, bundleContent, expected)
 }
 
-func (s *changesSuite) assertLocalBundleChangesWithDevices(c *gc.C, charmDir, bundleContent, base string) {
+func (s *changesSuite) assertLocalBundleChangesWithDevices(c *tc.C, charmDir, bundleContent, base string) {
 	expected := []record{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
@@ -2820,7 +2820,7 @@ func (s *changesSuite) assertLocalBundleChangesWithDevices(c *gc.C, charmDir, bu
 	s.assertParseDataWithDevices(c, bundleContent, expected)
 }
 
-func (s *changesSuite) TestLocalCharmWithExplicitBase(c *gc.C) {
+func (s *changesSuite) TestLocalCharmWithExplicitBase(c *tc.C) {
 	charmDir := c.MkDir()
 	bundleContent := fmt.Sprintf(`
         applications:
@@ -2843,7 +2843,7 @@ series:
 	s.assertLocalBundleChangesWithDevices(c, charmDir, bundleContent, "ubuntu@16.04/stable")
 }
 
-func (s *changesSuite) TestLocalCharmWithSeriesFromCharm(c *gc.C) {
+func (s *changesSuite) TestLocalCharmWithSeriesFromCharm(c *tc.C) {
 	tmpDir := filepath.Join(c.MkDir(), "multiseries")
 	charmPath := filepath.Join(tmpDir, "multiseries.charm")
 	err := os.Mkdir(tmpDir, 0700)
@@ -2881,7 +2881,7 @@ bases:
 	s.assertLocalBundleChangesWithDevices(c, charmPath, bundleContent, "ubuntu@22.04/stable")
 }
 
-func (s *changesSuite) TestLocalCharmWithBaseFromBundle(c *gc.C) {
+func (s *changesSuite) TestLocalCharmWithBaseFromBundle(c *tc.C) {
 	tmpDir := c.MkDir()
 	charmPath := filepath.Join(tmpDir, "django.charm")
 	bundleContent := fmt.Sprintf(`
@@ -2918,7 +2918,7 @@ bases:
 	s.assertLocalBundleChangesWithDevices(c, charmPath, bundleContent, "ubuntu@20.04/stable")
 }
 
-func (s *changesSuite) TestSimpleBundleEmptyModel(c *gc.C) {
+func (s *changesSuite) TestSimpleBundleEmptyModel(c *tc.C) {
 	bundleContent := `
                 applications:
                     django:
@@ -2942,7 +2942,7 @@ func (s *changesSuite) TestSimpleBundleEmptyModel(c *gc.C) {
 	s.checkBundle(c, bundleContent, expectedChanges)
 }
 
-func (s *changesSuite) TestKubernetesBundleEmptyModel(c *gc.C) {
+func (s *changesSuite) TestKubernetesBundleEmptyModel(c *tc.C) {
 	bundleContent := `
                 bundle: kubernetes
                 applications:
@@ -2970,7 +2970,7 @@ func (s *changesSuite) TestKubernetesBundleEmptyModel(c *gc.C) {
 	s.checkBundle(c, bundleContent, expectedChanges)
 }
 
-func (s *changesSuite) TestCharmInUseByAnotherApplication(c *gc.C) {
+func (s *changesSuite) TestCharmInUseByAnotherApplication(c *tc.C) {
 	bundleContent := `
                 applications:
                     django:
@@ -2997,7 +2997,7 @@ func (s *changesSuite) TestCharmInUseByAnotherApplication(c *gc.C) {
 	s.checkBundleExistingModel(c, bundleContent, existingModel, expectedChanges)
 }
 
-func (s *changesSuite) TestExposeOverlayParameters(c *gc.C) {
+func (s *changesSuite) TestExposeOverlayParameters(c *tc.C) {
 	bundleContent := `
 bundle: kubernetes
 applications:
@@ -3049,7 +3049,7 @@ applications:
 	})
 }
 
-func (s *changesSuite) TestExposeOverlayParametersForNonCurrentlyExposedApp(c *gc.C) {
+func (s *changesSuite) TestExposeOverlayParametersForNonCurrentlyExposedApp(c *tc.C) {
 	// Here, we expose a single endpoint for an application that is NOT
 	// currently exposed. The change description should be slightly
 	// different to indicate to the operator that the application is marked
@@ -3091,7 +3091,7 @@ applications:
 	})
 }
 
-func (s *changesSuite) TestExposeOverlayParametersWithOnlyWildcardEntry(c *gc.C) {
+func (s *changesSuite) TestExposeOverlayParametersWithOnlyWildcardEntry(c *tc.C) {
 	bundleContent := `
 bundle: kubernetes
 applications:
@@ -3129,7 +3129,7 @@ applications:
 	})
 }
 
-func (s *changesSuite) TestCharmUpgrade(c *gc.C) {
+func (s *changesSuite) TestCharmUpgrade(c *tc.C) {
 	c.Skip("TODO: Fix bug in charm upgrade with charm-hub")
 	bundleContent := `
                 applications:
@@ -3158,7 +3158,7 @@ func (s *changesSuite) TestCharmUpgrade(c *gc.C) {
 	s.checkBundleExistingModel(c, bundleContent, existingModel, expectedChanges)
 }
 
-func (s *changesSuite) TestCharmUpgradeWithExistingChannel(c *gc.C) {
+func (s *changesSuite) TestCharmUpgradeWithExistingChannel(c *tc.C) {
 	bundleContent := `
                 applications:
                     django:
@@ -3186,7 +3186,7 @@ func (s *changesSuite) TestCharmUpgradeWithExistingChannel(c *gc.C) {
 	s.checkBundleImpl(c, bundleContent, existingModel, expectedChanges, ".*upgrades not supported across channels.*edge.*stable.*", nil, nil)
 }
 
-func (s *changesSuite) TestCharmUpgradeWithCharmhubCharmAndExistingChannel(c *gc.C) {
+func (s *changesSuite) TestCharmUpgradeWithCharmhubCharmAndExistingChannel(c *tc.C) {
 	bundleContent := `
                 applications:
                     django:
@@ -3215,7 +3215,7 @@ func (s *changesSuite) TestCharmUpgradeWithCharmhubCharmAndExistingChannel(c *gc
 	})
 }
 
-func (s *changesSuite) TestAppExistsWithLessUnits(c *gc.C) {
+func (s *changesSuite) TestAppExistsWithLessUnits(c *tc.C) {
 	bundleContent := `
                 applications:
                     django:
@@ -3249,7 +3249,7 @@ func (s *changesSuite) TestAppExistsWithLessUnits(c *gc.C) {
 	})
 }
 
-func (s *changesSuite) TestAppExistsWithDifferentScale(c *gc.C) {
+func (s *changesSuite) TestAppExistsWithDifferentScale(c *tc.C) {
 	// Note: In a non UT environment the deployer code would setup
 	// correctly for bundles changes and set the application series
 	// to kubernetes.  The UT environment does not, set the application
@@ -3283,7 +3283,7 @@ func (s *changesSuite) TestAppExistsWithDifferentScale(c *gc.C) {
 	})
 }
 
-func (s *changesSuite) TestNewMachineNumberHigherUnitHigher(c *gc.C) {
+func (s *changesSuite) TestNewMachineNumberHigherUnitHigher(c *tc.C) {
 	bundleContent := `
                 applications:
                     django:
@@ -3321,7 +3321,7 @@ func (s *changesSuite) TestNewMachineNumberHigherUnitHigher(c *gc.C) {
 	})
 }
 
-func (s *changesSuite) TestAppWithDifferentConstraints(c *gc.C) {
+func (s *changesSuite) TestAppWithDifferentConstraints(c *tc.C) {
 	bundleContent := `
                 applications:
                     django:
@@ -3358,7 +3358,7 @@ func (s *changesSuite) TestAppWithDifferentConstraints(c *gc.C) {
 	})
 }
 
-func (s *changesSuite) TestAppsWithArchConstraints(c *gc.C) {
+func (s *changesSuite) TestAppsWithArchConstraints(c *tc.C) {
 	bundleContent := `
                 applications:
                     django-one:
@@ -3377,7 +3377,7 @@ func (s *changesSuite) TestAppsWithArchConstraints(c *gc.C) {
 	s.checkBundleWithConstraintsParser(c, bundleContent, expectedChanges, constraintParser)
 }
 
-func (s *changesSuite) TestExistingAppsWithArchConstraints(c *gc.C) {
+func (s *changesSuite) TestExistingAppsWithArchConstraints(c *tc.C) {
 	bundleContent := `
                 applications:
                     django-one:
@@ -3422,7 +3422,7 @@ func (s *changesSuite) TestExistingAppsWithArchConstraints(c *gc.C) {
 	})
 }
 
-func (s *changesSuite) TestExistingAppsWithoutArchConstraints(c *gc.C) {
+func (s *changesSuite) TestExistingAppsWithoutArchConstraints(c *tc.C) {
 	bundleContent := `
                 applications:
                     django-one:
@@ -3468,7 +3468,7 @@ func (s *changesSuite) TestExistingAppsWithoutArchConstraints(c *gc.C) {
 	})
 }
 
-func (s *changesSuite) TestAppsWithSeriesAndArchConstraints(c *gc.C) {
+func (s *changesSuite) TestAppsWithSeriesAndArchConstraints(c *tc.C) {
 	bundleContent := `
                 applications:
                     django-one:
@@ -3495,7 +3495,7 @@ func (s *changesSuite) TestAppsWithSeriesAndArchConstraints(c *gc.C) {
 	s.checkBundleWithConstraintsParser(c, bundleContent, expectedChanges, constraintParser)
 }
 
-func (s *changesSuite) TestAppWithArchConstraints(c *gc.C) {
+func (s *changesSuite) TestAppWithArchConstraints(c *tc.C) {
 	bundleContent := `
                 applications:
                     django:
@@ -3509,7 +3509,7 @@ func (s *changesSuite) TestAppWithArchConstraints(c *gc.C) {
 	s.checkBundleWithConstraintsParser(c, bundleContent, expectedChanges, constraintParser)
 }
 
-func (s *changesSuite) TestAppWithArchConstraintsWithError(c *gc.C) {
+func (s *changesSuite) TestAppWithArchConstraintsWithError(c *tc.C) {
 	bundleContent := `
                 applications:
                     django:
@@ -3519,7 +3519,7 @@ func (s *changesSuite) TestAppWithArchConstraintsWithError(c *gc.C) {
 	s.checkBundleWithConstraintsParserError(c, bundleContent, "bad", constraintParserWithError(errors.Errorf("bad")))
 }
 
-func (s *changesSuite) TestAppWithArchConstraintsWithNoParser(c *gc.C) {
+func (s *changesSuite) TestAppWithArchConstraintsWithNoParser(c *tc.C) {
 	bundleContent := `
                 applications:
                     django:
@@ -3533,7 +3533,7 @@ func (s *changesSuite) TestAppWithArchConstraintsWithNoParser(c *gc.C) {
 	s.checkBundleWithConstraintsParser(c, bundleContent, expectedChanges, nil)
 }
 
-func (s *changesSuite) TestAppExistsWithEnoughUnits(c *gc.C) {
+func (s *changesSuite) TestAppExistsWithEnoughUnits(c *tc.C) {
 	bundleContent := `
                 applications:
                     django:
@@ -3562,7 +3562,7 @@ func (s *changesSuite) TestAppExistsWithEnoughUnits(c *gc.C) {
 	})
 }
 
-func (s *changesSuite) TestAppExistsWithChangedOptionsAndAnnotations(c *gc.C) {
+func (s *changesSuite) TestAppExistsWithChangedOptionsAndAnnotations(c *tc.C) {
 	bundleContent := `
                 applications:
                     django:
@@ -3607,7 +3607,7 @@ func (s *changesSuite) TestAppExistsWithChangedOptionsAndAnnotations(c *gc.C) {
 	})
 }
 
-func (s *changesSuite) TestNewMachineAnnotationsAndPlacement(c *gc.C) {
+func (s *changesSuite) TestNewMachineAnnotationsAndPlacement(c *tc.C) {
 	bundleContent := `
                 applications:
                     django:
@@ -3631,7 +3631,7 @@ func (s *changesSuite) TestNewMachineAnnotationsAndPlacement(c *gc.C) {
 	s.checkBundle(c, bundleContent, expectedChanges)
 }
 
-func (s *changesSuite) TestFinalPlacementNotReusedIfSpecifiesMachine(c *gc.C) {
+func (s *changesSuite) TestFinalPlacementNotReusedIfSpecifiesMachine(c *tc.C) {
 	bundleContent := `
                 applications:
                     django:
@@ -3652,7 +3652,7 @@ func (s *changesSuite) TestFinalPlacementNotReusedIfSpecifiesMachine(c *gc.C) {
 	s.checkBundle(c, bundleContent, expectedChanges)
 }
 
-func (s *changesSuite) TestFinalPlacementNotReusedIfSpecifiesUnit(c *gc.C) {
+func (s *changesSuite) TestFinalPlacementNotReusedIfSpecifiesUnit(c *tc.C) {
 	bundleContent := `
                 applications:
                     django:
@@ -3675,7 +3675,7 @@ func (s *changesSuite) TestFinalPlacementNotReusedIfSpecifiesUnit(c *gc.C) {
 	s.checkBundle(c, bundleContent, expectedChanges)
 }
 
-func (s *changesSuite) TestUnitPlaceNextToOtherNewUnitOnExistingMachine(c *gc.C) {
+func (s *changesSuite) TestUnitPlaceNextToOtherNewUnitOnExistingMachine(c *tc.C) {
 	bundleContent := `
                 applications:
                     django:
@@ -3706,7 +3706,7 @@ func (s *changesSuite) TestUnitPlaceNextToOtherNewUnitOnExistingMachine(c *gc.C)
 	s.checkBundleExistingModel(c, bundleContent, existingModel, expectedChanges)
 }
 
-func (s *changesSuite) TestApplicationPlacementNotEnoughUnits(c *gc.C) {
+func (s *changesSuite) TestApplicationPlacementNotEnoughUnits(c *tc.C) {
 	bundleContent := `
                 applications:
                     django:
@@ -3733,7 +3733,7 @@ func (s *changesSuite) TestApplicationPlacementNotEnoughUnits(c *gc.C) {
 	s.checkBundle(c, bundleContent, expectedChanges)
 }
 
-func (s *changesSuite) TestApplicationPlacementSomeExisting(c *gc.C) {
+func (s *changesSuite) TestApplicationPlacementSomeExisting(c *tc.C) {
 	bundleContent := `
                 applications:
                     django:
@@ -3784,7 +3784,7 @@ func (s *changesSuite) TestApplicationPlacementSomeExisting(c *gc.C) {
 	})
 }
 
-func (s *changesSuite) TestApplicationPlacementSomeColocated(c *gc.C) {
+func (s *changesSuite) TestApplicationPlacementSomeColocated(c *tc.C) {
 	bundleContent := `
                 applications:
                     django:
@@ -3845,7 +3845,7 @@ func (s *changesSuite) TestApplicationPlacementSomeColocated(c *gc.C) {
 	})
 }
 
-func (s *changesSuite) TestWeirdUnitDeployedNoExistingModel(c *gc.C) {
+func (s *changesSuite) TestWeirdUnitDeployedNoExistingModel(c *tc.C) {
 	bundleContent := `
                 applications:
                     mysql:
@@ -3883,7 +3883,7 @@ func (s *changesSuite) TestWeirdUnitDeployedNoExistingModel(c *gc.C) {
 	s.checkBundle(c, bundleContent, expectedChanges)
 }
 
-func (s *changesSuite) TestUnitDeployedDefinedMachine(c *gc.C) {
+func (s *changesSuite) TestUnitDeployedDefinedMachine(c *tc.C) {
 	bundleContent := `
                 applications:
                     mysql:
@@ -3933,7 +3933,7 @@ func (s *changesSuite) TestUnitDeployedDefinedMachine(c *gc.C) {
 	})
 }
 
-func (s *changesSuite) TestLXDContainerSequence(c *gc.C) {
+func (s *changesSuite) TestLXDContainerSequence(c *tc.C) {
 	bundleContent := `
                 applications:
                     mysql:
@@ -3978,7 +3978,7 @@ func (s *changesSuite) TestLXDContainerSequence(c *gc.C) {
 	})
 }
 
-func (s *changesSuite) TestMachineMapToExistingMachineSomeDeployed(c *gc.C) {
+func (s *changesSuite) TestMachineMapToExistingMachineSomeDeployed(c *tc.C) {
 	bundleContent := `
                 applications:
                     mysql:
@@ -4044,7 +4044,7 @@ func (s *changesSuite) TestMachineMapToExistingMachineSomeDeployed(c *gc.C) {
 	})
 }
 
-func (s *changesSuite) TestSettingAnnotationsForExistingMachine(c *gc.C) {
+func (s *changesSuite) TestSettingAnnotationsForExistingMachine(c *tc.C) {
 	bundleContent := `
                 applications:
                     mysql:
@@ -4086,7 +4086,7 @@ func (s *changesSuite) TestSettingAnnotationsForExistingMachine(c *gc.C) {
 	})
 }
 
-func (s *changesSuite) TestSiblingContainers(c *gc.C) {
+func (s *changesSuite) TestSiblingContainers(c *tc.C) {
 	bundleContent := `
                 applications:
                     mysql:
@@ -4119,7 +4119,7 @@ func (s *changesSuite) TestSiblingContainers(c *gc.C) {
 	s.checkBundle(c, bundleContent, expectedChanges)
 }
 
-func (s *changesSuite) TestSiblingContainersSomeDeployed(c *gc.C) {
+func (s *changesSuite) TestSiblingContainersSomeDeployed(c *tc.C) {
 	bundleContent := `
                 applications:
                     mysql:
@@ -4188,7 +4188,7 @@ func (s *changesSuite) TestSiblingContainersSomeDeployed(c *gc.C) {
 	})
 }
 
-func (s *changesSuite) TestColocationIntoAContainerUsingUnitPlacement(c *gc.C) {
+func (s *changesSuite) TestColocationIntoAContainerUsingUnitPlacement(c *tc.C) {
 	bundleContent := `
                 applications:
                     mysql:
@@ -4218,7 +4218,7 @@ func (s *changesSuite) TestColocationIntoAContainerUsingUnitPlacement(c *gc.C) {
 	s.checkBundle(c, bundleContent, expectedChanges)
 }
 
-func (s *changesSuite) TestColocationIntoAContainerUsingAppPlacement(c *gc.C) {
+func (s *changesSuite) TestColocationIntoAContainerUsingAppPlacement(c *tc.C) {
 	bundleContent := `
                 applications:
                     mysql:
@@ -4248,7 +4248,7 @@ func (s *changesSuite) TestColocationIntoAContainerUsingAppPlacement(c *gc.C) {
 	s.checkBundle(c, bundleContent, expectedChanges)
 }
 
-func (s *changesSuite) TestPlacementDescriptionsForUnitPlacement(c *gc.C) {
+func (s *changesSuite) TestPlacementDescriptionsForUnitPlacement(c *tc.C) {
 	bundleContent := `
                 applications:
                     mysql:
@@ -4277,7 +4277,7 @@ func (s *changesSuite) TestPlacementDescriptionsForUnitPlacement(c *gc.C) {
 	s.checkBundle(c, bundleContent, expectedChanges)
 }
 
-func (s *changesSuite) TestMostAppOptions(c *gc.C) {
+func (s *changesSuite) TestMostAppOptions(c *tc.C) {
 	bundleContent := `
                 applications:
                     mediawiki:
@@ -4317,7 +4317,7 @@ func (s *changesSuite) TestMostAppOptions(c *gc.C) {
 	s.checkBundle(c, bundleContent, expectedChanges)
 }
 
-func (s *changesSuite) TestUnitOrdering(c *gc.C) {
+func (s *changesSuite) TestUnitOrdering(c *tc.C) {
 	bundleContent := `
                 applications:
                     memcached:
@@ -4373,7 +4373,7 @@ func (s *changesSuite) TestUnitOrdering(c *gc.C) {
 	s.checkBundle(c, bundleContent, expectedChanges)
 }
 
-func (s *changesSuite) TestMachineAddedInNumericalOrder(c *gc.C) {
+func (s *changesSuite) TestMachineAddedInNumericalOrder(c *tc.C) {
 	bundleContent := `
                applications:
                    ubu:
@@ -4428,7 +4428,7 @@ func (s *changesSuite) TestMachineAddedInNumericalOrder(c *gc.C) {
 	s.checkBundle(c, bundleContent, expectedChanges)
 }
 
-func (s *changesSuite) TestAddUnitToExistingApp(c *gc.C) {
+func (s *changesSuite) TestAddUnitToExistingApp(c *tc.C) {
 	bundleContent := `
                 applications:
                     mediawiki:
@@ -4496,7 +4496,7 @@ func (s *changesSuite) TestAddUnitToExistingApp(c *gc.C) {
 	})
 }
 
-func (s *changesSuite) TestPlacementCycle(c *gc.C) {
+func (s *changesSuite) TestPlacementCycle(c *tc.C) {
 	bundleContent := `
                 applications:
                     mysql:
@@ -4513,7 +4513,7 @@ func (s *changesSuite) TestPlacementCycle(c *gc.C) {
 	s.checkBundleError(c, bundleContent, "cycle in placement directives for: keystone, mysql")
 }
 
-func (s *changesSuite) TestPlacementCycleSameApp(c *gc.C) {
+func (s *changesSuite) TestPlacementCycleSameApp(c *tc.C) {
 	bundleContent := `
                 applications:
                     problem:
@@ -4524,7 +4524,7 @@ func (s *changesSuite) TestPlacementCycleSameApp(c *gc.C) {
 	s.checkBundleError(c, bundleContent, `cycle in placement directives for: problem`)
 }
 
-func (s *changesSuite) TestAddMissingUnitToNotLastPlacement(c *gc.C) {
+func (s *changesSuite) TestAddMissingUnitToNotLastPlacement(c *tc.C) {
 	bundleContent := `
                 applications:
                     foo:
@@ -4565,7 +4565,7 @@ func (s *changesSuite) TestAddMissingUnitToNotLastPlacement(c *gc.C) {
 	})
 }
 
-func (s *changesSuite) TestAddMissingUnitToNotLastPlacementExisting(c *gc.C) {
+func (s *changesSuite) TestAddMissingUnitToNotLastPlacementExisting(c *tc.C) {
 	bundleContent := `
                 applications:
                     foo:
@@ -4611,7 +4611,7 @@ func (s *changesSuite) TestAddMissingUnitToNotLastPlacementExisting(c *gc.C) {
 	})
 }
 
-func (s *changesSuite) TestFromJujuMassiveUnitColocation(c *gc.C) {
+func (s *changesSuite) TestFromJujuMassiveUnitColocation(c *tc.C) {
 	bundleContent := `
         applications:
             memcached:
@@ -4705,7 +4705,7 @@ func (s *changesSuite) TestFromJujuMassiveUnitColocation(c *gc.C) {
 	})
 }
 
-func (s *changesSuite) TestInconsistentMappingError(c *gc.C) {
+func (s *changesSuite) TestInconsistentMappingError(c *tc.C) {
 	// https://bugs.launchpad.net/juju/+bug/1773357 This bug occurs
 	// when the model machine map is pre-set incorrectly, and the
 	// applications all have enough units, but the mapping omits some
@@ -4760,7 +4760,7 @@ func (s *changesSuite) TestInconsistentMappingError(c *gc.C) {
 	})
 }
 
-func (s *changesSuite) TestConsistentMapping(c *gc.C) {
+func (s *changesSuite) TestConsistentMapping(c *tc.C) {
 	bundleContent := `
         applications:
             memcached:
@@ -4812,7 +4812,7 @@ func (s *changesSuite) TestConsistentMapping(c *gc.C) {
 	})
 }
 
-func (s *changesSuite) TestContainerHosts(c *gc.C) {
+func (s *changesSuite) TestContainerHosts(c *tc.C) {
 	// If we have a bundle that needs to create a container, we don't
 	// treat the machine hosting the container as not having
 	// dependants.
@@ -4863,7 +4863,7 @@ func (s *changesSuite) TestContainerHosts(c *gc.C) {
 	})
 }
 
-func (s *changesSuite) TestSingleTarget(c *gc.C) {
+func (s *changesSuite) TestSingleTarget(c *tc.C) {
 	bundleContent := `
         applications:
             memcached:
@@ -4909,7 +4909,7 @@ func (s *changesSuite) TestSingleTarget(c *gc.C) {
 	})
 }
 
-func (s *changesSuite) TestMultipleApplications(c *gc.C) {
+func (s *changesSuite) TestMultipleApplications(c *tc.C) {
 	bundleContent := `
         applications:
             memcached:
@@ -4974,7 +4974,7 @@ func (s *changesSuite) TestMultipleApplications(c *gc.C) {
 	})
 }
 
-func (s *changesSuite) TestNoApplications(c *gc.C) {
+func (s *changesSuite) TestNoApplications(c *tc.C) {
 	bundleContent := `
         applications:
             memcached:
@@ -5043,7 +5043,7 @@ func (s *changesSuite) TestNoApplications(c *gc.C) {
 	})
 }
 
-func (s *changesSuite) TestNoPossibleTargets(c *gc.C) {
+func (s *changesSuite) TestNoPossibleTargets(c *tc.C) {
 	bundleContent := `
         applications:
             memcached:
@@ -5088,7 +5088,7 @@ func (s *changesSuite) TestNoPossibleTargets(c *gc.C) {
 	})
 }
 
-func (s *changesSuite) TestRedeploymentOfBundleWithLocalCharms(c *gc.C) {
+func (s *changesSuite) TestRedeploymentOfBundleWithLocalCharms(c *tc.C) {
 	bundleContent := `
         applications:
           haproxy:
@@ -5111,31 +5111,31 @@ func (s *changesSuite) TestRedeploymentOfBundleWithLocalCharms(c *gc.C) {
 	s.checkBundleExistingModel(c, bundleContent, existingModel, nil)
 }
 
-func (s *changesSuite) checkBundle(c *gc.C, bundleContent string, expectedChanges []string) {
+func (s *changesSuite) checkBundle(c *tc.C, bundleContent string, expectedChanges []string) {
 	s.checkBundleImpl(c, bundleContent, nil, expectedChanges, "", nil, nil)
 }
 
-func (s *changesSuite) checkBundleExistingModel(c *gc.C, bundleContent string, existingModel *bundlechanges.Model, expectedChanges []string) {
+func (s *changesSuite) checkBundleExistingModel(c *tc.C, bundleContent string, existingModel *bundlechanges.Model, expectedChanges []string) {
 	s.checkBundleImpl(c, bundleContent, existingModel, expectedChanges, "", nil, nil)
 }
 
-func (s *changesSuite) checkBundleError(c *gc.C, bundleContent string, errMatch string) {
+func (s *changesSuite) checkBundleError(c *tc.C, bundleContent string, errMatch string) {
 	s.checkBundleImpl(c, bundleContent, nil, nil, errMatch, nil, nil)
 }
 
-func (s *changesSuite) checkBundleWithConstraintsParser(c *gc.C, bundleContent string, expectedChanges []string, parserFn bundlechanges.ConstraintGetter) {
+func (s *changesSuite) checkBundleWithConstraintsParser(c *tc.C, bundleContent string, expectedChanges []string, parserFn bundlechanges.ConstraintGetter) {
 	s.checkBundleImpl(c, bundleContent, nil, expectedChanges, "", parserFn, nil)
 }
 
-func (s *changesSuite) checkBundleWithConstraintsParserError(c *gc.C, bundleContent, errMatch string, parserFn bundlechanges.ConstraintGetter) {
+func (s *changesSuite) checkBundleWithConstraintsParserError(c *tc.C, bundleContent, errMatch string, parserFn bundlechanges.ConstraintGetter) {
 	s.checkBundleImpl(c, bundleContent, nil, nil, errMatch, parserFn, nil)
 }
 
-func (s *changesSuite) checkBundleExistingModelWithRevisionParser(c *gc.C, bundleContent string, existingModel *bundlechanges.Model, expectedChanges []string, charmResolverFn bundlechanges.CharmResolver) {
+func (s *changesSuite) checkBundleExistingModelWithRevisionParser(c *tc.C, bundleContent string, existingModel *bundlechanges.Model, expectedChanges []string, charmResolverFn bundlechanges.CharmResolver) {
 	s.checkBundleImpl(c, bundleContent, existingModel, expectedChanges, "", nil, charmResolverFn)
 }
 
-func (s *changesSuite) checkBundleImpl(c *gc.C,
+func (s *changesSuite) checkBundleImpl(c *tc.C,
 	bundleContent string,
 	existingModel *bundlechanges.Model,
 	expectedChanges []string,
@@ -5160,7 +5160,7 @@ func (s *changesSuite) checkBundleImpl(c *gc.C,
 		CharmResolver:    charmResolverFn,
 	})
 	if errMatch != "" {
-		c.Assert(err, gc.ErrorMatches, errMatch)
+		c.Assert(err, tc.ErrorMatches, errMatch)
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
 		var obtained []string

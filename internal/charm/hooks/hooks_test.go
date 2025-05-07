@@ -4,15 +4,15 @@
 package hooks
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
-var _ = gc.Suite(&HooksSuite{})
+var _ = tc.Suite(&HooksSuite{})
 
 type HooksSuite struct{}
 
-func (s *HooksSuite) TestIsRelation(c *gc.C) {
+func (s *HooksSuite) TestIsRelation(c *tc.C) {
 	for _, h := range relationHooks {
 		c.Assert(h.IsRelation(), jc.IsTrue)
 	}
@@ -21,7 +21,7 @@ func (s *HooksSuite) TestIsRelation(c *gc.C) {
 	}
 }
 
-func (s *HooksSuite) TestIsStorage(c *gc.C) {
+func (s *HooksSuite) TestIsStorage(c *tc.C) {
 	for _, h := range storageHooks {
 		c.Assert(h.IsStorage(), jc.IsTrue)
 	}
@@ -30,7 +30,7 @@ func (s *HooksSuite) TestIsStorage(c *gc.C) {
 	}
 }
 
-func (s *HooksSuite) TestIsWorkload(c *gc.C) {
+func (s *HooksSuite) TestIsWorkload(c *tc.C) {
 	for _, h := range workloadHooks {
 		c.Assert(h.IsWorkload(), jc.IsTrue)
 	}
@@ -39,7 +39,7 @@ func (s *HooksSuite) TestIsWorkload(c *gc.C) {
 	}
 }
 
-func (s *HooksSuite) TestIsSecret(c *gc.C) {
+func (s *HooksSuite) TestIsSecret(c *tc.C) {
 	for _, h := range secretHooks {
 		c.Assert(h.IsSecret(), jc.IsTrue)
 	}

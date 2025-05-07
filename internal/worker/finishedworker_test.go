@@ -4,19 +4,19 @@
 package worker_test
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
-	gc "gopkg.in/check.v1"
 
 	jworker "github.com/juju/juju/internal/worker"
 )
 
 type FinishedSuite struct{}
 
-var _ = gc.Suite(&FinishedSuite{})
+var _ = tc.Suite(&FinishedSuite{})
 
-func (s *FinishedSuite) TestFinishedWorker(c *gc.C) {
+func (s *FinishedSuite) TestFinishedWorker(c *tc.C) {
 	// Pretty dumb test if interface is implemented
 	// and Wait() returns nil.
 	var fw worker.Worker = jworker.FinishedWorker{}
-	c.Assert(fw.Wait(), gc.IsNil)
+	c.Assert(fw.Wait(), tc.IsNil)
 }

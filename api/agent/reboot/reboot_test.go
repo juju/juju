@@ -11,8 +11,8 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/reboot"
 	"github.com/juju/juju/api/base/testing"
@@ -21,23 +21,23 @@ import (
 )
 
 func TestAll(t *stdtesting.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type machineRebootSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&machineRebootSuite{})
+var _ = tc.Suite(&machineRebootSuite{})
 
-func (s *machineRebootSuite) TestWatchForRebootEvent(c *gc.C) {
+func (s *machineRebootSuite) TestWatchForRebootEvent(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "Reboot")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchForRebootEvent")
-		c.Check(arg, gc.IsNil)
-		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResult{})
+		c.Check(objType, tc.Equals, "Reboot")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "WatchForRebootEvent")
+		c.Check(arg, tc.IsNil)
+		c.Assert(result, tc.FitsTypeOf, &params.NotifyWatchResult{})
 		*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{
 			Error: &params.Error{Message: "FAIL"},
 		}
@@ -47,19 +47,19 @@ func (s *machineRebootSuite) TestWatchForRebootEvent(c *gc.C) {
 	tag := names.NewMachineTag("666")
 	client := reboot.NewClient(apiCaller, tag)
 	_, err := client.WatchForRebootEvent(context.Background())
-	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
-func (s *machineRebootSuite) TestRequestReboot(c *gc.C) {
+func (s *machineRebootSuite) TestRequestReboot(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "Reboot")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "RequestReboot")
+		c.Check(objType, tc.Equals, "Reboot")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "RequestReboot")
 		c.Check(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "machine-666"}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{}}}
 		return nil
@@ -71,16 +71,16 @@ func (s *machineRebootSuite) TestRequestReboot(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *machineRebootSuite) TestRequestRebootError(c *gc.C) {
+func (s *machineRebootSuite) TestRequestRebootError(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "Reboot")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "RequestReboot")
+		c.Check(objType, tc.Equals, "Reboot")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "RequestReboot")
 		c.Check(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "machine-666"}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{Error: &params.Error{Message: "FAIL"}}}}
 		return nil
@@ -89,19 +89,19 @@ func (s *machineRebootSuite) TestRequestRebootError(c *gc.C) {
 	tag := names.NewMachineTag("666")
 	client := reboot.NewClient(apiCaller, tag)
 	err := client.RequestReboot(context.Background())
-	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
-func (s *machineRebootSuite) TestGetRebootAction(c *gc.C) {
+func (s *machineRebootSuite) TestGetRebootAction(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "Reboot")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "GetRebootAction")
+		c.Check(objType, tc.Equals, "Reboot")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "GetRebootAction")
 		c.Check(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "machine-666"}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.RebootActionResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.RebootActionResults{})
 		*(result.(*params.RebootActionResults)) = params.RebootActionResults{
 			Results: []params.RebootActionResult{{
 				Result: params.ShouldDoNothing,
@@ -113,19 +113,19 @@ func (s *machineRebootSuite) TestGetRebootAction(c *gc.C) {
 	client := reboot.NewClient(apiCaller, tag)
 	rAction, err := client.GetRebootAction(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rAction, gc.Equals, params.ShouldDoNothing)
+	c.Assert(rAction, tc.Equals, params.ShouldDoNothing)
 }
 
-func (s *machineRebootSuite) TestGetRebootActionMultipleResults(c *gc.C) {
+func (s *machineRebootSuite) TestGetRebootActionMultipleResults(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "Reboot")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "GetRebootAction")
+		c.Check(objType, tc.Equals, "Reboot")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "GetRebootAction")
 		c.Check(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "machine-666"}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.RebootActionResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.RebootActionResults{})
 		*(result.(*params.RebootActionResults)) = params.RebootActionResults{
 			Results: []params.RebootActionResult{{
 				Result: params.ShouldDoNothing,
@@ -138,19 +138,19 @@ func (s *machineRebootSuite) TestGetRebootActionMultipleResults(c *gc.C) {
 	tag := names.NewMachineTag("666")
 	client := reboot.NewClient(apiCaller, tag)
 	_, err := client.GetRebootAction(context.Background())
-	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 2")
 }
 
-func (s *machineRebootSuite) TestClearReboot(c *gc.C) {
+func (s *machineRebootSuite) TestClearReboot(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "Reboot")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "ClearReboot")
+		c.Check(objType, tc.Equals, "Reboot")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "ClearReboot")
 		c.Check(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "machine-666"}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{}}}
 		return nil
@@ -162,16 +162,16 @@ func (s *machineRebootSuite) TestClearReboot(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *machineRebootSuite) TestClearRebootError(c *gc.C) {
+func (s *machineRebootSuite) TestClearRebootError(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "Reboot")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "ClearReboot")
+		c.Check(objType, tc.Equals, "Reboot")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "ClearReboot")
 		c.Check(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "machine-666"}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{Error: &params.Error{Message: "FAIL"}}}}
 		return nil
@@ -180,5 +180,5 @@ func (s *machineRebootSuite) TestClearRebootError(c *gc.C) {
 	tag := names.NewMachineTag("666")
 	client := reboot.NewClient(apiCaller, tag)
 	err := client.ClearReboot(context.Background())
-	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(err, tc.ErrorMatches, "FAIL")
 }

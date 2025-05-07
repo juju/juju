@@ -27,9 +27,9 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	proxyutils "github.com/juju/proxy"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -52,7 +52,7 @@ type apiclientSuite struct {
 	jtesting.BaseSuite
 }
 
-var _ = gc.Suite(&apiclientSuite{})
+var _ = tc.Suite(&apiclientSuite{})
 
 type testRootAPI struct {
 	serverAddrs [][]params.HostPort
@@ -84,7 +84,7 @@ func (s *apiclientSuite) APIInfo() *api.Info {
 		}
 		return &testRootAPI{}, err
 	})
-	s.AddCleanup(func(_ *gc.C) { srv.Close() })
+	s.AddCleanup(func(_ *tc.C) { srv.Close() })
 	info := &api.Info{
 		Addrs:          srv.Addrs,
 		CACert:         jtesting.CACert,
@@ -94,7 +94,7 @@ func (s *apiclientSuite) APIInfo() *api.Info {
 	return info
 }
 
-func (s *apiclientSuite) TestDialAPIToModel(c *gc.C) {
+func (s *apiclientSuite) TestDialAPIToModel(c *tc.C) {
 	info := s.APIInfo()
 	conn, location, err := api.DialAPI(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -102,7 +102,7 @@ func (s *apiclientSuite) TestDialAPIToModel(c *gc.C) {
 	assertConnAddrForModel(c, location, info.Addrs[0], info.ModelTag.Id())
 }
 
-func (s *apiclientSuite) TestDialAPIToRoot(c *gc.C) {
+func (s *apiclientSuite) TestDialAPIToRoot(c *tc.C) {
 	info := s.APIInfo()
 	info.ModelTag = names.NewModelTag("")
 	conn, location, err := api.DialAPI(info, api.DialOpts{})
@@ -111,7 +111,7 @@ func (s *apiclientSuite) TestDialAPIToRoot(c *gc.C) {
 	assertConnAddrForRoot(c, location, info.Addrs[0])
 }
 
-func (s *apiclientSuite) TestDialAPIMultiple(c *gc.C) {
+func (s *apiclientSuite) TestDialAPIMultiple(c *tc.C) {
 	// Create a socket that proxies to the API server.
 	info := s.APIInfo()
 	serverAddr := info.Addrs[0]
@@ -136,7 +136,7 @@ func (s *apiclientSuite) TestDialAPIMultiple(c *gc.C) {
 	assertConnAddrForModel(c, location, serverAddr, info.ModelTag.Id())
 }
 
-func (s *apiclientSuite) TestDialAPIWithProxy(c *gc.C) {
+func (s *apiclientSuite) TestDialAPIWithProxy(c *tc.C) {
 	info := s.APIInfo()
 	opts := api.DialOpts{IPAddrResolver: apitesting.IPAddrResolverMap{
 		"testing.invalid": {"0.1.1.1"},
@@ -172,10 +172,10 @@ func (s *apiclientSuite) TestDialAPIWithProxy(c *gc.C) {
 	// Check that we can use the proxy to connect.
 	info.Addrs = []string{fakeAddr}
 	_, _, err = api.DialAPI(info, opts)
-	c.Assert(err, gc.ErrorMatches, "unable to connect to API: I'm a teapot")
+	c.Assert(err, tc.ErrorMatches, "unable to connect to API: I'm a teapot")
 }
 
-func (s *apiclientSuite) TestDialAPIMultipleError(c *gc.C) {
+func (s *apiclientSuite) TestDialAPIMultipleError(c *tc.C) {
 	var addrs []string
 
 	// count holds the number of times we've accepted a connection.
@@ -199,11 +199,11 @@ func (s *apiclientSuite) TestDialAPIMultipleError(c *gc.C) {
 	info := s.APIInfo()
 	info.Addrs = addrs
 	_, _, err := api.DialAPI(info, api.DialOpts{})
-	c.Assert(err, gc.ErrorMatches, `unable to connect to API: .*`)
-	c.Assert(atomic.LoadInt32(&count), gc.Equals, int32(3))
+	c.Assert(err, tc.ErrorMatches, `unable to connect to API: .*`)
+	c.Assert(atomic.LoadInt32(&count), tc.Equals, int32(3))
 }
 
-func (s *apiclientSuite) TestVerifyCA(c *gc.C) {
+func (s *apiclientSuite) TestVerifyCA(c *tc.C) {
 	decodedCACert, _ := pem.Decode([]byte(jtesting.CACert))
 	serverCertWithoutCA, _ := tls.X509KeyPair([]byte(jtesting.ServerCert), []byte(jtesting.ServerKey))
 	serverCertWithSelfSignedCA, _ := tls.X509KeyPair([]byte(jtesting.ServerCert), []byte(jtesting.ServerKey))
@@ -292,41 +292,41 @@ func (s *apiclientSuite) TestVerifyCA(c *gc.C) {
 		_, _, err = api.DialAPI(info, api.DialOpts{
 			VerifyCA: spec.verifyCA,
 		})
-		c.Assert(err, gc.ErrorMatches, spec.errRegex)
-		c.Assert(atomic.LoadInt32(&connCount), gc.Equals, spec.expConnCount)
+		c.Assert(err, tc.ErrorMatches, spec.errRegex)
+		c.Assert(atomic.LoadInt32(&connCount), tc.Equals, spec.expConnCount)
 	}
 }
 
-func (s *apiclientSuite) TestOpen(c *gc.C) {
+func (s *apiclientSuite) TestOpen(c *tc.C) {
 	info := s.APIInfo()
 
 	conn, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 
-	c.Assert(conn.Addr().String(), gc.Equals, "wss://"+info.Addrs[0])
+	c.Assert(conn.Addr().String(), tc.Equals, "wss://"+info.Addrs[0])
 	modelTag, ok := conn.ModelTag()
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(modelTag, gc.Equals, info.ModelTag)
+	c.Assert(modelTag, tc.Equals, info.ModelTag)
 
 	remoteVersion, versionSet := conn.ServerVersion()
 	c.Assert(versionSet, jc.IsTrue)
-	c.Assert(remoteVersion, gc.Equals, jujuversion.Current)
+	c.Assert(remoteVersion, tc.Equals, jujuversion.Current)
 
-	c.Assert(api.CookieURL(conn).String(), gc.Equals, "https://deadbeef-1bad-500d-9000-4b1d0d06f00d/")
+	c.Assert(api.CookieURL(conn).String(), tc.Equals, "https://deadbeef-1bad-500d-9000-4b1d0d06f00d/")
 }
 
-func (s *apiclientSuite) TestOpenCookieURLUsesSNIHost(c *gc.C) {
+func (s *apiclientSuite) TestOpenCookieURLUsesSNIHost(c *tc.C) {
 	info := s.APIInfo()
 	info.SNIHostName = "somehost"
 	st, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
-	c.Assert(api.CookieURL(st).String(), gc.Equals, "https://somehost/")
+	c.Assert(api.CookieURL(st).String(), tc.Equals, "https://somehost/")
 }
 
-func (s *apiclientSuite) TestOpenCookieURLDefaultsToAddress(c *gc.C) {
+func (s *apiclientSuite) TestOpenCookieURLDefaultsToAddress(c *tc.C) {
 	info := s.APIInfo()
 	info.ControllerUUID = ""
 
@@ -334,10 +334,10 @@ func (s *apiclientSuite) TestOpenCookieURLDefaultsToAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
-	c.Assert(api.CookieURL(st).String(), gc.Matches, "https://127.0.0.1:.*/")
+	c.Assert(api.CookieURL(st).String(), tc.Matches, "https://127.0.0.1:.*/")
 }
 
-func (s *apiclientSuite) TestOpenHonorsModelTag(c *gc.C) {
+func (s *apiclientSuite) TestOpenHonorsModelTag(c *tc.C) {
 	info := s.APIInfo()
 
 	// TODO(jam): 2014-06-05 http://pad.lv/1326802
@@ -349,11 +349,11 @@ func (s *apiclientSuite) TestOpenHonorsModelTag(c *gc.C) {
 	// We start by ensuring we have an invalid tag, and Open should fail.
 	info.ModelTag = names.NewModelTag("0b501e7e-cafe-f00d-ba1d-b1a570c0e199")
 	_, err := api.Open(context.Background(), info, api.DialOpts{})
-	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+	c.Assert(errors.Cause(err), tc.DeepEquals, &rpc.RequestError{
 		Message: `unknown model: "0b501e7e-cafe-f00d-ba1d-b1a570c0e199"`,
 		Code:    "model not found",
 	})
-	c.Check(params.ErrCode(err), gc.Equals, params.CodeModelNotFound)
+	c.Check(params.ErrCode(err), tc.Equals, params.CodeModelNotFound)
 
 	// Now set it to the right tag, and we should succeed.
 	info.ModelTag = jtesting.ModelTag
@@ -362,7 +362,7 @@ func (s *apiclientSuite) TestOpenHonorsModelTag(c *gc.C) {
 	st.Close()
 }
 
-func (s *apiclientSuite) TestDialWebsocketStopsOtherDialAttempts(c *gc.C) {
+func (s *apiclientSuite) TestDialWebsocketStopsOtherDialAttempts(c *tc.C) {
 	// Try to open the API with two addresses.
 	// Wait for connection attempts to both.
 	// Let one succeed.
@@ -411,7 +411,7 @@ func (s *apiclientSuite) TestDialWebsocketStopsOtherDialAttempts(c *gc.C) {
 				"place2.example": {"0.2.2.2"},
 			},
 		})
-		c.Check(api.UnderlyingConn(conn), gc.Equals, conn0)
+		c.Check(api.UnderlyingConn(conn), tc.Equals, conn0)
 		c.Check(err, jc.ErrorIsNil)
 	}()
 
@@ -438,7 +438,7 @@ func (s *apiclientSuite) TestDialWebsocketStopsOtherDialAttempts(c *gc.C) {
 		other = place1
 	}
 
-	c.Assert(info0.location, gc.Equals, this)
+	c.Assert(info0.location, tc.Equals, this)
 
 	var info1 dialInfo
 	// Wait for the next dial to be made. Note that we wait for two
@@ -452,7 +452,7 @@ func (s *apiclientSuite) TestDialWebsocketStopsOtherDialAttempts(c *gc.C) {
 	case <-time.After(jtesting.LongWait):
 		c.Fatalf("timed out waiting for dial")
 	}
-	c.Assert(info1.location, gc.Equals, other)
+	c.Assert(info1.location, tc.Equals, other)
 
 	// Allow the first dial to succeed.
 	info0.replyc <- dialResponse{
@@ -551,7 +551,7 @@ var openWithSNIHostnameTests = []struct {
 	},
 }}
 
-func (s *apiclientSuite) TestOpenWithSNIHostname(c *gc.C) {
+func (s *apiclientSuite) TestOpenWithSNIHostname(c *tc.C) {
 	for i, test := range openWithSNIHostnameTests {
 		c.Logf("test %d: %v", i, test.about)
 		s.testOpenDialError(c, dialTest{
@@ -559,10 +559,10 @@ func (s *apiclientSuite) TestOpenWithSNIHostname(c *gc.C) {
 			expectOpenError: `unable to connect to API: nope`,
 			expectDials: []dialAttempt{{
 				check: func(info dialInfo) {
-					c.Check(info.location, gc.Equals, test.expectDial.location)
-					c.Assert(info.tlsConfig, gc.NotNil)
-					c.Check(info.tlsConfig.RootCAs != nil, gc.Equals, test.expectDial.hasRootCAs)
-					c.Check(info.tlsConfig.ServerName, gc.Equals, test.expectDial.serverName)
+					c.Check(info.location, tc.Equals, test.expectDial.location)
+					c.Assert(info.tlsConfig, tc.NotNil)
+					c.Check(info.tlsConfig.RootCAs != nil, tc.Equals, test.expectDial.hasRootCAs)
+					c.Check(info.tlsConfig.ServerName, tc.Equals, test.expectDial.serverName)
 				},
 				returnError: errors.New("nope"),
 			}},
@@ -571,7 +571,7 @@ func (s *apiclientSuite) TestOpenWithSNIHostname(c *gc.C) {
 	}
 }
 
-func (s *apiclientSuite) TestFallbackToSNIHostnameOnCertErrorAndNonNumericHostname(c *gc.C) {
+func (s *apiclientSuite) TestFallbackToSNIHostnameOnCertErrorAndNonNumericHostname(c *tc.C) {
 	s.testOpenDialError(c, dialTest{
 		apiInfo: &api.Info{
 			Addrs:       []string{"x.com:1234"},
@@ -584,9 +584,9 @@ func (s *apiclientSuite) TestFallbackToSNIHostnameOnCertErrorAndNonNumericHostna
 		expectDials: []dialAttempt{{
 			// The first dial attempt should use the private CA cert.
 			check: func(info dialInfo) {
-				c.Assert(info.tlsConfig, gc.NotNil)
-				c.Check(info.tlsConfig.RootCAs.Subjects(), gc.HasLen, 1)
-				c.Check(info.tlsConfig.ServerName, gc.Equals, "juju-apiserver")
+				c.Assert(info.tlsConfig, tc.NotNil)
+				c.Check(info.tlsConfig.RootCAs.Subjects(), tc.HasLen, 1)
+				c.Check(info.tlsConfig.ServerName, tc.Equals, "juju-apiserver")
 			},
 			returnError: x509.CertificateInvalidError{
 				Reason: x509.CANotAuthorizedForThisName,
@@ -595,9 +595,9 @@ func (s *apiclientSuite) TestFallbackToSNIHostnameOnCertErrorAndNonNumericHostna
 			// The second dial attempt should fall back to using the
 			// SNI hostname.
 			check: func(info dialInfo) {
-				c.Assert(info.tlsConfig, gc.NotNil)
-				c.Check(info.tlsConfig.RootCAs, gc.IsNil)
-				c.Check(info.tlsConfig.ServerName, gc.Equals, "foo.com")
+				c.Assert(info.tlsConfig, tc.NotNil)
+				c.Check(info.tlsConfig.RootCAs, tc.IsNil)
+				c.Check(info.tlsConfig.ServerName, tc.Equals, "foo.com")
 			},
 			// Note: we return another certificate error so that
 			// the Open logic returns immediately rather than waiting
@@ -607,7 +607,7 @@ func (s *apiclientSuite) TestFallbackToSNIHostnameOnCertErrorAndNonNumericHostna
 	})
 }
 
-func (s *apiclientSuite) TestFailImmediatelyOnCertErrorAndNumericHostname(c *gc.C) {
+func (s *apiclientSuite) TestFailImmediatelyOnCertErrorAndNumericHostname(c *tc.C) {
 	s.testOpenDialError(c, dialTest{
 		apiInfo: &api.Info{
 			Addrs:  []string{"0.1.2.3:1234"},
@@ -619,9 +619,9 @@ func (s *apiclientSuite) TestFailImmediatelyOnCertErrorAndNumericHostname(c *gc.
 		expectDials: []dialAttempt{{
 			// The first dial attempt should use the private CA cert.
 			check: func(info dialInfo) {
-				c.Assert(info.tlsConfig, gc.NotNil)
-				c.Check(info.tlsConfig.RootCAs.Subjects(), gc.HasLen, 1)
-				c.Check(info.tlsConfig.ServerName, gc.Equals, "juju-apiserver")
+				c.Assert(info.tlsConfig, tc.NotNil)
+				c.Check(info.tlsConfig.RootCAs.Subjects(), tc.HasLen, 1)
+				c.Check(info.tlsConfig.ServerName, tc.Equals, "juju-apiserver")
 			},
 			returnError: x509.CertificateInvalidError{
 				Reason: x509.CANotAuthorizedForThisName,
@@ -654,7 +654,7 @@ type dialInfo struct {
 	errc      chan<- error
 }
 
-func (s *apiclientSuite) testOpenDialError(c *gc.C, t dialTest) {
+func (s *apiclientSuite) testOpenDialError(c *tc.C, t dialTest) {
 	dialed := make(chan dialInfo)
 	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
 		reply := make(chan error)
@@ -673,8 +673,8 @@ func (s *apiclientSuite) testOpenDialError(c *gc.C, t dialTest) {
 			IPAddrResolver: seqResolver(t.apiInfo.Addrs...),
 			Clock:          &fakeClock{},
 		})
-		c.Check(conn, gc.Equals, nil)
-		c.Check(err, gc.ErrorMatches, t.expectOpenError)
+		c.Check(conn, tc.Equals, nil)
+		c.Check(err, tc.ErrorMatches, t.expectOpenError)
 	}()
 	for i := 0; t.allowMoreDials || i < len(t.expectDials); i++ {
 		c.Logf("attempt %d", i)
@@ -706,7 +706,7 @@ func (s *apiclientSuite) testOpenDialError(c *gc.C, t dialTest) {
 	}
 }
 
-func (s *apiclientSuite) TestOpenWithNoCACert(c *gc.C) {
+func (s *apiclientSuite) TestOpenWithNoCACert(c *tc.C) {
 	// This is hard to test as we have no way of affecting the system roots,
 	// so instead we check that the error that we get implies that
 	// we're using the system roots.
@@ -739,7 +739,7 @@ func (s *apiclientSuite) TestOpenWithNoCACert(c *gc.C) {
 	c.Assert(endDialTime.Sub(dialTime), jc.DurationLessThan, retryDelay)
 }
 
-func (s *apiclientSuite) TestOpenWithRedirect(c *gc.C) {
+func (s *apiclientSuite) TestOpenWithRedirect(c *tc.C) {
 	redirectToHosts := []string{"0.1.2.3:1234", "0.1.2.4:1235"}
 	redirectToCACert := "fake CA cert"
 
@@ -757,7 +757,7 @@ func (s *apiclientSuite) TestOpenWithRedirect(c *gc.C) {
 		CACert:   jtesting.CACert,
 		ModelTag: names.NewModelTag("beef1beef1-0000-0000-000011112222"),
 	}, api.DialOpts{})
-	c.Assert(err, gc.ErrorMatches, `redirection to alternative server required`)
+	c.Assert(err, tc.ErrorMatches, `redirection to alternative server required`)
 
 	hps := make(network.MachineHostPorts, len(redirectToHosts))
 	for i, addr := range redirectToHosts {
@@ -773,7 +773,7 @@ func (s *apiclientSuite) TestOpenWithRedirect(c *gc.C) {
 	})
 }
 
-func (s *apiclientSuite) TestOpenCachesDNS(c *gc.C) {
+func (s *apiclientSuite) TestOpenCachesDNS(c *tc.C) {
 	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
 		return fakeConn{}, nil
 	}
@@ -792,14 +792,14 @@ func (s *apiclientSuite) TestOpenCachesDNS(c *gc.C) {
 		DNSCache: dnsCache,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conn, gc.NotNil)
+	c.Assert(conn, tc.NotNil)
 	c.Assert(dnsCache.Lookup("place1.example"), jc.DeepEquals, []string{"0.1.1.1"})
 }
 
 // We want open to perform a DNS lookup against the host without the segments,
 // but for the opening of the connect maintain the segments i.e.,
 // jimm.com/my-segment/api
-func (s *apiclientSuite) TestOpenCachesDNSAndRemovesSegments(c *gc.C) {
+func (s *apiclientSuite) TestOpenCachesDNSAndRemovesSegments(c *tc.C) {
 	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
 		return fakeConn{}, nil
 	}
@@ -822,12 +822,12 @@ func (s *apiclientSuite) TestOpenCachesDNSAndRemovesSegments(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conn, gc.NotNil)
+	c.Assert(conn, tc.NotNil)
 
 	c.Assert(dnsCache.Lookup("place1.example"), jc.DeepEquals, []string{"0.1.1.1"})
 }
 
-func (s *apiclientSuite) TestDNSCacheUsed(c *gc.C) {
+func (s *apiclientSuite) TestDNSCacheUsed(c *tc.C) {
 	var dialed string
 	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
 		dialed = ipAddr
@@ -851,14 +851,14 @@ func (s *apiclientSuite) TestDNSCacheUsed(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conn, gc.NotNil)
+	c.Assert(conn, tc.NotNil)
 	// The dialed IP address should have come from the cache, not the IP address
 	// resolver.
-	c.Assert(dialed, gc.Equals, "0.1.1.1:1234")
-	c.Assert(conn.IPAddr(), gc.Equals, "0.1.1.1:1234")
+	c.Assert(dialed, tc.Equals, "0.1.1.1:1234")
+	c.Assert(conn.IPAddr(), tc.Equals, "0.1.1.1:1234")
 }
 
-func (s *apiclientSuite) TestNumericAddressIsNotAddedToCache(c *gc.C) {
+func (s *apiclientSuite) TestNumericAddressIsNotAddedToCache(c *tc.C) {
 	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
 		return fakeConn{}, nil
 	}
@@ -875,13 +875,13 @@ func (s *apiclientSuite) TestNumericAddressIsNotAddedToCache(c *gc.C) {
 		DNSCache:       dnsCache,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conn, gc.NotNil)
-	c.Assert(conn.Addr().String(), gc.Equals, "wss://0.1.2.3:1234")
-	c.Assert(conn.IPAddr(), gc.Equals, "0.1.2.3:1234")
-	c.Assert(dnsCache, gc.HasLen, 0)
+	c.Assert(conn, tc.NotNil)
+	c.Assert(conn.Addr().String(), tc.Equals, "wss://0.1.2.3:1234")
+	c.Assert(conn.IPAddr(), tc.Equals, "0.1.2.3:1234")
+	c.Assert(dnsCache, tc.HasLen, 0)
 }
 
-func (s *apiclientSuite) TestFallbackToIPLookupWhenCacheOutOfDate(c *gc.C) {
+func (s *apiclientSuite) TestFallbackToIPLookupWhenCacheOutOfDate(c *tc.C) {
 	dialc := make(chan string)
 	start := make(chan struct{})
 	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
@@ -941,9 +941,9 @@ func (s *apiclientSuite) TestFallbackToIPLookupWhenCacheOutOfDate(c *gc.C) {
 	}
 	r := <-openc
 	c.Assert(r.err, jc.ErrorIsNil)
-	c.Assert(r.conn, gc.NotNil)
-	c.Assert(r.conn.Addr().String(), gc.Equals, "wss://place1.example:1234")
-	c.Assert(r.conn.IPAddr(), gc.Equals, "0.2.2.2:1234")
+	c.Assert(r.conn, tc.NotNil)
+	c.Assert(r.conn.Addr().String(), tc.Equals, "wss://place1.example:1234")
+	c.Assert(r.conn.IPAddr(), tc.Equals, "0.2.2.2:1234")
 	c.Assert(dialed, jc.DeepEquals, map[string]bool{
 		"0.2.2.2:1234": true,
 		"0.1.1.1:1234": true,
@@ -951,7 +951,7 @@ func (s *apiclientSuite) TestFallbackToIPLookupWhenCacheOutOfDate(c *gc.C) {
 	c.Assert(dnsCache.Lookup("place1.example"), jc.DeepEquals, []string{"0.2.2.2"})
 }
 
-func (s *apiclientSuite) TestOpenTimesOutOnLogin(c *gc.C) {
+func (s *apiclientSuite) TestOpenTimesOutOnLogin(c *tc.C) {
 	unblock := make(chan chan struct{})
 	srv := apiservertesting.NewAPIServer(func(modelUUID string) (interface{}, error) {
 		return &loginTimeoutAPI{
@@ -988,13 +988,13 @@ func (s *apiclientSuite) TestOpenTimesOutOnLogin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	select {
 	case err := <-done:
-		c.Assert(err, gc.ErrorMatches, `cannot log in: context deadline exceeded`)
+		c.Assert(err, tc.ErrorMatches, `cannot log in: context deadline exceeded`)
 	case <-time.After(time.Second):
 		c.Fatalf("timed out waiting for api.Open timeout")
 	}
 }
 
-func (s *apiclientSuite) TestOpenTimeoutAffectsDial(c *gc.C) {
+func (s *apiclientSuite) TestOpenTimeoutAffectsDial(c *tc.C) {
 	sync := make(chan struct{})
 	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
 		close(sync)
@@ -1028,13 +1028,13 @@ func (s *apiclientSuite) TestOpenTimeoutAffectsDial(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	select {
 	case err := <-done:
-		c.Assert(err, gc.ErrorMatches, `unable to connect to API: context deadline exceeded`)
+		c.Assert(err, tc.ErrorMatches, `unable to connect to API: context deadline exceeded`)
 	case <-time.After(time.Second):
 		c.Fatalf("timed out waiting for api.Open timeout")
 	}
 }
 
-func (s *apiclientSuite) TestOpenDialTimeoutAffectsDial(c *gc.C) {
+func (s *apiclientSuite) TestOpenDialTimeoutAffectsDial(c *tc.C) {
 	sync := make(chan struct{})
 	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
 		close(sync)
@@ -1069,13 +1069,13 @@ func (s *apiclientSuite) TestOpenDialTimeoutAffectsDial(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	select {
 	case err := <-done:
-		c.Assert(err, gc.ErrorMatches, `unable to connect to API: context deadline exceeded`)
+		c.Assert(err, tc.ErrorMatches, `unable to connect to API: context deadline exceeded`)
 	case <-time.After(time.Second):
 		c.Fatalf("timed out waiting for api.Open timeout")
 	}
 }
 
-func (s *apiclientSuite) TestOpenDialTimeoutDoesNotAffectLogin(c *gc.C) {
+func (s *apiclientSuite) TestOpenDialTimeoutDoesNotAffectLogin(c *tc.C) {
 	unblock := make(chan chan struct{})
 	srv := apiservertesting.NewAPIServer(func(modelUUID string) (interface{}, error) {
 		return &loginTimeoutAPI{
@@ -1127,13 +1127,13 @@ func (s *apiclientSuite) TestOpenDialTimeoutDoesNotAffectLogin(c *gc.C) {
 	close(unblocked)
 	select {
 	case err := <-done:
-		c.Assert(err, gc.ErrorMatches, "login failed")
+		c.Assert(err, tc.ErrorMatches, "login failed")
 	case <-time.After(jtesting.LongWait):
 		c.Fatalf("timed out waiting for api.Open to return")
 	}
 }
 
-func (s *apiclientSuite) TestWithUnresolvableAddr(c *gc.C) {
+func (s *apiclientSuite) TestWithUnresolvableAddr(c *tc.C) {
 	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
 		c.Errorf("dial was called but should not have been")
 		return nil, errors.Errorf("cannot dial")
@@ -1148,11 +1148,11 @@ func (s *apiclientSuite) TestWithUnresolvableAddr(c *gc.C) {
 		DialWebsocket:  fakeDialer,
 		IPAddrResolver: apitesting.IPAddrResolverMap{},
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot resolve "nowhere.example": mock resolver cannot resolve "nowhere.example"`)
+	c.Assert(err, tc.ErrorMatches, `cannot resolve "nowhere.example": mock resolver cannot resolve "nowhere.example"`)
 	c.Assert(conn, jc.ErrorIsNil)
 }
 
-func (s *apiclientSuite) TestWithUnresolvableAddrAfterCacheFallback(c *gc.C) {
+func (s *apiclientSuite) TestWithUnresolvableAddrAfterCacheFallback(c *tc.C) {
 	var dialedReal bool
 	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
 		if ipAddr == "0.2.2.2:1234" {
@@ -1177,13 +1177,13 @@ func (s *apiclientSuite) TestWithUnresolvableAddrAfterCacheFallback(c *gc.C) {
 		},
 		DNSCache: dnsCache,
 	})
-	c.Assert(err, gc.NotNil)
-	c.Assert(conn, gc.Equals, nil)
+	c.Assert(err, tc.NotNil)
+	c.Assert(conn, tc.Equals, nil)
 	c.Assert(dnsCache.Lookup("place1.example"), jc.DeepEquals, []string{"0.2.2.2"})
 	c.Assert(dialedReal, jc.IsTrue)
 }
 
-func (s *apiclientSuite) TestAPICallNoError(c *gc.C) {
+func (s *apiclientSuite) TestAPICallNoError(c *tc.C) {
 	clock := &fakeClock{}
 	conn := api.NewTestingConnection(c, api.TestingConnectionParams{
 		RPCConnection: newRPCConnection(),
@@ -1192,10 +1192,10 @@ func (s *apiclientSuite) TestAPICallNoError(c *gc.C) {
 
 	err := conn.APICall(context.Background(), "facade", 1, "id", "method", nil, nil)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(clock.waits, gc.HasLen, 0)
+	c.Check(clock.waits, tc.HasLen, 0)
 }
 
-func (s *apiclientSuite) TestAPICallErrorBadRequest(c *gc.C) {
+func (s *apiclientSuite) TestAPICallErrorBadRequest(c *tc.C) {
 	clock := &fakeClock{}
 	conn := api.NewTestingConnection(c, api.TestingConnectionParams{
 		RPCConnection: newRPCConnection(errors.BadRequestf("boom")),
@@ -1203,12 +1203,12 @@ func (s *apiclientSuite) TestAPICallErrorBadRequest(c *gc.C) {
 	})
 
 	err := conn.APICall(context.Background(), "facade", 1, "id", "method", nil, nil)
-	c.Check(err.Error(), gc.Equals, "boom")
+	c.Check(err.Error(), tc.Equals, "boom")
 	c.Check(err, jc.ErrorIs, errors.BadRequest)
-	c.Check(clock.waits, gc.HasLen, 0)
+	c.Check(clock.waits, tc.HasLen, 0)
 }
 
-func (s *apiclientSuite) TestAPICallErrorNotImplemented(c *gc.C) {
+func (s *apiclientSuite) TestAPICallErrorNotImplemented(c *tc.C) {
 	clock := &fakeClock{}
 	conn := api.NewTestingConnection(c, api.TestingConnectionParams{
 		RPCConnection: newRPCConnection(apiservererrors.ServerError(errors.NotImplementedf("boom"))),
@@ -1217,10 +1217,10 @@ func (s *apiclientSuite) TestAPICallErrorNotImplemented(c *gc.C) {
 
 	err := conn.APICall(context.Background(), "facade", 1, "id", "method", nil, nil)
 	c.Check(err, jc.ErrorIs, errors.NotImplemented)
-	c.Check(clock.waits, gc.HasLen, 0)
+	c.Check(clock.waits, tc.HasLen, 0)
 }
 
-func (s *apiclientSuite) TestIsBrokenOk(c *gc.C) {
+func (s *apiclientSuite) TestIsBrokenOk(c *tc.C) {
 	conn := api.NewTestingConnection(c, api.TestingConnectionParams{
 		RPCConnection: newRPCConnection(),
 		Clock:         new(fakeClock),
@@ -1228,7 +1228,7 @@ func (s *apiclientSuite) TestIsBrokenOk(c *gc.C) {
 	c.Assert(conn.IsBroken(context.Background()), jc.IsFalse)
 }
 
-func (s *apiclientSuite) TestIsBrokenChannelClosed(c *gc.C) {
+func (s *apiclientSuite) TestIsBrokenChannelClosed(c *tc.C) {
 	broken := make(chan struct{})
 	close(broken)
 	conn := api.NewTestingConnection(c, api.TestingConnectionParams{
@@ -1239,7 +1239,7 @@ func (s *apiclientSuite) TestIsBrokenChannelClosed(c *gc.C) {
 	c.Assert(conn.IsBroken(context.Background()), jc.IsTrue)
 }
 
-func (s *apiclientSuite) TestIsBrokenPingFailed(c *gc.C) {
+func (s *apiclientSuite) TestIsBrokenPingFailed(c *tc.C) {
 	conn := api.NewTestingConnection(c, api.TestingConnectionParams{
 		RPCConnection: newRPCConnection(errors.New("no biscuit")),
 		Clock:         new(fakeClock),
@@ -1247,7 +1247,7 @@ func (s *apiclientSuite) TestIsBrokenPingFailed(c *gc.C) {
 	c.Assert(conn.IsBroken(context.Background()), jc.IsTrue)
 }
 
-func (s *apiclientSuite) TestLoginCapturesCLIArgs(c *gc.C) {
+func (s *apiclientSuite) TestLoginCapturesCLIArgs(c *tc.C) {
 	s.PatchValue(&os.Args, []string{"this", "is", "the test", "command"})
 
 	conn := newRPCConnection()
@@ -1271,26 +1271,26 @@ func (s *apiclientSuite) TestLoginCapturesCLIArgs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	calls := conn.stub.Calls()
-	c.Assert(calls, gc.HasLen, 1)
+	c.Assert(calls, tc.HasLen, 1)
 	call := calls[0]
-	c.Assert(call.FuncName, gc.Equals, "Admin.Login")
-	c.Assert(call.Args, gc.HasLen, 2)
+	c.Assert(call.FuncName, tc.Equals, "Admin.Login")
+	c.Assert(call.Args, tc.HasLen, 2)
 	request := call.Args[1].(*params.LoginRequest)
-	c.Assert(request.CLIArgs, gc.Equals, `this is "the test" command`)
+	c.Assert(request.CLIArgs, tc.Equals, `this is "the test" command`)
 }
 
-func (s *apiclientSuite) TestConnectStreamRequiresSlashPathPrefix(c *gc.C) {
+func (s *apiclientSuite) TestConnectStreamRequiresSlashPathPrefix(c *tc.C) {
 	info := s.APIInfo()
 	conn, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 
 	reader, err := conn.ConnectStream(context.Background(), "foo", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot make API path from non-slash-prefixed path "foo"`)
-	c.Assert(reader, gc.Equals, nil)
+	c.Assert(err, tc.ErrorMatches, `cannot make API path from non-slash-prefixed path "foo"`)
+	c.Assert(reader, tc.Equals, nil)
 }
 
-func (s *apiclientSuite) TestConnectStreamErrorBadConnection(c *gc.C) {
+func (s *apiclientSuite) TestConnectStreamErrorBadConnection(c *tc.C) {
 	s.PatchValue(&api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
 		return nil, fmt.Errorf("bad connection")
 	})
@@ -1299,11 +1299,11 @@ func (s *apiclientSuite) TestConnectStreamErrorBadConnection(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 	reader, err := conn.ConnectStream(context.Background(), "/", nil)
-	c.Assert(err, gc.ErrorMatches, "bad connection")
-	c.Assert(reader, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "bad connection")
+	c.Assert(reader, tc.IsNil)
 }
 
-func (s *apiclientSuite) TestConnectStreamErrorNoData(c *gc.C) {
+func (s *apiclientSuite) TestConnectStreamErrorNoData(c *tc.C) {
 	s.PatchValue(&api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
 		return api.NewFakeStreamReader(&bytes.Buffer{}), nil
 	})
@@ -1312,11 +1312,11 @@ func (s *apiclientSuite) TestConnectStreamErrorNoData(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 	reader, err := conn.ConnectStream(context.Background(), "/", nil)
-	c.Assert(err, gc.ErrorMatches, "unable to read initial response: EOF")
-	c.Assert(reader, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "unable to read initial response: EOF")
+	c.Assert(reader, tc.IsNil)
 }
 
-func (s *apiclientSuite) TestConnectStreamErrorBadData(c *gc.C) {
+func (s *apiclientSuite) TestConnectStreamErrorBadData(c *tc.C) {
 	s.PatchValue(&api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
 		return api.NewFakeStreamReader(strings.NewReader("junk\n")), nil
 	})
@@ -1325,11 +1325,11 @@ func (s *apiclientSuite) TestConnectStreamErrorBadData(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 	reader, err := conn.ConnectStream(context.Background(), "/", nil)
-	c.Assert(err, gc.ErrorMatches, "unable to unmarshal initial response: .*")
-	c.Assert(reader, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "unable to unmarshal initial response: .*")
+	c.Assert(reader, tc.IsNil)
 }
 
-func (s *apiclientSuite) TestConnectStreamErrorReadError(c *gc.C) {
+func (s *apiclientSuite) TestConnectStreamErrorReadError(c *tc.C) {
 	s.PatchValue(&api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
 		err := fmt.Errorf("bad read")
 		return api.NewFakeStreamReader(&badReader{err}), nil
@@ -1339,8 +1339,8 @@ func (s *apiclientSuite) TestConnectStreamErrorReadError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 	reader, err := conn.ConnectStream(context.Background(), "/", nil)
-	c.Assert(err, gc.ErrorMatches, "unable to read initial response: bad read")
-	c.Assert(reader, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "unable to read initial response: bad read")
+	c.Assert(reader, tc.IsNil)
 }
 
 // badReader raises err when Read is called.
@@ -1353,26 +1353,26 @@ func (r *badReader) Read(p []byte) (n int, err error) {
 	return 0, r.err
 }
 
-func (s *apiclientSuite) TestConnectControllerStreamRejectsRelativePaths(c *gc.C) {
+func (s *apiclientSuite) TestConnectControllerStreamRejectsRelativePaths(c *tc.C) {
 	info := s.APIInfo()
 	conn, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 	reader, err := conn.ConnectControllerStream(context.Background(), "foo", nil, nil)
-	c.Assert(err, gc.ErrorMatches, `path "foo" is not absolute`)
-	c.Assert(reader, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `path "foo" is not absolute`)
+	c.Assert(reader, tc.IsNil)
 }
 
-func (s *apiclientSuite) TestConnectControllerStreamRejectsModelPaths(c *gc.C) {
+func (s *apiclientSuite) TestConnectControllerStreamRejectsModelPaths(c *tc.C) {
 	info := s.APIInfo()
 	conn, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	reader, err := conn.ConnectControllerStream(context.Background(), "/model/foo", nil, nil)
-	c.Assert(err, gc.ErrorMatches, `path "/model/foo" is model-specific`)
-	c.Assert(reader, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `path "/model/foo" is model-specific`)
+	c.Assert(reader, tc.IsNil)
 }
 
-func (s *apiclientSuite) TestConnectControllerStreamAppliesHeaders(c *gc.C) {
+func (s *apiclientSuite) TestConnectControllerStreamAppliesHeaders(c *tc.C) {
 	catcher := api.UrlCatcher{}
 	headers := http.Header{}
 	headers.Add("thomas", "cromwell")
@@ -1385,11 +1385,11 @@ func (s *apiclientSuite) TestConnectControllerStreamAppliesHeaders(c *gc.C) {
 	defer conn.Close()
 	_, err = conn.ConnectControllerStream(context.Background(), "/something", nil, headers)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(catcher.Headers().Get("thomas"), gc.Equals, "cromwell")
-	c.Assert(catcher.Headers().Get("anne"), gc.Equals, "boleyn")
+	c.Assert(catcher.Headers().Get("thomas"), tc.Equals, "cromwell")
+	c.Assert(catcher.Headers().Get("anne"), tc.Equals, "boleyn")
 }
 
-func (s *apiclientSuite) TestConnectStreamWithoutLogin(c *gc.C) {
+func (s *apiclientSuite) TestConnectStreamWithoutLogin(c *tc.C) {
 	catcher := api.UrlCatcher{}
 	s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)
 	info := s.APIInfo()
@@ -1400,10 +1400,10 @@ func (s *apiclientSuite) TestConnectStreamWithoutLogin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 	_, err = conn.ConnectStream(context.Background(), "/path", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot use ConnectStream without logging in`)
+	c.Assert(err, tc.ErrorMatches, `cannot use ConnectStream without logging in`)
 }
 
-func (s *apiclientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
+func (s *apiclientSuite) TestWatchDebugLogParamsEncoded(c *tc.C) {
 	catcher := api.UrlCatcher{}
 	s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)
 
@@ -1455,7 +1455,7 @@ func (s *apiclientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 	c.Assert(values, jc.DeepEquals, urlValues)
 }
 
-func (s *apiclientSuite) TestWatchDebugLogConnected(c *gc.C) {
+func (s *apiclientSuite) TestWatchDebugLogConnected(c *tc.C) {
 	info := s.APIInfo()
 	conn, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1466,10 +1466,10 @@ func (s *apiclientSuite) TestWatchDebugLogConnected(c *gc.C) {
 	// don't set up mongo in replicaset mode.
 	messages, err := cl.WatchDebugLog(context.Background(), common.DebugLogParams{NoTail: true})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(messages, gc.NotNil)
+	c.Assert(messages, tc.NotNil)
 }
 
-func (s *apiclientSuite) TestConnectStreamAtUUIDPath(c *gc.C) {
+func (s *apiclientSuite) TestConnectStreamAtUUIDPath(c *tc.C) {
 	catcher := api.UrlCatcher{}
 	s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)
 	info := s.APIInfo()
@@ -1480,10 +1480,10 @@ func (s *apiclientSuite) TestConnectStreamAtUUIDPath(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	connectURL, err := url.Parse(catcher.Location())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(connectURL.Path, gc.Matches, fmt.Sprintf("/model/%s/path", info.ModelTag.Id()))
+	c.Assert(connectURL.Path, tc.Matches, fmt.Sprintf("/model/%s/path", info.ModelTag.Id()))
 }
 
-func (s *apiclientSuite) TestOpenUsesModelUUIDPaths(c *gc.C) {
+func (s *apiclientSuite) TestOpenUsesModelUUIDPaths(c *tc.C) {
 	info := s.APIInfo()
 	// Passing in the correct model UUID should work
 	conn, err := api.Open(context.Background(), info, api.DialOpts{})
@@ -1493,20 +1493,20 @@ func (s *apiclientSuite) TestOpenUsesModelUUIDPaths(c *gc.C) {
 	// Passing in an unknown model UUID should fail with a known error
 	info.ModelTag = names.NewModelTag("1eaf1e55-70ad-face-b007-70ad57001999")
 	conn, err = api.Open(context.Background(), info, api.DialOpts{})
-	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+	c.Assert(errors.Cause(err), tc.DeepEquals, &rpc.RequestError{
 		Message: `unknown model: "1eaf1e55-70ad-face-b007-70ad57001999"`,
 		Code:    "model not found",
 	})
 	c.Check(err, jc.Satisfies, params.IsCodeModelNotFound)
-	c.Assert(conn, gc.IsNil)
+	c.Assert(conn, tc.IsNil)
 }
 
-func (s *apiclientSuite) TestPublicDNSName(c *gc.C) {
+func (s *apiclientSuite) TestPublicDNSName(c *tc.C) {
 	info := s.APIInfo()
 	conn, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
-	c.Assert(conn.PublicDNSName(), gc.Equals, "somewhere.example.com")
+	c.Assert(conn.PublicDNSName(), tc.Equals, "somewhere.example.com")
 }
 
 type fakeClock struct {
@@ -1608,12 +1608,12 @@ func (a *redirectAPIAdmin) RedirectInfo() (params.RedirectInfoResult, error) {
 	}, nil
 }
 
-func assertConnAddrForModel(c *gc.C, location, addr, modelUUID string) {
-	c.Assert(location, gc.Equals, "wss://"+addr+"/model/"+modelUUID+"/api")
+func assertConnAddrForModel(c *tc.C, location, addr, modelUUID string) {
+	c.Assert(location, tc.Equals, "wss://"+addr+"/model/"+modelUUID+"/api")
 }
 
-func assertConnAddrForRoot(c *gc.C, location, addr string) {
-	c.Assert(location, gc.Matches, "wss://"+addr+"/api")
+func assertConnAddrForRoot(c *tc.C, location, addr string) {
+	c.Assert(location, tc.Matches, "wss://"+addr+"/api")
 }
 
 type fakeConn struct {

@@ -7,33 +7,33 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
 type changesSortSuite struct {
 }
 
-var _ = gc.Suite(&changesSortSuite{})
+var _ = tc.Suite(&changesSortSuite{})
 
-func (s *changesSortSuite) TestSortVerifyRequirementsMet(c *gc.C) {
+func (s *changesSortSuite) TestSortVerifyRequirementsMet(c *tc.C) {
 	ahead := set.NewStrings()
 	sorted, err := csOne().sorted()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(sorted), jc.GreaterThan, 0)
 	for i, change := range sorted {
 		if i == 0 {
-			c.Assert(change.Requires(), gc.HasLen, 0)
+			c.Assert(change.Requires(), tc.HasLen, 0)
 		} else {
 			for _, req := range change.Requires() {
-				c.Assert(ahead.Contains(req), jc.IsTrue, gc.Commentf("%q, not one of %q", req, strings.Join(ahead.Values(), ", ")))
+				c.Assert(ahead.Contains(req), jc.IsTrue, tc.Commentf("%q, not one of %q", req, strings.Join(ahead.Values(), ", ")))
 			}
 		}
 		ahead.Add(change.Id())
 	}
 }
 
-func (s *changesSortSuite) TestSortIdempotent(c *gc.C) {
+func (s *changesSortSuite) TestSortIdempotent(c *tc.C) {
 	for i := 0; i > 10; i += 1 {
 		results, err := csOne().sorted()
 		c.Assert(err, jc.ErrorIsNil)
@@ -43,7 +43,7 @@ func (s *changesSortSuite) TestSortIdempotent(c *gc.C) {
 	}
 }
 
-func (s *changesSortSuite) TestInvalidDataForSort(c *gc.C) {
+func (s *changesSortSuite) TestInvalidDataForSort(c *tc.C) {
 	cs := &changeset{}
 
 	// addCharm-0:
@@ -59,10 +59,10 @@ func (s *changesSortSuite) TestInvalidDataForSort(c *gc.C) {
 	d3 := newAddApplicationChange(AddApplicationParams{}, c2.Id())
 	cs.add(d3)
 	_, err := cs.sorted()
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, tc.NotNil)
 }
 
-func (s *changesSortSuite) TestSortRelationStable(c *gc.C) {
+func (s *changesSortSuite) TestSortRelationStable(c *tc.C) {
 	// When the order of two changes is irrelevant, toposortFlatten should
 	// preserve the original order.
 	// This ensures e.g. that when a bundle is deployed and re-exported, we

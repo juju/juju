@@ -16,11 +16,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -53,7 +53,7 @@ type Suite struct {
 	config        migrationmaster.Config
 }
 
-var _ = gc.Suite(&Suite{})
+var _ = tc.Suite(&Suite{})
 
 var (
 	fakeModelBytes      = []byte("model")
@@ -166,7 +166,7 @@ var (
 	}}
 )
 
-func (s *Suite) SetUpTest(c *gc.C) {
+func (s *Suite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.clock = testclock.NewClock(time.Now())
@@ -223,7 +223,7 @@ func (s *Suite) makeStatus(phase coremigration.Phase) coremigration.MigrationSta
 	}
 }
 
-func (s *Suite) TestSuccessfulMigration(c *gc.C) {
+func (s *Suite) TestSuccessfulMigration(c *tc.C) {
 	s.facade.exportedResources = []coreresource.Resource{
 		resourcetesting.NewResource(c, nil, "blob", "app", "").Resource,
 	}
@@ -311,7 +311,7 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 	)
 }
 
-func (s *Suite) TestIncompatibleTarget(c *gc.C) {
+func (s *Suite) TestIncompatibleTarget(c *tc.C) {
 	s.connection.facadeVersion = 1
 	s.facade.exportedResources = []coreresource.Resource{
 		resourcetesting.NewResource(c, nil, "blob", "app", "").Resource,
@@ -347,7 +347,7 @@ func (s *Suite) TestIncompatibleTarget(c *gc.C) {
 	))
 }
 
-func (s *Suite) TestMigrationResume(c *gc.C) {
+func (s *Suite) TestMigrationResume(c *tc.C) {
 	// Test that a partially complete migration can be resumed.
 	s.facade.queueStatus(s.makeStatus(coremigration.SUCCESS))
 	s.facade.queueMinionReports(makeMinionReports(coremigration.SUCCESS))
@@ -375,7 +375,7 @@ func (s *Suite) TestMigrationResume(c *gc.C) {
 	))
 }
 
-func (s *Suite) TestPreviouslyAbortedMigration(c *gc.C) {
+func (s *Suite) TestPreviouslyAbortedMigration(c *tc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.ABORTDONE))
 
 	w, err := migrationmaster.New(s.config)
@@ -389,7 +389,7 @@ func (s *Suite) TestPreviouslyAbortedMigration(c *gc.C) {
 	})
 }
 
-func (s *Suite) TestPreviouslyCompletedMigration(c *gc.C) {
+func (s *Suite) TestPreviouslyCompletedMigration(c *tc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.DONE))
 	s.checkWorkerReturns(c, migrationmaster.ErrMigrated)
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
@@ -398,12 +398,12 @@ func (s *Suite) TestPreviouslyCompletedMigration(c *gc.C) {
 	})
 }
 
-func (s *Suite) TestWatchFailure(c *gc.C) {
+func (s *Suite) TestWatchFailure(c *tc.C) {
 	s.facade.watchErr = errors.New("boom")
 	s.checkWorkerErr(c, "watching for migration: boom")
 }
 
-func (s *Suite) TestStatusError(c *gc.C) {
+func (s *Suite) TestStatusError(c *tc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.QUIESCE))
 	s.facade.statusErr = errors.New("splat")
 
@@ -414,7 +414,7 @@ func (s *Suite) TestStatusError(c *gc.C) {
 	})
 }
 
-func (s *Suite) TestStatusNotFound(c *gc.C) {
+func (s *Suite) TestStatusNotFound(c *tc.C) {
 	s.facade.statusErr = &params.Error{Code: params.CodeNotFound}
 	s.facade.triggerWatcher()
 
@@ -429,7 +429,7 @@ func (s *Suite) TestStatusNotFound(c *gc.C) {
 	})
 }
 
-func (s *Suite) TestUnlockError(c *gc.C) {
+func (s *Suite) TestUnlockError(c *tc.C) {
 	s.facade.statusErr = &params.Error{Code: params.CodeNotFound}
 	s.facade.triggerWatcher()
 	guard := newStubGuard(s.stub)
@@ -444,7 +444,7 @@ func (s *Suite) TestUnlockError(c *gc.C) {
 	})
 }
 
-func (s *Suite) TestLockdownError(c *gc.C) {
+func (s *Suite) TestLockdownError(c *tc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.QUIESCE))
 	guard := newStubGuard(s.stub)
 	guard.lockdownErr = errors.New("biff")
@@ -454,15 +454,15 @@ func (s *Suite) TestLockdownError(c *gc.C) {
 	s.stub.CheckCalls(c, watchStatusLockdownCalls)
 }
 
-func (s *Suite) TestQUIESCEMinionWaitWatchError(c *gc.C) {
+func (s *Suite) TestQUIESCEMinionWaitWatchError(c *tc.C) {
 	s.checkMinionWaitWatchError(c, coremigration.QUIESCE)
 }
 
-func (s *Suite) TestQUIESCEMinionWaitGetError(c *gc.C) {
+func (s *Suite) TestQUIESCEMinionWaitGetError(c *tc.C) {
 	s.checkMinionWaitGetError(c, coremigration.QUIESCE)
 }
 
-func (s *Suite) TestQUIESCEFailedAgent(c *gc.C) {
+func (s *Suite) TestQUIESCEFailedAgent(c *tc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.QUIESCE))
 	s.facade.queueMinionReports(coremigration.MinionReports{
 		MigrationId:    "model-uuid:2",
@@ -488,7 +488,7 @@ func (s *Suite) TestQUIESCEFailedAgent(c *gc.C) {
 	assertExpectedCallArgs(c, s.stub, expectedCalls)
 }
 
-func (s *Suite) TestQUIESCEWrongController(c *gc.C) {
+func (s *Suite) TestQUIESCEWrongController(c *tc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.QUIESCE))
 	s.connection.controllerTag = names.NewControllerTag("another-controller")
 
@@ -506,7 +506,7 @@ func (s *Suite) TestQUIESCEWrongController(c *gc.C) {
 	))
 }
 
-func (s *Suite) TestQUIESCESourceChecksFail(c *gc.C) {
+func (s *Suite) TestQUIESCESourceChecksFail(c *tc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.QUIESCE))
 	s.facade.prechecksErr = errors.New("boom")
 
@@ -522,7 +522,7 @@ func (s *Suite) TestQUIESCESourceChecksFail(c *gc.C) {
 	))
 }
 
-func (s *Suite) TestQUIESCEModelInfoFail(c *gc.C) {
+func (s *Suite) TestQUIESCEModelInfoFail(c *tc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.QUIESCE))
 	s.facade.modelInfoErr = errors.New("boom")
 
@@ -537,7 +537,7 @@ func (s *Suite) TestQUIESCEModelInfoFail(c *gc.C) {
 	))
 }
 
-func (s *Suite) TestQUIESCETargetChecksFail(c *gc.C) {
+func (s *Suite) TestQUIESCETargetChecksFail(c *tc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.QUIESCE))
 	s.connection.prechecksErr = errors.New("boom")
 
@@ -552,7 +552,7 @@ func (s *Suite) TestQUIESCETargetChecksFail(c *gc.C) {
 	))
 }
 
-func (s *Suite) TestProcessRelationsFailure(c *gc.C) {
+func (s *Suite) TestProcessRelationsFailure(c *tc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.PROCESSRELATIONS))
 	s.facade.processRelationsErr = errors.New("boom")
 
@@ -567,7 +567,7 @@ func (s *Suite) TestProcessRelationsFailure(c *gc.C) {
 	))
 }
 
-func (s *Suite) TestExportFailure(c *gc.C) {
+func (s *Suite) TestExportFailure(c *tc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.IMPORT))
 	s.facade.exportErr = errors.New("boom")
 
@@ -582,7 +582,7 @@ func (s *Suite) TestExportFailure(c *gc.C) {
 	))
 }
 
-func (s *Suite) TestAPIOpenFailure(c *gc.C) {
+func (s *Suite) TestAPIOpenFailure(c *tc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.IMPORT))
 	s.connectionErr = errors.New("boom")
 
@@ -600,7 +600,7 @@ func (s *Suite) TestAPIOpenFailure(c *gc.C) {
 	))
 }
 
-func (s *Suite) TestImportFailure(c *gc.C) {
+func (s *Suite) TestImportFailure(c *tc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.IMPORT))
 	s.connection.importErr = errors.New("boom")
 
@@ -618,15 +618,15 @@ func (s *Suite) TestImportFailure(c *gc.C) {
 	))
 }
 
-func (s *Suite) TestVALIDATIONMinionWaitWatchError(c *gc.C) {
+func (s *Suite) TestVALIDATIONMinionWaitWatchError(c *tc.C) {
 	s.checkMinionWaitWatchError(c, coremigration.VALIDATION)
 }
 
-func (s *Suite) TestVALIDATIONMinionWaitGetError(c *gc.C) {
+func (s *Suite) TestVALIDATIONMinionWaitGetError(c *tc.C) {
 	s.checkMinionWaitGetError(c, coremigration.VALIDATION)
 }
 
-func (s *Suite) TestVALIDATIONFailedAgent(c *gc.C) {
+func (s *Suite) TestVALIDATIONFailedAgent(c *tc.C) {
 	// Set the last phase change status to be further back
 	// in time than the max wait time for minion reports.
 	sts := s.makeStatus(coremigration.VALIDATION)
@@ -646,7 +646,7 @@ func (s *Suite) TestVALIDATIONFailedAgent(c *gc.C) {
 	})
 
 	err = workertest.CheckKilled(c, w)
-	c.Check(errors.Cause(err), gc.Equals, migrationmaster.ErrInactive)
+	c.Check(errors.Cause(err), tc.Equals, migrationmaster.ErrInactive)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
@@ -658,7 +658,7 @@ func (s *Suite) TestVALIDATIONFailedAgent(c *gc.C) {
 	))
 }
 
-func (s *Suite) TestVALIDATIONCheckMachinesOneError(c *gc.C) {
+func (s *Suite) TestVALIDATIONCheckMachinesOneError(c *tc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.VALIDATION))
 	s.facade.queueMinionReports(makeMinionReports(coremigration.VALIDATION))
 
@@ -677,13 +677,13 @@ func (s *Suite) TestVALIDATIONCheckMachinesOneError(c *gc.C) {
 		abortCalls,
 	))
 	lastMessages := s.facade.statuses[len(s.facade.statuses)-2:]
-	c.Assert(lastMessages, gc.DeepEquals, []string{
+	c.Assert(lastMessages, tc.DeepEquals, []string{
 		"machine sanity check failed, 1 error found",
 		"aborted, removing model from target controller: machine sanity check failed, 1 error found",
 	})
 }
 
-func (s *Suite) TestVALIDATIONCheckMachinesSeveralErrors(c *gc.C) {
+func (s *Suite) TestVALIDATIONCheckMachinesSeveralErrors(c *tc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.VALIDATION))
 	s.facade.queueMinionReports(makeMinionReports(coremigration.VALIDATION))
 	s.connection.machineErrs = []string{"been so strange", "lit up"}
@@ -701,13 +701,13 @@ func (s *Suite) TestVALIDATIONCheckMachinesSeveralErrors(c *gc.C) {
 		abortCalls,
 	))
 	lastMessages := s.facade.statuses[len(s.facade.statuses)-2:]
-	c.Assert(lastMessages, gc.DeepEquals, []string{
+	c.Assert(lastMessages, tc.DeepEquals, []string{
 		"machine sanity check failed, 2 errors found",
 		"aborted, removing model from target controller: machine sanity check failed, 2 errors found",
 	})
 }
 
-func (s *Suite) TestVALIDATIONCheckMachinesOtherError(c *gc.C) {
+func (s *Suite) TestVALIDATIONCheckMachinesOtherError(c *tc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.VALIDATION))
 	s.facade.queueMinionReports(makeMinionReports(coremigration.VALIDATION))
 	s.connection.checkMachineErr = errors.Errorf("something went bang")
@@ -726,15 +726,15 @@ func (s *Suite) TestVALIDATIONCheckMachinesOtherError(c *gc.C) {
 	))
 }
 
-func (s *Suite) TestSUCCESSMinionWaitWatchError(c *gc.C) {
+func (s *Suite) TestSUCCESSMinionWaitWatchError(c *tc.C) {
 	s.checkMinionWaitWatchError(c, coremigration.SUCCESS)
 }
 
-func (s *Suite) TestSUCCESSMinionWaitGetError(c *gc.C) {
+func (s *Suite) TestSUCCESSMinionWaitGetError(c *tc.C) {
 	s.checkMinionWaitGetError(c, coremigration.SUCCESS)
 }
 
-func (s *Suite) TestSUCCESSMinionWaitFailedMachine(c *gc.C) {
+func (s *Suite) TestSUCCESSMinionWaitFailedMachine(c *tc.C) {
 	// With the SUCCESS phase the master should wait for all reports,
 	// continuing even if some minions report failure.
 	s.facade.queueStatus(s.makeStatus(coremigration.SUCCESS))
@@ -767,7 +767,7 @@ func (s *Suite) TestSUCCESSMinionWaitFailedMachine(c *gc.C) {
 	))
 }
 
-func (s *Suite) TestSUCCESSMinionWaitFailedUnit(c *gc.C) {
+func (s *Suite) TestSUCCESSMinionWaitFailedUnit(c *tc.C) {
 	// See note for TestMinionWaitFailedMachine above.
 	s.facade.queueStatus(s.makeStatus(coremigration.SUCCESS))
 	s.facade.queueMinionReports(coremigration.MinionReports{
@@ -800,7 +800,7 @@ func (s *Suite) TestSUCCESSMinionWaitFailedUnit(c *gc.C) {
 	))
 }
 
-func (s *Suite) TestSUCCESSMinionWaitTimeout(c *gc.C) {
+func (s *Suite) TestSUCCESSMinionWaitTimeout(c *tc.C) {
 	// The SUCCESS phase is special in that even if some minions fail
 	// to report the migration should continue. There's no turning
 	// back from SUCCESS.
@@ -820,7 +820,7 @@ func (s *Suite) TestSUCCESSMinionWaitTimeout(c *gc.C) {
 	s.clock.Advance(15 * time.Minute)
 
 	err = workertest.CheckKilled(c, w)
-	c.Assert(err, gc.Equals, migrationmaster.ErrMigrated)
+	c.Assert(err, tc.Equals, migrationmaster.ErrMigrated)
 
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
@@ -843,7 +843,7 @@ func (s *Suite) TestSUCCESSMinionWaitTimeout(c *gc.C) {
 	))
 }
 
-func (s *Suite) TestMinionWaitWrongPhase(c *gc.C) {
+func (s *Suite) TestMinionWaitWrongPhase(c *tc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.SUCCESS))
 
 	// Have the phase in the minion reports be different from the
@@ -855,7 +855,7 @@ func (s *Suite) TestMinionWaitWrongPhase(c *gc.C) {
 		`minion reports phase \(IMPORT\) does not match migration phase \(SUCCESS\)`)
 }
 
-func (s *Suite) TestMinionWaitMigrationIdChanged(c *gc.C) {
+func (s *Suite) TestMinionWaitMigrationIdChanged(c *tc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.SUCCESS))
 
 	// Have the migration id in the minion reports be different from
@@ -870,7 +870,7 @@ func (s *Suite) TestMinionWaitMigrationIdChanged(c *gc.C) {
 		"unexpected migration id in minion reports, got blah, expected model-uuid:2")
 }
 
-func (s *Suite) assertAPIConnectWithMacaroon(c *gc.C, authUser names.UserTag) {
+func (s *Suite) assertAPIConnectWithMacaroon(c *tc.C, authUser names.UserTag) {
 	// Use ABORT because it involves an API connection to the target
 	// and is convenient.
 	status := s.makeStatus(coremigration.ABORT)
@@ -913,15 +913,15 @@ func (s *Suite) assertAPIConnectWithMacaroon(c *gc.C, authUser names.UserTag) {
 	))
 }
 
-func (s *Suite) TestAPIConnectWithMacaroonLocalUser(c *gc.C) {
+func (s *Suite) TestAPIConnectWithMacaroonLocalUser(c *tc.C) {
 	s.assertAPIConnectWithMacaroon(c, names.NewUserTag("admin"))
 }
 
-func (s *Suite) TestAPIConnectWithMacaroonExternalUser(c *gc.C) {
+func (s *Suite) TestAPIConnectWithMacaroonExternalUser(c *tc.C) {
 	s.assertAPIConnectWithMacaroon(c, names.NewUserTag("fred@external"))
 }
 
-func (s *Suite) TestLogTransferErrorOpeningTargetAPI(c *gc.C) {
+func (s *Suite) TestLogTransferErrorOpeningTargetAPI(c *tc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
 	s.connectionErr = errors.New("people of earth")
 
@@ -935,7 +935,7 @@ func (s *Suite) TestLogTransferErrorOpeningTargetAPI(c *gc.C) {
 	))
 }
 
-func (s *Suite) TestLogTransferErrorGettingStartTime(c *gc.C) {
+func (s *Suite) TestLogTransferErrorGettingStartTime(c *tc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
 	s.connection.latestLogErr = errors.New("tender vittles")
 
@@ -951,7 +951,7 @@ func (s *Suite) TestLogTransferErrorGettingStartTime(c *gc.C) {
 	))
 }
 
-func (s *Suite) TestLogTransferErrorOpeningLogSource(c *gc.C) {
+func (s *Suite) TestLogTransferErrorOpeningLogSource(c *tc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
 	s.facade.streamErr = errors.New("chicken bones")
 
@@ -968,7 +968,7 @@ func (s *Suite) TestLogTransferErrorOpeningLogSource(c *gc.C) {
 	))
 }
 
-func (s *Suite) TestLogTransferErrorOpeningLogDest(c *gc.C) {
+func (s *Suite) TestLogTransferErrorOpeningLogDest(c *tc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
 	s.connection.streamErr = errors.New("tule lake shuffle")
 
@@ -986,7 +986,7 @@ func (s *Suite) TestLogTransferErrorOpeningLogDest(c *gc.C) {
 	))
 }
 
-func (s *Suite) TestLogTransferErrorWriting(c *gc.C) {
+func (s *Suite) TestLogTransferErrorWriting(c *tc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
 	s.facade.logMessages = func(d chan<- common.LogMessage) {
 		safeSend(c, d, common.LogMessage{Message: "the go team"})
@@ -1004,10 +1004,10 @@ func (s *Suite) TestLogTransferErrorWriting(c *gc.C) {
 			apiCloseCall,
 		},
 	))
-	c.Assert(s.connection.logStream.closeCount, gc.Equals, 1)
+	c.Assert(s.connection.logStream.closeCount, tc.Equals, 1)
 }
 
-func (s *Suite) TestLogTransferSendsRecords(c *gc.C) {
+func (s *Suite) TestLogTransferSendsRecords(c *tc.C) {
 	t1, err := time.Parse("2006-01-02 15:04", "2016-11-28 16:11")
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
@@ -1044,7 +1044,7 @@ func (s *Suite) TestLogTransferSendsRecords(c *gc.C) {
 			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.DONE}},
 		},
 	))
-	c.Assert(s.connection.logStream.written, gc.DeepEquals, []params.LogRecord{
+	c.Assert(s.connection.logStream.written, tc.DeepEquals, []params.LogRecord{
 		{Message: "the go team"},
 		{Message: "joan as police woman"},
 		{
@@ -1056,10 +1056,10 @@ func (s *Suite) TestLogTransferSendsRecords(c *gc.C) {
 			Entity:   "the mules",
 		},
 	})
-	c.Assert(s.connection.logStream.closeCount, gc.Equals, 1)
+	c.Assert(s.connection.logStream.closeCount, tc.Equals, 1)
 }
 
-func (s *Suite) TestLogTransferReportsProgress(c *gc.C) {
+func (s *Suite) TestLogTransferReportsProgress(c *tc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
 	messages := []common.LogMessage{
 		{Message: "captain beefheart"},
@@ -1092,7 +1092,7 @@ func (s *Suite) TestLogTransferReportsProgress(c *gc.C) {
 	})
 }
 
-func (s *Suite) TestLogTransferChecksLatestTime(c *gc.C) {
+func (s *Suite) TestLogTransferChecksLatestTime(c *tc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
 	t := time.Date(2016, 12, 2, 10, 39, 10, 20, time.UTC)
 	s.connection.latestLogTime = t
@@ -1114,7 +1114,7 @@ func (s *Suite) TestLogTransferChecksLatestTime(c *gc.C) {
 	))
 }
 
-func safeSend(c *gc.C, d chan<- common.LogMessage, message common.LogMessage) {
+func safeSend(c *tc.C, d chan<- common.LogMessage, message common.LogMessage) {
 	select {
 	case d <- message:
 	case <-time.After(coretesting.ShortWait):
@@ -1122,24 +1122,24 @@ func safeSend(c *gc.C, d chan<- common.LogMessage, message common.LogMessage) {
 	}
 }
 
-func (s *Suite) checkWorkerReturns(c *gc.C, expected error) {
+func (s *Suite) checkWorkerReturns(c *tc.C, expected error) {
 	err := s.runWorker(c)
-	c.Check(errors.Cause(err), gc.Equals, expected)
+	c.Check(errors.Cause(err), tc.Equals, expected)
 }
 
-func (s *Suite) checkWorkerErr(c *gc.C, expected string) {
+func (s *Suite) checkWorkerErr(c *tc.C, expected string) {
 	err := s.runWorker(c)
-	c.Check(err, gc.ErrorMatches, expected)
+	c.Check(err, tc.ErrorMatches, expected)
 }
 
-func (s *Suite) runWorker(c *gc.C) error {
+func (s *Suite) runWorker(c *tc.C) error {
 	w, err := migrationmaster.New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 	return workertest.CheckKilled(c, w)
 }
 
-func (s *Suite) waitForStubCalls(c *gc.C, expectedCallNames []string) {
+func (s *Suite) waitForStubCalls(c *tc.C, expectedCallNames []string) {
 	var callNames []string
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		callNames = stubCallNames(s.stub)
@@ -1151,14 +1151,14 @@ func (s *Suite) waitForStubCalls(c *gc.C, expectedCallNames []string) {
 		callNames, expectedCallNames)
 }
 
-func (s *Suite) checkMinionWaitWatchError(c *gc.C, phase coremigration.Phase) {
+func (s *Suite) checkMinionWaitWatchError(c *tc.C, phase coremigration.Phase) {
 	s.facade.minionReportsWatchErr = errors.New("boom")
 	s.facade.queueStatus(s.makeStatus(phase))
 
 	s.checkWorkerErr(c, "boom")
 }
 
-func (s *Suite) checkMinionWaitGetError(c *gc.C, phase coremigration.Phase) {
+func (s *Suite) checkMinionWaitGetError(c *tc.C, phase coremigration.Phase) {
 	s.facade.queueStatus(s.makeStatus(phase))
 
 	s.facade.minionReportsErr = errors.New("boom")
@@ -1171,20 +1171,20 @@ func (s *Suite) checkMinionWaitGetError(c *gc.C, phase coremigration.Phase) {
 // expected arguments. It ignores the facade versions map on the Prechecks
 // call because that's an implementation detail of the api facade, not the
 // worker. As long as it's non-zero, otherwise we don't care.
-func assertExpectedCallArgs(c *gc.C, stub *jujutesting.Stub, expectedCalls []jujutesting.StubCall) {
+func assertExpectedCallArgs(c *tc.C, stub *jujutesting.Stub, expectedCalls []jujutesting.StubCall) {
 	stub.CheckCallNames(c, callNames(expectedCalls)...)
 	for i, call := range expectedCalls {
 		stubCall := stub.Calls()[i]
 
 		if call.FuncName == "MigrationTarget.Prechecks" {
 			mc := jc.NewMultiChecker()
-			mc.AddExpr("_.FacadeVersions", gc.Not(gc.HasLen), 0)
+			mc.AddExpr("_.FacadeVersions", tc.Not(tc.HasLen), 0)
 
-			c.Assert(stubCall.Args, mc, call.Args, gc.Commentf("call %s", call.FuncName))
+			c.Assert(stubCall.Args, mc, call.Args, tc.Commentf("call %s", call.FuncName))
 			continue
 		}
 
-		c.Assert(stubCall, jc.DeepEquals, call, gc.Commentf("call %s", call.FuncName))
+		c.Assert(stubCall, jc.DeepEquals, call, tc.Commentf("call %s", call.FuncName))
 	}
 }
 
@@ -1432,7 +1432,7 @@ func (w *mockWatcher) Changes() watcher.NotifyChannel {
 }
 
 type stubConnection struct {
-	c *gc.C
+	c *tc.C
 	api.Connection
 	stub                *jujutesting.Stub
 	prechecksErr        error
@@ -1572,7 +1572,7 @@ func makeMinionReports(p coremigration.Phase) coremigration.MinionReports {
 
 type mockStream struct {
 	base.Stream
-	c          *gc.C
+	c          *tc.C
 	written    []params.LogRecord
 	writeErr   error
 	closeCount int

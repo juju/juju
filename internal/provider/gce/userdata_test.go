@@ -7,9 +7,9 @@ package gce_test
 import (
 	"encoding/base64"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit/cloudinittest"
@@ -21,9 +21,9 @@ type UserdataSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&UserdataSuite{})
+var _ = tc.Suite(&UserdataSuite{})
 
-func (s *UserdataSuite) TestGCEUnix(c *gc.C) {
+func (s *UserdataSuite) TestGCEUnix(c *tc.C) {
 	renderer := gce.GCERenderer{}
 	cloudcfg := &cloudinittest.CloudConfig{YAML: []byte("yaml")}
 
@@ -33,11 +33,11 @@ func (s *UserdataSuite) TestGCEUnix(c *gc.C) {
 	c.Assert(string(result), jc.DeepEquals, expected)
 }
 
-func (s *UserdataSuite) TestGCEUnknownOS(c *gc.C) {
+func (s *UserdataSuite) TestGCEUnknownOS(c *tc.C) {
 	renderer := gce.GCERenderer{}
 	cloudcfg := &cloudinittest.CloudConfig{}
 
 	result, err := renderer.Render(cloudcfg, ostype.GenericLinux)
-	c.Assert(result, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "Cannot encode userdata for OS: GenericLinux")
+	c.Assert(result, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "Cannot encode userdata for OS: GenericLinux")
 }

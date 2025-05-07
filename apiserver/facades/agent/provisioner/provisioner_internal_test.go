@@ -6,9 +6,9 @@ package provisioner
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/containermanager"
@@ -28,16 +28,16 @@ type provisionerSuite struct {
 	keyUpdaterService       *MockKeyUpdaterService
 }
 
-var _ = gc.Suite(&provisionerSuite{})
+var _ = tc.Suite(&provisionerSuite{})
 
-func (s *provisionerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *provisionerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.agentProvisionerService = NewMockAgentProvisionerService(ctrl)
 	s.keyUpdaterService = NewMockKeyUpdaterService(ctrl)
 	return ctrl
 }
 
-func (s *provisionerSuite) TestContainerManagerConfig(c *gc.C) {
+func (s *provisionerSuite) TestContainerManagerConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	api := &ProvisionerAPI{
 		agentProvisionerService: s.agentProvisionerService,
@@ -69,7 +69,7 @@ func (s *provisionerSuite) TestContainerManagerConfig(c *gc.C) {
 	}})
 }
 
-func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
+func (s *provisionerSuite) TestContainerConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	api := &ProvisionerAPI{
 		agentProvisionerService: s.agentProvisionerService,

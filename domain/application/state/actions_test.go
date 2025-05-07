@@ -4,7 +4,7 @@
 package state
 
 import (
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/domain/application/charm"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -14,7 +14,7 @@ type actionsSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = gc.Suite(&actionsSuite{})
+var _ = tc.Suite(&actionsSuite{})
 
 var actionsTestCases = [...]struct {
 	name   string
@@ -52,21 +52,21 @@ var actionsTestCases = [...]struct {
 	},
 }
 
-func (s *actionsSuite) TestDecodeActions(c *gc.C) {
+func (s *actionsSuite) TestDecodeActions(c *tc.C) {
 	for _, tc := range actionsTestCases {
 		c.Logf("Running test case %q", tc.name)
 
 		result := decodeActions(tc.input)
-		c.Check(result, gc.DeepEquals, tc.output)
+		c.Check(result, tc.DeepEquals, tc.output)
 	}
 }
 
-func (s *actionsSuite) TestEncodeActions(c *gc.C) {
+func (s *actionsSuite) TestEncodeActions(c *tc.C) {
 	for _, tc := range actionsTestCases {
 		c.Logf("Running test case %q", tc.name)
 
 		decoded := decodeActions(tc.input)
-		c.Check(decoded, gc.DeepEquals, tc.output)
+		c.Check(decoded, tc.DeepEquals, tc.output)
 
 		encoded := encodeActions("", decoded)
 
@@ -80,6 +80,6 @@ func (s *actionsSuite) TestEncodeActions(c *gc.C) {
 				Params:         action.Params,
 			})
 		}
-		c.Check(result, gc.DeepEquals, tc.input)
+		c.Check(result, tc.DeepEquals, tc.input)
 	}
 }

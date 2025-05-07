@@ -7,10 +7,10 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/errors"
 )
@@ -23,9 +23,9 @@ type leaseServiceSuite struct {
 	token             *MockToken
 }
 
-var _ = gc.Suite(&leaseServiceSuite{})
+var _ = tc.Suite(&leaseServiceSuite{})
 
-func (s *leaseServiceSuite) TestWithLeader(c *gc.C) {
+func (s *leaseServiceSuite) TestWithLeader(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Done is triggered when the lease function is done.
@@ -62,7 +62,7 @@ func (s *leaseServiceSuite) TestWithLeader(c *gc.C) {
 	c.Check(called, jc.IsTrue)
 }
 
-func (s *leaseServiceSuite) TestWithLeaderWaitReturnsError(c *gc.C) {
+func (s *leaseServiceSuite) TestWithLeaderWaitReturnsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.leaseChecker.EXPECT().WaitUntilExpired(gomock.Any(), "leaseName", gomock.Any()).DoAndReturn(
@@ -82,7 +82,7 @@ func (s *leaseServiceSuite) TestWithLeaderWaitReturnsError(c *gc.C) {
 	c.Check(called, jc.IsFalse)
 }
 
-func (s *leaseServiceSuite) TestWithLeaderWaitHasLeaseChange(c *gc.C) {
+func (s *leaseServiceSuite) TestWithLeaderWaitHasLeaseChange(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
@@ -142,7 +142,7 @@ func (s *leaseServiceSuite) TestWithLeaderWaitHasLeaseChange(c *gc.C) {
 	c.Check(called, jc.IsTrue)
 }
 
-func (s *leaseServiceSuite) TestWithLeaderFailsOnWaitCheck(c *gc.C) {
+func (s *leaseServiceSuite) TestWithLeaderFailsOnWaitCheck(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
@@ -176,11 +176,11 @@ func (s *leaseServiceSuite) TestWithLeaderFailsOnWaitCheck(c *gc.C) {
 		called = true
 		return nil
 	})
-	c.Assert(err, gc.ErrorMatches, "checking lease token: not holding lease")
+	c.Assert(err, tc.ErrorMatches, "checking lease token: not holding lease")
 	c.Check(called, jc.IsFalse)
 }
 
-func (s *leaseServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *leaseServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.modelLeaseManager = NewMockModelLeaseManagerGetter(ctrl)

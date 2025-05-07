@@ -8,12 +8,12 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
@@ -30,15 +30,15 @@ type manifoldSuite struct {
 	store *MockExpiryStore
 }
 
-var _ = gc.Suite(&manifoldSuite{})
+var _ = tc.Suite(&manifoldSuite{})
 
-func (s *manifoldSuite) TestInputs(c *gc.C) {
+func (s *manifoldSuite) TestInputs(c *tc.C) {
 	cfg := s.newManifoldConfig(c)
 
 	c.Check(leaseexpiry.Manifold(cfg).Inputs, jc.DeepEquals, []string{"clock-name", "db-accessor-name", "trace-name"})
 }
 
-func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
+func (s *manifoldSuite) TestConfigValidate(c *tc.C) {
 	validCfg := s.newManifoldConfig(c)
 
 	cfg := validCfg
@@ -66,17 +66,17 @@ func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
-func (s *manifoldSuite) TestStartSuccess(c *gc.C) {
+func (s *manifoldSuite) TestStartSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.newManifoldConfig(c)
 
 	work, err := leaseexpiry.Manifold(cfg).Start(context.Background(), s.newGetter())
-	c.Check(work, gc.NotNil)
+	c.Check(work, tc.NotNil)
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *manifoldSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.store = NewMockExpiryStore(ctrl)
@@ -94,7 +94,7 @@ func (s *manifoldSuite) newGetter() *dt.Getter {
 
 // newManifoldConfig creates and returns a new ManifoldConfig instance based on
 // the supplied arguments.
-func (s *manifoldSuite) newManifoldConfig(c *gc.C) leaseexpiry.ManifoldConfig {
+func (s *manifoldSuite) newManifoldConfig(c *tc.C) leaseexpiry.ManifoldConfig {
 	return leaseexpiry.ManifoldConfig{
 		ClockName:      "clock-name",
 		DBAccessorName: "db-accessor-name",

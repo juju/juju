@@ -6,9 +6,9 @@ package service
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	corecredential "github.com/juju/juju/core/credential"
@@ -22,13 +22,13 @@ type providerServiceSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&providerServiceSuite{})
+var _ = tc.Suite(&providerServiceSuite{})
 
 func (s *providerServiceSuite) service() *WatchableProviderService {
 	return NewWatchableProviderService(s.state, s.watcherFactory)
 }
 
-func (s *providerServiceSuite) TestCloudCredential(c *gc.C) {
+func (s *providerServiceSuite) TestCloudCredential(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	key := corecredential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred"), Name: "foo"}
@@ -48,15 +48,15 @@ func (s *providerServiceSuite) TestCloudCredential(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false))
 }
 
-func (s *providerServiceSuite) TestCloudCredentialInvalidKey(c *gc.C) {
+func (s *providerServiceSuite) TestCloudCredentialInvalidKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	key := corecredential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred")}
 	_, err := s.service().CloudCredential(context.Background(), key)
-	c.Assert(err, gc.ErrorMatches, "invalid id getting cloud credential.*")
+	c.Assert(err, tc.ErrorMatches, "invalid id getting cloud credential.*")
 }
 
-func (s *providerServiceSuite) TestWatchCredential(c *gc.C) {
+func (s *providerServiceSuite) TestWatchCredential(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	nw := watchertest.NewMockNotifyWatcher(nil)
@@ -66,18 +66,18 @@ func (s *providerServiceSuite) TestWatchCredential(c *gc.C) {
 
 	w, err := s.service().WatchCredential(context.Background(), key)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(w, gc.NotNil)
+	c.Assert(w, tc.NotNil)
 }
 
-func (s *providerServiceSuite) TestWatchCredentialInvalidKey(c *gc.C) {
+func (s *providerServiceSuite) TestWatchCredentialInvalidKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	key := corecredential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred")}
 	_, err := s.service().WatchCredential(context.Background(), key)
-	c.Assert(err, gc.ErrorMatches, "watching cloud credential with invalid key.*")
+	c.Assert(err, tc.ErrorMatches, "watching cloud credential with invalid key.*")
 }
 
-func (s *providerServiceSuite) TestInvalidateCredential(c *gc.C) {
+func (s *providerServiceSuite) TestInvalidateCredential(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uuid := credentialtesting.GenCredentialUUID(c)
@@ -89,10 +89,10 @@ func (s *providerServiceSuite) TestInvalidateCredential(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *providerServiceSuite) TestInvalidateCredentialInvalidKey(c *gc.C) {
+func (s *providerServiceSuite) TestInvalidateCredentialInvalidKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	key := corecredential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred")}
 	err := s.service().InvalidateCredential(context.Background(), key, "bad")
-	c.Assert(err, gc.ErrorMatches, "invalidating cloud credential with invalid key.*")
+	c.Assert(err, tc.ErrorMatches, "invalidating cloud credential with invalid key.*")
 }

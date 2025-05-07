@@ -8,11 +8,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/network"
@@ -26,30 +26,30 @@ type undertakerSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&undertakerSuite{})
+var _ = tc.Suite(&undertakerSuite{})
 
 // Some tests to check that the handler is wired up to the
 // NotifyWorker first.
 
-func (s *undertakerSuite) TestErrorWatching(c *gc.C) {
+func (s *undertakerSuite) TestErrorWatching(c *tc.C) {
 	api := s.makeAPIWithWatcher()
 	api.SetErrors(errors.New("blam"))
 	w, err := machineundertaker.NewWorker(
 		api, &fakeEnviron{}, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
-	c.Check(err, gc.ErrorMatches, "blam")
+	c.Check(err, tc.ErrorMatches, "blam")
 	api.CheckCallNames(c, "WatchMachineRemovals")
 }
 
-func (s *undertakerSuite) TestErrorGettingRemovals(c *gc.C) {
+func (s *undertakerSuite) TestErrorGettingRemovals(c *tc.C) {
 	api := s.makeAPIWithWatcher()
 	api.SetErrors(nil, errors.New("explodo"))
 	w, err := machineundertaker.NewWorker(
 		api, &fakeEnviron{}, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
-	c.Check(err, gc.ErrorMatches, "explodo")
+	c.Check(err, tc.ErrorMatches, "explodo")
 	api.CheckCallNames(c, "WatchMachineRemovals", "AllMachineRemovals")
 }
 
@@ -60,7 +60,7 @@ func (s *undertakerSuite) TestErrorGettingRemovals(c *gc.C) {
 // since all of the clever/tricky lifecycle management is taken care
 // of in NotifyWorker instead).
 
-func (*undertakerSuite) TestMaybeReleaseAddresses_NoNetworking(c *gc.C) {
+func (*undertakerSuite) TestMaybeReleaseAddresses_NoNetworking(c *tc.C) {
 	api := fakeAPI{Stub: &testing.Stub{}}
 	u := machineundertaker.Undertaker{API: &api, Logger: loggertesting.WrapCheckLog(c)}
 	err := u.MaybeReleaseAddresses(context.Background(), names.NewMachineTag("3"))
@@ -68,7 +68,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_NoNetworking(c *gc.C) {
 	api.CheckCallNames(c)
 }
 
-func (*undertakerSuite) TestMaybeReleaseAddresses_NotContainer(c *gc.C) {
+func (*undertakerSuite) TestMaybeReleaseAddresses_NotContainer(c *tc.C) {
 	api := fakeAPI{Stub: &testing.Stub{}}
 	releaser := fakeReleaser{}
 	u := machineundertaker.Undertaker{
@@ -81,7 +81,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_NotContainer(c *gc.C) {
 	api.CheckCallNames(c)
 }
 
-func (*undertakerSuite) TestMaybeReleaseAddresses_ErrorGettingInfo(c *gc.C) {
+func (*undertakerSuite) TestMaybeReleaseAddresses_ErrorGettingInfo(c *tc.C) {
 	api := fakeAPI{Stub: &testing.Stub{}}
 	api.SetErrors(errors.New("a funny thing happened on the way"))
 	releaser := fakeReleaser{}
@@ -91,10 +91,10 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_ErrorGettingInfo(c *gc.C) {
 		Logger:   loggertesting.WrapCheckLog(c),
 	}
 	err := u.MaybeReleaseAddresses(context.Background(), names.NewMachineTag("4/lxd/2"))
-	c.Assert(err, gc.ErrorMatches, "a funny thing happened on the way")
+	c.Assert(err, tc.ErrorMatches, "a funny thing happened on the way")
 }
 
-func (*undertakerSuite) TestMaybeReleaseAddresses_NoAddresses(c *gc.C) {
+func (*undertakerSuite) TestMaybeReleaseAddresses_NoAddresses(c *tc.C) {
 	api := fakeAPI{Stub: &testing.Stub{}}
 	releaser := fakeReleaser{Stub: &testing.Stub{}}
 	u := machineundertaker.Undertaker{
@@ -107,7 +107,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_NoAddresses(c *gc.C) {
 	releaser.CheckCallNames(c)
 }
 
-func (*undertakerSuite) TestMaybeReleaseAddresses_NotSupported(c *gc.C) {
+func (*undertakerSuite) TestMaybeReleaseAddresses_NotSupported(c *tc.C) {
 	api := fakeAPI{
 		Stub: &testing.Stub{},
 		interfaces: map[string][]network.ProviderInterfaceInfo{
@@ -130,7 +130,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_NotSupported(c *gc.C) {
 	)
 }
 
-func (*undertakerSuite) TestMaybeReleaseAddresses_ErrorReleasing(c *gc.C) {
+func (*undertakerSuite) TestMaybeReleaseAddresses_ErrorReleasing(c *tc.C) {
 	api := fakeAPI{
 		Stub: &testing.Stub{},
 		interfaces: map[string][]network.ProviderInterfaceInfo{
@@ -147,13 +147,13 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_ErrorReleasing(c *gc.C) {
 		Logger:   loggertesting.WrapCheckLog(c),
 	}
 	err := u.MaybeReleaseAddresses(context.Background(), names.NewMachineTag("4/lxd/4"))
-	c.Assert(err, gc.ErrorMatches, "something unexpected")
+	c.Assert(err, tc.ErrorMatches, "something unexpected")
 	releaser.CheckCall(c, 0, "ReleaseContainerAddresses",
 		[]network.ProviderInterfaceInfo{{InterfaceName: "chloe"}},
 	)
 }
 
-func (*undertakerSuite) TestMaybeReleaseAddresses_Success(c *gc.C) {
+func (*undertakerSuite) TestMaybeReleaseAddresses_Success(c *tc.C) {
 	api := fakeAPI{
 		Stub: &testing.Stub{},
 		interfaces: map[string][]network.ProviderInterfaceInfo{
@@ -175,7 +175,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_Success(c *gc.C) {
 	)
 }
 
-func (*undertakerSuite) TestHandle_CompletesRemoval(c *gc.C) {
+func (*undertakerSuite) TestHandle_CompletesRemoval(c *tc.C) {
 	api := fakeAPI{
 		Stub:     &testing.Stub{},
 		removals: []string{"3", "4/lxd/4"},
@@ -194,7 +194,7 @@ func (*undertakerSuite) TestHandle_CompletesRemoval(c *gc.C) {
 	err := u.Handle(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(releaser.Calls(), gc.HasLen, 1)
+	c.Assert(releaser.Calls(), tc.HasLen, 1)
 	releaser.CheckCall(c, 0, "ReleaseContainerAddresses",
 		[]network.ProviderInterfaceInfo{{InterfaceName: "chloe"}},
 	)
@@ -202,7 +202,7 @@ func (*undertakerSuite) TestHandle_CompletesRemoval(c *gc.C) {
 	checkRemovalsMatch(c, api.Stub, "3", "4/lxd/4")
 }
 
-func (*undertakerSuite) TestHandle_NoRemovalOnErrorReleasing(c *gc.C) {
+func (*undertakerSuite) TestHandle_NoRemovalOnErrorReleasing(c *tc.C) {
 	api := fakeAPI{
 		Stub:     &testing.Stub{},
 		removals: []string{"3", "4/lxd/4", "5"},
@@ -222,7 +222,7 @@ func (*undertakerSuite) TestHandle_NoRemovalOnErrorReleasing(c *gc.C) {
 	err := u.Handle(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(releaser.Calls(), gc.HasLen, 1)
+	c.Assert(releaser.Calls(), tc.HasLen, 1)
 	releaser.CheckCall(c, 0, "ReleaseContainerAddresses",
 		[]network.ProviderInterfaceInfo{{InterfaceName: "chloe"}},
 	)
@@ -230,7 +230,7 @@ func (*undertakerSuite) TestHandle_NoRemovalOnErrorReleasing(c *gc.C) {
 	checkRemovalsMatch(c, api.Stub, "3", "5")
 }
 
-func (*undertakerSuite) TestHandle_ErrorOnRemoval(c *gc.C) {
+func (*undertakerSuite) TestHandle_ErrorOnRemoval(c *tc.C) {
 	api := fakeAPI{
 		Stub:     &testing.Stub{},
 		removals: []string{"3", "4/lxd/4"},
@@ -242,7 +242,7 @@ func (*undertakerSuite) TestHandle_ErrorOnRemoval(c *gc.C) {
 	checkRemovalsMatch(c, api.Stub, "3", "4/lxd/4")
 }
 
-func checkRemovalsMatch(c *gc.C, stub *testing.Stub, expected ...string) {
+func checkRemovalsMatch(c *tc.C, stub *testing.Stub, expected ...string) {
 	var completedRemovals []string
 	for _, call := range stub.Calls() {
 		if call.FuncName == "CompleteRemoval" {
@@ -250,7 +250,7 @@ func checkRemovalsMatch(c *gc.C, stub *testing.Stub, expected ...string) {
 			completedRemovals = append(completedRemovals, machineId)
 		}
 	}
-	c.Check(completedRemovals, gc.DeepEquals, expected)
+	c.Check(completedRemovals, tc.DeepEquals, expected)
 }
 
 func (s *undertakerSuite) makeAPIWithWatcher() *fakeAPI {
@@ -268,7 +268,7 @@ func (s *undertakerSuite) newMockNotifyWatcher() *mockNotifyWatcher {
 		<-m.tomb.Dying()
 		return nil
 	})
-	s.AddCleanup(func(c *gc.C) {
+	s.AddCleanup(func(c *tc.C) {
 		err := worker.Stop(m)
 		c.Check(err, jc.ErrorIsNil)
 	})

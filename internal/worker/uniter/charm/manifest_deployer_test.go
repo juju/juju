@@ -12,10 +12,10 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
@@ -30,13 +30,13 @@ type ManifestDeployerSuite struct {
 	deployer   charm.Deployer
 }
 
-var _ = gc.Suite(&ManifestDeployerSuite{})
+var _ = tc.Suite(&ManifestDeployerSuite{})
 
 // because we generally use real charm bundles for testing, and charm bundling
 // sets every file mode to 0755 or 0644, all our input data uses those modes as
 // well.
 
-func (s *ManifestDeployerSuite) SetUpTest(c *gc.C) {
+func (s *ManifestDeployerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.bundles = &bundleReader{}
 	s.targetPath = filepath.Join(c.MkDir(), "target")
@@ -48,13 +48,13 @@ func (s *ManifestDeployerSuite) addMockCharm(revision int, bundle charm.Bundle) 
 	return s.bundles.AddBundle(charmURL(revision), bundle)
 }
 
-func (s *ManifestDeployerSuite) addCharm(c *gc.C, revision int, content ...ft.Entry) charm.BundleInfo {
+func (s *ManifestDeployerSuite) addCharm(c *tc.C, revision int, content ...ft.Entry) charm.BundleInfo {
 	return s.bundles.AddCustomBundle(c, charmURL(revision), func(path string) {
 		ft.Entries(content).Create(c, path)
 	})
 }
 
-func (s *ManifestDeployerSuite) deployCharm(c *gc.C, revision int, content ...ft.Entry) charm.BundleInfo {
+func (s *ManifestDeployerSuite) deployCharm(c *tc.C, revision int, content ...ft.Entry) charm.BundleInfo {
 	info := s.addCharm(c, revision, content...)
 	err := s.deployer.Stage(context.Background(), info, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -64,14 +64,14 @@ func (s *ManifestDeployerSuite) deployCharm(c *gc.C, revision int, content ...ft
 	return info
 }
 
-func (s *ManifestDeployerSuite) assertCharm(c *gc.C, revision int, content ...ft.Entry) {
+func (s *ManifestDeployerSuite) assertCharm(c *tc.C, revision int, content ...ft.Entry) {
 	url, err := charm.ReadCharmURL(filepath.Join(s.targetPath, ".juju-charm"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(url, gc.Equals, charmURL(revision).String())
+	c.Assert(url, tc.Equals, charmURL(revision).String())
 	ft.Entries(content).Check(c, s.targetPath)
 }
 
-func (s *ManifestDeployerSuite) TestAbortStageWhenClosed(c *gc.C) {
+func (s *ManifestDeployerSuite) TestAbortStageWhenClosed(c *tc.C) {
 	info := s.addMockCharm(1, mockBundle{})
 	abort := make(chan struct{})
 	errors := make(chan error)
@@ -81,10 +81,10 @@ func (s *ManifestDeployerSuite) TestAbortStageWhenClosed(c *gc.C) {
 	}()
 	close(abort)
 	err := <-errors
-	c.Assert(err, gc.ErrorMatches, "charm read aborted")
+	c.Assert(err, tc.ErrorMatches, "charm read aborted")
 }
 
-func (s *ManifestDeployerSuite) TestDontAbortStageWhenNotClosed(c *gc.C) {
+func (s *ManifestDeployerSuite) TestDontAbortStageWhenNotClosed(c *tc.C) {
 	info := s.addMockCharm(1, mockBundle{})
 	abort := make(chan struct{})
 	errors := make(chan error)
@@ -97,12 +97,12 @@ func (s *ManifestDeployerSuite) TestDontAbortStageWhenNotClosed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ManifestDeployerSuite) TestDeployWithoutStage(c *gc.C) {
+func (s *ManifestDeployerSuite) TestDeployWithoutStage(c *tc.C) {
 	err := s.deployer.Deploy()
-	c.Assert(err, gc.ErrorMatches, "charm deployment failed: no charm set")
+	c.Assert(err, tc.ErrorMatches, "charm deployment failed: no charm set")
 }
 
-func (s *ManifestDeployerSuite) TestInstall(c *gc.C) {
+func (s *ManifestDeployerSuite) TestInstall(c *tc.C) {
 	s.deployCharm(c, 1,
 		ft.File{Path: "some-file", Data: "hello", Perm: 0644},
 		ft.Dir{Path: "some-dir", Perm: 0755},
@@ -110,7 +110,7 @@ func (s *ManifestDeployerSuite) TestInstall(c *gc.C) {
 	)
 }
 
-func (s *ManifestDeployerSuite) TestUpgradeOverwrite(c *gc.C) {
+func (s *ManifestDeployerSuite) TestUpgradeOverwrite(c *tc.C) {
 	s.deployCharm(c, 1,
 		ft.File{Path: "some-file", Data: "hello", Perm: 0644},
 		ft.Dir{Path: "some-dir", Perm: 0755},
@@ -128,7 +128,7 @@ func (s *ManifestDeployerSuite) TestUpgradeOverwrite(c *gc.C) {
 	)
 }
 
-func (s *ManifestDeployerSuite) TestUpgradePreserveUserFiles(c *gc.C) {
+func (s *ManifestDeployerSuite) TestUpgradePreserveUserFiles(c *tc.C) {
 	originalCharmContent := ft.Entries{
 		ft.File{Path: "charm-file", Data: "to-be-removed", Perm: 0644},
 		ft.Dir{Path: "charm-dir", Perm: 0755},
@@ -168,7 +168,7 @@ func (s *ManifestDeployerSuite) TestUpgradePreserveUserFiles(c *gc.C) {
 	originalCharmContent.AsRemoveds().Check(c, s.targetPath)
 }
 
-func (s *ManifestDeployerSuite) TestUpgradeConflictResolveRetrySameCharm(c *gc.C) {
+func (s *ManifestDeployerSuite) TestUpgradeConflictResolveRetrySameCharm(c *tc.C) {
 	// Create base install.
 	s.deployCharm(c, 1,
 		ft.File{Path: "shared-file", Data: "old", Perm: 0755},
@@ -199,7 +199,7 @@ func (s *ManifestDeployerSuite) TestUpgradeConflictResolveRetrySameCharm(c *gc.C
 	// content of the target dir at this stage, but we do want to check it's
 	// still marked as based on the original charm...
 	err = s.deployer.Deploy()
-	c.Assert(err, gc.Equals, charm.ErrConflict)
+	c.Assert(err, tc.Equals, charm.ErrConflict)
 	s.assertCharm(c, 1)
 
 	// ...and we want to verify that if we "fix the errors" and redeploy the
@@ -213,7 +213,7 @@ func (s *ManifestDeployerSuite) TestUpgradeConflictResolveRetrySameCharm(c *gc.C
 	ft.Removed{Path: "old-file"}.Check(c, s.targetPath)
 }
 
-func (s *ManifestDeployerSuite) TestUpgradeConflictRevertRetryDifferentCharm(c *gc.C) {
+func (s *ManifestDeployerSuite) TestUpgradeConflictRevertRetryDifferentCharm(c *tc.C) {
 	// Create base install and add a user file.
 	s.deployCharm(c, 1,
 		ft.File{Path: "shared-file", Data: "old", Perm: 0755},
@@ -238,7 +238,7 @@ func (s *ManifestDeployerSuite) TestUpgradeConflictRevertRetryDifferentCharm(c *
 	err := s.deployer.Stage(context.Background(), badInfo, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.deployer.Deploy()
-	c.Assert(err, gc.Equals, charm.ErrConflict)
+	c.Assert(err, tc.Equals, charm.ErrConflict)
 
 	// Create a charm upgrade that creates a bunch of different files, without
 	// error, and deploy it; check user files are preserved, and nothing from
@@ -252,7 +252,7 @@ func (s *ManifestDeployerSuite) TestUpgradeConflictRevertRetryDifferentCharm(c *
 	ft.Removed{Path: "bad-file"}.Check(c, s.targetPath)
 }
 
-var _ = gc.Suite(&RetryingBundleReaderSuite{})
+var _ = tc.Suite(&RetryingBundleReaderSuite{})
 
 type RetryingBundleReaderSuite struct {
 	bundleReader *mocks.MockBundleReader
@@ -262,7 +262,7 @@ type RetryingBundleReaderSuite struct {
 	rbr          charm.RetryingBundleReader
 }
 
-func (s *RetryingBundleReaderSuite) TestReadBundleMaxAttemptsExceeded(c *gc.C) {
+func (s *RetryingBundleReaderSuite) TestReadBundleMaxAttemptsExceeded(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.bundleInfo.EXPECT().URL().Return("ch:focal/dummy-1").AnyTimes()
@@ -281,7 +281,7 @@ func (s *RetryingBundleReaderSuite) TestReadBundleMaxAttemptsExceeded(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
-func (s *RetryingBundleReaderSuite) TestReadBundleEventuallySucceeds(c *gc.C) {
+func (s *RetryingBundleReaderSuite) TestReadBundleEventuallySucceeds(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.bundleInfo.EXPECT().URL().Return("ch:focal/dummy-1").AnyTimes()
@@ -298,10 +298,10 @@ func (s *RetryingBundleReaderSuite) TestReadBundleEventuallySucceeds(c *gc.C) {
 
 	got, err := s.rbr.Read(context.Background(), s.bundleInfo, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, gc.Equals, s.bundle)
+	c.Assert(got, tc.Equals, s.bundle)
 }
 
-func (s *RetryingBundleReaderSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *RetryingBundleReaderSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.bundleReader = mocks.NewMockBundleReader(ctrl)
 	s.bundleInfo = mocks.NewMockBundleInfo(ctrl)

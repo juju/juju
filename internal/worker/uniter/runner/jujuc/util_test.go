@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"io"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
@@ -34,12 +34,12 @@ type ContextSuite struct {
 	testing.BaseSuite
 }
 
-func (s *ContextSuite) SetUpTest(c *gc.C) {
+func (s *ContextSuite) SetUpTest(c *tc.C) {
 	s.ContextSuite.SetUpTest(c)
 	s.BaseSuite.SetUpTest(c)
 }
 
-func (s *ContextSuite) newHookContext(c *gc.C) *Context {
+func (s *ContextSuite) newHookContext(c *tc.C) *Context {
 	hctx, info := s.ContextSuite.NewHookContext()
 	return &Context{
 		Context: hctx,
@@ -47,12 +47,12 @@ func (s *ContextSuite) newHookContext(c *gc.C) *Context {
 	}
 }
 
-func (s *ContextSuite) GetHookContext(c *gc.C, relid int, remote string) *Context {
-	c.Assert(relid, gc.Equals, -1)
+func (s *ContextSuite) GetHookContext(c *tc.C, relid int, remote string) *Context {
+	c.Assert(relid, tc.Equals, -1)
 	return s.newHookContext(c)
 }
 
-func (s *ContextSuite) GetStatusHookContext(c *gc.C) *Context {
+func (s *ContextSuite) GetStatusHookContext(c *tc.C) *Context {
 	return s.newHookContext(c)
 }
 

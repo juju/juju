@@ -8,10 +8,10 @@ import (
 	"sync"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"
@@ -29,7 +29,7 @@ type fixture struct {
 	initialSpec   environscloudspec.CloudSpec
 }
 
-func (fix *fixture) Run(c *gc.C, test func(*runContext)) {
+func (fix *fixture) Run(c *tc.C, test func(*runContext)) {
 	watcher := newNotifyWatcher(fix.watcherErr)
 	defer workertest.CleanKill(c, watcher)
 	cloudWatcher := newNotifyWatcher(fix.watcherErr)
@@ -55,14 +55,14 @@ type runContext struct {
 }
 
 // SetConfig updates the configuration returned by ModelConfig.
-func (context *runContext) SetConfig(c *gc.C, extraAttrs jujutesting.Attrs) {
+func (context *runContext) SetConfig(c *tc.C, extraAttrs jujutesting.Attrs) {
 	context.mu.Lock()
 	defer context.mu.Unlock()
 	context.config = newModelConfig(c, extraAttrs)
 }
 
 // SetCloudSpec updates the spec returned by CloudSpec.
-func (context *runContext) SetCloudSpec(c *gc.C, spec environscloudspec.CloudSpec) {
+func (context *runContext) SetCloudSpec(c *tc.C, spec environscloudspec.CloudSpec) {
 	context.mu.Lock()
 	defer context.mu.Unlock()
 	context.cloud = spec
@@ -183,7 +183,7 @@ func (context *runContext) WatchCredential(cred names.CloudCredentialTag) (watch
 	return context.watcher, nil
 }
 
-func (context *runContext) CheckCallNames(c *gc.C, names ...string) {
+func (context *runContext) CheckCallNames(c *tc.C, names ...string) {
 	context.mu.Lock()
 	defer context.mu.Unlock()
 	context.stub.CheckCallNames(c, names...)
@@ -210,7 +210,7 @@ func (w *notifyWatcher) Changes() watcher.NotifyChannel {
 
 // newModelConfig returns an environment config map with the supplied attrs
 // (on top of some default set), or fails the test.
-func newModelConfig(c *gc.C, extraAttrs jujutesting.Attrs) map[string]interface{} {
+func newModelConfig(c *tc.C, extraAttrs jujutesting.Attrs) map[string]interface{} {
 	return jujutesting.CustomModelConfig(c, extraAttrs).AllAttrs()
 }
 

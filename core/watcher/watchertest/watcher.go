@@ -6,21 +6,21 @@ package watchertest
 import (
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/testing"
 )
 
 // WatcherAssert is a function that asserts the changes received by a watcher.
-type WatcherAssert[T any] func(c *gc.C, changes []T) bool
+type WatcherAssert[T any] func(c *tc.C, changes []T) bool
 
 // SliceAssert returns a WatcherAssert that checks that the watcher has
 // received at least the given changes.
 func SliceAssert[T any](expect ...T) WatcherAssert[T] {
-	return func(c *gc.C, changes []T) bool {
+	return func(c *tc.C, changes []T) bool {
 		if len(changes) >= len(expect) {
 			c.Assert(changes, jc.SameContents, expect)
 			return true
@@ -33,7 +33,7 @@ func SliceAssert[T any](expect ...T) WatcherAssert[T] {
 // received at least the given []string changes. The changes are
 // concatenated before the assertion, order doesn't matter during assertion.
 func StringSliceAssert[T string](expect ...T) WatcherAssert[[]T] {
-	return func(c *gc.C, changes [][]T) bool {
+	return func(c *tc.C, changes [][]T) bool {
 		var received []T
 		for _, change := range changes {
 			received = append(received, change...)
@@ -50,7 +50,7 @@ func StringSliceAssert[T string](expect ...T) WatcherAssert[[]T] {
 // received at least the given []watcher.SecretTriggerChange changes. The changes are
 // concatenated before the assertion, order doesn't matter during assertion.
 func SecretTriggerSliceAssert[T watcher.SecretTriggerChange](expect ...T) WatcherAssert[[]T] {
-	return func(c *gc.C, changes [][]T) bool {
+	return func(c *tc.C, changes [][]T) bool {
 		var received []T
 		for _, change := range changes {
 			received = append(received, change...)
@@ -68,12 +68,12 @@ func SecretTriggerSliceAssert[T watcher.SecretTriggerChange](expect ...T) Watche
 // WatcherC embeds a gocheck.C and adds methods to help
 // verify the behaviour of generic watchers.
 type WatcherC[T any] struct {
-	c       *gc.C
+	c       *tc.C
 	Watcher watcher.Watcher[T]
 }
 
 // NewWatcherC() returns a WatcherC[T].
-func NewWatcherC[T any](c *gc.C, w watcher.Watcher[T]) WatcherC[T] {
+func NewWatcherC[T any](c *tc.C, w watcher.Watcher[T]) WatcherC[T] {
 	return WatcherC[T]{
 		c:       c,
 		Watcher: w,
@@ -95,7 +95,7 @@ func (w *WatcherC[T]) AssertNoChange() {
 func (w *WatcherC[T]) AssertChange() {
 	select {
 	case _, ok := <-w.Watcher.Changes():
-		w.c.Assert(ok, gc.Equals, true)
+		w.c.Assert(ok, tc.Equals, true)
 	case <-time.After(testing.LongWait):
 		w.c.Fatalf("watcher did not send change")
 	}
@@ -201,7 +201,7 @@ func (w *WatcherC[T]) AssertKilled() {
 // ...in the large number (majority?) of situations where a worker is expected
 // to run successfully; and it doesn't Assert, and is therefore suitable for use
 // from any goroutine.
-func CleanKill[T any](c *gc.C, w watcher.Watcher[T]) {
+func CleanKill[T any](c *tc.C, w watcher.Watcher[T]) {
 	workertest.CleanKill(c, w)
 	_, ok := <-w.Changes()
 	c.Assert(ok, jc.IsFalse)
@@ -217,7 +217,7 @@ func CleanKill[T any](c *gc.C, w watcher.Watcher[T]) {
 // ...in the cases where we expect a worker to fail, but aren't specifically
 // testing that failure; and it doesn't Assert, and is therefore suitable for
 // use from any goroutine.
-func DirtyKill[T any](c *gc.C, w watcher.Watcher[T]) {
+func DirtyKill[T any](c *tc.C, w watcher.Watcher[T]) {
 	workertest.DirtyKill(c, w)
 	_, ok := <-w.Changes()
 	if !ok {

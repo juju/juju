@@ -4,8 +4,8 @@
 package status
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
@@ -14,12 +14,12 @@ type statusSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = gc.Suite(&statusSuite{})
+var _ = tc.Suite(&statusSuite{})
 
 // TestK8sPodStatusDBValues ensures there's no skew between what's in the
 // database table for cloud container status and the typed consts used in the
 // state packages.
-func (s *statusSuite) TestK8sPodStatusDBValues(c *gc.C) {
+func (s *statusSuite) TestK8sPodStatusDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, status FROM k8s_pod_status_value")
 	c.Assert(err, jc.ErrorIsNil)
@@ -46,7 +46,7 @@ func (s *statusSuite) TestK8sPodStatusDBValues(c *gc.C) {
 // TestUnitAgentStatusDBValues ensures there's no skew between what's in the
 // database table for unit agent status and the typed consts used in the
 // state packages.
-func (s *statusSuite) TestUnitAgentStatusDBValues(c *gc.C) {
+func (s *statusSuite) TestUnitAgentStatusDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, status FROM unit_agent_status_value")
 	c.Assert(err, jc.ErrorIsNil)
@@ -76,7 +76,7 @@ func (s *statusSuite) TestUnitAgentStatusDBValues(c *gc.C) {
 // TestWorkloadStatusDBValues ensures there's no skew between what's in the
 // database table for unit workload status and the typed consts used in the
 // state packages.
-func (s *statusSuite) TestWorkloadStatusDBValues(c *gc.C) {
+func (s *statusSuite) TestWorkloadStatusDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, status FROM workload_status_value")
 	c.Assert(err, jc.ErrorIsNil)

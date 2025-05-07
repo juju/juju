@@ -7,9 +7,9 @@ import (
 	"context"
 	"errors"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/migrationflag"
 	"github.com/juju/juju/api/base"
@@ -23,9 +23,9 @@ type FacadeSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&FacadeSuite{})
+var _ = tc.Suite(&FacadeSuite{})
 
-func (*FacadeSuite) TestPhaseCallError(c *gc.C) {
+func (*FacadeSuite) TestPhaseCallError(c *tc.C) {
 	stub := &testing.Stub{}
 	apiCaller := apiCaller(c, stub, func(interface{}) error {
 		return errors.New("bork")
@@ -33,12 +33,12 @@ func (*FacadeSuite) TestPhaseCallError(c *gc.C) {
 	facade := migrationflag.NewFacade(apiCaller, nil)
 
 	phase, err := facade.Phase(context.Background(), someUUID)
-	c.Check(err, gc.ErrorMatches, "bork")
-	c.Check(phase, gc.Equals, migration.UNKNOWN)
+	c.Check(err, tc.ErrorMatches, "bork")
+	c.Check(phase, tc.Equals, migration.UNKNOWN)
 	checkCalls(c, stub, "Phase")
 }
 
-func (*FacadeSuite) TestPhaseNoResults(c *gc.C) {
+func (*FacadeSuite) TestPhaseNoResults(c *tc.C) {
 	stub := &testing.Stub{}
 	apiCaller := apiCaller(c, stub, func(interface{}) error {
 		return nil
@@ -46,12 +46,12 @@ func (*FacadeSuite) TestPhaseNoResults(c *gc.C) {
 	facade := migrationflag.NewFacade(apiCaller, nil)
 
 	phase, err := facade.Phase(context.Background(), someUUID)
-	c.Check(err, gc.ErrorMatches, "expected 1 result, got 0")
-	c.Check(phase, gc.Equals, migration.UNKNOWN)
+	c.Check(err, tc.ErrorMatches, "expected 1 result, got 0")
+	c.Check(phase, tc.Equals, migration.UNKNOWN)
 	checkCalls(c, stub, "Phase")
 }
 
-func (*FacadeSuite) TestPhaseExtraResults(c *gc.C) {
+func (*FacadeSuite) TestPhaseExtraResults(c *tc.C) {
 	stub := &testing.Stub{}
 	apiCaller := apiCaller(c, stub, func(response interface{}) error {
 		outPtr, ok := response.(*params.PhaseResults)
@@ -65,12 +65,12 @@ func (*FacadeSuite) TestPhaseExtraResults(c *gc.C) {
 	facade := migrationflag.NewFacade(apiCaller, nil)
 
 	phase, err := facade.Phase(context.Background(), someUUID)
-	c.Check(err, gc.ErrorMatches, "expected 1 result, got 2")
-	c.Check(phase, gc.Equals, migration.UNKNOWN)
+	c.Check(err, tc.ErrorMatches, "expected 1 result, got 2")
+	c.Check(phase, tc.Equals, migration.UNKNOWN)
 	checkCalls(c, stub, "Phase")
 }
 
-func (*FacadeSuite) TestPhaseError(c *gc.C) {
+func (*FacadeSuite) TestPhaseError(c *tc.C) {
 	stub := &testing.Stub{}
 	apiCaller := apiCaller(c, stub, func(response interface{}) error {
 		outPtr, ok := response.(*params.PhaseResults)
@@ -83,12 +83,12 @@ func (*FacadeSuite) TestPhaseError(c *gc.C) {
 	facade := migrationflag.NewFacade(apiCaller, nil)
 
 	phase, err := facade.Phase(context.Background(), someUUID)
-	c.Check(err, gc.ErrorMatches, "mneh")
-	c.Check(phase, gc.Equals, migration.UNKNOWN)
+	c.Check(err, tc.ErrorMatches, "mneh")
+	c.Check(phase, tc.Equals, migration.UNKNOWN)
 	checkCalls(c, stub, "Phase")
 }
 
-func (*FacadeSuite) TestPhaseInvalid(c *gc.C) {
+func (*FacadeSuite) TestPhaseInvalid(c *tc.C) {
 	stub := &testing.Stub{}
 	apiCaller := apiCaller(c, stub, func(response interface{}) error {
 		outPtr, ok := response.(*params.PhaseResults)
@@ -99,12 +99,12 @@ func (*FacadeSuite) TestPhaseInvalid(c *gc.C) {
 	facade := migrationflag.NewFacade(apiCaller, nil)
 
 	phase, err := facade.Phase(context.Background(), someUUID)
-	c.Check(err, gc.ErrorMatches, `unknown phase "COLLABORATE"`)
-	c.Check(phase, gc.Equals, migration.UNKNOWN)
+	c.Check(err, tc.ErrorMatches, `unknown phase "COLLABORATE"`)
+	c.Check(phase, tc.Equals, migration.UNKNOWN)
 	checkCalls(c, stub, "Phase")
 }
 
-func (*FacadeSuite) TestPhaseSuccess(c *gc.C) {
+func (*FacadeSuite) TestPhaseSuccess(c *tc.C) {
 	stub := &testing.Stub{}
 	apiCaller := apiCaller(c, stub, func(response interface{}) error {
 		outPtr, ok := response.(*params.PhaseResults)
@@ -116,11 +116,11 @@ func (*FacadeSuite) TestPhaseSuccess(c *gc.C) {
 
 	phase, err := facade.Phase(context.Background(), someUUID)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(phase, gc.Equals, migration.ABORT)
+	c.Check(phase, tc.Equals, migration.ABORT)
 	checkCalls(c, stub, "Phase")
 }
 
-func (*FacadeSuite) TestWatchCallError(c *gc.C) {
+func (*FacadeSuite) TestWatchCallError(c *tc.C) {
 	stub := &testing.Stub{}
 	apiCaller := apiCaller(c, stub, func(interface{}) error {
 		return errors.New("bork")
@@ -128,12 +128,12 @@ func (*FacadeSuite) TestWatchCallError(c *gc.C) {
 	facade := migrationflag.NewFacade(apiCaller, nil)
 
 	watch, err := facade.Watch(context.Background(), someUUID)
-	c.Check(err, gc.ErrorMatches, "bork")
-	c.Check(watch, gc.IsNil)
+	c.Check(err, tc.ErrorMatches, "bork")
+	c.Check(watch, tc.IsNil)
 	checkCalls(c, stub, "Watch")
 }
 
-func (*FacadeSuite) TestWatchNoResults(c *gc.C) {
+func (*FacadeSuite) TestWatchNoResults(c *tc.C) {
 	stub := &testing.Stub{}
 	apiCaller := apiCaller(c, stub, func(interface{}) error {
 		return nil
@@ -141,12 +141,12 @@ func (*FacadeSuite) TestWatchNoResults(c *gc.C) {
 	facade := migrationflag.NewFacade(apiCaller, nil)
 
 	watch, err := facade.Watch(context.Background(), someUUID)
-	c.Check(err, gc.ErrorMatches, "expected 1 result, got 0")
-	c.Check(watch, gc.IsNil)
+	c.Check(err, tc.ErrorMatches, "expected 1 result, got 0")
+	c.Check(watch, tc.IsNil)
 	checkCalls(c, stub, "Watch")
 }
 
-func (*FacadeSuite) TestWatchExtraResults(c *gc.C) {
+func (*FacadeSuite) TestWatchExtraResults(c *tc.C) {
 	stub := &testing.Stub{}
 	apiCaller := apiCaller(c, stub, func(response interface{}) error {
 		outPtr, ok := response.(*params.NotifyWatchResults)
@@ -160,12 +160,12 @@ func (*FacadeSuite) TestWatchExtraResults(c *gc.C) {
 	facade := migrationflag.NewFacade(apiCaller, nil)
 
 	watch, err := facade.Watch(context.Background(), someUUID)
-	c.Check(err, gc.ErrorMatches, "expected 1 result, got 2")
-	c.Check(watch, gc.IsNil)
+	c.Check(err, tc.ErrorMatches, "expected 1 result, got 2")
+	c.Check(watch, tc.IsNil)
 	checkCalls(c, stub, "Watch")
 }
 
-func (*FacadeSuite) TestWatchError(c *gc.C) {
+func (*FacadeSuite) TestWatchError(c *tc.C) {
 	stub := &testing.Stub{}
 	apiCaller := apiCaller(c, stub, func(response interface{}) error {
 		outPtr, ok := response.(*params.NotifyWatchResults)
@@ -178,12 +178,12 @@ func (*FacadeSuite) TestWatchError(c *gc.C) {
 	facade := migrationflag.NewFacade(apiCaller, nil)
 
 	watch, err := facade.Watch(context.Background(), someUUID)
-	c.Check(err, gc.ErrorMatches, "snfl")
-	c.Check(watch, gc.IsNil)
+	c.Check(err, tc.ErrorMatches, "snfl")
+	c.Check(watch, tc.IsNil)
 	checkCalls(c, stub, "Watch")
 }
 
-func (*FacadeSuite) TestWatchSuccess(c *gc.C) {
+func (*FacadeSuite) TestWatchSuccess(c *tc.C) {
 	stub := &testing.Stub{}
 	apiCaller := apiCaller(c, stub, func(response interface{}) error {
 		outPtr, ok := response.(*params.NotifyWatchResults)
@@ -195,7 +195,7 @@ func (*FacadeSuite) TestWatchSuccess(c *gc.C) {
 	})
 	expectWatch := &struct{ watcher.NotifyWatcher }{}
 	newWatcher := func(gotCaller base.APICaller, result params.NotifyWatchResult) watcher.NotifyWatcher {
-		c.Check(gotCaller, gc.NotNil) // uncomparable
+		c.Check(gotCaller, tc.NotNil) // uncomparable
 		c.Check(result, jc.DeepEquals, params.NotifyWatchResult{
 			NotifyWatcherId: "789",
 		})
@@ -205,25 +205,25 @@ func (*FacadeSuite) TestWatchSuccess(c *gc.C) {
 
 	watch, err := facade.Watch(context.Background(), someUUID)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(watch, gc.Equals, expectWatch)
+	c.Check(watch, tc.Equals, expectWatch)
 	checkCalls(c, stub, "Watch")
 }
 
-func apiCaller(c *gc.C, stub *testing.Stub, set func(interface{}) error) base.APICaller {
+func apiCaller(c *tc.C, stub *testing.Stub, set func(interface{}) error) base.APICaller {
 	return basetesting.APICallerFunc(func(
 		objType string, version int,
 		id, request string,
 		args, response interface{},
 	) error {
-		c.Check(objType, gc.Equals, "MigrationFlag")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
+		c.Check(objType, tc.Equals, "MigrationFlag")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
 		stub.AddCall(request, args)
 		return set(response)
 	})
 }
 
-func checkCalls(c *gc.C, stub *testing.Stub, names ...string) {
+func checkCalls(c *tc.C, stub *testing.Stub, names ...string) {
 	stub.CheckCallNames(c, names...)
 	for _, call := range stub.Calls() {
 		c.Check(call.Args, jc.DeepEquals, []interface{}{

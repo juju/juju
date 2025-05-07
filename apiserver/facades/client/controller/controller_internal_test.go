@@ -6,8 +6,8 @@ package controller
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -15,11 +15,11 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-var _ = gc.Suite(&controllerSuite{})
+var _ = tc.Suite(&controllerSuite{})
 
 type controllerSuite struct{}
 
-func (s *controllerSuite) TestUserListCompatibility(c *gc.C) {
+func (s *controllerSuite) TestUserListCompatibility(c *tc.C) {
 	extProvider1 := "https://api.jujucharms.com/identity"
 	extProvider2 := "http://candid.provider/identity"
 	specs := []struct {
@@ -103,13 +103,13 @@ the current model:
 		if spec.expErr == "" {
 			c.Assert(err, jc.ErrorIsNil)
 		} else {
-			c.Assert(err, gc.Not(gc.Equals), nil)
-			c.Assert(err.Error(), gc.Equals, spec.expErr)
+			c.Assert(err, tc.Not(tc.Equals), nil)
+			c.Assert(err.Error(), tc.Equals, spec.expErr)
 		}
 	}
 }
 
-func (s *controllerSuite) TestTargetToAPIInfoLocalUser(c *gc.C) {
+func (s *controllerSuite) TestTargetToAPIInfoLocalUser(c *tc.C) {
 	targetInfo := migration.TargetInfo{
 		Addrs:     []string{"6.6.6.6"},
 		CACert:    testing.CACert,
@@ -127,7 +127,7 @@ func (s *controllerSuite) TestTargetToAPIInfoLocalUser(c *gc.C) {
 	})
 }
 
-func (s *controllerSuite) TestTargetToAPIInfoExternalUser(c *gc.C) {
+func (s *controllerSuite) TestTargetToAPIInfoExternalUser(c *tc.C) {
 	targetInfo := migration.TargetInfo{
 		Addrs:     []string{"6.6.6.6"},
 		CACert:    testing.CACert,

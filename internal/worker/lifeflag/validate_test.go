@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/worker/lifeflag"
 )
@@ -18,42 +18,42 @@ type ValidateSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&ValidateSuite{})
+var _ = tc.Suite(&ValidateSuite{})
 
-func (*ValidateSuite) TestValidConfig(c *gc.C) {
+func (*ValidateSuite) TestValidConfig(c *tc.C) {
 	config := validConfig()
 	err := config.Validate()
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (*ValidateSuite) TestNilFacade(c *gc.C) {
+func (*ValidateSuite) TestNilFacade(c *tc.C) {
 	config := validConfig()
 	config.Facade = nil
 	checkInvalid(c, config, "nil Facade not valid")
 }
 
-func (*ValidateSuite) TestNilEntity(c *gc.C) {
+func (*ValidateSuite) TestNilEntity(c *tc.C) {
 	config := validConfig()
 	config.Entity = nil
 	checkInvalid(c, config, "nil Entity not valid")
 }
 
-func (*ValidateSuite) TestNilResult(c *gc.C) {
+func (*ValidateSuite) TestNilResult(c *tc.C) {
 	config := validConfig()
 	config.Result = nil
 	checkInvalid(c, config, "nil Result not valid")
 }
 
-func checkInvalid(c *gc.C, config lifeflag.Config, message string) {
+func checkInvalid(c *tc.C, config lifeflag.Config, message string) {
 	check := func(err error) {
 		c.Check(err, jc.ErrorIs, errors.NotValid)
-		c.Check(err, gc.ErrorMatches, message)
+		c.Check(err, tc.ErrorMatches, message)
 	}
 	err := config.Validate()
 	check(err)
 
 	worker, err := lifeflag.New(context.Background(), config)
-	c.Check(worker, gc.IsNil)
+	c.Check(worker, tc.IsNil)
 	check(err)
 }
 

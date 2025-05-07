@@ -10,10 +10,10 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -47,9 +47,9 @@ type iaasProvisionerSuite struct {
 	store objectstore.ObjectStore
 }
 
-var _ = gc.Suite(&iaasProvisionerSuite{})
+var _ = tc.Suite(&iaasProvisionerSuite{})
 
-func (s *iaasProvisionerSuite) TestStub(c *gc.C) {
+func (s *iaasProvisionerSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - TestRemoveVolumeParams: creates an app that will create a storage instance,
 so we can release the storage and show the effects on the RemoveVolumeParams.
@@ -59,20 +59,20 @@ RemoveFilesystemParams.
 `)
 }
 
-func (s *iaasProvisionerSuite) SetUpTest(c *gc.C) {
+func (s *iaasProvisionerSuite) SetUpTest(c *tc.C) {
 	s.provisionerSuite.SetUpTest(c)
 	s.provisionerSuite.storageSetUp = s
 
 	// Create the resource registry separately to track invocations to
 	// Register.
 	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 
 	s.api = s.newApi(c, s.DefaultModelDomainServices(c).BlockDevice(), nil)
 	s.store = jujutesting.NewObjectStore(c, s.ControllerModelUUID())
 }
 
-func (s *iaasProvisionerSuite) newApi(c *gc.C, blockDeviceService storageprovisioner.BlockDeviceService, watcherRegistry facade.WatcherRegistry) *storageprovisioner.StorageProvisionerAPIv4 {
+func (s *iaasProvisionerSuite) newApi(c *tc.C, blockDeviceService storageprovisioner.BlockDeviceService, watcherRegistry facade.WatcherRegistry) *storageprovisioner.StorageProvisionerAPIv4 {
 	domainServices := s.ControllerDomainServices(c)
 	modelInfo, err := domainServices.ModelInfo().GetModelInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -112,7 +112,7 @@ func (s *iaasProvisionerSuite) newApi(c *gc.C, blockDeviceService storageprovisi
 	return api
 }
 
-func (s *iaasProvisionerSuite) setupVolumes(c *gc.C) {
+func (s *iaasProvisionerSuite) setupVolumes(c *tc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
@@ -175,7 +175,7 @@ func (s *iaasProvisionerSuite) setupVolumes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *iaasProvisionerSuite) setupFilesystems(c *gc.C) {
+func (s *iaasProvisionerSuite) setupFilesystems(c *tc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
@@ -235,7 +235,7 @@ func (s *iaasProvisionerSuite) setupFilesystems(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *iaasProvisionerSuite) TestHostedVolumes(c *gc.C) {
+func (s *iaasProvisionerSuite) TestHostedVolumes(c *tc.C) {
 	// Only IAAS models support block storage right now.
 	s.setupVolumes(c)
 	s.authorizer.Controller = false
@@ -244,7 +244,7 @@ func (s *iaasProvisionerSuite) TestHostedVolumes(c *gc.C) {
 		Entities: []params.Entity{{Tag: "volume-0-0"}, {Tag: "volume-1"}, {Tag: "volume-42"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.VolumeResults{
+	c.Assert(results, tc.DeepEquals, params.VolumeResults{
 		Results: []params.VolumeResult{
 			{Result: params.Volume{
 				VolumeTag: "volume-0-0",
@@ -262,7 +262,7 @@ func (s *iaasProvisionerSuite) TestHostedVolumes(c *gc.C) {
 	})
 }
 
-func (s *iaasProvisionerSuite) TestVolumesModel(c *gc.C) {
+func (s *iaasProvisionerSuite) TestVolumesModel(c *tc.C) {
 	// Only IAAS models support block storage right now.
 	s.setupVolumes(c)
 	s.authorizer.Tag = names.NewMachineTag("2") // neither 0 nor 1
@@ -276,7 +276,7 @@ func (s *iaasProvisionerSuite) TestVolumesModel(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.VolumeResults{
+	c.Assert(results, tc.DeepEquals, params.VolumeResults{
 		Results: []params.VolumeResult{
 			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 			{Error: apiservererrors.ServerError(errors.NotProvisionedf(`volume "1"`))},
@@ -294,7 +294,7 @@ func (s *iaasProvisionerSuite) TestVolumesModel(c *gc.C) {
 	})
 }
 
-func (s *iaasProvisionerSuite) TestFilesystems(c *gc.C) {
+func (s *iaasProvisionerSuite) TestFilesystems(c *tc.C) {
 	s.setupFilesystems(c)
 	s.authorizer.Tag = names.NewMachineTag("2") // neither 0 nor 1
 
@@ -324,7 +324,7 @@ func (s *iaasProvisionerSuite) TestFilesystems(c *gc.C) {
 	})
 }
 
-func (s *iaasProvisionerSuite) TestVolumeAttachments(c *gc.C) {
+func (s *iaasProvisionerSuite) TestVolumeAttachments(c *tc.C) {
 	// Only IAAS models support block storage right now.
 	s.setupVolumes(c)
 	s.authorizer.Controller = false
@@ -367,7 +367,7 @@ func (s *iaasProvisionerSuite) TestVolumeAttachments(c *gc.C) {
 	})
 }
 
-func (s *iaasProvisionerSuite) TestFilesystemAttachments(c *gc.C) {
+func (s *iaasProvisionerSuite) TestFilesystemAttachments(c *tc.C) {
 	s.setupFilesystems(c)
 	s.authorizer.Controller = false
 
@@ -413,7 +413,7 @@ func (s *iaasProvisionerSuite) TestFilesystemAttachments(c *gc.C) {
 	})
 }
 
-func (s *iaasProvisionerSuite) TestVolumeParams(c *gc.C) {
+func (s *iaasProvisionerSuite) TestVolumeParams(c *tc.C) {
 	// Set custom resource-tags in model config, and check they show up in the
 	// returned volume params
 	err := s.ControllerDomainServices(c).Config().UpdateModelConfig(
@@ -492,7 +492,7 @@ func (s *iaasProvisionerSuite) TestVolumeParams(c *gc.C) {
 	})
 }
 
-func (s *iaasProvisionerSuite) TestFilesystemParams(c *gc.C) {
+func (s *iaasProvisionerSuite) TestFilesystemParams(c *tc.C) {
 	// Set custom resource-tags in model config, and check they show up in the
 	// returned filesystem params
 	err := s.ControllerDomainServices(c).Config().UpdateModelConfig(
@@ -535,7 +535,7 @@ func (s *iaasProvisionerSuite) TestFilesystemParams(c *gc.C) {
 	})
 }
 
-func (s *iaasProvisionerSuite) TestVolumeAttachmentParams(c *gc.C) {
+func (s *iaasProvisionerSuite) TestVolumeAttachmentParams(c *tc.C) {
 	// Only IAAS models support block storage right now.
 	s.setupVolumes(c)
 
@@ -608,7 +608,7 @@ func (s *iaasProvisionerSuite) TestVolumeAttachmentParams(c *gc.C) {
 	})
 }
 
-func (s *iaasProvisionerSuite) TestFilesystemAttachmentParams(c *gc.C) {
+func (s *iaasProvisionerSuite) TestFilesystemAttachmentParams(c *tc.C) {
 	s.setupFilesystems(c)
 
 	err := s.storageBackend.SetFilesystemInfo(names.NewFilesystemTag("1"), state.FilesystemInfo{
@@ -672,7 +672,7 @@ func (s *iaasProvisionerSuite) TestFilesystemAttachmentParams(c *gc.C) {
 	})
 }
 
-func (s *iaasProvisionerSuite) TestSetVolumeAttachmentInfo(c *gc.C) {
+func (s *iaasProvisionerSuite) TestSetVolumeAttachmentInfo(c *tc.C) {
 	// Only IAAS models support block storage right now.
 	s.setupVolumes(c)
 
@@ -711,17 +711,17 @@ func (s *iaasProvisionerSuite) TestSetVolumeAttachmentInfo(c *gc.C) {
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results.Results, gc.HasLen, 4)
-	c.Check(results.Results[0].Error, gc.IsNil)
-	c.Check(results.Results[1].Error.Code, gc.Equals, "not provisioned")
-	c.Check(results.Results[1].Error.Message, gc.Matches, ".*not provisioned")
-	c.Check(results.Results[2].Error.Code, gc.Equals, "not provisioned")
-	c.Check(results.Results[2].Error.Message, gc.Matches, ".*not provisioned")
-	c.Check(results.Results[3].Error.Code, gc.Equals, "unauthorized access")
-	c.Check(results.Results[3].Error.Message, gc.Matches, "permission denied")
+	c.Check(results.Results, tc.HasLen, 4)
+	c.Check(results.Results[0].Error, tc.IsNil)
+	c.Check(results.Results[1].Error.Code, tc.Equals, "not provisioned")
+	c.Check(results.Results[1].Error.Message, tc.Matches, ".*not provisioned")
+	c.Check(results.Results[2].Error.Code, tc.Equals, "not provisioned")
+	c.Check(results.Results[2].Error.Message, tc.Matches, ".*not provisioned")
+	c.Check(results.Results[3].Error.Code, tc.Equals, "unauthorized access")
+	c.Check(results.Results[3].Error.Message, tc.Matches, "permission denied")
 }
 
-func (s *iaasProvisionerSuite) TestSetFilesystemAttachmentInfo(c *gc.C) {
+func (s *iaasProvisionerSuite) TestSetFilesystemAttachmentInfo(c *tc.C) {
 	s.setupFilesystems(c)
 
 	err := s.storageBackend.SetFilesystemInfo(names.NewFilesystemTag("3"), state.FilesystemInfo{
@@ -759,17 +759,17 @@ func (s *iaasProvisionerSuite) TestSetFilesystemAttachmentInfo(c *gc.C) {
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results.Results, gc.HasLen, 4)
-	c.Check(results.Results[0].Error, gc.IsNil)
-	c.Check(results.Results[1].Error.Code, gc.Equals, "not provisioned")
-	c.Check(results.Results[1].Error.Message, gc.Matches, ".*not provisioned")
-	c.Check(results.Results[2].Error.Code, gc.Equals, "not provisioned")
-	c.Check(results.Results[2].Error.Message, gc.Matches, ".*not provisioned")
-	c.Check(results.Results[3].Error.Code, gc.Equals, "unauthorized access")
-	c.Check(results.Results[3].Error.Message, gc.Matches, "permission denied")
+	c.Check(results.Results, tc.HasLen, 4)
+	c.Check(results.Results[0].Error, tc.IsNil)
+	c.Check(results.Results[1].Error.Code, tc.Equals, "not provisioned")
+	c.Check(results.Results[1].Error.Message, tc.Matches, ".*not provisioned")
+	c.Check(results.Results[2].Error.Code, tc.Equals, "not provisioned")
+	c.Check(results.Results[2].Error.Message, tc.Matches, ".*not provisioned")
+	c.Check(results.Results[3].Error.Code, tc.Equals, "unauthorized access")
+	c.Check(results.Results[3].Error.Message, tc.Matches, "permission denied")
 }
 
-func (s *iaasProvisionerSuite) TestWatchVolumes(c *gc.C) {
+func (s *iaasProvisionerSuite) TestWatchVolumes(c *tc.C) {
 	// Only IAAS models support block storage right now.
 	s.setupVolumes(c)
 
@@ -777,7 +777,7 @@ func (s *iaasProvisionerSuite) TestWatchVolumes(c *gc.C) {
 	defer release()
 
 	f.MakeMachine(c, nil)
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+	c.Assert(s.resources.Count(), tc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},
@@ -800,7 +800,7 @@ func (s *iaasProvisionerSuite) TestWatchVolumes(c *gc.C) {
 	})
 
 	// Verify the resources were registered and stop them when done.
-	c.Assert(s.resources.Count(), gc.Equals, 2)
+	c.Assert(s.resources.Count(), tc.Equals, 2)
 	v0Watcher := s.resources.Get("1")
 	defer workertest.CleanKill(c, v0Watcher)
 	v1Watcher := s.resources.Get("2")
@@ -814,7 +814,7 @@ func (s *iaasProvisionerSuite) TestWatchVolumes(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *iaasProvisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
+func (s *iaasProvisionerSuite) TestWatchVolumeAttachments(c *tc.C) {
 	// Only IAAS models support block storage right now.
 	s.setupVolumes(c)
 
@@ -822,7 +822,7 @@ func (s *iaasProvisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
 	defer release()
 
 	f.MakeMachine(c, nil)
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+	c.Assert(s.resources.Count(), tc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},
@@ -867,7 +867,7 @@ func (s *iaasProvisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
 	})
 
 	// Verify the resources were registered and stop them when done.
-	c.Assert(s.resources.Count(), gc.Equals, 2)
+	c.Assert(s.resources.Count(), tc.Equals, 2)
 	v0Watcher := s.resources.Get("1")
 	defer workertest.CleanKill(c, v0Watcher)
 	v1Watcher := s.resources.Get("2")
@@ -881,9 +881,9 @@ func (s *iaasProvisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *iaasProvisionerSuite) TestWatchFilesystems(c *gc.C) {
+func (s *iaasProvisionerSuite) TestWatchFilesystems(c *tc.C) {
 	s.setupFilesystems(c)
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+	c.Assert(s.resources.Count(), tc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},
@@ -912,7 +912,7 @@ func (s *iaasProvisionerSuite) TestWatchFilesystems(c *gc.C) {
 	})
 
 	// Verify the resources were registered and stop them when done.
-	c.Assert(s.resources.Count(), gc.Equals, 2)
+	c.Assert(s.resources.Count(), tc.Equals, 2)
 	v0Watcher := s.resources.Get("1")
 	defer workertest.CleanKill(c, v0Watcher)
 	v1Watcher := s.resources.Get("2")
@@ -926,9 +926,9 @@ func (s *iaasProvisionerSuite) TestWatchFilesystems(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *iaasProvisionerSuite) TestWatchFilesystemAttachments(c *gc.C) {
+func (s *iaasProvisionerSuite) TestWatchFilesystemAttachments(c *tc.C) {
 	s.setupFilesystems(c)
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+	c.Assert(s.resources.Count(), tc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},
@@ -970,7 +970,7 @@ func (s *iaasProvisionerSuite) TestWatchFilesystemAttachments(c *gc.C) {
 	})
 
 	// Verify the resources were registered and stop them when done.
-	c.Assert(s.resources.Count(), gc.Equals, 2)
+	c.Assert(s.resources.Count(), tc.Equals, 2)
 	v0Watcher := s.resources.Get("1")
 	defer workertest.CleanKill(c, v0Watcher)
 	v1Watcher := s.resources.Get("2")
@@ -984,12 +984,12 @@ func (s *iaasProvisionerSuite) TestWatchFilesystemAttachments(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *iaasProvisionerSuite) TestWatchBlockDevices(c *gc.C) {
+func (s *iaasProvisionerSuite) TestWatchBlockDevices(c *tc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
 	f.MakeMachine(c, nil)
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+	c.Assert(s.resources.Count(), tc.Equals, 0)
 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -1028,7 +1028,7 @@ func (s *iaasProvisionerSuite) TestWatchBlockDevices(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *iaasProvisionerSuite) TestVolumeBlockDevices(c *gc.C) {
+func (s *iaasProvisionerSuite) TestVolumeBlockDevices(c *tc.C) {
 	s.setupVolumes(c)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -1082,7 +1082,7 @@ func (s *iaasProvisionerSuite) TestVolumeBlockDevices(c *gc.C) {
 	})
 }
 
-func (s *iaasProvisionerSuite) TestVolumeBlockDevicesPlanBlockInfoSet(c *gc.C) {
+func (s *iaasProvisionerSuite) TestVolumeBlockDevicesPlanBlockInfoSet(c *tc.C) {
 	s.setupVolumes(c)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -1154,13 +1154,13 @@ func (s *iaasProvisionerSuite) TestVolumeBlockDevicesPlanBlockInfoSet(c *gc.C) {
 	})
 }
 
-func (s *iaasProvisionerSuite) TestLife(c *gc.C) {
+func (s *iaasProvisionerSuite) TestLife(c *tc.C) {
 	// Only IAAS models support block storage right now.
 	s.setupVolumes(c)
 	args := params.Entities{Entities: []params.Entity{{Tag: "volume-0-0"}, {Tag: "volume-1"}, {Tag: "volume-42"}}}
 	result, err := s.api.Life(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.LifeResults{
+	c.Assert(result, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Life: life.Alive},
 			{Life: life.Alive},
@@ -1169,7 +1169,7 @@ func (s *iaasProvisionerSuite) TestLife(c *gc.C) {
 	})
 }
 
-func (s *iaasProvisionerSuite) TestAttachmentLife(c *gc.C) {
+func (s *iaasProvisionerSuite) TestAttachmentLife(c *tc.C) {
 	// Only IAAS models support block storage right now.
 	s.setupVolumes(c)
 
@@ -1202,14 +1202,14 @@ func (s *iaasProvisionerSuite) TestAttachmentLife(c *gc.C) {
 	})
 }
 
-func (s *iaasProvisionerSuite) TestEnsureDead(c *gc.C) {
+func (s *iaasProvisionerSuite) TestEnsureDead(c *tc.C) {
 	// Only IAAS models support block storage right now.
 	s.setupVolumes(c)
 	args := params.Entities{Entities: []params.Entity{{Tag: "volume-0-0"}, {Tag: "volume-1"}, {Tag: "volume-42"}}}
 	result, err := s.api.EnsureDead(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	// TODO(wallyworld) - this test will be updated when EnsureDead is supported
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: apiservererrors.ServerError(apiservererrors.NotSupportedError(names.NewVolumeTag("0/0"), "ensuring death"))},
 			{Error: apiservererrors.ServerError(apiservererrors.NotSupportedError(names.NewVolumeTag("1"), "ensuring death"))},
@@ -1218,7 +1218,7 @@ func (s *iaasProvisionerSuite) TestEnsureDead(c *gc.C) {
 	})
 }
 
-func (s *iaasProvisionerSuite) TestRemoveVolumesController(c *gc.C) {
+func (s *iaasProvisionerSuite) TestRemoveVolumesController(c *tc.C) {
 	// Only IAAS models support block storage right now.
 	s.setupVolumes(c)
 	args := params.Entities{Entities: []params.Entity{
@@ -1235,7 +1235,7 @@ func (s *iaasProvisionerSuite) TestRemoveVolumesController(c *gc.C) {
 
 	result, err := s.api.Remove(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 			{Error: nil},
@@ -1247,7 +1247,7 @@ func (s *iaasProvisionerSuite) TestRemoveVolumesController(c *gc.C) {
 	})
 }
 
-func (s *iaasProvisionerSuite) TestRemoveFilesystemsController(c *gc.C) {
+func (s *iaasProvisionerSuite) TestRemoveFilesystemsController(c *tc.C) {
 	s.setupFilesystems(c)
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "filesystem-1-0"}, {Tag: "filesystem-1"}, {Tag: "filesystem-2"}, {Tag: "filesystem-42"},
@@ -1275,7 +1275,7 @@ func (s *iaasProvisionerSuite) TestRemoveFilesystemsController(c *gc.C) {
 	})
 }
 
-func (s *iaasProvisionerSuite) TestRemoveVolumesMachineAgent(c *gc.C) {
+func (s *iaasProvisionerSuite) TestRemoveVolumesMachineAgent(c *tc.C) {
 	// Only IAAS models support block storage right now.
 	s.setupVolumes(c)
 	s.authorizer.Controller = false
@@ -1293,7 +1293,7 @@ func (s *iaasProvisionerSuite) TestRemoveVolumesMachineAgent(c *gc.C) {
 
 	result, err := s.api.Remove(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 			{Error: nil},
@@ -1304,7 +1304,7 @@ func (s *iaasProvisionerSuite) TestRemoveVolumesMachineAgent(c *gc.C) {
 	})
 }
 
-func (s *iaasProvisionerSuite) TestRemoveFilesystemsMachineAgent(c *gc.C) {
+func (s *iaasProvisionerSuite) TestRemoveFilesystemsMachineAgent(c *tc.C) {
 	s.setupFilesystems(c)
 	s.authorizer.Controller = false
 	args := params.Entities{Entities: []params.Entity{
@@ -1319,7 +1319,7 @@ func (s *iaasProvisionerSuite) TestRemoveFilesystemsMachineAgent(c *gc.C) {
 
 	result, err := s.api.Remove(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 			{Error: nil},
@@ -1330,7 +1330,7 @@ func (s *iaasProvisionerSuite) TestRemoveFilesystemsMachineAgent(c *gc.C) {
 	})
 }
 
-func (s *iaasProvisionerSuite) TestRemoveVolumeAttachments(c *gc.C) {
+func (s *iaasProvisionerSuite) TestRemoveVolumeAttachments(c *tc.C) {
 	// Only IAAS models support block storage right now.
 	s.setupVolumes(c)
 	s.authorizer.Controller = false
@@ -1364,7 +1364,7 @@ func (s *iaasProvisionerSuite) TestRemoveVolumeAttachments(c *gc.C) {
 	})
 }
 
-func (s *iaasProvisionerSuite) TestRemoveFilesystemAttachments(c *gc.C) {
+func (s *iaasProvisionerSuite) TestRemoveFilesystemAttachments(c *tc.C) {
 	s.setupFilesystems(c)
 	s.authorizer.Controller = false
 

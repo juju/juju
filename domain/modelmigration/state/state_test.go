@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/clock"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
@@ -30,9 +30,9 @@ type migrationSuite struct {
 	controllerUUID uuid.UUID
 }
 
-var _ = gc.Suite(&migrationSuite{})
+var _ = tc.Suite(&migrationSuite{})
 
-func (s *migrationSuite) SetUpTest(c *gc.C) {
+func (s *migrationSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 	s.controllerUUID = uuid.MustNewUUID()
 
@@ -59,15 +59,15 @@ func (s *migrationSuite) SetUpTest(c *gc.C) {
 
 // TestGetControllerUUID is asserting the happy path of getting the controller
 // uuid from the database.
-func (s *migrationSuite) TestGetControllerUUID(c *gc.C) {
+func (s *migrationSuite) TestGetControllerUUID(c *tc.C) {
 	controllerId, err := New(s.TxnRunnerFactory()).GetControllerUUID(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(controllerId, gc.Equals, s.controllerUUID.String())
+	c.Check(controllerId, tc.Equals, s.controllerUUID.String())
 }
 
 // TestGetAllInstanceIDs is asserting the happy path of getting all instance
 // IDs for the model.
-func (s *migrationSuite) TestGetAllInstanceIDs(c *gc.C) {
+func (s *migrationSuite) TestGetAllInstanceIDs(c *tc.C) {
 	// Add two different instances.
 	db := s.DB()
 	machineState := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
@@ -103,14 +103,14 @@ func (s *migrationSuite) TestGetAllInstanceIDs(c *gc.C) {
 
 	instanceIDs, err := New(s.TxnRunnerFactory()).GetAllInstanceIDs(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(instanceIDs, gc.HasLen, 2)
+	c.Check(instanceIDs, tc.HasLen, 2)
 	c.Check(instanceIDs.Values(), jc.SameContents, []string{"instance-0", "instance-1"})
 }
 
 // TestEmptyInstanceIDs tests that no error is returned when there are no
 // instances in the model.
-func (s *migrationSuite) TestEmptyInstanceIDs(c *gc.C) {
+func (s *migrationSuite) TestEmptyInstanceIDs(c *tc.C) {
 	instanceIDs, err := New(s.TxnRunnerFactory()).GetAllInstanceIDs(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(instanceIDs, gc.HasLen, 0)
+	c.Check(instanceIDs, tc.HasLen, 0)
 }

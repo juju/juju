@@ -7,11 +7,11 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/objectstore"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -21,9 +21,9 @@ type objectStoreFactorySuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&objectStoreFactorySuite{})
+var _ = tc.Suite(&objectStoreFactorySuite{})
 
-func (s *objectStoreFactorySuite) TestNewObjectStore(c *gc.C) {
+func (s *objectStoreFactorySuite) TestNewObjectStore(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure we can create an object store with the default backend.
@@ -36,12 +36,12 @@ func (s *objectStoreFactorySuite) TestNewObjectStore(c *gc.C) {
 		WithMetadataService(stubMetadataService{}),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obj, gc.NotNil)
+	c.Check(obj, tc.NotNil)
 
 	workertest.CleanKill(c, obj)
 }
 
-func (s *objectStoreFactorySuite) TestNewObjectStoreInvalidBackend(c *gc.C) {
+func (s *objectStoreFactorySuite) TestNewObjectStoreInvalidBackend(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := ObjectStoreFactory(
@@ -54,7 +54,7 @@ func (s *objectStoreFactorySuite) TestNewObjectStoreInvalidBackend(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *objectStoreFactorySuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *objectStoreFactorySuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	return ctrl
 }

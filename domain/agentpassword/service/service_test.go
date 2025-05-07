@@ -6,9 +6,9 @@ package service
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
@@ -20,9 +20,9 @@ type serviceSuite struct {
 	state *MockState
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = tc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) TestSetUnitPassword(c *gc.C) {
+func (s *serviceSuite) TestSetUnitPassword(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID := unittesting.GenUnitUUID(c)
@@ -39,7 +39,7 @@ func (s *serviceSuite) TestSetUnitPassword(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestSetUnitPasswordUnitNotFound(c *gc.C) {
+func (s *serviceSuite) TestSetUnitPasswordUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID := unittesting.GenUnitUUID(c)
@@ -55,7 +55,7 @@ func (s *serviceSuite) TestSetUnitPasswordUnitNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, agentpassworderrors.UnitNotFound)
 }
 
-func (s *serviceSuite) TestSetUnitPasswordInvalidName(c *gc.C) {
+func (s *serviceSuite) TestSetUnitPasswordInvalidName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := unit.Name("!!!")
@@ -67,7 +67,7 @@ func (s *serviceSuite) TestSetUnitPasswordInvalidName(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, unit.InvalidUnitName)
 }
 
-func (s *serviceSuite) TestSetUnitPasswordInvalidPassword(c *gc.C) {
+func (s *serviceSuite) TestSetUnitPasswordInvalidPassword(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := unit.Name("unit/0")
@@ -75,10 +75,10 @@ func (s *serviceSuite) TestSetUnitPasswordInvalidPassword(c *gc.C) {
 
 	service := NewService(s.state)
 	err := service.SetUnitPassword(context.Background(), unitName, password)
-	c.Assert(err, gc.ErrorMatches, "password is only 3 chars long, and is not a valid Agent password.*")
+	c.Assert(err, tc.ErrorMatches, "password is only 3 chars long, and is not a valid Agent password.*")
 }
 
-func (s *serviceSuite) TestMatchesUnitPasswordHash(c *gc.C) {
+func (s *serviceSuite) TestMatchesUnitPasswordHash(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID := unittesting.GenUnitUUID(c)
@@ -96,7 +96,7 @@ func (s *serviceSuite) TestMatchesUnitPasswordHash(c *gc.C) {
 	c.Check(valid, jc.IsTrue)
 }
 
-func (s *serviceSuite) TestMatchesUnitPasswordHashUnitNotFound(c *gc.C) {
+func (s *serviceSuite) TestMatchesUnitPasswordHashUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID := unittesting.GenUnitUUID(c)
@@ -112,7 +112,7 @@ func (s *serviceSuite) TestMatchesUnitPasswordHashUnitNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, agentpassworderrors.UnitNotFound)
 }
 
-func (s *serviceSuite) TestMatchesUnitPasswordHashInvalidName(c *gc.C) {
+func (s *serviceSuite) TestMatchesUnitPasswordHashInvalidName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := unit.Name("!!!")
@@ -124,7 +124,7 @@ func (s *serviceSuite) TestMatchesUnitPasswordHashInvalidName(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, unit.InvalidUnitName)
 }
 
-func (s *serviceSuite) TestMatchesUnitPasswordHashEmptyPassword(c *gc.C) {
+func (s *serviceSuite) TestMatchesUnitPasswordHashEmptyPassword(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := unit.Name("unit/0")
@@ -134,7 +134,7 @@ func (s *serviceSuite) TestMatchesUnitPasswordHashEmptyPassword(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, agentpassworderrors.EmptyPassword)
 }
 
-func (s *serviceSuite) TestMatchesUnitPasswordHashInvalidPassword(c *gc.C) {
+func (s *serviceSuite) TestMatchesUnitPasswordHashInvalidPassword(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := unit.Name("unit/0")
@@ -144,7 +144,7 @@ func (s *serviceSuite) TestMatchesUnitPasswordHashInvalidPassword(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, agentpassworderrors.InvalidPassword)
 }
 
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.state = NewMockState(ctrl)

@@ -7,8 +7,8 @@ import (
 	"context"
 	"errors"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/juju/juju/internal/testing"
@@ -23,26 +23,26 @@ type ResolverOpFactorySuite struct {
 	opFactory *mockOpFactory
 }
 
-var _ = gc.Suite(&ResolverOpFactorySuite{})
+var _ = tc.Suite(&ResolverOpFactorySuite{})
 
-func (s *ResolverOpFactorySuite) SetUpTest(c *gc.C) {
+func (s *ResolverOpFactorySuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.opFactory = &mockOpFactory{}
 }
 
-func (s *ResolverOpFactorySuite) TestInitialState(c *gc.C) {
+func (s *ResolverOpFactorySuite) TestInitialState(c *tc.C) {
 	f := resolver.NewResolverOpFactory(s.opFactory)
 	c.Assert(f.LocalState, jc.DeepEquals, &resolver.LocalState{})
 	c.Assert(f.RemoteState, jc.DeepEquals, remotestate.Snapshot{})
 }
 
-func (s *ResolverOpFactorySuite) TestUpdateStatusChanged(c *gc.C) {
+func (s *ResolverOpFactorySuite) TestUpdateStatusChanged(c *tc.C) {
 	s.testUpdateStatusChanged(c, resolver.ResolverOpFactory.NewRunHook)
 	s.testUpdateStatusChanged(c, resolver.ResolverOpFactory.NewSkipHook)
 }
 
 func (s *ResolverOpFactorySuite) testUpdateStatusChanged(
-	c *gc.C, meth func(resolver.ResolverOpFactory, hook.Info) (operation.Operation, error),
+	c *tc.C, meth func(resolver.ResolverOpFactory, hook.Info) (operation.Operation, error),
 ) {
 	f := resolver.NewResolverOpFactory(s.opFactory)
 	f.RemoteState.UpdateStatusVersion = 1
@@ -57,28 +57,28 @@ func (s *ResolverOpFactorySuite) testUpdateStatusChanged(
 	// Local state's UpdateStatusVersion should be set to what
 	// RemoteState's UpdateStatusVersion was when the operation
 	// was constructed.
-	c.Assert(f.LocalState.UpdateStatusVersion, gc.Equals, 1)
+	c.Assert(f.LocalState.UpdateStatusVersion, tc.Equals, 1)
 }
 
-func (s *ResolverOpFactorySuite) TestConfigChanged(c *gc.C) {
+func (s *ResolverOpFactorySuite) TestConfigChanged(c *tc.C) {
 	s.testConfigChanged(c, resolver.ResolverOpFactory.NewRunHook)
 	s.testConfigChanged(c, resolver.ResolverOpFactory.NewSkipHook)
 }
 
-func (s *ResolverOpFactorySuite) TestNewHookError(c *gc.C) {
+func (s *ResolverOpFactorySuite) TestNewHookError(c *tc.C) {
 	s.opFactory.SetErrors(
 		errors.New("NewRunHook fails"),
 		errors.New("NewSkipHook fails"),
 	)
 	f := resolver.NewResolverOpFactory(s.opFactory)
 	_, err := f.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
-	c.Assert(err, gc.ErrorMatches, "NewRunHook fails")
+	c.Assert(err, tc.ErrorMatches, "NewRunHook fails")
 	_, err = f.NewSkipHook(hook.Info{Kind: hooks.ConfigChanged})
-	c.Assert(err, gc.ErrorMatches, "NewSkipHook fails")
+	c.Assert(err, tc.ErrorMatches, "NewSkipHook fails")
 }
 
 func (s *ResolverOpFactorySuite) testConfigChanged(
-	c *gc.C, meth func(resolver.ResolverOpFactory, hook.Info) (operation.Operation, error),
+	c *tc.C, meth func(resolver.ResolverOpFactory, hook.Info) (operation.Operation, error),
 ) {
 	f := resolver.NewResolverOpFactory(s.opFactory)
 	f.RemoteState.ConfigHash = "confighash"
@@ -95,27 +95,27 @@ func (s *ResolverOpFactorySuite) testConfigChanged(
 
 	resultState, err := op.Commit(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resultState, gc.NotNil)
+	c.Assert(resultState, tc.NotNil)
 
 	// Local state's UpdateStatusVersion should be set to what
 	// RemoteState's UpdateStatusVersion was when the operation
 	// was constructed.
-	c.Assert(f.LocalState.UpdateStatusVersion, gc.Equals, 3)
+	c.Assert(f.LocalState.UpdateStatusVersion, tc.Equals, 3)
 	// The hashes need to be set on the result state, because that is
 	// written to disk by the executor before the next step is picked.
-	c.Assert(resultState.ConfigHash, gc.Equals, "confighash")
-	c.Assert(resultState.TrustHash, gc.Equals, "trusthash")
-	c.Assert(resultState.AddressesHash, gc.Equals, "addresseshash")
+	c.Assert(resultState.ConfigHash, tc.Equals, "confighash")
+	c.Assert(resultState.TrustHash, tc.Equals, "trusthash")
+	c.Assert(resultState.AddressesHash, tc.Equals, "addresseshash")
 }
 
-func (s *ResolverOpFactorySuite) TestUpgrade(c *gc.C) {
+func (s *ResolverOpFactorySuite) TestUpgrade(c *tc.C) {
 	s.testUpgrade(c, resolver.ResolverOpFactory.NewUpgrade)
 	s.testUpgrade(c, resolver.ResolverOpFactory.NewRevertUpgrade)
 	s.testUpgrade(c, resolver.ResolverOpFactory.NewResolvedUpgrade)
 }
 
 func (s *ResolverOpFactorySuite) testUpgrade(
-	c *gc.C, meth func(resolver.ResolverOpFactory, string) (operation.Operation, error),
+	c *tc.C, meth func(resolver.ResolverOpFactory, string) (operation.Operation, error),
 ) {
 	f := resolver.NewResolverOpFactory(s.opFactory)
 	f.LocalState.Conflicted = true
@@ -128,7 +128,7 @@ func (s *ResolverOpFactorySuite) testUpgrade(
 	c.Assert(f.LocalState.Conflicted, jc.IsFalse)
 }
 
-func (s *ResolverOpFactorySuite) TestNewUpgradeError(c *gc.C) {
+func (s *ResolverOpFactorySuite) TestNewUpgradeError(c *tc.C) {
 	curl := "ch:trusty/mysql"
 	s.opFactory.SetErrors(
 		errors.New("NewUpgrade fails"),
@@ -137,14 +137,14 @@ func (s *ResolverOpFactorySuite) TestNewUpgradeError(c *gc.C) {
 	)
 	f := resolver.NewResolverOpFactory(s.opFactory)
 	_, err := f.NewUpgrade(curl)
-	c.Assert(err, gc.ErrorMatches, "NewUpgrade fails")
+	c.Assert(err, tc.ErrorMatches, "NewUpgrade fails")
 	_, err = f.NewRevertUpgrade(curl)
-	c.Assert(err, gc.ErrorMatches, "NewRevertUpgrade fails")
+	c.Assert(err, tc.ErrorMatches, "NewRevertUpgrade fails")
 	_, err = f.NewResolvedUpgrade(curl)
-	c.Assert(err, gc.ErrorMatches, "NewResolvedUpgrade fails")
+	c.Assert(err, tc.ErrorMatches, "NewResolvedUpgrade fails")
 }
 
-func (s *ResolverOpFactorySuite) TestCommitError(c *gc.C) {
+func (s *ResolverOpFactorySuite) TestCommitError(c *tc.C) {
 	f := resolver.NewResolverOpFactory(s.opFactory)
 
 	s.opFactory.op.commit = func(operation.State) (*operation.State, error) {
@@ -153,14 +153,14 @@ func (s *ResolverOpFactorySuite) TestCommitError(c *gc.C) {
 	op, err := f.NewUpgrade("ch:trusty/mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = op.Commit(context.Background(), operation.State{})
-	c.Assert(err, gc.ErrorMatches, "commit fails")
+	c.Assert(err, tc.ErrorMatches, "commit fails")
 	// Local state should not have been updated. We use the same code
 	// internally for all operations, so it suffices to test just the
 	// upgrade case.
-	c.Assert(f.LocalState.CharmURL, gc.Equals, "")
+	c.Assert(f.LocalState.CharmURL, tc.Equals, "")
 }
 
-func (s *ResolverOpFactorySuite) TestActionsCommit(c *gc.C) {
+func (s *ResolverOpFactorySuite) TestActionsCommit(c *tc.C) {
 	f := resolver.NewResolverOpFactory(s.opFactory)
 	f.RemoteState.ActionsPending = []string{"action 1", "action 2", "action 3"}
 	f.LocalState.CompletedActions = map[string]struct{}{}
@@ -168,12 +168,12 @@ func (s *ResolverOpFactorySuite) TestActionsCommit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = op.Commit(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(f.LocalState.CompletedActions, gc.DeepEquals, map[string]struct{}{
+	c.Assert(f.LocalState.CompletedActions, tc.DeepEquals, map[string]struct{}{
 		"action 1": {},
 	})
 }
 
-func (s *ResolverOpFactorySuite) TestActionsTrimming(c *gc.C) {
+func (s *ResolverOpFactorySuite) TestActionsTrimming(c *tc.C) {
 	f := resolver.NewResolverOpFactory(s.opFactory)
 	f.RemoteState.ActionsPending = []string{"c", "d"}
 	f.LocalState.CompletedActions = map[string]struct{}{
@@ -185,13 +185,13 @@ func (s *ResolverOpFactorySuite) TestActionsTrimming(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = op.Commit(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(f.LocalState.CompletedActions, gc.DeepEquals, map[string]struct{}{
+	c.Assert(f.LocalState.CompletedActions, tc.DeepEquals, map[string]struct{}{
 		"c": {},
 		"d": {},
 	})
 }
 
-func (s *ResolverOpFactorySuite) TestFailActionsCommit(c *gc.C) {
+func (s *ResolverOpFactorySuite) TestFailActionsCommit(c *tc.C) {
 	f := resolver.NewResolverOpFactory(s.opFactory)
 	f.RemoteState.ActionsPending = []string{"action 1", "action 2", "action 3"}
 	f.LocalState.CompletedActions = map[string]struct{}{}
@@ -199,12 +199,12 @@ func (s *ResolverOpFactorySuite) TestFailActionsCommit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = op.Commit(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(f.LocalState.CompletedActions, gc.DeepEquals, map[string]struct{}{
+	c.Assert(f.LocalState.CompletedActions, tc.DeepEquals, map[string]struct{}{
 		"action 1": {},
 	})
 }
 
-func (s *ResolverOpFactorySuite) TestFailActionsTrimming(c *gc.C) {
+func (s *ResolverOpFactorySuite) TestFailActionsTrimming(c *tc.C) {
 	f := resolver.NewResolverOpFactory(s.opFactory)
 	f.RemoteState.ActionsPending = []string{"c", "d"}
 	f.LocalState.CompletedActions = map[string]struct{}{
@@ -216,7 +216,7 @@ func (s *ResolverOpFactorySuite) TestFailActionsTrimming(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = op.Commit(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(f.LocalState.CompletedActions, gc.DeepEquals, map[string]struct{}{
+	c.Assert(f.LocalState.CompletedActions, tc.DeepEquals, map[string]struct{}{
 		"c": {},
 		"d": {},
 	})

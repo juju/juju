@@ -4,8 +4,8 @@
 package ipaddress
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
@@ -14,11 +14,11 @@ type ipAddressSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = gc.Suite(&ipAddressSuite{})
+var _ = tc.Suite(&ipAddressSuite{})
 
 // TestConfigTypeDBValues ensures there's no skew between what's in the
 // database table for config type and the typed consts used in the state packages.
-func (s *ipAddressSuite) TestConfigTypeDBValues(c *gc.C) {
+func (s *ipAddressSuite) TestConfigTypeDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, name FROM ip_address_config_type")
 	c.Assert(err, jc.ErrorIsNil)
@@ -47,7 +47,7 @@ func (s *ipAddressSuite) TestConfigTypeDBValues(c *gc.C) {
 
 // TestScopeDBValues ensures there's no skew between what's in the
 // database table for scope and the typed consts used in the state packages.
-func (s *ipAddressSuite) TestScopeDBValues(c *gc.C) {
+func (s *ipAddressSuite) TestScopeDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, name FROM ip_address_scope")
 	c.Assert(err, jc.ErrorIsNil)
@@ -74,7 +74,7 @@ func (s *ipAddressSuite) TestScopeDBValues(c *gc.C) {
 
 // TestAddressTypeDBValues ensures there's no skew between what's in the
 // database table for address type and the typed consts used in the state packages.
-func (s *ipAddressSuite) TestAddressTypeDBValues(c *gc.C) {
+func (s *ipAddressSuite) TestAddressTypeDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, name FROM ip_address_type")
 	c.Assert(err, jc.ErrorIsNil)
@@ -98,7 +98,7 @@ func (s *ipAddressSuite) TestAddressTypeDBValues(c *gc.C) {
 
 // TestOriginDBValues ensures there's no skew between what's in the
 // database table for origin and the typed consts used in the state packages.
-func (s *ipAddressSuite) TestOriginDBValues(c *gc.C) {
+func (s *ipAddressSuite) TestOriginDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, name FROM ip_address_origin")
 	c.Assert(err, jc.ErrorIsNil)

@@ -8,8 +8,8 @@ import (
 	"errors"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,7 +25,7 @@ type K8sMetadataSuite struct {
 	BaseSuite
 }
 
-var _ = gc.Suite(&K8sMetadataSuite{})
+var _ = tc.Suite(&K8sMetadataSuite{})
 
 var (
 	annotatedWorkloadStorage = &storagev1.StorageClass{
@@ -108,7 +108,7 @@ func newNode(labels map[string]string) *core.Node {
 	return &n
 }
 
-func (s *K8sMetadataSuite) TestMicrok8sFromNodeMeta(c *gc.C) {
+func (s *K8sMetadataSuite) TestMicrok8sFromNodeMeta(c *tc.C) {
 	node := core.Node{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "mynode",
@@ -116,11 +116,11 @@ func (s *K8sMetadataSuite) TestMicrok8sFromNodeMeta(c *gc.C) {
 		},
 	}
 	cloud, region := provider.GetCloudProviderFromNodeMeta(node)
-	c.Assert(cloud, gc.Equals, "microk8s")
-	c.Assert(region, gc.Equals, "localhost")
+	c.Assert(cloud, tc.Equals, "microk8s")
+	c.Assert(region, tc.Equals, "localhost")
 }
 
-func (s *K8sMetadataSuite) TestMicrok8sWithRegionFromNodeMeta(c *gc.C) {
+func (s *K8sMetadataSuite) TestMicrok8sWithRegionFromNodeMeta(c *tc.C) {
 	node := core.Node{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "mynode",
@@ -131,14 +131,14 @@ func (s *K8sMetadataSuite) TestMicrok8sWithRegionFromNodeMeta(c *gc.C) {
 		},
 	}
 	cloud, region := provider.GetCloudProviderFromNodeMeta(node)
-	c.Assert(cloud, gc.Equals, "microk8s")
-	c.Assert(region, gc.Equals, "somewhere")
+	c.Assert(cloud, tc.Equals, "microk8s")
+	c.Assert(region, tc.Equals, "somewhere")
 }
 
-func (s *K8sMetadataSuite) TestK8sCloudCheckersValidationPass(c *gc.C) {
+func (s *K8sMetadataSuite) TestK8sCloudCheckersValidationPass(c *tc.C) {
 	// CompileK8sCloudCheckers will panic if there is invalid requirement definition so check it by calling it.
 	cloudCheckers := provider.CompileK8sCloudCheckers()
-	c.Assert(cloudCheckers, gc.NotNil)
+	c.Assert(cloudCheckers, tc.NotNil)
 }
 
 type hostRegionTestcase struct {
@@ -261,7 +261,7 @@ var hostRegionsTestCases = []hostRegionTestcase{
 	},
 }
 
-func (s *K8sMetadataSuite) TestListHostCloudRegions(c *gc.C) {
+func (s *K8sMetadataSuite) TestListHostCloudRegions(c *tc.C) {
 	for _, v := range hostRegionsTestCases {
 		clientSet := fake.NewSimpleClientset(v.node)
 
@@ -272,12 +272,12 @@ func (s *K8sMetadataSuite) TestListHostCloudRegions(c *gc.C) {
 			clientSet.StorageV1().StorageClasses(),
 		)
 		c.Check(err, jc.ErrorIsNil)
-		c.Check(metadata.Cloud, gc.Equals, v.expectedCloud)
+		c.Check(metadata.Cloud, tc.Equals, v.expectedCloud)
 		c.Check(metadata.Regions, jc.DeepEquals, v.expectedRegions)
 	}
 }
 
-func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
+func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *tc.C) {
 	tests := []struct {
 		Name             string
 		InitialObjects   []runtime.Object
@@ -657,7 +657,7 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 	}
 }
 
-func (s *K8sMetadataSuite) TestNominatedStorageNotFound(c *gc.C) {
+func (s *K8sMetadataSuite) TestNominatedStorageNotFound(c *tc.C) {
 	clientSet := fake.NewSimpleClientset(
 		newNode(map[string]string{}),
 		gceStorageClass,
@@ -672,15 +672,15 @@ func (s *K8sMetadataSuite) TestNominatedStorageNotFound(c *gc.C) {
 	)
 
 	var notFoundError *environs.NominatedStorageNotFound
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, tc.NotNil)
 	c.Assert(errors.As(err, &notFoundError), jc.IsTrue)
-	c.Assert(notFoundError.StorageName, gc.Equals, "my-nominated-storage")
+	c.Assert(notFoundError.StorageName, tc.Equals, "my-nominated-storage")
 }
 
 // TestNominatedStorageNotFoundWithNilStorageClasses is a regression test to
 // make sure that when no storage classes are defined and a nominated storage
 // class has been specified a NominatedStorageNotFoundError is returned.
-func (s *K8sMetadataSuite) TestNominatedStorageNotFoundWithNilStorageClasses(c *gc.C) {
+func (s *K8sMetadataSuite) TestNominatedStorageNotFoundWithNilStorageClasses(c *tc.C) {
 	clientSet := fake.NewSimpleClientset(
 		newNode(map[string]string{}),
 	)
@@ -693,7 +693,7 @@ func (s *K8sMetadataSuite) TestNominatedStorageNotFoundWithNilStorageClasses(c *
 	)
 
 	var notFoundError *environs.NominatedStorageNotFound
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, tc.NotNil)
 	c.Assert(errors.As(err, &notFoundError), jc.IsTrue)
-	c.Assert(notFoundError.StorageName, gc.Equals, "my-nominated-storage")
+	c.Assert(notFoundError.StorageName, tc.Equals, "my-nominated-storage")
 }

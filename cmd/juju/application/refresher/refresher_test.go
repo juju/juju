@@ -9,9 +9,9 @@ import (
 	"os"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
 	corebase "github.com/juju/juju/core/base"
@@ -21,9 +21,9 @@ import (
 
 type refresherFactorySuite struct{}
 
-var _ = gc.Suite(&refresherFactorySuite{})
+var _ = tc.Suite(&refresherFactorySuite{})
 
-func (s *refresherFactorySuite) TestRefresh(c *gc.C) {
+func (s *refresherFactorySuite) TestRefresh(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -48,10 +48,10 @@ func (s *refresherFactorySuite) TestRefresh(c *gc.C) {
 
 	charmID2, err := f.Run(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(charmID2, gc.DeepEquals, charmID)
+	c.Assert(charmID2, tc.DeepEquals, charmID)
 }
 
-func (s *refresherFactorySuite) TestRefreshNotAllowed(c *gc.C) {
+func (s *refresherFactorySuite) TestRefreshNotAllowed(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -72,10 +72,10 @@ func (s *refresherFactorySuite) TestRefreshNotAllowed(c *gc.C) {
 	}
 
 	_, err := f.Run(context.Background(), cfg)
-	c.Assert(err, gc.ErrorMatches, `unable to refresh "meshuggah"`)
+	c.Assert(err, tc.ErrorMatches, `unable to refresh "meshuggah"`)
 }
 
-func (s *refresherFactorySuite) TestRefreshCallsAllRefreshers(c *gc.C) {
+func (s *refresherFactorySuite) TestRefreshCallsAllRefreshers(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -106,10 +106,10 @@ func (s *refresherFactorySuite) TestRefreshCallsAllRefreshers(c *gc.C) {
 
 	charmID2, err := f.Run(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(charmID2, gc.DeepEquals, charmID)
+	c.Assert(charmID2, tc.DeepEquals, charmID)
 }
 
-func (s *refresherFactorySuite) TestRefreshCallsRefreshersEvenAfterExhaustedError(c *gc.C) {
+func (s *refresherFactorySuite) TestRefreshCallsRefreshersEvenAfterExhaustedError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -147,14 +147,14 @@ func (s *refresherFactorySuite) TestRefreshCallsRefreshersEvenAfterExhaustedErro
 
 	charmID2, err := f.Run(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(charmID2, gc.DeepEquals, charmID)
+	c.Assert(charmID2, tc.DeepEquals, charmID)
 }
 
 type baseRefresherSuite struct{}
 
-var _ = gc.Suite(&baseRefresherSuite{})
+var _ = tc.Suite(&baseRefresherSuite{})
 
-func (s *baseRefresherSuite) TestResolveCharm(c *gc.C) {
+func (s *baseRefresherSuite) TestResolveCharm(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -179,11 +179,11 @@ func (s *baseRefresherSuite) TestResolveCharm(c *gc.C) {
 	}
 	url, obtainedOrigin, err := refresher.ResolveCharm(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(url, gc.DeepEquals, charm.MustParseURL("ch:meshuggah-1"))
-	c.Assert(obtainedOrigin, gc.DeepEquals, origin)
+	c.Assert(url, tc.DeepEquals, charm.MustParseURL("ch:meshuggah-1"))
+	c.Assert(obtainedOrigin, tc.DeepEquals, origin)
 }
 
-func (s *baseRefresherSuite) TestResolveCharmWithSeriesError(c *gc.C) {
+func (s *baseRefresherSuite) TestResolveCharmWithSeriesError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -209,10 +209,10 @@ func (s *baseRefresherSuite) TestResolveCharmWithSeriesError(c *gc.C) {
 		logger:          fakeLogger{},
 	}
 	_, _, err := refresher.ResolveCharm(context.Background())
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade from single base "ubuntu@22.04" charm to a charm supporting \["ubuntu@20.04"\]. Use --force-series to override.`)
+	c.Assert(err, tc.ErrorMatches, `cannot upgrade from single base "ubuntu@22.04" charm to a charm supporting \["ubuntu@20.04"\]. Use --force-series to override.`)
 }
 
-func (s *baseRefresherSuite) TestResolveCharmWithNoCharmURL(c *gc.C) {
+func (s *baseRefresherSuite) TestResolveCharmWithNoCharmURL(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -235,14 +235,14 @@ func (s *baseRefresherSuite) TestResolveCharmWithNoCharmURL(c *gc.C) {
 		logger:          fakeLogger{},
 	}
 	_, _, err := refresher.ResolveCharm(context.Background())
-	c.Assert(err, gc.ErrorMatches, "unexpected charm URL")
+	c.Assert(err, tc.ErrorMatches, "unexpected charm URL")
 }
 
 type localCharmRefresherSuite struct{}
 
-var _ = gc.Suite(&localCharmRefresherSuite{})
+var _ = tc.Suite(&localCharmRefresherSuite{})
 
-func (s *localCharmRefresherSuite) TestRefresh(c *gc.C) {
+func (s *localCharmRefresherSuite) TestRefresh(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -268,11 +268,11 @@ func (s *localCharmRefresherSuite) TestRefresh(c *gc.C) {
 
 	charmID, err := task.Refresh(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(charmID.URL, gc.Equals, curl)
-	c.Assert(charmID.Origin.Source, gc.Equals, corecharm.Local)
+	c.Assert(charmID.URL, tc.Equals, curl)
+	c.Assert(charmID.Origin.Source, tc.Equals, corecharm.Local)
 }
 
-func (s *localCharmRefresherSuite) TestRefreshBecomesExhausted(c *gc.C) {
+func (s *localCharmRefresherSuite) TestRefreshBecomesExhausted(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -290,10 +290,10 @@ func (s *localCharmRefresherSuite) TestRefreshBecomesExhausted(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = task.Refresh(context.Background())
-	c.Assert(err, gc.Equals, ErrExhausted)
+	c.Assert(err, tc.Equals, ErrExhausted)
 }
 
-func (s *localCharmRefresherSuite) TestRefreshDoesNotFindLocal(c *gc.C) {
+func (s *localCharmRefresherSuite) TestRefreshDoesNotFindLocal(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -311,14 +311,14 @@ func (s *localCharmRefresherSuite) TestRefreshDoesNotFindLocal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = task.Refresh(context.Background())
-	c.Assert(err, gc.ErrorMatches, `no charm found at "local:meshuggah"`)
+	c.Assert(err, tc.ErrorMatches, `no charm found at "local:meshuggah"`)
 }
 
 type charmHubCharmRefresherSuite struct{}
 
-var _ = gc.Suite(&charmHubCharmRefresherSuite{})
+var _ = tc.Suite(&charmHubCharmRefresherSuite{})
 
-func (s *charmHubCharmRefresherSuite) TestRefresh(c *gc.C) {
+func (s *charmHubCharmRefresherSuite) TestRefresh(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -347,13 +347,13 @@ func (s *charmHubCharmRefresherSuite) TestRefresh(c *gc.C) {
 
 	charmID, err := task.Refresh(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(charmID, gc.DeepEquals, &CharmID{
+	c.Assert(charmID, tc.DeepEquals, &CharmID{
 		URL:    newCurl,
 		Origin: actualOrigin.CoreCharmOrigin(),
 	})
 }
 
-func (s *charmHubCharmRefresherSuite) TestRefreshWithNoOrigin(c *gc.C) {
+func (s *charmHubCharmRefresherSuite) TestRefreshWithNoOrigin(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -380,13 +380,13 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithNoOrigin(c *gc.C) {
 
 	charmID, err := task.Refresh(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(charmID, gc.DeepEquals, &CharmID{
+	c.Assert(charmID, tc.DeepEquals, &CharmID{
 		URL:    newCurl,
 		Origin: origin.CoreCharmOrigin(),
 	})
 }
 
-func (s *charmHubCharmRefresherSuite) TestRefreshWithNoUpdates(c *gc.C) {
+func (s *charmHubCharmRefresherSuite) TestRefreshWithNoUpdates(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -410,10 +410,10 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithNoUpdates(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = task.Refresh(context.Background())
-	c.Assert(err, gc.ErrorMatches, `charm "meshuggah": already up-to-date`)
+	c.Assert(err, tc.ErrorMatches, `charm "meshuggah": already up-to-date`)
 }
 
-func (s *charmHubCharmRefresherSuite) TestRefreshWithARevision(c *gc.C) {
+func (s *charmHubCharmRefresherSuite) TestRefreshWithARevision(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -437,10 +437,10 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithARevision(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = task.Refresh(context.Background())
-	c.Assert(err, gc.ErrorMatches, `charm "meshuggah", revision 1: already up-to-date`)
+	c.Assert(err, tc.ErrorMatches, `charm "meshuggah", revision 1: already up-to-date`)
 }
 
-func (s *charmHubCharmRefresherSuite) TestRefreshWithOriginChannel(c *gc.C) {
+func (s *charmHubCharmRefresherSuite) TestRefreshWithOriginChannel(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -472,10 +472,10 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithOriginChannel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = task.Refresh(context.Background())
-	c.Assert(err, gc.ErrorMatches, `charm "meshuggah", revision 1: already up-to-date`)
+	c.Assert(err, tc.ErrorMatches, `charm "meshuggah", revision 1: already up-to-date`)
 }
 
-func (s *charmHubCharmRefresherSuite) TestRefreshWithCharmSwitch(c *gc.C) {
+func (s *charmHubCharmRefresherSuite) TestRefreshWithCharmSwitch(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -509,10 +509,10 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithCharmSwitch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = task.Refresh(context.Background())
-	c.Assert(err, gc.ErrorMatches, `charm "aloupi", revision 1: already up-to-date`)
+	c.Assert(err, tc.ErrorMatches, `charm "aloupi", revision 1: already up-to-date`)
 }
 
-func (s *charmHubCharmRefresherSuite) TestAllowed(c *gc.C) {
+func (s *charmHubCharmRefresherSuite) TestAllowed(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -533,7 +533,7 @@ func (s *charmHubCharmRefresherSuite) TestAllowed(c *gc.C) {
 	c.Assert(allowed, jc.IsTrue)
 }
 
-func (s *charmHubCharmRefresherSuite) TestAllowedWithSwitch(c *gc.C) {
+func (s *charmHubCharmRefresherSuite) TestAllowedWithSwitch(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -557,7 +557,7 @@ func (s *charmHubCharmRefresherSuite) TestAllowedWithSwitch(c *gc.C) {
 	c.Assert(allowed, jc.IsTrue)
 }
 
-func (s *charmHubCharmRefresherSuite) TestAllowedError(c *gc.C) {
+func (s *charmHubCharmRefresherSuite) TestAllowedError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -577,21 +577,21 @@ func (s *charmHubCharmRefresherSuite) TestAllowedError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	allowed, err := task.Allowed(context.Background(), cfg)
-	c.Assert(err, gc.ErrorMatches, "trap")
+	c.Assert(err, tc.ErrorMatches, "trap")
 	c.Assert(allowed, jc.IsFalse)
 }
 
-func (s *charmHubCharmRefresherSuite) TestCharmHubResolveOriginEmpty(c *gc.C) {
+func (s *charmHubCharmRefresherSuite) TestCharmHubResolveOriginEmpty(c *tc.C) {
 	origin := corecharm.Origin{}
 	channel := charm.Channel{}
 	result, err := charmHubOriginResolver(nil, origin, channel)
 	c.Assert(err, jc.ErrorIsNil)
 	coreOrigin, err := commoncharm.CoreCharmOrigin(origin)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, coreOrigin)
+	c.Assert(result, tc.DeepEquals, coreOrigin)
 }
 
-func (s *charmHubCharmRefresherSuite) TestCharmHubResolveOrigin(c *gc.C) {
+func (s *charmHubCharmRefresherSuite) TestCharmHubResolveOrigin(c *tc.C) {
 	track := "meshuggah"
 	origin := corecharm.Origin{}
 	channel := charm.Channel{
@@ -606,10 +606,10 @@ func (s *charmHubCharmRefresherSuite) TestCharmHubResolveOrigin(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, coreOrigin)
+	c.Assert(result, tc.DeepEquals, coreOrigin)
 }
 
-func (s *charmHubCharmRefresherSuite) TestCharmHubResolveOriginEmptyTrackNonEmptyChannel(c *gc.C) {
+func (s *charmHubCharmRefresherSuite) TestCharmHubResolveOriginEmptyTrackNonEmptyChannel(c *tc.C) {
 	origin := corecharm.Origin{
 		Channel: &charm.Channel{},
 	}
@@ -624,10 +624,10 @@ func (s *charmHubCharmRefresherSuite) TestCharmHubResolveOriginEmptyTrackNonEmpt
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, coreOrigin)
+	c.Assert(result, tc.DeepEquals, coreOrigin)
 }
 
-func (s *charmHubCharmRefresherSuite) TestCharmHubResolveOriginEmptyTrackEmptyChannel(c *gc.C) {
+func (s *charmHubCharmRefresherSuite) TestCharmHubResolveOriginEmptyTrackEmptyChannel(c *tc.C) {
 	origin := corecharm.Origin{}
 	channel := charm.Channel{
 		Risk: "edge",
@@ -638,7 +638,7 @@ func (s *charmHubCharmRefresherSuite) TestCharmHubResolveOriginEmptyTrackEmptyCh
 		Channel: &charm.Channel{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, coreOrigin)
+	c.Assert(result, tc.DeepEquals, coreOrigin)
 }
 
 func refresherConfigWithOrigin(curl *charm.URL, ref string, platform corecharm.Platform) RefresherConfig {

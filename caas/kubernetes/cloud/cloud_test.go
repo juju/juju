@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
@@ -18,9 +18,9 @@ import (
 type cloudSuite struct {
 }
 
-var _ = gc.Suite(&cloudSuite{})
+var _ = tc.Suite(&cloudSuite{})
 
-func (s *cloudSuite) TestConfigFromReader(c *gc.C) {
+func (s *cloudSuite) TestConfigFromReader(c *tc.C) {
 	rawConf := `
 apiVersion: v1
 clusters:
@@ -53,7 +53,7 @@ users:
 	c.Assert(exists, jc.IsTrue)
 }
 
-func (s *cloudSuite) TestCloudsFromKubeConfigContexts(c *gc.C) {
+func (s *cloudSuite) TestCloudsFromKubeConfigContexts(c *tc.C) {
 	rawConf := `
 apiVersion: v1
 clusters:
@@ -92,7 +92,7 @@ users:
 	c.Assert(err, jc.ErrorIsNil)
 	clouds, err := k8scloud.CloudsFromKubeConfigContexts(conf)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(clouds), gc.Equals, 2)
+	c.Assert(len(clouds), tc.Equals, 2)
 
 	foundCloud1 := false
 	for _, cloud := range clouds {
@@ -110,7 +110,7 @@ users:
 	c.Assert(foundCloud2, jc.IsTrue)
 }
 
-func (s *cloudSuite) TestCloudFromKubeConfigContext(c *gc.C) {
+func (s *cloudSuite) TestCloudFromKubeConfigContext(c *tc.C) {
 	rawConf := `
 apiVersion: v1
 clusters:
@@ -151,10 +151,10 @@ users:
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(cl.Name, gc.Equals, "test1")
-	c.Assert(cl.Type, gc.Equals, constants.CAASProviderType)
-	c.Assert(cl.HostCloudRegion, gc.Equals, "jujutest")
-	c.Assert(cl.Description, gc.Equals, "description")
+	c.Assert(cl.Name, tc.Equals, "test1")
+	c.Assert(cl.Type, tc.Equals, constants.CAASProviderType)
+	c.Assert(cl.HostCloudRegion, tc.Equals, "jujutest")
+	c.Assert(cl.Description, tc.Equals, "description")
 	c.Assert(cl.Regions, jc.DeepEquals, []cloud.Region{
 		{
 			Name: "juju test",
@@ -162,7 +162,7 @@ users:
 	})
 }
 
-func (s *cloudSuite) TestCloudFromKubeConfigContextReader(c *gc.C) {
+func (s *cloudSuite) TestCloudFromKubeConfigContextReader(c *tc.C) {
 	rawConf := `
 apiVersion: v1
 clusters:
@@ -200,10 +200,10 @@ users:
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cl.Name, gc.Equals, "test1")
-	c.Assert(cl.Type, gc.Equals, constants.CAASProviderType)
-	c.Assert(cl.HostCloudRegion, gc.Equals, "jujutest")
-	c.Assert(cl.Description, gc.Equals, "description")
+	c.Assert(cl.Name, tc.Equals, "test1")
+	c.Assert(cl.Type, tc.Equals, constants.CAASProviderType)
+	c.Assert(cl.HostCloudRegion, tc.Equals, "jujutest")
+	c.Assert(cl.Description, tc.Equals, "description")
 	c.Assert(cl.Regions, jc.DeepEquals, []cloud.Region{
 		{
 			Name: "juju test",
@@ -211,7 +211,7 @@ users:
 	})
 }
 
-func (s *cloudSuite) CloudFromKubeConfigCluster(c *gc.C) {
+func (s *cloudSuite) CloudFromKubeConfigCluster(c *tc.C) {
 	rawConf := `
 apiVersion: v1
 clusters:
@@ -252,10 +252,10 @@ users:
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(cl.Name, gc.Equals, "test1")
-	c.Assert(cl.Type, gc.Equals, constants.CAASProviderType)
-	c.Assert(cl.HostCloudRegion, gc.Equals, "jujutest")
-	c.Assert(cl.Description, gc.Equals, "description")
+	c.Assert(cl.Name, tc.Equals, "test1")
+	c.Assert(cl.Type, tc.Equals, constants.CAASProviderType)
+	c.Assert(cl.HostCloudRegion, tc.Equals, "jujutest")
+	c.Assert(cl.Description, tc.Equals, "description")
 	c.Assert(cl.Regions, jc.DeepEquals, []cloud.Region{
 		{
 			Name: "juju test",
@@ -263,7 +263,7 @@ users:
 	})
 }
 
-func (s *cloudSuite) TestCloudFromKubeConfigContextDoesNotExist(c *gc.C) {
+func (s *cloudSuite) TestCloudFromKubeConfigContextDoesNotExist(c *tc.C) {
 	rawConf := `
 apiVersion: v1
 clusters:
@@ -305,7 +305,7 @@ users:
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
-func (s *cloudSuite) TestCloudFromKubeConfigContextClusterDoesNotExist(c *gc.C) {
+func (s *cloudSuite) TestCloudFromKubeConfigContextClusterDoesNotExist(c *tc.C) {
 	rawConf := `
 apiVersion: v1
 clusters:
@@ -347,7 +347,7 @@ users:
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
-func (s *cloudSuite) CloudFromKubeConfigClusterReader(c *gc.C) {
+func (s *cloudSuite) CloudFromKubeConfigClusterReader(c *tc.C) {
 	rawConf := `
 apiVersion: v1
 clusters:
@@ -386,10 +386,10 @@ users:
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(cl.Name, gc.Equals, "test1")
-	c.Assert(cl.Type, gc.Equals, constants.CAASProviderType)
-	c.Assert(cl.HostCloudRegion, gc.Equals, "jujutest")
-	c.Assert(cl.Description, gc.Equals, "description")
+	c.Assert(cl.Name, tc.Equals, "test1")
+	c.Assert(cl.Type, tc.Equals, constants.CAASProviderType)
+	c.Assert(cl.HostCloudRegion, tc.Equals, "jujutest")
+	c.Assert(cl.Description, tc.Equals, "description")
 	c.Assert(cl.Regions, jc.DeepEquals, []cloud.Region{
 		{
 			Name: "juju test",
@@ -397,7 +397,7 @@ users:
 	})
 }
 
-func (s *cloudSuite) CloudFromKubeConfigClusterNotExist(c *gc.C) {
+func (s *cloudSuite) CloudFromKubeConfigClusterNotExist(c *tc.C) {
 	rawConf := `
 apiVersion: v1
 clusters:

@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/blockdevice"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -20,9 +20,9 @@ type exportSuite struct {
 	service     *MockExportService
 }
 
-var _ = gc.Suite(&exportSuite{})
+var _ = tc.Suite(&exportSuite{})
 
-func (s *exportSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *exportSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.coordinator = NewMockCoordinator(ctrl)
@@ -37,7 +37,7 @@ func (s *exportSuite) newExportOperation() *exportOperation {
 	}
 }
 
-func (s *exportSuite) TestExport(c *gc.C) {
+func (s *exportSuite) TestExport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dst := description.NewModel(description.ModelArgs{})
@@ -45,8 +45,8 @@ func (s *exportSuite) TestExport(c *gc.C) {
 		Id: "666",
 	})
 	m := dst.Machines()
-	c.Assert(m, gc.HasLen, 1)
-	c.Assert(m[0].BlockDevices(), gc.HasLen, 0)
+	c.Assert(m, tc.HasLen, 1)
+	c.Assert(m[0].BlockDevices(), tc.HasLen, 0)
 
 	s.service.EXPECT().AllBlockDevices(gomock.Any()).
 		Times(1).
@@ -72,24 +72,24 @@ func (s *exportSuite) TestExport(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	m = dst.Machines()
-	c.Assert(m, gc.HasLen, 1)
-	c.Assert(m[0].BlockDevices(), gc.HasLen, 1)
+	c.Assert(m, tc.HasLen, 1)
+	c.Assert(m[0].BlockDevices(), tc.HasLen, 1)
 	bd := m[0].BlockDevices()[0]
-	c.Check(bd.Name(), gc.Equals, "foo")
+	c.Check(bd.Name(), tc.Equals, "foo")
 	c.Check(bd.Links(), jc.DeepEquals, []string{"a-link"})
-	c.Check(bd.Label(), gc.Equals, "label")
-	c.Check(bd.UUID(), gc.Equals, "device-uuid")
-	c.Check(bd.HardwareID(), gc.Equals, "hardware-id")
-	c.Check(bd.WWN(), gc.Equals, "wwn")
-	c.Check(bd.BusAddress(), gc.Equals, "bus-address")
-	c.Check(bd.SerialID(), gc.Equals, "serial-id")
-	c.Check(bd.Size(), gc.Equals, uint64(100))
-	c.Check(bd.FilesystemType(), gc.Equals, "ext4")
+	c.Check(bd.Label(), tc.Equals, "label")
+	c.Check(bd.UUID(), tc.Equals, "device-uuid")
+	c.Check(bd.HardwareID(), tc.Equals, "hardware-id")
+	c.Check(bd.WWN(), tc.Equals, "wwn")
+	c.Check(bd.BusAddress(), tc.Equals, "bus-address")
+	c.Check(bd.SerialID(), tc.Equals, "serial-id")
+	c.Check(bd.Size(), tc.Equals, uint64(100))
+	c.Check(bd.FilesystemType(), tc.Equals, "ext4")
 	c.Check(bd.InUse(), jc.IsTrue)
-	c.Check(bd.MountPoint(), gc.Equals, "/path/to/here")
+	c.Check(bd.MountPoint(), tc.Equals, "/path/to/here")
 }
 
-func (s *exportSuite) TestExportMachineNotFound(c *gc.C) {
+func (s *exportSuite) TestExportMachineNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dst := description.NewModel(description.ModelArgs{})

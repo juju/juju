@@ -7,10 +7,10 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/api/agent/provisioner/mocks"
@@ -28,9 +28,9 @@ type provisionerSuite struct {
 	jujutesting.IsolationSuite
 }
 
-var _ = gc.Suite(&provisionerSuite{})
+var _ = tc.Suite(&provisionerSuite{})
 
-func (s *provisionerSuite) SetUpTest(c *gc.C) {
+func (s *provisionerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 }
 
@@ -40,22 +40,22 @@ func (s *provisionerSuite) setupCaller(ctrl *gomock.Controller) *mocks.MockAPICa
 	return caller
 }
 
-func (s *provisionerSuite) TestNew(c *gc.C) {
+func (s *provisionerSuite) TestNew(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	caller := s.setupCaller(ctrl)
 	client := provisioner.NewClient(caller)
-	c.Assert(client.APIAddresser, gc.NotNil)
-	c.Assert(client.ModelConfigWatcher, gc.NotNil)
-	c.Assert(client.ControllerConfigAPI, gc.NotNil)
+	c.Assert(client.APIAddresser, tc.NotNil)
+	c.Assert(client.ModelConfigWatcher, tc.NotNil)
+	c.Assert(client.ControllerConfigAPI, tc.NotNil)
 }
 
 func (s *provisionerSuite) expectCall(caller *mocks.MockAPICaller, method, args, results interface{}) {
 	caller.EXPECT().APICall(gomock.Any(), "Provisioner", 666, "", method, args, gomock.Any()).SetArg(6, results).Return(nil)
 }
 
-func (s *provisionerSuite) TestMachines(c *gc.C) {
+func (s *provisionerSuite) TestMachines(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -76,17 +76,17 @@ func (s *provisionerSuite) TestMachines(c *gc.C) {
 	client := provisioner.NewClient(caller)
 	result, err := client.Machines(context.Background(), names.NewMachineTag("666"), names.NewMachineTag("42"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.HasLen, 2)
-	c.Assert(result[1].Err.Message, gc.Equals, "FAIL")
+	c.Assert(result, tc.HasLen, 2)
+	c.Assert(result[1].Err.Message, tc.Equals, "FAIL")
 
 	machine := result[0].Machine
-	c.Assert(machine, gc.FitsTypeOf, &provisioner.Machine{})
-	c.Assert(machine.Tag(), gc.Equals, names.NewMachineTag("666"))
-	c.Assert(machine.Id(), gc.Equals, "666")
-	c.Assert(machine.Life(), gc.Equals, life.Alive)
+	c.Assert(machine, tc.FitsTypeOf, &provisioner.Machine{})
+	c.Assert(machine.Tag(), tc.Equals, names.NewMachineTag("666"))
+	c.Assert(machine.Id(), tc.Equals, "666")
+	c.Assert(machine.Life(), tc.Equals, life.Alive)
 }
 
-func (s *provisionerSuite) TestMachinesWithTransientErrors(c *gc.C) {
+func (s *provisionerSuite) TestMachinesWithTransientErrors(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -107,10 +107,10 @@ func (s *provisionerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	result, err := client.MachinesWithTransientErrors(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	machine := result[0].Machine
-	c.Assert(machine, gc.FitsTypeOf, &provisioner.Machine{})
-	c.Assert(machine.Tag(), gc.Equals, names.NewMachineTag("666"))
-	c.Assert(machine.Id(), gc.Equals, "666")
-	c.Assert(machine.Life(), gc.Equals, life.Alive)
+	c.Assert(machine, tc.FitsTypeOf, &provisioner.Machine{})
+	c.Assert(machine.Tag(), tc.Equals, names.NewMachineTag("666"))
+	c.Assert(machine.Id(), tc.Equals, "666")
+	c.Assert(machine.Life(), tc.Equals, life.Alive)
 	c.Assert(result[0].Status, jc.DeepEquals, params.StatusResult{
 		Id:     "666",
 		Life:   "alive",
@@ -120,7 +120,7 @@ func (s *provisionerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	})
 }
 
-func (s *provisionerSuite) TestDistributionGroupByMachineId(c *gc.C) {
+func (s *provisionerSuite) TestDistributionGroupByMachineId(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -144,7 +144,7 @@ func (s *provisionerSuite) TestDistributionGroupByMachineId(c *gc.C) {
 	}})
 }
 
-func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
+func (s *provisionerSuite) TestProvisioningInfo(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -166,7 +166,7 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, results)
 }
 
-func (s *provisionerSuite) TestHostChangesForContainer(c *gc.C) {
+func (s *provisionerSuite) TestHostChangesForContainer(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -196,7 +196,7 @@ func (s *provisionerSuite) TestHostChangesForContainer(c *gc.C) {
 	}})
 }
 
-func (s *provisionerSuite) TestContainerManagerConfig(c *gc.C) {
+func (s *provisionerSuite) TestContainerManagerConfig(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -216,7 +216,7 @@ func (s *provisionerSuite) TestContainerManagerConfig(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, results)
 }
 
-func (s *provisionerSuite) TestFindTools(c *gc.C) {
+func (s *provisionerSuite) TestFindTools(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -250,7 +250,7 @@ func (s *provisionerSuite) TestFindTools(c *gc.C) {
 	}})
 }
 
-func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
+func (s *provisionerSuite) TestContainerConfig(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -267,7 +267,7 @@ func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, cfg)
 }
 
-func (s *provisionerSuite) TestWatchModelMachines(c *gc.C) {
+func (s *provisionerSuite) TestWatchModelMachines(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -280,10 +280,10 @@ func (s *provisionerSuite) TestWatchModelMachines(c *gc.C) {
 
 	client := provisioner.NewClient(caller)
 	_, err := client.WatchModelMachines(context.Background())
-	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
-func (s *provisionerSuite) setupMachines(c *gc.C, ctrl *gomock.Controller) (*mocks.MockAPICaller, provisioner.MachineProvisioner) {
+func (s *provisionerSuite) setupMachines(c *tc.C, ctrl *gomock.Controller) (*mocks.MockAPICaller, provisioner.MachineProvisioner) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: "machine-666"}},
 	}
@@ -297,11 +297,11 @@ func (s *provisionerSuite) setupMachines(c *gc.C, ctrl *gomock.Controller) (*moc
 	client := provisioner.NewClient(caller)
 	result, err := client.Machines(context.Background(), names.NewMachineTag("666"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.HasLen, 1)
+	c.Assert(result, tc.HasLen, 1)
 	return caller, result[0].Machine
 }
 
-func (s *provisionerSuite) TestSetStatus(c *gc.C) {
+func (s *provisionerSuite) TestSetStatus(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -324,7 +324,7 @@ func (s *provisionerSuite) TestSetStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *provisionerSuite) TestStatus(c *gc.C) {
+func (s *provisionerSuite) TestStatus(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -344,11 +344,11 @@ func (s *provisionerSuite) TestStatus(c *gc.C) {
 
 	st, info, err := machine.Status(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st, gc.Equals, status.Error)
-	c.Assert(info, gc.Equals, "failed")
+	c.Assert(st, tc.Equals, status.Error)
+	c.Assert(info, tc.Equals, "failed")
 }
 
-func (s *provisionerSuite) TestSetInstanceStatus(c *gc.C) {
+func (s *provisionerSuite) TestSetInstanceStatus(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -371,7 +371,7 @@ func (s *provisionerSuite) TestSetInstanceStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *provisionerSuite) TestInstanceStatus(c *gc.C) {
+func (s *provisionerSuite) TestInstanceStatus(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -391,11 +391,11 @@ func (s *provisionerSuite) TestInstanceStatus(c *gc.C) {
 
 	st, info, err := machine.InstanceStatus(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st, gc.Equals, status.Error)
-	c.Assert(info, gc.Equals, "failed")
+	c.Assert(st, tc.Equals, status.Error)
+	c.Assert(info, tc.Equals, "failed")
 }
 
-func (s *provisionerSuite) TestEnsureDead(c *gc.C) {
+func (s *provisionerSuite) TestEnsureDead(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -414,7 +414,7 @@ func (s *provisionerSuite) TestEnsureDead(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *provisionerSuite) TestRemove(c *gc.C) {
+func (s *provisionerSuite) TestRemove(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -433,7 +433,7 @@ func (s *provisionerSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *provisionerSuite) TestMarkForRemoval(c *gc.C) {
+func (s *provisionerSuite) TestMarkForRemoval(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -452,7 +452,7 @@ func (s *provisionerSuite) TestMarkForRemoval(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *provisionerSuite) TestRefresh(c *gc.C) {
+func (s *provisionerSuite) TestRefresh(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -467,10 +467,10 @@ func (s *provisionerSuite) TestRefresh(c *gc.C) {
 	s.expectCall(caller, "Life", args, results)
 	err := machine.Refresh(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machine.Life(), gc.Equals, life.Dying)
+	c.Assert(machine.Life(), tc.Equals, life.Dying)
 }
 
-func (s *provisionerSuite) TestInstanceId(c *gc.C) {
+func (s *provisionerSuite) TestInstanceId(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -489,10 +489,10 @@ func (s *provisionerSuite) TestInstanceId(c *gc.C) {
 
 	id, err := machine.InstanceId(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(id, gc.Equals, instance.Id("id-666"))
+	c.Assert(id, tc.Equals, instance.Id("id-666"))
 }
 
-func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
+func (s *provisionerSuite) TestSetInstanceInfo(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -538,7 +538,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *provisionerSuite) TestAvailabilityZone(c *gc.C) {
+func (s *provisionerSuite) TestAvailabilityZone(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -557,10 +557,10 @@ func (s *provisionerSuite) TestAvailabilityZone(c *gc.C) {
 
 	zone, err := machine.AvailabilityZone(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(zone, gc.Equals, "az-666")
+	c.Assert(zone, tc.Equals, "az-666")
 }
 
-func (s *provisionerSuite) TestSetCharmProfiles(c *gc.C) {
+func (s *provisionerSuite) TestSetCharmProfiles(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -582,7 +582,7 @@ func (s *provisionerSuite) TestSetCharmProfiles(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *provisionerSuite) TestKeepInstance(c *gc.C) {
+func (s *provisionerSuite) TestKeepInstance(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -602,7 +602,7 @@ func (s *provisionerSuite) TestKeepInstance(c *gc.C) {
 	c.Assert(result, jc.IsTrue)
 }
 
-func (s *provisionerSuite) TestDistributionGroup(c *gc.C) {
+func (s *provisionerSuite) TestDistributionGroup(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -622,7 +622,7 @@ func (s *provisionerSuite) TestDistributionGroup(c *gc.C) {
 	c.Assert(result, jc.SameContents, []instance.Id{"id-1", "id-2"})
 }
 
-func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
+func (s *provisionerSuite) TestWatchContainers(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -643,20 +643,20 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 	s.expectCall(caller, "WatchContainers", args, results)
 
 	_, err := machine.WatchContainers(context.Background(), instance.LXD)
-	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
-func (s *provisionerSuite) TestWatchContainersUnSupportedContainers(c *gc.C) {
+func (s *provisionerSuite) TestWatchContainersUnSupportedContainers(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	_, machine := s.setupMachines(c, ctrl)
 
 	_, err := machine.WatchContainers(context.Background(), "foo")
-	c.Assert(err, gc.ErrorMatches, `unsupported container type "foo"`)
+	c.Assert(err, tc.ErrorMatches, `unsupported container type "foo"`)
 }
 
-func (s *provisionerSuite) TestSetSupportedContainers(c *gc.C) {
+func (s *provisionerSuite) TestSetSupportedContainers(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -678,7 +678,7 @@ func (s *provisionerSuite) TestSetSupportedContainers(c *gc.C) {
 
 }
 
-func (s *provisionerSuite) TestSupportedContainers(c *gc.C) {
+func (s *provisionerSuite) TestSupportedContainers(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -699,13 +699,13 @@ func (s *provisionerSuite) TestSupportedContainers(c *gc.C) {
 	c.Assert(determined, jc.IsTrue)
 }
 
-var _ = gc.Suite(&provisionerContainerSuite{})
+var _ = tc.Suite(&provisionerContainerSuite{})
 
 type provisionerContainerSuite struct {
 	containerTag names.MachineTag
 }
 
-func (s *provisionerContainerSuite) SetUpTest(_ *gc.C) {
+func (s *provisionerContainerSuite) SetUpTest(_ *tc.C) {
 	s.containerTag = names.NewMachineTag("0/lxd/0")
 }
 
@@ -719,7 +719,7 @@ func (s *provisionerContainerSuite) expectCall(caller *mocks.MockAPICaller, meth
 	caller.EXPECT().APICall(gomock.Any(), "Provisioner", 666, "", method, args, gomock.Any()).SetArg(6, results).Return(nil)
 }
 
-func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoNoValues(c *gc.C) {
+func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoNoValues(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -736,11 +736,11 @@ func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoNoValues(c 
 	provisionerApi := provisioner.NewClient(caller)
 
 	networkInfo, err := provisionerApi.PrepareContainerInterfaceInfo(context.Background(), s.containerTag)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	c.Check(networkInfo, jc.DeepEquals, corenetwork.InterfaceInfos{})
 }
 
-func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoSingleNIC(c *gc.C) {
+func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoSingleNIC(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -789,7 +789,7 @@ func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoSingleNIC(c
 	provisionerApi := provisioner.NewClient(caller)
 
 	networkInfo, err := provisionerApi.PrepareContainerInterfaceInfo(context.Background(), s.containerTag)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	c.Check(networkInfo, jc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:         1,
 		MACAddress:          "de:ad:be:ff:11:22",
@@ -820,7 +820,7 @@ func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoSingleNIC(c
 	}})
 }
 
-func (s *provisionerContainerSuite) TestGetContainerProfileInfo(c *gc.C) {
+func (s *provisionerContainerSuite) TestGetContainerProfileInfo(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -861,7 +861,7 @@ func (s *provisionerContainerSuite) TestGetContainerProfileInfo(c *gc.C) {
 
 	obtainedResults, err := provisionerApi.GetContainerProfileInfo(context.Background(), s.containerTag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedResults, gc.DeepEquals, []*provisioner.LXDProfileResult{
+	c.Assert(obtainedResults, tc.DeepEquals, []*provisioner.LXDProfileResult{
 		{
 			Config: map[string]string{
 				"security.nesting":    "true",

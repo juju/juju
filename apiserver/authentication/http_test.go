@@ -7,9 +7,9 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
 )
@@ -42,9 +42,9 @@ type HTTPAuthenticatorSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&HTTPAuthenticatorSuite{})
+var _ = tc.Suite(&HTTPAuthenticatorSuite{})
 
-func (s *HTTPAuthenticatorSuite) TestHTTPStrategicAuthenticator(c *gc.C) {
+func (s *HTTPAuthenticatorSuite) TestHTTPStrategicAuthenticator(c *tc.C) {
 	tests := []struct {
 		description        string
 		httpAuthenticators authentication.HTTPStrategicAuthenticator

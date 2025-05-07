@@ -7,17 +7,17 @@ import (
 	"testing"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/worker/common/reboot"
 )
 
 type monitorSuite struct{}
 
-var _ = gc.Suite(&monitorSuite{})
+var _ = tc.Suite(&monitorSuite{})
 
-func (s *monitorSuite) TestQueryMonitor(c *gc.C) {
+func (s *monitorSuite) TestQueryMonitor(c *tc.C) {
 	transientDir := c.MkDir()
 	mon := reboot.NewMonitor(transientDir)
 
@@ -34,7 +34,7 @@ func (s *monitorSuite) TestQueryMonitor(c *gc.C) {
 	// already processed the reboot notification
 	rebootDetected, err = mon.Query(unit)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rebootDetected, jc.IsFalse, gc.Commentf("got unexpected reboot notification"))
+	c.Assert(rebootDetected, jc.IsFalse, tc.Commentf("got unexpected reboot notification"))
 
 	// If we purge the monitor's state for this entity we can query it
 	// again and get a reboot detected notification.
@@ -46,7 +46,7 @@ func (s *monitorSuite) TestQueryMonitor(c *gc.C) {
 	c.Assert(rebootDetected, jc.IsTrue)
 }
 
-func (s *monitorSuite) TestQueryMonitorForDifferentEntities(c *gc.C) {
+func (s *monitorSuite) TestQueryMonitorForDifferentEntities(c *tc.C) {
 	transientDir := c.MkDir()
 	mon := reboot.NewMonitor(transientDir)
 
@@ -69,11 +69,11 @@ func (s *monitorSuite) TestQueryMonitorForDifferentEntities(c *gc.C) {
 	// already processed the reboot notification for both entities
 	rebootDetected, err = mon.Query(unit1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rebootDetected, jc.IsFalse, gc.Commentf("got unexpected reboot notification"))
+	c.Assert(rebootDetected, jc.IsFalse, tc.Commentf("got unexpected reboot notification"))
 	rebootDetected, err = mon.Query(unit2)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rebootDetected, jc.IsFalse, gc.Commentf("got unexpected reboot notification"))
+	c.Assert(rebootDetected, jc.IsFalse, tc.Commentf("got unexpected reboot notification"))
 }
 func TestAll(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }

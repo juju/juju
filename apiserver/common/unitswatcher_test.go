@@ -8,8 +8,8 @@ import (
 	"fmt"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -19,7 +19,7 @@ import (
 
 type unitsWatcherSuite struct{}
 
-var _ = gc.Suite(&unitsWatcherSuite{})
+var _ = tc.Suite(&unitsWatcherSuite{})
 
 type fakeUnitsWatcher struct {
 	state.UnitsWatcher
@@ -56,7 +56,7 @@ func (w *fakeStringsWatcher) Changes() <-chan []string {
 	return w.changes
 }
 
-func (*unitsWatcherSuite) TestWatchUnits(c *gc.C) {
+func (*unitsWatcherSuite) TestWatchUnits(c *tc.C) {
 	st := &fakeState{
 		entities: map[names.Tag]entityWithError{
 			u("x/0"): &fakeUnitsWatcher{fetchError: "x0 fails"},
@@ -88,7 +88,7 @@ func (*unitsWatcherSuite) TestWatchUnits(c *gc.C) {
 	})
 }
 
-func (*unitsWatcherSuite) TestWatchUnitsError(c *gc.C) {
+func (*unitsWatcherSuite) TestWatchUnitsError(c *tc.C) {
 	getCanWatch := func(ctx context.Context) (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
@@ -99,10 +99,10 @@ func (*unitsWatcherSuite) TestWatchUnitsError(c *gc.C) {
 		getCanWatch,
 	)
 	_, err := w.WatchUnits(context.Background(), params.Entities{Entities: []params.Entity{{Tag: "x0"}}})
-	c.Assert(err, gc.ErrorMatches, "pow")
+	c.Assert(err, tc.ErrorMatches, "pow")
 }
 
-func (*unitsWatcherSuite) TestWatchNoArgsNoError(c *gc.C) {
+func (*unitsWatcherSuite) TestWatchNoArgsNoError(c *tc.C) {
 	getCanWatch := func(ctx context.Context) (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
@@ -114,5 +114,5 @@ func (*unitsWatcherSuite) TestWatchNoArgsNoError(c *gc.C) {
 	)
 	result, err := w.WatchUnits(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 0)
+	c.Assert(result.Results, tc.HasLen, 0)
 }

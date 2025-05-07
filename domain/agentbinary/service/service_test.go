@@ -6,10 +6,10 @@ package service
 import (
 	"context"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/agentbinary"
@@ -26,9 +26,9 @@ type serviceSuite struct {
 	mockModelState, mockControllerState *MockAgentBinaryState
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = tc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockModelState = NewMockAgentBinaryState(ctrl)
 	s.mockControllerState = NewMockAgentBinaryState(ctrl)
@@ -39,7 +39,7 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 // AgentBinaryService. It verifies that the method correctly merges
 // agent binaries from the controller and model stores, with the model
 // binaries taking precedence over the controller binaries.
-func (s *serviceSuite) TestListAgentBinaries(c *gc.C) {
+func (s *serviceSuite) TestListAgentBinaries(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	controllerBinaries := []agentbinary.Metadata{
@@ -89,11 +89,11 @@ func (s *serviceSuite) TestListAgentBinaries(c *gc.C) {
 
 	svc := NewAgentBinaryService(s.mockControllerState, s.mockModelState, nil, nil, nil)
 	result, err := svc.ListAgentBinaries(context.Background())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	c.Assert(result, jc.SameContents, expected)
 }
 
-func (s *serviceSuite) TestGetEnvironAgentBinariesFinder(c *gc.C) {
+func (s *serviceSuite) TestGetEnvironAgentBinariesFinder(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -114,8 +114,8 @@ func (s *serviceSuite) TestGetEnvironAgentBinariesFinder(c *gc.C) {
 	) []string {
 		called++
 		c.Assert(*vers, jc.DeepEquals, semversion.MustParse("4.0.1"))
-		c.Assert(forceDevel, gc.Equals, true)
-		c.Assert(stream, gc.Equals, "stream2")
+		c.Assert(forceDevel, tc.Equals, true)
+		c.Assert(stream, tc.Equals, "stream2")
 		return []string{"stream1", "stream2"}
 	}
 
@@ -132,10 +132,10 @@ func (s *serviceSuite) TestGetEnvironAgentBinariesFinder(c *gc.C) {
 		filter coretools.Filter,
 	) (coretools.List, error) {
 		called++
-		c.Assert(majorVersion, gc.Equals, 4)
-		c.Assert(minorVersion, gc.Equals, 0)
-		c.Assert(streams, gc.DeepEquals, []string{"stream1", "stream2"})
-		c.Assert(filter, gc.DeepEquals, coretools.Filter{Arch: "amd64"})
+		c.Assert(majorVersion, tc.Equals, 4)
+		c.Assert(minorVersion, tc.Equals, 0)
+		c.Assert(streams, tc.DeepEquals, []string{"stream1", "stream2"})
+		c.Assert(filter, tc.DeepEquals, coretools.Filter{Arch: "amd64"})
 		return expected, nil
 	}
 
@@ -149,7 +149,7 @@ func (s *serviceSuite) TestGetEnvironAgentBinariesFinder(c *gc.C) {
 	result, err := finder(context.Background(),
 		4, 0, semversion.MustParse("4.0.1"), "", coretools.Filter{Arch: "amd64"},
 	)
-	c.Assert(called, gc.Equals, 2)
+	c.Assert(called, tc.Equals, 2)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, expected)
+	c.Assert(result, tc.DeepEquals, expected)
 }

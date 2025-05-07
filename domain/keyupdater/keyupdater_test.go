@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
@@ -48,9 +48,9 @@ type keyUpdaterSuite struct {
 	userID  user.UUID
 }
 
-var _ = gc.Suite(&keyUpdaterSuite{})
+var _ = tc.Suite(&keyUpdaterSuite{})
 
-func (s *keyUpdaterSuite) SetUpTest(c *gc.C) {
+func (s *keyUpdaterSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 	s.ModelSuite.SetUpTest(c)
 
@@ -120,7 +120,7 @@ func (s *keyUpdaterSuite) SetUpTest(c *gc.C) {
 // as users come and go from the system and also their private keys we get
 // watcher events and the authorized keys reported for the machine in question
 // is correct.
-func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *gc.C) {
+func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *tc.C) {
 	ctx, cancel := jujutesting.LongWaitContext()
 	defer cancel()
 
@@ -146,7 +146,7 @@ func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *gc.C) {
 
 	harness := watchertest.NewHarness(&s.ControllerSuite, watchertest.NewWatcherC(c, watcher))
 
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err = keyManagerSvc.AddPublicKeysForUser(
 			ctx,
 			s.userID,
@@ -158,7 +158,7 @@ func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *gc.C) {
 		w.AssertChange()
 	})
 
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err = keyManagerSvc.DeleteKeysForUser(
 			ctx,
 			s.userID,
@@ -173,29 +173,29 @@ func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *gc.C) {
 		accessstate.NewUserState(s.ControllerSuite.TxnRunnerFactory()),
 	)
 
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err = userSvc.DisableUserAuthentication(ctx, user.AdminUserName)
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		keys, err := svc.GetAuthorisedKeysForMachine(ctx, machine.Name("0"))
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(len(keys), gc.Equals, 0)
+		c.Assert(len(keys), tc.Equals, 0)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
 
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err = userSvc.EnableUserAuthentication(ctx, user.AdminUserName)
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		keys, err := svc.GetAuthorisedKeysForMachine(ctx, machine.Name("0"))
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(keys, jc.DeepEquals, []string{
@@ -205,17 +205,17 @@ func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *gc.C) {
 		w.AssertNoChange()
 	})
 
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err = userSvc.RemoveUser(ctx, user.AdminUserName)
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		keys, err := svc.GetAuthorisedKeysForMachine(ctx, machine.Name("0"))
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(len(keys), gc.Equals, 0)
+		c.Assert(len(keys), tc.Equals, 0)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
@@ -223,7 +223,7 @@ func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *gc.C) {
 	harness.Run(c, struct{}{})
 }
 
-func (s *keyUpdaterSuite) createMachine(c *gc.C, machineId machine.Name) {
+func (s *keyUpdaterSuite) createMachine(c *tc.C, machineId machine.Name) {
 	nodeUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	machineUUID, err := uuid.NewUUID()

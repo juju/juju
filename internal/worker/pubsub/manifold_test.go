@@ -11,12 +11,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/pubsub/v2"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -28,9 +28,9 @@ type ManifoldSuite struct {
 	config psworker.ManifoldConfig
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+var _ = tc.Suite(&ManifoldSuite{})
 
-func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = psworker.ManifoldConfig{
 		AgentName:      "agent",
@@ -43,43 +43,43 @@ func (s *ManifoldSuite) manifold() dependency.Manifold {
 	return psworker.Manifold(s.config)
 }
 
-func (s *ManifoldSuite) TestInputs(c *gc.C) {
+func (s *ManifoldSuite) TestInputs(c *tc.C) {
 	c.Check(s.manifold().Inputs, jc.DeepEquals, []string{"agent", "central-hub"})
 }
 
-func (s *ManifoldSuite) TestAgentMissing(c *gc.C) {
+func (s *ManifoldSuite) TestAgentMissing(c *tc.C) {
 	getter := dt.StubGetter(map[string]interface{}{
 		"agent": dependency.ErrMissing,
 	})
 
 	worker, err := s.manifold().Start(context.Background(), getter)
-	c.Check(worker, gc.IsNil)
-	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+	c.Check(worker, tc.IsNil)
+	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
 
-func (s *ManifoldSuite) TestCentralHubMissing(c *gc.C) {
+func (s *ManifoldSuite) TestCentralHubMissing(c *tc.C) {
 	getter := dt.StubGetter(map[string]interface{}{
 		"agent":       &fakeAgent{},
 		"central-hub": dependency.ErrMissing,
 	})
 
 	worker, err := s.manifold().Start(context.Background(), getter)
-	c.Check(worker, gc.IsNil)
-	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+	c.Check(worker, tc.IsNil)
+	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
 
-func (s *ManifoldSuite) TestAgentAPIInfoNotReady(c *gc.C) {
+func (s *ManifoldSuite) TestAgentAPIInfoNotReady(c *tc.C) {
 	getter := dt.StubGetter(map[string]interface{}{
 		"agent":       &fakeAgent{missingAPIinfo: true},
 		"central-hub": pubsub.NewStructuredHub(nil),
 	})
 
 	worker, err := s.manifold().Start(context.Background(), getter)
-	c.Check(worker, gc.IsNil)
-	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+	c.Check(worker, tc.IsNil)
+	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
 
-func (s *ManifoldSuite) TestNewWorkerArgs(c *gc.C) {
+func (s *ManifoldSuite) TestNewWorkerArgs(c *tc.C) {
 	clock := s.config.Clock
 	hub := pubsub.NewStructuredHub(nil)
 	var config psworker.WorkerConfig
@@ -95,13 +95,13 @@ func (s *ManifoldSuite) TestNewWorkerArgs(c *gc.C) {
 
 	worker, err := s.manifold().Start(context.Background(), getter)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(worker, gc.NotNil)
+	c.Check(worker, tc.NotNil)
 
-	c.Check(config.Origin, gc.Equals, "machine-42")
-	c.Check(config.Clock, gc.Equals, clock)
-	c.Check(config.Hub, gc.Equals, hub)
-	c.Check(config.APIInfo.CACert, gc.Equals, "fake as")
-	c.Check(config.NewWriter, gc.NotNil)
+	c.Check(config.Origin, tc.Equals, "machine-42")
+	c.Check(config.Clock, tc.Equals, clock)
+	c.Check(config.Hub, tc.Equals, hub)
+	c.Check(config.APIInfo.CACert, tc.Equals, "fake as")
+	c.Check(config.NewWriter, tc.NotNil)
 }
 
 type fakeWorker struct {

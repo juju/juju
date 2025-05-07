@@ -9,10 +9,10 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/sys/windows/registry"
-	gc "gopkg.in/check.v1"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/internal/errors"
@@ -82,12 +82,12 @@ var versionTests = []struct {
 	},
 }
 
-func (s *windowsBaseSuite) SetUpTest(c *gc.C) {
+func (s *windowsBaseSuite) SetUpTest(c *tc.C) {
 	s.CleanupSuite.SetUpTest(c)
 	s.createRegKey(c, &currentVersionKey)
 }
 
-func (s *windowsBaseSuite) createRegKey(c *gc.C, key *string) {
+func (s *windowsBaseSuite) createRegKey(c *tc.C, key *string) {
 	salt, err := RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	regKey := fmt.Sprintf(`SOFTWARE\JUJU\%s`, salt)
@@ -99,12 +99,12 @@ func (s *windowsBaseSuite) createRegKey(c *gc.C, key *string) {
 	err = k.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.AddCleanup(func(*gc.C) {
+	s.AddCleanup(func(*tc.C) {
 		registry.DeleteKey(registry.LOCAL_MACHINE, currentVersionKey)
 	})
 }
 
-func (s *windowsBaseSuite) TestReadBase(c *gc.C) {
+func (s *windowsBaseSuite) TestReadBase(c *tc.C) {
 	for _, value := range versionTests {
 		k, err := registry.OpenKey(registry.LOCAL_MACHINE, currentVersionKey, registry.ALL_ACCESS)
 		c.Assert(err, jc.ErrorIsNil)
@@ -117,7 +117,7 @@ func (s *windowsBaseSuite) TestReadBase(c *gc.C) {
 
 		ver, err := readBase()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(ver, gc.Equals, value.want)
+		c.Assert(ver, tc.Equals, value.want)
 	}
 }
 
@@ -125,9 +125,9 @@ type windowsNanoBaseSuite struct {
 	windowsBaseSuite
 }
 
-var _ = gc.Suite(&windowsNanoBaseSuite{})
+var _ = tc.Suite(&windowsNanoBaseSuite{})
 
-func (s *windowsNanoBaseSuite) SetUpTest(c *gc.C) {
+func (s *windowsNanoBaseSuite) SetUpTest(c *tc.C) {
 	s.windowsBaseSuite.SetUpTest(c)
 	s.createRegKey(c, &isNanoKey)
 
@@ -149,7 +149,7 @@ var nanoVersionTests = []struct {
 	corebase.MustParseBaseFromString("win@2016nano"),
 }}
 
-func (s *windowsNanoBaseSuite) TestReadBase(c *gc.C) {
+func (s *windowsNanoBaseSuite) TestReadBase(c *tc.C) {
 	for _, value := range nanoVersionTests {
 		k, err := registry.OpenKey(registry.LOCAL_MACHINE, currentVersionKey, registry.ALL_ACCESS)
 		c.Assert(err, jc.ErrorIsNil)
@@ -162,7 +162,7 @@ func (s *windowsNanoBaseSuite) TestReadBase(c *gc.C) {
 
 		ver, err := readBase()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(ver, gc.Equals, value.want)
+		c.Assert(ver, tc.Equals, value.want)
 	}
 }
 

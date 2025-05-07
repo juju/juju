@@ -10,10 +10,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/retry"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
@@ -32,9 +32,9 @@ type WorkerSuite struct {
 	applicationChanges chan []string
 }
 
-var _ = gc.Suite(&WorkerSuite{})
+var _ = tc.Suite(&WorkerSuite{})
 
-func (s *WorkerSuite) SetUpTest(c *gc.C) {
+func (s *WorkerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.applicationChanges = make(chan []string)
@@ -55,31 +55,31 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
+func (s *WorkerSuite) TestValidateConfig(c *tc.C) {
 	s.testValidateConfig(c, func(config *storageprovisioner.Config) {
 		config.Scope = names.NewApplicationTag("mariadb")
 		config.Applications = nil
 	}, `nil Applications not valid`)
 }
 
-func (s *WorkerSuite) testValidateConfig(c *gc.C, f func(*storageprovisioner.Config), expect string) {
+func (s *WorkerSuite) testValidateConfig(c *tc.C, f func(*storageprovisioner.Config), expect string) {
 	config := s.config
 	f(&config)
 	w, err := storageprovisioner.NewCaasWorker(config)
 	if err == nil {
 		workertest.DirtyKill(c, w)
 	}
-	c.Check(err, gc.ErrorMatches, expect)
+	c.Check(err, tc.ErrorMatches, expect)
 }
 
-func (s *WorkerSuite) TestStartStop(c *gc.C) {
+func (s *WorkerSuite) TestStartStop(c *tc.C) {
 	w, err := storageprovisioner.NewCaasWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {
+func (s *WorkerSuite) TestWatchApplicationDead(c *tc.C) {
 	w, err := storageprovisioner.NewCaasWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
@@ -111,13 +111,13 @@ func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {
 	s.config.Filesystems.(*mockFilesystemAccessor).CheckCall(c, 0, "WatchFilesystems", coretesting.ModelTag)
 }
 
-func (s *WorkerSuite) TestStopsWatchingApplicationBecauseApplicationRemoved(c *gc.C) {
+func (s *WorkerSuite) TestStopsWatchingApplicationBecauseApplicationRemoved(c *tc.C) {
 	s.assertStopsWatchingApplication(c, func() {
 		s.lifeGetter.err = &params.Error{Code: params.CodeNotFound}
 	})
 }
 
-func (s *WorkerSuite) assertStopsWatchingApplication(c *gc.C, lifeGetterInjecter func()) {
+func (s *WorkerSuite) assertStopsWatchingApplication(c *tc.C, lifeGetterInjecter func()) {
 	w, err := storageprovisioner.NewCaasWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
@@ -182,11 +182,11 @@ func (s *WorkerSuite) assertStopsWatchingApplication(c *gc.C, lifeGetterInjecter
 	workertest.CheckKilled(c, s.applicationsWatcher.watcher)
 }
 
-func (s *WorkerSuite) TestStopsWatchingApplicationBecauseApplicationDead(c *gc.C) {
+func (s *WorkerSuite) TestStopsWatchingApplicationBecauseApplicationDead(c *tc.C) {
 	s.assertStopsWatchingApplication(c, nil)
 }
 
-func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *gc.C) {
+func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *tc.C) {
 	w, err := storageprovisioner.NewCaasWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
@@ -200,5 +200,5 @@ func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *gc.C) {
 	s.applicationsWatcher.watcher.KillErr(errors.New("splat"))
 	workertest.CheckKilled(c, s.applicationsWatcher.watcher)
 	err = workertest.CheckKilled(c, w)
-	c.Assert(err, gc.ErrorMatches, "splat")
+	c.Assert(err, tc.ErrorMatches, "splat")
 }

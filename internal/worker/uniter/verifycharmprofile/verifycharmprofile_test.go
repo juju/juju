@@ -6,8 +6,8 @@ package verifycharmprofile_test
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -19,9 +19,9 @@ import (
 
 type verifySuite struct{}
 
-var _ = gc.Suite(&verifySuite{})
+var _ = tc.Suite(&verifySuite{})
 
-func (s *verifySuite) TestNextOpNotInstallNorUpgrade(c *gc.C) {
+func (s *verifySuite) TestNextOpNotInstallNorUpgrade(c *tc.C) {
 	local := resolver.LocalState{
 		State: operation.State{Kind: operation.RunAction},
 	}
@@ -29,11 +29,11 @@ func (s *verifySuite) TestNextOpNotInstallNorUpgrade(c *gc.C) {
 	res := newVerifyCharmProfileResolver(c)
 
 	op, err := res.NextOp(context.Background(), local, remote, nil)
-	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
-	c.Assert(op, gc.IsNil)
+	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
+	c.Assert(op, tc.IsNil)
 }
 
-func (s *verifySuite) TestNextOpInstallProfileNotRequired(c *gc.C) {
+func (s *verifySuite) TestNextOpInstallProfileNotRequired(c *tc.C) {
 	local := resolver.LocalState{
 		State: operation.State{Kind: operation.Install},
 	}
@@ -43,11 +43,11 @@ func (s *verifySuite) TestNextOpInstallProfileNotRequired(c *gc.C) {
 	res := newVerifyCharmProfileResolver(c)
 
 	op, err := res.NextOp(context.Background(), local, remote, nil)
-	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
-	c.Assert(op, gc.IsNil)
+	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
+	c.Assert(op, tc.IsNil)
 }
 
-func (s *verifySuite) TestNextOpInstallProfileRequiredEmptyName(c *gc.C) {
+func (s *verifySuite) TestNextOpInstallProfileRequiredEmptyName(c *tc.C) {
 	local := resolver.LocalState{
 		State: operation.State{Kind: operation.Install},
 	}
@@ -57,11 +57,11 @@ func (s *verifySuite) TestNextOpInstallProfileRequiredEmptyName(c *gc.C) {
 	res := newVerifyCharmProfileResolver(c)
 
 	op, err := res.NextOp(context.Background(), local, remote, nil)
-	c.Assert(err, gc.Equals, resolver.ErrDoNotProceed)
-	c.Assert(op, gc.IsNil)
+	c.Assert(err, tc.Equals, resolver.ErrDoNotProceed)
+	c.Assert(op, tc.IsNil)
 }
 
-func (s *verifySuite) TestNextOpMisMatchCharmRevisions(c *gc.C) {
+func (s *verifySuite) TestNextOpMisMatchCharmRevisions(c *tc.C) {
 	local := resolver.LocalState{
 		State: operation.State{Kind: operation.Upgrade},
 	}
@@ -73,11 +73,11 @@ func (s *verifySuite) TestNextOpMisMatchCharmRevisions(c *gc.C) {
 	res := newVerifyCharmProfileResolver(c)
 
 	op, err := res.NextOp(context.Background(), local, remote, nil)
-	c.Assert(err, gc.Equals, resolver.ErrDoNotProceed)
-	c.Assert(op, gc.IsNil)
+	c.Assert(err, tc.Equals, resolver.ErrDoNotProceed)
+	c.Assert(op, tc.IsNil)
 }
 
-func (s *verifySuite) TestNextOpMatchingCharmRevisions(c *gc.C) {
+func (s *verifySuite) TestNextOpMatchingCharmRevisions(c *tc.C) {
 	local := resolver.LocalState{
 		State: operation.State{Kind: operation.Upgrade},
 	}
@@ -89,17 +89,17 @@ func (s *verifySuite) TestNextOpMatchingCharmRevisions(c *gc.C) {
 	res := newVerifyCharmProfileResolver(c)
 
 	op, err := res.NextOp(context.Background(), local, remote, nil)
-	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
-	c.Assert(op, gc.IsNil)
+	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
+	c.Assert(op, tc.IsNil)
 }
 
-func (s *verifySuite) TestNewResolverCAAS(c *gc.C) {
+func (s *verifySuite) TestNewResolverCAAS(c *tc.C) {
 	r := verifycharmprofile.NewResolver(loggertesting.WrapCheckLog(c), model.CAAS)
 	op, err := r.NextOp(context.Background(), resolver.LocalState{}, remotestate.Snapshot{}, nil)
-	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 	c.Assert(op, jc.ErrorIsNil)
 }
 
-func newVerifyCharmProfileResolver(c *gc.C) resolver.Resolver {
+func newVerifyCharmProfileResolver(c *tc.C) resolver.Resolver {
 	return verifycharmprofile.NewResolver(loggertesting.WrapCheckLog(c), model.IAAS)
 }

@@ -4,9 +4,9 @@
 package charmhub
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
@@ -18,9 +18,9 @@ type filterSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&filterSuite{})
+var _ = tc.Suite(&filterSuite{})
 
-func (filterSuite) TestFilterChannels(c *gc.C) {
+func (filterSuite) TestFilterChannels(c *tc.C) {
 	tests := []struct {
 		Name     string
 		Arch     string

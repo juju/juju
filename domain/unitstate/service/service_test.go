@@ -6,9 +6,9 @@ package service
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application/errors"
@@ -20,9 +20,9 @@ type serviceSuite struct {
 	st *MockState
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = tc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) TestSetState(c *gc.C) {
+func (s *serviceSuite) TestSetState(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	name := unittesting.GenNewName(c, "unit/0")
@@ -43,7 +43,7 @@ func (s *serviceSuite) TestSetState(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestSetStateUnitNotFound(c *gc.C) {
+func (s *serviceSuite) TestSetStateUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	name := unittesting.GenNewName(c, "unit/0")
@@ -60,7 +60,7 @@ func (s *serviceSuite) TestSetStateUnitNotFound(c *gc.C) {
 	c.Check(err, jc.ErrorIs, unitstateerrors.UnitNotFound)
 }
 
-func (s *serviceSuite) TestGetState(c *gc.C) {
+func (s *serviceSuite) TestGetState(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	name := unittesting.GenNewName(c, "unit/0")
@@ -70,7 +70,7 @@ func (s *serviceSuite) TestGetState(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestGetStateUnitNotFound(c *gc.C) {
+func (s *serviceSuite) TestGetStateUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	name := unittesting.GenNewName(c, "unit/0")
@@ -80,7 +80,7 @@ func (s *serviceSuite) TestGetStateUnitNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, unitstateerrors.UnitNotFound)
 }
 
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.st = NewMockState(ctrl)

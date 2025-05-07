@@ -4,8 +4,8 @@
 package upgrade
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/uuid"
 )
@@ -14,9 +14,9 @@ type typesSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&typesSuite{})
+var _ = tc.Suite(&typesSuite{})
 
-func (s *typesSuite) TestUUIDValidate(c *gc.C) {
+func (s *typesSuite) TestUUIDValidate(c *tc.C) {
 	tests := []struct {
 		uuid string
 		err  *string
@@ -39,11 +39,11 @@ func (s *typesSuite) TestUUIDValidate(c *gc.C) {
 		err := UUID(test.uuid).Validate()
 
 		if test.err == nil {
-			c.Check(err, gc.IsNil)
+			c.Check(err, tc.IsNil)
 			continue
 		}
 
-		c.Check(err, gc.ErrorMatches, *test.err)
+		c.Check(err, tc.ErrorMatches, *test.err)
 	}
 }
 

@@ -4,10 +4,10 @@
 package lxdprofile_test
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/lxdprofile/mocks"
@@ -18,14 +18,14 @@ type LXDProfileSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&LXDProfileSuite{})
+var _ = tc.Suite(&LXDProfileSuite{})
 
-func (*LXDProfileSuite) TestValidateWithNoProfiler(c *gc.C) {
+func (*LXDProfileSuite) TestValidateWithNoProfiler(c *tc.C) {
 	err := lxdprofile.ValidateLXDProfile(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (*LXDProfileSuite) TestValidateWithEmptyConfig(c *gc.C) {
+func (*LXDProfileSuite) TestValidateWithEmptyConfig(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -36,10 +36,10 @@ func (*LXDProfileSuite) TestValidateWithEmptyConfig(c *gc.C) {
 	lxdprofiler.EXPECT().LXDProfile().Return(profile)
 
 	err := lxdprofile.ValidateLXDProfile(lxdprofiler)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (*LXDProfileSuite) TestValidateWithInvalidConfig(c *gc.C) {
+func (*LXDProfileSuite) TestValidateWithInvalidConfig(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -50,10 +50,10 @@ func (*LXDProfileSuite) TestValidateWithInvalidConfig(c *gc.C) {
 	lxdprofiler.EXPECT().LXDProfile().Return(profile)
 
 	err := lxdprofile.ValidateLXDProfile(lxdprofiler)
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, tc.NotNil)
 }
 
-func (*LXDProfileSuite) TestNotEmpty(c *gc.C) {
+func (*LXDProfileSuite) TestNotEmpty(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 

@@ -6,21 +6,21 @@ package api
 import (
 	"testing"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type ImportSuite struct{}
 
-var _ = gc.Suite(&ImportSuite{})
+var _ = tc.Suite(&ImportSuite{})
 
-func (*ImportSuite) TestImports(c *gc.C) {
+func (*ImportSuite) TestImports(c *tc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/api")
 
 	c.Assert(found, jc.SameContents, []string{

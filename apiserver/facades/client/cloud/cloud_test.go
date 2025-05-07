@@ -11,10 +11,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/cloud"
 	"github.com/juju/juju/apiserver/facades/client/cloud/mocks"
@@ -45,7 +45,7 @@ type cloudSuite struct {
 	credentialValidator credentialservice.CredentialValidator
 }
 
-func (s *cloudSuite) setup(c *gc.C, userTag names.UserTag) *gomock.Controller {
+func (s *cloudSuite) setup(c *tc.C, userTag names.UserTag) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
@@ -67,9 +67,9 @@ func (s *cloudSuite) setup(c *gc.C, userTag names.UserTag) *gomock.Controller {
 	return ctrl
 }
 
-var _ = gc.Suite(&cloudSuite{})
+var _ = tc.Suite(&cloudSuite{})
 
-func (s *cloudSuite) TestCloud(c *gc.C) {
+func (s *cloudSuite) TestCloud(c *tc.C) {
 	defer s.setup(c, names.NewUserTag("admin")).Finish()
 
 	backend := s.cloudService.EXPECT()
@@ -84,8 +84,8 @@ func (s *cloudSuite) TestCloud(c *gc.C) {
 		Entities: []params.Entity{{Tag: "cloud-my-cloud"}, {Tag: "machine-0"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 2)
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results, tc.HasLen, 2)
+	c.Assert(results.Results[0].Error, tc.IsNil)
 	c.Assert(results.Results[0].Cloud, jc.DeepEquals, &params.Cloud{
 		Type:      "dummy",
 		AuthTypes: []string{"empty", "userpass"},
@@ -96,7 +96,7 @@ func (s *cloudSuite) TestCloud(c *gc.C) {
 	})
 }
 
-func (s *cloudSuite) TestCloudNotFound(c *gc.C) {
+func (s *cloudSuite) TestCloudNotFound(c *tc.C) {
 	defer s.setup(c, names.NewUserTag("admin")).Finish()
 
 	backend := s.cloudService.EXPECT()
@@ -106,11 +106,11 @@ func (s *cloudSuite) TestCloudNotFound(c *gc.C) {
 		Entities: []params.Entity{{Tag: "cloud-no-dice"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, "cloud \"no-dice\" not found")
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.ErrorMatches, "cloud \"no-dice\" not found")
 }
 
-func (s *cloudSuite) TestClouds(c *gc.C) {
+func (s *cloudSuite) TestClouds(c *tc.C) {
 	bruce := names.NewUserTag("bruce")
 	defer s.setup(c, bruce).Finish()
 
@@ -147,7 +147,7 @@ func (s *cloudSuite) TestClouds(c *gc.C) {
 	})
 }
 
-func (s *cloudSuite) TestCloudInfoAdmin(c *gc.C) {
+func (s *cloudSuite) TestCloudInfoAdmin(c *tc.C) {
 	ctrl := s.setup(c, names.NewUserTag("admin"))
 	defer ctrl.Finish()
 
@@ -200,7 +200,7 @@ func (s *cloudSuite) TestCloudInfoAdmin(c *gc.C) {
 	})
 }
 
-func (s *cloudSuite) TestCloudInfoNonAdmin(c *gc.C) {
+func (s *cloudSuite) TestCloudInfoNonAdmin(c *tc.C) {
 	fredTag := names.NewUserTag("fred")
 	ctrl := s.setup(c, fredTag)
 	defer ctrl.Finish()
@@ -232,7 +232,7 @@ func (s *cloudSuite) TestCloudInfoNonAdmin(c *gc.C) {
 		Tag: "machine-0",
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 2)
+	c.Assert(result.Results, tc.HasLen, 2)
 	c.Assert(result.Results, jc.DeepEquals, []params.CloudInfoResult{
 		{
 			Result: &params.CloudInfo{
@@ -251,7 +251,7 @@ func (s *cloudSuite) TestCloudInfoNonAdmin(c *gc.C) {
 	})
 }
 
-func (s *cloudSuite) TestAddCloud(c *gc.C) {
+func (s *cloudSuite) TestAddCloud(c *tc.C) {
 	adminTag := names.NewUserTag("admin")
 	defer s.setup(c, adminTag).Finish()
 
@@ -282,7 +282,7 @@ func (s *cloudSuite) TestAddCloud(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *cloudSuite) TestAddCloudAsExternalUser(c *gc.C) {
+func (s *cloudSuite) TestAddCloudAsExternalUser(c *tc.C) {
 	// In this test we attempt to add a cloud as an authorized external user.
 
 	// User `superuser-alice@external` is an external user. We need the `superuser` prefix
@@ -333,7 +333,7 @@ func createAddCloudParam(cloudType string) params.AddCloudArgs {
 	}
 }
 
-func (s *cloudSuite) TestAddCloudNotWhitelisted(c *gc.C) {
+func (s *cloudSuite) TestAddCloudNotWhitelisted(c *tc.C) {
 	adminTag := names.NewUserTag("admin")
 	defer s.setup(c, adminTag).Finish()
 
@@ -347,7 +347,7 @@ func (s *cloudSuite) TestAddCloudNotWhitelisted(c *gc.C) {
 	s.cloudService.EXPECT().Cloud(gomock.Any(), "dummy").Return(&cloud, nil)
 
 	err := s.api.AddCloud(context.Background(), createAddCloudParam(""))
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`
+	c.Assert(err, tc.ErrorMatches, regexp.QuoteMeta(`
 controller cloud type "dummy" is not whitelisted, current whitelist: 
  - controller cloud type "kubernetes" supports [lxd maas openstack]
  - controller cloud type "lxd" supports [lxd maas openstack]
@@ -355,7 +355,7 @@ controller cloud type "dummy" is not whitelisted, current whitelist:
  - controller cloud type "openstack" supports [openstack]`[1:]))
 }
 
-func (s *cloudSuite) TestAddCloudNotWhitelistedButForceAdded(c *gc.C) {
+func (s *cloudSuite) TestAddCloudNotWhitelistedButForceAdded(c *tc.C) {
 	adminTag := names.NewUserTag("admin")
 	defer s.setup(c, adminTag).Finish()
 
@@ -381,17 +381,17 @@ func (s *cloudSuite) TestAddCloudNotWhitelistedButForceAdded(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *cloudSuite) TestAddCloudControllerCloudErr(c *gc.C) {
+func (s *cloudSuite) TestAddCloudControllerCloudErr(c *tc.C) {
 	adminTag := names.NewUserTag("admin")
 	defer s.setup(c, adminTag).Finish()
 
 	s.cloudService.EXPECT().Cloud(gomock.Any(), "dummy").Return(&jujucloud.Cloud{}, errors.New("kaboom"))
 
 	err := s.api.AddCloud(context.Background(), createAddCloudParam(""))
-	c.Assert(err, gc.ErrorMatches, "kaboom")
+	c.Assert(err, tc.ErrorMatches, "kaboom")
 }
 
-func (s *cloudSuite) TestAddCloudK8sForceIrrelevant(c *gc.C) {
+func (s *cloudSuite) TestAddCloudK8sForceIrrelevant(c *tc.C) {
 	adminTag := names.NewUserTag("admin")
 	defer s.setup(c, adminTag).Finish()
 
@@ -416,7 +416,7 @@ func (s *cloudSuite) TestAddCloudK8sForceIrrelevant(c *gc.C) {
 	add()
 }
 
-func (s *cloudSuite) TestAddCloudNoRegion(c *gc.C) {
+func (s *cloudSuite) TestAddCloudNoRegion(c *tc.C) {
 	adminTag := names.NewUserTag("admin")
 	defer s.setup(c, adminTag).Finish()
 
@@ -448,7 +448,7 @@ func (s *cloudSuite) TestAddCloudNoRegion(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *cloudSuite) TestAddCloudNoAdminPerms(c *gc.C) {
+func (s *cloudSuite) TestAddCloudNoAdminPerms(c *tc.C) {
 	frankTag := names.NewUserTag("frank")
 	defer s.setup(c, frankTag).Finish()
 
@@ -461,10 +461,10 @@ func (s *cloudSuite) TestAddCloudNoAdminPerms(c *gc.C) {
 			Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "nether-endpoint"}},
 		}}
 	err := s.api.AddCloud(context.Background(), paramsCloud)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *cloudSuite) TestUpdateCloud(c *gc.C) {
+func (s *cloudSuite) TestUpdateCloud(c *tc.C) {
 	adminTag := names.NewUserTag("admin")
 	defer s.setup(c, adminTag).Finish()
 
@@ -491,11 +491,11 @@ func (s *cloudSuite) TestUpdateCloud(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.IsNil)
 }
 
-func (s *cloudSuite) TestUpdateCloudNonAdminPerm(c *gc.C) {
+func (s *cloudSuite) TestUpdateCloudNonAdminPerm(c *tc.C) {
 	frankTag := names.NewUserTag("frank")
 	defer s.setup(c, frankTag).Finish()
 
@@ -511,12 +511,12 @@ func (s *cloudSuite) TestUpdateCloudNonAdminPerm(c *gc.C) {
 			Cloud: cloud.CloudToParams(updatedCloud),
 		}},
 	})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "permission denied")
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.IsNil)
 }
 
-func (s *cloudSuite) TestUpdateNonExistentCloud(c *gc.C) {
+func (s *cloudSuite) TestUpdateNonExistentCloud(c *tc.C) {
 	adminTag := names.NewUserTag("admin")
 	defer s.setup(c, adminTag).Finish()
 
@@ -543,11 +543,11 @@ func (s *cloudSuite) TestUpdateNonExistentCloud(c *gc.C) {
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, fmt.Sprintf("cloud %q not found", updatedCloud.Name))
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.ErrorMatches, fmt.Sprintf("cloud %q not found", updatedCloud.Name))
 }
 
-func (s *cloudSuite) TestListCloudInfo(c *gc.C) {
+func (s *cloudSuite) TestListCloudInfo(c *tc.C) {
 	fredTag := names.NewUserTag("admin")
 	defer s.setup(c, fredTag).Finish()
 
@@ -579,7 +579,7 @@ func (s *cloudSuite) TestListCloudInfo(c *gc.C) {
 	})
 }
 
-func (s *cloudSuite) TestUserCredentials(c *gc.C) {
+func (s *cloudSuite) TestUserCredentials(c *tc.C) {
 	bruceTag := names.NewUserTag("bruce")
 	defer s.setup(c, bruceTag).Finish()
 
@@ -609,21 +609,21 @@ func (s *cloudSuite) TestUserCredentials(c *gc.C) {
 		CloudTag: "cloud-meep",
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 3)
+	c.Assert(results.Results, tc.HasLen, 3)
 	c.Assert(results.Results[0].Error, jc.DeepEquals, &params.Error{
 		Message: `"machine-0" is not a valid user tag`,
 	})
 	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
 		Message: "permission denied", Code: params.CodeUnauthorized,
 	})
-	c.Assert(results.Results[2].Error, gc.IsNil)
+	c.Assert(results.Results[2].Error, tc.IsNil)
 	c.Assert(results.Results[2].Result, jc.SameContents, []string{
 		"cloudcred-meep_bruce_one",
 		"cloudcred-meep_bruce_two",
 	})
 }
 
-func (s *cloudSuite) TestUserCredentialsAdminAccess(c *gc.C) {
+func (s *cloudSuite) TestUserCredentialsAdminAccess(c *tc.C) {
 	adminTag := names.NewUserTag("admin")
 	defer s.setup(c, adminTag).Finish()
 
@@ -635,12 +635,12 @@ func (s *cloudSuite) TestUserCredentialsAdminAccess(c *gc.C) {
 		CloudTag: "cloud-meep",
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results, tc.HasLen, 1)
 	// admin can access others' credentials
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[0].Error, tc.IsNil)
 }
 
-func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
+func (s *cloudSuite) TestUpdateCredentials(c *tc.C) {
 	bruceTag := names.NewUserTag("bruce")
 	defer s.setup(c, bruceTag).Finish()
 
@@ -697,7 +697,7 @@ func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 	})
 }
 
-func (s *cloudSuite) TestUpdateCredentialsAdminAccess(c *gc.C) {
+func (s *cloudSuite) TestUpdateCredentialsAdminAccess(c *tc.C) {
 	adminTag := names.NewUserTag("admin")
 	defer s.setup(c, adminTag).Finish()
 
@@ -719,7 +719,7 @@ func (s *cloudSuite) TestUpdateCredentialsAdminAccess(c *gc.C) {
 		Results: []params.UpdateCredentialResult{{CredentialTag: "cloudcred-meep_julia_three"}}})
 }
 
-func (s *cloudSuite) TestUpdateCredentialsOneModelSuccess(c *gc.C) {
+func (s *cloudSuite) TestUpdateCredentialsOneModelSuccess(c *tc.C) {
 	adminTag := names.NewUserTag("admin")
 	defer s.setup(c, adminTag).Finish()
 
@@ -753,7 +753,7 @@ func (s *cloudSuite) TestUpdateCredentialsOneModelSuccess(c *gc.C) {
 	})
 }
 
-func (s *cloudSuite) TestUpdateCredentialsModelFailedValidation(c *gc.C) {
+func (s *cloudSuite) TestUpdateCredentialsModelFailedValidation(c *tc.C) {
 	adminTag := names.NewUserTag("admin")
 	defer s.setup(c, adminTag)
 
@@ -781,7 +781,7 @@ func (s *cloudSuite) TestUpdateCredentialsModelFailedValidation(c *gc.C) {
 	})
 }
 
-func (s *cloudSuite) TestRevokeCredentials(c *gc.C) {
+func (s *cloudSuite) TestRevokeCredentials(c *tc.C) {
 	bruceTag := names.NewUserTag("bruce")
 	defer s.setup(c, bruceTag).Finish()
 
@@ -798,17 +798,17 @@ func (s *cloudSuite) TestRevokeCredentials(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 3)
+	c.Assert(results.Results, tc.HasLen, 3)
 	c.Assert(results.Results[0].Error, jc.DeepEquals, &params.Error{
 		Message: `"machine-0" is not a valid cloudcred tag`,
 	})
 	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
 		Message: "permission denied", Code: params.CodeUnauthorized,
 	})
-	c.Assert(results.Results[2].Error, gc.IsNil)
+	c.Assert(results.Results[2].Error, tc.IsNil)
 }
 
-func (s *cloudSuite) TestRevokeCredentialsAdminAccess(c *gc.C) {
+func (s *cloudSuite) TestRevokeCredentialsAdminAccess(c *tc.C) {
 	adminTag := names.NewUserTag("admin")
 	defer s.setup(c, adminTag).Finish()
 
@@ -823,12 +823,12 @@ func (s *cloudSuite) TestRevokeCredentialsAdminAccess(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results, tc.HasLen, 1)
 	// admin can revoke others' credentials
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[0].Error, tc.IsNil)
 }
 
-func (s *cloudSuite) TestCredential(c *gc.C) {
+func (s *cloudSuite) TestCredential(c *tc.C) {
 	bruceTag := names.NewUserTag("bruce")
 	defer s.setup(c, bruceTag).Finish()
 
@@ -863,14 +863,14 @@ func (s *cloudSuite) TestCredential(c *gc.C) {
 		Tag: "cloudcred-meep_bruce_two",
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 3)
+	c.Assert(results.Results, tc.HasLen, 3)
 	c.Assert(results.Results[0].Error, jc.DeepEquals, &params.Error{
 		Message: `"machine-0" is not a valid cloudcred tag`,
 	})
 	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
 		Message: "permission denied", Code: params.CodeUnauthorized,
 	})
-	c.Assert(results.Results[2].Error, gc.IsNil)
+	c.Assert(results.Results[2].Error, tc.IsNil)
 	c.Assert(results.Results[2].Result, jc.DeepEquals, &params.CloudCredential{
 		AuthType:   "userpass",
 		Attributes: map[string]string{"username": "admin"},
@@ -878,7 +878,7 @@ func (s *cloudSuite) TestCredential(c *gc.C) {
 	})
 }
 
-func (s *cloudSuite) TestCredentialAdminAccess(c *gc.C) {
+func (s *cloudSuite) TestCredentialAdminAccess(c *tc.C) {
 	adminTag := names.NewUserTag("admin")
 	defer s.setup(c, adminTag).Finish()
 
@@ -905,12 +905,12 @@ func (s *cloudSuite) TestCredentialAdminAccess(c *gc.C) {
 		Tag: "cloudcred-meep_bruce_two",
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results, tc.HasLen, 1)
 	// admin can access others' credentials
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[0].Error, tc.IsNil)
 }
 
-func (s *cloudSuite) TestModifyCloudAccess(c *gc.C) {
+func (s *cloudSuite) TestModifyCloudAccess(c *tc.C) {
 	adminTag := names.NewUserTag("admin")
 	defer s.setup(c, adminTag).Finish()
 
@@ -956,12 +956,12 @@ func (s *cloudSuite) TestModifyCloudAccess(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.DeepEquals, []params.ErrorResult{
+	c.Assert(results.Results, tc.DeepEquals, []params.ErrorResult{
 		{}, {},
 	})
 }
 
-func (s *cloudSuite) TestCredentialContentsAllNoSecrets(c *gc.C) {
+func (s *cloudSuite) TestCredentialContentsAllNoSecrets(c *tc.C) {
 	bruceTag := names.NewUserTag("bruce")
 	defer s.setup(c, bruceTag).Finish()
 
@@ -1027,9 +1027,9 @@ func (s *cloudSuite) TestCredentialContentsAllNoSecrets(c *gc.C) {
 		},
 	}
 
-	c.Assert(results.Results, gc.HasLen, len(expected))
+	c.Assert(results.Results, tc.HasLen, len(expected))
 	for _, one := range results.Results {
-		c.Assert(one.Result.Content, gc.DeepEquals, expected[one.Result.Content.Name])
+		c.Assert(one.Result.Content, tc.DeepEquals, expected[one.Result.Content.Name])
 	}
 }
 

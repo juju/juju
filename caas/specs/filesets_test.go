@@ -4,8 +4,8 @@
 package specs_test
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas/specs"
 )
@@ -19,7 +19,7 @@ type validateFileSetTc struct {
 	errStr string
 }
 
-func (s *typesSuite) TestValidateFileSetV2(c *gc.C) {
+func (s *typesSuite) TestValidateFileSetV2(c *tc.C) {
 	for i, tc := range []validateTc{
 		{
 			spec: &specs.FileSetV2{
@@ -35,11 +35,11 @@ func (s *typesSuite) TestValidateFileSetV2(c *gc.C) {
 		},
 	} {
 		c.Logf("#%d: testing FileSetV2.Validate", i)
-		c.Check(tc.spec.Validate(), gc.ErrorMatches, tc.errStr)
+		c.Check(tc.spec.Validate(), tc.ErrorMatches, tc.errStr)
 	}
 }
 
-func (s *typesSuite) TestValidateFileSet(c *gc.C) {
+func (s *typesSuite) TestValidateFileSet(c *tc.C) {
 	badMultiSource := &specs.FileSet{
 		Name:      "file1",
 		MountPath: "/foo/bar",
@@ -74,7 +74,7 @@ func (s *typesSuite) TestValidateFileSet(c *gc.C) {
 		},
 	} {
 		c.Logf("#%d: testing FileSet.Validate", i)
-		c.Check(tc.spec.Validate(), gc.ErrorMatches, tc.errStr)
+		c.Check(tc.spec.Validate(), tc.ErrorMatches, tc.errStr)
 	}
 }
 
@@ -88,7 +88,7 @@ type comparerFileSetTc struct {
 	equal bool
 }
 
-func (s *typesSuite) TestCompareFileSet(c *gc.C) {
+func (s *typesSuite) TestCompareFileSet(c *tc.C) {
 	for i, tc := range []comparerFileSetTc{
 		{
 			f1: specs.FileSet{
@@ -153,7 +153,7 @@ func (s *typesSuite) TestCompareFileSet(c *gc.C) {
 		},
 	} {
 		c.Logf("#%d: testing FileSet.Equal", i)
-		c.Check(tc.f1.Equal(tc.f2), gc.DeepEquals, tc.equal)
+		c.Check(tc.f1.Equal(tc.f2), tc.DeepEquals, tc.equal)
 	}
 }
 
@@ -167,7 +167,7 @@ type comparerFileSetVolTc struct {
 	equal bool
 }
 
-func (s *typesSuite) TestCompareFileSetVolume(c *gc.C) {
+func (s *typesSuite) TestCompareFileSetVolume(c *tc.C) {
 	for i, tc := range []comparerFileSetVolTc{
 		{
 			// exactly same.
@@ -255,7 +255,7 @@ func (s *typesSuite) TestCompareFileSetVolume(c *gc.C) {
 		},
 	} {
 		c.Logf("#%d: testing FileSet.EqualVolume", i)
-		c.Check(tc.f1.EqualVolume(tc.f2), gc.DeepEquals, tc.equal)
+		c.Check(tc.f1.EqualVolume(tc.f2), tc.DeepEquals, tc.equal)
 	}
 }
 
@@ -268,7 +268,7 @@ type validateVolumeSourceTc struct {
 	errStr string
 }
 
-func (s *typesSuite) TestValidateFileSetVolumeSource(c *gc.C) {
+func (s *typesSuite) TestValidateFileSetVolumeSource(c *tc.C) {
 	for i, tc := range []validateVolumeSourceTc{
 		{
 			spec: &specs.VolumeSource{
@@ -310,11 +310,11 @@ func (s *typesSuite) TestValidateFileSetVolumeSource(c *gc.C) {
 		},
 	} {
 		c.Logf("#%d: testing VolumeSource.Validate", i)
-		c.Check(tc.spec.Validate("fakeFileSet"), gc.ErrorMatches, tc.errStr)
+		c.Check(tc.spec.Validate("fakeFileSet"), tc.ErrorMatches, tc.errStr)
 	}
 }
 
-func (s *typesSuite) TestSortKeysForFiles(c *gc.C) {
+func (s *typesSuite) TestSortKeysForFiles(c *tc.C) {
 	tests := []struct {
 		Files        map[string]string
 		ExpectedKeys []string

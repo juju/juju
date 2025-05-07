@@ -6,8 +6,8 @@ package bootstrap
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/permission"
 	usertesting "github.com/juju/juju/core/user/testing"
@@ -21,14 +21,14 @@ type bootstrapSuite struct {
 	controllerUUID string
 }
 
-var _ = gc.Suite(&bootstrapSuite{})
+var _ = tc.Suite(&bootstrapSuite{})
 
-func (s *bootstrapSuite) SetUpTest(c *gc.C) {
+func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 	s.controllerUUID = s.SeedControllerUUID(c)
 }
 
-func (s *bootstrapSuite) TestAddUserWithPassword(c *gc.C) {
+func (s *bootstrapSuite) TestAddUserWithPassword(c *tc.C) {
 	ctx := context.Background()
 	uuid, addAdminUser := AddUserWithPassword(usertesting.GenNewName(c, "admin"), auth.NewPassword("password"), permission.AccessSpec{
 		Access: permission.SuperuserAccess,
@@ -46,5 +46,5 @@ func (s *bootstrapSuite) TestAddUserWithPassword(c *gc.C) {
 	row := s.DB().QueryRow(`
 SELECT name FROM user WHERE name = ?`, "admin")
 	c.Assert(row.Scan(&name), jc.ErrorIsNil)
-	c.Assert(name, gc.Equals, "admin")
+	c.Assert(name, tc.Equals, "admin")
 }

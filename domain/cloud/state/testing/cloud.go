@@ -8,8 +8,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/database"
@@ -19,7 +19,7 @@ import (
 // CreateTestCloud is responsible for establishing a test cloud within the
 // DQlite database.
 func CreateTestCloud(
-	c *gc.C,
+	c *tc.C,
 	txnRunner database.TxnRunnerFactory,
 	cloud cloud.Cloud,
 ) uuid.UUID {

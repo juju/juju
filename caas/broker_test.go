@@ -5,8 +5,8 @@ package caas_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/internal/testing"
@@ -16,9 +16,9 @@ type brokerSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&brokerSuite{})
+var _ = tc.Suite(&brokerSuite{})
 
-func (s *brokerSuite) TestDeploymentTypeValidation(c *gc.C) {
+func (s *brokerSuite) TestDeploymentTypeValidation(c *tc.C) {
 
 	validTypes := []caas.DeploymentType{
 		caas.DeploymentStateful,

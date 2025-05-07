@@ -10,20 +10,20 @@ import (
 	"strings"
 	"testing/fstest"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
 type authorizedKeysSuite struct {
 }
 
-var _ = gc.Suite(&authorizedKeysSuite{})
+var _ = tc.Suite(&authorizedKeysSuite{})
 
 // TestGetCommonUserPublicKeys is asserting a range of filesystem configurations
 // that we are likely to come across in a users .ssh directory. This is
 // asserting that after processing these directories we get back a list of
 // expected public keys.
-func (*authorizedKeysSuite) TestGetCommonUserPublicKeys(c *gc.C) {
+func (*authorizedKeysSuite) TestGetCommonUserPublicKeys(c *tc.C) {
 	tests := []struct {
 		Name        string
 		Description string
@@ -80,17 +80,17 @@ func (*authorizedKeysSuite) TestGetCommonUserPublicKeys(c *gc.C) {
 
 	for i, test := range tests {
 		keys, err := GetCommonUserPublicKeys(context.Background(), test.FS)
-		c.Assert(err, jc.ErrorIsNil, gc.Commentf("unexpected error for test %d %q", i, test.Name))
+		c.Assert(err, jc.ErrorIsNil, tc.Commentf("unexpected error for test %d %q", i, test.Name))
 		slices.Sort(test.Expected)
 		slices.Sort(keys)
-		c.Assert(keys, gc.DeepEquals, test.Expected)
+		c.Assert(keys, tc.DeepEquals, test.Expected)
 	}
 }
 
 // TestGetFileSystemPublicKeys is testing a set of filesystems to check that we
 // correctly identify all of the ssh public keys and return the file contents as
 // a slice.
-func (*authorizedKeysSuite) TestGetFileSystemPublicKeys(c *gc.C) {
+func (*authorizedKeysSuite) TestGetFileSystemPublicKeys(c *tc.C) {
 	tests := []struct {
 		Description string
 		Name        string
@@ -134,16 +134,16 @@ func (*authorizedKeysSuite) TestGetFileSystemPublicKeys(c *gc.C) {
 
 	for i, test := range tests {
 		keys, err := GetFileSystemPublicKeys(context.Background(), test.FS)
-		c.Assert(err, jc.ErrorIsNil, gc.Commentf("unexpected error for test %d", i))
+		c.Assert(err, jc.ErrorIsNil, tc.Commentf("unexpected error for test %d", i))
 		slices.Sort(test.Expected)
 		slices.Sort(keys)
-		c.Assert(keys, gc.DeepEquals, test.Expected)
+		c.Assert(keys, tc.DeepEquals, test.Expected)
 	}
 }
 
 // TestSplitAuthorizedKeysFile is testing authorized keys splitting based on the
 // the raw contents from a file.
-func (*authorizedKeysSuite) TestSplitAuthorizedKeysFile(c *gc.C) {
+func (*authorizedKeysSuite) TestSplitAuthorizedKeysFile(c *tc.C) {
 	fileStr := `
 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC jimbo@juju.is
 # This is a comment line for some reason
@@ -170,7 +170,7 @@ ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe
 // TestSplitAuthorizedKeysConfig is testing authorized keys splitting based on
 // the raw contents that we are likely to encounter with a config string where
 // instead of newlines we use the ';' delimiter.
-func (*authorizedKeysSuite) TestSplitAuthorizedKeysConfig(c *gc.C) {
+func (*authorizedKeysSuite) TestSplitAuthorizedKeysConfig(c *tc.C) {
 	configStr := `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC jimbo@juju.is;# This is a comment line for some reason;ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe barry@juju.is;# This is another comment line indented with two tabs`
 	configReader := strings.NewReader(configStr)
 	keys, err := SplitAuthorizedKeysReaderByDelimiter(';', configReader)
@@ -183,24 +183,24 @@ func (*authorizedKeysSuite) TestSplitAuthorizedKeysConfig(c *gc.C) {
 
 // TestMakeAuthorizedKeysString is asserting that for a given set of keys they
 // are written out in a standard compliant way to be an authorized_keys file.
-func (*authorizedKeysSuite) TestMakeAuthorizedKeysString(c *gc.C) {
+func (*authorizedKeysSuite) TestMakeAuthorizedKeysString(c *tc.C) {
 	keys := []string{
 		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC jimbo@juju.is",
 		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe barry@juju.is",
 	}
 
 	authorized := MakeAuthorizedKeysString(keys)
-	c.Check(authorized, gc.Equals, "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC jimbo@juju.is\nssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe barry@juju.is\n")
+	c.Check(authorized, tc.Equals, "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC jimbo@juju.is\nssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe barry@juju.is\n")
 }
 
 // TestWriteAuthorizedKeys is asserting that for a given set of keys they are
 // written out in a standard compliant way to the writer.
-func (*authorizedKeysSuite) TestWriteAuthorizedKeys(c *gc.C) {
+func (*authorizedKeysSuite) TestWriteAuthorizedKeys(c *tc.C) {
 	builder := strings.Builder{}
 	keys := []string{
 		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC jimbo@juju.is",
 		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe barry@juju.is",
 	}
 	WriteAuthorizedKeys(&builder, keys)
-	c.Check(builder.String(), gc.Equals, "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC jimbo@juju.is\nssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe barry@juju.is\n")
+	c.Check(builder.String(), tc.Equals, "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC jimbo@juju.is\nssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe barry@juju.is\n")
 }

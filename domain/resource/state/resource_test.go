@@ -11,8 +11,8 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/charm"
@@ -55,13 +55,13 @@ type resourceSuite struct {
 	}
 }
 
-var _ = gc.Suite(&resourceSuite{})
+var _ = tc.Suite(&resourceSuite{})
 
 const fakeCharmUUID = "fake-charm-uuid"
 
 var fingerprint = []byte("123456789012345678901234567890123456789012345678")
 
-func (s *resourceSuite) SetUpTest(c *gc.C) {
+func (s *resourceSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
@@ -122,12 +122,12 @@ VALUES (?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?)`,
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("failed to populate DB with applications: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("failed to populate DB with applications: %v", errors.ErrorStack(err)))
 }
 
 // TestDeleteApplicationResources is a test method that verifies the deletion of resources
 // associated with a specific application in the database.
-func (s *resourceSuite) TestDeleteApplicationResources(c *gc.C) {
+func (s *resourceSuite) TestDeleteApplicationResources(c *tc.C) {
 	// Arrange: populate db with some resources, belonging to app1 (2 res) and app2 (1 res)
 	res1 := resourceData{
 		UUID:            "app1-res1-uuid",
@@ -155,14 +155,14 @@ func (s *resourceSuite) TestDeleteApplicationResources(c *gc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act: delete resources from application 1
 	err = s.state.DeleteApplicationResources(context.Background(), application.ID(s.constants.fakeApplicationUUID1))
 
 	// Assert: check that resources have been deleted in expected tables
 	// without errors
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) failed to delete resources from application 1: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Assert) failed to delete resources from application 1: %v", errors.ErrorStack(err)))
 	var remainingResources []resourceData
 	var noRowsInResourceRetrievedBy bool
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
@@ -194,11 +194,11 @@ LEFT JOIN application_resource AS ar ON r.uuid = ar.resource_uuid`)
 		}
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) failed to check db: %v",
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Assert) failed to check db: %v",
 		errors.ErrorStack(err)))
-	c.Check(noRowsInResourceRetrievedBy, gc.Equals, true, gc.Commentf("(Assert) resource_retrieved_by table should be empty"))
+	c.Check(noRowsInResourceRetrievedBy, tc.Equals, true, tc.Commentf("(Assert) resource_retrieved_by table should be empty"))
 	c.Check(remainingResources, jc.DeepEquals, []resourceData{other},
-		gc.Commentf("(Assert) only resource from %q should be there",
+		tc.Commentf("(Assert) only resource from %q should be there",
 			s.constants.fakeApplicationUUID2))
 }
 
@@ -208,7 +208,7 @@ LEFT JOIN application_resource AS ar ON r.uuid = ar.resource_uuid`)
 // the application's resources, then verifies that an error is returned due to the remaining unit
 // and that no resources have been deleted. This enforces constraints on cleaning up resources
 // with active dependencies.
-func (s *resourceSuite) TestDeleteApplicationResourcesErrorRemainingUnits(c *gc.C) {
+func (s *resourceSuite) TestDeleteApplicationResourcesErrorRemainingUnits(c *tc.C) {
 	// Arrange: populate db with some resource a resource linked to a unit
 	input := resourceData{
 		UUID:            "app1-res1-uuid",
@@ -220,14 +220,14 @@ func (s *resourceSuite) TestDeleteApplicationResourcesErrorRemainingUnits(c *gc.
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
 		return input.insert(context.Background(), tx)
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act: delete resources from application 1
 	err = s.state.DeleteApplicationResources(context.Background(), application.ID(s.constants.fakeApplicationUUID1))
 
 	// Assert: check an error is returned and no resource deleted
 	c.Check(err, jc.ErrorIs, resourceerrors.CleanUpStateNotValid,
-		gc.Commentf("(Assert) unexpected error: %v", errors.ErrorStack(err)))
+		tc.Commentf("(Assert) unexpected error: %v", errors.ErrorStack(err)))
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
 		// fetch resources
 		var discard string
@@ -237,14 +237,14 @@ WHERE uuid = ? AND application_uuid = ? AND name = ?`,
 			input.UUID, input.ApplicationUUID, input.Name,
 		).Scan(&discard)
 	})
-	c.Check(err, jc.ErrorIsNil, gc.Commentf("(Assert) resource deleted or cannot check db: %v",
+	c.Check(err, jc.ErrorIsNil, tc.Commentf("(Assert) resource deleted or cannot check db: %v",
 		errors.ErrorStack(err)))
 }
 
 // TestDeleteApplicationResourcesErrorRemainingObjectStoreData verifies that attempting to delete application
 // resources will fail when there are remaining object store data linked to the resource,
 // and no resource will be deleted.
-func (s *resourceSuite) TestDeleteApplicationResourcesErrorRemainingObjectStoreData(c *gc.C) {
+func (s *resourceSuite) TestDeleteApplicationResourcesErrorRemainingObjectStoreData(c *tc.C) {
 	// Arrange: populate db with some resource linked with some data
 	input := resourceData{
 		UUID:            "res1-uuid",
@@ -269,14 +269,14 @@ VALUES (?,'store-uuid')`, input.UUID); err != nil {
 		}
 		return
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act: delete resources from application 1
 	err = s.state.DeleteApplicationResources(context.Background(), application.ID(s.constants.fakeApplicationUUID1))
 
 	// Assert: check an error is returned and no resource deleted
 	c.Check(err, jc.ErrorIs, resourceerrors.CleanUpStateNotValid,
-		gc.Commentf("(Assert) unexpected error: %v", errors.ErrorStack(err)))
+		tc.Commentf("(Assert) unexpected error: %v", errors.ErrorStack(err)))
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
 		// fetch resources
 		var discard string
@@ -286,14 +286,14 @@ WHERE uuid = ? AND application_uuid = ? AND name = ?`,
 			input.UUID, input.ApplicationUUID, input.Name,
 		).Scan(&discard)
 	})
-	c.Check(err, jc.ErrorIsNil, gc.Commentf("(Assert) resource deleted or cannot check db: %v",
+	c.Check(err, jc.ErrorIsNil, tc.Commentf("(Assert) resource deleted or cannot check db: %v",
 		errors.ErrorStack(err)))
 }
 
 // TestDeleteApplicationResourcesErrorRemainingImageStoreData verifies that attempting to delete application
 // resources will fail when there are remaining image store data linked to the resource,
 // and no resource will be deleted.
-func (s *resourceSuite) TestDeleteApplicationResourcesErrorRemainingImageStoreData(c *gc.C) {
+func (s *resourceSuite) TestDeleteApplicationResourcesErrorRemainingImageStoreData(c *tc.C) {
 	// Arrange: populate db with some resource linked with some data
 	input := resourceData{
 		UUID:            "res1-uuid",
@@ -318,14 +318,14 @@ VALUES (?,'store-uuid')`, input.UUID); err != nil {
 		}
 		return
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act: delete resources from application 1
 	err = s.state.DeleteApplicationResources(context.Background(), application.ID(s.constants.fakeApplicationUUID1))
 
 	// Assert: check an error is returned and no resource deleted
 	c.Check(err, jc.ErrorIs, resourceerrors.CleanUpStateNotValid,
-		gc.Commentf("(Assert) unexpected error: %v", errors.ErrorStack(err)))
+		tc.Commentf("(Assert) unexpected error: %v", errors.ErrorStack(err)))
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
 		// fetch resources
 		var discard string
@@ -335,12 +335,12 @@ WHERE uuid = ? AND application_uuid = ? AND name = ?`,
 			input.UUID, input.ApplicationUUID, input.Name,
 		).Scan(&discard)
 	})
-	c.Check(err, jc.ErrorIsNil, gc.Commentf("(Assert) resource deleted or cannot check db: %v",
+	c.Check(err, jc.ErrorIsNil, tc.Commentf("(Assert) resource deleted or cannot check db: %v",
 		errors.ErrorStack(err)))
 }
 
 // TestDeleteUnitResources verifies that resources linked to a specific unit are deleted correctly.
-func (s *resourceSuite) TestDeleteUnitResources(c *gc.C) {
+func (s *resourceSuite) TestDeleteUnitResources(c *tc.C) {
 	// Arrange: populate db with some resource a resource linked to a unit
 	resUnit1 := resourceData{
 		UUID:            "res-unit1-uuid",
@@ -364,7 +364,7 @@ func (s *resourceSuite) TestDeleteUnitResources(c *gc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act: delete resources from application 1
 	err = s.state.DeleteUnitResources(context.Background(), unit.UUID(s.constants.fakeUnitUUID1))
@@ -372,7 +372,7 @@ func (s *resourceSuite) TestDeleteUnitResources(c *gc.C) {
 	// Assert: check that resources link to unit 1 have been deleted in expected tables
 	// without errors
 	c.Assert(err, jc.ErrorIsNil,
-		gc.Commentf("(Assert) failed to delete resources link to unit 1: %v",
+		tc.Commentf("(Assert) failed to delete resources link to unit 1: %v",
 			errors.ErrorStack(err)))
 	var obtained []resourceData
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
@@ -399,16 +399,16 @@ LEFT JOIN unit_resource AS ur ON rv.uuid = ur.resource_uuid`)
 		}
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) failed to check db: %v",
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Assert) failed to check db: %v",
 		errors.ErrorStack(err)))
 	expectedResUnit1 := resUnit1
 	expectedResUnit1.UnitUUID = ""
-	c.Assert(obtained, jc.SameContents, []resourceData{expectedResUnit1, other}, gc.Commentf("(Assert) unexpected resources: %v", obtained))
+	c.Assert(obtained, jc.SameContents, []resourceData{expectedResUnit1, other}, tc.Commentf("(Assert) unexpected resources: %v", obtained))
 }
 
 // TestGetApplicationResourceID tests that the resource ID can be correctly
 // retrieved from the database, given a name and an application
-func (s *resourceSuite) TestGetApplicationResourceID(c *gc.C) {
+func (s *resourceSuite) TestGetApplicationResourceID(c *tc.C) {
 	// Arrange: Populate state with two resources on application 1.
 	found := resourceData{
 		UUID:            "resource-uuid-found",
@@ -428,34 +428,34 @@ func (s *resourceSuite) TestGetApplicationResourceID(c *gc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act: Get application resource ID
 	id, err := s.state.GetApplicationResourceID(context.Background(), resource.GetApplicationResourceIDArgs{
 		ApplicationID: application.ID(s.constants.fakeApplicationUUID1),
 		Name:          found.Name,
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to get application resource ID: %v", errors.ErrorStack(err)))
-	c.Assert(id, gc.Equals, coreresource.UUID(found.UUID),
-		gc.Commentf("(Act) unexpected application resource ID"))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) failed to get application resource ID: %v", errors.ErrorStack(err)))
+	c.Assert(id, tc.Equals, coreresource.UUID(found.UUID),
+		tc.Commentf("(Act) unexpected application resource ID"))
 }
 
 // TestGetApplicationResourceIDNotFound verifies the behavior when attempting
 // to retrieve a resource ID for a non-existent resource within a specified
 // application.
-func (s *resourceSuite) TestGetApplicationResourceIDNotFound(c *gc.C) {
+func (s *resourceSuite) TestGetApplicationResourceIDNotFound(c *tc.C) {
 	// Arrange: No resources
 	// Act: Get application resource ID
 	_, err := s.state.GetApplicationResourceID(context.Background(), resource.GetApplicationResourceIDArgs{
 		ApplicationID: application.ID(s.constants.fakeApplicationUUID1),
 		Name:          "resource-name-not-found",
 	})
-	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNotFound, gc.Commentf("(Act) unexpected error"))
+	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNotFound, tc.Commentf("(Act) unexpected error"))
 }
 
 // TestGetApplicationResourceIDCannotGetPotentialResource verifies that
 // potential resources cannot be found by the method.
-func (s *resourceSuite) TestGetApplicationResourceIDCannotGetPotentialResource(c *gc.C) {
+func (s *resourceSuite) TestGetApplicationResourceIDCannotGetPotentialResource(c *tc.C) {
 	// Arrange: Add only a potential resource.
 	potentialRes := resourceData{
 		UUID:            "with-potential-uuid",
@@ -474,7 +474,7 @@ func (s *resourceSuite) TestGetApplicationResourceIDCannotGetPotentialResource(c
 		return nil
 	})
 
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act: Get application resource ID.
 	_, err = s.state.GetApplicationResourceID(context.Background(), resource.GetApplicationResourceIDArgs{
@@ -483,12 +483,12 @@ func (s *resourceSuite) TestGetApplicationResourceIDCannotGetPotentialResource(c
 	})
 
 	// Assert: No resource can be found.
-	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNotFound, gc.Commentf("(Act) unexpected error"))
+	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNotFound, tc.Commentf("(Act) unexpected error"))
 }
 
 // TestGetResourceUUIDByApplicationAndResourceName tests that the resource ID can be correctly
 // retrieved from the database, given a name and an application
-func (s *resourceSuite) TestGetResourceUUIDByApplicationAndResourceName(c *gc.C) {
+func (s *resourceSuite) TestGetResourceUUIDByApplicationAndResourceName(c *tc.C) {
 	// Arrange: Populate state with two resources on application 1.
 	found := resourceData{
 		UUID:            "resource-uuid-found",
@@ -508,7 +508,7 @@ func (s *resourceSuite) TestGetResourceUUIDByApplicationAndResourceName(c *gc.C)
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act: Get application resource ID
 	id, err := s.state.GetResourceUUIDByApplicationAndResourceName(
@@ -516,14 +516,14 @@ func (s *resourceSuite) TestGetResourceUUIDByApplicationAndResourceName(c *gc.C)
 		s.constants.fakeApplicationName1,
 		found.Name,
 	)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to get resource UUID: %v", errors.ErrorStack(err)))
-	c.Assert(id, gc.Equals, coreresource.UUID(found.UUID), gc.Commentf("(Act) unexpected resource UUID"))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) failed to get resource UUID: %v", errors.ErrorStack(err)))
+	c.Assert(id, tc.Equals, coreresource.UUID(found.UUID), tc.Commentf("(Act) unexpected resource UUID"))
 }
 
 // TestGetResourceUUIDByApplicationAndResourceNameNotFound verifies the behavior when attempting
 // to retrieve a resource ID for a non-existent resource within a specified
 // application.
-func (s *resourceSuite) TestGetResourceUUIDByApplicationAndResourceNameNotFound(c *gc.C) {
+func (s *resourceSuite) TestGetResourceUUIDByApplicationAndResourceNameNotFound(c *tc.C) {
 	// Arrange: No resources
 	// Act: Get application resource ID
 	_, err := s.state.GetResourceUUIDByApplicationAndResourceName(
@@ -531,13 +531,13 @@ func (s *resourceSuite) TestGetResourceUUIDByApplicationAndResourceNameNotFound(
 		s.constants.fakeApplicationName1,
 		"resource-name-not-found",
 	)
-	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNotFound, gc.Commentf("(Act) unexpected error"))
+	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNotFound, tc.Commentf("(Act) unexpected error"))
 }
 
 // TestGetResourceUUIDByApplicationAndResourceNameNotFound verifies the behavior when attempting
 // to retrieve a resource ID for a non-existent resource within a specified
 // application.
-func (s *resourceSuite) TestGetResourceUUIDByApplicationAndResourceNameApplicationNameNotFound(c *gc.C) {
+func (s *resourceSuite) TestGetResourceUUIDByApplicationAndResourceNameApplicationNameNotFound(c *tc.C) {
 	// Arrange: No resources
 	// Act: Get application resource ID
 	_, err := s.state.GetResourceUUIDByApplicationAndResourceName(
@@ -545,12 +545,12 @@ func (s *resourceSuite) TestGetResourceUUIDByApplicationAndResourceNameApplicati
 		"bad-app-name",
 		"resource-name-found",
 	)
-	c.Assert(err, jc.ErrorIs, resourceerrors.ApplicationNotFound, gc.Commentf("(Act) unexpected error"))
+	c.Assert(err, jc.ErrorIs, resourceerrors.ApplicationNotFound, tc.Commentf("(Act) unexpected error"))
 }
 
 // TestGetResourceUUIDByApplicationAndResourceNameCannotGetPotentialResource verifies that
 // potential resources cannot be found by the method.
-func (s *resourceSuite) TestGetResourceUUIDByApplicationAndResourceNameCannotGetPotentialResource(c *gc.C) {
+func (s *resourceSuite) TestGetResourceUUIDByApplicationAndResourceNameCannotGetPotentialResource(c *tc.C) {
 	// Arrange: Add only a potential resource.
 	potentialRes := resourceData{
 		UUID:            "with-potential-uuid",
@@ -569,7 +569,7 @@ func (s *resourceSuite) TestGetResourceUUIDByApplicationAndResourceNameCannotGet
 		return nil
 	})
 
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act: Get application resource ID.
 	_, err = s.state.GetResourceUUIDByApplicationAndResourceName(context.Background(),
@@ -578,12 +578,12 @@ func (s *resourceSuite) TestGetResourceUUIDByApplicationAndResourceNameCannotGet
 	)
 
 	// Assert: No resource can be found.
-	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNotFound, gc.Commentf("(Act) unexpected error"))
+	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNotFound, tc.Commentf("(Act) unexpected error"))
 }
 
 // TestGetResourceNotFound verifies that attempting to retrieve a non-existent
 // resource results in a ResourceNotFound error.
-func (s *resourceSuite) TestGetResourceNotFound(c *gc.C) {
+func (s *resourceSuite) TestGetResourceNotFound(c *tc.C) {
 	// Arrange : no resource
 	resID := coreresource.UUID("resource-id")
 
@@ -591,12 +591,12 @@ func (s *resourceSuite) TestGetResourceNotFound(c *gc.C) {
 	_, err := s.state.GetResource(context.Background(), resID)
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNotFound, gc.Commentf("(Assert) unexpected error"))
+	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNotFound, tc.Commentf("(Assert) unexpected error"))
 }
 
 // TestGetResource verifies the successful retrieval of a resource from the
 // database by its ID.
-func (s *resourceSuite) TestGetResource(c *gc.C) {
+func (s *resourceSuite) TestGetResource(c *tc.C) {
 	// Arrange : a simple resource
 	resID := coreresource.UUID("resource-id")
 	now := time.Now().Truncate(time.Second).UTC()
@@ -636,17 +636,17 @@ func (s *resourceSuite) TestGetResource(c *gc.C) {
 		err := input.insert(context.Background(), tx)
 		return errors.Capture(err)
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act
 	obtained, err := s.state.GetResource(context.Background(), resID)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute GetResource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) failed to execute GetResource: %v", errors.ErrorStack(err)))
 
 	// Assert
-	c.Assert(obtained, jc.DeepEquals, expected, gc.Commentf("(Assert) resource different than expected"))
+	c.Assert(obtained, jc.DeepEquals, expected, tc.Commentf("(Assert) resource different than expected"))
 }
 
-func (s *resourceSuite) TestGetResourceWithStoredFile(c *gc.C) {
+func (s *resourceSuite) TestGetResourceWithStoredFile(c *tc.C) {
 	// Arrange : a simple resource
 	resID := coreresource.UUID("resource-id")
 	fp, err := charmresource.NewFingerprint(fingerprint)
@@ -676,17 +676,17 @@ func (s *resourceSuite) TestGetResourceWithStoredFile(c *gc.C) {
 		err := input.insert(context.Background(), tx)
 		return errors.Capture(err)
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act
 	obtained, err := s.state.GetResource(context.Background(), resID)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute GetResource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) failed to execute GetResource: %v", errors.ErrorStack(err)))
 
 	// Assert
-	c.Assert(obtained, jc.DeepEquals, expected, gc.Commentf("(Assert) resource different than expected"))
+	c.Assert(obtained, jc.DeepEquals, expected, tc.Commentf("(Assert) resource different than expected"))
 }
 
-func (s *resourceSuite) TestGetResourceWithStoredImage(c *gc.C) {
+func (s *resourceSuite) TestGetResourceWithStoredImage(c *tc.C) {
 	// Arrange : a simple resource
 	resID := coreresource.UUID("resource-id")
 	fp, err := charmresource.NewFingerprint(fingerprint)
@@ -716,19 +716,19 @@ func (s *resourceSuite) TestGetResourceWithStoredImage(c *gc.C) {
 		err := input.insert(context.Background(), tx)
 		return errors.Capture(err)
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act
 	obtained, err := s.state.GetResource(context.Background(), resID)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute GetResource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) failed to execute GetResource: %v", errors.ErrorStack(err)))
 
 	// Assert
-	c.Assert(obtained, jc.DeepEquals, expected, gc.Commentf("(Assert) resource different than expected"))
+	c.Assert(obtained, jc.DeepEquals, expected, tc.Commentf("(Assert) resource different than expected"))
 }
 
 // TestSetRepositoryResource ensures that the SetRepositoryResources function
 // updates the resource poll dates correctly.
-func (s *resourceSuite) TestSetRepositoryResource(c *gc.C) {
+func (s *resourceSuite) TestSetRepositoryResource(c *tc.C) {
 	// Arrange : Insert 4 resources, two have been already polled, and two other not yet.
 	now := time.Now().Truncate(time.Second).UTC()
 	previousPoll := now.Add(-1 * time.Hour)
@@ -788,7 +788,7 @@ VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act: update resource 1 and 2 (not 3)
 	err = s.state.SetRepositoryResources(context.Background(), resource.SetRepositoryResourcesArgs{
@@ -807,7 +807,7 @@ VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 		}},
 		LastPolled: now,
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute TestSetRepositoryResource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) failed to execute TestSetRepositoryResource: %v", errors.ErrorStack(err)))
 
 	// Assert
 	type obtainedRow struct {
@@ -836,7 +836,7 @@ VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 		}
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) failed to get expected changes in db: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Assert) failed to get expected changes in db: %v", errors.ErrorStack(err)))
 	c.Assert(obtained, jc.SameContents, []obtainedRow{
 		{
 			ResourceUUID: "polled-id-1", // updated
@@ -866,7 +866,7 @@ VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 
 // TestSetRepositoryResourceUnknownResource validates that attempting to set
 // repository resources for unknown resources logs the correct errors.
-func (s *resourceSuite) TestSetRepositoryResourceUnknownResource(c *gc.C) {
+func (s *resourceSuite) TestSetRepositoryResourceUnknownResource(c *tc.C) {
 	// Act: update non-existent resources
 	err := s.state.SetRepositoryResources(context.Background(), resource.SetRepositoryResourcesArgs{
 		ApplicationID: application.ID(s.constants.fakeApplicationUUID1),
@@ -881,18 +881,18 @@ func (s *resourceSuite) TestSetRepositoryResourceUnknownResource(c *gc.C) {
 		}},
 		LastPolled: time.Now(),
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute TestSetRepositoryResource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) failed to execute TestSetRepositoryResource: %v", errors.ErrorStack(err)))
 
 	// Assert
 	c.Check(c.GetTestLog(), jc.Contains, fmt.Sprintf("Resource not found for application %s (%s)", s.constants.fakeApplicationName1,
-		s.constants.fakeApplicationUUID1), gc.Commentf("(Assert) application not found in log"))
-	c.Check(c.GetTestLog(), jc.Contains, "not-a-resource-1", gc.Commentf("(Assert) missing resource name log"))
-	c.Check(c.GetTestLog(), jc.Contains, "not-a-resource-2", gc.Commentf("(Assert) missing resource name log"))
+		s.constants.fakeApplicationUUID1), tc.Commentf("(Assert) application not found in log"))
+	c.Check(c.GetTestLog(), jc.Contains, "not-a-resource-1", tc.Commentf("(Assert) missing resource name log"))
+	c.Check(c.GetTestLog(), jc.Contains, "not-a-resource-2", tc.Commentf("(Assert) missing resource name log"))
 }
 
 // TestSetRepositoryResourceApplicationNotFound verifies that setting repository
 // resources for a non-existent application results in an ApplicationNotFound error.
-func (s *resourceSuite) TestSetRepositoryResourceApplicationNotFound(c *gc.C) {
+func (s *resourceSuite) TestSetRepositoryResourceApplicationNotFound(c *tc.C) {
 	// Act: request a non-existent application.
 	err := s.state.SetRepositoryResources(context.Background(), resource.SetRepositoryResourcesArgs{
 		ApplicationID: "not-an-application",
@@ -901,12 +901,12 @@ func (s *resourceSuite) TestSetRepositoryResourceApplicationNotFound(c *gc.C) {
 	})
 
 	// Assert: check expected error
-	c.Assert(err, jc.ErrorIs, resourceerrors.ApplicationNotFound, gc.Commentf("(Act) unexpected error: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIs, resourceerrors.ApplicationNotFound, tc.Commentf("(Act) unexpected error: %v", errors.ErrorStack(err)))
 }
 
 // TestRecordStoredResourceWithContainerImage tests recording that a container
 // image resource has been stored.
-func (s *resourceSuite) TestRecordStoredResourceWithContainerImage(c *gc.C) {
+func (s *resourceSuite) TestRecordStoredResourceWithContainerImage(c *tc.C) {
 	// Arrange: Create a container image blob and resource record.
 	resID, storeID, size, hash := s.createContainerImageResourceAndBlob(c)
 
@@ -925,7 +925,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImage(c *gc.C) {
 			SHA384:          hash,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
 
 	// Assert: Check that the resource has been linked to the stored blob
 	var (
@@ -937,10 +937,10 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImage(c *gc.C) {
 SELECT store_storage_key, size, sha384 FROM resource_image_store
 WHERE resource_uuid = ?`, resID).Scan(&foundStorageKey, &foundSize, &foundHash)
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) resource_image_store table not updated: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Assert) resource_image_store table not updated: %v", errors.ErrorStack(err)))
 	storageKey, err := storeID.ContainerImageMetadataStoreID()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(foundStorageKey, gc.Equals, storageKey)
+	c.Check(foundStorageKey, tc.Equals, storageKey)
 
 	// Assert: Check that retrieved by has been set.
 	var foundRetrievedByType, foundRetrievedBy string
@@ -952,15 +952,15 @@ JOIN   resource_retrieved_by_type rrbt ON rrb.retrieved_by_type_id = rrbt.id
 WHERE  resource_uuid = ?`, resID).Scan(&foundRetrievedBy, &foundRetrievedByType)
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(foundRetrievedByType, gc.Equals, string(retrievedByType))
-	c.Check(foundRetrievedBy, gc.Equals, retrievedBy)
-	c.Check(foundHash, gc.Equals, hash)
-	c.Check(foundSize, gc.Equals, size)
+	c.Check(foundRetrievedByType, tc.Equals, string(retrievedByType))
+	c.Check(foundRetrievedBy, tc.Equals, retrievedBy)
+	c.Check(foundHash, tc.Equals, hash)
+	c.Check(foundSize, tc.Equals, size)
 }
 
 // TestRecordStoredResourceWithFile tests recording that a file resource has
 // been stored.
-func (s *resourceSuite) TestRecordStoredResourceWithFile(c *gc.C) {
+func (s *resourceSuite) TestRecordStoredResourceWithFile(c *tc.C) {
 	// Arrange: Create file resource.
 	resID, storeID, size, hash := s.createFileResourceAndBlob(c)
 
@@ -979,7 +979,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithFile(c *gc.C) {
 			SHA384:          hash,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
 
 	// Assert: Check that the resource has been linked to the stored blob
 	var (
@@ -991,12 +991,12 @@ func (s *resourceSuite) TestRecordStoredResourceWithFile(c *gc.C) {
 SELECT store_uuid, size, sha384 FROM resource_file_store
 WHERE resource_uuid = ?`, resID).Scan(&foundStoreUUID, &foundSize, &foundHash)
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) resource_file_store table not updated: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Assert) resource_file_store table not updated: %v", errors.ErrorStack(err)))
 	objectStoreUUID, err := storeID.ObjectStoreUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(foundStoreUUID, gc.Equals, objectStoreUUID.String())
-	c.Check(foundHash, gc.Equals, hash)
-	c.Check(foundSize, gc.Equals, size)
+	c.Check(foundStoreUUID, tc.Equals, objectStoreUUID.String())
+	c.Check(foundHash, tc.Equals, hash)
+	c.Check(foundSize, tc.Equals, size)
 
 	// Assert: Check that retrieved by has been set.
 	var foundRetrievedByType, foundRetrievedBy string
@@ -1008,14 +1008,14 @@ JOIN   resource_retrieved_by_type rrbt ON rrb.retrieved_by_type_id = rrbt.id
 WHERE  resource_uuid = ?`, resID).Scan(&foundRetrievedBy, &foundRetrievedByType)
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(foundRetrievedByType, gc.Equals, string(retrievedByType))
-	c.Check(foundRetrievedBy, gc.Equals, retrievedBy)
+	c.Check(foundRetrievedByType, tc.Equals, string(retrievedByType))
+	c.Check(foundRetrievedBy, tc.Equals, retrievedBy)
 }
 
 // TestRecordStoredResourceIncrementCharmModifiedVersion checks that the charm
 // modified version is incremented correctly when the indicator field is true,
 // both from 0/NULL to 1 and after that.
-func (s *resourceSuite) TestRecordStoredResourceIncrementCharmModifiedVersion(c *gc.C) {
+func (s *resourceSuite) TestRecordStoredResourceIncrementCharmModifiedVersion(c *tc.C) {
 	// Arrange: create two resources and  blobs storage and get the initial charm
 	// modified version.
 	resID, storeID, size, hash := s.createContainerImageResourceAndBlob(c)
@@ -1034,7 +1034,7 @@ func (s *resourceSuite) TestRecordStoredResourceIncrementCharmModifiedVersion(c 
 			Size:                          size,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
 
 	foundCharmModifiedVersion1 := s.getCharmModifiedVersion(c, resID.String())
 
@@ -1049,19 +1049,19 @@ func (s *resourceSuite) TestRecordStoredResourceIncrementCharmModifiedVersion(c 
 			Size:                          size2,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
 
 	foundCharmModifiedVersion2 := s.getCharmModifiedVersion(c, resID2.String())
 
 	// Assert: Check the charm modified version has been incremented.
-	c.Assert(foundCharmModifiedVersion1, gc.Equals, initialCharmModifiedVersion+1)
-	c.Assert(foundCharmModifiedVersion2, gc.Equals, initialCharmModifiedVersion+2)
+	c.Assert(foundCharmModifiedVersion1, tc.Equals, initialCharmModifiedVersion+1)
+	c.Assert(foundCharmModifiedVersion2, tc.Equals, initialCharmModifiedVersion+2)
 }
 
 // TestRecordStoredResourceDoNotIncrementCharmModifiedVersion checks that the
 // charm modified version is not updated by RecordStoredResource if the variable
 // is false.
-func (s *resourceSuite) TestRecordStoredResourceDoNotIncrementCharmModifiedVersion(c *gc.C) {
+func (s *resourceSuite) TestRecordStoredResourceDoNotIncrementCharmModifiedVersion(c *tc.C) {
 	// Arrange: insert a resource and get charm modified version.
 	resID, storeID, size, hash := s.createContainerImageResourceAndBlob(c)
 	initialCharmModifiedVersion := s.getCharmModifiedVersion(c, resID.String())
@@ -1077,14 +1077,14 @@ func (s *resourceSuite) TestRecordStoredResourceDoNotIncrementCharmModifiedVersi
 			Size:         size,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
 
 	// Assert: Check the charm modified version has not been incremented.
 	foundCharmModifiedVersion := s.getCharmModifiedVersion(c, resID.String())
-	c.Assert(foundCharmModifiedVersion, gc.Equals, initialCharmModifiedVersion)
+	c.Assert(foundCharmModifiedVersion, tc.Equals, initialCharmModifiedVersion)
 }
 
-func (s *resourceSuite) TestRecordStoredResourceWithContainerImageAlreadyStored(c *gc.C) {
+func (s *resourceSuite) TestRecordStoredResourceWithContainerImageAlreadyStored(c *tc.C) {
 	// Arrange: insert a resource record and generate 2 blobs.
 	resID, storeID1, size1, hash1 := s.createContainerImageResourceAndBlob(c)
 	retrievedBy1 := "ubuntu/0"
@@ -1103,7 +1103,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImageAlreadyStored(
 			RetrievedByType: retrievedByType1,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
 
 	storageKey2 := "storage-key-2"
 	storeID2 := resourcestoretesting.GenContainerImageMetadataResourceID(c, storageKey2)
@@ -1112,7 +1112,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImageAlreadyStored(
 	size2 := int64(422)
 	hash2 := "hash2"
 	err = s.addContainerImage(storageKey2)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to add container image: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to add container image: %v", errors.ErrorStack(err)))
 
 	// Act: try to store a second resource.
 	err = s.state.RecordStoredResource(
@@ -1130,7 +1130,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImageAlreadyStored(
 	c.Assert(err, jc.ErrorIs, resourceerrors.StoredResourceAlreadyExists)
 }
 
-func (s *resourceSuite) TestStoreWithFileResourceAlreadyStored(c *gc.C) {
+func (s *resourceSuite) TestStoreWithFileResourceAlreadyStored(c *tc.C) {
 	// Arrange: insert a resource.
 	resID, storeID1, size1, hash1 := s.createFileResourceAndBlob(c)
 	retrievedBy1 := "ubuntu/0"
@@ -1149,7 +1149,7 @@ func (s *resourceSuite) TestStoreWithFileResourceAlreadyStored(c *gc.C) {
 			Size:            size1,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
 
 	objectStoreUUID2 := objectstoretesting.GenObjectStoreUUID(c)
 	storeID2 := resourcestoretesting.GenFileResourceStoreID(c, objectStoreUUID2)
@@ -1158,7 +1158,7 @@ func (s *resourceSuite) TestStoreWithFileResourceAlreadyStored(c *gc.C) {
 	size2 := int64(422)
 	hash2 := "hash2"
 	err = s.addObjectStoreBlobMetadata(objectStoreUUID2)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to add object store blob: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to add object store blob: %v", errors.ErrorStack(err)))
 
 	// Act: try and store the second resource.
 	err = s.state.RecordStoredResource(
@@ -1176,7 +1176,7 @@ func (s *resourceSuite) TestStoreWithFileResourceAlreadyStored(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, resourceerrors.StoredResourceAlreadyExists)
 }
 
-func (s *resourceSuite) TestRecordStoredResourceSameBlobAlreadyStoredContainerImage(c *gc.C) {
+func (s *resourceSuite) TestRecordStoredResourceSameBlobAlreadyStoredContainerImage(c *tc.C) {
 	// Arrange: insert a resource record and generate 2 blobs.
 	resID, storeID, size, hash := s.createContainerImageResourceAndBlob(c)
 
@@ -1191,7 +1191,7 @@ func (s *resourceSuite) TestRecordStoredResourceSameBlobAlreadyStoredContainerIm
 			Size:         size,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
 
 	// Act: try to store the same resource again.
 	err = s.state.RecordStoredResource(
@@ -1209,7 +1209,7 @@ func (s *resourceSuite) TestRecordStoredResourceSameBlobAlreadyStoredContainerIm
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *resourceSuite) TestRecordStoredResourceSameBlobAlreadyStoredFile(c *gc.C) {
+func (s *resourceSuite) TestRecordStoredResourceSameBlobAlreadyStoredFile(c *tc.C) {
 	// Arrange: insert a resource record and generate 2 blobs.
 	resID, storeID, size, hash := s.createFileResourceAndBlob(c)
 
@@ -1224,7 +1224,7 @@ func (s *resourceSuite) TestRecordStoredResourceSameBlobAlreadyStoredFile(c *gc.
 			Size:         size,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
 
 	// Act: try to store the same resource again.
 	err = s.state.RecordStoredResource(
@@ -1242,7 +1242,7 @@ func (s *resourceSuite) TestRecordStoredResourceSameBlobAlreadyStoredFile(c *gc.
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *resourceSuite) TestRecordStoredResourceFileStoredResourceNotFoundInObjectStore(c *gc.C) {
+func (s *resourceSuite) TestRecordStoredResourceFileStoredResourceNotFoundInObjectStore(c *tc.C) {
 	// Arrange: insert a resource.
 	resID := s.addResource(c, charmresource.TypeFile)
 
@@ -1262,7 +1262,7 @@ func (s *resourceSuite) TestRecordStoredResourceFileStoredResourceNotFoundInObje
 	c.Assert(err, jc.ErrorIs, resourceerrors.StoredResourceNotFound)
 }
 
-func (s *resourceSuite) TestRecordStoredResourceContainerImageStoredResourceNotFoundInStore(c *gc.C) {
+func (s *resourceSuite) TestRecordStoredResourceContainerImageStoredResourceNotFoundInStore(c *tc.C) {
 	// Arrange: insert a resource and generate a valid store ID.
 	resID := s.addResource(c, charmresource.TypeContainerImage)
 	storeID := resourcestoretesting.GenContainerImageMetadataResourceID(c, "bad-storage-key")
@@ -1279,40 +1279,40 @@ func (s *resourceSuite) TestRecordStoredResourceContainerImageStoredResourceNotF
 	c.Assert(err, jc.ErrorIs, resourceerrors.StoredResourceNotFound)
 }
 
-func (s *resourceSuite) TestRecordStoredResourceWithRetrievedByUnit(c *gc.C) {
+func (s *resourceSuite) TestRecordStoredResourceWithRetrievedByUnit(c *tc.C) {
 	resourceUUID := s.addResource(c, charmresource.TypeFile)
 	retrievedBy := "app-test/0"
 	retrievedByType := coreresource.Unit
 	err := s.setWithRetrievedBy(c, resourceUUID, retrievedBy, retrievedByType)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
 	foundRetrievedBy, foundRetrievedByType := s.getRetrievedByType(c, resourceUUID)
-	c.Check(foundRetrievedBy, gc.Equals, retrievedBy)
-	c.Check(foundRetrievedByType, gc.Equals, retrievedByType)
+	c.Check(foundRetrievedBy, tc.Equals, retrievedBy)
+	c.Check(foundRetrievedByType, tc.Equals, retrievedByType)
 }
 
-func (s *resourceSuite) TestRecordStoredResourceWithRetrievedByApplication(c *gc.C) {
+func (s *resourceSuite) TestRecordStoredResourceWithRetrievedByApplication(c *tc.C) {
 	resourceUUID := s.addResource(c, charmresource.TypeFile)
 	retrievedBy := "app-test"
 	retrievedByType := coreresource.Application
 	err := s.setWithRetrievedBy(c, resourceUUID, retrievedBy, retrievedByType)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
 	foundRetrievedBy, foundRetrievedByType := s.getRetrievedByType(c, resourceUUID)
-	c.Check(foundRetrievedBy, gc.Equals, retrievedBy)
-	c.Check(foundRetrievedByType, gc.Equals, retrievedByType)
+	c.Check(foundRetrievedBy, tc.Equals, retrievedBy)
+	c.Check(foundRetrievedByType, tc.Equals, retrievedByType)
 }
 
-func (s *resourceSuite) TestRecordStoredResourceWithRetrievedByUser(c *gc.C) {
+func (s *resourceSuite) TestRecordStoredResourceWithRetrievedByUser(c *tc.C) {
 	resourceUUID := s.addResource(c, charmresource.TypeFile)
 	retrievedBy := "jim"
 	retrievedByType := coreresource.User
 	err := s.setWithRetrievedBy(c, resourceUUID, retrievedBy, retrievedByType)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
 	foundRetrievedBy, foundRetrievedByType := s.getRetrievedByType(c, resourceUUID)
-	c.Check(foundRetrievedBy, gc.Equals, retrievedBy)
-	c.Check(foundRetrievedByType, gc.Equals, retrievedByType)
+	c.Check(foundRetrievedBy, tc.Equals, retrievedBy)
+	c.Check(foundRetrievedByType, tc.Equals, retrievedByType)
 }
 
-func (s *resourceSuite) TestRecordStoredResourceWithRetrievedByNotSet(c *gc.C) {
+func (s *resourceSuite) TestRecordStoredResourceWithRetrievedByNotSet(c *tc.C) {
 	// Retrieve by should not be set if it is blank and the type is unknown.
 	resourceUUID := s.addResource(c, charmresource.TypeFile)
 	retrievedBy := ""
@@ -1330,7 +1330,7 @@ WHERE  resource_uuid = ?`, resourceUUID.String()).Scan(&retrievedBy, &retrievedB
 }
 
 // TestSetUnitResource verifies that a unit resource is correctly set.
-func (s *resourceSuite) TestSetUnitResource(c *gc.C) {
+func (s *resourceSuite) TestSetUnitResource(c *tc.C) {
 	// Arrange: insert a resource.
 	startTime := time.Now().Truncate(time.Second).UTC()
 	resID := "resource-id"
@@ -1347,7 +1347,7 @@ func (s *resourceSuite) TestSetUnitResource(c *gc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act set supplied by with application type
 	err = s.state.SetUnitResource(
@@ -1355,7 +1355,7 @@ func (s *resourceSuite) TestSetUnitResource(c *gc.C) {
 		coreresource.UUID(resID),
 		unit.UUID(s.constants.fakeUnitUUID1),
 	)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute SetUnitResource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) failed to execute SetUnitResource: %v", errors.ErrorStack(err)))
 
 	// Assert: check the unit resource has been added.
 	var addedAt time.Time
@@ -1366,12 +1366,12 @@ WHERE resource_uuid = ? and unit_uuid = ?`,
 			resID, s.constants.fakeUnitUUID1).Scan(&addedAt)
 	})
 	c.Check(addedAt, jc.TimeBetween(startTime, time.Now()))
-	c.Check(err, jc.ErrorIsNil, gc.Commentf("(Assert) unit_resource table not updated: %v", errors.ErrorStack(err)))
+	c.Check(err, jc.ErrorIsNil, tc.Commentf("(Assert) unit_resource table not updated: %v", errors.ErrorStack(err)))
 }
 
 // TestSetUnitResourceUnsetExisting verifies that a unit resource is set and
 // an existing resource with the same charm resource as the new one is unset.
-func (s *resourceSuite) TestSetUnitResourceUnsetExisting(c *gc.C) {
+func (s *resourceSuite) TestSetUnitResourceUnsetExisting(c *tc.C) {
 	// Arrange: insert a resource link it to a unit then insert a second
 	// resource without linking.
 	startTime := time.Now().Truncate(time.Second).UTC()
@@ -1400,7 +1400,7 @@ func (s *resourceSuite) TestSetUnitResourceUnsetExisting(c *gc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act set unit resource and check the old resource has been reset.
 	err = s.state.SetUnitResource(
@@ -1408,7 +1408,7 @@ func (s *resourceSuite) TestSetUnitResourceUnsetExisting(c *gc.C) {
 		coreresource.UUID(resID2),
 		unit.UUID(s.constants.fakeUnitUUID1),
 	)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute SetUnitResource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) failed to execute SetUnitResource: %v", errors.ErrorStack(err)))
 
 	// Assert: check the unit resource has been added and the old one removed.
 	var addedAts []time.Time
@@ -1433,16 +1433,16 @@ WHERE  unit_uuid = ?`, s.constants.fakeUnitUUID1)
 		}
 		return nil
 	})
-	c.Check(err, jc.ErrorIsNil, gc.Commentf("(Assert) cannot check unit_resource table: %v", errors.ErrorStack(err)))
-	c.Check(uuids, gc.DeepEquals, []string{resID2})
-	c.Assert(addedAts, gc.HasLen, 1)
+	c.Check(err, jc.ErrorIsNil, tc.Commentf("(Assert) cannot check unit_resource table: %v", errors.ErrorStack(err)))
+	c.Check(uuids, tc.DeepEquals, []string{resID2})
+	c.Assert(addedAts, tc.HasLen, 1)
 	c.Check(addedAts[0], jc.TimeBetween(startTime, time.Now()))
 }
 
 // TestSetUnitResourceUnsetExistingOtherUnits verifies that setting a unit
 // resource that unsets an old one doesn't affect other units using the same
 // resource.
-func (s *resourceSuite) TestSetUnitResourceUnsetExistingOtherUnits(c *gc.C) {
+func (s *resourceSuite) TestSetUnitResourceUnsetExistingOtherUnits(c *tc.C) {
 	// Arrange: insert a resource link it to a unit then insert a second
 	// resource without linking.
 	startTime := time.Now().Truncate(time.Second).UTC()
@@ -1482,7 +1482,7 @@ func (s *resourceSuite) TestSetUnitResourceUnsetExistingOtherUnits(c *gc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act set unit resource, this should remove the old resource from unit 1.
 	err = s.state.SetUnitResource(
@@ -1490,7 +1490,7 @@ func (s *resourceSuite) TestSetUnitResourceUnsetExistingOtherUnits(c *gc.C) {
 		coreresource.UUID(resID2),
 		unit.UUID(s.constants.fakeUnitUUID1),
 	)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute SetUnitResource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) failed to execute SetUnitResource: %v", errors.ErrorStack(err)))
 
 	// Assert: check the unit resource has been added and the old one removed.
 	var unit1AddedAt time.Time
@@ -1509,14 +1509,14 @@ WHERE  unit_uuid = ?`, s.constants.fakeUnitUUID1).Scan(&unit1AddedAt, &unit1ResU
 SELECT added_at, resource_uuid FROM unit_resource
 WHERE  unit_uuid = ?`, s.constants.fakeUnitUUID2).Scan(&unit2AddedAt, &unit2ResUUID)
 	})
-	c.Check(err, jc.ErrorIsNil, gc.Commentf("(Assert) cannot check unit_resource table: %v", errors.ErrorStack(err)))
-	c.Check(unit1ResUUID, gc.Equals, resID2)
+	c.Check(err, jc.ErrorIsNil, tc.Commentf("(Assert) cannot check unit_resource table: %v", errors.ErrorStack(err)))
+	c.Check(unit1ResUUID, tc.Equals, resID2)
 	c.Check(unit1AddedAt, jc.TimeBetween(startTime, time.Now()))
 
-	c.Check(unit2AddedAt, gc.Equals, time1)
-	c.Check(unit2ResUUID, gc.Equals, resID1)
+	c.Check(unit2AddedAt, tc.Equals, time1)
+	c.Check(unit2ResUUID, tc.Equals, resID1)
 }
-func (s *resourceSuite) TestSetUnitResourceNotFound(c *gc.C) {
+func (s *resourceSuite) TestSetUnitResourceNotFound(c *tc.C) {
 	// Act set supplied by with application type
 	err := s.state.SetUnitResource(
 		context.Background(),
@@ -1528,7 +1528,7 @@ func (s *resourceSuite) TestSetUnitResourceNotFound(c *gc.C) {
 
 // TestSetUnitResourceAlreadySet checks if set unit resource correctly
 // identifies an already set resource and skips updating.
-func (s *resourceSuite) TestSetUnitResourceAlreadySet(c *gc.C) {
+func (s *resourceSuite) TestSetUnitResourceAlreadySet(c *tc.C) {
 	// Arrange: insert a resource and data implying that everything is already
 	// set.
 	now := time.Now().Truncate(time.Second).UTC()
@@ -1545,14 +1545,14 @@ func (s *resourceSuite) TestSetUnitResourceAlreadySet(c *gc.C) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return errors.Capture(input.insert(context.Background(), tx))
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act set supplied by with user type
 	err = s.state.SetUnitResource(context.Background(),
 		coreresource.UUID(resID),
 		unit.UUID(s.constants.fakeUnitUUID1),
 	)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute SetUnitResource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) failed to execute SetUnitResource: %v", errors.ErrorStack(err)))
 
 	// Assert
 	var addedAt time.Time
@@ -1562,13 +1562,13 @@ SELECT added_at FROM unit_resource
 WHERE resource_uuid = ? and unit_uuid = ?`,
 			resID, s.constants.fakeUnitUUID1).Scan(&addedAt)
 	})
-	c.Check(addedAt, gc.Equals, previousInsertTime)
-	c.Check(err, jc.ErrorIsNil, gc.Commentf("(Assert) unit_resource table has been updated: %v", errors.ErrorStack(err)))
+	c.Check(addedAt, tc.Equals, previousInsertTime)
+	c.Check(err, jc.ErrorIsNil, tc.Commentf("(Assert) unit_resource table has been updated: %v", errors.ErrorStack(err)))
 }
 
 // TestSetUnitResourceUnitNotFound tests that setting a unit resource with an
 // unexpected unit ID results in an error.
-func (s *resourceSuite) TestSetUnitResourceUnitNotFound(c *gc.C) {
+func (s *resourceSuite) TestSetUnitResourceUnitNotFound(c *tc.C) {
 	// Arrange: insert a resource
 	now := time.Now().Truncate(time.Second).UTC()
 	resID := "resource-id"
@@ -1581,7 +1581,7 @@ func (s *resourceSuite) TestSetUnitResourceUnitNotFound(c *gc.C) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return errors.Capture(input.insert(context.Background(), tx))
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act set supplied by with unexpected unit
 	err = s.state.SetUnitResource(context.Background(),
@@ -1592,12 +1592,12 @@ func (s *resourceSuite) TestSetUnitResourceUnitNotFound(c *gc.C) {
 	// Assert: an error is returned, nothing is updated in the db
 	c.Check(err, jc.ErrorIs, resourceerrors.UnitNotFound)
 	err = s.runQuery(`SELECT * FROM unit_resource`)
-	c.Check(err, jc.ErrorIs, sql.ErrNoRows, gc.Commentf("(Assert) unit_resource table has been updated: %v", errors.ErrorStack(err)))
+	c.Check(err, jc.ErrorIs, sql.ErrNoRows, tc.Commentf("(Assert) unit_resource table has been updated: %v", errors.ErrorStack(err)))
 	err = s.runQuery(`SELECT * FROM resource_retrieved_by`)
-	c.Check(err, jc.ErrorIs, sql.ErrNoRows, gc.Commentf("(Assert) resource_retrieved_by table has been updated: %v", errors.ErrorStack(err)))
+	c.Check(err, jc.ErrorIs, sql.ErrNoRows, tc.Commentf("(Assert) resource_retrieved_by table has been updated: %v", errors.ErrorStack(err)))
 }
 
-func (s *resourceSuite) TestSetApplicationResource(c *gc.C) {
+func (s *resourceSuite) TestSetApplicationResource(c *tc.C) {
 	// Arrange: insert a resource.
 	resID := "resource-id"
 	input := resourceData{
@@ -1613,7 +1613,7 @@ func (s *resourceSuite) TestSetApplicationResource(c *gc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	addedAt := time.Now().Truncate(time.Second).UTC()
 	// Act set application resource.
@@ -1621,7 +1621,7 @@ func (s *resourceSuite) TestSetApplicationResource(c *gc.C) {
 		context.Background(),
 		coreresource.UUID(resID),
 	)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute SetApplicationResource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) failed to execute SetApplicationResource: %v", errors.ErrorStack(err)))
 
 	// Assert
 	var foundAddedAt time.Time
@@ -1632,10 +1632,10 @@ WHERE resource_uuid = ?`,
 			resID).Scan(&foundAddedAt)
 	})
 	c.Check(foundAddedAt, jc.TimeBetween(addedAt, time.Now()))
-	c.Check(err, jc.ErrorIsNil, gc.Commentf("(Assert) kubernetes_application_resource table not updated: %v", errors.ErrorStack(err)))
+	c.Check(err, jc.ErrorIsNil, tc.Commentf("(Assert) kubernetes_application_resource table not updated: %v", errors.ErrorStack(err)))
 }
 
-func (s *resourceSuite) TestSetApplicationResourceNotFound(c *gc.C) {
+func (s *resourceSuite) TestSetApplicationResourceNotFound(c *tc.C) {
 	// Act set supplied by with application type
 	err := s.state.SetApplicationResource(
 		context.Background(),
@@ -1644,7 +1644,7 @@ func (s *resourceSuite) TestSetApplicationResourceNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNotFound)
 }
 
-func (s *resourceSuite) TestGetResourceTypeContainerImage(c *gc.C) {
+func (s *resourceSuite) TestGetResourceTypeContainerImage(c *tc.C) {
 	// Arrange: insert a resource.
 	resID := "resource-id"
 	input := resourceData{
@@ -1658,7 +1658,7 @@ func (s *resourceSuite) TestGetResourceTypeContainerImage(c *gc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act: Get the resource type.
 	resourceType, err := s.state.GetResourceType(
@@ -1666,10 +1666,10 @@ func (s *resourceSuite) TestGetResourceTypeContainerImage(c *gc.C) {
 		coreresource.UUID(resID),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resourceType, gc.Equals, charmresource.TypeContainerImage)
+	c.Assert(resourceType, tc.Equals, charmresource.TypeContainerImage)
 }
 
-func (s *resourceSuite) TestGetResourceTypeFile(c *gc.C) {
+func (s *resourceSuite) TestGetResourceTypeFile(c *tc.C) {
 	// Arrange: insert a resource.
 	resID := "resource-id"
 	input := resourceData{
@@ -1683,7 +1683,7 @@ func (s *resourceSuite) TestGetResourceTypeFile(c *gc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act: Get the resource type.
 	resourceType, err := s.state.GetResourceType(
@@ -1691,10 +1691,10 @@ func (s *resourceSuite) TestGetResourceTypeFile(c *gc.C) {
 		coreresource.UUID(resID),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resourceType, gc.Equals, charmresource.TypeFile)
+	c.Assert(resourceType, tc.Equals, charmresource.TypeFile)
 }
 
-func (s *resourceSuite) TestGetResourceTypeNotFound(c *gc.C) {
+func (s *resourceSuite) TestGetResourceTypeNotFound(c *tc.C) {
 	// Arrange: Make fake resource-uuid.
 	resID := "resource-id"
 
@@ -1706,7 +1706,7 @@ func (s *resourceSuite) TestGetResourceTypeNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNotFound)
 }
 
-func (s *resourceSuite) TestSetApplicationResourceDoesNothingIfAlreadyExists(c *gc.C) {
+func (s *resourceSuite) TestSetApplicationResourceDoesNothingIfAlreadyExists(c *tc.C) {
 	// Arrange: insert the charm resource, the resource and the initial
 	// application resource.
 	initialTime := time.Now()
@@ -1731,7 +1731,7 @@ func (s *resourceSuite) TestSetApplicationResourceDoesNothingIfAlreadyExists(c *
 		context.Background(),
 		coreresource.UUID(resID),
 	)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to execute SetApplicationResource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to execute SetApplicationResource: %v", errors.ErrorStack(err)))
 
 	// Act: set application resource a second time.
 	inbetweenTime := time.Now()
@@ -1739,7 +1739,7 @@ func (s *resourceSuite) TestSetApplicationResourceDoesNothingIfAlreadyExists(c *
 		context.Background(),
 		coreresource.UUID(resID),
 	)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute second SetApplicationResource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) failed to execute second SetApplicationResource: %v", errors.ErrorStack(err)))
 
 	// Assert: check that the application resource has the original added by
 	// time.
@@ -1751,19 +1751,19 @@ WHERE resource_uuid = ?`,
 			resID).Scan(&foundAddedAt)
 	})
 	c.Check(foundAddedAt, jc.TimeBetween(initialTime, inbetweenTime))
-	c.Check(err, jc.ErrorIsNil, gc.Commentf("(Assert) kubernetes_application_resource has been unexpectedly updated: %v", errors.ErrorStack(err)))
+	c.Check(err, jc.ErrorIsNil, tc.Commentf("(Assert) kubernetes_application_resource has been unexpectedly updated: %v", errors.ErrorStack(err)))
 }
 
 // TestListResourcesNoResources verifies that no resources are listed for an
 // application when no resources exist. It checks that the resulting lists for
 // unit resources, general resources, and repository resources are all empty.
-func (s *resourceSuite) TestListResourcesNoResources(c *gc.C) {
+func (s *resourceSuite) TestListResourcesNoResources(c *tc.C) {
 	// Arrange: No resources
 	// Act
 	results, err := s.state.ListResources(context.Background(), application.ID(s.constants.fakeApplicationUUID1))
 	// Assert
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
-	c.Check(results.UnitResources, gc.DeepEquals, []coreresource.UnitResources{
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
+	c.Check(results.UnitResources, tc.DeepEquals, []coreresource.UnitResources{
 		{
 			Name: unit.Name(s.constants.fakeUnitName1),
 			// No resources
@@ -1777,13 +1777,13 @@ func (s *resourceSuite) TestListResourcesNoResources(c *gc.C) {
 			// No resources
 		},
 	})
-	c.Check(results.Resources, gc.HasLen, 0)
-	c.Check(results.RepositoryResources, gc.HasLen, 0)
+	c.Check(results.Resources, tc.HasLen, 0)
+	c.Check(results.RepositoryResources, tc.HasLen, 0)
 }
 
 // TestListResources tests the retrieval and organization of resources from the
 // database.
-func (s *resourceSuite) TestListResources(c *gc.C) {
+func (s *resourceSuite) TestListResources(c *tc.C) {
 	// Arrange
 	now := time.Now().Truncate(time.Second).UTC()
 	// Arrange : Insert several resources
@@ -1867,7 +1867,7 @@ func (s *resourceSuite) TestListResources(c *gc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act
 	results, err := s.state.ListResources(context.Background(), application.ID(s.constants.fakeApplicationUUID1))
@@ -1875,8 +1875,8 @@ func (s *resourceSuite) TestListResources(c *gc.C) {
 	// Assert
 	// the application, even if not directly linked to this unit resource, should be properly retrieved
 	withUnit2AvailableRes.ApplicationUUID = s.constants.fakeApplicationUUID1
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
-	c.Check(results.UnitResources, gc.DeepEquals, []coreresource.UnitResources{
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
+	c.Check(results.UnitResources, tc.DeepEquals, []coreresource.UnitResources{
 		{
 			Name: unit.Name(s.constants.fakeUnitName1),
 			Resources: []coreresource.Resource{
@@ -1895,13 +1895,13 @@ func (s *resourceSuite) TestListResources(c *gc.C) {
 			// No resources
 		},
 	})
-	c.Check(results.Resources, gc.DeepEquals, []coreresource.Resource{
+	c.Check(results.Resources, tc.DeepEquals, []coreresource.Resource{
 		noUnitAvailableRes.toResource(s, c),
 		withUnit1AvailableRes.toResource(s, c),
 		// withUnit2AvailableRes is the same resource as above on another unit
 		withUnitBisAvailableRes.toResource(s, c),
 	})
-	c.Check(results.RepositoryResources, gc.DeepEquals, []charmresource.Resource{
+	c.Check(results.RepositoryResources, tc.DeepEquals, []charmresource.Resource{
 		noUnitPotentialRes.toCharmResource(c),
 		withUnitPotentialRes.toCharmResource(c),
 	})
@@ -1911,31 +1911,31 @@ func (s *resourceSuite) TestListResources(c *gc.C) {
 // when querying non-existing application ID.
 // Ensures the method returns the correct `ApplicationNotFound` error for an
 // invalid application ID.
-func (s *resourceSuite) TestGetResourcesByApplicationIDWrongApplicationID(c *gc.C) {
+func (s *resourceSuite) TestGetResourcesByApplicationIDWrongApplicationID(c *tc.C) {
 	// Arrange: No resources
 	// Act
 	_, err := s.state.GetResourcesByApplicationID(context.Background(), "not-an-application-id")
 	// Assert
 	c.Assert(err, jc.ErrorIs, resourceerrors.ApplicationNotFound,
-		gc.Commentf("(Assert) should fails with specific error: %v",
+		tc.Commentf("(Assert) should fails with specific error: %v",
 			errors.ErrorStack(err)))
 }
 
 // TestGetResourcesByApplicationIDNoResources verifies that no resources are listed for an
 // application when no resources exist. It checks that the resulting lists
 // is empty.
-func (s *resourceSuite) TestGetResourcesByApplicationIDNoResources(c *gc.C) {
+func (s *resourceSuite) TestGetResourcesByApplicationIDNoResources(c *tc.C) {
 	// Arrange: No resources
 	// Act
 	results, err := s.state.GetResourcesByApplicationID(context.Background(), application.ID(s.constants.fakeApplicationUUID1))
 	// Assert
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
-	c.Assert(results, gc.HasLen, 0)
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
+	c.Assert(results, tc.HasLen, 0)
 }
 
 // TestGetResourcesByApplicationID tests the retrieval and organization of resources from the
 // database.
-func (s *resourceSuite) TestGetResourcesByApplicationID(c *gc.C) {
+func (s *resourceSuite) TestGetResourcesByApplicationID(c *tc.C) {
 	// Arrange
 	now := time.Now().Truncate(time.Second).UTC()
 	// Arrange : Insert several resources
@@ -1989,14 +1989,14 @@ func (s *resourceSuite) TestGetResourcesByApplicationID(c *gc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act
 	results, err := s.state.GetResourcesByApplicationID(context.Background(), application.ID(s.constants.fakeApplicationUUID1))
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
-	c.Assert(results, gc.DeepEquals, []coreresource.Resource{
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
+	c.Assert(results, tc.DeepEquals, []coreresource.Resource{
 		simpleRes.toResource(s, c),
 		polledRes.toResource(s, c),
 		unitRes.toResource(s, c),
@@ -2009,7 +2009,7 @@ func (s *resourceSuite) TestGetResourcesByApplicationID(c *gc.C) {
 // by application ID where state filters are applied. It ensures that only
 // resources with the "available" state are returned, excluding any with the
 // "potential" state.
-func (s *resourceSuite) TestGetResourcesByApplicationIDWithStatePotential(c *gc.C) {
+func (s *resourceSuite) TestGetResourcesByApplicationIDWithStatePotential(c *tc.C) {
 	// Arrange
 	now := time.Now().Truncate(time.Second).UTC()
 	// Arrange : Insert several resources
@@ -2038,14 +2038,14 @@ func (s *resourceSuite) TestGetResourcesByApplicationIDWithStatePotential(c *gc.
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act
 	results, err := s.state.GetResourcesByApplicationID(context.Background(), application.ID(s.constants.fakeApplicationUUID1))
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
-	c.Assert(results, gc.DeepEquals, []coreresource.Resource{
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
+	c.Assert(results, tc.DeepEquals, []coreresource.Resource{
 		availableRes.toResource(s, c),
 		// potential resources are not returned
 	})
@@ -2054,7 +2054,7 @@ func (s *resourceSuite) TestGetResourcesByApplicationIDWithStatePotential(c *gc.
 // TestAddResourcesBeforeApplication tests inserting given resource docs
 // referencing the given charm and linking them to an application name for
 // later resolution.
-func (s *resourceSuite) TestAddResourcesBeforeApplication(c *gc.C) {
+func (s *resourceSuite) TestAddResourcesBeforeApplication(c *tc.C) {
 	// Setup charm resources only
 	charmUUID := testing.GenCharmID(c)
 	data := []resourceData{
@@ -2109,19 +2109,19 @@ func (s *resourceSuite) TestAddResourcesBeforeApplication(c *gc.C) {
 	// Run the command and validate results.
 	obtainedUUIDs, err := s.state.AddResourcesBeforeApplication(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtainedUUIDs, gc.HasLen, 2)
+	c.Check(obtainedUUIDs, tc.HasLen, 2)
 	for i, resID := range obtainedUUIDs {
 		s.checkPendingApplication(c, resID.String(), args.ApplicationName)
 		obtainedResource, err := s.getPendingResource(resID.String())
 		if !c.Check(err, jc.ErrorIsNil) {
 			continue
 		}
-		c.Check(obtainedResource.CharmUUID, gc.Equals, charmUUID.String())
-		c.Check(obtainedResource.UUID, gc.Equals, resID.String())
-		c.Check(obtainedResource.Name, gc.Equals, args.ResourceDetails[i].Name)
-		c.Check(obtainedResource.OriginType, gc.Equals, args.ResourceDetails[i].Origin.String())
+		c.Check(obtainedResource.CharmUUID, tc.Equals, charmUUID.String())
+		c.Check(obtainedResource.UUID, tc.Equals, resID.String())
+		c.Check(obtainedResource.Name, tc.Equals, args.ResourceDetails[i].Name)
+		c.Check(obtainedResource.OriginType, tc.Equals, args.ResourceDetails[i].Origin.String())
 		if args.ResourceDetails[i].Revision != nil {
-			c.Check(obtainedResource.Revision, gc.Equals, *args.ResourceDetails[i].Revision)
+			c.Check(obtainedResource.Revision, tc.Equals, *args.ResourceDetails[i].Revision)
 		}
 	}
 }
@@ -2129,7 +2129,7 @@ func (s *resourceSuite) TestAddResourcesBeforeApplication(c *gc.C) {
 // TestAddResourcesBeforeApplicationNotFound tests inserting given resource
 // docs referencing the given charm and linking them to an application name
 // for later resolution in the case where the charm does not exist yet.
-func (s *resourceSuite) TestAddResourcesBeforeApplicationNotFound(c *gc.C) {
+func (s *resourceSuite) TestAddResourcesBeforeApplicationNotFound(c *tc.C) {
 	rev := 7
 	args := resource.AddResourcesBeforeApplicationArgs{
 		ApplicationName: "test-app",
@@ -2178,7 +2178,7 @@ type pendingResourceTest struct {
 	OriginType string
 }
 
-func (s *resourceSuite) checkPendingApplication(c *gc.C, resID, expectedAppName string) {
+func (s *resourceSuite) checkPendingApplication(c *tc.C, resID, expectedAppName string) {
 	var obtainedAppName string
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
 		// fetch resources
@@ -2190,7 +2190,7 @@ WHERE  resource_uuid = ?`,
 		).Scan(&obtainedAppName)
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtainedAppName, gc.Equals, expectedAppName)
+	c.Check(obtainedAppName, tc.Equals, expectedAppName)
 }
 
 // TestUpdateResourceRevisionAndDeletePriorVersion tests that a resource
@@ -2198,7 +2198,7 @@ WHERE  resource_uuid = ?`,
 // method. Check that the application's charm modified version is also
 // incremented. Verify the resource file record has been deleted and the
 // correct hash returned.
-func (s *resourceSuite) TestUpdateResourceRevisionAndDeletePriorVersionFile(c *gc.C) {
+func (s *resourceSuite) TestUpdateResourceRevisionAndDeletePriorVersionFile(c *tc.C) {
 	// Arrange : a simple resource
 	resID := coreresource.UUID("resource-id")
 	fp, err := charmresource.NewFingerprint(fingerprint)
@@ -2228,7 +2228,7 @@ func (s *resourceSuite) TestUpdateResourceRevisionAndDeletePriorVersionFile(c *g
 		err := input.insert(context.Background(), tx)
 		return errors.Capture(err)
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	expectedCharmModifiedVersion := s.getCharmModifiedVersion(c, resID.String()) + 1
 	args := resource.UpdateResourceRevisionArgs{
@@ -2238,16 +2238,16 @@ func (s *resourceSuite) TestUpdateResourceRevisionAndDeletePriorVersionFile(c *g
 
 	obtainedUUID, err := s.state.UpdateResourceRevisionAndDeletePriorVersion(context.Background(), args, charmresource.TypeFile)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtainedUUID, gc.Not(gc.Equals), resID)
+	c.Check(obtainedUUID, tc.Not(tc.Equals), resID)
 
 	obtainedCharmModifiedVersion := s.getCharmModifiedVersion(c, obtainedUUID.String())
-	c.Check(obtainedCharmModifiedVersion, gc.Equals, expectedCharmModifiedVersion)
+	c.Check(obtainedCharmModifiedVersion, tc.Equals, expectedCharmModifiedVersion)
 	s.checkResourceOriginAndRevision(c, obtainedUUID.String(), "store", 5)
 	// Assert: Check that the resource has been remove from the stored blob
 	s.checkResourceFileStore(c, resID)
 }
 
-func (s *resourceSuite) checkResourceFileStore(c *gc.C, resID coreresource.UUID) {
+func (s *resourceSuite) checkResourceFileStore(c *tc.C, resID coreresource.UUID) {
 	// Assert: Check that the resource has been remove from the stored blob
 	var (
 		foundStoreUUID string
@@ -2258,14 +2258,14 @@ SELECT store_uuid
 FROM   resource_file_store
 WHERE  resource_uuid = ?`, resID).Scan(&foundStoreUUID)
 	})
-	c.Check(err, gc.ErrorMatches, "sql: no rows in result set")
+	c.Check(err, tc.ErrorMatches, "sql: no rows in result set")
 }
 
 // TestUpdateResourceRevisionAndDeletePriorVersionImage tests that a resource
 // revision and type are updated via the UpdateResourceRevisionAndDeletePriorVersion
 // method. Check that the application's charm modified version is also incremented.
 // Verify the resource image record has been deleted and the correct hash returned.
-func (s *resourceSuite) TestUpdateResourceRevisionAndDeletePriorVersionImage(c *gc.C) {
+func (s *resourceSuite) TestUpdateResourceRevisionAndDeletePriorVersionImage(c *tc.C) {
 	// Arrange : a simple resource
 	resID := coreresource.UUID("resource-id")
 	fp, err := charmresource.NewFingerprint(fingerprint)
@@ -2295,7 +2295,7 @@ func (s *resourceSuite) TestUpdateResourceRevisionAndDeletePriorVersionImage(c *
 		err := input.insert(context.Background(), tx)
 		return errors.Capture(err)
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	expectedCharmModifiedVersion := s.getCharmModifiedVersion(c, resID.String()) + 1
 	args := resource.UpdateResourceRevisionArgs{
@@ -2305,15 +2305,15 @@ func (s *resourceSuite) TestUpdateResourceRevisionAndDeletePriorVersionImage(c *
 
 	obtainedUUID, err := s.state.UpdateResourceRevisionAndDeletePriorVersion(context.Background(), args, charmresource.TypeContainerImage)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtainedUUID, gc.Not(gc.Equals), resID)
+	c.Check(obtainedUUID, tc.Not(tc.Equals), resID)
 
 	obtainedCharmModifiedVersion := s.getCharmModifiedVersion(c, obtainedUUID.String())
-	c.Check(obtainedCharmModifiedVersion, gc.Equals, expectedCharmModifiedVersion)
+	c.Check(obtainedCharmModifiedVersion, tc.Equals, expectedCharmModifiedVersion)
 	s.checkResourceOriginAndRevision(c, obtainedUUID.String(), charmresource.OriginStore.String(), 5)
 	s.checkResourceImageStore(c, resID)
 }
 
-func (s *resourceSuite) checkResourceImageStore(c *gc.C, resID coreresource.UUID) {
+func (s *resourceSuite) checkResourceImageStore(c *tc.C, resID coreresource.UUID) {
 	// Assert: Check that the resource has been remove from the stored blob
 	var (
 		foundStoreUUID string
@@ -2324,13 +2324,13 @@ SELECT store_storage_key
 FROM   resource_image_store
 WHERE  resource_uuid = ?`, resID).Scan(&foundStoreUUID)
 	})
-	c.Check(err, gc.ErrorMatches, "sql: no rows in result set")
+	c.Check(err, tc.ErrorMatches, "sql: no rows in result set")
 }
 
 // TestUpdateResourceRevisionAndDeletePriorVersionFileNotStored tests that a
 // resource revision and type are updated via the UpdateResourceRevisionAndDeletePriorVersion
 // method. Check that the application's charm modified version is also incremented.
-func (s *resourceSuite) TestUpdateResourceRevisionAndDeletePriorVersionFileNotStored(c *gc.C) {
+func (s *resourceSuite) TestUpdateResourceRevisionAndDeletePriorVersionFileNotStored(c *tc.C) {
 	// Arrange : a simple resource
 	resID := s.addResourceWithOrigin(c, charmresource.TypeFile, "upload")
 
@@ -2355,17 +2355,17 @@ WHERE  resource_uuid = ?`, resID).Scan(&foundStoreUUID)
 
 	obtainedUUID, err := s.state.UpdateResourceRevisionAndDeletePriorVersion(context.Background(), args, charmresource.TypeFile)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtainedUUID, gc.Not(gc.Equals), resID)
+	c.Check(obtainedUUID, tc.Not(tc.Equals), resID)
 
 	obtainedCharmModifiedVersion := s.getCharmModifiedVersion(c, obtainedUUID.String())
-	c.Check(obtainedCharmModifiedVersion, gc.Equals, expectedCharmModifiedVersion)
+	c.Check(obtainedCharmModifiedVersion, tc.Equals, expectedCharmModifiedVersion)
 	s.checkResourceOriginAndRevision(c, obtainedUUID.String(), charmresource.OriginStore.String(), 5)
 }
 
 // TestUpdateResourceRevisionAndDeletePriorVersionImageNotStored tests that a
 // resource revision and type are updated via the UpdateResourceRevisionAndDeletePriorVersion
 // method. Check that the application's charm modified version is also incremented.
-func (s *resourceSuite) TestUpdateResourceRevisionAndDeletePriorVersionImageNotStored(c *gc.C) {
+func (s *resourceSuite) TestUpdateResourceRevisionAndDeletePriorVersionImageNotStored(c *tc.C) {
 	// Arrange : a simple resource
 	resID := s.addResourceWithOrigin(c, charmresource.TypeContainerImage, "upload")
 
@@ -2386,30 +2386,30 @@ SELECT store_storage_key
 FROM   resource_image_store
 WHERE  resource_uuid = ?`, resID).Scan(&foundStoreUUID)
 	})
-	c.Check(err, gc.ErrorMatches, "sql: no rows in result set")
+	c.Check(err, tc.ErrorMatches, "sql: no rows in result set")
 
 	obtainedUUID, err := s.state.UpdateResourceRevisionAndDeletePriorVersion(context.Background(), args, charmresource.TypeContainerImage)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtainedUUID, gc.Not(gc.Equals), resID)
+	c.Check(obtainedUUID, tc.Not(tc.Equals), resID)
 
 	obtainedCharmModifiedVersion := s.getCharmModifiedVersion(c, obtainedUUID.String())
-	c.Check(obtainedCharmModifiedVersion, gc.Equals, expectedCharmModifiedVersion)
+	c.Check(obtainedCharmModifiedVersion, tc.Equals, expectedCharmModifiedVersion)
 	s.checkResourceOriginAndRevision(c, obtainedUUID.String(), "store", 5)
 }
 
 // TestUpdateResourceStoreToUpload tests updating a resource with origin store,
 // to a resource with origin upload.
-func (s *resourceSuite) TestUpdateUploadResourceAndDeletePriorVersionUpload(c *gc.C) {
+func (s *resourceSuite) TestUpdateUploadResourceAndDeletePriorVersionUpload(c *tc.C) {
 	s.testUpdateUploadResourceAndDeletePriorVersion(c, charmresource.OriginUpload)
 }
 
 // TestUpdateResourceStoreToUpload tests updating a resource with origin store,
 // to a resource with origin upload. Start with a store origin and revision
-func (s *resourceSuite) TestUpdateUploadResourceAndDeletePriorVersionRevision(c *gc.C) {
+func (s *resourceSuite) TestUpdateUploadResourceAndDeletePriorVersionRevision(c *tc.C) {
 	s.testUpdateUploadResourceAndDeletePriorVersion(c, charmresource.OriginStore)
 }
 
-func (s *resourceSuite) testUpdateUploadResourceAndDeletePriorVersion(c *gc.C, origin charmresource.Origin) {
+func (s *resourceSuite) testUpdateUploadResourceAndDeletePriorVersion(c *tc.C, origin charmresource.Origin) {
 	// Arrange: a resource to update.
 	originalUUID := coreresource.UUID("resource-id")
 	fp, err := charmresource.NewFingerprint(fingerprint)
@@ -2429,7 +2429,7 @@ func (s *resourceSuite) testUpdateUploadResourceAndDeletePriorVersion(c *gc.C, o
 		err := input.insert(context.Background(), tx)
 		return errors.Capture(err)
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	args := resource.StateUpdateUploadResourceArgs{
 		ResourceType: charmresource.TypeContainerImage,
@@ -2440,7 +2440,7 @@ func (s *resourceSuite) testUpdateUploadResourceAndDeletePriorVersion(c *gc.C, o
 	obtainedUUID, err := s.state.UpdateUploadResourceAndDeletePriorVersion(context.Background(), args)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to update resource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) failed to update resource: %v", errors.ErrorStack(err)))
 
 	// Assert check the application resource was updated to the newly inserted
 	// record and that it has the correct origin and revision.
@@ -2450,7 +2450,7 @@ func (s *resourceSuite) testUpdateUploadResourceAndDeletePriorVersion(c *gc.C, o
 	s.checkResourceImageStore(c, originalUUID)
 }
 
-func (s *resourceSuite) checkApplicationResourceUpdated(c *gc.C, appID, expectedResourceUUID string) {
+func (s *resourceSuite) checkApplicationResourceUpdated(c *tc.C, appID, expectedResourceUUID string) {
 	var (
 		foundOrigin string
 		foundUUID   string
@@ -2463,12 +2463,12 @@ WHERE  application_uuid = ?
 `, appID).Scan(&foundUUID, &foundOrigin)
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(foundOrigin, gc.Equals, charmresource.OriginUpload.String())
+	c.Check(foundOrigin, tc.Equals, charmresource.OriginUpload.String())
 	// Check that the uuid of the resource has been updated.
-	c.Check(foundUUID, gc.Equals, expectedResourceUUID)
+	c.Check(foundUUID, tc.Equals, expectedResourceUUID)
 }
 
-func (s *resourceSuite) TestUpdateUploadResourceAndDeletePriorVersionFileStore(c *gc.C) {
+func (s *resourceSuite) TestUpdateUploadResourceAndDeletePriorVersionFileStore(c *tc.C) {
 	// Arrange: a resource to update.
 	originalUUID := coreresource.UUID("resource-id")
 	fp, err := charmresource.NewFingerprint(fingerprint)
@@ -2487,7 +2487,7 @@ func (s *resourceSuite) TestUpdateUploadResourceAndDeletePriorVersionFileStore(c
 		err := input.insert(context.Background(), tx)
 		return errors.Capture(err)
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	args := resource.StateUpdateUploadResourceArgs{
 		ResourceType: charmresource.TypeFile,
@@ -2498,7 +2498,7 @@ func (s *resourceSuite) TestUpdateUploadResourceAndDeletePriorVersionFileStore(c
 	obtainedUUID, err := s.state.UpdateUploadResourceAndDeletePriorVersion(context.Background(), args)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to update resource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) failed to update resource: %v", errors.ErrorStack(err)))
 
 	// Assert check the application resource was updated to the newly inserted
 	// record and that it has the correct origin and revision.
@@ -2510,7 +2510,7 @@ func (s *resourceSuite) TestUpdateUploadResourceAndDeletePriorVersionFileStore(c
 
 // TestDeleteResourcesAddedBeforeApplication tests the happy path for
 // DeleteResourcesAddedBeforeApplication.
-func (s *resourceSuite) TestDeleteResourcesAddedBeforeApplication(c *gc.C) {
+func (s *resourceSuite) TestDeleteResourcesAddedBeforeApplication(c *tc.C) {
 	resourceUUID := coreresourcetesting.GenResourceUUID(c)
 	resourceName := "testResource"
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
@@ -2543,7 +2543,7 @@ VALUES (?, ?)`, resourceUUID.String(), "test-app")
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	err = s.state.DeleteResourcesAddedBeforeApplication(context.Background(), []coreresource.UUID{resourceUUID})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2551,7 +2551,7 @@ VALUES (?, ?)`, resourceUUID.String(), "test-app")
 	s.checkResourceDeleted(c, resourceUUID.String())
 }
 
-func (s *resourceSuite) TestImportResources(c *gc.C) {
+func (s *resourceSuite) TestImportResources(c *tc.C) {
 	// Arrange: Add charm resources for the resources we are going to set.
 	app1Res1Name := "app-1-resource-1"
 	app1Res2Name := "app-1-resource-2"
@@ -2639,7 +2639,7 @@ func (s *resourceSuite) TestImportResources(c *gc.C) {
 
 // TestImportResourcesOnLocalCharm checks that repository resources are not set for
 // local charms.
-func (s *resourceSuite) TestImportResourcesOnLocalCharm(c *gc.C) {
+func (s *resourceSuite) TestImportResourcesOnLocalCharm(c *tc.C) {
 	// Arrange: Add a local charm and an app on it.
 	charmUUID := "local-charm-uuid"
 	appName := "local-charm-app"
@@ -2683,7 +2683,7 @@ func (s *resourceSuite) TestImportResourcesOnLocalCharm(c *gc.C) {
 // correctly import unit resources that have a revision and origin that do not
 // match those of the application resource with the same name. These should have
 // a row in the resource table created for them that the unit resource links to.
-func (s *resourceSuite) TestImportResourcesUnitResourceNotMatchingApplicationResources(c *gc.C) {
+func (s *resourceSuite) TestImportResourcesUnitResourceNotMatchingApplicationResources(c *tc.C) {
 	// Arrange: Add charm resources for the resources we are going to set.
 	resName := "resource-name"
 	s.addCharmResource(c, fakeCharmUUID, charmresource.Meta{
@@ -2745,7 +2745,7 @@ func (s *resourceSuite) TestImportResourcesUnitResourceNotMatchingApplicationRes
 
 	// Assert: the application resource had the same origin and revision as unit
 	// resource 3, so it should be the same resource.
-	c.Assert(resUUID, gc.Equals, resUnit3UUID)
+	c.Assert(resUUID, tc.Equals, resUnit3UUID)
 
 	// Assert: Check the unit resources were set.
 	s.checkUnitResourceSet(c, resUnit1UUID, s.constants.fakeUnitUUID1, resUnit1)
@@ -2753,7 +2753,7 @@ func (s *resourceSuite) TestImportResourcesUnitResourceNotMatchingApplicationRes
 	s.checkUnitResourceSet(c, resUnit3UUID, s.constants.fakeUnitUUID3, resUnit3)
 }
 
-func (s *resourceSuite) TestImportResourcesEmpty(c *gc.C) {
+func (s *resourceSuite) TestImportResourcesEmpty(c *tc.C) {
 	// Act:
 	err := s.state.ImportResources(context.Background(), nil)
 
@@ -2763,7 +2763,7 @@ func (s *resourceSuite) TestImportResourcesEmpty(c *gc.C) {
 
 // TestImportResourcesOnLocalCharm checks that repository resources are not set for
 // local charms.
-func (s *resourceSuite) TestImportResourcesApplicationNotFound(c *gc.C) {
+func (s *resourceSuite) TestImportResourcesApplicationNotFound(c *tc.C) {
 	// Arrange: Create arguments for ImportResources containing a bad application
 	// name.
 	args := []resource.ImportResourcesArg{{
@@ -2779,7 +2779,7 @@ func (s *resourceSuite) TestImportResourcesApplicationNotFound(c *gc.C) {
 
 // TestImportResourcesOnLocalCharm checks that repository resources are not set for
 // local charms.
-func (s *resourceSuite) TestImportResourcesResourceNotFound(c *gc.C) {
+func (s *resourceSuite) TestImportResourcesResourceNotFound(c *tc.C) {
 	// Arrange: Create arguments for ImportResources containing the resources we
 	// want to set.
 	setRes := resource.ImportResourceInfo{
@@ -2800,7 +2800,7 @@ func (s *resourceSuite) TestImportResourcesResourceNotFound(c *gc.C) {
 	c.Check(err, jc.ErrorIs, resourceerrors.ResourceNotFound)
 }
 
-func (s *resourceSuite) TestImportResourcesUnitNotFound(c *gc.C) {
+func (s *resourceSuite) TestImportResourcesUnitNotFound(c *tc.C) {
 	// Arrange: Add charm resources for the resources we are going to set.
 	app1Res1Name := "app-1-resource-1"
 	s.addCharmResource(c, fakeCharmUUID, charmresource.Meta{
@@ -2832,7 +2832,7 @@ func (s *resourceSuite) TestImportResourcesUnitNotFound(c *gc.C) {
 	c.Check(err, jc.ErrorIs, resourceerrors.UnitNotFound)
 }
 
-func (s *resourceSuite) TestImportResourcesOriginNotValid(c *gc.C) {
+func (s *resourceSuite) TestImportResourcesOriginNotValid(c *tc.C) {
 	// Arrange: Add charm resources for the resources we are going to set.
 	app1Res1Name := "app-1-resource-1"
 	s.addCharmResource(c, fakeCharmUUID, charmresource.Meta{
@@ -2861,7 +2861,7 @@ func (s *resourceSuite) TestImportResourcesOriginNotValid(c *gc.C) {
 
 // TestExportResources tests the retrieval and organization of resources from the
 // database.
-func (s *resourceSuite) TestExportResources(c *gc.C) {
+func (s *resourceSuite) TestExportResources(c *tc.C) {
 	// Arrange
 	now := time.Now().Truncate(time.Second).UTC()
 
@@ -2927,18 +2927,18 @@ func (s *resourceSuite) TestExportResources(c *gc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act
 	exportedResources, err := s.state.ExportResources(context.Background(), s.constants.fakeApplicationName1)
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
-	c.Check(exportedResources.Resources, gc.DeepEquals, []coreresource.Resource{
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
+	c.Check(exportedResources.Resources, tc.DeepEquals, []coreresource.Resource{
 		resource1.toResource(s, c),
 		resource2.toResource(s, c),
 	})
-	c.Check(exportedResources.UnitResources, gc.DeepEquals, []coreresource.UnitResources{
+	c.Check(exportedResources.UnitResources, tc.DeepEquals, []coreresource.UnitResources{
 		{
 			Name: unit.Name(s.constants.fakeUnitName1),
 			Resources: []coreresource.Resource{
@@ -2961,14 +2961,14 @@ func (s *resourceSuite) TestExportResources(c *gc.C) {
 // TestExportResourcesNoResources verifies that no resources are returned for an
 // application when no resources exist. It checks that the resulting lists for
 // unit resources, general resources, and repository resources are all empty.
-func (s *resourceSuite) TestExportResourcesNoResources(c *gc.C) {
+func (s *resourceSuite) TestExportResourcesNoResources(c *tc.C) {
 	// Arrange: No resources
 	// Act
 	exportedResources, err := s.state.ExportResources(context.Background(), s.constants.fakeApplicationName1)
 	// Assert
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
-	c.Check(exportedResources.Resources, gc.IsNil)
-	c.Check(exportedResources.UnitResources, gc.DeepEquals, []coreresource.UnitResources{
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
+	c.Check(exportedResources.Resources, tc.IsNil)
+	c.Check(exportedResources.UnitResources, tc.DeepEquals, []coreresource.UnitResources{
 		{
 			Name: unit.Name(s.constants.fakeUnitName1),
 			// No resources
@@ -2984,7 +2984,7 @@ func (s *resourceSuite) TestExportResourcesNoResources(c *gc.C) {
 	})
 }
 
-func (s *resourceSuite) TestExportResourcesApplicationNotFound(c *gc.C) {
+func (s *resourceSuite) TestExportResourcesApplicationNotFound(c *tc.C) {
 	// Arrange: No resources
 	// Act
 	_, err := s.state.ExportResources(context.Background(), "bad-app-name")
@@ -2994,7 +2994,7 @@ func (s *resourceSuite) TestExportResourcesApplicationNotFound(c *gc.C) {
 
 // TestDeleteImportedApplicationResources checks the importing and then deleting
 // resources leaves the database in the same state it started.
-func (s *resourceSuite) TestDeleteImportedApplicationResources(c *gc.C) {
+func (s *resourceSuite) TestDeleteImportedApplicationResources(c *tc.C) {
 	// Arrange: Add charm resources for the resources we are going to set.
 	app1Res1Name := "app-1-resource-1"
 	app1Res2Name := "app-1-resource-2"
@@ -3059,13 +3059,13 @@ func (s *resourceSuite) TestDeleteImportedApplicationResources(c *gc.C) {
 		context.Background(),
 		[]string{s.constants.fakeApplicationName1, s.constants.fakeApplicationName2},
 	)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to delete resources: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Act) failed to delete resources: %v", errors.ErrorStack(err)))
 
 	// Assert: Check that all the resources have been removed.
 	s.checkResourceTablesEmpty(c)
 }
 
-func (s *resourceSuite) addLocalCharmAndApp(c *gc.C, charmUUID, appName, appUUID string) {
+func (s *resourceSuite) addLocalCharmAndApp(c *tc.C, charmUUID, appName, appUUID string) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO charm (uuid, reference_name, source_id) VALUES (?, 'app', 0 /* local */)
@@ -3085,7 +3085,7 @@ INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?,
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *resourceSuite) addCharmResource(c *gc.C, charmUUID string, m charmresource.Meta) {
+func (s *resourceSuite) addCharmResource(c *tc.C, charmUUID string, m charmresource.Meta) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.Exec(`
 INSERT INTO charm_resource (charm_uuid, name, kind_id, path, description) 
@@ -3100,7 +3100,7 @@ VALUES (?, ?, ?, ?, ?)`,
 }
 
 func (s *resourceSuite) checkResourceSet(
-	c *gc.C,
+	c *tc.C,
 	charmUUID string,
 	res resource.ImportResourceInfo,
 ) string {
@@ -3122,14 +3122,14 @@ AND    state_id = 0 -- "available"
 		)
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(uuid, gc.Not(gc.Equals), "")
-	c.Check(createdAt, gc.Equals, res.Timestamp)
+	c.Check(uuid, tc.Not(tc.Equals), "")
+	c.Check(createdAt, tc.Equals, res.Timestamp)
 
 	return uuid
 }
 
 func (s *resourceSuite) checkApplicationResourceSet(
-	c *gc.C,
+	c *tc.C,
 	expectedAppID string,
 	uuid string,
 ) {
@@ -3142,13 +3142,13 @@ WHERE  resource_uuid = ?
 `, uuid).Scan(&appID)
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(appID, gc.Equals, expectedAppID)
+	c.Check(appID, tc.Equals, expectedAppID)
 }
 
 // checkRepoResourceSet checks for the repository resource record ("potential"
 // resource) and application link.
 func (s *resourceSuite) checkRepoResourceSet(
-	c *gc.C,
+	c *tc.C,
 	expectedAppID string,
 	res resource.ImportResourceInfo,
 ) {
@@ -3168,8 +3168,8 @@ AND    state_id = 1 -- "potential"
 `, res.Name, fakeCharmUUID).Scan(&repoResourceUUID, &revision, &originTypeID, &lastPolled)
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(repoResourceUUID, gc.Not(gc.Equals), "")
-	c.Check(originTypeID, gc.Equals, OriginTypeID(charmresource.OriginStore.String()))
+	c.Check(repoResourceUUID, tc.Not(tc.Equals), "")
+	c.Check(originTypeID, tc.Equals, OriginTypeID(charmresource.OriginStore.String()))
 	c.Check(revision.Valid, jc.IsFalse)
 	c.Check(lastPolled.Valid, jc.IsFalse)
 
@@ -3182,11 +3182,11 @@ WHERE  resource_uuid = ?
 `, repoResourceUUID).Scan(&appID)
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(appID, gc.Equals, expectedAppID)
+	c.Check(appID, tc.Equals, expectedAppID)
 }
 
 func (s *resourceSuite) checkKubernetesResourceSet(
-	c *gc.C,
+	c *tc.C,
 	resourceUUID string,
 	res resource.ImportResourceInfo,
 ) {
@@ -3199,12 +3199,12 @@ WHERE  resource_uuid = ?
 `, resourceUUID).Scan(&addedAt)
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(addedAt, gc.Equals, res.Timestamp)
+	c.Check(addedAt, tc.Equals, res.Timestamp)
 
 }
 
 func (s *resourceSuite) checkUnitResourceSet(
-	c *gc.C,
+	c *tc.C,
 	resourceUUID string,
 	expectedUnitUUID string,
 	res resource.ImportUnitResourceInfo) {
@@ -3220,14 +3220,14 @@ WHERE  resource_uuid = ?
 `, resourceUUID).Scan(&unitUUID, &addedAt)
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(unitUUID, gc.Equals, expectedUnitUUID)
-	c.Check(addedAt, gc.Equals, res.Timestamp)
+	c.Check(unitUUID, tc.Equals, expectedUnitUUID)
+	c.Check(addedAt, tc.Equals, res.Timestamp)
 }
 
 // checkRepoResourceNotSet checks there is no potential resource for this charm
 // resource.
 func (s *resourceSuite) checkRepoResourceNotSet(
-	c *gc.C,
+	c *tc.C,
 	charmUUID string,
 	res resource.ImportResourceInfo,
 ) {
@@ -3245,7 +3245,7 @@ AND    state_id = 1 -- "potential"
 }
 
 func (s *resourceSuite) checkResourceTablesEmpty(
-	c *gc.C,
+	c *tc.C,
 ) {
 	var uuid string
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -3281,11 +3281,11 @@ FROM   kubernetes_application_resource
 	c.Check(err, jc.ErrorIs, sql.ErrNoRows)
 }
 
-func (s *resourceSuite) addResource(c *gc.C, resType charmresource.Type) coreresource.UUID {
+func (s *resourceSuite) addResource(c *tc.C, resType charmresource.Type) coreresource.UUID {
 	return s.addResourceWithOrigin(c, resType, "upload")
 }
 
-func (s *resourceSuite) addResourceWithOrigin(c *gc.C, resType charmresource.Type, origin string) coreresource.UUID {
+func (s *resourceSuite) addResourceWithOrigin(c *tc.C, resType charmresource.Type, origin string) coreresource.UUID {
 	createdAt := time.Now().Truncate(time.Second).UTC()
 	resourceUUID := coreresource.UUID("resource-uuid")
 	resID := resourceUUID.String()
@@ -3303,11 +3303,11 @@ func (s *resourceSuite) addResourceWithOrigin(c *gc.C, resType charmresource.Typ
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to add resource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to add resource: %v", errors.ErrorStack(err)))
 	return resourceUUID
 }
 
-func (s *resourceSuite) createFileResourceAndBlob(c *gc.C) (_ coreresource.UUID, _ store.ID, size int64, hash string) {
+func (s *resourceSuite) createFileResourceAndBlob(c *tc.C) (_ coreresource.UUID, _ store.ID, size int64, hash string) {
 	// Arrange: insert a resource.
 	resID := coreresourcetesting.GenResourceUUID(c)
 	input := resourceData{
@@ -3321,18 +3321,18 @@ func (s *resourceSuite) createFileResourceAndBlob(c *gc.C) (_ coreresource.UUID,
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to add resource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to add resource: %v", errors.ErrorStack(err)))
 
 	// Arrange: add a blob to the object store.
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 	storeID := resourcestoretesting.GenFileResourceStoreID(c, objectStoreUUID)
 	err = s.addObjectStoreBlobMetadata(objectStoreUUID)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to add object store blob: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to add object store blob: %v", errors.ErrorStack(err)))
 
 	return resID, storeID, 42, hash
 }
 
-func (s *resourceSuite) createContainerImageResourceAndBlob(c *gc.C) (_ coreresource.UUID, _ store.ID, size int64, hash string) {
+func (s *resourceSuite) createContainerImageResourceAndBlob(c *tc.C) (_ coreresource.UUID, _ store.ID, size int64, hash string) {
 	// Arrange: insert a resource.
 	resID := coreresourcetesting.GenResourceUUID(c)
 	input := resourceData{
@@ -3346,13 +3346,13 @@ func (s *resourceSuite) createContainerImageResourceAndBlob(c *gc.C) (_ corereso
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to add resource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to add resource: %v", errors.ErrorStack(err)))
 
 	// Arrange: add a container image using the resource UUID as the storage key.
 	storageKey := resID.String()
 	storeID := resourcestoretesting.GenContainerImageMetadataResourceID(c, storageKey)
 	err = s.addContainerImage(storageKey)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to add container image: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to add container image: %v", errors.ErrorStack(err)))
 
 	return resID, storeID, 24, "hash"
 }
@@ -3379,7 +3379,7 @@ INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size) VALUES (?, ?, ?
 // setWithRetrievedBy sets a resource with the specified retrievedBy and
 // retrievedByType.
 func (s *resourceSuite) setWithRetrievedBy(
-	c *gc.C,
+	c *tc.C,
 	resourceUUID coreresource.UUID,
 	retrievedBy string,
 	retrievedByType coreresource.RetrievedByType,
@@ -3387,7 +3387,7 @@ func (s *resourceSuite) setWithRetrievedBy(
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 	storeID := resourcestoretesting.GenFileResourceStoreID(c, objectStoreUUID)
 	err := s.addObjectStoreBlobMetadata(objectStoreUUID)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to add object store blob: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) failed to add object store blob: %v", errors.ErrorStack(err)))
 	err = s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
@@ -3401,7 +3401,7 @@ func (s *resourceSuite) setWithRetrievedBy(
 	return err
 }
 
-func (s *resourceSuite) getRetrievedByType(c *gc.C, resourceUUID coreresource.UUID) (retrievedBy string,
+func (s *resourceSuite) getRetrievedByType(c *tc.C, resourceUUID coreresource.UUID) (retrievedBy string,
 	retrievedByType coreresource.RetrievedByType) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
@@ -3414,7 +3414,7 @@ WHERE  resource_uuid = ?`, resourceUUID.String()).Scan(&retrievedBy, &retrievedB
 	return retrievedBy, retrievedByType
 }
 
-func (s *resourceSuite) getCharmModifiedVersion(c *gc.C, resID string) int {
+func (s *resourceSuite) getCharmModifiedVersion(c *tc.C, resID string) int {
 	var charmModifiedVersion sql.NullInt64
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
@@ -3430,7 +3430,7 @@ WHERE  ar.resource_uuid = ?`, resID).Scan(&charmModifiedVersion)
 	return 0
 }
 
-func (s *resourceSuite) checkResourceOriginAndRevision(c *gc.C, resID, expectedOrigin string, expectedRevision int) {
+func (s *resourceSuite) checkResourceOriginAndRevision(c *tc.C, resID, expectedOrigin string, expectedRevision int) {
 	// Assert: Check that the origin and revision have been set.
 	var (
 		obtainedOrigin   string
@@ -3443,12 +3443,12 @@ FROM   resource r
 JOIN   resource_origin_type rot ON r.origin_type_id = rot.id
 WHERE  r.uuid = ?`, resID).Scan(&obtainedOrigin, &obtainedRevision)
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) origin and revision in resource table not updated: %v", errors.ErrorStack(err)))
-	c.Check(obtainedOrigin, gc.Equals, expectedOrigin)
-	c.Check(obtainedRevision, gc.Equals, expectedRevision)
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Assert) origin and revision in resource table not updated: %v", errors.ErrorStack(err)))
+	c.Check(obtainedOrigin, tc.Equals, expectedOrigin)
+	c.Check(obtainedRevision, tc.Equals, expectedRevision)
 }
 
-func (s *resourceSuite) checkPendingApplicationDeleted(c *gc.C, resID string) {
+func (s *resourceSuite) checkPendingApplicationDeleted(c *tc.C, resID string) {
 	var foundAppName string
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
@@ -3456,10 +3456,10 @@ SELECT application_name
 FROM   pending_application_resource
 WHERE  resource_uuid = ?`, resID).Scan(&foundAppName)
 	})
-	c.Check(err, gc.ErrorMatches, "sql: no rows in result set")
+	c.Check(err, tc.ErrorMatches, "sql: no rows in result set")
 }
 
-func (s *resourceSuite) checkResourceDeleted(c *gc.C, resID string) {
+func (s *resourceSuite) checkResourceDeleted(c *tc.C, resID string) {
 	var foundResName string
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
@@ -3467,7 +3467,7 @@ SELECT charm_resource_name
 FROM   resource
 WHERE  uuid = ?`, resID).Scan(&foundResName)
 	})
-	c.Check(err, gc.ErrorMatches, "sql: no rows in result set")
+	c.Check(err, tc.ErrorMatches, "sql: no rows in result set")
 }
 
 func insertCharmStateWithRevision(ctx context.Context, tx *sql.Tx, uuid string, revision int) error {
@@ -3529,7 +3529,7 @@ type resourceData struct {
 }
 
 // toCharmResource converts a resourceData object to a charmresource.Resource object.
-func (d resourceData) toCharmResource(c *gc.C) charmresource.Resource {
+func (d resourceData) toCharmResource(c *tc.C) charmresource.Resource {
 	origin, err := charmresource.ParseOrigin(d.OriginType)
 	if err != nil {
 		// default case
@@ -3556,7 +3556,7 @@ func (d resourceData) toCharmResource(c *gc.C) charmresource.Resource {
 
 // toResource converts a resourceData object to a resource.Resource object with
 // enriched metadata.
-func (d resourceData) toResource(s *resourceSuite, c *gc.C) coreresource.Resource {
+func (d resourceData) toResource(s *resourceSuite, c *tc.C) coreresource.Resource {
 	return coreresource.Resource{
 		Resource:        d.toCharmResource(c),
 		UUID:            coreresource.UUID(d.UUID),

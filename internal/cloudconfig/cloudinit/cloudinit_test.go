@@ -7,11 +7,11 @@ package cloudinit_test
 import (
 	"fmt"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	sshtesting "github.com/juju/utils/v4/ssh/testing"
 	"go.uber.org/mock/gomock"
 	"golang.org/x/crypto/ssh"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
@@ -25,7 +25,7 @@ type S struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(S{})
+var _ = tc.Suite(S{})
 
 var ctests = []struct {
 	name      string
@@ -498,7 +498,7 @@ var ctests = []struct {
 },
 }
 
-func (S) TestOutput(c *gc.C) {
+func (S) TestOutput(c *tc.C) {
 	for i, t := range ctests {
 		c.Logf("test %d: %s", i, t.name)
 		cfg, err := cloudinit.New("ubuntu")
@@ -507,37 +507,37 @@ func (S) TestOutput(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		data, err := cfg.RenderYAML()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(data, gc.NotNil)
+		c.Assert(data, tc.NotNil)
 		c.Assert(string(data), jc.YAMLEquals, t.expect)
 		data, err = cfg.RenderYAML()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(data, gc.NotNil)
+		c.Assert(data, tc.NotNil)
 		c.Assert(string(data), jc.YAMLEquals, t.expect)
 	}
 }
 
-func (S) TestRunCmds(c *gc.C) {
+func (S) TestRunCmds(c *tc.C) {
 	cfg, err := cloudinit.New("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.RunCmds(), gc.HasLen, 0)
+	c.Assert(cfg.RunCmds(), tc.HasLen, 0)
 	cfg.AddScripts("a", "b")
 	cfg.AddRunCmd("e")
-	c.Assert(cfg.RunCmds(), gc.DeepEquals, []string{
+	c.Assert(cfg.RunCmds(), tc.DeepEquals, []string{
 		"a", "b", "e",
 	})
 }
 
-func (S) TestPackages(c *gc.C) {
+func (S) TestPackages(c *tc.C) {
 	cfg, err := cloudinit.New("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.Packages(), gc.HasLen, 0)
+	c.Assert(cfg.Packages(), tc.HasLen, 0)
 	cfg.AddPackage("a b c")
 	cfg.AddPackage("d!")
 	expectedPackages := []string{"a b c", "d!"}
-	c.Assert(cfg.Packages(), gc.DeepEquals, expectedPackages)
+	c.Assert(cfg.Packages(), tc.DeepEquals, expectedPackages)
 }
 
-func (S) TestSetOutput(c *gc.C) {
+func (S) TestSetOutput(c *tc.C) {
 	type test struct {
 		kind   cloudinit.OutputKind
 		stdout string
@@ -559,18 +559,18 @@ func (S) TestSetOutput(c *gc.C) {
 	cfg, err := cloudinit.New("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 	stdout, stderr := cfg.Output(cloudinit.OutAll)
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Equals, "")
+	c.Assert(stdout, tc.Equals, "")
+	c.Assert(stderr, tc.Equals, "")
 	for i, t := range tests {
 		c.Logf("test %d: %+v", i, t)
 		cfg.SetOutput(t.kind, t.stdout, t.stderr)
 		stdout, stderr = cfg.Output(t.kind)
-		c.Assert(stdout, gc.Equals, t.stdout)
-		c.Assert(stderr, gc.Equals, t.stderr)
+		c.Assert(stdout, tc.Equals, t.stdout)
+		c.Assert(stderr, tc.Equals, t.stderr)
 	}
 }
 
-func (S) TestFileTransporter(c *gc.C) {
+func (S) TestFileTransporter(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -594,7 +594,7 @@ func (S) TestFileTransporter(c *gc.C) {
 	err = yaml.Unmarshal(out, unmarshalled)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(unmarshalled, gc.DeepEquals, map[string]any{
+	c.Assert(unmarshalled, tc.DeepEquals, map[string]any{
 		"runcmd": []any{
 			"install -D -m 644 /dev/null '/dev/nonsense'",
 			"cat '/tmp/dev-nonsense' > '/dev/nonsense'",

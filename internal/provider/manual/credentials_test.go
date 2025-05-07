@@ -4,8 +4,8 @@
 package manual_test
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -18,9 +18,9 @@ type credentialsSuite struct {
 	provider environs.EnvironProvider
 }
 
-var _ = gc.Suite(&credentialsSuite{})
+var _ = tc.Suite(&credentialsSuite{})
 
-func (s *credentialsSuite) SetUpTest(c *gc.C) {
+func (s *credentialsSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	var err error
@@ -28,11 +28,11 @@ func (s *credentialsSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
+func (s *credentialsSuite) TestCredentialSchemas(c *tc.C) {
 	envtesting.AssertProviderAuthTypes(c, s.provider, "empty")
 }
 
-func (s *credentialsSuite) TestDetectCredentials(c *gc.C) {
+func (s *credentialsSuite) TestDetectCredentials(c *tc.C) {
 	credentials, err := s.provider.DetectCredentials("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials, jc.DeepEquals, cloud.NewEmptyCloudCredential())

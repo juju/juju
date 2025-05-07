@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent/engine"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -25,18 +25,18 @@ type HousingSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&HousingSuite{})
+var _ = tc.Suite(&HousingSuite{})
 
-func (*HousingSuite) TestEmptyHousingEmptyManifold(c *gc.C) {
+func (*HousingSuite) TestEmptyHousingEmptyManifold(c *tc.C) {
 	manifold := engine.Housing{}.Decorate(dependency.Manifold{})
 
-	c.Check(manifold.Inputs, gc.HasLen, 0)
-	c.Check(manifold.Start, gc.IsNil)
-	c.Check(manifold.Output, gc.IsNil)
-	c.Check(manifold.Filter, gc.IsNil)
+	c.Check(manifold.Inputs, tc.HasLen, 0)
+	c.Check(manifold.Start, tc.IsNil)
+	c.Check(manifold.Output, tc.IsNil)
+	c.Check(manifold.Filter, tc.IsNil)
 }
 
-func (*HousingSuite) TestEmptyHousingPopulatedManifold(c *gc.C) {
+func (*HousingSuite) TestEmptyHousingPopulatedManifold(c *tc.C) {
 	manifold := engine.Housing{}.Decorate(dependency.Manifold{
 		Inputs: []string{"x", "y", "z"},
 		Start:  panicStart,
@@ -47,21 +47,21 @@ func (*HousingSuite) TestEmptyHousingPopulatedManifold(c *gc.C) {
 	c.Check(manifold.Inputs, jc.DeepEquals, []string{"x", "y", "z"})
 	c.Check(func() {
 		manifold.Start(context.Background(), nil)
-	}, gc.PanicMatches, "panicStart")
+	}, tc.PanicMatches, "panicStart")
 	c.Check(func() {
 		manifold.Output(nil, nil)
-	}, gc.PanicMatches, "panicOutput")
+	}, tc.PanicMatches, "panicOutput")
 	c.Check(func() {
 		manifold.Filter(nil)
-	}, gc.PanicMatches, "panicFilter")
+	}, tc.PanicMatches, "panicFilter")
 }
 
-func (*HousingSuite) TestReplacesFilter(c *gc.C) {
+func (*HousingSuite) TestReplacesFilter(c *tc.C) {
 	expectIn := errors.New("tweedledum")
 	expectOut := errors.New("tweedledee")
 	manifold := engine.Housing{
 		Filter: func(in error) error {
-			c.Check(in, gc.Equals, expectIn)
+			c.Check(in, tc.Equals, expectIn)
 			return expectOut
 		},
 	}.Decorate(dependency.Manifold{
@@ -69,10 +69,10 @@ func (*HousingSuite) TestReplacesFilter(c *gc.C) {
 	})
 
 	out := manifold.Filter(expectIn)
-	c.Check(out, gc.Equals, expectOut)
+	c.Check(out, tc.Equals, expectOut)
 }
 
-func (*HousingSuite) TestFlagsNoInput(c *gc.C) {
+func (*HousingSuite) TestFlagsNoInput(c *tc.C) {
 	manifold := engine.Housing{
 		Flags: []string{"foo", "bar"},
 	}.Decorate(dependency.Manifold{})
@@ -81,7 +81,7 @@ func (*HousingSuite) TestFlagsNoInput(c *gc.C) {
 	c.Check(manifold.Inputs, jc.DeepEquals, expect)
 }
 
-func (*HousingSuite) TestFlagsNewInput(c *gc.C) {
+func (*HousingSuite) TestFlagsNewInput(c *tc.C) {
 	manifold := engine.Housing{
 		Flags: []string{"foo", "bar"},
 	}.Decorate(dependency.Manifold{
@@ -92,7 +92,7 @@ func (*HousingSuite) TestFlagsNewInput(c *gc.C) {
 	c.Check(manifold.Inputs, jc.DeepEquals, expect)
 }
 
-func (*HousingSuite) TestFlagsExistingInput(c *gc.C) {
+func (*HousingSuite) TestFlagsExistingInput(c *tc.C) {
 	manifold := engine.Housing{
 		Flags: []string{"a", "c", "d"},
 	}.Decorate(dependency.Manifold{
@@ -103,7 +103,7 @@ func (*HousingSuite) TestFlagsExistingInput(c *gc.C) {
 	c.Check(manifold.Inputs, jc.DeepEquals, expect)
 }
 
-func (*HousingSuite) TestFlagMissing(c *gc.C) {
+func (*HousingSuite) TestFlagMissing(c *tc.C) {
 	manifold := engine.Housing{
 		Flags: []string{"flag"},
 	}.Decorate(dependency.Manifold{})
@@ -112,11 +112,11 @@ func (*HousingSuite) TestFlagMissing(c *gc.C) {
 	})
 
 	worker, err := manifold.Start(context.Background(), getter)
-	c.Check(worker, gc.IsNil)
-	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+	c.Check(worker, tc.IsNil)
+	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
 
-func (*HousingSuite) TestFlagBadType(c *gc.C) {
+func (*HousingSuite) TestFlagBadType(c *tc.C) {
 	manifold := engine.Housing{
 		Flags: []string{"flag"},
 	}.Decorate(dependency.Manifold{})
@@ -125,11 +125,11 @@ func (*HousingSuite) TestFlagBadType(c *gc.C) {
 	})
 
 	worker, err := manifold.Start(context.Background(), getter)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "cannot set false into .*")
+	c.Check(worker, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "cannot set false into .*")
 }
 
-func (*HousingSuite) TestFlagBadValue(c *gc.C) {
+func (*HousingSuite) TestFlagBadValue(c *tc.C) {
 	manifold := engine.Housing{
 		Flags: []string{"flag"},
 	}.Decorate(dependency.Manifold{})
@@ -138,11 +138,11 @@ func (*HousingSuite) TestFlagBadValue(c *gc.C) {
 	})
 
 	worker, err := manifold.Start(context.Background(), getter)
-	c.Check(worker, gc.IsNil)
-	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+	c.Check(worker, tc.IsNil)
+	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
 
-func (*HousingSuite) TestFlagSuccess(c *gc.C) {
+func (*HousingSuite) TestFlagSuccess(c *tc.C) {
 	expectWorker := &struct{ worker.Worker }{}
 	manifold := engine.Housing{
 		Flags: []string{"flag"},
@@ -156,11 +156,11 @@ func (*HousingSuite) TestFlagSuccess(c *gc.C) {
 	})
 
 	worker, err := manifold.Start(context.Background(), getter)
-	c.Check(worker, gc.Equals, expectWorker)
+	c.Check(worker, tc.Equals, expectWorker)
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (*HousingSuite) TestOccupyNewInput(c *gc.C) {
+func (*HousingSuite) TestOccupyNewInput(c *tc.C) {
 	manifold := engine.Housing{
 		Occupy: "fortress",
 	}.Decorate(dependency.Manifold{
@@ -171,7 +171,7 @@ func (*HousingSuite) TestOccupyNewInput(c *gc.C) {
 	c.Check(manifold.Inputs, jc.DeepEquals, expect)
 }
 
-func (*HousingSuite) TestOccupyExistingInput(c *gc.C) {
+func (*HousingSuite) TestOccupyExistingInput(c *tc.C) {
 	manifold := engine.Housing{
 		Occupy: "fortress",
 	}.Decorate(dependency.Manifold{
@@ -182,7 +182,7 @@ func (*HousingSuite) TestOccupyExistingInput(c *gc.C) {
 	c.Check(manifold.Inputs, jc.DeepEquals, expect)
 }
 
-func (*HousingSuite) TestFlagBlocksOccupy(c *gc.C) {
+func (*HousingSuite) TestFlagBlocksOccupy(c *tc.C) {
 	manifold := engine.Housing{
 		Flags:  []string{"flag"},
 		Occupy: "fortress",
@@ -193,11 +193,11 @@ func (*HousingSuite) TestFlagBlocksOccupy(c *gc.C) {
 	})
 
 	worker, err := manifold.Start(context.Background(), getter)
-	c.Check(worker, gc.IsNil)
-	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+	c.Check(worker, tc.IsNil)
+	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
 
-func (*HousingSuite) TestOccupyMissing(c *gc.C) {
+func (*HousingSuite) TestOccupyMissing(c *tc.C) {
 	manifold := engine.Housing{
 		Occupy: "fortress",
 	}.Decorate(dependency.Manifold{})
@@ -206,11 +206,11 @@ func (*HousingSuite) TestOccupyMissing(c *gc.C) {
 	})
 
 	worker, err := manifold.Start(context.Background(), getter)
-	c.Check(worker, gc.IsNil)
-	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+	c.Check(worker, tc.IsNil)
+	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
 
-func (*HousingSuite) TestOccupyBadType(c *gc.C) {
+func (*HousingSuite) TestOccupyBadType(c *tc.C) {
 	manifold := engine.Housing{
 		Occupy: "fortress",
 	}.Decorate(dependency.Manifold{})
@@ -219,11 +219,11 @@ func (*HousingSuite) TestOccupyBadType(c *gc.C) {
 	})
 
 	worker, err := manifold.Start(context.Background(), getter)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "cannot set false into .*")
+	c.Check(worker, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "cannot set false into .*")
 }
 
-func (*HousingSuite) TestOccupyLocked(c *gc.C) {
+func (*HousingSuite) TestOccupyLocked(c *tc.C) {
 	manifold := engine.Housing{
 		Occupy: "fortress",
 	}.Decorate(dependency.Manifold{})
@@ -238,8 +238,8 @@ func (*HousingSuite) TestOccupyLocked(c *gc.C) {
 	go func() {
 		defer close(started)
 		worker, err := manifold.Start(ctx, getter)
-		c.Check(worker, gc.IsNil)
-		c.Check(errors.Cause(err), gc.Equals, fortress.ErrAborted)
+		c.Check(worker, tc.IsNil)
+		c.Check(errors.Cause(err), tc.Equals, fortress.ErrAborted)
 	}()
 
 	// check it's blocked...
@@ -258,7 +258,7 @@ func (*HousingSuite) TestOccupyLocked(c *gc.C) {
 	}
 }
 
-func (*HousingSuite) TestOccupySuccess(c *gc.C) {
+func (*HousingSuite) TestOccupySuccess(c *tc.C) {
 	expectWorker := workertest.NewErrorWorker(errors.New("ignored"))
 	defer workertest.DirtyKill(c, expectWorker)
 	manifold := engine.Housing{
@@ -278,7 +278,7 @@ func (*HousingSuite) TestOccupySuccess(c *gc.C) {
 	go func() {
 		defer close(started)
 		worker, err := manifold.Start(context.Background(), getter)
-		c.Check(worker, gc.Equals, expectWorker)
+		c.Check(worker, tc.Equals, expectWorker)
 		c.Check(err, jc.ErrorIsNil)
 	}()
 	select {

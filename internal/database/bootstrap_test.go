@@ -10,9 +10,9 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/database"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -26,9 +26,9 @@ type bootstrapSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&bootstrapSuite{})
+var _ = tc.Suite(&bootstrapSuite{})
 
-func (s *bootstrapSuite) TestBootstrapSuccess(c *gc.C) {
+func (s *bootstrapSuite) TestBootstrapSuccess(c *tc.C) {
 	mgr := &testNodeManager{c: c}
 
 	// check tests the variadic operation functionality
@@ -84,7 +84,7 @@ func (s *bootstrapSuite) TestBootstrapSuccess(c *gc.C) {
 }
 
 type testNodeManager struct {
-	c       *gc.C
+	c       *tc.C
 	dataDir string
 	port    int
 }

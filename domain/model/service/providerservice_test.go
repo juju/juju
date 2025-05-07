@@ -7,10 +7,10 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	corecloud "github.com/juju/juju/core/cloud"
 	cloudtesting "github.com/juju/juju/core/cloud/testing"
@@ -51,9 +51,9 @@ type providerServiceSuite struct {
 	mockWatcherFactory  *MockWatcherFactory
 }
 
-var _ = gc.Suite(&providerServiceSuite{})
+var _ = tc.Suite(&providerServiceSuite{})
 
-func (s *providerServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *providerServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockControllerState = NewMockState(ctrl)
 	s.mockWatcherFactory = NewMockWatcherFactory(ctrl)
@@ -61,14 +61,14 @@ func (s *providerServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *providerServiceSuite) SetUpTest(c *gc.C) {
+func (s *providerServiceSuite) SetUpTest(c *tc.C) {
 	s.state = &dummyProviderState{
 		cloudUUID:      cloudtesting.GenCloudUUID(c),
 		credentialUUID: credential.UUID(uuid.MustNewUUID().String()),
 	}
 }
 
-func (s *providerServiceSuite) TestModel(c *gc.C) {
+func (s *providerServiceSuite) TestModel(c *tc.C) {
 	svc := NewProviderService(s.state, s.state, nil)
 
 	id := modeltesting.GenModelUUID(c)
@@ -84,10 +84,10 @@ func (s *providerServiceSuite) TestModel(c *gc.C) {
 	got, err := svc.Model(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(got, gc.Equals, model)
+	c.Check(got, tc.Equals, model)
 }
 
-func (s *providerServiceSuite) TestWatchModelCloudCredential(c *gc.C) {
+func (s *providerServiceSuite) TestWatchModelCloudCredential(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := modeltesting.GenModelUUID(c)

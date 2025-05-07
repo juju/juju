@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	commonmocks "github.com/juju/juju/apiserver/common/mocks"
@@ -35,21 +35,21 @@ type LeadershipSuite struct {
 	machineApps []string
 }
 
-var _ = gc.Suite(&LeadershipSuite{})
+var _ = tc.Suite(&LeadershipSuite{})
 
-func (s *LeadershipSuite) SetUpSuite(c *gc.C) {
+func (s *LeadershipSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 
 	s.modelTag = names.NewModelTag(uuid.MustNewUUID().String())
 	s.machineApps = []string{"mysql", "redis", "wordpress"}
 }
 
-func (s *LeadershipSuite) SetUpTest(c *gc.C) {
+func (s *LeadershipSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.authTag = nil
 }
 
-func (s *LeadershipSuite) TestPinnedLeadershipSuccess(c *gc.C) {
+func (s *LeadershipSuite) TestPinnedLeadershipSuccess(c *tc.C) {
 	s.authTag = names.NewUserTag("admin")
 	defer s.setup(c).Finish()
 
@@ -58,17 +58,17 @@ func (s *LeadershipSuite) TestPinnedLeadershipSuccess(c *gc.C) {
 
 	res, err := s.api.PinnedLeadership(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res.Result, gc.DeepEquals, pinned)
+	c.Check(res.Result, tc.DeepEquals, pinned)
 }
 
-func (s *LeadershipSuite) TestPinnedLeadershipPermissionDenied(c *gc.C) {
+func (s *LeadershipSuite) TestPinnedLeadershipPermissionDenied(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	_, err := s.api.PinnedLeadership(context.Background())
-	c.Check(err, gc.ErrorMatches, "permission denied")
+	c.Check(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *LeadershipSuite) TestPinApplicationLeadersSuccess(c *gc.C) {
+func (s *LeadershipSuite) TestPinApplicationLeadersSuccess(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	for _, app := range s.machineApps {
@@ -77,10 +77,10 @@ func (s *LeadershipSuite) TestPinApplicationLeadersSuccess(c *gc.C) {
 
 	res, err := s.api.PinApplicationLeaders(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res, gc.DeepEquals, params.PinApplicationsResults{Results: s.pinApplicationsSuccessResults()})
+	c.Check(res, tc.DeepEquals, params.PinApplicationsResults{Results: s.pinApplicationsSuccessResults()})
 }
 
-func (s *LeadershipSuite) TestPinApplicationLeadersPartialError(c *gc.C) {
+func (s *LeadershipSuite) TestPinApplicationLeadersPartialError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	errorRes := errors.New("boom")
@@ -93,10 +93,10 @@ func (s *LeadershipSuite) TestPinApplicationLeadersPartialError(c *gc.C) {
 
 	results := s.pinApplicationsSuccessResults()
 	results[2].Error = apiservererrors.ServerError(errorRes)
-	c.Check(res, gc.DeepEquals, params.PinApplicationsResults{Results: results})
+	c.Check(res, tc.DeepEquals, params.PinApplicationsResults{Results: results})
 }
 
-func (s *LeadershipSuite) TestUnpinApplicationLeadersSuccess(c *gc.C) {
+func (s *LeadershipSuite) TestUnpinApplicationLeadersSuccess(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	for _, app := range s.machineApps {
@@ -105,10 +105,10 @@ func (s *LeadershipSuite) TestUnpinApplicationLeadersSuccess(c *gc.C) {
 
 	res, err := s.api.UnpinApplicationLeaders(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res, gc.DeepEquals, params.PinApplicationsResults{Results: s.pinApplicationsSuccessResults()})
+	c.Check(res, tc.DeepEquals, params.PinApplicationsResults{Results: s.pinApplicationsSuccessResults()})
 }
 
-func (s *LeadershipSuite) TestUnpinApplicationLeadersPartialError(c *gc.C) {
+func (s *LeadershipSuite) TestUnpinApplicationLeadersPartialError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	errorRes := errors.New("boom")
@@ -121,29 +121,29 @@ func (s *LeadershipSuite) TestUnpinApplicationLeadersPartialError(c *gc.C) {
 
 	results := s.pinApplicationsSuccessResults()
 	results[1].Error = apiservererrors.ServerError(errorRes)
-	c.Check(res, gc.DeepEquals, params.PinApplicationsResults{Results: results})
+	c.Check(res, tc.DeepEquals, params.PinApplicationsResults{Results: results})
 }
 
-func (s *LeadershipSuite) TestPinApplicationLeadersPermissionDenied(c *gc.C) {
+func (s *LeadershipSuite) TestPinApplicationLeadersPermissionDenied(c *tc.C) {
 	s.authTag = names.NewUserTag("some-random-cat")
 	defer s.setup(c).Finish()
 
 	_, err := s.api.PinApplicationLeaders(context.Background())
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 
 	_, err = s.api.UnpinApplicationLeaders(context.Background())
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *LeadershipSuite) TestGetMachineApplicationNamesSuccess(c *gc.C) {
+func (s *LeadershipSuite) TestGetMachineApplicationNamesSuccess(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	appNames, err := s.api.GetMachineApplicationNames(context.Background(), s.authTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(appNames, gc.DeepEquals, s.machineApps)
+	c.Check(appNames, tc.DeepEquals, s.machineApps)
 }
 
-func (s *LeadershipSuite) TestPinApplicationLeadersByNameSuccess(c *gc.C) {
+func (s *LeadershipSuite) TestPinApplicationLeadersByNameSuccess(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	for _, app := range s.machineApps {
@@ -152,10 +152,10 @@ func (s *LeadershipSuite) TestPinApplicationLeadersByNameSuccess(c *gc.C) {
 
 	res, err := s.api.PinApplicationLeadersByName(context.Background(), s.authTag, s.machineApps)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res, gc.DeepEquals, params.PinApplicationsResults{Results: s.pinApplicationsSuccessResults()})
+	c.Check(res, tc.DeepEquals, params.PinApplicationsResults{Results: s.pinApplicationsSuccessResults()})
 }
 
-func (s *LeadershipSuite) TestPinApplicationLeadersByNamePartialError(c *gc.C) {
+func (s *LeadershipSuite) TestPinApplicationLeadersByNamePartialError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	errorRes := errors.New("boom")
@@ -168,10 +168,10 @@ func (s *LeadershipSuite) TestPinApplicationLeadersByNamePartialError(c *gc.C) {
 
 	results := s.pinApplicationsSuccessResults()
 	results[1].Error = apiservererrors.ServerError(errorRes)
-	c.Check(res, gc.DeepEquals, params.PinApplicationsResults{Results: results})
+	c.Check(res, tc.DeepEquals, params.PinApplicationsResults{Results: results})
 }
 
-func (s *LeadershipSuite) TestUnpinApplicationLeadersByNameSuccess(c *gc.C) {
+func (s *LeadershipSuite) TestUnpinApplicationLeadersByNameSuccess(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	for _, app := range s.machineApps {
@@ -180,10 +180,10 @@ func (s *LeadershipSuite) TestUnpinApplicationLeadersByNameSuccess(c *gc.C) {
 
 	res, err := s.api.UnpinApplicationLeadersByName(context.Background(), s.authTag, s.machineApps)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res, gc.DeepEquals, params.PinApplicationsResults{Results: s.pinApplicationsSuccessResults()})
+	c.Check(res, tc.DeepEquals, params.PinApplicationsResults{Results: s.pinApplicationsSuccessResults()})
 }
 
-func (s *LeadershipSuite) TestUnpinApplicationLeadersByNamePartialError(c *gc.C) {
+func (s *LeadershipSuite) TestUnpinApplicationLeadersByNamePartialError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	errorRes := errors.New("boom")
@@ -196,10 +196,10 @@ func (s *LeadershipSuite) TestUnpinApplicationLeadersByNamePartialError(c *gc.C)
 
 	results := s.pinApplicationsSuccessResults()
 	results[1].Error = apiservererrors.ServerError(errorRes)
-	c.Check(res, gc.DeepEquals, params.PinApplicationsResults{Results: results})
+	c.Check(res, tc.DeepEquals, params.PinApplicationsResults{Results: results})
 }
 
-func (s *LeadershipSuite) setup(c *gc.C) *gomock.Controller {
+func (s *LeadershipSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.backend = commonmocks.NewMockLeadershipPinningBackend(ctrl)

@@ -16,10 +16,10 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/objectstore"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
@@ -42,9 +42,9 @@ type s3ObjectStoreSuite struct {
 	client                 *client
 }
 
-var _ = gc.Suite(&s3ObjectStoreSuite{})
+var _ = tc.Suite(&s3ObjectStoreSuite{})
 
-func (s *s3ObjectStoreSuite) TestGetMetadataNotFound(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestGetMetadataNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
@@ -60,7 +60,7 @@ func (s *s3ObjectStoreSuite) TestGetMetadataNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, objectstoreerrors.ObjectNotFound)
 }
 
-func (s *s3ObjectStoreSuite) TestGetMetadataBySHANotFound(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestGetMetadataBySHANotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
@@ -76,7 +76,7 @@ func (s *s3ObjectStoreSuite) TestGetMetadataBySHANotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, objectstoreerrors.ObjectNotFound)
 }
 
-func (s *s3ObjectStoreSuite) TestGetMetadataFoundNoFile(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestGetMetadataFoundNoFile(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hash256 := "blah-256"
@@ -101,7 +101,7 @@ func (s *s3ObjectStoreSuite) TestGetMetadataFoundNoFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, objectstoreerrors.ObjectNotFound)
 }
 
-func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256FoundNoFile(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256FoundNoFile(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hash256 := "0263829989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f"
@@ -126,7 +126,7 @@ func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256FoundNoFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, objectstoreerrors.ObjectNotFound)
 }
 
-func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256PrefixFoundNoFile(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256PrefixFoundNoFile(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hash256 := "0263829989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f"
@@ -152,7 +152,7 @@ func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256PrefixFoundNoFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, objectstoreerrors.ObjectNotFound)
 }
 
-func (s *s3ObjectStoreSuite) TestGetMetadataAndFileNotFoundThenFound(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestGetMetadataAndFileNotFoundThenFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Attempt to read the file before it exists. This should fail.
@@ -187,11 +187,11 @@ func (s *s3ObjectStoreSuite) TestGetMetadataAndFileNotFoundThenFound(c *gc.C) {
 
 	file, fileSize, err := store.Get(context.Background(), fileName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(size, gc.Equals, fileSize)
-	c.Assert(s.readFile(c, file), gc.Equals, "hello")
+	c.Assert(size, tc.Equals, fileSize)
+	c.Assert(s.readFile(c, file), tc.Equals, "hello")
 }
 
-func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256AndFileNotFoundThenFound(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256AndFileNotFoundThenFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Attempt to read the file before it exists. This should fail.
@@ -226,11 +226,11 @@ func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256AndFileNotFoundThenFound(c *
 
 	file, fileSize, err := store.GetBySHA256(context.Background(), hash256)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(size, gc.Equals, fileSize)
-	c.Assert(s.readFile(c, file), gc.Equals, "hello")
+	c.Assert(size, tc.Equals, fileSize)
+	c.Assert(s.readFile(c, file), tc.Equals, "hello")
 }
 
-func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256PrefixAndFileNotFoundThenFound(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256PrefixAndFileNotFoundThenFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Attempt to read the file before it exists. This should fail.
@@ -266,11 +266,11 @@ func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256PrefixAndFileNotFoundThenFou
 
 	file, fileSize, err := store.GetBySHA256Prefix(context.Background(), hashPrefix)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(size, gc.Equals, fileSize)
-	c.Assert(s.readFile(c, file), gc.Equals, "hello")
+	c.Assert(size, tc.Equals, fileSize)
+	c.Assert(s.readFile(c, file), tc.Equals, "hello")
 }
 
-func (s *s3ObjectStoreSuite) TestGetMetadataAndFileFoundWithIncorrectSize(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestGetMetadataAndFileFoundWithIncorrectSize(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	fileName := "foo"
@@ -303,10 +303,10 @@ func (s *s3ObjectStoreSuite) TestGetMetadataAndFileFoundWithIncorrectSize(c *gc.
 	s.expectStartup(c)
 
 	_, _, err := store.Get(context.Background(), fileName)
-	c.Assert(err, gc.ErrorMatches, `.*size mismatch.*`)
+	c.Assert(err, tc.ErrorMatches, `.*size mismatch.*`)
 }
 
-func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256AndFileFoundWithIncorrectSize(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256AndFileFoundWithIncorrectSize(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	fileName := "foo"
@@ -339,10 +339,10 @@ func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256AndFileFoundWithIncorrectSiz
 	s.expectStartup(c)
 
 	_, _, err := store.GetBySHA256(context.Background(), hash256)
-	c.Assert(err, gc.ErrorMatches, `.*size mismatch.*`)
+	c.Assert(err, tc.ErrorMatches, `.*size mismatch.*`)
 }
 
-func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256PrefixAndFileFoundWithIncorrectSize(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256PrefixAndFileFoundWithIncorrectSize(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	fileName := "foo"
@@ -376,10 +376,10 @@ func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256PrefixAndFileFoundWithIncorr
 	s.expectStartup(c)
 
 	_, _, err := store.GetBySHA256Prefix(context.Background(), hashPrefix)
-	c.Assert(err, gc.ErrorMatches, `.*size mismatch.*`)
+	c.Assert(err, tc.ErrorMatches, `.*size mismatch.*`)
 }
 
-func (s *s3ObjectStoreSuite) TestPut(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestPut(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	content := "some content"
@@ -414,12 +414,12 @@ func (s *s3ObjectStoreSuite) TestPut(c *gc.C) {
 	received, err := store.Put(context.Background(), "foo", strings.NewReader(content), 12)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(uuid.Validate(), jc.ErrorIsNil)
-	c.Check(received, gc.Equals, uuid)
+	c.Check(received, tc.Equals, uuid)
 
-	c.Check(receivedContent, gc.Equals, content)
+	c.Check(receivedContent, tc.Equals, content)
 }
 
-func (s *s3ObjectStoreSuite) TestPutAndCheckHash(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestPutAndCheckHash(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	content := "some content"
@@ -455,10 +455,10 @@ func (s *s3ObjectStoreSuite) TestPutAndCheckHash(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(uuid.Validate(), jc.ErrorIsNil)
 
-	c.Check(receivedContent, gc.Equals, content)
+	c.Check(receivedContent, tc.Equals, content)
 }
 
-func (s *s3ObjectStoreSuite) TestPutAndCheckHashWithInvalidHash(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestPutAndCheckHashWithInvalidHash(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	content := "some content"
@@ -474,10 +474,10 @@ func (s *s3ObjectStoreSuite) TestPutAndCheckHashWithInvalidHash(c *gc.C) {
 	s.expectStartup(c)
 
 	_, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader(content), 12, fakeHash)
-	c.Assert(err, gc.ErrorMatches, `.*hash mismatch.*`)
+	c.Assert(err, tc.ErrorMatches, `.*hash mismatch.*`)
 }
 
-func (s *s3ObjectStoreSuite) TestPutAndCheckHashFileAlreadyExists(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestPutAndCheckHashFileAlreadyExists(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	content := "some content"
@@ -518,12 +518,12 @@ func (s *s3ObjectStoreSuite) TestPutAndCheckHashFileAlreadyExists(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(uuid1.Validate(), jc.ErrorIsNil)
 
-	c.Check(receivedContent, gc.Equals, content)
+	c.Check(receivedContent, tc.Equals, content)
 
-	c.Check(uuid0, gc.Equals, uuid1)
+	c.Check(uuid0, tc.Equals, uuid1)
 }
 
-func (s *s3ObjectStoreSuite) TestPutFileOnMetadataFailure(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestPutFileOnMetadataFailure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// If the file is not referenced by another metadata entry, then the file
@@ -554,10 +554,10 @@ func (s *s3ObjectStoreSuite) TestPutFileOnMetadataFailure(c *gc.C) {
 	s.expectStartup(c)
 
 	_, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader(content), 12, hexSHA384)
-	c.Assert(err, gc.ErrorMatches, `.*boom`)
+	c.Assert(err, tc.ErrorMatches, `.*boom`)
 }
 
-func (s *s3ObjectStoreSuite) TestRemoveFileNotFound(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestRemoveFileNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Test that we don't return an error if the file does not exist.
@@ -594,7 +594,7 @@ func (s *s3ObjectStoreSuite) TestRemoveFileNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *s3ObjectStoreSuite) TestRemove(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestRemove(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	content := "some content"
@@ -625,7 +625,7 @@ func (s *s3ObjectStoreSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *s3ObjectStoreSuite) TestList(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestList(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	content := "some content"
@@ -652,16 +652,16 @@ func (s *s3ObjectStoreSuite) TestList(c *gc.C) {
 
 	metadata, files, err := store.list(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(metadata, gc.DeepEquals, []objectstore.Metadata{{
+	c.Check(metadata, tc.DeepEquals, []objectstore.Metadata{{
 		SHA384: hexSHA384,
 		SHA256: hexSHA256,
 		Path:   fileName,
 		Size:   size,
 	}})
-	c.Check(files, gc.DeepEquals, []string{hexSHA384})
+	c.Check(files, tc.DeepEquals, []string{hexSHA384})
 }
 
-func (s *s3ObjectStoreSuite) TestDrainFilesWithNoFiles(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestDrainFilesWithNoFiles(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
@@ -676,7 +676,7 @@ func (s *s3ObjectStoreSuite) TestDrainFilesWithNoFiles(c *gc.C) {
 	workertest.CleanKill(c, store)
 }
 
-func (s *s3ObjectStoreSuite) TestDrainFiles(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestDrainFiles(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Test that we can drain files from the object store.
@@ -702,7 +702,7 @@ func (s *s3ObjectStoreSuite) TestDrainFiles(c *gc.C) {
 	workertest.CleanKill(c, store)
 }
 
-func (s *s3ObjectStoreSuite) TestDrainFilesWithError(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestDrainFilesWithError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Test that we can drain files from the object store.
@@ -734,10 +734,10 @@ func (s *s3ObjectStoreSuite) TestDrainFilesWithError(c *gc.C) {
 	}
 
 	err := workertest.CheckKill(c, store)
-	c.Assert(err, gc.ErrorMatches, `.*boom.*`)
+	c.Assert(err, tc.ErrorMatches, `.*boom.*`)
 }
 
-func (s *s3ObjectStoreSuite) TestDrainFileDoesNotExist(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestDrainFileDoesNotExist(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	store := &s3ObjectStore{
@@ -751,7 +751,7 @@ func (s *s3ObjectStoreSuite) TestDrainFileDoesNotExist(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *s3ObjectStoreSuite) TestDrainFileObjectError(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestDrainFileObjectError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	store := &s3ObjectStore{
@@ -766,10 +766,10 @@ func (s *s3ObjectStoreSuite) TestDrainFileObjectError(c *gc.C) {
 	s.expectObjectExistsError("foo", errors.Errorf("boom"))
 
 	err := store.drainFile(context.Background(), "/path", "foo", 12)
-	c.Assert(err, gc.ErrorMatches, `.*boom.*`)
+	c.Assert(err, tc.ErrorMatches, `.*boom.*`)
 }
 
-func (s *s3ObjectStoreSuite) TestDrainFileObjectAlreadyExists(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestDrainFileObjectAlreadyExists(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	store := &s3ObjectStore{
@@ -790,7 +790,7 @@ func (s *s3ObjectStoreSuite) TestDrainFileObjectAlreadyExists(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *s3ObjectStoreSuite) TestDrainFileObjectGetHashReturnsError(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestDrainFileObjectGetHashReturnsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Test what happens when the object does not exist in the object store
@@ -816,7 +816,7 @@ func (s *s3ObjectStoreSuite) TestDrainFileObjectGetHashReturnsError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *s3ObjectStoreSuite) TestDrainFileSizeDoNotMatch(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestDrainFileSizeDoNotMatch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Test what happens when the size of the file in the object store
@@ -847,7 +847,7 @@ func (s *s3ObjectStoreSuite) TestDrainFileSizeDoNotMatch(c *gc.C) {
 	c.Assert(reader.Closed(), jc.IsTrue)
 }
 
-func (s *s3ObjectStoreSuite) TestDrainFilePut(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestDrainFilePut(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	store := &s3ObjectStore{
@@ -875,7 +875,7 @@ func (s *s3ObjectStoreSuite) TestDrainFilePut(c *gc.C) {
 	c.Assert(reader.Closed(), jc.IsTrue)
 }
 
-func (s *s3ObjectStoreSuite) TestDrainFileDeleteError(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestDrainFileDeleteError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Test that we can handle an error when we try to delete the hash
@@ -908,7 +908,7 @@ func (s *s3ObjectStoreSuite) TestDrainFileDeleteError(c *gc.C) {
 	c.Assert(reader.Closed(), jc.IsTrue)
 }
 
-func (s *s3ObjectStoreSuite) TestComputeS3Hash(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestComputeS3Hash(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Test that we can compute the hash without having to perform
@@ -922,14 +922,14 @@ func (s *s3ObjectStoreSuite) TestComputeS3Hash(c *gc.C) {
 
 	reader, hash, err := store.computeS3Hash(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(hash, gc.Equals, expectedHash)
+	c.Check(hash, tc.Equals, expectedHash)
 
 	bytes, err := io.ReadAll(reader)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(string(bytes), gc.Equals, content)
+	c.Check(string(bytes), tc.Equals, content)
 }
 
-func (s *s3ObjectStoreSuite) TestComputeS3HashNoSeekerReader(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestComputeS3HashNoSeekerReader(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Test that we can compute the hash even if we don't have a Seeker
@@ -943,14 +943,14 @@ func (s *s3ObjectStoreSuite) TestComputeS3HashNoSeekerReader(c *gc.C) {
 
 	reader, hash, err := store.computeS3Hash(blockSeek{Reader: strings.NewReader(content)})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(hash, gc.Equals, expectedHash)
+	c.Check(hash, tc.Equals, expectedHash)
 
 	bytes, err := io.ReadAll(reader)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(string(bytes), gc.Equals, content)
+	c.Check(string(bytes), tc.Equals, content)
 }
 
-func (s *s3ObjectStoreSuite) TestPersistTmpFile(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestPersistTmpFile(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	content := "some content"
@@ -971,10 +971,10 @@ func (s *s3ObjectStoreSuite) TestPersistTmpFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = store.(*s3ObjectStore).persistTmpFile(context.Background(), filePath, hexHash, base64Hash, 42)
-	c.Assert(err, gc.ErrorMatches, `size mismatch for ".*foo.txt".*`)
+	c.Assert(err, tc.ErrorMatches, `size mismatch for ".*foo.txt".*`)
 }
 
-func (s *s3ObjectStoreSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *s3ObjectStoreSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
 	s.states = make(chan string, 1)
@@ -985,28 +985,28 @@ func (s *s3ObjectStoreSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *s3ObjectStoreSuite) expectStartup(c *gc.C) {
+func (s *s3ObjectStoreSuite) expectStartup(c *tc.C) {
 	select {
 	case state := <-s.states:
-		c.Assert(state, gc.Equals, stateStarted)
+		c.Assert(state, tc.Equals, stateStarted)
 	case <-time.After(testing.ShortWait * 10):
 		c.Fatalf("timed out waiting for startup")
 	}
 }
 
-func (s *s3ObjectStoreSuite) expectDrain(c *gc.C) {
+func (s *s3ObjectStoreSuite) expectDrain(c *tc.C) {
 	select {
 	case state := <-s.states:
-		c.Assert(state, gc.Equals, stateDrained)
+		c.Assert(state, tc.Equals, stateDrained)
 	case <-time.After(testing.ShortWait * 10):
 		c.Fatalf("timed out waiting for drained")
 	}
 }
 
-func (s *s3ObjectStoreSuite) expectFileDrained(c *gc.C, hash string) {
+func (s *s3ObjectStoreSuite) expectFileDrained(c *tc.C, hash string) {
 	select {
 	case state := <-s.states:
-		c.Assert(state, gc.Equals, fmt.Sprintf(stateFileDrained, hash))
+		c.Assert(state, tc.Equals, fmt.Sprintf(stateFileDrained, hash))
 	case <-time.After(testing.ShortWait * 10):
 		c.Fatalf("timed out waiting for file drained")
 	}
@@ -1065,24 +1065,24 @@ func (s *s3ObjectStoreSuite) expectGetByHashError(hash string, err error) {
 	s.hashFileSystemAccessor.EXPECT().GetByHash(gomock.Any(), hash).Return(nil, int64(0), err)
 }
 
-func (s *s3ObjectStoreSuite) expectHashPut(c *gc.C, hash, s3Hash, content string) {
+func (s *s3ObjectStoreSuite) expectHashPut(c *tc.C, hash, s3Hash, content string) {
 	s.session.EXPECT().PutObject(gomock.Any(), defaultBucketName, filePath(hash), gomock.Any(), s3Hash).DoAndReturn(func(ctx context.Context, bucketName, objectName string, body io.Reader, hash string) error {
 		bytes, err := io.ReadAll(body)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(string(bytes), gc.Equals, content)
+		c.Check(string(bytes), tc.Equals, content)
 		return nil
 	})
 }
 
-func (s *s3ObjectStoreSuite) newS3ObjectStore(c *gc.C) TrackedObjectStore {
+func (s *s3ObjectStoreSuite) newS3ObjectStore(c *tc.C) TrackedObjectStore {
 	return s.newS3ObjectStoreConfig(c, false)
 }
 
-func (s *s3ObjectStoreSuite) newDrainingS3ObjectStore(c *gc.C) TrackedObjectStore {
+func (s *s3ObjectStoreSuite) newDrainingS3ObjectStore(c *tc.C) TrackedObjectStore {
 	return s.newS3ObjectStoreConfig(c, true)
 }
 
-func (s *s3ObjectStoreSuite) newS3ObjectStoreConfig(c *gc.C, allowDraining bool) TrackedObjectStore {
+func (s *s3ObjectStoreSuite) newS3ObjectStoreConfig(c *tc.C, allowDraining bool) TrackedObjectStore {
 	store, err := newS3ObjectStore(S3ObjectStoreConfig{
 		RootBucket:             defaultBucketName,
 		Namespace:              "inferi",
@@ -1095,7 +1095,7 @@ func (s *s3ObjectStoreSuite) newS3ObjectStoreConfig(c *gc.C, allowDraining bool)
 		HashFileSystemAccessor: s.hashFileSystemAccessor,
 		AllowDraining:          allowDraining,
 	}, s.states)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	return store
 }
 

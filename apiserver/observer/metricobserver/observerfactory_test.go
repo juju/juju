@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/observer/metricobserver"
 )
@@ -21,19 +21,19 @@ type observerFactorySuite struct {
 	clock *testclock.Clock
 }
 
-var _ = gc.Suite(&observerFactorySuite{})
+var _ = tc.Suite(&observerFactorySuite{})
 
-func (s *observerFactorySuite) SetUpTest(c *gc.C) {
+func (s *observerFactorySuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.clock = testclock.NewClock(time.Time{})
 }
 
-func (*observerFactorySuite) TestNewObserverFactoryInvalidConfig(c *gc.C) {
+func (*observerFactorySuite) TestNewObserverFactoryInvalidConfig(c *tc.C) {
 	_, err := metricobserver.NewObserverFactory(metricobserver.Config{})
-	c.Assert(err, gc.ErrorMatches, "validating config: nil Clock not valid")
+	c.Assert(err, tc.ErrorMatches, "validating config: nil Clock not valid")
 }
 
-func (s *observerFactorySuite) TestNewObserverFactoryRegister(c *gc.C) {
+func (s *observerFactorySuite) TestNewObserverFactoryRegister(c *tc.C) {
 	metricsCollector, finish := createMockMetrics(c, gomock.AssignableToTypeOf(prometheus.Labels{}))
 	defer finish()
 
@@ -42,5 +42,5 @@ func (s *observerFactorySuite) TestNewObserverFactoryRegister(c *gc.C) {
 		MetricsCollector: metricsCollector,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(f, gc.NotNil)
+	c.Assert(f, tc.NotNil)
 }

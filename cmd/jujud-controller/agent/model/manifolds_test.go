@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud-controller/agent/model"
@@ -22,9 +22,9 @@ type ManifoldsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&ManifoldsSuite{})
+var _ = tc.Suite(&ManifoldsSuite{})
 
-func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
+func (s *ManifoldsSuite) TestIAASNames(c *tc.C) {
 	actual := set.NewStrings()
 	manifolds := model.IAASManifolds(model.ManifoldsConfig{
 		Agent:          &mockAgent{},
@@ -71,7 +71,7 @@ func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
 	})
 }
 
-func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
+func (s *ManifoldsSuite) TestCAASNames(c *tc.C) {
 	actual := set.NewStrings()
 	manifolds := model.CAASManifolds(model.ManifoldsConfig{
 		Agent:          &mockAgent{},
@@ -116,7 +116,7 @@ func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
 	})
 }
 
-func (s *ManifoldsSuite) TestFlagDependencies(c *gc.C) {
+func (s *ManifoldsSuite) TestFlagDependencies(c *tc.C) {
 	exclusions := set.NewStrings(
 		"agent",
 		"api-caller",
@@ -150,7 +150,7 @@ func (s *ManifoldsSuite) TestFlagDependencies(c *gc.C) {
 	}
 }
 
-func (s *ManifoldsSuite) TestStateCleanerIgnoresLifeFlags(c *gc.C) {
+func (s *ManifoldsSuite) TestStateCleanerIgnoresLifeFlags(c *tc.C) {
 	manifolds := model.IAASManifolds(model.ManifoldsConfig{
 		Agent:          &mockAgent{},
 		LoggingContext: internallogger.DefaultContext(),
@@ -163,7 +163,7 @@ func (s *ManifoldsSuite) TestStateCleanerIgnoresLifeFlags(c *gc.C) {
 	c.Check(inputs.Contains("not-dead-flag"), jc.IsFalse)
 }
 
-func (s *ManifoldsSuite) TestClockWrapper(c *gc.C) {
+func (s *ManifoldsSuite) TestClockWrapper(c *tc.C) {
 	expectClock := &fakeClock{}
 	manifolds := model.IAASManifolds(model.ManifoldsConfig{
 		Agent:          &mockAgent{},
@@ -179,12 +179,12 @@ func (s *ManifoldsSuite) TestClockWrapper(c *gc.C) {
 	var aClock clock.Clock
 	err = manifold.Output(worker, &aClock)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(aClock, gc.Equals, expectClock)
+	c.Check(aClock, tc.Equals, expectClock)
 }
 
 type fakeClock struct{ clock.Clock }
 
-func (s *ManifoldsSuite) TestIAASManifold(c *gc.C) {
+func (s *ManifoldsSuite) TestIAASManifold(c *tc.C) {
 	agenttest.AssertManifoldsDependencies(c,
 		model.IAASManifolds(model.ManifoldsConfig{
 			Agent:          &mockAgent{},
@@ -194,7 +194,7 @@ func (s *ManifoldsSuite) TestIAASManifold(c *gc.C) {
 	)
 }
 
-func (s *ManifoldsSuite) TestCAASManifold(c *gc.C) {
+func (s *ManifoldsSuite) TestCAASManifold(c *tc.C) {
 	agenttest.AssertManifoldsDependencies(c,
 		model.CAASManifolds(model.ManifoldsConfig{
 			Agent:          &mockAgent{},

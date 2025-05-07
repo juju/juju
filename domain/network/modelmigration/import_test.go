@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -20,9 +20,9 @@ type importSuite struct {
 	importService *MockImportService
 }
 
-var _ = gc.Suite(&importSuite{})
+var _ = tc.Suite(&importSuite{})
 
-func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.coordinator = NewMockCoordinator(ctrl)
@@ -31,14 +31,14 @@ func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *importSuite) newImportOperation(c *gc.C) *importOperation {
+func (s *importSuite) newImportOperation(c *tc.C) *importOperation {
 	return &importOperation{
 		importService: s.importService,
 		logger:        loggertesting.WrapCheckLog(c),
 	}
 }
 
-func (s *importSuite) TestImportSubnetWithoutSpaces(c *gc.C) {
+func (s *importSuite) TestImportSubnetWithoutSpaces(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{})
@@ -65,7 +65,7 @@ func (s *importSuite) TestImportSubnetWithoutSpaces(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *importSuite) TestImportSubnetAndSpaceNotLinked(c *gc.C) {
+func (s *importSuite) TestImportSubnetAndSpaceNotLinked(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{})
@@ -100,7 +100,7 @@ func (s *importSuite) TestImportSubnetAndSpaceNotLinked(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *importSuite) TestImportSpaceWithSubnet(c *gc.C) {
+func (s *importSuite) TestImportSpaceWithSubnet(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{})

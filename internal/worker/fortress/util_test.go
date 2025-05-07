@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
-	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/fortress"
@@ -26,7 +26,7 @@ type fixture struct {
 // newFixture returns a new fixture with a running worker. The caller
 // takes responsibility for stopping the worker (most easily accomplished
 // by deferring a TearDown).
-func newFixture(c *gc.C) *fixture {
+func newFixture(c *tc.C) *fixture {
 	manifold := fortress.Manifold()
 	worker, err := manifold.Start(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -37,19 +37,19 @@ func newFixture(c *gc.C) *fixture {
 }
 
 // TearDown stops the worker and checks it encountered no errors.
-func (fix *fixture) TearDown(c *gc.C) {
+func (fix *fixture) TearDown(c *tc.C) {
 	CheckStop(c, fix.worker)
 }
 
 // Guard returns a fortress.Guard backed by the fixture's worker.
-func (fix *fixture) Guard(c *gc.C) (out fortress.Guard) {
+func (fix *fixture) Guard(c *tc.C) (out fortress.Guard) {
 	err := fix.manifold.Output(fix.worker, &out)
 	c.Assert(err, jc.ErrorIsNil)
 	return out
 }
 
 // Guest returns a fortress.Guest backed by the fixture's worker.
-func (fix *fixture) Guest(c *gc.C) (out fortress.Guest) {
+func (fix *fixture) Guest(c *tc.C) (out fortress.Guest) {
 	err := fix.manifold.Output(fix.worker, &out)
 	c.Assert(err, jc.ErrorIsNil)
 	return out
@@ -60,7 +60,7 @@ func (fix *fixture) Guest(c *gc.C) (out fortress.Guest) {
 // you (1) *can* send a value to unblock the visit but (2) *must* defer a close
 // (in case your test fails before sending, in which case we still want to stop
 // the visit).
-func (fix *fixture) startBlockingVisit(c *gc.C) chan<- struct{} {
+func (fix *fixture) startBlockingVisit(c *tc.C) chan<- struct{} {
 	err := fix.Guard(c).Unlock()
 	c.Assert(err, jc.ErrorIsNil)
 	visitStarted := make(chan struct{}, 1)
@@ -83,7 +83,7 @@ func (fix *fixture) startBlockingVisit(c *gc.C) chan<- struct{} {
 }
 
 // AssertUnlocked checks that the supplied Guest can Visit its fortress.
-func AssertUnlocked(c *gc.C, guest fortress.Guest) {
+func AssertUnlocked(c *tc.C, guest fortress.Guest) {
 	visited := make(chan error)
 	go func() {
 		visited <- guest.Visit(badVisit, nil)
@@ -91,7 +91,7 @@ func AssertUnlocked(c *gc.C, guest fortress.Guest) {
 
 	select {
 	case err := <-visited:
-		c.Assert(err, gc.ErrorMatches, "bad!")
+		c.Assert(err, tc.ErrorMatches, "bad!")
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("abort never handled")
 	}
@@ -99,7 +99,7 @@ func AssertUnlocked(c *gc.C, guest fortress.Guest) {
 
 // AssertUnlocked checks that the supplied Guest's Visit calls are blocked
 // (and can be cancelled via Abort).
-func AssertLocked(c *gc.C, guest fortress.Guest) {
+func AssertLocked(c *tc.C, guest fortress.Guest) {
 	visited := make(chan error)
 	abort := make(chan struct{})
 	go func() {
@@ -115,7 +115,7 @@ func AssertLocked(c *gc.C, guest fortress.Guest) {
 			delay = nil
 			close(abort)
 		case err := <-visited:
-			c.Assert(err, gc.Equals, fortress.ErrAborted)
+			c.Assert(err, tc.Equals, fortress.ErrAborted)
 			return
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out")
@@ -124,7 +124,7 @@ func AssertLocked(c *gc.C, guest fortress.Guest) {
 }
 
 // CheckStop stops the worker and checks it encountered no error.
-func CheckStop(c *gc.C, w worker.Worker) {
+func CheckStop(c *tc.C, w worker.Worker) {
 	c.Check(worker.Stop(w), jc.ErrorIsNil)
 }
 

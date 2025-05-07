@@ -12,9 +12,9 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
@@ -26,7 +26,7 @@ import (
 )
 
 var (
-	_ = gc.Suite(&builtinSuite{})
+	_ = tc.Suite(&builtinSuite{})
 )
 
 var microk8sConfig = `
@@ -57,7 +57,7 @@ type builtinSuite struct {
 	kubeCloudParams provider.KubeCloudParams
 }
 
-func (s *builtinSuite) SetUpTest(c *gc.C) {
+func (s *builtinSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	var logger loggo.Logger
@@ -101,14 +101,14 @@ MIIDBDCCAeygAwIBAgIJAPUHbpCysNxyMA0GCSqGSIb3DQEBCwUAMBcxFTATBgNV`[1:],
 	}
 }
 
-func (s *builtinSuite) TestGetLocalMicroK8sConfigFileDoesNotExists(c *gc.C) {
+func (s *builtinSuite) TestGetLocalMicroK8sConfigFileDoesNotExists(c *tc.C) {
 	s.runner.Call("LookPath", "microk8s").Returns("", nil)
 	result, err := provider.GetLocalMicroK8sConfig(s.runner, func() (string, error) { return "non-exist-dir", nil })
-	c.Assert(err, gc.ErrorMatches, `"non-exist-dir" does not exist: juju ".*" can only work with strictly confined microk8s`)
-	c.Assert(result, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorMatches, `"non-exist-dir" does not exist: juju ".*" can only work with strictly confined microk8s`)
+	c.Assert(result, tc.HasLen, 0)
 }
 
-func (s *builtinSuite) prepareKubeConfigFile(c *gc.C, content string) string {
+func (s *builtinSuite) prepareKubeConfigFile(c *tc.C, content string) string {
 	dir := c.MkDir()
 	fileDir := filepath.Join(dir, "microk8s", "credentials")
 	os.MkdirAll(fileDir, os.ModePerm)
@@ -118,13 +118,13 @@ func (s *builtinSuite) prepareKubeConfigFile(c *gc.C, content string) string {
 	return path
 }
 
-func (s *builtinSuite) TestAttemptMicroK8sCloud(c *gc.C) {
+func (s *builtinSuite) TestAttemptMicroK8sCloud(c *tc.C) {
 	s.runner.Call("LookPath", "microk8s").Returns("", nil)
 	kubeconfigFile := s.prepareKubeConfigFile(c, microk8sConfig)
 
 	k8sCloud, err := provider.AttemptMicroK8sCloud(s.runner, func() (string, error) { return kubeconfigFile, nil })
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(k8sCloud, gc.DeepEquals, cloud.Cloud{
+	c.Assert(k8sCloud, tc.DeepEquals, cloud.Cloud{
 		Name:     k8s.K8sCloudMicrok8s,
 		Endpoint: "http://1.1.1.1:8080",
 		Type:     cloud.CloudTypeKubernetes,
@@ -143,30 +143,30 @@ func (s *builtinSuite) TestAttemptMicroK8sCloud(c *gc.C) {
 	})
 }
 
-func (s *builtinSuite) assertDecideKubeConfigDir(c *gc.C, isOfficial bool, clientConfigPath string) {
+func (s *builtinSuite) assertDecideKubeConfigDir(c *tc.C, isOfficial bool, clientConfigPath string) {
 	s.PatchValue(&provider.CheckJujuOfficial, func(string) (semversion.Binary, bool, error) {
 		return semversion.Binary{}, isOfficial, nil
 	})
 	s.PatchEnvironment("SNAP_DATA", "snap-data-dir")
 	p, err := provider.DecideKubeConfigDir()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p, gc.DeepEquals, clientConfigPath)
+	c.Assert(p, tc.DeepEquals, clientConfigPath)
 }
 
-func (s *builtinSuite) TestDecideKubeConfigDirOfficial(c *gc.C) {
+func (s *builtinSuite) TestDecideKubeConfigDirOfficial(c *tc.C) {
 	s.assertDecideKubeConfigDir(c, true, `snap-data-dir/microk8s/credentials/client.config`)
 }
 
-func (s *builtinSuite) TestDecideKubeConfigDirLocalBuild(c *gc.C) {
+func (s *builtinSuite) TestDecideKubeConfigDirLocalBuild(c *tc.C) {
 	s.assertDecideKubeConfigDir(c, false, `/var/snap/microk8s/current/credentials/client.config`)
 }
 
-func (s *builtinSuite) TestDecideKubeConfigDirNoJujud(c *gc.C) {
+func (s *builtinSuite) TestDecideKubeConfigDirNoJujud(c *tc.C) {
 	s.PatchValue(&provider.CheckJujuOfficial, func(string) (semversion.Binary, bool, error) {
 		return semversion.Binary{}, false, errors.NotFoundf("jujud")
 	})
 	s.PatchEnvironment("SNAP_DATA", "snap-data-dir")
 	p, err := provider.DecideKubeConfigDir()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p, gc.DeepEquals, `/var/snap/microk8s/current/credentials/client.config`)
+	c.Assert(p, tc.DeepEquals, `/var/snap/microk8s/current/credentials/client.config`)
 }

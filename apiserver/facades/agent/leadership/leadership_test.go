@@ -13,9 +13,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/leadership"
@@ -27,7 +27,7 @@ type leadershipSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&leadershipSuite{})
+var _ = tc.Suite(&leadershipSuite{})
 
 const (
 	StubAppNm  = "stub-application"
@@ -76,7 +76,7 @@ func (m stubAuthorizer) GetAuthTag() names.Tag {
 	return m.tag
 }
 
-func checkDurationEquals(c *gc.C, actual, expect time.Duration) {
+func checkDurationEquals(c *tc.C, actual, expect time.Duration) {
 	delta := actual - expect
 	if delta < 0 {
 		delta = -delta
@@ -85,7 +85,7 @@ func checkDurationEquals(c *gc.C, actual, expect time.Duration) {
 }
 
 func newLeadershipService(
-	c *gc.C, claimer coreleadership.Claimer, authorizer facade.Authorizer,
+	c *tc.C, claimer coreleadership.Claimer, authorizer facade.Authorizer,
 ) leadership.LeadershipService {
 	if authorizer == nil {
 		authorizer = stubAuthorizer{tag: names.NewUnitTag(StubUnitNm)}
@@ -95,11 +95,11 @@ func newLeadershipService(
 	return result
 }
 
-func (s *leadershipSuite) TestClaimLeadershipTranslation(c *gc.C) {
+func (s *leadershipSuite) TestClaimLeadershipTranslation(c *tc.C) {
 	claimer := &stubClaimer{
 		ClaimLeadershipFn: func(ctx context.Context, sid, uid string, duration time.Duration) error {
-			c.Check(sid, gc.Equals, StubAppNm)
-			c.Check(uid, gc.Equals, StubUnitNm)
+			c.Check(sid, tc.Equals, StubAppNm)
+			c.Check(uid, tc.Equals, StubUnitNm)
 			expectDuration := time.Duration(299.9 * float64(time.Second))
 			checkDurationEquals(c, duration, expectDuration)
 			return nil
@@ -118,15 +118,15 @@ func (s *leadershipSuite) TestClaimLeadershipTranslation(c *gc.C) {
 	})
 
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Check(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.IsNil)
 }
 
-func (s *leadershipSuite) TestClaimLeadershipApplicationAgent(c *gc.C) {
+func (s *leadershipSuite) TestClaimLeadershipApplicationAgent(c *tc.C) {
 	claimer := &stubClaimer{
 		ClaimLeadershipFn: func(ctx context.Context, sid, uid string, duration time.Duration) error {
-			c.Check(sid, gc.Equals, StubAppNm)
-			c.Check(uid, gc.Equals, StubUnitNm)
+			c.Check(sid, tc.Equals, StubAppNm)
+			c.Check(uid, tc.Equals, StubUnitNm)
 			expectDuration := time.Duration(299.9 * float64(time.Second))
 			checkDurationEquals(c, duration, expectDuration)
 			return nil
@@ -148,15 +148,15 @@ func (s *leadershipSuite) TestClaimLeadershipApplicationAgent(c *gc.C) {
 	})
 
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Check(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.IsNil)
 }
 
-func (s *leadershipSuite) TestClaimLeadershipDeniedError(c *gc.C) {
+func (s *leadershipSuite) TestClaimLeadershipDeniedError(c *tc.C) {
 	claimer := &stubClaimer{
 		ClaimLeadershipFn: func(ctx context.Context, sid, uid string, duration time.Duration) error {
-			c.Check(sid, gc.Equals, StubAppNm)
-			c.Check(uid, gc.Equals, StubUnitNm)
+			c.Check(sid, tc.Equals, StubAppNm)
+			c.Check(uid, tc.Equals, StubUnitNm)
 			expectDuration := time.Duration(5.001 * float64(time.Second))
 			checkDurationEquals(c, duration, expectDuration)
 			return errors.Annotatef(coreleadership.ErrClaimDenied, "obfuscated")
@@ -175,11 +175,11 @@ func (s *leadershipSuite) TestClaimLeadershipDeniedError(c *gc.C) {
 	})
 
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results, tc.HasLen, 1)
 	c.Check(results.Results[0].Error, jc.Satisfies, params.IsCodeLeadershipClaimDenied)
 }
 
-func (s *leadershipSuite) TestClaimLeadershipBadService(c *gc.C) {
+func (s *leadershipSuite) TestClaimLeadershipBadService(c *tc.C) {
 	ldrSvc := newLeadershipService(c, nil, nil)
 
 	results, err := ldrSvc.ClaimLeadership(context.Background(), params.ClaimLeadershipBulkParams{
@@ -192,11 +192,11 @@ func (s *leadershipSuite) TestClaimLeadershipBadService(c *gc.C) {
 		},
 	})
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results, tc.HasLen, 1)
 	c.Check(results.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *leadershipSuite) TestClaimLeadershipBadUnit(c *gc.C) {
+func (s *leadershipSuite) TestClaimLeadershipBadUnit(c *tc.C) {
 	ldrSvc := newLeadershipService(c, nil, nil)
 
 	results, err := ldrSvc.ClaimLeadership(context.Background(), params.ClaimLeadershipBulkParams{
@@ -209,11 +209,11 @@ func (s *leadershipSuite) TestClaimLeadershipBadUnit(c *gc.C) {
 		},
 	})
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results, tc.HasLen, 1)
 	c.Check(results.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *leadershipSuite) TestClaimLeadershipDurationTooShort(c *gc.C) {
+func (s *leadershipSuite) TestClaimLeadershipDurationTooShort(c *tc.C) {
 	ldrSvc := newLeadershipService(c, nil, nil)
 
 	results, err := ldrSvc.ClaimLeadership(context.Background(), params.ClaimLeadershipBulkParams{
@@ -226,11 +226,11 @@ func (s *leadershipSuite) TestClaimLeadershipDurationTooShort(c *gc.C) {
 		},
 	})
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Check(results.Results[0].Error, gc.ErrorMatches, "invalid duration")
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.ErrorMatches, "invalid duration")
 }
 
-func (s *leadershipSuite) TestClaimLeadershipDurationTooLong(c *gc.C) {
+func (s *leadershipSuite) TestClaimLeadershipDurationTooLong(c *tc.C) {
 	ldrSvc := newLeadershipService(c, nil, nil)
 
 	results, err := ldrSvc.ClaimLeadership(context.Background(), params.ClaimLeadershipBulkParams{
@@ -243,14 +243,14 @@ func (s *leadershipSuite) TestClaimLeadershipDurationTooLong(c *gc.C) {
 		},
 	})
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Check(results.Results[0].Error, gc.ErrorMatches, "invalid duration")
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.ErrorMatches, "invalid duration")
 }
 
-func (s *leadershipSuite) TestBlockUntilLeadershipReleasedTranslation(c *gc.C) {
+func (s *leadershipSuite) TestBlockUntilLeadershipReleasedTranslation(c *tc.C) {
 	claimer := &stubClaimer{
 		BlockUntilLeadershipReleasedFn: func(ctx context.Context, sid string) error {
-			c.Check(sid, gc.Equals, StubAppNm)
+			c.Check(sid, tc.Equals, StubAppNm)
 			return nil
 		},
 	}
@@ -262,16 +262,16 @@ func (s *leadershipSuite) TestBlockUntilLeadershipReleasedTranslation(c *gc.C) {
 	)
 
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(result.Error, gc.IsNil)
+	c.Check(result.Error, tc.IsNil)
 }
 
-func (s *leadershipSuite) TestBlockUntilLeadershipReleasedContext(c *gc.C) {
+func (s *leadershipSuite) TestBlockUntilLeadershipReleasedContext(c *tc.C) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	claimer := &stubClaimer{
 		BlockUntilLeadershipReleasedFn: func(ctx context.Context, sid string) error {
-			c.Check(sid, gc.Equals, StubAppNm)
-			c.Check(ctx.Err(), gc.Equals, context.Canceled)
+			c.Check(sid, tc.Equals, StubAppNm)
+			c.Check(ctx.Err(), tc.Equals, context.Canceled)
 			return coreleadership.ErrBlockCancelled
 		},
 	}
@@ -283,10 +283,10 @@ func (s *leadershipSuite) TestBlockUntilLeadershipReleasedContext(c *gc.C) {
 	)
 
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(result.Error, gc.ErrorMatches, "waiting for leadership cancelled by client")
+	c.Check(result.Error, tc.ErrorMatches, "waiting for leadership cancelled by client")
 }
 
-func (s *leadershipSuite) TestClaimLeadershipFailBadUnit(c *gc.C) {
+func (s *leadershipSuite) TestClaimLeadershipFailBadUnit(c *tc.C) {
 	authorizer := &stubAuthorizer{
 		tag: names.NewUnitTag("lol-different/123"),
 	}
@@ -303,12 +303,12 @@ func (s *leadershipSuite) TestClaimLeadershipFailBadUnit(c *gc.C) {
 	})
 
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Check(results.Results[0].Error, gc.ErrorMatches, "permission denied")
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.ErrorMatches, "permission denied")
 	c.Check(results.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *leadershipSuite) TestClaimLeadershipFailBadService(c *gc.C) {
+func (s *leadershipSuite) TestClaimLeadershipFailBadService(c *tc.C) {
 	ldrSvc := newLeadershipService(c, nil, nil)
 	results, err := ldrSvc.ClaimLeadership(context.Background(), params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
@@ -321,18 +321,18 @@ func (s *leadershipSuite) TestClaimLeadershipFailBadService(c *gc.C) {
 	})
 
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Check(results.Results[0].Error, gc.ErrorMatches, "permission denied")
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.ErrorMatches, "permission denied")
 	c.Check(results.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *leadershipSuite) TestCreateUnauthorized(c *gc.C) {
+func (s *leadershipSuite) TestCreateUnauthorized(c *tc.C) {
 	authorizer := &stubAuthorizer{
 		tag: names.NewMachineTag("123"),
 	}
 
 	ldrSvc, err := leadership.NewLeadershipService(nil, authorizer)
-	c.Check(ldrSvc, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "permission denied")
+	c.Check(ldrSvc, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "permission denied")
 	c.Check(err, jc.ErrorIs, errors.Unauthorized)
 }

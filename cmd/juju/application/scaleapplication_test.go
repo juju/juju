@@ -7,9 +7,9 @@ import (
 	"context"
 	"strings"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/core/model"
@@ -26,7 +26,7 @@ type ScaleApplicationSuite struct {
 	mockAPI *mockScaleApplicationAPI
 }
 
-var _ = gc.Suite(&ScaleApplicationSuite{})
+var _ = tc.Suite(&ScaleApplicationSuite{})
 
 type mockScaleApplicationAPI struct {
 	*testing.Stub
@@ -42,12 +42,12 @@ func (s mockScaleApplicationAPI) ScaleApplication(ctx context.Context, args appl
 	return params.ScaleApplicationResult{Info: &params.ScaleApplicationInfo{Scale: args.Scale}}, s.NextErr()
 }
 
-func (s *ScaleApplicationSuite) SetUpTest(c *gc.C) {
+func (s *ScaleApplicationSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.mockAPI = &mockScaleApplicationAPI{Stub: &testing.Stub{}}
 }
 
-func (s *ScaleApplicationSuite) runScaleApplication(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *ScaleApplicationSuite) runScaleApplication(c *tc.C, args ...string) (*cmd.Context, error) {
 	store := jujuclienttesting.MinimalStore()
 	store.Models["arthur"] = &jujuclient.ControllerModels{
 		CurrentModel: "king/sword",
@@ -58,35 +58,35 @@ func (s *ScaleApplicationSuite) runScaleApplication(c *gc.C, args ...string) (*c
 	return cmdtesting.RunCommand(c, NewScaleCommandForTest(s.mockAPI, store), args...)
 }
 
-func (s *ScaleApplicationSuite) TestScaleApplication(c *gc.C) {
+func (s *ScaleApplicationSuite) TestScaleApplication(c *tc.C) {
 	ctx, err := s.runScaleApplication(c, "foo", "2")
 	c.Assert(err, jc.ErrorIsNil)
 
 	stderr := cmdtesting.Stderr(ctx)
 	out := strings.Replace(stderr, "\n", "", -1)
-	c.Assert(out, gc.Equals, `foo scaled to 2 units`)
+	c.Assert(out, tc.Equals, `foo scaled to 2 units`)
 }
 
-func (s *ScaleApplicationSuite) TestScaleApplicationBlocked(c *gc.C) {
+func (s *ScaleApplicationSuite) TestScaleApplicationBlocked(c *tc.C) {
 	s.mockAPI.SetErrors(&params.Error{Code: params.CodeOperationBlocked, Message: "nope"})
 	_, err := s.runScaleApplication(c, "foo", "2")
 	c.Assert(err.Error(), jc.Contains, `could not scale application "foo": nope`)
 	c.Assert(err.Error(), jc.Contains, `All operations that change model have been disabled for the current model.`)
 }
 
-func (s *ScaleApplicationSuite) TestScaleApplicationWrongModel(c *gc.C) {
+func (s *ScaleApplicationSuite) TestScaleApplicationWrongModel(c *tc.C) {
 	store := jujuclienttesting.MinimalStore()
 	_, err := cmdtesting.RunCommand(c, NewScaleCommandForTest(s.mockAPI, store), "foo", "2")
-	c.Assert(err, gc.ErrorMatches, `Juju command "scale-application" only supported on k8s container models`)
+	c.Assert(err, tc.ErrorMatches, `Juju command "scale-application" only supported on k8s container models`)
 }
 
-func (s *ScaleApplicationSuite) TestInvalidArgs(c *gc.C) {
+func (s *ScaleApplicationSuite) TestInvalidArgs(c *tc.C) {
 	_, err := s.runScaleApplication(c)
-	c.Assert(err, gc.ErrorMatches, `no application specified`)
+	c.Assert(err, tc.ErrorMatches, `no application specified`)
 	_, err = s.runScaleApplication(c, "invalid:name")
-	c.Assert(err, gc.ErrorMatches, `invalid application name "invalid:name"`)
+	c.Assert(err, tc.ErrorMatches, `invalid application name "invalid:name"`)
 	_, err = s.runScaleApplication(c, "name")
-	c.Assert(err, gc.ErrorMatches, `no scale specified`)
+	c.Assert(err, tc.ErrorMatches, `no scale specified`)
 	_, err = s.runScaleApplication(c, "name", "scale")
-	c.Assert(err, gc.ErrorMatches, `invalid scale "scale": strconv.Atoi: parsing "scale": invalid syntax`)
+	c.Assert(err, tc.ErrorMatches, `invalid scale "scale": strconv.Atoi: parsing "scale": invalid syntax`)
 }

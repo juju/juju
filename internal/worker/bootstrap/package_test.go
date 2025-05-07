@@ -7,10 +7,10 @@ import (
 	"testing"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -31,7 +31,7 @@ import (
 func TestPackage(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type baseSuite struct {
@@ -67,7 +67,7 @@ type baseSuite struct {
 	logger logger.Logger
 }
 
-func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.dataDir = c.MkDir()

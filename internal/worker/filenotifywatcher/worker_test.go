@@ -6,10 +6,10 @@ package filenotifywatcher
 import (
 	time "time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
@@ -19,9 +19,9 @@ type workerSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
-func (s *workerSuite) TestChanges(c *gc.C) {
+func (s *workerSuite) TestChanges(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyClock()
@@ -45,7 +45,7 @@ func (s *workerSuite) TestChanges(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	watcher, ok := w.(FileNotifyWatcher)
-	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement FileNotifyWatcher"))
+	c.Assert(ok, jc.IsTrue, tc.Commentf("worker does not implement FileNotifyWatcher"))
 
 	ch1, err := watcher.Changes("controller")
 	c.Assert(err, jc.ErrorIsNil)
@@ -76,7 +76,7 @@ func (s *workerSuite) TestChanges(c *gc.C) {
 	}
 }
 
-func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
+func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 	cfg := WorkerConfig{
 		Clock:  s.clock,
 		Logger: loggertesting.WrapCheckLog(c),

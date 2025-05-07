@@ -8,10 +8,10 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/errors"
@@ -24,9 +24,9 @@ type downloaderSuite struct {
 	downloadClient *MockDownloadClient
 }
 
-var _ = gc.Suite(&downloaderSuite{})
+var _ = tc.Suite(&downloaderSuite{})
 
-func (s *downloaderSuite) TestDownload(c *gc.C) {
+func (s *downloaderSuite) TestDownload(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cURL, err := url.Parse("https://example.com/foo")
@@ -43,14 +43,14 @@ func (s *downloaderSuite) TestDownload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the path is not empty and that the temp file still exists.
-	c.Assert(result.Path, gc.Not(gc.Equals), "")
+	c.Assert(result.Path, tc.Not(tc.Equals), "")
 
 	_, err = os.Stat(result.Path)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(result.Size, gc.Equals, int64(123))
+	c.Check(result.Size, tc.Equals, int64(123))
 }
 
-func (s *downloaderSuite) TestDownloadFailure(c *gc.C) {
+func (s *downloaderSuite) TestDownloadFailure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cURL, err := url.Parse("https://example.com/foo")
@@ -71,13 +71,13 @@ func (s *downloaderSuite) TestDownloadFailure(c *gc.C) {
 
 	downloader := NewCharmDownloader(s.downloadClient, loggertesting.WrapCheckLog(c))
 	_, err = downloader.Download(context.Background(), cURL, "hash")
-	c.Assert(err, gc.ErrorMatches, `.*boom`)
+	c.Assert(err, tc.ErrorMatches, `.*boom`)
 
 	_, err = os.Stat(tmpPath)
 	c.Check(os.IsNotExist(err), jc.IsTrue)
 }
 
-func (s *downloaderSuite) TestDownloadInvalidDigestHash(c *gc.C) {
+func (s *downloaderSuite) TestDownloadInvalidDigestHash(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cURL, err := url.Parse("https://example.com/foo")
@@ -104,7 +104,7 @@ func (s *downloaderSuite) TestDownloadInvalidDigestHash(c *gc.C) {
 	c.Check(os.IsNotExist(err), jc.IsTrue)
 }
 
-func (s *downloaderSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *downloaderSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.downloadClient = NewMockDownloadClient(ctrl)

@@ -5,19 +5,19 @@ package database
 
 import (
 	dqlite "github.com/canonical/go-dqlite/v2/driver"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	"github.com/juju/testing/checkers"
 	"github.com/mattn/go-sqlite3"
-	gc "gopkg.in/check.v1"
 )
 
 type errorSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&errorSuite{})
+var _ = tc.Suite(&errorSuite{})
 
-func (s *errorSuite) TestIsErrConstraintUnique(c *gc.C) {
+func (s *errorSuite) TestIsErrConstraintUnique(c *tc.C) {
 	c.Check(IsErrConstraintUnique(nil), checkers.IsFalse)
 
 	dErr := dqlite.Error{}

@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/lestrrat-go/jwx/v2/jwt"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
 	authjwt "github.com/juju/juju/apiserver/authentication/jwt"
@@ -115,7 +115,7 @@ func TestingAPIRoot(facades *facade.Registry) rpc.Root {
 
 // TestingAPIHandler gives you an APIHandler that isn't connected to
 // anything real. It's enough to let test some basic functionality though.
-func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, sf services.DomainServices) (*apiHandler, *common.Resources) {
+func TestingAPIHandler(c *tc.C, pool *state.StatePool, st *state.State, sf services.DomainServices) (*apiHandler, *common.Resources) {
 	agentAuthGetter := authentication.NewAgentAuthenticatorGetter(nil, st, loggertesting.WrapCheckLog(c))
 	modelInfo, err := sf.ModelInfo().GetModelInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -186,7 +186,7 @@ type StubObjectStoreGetter struct {
 // TestingAPIHandler but sets the passed entity as the apiHandler
 // entity.
 func TestingAPIHandlerWithEntity(
-	c *gc.C,
+	c *tc.C,
 	pool *state.StatePool,
 	st *state.State,
 	sf services.DomainServices,
@@ -202,7 +202,7 @@ func TestingAPIHandlerWithEntity(
 // TestingAPIHandler but sets the passed token as the apiHandler
 // login token.
 func TestingAPIHandlerWithToken(
-	c *gc.C,
+	c *tc.C,
 	pool *state.StatePool,
 	st *state.State,
 	sf services.DomainServices,
@@ -306,9 +306,9 @@ type Patcher interface {
 	PatchValue(ptr, value interface{})
 }
 
-func AssertHasPermission(c *gc.C, handler *apiHandler, access permission.Access, tag names.Tag, expect bool) {
+func AssertHasPermission(c *tc.C, handler *apiHandler, access permission.Access, tag names.Tag, expect bool) {
 	err := handler.HasPermission(context.Background(), access, tag)
-	c.Assert(err == nil, gc.Equals, expect)
+	c.Assert(err == nil, tc.Equals, expect)
 	if expect {
 		c.Assert(err, jc.ErrorIsNil)
 	}

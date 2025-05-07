@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	tomb "gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/testing"
@@ -56,7 +56,7 @@ func (w *MockStringsWatcher) Wait() error {
 	return w.tomb.Wait()
 }
 
-func NewStringsWatcherC(c *gc.C, watcher watcher.StringsWatcher) StringsWatcherC {
+func NewStringsWatcherC(c *tc.C, watcher watcher.StringsWatcher) StringsWatcherC {
 	return StringsWatcherC{
 		C:       c,
 		Watcher: watcher,
@@ -64,7 +64,7 @@ func NewStringsWatcherC(c *gc.C, watcher watcher.StringsWatcher) StringsWatcherC
 }
 
 type StringsWatcherC struct {
-	*gc.C
+	*tc.C
 	Watcher watcher.StringsWatcher
 }
 
@@ -170,12 +170,12 @@ func (c StringsWatcherC) AssertChangeMaybeIncluding(expect ...string) {
 	actual := c.collectChanges(true, maxCount)
 
 	if maxCount == 0 {
-		c.Assert(actual, gc.HasLen, 0)
+		c.Assert(actual, tc.HasLen, 0)
 	} else {
 		actualCount := len(actual)
-		c.Assert(actualCount <= maxCount, jc.IsTrue, gc.Commentf("expected at most %d, got %d", maxCount, actualCount))
+		c.Assert(actualCount <= maxCount, jc.IsTrue, tc.Commentf("expected at most %d, got %d", maxCount, actualCount))
 		unexpected := set.NewStrings(actual...).Difference(set.NewStrings(expect...))
-		c.Assert(unexpected.Values(), gc.HasLen, 0)
+		c.Assert(unexpected.Values(), tc.HasLen, 0)
 	}
 }
 
@@ -184,7 +184,7 @@ func (c StringsWatcherC) AssertChangeMaybeIncluding(expect ...string) {
 func (c StringsWatcherC) assertChange(single bool, expect ...string) {
 	actual := c.collectChanges(single, len(expect))
 	if len(expect) == 0 {
-		c.Assert(actual, gc.HasLen, 0)
+		c.Assert(actual, tc.HasLen, 0)
 	} else {
 		c.Assert(actual, jc.SameContents, expect)
 	}

@@ -5,11 +5,11 @@ package toolsversionchecker_test
 
 import (
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine/enginetest"
@@ -24,9 +24,9 @@ type ManifoldSuite struct {
 	newCalled bool
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+var _ = tc.Suite(&ManifoldSuite{})
 
-func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.newCalled = false
 	s.PatchValue(&toolsversionchecker.New,
 		func(api toolsversionchecker.Facade, params *toolsversionchecker.VersionCheckerParams) worker.Worker {
@@ -36,7 +36,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	)
 }
 
-func (s *ManifoldSuite) TestMachine(c *gc.C) {
+func (s *ManifoldSuite) TestMachine(c *tc.C) {
 	config := toolsversionchecker.ManifoldConfig(enginetest.AgentAPIManifoldTestConfig())
 	_, err := enginetest.RunAgentAPIManifold(
 		toolsversionchecker.Manifold(config),
@@ -46,23 +46,23 @@ func (s *ManifoldSuite) TestMachine(c *gc.C) {
 	c.Assert(s.newCalled, jc.IsTrue)
 }
 
-func (s *ManifoldSuite) TestMachineNotModelManagerErrors(c *gc.C) {
+func (s *ManifoldSuite) TestMachineNotModelManagerErrors(c *tc.C) {
 	config := toolsversionchecker.ManifoldConfig(enginetest.AgentAPIManifoldTestConfig())
 	_, err := enginetest.RunAgentAPIManifold(
 		toolsversionchecker.Manifold(config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
 		mockAPICaller(model.JobHostUnits))
-	c.Assert(err, gc.Equals, dependency.ErrMissing)
+	c.Assert(err, tc.Equals, dependency.ErrMissing)
 	c.Assert(s.newCalled, jc.IsFalse)
 }
 
-func (s *ManifoldSuite) TestNonMachineAgent(c *gc.C) {
+func (s *ManifoldSuite) TestNonMachineAgent(c *tc.C) {
 	config := toolsversionchecker.ManifoldConfig(enginetest.AgentAPIManifoldTestConfig())
 	_, err := enginetest.RunAgentAPIManifold(
 		toolsversionchecker.Manifold(config),
 		&fakeAgent{tag: names.NewUnitTag("foo/0")},
 		mockAPICaller(""))
-	c.Assert(err, gc.ErrorMatches, "this manifold may only be used inside a machine agent")
+	c.Assert(err, tc.ErrorMatches, "this manifold may only be used inside a machine agent")
 	c.Assert(s.newCalled, jc.IsFalse)
 }
 

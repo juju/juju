@@ -9,9 +9,9 @@ import (
 	"errors"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -25,21 +25,21 @@ type FacadeSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&FacadeSuite{})
+var _ = tc.Suite(&FacadeSuite{})
 
-func (*FacadeSuite) TestAcceptsMachineAgent(c *gc.C) {
+func (*FacadeSuite) TestAcceptsMachineAgent(c *tc.C) {
 	facade, err := machineactions.NewFacade(nil, nil, agentAuth{machine: true})
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(facade, gc.NotNil)
+	c.Check(facade, tc.NotNil)
 }
 
-func (*FacadeSuite) TestOtherAgent(c *gc.C) {
+func (*FacadeSuite) TestOtherAgent(c *tc.C) {
 	facade, err := machineactions.NewFacade(nil, nil, agentAuth{})
-	c.Check(err, gc.Equals, apiservererrors.ErrPerm)
-	c.Check(facade, gc.IsNil)
+	c.Check(err, tc.Equals, apiservererrors.ErrPerm)
+	c.Check(facade, tc.IsNil)
 }
 
-func (*FacadeSuite) TestRunningActions(c *gc.C) {
+func (*FacadeSuite) TestRunningActions(c *tc.C) {
 	stub := &testing.Stub{}
 	auth := agentAuth{
 		machine: true,
@@ -59,7 +59,7 @@ func (*FacadeSuite) TestRunningActions(c *gc.C) {
 		"unauthorized",
 	))
 
-	c.Assert(results, gc.DeepEquals, params.ActionsByReceivers{
+	c.Assert(results, tc.DeepEquals, params.ActionsByReceivers{
 		Actions: []params.ActionsByReceiver{{
 			Receiver: "valid",
 			Error:    apiservererrors.ServerError(errors.New("boom")),

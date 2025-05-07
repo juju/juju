@@ -4,8 +4,8 @@
 package migration_test
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/migration"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -15,21 +15,21 @@ type MinionReportsSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(new(MinionReportsSuite))
+var _ = tc.Suite(new(MinionReportsSuite))
 
-func (s *MinionReportsSuite) TestIsZero(c *gc.C) {
+func (s *MinionReportsSuite) TestIsZero(c *tc.C) {
 	reports := migration.MinionReports{}
 	c.Check(reports.IsZero(), jc.IsTrue)
 }
 
-func (s *MinionReportsSuite) TestIsZeroIdSet(c *gc.C) {
+func (s *MinionReportsSuite) TestIsZeroIdSet(c *tc.C) {
 	reports := migration.MinionReports{
 		MigrationId: "foo",
 	}
 	c.Check(reports.IsZero(), jc.IsFalse)
 }
 
-func (s *MinionReportsSuite) TestIsZeroPhaseSet(c *gc.C) {
+func (s *MinionReportsSuite) TestIsZeroPhaseSet(c *tc.C) {
 	reports := migration.MinionReports{
 		Phase: migration.QUIESCE,
 	}

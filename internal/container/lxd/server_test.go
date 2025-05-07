@@ -5,9 +5,9 @@ package lxd_test
 
 import (
 	"github.com/canonical/lxd/shared/api"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/container/lxd"
 	lxdtesting "github.com/juju/juju/internal/container/lxd/testing"
@@ -17,9 +17,9 @@ type serverSuite struct {
 	lxdtesting.BaseSuite
 }
 
-var _ = gc.Suite(&serverSuite{})
+var _ = tc.Suite(&serverSuite{})
 
-func (s *serverSuite) TestUpdateServerConfig(c *gc.C) {
+func (s *serverSuite) TestUpdateServerConfig(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := lxdtesting.NewMockInstanceServer(ctrl)
@@ -37,7 +37,7 @@ func (s *serverSuite) TestUpdateServerConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serverSuite) TestUpdateContainerConfig(c *gc.C) {
+func (s *serverSuite) TestUpdateContainerConfig(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := lxdtesting.NewMockInstanceServer(ctrl)
@@ -59,7 +59,7 @@ func (s *serverSuite) TestUpdateContainerConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serverSuite) TestHasProfile(c *gc.C) {
+func (s *serverSuite) TestHasProfile(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServer(ctrl)
@@ -78,7 +78,7 @@ func (s *serverSuite) TestHasProfile(c *gc.C) {
 	c.Check(has, jc.IsFalse)
 }
 
-func (s *serverSuite) TestCreateProfileWithConfig(c *gc.C) {
+func (s *serverSuite) TestCreateProfileWithConfig(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServer(ctrl)
@@ -99,7 +99,7 @@ func (s *serverSuite) TestCreateProfileWithConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serverSuite) TestGetServerName(c *gc.C) {
+func (s *serverSuite) TestGetServerName(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -112,10 +112,10 @@ func (s *serverSuite) TestGetServerName(c *gc.C) {
 	cSvr := s.NewMockServer(ctrl, mutate)
 	jujuSvr, err := lxd.NewServer(cSvr)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(jujuSvr.Name(), gc.Equals, serverName)
+	c.Assert(jujuSvr.Name(), tc.Equals, serverName)
 }
 
-func (s *serverSuite) TestGetServerNameReturnsNoneIfServerNameIsEmpty(c *gc.C) {
+func (s *serverSuite) TestGetServerNameReturnsNoneIfServerNameIsEmpty(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -127,10 +127,10 @@ func (s *serverSuite) TestGetServerNameReturnsNoneIfServerNameIsEmpty(c *gc.C) {
 	cSvr := s.NewMockServer(ctrl, mutate)
 	jujuSvr, err := lxd.NewServer(cSvr)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(jujuSvr.Name(), gc.Equals, "none")
+	c.Assert(jujuSvr.Name(), tc.Equals, "none")
 }
 
-func (s *serverSuite) TestGetServerNameReturnsEmptyIfServerNameIsEmptyAndClustered(c *gc.C) {
+func (s *serverSuite) TestGetServerNameReturnsEmptyIfServerNameIsEmptyAndClustered(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -142,10 +142,10 @@ func (s *serverSuite) TestGetServerNameReturnsEmptyIfServerNameIsEmptyAndCluster
 	cSvr := s.NewMockServer(ctrl, mutate)
 	jujuSvr, err := lxd.NewServer(cSvr)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(jujuSvr.Name(), gc.Equals, "")
+	c.Assert(jujuSvr.Name(), tc.Equals, "")
 }
 
-func (s *serverSuite) TestReplaceOrAddContainerProfile(c *gc.C) {
+func (s *serverSuite) TestReplaceOrAddContainerProfile(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServer(ctrl)
@@ -170,7 +170,7 @@ func (s *serverSuite) TestReplaceOrAddContainerProfile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serverSuite) TestUseProject(c *gc.C) {
+func (s *serverSuite) TestUseProject(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServer(ctrl)

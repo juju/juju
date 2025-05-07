@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/storage"
@@ -63,7 +63,7 @@ type baseStorageSuite struct {
 	poolsInUse         []string
 }
 
-func (s *baseStorageSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *baseStorageSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.unitTag = names.NewUnitTag("mysql/0")
@@ -79,7 +79,7 @@ func (s *baseStorageSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.storageService = storage.NewMockStorageService(ctrl)
 	s.applicationService = storage.NewMockApplicationService(ctrl)
 	s.applicationService.EXPECT().GetUnitMachineName(gomock.Any(), unit.Name("mysql/0")).DoAndReturn(func(ctx context.Context, u unit.Name) (machine.Name, error) {
-		c.Assert(u.String(), gc.Equals, s.unitTag.Id())
+		c.Assert(u.String(), tc.Equals, s.unitTag.Id())
 		return machine.Name(s.machineTag.Id()), nil
 	}).AnyTimes()
 
@@ -107,7 +107,7 @@ func (s *baseStorageSuite) storageRegistryGetter(context.Context) (jujustorage.P
 }
 
 // TODO(axw) get rid of assertCalls, use stub directly everywhere.
-func (s *baseStorageSuite) assertCalls(c *gc.C, expectedCalls []string) {
+func (s *baseStorageSuite) assertCalls(c *tc.C, expectedCalls []string) {
 	s.stub.CheckCallNames(c, expectedCalls...)
 }
 
@@ -323,15 +323,15 @@ func (s *baseStorageSuite) constructStorageAccessor() *mockStorageAccessor {
 	}
 }
 
-func (s *baseStorageSuite) addBlock(c *gc.C, t blockcommand.BlockType, msg string) {
+func (s *baseStorageSuite) addBlock(c *tc.C, t blockcommand.BlockType, msg string) {
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), t).Return(msg, nil)
 }
 
-func (s *baseStorageSuite) blockAllChanges(c *gc.C, msg string) {
+func (s *baseStorageSuite) blockAllChanges(c *tc.C, msg string) {
 	s.addBlock(c, blockcommand.ChangeBlock, msg)
 }
 
-func (s *baseStorageSuite) assertBlocked(c *gc.C, err error, msg string) {
+func (s *baseStorageSuite) assertBlocked(c *tc.C, err error, msg string) {
 	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
-	c.Assert(err, gc.ErrorMatches, msg)
+	c.Assert(err, tc.ErrorMatches, msg)
 }

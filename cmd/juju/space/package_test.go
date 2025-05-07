@@ -9,9 +9,9 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/space"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -27,7 +27,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/spacesapi_mock.go github.com/juju/juju/cmd/juju/space SpaceAPI,SubnetAPI,API
 
 func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 // BaseSpaceSuite is used for embedding in other suites.
@@ -39,37 +39,37 @@ type BaseSpaceSuite struct {
 	api        *StubAPI
 }
 
-var _ = gc.Suite(&BaseSpaceSuite{})
+var _ = tc.Suite(&BaseSpaceSuite{})
 
-func (s *BaseSpaceSuite) SetUpSuite(c *gc.C) {
+func (s *BaseSpaceSuite) SetUpSuite(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	s.BaseSuite.SetUpSuite(c)
 }
 
-func (s *BaseSpaceSuite) TearDownSuite(c *gc.C) {
+func (s *BaseSpaceSuite) TearDownSuite(c *tc.C) {
 	s.BaseSuite.TearDownSuite(c)
 	s.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
 }
 
-func (s *BaseSpaceSuite) SetUpTest(c *gc.C) {
+func (s *BaseSpaceSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	s.api = NewStubAPI()
-	c.Assert(s.api, gc.NotNil)
+	c.Assert(s.api, tc.NotNil)
 
 	// All subcommand suites embedding this one should initialize
 	// s.newCommand immediately after calling this method!
 }
 
-func (s *BaseSpaceSuite) TearDownTest(c *gc.C) {
+func (s *BaseSpaceSuite) TearDownTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
 }
 
 // InitCommand creates a command with s.newCommand and runs its
 // Init method only. It returns the inner command and any error.
-func (s *BaseSpaceSuite) InitCommand(c *gc.C, args ...string) (cmd.Command, error) {
+func (s *BaseSpaceSuite) InitCommand(c *tc.C, args ...string) (cmd.Command, error) {
 	cmd := s.newCommandForTest()
 	err := cmdtesting.InitCommand(cmd, args)
 	return modelcmd.InnerCommand(cmd), err
@@ -78,7 +78,7 @@ func (s *BaseSpaceSuite) InitCommand(c *gc.C, args ...string) (cmd.Command, erro
 // RunCommand creates a command with s.newCommand and executes it,
 // passing any args and returning the stdout and stderr output as
 // strings, as well as any error.
-func (s *BaseSpaceSuite) RunCommand(c *gc.C, args ...string) (string, string, error) {
+func (s *BaseSpaceSuite) RunCommand(c *tc.C, args ...string) (string, string, error) {
 	cmd := s.newCommandForTest()
 	ctx, err := cmdtesting.RunCommand(c, cmd, args...)
 	return cmdtesting.Stdout(ctx), cmdtesting.Stderr(ctx), err
@@ -99,31 +99,31 @@ func (s *BaseSpaceSuite) newCommandForTest() modelcmd.ModelCommand {
 // AssertRunSpacesNotSupported is a shortcut for calling RunCommand with the
 // passed args then asserting the output is empty and the error is the
 // spaces not supported, finally returning the error.
-func (s *BaseSpaceSuite) AssertRunSpacesNotSupported(c *gc.C, expectErr string, args ...string) error {
+func (s *BaseSpaceSuite) AssertRunSpacesNotSupported(c *tc.C, expectErr string, args ...string) error {
 	stdout, stderr, err := s.RunCommand(c, args...)
-	c.Assert(err, gc.ErrorMatches, expectErr)
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Equals, expectErr+"\n")
+	c.Assert(err, tc.ErrorMatches, expectErr)
+	c.Assert(stdout, tc.Equals, "")
+	c.Assert(stderr, tc.Equals, expectErr+"\n")
 	return err
 }
 
 // AssertRunFailsUnauthoirzed is a shortcut for calling RunCommand with the
 // passed args then asserting the error is as expected, finally returning the
 // error.
-func (s *BaseSpaceSuite) AssertRunFailsUnauthorized(c *gc.C, expectErr string, args ...string) error {
+func (s *BaseSpaceSuite) AssertRunFailsUnauthorized(c *tc.C, expectErr string, args ...string) error {
 	_, stderr, err := s.RunCommand(c, args...)
-	c.Assert(strings.Replace(stderr, "\n", " ", -1), gc.Matches, `.*juju grant.*`)
+	c.Assert(strings.Replace(stderr, "\n", " ", -1), tc.Matches, `.*juju grant.*`)
 	return err
 }
 
 // AssertRunFails is a shortcut for calling RunCommand with the
 // passed args then asserting the output is empty and the error is as
 // expected, finally returning the error.
-func (s *BaseSpaceSuite) AssertRunFails(c *gc.C, expectErr string, args ...string) error {
+func (s *BaseSpaceSuite) AssertRunFails(c *tc.C, expectErr string, args ...string) error {
 	stdout, stderr, err := s.RunCommand(c, args...)
-	c.Assert(err, gc.ErrorMatches, expectErr)
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Equals, "")
+	c.Assert(err, tc.ErrorMatches, expectErr)
+	c.Assert(stdout, tc.Equals, "")
+	c.Assert(stderr, tc.Equals, "")
 	return err
 }
 
@@ -131,11 +131,11 @@ func (s *BaseSpaceSuite) AssertRunFails(c *gc.C, expectErr string, args ...strin
 // the passed args then asserting the stderr output matches
 // expectStderr, stdout is equal to expectStdout, and the error is
 // nil.
-func (s *BaseSpaceSuite) AssertRunSucceeds(c *gc.C, expectStderr, expectStdout string, args ...string) {
+func (s *BaseSpaceSuite) AssertRunSucceeds(c *tc.C, expectStderr, expectStdout string, args ...string) {
 	stdout, stderr, err := s.RunCommand(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stdout, gc.Equals, expectStdout)
-	c.Assert(stderr, gc.Matches, expectStderr)
+	c.Assert(stdout, tc.Equals, expectStdout)
+	c.Assert(stderr, tc.Matches, expectStderr)
 }
 
 // Strings is makes tests taking a slice of strings slightly easier to

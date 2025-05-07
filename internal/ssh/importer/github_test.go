@@ -12,9 +12,9 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	importererrors "github.com/juju/juju/internal/ssh/importer/errors"
 )
@@ -24,10 +24,10 @@ type githubSuite struct {
 }
 
 var (
-	_ = gc.Suite(&githubSuite{})
+	_ = tc.Suite(&githubSuite{})
 )
 
-func (s *githubSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *githubSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.client = NewMockClient(ctrl)
 	return ctrl
@@ -35,13 +35,13 @@ func (s *githubSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 // TestSubjectNotFound is asserting that if the [GithubResolver] gets a 404
 // return it propagates a [importererrors.SubjectNotFound] error.
-func (g *githubSuite) TestSubjectNotFound(c *gc.C) {
+func (g *githubSuite) TestSubjectNotFound(c *tc.C) {
 	defer g.setupMocks(c).Finish()
 
 	g.client.EXPECT().Do(gomock.Any()).DoAndReturn(
 		func(req *http.Request) (*http.Response, error) {
-			c.Check(req.URL.Path, gc.Equals, "/users/tlm/keys")
-			c.Check(req.Header.Get("Accept"), gc.Equals, "application/json; charset=utf-8")
+			c.Check(req.URL.Path, tc.Equals, "/users/tlm/keys")
+			c.Check(req.Header.Get("Accept"), tc.Equals, "application/json; charset=utf-8")
 			return &http.Response{
 				Body:       io.NopCloser(strings.NewReader("")),
 				StatusCode: http.StatusNotFound,
@@ -55,13 +55,13 @@ func (g *githubSuite) TestSubjectNotFound(c *gc.C) {
 }
 
 // TestSubjectPublicKeys is asserting the happy path for the [GithubResolver].
-func (g *githubSuite) TestSubjectPublicKeys(c *gc.C) {
+func (g *githubSuite) TestSubjectPublicKeys(c *tc.C) {
 	defer g.setupMocks(c).Finish()
 
 	g.client.EXPECT().Do(gomock.Any()).DoAndReturn(
 		func(req *http.Request) (*http.Response, error) {
-			c.Check(req.URL.Path, gc.Equals, "/users/tlm/keys")
-			c.Check(req.Header.Get("Accept"), gc.Equals, "application/json; charset=utf-8")
+			c.Check(req.URL.Path, tc.Equals, "/users/tlm/keys")
+			c.Check(req.Header.Get("Accept"), tc.Equals, "application/json; charset=utf-8")
 
 			res := []githubKeyResponse{
 				{

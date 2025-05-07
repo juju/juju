@@ -8,9 +8,9 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/space"
 	"github.com/juju/juju/internal/cmd"
@@ -22,9 +22,9 @@ type ShowSuite struct {
 	BaseSpaceSuite
 }
 
-var _ = gc.Suite(&ShowSuite{})
+var _ = tc.Suite(&ShowSuite{})
 
-func (s *ShowSuite) SetUpTest(c *gc.C) {
+func (s *ShowSuite) SetUpTest(c *tc.C) {
 	s.BaseSpaceSuite.SetUpTest(c)
 	s.newCommand = space.NewShowSpaceCommand
 }
@@ -45,7 +45,7 @@ func (s *ShowSuite) getDefaultSpace() params.ShowSpaceResult {
 	}
 }
 
-func (s *ShowSuite) TestRunShowSpaceSucceeds(c *gc.C) {
+func (s *ShowSuite) TestRunShowSpaceSucceeds(c *tc.C) {
 	ctrl, api := setUpMocks(c)
 	defer ctrl.Finish()
 	spaceName := "default"
@@ -64,10 +64,10 @@ machine-count: 4
 
 	ctx, err := s.runCommand(c, api, spaceName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedStdout)
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, expectedStdout)
 
 }
-func (s *ShowSuite) runCommand(c *gc.C, api space.API, name string) (*cmd.Context, error) {
+func (s *ShowSuite) runCommand(c *tc.C, api space.API, name string) (*cmd.Context, error) {
 	base := space.NewSpaceCommandBase(api)
 	command := space.ShowSpaceCommand{
 		SpaceCommandBase: base,
@@ -76,7 +76,7 @@ func (s *ShowSuite) runCommand(c *gc.C, api space.API, name string) (*cmd.Contex
 	return cmdtesting.RunCommand(c, &command, name)
 }
 
-func (s *ShowSuite) TestRunWhenShowSpacesNotSupported(c *gc.C) {
+func (s *ShowSuite) TestRunWhenShowSpacesNotSupported(c *tc.C) {
 	ctrl, api := setUpMocks(c)
 	defer ctrl.Finish()
 	spaceName := "default"
@@ -89,7 +89,7 @@ func (s *ShowSuite) TestRunWhenShowSpacesNotSupported(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
-func (s *ShowSuite) TestRunWhenShowSpacesAPIFails(c *gc.C) {
+func (s *ShowSuite) TestRunWhenShowSpacesAPIFails(c *tc.C) {
 	ctrl, api := setUpMocks(c)
 	defer ctrl.Finish()
 	spaceName := "default"
@@ -99,10 +99,10 @@ func (s *ShowSuite) TestRunWhenShowSpacesAPIFails(c *gc.C) {
 
 	_, err := s.runCommand(c, api, spaceName)
 	expectedMsg := fmt.Sprintf("cannot retrieve space %q: API error", spaceName)
-	c.Assert(err, gc.ErrorMatches, expectedMsg)
+	c.Assert(err, tc.ErrorMatches, expectedMsg)
 }
 
-func (s *ShowSuite) TestRunUnauthorizedMentionsJujuGrant(c *gc.C) {
+func (s *ShowSuite) TestRunUnauthorizedMentionsJujuGrant(c *tc.C) {
 	apiErr := &params.Error{
 		Message: "permission denied",
 		Code:    params.CodeUnauthorized,
@@ -115,11 +115,11 @@ func (s *ShowSuite) TestRunUnauthorizedMentionsJujuGrant(c *gc.C) {
 
 	_, err := s.runCommand(c, api, spaceName)
 	expectedErrMsg := fmt.Sprintf("cannot retrieve space %q: permission denied", spaceName)
-	c.Assert(err, gc.ErrorMatches, expectedErrMsg)
+	c.Assert(err, tc.ErrorMatches, expectedErrMsg)
 
 }
 
-func (s *ShowSuite) TestRunWhenSpacesBlocked(c *gc.C) {
+func (s *ShowSuite) TestRunWhenSpacesBlocked(c *tc.C) {
 	apiErr := &params.Error{Code: params.CodeOperationBlocked, Message: "nope"}
 	ctrl, api := setUpMocks(c)
 	defer ctrl.Finish()
@@ -128,7 +128,7 @@ func (s *ShowSuite) TestRunWhenSpacesBlocked(c *gc.C) {
 	api.EXPECT().ShowSpace(gomock.Any(), spaceName).Return(params.ShowSpaceResult{}, apiErr)
 	ctx, err := s.runCommand(c, api, spaceName)
 
-	c.Assert(err, gc.ErrorMatches, `
+	c.Assert(err, tc.ErrorMatches, `
 cannot retrieve space "default": nope
 
 All operations that change model have been disabled for the current model.
@@ -137,6 +137,6 @@ To enable changes, run
     juju enable-command all
 
 `[1:])
-	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
-	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, "")
+	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), tc.Equals, "")
+	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), tc.Equals, "")
 }

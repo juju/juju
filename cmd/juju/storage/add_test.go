@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/storage"
@@ -25,9 +25,9 @@ type addSuite struct {
 	args    []string
 }
 
-var _ = gc.Suite(&addSuite{})
+var _ = tc.Suite(&addSuite{})
 
-func (s *addSuite) SetUpTest(c *gc.C) {
+func (s *addSuite) SetUpTest(c *tc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 
 	s.mockAPI = &mockAddAPI{
@@ -85,7 +85,7 @@ var errorTsts = []tstData{
 	},
 }
 
-func (s *addSuite) TestAddArgs(c *gc.C) {
+func (s *addSuite) TestAddArgs(c *tc.C) {
 	for i, t := range errorTsts {
 		c.Logf("test %d for %q", i, t.args)
 		s.args = t.args
@@ -93,14 +93,14 @@ func (s *addSuite) TestAddArgs(c *gc.C) {
 	}
 }
 
-func (s *addSuite) TestAddInvalidUnit(c *gc.C) {
+func (s *addSuite) TestAddInvalidUnit(c *tc.C) {
 	s.args = []string{"tst-123", "data=676"}
 
 	expectedErr := `unit name "tst-123" not valid`
 	s.assertAddErrorOutput(c, expectedErr, visibleErrorMessage(expectedErr))
 }
 
-func (s *addSuite) TestAddSuccess(c *gc.C) {
+func (s *addSuite) TestAddSuccess(c *tc.C) {
 	validArgs := [][]string{
 		{"tst/123", "data=676"},
 		{"tst/123", "data"},
@@ -118,7 +118,7 @@ added storage foo/1 to tst/123
 	}
 }
 
-func (s *addSuite) TestAddOperationAborted(c *gc.C) {
+func (s *addSuite) TestAddOperationAborted(c *tc.C) {
 	s.args = []string{"tst/123", "data=676"}
 	s.mockAPI.addToUnitFunc = func(storages []params.StorageAddParams) ([]params.AddStorageResult, error) {
 		return nil, errors.New("aborted")
@@ -126,12 +126,12 @@ func (s *addSuite) TestAddOperationAborted(c *gc.C) {
 	s.assertAddErrorOutput(c, ".*aborted.*", "")
 }
 
-func (s *addSuite) TestAddFailure(c *gc.C) {
+func (s *addSuite) TestAddFailure(c *tc.C) {
 	s.args = []string{"tst/123", "err=676"}
 	s.assertAddErrorOutput(c, "cmd: error out silently", "failed to add storage \"err\" to tst/123: test failure\n")
 }
 
-func (s *addSuite) TestAddMixOrderPreserved(c *gc.C) {
+func (s *addSuite) TestAddMixOrderPreserved(c *tc.C) {
 	expectedErr := `
 added storage foo/0 to tst/123
 added storage foo/1 to tst/123
@@ -145,7 +145,7 @@ failed to add storage "err" to tst/123: test failure
 	s.assertAddErrorOutput(c, "cmd: error out silently", expectedErr)
 }
 
-func (s *addSuite) TestAddAllDistinctErrors(c *gc.C) {
+func (s *addSuite) TestAddAllDistinctErrors(c *tc.C) {
 	expectedErr := `
 added storage "storage0" to tst/123
 added storage "storage1" to tst/123
@@ -170,7 +170,7 @@ failed to add storage "storage42" to tst/123: storage "storage42" not found
 	s.assertAddErrorOutput(c, "cmd: error out silently", expectedErr)
 }
 
-func (s *addSuite) TestAddStorageOnlyDistinctErrors(c *gc.C) {
+func (s *addSuite) TestAddStorageOnlyDistinctErrors(c *tc.C) {
 	expectedErr := `
 added storage "storage0" to tst/123
 failed to add storage "storage2" to tst/123: storage "storage2" not found
@@ -191,7 +191,7 @@ failed to add storage "storage42" to tst/123: storage "storage42" not found
 	s.assertAddErrorOutput(c, "cmd: error out silently", expectedErr)
 }
 
-func (s *addSuite) TestAddStorageMixDistinctAndNonDistinctErrors(c *gc.C) {
+func (s *addSuite) TestAddStorageMixDistinctAndNonDistinctErrors(c *tc.C) {
 	expectedErr := `
 some unit error
 storage "storage0" not found
@@ -214,7 +214,7 @@ storage "storage0" not found
 	s.assertAddErrorOutput(c, "cmd: error out silently", expectedErr)
 }
 
-func (s *addSuite) TestCollapseUnitErrors(c *gc.C) {
+func (s *addSuite) TestCollapseUnitErrors(c *tc.C) {
 	expectedErr := `some unit error`
 
 	s.args = []string{"tst/123", "storage0=ebs", "storage2=barf", "storage1=123", "storage42=loop"}
@@ -229,7 +229,7 @@ func (s *addSuite) TestCollapseUnitErrors(c *gc.C) {
 	s.assertAddErrorOutput(c, "cmd: error out silently", expectedErr+"\n")
 }
 
-func (s *addSuite) TestUnauthorizedMentionsJujuGrant(c *gc.C) {
+func (s *addSuite) TestUnauthorizedMentionsJujuGrant(c *tc.C) {
 	s.args = []string{"tst/123", "data"}
 	s.mockAPI.addToUnitFunc = func(storages []params.StorageAddParams) ([]params.AddStorageResult, error) {
 		return nil, &params.Error{
@@ -240,21 +240,21 @@ func (s *addSuite) TestUnauthorizedMentionsJujuGrant(c *gc.C) {
 
 	ctx, _ := s.runAdd(c, s.args...)
 	errString := strings.Replace(cmdtesting.Stderr(ctx), "\n", " ", -1)
-	c.Assert(errString, gc.Matches, `.*juju grant.*`)
+	c.Assert(errString, tc.Matches, `.*juju grant.*`)
 }
 
-func (s *addSuite) assertAddErrorOutput(c *gc.C, expected string, expectedErr string) {
+func (s *addSuite) assertAddErrorOutput(c *tc.C, expected string, expectedErr string) {
 	context, err := s.runAdd(c, s.args...)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, expected)
+	c.Assert(errors.Cause(err), tc.ErrorMatches, expected)
 	s.assertExpectedOutput(c, context, expectedErr)
 }
 
-func (s *addSuite) assertExpectedOutput(c *gc.C, context *cmd.Context, expectedErr string) {
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, expectedErr)
+func (s *addSuite) assertExpectedOutput(c *tc.C, context *cmd.Context, expectedErr string) {
+	c.Assert(cmdtesting.Stdout(context), tc.Equals, "")
+	c.Assert(cmdtesting.Stderr(context), tc.Equals, expectedErr)
 }
 
-func (s *addSuite) runAdd(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *addSuite) runAdd(c *tc.C, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, storage.NewAddCommandForTest(s.mockAPI, s.store), args...)
 }
 

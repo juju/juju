@@ -8,8 +8,8 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -20,9 +20,9 @@ type eventsSuite struct {
 	resourceSuite
 }
 
-var _ = gc.Suite(&eventsSuite{})
+var _ = tc.Suite(&eventsSuite{})
 
-func (s *eventsSuite) TestList(c *gc.C) {
+func (s *eventsSuite) TestList(c *tc.C) {
 	template := corev1.Event{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "test",

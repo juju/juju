@@ -10,8 +10,8 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
@@ -28,14 +28,14 @@ type pingerSuite struct {
 	jujutesting.ApiServerSuite
 }
 
-var _ = gc.Suite(&pingerSuite{})
+var _ = tc.Suite(&pingerSuite{})
 
-func (s *pingerSuite) SetUpTest(c *gc.C) {
+func (s *pingerSuite) SetUpTest(c *tc.C) {
 	s.Clock = testclock.NewDilatedWallClock(time.Millisecond)
 	s.ApiServerSuite.SetUpTest(c)
 }
 
-func (s *pingerSuite) TestConnectionBrokenDetection(c *gc.C) {
+func (s *pingerSuite) TestConnectionBrokenDetection(c *tc.C) {
 	conn, _ := s.OpenAPIAsNewMachine(c)
 
 	s.Clock.Advance(api.PingPeriod)
@@ -59,24 +59,24 @@ func (s *pingerSuite) TestConnectionBrokenDetection(c *gc.C) {
 	}
 }
 
-func (s *pingerSuite) TestPing(c *gc.C) {
+func (s *pingerSuite) TestPing(c *tc.C) {
 	tw := &loggo.TestWriter{}
-	c.Assert(loggo.RegisterWriter("ping-tester", tw), gc.IsNil)
+	c.Assert(loggo.RegisterWriter("ping-tester", tw), tc.IsNil)
 
 	conn, _ := s.OpenAPIAsNewMachine(c)
 
 	c.Assert(pingConn(conn), jc.ErrorIsNil)
 	c.Assert(conn.Close(), jc.ErrorIsNil)
-	c.Assert(errors.Cause(pingConn(conn)), gc.Equals, rpc.ErrShutdown)
+	c.Assert(errors.Cause(pingConn(conn)), tc.Equals, rpc.ErrShutdown)
 
 	// Make sure that ping messages have not been logged.
 	for _, m := range tw.Log() {
 		c.Logf("checking %q", m.Message)
-		c.Check(m.Message, gc.Not(gc.Matches), `.*"Request":"Ping".*`)
+		c.Check(m.Message, tc.Not(tc.Matches), `.*"Request":"Ping".*`)
 	}
 }
 
-func (s *pingerSuite) TestClientNoNeedToPing(c *gc.C) {
+func (s *pingerSuite) TestClientNoNeedToPing(c *tc.C) {
 	conn := s.OpenControllerModelAPI(c)
 
 	// Here we have a conundrum, we can't wait for a clock alarm because
@@ -89,7 +89,7 @@ func (s *pingerSuite) TestClientNoNeedToPing(c *gc.C) {
 	c.Assert(pingConn(conn), jc.ErrorIsNil)
 }
 
-func (s *pingerSuite) TestAgentConnectionShutsDownWithNoPing(c *gc.C) {
+func (s *pingerSuite) TestAgentConnectionShutsDownWithNoPing(c *tc.C) {
 	coretesting.SkipFlaky(c, "lp:1627086")
 	conn, _ := s.OpenAPIAsNewMachine(c)
 
@@ -97,7 +97,7 @@ func (s *pingerSuite) TestAgentConnectionShutsDownWithNoPing(c *gc.C) {
 	checkConnectionDies(c, conn)
 }
 
-func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *gc.C) {
+func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *tc.C) {
 	coretesting.SkipFlaky(c, "lp:1632485")
 	conn, _ := s.OpenAPIAsNewMachine(c)
 
@@ -113,7 +113,7 @@ func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *gc.C) {
 	checkConnectionDies(c, conn)
 }
 
-func (s *pingerSuite) TestAgentConnectionsShutDownWhenAPIServerDies(c *gc.C) {
+func (s *pingerSuite) TestAgentConnectionsShutDownWhenAPIServerDies(c *tc.C) {
 	conn, _ := s.OpenAPIAsNewMachine(c)
 
 	err := pingConn(conn)
@@ -123,7 +123,7 @@ func (s *pingerSuite) TestAgentConnectionsShutDownWhenAPIServerDies(c *gc.C) {
 	checkConnectionDies(c, conn)
 }
 
-func checkConnectionDies(c *gc.C, conn api.Connection) {
+func checkConnectionDies(c *tc.C, conn api.Connection) {
 	select {
 	case <-conn.Broken():
 	case <-time.After(coretesting.LongWait):

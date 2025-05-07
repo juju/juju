@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
 	jujuversion "github.com/juju/juju/core/version"
@@ -32,20 +32,20 @@ type OpenSuite struct {
 	envtesting.ToolsFixture
 }
 
-var _ = gc.Suite(&OpenSuite{})
+var _ = tc.Suite(&OpenSuite{})
 
-func (s *OpenSuite) SetUpTest(c *gc.C) {
+func (s *OpenSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
-func (s *OpenSuite) TearDownTest(c *gc.C) {
+func (s *OpenSuite) TearDownTest(c *tc.C) {
 	s.ToolsFixture.TearDownTest(c)
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
-func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
+func (s *OpenSuite) TestNewDummyEnviron(c *tc.C) {
 	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
 	// matches *Settings.Map()
 	cfg, err := config.New(config.NoDefaults, testing.FakeConfig())
@@ -79,10 +79,10 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	// New controller should have been added to collection.
 	foundController, err := cache.ControllerByName(cfg.Name())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(foundController.ControllerUUID, gc.DeepEquals, controllerCfg.ControllerUUID())
+	c.Assert(foundController.ControllerUUID, tc.DeepEquals, controllerCfg.ControllerUUID())
 }
 
-func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
+func (s *OpenSuite) TestUpdateEnvInfo(c *tc.C) {
 	store := jujuclient.NewMemStore()
 	ctx := envtesting.BootstrapContext(context.Background(), c)
 	uuid := uuid.MustNewUUID().String()
@@ -104,8 +104,8 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 
 	foundController, err := store.ControllerByName("controller-name")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(foundController.ControllerUUID, gc.Not(gc.Equals), "")
-	c.Assert(foundController.CACert, gc.Not(gc.Equals), "")
+	c.Assert(foundController.ControllerUUID, tc.Not(tc.Equals), "")
+	c.Assert(foundController.CACert, tc.Not(tc.Equals), "")
 	foundModel, err := store.ModelByName("controller-name", "admin/admin-model")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(foundModel, jc.DeepEquals, &jujuclient.ModelDetails{
@@ -114,17 +114,17 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 	})
 }
 
-func (*OpenSuite) TestNewUnknownEnviron(c *gc.C) {
+func (*OpenSuite) TestNewUnknownEnviron(c *tc.C) {
 	env, err := environs.New(context.Background(), environs.OpenParams{
 		Cloud: environscloudspec.CloudSpec{
 			Type: "wondercloud",
 		},
 	}, environs.NoopCredentialInvalidator())
-	c.Assert(err, gc.ErrorMatches, "no registered provider for.*")
-	c.Assert(env, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "no registered provider for.*")
+	c.Assert(env, tc.IsNil)
 }
 
-func (*OpenSuite) TestNew(c *gc.C) {
+func (*OpenSuite) TestNew(c *tc.C) {
 	cfg, err := config.New(config.NoDefaults, testing.FakeConfig().Merge(
 		testing.Attrs{
 			"controller": false,
@@ -139,10 +139,10 @@ func (*OpenSuite) TestNew(c *gc.C) {
 	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = e.ControllerInstances(ctx, "uuid")
-	c.Assert(err, gc.ErrorMatches, "model is not prepared")
+	c.Assert(err, tc.ErrorMatches, "model is not prepared")
 }
 
-func (*OpenSuite) TestDestroy(c *gc.C) {
+func (*OpenSuite) TestDestroy(c *tc.C) {
 	cfg, err := config.New(config.NoDefaults, testing.FakeConfig().Merge(
 		testing.Attrs{
 			"name": "erewhemos",
@@ -173,12 +173,12 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	// Check that the environment has actually been destroyed
 	// and that the controller details been removed too.
 	_, err = e.ControllerInstances(context.Background(), controllerCfg.ControllerUUID())
-	c.Assert(err, gc.ErrorMatches, "model is not prepared")
+	c.Assert(err, tc.ErrorMatches, "model is not prepared")
 	_, err = store.ControllerByName("controller-name")
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
-func (*OpenSuite) TestDestroyNotFound(c *gc.C) {
+func (*OpenSuite) TestDestroyNotFound(c *tc.C) {
 	var env destroyControllerEnv
 	store := jujuclient.NewMemStore()
 	err := environs.Destroy("fnord", &env, context.Background(), store)

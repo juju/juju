@@ -9,12 +9,12 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/internal/worker/caasmodelconfigmanager/mocks"
 )
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
 type workerSuite struct {
 	testing.IsolationSuite
@@ -44,7 +44,7 @@ type workerSuite struct {
 	controllerConfig controller.Config
 }
 
-func (s *workerSuite) SetUpTest(c *gc.C) {
+func (s *workerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.modelTag = names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff")
 	s.logger = loggertesting.WrapCheckLog(c)
@@ -52,35 +52,35 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.clock = testclock.NewDilatedWallClock(testing.ShortWait)
 }
 
-func (s *workerSuite) TearDownTest(c *gc.C) {
+func (s *workerSuite) TearDownTest(c *tc.C) {
 	s.IsolationSuite.TearDownTest(c)
 	s.facade = nil
 }
 
-func (s *workerSuite) TestConfigValidate(c *gc.C) {
+func (s *workerSuite) TestConfigValidate(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	cfg := caasmodelconfigmanager.Config{}
-	c.Check(cfg.Validate(), gc.ErrorMatches, `ModelTag is missing not valid`)
+	c.Check(cfg.Validate(), tc.ErrorMatches, `ModelTag is missing not valid`)
 
 	cfg = caasmodelconfigmanager.Config{
 		ModelTag: s.modelTag,
 	}
-	c.Check(cfg.Validate(), gc.ErrorMatches, `Facade is missing not valid`)
+	c.Check(cfg.Validate(), tc.ErrorMatches, `Facade is missing not valid`)
 
 	cfg = caasmodelconfigmanager.Config{
 		ModelTag: s.modelTag,
 		Facade:   mocks.NewMockFacade(ctrl),
 	}
-	c.Check(cfg.Validate(), gc.ErrorMatches, `Broker is missing not valid`)
+	c.Check(cfg.Validate(), tc.ErrorMatches, `Broker is missing not valid`)
 
 	cfg = caasmodelconfigmanager.Config{
 		ModelTag: s.modelTag,
 		Facade:   mocks.NewMockFacade(ctrl),
 		Broker:   mocks.NewMockCAASBroker(ctrl),
 	}
-	c.Check(cfg.Validate(), gc.ErrorMatches, `Logger is missing not valid`)
+	c.Check(cfg.Validate(), tc.ErrorMatches, `Logger is missing not valid`)
 
 	cfg = caasmodelconfigmanager.Config{
 		ModelTag: s.modelTag,
@@ -88,7 +88,7 @@ func (s *workerSuite) TestConfigValidate(c *gc.C) {
 		Broker:   mocks.NewMockCAASBroker(ctrl),
 		Logger:   s.logger,
 	}
-	c.Check(cfg.Validate(), gc.ErrorMatches, `Clock is missing not valid`)
+	c.Check(cfg.Validate(), tc.ErrorMatches, `Clock is missing not valid`)
 
 	cfg = caasmodelconfigmanager.Config{
 		ModelTag: s.modelTag,
@@ -97,7 +97,7 @@ func (s *workerSuite) TestConfigValidate(c *gc.C) {
 		Logger:   s.logger,
 		Clock:    s.clock,
 	}
-	c.Check(cfg.Validate(), gc.ErrorMatches, `RegistryFunc is missing not valid`)
+	c.Check(cfg.Validate(), tc.ErrorMatches, `RegistryFunc is missing not valid`)
 
 	cfg = caasmodelconfigmanager.Config{
 		ModelTag:     s.modelTag,
@@ -110,7 +110,7 @@ func (s *workerSuite) TestConfigValidate(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIsNil)
 }
 
-func (s *workerSuite) getWorkerStarter(c *gc.C) (func(...any) worker.Worker, *gomock.Controller) {
+func (s *workerSuite) getWorkerStarter(c *tc.C) (func(...any) worker.Worker, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 
 	s.facade = mocks.NewMockFacade(ctrl)
@@ -124,7 +124,7 @@ func (s *workerSuite) getWorkerStarter(c *gc.C) (func(...any) worker.Worker, *go
 		Broker:   s.broker,
 		Clock:    s.clock,
 		RegistryFunc: func(i docker.ImageRepoDetails) (registry.Registry, error) {
-			c.Check(i, gc.DeepEquals, s.CAASImageRepo(c))
+			c.Check(i, tc.DeepEquals, s.CAASImageRepo(c))
 			return s.reg, nil
 		},
 	}
@@ -136,7 +136,7 @@ func (s *workerSuite) getWorkerStarter(c *gc.C) (func(...any) worker.Worker, *go
 	}, ctrl
 }
 
-func (s *workerSuite) TestWorkerTokenRefreshRequired(c *gc.C) {
+func (s *workerSuite) TestWorkerTokenRefreshRequired(c *tc.C) {
 	s.controllerConfig[controller.CAASImageRepo] = `
 {
     "serveraddress": "66668888.dkr.ecr.eu-west-1.amazonaws.com",
@@ -166,7 +166,7 @@ func (s *workerSuite) TestWorkerTokenRefreshRequired(c *gc.C) {
 		s.reg.EXPECT().RefreshAuth().Return(nil),
 		s.reg.EXPECT().ImageRepoDetails().DoAndReturn(func() docker.ImageRepoDetails {
 			o := s.CAASImageRepo(c)
-			c.Check(o, gc.DeepEquals, docker.ImageRepoDetails{
+			c.Check(o, tc.DeepEquals, docker.ImageRepoDetails{
 				ServerAddress: "66668888.dkr.ecr.eu-west-1.amazonaws.com",
 				Repository:    "66668888.dkr.ecr.eu-west-1.amazonaws.com",
 				Region:        "ap-southeast-2",
@@ -178,7 +178,7 @@ func (s *workerSuite) TestWorkerTokenRefreshRequired(c *gc.C) {
 			return o
 		}),
 		s.broker.EXPECT().EnsureImageRepoSecret(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, i docker.ImageRepoDetails) error {
-			c.Check(i, gc.DeepEquals, s.CAASImageRepo(c))
+			c.Check(i, tc.DeepEquals, s.CAASImageRepo(c))
 			return nil
 		}),
 		// 2nd round.
@@ -186,7 +186,7 @@ func (s *workerSuite) TestWorkerTokenRefreshRequired(c *gc.C) {
 		s.reg.EXPECT().RefreshAuth().Return(nil),
 		s.reg.EXPECT().ImageRepoDetails().Return(refreshed),
 		s.broker.EXPECT().EnsureImageRepoSecret(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, i docker.ImageRepoDetails) error {
-			c.Check(i, gc.DeepEquals, refreshed)
+			c.Check(i, tc.DeepEquals, refreshed)
 			close(done)
 			return nil
 		}),
@@ -202,7 +202,7 @@ func (s *workerSuite) TestWorkerTokenRefreshRequired(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestWorkerTokenRefreshNotRequiredThenRetry(c *gc.C) {
+func (s *workerSuite) TestWorkerTokenRefreshNotRequiredThenRetry(c *tc.C) {
 	s.controllerConfig[controller.CAASImageRepo] = `
 {
     "serveraddress": "66668888.dkr.ecr.eu-west-1.amazonaws.com",
@@ -229,7 +229,7 @@ func (s *workerSuite) TestWorkerTokenRefreshNotRequiredThenRetry(c *gc.C) {
 		s.reg.EXPECT().RefreshAuth().Return(nil),
 		s.reg.EXPECT().ImageRepoDetails().DoAndReturn(func() docker.ImageRepoDetails {
 			o := s.CAASImageRepo(c)
-			c.Check(o, gc.DeepEquals, docker.ImageRepoDetails{
+			c.Check(o, tc.DeepEquals, docker.ImageRepoDetails{
 				ServerAddress: "66668888.dkr.ecr.eu-west-1.amazonaws.com",
 				Repository:    "66668888.dkr.ecr.eu-west-1.amazonaws.com",
 				Region:        "ap-southeast-2",
@@ -241,7 +241,7 @@ func (s *workerSuite) TestWorkerTokenRefreshNotRequiredThenRetry(c *gc.C) {
 			return o
 		}),
 		s.broker.EXPECT().EnsureImageRepoSecret(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, i docker.ImageRepoDetails) error {
-			c.Check(i, gc.DeepEquals, s.CAASImageRepo(c))
+			c.Check(i, tc.DeepEquals, s.CAASImageRepo(c))
 			return nil
 		}),
 		// 2nd round.
@@ -255,7 +255,7 @@ func (s *workerSuite) TestWorkerTokenRefreshNotRequiredThenRetry(c *gc.C) {
 		s.reg.EXPECT().RefreshAuth().Return(nil),
 		s.reg.EXPECT().ImageRepoDetails().Return(s.CAASImageRepo(c)),
 		s.broker.EXPECT().EnsureImageRepoSecret(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, i docker.ImageRepoDetails) error {
-			c.Check(i, gc.DeepEquals, s.CAASImageRepo(c))
+			c.Check(i, tc.DeepEquals, s.CAASImageRepo(c))
 			close(done)
 			return nil
 		}),
@@ -271,7 +271,7 @@ func (s *workerSuite) TestWorkerTokenRefreshNotRequiredThenRetry(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestWorkerNoOpsForPublicRepo(c *gc.C) {
+func (s *workerSuite) TestWorkerNoOpsForPublicRepo(c *tc.C) {
 	s.controllerConfig[controller.CAASImageRepo] = `
 {
     "serveraddress": "66668888.dkr.ecr.eu-west-1.amazonaws.com",
@@ -304,7 +304,7 @@ func (s *workerSuite) TestWorkerNoOpsForPublicRepo(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) CAASImageRepo(c *gc.C) docker.ImageRepoDetails {
+func (s *workerSuite) CAASImageRepo(c *tc.C) docker.ImageRepoDetails {
 	r, err := docker.NewImageRepoDetails(s.controllerConfig.CAASImageRepo())
 	c.Assert(err, jc.ErrorIsNil)
 	return r

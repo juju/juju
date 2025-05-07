@@ -7,7 +7,7 @@ import (
 	"context"
 	stdtesting "testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/jujuclient"
 )
@@ -15,7 +15,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/secretsapi.go github.com/juju/juju/cmd/juju/secrets ListSecretsAPI,AddSecretsAPI,GrantRevokeSecretsAPI,UpdateSecretsAPI,RemoveSecretsAPI
 
 func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 // NewAddCommandForTest returns a secrets command for testing.

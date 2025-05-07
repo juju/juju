@@ -7,14 +7,14 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/objectstore"
 )
 
 // IsBlobStored returns true if a given storage path is in used in the
 // managed blob store.
-func IsBlobStored(c *gc.C, store objectstore.ObjectStore, storagePath string) bool {
+func IsBlobStored(c *tc.C, store objectstore.ObjectStore, storagePath string) bool {
 	r, _, err := store.Get(context.Background(), storagePath)
 	if err != nil {
 		if errors.Is(err, errors.NotFound) {

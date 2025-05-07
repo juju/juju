@@ -7,15 +7,15 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/constraints"
 )
 
-func (s *applicationSuite) TestApplicationScaleStateful(c *gc.C) {
+func (s *applicationSuite) TestApplicationScaleStateful(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func() {})
 
@@ -26,10 +26,10 @@ func (s *applicationSuite) TestApplicationScaleStateful(c *gc.C) {
 		metav1.GetOptions{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*ss.Spec.Replicas, gc.Equals, int32(20))
+	c.Assert(*ss.Spec.Replicas, tc.Equals, int32(20))
 }
 
-func (s *applicationSuite) TestApplicationScaleStateless(c *gc.C) {
+func (s *applicationSuite) TestApplicationScaleStateless(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateless, false)
 	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func() {})
 
@@ -40,17 +40,17 @@ func (s *applicationSuite) TestApplicationScaleStateless(c *gc.C) {
 		metav1.GetOptions{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*dep.Spec.Replicas, gc.Equals, int32(20))
+	c.Assert(*dep.Spec.Replicas, tc.Equals, int32(20))
 }
 
-func (s *applicationSuite) TestApplicationScaleStatefulLessThanZero(c *gc.C) {
+func (s *applicationSuite) TestApplicationScaleStatefulLessThanZero(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func() {})
 
 	c.Assert(app.Scale(-1), jc.ErrorIs, errors.NotValid)
 }
 
-func (s *applicationSuite) TestCurrentScale(c *gc.C) {
+func (s *applicationSuite) TestCurrentScale(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func() {})
 
@@ -62,5 +62,5 @@ func (s *applicationSuite) TestCurrentScale(c *gc.C) {
 
 	units, err = app.UnitsToRemove(context.Background(), 3)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 0)
+	c.Assert(units, tc.HasLen, 0)
 }

@@ -4,8 +4,8 @@
 package types
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
 )
@@ -14,10 +14,10 @@ type modelSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&modelSuite{})
+var _ = tc.Suite(&modelSuite{})
 
-func (s *modelSuite) TestParity(c *gc.C) {
+func (s *modelSuite) TestParity(c *tc.C) {
 	// Ensure that we have parity with the model types in core package.
-	c.Check(IAAS.String(), gc.Equals, model.IAAS.String())
-	c.Check(CAAS.String(), gc.Equals, model.CAAS.String())
+	c.Check(IAAS.String(), tc.Equals, model.IAAS.String())
+	c.Check(CAAS.String(), tc.Equals, model.CAAS.String())
 }

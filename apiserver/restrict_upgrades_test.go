@@ -5,8 +5,8 @@ package apiserver_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/internal/testing"
@@ -17,14 +17,14 @@ type restrictUpgradesSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&restrictUpgradesSuite{})
+var _ = tc.Suite(&restrictUpgradesSuite{})
 
-func (r *restrictUpgradesSuite) TestAllowedMethods(c *gc.C) {
+func (r *restrictUpgradesSuite) TestAllowedMethods(c *tc.C) {
 	root := apiserver.TestingUpgradingRoot()
 	checkAllowed := func(facade, method string, version int) {
 		caller, err := root.FindMethod(facade, version, method)
 		c.Check(err, jc.ErrorIsNil)
-		c.Check(caller, gc.NotNil)
+		c.Check(caller, tc.NotNil)
 	}
 	checkAllowed("Client", "FullStatus", clientFacadeVersion)
 	checkAllowed("SSHClient", "PublicAddress", sshClientFacadeVersion)
@@ -32,9 +32,9 @@ func (r *restrictUpgradesSuite) TestAllowedMethods(c *gc.C) {
 	checkAllowed("Pinger", "Ping", pingerFacadeVersion)
 }
 
-func (r *restrictUpgradesSuite) TestFindDisallowedMethod(c *gc.C) {
+func (r *restrictUpgradesSuite) TestFindDisallowedMethod(c *tc.C) {
 	root := apiserver.TestingUpgradingRoot()
 	caller, err := root.FindMethod("Client", clientFacadeVersion, "ModelSet")
-	c.Assert(errors.Cause(err), gc.Equals, params.UpgradeInProgressError)
-	c.Assert(caller, gc.IsNil)
+	c.Assert(errors.Cause(err), tc.Equals, params.UpgradeInProgressError)
+	c.Assert(caller, tc.IsNil)
 }

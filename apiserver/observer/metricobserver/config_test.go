@@ -5,10 +5,10 @@ package metricobserver_test
 
 import (
 	"github.com/juju/clock"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/observer/metricobserver"
 	"github.com/juju/juju/apiserver/observer/metricobserver/mocks"
@@ -18,9 +18,9 @@ type configSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&configSuite{})
+var _ = tc.Suite(&configSuite{})
 
-func (*configSuite) TestValidateValid(c *gc.C) {
+func (*configSuite) TestValidateValid(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -34,14 +34,14 @@ func (*configSuite) TestValidateValid(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (*configSuite) TestValidateInvalid(c *gc.C) {
+func (*configSuite) TestValidateInvalid(c *tc.C) {
 	assertConfigInvalid(c, metricobserver.Config{}, "nil Clock not valid")
 	assertConfigInvalid(c, metricobserver.Config{
 		Clock: clock.WallClock,
 	}, "nil MetricsCollector not valid")
 }
 
-func assertConfigInvalid(c *gc.C, cfg metricobserver.Config, expect string) {
+func assertConfigInvalid(c *tc.C, cfg metricobserver.Config, expect string) {
 	err := cfg.Validate()
-	c.Assert(err, gc.ErrorMatches, expect)
+	c.Assert(err, tc.ErrorMatches, expect)
 }

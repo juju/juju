@@ -9,10 +9,10 @@ import (
 	"encoding/json"
 	"io"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
 	resourcestore "github.com/juju/juju/core/resource/store"
@@ -34,9 +34,9 @@ type containerImageResourceStoreSuite struct {
 	fingerprint                 resourcestore.Fingerprint
 }
 
-var _ = gc.Suite(&containerImageResourceStoreSuite{})
+var _ = tc.Suite(&containerImageResourceStoreSuite{})
 
-func (s *containerImageResourceStoreSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *containerImageResourceStoreSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.containerImageResourceState = NewMockState(ctrl)
@@ -44,7 +44,7 @@ func (s *containerImageResourceStoreSuite) setupMocks(c *gc.C) *gomock.Controlle
 	return ctrl
 }
 
-func (s *containerImageResourceStoreSuite) SetUpTest(c *gc.C) {
+func (s *containerImageResourceStoreSuite) SetUpTest(c *tc.C) {
 	s.imageMetadata = docker.DockerImageDetails{
 		RegistryPath: "url@sha256:abc123",
 		ImageRepoDetails: docker.ImageRepoDetails{
@@ -69,7 +69,7 @@ func (s *containerImageResourceStoreSuite) SetUpTest(c *gc.C) {
 	s.yamlBlob = io.NopCloser(bytes.NewReader(yamlData))
 }
 
-func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutJson(c *gc.C) {
+func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutJson(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	store := NewService(s.containerImageResourceState, loggertesting.WrapCheckLog(c))
@@ -93,12 +93,12 @@ func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutJso
 		resourcestore.Fingerprint{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storageUUID, gc.Equals, expectedUUID)
-	c.Assert(size, gc.Equals, s.size)
-	c.Assert(fingerprint, gc.DeepEquals, s.fingerprint)
+	c.Assert(storageUUID, tc.Equals, expectedUUID)
+	c.Assert(size, tc.Equals, s.size)
+	c.Assert(fingerprint, tc.DeepEquals, s.fingerprint)
 }
 
-func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutYaml(c *gc.C) {
+func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutYaml(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	store := NewService(s.containerImageResourceState, loggertesting.WrapCheckLog(c))
@@ -122,12 +122,12 @@ func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutYam
 		resourcestore.Fingerprint{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storageUUID, gc.Equals, expectedUUID)
-	c.Assert(size, gc.Equals, s.size)
-	c.Assert(fingerprint, gc.DeepEquals, s.fingerprint)
+	c.Assert(storageUUID, tc.Equals, expectedUUID)
+	c.Assert(size, tc.Equals, s.size)
+	c.Assert(fingerprint, tc.DeepEquals, s.fingerprint)
 }
 
-func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutEmptyReader(c *gc.C) {
+func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutEmptyReader(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	store := NewService(s.containerImageResourceState, loggertesting.WrapCheckLog(c))
@@ -141,10 +141,10 @@ func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutEmp
 		0,
 		resourcestore.Fingerprint{},
 	)
-	c.Assert(err, gc.ErrorMatches, ".* zero bytes read")
+	c.Assert(err, tc.ErrorMatches, ".* zero bytes read")
 }
 
-func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutError(c *gc.C) {
+func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	store := NewService(s.containerImageResourceState, loggertesting.WrapCheckLog(c))
@@ -169,7 +169,7 @@ func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutErr
 	c.Assert(err, jc.ErrorIs, kaboom)
 }
 
-func (s *containerImageResourceStoreSuite) TestFileResourceStoreGet(c *gc.C) {
+func (s *containerImageResourceStoreSuite) TestFileResourceStoreGet(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	store := NewService(s.containerImageResourceState, loggertesting.WrapCheckLog(c))
@@ -196,11 +196,11 @@ func (s *containerImageResourceStoreSuite) TestFileResourceStoreGet(c *gc.C) {
 	readerContents := new(bytes.Buffer)
 	_, err = readerContents.ReadFrom(r)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(expectedReaderContents.String(), gc.Equals, readerContents.String())
-	c.Assert(size, gc.Equals, expectedSize)
+	c.Assert(expectedReaderContents.String(), tc.Equals, readerContents.String())
+	c.Assert(size, tc.Equals, expectedSize)
 }
 
-func (s *containerImageResourceStoreSuite) TestFileResourceStoreGetError(c *gc.C) {
+func (s *containerImageResourceStoreSuite) TestFileResourceStoreGetError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	store := NewService(s.containerImageResourceState, loggertesting.WrapCheckLog(c))
@@ -219,7 +219,7 @@ func (s *containerImageResourceStoreSuite) TestFileResourceStoreGetError(c *gc.C
 	c.Assert(err, jc.ErrorIs, kaboom)
 }
 
-func (s *containerImageResourceStoreSuite) TestFileResourceStoreRemove(c *gc.C) {
+func (s *containerImageResourceStoreSuite) TestFileResourceStoreRemove(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	store := NewService(s.containerImageResourceState, loggertesting.WrapCheckLog(c))
@@ -237,7 +237,7 @@ func (s *containerImageResourceStoreSuite) TestFileResourceStoreRemove(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *containerImageResourceStoreSuite) TestFileResourceStoreRemoveError(c *gc.C) {
+func (s *containerImageResourceStoreSuite) TestFileResourceStoreRemoveError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	store := NewService(s.containerImageResourceState, loggertesting.WrapCheckLog(c))

@@ -9,9 +9,9 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi/v2"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/version"
@@ -39,7 +39,7 @@ func (suite *maasSuite) injectController(controller gomaasapi.Controller) {
 	suite.PatchValue(&GetMAASController, mockGetController)
 }
 
-func (suite *maasSuite) makeEnviron(c *gc.C, controller gomaasapi.Controller) *maasEnviron {
+func (suite *maasSuite) makeEnviron(c *tc.C, controller gomaasapi.Controller) *maasEnviron {
 	if controller != nil {
 		suite.injectController(controller)
 	}
@@ -65,7 +65,7 @@ func (suite *maasSuite) makeEnviron(c *gc.C, controller gomaasapi.Controller) *m
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := NewEnviron(context.Background(), cloud, cfg, suite.credentialInvalidator, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env, gc.NotNil)
+	c.Assert(env, tc.NotNil)
 	return env
 }
 

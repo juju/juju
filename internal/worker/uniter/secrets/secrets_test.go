@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
 	coresecrets "github.com/juju/juju/core/secrets"
@@ -27,9 +27,9 @@ type secretsSuite struct {
 	secretsClient   *mocks.MockSecretsClient
 }
 
-var _ = gc.Suite(&secretsSuite{})
+var _ = tc.Suite(&secretsSuite{})
 
-func (s *secretsSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *secretsSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.stateReadWriter = operationmocks.NewMockUnitStateReadWriter(ctrl)
 	s.secretsClient = mocks.NewMockSecretsClient(ctrl)
@@ -40,13 +40,13 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func (s *secretsSuite) yamlString(c *gc.C, st *secrets.State) string {
+func (s *secretsSuite) yamlString(c *tc.C, st *secrets.State) string {
 	data, err := yaml.Marshal(st)
 	c.Assert(err, jc.ErrorIsNil)
 	return string(data)
 }
 
-func (s *secretsSuite) TestCommitSecretChanged(c *gc.C) {
+func (s *secretsSuite) TestCommitSecretChanged(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.stateReadWriter.EXPECT().State(gomock.Any()).Return(params.UnitStateResult{SecretState: s.yamlString(c,
@@ -91,7 +91,7 @@ func (s *secretsSuite) TestCommitSecretChanged(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *secretsSuite) TestCommitSecretRemove(c *gc.C) {
+func (s *secretsSuite) TestCommitSecretRemove(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.stateReadWriter.EXPECT().State(gomock.Any()).Return(params.UnitStateResult{SecretState: s.yamlString(c,
@@ -133,7 +133,7 @@ func (s *secretsSuite) TestCommitSecretRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *secretsSuite) TestCommitNoOpSecretsRemoved(c *gc.C) {
+func (s *secretsSuite) TestCommitNoOpSecretsRemoved(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.stateReadWriter.EXPECT().State(gomock.Any()).Return(params.UnitStateResult{SecretState: s.yamlString(c,

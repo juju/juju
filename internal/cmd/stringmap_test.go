@@ -4,23 +4,23 @@
 package cmd_test
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/cmd"
 )
 
-var _ = gc.Suite(&StringMapSuite{})
+var _ = tc.Suite(&StringMapSuite{})
 
 type StringMapSuite struct {
 	testing.IsolationSuite
 }
 
-func (StringMapSuite) TestStringMapNilOk(c *gc.C) {
+func (StringMapSuite) TestStringMapNilOk(c *tc.C) {
 	// note that the map may start out nil
 	var values map[string]string
-	c.Assert(values, gc.IsNil)
+	c.Assert(values, tc.IsNil)
 	sm := cmd.StringMap{Mapping: &values}
 	err := sm.Set("foo=foovalue")
 	c.Assert(err, jc.ErrorIsNil)
@@ -28,34 +28,34 @@ func (StringMapSuite) TestStringMapNilOk(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// now the map is non-nil and filled
-	c.Assert(values, gc.DeepEquals, map[string]string{
+	c.Assert(values, tc.DeepEquals, map[string]string{
 		"foo": "foovalue",
 		"bar": "barvalue",
 	})
 }
 
-func (StringMapSuite) TestStringMapBadVal(c *gc.C) {
+func (StringMapSuite) TestStringMapBadVal(c *tc.C) {
 	sm := cmd.StringMap{Mapping: &map[string]string{}}
 	err := sm.Set("foo")
-	c.Assert(err, gc.ErrorMatches, "expected key=value format")
+	c.Assert(err, tc.ErrorMatches, "expected key=value format")
 }
 
-func (StringMapSuite) TestStringMapDupVal(c *gc.C) {
+func (StringMapSuite) TestStringMapDupVal(c *tc.C) {
 	sm := cmd.StringMap{Mapping: &map[string]string{}}
 	err := sm.Set("bar=somevalue")
 	c.Assert(err, jc.ErrorIsNil)
 	err = sm.Set("bar=someothervalue")
-	c.Assert(err, gc.ErrorMatches, "duplicate key specified")
+	c.Assert(err, tc.ErrorMatches, "duplicate key specified")
 }
 
-func (StringMapSuite) TestStringMapNoValue(c *gc.C) {
+func (StringMapSuite) TestStringMapNoValue(c *tc.C) {
 	sm := cmd.StringMap{Mapping: &map[string]string{}}
 	err := sm.Set("bar=")
-	c.Assert(err, gc.ErrorMatches, "key and value must be non-empty")
+	c.Assert(err, tc.ErrorMatches, "key and value must be non-empty")
 }
 
-func (StringMapSuite) TestStringMapNoKey(c *gc.C) {
+func (StringMapSuite) TestStringMapNoKey(c *tc.C) {
 	sm := cmd.StringMap{Mapping: &map[string]string{}}
 	err := sm.Set("=bar")
-	c.Assert(err, gc.ErrorMatches, "key and value must be non-empty")
+	c.Assert(err, tc.ErrorMatches, "key and value must be non-empty")
 }

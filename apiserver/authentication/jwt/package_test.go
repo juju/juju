@@ -11,12 +11,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/lestrrat-go/jwx/v2/jwt"
-	gc "gopkg.in/check.v1"
 )
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type testJWTParser struct {

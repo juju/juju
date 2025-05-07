@@ -4,8 +4,8 @@
 package factory_test
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/internal/container"
@@ -17,9 +17,9 @@ type factorySuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&factorySuite{})
+var _ = tc.Suite(&factorySuite{})
 
-func (*factorySuite) TestNewContainerManager(c *gc.C) {
+func (*factorySuite) TestNewContainerManager(c *tc.C) {
 	for _, test := range []struct {
 		containerType instance.ContainerType
 		valid         bool
@@ -37,10 +37,10 @@ func (*factorySuite) TestNewContainerManager(c *gc.C) {
 		manager, err := factory.NewContainerManager(test.containerType, conf)
 		if test.valid {
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(manager, gc.NotNil)
+			c.Assert(manager, tc.NotNil)
 		} else {
-			c.Assert(err, gc.ErrorMatches, `unknown container type: ".*"`)
-			c.Assert(manager, gc.IsNil)
+			c.Assert(err, tc.ErrorMatches, `unknown container type: ".*"`)
+			c.Assert(manager, tc.IsNil)
 		}
 	}
 }

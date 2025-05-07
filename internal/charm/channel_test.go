@@ -5,9 +5,9 @@ package charm_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/charm"
 )
@@ -16,9 +16,9 @@ type channelSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&channelSuite{})
+var _ = tc.Suite(&channelSuite{})
 
-func (s channelSuite) TestParseChannelNormalize(c *gc.C) {
+func (s channelSuite) TestParseChannelNormalize(c *tc.C) {
 	// ParseChannelNormalize tests ParseChannel as well.
 	tests := []struct {
 		Name        string
@@ -81,15 +81,15 @@ func (s channelSuite) TestParseChannelNormalize(c *gc.C) {
 		c.Logf("test %q at %d", test.Name, k)
 		ch, err := charm.ParseChannelNormalize(test.Value)
 		if test.ExpectedErr != "" {
-			c.Assert(err, gc.ErrorMatches, test.ExpectedErr)
+			c.Assert(err, tc.ErrorMatches, test.ExpectedErr)
 		} else {
-			c.Assert(ch, gc.DeepEquals, test.Expected)
-			c.Assert(err, gc.IsNil)
+			c.Assert(ch, tc.DeepEquals, test.Expected)
+			c.Assert(err, tc.IsNil)
 		}
 	}
 }
 
-func (s channelSuite) TestString(c *gc.C) {
+func (s channelSuite) TestString(c *tc.C) {
 	tests := []struct {
 		Name     string
 		Value    string
@@ -122,12 +122,12 @@ func (s channelSuite) TestString(c *gc.C) {
 	for k, test := range tests {
 		c.Logf("test %q at %d", test.Name, k)
 		ch, err := charm.ParseChannelNormalize(test.Value)
-		c.Assert(err, gc.IsNil)
-		c.Assert(ch.String(), gc.DeepEquals, test.Expected)
+		c.Assert(err, tc.IsNil)
+		c.Assert(ch.String(), tc.DeepEquals, test.Expected)
 	}
 }
 
-func (s channelSuite) TestMakeChannel(c *gc.C) {
+func (s channelSuite) TestMakeChannel(c *tc.C) {
 	tests := []struct {
 		Name      string
 		Track     string
@@ -154,7 +154,7 @@ func (s channelSuite) TestMakeChannel(c *gc.C) {
 		ch, err := charm.MakeChannel(test.Track, test.Risk, test.Branch)
 		if test.ErrorType == nil {
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(ch, gc.DeepEquals, charm.Channel{
+			c.Assert(ch, tc.DeepEquals, charm.Channel{
 				Track:  test.Track,
 				Risk:   charm.Risk(test.Risk),
 				Branch: test.Branch,
@@ -165,7 +165,7 @@ func (s channelSuite) TestMakeChannel(c *gc.C) {
 	}
 }
 
-func (s channelSuite) TestMakePermissiveChannelAndEmpty(c *gc.C) {
+func (s channelSuite) TestMakePermissiveChannelAndEmpty(c *tc.C) {
 	tests := []struct {
 		Name     string
 		Track    string
@@ -185,10 +185,10 @@ func (s channelSuite) TestMakePermissiveChannelAndEmpty(c *gc.C) {
 	for k, test := range tests {
 		c.Logf("test %q at %d", test.Name, k)
 		ch := charm.MakePermissiveChannel(test.Track, test.Risk, "")
-		c.Assert(ch.String(), gc.Equals, test.Expected)
+		c.Assert(ch.String(), tc.Equals, test.Expected)
 	}
 }
 
-func (s channelSuite) TestEmpty(c *gc.C) {
+func (s channelSuite) TestEmpty(c *tc.C) {
 	c.Assert(charm.Channel{}.Empty(), jc.IsTrue)
 }

@@ -5,8 +5,8 @@ package space_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/space"
 	"github.com/juju/juju/rpc/params"
@@ -16,14 +16,14 @@ type AddSuite struct {
 	BaseSpaceSuite
 }
 
-var _ = gc.Suite(&AddSuite{})
+var _ = tc.Suite(&AddSuite{})
 
-func (s *AddSuite) SetUpTest(c *gc.C) {
+func (s *AddSuite) SetUpTest(c *tc.C) {
 	s.BaseSpaceSuite.SetUpTest(c)
 	s.newCommand = space.NewAddCommand
 }
 
-func (s *AddSuite) TestRunWithoutSubnetsSucceeds(c *gc.C) {
+func (s *AddSuite) TestRunWithoutSubnetsSucceeds(c *tc.C) {
 	s.AssertRunSucceeds(c,
 		`added space "myspace" with no subnets\n`,
 		"", // no stdout, just stderr
@@ -34,7 +34,7 @@ func (s *AddSuite) TestRunWithoutSubnetsSucceeds(c *gc.C) {
 	s.api.CheckCall(c, 0, "AddSpace", "myspace", []string(nil), true)
 }
 
-func (s *AddSuite) TestRunWithSubnetsSucceeds(c *gc.C) {
+func (s *AddSuite) TestRunWithSubnetsSucceeds(c *tc.C) {
 	s.AssertRunSucceeds(c,
 		`added space "myspace" with subnets 10.1.2.0/24, 4.3.2.0/28\n`,
 		"", // no stdout, just stderr
@@ -48,7 +48,7 @@ func (s *AddSuite) TestRunWithSubnetsSucceeds(c *gc.C) {
 	)
 }
 
-func (s *AddSuite) TestRunWhenSpacesNotSupported(c *gc.C) {
+func (s *AddSuite) TestRunWhenSpacesNotSupported(c *tc.C) {
 	s.api.SetErrors(errors.NewNotSupported(nil, "spaces not supported"))
 
 	err := s.AssertRunSpacesNotSupported(c,
@@ -61,7 +61,7 @@ func (s *AddSuite) TestRunWhenSpacesNotSupported(c *gc.C) {
 	s.api.CheckCall(c, 0, "AddSpace", "foo", s.Strings("10.1.2.0/24"), true)
 }
 
-func (s *AddSuite) TestRunWhenSpacesAPIFails(c *gc.C) {
+func (s *AddSuite) TestRunWhenSpacesAPIFails(c *tc.C) {
 	s.api.SetErrors(errors.New("API error"))
 
 	s.AssertRunFails(c,
@@ -73,7 +73,7 @@ func (s *AddSuite) TestRunWhenSpacesAPIFails(c *gc.C) {
 	s.api.CheckCall(c, 0, "AddSpace", "foo", s.Strings("10.1.2.0/24"), true)
 }
 
-func (s *AddSuite) TestRunUnauthorizedMentionsJujuGrant(c *gc.C) {
+func (s *AddSuite) TestRunUnauthorizedMentionsJujuGrant(c *tc.C) {
 	s.api.SetErrors(&params.Error{
 		Message: "permission denied",
 		Code:    params.CodeUnauthorized,
@@ -85,10 +85,10 @@ func (s *AddSuite) TestRunUnauthorizedMentionsJujuGrant(c *gc.C) {
 	)
 }
 
-func (s *AddSuite) TestRunWhenSpacesBlocked(c *gc.C) {
+func (s *AddSuite) TestRunWhenSpacesBlocked(c *tc.C) {
 	s.api.SetErrors(&params.Error{Code: params.CodeOperationBlocked, Message: "nope"})
 	stdout, stderr, err := s.RunCommand(c, "foo", "10.1.2.0/24")
-	c.Assert(err, gc.ErrorMatches, `
+	c.Assert(err, tc.ErrorMatches, `
 cannot add space "foo": nope
 
 All operations that change model have been disabled for the current model.
@@ -97,8 +97,8 @@ To enable changes, run
     juju enable-command all
 
 `[1:])
-	c.Assert(stderr, gc.Equals, "")
-	c.Assert(stdout, gc.Equals, "")
+	c.Assert(stderr, tc.Equals, "")
+	c.Assert(stdout, tc.Equals, "")
 
 	s.api.CheckCallNames(c, "AddSpace", "Close")
 	s.api.CheckCall(c, 0, "AddSpace", "foo", s.Strings("10.1.2.0/24"), true)

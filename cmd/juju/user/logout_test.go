@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/errors"
 	cookiejar "github.com/juju/persistent-cookiejar"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/internal/cmd"
@@ -23,18 +23,18 @@ type LogoutCommandSuite struct {
 	BaseSuite
 }
 
-var _ = gc.Suite(&LogoutCommandSuite{})
+var _ = tc.Suite(&LogoutCommandSuite{})
 
-func (s *LogoutCommandSuite) SetUpTest(c *gc.C) {
+func (s *LogoutCommandSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 }
 
-func (s *LogoutCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *LogoutCommandSuite) run(c *tc.C, args ...string) (*cmd.Context, error) {
 	cmd, _ := user.NewLogoutCommandForTest(s.store)
 	return cmdtesting.RunCommand(c, cmd, args...)
 }
 
-func (s *LogoutCommandSuite) TestInit(c *gc.C) {
+func (s *LogoutCommandSuite) TestInit(c *tc.C) {
 	for i, test := range []struct {
 		args        []string
 		errorString string
@@ -55,12 +55,12 @@ func (s *LogoutCommandSuite) TestInit(c *gc.C) {
 		if test.errorString == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
-			c.Check(err, gc.ErrorMatches, test.errorString)
+			c.Check(err, tc.ErrorMatches, test.errorString)
 		}
 	}
 }
 
-func (s *LogoutCommandSuite) TestLogout(c *gc.C) {
+func (s *LogoutCommandSuite) TestLogout(c *tc.C) {
 	cookiefile := filepath.Join(c.MkDir(), ".go-cookies")
 	jar, err := cookiejar.New(&cookiejar.Options{Filename: cookiefile})
 	c.Assert(err, jc.ErrorIsNil)
@@ -88,8 +88,8 @@ func (s *LogoutCommandSuite) TestLogout(c *gc.C) {
 	s.setPassword(c, "testing", "")
 	ctx, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
 Logged out. You are no longer logged into any controllers.
 `[1:],
 	)
@@ -99,10 +99,10 @@ Logged out. You are no longer logged into any controllers.
 	jar, err = cookiejar.New(&cookiejar.Options{Filename: cookiefile})
 	c.Assert(err, jc.ErrorIsNil)
 	cookies := jar.Cookies(other)
-	c.Assert(cookies, gc.HasLen, 1)
+	c.Assert(cookies, tc.HasLen, 1)
 }
 
-func (s *LogoutCommandSuite) TestLogoutCount(c *gc.C) {
+func (s *LogoutCommandSuite) TestLogoutCount(c *tc.C) {
 	// Create multiple controllers. We'll log out of each one
 	// to observe the messages printed out by "logout".
 	s.setPassword(c, "testing", "")
@@ -123,16 +123,16 @@ func (s *LogoutCommandSuite) TestLogoutCount(c *gc.C) {
 	for i, controller := range controllers {
 		ctx, err := s.run(c, "-c", controller)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
-		c.Assert(cmdtesting.Stderr(ctx), gc.Equals, expected[i])
+		c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
+		c.Assert(cmdtesting.Stderr(ctx), tc.Equals, expected[i])
 	}
 }
 
-func (s *LogoutCommandSuite) TestLogoutWithPassword(c *gc.C) {
+func (s *LogoutCommandSuite) TestLogoutWithPassword(c *tc.C) {
 	s.assertStorePassword(c, "current-user", "old-password", "")
 	_, err := s.run(c)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, `preventing account loss
+	c.Assert(err, tc.NotNil)
+	c.Assert(err.Error(), tc.Equals, `preventing account loss
 
 It appears that you have not changed the password for
 your account. If this is the case, change the password
@@ -146,7 +146,7 @@ this command again with the "--force" option.
 `)
 }
 
-func (s *LogoutCommandSuite) TestLogoutWithPasswordForced(c *gc.C) {
+func (s *LogoutCommandSuite) TestLogoutWithPasswordForced(c *tc.C) {
 	s.assertStorePassword(c, "current-user", "old-password", "")
 	_, err := s.run(c, "--force")
 	c.Assert(err, jc.ErrorIsNil)
@@ -154,12 +154,12 @@ func (s *LogoutCommandSuite) TestLogoutWithPasswordForced(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
-func (s *LogoutCommandSuite) TestLogoutNotLoggedIn(c *gc.C) {
+func (s *LogoutCommandSuite) TestLogoutNotLoggedIn(c *tc.C) {
 	delete(s.store.Accounts, "testing")
 	ctx, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
 Logged out. You are no longer logged into any controllers.
 `[1:],
 	)

@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common/model"
@@ -22,7 +22,7 @@ type PermissionSuite struct {
 	testing.BaseSuite
 }
 
-func (r *PermissionSuite) TestHasModelAdminSuperUser(c *gc.C) {
+func (r *PermissionSuite) TestHasModelAdminSuperUser(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -34,7 +34,7 @@ func (r *PermissionSuite) TestHasModelAdminSuperUser(c *gc.C) {
 	c.Assert(has, jc.IsTrue)
 }
 
-func (r *PermissionSuite) TestHasModelAdminYes(c *gc.C) {
+func (r *PermissionSuite) TestHasModelAdminYes(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -47,7 +47,7 @@ func (r *PermissionSuite) TestHasModelAdminYes(c *gc.C) {
 	c.Assert(has, jc.IsTrue)
 }
 
-func (r *PermissionSuite) TestHasModelAdminNo(c *gc.C) {
+func (r *PermissionSuite) TestHasModelAdminNo(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -60,7 +60,7 @@ func (r *PermissionSuite) TestHasModelAdminNo(c *gc.C) {
 	c.Assert(has, jc.IsFalse)
 }
 
-func (r *PermissionSuite) TestHasModelAdminError(c *gc.C) {
+func (r *PermissionSuite) TestHasModelAdminError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 

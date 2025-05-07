@@ -6,7 +6,7 @@ package user
 import (
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package user_test -destination utils_controllercommand_mock_test.go github.com/juju/juju/cmd/juju/user ControllerCommand
@@ -18,7 +18,7 @@ import (
 // Full command integration tests are found in cmd/juju/user_test.go
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 var (

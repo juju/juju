@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/externalcontrollerupdater"
@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&CrossControllerSuite{})
+var _ = tc.Suite(&CrossControllerSuite{})
 
 type CrossControllerSuite struct {
 	coretesting.BaseSuite
@@ -27,13 +27,13 @@ type CrossControllerSuite struct {
 	resources *common.Resources
 }
 
-func (s *CrossControllerSuite) SetUpTest(c *gc.C) {
+func (s *CrossControllerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.resources = common.NewResources()
-	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
+	s.AddCleanup(func(*tc.C) { s.resources.StopAll() })
 }
 
-func (s *CrossControllerSuite) TestExternalControllerInfo(c *gc.C) {
+func (s *CrossControllerSuite) TestExternalControllerInfo(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -81,7 +81,7 @@ func (s *CrossControllerSuite) TestExternalControllerInfo(c *gc.C) {
 	})
 }
 
-func (s *CrossControllerSuite) TestSetExternalControllerInfo(c *gc.C) {
+func (s *CrossControllerSuite) TestSetExternalControllerInfo(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -141,7 +141,7 @@ func (s *CrossControllerSuite) TestSetExternalControllerInfo(c *gc.C) {
 	})
 }
 
-func (s *CrossControllerSuite) TestWatchExternalControllers(c *gc.C) {
+func (s *CrossControllerSuite) TestWatchExternalControllers(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -166,10 +166,10 @@ func (s *CrossControllerSuite) TestWatchExternalControllers(c *gc.C) {
 			Changes:          []string{"a", "b"},
 		}},
 	})
-	c.Assert(s.resources.Get("1"), gc.Equals, mockKeysWatcher)
+	c.Assert(s.resources.Get("1"), tc.Equals, mockKeysWatcher)
 }
 
-func (s *CrossControllerSuite) TestWatchControllerInfoError(c *gc.C) {
+func (s *CrossControllerSuite) TestWatchControllerInfoError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -193,5 +193,5 @@ func (s *CrossControllerSuite) TestWatchControllerInfoError(c *gc.C) {
 			Error: &params.Error{Message: "watching external controllers changes: nope"},
 		}},
 	})
-	c.Assert(s.resources.Get("1"), gc.IsNil)
+	c.Assert(s.resources.Get("1"), tc.IsNil)
 }

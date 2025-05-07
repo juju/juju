@@ -6,8 +6,8 @@ package gce_test
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -22,9 +22,9 @@ type providerSuite struct {
 	spec     environscloudspec.CloudSpec
 }
 
-var _ = gc.Suite(&providerSuite{})
+var _ = tc.Suite(&providerSuite{})
 
-func (s *providerSuite) SetUpTest(c *gc.C) {
+func (s *providerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	var err error
@@ -34,11 +34,11 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.spec = gce.MakeTestCloudSpec()
 }
 
-func (s *providerSuite) TestRegistered(c *gc.C) {
-	c.Assert(s.provider, gc.Equals, gce.Provider)
+func (s *providerSuite) TestRegistered(c *tc.C) {
+	c.Assert(s.provider, tc.Equals, gce.Provider)
 }
 
-func (s *providerSuite) TestOpen(c *gc.C) {
+func (s *providerSuite) TestOpen(c *tc.C) {
 	env, err := environs.Open(context.Background(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: s.Config,
@@ -46,42 +46,42 @@ func (s *providerSuite) TestOpen(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 
 	envConfig := env.Config()
-	c.Assert(envConfig.Name(), gc.Equals, "testmodel")
+	c.Assert(envConfig.Name(), tc.Equals, "testmodel")
 }
 
-func (s *providerSuite) TestOpenInvalidCloudSpec(c *gc.C) {
+func (s *providerSuite) TestOpenInvalidCloudSpec(c *tc.C) {
 	s.spec.Name = ""
 	s.testOpenError(c, s.spec, `validating cloud spec: cloud name "" not valid`)
 }
 
-func (s *providerSuite) TestOpenMissingCredential(c *gc.C) {
+func (s *providerSuite) TestOpenMissingCredential(c *tc.C) {
 	s.spec.Credential = nil
 	s.testOpenError(c, s.spec, `validating cloud spec: missing credential not valid`)
 }
 
-func (s *providerSuite) TestOpenUnsupportedCredential(c *gc.C) {
+func (s *providerSuite) TestOpenUnsupportedCredential(c *tc.C) {
 	credential := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{})
 	s.spec.Credential = &credential
 	s.testOpenError(c, s.spec, `validating cloud spec: "userpass" auth-type not supported`)
 }
 
-func (s *providerSuite) testOpenError(c *gc.C, spec environscloudspec.CloudSpec, expect string) {
+func (s *providerSuite) testOpenError(c *tc.C, spec environscloudspec.CloudSpec, expect string) {
 	_, err := environs.Open(context.Background(), s.provider, environs.OpenParams{
 		Cloud:  spec,
 		Config: s.Config,
 	}, environs.NoopCredentialInvalidator())
-	c.Assert(err, gc.ErrorMatches, expect)
+	c.Assert(err, tc.ErrorMatches, expect)
 }
 
-func (s *providerSuite) TestValidateCloud(c *gc.C) {
+func (s *providerSuite) TestValidateCloud(c *tc.C) {
 	err := s.provider.ValidateCloud(context.Background(), gce.MakeTestCloudSpec())
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *providerSuite) TestValidate(c *gc.C) {
+func (s *providerSuite) TestValidate(c *tc.C) {
 	validCfg, err := s.provider.Validate(context.Background(), s.Config, nil)
 	c.Check(err, jc.ErrorIsNil)
 
 	validAttrs := validCfg.AllAttrs()
-	c.Assert(s.Config.AllAttrs(), gc.DeepEquals, validAttrs)
+	c.Assert(s.Config.AllAttrs(), tc.DeepEquals, validAttrs)
 }

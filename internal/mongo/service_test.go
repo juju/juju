@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/mongo"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -21,9 +21,9 @@ type serviceSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = tc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) TestNewConfSnap(c *gc.C) {
+func (s *serviceSuite) TestNewConfSnap(c *tc.C) {
 	dataDir := "/var/lib/juju"
 	dbDir := dataDir + "/db"
 	logPath := dataDir + "/logs/mongodb.log"

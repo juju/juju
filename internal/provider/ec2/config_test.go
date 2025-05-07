@@ -8,9 +8,9 @@ package ec2
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -25,7 +25,7 @@ type ConfigSuite struct {
 	jujutesting.IsolationSuite
 }
 
-var _ = gc.Suite(&ConfigSuite{})
+var _ = tc.Suite(&ConfigSuite{})
 
 // configTest specifies a config parsing test, checking that env when
 // parsed as the ec2 section of a config file matches baseConfigResult
@@ -44,7 +44,7 @@ type configTest struct {
 
 type attrs map[string]interface{}
 
-func (t configTest) check(c *gc.C) {
+func (t configTest) check(c *tc.C) {
 	credential := cloud.NewCredential(
 		cloud.AccessKeyAuthType,
 		map[string]string{
@@ -84,23 +84,23 @@ func (t configTest) check(c *gc.C) {
 		}
 	}
 	if t.err != "" {
-		c.Check(err, gc.ErrorMatches, t.err)
+		c.Check(err, tc.ErrorMatches, t.err)
 		return
 	}
 	c.Assert(err, jc.ErrorIsNil)
 
 	ecfg := e.(*environ).ecfg()
-	c.Assert(ecfg.Name(), gc.Equals, "testmodel")
-	c.Assert(ecfg.vpcID(), gc.Equals, t.vpcID)
-	c.Assert(ecfg.forceVPCID(), gc.Equals, t.forceVPCID)
+	c.Assert(ecfg.Name(), tc.Equals, "testmodel")
+	c.Assert(ecfg.vpcID(), tc.Equals, t.vpcID)
+	c.Assert(ecfg.forceVPCID(), tc.Equals, t.forceVPCID)
 
 	if t.firewallMode != "" {
-		c.Assert(ecfg.FirewallMode(), gc.Equals, t.firewallMode)
+		c.Assert(ecfg.FirewallMode(), tc.Equals, t.firewallMode)
 	}
 	for name, expect := range t.expect {
 		actual, found := ecfg.UnknownAttrs()[name]
 		c.Check(found, jc.IsTrue)
-		c.Check(actual, gc.Equals, expect)
+		c.Check(actual, tc.Equals, expect)
 	}
 }
 
@@ -282,7 +282,7 @@ var configTests = []configTest{
 	},
 }
 
-func (s *ConfigSuite) TestConfig(c *gc.C) {
+func (s *ConfigSuite) TestConfig(c *tc.C) {
 	for i, t := range configTests {
 		c.Logf("test %d: %v", i, t.config)
 		t.check(c)
@@ -293,18 +293,18 @@ func (s *ConfigSuite) TestConfig(c *gc.C) {
 // from the ec2 provider. If you have broken this test it means you have broken
 // business logic in Juju around this provider and this needs to be very
 // considered.
-func (s *ConfigSuite) TestModelConfigDefaults(c *gc.C) {
+func (s *ConfigSuite) TestModelConfigDefaults(c *tc.C) {
 	defaults, err := providerInstance.ModelConfigDefaults(context.Background())
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(defaults[config.StorageDefaultBlockSourceKey], gc.Equals, "ebs")
+	c.Check(defaults[config.StorageDefaultBlockSourceKey], tc.Equals, "ebs")
 }
 
-func (*ConfigSuite) TestSchema(c *gc.C) {
+func (*ConfigSuite) TestSchema(c *tc.C) {
 	fields := providerInstance.Schema()
 	// Check that all the fields defined in environs/config
 	// are in the returned schema.
 	globalFields, err := config.Schema(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	for name, field := range globalFields {
 		c.Check(fields[name], jc.DeepEquals, field)
 	}

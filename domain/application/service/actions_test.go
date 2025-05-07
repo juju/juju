@@ -4,9 +4,9 @@
 package service
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/domain/application/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -16,7 +16,7 @@ type actionsSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&actionsSuite{})
+var _ = tc.Suite(&actionsSuite{})
 
 var actionsTestCases = [...]struct {
 	name   string
@@ -96,13 +96,13 @@ var actionsTestCases = [...]struct {
 	},
 }
 
-func (s *metadataSuite) TestConvertActions(c *gc.C) {
+func (s *metadataSuite) TestConvertActions(c *tc.C) {
 	for _, tc := range actionsTestCases {
 		c.Logf("Running test case %q", tc.name)
 
 		result, err := decodeActions(tc.input)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result, gc.DeepEquals, tc.output)
+		c.Check(result, tc.DeepEquals, tc.output)
 
 		// Ensure that the conversion is idempotent.
 		converted, err := encodeActions(&result)

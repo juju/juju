@@ -11,10 +11,10 @@ import (
 	lxd "github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/proxy"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/containermanager"
@@ -43,11 +43,11 @@ type InitialiserSuite struct {
 	calledCmds []string
 }
 
-var _ = gc.Suite(&InitialiserSuite{})
+var _ = tc.Suite(&InitialiserSuite{})
 
 const lxdSnapChannel = "latest/stable"
 
-func (s *InitialiserSuite) SetUpTest(c *gc.C) {
+func (s *InitialiserSuite) SetUpTest(c *tc.C) {
 	coretesting.SkipLXDNotSupported(c)
 	s.initialiserTestSuite.SetUpTest(c)
 	s.calledCmds = []string{}
@@ -86,7 +86,7 @@ func (s *initialiserTestSuite) containerInitialiser(svr lxd.InstanceServer, lxdI
 	return result
 }
 
-func (s *InitialiserSuite) TestSnapInstalled(c *gc.C) {
+func (s *InitialiserSuite) TestSnapInstalled(c *tc.C) {
 	PatchLXDViaSnap(s, true)
 	PatchHostBase(s, base.MustParseBaseFromString("ubuntu@22.04"))
 
@@ -100,10 +100,10 @@ func (s *InitialiserSuite) TestSnapInstalled(c *gc.C) {
 	err := s.containerInitialiser(nil, true, "local").Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.calledCmds, gc.DeepEquals, []string{})
+	c.Assert(s.calledCmds, tc.DeepEquals, []string{})
 }
 
-func (s *InitialiserSuite) TestSnapChannelMismatch(c *gc.C) {
+func (s *InitialiserSuite) TestSnapChannelMismatch(c *tc.C) {
 	PatchLXDViaSnap(s, true)
 	PatchHostBase(s, base.MustParseBaseFromString("ubuntu@20.04"))
 
@@ -121,7 +121,7 @@ func (s *InitialiserSuite) TestSnapChannelMismatch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *InitialiserSuite) TestSnapChannelPrefixMatch(c *gc.C) {
+func (s *InitialiserSuite) TestSnapChannelPrefixMatch(c *tc.C) {
 	PatchLXDViaSnap(s, true)
 	PatchHostBase(s, base.MustParseBaseFromString("ubuntu@20.04"))
 
@@ -142,7 +142,7 @@ func (s *InitialiserSuite) TestSnapChannelPrefixMatch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *InitialiserSuite) TestInstallViaSnap(c *gc.C) {
+func (s *InitialiserSuite) TestInstallViaSnap(c *tc.C) {
 	PatchLXDViaSnap(s, false)
 
 	PatchHostBase(s, base.MustParseBaseFromString("ubuntu@20.04"))
@@ -152,12 +152,12 @@ func (s *InitialiserSuite) TestInstallViaSnap(c *gc.C) {
 	err := s.containerInitialiser(nil, true, "local").Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.calledCmds, gc.DeepEquals, []string{
+	c.Assert(s.calledCmds, tc.DeepEquals, []string{
 		paccmder.InstallCmd("--classic --channel latest/stable lxd"),
 	})
 }
 
-func (s *InitialiserSuite) TestLXDAlreadyInitialized(c *gc.C) {
+func (s *InitialiserSuite) TestLXDAlreadyInitialized(c *tc.C) {
 	s.patchDF100GB()
 	PatchHostBase(s, base.MustParseBaseFromString("ubuntu@20.04"))
 
@@ -172,7 +172,7 @@ func (s *InitialiserSuite) TestLXDAlreadyInitialized(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *InitialiserSuite) TestInitializeSetsProxies(c *gc.C) {
+func (s *InitialiserSuite) TestInitializeSetsProxies(c *tc.C) {
 	PatchHostBase(s, base.MustParseBaseFromString("ubuntu@20.04"))
 
 	ctrl := gomock.NewController(c)
@@ -213,7 +213,7 @@ func (s *InitialiserSuite) TestInitializeSetsProxies(c *gc.C) {
 	})
 }
 
-func (s *InitialiserSuite) TestConfigureProxiesLXDNotRunning(c *gc.C) {
+func (s *InitialiserSuite) TestConfigureProxiesLXDNotRunning(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := lxdtesting.NewMockInstanceServer(ctrl)
@@ -233,9 +233,9 @@ type ConfigureInitialiserSuite struct {
 	testing.PatchExecHelper
 }
 
-var _ = gc.Suite(&ConfigureInitialiserSuite{})
+var _ = tc.Suite(&ConfigureInitialiserSuite{})
 
-func (s *ConfigureInitialiserSuite) SetUpTest(c *gc.C) {
+func (s *ConfigureInitialiserSuite) SetUpTest(c *tc.C) {
 	s.initialiserTestSuite.SetUpTest(c)
 	// Fake the lxc executable for all the tests.
 	testing.PatchExecutableAsEchoArgs(c, s, "lxc")

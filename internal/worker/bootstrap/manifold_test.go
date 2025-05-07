@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/dependency"
 	dependencytesting "github.com/juju/worker/v4/dependency/testing"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
@@ -22,9 +22,9 @@ type manifoldSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&manifoldSuite{})
+var _ = tc.Suite(&manifoldSuite{})
 
-func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
+func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.getConfig()
@@ -140,11 +140,11 @@ var expectedInputs = []string{
 	"storage-registry",
 }
 
-func (s *manifoldSuite) TestInputs(c *gc.C) {
+func (s *manifoldSuite) TestInputs(c *tc.C) {
 	c.Assert(Manifold(s.getConfig()).Inputs, jc.SameContents, expectedInputs)
 }
 
-func (s *manifoldSuite) TestStartAlreadyBootstrapped(c *gc.C) {
+func (s *manifoldSuite) TestStartAlreadyBootstrapped(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectGateUnlock()

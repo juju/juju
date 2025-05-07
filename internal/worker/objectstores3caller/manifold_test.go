@@ -7,12 +7,12 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dependencytesting "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
@@ -25,9 +25,9 @@ type manifoldSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&manifoldSuite{})
+var _ = tc.Suite(&manifoldSuite{})
 
-func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
+func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.getConfig()
@@ -78,11 +78,11 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 
 var expectedInputs = []string{"http-client", "object-store-services"}
 
-func (s *manifoldSuite) TestInputs(c *gc.C) {
+func (s *manifoldSuite) TestInputs(c *tc.C) {
 	c.Assert(Manifold(s.getConfig()).Inputs, jc.SameContents, expectedInputs)
 }
 
-func (s *manifoldSuite) TestStart(c *gc.C) {
+func (s *manifoldSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectControllerConfig(c, testing.FakeControllerConfig())
@@ -101,7 +101,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
-func (s *manifoldSuite) TestStartS3Backend(c *gc.C) {
+func (s *manifoldSuite) TestStartS3Backend(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Expect that the controller config has started with the S3 backend. and
@@ -128,7 +128,7 @@ func (s *manifoldSuite) TestStartS3Backend(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *manifoldSuite) TestOutput(c *gc.C) {
+func (s *manifoldSuite) TestOutput(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	config := testing.FakeControllerConfig()
@@ -151,7 +151,7 @@ func (s *manifoldSuite) TestOutput(c *gc.C) {
 	err = manifold.Output(w, &client)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(client, gc.NotNil)
+	c.Check(client, tc.NotNil)
 
 	var session objectstore.Session
 	err = client.Session(context.Background(), func(ctx context.Context, s objectstore.Session) error {
@@ -160,7 +160,7 @@ func (s *manifoldSuite) TestOutput(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(session, gc.Equals, s.session)
+	c.Check(session, tc.Equals, s.session)
 
 	workertest.CleanKill(c, w)
 }

@@ -9,10 +9,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/modelmanager"
@@ -56,9 +56,9 @@ type ListModelsWithInfoSuite struct {
 	controllerUUID uuid.UUID
 }
 
-var _ = gc.Suite(&ListModelsWithInfoSuite{})
+var _ = tc.Suite(&ListModelsWithInfoSuite{})
 
-func (s *ListModelsWithInfoSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *ListModelsWithInfoSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	var err error
@@ -105,7 +105,7 @@ func (s *ListModelsWithInfoSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *ListModelsWithInfoSuite) createModel(c *gc.C, user names.UserTag) *mockModel {
+func (s *ListModelsWithInfoSuite) createModel(c *tc.C, user names.UserTag) *mockModel {
 	attrs := testing.FakeConfig()
 	attrs["agent-version"] = jujuversion.Current.String()
 	cfg, err := config.New(config.UseDefaults, attrs)
@@ -117,7 +117,7 @@ func (s *ListModelsWithInfoSuite) createModel(c *gc.C, user names.UserTag) *mock
 	}
 }
 
-func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
+func (s *ListModelsWithInfoSuite) setAPIUser(c *tc.C, user names.UserTag) {
 	s.authoriser.Tag = user
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		context.Background(),
@@ -141,7 +141,7 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.api = modelmanager
 }
 
-func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {
+func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	modelUUID := modeltesting.GenModelUUID(c)
 	lastLoginTime := time.Now()
@@ -204,7 +204,7 @@ func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {
 	})
 }
 
-func (s *ListModelsWithInfoSuite) TestListModelSummariesAll(c *gc.C) {
+func (s *ListModelsWithInfoSuite) TestListModelSummariesAll(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	modelUUID := modeltesting.GenModelUUID(c)
 	s.mockModelService.EXPECT().ListAllModelSummaries(gomock.Any()).Return([]coremodel.ModelSummary{{
@@ -265,37 +265,37 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesAll(c *gc.C) {
 	})
 }
 
-func (s *ListModelsWithInfoSuite) TestListModelSummariesDenied(c *gc.C) {
+func (s *ListModelsWithInfoSuite) TestListModelSummariesDenied(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	user := names.NewUserTag("external@remote")
 	s.setAPIUser(c, user)
 	other := names.NewUserTag("other@remote")
 	_, err := s.api.ListModelSummaries(context.Background(), params.ModelSummariesRequest{UserTag: other.String()})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *ListModelsWithInfoSuite) TestListModelSummariesInvalidUser(c *gc.C) {
+func (s *ListModelsWithInfoSuite) TestListModelSummariesInvalidUser(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.api.ListModelSummaries(context.Background(), params.ModelSummariesRequest{UserTag: "invalid"})
-	c.Assert(err, gc.ErrorMatches, `"invalid" is not a valid tag`)
+	c.Assert(err, tc.ErrorMatches, `"invalid" is not a valid tag`)
 }
 
-func (s *ListModelsWithInfoSuite) TestListModelSummariesDomainError(c *gc.C) {
+func (s *ListModelsWithInfoSuite) TestListModelSummariesDomainError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	errMsg := "captain error for ModelSummariesForUser"
 	s.mockModelService.EXPECT().ListModelSummariesForUser(gomock.Any(), coreuser.AdminUserName).Return(nil, errors.New(errMsg))
 	_, err := s.api.ListModelSummaries(context.Background(), params.ModelSummariesRequest{UserTag: s.adminUser.String()})
-	c.Assert(err, gc.ErrorMatches, errMsg)
+	c.Assert(err, tc.ErrorMatches, errMsg)
 }
 
-func (s *ListModelsWithInfoSuite) TestListModelSummariesNoModelsForUser(c *gc.C) {
+func (s *ListModelsWithInfoSuite) TestListModelSummariesNoModelsForUser(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.mockModelService.EXPECT().ListModelSummariesForUser(gomock.Any(), coreuser.AdminUserName).Return(nil, nil)
 	results, err := s.api.ListModelSummaries(context.Background(), params.ModelSummariesRequest{UserTag: s.adminUser.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 0)
+	c.Assert(results.Results, tc.HasLen, 0)
 }

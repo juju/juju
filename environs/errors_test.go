@@ -6,8 +6,8 @@ package environs_test
 import (
 	"fmt"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 )
@@ -15,9 +15,9 @@ import (
 type errorsSuite struct {
 }
 
-var _ = gc.Suite(&errorsSuite{})
+var _ = tc.Suite(&errorsSuite{})
 
-func (*errorsSuite) TestZoneIndependentErrorConforms(c *gc.C) {
+func (*errorsSuite) TestZoneIndependentErrorConforms(c *tc.C) {
 	err := fmt.Errorf("fly screens on a submarine: %w", environs.ErrAvailabilityZoneIndependent)
 	c.Assert(err, jc.ErrorIs, environs.ErrAvailabilityZoneIndependent)
 

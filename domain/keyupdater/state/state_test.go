@@ -7,8 +7,8 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
@@ -30,7 +30,7 @@ type stateSuite struct {
 	machineName coremachine.Name
 }
 
-var _ = gc.Suite(&stateSuite{})
+var _ = tc.Suite(&stateSuite{})
 
 var (
 	testingPublicKeys = []string{
@@ -47,7 +47,7 @@ var (
 
 // ensureNetNode inserts a row into the net_node table, mostly used as a foreign key for entries in
 // other tables (e.g. machine)
-func (s *stateSuite) ensureNetNode(c *gc.C, uuid string) {
+func (s *stateSuite) ensureNetNode(c *tc.C, uuid string) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO net_node (uuid)
@@ -57,7 +57,7 @@ func (s *stateSuite) ensureNetNode(c *gc.C, uuid string) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateSuite) ensureMachine(c *gc.C, name coremachine.Name, uuid string) {
+func (s *stateSuite) ensureMachine(c *tc.C, name coremachine.Name, uuid string) {
 	s.ensureNetNode(c, "node2")
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
@@ -68,7 +68,7 @@ func (s *stateSuite) ensureMachine(c *gc.C, name coremachine.Name, uuid string) 
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateSuite) SetUpTest(c *gc.C) {
+func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	s.machineName = coremachine.Name("0")
@@ -78,7 +78,7 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 // TestCheckMachineExists is asserting the happy path of
 // [State.CheckMachineExists] and that if a machine that exists is asked for no
 // error is returned.
-func (s *stateSuite) TestCheckMachineExists(c *gc.C) {
+func (s *stateSuite) TestCheckMachineExists(c *tc.C) {
 	err := NewState(s.TxnRunnerFactory()).CheckMachineExists(
 		context.Background(),
 		s.machineName,
@@ -88,7 +88,7 @@ func (s *stateSuite) TestCheckMachineExists(c *gc.C) {
 
 // TestCheckMachineDoesNotExist is asserting the if we ask for a machine that
 // doesn't exist we get back [machineerrors.MachineNotFound] error.
-func (s *stateSuite) TestCheckMachineDoesNotExist(c *gc.C) {
+func (s *stateSuite) TestCheckMachineDoesNotExist(c *tc.C) {
 	err := NewState(s.TxnRunnerFactory()).CheckMachineExists(
 		context.Background(),
 		coremachine.Name("100"),
@@ -96,7 +96,7 @@ func (s *stateSuite) TestCheckMachineDoesNotExist(c *gc.C) {
 	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 
-func (s *stateSuite) TestGetModelId(c *gc.C) {
+func (s *stateSuite) TestGetModelId(c *tc.C) {
 	mst := modelstate.NewModelState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	modelUUID := modeltesting.GenModelUUID(c)
@@ -118,5 +118,5 @@ func (s *stateSuite) TestGetModelId(c *gc.C) {
 
 	rval, err := NewState(s.TxnRunnerFactory()).GetModelUUID(context.Background())
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(rval, gc.Equals, modelUUID)
+	c.Check(rval, tc.Equals, modelUUID)
 }

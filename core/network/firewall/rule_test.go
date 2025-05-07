@@ -4,50 +4,50 @@
 package firewall
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
 )
 
-var _ = gc.Suite(&IngressRuleSuite{})
+var _ = tc.Suite(&IngressRuleSuite{})
 
 type IngressRuleSuite struct {
 	testing.IsolationSuite
 }
 
-func (IngressRuleSuite) TestRuleFormatting(c *gc.C) {
+func (IngressRuleSuite) TestRuleFormatting(c *tc.C) {
 	pr := network.MustParsePortRange("8080-9090/tcp")
 	r1 := NewIngressRule(pr)
-	c.Assert(r1.PortRange, gc.Equals, pr)
-	c.Assert(r1.SourceCIDRs, gc.HasLen, 0)
-	c.Assert(r1.String(), gc.Equals, "8080-9090/tcp")
+	c.Assert(r1.PortRange, tc.Equals, pr)
+	c.Assert(r1.SourceCIDRs, tc.HasLen, 0)
+	c.Assert(r1.String(), tc.Equals, "8080-9090/tcp")
 
 	r2 := NewIngressRule(pr, "10.0.0.0/24", "0.0.0.0/0", "0.0.0.0/0")
-	c.Assert(r2.PortRange, gc.Equals, pr)
-	c.Assert(r2.SourceCIDRs, gc.HasLen, 2, gc.Commentf("expected ingress rule not to contain duplicate CIDRs"))
-	c.Assert(r2.String(), gc.Equals, "8080-9090/tcp from 0.0.0.0/0,10.0.0.0/24")
+	c.Assert(r2.PortRange, tc.Equals, pr)
+	c.Assert(r2.SourceCIDRs, tc.HasLen, 2, tc.Commentf("expected ingress rule not to contain duplicate CIDRs"))
+	c.Assert(r2.String(), tc.Equals, "8080-9090/tcp from 0.0.0.0/0,10.0.0.0/24")
 }
 
-func (IngressRuleSuite) TestRuleValidation(c *gc.C) {
+func (IngressRuleSuite) TestRuleValidation(c *tc.C) {
 	bogus := network.PortRange{
 		Protocol: "gopher",
 		FromPort: 1,
 		ToPort:   1,
 	}
 	r1 := NewIngressRule(bogus)
-	c.Assert(r1.Validate(), gc.ErrorMatches, `.*invalid protocol "gopher", expected "tcp", "udp", or "icmp"`)
+	c.Assert(r1.Validate(), tc.ErrorMatches, `.*invalid protocol "gopher", expected "tcp", "udp", or "icmp"`)
 
 	pr := network.MustParsePortRange("8080-9090/tcp")
 	r2 := NewIngressRule(pr, "bogus")
-	c.Assert(r2.Validate(), gc.ErrorMatches, ".*invalid CIDR address: bogus")
+	c.Assert(r2.Validate(), tc.ErrorMatches, ".*invalid CIDR address: bogus")
 
 	r3 := NewIngressRule(pr, "100.0.0.0/8")
 	c.Assert(r3.Validate(), jc.ErrorIsNil)
 }
 
-func (IngressRuleSuite) TestRuleEquality(c *gc.C) {
+func (IngressRuleSuite) TestRuleEquality(c *tc.C) {
 	specs := []struct {
 		descr        string
 		ruleA, ruleB IngressRule
@@ -76,14 +76,14 @@ func (IngressRuleSuite) TestRuleEquality(c *gc.C) {
 	for specIndex, spec := range specs {
 		c.Logf("%d) %s", specIndex, spec.descr)
 		got := spec.ruleA.EqualTo(spec.ruleB)
-		c.Assert(got, gc.Equals, spec.exp)
+		c.Assert(got, tc.Equals, spec.exp)
 
 		got = spec.ruleB.EqualTo(spec.ruleA)
-		c.Assert(got, gc.Equals, spec.exp)
+		c.Assert(got, tc.Equals, spec.exp)
 	}
 }
 
-func (IngressRuleSuite) TestRuleSorting(c *gc.C) {
+func (IngressRuleSuite) TestRuleSorting(c *tc.C) {
 	rules := IngressRules{
 		NewIngressRule(network.MustParsePortRange("10-100/udp"), "0.0.0.0/0", "192.168.1.0/24"),
 		NewIngressRule(network.MustParsePortRange("80-90/tcp"), "0.0.0.0/0", "192.168.1.0/24"),
@@ -101,10 +101,10 @@ func (IngressRuleSuite) TestRuleSorting(c *gc.C) {
 		NewIngressRule(network.MustParsePortRange("80-90/udp"), "0.0.0.0/0", "192.168.1.0/24"),
 	}
 
-	c.Assert(rules, gc.DeepEquals, exp)
+	c.Assert(rules, tc.DeepEquals, exp)
 }
 
-func (IngressRuleSuite) TestRulesEquality(c *gc.C) {
+func (IngressRuleSuite) TestRulesEquality(c *tc.C) {
 	setA := IngressRules{
 		NewIngressRule(network.MustParsePortRange("80/tcp"), "10.0.0.0/24", "192.168.0.0/24"),
 		NewIngressRule(network.MustParsePortRange("80/tcp"), "192.168.0.0/24", "10.0.0.0/24"),
@@ -123,7 +123,7 @@ func (IngressRuleSuite) TestRulesEquality(c *gc.C) {
 	c.Assert(setB.EqualTo(setC), jc.IsFalse)
 }
 
-func (IngressRuleSuite) TestUniqueRules(c *gc.C) {
+func (IngressRuleSuite) TestUniqueRules(c *tc.C) {
 	in := IngressRules{
 		NewIngressRule(network.MustParsePortRange("80/tcp"), "10.0.0.0/24", "192.168.0.0/24"),
 		NewIngressRule(network.MustParsePortRange("123/tcp"), "192.168.0.0/24", "10.0.0.0/24"),
@@ -135,10 +135,10 @@ func (IngressRuleSuite) TestUniqueRules(c *gc.C) {
 		NewIngressRule(network.MustParsePortRange("123/tcp"), "192.168.0.0/24", "10.0.0.0/24"),
 	}
 
-	c.Assert(in.UniqueRules(), gc.DeepEquals, exp)
+	c.Assert(in.UniqueRules(), tc.DeepEquals, exp)
 }
 
-func (IngressRuleSuite) TestDiffOpenAll(c *gc.C) {
+func (IngressRuleSuite) TestDiffOpenAll(c *tc.C) {
 	wanted := IngressRules{
 		NewIngressRule(network.MustParsePortRange("80-90/tcp"), "0.0.0.0/0"),
 		NewIngressRule(network.MustParsePortRange("443/tcp"), "10.0.0.0/24", "192.168.1.0/24"),
@@ -147,11 +147,11 @@ func (IngressRuleSuite) TestDiffOpenAll(c *gc.C) {
 	wanted.Sort()
 
 	toOpen, toClose := IngressRules{}.Diff(wanted)
-	c.Assert(toClose, gc.HasLen, 0)
+	c.Assert(toClose, tc.HasLen, 0)
 	c.Assert(toOpen, jc.DeepEquals, wanted)
 }
 
-func (IngressRuleSuite) TestDiffCloseAll(c *gc.C) {
+func (IngressRuleSuite) TestDiffCloseAll(c *tc.C) {
 	current := IngressRules{
 		NewIngressRule(network.MustParsePortRange("80-90/tcp"), "0.0.0.0/0"),
 		NewIngressRule(network.MustParsePortRange("443/tcp"), "10.0.0.0/24", "192.168.1.0/24"),
@@ -160,11 +160,11 @@ func (IngressRuleSuite) TestDiffCloseAll(c *gc.C) {
 	current.Sort()
 
 	toOpen, toClose := current.Diff(nil)
-	c.Assert(toOpen, gc.HasLen, 0)
+	c.Assert(toOpen, tc.HasLen, 0)
 	c.Assert(toClose, jc.DeepEquals, current)
 }
 
-func (IngressRuleSuite) TestDiffNoPortRangeOverlap(c *gc.C) {
+func (IngressRuleSuite) TestDiffNoPortRangeOverlap(c *tc.C) {
 	current := IngressRules{
 		NewIngressRule(network.MustParsePortRange("80-90/tcp"), "0.0.0.0/0"),
 		NewIngressRule(network.MustParsePortRange("443/tcp"), "10.0.0.0/24", "192.168.1.0/24"),
@@ -178,13 +178,13 @@ func (IngressRuleSuite) TestDiffNoPortRangeOverlap(c *gc.C) {
 
 	wanted := append(current, extra...)
 	toOpen, toClose := current.Diff(wanted)
-	c.Assert(toClose, gc.HasLen, 0)
+	c.Assert(toClose, tc.HasLen, 0)
 
 	extra.Sort()
 	c.Assert(toOpen, jc.DeepEquals, extra)
 }
 
-func (IngressRuleSuite) TestPortRangeOverlapToOpen(c *gc.C) {
+func (IngressRuleSuite) TestPortRangeOverlapToOpen(c *tc.C) {
 	current := IngressRules{
 		NewIngressRule(network.MustParsePortRange("80-90/tcp"), "10.0.0.0/24"),
 		NewIngressRule(network.MustParsePortRange("443/tcp"), "10.0.0.0/24", "192.168.1.0/24"),
@@ -197,7 +197,7 @@ func (IngressRuleSuite) TestPortRangeOverlapToOpen(c *gc.C) {
 	}
 	wanted := append(current, extra...)
 	toOpen, toClose := current.Diff(wanted)
-	c.Assert(toClose, gc.HasLen, 0)
+	c.Assert(toClose, tc.HasLen, 0)
 
 	c.Assert(toOpen, jc.DeepEquals, IngressRules{
 		NewIngressRule(network.MustParsePortRange("80-90/tcp"), "192.168.1.0/24"),
@@ -206,7 +206,7 @@ func (IngressRuleSuite) TestPortRangeOverlapToOpen(c *gc.C) {
 	})
 }
 
-func (IngressRuleSuite) TestPortRangeOverlapToClose(c *gc.C) {
+func (IngressRuleSuite) TestPortRangeOverlapToClose(c *tc.C) {
 	current := IngressRules{
 		NewIngressRule(network.MustParsePortRange("80-90/tcp"), "10.0.0.0/24", "192.168.1.0/24"),
 		NewIngressRule(network.MustParsePortRange("443/tcp"), "10.0.0.0/24", "192.168.1.0/24"),
@@ -219,14 +219,14 @@ func (IngressRuleSuite) TestPortRangeOverlapToClose(c *gc.C) {
 	}
 
 	toOpen, toClose := current.Diff(wanted)
-	c.Assert(toOpen, gc.HasLen, 0)
+	c.Assert(toOpen, tc.HasLen, 0)
 
 	c.Assert(toClose, jc.DeepEquals, IngressRules{
 		NewIngressRule(network.MustParsePortRange("80-90/tcp"), "192.168.1.0/24"),
 	})
 }
 
-func (IngressRuleSuite) TestPortRangeOverlap(c *gc.C) {
+func (IngressRuleSuite) TestPortRangeOverlap(c *tc.C) {
 	current := IngressRules{
 		NewIngressRule(network.MustParsePortRange("80-90/tcp"), "10.0.0.0/24", "192.168.1.0/24"),
 		NewIngressRule(network.MustParsePortRange("443/tcp"), "10.0.0.0/24", "192.168.1.0/24"),
@@ -246,7 +246,7 @@ func (IngressRuleSuite) TestPortRangeOverlap(c *gc.C) {
 	})
 }
 
-func (IngressRuleSuite) TestDiffRangesClosesPortsIfRulesAreDisjoint(c *gc.C) {
+func (IngressRuleSuite) TestDiffRangesClosesPortsIfRulesAreDisjoint(c *tc.C) {
 	current := IngressRules{
 		NewIngressRule(network.MustParsePortRange("3306/tcp"), "35.187.158.35/32"),
 	}
@@ -255,11 +255,11 @@ func (IngressRuleSuite) TestDiffRangesClosesPortsIfRulesAreDisjoint(c *gc.C) {
 	}
 
 	toOpen, toClose := current.Diff(wanted)
-	c.Assert(toOpen, gc.DeepEquals, wanted)
-	c.Assert(toClose, gc.DeepEquals, current)
+	c.Assert(toOpen, tc.DeepEquals, wanted)
+	c.Assert(toClose, tc.DeepEquals, current)
 }
 
-func (IngressRuleSuite) TestRemoveCIDRsMatchingAddressType(c *gc.C) {
+func (IngressRuleSuite) TestRemoveCIDRsMatchingAddressType(c *tc.C) {
 	in := IngressRules{
 		NewIngressRule(network.MustParsePortRange("80/tcp"), "35.187.158.35/32"),
 		// We expect these rules to be de-dupped once the IPV6 CIDRs get removed
@@ -268,7 +268,7 @@ func (IngressRuleSuite) TestRemoveCIDRsMatchingAddressType(c *gc.C) {
 	}
 
 	out := in.RemoveCIDRsMatchingAddressType(network.IPv6Address)
-	c.Assert(out, gc.DeepEquals, IngressRules{
+	c.Assert(out, tc.DeepEquals, IngressRules{
 		NewIngressRule(network.MustParsePortRange("80/tcp"), "35.187.158.35/32"),
 		NewIngressRule(network.MustParsePortRange("81/tcp"), "35.187.1.35/32"),
 	})

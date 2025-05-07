@@ -4,9 +4,9 @@
 package application
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/application/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -21,26 +21,26 @@ type TrustSuite struct {
 	store          *jujuclient.MemStore
 }
 
-func (s *TrustSuite) SetUpTest(c *gc.C) {
+func (s *TrustSuite) SetUpTest(c *tc.C) {
 	s.store = jujuclienttesting.MinimalStore()
 }
 
-var _ = gc.Suite(&TrustSuite{})
+var _ = tc.Suite(&TrustSuite{})
 
-func (s *TrustSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *TrustSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.applicationAPI = mocks.NewMockApplicationAPI(ctrl)
 	return ctrl
 }
 
-func (s *TrustSuite) runTrust(c *gc.C, args ...string) error {
+func (s *TrustSuite) runTrust(c *tc.C, args ...string) error {
 	trustCmd := modelcmd.Wrap(&trustCommand{api: s.applicationAPI})
 	trustCmd.SetClientStore(s.store)
 	_, err := cmdtesting.RunCommand(c, trustCmd, args...)
 	return err
 }
 
-func (s *TrustSuite) TestTrust(c *gc.C) {
+func (s *TrustSuite) TestTrust(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.applicationAPI.EXPECT().SetConfig(gomock.Any(), "gitlab", "", map[string]string{"trust": "true"})
@@ -50,7 +50,7 @@ func (s *TrustSuite) TestTrust(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *TrustSuite) TestTrustCAAS(c *gc.C) {
+func (s *TrustSuite) TestTrustCAAS(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.store.Models["arthur"] = &jujuclient.ControllerModels{
@@ -67,7 +67,7 @@ func (s *TrustSuite) TestTrustCAAS(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *TrustSuite) TestTrustCAASRemove(c *gc.C) {
+func (s *TrustSuite) TestTrustCAASRemove(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.store.Models["arthur"] = &jujuclient.ControllerModels{
@@ -84,7 +84,7 @@ func (s *TrustSuite) TestTrustCAASRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *TrustSuite) TestTrustCAASNoScope(c *gc.C) {
+func (s *TrustSuite) TestTrustCAASNoScope(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.store.Models["arthur"] = &jujuclient.ControllerModels{
@@ -94,13 +94,13 @@ func (s *TrustSuite) TestTrustCAASNoScope(c *gc.C) {
 		}},
 	}
 	err := s.runTrust(c, "gitlab")
-	c.Assert(err, gc.ErrorMatches, `
+	c.Assert(err, tc.ErrorMatches, `
 'juju trust' currently grants full access to the cluster itself.
 Set the scope to 'cluster' using '--scope=cluster' to confirm this choice.
 `[1:])
 }
 
-func (s *TrustSuite) TestTrustCAASWrongScope(c *gc.C) {
+func (s *TrustSuite) TestTrustCAASWrongScope(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.store.Models["arthur"] = &jujuclient.ControllerModels{
@@ -110,5 +110,5 @@ func (s *TrustSuite) TestTrustCAASWrongScope(c *gc.C) {
 		}},
 	}
 	err := s.runTrust(c, "gitlab", "--scope", "foo")
-	c.Assert(err, gc.ErrorMatches, `scope "foo" not valid`)
+	c.Assert(err, tc.ErrorMatches, `scope "foo" not valid`)
 }

@@ -14,9 +14,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -43,43 +43,43 @@ type NewAPIClientSuite struct {
 
 var fakeUUID = "df136476-12e9-11e4-8a70-b2227cce2b54"
 
-var _ = gc.Suite(&NewAPIClientSuite{})
+var _ = tc.Suite(&NewAPIClientSuite{})
 
-func (s *NewAPIClientSuite) SetUpSuite(c *gc.C) {
+func (s *NewAPIClientSuite) SetUpSuite(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
-func (s *NewAPIClientSuite) TearDownSuite(c *gc.C) {
+func (s *NewAPIClientSuite) TearDownSuite(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
 }
 
-func (s *NewAPIClientSuite) SetUpTest(c *gc.C) {
+func (s *NewAPIClientSuite) SetUpTest(c *tc.C) {
 	s.ToolsFixture.SetUpTest(c)
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 }
 
-func (s *NewAPIClientSuite) TearDownTest(c *gc.C) {
+func (s *NewAPIClientSuite) TearDownTest(c *tc.C) {
 	s.ToolsFixture.TearDownTest(c)
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
-func (s *NewAPIClientSuite) TestWithBootstrapConfig(c *gc.C) {
+func (s *NewAPIClientSuite) TestWithBootstrapConfig(c *tc.C) {
 	store := newClientStore(c, "noconfig")
 
 	called := 0
 	expectState := mockedAPIState(mockedHostPort | mockedModelTag)
 	apiOpen := func(ctx context.Context, apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
-		c.Check(apiInfo.ModelTag, gc.Equals, names.NewModelTag(fakeUUID))
+		c.Check(apiInfo.ModelTag, tc.Equals, names.NewModelTag(fakeUUID))
 		called++
 		return expectState, nil
 	}
 
 	st, err := newAPIConnectionFromNames(c, "noconfig", "admin/admin", store, apiOpen)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st, gc.Equals, expectState)
-	c.Assert(called, gc.Equals, 1)
+	c.Assert(st, tc.Equals, expectState)
+	c.Assert(called, tc.Equals, 1)
 	// The addresses should have been updated.
 	c.Assert(
 		store.Controllers["noconfig"].APIEndpoints,
@@ -88,7 +88,7 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfig(c *gc.C) {
 	)
 	c.Assert(
 		store.Controllers["noconfig"].AgentVersion,
-		gc.Equals,
+		tc.Equals,
 		"1.2.3",
 	)
 
@@ -99,16 +99,16 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfig(c *gc.C) {
 	stubStore := jujuclienttesting.WrapClientStore(store)
 	st, err = newAPIConnectionFromNames(c, "noconfig", "admin/admin", stubStore, apiOpen)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st, gc.Equals, expectState)
-	c.Assert(called, gc.Equals, 2)
+	c.Assert(st, tc.Equals, expectState)
+	c.Assert(called, tc.Equals, 2)
 	stubStore.CheckCallNames(c, "AccountDetails", "ModelByName", "ControllerByName")
 
 	controllerAfter, err := store.ControllerByName("noconfig")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerBefore, gc.DeepEquals, controllerAfter)
+	c.Assert(controllerBefore, tc.DeepEquals, controllerAfter)
 }
 
-func (s *NewAPIClientSuite) TestIncorrectAuthTag(c *gc.C) {
+func (s *NewAPIClientSuite) TestIncorrectAuthTag(c *tc.C) {
 	store := newClientStore(c, "noconfig")
 	err := store.UpdateAccount("noconfig", jujuclient.AccountDetails{
 		User: "wally@external",
@@ -128,7 +128,7 @@ func (s *NewAPIClientSuite) TestIncorrectAuthTag(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.Unauthorized)
 }
 
-func (s *NewAPIClientSuite) TestCorrectAuthTag(c *gc.C) {
+func (s *NewAPIClientSuite) TestCorrectAuthTag(c *tc.C) {
 	store := newClientStore(c, "noconfig")
 	err := store.UpdateAccount("noconfig", jujuclient.AccountDetails{
 		User: "wally@external",
@@ -151,7 +151,7 @@ func (s *NewAPIClientSuite) TestCorrectAuthTag(c *gc.C) {
 // TestEmptyStoreAuthTag simulates when the user issues an unqualified
 // "juju login" and is redirected to an external identity provider.
 // It is the provider that providers the identity, not the args.
-func (s *NewAPIClientSuite) TestEmptyStoreAuthTag(c *gc.C) {
+func (s *NewAPIClientSuite) TestEmptyStoreAuthTag(c *tc.C) {
 	store := newClientStore(c, "noconfig")
 	err := store.RemoveAccount("noconfig")
 	c.Assert(err, jc.ErrorIsNil)
@@ -169,7 +169,7 @@ func (s *NewAPIClientSuite) TestEmptyStoreAuthTag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *NewAPIClientSuite) TestIncorrectAdminAuthTag(c *gc.C) {
+func (s *NewAPIClientSuite) TestIncorrectAdminAuthTag(c *tc.C) {
 	store := newClientStore(c, "noconfig")
 
 	called := 0
@@ -186,7 +186,7 @@ func (s *NewAPIClientSuite) TestIncorrectAdminAuthTag(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.Unauthorized)
 }
 
-func (s *NewAPIClientSuite) TestCorrectAdminAuthTag(c *gc.C) {
+func (s *NewAPIClientSuite) TestCorrectAdminAuthTag(c *tc.C) {
 	store := newClientStore(c, "noconfig")
 
 	called := 0
@@ -202,9 +202,9 @@ func (s *NewAPIClientSuite) TestCorrectAdminAuthTag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *NewAPIClientSuite) TestUpdatesPublicDNSName(c *gc.C) {
+func (s *NewAPIClientSuite) TestUpdatesPublicDNSName(c *tc.C) {
 	apiOpen := func(ctx context.Context, apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
-		c.Assert(apiInfo.ControllerUUID, gc.Equals, fakeUUID)
+		c.Assert(apiInfo.ControllerUUID, tc.Equals, fakeUUID)
 		conn := mockedAPIState(noFlags)
 		conn.publicDNSName = "somewhere.invalid"
 		conn.addr = &url.URL{Scheme: "wss", Host: "0.1.2.3:1234"}
@@ -214,10 +214,10 @@ func (s *NewAPIClientSuite) TestUpdatesPublicDNSName(c *gc.C) {
 	store := newClientStore(c, "controllername")
 	_, err := newAPIConnectionFromNames(c, "controllername", "", store, apiOpen)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(store.Controllers["controllername"].PublicDNSName, gc.Equals, "somewhere.invalid")
+	c.Assert(store.Controllers["controllername"].PublicDNSName, tc.Equals, "somewhere.invalid")
 }
 
-func (s *NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
+func (s *NewAPIClientSuite) TestWithInfoNoAddresses(c *tc.C) {
 	store := newClientStore(c, "noconfig")
 	err := store.UpdateController("noconfig", jujuclient.ControllerDetails{
 		ControllerUUID: fakeUUID,
@@ -227,10 +227,10 @@ func (s *NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
 
 	st, err := newAPIConnectionFromNames(c, "noconfig", "", store, panicAPIOpen)
 	c.Assert(err, jc.Satisfies, juju.IsNoAddressesError)
-	c.Assert(st, gc.IsNil)
+	c.Assert(st, tc.IsNil)
 }
 
-func (s *NewAPIClientSuite) TestWithMacaroons(c *gc.C) {
+func (s *NewAPIClientSuite) TestWithMacaroons(c *tc.C) {
 	store := newClientStore(c, "withmac")
 	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
@@ -248,10 +248,10 @@ func (s *NewAPIClientSuite) TestWithMacaroons(c *gc.C) {
 		AccountDetails:  ad,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.Macaroons, gc.DeepEquals, []macaroon.Slice{{mac}})
+	c.Assert(info.Macaroons, tc.DeepEquals, []macaroon.Slice{{mac}})
 }
 
-func (s *NewAPIClientSuite) TestWithAddressOverride(c *gc.C) {
+func (s *NewAPIClientSuite) TestWithAddressOverride(c *tc.C) {
 	store := newClientStore(c, "controllername")
 	ad, err := store.AccountDetails("controllername")
 	c.Assert(err, jc.ErrorIsNil)
@@ -263,10 +263,10 @@ func (s *NewAPIClientSuite) TestWithAddressOverride(c *gc.C) {
 		APIEndpoints:    []string{"address-override"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.Addrs, gc.DeepEquals, []string{"address-override"})
+	c.Assert(info.Addrs, tc.DeepEquals, []string{"address-override"})
 }
 
-func (s *NewAPIClientSuite) TestWithRedirect(c *gc.C) {
+func (s *NewAPIClientSuite) TestWithRedirect(c *tc.C) {
 	store := newClientStore(c, "ctl")
 	err := store.UpdateController("ctl", jujuclient.ControllerDetails{
 		ControllerUUID: fakeUUID,
@@ -285,13 +285,13 @@ func (s *NewAPIClientSuite) TestWithRedirect(c *gc.C) {
 
 	openCount := 0
 	redirOpen := func(ctx context.Context, apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
-		c.Check(apiInfo.ControllerUUID, gc.Equals, fakeUUID)
-		c.Check(apiInfo.ModelTag.Id(), gc.Equals, fakeUUID)
+		c.Check(apiInfo.ControllerUUID, tc.Equals, fakeUUID)
+		c.Check(apiInfo.ModelTag.Id(), tc.Equals, fakeUUID)
 		openCount++
 		switch openCount {
 		case 1:
 			c.Check(apiInfo.Addrs, jc.DeepEquals, []string{"0.1.2.3:5678"})
-			c.Check(apiInfo.CACert, gc.Equals, "certificate")
+			c.Check(apiInfo.CACert, tc.Equals, "certificate")
 			return nil, errors.Trace(&api.RedirectError{
 				Servers:        redirHPs,
 				CACert:         "alternative CA cert",
@@ -299,7 +299,7 @@ func (s *NewAPIClientSuite) TestWithRedirect(c *gc.C) {
 			})
 		case 2:
 			c.Check(apiInfo.Addrs, jc.DeepEquals, network.CollapseToHostPorts(redirHPs).Strings())
-			c.Check(apiInfo.CACert, gc.Equals, "alternative CA cert")
+			c.Check(apiInfo.CACert, tc.Equals, "alternative CA cert")
 			st := mockedAPIState(noFlags)
 			st.apiHostPorts = redirHPs
 
@@ -312,18 +312,18 @@ func (s *NewAPIClientSuite) TestWithRedirect(c *gc.C) {
 
 	st0, err := newAPIConnectionFromNames(c, "ctl", "admin/admin", store, redirOpen)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(openCount, gc.Equals, 2)
+	c.Assert(openCount, tc.Equals, 2)
 	st := st0.(*mockAPIConnection)
-	c.Assert(st.modelTag, gc.Equals, fakeUUID)
+	c.Assert(st.modelTag, tc.Equals, fakeUUID)
 
 	// Check that the addresses of the original controller
 	// have not been changed.
 	controllerAfter, err := store.ControllerByName("ctl")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerBefore, gc.DeepEquals, controllerAfter)
+	c.Assert(controllerBefore, tc.DeepEquals, controllerAfter)
 }
 
-func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
+func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *tc.C) {
 	jujuClient := newClientStore(c, "noconfig")
 
 	apiOpen := func(ctx context.Context, apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
@@ -332,11 +332,11 @@ func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 	st, err := newAPIConnectionFromNames(c, "noconfig", "", jujuClient, apiOpen)
 	// We expect to get the error from apiOpen, because it is not
 	// fatal to have no bootstrap config.
-	c.Assert(err, gc.ErrorMatches, "an error")
-	c.Assert(st, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "an error")
+	c.Assert(st, tc.IsNil)
 }
 
-func (s *NewAPIClientSuite) TestDialedAddressIsCached(c *gc.C) {
+func (s *NewAPIClientSuite) TestDialedAddressIsCached(c *tc.C) {
 	store := jujuclient.NewMemStore()
 	err := store.AddController("foo", jujuclient.ControllerDetails{
 		ControllerUUID: fakeUUID,
@@ -404,7 +404,7 @@ func (s *NewAPIClientSuite) TestDialedAddressIsCached(c *gc.C) {
 	})
 }
 
-func (s *NewAPIClientSuite) TestWithExistingDNSCache(c *gc.C) {
+func (s *NewAPIClientSuite) TestWithExistingDNSCache(c *tc.C) {
 	store := jujuclient.NewMemStore()
 	err := store.AddController("foo", jujuclient.ControllerDetails{
 		ControllerUUID: fakeUUID,
@@ -474,7 +474,7 @@ func (s *NewAPIClientSuite) TestWithExistingDNSCache(c *gc.C) {
 	})
 }
 
-func (s *NewAPIClientSuite) TestEndpointFiltering(c *gc.C) {
+func (s *NewAPIClientSuite) TestEndpointFiltering(c *tc.C) {
 	store := jujuclient.NewMemStore()
 	err := store.AddController("foo", jujuclient.ControllerDetails{
 		ControllerUUID: fakeUUID,
@@ -533,7 +533,7 @@ func (s *NewAPIClientSuite) TestEndpointFiltering(c *gc.C) {
 // setupControllerWithPathSegment sets up a controller that is
 // hosted on a path and returns a connection to it. A modelUUID
 // can be specified to return a connection to the model api endpoint.
-func setupControllerWithPathSegment(c *gc.C, store *jujuclient.MemStore, modelUUID string) api.Connection {
+func setupControllerWithPathSegment(c *tc.C, store *jujuclient.MemStore, modelUUID string) api.Connection {
 	err := store.AddController("foo", jujuclient.ControllerDetails{
 		ControllerUUID: fakeUUID,
 		APIEndpoints: []string{
@@ -561,7 +561,7 @@ func setupControllerWithPathSegment(c *gc.C, store *jujuclient.MemStore, modelUU
 	return conn
 }
 
-func (s *NewAPIClientSuite) TestAPIWithControllerPathSegment(c *gc.C) {
+func (s *NewAPIClientSuite) TestAPIWithControllerPathSegment(c *tc.C) {
 	store := jujuclient.NewMemStore()
 	controllerConn := setupControllerWithPathSegment(c, store, "")
 	defer controllerConn.Close()
@@ -573,7 +573,7 @@ func (s *NewAPIClientSuite) TestAPIWithControllerPathSegment(c *gc.C) {
 	})
 }
 
-func (s *NewAPIClientSuite) TestStreamWithControllerPathSegment(c *gc.C) {
+func (s *NewAPIClientSuite) TestStreamWithControllerPathSegment(c *tc.C) {
 	testCases := []struct {
 		desc        string
 		modelUUID   string
@@ -602,22 +602,22 @@ func (s *NewAPIClientSuite) TestStreamWithControllerPathSegment(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		defer stream.Close()
 
-		c.Assert(catcher.Location(), gc.Equals, tC.expectedURL)
+		c.Assert(catcher.Location(), tc.Equals, tC.expectedURL)
 	}
 }
 
-func (s *NewAPIClientSuite) TestHTTPClientWithControllerPathSegment(c *gc.C) {
+func (s *NewAPIClientSuite) TestHTTPClientWithControllerPathSegment(c *tc.C) {
 	store := jujuclient.NewMemStore()
 	conn := setupControllerWithPathSegment(c, store, "9c8fc580-7ad2-43a0-a0b9-c14b80172190")
 	defer conn.Close()
 
 	client, err := conn.HTTPClient()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(client.BaseURL, gc.Equals, "https://example1:1111/foo/model/9c8fc580-7ad2-43a0-a0b9-c14b80172190")
+	c.Assert(client.BaseURL, tc.Equals, "https://example1:1111/foo/model/9c8fc580-7ad2-43a0-a0b9-c14b80172190")
 
 	client, err = conn.RootHTTPClient()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(client.BaseURL, gc.Equals, "https://example1:1111/foo")
+	c.Assert(client.BaseURL, tc.Equals, "https://example1:1111/foo")
 }
 
 type testRootAPI struct {
@@ -645,17 +645,17 @@ func (a testAdminAPI) Login(req params.LoginRequest) params.LoginResult {
 	return loginResult
 }
 
-func checkCommonAPIInfoAttrs(c *gc.C, apiInfo *api.Info, opts api.DialOpts) {
+func checkCommonAPIInfoAttrs(c *tc.C, apiInfo *api.Info, opts api.DialOpts) {
 	opts.DNSCache = nil
-	c.Check(apiInfo.Tag, gc.Equals, names.NewUserTag("admin"))
-	c.Check(apiInfo.CACert, gc.Equals, "certificate")
-	c.Check(apiInfo.Password, gc.Equals, "hunter2")
-	c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
+	c.Check(apiInfo.Tag, tc.Equals, names.NewUserTag("admin"))
+	c.Check(apiInfo.CACert, tc.Equals, "certificate")
+	c.Check(apiInfo.Password, tc.Equals, "hunter2")
+	c.Check(opts, tc.DeepEquals, api.DefaultDialOpts())
 }
 
 // newClientStore returns a client store that contains information
 // based on the given controller name and info.
-func newClientStore(c *gc.C, controllerName string) *jujuclient.MemStore {
+func newClientStore(c *tc.C, controllerName string) *jujuclient.MemStore {
 	store := jujuclient.NewMemStore()
 	err := store.AddController(controllerName, jujuclient.ControllerDetails{
 		ControllerUUID: fakeUUID,
@@ -681,7 +681,7 @@ func newClientStore(c *gc.C, controllerName string) *jujuclient.MemStore {
 }
 
 func newAPIConnectionFromNames(
-	c *gc.C,
+	c *tc.C,
 	controller, model string,
 	store jujuclient.ClientStore,
 	apiOpen api.OpenFunc,
@@ -712,7 +712,7 @@ func (f ipAddrResolverFunc) LookupIPAddr(ctx context.Context, host string) ([]ne
 	return f(ctx, host)
 }
 
-func (s *NewAPIClientSuite) TestUpdateControllerDetailsFromLogin(c *gc.C) {
+func (s *NewAPIClientSuite) TestUpdateControllerDetailsFromLogin(c *tc.C) {
 	// These tests currently focus solely focus on asserting the
 	// controller's API endpoints are correctly updated.
 	tests := []struct {
@@ -783,10 +783,10 @@ func (s *NewAPIClientSuite) TestUpdateControllerDetailsFromLogin(c *gc.C) {
 		}
 
 		err := juju.UpdateControllerDetailsFromLogin(store, test.controllerName, test.updateDetails)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, tc.IsNil)
 
 		controller := store.controllerDetails[test.controllerName]
-		c.Assert(controller.APIEndpoints, gc.DeepEquals, test.expectedControllerEndpoints)
+		c.Assert(controller.APIEndpoints, tc.DeepEquals, test.expectedControllerEndpoints)
 	}
 
 }

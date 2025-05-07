@@ -3,17 +3,15 @@
 
 package action_test
 
-import (
-	gc "gopkg.in/check.v1"
-)
+import "github.com/juju/tc"
 
 type operationSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&operationSuite{})
+var _ = tc.Suite(&operationSuite{})
 
-func (s *operationSuite) TestStub(c *gc.C) {
+func (s *operationSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - ListOperations querying by status.
 - ListOperations querying by action names.

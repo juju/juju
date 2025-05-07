@@ -6,8 +6,8 @@ package watchertest
 import (
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/testing"
@@ -55,7 +55,7 @@ func (w *MockNotifyWatcher) Wait() error {
 	return w.tomb.Wait()
 }
 
-func NewNotifyWatcherC(c *gc.C, watcher watcher.NotifyWatcher) NotifyWatcherC {
+func NewNotifyWatcherC(c *tc.C, watcher watcher.NotifyWatcher) NotifyWatcherC {
 	return NotifyWatcherC{
 		C:       c,
 		Watcher: watcher,
@@ -63,7 +63,7 @@ func NewNotifyWatcherC(c *gc.C, watcher watcher.NotifyWatcher) NotifyWatcherC {
 }
 
 type NotifyWatcherC struct {
-	*gc.C
+	*tc.C
 	Watcher watcher.NotifyWatcher
 }
 

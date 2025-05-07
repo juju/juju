@@ -15,20 +15,20 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/tc"
 	coretesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 )
 
 type workerSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
-func (s *workerSuite) TestStartup(c *gc.C) {
+func (s *workerSuite) TestStartup(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, _, states := s.newWorker(c)
@@ -39,7 +39,7 @@ func (s *workerSuite) TestStartup(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestIDRequest(c *gc.C) {
+func (s *workerSuite) TestIDRequest(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, socket, states := s.newWorker(c)
@@ -51,16 +51,16 @@ func (s *workerSuite) TestIDRequest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = resp.Body.Close() }()
 
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 
 	content, err := io.ReadAll(resp.Body)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(string(content), gc.Equals, "99")
+	c.Check(string(content), tc.Equals, "99")
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestReloadRequest(c *gc.C) {
+func (s *workerSuite) TestReloadRequest(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, socket, states := s.newWorker(c)
@@ -74,7 +74,7 @@ func (s *workerSuite) TestReloadRequest(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestIncorrectEndpoint(c *gc.C) {
+func (s *workerSuite) TestIncorrectEndpoint(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, socket, states := s.newWorker(c)
@@ -87,7 +87,7 @@ func (s *workerSuite) TestIncorrectEndpoint(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestReloadRequestMultipleTimes(c *gc.C) {
+func (s *workerSuite) TestReloadRequestMultipleTimes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, socket, states := s.newWorker(c)
@@ -103,7 +103,7 @@ func (s *workerSuite) TestReloadRequestMultipleTimes(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestReloadRequestAfterDeath(c *gc.C) {
+func (s *workerSuite) TestReloadRequestAfterDeath(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, socket, states := s.newWorker(c)
@@ -123,7 +123,7 @@ func (s *workerSuite) TestReloadRequestAfterDeath(c *gc.C) {
 	}
 }
 
-func (s *workerSuite) TestWatchWithNoChange(c *gc.C) {
+func (s *workerSuite) TestWatchWithNoChange(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, _, states := s.newWorker(c)
@@ -143,7 +143,7 @@ func (s *workerSuite) TestWatchWithNoChange(c *gc.C) {
 	}
 }
 
-func (s *workerSuite) TestWatchWithSubscribe(c *gc.C) {
+func (s *workerSuite) TestWatchWithSubscribe(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, socket, states := s.newWorker(c)
@@ -168,7 +168,7 @@ func (s *workerSuite) TestWatchWithSubscribe(c *gc.C) {
 		c.Fatal("should have received a change")
 	}
 
-	c.Assert(count, gc.Equals, 1)
+	c.Assert(count, tc.Equals, 1)
 
 	select {
 	case <-watcher.Done():
@@ -181,7 +181,7 @@ func (s *workerSuite) TestWatchWithSubscribe(c *gc.C) {
 	ensureDone(c, watcher)
 }
 
-func (s *workerSuite) TestWatchAfterUnsubscribe(c *gc.C) {
+func (s *workerSuite) TestWatchAfterUnsubscribe(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, socket, states := s.newWorker(c)
@@ -210,7 +210,7 @@ func (s *workerSuite) TestWatchAfterUnsubscribe(c *gc.C) {
 	ensureDone(c, watcher)
 }
 
-func (s *workerSuite) TestWatchWithKilledWorker(c *gc.C) {
+func (s *workerSuite) TestWatchWithKilledWorker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, _, states := s.newWorker(c)
@@ -235,7 +235,7 @@ func (s *workerSuite) TestWatchWithKilledWorker(c *gc.C) {
 	ensureDone(c, watcher)
 }
 
-func (s *workerSuite) TestWatchMultiple(c *gc.C) {
+func (s *workerSuite) TestWatchMultiple(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, socket, states := s.newWorker(c)
@@ -285,10 +285,10 @@ func (s *workerSuite) TestWatchMultiple(c *gc.C) {
 		c.Fatal("timed out waiting for changes to finish")
 	}
 
-	c.Assert(atomic.LoadInt64(&count), gc.Equals, int64(len(watchers)))
+	c.Assert(atomic.LoadInt64(&count), tc.Equals, int64(len(watchers)))
 }
 
-func (s *workerSuite) TestWatchMultipleWithUnsubscribe(c *gc.C) {
+func (s *workerSuite) TestWatchMultipleWithUnsubscribe(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, socket, states := s.newWorker(c)
@@ -347,15 +347,15 @@ func (s *workerSuite) TestWatchMultipleWithUnsubscribe(c *gc.C) {
 		c.Fatal("timed out waiting for changes to finish")
 	}
 
-	c.Assert(atomic.LoadInt64(&count), gc.Equals, int64(len(watchers)/2))
+	c.Assert(atomic.LoadInt64(&count), tc.Equals, int64(len(watchers)/2))
 }
 
-func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 	return ctrl
 }
 
-func (s *workerSuite) newWorker(c *gc.C) (*configWorker, string, chan string) {
+func (s *workerSuite) newWorker(c *tc.C) (*configWorker, string, chan string) {
 	// Buffer the channel, so we don't drop signals if we're not ready.
 	states := make(chan string, 10)
 
@@ -374,42 +374,42 @@ func (s *workerSuite) newWorker(c *gc.C) (*configWorker, string, chan string) {
 	return w, socket, states
 }
 
-func (s *workerSuite) ensureStartup(c *gc.C, states chan string) {
+func (s *workerSuite) ensureStartup(c *tc.C, states chan string) {
 	select {
 	case state := <-states:
-		c.Assert(state, gc.Equals, stateStarted)
+		c.Assert(state, tc.Equals, stateStarted)
 	case <-time.After(coretesting.ShortWait * 10):
 		c.Fatalf("timed out waiting for startup")
 	}
 }
 
-func (s *workerSuite) ensureReload(c *gc.C, states chan string) {
+func (s *workerSuite) ensureReload(c *tc.C, states chan string) {
 	select {
 	case state := <-states:
-		c.Assert(state, gc.Equals, stateReload)
+		c.Assert(state, tc.Equals, stateReload)
 	case <-time.After(coretesting.ShortWait * 100):
 		c.Fatalf("timed out waiting for reload")
 	}
 }
 
-func (s *workerSuite) requestReload(c *gc.C, socket string) {
+func (s *workerSuite) requestReload(c *tc.C, socket string) {
 	resp, err := newRequest(c, socket, "/reload", http.MethodPost)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusNoContent)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusNoContent)
 }
 
-func (s *workerSuite) ensureReloadRequestRefused(c *gc.C, socket string) {
+func (s *workerSuite) ensureReloadRequestRefused(c *tc.C, socket string) {
 	_, err := newRequest(c, socket, "/reload", http.MethodPost)
 	c.Assert(err, jc.ErrorIs, syscall.ECONNREFUSED)
 }
 
-func (s *workerSuite) ensureEndpointNotFound(c *gc.C, socket, method string) {
+func (s *workerSuite) ensureEndpointNotFound(c *tc.C, socket, method string) {
 	resp, err := newRequest(c, socket, method, http.MethodPost)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusNotFound)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusNotFound)
 }
 
-func ensureDone(c *gc.C, watcher ConfigWatcher) {
+func ensureDone(c *tc.C, watcher ConfigWatcher) {
 	select {
 	case <-watcher.Done():
 	case <-time.After(coretesting.ShortWait):
@@ -417,7 +417,7 @@ func ensureDone(c *gc.C, watcher ConfigWatcher) {
 	}
 }
 
-func newRequest(c *gc.C, socket, path, method string) (*http.Response, error) {
+func newRequest(c *tc.C, socket, path, method string) (*http.Response, error) {
 	serverURL := "http://localhost:8080" + path
 	req, err := http.NewRequest(
 		method,

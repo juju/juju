@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/model"
@@ -34,7 +34,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination caas_mock_test.go github.com/juju/juju/caas Application
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type baseSuite struct {
@@ -60,7 +60,7 @@ type baseSuite struct {
 }
 
 func (s *baseSuite) setupMocksWithProvider(
-	c *gc.C,
+	c *tc.C,
 	providerGetter func(ctx context.Context) (Provider, error),
 	supportFeaturesProviderGetter func(ctx context.Context) (SupportedFeatureProvider, error),
 	supportCAASApplicationProviderGetter func(ctx context.Context) (CAASApplicationProvider, error),
@@ -108,11 +108,11 @@ func (s *baseSuite) setupMocksWithProvider(
 	return ctrl
 }
 
-func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return s.setupMocksWithStatusHistory(c, domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock))
 }
 
-func (s *baseSuite) setupMocksWithStatusHistory(c *gc.C, statusHistory StatusHistory) *gomock.Controller {
+func (s *baseSuite) setupMocksWithStatusHistory(c *tc.C, statusHistory StatusHistory) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.modelID = modeltesting.GenModelUUID(c)

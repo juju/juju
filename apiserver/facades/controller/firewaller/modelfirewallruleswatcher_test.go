@@ -4,10 +4,10 @@
 package firewaller_test
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
 	"github.com/juju/juju/core/testing"
@@ -16,13 +16,13 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-var _ = gc.Suite(&ModelFirewallRulesWatcherSuite{})
+var _ = tc.Suite(&ModelFirewallRulesWatcherSuite{})
 
 type ModelFirewallRulesWatcherSuite struct {
 	modelConfigService *MockModelConfigService
 }
 
-func (s *ModelFirewallRulesWatcherSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *ModelFirewallRulesWatcherSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.modelConfigService = NewMockModelConfigService(ctrl)
@@ -30,14 +30,14 @@ func (s *ModelFirewallRulesWatcherSuite) setupMocks(c *gc.C) *gomock.Controller 
 	return ctrl
 }
 
-func cfg(c *gc.C, in map[string]interface{}) *config.Config {
+func cfg(c *tc.C, in map[string]interface{}) *config.Config {
 	attrs := coretesting.FakeConfig().Merge(in)
 	cfg, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	return cfg
 }
 
-func (s *ModelFirewallRulesWatcherSuite) TestInitial(c *gc.C) {
+func (s *ModelFirewallRulesWatcherSuite) TestInitial(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -57,7 +57,7 @@ func (s *ModelFirewallRulesWatcherSuite) TestInitial(c *gc.C) {
 	wc.AssertChanges(testing.ShortWait)
 }
 
-func (s *ModelFirewallRulesWatcherSuite) TestConfigChange(c *gc.C) {
+func (s *ModelFirewallRulesWatcherSuite) TestConfigChange(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -82,7 +82,7 @@ func (s *ModelFirewallRulesWatcherSuite) TestConfigChange(c *gc.C) {
 	wc.AssertChanges(testing.ShortWait)
 }
 
-func (s *ModelFirewallRulesWatcherSuite) TestIrrelevantConfigChange(c *gc.C) {
+func (s *ModelFirewallRulesWatcherSuite) TestIrrelevantConfigChange(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 

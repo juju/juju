@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainsequence "github.com/juju/juju/domain/sequence"
@@ -19,17 +19,17 @@ type stateSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = gc.Suite(&stateSuite{})
+var _ = tc.Suite(&stateSuite{})
 
-func (s *stateSuite) TestGetSequencesForExportNoRows(c *gc.C) {
+func (s *stateSuite) TestGetSequencesForExportNoRows(c *tc.C) {
 	state := NewState(s.TxnRunnerFactory())
 
 	seq, err := state.GetSequencesForExport(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(seq, gc.HasLen, 0)
+	c.Check(seq, tc.HasLen, 0)
 }
 
-func (s *stateSuite) TestGetSequencesForExport(c *gc.C) {
+func (s *stateSuite) TestGetSequencesForExport(c *tc.C) {
 	state := NewState(s.TxnRunnerFactory())
 
 	var seqValue uint64
@@ -42,12 +42,12 @@ func (s *stateSuite) TestGetSequencesForExport(c *gc.C) {
 
 	seq, err := state.GetSequencesForExport(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(seq, gc.DeepEquals, map[string]uint64{
+	c.Check(seq, tc.DeepEquals, map[string]uint64{
 		"foo": seqValue,
 	})
 }
 
-func (s *stateSuite) TestGetSequencesForExportMultiple(c *gc.C) {
+func (s *stateSuite) TestGetSequencesForExportMultiple(c *tc.C) {
 	state := NewState(s.TxnRunnerFactory())
 
 	var seqValue uint64
@@ -61,16 +61,16 @@ func (s *stateSuite) TestGetSequencesForExportMultiple(c *gc.C) {
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(seqValue, gc.Equals, uint64(9))
+	c.Check(seqValue, tc.Equals, uint64(9))
 
 	seq, err := state.GetSequencesForExport(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(seq, gc.DeepEquals, map[string]uint64{
+	c.Check(seq, tc.DeepEquals, map[string]uint64{
 		"foo": seqValue,
 	})
 }
 
-func (s *stateSuite) TestGetSequencesForExportPrefixNamespace(c *gc.C) {
+func (s *stateSuite) TestGetSequencesForExportPrefixNamespace(c *tc.C) {
 	state := NewState(s.TxnRunnerFactory())
 
 	var seqValue uint64
@@ -83,17 +83,17 @@ func (s *stateSuite) TestGetSequencesForExportPrefixNamespace(c *gc.C) {
 
 	seq, err := state.GetSequencesForExport(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(seq, gc.DeepEquals, map[string]uint64{
+	c.Check(seq, tc.DeepEquals, map[string]uint64{
 		"foo_bar": seqValue,
 	})
 }
 
-func (s *stateSuite) TestImportSequences(c *gc.C) {
+func (s *stateSuite) TestImportSequences(c *tc.C) {
 	state := NewState(s.TxnRunnerFactory())
 
 	seq, err := state.GetSequencesForExport(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(seq, gc.HasLen, 0)
+	c.Check(seq, tc.HasLen, 0)
 
 	err = state.ImportSequences(context.Background(), map[string]uint64{
 		"foo":     1,
@@ -103,18 +103,18 @@ func (s *stateSuite) TestImportSequences(c *gc.C) {
 
 	seq, err = state.GetSequencesForExport(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(seq, gc.DeepEquals, map[string]uint64{
+	c.Check(seq, tc.DeepEquals, map[string]uint64{
 		"foo":     1,
 		"foo_bar": 2,
 	})
 }
 
-func (s *stateSuite) TestImportSequencesTwice(c *gc.C) {
+func (s *stateSuite) TestImportSequencesTwice(c *tc.C) {
 	state := NewState(s.TxnRunnerFactory())
 
 	seq, err := state.GetSequencesForExport(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(seq, gc.HasLen, 0)
+	c.Check(seq, tc.HasLen, 0)
 
 	err = state.ImportSequences(context.Background(), map[string]uint64{
 		"foo":     1,
@@ -129,12 +129,12 @@ func (s *stateSuite) TestImportSequencesTwice(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, sequenceerrors.DuplicateNamespaceSequence)
 }
 
-func (s *stateSuite) TestRemoveAllSequences(c *gc.C) {
+func (s *stateSuite) TestRemoveAllSequences(c *tc.C) {
 	state := NewState(s.TxnRunnerFactory())
 
 	seq, err := state.GetSequencesForExport(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(seq, gc.HasLen, 0)
+	c.Check(seq, tc.HasLen, 0)
 
 	err = state.ImportSequences(context.Background(), map[string]uint64{
 		"foo":     1,
@@ -144,7 +144,7 @@ func (s *stateSuite) TestRemoveAllSequences(c *gc.C) {
 
 	seq, err = state.GetSequencesForExport(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(seq, gc.DeepEquals, map[string]uint64{
+	c.Check(seq, tc.DeepEquals, map[string]uint64{
 		"foo":     1,
 		"foo_bar": 2,
 	})
@@ -154,5 +154,5 @@ func (s *stateSuite) TestRemoveAllSequences(c *gc.C) {
 
 	seq, err = state.GetSequencesForExport(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(seq, gc.HasLen, 0)
+	c.Check(seq, tc.HasLen, 0)
 }

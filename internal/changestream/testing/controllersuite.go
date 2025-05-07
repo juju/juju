@@ -6,8 +6,8 @@ package testing
 import (
 	"time"
 
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
@@ -25,13 +25,13 @@ type ControllerSuite struct {
 
 // SetUpTest is responsible for setting up a testing database suite initialised
 // with the controller schema.
-func (s *ControllerSuite) SetUpTest(c *gc.C) {
+func (s *ControllerSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 
 	s.watchableDB = NewTestWatchableDB(c, coredatabase.ControllerNS, s.TxnRunner())
 }
 
-func (s *ControllerSuite) TearDownTest(c *gc.C) {
+func (s *ControllerSuite) TearDownTest(c *tc.C) {
 	if s.watchableDB != nil {
 		// We could use workertest.DirtyKill here, but some workers are already
 		// dead when we get here and it causes unwanted logs. This just ensures
@@ -49,7 +49,7 @@ func (s *ControllerSuite) GetWatchableDB(namespace string) (changestream.Watchab
 // AssertChangeStreamIdle returns if and when the change stream is idle.
 // This is useful to ensure that the change stream is not processing any
 // events before running a test.
-func (w *ControllerSuite) AssertChangeStreamIdle(c *gc.C) {
+func (w *ControllerSuite) AssertChangeStreamIdle(c *tc.C) {
 	timeout := time.After(jujutesting.LongWait)
 	for {
 		select {
@@ -63,7 +63,7 @@ func (w *ControllerSuite) AssertChangeStreamIdle(c *gc.C) {
 	}
 }
 
-func killAndWait(_ *gc.C, w worker.Worker) {
+func killAndWait(_ *tc.C, w worker.Worker) {
 	wait := make(chan error, 1)
 	go func() {
 		wait <- w.Wait()

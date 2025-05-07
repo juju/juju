@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facade"
 	apiservermocks "github.com/juju/juju/apiserver/facade/mocks"
@@ -42,9 +42,9 @@ type charmsMockSuite struct {
 	machineService     *MockMachineService
 }
 
-var _ = gc.Suite(&charmsMockSuite{})
+var _ = tc.Suite(&charmsMockSuite{})
 
-func (s *charmsMockSuite) TestListCharmsNoNames(c *gc.C) {
+func (s *charmsMockSuite) TestListCharmsNoNames(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.applicationService.EXPECT().ListCharmLocators(gomock.Any(), []string{}).Return([]domaincharm.CharmLocator{{
@@ -57,13 +57,13 @@ func (s *charmsMockSuite) TestListCharmsNoNames(c *gc.C) {
 	api := s.api(c)
 	found, err := api.List(context.Background(), params.CharmsList{Names: []string{}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(found.CharmURLs, gc.HasLen, 1)
-	c.Check(found, gc.DeepEquals, params.CharmsListResult{
+	c.Check(found.CharmURLs, tc.HasLen, 1)
+	c.Check(found, tc.DeepEquals, params.CharmsListResult{
 		CharmURLs: []string{"ch:amd64/dummy-1"},
 	})
 }
 
-func (s *charmsMockSuite) TestListCharmsWithNames(c *gc.C) {
+func (s *charmsMockSuite) TestListCharmsWithNames(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// We only return one of the names, because we couldn't find foo. This
@@ -79,13 +79,13 @@ func (s *charmsMockSuite) TestListCharmsWithNames(c *gc.C) {
 	api := s.api(c)
 	found, err := api.List(context.Background(), params.CharmsList{Names: []string{"dummy", "foo"}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(found.CharmURLs, gc.HasLen, 1)
-	c.Check(found, gc.DeepEquals, params.CharmsListResult{
+	c.Check(found.CharmURLs, tc.HasLen, 1)
+	c.Check(found, tc.DeepEquals, params.CharmsListResult{
 		CharmURLs: []string{"ch:amd64/dummy-1"},
 	})
 }
 
-func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
+func (s *charmsMockSuite) TestResolveCharms(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectResolveWithPreferredChannel(3, nil)
 	api := s.api(c)
@@ -155,11 +155,11 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 	}
 	result, err := api.ResolveCharms(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 3)
+	c.Assert(result.Results, tc.HasLen, 3)
 	c.Assert(result.Results, jc.DeepEquals, expected)
 }
 
-func (s *charmsMockSuite) TestResolveCharmsUnknownSchema(c *gc.C) {
+func (s *charmsMockSuite) TestResolveCharmsUnknownSchema(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	api := s.api(c)
 
@@ -171,11 +171,11 @@ func (s *charmsMockSuite) TestResolveCharmsUnknownSchema(c *gc.C) {
 
 	result, err := api.ResolveCharms(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, `unknown schema for charm URL "local:testme"`)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.ErrorMatches, `unknown schema for charm URL "local:testme"`)
 }
 
-func (s *charmsMockSuite) TestAddCharmWithLocalSource(c *gc.C) {
+func (s *charmsMockSuite) TestAddCharmWithLocalSource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	api := s.api(c)
 
@@ -188,10 +188,10 @@ func (s *charmsMockSuite) TestAddCharmWithLocalSource(c *gc.C) {
 		Force: false,
 	}
 	_, err := api.AddCharm(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, `unknown schema for charm URL "local:testme"`)
+	c.Assert(err, tc.ErrorMatches, `unknown schema for charm URL "local:testme"`)
 }
 
-func (s *charmsMockSuite) TestAddCharmCharmhub(c *gc.C) {
+func (s *charmsMockSuite) TestAddCharmCharmhub(c *tc.C) {
 	// Charmhub charms are downloaded asynchronously
 	defer s.setupMocks(c).Finish()
 
@@ -235,9 +235,9 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *gc.C) {
 	}, nil)
 
 	s.applicationService.EXPECT().SetCharm(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, args domaincharm.SetCharmArgs) (corecharm.ID, []string, error) {
-		c.Check(args.Charm.Meta(), gc.Equals, expMeta)
-		c.Check(args.Charm.Manifest(), gc.Equals, expManifest)
-		c.Check(args.Charm.Config(), gc.Equals, expConfig)
+		c.Check(args.Charm.Meta(), tc.Equals, expMeta)
+		c.Check(args.Charm.Manifest(), tc.Equals, expManifest)
+		c.Check(args.Charm.Config(), tc.Equals, expConfig)
 		return corecharm.ID(""), nil, nil
 	})
 
@@ -253,7 +253,7 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *gc.C) {
 	}
 	obtained, err := api.AddCharm(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, params.CharmOriginResult{
+	c.Assert(obtained, tc.DeepEquals, params.CharmOriginResult{
 		Origin: params.CharmOrigin{
 			Source: "charm-hub",
 			Base:   params.Base{Name: "ubuntu", Channel: "20.04/stable"},
@@ -262,7 +262,7 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *gc.C) {
 	})
 }
 
-func (s *charmsMockSuite) TestCheckCharmPlacementWithSubordinate(c *gc.C) {
+func (s *charmsMockSuite) TestCheckCharmPlacementWithSubordinate(c *tc.C) {
 	appName := "winnie"
 
 	curl := "ch:poo"
@@ -284,7 +284,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithSubordinate(c *gc.C) {
 	c.Assert(result.OneError(), jc.ErrorIsNil)
 }
 
-func (s *charmsMockSuite) TestCheckCharmPlacementWithConstraintArch(c *gc.C) {
+func (s *charmsMockSuite) TestCheckCharmPlacementWithConstraintArch(c *tc.C) {
 	arch := arch.DefaultArchitecture
 	appName := "winnie"
 
@@ -308,7 +308,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithConstraintArch(c *gc.C) {
 	c.Assert(result.OneError(), jc.ErrorIsNil)
 }
 
-func (s *charmsMockSuite) TestCheckCharmPlacementWithHomogeneous(c *gc.C) {
+func (s *charmsMockSuite) TestCheckCharmPlacementWithHomogeneous(c *tc.C) {
 	appName := "winnie"
 
 	curl := "ch:poo"
@@ -334,7 +334,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithHomogeneous(c *gc.C) {
 	c.Assert(result.OneError(), jc.ErrorIsNil)
 }
 
-func (s *charmsMockSuite) TestCheckCharmPlacementWithHeterogeneous(c *gc.C) {
+func (s *charmsMockSuite) TestCheckCharmPlacementWithHeterogeneous(c *tc.C) {
 	appName := "winnie"
 
 	curl := "ch:poo"
@@ -357,7 +357,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithHeterogeneous(c *gc.C) {
 
 	result, err := api.CheckCharmPlacement(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), gc.ErrorMatches, "charm can not be placed in a heterogeneous environment")
+	c.Assert(result.OneError(), tc.ErrorMatches, "charm can not be placed in a heterogeneous environment")
 }
 
 // NewCharmsAPI is only used for testing.
@@ -388,7 +388,7 @@ func NewCharmsAPI(
 	}, nil
 }
 
-func (s *charmsMockSuite) api(c *gc.C) *API {
+func (s *charmsMockSuite) api(c *tc.C) *API {
 	api, err := NewCharmsAPI(
 		s.authorizer,
 		s.state,
@@ -404,7 +404,7 @@ func (s *charmsMockSuite) api(c *gc.C) *API {
 	return api
 }
 
-func (s *charmsMockSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *charmsMockSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.authorizer = apiservermocks.NewMockAuthorizer(ctrl)

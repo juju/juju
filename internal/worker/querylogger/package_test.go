@@ -6,16 +6,16 @@ package querylogger
 import (
 	"testing"
 
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package querylogger -destination logger_mock_test.go github.com/juju/juju/core/logger Logger
 //go:generate go run go.uber.org/mock/mockgen -typed -package querylogger -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type baseSuite struct {
@@ -26,7 +26,7 @@ type baseSuite struct {
 	logger *MockLogger
 }
 
-func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.clock = NewMockClock(ctrl)

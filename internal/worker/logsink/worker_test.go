@@ -10,12 +10,12 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/logger"
@@ -30,9 +30,9 @@ type workerSuite struct {
 	called int64
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
-func (s *workerSuite) TestKilledGetLogger(c *gc.C) {
+func (s *workerSuite) TestKilledGetLogger(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := modeltesting.GenModelUUID(c)
@@ -49,7 +49,7 @@ func (s *workerSuite) TestKilledGetLogger(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, logger.ErrLoggerDying)
 }
 
-func (s *workerSuite) TestKilledGetLoggerContext(c *gc.C) {
+func (s *workerSuite) TestKilledGetLoggerContext(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := modeltesting.GenModelUUID(c)
@@ -66,7 +66,7 @@ func (s *workerSuite) TestKilledGetLoggerContext(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, logger.ErrLoggerDying)
 }
 
-func (s *workerSuite) TestGetLogWriter(c *gc.C) {
+func (s *workerSuite) TestGetLogWriter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := modeltesting.GenModelUUID(c)
@@ -79,12 +79,12 @@ func (s *workerSuite) TestGetLogWriter(c *gc.C) {
 	worker := w.(*LogSink)
 	logger, err := worker.GetLogWriter(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(logger, gc.NotNil)
+	c.Check(logger, tc.NotNil)
 
 	workertest.CheckKill(c, w)
 }
 
-func (s *workerSuite) TestGetLogWriterIsCached(c *gc.C) {
+func (s *workerSuite) TestGetLogWriterIsCached(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := modeltesting.GenModelUUID(c)
@@ -99,15 +99,15 @@ func (s *workerSuite) TestGetLogWriterIsCached(c *gc.C) {
 	for i := 0; i < 10; i++ {
 		logger, err := worker.GetLogWriter(context.Background(), id)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(logger, gc.NotNil)
+		c.Check(logger, tc.NotNil)
 	}
 
 	workertest.CheckKill(c, w)
 
-	c.Assert(atomic.LoadInt64(&s.called), gc.Equals, int64(1))
+	c.Assert(atomic.LoadInt64(&s.called), tc.Equals, int64(1))
 }
 
-func (s *workerSuite) TestGetLoggerContext(c *gc.C) {
+func (s *workerSuite) TestGetLoggerContext(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := modeltesting.GenModelUUID(c)
@@ -121,12 +121,12 @@ func (s *workerSuite) TestGetLoggerContext(c *gc.C) {
 
 	logger, err := worker.GetLoggerContext(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(logger, gc.NotNil)
+	c.Check(logger, tc.NotNil)
 
 	workertest.CheckKill(c, w)
 }
 
-func (s *workerSuite) TestGetLoggerContextIsCached(c *gc.C) {
+func (s *workerSuite) TestGetLoggerContextIsCached(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := modeltesting.GenModelUUID(c)
@@ -141,15 +141,15 @@ func (s *workerSuite) TestGetLoggerContextIsCached(c *gc.C) {
 	for i := 0; i < 10; i++ {
 		logger, err := worker.GetLoggerContext(context.Background(), id)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(logger, gc.NotNil)
+		c.Check(logger, tc.NotNil)
 	}
 
 	workertest.CheckKill(c, w)
 
-	c.Assert(atomic.LoadInt64(&s.called), gc.Equals, int64(1))
+	c.Assert(atomic.LoadInt64(&s.called), tc.Equals, int64(1))
 }
 
-func (s *workerSuite) TestGetLogWriterAndGetLoggerContextIsCachedTogether(c *gc.C) {
+func (s *workerSuite) TestGetLogWriterAndGetLoggerContextIsCachedTogether(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := modeltesting.GenModelUUID(c)
@@ -176,10 +176,10 @@ func (s *workerSuite) TestGetLogWriterAndGetLoggerContextIsCachedTogether(c *gc.
 
 	workertest.CheckKill(c, w)
 
-	c.Assert(atomic.LoadInt64(&s.called), gc.Equals, int64(1))
+	c.Assert(atomic.LoadInt64(&s.called), tc.Equals, int64(1))
 }
 
-func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	// Ensure we buffer the channel, this is because we might miss the
 	// event if we're too quick at starting up.
 	s.states = make(chan string, 1)
@@ -190,7 +190,7 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
+func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 	w, err := newWorker(Config{
 		NewModelLogger: func(logger.LogSink, model.UUID, names.Tag) (worker.Worker, error) {
 			atomic.AddInt64(&s.called, 1)
@@ -203,10 +203,10 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	return w
 }
 
-func (s *workerSuite) ensureStartup(c *gc.C) {
+func (s *workerSuite) ensureStartup(c *tc.C) {
 	select {
 	case state := <-s.states:
-		c.Assert(state, gc.Equals, stateStarted)
+		c.Assert(state, tc.Equals, stateStarted)
 	case <-time.After(testing.ShortWait * 10):
 		c.Fatalf("timed out waiting for startup")
 	}

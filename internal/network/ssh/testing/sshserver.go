@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/crypto/ssh"
-	gc "gopkg.in/check.v1"
 )
 
 // SSHKey1 generated with `ssh-keygen -b 256 -C test-only -t ecdsa -f test-key`
@@ -46,7 +46,7 @@ func denyPublicKey(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, 
 // closing the connection.
 // We return the address+port of the TCP server, and a channel that can be
 // closed when you want the TCP server to stop.
-func CreateTCPServer(c *gc.C, callback func(net.Conn)) (string, chan struct{}) {
+func CreateTCPServer(c *tc.C, callback func(net.Conn)) (string, chan struct{}) {
 	// We explicitly listen on IPv4 loopback instead of 'localhost'
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -95,7 +95,7 @@ func CreateTCPServer(c *gc.C, callback func(net.Conn)) (string, chan struct{}) {
 // do Key exchange to set up the encrypted conversation.
 // We return the address where the SSH service is listening, and a channel
 // callers must close when they want the service to stop.
-func CreateSSHServer(c *gc.C, privateKeys ...string) (string, chan struct{}) {
+func CreateSSHServer(c *tc.C, privateKeys ...string) (string, chan struct{}) {
 	serverConf := &ssh.ServerConfig{
 		// We have to set up at least one Auth method, or the SSH server
 		// doesn't even try to do key-exchange

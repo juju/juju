@@ -4,8 +4,8 @@
 package storage
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
@@ -14,11 +14,11 @@ type provisioningStatusSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = gc.Suite(&provisioningStatusSuite{})
+var _ = tc.Suite(&provisioningStatusSuite{})
 
 // TestProvisioningStatusDBValues ensures there's no skew between what's in the
 // database table for provisioning_status and the typed consts used in the state packages.
-func (s *provisioningStatusSuite) TestProvisioningStatusDBValues(c *gc.C) {
+func (s *provisioningStatusSuite) TestProvisioningStatusDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, name FROM storage_provisioning_status")
 	c.Assert(err, jc.ErrorIsNil)

@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus"
-	gc "gopkg.in/check.v1"
 
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/trace"
@@ -67,7 +67,7 @@ type Fixture struct {
 
 // RunTest sets up a Manager and a Clock and passes them into the supplied
 // test function. The manager will be cleaned up afterwards.
-func (fix *Fixture) RunTest(c *gc.C, test func(*lease.Manager, *testclock.Clock)) {
+func (fix *Fixture) RunTest(c *tc.C, test func(*lease.Manager, *testclock.Clock)) {
 	clock := testclock.NewClock(defaultClockStart)
 	store := NewStore(fix.leases, fix.expectCalls, clock)
 	manager, err := lease.NewManager(lease.ManagerConfig{
@@ -121,7 +121,7 @@ func (fix *Fixture) RunTest(c *gc.C, test func(*lease.Manager, *testclock.Clock)
 	wg.Wait()
 }
 
-func waitAlarms(c *gc.C, clock *testclock.Clock, count int) {
+func waitAlarms(c *tc.C, clock *testclock.Clock, count int) {
 	timeout := time.After(coretesting.LongWait)
 	for i := 0; i < count; i++ {
 		select {

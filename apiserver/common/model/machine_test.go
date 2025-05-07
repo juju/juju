@@ -10,9 +10,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/naturalsort"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common/model"
 	"github.com/juju/juju/core/instance"
@@ -28,15 +28,15 @@ type machineSuite struct {
 	machineService *MockMachineService
 }
 
-var _ = gc.Suite(&machineSuite{})
+var _ = tc.Suite(&machineSuite{})
 
-func (s *machineSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *machineSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.machineService = NewMockMachineService(ctrl)
 	return ctrl
 }
 
-func (s *machineSuite) TestMachineHardwareInfo(c *gc.C) {
+func (s *machineSuite) TestMachineHardwareInfo(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	one := uint64(1)
@@ -84,7 +84,7 @@ func (s *machineSuite) TestMachineHardwareInfo(c *gc.C) {
 	})
 }
 
-func (s *machineSuite) TestMachineMachineNotFound(c *gc.C) {
+func (s *machineSuite) TestMachineMachineNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	one := uint64(1)
@@ -110,7 +110,7 @@ func (s *machineSuite) TestMachineMachineNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
-func (s *machineSuite) TestMachineHardwareInfoMachineNotFound(c *gc.C) {
+func (s *machineSuite) TestMachineHardwareInfoMachineNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	one := uint64(1)
@@ -134,7 +134,7 @@ func (s *machineSuite) TestMachineHardwareInfoMachineNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
-func (s *machineSuite) TestMachineInstanceInfo(c *gc.C) {
+func (s *machineSuite) TestMachineInstanceInfo(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	st := mockState{
@@ -191,7 +191,7 @@ func (s *machineSuite) TestMachineInstanceInfo(c *gc.C) {
 	})
 }
 
-func (s *machineSuite) TestMachineInstanceInfoWithEmptyDisplayName(c *gc.C) {
+func (s *machineSuite) TestMachineInstanceInfoWithEmptyDisplayName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	st := mockState{
@@ -228,7 +228,7 @@ func (s *machineSuite) TestMachineInstanceInfoWithEmptyDisplayName(c *gc.C) {
 	})
 }
 
-func (s *machineSuite) TestMachineInstanceInfoWithSetDisplayName(c *gc.C) {
+func (s *machineSuite) TestMachineInstanceInfoWithSetDisplayName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	st := mockState{
@@ -265,7 +265,7 @@ func (s *machineSuite) TestMachineInstanceInfoWithSetDisplayName(c *gc.C) {
 	})
 }
 
-func (s *machineSuite) TestMachineInstanceInfoWithHAPrimary(c *gc.C) {
+func (s *machineSuite) TestMachineInstanceInfoWithHAPrimary(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	st := mockState{

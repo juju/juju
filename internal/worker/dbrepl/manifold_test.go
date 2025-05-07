@@ -8,17 +8,17 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
 type manifoldSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&manifoldSuite{})
+var _ = tc.Suite(&manifoldSuite{})
 
-func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
+func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.getConfig()

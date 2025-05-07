@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
@@ -28,7 +28,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var _ = gc.Suite(&RemoteFirewallerSuite{})
+var _ = tc.Suite(&RemoteFirewallerSuite{})
 
 type RemoteFirewallerSuite struct {
 	coretesting.BaseSuite
@@ -49,11 +49,11 @@ type RemoteFirewallerSuite struct {
 	modelInfoService        *MockModelInfoService
 }
 
-func (s *RemoteFirewallerSuite) SetUpTest(c *gc.C) {
+func (s *RemoteFirewallerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
@@ -61,7 +61,7 @@ func (s *RemoteFirewallerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *RemoteFirewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *RemoteFirewallerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.st = NewMockState(ctrl)
@@ -79,7 +79,7 @@ func (s *RemoteFirewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *RemoteFirewallerSuite) setupAPI(c *gc.C) {
+func (s *RemoteFirewallerSuite) setupAPI(c *tc.C) {
 	var err error
 	s.api, err = firewaller.NewStateFirewallerAPI(
 		s.st,
@@ -98,7 +98,7 @@ func (s *RemoteFirewallerSuite) setupAPI(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelations(c *gc.C) {
+func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelations(c *tc.C) {
 	c.Skip("Re-enable this test whenever CMR will be fully implemented and the related watcher rewired.")
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
@@ -115,17 +115,17 @@ func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelations(c *gc.C) {
 	)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0].Changes, jc.SameContents, []string{"1.2.3.4/32"})
-	c.Assert(result.Results[0].Error, gc.IsNil)
-	c.Assert(result.Results[0].StringsWatcherId, gc.Equals, "1")
+	c.Assert(result.Results[0].Error, tc.IsNil)
+	c.Assert(result.Results[0].StringsWatcherId, tc.Equals, "1")
 
 	resource := s.resources.Get("1")
-	c.Assert(resource, gc.NotNil)
-	c.Assert(resource, gc.Implements, new(state.StringsWatcher))
+	c.Assert(resource, tc.NotNil)
+	c.Assert(resource, tc.Implements, new(state.StringsWatcher))
 }
 
-func (s *RemoteFirewallerSuite) TestMacaroonForRelations(c *gc.C) {
+func (s *RemoteFirewallerSuite) TestMacaroonForRelations(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
@@ -143,12 +143,12 @@ func (s *RemoteFirewallerSuite) TestMacaroonForRelations(c *gc.C) {
 	)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
 	c.Assert(result.Results[0].Result, jc.DeepEquals, mac)
 }
 
-func (s *RemoteFirewallerSuite) TestSetRelationStatus(c *gc.C) {
+func (s *RemoteFirewallerSuite) TestSetRelationStatus(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
@@ -166,12 +166,12 @@ func (s *RemoteFirewallerSuite) TestSetRelationStatus(c *gc.C) {
 			Info:   "a message",
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
 	c.Assert(db2Relation.status, jc.DeepEquals, status.StatusInfo{Status: status.Suspended, Message: "a message"})
 }
 
-var _ = gc.Suite(&FirewallerSuite{})
+var _ = tc.Suite(&FirewallerSuite{})
 
 type FirewallerSuite struct {
 	coretesting.BaseSuite
@@ -192,7 +192,7 @@ type FirewallerSuite struct {
 	modelInfoService        *MockModelInfoService
 }
 
-func (s *FirewallerSuite) SetUpTest(c *gc.C) {
+func (s *FirewallerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
@@ -201,7 +201,7 @@ func (s *FirewallerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *FirewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *FirewallerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.st = NewMockState(ctrl)
@@ -219,7 +219,7 @@ func (s *FirewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *FirewallerSuite) setupAPI(c *gc.C) {
+func (s *FirewallerSuite) setupAPI(c *tc.C) {
 	var err error
 	s.api, err = firewaller.NewStateFirewallerAPI(
 		s.st,
@@ -238,7 +238,7 @@ func (s *FirewallerSuite) setupAPI(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *FirewallerSuite) TestModelFirewallRules(c *gc.C) {
+func (s *FirewallerSuite) TestModelFirewallRules(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
@@ -257,13 +257,13 @@ func (s *FirewallerSuite) TestModelFirewallRules(c *gc.C) {
 	rules, err := s.api.ModelFirewallRules(context.Background())
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rules, gc.DeepEquals, params.IngressRulesResult{Rules: []params.IngressRule{{
+	c.Assert(rules, tc.DeepEquals, params.IngressRulesResult{Rules: []params.IngressRule{{
 		PortRange:   params.FromNetworkPortRange(network.MustParsePortRange("22")),
 		SourceCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
 	}}})
 }
 
-func (s *FirewallerSuite) TestModelFirewallRulesController(c *gc.C) {
+func (s *FirewallerSuite) TestModelFirewallRulesController(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
@@ -284,7 +284,7 @@ func (s *FirewallerSuite) TestModelFirewallRulesController(c *gc.C) {
 	rules, err := s.api.ModelFirewallRules(context.Background())
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rules, gc.DeepEquals, params.IngressRulesResult{Rules: []params.IngressRule{{
+	c.Assert(rules, tc.DeepEquals, params.IngressRulesResult{Rules: []params.IngressRule{{
 		PortRange:   params.FromNetworkPortRange(network.MustParsePortRange("22")),
 		SourceCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
 	}, {
@@ -296,7 +296,7 @@ func (s *FirewallerSuite) TestModelFirewallRulesController(c *gc.C) {
 	}}})
 }
 
-func (s *FirewallerSuite) TestWatchModelFirewallRules(c *gc.C) {
+func (s *FirewallerSuite) TestWatchModelFirewallRules(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
@@ -313,11 +313,11 @@ func (s *FirewallerSuite) TestWatchModelFirewallRules(c *gc.C) {
 
 	result, err := s.api.WatchModelFirewallRules(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.NotifyWatcherId, gc.Equals, "1")
+	c.Assert(result.Error, tc.IsNil)
+	c.Assert(result.NotifyWatcherId, tc.Equals, "1")
 }
 
-func (s *FirewallerSuite) TestAllSpaceInfos(c *gc.C) {
+func (s *FirewallerSuite) TestAllSpaceInfos(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
@@ -356,10 +356,10 @@ func (s *FirewallerSuite) TestAllSpaceInfos(c *gc.C) {
 
 	// Hydrate a network.SpaceInfos from the response
 	gotSpaceInfos := params.ToNetworkSpaceInfos(res)
-	c.Assert(gotSpaceInfos, gc.DeepEquals, spaceInfos[0:1], gc.Commentf("expected to get back a filtered list of the space infos"))
+	c.Assert(gotSpaceInfos, tc.DeepEquals, spaceInfos[0:1], tc.Commentf("expected to get back a filtered list of the space infos"))
 }
 
-func (s *FirewallerSuite) TestWatchSubnets(c *gc.C) {
+func (s *FirewallerSuite) TestWatchSubnets(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
@@ -382,6 +382,6 @@ func (s *FirewallerSuite) TestWatchSubnets(c *gc.C) {
 		StringsWatcherId: "1",
 		Changes:          []string{"0195847b-95bb-7ca1-a7ee-2211d802d5b3"},
 	}
-	c.Assert(got.StringsWatcherId, gc.Equals, want.StringsWatcherId)
+	c.Assert(got.StringsWatcherId, tc.Equals, want.StringsWatcherId)
 	c.Assert(got.Changes, jc.SameContents, want.Changes)
 }

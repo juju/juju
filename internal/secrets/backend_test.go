@@ -7,10 +7,10 @@ import (
 	"context"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coresecrets "github.com/juju/juju/core/secrets"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
@@ -23,9 +23,9 @@ type backendSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&backendSuite{})
+var _ = tc.Suite(&backendSuite{})
 
-func (s *backendSuite) TestSaveContent(c *gc.C) {
+func (s *backendSuite) TestSaveContent(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -71,7 +71,7 @@ func (s *backendSuite) TestSaveContent(c *gc.C) {
 	})
 }
 
-func (s *backendSuite) TestGetContent(c *gc.C) {
+func (s *backendSuite) TestGetContent(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -107,7 +107,7 @@ func (s *backendSuite) TestGetContent(c *gc.C) {
 	c.Assert(val, jc.DeepEquals, secretValue)
 }
 
-func (s *backendSuite) TestGetContentSecretDrained(c *gc.C) {
+func (s *backendSuite) TestGetContentSecretDrained(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -175,7 +175,7 @@ func (s *backendSuite) TestGetContentSecretDrained(c *gc.C) {
 	c.Assert(val, jc.DeepEquals, secretValue)
 }
 
-func (s *backendSuite) TestDeleteContent(c *gc.C) {
+func (s *backendSuite) TestDeleteContent(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -210,7 +210,7 @@ func (s *backendSuite) TestDeleteContent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *backendSuite) TestDeleteContentDrained(c *gc.C) {
+func (s *backendSuite) TestDeleteContentDrained(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -274,7 +274,7 @@ func (s *backendSuite) TestDeleteContentDrained(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *backendSuite) TestGetBackend(c *gc.C) {
+func (s *backendSuite) TestGetBackend(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -287,9 +287,9 @@ func (s *backendSuite) TestGetBackend(c *gc.C) {
 		c.Assert(backends.Contains(cfg.BackendType), jc.IsTrue)
 		called++
 		if called == 1 {
-			c.Assert(cfg.BackendType, gc.Equals, "somebackend2")
+			c.Assert(cfg.BackendType, tc.Equals, "somebackend2")
 		} else {
-			c.Assert(cfg.BackendType, gc.Equals, "somebackend1")
+			c.Assert(cfg.BackendType, tc.Equals, "somebackend1")
 		}
 		return backend, nil
 	})
@@ -344,21 +344,21 @@ func (s *backendSuite) TestGetBackend(c *gc.C) {
 	)
 	result, activeBackendID, err := client.GetBackend(context.Background(), nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activeBackendID, gc.Equals, "backend-id2")
-	c.Assert(result, gc.Equals, backend)
+	c.Assert(activeBackendID, tc.Equals, "backend-id2")
+	c.Assert(result, tc.Equals, backend)
 
 	result, activeBackendID, err = client.GetBackend(context.Background(), &backendID, false)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activeBackendID, gc.Equals, "backend-id2")
-	c.Assert(result, gc.Equals, backend)
+	c.Assert(activeBackendID, tc.Equals, "backend-id2")
+	c.Assert(result, tc.Equals, backend)
 
 	result, activeBackendID, err = client.GetBackend(context.Background(), &backendID, true)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activeBackendID, gc.Equals, "backend-id1")
-	c.Assert(result, gc.Equals, backend)
+	c.Assert(activeBackendID, tc.Equals, "backend-id1")
+	c.Assert(result, tc.Equals, backend)
 }
 
-func (s *backendSuite) TestGetRevisionContent(c *gc.C) {
+func (s *backendSuite) TestGetRevisionContent(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -410,7 +410,7 @@ func (s *backendSuite) TestGetRevisionContent(c *gc.C) {
 
 	val, err := client.GetRevisionContent(context.Background(), uri, 666)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(val, gc.Equals, secretValue)
+	c.Assert(val, tc.Equals, secretValue)
 }
 
 func ptr[T any](v T) *T {

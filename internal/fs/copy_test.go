@@ -6,13 +6,13 @@ package fs
 import (
 	"path/filepath"
 
+	"github.com/juju/tc"
 	ft "github.com/juju/testing/filetesting"
-	gc "gopkg.in/check.v1"
 )
 
 type copySuite struct{}
 
-var _ = gc.Suite(&copySuite{})
+var _ = tc.Suite(&copySuite{})
 
 var copyTests = []struct {
 	about string
@@ -60,7 +60,7 @@ var copyTests = []struct {
 	},
 }}
 
-func (*copySuite) TestCopy(c *gc.C) {
+func (*copySuite) TestCopy(c *tc.C) {
 	for i, test := range copyTests {
 		c.Logf("test %d: %v", i, test.about)
 		src, dst := c.MkDir(), c.MkDir()
@@ -72,9 +72,9 @@ func (*copySuite) TestCopy(c *gc.C) {
 			filepath.Join(dst, path),
 		)
 		if test.err != "" {
-			c.Check(err, gc.ErrorMatches, test.err)
+			c.Check(err, tc.ErrorMatches, test.err)
 		} else {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, tc.IsNil)
 			test.src.Check(c, dst)
 		}
 	}

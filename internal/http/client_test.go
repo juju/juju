@@ -14,19 +14,19 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 )
 
 type clientSuite struct{}
 
-var _ = gc.Suite(&clientSuite{})
+var _ = tc.Suite(&clientSuite{})
 
-func (s *clientSuite) TestNewClient(c *gc.C) {
+func (s *clientSuite) TestNewClient(c *tc.C) {
 	client := NewClient()
-	c.Assert(client, gc.NotNil)
+	c.Assert(client, tc.NotNil)
 }
 
 type httpSuite struct {
@@ -34,20 +34,20 @@ type httpSuite struct {
 	server *httptest.Server
 }
 
-var _ = gc.Suite(&httpSuite{})
+var _ = tc.Suite(&httpSuite{})
 
-func (s *httpSuite) SetUpTest(c *gc.C) {
+func (s *httpSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 }
 
-func (s *httpSuite) TestInsecureClientAllowAccess(c *gc.C) {
+func (s *httpSuite) TestInsecureClientAllowAccess(c *tc.C) {
 	client := NewClient(WithSkipHostnameVerification(true))
 	_, err := client.Get(context.TODO(), s.server.URL)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *httpSuite) TestSecureClientAllowAccess(c *gc.C) {
+func (s *httpSuite) TestSecureClientAllowAccess(c *tc.C) {
 	client := NewClient()
 	_, err := client.Get(context.TODO(), s.server.URL)
 	c.Assert(err, jc.ErrorIsNil)
@@ -55,7 +55,7 @@ func (s *httpSuite) TestSecureClientAllowAccess(c *gc.C) {
 
 // NewClient with a default config used to overwrite http.DefaultClient.Jar
 // field; add a regression test for that.
-func (s *httpSuite) TestDefaultClientJarNotOverwritten(c *gc.C) {
+func (s *httpSuite) TestDefaultClientJarNotOverwritten(c *tc.C) {
 	oldJar := http.DefaultClient.Jar
 
 	jar, err := cookiejar.New(nil)
@@ -64,14 +64,14 @@ func (s *httpSuite) TestDefaultClientJarNotOverwritten(c *gc.C) {
 	client := NewClient(WithCookieJar(jar))
 
 	hc := client.HTTPClient.(*http.Client)
-	c.Assert(hc.Jar, gc.Equals, jar)
-	c.Assert(http.DefaultClient.Jar, gc.Not(gc.Equals), jar)
-	c.Assert(http.DefaultClient.Jar, gc.Equals, oldJar)
+	c.Assert(hc.Jar, tc.Equals, jar)
+	c.Assert(http.DefaultClient.Jar, tc.Not(tc.Equals), jar)
+	c.Assert(http.DefaultClient.Jar, tc.Equals, oldJar)
 
 	http.DefaultClient.Jar = oldJar
 }
 
-func (s *httpSuite) TestRequestRecorder(c *gc.C) {
+func (s *httpSuite) TestRequestRecorder(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -100,10 +100,10 @@ func (s *httpSuite) TestRequestRecorder(c *gc.C) {
 	req, err := http.NewRequestWithContext(context.TODO(), "PUT", invalidTarget, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.Do(req)
-	c.Assert(err, gc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(jc.ErrorIsNil))
 }
 
-func (s *httpSuite) TestRetry(c *gc.C) {
+func (s *httpSuite) TestRetry(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -142,7 +142,7 @@ func (s *httpSuite) TestRetry(c *gc.C) {
 	defer res.Body.Close()
 }
 
-func (s *httpSuite) TestRetryExceeded(c *gc.C) {
+func (s *httpSuite) TestRetryExceeded(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -171,7 +171,7 @@ func (s *httpSuite) TestRetryExceeded(c *gc.C) {
 		}),
 	)
 	_, err = client.Get(context.TODO(), validTarget)
-	c.Assert(err, gc.ErrorMatches, `.*attempt count exceeded: retryable error`)
+	c.Assert(err, tc.ErrorMatches, `.*attempt count exceeded: retryable error`)
 }
 
 type httpTLSServerSuite struct {
@@ -179,9 +179,9 @@ type httpTLSServerSuite struct {
 	server *httptest.Server
 }
 
-var _ = gc.Suite(&httpTLSServerSuite{})
+var _ = tc.Suite(&httpTLSServerSuite{})
 
-func (s *httpTLSServerSuite) SetUpTest(c *gc.C) {
+func (s *httpTLSServerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	// NewTLSServer returns a server which serves TLS, but
 	// its certificates are not validated by the default
@@ -190,63 +190,63 @@ func (s *httpTLSServerSuite) SetUpTest(c *gc.C) {
 	s.server = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 }
 
-func (s *httpTLSServerSuite) TearDownTest(c *gc.C) {
+func (s *httpTLSServerSuite) TearDownTest(c *tc.C) {
 	if s.server != nil {
 		s.server.Close()
 	}
 	s.IsolationSuite.TearDownTest(c)
 }
 
-func (s *httpTLSServerSuite) TestValidatingClientGetter(c *gc.C) {
+func (s *httpTLSServerSuite) TestValidatingClientGetter(c *tc.C) {
 	client := NewClient()
 	_, err := client.Get(context.TODO(), s.server.URL)
-	c.Assert(err, gc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
+	c.Assert(err, tc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
 }
 
-func (s *httpTLSServerSuite) TestNonValidatingClientGetter(c *gc.C) {
+func (s *httpTLSServerSuite) TestNonValidatingClientGetter(c *tc.C) {
 	client := NewClient(WithSkipHostnameVerification(true))
 	resp, err := client.Get(context.TODO(), s.server.URL)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	_ = resp.Body.Close()
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 }
 
-func (s *httpTLSServerSuite) TestGetHTTPClientWithCertsVerify(c *gc.C) {
+func (s *httpTLSServerSuite) TestGetHTTPClientWithCertsVerify(c *tc.C) {
 	s.testGetHTTPClientWithCerts(c, true)
 }
 
-func (s *httpTLSServerSuite) TestGetHTTPClientWithCertsNoVerify(c *gc.C) {
+func (s *httpTLSServerSuite) TestGetHTTPClientWithCertsNoVerify(c *tc.C) {
 	s.testGetHTTPClientWithCerts(c, false)
 }
 
-func (s *httpTLSServerSuite) testGetHTTPClientWithCerts(c *gc.C, skip bool) {
+func (s *httpTLSServerSuite) testGetHTTPClientWithCerts(c *tc.C, skip bool) {
 	caPEM := new(bytes.Buffer)
 	err := pem.Encode(caPEM, &pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: s.server.Certificate().Raw,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	client := NewClient(
 		WithCACertificates(caPEM.String()),
 		WithSkipHostnameVerification(skip),
 	)
 	resp, err := client.Get(context.TODO(), s.server.URL)
-	c.Assert(err, gc.IsNil)
-	c.Assert(resp.Body.Close(), gc.IsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	c.Assert(err, tc.IsNil)
+	c.Assert(resp.Body.Close(), tc.IsNil)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 }
 
-func (s *clientSuite) TestDisableKeepAlives(c *gc.C) {
+func (s *clientSuite) TestDisableKeepAlives(c *tc.C) {
 	client := NewClient()
 	transport := client.Client().Transport.(*http.Transport)
-	c.Assert(transport.DisableKeepAlives, gc.Equals, false)
+	c.Assert(transport.DisableKeepAlives, tc.Equals, false)
 
 	client = NewClient(WithDisableKeepAlives(false))
 	transport = client.Client().Transport.(*http.Transport)
-	c.Assert(transport.DisableKeepAlives, gc.Equals, false)
+	c.Assert(transport.DisableKeepAlives, tc.Equals, false)
 
 	client = NewClient(WithDisableKeepAlives(true))
 	transport = client.Client().Transport.(*http.Transport)
-	c.Assert(transport.DisableKeepAlives, gc.Equals, true)
+	c.Assert(transport.DisableKeepAlives, tc.Equals, true)
 }

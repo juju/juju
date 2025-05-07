@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/dependency"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agenttest"
@@ -23,32 +23,32 @@ type ManifoldsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&ManifoldsSuite{})
+var _ = tc.Suite(&ManifoldsSuite{})
 
-func (s *ManifoldsSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldsSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 }
 
-func (s *ManifoldsSuite) TestStartFuncsIAAS(c *gc.C) {
+func (s *ManifoldsSuite) TestStartFuncsIAAS(c *tc.C) {
 	s.assertStartFuncs(c, dbrepl.IAASManifolds(dbrepl.ManifoldsConfig{
 		Agent: &mockAgent{},
 	}))
 }
 
-func (s *ManifoldsSuite) TestStartFuncsCAAS(c *gc.C) {
+func (s *ManifoldsSuite) TestStartFuncsCAAS(c *tc.C) {
 	s.assertStartFuncs(c, dbrepl.CAASManifolds(dbrepl.ManifoldsConfig{
 		Agent: &mockAgent{},
 	}))
 }
 
-func (*ManifoldsSuite) assertStartFuncs(c *gc.C, manifolds dependency.Manifolds) {
+func (*ManifoldsSuite) assertStartFuncs(c *tc.C, manifolds dependency.Manifolds) {
 	for name, manifold := range manifolds {
 		c.Logf("checking %q manifold", name)
-		c.Check(manifold.Start, gc.NotNil)
+		c.Check(manifold.Start, tc.NotNil)
 	}
 }
 
-func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
+func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 	s.assertManifoldNames(c,
 		dbrepl.IAASManifolds(dbrepl.ManifoldsConfig{
 			Agent: &mockAgent{},
@@ -65,7 +65,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 	)
 }
 
-func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
+func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *tc.C) {
 	s.assertManifoldNames(c,
 		dbrepl.CAASManifolds(dbrepl.ManifoldsConfig{
 			Agent: &mockAgent{},
@@ -82,7 +82,7 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 	)
 }
 
-func (*ManifoldsSuite) assertManifoldNames(c *gc.C, manifolds dependency.Manifolds, expectedKeys []string) {
+func (*ManifoldsSuite) assertManifoldNames(c *tc.C, manifolds dependency.Manifolds, expectedKeys []string) {
 	keys := make([]string, 0, len(manifolds))
 	for k := range manifolds {
 		keys = append(keys, k)
@@ -91,7 +91,7 @@ func (*ManifoldsSuite) assertManifoldNames(c *gc.C, manifolds dependency.Manifol
 	c.Assert(keys, jc.SameContents, expectedKeys)
 }
 
-func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
+func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 	manifolds := dbrepl.IAASManifolds(dbrepl.ManifoldsConfig{
 		Agent: &mockAgent{},
 	})
@@ -128,7 +128,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 	}
 }
 
-func checkContains(c *gc.C, names []string, seek string) {
+func checkContains(c *tc.C, names []string, seek string) {
 	for _, name := range names {
 		if name == seek {
 			return
@@ -137,7 +137,7 @@ func checkContains(c *gc.C, names []string, seek string) {
 	c.Errorf("%q not found in %v", seek, names)
 }
 
-func checkNotContains(c *gc.C, names []string, seek string) {
+func checkNotContains(c *tc.C, names []string, seek string) {
 	for _, name := range names {
 		if name == seek {
 			c.Errorf("%q found in %v", seek, names)
@@ -146,7 +146,7 @@ func checkNotContains(c *gc.C, names []string, seek string) {
 	}
 }
 
-func (s *ManifoldsSuite) TestManifoldsDependenciesIAAS(c *gc.C) {
+func (s *ManifoldsSuite) TestManifoldsDependenciesIAAS(c *tc.C) {
 	agenttest.AssertManifoldsDependencies(c,
 		dbrepl.IAASManifolds(dbrepl.ManifoldsConfig{
 			Agent: &mockAgent{},
@@ -155,7 +155,7 @@ func (s *ManifoldsSuite) TestManifoldsDependenciesIAAS(c *gc.C) {
 	)
 }
 
-func (s *ManifoldsSuite) TestManifoldsDependenciesCAAS(c *gc.C) {
+func (s *ManifoldsSuite) TestManifoldsDependenciesCAAS(c *tc.C) {
 	agenttest.AssertManifoldsDependencies(c,
 		dbrepl.CAASManifolds(dbrepl.ManifoldsConfig{
 			Agent: &mockAgent{},

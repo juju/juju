@@ -6,8 +6,8 @@ package network_test
 import (
 	"sort"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
 )
@@ -16,45 +16,45 @@ type NetworkSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&NetworkSuite{})
+var _ = tc.Suite(&NetworkSuite{})
 
-func (s *NetworkSuite) TestGenerateVirtualMACAddress(c *gc.C) {
+func (s *NetworkSuite) TestGenerateVirtualMACAddress(c *tc.C) {
 	mac := network.GenerateVirtualMACAddress()
-	c.Check(mac, gc.Matches, "^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$")
+	c.Check(mac, tc.Matches, "^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$")
 }
 
-func (NetworkSuite) TestIDSetSize(c *gc.C) {
+func (NetworkSuite) TestIDSetSize(c *tc.C) {
 	// Empty sets are empty.
 	s := network.MakeIDSet()
-	c.Assert(s.Size(), gc.Equals, 0)
+	c.Assert(s.Size(), tc.Equals, 0)
 
 	// Size returns number of unique values.
 	s = network.MakeIDSet("foo", "foo", "bar")
-	c.Assert(s.Size(), gc.Equals, 2)
+	c.Assert(s.Size(), tc.Equals, 2)
 }
 
-func (NetworkSuite) TestIDSetEmpty(c *gc.C) {
+func (NetworkSuite) TestIDSetEmpty(c *tc.C) {
 	s := network.MakeIDSet()
 	assertValues(c, s)
 }
 
-func (NetworkSuite) TestIDSetInitialValues(c *gc.C) {
+func (NetworkSuite) TestIDSetInitialValues(c *tc.C) {
 	values := []network.Id{"foo", "bar", "baz"}
 	s := network.MakeIDSet(values...)
 	assertValues(c, s, values...)
 }
 
-func (NetworkSuite) TestIDSetIsEmpty(c *gc.C) {
+func (NetworkSuite) TestIDSetIsEmpty(c *tc.C) {
 	// Empty sets are empty.
 	s := network.MakeIDSet()
-	c.Assert(s.IsEmpty(), gc.Equals, true)
+	c.Assert(s.IsEmpty(), tc.Equals, true)
 
 	// Non-empty sets are not empty.
 	s = network.MakeIDSet("foo")
-	c.Assert(s.IsEmpty(), gc.Equals, false)
+	c.Assert(s.IsEmpty(), tc.Equals, false)
 }
 
-func (NetworkSuite) TestIDSetAdd(c *gc.C) {
+func (NetworkSuite) TestIDSetAdd(c *tc.C) {
 	s := network.MakeIDSet()
 	s.Add("foo")
 	s.Add("foo")
@@ -62,14 +62,14 @@ func (NetworkSuite) TestIDSetAdd(c *gc.C) {
 	assertValues(c, s, "foo", "bar")
 }
 
-func (NetworkSuite) TestIDSetContains(c *gc.C) {
+func (NetworkSuite) TestIDSetContains(c *tc.C) {
 	s := network.MakeIDSet("foo", "bar")
-	c.Assert(s.Contains("foo"), gc.Equals, true)
-	c.Assert(s.Contains("bar"), gc.Equals, true)
-	c.Assert(s.Contains("baz"), gc.Equals, false)
+	c.Assert(s.Contains("foo"), tc.Equals, true)
+	c.Assert(s.Contains("bar"), tc.Equals, true)
+	c.Assert(s.Contains("baz"), tc.Equals, false)
 }
 
-func (NetworkSuite) TestIDSetDifference(c *gc.C) {
+func (NetworkSuite) TestIDSetDifference(c *tc.C) {
 	s1 := network.MakeIDSet("foo", "bar")
 	s2 := network.MakeIDSet("foo", "baz", "bang")
 	diff1 := s1.Difference(s2)
@@ -80,7 +80,7 @@ func (NetworkSuite) TestIDSetDifference(c *gc.C) {
 }
 
 // Helper methods for the tests.
-func assertValues(c *gc.C, s network.IDSet, expected ...network.Id) {
+func assertValues(c *tc.C, s network.IDSet, expected ...network.Id) {
 	values := s.Values()
 
 	// Expect an empty slice, not a nil slice for values.
@@ -95,22 +95,22 @@ func assertValues(c *gc.C, s network.IDSet, expected ...network.Id) {
 		return values[i] < values[j]
 	})
 
-	c.Assert(values, gc.DeepEquals, expected)
-	c.Assert(s.Size(), gc.Equals, len(expected))
+	c.Assert(values, tc.DeepEquals, expected)
+	c.Assert(s.Size(), tc.Equals, len(expected))
 
 	// Check the sorted values too.
 	sorted := s.SortedValues()
-	c.Assert(sorted, gc.DeepEquals, expected)
+	c.Assert(sorted, tc.DeepEquals, expected)
 }
 
-func (s *NetworkSuite) TestSubnetsForAddresses(c *gc.C) {
+func (s *NetworkSuite) TestSubnetsForAddresses(c *tc.C) {
 	addrs := []string{
 		"10.10.10.10",
 		"75ae:3af:968e:3a33:55e2:6379:fa67:d790",
 		"some.host.name",
 	}
 
-	c.Check(network.SubnetsForAddresses(addrs), gc.DeepEquals, []string{
+	c.Check(network.SubnetsForAddresses(addrs), tc.DeepEquals, []string{
 		"10.10.10.10/32",
 		"75ae:3af:968e:3a33:55e2:6379:fa67:d790/128",
 	})

@@ -9,9 +9,9 @@ import (
 	"io"
 	"strings"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/version"
@@ -22,16 +22,16 @@ type BSInteractSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(BSInteractSuite{})
+var _ = tc.Suite(BSInteractSuite{})
 
-func (BSInteractSuite) TestInitEmpty(c *gc.C) {
+func (BSInteractSuite) TestInitEmpty(c *tc.C) {
 	cmd := &bootstrapCommand{}
 	err := cmdtesting.InitCommand(cmd, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmd.interactive, jc.IsTrue)
 }
 
-func (BSInteractSuite) TestInitBuildAgent(c *gc.C) {
+func (BSInteractSuite) TestInitBuildAgent(c *tc.C) {
 	cmd := &bootstrapCommand{}
 	err := cmdtesting.InitCommand(cmd, []string{"--build-agent"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -39,35 +39,35 @@ func (BSInteractSuite) TestInitBuildAgent(c *gc.C) {
 	c.Assert(cmd.BuildAgent, jc.IsTrue)
 }
 
-func (BSInteractSuite) TestInitArg(c *gc.C) {
+func (BSInteractSuite) TestInitArg(c *tc.C) {
 	cmd := &bootstrapCommand{}
 	err := cmdtesting.InitCommand(cmd, []string{"foo"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmd.interactive, jc.IsFalse)
 }
 
-func (BSInteractSuite) TestInitTwoArgs(c *gc.C) {
+func (BSInteractSuite) TestInitTwoArgs(c *tc.C) {
 	cmd := &bootstrapCommand{}
 	err := cmdtesting.InitCommand(cmd, []string{"foo", "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmd.interactive, jc.IsFalse)
 }
 
-func (BSInteractSuite) TestInitInfoOnlyFlag(c *gc.C) {
+func (BSInteractSuite) TestInitInfoOnlyFlag(c *tc.C) {
 	cmd := &bootstrapCommand{}
 	err := cmdtesting.InitCommand(cmd, []string{"--clouds"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmd.interactive, jc.IsFalse)
 }
 
-func (BSInteractSuite) TestInitVariousFlags(c *gc.C) {
+func (BSInteractSuite) TestInitVariousFlags(c *tc.C) {
 	cmd := &bootstrapCommand{}
 	err := cmdtesting.InitCommand(cmd, []string{"--keep-broken", "--agent-version", version.Current.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmd.interactive, jc.IsTrue)
 }
 
-func (BSInteractSuite) TestQueryCloud(c *gc.C) {
+func (BSInteractSuite) TestQueryCloud(c *tc.C) {
 	input := "search\n"
 
 	scanner := bufio.NewScanner(strings.NewReader(input))
@@ -76,7 +76,7 @@ func (BSInteractSuite) TestQueryCloud(c *gc.C) {
 	buf := bytes.Buffer{}
 	cloud, err := queryCloud(clouds, "local", scanner, &buf)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloud, gc.Equals, "search")
+	c.Assert(cloud, tc.Equals, "search")
 
 	// clouds should be printed out in the same order as they're given.
 	expected := `
@@ -88,10 +88,10 @@ local
 
 Select a cloud [local]: 
 `[1:]
-	c.Assert(buf.String(), gc.Equals, expected)
+	c.Assert(buf.String(), tc.Equals, expected)
 }
 
-func (BSInteractSuite) TestQueryCloudDefault(c *gc.C) {
+func (BSInteractSuite) TestQueryCloudDefault(c *tc.C) {
 	input := "\n"
 
 	scanner := bufio.NewScanner(strings.NewReader(input))
@@ -99,20 +99,20 @@ func (BSInteractSuite) TestQueryCloudDefault(c *gc.C) {
 
 	cloud, err := queryCloud(clouds, "local", scanner, io.Discard)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloud, gc.Equals, "local")
+	c.Assert(cloud, tc.Equals, "local")
 }
 
-func (BSInteractSuite) TestInvalidCloud(c *gc.C) {
+func (BSInteractSuite) TestInvalidCloud(c *tc.C) {
 	input := "bad^cloud\n"
 
 	scanner := bufio.NewScanner(strings.NewReader(input))
 	clouds := []string{"books", "local", "bad^cloud"}
 
 	_, err := queryCloud(clouds, "local", scanner, io.Discard)
-	c.Assert(err, gc.ErrorMatches, `cloud name "bad\^cloud" not valid`)
+	c.Assert(err, tc.ErrorMatches, `cloud name "bad\^cloud" not valid`)
 }
 
-func (BSInteractSuite) TestQueryRegion(c *gc.C) {
+func (BSInteractSuite) TestQueryRegion(c *tc.C) {
 	input := "mars-west1\n"
 
 	scanner := bufio.NewScanner(strings.NewReader(input))
@@ -125,7 +125,7 @@ func (BSInteractSuite) TestQueryRegion(c *gc.C) {
 	buf := bytes.Buffer{}
 	region, err := queryRegion("goggles", regions, scanner, &buf)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(region, gc.Equals, "mars-west1")
+	c.Assert(region, tc.Equals, "mars-west1")
 
 	// regions should be alphabetized, and the first one in the original list
 	// should be the default.
@@ -137,10 +137,10 @@ mars-west1
 
 Select a region in goggles [mars-east1]: 
 `[1:]
-	c.Assert(buf.String(), gc.Equals, expected)
+	c.Assert(buf.String(), tc.Equals, expected)
 }
 
-func (BSInteractSuite) TestQueryRegionDefault(c *gc.C) {
+func (BSInteractSuite) TestQueryRegionDefault(c *tc.C) {
 	input := "\n"
 
 	scanner := bufio.NewScanner(strings.NewReader(input))
@@ -151,29 +151,29 @@ func (BSInteractSuite) TestQueryRegionDefault(c *gc.C) {
 
 	region, err := queryRegion("goggles", regions, scanner, io.Discard)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(region, gc.Equals, regions[0].Name)
+	c.Assert(region, tc.Equals, regions[0].Name)
 }
 
-func (BSInteractSuite) TestQueryName(c *gc.C) {
+func (BSInteractSuite) TestQueryName(c *tc.C) {
 	input := "awesome-cloud\n"
 
 	scanner := bufio.NewScanner(strings.NewReader(input))
 	buf := bytes.Buffer{}
 	name, err := queryName("default-cloud", scanner, &buf)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(name, gc.Equals, "awesome-cloud")
+	c.Assert(name, tc.Equals, "awesome-cloud")
 
 	expected := `
 Enter a name for the Controller [default-cloud]: 
 `[1:]
-	c.Assert(buf.String(), gc.Equals, expected)
+	c.Assert(buf.String(), tc.Equals, expected)
 }
 
-func (BSInteractSuite) TestQueryNameDefault(c *gc.C) {
+func (BSInteractSuite) TestQueryNameDefault(c *tc.C) {
 	input := "\n"
 
 	scanner := bufio.NewScanner(strings.NewReader(input))
 	name, err := queryName("default-cloud", scanner, io.Discard)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(name, gc.Equals, "default-cloud")
+	c.Assert(name, tc.Equals, "default-cloud")
 }

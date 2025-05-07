@@ -9,11 +9,11 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/dependency"
 	dependencytesting "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 )
@@ -24,16 +24,16 @@ type manifoldSuite struct {
 	agent *mockAgent
 }
 
-var _ = gc.Suite(&manifoldSuite{})
+var _ = tc.Suite(&manifoldSuite{})
 
-func (s *manifoldSuite) SetUpTest(c *gc.C) {
+func (s *manifoldSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
 
 	s.agent = new(mockAgent)
 	s.agent.conf.tag = names.NewMachineTag("99")
 }
 
-func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
+func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.getConfig()
@@ -77,11 +77,11 @@ func (s *manifoldSuite) newContext() dependency.Getter {
 	return dependencytesting.StubGetter(resources)
 }
 
-func (s *manifoldSuite) TestInputs(c *gc.C) {
+func (s *manifoldSuite) TestInputs(c *tc.C) {
 	c.Assert(Manifold(s.getConfig()).Inputs, jc.SameContents, []string{"agent"})
 }
 
-func (s *manifoldSuite) TestStart(c *gc.C) {
+func (s *manifoldSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, err := Manifold(s.getConfig()).Start(context.Background(), s.newContext())
@@ -89,7 +89,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 }
 
-func (s *manifoldSuite) TestOutput(c *gc.C) {
+func (s *manifoldSuite) TestOutput(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	man := Manifold(s.getConfig())
@@ -99,7 +99,7 @@ func (s *manifoldSuite) TestOutput(c *gc.C) {
 
 	var watcher ConfigWatcher
 	c.Assert(man.Output(w, &watcher), jc.ErrorIsNil)
-	c.Assert(watcher, gc.NotNil)
+	c.Assert(watcher, tc.NotNil)
 }
 
 type mockAgent struct {

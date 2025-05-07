@@ -6,9 +6,9 @@ package service
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/domain/annotation"
@@ -28,9 +28,9 @@ type stateAnnotationKey struct {
 	key string
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = tc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.state = NewMockState(ctrl)
 	return ctrl
@@ -41,7 +41,7 @@ func (s *serviceSuite) service() *Service {
 }
 
 // TestGetAnnotations is testing the happy path for getting annotations for an ID.
-func (s *serviceSuite) TestGetAnnotations(c *gc.C) {
+func (s *serviceSuite) TestGetAnnotations(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	id1 := annotations.ID{Kind: annotations.KindUnit, Name: "unit1"}
 	id33 := annotations.ID{Kind: annotations.KindUnit, Name: "unit33"}
@@ -68,18 +68,18 @@ func (s *serviceSuite) TestGetAnnotations(c *gc.C) {
 
 	annotations, err := s.service().GetAnnotations(context.Background(), id1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(annotations), gc.Equals, 2)
-	c.Assert(annotations["annotationKey1"], gc.Equals, "annotationValue1")
-	c.Assert(annotations["annotationKey2"], gc.Equals, "annotationValue2")
+	c.Assert(len(annotations), tc.Equals, 2)
+	c.Assert(annotations["annotationKey1"], tc.Equals, "annotationValue1")
+	c.Assert(annotations["annotationKey2"], tc.Equals, "annotationValue2")
 
 	// Assert that an empty map (not nil) is returend if no annotations
 	// are associated with a given ID
 	noAnnotations, err := s.service().GetAnnotations(context.Background(), idNotExist)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(noAnnotations), gc.Equals, 0)
+	c.Assert(len(noAnnotations), tc.Equals, 0)
 }
 
-func (s *serviceSuite) TestGetCharmAnnotations(c *gc.C) {
+func (s *serviceSuite) TestGetCharmAnnotations(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetCharmAnnotations(gomock.Any(), annotation.GetCharmArgs{
@@ -97,12 +97,12 @@ func (s *serviceSuite) TestGetCharmAnnotations(c *gc.C) {
 		Revision: 1,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(annotations), gc.Equals, 2)
-	c.Assert(annotations["annotationKey1"], gc.Equals, "annotationValue1")
-	c.Assert(annotations["annotationKey2"], gc.Equals, "annotationValue2")
+	c.Assert(len(annotations), tc.Equals, 2)
+	c.Assert(annotations["annotationKey1"], tc.Equals, "annotationValue1")
+	c.Assert(annotations["annotationKey2"], tc.Equals, "annotationValue2")
 }
 
-func (s *serviceSuite) TestSetAnnotations(c *gc.C) {
+func (s *serviceSuite) TestSetAnnotations(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	id1 := annotations.ID{Kind: annotations.KindUnit, Name: "unit1"}
 	id33 := annotations.ID{Kind: annotations.KindUnit, Name: "unit33"}
@@ -134,19 +134,19 @@ func (s *serviceSuite) TestSetAnnotations(c *gc.C) {
 
 	err := s.service().SetAnnotations(context.Background(), id1, annotations)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(mockState), gc.Equals, 5)
-	c.Assert(mockState[stateAnnotationKey{ID: id1, key: "annotationKey5"}], gc.Equals, "annotationValue5")
-	c.Assert(mockState[stateAnnotationKey{ID: id1, key: "annotationKey1"}], gc.Equals, "annotationValue1Updated")
+	c.Assert(len(mockState), tc.Equals, 5)
+	c.Assert(mockState[stateAnnotationKey{ID: id1, key: "annotationKey5"}], tc.Equals, "annotationValue5")
+	c.Assert(mockState[stateAnnotationKey{ID: id1, key: "annotationKey1"}], tc.Equals, "annotationValue1Updated")
 
 	// Unset a key
 	unsetAnnotations := map[string]string{"annotationKey4": ""}
 	err = s.service().SetAnnotations(context.Background(), id44, unsetAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(mockState), gc.Equals, 4)
+	c.Assert(len(mockState), tc.Equals, 4)
 
 }
 
-func (s *serviceSuite) TestSetCharmAnnotations(c *gc.C) {
+func (s *serviceSuite) TestSetCharmAnnotations(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().SetCharmAnnotations(gomock.Any(), annotation.GetCharmArgs{
@@ -169,7 +169,7 @@ func (s *serviceSuite) TestSetCharmAnnotations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestSetAnnotationsWithInvalidKeys(c *gc.C) {
+func (s *serviceSuite) TestSetAnnotationsWithInvalidKeys(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := s.service().SetAnnotations(context.Background(), annotations.ID{
@@ -189,7 +189,7 @@ func (s *serviceSuite) TestSetAnnotationsWithInvalidKeys(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, annotationerrors.InvalidKey)
 }
 
-func (s *serviceSuite) TestSetCharmAnnotationsWithInvalidKeys(c *gc.C) {
+func (s *serviceSuite) TestSetCharmAnnotationsWithInvalidKeys(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := s.service().SetCharmAnnotations(context.Background(), annotation.GetCharmArgs{

@@ -6,8 +6,8 @@ package openstack
 import (
 	gooseerrors "github.com/go-goose/goose/v5/errors"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/testing"
 )
@@ -16,9 +16,9 @@ type ErrorSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&ErrorSuite{})
+var _ = tc.Suite(&ErrorSuite{})
 
-func (s *ErrorSuite) TestIsUnauthorisedError(c *gc.C) {
+func (s *ErrorSuite) TestIsUnauthorisedError(c *tc.C) {
 	e := gooseerrors.NewUnauthorisedf(nil, "", "not on")
 	c.Assert(IsAuthorisationFailure(e), jc.IsTrue)
 	c.Assert(IsAuthorisationFailure(errors.Cause(e)), jc.IsTrue)
@@ -30,7 +30,7 @@ func (s *ErrorSuite) TestIsUnauthorisedError(c *gc.C) {
 	c.Assert(IsAuthorisationFailure(annotated), jc.IsTrue)
 }
 
-func (s *ErrorSuite) TestIsNotUnauthorisedErro(c *gc.C) {
+func (s *ErrorSuite) TestIsNotUnauthorisedErro(c *tc.C) {
 	e := errors.New("fluffy")
 	c.Assert(IsAuthorisationFailure(e), jc.IsFalse)
 

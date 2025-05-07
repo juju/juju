@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/internal/charm"
@@ -19,9 +19,9 @@ type ConfigSuite struct {
 	config *charm.Config
 }
 
-var _ = gc.Suite(&ConfigSuite{})
+var _ = tc.Suite(&ConfigSuite{})
 
-func (s *ConfigSuite) SetUpSuite(c *gc.C) {
+func (s *ConfigSuite) SetUpSuite(c *tc.C) {
 	// Just use a single shared config for the whole suite. There's no use case
 	// for mutating a config, we assume that nobody will do so here.
 	var err error
@@ -54,10 +54,10 @@ options:
     description: A secret value.
     type: secret
 `)))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *ConfigSuite) TestReadSample(c *gc.C) {
+func (s *ConfigSuite) TestReadSample(c *tc.C) {
 	c.Assert(s.config.Options, jc.DeepEquals, map[string]charm.Option{
 		"title": {
 			Default:     "My Title",
@@ -97,7 +97,7 @@ func (s *ConfigSuite) TestReadSample(c *gc.C) {
 	})
 }
 
-func (s *ConfigSuite) TestDefaultSettings(c *gc.C) {
+func (s *ConfigSuite) TestDefaultSettings(c *tc.C) {
 	c.Assert(s.config.DefaultSettings(), jc.DeepEquals, charm.Settings{
 		"title":              "My Title",
 		"subtitle":           "",
@@ -110,7 +110,7 @@ func (s *ConfigSuite) TestDefaultSettings(c *gc.C) {
 	})
 }
 
-func (s *ConfigSuite) TestFilterSettings(c *gc.C) {
+func (s *ConfigSuite) TestFilterSettings(c *tc.C) {
 	settings := s.config.FilterSettings(charm.Settings{
 		"title":              "something valid",
 		"username":           nil,
@@ -127,7 +127,7 @@ func (s *ConfigSuite) TestFilterSettings(c *gc.C) {
 	})
 }
 
-func (s *ConfigSuite) TestValidateSettings(c *gc.C) {
+func (s *ConfigSuite) TestValidateSettings(c *tc.C) {
 	for i, test := range []struct {
 		info   string
 		input  charm.Settings
@@ -203,9 +203,9 @@ func (s *ConfigSuite) TestValidateSettings(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 		result, err := s.config.ValidateSettings(test.input)
 		if test.err != "" {
-			c.Check(err, gc.ErrorMatches, test.err)
+			c.Check(err, tc.ErrorMatches, test.err)
 		} else {
-			c.Check(err, gc.IsNil)
+			c.Check(err, tc.IsNil)
 			if test.expect == nil {
 				c.Check(result, jc.DeepEquals, test.input)
 			} else {
@@ -229,7 +229,7 @@ var settingsWithValues = charm.Settings{
 	"reticulate-splines": true,
 }
 
-func (s *ConfigSuite) TestParseSettingsYAML(c *gc.C) {
+func (s *ConfigSuite) TestParseSettingsYAML(c *tc.C) {
 	for i, test := range []struct {
 		info   string
 		yaml   string
@@ -348,15 +348,15 @@ func (s *ConfigSuite) TestParseSettingsYAML(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 		result, err := s.config.ParseSettingsYAML([]byte(test.yaml), test.key)
 		if test.err != "" {
-			c.Check(err, gc.ErrorMatches, test.err)
+			c.Check(err, tc.ErrorMatches, test.err)
 		} else {
-			c.Check(err, gc.IsNil)
+			c.Check(err, tc.IsNil)
 			c.Check(result, jc.DeepEquals, test.expect)
 		}
 	}
 }
 
-func (s *ConfigSuite) TestParseSettingsStrings(c *gc.C) {
+func (s *ConfigSuite) TestParseSettingsStrings(c *tc.C) {
 	for i, test := range []struct {
 		info   string
 		input  map[string]string
@@ -402,39 +402,39 @@ func (s *ConfigSuite) TestParseSettingsStrings(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 		result, err := s.config.ParseSettingsStrings(test.input)
 		if test.err != "" {
-			c.Check(err, gc.ErrorMatches, test.err)
+			c.Check(err, tc.ErrorMatches, test.err)
 		} else {
-			c.Check(err, gc.IsNil)
+			c.Check(err, tc.IsNil)
 			c.Check(result, jc.DeepEquals, test.expect)
 		}
 	}
 }
 
-func (s *ConfigSuite) TestConfigError(c *gc.C) {
+func (s *ConfigSuite) TestConfigError(c *tc.C) {
 	_, err := charm.ReadConfig(bytes.NewBuffer([]byte(`options: {t: {type: foo}}`)))
-	c.Assert(err, gc.ErrorMatches, `invalid config: option "t" has unknown type "foo"`)
+	c.Assert(err, tc.ErrorMatches, `invalid config: option "t" has unknown type "foo"`)
 }
 
-func (s *ConfigSuite) TestConfigWithNoOptions(c *gc.C) {
+func (s *ConfigSuite) TestConfigWithNoOptions(c *tc.C) {
 	_, err := charm.ReadConfig(strings.NewReader("other:\n"))
-	c.Assert(err, gc.ErrorMatches, "invalid config: empty configuration")
+	c.Assert(err, tc.ErrorMatches, "invalid config: empty configuration")
 
 	_, err = charm.ReadConfig(strings.NewReader("\n"))
-	c.Assert(err, gc.ErrorMatches, "invalid config: empty configuration")
+	c.Assert(err, tc.ErrorMatches, "invalid config: empty configuration")
 
 	_, err = charm.ReadConfig(strings.NewReader("null\n"))
-	c.Assert(err, gc.ErrorMatches, "invalid config: empty configuration")
+	c.Assert(err, tc.ErrorMatches, "invalid config: empty configuration")
 
 	_, err = charm.ReadConfig(strings.NewReader("options:\n"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *ConfigSuite) TestDefaultType(c *gc.C) {
+func (s *ConfigSuite) TestDefaultType(c *tc.C) {
 	assertDefault := func(type_ string, value string, expected interface{}) {
 		config := fmt.Sprintf(`options: {x: {type: %s, default: %s}}`, type_, value)
 		result, err := charm.ReadConfig(bytes.NewBuffer([]byte(config)))
-		c.Assert(err, gc.IsNil)
-		c.Assert(result.Options["x"].Default, gc.Equals, expected)
+		c.Assert(err, tc.IsNil)
+		c.Assert(result.Options["x"].Default, tc.Equals, expected)
 	}
 
 	assertDefault("boolean", "true", true)
@@ -447,7 +447,7 @@ func (s *ConfigSuite) TestDefaultType(c *gc.C) {
 		config := fmt.Sprintf(`options: {t: {type: %s, default: %s}}`, type_, str)
 		_, err := charm.ReadConfig(bytes.NewBuffer([]byte(config)))
 		expected := fmt.Sprintf(`invalid config default: option "t" expected %s, got %s`, type_, value)
-		c.Assert(err, gc.ErrorMatches, expected)
+		c.Assert(err, tc.ErrorMatches, expected)
 	}
 
 	assertTypeError("boolean", "henry", `"henry"`)
@@ -457,14 +457,14 @@ func (s *ConfigSuite) TestDefaultType(c *gc.C) {
 }
 
 // When an empty config is supplied an error should be returned
-func (s *ConfigSuite) TestEmptyConfigReturnsError(c *gc.C) {
+func (s *ConfigSuite) TestEmptyConfigReturnsError(c *tc.C) {
 	config := ""
 	result, err := charm.ReadConfig(bytes.NewBuffer([]byte(config)))
-	c.Assert(result, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "invalid config: empty configuration")
+	c.Assert(result, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "invalid config: empty configuration")
 }
 
-func (s *ConfigSuite) TestYAMLMarshal(c *gc.C) {
+func (s *ConfigSuite) TestYAMLMarshal(c *tc.C) {
 	cfg, err := charm.ReadConfig(strings.NewReader(`
 options:
     minimal:
@@ -477,24 +477,24 @@ options:
         description: d
         default: true
 `))
-	c.Assert(err, gc.IsNil)
-	c.Assert(cfg.Options, gc.HasLen, 3)
+	c.Assert(err, tc.IsNil)
+	c.Assert(cfg.Options, tc.HasLen, 3)
 
 	newYAML, err := yaml.Marshal(cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	newCfg, err := charm.ReadConfig(bytes.NewReader(newYAML))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	c.Assert(newCfg, jc.DeepEquals, cfg)
 }
 
-func (s *ConfigSuite) TestErrorOnInvalidOptionTypes(c *gc.C) {
+func (s *ConfigSuite) TestErrorOnInvalidOptionTypes(c *tc.C) {
 	cfg := charm.Config{
 		Options: map[string]charm.Option{"testOption": {Type: "invalid type"}},
 	}
 	_, err := cfg.ParseSettingsYAML([]byte("testKey:\n  testOption: 12.345"), "testKey")
-	c.Assert(err, gc.ErrorMatches, "option \"testOption\" has unknown type \"invalid type\"")
+	c.Assert(err, tc.ErrorMatches, "option \"testOption\" has unknown type \"invalid type\"")
 
 	_, err = cfg.ParseSettingsYAML([]byte("testKey:\n  testOption: \"some string value\""), "testKey")
-	c.Assert(err, gc.ErrorMatches, "option \"testOption\" has unknown type \"invalid type\"")
+	c.Assert(err, tc.ErrorMatches, "option \"testOption\" has unknown type \"invalid type\"")
 }

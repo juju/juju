@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/storage"
@@ -25,19 +25,19 @@ type ShowSuite struct {
 	mockAPI *mockShowAPI
 }
 
-var _ = gc.Suite(&ShowSuite{})
+var _ = tc.Suite(&ShowSuite{})
 
-func (s *ShowSuite) SetUpTest(c *gc.C) {
+func (s *ShowSuite) SetUpTest(c *tc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 
 	s.mockAPI = &mockShowAPI{}
 }
 
-func (s *ShowSuite) runShow(c *gc.C, args []string) (*cmd.Context, error) {
+func (s *ShowSuite) runShow(c *tc.C, args []string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, storage.NewShowCommandForTest(s.mockAPI, s.store), args...)
 }
 
-func (s *ShowSuite) TestShowNoMatch(c *gc.C) {
+func (s *ShowSuite) TestShowNoMatch(c *tc.C) {
 	s.mockAPI.noMatch = true
 	s.assertValidShow(
 		c,
@@ -48,7 +48,7 @@ func (s *ShowSuite) TestShowNoMatch(c *gc.C) {
 	)
 }
 
-func (s *ShowSuite) TestShow(c *gc.C) {
+func (s *ShowSuite) TestShow(c *tc.C) {
 	now := time.Now()
 	s.mockAPI.time = now
 	s.assertValidShow(
@@ -74,12 +74,12 @@ shared-fs/0:
 	)
 }
 
-func (s *ShowSuite) TestShowInvalidId(c *gc.C) {
+func (s *ShowSuite) TestShowInvalidId(c *tc.C) {
 	_, err := s.runShow(c, []string{"foo"})
-	c.Assert(err, gc.ErrorMatches, ".*invalid storage ID foo.*")
+	c.Assert(err, tc.ErrorMatches, ".*invalid storage ID foo.*")
 }
 
-func (s *ShowSuite) TestShowJSON(c *gc.C) {
+func (s *ShowSuite) TestShowJSON(c *tc.C) {
 	now := time.Now()
 	s.mockAPI.time = now
 	s.assertValidShow(
@@ -90,7 +90,7 @@ func (s *ShowSuite) TestShowJSON(c *gc.C) {
 	)
 }
 
-func (s *ShowSuite) TestShowMultipleReturn(c *gc.C) {
+func (s *ShowSuite) TestShowMultipleReturn(c *tc.C) {
 	now := time.Now()
 	s.mockAPI.time = now
 	since := common.FormatTime(&now, false)
@@ -126,12 +126,12 @@ shared-fs/0:
 	)
 }
 
-func (s *ShowSuite) assertValidShow(c *gc.C, args []string, expected string) {
+func (s *ShowSuite) assertValidShow(c *tc.C, args []string, expected string) {
 	context, err := s.runShow(c, args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtained := cmdtesting.Stdout(context)
-	c.Assert(obtained, gc.Equals, expected)
+	c.Assert(obtained, tc.Equals, expected)
 }
 
 type mockShowAPI struct {

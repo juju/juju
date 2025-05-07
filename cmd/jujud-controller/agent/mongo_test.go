@@ -5,8 +5,8 @@ package agent
 
 import (
 	mgotesting "github.com/juju/mgo/v3/testing"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/mongo"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -17,17 +17,17 @@ type mongoSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&mongoSuite{})
+var _ = tc.Suite(&mongoSuite{})
 
-func (s *mongoSuite) TestStateWorkerDialSetsWriteMajority(c *gc.C) {
+func (s *mongoSuite) TestStateWorkerDialSetsWriteMajority(c *tc.C) {
 	s.testStateWorkerDialSetsWriteMajority(c, true)
 }
 
-func (s *mongoSuite) TestStateWorkerDialDoesNotSetWriteMajorityWithoutReplsetConfig(c *gc.C) {
+func (s *mongoSuite) TestStateWorkerDialDoesNotSetWriteMajorityWithoutReplsetConfig(c *tc.C) {
 	s.testStateWorkerDialSetsWriteMajority(c, false)
 }
 
-func (s *mongoSuite) testStateWorkerDialSetsWriteMajority(c *gc.C, configureReplset bool) {
+func (s *mongoSuite) testStateWorkerDialSetsWriteMajority(c *tc.C, configureReplset bool) {
 	inst := mgotesting.MgoInstance{
 		EnableReplicaSet: true,
 	}
@@ -61,7 +61,7 @@ func (s *mongoSuite) testStateWorkerDialSetsWriteMajority(c *gc.C, configureRepl
 	defer session.Close()
 
 	safe := session.Safe()
-	c.Assert(safe, gc.NotNil)
-	c.Assert(safe.WMode, gc.Equals, "majority")
+	c.Assert(safe, tc.NotNil)
+	c.Assert(safe.WMode, tc.Equals, "majority")
 	c.Assert(safe.J, jc.IsTrue) // always enabled
 }

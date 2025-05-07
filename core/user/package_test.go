@@ -6,20 +6,20 @@ package user
 import (
 	"testing"
 
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type ImportTest struct{}
 
-var _ = gc.Suite(&ImportTest{})
+var _ = tc.Suite(&ImportTest{})
 
-func (*ImportTest) TestImports(c *gc.C) {
+func (*ImportTest) TestImports(c *tc.C) {
 	// TODO (stickupkid): There is a circular dependency between the user
 	// package and the testing package, caused by the model package.
 	//

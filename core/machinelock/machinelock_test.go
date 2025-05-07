@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/juju/mutex/v2"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/paths"
@@ -36,9 +36,9 @@ type lockSuite struct {
 	release      chan struct{}
 }
 
-var _ = gc.Suite(&lockSuite{})
+var _ = tc.Suite(&lockSuite{})
 
-func (s *lockSuite) SetUpTest(c *gc.C) {
+func (s *lockSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.clock = &fakeClock{time.Date(2018, 7, 10, 12, 0, 0, 0, time.UTC)}
 
@@ -57,35 +57,35 @@ func (s *lockSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.lock = lock
 
-	s.AddCleanup(func(c *gc.C) {
+	s.AddCleanup(func(c *tc.C) {
 		// release all the pending goroutines
 		close(s.allowAcquire)
 	})
 }
 
-func (s *lockSuite) TestLogFilePermissions(c *gc.C) {
+func (s *lockSuite) TestLogFilePermissions(c *tc.C) {
 	info, err := os.Stat(s.logfile)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.Mode(), gc.Equals, paths.LogfilePermission)
+	c.Assert(info.Mode(), tc.Equals, paths.LogfilePermission)
 }
 
-func (s *lockSuite) TestEmptyOutput(c *gc.C) {
+func (s *lockSuite) TestEmptyOutput(c *tc.C) {
 	output, err := s.lock.Report()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(output, gc.Equals, `
+	c.Assert(output, tc.Equals, `
 test:
   holder: none
 `[1:])
 
 	output, err = s.lock.Report(machinelock.ShowDetailsYAML)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(output, gc.Equals, `
+	c.Assert(output, tc.Equals, `
 test:
   holder: null
 `[1:])
 }
 
-func (s *lockSuite) TestWaitingOutput(c *gc.C) {
+func (s *lockSuite) TestWaitingOutput(c *tc.C) {
 	s.addWaiting(c, "worker1", "being busy")
 	s.clock.Advance(time.Minute)
 	s.addWaiting(c, "worker", "")
@@ -93,7 +93,7 @@ func (s *lockSuite) TestWaitingOutput(c *gc.C) {
 
 	output, err := s.lock.Report()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(output, gc.Equals, `
+	c.Assert(output, tc.Equals, `
 test:
   holder: none
   waiting:
@@ -103,7 +103,7 @@ test:
 
 	output, err = s.lock.Report(machinelock.ShowDetailsYAML)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(output, gc.Equals, `
+	c.Assert(output, tc.Equals, `
 test:
   holder: null
   waiting:
@@ -117,20 +117,20 @@ test:
 `[1:])
 }
 
-func (s *lockSuite) TestHoldingOutput(c *gc.C) {
+func (s *lockSuite) TestHoldingOutput(c *tc.C) {
 	s.addAcquired(c, "machine-lock", "", "worker1", "being busy", 0)
 	s.clock.Advance(time.Minute * 2)
 
 	output, err := s.lock.Report()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(output, gc.Equals, `
+	c.Assert(output, tc.Equals, `
 test:
   holder: worker1 (being busy), holding 2m0s
 `[1:])
 
 	output, err = s.lock.Report(machinelock.ShowDetailsYAML)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(output, gc.Equals, `
+	c.Assert(output, tc.Equals, `
 test:
   holder:
     worker: worker1
@@ -142,19 +142,19 @@ test:
 
 }
 
-func (s *lockSuite) TestLockGroup(c *gc.C) {
+func (s *lockSuite) TestLockGroup(c *tc.C) {
 	s.addAcquired(c, "machine-lock-group", "group", "worker1", "being busy", 0)
 	s.clock.Advance(time.Minute * 2)
 
 	output, err := s.lock.Report()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(output, gc.Equals, `
+	c.Assert(output, tc.Equals, `
 test:
   holder: worker1 (being busy), holding 2m0s
 `[1:])
 }
 
-func (s *lockSuite) TestHistoryOutput(c *gc.C) {
+func (s *lockSuite) TestHistoryOutput(c *tc.C) {
 	short := 5 * time.Second
 	long := 2*time.Minute + short
 	s.addHistory(c, "uniter", "config-changed", "2018-07-21 15:36:01", time.Second, long)
@@ -164,14 +164,14 @@ func (s *lockSuite) TestHistoryOutput(c *gc.C) {
 
 	output, err := s.lock.Report()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(output, gc.Equals, `
+	c.Assert(output, tc.Equals, `
 test:
   holder: none
 `[1:])
 
 	output, err = s.lock.Report(machinelock.ShowHistory)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(output, gc.Equals, `
+	c.Assert(output, tc.Equals, `
 test:
   holder: none
   history:
@@ -183,7 +183,7 @@ test:
 
 	output, err = s.lock.Report(machinelock.ShowHistory, machinelock.ShowDetailsYAML)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(output, gc.Equals, `
+	c.Assert(output, tc.Equals, `
 test:
   holder: null
   history:
@@ -218,7 +218,7 @@ test:
 `[1:])
 }
 
-func (s *lockSuite) TestLogfileOutput(c *gc.C) {
+func (s *lockSuite) TestLogfileOutput(c *tc.C) {
 	short := 5 * time.Second
 	long := 2*time.Minute + short
 	s.addHistory(c, "uniter", "config-changed", "2018-07-21 15:36:01", time.Second, long)
@@ -229,7 +229,7 @@ func (s *lockSuite) TestLogfileOutput(c *gc.C) {
 	content, err := os.ReadFile(s.logfile)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(string(content), gc.Equals, `
+	c.Assert(string(content), tc.Equals, `
 2018-07-10 12:00:00 === agent test started ===
 2018-07-21 15:36:01 test: uniter (config-changed), waited 1s, held 2m5s
 2018-07-21 15:37:05 test: uniter (update-status), waited 1s, held 5s
@@ -238,7 +238,7 @@ func (s *lockSuite) TestLogfileOutput(c *gc.C) {
 `[1:])
 }
 
-func (s *lockSuite) addWaiting(c *gc.C, worker, comment string) {
+func (s *lockSuite) addWaiting(c *tc.C, worker, comment string) {
 	go func() {
 		_, err := s.lock.Acquire(machinelock.Spec{
 			Cancel:  make(chan struct{}),
@@ -255,7 +255,7 @@ func (s *lockSuite) addWaiting(c *gc.C, worker, comment string) {
 	}
 }
 
-func (s *lockSuite) addAcquired(c *gc.C, name, group, worker, comment string, wait time.Duration) func() {
+func (s *lockSuite) addAcquired(c *tc.C, name, group, worker, comment string, wait time.Duration) func() {
 	releaser := make(chan func())
 	go func() {
 		r, err := s.lock.Acquire(machinelock.Spec{
@@ -270,7 +270,7 @@ func (s *lockSuite) addAcquired(c *gc.C, name, group, worker, comment string, wa
 
 	select {
 	case got := <-s.notify:
-		c.Assert(got, gc.Equals, name)
+		c.Assert(got, tc.Equals, name)
 	case <-time.After(jujutesting.LongWait):
 		c.Fatal("lock acquire didn't happen")
 	}
@@ -290,7 +290,7 @@ func (s *lockSuite) addAcquired(c *gc.C, name, group, worker, comment string, wa
 }
 
 // This method needs the released time to be after the current suite clock time.
-func (s *lockSuite) addHistory(c *gc.C, worker, comment string, released string, waited, held time.Duration) {
+func (s *lockSuite) addHistory(c *tc.C, worker, comment string, released string, waited, held time.Duration) {
 	releasedTime, err := time.Parse("2006-01-02 15:04:05", released)
 	c.Assert(err, jc.ErrorIsNil)
 	// First, advance the lock to the request time.

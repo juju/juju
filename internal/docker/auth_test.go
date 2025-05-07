@@ -7,9 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/docker"
 )
@@ -18,7 +18,7 @@ type authSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&authSuite{})
+var _ = tc.Suite(&authSuite{})
 
 var (
 	ecrContent = `
@@ -40,7 +40,7 @@ var (
 `[1:]
 )
 
-func (s *authSuite) TestNewImageRepoDetailsReadFromFile(c *gc.C) {
+func (s *authSuite) TestNewImageRepoDetailsReadFromFile(c *tc.C) {
 	filename := "my-caas-image-repo-config.json"
 	dir := c.MkDir()
 	fullpath := filepath.Join(dir, filename)
@@ -57,7 +57,7 @@ func (s *authSuite) TestNewImageRepoDetailsReadFromFile(c *gc.C) {
 	})
 }
 
-func (s *authSuite) TestNewImageRepoDetailsReadFromContent(c *gc.C) {
+func (s *authSuite) TestNewImageRepoDetailsReadFromContent(c *tc.C) {
 	imageRepoDetails, err := docker.NewImageRepoDetails(quayContent)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(imageRepoDetails, jc.DeepEquals, docker.ImageRepoDetails{
@@ -84,7 +84,7 @@ func (s *authSuite) TestNewImageRepoDetailsReadFromContent(c *gc.C) {
 	})
 }
 
-func (s *authSuite) TestNewImageRepoDetailsReadDefaultServerAddress(c *gc.C) {
+func (s *authSuite) TestNewImageRepoDetailsReadDefaultServerAddress(c *tc.C) {
 	data := `
 {
     "auth": "xxxxx==",
@@ -101,17 +101,17 @@ func (s *authSuite) TestNewImageRepoDetailsReadDefaultServerAddress(c *gc.C) {
 	})
 }
 
-func (s *authSuite) TestValidateImageRepoDetails(c *gc.C) {
+func (s *authSuite) TestValidateImageRepoDetails(c *tc.C) {
 	imageRepoDetails := docker.ImageRepoDetails{}
-	c.Assert(imageRepoDetails.Validate(), gc.ErrorMatches, `empty repository not valid`)
+	c.Assert(imageRepoDetails.Validate(), tc.ErrorMatches, `empty repository not valid`)
 
 	imageRepoDetails = docker.ImageRepoDetails{
 		Repository: "bad repo",
 	}
-	c.Assert(imageRepoDetails.Validate(), gc.ErrorMatches, `docker image path "bad repo": invalid reference format`)
+	c.Assert(imageRepoDetails.Validate(), tc.ErrorMatches, `docker image path "bad repo": invalid reference format`)
 }
 
-func (s *authSuite) TestSecretData(c *gc.C) {
+func (s *authSuite) TestSecretData(c *tc.C) {
 	imageRepoDetails := docker.ImageRepoDetails{
 		Repository:    "quay.io/test-account",
 		ServerAddress: "quay.io",
@@ -132,7 +132,7 @@ func (s *authSuite) TestSecretData(c *gc.C) {
 	c.Assert(len(data), jc.DeepEquals, 0)
 }
 
-func (s *authSuite) TestIsPrivate(c *gc.C) {
+func (s *authSuite) TestIsPrivate(c *tc.C) {
 	imageRepoDetails := docker.ImageRepoDetails{
 		Repository:    "test-account",
 		ServerAddress: "quay.io",
@@ -149,7 +149,7 @@ func (s *authSuite) TestIsPrivate(c *gc.C) {
 	c.Assert(imageRepoDetails.IsPrivate(), jc.DeepEquals, false)
 }
 
-func (s *authSuite) TestAuthEqual(c *gc.C) {
+func (s *authSuite) TestAuthEqual(c *tc.C) {
 	imageRepoDetails := docker.ImageRepoDetails{
 		Repository:    "test-account",
 		ServerAddress: "quay.io",
@@ -175,7 +175,7 @@ func (s *authSuite) TestAuthEqual(c *gc.C) {
 	c.Assert(imageRepoDetails.AuthEqual(imageRepoDetails3), jc.DeepEquals, false)
 }
 
-func (s *authSuite) TestTokenAuthConfigEmpty(c *gc.C) {
+func (s *authSuite) TestTokenAuthConfigEmpty(c *tc.C) {
 	cfg := docker.TokenAuthConfig{}
 	c.Assert(cfg.Empty(), jc.DeepEquals, true)
 
@@ -185,7 +185,7 @@ func (s *authSuite) TestTokenAuthConfigEmpty(c *gc.C) {
 	c.Assert(cfg.Empty(), jc.DeepEquals, false)
 }
 
-func (s *authSuite) TestBasicAuthConfigEmpty(c *gc.C) {
+func (s *authSuite) TestBasicAuthConfigEmpty(c *tc.C) {
 	cfg := docker.BasicAuthConfig{}
 	c.Assert(cfg.Empty(), jc.DeepEquals, true)
 
@@ -203,9 +203,9 @@ func (s *authSuite) TestBasicAuthConfigEmpty(c *gc.C) {
 	c.Assert(cfg.Empty(), jc.DeepEquals, false)
 }
 
-func (s *authSuite) TestToken(c *gc.C) {
+func (s *authSuite) TestToken(c *tc.C) {
 	token := docker.NewToken("xxxx==")
-	c.Assert(token, gc.DeepEquals, &docker.Token{Value: "xxxx=="})
+	c.Assert(token, tc.DeepEquals, &docker.Token{Value: "xxxx=="})
 	c.Assert(token.String(), jc.DeepEquals, `******`)
 	c.Assert(token.Content(), jc.DeepEquals, `xxxx==`)
 	c.Assert(token.Empty(), jc.IsFalse)
@@ -218,5 +218,5 @@ func (s *authSuite) TestToken(c *gc.C) {
 
 	token = docker.NewToken("")
 	c.Assert(token.Empty(), jc.IsTrue)
-	c.Assert(token, gc.IsNil)
+	c.Assert(token, tc.IsNil)
 }

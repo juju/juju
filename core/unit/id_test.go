@@ -4,9 +4,9 @@
 package unit
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -16,9 +16,9 @@ type unitSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&unitSuite{})
+var _ = tc.Suite(&unitSuite{})
 
-func (*unitSuite) TestUUIDValidate(c *gc.C) {
+func (*unitSuite) TestUUIDValidate(c *tc.C) {
 	tests := []struct {
 		uuid string
 		err  error
@@ -41,7 +41,7 @@ func (*unitSuite) TestUUIDValidate(c *gc.C) {
 		err := UUID(test.uuid).Validate()
 
 		if test.err == nil {
-			c.Check(err, gc.IsNil)
+			c.Check(err, tc.IsNil)
 			continue
 		}
 
@@ -49,7 +49,7 @@ func (*unitSuite) TestUUIDValidate(c *gc.C) {
 	}
 }
 
-func (*unitSuite) TestParseUUID(c *gc.C) {
+func (*unitSuite) TestParseUUID(c *tc.C) {
 	tests := []struct {
 		uuid string
 		err  error
@@ -72,8 +72,8 @@ func (*unitSuite) TestParseUUID(c *gc.C) {
 		id, err := ParseID(test.uuid)
 
 		if test.err == nil {
-			if c.Check(err, gc.IsNil) {
-				c.Check(id.String(), gc.Equals, test.uuid)
+			if c.Check(err, tc.IsNil) {
+				c.Check(id.String(), tc.Equals, test.uuid)
 			}
 			continue
 		}

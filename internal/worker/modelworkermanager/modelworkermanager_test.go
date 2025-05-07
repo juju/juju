@@ -10,13 +10,13 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/controller"
@@ -34,7 +34,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var _ = gc.Suite(&suite{})
+var _ = tc.Suite(&suite{})
 
 type suite struct {
 	testing.IsolationSuite
@@ -50,7 +50,7 @@ type suite struct {
 	leaseManager         *MockManager
 }
 
-func (s *suite) SetUpTest(c *gc.C) {
+func (s *suite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	authority, err := pkitest.NewTestAuthority()
@@ -62,7 +62,7 @@ func (s *suite) SetUpTest(c *gc.C) {
 	s.providerServicesGetter = providerServicesGetter{}
 }
 
-func (s *suite) TestStartEmpty(c *gc.C) {
+func (s *suite) TestStartEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	changes := make(chan []string, 1)
 	watcher := watchertest.NewMockStringsWatcher(changes)
@@ -75,7 +75,7 @@ func (s *suite) TestStartEmpty(c *gc.C) {
 	})
 }
 
-func (s *suite) TestStartsInitialWorker(c *gc.C) {
+func (s *suite) TestStartsInitialWorker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	changes := make(chan []string, 1)
@@ -106,7 +106,7 @@ func (s *suite) TestStartsInitialWorker(c *gc.C) {
 	})
 }
 
-func (s *suite) TestStartsLaterWorker(c *gc.C) {
+func (s *suite) TestStartsLaterWorker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	changes := make(chan []string, 2)
@@ -142,7 +142,7 @@ func (s *suite) TestStartsLaterWorker(c *gc.C) {
 	})
 }
 
-func (s *suite) TestStartsMultiple(c *gc.C) {
+func (s *suite) TestStartsMultiple(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	changes := make(chan []string, 1)
@@ -173,7 +173,7 @@ func (s *suite) TestStartsMultiple(c *gc.C) {
 	})
 }
 
-func (s *suite) TestIgnoresRepetition(c *gc.C) {
+func (s *suite) TestIgnoresRepetition(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	changes := make(chan []string, 1)
@@ -209,7 +209,7 @@ func (s *suite) TestIgnoresRepetition(c *gc.C) {
 	})
 }
 
-func (s *suite) TestRestartsErrorWorker(c *gc.C) {
+func (s *suite) TestRestartsErrorWorker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	changes := make(chan []string, 1)
@@ -239,7 +239,7 @@ func (s *suite) TestRestartsErrorWorker(c *gc.C) {
 	})
 }
 
-func (s *suite) TestRestartsFinishedWorker(c *gc.C) {
+func (s *suite) TestRestartsFinishedWorker(c *tc.C) {
 	// It must be possible to restart the workers for a model due to
 	// model migrations: a model can be migrated away from a
 	// controller and then migrated back later.
@@ -277,7 +277,7 @@ func (s *suite) TestRestartsFinishedWorker(c *gc.C) {
 	})
 }
 
-func (s *suite) TestKillsManagers(c *gc.C) {
+func (s *suite) TestKillsManagers(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	changes := make(chan []string, 1)
@@ -314,7 +314,7 @@ func (s *suite) TestKillsManagers(c *gc.C) {
 	})
 }
 
-func (s *suite) TestClosedChangesChannel(c *gc.C) {
+func (s *suite) TestClosedChangesChannel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	changes := make(chan []string, 1)
@@ -344,7 +344,7 @@ func (s *suite) TestClosedChangesChannel(c *gc.C) {
 
 		close(changes)
 		err := workertest.CheckKilled(c, w)
-		c.Check(err, gc.ErrorMatches, "changes stopped")
+		c.Check(err, tc.ErrorMatches, "changes stopped")
 		for _, worker := range workers {
 			workertest.CheckKilled(c, worker)
 		}
@@ -352,7 +352,7 @@ func (s *suite) TestClosedChangesChannel(c *gc.C) {
 	})
 }
 
-func (s *suite) TestReport(c *gc.C) {
+func (s *suite) TestReport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	changes := make(chan []string, 1)
@@ -377,28 +377,28 @@ func (s *suite) TestReport(c *gc.C) {
 		reporter, ok := w.(worker.Reporter)
 		c.Assert(ok, jc.IsTrue)
 		report := reporter.Report()
-		c.Assert(report, gc.NotNil)
+		c.Assert(report, tc.NotNil)
 		// TODO: pass a clock through in the worker config so it can be passed
 		// to the worker.Runner used in the model to control time.
 		// For now, we just look at the started state.
 		workers := report["workers"].(map[string]any)
 		modelWorker := workers[activatedModelUUID1.String()].(map[string]any)
-		c.Assert(modelWorker["state"], gc.Equals, "started")
+		c.Assert(modelWorker["state"], tc.Equals, "started")
 	})
 }
 
 type testFunc func(worker.Worker)
-type killFunc func(*gc.C, worker.Worker)
+type killFunc func(*tc.C, worker.Worker)
 
-func (s *suite) runTest(c *gc.C, test testFunc) {
+func (s *suite) runTest(c *tc.C, test testFunc) {
 	s.runKillTest(c, workertest.CleanKill, test)
 }
 
-func (s *suite) runDirtyTest(c *gc.C, test testFunc) {
+func (s *suite) runDirtyTest(c *tc.C, test testFunc) {
 	s.runKillTest(c, workertest.DirtyKill, test)
 }
 
-func (s *suite) runKillTest(c *gc.C, kill killFunc, test testFunc) {
+func (s *suite) runKillTest(c *tc.C, kill killFunc, test testFunc) {
 	config := modelworkermanager.Config{
 		Authority:              s.authority,
 		Logger:                 loggertesting.WrapCheckLog(c),
@@ -421,7 +421,7 @@ func (s *suite) runKillTest(c *gc.C, kill killFunc, test testFunc) {
 	test(w)
 }
 
-func (s *suite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *suite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.domainServicesGetter = NewMockDomainServicesGetter(ctrl)
@@ -488,18 +488,18 @@ func (s *suite) startModelWorker(config modelworkermanager.NewModelConfig) (work
 	return worker, nil
 }
 
-func (s *suite) assertStarts(c *gc.C, expect ...string) {
+func (s *suite) assertStarts(c *tc.C, expect ...string) {
 	count := len(expect)
 	actual := make([]string, count)
 	workers := s.waitWorkers(c, count)
 	for i, worker := range workers {
 		actual[i] = worker.config.ModelUUID
-		c.Assert(worker.config.ModelType, gc.Equals, coremodel.IAAS)
+		c.Assert(worker.config.ModelType, tc.Equals, coremodel.IAAS)
 	}
 	c.Assert(actual, jc.SameContents, expect)
 }
 
-func (s *suite) waitWorkers(c *gc.C, expectedCount int) []*mockWorker {
+func (s *suite) waitWorkers(c *tc.C, expectedCount int) []*mockWorker {
 	if expectedCount < 1 {
 		c.Fatal("expectedCount must be >= 1")
 	}
@@ -518,7 +518,7 @@ func (s *suite) waitWorkers(c *gc.C, expectedCount int) []*mockWorker {
 	}
 }
 
-func (s *suite) assertNoWorkers(c *gc.C) {
+func (s *suite) assertNoWorkers(c *tc.C) {
 	select {
 	case worker := <-s.workerC:
 		c.Fatalf("saw unexpected worker: %s", worker.config.ModelUUID)

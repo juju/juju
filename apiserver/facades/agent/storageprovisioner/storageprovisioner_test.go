@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner"
@@ -33,11 +33,11 @@ type provisionerSuite struct {
 	storageBackend storageprovisioner.StorageBackend
 }
 
-func (s *provisionerSuite) SetUpTest(c *gc.C) {
+func (s *provisionerSuite) SetUpTest(c *tc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 }
 
-func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *gc.C) {
+func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *tc.C) {
 	tag := names.NewUnitTag("mysql/0")
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: tag}
 	backend, storageBackend, err := storageprovisioner.NewStateBackends(s.st)
@@ -61,17 +61,17 @@ func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *gc.C) {
 		modelInfo.UUID,
 		testing.ControllerTag.Id(),
 	)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *provisionerSuite) TestVolumesEmptyArgs(c *gc.C) {
+func (s *provisionerSuite) TestVolumesEmptyArgs(c *tc.C) {
 	results, err := s.api.Volumes(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 0)
+	c.Assert(results.Results, tc.HasLen, 0)
 }
 
-func (s *provisionerSuite) TestVolumeParamsEmptyArgs(c *gc.C) {
+func (s *provisionerSuite) TestVolumeParamsEmptyArgs(c *tc.C) {
 	results, err := s.api.VolumeParams(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 0)
+	c.Assert(results.Results, tc.HasLen, 0)
 }

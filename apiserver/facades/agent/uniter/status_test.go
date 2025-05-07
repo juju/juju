@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/status"
@@ -26,11 +26,11 @@ type statusBaseSuite struct {
 	api           *StatusAPI
 }
 
-func (s *statusBaseSuite) SetUpTest(c *gc.C) {
+func (s *statusBaseSuite) SetUpTest(c *tc.C) {
 	s.badTag = nil
 }
 
-func (s *statusBaseSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *statusBaseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.statusService = NewMockStatusService(ctrl)
 
@@ -54,9 +54,9 @@ type ApplicationStatusAPISuite struct {
 	statusBaseSuite
 }
 
-var _ = gc.Suite(&ApplicationStatusAPISuite{})
+var _ = tc.Suite(&ApplicationStatusAPISuite{})
 
-func (s *ApplicationStatusAPISuite) TestSetApplicationStatusUnauthorised(c *gc.C) {
+func (s *ApplicationStatusAPISuite) TestSetApplicationStatusUnauthorised(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag := names.NewUnitTag("foo/0")
@@ -65,22 +65,22 @@ func (s *ApplicationStatusAPISuite) TestSetApplicationStatusUnauthorised(c *gc.C
 		Entities: []params.EntityStatusArgs{{Tag: tag.String()}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Results, gc.HasLen, 1)
+	c.Check(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *ApplicationStatusAPISuite) TestSetApplicationStatusNotATag(c *gc.C) {
+func (s *ApplicationStatusAPISuite) TestSetApplicationStatusNotATag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	result, err := s.api.SetApplicationStatus(context.Background(), params.SetStatus{
 		Entities: []params.EntityStatusArgs{{Tag: "not a tag"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Results, gc.HasLen, 1)
-	c.Check(result.Results[0].Error, gc.ErrorMatches, `"not a tag" is not a valid tag`)
+	c.Check(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.ErrorMatches, `"not a tag" is not a valid tag`)
 }
 
-func (s *ApplicationStatusAPISuite) TestSetApplicationStatusNotFound(c *gc.C) {
+func (s *ApplicationStatusAPISuite) TestSetApplicationStatusNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag := names.NewUnitTag("foo/0")
@@ -100,11 +100,11 @@ func (s *ApplicationStatusAPISuite) TestSetApplicationStatusNotFound(c *gc.C) {
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Results, gc.HasLen, 1)
+	c.Check(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
 }
 
-func (s *ApplicationStatusAPISuite) TestSetApplicationStatusMachineTag(c *gc.C) {
+func (s *ApplicationStatusAPISuite) TestSetApplicationStatusMachineTag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	machineTag := names.NewMachineTag("42")
@@ -115,12 +115,12 @@ func (s *ApplicationStatusAPISuite) TestSetApplicationStatusMachineTag(c *gc.C) 
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Results, gc.HasLen, 1)
+	c.Check(result.Results, tc.HasLen, 1)
 	// Can't call set application status on a machine.
-	c.Check(result.Results[0].Error, gc.ErrorMatches, ".*is not a valid unit tag.*")
+	c.Check(result.Results[0].Error, tc.ErrorMatches, ".*is not a valid unit tag.*")
 }
 
-func (s *ApplicationStatusAPISuite) TestSetApplicationStatusApplicationTag(c *gc.C) {
+func (s *ApplicationStatusAPISuite) TestSetApplicationStatusApplicationTag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appTag := names.NewApplicationTag("foo")
@@ -131,12 +131,12 @@ func (s *ApplicationStatusAPISuite) TestSetApplicationStatusApplicationTag(c *gc
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Results, gc.HasLen, 1)
+	c.Check(result.Results, tc.HasLen, 1)
 	// Can't call set application status on an application.
-	c.Check(result.Results[0].Error, gc.ErrorMatches, ".*is not a valid unit tag.*")
+	c.Check(result.Results[0].Error, tc.ErrorMatches, ".*is not a valid unit tag.*")
 }
 
-func (s *ApplicationStatusAPISuite) TestSetApplicationStatusUnitNotLeader(c *gc.C) {
+func (s *ApplicationStatusAPISuite) TestSetApplicationStatusUnitNotLeader(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag := names.NewUnitTag("foo/0")
@@ -156,11 +156,11 @@ func (s *ApplicationStatusAPISuite) TestSetApplicationStatusUnitNotLeader(c *gc.
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Results, gc.HasLen, 1)
+	c.Check(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *ApplicationStatusAPISuite) TestSetApplicationStatus(c *gc.C) {
+func (s *ApplicationStatusAPISuite) TestSetApplicationStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag := names.NewUnitTag("foo/0")
@@ -180,11 +180,11 @@ func (s *ApplicationStatusAPISuite) TestSetApplicationStatus(c *gc.C) {
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Results, gc.HasLen, 1)
-	c.Check(result.Results[0].Error, gc.IsNil)
+	c.Check(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.IsNil)
 }
 
-func (s *ApplicationStatusAPISuite) TestApplicationStatusUnauthorised(c *gc.C) {
+func (s *ApplicationStatusAPISuite) TestApplicationStatusUnauthorised(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag := names.NewUnitTag("foo/0")
@@ -193,22 +193,22 @@ func (s *ApplicationStatusAPISuite) TestApplicationStatusUnauthorised(c *gc.C) {
 		Tag: tag.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Results, gc.HasLen, 1)
+	c.Check(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *ApplicationStatusAPISuite) TesApplicationStatustNotATag(c *gc.C) {
+func (s *ApplicationStatusAPISuite) TesApplicationStatustNotATag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: "not a tag",
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Results, gc.HasLen, 1)
-	c.Check(result.Results[0].Error, gc.ErrorMatches, `"not a tag" is not a valid tag`)
+	c.Check(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.ErrorMatches, `"not a tag" is not a valid tag`)
 }
 
-func (s *ApplicationStatusAPISuite) TesApplicationStatustNotFound(c *gc.C) {
+func (s *ApplicationStatusAPISuite) TesApplicationStatustNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.statusService.EXPECT().GetApplicationAndUnitStatusesForUnitWithLeader(gomock.Any(), coreunit.Name("foo/0")).Return(status.StatusInfo{}, nil, statuserrors.ApplicationNotFound)
@@ -217,11 +217,11 @@ func (s *ApplicationStatusAPISuite) TesApplicationStatustNotFound(c *gc.C) {
 		Tag: names.NewUnitTag("foo/0").String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Results, gc.HasLen, 1)
+	c.Check(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
 }
 
-func (s *ApplicationStatusAPISuite) TestApplicationStatusMachineTag(c *gc.C) {
+func (s *ApplicationStatusAPISuite) TestApplicationStatusMachineTag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	machineTag := names.NewMachineTag("42")
@@ -230,12 +230,12 @@ func (s *ApplicationStatusAPISuite) TestApplicationStatusMachineTag(c *gc.C) {
 		Tag: machineTag.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Results, gc.HasLen, 1)
+	c.Check(result.Results, tc.HasLen, 1)
 	// Can't call application status on a machine.
-	c.Check(result.Results[0].Error, gc.ErrorMatches, ".*is not a valid unit tag.*")
+	c.Check(result.Results[0].Error, tc.ErrorMatches, ".*is not a valid unit tag.*")
 }
 
-func (s *ApplicationStatusAPISuite) TestApplicationStatusApplicationTag(c *gc.C) {
+func (s *ApplicationStatusAPISuite) TestApplicationStatusApplicationTag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appTag := names.NewApplicationTag("foo")
@@ -244,12 +244,12 @@ func (s *ApplicationStatusAPISuite) TestApplicationStatusApplicationTag(c *gc.C)
 		Tag: appTag.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Results, gc.HasLen, 1)
+	c.Check(result.Results, tc.HasLen, 1)
 	// Can't call unit status on an application.
-	c.Check(result.Results[0].Error, gc.ErrorMatches, ".*is not a valid unit tag.*")
+	c.Check(result.Results[0].Error, tc.ErrorMatches, ".*is not a valid unit tag.*")
 }
 
-func (s *ApplicationStatusAPISuite) TestApplicationStatusUnitNotLeader(c *gc.C) {
+func (s *ApplicationStatusAPISuite) TestApplicationStatusUnitNotLeader(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitTag := names.NewUnitTag("foo/0")
@@ -260,11 +260,11 @@ func (s *ApplicationStatusAPISuite) TestApplicationStatusUnitNotLeader(c *gc.C) 
 		Tag: unitTag.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Results, gc.HasLen, 1)
+	c.Check(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *ApplicationStatusAPISuite) TestApplicationStatus(c *gc.C) {
+func (s *ApplicationStatusAPISuite) TestApplicationStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.statusService.EXPECT().GetApplicationAndUnitStatusesForUnitWithLeader(gomock.Any(), coreunit.Name("foo/3")).Return(
@@ -282,20 +282,20 @@ func (s *ApplicationStatusAPISuite) TestApplicationStatus(c *gc.C) {
 		Tag: unitTag.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Results, gc.HasLen, 1)
+	c.Check(result.Results, tc.HasLen, 1)
 	r := result.Results[0]
-	c.Check(r.Error, gc.IsNil)
-	c.Check(r.Application.Error, gc.IsNil)
-	c.Check(r.Application.Status, gc.Equals, status.Maintenance.String())
+	c.Check(r.Error, tc.IsNil)
+	c.Check(r.Application.Error, tc.IsNil)
+	c.Check(r.Application.Status, tc.Equals, status.Maintenance.String())
 	units := r.Units
-	c.Check(units, gc.HasLen, 1)
+	c.Check(units, tc.HasLen, 1)
 	unitStatus, ok := units["foo/0"]
 	c.Check(ok, jc.IsTrue)
-	c.Check(unitStatus.Error, gc.IsNil)
-	c.Check(unitStatus.Status, gc.Equals, status.Maintenance.String())
+	c.Check(unitStatus.Error, tc.IsNil)
+	c.Check(unitStatus.Status, tc.Equals, status.Maintenance.String())
 }
 
-func (s *ApplicationStatusAPISuite) TestApplicationStatusBulk(c *gc.C) {
+func (s *ApplicationStatusAPISuite) TestApplicationStatusBulk(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.badTag = names.NewUnitTag("foo/42")
@@ -305,18 +305,18 @@ func (s *ApplicationStatusAPISuite) TestApplicationStatusBulk(c *gc.C) {
 		Tag: "bad-tag",
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Results, gc.HasLen, 2)
+	c.Check(result.Results, tc.HasLen, 2)
 	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
-	c.Check(result.Results[1].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
+	c.Check(result.Results[1].Error, tc.ErrorMatches, `"bad-tag" is not a valid tag`)
 }
 
 type UnitStatusAPISuite struct {
 	statusBaseSuite
 }
 
-var _ = gc.Suite(&UnitStatusAPISuite{})
+var _ = tc.Suite(&UnitStatusAPISuite{})
 
-func (s *UnitStatusAPISuite) TestSetUnitStatusUnauthorised(c *gc.C) {
+func (s *UnitStatusAPISuite) TestSetUnitStatusUnauthorised(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag := names.NewUnitTag("foo/0")
@@ -326,11 +326,11 @@ func (s *UnitStatusAPISuite) TestSetUnitStatusUnauthorised(c *gc.C) {
 		Status: status.Active.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Results, gc.HasLen, 1)
+	c.Check(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *UnitStatusAPISuite) TestSetUnitStatusNotATag(c *gc.C) {
+func (s *UnitStatusAPISuite) TestSetUnitStatusNotATag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	result, err := s.api.SetUnitStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
@@ -338,11 +338,11 @@ func (s *UnitStatusAPISuite) TestSetUnitStatusNotATag(c *gc.C) {
 		Status: status.Active.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Results, gc.HasLen, 1)
-	c.Check(result.Results[0].Error, gc.ErrorMatches, `"not a tag" is not a valid tag`)
+	c.Check(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.ErrorMatches, `"not a tag" is not a valid tag`)
 }
 
-func (s *UnitStatusAPISuite) TestSetUnitStatusNotAUnitTag(c *gc.C) {
+func (s *UnitStatusAPISuite) TestSetUnitStatusNotAUnitTag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag := names.NewMachineTag("42")
@@ -352,11 +352,11 @@ func (s *UnitStatusAPISuite) TestSetUnitStatusNotAUnitTag(c *gc.C) {
 		Status: status.Active.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Results, gc.HasLen, 1)
-	c.Check(result.Results[0].Error, gc.ErrorMatches, `"machine-42" is not a valid unit tag`)
+	c.Check(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.ErrorMatches, `"machine-42" is not a valid unit tag`)
 }
 
-func (s *UnitStatusAPISuite) TestSetUnitStatusUnitNotFound(c *gc.C) {
+func (s *UnitStatusAPISuite) TestSetUnitStatusUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag := names.NewUnitTag("ubuntu/42")
@@ -368,11 +368,11 @@ func (s *UnitStatusAPISuite) TestSetUnitStatusUnitNotFound(c *gc.C) {
 		Status: status.Active.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Results, gc.HasLen, 1)
+	c.Check(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
 }
 
-func (s *UnitStatusAPISuite) TestSetUnitStatus(c *gc.C) {
+func (s *UnitStatusAPISuite) TestSetUnitStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag := names.NewUnitTag("ubuntu/42")
@@ -397,11 +397,11 @@ func (s *UnitStatusAPISuite) TestSetUnitStatus(c *gc.C) {
 		},
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Results, gc.HasLen, 1)
-	c.Check(result.Results[0].Error, gc.IsNil)
+	c.Check(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.IsNil)
 }
 
-func (s *UnitStatusAPISuite) TestUnitStatusUnauthorised(c *gc.C) {
+func (s *UnitStatusAPISuite) TestUnitStatusUnauthorised(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag := names.NewUnitTag("foo/0")
@@ -410,22 +410,22 @@ func (s *UnitStatusAPISuite) TestUnitStatusUnauthorised(c *gc.C) {
 		Tag: tag.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Results, gc.HasLen, 1)
+	c.Check(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *UnitStatusAPISuite) TestUnitStatusNotATag(c *gc.C) {
+func (s *UnitStatusAPISuite) TestUnitStatusNotATag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	result, err := s.api.UnitStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: "not a tag",
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Results, gc.HasLen, 1)
-	c.Check(result.Results[0].Error, gc.ErrorMatches, `"not a tag" is not a valid tag`)
+	c.Check(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.ErrorMatches, `"not a tag" is not a valid tag`)
 }
 
-func (s *UnitStatusAPISuite) TestUnitStatusNotAUnitTag(c *gc.C) {
+func (s *UnitStatusAPISuite) TestUnitStatusNotAUnitTag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag := names.NewMachineTag("42")
@@ -434,11 +434,11 @@ func (s *UnitStatusAPISuite) TestUnitStatusNotAUnitTag(c *gc.C) {
 		Tag: tag.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Results, gc.HasLen, 1)
-	c.Check(result.Results[0].Error, gc.ErrorMatches, `"machine-42" is not a valid unit tag`)
+	c.Check(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.ErrorMatches, `"machine-42" is not a valid unit tag`)
 }
 
-func (s *UnitStatusAPISuite) TestUnitStatusUnitNotFound(c *gc.C) {
+func (s *UnitStatusAPISuite) TestUnitStatusUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag := names.NewUnitTag("ubuntu/42")
@@ -449,11 +449,11 @@ func (s *UnitStatusAPISuite) TestUnitStatusUnitNotFound(c *gc.C) {
 		Tag: tag.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Results, gc.HasLen, 1)
+	c.Check(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
 }
 
-func (s *UnitStatusAPISuite) TestUnitStatus(c *gc.C) {
+func (s *UnitStatusAPISuite) TestUnitStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag := names.NewUnitTag("ubuntu/42")
@@ -473,12 +473,12 @@ func (s *UnitStatusAPISuite) TestUnitStatus(c *gc.C) {
 		Tag: tag.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Results, gc.HasLen, 1)
-	c.Check(result.Results[0].Error, gc.IsNil)
-	c.Check(result.Results[0].Status, gc.Equals, status.Active.String())
-	c.Check(result.Results[0].Info, gc.Equals, "msg")
-	c.Check(result.Results[0].Data, gc.DeepEquals, map[string]any{
+	c.Check(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.IsNil)
+	c.Check(result.Results[0].Status, tc.Equals, status.Active.String())
+	c.Check(result.Results[0].Info, tc.Equals, "msg")
+	c.Check(result.Results[0].Data, tc.DeepEquals, map[string]any{
 		"key": "value",
 	})
-	c.Check(result.Results[0].Since, gc.DeepEquals, &s.now)
+	c.Check(result.Results[0].Since, tc.DeepEquals, &s.now)
 }

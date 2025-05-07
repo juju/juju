@@ -4,8 +4,8 @@
 package action_test
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
 )
 
 type baseSuite struct {
@@ -16,9 +16,9 @@ type actionSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&actionSuite{})
+var _ = tc.Suite(&actionSuite{})
 
-func (s *actionSuite) TestStub(c *gc.C) {
+func (s *actionSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - Enqueueing an action against multiple units, verifying persisted receivers/params/status etc.
 - Enqueueing actions and cancelling a subset, verifying actions in the cancelled state.

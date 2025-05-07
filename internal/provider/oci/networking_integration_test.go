@@ -6,9 +6,9 @@ package oci_test
 import (
 	"context"
 
+	"github.com/juju/tc"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -18,9 +18,9 @@ type networkingSuite struct {
 	commonSuite
 }
 
-var _ = gc.Suite(&networkingSuite{})
+var _ = tc.Suite(&networkingSuite{})
 
-func (s *networkingSuite) SetUpTest(c *gc.C) {
+func (s *networkingSuite) SetUpTest(c *tc.C) {
 	s.commonSuite.SetUpTest(c)
 }
 
@@ -131,7 +131,7 @@ func (s *networkingSuite) setupListSubnetsExpectations() {
 	s.netw.EXPECT().ListSubnets(context.Background(), &s.testCompartment, &vcnID).Return(subnetResponse, nil).Times(2)
 }
 
-func (s *networkingSuite) TestNetworkInterfaces(c *gc.C) {
+func (s *networkingSuite) TestNetworkInterfaces(c *tc.C) {
 	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
@@ -141,25 +141,25 @@ func (s *networkingSuite) TestNetworkInterfaces(c *gc.C) {
 	s.setupNetworkInterfacesExpectations(vnicID, vcnID)
 
 	infoList, err := s.env.NetworkInterfaces(context.Background(), []instance.Id{instance.Id(s.testInstanceID)})
-	c.Assert(err, gc.IsNil)
-	c.Assert(infoList, gc.HasLen, 1)
+	c.Assert(err, tc.IsNil)
+	c.Assert(infoList, tc.HasLen, 1)
 	info := infoList[0]
 
-	c.Assert(info, gc.HasLen, 1)
-	c.Assert(info[0].Addresses, gc.DeepEquals, network.ProviderAddresses{
+	c.Assert(info, tc.HasLen, 1)
+	c.Assert(info[0].Addresses, tc.DeepEquals, network.ProviderAddresses{
 		network.NewMachineAddress(
 			"1.1.1.1", network.WithScope(network.ScopeCloudLocal), network.WithCIDR("1.0.0.0/8"),
 		).AsProviderAddress()})
-	c.Assert(info[0].ShadowAddresses, gc.DeepEquals, network.ProviderAddresses{
+	c.Assert(info[0].ShadowAddresses, tc.DeepEquals, network.ProviderAddresses{
 		network.NewMachineAddress("2.2.2.2", network.WithScope(network.ScopePublic)).AsProviderAddress()})
-	c.Assert(info[0].DeviceIndex, gc.Equals, 0)
-	c.Assert(info[0].ProviderId, gc.Equals, network.Id(vnicID))
-	c.Assert(info[0].MACAddress, gc.Equals, "aa:aa:aa:aa:aa:aa")
-	c.Assert(info[0].InterfaceType, gc.Equals, network.EthernetDevice)
-	c.Assert(info[0].ProviderSubnetId, gc.Equals, network.Id("fakeSubnetId"))
+	c.Assert(info[0].DeviceIndex, tc.Equals, 0)
+	c.Assert(info[0].ProviderId, tc.Equals, network.Id(vnicID))
+	c.Assert(info[0].MACAddress, tc.Equals, "aa:aa:aa:aa:aa:aa")
+	c.Assert(info[0].InterfaceType, tc.Equals, network.EthernetDevice)
+	c.Assert(info[0].ProviderSubnetId, tc.Equals, network.Id("fakeSubnetId"))
 }
 
-func (s *networkingSuite) TestSubnets(c *gc.C) {
+func (s *networkingSuite) TestSubnets(c *tc.C) {
 	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
@@ -169,11 +169,11 @@ func (s *networkingSuite) TestSubnets(c *gc.C) {
 		network.Id("fakeSubnetId"),
 	}
 	info, err := s.env.Subnets(context.Background(), lookFor)
-	c.Assert(err, gc.IsNil)
-	c.Assert(info, gc.HasLen, 1)
-	c.Assert(info[0].CIDR, gc.Equals, "1.0.0.0/8")
+	c.Assert(err, tc.IsNil)
+	c.Assert(info, tc.HasLen, 1)
+	c.Assert(info[0].CIDR, tc.Equals, "1.0.0.0/8")
 
 	lookFor = []network.Id{"IDontExist"}
 	_, err = s.env.Subnets(context.Background(), lookFor)
-	c.Check(err, gc.ErrorMatches, "failed to find the following subnet ids:.*IDontExist.*")
+	c.Check(err, tc.ErrorMatches, "failed to find the following subnet ids:.*IDontExist.*")
 }

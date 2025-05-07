@@ -6,15 +6,15 @@ package state
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coremachine "github.com/juju/juju/core/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
-func (s *stateSuite) TestIsMachineRebootRequiredNoMachine(c *gc.C) {
+func (s *stateSuite) TestIsMachineRebootRequiredNoMachine(c *tc.C) {
 	// Setup: No machine with this uuid
 
 	// Call the function under test
@@ -26,7 +26,7 @@ func (s *stateSuite) TestIsMachineRebootRequiredNoMachine(c *gc.C) {
 	c.Assert(isRebootNeeded, jc.IsFalse)
 }
 
-func (s *stateSuite) TestRequireMachineReboot(c *gc.C) {
+func (s *stateSuite) TestRequireMachineReboot(c *tc.C) {
 	// Setup: Create a machine with a given ID
 	err := s.state.CreateMachine(context.Background(), "", "", "u-u-i-d")
 	c.Assert(err, jc.ErrorIsNil)
@@ -41,7 +41,7 @@ func (s *stateSuite) TestRequireMachineReboot(c *gc.C) {
 	c.Assert(isRebootNeeded, jc.IsTrue)
 }
 
-func (s *stateSuite) TestRequireMachineRebootIdempotent(c *gc.C) {
+func (s *stateSuite) TestRequireMachineRebootIdempotent(c *tc.C) {
 	// Setup: Create a machine with a given ID
 	err := s.state.CreateMachine(context.Background(), "", "", "u-u-i-d")
 	c.Assert(err, jc.ErrorIsNil)
@@ -58,7 +58,7 @@ func (s *stateSuite) TestRequireMachineRebootIdempotent(c *gc.C) {
 	c.Assert(isRebootNeeded, jc.IsTrue)
 }
 
-func (s *stateSuite) TestRequireMachineRebootSeveralMachine(c *gc.C) {
+func (s *stateSuite) TestRequireMachineRebootSeveralMachine(c *tc.C) {
 	// Setup: Create several machine with a given IDs
 	err := s.state.CreateMachine(context.Background(), "alive", "a-l-i-ve", "a-l-i-ve")
 	c.Assert(err, jc.ErrorIsNil)
@@ -78,7 +78,7 @@ func (s *stateSuite) TestRequireMachineRebootSeveralMachine(c *gc.C) {
 	c.Assert(isRebootNeeded, jc.IsTrue)
 }
 
-func (s *stateSuite) TestCancelMachineReboot(c *gc.C) {
+func (s *stateSuite) TestCancelMachineReboot(c *tc.C) {
 	// Setup: Create a machine with a given ID and add its ID to the reboot table.
 	err := s.state.CreateMachine(context.Background(), "", "", "u-u-i-d")
 	c.Assert(err, jc.ErrorIsNil)
@@ -95,7 +95,7 @@ func (s *stateSuite) TestCancelMachineReboot(c *gc.C) {
 	c.Assert(isRebootNeeded, jc.IsFalse)
 }
 
-func (s *stateSuite) TestCancelMachineRebootIdempotent(c *gc.C) {
+func (s *stateSuite) TestCancelMachineRebootIdempotent(c *tc.C) {
 	// Setup: Create a machine with a given ID  add its ID to the reboot table.
 	err := s.state.CreateMachine(context.Background(), "", "", "u-u-i-d")
 	c.Assert(err, jc.ErrorIsNil)
@@ -114,7 +114,7 @@ func (s *stateSuite) TestCancelMachineRebootIdempotent(c *gc.C) {
 	c.Assert(isRebootNeeded, jc.IsFalse)
 }
 
-func (s *stateSuite) TestCancelMachineRebootSeveralMachine(c *gc.C) {
+func (s *stateSuite) TestCancelMachineRebootSeveralMachine(c *tc.C) {
 	// Setup: Create several machine with a given IDs,  add both ids in the reboot table
 	err := s.state.CreateMachine(context.Background(), "alive", "a-l-i-ve", "a-l-i-ve")
 	c.Assert(err, jc.ErrorIsNil)
@@ -138,7 +138,7 @@ func (s *stateSuite) TestCancelMachineRebootSeveralMachine(c *gc.C) {
 	c.Assert(isRebootNeeded, jc.IsTrue)
 }
 
-func (s *stateSuite) TestRebootLogic(c *gc.C) {
+func (s *stateSuite) TestRebootLogic(c *tc.C) {
 	for _, testCase := range []struct {
 		description     string
 		hasParent       bool
@@ -201,16 +201,16 @@ func (s *stateSuite) TestRebootLogic(c *gc.C) {
 
 		// Call the function under test
 		rebootAction, err := s.state.ShouldRebootOrShutdown(context.Background(), "machine")
-		c.Assert(err, jc.ErrorIsNil, gc.Commentf("use case: %s", testCase.description))
+		c.Assert(err, jc.ErrorIsNil, tc.Commentf("use case: %s", testCase.description))
 
 		// Verify: Check which machine needs reboot
-		c.Check(rebootAction, gc.Equals, testCase.expectedAction, gc.Commentf("use case: %s", testCase.description))
+		c.Check(rebootAction, tc.Equals, testCase.expectedAction, tc.Commentf("use case: %s", testCase.description))
 
 		s.TearDownTest(c)
 	}
 }
 
-func (s *stateSuite) TestRebootLogicGrandParentNotSupported(c *gc.C) {
+func (s *stateSuite) TestRebootLogicGrandParentNotSupported(c *tc.C) {
 	// Setup: Create a machine hierarchy
 	err := s.state.CreateMachine(context.Background(), "machine", "machine", "machine")
 	c.Assert(err, jc.ErrorIsNil)
@@ -227,5 +227,5 @@ func (s *stateSuite) TestRebootLogicGrandParentNotSupported(c *gc.C) {
 	_, err = s.state.ShouldRebootOrShutdown(context.Background(), "machine")
 
 	// Verify: grand parent are not supported
-	c.Assert(errors.Is(err, machineerrors.GrandParentNotSupported), gc.Equals, true, gc.Commentf("obtained error: %v", err))
+	c.Assert(errors.Is(err, machineerrors.GrandParentNotSupported), tc.Equals, true, tc.Commentf("obtained error: %v", err))
 }

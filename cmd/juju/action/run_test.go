@@ -16,9 +16,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
-	gc "gopkg.in/check.v1"
 
 	actionapi "github.com/juju/juju/api/client/action"
 	"github.com/juju/juju/cmd/juju/action"
@@ -50,9 +50,9 @@ type RunSuite struct {
 	dir string
 }
 
-var _ = gc.Suite(&RunSuite{})
+var _ = tc.Suite(&RunSuite{})
 
-func (s *RunSuite) SetUpTest(c *gc.C) {
+func (s *RunSuite) SetUpTest(c *tc.C) {
 	s.BaseActionSuite.SetUpTest(c)
 	s.dir = c.MkDir()
 	c.Assert(utf8.ValidString(validParamsYaml), jc.IsTrue)
@@ -63,7 +63,7 @@ func (s *RunSuite) SetUpTest(c *gc.C) {
 	setupValueFile(c, s.dir, "invalidUTF.yml", invalidUTFYaml)
 }
 
-func (s *RunSuite) TestInit(c *gc.C) {
+func (s *RunSuite) TestInit(c *tc.C) {
 	tests := []struct {
 		should               string
 		args                 []string
@@ -234,24 +234,24 @@ func (s *RunSuite) TestInit(c *gc.C) {
 			args := append([]string{modelFlag, "admin"}, t.args...)
 			err := cmdtesting.InitCommand(wrappedCommand, args)
 			if t.expectError == "" {
-				c.Check(command.UnitNames(), gc.DeepEquals, t.expectUnits)
-				c.Check(command.ActionName(), gc.Equals, t.expectAction)
-				c.Check(command.ParamsYAML().Path, gc.Equals, t.expectParamsYamlPath)
+				c.Check(command.UnitNames(), tc.DeepEquals, t.expectUnits)
+				c.Check(command.ActionName(), tc.Equals, t.expectAction)
+				c.Check(command.ParamsYAML().Path, tc.Equals, t.expectParamsYamlPath)
 				c.Check(command.Args(), jc.DeepEquals, t.expectKVArgs)
-				c.Check(command.ParseStrings(), gc.Equals, t.expectParseStrings)
+				c.Check(command.ParseStrings(), tc.Equals, t.expectParseStrings)
 				if t.expectWait != 0 {
-					c.Check(command.Wait(), gc.Equals, t.expectWait)
+					c.Check(command.Wait(), tc.Equals, t.expectWait)
 				} else {
-					c.Check(command.Wait(), gc.Equals, 60*time.Second)
+					c.Check(command.Wait(), tc.Equals, 60*time.Second)
 				}
 			} else {
-				c.Check(err, gc.ErrorMatches, t.expectError)
+				c.Check(err, tc.ErrorMatches, t.expectError)
 			}
 		}
 	}
 }
 
-func (s *RunSuite) TestRun(c *gc.C) {
+func (s *RunSuite) TestRun(c *tc.C) {
 	tests := []struct {
 		should                 string
 		clientSetup            func(client *fakeAPIClient)
@@ -958,7 +958,7 @@ mysql/1:
 	}
 }
 
-func (s *RunSuite) TestVerbosity(c *gc.C) {
+func (s *RunSuite) TestVerbosity(c *tc.C) {
 	tests := []struct {
 		about   string
 		verbose bool
@@ -1029,11 +1029,11 @@ hello
 		c.Assert(err, jc.ErrorIsNil)
 		err = runCmd.Run(ctx)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(output.String(), gc.Equals, t.output)
+		c.Check(output.String(), tc.Equals, t.output)
 	}
 }
 
-func (s *RunSuite) testRunHelper(c *gc.C, client *fakeAPIClient,
+func (s *RunSuite) testRunHelper(c *tc.C, client *fakeAPIClient,
 	expectedErr, expectedOutput, modelFlag string, withArgs []string,
 	expectedActionEnqueued []actionapi.Action,
 	expectedLogs []string,
@@ -1095,19 +1095,19 @@ func (s *RunSuite) testRunHelper(c *gc.C, client *fakeAPIClient,
 		if expectedOutput != "" {
 			outputResult := ctx.Stderr.(*bytes.Buffer).Bytes()
 			outString := strings.Trim(string(outputResult), "\n")
-			c.Check(outString, gc.Equals, expectedOutput)
+			c.Check(outString, tc.Equals, expectedOutput)
 		} else {
-			c.Check(err, gc.ErrorMatches, expectedErr)
+			c.Check(err, tc.ErrorMatches, expectedErr)
 		}
 	} else {
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, tc.IsNil)
 		// Before comparing, double-check to avoid
 		// panics in malformed tests.
-		c.Assert(len(client.actionResults), gc.Not(gc.Equals), 0)
+		c.Assert(len(client.actionResults), tc.Not(tc.Equals), 0)
 		// Make sure the test's expected actions were
 		// non-nil and correct.
 		for i := range client.actionResults {
-			c.Assert(client.actionResults[i].Action, gc.NotNil)
+			c.Assert(client.actionResults[i].Action, tc.NotNil)
 		}
 		// Make sure the action sent to the API to be
 		// enqueued was indeed the expected map
@@ -1123,7 +1123,7 @@ func (s *RunSuite) testRunHelper(c *gc.C, client *fakeAPIClient,
 			c.Assert(valid, jc.IsTrue)
 
 			// Make sure the CLI responded with the expected tag
-			c.Assert(outString, gc.Equals, fmt.Sprintf(`
+			c.Assert(outString, tc.Equals, fmt.Sprintf(`
 Scheduled operation 1 with task %s
 Check operation status with 'juju show-operation 1'
 Check task status with 'juju show-task %s'`[1:],
@@ -1131,7 +1131,7 @@ Check task status with 'juju show-task %s'`[1:],
 		} else {
 			outputResult := ctx.Stdout.(*bytes.Buffer).Bytes()
 			outString := strings.Trim(string(outputResult), "\n")
-			c.Assert(outString, gc.Equals, expectedOutput)
+			c.Assert(outString, tc.Equals, expectedOutput)
 		}
 	}
 }

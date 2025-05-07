@@ -12,11 +12,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
@@ -30,8 +30,8 @@ import (
 )
 
 var (
-	_ = gc.Suite(&providerSuite{})
-	_ = gc.Suite(&ProviderFunctionalSuite{})
+	_ = tc.Suite(&providerSuite{})
+	_ = tc.Suite(&ProviderFunctionalSuite{})
 )
 
 type providerSuite struct {
@@ -62,7 +62,7 @@ func (s *providerSuite) createProvider(ctrl *gomock.Controller) providerSuiteDep
 	}
 }
 
-func (s *providerSuite) TestDetectClouds(c *gc.C) {
+func (s *providerSuite) TestDetectClouds(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -76,11 +76,11 @@ func (s *providerSuite) TestDetectClouds(c *gc.C) {
 
 	clouds, err := cloudDetector.DetectClouds()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(clouds, gc.HasLen, 1)
+	c.Assert(clouds, tc.HasLen, 1)
 	s.assertLocalhostCloud(c, clouds[0])
 }
 
-func (s *providerSuite) TestRemoteDetectClouds(c *gc.C) {
+func (s *providerSuite) TestRemoteDetectClouds(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -105,7 +105,7 @@ func (s *providerSuite) TestRemoteDetectClouds(c *gc.C) {
 
 	clouds, err := cloudDetector.DetectClouds()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(clouds, gc.HasLen, 2)
+	c.Assert(clouds, tc.HasLen, 2)
 	c.Assert(clouds, jc.DeepEquals, []cloud.Cloud{
 		{
 			Name: "localhost",
@@ -134,7 +134,7 @@ func (s *providerSuite) TestRemoteDetectClouds(c *gc.C) {
 	})
 }
 
-func (s *providerSuite) TestRemoteDetectCloudsWithConfigError(c *gc.C) {
+func (s *providerSuite) TestRemoteDetectCloudsWithConfigError(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -148,11 +148,11 @@ func (s *providerSuite) TestRemoteDetectCloudsWithConfigError(c *gc.C) {
 
 	clouds, err := cloudDetector.DetectClouds()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(clouds, gc.HasLen, 1)
+	c.Assert(clouds, tc.HasLen, 1)
 	s.assertLocalhostCloud(c, clouds[0])
 }
 
-func (s *providerSuite) TestDetectCloud(c *gc.C) {
+func (s *providerSuite) TestDetectCloud(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -175,7 +175,7 @@ func (s *providerSuite) TestDetectCloud(c *gc.C) {
 	s.assertLocalhostCloud(c, cloud)
 }
 
-func (s *providerSuite) TestRemoteDetectCloud(c *gc.C) {
+func (s *providerSuite) TestRemoteDetectCloud(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -214,7 +214,7 @@ func (s *providerSuite) TestRemoteDetectCloud(c *gc.C) {
 	})
 }
 
-func (s *providerSuite) TestRemoteDetectCloudWithConfigError(c *gc.C) {
+func (s *providerSuite) TestRemoteDetectCloudWithConfigError(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -227,10 +227,10 @@ func (s *providerSuite) TestRemoteDetectCloudWithConfigError(c *gc.C) {
 	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), "snap/lxd/common/config/config.yml")).Return(lxd.LXCConfig{}, errors.New("bad"))
 
 	_, err := cloudDetector.DetectCloud("nuc1")
-	c.Assert(err, gc.ErrorMatches, `cloud nuc1 not found`)
+	c.Assert(err, tc.ErrorMatches, `cloud nuc1 not found`)
 }
 
-func (s *providerSuite) TestDetectCloudError(c *gc.C) {
+func (s *providerSuite) TestDetectCloudError(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -243,10 +243,10 @@ func (s *providerSuite) TestDetectCloudError(c *gc.C) {
 	cloudDetector := deps.provider.(environs.CloudDetector)
 
 	_, err := cloudDetector.DetectCloud("foo")
-	c.Assert(err, gc.ErrorMatches, `cloud foo not found`)
+	c.Assert(err, tc.ErrorMatches, `cloud foo not found`)
 }
 
-func (s *providerSuite) assertLocalhostCloud(c *gc.C, found cloud.Cloud) {
+func (s *providerSuite) assertLocalhostCloud(c *tc.C, found cloud.Cloud) {
 	c.Assert(found, jc.DeepEquals, cloud.Cloud{
 		Name: "localhost",
 		Type: "lxd",
@@ -260,7 +260,7 @@ func (s *providerSuite) assertLocalhostCloud(c *gc.C, found cloud.Cloud) {
 	})
 }
 
-func (s *providerSuite) TestFinalizeCloud(c *gc.C) {
+func (s *providerSuite) TestFinalizeCloud(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -299,7 +299,7 @@ func (s *providerSuite) TestFinalizeCloud(c *gc.C) {
 	)
 }
 
-func (s *providerSuite) TestFinalizeCloudWithRemoteProvider(c *gc.C) {
+func (s *providerSuite) TestFinalizeCloudWithRemoteProvider(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -327,7 +327,7 @@ func (s *providerSuite) TestFinalizeCloudWithRemoteProvider(c *gc.C) {
 	})
 }
 
-func (s *providerSuite) TestFinalizeCloudWithRemoteProviderWithOnlyRegionEndpoint(c *gc.C) {
+func (s *providerSuite) TestFinalizeCloudWithRemoteProviderWithOnlyRegionEndpoint(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -347,10 +347,10 @@ func (s *providerSuite) TestFinalizeCloudWithRemoteProviderWithOnlyRegionEndpoin
 	ctx := testing.NewMockFinalizeCloudContext(ctrl)
 	got, err := cloudFinalizer.FinalizeCloud(ctx, cloudSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, gc.DeepEquals, cloudSpec)
+	c.Assert(got, tc.DeepEquals, cloudSpec)
 }
 
-func (s *providerSuite) TestFinalizeCloudWithRemoteProviderWithMixedRegions(c *gc.C) {
+func (s *providerSuite) TestFinalizeCloudWithRemoteProviderWithMixedRegions(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -378,7 +378,7 @@ func (s *providerSuite) TestFinalizeCloudWithRemoteProviderWithMixedRegions(c *g
 
 	got, err := cloudFinalizer.FinalizeCloud(ctx, cloudSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, gc.DeepEquals, cloud.Cloud{
+	c.Assert(got, tc.DeepEquals, cloud.Cloud{
 		Name:      "localhost",
 		Type:      "lxd",
 		Endpoint:  "https://192.0.0.1:8443",
@@ -390,7 +390,7 @@ func (s *providerSuite) TestFinalizeCloudWithRemoteProviderWithMixedRegions(c *g
 	})
 }
 
-func (s *providerSuite) TestFinalizeCloudWithRemoteProviderWithNoRegion(c *gc.C) {
+func (s *providerSuite) TestFinalizeCloudWithRemoteProviderWithNoRegion(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -409,7 +409,7 @@ func (s *providerSuite) TestFinalizeCloudWithRemoteProviderWithNoRegion(c *gc.C)
 
 	got, err := cloudFinalizer.FinalizeCloud(ctx, cloudSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, gc.DeepEquals, cloud.Cloud{
+	c.Assert(got, tc.DeepEquals, cloud.Cloud{
 		Name:      "test",
 		Type:      "lxd",
 		Endpoint:  "https://192.0.0.1:8443",
@@ -421,7 +421,7 @@ func (s *providerSuite) TestFinalizeCloudWithRemoteProviderWithNoRegion(c *gc.C)
 	})
 }
 
-func (s *providerSuite) TestFinalizeCloudNotListening(c *gc.C) {
+func (s *providerSuite) TestFinalizeCloudNotListening(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -439,11 +439,11 @@ func (s *providerSuite) TestFinalizeCloudNotListening(c *gc.C) {
 			Name: "bar",
 		}},
 	})
-	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.ErrorMatches, "bad")
+	c.Assert(err, tc.NotNil)
+	c.Assert(err, tc.ErrorMatches, "bad")
 }
 
-func (s *providerSuite) TestDetectRegions(c *gc.C) {
+func (s *providerSuite) TestDetectRegions(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -455,7 +455,7 @@ func (s *providerSuite) TestDetectRegions(c *gc.C) {
 	c.Assert(regions, jc.DeepEquals, []cloud.Region{{Name: lxdnames.DefaultLocalRegion}})
 }
 
-func (s *providerSuite) TestValidate(c *gc.C) {
+func (s *providerSuite) TestValidate(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -465,10 +465,10 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	validAttrs := validCfg.AllAttrs()
 
-	c.Check(s.Config.AllAttrs(), gc.DeepEquals, validAttrs)
+	c.Check(s.Config.AllAttrs(), tc.DeepEquals, validAttrs)
 }
 
-func (s *providerSuite) TestValidateWithInvalidConfig(c *gc.C) {
+func (s *providerSuite) TestValidateWithInvalidConfig(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -477,13 +477,13 @@ func (s *providerSuite) TestValidateWithInvalidConfig(c *gc.C) {
 	config, err := jujutesting.ModelConfig(c).Apply(map[string]interface{}{
 		"value": int64(1),
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	_, err = deps.provider.Validate(context.Background(), config, nil)
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, tc.NotNil)
 }
 
-func (s *providerSuite) TestCloudSchema(c *gc.C) {
+func (s *providerSuite) TestCloudSchema(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -503,19 +503,19 @@ endpoint: http://foo.com/lxd
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *providerSuite) TestPingFailWithNoEndpoint(c *gc.C) {
+func (s *providerSuite) TestPingFailWithNoEndpoint(c *tc.C) {
 	server := httptest.NewTLSServer(http.HandlerFunc(http.NotFound))
 	defer server.Close()
 
 	p, err := environs.Provider("lxd")
 	c.Assert(err, jc.ErrorIsNil)
 	err = p.Ping(context.Background(), server.URL)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
+	c.Assert(err, tc.ErrorMatches, fmt.Sprintf(
 		"no lxd server running at %[1]s: Failed to fetch %[1]s/1.0: 404 Not Found",
 		server.URL))
 }
 
-func (s *providerSuite) TestPingFailWithHTTP(c *gc.C) {
+func (s *providerSuite) TestPingFailWithHTTP(c *tc.C) {
 	server := httptest.NewServer(http.HandlerFunc(http.NotFound))
 	defer server.Close()
 
@@ -523,7 +523,7 @@ func (s *providerSuite) TestPingFailWithHTTP(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = p.Ping(context.Background(), server.URL)
 	httpsURL := "https://" + strings.TrimPrefix(server.URL, "http://")
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
+	c.Assert(err, tc.ErrorMatches, fmt.Sprintf(
 		`no lxd server running at %[1]s: Get "%[1]s/1.0": http: server gave HTTP response to HTTPS client`,
 		httpsURL))
 }
@@ -534,7 +534,7 @@ type ProviderFunctionalSuite struct {
 	provider environs.EnvironProvider
 }
 
-func (s *ProviderFunctionalSuite) SetUpTest(c *gc.C) {
+func (s *ProviderFunctionalSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	provider, err := environs.Provider("lxd")
@@ -543,7 +543,7 @@ func (s *ProviderFunctionalSuite) SetUpTest(c *gc.C) {
 	s.provider = provider
 }
 
-func (s *ProviderFunctionalSuite) TestOpen(c *gc.C) {
+func (s *ProviderFunctionalSuite) TestOpen(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -554,10 +554,10 @@ func (s *ProviderFunctionalSuite) TestOpen(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	envConfig := env.Config()
 
-	c.Check(envConfig.Name(), gc.Equals, "testmodel")
+	c.Check(envConfig.Name(), tc.Equals, "testmodel")
 }
 
-func (s *ProviderFunctionalSuite) TestValidateCloud(c *gc.C) {
+func (s *ProviderFunctionalSuite) TestValidateCloud(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -565,17 +565,17 @@ func (s *ProviderFunctionalSuite) TestValidateCloud(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ProviderFunctionalSuite) TestValidateCloudUnsupportedEndpointScheme(c *gc.C) {
+func (s *ProviderFunctionalSuite) TestValidateCloudUnsupportedEndpointScheme(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	cloudSpec := lxdCloudSpec()
 	cloudSpec.Endpoint = "unix://foo"
 	err := s.provider.ValidateCloud(context.Background(), cloudSpec)
-	c.Assert(err, gc.ErrorMatches, `validating cloud spec: invalid URL "unix://foo": only HTTPS is supported`)
+	c.Assert(err, tc.ErrorMatches, `validating cloud spec: invalid URL "unix://foo": only HTTPS is supported`)
 }
 
-func (s *ProviderFunctionalSuite) TestValidateCloudUnsupportedAuthType(c *gc.C) {
+func (s *ProviderFunctionalSuite) TestValidateCloudUnsupportedAuthType(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -585,10 +585,10 @@ func (s *ProviderFunctionalSuite) TestValidateCloudUnsupportedAuthType(c *gc.C) 
 		Name:       "remotehost",
 		Credential: &cred,
 	})
-	c.Assert(err, gc.ErrorMatches, `validating cloud spec: "foo" auth-type not supported`)
+	c.Assert(err, tc.ErrorMatches, `validating cloud spec: "foo" auth-type not supported`)
 }
 
-func (s *ProviderFunctionalSuite) TestValidateCloudInvalidCertificateAttrs(c *gc.C) {
+func (s *ProviderFunctionalSuite) TestValidateCloudInvalidCertificateAttrs(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -598,10 +598,10 @@ func (s *ProviderFunctionalSuite) TestValidateCloudInvalidCertificateAttrs(c *gc
 		Name:       "remotehost",
 		Credential: &cred,
 	})
-	c.Assert(err, gc.ErrorMatches, `validating cloud spec: certificate credentials not valid`)
+	c.Assert(err, tc.ErrorMatches, `validating cloud spec: certificate credentials not valid`)
 }
 
-func (s *ProviderFunctionalSuite) TestValidateCloudEmptyAuthNonLocal(c *gc.C) {
+func (s *ProviderFunctionalSuite) TestValidateCloudEmptyAuthNonLocal(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -612,7 +612,7 @@ func (s *ProviderFunctionalSuite) TestValidateCloudEmptyAuthNonLocal(c *gc.C) {
 		Endpoint:   "8.8.8.8",
 		Credential: &cred,
 	})
-	c.Assert(err, gc.ErrorMatches, `validating cloud spec: "empty" auth-type not supported`)
+	c.Assert(err, tc.ErrorMatches, `validating cloud spec: "empty" auth-type not supported`)
 }
 
 type mockContext struct {

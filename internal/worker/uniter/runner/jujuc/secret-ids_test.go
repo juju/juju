@@ -4,8 +4,8 @@
 package jujuc_test
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -16,9 +16,9 @@ type SecretIdsSuite struct {
 	ContextSuite
 }
 
-var _ = gc.Suite(&SecretIdsSuite{})
+var _ = tc.Suite(&SecretIdsSuite{})
 
-func (s *SecretIdsSuite) TestSecretIds(c *gc.C) {
+func (s *SecretIdsSuite) TestSecretIds(c *tc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
 	com, err := jujuc.NewCommand(hctx, "secret-ids")
@@ -26,7 +26,7 @@ func (s *SecretIdsSuite) TestSecretIds(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, nil)
 
-	c.Assert(code, gc.Equals, 0)
+	c.Assert(code, tc.Equals, 0)
 	s.Stub.CheckCallNames(c, "SecretMetadata")
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, "9m4e2mr0ui3e8a215n4g\n")
+	c.Assert(bufferString(ctx.Stdout), tc.Equals, "9m4e2mr0ui3e8a215n4g\n")
 }

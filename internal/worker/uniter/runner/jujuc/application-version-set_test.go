@@ -5,8 +5,8 @@ package jujuc_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -17,9 +17,9 @@ type ApplicationVersionSetSuite struct {
 	ContextSuite
 }
 
-var _ = gc.Suite(&ApplicationVersionSetSuite{})
+var _ = tc.Suite(&ApplicationVersionSetSuite{})
 
-func (s *ApplicationVersionSetSuite) createCommand(c *gc.C, err error) (*Context, cmd.Command) {
+func (s *ApplicationVersionSetSuite) createCommand(c *tc.C, err error) (*Context, cmd.Command) {
 	hctx := s.GetHookContext(c, -1, "")
 	s.Stub.SetErrors(err)
 
@@ -28,32 +28,32 @@ func (s *ApplicationVersionSetSuite) createCommand(c *gc.C, err error) (*Context
 	return hctx, jujuc.NewJujucCommandWrappedForTest(com)
 }
 
-func (s *ApplicationVersionSetSuite) TestApplicationVersionSetNoArguments(c *gc.C) {
+func (s *ApplicationVersionSetSuite) TestApplicationVersionSetNoArguments(c *tc.C) {
 	hctx, com := s.createCommand(c, nil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, nil)
-	c.Check(code, gc.Equals, 2)
-	c.Check(bufferString(ctx.Stdout), gc.Equals, "")
-	c.Check(bufferString(ctx.Stderr), gc.Equals, "ERROR no version specified\n")
-	c.Check(hctx.info.Version.WorkloadVersion, gc.Equals, "")
+	c.Check(code, tc.Equals, 2)
+	c.Check(bufferString(ctx.Stdout), tc.Equals, "")
+	c.Check(bufferString(ctx.Stderr), tc.Equals, "ERROR no version specified\n")
+	c.Check(hctx.info.Version.WorkloadVersion, tc.Equals, "")
 }
 
-func (s *ApplicationVersionSetSuite) TestApplicationVersionSetWithArguments(c *gc.C) {
+func (s *ApplicationVersionSetSuite) TestApplicationVersionSetWithArguments(c *tc.C) {
 	hctx, com := s.createCommand(c, nil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"dia de los muertos"})
-	c.Check(code, gc.Equals, 0)
-	c.Check(bufferString(ctx.Stdout), gc.Equals, "")
-	c.Check(bufferString(ctx.Stderr), gc.Equals, "")
-	c.Check(hctx.info.Version.WorkloadVersion, gc.Equals, "dia de los muertos")
+	c.Check(code, tc.Equals, 0)
+	c.Check(bufferString(ctx.Stdout), tc.Equals, "")
+	c.Check(bufferString(ctx.Stderr), tc.Equals, "")
+	c.Check(hctx.info.Version.WorkloadVersion, tc.Equals, "dia de los muertos")
 }
 
-func (s *ApplicationVersionSetSuite) TestApplicationVersionSetError(c *gc.C) {
+func (s *ApplicationVersionSetSuite) TestApplicationVersionSetError(c *tc.C) {
 	hctx, com := s.createCommand(c, errors.New("uh oh spaghettio"))
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"cannae"})
-	c.Check(code, gc.Equals, 1)
-	c.Check(bufferString(ctx.Stdout), gc.Equals, "")
-	c.Check(bufferString(ctx.Stderr), gc.Equals, "ERROR uh oh spaghettio\n")
-	c.Check(hctx.info.Version.WorkloadVersion, gc.Equals, "")
+	c.Check(code, tc.Equals, 1)
+	c.Check(bufferString(ctx.Stdout), tc.Equals, "")
+	c.Check(bufferString(ctx.Stderr), tc.Equals, "ERROR uh oh spaghettio\n")
+	c.Check(hctx.info.Version.WorkloadVersion, tc.Equals, "")
 }

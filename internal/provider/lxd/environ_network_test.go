@@ -8,9 +8,9 @@ import (
 
 	lxdapi "github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -23,9 +23,9 @@ type environNetSuite struct {
 	lxd.EnvironSuite
 }
 
-var _ = gc.Suite(&environNetSuite{})
+var _ = tc.Suite(&environNetSuite{})
 
-func (s *environNetSuite) TestSubnetsForClustered(c *gc.C) {
+func (s *environNetSuite) TestSubnetsForClustered(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -110,9 +110,9 @@ func (s *environNetSuite) TestSubnetsForClustered(c *gc.C) {
 			AvailabilityZones: []string{"server0", "server1", "server2"},
 		},
 	}
-	c.Assert(subnets, gc.DeepEquals, expSubnets)
+	c.Assert(subnets, tc.DeepEquals, expSubnets)
 }
-func (s *environNetSuite) TestSubnetsForSubnetFiltering(c *gc.C) {
+func (s *environNetSuite) TestSubnetsForSubnetFiltering(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -165,10 +165,10 @@ func (s *environNetSuite) TestSubnetsForSubnetFiltering(c *gc.C) {
 			AvailabilityZones: []string{"locutus"},
 		},
 	}
-	c.Assert(subnets, gc.DeepEquals, expSubnets)
+	c.Assert(subnets, tc.DeepEquals, expSubnets)
 }
 
-func (s *environNetSuite) TestNetworkInterfaces(c *gc.C) {
+func (s *environNetSuite) TestNetworkInterfaces(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -279,10 +279,10 @@ func (s *environNetSuite) TestNetworkInterfaces(c *gc.C) {
 			},
 		},
 	}
-	c.Assert(infos, gc.DeepEquals, expInfos)
+	c.Assert(infos, tc.DeepEquals, expInfos)
 }
 
-func (s *environNetSuite) TestNetworkInterfacesPartialResults(c *gc.C) {
+func (s *environNetSuite) TestNetworkInterfacesPartialResults(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -322,7 +322,7 @@ func (s *environNetSuite) TestNetworkInterfacesPartialResults(c *gc.C) {
 
 	ctx := context.Background()
 	infos, err := env.NetworkInterfaces(ctx, []instance.Id{"woot", "unknown"})
-	c.Assert(err, gc.Equals, environs.ErrPartialInstances, gc.Commentf("expected a partial instances error to be returned if some of the instances were not found"))
+	c.Assert(err, tc.Equals, environs.ErrPartialInstances, tc.Commentf("expected a partial instances error to be returned if some of the instances were not found"))
 	expInfos := []network.InterfaceInfos{
 		{
 			{
@@ -342,10 +342,10 @@ func (s *environNetSuite) TestNetworkInterfacesPartialResults(c *gc.C) {
 		},
 		nil, // slot for second instance is nil as the container was not found
 	}
-	c.Assert(infos, gc.DeepEquals, expInfos)
+	c.Assert(infos, tc.DeepEquals, expInfos)
 }
 
-func (s *environNetSuite) TestNetworkInterfacesNoResults(c *gc.C) {
+func (s *environNetSuite) TestNetworkInterfacesNoResults(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -359,5 +359,5 @@ func (s *environNetSuite) TestNetworkInterfacesNoResults(c *gc.C) {
 
 	ctx := context.Background()
 	_, err := env.NetworkInterfaces(ctx, []instance.Id{"unknown1", "unknown2"})
-	c.Assert(err, gc.Equals, environs.ErrNoInstances, gc.Commentf("expected a no instances error to be returned if none of the requested instances exists"))
+	c.Assert(err, tc.Equals, environs.ErrNoInstances, tc.Commentf("expected a no instances error to be returned if none of the requested instances exists"))
 }

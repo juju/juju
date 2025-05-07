@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/juju/description/v9"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/secrets"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
@@ -25,9 +25,9 @@ type importSuite struct {
 	backendService *MockSecretBackendService
 }
 
-var _ = gc.Suite(&importSuite{})
+var _ = tc.Suite(&importSuite{})
 
-func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.coordinator = NewMockCoordinator(ctrl)
@@ -37,7 +37,7 @@ func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *importSuite) newImportOperation(c *gc.C) *importOperation {
+func (s *importSuite) newImportOperation(c *tc.C) *importOperation {
 	return &importOperation{
 		service:        s.service,
 		backendService: s.backendService,
@@ -45,7 +45,7 @@ func (s *importSuite) newImportOperation(c *gc.C) *importOperation {
 	}
 }
 
-func (s *importSuite) TestRegisterImport(c *gc.C) {
+func (s *importSuite) TestRegisterImport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.coordinator.EXPECT().Add(gomock.Any())
@@ -239,7 +239,7 @@ remote-secrets:
 	)
 }
 
-func (s *importSuite) TestImport(c *gc.C) {
+func (s *importSuite) TestImport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := secrets.NewURI()
@@ -264,7 +264,7 @@ func (s *importSuite) TestImport(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *importSuite) TestImportMissingBackend(c *gc.C) {
+func (s *importSuite) TestImportMissingBackend(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := secrets.NewURI()

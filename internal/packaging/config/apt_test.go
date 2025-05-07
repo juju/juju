@@ -5,28 +5,28 @@
 package config_test
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/packaging/config"
 )
 
-var _ = gc.Suite(&AptSuite{})
+var _ = tc.Suite(&AptSuite{})
 
 type AptSuite struct {
 	pacconfer config.AptConfigurer
 }
 
-func (s *AptSuite) SetUpSuite(c *gc.C) {
+func (s *AptSuite) SetUpSuite(c *tc.C) {
 	s.pacconfer = config.NewAptPackagingConfigurer()
 }
 
-func (s *AptSuite) TestRenderPreferences(c *gc.C) {
+func (s *AptSuite) TestRenderPreferences(c *tc.C) {
 	expected, err := testedPrefs.RenderPreferenceFile(config.AptPreferenceTemplate)
 	c.Assert(err, jc.ErrorIsNil)
 
 	res, err := s.pacconfer.RenderPreferences(testedPrefs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(res, gc.Equals, expected)
+	c.Assert(res, tc.Equals, expected)
 }

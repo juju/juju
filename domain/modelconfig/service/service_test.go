@@ -6,9 +6,9 @@ package service
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -24,7 +24,7 @@ type serviceSuite struct {
 	mockState *MockState
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = tc.Suite(&serviceSuite{})
 
 func (f ModelDefaultsProviderFunc) ModelDefaults(
 	c context.Context,
@@ -38,7 +38,7 @@ func noopDefaultsProvider() ModelDefaultsProvider {
 	})
 }
 
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockState = NewMockState(ctrl)
 	return ctrl
@@ -46,7 +46,7 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 // TestGetModelConfigContainsAgentInformation checks that the models agent
 // version and stream gets injected into the model config.
-func (s *serviceSuite) TestGetModelConfigContainsAgentInformation(c *gc.C) {
+func (s *serviceSuite) TestGetModelConfigContainsAgentInformation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := modeltesting.GenModelUUID(c)
@@ -64,13 +64,13 @@ func (s *serviceSuite) TestGetModelConfigContainsAgentInformation(c *gc.C) {
 	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), s.mockState)
 	cfg, err := svc.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cfg.AgentStream(), gc.Equals, coreagentbinary.AgentStreamReleased.String())
+	c.Check(cfg.AgentStream(), tc.Equals, coreagentbinary.AgentStreamReleased.String())
 }
 
 // TestUpdateModelConfigAgentStream checks that the model agent stream value
 // cannot be changed via model config and if it is we get back an errors that
 // satisfies [config.ValidationError].
-func (s *serviceSuite) TestUpdateModelConfigAgentStream(c *gc.C) {
+func (s *serviceSuite) TestUpdateModelConfigAgentStream(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.mockState.EXPECT().ModelConfig(gomock.Any()).Return(
@@ -93,13 +93,13 @@ func (s *serviceSuite) TestUpdateModelConfigAgentStream(c *gc.C) {
 
 	val, is := errors.AsType[*config.ValidationError](err)
 	c.Check(is, jc.IsTrue)
-	c.Check(val.InvalidAttrs, gc.DeepEquals, []string{"agent-stream"})
+	c.Check(val.InvalidAttrs, tc.DeepEquals, []string{"agent-stream"})
 }
 
 // TestUpdateModelConfigNoAgentStreamChange checks that the model agent stream
 // does not change in model config results in no error and the value is removed
 // from model config before persiting.
-func (s *serviceSuite) TestUpdateModelConfigNoAgentStreamChange(c *gc.C) {
+func (s *serviceSuite) TestUpdateModelConfigNoAgentStreamChange(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.mockState.EXPECT().ModelConfig(gomock.Any()).Return(
@@ -128,7 +128,7 @@ func (s *serviceSuite) TestUpdateModelConfigNoAgentStreamChange(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestSetModelConfig(c *gc.C) {
+func (s *serviceSuite) TestSetModelConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	var defaults ModelDefaultsProviderFunc = func(_ context.Context) (modeldefaults.Defaults, error) {

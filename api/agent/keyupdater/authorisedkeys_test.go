@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/keyupdater"
 	"github.com/juju/juju/api/base/testing"
@@ -20,18 +20,18 @@ type keyupdaterSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&keyupdaterSuite{})
+var _ = tc.Suite(&keyupdaterSuite{})
 
-func (s *keyupdaterSuite) TestAuthorisedKeys(c *gc.C) {
+func (s *keyupdaterSuite) TestAuthorisedKeys(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "KeyUpdater")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "AuthorisedKeys")
+		c.Check(objType, tc.Equals, "KeyUpdater")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "AuthorisedKeys")
 		c.Check(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "machine-666"}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.StringsResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.StringsResults{})
 		*(result.(*params.StringsResults)) = params.StringsResults{
 			Results: []params.StringsResult{{
 				Result: []string{"key1", "key2"},
@@ -43,19 +43,19 @@ func (s *keyupdaterSuite) TestAuthorisedKeys(c *gc.C) {
 	client := keyupdater.NewClient(apiCaller)
 	keys, err := client.AuthorisedKeys(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(keys, gc.DeepEquals, []string{"key1", "key2"})
+	c.Assert(keys, tc.DeepEquals, []string{"key1", "key2"})
 }
 
-func (s *keyupdaterSuite) TestWatchAuthorisedKeys(c *gc.C) {
+func (s *keyupdaterSuite) TestWatchAuthorisedKeys(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "KeyUpdater")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchAuthorisedKeys")
+		c.Check(objType, tc.Equals, "KeyUpdater")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "WatchAuthorisedKeys")
 		c.Check(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "machine-666"}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.NotifyWatchResults{})
 		*(result.(*params.NotifyWatchResults)) = params.NotifyWatchResults{
 			Results: []params.NotifyWatchResult{{
 				Error: &params.Error{Message: "FAIL"},
@@ -65,5 +65,5 @@ func (s *keyupdaterSuite) TestWatchAuthorisedKeys(c *gc.C) {
 	tag := names.NewMachineTag("666")
 	client := keyupdater.NewClient(apiCaller)
 	_, err := client.WatchAuthorisedKeys(context.Background(), tag)
-	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(err, tc.ErrorMatches, "FAIL")
 }

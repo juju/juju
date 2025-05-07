@@ -6,11 +6,11 @@ package resources
 import (
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 func Test(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package resources -destination service_mock_test.go github.com/juju/juju/apiserver/facades/client/resources ApplicationService,ResourceService,NewCharmRepository

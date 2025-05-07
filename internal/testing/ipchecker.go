@@ -7,15 +7,15 @@ import (
 	"fmt"
 	"net"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 type ipsEqualChecker struct {
-	*gc.CheckerInfo
+	*tc.CheckerInfo
 }
 
-var IPsEqual gc.Checker = &ipsEqualChecker{
-	&gc.CheckerInfo{Name: "IPsEqual", Params: []string{"obtained", "expected"}},
+var IPsEqual tc.Checker = &ipsEqualChecker{
+	&tc.CheckerInfo{Name: "IPsEqual", Params: []string{"obtained", "expected"}},
 }
 
 func (c *ipsEqualChecker) Check(params []interface{}, name []string) (bool, string) {

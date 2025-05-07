@@ -12,11 +12,11 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -34,7 +34,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&remoteRelationsSuite{})
+var _ = tc.Suite(&remoteRelationsSuite{})
 
 type remoteRelationsSuite struct {
 	jujutesting.IsolationSuite
@@ -46,7 +46,7 @@ type remoteRelationsSuite struct {
 	stub                  *jujutesting.Stub
 }
 
-func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
+func (s *remoteRelationsSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.remoteControllerInfo = &api.Info{
@@ -75,11 +75,11 @@ func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *remoteRelationsSuite) waitForWorkerStubCalls(c *gc.C, expected []jujutesting.StubCall) {
+func (s *remoteRelationsSuite) waitForWorkerStubCalls(c *tc.C, expected []jujutesting.StubCall) {
 	waitForStubCalls(c, s.stub, expected)
 }
 
-func waitForStubCalls(c *gc.C, stub *jujutesting.Stub, expected []jujutesting.StubCall) {
+func waitForStubCalls(c *tc.C, stub *jujutesting.Stub, expected []jujutesting.StubCall) {
 	var calls []jujutesting.StubCall
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		calls = stub.Calls()
@@ -90,7 +90,7 @@ func waitForStubCalls(c *gc.C, stub *jujutesting.Stub, expected []jujutesting.St
 	c.Assert(expected, jc.DeepEquals, calls)
 }
 
-func (s *remoteRelationsSuite) assertRemoteApplicationWorkers(c *gc.C) worker.Worker {
+func (s *remoteRelationsSuite) assertRemoteApplicationWorkers(c *tc.C) worker.Worker {
 	// Checks that the main worker loop responds to remote application events
 	// by starting relevant relation watchers.
 	s.relationsFacade.remoteApplications["db2"] = newMockRemoteApplication("db2", "db2url")
@@ -138,7 +138,7 @@ func (s *remoteRelationsSuite) assertRemoteApplicationWorkers(c *gc.C) worker.Wo
 	return w
 }
 
-func (s *remoteRelationsSuite) TestRemoteApplicationWorkers(c *gc.C) {
+func (s *remoteRelationsSuite) TestRemoteApplicationWorkers(c *tc.C) {
 	w := s.assertRemoteApplicationWorkers(c)
 	workertest.CleanKill(c, w)
 
@@ -151,7 +151,7 @@ func (s *remoteRelationsSuite) TestRemoteApplicationWorkers(c *gc.C) {
 	}
 }
 
-func (s *remoteRelationsSuite) TestExternalControllerError(c *gc.C) {
+func (s *remoteRelationsSuite) TestExternalControllerError(c *tc.C) {
 	s.config.NewRemoteModelFacadeFunc = func(ctx context.Context, info *api.Info) (remoterelations.RemoteModelRelationsFacadeCloser, error) {
 		return nil, errors.New("boom")
 	}
@@ -176,7 +176,7 @@ func (s *remoteRelationsSuite) TestExternalControllerError(c *gc.C) {
 	s.waitForWorkerStubCalls(c, expected)
 }
 
-func (s *remoteRelationsSuite) TestRemoteApplicationWorkersRedirect(c *gc.C) {
+func (s *remoteRelationsSuite) TestRemoteApplicationWorkersRedirect(c *tc.C) {
 	newControllerTag := names.NewControllerTag(uuid.MustNewUUID().String())
 
 	s.config.NewRemoteModelFacadeFunc = func(ctx context.Context, info *api.Info) (remoterelations.RemoteModelRelationsFacadeCloser, error) {
@@ -228,7 +228,7 @@ func (s *remoteRelationsSuite) TestRemoteApplicationWorkersRedirect(c *gc.C) {
 	s.waitForWorkerStubCalls(c, expected)
 }
 
-func (s *remoteRelationsSuite) TestRemoteApplicationWorkersRedirectControllerUpdateError(c *gc.C) {
+func (s *remoteRelationsSuite) TestRemoteApplicationWorkersRedirectControllerUpdateError(c *tc.C) {
 	s.stub.SetErrors(nil, nil, nil, nil, errors.New("busted"))
 
 	newControllerTag := names.NewControllerTag(uuid.MustNewUUID().String())
@@ -282,7 +282,7 @@ func (s *remoteRelationsSuite) TestRemoteApplicationWorkersRedirectControllerUpd
 	s.waitForWorkerStubCalls(c, expected)
 }
 
-func (s *remoteRelationsSuite) TestRemoteApplicationRemoved(c *gc.C) {
+func (s *remoteRelationsSuite) TestRemoteApplicationRemoved(c *tc.C) {
 	// Checks that when a remote application is removed, the application worker
 	// and relation worker are killed.
 	w := s.assertRemoteApplicationWorkers(c)
@@ -310,7 +310,7 @@ func (s *remoteRelationsSuite) TestRemoteApplicationRemoved(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *remoteRelationsSuite) TestRemoteApplicationTerminated(c *gc.C) {
+func (s *remoteRelationsSuite) TestRemoteApplicationTerminated(c *tc.C) {
 	// Checks that when a remote offer is terminated, the application worker
 	// and relation worker are killed.
 	w := s.assertRemoteApplicationWorkers(c)
@@ -336,7 +336,7 @@ func (s *remoteRelationsSuite) TestRemoteApplicationTerminated(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *remoteRelationsSuite) TestRemoteApplicationOfferChanged(c *gc.C) {
+func (s *remoteRelationsSuite) TestRemoteApplicationOfferChanged(c *tc.C) {
 	// Checks that when a remote offer now different to the previous one being used,
 	// the application worker and relation worker are killed.
 	w := s.assertRemoteApplicationWorkers(c)
@@ -368,7 +368,7 @@ func (s *remoteRelationsSuite) TestRemoteApplicationOfferChanged(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnWatching(c *gc.C) {
+func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnWatching(c *tc.C) {
 	s.relationsFacade.remoteApplications["db2"] = newMockRemoteApplication("db2", "db2url")
 	s.relationsFacade.remoteApplications["mysql"] = newMockRemoteApplication("mysql", "mysqlurl")
 	s.relationsFacade.controllerInfo["remote-model-uuid"] = s.remoteControllerInfo
@@ -399,7 +399,7 @@ func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnWatching(c *gc.C) {
 	s.waitForWorkerStubCalls(c, expected)
 }
 
-func (s *remoteRelationsSuite) TestOfferStatusChange(c *gc.C) {
+func (s *remoteRelationsSuite) TestOfferStatusChange(c *tc.C) {
 	w := s.assertRemoteApplicationWorkers(c)
 	defer workertest.CleanKill(c, w)
 	s.stub.ResetCalls()
@@ -419,7 +419,7 @@ func (s *remoteRelationsSuite) TestOfferStatusChange(c *gc.C) {
 	s.waitForWorkerStubCalls(c, expected)
 }
 
-func (s *remoteRelationsSuite) TestOfferStatusTerminatedStopsWatcher(c *gc.C) {
+func (s *remoteRelationsSuite) TestOfferStatusTerminatedStopsWatcher(c *tc.C) {
 	w := s.assertRemoteApplicationWorkers(c)
 	defer workertest.CleanKill(c, w)
 	s.stub.ResetCalls()
@@ -439,7 +439,7 @@ func (s *remoteRelationsSuite) TestOfferStatusTerminatedStopsWatcher(c *gc.C) {
 	c.Check(statusWatcher.killed(), jc.IsTrue)
 }
 
-func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnChange(c *gc.C) {
+func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnChange(c *tc.C) {
 	s.relationsFacade.relations["db2:db django:db"] = newMockRelation(123)
 	w := s.assertRemoteApplicationWorkers(c)
 	defer workertest.CleanKill(c, w)
@@ -486,7 +486,7 @@ func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnChange(c *gc.C) {
 	s.waitForWorkerStubCalls(c, expected)
 }
 
-func (s *remoteRelationsSuite) TestRemoteWatcherNotFoundError(c *gc.C) {
+func (s *remoteRelationsSuite) TestRemoteWatcherNotFoundError(c *tc.C) {
 	w := s.assertRemoteRelationsWorkers(c)
 	defer workertest.CleanKill(c, w)
 
@@ -514,7 +514,7 @@ func (s *remoteRelationsSuite) TestRemoteWatcherNotFoundError(c *gc.C) {
 	s.waitForWorkerStubCalls(c, expected)
 }
 
-func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Worker {
+func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *tc.C) worker.Worker {
 	s.relationsFacade.relations["db2:db django:db"] = newMockRelation(123)
 	w := s.assertRemoteApplicationWorkers(c)
 	s.stub.ResetCalls()
@@ -583,7 +583,7 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 	return w
 }
 
-func (s *remoteRelationsSuite) TestRemoteRelationsWorkers(c *gc.C) {
+func (s *remoteRelationsSuite) TestRemoteRelationsWorkers(c *tc.C) {
 	w := s.assertRemoteRelationsWorkers(c)
 	workertest.CleanKill(c, w)
 
@@ -597,7 +597,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsWorkers(c *gc.C) {
 	c.Check(relWatcher.killed(), jc.IsTrue)
 }
 
-func (s *remoteRelationsSuite) TestRemoteRelationsRevoked(c *gc.C) {
+func (s *remoteRelationsSuite) TestRemoteRelationsRevoked(c *tc.C) {
 	// The consume permission is revoked after an offer is consumed.
 	// Subsequent api calls against that offer will fail and record an
 	// error in the local model.
@@ -651,7 +651,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsRevoked(c *gc.C) {
 	s.waitForWorkerStubCalls(c, expected)
 }
 
-func (s *remoteRelationsSuite) TestRemoteRelationsDying(c *gc.C) {
+func (s *remoteRelationsSuite) TestRemoteRelationsDying(c *tc.C) {
 	// Checks that when a remote relation dies, the relation units
 	// workers are killed.
 	w := s.assertRemoteRelationsWorkers(c)
@@ -722,7 +722,7 @@ func intPtr(i int) *int {
 	return &i
 }
 
-func (s *remoteRelationsSuite) TestLocalRelationsRemoved(c *gc.C) {
+func (s *remoteRelationsSuite) TestLocalRelationsRemoved(c *tc.C) {
 	// Checks that when a remote relation goes away the relation units worker is killed.
 	w := s.assertRemoteRelationsWorkers(c)
 	defer workertest.CleanKill(c, w)
@@ -832,7 +832,7 @@ func (s *remoteRelationsSuite) TestLocalRelationsRemoved(c *gc.C) {
 	s.waitForWorkerStubCalls(c, expected)
 }
 
-func (s *remoteRelationsSuite) TestLocalRelationsChangedNotifies(c *gc.C) {
+func (s *remoteRelationsSuite) TestLocalRelationsChangedNotifies(c *tc.C) {
 	w := s.assertRemoteRelationsWorkers(c)
 	defer workertest.CleanKill(c, w)
 	s.stub.ResetCalls()
@@ -868,7 +868,7 @@ func (s *remoteRelationsSuite) TestLocalRelationsChangedNotifies(c *gc.C) {
 	s.waitForWorkerStubCalls(c, expected)
 }
 
-func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnPublish(c *gc.C) {
+func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnPublish(c *tc.C) {
 	w := s.assertRemoteRelationsWorkers(c)
 	defer workertest.CleanKill(c, w)
 	s.stub.ResetCalls()
@@ -906,7 +906,7 @@ func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnPublish(c *gc.C) {
 	s.waitForWorkerStubCalls(c, expected)
 }
 
-func (s *remoteRelationsSuite) TestRemoteRelationsChangedConsumes(c *gc.C) {
+func (s *remoteRelationsSuite) TestRemoteRelationsChangedConsumes(c *tc.C) {
 	w := s.assertRemoteRelationsWorkers(c)
 	defer workertest.CleanKill(c, w)
 	s.stub.ResetCalls()
@@ -942,7 +942,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedConsumes(c *gc.C) {
 	s.waitForWorkerStubCalls(c, expected)
 }
 
-func (s *remoteRelationsSuite) TestRemoteRelationsDyingConsumes(c *gc.C) {
+func (s *remoteRelationsSuite) TestRemoteRelationsDyingConsumes(c *tc.C) {
 	w := s.assertRemoteRelationsWorkers(c)
 	defer workertest.CleanKill(c, w)
 	s.stub.ResetCalls()
@@ -966,15 +966,15 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDyingConsumes(c *gc.C) {
 	s.waitForWorkerStubCalls(c, expected)
 }
 
-func (s *remoteRelationsSuite) TestRemoteRelationsChangedError(c *gc.C) {
+func (s *remoteRelationsSuite) TestRemoteRelationsChangedError(c *tc.C) {
 	s.assertRemoteRelationsChangedError(c, false)
 }
 
-func (s *remoteRelationsSuite) TestRemoteDyingRelationsChangedError(c *gc.C) {
+func (s *remoteRelationsSuite) TestRemoteDyingRelationsChangedError(c *tc.C) {
 	s.assertRemoteRelationsChangedError(c, true)
 }
 
-func (s *remoteRelationsSuite) assertRemoteRelationsChangedError(c *gc.C, dying bool) {
+func (s *remoteRelationsSuite) assertRemoteRelationsChangedError(c *tc.C, dying bool) {
 	w := s.assertRemoteRelationsWorkers(c)
 	defer workertest.CleanKill(c, w)
 	s.stub.ResetCalls()
@@ -1012,7 +1012,7 @@ func (s *remoteRelationsSuite) assertRemoteRelationsChangedError(c *gc.C, dying 
 	s.stub.ResetCalls()
 	s.config.Clock.(*testclock.Clock).WaitAdvance(50*time.Second, coretesting.LongWait, 1)
 	// Not resumed yet.
-	c.Assert(s.stub.Calls(), gc.HasLen, 0)
+	c.Assert(s.stub.Calls(), tc.HasLen, 0)
 	s.config.Clock.(*testclock.Clock).WaitAdvance(10*time.Second, coretesting.LongWait, 1)
 
 	mac, err := testing.NewMacaroon("test")
@@ -1080,7 +1080,7 @@ func (s *remoteRelationsSuite) assertRemoteRelationsChangedError(c *gc.C, dying 
 	s.waitForWorkerStubCalls(c, expected)
 }
 
-func (s *remoteRelationsSuite) TestRemoteSecretChangedConsumes(c *gc.C) {
+func (s *remoteRelationsSuite) TestRemoteSecretChangedConsumes(c *tc.C) {
 	w := s.assertRemoteRelationsWorkers(c)
 	defer workertest.CleanKill(c, w)
 	s.stub.ResetCalls()
@@ -1100,7 +1100,7 @@ func (s *remoteRelationsSuite) TestRemoteSecretChangedConsumes(c *gc.C) {
 	s.waitForWorkerStubCalls(c, expected)
 }
 
-func (s *remoteRelationsSuite) TestRemoteSecretNotImplemented(c *gc.C) {
+func (s *remoteRelationsSuite) TestRemoteSecretNotImplemented(c *tc.C) {
 	s.relationsFacade.relations["db2:db django:db"] = newMockRelation(123)
 	w := s.assertRemoteApplicationWorkers(c)
 	s.stub.ResetCalls()
@@ -1171,7 +1171,7 @@ func (s *remoteRelationsSuite) TestRemoteSecretNotImplemented(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *remoteRelationsSuite) TestRegisteredApplicationNotRegistered(c *gc.C) {
+func (s *remoteRelationsSuite) TestRegisteredApplicationNotRegistered(c *tc.C) {
 	s.relationsFacade.relations["db2:db django:db"] = newMockRelation(123)
 	db2app := newMockRemoteApplication("db2", "db2url")
 	db2app.registered = true
@@ -1210,7 +1210,7 @@ func (s *remoteRelationsSuite) TestRegisteredApplicationNotRegistered(c *gc.C) {
 	s.waitForWorkerStubCalls(c, expected)
 }
 
-func (s *remoteRelationsSuite) TestRemoteRelationSuspended(c *gc.C) {
+func (s *remoteRelationsSuite) TestRemoteRelationSuspended(c *tc.C) {
 	w := s.assertRemoteRelationsWorkers(c)
 	defer workertest.CleanKill(c, w)
 	s.stub.ResetCalls()
@@ -1268,7 +1268,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationSuspended(c *gc.C) {
 	s.waitForWorkerStubCalls(c, expected)
 }
 
-func (s *remoteRelationsSuite) TestDyingRelationSuspended(c *gc.C) {
+func (s *remoteRelationsSuite) TestDyingRelationSuspended(c *tc.C) {
 	w := s.assertRemoteRelationsWorkers(c)
 	defer workertest.CleanKill(c, w)
 	s.stub.ResetCalls()

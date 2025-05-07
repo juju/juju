@@ -220,6 +220,7 @@ require (
 	github.com/juju/loggo v1.0.0 // indirect
 	github.com/juju/lru v1.0.0 // indirect
 	github.com/juju/mgo/v2 v2.0.2 // indirect
+	github.com/juju/tc v0.0.0-20250507150813-1d13c1fc4d6c // indirect
 	github.com/juju/usso v1.0.1 // indirect
 	github.com/juju/utils/v3 v3.2.1 // indirect
 	github.com/juju/version v0.0.0-20210303051006-2015802527a8 // indirect
@@ -266,7 +267,7 @@ require (
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rogpeppe/fastuuid v1.2.0 // indirect
-	github.com/rogpeppe/go-internal v1.13.1 // indirect
+	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect

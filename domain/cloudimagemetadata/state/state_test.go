@@ -10,8 +10,8 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/domain/cloudimagemetadata"
 	"github.com/juju/juju/domain/cloudimagemetadata/errors"
@@ -25,9 +25,9 @@ type stateSuite struct {
 	state *State
 }
 
-var _ = gc.Suite(&stateSuite{})
+var _ = tc.Suite(&stateSuite{})
 
-func (s *stateSuite) SetUpTest(c *gc.C) {
+func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 }
@@ -39,7 +39,7 @@ type architecture struct {
 	Name string `db:"name"`
 }
 
-func (s *stateSuite) TestArchitectureIDsByName(c *gc.C) {
+func (s *stateSuite) TestArchitectureIDsByName(c *tc.C) {
 	db, err := s.state.DB()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -62,7 +62,7 @@ func (s *stateSuite) TestArchitectureIDsByName(c *gc.C) {
 
 // TestSaveMetadata verifies that the metadata is saved correctly in the database
 // and checks that creation time is set appropriately.
-func (s *stateSuite) TestSaveMetadata(c *gc.C) {
+func (s *stateSuite) TestSaveMetadata(c *tc.C) {
 	// Arrange
 	testBeginTime := time.Now().Truncate(time.Second) // avoid truncate issue on dqlite creationTime check
 	attrs := cloudimagemetadata.MetadataAttributes{
@@ -93,7 +93,7 @@ func (s *stateSuite) TestSaveMetadata(c *gc.C) {
 }
 
 // TestSaveMetadataWithDateCreated tests the SaveMetadata method by ensuring metadata is saved with the correct creation date.
-func (s *stateSuite) TestSaveMetadataWithDateCreated(c *gc.C) {
+func (s *stateSuite) TestSaveMetadataWithDateCreated(c *tc.C) {
 	// Arrange
 	testBeginTime := time.Now().UTC().Truncate(time.Second) // avoid truncate issue on dqlite creationTime check
 	attrs := cloudimagemetadata.MetadataAttributes{
@@ -120,7 +120,7 @@ func (s *stateSuite) TestSaveMetadataWithDateCreated(c *gc.C) {
 }
 
 // TestSaveMetadataSeveralMetadata verifies that multiple metadata entries are saved correctly in the database.
-func (s *stateSuite) TestSaveMetadataSeveralMetadata(c *gc.C) {
+func (s *stateSuite) TestSaveMetadataSeveralMetadata(c *tc.C) {
 	// Arrange
 	testBeginTime := time.Now().Truncate(time.Second) // avoid truncate issue on dqlite creationTime check
 	attrs1 := cloudimagemetadata.MetadataAttributes{
@@ -159,7 +159,7 @@ func (s *stateSuite) TestSaveMetadataSeveralMetadata(c *gc.C) {
 	c.Assert(obtained, jc.SameContents, expected)
 }
 
-func (s *stateSuite) TestSaveMetadataUpdateMetadata(c *gc.C) {
+func (s *stateSuite) TestSaveMetadataUpdateMetadata(c *tc.C) {
 	// Arrange
 	testBeginTime := time.Now().Truncate(time.Second) // avoid truncate issue on dqlite creationTime check
 	attrs1 := cloudimagemetadata.MetadataAttributes{
@@ -196,7 +196,7 @@ func (s *stateSuite) TestSaveMetadataUpdateMetadata(c *gc.C) {
 	})
 }
 
-func (s *stateSuite) TestSaveMetadataWithSameAttributes(c *gc.C) {
+func (s *stateSuite) TestSaveMetadataWithSameAttributes(c *tc.C) {
 	// Arrange
 	attrs1 := cloudimagemetadata.MetadataAttributes{
 		Stream:          "stream",
@@ -222,7 +222,7 @@ func (s *stateSuite) TestSaveMetadataWithSameAttributes(c *gc.C) {
 
 // TestSaveMetadataSeveralMetadataWithInvalidArchitecture verifies that metadata with an invalid architecture is ignored
 // when saving multiple metadata entries.
-func (s *stateSuite) TestSaveMetadataSeveralMetadataWithInvalidArchitecture(c *gc.C) {
+func (s *stateSuite) TestSaveMetadataSeveralMetadataWithInvalidArchitecture(c *tc.C) {
 	// Arrange
 	attrsBase := cloudimagemetadata.MetadataAttributes{
 		Stream:          "stream",
@@ -250,11 +250,11 @@ func (s *stateSuite) TestSaveMetadataSeveralMetadataWithInvalidArchitecture(c *g
 	err := s.state.SaveMetadata(context.Background(), inserted)
 
 	// Assert
-	c.Assert(err, gc.ErrorMatches, ".*unknown architecture.*")
+	c.Assert(err, tc.ErrorMatches, ".*unknown architecture.*")
 }
 
 // TestDeleteMetadataWithImageID verifies that the DeleteMetadataWithImageID method correctly removes specified entries from the cloud_image_metadata table.
-func (s *stateSuite) TestDeleteMetadataWithImageID(c *gc.C) {
+func (s *stateSuite) TestDeleteMetadataWithImageID(c *tc.C) {
 	// Arrange
 	s.runQuery(`
 INSERT INTO cloud_image_metadata (uuid, created_at,source,stream,region,version,architecture_id,virt_type,root_storage_type,priority,image_id)
@@ -288,7 +288,7 @@ VALUES
 }
 
 // TestFindMetadata tests the retrieval of metadata from the cloud_image_metadata table using various filters.
-func (s *stateSuite) TestFindMetadata(c *gc.C) {
+func (s *stateSuite) TestFindMetadata(c *tc.C) {
 	// Arrange
 	err := s.runQuery(`
 INSERT INTO cloud_image_metadata (uuid,created_at,source,stream,region,version,architecture_id,virt_type,root_storage_type,priority,image_id)
@@ -357,15 +357,15 @@ VALUES
 
 		// Act
 		obtained, err := s.state.FindMetadata(context.Background(), testCase.filter)
-		c.Check(err, jc.ErrorIsNil, gc.Commentf("test: %s\n - unexpected error: %s", testCase.description, err))
+		c.Check(err, jc.ErrorIsNil, tc.Commentf("test: %s\n - unexpected error: %s", testCase.description, err))
 
 		// Assert
-		c.Check(obtained, jc.SameContents, filter(expectedBase, testCase.accept), gc.Commentf("test: %s\n - obtained value mismatched", testCase.description))
+		c.Check(obtained, jc.SameContents, filter(expectedBase, testCase.accept), tc.Commentf("test: %s\n - obtained value mismatched", testCase.description))
 	}
 }
 
 // TestFindMetadataNotFound verifies that FindMetadata returns a NotFound error when no matching metadata is found.
-func (s *stateSuite) TestFindMetadataNotFound(c *gc.C) {
+func (s *stateSuite) TestFindMetadataNotFound(c *tc.C) {
 	// Arrange
 	err := s.runQuery(`
 INSERT INTO cloud_image_metadata (uuid,created_at,source,stream,region,version,architecture_id,virt_type,root_storage_type,priority,image_id)
@@ -383,7 +383,7 @@ VALUES
 }
 
 // TestFindMetadataExpired checks that non custom expired metadata entries are correctly excluded from query results.
-func (s *stateSuite) TestFindMetadataExpired(c *gc.C) {
+func (s *stateSuite) TestFindMetadataExpired(c *tc.C) {
 	// Arrange
 	err := s.runQuery(`
 INSERT INTO cloud_image_metadata (uuid,created_at,source,stream,region,version,architecture_id,virt_type,root_storage_type,priority,image_id)
@@ -433,7 +433,7 @@ VALUES
 
 // TestAllCloudImageMetadata tests the retrieval of all cloud image metadata from the database,
 // except expired one.
-func (s *stateSuite) TestAllCloudImageMetadata(c *gc.C) {
+func (s *stateSuite) TestAllCloudImageMetadata(c *tc.C) {
 	// Arrange
 	err := s.runQuery(`
 INSERT INTO cloud_image_metadata (uuid,created_at,source,stream,region,version,architecture_id,virt_type,root_storage_type,priority,image_id)
@@ -485,7 +485,7 @@ VALUES
 
 // TestAllCloudImageMetadataNoMetadata ensures that AllCloudImageMetadata returns no metadata
 // without error if all entries have expired.
-func (s *stateSuite) TestAllCloudImageMetadataNoMetadata(c *gc.C) {
+func (s *stateSuite) TestAllCloudImageMetadataNoMetadata(c *tc.C) {
 	// Arrange
 	err := s.runQuery(`
 INSERT INTO cloud_image_metadata (uuid,created_at,source,stream,region,version,architecture_id,virt_type,root_storage_type,priority,image_id)
@@ -506,7 +506,7 @@ VALUES
 // TestCleanupMetatada verifies that the metadata is properly cleaned up on a new insert in the
 // database.
 // Custom source never expires.
-func (s *stateSuite) TestCleanupMetatada(c *gc.C) {
+func (s *stateSuite) TestCleanupMetatada(c *tc.C) {
 	// Arrange
 	err := s.runQuery(`
 INSERT INTO cloud_image_metadata (uuid,created_at,source,stream,region,version,architecture_id,virt_type,root_storage_type,root_storage_size,priority,image_id)

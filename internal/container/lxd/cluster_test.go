@@ -6,9 +6,9 @@ package lxd_test
 import (
 	"errors"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/container/lxd"
 	lxdtesting "github.com/juju/juju/internal/container/lxd/testing"
@@ -18,9 +18,9 @@ type clusterSuite struct {
 	lxdtesting.BaseSuite
 }
 
-var _ = gc.Suite(&clusterSuite{})
+var _ = tc.Suite(&clusterSuite{})
 
-func (s *imageSuite) TestUseTargetGoodNode(c *gc.C) {
+func (s *imageSuite) TestUseTargetGoodNode(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -36,7 +36,7 @@ func (s *imageSuite) TestUseTargetGoodNode(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *imageSuite) TestUseTargetBadNode(c *gc.C) {
+func (s *imageSuite) TestUseTargetBadNode(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -50,5 +50,5 @@ func (s *imageSuite) TestUseTargetBadNode(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = jujuSvr.UseTargetServer("cluster-2")
-	c.Assert(err, gc.ErrorMatches, "not a cluster member")
+	c.Assert(err, tc.ErrorMatches, "not a cluster member")
 }

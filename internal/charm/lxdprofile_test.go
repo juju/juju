@@ -6,17 +6,17 @@ package charm_test
 import (
 	"strings"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/charm"
 )
 
 type ProfileSuite struct{}
 
-var _ = gc.Suite(&ProfileSuite{})
+var _ = tc.Suite(&ProfileSuite{})
 
-func (s *ProfileSuite) TestValidate(c *gc.C) {
+func (s *ProfileSuite) TestValidate(c *tc.C) {
 	var profileTests = []struct {
 		description   string
 		profile       *charm.LXDProfile
@@ -102,7 +102,7 @@ func (s *ProfileSuite) TestValidate(c *gc.C) {
 		c.Logf("test %d: %s", i, test.description)
 		err := test.profile.ValidateConfigDevices()
 		if err != nil {
-			c.Assert(err.Error(), gc.Equals, test.expectedError)
+			c.Assert(err.Error(), tc.Equals, test.expectedError)
 		} else {
 
 			c.Assert(err, jc.ErrorIsNil)
@@ -111,7 +111,7 @@ func (s *ProfileSuite) TestValidate(c *gc.C) {
 
 }
 
-func (s *ProfileSuite) TestReadLXDProfile(c *gc.C) {
+func (s *ProfileSuite) TestReadLXDProfile(c *tc.C) {
 	profile, err := charm.ReadLXDProfile(strings.NewReader(`
 config:
   security.nesting: "true"
@@ -129,20 +129,20 @@ devices:
     type: unix-char
 `))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(profile, gc.NotNil)
+	c.Assert(profile, tc.NotNil)
 }
 
-func (s *ProfileSuite) TestLXDProfileEmptyFile(c *gc.C) {
+func (s *ProfileSuite) TestLXDProfileEmptyFile(c *tc.C) {
 	profile, err := charm.ReadLXDProfile(strings.NewReader(`
  
 `))
-	c.Assert(profile, gc.DeepEquals, charm.NewLXDProfile())
+	c.Assert(profile, tc.DeepEquals, charm.NewLXDProfile())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(profile.Empty(), jc.IsTrue)
 	c.Assert(profile.ValidateConfigDevices(), jc.ErrorIsNil)
 }
 
-func (s *ProfileSuite) TestReadLXDProfileFailUnmarshall(c *gc.C) {
+func (s *ProfileSuite) TestReadLXDProfileFailUnmarshall(c *tc.C) {
 	profile, err := charm.ReadLXDProfile(strings.NewReader(`
 config:
   security.nesting: "true"
@@ -159,6 +159,6 @@ config:
     path: /dev/net/tun
     type: unix-char
 `))
-	c.Assert(err, gc.ErrorMatches, "failed to unmarshall lxd-profile.yaml: yaml: .*")
-	c.Assert(profile, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "failed to unmarshall lxd-profile.yaml: yaml: .*")
+	c.Assert(profile, tc.IsNil)
 }

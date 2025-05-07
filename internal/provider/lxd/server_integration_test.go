@@ -12,10 +12,10 @@ import (
 	client "github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	_ = gc.Suite(&serverIntegrationSuite{})
+	_ = tc.Suite(&serverIntegrationSuite{})
 )
 
 // serverIntegrationSuite tests server module functionality from outside the
@@ -32,7 +32,7 @@ type serverIntegrationSuite struct {
 	testing.IsolationSuite
 }
 
-func (s *serverIntegrationSuite) TestLocalServer(c *gc.C) {
+func (s *serverIntegrationSuite) TestLocalServer(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -62,12 +62,12 @@ func (s *serverIntegrationSuite) TestLocalServer(c *gc.C) {
 	)
 
 	svr, err := factory.LocalServer()
-	c.Assert(svr, gc.Not(gc.IsNil))
-	c.Assert(svr, gc.Equals, server)
-	c.Assert(err, gc.IsNil)
+	c.Assert(svr, tc.Not(tc.IsNil))
+	c.Assert(svr, tc.Equals, server)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *serverIntegrationSuite) TestLocalServerRetrySemantics(c *gc.C) {
+func (s *serverIntegrationSuite) TestLocalServerRetrySemantics(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -104,12 +104,12 @@ func (s *serverIntegrationSuite) TestLocalServerRetrySemantics(c *gc.C) {
 	)
 
 	svr, err := factory.LocalServer()
-	c.Assert(svr, gc.Not(gc.IsNil))
-	c.Assert(svr, gc.Equals, server)
-	c.Assert(err, gc.IsNil)
+	c.Assert(svr, tc.Not(tc.IsNil))
+	c.Assert(svr, tc.Equals, server)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *serverIntegrationSuite) TestLocalServerRetrySemanticsFailure(c *gc.C) {
+func (s *serverIntegrationSuite) TestLocalServerRetrySemanticsFailure(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -131,12 +131,12 @@ func (s *serverIntegrationSuite) TestLocalServerRetrySemanticsFailure(c *gc.C) {
 	server.EXPECT().GetConnectionInfo().Return(emptyConnectionInfo, nil).Times(30)
 
 	svr, err := factory.LocalServer()
-	c.Assert(svr, gc.IsNil)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, "LXD is not listening on address https://192.168.0.1 (reported addresses: [])")
+	c.Assert(svr, tc.IsNil)
+	c.Assert(err, tc.NotNil)
+	c.Assert(err.Error(), tc.Equals, "LXD is not listening on address https://192.168.0.1 (reported addresses: [])")
 }
 
-func (s *serverIntegrationSuite) TestLocalServerWithInvalidAPIVersion(c *gc.C) {
+func (s *serverIntegrationSuite) TestLocalServerWithInvalidAPIVersion(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -166,12 +166,12 @@ func (s *serverIntegrationSuite) TestLocalServerWithInvalidAPIVersion(c *gc.C) {
 	)
 
 	svr, err := factory.LocalServer()
-	c.Assert(svr, gc.Not(gc.IsNil))
-	c.Assert(svr, gc.Equals, server)
-	c.Assert(err, gc.IsNil)
+	c.Assert(svr, tc.Not(tc.IsNil))
+	c.Assert(svr, tc.Equals, server)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *serverIntegrationSuite) TestLocalServerErrorMessageShowsInstallMessage(c *gc.C) {
+func (s *serverIntegrationSuite) TestLocalServerErrorMessageShowsInstallMessage(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -185,7 +185,7 @@ func (s *serverIntegrationSuite) TestLocalServerErrorMessageShowsInstallMessage(
 	)
 
 	_, err := factory.LocalServer()
-	c.Assert(err.Error(), gc.Equals, `bad
+	c.Assert(err.Error(), tc.Equals, `bad
 
 Please install LXD by running:
 	$ sudo snap install lxd
@@ -195,7 +195,7 @@ and then configure it with:
 `)
 }
 
-func (s *serverIntegrationSuite) TestLocalServerErrorMessageShowsConfigureMessage(c *gc.C) {
+func (s *serverIntegrationSuite) TestLocalServerErrorMessageShowsConfigureMessage(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -217,7 +217,7 @@ func (s *serverIntegrationSuite) TestLocalServerErrorMessageShowsConfigureMessag
 	)
 
 	_, err := factory.LocalServer()
-	c.Assert(err.Error(), gc.Equals, `LXD refused connections; is LXD running?
+	c.Assert(err.Error(), tc.Equals, `LXD refused connections; is LXD running?
 
 Please configure LXD by running:
 	$ newgrp lxd
@@ -225,7 +225,7 @@ Please configure LXD by running:
 `)
 }
 
-func (s *serverIntegrationSuite) TestLocalServerErrorMessageShowsConfigureMessageWhenEACCES(c *gc.C) {
+func (s *serverIntegrationSuite) TestLocalServerErrorMessageShowsConfigureMessageWhenEACCES(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -247,7 +247,7 @@ func (s *serverIntegrationSuite) TestLocalServerErrorMessageShowsConfigureMessag
 	)
 
 	_, err := factory.LocalServer()
-	c.Assert(err.Error(), gc.Equals, `Permission denied, are you in the lxd group?
+	c.Assert(err.Error(), tc.Equals, `Permission denied, are you in the lxd group?
 
 Please configure LXD by running:
 	$ newgrp lxd
@@ -255,7 +255,7 @@ Please configure LXD by running:
 `)
 }
 
-func (s *serverIntegrationSuite) TestLocalServerErrorMessageShowsInstallMessageWhenENOENT(c *gc.C) {
+func (s *serverIntegrationSuite) TestLocalServerErrorMessageShowsInstallMessageWhenENOENT(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -277,7 +277,7 @@ func (s *serverIntegrationSuite) TestLocalServerErrorMessageShowsInstallMessageW
 	)
 
 	_, err := factory.LocalServer()
-	c.Assert(err.Error(), gc.Equals, `LXD socket not found; is LXD installed & running?
+	c.Assert(err.Error(), tc.Equals, `LXD socket not found; is LXD installed & running?
 
 Please install LXD by running:
 	$ sudo snap install lxd
@@ -287,7 +287,7 @@ and then configure it with:
 `)
 }
 
-func (s *serverIntegrationSuite) TestLocalServerWithStorageNotSupported(c *gc.C) {
+func (s *serverIntegrationSuite) TestLocalServerWithStorageNotSupported(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -315,11 +315,11 @@ func (s *serverIntegrationSuite) TestLocalServerWithStorageNotSupported(c *gc.C)
 	)
 
 	svr, err := factory.RemoteServer(lxd.CloudSpec{})
-	c.Assert(svr, gc.Not(gc.IsNil))
-	c.Assert(err, gc.IsNil)
+	c.Assert(svr, tc.Not(tc.IsNil))
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *serverIntegrationSuite) TestRemoteServerWithEmptyEndpointYieldsLocalServer(c *gc.C) {
+func (s *serverIntegrationSuite) TestRemoteServerWithEmptyEndpointYieldsLocalServer(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -349,11 +349,11 @@ func (s *serverIntegrationSuite) TestRemoteServerWithEmptyEndpointYieldsLocalSer
 	)
 
 	svr, err := factory.RemoteServer(lxd.CloudSpec{})
-	c.Assert(svr, gc.Not(gc.IsNil))
-	c.Assert(err, gc.IsNil)
+	c.Assert(svr, tc.Not(tc.IsNil))
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *serverIntegrationSuite) TestRemoteServer(c *gc.C) {
+func (s *serverIntegrationSuite) TestRemoteServer(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -381,12 +381,12 @@ func (s *serverIntegrationSuite) TestRemoteServer(c *gc.C) {
 				Credential: &creds,
 			},
 		})
-	c.Assert(svr, gc.Not(gc.IsNil))
-	c.Assert(svr, gc.Equals, server)
-	c.Assert(err, gc.IsNil)
+	c.Assert(svr, tc.Not(tc.IsNil))
+	c.Assert(svr, tc.Equals, server)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *serverIntegrationSuite) TestRemoteServerWithNoStorage(c *gc.C) {
+func (s *serverIntegrationSuite) TestRemoteServerWithNoStorage(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -409,12 +409,12 @@ func (s *serverIntegrationSuite) TestRemoteServerWithNoStorage(c *gc.C) {
 				Credential: &creds,
 			},
 		})
-	c.Assert(svr, gc.Not(gc.IsNil))
-	c.Assert(svr, gc.Equals, server)
-	c.Assert(err, gc.IsNil)
+	c.Assert(svr, tc.Not(tc.IsNil))
+	c.Assert(svr, tc.Equals, server)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *serverIntegrationSuite) TestInsecureRemoteServerDoesNotCallGetServer(c *gc.C) {
+func (s *serverIntegrationSuite) TestInsecureRemoteServerDoesNotCallGetServer(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -432,12 +432,12 @@ func (s *serverIntegrationSuite) TestInsecureRemoteServerDoesNotCallGetServer(c 
 				Credential: &creds,
 			},
 		})
-	c.Assert(svr, gc.Not(gc.IsNil))
-	c.Assert(svr, gc.Equals, server)
-	c.Assert(err, gc.IsNil)
+	c.Assert(svr, tc.Not(tc.IsNil))
+	c.Assert(svr, tc.Equals, server)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *serverIntegrationSuite) TestRemoteServerMissingCertificates(c *gc.C) {
+func (s *serverIntegrationSuite) TestRemoteServerMissingCertificates(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -451,11 +451,11 @@ func (s *serverIntegrationSuite) TestRemoteServerMissingCertificates(c *gc.C) {
 				Credential: &creds,
 			},
 		})
-	c.Assert(svr, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "credentials not valid")
+	c.Assert(svr, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "credentials not valid")
 }
 
-func (s *serverIntegrationSuite) TestRemoteServerBadServerFuncError(c *gc.C) {
+func (s *serverIntegrationSuite) TestRemoteServerBadServerFuncError(c *tc.C) {
 	factory := lxd.NewServerFactoryWithError()
 
 	creds := cloud.NewCredential("any", map[string]string{
@@ -470,11 +470,11 @@ func (s *serverIntegrationSuite) TestRemoteServerBadServerFuncError(c *gc.C) {
 				Credential: &creds,
 			},
 		})
-	c.Assert(svr, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "oops")
+	c.Assert(svr, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "oops")
 }
 
-func (s *serverIntegrationSuite) TestRemoteServerWithUnSupportedAPIVersion(c *gc.C) {
+func (s *serverIntegrationSuite) TestRemoteServerWithUnSupportedAPIVersion(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -497,10 +497,10 @@ func (s *serverIntegrationSuite) TestRemoteServerWithUnSupportedAPIVersion(c *gc
 				Credential: &creds,
 			},
 		})
-	c.Assert(err, gc.ErrorMatches, `LXD version has to be at least "5.0.0", but current version is only "4.0.0"`)
+	c.Assert(err, tc.ErrorMatches, `LXD version has to be at least "5.0.0", but current version is only "4.0.0"`)
 }
 
-func (s *serverIntegrationSuite) TestIsSupportedAPIVersion(c *gc.C) {
+func (s *serverIntegrationSuite) TestIsSupportedAPIVersion(c *tc.C) {
 	for _, t := range []struct {
 		input  string
 		output string
@@ -526,7 +526,7 @@ func (s *serverIntegrationSuite) TestIsSupportedAPIVersion(c *gc.C) {
 		if t.output == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
-			c.Check(err, gc.ErrorMatches, t.output)
+			c.Check(err, tc.ErrorMatches, t.output)
 		}
 	}
 }

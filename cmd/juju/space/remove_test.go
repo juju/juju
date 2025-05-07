@@ -6,9 +6,9 @@ package space_test
 import (
 	"bytes"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/space"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -25,9 +25,9 @@ type RemoveSuite struct {
 	store *jujuclient.MemStore
 }
 
-var _ = gc.Suite(&RemoveSuite{})
+var _ = tc.Suite(&RemoveSuite{})
 
-func (s *RemoveSuite) SetUpTest(c *gc.C) {
+func (s *RemoveSuite) SetUpTest(c *tc.C) {
 	s.BaseSpaceSuite.SetUpTest(c)
 	s.newCommand = space.NewRemoveCommand
 
@@ -45,7 +45,7 @@ func (s *RemoveSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *RemoveSuite) runCommand(c *gc.C, api space.API, args ...string) (*cmd.Context, *space.RemoveCommand, error) {
+func (s *RemoveSuite) runCommand(c *tc.C, api space.API, args ...string) (*cmd.Context, *space.RemoveCommand, error) {
 	spaceCmd := &space.RemoveCommand{
 		SpaceCommandBase: space.NewSpaceCommandBase(api),
 	}
@@ -55,7 +55,7 @@ func (s *RemoveSuite) runCommand(c *gc.C, api space.API, args ...string) (*cmd.C
 	return ctx, spaceCmd, err
 }
 
-func (s *RemoveSuite) TestInit(c *gc.C) {
+func (s *RemoveSuite) TestInit(c *tc.C) {
 	ctrl, api := setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -88,15 +88,15 @@ func (s *RemoveSuite) TestInit(c *gc.C) {
 		_, cmd, err := s.runCommand(c, api, test.args...)
 		if test.expectErr != "" {
 			prefixedErr := "invalid arguments specified: " + test.expectErr
-			c.Check(err, gc.ErrorMatches, prefixedErr)
+			c.Check(err, tc.ErrorMatches, prefixedErr)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
-			c.Check(cmd.Name(), gc.Equals, test.expectName)
+			c.Check(cmd.Name(), tc.Equals, test.expectName)
 		}
 	}
 }
 
-func (s *RemoveSuite) TestRunWithValidSpaceSucceeds(c *gc.C) {
+func (s *RemoveSuite) TestRunWithValidSpaceSucceeds(c *tc.C) {
 	ctrl, api := setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -104,11 +104,11 @@ func (s *RemoveSuite) TestRunWithValidSpaceSucceeds(c *gc.C) {
 	api.EXPECT().RemoveSpace(gomock.Any(), spaceName, false, false).Return(params.RemoveSpaceResult{}, nil)
 	ctx, _, err := s.runCommand(c, api, spaceName)
 
-	c.Assert(err, gc.IsNil)
-	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "removed space \"default\"\n")
+	c.Assert(err, tc.IsNil)
+	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), tc.Equals, "removed space \"default\"\n")
 }
 
-func (s *RemoveSuite) TestRunWithForceNoConfirmation(c *gc.C) {
+func (s *RemoveSuite) TestRunWithForceNoConfirmation(c *tc.C) {
 	ctrl, api := setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -121,7 +121,7 @@ func (s *RemoveSuite) TestRunWithForceNoConfirmation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *RemoveSuite) TestRunWithForceWithConfirmation(c *gc.C) {
+func (s *RemoveSuite) TestRunWithForceWithConfirmation(c *tc.C) {
 	ctrl, api := setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -145,11 +145,11 @@ Continue [y/N]? `[1:]
 
 	ctx, _, err := s.runCommand(c, api, spaceName, "--force")
 
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, expectedErrMsg)
-	c.Assert(err, gc.ErrorMatches, `cannot remove space "myspace": space removal: aborted`)
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, expectedErrMsg)
+	c.Assert(err, tc.ErrorMatches, `cannot remove space "myspace": space removal: aborted`)
 }
 
-func (s *RemoveSuite) TestRunWithoutForce(c *gc.C) {
+func (s *RemoveSuite) TestRunWithoutForce(c *tc.C) {
 	ctrl, api := setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -174,11 +174,11 @@ Use --force to remove space
 
 	ctx, _, err := s.runCommand(c, api, spaceName)
 
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
-	c.Assert(err.Error(), gc.Equals, expectedErrMsg)
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "")
+	c.Assert(err.Error(), tc.Equals, expectedErrMsg)
 }
 
-func (s *RemoveSuite) TestRunWithForceWithNoError(c *gc.C) {
+func (s *RemoveSuite) TestRunWithForceWithNoError(c *tc.C) {
 	ctrl, api := setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -192,11 +192,11 @@ Continue [y/N]? `[1:]
 
 	ctx, _, err := s.runCommand(c, api, spaceName, "--force")
 
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, expectedErrMsg)
-	c.Assert(err, gc.ErrorMatches, `cannot remove space "default": space removal: aborted`)
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, expectedErrMsg)
+	c.Assert(err, tc.ErrorMatches, `cannot remove space "default": space removal: aborted`)
 }
 
-func (s *RemoveSuite) TestRunWhenSpacesAPIFails(c *gc.C) {
+func (s *RemoveSuite) TestRunWhenSpacesAPIFails(c *tc.C) {
 	ctrl, api := setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -205,8 +205,8 @@ func (s *RemoveSuite) TestRunWhenSpacesAPIFails(c *gc.C) {
 	api.EXPECT().RemoveSpace(gomock.Any(), spaceName, false, false).Return(params.RemoveSpaceResult{}, apiErr)
 	ctx, _, err := s.runCommand(c, api, spaceName)
 
-	c.Assert(err, gc.ErrorMatches, `cannot remove space "default": nope`)
-	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
-	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, "")
+	c.Assert(err, tc.ErrorMatches, `cannot remove space "default": nope`)
+	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), tc.Equals, "")
+	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), tc.Equals, "")
 
 }

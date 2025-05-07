@@ -5,9 +5,9 @@ package vsphere_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -18,9 +18,9 @@ type credentialsSuite struct {
 	provider environs.EnvironProvider
 }
 
-var _ = gc.Suite(&credentialsSuite{})
+var _ = tc.Suite(&credentialsSuite{})
 
-func (s *credentialsSuite) SetUpTest(c *gc.C) {
+func (s *credentialsSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	var err error
@@ -28,22 +28,22 @@ func (s *credentialsSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
+func (s *credentialsSuite) TestCredentialSchemas(c *tc.C) {
 	envtesting.AssertProviderAuthTypes(c, s.provider, "userpass")
 }
 
-func (s *credentialsSuite) TestUserPassCredentialsValid(c *gc.C) {
+func (s *credentialsSuite) TestUserPassCredentialsValid(c *tc.C) {
 	envtesting.AssertProviderCredentialsValid(c, s.provider, "userpass", map[string]string{
 		"user":     "bob",
 		"password": "dobbs",
 	})
 }
 
-func (s *credentialsSuite) TestUserPassHiddenAttributes(c *gc.C) {
+func (s *credentialsSuite) TestUserPassHiddenAttributes(c *tc.C) {
 	envtesting.AssertProviderCredentialsAttributesHidden(c, s.provider, "userpass", "password")
 }
 
-func (s *credentialsSuite) TestDetectCredentialsNotFound(c *gc.C) {
+func (s *credentialsSuite) TestDetectCredentialsNotFound(c *tc.C) {
 	_, err := s.provider.DetectCredentials("")
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }

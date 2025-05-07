@@ -8,8 +8,8 @@ import (
 	"database/sql"
 
 	"github.com/juju/clock"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/agentpassword"
@@ -28,9 +28,9 @@ type stateSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = gc.Suite(&stateSuite{})
+var _ = tc.Suite(&stateSuite{})
 
-func (s *stateSuite) TestSetUnitPassword(c *gc.C) {
+func (s *stateSuite) TestSetUnitPassword(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	s.createApplication(c)
@@ -51,17 +51,17 @@ func (s *stateSuite) TestSetUnitPassword(c *gc.C) {
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hash, gc.Equals, string(passwordHash))
+	c.Assert(hash, tc.Equals, string(passwordHash))
 }
 
-func (s *stateSuite) TestSetUnitPasswordUnitDoesNotExist(c *gc.C) {
+func (s *stateSuite) TestSetUnitPasswordUnitDoesNotExist(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	_, err := st.GetUnitUUID(context.Background(), unit.Name("foo/0"))
 	c.Assert(err, jc.ErrorIs, agentpassworderrors.UnitNotFound)
 }
 
-func (s *stateSuite) TestSetUnitPasswordUnitNotFound(c *gc.C) {
+func (s *stateSuite) TestSetUnitPasswordUnitNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	passwordHash := s.genPasswordHash(c)
@@ -70,7 +70,7 @@ func (s *stateSuite) TestSetUnitPasswordUnitNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, agentpassworderrors.UnitNotFound)
 }
 
-func (s *stateSuite) TestMatchesUnitPasswordHash(c *gc.C) {
+func (s *stateSuite) TestMatchesUnitPasswordHash(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	s.createApplication(c)
@@ -89,7 +89,7 @@ func (s *stateSuite) TestMatchesUnitPasswordHash(c *gc.C) {
 	c.Assert(valid, jc.IsTrue)
 }
 
-func (s *stateSuite) TestMatchesUnitPasswordHashUnitNotFound(c *gc.C) {
+func (s *stateSuite) TestMatchesUnitPasswordHashUnitNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	passwordHash := s.genPasswordHash(c)
@@ -98,7 +98,7 @@ func (s *stateSuite) TestMatchesUnitPasswordHashUnitNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateSuite) TestMatchesUnitPasswordHashInvalidPassword(c *gc.C) {
+func (s *stateSuite) TestMatchesUnitPasswordHashInvalidPassword(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	s.createApplication(c)
@@ -117,7 +117,7 @@ func (s *stateSuite) TestMatchesUnitPasswordHashInvalidPassword(c *gc.C) {
 	c.Assert(valid, jc.IsFalse)
 }
 
-func (s *stateSuite) TestGetAllUnitPasswordHashes(c *gc.C) {
+func (s *stateSuite) TestGetAllUnitPasswordHashes(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	s.createApplication(c)
@@ -138,7 +138,7 @@ func (s *stateSuite) TestGetAllUnitPasswordHashes(c *gc.C) {
 	})
 }
 
-func (s *stateSuite) TestGetAllUnitPasswordHashesPasswordNotSet(c *gc.C) {
+func (s *stateSuite) TestGetAllUnitPasswordHashesPasswordNotSet(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	s.createApplication(c)
@@ -151,7 +151,7 @@ func (s *stateSuite) TestGetAllUnitPasswordHashesPasswordNotSet(c *gc.C) {
 	})
 }
 
-func (s *stateSuite) TestGetAllUnitPasswordHashesNoUnits(c *gc.C) {
+func (s *stateSuite) TestGetAllUnitPasswordHashesNoUnits(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	hashes, err := st.GetAllUnitPasswordHashes(context.Background())
@@ -159,14 +159,14 @@ func (s *stateSuite) TestGetAllUnitPasswordHashesNoUnits(c *gc.C) {
 	c.Assert(hashes, jc.DeepEquals, agentpassword.UnitPasswordHashes{})
 }
 
-func (s *stateSuite) genPasswordHash(c *gc.C) agentpassword.PasswordHash {
+func (s *stateSuite) genPasswordHash(c *tc.C) agentpassword.PasswordHash {
 	rand, err := internalpassword.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 
 	return agentpassword.PasswordHash(internalpassword.AgentPasswordHash(rand))
 }
 
-func (s *stateSuite) createApplication(c *gc.C) {
+func (s *stateSuite) createApplication(c *tc.C) {
 	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	_, err := applicationSt.CreateApplication(context.Background(), "foo", application.AddApplicationArg{
 		Charm: charm.Charm{
@@ -189,7 +189,7 @@ func (s *stateSuite) createApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateSuite) createUnit(c *gc.C) unit.Name {
+func (s *stateSuite) createUnit(c *tc.C) unit.Name {
 	netNodeUUID := uuid.MustNewUUID().String()
 
 	ctx := context.Background()
@@ -203,7 +203,7 @@ func (s *stateSuite) createUnit(c *gc.C) unit.Name {
 
 	unitNames, err := applicationSt.AddIAASUnits(ctx, c.MkDir(), appID, charmUUID, application.AddUnitArg{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitNames, gc.HasLen, 1)
+	c.Assert(unitNames, tc.HasLen, 1)
 	unitName := unitNames[0]
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {

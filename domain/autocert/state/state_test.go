@@ -7,8 +7,8 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	autocerterrors "github.com/juju/juju/domain/autocert/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -19,9 +19,9 @@ type stateSuite struct {
 	schematesting.ControllerSuite
 }
 
-var _ = gc.Suite(&stateSuite{})
+var _ = tc.Suite(&stateSuite{})
 
-func (s *stateSuite) TestRetrieveCertX509(c *gc.C) {
+func (s *stateSuite) TestRetrieveCertX509(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
@@ -51,10 +51,10 @@ Hn+GmxZA
 	retrievedCertBytes, err := st.Get(context.Background(), "cert1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(string(retrievedCertBytes), gc.Equals, x509Cert)
+	c.Assert(string(retrievedCertBytes), tc.Equals, x509Cert)
 }
 
-func (s *stateSuite) TestRetrieveSpecialChars(c *gc.C) {
+func (s *stateSuite) TestRetrieveSpecialChars(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
@@ -73,10 +73,10 @@ abc123!?$*&()'-=@~;\|/"
 	retrievedCertBytes, err := st.Get(context.Background(), "cert1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(string(retrievedCertBytes), gc.Equals, specialCharsCert)
+	c.Assert(string(retrievedCertBytes), tc.Equals, specialCharsCert)
 }
 
-func (s *stateSuite) TestRetrieveNoCert(c *gc.C) {
+func (s *stateSuite) TestRetrieveNoCert(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	// Retrieve an arbitrary non existent cert.
@@ -84,7 +84,7 @@ func (s *stateSuite) TestRetrieveNoCert(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, autocerterrors.NotFound)
 }
 
-func (s *stateSuite) TestInsertX509(c *gc.C) {
+func (s *stateSuite) TestInsertX509(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
@@ -114,11 +114,11 @@ Hn+GmxZA
 	)
 	err = row.Scan(&name, &data)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(name, gc.Equals, "cert1")
-	c.Check(data, gc.Equals, x509Cert)
+	c.Check(name, tc.Equals, "cert1")
+	c.Check(data, tc.Equals, x509Cert)
 }
 
-func (s *stateSuite) TestInsertSpecialChars(c *gc.C) {
+func (s *stateSuite) TestInsertSpecialChars(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
@@ -137,11 +137,11 @@ abc123!?$*&()'-=@~;\|/"
 	)
 	err = row.Scan(&name, &data)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(name, gc.Equals, "cert1")
-	c.Check(data, gc.Equals, specialCharsCert)
+	c.Check(name, tc.Equals, "cert1")
+	c.Check(data, tc.Equals, specialCharsCert)
 }
 
-func (s *stateSuite) TestDeleteCertX509(c *gc.C) {
+func (s *stateSuite) TestDeleteCertX509(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
@@ -176,10 +176,10 @@ Hn+GmxZA
 		name, data string
 	)
 	err = row.Scan(&name, &data)
-	c.Assert(err, gc.Equals, sql.ErrNoRows)
+	c.Assert(err, tc.Equals, sql.ErrNoRows)
 }
 
-func (s *stateSuite) TestDeleteSpecialChars(c *gc.C) {
+func (s *stateSuite) TestDeleteSpecialChars(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
@@ -203,10 +203,10 @@ abc123!?$*&()'-=@~;\|/"
 		name, data string
 	)
 	err = row.Scan(&name, &data)
-	c.Assert(err, gc.Equals, sql.ErrNoRows)
+	c.Assert(err, tc.Equals, sql.ErrNoRows)
 }
 
-func (s *stateSuite) TestReplaceCert(c *gc.C) {
+func (s *stateSuite) TestReplaceCert(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	// Insert one cert.
@@ -241,10 +241,10 @@ Hn+GmxZA
 	// Retrieve the inserted cert.
 	retrievedCertBytes, err := st.Get(context.Background(), "cert1")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(retrievedCertBytes), gc.Equals, x509Cert)
+	c.Assert(string(retrievedCertBytes), tc.Equals, x509Cert)
 }
 
-func (s *stateSuite) TestFullCRUD(c *gc.C) {
+func (s *stateSuite) TestFullCRUD(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	x509Cert := `
@@ -270,7 +270,7 @@ Hn+GmxZA
 	// Retrieve the inserted cert.
 	retrievedCertBytes, err := st.Get(context.Background(), "cert1")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(retrievedCertBytes), gc.Equals, x509Cert)
+	c.Assert(string(retrievedCertBytes), tc.Equals, x509Cert)
 
 	// Delete the inserted cert.
 	err = st.Delete(context.Background(), "cert1")

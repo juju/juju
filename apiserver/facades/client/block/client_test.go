@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/blockcommand"
@@ -23,9 +23,9 @@ type blockSuite struct {
 	authorizer *MockAuthorizer
 }
 
-var _ = gc.Suite(&blockSuite{})
+var _ = tc.Suite(&blockSuite{})
 
-func (s *blockSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *blockSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.service = NewMockBlockCommandService(ctrl)
 	s.authorizer = NewMockAuthorizer(ctrl)
@@ -39,7 +39,7 @@ func (s *blockSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *blockSuite) TestListBlockNoneExistent(c *gc.C) {
+func (s *blockSuite) TestListBlockNoneExistent(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.ReadAccess, s.api.modelTag).Return(nil)
@@ -48,7 +48,7 @@ func (s *blockSuite) TestListBlockNoneExistent(c *gc.C) {
 	s.assertBlockList(c, 0)
 }
 
-func (s *blockSuite) TestSwitchValidBlockOn(c *gc.C) {
+func (s *blockSuite) TestSwitchValidBlockOn(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, s.api.modelTag).Return(nil)
@@ -62,7 +62,7 @@ func (s *blockSuite) TestSwitchValidBlockOn(c *gc.C) {
 	s.assertSwitchBlockOn(c, params.BlockDestroy, "for TestSwitchValidBlockOn")
 }
 
-func (s *blockSuite) TestSwitchInvalidBlockOn(c *gc.C) {
+func (s *blockSuite) TestSwitchInvalidBlockOn(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, s.api.modelTag).Return(nil)
@@ -73,10 +73,10 @@ func (s *blockSuite) TestSwitchInvalidBlockOn(c *gc.C) {
 	}
 
 	err := s.api.SwitchBlockOn(context.Background(), on)
-	c.Assert(err.Error, gc.NotNil)
+	c.Assert(err.Error, tc.NotNil)
 }
 
-func (s *blockSuite) TestSwitchBlockOff(c *gc.C) {
+func (s *blockSuite) TestSwitchBlockOff(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, s.api.modelTag).Return(nil)
@@ -89,22 +89,22 @@ func (s *blockSuite) TestSwitchBlockOff(c *gc.C) {
 		Type: params.BlockDestroy,
 	}
 	err := s.api.SwitchBlockOff(context.Background(), off)
-	c.Assert(err.Error, gc.IsNil)
+	c.Assert(err.Error, tc.IsNil)
 	s.assertBlockList(c, 0)
 }
 
-func (s *blockSuite) assertBlockList(c *gc.C, length int) {
+func (s *blockSuite) assertBlockList(c *tc.C, length int) {
 	all, err := s.api.List(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(all.Results, gc.HasLen, length)
+	c.Assert(all.Results, tc.HasLen, length)
 }
 
-func (s *blockSuite) assertSwitchBlockOn(c *gc.C, blockType, msg string) {
+func (s *blockSuite) assertSwitchBlockOn(c *tc.C, blockType, msg string) {
 	on := params.BlockSwitchParams{
 		Type:    blockType,
 		Message: msg,
 	}
 	err := s.api.SwitchBlockOn(context.Background(), on)
-	c.Assert(err.Error, gc.IsNil)
+	c.Assert(err.Error, tc.IsNil)
 	s.assertBlockList(c, 1)
 }

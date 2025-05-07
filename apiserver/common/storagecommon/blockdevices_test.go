@@ -6,8 +6,8 @@ package storagecommon_test
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/core/blockdevice"
@@ -17,9 +17,9 @@ import (
 type BlockDeviceSuite struct {
 }
 
-var _ = gc.Suite(&BlockDeviceSuite{})
+var _ = tc.Suite(&BlockDeviceSuite{})
 
-func (s *BlockDeviceSuite) TestBlockDeviceMatchingSerialID(c *gc.C) {
+func (s *BlockDeviceSuite) TestBlockDeviceMatchingSerialID(c *tc.C) {
 	blockDevices := []blockdevice.BlockDevice{{
 		DeviceName: "sdb",
 		SerialId:   "543554ff-3b88-4",
@@ -42,7 +42,7 @@ func (s *BlockDeviceSuite) TestBlockDeviceMatchingSerialID(c *gc.C) {
 	})
 }
 
-func (s *BlockDeviceSuite) TestBlockDeviceMatchingHardwareID(c *gc.C) {
+func (s *BlockDeviceSuite) TestBlockDeviceMatchingHardwareID(c *tc.C) {
 	blockDevices := []blockdevice.BlockDevice{
 		{
 			DeviceName: "sdb",
@@ -65,7 +65,7 @@ func (s *BlockDeviceSuite) TestBlockDeviceMatchingHardwareID(c *gc.C) {
 	})
 }
 
-func (s *BlockDeviceSuite) TestBlockDevicesAWS(c *gc.C) {
+func (s *BlockDeviceSuite) TestBlockDevicesAWS(c *tc.C) {
 	blockDeviceInfo, ok := storagecommon.MatchingVolumeBlockDevice(context.Background(), awsTestBlockDevices, awsTestVolumeInfo, awsTestAttachmentInfo, awsTestPlanBlockInfo)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(blockDeviceInfo, jc.DeepEquals, &blockdevice.BlockDevice{
@@ -159,7 +159,7 @@ var (
 	awsTestAttachmentInfo = state.VolumeAttachmentInfo{DeviceName: "xvdf", DeviceLink: "/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol091bc356f4cc7661c"}
 )
 
-func (s *BlockDeviceSuite) TestBlockDevicesGCE(c *gc.C) {
+func (s *BlockDeviceSuite) TestBlockDevicesGCE(c *tc.C) {
 	blockDeviceInfo, ok := storagecommon.MatchingVolumeBlockDevice(context.Background(), gceTestBlockDevices, gceTestVolumeInfo, gceTestAttachmentInfo, gceTestPlanBlockInfo)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(blockDeviceInfo, jc.DeepEquals, &blockdevice.BlockDevice{
@@ -176,7 +176,7 @@ func (s *BlockDeviceSuite) TestBlockDevicesGCE(c *gc.C) {
 	})
 }
 
-func (s *BlockDeviceSuite) TestBlockDevicesGCEPreferUUID(c *gc.C) {
+func (s *BlockDeviceSuite) TestBlockDevicesGCEPreferUUID(c *tc.C) {
 	blockDeviceInfo, ok := storagecommon.MatchingFilesystemBlockDevice(context.Background(), gceTestBlockDevices, gceTestVolumeInfo, gceTestAttachmentInfoForUUID, gceTestPlanBlockInfo)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(blockDeviceInfo, jc.DeepEquals, &blockdevice.BlockDevice{
@@ -209,7 +209,7 @@ var (
 	gceTestAttachmentInfoForUUID = state.VolumeAttachmentInfo{DeviceLink: "/dev/disk/by-id/google-persistent-disk-0", ReadOnly: false, PlanInfo: (*state.VolumeAttachmentPlanInfo)(nil)}
 )
 
-func (s *BlockDeviceSuite) TestBlockDevicesOpenStack(c *gc.C) {
+func (s *BlockDeviceSuite) TestBlockDevicesOpenStack(c *tc.C) {
 	blockDeviceInfo, ok := storagecommon.MatchingVolumeBlockDevice(context.Background(), osTestBlockDevices, osTestVolumeInfo, osTestAttachmentInfo, osTestPlanBlockInfo)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(blockDeviceInfo, jc.DeepEquals, &blockdevice.BlockDevice{
@@ -231,7 +231,7 @@ var (
 	osTestAttachmentInfo = state.VolumeAttachmentInfo{DeviceName: "vdd"}
 )
 
-func (s *BlockDeviceSuite) TestBlockDevicesOCI(c *gc.C) {
+func (s *BlockDeviceSuite) TestBlockDevicesOCI(c *tc.C) {
 	blockDeviceInfo, ok := storagecommon.MatchingVolumeBlockDevice(context.Background(), ociTestBlockDevices, ociTestVolumeInfo, ociTestAttachmentInfo, ociTestPlanBlockInfo)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(blockDeviceInfo, jc.DeepEquals, &blockdevice.BlockDevice{
@@ -247,7 +247,7 @@ var (
 	ociTestAttachmentInfo = state.VolumeAttachmentInfo{DeviceName: "loop2"}
 )
 
-func (s *BlockDeviceSuite) TestBlockDevicesVSphere(c *gc.C) {
+func (s *BlockDeviceSuite) TestBlockDevicesVSphere(c *tc.C) {
 	blockDeviceInfo, ok := storagecommon.MatchingVolumeBlockDevice(context.Background(), vsphereTestBlockDevices, vsphereTestVolumeInfo, vsphereTestAttachmentInfo, vsphereTestPlanBlockInfo)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(blockDeviceInfo, jc.DeepEquals, &blockdevice.BlockDevice{

@@ -12,10 +12,10 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -52,16 +52,16 @@ type providerSuite struct {
 	namespace string
 }
 
-var _ = gc.Suite(&providerSuite{})
+var _ = tc.Suite(&providerSuite{})
 
-func (s *providerSuite) SetUpTest(c *gc.C) {
+func (s *providerSuite) SetUpTest(c *tc.C) {
 	s.namespace = "test"
 	s.PatchValue(&kubernetes.NewK8sClient, func(config *rest.Config) (kubernetes2.Interface, error) {
 		return s.k8sClient, nil
 	})
 }
 
-func (s *providerSuite) setupController(c *gc.C) *gomock.Controller {
+func (s *providerSuite) setupController(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.k8sClient = mocks.NewMockInterface(ctrl)
@@ -326,7 +326,7 @@ func (s *providerSuite) expectEnsureControllerModelSecretAccessToken(unit string
 	gomock.InOrder(args...)
 }
 
-func (s *providerSuite) assertRestrictedConfig(c *gc.C, accessor secrets.Accessor, isControllerCloud, sameController bool) {
+func (s *providerSuite) assertRestrictedConfig(c *tc.C, accessor secrets.Accessor, isControllerCloud, sameController bool) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -391,28 +391,28 @@ func (s *providerSuite) assertRestrictedConfig(c *gc.C, accessor secrets.Accesso
 	c.Assert(backendCfg, jc.DeepEquals, expected)
 }
 
-func (s *providerSuite) TestRestrictedConfigWithUnit(c *gc.C) {
+func (s *providerSuite) TestRestrictedConfigWithUnit(c *tc.C) {
 	s.assertRestrictedConfig(c, secrets.Accessor{
 		Kind: secrets.UnitAccessor,
 		ID:   "gitlab/0",
 	}, false, false)
 }
 
-func (s *providerSuite) TestRestrictedConfigWithModel(c *gc.C) {
+func (s *providerSuite) TestRestrictedConfigWithModel(c *tc.C) {
 	s.assertRestrictedConfig(c, secrets.Accessor{
 		Kind: secrets.ModelAccessor,
 		ID:   coretesting.ModelTag.Id(),
 	}, false, false)
 }
 
-func (s *providerSuite) TestRestrictedConfiWithControllerCloud(c *gc.C) {
+func (s *providerSuite) TestRestrictedConfiWithControllerCloud(c *tc.C) {
 	s.assertRestrictedConfig(c, secrets.Accessor{
 		Kind: secrets.UnitAccessor,
 		ID:   "gitlab/0",
 	}, true, true)
 }
 
-func (s *providerSuite) TestRestrictedConfigWithControllerCloudDifferentController(c *gc.C) {
+func (s *providerSuite) TestRestrictedConfigWithControllerCloudDifferentController(c *tc.C) {
 	s.assertRestrictedConfig(c, secrets.Accessor{
 		Kind: secrets.UnitAccessor,
 		ID:   "gitlab/0",
@@ -423,7 +423,7 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func (s *providerSuite) TestCleanupModel(c *gc.C) {
+func (s *providerSuite) TestCleanupModel(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -485,7 +485,7 @@ func (s *providerSuite) TestCleanupModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *providerSuite) TestCleanupSecrets(c *gc.C) {
+func (s *providerSuite) TestCleanupSecrets(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -507,7 +507,7 @@ func (s *providerSuite) TestCleanupSecrets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *providerSuite) TestNewBackend(c *gc.C) {
+func (s *providerSuite) TestNewBackend(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -523,10 +523,10 @@ func (s *providerSuite) TestNewBackend(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = b.Ping()
-	c.Assert(err, gc.ErrorMatches, "backend not reachable: boom")
+	c.Assert(err, tc.ErrorMatches, "backend not reachable: boom")
 }
 
-func (s *providerSuite) TestEnsureSecretAccessTokenControllerModelCreate(c *gc.C) {
+func (s *providerSuite) TestEnsureSecretAccessTokenControllerModelCreate(c *tc.C) {
 	s.namespace = "juju-secrets"
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
@@ -564,7 +564,7 @@ func (s *providerSuite) TestEnsureSecretAccessTokenControllerModelCreate(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *providerSuite) TestEnsureSecretAccessTokenUpdate(c *gc.C) {
+func (s *providerSuite) TestEnsureSecretAccessTokenUpdate(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -674,7 +674,7 @@ func (s *providerSuite) TestEnsureSecretAccessTokenUpdate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *providerSuite) TestEnsureSecretAccessTokenControllerModelUpdate(c *gc.C) {
+func (s *providerSuite) TestEnsureSecretAccessTokenControllerModelUpdate(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -711,7 +711,7 @@ func (s *providerSuite) TestEnsureSecretAccessTokenControllerModelUpdate(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *providerSuite) TestGetContent(c *gc.C) {
+func (s *providerSuite) TestGetContent(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -743,7 +743,7 @@ func (s *providerSuite) TestGetContent(c *gc.C) {
 	c.Assert(content.EncodedValues(), jc.DeepEquals, map[string]string{"foo": "YmFy"})
 }
 
-func (s *providerSuite) TestSaveContent(c *gc.C) {
+func (s *providerSuite) TestSaveContent(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -781,10 +781,10 @@ func (s *providerSuite) TestSaveContent(c *gc.C) {
 
 	name, err := b.SaveContent(context.Background(), uri, 1, secrets.NewSecretValue(map[string]string{"foo": "YmFy"}))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(name, gc.Equals, uri.ID+"-1")
+	c.Assert(name, tc.Equals, uri.ID+"-1")
 }
 
-func (s *providerSuite) TestDeleteContent(c *gc.C) {
+func (s *providerSuite) TestDeleteContent(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -813,7 +813,7 @@ func (s *providerSuite) TestDeleteContent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *providerSuite) TestRefreshAuth(c *gc.C) {
+func (s *providerSuite) TestRefreshAuth(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -838,5 +838,5 @@ func (s *providerSuite) TestRefreshAuth(c *gc.C) {
 	validFor := time.Hour
 	newCfg, err := r.RefreshAuth(context.Background(), cfg, validFor)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newCfg.Config["token"], gc.Equals, "token2")
+	c.Assert(newCfg.Config["token"], tc.Equals, "token2")
 }

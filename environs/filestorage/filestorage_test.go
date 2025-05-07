@@ -16,16 +16,16 @@ import (
 	"testing"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/storage"
 )
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type filestorageSuite struct {
@@ -34,9 +34,9 @@ type filestorageSuite struct {
 	writer storage.StorageWriter
 }
 
-var _ = gc.Suite(&filestorageSuite{})
+var _ = tc.Suite(&filestorageSuite{})
 
-func (s *filestorageSuite) SetUpTest(c *gc.C) {
+func (s *filestorageSuite) SetUpTest(c *tc.C) {
 	s.dir = c.MkDir()
 	var err error
 	s.reader, err = filestorage.NewFileStorageReader(s.dir)
@@ -45,17 +45,17 @@ func (s *filestorageSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *filestorageSuite) createFile(c *gc.C, name string) (fullpath string, data []byte) {
+func (s *filestorageSuite) createFile(c *tc.C, name string) (fullpath string, data []byte) {
 	fullpath = filepath.Join(s.dir, name)
 	dir := filepath.Dir(fullpath)
-	c.Assert(os.MkdirAll(dir, 0755), gc.IsNil)
+	c.Assert(os.MkdirAll(dir, 0755), tc.IsNil)
 	data = []byte{1, 2, 3, 4, 5}
 	err := os.WriteFile(fullpath, data, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	return fullpath, data
 }
 
-func (s *filestorageSuite) TestList(c *gc.C) {
+func (s *filestorageSuite) TestList(c *tc.C) {
 	names := []string{
 		"a/b/c",
 		"a/bb",
@@ -81,22 +81,22 @@ func (s *filestorageSuite) TestList(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		i := len(files)
 		j := len(test.expected)
-		c.Assert(i, gc.Equals, j)
+		c.Assert(i, tc.Equals, j)
 		for i := range files {
 			c.Assert(files[i], jc.SamePath, test.expected[i])
 		}
 	}
 }
 
-func (s *filestorageSuite) TestListHidesTempDir(c *gc.C) {
+func (s *filestorageSuite) TestListHidesTempDir(c *tc.C) {
 	err := s.writer.Put("test-write", bytes.NewReader(nil), 0)
 	c.Assert(err, jc.ErrorIsNil)
 	files, err := storage.List(s.reader, "")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(files, gc.DeepEquals, []string{"test-write"})
+	c.Check(files, tc.DeepEquals, []string{"test-write"})
 	files, err = storage.List(s.reader, "no-such-directory")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(files, gc.DeepEquals, []string(nil))
+	c.Check(files, tc.DeepEquals, []string(nil))
 	// We also pretend the .tmp directory doesn't exist. If you call a
 	// directory that doesn't exist, we just return an empty list of
 	// strings, so we force the same behavior for '.tmp'
@@ -104,27 +104,27 @@ func (s *filestorageSuite) TestListHidesTempDir(c *gc.C) {
 	s.createFile(c, ".tmp/test-file")
 	files, err = storage.List(s.reader, ".tmp")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(files, gc.DeepEquals, []string(nil))
+	c.Check(files, tc.DeepEquals, []string(nil))
 	// For consistency, we refuse all other possibilities as well
 	s.createFile(c, ".tmp/foo/bar")
 	files, err = storage.List(s.reader, ".tmp/foo")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(files, gc.DeepEquals, []string(nil))
+	c.Check(files, tc.DeepEquals, []string(nil))
 	s.createFile(c, ".tmpother/foo")
 	files, err = storage.List(s.reader, ".tmpother")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(files, gc.DeepEquals, []string(nil))
+	c.Check(files, tc.DeepEquals, []string(nil))
 }
 
-func (s *filestorageSuite) TestURL(c *gc.C) {
+func (s *filestorageSuite) TestURL(c *tc.C) {
 	expectedpath, _ := s.createFile(c, "test-file")
 	_, file := filepath.Split(expectedpath)
 	url, err := s.reader.URL(file)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(url, gc.Equals, utils.MakeFileURL(expectedpath))
+	c.Assert(url, tc.Equals, utils.MakeFileURL(expectedpath))
 }
 
-func (s *filestorageSuite) TestGet(c *gc.C) {
+func (s *filestorageSuite) TestGet(c *tc.C) {
 	expectedpath, data := s.createFile(c, "test-file")
 	_, file := filepath.Split(expectedpath)
 	rc, err := storage.Get(s.reader, file)
@@ -133,7 +133,7 @@ func (s *filestorageSuite) TestGet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	b, err := io.ReadAll(rc)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(b, gc.DeepEquals, data)
+	c.Assert(b, tc.DeepEquals, data)
 
 	// Get on a non-existent path returns errors.NotFound
 	_, err = s.reader.Get("nowhere")
@@ -145,32 +145,32 @@ func (s *filestorageSuite) TestGet(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
-func (s *filestorageSuite) TestGetRefusesTemp(c *gc.C) {
+func (s *filestorageSuite) TestGetRefusesTemp(c *tc.C) {
 	s.createFile(c, ".tmp/test-file")
 	_, err := storage.Get(s.reader, ".tmp/test-file")
-	c.Check(err, gc.NotNil)
+	c.Check(err, tc.NotNil)
 	c.Check(err, jc.Satisfies, os.IsNotExist)
 	s.createFile(c, ".tmp/foo/test-file")
 	_, err = storage.Get(s.reader, ".tmp/foo/test-file")
-	c.Check(err, gc.NotNil)
+	c.Check(err, tc.NotNil)
 	c.Check(err, jc.Satisfies, os.IsNotExist)
 }
 
-func (s *filestorageSuite) TestPut(c *gc.C) {
+func (s *filestorageSuite) TestPut(c *tc.C) {
 	data := []byte{1, 2, 3, 4, 5}
 	err := s.writer.Put("test-write", bytes.NewReader(data), int64(len(data)))
 	c.Assert(err, jc.ErrorIsNil)
 	b, err := os.ReadFile(filepath.Join(s.dir, "test-write"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(b, gc.DeepEquals, data)
+	c.Assert(b, tc.DeepEquals, data)
 }
 
-func (s *filestorageSuite) TestPutRefusesTmp(c *gc.C) {
+func (s *filestorageSuite) TestPutRefusesTmp(c *tc.C) {
 	data := []byte{1, 2, 3, 4, 5}
 	err := s.writer.Put(".tmp/test-write", bytes.NewReader(data), int64(len(data)))
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, tc.NotNil)
 	c.Check(err, jc.Satisfies, os.IsPermission)
-	c.Check(*err.(*os.PathError), gc.Equals, os.PathError{
+	c.Check(*err.(*os.PathError), tc.Equals, os.PathError{
 		Op:   "Put",
 		Path: ".tmp/test-write",
 		Err:  os.ErrPermission,
@@ -179,24 +179,24 @@ func (s *filestorageSuite) TestPutRefusesTmp(c *gc.C) {
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
-func (s *filestorageSuite) TestRemove(c *gc.C) {
+func (s *filestorageSuite) TestRemove(c *tc.C) {
 	expectedpath, _ := s.createFile(c, "test-file")
 	_, file := filepath.Split(expectedpath)
 	err := s.writer.Remove(file)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = os.ReadFile(expectedpath)
-	c.Assert(err, gc.Not(gc.IsNil))
+	c.Assert(err, tc.Not(tc.IsNil))
 }
 
-func (s *filestorageSuite) TestRemoveAll(c *gc.C) {
+func (s *filestorageSuite) TestRemoveAll(c *tc.C) {
 	expectedpath, _ := s.createFile(c, "test-file")
 	err := s.writer.RemoveAll()
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = os.ReadFile(expectedpath)
-	c.Assert(err, gc.Not(gc.IsNil))
+	c.Assert(err, tc.Not(tc.IsNil))
 }
 
-func (s *filestorageSuite) TestPutTmpDir(c *gc.C) {
+func (s *filestorageSuite) TestPutTmpDir(c *tc.C) {
 	// Put should create and clean up the temporary directory
 	err := s.writer.Put("test-write", bytes.NewReader(nil), 0)
 	c.Assert(err, jc.ErrorIsNil)
@@ -214,7 +214,7 @@ func (s *filestorageSuite) TestPutTmpDir(c *gc.C) {
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
-func (s *filestorageSuite) TestPathRelativeToHome(c *gc.C) {
+func (s *filestorageSuite) TestPathRelativeToHome(c *tc.C) {
 	homeDir := utils.Home()
 	tempDir, err := os.MkdirTemp(homeDir, "")
 	c.Assert(err, jc.ErrorIsNil)
@@ -224,10 +224,10 @@ func (s *filestorageSuite) TestPathRelativeToHome(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	url, err := reader.URL("")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(url, gc.Equals, utils.MakeFileURL(filepath.Join(homeDir, dirName)))
+	c.Assert(url, tc.Equals, utils.MakeFileURL(filepath.Join(homeDir, dirName)))
 }
 
-func (s *filestorageSuite) TestRelativePath(c *gc.C) {
+func (s *filestorageSuite) TestRelativePath(c *tc.C) {
 	dir := c.MkDir()
 	err := os.MkdirAll(filepath.Join(dir, "a", "b", "c"), os.ModePerm)
 	c.Assert(err, jc.ErrorIsNil)
@@ -240,5 +240,5 @@ func (s *filestorageSuite) TestRelativePath(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	url, err := reader.URL("")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(url, gc.Equals, utils.MakeFileURL(dir)+"/a")
+	c.Assert(url, tc.Equals, utils.MakeFileURL(dir)+"/a")
 }

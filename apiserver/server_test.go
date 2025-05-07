@@ -14,9 +14,9 @@ import (
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/agent/machiner"
@@ -43,7 +43,7 @@ import (
 
 var fastDialOpts = api.DialOpts{}
 
-func dialWebsocketFromURL(c *gc.C, server string, header http.Header) (*websocket.Conn, *http.Response, error) {
+func dialWebsocketFromURL(c *tc.C, server string, header http.Header) (*websocket.Conn, *http.Response, error) {
 	// TODO(rogpeppe) merge this with the very similar dialWebsocket function.
 	if header == nil {
 		header = http.Header{}
@@ -65,9 +65,9 @@ type serverSuite struct {
 	jujutesting.ApiServerSuite
 }
 
-var _ = gc.Suite(&serverSuite{})
+var _ = tc.Suite(&serverSuite{})
 
-func (s *serverSuite) TestStop(c *gc.C) {
+func (s *serverSuite) TestStop(c *tc.C) {
 	conn, machine := s.OpenAPIAsNewMachine(c, state.JobManageModel)
 
 	_, err := apimachiner.NewClient(conn).Machine(context.Background(), machine.MachineTag())
@@ -83,7 +83,7 @@ func (s *serverSuite) TestStop(c *gc.C) {
 	// The client has not necessarily seen the server shutdown yet, so there
 	// are multiple possible errors. All we should care about is that there is
 	// an error, not what the error actually is.
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, tc.NotNil)
 
 	// Check it can be stopped twice.
 	err = s.Server.Stop()
@@ -94,7 +94,7 @@ func (s *serverSuite) TestStop(c *gc.C) {
 	s.Server = nil
 }
 
-func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
+func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *tc.C) {
 	domainServices := s.ControllerDomainServices(c)
 	controllerConfig, err := domainServices.ControllerConfig().ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -121,7 +121,7 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 	ipv4Conn, err := api.Open(context.Background(), info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer ipv4Conn.Close()
-	c.Assert(ipv4Conn.Addr().String(), gc.Equals, "wss://"+net.JoinHostPort("localhost", portString))
+	c.Assert(ipv4Conn.Addr().String(), tc.Equals, "wss://"+net.JoinHostPort("localhost", portString))
 	c.Assert(ipv4Conn.APIHostPorts(), jc.DeepEquals, []network.MachineHostPorts{
 		network.NewMachineHostPorts(port, "localhost"),
 	})
@@ -133,7 +133,7 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 	ipv6Conn, err := api.Open(context.Background(), info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer ipv6Conn.Close()
-	c.Assert(ipv6Conn.Addr().String(), gc.Equals, "wss://"+net.JoinHostPort("::1", portString))
+	c.Assert(ipv6Conn.Addr().String(), tc.Equals, "wss://"+net.JoinHostPort("::1", portString))
 	c.Assert(ipv6Conn.APIHostPorts(), jc.DeepEquals, []network.MachineHostPorts{
 		network.NewMachineHostPorts(port, "::1"),
 	})
@@ -142,11 +142,11 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
+func (s *serverSuite) TestOpenAsMachineErrors(c *tc.C) {
 	assertNotProvisioned := func(err error) {
-		c.Assert(err, gc.NotNil)
+		c.Assert(err, tc.NotNil)
 		c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
-		c.Assert(err, gc.ErrorMatches, `machine \d+ not provisioned \(not provisioned\)`)
+		c.Assert(err, tc.ErrorMatches, `machine \d+ not provisioned \(not provisioned\)`)
 	}
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -162,19 +162,19 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 	info.Nonce = "invalid-nonce"
 	st, err := api.Open(context.Background(), info, fastDialOpts)
 	assertNotProvisioned(err)
-	c.Assert(st, gc.IsNil)
+	c.Assert(st, tc.IsNil)
 
 	// Try with empty nonce as well.
 	info.Nonce = ""
 	st, err = api.Open(context.Background(), info, fastDialOpts)
 	assertNotProvisioned(err)
-	c.Assert(st, gc.IsNil)
+	c.Assert(st, tc.IsNil)
 
 	// Finally, with the correct one succeeds.
 	info.Nonce = "fake_nonce"
 	st, err = api.Open(context.Background(), info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st, gc.NotNil)
+	c.Assert(st, tc.NotNil)
 	st.Close()
 
 	// Now add another machine, intentionally unprovisioned.
@@ -189,10 +189,10 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 	info.Nonce = ""
 	st, err = api.Open(context.Background(), info, fastDialOpts)
 	assertNotProvisioned(err)
-	c.Assert(st, gc.IsNil)
+	c.Assert(st, tc.IsNil)
 }
 
-func dialWebsocket(c *gc.C, addr, path string) (*websocket.Conn, error) {
+func dialWebsocket(c *tc.C, addr, path string) (*websocket.Conn, error) {
 	// TODO(rogpeppe) merge this with the very similar dialWebsocketFromURL function.
 	url := fmt.Sprintf("wss://%s%s", addr, path)
 	header := make(http.Header)
@@ -209,7 +209,7 @@ func dialWebsocket(c *gc.C, addr, path string) (*websocket.Conn, error) {
 	return conn, err
 }
 
-func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
+func (s *serverSuite) TestNonCompatiblePathsAre404(c *tc.C) {
 	// We expose the API at '/api', '/' (controller-only), and at '/ModelUUID/api'
 	// for the correct location, but other paths should fail.
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
@@ -238,8 +238,8 @@ func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 	// Unfortunately gorilla/websocket just returns bad handshake, it doesn't
 	// give us any information (whether this was a 404 Not Found, Internal
 	// Server Error, 200 OK, etc.)
-	c.Assert(err, gc.ErrorMatches, `websocket: bad handshake`)
-	c.Assert(conn, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `websocket: bad handshake`)
+	c.Assert(conn, tc.IsNil)
 }
 
 type fakeResource struct {
@@ -254,7 +254,7 @@ func (r *fakeResource) Wait() error {
 	return nil
 }
 
-func (s *serverSuite) bootstrapHasPermissionTest(c *gc.C) (state.Entity, names.ControllerTag) {
+func (s *serverSuite) bootstrapHasPermissionTest(c *tc.C) (state.Entity, names.ControllerTag) {
 	uTag := names.NewUserTag("foobar")
 
 	accessService := s.ControllerDomainServices(c).Access()
@@ -282,7 +282,7 @@ func (s *serverSuite) bootstrapHasPermissionTest(c *gc.C) (state.Entity, names.C
 	return authentication.TaggedUser(user, uTag), cTag
 }
 
-func (s *serverSuite) TestAPIHandlerHasPermissionLogin(c *gc.C) {
+func (s *serverSuite) TestAPIHandlerHasPermissionLogin(c *tc.C) {
 	u, ctag := s.bootstrapHasPermissionTest(c)
 
 	domainServices := s.ControllerDomainServices(c)
@@ -296,7 +296,7 @@ func (s *serverSuite) TestAPIHandlerHasPermissionLogin(c *gc.C) {
 
 }
 
-func (s *serverSuite) TestAPIHandlerHasPermissionSuperUser(c *gc.C) {
+func (s *serverSuite) TestAPIHandlerHasPermissionSuperUser(c *tc.C) {
 	u, ctag := s.bootstrapHasPermissionTest(c)
 	domainServices := s.ControllerDomainServices(c)
 
@@ -320,7 +320,7 @@ func (s *serverSuite) TestAPIHandlerHasPermissionSuperUser(c *gc.C) {
 	apiserver.AssertHasPermission(c, handler, permission.SuperuserAccess, ctag, true)
 }
 
-func (s *serverSuite) TestAPIHandlerHasPermissionLoginToken(c *gc.C) {
+func (s *serverSuite) TestAPIHandlerHasPermissionLoginToken(c *tc.C) {
 	user := names.NewUserTag("fred")
 	token, err := apitesting.NewJWT(apitesting.JWTParams{
 		Controller: coretesting.ControllerTag.Id(),
@@ -344,7 +344,7 @@ func (s *serverSuite) TestAPIHandlerHasPermissionLoginToken(c *gc.C) {
 	apiserver.AssertHasPermission(c, handler, permission.WriteAccess, coretesting.ModelTag, true)
 }
 
-func (s *serverSuite) TestAPIHandlerMissingPermissionLoginToken(c *gc.C) {
+func (s *serverSuite) TestAPIHandlerMissingPermissionLoginToken(c *tc.C) {
 	user := names.NewUserTag("fred")
 	token, err := apitesting.NewJWT(apitesting.JWTParams{
 		Controller: coretesting.ControllerTag.Id(),
@@ -372,11 +372,11 @@ func (s *serverSuite) TestAPIHandlerMissingPermissionLoginToken(c *gc.C) {
 	})
 }
 
-func (s *serverSuite) TestAPIHandlerTeardownInitialModel(c *gc.C) {
+func (s *serverSuite) TestAPIHandlerTeardownInitialModel(c *tc.C) {
 	s.checkAPIHandlerTeardown(c, s.ControllerModel(c).State())
 }
 
-func (s *serverSuite) TestAPIHandlerTeardownOtherModel(c *gc.C) {
+func (s *serverSuite) TestAPIHandlerTeardownOtherModel(c *tc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
@@ -391,7 +391,7 @@ func (s *serverSuite) TestAPIHandlerTeardownOtherModel(c *gc.C) {
 	s.checkAPIHandlerTeardown(c, otherState)
 }
 
-func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
+func (s *serverSuite) TestClosesStateFromPool(c *tc.C) {
 	// We need to skip this until we get off the state backed object store.
 	// As the object store is a dependency of the apiserver, it is no longer
 	// possible to close the state pool when the connection closes. As this
@@ -426,7 +426,7 @@ func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
 	assertStateBecomesClosed(c, m.State())
 }
 
-func assertStateBecomesClosed(c *gc.C, st *state.State) {
+func assertStateBecomesClosed(c *tc.C, st *state.State) {
 	// This is gross but I can't see any other way to check for
 	// closedness outside the state package.
 	checkModel := func() {
@@ -441,10 +441,10 @@ func assertStateBecomesClosed(c *gc.C, st *state.State) {
 		// If we got here then st is still open.
 		st.Close()
 	}
-	c.Assert(checkModel, gc.PanicMatches, "Session already closed")
+	c.Assert(checkModel, tc.PanicMatches, "Session already closed")
 }
 
-func (s *serverSuite) checkAPIHandlerTeardown(c *gc.C, st *state.State) {
+func (s *serverSuite) checkAPIHandlerTeardown(c *tc.C, st *state.State) {
 	domainServices := s.ControllerDomainServices(c)
 
 	handler, resources := apiserver.TestingAPIHandler(c, s.StatePool(), st, domainServices)

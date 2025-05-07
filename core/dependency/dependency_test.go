@@ -4,19 +4,19 @@
 package dependency
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	dependencytesting "github.com/juju/worker/v4/dependency/testing"
-	gc "gopkg.in/check.v1"
 )
 
 type dependencySuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&dependencySuite{})
+var _ = tc.Suite(&dependencySuite{})
 
-func (s *dependencySuite) TestGetDependencyByName(c *gc.C) {
+func (s *dependencySuite) TestGetDependencyByName(c *tc.C) {
 	getter := dependencytesting.StubGetter(map[string]any{
 		"foo": foo{},
 	})
@@ -25,10 +25,10 @@ func (s *dependencySuite) TestGetDependencyByName(c *gc.C) {
 		return foo.Bar()
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, gc.FitsTypeOf, bar{})
+	c.Check(result, tc.FitsTypeOf, bar{})
 }
 
-func (s *dependencySuite) TestGetDependencyByNameNotFound(c *gc.C) {
+func (s *dependencySuite) TestGetDependencyByNameNotFound(c *tc.C) {
 	getter := dependencytesting.StubGetter(map[string]any{
 		"foo": foo{},
 	})
@@ -37,17 +37,17 @@ func (s *dependencySuite) TestGetDependencyByNameNotFound(c *gc.C) {
 		c.Fatalf("should not be called")
 		return bar{}
 	})
-	c.Assert(err, gc.ErrorMatches, `unexpected resource name: inferi`)
+	c.Assert(err, tc.ErrorMatches, `unexpected resource name: inferi`)
 }
 
-func (s *dependencySuite) TestGetDependencyByNameWithIdentity(c *gc.C) {
+func (s *dependencySuite) TestGetDependencyByNameWithIdentity(c *tc.C) {
 	getter := dependencytesting.StubGetter(map[string]any{
 		"foo": foo{},
 	})
 
 	result, err := GetDependencyByName[foo, foo](getter, "foo", Identity[foo, foo])
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, gc.FitsTypeOf, foo{})
+	c.Check(result, tc.FitsTypeOf, foo{})
 }
 
 type foo struct{}

@@ -9,11 +9,11 @@ import (
 	"path/filepath"
 	time "time"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 )
 
 type loggerSuite struct {
@@ -24,9 +24,9 @@ type loggerSuite struct {
 	logger *MockLogger
 }
 
-var _ = gc.Suite(&loggerSuite{})
+var _ = tc.Suite(&loggerSuite{})
 
-func (s *loggerSuite) TestLogger(c *gc.C) {
+func (s *loggerSuite) TestLogger(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dir := c.MkDir()
@@ -58,7 +58,7 @@ dummy stack
 	workertest.CleanKill(c, w)
 }
 
-func (s *loggerSuite) TestLoggerMultipleTimes(c *gc.C) {
+func (s *loggerSuite) TestLoggerMultipleTimes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dir := c.MkDir()
@@ -101,13 +101,13 @@ dummy stack
 	workertest.CleanKill(c, w)
 }
 
-func (s *loggerSuite) expectLogResult(c *gc.C, dir string, match string) {
+func (s *loggerSuite) expectLogResult(c *tc.C, dir string, match string) {
 	data, err := os.ReadFile(filepath.Join(dir, filename))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, match)
+	c.Assert(string(data), tc.Equals, match)
 }
 
-func (s *loggerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *loggerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.timer = NewMockTimer(ctrl)
@@ -122,7 +122,7 @@ func (s *loggerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *loggerSuite) newWorker(c *gc.C, dir string) *loggerWorker {
+func (s *loggerSuite) newWorker(c *tc.C, dir string) *loggerWorker {
 	w, err := newWorker(&WorkerConfig{
 		LogDir: dir,
 		Clock:  s.clock,

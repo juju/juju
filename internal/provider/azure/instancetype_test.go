@@ -7,8 +7,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
 	"github.com/juju/collections/set"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/environs/instances"
@@ -19,9 +19,9 @@ type InstanceTypeSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&InstanceTypeSuite{})
+var _ = tc.Suite(&InstanceTypeSuite{})
 
-func (s *InstanceTypeSuite) TestNoDupes(c *gc.C) {
+func (s *InstanceTypeSuite) TestNoDupes(c *tc.C) {
 	names := set.NewStrings()
 	for _, n := range machineSizeCost {
 		if names.Contains(n) {
@@ -31,7 +31,7 @@ func (s *InstanceTypeSuite) TestNoDupes(c *gc.C) {
 	}
 }
 
-func (s *InstanceTypeSuite) TestStandard(c *gc.C) {
+func (s *InstanceTypeSuite) TestStandard(c *tc.C) {
 	vm := armcompute.VirtualMachineSize{
 		Name:           to.Ptr("Standard_A2"),
 		MemoryInMB:     to.Ptr(int32(100)),
@@ -51,7 +51,7 @@ func (s *InstanceTypeSuite) TestStandard(c *gc.C) {
 	})
 }
 
-func (s *InstanceTypeSuite) TestStandardARM64(c *gc.C) {
+func (s *InstanceTypeSuite) TestStandardARM64(c *tc.C) {
 	vm := armcompute.VirtualMachineSize{
 		Name:           to.Ptr("Standard_A2"),
 		MemoryInMB:     to.Ptr(int32(100)),
@@ -71,7 +71,7 @@ func (s *InstanceTypeSuite) TestStandardARM64(c *gc.C) {
 	})
 }
 
-func (s *InstanceTypeSuite) TestStandardVersioned(c *gc.C) {
+func (s *InstanceTypeSuite) TestStandardVersioned(c *tc.C) {
 	vm := armcompute.VirtualMachineSize{
 		Name:           to.Ptr("Standard_A2_v4"),
 		MemoryInMB:     to.Ptr(int32(100)),
@@ -91,7 +91,7 @@ func (s *InstanceTypeSuite) TestStandardVersioned(c *gc.C) {
 	})
 }
 
-func (s *InstanceTypeSuite) TestStandardPromo(c *gc.C) {
+func (s *InstanceTypeSuite) TestStandardPromo(c *tc.C) {
 	vm := armcompute.VirtualMachineSize{
 		Name:           to.Ptr("Standard_A2_v4_Promo"),
 		MemoryInMB:     to.Ptr(int32(100)),
@@ -111,7 +111,7 @@ func (s *InstanceTypeSuite) TestStandardPromo(c *gc.C) {
 	})
 }
 
-func (s *InstanceTypeSuite) TestBasic(c *gc.C) {
+func (s *InstanceTypeSuite) TestBasic(c *tc.C) {
 	vm := armcompute.VirtualMachineSize{
 		Name:           to.Ptr("Basic_A2"),
 		MemoryInMB:     to.Ptr(int32(100)),
@@ -131,7 +131,7 @@ func (s *InstanceTypeSuite) TestBasic(c *gc.C) {
 	})
 }
 
-func (s *InstanceTypeSuite) TestBasicARM64(c *gc.C) {
+func (s *InstanceTypeSuite) TestBasicARM64(c *tc.C) {
 	vm := armcompute.VirtualMachineSize{
 		Name:           to.Ptr("Basic_A2"),
 		MemoryInMB:     to.Ptr(int32(100)),
@@ -151,7 +151,7 @@ func (s *InstanceTypeSuite) TestBasicARM64(c *gc.C) {
 	})
 }
 
-func (s *InstanceTypeSuite) TestDeleteInstanceFamily(c *gc.C) {
+func (s *InstanceTypeSuite) TestDeleteInstanceFamily(c *tc.C) {
 	instanceTypes := map[string]instances.InstanceType{
 		"D6_v4":          {Name: "Standard_D6_v4"},
 		"Standard_D6_v4": {Name: "Standard_D6_v4"},

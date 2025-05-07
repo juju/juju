@@ -4,9 +4,9 @@
 package relation
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -16,9 +16,9 @@ type relationUUIDSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&relationUUIDSuite{})
+var _ = tc.Suite(&relationUUIDSuite{})
 
-func (*relationUUIDSuite) TestUUIDValidate(c *gc.C) {
+func (*relationUUIDSuite) TestUUIDValidate(c *tc.C) {
 	// Test that the uuid.Validate method succeeds and
 	// fails as expected.
 	tests := []struct {
@@ -43,7 +43,7 @@ func (*relationUUIDSuite) TestUUIDValidate(c *gc.C) {
 		err := UUID(test.uuid).Validate()
 
 		if test.err == nil {
-			c.Check(err, gc.IsNil)
+			c.Check(err, tc.IsNil)
 			continue
 		}
 
@@ -55,9 +55,9 @@ type relationUnitUUIDSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&relationUnitUUIDSuite{})
+var _ = tc.Suite(&relationUnitUUIDSuite{})
 
-func (*relationUnitUUIDSuite) TestUUIDValidate(c *gc.C) {
+func (*relationUnitUUIDSuite) TestUUIDValidate(c *tc.C) {
 	// Test that the uuid.Validate method succeeds and
 	// fails as expected.
 	tests := []struct {
@@ -82,7 +82,7 @@ func (*relationUnitUUIDSuite) TestUUIDValidate(c *gc.C) {
 		err := UnitUUID(test.uuid).Validate()
 
 		if test.err == nil {
-			c.Check(err, gc.IsNil)
+			c.Check(err, tc.IsNil)
 			continue
 		}
 
@@ -94,9 +94,9 @@ type relationEndpointUUIDSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&relationEndpointUUIDSuite{})
+var _ = tc.Suite(&relationEndpointUUIDSuite{})
 
-func (*relationEndpointUUIDSuite) TestUUIDValidate(c *gc.C) {
+func (*relationEndpointUUIDSuite) TestUUIDValidate(c *tc.C) {
 	// Test that the uuid.Validate method succeeds and
 	// fails as expected.
 	tests := []struct {
@@ -121,7 +121,7 @@ func (*relationEndpointUUIDSuite) TestUUIDValidate(c *gc.C) {
 		err := EndpointUUID(test.uuid).Validate()
 
 		if test.err == nil {
-			c.Check(err, gc.IsNil)
+			c.Check(err, tc.IsNil)
 			continue
 		}
 

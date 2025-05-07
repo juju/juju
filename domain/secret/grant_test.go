@@ -4,8 +4,8 @@
 package secret
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coresecrets "github.com/juju/juju/core/secrets"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -15,11 +15,11 @@ type grantSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = gc.Suite(&grantSuite{})
+var _ = tc.Suite(&grantSuite{})
 
 // TestRoleDBValues ensures there's no skew between what's in the
 // database table for role and the typed consts used in the secret package.
-func (s *grantSuite) TestRoleDBValues(c *gc.C) {
+func (s *grantSuite) TestRoleDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, role FROM secret_role")
 	c.Assert(err, jc.ErrorIsNil)
@@ -49,7 +49,7 @@ func (s *grantSuite) TestRoleDBValues(c *gc.C) {
 	}
 }
 
-func (s *grantSuite) TestGrantSubjectTypeDBValues(c *gc.C) {
+func (s *grantSuite) TestGrantSubjectTypeDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, type FROM secret_grant_subject_type")
 	c.Assert(err, jc.ErrorIsNil)
@@ -73,7 +73,7 @@ func (s *grantSuite) TestGrantSubjectTypeDBValues(c *gc.C) {
 	})
 }
 
-func (s *grantSuite) TestGrantScopeTypeDBValues(c *gc.C) {
+func (s *grantSuite) TestGrantScopeTypeDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, type FROM secret_grant_scope_type")
 	c.Assert(err, jc.ErrorIsNil)

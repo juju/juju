@@ -4,8 +4,8 @@
 package jujuc_test
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -16,7 +16,7 @@ type stateDeleteSuite struct {
 	stateSuite
 }
 
-var _ = gc.Suite(&stateDeleteSuite{})
+var _ = tc.Suite(&stateDeleteSuite{})
 
 type runStateDeleteCmd struct {
 	description string
@@ -25,7 +25,7 @@ type runStateDeleteCmd struct {
 	expect      func()
 }
 
-func (s *stateDeleteSuite) TestStateDelete(c *gc.C) {
+func (s *stateDeleteSuite) TestStateDelete(c *tc.C) {
 	runStateDeleteCmdTests := []runStateDeleteCmd{
 		{
 			description: "delete one",
@@ -51,8 +51,8 @@ func (s *stateDeleteSuite) TestStateDelete(c *gc.C) {
 
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(toolCmd), ctx, test.args)
-		c.Check(code, gc.Equals, 0)
-		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-		c.Assert(bufferString(ctx.Stdout), gc.Equals, test.out)
+		c.Check(code, tc.Equals, 0)
+		c.Assert(bufferString(ctx.Stderr), tc.Equals, "")
+		c.Assert(bufferString(ctx.Stdout), tc.Equals, test.out)
 	}
 }

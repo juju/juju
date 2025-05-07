@@ -12,9 +12,9 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -33,7 +33,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&CrossModelSecretsSuite{})
+var _ = tc.Suite(&CrossModelSecretsSuite{})
 
 type CrossModelSecretsSuite struct {
 	coretesting.BaseSuite
@@ -80,10 +80,10 @@ func (m *mockBakery) NewMacaroon(ctx context.Context, version bakery.Version, ca
 	return m.Bakery.Oven.NewMacaroon(ctx, version, caveats, ops...)
 }
 
-func (s *CrossModelSecretsSuite) SetUpTest(c *gc.C) {
+func (s *CrossModelSecretsSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.resources = common.NewResources()
-	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
+	s.AddCleanup(func(*tc.C) { s.resources.StopAll() })
 
 	key, err := bakery.GenerateKey()
 	c.Assert(err, jc.ErrorIsNil)
@@ -100,7 +100,7 @@ func (s *CrossModelSecretsSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *CrossModelSecretsSuite) setup(c *gc.C) *gomock.Controller {
+func (s *CrossModelSecretsSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.secretService = mocks.NewMockSecretService(ctrl)
@@ -133,16 +133,16 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func (s *CrossModelSecretsSuite) TestGetSecretContentInfo(c *gc.C) {
+func (s *CrossModelSecretsSuite) TestGetSecretContentInfo(c *tc.C) {
 	s.assertGetSecretContentInfo(c, false)
 }
 
-func (s *CrossModelSecretsSuite) TestGetSecretContentInfoNewConsumer(c *gc.C) {
+func (s *CrossModelSecretsSuite) TestGetSecretContentInfoNewConsumer(c *tc.C) {
 	s.assertGetSecretContentInfo(c, true)
 }
 
 type backendConfigParamsMatcher struct {
-	c        *gc.C
+	c        *tc.C
 	expected any
 }
 
@@ -151,7 +151,7 @@ func (m backendConfigParamsMatcher) Matches(x interface{}) bool {
 	if !ok {
 		return false
 	}
-	m.c.Assert(obtained.GrantedSecretsGetter, gc.NotNil)
+	m.c.Assert(obtained.GrantedSecretsGetter, tc.NotNil)
 	obtained.GrantedSecretsGetter = nil
 	m.c.Assert(obtained, jc.DeepEquals, m.expected)
 	return true
@@ -161,7 +161,7 @@ func (m backendConfigParamsMatcher) String() string {
 	return "Match the contents of BackendConfigParams"
 }
 
-func (s *CrossModelSecretsSuite) assertGetSecretContentInfo(c *gc.C, newConsumer bool) {
+func (s *CrossModelSecretsSuite) assertGetSecretContentInfo(c *tc.C, newConsumer bool) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI().WithSource(coretesting.ModelTag.Id())

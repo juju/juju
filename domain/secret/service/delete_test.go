@@ -6,9 +6,9 @@ package service
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coresecrets "github.com/juju/juju/core/secrets"
 	domainsecret "github.com/juju/juju/domain/secret"
@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-func (s *serviceSuite) TestDeleteObsoleteUserSecretRevisions(c *gc.C) {
+func (s *serviceSuite) TestDeleteObsoleteUserSecretRevisions(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -33,7 +33,7 @@ func (s *serviceSuite) TestDeleteObsoleteUserSecretRevisions(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestDeleteSecret(c *gc.C) {
+func (s *serviceSuite) TestDeleteSecret(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 

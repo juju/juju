@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/exec"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/internal/worker/machineactions"
@@ -21,39 +21,39 @@ type HandleSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&HandleSuite{})
+var _ = tc.Suite(&HandleSuite{})
 
-func (s *HandleSuite) SetUpTest(c *gc.C) {
+func (s *HandleSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	// For testing purposes, don't set the user to run as.
 	// Most developers don't have rights to use 'su'.
 	s.PatchValue(&machineactions.RunAsUser, "")
 }
 
-func (s *HandleSuite) TestInvalidAction(c *gc.C) {
+func (s *HandleSuite) TestInvalidAction(c *tc.C) {
 	results, err := machineactions.HandleAction("invalid", nil)
-	c.Assert(err, gc.ErrorMatches, "unexpected action invalid")
-	c.Assert(results, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "unexpected action invalid")
+	c.Assert(results, tc.IsNil)
 }
 
-func (s *HandleSuite) TestValidActionInvalidParams(c *gc.C) {
+func (s *HandleSuite) TestValidActionInvalidParams(c *tc.C) {
 	results, err := machineactions.HandleAction(actions.JujuExecActionName, nil)
-	c.Assert(err, gc.ErrorMatches, "invalid action parameters")
-	c.Assert(results, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "invalid action parameters")
+	c.Assert(results, tc.IsNil)
 }
 
-func (s *HandleSuite) TestTimeoutRun(c *gc.C) {
+func (s *HandleSuite) TestTimeoutRun(c *tc.C) {
 	params := map[string]interface{}{
 		"command": "sleep 100",
 		"timeout": float64(1),
 	}
 
 	results, err := machineactions.HandleAction(actions.JujuExecActionName, params)
-	c.Assert(errors.Cause(err), gc.Equals, exec.ErrCancelled)
-	c.Assert(results, gc.IsNil)
+	c.Assert(errors.Cause(err), tc.Equals, exec.ErrCancelled)
+	c.Assert(results, tc.IsNil)
 }
 
-func (s *HandleSuite) TestSuccessfulRun(c *gc.C) {
+func (s *HandleSuite) TestSuccessfulRun(c *tc.C) {
 	params := map[string]interface{}{
 		"command": "echo 1",
 		"timeout": float64(0),
@@ -61,12 +61,12 @@ func (s *HandleSuite) TestSuccessfulRun(c *gc.C) {
 
 	results, err := machineactions.HandleAction(actions.JujuExecActionName, params)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results["return-code"], gc.Equals, 0)
-	c.Assert(strings.TrimRight(results["stdout"].(string), "\r\n"), gc.Equals, "1")
-	c.Assert(results["stderr"], gc.Equals, "")
+	c.Assert(results["return-code"], tc.Equals, 0)
+	c.Assert(strings.TrimRight(results["stdout"].(string), "\r\n"), tc.Equals, "1")
+	c.Assert(results["stderr"], tc.Equals, "")
 }
 
-func (s *HandleSuite) TestErrorRun(c *gc.C) {
+func (s *HandleSuite) TestErrorRun(c *tc.C) {
 	params := map[string]interface{}{
 		"command": "exit 42",
 		"timeout": float64(0),
@@ -74,7 +74,7 @@ func (s *HandleSuite) TestErrorRun(c *gc.C) {
 
 	results, err := machineactions.HandleAction(actions.JujuExecActionName, params)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results["return-code"], gc.Equals, 42)
-	c.Assert(results["stdout"], gc.Equals, "")
-	c.Assert(results["stderr"], gc.Equals, "")
+	c.Assert(results["return-code"], tc.Equals, 42)
+	c.Assert(results["stdout"], tc.Equals, "")
+	c.Assert(results["stderr"], tc.Equals, "")
 }

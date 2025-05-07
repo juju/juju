@@ -4,71 +4,71 @@
 package virtualhostname_test
 
 import (
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/virtualhostname"
 )
 
 type HostnameSuite struct{}
 
-var _ = gc.Suite(&HostnameSuite{})
+var _ = tc.Suite(&HostnameSuite{})
 
-func (s *HostnameSuite) TestParseContainerHostname(c *gc.C) {
+func (s *HostnameSuite) TestParseContainerHostname(c *tc.C) {
 	res, err := virtualhostname.Parse("charm.1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	unitName, valid := res.Unit()
-	c.Check(unitName, gc.Equals, "postgresql/1")
-	c.Check(valid, gc.Equals, true)
+	c.Check(unitName, tc.Equals, "postgresql/1")
+	c.Check(valid, tc.Equals, true)
 
 	containerName, valid := res.Container()
-	c.Check(containerName, gc.Equals, "charm")
-	c.Check(valid, gc.Equals, true)
+	c.Check(containerName, tc.Equals, "charm")
+	c.Check(valid, tc.Equals, true)
 
 	machineNumber, valid := res.Machine()
-	c.Check(machineNumber, gc.Equals, 0)
-	c.Check(valid, gc.Equals, false)
+	c.Check(machineNumber, tc.Equals, 0)
+	c.Check(valid, tc.Equals, false)
 
-	c.Check(res.Target(), gc.Equals, virtualhostname.ContainerTarget)
-	c.Check(res.ModelUUID(), gc.Equals, "8419cd78-4993-4c3a-928e-c646226beeee")
+	c.Check(res.Target(), tc.Equals, virtualhostname.ContainerTarget)
+	c.Check(res.ModelUUID(), tc.Equals, "8419cd78-4993-4c3a-928e-c646226beeee")
 }
 
-func (s *HostnameSuite) TestParseUnitHostname(c *gc.C) {
+func (s *HostnameSuite) TestParseUnitHostname(c *tc.C) {
 	res, err := virtualhostname.Parse("1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	unitName, valid := res.Unit()
-	c.Check(unitName, gc.Equals, "postgresql/1")
-	c.Check(valid, gc.Equals, true)
+	c.Check(unitName, tc.Equals, "postgresql/1")
+	c.Check(valid, tc.Equals, true)
 
 	containerName, valid := res.Container()
-	c.Check(containerName, gc.Equals, "")
-	c.Check(valid, gc.Equals, false)
+	c.Check(containerName, tc.Equals, "")
+	c.Check(valid, tc.Equals, false)
 
 	machineNumber, valid := res.Machine()
-	c.Check(machineNumber, gc.Equals, 0)
-	c.Check(valid, gc.Equals, false)
+	c.Check(machineNumber, tc.Equals, 0)
+	c.Check(valid, tc.Equals, false)
 
-	c.Check(res.Target(), gc.Equals, virtualhostname.UnitTarget)
-	c.Check(res.ModelUUID(), gc.Equals, "8419cd78-4993-4c3a-928e-c646226beeee")
+	c.Check(res.Target(), tc.Equals, virtualhostname.UnitTarget)
+	c.Check(res.ModelUUID(), tc.Equals, "8419cd78-4993-4c3a-928e-c646226beeee")
 }
 
-func (s *HostnameSuite) TestParseMachineHostname(c *gc.C) {
+func (s *HostnameSuite) TestParseMachineHostname(c *tc.C) {
 	res, err := virtualhostname.Parse("1.8419cd78-4993-4c3a-928e-c646226beeee.juju.local")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	unitName, valid := res.Unit()
-	c.Check(unitName, gc.Equals, "/0")
-	c.Check(valid, gc.Equals, false)
+	c.Check(unitName, tc.Equals, "/0")
+	c.Check(valid, tc.Equals, false)
 
 	containerName, valid := res.Container()
-	c.Check(containerName, gc.Equals, "")
-	c.Check(valid, gc.Equals, false)
+	c.Check(containerName, tc.Equals, "")
+	c.Check(valid, tc.Equals, false)
 
 	machineNumber, valid := res.Machine()
-	c.Check(machineNumber, gc.Equals, 1)
-	c.Check(valid, gc.Equals, true)
+	c.Check(machineNumber, tc.Equals, 1)
+	c.Check(valid, tc.Equals, true)
 
-	c.Check(res.Target(), gc.Equals, virtualhostname.MachineTarget)
-	c.Check(res.ModelUUID(), gc.Equals, "8419cd78-4993-4c3a-928e-c646226beeee")
+	c.Check(res.Target(), tc.Equals, virtualhostname.MachineTarget)
+	c.Check(res.ModelUUID(), tc.Equals, "8419cd78-4993-4c3a-928e-c646226beeee")
 }

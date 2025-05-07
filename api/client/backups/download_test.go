@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
 )
 
@@ -18,13 +18,13 @@ type downloadSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&downloadSuite{})
+var _ = tc.Suite(&downloadSuite{})
 
-func (s *downloadSuite) TestDownload(c *gc.C) {
+func (s *downloadSuite) TestDownload(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		c.Assert(r.URL.String(), gc.Equals, "/backups")
+		c.Assert(r.URL.String(), tc.Equals, "/backups")
 		_, err := w.Write([]byte("success"))
 		c.Assert(err, jc.ErrorIsNil)
 	}))
@@ -40,5 +40,5 @@ func (s *downloadSuite) TestDownload(c *gc.C) {
 
 	data, err := io.ReadAll(rdr)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, "success")
+	c.Assert(string(data), tc.Equals, "success")
 }

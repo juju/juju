@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -26,13 +26,13 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-func (s *execSuite) TestFileResourceValidate(c *gc.C) {
+func (s *execSuite) TestFileResourceValidate(c *tc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
-	c.Assert((&exec.FileResource{}).Validate(), gc.ErrorMatches, `path was missing`)
+	c.Assert((&exec.FileResource{}).Validate(), tc.ErrorMatches, `path was missing`)
 }
 
-func (s *execSuite) TestCopyParamsValidate(c *gc.C) {
+func (s *execSuite) TestCopyParamsValidate(c *tc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
@@ -83,7 +83,7 @@ func (s *execSuite) TestCopyParamsValidate(c *gc.C) {
 			Err: "copy either from pod to host or from host to pod",
 		},
 	} {
-		c.Check(tc.Params.Validate(), gc.ErrorMatches, tc.Err)
+		c.Check(tc.Params.Validate(), tc.ErrorMatches, tc.Err)
 	}
 
 	// failed: can not copy from a pod to another pod.
@@ -97,10 +97,10 @@ func (s *execSuite) TestCopyParamsValidate(c *gc.C) {
 			PodName: "mariadb-k8s-0",
 		},
 	}
-	c.Assert(params.Validate(), gc.ErrorMatches, "cross pods copy is not supported")
+	c.Assert(params.Validate(), tc.ErrorMatches, "cross pods copy is not supported")
 }
 
-func (s *execSuite) TestCopyToPod(c *gc.C) {
+func (s *execSuite) TestCopyToPod(c *tc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
@@ -208,7 +208,7 @@ func (s *execSuite) TestCopyToPod(c *gc.C) {
 	}
 }
 
-func (s *execSuite) TestCopyFromPod(c *gc.C) {
+func (s *execSuite) TestCopyFromPod(c *tc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
@@ -305,7 +305,7 @@ func (s *execSuite) TestCopyFromPod(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		data, err := os.ReadFile(destPath)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(string(data), gc.DeepEquals, fileContent)
+		c.Assert(string(data), tc.DeepEquals, fileContent)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for Copy return")
 	}

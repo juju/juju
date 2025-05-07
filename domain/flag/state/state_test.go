@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -22,21 +22,21 @@ type stateSuite struct {
 	state *State
 }
 
-var _ = gc.Suite(&stateSuite{})
+var _ = tc.Suite(&stateSuite{})
 
-func (s *stateSuite) SetUpTest(c *gc.C) {
+func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 
 	s.state = NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 }
 
-func (s *stateSuite) TestGetFlagNotFound(c *gc.C) {
+func (s *stateSuite) TestGetFlagNotFound(c *tc.C) {
 	value, err := s.state.GetFlag(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
 	c.Assert(value, jc.IsFalse)
 }
 
-func (s *stateSuite) TestGetFlagFound(c *gc.C) {
+func (s *stateSuite) TestGetFlagFound(c *tc.C) {
 	err := s.state.SetFlag(context.Background(), "foo", true, "foo set to true")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -45,7 +45,7 @@ func (s *stateSuite) TestGetFlagFound(c *gc.C) {
 	c.Assert(value, jc.IsTrue)
 }
 
-func (s *stateSuite) TestSetFlag(c *gc.C) {
+func (s *stateSuite) TestSetFlag(c *tc.C) {
 	err := s.state.SetFlag(context.Background(), "foo", true, "foo set to true")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -69,10 +69,10 @@ WHERE  name = 'foo'`, flag)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(flag.Value, jc.IsTrue)
-	c.Assert(flag.Description, gc.Equals, "foo set to true")
+	c.Assert(flag.Description, tc.Equals, "foo set to true")
 }
 
-func (s *stateSuite) TestSetFlagAlreadyFound(c *gc.C) {
+func (s *stateSuite) TestSetFlagAlreadyFound(c *tc.C) {
 	err := s.state.SetFlag(context.Background(), "foo", true, "foo set to true")
 	c.Assert(err, jc.ErrorIsNil)
 

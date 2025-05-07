@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/gorilla/websocket"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	jujuhttp "github.com/juju/juju/internal/http"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -24,7 +24,7 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func dialWebsocketFromURL(c *gc.C, server string, header http.Header) (*websocket.Conn, *http.Response, error) {
+func dialWebsocketFromURL(c *tc.C, server string, header http.Header) (*websocket.Conn, *http.Response, error) {
 	// TODO(rogpeppe) merge this with the very similar dialWebsocket function.
 	if header == nil {
 		header = http.Header{}

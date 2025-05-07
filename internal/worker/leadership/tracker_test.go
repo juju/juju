@@ -10,12 +10,12 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreleadership "github.com/juju/juju/core/leadership"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -33,7 +33,7 @@ type TrackerSuite struct {
 	blockUntilReleasedErrors []error
 }
 
-var _ = gc.Suite(&TrackerSuite{})
+var _ = tc.Suite(&TrackerSuite{})
 
 const (
 	trackerDuration = 30 * time.Second
@@ -53,7 +53,7 @@ func (s *TrackerSuite) refreshes(count int) {
 	}
 }
 
-func (s *TrackerSuite) SetUpTest(c *gc.C) {
+func (s *TrackerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.unitTag = names.NewUnitTag("led-service/123")
 	s.clock = testclock.NewDilatedWallClock(coretesting.ShortWait)
@@ -88,7 +88,7 @@ func (s *TrackerSuite) maybeExpectBlockUntilLeadershipReleased(releases chan str
 		}).AnyTimes()
 }
 
-func (s *TrackerSuite) unblockRelease(c *gc.C, releases chan struct{}) {
+func (s *TrackerSuite) unblockRelease(c *tc.C, releases chan struct{}) {
 	select {
 	case releases <- struct{}{}:
 	case <-time.After(coretesting.LongWait):
@@ -104,7 +104,7 @@ func (s *TrackerSuite) newTrackerInner() *leadership.Tracker {
 
 func (s *TrackerSuite) newTracker() *leadership.Tracker {
 	tracker := s.newTrackerInner()
-	s.AddCleanup(func(c *gc.C) {
+	s.AddCleanup(func(c *tc.C) {
 		workertest.CleanKill(c, tracker)
 	})
 	return tracker
@@ -112,13 +112,13 @@ func (s *TrackerSuite) newTracker() *leadership.Tracker {
 
 func (s *TrackerSuite) newTrackerDirtyKill() *leadership.Tracker {
 	tracker := s.newTrackerInner()
-	s.AddCleanup(func(c *gc.C) {
+	s.AddCleanup(func(c *tc.C) {
 		workertest.DirtyKill(c, tracker)
 	})
 	return tracker
 }
 
-func (s *TrackerSuite) TestApplicationName(c *gc.C) {
+func (s *TrackerSuite) TestApplicationName(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -127,10 +127,10 @@ func (s *TrackerSuite) TestApplicationName(c *gc.C) {
 	s.maybeExpectBlockUntilLeadershipReleased(releases)
 
 	tracker := s.newTracker()
-	c.Assert(tracker.ApplicationName(), gc.Equals, "led-service")
+	c.Assert(tracker.ApplicationName(), tc.Equals, "led-service")
 }
 
-func (s *TrackerSuite) TestOnLeaderSuccess(c *gc.C) {
+func (s *TrackerSuite) TestOnLeaderSuccess(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -146,7 +146,7 @@ func (s *TrackerSuite) TestOnLeaderSuccess(c *gc.C) {
 	workertest.CleanKill(c, tracker)
 }
 
-func (s *TrackerSuite) TestOnLeaderFailure(c *gc.C) {
+func (s *TrackerSuite) TestOnLeaderFailure(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -163,7 +163,7 @@ func (s *TrackerSuite) TestOnLeaderFailure(c *gc.C) {
 	workertest.CleanKill(c, tracker)
 }
 
-func (s *TrackerSuite) TestOnLeaderError(c *gc.C) {
+func (s *TrackerSuite) TestOnLeaderError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -179,10 +179,10 @@ func (s *TrackerSuite) TestOnLeaderError(c *gc.C) {
 
 	// Stop the tracker before trying to look at its mocks.
 	err := worker.Stop(tracker)
-	c.Check(err, gc.ErrorMatches, "leadership failure: pow")
+	c.Check(err, tc.ErrorMatches, "leadership failure: pow")
 }
 
-func (s *TrackerSuite) TestLoseLeadership(c *gc.C) {
+func (s *TrackerSuite) TestLoseLeadership(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -204,7 +204,7 @@ func (s *TrackerSuite) TestLoseLeadership(c *gc.C) {
 	workertest.CleanKill(c, tracker)
 }
 
-func (s *TrackerSuite) TestGainLeadership(c *gc.C) {
+func (s *TrackerSuite) TestGainLeadership(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -231,7 +231,7 @@ func (s *TrackerSuite) TestGainLeadership(c *gc.C) {
 	workertest.CleanKill(c, tracker)
 }
 
-func (s *TrackerSuite) TestFailGainLeadership(c *gc.C) {
+func (s *TrackerSuite) TestFailGainLeadership(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -262,7 +262,7 @@ func (s *TrackerSuite) TestFailGainLeadership(c *gc.C) {
 	workertest.CleanKill(c, tracker)
 }
 
-func (s *TrackerSuite) TestWaitLeaderAlreadyLeader(c *gc.C) {
+func (s *TrackerSuite) TestWaitLeaderAlreadyLeader(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -278,7 +278,7 @@ func (s *TrackerSuite) TestWaitLeaderAlreadyLeader(c *gc.C) {
 	workertest.CleanKill(c, tracker)
 }
 
-func (s *TrackerSuite) TestWaitLeaderBecomeLeader(c *gc.C) {
+func (s *TrackerSuite) TestWaitLeaderBecomeLeader(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -305,7 +305,7 @@ func (s *TrackerSuite) TestWaitLeaderBecomeLeader(c *gc.C) {
 	workertest.CleanKill(c, tracker)
 }
 
-func (s *TrackerSuite) TestWaitLeaderNeverBecomeLeader(c *gc.C) {
+func (s *TrackerSuite) TestWaitLeaderNeverBecomeLeader(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -328,7 +328,7 @@ func (s *TrackerSuite) TestWaitLeaderNeverBecomeLeader(c *gc.C) {
 	assertTicket(c, ticket, false)
 }
 
-func (s *TrackerSuite) TestWaitMinionAlreadyMinion(c *gc.C) {
+func (s *TrackerSuite) TestWaitMinionAlreadyMinion(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -345,7 +345,7 @@ func (s *TrackerSuite) TestWaitMinionAlreadyMinion(c *gc.C) {
 	workertest.CleanKill(c, tracker)
 }
 
-func (s *TrackerSuite) TestWaitMinionClaimerFails(c *gc.C) {
+func (s *TrackerSuite) TestWaitMinionClaimerFails(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -360,10 +360,10 @@ func (s *TrackerSuite) TestWaitMinionClaimerFails(c *gc.C) {
 	s.unblockRelease(c, releases)
 
 	err := workertest.CheckKilled(c, tracker)
-	c.Assert(err, gc.ErrorMatches, "error while led-service/123 waiting for led-service leadership release: mein leben!")
+	c.Assert(err, tc.ErrorMatches, "error while led-service/123 waiting for led-service leadership release: mein leben!")
 }
 
-func (s *TrackerSuite) TestWaitMinionBecomeMinion(c *gc.C) {
+func (s *TrackerSuite) TestWaitMinionBecomeMinion(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -385,7 +385,7 @@ func (s *TrackerSuite) TestWaitMinionBecomeMinion(c *gc.C) {
 	workertest.CleanKill(c, tracker)
 }
 
-func (s *TrackerSuite) TestWaitMinionNeverBecomeMinion(c *gc.C) {
+func (s *TrackerSuite) TestWaitMinionNeverBecomeMinion(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -420,7 +420,7 @@ func (s *TrackerSuite) finishLeadershipFunc(ctx context.Context, started, finish
 	return nil
 }
 
-func (s *TrackerSuite) TestWithStableLeadership(c *gc.C) {
+func (s *TrackerSuite) TestWithStableLeadership(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -435,7 +435,7 @@ func (s *TrackerSuite) TestWithStableLeadership(c *gc.C) {
 
 	started := make(chan struct{})
 	finishWithStableLeadership := make(chan struct{})
-	go func(c *gc.C) {
+	go func(c *tc.C) {
 		err := s.finishLeadershipFunc(ctx, started, finishWithStableLeadership)
 		c.Assert(err, jc.ErrorIsNil)
 	}(c)
@@ -460,7 +460,7 @@ func (s *TrackerSuite) TestWithStableLeadership(c *gc.C) {
 	workertest.CleanKill(c, tracker)
 }
 
-func (s *TrackerSuite) TestWithStableLeadershipLeadershipChanged(c *gc.C) {
+func (s *TrackerSuite) TestWithStableLeadershipLeadershipChanged(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -505,7 +505,7 @@ func (s *TrackerSuite) TestWithStableLeadershipLeadershipChanged(c *gc.C) {
 	workertest.CleanKill(c, tracker)
 }
 
-func (s *TrackerSuite) TestWithStableLeadershipFuncError(c *gc.C) {
+func (s *TrackerSuite) TestWithStableLeadershipFuncError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -521,11 +521,11 @@ func (s *TrackerSuite) TestWithStableLeadershipFuncError(c *gc.C) {
 	err := tracker.WithStableLeadership(ctx, func(ctx context.Context) error {
 		return errors.New("boom")
 	})
-	c.Assert(err, gc.ErrorMatches, "executing leadership func: boom")
+	c.Assert(err, tc.ErrorMatches, "executing leadership func: boom")
 	workertest.CleanKill(c, tracker)
 }
 
-func assertClaimLeader(c *gc.C, tracker *leadership.Tracker, expect bool) {
+func assertClaimLeader(c *tc.C, tracker *leadership.Tracker, expect bool) {
 	// Grab a ticket...
 	ticket := tracker.ClaimLeader()
 
@@ -534,7 +534,7 @@ func assertClaimLeader(c *gc.C, tracker *leadership.Tracker, expect bool) {
 	assertTicket(c, ticket, expect)
 }
 
-func assertWaitLeader(c *gc.C, tracker *leadership.Tracker, expect bool) {
+func assertWaitLeader(c *tc.C, tracker *leadership.Tracker, expect bool) {
 	ticket := tracker.WaitLeader()
 	if expect {
 		assertTicket(c, ticket, true)
@@ -550,7 +550,7 @@ func assertWaitLeader(c *gc.C, tracker *leadership.Tracker, expect bool) {
 	}
 }
 
-func assertWaitMinion(c *gc.C, tracker *leadership.Tracker, expect bool) {
+func assertWaitMinion(c *tc.C, tracker *leadership.Tracker, expect bool) {
 	ticket := tracker.WaitMinion()
 	if expect {
 		assertTicket(c, ticket, false)
@@ -566,12 +566,12 @@ func assertWaitMinion(c *gc.C, tracker *leadership.Tracker, expect bool) {
 	}
 }
 
-func assertTicket(c *gc.C, ticket coreleadership.Ticket, expect bool) {
+func assertTicket(c *tc.C, ticket coreleadership.Ticket, expect bool) {
 	// Wait for the ticket to give a value...
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("value not sent")
 	case <-ticket.Ready():
-		c.Assert(ticket.Wait(), gc.Equals, expect)
+		c.Assert(ticket.Wait(), tc.Equals, expect)
 	}
 }

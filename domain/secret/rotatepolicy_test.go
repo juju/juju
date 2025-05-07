@@ -4,8 +4,8 @@
 package secret
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coresecrets "github.com/juju/juju/core/secrets"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -15,11 +15,11 @@ type rotatePolicySuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = gc.Suite(&rotatePolicySuite{})
+var _ = tc.Suite(&rotatePolicySuite{})
 
 // TestRotatePolicyDBValues ensures there's no skew between what's in the
 // database table for rotatepolicy and the typed consts used in the state packages.
-func (s *rotatePolicySuite) TestRotatePolicyDBValues(c *gc.C) {
+func (s *rotatePolicySuite) TestRotatePolicyDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, policy FROM secret_rotate_policy")
 	c.Assert(err, jc.ErrorIsNil)

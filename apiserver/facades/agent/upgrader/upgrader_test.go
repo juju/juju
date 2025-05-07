@@ -11,9 +11,9 @@ import (
 	"strings"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
@@ -62,16 +62,16 @@ type upgraderSuite struct {
 	watcherRegistry *facademocks.MockWatcherRegistry
 }
 
-var _ = gc.Suite(&upgraderSuite{})
+var _ = tc.Suite(&upgraderSuite{})
 
-func (s *upgraderSuite) SetUpTest(c *gc.C) {
+func (s *upgraderSuite) SetUpTest(c *tc.C) {
 	s.mockModelUUID = modeltesting.GenModelUUID(c)
 	s.ControllerModelConfigAttrs = map[string]interface{}{
 		"agent-version": coretesting.CurrentVersion().Number.String(),
 	}
 	s.ApiServerSuite.SetUpTest(c)
 	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 
 	// For now, test with the controller model, but
 	// we may add a different hosted model later.
@@ -107,7 +107,7 @@ func (s *upgraderSuite) SetUpTest(c *gc.C) {
 	)
 }
 
-func (s *upgraderSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *upgraderSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.controllerConfigGetter = NewMockControllerConfigGetter(ctrl)
 	s.agentService = NewMockModelAgentService(ctrl)
@@ -118,7 +118,7 @@ func (s *upgraderSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *upgraderSuite) makeMockedUpgraderAPI(c *gc.C) *upgrader.UpgraderAPI {
+func (s *upgraderSuite) makeMockedUpgraderAPI(c *tc.C) *upgrader.UpgraderAPI {
 	return upgrader.NewUpgraderAPI(
 		nil,
 		nil,
@@ -130,24 +130,24 @@ func (s *upgraderSuite) makeMockedUpgraderAPI(c *gc.C) *upgrader.UpgraderAPI {
 	)
 }
 
-func (s *upgraderSuite) TearDownTest(c *gc.C) {
+func (s *upgraderSuite) TearDownTest(c *tc.C) {
 	if s.resources != nil {
 		s.resources.StopAll()
 	}
 	s.ApiServerSuite.TearDownTest(c)
 }
 
-func (s *upgraderSuite) TestToolsNothing(c *gc.C) {
+func (s *upgraderSuite) TestToolsNothing(c *tc.C) {
 	c.Skip("tlm")
 	defer s.setupMocks(c).Finish()
 
 	// Not an error to watch nothing
 	results, err := s.upgrader.Tools(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results.Results, gc.HasLen, 0)
+	c.Check(results.Results, tc.HasLen, 0)
 }
 
-func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
+func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *tc.C) {
 	c.Skip("(tlm) skipping till we can move this test to mocks")
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("12354")
@@ -170,12 +170,12 @@ func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 	results, err := anUpgrader.Tools(context.Background(), args)
 	// It is not an error to make the request, but the specific item is rejected
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results.Results, gc.HasLen, 1)
+	c.Check(results.Results, tc.HasLen, 1)
 	toolResult := results.Results[0]
-	c.Assert(toolResult.Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+	c.Assert(toolResult.Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
 }
 
-func (s *upgraderSuite) TestToolsForAgent(c *gc.C) {
+func (s *upgraderSuite) TestToolsForAgent(c *tc.C) {
 	c.Skip("(tlm) skipping till we can move this test to mocks")
 	defer s.setupMocks(c).Finish()
 
@@ -212,33 +212,33 @@ func (s *upgraderSuite) TestToolsForAgent(c *gc.C) {
 	results, err := s.upgrader.Tools(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	assertTools := func() {
-		c.Check(results.Results, gc.HasLen, 1)
-		c.Assert(results.Results[0].Error, gc.IsNil)
+		c.Check(results.Results, tc.HasLen, 1)
+		c.Assert(results.Results[0].Error, tc.IsNil)
 		agentTools := results.Results[0].ToolsList[0]
 
 		url := &url.URL{}
 		url.Host = s.ControllerModelApiInfo().Addrs[0]
 		url.Scheme = "https"
 		url.Path = path.Join("model", coretesting.ModelTag.Id(), "tools", current.String())
-		c.Check(agentTools.URL, gc.Equals, url.String())
-		c.Check(agentTools.Version, gc.DeepEquals, current)
+		c.Check(agentTools.URL, tc.Equals, url.String())
+		c.Check(agentTools.Version, tc.DeepEquals, current)
 	}
 	assertTools()
 }
 
 // TestSetToolsNothing tests that SetTools does nothing and returns no errors
 // when called.
-func (s *upgraderSuite) TestSetToolsNothing(c *gc.C) {
+func (s *upgraderSuite) TestSetToolsNothing(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	results, err := s.makeMockedUpgraderAPI(c).SetTools(context.Background(), params.EntitiesVersion{})
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(results.Results, gc.HasLen, 0)
+	c.Check(results.Results, tc.HasLen, 0)
 }
 
 // TestSetToolsRefusesWrongAgent tests that SetTools refused to set the agent
 // for a tag that isn't authorized. We test many tag types here to prove that
 // a tag of one type cannot set the tools version of another tag type.
-func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
+func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *tc.C) {
 	s.authorizer.Tag = names.NewMachineTag("12354")
 	defer s.setupMocks(c).Finish()
 
@@ -273,8 +273,8 @@ func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 		}
 		results, err := api.SetTools(context.Background(), args)
 		c.Check(err, jc.ErrorIsNil)
-		c.Assert(results.Results, gc.HasLen, 1)
-		c.Check(results.Results[0].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+		c.Assert(results.Results, tc.HasLen, 1)
+		c.Check(results.Results[0].Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
 	}
 }
 
@@ -288,7 +288,7 @@ func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 //
 // While this is a week contract it is still one we need to validate that isn't
 // broken in the move.
-func (s *upgraderSuite) TestSetToolsForUnknownTagEntity(c *gc.C) {
+func (s *upgraderSuite) TestSetToolsForUnknownTagEntity(c *tc.C) {
 	// We use an application tag because we know that this isn't supported.
 	s.authorizer.Tag = names.NewApplicationTag("foo")
 	defer s.setupMocks(c).Finish()
@@ -303,13 +303,13 @@ func (s *upgraderSuite) TestSetToolsForUnknownTagEntity(c *gc.C) {
 	}
 	result, err := s.makeMockedUpgraderAPI(c).SetTools(context.Background(), args)
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(len(result.Results), gc.Equals, 1)
-	c.Check(result.Results[0].Error.Error(), gc.Matches, "entity \"application-foo\" does not support agent binaries")
+	c.Assert(len(result.Results), tc.Equals, 1)
+	c.Check(result.Results[0].Error.Error(), tc.Matches, "entity \"application-foo\" does not support agent binaries")
 }
 
 // TestSetToolsMachine is testing the ability to set tools for a machine. This
 // is a happy path test.
-func (s *upgraderSuite) TestSetToolsMachine(c *gc.C) {
+func (s *upgraderSuite) TestSetToolsMachine(c *tc.C) {
 	machineTag := names.NewMachineTag("0")
 	s.authorizer.Tag = machineTag
 	defer s.setupMocks(c).Finish()
@@ -334,14 +334,14 @@ func (s *upgraderSuite) TestSetToolsMachine(c *gc.C) {
 	api := s.makeMockedUpgraderAPI(c)
 	results, err := api.SetTools(context.Background(), args)
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.IsNil)
 }
 
 // TestSetToolsMachineNotFound is testing that when we try and set the reported
 // tools version for a machine that doesn't exist we get an a not found api
 // error back.
-func (s *upgraderSuite) TestSetToolsMachineNotFound(c *gc.C) {
+func (s *upgraderSuite) TestSetToolsMachineNotFound(c *tc.C) {
 	machineTag := names.NewMachineTag("0")
 	s.authorizer.Tag = machineTag
 	defer s.setupMocks(c).Finish()
@@ -366,13 +366,13 @@ func (s *upgraderSuite) TestSetToolsMachineNotFound(c *gc.C) {
 	api := s.makeMockedUpgraderAPI(c)
 	results, err := api.SetTools(context.Background(), args)
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error.ErrorCode(), gc.Equals, "not found")
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error.ErrorCode(), tc.Equals, "not found")
 }
 
 // TestSetToolsUnit is testing the ability to set tools for a unit. This
 // is a happy path test.
-func (s *upgraderSuite) TestSetToolsUnit(c *gc.C) {
+func (s *upgraderSuite) TestSetToolsUnit(c *tc.C) {
 	unitTag := names.NewUnitTag("foo/0")
 	s.authorizer.Tag = unitTag
 	defer s.setupMocks(c).Finish()
@@ -400,14 +400,14 @@ func (s *upgraderSuite) TestSetToolsUnit(c *gc.C) {
 	api := s.makeMockedUpgraderAPI(c)
 	results, err := api.SetTools(context.Background(), args)
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.IsNil)
 }
 
 // TestSetToolsUnitNotFound is testing that when we try and set the reported
 // tools version for a unit that doesn't exist we get an a not found api
 // error back.
-func (s *upgraderSuite) TestSetToolsUnitNotFound(c *gc.C) {
+func (s *upgraderSuite) TestSetToolsUnitNotFound(c *tc.C) {
 	unitTag := names.NewUnitTag("foo/0")
 	s.authorizer.Tag = unitTag
 	defer s.setupMocks(c).Finish()
@@ -435,13 +435,13 @@ func (s *upgraderSuite) TestSetToolsUnitNotFound(c *gc.C) {
 	api := s.makeMockedUpgraderAPI(c)
 	results, err := api.SetTools(context.Background(), args)
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error.ErrorCode(), gc.Equals, "not found")
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error.ErrorCode(), tc.Equals, "not found")
 }
 
 // TestSetToolsControllerNode is testing the ability to set tools for a
 // controller node. This is a happy path test.
-func (s *upgraderSuite) TestSetToolsControllerNode(c *gc.C) {
+func (s *upgraderSuite) TestSetToolsControllerNode(c *tc.C) {
 	controllerTag := names.NewControllerAgentTag("1234")
 	s.authorizer.Tag = controllerTag
 	defer s.setupMocks(c).Finish()
@@ -466,14 +466,14 @@ func (s *upgraderSuite) TestSetToolsControllerNode(c *gc.C) {
 	api := s.makeMockedUpgraderAPI(c)
 	results, err := api.SetTools(context.Background(), args)
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.IsNil)
 }
 
 // TestSetToolsControllerNotFound is testing that when we try and set the
 // reported tools version for a unit that doesn't exist we get an a not found
 // api error back.
-func (s *upgraderSuite) TestSetToolsControllerNotFound(c *gc.C) {
+func (s *upgraderSuite) TestSetToolsControllerNotFound(c *tc.C) {
 	controllerTag := names.NewControllerAgentTag("1234")
 	s.authorizer.Tag = controllerTag
 	defer s.setupMocks(c).Finish()
@@ -498,14 +498,14 @@ func (s *upgraderSuite) TestSetToolsControllerNotFound(c *gc.C) {
 	api := s.makeMockedUpgraderAPI(c)
 	results, err := api.SetTools(context.Background(), args)
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error.ErrorCode(), gc.Equals, "not found")
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error.ErrorCode(), tc.Equals, "not found")
 }
 
 // TestSetToolsUnsupportedArchitecture is checking that when an attempt is made
 // to set the reported agent binary tools version for a given entity and we
 // don't support the architecture that the error returned is the expected.
-func (s *upgraderSuite) TestSetToolsUnsupportedArchitecture(c *gc.C) {
+func (s *upgraderSuite) TestSetToolsUnsupportedArchitecture(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tags := []names.Tag{
@@ -557,15 +557,15 @@ func (s *upgraderSuite) TestSetToolsUnsupportedArchitecture(c *gc.C) {
 		api := s.makeMockedUpgraderAPI(c)
 		result, err := api.SetTools(context.Background(), args)
 		c.Check(err, jc.ErrorIsNil)
-		c.Check(len(result.Results), gc.Equals, 1)
-		c.Check(result.Results[0].Error.ErrorCode(), gc.Equals, "not supported")
+		c.Check(len(result.Results), tc.Equals, 1)
+		c.Check(result.Results[0].Error.ErrorCode(), tc.Equals, "not supported")
 	}
 }
 
 // TestSetToolsUnsupportedArchitecture is checking that when an attempt is made
 // to set the reported agent binary tools version for a given entity and we
 // don't support the architecture that the error returned is the expected.
-func (s *upgraderSuite) TestSetToolsInvalidVersion(c *gc.C) {
+func (s *upgraderSuite) TestSetToolsInvalidVersion(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tags := []names.Tag{
@@ -617,22 +617,22 @@ func (s *upgraderSuite) TestSetToolsInvalidVersion(c *gc.C) {
 		api := s.makeMockedUpgraderAPI(c)
 		result, err := api.SetTools(context.Background(), args)
 		c.Check(err, jc.ErrorIsNil)
-		c.Check(len(result.Results), gc.Equals, 1)
-		c.Check(result.Results[0].Error.ErrorCode(), gc.Equals, "not valid")
+		c.Check(len(result.Results), tc.Equals, 1)
+		c.Check(result.Results[0].Error.ErrorCode(), tc.Equals, "not valid")
 	}
 }
 
-func (s *upgraderSuite) TestDesiredVersionNothing(c *gc.C) {
+func (s *upgraderSuite) TestDesiredVersionNothing(c *tc.C) {
 	c.Skip("tlm")
 	defer s.setupMocks(c).Finish()
 
 	// Not an error to watch nothing
 	results, err := s.upgrader.DesiredVersion(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results.Results, gc.HasLen, 0)
+	c.Check(results.Results, tc.HasLen, 0)
 }
 
-func (s *upgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
+func (s *upgraderSuite) TestDesiredVersionRefusesWrongAgent(c *tc.C) {
 	c.Skip("some reason")
 	defer s.setupMocks(c).Finish()
 
@@ -655,12 +655,12 @@ func (s *upgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
 	results, err := anUpgrader.DesiredVersion(context.Background(), args)
 	// It is not an error to make the request, but the specific item is rejected
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results.Results, gc.HasLen, 1)
+	c.Check(results.Results, tc.HasLen, 1)
 	toolResult := results.Results[0]
-	c.Assert(toolResult.Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+	c.Assert(toolResult.Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
 }
 
-func (s *upgraderSuite) TestDesiredVersionNoticesMixedAgents(c *gc.C) {
+func (s *upgraderSuite) TestDesiredVersionNoticesMixedAgents(c *tc.C) {
 	c.Skip("some reason")
 	defer s.setupMocks(c).Finish()
 
@@ -670,32 +670,32 @@ func (s *upgraderSuite) TestDesiredVersionNoticesMixedAgents(c *gc.C) {
 	}}
 	results, err := s.upgrader.DesiredVersion(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results.Results, gc.HasLen, 2)
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Check(results.Results, tc.HasLen, 2)
+	c.Assert(results.Results[0].Error, tc.IsNil)
 	agentVersion := results.Results[0].Version
-	c.Assert(agentVersion, gc.NotNil)
-	c.Check(*agentVersion, gc.DeepEquals, jujuversion.Current)
+	c.Assert(agentVersion, tc.NotNil)
+	c.Check(*agentVersion, tc.DeepEquals, jujuversion.Current)
 
-	c.Assert(results.Results[1].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
-	c.Assert(results.Results[1].Version, gc.IsNil)
+	c.Assert(results.Results[1].Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
+	c.Assert(results.Results[1].Version, tc.IsNil)
 
 }
 
-func (s *upgraderSuite) TestDesiredVersionForAgent(c *gc.C) {
+func (s *upgraderSuite) TestDesiredVersionForAgent(c *tc.C) {
 	c.Skip("some reason")
 	defer s.setupMocks(c).Finish()
 
 	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}}}
 	results, err := s.upgrader.DesiredVersion(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Check(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.IsNil)
 	agentVersion := results.Results[0].Version
-	c.Assert(agentVersion, gc.NotNil)
-	c.Check(*agentVersion, gc.DeepEquals, jujuversion.Current)
+	c.Assert(agentVersion, tc.NotNil)
+	c.Check(*agentVersion, tc.DeepEquals, jujuversion.Current)
 }
 
-func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *gc.C) {
+func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *tc.C) {
 	c.Skip("some reason")
 	defer s.setupMocks(c).Finish()
 
@@ -720,22 +720,22 @@ func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{{Tag: s.apiMachine.Tag().String()}}}
 	results, err := upgraderAPI.DesiredVersion(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Check(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.IsNil)
 	agentVersion := results.Results[0].Version
-	c.Assert(agentVersion, gc.NotNil)
-	c.Check(*agentVersion, gc.DeepEquals, newVersion.Number)
+	c.Assert(agentVersion, tc.NotNil)
+	c.Check(*agentVersion, tc.DeepEquals, newVersion.Number)
 }
 
-func (s *upgraderSuite) TestDesiredVersionRestrictedForNonAPIAgents(c *gc.C) {
+func (s *upgraderSuite) TestDesiredVersionRestrictedForNonAPIAgents(c *tc.C) {
 	c.Skip("some reason")
 	defer s.setupMocks(c).Finish()
 	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}}}
 	results, err := s.upgrader.DesiredVersion(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Check(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.IsNil)
 	agentVersion := results.Results[0].Version
-	c.Assert(agentVersion, gc.NotNil)
-	c.Check(*agentVersion, gc.DeepEquals, jujuversion.Current)
+	c.Assert(agentVersion, tc.NotNil)
+	c.Check(*agentVersion, tc.DeepEquals, jujuversion.Current)
 }

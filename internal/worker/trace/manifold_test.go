@@ -9,11 +9,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/dependency"
 	dependencytesting "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/logger"
 	coretrace "github.com/juju/juju/core/trace"
@@ -23,9 +23,9 @@ type manifoldSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&manifoldSuite{})
+var _ = tc.Suite(&manifoldSuite{})
 
-func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
+func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.getConfig()
@@ -71,11 +71,11 @@ func (s *manifoldSuite) newGetter() dependency.Getter {
 
 var expectedInputs = []string{"agent"}
 
-func (s *manifoldSuite) TestInputs(c *gc.C) {
+func (s *manifoldSuite) TestInputs(c *tc.C) {
 	c.Assert(Manifold(s.getConfig()).Inputs, jc.SameContents, expectedInputs)
 }
 
-func (s *manifoldSuite) TestStart(c *gc.C) {
+func (s *manifoldSuite) TestStart(c *tc.C) {
 	test := func(enabled bool) {
 		defer s.setupMocks(c).Finish()
 

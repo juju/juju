@@ -4,17 +4,17 @@
 package netplan
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 )
 
 type NetplanConfigurationMergeSuite struct {
 }
 
-var _ = gc.Suite(&NetplanConfigurationMergeSuite{})
+var _ = tc.Suite(&NetplanConfigurationMergeSuite{})
 
-func (s *NetplanConfigurationMergeSuite) TestMergeNetplanConfigsWithEmptyBaseFile(c *gc.C) {
+func (s *NetplanConfigurationMergeSuite) TestMergeNetplanConfigsWithEmptyBaseFile(c *tc.C) {
 	base := ``
 
 	src := `
@@ -29,7 +29,7 @@ network:
 	s.assertMergeResult(c, base, src, src)
 }
 
-func (s *NetplanConfigurationMergeSuite) TestMergeNetplanConfigsWithEmptySourceFile(c *gc.C) {
+func (s *NetplanConfigurationMergeSuite) TestMergeNetplanConfigsWithEmptySourceFile(c *tc.C) {
 	base := `
 network:
   renderer: networkd
@@ -45,7 +45,7 @@ network:
 	s.assertMergeResult(c, base, src, base)
 }
 
-func (s *NetplanConfigurationMergeSuite) TestMergeNetplanConfigsScalarValuOverwrite(c *gc.C) {
+func (s *NetplanConfigurationMergeSuite) TestMergeNetplanConfigsScalarValuOverwrite(c *tc.C) {
 	base := `
 network:
   renderer: networkd
@@ -78,7 +78,7 @@ network:
 	s.assertMergeResult(c, base, src, exp)
 }
 
-func (s *NetplanConfigurationMergeSuite) TestMergeNetplanConfigsMergeMapValues(c *gc.C) {
+func (s *NetplanConfigurationMergeSuite) TestMergeNetplanConfigsMergeMapValues(c *tc.C) {
 	base := `
 network:
   renderer: networkd
@@ -127,7 +127,7 @@ network:
 	s.assertMergeResult(c, base, src, exp)
 }
 
-func (s *NetplanConfigurationMergeSuite) TestMergeNetplanConfigsSliceConcatenation(c *gc.C) {
+func (s *NetplanConfigurationMergeSuite) TestMergeNetplanConfigsSliceConcatenation(c *tc.C) {
 	base := `
 network:
   ethernets:
@@ -163,7 +163,7 @@ network:
 	s.assertMergeResult(c, base, src, exp)
 }
 
-func (s *NetplanConfigurationMergeSuite) TestMergeNetplanConfigsErrorsWhenMergingMaps(c *gc.C) {
+func (s *NetplanConfigurationMergeSuite) TestMergeNetplanConfigsErrorsWhenMergingMaps(c *tc.C) {
 	base := `
 network:
   ethernets:
@@ -182,7 +182,7 @@ network:
 	s.assertMergeError(c, base, src, `merging configuration key "network": merging configuration key "ethernets": configuration values have different types \(destination: map.*, src: string\)`)
 }
 
-func (s *NetplanConfigurationMergeSuite) TestMergeNetplanConfigsErrorsWhenMergingSlices(c *gc.C) {
+func (s *NetplanConfigurationMergeSuite) TestMergeNetplanConfigsErrorsWhenMergingSlices(c *tc.C) {
 	base := `
 network:
   ethernets:
@@ -204,7 +204,7 @@ network:
 	s.assertMergeError(c, base, src, `merging configuration key "network": merging configuration key "ethernets": merging configuration key "enp5s0": merging configuration key "nameservers": merging configuration key "addresses": configuration values have different types \(destination: \[\].*, src: string\)`)
 }
 
-func (s *NetplanConfigurationMergeSuite) assertMergeResult(c *gc.C, base, src, exp string) {
+func (s *NetplanConfigurationMergeSuite) assertMergeResult(c *tc.C, base, src, exp string) {
 	var (
 		baseMap, srcMap, expMap map[interface{}]interface{}
 	)
@@ -217,11 +217,11 @@ func (s *NetplanConfigurationMergeSuite) assertMergeResult(c *gc.C, base, src, e
 	c.Assert(err, jc.ErrorIsNil)
 
 	mergeResMap, ok := mergeRes.(map[interface{}]interface{})
-	c.Assert(ok, jc.IsTrue, gc.Commentf("expected merge result to be a map[interface{}]interface{}; got %T", mergeRes))
-	c.Assert(mergeResMap, gc.DeepEquals, expMap)
+	c.Assert(ok, jc.IsTrue, tc.Commentf("expected merge result to be a map[interface{}]interface{}; got %T", mergeRes))
+	c.Assert(mergeResMap, tc.DeepEquals, expMap)
 }
 
-func (s *NetplanConfigurationMergeSuite) assertMergeError(c *gc.C, base, src, expErr string) {
+func (s *NetplanConfigurationMergeSuite) assertMergeError(c *tc.C, base, src, expErr string) {
 	var (
 		baseMap, srcMap map[interface{}]interface{}
 	)
@@ -230,5 +230,5 @@ func (s *NetplanConfigurationMergeSuite) assertMergeError(c *gc.C, base, src, ex
 	c.Assert(goyaml.Unmarshal([]byte(src), &srcMap), jc.ErrorIsNil)
 
 	_, err := mergeNetplanConfigs(baseMap, srcMap)
-	c.Assert(err, gc.ErrorMatches, expErr)
+	c.Assert(err, tc.ErrorMatches, expErr)
 }

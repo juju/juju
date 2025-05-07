@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
@@ -25,14 +25,14 @@ import (
 func TestPackage(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type ImportTest struct{}
 
-var _ = gc.Suite(&ImportTest{})
+var _ = tc.Suite(&ImportTest{})
 
-func (*ImportTest) TestImports(c *gc.C) {
+func (*ImportTest) TestImports(c *tc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/watcher/eventsource")
 
 	// This package brings in nothing else from outside juju/juju/core
@@ -76,7 +76,7 @@ type baseSuite struct {
 	sub         *MockSubscription
 }
 
-func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.eventsource = NewMockEventSource(ctrl)
@@ -89,7 +89,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *baseSuite) newBaseWatcher(c *gc.C) *BaseWatcher {
+func (s *baseSuite) newBaseWatcher(c *tc.C) *BaseWatcher {
 	return NewBaseWatcher(s.watchableDB, loggertesting.WrapCheckLog(c))
 }
 

@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
 	coresecrets "github.com/juju/juju/core/secrets"
@@ -17,7 +17,7 @@ import (
 )
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 func getApplicationUUID(ctx context.Context, st *State, appName string) (coreapplication.ID, error) {

@@ -11,11 +11,11 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
 	caasmocks "github.com/juju/juju/caas/mocks"
@@ -31,7 +31,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&ApplicationWorkerSuite{})
+var _ = tc.Suite(&ApplicationWorkerSuite{})
 
 type ApplicationWorkerSuite struct {
 	coretesting.BaseSuite
@@ -40,14 +40,14 @@ type ApplicationWorkerSuite struct {
 	logger   logger.Logger
 }
 
-func (s *ApplicationWorkerSuite) SetUpTest(c *gc.C) {
+func (s *ApplicationWorkerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.modelTag = names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff")
 	s.logger = loggertesting.WrapCheckLog(c)
 }
 
-func (s *ApplicationWorkerSuite) waitDone(c *gc.C, done chan struct{}) {
+func (s *ApplicationWorkerSuite) waitDone(c *tc.C, done chan struct{}) {
 	select {
 	case <-done:
 	case <-time.After(1000 * coretesting.LongWait):
@@ -56,7 +56,7 @@ func (s *ApplicationWorkerSuite) waitDone(c *gc.C, done chan struct{}) {
 }
 
 func (s *ApplicationWorkerSuite) startAppWorker(
-	c *gc.C,
+	c *tc.C,
 	clk clock.Clock,
 	facade caasapplicationprovisioner.CAASProvisionerFacade,
 	broker caasapplicationprovisioner.CAASBroker,
@@ -76,14 +76,14 @@ func (s *ApplicationWorkerSuite) startAppWorker(
 		StatusOnly: statusOnly,
 	}
 	startFunc := caasapplicationprovisioner.NewAppWorker(config)
-	c.Assert(startFunc, gc.NotNil)
+	c.Assert(startFunc, tc.NotNil)
 	appWorker, err := startFunc()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appWorker, gc.NotNil)
+	c.Assert(appWorker, tc.NotNil)
 	return appWorker
 }
 
-func (s *ApplicationWorkerSuite) TestLifeNotFound(c *gc.C) {
+func (s *ApplicationWorkerSuite) TestLifeNotFound(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -106,7 +106,7 @@ func (s *ApplicationWorkerSuite) TestLifeNotFound(c *gc.C) {
 	workertest.CleanKill(c, appWorker)
 }
 
-func (s *ApplicationWorkerSuite) TestLifeDead(c *gc.C) {
+func (s *ApplicationWorkerSuite) TestLifeDead(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -137,7 +137,7 @@ func (s *ApplicationWorkerSuite) TestLifeDead(c *gc.C) {
 	workertest.CleanKill(c, appWorker)
 }
 
-func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
+func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -240,7 +240,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 	workertest.CheckKill(c, appWorker)
 }
 
-func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *gc.C) {
+func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -315,7 +315,7 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *gc.C) {
 	workertest.CheckKill(c, appWorker)
 }
 
-func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *gc.C) {
+func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 

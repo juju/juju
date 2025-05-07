@@ -5,9 +5,9 @@ package lxd_test
 
 import (
 	lxdapi "github.com/canonical/lxd/shared/api"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/container/lxd"
 	lxdtesting "github.com/juju/juju/internal/container/lxd/testing"
@@ -17,7 +17,7 @@ type storageSuite struct {
 	lxdtesting.BaseSuite
 }
 
-var _ = gc.Suite(&storageSuite{})
+var _ = tc.Suite(&storageSuite{})
 
 func defaultProfileWithDisk() *lxdapi.Profile {
 	return &lxdapi.Profile{
@@ -32,7 +32,7 @@ func defaultProfileWithDisk() *lxdapi.Profile {
 	}
 }
 
-func (s *storageSuite) TestStorageIsSupported(c *gc.C) {
+func (s *storageSuite) TestStorageIsSupported(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServerWithExtensions(ctrl, "storage")
@@ -43,7 +43,7 @@ func (s *storageSuite) TestStorageIsSupported(c *gc.C) {
 	c.Check(jujuSvr.StorageSupported(), jc.IsTrue)
 }
 
-func (s *storageSuite) TestStorageNotSupported(c *gc.C) {
+func (s *storageSuite) TestStorageNotSupported(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServerWithExtensions(ctrl, "network")
@@ -54,7 +54,7 @@ func (s *storageSuite) TestStorageNotSupported(c *gc.C) {
 	c.Check(jujuSvr.StorageSupported(), jc.IsFalse)
 }
 
-func (s *storageSuite) TestCreatePool(c *gc.C) {
+func (s *storageSuite) TestCreatePool(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServerWithExtensions(ctrl, "storage")
@@ -77,7 +77,7 @@ func (s *storageSuite) TestCreatePool(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *storageSuite) TestCreateVolume(c *gc.C) {
+func (s *storageSuite) TestCreateVolume(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServerWithExtensions(ctrl, "storage")
@@ -100,7 +100,7 @@ func (s *storageSuite) TestCreateVolume(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *storageSuite) TestEnsureDefaultStorageDevicePresent(c *gc.C) {
+func (s *storageSuite) TestEnsureDefaultStorageDevicePresent(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServerWithExtensions(ctrl, "storage")
@@ -111,7 +111,7 @@ func (s *storageSuite) TestEnsureDefaultStorageDevicePresent(c *gc.C) {
 	c.Assert(jujuSvr.EnsureDefaultStorage(defaultProfileWithDisk(), ""), jc.ErrorIsNil)
 }
 
-func (s *storageSuite) TestEnsureDefaultStoragePoolExistsDeviceCreated(c *gc.C) {
+func (s *storageSuite) TestEnsureDefaultStoragePoolExistsDeviceCreated(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServerWithExtensions(ctrl, "storage")
@@ -129,7 +129,7 @@ func (s *storageSuite) TestEnsureDefaultStoragePoolExistsDeviceCreated(c *gc.C) 
 	c.Assert(jujuSvr.EnsureDefaultStorage(profile, lxdtesting.ETag), jc.ErrorIsNil)
 }
 
-func (s *storageSuite) TestEnsureDefaultStorageNonDefaultPoolExistsDeviceCreated(c *gc.C) {
+func (s *storageSuite) TestEnsureDefaultStorageNonDefaultPoolExistsDeviceCreated(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServerWithExtensions(ctrl, "storage")
@@ -148,7 +148,7 @@ func (s *storageSuite) TestEnsureDefaultStorageNonDefaultPoolExistsDeviceCreated
 	c.Assert(jujuSvr.EnsureDefaultStorage(profile, lxdtesting.ETag), jc.ErrorIsNil)
 }
 
-func (s *storageSuite) TestEnsureDefaultStoragePoolAndDeviceCreated(c *gc.C) {
+func (s *storageSuite) TestEnsureDefaultStoragePoolAndDeviceCreated(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServerWithExtensions(ctrl, "storage")

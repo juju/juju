@@ -14,11 +14,11 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -42,7 +42,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var _ = gc.Suite(&crossmodelRelationsSuite{})
+var _ = tc.Suite(&crossmodelRelationsSuite{})
 
 type crossmodelRelationsSuite struct {
 	coretesting.BaseSuite
@@ -62,7 +62,7 @@ type crossmodelRelationsSuite struct {
 	watchedSecretConsumers []string
 }
 
-func (s *crossmodelRelationsSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *crossmodelRelationsSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.modelConfigService = NewMockModelConfigService(ctrl)
@@ -71,10 +71,10 @@ func (s *crossmodelRelationsSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *crossmodelRelationsSuite) setupAPI(c *gc.C) {
+func (s *crossmodelRelationsSuite) setupAPI(c *tc.C) {
 	s.bakery = &mockBakeryService{}
 	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
@@ -84,12 +84,12 @@ func (s *crossmodelRelationsSuite) setupAPI(c *gc.C) {
 	s.st = newMockState()
 	fw := &mockFirewallState{}
 	egressAddressWatcher := func(ctx context.Context, _ facade.Resources, fws firewall.State, modelConfigService firewall.ModelConfigService, relations params.Entities) (params.StringsWatchResults, error) {
-		c.Assert(fw, gc.Equals, fws)
+		c.Assert(fw, tc.Equals, fws)
 		s.watchedRelations = relations
 		return params.StringsWatchResults{Results: make([]params.StringsWatchResult, len(relations.Entities))}, nil
 	}
 	relationStatusWatcher := func(st crossmodelrelations.CrossModelRelationsState, tag names.RelationTag) (state.StringsWatcher, error) {
-		c.Assert(s.st, gc.Equals, st)
+		c.Assert(s.st, tc.Equals, st)
 		s.watchedRelations = params.Entities{Entities: []params.Entity{{Tag: tag.String()}}}
 		w := &mockRelationStatusWatcher{
 			mockWatcher: &mockWatcher{
@@ -102,7 +102,7 @@ func (s *crossmodelRelationsSuite) setupAPI(c *gc.C) {
 		return w, nil
 	}
 	offerStatusWatcher := func(_ context.Context, st crossmodelrelations.CrossModelRelationsState, offerUUID string) (crossmodelrelations.OfferWatcher, error) {
-		c.Assert(s.st, gc.Equals, st)
+		c.Assert(s.st, tc.Equals, st)
 		s.watchedOffers = []string{offerUUID}
 		w := &mockOfferStatusWatcher{
 			mockWatcher: &mockWatcher{
@@ -147,7 +147,7 @@ func (s *crossmodelRelationsSuite) setupAPI(c *gc.C) {
 	s.api = api
 }
 
-func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, lifeValue life.Value, suspendedReason string, forceCleanup bool) {
+func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *tc.C, lifeValue life.Value, suspendedReason string, forceCleanup bool) {
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	s.st.remoteEntities[names.NewApplicationOfferTag("f47ac10b-58cc-4372-a567-0e02b2c3d479")] = "token-db2"
 	s.st.offers["f47ac10b-58cc-4372-a567-0e02b2c3d479"] = &crossmodel.ApplicationOffer{
@@ -204,15 +204,15 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, lifeVa
 		{FuncName: "KeyRelation", Args: []interface{}{"db2:db django:db"}},
 	}
 	if lifeValue == life.Alive {
-		c.Assert(rel.status, gc.Equals, status.Suspending)
+		c.Assert(rel.status, tc.Equals, status.Suspending)
 		if suspendedReason == "" {
-			c.Assert(rel.message, gc.Equals, "suspending after update from remote model")
+			c.Assert(rel.message, tc.Equals, "suspending after update from remote model")
 		} else {
-			c.Assert(rel.message, gc.Equals, suspendedReason)
+			c.Assert(rel.message, tc.Equals, suspendedReason)
 		}
 	} else {
-		c.Assert(rel.status, gc.Equals, status.Status(""))
-		c.Assert(rel.message, gc.Equals, "")
+		c.Assert(rel.status, tc.Equals, status.Status(""))
+		c.Assert(rel.message, tc.Equals, "")
 	}
 	s.st.CheckCalls(c, expected)
 	if forceCleanup {
@@ -253,7 +253,7 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, lifeVa
 	})
 }
 
-func (s *crossmodelRelationsSuite) TestPublishRelationsChanges(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestPublishRelationsChanges(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
@@ -261,7 +261,7 @@ func (s *crossmodelRelationsSuite) TestPublishRelationsChanges(c *gc.C) {
 	s.assertPublishRelationsChanges(c, life.Alive, "", false)
 }
 
-func (s *crossmodelRelationsSuite) TestPublishRelationsChangesWithSuspendedReason(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestPublishRelationsChangesWithSuspendedReason(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
@@ -269,7 +269,7 @@ func (s *crossmodelRelationsSuite) TestPublishRelationsChangesWithSuspendedReaso
 	s.assertPublishRelationsChanges(c, life.Alive, "reason", false)
 }
 
-func (s *crossmodelRelationsSuite) TestPublishRelationsChangesDyingWhileSuspended(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestPublishRelationsChangesDyingWhileSuspended(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
@@ -277,7 +277,7 @@ func (s *crossmodelRelationsSuite) TestPublishRelationsChangesDyingWhileSuspende
 	s.assertPublishRelationsChanges(c, life.Dying, "", false)
 }
 
-func (s *crossmodelRelationsSuite) TestPublishRelationsChangesDyingForceCleanup(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestPublishRelationsChangesDyingForceCleanup(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
@@ -285,7 +285,7 @@ func (s *crossmodelRelationsSuite) TestPublishRelationsChangesDyingForceCleanup(
 	s.assertPublishRelationsChanges(c, life.Dying, "", true)
 }
 
-func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
+func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *tc.C) {
 	app := &mockApplication{}
 	app.eps = []relation.Endpoint{{
 		ApplicationName: "offeredapp",
@@ -326,10 +326,10 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 			Macaroons:         macaroon.Slice{mac.M()},
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results, tc.HasLen, 1)
 	result := results.Results[0]
-	c.Assert(result.Error, gc.IsNil)
-	c.Check(result.Result.Token, gc.Equals, "token-f47ac10b-58cc-4372-a567-0e02b2c3d479")
+	c.Assert(result.Error, tc.IsNil)
+	c.Check(result.Result.Token, tc.Equals, "token-f47ac10b-58cc-4372-a567-0e02b2c3d479")
 	declared := checkers.InferDeclared(nil, macaroon.Slice{result.Result.Macaroon})
 	c.Assert(declared, jc.DeepEquals, map[string]string{
 		"source-model-uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
@@ -338,7 +338,7 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 		"offer-uuid":        "f47ac10b-58cc-4372-a567-0e02b2c3d479",
 	})
 	cav := result.Result.Macaroon.Caveats()
-	c.Check(cav, gc.HasLen, 5)
+	c.Check(cav, tc.HasLen, 5)
 	c.Check(bytes.HasPrefix(cav[0].Id, []byte("time-before ")), jc.IsTrue)
 	c.Check(cav[1].Id, jc.DeepEquals, []byte("declared source-model-uuid deadbeef-0bad-400d-8000-4b1d0d06f00d"))
 	c.Check(cav[2].Id, jc.DeepEquals, []byte("declared offer-uuid f47ac10b-58cc-4372-a567-0e02b2c3d479"))
@@ -352,10 +352,10 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 	expectedRel := s.st.relations["offeredapp:local remote-apptoken:remote"]
 	expectedRel.Stub = testing.Stub{} // don't care about api calls
 	c.Check(expectedRel, jc.DeepEquals, &mockRelation{id: 0, key: "offeredapp:local remote-apptoken:remote"})
-	c.Check(s.st.remoteEntities, gc.HasLen, 2)
-	c.Check(s.st.remoteEntities[names.NewApplicationOfferTag("f47ac10b-58cc-4372-a567-0e02b2c3d479")], gc.Equals, "token-f47ac10b-58cc-4372-a567-0e02b2c3d479")
-	c.Check(s.st.remoteEntities[names.NewRelationTag("offeredapp:local remote-apptoken:remote")], gc.Equals, "rel-token")
-	c.Assert(s.st.offerConnections, gc.HasLen, 1)
+	c.Check(s.st.remoteEntities, tc.HasLen, 2)
+	c.Check(s.st.remoteEntities[names.NewApplicationOfferTag("f47ac10b-58cc-4372-a567-0e02b2c3d479")], tc.Equals, "token-f47ac10b-58cc-4372-a567-0e02b2c3d479")
+	c.Check(s.st.remoteEntities[names.NewRelationTag("offeredapp:local remote-apptoken:remote")], tc.Equals, "rel-token")
+	c.Assert(s.st.offerConnections, tc.HasLen, 1)
 	offerConnection := s.st.offerConnections[0]
 	c.Assert(offerConnection, jc.DeepEquals, &mockOfferConnection{
 		sourcemodelUUID: coretesting.ModelTag.Id(),
@@ -366,7 +366,7 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 	})
 }
 
-func (s *crossmodelRelationsSuite) TestRegisterRemoteRelations(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestRegisterRemoteRelations(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
@@ -374,7 +374,7 @@ func (s *crossmodelRelationsSuite) TestRegisterRemoteRelations(c *gc.C) {
 	s.assertRegisterRemoteRelations(c)
 }
 
-func (s *crossmodelRelationsSuite) TestRegisterRemoteRelationsIdempotent(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestRegisterRemoteRelationsIdempotent(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
@@ -383,7 +383,7 @@ func (s *crossmodelRelationsSuite) TestRegisterRemoteRelationsIdempotent(c *gc.C
 	s.assertRegisterRemoteRelations(c)
 }
 
-func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
@@ -432,7 +432,7 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *gc.C) {
 	})
 }
 
-func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChangesRejected(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChangesRejected(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
@@ -475,14 +475,14 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChangesRejected(c *g
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = results.Combine()
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("subnet 1.2.3.4/32 not in firewall whitelist"))
+	c.Assert(err, tc.ErrorMatches, regexp.QuoteMeta("subnet 1.2.3.4/32 not in firewall whitelist"))
 	s.st.CheckCalls(c, []testing.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 	})
 }
 
-func (s *crossmodelRelationsSuite) TestWatchEgressAddressesForRelations(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestWatchEgressAddressesForRelations(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
@@ -522,10 +522,10 @@ func (s *crossmodelRelationsSuite) TestWatchEgressAddressesForRelations(c *gc.C)
 	}
 	results, err := s.api.WatchEgressAddressesForRelations(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, len(args.Args))
-	c.Assert(results.Results[0].Error.ErrorCode(), gc.Equals, params.CodeNotFound)
-	c.Assert(results.Results[1].Error, gc.IsNil)
-	c.Assert(results.Results[2].Error.ErrorCode(), gc.Equals, params.CodeNotFound)
+	c.Assert(results.Results, tc.HasLen, len(args.Args))
+	c.Assert(results.Results[0].Error.ErrorCode(), tc.Equals, params.CodeNotFound)
+	c.Assert(results.Results[1].Error, tc.IsNil)
+	c.Assert(results.Results[2].Error.ErrorCode(), tc.Equals, params.CodeNotFound)
 	c.Assert(s.watchedRelations, jc.DeepEquals, params.Entities{
 		Entities: []params.Entity{{Tag: "relation-db2.db#django.db"}}},
 	)
@@ -537,7 +537,7 @@ func (s *crossmodelRelationsSuite) TestWatchEgressAddressesForRelations(c *gc.C)
 	// TODO(wallyworld) - add mre tests when implementation finished
 }
 
-func (s *crossmodelRelationsSuite) TestWatchRelationsStatus(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestWatchRelationsStatus(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
@@ -575,9 +575,9 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatus(c *gc.C) {
 	}
 	results, err := s.api.WatchRelationsSuspendedStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, len(args.Args))
-	c.Assert(results.Results[0].Error.ErrorCode(), gc.Equals, params.CodeNotFound)
-	c.Assert(results.Results[1].Error, gc.IsNil)
+	c.Assert(results.Results, tc.HasLen, len(args.Args))
+	c.Assert(results.Results[0].Error.ErrorCode(), tc.Equals, params.CodeNotFound)
+	c.Assert(results.Results[1].Error, tc.IsNil)
 	c.Assert(s.watchedRelations, jc.DeepEquals, params.Entities{
 		Entities: []params.Entity{{Tag: "relation-db2.db#django.db"}}},
 	)
@@ -588,7 +588,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatus(c *gc.C) {
 	})
 }
 
-func (s *crossmodelRelationsSuite) TestWatchRelationsStatusRelationNotFound(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestWatchRelationsStatusRelationNotFound(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
@@ -622,9 +622,9 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatusRelationNotFound(c *g
 	// First check that when not migrating, we see the relation as dead.
 	results, err := s.api.WatchRelationsSuspendedStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, len(args.Args))
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[0].Changes[0].Life, gc.Equals, life.Dead)
+	c.Assert(results.Results, tc.HasLen, len(args.Args))
+	c.Assert(results.Results[0].Error, tc.IsNil)
+	c.Assert(results.Results[0].Changes[0].Life, tc.Equals, life.Dead)
 	s.st.CheckCalls(c, []testing.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
@@ -637,8 +637,8 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatusRelationNotFound(c *g
 	s.st.migrationActive = true
 	results, err = s.api.WatchRelationsSuspendedStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, len(args.Args))
-	c.Assert(results.Results[0].Error.Code, gc.Equals, params.CodeNotFound)
+	c.Assert(results.Results, tc.HasLen, len(args.Args))
+	c.Assert(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
 	s.st.CheckCalls(c, []testing.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
@@ -646,7 +646,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatusRelationNotFound(c *g
 	})
 }
 
-func (s *crossmodelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestWatchOfferStatus(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
@@ -687,16 +687,16 @@ func (s *crossmodelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
 
 	results, err := s.api.WatchOfferStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, len(args.Args))
-	c.Assert(results.Results[0].Error.ErrorCode(), gc.Equals, params.CodeUnauthorized)
-	c.Assert(results.Results[1].Error, gc.IsNil)
+	c.Assert(results.Results, tc.HasLen, len(args.Args))
+	c.Assert(results.Results[0].Error.ErrorCode(), tc.Equals, params.CodeUnauthorized)
+	c.Assert(results.Results[1].Error, tc.IsNil)
 	// Check against a non-terminating status to show that the status is
 	// coming from the application.
 	c.Assert(results.Results[1].Changes, jc.DeepEquals, []params.OfferStatusChange{{
 		OfferName: "mysql",
 		Status:    params.EntityStatus{Status: status.Waiting},
 	}})
-	c.Assert(results.Results[2].Error.ErrorCode(), gc.Equals, params.CodeUnauthorized)
+	c.Assert(results.Results[2].Error.ErrorCode(), tc.Equals, params.CodeUnauthorized)
 	c.Assert(s.watchedOffers, jc.DeepEquals, []string{"f47ac10b-58cc-4372-a567-0e02b2c3d479"})
 	s.st.CheckCalls(c, []testing.StubCall{
 		{"IsMigrationActive", nil},
@@ -704,7 +704,7 @@ func (s *crossmodelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
 	})
 }
 
-func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettingsRemoteEntityOfferTag(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettingsRemoteEntityOfferTag(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
@@ -777,7 +777,7 @@ func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettingsRemo
 	})
 }
 
-func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettingsRemoteEntityApplicationTag(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettingsRemoteEntityApplicationTag(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
@@ -853,7 +853,7 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func (s *crossmodelRelationsSuite) TestResumeRelationPermissionCheck(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestResumeRelationPermissionCheck(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
@@ -900,10 +900,10 @@ func (s *crossmodelRelationsSuite) TestResumeRelationPermissionCheck(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = results.Combine()
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
@@ -973,7 +973,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	uc := 666
-	c.Assert(result, gc.DeepEquals, params.RemoteRelationWatchResults{
+	c.Assert(result, tc.DeepEquals, params.RemoteRelationWatchResults{
 		Results: []params.RemoteRelationWatchResult{{
 			RemoteRelationWatcherId: "1",
 			Changes: params.RemoteRelationChangeEvent{
@@ -995,14 +995,14 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 		}},
 	})
 
-	c.Assert(s.resources.Count(), gc.Equals, 1)
+	c.Assert(s.resources.Count(), tc.Equals, 1)
 	resource := s.resources.Get("1")
 	defer workertest.CleanKill(c, resource)
 
 	outw, ok := resource.(*commoncrossmodel.WrappedUnitsWatcher)
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(outw.RelationToken, gc.Equals, "token-db2:db django:db")
-	c.Assert(outw.ApplicationOrOfferToken, gc.Equals, "token-hosted-db2")
+	c.Assert(ok, tc.Equals, true)
+	c.Assert(outw.RelationToken, tc.Equals, "token-db2:db django:db")
+	c.Assert(outw.ApplicationOrOfferToken, tc.Equals, "token-hosted-db2")
 
 	// TODO(babbageclunk): add locking around updating mock
 	// relation/relunit settings.
@@ -1018,7 +1018,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 
 	select {
 	case event := <-outw.Changes():
-		c.Assert(event, gc.DeepEquals, params.RelationUnitsChange{
+		c.Assert(event, tc.DeepEquals, params.RelationUnitsChange{
 			AppChanged: map[string]int64{"django": 124},
 		})
 	case <-time.After(coretesting.LongWait):
@@ -1026,7 +1026,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 	}
 }
 
-func (s *crossmodelRelationsSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestWatchConsumedSecretsChanges(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
@@ -1074,13 +1074,13 @@ func (s *crossmodelRelationsSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	}
 	results, err := s.api.WatchConsumedSecretsChanges(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, len(args.Args))
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results, tc.HasLen, len(args.Args))
+	c.Assert(results.Results[0].Error, tc.IsNil)
 	c.Assert(results.Results[0].Changes, jc.DeepEquals, []params.SecretRevisionChange{{
 		URI:            "secret:9m4e2mr0ui3e8a215n4g",
 		LatestRevision: 666,
 	}})
-	c.Assert(results.Results[1].Error.ErrorCode(), gc.Equals, params.CodeUnauthorized)
-	c.Assert(results.Results[2].Error.ErrorCode(), gc.Equals, params.CodeUnauthorized)
+	c.Assert(results.Results[1].Error.ErrorCode(), tc.Equals, params.CodeUnauthorized)
+	c.Assert(results.Results[2].Error.ErrorCode(), tc.Equals, params.CodeUnauthorized)
 	c.Assert(s.watchedSecretConsumers, jc.DeepEquals, []string{"db2"})
 }

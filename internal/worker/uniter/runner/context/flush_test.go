@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/secrets"
@@ -29,14 +29,14 @@ type FlushContextSuite struct {
 	stub testing.Stub
 }
 
-var _ = gc.Suite(&FlushContextSuite{})
+var _ = tc.Suite(&FlushContextSuite{})
 
-func (s *FlushContextSuite) SetUpTest(c *gc.C) {
+func (s *FlushContextSuite) SetUpTest(c *tc.C) {
 	s.BaseHookContextSuite.SetUpTest(c)
 	s.stub.ResetCalls()
 }
 
-func (s *FlushContextSuite) TestRunHookRelationFlushingError(c *gc.C) {
+func (s *FlushContextSuite) TestRunHookRelationFlushingError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -56,10 +56,10 @@ func (s *FlushContextSuite) TestRunHookRelationFlushingError(c *gc.C) {
 
 	// Flush the context with a failure.
 	err = ctx.Flush(stdcontext.Background(), "some badge", errors.New("blam pow"))
-	c.Assert(err, gc.ErrorMatches, "blam pow")
+	c.Assert(err, tc.ErrorMatches, "blam pow")
 }
 
-func (s *FlushContextSuite) TestRunHookRelationFlushingSuccess(c *gc.C) {
+func (s *FlushContextSuite) TestRunHookRelationFlushingSuccess(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -101,7 +101,7 @@ func (s *FlushContextSuite) TestRunHookRelationFlushingSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *FlushContextSuite) TestRebootAfterHook(c *gc.C) {
+func (s *FlushContextSuite) TestRebootAfterHook(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -114,16 +114,16 @@ func (s *FlushContextSuite) TestRebootAfterHook(c *gc.C) {
 	// Flush the context with an error and check that reboot is not triggered.
 	expErr := errors.New("hook execution failed")
 	err = ctx.Flush(stdcontext.Background(), "some badge", expErr)
-	c.Assert(err, gc.Equals, expErr)
+	c.Assert(err, tc.Equals, expErr)
 
 	// Flush the context without an error and check that reboot is triggered.
 	s.unit.EXPECT().SetAgentStatus(gomock.Any(), status.Rebooting, "", nil).Return(nil)
 	s.unit.EXPECT().RequestReboot(gomock.Any()).Return(nil)
 	err = ctx.Flush(stdcontext.Background(), "some badge", nil)
-	c.Assert(err, gc.Equals, context.ErrReboot)
+	c.Assert(err, tc.Equals, context.ErrReboot)
 }
 
-func (s *FlushContextSuite) TestRebootWhenHookFails(c *gc.C) {
+func (s *FlushContextSuite) TestRebootWhenHookFails(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -132,7 +132,7 @@ func (s *FlushContextSuite) TestRebootWhenHookFails(c *gc.C) {
 	var stub testing.Stub
 	ctx.SetProcess(&mockProcess{func() error {
 		priority := ctx.GetRebootPriority()
-		c.Assert(priority, gc.Equals, jujuc.RebootAfterHook)
+		c.Assert(priority, tc.Equals, jujuc.RebootAfterHook)
 		return stub.NextErr()
 	}})
 	stub.SetErrors(errors.New("process is already dead"))
@@ -144,10 +144,10 @@ func (s *FlushContextSuite) TestRebootWhenHookFails(c *gc.C) {
 	// Flush the context with an error and check that reboot is not triggered.
 	expErr := errors.New("hook execution failed")
 	err = ctx.Flush(stdcontext.Background(), "some badge", expErr)
-	c.Assert(err, gc.ErrorMatches, "hook execution failed")
+	c.Assert(err, tc.ErrorMatches, "hook execution failed")
 }
 
-func (s *FlushContextSuite) TestRebootNowWhenHookFails(c *gc.C) {
+func (s *FlushContextSuite) TestRebootNowWhenHookFails(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -156,7 +156,7 @@ func (s *FlushContextSuite) TestRebootNowWhenHookFails(c *gc.C) {
 	var stub testing.Stub
 	ctx.SetProcess(&mockProcess{func() error {
 		priority := ctx.GetRebootPriority()
-		c.Assert(priority, gc.Equals, jujuc.RebootNow)
+		c.Assert(priority, tc.Equals, jujuc.RebootNow)
 		return stub.NextErr()
 	}})
 	stub.SetErrors(errors.New("process is already dead"))
@@ -171,10 +171,10 @@ func (s *FlushContextSuite) TestRebootNowWhenHookFails(c *gc.C) {
 
 	expErr := errors.New("hook execution failed")
 	err = ctx.Flush(stdcontext.Background(), "some badge", expErr)
-	c.Assert(err, gc.Equals, context.ErrRequeueAndReboot)
+	c.Assert(err, tc.Equals, context.ErrRequeueAndReboot)
 }
 
-func (s *FlushContextSuite) TestRebootNow(c *gc.C) {
+func (s *FlushContextSuite) TestRebootNow(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -183,7 +183,7 @@ func (s *FlushContextSuite) TestRebootNow(c *gc.C) {
 	var stub testing.Stub
 	ctx.SetProcess(&mockProcess{func() error {
 		priority := ctx.GetRebootPriority()
-		c.Assert(priority, gc.Equals, jujuc.RebootNow)
+		c.Assert(priority, tc.Equals, jujuc.RebootNow)
 		return stub.NextErr()
 	}})
 	stub.SetErrors(errors.New("process is already dead"))
@@ -197,10 +197,10 @@ func (s *FlushContextSuite) TestRebootNow(c *gc.C) {
 	s.unit.EXPECT().RequestReboot(gomock.Any()).Return(nil)
 
 	err = ctx.Flush(stdcontext.Background(), "some badge", nil)
-	c.Assert(err, gc.Equals, context.ErrRequeueAndReboot)
+	c.Assert(err, tc.Equals, context.ErrRequeueAndReboot)
 }
 
-func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
+func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *tc.C) {
 	// Open some ports on this unit and another one.
 	s.machinePortRanges = map[names.UnitTag]network.GroupedPortRanges{
 		s.unit.Tag(): {
@@ -220,17 +220,17 @@ func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	err := ctx.OpenPortRange("", network.MustParsePortRange("100-200/tcp"))
 	c.Assert(err, jc.ErrorIsNil) // duplicates are ignored
 	err = ctx.OpenPortRange("", network.MustParsePortRange("200-300/udp"))
-	c.Assert(err, gc.ErrorMatches, `cannot open 200-300/udp \(unit "u/0"\): port range conflicts with 200-300/udp \(unit "u/1"\)`)
+	c.Assert(err, tc.ErrorMatches, `cannot open 200-300/udp \(unit "u/0"\): port range conflicts with 200-300/udp \(unit "u/1"\)`)
 	err = ctx.OpenPortRange("", network.MustParsePortRange("100-200/udp"))
-	c.Assert(err, gc.ErrorMatches, `cannot open 100-200/udp \(unit "u/0"\): port range conflicts with 200-300/udp \(unit "u/1"\)`)
+	c.Assert(err, tc.ErrorMatches, `cannot open 100-200/udp \(unit "u/0"\): port range conflicts with 200-300/udp \(unit "u/1"\)`)
 	err = ctx.OpenPortRange("", network.MustParsePortRange("10-20/udp"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.OpenPortRange("", network.MustParsePortRange("50-100/tcp"))
-	c.Assert(err, gc.ErrorMatches, `cannot open 50-100/tcp \(unit "u/0"\): port range conflicts with 100-200/tcp \(unit "u/0"\)`)
+	c.Assert(err, tc.ErrorMatches, `cannot open 50-100/tcp \(unit "u/0"\): port range conflicts with 100-200/tcp \(unit "u/0"\)`)
 	err = ctx.OpenPortRange("", network.MustParsePortRange("50-80/tcp"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.OpenPortRange("", network.MustParsePortRange("40-90/tcp"))
-	c.Assert(err, gc.ErrorMatches, `cannot open 40-90/tcp \(unit "u/0"\): port range conflicts with 50-80/tcp \(unit "u/0"\) requested earlier`)
+	c.Assert(err, tc.ErrorMatches, `cannot open 40-90/tcp \(unit "u/0"\): port range conflicts with 50-80/tcp \(unit "u/0"\) requested earlier`)
 
 	// Now try closing some ports as well.
 	err = ctx.ClosePortRange("", network.MustParsePortRange("8080-8088/udp"))
@@ -240,7 +240,7 @@ func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	err = ctx.ClosePortRange("", network.MustParsePortRange("100-200/tcp"))
 	c.Assert(err, jc.ErrorIsNil) // duplicates are ignored
 	err = ctx.ClosePortRange("", network.MustParsePortRange("200-300/udp"))
-	c.Assert(err, gc.ErrorMatches, `.*port range conflicts with 200-300/udp \(unit "u/1"\)`)
+	c.Assert(err, tc.ErrorMatches, `.*port range conflicts with 200-300/udp \(unit "u/1"\)`)
 	err = ctx.ClosePortRange("", network.MustParsePortRange("50-80/tcp"))
 	c.Assert(err, jc.ErrorIsNil) // still pending -> no longer pending
 
@@ -281,7 +281,7 @@ func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *FlushContextSuite) TestRunHookUpdatesSecrets(c *gc.C) {
+func (s *FlushContextSuite) TestRunHookUpdatesSecrets(c *tc.C) {
 	uri := secrets.NewURI()
 	uri2 := secrets.NewURI()
 
@@ -351,7 +351,7 @@ func (s *FlushContextSuite) TestRunHookUpdatesSecrets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *BaseHookContextSuite) context(c *gc.C, ctrl *gomock.Controller) *context.HookContext {
+func (s *BaseHookContextSuite) context(c *tc.C, ctrl *gomock.Controller) *context.HookContext {
 	uuid, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 

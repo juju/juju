@@ -15,10 +15,10 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/logger"
 )
@@ -30,9 +30,9 @@ type logSinkSuite struct {
 	closed int64
 }
 
-var _ = gc.Suite(&logSinkSuite{})
+var _ = tc.Suite(&logSinkSuite{})
 
-func (s *logSinkSuite) TestLogWithNoBatching(c *gc.C) {
+func (s *logSinkSuite) TestLogWithNoBatching(c *tc.C) {
 	sink, buffer := s.newLogSink(c, 1)
 	defer workertest.DirtyKill(c, sink)
 
@@ -44,8 +44,8 @@ func (s *logSinkSuite) TestLogWithNoBatching(c *gc.C) {
 	s.expectFlush(c)
 
 	lines := parseLog(c, buffer)
-	c.Assert(lines, gc.HasLen, 1)
-	c.Check(lines, gc.DeepEquals, []logger.LogRecord{{
+	c.Assert(lines, tc.HasLen, 1)
+	c.Check(lines, tc.DeepEquals, []logger.LogRecord{{
 		Level:   logger.INFO,
 		Message: "hello",
 	}})
@@ -55,7 +55,7 @@ func (s *logSinkSuite) TestLogWithNoBatching(c *gc.C) {
 	s.expectWriterClosed(c)
 }
 
-func (s *logSinkSuite) TestLogWithMultiline(c *gc.C) {
+func (s *logSinkSuite) TestLogWithMultiline(c *tc.C) {
 	sink, buffer := s.newLogSink(c, 1)
 	defer workertest.DirtyKill(c, sink)
 
@@ -73,8 +73,8 @@ rld
 	s.expectFlush(c)
 
 	lines := parseLog(c, buffer)
-	c.Assert(lines, gc.HasLen, 1)
-	c.Check(lines, gc.DeepEquals, []logger.LogRecord{{
+	c.Assert(lines, tc.HasLen, 1)
+	c.Check(lines, tc.DeepEquals, []logger.LogRecord{{
 		Level:   logger.INFO,
 		Message: "h\n\t\t\nello\n\nwo\n\nrld\n",
 	}})
@@ -84,7 +84,7 @@ rld
 	s.expectWriterClosed(c)
 }
 
-func (s *logSinkSuite) TestLogWithLargeBatching(c *gc.C) {
+func (s *logSinkSuite) TestLogWithLargeBatching(c *tc.C) {
 	// This forces the ticker to flush the batch.
 
 	sink, buffer := s.newLogSink(c, 100)
@@ -99,8 +99,8 @@ func (s *logSinkSuite) TestLogWithLargeBatching(c *gc.C) {
 	s.expectFlush(c)
 
 	lines := parseLog(c, buffer)
-	c.Assert(lines, gc.HasLen, 1)
-	c.Check(lines, gc.DeepEquals, []logger.LogRecord{{
+	c.Assert(lines, tc.HasLen, 1)
+	c.Check(lines, tc.DeepEquals, []logger.LogRecord{{
 		Level:   logger.INFO,
 		Message: "hello",
 	}})
@@ -110,7 +110,7 @@ func (s *logSinkSuite) TestLogWithLargeBatching(c *gc.C) {
 	s.expectWriterClosed(c)
 }
 
-func (s *logSinkSuite) TestLogWithLogsBatching(c *gc.C) {
+func (s *logSinkSuite) TestLogWithLogsBatching(c *tc.C) {
 	// Send more than two batches of logs, but less than the batch size.
 	// This will force two flushes and an additional tick and a flush.
 
@@ -143,7 +143,7 @@ func (s *logSinkSuite) TestLogWithLogsBatching(c *gc.C) {
 	s.expectFlush(c)
 
 	lines := parseLog(c, buffer)
-	c.Assert(lines, gc.HasLen, total, gc.Commentf("expected %d lines, got %d", total, len(lines)))
+	c.Assert(lines, tc.HasLen, total, tc.Commentf("expected %d lines, got %d", total, len(lines)))
 
 	expected := make([]logger.LogRecord, total)
 	for k, entry := range entries {
@@ -164,14 +164,14 @@ func (s *logSinkSuite) TestLogWithLogsBatching(c *gc.C) {
 			ModelUUID: "uuid",
 		}
 	}
-	c.Check(lines, gc.DeepEquals, expected)
+	c.Check(lines, tc.DeepEquals, expected)
 
 	workertest.CleanKill(c, sink)
 
 	s.expectWriterClosed(c)
 }
 
-func (s *logSinkSuite) TestLogWithLogsUnderBatchSize(c *gc.C) {
+func (s *logSinkSuite) TestLogWithLogsUnderBatchSize(c *tc.C) {
 	// This leans on the timer to send all the logs.
 
 	sink, buffer := s.newLogSink(c, 1000)
@@ -202,7 +202,7 @@ func (s *logSinkSuite) TestLogWithLogsUnderBatchSize(c *gc.C) {
 	s.expectMinNumOfFlushes(c, 1)
 
 	lines := parseLog(c, buffer)
-	c.Assert(lines, gc.HasLen, total, gc.Commentf("expected %d lines, got %d", total, len(lines)))
+	c.Assert(lines, tc.HasLen, total, tc.Commentf("expected %d lines, got %d", total, len(lines)))
 
 	expected := make([]logger.LogRecord, total)
 	for k, entry := range entries {
@@ -223,14 +223,14 @@ func (s *logSinkSuite) TestLogWithLogsUnderBatchSize(c *gc.C) {
 			ModelUUID: "uuid",
 		}
 	}
-	c.Check(lines, gc.DeepEquals, expected)
+	c.Check(lines, tc.DeepEquals, expected)
 
 	workertest.CleanKill(c, sink)
 
 	s.expectWriterClosed(c)
 }
 
-func (s *logSinkSuite) TestLogLogsConcurrently(c *gc.C) {
+func (s *logSinkSuite) TestLogLogsConcurrently(c *tc.C) {
 	// Flood the sink with logs from multiple goroutines. We don't care about
 	// the order of the logs, just that they all get written. All logs will be
 	// localised to the original goroutine.
@@ -269,7 +269,7 @@ func (s *logSinkSuite) TestLogLogsConcurrently(c *gc.C) {
 	s.expectNumOfFlushes(c, division)
 
 	lines := parseLog(c, buffer)
-	c.Assert(lines, gc.HasLen, total, gc.Commentf("expected %d lines, got %d", total, len(lines)))
+	c.Assert(lines, tc.HasLen, total, tc.Commentf("expected %d lines, got %d", total, len(lines)))
 
 	expected := make([]logger.LogRecord, total)
 	for k, entry := range entries {
@@ -297,14 +297,14 @@ func (s *logSinkSuite) TestLogLogsConcurrently(c *gc.C) {
 		return lines[i].Time.Before(lines[j].Time)
 	})
 
-	c.Check(lines, gc.DeepEquals, expected)
+	c.Check(lines, tc.DeepEquals, expected)
 
 	workertest.CleanKill(c, sink)
 
 	s.expectWriterClosed(c)
 }
 
-func (s *logSinkSuite) newLogSink(c *gc.C, batchSize int) (*LogSink, *bytes.Buffer) {
+func (s *logSinkSuite) newLogSink(c *tc.C, batchSize int) (*LogSink, *bytes.Buffer) {
 	s.states = make(chan string, 1)
 
 	atomic.StoreInt64(&s.closed, 0)
@@ -318,16 +318,16 @@ func (s *logSinkSuite) newLogSink(c *gc.C, batchSize int) (*LogSink, *bytes.Buff
 	return sink, buffer
 }
 
-func (s *logSinkSuite) expectFlush(c *gc.C) {
+func (s *logSinkSuite) expectFlush(c *tc.C) {
 	select {
 	case state := <-s.states:
-		c.Assert(state, gc.Equals, stateFlushed)
+		c.Assert(state, tc.Equals, stateFlushed)
 	case <-time.After(testing.ShortWait * 10):
 		c.Fatalf("timed out waiting for startup")
 	}
 }
 
-func (s *logSinkSuite) expectNumOfFlushes(c *gc.C, flushes int) {
+func (s *logSinkSuite) expectNumOfFlushes(c *tc.C, flushes int) {
 	for {
 		select {
 		case state := <-s.states:
@@ -343,7 +343,7 @@ func (s *logSinkSuite) expectNumOfFlushes(c *gc.C, flushes int) {
 	}
 }
 
-func (s *logSinkSuite) expectMinNumOfFlushes(c *gc.C, expected int) {
+func (s *logSinkSuite) expectMinNumOfFlushes(c *tc.C, expected int) {
 	var flushes int
 LOOP:
 	for {
@@ -356,23 +356,23 @@ LOOP:
 			break LOOP
 		}
 	}
-	c.Assert(flushes >= expected, jc.IsTrue, gc.Commentf("expected more than 1 flush, got %d", flushes))
+	c.Assert(flushes >= expected, jc.IsTrue, tc.Commentf("expected more than 1 flush, got %d", flushes))
 }
 
-func (s *logSinkSuite) expectTick(c *gc.C) {
+func (s *logSinkSuite) expectTick(c *tc.C) {
 	select {
 	case state := <-s.states:
-		c.Assert(state, gc.Equals, stateTicked)
+		c.Assert(state, tc.Equals, stateTicked)
 	case <-time.After(testing.ShortWait * 10):
 		c.Fatalf("timed out waiting for startup")
 	}
 }
 
-func (s *logSinkSuite) expectWriterClosed(c *gc.C) {
-	c.Assert(atomic.LoadInt64(&s.closed), gc.Equals, int64(1))
+func (s *logSinkSuite) expectWriterClosed(c *tc.C) {
+	c.Assert(atomic.LoadInt64(&s.closed), tc.Equals, int64(1))
 }
 
-func parseLog(c *gc.C, reader io.Reader) []logger.LogRecord {
+func parseLog(c *tc.C, reader io.Reader) []logger.LogRecord {
 	var records []logger.LogRecord
 
 	scanner := bufio.NewScanner(reader)

@@ -4,15 +4,15 @@
 package relation
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
 type typesSuite struct{}
 
-var _ = gc.Suite(&typesSuite{})
+var _ = tc.Suite(&typesSuite{})
 
-func (s *typesSuite) TestValidate(c *gc.C) {
+func (s *typesSuite) TestValidate(c *tc.C) {
 	// Arrange
 	args := GetRelationUUIDForRemovalArgs{
 		Endpoints: []string{"foo:require", "bar:provide"},
@@ -25,7 +25,7 @@ func (s *typesSuite) TestValidate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *typesSuite) TestValidateFailEndpointsOne(c *gc.C) {
+func (s *typesSuite) TestValidateFailEndpointsOne(c *tc.C) {
 	// Arrange
 	args := GetRelationUUIDForRemovalArgs{
 		Endpoints: []string{"foo:require"},
@@ -35,10 +35,10 @@ func (s *typesSuite) TestValidateFailEndpointsOne(c *gc.C) {
 	err := args.Validate()
 
 	// Assert
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, tc.NotNil)
 }
 
-func (s *typesSuite) TestValidateFailEndpointsMoreThanTwo(c *gc.C) {
+func (s *typesSuite) TestValidateFailEndpointsMoreThanTwo(c *tc.C) {
 	// Arrange
 	args := GetRelationUUIDForRemovalArgs{
 		Endpoints: []string{"foo:require", "bar:provide", "dead:beef"},
@@ -48,5 +48,5 @@ func (s *typesSuite) TestValidateFailEndpointsMoreThanTwo(c *gc.C) {
 	err := args.Validate()
 
 	// Assert
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, tc.NotNil)
 }

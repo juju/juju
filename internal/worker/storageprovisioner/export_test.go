@@ -5,9 +5,9 @@ package storageprovisioner
 
 import (
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
-	gc "gopkg.in/check.v1"
 )
 
 var (
@@ -20,7 +20,7 @@ func StorageWorker(parent worker.Worker, appName string) (worker.Worker, bool) {
 	return p.getApplicationWorker(appName)
 }
 
-func NewStorageWorker(c *gc.C, parent worker.Worker, appName string) {
+func NewStorageWorker(c *tc.C, parent worker.Worker, appName string) {
 	p := parent.(*provisioner)
 	cfg := p.config
 	cfg.Scope = names.NewApplicationTag(appName)

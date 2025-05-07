@@ -11,11 +11,11 @@ import (
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -41,9 +41,9 @@ type watcherrelationunitSuite struct {
 	uniter *UniterAPI
 }
 
-var _ = gc.Suite(&watcherrelationunitSuite{})
+var _ = tc.Suite(&watcherrelationunitSuite{})
 
-func (s *watcherrelationunitSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *watcherrelationunitSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.relationService = NewMockRelationService(ctrl)
@@ -57,7 +57,7 @@ func (s *watcherrelationunitSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *watcherrelationunitSuite) TestWatchOneRelationUnitWrongUnitTag(c *gc.C) {
+func (s *watcherrelationunitSuite) TestWatchOneRelationUnitWrongUnitTag(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	relationKey := "relation-app1.ep1#app2.ep2"
@@ -75,7 +75,7 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnitWrongUnitTag(c *gc.C)
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *watcherrelationunitSuite) TestWatchOneRelationUnitCannotAccess(c *gc.C) {
+func (s *watcherrelationunitSuite) TestWatchOneRelationUnitCannotAccess(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	relationKey := "relation-app1.ep1#app2.ep2"
@@ -93,7 +93,7 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnitCannotAccess(c *gc.C)
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *watcherrelationunitSuite) TestWatchOneRelationUnitWrongRelationKey(c *gc.C) {
+func (s *watcherrelationunitSuite) TestWatchOneRelationUnitWrongRelationKey(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	relationKey := "##error##"
@@ -111,7 +111,7 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnitWrongRelationKey(c *g
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *watcherrelationunitSuite) TestWatchOneRelationUnitKeyNotFound(c *gc.C) {
+func (s *watcherrelationunitSuite) TestWatchOneRelationUnitKeyNotFound(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	relationKey := "relation-app1.ep1#app2.ep2"
@@ -132,7 +132,7 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnitKeyNotFound(c *gc.C) 
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *watcherrelationunitSuite) TestWatchOneRelationUnitKeyDomainError(c *gc.C) {
+func (s *watcherrelationunitSuite) TestWatchOneRelationUnitKeyDomainError(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	relationKey := "relation-app1.ep1#app2.ep2"
@@ -156,7 +156,7 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnitKeyDomainError(c *gc.
 
 // TestWatchOneRelationUnit tests the watchOneRelationUnit facade method. It
 // tests that the initial event of the watcher is consumed correctly.
-func (s *watcherrelationunitSuite) TestWatchOneRelationUnit(c *gc.C) {
+func (s *watcherrelationunitSuite) TestWatchOneRelationUnit(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	relationKey := "relation-app1.ep1#app2.ep2"
@@ -226,8 +226,8 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnit(c *gc.C) {
 	})
 
 	// Assert
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.RelationUnitsWatchResult{
+	c.Assert(err, tc.IsNil)
+	c.Assert(result, tc.DeepEquals, params.RelationUnitsWatchResult{
 		RelationUnitsWatcherId: watcherID,
 		Changes:                convertRelationUnitsChange(initialChange),
 	})
@@ -236,7 +236,7 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnit(c *gc.C) {
 
 // TestRelationUnitsWatcher checks that the watcher correctly processes and
 // emits events.
-func (s *watcherrelationunitSuite) TestRelationUnitsWatcher(c *gc.C) {
+func (s *watcherrelationunitSuite) TestRelationUnitsWatcher(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	unitTag := names.NewUnitTag("app1/0")
@@ -340,7 +340,7 @@ func (s *watcherrelationunitSuite) TestRelationUnitsWatcher(c *gc.C) {
 		c.Logf("%+v", v)
 		watcherEvents = append(watcherEvents, v)
 	}
-	c.Check(watcherEvents, gc.DeepEquals, transform.Slice(expectedEvents, convertRelationUnitsChange))
+	c.Check(watcherEvents, tc.DeepEquals, transform.Slice(expectedEvents, convertRelationUnitsChange))
 	close(unexpectedFinishSafeGuard)
 	relUnitsWatcher.Kill()
 }

@@ -8,12 +8,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -26,9 +26,9 @@ type registrySuite struct {
 	clock *MockClock
 }
 
-var _ = gc.Suite(&registrySuite{})
+var _ = tc.Suite(&registrySuite{})
 
-func (s *registrySuite) TestRegisterCount(c *gc.C) {
+func (s *registrySuite) TestRegisterCount(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -37,12 +37,12 @@ func (s *registrySuite) TestRegisterCount(c *gc.C) {
 	reg := s.newRegistry(c)
 	defer workertest.DirtyKill(c, reg)
 
-	c.Check(reg.Count(), gc.Equals, 0)
+	c.Check(reg.Count(), tc.Equals, 0)
 
 	workertest.CheckKill(c, reg)
 }
 
-func (s *registrySuite) TestRegisterGetCount(c *gc.C) {
+func (s *registrySuite) TestRegisterGetCount(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -59,16 +59,16 @@ func (s *registrySuite) TestRegisterGetCount(c *gc.C) {
 
 		w1, err := reg.Get(id)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(w1, gc.Equals, w)
-		c.Check(reg.Count(), gc.Equals, i+1)
+		c.Check(w1, tc.Equals, w)
+		c.Check(reg.Count(), tc.Equals, i+1)
 	}
 
 	workertest.CheckKill(c, reg)
 
-	c.Check(reg.Count(), gc.Equals, 0)
+	c.Check(reg.Count(), tc.Equals, 0)
 }
 
-func (s *registrySuite) TestRegisterNamedGetCount(c *gc.C) {
+func (s *registrySuite) TestRegisterNamedGetCount(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -86,16 +86,16 @@ func (s *registrySuite) TestRegisterNamedGetCount(c *gc.C) {
 
 		w1, err := reg.Get(id)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(w1, gc.Equals, w)
-		c.Check(reg.Count(), gc.Equals, i+1)
+		c.Check(w1, tc.Equals, w)
+		c.Check(reg.Count(), tc.Equals, i+1)
 	}
 
 	workertest.CheckKill(c, reg)
 
-	c.Check(reg.Count(), gc.Equals, 0)
+	c.Check(reg.Count(), tc.Equals, 0)
 }
 
-func (s *registrySuite) TestRegisterNamedRepeatedError(c *gc.C) {
+func (s *registrySuite) TestRegisterNamedRepeatedError(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -110,13 +110,13 @@ func (s *registrySuite) TestRegisterNamedRepeatedError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = reg.RegisterNamed("foo", w)
-	c.Assert(err, gc.ErrorMatches, `worker "foo" already exists`)
+	c.Assert(err, tc.ErrorMatches, `worker "foo" already exists`)
 	c.Assert(err, jc.ErrorIs, coreerrors.AlreadyExists)
 
 	workertest.CheckKill(c, reg)
 }
 
-func (s *registrySuite) TestRegisterNamedIntegerName(c *gc.C) {
+func (s *registrySuite) TestRegisterNamedIntegerName(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -128,13 +128,13 @@ func (s *registrySuite) TestRegisterNamedIntegerName(c *gc.C) {
 	w := NewMockWorker(ctrl)
 
 	err := reg.RegisterNamed("0", w)
-	c.Assert(err, gc.ErrorMatches, `namespace "0" not valid`)
+	c.Assert(err, tc.ErrorMatches, `namespace "0" not valid`)
 	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 
 	workertest.CheckKill(c, reg)
 }
 
-func (s *registrySuite) TestRegisterStop(c *gc.C) {
+func (s *registrySuite) TestRegisterStop(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -164,12 +164,12 @@ func (s *registrySuite) TestRegisterStop(c *gc.C) {
 	err = reg.Stop("foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(reg.Count(), gc.Equals, 0)
+	c.Check(reg.Count(), tc.Equals, 0)
 
 	workertest.CheckKill(c, reg)
 }
 
-func (s *registrySuite) TestConcurrency(c *gc.C) {
+func (s *registrySuite) TestConcurrency(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -214,13 +214,13 @@ func (s *registrySuite) TestConcurrency(c *gc.C) {
 	workertest.CheckKill(c, reg)
 }
 
-func (s *registrySuite) newRegistry(c *gc.C) *Registry {
+func (s *registrySuite) newRegistry(c *tc.C) *Registry {
 	reg, err := NewRegistry(s.clock, WithLogger(loggertesting.WrapCheckLog(c)))
 	c.Assert(err, jc.ErrorIsNil)
 	return reg
 }
 
-func (s *registrySuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *registrySuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.clock = NewMockClock(ctrl)
@@ -232,7 +232,7 @@ func (s *registrySuite) expectClock() {
 	s.clock.EXPECT().Now().AnyTimes().Return(time.Now())
 }
 
-func (s *registrySuite) expectWatcher(c *gc.C, ctrl *gomock.Controller, done <-chan struct{}) worker.Worker {
+func (s *registrySuite) expectWatcher(c *tc.C, ctrl *gomock.Controller, done <-chan struct{}) worker.Worker {
 	w := NewMockWorker(ctrl)
 	w.EXPECT().Kill().AnyTimes()
 	w.EXPECT().Wait().DoAndReturn(func() error {

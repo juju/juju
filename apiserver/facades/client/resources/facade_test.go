@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apiresources "github.com/juju/juju/api/client/resources"
 	"github.com/juju/juju/apiserver/internal/charms"
@@ -27,13 +27,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&resourcesSuite{})
+var _ = tc.Suite(&resourcesSuite{})
 
 type resourcesSuite struct {
 	BaseSuite
 }
 
-func (s *resourcesSuite) TestListResourcesOkay(c *gc.C) {
+func (s *resourcesSuite) TestListResourcesOkay(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	res1, apiRes1 := newResource(c, "spam", "a-user", "spamspamspam")
 	res2, apiRes2 := newResource(c, "eggs", "a-user", "...")
@@ -117,7 +117,7 @@ func (s *resourcesSuite) TestListResourcesOkay(c *gc.C) {
 	})
 }
 
-func (s *resourcesSuite) TestListResourcesEmpty(c *gc.C) {
+func (s *resourcesSuite) TestListResourcesEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	tag := names.NewApplicationTag("a-application")
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "a-application").Return("a-application-id", nil)
@@ -135,7 +135,7 @@ func (s *resourcesSuite) TestListResourcesEmpty(c *gc.C) {
 	})
 }
 
-func (s *resourcesSuite) TestListResourcesErrorGetAppID(c *gc.C) {
+func (s *resourcesSuite) TestListResourcesErrorGetAppID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	failure := errors.New("<failure>")
 	tag := names.NewApplicationTag("a-application")
@@ -157,7 +157,7 @@ func (s *resourcesSuite) TestListResourcesErrorGetAppID(c *gc.C) {
 	})
 }
 
-func (s *resourcesSuite) TestListResourcesError(c *gc.C) {
+func (s *resourcesSuite) TestListResourcesError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	failure := errors.New("<failure>")
 	tag := names.NewApplicationTag("a-application")
@@ -180,7 +180,7 @@ func (s *resourcesSuite) TestListResourcesError(c *gc.C) {
 	})
 }
 
-func (s *resourcesSuite) TestServiceResources2API(c *gc.C) {
+func (s *resourcesSuite) TestServiceResources2API(c *tc.C) {
 	res1 := resourcetesting.NewResource(c, nil, "res1", "a-application", "data").Resource
 	res2 := resourcetesting.NewResource(c, nil, "res2", "a-application", "data2").Resource
 
@@ -253,7 +253,7 @@ func (s *resourcesSuite) TestServiceResources2API(c *gc.C) {
 	})
 }
 
-var _ = gc.Suite(&addPendingResourceSuite{})
+var _ = tc.Suite(&addPendingResourceSuite{})
 
 type addPendingResourceSuite struct {
 	BaseSuite
@@ -268,7 +268,7 @@ type addPendingResourceSuite struct {
 	resourceNameTwo      string
 }
 
-func (s *addPendingResourceSuite) SetUpTest(c *gc.C) {
+func (s *addPendingResourceSuite) SetUpTest(c *tc.C) {
 	s.appTag = names.NewApplicationTag("testapp")
 	s.appUUID = testing.GenApplicationUUID(c)
 	s.curl = charm.MustParseURL("testcharm")
@@ -284,7 +284,7 @@ func (s *addPendingResourceSuite) SetUpTest(c *gc.C) {
 // TestAddPendingResourcesBeforeApplication test the happy path of
 // AddPendingResources were the code leads to calling
 // AddResourcesBeforeApplication.
-func (s *addPendingResourceSuite) TestAddPendingResourcesBeforeApplication(c *gc.C) {
+func (s *addPendingResourceSuite) TestAddPendingResourcesBeforeApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	resourceRevision := 42
@@ -312,9 +312,9 @@ func (s *addPendingResourceSuite) TestAddPendingResourcesBeforeApplication(c *gc
 	}
 	results, err := s.newFacade(c).AddPendingResources(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Error, gc.IsNil)
-	c.Assert(results.ErrorResult.Error, gc.IsNil)
-	c.Assert(results.PendingIDs, gc.DeepEquals, []string{
+	c.Assert(results.Error, tc.IsNil)
+	c.Assert(results.ErrorResult.Error, tc.IsNil)
+	c.Assert(results.PendingIDs, tc.DeepEquals, []string{
 		s.pendingResourceIDOne.String(),
 		s.pendingResourceIDTwo.String(),
 	})
@@ -323,7 +323,7 @@ func (s *addPendingResourceSuite) TestAddPendingResourcesBeforeApplication(c *gc
 // TestAddPendingResourcesUpdateStoreResource test the happy path of
 // AddPendingResources for a store resource where the code leads to
 // calling UpdateResourceRevision.
-func (s *addPendingResourceSuite) TestAddPendingResourcesUpdateStoreResource(c *gc.C) {
+func (s *addPendingResourceSuite) TestAddPendingResourcesUpdateStoreResource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	resourceRevision := 42
@@ -351,13 +351,13 @@ func (s *addPendingResourceSuite) TestAddPendingResourcesUpdateStoreResource(c *
 	}
 	results, err := s.newFacade(c).AddPendingResources(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, expectedResults)
+	c.Assert(results, tc.DeepEquals, expectedResults)
 }
 
 // TestAddPendingResourcesUpdateUploadResource test the happy path of
 // AddPendingResources for an upload resource where the code leads to
 // calling UpdateUploadResource.
-func (s *addPendingResourceSuite) TestAddPendingResourcesUpdateUploadResource(c *gc.C) {
+func (s *addPendingResourceSuite) TestAddPendingResourcesUpdateUploadResource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectGetApplicationIDByName(nil)
@@ -383,10 +383,10 @@ func (s *addPendingResourceSuite) TestAddPendingResourcesUpdateUploadResource(c 
 	}
 	results, err := s.newFacade(c).AddPendingResources(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, expectedResults)
+	c.Assert(results, tc.DeepEquals, expectedResults)
 }
 
-func (s *addPendingResourceSuite) expectResolveResourcesUploadContainer(c *gc.C) {
+func (s *addPendingResourceSuite) expectResolveResourcesUploadContainer(c *tc.C) {
 	resolveArgs := []charmresource.Resource{
 		{
 			Meta:   charmresource.Meta{Name: s.resourceNameTwo, Type: charmresource.TypeContainerImage, Path: "test"},
@@ -423,7 +423,7 @@ func (s *addPendingResourceSuite) expectGetApplicationResourceIDTwo() {
 	s.resourceService.EXPECT().GetApplicationResourceID(gomock.Any(), getResIDArgs).Return(s.pendingResourceIDTwo, nil)
 }
 
-func (s *addPendingResourceSuite) expectUpdateResourceRevisionTwo(c *gc.C, resourceRevision int) resource.UUID {
+func (s *addPendingResourceSuite) expectUpdateResourceRevisionTwo(c *tc.C, resourceRevision int) resource.UUID {
 	updateResourceArgs := domainresource.UpdateResourceRevisionArgs{
 		ResourceUUID: s.pendingResourceIDTwo,
 		Revision:     resourceRevision,
@@ -433,7 +433,7 @@ func (s *addPendingResourceSuite) expectUpdateResourceRevisionTwo(c *gc.C, resou
 	return newUUID
 }
 
-func (s *addPendingResourceSuite) expectUpdateUploadResourceTwo(c *gc.C) resource.UUID {
+func (s *addPendingResourceSuite) expectUpdateUploadResourceTwo(c *tc.C) resource.UUID {
 	newUUID := resourcetesting.GenResourceUUID(c)
 	s.resourceService.EXPECT().UpdateUploadResource(gomock.Any(), s.pendingResourceIDTwo).Return(newUUID, nil)
 	return newUUID

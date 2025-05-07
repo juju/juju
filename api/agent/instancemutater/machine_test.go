@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/instancemutater"
 	"github.com/juju/juju/api/agent/instancemutater/mocks"
@@ -36,9 +36,9 @@ type instanceMutaterMachineSuite struct {
 	apiCaller *mocks.MockAPICaller
 }
 
-var _ = gc.Suite(&instanceMutaterMachineSuite{})
+var _ = tc.Suite(&instanceMutaterMachineSuite{})
 
-func (s *instanceMutaterMachineSuite) SetUpTest(c *gc.C) {
+func (s *instanceMutaterMachineSuite) SetUpTest(c *tc.C) {
 	s.tag = names.NewMachineTag("0")
 	s.args = params.Entities{Entities: []params.Entity{{Tag: s.tag.String()}}}
 	s.unitName = "lxd-profile/0"
@@ -47,7 +47,7 @@ func (s *instanceMutaterMachineSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 }
 
-func (s *instanceMutaterMachineSuite) TestSetCharmProfiles(c *gc.C) {
+func (s *instanceMutaterMachineSuite) TestSetCharmProfiles(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	m := s.machineForScenario(c,
@@ -58,7 +58,7 @@ func (s *instanceMutaterMachineSuite) TestSetCharmProfiles(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *instanceMutaterMachineSuite) TestSetCharmProfilesError(c *gc.C) {
+func (s *instanceMutaterMachineSuite) TestSetCharmProfilesError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	m := s.machineForScenario(c,
@@ -66,10 +66,10 @@ func (s *instanceMutaterMachineSuite) TestSetCharmProfilesError(c *gc.C) {
 	)
 
 	err := m.SetCharmProfiles(context.Background(), s.profiles)
-	c.Assert(err, gc.ErrorMatches, "failed")
+	c.Assert(err, tc.ErrorMatches, "failed")
 }
 
-func (s *instanceMutaterMachineSuite) TestWatchLXDProfileVerificationNeeded(c *gc.C) {
+func (s *instanceMutaterMachineSuite) TestWatchLXDProfileVerificationNeeded(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	api := s.machineForScenario(c,
@@ -89,17 +89,17 @@ func (s *instanceMutaterMachineSuite) TestWatchLXDProfileVerificationNeeded(c *g
 	}
 }
 
-func (s *instanceMutaterMachineSuite) TestWatchLXDProfileVerificationNeededServerError(c *gc.C) {
+func (s *instanceMutaterMachineSuite) TestWatchLXDProfileVerificationNeededServerError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	api := s.machineForScenario(c,
 		s.expectWatchLXDProfileVerificationNeededWithError("", "failed"),
 	)
 	_, err := api.WatchLXDProfileVerificationNeeded(context.Background())
-	c.Assert(err, gc.ErrorMatches, "failed")
+	c.Assert(err, tc.ErrorMatches, "failed")
 }
 
-func (s *instanceMutaterMachineSuite) TestWatchLXDProfileVerificationNeededNotSupported(c *gc.C) {
+func (s *instanceMutaterMachineSuite) TestWatchLXDProfileVerificationNeededNotSupported(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	api := s.machineForScenario(c,
@@ -109,7 +109,7 @@ func (s *instanceMutaterMachineSuite) TestWatchLXDProfileVerificationNeededNotSu
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
-func (s *instanceMutaterMachineSuite) TestWatchContainers(c *gc.C) {
+func (s *instanceMutaterMachineSuite) TestWatchContainers(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	api := s.machineForScenario(c,
@@ -129,17 +129,17 @@ func (s *instanceMutaterMachineSuite) TestWatchContainers(c *gc.C) {
 	}
 }
 
-func (s *instanceMutaterMachineSuite) TestWatchContainersServerError(c *gc.C) {
+func (s *instanceMutaterMachineSuite) TestWatchContainersServerError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	api := s.machineForScenario(c,
 		s.expectWatchContainersWithErrors(errors.New("failed")),
 	)
 	_, err := api.WatchContainers(context.Background())
-	c.Assert(err, gc.ErrorMatches, "failed")
+	c.Assert(err, tc.ErrorMatches, "failed")
 }
 
-func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessChanges(c *gc.C) {
+func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessChanges(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	args := params.Entity{Tag: s.tag.String()}
@@ -160,13 +160,13 @@ func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessChanges(c *gc
 
 	info, err := s.setupMachine().CharmProfilingInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.InstanceId, gc.Equals, results.InstanceId)
-	c.Assert(info.ModelName, gc.Equals, results.ModelName)
-	c.Assert(info.CurrentProfiles, gc.DeepEquals, results.CurrentProfiles)
-	c.Assert(info.ProfileChanges[0].Profile.Description, gc.Equals, "Test Profile")
+	c.Assert(info.InstanceId, tc.Equals, results.InstanceId)
+	c.Assert(info.ModelName, tc.Equals, results.ModelName)
+	c.Assert(info.CurrentProfiles, tc.DeepEquals, results.CurrentProfiles)
+	c.Assert(info.ProfileChanges[0].Profile.Description, tc.Equals, "Test Profile")
 }
 
-func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessChangesWithNoProfile(c *gc.C) {
+func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessChangesWithNoProfile(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	args := params.Entity{Tag: s.tag.String()}
@@ -185,13 +185,13 @@ func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessChangesWithNo
 
 	info, err := s.setupMachine().CharmProfilingInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.InstanceId, gc.Equals, results.InstanceId)
-	c.Assert(info.ModelName, gc.Equals, results.ModelName)
-	c.Assert(info.CurrentProfiles, gc.DeepEquals, results.CurrentProfiles)
-	c.Assert(info.ProfileChanges[0].Profile.Description, gc.Equals, "")
+	c.Assert(info.InstanceId, tc.Equals, results.InstanceId)
+	c.Assert(info.ModelName, tc.Equals, results.ModelName)
+	c.Assert(info.CurrentProfiles, tc.DeepEquals, results.CurrentProfiles)
+	c.Assert(info.ProfileChanges[0].Profile.Description, tc.Equals, "")
 }
 
-func (s *instanceMutaterMachineSuite) TestSetModificationStatus(c *gc.C) {
+func (s *instanceMutaterMachineSuite) TestSetModificationStatus(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	m := s.machineForScenario(c,
@@ -202,7 +202,7 @@ func (s *instanceMutaterMachineSuite) TestSetModificationStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *instanceMutaterMachineSuite) TestSetModificationStatusReturnsError(c *gc.C) {
+func (s *instanceMutaterMachineSuite) TestSetModificationStatusReturnsError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	m := s.machineForScenario(c,
@@ -210,10 +210,10 @@ func (s *instanceMutaterMachineSuite) TestSetModificationStatusReturnsError(c *g
 	)
 
 	err := m.SetModificationStatus(context.Background(), status.Applied, "applied", nil)
-	c.Assert(err, gc.ErrorMatches, "bad")
+	c.Assert(err, tc.ErrorMatches, "bad")
 }
 
-func (s *instanceMutaterMachineSuite) setup(c *gc.C) *gomock.Controller {
+func (s *instanceMutaterMachineSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.fCaller = mocks.NewMockFacadeCaller(ctrl)
@@ -237,7 +237,7 @@ func (s *instanceMutaterMachineSuite) setupMachine() *instancemutater.Machine {
 	return instancemutater.NewMachine(s.fCaller, s.tag, life.Alive)
 }
 
-func (s *instanceMutaterMachineSuite) machineForScenario(c *gc.C, behaviours ...func()) *instancemutater.Machine {
+func (s *instanceMutaterMachineSuite) machineForScenario(c *tc.C, behaviours ...func()) *instancemutater.Machine {
 	for _, b := range behaviours {
 		b()
 	}

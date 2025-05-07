@@ -7,13 +7,13 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/http"
@@ -52,9 +52,9 @@ type ManifoldSuite struct {
 	stub testing.Stub
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+var _ = tc.Suite(&ManifoldSuite{})
 
-func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 
 	var err error
 	s.authority, err = pkitest.NewTestAuthority()
@@ -133,32 +133,32 @@ func (s *ManifoldSuite) newModelWorker(config modelworkermanager.NewModelConfig)
 
 var expectedInputs = []string{"authority", "lease-manager", "log-sink", "domain-services", "provider-services", "http-client"}
 
-func (s *ManifoldSuite) TestInputs(c *gc.C) {
+func (s *ManifoldSuite) TestInputs(c *tc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
 }
 
-func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
+func (s *ManifoldSuite) TestMissingInputs(c *tc.C) {
 	for _, input := range expectedInputs {
 		getter := s.newGetter(map[string]any{
 			input: dependency.ErrMissing,
 		})
 		_, err := s.manifold.Start(context.Background(), getter)
-		c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing, gc.Commentf("failed for input: %v", input))
+		c.Assert(errors.Cause(err), tc.Equals, dependency.ErrMissing, tc.Commentf("failed for input: %v", input))
 	}
 }
 
-func (s *ManifoldSuite) TestStart(c *gc.C) {
+func (s *ManifoldSuite) TestStart(c *tc.C) {
 	w := s.startWorkerClean(c)
 	workertest.CleanKill(c, w)
 
 	s.stub.CheckCallNames(c, "NewWorker")
 	args := s.stub.Calls()[0].Args
-	c.Assert(args, gc.HasLen, 1)
-	c.Assert(args[0], gc.FitsTypeOf, modelworkermanager.Config{})
+	c.Assert(args, tc.HasLen, 1)
+	c.Assert(args[0], tc.FitsTypeOf, modelworkermanager.Config{})
 	config := args[0].(modelworkermanager.Config)
 	config.Authority = s.authority
 
-	c.Assert(config.NewModelWorker, gc.NotNil)
+	c.Assert(config.NewModelWorker, tc.NotNil)
 	modelConfig := modelworkermanager.NewModelConfig{
 		Authority:    s.authority,
 		ModelName:    "test",
@@ -190,14 +190,14 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	})
 }
 
-func (s *ManifoldSuite) TestStopWorkerClosesState(c *gc.C) {
+func (s *ManifoldSuite) TestStopWorkerClosesState(c *tc.C) {
 	w := s.startWorkerClean(c)
 	defer workertest.CleanKill(c, w)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
+func (s *ManifoldSuite) startWorkerClean(c *tc.C) worker.Worker {
 	w, err := s.manifold.Start(context.Background(), s.getter)
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, w)

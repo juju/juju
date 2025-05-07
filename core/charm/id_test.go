@@ -4,9 +4,9 @@
 package charm
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -16,9 +16,9 @@ type CharmSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&CharmSuite{})
+var _ = tc.Suite(&CharmSuite{})
 
-func (*CharmSuite) TestIDValidate(c *gc.C) {
+func (*CharmSuite) TestIDValidate(c *tc.C) {
 	tests := []struct {
 		uuid string
 		err  error
@@ -41,7 +41,7 @@ func (*CharmSuite) TestIDValidate(c *gc.C) {
 		err := ID(test.uuid).Validate()
 
 		if test.err == nil {
-			c.Check(err, gc.IsNil)
+			c.Check(err, tc.IsNil)
 			continue
 		}
 

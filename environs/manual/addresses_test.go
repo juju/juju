@@ -7,8 +7,8 @@ package manual_test
 import (
 	"errors"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/manual"
@@ -25,9 +25,9 @@ type addressesSuite struct {
 	netLookupHostCalled int
 }
 
-var _ = gc.Suite(&addressesSuite{})
+var _ = tc.Suite(&addressesSuite{})
 
-func (s *addressesSuite) SetUpTest(c *gc.C) {
+func (s *addressesSuite) SetUpTest(c *tc.C) {
 	s.netLookupHostCalled = 0
 	s.PatchValue(manual.NetLookupHost, func(host string) ([]string, error) {
 		s.netLookupHostCalled++
@@ -38,30 +38,30 @@ func (s *addressesSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *addressesSuite) TestHostAddress(c *gc.C) {
+func (s *addressesSuite) TestHostAddress(c *tc.C) {
 	addr, err := manual.HostAddress(validHost)
-	c.Assert(s.netLookupHostCalled, gc.Equals, 1)
+	c.Assert(s.netLookupHostCalled, tc.Equals, 1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr, gc.Equals, network.NewMachineAddress(validHost, network.WithScope(network.ScopePublic)).AsProviderAddress())
+	c.Assert(addr, tc.Equals, network.NewMachineAddress(validHost, network.WithScope(network.ScopePublic)).AsProviderAddress())
 }
 
-func (s *addressesSuite) TestHostAddressError(c *gc.C) {
+func (s *addressesSuite) TestHostAddressError(c *tc.C) {
 	addr, err := manual.HostAddress(invalidHost)
-	c.Assert(s.netLookupHostCalled, gc.Equals, 1)
-	c.Assert(err, gc.ErrorMatches, "invalid host: "+invalidHost)
-	c.Assert(addr, gc.Equals, network.ProviderAddress{})
+	c.Assert(s.netLookupHostCalled, tc.Equals, 1)
+	c.Assert(err, tc.ErrorMatches, "invalid host: "+invalidHost)
+	c.Assert(addr, tc.Equals, network.ProviderAddress{})
 }
 
-func (s *addressesSuite) TestHostAddressIPv4(c *gc.C) {
+func (s *addressesSuite) TestHostAddressIPv4(c *tc.C) {
 	addr, err := manual.HostAddress("127.0.0.1")
-	c.Assert(s.netLookupHostCalled, gc.Equals, 0)
+	c.Assert(s.netLookupHostCalled, tc.Equals, 0)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr, gc.Equals, network.NewMachineAddress("127.0.0.1", network.WithScope(network.ScopePublic)).AsProviderAddress())
+	c.Assert(addr, tc.Equals, network.NewMachineAddress("127.0.0.1", network.WithScope(network.ScopePublic)).AsProviderAddress())
 }
 
-func (s *addressesSuite) TestHostAddressIPv6(c *gc.C) {
+func (s *addressesSuite) TestHostAddressIPv6(c *tc.C) {
 	addr, err := manual.HostAddress("::1")
-	c.Assert(s.netLookupHostCalled, gc.Equals, 0)
+	c.Assert(s.netLookupHostCalled, tc.Equals, 0)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr, gc.Equals, network.NewMachineAddress("::1", network.WithScope(network.ScopePublic)).AsProviderAddress())
+	c.Assert(addr, tc.Equals, network.NewMachineAddress("::1", network.WithScope(network.ScopePublic)).AsProviderAddress())
 }

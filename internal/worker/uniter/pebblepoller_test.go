@@ -14,9 +14,9 @@ import (
 	pebbleclient "github.com/canonical/pebble/client"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
@@ -27,7 +27,7 @@ import (
 
 type pebblePollerSuite struct{}
 
-var _ = gc.Suite(&pebblePollerSuite{})
+var _ = tc.Suite(&pebblePollerSuite{})
 
 const (
 	pebbleSocketPathRegexpString = "/charm/containers/([^/]+)/pebble.socket"
@@ -37,7 +37,7 @@ var (
 	pebbleSocketPathRegexp = regexp.MustCompile(pebbleSocketPathRegexpString)
 )
 
-func (s *pebblePollerSuite) TestStart(c *gc.C) {
+func (s *pebblePollerSuite) TestStart(c *tc.C) {
 	clients := map[string]*fakePebbleClient{
 		"a": {
 			sysInfo: pebbleclient.SysInfo{
@@ -59,7 +59,7 @@ func (s *pebblePollerSuite) TestStart(c *gc.C) {
 		},
 	}
 	newClient := func(cfg *pebbleclient.Config) (uniter.PebbleClient, error) {
-		c.Assert(cfg.Socket, gc.Matches, pebbleSocketPathRegexpString)
+		c.Assert(cfg.Socket, tc.Matches, pebbleSocketPathRegexpString)
 		res := pebbleSocketPathRegexp.FindAllStringSubmatch(cfg.Socket, 1)
 		return clients[res[0][1]], nil
 	}
@@ -73,24 +73,24 @@ func (s *pebblePollerSuite) TestStart(c *gc.C) {
 
 	doRestart := func(containerName string) {
 		client := clients[containerName]
-		c.Assert(workloadEvents.Events(), gc.HasLen, 0)
+		c.Assert(workloadEvents.Events(), tc.HasLen, 0)
 		client.TriggerStart()
 		timeout := time.After(testing.LongWait)
 		for {
 			select {
 			case id := <-workloadEventChan:
 				c.Logf("got queued log id %s", id)
-				c.Assert(workloadEvents.Events(), gc.HasLen, 1)
+				c.Assert(workloadEvents.Events(), tc.HasLen, 1)
 				evt, cb, err := workloadEvents.GetWorkloadEvent(id)
 				c.Assert(err, jc.ErrorIsNil)
-				c.Assert(evt, gc.DeepEquals, container.WorkloadEvent{
+				c.Assert(evt, tc.DeepEquals, container.WorkloadEvent{
 					Type:         container.ReadyEvent,
 					WorkloadName: containerName,
 				})
-				c.Assert(cb, gc.NotNil)
+				c.Assert(cb, tc.NotNil)
 				workloadEvents.RemoveWorkloadEvent(id)
 				cb(nil)
-				c.Assert(workloadEvents.Events(), gc.HasLen, 0)
+				c.Assert(workloadEvents.Events(), tc.HasLen, 0)
 				return
 			case <-time.After(testing.ShortWait):
 				clock.Advance(5 * time.Second)
@@ -111,7 +111,7 @@ func (s *pebblePollerSuite) TestStart(c *gc.C) {
 	workertest.CleanKill(c, worker)
 
 	for k, v := range clients {
-		c.Assert(v.closed, jc.IsTrue, gc.Commentf("client %s not closed", k))
+		c.Assert(v.closed, jc.IsTrue, tc.Commentf("client %s not closed", k))
 	}
 }
 
@@ -151,7 +151,7 @@ func (c *fakePebbleClient) CloseIdleConnections() {
 
 // AddNotice adds a notice for WaitNotices to receive. To have WaitNotices
 // return an error, use notice.Type "error" with the message in notice.Key.
-func (c *fakePebbleClient) AddNotice(checkC *gc.C, notice *pebbleclient.Notice) {
+func (c *fakePebbleClient) AddNotice(checkC *tc.C, notice *pebbleclient.Notice) {
 	select {
 	case c.noticeAdded <- notice:
 	case <-time.After(testing.LongWait):
@@ -189,7 +189,7 @@ func noticeMatches(notice *pebbleclient.Notice, opts *pebbleclient.NoticesOption
 }
 
 // AddChange adds a change for Change to return.
-func (c *fakePebbleClient) AddChange(checkC *gc.C, change *pebbleclient.Change) {
+func (c *fakePebbleClient) AddChange(checkC *tc.C, change *pebbleclient.Change) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 	if c.changes == nil {

@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -130,7 +130,7 @@ type fixture struct {
 	advance time.Duration
 }
 
-func (fix *fixture) cleanup(c *gc.C, w worker.Worker) {
+func (fix *fixture) cleanup(c *tc.C, w worker.Worker) {
 	if fix.dirty {
 		workertest.DirtyKill(c, w)
 	} else {
@@ -138,7 +138,7 @@ func (fix *fixture) cleanup(c *gc.C, w worker.Worker) {
 	}
 }
 
-func (fix *fixture) run(c *gc.C, test func(worker.Worker)) *testing.Stub {
+func (fix *fixture) run(c *tc.C, test func(worker.Worker)) *testing.Stub {
 	stub := &testing.Stub{}
 	facade := &mockFacade{
 		stub:         stub,

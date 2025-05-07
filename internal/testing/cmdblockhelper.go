@@ -7,14 +7,14 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
-func AssertOperationWasBlocked(c *gc.C, err error, msg string) {
-	c.Assert(err.Error(), jc.Contains, "disabled", gc.Commentf("%s", errors.Details(err)))
+func AssertOperationWasBlocked(c *tc.C, err error, msg string) {
+	c.Assert(err.Error(), jc.Contains, "disabled", tc.Commentf("%s", errors.Details(err)))
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, msg)
+	c.Check(stripped, tc.Matches, msg)
 	c.Check(stripped, jc.Contains, "disabled")
 }

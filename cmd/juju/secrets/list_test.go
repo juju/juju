@@ -6,10 +6,10 @@ package secrets_test
 import (
 	"fmt"
 
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apisecrets "github.com/juju/juju/api/client/secrets"
 	"github.com/juju/juju/cmd/juju/secrets"
@@ -26,9 +26,9 @@ type ListSuite struct {
 	secretsAPI *mocks.MockListSecretsAPI
 }
 
-var _ = gc.Suite(&ListSuite{})
+var _ = tc.Suite(&ListSuite{})
 
-func (s *ListSuite) SetUpTest(c *gc.C) {
+func (s *ListSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	store := jujuclient.NewMemStore()
 	store.Controllers["mycontroller"] = jujuclient.ControllerDetails{}
@@ -36,7 +36,7 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 	s.store = store
 }
 
-func (s *ListSuite) setup(c *gc.C) *gomock.Controller {
+func (s *ListSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.secretsAPI = mocks.NewMockListSecretsAPI(ctrl)
@@ -44,7 +44,7 @@ func (s *ListSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *ListSuite) TestListTabular(c *gc.C) {
+func (s *ListSuite) TestListTabular(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -70,7 +70,7 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI))
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, fmt.Sprintf(`
+	c.Assert(out, tc.Equals, fmt.Sprintf(`
 ID                    Name       Owner    Rotation  Revision  Last updated
 %s  my-secret  <model>  never            1  0001-01-01  
 %s  -          mariadb  never            1  0001-01-01  
@@ -78,7 +78,7 @@ ID                    Name       Owner    Rotation  Revision  Last updated
 `[1:], uri3.ID, uri2.ID, uri.ID))
 }
 
-func (s *ListSuite) TestListYAML(c *gc.C) {
+func (s *ListSuite) TestListYAML(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -110,7 +110,7 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, fmt.Sprintf(`
+	c.Assert(out, tc.Equals, fmt.Sprintf(`
 %s:
   revision: 2
   rotation: hourly
@@ -134,7 +134,7 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 `[1:], uri.ID, uri2.ID, uri3.ID))
 }
 
-func (s *ListSuite) TestListJSON(c *gc.C) {
+func (s *ListSuite) TestListJSON(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -151,7 +151,7 @@ func (s *ListSuite) TestListJSON(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, fmt.Sprintf(`
+	c.Assert(out, tc.Equals, fmt.Sprintf(`
 {"%s":{"revision":2,"owner":"mariadb","created":"0001-01-01T00:00:00Z","updated":"0001-01-01T00:00:00Z"}}
 `[1:], uri.ID))
 }

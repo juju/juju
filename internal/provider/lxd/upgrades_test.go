@@ -7,9 +7,9 @@ import (
 	"os"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/internal/provider/lxd"
@@ -19,9 +19,9 @@ type upgradesSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&upgradesSuite{})
+var _ = tc.Suite(&upgradesSuite{})
 
-func (s *upgradesSuite) TestReadLegacyCloudCredentials(c *gc.C) {
+func (s *upgradesSuite) TestReadLegacyCloudCredentials(c *tc.C) {
 	var paths []string
 	readFile := func(path string) ([]byte, error) {
 		paths = append(paths, path)
@@ -41,7 +41,7 @@ func (s *upgradesSuite) TestReadLegacyCloudCredentials(c *gc.C) {
 	})
 }
 
-func (s *upgradesSuite) TestReadLegacyCloudCredentialsFileNotExist(c *gc.C) {
+func (s *upgradesSuite) TestReadLegacyCloudCredentialsFileNotExist(c *tc.C) {
 	readFile := func(path string) ([]byte, error) {
 		return nil, os.ErrNotExist
 	}

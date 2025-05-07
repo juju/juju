@@ -4,9 +4,9 @@
 package service
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/domain/application/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -16,7 +16,7 @@ type manifestSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&manifestSuite{})
+var _ = tc.Suite(&manifestSuite{})
 
 var manifestTestCases = [...]struct {
 	name   string
@@ -59,23 +59,23 @@ var manifestTestCases = [...]struct {
 	},
 }
 
-func (s *manifestSuite) TestConvertManifest(c *gc.C) {
+func (s *manifestSuite) TestConvertManifest(c *tc.C) {
 	for _, tc := range manifestTestCases {
 		c.Logf("Running test case %q", tc.name)
 
 		result, err := decodeManifest(tc.input)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result, gc.DeepEquals, tc.output)
+		c.Check(result, tc.DeepEquals, tc.output)
 
 		// Ensure that the conversion is idempotent.
 		converted, warnings, err := encodeManifest(&result)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(converted, jc.DeepEquals, tc.input)
-		c.Check(warnings, gc.HasLen, 0)
+		c.Check(warnings, tc.HasLen, 0)
 	}
 }
 
-func (s *manifestSuite) TestConvertManifestWarnings(c *gc.C) {
+func (s *manifestSuite) TestConvertManifestWarnings(c *tc.C) {
 	converted, warnings, err := encodeManifest(&internalcharm.Manifest{
 		Bases: []internalcharm.Base{
 			{
@@ -103,5 +103,5 @@ func (s *manifestSuite) TestConvertManifestWarnings(c *gc.C) {
 			},
 		},
 	})
-	c.Check(warnings, gc.DeepEquals, []string{`unsupported architectures: i386 for "ubuntu" with channel: "latest/stable/foo"`})
+	c.Check(warnings, tc.DeepEquals, []string{`unsupported architectures: i386 for "ubuntu" with channel: "latest/stable/foo"`})
 }

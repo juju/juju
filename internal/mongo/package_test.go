@@ -6,11 +6,11 @@ package mongo_test
 import (
 	stdtesting "testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mongotest -destination mongotest/mongoservice_mock.go github.com/juju/juju/internal/mongo MongoSnapService
 
 func Test(t *stdtesting.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }

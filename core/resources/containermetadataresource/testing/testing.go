@@ -4,8 +4,8 @@
 package testing
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/resources/containermetadataresource"
 )
@@ -13,7 +13,7 @@ import (
 // GenContainerMetadataResourceUUID can be used in testing for generating a objectstore UUID
 // that is checked for subsequent errors using the test suit's go check
 // instance.
-func GenContainerMetadataResourceUUID(c *gc.C) containermetadataresource.UUID {
+func GenContainerMetadataResourceUUID(c *tc.C) containermetadataresource.UUID {
 	id, err := containermetadataresource.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	return id

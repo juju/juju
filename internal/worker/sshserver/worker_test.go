@@ -6,12 +6,12 @@ package sshserver
 import (
 	"sync/atomic"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -22,10 +22,10 @@ type workerSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
 func newServerWrapperWorkerConfig(
-	c *gc.C, ctrl *gomock.Controller, modifier func(*ServerWrapperWorkerConfig),
+	c *tc.C, ctrl *gomock.Controller, modifier func(*ServerWrapperWorkerConfig),
 ) *ServerWrapperWorkerConfig {
 	cfg := &ServerWrapperWorkerConfig{
 		NewServerWorker:         func(ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
@@ -40,12 +40,12 @@ func newServerWrapperWorkerConfig(
 	return cfg
 }
 
-func (s *workerSuite) TestValidate(c *gc.C) {
+func (s *workerSuite) TestValidate(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	cfg := newServerWrapperWorkerConfig(c, ctrl, func(cfg *ServerWrapperWorkerConfig) {})
-	c.Assert(cfg.Validate(), gc.IsNil)
+	c.Assert(cfg.Validate(), tc.IsNil)
 
 	// Test no Logger.
 	cfg = newServerWrapperWorkerConfig(
@@ -55,7 +55,7 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 			cfg.Logger = nil
 		},
 	)
-	c.Assert(cfg.Validate(), gc.ErrorMatches, ".*is required.*")
+	c.Assert(cfg.Validate(), tc.ErrorMatches, ".*is required.*")
 
 	// Test no NewServerWorker.
 	cfg = newServerWrapperWorkerConfig(
@@ -65,7 +65,7 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 			cfg.NewServerWorker = nil
 		},
 	)
-	c.Assert(cfg.Validate(), gc.ErrorMatches, ".*is required.*")
+	c.Assert(cfg.Validate(), tc.ErrorMatches, ".*is required.*")
 
 	// Test no NewSSHServerListener.
 	cfg = newServerWrapperWorkerConfig(
@@ -75,7 +75,7 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 			cfg.NewSSHServerListener = nil
 		},
 	)
-	c.Assert(cfg.Validate(), gc.ErrorMatches, ".*is required.*")
+	c.Assert(cfg.Validate(), tc.ErrorMatches, ".*is required.*")
 
 	// Test no SessionHandler.
 	cfg = newServerWrapperWorkerConfig(
@@ -85,10 +85,10 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 			cfg.SessionHandler = nil
 		},
 	)
-	c.Assert(cfg.Validate(), gc.ErrorMatches, ".*is required.*")
+	c.Assert(cfg.Validate(), tc.ErrorMatches, ".*is required.*")
 }
 
-func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *gc.C) {
+func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -135,7 +135,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *gc.C) {
 	c.Check(workertest.CheckKilled(c, controllerConfigWatcher), jc.ErrorIsNil)
 }
 
-func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
+func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -191,7 +191,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 		Logger:                  loggertesting.WrapCheckLog(c),
 		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			atomic.StoreInt32(&serverStarted, 1)
-			c.Check(swc.Port, gc.Equals, 22)
+			c.Check(swc.Port, tc.Equals, 22)
 			return serverWorker, nil
 		},
 		NewSSHServerListener: newTestingSSHServerListener,
@@ -206,7 +206,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 	workertest.CheckAlive(c, serverWorker)
 	workertest.CheckAlive(c, controllerConfigWatcher)
 
-	c.Check(atomic.LoadInt32(&serverStarted), gc.Equals, int32(1))
+	c.Check(atomic.LoadInt32(&serverStarted), tc.Equals, int32(1))
 
 	// Send some changes to restart the server (expect no changes).
 	ch <- nil
@@ -217,15 +217,15 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 	ch <- nil
 
 	err = workertest.CheckKilled(c, w)
-	c.Check(err, gc.ErrorMatches, "changes detected, stopping SSH server worker")
+	c.Check(err, tc.ErrorMatches, "changes detected, stopping SSH server worker")
 
 	// Check all workers killed.
-	c.Check(workertest.CheckKilled(c, w), gc.ErrorMatches, "changes detected, stopping SSH server worker")
+	c.Check(workertest.CheckKilled(c, w), tc.ErrorMatches, "changes detected, stopping SSH server worker")
 	c.Check(workertest.CheckKilled(c, serverWorker), jc.ErrorIsNil)
 	c.Check(workertest.CheckKilled(c, controllerConfigWatcher), jc.ErrorIsNil)
 }
 
-func (s *workerSuite) TestWrapperWorkerReport(c *gc.C) {
+func (s *workerSuite) TestWrapperWorkerReport(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 

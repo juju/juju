@@ -11,11 +11,11 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
@@ -28,7 +28,7 @@ type RefreshSuite struct {
 }
 
 var (
-	_ = gc.Suite(&RefreshSuite{})
+	_ = tc.Suite(&RefreshSuite{})
 
 	expRefreshFields = set.NewStrings(
 		"download", "id", "license", "name", "publisher", "resources",
@@ -37,7 +37,7 @@ var (
 	).SortedValues()
 )
 
-func (s *RefreshSuite) TestRefresh(c *gc.C) {
+func (s *RefreshSuite) TestRefresh(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -78,48 +78,48 @@ func (s *RefreshSuite) TestRefresh(c *gc.C) {
 	client := newRefreshClient(baseURLPath, restClient, s.logger)
 	responses, err := client.Refresh(context.Background(), config)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(responses), gc.Equals, 1)
-	c.Assert(responses[0].Name, gc.Equals, id)
+	c.Assert(len(responses), tc.Equals, 1)
+	c.Assert(responses[0].Name, tc.Equals, id)
 }
 
 // c.Assert(results.Results[0].Error, gc.ErrorMatches, `.* pool "foo" not found`)
-func (s *RefreshSuite) TestRefeshConfigValidateArch(c *gc.C) {
+func (s *RefreshSuite) TestRefeshConfigValidateArch(c *tc.C) {
 	err := s.testRefeshConfigValidate(c, RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "20.04",
 		Architecture: "all",
 	})
-	c.Assert(err, gc.ErrorMatches, "Architecture.*")
+	c.Assert(err, tc.ErrorMatches, "Architecture.*")
 }
 
-func (s *RefreshSuite) TestRefeshConfigValidateSeries(c *gc.C) {
+func (s *RefreshSuite) TestRefeshConfigValidateSeries(c *tc.C) {
 	err := s.testRefeshConfigValidate(c, RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "all",
 		Architecture: arch.DefaultArchitecture,
 	})
-	c.Assert(err, gc.ErrorMatches, "Channel.*")
+	c.Assert(err, tc.ErrorMatches, "Channel.*")
 }
 
-func (s *RefreshSuite) TestRefeshConfigVali914dateName(c *gc.C) {
+func (s *RefreshSuite) TestRefeshConfigVali914dateName(c *tc.C) {
 	err := s.testRefeshConfigValidate(c, RefreshBase{
 		Name:         "all",
 		Channel:      "20.04",
 		Architecture: arch.DefaultArchitecture,
 	})
-	c.Assert(err, gc.ErrorMatches, "Name.*")
+	c.Assert(err, tc.ErrorMatches, "Name.*")
 }
 
-func (s *RefreshSuite) TestRefeshConfigValidate(c *gc.C) {
+func (s *RefreshSuite) TestRefeshConfigValidate(c *tc.C) {
 	err := s.testRefeshConfigValidate(c, RefreshBase{
 		Name:         "all",
 		Channel:      "all",
 		Architecture: "all",
 	})
-	c.Assert(err, gc.ErrorMatches, "Architecture.*, Name.*, Channel.*")
+	c.Assert(err, tc.ErrorMatches, "Architecture.*, Name.*, Channel.*")
 }
 
-func (s *RefreshSuite) testRefeshConfigValidate(c *gc.C, rp RefreshBase) error {
+func (s *RefreshSuite) testRefeshConfigValidate(c *tc.C, rp RefreshBase) error {
 	_, err := DownloadOneFromChannel("meshuggah", "latest/stable", rp)
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	return err
@@ -146,7 +146,7 @@ func (t *metadataHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	return resp, nil
 }
 
-func (s *RefreshSuite) TestRefreshMetadata(c *gc.C) {
+func (s *RefreshSuite) TestRefreshMetadata(c *tc.C) {
 	baseURL := MustParseURL(c, "http://api.foo.bar")
 	baseURLPath := path.MakePath(baseURL)
 
@@ -190,13 +190,13 @@ func (s *RefreshSuite) TestRefreshMetadata(c *gc.C) {
 	response, err := client.Refresh(context.Background(), config)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(response, gc.DeepEquals, []transport.RefreshResponse{
+	c.Assert(response, tc.DeepEquals, []transport.RefreshResponse{
 		{ID: "foo", InstanceKey: "instance-key-foo"},
 		{ID: "bar", InstanceKey: "instance-key-bar"},
 	})
 }
 
-func (s *RefreshSuite) TestRefreshMetadataRandomOrder(c *gc.C) {
+func (s *RefreshSuite) TestRefreshMetadataRandomOrder(c *tc.C) {
 	baseURL := MustParseURL(c, "http://api.foo.bar")
 	baseURLPath := path.MakePath(baseURL)
 
@@ -240,13 +240,13 @@ func (s *RefreshSuite) TestRefreshMetadataRandomOrder(c *gc.C) {
 	response, err := client.Refresh(context.Background(), config)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(response, gc.DeepEquals, []transport.RefreshResponse{
+	c.Assert(response, tc.DeepEquals, []transport.RefreshResponse{
 		{ID: "foo", InstanceKey: "instance-key-foo"},
 		{ID: "bar", InstanceKey: "instance-key-bar"},
 	})
 }
 
-func (s *RefreshSuite) TestRefreshWithMetricsOnly(c *gc.C) {
+func (s *RefreshSuite) TestRefreshWithMetricsOnly(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -281,7 +281,7 @@ func (s *RefreshSuite) TestRefreshWithMetricsOnly(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *RefreshSuite) TestRefreshWithRequestMetrics(c *gc.C) {
+func (s *RefreshSuite) TestRefreshWithRequestMetrics(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -369,11 +369,11 @@ func (s *RefreshSuite) TestRefreshWithRequestMetrics(c *gc.C) {
 	client := newRefreshClient(baseURLPath, restClient, s.logger)
 	responses, err := client.RefreshWithRequestMetrics(context.Background(), config, metrics)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(responses), gc.Equals, 2)
-	c.Assert(responses[0].Name, gc.Equals, id)
+	c.Assert(len(responses), tc.Equals, 2)
+	c.Assert(responses[0].Name, tc.Equals, id)
 }
 
-func (s *RefreshSuite) TestRefreshFailure(c *gc.C) {
+func (s *RefreshSuite) TestRefreshFailure(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -394,7 +394,7 @@ func (s *RefreshSuite) TestRefreshFailure(c *gc.C) {
 
 	client := newRefreshClient(baseURLPath, restClient, s.logger)
 	_, err = client.Refresh(context.Background(), config)
-	c.Assert(err, gc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(jc.ErrorIsNil))
 }
 
 func (s *RefreshSuite) expectPost(client *MockRESTClient, p path.Path, name string, body interface{}) {
@@ -412,7 +412,7 @@ func (s *RefreshSuite) expectPostFailure(client *MockRESTClient) {
 	client.EXPECT().Post(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(restResponse{StatusCode: http.StatusInternalServerError}, errors.Errorf("boom"))
 }
 
-func DefineInstanceKey(c *gc.C, config RefreshConfig, key string) RefreshConfig {
+func DefineInstanceKey(c *tc.C, config RefreshConfig, key string) RefreshConfig {
 	switch t := config.(type) {
 	case refreshOne:
 		t.instanceKey = key
@@ -433,9 +433,9 @@ type RefreshConfigSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&RefreshConfigSuite{})
+var _ = tc.Suite(&RefreshConfigSuite{})
 
-func (s *RefreshConfigSuite) TestRefreshOneBuild(c *gc.C) {
+func (s *RefreshConfigSuite) TestRefreshOneBuild(c *tc.C) {
 	id := "foo"
 	config, err := RefreshOne("instance-key", id, 1, "latest/stable", RefreshBase{
 		Name:         "ubuntu",
@@ -446,7 +446,7 @@ func (s *RefreshConfigSuite) TestRefreshOneBuild(c *gc.C) {
 
 	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
+	c.Assert(req, tc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{{
 			InstanceKey: "instance-key",
 			ID:          "foo",
@@ -467,7 +467,7 @@ func (s *RefreshConfigSuite) TestRefreshOneBuild(c *gc.C) {
 	})
 }
 
-func (s *RefreshConfigSuite) TestRefreshOneWithBaseChannelRiskBuild(c *gc.C) {
+func (s *RefreshConfigSuite) TestRefreshOneWithBaseChannelRiskBuild(c *tc.C) {
 	id := "foo"
 	config, err := RefreshOne("instance-key", id, 1, "latest/stable", RefreshBase{
 		Name:         "ubuntu",
@@ -478,7 +478,7 @@ func (s *RefreshConfigSuite) TestRefreshOneWithBaseChannelRiskBuild(c *gc.C) {
 
 	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
+	c.Assert(req, tc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{{
 			InstanceKey: "instance-key",
 			ID:          "foo",
@@ -500,7 +500,7 @@ func (s *RefreshConfigSuite) TestRefreshOneWithBaseChannelRiskBuild(c *gc.C) {
 
 }
 
-func (s *RefreshConfigSuite) TestRefreshOneBuildInstanceKeyCompatibility(c *gc.C) {
+func (s *RefreshConfigSuite) TestRefreshOneBuildInstanceKeyCompatibility(c *tc.C) {
 	id := "foo"
 	config, err := RefreshOne("", id, 1, "latest/stable", RefreshBase{
 		Name:         "ubuntu",
@@ -513,7 +513,7 @@ func (s *RefreshConfigSuite) TestRefreshOneBuildInstanceKeyCompatibility(c *gc.C
 	c.Assert(utils.IsValidUUIDString(key), jc.IsTrue)
 }
 
-func (s *RefreshConfigSuite) TestRefreshOneWithMetricsBuild(c *gc.C) {
+func (s *RefreshConfigSuite) TestRefreshOneWithMetricsBuild(c *tc.C) {
 	id := "foo"
 	config, err := RefreshOne("instance-key", id, 1, "latest/stable", RefreshBase{
 		Name:         "ubuntu",
@@ -530,7 +530,7 @@ func (s *RefreshConfigSuite) TestRefreshOneWithMetricsBuild(c *gc.C) {
 
 	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
+	c.Assert(req, tc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{{
 			InstanceKey: "instance-key",
 			ID:          "foo",
@@ -555,7 +555,7 @@ func (s *RefreshConfigSuite) TestRefreshOneWithMetricsBuild(c *gc.C) {
 	})
 }
 
-func (s *RefreshConfigSuite) TestRefreshOneFail(c *gc.C) {
+func (s *RefreshConfigSuite) TestRefreshOneFail(c *tc.C) {
 	_, err := RefreshOne("instance-key", "", 1, "latest/stable", RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "20.04",
@@ -564,7 +564,7 @@ func (s *RefreshConfigSuite) TestRefreshOneFail(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *RefreshConfigSuite) TestRefreshOneEnsure(c *gc.C) {
+func (s *RefreshConfigSuite) TestRefreshOneEnsure(c *tc.C) {
 	config, err := RefreshOne("instance-key", "foo", 1, "latest/stable", RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "20.04",
@@ -578,7 +578,7 @@ func (s *RefreshConfigSuite) TestRefreshOneEnsure(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *RefreshConfigSuite) TestInstallOneFromRevisionBuild(c *gc.C) {
+func (s *RefreshConfigSuite) TestInstallOneFromRevisionBuild(c *tc.C) {
 	revision := 1
 
 	name := "foo"
@@ -589,7 +589,7 @@ func (s *RefreshConfigSuite) TestInstallOneFromRevisionBuild(c *gc.C) {
 
 	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
+	c.Assert(req, tc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{},
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "install",
@@ -601,12 +601,12 @@ func (s *RefreshConfigSuite) TestInstallOneFromRevisionBuild(c *gc.C) {
 	})
 }
 
-func (s *RefreshConfigSuite) TestInstallOneFromRevisionFail(c *gc.C) {
+func (s *RefreshConfigSuite) TestInstallOneFromRevisionFail(c *tc.C) {
 	_, err := InstallOneFromRevision("", 1)
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *RefreshConfigSuite) TestInstallOneBuildRevisionResources(c *gc.C) {
+func (s *RefreshConfigSuite) TestInstallOneBuildRevisionResources(c *tc.C) {
 	// Tests InstallOne by revision with specific resources.
 	revision := 1
 
@@ -620,7 +620,7 @@ func (s *RefreshConfigSuite) TestInstallOneBuildRevisionResources(c *gc.C) {
 
 	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
+	c.Assert(req, tc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{},
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "install",
@@ -635,7 +635,7 @@ func (s *RefreshConfigSuite) TestInstallOneBuildRevisionResources(c *gc.C) {
 	})
 }
 
-func (s *RefreshConfigSuite) TestAddResourceFail(c *gc.C) {
+func (s *RefreshConfigSuite) TestAddResourceFail(c *tc.C) {
 	config, err := RefreshOne("instance-key", "testingID", 7, "latest/edge", RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "20.04",
@@ -646,7 +646,7 @@ func (s *RefreshConfigSuite) TestAddResourceFail(c *gc.C) {
 	c.Assert(ok, jc.IsFalse)
 }
 
-func (s *RefreshConfigSuite) TestInstallOneBuildChannel(c *gc.C) {
+func (s *RefreshConfigSuite) TestInstallOneBuildChannel(c *tc.C) {
 	channel := "latest/stable"
 
 	name := "foo"
@@ -661,7 +661,7 @@ func (s *RefreshConfigSuite) TestInstallOneBuildChannel(c *gc.C) {
 
 	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
+	c.Assert(req, tc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{},
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "install",
@@ -678,7 +678,7 @@ func (s *RefreshConfigSuite) TestInstallOneBuildChannel(c *gc.C) {
 	})
 }
 
-func (s *RefreshConfigSuite) TestInstallOneChannelFail(c *gc.C) {
+func (s *RefreshConfigSuite) TestInstallOneChannelFail(c *tc.C) {
 	_, err := InstallOneFromChannel("", "stable", RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "20.04",
@@ -687,7 +687,7 @@ func (s *RefreshConfigSuite) TestInstallOneChannelFail(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *RefreshConfigSuite) TestInstallOneWithPartialPlatform(c *gc.C) {
+func (s *RefreshConfigSuite) TestInstallOneWithPartialPlatform(c *tc.C) {
 	channel := "latest/stable"
 
 	name := "foo"
@@ -700,7 +700,7 @@ func (s *RefreshConfigSuite) TestInstallOneWithPartialPlatform(c *gc.C) {
 
 	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
+	c.Assert(req, tc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{},
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "install",
@@ -717,7 +717,7 @@ func (s *RefreshConfigSuite) TestInstallOneWithPartialPlatform(c *gc.C) {
 	})
 }
 
-func (s *RefreshConfigSuite) TestInstallOneWithMissingArch(c *gc.C) {
+func (s *RefreshConfigSuite) TestInstallOneWithMissingArch(c *tc.C) {
 	channel := "latest/stable"
 
 	name := "foo"
@@ -730,7 +730,7 @@ func (s *RefreshConfigSuite) TestInstallOneWithMissingArch(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *RefreshConfigSuite) TestInstallOneFromChannelEnsure(c *gc.C) {
+func (s *RefreshConfigSuite) TestInstallOneFromChannelEnsure(c *tc.C) {
 	config, err := InstallOneFromChannel("foo", "latest/stable", RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "20.04",
@@ -746,7 +746,7 @@ func (s *RefreshConfigSuite) TestInstallOneFromChannelEnsure(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *RefreshConfigSuite) TestInstallOneFromChannelFail(c *gc.C) {
+func (s *RefreshConfigSuite) TestInstallOneFromChannelFail(c *tc.C) {
 	_, err := InstallOneFromChannel("foo", "latest/stable", RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "20.04",
@@ -755,7 +755,7 @@ func (s *RefreshConfigSuite) TestInstallOneFromChannelFail(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *RefreshConfigSuite) TestDownloadOneFromRevisionBuild(c *gc.C) {
+func (s *RefreshConfigSuite) TestDownloadOneFromRevisionBuild(c *tc.C) {
 	rev := 4
 	id := "foo"
 	config, err := DownloadOneFromRevision(id, rev)
@@ -765,7 +765,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromRevisionBuild(c *gc.C) {
 
 	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
+	c.Assert(req, tc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{},
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "download",
@@ -777,12 +777,12 @@ func (s *RefreshConfigSuite) TestDownloadOneFromRevisionBuild(c *gc.C) {
 	})
 }
 
-func (s *RefreshConfigSuite) TestDownloadOneFromRevisionFail(c *gc.C) {
+func (s *RefreshConfigSuite) TestDownloadOneFromRevisionFail(c *tc.C) {
 	_, err := DownloadOneFromRevision("", 7)
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *RefreshConfigSuite) TestDownloadOneFromRevisionByNameBuild(c *gc.C) {
+func (s *RefreshConfigSuite) TestDownloadOneFromRevisionByNameBuild(c *tc.C) {
 	rev := 4
 	name := "foo"
 	config, err := DownloadOneFromRevisionByName(name, rev)
@@ -792,7 +792,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromRevisionByNameBuild(c *gc.C) {
 
 	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
+	c.Assert(req, tc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{},
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "download",
@@ -804,12 +804,12 @@ func (s *RefreshConfigSuite) TestDownloadOneFromRevisionByNameBuild(c *gc.C) {
 	})
 }
 
-func (s *RefreshConfigSuite) TestDownloadOneFromRevisionByNameFail(c *gc.C) {
+func (s *RefreshConfigSuite) TestDownloadOneFromRevisionByNameFail(c *tc.C) {
 	_, err := DownloadOneFromRevisionByName("", 7)
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuild(c *gc.C) {
+func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuild(c *tc.C) {
 	channel := "latest/stable"
 	id := "foo"
 	config, err := DownloadOneFromChannel(id, channel, RefreshBase{
@@ -823,7 +823,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuild(c *gc.C) {
 
 	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
+	c.Assert(req, tc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{},
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "download",
@@ -840,7 +840,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuild(c *gc.C) {
 	})
 }
 
-func (s *RefreshConfigSuite) TestDownloadOneFromChannelFail(c *gc.C) {
+func (s *RefreshConfigSuite) TestDownloadOneFromChannelFail(c *tc.C) {
 	_, err := DownloadOneFromChannel("", "latest/stable", RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "20.04",
@@ -849,7 +849,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelFail(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *RefreshConfigSuite) TestDownloadOneFromChannelByNameBuild(c *gc.C) {
+func (s *RefreshConfigSuite) TestDownloadOneFromChannelByNameBuild(c *tc.C) {
 	channel := "latest/stable"
 	name := "foo"
 	config, err := DownloadOneFromChannelByName(name, channel, RefreshBase{
@@ -863,7 +863,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelByNameBuild(c *gc.C) {
 
 	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
+	c.Assert(req, tc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{},
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "download",
@@ -880,7 +880,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelByNameBuild(c *gc.C) {
 	})
 }
 
-func (s *RefreshConfigSuite) TestDownloadOneFromChannelByNameFail(c *gc.C) {
+func (s *RefreshConfigSuite) TestDownloadOneFromChannelByNameFail(c *tc.C) {
 	_, err := DownloadOneFromChannel("", "latest/stable", RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "20.04",
@@ -889,7 +889,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelByNameFail(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuildK8s(c *gc.C) {
+func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuildK8s(c *tc.C) {
 	channel := "latest/stable"
 	id := "foo"
 	config, err := DownloadOneFromChannel(id, channel, RefreshBase{
@@ -903,7 +903,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuildK8s(c *gc.C) {
 
 	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
+	c.Assert(req, tc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{},
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "download",
@@ -920,7 +920,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuildK8s(c *gc.C) {
 	})
 }
 
-func (s *RefreshConfigSuite) TestDownloadOneFromChannelEnsure(c *gc.C) {
+func (s *RefreshConfigSuite) TestDownloadOneFromChannelEnsure(c *tc.C) {
 	config, err := DownloadOneFromChannel("foo", "latest/stable", RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "20.04",
@@ -936,7 +936,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelEnsure(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *RefreshConfigSuite) TestRefreshManyBuildContextNotNil(c *gc.C) {
+func (s *RefreshConfigSuite) TestRefreshManyBuildContextNotNil(c *tc.C) {
 	id1 := "foo"
 	config1, err := DownloadOneFromRevision(id1, 1)
 	c.Assert(err, jc.ErrorIsNil)
@@ -954,10 +954,10 @@ func (s *RefreshConfigSuite) TestRefreshManyBuildContextNotNil(c *gc.C) {
 
 	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(req.Context, gc.NotNil)
+	c.Assert(req.Context, tc.NotNil)
 }
 
-func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
+func (s *RefreshConfigSuite) TestRefreshManyBuild(c *tc.C) {
 	id1 := "foo"
 	config1, err := RefreshOne("instance-key", id1, 1, "latest/stable", RefreshBase{
 		Name:         "ubuntu",
@@ -997,7 +997,7 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 
 	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
+	c.Assert(req, tc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{{
 			InstanceKey: "instance-key",
 			ID:          "foo",
@@ -1047,7 +1047,7 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 	})
 }
 
-func (s *RefreshConfigSuite) TestRefreshManyEnsure(c *gc.C) {
+func (s *RefreshConfigSuite) TestRefreshManyEnsure(c *tc.C) {
 	config1, err := RefreshOne("instance-key", "foo", 1, "latest/stable", RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "20.04",

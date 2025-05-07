@@ -9,9 +9,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
-	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/internal/testing"
 )
@@ -19,25 +19,25 @@ import (
 type LimiterSuite struct {
 }
 
-var _ = gc.Suite(&LimiterSuite{})
+var _ = tc.Suite(&LimiterSuite{})
 
 var shortAttempt = &utils.AttemptStrategy{
 	Total: coretesting.ShortWait,
 	Delay: 10 * time.Millisecond,
 }
 
-func (s *LimiterSuite) TestNoLimitsInvalidLimits(c *gc.C) {
+func (s *LimiterSuite) TestNoLimitsInvalidLimits(c *tc.C) {
 	_, err := NewResourceDownloadLimiter(-1, 0)
-	c.Assert(err, gc.ErrorMatches, "resource download limits must be non-negative")
+	c.Assert(err, tc.ErrorMatches, "resource download limits must be non-negative")
 
 	_, err = NewResourceDownloadLimiter(0, -1)
-	c.Assert(err, gc.ErrorMatches, "resource download limits must be non-negative")
+	c.Assert(err, tc.ErrorMatches, "resource download limits must be non-negative")
 
 	_, err = NewResourceDownloadLimiter(-1, -1)
-	c.Assert(err, gc.ErrorMatches, "resource download limits must be non-negative")
+	c.Assert(err, tc.ErrorMatches, "resource download limits must be non-negative")
 }
 
-func (s *LimiterSuite) TestNoLimits(c *gc.C) {
+func (s *LimiterSuite) TestNoLimits(c *tc.C) {
 	const totalToAcquire = 10
 	limiter, err := NewResourceDownloadLimiter(0, 0)
 	c.Assert(err, jc.ErrorIsNil)
@@ -84,7 +84,7 @@ func (s *LimiterSuite) TestNoLimits(c *gc.C) {
 	for i := 0; i < totalToAcquire; i++ {
 		trigger <- struct{}{}
 	}
-	c.Assert(atomic.LoadInt32(&totalAcquiredCount), gc.Equals, int32(totalToAcquire))
+	c.Assert(atomic.LoadInt32(&totalAcquiredCount), tc.Equals, int32(totalToAcquire))
 
 	select {
 	case <-done:
@@ -93,7 +93,7 @@ func (s *LimiterSuite) TestNoLimits(c *gc.C) {
 	}
 }
 
-func (s *LimiterSuite) TestGlobalLimit(c *gc.C) {
+func (s *LimiterSuite) TestGlobalLimit(c *tc.C) {
 	const (
 		globalLimit    = 5
 		totalToAcquire = 10
@@ -151,7 +151,7 @@ func (s *LimiterSuite) TestGlobalLimit(c *gc.C) {
 	for i := 0; i < totalToAcquire; i++ {
 		trigger <- struct{}{}
 	}
-	c.Assert(atomic.LoadInt32(&totalAcquiredCount), gc.Equals, int32(totalToAcquire))
+	c.Assert(atomic.LoadInt32(&totalAcquiredCount), tc.Equals, int32(totalToAcquire))
 
 	select {
 	case <-done:
@@ -160,7 +160,7 @@ func (s *LimiterSuite) TestGlobalLimit(c *gc.C) {
 	}
 }
 
-func (s *LimiterSuite) TestApplicationLimit(c *gc.C) {
+func (s *LimiterSuite) TestApplicationLimit(c *tc.C) {
 	const (
 		applicationLimit             = 5
 		numApplications              = 2
@@ -224,7 +224,7 @@ func (s *LimiterSuite) TestApplicationLimit(c *gc.C) {
 	for i := 0; i < numApplications*totalToAcquirePerApplication; i++ {
 		trigger <- struct{}{}
 	}
-	c.Assert(atomic.LoadInt32(&totalAcquiredCount), gc.Equals, int32(numApplications*totalToAcquirePerApplication))
+	c.Assert(atomic.LoadInt32(&totalAcquiredCount), tc.Equals, int32(numApplications*totalToAcquirePerApplication))
 
 	select {
 	case <-done:
@@ -233,7 +233,7 @@ func (s *LimiterSuite) TestApplicationLimit(c *gc.C) {
 	}
 }
 
-func (s *LimiterSuite) TestGlobalAndApplicationLimit(c *gc.C) {
+func (s *LimiterSuite) TestGlobalAndApplicationLimit(c *tc.C) {
 	const (
 		globalLimit                  = 5
 		applicationLimit             = 3
@@ -300,7 +300,7 @@ func (s *LimiterSuite) TestGlobalAndApplicationLimit(c *gc.C) {
 	for i := 0; i < numApplications*totalToAcquirePerApplication; i++ {
 		trigger <- struct{}{}
 	}
-	c.Assert(atomic.LoadInt32(&totalAcquiredCount), gc.Equals, int32(numApplications*totalToAcquirePerApplication))
+	c.Assert(atomic.LoadInt32(&totalAcquiredCount), tc.Equals, int32(numApplications*totalToAcquirePerApplication))
 
 	select {
 	case <-done:

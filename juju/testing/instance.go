@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/arch"
@@ -71,7 +71,7 @@ func WaitInstanceAddresses(
 // controller instance with a plausible but invalid configuration, and
 // checks that it succeeds.
 func AssertStartControllerInstance(
-	c *gc.C, env environs.Environ, controllerUUID, machineId string,
+	c *tc.C, env environs.Environ, controllerUUID, machineId string,
 ) (
 	instances.Instance, *instance.HardwareCharacteristics,
 ) {
@@ -86,7 +86,7 @@ func AssertStartControllerInstance(
 // AssertStartInstance is a test helper function that starts an instance with a
 // plausible but invalid configuration, and checks that it succeeds.
 func AssertStartInstance(
-	c *gc.C, env environs.Environ, controllerUUID, machineId string,
+	c *tc.C, env environs.Environ, controllerUUID, machineId string,
 ) (
 	instances.Instance, *instance.HardwareCharacteristics,
 ) {
@@ -109,7 +109,7 @@ func StartInstance(
 // with the given constraints, and a plausible but invalid configuration, and returns
 // the result of Environ.StartInstance.
 func AssertStartInstanceWithConstraints(
-	c *gc.C, env environs.Environ,
+	c *tc.C, env environs.Environ,
 	controllerUUID, machineId string, cons constraints.Value,
 ) (
 	instances.Instance, *instance.HardwareCharacteristics,

@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/machineactions"
 	apitesting "github.com/juju/juju/api/base/testing"
@@ -23,9 +23,9 @@ type ClientSuite struct {
 	jujutesting.IsolationSuite
 }
 
-var _ = gc.Suite(&ClientSuite{})
+var _ = tc.Suite(&ClientSuite{})
 
-func (s *ClientSuite) TestWatchFails(c *gc.C) {
+func (s *ClientSuite) TestWatchFails(c *tc.C) {
 	tag := names.NewMachineTag("2")
 	expectErr := errors.Errorf("kuso")
 	expectedCalls := []jujutesting.StubCall{{
@@ -38,7 +38,7 @@ func (s *ClientSuite) TestWatchFails(c *gc.C) {
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
-		c.Check(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		c.Check(result, tc.FitsTypeOf, &params.StringsWatchResults{})
 		res := result.(*params.StringsWatchResults)
 		res.Results = make([]params.StringsWatchResult, 1)
 		return expectErr
@@ -46,12 +46,12 @@ func (s *ClientSuite) TestWatchFails(c *gc.C) {
 
 	client := machineactions.NewClient(apiCaller)
 	w, err := client.WatchActionNotifications(context.Background(), tag)
-	c.Assert(errors.Cause(err), gc.Equals, expectErr)
-	c.Assert(w, gc.IsNil)
+	c.Assert(errors.Cause(err), tc.Equals, expectErr)
+	c.Assert(w, tc.IsNil)
 	stub.CheckCalls(c, expectedCalls)
 }
 
-func (s *ClientSuite) TestWatchResultError(c *gc.C) {
+func (s *ClientSuite) TestWatchResultError(c *tc.C) {
 	tag := names.NewMachineTag("2")
 	expectErr := &params.Error{
 		Message: "rigged",
@@ -67,7 +67,7 @@ func (s *ClientSuite) TestWatchResultError(c *gc.C) {
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
-		c.Check(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		c.Check(result, tc.FitsTypeOf, &params.StringsWatchResults{})
 		res := result.(*params.StringsWatchResults)
 		res.Results = make([]params.StringsWatchResult, 1)
 		res.Results[0].Error = expectErr
@@ -76,12 +76,12 @@ func (s *ClientSuite) TestWatchResultError(c *gc.C) {
 
 	client := machineactions.NewClient(apiCaller)
 	w, err := client.WatchActionNotifications(context.Background(), tag)
-	c.Assert(errors.Cause(err), gc.Equals, expectErr)
-	c.Assert(w, gc.IsNil)
+	c.Assert(errors.Cause(err), tc.Equals, expectErr)
+	c.Assert(w, tc.IsNil)
 	stub.CheckCalls(c, expectedCalls)
 }
 
-func (s *ClientSuite) TestWatchResultTooMany(c *gc.C) {
+func (s *ClientSuite) TestWatchResultTooMany(c *tc.C) {
 	tag := names.NewMachineTag("2")
 	expectedCalls := []jujutesting.StubCall{{
 		FuncName: "MachineActions.WatchActionNotifications",
@@ -93,7 +93,7 @@ func (s *ClientSuite) TestWatchResultTooMany(c *gc.C) {
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
-		c.Check(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		c.Check(result, tc.FitsTypeOf, &params.StringsWatchResults{})
 		res := result.(*params.StringsWatchResults)
 		res.Results = make([]params.StringsWatchResult, 2)
 		return nil
@@ -101,12 +101,12 @@ func (s *ClientSuite) TestWatchResultTooMany(c *gc.C) {
 
 	client := machineactions.NewClient(apiCaller)
 	w, err := client.WatchActionNotifications(context.Background(), tag)
-	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
-	c.Assert(w, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 2")
+	c.Assert(w, tc.IsNil)
 	stub.CheckCalls(c, expectedCalls)
 }
 
-func (s *ClientSuite) TestActionBeginSuccess(c *gc.C) {
+func (s *ClientSuite) TestActionBeginSuccess(c *tc.C) {
 	tag := names.NewActionTag(uuid.MustNewUUID().String())
 	expectedCalls := []jujutesting.StubCall{{
 		FuncName: "MachineActions.BeginActions",
@@ -118,7 +118,7 @@ func (s *ClientSuite) TestActionBeginSuccess(c *gc.C) {
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
-		c.Check(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Check(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{}},
 		}
@@ -132,7 +132,7 @@ func (s *ClientSuite) TestActionBeginSuccess(c *gc.C) {
 	stub.CheckCalls(c, expectedCalls)
 }
 
-func (s *ClientSuite) TestActionBeginError(c *gc.C) {
+func (s *ClientSuite) TestActionBeginError(c *tc.C) {
 	tag := names.NewActionTag(uuid.MustNewUUID().String())
 	expectedCalls := []jujutesting.StubCall{{
 		FuncName: "MachineActions.BeginActions",
@@ -145,17 +145,17 @@ func (s *ClientSuite) TestActionBeginError(c *gc.C) {
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
-		c.Check(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Check(result, tc.FitsTypeOf, &params.ErrorResults{})
 		return expectedErr
 	})
 
 	client := machineactions.NewClient(apiCaller)
 	err := client.ActionBegin(context.Background(), tag)
-	c.Assert(errors.Cause(err), gc.Equals, expectedErr)
+	c.Assert(errors.Cause(err), tc.Equals, expectedErr)
 	stub.CheckCalls(c, expectedCalls)
 }
 
-func (s *ClientSuite) TestActionBeginResultError(c *gc.C) {
+func (s *ClientSuite) TestActionBeginResultError(c *tc.C) {
 	tag := names.NewActionTag(uuid.MustNewUUID().String())
 	expectedCalls := []jujutesting.StubCall{{
 		FuncName: "MachineActions.BeginActions",
@@ -171,7 +171,7 @@ func (s *ClientSuite) TestActionBeginResultError(c *gc.C) {
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
-		c.Check(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Check(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{expectedErr}},
 		}
@@ -181,11 +181,11 @@ func (s *ClientSuite) TestActionBeginResultError(c *gc.C) {
 
 	client := machineactions.NewClient(apiCaller)
 	err := client.ActionBegin(context.Background(), tag)
-	c.Assert(errors.Cause(err), gc.Equals, expectedErr)
+	c.Assert(errors.Cause(err), tc.Equals, expectedErr)
 	stub.CheckCalls(c, expectedCalls)
 }
 
-func (s *ClientSuite) TestActionBeginTooManyResults(c *gc.C) {
+func (s *ClientSuite) TestActionBeginTooManyResults(c *tc.C) {
 	tag := names.NewActionTag(uuid.MustNewUUID().String())
 	expectedCalls := []jujutesting.StubCall{{
 		FuncName: "MachineActions.BeginActions",
@@ -197,7 +197,7 @@ func (s *ClientSuite) TestActionBeginTooManyResults(c *gc.C) {
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
-		c.Check(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Check(result, tc.FitsTypeOf, &params.ErrorResults{})
 		res := result.(*params.ErrorResults)
 		res.Results = make([]params.ErrorResult, 2)
 		return nil
@@ -205,11 +205,11 @@ func (s *ClientSuite) TestActionBeginTooManyResults(c *gc.C) {
 
 	client := machineactions.NewClient(apiCaller)
 	err := client.ActionBegin(context.Background(), tag)
-	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 2")
 	stub.CheckCalls(c, expectedCalls)
 }
 
-func (s *ClientSuite) TestActionFinishSuccess(c *gc.C) {
+func (s *ClientSuite) TestActionFinishSuccess(c *tc.C) {
 	tag := names.NewActionTag(uuid.MustNewUUID().String())
 	status := "stubstatus"
 	actionResults := map[string]interface{}{"stub": "stub"}
@@ -229,7 +229,7 @@ func (s *ClientSuite) TestActionFinishSuccess(c *gc.C) {
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
-		c.Check(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Check(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{}},
 		}
@@ -242,7 +242,7 @@ func (s *ClientSuite) TestActionFinishSuccess(c *gc.C) {
 	stub.CheckCalls(c, expectedCalls)
 }
 
-func (s *ClientSuite) TestActionFinishError(c *gc.C) {
+func (s *ClientSuite) TestActionFinishError(c *tc.C) {
 	tag := names.NewActionTag(uuid.MustNewUUID().String())
 	expectedCalls := []jujutesting.StubCall{{
 		FuncName: "MachineActions.FinishActions",
@@ -260,17 +260,17 @@ func (s *ClientSuite) TestActionFinishError(c *gc.C) {
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
-		c.Check(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Check(result, tc.FitsTypeOf, &params.ErrorResults{})
 		return expectedErr
 	})
 
 	client := machineactions.NewClient(apiCaller)
 	err := client.ActionFinish(context.Background(), tag, "", nil, "")
-	c.Assert(errors.Cause(err), gc.Equals, expectedErr)
+	c.Assert(errors.Cause(err), tc.Equals, expectedErr)
 	stub.CheckCalls(c, expectedCalls)
 }
 
-func (s *ClientSuite) TestActionFinishResultError(c *gc.C) {
+func (s *ClientSuite) TestActionFinishResultError(c *tc.C) {
 	tag := names.NewActionTag(uuid.MustNewUUID().String())
 	expectedCalls := []jujutesting.StubCall{{
 		FuncName: "MachineActions.FinishActions",
@@ -291,7 +291,7 @@ func (s *ClientSuite) TestActionFinishResultError(c *gc.C) {
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
-		c.Check(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Check(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{Error: expectedErr}},
 		}
@@ -301,11 +301,11 @@ func (s *ClientSuite) TestActionFinishResultError(c *gc.C) {
 
 	client := machineactions.NewClient(apiCaller)
 	err := client.ActionFinish(context.Background(), tag, "", nil, "")
-	c.Assert(errors.Cause(err), gc.Equals, expectedErr)
+	c.Assert(errors.Cause(err), tc.Equals, expectedErr)
 	stub.CheckCalls(c, expectedCalls)
 }
 
-func (s *ClientSuite) TestActionFinishTooManyResults(c *gc.C) {
+func (s *ClientSuite) TestActionFinishTooManyResults(c *tc.C) {
 	tag := names.NewActionTag(uuid.MustNewUUID().String())
 	expectedCalls := []jujutesting.StubCall{{
 		FuncName: "MachineActions.FinishActions",
@@ -322,7 +322,7 @@ func (s *ClientSuite) TestActionFinishTooManyResults(c *gc.C) {
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
-		c.Check(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Check(result, tc.FitsTypeOf, &params.ErrorResults{})
 		res := result.(*params.ErrorResults)
 		res.Results = make([]params.ErrorResult, 2)
 		return nil
@@ -330,11 +330,11 @@ func (s *ClientSuite) TestActionFinishTooManyResults(c *gc.C) {
 
 	client := machineactions.NewClient(apiCaller)
 	err := client.ActionFinish(context.Background(), tag, "", nil, "")
-	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 2")
 	stub.CheckCalls(c, expectedCalls)
 }
 
-func (s *ClientSuite) TestGetActionSuccess(c *gc.C) {
+func (s *ClientSuite) TestGetActionSuccess(c *tc.C) {
 	tag := names.NewActionTag(uuid.MustNewUUID().String())
 	expectedCalls := []jujutesting.StubCall{{
 		FuncName: "MachineActions.Actions",
@@ -350,7 +350,7 @@ func (s *ClientSuite) TestGetActionSuccess(c *gc.C) {
 	group := "group"
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
-		c.Check(result, gc.FitsTypeOf, &params.ActionResults{})
+		c.Check(result, tc.FitsTypeOf, &params.ActionResults{})
 		*(result.(*params.ActionResults)) = params.ActionResults{
 			Results: []params.ActionResult{{
 				Action: &params.Action{
@@ -367,14 +367,14 @@ func (s *ClientSuite) TestGetActionSuccess(c *gc.C) {
 	client := machineactions.NewClient(apiCaller)
 	action, err := client.Action(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(action.Name(), gc.Equals, expectedName)
-	c.Assert(action.Params(), gc.DeepEquals, expectedParams)
+	c.Assert(action.Name(), tc.Equals, expectedName)
+	c.Assert(action.Params(), tc.DeepEquals, expectedParams)
 	c.Assert(action.Parallel(), jc.IsTrue)
-	c.Assert(action.ExecutionGroup(), gc.Equals, "group")
+	c.Assert(action.ExecutionGroup(), tc.Equals, "group")
 	stub.CheckCalls(c, expectedCalls)
 }
 
-func (s *ClientSuite) TestGetActionError(c *gc.C) {
+func (s *ClientSuite) TestGetActionError(c *tc.C) {
 	tag := names.NewActionTag(uuid.MustNewUUID().String())
 	expectedCalls := []jujutesting.StubCall{{
 		FuncName: "MachineActions.Actions",
@@ -387,18 +387,18 @@ func (s *ClientSuite) TestGetActionError(c *gc.C) {
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
-		c.Check(result, gc.FitsTypeOf, &params.ActionResults{})
+		c.Check(result, tc.FitsTypeOf, &params.ActionResults{})
 		return expectedErr
 	})
 
 	client := machineactions.NewClient(apiCaller)
 	action, err := client.Action(context.Background(), tag)
-	c.Assert(errors.Cause(err), gc.Equals, expectedErr)
-	c.Assert(action, gc.IsNil)
+	c.Assert(errors.Cause(err), tc.Equals, expectedErr)
+	c.Assert(action, tc.IsNil)
 	stub.CheckCalls(c, expectedCalls)
 }
 
-func (s *ClientSuite) TestGetActionResultError(c *gc.C) {
+func (s *ClientSuite) TestGetActionResultError(c *tc.C) {
 	tag := names.NewActionTag(uuid.MustNewUUID().String())
 	expectedCalls := []jujutesting.StubCall{{
 		FuncName: "MachineActions.Actions",
@@ -414,7 +414,7 @@ func (s *ClientSuite) TestGetActionResultError(c *gc.C) {
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
-		c.Check(result, gc.FitsTypeOf, &params.ActionResults{})
+		c.Check(result, tc.FitsTypeOf, &params.ActionResults{})
 		*(result.(*params.ActionResults)) = params.ActionResults{
 			Results: []params.ActionResult{{
 				Error: expectedErr,
@@ -425,12 +425,12 @@ func (s *ClientSuite) TestGetActionResultError(c *gc.C) {
 
 	client := machineactions.NewClient(apiCaller)
 	action, err := client.Action(context.Background(), tag)
-	c.Assert(errors.Cause(err), gc.Equals, expectedErr)
-	c.Assert(action, gc.IsNil)
+	c.Assert(errors.Cause(err), tc.Equals, expectedErr)
+	c.Assert(action, tc.IsNil)
 	stub.CheckCalls(c, expectedCalls)
 }
 
-func (s *ClientSuite) TestGetActionTooManyResults(c *gc.C) {
+func (s *ClientSuite) TestGetActionTooManyResults(c *tc.C) {
 	tag := names.NewActionTag(uuid.MustNewUUID().String())
 	expectedCalls := []jujutesting.StubCall{{
 		FuncName: "MachineActions.Actions",
@@ -442,7 +442,7 @@ func (s *ClientSuite) TestGetActionTooManyResults(c *gc.C) {
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
-		c.Check(result, gc.FitsTypeOf, &params.ActionResults{})
+		c.Check(result, tc.FitsTypeOf, &params.ActionResults{})
 		res := result.(*params.ActionResults)
 		res.Results = make([]params.ActionResult, 2)
 		return nil
@@ -450,12 +450,12 @@ func (s *ClientSuite) TestGetActionTooManyResults(c *gc.C) {
 
 	client := machineactions.NewClient(apiCaller)
 	action, err := client.Action(context.Background(), tag)
-	c.Assert(err, gc.ErrorMatches, "expected only 1 action query result, got 2")
-	c.Assert(action, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "expected only 1 action query result, got 2")
+	c.Assert(action, tc.IsNil)
 	stub.CheckCalls(c, expectedCalls)
 }
 
-func (s *ClientSuite) TestRunningActionSuccess(c *gc.C) {
+func (s *ClientSuite) TestRunningActionSuccess(c *tc.C) {
 	tag := names.NewMachineTag(uuid.MustNewUUID().String())
 	expectedCalls := []jujutesting.StubCall{{
 		FuncName: "MachineActions.RunningActions",
@@ -471,7 +471,7 @@ func (s *ClientSuite) TestRunningActionSuccess(c *gc.C) {
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
-		c.Check(result, gc.FitsTypeOf, &params.ActionsByReceivers{})
+		c.Check(result, tc.FitsTypeOf, &params.ActionsByReceivers{})
 		*(result.(*params.ActionsByReceivers)) = params.ActionsByReceivers{
 			Actions: []params.ActionsByReceiver{{
 				Actions: actionsList,
@@ -487,7 +487,7 @@ func (s *ClientSuite) TestRunningActionSuccess(c *gc.C) {
 	stub.CheckCalls(c, expectedCalls)
 }
 
-func (s *ClientSuite) TestRunningActionsError(c *gc.C) {
+func (s *ClientSuite) TestRunningActionsError(c *tc.C) {
 	tag := names.NewMachineTag(uuid.MustNewUUID().String())
 	expectedCalls := []jujutesting.StubCall{{
 		FuncName: "MachineActions.RunningActions",
@@ -500,18 +500,18 @@ func (s *ClientSuite) TestRunningActionsError(c *gc.C) {
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
-		c.Check(result, gc.FitsTypeOf, &params.ActionsByReceivers{})
+		c.Check(result, tc.FitsTypeOf, &params.ActionsByReceivers{})
 		return expectedErr
 	})
 
 	client := machineactions.NewClient(apiCaller)
 	actions, err := client.RunningActions(context.Background(), tag)
-	c.Assert(errors.Cause(err), gc.Equals, expectedErr)
-	c.Assert(actions, gc.IsNil)
+	c.Assert(errors.Cause(err), tc.Equals, expectedErr)
+	c.Assert(actions, tc.IsNil)
 	stub.CheckCalls(c, expectedCalls)
 }
 
-func (s *ClientSuite) TestRunningActionsResultError(c *gc.C) {
+func (s *ClientSuite) TestRunningActionsResultError(c *tc.C) {
 	tag := names.NewMachineTag(uuid.MustNewUUID().String())
 	expectedCalls := []jujutesting.StubCall{{
 		FuncName: "MachineActions.RunningActions",
@@ -527,7 +527,7 @@ func (s *ClientSuite) TestRunningActionsResultError(c *gc.C) {
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
-		c.Check(result, gc.FitsTypeOf, &params.ActionsByReceivers{})
+		c.Check(result, tc.FitsTypeOf, &params.ActionsByReceivers{})
 		*(result.(*params.ActionsByReceivers)) = params.ActionsByReceivers{
 			Actions: []params.ActionsByReceiver{{
 				Error: expectedErr,
@@ -538,12 +538,12 @@ func (s *ClientSuite) TestRunningActionsResultError(c *gc.C) {
 
 	client := machineactions.NewClient(apiCaller)
 	action, err := client.RunningActions(context.Background(), tag)
-	c.Assert(errors.Cause(err), gc.Equals, expectedErr)
-	c.Assert(action, gc.IsNil)
+	c.Assert(errors.Cause(err), tc.Equals, expectedErr)
+	c.Assert(action, tc.IsNil)
 	stub.CheckCalls(c, expectedCalls)
 }
 
-func (s *ClientSuite) TestRunningActionsTooManyResults(c *gc.C) {
+func (s *ClientSuite) TestRunningActionsTooManyResults(c *tc.C) {
 	tag := names.NewMachineTag(uuid.MustNewUUID().String())
 	expectedCalls := []jujutesting.StubCall{{
 		FuncName: "MachineActions.RunningActions",
@@ -555,7 +555,7 @@ func (s *ClientSuite) TestRunningActionsTooManyResults(c *gc.C) {
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
-		c.Check(result, gc.FitsTypeOf, &params.ActionsByReceivers{})
+		c.Check(result, tc.FitsTypeOf, &params.ActionsByReceivers{})
 		res := result.(*params.ActionsByReceivers)
 		res.Actions = make([]params.ActionsByReceiver, 2)
 		return nil
@@ -563,7 +563,7 @@ func (s *ClientSuite) TestRunningActionsTooManyResults(c *gc.C) {
 
 	client := machineactions.NewClient(apiCaller)
 	actions, err := client.RunningActions(context.Background(), tag)
-	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
-	c.Assert(actions, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 2")
+	c.Assert(actions, tc.IsNil)
 	stub.CheckCalls(c, expectedCalls)
 }

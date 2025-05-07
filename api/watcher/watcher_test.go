@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/agent/deployer"
@@ -39,9 +39,9 @@ type watcherSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&watcherSuite{})
+var _ = tc.Suite(&watcherSuite{})
 
-func (s *watcherSuite) TestWatcherStopsOnBlockedNext(c *gc.C) {
+func (s *watcherSuite) TestWatcherStopsOnBlockedNext(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -94,7 +94,7 @@ func (s *watcherSuite) TestWatcherStopsOnBlockedNext(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func setupWatcher[T any](c *gc.C, caller *apimocks.MockAPICaller, facadeName string) (string, chan T) {
+func setupWatcher[T any](c *tc.C, caller *apimocks.MockAPICaller, facadeName string) (string, chan T) {
 	caller.EXPECT().BestFacadeVersion(facadeName).Return(666).AnyTimes()
 	// Initial event.
 	eventCh := make(chan T)
@@ -128,7 +128,7 @@ func setupWatcher[T any](c *gc.C, caller *apimocks.MockAPICaller, facadeName str
 	return "id-666", eventCh
 }
 
-func (s *watcherSuite) TestWatchMachine(c *gc.C) {
+func (s *watcherSuite) TestWatchMachine(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -163,7 +163,7 @@ func (s *watcherSuite) TestWatchMachine(c *gc.C) {
 	wc.AssertOneChange()
 }
 
-func (s *watcherSuite) TestNotifyWatcherStopsWithPendingSend(c *gc.C) {
+func (s *watcherSuite) TestNotifyWatcherStopsWithPendingSend(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -196,7 +196,7 @@ func (s *watcherSuite) TestNotifyWatcherStopsWithPendingSend(c *gc.C) {
 	defer wc.AssertStops()
 }
 
-func (s *watcherSuite) TestWatchUnits(c *gc.C) {
+func (s *watcherSuite) TestWatchUnits(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -237,7 +237,7 @@ func (s *watcherSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertChange("unit-1", "unit-2")
 }
 
-func (s *watcherSuite) TestStringsWatcherStopsWithPendingSend(c *gc.C) {
+func (s *watcherSuite) TestStringsWatcherStopsWithPendingSend(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -267,7 +267,7 @@ func (s *watcherSuite) TestStringsWatcherStopsWithPendingSend(c *gc.C) {
 	defer wc.AssertStops()
 }
 
-func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
+func (s *watcherSuite) TestWatchMachineStorage(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -341,7 +341,7 @@ func (*apicloser) Close() error {
 	return nil
 }
 
-func (s *watcherSuite) TestRelationStatusWatcher(c *gc.C) {
+func (s *watcherSuite) TestRelationStatusWatcher(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -387,11 +387,11 @@ func (s *watcherSuite) TestRelationStatusWatcher(c *gc.C) {
 		select {
 		case changes, ok := <-w.Changes():
 			c.Check(ok, jc.IsTrue)
-			c.Check(changes, gc.HasLen, 1)
-			c.Check(changes[0].Key, gc.Equals, "relation-wordpress:database mysql:server")
-			c.Check(changes[0].Life, gc.Equals, life)
-			c.Check(changes[0].Suspended, gc.Equals, suspended)
-			c.Check(changes[0].SuspendedReason, gc.Equals, reason)
+			c.Check(changes, tc.HasLen, 1)
+			c.Check(changes[0].Key, tc.Equals, "relation-wordpress:database mysql:server")
+			c.Check(changes[0].Life, tc.Equals, life)
+			c.Check(changes[0].Suspended, tc.Equals, suspended)
+			c.Check(changes[0].SuspendedReason, tc.Equals, reason)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("watcher didn't emit an event")
 		}
@@ -415,7 +415,7 @@ func (s *watcherSuite) TestRelationStatusWatcher(c *gc.C) {
 	assertChange(life.Dying, true, "suspended")
 }
 
-func (s *watcherSuite) TestOfferStatusWatcher(c *gc.C) {
+func (s *watcherSuite) TestOfferStatusWatcher(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -468,8 +468,8 @@ func (s *watcherSuite) TestOfferStatusWatcher(c *gc.C) {
 		select {
 		case changes, ok := <-w.Changes():
 			c.Check(ok, jc.IsTrue)
-			c.Check(changes, gc.HasLen, 1)
-			c.Check(changes[0].Name, gc.Equals, "my offer")
+			c.Check(changes, tc.HasLen, 1)
+			c.Check(changes[0].Name, tc.Equals, "my offer")
 			c.Check(changes[0].Status, jc.DeepEquals, status.StatusInfo{
 				Status:  s,
 				Message: info,
@@ -502,7 +502,7 @@ func (s *watcherSuite) TestOfferStatusWatcher(c *gc.C) {
 	assertChange(status.Active, "finished")
 }
 
-func (s *watcherSuite) assertSecretsTriggerWatcher(c *gc.C, caller *apimocks.MockAPICaller, apiName string, watchFunc func(ctx context.Context, ownerTags ...names.Tag) (corewatcher.SecretTriggerWatcher, error)) {
+func (s *watcherSuite) assertSecretsTriggerWatcher(c *tc.C, caller *apimocks.MockAPICaller, apiName string, watchFunc func(ctx context.Context, ownerTags ...names.Tag) (corewatcher.SecretTriggerWatcher, error)) {
 	watcherID, eventCh := setupWatcher[*params.SecretTriggerWatchResult](c, caller, "SecretsTriggerWatcher")
 
 	args := params.Entities{
@@ -536,9 +536,9 @@ func (s *watcherSuite) assertSecretsTriggerWatcher(c *gc.C, caller *apimocks.Moc
 		select {
 		case changes, ok := <-w.Changes():
 			c.Check(ok, jc.IsTrue)
-			c.Check(changes, gc.HasLen, 1)
+			c.Check(changes, tc.HasLen, 1)
 			c.Check(changes[0].URI, jc.DeepEquals, &secrets.URI{ID: "9m4e2mr0ui3e8a215n4g"})
-			c.Check(changes[0].Revision, gc.Equals, 666)
+			c.Check(changes[0].Revision, tc.Equals, 666)
 			c.Check(changes[0].NextTriggerTime, jc.DeepEquals, when)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("watcher didn't emit an event")
@@ -562,7 +562,7 @@ func (s *watcherSuite) assertSecretsTriggerWatcher(c *gc.C, caller *apimocks.Moc
 	assertChange(later)
 }
 
-func (s *watcherSuite) TestSecretsRotationWatcher(c *gc.C) {
+func (s *watcherSuite) TestSecretsRotationWatcher(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -573,7 +573,7 @@ func (s *watcherSuite) TestSecretsRotationWatcher(c *gc.C) {
 	s.assertSecretsTriggerWatcher(c, caller, "WatchSecretsRotationChanges", client.WatchSecretsRotationChanges)
 }
 
-func (s *watcherSuite) TestSecretsRevisionsExpiryWatcher(c *gc.C) {
+func (s *watcherSuite) TestSecretsRevisionsExpiryWatcher(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -584,7 +584,7 @@ func (s *watcherSuite) TestSecretsRevisionsExpiryWatcher(c *gc.C) {
 	s.assertSecretsTriggerWatcher(c, caller, "WatchSecretRevisionsExpiryChanges", client.WatchSecretRevisionsExpiryChanges)
 }
 
-func (s *watcherSuite) TestCrossModelSecretsRevisionWatcher(c *gc.C) {
+func (s *watcherSuite) TestCrossModelSecretsRevisionWatcher(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -628,9 +628,9 @@ func (s *watcherSuite) TestCrossModelSecretsRevisionWatcher(c *gc.C) {
 		select {
 		case changes, ok := <-w.Changes():
 			c.Check(ok, jc.IsTrue)
-			c.Check(changes, gc.HasLen, 1)
+			c.Check(changes, tc.HasLen, 1)
 			c.Check(changes[0].URI, jc.DeepEquals, &secrets.URI{ID: "9m4e2mr0ui3e8a215n4g"})
-			c.Check(changes[0].Revision, gc.Equals, rev)
+			c.Check(changes[0].Revision, tc.Equals, rev)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("watcher didn't emit an event")
 		}
@@ -656,9 +656,9 @@ type migrationSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&migrationSuite{})
+var _ = tc.Suite(&migrationSuite{})
 
-func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
+func (s *migrationSuite) TestMigrationStatusWatcher(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -690,8 +690,8 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 		select {
 		case status, ok := <-w.Changes():
 			c.Assert(ok, jc.IsTrue)
-			c.Check(status.MigrationId, gc.Equals, id)
-			c.Check(status.Phase, gc.Equals, phase)
+			c.Check(status.MigrationId, tc.Equals, id)
+			c.Check(status.Phase, tc.Equals, phase)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("watcher didn't emit an event")
 		}

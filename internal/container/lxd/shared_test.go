@@ -6,7 +6,7 @@ package lxd
 import (
 	"encoding/pem"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	lxdtesting "github.com/juju/juju/internal/container/lxd/testing"
 )
@@ -15,9 +15,9 @@ type sharedSuite struct {
 	lxdtesting.BaseSuite
 }
 
-var _ = gc.Suite(&sharedSuite{})
+var _ = tc.Suite(&sharedSuite{})
 
-func (sharedSuite) TestGenerateMemCert(c *gc.C) {
+func (sharedSuite) TestGenerateMemCert(c *tc.C) {
 
 	cert, key, err := GenerateMemCert(false, true)
 	if err != nil {

@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/observer"
 	apitesting "github.com/juju/juju/apiserver/testing"
@@ -20,9 +20,9 @@ type auditFilterSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&auditFilterSuite{})
+var _ = tc.Suite(&auditFilterSuite{})
 
-func (s *auditFilterSuite) TestFiltersUninterestingConversations(c *gc.C) {
+func (s *auditFilterSuite) TestFiltersUninterestingConversations(c *tc.C) {
 	target := &apitesting.FakeAuditLog{}
 	filter := func(r auditlog.Request) bool {
 		return !strings.HasPrefix(r.Method, "List")
@@ -57,7 +57,7 @@ func (s *auditFilterSuite) TestFiltersUninterestingConversations(c *gc.C) {
 		return calls[i].Args[0].(auditlog.Request).Method
 	}
 	requests := []string{getMethod(1), getMethod(3), getMethod(4)}
-	c.Assert(requests, gc.DeepEquals, []string{"ListBuckets", "ListSpades", "BuildCastle"})
+	c.Assert(requests, tc.DeepEquals, []string{"ListBuckets", "ListSpades", "BuildCastle"})
 
 	// Subsequent messages are passed through directly even if they're
 	// not inherently interesting.
@@ -68,28 +68,28 @@ func (s *auditFilterSuite) TestFiltersUninterestingConversations(c *gc.C) {
 	target.CheckCallNames(c, "AddRequest")
 
 	calls = target.Calls()
-	c.Assert(getMethod(0), gc.Equals, "ListTrowels")
+	c.Assert(getMethod(0), tc.Equals, "ListTrowels")
 
 	err = log.AddResponse(auditlog.ResponseErrors{})
 	c.Assert(err, jc.ErrorIsNil)
 	target.CheckCallNames(c, "AddRequest", "AddResponse")
 }
 
-func (s *auditFilterSuite) TestMakeFilter(c *gc.C) {
+func (s *auditFilterSuite) TestMakeFilter(c *tc.C) {
 	f1 := observer.MakeInterestingRequestFilter(set.NewStrings("Battery.Kinzie", "Helplessness.Blues"))
 	c.Assert(f1(auditlog.Request{Facade: "Battery", Method: "Kinzie"}), jc.IsFalse)
 	c.Assert(f1(auditlog.Request{Facade: "Helplessness", Method: "Blues"}), jc.IsFalse)
 	c.Assert(f1(auditlog.Request{Facade: "The", Method: "Shrine"}), jc.IsTrue)
 }
 
-func (s *auditFilterSuite) TestExpandsReadonlyMethods(c *gc.C) {
+func (s *auditFilterSuite) TestExpandsReadonlyMethods(c *tc.C) {
 	f1 := observer.MakeInterestingRequestFilter(set.NewStrings("ReadOnlyMethods", "Helplessness.Blues"))
 	c.Assert(f1(auditlog.Request{Facade: "Helplessness", Method: "Blues"}), jc.IsFalse)
 	c.Assert(f1(auditlog.Request{Facade: "Client", Method: "FullStatus"}), jc.IsFalse)
 	c.Assert(f1(auditlog.Request{Facade: "Falcon", Method: "Heavy"}), jc.IsTrue)
 }
 
-func (s *auditFilterSuite) TestOnlyExcludeReadonlyMethodsIfWeShould(c *gc.C) {
+func (s *auditFilterSuite) TestOnlyExcludeReadonlyMethodsIfWeShould(c *tc.C) {
 	f1 := observer.MakeInterestingRequestFilter(set.NewStrings("Helplessness.Blues"))
 	c.Assert(f1(auditlog.Request{Facade: "Helplessness", Method: "Blues"}), jc.IsFalse)
 	// Doesn't allow the readonly methods unless they've included the special key.

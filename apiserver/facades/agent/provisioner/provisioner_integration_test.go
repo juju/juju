@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -46,9 +46,9 @@ type provisionerSuite struct {
 	domainServices services.DomainServices
 }
 
-var _ = gc.Suite(&provisionerSuite{})
+var _ = tc.Suite(&provisionerSuite{})
 
-func (s *provisionerSuite) TestStub(c *gc.C) {
+func (s *provisionerSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 
  - Test the distribution group is correctly distributed
@@ -56,11 +56,11 @@ func (s *provisionerSuite) TestStub(c *gc.C) {
 	`)
 }
 
-func (s *provisionerSuite) SetUpTest(c *gc.C) {
+func (s *provisionerSuite) SetUpTest(c *tc.C) {
 	s.setUpTest(c, false)
 }
 
-func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
+func (s *provisionerSuite) setUpTest(c *tc.C, withController bool) {
 	if s.ApiServerSuite.ControllerModelConfigAttrs == nil {
 		s.ApiServerSuite.ControllerModelConfigAttrs = make(map[string]any)
 	}
@@ -133,13 +133,13 @@ type withoutControllerSuite struct {
 	provisionerSuite
 }
 
-var _ = gc.Suite(&withoutControllerSuite{})
+var _ = tc.Suite(&withoutControllerSuite{})
 
-func (s *withoutControllerSuite) SetUpTest(c *gc.C) {
+func (s *withoutControllerSuite) SetUpTest(c *tc.C) {
 	s.setUpTest(c, false)
 }
 
-func (s *withoutControllerSuite) TestProvisionerFailsWithNonMachineAgentNonManagerUser(c *gc.C) {
+func (s *withoutControllerSuite) TestProvisionerFailsWithNonMachineAgentNonManagerUser(c *tc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = true
 	// Works with a controller, which is not a machine agent.
@@ -153,7 +153,7 @@ func (s *withoutControllerSuite) TestProvisionerFailsWithNonMachineAgentNonManag
 		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(aProvisioner, gc.NotNil)
+	c.Assert(aProvisioner, tc.NotNil)
 
 	// But fails with neither a machine agent or a controller.
 	anAuthorizer.Controller = false
@@ -165,12 +165,12 @@ func (s *withoutControllerSuite) TestProvisionerFailsWithNonMachineAgentNonManag
 		DomainServices_: s.ControllerDomainServices(c),
 		Logger_:         loggertesting.WrapCheckLog(c),
 	})
-	c.Assert(err, gc.NotNil)
-	c.Assert(aProvisioner, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.NotNil)
+	c.Assert(aProvisioner, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *withoutControllerSuite) TestSetPasswords(c *gc.C) {
+func (s *withoutControllerSuite) TestSetPasswords(c *tc.C) {
 	args := params.EntityPasswords{
 		Changes: []params.EntityPassword{
 			{Tag: s.machines[0].Tag().String(), Password: "xxx0-1234567890123457890"},
@@ -185,7 +185,7 @@ func (s *withoutControllerSuite) TestSetPasswords(c *gc.C) {
 	}
 	results, err := s.provisioner.SetPasswords(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 			{Error: nil},
@@ -208,7 +208,7 @@ func (s *withoutControllerSuite) TestSetPasswords(c *gc.C) {
 	}
 }
 
-func (s *withoutControllerSuite) TestShortSetPasswords(c *gc.C) {
+func (s *withoutControllerSuite) TestShortSetPasswords(c *tc.C) {
 	args := params.EntityPasswords{
 		Changes: []params.EntityPassword{
 			{Tag: s.machines[1].Tag().String(), Password: "xxx1"},
@@ -216,12 +216,12 @@ func (s *withoutControllerSuite) TestShortSetPasswords(c *gc.C) {
 	}
 	results, err := s.provisioner.SetPasswords(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches,
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.ErrorMatches,
 		"password is only 4 bytes long, and is not a valid Agent password")
 }
 
-func (s *withoutControllerSuite) TestLifeAsMachineAgent(c *gc.C) {
+func (s *withoutControllerSuite) TestLifeAsMachineAgent(c *tc.C) {
 	// NOTE: This and the next call serve to test the two
 	// different authorization schemes:
 	// 1. Machine agents can access their own machine and
@@ -245,7 +245,7 @@ func (s *withoutControllerSuite) TestLifeAsMachineAgent(c *gc.C) {
 		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(aProvisioner, gc.NotNil)
+	c.Assert(aProvisioner, tc.NotNil)
 
 	// Make the machine dead before trying to add containers.
 	err = s.machines[0].EnsureDead()
@@ -278,7 +278,7 @@ func (s *withoutControllerSuite) TestLifeAsMachineAgent(c *gc.C) {
 	}}
 	result, err := aProvisioner.Life(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.LifeResults{
+	c.Assert(result, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Life: "dead"},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -292,14 +292,14 @@ func (s *withoutControllerSuite) TestLifeAsMachineAgent(c *gc.C) {
 	})
 }
 
-func (s *withoutControllerSuite) TestLifeAsController(c *gc.C) {
+func (s *withoutControllerSuite) TestLifeAsController(c *tc.C) {
 	err := s.machines[1].EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machines[1].Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.machines[0].Life(), gc.Equals, state.Alive)
-	c.Assert(s.machines[1].Life(), gc.Equals, state.Dead)
-	c.Assert(s.machines[2].Life(), gc.Equals, state.Alive)
+	c.Assert(s.machines[0].Life(), tc.Equals, state.Alive)
+	c.Assert(s.machines[1].Life(), tc.Equals, state.Dead)
+	c.Assert(s.machines[2].Life(), tc.Equals, state.Alive)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: s.machines[0].Tag().String()},
@@ -311,7 +311,7 @@ func (s *withoutControllerSuite) TestLifeAsController(c *gc.C) {
 	}}
 	result, err := s.provisioner.Life(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.LifeResults{
+	c.Assert(result, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Life: "alive"},
 			{Life: "dead"},
@@ -334,14 +334,14 @@ func (s *withoutControllerSuite) TestLifeAsController(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.LifeResults{
+	c.Assert(result, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Error: apiservertesting.NotFoundError("machine 1")},
 		},
 	})
 }
 
-func (s *withoutControllerSuite) TestRemove(c *gc.C) {
+func (s *withoutControllerSuite) TestRemove(c *tc.C) {
 	err := s.machines[1].EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertLife(c, 0, state.Alive)
@@ -358,7 +358,7 @@ func (s *withoutControllerSuite) TestRemove(c *gc.C) {
 	}}
 	result, err := s.provisioner.Remove(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: &params.Error{Message: `cannot remove machine "machine-0": still alive`}},
 			{Error: nil},
@@ -376,7 +376,7 @@ func (s *withoutControllerSuite) TestRemove(c *gc.C) {
 	s.assertLife(c, 2, state.Alive)
 }
 
-func (s *withoutControllerSuite) TestSetStatus(c *gc.C) {
+func (s *withoutControllerSuite) TestSetStatus(c *tc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
 		Status:  status.Started,
@@ -412,7 +412,7 @@ func (s *withoutControllerSuite) TestSetStatus(c *gc.C) {
 		}}
 	result, err := s.provisioner.SetStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 			{Error: nil},
@@ -429,7 +429,7 @@ func (s *withoutControllerSuite) TestSetStatus(c *gc.C) {
 	s.assertStatus(c, 2, status.Started, "again", map[string]any{})
 }
 
-func (s *withoutControllerSuite) TestSetInstanceStatus(c *gc.C) {
+func (s *withoutControllerSuite) TestSetInstanceStatus(c *tc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
 		Status:  status.Provisioning,
@@ -465,7 +465,7 @@ func (s *withoutControllerSuite) TestSetInstanceStatus(c *gc.C) {
 		}}
 	result, err := s.provisioner.SetInstanceStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 			{Error: nil},
@@ -484,7 +484,7 @@ func (s *withoutControllerSuite) TestSetInstanceStatus(c *gc.C) {
 	s.assertStatus(c, 2, status.Error, "again", map[string]any{})
 }
 
-func (s *withoutControllerSuite) TestSetModificationStatus(c *gc.C) {
+func (s *withoutControllerSuite) TestSetModificationStatus(c *tc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
 		Status:  status.Pending,
@@ -520,7 +520,7 @@ func (s *withoutControllerSuite) TestSetModificationStatus(c *gc.C) {
 		}}
 	result, err := s.provisioner.SetModificationStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 			{Error: nil},
@@ -537,7 +537,7 @@ func (s *withoutControllerSuite) TestSetModificationStatus(c *gc.C) {
 	s.assertModificationStatus(c, 2, status.Error, "again", map[string]any{})
 }
 
-func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
+func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *tc.C) {
 	svc := s.ControllerDomainServices(c)
 	machineService := svc.Machine()
 
@@ -589,7 +589,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 
 	result, err := s.provisioner.MachinesWithTransientErrors(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.StatusResults{
+	c.Assert(result, tc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
 			{Id: "1", Life: "alive", Status: "provisioning error", Info: "transient error",
 				Data: map[string]any{"transient": true, "foo": "bar"}},
@@ -597,7 +597,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	})
 }
 
-func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *gc.C) {
+func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *tc.C) {
 	// Machines where there's permission issues are omitted.
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
@@ -646,7 +646,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *gc
 
 	result, err := aProvisioner.MachinesWithTransientErrors(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.StatusResults{
+	c.Assert(result, tc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{{
 			Id: "1", Life: "alive", Status: "provisioning error",
 			Info: "transient error",
@@ -656,7 +656,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *gc
 	})
 }
 
-func (s *withoutControllerSuite) TestEnsureDead(c *gc.C) {
+func (s *withoutControllerSuite) TestEnsureDead(c *tc.C) {
 	machineName0 := coremachine.Name(s.machines[0].Id())
 	machineName1 := coremachine.Name(s.machines[1].Id())
 	machineName2 := coremachine.Name(s.machines[2].Id())
@@ -678,7 +678,7 @@ func (s *withoutControllerSuite) TestEnsureDead(c *gc.C) {
 	}}
 	result, err := s.provisioner.EnsureDead(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 			{Error: nil},
@@ -692,53 +692,53 @@ func (s *withoutControllerSuite) TestEnsureDead(c *gc.C) {
 	// Verify the changes.
 	obtainedLife, err := s.domainServices.Machine().GetMachineLife(context.Background(), coremachine.Name(s.machines[0].Id()))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(*obtainedLife, gc.Equals, life.Dead)
+	c.Check(*obtainedLife, tc.Equals, life.Dead)
 	obtainedLife, err = s.domainServices.Machine().GetMachineLife(context.Background(), coremachine.Name(s.machines[1].Id()))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(*obtainedLife, gc.Equals, life.Dead)
+	c.Check(*obtainedLife, tc.Equals, life.Dead)
 	obtainedLife, err = s.domainServices.Machine().GetMachineLife(context.Background(), coremachine.Name(s.machines[2].Id()))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(*obtainedLife, gc.Equals, life.Dead)
+	c.Check(*obtainedLife, tc.Equals, life.Dead)
 }
 
-func (s *withoutControllerSuite) assertLife(c *gc.C, index int, expectLife state.Life) {
+func (s *withoutControllerSuite) assertLife(c *tc.C, index int, expectLife state.Life) {
 	err := s.machines[index].Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.machines[index].Life(), gc.Equals, expectLife)
+	c.Assert(s.machines[index].Life(), tc.Equals, expectLife)
 }
 
-func (s *withoutControllerSuite) assertStatus(c *gc.C, index int, expectStatus status.Status, expectInfo string,
+func (s *withoutControllerSuite) assertStatus(c *tc.C, index int, expectStatus status.Status, expectInfo string,
 	expectData map[string]any) {
 
 	statusInfo, err := s.machines[index].Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, expectStatus)
-	c.Assert(statusInfo.Message, gc.Equals, expectInfo)
-	c.Assert(statusInfo.Data, gc.DeepEquals, expectData)
+	c.Assert(statusInfo.Status, tc.Equals, expectStatus)
+	c.Assert(statusInfo.Message, tc.Equals, expectInfo)
+	c.Assert(statusInfo.Data, tc.DeepEquals, expectData)
 }
 
-func (s *withoutControllerSuite) assertInstanceStatus(c *gc.C, index int, expectStatus status.Status, expectInfo string,
+func (s *withoutControllerSuite) assertInstanceStatus(c *tc.C, index int, expectStatus status.Status, expectInfo string,
 	expectData map[string]any) {
 
 	statusInfo, err := s.machines[index].InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, expectStatus)
-	c.Assert(statusInfo.Message, gc.Equals, expectInfo)
-	c.Assert(statusInfo.Data, gc.DeepEquals, expectData)
+	c.Assert(statusInfo.Status, tc.Equals, expectStatus)
+	c.Assert(statusInfo.Message, tc.Equals, expectInfo)
+	c.Assert(statusInfo.Data, tc.DeepEquals, expectData)
 }
 
-func (s *withoutControllerSuite) assertModificationStatus(c *gc.C, index int, expectStatus status.Status, expectInfo string,
+func (s *withoutControllerSuite) assertModificationStatus(c *tc.C, index int, expectStatus status.Status, expectInfo string,
 	expectData map[string]any) {
 
 	statusInfo, err := s.machines[index].ModificationStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, expectStatus)
-	c.Assert(statusInfo.Message, gc.Equals, expectInfo)
-	c.Assert(statusInfo.Data, gc.DeepEquals, expectData)
+	c.Assert(statusInfo.Status, tc.Equals, expectStatus)
+	c.Assert(statusInfo.Message, tc.Equals, expectInfo)
+	c.Assert(statusInfo.Data, tc.DeepEquals, expectData)
 }
 
-func (s *withoutControllerSuite) TestWatchContainers(c *gc.C) {
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+func (s *withoutControllerSuite) TestWatchContainers(c *tc.C) {
+	c.Assert(s.resources.Count(), tc.Equals, 0)
 
 	args := params.WatchContainers{Params: []params.WatchContainer{
 		{MachineTag: s.machines[0].Tag().String(), ContainerType: string(instance.LXD)},
@@ -749,7 +749,7 @@ func (s *withoutControllerSuite) TestWatchContainers(c *gc.C) {
 	}}
 	result, err := s.provisioner.WatchContainers(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
+	c.Assert(result, tc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
 			{StringsWatcherId: "1", Changes: []string{}},
 			{StringsWatcherId: "2", Changes: []string{}},
@@ -760,7 +760,7 @@ func (s *withoutControllerSuite) TestWatchContainers(c *gc.C) {
 	})
 
 	// Verify the resources were registered and stop them when done.
-	c.Assert(s.resources.Count(), gc.Equals, 2)
+	c.Assert(s.resources.Count(), tc.Equals, 2)
 	m0Watcher := s.resources.Get("1")
 	defer workertest.CleanKill(c, m0Watcher)
 	m1Watcher := s.resources.Get("2")
@@ -774,8 +774,8 @@ func (s *withoutControllerSuite) TestWatchContainers(c *gc.C) {
 	wc1.AssertNoChange()
 }
 
-func (s *withoutControllerSuite) TestWatchAllContainers(c *gc.C) {
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+func (s *withoutControllerSuite) TestWatchAllContainers(c *tc.C) {
+	c.Assert(s.resources.Count(), tc.Equals, 0)
 
 	args := params.WatchContainers{Params: []params.WatchContainer{
 		{MachineTag: s.machines[0].Tag().String()},
@@ -786,7 +786,7 @@ func (s *withoutControllerSuite) TestWatchAllContainers(c *gc.C) {
 	}}
 	result, err := s.provisioner.WatchAllContainers(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
+	c.Assert(result, tc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
 			{StringsWatcherId: "1", Changes: []string{}},
 			{StringsWatcherId: "2", Changes: []string{}},
@@ -797,7 +797,7 @@ func (s *withoutControllerSuite) TestWatchAllContainers(c *gc.C) {
 	})
 
 	// Verify the resources were registered and stop them when done.
-	c.Assert(s.resources.Count(), gc.Equals, 2)
+	c.Assert(s.resources.Count(), tc.Equals, 2)
 	m0Watcher := s.resources.Get("1")
 	defer workertest.CleanKill(c, m0Watcher)
 	m1Watcher := s.resources.Get("2")
@@ -811,7 +811,7 @@ func (s *withoutControllerSuite) TestWatchAllContainers(c *gc.C) {
 	wc1.AssertNoChange()
 }
 
-func (s *withoutControllerSuite) TestStatus(c *gc.C) {
+func (s *withoutControllerSuite) TestStatus(c *tc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
 		Status:  status.Started,
@@ -850,12 +850,12 @@ func (s *withoutControllerSuite) TestStatus(c *gc.C) {
 	for i, statusResult := range result.Results {
 		r := statusResult
 		if r.Status != "" {
-			c.Assert(r.Since, gc.NotNil)
+			c.Assert(r.Since, tc.NotNil)
 		}
 		r.Since = nil
 		result.Results[i] = r
 	}
-	c.Assert(result, gc.DeepEquals, params.StatusResults{
+	c.Assert(result, tc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
 			{Status: status.Started.String(), Info: "blah", Data: map[string]any{}},
 			{Status: status.Stopped.String(), Info: "foo", Data: map[string]any{}},
@@ -867,7 +867,7 @@ func (s *withoutControllerSuite) TestStatus(c *gc.C) {
 	})
 }
 
-func (s *withoutControllerSuite) TestInstanceStatus(c *gc.C) {
+func (s *withoutControllerSuite) TestInstanceStatus(c *tc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
 		Status:  status.Provisioning,
@@ -906,12 +906,12 @@ func (s *withoutControllerSuite) TestInstanceStatus(c *gc.C) {
 	for i, statusResult := range result.Results {
 		r := statusResult
 		if r.Status != "" {
-			c.Assert(r.Since, gc.NotNil)
+			c.Assert(r.Since, tc.NotNil)
 		}
 		r.Since = nil
 		result.Results[i] = r
 	}
-	c.Assert(result, gc.DeepEquals, params.StatusResults{
+	c.Assert(result, tc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
 			{Status: status.Provisioning.String(), Info: "blah", Data: map[string]any{}},
 			{Status: status.Running.String(), Info: "foo", Data: map[string]any{}},
@@ -923,14 +923,14 @@ func (s *withoutControllerSuite) TestInstanceStatus(c *gc.C) {
 	})
 }
 
-func (s *withoutControllerSuite) TestStub(c *gc.C) {
+func (s *withoutControllerSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - Calling AvailabilityZones with machines that have populated, empty, and nil AZ
 - Calling KeepInstance with variaety of results - true, false, not found, unauthorised.
 `)
 }
 
-func (s *withoutControllerSuite) TestDistributionGroupControllerAuth(c *gc.C) {
+func (s *withoutControllerSuite) TestDistributionGroupControllerAuth(c *tc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},
 		{Tag: "machine-42"},
@@ -940,7 +940,7 @@ func (s *withoutControllerSuite) TestDistributionGroupControllerAuth(c *gc.C) {
 	}}
 	result, err := s.provisioner.DistributionGroup(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.DistributionGroupResults{
+	c.Assert(result, tc.DeepEquals, params.DistributionGroupResults{
 		Results: []params.DistributionGroupResult{
 			// controller may access any top-level machines.
 			{Result: []instance.Id{}},
@@ -955,7 +955,7 @@ func (s *withoutControllerSuite) TestDistributionGroupControllerAuth(c *gc.C) {
 	})
 }
 
-func (s *withoutControllerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C) {
+func (s *withoutControllerSuite) TestDistributionGroupMachineAgentAuth(c *tc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
@@ -978,7 +978,7 @@ func (s *withoutControllerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C) 
 	}}
 	result, err := provisioner.DistributionGroup(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.DistributionGroupResults{
+	c.Assert(result, tc.DeepEquals, params.DistributionGroupResults{
 		Results: []params.DistributionGroupResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{Result: []instance.Id{}},
@@ -992,7 +992,7 @@ func (s *withoutControllerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C) 
 	})
 }
 
-func (s *withoutControllerSuite) TestDistributionGroupByMachineIdControllerAuth(c *gc.C) {
+func (s *withoutControllerSuite) TestDistributionGroupByMachineIdControllerAuth(c *tc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},
 		{Tag: "machine-42"},
@@ -1002,7 +1002,7 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineIdControllerAuth(
 	}}
 	result, err := s.provisioner.DistributionGroupByMachineId(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.StringsResults{
+	c.Assert(result, tc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
 			// controller may access any top-level machines.
 			{Result: []string{}, Error: nil},
@@ -1017,7 +1017,7 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineIdControllerAuth(
 	})
 }
 
-func (s *withoutControllerSuite) TestDistributionGroupByMachineIdMachineAgentAuth(c *gc.C) {
+func (s *withoutControllerSuite) TestDistributionGroupByMachineIdMachineAgentAuth(c *tc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
@@ -1040,7 +1040,7 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineIdMachineAgentAut
 	}}
 	result, err := provisioner.DistributionGroupByMachineId(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.StringsResults{
+	c.Assert(result, tc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
 			{Result: nil, Error: apiservertesting.ErrUnauthorized},
 			{Result: []string{}, Error: nil},
@@ -1054,7 +1054,7 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineIdMachineAgentAut
 	})
 }
 
-func (s *withoutControllerSuite) TestConstraints(c *gc.C) {
+func (s *withoutControllerSuite) TestConstraints(c *tc.C) {
 	// Add a machine with some constraints.
 	cons := constraints.MustParse("cores=123", "mem=8G")
 	template := state.MachineTemplate{
@@ -1077,7 +1077,7 @@ func (s *withoutControllerSuite) TestConstraints(c *gc.C) {
 	}}
 	result, err := s.provisioner.Constraints(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ConstraintsResults{
+	c.Assert(result, tc.DeepEquals, params.ConstraintsResults{
 		Results: []params.ConstraintsResult{
 			{Constraints: machine0Constraints},
 			{Constraints: template.Constraints},
@@ -1088,7 +1088,7 @@ func (s *withoutControllerSuite) TestConstraints(c *gc.C) {
 	})
 }
 
-func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
+func (s *withoutControllerSuite) TestSetInstanceInfo(c *tc.C) {
 	st := s.ControllerModel(c).State()
 	svc := s.ControllerDomainServices(c)
 	machineService := svc.Machine()
@@ -1178,8 +1178,8 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	})
 
 	// Verify machine 1 and 2 were provisioned.
-	c.Assert(s.machines[1].Refresh(), gc.IsNil)
-	c.Assert(s.machines[2].Refresh(), gc.IsNil)
+	c.Assert(s.machines[1].Refresh(), tc.IsNil)
+	c.Assert(s.machines[2].Refresh(), tc.IsNil)
 
 	machine1UUID, err := machineService.GetMachineUUID(context.Background(), coremachine.Name(s.machines[1].Id()))
 	c.Assert(err, jc.ErrorIsNil)
@@ -1187,7 +1187,7 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Check(s.machines[2].CheckProvisioned("fake"), jc.IsTrue)
 	gotHardware, err := machineService.HardwareCharacteristics(context.Background(), machine1UUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(gotHardware, gc.DeepEquals, &hwChars)
+	c.Check(gotHardware, tc.DeepEquals, &hwChars)
 
 	// Verify the machine with requested volumes was provisioned, and the
 	// volume information recorded in state.
@@ -1195,7 +1195,7 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	volumeAttachments, err := sb.MachineVolumeAttachments(volumesMachine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(volumeAttachments, gc.HasLen, 1)
+	c.Assert(volumeAttachments, tc.HasLen, 1)
 
 	// Note (stickupkid): This is all incorrect, because we are no longer
 	// using model-config for fallback storage pools. This should be fixed
@@ -1203,21 +1203,21 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	// See: https://warthogs.atlassian.net/browse/JUJU-6933
 	volumeAttachmentInfo, err := volumeAttachments[0].Info()
 	c.Assert(err, jc.ErrorIs, errors.NotProvisioned)
-	c.Assert(volumeAttachmentInfo, gc.Equals, state.VolumeAttachmentInfo{})
+	c.Assert(volumeAttachmentInfo, tc.Equals, state.VolumeAttachmentInfo{})
 	volume, err := sb.Volume(volumeAttachments[0].Volume())
 	c.Assert(err, jc.ErrorIsNil)
 	volumeInfo, err := volume.Info()
 	c.Assert(err, jc.ErrorIs, errors.NotProvisioned)
-	c.Assert(volumeInfo, gc.Equals, state.VolumeInfo{})
+	c.Assert(volumeInfo, tc.Equals, state.VolumeInfo{})
 
 	// Verify the machine without requested volumes still has no volume
 	// attachments recorded in state.
 	volumeAttachments, err = sb.MachineVolumeAttachments(s.machines[1].MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(volumeAttachments, gc.HasLen, 0)
+	c.Assert(volumeAttachments, tc.HasLen, 0)
 }
 
-func (s *withoutControllerSuite) TestInstanceId(c *gc.C) {
+func (s *withoutControllerSuite) TestInstanceId(c *tc.C) {
 	svc := s.ControllerDomainServices(c)
 	machineService := svc.Machine()
 
@@ -1242,7 +1242,7 @@ func (s *withoutControllerSuite) TestInstanceId(c *gc.C) {
 	}}
 	result, err := s.provisioner.InstanceId(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.StringResults{
+	c.Assert(result, tc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
 			{Result: "i-am"},
 			{Result: "i-am-not"},
@@ -1254,8 +1254,8 @@ func (s *withoutControllerSuite) TestInstanceId(c *gc.C) {
 	})
 }
 
-func (s *withoutControllerSuite) TestWatchModelMachines(c *gc.C) {
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+func (s *withoutControllerSuite) TestWatchModelMachines(c *tc.C) {
+	c.Assert(s.resources.Count(), tc.Equals, 0)
 
 	got, err := s.provisioner.WatchModelMachines(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -1263,11 +1263,11 @@ func (s *withoutControllerSuite) TestWatchModelMachines(c *gc.C) {
 		StringsWatcherId: "1",
 		Changes:          []string{"0", "1", "2", "3", "4"},
 	}
-	c.Assert(got.StringsWatcherId, gc.Equals, want.StringsWatcherId)
+	c.Assert(got.StringsWatcherId, tc.Equals, want.StringsWatcherId)
 	c.Assert(got.Changes, jc.SameContents, want.Changes)
 
 	// Verify the resources were registered and stop them when done.
-	c.Assert(s.resources.Count(), gc.Equals, 1)
+	c.Assert(s.resources.Count(), tc.Equals, 1)
 	resource := s.resources.Get("1")
 	defer workertest.CleanKill(c, resource)
 
@@ -1291,19 +1291,19 @@ func (s *withoutControllerSuite) TestWatchModelMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := aProvisioner.WatchModelMachines(context.Background())
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
+	c.Assert(err, tc.ErrorMatches, "permission denied")
+	c.Assert(result, tc.DeepEquals, params.StringsWatchResult{})
 }
 
-func (s *withoutControllerSuite) TestWatchMachineErrorRetry(c *gc.C) {
+func (s *withoutControllerSuite) TestWatchMachineErrorRetry(c *tc.C) {
 	s.PatchValue(&provisioner.ErrorRetryWaitDelay, 2*coretesting.ShortWait)
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+	c.Assert(s.resources.Count(), tc.Equals, 0)
 
 	_, err := s.provisioner.WatchMachineErrorRetry(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify the resources were registered and stop them when done.
-	c.Assert(s.resources.Count(), gc.Equals, 1)
+	c.Assert(s.resources.Count(), tc.Equals, 1)
 	resource := s.resources.Get("1")
 	defer workertest.CleanKill(c, resource)
 
@@ -1330,11 +1330,11 @@ func (s *withoutControllerSuite) TestWatchMachineErrorRetry(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := aProvisioner.WatchMachineErrorRetry(context.Background())
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{})
+	c.Assert(err, tc.ErrorMatches, "permission denied")
+	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{})
 }
 
-func (s *withoutControllerSuite) TestMarkMachinesForRemoval(c *gc.C) {
+func (s *withoutControllerSuite) TestMarkMachinesForRemoval(c *tc.C) {
 	err := s.machines[0].EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machines[2].EnsureDead()
@@ -1352,12 +1352,12 @@ func (s *withoutControllerSuite) TestMarkMachinesForRemoval(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	results := res.Results
-	c.Assert(results, gc.HasLen, 6)
-	c.Check(results[0].Error, gc.IsNil)
+	c.Assert(results, tc.HasLen, 6)
+	c.Check(results[0].Error, tc.IsNil)
 	c.Check(*results[1].Error, jc.DeepEquals,
 		*apiservererrors.ServerError(errors.NotFoundf("machine 100")))
 	c.Check(*results[1].Error, jc.Satisfies, params.IsCodeNotFound)
-	c.Check(results[2].Error, gc.IsNil)
+	c.Check(results[2].Error, tc.IsNil)
 	c.Check(*results[3].Error, jc.DeepEquals,
 		*apiservererrors.ServerError(errors.New("cannot remove machine 1: machine is not dead")))
 	c.Check(*results[4].Error, jc.DeepEquals, *apiservertesting.ErrUnauthorized)
@@ -1369,7 +1369,7 @@ func (s *withoutControllerSuite) TestMarkMachinesForRemoval(c *gc.C) {
 	c.Check(removals, jc.SameContents, []string{"0", "2"})
 }
 
-func (s *withoutControllerSuite) TestSetSupportedContainers(c *gc.C) {
+func (s *withoutControllerSuite) TestSetSupportedContainers(c *tc.C) {
 	args := params.MachineContainersParams{Params: []params.MachineContainers{{
 		MachineTag:     "machine-0",
 		ContainerTypes: []instance.ContainerType{instance.LXD},
@@ -1379,24 +1379,24 @@ func (s *withoutControllerSuite) TestSetSupportedContainers(c *gc.C) {
 	}}}
 	results, err := s.provisioner.SetSupportedContainers(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results, tc.HasLen, 2)
 	for _, result := range results.Results {
-		c.Assert(result.Error, gc.IsNil)
+		c.Assert(result.Error, tc.IsNil)
 	}
 	st := s.ControllerModel(c).State()
 	m0, err := st.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
 	containers, ok := m0.SupportedContainers()
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{instance.LXD})
+	c.Assert(containers, tc.DeepEquals, []instance.ContainerType{instance.LXD})
 	m1, err := st.Machine("1")
 	c.Assert(err, jc.ErrorIsNil)
 	containers, ok = m1.SupportedContainers()
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{instance.LXD})
+	c.Assert(containers, tc.DeepEquals, []instance.ContainerType{instance.LXD})
 }
 
-func (s *withoutControllerSuite) TestSetSupportedContainersPermissions(c *gc.C) {
+func (s *withoutControllerSuite) TestSetSupportedContainersPermissions(c *tc.C) {
 	// Login as a machine agent for machine 0.
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
@@ -1410,7 +1410,7 @@ func (s *withoutControllerSuite) TestSetSupportedContainersPermissions(c *gc.C) 
 		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(aProvisioner, gc.NotNil)
+	c.Assert(aProvisioner, tc.NotNil)
 
 	args := params.MachineContainersParams{
 		Params: []params.MachineContainers{{
@@ -1428,7 +1428,7 @@ func (s *withoutControllerSuite) TestSetSupportedContainersPermissions(c *gc.C) 
 	// Only machine 0 can have it's containers updated.
 	results, err := aProvisioner.SetSupportedContainers(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -1437,7 +1437,7 @@ func (s *withoutControllerSuite) TestSetSupportedContainersPermissions(c *gc.C) 
 	})
 }
 
-func (s *withoutControllerSuite) TestSupportedContainers(c *gc.C) {
+func (s *withoutControllerSuite) TestSupportedContainers(c *tc.C) {
 	setArgs := params.MachineContainersParams{Params: []params.MachineContainers{{
 		MachineTag:     "machine-0",
 		ContainerTypes: []instance.ContainerType{instance.LXD},
@@ -1455,24 +1455,24 @@ func (s *withoutControllerSuite) TestSupportedContainers(c *gc.C) {
 	}}}
 	results, err := s.provisioner.SupportedContainers(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results, tc.HasLen, 2)
 	for _, result := range results.Results {
-		c.Assert(result.Error, gc.IsNil)
+		c.Assert(result.Error, tc.IsNil)
 	}
 	st := s.ControllerModel(c).State()
 	m0, err := st.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
 	containers, ok := m0.SupportedContainers()
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(containers, gc.DeepEquals, results.Results[0].ContainerTypes)
+	c.Assert(containers, tc.DeepEquals, results.Results[0].ContainerTypes)
 	m1, err := st.Machine("1")
 	c.Assert(err, jc.ErrorIsNil)
 	containers, ok = m1.SupportedContainers()
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(containers, gc.DeepEquals, results.Results[1].ContainerTypes)
+	c.Assert(containers, tc.DeepEquals, results.Results[1].ContainerTypes)
 }
 
-func (s *withoutControllerSuite) TestSupportedContainersWithoutBeingSet(c *gc.C) {
+func (s *withoutControllerSuite) TestSupportedContainersWithoutBeingSet(c *tc.C) {
 	args := params.Entities{Entities: []params.Entity{{
 		Tag: "machine-0",
 	}, {
@@ -1480,26 +1480,26 @@ func (s *withoutControllerSuite) TestSupportedContainersWithoutBeingSet(c *gc.C)
 	}}}
 	results, err := s.provisioner.SupportedContainers(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results, tc.HasLen, 2)
 	for _, result := range results.Results {
-		c.Assert(result.Error, gc.IsNil)
-		c.Assert(result.ContainerTypes, gc.HasLen, 0)
+		c.Assert(result.Error, tc.IsNil)
+		c.Assert(result.ContainerTypes, tc.HasLen, 0)
 	}
 }
 
-func (s *withoutControllerSuite) TestSupportedContainersWithInvalidTag(c *gc.C) {
+func (s *withoutControllerSuite) TestSupportedContainersWithInvalidTag(c *tc.C) {
 	args := params.Entities{Entities: []params.Entity{{
 		Tag: "user-0",
 	}}}
 	results, err := s.provisioner.SupportedContainers(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results, tc.HasLen, 1)
 	for _, result := range results.Results {
-		c.Assert(result.Error, gc.ErrorMatches, "permission denied")
+		c.Assert(result.Error, tc.ErrorMatches, "permission denied")
 	}
 }
 
-func (s *withoutControllerSuite) TestSupportsNoContainers(c *gc.C) {
+func (s *withoutControllerSuite) TestSupportsNoContainers(c *tc.C) {
 	args := params.MachineContainersParams{
 		Params: []params.MachineContainers{
 			{
@@ -1509,26 +1509,26 @@ func (s *withoutControllerSuite) TestSupportsNoContainers(c *gc.C) {
 	}
 	results, err := s.provisioner.SetSupportedContainers(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.IsNil)
 	m0, err := s.ControllerModel(c).State().Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
 	containers, ok := m0.SupportedContainers()
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{})
+	c.Assert(containers, tc.DeepEquals, []instance.ContainerType{})
 }
 
-var _ = gc.Suite(&withControllerSuite{})
+var _ = tc.Suite(&withControllerSuite{})
 
 type withControllerSuite struct {
 	provisionerSuite
 }
 
-func (s *withControllerSuite) SetUpTest(c *gc.C) {
+func (s *withControllerSuite) SetUpTest(c *tc.C) {
 	s.provisionerSuite.setUpTest(c, true)
 }
 
-func (s *withControllerSuite) TestAPIAddresses(c *gc.C) {
+func (s *withControllerSuite) TestAPIAddresses(c *tc.C) {
 	hostPorts := []network.SpaceHostPorts{
 		network.NewSpaceHostPorts(1234, "0.1.2.3"),
 	}
@@ -1541,15 +1541,15 @@ func (s *withControllerSuite) TestAPIAddresses(c *gc.C) {
 
 	result, err := s.provisioner.APIAddresses(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.StringsResult{
+	c.Assert(result, tc.DeepEquals, params.StringsResult{
 		Result: []string{"0.1.2.3:1234"},
 	})
 }
 
-func (s *withControllerSuite) TestCACert(c *gc.C) {
+func (s *withControllerSuite) TestCACert(c *tc.C) {
 	result, err := s.provisioner.CACert(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.BytesResult{
+	c.Assert(result, tc.DeepEquals, params.BytesResult{
 		Result: []byte(coretesting.CACert),
 	})
 }

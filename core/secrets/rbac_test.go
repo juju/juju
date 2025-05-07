@@ -4,17 +4,17 @@
 package secrets_test
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/secrets"
 )
 
 type RoleSuite struct{}
 
-var _ = gc.Suite(&RoleSuite{})
+var _ = tc.Suite(&RoleSuite{})
 
-func (s *SecretValueSuite) TestAllowed(c *gc.C) {
+func (s *SecretValueSuite) TestAllowed(c *tc.C) {
 	c.Assert(secrets.RoleNone.Allowed(secrets.RoleView), jc.IsFalse)
 	c.Assert(secrets.RoleNone.Allowed(secrets.RoleRotate), jc.IsFalse)
 	c.Assert(secrets.RoleNone.Allowed(secrets.RoleManage), jc.IsFalse)

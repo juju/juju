@@ -6,8 +6,8 @@ package domain
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
 	changestreamtesting "github.com/juju/juju/core/changestream/testing"
@@ -38,7 +38,7 @@ func (c changeEvent) Changed() string {
 	return c.changed
 }
 
-var _ = gc.Suite(&lifeWatcherSuite{})
+var _ = tc.Suite(&lifeWatcherSuite{})
 
 func (s *lifeWatcherSuite) lifeGetter(ctx context.Context, db coredatabase.TxnRunner, ids []string) (map[string]life.Life, error) {
 	result := make(map[string]life.Life)
@@ -50,7 +50,7 @@ func (s *lifeWatcherSuite) lifeGetter(ctx context.Context, db coredatabase.TxnRu
 	return result, nil
 }
 
-func (s *lifeWatcherSuite) TestInitial(c *gc.C) {
+func (s *lifeWatcherSuite) TestInitial(c *tc.C) {
 	s.dbLifeValues = map[string]life.Life{
 		"0": life.Alive,
 	}
@@ -65,7 +65,7 @@ func (s *lifeWatcherSuite) TestInitial(c *gc.C) {
 	})
 }
 
-func (s *lifeWatcherSuite) TestChangeNoUpdate(c *gc.C) {
+func (s *lifeWatcherSuite) TestChangeNoUpdate(c *tc.C) {
 	s.dbLifeValues = map[string]life.Life{
 		"0": life.Alive,
 	}
@@ -82,10 +82,10 @@ func (s *lifeWatcherSuite) TestChangeNoUpdate(c *gc.C) {
 	}
 	out, err := f(context.Background(), s.db, in)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, gc.HasLen, 0)
+	c.Assert(out, tc.HasLen, 0)
 }
 
-func (s *lifeWatcherSuite) TestChangeDying(c *gc.C) {
+func (s *lifeWatcherSuite) TestChangeDying(c *tc.C) {
 	s.dbLifeValues = map[string]life.Life{
 		"0": life.Alive,
 	}
@@ -110,7 +110,7 @@ func (s *lifeWatcherSuite) TestChangeDying(c *gc.C) {
 	})
 }
 
-func (s *lifeWatcherSuite) TestChangeDead(c *gc.C) {
+func (s *lifeWatcherSuite) TestChangeDead(c *tc.C) {
 	s.dbLifeValues = map[string]life.Life{
 		"0": life.Alive,
 	}
@@ -135,7 +135,7 @@ func (s *lifeWatcherSuite) TestChangeDead(c *gc.C) {
 	})
 }
 
-func (s *lifeWatcherSuite) TestChangNotDeadRemoved(c *gc.C) {
+func (s *lifeWatcherSuite) TestChangNotDeadRemoved(c *tc.C) {
 	s.dbLifeValues = map[string]life.Life{
 		"0": life.Alive,
 	}
@@ -157,7 +157,7 @@ func (s *lifeWatcherSuite) TestChangNotDeadRemoved(c *gc.C) {
 	})
 }
 
-func (s *lifeWatcherSuite) TestChangeDeadRemoved(c *gc.C) {
+func (s *lifeWatcherSuite) TestChangeDeadRemoved(c *tc.C) {
 	s.dbLifeValues = map[string]life.Life{
 		"0": life.Alive,
 	}
@@ -182,7 +182,7 @@ func (s *lifeWatcherSuite) TestChangeDeadRemoved(c *gc.C) {
 	})
 }
 
-func (s *lifeWatcherSuite) TestChangeDifferentIdUpdated(c *gc.C) {
+func (s *lifeWatcherSuite) TestChangeDifferentIdUpdated(c *tc.C) {
 	s.dbLifeValues = map[string]life.Life{
 		"0": life.Alive,
 	}
@@ -199,10 +199,10 @@ func (s *lifeWatcherSuite) TestChangeDifferentIdUpdated(c *gc.C) {
 	}
 	out, err := f(context.Background(), s.db, in)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, gc.HasLen, 0)
+	c.Assert(out, tc.HasLen, 0)
 }
 
-func (s *lifeWatcherSuite) TestChangeDifferentIdRemoved(c *gc.C) {
+func (s *lifeWatcherSuite) TestChangeDifferentIdRemoved(c *tc.C) {
 	s.dbLifeValues = map[string]life.Life{
 		"0": life.Alive,
 	}
@@ -219,5 +219,5 @@ func (s *lifeWatcherSuite) TestChangeDifferentIdRemoved(c *gc.C) {
 	}
 	out, err := f(context.Background(), s.db, in)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, gc.HasLen, 0)
+	c.Assert(out, tc.HasLen, 0)
 }

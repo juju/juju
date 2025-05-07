@@ -5,8 +5,8 @@ package permission_test
 
 import (
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/permission"
@@ -14,9 +14,9 @@ import (
 
 type accessSuite struct{}
 
-var _ = gc.Suite(&accessSuite{})
+var _ = tc.Suite(&accessSuite{})
 
-func (*accessSuite) TestEqualOrGreaterModelAccessThan(c *gc.C) {
+func (*accessSuite) TestEqualOrGreaterModelAccessThan(c *tc.C) {
 	// A very boring but necessary test to test explicit responses.
 	var (
 		undefined = permission.NoAccess
@@ -67,7 +67,7 @@ func (*accessSuite) TestEqualOrGreaterModelAccessThan(c *gc.C) {
 	c.Check(admin.EqualOrGreaterModelAccessThan(admin), jc.IsTrue)
 }
 
-func (*accessSuite) TestGreaterModelAccessThan(c *gc.C) {
+func (*accessSuite) TestGreaterModelAccessThan(c *tc.C) {
 	// A very boring but necessary test to test explicit responses.
 	var (
 		undefined = permission.NoAccess
@@ -113,7 +113,7 @@ func (*accessSuite) TestGreaterModelAccessThan(c *gc.C) {
 	c.Check(admin.GreaterModelAccessThan(admin), jc.IsFalse)
 }
 
-func (*accessSuite) TestEqualOrGreaterControllerAccessThan(c *gc.C) {
+func (*accessSuite) TestEqualOrGreaterControllerAccessThan(c *tc.C) {
 	// A very boring but necessary test to test explicit responses.
 	var (
 		undefined = permission.NoAccess
@@ -157,7 +157,7 @@ func (*accessSuite) TestEqualOrGreaterControllerAccessThan(c *gc.C) {
 	c.Check(superuser.EqualOrGreaterControllerAccessThan(superuser), jc.IsTrue)
 }
 
-func (*accessSuite) TestGreaterControllerAccessThan(c *gc.C) {
+func (*accessSuite) TestGreaterControllerAccessThan(c *tc.C) {
 	// A very boring but necessary test to test explicit responses.
 	var (
 		undefined = permission.NoAccess
@@ -197,7 +197,7 @@ func (*accessSuite) TestGreaterControllerAccessThan(c *gc.C) {
 	c.Check(superuser.GreaterControllerAccessThan(superuser), jc.IsFalse)
 }
 
-func (*accessSuite) TestEqualOrGreaterCloudAccessThan(c *gc.C) {
+func (*accessSuite) TestEqualOrGreaterCloudAccessThan(c *tc.C) {
 	// A very boring but necessary test to test explicit responses.
 	var (
 		noaccess  = permission.NoAccess
@@ -251,27 +251,27 @@ var validateObjectTypeTest = []struct {
 	{access: permission.AddModelAccess, objectType: "failme", fail: true},
 }
 
-func (*accessSuite) TestValidateAccessForObjectType(c *gc.C) {
+func (*accessSuite) TestValidateAccessForObjectType(c *tc.C) {
 	size := len(validateObjectTypeTest)
 	for i, test := range validateObjectTypeTest {
 		c.Logf("Running test %d of %d", i, size)
 		id := permission.ID{ObjectType: test.objectType}
 		err := id.ValidateAccess(test.access)
 		if test.fail {
-			c.Assert(err, jc.ErrorIs, coreerrors.NotValid, gc.Commentf("test %d", i))
+			c.Assert(err, jc.ErrorIs, coreerrors.NotValid, tc.Commentf("test %d", i))
 		} else {
-			c.Check(err, jc.ErrorIsNil, gc.Commentf("test %d", i))
+			c.Check(err, jc.ErrorIsNil, tc.Commentf("test %d", i))
 		}
 	}
 }
 
-func (*accessSuite) TestParseTagForID(c *gc.C) {
+func (*accessSuite) TestParseTagForID(c *tc.C) {
 	id, err := permission.ParseTagForID(names.NewCloudTag("testcloud"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(id.ObjectType, gc.Equals, permission.Cloud)
+	c.Assert(id.ObjectType, tc.Equals, permission.Cloud)
 }
 
-func (*accessSuite) TestParseTagForIDFail(c *gc.C) {
+func (*accessSuite) TestParseTagForIDFail(c *tc.C) {
 	_, err := permission.ParseTagForID(nil)
 	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 	_, err = permission.ParseTagForID(names.NewUserTag("testcloud"))

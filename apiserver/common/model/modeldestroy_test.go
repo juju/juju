@@ -4,8 +4,8 @@
 package model_test
 
 import (
+	"github.com/juju/tc"
 	jtesting "github.com/juju/testing"
-	gc "gopkg.in/check.v1"
 )
 
 type destroyModelSuite struct {
@@ -14,7 +14,7 @@ type destroyModelSuite struct {
 	//modelManager *mockModelManager
 }
 
-var _ = gc.Suite(&destroyModelSuite{})
+var _ = tc.Suite(&destroyModelSuite{})
 
 /*
 func (s *destroyModelSuite) SetUpTest(c *gc.C) {

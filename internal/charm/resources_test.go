@@ -4,17 +4,17 @@
 package charm_test
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/charm"
 )
 
-var _ = gc.Suite(&resourceSuite{})
+var _ = tc.Suite(&resourceSuite{})
 
 type resourceSuite struct{}
 
-func (s *resourceSuite) TestSchemaOkay(c *gc.C) {
+func (s *resourceSuite) TestSchemaOkay(c *tc.C) {
 	raw := map[interface{}]interface{}{
 		"type":        "file",
 		"filename":    "filename.tgz",
@@ -30,7 +30,7 @@ func (s *resourceSuite) TestSchemaOkay(c *gc.C) {
 	})
 }
 
-func (s *resourceSuite) TestSchemaMissingType(c *gc.C) {
+func (s *resourceSuite) TestSchemaMissingType(c *tc.C) {
 	raw := map[interface{}]interface{}{
 		"filename":    "filename.tgz",
 		"description": "One line that is useful when operators need to push it.",
@@ -45,7 +45,7 @@ func (s *resourceSuite) TestSchemaMissingType(c *gc.C) {
 	})
 }
 
-func (s *resourceSuite) TestSchemaUnknownType(c *gc.C) {
+func (s *resourceSuite) TestSchemaUnknownType(c *tc.C) {
 	raw := map[interface{}]interface{}{
 		"type":        "repo",
 		"filename":    "juju",
@@ -61,7 +61,7 @@ func (s *resourceSuite) TestSchemaUnknownType(c *gc.C) {
 	})
 }
 
-func (s *resourceSuite) TestSchemaMissingComment(c *gc.C) {
+func (s *resourceSuite) TestSchemaMissingComment(c *tc.C) {
 	raw := map[interface{}]interface{}{
 		"type":     "file",
 		"filename": "filename.tgz",

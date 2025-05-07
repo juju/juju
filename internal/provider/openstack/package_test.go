@@ -6,7 +6,7 @@ package openstack_test
 import (
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package openstack -destination network_mock_test.go github.com/juju/juju/internal/provider/openstack SSLHostnameConfig,Networking,NetworkingBase,NetworkingNeutron,NetworkingAuthenticatingClient,NetworkingNova,NetworkingEnvironConfig
@@ -14,5 +14,5 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package openstack -destination goose_mock_test.go github.com/go-goose/goose/v5/client AuthenticatingClient
 
 func Test(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }

@@ -11,9 +11,9 @@ import (
 	httptest "net/http/httptest"
 	"strings"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/httpcontext"
 	apitesting "github.com/juju/juju/apiserver/testing"
@@ -36,9 +36,9 @@ type toolsSuite struct {
 	blockChecker     *MockBlockChecker
 }
 
-var _ = gc.Suite(&toolsSuite{})
+var _ = tc.Suite(&toolsSuite{})
 
-func (s *toolsSuite) SetUpMocks(c *gc.C) *gomock.Controller {
+func (s *toolsSuite) SetUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.agentBinaryStore = NewMockAgentBinaryStore(ctrl)
 	s.blockChecker = NewMockBlockChecker(ctrl)
@@ -49,24 +49,24 @@ func (s *toolsSuite) agentBinaryStoreGetter(_ *http.Request) (AgentBinaryStore, 
 	return s.agentBinaryStore, nil
 }
 
-func (s *toolsSuite) assertJSONErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) {
+func (s *toolsSuite) assertJSONErrorResponse(c *tc.C, resp *http.Response, expCode int, expError string) {
 	toolsResponse := s.assertResponse(c, resp, expCode)
-	c.Check(toolsResponse.ToolsList, gc.IsNil)
-	c.Check(toolsResponse.Error, gc.NotNil)
-	c.Check(toolsResponse.Error.Message, gc.Matches, expError)
+	c.Check(toolsResponse.ToolsList, tc.IsNil)
+	c.Check(toolsResponse.Error, tc.NotNil)
+	c.Check(toolsResponse.Error.Message, tc.Matches, expError)
 }
 
-func (s *toolsSuite) assertResponse(c *gc.C, resp *http.Response, expStatus int) params.ToolsResult {
+func (s *toolsSuite) assertResponse(c *tc.C, resp *http.Response, expStatus int) params.ToolsResult {
 	body := apitesting.AssertResponse(c, resp, expStatus, params.ContentTypeJSON)
 	var toolsResponse params.ToolsResult
 	err := json.Unmarshal(body, &toolsResponse)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("Body: %s", body))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("Body: %s", body))
 	return toolsResponse
 }
 
-func (s *toolsSuite) assertUploadResponse(c *gc.C, resp *http.Response, agentTools *tools.Tools) {
+func (s *toolsSuite) assertUploadResponse(c *tc.C, resp *http.Response, agentTools *tools.Tools) {
 	toolsResponse := s.assertResponse(c, resp, http.StatusOK)
-	c.Check(toolsResponse.Error, gc.IsNil)
+	c.Check(toolsResponse.Error, tc.IsNil)
 	c.Check(toolsResponse.ToolsList, jc.DeepEquals, tools.List{agentTools})
 }
 
@@ -74,7 +74,7 @@ func (s *toolsSuite) blockCheckGetter(_ context.Context) (BlockChecker, error) {
 	return s.blockChecker, nil
 }
 
-func (s *toolsSuite) TestAddBackTests(c *gc.C) {
+func (s *toolsSuite) TestAddBackTests(c *tc.C) {
 	c.Skip(`
 TODO (tlm): Add back in tests for tools handlers. The following tests need to
 added back in:
@@ -91,7 +91,7 @@ added back in:
 // TestUploadInvalidAgentBinaryVersion tests that when uploading an agent binary
 // for a version that doesn't parse as a version we get a bad request status
 // back.
-func (s *toolsSuite) TestUploadInvalidAgentBinaryVersion(c *gc.C) {
+func (s *toolsSuite) TestUploadInvalidAgentBinaryVersion(c *tc.C) {
 	defer s.SetUpMocks(c).Finish()
 
 	handler := newToolsUploadHandler(s.blockCheckGetter, s.agentBinaryStoreGetter)
@@ -104,7 +104,7 @@ func (s *toolsSuite) TestUploadInvalidAgentBinaryVersion(c *gc.C) {
 
 // TestUploadMissingAgentBinaryVersion checks that is an agent binary is
 // uploaded but the version is missing this results in a bad request status.
-func (s *toolsSuite) TestUploadMissingAgentBinaryVersion(c *gc.C) {
+func (s *toolsSuite) TestUploadMissingAgentBinaryVersion(c *tc.C) {
 	defer s.SetUpMocks(c).Finish()
 
 	handler := newToolsUploadHandler(s.blockCheckGetter, s.agentBinaryStoreGetter)
@@ -117,7 +117,7 @@ func (s *toolsSuite) TestUploadMissingAgentBinaryVersion(c *gc.C) {
 
 // TestUploadBadContentType tests that if an upload is attempted with a bad
 // content type we back a bad request status.
-func (s *toolsSuite) TestUploadBadContentType(c *gc.C) {
+func (s *toolsSuite) TestUploadBadContentType(c *tc.C) {
 	defer s.SetUpMocks(c).Finish()
 
 	handler := newToolsUploadHandler(s.blockCheckGetter, s.agentBinaryStoreGetter)
@@ -131,7 +131,7 @@ func (s *toolsSuite) TestUploadBadContentType(c *gc.C) {
 
 // TestUploadZeroBytes asserts that uploading nothing to the handler results in
 // a bad request state.
-func (s *toolsSuite) TestUploadZeroBytes(c *gc.C) {
+func (s *toolsSuite) TestUploadZeroBytes(c *tc.C) {
 	defer s.SetUpMocks(c).Finish()
 
 	body := strings.NewReader("")
@@ -149,7 +149,7 @@ func (s *toolsSuite) TestUploadZeroBytes(c *gc.C) {
 // TestUploadAgentBinaryServiceInvalidArch tests that if the agent binary store
 // does not support the architecture being uploaded for we get back a bad
 // request status.
-func (s *toolsSuite) TestUploadAgentBinaryServiceInvalidArch(c *gc.C) {
+func (s *toolsSuite) TestUploadAgentBinaryServiceInvalidArch(c *tc.C) {
 	defer s.SetUpMocks(c).Finish()
 
 	body := strings.NewReader("123456789")
@@ -177,7 +177,7 @@ func (s *toolsSuite) TestUploadAgentBinaryServiceInvalidArch(c *gc.C) {
 // TestUploadAgentBinaryServiceAlreadyExists tests that if the agent binary
 // store already has an agent binary version for the uploaded version we get
 // back a bad request status.
-func (s *toolsSuite) TestUploadAgentBinaryServiceAlreadyExists(c *gc.C) {
+func (s *toolsSuite) TestUploadAgentBinaryServiceAlreadyExists(c *tc.C) {
 	defer s.SetUpMocks(c).Finish()
 
 	body := strings.NewReader("123456789")
@@ -209,7 +209,7 @@ func (s *toolsSuite) TestUploadAgentBinaryServiceAlreadyExists(c *gc.C) {
 
 // TestUploadAgentBinary tests the happy path of uploading agent binaries to the
 // handler.
-func (s *toolsSuite) TestUploadAgentBinary(c *gc.C) {
+func (s *toolsSuite) TestUploadAgentBinary(c *tc.C) {
 	defer s.SetUpMocks(c).Finish()
 
 	body := strings.NewReader("123456789")
@@ -235,7 +235,7 @@ func (s *toolsSuite) TestUploadAgentBinary(c *gc.C) {
 	).Return(nil)
 
 	handler.ServeHTTP(res, req)
-	c.Check(res.Result().StatusCode, gc.Equals, http.StatusOK)
+	c.Check(res.Result().StatusCode, tc.Equals, http.StatusOK)
 
 	s.assertUploadResponse(c, res.Result(), &tools.Tools{
 		Version: semversion.MustParseBinary("4.0.0-ubuntu-amd64"),

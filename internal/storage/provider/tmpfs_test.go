@@ -9,15 +9,15 @@ import (
 	"fmt"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/testing"
 )
 
-var _ = gc.Suite(&tmpfsSuite{})
+var _ = tc.Suite(&tmpfsSuite{})
 
 type tmpfsSuite struct {
 	testing.BaseSuite
@@ -30,30 +30,30 @@ func mountInfoTmpfsLine(id int, mountPoint, source string) string {
 	return fmt.Sprintf("%d 6666 8:1 / %s rw,relatime shared:1 - tmpfs %s rw,size=5120k,uid=1000000,gid=1000000,inode64", id, mountPoint, source)
 }
 
-func (s *tmpfsSuite) SetUpTest(c *gc.C) {
+func (s *tmpfsSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.storageDir = c.MkDir()
 	s.fakeEtcDir = c.MkDir()
 }
 
-func (s *tmpfsSuite) TearDownTest(c *gc.C) {
+func (s *tmpfsSuite) TearDownTest(c *tc.C) {
 	if s.commands != nil {
 		s.commands.assertDrained()
 	}
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *tmpfsSuite) tmpfsProvider(c *gc.C) storage.Provider {
+func (s *tmpfsSuite) tmpfsProvider(c *tc.C) storage.Provider {
 	s.commands = &mockRunCommand{c: c}
 	return provider.TmpfsProvider(s.commands.run)
 }
 
-func (s *tmpfsSuite) TestFilesystemSource(c *gc.C) {
+func (s *tmpfsSuite) TestFilesystemSource(c *tc.C) {
 	p := s.tmpfsProvider(c)
 	cfg, err := storage.NewConfig("name", provider.TmpfsProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = p.FilesystemSource(cfg)
-	c.Assert(err, gc.ErrorMatches, "storage directory not specified")
+	c.Assert(err, tc.ErrorMatches, "storage directory not specified")
 	cfg, err = storage.NewConfig("name", provider.TmpfsProviderType, map[string]interface{}{
 		"storage-dir": c.MkDir(),
 	})
@@ -62,7 +62,7 @@ func (s *tmpfsSuite) TestFilesystemSource(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *tmpfsSuite) TestValidateConfig(c *gc.C) {
+func (s *tmpfsSuite) TestValidateConfig(c *tc.C) {
 	p := s.tmpfsProvider(c)
 	cfg, err := storage.NewConfig("name", provider.TmpfsProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -72,18 +72,18 @@ func (s *tmpfsSuite) TestValidateConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *tmpfsSuite) TestSupports(c *gc.C) {
+func (s *tmpfsSuite) TestSupports(c *tc.C) {
 	p := s.tmpfsProvider(c)
 	c.Assert(p.Supports(storage.StorageKindBlock), jc.IsFalse)
 	c.Assert(p.Supports(storage.StorageKindFilesystem), jc.IsTrue)
 }
 
-func (s *tmpfsSuite) TestScope(c *gc.C) {
+func (s *tmpfsSuite) TestScope(c *tc.C) {
 	p := s.tmpfsProvider(c)
-	c.Assert(p.Scope(), gc.Equals, storage.ScopeMachine)
+	c.Assert(p.Scope(), tc.Equals, storage.ScopeMachine)
 }
 
-func (s *tmpfsSuite) tmpfsFilesystemSource(c *gc.C, fakeMountInfo ...string) storage.FilesystemSource {
+func (s *tmpfsSuite) tmpfsFilesystemSource(c *tc.C, fakeMountInfo ...string) storage.FilesystemSource {
 	s.commands = &mockRunCommand{c: c}
 	return provider.TmpfsFilesystemSource(
 		s.fakeEtcDir,
@@ -93,7 +93,7 @@ func (s *tmpfsSuite) tmpfsFilesystemSource(c *gc.C, fakeMountInfo ...string) sto
 	)
 }
 
-func (s *tmpfsSuite) TestCreateFilesystems(c *gc.C) {
+func (s *tmpfsSuite) TestCreateFilesystems(c *tc.C) {
 	source := s.tmpfsFilesystemSource(c)
 
 	results, err := source.CreateFilesystems(context.Background(), []storage.FilesystemParams{{
@@ -112,7 +112,7 @@ func (s *tmpfsSuite) TestCreateFilesystems(c *gc.C) {
 	}})
 }
 
-func (s *tmpfsSuite) TestCreateFilesystemsHugePages(c *gc.C) {
+func (s *tmpfsSuite) TestCreateFilesystemsHugePages(c *tc.C) {
 	source := s.tmpfsFilesystemSource(c)
 
 	// Set page size to 16MiB.
@@ -145,7 +145,7 @@ func (s *tmpfsSuite) TestCreateFilesystemsHugePages(c *gc.C) {
 	}})
 }
 
-func (s *tmpfsSuite) TestCreateFilesystemsIsUse(c *gc.C) {
+func (s *tmpfsSuite) TestCreateFilesystemsIsUse(c *tc.C) {
 	source := s.tmpfsFilesystemSource(c)
 	results, err := source.CreateFilesystems(context.Background(), []storage.FilesystemParams{{
 		Tag:  names.NewFilesystemTag("1"),
@@ -155,12 +155,12 @@ func (s *tmpfsSuite) TestCreateFilesystemsIsUse(c *gc.C) {
 		Size: 2,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 2)
+	c.Assert(results, tc.HasLen, 2)
 	c.Assert(results[0].Error, jc.ErrorIsNil)
-	c.Assert(results[1].Error, gc.ErrorMatches, "filesystem 1 already exists")
+	c.Assert(results[1].Error, tc.ErrorMatches, "filesystem 1 already exists")
 }
 
-func (s *tmpfsSuite) TestAttachFilesystemsPathNotDir(c *gc.C) {
+func (s *tmpfsSuite) TestAttachFilesystemsPathNotDir(c *tc.C) {
 	source := s.tmpfsFilesystemSource(c)
 	_, err := source.CreateFilesystems(context.Background(), []storage.FilesystemParams{{
 		Tag:  names.NewFilesystemTag("1"),
@@ -172,10 +172,10 @@ func (s *tmpfsSuite) TestAttachFilesystemsPathNotDir(c *gc.C) {
 		Path:       "file",
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results[0].Error, gc.ErrorMatches, `path "file" must be a directory`)
+	c.Assert(results[0].Error, tc.ErrorMatches, `path "file" must be a directory`)
 }
 
-func (s *tmpfsSuite) TestAttachFilesystemsAlreadyMounted(c *gc.C) {
+func (s *tmpfsSuite) TestAttachFilesystemsAlreadyMounted(c *tc.C) {
 	mountInfo := mountInfoTmpfsLine(666, testMountPoint, names.NewFilesystemTag("123").String())
 	mountInfo2 := mountInfoTmpfsLine(667, "/some/mount/point", names.NewFilesystemTag("666").String())
 	source := s.tmpfsFilesystemSource(c, mountInfo, mountInfo2)
@@ -199,7 +199,7 @@ func (s *tmpfsSuite) TestAttachFilesystemsAlreadyMounted(c *gc.C) {
 	}})
 }
 
-func (s *tmpfsSuite) TestAttachFilesystemsMountReadOnly(c *gc.C) {
+func (s *tmpfsSuite) TestAttachFilesystemsMountReadOnly(c *tc.C) {
 	source := s.tmpfsFilesystemSource(c)
 	_, err := source.CreateFilesystems(context.Background(), []storage.FilesystemParams{{
 		Tag:  names.NewFilesystemTag("1"),
@@ -230,7 +230,7 @@ func (s *tmpfsSuite) TestAttachFilesystemsMountReadOnly(c *gc.C) {
 	}})
 }
 
-func (s *tmpfsSuite) TestAttachFilesystemsMountFails(c *gc.C) {
+func (s *tmpfsSuite) TestAttachFilesystemsMountFails(c *tc.C) {
 	source := s.tmpfsFilesystemSource(c)
 	_, err := source.CreateFilesystems(context.Background(), []storage.FilesystemParams{{
 		Tag:  names.NewFilesystemTag("1"),
@@ -246,10 +246,10 @@ func (s *tmpfsSuite) TestAttachFilesystemsMountFails(c *gc.C) {
 		Path:       "/var/lib/juju/storage/fs/foo",
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results[0].Error, gc.ErrorMatches, "cannot mount tmpfs: mount failed")
+	c.Assert(results[0].Error, tc.ErrorMatches, "cannot mount tmpfs: mount failed")
 }
 
-func (s *tmpfsSuite) TestAttachFilesystemsNoPathSpecified(c *gc.C) {
+func (s *tmpfsSuite) TestAttachFilesystemsNoPathSpecified(c *tc.C) {
 	source := s.tmpfsFilesystemSource(c)
 	_, err := source.CreateFilesystems(context.Background(), []storage.FilesystemParams{{
 		Tag:  names.NewFilesystemTag("1"),
@@ -260,26 +260,26 @@ func (s *tmpfsSuite) TestAttachFilesystemsNoPathSpecified(c *gc.C) {
 		Filesystem: names.NewFilesystemTag("6"),
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results[0].Error, gc.ErrorMatches, "filesystem mount point not specified")
+	c.Assert(results[0].Error, tc.ErrorMatches, "filesystem mount point not specified")
 }
 
-func (s *tmpfsSuite) TestAttachFilesystemsNoFilesystem(c *gc.C) {
+func (s *tmpfsSuite) TestAttachFilesystemsNoFilesystem(c *tc.C) {
 	source := s.tmpfsFilesystemSource(c)
 	results, err := source.AttachFilesystems(context.Background(), []storage.FilesystemAttachmentParams{{
 		Filesystem: names.NewFilesystemTag("6"),
 		Path:       "/mnt",
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results[0].Error, gc.ErrorMatches, "reading filesystem info from disk: open .*/6.info: no such file or directory")
+	c.Assert(results[0].Error, tc.ErrorMatches, "reading filesystem info from disk: open .*/6.info: no such file or directory")
 }
 
-func (s *tmpfsSuite) TestDetachFilesystems(c *gc.C) {
+func (s *tmpfsSuite) TestDetachFilesystems(c *tc.C) {
 	mountInfo := mountInfoTmpfsLine(666, testMountPoint, names.NewFilesystemTag("0/0").String())
 	source := s.tmpfsFilesystemSource(c, mountInfo)
 	testDetachFilesystems(c, s.commands, source, true, s.fakeEtcDir, "")
 }
 
-func (s *tmpfsSuite) TestDetachFilesystemsUnattached(c *gc.C) {
+func (s *tmpfsSuite) TestDetachFilesystemsUnattached(c *tc.C) {
 	source := s.tmpfsFilesystemSource(c)
 	testDetachFilesystems(c, s.commands, source, false, s.fakeEtcDir, "")
 }

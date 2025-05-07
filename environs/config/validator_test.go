@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
@@ -18,9 +18,9 @@ import (
 type validatorSuite struct {
 }
 
-var _ = gc.Suite(&validatorSuite{})
+var _ = tc.Suite(&validatorSuite{})
 
-func (*validatorSuite) TestControllerNotContainingValidator(c *gc.C) {
+func (*validatorSuite) TestControllerNotContainingValidator(c *tc.C) {
 	cfg, err := config.New(config.NoDefaults, map[string]any{
 		config.NameKey:                 "wallyworld",
 		config.UUIDKey:                 testing.ModelTag.Id(),
@@ -39,7 +39,7 @@ func (*validatorSuite) TestControllerNotContainingValidator(c *gc.C) {
 	c.Assert(rval.AllAttrs(), jc.DeepEquals, cfg.AllAttrs())
 }
 
-func (*validatorSuite) TestModelValidator(c *gc.C) {
+func (*validatorSuite) TestModelValidator(c *tc.C) {
 	cfg, err := config.New(config.NoDefaults, map[string]any{
 		config.NameKey:         "wallyworld",
 		config.UUIDKey:         testing.ModelTag.Id(),
@@ -59,7 +59,7 @@ func (*validatorSuite) TestModelValidator(c *gc.C) {
 
 // Asserting the fact that model config validation when controller only config
 // attributes are used.
-func (*validatorSuite) TestModelValidatorFailsForControllerAttrs(c *gc.C) {
+func (*validatorSuite) TestModelValidatorFailsForControllerAttrs(c *tc.C) {
 	cfg, err := config.New(config.NoDefaults, map[string]any{
 		config.NameKey:                 "wallyworld",
 		config.UUIDKey:                 testing.ModelTag.Id(),

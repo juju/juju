@@ -4,10 +4,10 @@
 package internal_test
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/docker/registry/internal"
 	"github.com/juju/juju/internal/docker/registry/internal/mocks"
@@ -17,9 +17,9 @@ type providerSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&providerSuite{})
+var _ = tc.Suite(&providerSuite{})
 
-func (s *providerSuite) TestInitClient(c *gc.C) {
+func (s *providerSuite) TestInitClient(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	initializer := mocks.NewMockInitializer(ctrl)

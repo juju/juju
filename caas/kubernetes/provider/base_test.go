@@ -11,10 +11,10 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsclientsetfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
@@ -149,7 +149,7 @@ func listOptionsFieldSelectorMatcher(fieldSelector string) gomock.Matcher {
 		})
 }
 
-func (s *BaseSuite) SetUpTest(c *gc.C) {
+func (s *BaseSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
@@ -178,7 +178,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.namespace = s.cfg.Name()
 }
 
-func (s *BaseSuite) TearDownTest(c *gc.C) {
+func (s *BaseSuite) TearDownTest(c *tc.C) {
 	// ensure previous broker setup all are all cleaned up because it should be re-initialized in setupController or errors.
 	s.broker = nil
 	s.clock = nil
@@ -196,7 +196,7 @@ func (s *BaseSuite) getNamespace() string {
 	return s.namespace
 }
 
-func (s *BaseSuite) setupController(c *gc.C) *gomock.Controller {
+func (s *BaseSuite) setupController(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
@@ -211,7 +211,7 @@ func (s *BaseSuite) setupController(c *gc.C) *gomock.Controller {
 }
 
 func (s *BaseSuite) setupBroker(
-	c *gc.C, ctrl *gomock.Controller, controllerUUID string,
+	c *tc.C, ctrl *gomock.Controller, controllerUUID string,
 	newK8sClientFunc provider.NewK8sClientFunc,
 	newK8sRestFunc provider.NewK8sRestClientFunc,
 	randomPrefixFunc utils.RandomPrefixFunc,
@@ -245,13 +245,13 @@ func (s *BaseSuite) setupBroker(
 	if expectErr == "" {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
-		c.Assert(err, gc.ErrorMatches, expectErr)
+		c.Assert(err, tc.ErrorMatches, expectErr)
 	}
 	return ctrl
 }
 
 func (s *BaseSuite) setupK8sRestClient(
-	c *gc.C, ctrl *gomock.Controller, namespace string,
+	c *tc.C, ctrl *gomock.Controller, namespace string,
 ) (provider.NewK8sClientFunc, provider.NewK8sRestClientFunc) {
 	s.k8sClient = mocks.NewMockInterface(ctrl)
 
@@ -366,9 +366,9 @@ func (s *BaseSuite) setupK8sRestClient(
 	s.k8sClient.EXPECT().Discovery().AnyTimes().Return(s.mockDiscovery)
 
 	return func(cfg *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, dynamic.Interface, error) {
-			c.Assert(cfg.Username, gc.Equals, "fred")
-			c.Assert(cfg.Password, gc.Equals, "secret")
-			c.Assert(cfg.Host, gc.Equals, "some-host")
+			c.Assert(cfg.Username, tc.Equals, "fred")
+			c.Assert(cfg.Password, tc.Equals, "secret")
+			c.Assert(cfg.Host, tc.Equals, "some-host")
 			c.Assert(cfg.TLSClientConfig, jc.DeepEquals, rest.TLSClientConfig{
 				CertData: []byte("cert-data"),
 				KeyData:  []byte("cert-key"),
@@ -474,7 +474,7 @@ func (s *fakeClientSuite) ensureJujuNamespaceAnnotations(isController bool, ns *
 	return ensureJujuNamespaceAnnotations(s.cfg.UUID(), isController, ns)
 }
 
-func (s *fakeClientSuite) SetUpTest(c *gc.C) {
+func (s *fakeClientSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
@@ -516,7 +516,7 @@ func (s *fakeClientSuite) getNamespace() string {
 }
 
 func (s *fakeClientSuite) setupBroker(
-	c *gc.C,
+	c *tc.C,
 	newK8sClientFunc provider.NewK8sClientFunc,
 	newK8sRestFunc provider.NewK8sRestClientFunc,
 	randomPrefixFunc utils.RandomPrefixFunc,
@@ -548,7 +548,7 @@ func (s *fakeClientSuite) setupBroker(
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *fakeClientSuite) setupK8sRestClient(c *gc.C, namespace string) (provider.NewK8sClientFunc, provider.NewK8sRestClientFunc) {
+func (s *fakeClientSuite) setupK8sRestClient(c *tc.C, namespace string) (provider.NewK8sClientFunc, provider.NewK8sRestClientFunc) {
 	s.clientset = fake.NewSimpleClientset()
 	s.k8sClient = s.clientset
 	s.mockCoreV1 = s.k8sClient.CoreV1()
@@ -596,9 +596,9 @@ func (s *fakeClientSuite) setupK8sRestClient(c *gc.C, namespace string) (provide
 	s.mockDiscovery = s.clientset.Discovery()
 
 	return func(cfg *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, dynamic.Interface, error) {
-			c.Assert(cfg.Username, gc.Equals, "fred")
-			c.Assert(cfg.Password, gc.Equals, "secret")
-			c.Assert(cfg.Host, gc.Equals, "some-host")
+			c.Assert(cfg.Username, tc.Equals, "fred")
+			c.Assert(cfg.Password, tc.Equals, "secret")
+			c.Assert(cfg.Host, tc.Equals, "some-host")
 			c.Assert(cfg.TLSClientConfig, jc.DeepEquals, rest.TLSClientConfig{
 				CertData: []byte("cert-data"),
 				KeyData:  []byte("cert-key"),

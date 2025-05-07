@@ -8,9 +8,9 @@ import (
 	"testing"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,11 +33,11 @@ type MapperSuite struct {
 	mockSharedIndexInformer *mocks.MockSharedIndexInformer
 }
 
-var _ = gc.Suite(&MapperSuite{})
+var _ = tc.Suite(&MapperSuite{})
 
-func TestMapperSuite(t *testing.T) { gc.TestingT(t) }
+func TestMapperSuite(t *testing.T) { tc.TestingT(t) }
 
-func (m *MapperSuite) SetUpTest(c *gc.C) {
+func (m *MapperSuite) SetUpTest(c *tc.C) {
 	m.ctrl = gomock.NewController(c)
 	m.mockSAInformer = mocks.NewMockServiceAccountInformer(m.ctrl)
 	m.mockSharedIndexInformer = mocks.NewMockSharedIndexInformer(m.ctrl)
@@ -49,7 +49,7 @@ func (m *MapperSuite) SetUpTest(c *gc.C) {
 	m.mockSAInformer.EXPECT().Lister().AnyTimes().Return(m.mockSALister)
 }
 
-func (m *MapperSuite) TestMapperAdditionSync(c *gc.C) {
+func (m *MapperSuite) TestMapperAdditionSync(c *tc.C) {
 	defer m.ctrl.Finish()
 	waitGroup := sync.WaitGroup{}
 	waitGroup.Add(1)
@@ -96,7 +96,7 @@ func (m *MapperSuite) TestMapperAdditionSync(c *gc.C) {
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		rAppName, err := mapper.AppNameForServiceAccount(uid)
 		if err == nil {
-			c.Assert(rAppName, gc.Equals, appName)
+			c.Assert(rAppName, tc.Equals, appName)
 			break
 		}
 		if !a.HasNext() {
@@ -105,7 +105,7 @@ func (m *MapperSuite) TestMapperAdditionSync(c *gc.C) {
 	}
 }
 
-func (m *MapperSuite) TestRBACMapperUpdateSync(c *gc.C) {
+func (m *MapperSuite) TestRBACMapperUpdateSync(c *tc.C) {
 	defer m.ctrl.Finish()
 	waitGroup := sync.WaitGroup{}
 	waitGroup.Add(1)
@@ -149,7 +149,7 @@ func (m *MapperSuite) TestRBACMapperUpdateSync(c *gc.C) {
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		rAppName, err := mapper.AppNameForServiceAccount(uid)
 		if err == nil {
-			c.Assert(rAppName, gc.Equals, appName)
+			c.Assert(rAppName, tc.Equals, appName)
 			break
 		}
 		if !a.HasNext() {
@@ -178,7 +178,7 @@ func (m *MapperSuite) TestRBACMapperUpdateSync(c *gc.C) {
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		rAppName, err := mapper.AppNameForServiceAccount(uid)
 		if err == nil {
-			c.Assert(rAppName, gc.Equals, appName)
+			c.Assert(rAppName, tc.Equals, appName)
 			break
 		}
 		if !a.HasNext() {
@@ -187,7 +187,7 @@ func (m *MapperSuite) TestRBACMapperUpdateSync(c *gc.C) {
 	}
 }
 
-func (m *MapperSuite) TestRBACMapperDeleteSync(c *gc.C) {
+func (m *MapperSuite) TestRBACMapperDeleteSync(c *tc.C) {
 	defer m.ctrl.Finish()
 	waitGroup := sync.WaitGroup{}
 	waitGroup.Add(1)
@@ -224,7 +224,7 @@ func (m *MapperSuite) TestRBACMapperDeleteSync(c *gc.C) {
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		rAppName, err := mapper.AppNameForServiceAccount(uid)
 		if err == nil {
-			c.Assert(rAppName, gc.Equals, appName)
+			c.Assert(rAppName, tc.Equals, appName)
 			break
 		}
 		if !a.HasNext() {
@@ -254,7 +254,7 @@ func (m *MapperSuite) TestRBACMapperDeleteSync(c *gc.C) {
 	}
 }
 
-func (m *MapperSuite) TestRBACMapperNotFound(c *gc.C) {
+func (m *MapperSuite) TestRBACMapperNotFound(c *tc.C) {
 	defer m.ctrl.Finish()
 	m.mockSharedIndexInformer.EXPECT().AddEventHandler(gomock.Any())
 

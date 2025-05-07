@@ -7,9 +7,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/testing"
@@ -55,7 +55,7 @@ type unitWorkersStub struct {
 	workerError error
 }
 
-func (s *unitWorkersStub) waitForStart(c *gc.C, unitName string) {
+func (s *unitWorkersStub) waitForStart(c *tc.C, unitName string) {
 	for {
 		select {
 		case unit := <-s.started:

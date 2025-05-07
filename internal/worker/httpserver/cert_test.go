@@ -9,9 +9,9 @@ import (
 	"net/url"
 
 	"github.com/juju/loggo/v2"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/logger"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -22,7 +22,7 @@ type certSuite struct {
 	workerFixture
 }
 
-var _ = gc.Suite(&certSuite{})
+var _ = tc.Suite(&certSuite{})
 
 func testSNIGetter(cert *tls.Certificate) httpserver.SNIGetterFunc {
 	return func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
@@ -30,7 +30,7 @@ func testSNIGetter(cert *tls.Certificate) httpserver.SNIGetterFunc {
 	}
 }
 
-func (s *certSuite) SetUpTest(c *gc.C) {
+func (s *certSuite) SetUpTest(c *tc.C) {
 	s.workerFixture.SetUpTest(c)
 	tlsConfig := httpserver.InternalNewTLSConfig(
 		"",
@@ -51,7 +51,7 @@ func (s *certSuite) handler(w http.ResponseWriter, _ *http.Request) {
 	_, _ = w.Write([]byte("yay"))
 }
 
-func (s *certSuite) TestAutocertFailure(c *gc.C) {
+func (s *certSuite) TestAutocertFailure(c *tc.C) {
 	// We don't have a fake autocert server, but we can at least
 	// smoke test that the autocert path is followed when we try
 	// to connect to a DNS name - the AutocertURL configured
@@ -82,7 +82,7 @@ func (s *certSuite) TestAutocertFailure(c *gc.C) {
 		expectedErr := `.*x509: certificate is valid for .*, not somewhere.example`
 		// We can't get an autocert certificate, so we'll fall back to the local certificate
 		// which isn't valid for connecting to somewhere.example.
-		c.Assert(err, gc.ErrorMatches, expectedErr)
+		c.Assert(err, tc.ErrorMatches, expectedErr)
 	})
 	// We will log the failure to get the certificate, thus assuring us that we actually tried.
 	c.Assert(entries, jc.LogMatches, jc.SimpleMessages{{
@@ -94,7 +94,7 @@ func (s *certSuite) TestAutocertFailure(c *gc.C) {
 	}})
 }
 
-func (s *certSuite) TestAutocertNoAutocertDNSName(c *gc.C) {
+func (s *certSuite) TestAutocertNoAutocertDNSName(c *tc.C) {
 	worker, err := httpserver.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, worker)
@@ -109,10 +109,10 @@ func (s *certSuite) TestAutocertNoAutocertDNSName(c *gc.C) {
 		expectedErr := `.*x509: certificate is valid for .*, not somewhere.example`
 		// We can't get an autocert certificate, so we'll fall back to the local certificate
 		// which isn't valid for connecting to somewhere.example.
-		c.Assert(err, gc.ErrorMatches, expectedErr)
+		c.Assert(err, tc.ErrorMatches, expectedErr)
 	})
 	// Check that we never logged a failure to get the certificate.
-	c.Assert(entries, gc.Not(jc.LogMatches), jc.SimpleMessages{{
+	c.Assert(entries, tc.Not(jc.LogMatches), jc.SimpleMessages{{
 		Level:   loggo.ERROR,
 		Message: `.*cannot get autocert certificate.*`,
 	}})

@@ -4,10 +4,10 @@
 package common_test
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/shell"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/service/common"
 )
@@ -18,16 +18,16 @@ type confSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&confSuite{})
+var _ = tc.Suite(&confSuite{})
 
-func (*confSuite) TestIsZeroTrue(c *gc.C) {
+func (*confSuite) TestIsZeroTrue(c *tc.C) {
 	var conf common.Conf
 	isZero := conf.IsZero()
 
 	c.Check(isZero, jc.IsTrue)
 }
 
-func (*confSuite) TestIsZero(c *gc.C) {
+func (*confSuite) TestIsZero(c *tc.C) {
 	conf := common.Conf{
 		Desc:      "some service",
 		ExecStart: "/path/to/some-command a b c",
@@ -37,7 +37,7 @@ func (*confSuite) TestIsZero(c *gc.C) {
 	c.Check(isZero, jc.IsFalse)
 }
 
-func (*confSuite) TestValidateOkay(c *gc.C) {
+func (*confSuite) TestValidateOkay(c *tc.C) {
 	conf := common.Conf{
 		Desc:      "some service",
 		ExecStart: "/path/to/some-command a b c",
@@ -47,7 +47,7 @@ func (*confSuite) TestValidateOkay(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (*confSuite) TestValidateSingleQuotedExecutable(c *gc.C) {
+func (*confSuite) TestValidateSingleQuotedExecutable(c *tc.C) {
 	conf := common.Conf{
 		Desc:      "some service",
 		ExecStart: "'/path/to/some-command' a b c",
@@ -57,7 +57,7 @@ func (*confSuite) TestValidateSingleQuotedExecutable(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (*confSuite) TestValidateDoubleQuotedExecutable(c *gc.C) {
+func (*confSuite) TestValidateDoubleQuotedExecutable(c *tc.C) {
 	conf := common.Conf{
 		Desc:      "some service",
 		ExecStart: `"/path/to/some-command" a b c`,
@@ -67,45 +67,45 @@ func (*confSuite) TestValidateDoubleQuotedExecutable(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (*confSuite) TestValidatePartiallyQuotedExecutable(c *gc.C) {
+func (*confSuite) TestValidatePartiallyQuotedExecutable(c *tc.C) {
 	conf := common.Conf{
 		Desc:      "some service",
 		ExecStart: "'/path/to/some-command a b c'",
 	}
 	err := conf.Validate(renderer)
 
-	c.Check(err, gc.ErrorMatches, `.*relative path in ExecStart \(.*`)
+	c.Check(err, tc.ErrorMatches, `.*relative path in ExecStart \(.*`)
 }
 
-func (*confSuite) TestValidateMissingDesc(c *gc.C) {
+func (*confSuite) TestValidateMissingDesc(c *tc.C) {
 	conf := common.Conf{
 		ExecStart: "/path/to/some-command a b c",
 	}
 	err := conf.Validate(renderer)
 
-	c.Check(err, gc.ErrorMatches, ".*missing Desc.*")
+	c.Check(err, tc.ErrorMatches, ".*missing Desc.*")
 }
 
-func (*confSuite) TestValidateMissingExecStart(c *gc.C) {
+func (*confSuite) TestValidateMissingExecStart(c *tc.C) {
 	conf := common.Conf{
 		Desc: "some service",
 	}
 	err := conf.Validate(renderer)
 
-	c.Check(err, gc.ErrorMatches, ".*missing ExecStart.*")
+	c.Check(err, tc.ErrorMatches, ".*missing ExecStart.*")
 }
 
-func (*confSuite) TestValidateRelativeExecStart(c *gc.C) {
+func (*confSuite) TestValidateRelativeExecStart(c *tc.C) {
 	conf := common.Conf{
 		Desc:      "some service",
 		ExecStart: "some-command a b c",
 	}
 	err := conf.Validate(renderer)
 
-	c.Check(err, gc.ErrorMatches, `.*relative path in ExecStart \(.*`)
+	c.Check(err, tc.ErrorMatches, `.*relative path in ExecStart \(.*`)
 }
 
-func (*confSuite) TestValidateRelativeExecStopPost(c *gc.C) {
+func (*confSuite) TestValidateRelativeExecStopPost(c *tc.C) {
 	conf := common.Conf{
 		Desc:         "some service",
 		ExecStart:    "/path/to/some-command a b c",
@@ -113,10 +113,10 @@ func (*confSuite) TestValidateRelativeExecStopPost(c *gc.C) {
 	}
 	err := conf.Validate(renderer)
 
-	c.Check(err, gc.ErrorMatches, `.*relative path in ExecStopPost \(.*`)
+	c.Check(err, tc.ErrorMatches, `.*relative path in ExecStopPost \(.*`)
 }
 
-func (*confSuite) TestGoodLimits(c *gc.C) {
+func (*confSuite) TestGoodLimits(c *tc.C) {
 	conf := common.Conf{
 		Desc:      "some service",
 		ExecStart: "/path/to/some-command a b c",
@@ -130,7 +130,7 @@ func (*confSuite) TestGoodLimits(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (*confSuite) TestLimitNotInt(c *gc.C) {
+func (*confSuite) TestLimitNotInt(c *tc.C) {
 	conf := common.Conf{
 		Desc:      "some service",
 		ExecStart: "/path/to/some-command a b c",
@@ -139,5 +139,5 @@ func (*confSuite) TestLimitNotInt(c *gc.C) {
 		},
 	}
 	err := conf.Validate(renderer)
-	c.Check(err, gc.ErrorMatches, `limit must be "infinity", "unlimited", or an integer, "42.5" not valid`)
+	c.Check(err, tc.ErrorMatches, `limit must be "infinity", "unlimited", or an integer, "42.5" not valid`)
 }

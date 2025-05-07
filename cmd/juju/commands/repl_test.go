@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/internal/cmd"
@@ -21,30 +21,30 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-var _ = gc.Suite(&ReplSuite{})
+var _ = tc.Suite(&ReplSuite{})
 
 type ReplSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-func (*ReplSuite) TestErrorNoControllersAtAll(c *gc.C) {
+func (*ReplSuite) TestErrorNoControllersAtAll(c *tc.C) {
 	r := &replCommand{store: jujuclient.NewMemStore()}
 
 	_, err := r.getPrompt()
-	c.Assert(errors.Cause(err), gc.Equals, modelcmd.ErrNoControllersDefined)
+	c.Assert(errors.Cause(err), tc.Equals, modelcmd.ErrNoControllersDefined)
 }
 
-func (*ReplSuite) TestPromptNoCurrentController(c *gc.C) {
+func (*ReplSuite) TestPromptNoCurrentController(c *tc.C) {
 	store := jujuclient.NewMemStore()
 	store.Controllers["somecontroller"] = jujuclient.ControllerDetails{}
 	r := &replCommand{store: store}
 
 	p, err := r.getPrompt()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p, gc.Equals, "$ ")
+	c.Assert(p, tc.Equals, "$ ")
 }
 
-func (*ReplSuite) TestPromptControllerNoLogin(c *gc.C) {
+func (*ReplSuite) TestPromptControllerNoLogin(c *tc.C) {
 	store := jujuclient.NewMemStore()
 	store.Controllers["somecontroller"] = jujuclient.ControllerDetails{}
 	store.CurrentControllerName = "somecontroller"
@@ -52,10 +52,10 @@ func (*ReplSuite) TestPromptControllerNoLogin(c *gc.C) {
 
 	p, err := r.getPrompt()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p, gc.Equals, "somecontroller$ ")
+	c.Assert(p, tc.Equals, "somecontroller$ ")
 }
 
-func (*ReplSuite) TestPromptControllerNoModel(c *gc.C) {
+func (*ReplSuite) TestPromptControllerNoModel(c *tc.C) {
 	store := jujuclient.NewMemStore()
 	store.Controllers["somecontroller"] = jujuclient.ControllerDetails{}
 	store.CurrentControllerName = "somecontroller"
@@ -64,10 +64,10 @@ func (*ReplSuite) TestPromptControllerNoModel(c *gc.C) {
 
 	p, err := r.getPrompt()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p, gc.Equals, "fred@somecontroller$ ")
+	c.Assert(p, tc.Equals, "fred@somecontroller$ ")
 }
 
-func (*ReplSuite) TestPromptControllerWithModel(c *gc.C) {
+func (*ReplSuite) TestPromptControllerWithModel(c *tc.C) {
 	store := jujuclient.NewMemStore()
 	store.Controllers["somecontroller"] = jujuclient.ControllerDetails{}
 	store.CurrentControllerName = "somecontroller"
@@ -79,10 +79,10 @@ func (*ReplSuite) TestPromptControllerWithModel(c *gc.C) {
 
 	p, err := r.getPrompt()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p, gc.Equals, "fred@somecontroller:test$ ")
+	c.Assert(p, tc.Equals, "fred@somecontroller:test$ ")
 }
 
-func (*ReplSuite) TestPromptControllerWithModelDifferentUser(c *gc.C) {
+func (*ReplSuite) TestPromptControllerWithModelDifferentUser(c *tc.C) {
 	store := jujuclient.NewMemStore()
 	store.Controllers["somecontroller"] = jujuclient.ControllerDetails{}
 	store.CurrentControllerName = "somecontroller"
@@ -94,10 +94,10 @@ func (*ReplSuite) TestPromptControllerWithModelDifferentUser(c *gc.C) {
 
 	p, err := r.getPrompt()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p, gc.Equals, "fred@somecontroller:mary/test$ ")
+	c.Assert(p, tc.Equals, "fred@somecontroller:mary/test$ ")
 }
 
-func (*ReplSuite) TestPromptControllerWithModelNoLogin(c *gc.C) {
+func (*ReplSuite) TestPromptControllerWithModelNoLogin(c *tc.C) {
 	store := jujuclient.NewMemStore()
 	store.Controllers["somecontroller"] = jujuclient.ControllerDetails{}
 	store.CurrentControllerName = "somecontroller"
@@ -108,21 +108,21 @@ func (*ReplSuite) TestPromptControllerWithModelNoLogin(c *gc.C) {
 
 	p, err := r.getPrompt()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p, gc.Equals, "somecontroller:test$ ")
+	c.Assert(p, tc.Equals, "somecontroller:test$ ")
 }
 
-func (s *ReplSuite) assertOutMatches(c *gc.C, out []byte, match string) {
+func (s *ReplSuite) assertOutMatches(c *tc.C, out []byte, match string) {
 	stripped := strings.Replace(string(out), "\n", "", -1)
-	c.Assert(stripped, gc.Matches, match)
+	c.Assert(stripped, tc.Matches, match)
 }
 
-func (s *ReplSuite) TestHelp(c *gc.C) {
+func (s *ReplSuite) TestHelp(c *tc.C) {
 	for _, arg := range []string{"-h", "--help", "help"} {
 		s.assertHelp(c, arg)
 	}
 }
 
-func (s *ReplSuite) assertHelp(c *gc.C, helpArg string) {
+func (s *ReplSuite) assertHelp(c *tc.C, helpArg string) {
 	f := func() {
 		// The jujuMain command is not designed to be run multiple times
 		// in a loop as it attempts to register the same writer thus
@@ -144,7 +144,7 @@ func (s *ReplSuite) assertHelp(c *gc.C, helpArg string) {
 		".*When run without arguments, Juju will enter an interactive shell.*")
 }
 
-func (s *ReplSuite) TestJujuCommandHelp(c *gc.C) {
+func (s *ReplSuite) TestJujuCommandHelp(c *tc.C) {
 	f := func() {
 		jujuMain{
 			execCommand: func(command string, args ...string) *exec.Cmd {
@@ -159,7 +159,7 @@ func (s *ReplSuite) TestJujuCommandHelp(c *gc.C) {
 		"Usage: juju status.*")
 }
 
-func (s *ReplSuite) TestRepl(c *gc.C) {
+func (s *ReplSuite) TestRepl(c *tc.C) {
 	store := jujuclient.NewMemStore()
 	store.Controllers["somecontroller"] = jujuclient.ControllerDetails{}
 	store.CurrentControllerName = "somecontroller"
@@ -183,14 +183,14 @@ func (s *ReplSuite) TestRepl(c *gc.C) {
 	}
 	err = r.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmds, gc.HasLen, 2)
+	c.Assert(cmds, tc.HasLen, 2)
 	c.Assert(cmds, jc.DeepEquals, []string{
 		"juju status --format yaml",
 		"juju controllers",
 	})
 }
 
-func (s *ReplSuite) TestMissingCommandHelp(c *gc.C) {
+func (s *ReplSuite) TestMissingCommandHelp(c *tc.C) {
 	store := jujuclient.NewMemStore()
 	store.Controllers["somecontroller"] = jujuclient.ControllerDetails{}
 	store.CurrentControllerName = "somecontroller"
@@ -210,7 +210,7 @@ func (s *ReplSuite) TestMissingCommandHelp(c *gc.C) {
 	}
 	err = r.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
 ERROR juju: "foo" is not a juju command. Type "help" to see a list of commands.
 
 Did you mean:
@@ -218,7 +218,7 @@ Did you mean:
 `[1:])
 }
 
-func (s *ReplSuite) TestNoControllersBootstrap(c *gc.C) {
+func (s *ReplSuite) TestNoControllersBootstrap(c *tc.C) {
 	var cmds []string
 	r := &replCommand{
 		store: jujuclient.NewMemStore(),
@@ -238,11 +238,11 @@ func (s *ReplSuite) TestNoControllersBootstrap(c *gc.C) {
 	}
 	err = r.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
 Please either create a new controller using "bootstrap" or connect to
 another controller that you have been given access to using "register".
 `[1:])
-	c.Assert(cmds, gc.HasLen, 1)
+	c.Assert(cmds, tc.HasLen, 1)
 	c.Assert(cmds, jc.DeepEquals, []string{
 		"juju bootstrap aws",
 	})

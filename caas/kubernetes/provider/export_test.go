@@ -7,8 +7,8 @@ import (
 	"context"
 	"sync"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -44,21 +44,21 @@ type (
 
 type ControllerStackerForTest interface {
 	controllerStacker
-	GetControllerAgentConfigContent(*gc.C) string
-	GetControllerUnitAgentConfigContent(*gc.C) string
+	GetControllerAgentConfigContent(*tc.C) string
+	GetControllerUnitAgentConfigContent(*tc.C) string
 	GetControllerUnitAgentPassword() string
-	GetSharedSecretAndSSLKey(*gc.C) (string, string)
+	GetSharedSecretAndSSLKey(*tc.C) (string, string)
 	GetStorageSize() resource.Quantity
 	GetControllerSvcSpec(string, *podcfg.BootstrapConfig) (*controllerServiceSpec, error)
 }
 
-func (cs *controllerStack) GetControllerAgentConfigContent(c *gc.C) string {
+func (cs *controllerStack) GetControllerAgentConfigContent(c *tc.C) string {
 	agentCfg, err := cs.agentConfig.Render()
 	c.Assert(err, jc.ErrorIsNil)
 	return string(agentCfg)
 }
 
-func (cs *controllerStack) GetControllerUnitAgentConfigContent(c *gc.C) string {
+func (cs *controllerStack) GetControllerUnitAgentConfigContent(c *tc.C) string {
 	agentCfg, err := cs.unitAgentConfig.Render()
 	c.Assert(err, jc.ErrorIsNil)
 	return string(agentCfg)
@@ -68,7 +68,7 @@ func (cs *controllerStack) GetControllerUnitAgentPassword() string {
 	return cs.unitAgentConfig.OldPassword()
 }
 
-func (cs *controllerStack) GetSharedSecretAndSSLKey(c *gc.C) (string, string) {
+func (cs *controllerStack) GetSharedSecretAndSSLKey(c *tc.C) (string, string) {
 	si, ok := cs.agentConfig.StateServingInfo()
 	c.Assert(ok, jc.IsTrue)
 	return si.SharedSecret, mongo.GenerateSSLKey(si.Cert, si.PrivateKey)

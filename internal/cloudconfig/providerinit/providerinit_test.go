@@ -8,9 +8,9 @@ import (
 	"path"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
-	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"
@@ -33,9 +33,9 @@ type CloudInitSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = gc.Suite(&CloudInitSuite{})
+var _ = tc.Suite(&CloudInitSuite{})
 
-func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
+func (s *CloudInitSuite) TestFinishInstanceConfig(c *tc.C) {
 
 	userTag := names.NewLocalUserTag("not-touched")
 
@@ -79,7 +79,7 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 	c.Assert(icfg, jc.DeepEquals, expectedMcfg)
 }
 
-func (s *CloudInitSuite) TestFinishInstanceConfigNonDefault(c *gc.C) {
+func (s *CloudInitSuite) TestFinishInstanceConfigNonDefault(c *tc.C) {
 	userTag := names.NewLocalUserTag("not-touched")
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"ssl-hostname-verification": false,
@@ -103,15 +103,15 @@ func (s *CloudInitSuite) TestFinishInstanceConfigNonDefault(c *gc.C) {
 	})
 }
 
-func (s *CloudInitSuite) TestUserData(c *gc.C) {
+func (s *CloudInitSuite) TestUserData(c *tc.C) {
 	s.testUserData(c, corebase.MakeDefaultBase("ubuntu", "22.04"), false)
 }
 
-func (s *CloudInitSuite) TestControllerUserData(c *gc.C) {
+func (s *CloudInitSuite) TestControllerUserData(c *tc.C) {
 	s.testUserData(c, corebase.MakeDefaultBase("ubuntu", "22.04"), true)
 }
 
-func (*CloudInitSuite) testUserData(c *gc.C, base corebase.Base, bootstrap bool) {
+func (*CloudInitSuite) testUserData(c *tc.C, base corebase.Base, bootstrap bool) {
 	// Use actual series paths instead of local defaults
 	logDir := paths.LogDir(paths.OSType(base.OS))
 	metricsSpoolDir := paths.MetricsSpoolDir(paths.OSType(base.OS))
@@ -228,12 +228,12 @@ func (*CloudInitSuite) testUserData(c *gc.C, base corebase.Base, bootstrap bool)
 		// ones we passed into ComposeUserData.
 		c.Check(config["package_upgrade"], jc.IsFalse)
 		runCmd := config["runcmd"].([]interface{})
-		c.Assert(runCmd[:4], gc.DeepEquals, []interface{}{
+		c.Assert(runCmd[:4], tc.DeepEquals, []interface{}{
 			`mkdir /tmp/preruncmd`,
 			`mkdir /tmp/preruncmd2`,
 			script1, script2,
 		})
-		c.Assert(runCmd[len(runCmd)-2:], gc.DeepEquals, []interface{}{
+		c.Assert(runCmd[len(runCmd)-2:], tc.DeepEquals, []interface{}{
 			`mkdir /tmp/postruncmd`,
 			`mkdir /tmp/postruncmd2`,
 		})

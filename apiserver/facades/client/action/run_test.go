@@ -7,10 +7,10 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/pkg/errors"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/action"
@@ -33,9 +33,9 @@ type runSuite struct {
 	client *action.ActionAPI
 }
 
-var _ = gc.Suite(&runSuite{})
+var _ = tc.Suite(&runSuite{})
 
-func (s *runSuite) TestBlockRunOnAllMachines(c *gc.C) {
+func (s *runSuite) TestBlockRunOnAllMachines(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// block all changes
@@ -49,7 +49,7 @@ func (s *runSuite) TestBlockRunOnAllMachines(c *gc.C) {
 	s.assertBlocked(c, err, "TestBlockRunOnAllMachines")
 }
 
-func (s *runSuite) TestBlockRunMachineAndApplication(c *gc.C) {
+func (s *runSuite) TestBlockRunMachineAndApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// block all changes
@@ -65,14 +65,14 @@ func (s *runSuite) TestBlockRunMachineAndApplication(c *gc.C) {
 	s.assertBlocked(c, err, "TestBlockRunMachineAndApplication")
 }
 
-func (s *runSuite) TestStub(c *gc.C) {
+func (s *runSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 Running juju-exec with machine, application and unit targets.
 Running juju-exec against all machines.
 `)
 }
 
-func (s *runSuite) TestRunRequiresAdmin(c *gc.C) {
+func (s *runSuite) TestRunRequiresAdmin(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
@@ -96,7 +96,7 @@ func (s *runSuite) TestRunRequiresAdmin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *runSuite) TestRunOnAllMachinesRequiresAdmin(c *gc.C) {
+func (s *runSuite) TestRunOnAllMachinesRequiresAdmin(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := modeltesting.GenModelUUID(c)
@@ -122,7 +122,7 @@ func (s *runSuite) TestRunOnAllMachinesRequiresAdmin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *runSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *runSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.blockCommandService = action.NewMockBlockCommandService(ctrl)
@@ -140,14 +140,14 @@ func (s *runSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *runSuite) assertBlocked(c *gc.C, err error, msg string) {
-	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue, gc.Commentf("error: %#v", err))
-	c.Assert(errors.Cause(err), gc.DeepEquals, &params.Error{
+func (s *runSuite) assertBlocked(c *tc.C, err error, msg string) {
+	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue, tc.Commentf("error: %#v", err))
+	c.Assert(errors.Cause(err), tc.DeepEquals, &params.Error{
 		Message: msg,
 		Code:    "operation is blocked",
 	})
 }
 
-func (s *runSuite) blockAllChanges(c *gc.C, msg string) {
+func (s *runSuite) blockAllChanges(c *tc.C, msg string) {
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return(msg, nil)
 }

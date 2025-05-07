@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/juju/pubsub/v2"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/internal/pubsub/apiserver"
@@ -28,7 +28,7 @@ func TestPackage(t *stdtesting.T) {
 	coretesting.MgoSSLTestPackage(t)
 }
 
-func readAuditLog(c *gc.C, logPath string) []auditlog.Record {
+func readAuditLog(c *tc.C, logPath string) []auditlog.Record {
 	file, err := os.Open(logPath)
 	c.Assert(err, jc.ErrorIsNil)
 	defer file.Close()
@@ -58,10 +58,10 @@ func (w *nullWorker) Wait() error {
 }
 
 type cleanupSuite interface {
-	AddCleanup(func(*gc.C))
+	AddCleanup(func(*tc.C))
 }
 
-func startAddressPublisher(suite cleanupSuite, c *gc.C, agent *MachineAgent) {
+func startAddressPublisher(suite cleanupSuite, c *tc.C, agent *MachineAgent) {
 	// Start publishing a test API address on the central hub so that
 	// dependent workers can start. The other way of unblocking them
 	// would be to get the peergrouper healthy, but that has proved
@@ -95,5 +95,5 @@ func startAddressPublisher(suite cleanupSuite, c *gc.C, agent *MachineAgent) {
 			}
 		}
 	}()
-	suite.AddCleanup(func(c *gc.C) { close(stop) })
+	suite.AddCleanup(func(c *tc.C) { close(stop) })
 }

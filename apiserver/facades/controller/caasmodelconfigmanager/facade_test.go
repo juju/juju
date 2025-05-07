@@ -4,22 +4,22 @@
 package caasmodelconfigmanager_test
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/controller/caasmodelconfigmanager"
 	"github.com/juju/juju/apiserver/facades/controller/caasmodelconfigmanager/mocks"
 )
 
-var _ = gc.Suite(&caasmodelconfigmanagerSuite{})
+var _ = tc.Suite(&caasmodelconfigmanagerSuite{})
 
 type caasmodelconfigmanagerSuite struct {
 	testing.IsolationSuite
 }
 
-func (s *caasmodelconfigmanagerSuite) TestAuth(c *gc.C) {
+func (s *caasmodelconfigmanagerSuite) TestAuth(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -29,5 +29,5 @@ func (s *caasmodelconfigmanagerSuite) TestAuth(c *gc.C) {
 	_, err := caasmodelconfigmanager.NewFacade(facadetest.ModelContext{
 		Auth_: authorizer,
 	})
-	c.Assert(err, gc.ErrorMatches, `permission denied`)
+	c.Assert(err, tc.ErrorMatches, `permission denied`)
 }

@@ -10,10 +10,10 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine/enginetest"
@@ -32,10 +32,10 @@ type MachineManifoldSuite struct {
 
 var (
 	defaultClockStart time.Time
-	_                 = gc.Suite(&MachineManifoldSuite{})
+	_                 = tc.Suite(&MachineManifoldSuite{})
 )
 
-func (s *MachineManifoldSuite) SetUpTest(c *gc.C) {
+func (s *MachineManifoldSuite) SetUpTest(c *tc.C) {
 	s.newCalled = false
 	s.PatchValue(&storageprovisioner.NewStorageProvisioner,
 		func(config storageprovisioner.Config) (worker.Worker, error) {
@@ -52,7 +52,7 @@ func (s *MachineManifoldSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *MachineManifoldSuite) TestMachine(c *gc.C) {
+func (s *MachineManifoldSuite) TestMachine(c *tc.C) {
 	_, err := enginetest.RunAgentAPIManifold(
 		storageprovisioner.MachineManifold(s.config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
@@ -61,34 +61,34 @@ func (s *MachineManifoldSuite) TestMachine(c *gc.C) {
 	c.Assert(s.newCalled, jc.IsTrue)
 }
 
-func (s *MachineManifoldSuite) TestMissingClock(c *gc.C) {
+func (s *MachineManifoldSuite) TestMissingClock(c *tc.C) {
 	s.config.Clock = nil
 	_, err := enginetest.RunAgentAPIManifold(
 		storageprovisioner.MachineManifold(s.config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
 		&fakeAPIConn{})
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
-	c.Assert(err.Error(), gc.Equals, "missing Clock not valid")
+	c.Assert(err.Error(), tc.Equals, "missing Clock not valid")
 	c.Assert(s.newCalled, jc.IsFalse)
 }
 
-func (s *MachineManifoldSuite) TestMissingLogger(c *gc.C) {
+func (s *MachineManifoldSuite) TestMissingLogger(c *tc.C) {
 	s.config.Logger = nil
 	_, err := enginetest.RunAgentAPIManifold(
 		storageprovisioner.MachineManifold(s.config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
 		&fakeAPIConn{})
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
-	c.Assert(err.Error(), gc.Equals, "missing Logger not valid")
+	c.Assert(err.Error(), tc.Equals, "missing Logger not valid")
 	c.Assert(s.newCalled, jc.IsFalse)
 }
 
-func (s *MachineManifoldSuite) TestNonAgent(c *gc.C) {
+func (s *MachineManifoldSuite) TestNonAgent(c *tc.C) {
 	_, err := enginetest.RunAgentAPIManifold(
 		storageprovisioner.MachineManifold(s.config),
 		&fakeAgent{tag: names.NewUserTag("foo")},
 		&fakeAPIConn{})
-	c.Assert(err, gc.ErrorMatches, "this manifold may only be used inside a machine agent")
+	c.Assert(err, tc.ErrorMatches, "this manifold may only be used inside a machine agent")
 	c.Assert(s.newCalled, jc.IsFalse)
 }
 

@@ -4,17 +4,17 @@
 package instance_test
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
 )
 
 type PlacementSuite struct{}
 
-var _ = gc.Suite(&PlacementSuite{})
+var _ = tc.Suite(&PlacementSuite{})
 
-func (s *PlacementSuite) TestParsePlacement(c *gc.C) {
+func (s *PlacementSuite) TestParsePlacement(c *tc.C) {
 	parsePlacementTests := []struct {
 		arg                          string
 		expectScope, expectDirective string
@@ -58,14 +58,14 @@ func (s *PlacementSuite) TestParsePlacement(c *gc.C) {
 		c.Logf("test %d: %s", i, t.arg)
 		p, err := instance.ParsePlacement(t.arg)
 		if t.err != "" {
-			c.Assert(err, gc.ErrorMatches, t.err)
+			c.Assert(err, tc.ErrorMatches, t.err)
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		if t.expectScope == "" && t.expectDirective == "" {
-			c.Assert(p, gc.IsNil)
+			c.Assert(p, tc.IsNil)
 		} else {
-			c.Assert(p, gc.DeepEquals, &instance.Placement{
+			c.Assert(p, tc.DeepEquals, &instance.Placement{
 				Scope:     t.expectScope,
 				Directive: t.expectDirective,
 			})

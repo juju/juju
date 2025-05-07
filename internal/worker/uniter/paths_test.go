@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
@@ -21,7 +21,7 @@ type PathsSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&PathsSuite{})
+var _ = tc.Suite(&PathsSuite{})
 
 func relPathFunc(base string) func(parts ...string) string {
 	return func(parts ...string) string {
@@ -30,7 +30,7 @@ func relPathFunc(base string) func(parts ...string) string {
 	}
 }
 
-func (s *PathsSuite) TestOther(c *gc.C) {
+func (s *PathsSuite) TestOther(c *tc.C) {
 	s.PatchValue(&jujuos.HostOS, func() ostype.OSType { return ostype.Unknown })
 
 	dataDir := c.MkDir()
@@ -60,7 +60,7 @@ func (s *PathsSuite) TestOther(c *gc.C) {
 	})
 }
 
-func (s *PathsSuite) TestWorkerPaths(c *gc.C) {
+func (s *PathsSuite) TestWorkerPaths(c *tc.C) {
 	s.PatchValue(&jujuos.HostOS, func() ostype.OSType { return ostype.Unknown })
 
 	dataDir := c.MkDir()
@@ -89,7 +89,7 @@ func (s *PathsSuite) TestWorkerPaths(c *gc.C) {
 	})
 }
 
-func (s *PathsSuite) TestContextInterface(c *gc.C) {
+func (s *PathsSuite) TestContextInterface(c *tc.C) {
 	paths := uniter.Paths{
 		ToolsDir: "/path/to/tools",
 		Runtime: uniter.RuntimePaths{
@@ -100,8 +100,8 @@ func (s *PathsSuite) TestContextInterface(c *gc.C) {
 			MetricsSpoolDir: "/path/to/spool/metrics",
 		},
 	}
-	c.Assert(paths.GetToolsDir(), gc.Equals, "/path/to/tools")
-	c.Assert(paths.GetCharmDir(), gc.Equals, "/path/to/charm")
-	c.Assert(paths.GetJujucServerSocket(), gc.DeepEquals, sockets.Socket{Address: "/path/to/socket", Network: "unix"})
-	c.Assert(paths.GetMetricsSpoolDir(), gc.Equals, "/path/to/spool/metrics")
+	c.Assert(paths.GetToolsDir(), tc.Equals, "/path/to/tools")
+	c.Assert(paths.GetCharmDir(), tc.Equals, "/path/to/charm")
+	c.Assert(paths.GetJujucServerSocket(), tc.DeepEquals, sockets.Socket{Address: "/path/to/socket", Network: "unix"})
+	c.Assert(paths.GetMetricsSpoolDir(), tc.Equals, "/path/to/spool/metrics")
 }

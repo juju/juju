@@ -6,9 +6,9 @@ package cmd_test
 import (
 	"context"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	environscmd "github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/internal/cmd"
@@ -18,14 +18,14 @@ type contextSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&contextSuite{})
+var _ = tc.Suite(&contextSuite{})
 
-func (s *contextSuite) TestBootstrapContext(c *gc.C) {
+func (s *contextSuite) TestBootstrapContext(c *tc.C) {
 	ctx := environscmd.BootstrapContext(context.Background(), &cmd.Context{})
 	c.Assert(ctx.ShouldVerifyCredentials(), jc.IsTrue)
 }
 
-func (s *contextSuite) TestBootstrapContextNoVerify(c *gc.C) {
+func (s *contextSuite) TestBootstrapContextNoVerify(c *tc.C) {
 	ctx := environscmd.BootstrapContextNoVerify(context.Background(), &cmd.Context{})
 	c.Assert(ctx.ShouldVerifyCredentials(), jc.IsFalse)
 }

@@ -11,9 +11,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/webbrowser"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/cmd/juju/dashboard"
@@ -48,7 +48,7 @@ func (m *mockControllerAPI) Close() error {
 }
 
 // run executes the dashboard command passing the given args.
-func (s *baseDashboardSuite) run(c *gc.C, args ...string) (string, error) {
+func (s *baseDashboardSuite) run(c *tc.C, args ...string) (string, error) {
 	ctx, err := cmdtesting.RunCommand(c, dashboard.NewDashboardCommandForTest(s.store, s.controllerAPI, s.signalCh, s.sshCmd), args...)
 	return strings.Trim(cmdtesting.Stderr(ctx), "\n"), err
 }
@@ -70,9 +70,9 @@ type dashboardSuite struct {
 	baseDashboardSuite
 }
 
-var _ = gc.Suite(&dashboardSuite{})
+var _ = tc.Suite(&dashboardSuite{})
 
-func (s *dashboardSuite) SetUpTest(c *gc.C) {
+func (s *dashboardSuite) SetUpTest(c *tc.C) {
 	s.signalCh = make(chan os.Signal, 1)
 
 	s.tunnelProxier = proxytesting.NewMockTunnelProxier()
@@ -99,7 +99,7 @@ func (s *dashboardSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *dashboardSuite) TestDashboardSuccessWithBrowser(c *gc.C) {
+func (s *dashboardSuite) TestDashboardSuccessWithBrowser(c *tc.C) {
 	var browserURL string
 	s.patchBrowser(func(u *url.URL) error {
 		browserURL = u.String()
@@ -109,11 +109,11 @@ func (s *dashboardSuite) TestDashboardSuccessWithBrowser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	dashboardURL := "http://10.1.1.1:6767"
 	expectOut := "Opening the Juju Dashboard in your browser.\nIf it does not open, open this URL:\n" + dashboardURL + "\nReceived signal interrupt, stopping dashboard proxy connection"
-	c.Assert(out, gc.Equals, expectOut)
-	c.Assert(browserURL, gc.Equals, dashboardURL)
+	c.Assert(out, tc.Equals, expectOut)
+	c.Assert(browserURL, tc.Equals, dashboardURL)
 }
 
-func (s *dashboardSuite) TestDashboardSuccessWithCredential(c *gc.C) {
+func (s *dashboardSuite) TestDashboardSuccessWithCredential(c *tc.C) {
 	s.patchBrowser(nil)
 	out, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
@@ -123,14 +123,14 @@ Your login credential is:
   password: s3kret!`[1:])
 }
 
-func (s *dashboardSuite) TestDashboardSuccessNoCredential(c *gc.C) {
+func (s *dashboardSuite) TestDashboardSuccessNoCredential(c *tc.C) {
 	s.patchBrowser(nil)
 	out, err := s.run(c, "--hide-credential")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, gc.Not(jc.Contains), "Password")
+	c.Assert(out, tc.Not(jc.Contains), "Password")
 }
 
-func (s *dashboardSuite) TestDashboardSuccessNoBrowser(c *gc.C) {
+func (s *dashboardSuite) TestDashboardSuccessNoBrowser(c *tc.C) {
 	// There is no need to patch the browser open function here.
 	out, err := s.run(c, "--hide-credential")
 	c.Assert(err, jc.ErrorIsNil)
@@ -139,7 +139,7 @@ Dashboard for controller "kontroll" is enabled at:
   http://10.1.1.1:6767`[1:])
 }
 
-func (s *dashboardSuite) TestDashboardSuccessBrowserNotFound(c *gc.C) {
+func (s *dashboardSuite) TestDashboardSuccessBrowserNotFound(c *tc.C) {
 	s.patchBrowser(func(u *url.URL) error {
 		return webbrowser.ErrNoBrowser
 	})
@@ -149,18 +149,18 @@ func (s *dashboardSuite) TestDashboardSuccessBrowserNotFound(c *gc.C) {
 	c.Assert(out, jc.Contains, expectOut)
 }
 
-func (s *dashboardSuite) TestDashboardErrorBrowser(c *gc.C) {
+func (s *dashboardSuite) TestDashboardErrorBrowser(c *tc.C) {
 	s.patchBrowser(func(u *url.URL) error {
 		return errors.New("bad wolf")
 	})
 	_, err := s.run(c, "--browser")
-	c.Assert(err, gc.ErrorMatches, "cannot open web browser: bad wolf")
+	c.Assert(err, tc.ErrorMatches, "cannot open web browser: bad wolf")
 }
 
-func (s *dashboardSuite) TestDashboardErrorUnavailable(c *gc.C) {
+func (s *dashboardSuite) TestDashboardErrorUnavailable(c *tc.C) {
 	s.controllerAPI.err = errors.NotFoundf("dashboard")
 	_, err := s.run(c, "--browser")
-	c.Assert(err, gc.ErrorMatches, `
+	c.Assert(err, tc.ErrorMatches, `
 The Juju dashboard is not yet deployed.
 To deploy the Juju dashboard, follow these steps:
   juju switch controller
@@ -170,14 +170,14 @@ To deploy the Juju dashboard, follow these steps:
 `[1:])
 }
 
-func (s *dashboardSuite) TestDashboardError(c *gc.C) {
+func (s *dashboardSuite) TestDashboardError(c *tc.C) {
 	s.controllerAPI.err = errors.New("bad wolf")
 	out, err := s.run(c, "--browser")
-	c.Assert(err, gc.ErrorMatches, `getting dashboard address for controller "kontroll": bad wolf`)
-	c.Assert(out, gc.Equals, "")
+	c.Assert(err, tc.ErrorMatches, `getting dashboard address for controller "kontroll": bad wolf`)
+	c.Assert(out, tc.Equals, "")
 }
 
-func (s *dashboardSuite) TestResolveSSHTarget(c *gc.C) {
+func (s *dashboardSuite) TestResolveSSHTarget(c *tc.C) {
 	s.testResolveSSHTarget(c,
 		&controller.DashboardConnectionSSHTunnel{
 			Model:  "c:controller",
@@ -189,7 +189,7 @@ func (s *dashboardSuite) TestResolveSSHTarget(c *gc.C) {
 		[]string{"dashboard/leader", "-N", "-L", "31666:10.35.42.151:8080"})
 }
 
-func (s *dashboardSuite) TestResolveSSHTargetLegacy(c *gc.C) {
+func (s *dashboardSuite) TestResolveSSHTargetLegacy(c *tc.C) {
 	s.testResolveSSHTarget(c,
 		&controller.DashboardConnectionSSHTunnel{
 			Host: "10.35.42.151",
@@ -200,7 +200,7 @@ func (s *dashboardSuite) TestResolveSSHTargetLegacy(c *gc.C) {
 }
 
 func (s *dashboardSuite) testResolveSSHTarget(
-	c *gc.C, sshTunnel *controller.DashboardConnectionSSHTunnel, model string, args []string) {
+	c *tc.C, sshTunnel *controller.DashboardConnectionSSHTunnel, model string, args []string) {
 
 	s.controllerAPI = &mockControllerAPI{
 		info: controller.DashboardConnectionInfo{
@@ -212,8 +212,8 @@ func (s *dashboardSuite) testResolveSSHTarget(
 
 	_, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(fakeSSHCmd.model, gc.Equals, model)
-	c.Check(fakeSSHCmd.args, gc.DeepEquals, args)
+	c.Check(fakeSSHCmd.model, tc.Equals, model)
+	c.Check(fakeSSHCmd.args, tc.DeepEquals, args)
 }
 
 func newFakeSSHCmd() *fakeSSHCmd {

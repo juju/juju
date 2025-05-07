@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/trace"
@@ -25,9 +25,9 @@ type CrossSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&CrossSuite{})
+var _ = tc.Suite(&CrossSuite{})
 
-func (s *CrossSuite) testClaims(c *gc.C, lease1, lease2 corelease.Key) {
+func (s *CrossSuite) testClaims(c *tc.C, lease1, lease2 corelease.Key) {
 	fix := Fixture{
 		expectCalls: []call{{
 			method: "ClaimLease",
@@ -67,25 +67,25 @@ func (s *CrossSuite) testClaims(c *gc.C, lease1, lease2 corelease.Key) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		err = claimer1.Claim(lease1.Lease, "lord-summerisle", time.Minute)
-		c.Assert(err, gc.Equals, corelease.ErrClaimDenied)
+		c.Assert(err, tc.Equals, corelease.ErrClaimDenied)
 	})
 }
 
-func (s *CrossSuite) TestClaimAcrossNamespaces(c *gc.C) {
+func (s *CrossSuite) TestClaimAcrossNamespaces(c *tc.C) {
 	s.testClaims(c,
 		key("ns1", "model", "summerisle"),
 		key("ns2", "model", "summerisle"),
 	)
 }
 
-func (s *CrossSuite) TestClaimAcrossModels(c *gc.C) {
+func (s *CrossSuite) TestClaimAcrossModels(c *tc.C) {
 	s.testClaims(c,
 		key("ns", "model1", "summerisle"),
 		key("ns", "model2", "summerisle"),
 	)
 }
 
-func (s *CrossSuite) testWaits(c *gc.C, lease1, lease2 corelease.Key) {
+func (s *CrossSuite) testWaits(c *tc.C, lease1, lease2 corelease.Key) {
 	fix := Fixture{
 		leases: map[corelease.Key]corelease.Info{
 			lease1: {
@@ -113,21 +113,21 @@ func (s *CrossSuite) testWaits(c *gc.C, lease1, lease2 corelease.Key) {
 	})
 }
 
-func (s *CrossSuite) TestWaitAcrossNamespaces(c *gc.C) {
+func (s *CrossSuite) TestWaitAcrossNamespaces(c *tc.C) {
 	s.testWaits(c,
 		key("ns1", "model", "summerisle"),
 		key("ns2", "model", "summerisle"),
 	)
 }
 
-func (s *CrossSuite) TestWaitAcrossModels(c *gc.C) {
+func (s *CrossSuite) TestWaitAcrossModels(c *tc.C) {
 	s.testWaits(c,
 		key("ns", "model1", "summerisle"),
 		key("ns", "model2", "summerisle"),
 	)
 }
 
-func (s *CrossSuite) testChecks(c *gc.C, lease1, lease2 corelease.Key) {
+func (s *CrossSuite) testChecks(c *tc.C, lease1, lease2 corelease.Key) {
 	fix := Fixture{
 		leases: map[corelease.Key]corelease.Info{
 			lease1: {
@@ -143,29 +143,29 @@ func (s *CrossSuite) testChecks(c *gc.C, lease1, lease2 corelease.Key) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		t1 := checker1.Token(lease1.Lease, "sgt-howie")
-		c.Assert(t1.Check(), gc.Equals, nil)
+		c.Assert(t1.Check(), tc.Equals, nil)
 
 		t2 := checker2.Token(lease2.Lease, "sgt-howie")
 		err = t2.Check()
-		c.Assert(errors.Cause(err), gc.Equals, corelease.ErrNotHeld)
+		c.Assert(errors.Cause(err), tc.Equals, corelease.ErrNotHeld)
 	})
 }
 
-func (s *CrossSuite) TestCheckAcrossNamespaces(c *gc.C) {
+func (s *CrossSuite) TestCheckAcrossNamespaces(c *tc.C) {
 	s.testChecks(c,
 		key("ns1", "model", "summerisle"),
 		key("ns2", "model", "summerisle"),
 	)
 }
 
-func (s *CrossSuite) TestCheckAcrossModels(c *gc.C) {
+func (s *CrossSuite) TestCheckAcrossModels(c *tc.C) {
 	s.testChecks(c,
 		key("ns", "model1", "summerisle"),
 		key("ns", "model2", "summerisle"),
 	)
 }
 
-func (s *CrossSuite) TestDifferentNamespaceValidation(c *gc.C) {
+func (s *CrossSuite) TestDifferentNamespaceValidation(c *tc.C) {
 	clock := testclock.NewClock(defaultClockStart)
 	store := NewStore(nil, nil, clock)
 	manager, err := lease.NewManager(lease.ManagerConfig{
@@ -195,17 +195,17 @@ func (s *CrossSuite) TestDifferentNamespaceValidation(c *gc.C) {
 	defer store.Wait(c)
 
 	_, err = manager.Claimer("something-else", "model")
-	c.Assert(err, gc.ErrorMatches, "bad namespace!")
+	c.Assert(err, tc.ErrorMatches, "bad namespace!")
 
 	c1, err := manager.Claimer("ns1", "model")
 	c.Assert(err, jc.ErrorIsNil)
 	err = c1.Claim("INVALID", "sgt-howie", time.Minute)
-	c.Assert(err, gc.ErrorMatches, `cannot claim lease "INVALID": name not valid`)
+	c.Assert(err, tc.ErrorMatches, `cannot claim lease "INVALID": name not valid`)
 
 	c2, err := manager.Claimer("ns2", "model")
 	c.Assert(err, jc.ErrorIsNil)
 	err = c2.Claim("INVALID", "sgt-howie", time.Minute)
-	c.Assert(err, gc.ErrorMatches, `cannot claim lease "INVALID": lease name not valid`)
+	c.Assert(err, tc.ErrorMatches, `cannot claim lease "INVALID": lease name not valid`)
 }
 
 type OtherSecretary struct{}

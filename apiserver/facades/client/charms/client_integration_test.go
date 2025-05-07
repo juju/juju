@@ -6,8 +6,8 @@ package charms_test
 import (
 	"fmt"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/core/permission"
@@ -25,9 +25,9 @@ type clientMacaroonIntegrationSuite struct {
 	jujutesting.MacaroonSuite
 }
 
-var _ = gc.Suite(&clientMacaroonIntegrationSuite{})
+var _ = tc.Suite(&clientMacaroonIntegrationSuite{})
 
-func (s *clientMacaroonIntegrationSuite) createTestClient(c *gc.C) *charms.LocalCharmClient {
+func (s *clientMacaroonIntegrationSuite) createTestClient(c *tc.C) *charms.LocalCharmClient {
 	username := usertesting.GenNewName(c, "testuser@somewhere")
 	s.AddModelUser(c, username)
 	s.AddControllerUser(c, username, permission.LoginAccess)
@@ -44,13 +44,13 @@ func (s *clientMacaroonIntegrationSuite) createTestClient(c *gc.C) *charms.Local
 	return charmClient
 }
 
-func (s *clientMacaroonIntegrationSuite) TestStub(c *gc.C) {
+func (s *clientMacaroonIntegrationSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - Deploying a local charm using a macaroon
 `)
 }
 
-func (s *clientMacaroonIntegrationSuite) TestAddLocalCharmWithFailedDischarge(c *gc.C) {
+func (s *clientMacaroonIntegrationSuite) TestAddLocalCharmWithFailedDischarge(c *tc.C) {
 	charmClient := s.createTestClient(c)
 	s.DischargerLogin = func() string { return "" }
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
@@ -58,6 +58,6 @@ func (s *clientMacaroonIntegrationSuite) TestAddLocalCharmWithFailedDischarge(c 
 		fmt.Sprintf("local:%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
 	savedURL, err := charmClient.AddLocalCharm(curl, charmArchive, false, jujuversion.Current)
-	c.Assert(err, gc.ErrorMatches, `Put https://.+: cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
-	c.Assert(savedURL, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `Put https://.+: cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
+	c.Assert(savedURL, tc.IsNil)
 }

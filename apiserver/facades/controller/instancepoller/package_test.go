@@ -6,14 +6,14 @@ package instancepoller
 import (
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/state"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package instancepoller_test -destination service_mock_test.go github.com/juju/juju/apiserver/facades/controller/instancepoller ControllerConfigService,NetworkService,MachineService
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type Patcher interface {

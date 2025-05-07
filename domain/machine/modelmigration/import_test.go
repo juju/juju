@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
@@ -23,9 +23,9 @@ type importSuite struct {
 	service     *MockImportService
 }
 
-var _ = gc.Suite(&importSuite{})
+var _ = tc.Suite(&importSuite{})
 
-func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.coordinator = NewMockCoordinator(ctrl)
@@ -34,14 +34,14 @@ func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *importSuite) newImportOperation(c *gc.C) *importOperation {
+func (s *importSuite) newImportOperation(c *tc.C) *importOperation {
 	return &importOperation{
 		service: s.service,
 		logger:  loggertesting.WrapCheckLog(c),
 	}
 }
 
-func (s *importSuite) TestRegisterImport(c *gc.C) {
+func (s *importSuite) TestRegisterImport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.coordinator.EXPECT().Add(gomock.Any())
@@ -49,7 +49,7 @@ func (s *importSuite) TestRegisterImport(c *gc.C) {
 	RegisterImport(s.coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 }
 
-func (s *importSuite) TestNoMachines(c *gc.C) {
+func (s *importSuite) TestNoMachines(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Empty model.
@@ -60,7 +60,7 @@ func (s *importSuite) TestNoMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *importSuite) TestImport(c *gc.C) {
+func (s *importSuite) TestImport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{})
@@ -74,7 +74,7 @@ func (s *importSuite) TestImport(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *importSuite) TestFailImportMachineWithoutCloudInstance(c *gc.C) {
+func (s *importSuite) TestFailImportMachineWithoutCloudInstance(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{})
@@ -87,10 +87,10 @@ func (s *importSuite) TestFailImportMachineWithoutCloudInstance(c *gc.C) {
 
 	op := s.newImportOperation(c)
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, gc.ErrorMatches, "importing machine(.*)boom")
+	c.Assert(err, tc.ErrorMatches, "importing machine(.*)boom")
 }
 
-func (s *importSuite) TestImportMachineWithoutCloudInstance(c *gc.C) {
+func (s *importSuite) TestImportMachineWithoutCloudInstance(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{})
@@ -105,7 +105,7 @@ func (s *importSuite) TestImportMachineWithoutCloudInstance(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *importSuite) TestFailImportMachineWithCloudInstance(c *gc.C) {
+func (s *importSuite) TestFailImportMachineWithCloudInstance(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{})
@@ -151,10 +151,10 @@ func (s *importSuite) TestFailImportMachineWithCloudInstance(c *gc.C) {
 
 	op := s.newImportOperation(c)
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, gc.ErrorMatches, "importing machine cloud instance(.*)boom")
+	c.Assert(err, tc.ErrorMatches, "importing machine cloud instance(.*)boom")
 }
 
-func (s *importSuite) TestImportMachineWithCloudInstance(c *gc.C) {
+func (s *importSuite) TestImportMachineWithCloudInstance(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{})

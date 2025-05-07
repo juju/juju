@@ -6,7 +6,7 @@ package relation
 import (
 	stdcontext "context"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -27,7 +27,7 @@ type StateTrackerForTestConfig struct {
 	RemoteAppName     map[int]string
 }
 
-func NewStateTrackerForTest(c *gc.C, cfg StateTrackerForTestConfig) (RelationStateTracker, error) {
+func NewStateTrackerForTest(c *tc.C, cfg StateTrackerForTestConfig) (RelationStateTracker, error) {
 	rst := &relationStateTracker{
 		client:          cfg.Client,
 		unit:            cfg.Unit,
@@ -48,7 +48,7 @@ func NewStateTrackerForTest(c *gc.C, cfg StateTrackerForTestConfig) (RelationSta
 	return rst, err
 }
 
-func NewStateTrackerForSyncScopesTest(c *gc.C, cfg StateTrackerForTestConfig) (RelationStateTracker, error) {
+func NewStateTrackerForSyncScopesTest(c *tc.C, cfg StateTrackerForTestConfig) (RelationStateTracker, error) {
 	return &relationStateTracker{
 		client:          cfg.Client,
 		unit:            cfg.Unit,

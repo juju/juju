@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -31,12 +31,12 @@ type BaseSuite struct {
 	mockSecrets             *mocks.MockSecretInterface
 }
 
-func (s *BaseSuite) SetUpSuite(c *gc.C) {
+func (s *BaseSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.namespace = "test"
 }
 
-func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
+func (s *BaseSuite) setupBroker(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.k8sClient = mocks.NewMockInterface(ctrl)
 

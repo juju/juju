@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/core/semversion"
@@ -16,9 +16,9 @@ import (
 
 type suite struct{}
 
-var _ = gc.Suite(&suite{})
+var _ = tc.Suite(&suite{})
 
-func (*suite) TestCompare(c *gc.C) {
+func (*suite) TestCompare(c *tc.C) {
 	cmpTests := []struct {
 		v1, v2  string
 		compare int
@@ -53,15 +53,15 @@ func (*suite) TestCompare(c *gc.C) {
 		v2, err := semversion.Parse(test.v2)
 		c.Assert(err, jc.ErrorIsNil)
 		compare := v1.Compare(v2)
-		c.Check(compare, gc.Equals, test.compare)
+		c.Check(compare, tc.Equals, test.compare)
 		// Check that reversing the operands has
 		// the expected result.
 		compare = v2.Compare(v1)
-		c.Check(compare, gc.Equals, -test.compare)
+		c.Check(compare, tc.Equals, -test.compare)
 	}
 }
 
-func (*suite) TestCompareAfterPatched(c *gc.C) {
+func (*suite) TestCompareAfterPatched(c *tc.C) {
 	cmpTests := []struct {
 		v1, v2  string
 		compare int
@@ -96,11 +96,11 @@ func (*suite) TestCompareAfterPatched(c *gc.C) {
 		v2, err := semversion.Parse(test.v2)
 		c.Assert(err, jc.ErrorIsNil)
 		compare := v1.ToPatch().Compare(v2)
-		c.Check(compare, gc.Equals, test.compare)
+		c.Check(compare, tc.Equals, test.compare)
 		// Check that reversing the operands has
 		// the expected result.
 		compare = v2.Compare(v1.ToPatch())
-		c.Check(compare, gc.Equals, -test.compare)
+		c.Check(compare, tc.Equals, -test.compare)
 	}
 }
 
@@ -178,16 +178,16 @@ var parseTests = []struct {
 	err: "invalid version.*",
 }}
 
-func (*suite) TestParse(c *gc.C) {
+func (*suite) TestParse(c *tc.C) {
 	for i, test := range parseTests {
 		c.Logf("test %d: %q", i, test.v)
 		got, err := semversion.Parse(test.v)
 		if test.err != "" {
-			c.Assert(err, gc.ErrorMatches, test.err)
+			c.Assert(err, tc.ErrorMatches, test.err)
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(got, gc.Equals, test.expect)
-			c.Check(got.String(), gc.Equals, test.v)
+			c.Assert(got, tc.Equals, test.expect)
+			c.Check(got.String(), tc.Equals, test.v)
 		}
 	}
 }
@@ -213,15 +213,15 @@ var parseNonStrictTests = []struct {
 	err: "invalid version.*",
 }}
 
-func (*suite) TestParseNonStrict(c *gc.C) {
+func (*suite) TestParseNonStrict(c *tc.C) {
 	for i, test := range parseNonStrictTests {
 		c.Logf("test %d: %q", i, test.v)
 		got, err := semversion.ParseNonStrict(test.v)
 		if test.err != "" {
-			c.Assert(err, gc.ErrorMatches, test.err)
+			c.Assert(err, tc.ErrorMatches, test.err)
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
-			c.Check(got.String(), gc.Equals, test.expect)
+			c.Check(got.String(), tc.Equals, test.expect)
 		}
 	}
 }
@@ -240,7 +240,7 @@ func binaryVersion(major, minor, patch, build int, tag, series, arch string) sem
 	}
 }
 
-func (*suite) TestParseBinary(c *gc.C) {
+func (*suite) TestParseBinary(c *tc.C) {
 	parseBinaryTests := []struct {
 		v      string
 		err    string
@@ -288,10 +288,10 @@ func (*suite) TestParseBinary(c *gc.C) {
 		c.Logf("first test, %d: %q", i, test.v)
 		got, err := semversion.ParseBinary(test.v)
 		if test.err != "" {
-			c.Assert(err, gc.ErrorMatches, test.err)
+			c.Assert(err, tc.ErrorMatches, test.err)
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(got, gc.Equals, test.expect)
+			c.Assert(got, tc.Equals, test.expect)
 		}
 	}
 
@@ -305,10 +305,10 @@ func (*suite) TestParseBinary(c *gc.C) {
 			Arch:    "amd64",
 		}
 		if test.err != "" {
-			c.Assert(err, gc.ErrorMatches, strings.Replace(test.err, "version", "binary version", 1))
+			c.Assert(err, tc.ErrorMatches, strings.Replace(test.err, "version", "binary version", 1))
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(got, gc.Equals, expect)
+			c.Assert(got, tc.Equals, expect)
 		}
 	}
 }
@@ -327,7 +327,7 @@ var marshallers = []struct {
 	goyaml.Unmarshal,
 }}
 
-func (*suite) TestBinaryMarshalUnmarshal(c *gc.C) {
+func (*suite) TestBinaryMarshalUnmarshal(c *tc.C) {
 	for _, m := range marshallers {
 		c.Logf("encoding %v", m.name)
 		type doc struct {
@@ -342,11 +342,11 @@ func (*suite) TestBinaryMarshalUnmarshal(c *gc.C) {
 		var bv doc
 		err = m.unmarshal(data, &bv)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(bv, gc.DeepEquals, v)
+		c.Assert(bv, tc.DeepEquals, v)
 	}
 }
 
-func (*suite) TestNumberMarshalUnmarshal(c *gc.C) {
+func (*suite) TestNumberMarshalUnmarshal(c *tc.C) {
 	for _, m := range marshallers {
 		c.Logf("encoding %v", m.name)
 		type doc struct {
@@ -361,11 +361,11 @@ func (*suite) TestNumberMarshalUnmarshal(c *gc.C) {
 		var nv doc
 		err = m.unmarshal(data, &nv)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(nv, gc.DeepEquals, v)
+		c.Assert(nv, tc.DeepEquals, v)
 	}
 }
 
-func (*suite) TestParseMajorMinor(c *gc.C) {
+func (*suite) TestParseMajorMinor(c *tc.C) {
 	parseMajorMinorTests := []struct {
 		v           string
 		err         string
@@ -392,11 +392,11 @@ func (*suite) TestParseMajorMinor(c *gc.C) {
 		c.Logf("test %d", i)
 		major, minor, err := semversion.ParseMajorMinor(test.v)
 		if test.err != "" {
-			c.Check(err, gc.ErrorMatches, test.err)
+			c.Check(err, tc.ErrorMatches, test.err)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
-			c.Check(major, gc.Equals, test.expectMajor)
-			c.Check(minor, gc.Equals, test.expectMinor)
+			c.Check(major, tc.Equals, test.expectMajor)
+			c.Check(minor, tc.Equals, test.expectMinor)
 		}
 	}
 }

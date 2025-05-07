@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/model"
@@ -31,7 +31,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&caasagentSuite{})
+var _ = tc.Suite(&caasagentSuite{})
 
 type caasagentSuite struct {
 	coretesting.BaseSuite
@@ -51,7 +51,7 @@ type caasagentSuite struct {
 	result cloudspec.CloudSpec
 }
 
-func (s *caasagentSuite) SetUpTest(c *gc.C) {
+func (s *caasagentSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	var err error
@@ -74,7 +74,7 @@ func (s *caasagentSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *caasagentSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *caasagentSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.modelProviderServicebService = NewMockModelProviderService(ctrl)
 	s.modelService = NewMockModelService(ctrl)
@@ -102,7 +102,7 @@ func (s *caasagentSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *caasagentSuite) TestPermission(c *gc.C) {
+func (s *caasagentSuite) TestPermission(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	authorizer := &apiservertesting.FakeAuthorizer{
@@ -113,10 +113,10 @@ func (s *caasagentSuite) TestPermission(c *gc.C) {
 		Auth_:      authorizer,
 		ModelUUID_: s.modelUUID,
 	})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *caasagentSuite) TestCloudSpec(c *gc.C) {
+func (s *caasagentSuite) TestCloudSpec(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.modelProviderServicebService.EXPECT().GetCloudSpec(gomock.Any()).Return(s.result, nil)
@@ -159,7 +159,7 @@ func (s *caasagentSuite) TestCloudSpec(c *gc.C) {
 	}})
 }
 
-func (s *caasagentSuite) TestCloudSpecCloudSpecError(c *gc.C) {
+func (s *caasagentSuite) TestCloudSpecCloudSpecError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.modelProviderServicebService.EXPECT().GetCloudSpec(gomock.Any()).Return(cloudspec.CloudSpec{}, errors.New("error"))
@@ -178,7 +178,7 @@ func (s *caasagentSuite) TestCloudSpecCloudSpecError(c *gc.C) {
 	}})
 }
 
-func (s *caasagentSuite) TestWatchCloudSpecsChanges(c *gc.C) {
+func (s *caasagentSuite) TestWatchCloudSpecsChanges(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan struct{}, 1)
@@ -212,7 +212,7 @@ func (s *caasagentSuite) TestWatchCloudSpecsChanges(c *gc.C) {
 	}})
 }
 
-func (s *caasagentSuite) TestCloudSpecNilCredential(c *gc.C) {
+func (s *caasagentSuite) TestCloudSpecNilCredential(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.result.Credential = nil

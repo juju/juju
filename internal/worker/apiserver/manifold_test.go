@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/pubsub/v2"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -19,7 +20,6 @@ import (
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
 	"github.com/prometheus/client_golang/prometheus"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	coreapiserver "github.com/juju/juju/apiserver"
@@ -74,9 +74,9 @@ type ManifoldSuite struct {
 	stub testing.Stub
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+var _ = tc.Suite(&ManifoldSuite{})
 
-func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.agent = &mockAgent{}
@@ -183,11 +183,11 @@ var expectedInputs = []string{
 	"jwt-parser",
 }
 
-func (s *ManifoldSuite) TestInputs(c *gc.C) {
+func (s *ManifoldSuite) TestInputs(c *tc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
 }
 
-func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
+func (s *ManifoldSuite) TestMissingInputs(c *tc.C) {
 	for _, input := range expectedInputs {
 		getter := s.newGetter(map[string]interface{}{
 			input: dependency.ErrMissing,
@@ -203,34 +203,34 @@ func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
 	}
 }
 
-func (s *ManifoldSuite) TestStart(c *gc.C) {
+func (s *ManifoldSuite) TestStart(c *tc.C) {
 	w := s.startWorkerClean(c)
 	workertest.CleanKill(c, w)
 
 	s.stub.CheckCallNames(c, "NewWorker")
 	args := s.stub.Calls()[0].Args
-	c.Assert(args, gc.HasLen, 1)
-	c.Assert(args[0], gc.FitsTypeOf, apiserver.Config{})
+	c.Assert(args, tc.HasLen, 1)
+	c.Assert(args[0], tc.FitsTypeOf, apiserver.Config{})
 	config := args[0].(apiserver.Config)
 
-	c.Assert(config.GetAuditConfig, gc.NotNil)
-	c.Assert(config.GetAuditConfig(), gc.DeepEquals, s.auditConfig.config)
+	c.Assert(config.GetAuditConfig, tc.NotNil)
+	c.Assert(config.GetAuditConfig(), tc.DeepEquals, s.auditConfig.config)
 	config.GetAuditConfig = nil
 
-	c.Assert(config.UpgradeComplete, gc.NotNil)
+	c.Assert(config.UpgradeComplete, tc.NotNil)
 	config.UpgradeComplete()
 	config.UpgradeComplete = nil
 	s.upgradeGate.CheckCallNames(c, "IsUnlocked")
 
-	c.Assert(config.RegisterIntrospectionHTTPHandlers, gc.NotNil)
+	c.Assert(config.RegisterIntrospectionHTTPHandlers, tc.NotNil)
 	config.RegisterIntrospectionHTTPHandlers = nil
 
 	// NewServer is hard-coded by the manifold to an internal shim.
-	c.Assert(config.NewServer, gc.NotNil)
+	c.Assert(config.NewServer, tc.NotNil)
 	config.NewServer = nil
 
 	// EmbeddedCommand is hard-coded by the manifold to an internal shim.
-	c.Assert(config.EmbeddedCommand, gc.NotNil)
+	c.Assert(config.EmbeddedCommand, tc.NotNil)
 	config.EmbeddedCommand = nil
 
 	c.Assert(config, jc.DeepEquals, apiserver.Config{
@@ -255,7 +255,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	})
 }
 
-func (s *ManifoldSuite) TestStopWorkerClosesState(c *gc.C) {
+func (s *ManifoldSuite) TestStopWorkerClosesState(c *tc.C) {
 	w := s.startWorkerClean(c)
 	defer workertest.CleanKill(c, w)
 
@@ -265,14 +265,14 @@ func (s *ManifoldSuite) TestStopWorkerClosesState(c *gc.C) {
 	s.state.CheckCallNames(c, "Use", "Done")
 }
 
-func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
+func (s *ManifoldSuite) startWorkerClean(c *tc.C) worker.Worker {
 	w, err := s.manifold.Start(context.Background(), s.getter)
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w
 }
 
-func (s *ManifoldSuite) TestAddsAndRemovesMuxClients(c *gc.C) {
+func (s *ManifoldSuite) TestAddsAndRemovesMuxClients(c *tc.C) {
 	waitFinished := make(chan struct{})
 	w := s.startWorkerClean(c)
 	go func() {

@@ -5,9 +5,9 @@ package testing_test
 
 import (
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/testing"
 )
@@ -16,15 +16,15 @@ type fakeHomeSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = gc.Suite(&fakeHomeSuite{})
+var _ = tc.Suite(&fakeHomeSuite{})
 
-func (s *fakeHomeSuite) TestModelTagValid(c *gc.C) {
+func (s *fakeHomeSuite) TestModelTagValid(c *tc.C) {
 	asString := testing.ModelTag.String()
 	tag, err := names.ParseModelTag(asString)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(tag, gc.Equals, testing.ModelTag)
+	c.Assert(tag, tc.Equals, testing.ModelTag)
 }
 
-func (s *fakeHomeSuite) TestModelUUIDValid(c *gc.C) {
+func (s *fakeHomeSuite) TestModelUUIDValid(c *tc.C) {
 	c.Assert(utils.IsValidUUIDString(testing.ModelTag.Id()), jc.IsTrue)
 }

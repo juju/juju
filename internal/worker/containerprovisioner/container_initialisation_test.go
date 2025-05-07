@@ -9,9 +9,9 @@ import (
 	"sync"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
@@ -44,7 +44,7 @@ type containerSetupSuite struct {
 	machineLock *fakeMachineLock
 }
 
-func (s *containerSetupSuite) SetUpTest(c *gc.C) {
+func (s *containerSetupSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.modelUUID = uuid.MustNewUUID()
@@ -53,13 +53,13 @@ func (s *containerSetupSuite) SetUpTest(c *gc.C) {
 	s.machineLock = &fakeMachineLock{}
 }
 
-var _ = gc.Suite(&containerSetupSuite{})
+var _ = tc.Suite(&containerSetupSuite{})
 
-func (s *containerSetupSuite) TestInitialiseContainersLXD(c *gc.C) {
+func (s *containerSetupSuite) TestInitialiseContainersLXD(c *tc.C) {
 	s.testInitialiseContainers(c, instance.LXD)
 }
 
-func (s *containerSetupSuite) testInitialiseContainers(c *gc.C, containerType instance.ContainerType) {
+func (s *containerSetupSuite) testInitialiseContainers(c *tc.C, containerType instance.ContainerType) {
 	defer s.patch(c).Finish()
 
 	s.expectContainerManagerConfig(containerType)
@@ -78,11 +78,11 @@ func (s *containerSetupSuite) testInitialiseContainers(c *gc.C, containerType in
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *containerSetupSuite) TestInitialiseContainerProvisonerLXD(c *gc.C) {
+func (s *containerSetupSuite) TestInitialiseContainerProvisonerLXD(c *tc.C) {
 	s.testInitialiseContainers(c, instance.LXD)
 }
 
-func (s *containerSetupSuite) TestContainerManagerConfigError(c *gc.C) {
+func (s *containerSetupSuite) TestContainerManagerConfigError(c *tc.C) {
 	defer s.patch(c).Finish()
 
 	s.caller.EXPECT().APICall(
@@ -94,10 +94,10 @@ func (s *containerSetupSuite) TestContainerManagerConfigError(c *gc.C) {
 	abort := make(chan struct{})
 	close(abort)
 	err := cs.initialiseContainers(context.Background(), abort)
-	c.Assert(err, gc.ErrorMatches, ".*generating container manager config: boom")
+	c.Assert(err, tc.ErrorMatches, ".*generating container manager config: boom")
 }
 
-func (s *containerSetupSuite) setUpContainerSetup(c *gc.C, containerType instance.ContainerType) *ContainerSetup {
+func (s *containerSetupSuite) setUpContainerSetup(c *tc.C, containerType instance.ContainerType) *ContainerSetup {
 	pState := apiprovisioner.NewClient(s.caller)
 
 	cfg, err := agent.NewAgentConfig(
@@ -130,7 +130,7 @@ func (s *containerSetupSuite) setUpContainerSetup(c *gc.C, containerType instanc
 	return NewContainerSetup(args)
 }
 
-func (s *containerSetupSuite) patch(c *gc.C) *gomock.Controller {
+func (s *containerSetupSuite) patch(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.initialiser = testing.NewMockInitialiser(ctrl)

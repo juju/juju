@@ -4,8 +4,8 @@
 package user_test
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/testing"
@@ -17,7 +17,7 @@ type BaseSuite struct {
 	store *jujuclient.MemStore
 }
 
-func (s *BaseSuite) SetUpTest(c *gc.C) {
+func (s *BaseSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	s.store = jujuclient.NewMemStore()
@@ -38,17 +38,17 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *BaseSuite) setPassword(c *gc.C, controller, pass string) {
+func (s *BaseSuite) setPassword(c *tc.C, controller, pass string) {
 	details, ok := s.store.Accounts[controller]
 	c.Assert(ok, jc.IsTrue)
 	details.Password = pass
 	s.store.Accounts[controller] = details
 }
 
-func (s *BaseSuite) assertStorePassword(c *gc.C, user, pass, access string) {
+func (s *BaseSuite) assertStorePassword(c *tc.C, user, pass, access string) {
 	details, err := s.store.AccountDetails("testing")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(details.User, gc.Equals, user)
-	c.Assert(details.Password, gc.Equals, pass)
-	c.Assert(details.LastKnownAccess, gc.Equals, access)
+	c.Assert(details.User, tc.Equals, user)
+	c.Assert(details.Password, tc.Equals, pass)
+	c.Assert(details.LastKnownAccess, tc.Equals, access)
 }

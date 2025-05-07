@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/base/testing"
@@ -21,14 +21,14 @@ type uniterSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&uniterSuite{})
+var _ = tc.Suite(&uniterSuite{})
 
-func (s *uniterSuite) TestProviderType(c *gc.C) {
+func (s *uniterSuite) TestProviderType(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "ProviderType")
-		c.Assert(arg, gc.IsNil)
-		c.Assert(result, gc.FitsTypeOf, &params.StringResult{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "ProviderType")
+		c.Assert(arg, tc.IsNil)
+		c.Assert(result, tc.FitsTypeOf, &params.StringResult{})
 		*(result.(*params.StringResult)) = params.StringResult{
 			Result: "somecloud",
 		}
@@ -38,15 +38,15 @@ func (s *uniterSuite) TestProviderType(c *gc.C) {
 
 	providerType, err := client.ProviderType(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(providerType, gc.Equals, "somecloud")
+	c.Assert(providerType, tc.Equals, "somecloud")
 }
 
-func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
+func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "OpenedMachinePortRangesByEndpoint")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "machine-42"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.OpenPortRangesByEndpointResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "OpenedMachinePortRangesByEndpoint")
+		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "machine-42"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.OpenPortRangesByEndpointResults{})
 		*(result.(*params.OpenPortRangesByEndpointResults)) = params.OpenPortRangesByEndpointResults{
 			Results: []params.OpenPortRangesByEndpointResult{
 				{
@@ -89,12 +89,12 @@ func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 	})
 }
 
-func (s *uniterSuite) TestOpenedPortRangesByEndpoint(c *gc.C) {
+func (s *uniterSuite) TestOpenedPortRangesByEndpoint(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "OpenedPortRangesByEndpoint")
-		c.Assert(arg, gc.IsNil)
-		c.Assert(result, gc.FitsTypeOf, &params.OpenPortRangesByEndpointResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "OpenedPortRangesByEndpoint")
+		c.Assert(arg, tc.IsNil)
+		c.Assert(result, tc.FitsTypeOf, &params.OpenPortRangesByEndpointResults{})
 		*(result.(*params.OpenPortRangesByEndpointResults)) = params.OpenPortRangesByEndpointResults{
 			Results: []params.OpenPortRangesByEndpointResult{
 				{
@@ -137,26 +137,26 @@ func (s *uniterSuite) TestOpenedPortRangesByEndpoint(c *gc.C) {
 	})
 }
 
-func (s *uniterSuite) TestOpenedPortRangesByEndpointOldAPINotSupported(c *gc.C) {
+func (s *uniterSuite) TestOpenedPortRangesByEndpointOldAPINotSupported(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "OpenedPortRangesByEndpoint")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-gitlab-0"}}})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "OpenedPortRangesByEndpoint")
+		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-gitlab-0"}}})
 		return nil
 	})
 	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 17}
 	client := uniter.NewClient(caller, names.NewUnitTag("gitlab/0"))
 
 	_, err := client.OpenedPortRangesByEndpoint(context.Background())
-	c.Assert(err, gc.ErrorMatches, `OpenedPortRangesByEndpoint\(\) \(need V18\+\) not implemented`)
+	c.Assert(err, tc.ErrorMatches, `OpenedPortRangesByEndpoint\(\) \(need V18\+\) not implemented`)
 }
 
-func (s *uniterSuite) TestUnitWorkloadVersion(c *gc.C) {
+func (s *uniterSuite) TestUnitWorkloadVersion(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "WorkloadVersion")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "WorkloadVersion")
+		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.StringResults{})
 		*(result.(*params.StringResults)) = params.StringResults{
 			Results: []params.StringResult{{Result: "mysql-1.2.3"}},
 		}
@@ -167,15 +167,15 @@ func (s *uniterSuite) TestUnitWorkloadVersion(c *gc.C) {
 
 	workloadVersion, err := client.UnitWorkloadVersion(context.Background(), names.NewUnitTag("mysql/0"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(workloadVersion, gc.Equals, "mysql-1.2.3")
+	c.Assert(workloadVersion, tc.Equals, "mysql-1.2.3")
 }
 
-func (s *uniterSuite) TestSetUnitWorkloadVersion(c *gc.C) {
+func (s *uniterSuite) TestSetUnitWorkloadVersion(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "SetWorkloadVersion")
-		c.Assert(arg, gc.DeepEquals, params.EntityWorkloadVersions{Entities: []params.EntityWorkloadVersion{{Tag: "unit-mysql-0", WorkloadVersion: "mysql-1.2.3"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "SetWorkloadVersion")
+		c.Assert(arg, tc.DeepEquals, params.EntityWorkloadVersions{Entities: []params.EntityWorkloadVersion{{Tag: "unit-mysql-0", WorkloadVersion: "mysql-1.2.3"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{}},
 		}

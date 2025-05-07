@@ -9,8 +9,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/internal/cmd"
@@ -22,9 +22,9 @@ type statusGetSuite struct {
 	ContextSuite
 }
 
-var _ = gc.Suite(&statusGetSuite{})
+var _ = tc.Suite(&statusGetSuite{})
 
-func (s *statusGetSuite) SetUpTest(c *gc.C) {
+func (s *statusGetSuite) SetUpTest(c *tc.C) {
 	s.ContextSuite.SetUpTest(c)
 }
 
@@ -68,7 +68,7 @@ func setFakeApplicationStatus(ctx *Context) {
 	)
 }
 
-func (s *statusGetSuite) TestOutputFormatJustStatus(c *gc.C) {
+func (s *statusGetSuite) TestOutputFormatJustStatus(c *tc.C) {
 	for i, t := range statusGetTests {
 		c.Logf("test %d: %#v", i, t.args)
 		hctx := s.GetStatusHookContext(c)
@@ -77,44 +77,44 @@ func (s *statusGetSuite) TestOutputFormatJustStatus(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
-		c.Assert(code, gc.Equals, 0)
-		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
+		c.Assert(code, tc.Equals, 0)
+		c.Assert(bufferString(ctx.Stderr), tc.Equals, "")
 
 		var out interface{}
 		var outMap map[string]interface{}
 		switch t.format {
 		case formatYaml:
-			c.Check(goyaml.Unmarshal(bufferBytes(ctx.Stdout), &outMap), gc.IsNil)
+			c.Check(goyaml.Unmarshal(bufferBytes(ctx.Stdout), &outMap), tc.IsNil)
 			out = outMap
 		case formatJson:
-			c.Check(json.Unmarshal(bufferBytes(ctx.Stdout), &outMap), gc.IsNil)
+			c.Check(json.Unmarshal(bufferBytes(ctx.Stdout), &outMap), tc.IsNil)
 			out = outMap
 		default:
 			out = string(bufferBytes(ctx.Stdout))
 		}
-		c.Check(out, gc.DeepEquals, t.out)
+		c.Check(out, tc.DeepEquals, t.out)
 	}
 }
 
-func (s *statusGetSuite) TestOutputPath(c *gc.C) {
+func (s *statusGetSuite) TestOutputPath(c *tc.C) {
 	hctx := s.GetStatusHookContext(c)
 	setFakeStatus(hctx)
 	com, err := jujuc.NewCommand(hctx, "status-get")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--format", "json", "--output", "some-file", "--include-data"})
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
+	c.Assert(code, tc.Equals, 0)
+	c.Assert(bufferString(ctx.Stderr), tc.Equals, "")
+	c.Assert(bufferString(ctx.Stdout), tc.Equals, "")
 	content, err := os.ReadFile(filepath.Join(ctx.Dir, "some-file"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	var out map[string]interface{}
-	c.Assert(json.Unmarshal(content, &out), gc.IsNil)
-	c.Assert(out, gc.DeepEquals, statusAttributes)
+	c.Assert(json.Unmarshal(content, &out), tc.IsNil)
+	c.Assert(out, tc.DeepEquals, statusAttributes)
 }
 
-func (s *statusGetSuite) TestApplicationStatus(c *gc.C) {
+func (s *statusGetSuite) TestApplicationStatus(c *tc.C) {
 	expected := map[string]interface{}{
 		"application-status": map[interface{}]interface{}{
 			"status-data": map[interface{}]interface{}{},
@@ -134,10 +134,10 @@ func (s *statusGetSuite) TestApplicationStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--format", "json", "--include-data", "--application"})
-	c.Assert(code, gc.Equals, 0)
+	c.Assert(code, tc.Equals, 0)
 
 	var out map[string]interface{}
-	c.Assert(goyaml.Unmarshal(bufferBytes(ctx.Stdout), &out), gc.IsNil)
-	c.Assert(out, gc.DeepEquals, expected)
+	c.Assert(goyaml.Unmarshal(bufferBytes(ctx.Stdout), &out), tc.IsNil)
+	c.Assert(out, tc.DeepEquals, expected)
 
 }

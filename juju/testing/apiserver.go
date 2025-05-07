@@ -21,10 +21,10 @@ import (
 	"github.com/juju/errors"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/prometheus/client_golang/prometheus"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
@@ -155,7 +155,7 @@ type ApiServerSuite struct {
 	// InstancePrechecker is used to validate instance creation.
 	//
 	// Deprecated: This will be removed in the future.
-	InstancePrechecker func(*gc.C, *state.State) environs.InstancePrechecker
+	InstancePrechecker func(*tc.C, *state.State) environs.InstancePrechecker
 
 	objectStoresMutex sync.Mutex
 	objectStores      []objectstore.ObjectStore
@@ -173,7 +173,7 @@ func (noopRegisterer) Unregister(prometheus.Collector) bool {
 	return true
 }
 
-func leaseManager(c *gc.C, controllerUUID string, db database.DBGetter, clock clock.Clock) (*lease.Manager, error) {
+func leaseManager(c *tc.C, controllerUUID string, db database.DBGetter, clock clock.Clock) (*lease.Manager, error) {
 	logger := loggertesting.WrapCheckLog(c)
 	return lease.NewManager(lease.ManagerConfig{
 		SecretaryFinder:      internallease.NewSecretaryFinder(controllerUUID),
@@ -187,7 +187,7 @@ func leaseManager(c *gc.C, controllerUUID string, db database.DBGetter, clock cl
 	})
 }
 
-func (s *ApiServerSuite) SetUpSuite(c *gc.C) {
+func (s *ApiServerSuite) SetUpSuite(c *tc.C) {
 	s.MgoSuite.SetUpSuite(c)
 	s.DomainServicesSuite.SetUpSuite(c)
 	s.ControllerSuite.SetUpSuite(c)
@@ -208,7 +208,7 @@ func mongoInfo() mongo.MongoInfo {
 	}
 }
 
-func (s *ApiServerSuite) setupHttpServer(c *gc.C) {
+func (s *ApiServerSuite) setupHttpServer(c *tc.C) {
 	s.mux = apiserverhttp.NewMux()
 
 	certPool, err := api.CreateCertPool(coretesting.CACert)
@@ -235,7 +235,7 @@ func (s *ApiServerSuite) setupHttpServer(c *gc.C) {
 	s.baseURL = baseURL
 }
 
-func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.Config) {
+func (s *ApiServerSuite) setupControllerModel(c *tc.C, controllerCfg controller.Config) {
 	session, err := mongo.DialWithInfo(mongoInfo(), mongotest.DialOpts())
 	c.Assert(err, jc.ErrorIsNil)
 	defer session.Close()
@@ -335,7 +335,7 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 	SeedDatabase(c, s.TxnRunner(), domainServices, controllerCfg)
 }
 
-func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config) {
+func (s *ApiServerSuite) setupApiServer(c *tc.C, controllerCfg controller.Config) {
 	cfg := DefaultServerConfig(c, s.Clock)
 	cfg.Mux = s.mux
 	cfg.DBGetter = stubDBGetter{db: stubWatchableDB{TxnRunner: s.TxnRunner()}}
@@ -422,7 +422,7 @@ func (s agentPasswordServiceGetter) GetAgentPasswordServiceForModel(ctx context.
 	return svc.AgentPassword(), nil
 }
 
-func (s *ApiServerSuite) SetUpTest(c *gc.C) {
+func (s *ApiServerSuite) SetUpTest(c *tc.C) {
 	s.MgoSuite.SetUpTest(c)
 
 	if s.Clock == nil {
@@ -439,7 +439,7 @@ func (s *ApiServerSuite) SetUpTest(c *gc.C) {
 	s.setupApiServer(c, controllerCfg)
 }
 
-func (s *ApiServerSuite) TearDownTest(c *gc.C) {
+func (s *ApiServerSuite) TearDownTest(c *tc.C) {
 	if s.LeaseManager != nil {
 		s.LeaseManager.Kill()
 	}
@@ -492,7 +492,7 @@ func (s *ApiServerSuite) URL(path string, queryParams url.Values) *url.URL {
 }
 
 // ObjectStore returns the object store for the given model uuid.
-func (s *ApiServerSuite) ObjectStore(c *gc.C, uuid string) objectstore.ObjectStore {
+func (s *ApiServerSuite) ObjectStore(c *tc.C, uuid string) objectstore.ObjectStore {
 	store, err := s.ObjectStoreGetter.GetObjectStore(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
 	return store
@@ -500,7 +500,7 @@ func (s *ApiServerSuite) ObjectStore(c *gc.C, uuid string) objectstore.ObjectSto
 
 // openAPIAs opens the API and ensures that the api.Connection returned will be
 // closed during the test teardown by using a cleanup function.
-func (s *ApiServerSuite) openAPIAs(c *gc.C, tag names.Tag, password, nonce string, modelUUID string) api.Connection {
+func (s *ApiServerSuite) openAPIAs(c *tc.C, tag names.Tag, password, nonce string, modelUUID string) api.Connection {
 	apiInfo := s.apiInfo
 	apiInfo.Tag = tag
 	apiInfo.Password = password
@@ -510,7 +510,7 @@ func (s *ApiServerSuite) openAPIAs(c *gc.C, tag names.Tag, password, nonce strin
 	}
 	conn, err := api.Open(context.Background(), &apiInfo, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conn, gc.NotNil)
+	c.Assert(conn, tc.NotNil)
 	s.apiConns = append(s.apiConns, conn)
 	return conn
 }
@@ -531,27 +531,27 @@ func (s *ApiServerSuite) ModelApiInfo(modelUUID string) *api.Info {
 }
 
 // OpenControllerAPIAs opens a controller api connection.
-func (s *ApiServerSuite) OpenControllerAPIAs(c *gc.C, tag names.Tag, password string) api.Connection {
+func (s *ApiServerSuite) OpenControllerAPIAs(c *tc.C, tag names.Tag, password string) api.Connection {
 	return s.openAPIAs(c, tag, password, "", "")
 }
 
 // OpenControllerAPI opens a controller api connection for the admin user.
-func (s *ApiServerSuite) OpenControllerAPI(c *gc.C) api.Connection {
+func (s *ApiServerSuite) OpenControllerAPI(c *tc.C) api.Connection {
 	return s.OpenControllerAPIAs(c, AdminUser, AdminSecret)
 }
 
 // OpenModelAPIAs opens a model api connection.
-func (s *ApiServerSuite) OpenModelAPIAs(c *gc.C, modelUUID string, tag names.Tag, password, nonce string) api.Connection {
+func (s *ApiServerSuite) OpenModelAPIAs(c *tc.C, modelUUID string, tag names.Tag, password, nonce string) api.Connection {
 	return s.openAPIAs(c, tag, password, nonce, modelUUID)
 }
 
 // OpenControllerModelAPI opens the controller model api connection for the admin user.
-func (s *ApiServerSuite) OpenControllerModelAPI(c *gc.C) api.Connection {
+func (s *ApiServerSuite) OpenControllerModelAPI(c *tc.C) api.Connection {
 	return s.openAPIAs(c, AdminUser, AdminSecret, "", s.DomainServicesSuite.ControllerModelUUID.String())
 }
 
 // OpenModelAPI opens a model api connection for the admin user.
-func (s *ApiServerSuite) OpenModelAPI(c *gc.C, modelUUID string) api.Connection {
+func (s *ApiServerSuite) OpenModelAPI(c *tc.C, modelUUID string) api.Connection {
 	return s.openAPIAs(c, AdminUser, AdminSecret, "", modelUUID)
 }
 
@@ -559,7 +559,7 @@ func (s *ApiServerSuite) OpenModelAPI(c *gc.C, modelUUID string) api.Connection 
 // and then uses that to open the API. The returned api.Connection should not be
 // closed by the caller as a cleanup function has been registered to do that.
 // The machine will run the supplied jobs; if none are given, JobHostUnits is assumed.
-func (s *ApiServerSuite) OpenAPIAsNewMachine(c *gc.C, jobs ...state.MachineJob) (api.Connection, *state.Machine) {
+func (s *ApiServerSuite) OpenAPIAsNewMachine(c *tc.C, jobs ...state.MachineJob) (api.Connection, *state.Machine) {
 	if len(jobs) == 0 {
 		jobs = []state.MachineJob{state.JobHostUnits}
 	}
@@ -582,7 +582,7 @@ func (s *ApiServerSuite) StatePool() *state.StatePool {
 }
 
 // NewFactory returns a factory for the given model.
-func (s *ApiServerSuite) NewFactory(c *gc.C, modelUUID string) (*factory.Factory, func() bool) {
+func (s *ApiServerSuite) NewFactory(c *tc.C, modelUUID string) (*factory.Factory, func() bool) {
 	var (
 		st       *state.State
 		releaser func() bool
@@ -613,7 +613,7 @@ func (s *ApiServerSuite) ControllerModelUUID() string {
 }
 
 // ControllerModel returns the controller model.
-func (s *ApiServerSuite) ControllerModel(c *gc.C) *state.Model {
+func (s *ApiServerSuite) ControllerModel(c *tc.C) *state.Model {
 	st, err := s.controller.SystemState()
 	c.Assert(err, jc.ErrorIsNil)
 	m, err := st.Model()
@@ -622,13 +622,13 @@ func (s *ApiServerSuite) ControllerModel(c *gc.C) *state.Model {
 }
 
 // Model returns the specified model.
-func (s *ApiServerSuite) Model(c *gc.C, uuid string) (*state.Model, func() bool) {
+func (s *ApiServerSuite) Model(c *tc.C, uuid string) (*state.Model, func() bool) {
 	m, helper, err := s.controller.StatePool().GetModel(uuid)
 	c.Assert(err, jc.ErrorIsNil)
 	return m, helper.Release
 }
 
-func (s *ApiServerSuite) tearDownConn(c *gc.C) {
+func (s *ApiServerSuite) tearDownConn(c *tc.C) {
 	testServer := mgotesting.MgoServer.Addr()
 	serverDead := testServer == "" || s.Server == nil
 
@@ -646,7 +646,7 @@ func (s *ApiServerSuite) tearDownConn(c *gc.C) {
 	}
 }
 
-func (s *ApiServerSuite) SeedCAASCloud(c *gc.C) {
+func (s *ApiServerSuite) SeedCAASCloud(c *tc.C) {
 	cred := credential.CloudCredentialInfo{
 		AuthType: string(cloud.UserPassAuthType),
 		Attributes: map[string]string{
@@ -680,14 +680,14 @@ func (s *ApiServerSuite) SeedCAASCloud(c *gc.C) {
 
 // SeedDatabase the database with a supplied controller config, and dummy
 // cloud and dummy credentials.
-func SeedDatabase(c *gc.C, controller database.TxnRunner, domainServices services.DomainServices, controllerConfig controller.Config) {
+func SeedDatabase(c *tc.C, controller database.TxnRunner, domainServices services.DomainServices, controllerConfig controller.Config) {
 	bakeryConfigService := domainServices.Macaroon()
 	err := bakeryConfigService.InitialiseBakeryConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 // DefaultServerConfig returns a minimal server config.
-func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig {
+func DefaultServerConfig(c *tc.C, testclock clock.Clock) apiserver.ServerConfig {
 	if testclock == nil {
 		testclock = clock.WallClock
 	}

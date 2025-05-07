@@ -8,8 +8,8 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
@@ -32,9 +32,9 @@ type findSuite struct {
 	mockAPI *mockFindAPI
 }
 
-var _ = gc.Suite(&findSuite{})
+var _ = tc.Suite(&findSuite{})
 
-func (s *findSuite) SetUpTest(c *gc.C) {
+func (s *findSuite) SetUpTest(c *tc.C) {
 	s.BaseCrossModelSuite.SetUpTest(c)
 
 	s.mockAPI = &mockFindAPI{
@@ -43,11 +43,11 @@ func (s *findSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *findSuite) runFind(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *findSuite) runFind(c *tc.C, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, newFindEndpointsCommandForTest(s.store, s.mockAPI), args...)
 }
 
-func (s *findSuite) TestFindNoArgs(c *gc.C) {
+func (s *findSuite) TestFindNoArgs(c *tc.C) {
 	s.mockAPI.c = c
 	s.mockAPI.expectedFilter = &jujucrossmodel.ApplicationOfferFilter{}
 	s.assertFind(
@@ -60,15 +60,15 @@ master  fred/test.hosted-db2  consume  http:db2, http:log
 	)
 }
 
-func (s *findSuite) TestFindDuplicateUrl(c *gc.C) {
+func (s *findSuite) TestFindDuplicateUrl(c *tc.C) {
 	s.assertFindError(c, []string{"url", "--url", "urlparam"}, ".*URL term cannot be specified twice.*")
 }
 
-func (s *findSuite) TestFindOfferandUrl(c *gc.C) {
+func (s *findSuite) TestFindOfferandUrl(c *tc.C) {
 	s.assertFindError(c, []string{"--offer", "offer", "--url", "urlparam"}, ".*cannot specify both a URL term and offer term.*")
 }
 
-func (s *findSuite) TestNoResults(c *gc.C) {
+func (s *findSuite) TestNoResults(c *tc.C) {
 	s.mockAPI.c = c
 	s.mockAPI.expectedModelName = "none"
 	s.mockAPI.expectedFilter = &jujucrossmodel.ApplicationOfferFilter{
@@ -86,7 +86,7 @@ func (s *findSuite) TestNoResults(c *gc.C) {
 	)
 }
 
-func (s *findSuite) TestSimpleFilter(c *gc.C) {
+func (s *findSuite) TestSimpleFilter(c *tc.C) {
 	s.mockAPI.c = c
 	s.mockAPI.expectedModelName = "model"
 	s.mockAPI.expectedFilter = &jujucrossmodel.ApplicationOfferFilter{
@@ -105,7 +105,7 @@ master  fred/model.hosted-db2  consume  http:db2, http:log
 	)
 }
 
-func (s *findSuite) TestEndpointFilter(c *gc.C) {
+func (s *findSuite) TestEndpointFilter(c *tc.C) {
 	s.mockAPI.c = c
 	s.mockAPI.expectedFilter = &jujucrossmodel.ApplicationOfferFilter{
 		OwnerName: "fred",
@@ -125,12 +125,12 @@ master  fred/model.hosted-db2  consume  http:db2, http:log
 	)
 }
 
-func (s *findSuite) TestFindApiError(c *gc.C) {
+func (s *findSuite) TestFindApiError(c *tc.C) {
 	s.mockAPI.msg = "fail"
 	s.assertFindError(c, []string{"fred/model.db2"}, ".*fail.*")
 }
 
-func (s *findSuite) TestFindYaml(c *gc.C) {
+func (s *findSuite) TestFindYaml(c *tc.C) {
 	s.mockAPI.expectedModelName = "model"
 	s.assertFind(
 		c,
@@ -153,7 +153,7 @@ master:fred/model.hosted-db2:
 	)
 }
 
-func (s *findSuite) TestFindTabular(c *gc.C) {
+func (s *findSuite) TestFindTabular(c *tc.C) {
 	s.mockAPI.expectedModelName = "model"
 	s.assertFind(
 		c,
@@ -165,7 +165,7 @@ master  fred/model.hosted-db2  consume  http:db2, http:log
 	)
 }
 
-func (s *findSuite) TestFindDifferentController(c *gc.C) {
+func (s *findSuite) TestFindDifferentController(c *tc.C) {
 	s.mockAPI.expectedModelName = "model"
 	s.mockAPI.controllerName = "different"
 	s.assertFind(
@@ -178,21 +178,21 @@ different  fred/model.hosted-db2  consume  http:db2, http:log
 	)
 }
 
-func (s *findSuite) assertFind(c *gc.C, args []string, expected string) {
+func (s *findSuite) assertFind(c *tc.C, args []string, expected string) {
 	context, err := s.runFind(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtained := cmdtesting.Stdout(context)
-	c.Assert(obtained, gc.Matches, expected)
+	c.Assert(obtained, tc.Matches, expected)
 }
 
-func (s *findSuite) assertFindError(c *gc.C, args []string, expected string) {
+func (s *findSuite) assertFindError(c *tc.C, args []string, expected string) {
 	_, err := s.runFind(c, args...)
-	c.Assert(err, gc.ErrorMatches, expected)
+	c.Assert(err, tc.ErrorMatches, expected)
 }
 
 type mockFindAPI struct {
-	c                 *gc.C
+	c                 *tc.C
 	controllerName    string
 	msg, offerName    string
 	expectedModelName string
@@ -209,7 +209,7 @@ func (s mockFindAPI) FindApplicationOffers(ctx context.Context, filters ...jujuc
 		return nil, errors.New(s.msg)
 	}
 	if s.expectedFilter != nil {
-		s.c.Assert(filters, gc.HasLen, 1)
+		s.c.Assert(filters, tc.HasLen, 1)
 		s.c.Assert(filters[0], jc.DeepEquals, *s.expectedFilter)
 	}
 

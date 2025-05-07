@@ -6,22 +6,22 @@ package osenv_test
 import (
 	stdtesting "testing"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
 func Test(t *stdtesting.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type importSuite struct {
 }
 
-var _ = gc.Suite(&importSuite{})
+var _ = tc.Suite(&importSuite{})
 
-func (*importSuite) TestDependencies(c *gc.C) {
+func (*importSuite) TestDependencies(c *tc.C) {
 	c.Assert(coretesting.FindJujuCoreImports(c, "github.com/juju/juju/juju/osenv"), jc.SameContents, []string{
 		"internal/featureflag",
 	})

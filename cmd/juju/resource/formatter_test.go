@@ -9,22 +9,22 @@ import (
 	"time"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/core/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
-var _ = gc.Suite(&CharmFormatterSuite{})
+var _ = tc.Suite(&CharmFormatterSuite{})
 
 type CharmFormatterSuite struct {
 	testing.IsolationSuite
 }
 
-func (s *CharmFormatterSuite) TestFormatCharmResource(c *gc.C) {
+func (s *CharmFormatterSuite) TestFormatCharmResource(c *tc.C) {
 	res := charmRes(c, "spam", ".tgz", "X", "spamspamspam")
 	res.Revision = 5
 
@@ -42,13 +42,13 @@ func (s *CharmFormatterSuite) TestFormatCharmResource(c *gc.C) {
 	})
 }
 
-var _ = gc.Suite(&SvcFormatterSuite{})
+var _ = tc.Suite(&SvcFormatterSuite{})
 
 type SvcFormatterSuite struct {
 	testing.IsolationSuite
 }
 
-func (s *SvcFormatterSuite) TestFormatSvcResource(c *gc.C) {
+func (s *SvcFormatterSuite) TestFormatSvcResource(c *tc.C) {
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader("something"))
 	c.Assert(err, jc.ErrorIsNil)
 	r := resource.Resource{
@@ -71,7 +71,7 @@ func (s *SvcFormatterSuite) TestFormatSvcResource(c *gc.C) {
 	}
 
 	f := resourcecmd.FormatAppResource(r)
-	c.Assert(f, gc.Equals, resourcecmd.FormattedAppResource{
+	c.Assert(f, tc.Equals, resourcecmd.FormattedAppResource{
 		ID:               "a-application/website",
 		ApplicationID:    "a-application",
 		Name:             r.Name,
@@ -91,7 +91,7 @@ func (s *SvcFormatterSuite) TestFormatSvcResource(c *gc.C) {
 	})
 }
 
-func (s *SvcFormatterSuite) TestFormatSvcResourceUpload(c *gc.C) {
+func (s *SvcFormatterSuite) TestFormatSvcResourceUpload(c *tc.C) {
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader("something"))
 	c.Assert(err, jc.ErrorIsNil)
 	r := resource.Resource{
@@ -113,7 +113,7 @@ func (s *SvcFormatterSuite) TestFormatSvcResourceUpload(c *gc.C) {
 	}
 
 	f := resourcecmd.FormatAppResource(r)
-	c.Assert(f, gc.Equals, resourcecmd.FormattedAppResource{
+	c.Assert(f, tc.Equals, resourcecmd.FormattedAppResource{
 		ID:               "a-application/website",
 		ApplicationID:    "a-application",
 		Name:             r.Name,
@@ -133,7 +133,7 @@ func (s *SvcFormatterSuite) TestFormatSvcResourceUpload(c *gc.C) {
 	})
 }
 
-func (s *SvcFormatterSuite) TestNotUsed(c *gc.C) {
+func (s *SvcFormatterSuite) TestNotUsed(c *tc.C) {
 	r := resource.Resource{
 		Timestamp: time.Time{},
 	}
@@ -141,7 +141,7 @@ func (s *SvcFormatterSuite) TestNotUsed(c *gc.C) {
 	c.Assert(f.Used, jc.IsFalse)
 }
 
-func (s *SvcFormatterSuite) TestUsed(c *gc.C) {
+func (s *SvcFormatterSuite) TestUsed(c *tc.C) {
 	r := resource.Resource{
 		Timestamp: time.Now(),
 	}
@@ -149,7 +149,7 @@ func (s *SvcFormatterSuite) TestUsed(c *gc.C) {
 	c.Assert(f.Used, jc.IsTrue)
 }
 
-func (s *SvcFormatterSuite) TestOriginUploadDeployed(c *gc.C) {
+func (s *SvcFormatterSuite) TestOriginUploadDeployed(c *tc.C) {
 	// represents what we get when we first deploy an application
 	r := resource.Resource{
 		Resource: charmresource.Resource{
@@ -159,26 +159,26 @@ func (s *SvcFormatterSuite) TestOriginUploadDeployed(c *gc.C) {
 		Timestamp:   time.Now(),
 	}
 	f := resourcecmd.FormatAppResource(r)
-	c.Assert(f.CombinedOrigin, gc.Equals, "bill")
+	c.Assert(f.CombinedOrigin, tc.Equals, "bill")
 }
 
-func (s *SvcFormatterSuite) TestInitialOriginUpload(c *gc.C) {
+func (s *SvcFormatterSuite) TestInitialOriginUpload(c *tc.C) {
 	r := resource.Resource{
 		Resource: charmresource.Resource{
 			Origin: charmresource.OriginUpload,
 		},
 	}
 	f := resourcecmd.FormatAppResource(r)
-	c.Assert(f.CombinedOrigin, gc.Equals, "upload")
+	c.Assert(f.CombinedOrigin, tc.Equals, "upload")
 }
 
-var _ = gc.Suite(&DetailFormatterSuite{})
+var _ = tc.Suite(&DetailFormatterSuite{})
 
 type DetailFormatterSuite struct {
 	testing.IsolationSuite
 }
 
-func (s *DetailFormatterSuite) TestFormatDetail(c *gc.C) {
+func (s *DetailFormatterSuite) TestFormatDetail(c *tc.C) {
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader("something"))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -225,7 +225,7 @@ func (s *DetailFormatterSuite) TestFormatDetail(c *gc.C) {
 	tag := names.NewUnitTag("a-application/55")
 
 	d := resourcecmd.FormatDetailResource(tag, svc, unit, 8)
-	c.Assert(d, gc.Equals,
+	c.Assert(d, tc.Equals,
 		resourcecmd.FormattedDetailResource{
 			UnitNumber:  55,
 			UnitID:      "a-application/55",
@@ -237,7 +237,7 @@ func (s *DetailFormatterSuite) TestFormatDetail(c *gc.C) {
 	)
 }
 
-func (s *DetailFormatterSuite) TestFormatDetailEmpty(c *gc.C) {
+func (s *DetailFormatterSuite) TestFormatDetailEmpty(c *tc.C) {
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader("something"))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -264,7 +264,7 @@ func (s *DetailFormatterSuite) TestFormatDetailEmpty(c *gc.C) {
 	tag := names.NewUnitTag("a-application/55")
 
 	d := resourcecmd.FormatDetailResource(tag, svc, unit, 0)
-	c.Assert(d, gc.Equals,
+	c.Assert(d, tc.Equals,
 		resourcecmd.FormattedDetailResource{
 			UnitNumber:  55,
 			UnitID:      "a-application/55",

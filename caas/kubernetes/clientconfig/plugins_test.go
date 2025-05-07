@@ -9,9 +9,9 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,9 +29,9 @@ type k8sRawClientSuite struct {
 	labels map[string]string
 }
 
-var _ = gc.Suite(&k8sRawClientSuite{})
+var _ = tc.Suite(&k8sRawClientSuite{})
 
-func (s *k8sRawClientSuite) SetUpSuite(c *gc.C) {
+func (s *k8sRawClientSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.namespace = "kube-system"
 	s.UID = "9baa5e46"
@@ -39,7 +39,7 @@ func (s *k8sRawClientSuite) SetUpSuite(c *gc.C) {
 	s.labels = map[string]string{"juju-credential": s.UID}
 }
 
-func (s *k8sRawClientSuite) TestEnsureJujuAdminServiceAccount(c *gc.C) {
+func (s *k8sRawClientSuite) TestEnsureJujuAdminServiceAccount(c *tc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
@@ -174,15 +174,15 @@ func (s *k8sRawClientSuite) TestEnsureJujuAdminServiceAccount(c *gc.C) {
 		cfgOut := <-cfgOutChan
 		authName := cfg.Contexts[contextName].AuthInfo
 		updatedAuthInfo := cfgOut.AuthInfos[authName]
-		c.Assert(updatedAuthInfo.AuthProvider, gc.IsNil)
-		c.Assert(updatedAuthInfo.Token, gc.Equals, string(secretTokenReady.Data[core.ServiceAccountTokenKey]))
+		c.Assert(updatedAuthInfo.AuthProvider, tc.IsNil)
+		c.Assert(updatedAuthInfo.Token, tc.Equals, string(secretTokenReady.Data[core.ServiceAccountTokenKey]))
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for deploy return")
 	}
 
 }
 
-func (s *k8sRawClientSuite) TestEnsureJujuServiceAdminAccountIdempotent(c *gc.C) {
+func (s *k8sRawClientSuite) TestEnsureJujuServiceAdminAccountIdempotent(c *tc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
@@ -281,11 +281,11 @@ func (s *k8sRawClientSuite) TestEnsureJujuServiceAdminAccountIdempotent(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	authName := cfg.Contexts[contextName].AuthInfo
 	updatedAuthInfo := cfgOut.AuthInfos[authName]
-	c.Assert(updatedAuthInfo.AuthProvider, gc.IsNil)
-	c.Assert(updatedAuthInfo.Token, gc.Equals, string(secretTokenReady.Data[core.ServiceAccountTokenKey]))
+	c.Assert(updatedAuthInfo.AuthProvider, tc.IsNil)
+	c.Assert(updatedAuthInfo.Token, tc.Equals, string(secretTokenReady.Data[core.ServiceAccountTokenKey]))
 }
 
-func (s *k8sRawClientSuite) TestEnsureJujuServiceAdminAccount2ndUpdate(c *gc.C) {
+func (s *k8sRawClientSuite) TestEnsureJujuServiceAdminAccount2ndUpdate(c *tc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
@@ -388,11 +388,11 @@ func (s *k8sRawClientSuite) TestEnsureJujuServiceAdminAccount2ndUpdate(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	authName := cfg.Contexts[contextName].AuthInfo
 	updatedAuthInfo := cfgOut.AuthInfos[authName]
-	c.Assert(updatedAuthInfo.AuthProvider, gc.IsNil)
-	c.Assert(updatedAuthInfo.Token, gc.Equals, string(secretTokenReady.Data[core.ServiceAccountTokenKey]))
+	c.Assert(updatedAuthInfo.AuthProvider, tc.IsNil)
+	c.Assert(updatedAuthInfo.Token, tc.Equals, string(secretTokenReady.Data[core.ServiceAccountTokenKey]))
 }
 
-func (s *k8sRawClientSuite) TestGetOrCreateClusterRole(c *gc.C) {
+func (s *k8sRawClientSuite) TestGetOrCreateClusterRole(c *tc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
@@ -436,7 +436,7 @@ func (s *k8sRawClientSuite) TestGetOrCreateClusterRole(c *gc.C) {
 	c.Assert(len(cleanUps), jc.DeepEquals, 0)
 }
 
-func (s *k8sRawClientSuite) TestGetOrCreateServiceAccount(c *gc.C) {
+func (s *k8sRawClientSuite) TestGetOrCreateServiceAccount(c *tc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
@@ -471,7 +471,7 @@ func (s *k8sRawClientSuite) TestGetOrCreateServiceAccount(c *gc.C) {
 	c.Assert(len(cleanUps), jc.DeepEquals, 0)
 }
 
-func (s *k8sRawClientSuite) TestGetOrCreateClusterRoleBinding(c *gc.C) {
+func (s *k8sRawClientSuite) TestGetOrCreateClusterRoleBinding(c *tc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
@@ -545,7 +545,7 @@ func (s *k8sRawClientSuite) TestGetOrCreateClusterRoleBinding(c *gc.C) {
 	c.Assert(len(cleanUps), jc.DeepEquals, 1)
 }
 
-func (s *k8sRawClientSuite) TestRemoveJujuAdminServiceAccount(c *gc.C) {
+func (s *k8sRawClientSuite) TestRemoveJujuAdminServiceAccount(c *tc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 

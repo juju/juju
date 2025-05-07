@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/paths"
@@ -21,9 +21,9 @@ type AuditLogSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&AuditLogSuite{})
+var _ = tc.Suite(&AuditLogSuite{})
 
-func (s *AuditLogSuite) TestAuditLogFile(c *gc.C) {
+func (s *AuditLogSuite) TestAuditLogFile(c *tc.C) {
 	dir := c.MkDir()
 	logFile := auditlog.NewLogFile(dir, 300, 10)
 	err := logFile.AddConversation(auditlog.Conversation{
@@ -61,10 +61,10 @@ func (s *AuditLogSuite) TestAuditLogFile(c *gc.C) {
 
 	bytes, err := os.ReadFile(filepath.Join(dir, "audit.log"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(bytes), gc.Equals, expectedLogContents)
+	c.Assert(string(bytes), tc.Equals, expectedLogContents)
 }
 
-func (s *AuditLogSuite) TestAuditLogFilePriming(c *gc.C) {
+func (s *AuditLogSuite) TestAuditLogFilePriming(c *tc.C) {
 	dir := c.MkDir()
 	logFile := auditlog.NewLogFile(dir, 300, 10)
 	err := logFile.Close()
@@ -72,11 +72,11 @@ func (s *AuditLogSuite) TestAuditLogFilePriming(c *gc.C) {
 
 	info, err := os.Stat(filepath.Join(dir, "audit.log"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.Mode(), gc.Equals, paths.LogfilePermission)
+	c.Assert(info.Mode(), tc.Equals, paths.LogfilePermission)
 	// The chown will only work when run as root.
 }
 
-func (s *AuditLogSuite) TestRecorder(c *gc.C) {
+func (s *AuditLogSuite) TestRecorder(c *tc.C) {
 	var log fakeLog
 	logTime, err := time.Parse(time.RFC3339, "2017-11-27T15:45:23Z")
 	c.Assert(err, jc.ErrorIsNil)
@@ -111,7 +111,7 @@ func (s *AuditLogSuite) TestRecorder(c *gc.C) {
 	calls := log.stub.Calls()
 	rec0 := calls[0].Args[0].(auditlog.Conversation)
 	callID := rec0.ConversationID
-	c.Assert(rec0, gc.DeepEquals, auditlog.Conversation{
+	c.Assert(rec0, tc.DeepEquals, auditlog.Conversation{
 		Who:            "wildbirds and peacedrums",
 		What:           "Doubt/Hope",
 		When:           "2017-11-27T15:45:23Z",
@@ -119,7 +119,7 @@ func (s *AuditLogSuite) TestRecorder(c *gc.C) {
 		ConnectionID:   "2AF",
 		ConversationID: callID,
 	})
-	c.Assert(calls[1].Args[0], gc.DeepEquals, auditlog.Request{
+	c.Assert(calls[1].Args[0], tc.DeepEquals, auditlog.Request{
 		ConversationID: callID,
 		ConnectionID:   "2AF",
 		RequestID:      246,
@@ -129,7 +129,7 @@ func (s *AuditLogSuite) TestRecorder(c *gc.C) {
 		Version:        5,
 		Args:           `{"a": "something"}`,
 	})
-	c.Assert(calls[2].Args[0], gc.DeepEquals, auditlog.ResponseErrors{
+	c.Assert(calls[2].Args[0], tc.DeepEquals, auditlog.ResponseErrors{
 		ConversationID: callID,
 		ConnectionID:   "2AF",
 		RequestID:      246,

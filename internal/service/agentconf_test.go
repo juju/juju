@@ -11,9 +11,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	jujuversion "github.com/juju/juju/core/version"
@@ -38,11 +38,11 @@ type agentConfSuite struct {
 	services []*mocks.MockService
 }
 
-func (s *agentConfSuite) SetUpSuite(c *gc.C) {
+func (s *agentConfSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 }
 
-func (s *agentConfSuite) SetUpTest(c *gc.C) {
+func (s *agentConfSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.dataDir = c.MkDir()
@@ -63,14 +63,14 @@ func (s *agentConfSuite) SetUpTest(c *gc.C) {
 	s.setUpAgentConf(c)
 }
 
-func (s *agentConfSuite) TearDownTest(c *gc.C) {
+func (s *agentConfSuite) TearDownTest(c *tc.C) {
 	s.services = nil
 	s.BaseSuite.TearDownTest(c)
 }
 
-var _ = gc.Suite(&agentConfSuite{})
+var _ = tc.Suite(&agentConfSuite{})
 
-func (s *agentConfSuite) setUpAgentConf(c *gc.C) {
+func (s *agentConfSuite) setUpAgentConf(c *tc.C) {
 	configParams := agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: s.dataDir},
 		Tag:               names.NewMachineTag("0"),
@@ -110,7 +110,7 @@ func (s *agentConfSuite) newService(name string, _ common.Conf) (service.Service
 	return nil, errors.NotFoundf("service %q", name)
 }
 
-func (s *agentConfSuite) assertSetupAgentsForTest(c *gc.C) {
+func (s *agentConfSuite) assertSetupAgentsForTest(c *tc.C) {
 	agentsDir := path.Join(s.dataDir, "agents")
 	err := os.MkdirAll(path.Join(agentsDir, s.machineName), os.ModeDir|os.ModePerm)
 	c.Assert(err, jc.ErrorIsNil)
@@ -120,16 +120,16 @@ func (s *agentConfSuite) assertSetupAgentsForTest(c *gc.C) {
 	}
 }
 
-func (s *agentConfSuite) TestFindAgents(c *gc.C) {
+func (s *agentConfSuite) TestFindAgents(c *tc.C) {
 	machineAgent, unitAgents, errAgents, err := s.manager.FindAgents(s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(machineAgent, gc.Equals, s.machineName)
+	c.Assert(machineAgent, tc.Equals, s.machineName)
 	c.Assert(unitAgents, jc.SameContents, s.unitNames)
-	c.Assert(errAgents, gc.HasLen, 0)
+	c.Assert(errAgents, tc.HasLen, 0)
 }
 
-func (s *agentConfSuite) TestFindAgentsUnexpectedTagType(c *gc.C) {
+func (s *agentConfSuite) TestFindAgentsUnexpectedTagType(c *tc.C) {
 	unexpectedAgent := names.NewApplicationTag("failme").String()
 	unexpectedAgentDir := path.Join(s.dataDir, "agents", unexpectedAgent)
 	err := os.MkdirAll(unexpectedAgentDir, os.ModeDir|os.ModePerm)
@@ -137,30 +137,30 @@ func (s *agentConfSuite) TestFindAgentsUnexpectedTagType(c *gc.C) {
 
 	machineAgent, unitAgents, unexpectedAgents, err := s.manager.FindAgents(s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machineAgent, gc.Equals, s.machineName)
+	c.Assert(machineAgent, tc.Equals, s.machineName)
 	c.Assert(unitAgents, jc.SameContents, s.unitNames)
-	c.Assert(unexpectedAgents, gc.DeepEquals, []string{unexpectedAgent})
+	c.Assert(unexpectedAgents, tc.DeepEquals, []string{unexpectedAgent})
 }
 
-func (s *agentConfSuite) TestCreateAgentConfDesc(c *gc.C) {
+func (s *agentConfSuite) TestCreateAgentConfDesc(c *tc.C) {
 	conf, err := s.manager.CreateAgentConf("machine-2", s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 	// Spot check Conf
-	c.Assert(conf.Desc, gc.Equals, "juju agent for machine-2")
+	c.Assert(conf.Desc, tc.Equals, "juju agent for machine-2")
 }
 
-func (s *agentConfSuite) TestCreateAgentConfLogPath(c *gc.C) {
+func (s *agentConfSuite) TestCreateAgentConfLogPath(c *tc.C) {
 	conf, err := s.manager.CreateAgentConf("machine-2", s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conf.Logfile, gc.Equals, "/var/log/juju/machine-2.log")
+	c.Assert(conf.Logfile, tc.Equals, "/var/log/juju/machine-2.log")
 }
 
-func (s *agentConfSuite) TestCreateAgentConfFailAgentKind(c *gc.C) {
+func (s *agentConfSuite) TestCreateAgentConfFailAgentKind(c *tc.C) {
 	_, err := s.manager.CreateAgentConf("application-fail", s.dataDir)
-	c.Assert(err, gc.ErrorMatches, `agent "application-fail" is neither a machine nor a unit`)
+	c.Assert(err, tc.ErrorMatches, `agent "application-fail" is neither a machine nor a unit`)
 }
 
-func (s *agentConfSuite) TestWriteSystemdAgent(c *gc.C) {
+func (s *agentConfSuite) TestWriteSystemdAgent(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -172,7 +172,7 @@ func (s *agentConfSuite) TestWriteSystemdAgent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *agentConfSuite) TestWriteSystemdAgentSystemdNotRunning(c *gc.C) {
+func (s *agentConfSuite) TestWriteSystemdAgentSystemdNotRunning(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -189,7 +189,7 @@ func (s *agentConfSuite) TestWriteSystemdAgentSystemdNotRunning(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *agentConfSuite) TestWriteSystemdAgentWriteServiceFail(c *gc.C) {
+func (s *agentConfSuite) TestWriteSystemdAgentWriteServiceFail(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -198,5 +198,5 @@ func (s *agentConfSuite) TestWriteSystemdAgentWriteServiceFail(c *gc.C) {
 
 	err := s.manager.WriteSystemdAgent(
 		s.machineName, s.systemdDataDir, s.systemdMultiUserDir)
-	c.Assert(err, gc.ErrorMatches, "fail me")
+	c.Assert(err, tc.ErrorMatches, "fail me")
 }

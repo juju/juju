@@ -17,12 +17,12 @@ import (
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/pubsub/v2"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"github.com/prometheus/client_golang/prometheus"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/worker/introspection"
 	_ "github.com/juju/juju/state"
@@ -32,26 +32,26 @@ type suite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&suite{})
+var _ = tc.Suite(&suite{})
 
-func (s *suite) TestConfigValidation(c *gc.C) {
+func (s *suite) TestConfigValidation(c *tc.C) {
 	w, err := introspection.NewWorker(introspection.Config{})
-	c.Check(w, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "empty SocketName not valid")
+	c.Check(w, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "empty SocketName not valid")
 	w, err = introspection.NewWorker(introspection.Config{
 		SocketName: "socket",
 	})
-	c.Check(w, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "nil PrometheusGatherer not valid")
+	c.Check(w, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "nil PrometheusGatherer not valid")
 	w, err = introspection.NewWorker(introspection.Config{
 		SocketName:         "socket",
 		PrometheusGatherer: newPrometheusGatherer(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(w, gc.Not(gc.IsNil))
+	c.Check(w, tc.Not(tc.IsNil))
 }
 
-func (s *suite) TestStartStop(c *gc.C) {
+func (s *suite) TestStartStop(c *tc.C) {
 	if runtime.GOOS != "linux" {
 		c.Skip("introspection worker not supported on non-linux")
 	}
@@ -75,9 +75,9 @@ type introspectionSuite struct {
 	centralHub introspection.StructuredHub
 }
 
-var _ = gc.Suite(&introspectionSuite{})
+var _ = tc.Suite(&introspectionSuite{})
 
-func (s *introspectionSuite) SetUpTest(c *gc.C) {
+func (s *introspectionSuite) SetUpTest(c *tc.C) {
 	if runtime.GOOS != "linux" {
 		c.Skip("introspection worker not supported on non-linux")
 	}
@@ -89,7 +89,7 @@ func (s *introspectionSuite) SetUpTest(c *gc.C) {
 	s.startWorker(c)
 }
 
-func (s *introspectionSuite) startWorker(c *gc.C) {
+func (s *introspectionSuite) startWorker(c *tc.C) {
 	s.name = path.Join(c.MkDir(), fmt.Sprintf("introspection-test-%d", os.Getpid()))
 	w, err := introspection.NewWorker(introspection.Config{
 		SocketName:         s.name,
@@ -99,12 +99,12 @@ func (s *introspectionSuite) startWorker(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.worker = w
-	s.AddCleanup(func(c *gc.C) {
+	s.AddCleanup(func(c *tc.C) {
 		workertest.CleanKill(c, w)
 	})
 }
 
-func (s *introspectionSuite) call(c *gc.C, path string) *http.Response {
+func (s *introspectionSuite) call(c *tc.C, path string) *http.Response {
 	client := unixSocketHTTPClient(s.name)
 	c.Assert(strings.HasPrefix(path, "/"), jc.IsTrue)
 	targetURL, err := url.Parse("http://unix.socket" + path)
@@ -115,74 +115,74 @@ func (s *introspectionSuite) call(c *gc.C, path string) *http.Response {
 	return resp
 }
 
-func (s *introspectionSuite) body(c *gc.C, r *http.Response) string {
+func (s *introspectionSuite) body(c *tc.C, r *http.Response) string {
 	response, err := io.ReadAll(r.Body)
 	c.Assert(err, jc.ErrorIsNil)
 	return string(response)
 }
 
-func (s *introspectionSuite) assertBody(c *gc.C, response *http.Response, value string) {
+func (s *introspectionSuite) assertBody(c *tc.C, response *http.Response, value string) {
 	body := s.body(c, response)
-	c.Assert(body, gc.Equals, value+"\n")
+	c.Assert(body, tc.Equals, value+"\n")
 }
 
-func (s *introspectionSuite) assertContains(c *gc.C, value, expected string) {
+func (s *introspectionSuite) assertContains(c *tc.C, value, expected string) {
 	c.Assert(strings.Contains(value, expected), jc.IsTrue,
-		gc.Commentf("missing %q in %v", expected, value))
+		tc.Commentf("missing %q in %v", expected, value))
 }
 
-func (s *introspectionSuite) assertBodyContains(c *gc.C, response *http.Response, value string) {
+func (s *introspectionSuite) assertBodyContains(c *tc.C, response *http.Response, value string) {
 	body := s.body(c, response)
 	s.assertContains(c, body, value)
 }
 
-func (s *introspectionSuite) TestCmdLine(c *gc.C) {
+func (s *introspectionSuite) TestCmdLine(c *tc.C) {
 	response := s.call(c, "/debug/pprof/cmdline")
 	s.assertBodyContains(c, response, "/introspection.test")
 }
 
-func (s *introspectionSuite) TestGoroutineProfile(c *gc.C) {
+func (s *introspectionSuite) TestGoroutineProfile(c *tc.C) {
 	response := s.call(c, "/debug/pprof/goroutine?debug=1")
 	body := s.body(c, response)
-	c.Check(body, gc.Matches, `(?s)^goroutine profile: total \d+.*`)
+	c.Check(body, tc.Matches, `(?s)^goroutine profile: total \d+.*`)
 }
 
-func (s *introspectionSuite) TestTrace(c *gc.C) {
+func (s *introspectionSuite) TestTrace(c *tc.C) {
 	response := s.call(c, "/debug/pprof/trace?seconds=1")
-	c.Assert(response.Header.Get("Content-Type"), gc.Equals, "application/octet-stream")
+	c.Assert(response.Header.Get("Content-Type"), tc.Equals, "application/octet-stream")
 }
 
-func (s *introspectionSuite) TestMissingDepEngineReporter(c *gc.C) {
+func (s *introspectionSuite) TestMissingDepEngineReporter(c *tc.C) {
 	response := s.call(c, "/depengine")
-	c.Assert(response.StatusCode, gc.Equals, http.StatusNotFound)
+	c.Assert(response.StatusCode, tc.Equals, http.StatusNotFound)
 	s.assertBody(c, response, "missing dependency engine reporter")
 }
 
-func (s *introspectionSuite) TestMissingStatePoolReporter(c *gc.C) {
+func (s *introspectionSuite) TestMissingStatePoolReporter(c *tc.C) {
 	response := s.call(c, "/statepool")
-	c.Assert(response.StatusCode, gc.Equals, http.StatusNotFound)
+	c.Assert(response.StatusCode, tc.Equals, http.StatusNotFound)
 	s.assertBody(c, response, `"State Pool" introspection not supported`)
 }
 
-func (s *introspectionSuite) TestMissingPubSubReporter(c *gc.C) {
+func (s *introspectionSuite) TestMissingPubSubReporter(c *tc.C) {
 	response := s.call(c, "/pubsub")
-	c.Assert(response.StatusCode, gc.Equals, http.StatusNotFound)
+	c.Assert(response.StatusCode, tc.Equals, http.StatusNotFound)
 	s.assertBody(c, response, `"PubSub Report" introspection not supported`)
 }
 
-func (s *introspectionSuite) TestMissingMachineLock(c *gc.C) {
+func (s *introspectionSuite) TestMissingMachineLock(c *tc.C) {
 	response := s.call(c, "/machinelock")
-	c.Assert(response.StatusCode, gc.Equals, http.StatusNotFound)
+	c.Assert(response.StatusCode, tc.Equals, http.StatusNotFound)
 	s.assertBody(c, response, "missing machine lock reporter")
 }
 
-func (s *introspectionSuite) TestStateTrackerReporter(c *gc.C) {
+func (s *introspectionSuite) TestStateTrackerReporter(c *tc.C) {
 	response := s.call(c, "/debug/pprof/juju/state/tracker?debug=1")
-	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
+	c.Assert(response.StatusCode, tc.Equals, http.StatusOK)
 	s.assertBodyContains(c, response, "juju/state/tracker profile: total")
 }
 
-func (s *introspectionSuite) TestEngineReporter(c *gc.C) {
+func (s *introspectionSuite) TestEngineReporter(c *tc.C) {
 	// We need to make sure the existing worker is shut down
 	// so we can connect to the socket.
 	workertest.CheckKill(c, s.worker)
@@ -193,7 +193,7 @@ func (s *introspectionSuite) TestEngineReporter(c *gc.C) {
 	}
 	s.startWorker(c)
 	response := s.call(c, "/depengine")
-	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
+	c.Assert(response.StatusCode, tc.Equals, http.StatusOK)
 	// TODO: perhaps make the output of the dependency engine YAML parseable.
 	// This could be done by having the first line start with a '#'.
 	s.assertBody(c, response, `
@@ -202,9 +202,9 @@ Dependency Engine Report
 working: true`[1:])
 }
 
-func (s *introspectionSuite) TestPrometheusMetrics(c *gc.C) {
+func (s *introspectionSuite) TestPrometheusMetrics(c *tc.C) {
 	response := s.call(c, "/metrics")
-	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
+	c.Assert(response.StatusCode, tc.Equals, http.StatusOK)
 	body := s.body(c, response)
 	s.assertContains(c, body, "# HELP tau Tau")
 	s.assertContains(c, body, "# TYPE tau counter")

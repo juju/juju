@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/types"
@@ -37,9 +37,9 @@ type ContextFactorySuite struct {
 	modelType  types.ModelType
 }
 
-var _ = gc.Suite(&ContextFactorySuite{})
+var _ = tc.Suite(&ContextFactorySuite{})
 
-func (s *ContextFactorySuite) SetUpTest(c *gc.C) {
+func (s *ContextFactorySuite) SetUpTest(c *tc.C) {
 	s.BaseHookContextSuite.SetUpTest(c)
 	s.paths = runnertesting.NewRealPaths(c)
 	s.membership = map[int][]string{
@@ -49,7 +49,7 @@ func (s *ContextFactorySuite) SetUpTest(c *gc.C) {
 	s.modelType = types.IAAS
 }
 
-func (s *ContextFactorySuite) setupContextFactory(c *gc.C, ctrl *gomock.Controller) {
+func (s *ContextFactorySuite) setupContextFactory(c *tc.C, ctrl *gomock.Controller) {
 	s.setupUniter(ctrl)
 
 	s.unit.EXPECT().PrincipalName(gomock.Any()).Return("", false, nil)
@@ -81,7 +81,7 @@ func (s *ContextFactorySuite) setupContextFactory(c *gc.C, ctrl *gomock.Controll
 	s.AddContextRelation(c, ctrl, "db1")
 }
 
-func (s *ContextFactorySuite) setupCacheMethods(c *gc.C) {
+func (s *ContextFactorySuite) setupCacheMethods(c *tc.C) {
 	// The factory's caches are created lazily, so it doesn't have any at all to
 	// begin with. Creating and discarding a context lets us call updateCache
 	// without panicking. (IMO this is less invasive that making updateCache
@@ -117,7 +117,7 @@ func (s *ContextFactorySuite) getRelationInfos() map[int]*context.RelationInfo {
 	return info
 }
 
-func (s *ContextFactorySuite) TestRelationHookContext(c *gc.C) {
+func (s *ContextFactorySuite) TestRelationHookContext(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	s.setupContextFactory(c, ctrl)
@@ -135,7 +135,7 @@ func (s *ContextFactorySuite) TestRelationHookContext(c *gc.C) {
 	s.AssertNotSecretContext(c, ctx)
 }
 
-func (s *ContextFactorySuite) TestWorkloadHookContext(c *gc.C) {
+func (s *ContextFactorySuite) TestWorkloadHookContext(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	s.setupContextFactory(c, ctrl)
@@ -174,17 +174,17 @@ func (s *ContextFactorySuite) TestWorkloadHookContext(c *gc.C) {
 		switch hi.Kind {
 		case hooks.PebbleCustomNotice:
 			actualNoticeKey, _ := ctx.WorkloadNoticeKey()
-			c.Assert(actualNoticeKey, gc.Equals, "example.com/bar")
+			c.Assert(actualNoticeKey, tc.Equals, "example.com/bar")
 			actualNoticeType, _ := ctx.WorkloadNoticeType()
-			c.Assert(actualNoticeType, gc.Equals, "custom")
+			c.Assert(actualNoticeType, tc.Equals, "custom")
 		case hooks.PebbleCheckFailed, hooks.PebbleCheckRecovered:
 			actualCheckName, _ := ctx.WorkloadCheckName()
-			c.Assert(actualCheckName, gc.Equals, "http-check")
+			c.Assert(actualCheckName, tc.Equals, "http-check")
 		}
 	}
 }
 
-func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
+func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	s.setupContextFactory(c, ctrl)
@@ -199,8 +199,8 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 		StorageId: "data/0",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
-	c.Assert(ctx.ModelType(), gc.Equals, model.IAAS)
+	c.Assert(ctx.UnitName(), tc.Equals, "u/0")
+	c.Assert(ctx.ModelType(), tc.Equals, model.IAAS)
 	s.AssertStorageContext(c, ctx, "data/0", storage.StorageAttachmentInfo{
 		Kind:     storage.StorageKindBlock,
 		Location: "/dev/sdb",
@@ -210,7 +210,7 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 	s.AssertNotSecretContext(c, ctx)
 }
 
-func (s *ContextFactorySuite) TestSecretHookContext(c *gc.C) {
+func (s *ContextFactorySuite) TestSecretHookContext(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	s.setupContextFactory(c, ctrl)
@@ -233,7 +233,7 @@ func (s *ContextFactorySuite) TestSecretHookContext(c *gc.C) {
 	s.AssertNotStorageContext(c, ctx)
 }
 
-func (s *ContextFactorySuite) TestNewHookContextCAASModel(c *gc.C) {
+func (s *ContextFactorySuite) TestNewHookContextCAASModel(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -244,14 +244,14 @@ func (s *ContextFactorySuite) TestNewHookContextCAASModel(c *gc.C) {
 		Kind: hooks.ConfigChanged,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx.UnitName(), gc.Equals, s.unit.Name())
-	c.Assert(ctx.ModelType(), gc.Equals, model.CAAS)
+	c.Assert(ctx.UnitName(), tc.Equals, s.unit.Name())
+	c.Assert(ctx.ModelType(), tc.Equals, model.CAAS)
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotRelationContext(c, ctx)
 	s.AssertNotStorageContext(c, ctx)
 }
 
-func (s *ContextFactorySuite) TestActionContext(c *gc.C) {
+func (s *ContextFactorySuite) TestActionContext(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	s.setupContextFactory(c, ctrl)
@@ -273,7 +273,7 @@ func (s *ContextFactorySuite) TestActionContext(c *gc.C) {
 	s.AssertNotStorageContext(c, ctx)
 }
 
-func (s *ContextFactorySuite) TestCommandContext(c *gc.C) {
+func (s *ContextFactorySuite) TestCommandContext(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	s.setupContextFactory(c, ctrl)
@@ -287,7 +287,7 @@ func (s *ContextFactorySuite) TestCommandContext(c *gc.C) {
 	s.AssertNotStorageContext(c, ctx)
 }
 
-func (s *ContextFactorySuite) TestCommandContextNoRelation(c *gc.C) {
+func (s *ContextFactorySuite) TestCommandContextNoRelation(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	s.setupContextFactory(c, ctrl)
@@ -300,7 +300,7 @@ func (s *ContextFactorySuite) TestCommandContextNoRelation(c *gc.C) {
 	s.AssertNotStorageContext(c, ctx)
 }
 
-func (s *ContextFactorySuite) TestNewCommandContextForceNoRemoteUnit(c *gc.C) {
+func (s *ContextFactorySuite) TestNewCommandContextForceNoRemoteUnit(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	s.setupContextFactory(c, ctrl)
@@ -315,7 +315,7 @@ func (s *ContextFactorySuite) TestNewCommandContextForceNoRemoteUnit(c *gc.C) {
 	s.AssertNotStorageContext(c, ctx)
 }
 
-func (s *ContextFactorySuite) TestNewCommandContextForceRemoteUnitMissing(c *gc.C) {
+func (s *ContextFactorySuite) TestNewCommandContextForceRemoteUnitMissing(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	s.setupContextFactory(c, ctrl)
@@ -324,14 +324,14 @@ func (s *ContextFactorySuite) TestNewCommandContextForceRemoteUnitMissing(c *gc.
 		// TODO(jam): 2019-10-23 Add RemoteApplicationName
 		RelationId: 0, RemoteUnitName: "blah/123", ForceRemoteUnit: true,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
 	s.AssertRelationContext(c, ctx, 0, "blah/123", "")
 	s.AssertNotStorageContext(c, ctx)
 }
 
-func (s *ContextFactorySuite) TestNewCommandContextInferRemoteUnit(c *gc.C) {
+func (s *ContextFactorySuite) TestNewCommandContextInferRemoteUnit(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	s.setupContextFactory(c, ctrl)
@@ -346,7 +346,7 @@ func (s *ContextFactorySuite) TestNewCommandContextInferRemoteUnit(c *gc.C) {
 	s.AssertNotStorageContext(c, ctx)
 }
 
-func (s *ContextFactorySuite) TestNewHookContextPrunesNonMemberCaches(c *gc.C) {
+func (s *ContextFactorySuite) TestNewHookContextPrunesNonMemberCaches(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	s.setupContextFactory(c, ctrl)
@@ -369,7 +369,7 @@ func (s *ContextFactorySuite) TestNewHookContextPrunesNonMemberCaches(c *gc.C) {
 
 	settings1, found := s.getCache(0, "rel0/1")
 	c.Assert(found, jc.IsFalse)
-	c.Assert(settings1, gc.IsNil)
+	c.Assert(settings1, tc.IsNil)
 
 	// Check the caches are being used by the context relations.
 	relCtx, err := ctx.Relation(0)
@@ -382,7 +382,7 @@ func (s *ContextFactorySuite) TestNewHookContextPrunesNonMemberCaches(c *gc.C) {
 	c.Assert(settings0, jc.DeepEquals, params.Settings{"keep": "me"})
 }
 
-func (s *ContextFactorySuite) TestNewHookContextRelationJoinedUpdatesRelationContextAndCaches(c *gc.C) {
+func (s *ContextFactorySuite) TestNewHookContextRelationJoinedUpdatesRelationContextAndCaches(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	s.setupContextFactory(c, ctrl)
@@ -405,11 +405,11 @@ func (s *ContextFactorySuite) TestNewHookContextRelationJoinedUpdatesRelationCon
 	rel := s.AssertRelationContext(c, ctx, 1, "r/0", "r")
 	c.Assert(rel.UnitNames(), jc.DeepEquals, []string{"r/0"})
 	cached0, member := s.getCache(1, "r/0")
-	c.Assert(cached0, gc.IsNil)
+	c.Assert(cached0, tc.IsNil)
 	c.Assert(member, jc.IsTrue)
 }
 
-func (s *ContextFactorySuite) TestNewHookContextRelationChangedUpdatesRelationContextAndCaches(c *gc.C) {
+func (s *ContextFactorySuite) TestNewHookContextRelationChangedUpdatesRelationContextAndCaches(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	s.setupContextFactory(c, ctrl)
@@ -438,10 +438,10 @@ func (s *ContextFactorySuite) TestNewHookContextRelationChangedUpdatesRelationCo
 	c.Assert(cached0, jc.DeepEquals, params.Settings{"foo": "bar"})
 	c.Assert(member, jc.IsTrue)
 	cached4, member := s.getCache(1, "r/4")
-	c.Assert(cached4, gc.IsNil)
+	c.Assert(cached4, tc.IsNil)
 	c.Assert(member, jc.IsTrue)
 	wrongCache, member := s.getCache(1, "r")
-	c.Assert(wrongCache, gc.IsNil)
+	c.Assert(wrongCache, tc.IsNil)
 	c.Assert(member, jc.IsFalse)
 	cachedApp, found := s.getAppCache(1, "r")
 	// TODO(jam): 2019-10-23 This is currently wrong. We are currently pruning
@@ -452,7 +452,7 @@ func (s *ContextFactorySuite) TestNewHookContextRelationChangedUpdatesRelationCo
 	c.Assert(found, jc.IsTrue)
 }
 
-func (s *ContextFactorySuite) TestNewHookContextRelationChangedUpdatesRelationContextAndCachesApplication(c *gc.C) {
+func (s *ContextFactorySuite) TestNewHookContextRelationChangedUpdatesRelationContextAndCachesApplication(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	s.setupContextFactory(c, ctrl)
@@ -482,14 +482,14 @@ func (s *ContextFactorySuite) TestNewHookContextRelationChangedUpdatesRelationCo
 	c.Assert(member, jc.IsTrue)
 	// It should not be found in the normal cache
 	wrongCache, member := s.getCache(1, "r")
-	c.Assert(wrongCache, gc.IsNil)
+	c.Assert(wrongCache, tc.IsNil)
 	c.Assert(member, jc.IsFalse)
 	cachedApp, found = s.getAppCache(1, "r")
-	c.Assert(cachedApp, gc.IsNil)
+	c.Assert(cachedApp, tc.IsNil)
 	c.Assert(found, jc.IsFalse)
 }
 
-func (s *ContextFactorySuite) TestNewHookContextRelationDepartedUpdatesRelationContextAndCaches(c *gc.C) {
+func (s *ContextFactorySuite) TestNewHookContextRelationDepartedUpdatesRelationContextAndCaches(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	s.setupContextFactory(c, ctrl)
@@ -514,14 +514,14 @@ func (s *ContextFactorySuite) TestNewHookContextRelationDepartedUpdatesRelationC
 	rel := s.AssertRelationContext(c, ctx, 1, "r/0", "")
 	c.Assert(rel.UnitNames(), jc.DeepEquals, []string{"r/4"})
 	cached0, member := s.getCache(1, "r/0")
-	c.Assert(cached0, gc.IsNil)
+	c.Assert(cached0, tc.IsNil)
 	c.Assert(member, jc.IsFalse)
 	cached4, member := s.getCache(1, "r/4")
 	c.Assert(cached4, jc.DeepEquals, params.Settings{"baz": "qux"})
 	c.Assert(member, jc.IsTrue)
 }
 
-func (s *ContextFactorySuite) TestNewHookContextRelationBrokenRetainsCaches(c *gc.C) {
+func (s *ContextFactorySuite) TestNewHookContextRelationBrokenRetainsCaches(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	s.setupContextFactory(c, ctrl)
@@ -552,7 +552,7 @@ func (s *ContextFactorySuite) TestNewHookContextRelationBrokenRetainsCaches(c *g
 	c.Assert(member, jc.IsTrue)
 }
 
-func (s *ContextFactorySuite) TestRelationIsPeerHookContext(c *gc.C) {
+func (s *ContextFactorySuite) TestRelationIsPeerHookContext(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 

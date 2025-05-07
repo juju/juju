@@ -4,21 +4,21 @@
 package debug_test
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/worker/uniter/runner/debug"
 )
 
 type DebugHooksCommonSuite struct{}
 
-var _ = gc.Suite(&DebugHooksCommonSuite{})
+var _ = tc.Suite(&DebugHooksCommonSuite{})
 
 // TestHooksContext tests the behaviour of HooksContext.
-func (*DebugHooksCommonSuite) TestHooksContext(c *gc.C) {
+func (*DebugHooksCommonSuite) TestHooksContext(c *tc.C) {
 	ctx := debug.NewHooksContext("foo/8")
-	c.Assert(ctx.Unit, gc.Equals, "foo/8")
-	c.Assert(ctx.FlockDir, gc.Equals, "/tmp")
+	c.Assert(ctx.Unit, tc.Equals, "foo/8")
+	c.Assert(ctx.FlockDir, tc.Equals, "/tmp")
 	ctx.FlockDir = "/var/lib/juju"
 	c.Assert(ctx.ClientFileLock(), jc.SamePath, "/var/lib/juju/juju-unit-foo-8-debug-hooks")
 	c.Assert(ctx.ClientExitFileLock(), jc.SamePath, "/var/lib/juju/juju-unit-foo-8-debug-hooks-exit")

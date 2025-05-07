@@ -4,8 +4,8 @@
 package google
 
 import (
+	"github.com/juju/tc"
 	"google.golang.org/api/compute/v1"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
 	jujuhttp "github.com/juju/juju/internal/http"
@@ -33,9 +33,9 @@ type BaseSuite struct {
 	Instance         Instance
 }
 
-var _ = gc.Suite(&BaseSuite{})
+var _ = tc.Suite(&BaseSuite{})
 
-func (s *BaseSuite) SetUpTest(c *gc.C) {
+func (s *BaseSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.Credentials = &Credentials{

@@ -10,9 +10,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/mutex/v2"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/container/broker"
@@ -49,9 +49,9 @@ type hostPreparerSuite struct {
 	Stub *jujutesting.Stub
 }
 
-var _ = gc.Suite(&hostPreparerSuite{})
+var _ = tc.Suite(&hostPreparerSuite{})
 
-func (s *hostPreparerSuite) SetUpTest(c *gc.C) {
+func (s *hostPreparerSuite) SetUpTest(c *tc.C) {
 	s.Stub = &jujutesting.Stub{}
 }
 
@@ -101,7 +101,7 @@ func (cno *cannedNetworkObserver) ObserveNetwork() ([]params.NetworkConfig, erro
 	return cno.config, nil
 }
 
-func (s *hostPreparerSuite) createPreparerParams(c *gc.C, bridges []network.DeviceToBridge, observed []params.NetworkConfig) broker.HostPreparerParams {
+func (s *hostPreparerSuite) createPreparerParams(c *tc.C, bridges []network.DeviceToBridge, observed []params.NetworkConfig) broker.HostPreparerParams {
 	observer := &cannedNetworkObserver{
 		Stub:   s.Stub,
 		config: observed,
@@ -119,12 +119,12 @@ func (s *hostPreparerSuite) createPreparerParams(c *gc.C, bridges []network.Devi
 	}
 }
 
-func (s *hostPreparerSuite) createPreparer(c *gc.C, bridges []network.DeviceToBridge, observed []params.NetworkConfig) *broker.HostPreparer {
+func (s *hostPreparerSuite) createPreparer(c *tc.C, bridges []network.DeviceToBridge, observed []params.NetworkConfig) *broker.HostPreparer {
 	params := s.createPreparerParams(c, bridges, observed)
 	return broker.NewHostPreparer(params)
 }
 
-func (s *hostPreparerSuite) TestPrepareHostNoChanges(c *gc.C) {
+func (s *hostPreparerSuite) TestPrepareHostNoChanges(c *tc.C) {
 	preparer := s.createPreparer(c, nil, nil)
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(context.Background(), containerTag)
@@ -176,7 +176,7 @@ var cannedObservedNetworkConfig = []params.NetworkConfig{{
 	ConfigType:          string(corenetwork.ConfigStatic),
 }}
 
-func (s *hostPreparerSuite) TestPrepareHostCreateBridge(c *gc.C) {
+func (s *hostPreparerSuite) TestPrepareHostCreateBridge(c *tc.C) {
 	devices := []network.DeviceToBridge{{
 		DeviceName: "eth0",
 		BridgeName: "br-eth0",
@@ -208,7 +208,7 @@ func (s *hostPreparerSuite) TestPrepareHostCreateBridge(c *gc.C) {
 	})
 }
 
-func (s *hostPreparerSuite) TestPrepareHostNothingObserved(c *gc.C) {
+func (s *hostPreparerSuite) TestPrepareHostNothingObserved(c *tc.C) {
 	devices := []network.DeviceToBridge{{
 		DeviceName: "eth0",
 		BridgeName: "br-eth0",
@@ -236,7 +236,7 @@ func (s *hostPreparerSuite) TestPrepareHostNothingObserved(c *gc.C) {
 	})
 }
 
-func (s *hostPreparerSuite) TestPrepareHostChangesUnsupported(c *gc.C) {
+func (s *hostPreparerSuite) TestPrepareHostChangesUnsupported(c *tc.C) {
 	// ensure that errors calling HostChangesForContainer are treated as
 	// provisioning errors, instead of assuming we can continue creating a
 	// container.
@@ -248,7 +248,7 @@ func (s *hostPreparerSuite) TestPrepareHostChangesUnsupported(c *gc.C) {
 	preparer := s.createPreparer(c, nil, nil)
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(context.Background(), containerTag)
-	c.Assert(err, gc.ErrorMatches, "unable to setup network: container address allocation not supported")
+	c.Assert(err, tc.ErrorMatches, "unable to setup network: container address allocation not supported")
 	s.Stub.CheckCalls(c, []jujutesting.StubCall{
 		{
 			FuncName: "AcquireLock",
@@ -261,7 +261,7 @@ func (s *hostPreparerSuite) TestPrepareHostChangesUnsupported(c *gc.C) {
 	})
 }
 
-func (s *hostPreparerSuite) TestPrepareHostNoBridger(c *gc.C) {
+func (s *hostPreparerSuite) TestPrepareHostNoBridger(c *tc.C) {
 	s.Stub.SetErrors(
 		nil, // AcquireLock
 		nil, // HostChangesForContainer
@@ -275,7 +275,7 @@ func (s *hostPreparerSuite) TestPrepareHostNoBridger(c *gc.C) {
 	preparer := s.createPreparer(c, devices, nil)
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(context.Background(), containerTag)
-	c.Check(err, gc.ErrorMatches, ".*unable to find python interpreter")
+	c.Check(err, tc.ErrorMatches, ".*unable to find python interpreter")
 
 	s.Stub.CheckCalls(c, []jujutesting.StubCall{
 		{
@@ -292,7 +292,7 @@ func (s *hostPreparerSuite) TestPrepareHostNoBridger(c *gc.C) {
 	})
 }
 
-func (s *hostPreparerSuite) TestPrepareHostNoLock(c *gc.C) {
+func (s *hostPreparerSuite) TestPrepareHostNoLock(c *tc.C) {
 	s.Stub.SetErrors(
 		mutex.ErrTimeout, // AcquireLock
 	)
@@ -303,7 +303,7 @@ func (s *hostPreparerSuite) TestPrepareHostNoLock(c *gc.C) {
 	preparer := s.createPreparer(c, devices, nil)
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(context.Background(), containerTag)
-	c.Check(err, gc.ErrorMatches, `failed to acquire machine lock for bridging: timeout acquiring mutex`)
+	c.Check(err, tc.ErrorMatches, `failed to acquire machine lock for bridging: timeout acquiring mutex`)
 
 	s.Stub.CheckCalls(c, []jujutesting.StubCall{
 		{
@@ -312,7 +312,7 @@ func (s *hostPreparerSuite) TestPrepareHostNoLock(c *gc.C) {
 	})
 }
 
-func (s *hostPreparerSuite) TestPrepareHostBridgeFailure(c *gc.C) {
+func (s *hostPreparerSuite) TestPrepareHostBridgeFailure(c *tc.C) {
 	s.Stub.SetErrors(
 		nil, // HostChangesForContainer
 		nil, // AcquireLock
@@ -325,7 +325,7 @@ func (s *hostPreparerSuite) TestPrepareHostBridgeFailure(c *gc.C) {
 	preparer := s.createPreparer(c, devices, nil)
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(context.Background(), containerTag)
-	c.Check(err, gc.ErrorMatches, `failed to bridge devices: script invocation error: IOError`)
+	c.Check(err, tc.ErrorMatches, `failed to bridge devices: script invocation error: IOError`)
 	s.Stub.CheckCalls(c, []jujutesting.StubCall{
 		{
 			FuncName: "AcquireLock",
@@ -346,7 +346,7 @@ func (s *hostPreparerSuite) TestPrepareHostBridgeFailure(c *gc.C) {
 	})
 }
 
-func (s *hostPreparerSuite) TestPrepareHostObserveFailure(c *gc.C) {
+func (s *hostPreparerSuite) TestPrepareHostObserveFailure(c *tc.C) {
 	s.Stub.SetErrors(
 		nil, // HostChangesForContainer
 		nil, // AcquireLock
@@ -360,7 +360,7 @@ func (s *hostPreparerSuite) TestPrepareHostObserveFailure(c *gc.C) {
 	preparer := s.createPreparer(c, devices, nil)
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(context.Background(), containerTag)
-	c.Check(err, gc.ErrorMatches, `cannot discover observed network config: cannot get network interfaces: enoent`)
+	c.Check(err, tc.ErrorMatches, `cannot discover observed network config: cannot get network interfaces: enoent`)
 	s.Stub.CheckCalls(c, []jujutesting.StubCall{
 		{
 			FuncName: "AcquireLock",
@@ -379,7 +379,7 @@ func (s *hostPreparerSuite) TestPrepareHostObserveFailure(c *gc.C) {
 	})
 }
 
-func (s *hostPreparerSuite) TestPrepareHostObservedFailure(c *gc.C) {
+func (s *hostPreparerSuite) TestPrepareHostObservedFailure(c *tc.C) {
 	s.Stub.SetErrors(
 		nil,                             // HostChangesForContainer
 		nil,                             // AcquireLock
@@ -394,7 +394,7 @@ func (s *hostPreparerSuite) TestPrepareHostObservedFailure(c *gc.C) {
 	preparer := s.createPreparer(c, devices, cannedObservedNetworkConfig)
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(context.Background(), containerTag)
-	c.Check(err, gc.ErrorMatches, `failure`)
+	c.Check(err, tc.ErrorMatches, `failure`)
 	s.Stub.CheckCalls(c, []jujutesting.StubCall{
 		{
 			FuncName: "AcquireLock",
@@ -415,7 +415,7 @@ func (s *hostPreparerSuite) TestPrepareHostObservedFailure(c *gc.C) {
 	})
 }
 
-func (s *hostPreparerSuite) TestPrepareHostCancel(c *gc.C) {
+func (s *hostPreparerSuite) TestPrepareHostCancel(c *tc.C) {
 	devices := []network.DeviceToBridge{{
 		DeviceName: "eth0",
 		BridgeName: "br-eth0",
@@ -428,7 +428,7 @@ func (s *hostPreparerSuite) TestPrepareHostCancel(c *gc.C) {
 	args.AcquireLockFunc = func(_ string, abort <-chan struct{}) (func(), error) {
 		s.Stub.AddCall("AcquireLockFunc")
 		// Make sure that the right channel got passed in.
-		c.Check(abort, gc.Equals, (<-chan struct{})(ch))
+		c.Check(abort, tc.Equals, (<-chan struct{})(ch))
 		select {
 		case <-abort:
 			return nil, errors.Errorf("AcquireLock cancelled")
@@ -441,7 +441,7 @@ func (s *hostPreparerSuite) TestPrepareHostCancel(c *gc.C) {
 	// Now when we prepare, we should fail with "cancelled".
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(context.Background(), containerTag)
-	c.Check(err, gc.ErrorMatches, `failed to acquire machine lock for bridging: AcquireLock cancelled`)
+	c.Check(err, tc.ErrorMatches, `failed to acquire machine lock for bridging: AcquireLock cancelled`)
 	s.Stub.CheckCalls(c, []jujutesting.StubCall{
 		{
 			FuncName: "AcquireLockFunc",

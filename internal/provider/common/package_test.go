@@ -6,7 +6,7 @@ package common_test
 import (
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/zoned_environ.go github.com/juju/juju/internal/provider/common ZonedEnviron
@@ -15,5 +15,5 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/environs.go github.com/juju/juju/environs CredentialInvalidator
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }

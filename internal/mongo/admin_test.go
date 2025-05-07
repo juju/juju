@@ -7,8 +7,8 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	mgotesting "github.com/juju/mgo/v3/testing"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/mongo"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -18,28 +18,28 @@ type adminSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&adminSuite{})
+var _ = tc.Suite(&adminSuite{})
 
-func (s *adminSuite) SetUpTest(c *gc.C) {
+func (s *adminSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.PatchValue(mongo.InstallMongo, func(string) error {
 		return nil
 	})
 }
 
-func (s *adminSuite) setUpMongo(c *gc.C) *mgo.DialInfo {
+func (s *adminSuite) setUpMongo(c *tc.C) *mgo.DialInfo {
 	inst := &mgotesting.MgoInstance{
 		EnableReplicaSet: true,
 	}
 	err := inst.Start(coretesting.Certs)
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { inst.Destroy() })
+	s.AddCleanup(func(*tc.C) { inst.Destroy() })
 	dialInfo := inst.DialInfo()
 	dialInfo.Direct = true
 	return dialInfo
 }
 
-func checkRoles(c *gc.C, session *mgo.Session, db, user string, expected []interface{}) {
+func checkRoles(c *tc.C, session *mgo.Session, db, user string, expected []interface{}) {
 	admin := session.DB("admin")
 
 	var info map[string]interface{}
@@ -59,7 +59,7 @@ func checkRoles(c *gc.C, session *mgo.Session, db, user string, expected []inter
 	c.Assert(roles, jc.SameContents, expected)
 }
 
-func (s *adminSuite) TestSetAdminMongoPassword(c *gc.C) {
+func (s *adminSuite) TestSetAdminMongoPassword(c *tc.C) {
 	dialInfo := s.setUpMongo(c)
 	session, err := mgo.DialWithInfo(dialInfo)
 	c.Assert(err, jc.ErrorIsNil)
@@ -74,7 +74,7 @@ func (s *adminSuite) TestSetAdminMongoPassword(c *gc.C) {
 	err = mongo.SetAdminMongoPassword(session, "auser", "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	err = admin.Login("auser", "")
-	c.Assert(err, gc.ErrorMatches, "(auth|(.*Authentication)) fail(s|ed)\\.?")
+	c.Assert(err, tc.ErrorMatches, "(auth|(.*Authentication)) fail(s|ed)\\.?")
 	err = admin.Login("auser", "foo")
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -11,13 +11,13 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
 	"golang.org/x/net/context"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
@@ -25,7 +25,7 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-func (s *clientSuite) TestCreateTemplateVM(c *gc.C) {
+func (s *clientSuite) TestCreateTemplateVM(c *tc.C) {
 	var statusUpdates []string
 	statusUpdatesCh := make(chan string, 4)
 	dequeueStatusUpdates := func() {
@@ -64,10 +64,10 @@ func (s *clientSuite) TestCreateTemplateVM(c *gc.C) {
 		fmt.Sprintf(`creating template VM "juju-template-%s"`, args.OVASHA256),
 		"streaming vmdk: 100.00% (0B/s)",
 	})
-	c.Assert(s.uploadRequests, gc.HasLen, 1)
+	c.Assert(s.uploadRequests, tc.HasLen, 1)
 	contents, err := io.ReadAll(s.uploadRequests[0].Body)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(contents), gc.Equals, "FakeVmdkContent")
+	c.Assert(string(contents), tc.Equals, "FakeVmdkContent")
 
 	templateCisp := baseCisp()
 	templateCisp.EntityName = args.TemplateName
@@ -102,7 +102,7 @@ func (s *clientSuite) TestCreateTemplateVM(c *gc.C) {
 	})
 }
 
-func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
+func (s *clientSuite) TestCreateVirtualMachine(c *tc.C) {
 	var statusUpdates []string
 	statusUpdatesCh := make(chan string, 4)
 	dequeueStatusUpdates := func() {
@@ -208,7 +208,7 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 	})
 }
 
-func (s *clientSuite) TestCreateVirtualMachineForceHWVersion(c *gc.C) {
+func (s *clientSuite) TestCreateVirtualMachineForceHWVersion(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	args.ForceVMHardwareVersion = 11
@@ -227,7 +227,7 @@ func (s *clientSuite) TestCreateVirtualMachineForceHWVersion(c *gc.C) {
 	s.roundTripper.CheckCall(c, 20, "UpgradeVM_Task", "vmx-11")
 }
 
-func (s *clientSuite) TestCreateVirtualMachineNoDiskUUID(c *gc.C) {
+func (s *clientSuite) TestCreateVirtualMachineNoDiskUUID(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	args.EnableDiskUUID = false
@@ -270,7 +270,7 @@ func (s *clientSuite) TestCreateVirtualMachineNoDiskUUID(c *gc.C) {
 		})
 }
 
-func (s *clientSuite) TestCreateVirtualMachineThickDiskProvisioning(c *gc.C) {
+func (s *clientSuite) TestCreateVirtualMachineThickDiskProvisioning(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	args.DiskProvisioningType = DiskTypeThickLazyZero
@@ -315,7 +315,7 @@ func (s *clientSuite) TestCreateVirtualMachineThickDiskProvisioning(c *gc.C) {
 		})
 }
 
-func (s *clientSuite) TestCreateVirtualMachineThickEagerZeroDiskProvisioning(c *gc.C) {
+func (s *clientSuite) TestCreateVirtualMachineThickEagerZeroDiskProvisioning(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	args.DiskProvisioningType = DiskTypeThick
@@ -361,7 +361,7 @@ func (s *clientSuite) TestCreateVirtualMachineThickEagerZeroDiskProvisioning(c *
 		})
 }
 
-func (s *clientSuite) TestCreateVirtualMachineThinDiskProvisioning(c *gc.C) {
+func (s *clientSuite) TestCreateVirtualMachineThinDiskProvisioning(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	args.DiskProvisioningType = DiskTypeThin
@@ -402,7 +402,7 @@ func (s *clientSuite) TestCreateVirtualMachineThinDiskProvisioning(c *gc.C) {
 	})
 }
 
-func (s *clientSuite) TestCreateVirtualMachineDatastoreSpecified(c *gc.C) {
+func (s *clientSuite) TestCreateVirtualMachineDatastoreSpecified(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	datastore := "datastore1"
@@ -453,16 +453,16 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreSpecified(c *gc.C) {
 		})
 }
 
-func (s *clientSuite) TestGetTargetDatastoreDatastoreNotFound(c *gc.C) {
+func (s *clientSuite) TestGetTargetDatastoreDatastoreNotFound(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	datastore := "datastore3"
 
 	_, err := client.GetTargetDatastore(context.Background(), args.ComputeResource, datastore)
-	c.Assert(err, gc.ErrorMatches, `could not find datastore "datastore3", datastore\(s\) accessible: "datastore2"`)
+	c.Assert(err, tc.ErrorMatches, `could not find datastore "datastore3", datastore\(s\) accessible: "datastore2"`)
 }
 
-func (s *clientSuite) TestGetTargetDatastoreDatastoreNoneAccessible(c *gc.C) {
+func (s *clientSuite) TestGetTargetDatastoreDatastoreNoneAccessible(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	args.ComputeResource.Datastore = []types.ManagedObjectReference{{
@@ -471,10 +471,10 @@ func (s *clientSuite) TestGetTargetDatastoreDatastoreNoneAccessible(c *gc.C) {
 	}}
 
 	_, err := client.GetTargetDatastore(context.Background(), args.ComputeResource, args.Datastore.Name())
-	c.Assert(err, gc.ErrorMatches, "no accessible datastores available")
+	c.Assert(err, tc.ErrorMatches, "no accessible datastores available")
 }
 
-func (s *clientSuite) TestGetTargetDatastoreDatastoreNotFoundWithMultipleAvailable(c *gc.C) {
+func (s *clientSuite) TestGetTargetDatastoreDatastoreNotFoundWithMultipleAvailable(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	datastore := "datastore3"
@@ -493,10 +493,10 @@ func (s *clientSuite) TestGetTargetDatastoreDatastoreNotFoundWithMultipleAvailab
 	)
 
 	_, err := client.GetTargetDatastore(context.Background(), args.ComputeResource, datastore)
-	c.Assert(err, gc.ErrorMatches, `could not find datastore "datastore3", datastore\(s\) accessible: "datastore1", "datastore2"`)
+	c.Assert(err, tc.ErrorMatches, `could not find datastore "datastore3", datastore\(s\) accessible: "datastore1", "datastore2"`)
 }
 
-func (s *clientSuite) TestGetTargetDatastoreDatastoreNotFoundWithNoAvailable(c *gc.C) {
+func (s *clientSuite) TestGetTargetDatastoreDatastoreNotFoundWithNoAvailable(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	datastore := "datastore3"
@@ -515,10 +515,10 @@ func (s *clientSuite) TestGetTargetDatastoreDatastoreNotFoundWithNoAvailable(c *
 	)
 
 	_, err := client.GetTargetDatastore(context.Background(), args.ComputeResource, datastore)
-	c.Assert(err, gc.ErrorMatches, `no accessible datastores available`)
+	c.Assert(err, tc.ErrorMatches, `no accessible datastores available`)
 }
 
-func (s *clientSuite) TestCreateVirtualMachineMultipleNetworksSpecifiedFirstDefault(c *gc.C) {
+func (s *clientSuite) TestCreateVirtualMachineMultipleNetworksSpecifiedFirstDefault(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	args.NetworkDevices = []NetworkDevice{
@@ -602,7 +602,7 @@ func (s *clientSuite) TestCreateVirtualMachineMultipleNetworksSpecifiedFirstDefa
 		})
 }
 
-func (s *clientSuite) TestCreateVirtualMachineNetworkSpecifiedDVPortgroup(c *gc.C) {
+func (s *clientSuite) TestCreateVirtualMachineNetworkSpecifiedDVPortgroup(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	args.NetworkDevices = []NetworkDevice{
@@ -675,7 +675,7 @@ func (s *clientSuite) TestCreateVirtualMachineNetworkSpecifiedDVPortgroup(c *gc.
 		})
 }
 
-func (s *clientSuite) TestCreateVirtualMachineNetworkNotFound(c *gc.C) {
+func (s *clientSuite) TestCreateVirtualMachineNetworkNotFound(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	args.NetworkDevices = []NetworkDevice{
@@ -683,10 +683,10 @@ func (s *clientSuite) TestCreateVirtualMachineNetworkNotFound(c *gc.C) {
 	}
 
 	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, `cloning template VM: building clone VM config: network "fourtytwo" not found`)
+	c.Assert(err, tc.ErrorMatches, `cloning template VM: building clone VM config: network "fourtytwo" not found`)
 }
 
-func (s *clientSuite) TestCreateVirtualMachineInvalidMAC(c *gc.C) {
+func (s *clientSuite) TestCreateVirtualMachineInvalidMAC(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	args.NetworkDevices = []NetworkDevice{
@@ -694,10 +694,10 @@ func (s *clientSuite) TestCreateVirtualMachineInvalidMAC(c *gc.C) {
 	}
 
 	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, `cloning template VM: building clone VM config: adding network device 0 - network VM Network: invalid MAC address: "00:11:22:33:44:55"`)
+	c.Assert(err, tc.ErrorMatches, `cloning template VM: building clone VM config: adding network device 0 - network VM Network: invalid MAC address: "00:11:22:33:44:55"`)
 }
 
-func (s *clientSuite) TestCreateVirtualMachineRootDiskSize(c *gc.C) {
+func (s *clientSuite) TestCreateVirtualMachineRootDiskSize(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	rootDisk := uint64(1024 * 20) // 20 GiB
@@ -726,7 +726,7 @@ func (s *clientSuite) TestCreateVirtualMachineRootDiskSize(c *gc.C) {
 	})
 }
 
-func (s *clientSuite) TestCreateVirtualMachineWithCustomizedVMFolder(c *gc.C) {
+func (s *clientSuite) TestCreateVirtualMachineWithCustomizedVMFolder(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	rootDisk := uint64(1024 * 20) // 20 GiB
@@ -774,7 +774,7 @@ func (s *clientSuite) TestCreateVirtualMachineWithCustomizedVMFolder(c *gc.C) {
 		})
 }
 
-func (s *clientSuite) TestVerifyMAC(c *gc.C) {
+func (s *clientSuite) TestVerifyMAC(c *tc.C) {
 	var testData = []struct {
 		Mac    string
 		Result bool
@@ -791,11 +791,11 @@ func (s *clientSuite) TestVerifyMAC(c *gc.C) {
 	}
 	for i, test := range testData {
 		c.Logf("test #%d: MAC=%s expected %s", i, test.Mac, test.Result)
-		c.Check(VerifyMAC(test.Mac), gc.Equals, test.Result)
+		c.Check(VerifyMAC(test.Mac), tc.Equals, test.Result)
 	}
 }
 
-func baseImportOVAParameters(c *gc.C, client *Client) ImportOVAParameters {
+func baseImportOVAParameters(c *tc.C, client *Client) ImportOVAParameters {
 	readOVA := func() (string, io.ReadCloser, error) {
 		r := bytes.NewReader(ovatest.FakeOVAContents())
 		return "fake-ova-location", io.NopCloser(r), nil
@@ -829,7 +829,7 @@ func baseImportOVAParameters(c *gc.C, client *Client) ImportOVAParameters {
 	}
 }
 
-func baseCreateVirtualMachineParams(c *gc.C, client *Client) CreateVirtualMachineParams {
+func baseCreateVirtualMachineParams(c *tc.C, client *Client) CreateVirtualMachineParams {
 	fakeVM := types.ManagedObjectReference{
 		Type:  "VirtualMachine",
 		Value: "FakeVm0",

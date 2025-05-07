@@ -10,9 +10,9 @@ import (
 	"strings"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	cloudapi "github.com/juju/juju/api/client/cloud"
 	jujucloud "github.com/juju/juju/cloud"
@@ -29,9 +29,9 @@ type listSuite struct {
 	store *jujuclient.MemStore
 }
 
-var _ = gc.Suite(&listSuite{})
+var _ = tc.Suite(&listSuite{})
 
-func (s *listSuite) SetUpTest(c *gc.C) {
+func (s *listSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.api = &fakeListCloudsAPI{}
 	store := jujuclient.NewMemStore()
@@ -40,34 +40,34 @@ func (s *listSuite) SetUpTest(c *gc.C) {
 	s.store = store
 }
 
-func (s *listSuite) TestListNoCredentialsRegistered(c *gc.C) {
+func (s *listSuite) TestListNoCredentialsRegistered(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudCommandForTest(s.store, nil), "--client")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
 Only clouds with registered credentials are shown.
 There are more clouds, use --all to see them.
 `[1:])
 }
 
-func (s *listSuite) TestListPublic(c *gc.C) {
+func (s *listSuite) TestListPublic(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudCommandForTest(s.store, nil), "--client", "--all")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCloudsOutput(c, cmdtesting.Stdout(ctx))
 }
 
-func (s *listSuite) assertCloudsOutput(c *gc.C, out string) {
+func (s *listSuite) assertCloudsOutput(c *tc.C, out string) {
 	out = strings.Replace(out, "\n", "", -1)
 
 	// Check that we are producing the expected fields
-	c.Assert(out, gc.Matches, `You can bootstrap a new controller using one of these clouds...Clouds available on the client:Cloud +Regions +Default +Type +Credentials +Source +Description.*`)
+	c.Assert(out, tc.Matches, `You can bootstrap a new controller using one of these clouds...Clouds available on the client:Cloud +Regions +Default +Type +Credentials +Source +Description.*`)
 	// // Just check couple of snippets of the output to make sure it looks ok.
-	c.Assert(out, gc.Matches, `.*aws +[0-9]+ +[a-z0-9-]+ +ec2 +0 +public +Amazon Web Services.*`)
-	c.Assert(out, gc.Matches, `.*azure +[0-9]+ +[a-z0-9-]+ +azure +0 +public +Microsoft Azure.*`)
+	c.Assert(out, tc.Matches, `.*aws +[0-9]+ +[a-z0-9-]+ +ec2 +0 +public +Amazon Web Services.*`)
+	c.Assert(out, tc.Matches, `.*azure +[0-9]+ +[a-z0-9-]+ +azure +0 +public +Microsoft Azure.*`)
 	// LXD should be there too.
-	c.Assert(out, gc.Matches, `.*localhost[ ]*1[ ]*localhost[ ]*lxd.*`)
+	c.Assert(out, tc.Matches, `.*localhost[ ]*1[ ]*localhost[ ]*lxd.*`)
 }
 
-func (s *listSuite) TestListPublicLocalDefault(c *gc.C) {
+func (s *listSuite) TestListPublicLocalDefault(c *tc.C) {
 	s.store.Controllers = nil
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudCommandForTest(s.store, nil), "--all", "--client")
 	c.Assert(err, jc.ErrorIsNil)
@@ -75,7 +75,7 @@ func (s *listSuite) TestListPublicLocalDefault(c *gc.C) {
 	s.assertCloudsOutput(c, cmdtesting.Stdout(ctx))
 }
 
-func (s *listSuite) TestListController(c *gc.C) {
+func (s *listSuite) TestListController(c *tc.C) {
 	cmd := cloud.NewListCloudCommandForTest(
 		s.store,
 		func(ctx context.Context) (cloud.ListCloudsAPI, error) {
@@ -98,7 +98,7 @@ func (s *listSuite) TestListController(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--format", "yaml", "-c", "mycontroller")
 	c.Assert(err, jc.ErrorIsNil)
 	s.api.CheckCallNames(c, "Clouds", "CloudInfo", "Close")
-	c.Assert(cmd.ControllerName, gc.Equals, "mycontroller")
+	c.Assert(cmd.ControllerName, tc.Equals, "mycontroller")
 
 	c.Assert(cmdtesting.Stdout(ctx), jc.Contains, `
 beehive:
@@ -116,7 +116,7 @@ beehive:
 `[1:])
 }
 
-func (s *listSuite) TestListControllerError(c *gc.C) {
+func (s *listSuite) TestListControllerError(c *tc.C) {
 	cmd := cloud.NewListCloudCommandForTest(
 		s.store,
 		func(ctx context.Context) (cloud.ListCloudsAPI, error) {
@@ -126,14 +126,14 @@ func (s *listSuite) TestListControllerError(c *gc.C) {
 
 	// Command should return an error
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--all")
-	c.Assert(err, gc.ErrorMatches, `could not get clouds from controller "mycontroller": bad problem`)
-	c.Assert(cmd.ControllerName, gc.Equals, "mycontroller")
+	c.Assert(err, tc.ErrorMatches, `could not get clouds from controller "mycontroller": bad problem`)
+	c.Assert(cmd.ControllerName, tc.Equals, "mycontroller")
 
 	// But also print out what it can (the client clouds)
 	s.assertCloudsOutput(c, cmdtesting.Stdout(ctx))
 }
 
-func (s *listSuite) TestListClientAndController(c *gc.C) {
+func (s *listSuite) TestListClientAndController(c *tc.C) {
 	cmd := cloud.NewListCloudCommandForTest(
 		s.store,
 		func(ctx context.Context) (cloud.ListCloudsAPI, error) {
@@ -156,7 +156,7 @@ func (s *listSuite) TestListClientAndController(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	s.api.CheckCallNames(c, "Clouds", "CloudInfo", "Close")
-	c.Assert(cmd.ControllerName, gc.Equals, "mycontroller")
+	c.Assert(cmd.ControllerName, tc.Equals, "mycontroller")
 
 	c.Assert(cmdtesting.Stdout(ctx), jc.Contains, `
 beehive:
@@ -174,7 +174,7 @@ beehive:
 `[1:])
 }
 
-func (s *listSuite) TestListEmbedded(c *gc.C) {
+func (s *listSuite) TestListEmbedded(c *tc.C) {
 	cmd := cloud.NewListCloudCommandForTest(
 		s.store,
 		func(ctx context.Context) (cloud.ListCloudsAPI, error) {
@@ -198,9 +198,9 @@ func (s *listSuite) TestListEmbedded(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cmd)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api.CheckCallNames(c, "Clouds", "CloudInfo", "Close")
-	c.Assert(cmd.ControllerName, gc.Equals, "mycontroller")
+	c.Assert(cmd.ControllerName, tc.Equals, "mycontroller")
 
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 
 Clouds available on the controller:
 Cloud    Regions  Default    Type
@@ -208,7 +208,7 @@ beehive  1        regionone  openstack
 `[1:])
 }
 
-func (s *listSuite) TestListKubernetes(c *gc.C) {
+func (s *listSuite) TestListKubernetes(c *tc.C) {
 	cmd := cloud.NewListCloudCommandForTest(
 		s.store,
 		func(ctx context.Context) (cloud.ListCloudsAPI, error) {
@@ -231,7 +231,7 @@ func (s *listSuite) TestListKubernetes(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--controller", "mycontroller", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	s.api.CheckCallNames(c, "Clouds", "CloudInfo", "Close")
-	c.Assert(cmd.ControllerName, gc.Equals, "mycontroller")
+	c.Assert(cmd.ControllerName, tc.Equals, "mycontroller")
 	c.Assert(cmdtesting.Stdout(ctx), jc.Contains, `
 beehive:
   defined: public
@@ -248,7 +248,7 @@ beehive:
 `[1:])
 }
 
-func (s *listSuite) assertListTabular(c *gc.C, expectedOutput string) {
+func (s *listSuite) assertListTabular(c *tc.C, expectedOutput string) {
 	s.api.controllerClouds = make(map[names.CloudTag]jujucloud.Cloud)
 	s.api.controllerClouds[names.NewCloudTag("beehive")] = jujucloud.Cloud{
 		Name:      "beehive",
@@ -283,13 +283,13 @@ func (s *listSuite) assertListTabular(c *gc.C, expectedOutput string) {
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--controller", "mycontroller", "--format", "tabular")
 	c.Assert(err, jc.ErrorIsNil)
 	s.api.CheckCallNames(c, "Clouds", "CloudInfo", "Close")
-	c.Assert(cmd.ControllerName, gc.Equals, "mycontroller")
+	c.Assert(cmd.ControllerName, tc.Equals, "mycontroller")
 
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, jc.Contains, expectedOutput)
 }
 
-func (s *listSuite) TestListTabular(c *gc.C) {
+func (s *listSuite) TestListTabular(c *tc.C) {
 	s.assertListTabular(c, `
 
 Clouds available on the controller:
@@ -299,7 +299,7 @@ beehive  1        default  k8s
 `[1:])
 }
 
-func (s *listSuite) TestListTabularWithClientDefaultRegion(c *gc.C) {
+func (s *listSuite) TestListTabularWithClientDefaultRegion(c *tc.C) {
 	s.store.Credentials["antnest"] = jujucloud.CloudCredential{DefaultRegion: "anotherregion"}
 	s.assertListTabular(c, `
 
@@ -310,7 +310,7 @@ beehive  1        default        k8s
 `[1:])
 }
 
-func (s *listSuite) TestListPublicAndPersonal(c *gc.C) {
+func (s *listSuite) TestListPublicAndPersonal(c *tc.C) {
 	data := `
 clouds:
   homestack:
@@ -341,7 +341,7 @@ clouds:
 	c.Assert(out, jc.Contains, `homestack  1        london     openstack  0            local     Openstack Cloud`)
 }
 
-func (s *listSuite) TestListPublicAndPersonalSameName(c *gc.C) {
+func (s *listSuite) TestListPublicAndPersonalSameName(c *tc.C) {
 	data := `
 clouds:
   aws:
@@ -358,29 +358,29 @@ clouds:
 	out = strings.Replace(out, "\n", "", -1)
 	// Just check a snippet of the output to make sure it looks ok.
 	// local clouds are last.
-	c.Assert(out, gc.Not(gc.Matches), `.*aws:[ ]*defined: public[ ]*type: ec2[ ]*auth-types: \[access-key\].*`)
-	c.Assert(out, gc.Matches, `.*aws:[ ]*defined: local[ ]*type: ec2[ ]*description: Amazon Web Services[ ]*auth-types: \[access-key\].*`)
+	c.Assert(out, tc.Not(tc.Matches), `.*aws:[ ]*defined: public[ ]*type: ec2[ ]*auth-types: \[access-key\].*`)
+	c.Assert(out, tc.Matches, `.*aws:[ ]*defined: local[ ]*type: ec2[ ]*description: Amazon Web Services[ ]*auth-types: \[access-key\].*`)
 }
 
-func (s *listSuite) TestListYAML(c *gc.C) {
+func (s *listSuite) TestListYAML(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudCommandForTest(s.store, nil), "--format", "yaml", "--client", "--all")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
 	// Just check a snippet of the output to make sure it looks ok.
-	c.Assert(out, gc.Matches, `.*aws:[ ]*defined: public[ ]*type: ec2[ ]*description: Amazon Web Services[ ]*auth-types: \[access-key\].*`)
+	c.Assert(out, tc.Matches, `.*aws:[ ]*defined: public[ ]*type: ec2[ ]*description: Amazon Web Services[ ]*auth-types: \[access-key\].*`)
 }
 
-func (s *listSuite) TestListJSON(c *gc.C) {
+func (s *listSuite) TestListJSON(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudCommandForTest(s.store, nil), "--format", "json", "--client", "--all")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
 	// Just check a snippet of the output to make sure it looks ok.
-	c.Assert(out, gc.Matches, `.*{"aws":{"defined":"public","type":"ec2","description":"Amazon Web Services","auth-types":\["access-key"\].*`)
+	c.Assert(out, tc.Matches, `.*{"aws":{"defined":"public","type":"ec2","description":"Amazon Web Services","auth-types":\["access-key"\].*`)
 }
 
-func (s *listSuite) TestListPreservesRegionOrder(c *gc.C) {
+func (s *listSuite) TestListPreservesRegionOrder(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudCommandForTest(s.store, nil), "--format", "yaml", "--client", "--all")
 	c.Assert(err, jc.ErrorIsNil)
 	lines := strings.Split(cmdtesting.Stdout(ctx), "\n")

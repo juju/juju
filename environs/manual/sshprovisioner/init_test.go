@@ -7,8 +7,8 @@ package sshprovisioner_test
 import (
 	"strings"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
@@ -20,9 +20,9 @@ type initialisationSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&initialisationSuite{})
+var _ = tc.Suite(&initialisationSuite{})
 
-func (s *initialisationSuite) TestDetectBase(c *gc.C) {
+func (s *initialisationSuite) TestDetectBase(c *tc.C) {
 	response := strings.Join([]string{
 		"ubuntu",
 		"6.10",
@@ -33,10 +33,10 @@ func (s *initialisationSuite) TestDetectBase(c *gc.C) {
 	defer installFakeSSH(c, sshprovisioner.DetectionScript, response, 0)()
 	_, base, err := sshprovisioner.DetectBaseAndHardwareCharacteristics("whatever", "vmuser")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(base, gc.Equals, corebase.MustParseBaseFromString("ubuntu@6.10"))
+	c.Assert(base, tc.Equals, corebase.MustParseBaseFromString("ubuntu@6.10"))
 }
 
-func (s *initialisationSuite) TestDetectionError(c *gc.C) {
+func (s *initialisationSuite) TestDetectionError(c *tc.C) {
 	scriptResponse := strings.Join([]string{
 		"ubuntu",
 		"6.10",
@@ -48,15 +48,15 @@ func (s *initialisationSuite) TestDetectionError(c *gc.C) {
 	// will return an error. stderr will be included in the error message.
 	defer installFakeSSH(c, sshprovisioner.DetectionScript, []string{scriptResponse, "oh noes"}, 33)()
 	_, _, err := sshprovisioner.DetectBaseAndHardwareCharacteristics("hostname", "vmuser")
-	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 33 \\(oh noes\\)")
+	c.Assert(err, tc.ErrorMatches, "subprocess encountered error code 33 \\(oh noes\\)")
 	// if the script doesn't fail, stderr is simply ignored.
 	defer installFakeSSH(c, sshprovisioner.DetectionScript, []string{scriptResponse, "non-empty-stderr"}, 0)()
 	hc, _, err := sshprovisioner.DetectBaseAndHardwareCharacteristics("hostname", "vmuser")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hc.String(), gc.Equals, "arch=ppc64el cores=1 mem=4M")
+	c.Assert(hc.String(), tc.Equals, "arch=ppc64el cores=1 mem=4M")
 }
 
-func (s *initialisationSuite) TestDetectHardwareCharacteristics(c *gc.C) {
+func (s *initialisationSuite) TestDetectHardwareCharacteristics(c *tc.C) {
 	tests := []struct {
 		summary        string
 		scriptResponse []string
@@ -125,11 +125,11 @@ func (s *initialisationSuite) TestDetectHardwareCharacteristics(c *gc.C) {
 		defer installFakeSSH(c, sshprovisioner.DetectionScript, scriptResponse, 0)()
 		hc, _, err := sshprovisioner.DetectBaseAndHardwareCharacteristics("hostname", "vmuser")
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(hc.String(), gc.Equals, test.expectedHc)
+		c.Assert(hc.String(), tc.Equals, test.expectedHc)
 	}
 }
 
-func (s *initialisationSuite) TestCheckProvisioned(c *gc.C) {
+func (s *initialisationSuite) TestCheckProvisioned(c *tc.C) {
 	listCmd := service.ListServicesScript()
 	defer installFakeSSH(c, listCmd, "", 0)()
 	provisioned, err := sshprovisioner.CheckProvisioned("example.com", "vmuser")
@@ -156,24 +156,24 @@ func (s *initialisationSuite) TestCheckProvisioned(c *gc.C) {
 	// will return an error. stderr will be included in the error message.
 	defer installFakeSSH(c, listCmd, []string{"non-empty-stdout", "non-empty-stderr"}, 255)()
 	_, err = sshprovisioner.CheckProvisioned("example.com", "vmuser")
-	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 255 \\(non-empty-stderr\\)")
+	c.Assert(err, tc.ErrorMatches, "subprocess encountered error code 255 \\(non-empty-stderr\\)")
 }
 
-func (s *initialisationSuite) TestInitUbuntuUserNonExisting(c *gc.C) {
+func (s *initialisationSuite) TestInitUbuntuUserNonExisting(c *tc.C) {
 	defer installFakeSSH(c, "", "", 0)() // successful creation of ubuntu user
 	defer installFakeSSH(c, "", "", 1)() // simulate failure of ubuntu@ login
 	err := sshprovisioner.InitUbuntuUser("testhost", "testuser", "", "", nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *initialisationSuite) TestInitUbuntuUserExisting(c *gc.C) {
+func (s *initialisationSuite) TestInitUbuntuUserExisting(c *tc.C) {
 	defer installFakeSSH(c, "", nil, 0)()
 	sshprovisioner.InitUbuntuUser("testhost", "testuser", "", "", nil, nil)
 }
 
-func (s *initialisationSuite) TestInitUbuntuUserError(c *gc.C) {
+func (s *initialisationSuite) TestInitUbuntuUserError(c *tc.C) {
 	defer installFakeSSH(c, "", []string{"", "failed to create ubuntu user"}, 123)()
 	defer installFakeSSH(c, "", "", 1)() // simulate failure of ubuntu@ login
 	err := sshprovisioner.InitUbuntuUser("testhost", "testuser", "", "", nil, nil)
-	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 123 \\(failed to create ubuntu user\\)")
+	c.Assert(err, tc.ErrorMatches, "subprocess encountered error code 123 \\(failed to create ubuntu user\\)")
 }

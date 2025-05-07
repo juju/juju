@@ -6,9 +6,9 @@ package testing
 import (
 	"context"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	"github.com/juju/utils/v4/ssh"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	environscmd "github.com/juju/juju/environs/cmd"
@@ -40,10 +40,10 @@ func DisableFinishBootstrap() func() {
 }
 
 // BootstrapContext creates a simple bootstrap execution context.
-func BootstrapContext(ctx context.Context, c *gc.C) environs.BootstrapContext {
+func BootstrapContext(ctx context.Context, c *tc.C) environs.BootstrapContext {
 	return environscmd.BootstrapContext(ctx, cmdtesting.Context(c))
 }
 
-func BootstrapTestContext(c *gc.C) environs.BootstrapContext {
+func BootstrapTestContext(c *tc.C) environs.BootstrapContext {
 	return BootstrapContext(context.Background(), c)
 }

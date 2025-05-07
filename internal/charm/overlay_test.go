@@ -10,9 +10,9 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/internal/charm"
@@ -22,9 +22,9 @@ type bundleDataOverlaySuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&bundleDataOverlaySuite{})
+var _ = tc.Suite(&bundleDataOverlaySuite{})
 
-func (*bundleDataOverlaySuite) TestEmptyBaseApplication(c *gc.C) {
+func (*bundleDataOverlaySuite) TestEmptyBaseApplication(c *tc.C) {
 	data := `
 applications:
   apache2:
@@ -35,10 +35,10 @@ applications:
 `[1:]
 
 	_, err := charm.ReadAndMergeBundleData(mustCreateStringDataSource(c, data))
-	c.Assert(err, gc.ErrorMatches, `base application "apache2" has no body`)
+	c.Assert(err, tc.ErrorMatches, `base application "apache2" has no body`)
 }
 
-func (*bundleDataOverlaySuite) TestExtractBaseAndOverlayParts(c *gc.C) {
+func (*bundleDataOverlaySuite) TestExtractBaseAndOverlayParts(c *tc.C) {
 	data := `
 applications:
   apache2:
@@ -97,21 +97,21 @@ applications:
 `[1:]
 
 	bd, err := charm.ReadBundleData(strings.NewReader(data))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	base, overlay, err := charm.ExtractBaseAndOverlayParts(bd)
 	c.Assert(err, jc.ErrorIsNil)
 
 	baseYaml, err := yaml.Marshal(base)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(baseYaml), gc.Equals, expBase)
+	c.Assert(string(baseYaml), tc.Equals, expBase)
 
 	overlayYaml, err := yaml.Marshal(overlay)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(overlayYaml), gc.Equals, expOverlay)
+	c.Assert(string(overlayYaml), tc.Equals, expOverlay)
 }
 
-func (*bundleDataOverlaySuite) TestExtractBaseAndOverlayPartsWithNoOverlayFields(c *gc.C) {
+func (*bundleDataOverlaySuite) TestExtractBaseAndOverlayPartsWithNoOverlayFields(c *tc.C) {
 	data := `
 bundle: kubernetes
 applications:
@@ -145,21 +145,21 @@ relations:
 `[1:]
 
 	bd, err := charm.ReadBundleData(strings.NewReader(data))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	base, overlay, err := charm.ExtractBaseAndOverlayParts(bd)
 	c.Assert(err, jc.ErrorIsNil)
 
 	baseYaml, err := yaml.Marshal(base)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(baseYaml), gc.Equals, expBase)
+	c.Assert(string(baseYaml), tc.Equals, expBase)
 
 	overlayYaml, err := yaml.Marshal(overlay)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(overlayYaml), gc.Equals, expOverlay)
+	c.Assert(string(overlayYaml), tc.Equals, expOverlay)
 }
 
-func (*bundleDataOverlaySuite) TestExtractAndMergeWithMixedOverlayBits(c *gc.C) {
+func (*bundleDataOverlaySuite) TestExtractAndMergeWithMixedOverlayBits(c *tc.C) {
 	// In this example, mysql defines an offer whereas wordpress does not.
 	//
 	// When the visitor code examines the application map, it should report
@@ -226,18 +226,18 @@ applications:
 `[1:]
 
 	bd, err := charm.ReadBundleData(strings.NewReader(data))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	base, overlay, err := charm.ExtractBaseAndOverlayParts(bd)
 	c.Assert(err, jc.ErrorIsNil)
 
 	baseYaml, err := yaml.Marshal(base)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(baseYaml), gc.Equals, expBase)
+	c.Assert(string(baseYaml), tc.Equals, expBase)
 
 	overlayYaml, err := yaml.Marshal(overlay)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(overlayYaml), gc.Equals, expOverlay)
+	c.Assert(string(overlayYaml), tc.Equals, expOverlay)
 
 	// Check that merging the output back into a bundle yields the original
 	r := strings.NewReader(string(baseYaml) + "\n---\n" + string(overlayYaml))
@@ -246,10 +246,10 @@ applications:
 
 	newBd, err := charm.ReadAndMergeBundleData(ds)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newBd, gc.DeepEquals, bd)
+	c.Assert(newBd, tc.DeepEquals, bd)
 }
 
-func (*bundleDataOverlaySuite) TestVerifyNoOverlayFieldsPresent(c *gc.C) {
+func (*bundleDataOverlaySuite) TestVerifyNoOverlayFieldsPresent(c *tc.C) {
 	data := `
 applications:
   apache2:
@@ -271,12 +271,12 @@ saas:
 `
 
 	bd, err := charm.ReadBundleData(strings.NewReader(data))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	static, overlay, err := charm.ExtractBaseAndOverlayParts(bd)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(charm.VerifyNoOverlayFieldsPresent(static), gc.Equals, nil)
+	c.Assert(charm.VerifyNoOverlayFieldsPresent(static), tc.Equals, nil)
 
 	expErrors := []string{
 		"applications.apache2.offers can only appear in an overlay section",
@@ -285,7 +285,7 @@ saas:
 		"applications.apache2.offers.my-other-offer.endpoints can only appear in an overlay section",
 	}
 	err = charm.VerifyNoOverlayFieldsPresent(overlay)
-	c.Assert(err, gc.FitsTypeOf, (*charm.VerificationError)(nil))
+	c.Assert(err, tc.FitsTypeOf, (*charm.VerificationError)(nil))
 	errors := err.(*charm.VerificationError).Errors
 	errStrings := make([]string, len(errors))
 	for i, err := range errors {
@@ -296,7 +296,7 @@ saas:
 	c.Assert(errStrings, jc.DeepEquals, expErrors)
 }
 
-func (*bundleDataOverlaySuite) TestVerifyNoOverlayFieldsPresentOnNilOptionValue(c *gc.C) {
+func (*bundleDataOverlaySuite) TestVerifyNoOverlayFieldsPresentOnNilOptionValue(c *tc.C) {
 	data := `
 # ssl_ca is left uninitialized so it resolves to nil
 ssl_ca: &ssl_ca
@@ -309,15 +309,15 @@ applications:
 `
 
 	bd, err := charm.ReadBundleData(strings.NewReader(data))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	static, _, err := charm.ExtractBaseAndOverlayParts(bd)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(charm.VerifyNoOverlayFieldsPresent(static), gc.Equals, nil)
+	c.Assert(charm.VerifyNoOverlayFieldsPresent(static), tc.Equals, nil)
 }
 
-func (*bundleDataOverlaySuite) TestOverrideCharm(c *gc.C) {
+func (*bundleDataOverlaySuite) TestOverrideCharm(c *tc.C) {
 	testBundleMergeResult(c, `
 applications:
   apache2:
@@ -336,7 +336,7 @@ applications:
 	)
 }
 
-func (*bundleDataOverlaySuite) TestOverrideScale(c *gc.C) {
+func (*bundleDataOverlaySuite) TestOverrideScale(c *tc.C) {
 	testBundleMergeResult(c, `
 applications:
   apache2:
@@ -355,7 +355,7 @@ applications:
 	)
 }
 
-func (*bundleDataOverlaySuite) TestOverrideScaleWithNumUnits(c *gc.C) {
+func (*bundleDataOverlaySuite) TestOverrideScaleWithNumUnits(c *tc.C) {
 	// This shouldn't be allowed, but the code does, so we should test it!
 	// Notice that scale doesn't exist.
 	testBundleMergeResult(c, `
@@ -376,7 +376,7 @@ applications:
 	)
 }
 
-func (*bundleDataOverlaySuite) TestMultipleOverrideScale(c *gc.C) {
+func (*bundleDataOverlaySuite) TestMultipleOverrideScale(c *tc.C) {
 	testBundleMergeResult(c, `
 applications:
   apache2:
@@ -399,7 +399,7 @@ applications:
 	)
 }
 
-func (*bundleDataOverlaySuite) TestOverrideScaleWithZero(c *gc.C) {
+func (*bundleDataOverlaySuite) TestOverrideScaleWithZero(c *tc.C) {
 	testBundleMergeResult(c, `
 applications:
   apache2:
@@ -418,7 +418,7 @@ applications:
 	)
 }
 
-func (*bundleDataOverlaySuite) TestAddAndOverrideResourcesStorageDevicesAndBindings(c *gc.C) {
+func (*bundleDataOverlaySuite) TestAddAndOverrideResourcesStorageDevicesAndBindings(c *tc.C) {
 	testBundleMergeResult(c, `
 applications:
   apache2:
@@ -462,7 +462,7 @@ applications:
 	)
 }
 
-func (*bundleDataOverlaySuite) TestAddAndOverrideOptionsAndAnnotations(c *gc.C) {
+func (*bundleDataOverlaySuite) TestAddAndOverrideOptionsAndAnnotations(c *tc.C) {
 	testBundleMergeResult(c, `
 applications:
   apache2:
@@ -494,7 +494,7 @@ applications:
 	)
 }
 
-func (*bundleDataOverlaySuite) TestOverrideUnitsTrustConstraintsAndExposeFlags(c *gc.C) {
+func (*bundleDataOverlaySuite) TestOverrideUnitsTrustConstraintsAndExposeFlags(c *tc.C) {
 	testBundleMergeResult(c, `
 applications:
   apache2:
@@ -524,7 +524,7 @@ applications:
 	)
 }
 
-func (*bundleDataOverlaySuite) TestAddModifyAndRemoveApplicationsAndRelations(c *gc.C) {
+func (*bundleDataOverlaySuite) TestAddModifyAndRemoveApplicationsAndRelations(c *tc.C) {
 	testBundleMergeResult(c, `
 applications:
   apache2:
@@ -557,7 +557,7 @@ relations:
 	)
 }
 
-func (*bundleDataOverlaySuite) TestAddModifyAndRemoveSaasBlocksAndRelations(c *gc.C) {
+func (*bundleDataOverlaySuite) TestAddModifyAndRemoveSaasBlocksAndRelations(c *tc.C) {
 	testBundleMergeResult(c, `
 saas:
   postgres:
@@ -584,7 +584,7 @@ saas:
 	)
 }
 
-func (*bundleDataOverlaySuite) TestAddAndRemoveOffers(c *gc.C) {
+func (*bundleDataOverlaySuite) TestAddAndRemoveOffers(c *tc.C) {
 	testBundleMergeResult(c, `
 applications:
   apache2:
@@ -628,7 +628,7 @@ applications:
 	)
 }
 
-func (*bundleDataOverlaySuite) TestAddAndRemoveMachines(c *gc.C) {
+func (*bundleDataOverlaySuite) TestAddAndRemoveMachines(c *tc.C) {
 	testBundleMergeResult(c, `
 applications:
   apache2:
@@ -653,7 +653,7 @@ machines:
 	)
 }
 
-func (*bundleDataOverlaySuite) TestYAMLInterpolation(c *gc.C) {
+func (*bundleDataOverlaySuite) TestYAMLInterpolation(c *tc.C) {
 	base := `
 applications:
     django:
@@ -710,10 +710,10 @@ relations:
 		mustCreateStringDataSource(c, removeDjango),
 		mustCreateStringDataSource(c, addWiki),
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	merged, err := yaml.Marshal(bd)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	exp := `
 applications:
@@ -740,10 +740,10 @@ relations:
   - memcached
 `
 
-	c.Assert("\n"+string(merged), gc.Equals, exp)
+	c.Assert("\n"+string(merged), tc.Equals, exp)
 }
 
-func (*bundleDataOverlaySuite) TestReadAndMergeBundleDataWithIncludes(c *gc.C) {
+func (*bundleDataOverlaySuite) TestReadAndMergeBundleDataWithIncludes(c *tc.C) {
 	data := `
 applications:
   apache2:
@@ -773,10 +773,10 @@ machines:
 	}
 
 	bd, err := charm.ReadAndMergeBundleData(ds)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	merged, err := yaml.Marshal(bd)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	exp := `
 applications:
@@ -799,10 +799,10 @@ machines:
       anno-raw: lorem$ipsum$
 `
 
-	c.Assert("\n"+string(merged), gc.Equals, exp)
+	c.Assert("\n"+string(merged), tc.Equals, exp)
 }
 
-func (*bundleDataOverlaySuite) TestBundleDataSourceRelativeIncludes(c *gc.C) {
+func (*bundleDataOverlaySuite) TestBundleDataSourceRelativeIncludes(c *tc.C) {
 	base := `
 applications:
   django:
@@ -837,10 +837,10 @@ applications:
 		mustCreateLocalDataSource(c, filepath.Join(baseDir, "bundle.yaml")),
 		mustCreateLocalDataSource(c, filepath.Join(ovlDir, "overlays.yaml")),
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	merged, err := yaml.Marshal(bd)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	exp := `
 applications:
@@ -852,10 +852,10 @@ applications:
       opt3: dolor
 `
 
-	c.Assert("\n"+string(merged), gc.Equals, exp)
+	c.Assert("\n"+string(merged), tc.Equals, exp)
 }
 
-func (*bundleDataOverlaySuite) TestBundleDataSourceWithEmptyOverlay(c *gc.C) {
+func (*bundleDataOverlaySuite) TestBundleDataSourceWithEmptyOverlay(c *tc.C) {
 	base := `
 applications:
   django:
@@ -876,10 +876,10 @@ applications:
 		mustCreateLocalDataSource(c, filepath.Join(baseDir, "bundle.yaml")),
 		mustCreateLocalDataSource(c, filepath.Join(ovlDir, "overlays.yaml")),
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	merged, err := yaml.Marshal(bd)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	exp := `
 applications:
@@ -887,10 +887,10 @@ applications:
     charm: cs:django
 `
 
-	c.Assert("\n"+string(merged), gc.Equals, exp)
+	c.Assert("\n"+string(merged), tc.Equals, exp)
 }
 
-func (*bundleDataOverlaySuite) TestReadAndMergeBundleDataWithRelativeCharmPaths(c *gc.C) {
+func (*bundleDataOverlaySuite) TestReadAndMergeBundleDataWithRelativeCharmPaths(c *tc.C) {
 	base := `
 applications:
   apache2:
@@ -910,10 +910,10 @@ applications:
 		mustCreateStringDataSourceWithBasePath(c, base, "/tmp/base"),
 		mustCreateStringDataSourceWithBasePath(c, overlay, "/overlay"),
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	merged, err := yaml.Marshal(bd)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	exp := `
 applications:
@@ -927,7 +927,7 @@ applications:
     charm: /overlay/wordpress
 `[1:]
 
-	c.Assert(string(merged), gc.Equals, exp)
+	c.Assert(string(merged), tc.Equals, exp)
 }
 
 type srcWithFakeIncludeResolver struct {
@@ -966,34 +966,34 @@ func (s srcWithFakeIncludeResolver) ResolveInclude(path string) ([]byte, error) 
 
 // testBundleMergeResult reads and merges the bundle and any overlays in src,
 // serializes the merged bundle back to yaml and compares it with exp.
-func testBundleMergeResult(c *gc.C, src, exp string) {
+func testBundleMergeResult(c *tc.C, src, exp string) {
 	bd, err := charm.ReadAndMergeBundleData(mustCreateStringDataSource(c, src))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	merged, err := yaml.Marshal(bd)
-	c.Assert(err, gc.IsNil)
-	c.Assert("\n"+string(merged), gc.Equals, exp)
+	c.Assert(err, tc.IsNil)
+	c.Assert("\n"+string(merged), tc.Equals, exp)
 }
 
-func mustWriteFile(c *gc.C, path, content string) {
+func mustWriteFile(c *tc.C, path, content string) {
 	err := os.WriteFile(path, []byte(content), os.ModePerm)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func mustCreateLocalDataSource(c *gc.C, path string) charm.BundleDataSource {
+func mustCreateLocalDataSource(c *tc.C, path string) charm.BundleDataSource {
 	ds, err := charm.LocalBundleDataSource(path)
-	c.Assert(err, gc.IsNil, gc.Commentf(path))
+	c.Assert(err, tc.IsNil, tc.Commentf(path))
 	return ds
 }
 
-func mustCreateStringDataSource(c *gc.C, data string) charm.BundleDataSource {
+func mustCreateStringDataSource(c *tc.C, data string) charm.BundleDataSource {
 	ds, err := charm.StreamBundleDataSource(strings.NewReader(data), "")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	return ds
 }
 
-func mustCreateStringDataSourceWithBasePath(c *gc.C, data, basePath string) charm.BundleDataSource {
+func mustCreateStringDataSourceWithBasePath(c *tc.C, data, basePath string) charm.BundleDataSource {
 	ds, err := charm.StreamBundleDataSource(strings.NewReader(data), basePath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	return ds
 }

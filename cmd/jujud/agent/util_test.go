@@ -16,11 +16,11 @@ import (
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v6"
 	"github.com/juju/retry"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v4"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/addons"
@@ -65,7 +65,7 @@ type commonMachineSuite struct {
 	cmdRunner *mocks.MockCommandRunner
 }
 
-func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
+func (s *commonMachineSuite) SetUpSuite(c *tc.C) {
 	s.AgentSuite.SetUpSuite(c)
 	// Set up FakeJujuXDGDataHomeSuite after AgentSuite since
 	// AgentSuite clears all env vars.
@@ -82,7 +82,7 @@ func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 	})
 }
 
-func (s *commonMachineSuite) SetUpTest(c *gc.C) {
+func (s *commonMachineSuite) SetUpTest(c *tc.C) {
 	s.AgentSuite.SetUpTest(c)
 	// Set up FakeJujuXDGDataHomeSuite after AgentSuite since
 	// AgentSuite clears all env vars.
@@ -102,7 +102,7 @@ func fakeCmd(path string) {
 	}
 }
 
-func (s *commonMachineSuite) TearDownTest(c *gc.C) {
+func (s *commonMachineSuite) TearDownTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 	// MgoServer.Reset() is done during the embedded MgoSuite TearDownSuite().
 	// But we need to do it for every test in this suite to keep
@@ -127,7 +127,7 @@ func (s *commonMachineSuite) TearDownTest(c *gc.C) {
 	s.AgentSuite.TearDownTest(c)
 }
 
-func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
+func (s *commonMachineSuite) TearDownSuite(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
 	s.AgentSuite.TearDownSuite(c)
 }
@@ -135,14 +135,14 @@ func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
 // primeAgent adds a new Machine to run the given jobs, and sets up the
 // machine agent's directory.  It returns the new machine, the
 // agent's configuration and the tools currently running.
-func (s *commonMachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
+func (s *commonMachineSuite) primeAgent(c *tc.C, jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
 	vers := coretesting.CurrentVersion()
 	return s.primeAgentVersion(c, vers, jobs...)
 }
 
 // primeAgentVersion is similar to primeAgent, but permits the
 // caller to specify the version.Binary to prime with.
-func (s *commonMachineSuite) primeAgentVersion(c *gc.C, vers semversion.Binary, jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
+func (s *commonMachineSuite) primeAgentVersion(c *tc.C, vers semversion.Binary, jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
 	m, err := s.ControllerModel(c).State().AddMachine(state.UbuntuBase("12.10"), jobs...)
 	c.Assert(err, jc.ErrorIsNil)
 	// TODO(wallyworld) - we need the dqlite model database to be available.
@@ -150,11 +150,11 @@ func (s *commonMachineSuite) primeAgentVersion(c *gc.C, vers semversion.Binary, 
 	return s.primeAgentWithMachine(c, m, vers)
 }
 
-func (s *commonMachineSuite) primeAgentWithMachine(c *gc.C, m *state.Machine, vers semversion.Binary) (*state.Machine, agent.ConfigSetterWriter, *tools.Tools) {
+func (s *commonMachineSuite) primeAgentWithMachine(c *tc.C, m *state.Machine, vers semversion.Binary) (*state.Machine, agent.ConfigSetterWriter, *tools.Tools) {
 	return s.configureMachine(c, m.Id(), vers)
 }
 
-func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers semversion.Binary) (
+func (s *commonMachineSuite) configureMachine(c *tc.C, machineId string, vers semversion.Binary) (
 	machineState *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools,
 ) {
 	m, err := s.ControllerModel(c).State().Machine(machineId)
@@ -197,7 +197,7 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers se
 }
 
 func NewTestMachineAgentFactory(
-	c *gc.C,
+	c *tc.C,
 	agentConfWriter agentconfig.AgentConfigWriter,
 	bufferedLogger *logsender.BufferedLogWriter,
 	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
@@ -242,7 +242,7 @@ func NewTestMachineAgentFactory(
 }
 
 // newAgent returns a new MachineAgent instance
-func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) (*gomock.Controller, *MachineAgent) {
+func (s *commonMachineSuite) newAgent(c *tc.C, m *state.Machine) (*gomock.Controller, *MachineAgent) {
 	ctrl := gomock.NewController(c)
 	s.cmdRunner = mocks.NewMockCommandRunner(ctrl)
 
@@ -260,11 +260,11 @@ func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) (*gomock.Contro
 
 func (s *commonMachineSuite) newBufferedLogWriter() *logsender.BufferedLogWriter {
 	logger := logsender.NewBufferedLogWriter(1024)
-	s.AddCleanup(func(*gc.C) { logger.Close() })
+	s.AddCleanup(func(*tc.C) { logger.Close() })
 	return logger
 }
 
-func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Machine, instanceId instance.Id) {
+func (s *commonMachineSuite) setFakeMachineAddresses(c *tc.C, machine *state.Machine, instanceId instance.Id) {
 	controllerConfig := coretesting.FakeControllerConfig()
 
 	addrs := network.NewSpaceAddresses("0.1.2.3")
@@ -301,7 +301,7 @@ func (s *signal) triggered() <-chan struct{} {
 	return s.ch
 }
 
-func (s *signal) assertTriggered(c *gc.C, thing string) {
+func (s *signal) assertTriggered(c *tc.C, thing string) {
 	select {
 	case <-s.triggered():
 	case <-time.After(coretesting.LongWait):
@@ -328,7 +328,7 @@ type runner interface {
 
 // runWithTimeout runs an agent and waits
 // for it to complete within a reasonable time.
-func runWithTimeout(c *gc.C, r runner) error {
+func runWithTimeout(c *tc.C, r runner) error {
 	done := make(chan error)
 	go func() {
 		done <- r.Run(cmdtesting.Context(c))

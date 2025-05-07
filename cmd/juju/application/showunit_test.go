@@ -9,8 +9,8 @@ import (
 	"fmt"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	apiapplication "github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/cmd/juju/application"
@@ -28,9 +28,9 @@ type ShowUnitSuite struct {
 	mockAPI *mockShowUnitAPI
 }
 
-var _ = gc.Suite(&ShowUnitSuite{})
+var _ = tc.Suite(&ShowUnitSuite{})
 
-func (s *ShowUnitSuite) SetUpTest(c *gc.C) {
+func (s *ShowUnitSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	s.store = jujuclient.NewMemStore()
@@ -51,7 +51,7 @@ func (s *ShowUnitSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *ShowUnitSuite) runShow(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *ShowUnitSuite) runShow(c *tc.C, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, application.NewShowUnitCommandForTest(s.mockAPI, s.store), args...)
 }
 
@@ -62,18 +62,18 @@ type showUnitTest struct {
 	stderr string
 }
 
-func (s *ShowUnitSuite) assertRunShow(c *gc.C, t showUnitTest) {
+func (s *ShowUnitSuite) assertRunShow(c *tc.C, t showUnitTest) {
 	context, err := s.runShow(c, t.args...)
 	if t.err == "" {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
-		c.Assert(err, gc.ErrorMatches, t.err)
+		c.Assert(err, tc.ErrorMatches, t.err)
 	}
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, t.stdout)
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, t.stderr)
+	c.Assert(cmdtesting.Stdout(context), tc.Equals, t.stdout)
+	c.Assert(cmdtesting.Stderr(context), tc.Equals, t.stderr)
 }
 
-func (s *ShowUnitSuite) TestShowNoArguments(c *gc.C) {
+func (s *ShowUnitSuite) TestShowNoArguments(c *tc.C) {
 	msg := "an unit name must be supplied"
 	s.assertRunShow(c, showUnitTest{
 		err:    fmt.Sprintf("%v", msg),
@@ -81,7 +81,7 @@ func (s *ShowUnitSuite) TestShowNoArguments(c *gc.C) {
 	})
 }
 
-func (s *ShowUnitSuite) TestShowInvalidRelatedUnit(c *gc.C) {
+func (s *ShowUnitSuite) TestShowInvalidRelatedUnit(c *tc.C) {
 	msg := "related unit name so-42-far-not-good not valid"
 	s.assertRunShow(c, showUnitTest{
 		args:   []string{"--related-unit", "so-42-far-not-good", "wordpress/0"},
@@ -90,7 +90,7 @@ func (s *ShowUnitSuite) TestShowInvalidRelatedUnit(c *gc.C) {
 	})
 }
 
-func (s *ShowUnitSuite) TestShowInvalidName(c *gc.C) {
+func (s *ShowUnitSuite) TestShowInvalidName(c *tc.C) {
 	msg := "unit name so-42-far-not-good not valid"
 	s.assertRunShow(c, showUnitTest{
 		args:   []string{"so-42-far-not-good"},
@@ -99,7 +99,7 @@ func (s *ShowUnitSuite) TestShowInvalidName(c *gc.C) {
 	})
 }
 
-func (s *ShowUnitSuite) TestShowInvalidValidNames(c *gc.C) {
+func (s *ShowUnitSuite) TestShowInvalidValidNames(c *tc.C) {
 	msg := "unit name so-42-far-not-good not valid"
 	s.assertRunShow(c, showUnitTest{
 		args:   []string{"so-42-far-not-good", "wordpress/0"},
@@ -108,7 +108,7 @@ func (s *ShowUnitSuite) TestShowInvalidValidNames(c *gc.C) {
 	})
 }
 
-func (s *ShowUnitSuite) TestShowInvalidNames(c *gc.C) {
+func (s *ShowUnitSuite) TestShowInvalidNames(c *tc.C) {
 	msg := "unit names so-42-far-not-good, oo not valid"
 	s.assertRunShow(c, showUnitTest{
 		args:   []string{"so-42-far-not-good", "oo"},
@@ -117,7 +117,7 @@ func (s *ShowUnitSuite) TestShowInvalidNames(c *gc.C) {
 	})
 }
 
-func (s *ShowUnitSuite) TestShowInvalidAndValidNames(c *gc.C) {
+func (s *ShowUnitSuite) TestShowInvalidAndValidNames(c *tc.C) {
 	msg := "unit names so-42-far-not-good, oo not valid"
 	s.assertRunShow(c, showUnitTest{
 		args:   []string{"so-42-far-not-good", "wordpress/0", "oo"},
@@ -126,7 +126,7 @@ func (s *ShowUnitSuite) TestShowInvalidAndValidNames(c *gc.C) {
 	})
 }
 
-func (s *ShowUnitSuite) TestShowApiError(c *gc.C) {
+func (s *ShowUnitSuite) TestShowApiError(c *tc.C) {
 	s.mockAPI.unitsInfoFunc = func([]names.UnitTag) ([]apiapplication.UnitInfo, error) {
 		return []apiapplication.UnitInfo{{
 			Error: errors.New("boom"),
@@ -177,7 +177,7 @@ func (s *ShowUnitSuite) createTestUnitInfo(app string, otherEndpoint string) api
 	return result
 }
 
-func (s *ShowUnitSuite) TestShow(c *gc.C) {
+func (s *ShowUnitSuite) TestShow(c *tc.C) {
 	s.mockAPI.unitsInfoFunc = func([]names.UnitTag) ([]apiapplication.UnitInfo, error) {
 		return []apiapplication.UnitInfo{
 			s.createTestUnitInfo("wordpress", ""),
@@ -213,7 +213,7 @@ wordpress/0:
 	})
 }
 
-func (s *ShowUnitSuite) TestShowAppOnly(c *gc.C) {
+func (s *ShowUnitSuite) TestShowAppOnly(c *tc.C) {
 	s.mockAPI.unitsInfoFunc = func([]names.UnitTag) ([]apiapplication.UnitInfo, error) {
 		return []apiapplication.UnitInfo{
 			s.createTestUnitInfo("wordpress", ""),
@@ -244,7 +244,7 @@ wordpress/0:
 	})
 }
 
-func (s *ShowUnitSuite) TestShowEndpoint(c *gc.C) {
+func (s *ShowUnitSuite) TestShowEndpoint(c *tc.C) {
 	s.mockAPI.unitsInfoFunc = func([]names.UnitTag) ([]apiapplication.UnitInfo, error) {
 		return []apiapplication.UnitInfo{
 			s.createTestUnitInfo("wordpress", "db-shared"),
@@ -273,7 +273,7 @@ wordpress/0:
 	})
 }
 
-func (s *ShowUnitSuite) TestShowOtherUnit(c *gc.C) {
+func (s *ShowUnitSuite) TestShowOtherUnit(c *tc.C) {
 	s.mockAPI.unitsInfoFunc = func([]names.UnitTag) ([]apiapplication.UnitInfo, error) {
 		return []apiapplication.UnitInfo{
 			s.createTestUnitInfo("wordpress", "db-shared"),
@@ -309,7 +309,7 @@ wordpress/0:
 	})
 }
 
-func (s *ShowUnitSuite) TestShowJSON(c *gc.C) {
+func (s *ShowUnitSuite) TestShowJSON(c *tc.C) {
 	s.mockAPI.unitsInfoFunc = func([]names.UnitTag) ([]apiapplication.UnitInfo, error) {
 		return []apiapplication.UnitInfo{
 			s.createTestUnitInfo("wordpress", ""),
@@ -321,7 +321,7 @@ func (s *ShowUnitSuite) TestShowJSON(c *gc.C) {
 	})
 }
 
-func (s *ShowUnitSuite) TestShowMix(c *gc.C) {
+func (s *ShowUnitSuite) TestShowMix(c *tc.C) {
 	s.mockAPI.unitsInfoFunc = func([]names.UnitTag) ([]apiapplication.UnitInfo, error) {
 		return []apiapplication.UnitInfo{
 			s.createTestUnitInfo("wordpress", ""),
@@ -334,7 +334,7 @@ func (s *ShowUnitSuite) TestShowMix(c *gc.C) {
 	})
 }
 
-func (s *ShowUnitSuite) TestShowMany(c *gc.C) {
+func (s *ShowUnitSuite) TestShowMany(c *tc.C) {
 	s.mockAPI.unitsInfoFunc = func([]names.UnitTag) ([]apiapplication.UnitInfo, error) {
 		return []apiapplication.UnitInfo{
 			s.createTestUnitInfo("wordpress", ""),

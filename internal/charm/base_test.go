@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"github.com/juju/os/v2"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/internal/charm"
@@ -20,9 +20,9 @@ type baseSuite struct {
 	testing.CleanupSuite
 }
 
-var _ = gc.Suite(&baseSuite{})
+var _ = tc.Suite(&baseSuite{})
 
-func (s *baseSuite) TestParseBase(c *gc.C) {
+func (s *baseSuite) TestParseBase(c *tc.C) {
 	tests := []struct {
 		str        string
 		parsedBase charm.Base
@@ -38,10 +38,10 @@ func (s *baseSuite) TestParseBase(c *gc.C) {
 		},
 	}
 	for i, v := range tests {
-		comment := gc.Commentf("test %d", i)
+		comment := tc.Commentf("test %d", i)
 		s, err := charm.ParseBase(v.str)
 		if v.err != "" {
-			c.Check(err, gc.ErrorMatches, v.err, comment)
+			c.Check(err, tc.ErrorMatches, v.err, comment)
 		} else {
 			c.Assert(err, jc.ErrorIsNil, comment)
 		}
@@ -49,7 +49,7 @@ func (s *baseSuite) TestParseBase(c *gc.C) {
 	}
 }
 
-func (s *baseSuite) TestParseBaseWithArchitectures(c *gc.C) {
+func (s *baseSuite) TestParseBaseWithArchitectures(c *tc.C) {
 	tests := []struct {
 		str        string
 		baseString string
@@ -67,7 +67,7 @@ func (s *baseSuite) TestParseBaseWithArchitectures(c *gc.C) {
 		},
 	}
 	for i, v := range tests {
-		comment := gc.Commentf("test %d", i)
+		comment := tc.Commentf("test %d", i)
 		s, err := charm.ParseBase(v.baseString, v.archs...)
 
 		c.Assert(err, jc.ErrorIsNil, comment)
@@ -76,7 +76,7 @@ func (s *baseSuite) TestParseBaseWithArchitectures(c *gc.C) {
 	}
 }
 
-func (s *baseSuite) TestStringifyBase(c *gc.C) {
+func (s *baseSuite) TestStringifyBase(c *tc.C) {
 	tests := []struct {
 		base charm.Base
 		str  string
@@ -104,20 +104,20 @@ func (s *baseSuite) TestStringifyBase(c *gc.C) {
 		},
 	}
 	for i, v := range tests {
-		comment := gc.Commentf("test %d", i)
+		comment := tc.Commentf("test %d", i)
 		c.Assert(v.base.Validate(), jc.ErrorIsNil)
-		c.Assert(v.base.String(), gc.Equals, v.str, comment)
+		c.Assert(v.base.String(), tc.Equals, v.str, comment)
 	}
 }
 
-func (s *baseSuite) TestJSONEncoding(c *gc.C) {
+func (s *baseSuite) TestJSONEncoding(c *tc.C) {
 	sys := charm.Base{
 		Name:    "ubuntu",
 		Channel: mustParseChannel("20.04/stable"),
 	}
 	bytes, err := json.Marshal(sys)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(bytes), gc.Equals, `{"name":"ubuntu","channel":{"track":"20.04","risk":"stable"}}`)
+	c.Assert(string(bytes), tc.Equals, `{"name":"ubuntu","channel":{"track":"20.04","risk":"stable"}}`)
 	sys2 := charm.Base{}
 	err = json.Unmarshal(bytes, &sys2)
 	c.Assert(err, jc.ErrorIsNil)

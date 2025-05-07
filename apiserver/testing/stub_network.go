@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/core/instance"
@@ -47,7 +47,7 @@ const (
 	StubZonedNetworkingEnvironName = "stub-zoned-networking-environ"
 )
 
-func (s StubNetwork) SetUpSuite(c *gc.C) {
+func (s StubNetwork) SetUpSuite(c *tc.C) {
 	providers := environs.RegisteredProviders()
 	for _, name := range providers {
 		if name == StubProviderType {
@@ -178,13 +178,13 @@ func ZonedNetworkingEnvironCall(name string, args ...interface{}) StubMethodCall
 
 // CheckMethodCalls works like testing.Stub.CheckCalls, but also
 // checks the receivers.
-func CheckMethodCalls(c *gc.C, stub *testing.Stub, calls ...StubMethodCall) {
+func CheckMethodCalls(c *tc.C, stub *testing.Stub, calls ...StubMethodCall) {
 	receivers := make([]interface{}, len(calls))
 	for i, call := range calls {
 		receivers[i] = call.Receiver
 	}
 	stub.CheckReceivers(c, receivers...)
-	c.Check(stub.Calls(), gc.HasLen, len(calls))
+	c.Check(stub.Calls(), tc.HasLen, len(calls))
 	for i, call := range calls {
 		stub.CheckCall(c, i, call.FuncName, call.Args...)
 	}
@@ -240,7 +240,7 @@ const (
 	WithoutSubnets SetUpFlag = false
 )
 
-func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, withSubnets SetUpFlag) {
+func (sb *StubBacking) SetUp(c *tc.C, envName string, withZones, withSpaces, withSubnets SetUpFlag) {
 	// This method must be called at the beginning of each test, which
 	// needs access to any of the mocks, to reset the recorded calls
 	// and errors, as well as to initialize the mocks as needed.

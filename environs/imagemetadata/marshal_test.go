@@ -6,15 +6,15 @@ package imagemetadata_test
 import (
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/internal/testing"
 )
 
-var _ = gc.Suite(&marshalSuite{})
+var _ = tc.Suite(&marshalSuite{})
 
 type marshalSuite struct {
 	testing.BaseSuite
@@ -114,23 +114,23 @@ var imageMetadataForTesting = []*imagemetadata.ImageMetadata{
 	},
 }
 
-func (s *marshalSuite) TestMarshalIndex(c *gc.C) {
+func (s *marshalSuite) TestMarshalIndex(c *tc.C) {
 	cloudSpec := []simplestreams.CloudSpec{{Region: "region", Endpoint: "endpoint"}}
 	index, err := imagemetadata.MarshalImageMetadataIndexJSON(imageMetadataForTesting, cloudSpec, time.Unix(0, 0).UTC())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(index), gc.Equals, expectedIndex)
+	c.Assert(string(index), tc.Equals, expectedIndex)
 }
 
-func (s *marshalSuite) TestMarshalProducts(c *gc.C) {
+func (s *marshalSuite) TestMarshalProducts(c *tc.C) {
 	products, err := imagemetadata.MarshalImageMetadataProductsJSON(imageMetadataForTesting, time.Unix(0, 0).UTC())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(products), gc.Equals, expectedProducts)
+	c.Assert(string(products), tc.Equals, expectedProducts)
 }
 
-func (s *marshalSuite) TestMarshal(c *gc.C) {
+func (s *marshalSuite) TestMarshal(c *tc.C) {
 	cloudSpec := []simplestreams.CloudSpec{{Region: "region", Endpoint: "endpoint"}}
 	index, products, err := imagemetadata.MarshalImageMetadataJSON(imageMetadataForTesting, cloudSpec, time.Unix(0, 0).UTC())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(index), gc.Equals, expectedIndex)
-	c.Assert(string(products), gc.Equals, expectedProducts)
+	c.Assert(string(index), tc.Equals, expectedIndex)
+	c.Assert(string(products), tc.Equals, expectedProducts)
 }

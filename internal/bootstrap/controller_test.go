@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
@@ -27,9 +27,9 @@ type ControllerSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&ControllerSuite{})
+var _ = tc.Suite(&ControllerSuite{})
 
-func (s *ControllerSuite) TestPopulateControllerCharmLocalCharm(c *gc.C) {
+func (s *ControllerSuite) TestPopulateControllerCharmLocalCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	origin := corecharm.Origin{
@@ -47,7 +47,7 @@ func (s *ControllerSuite) TestPopulateControllerCharmLocalCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ControllerSuite) TestPopulateControllerCharmLocalCharmFails(c *gc.C) {
+func (s *ControllerSuite) TestPopulateControllerCharmLocalCharmFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectControllerAddress()
@@ -55,10 +55,10 @@ func (s *ControllerSuite) TestPopulateControllerCharmLocalCharmFails(c *gc.C) {
 	s.expectLocalCharmError()
 
 	err := PopulateControllerCharm(context.Background(), s.deployer)
-	c.Assert(err, gc.ErrorMatches, `.*boom`)
+	c.Assert(err, tc.ErrorMatches, `.*boom`)
 }
 
-func (s *ControllerSuite) TestPopulateControllerCharmCharmhubCharm(c *gc.C) {
+func (s *ControllerSuite) TestPopulateControllerCharmCharmhubCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	origin := corecharm.Origin{
@@ -77,7 +77,7 @@ func (s *ControllerSuite) TestPopulateControllerCharmCharmhubCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ControllerSuite) TestPopulateControllerAlreadyExists(c *gc.C) {
+func (s *ControllerSuite) TestPopulateControllerAlreadyExists(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	origin := corecharm.Origin{

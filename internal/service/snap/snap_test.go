@@ -10,10 +10,10 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/service/common"
 )
@@ -22,21 +22,21 @@ type validationSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&validationSuite{})
+var _ = tc.Suite(&validationSuite{})
 
-func (*validationSuite) TestBackgroundServiceNeedsNonZeroName(c *gc.C) {
+func (*validationSuite) TestBackgroundServiceNeedsNonZeroName(c *tc.C) {
 	empty := BackgroundService{}
 	fail := empty.Validate()
-	c.Check(fail, gc.ErrorMatches, "empty background service name not valid")
+	c.Check(fail, tc.ErrorMatches, "empty background service name not valid")
 }
 
-func (*validationSuite) TestBackgroundServiceNeedsLegalName(c *gc.C) {
+func (*validationSuite) TestBackgroundServiceNeedsLegalName(c *tc.C) {
 	illegal := BackgroundService{Name: "23-==+++"}
 	fail := illegal.Validate()
-	c.Check(fail, gc.ErrorMatches, `background service name "23-==\+\+\+" not valid`)
+	c.Check(fail, tc.ErrorMatches, `background service name "23-==\+\+\+" not valid`)
 }
 
-func (*validationSuite) TestValidateJujuDbDaemon(c *gc.C) {
+func (*validationSuite) TestValidateJujuDbDaemon(c *tc.C) {
 	service := BackgroundService{
 		Name:            "daemon",
 		EnableAtStartup: true,
@@ -46,7 +46,7 @@ func (*validationSuite) TestValidateJujuDbDaemon(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (*validationSuite) TestValidateJujuDbSnap(c *gc.C) {
+func (*validationSuite) TestValidateJujuDbSnap(c *tc.C) {
 	// manually
 	services := []BackgroundService{{Name: "daemon"}}
 	deps := []Installable{&App{
@@ -78,7 +78,7 @@ func (*validationSuite) TestValidateJujuDbSnap(c *gc.C) {
 	c.Check(jujudbService.Validate(), jc.ErrorIsNil)
 }
 
-func (*validationSuite) TestValidateLocalSnap(c *gc.C) {
+func (*validationSuite) TestValidateLocalSnap(c *tc.C) {
 	dir := c.MkDir()
 	snapPath := filepath.Join(dir, "juju-db_123.snap")
 	assertPath := filepath.Join(dir, "juju-db_123.assert")
@@ -114,14 +114,14 @@ type snapSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&snapSuite{})
+var _ = tc.Suite(&snapSuite{})
 
-func (*snapSuite) TestSnapCommandIsAValidCommand(c *gc.C) {
+func (*snapSuite) TestSnapCommandIsAValidCommand(c *tc.C) {
 	_, err := exec.LookPath(Command)
-	c.Check(err, gc.NotNil)
+	c.Check(err, tc.NotNil)
 }
 
-func (*snapSuite) TestConfigOverride(c *gc.C) {
+func (*snapSuite) TestConfigOverride(c *tc.C) {
 	conf := common.Conf{
 		Limit: map[string]string{
 			"nofile": "64000",
@@ -151,7 +151,7 @@ func (*snapSuite) TestConfigOverride(c *gc.C) {
 
 	data, err := os.ReadFile(filepath.Join(dir, "snap.juju-db.daemon.service.d/overrides.conf"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, `
+	c.Assert(string(data), tc.Equals, `
 [Service]
 LimitNOFILE=64000
 
@@ -162,9 +162,9 @@ type serviceSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = tc.Suite(&serviceSuite{})
 
-func (*serviceSuite) TestInstall(c *gc.C) {
+func (*serviceSuite) TestInstall(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -203,7 +203,7 @@ func (*serviceSuite) TestInstall(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (*serviceSuite) TestInstallWithRetry(c *gc.C) {
+func (*serviceSuite) TestInstallWithRetry(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -251,7 +251,7 @@ func (*serviceSuite) TestInstallWithRetry(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (*serviceSuite) TestInstallLocalSnapWithRetry(c *gc.C) {
+func (*serviceSuite) TestInstallLocalSnapWithRetry(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 

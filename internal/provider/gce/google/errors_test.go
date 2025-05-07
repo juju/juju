@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/provider/gce/google"
 	"github.com/juju/juju/internal/testing"
@@ -22,15 +22,15 @@ type ErrorSuite struct {
 	internalError *googlyError
 }
 
-var _ = gc.Suite(&ErrorSuite{})
+var _ = tc.Suite(&ErrorSuite{})
 
-func (s *ErrorSuite) SetUpTest(c *gc.C) {
+func (s *ErrorSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.internalError = &googlyError{"400 Bad Request"}
 	s.googleError = &url.Error{"Get", "http://notforreal.com/", s.internalError}
 }
 
-func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *gc.C) {
+func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *tc.C) {
 	// First test another status code.
 	s.internalError.SetMessage(http.StatusAccepted, "Accepted")
 	denied := google.IsAuthorisationFailure(s.internalError)

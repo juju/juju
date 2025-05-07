@@ -6,8 +6,8 @@ package testing
 import (
 	"io"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/storage"
@@ -16,7 +16,7 @@ import (
 // CreateLocalTestStorage returns the listener, which needs to be closed, and
 // the storage that is backed by a directory created in the running test's temp
 // directory.
-func CreateLocalTestStorage(c *gc.C) (closer io.Closer, stor storage.Storage, dataDir string) {
+func CreateLocalTestStorage(c *tc.C) (closer io.Closer, stor storage.Storage, dataDir string) {
 	dataDir = c.MkDir()
 	underlying, err := filestorage.NewFileStorageWriter(dataDir)
 	c.Assert(err, jc.ErrorIsNil)

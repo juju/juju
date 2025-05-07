@@ -4,17 +4,17 @@
 package modelupgrader
 
 import (
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	gc "gopkg.in/check.v1"
 )
 
 type modelUpgradeSuite struct {
 	jujutesting.IsolationSuite
 }
 
-var _ = gc.Suite(&modelUpgradeSuite{})
+var _ = tc.Suite(&modelUpgradeSuite{})
 
-func (*modelUpgradeSuite) TestStub(c *gc.C) {
+func (*modelUpgradeSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - Upgrade a model that both as an invalid tag and also does not match the model uuid of the current facade scope.
 - Upgrading a model when you don't have permission to.
@@ -31,5 +31,5 @@ func (*modelUpgradeSuite) TestStub(c *gc.C) {
 `)
 }
 
-func (s *modelUpgradeSuite) SetUpTest(c *gc.C) {
+func (s *modelUpgradeSuite) SetUpTest(c *tc.C) {
 }

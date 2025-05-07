@@ -4,9 +4,9 @@
 package constraints
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -16,13 +16,13 @@ type constraintsSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&constraintsSuite{})
+var _ = tc.Suite(&constraintsSuite{})
 
 // TestFromCoreConstraints is concerned with testing the mapping from a
 // [constraints.Value] to a [Constraints] object. Specifically the main thing we
 // care about in this test is that spaces are either included or excluded
 // correctly and that the rest of the values are set verbatim.
-func (*constraintsSuite) TestFromCoreConstraints(c *gc.C) {
+func (*constraintsSuite) TestFromCoreConstraints(c *tc.C) {
 	tests := []struct {
 		Comment string
 		In      constraints.Value
@@ -108,7 +108,7 @@ func (*constraintsSuite) TestFromCoreConstraints(c *gc.C) {
 
 	for _, test := range tests {
 		rval := DecodeConstraints(test.In)
-		c.Check(rval, jc.DeepEquals, test.Out, gc.Commentf(test.Comment))
+		c.Check(rval, jc.DeepEquals, test.Out, tc.Commentf(test.Comment))
 	}
 }
 
@@ -116,7 +116,7 @@ func (*constraintsSuite) TestFromCoreConstraints(c *gc.C) {
 // [Constraints] object to a [constraints.Value]. Specifically the main thing we
 // care about in this test is that spaces are either included or excluded
 // correctly and that the rest of the values are set verbatim.
-func (*constraintsSuite) TestToCoreConstraints(c *gc.C) {
+func (*constraintsSuite) TestToCoreConstraints(c *tc.C) {
 	tests := []struct {
 		Comment string
 		Out     constraints.Value
@@ -202,7 +202,7 @@ func (*constraintsSuite) TestToCoreConstraints(c *gc.C) {
 
 	for _, test := range tests {
 		rval := EncodeConstraints(test.In)
-		c.Check(rval, jc.DeepEquals, test.Out, gc.Commentf(test.Comment))
+		c.Check(rval, jc.DeepEquals, test.Out, tc.Commentf(test.Comment))
 	}
 }
 

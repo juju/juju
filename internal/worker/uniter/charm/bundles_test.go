@@ -12,10 +12,10 @@ import (
 	"regexp"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
-	gc "gopkg.in/check.v1"
 
 	jujucharm "github.com/juju/juju/internal/charm"
 	charmtesting "github.com/juju/juju/internal/charm/testing"
@@ -29,7 +29,7 @@ type BundlesDirSuite struct {
 	jujutesting.IsolationSuite
 }
 
-var _ = gc.Suite(&BundlesDirSuite{})
+var _ = tc.Suite(&BundlesDirSuite{})
 
 type fakeBundleInfo struct {
 	charm.BundleInfo
@@ -51,14 +51,14 @@ func (f fakeBundleInfo) ArchiveSha256(ctx context.Context) (string, error) {
 	return f.sha256, nil
 }
 
-func (s *BundlesDirSuite) testCharm(c *gc.C) *charmtesting.CharmDir {
+func (s *BundlesDirSuite) testCharm(c *tc.C) *charmtesting.CharmDir {
 	base := testcharms.Repo.ClonedDirPath(c.MkDir(), "wordpress")
 	dir, err := charmtesting.ReadCharmDir(base)
 	c.Assert(err, jc.ErrorIsNil)
 	return dir
 }
 
-func (s *BundlesDirSuite) TestGet(c *gc.C) {
+func (s *BundlesDirSuite) TestGet(c *tc.C) {
 	basedir := c.MkDir()
 	bunsDir := filepath.Join(basedir, "random", "bundles")
 
@@ -86,7 +86,7 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	checkDownloadsEmpty := func() {
 		files, err := os.ReadDir(filepath.Join(bunsDir, "downloads"))
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(files, gc.HasLen, 0)
+		c.Check(files, tc.HasLen, 0)
 	}
 
 	// Check it doesn't get created until it's needed.
@@ -101,12 +101,12 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 
 	// Try to get the charm when the content doesn't match.
 	_, err = d.Read(context.Background(), &fakeBundleInfo{apiCharm, "", "..."}, nil)
-	c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "ch:quantal/wordpress-1" from API server: `)+`expected sha256 "...", got ".*"`)
+	c.Check(err, tc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "ch:quantal/wordpress-1" from API server: `)+`expected sha256 "...", got ".*"`)
 	checkDownloadsEmpty()
 
 	// Try to get a charm whose bundle doesn't exist.
 	_, err = d.Read(context.Background(), &fakeBundleInfo{apiCharm, "ch:quantal/spam-1", ""}, nil)
-	c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "ch:quantal/spam-1" from API server: `)+`.* not found`)
+	c.Check(err, tc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "ch:quantal/spam-1" from API server: `)+`.* not found`)
 	checkDownloadsEmpty()
 
 	// Get a charm whose bundle exists and whose content matches.
@@ -128,25 +128,25 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	close(abort)
 
 	ch, err = d.Read(context.Background(), apiCharm, abort)
-	c.Check(ch, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "ch:quantal/wordpress-1" from API server: download aborted`))
+	c.Check(ch, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "ch:quantal/wordpress-1" from API server: download aborted`))
 	checkDownloadsEmpty()
 }
 
-func assertCharm(c *gc.C, bun charm.Bundle, sch *charmtesting.CharmDir) {
+func assertCharm(c *tc.C, bun charm.Bundle, sch *charmtesting.CharmDir) {
 	actual := bun.(*jujucharm.CharmArchive)
-	c.Assert(actual.Revision(), gc.Equals, sch.Revision())
-	c.Assert(actual.Meta(), gc.DeepEquals, sch.Meta())
-	c.Assert(actual.Config(), gc.DeepEquals, sch.Config())
+	c.Assert(actual.Revision(), tc.Equals, sch.Revision())
+	c.Assert(actual.Meta(), tc.DeepEquals, sch.Meta())
+	c.Assert(actual.Config(), tc.DeepEquals, sch.Config())
 }
 
 type ClearDownloadsSuite struct {
 	jujutesting.IsolationSuite
 }
 
-var _ = gc.Suite(&ClearDownloadsSuite{})
+var _ = tc.Suite(&ClearDownloadsSuite{})
 
-func (s *ClearDownloadsSuite) TestWorks(c *gc.C) {
+func (s *ClearDownloadsSuite) TestWorks(c *tc.C) {
 	baseDir := c.MkDir()
 	bunsDir := filepath.Join(baseDir, "bundles")
 	downloadDir := filepath.Join(bunsDir, "downloads")
@@ -159,7 +159,7 @@ func (s *ClearDownloadsSuite) TestWorks(c *gc.C) {
 	checkMissing(c, downloadDir)
 }
 
-func (s *ClearDownloadsSuite) TestEmptyOK(c *gc.C) {
+func (s *ClearDownloadsSuite) TestEmptyOK(c *tc.C) {
 	baseDir := c.MkDir()
 	bunsDir := filepath.Join(baseDir, "bundles")
 	downloadDir := filepath.Join(bunsDir, "downloads")
@@ -170,7 +170,7 @@ func (s *ClearDownloadsSuite) TestEmptyOK(c *gc.C) {
 	checkMissing(c, downloadDir)
 }
 
-func (s *ClearDownloadsSuite) TestMissingOK(c *gc.C) {
+func (s *ClearDownloadsSuite) TestMissingOK(c *tc.C) {
 	baseDir := c.MkDir()
 	bunsDir := filepath.Join(baseDir, "bundles")
 
@@ -178,7 +178,7 @@ func (s *ClearDownloadsSuite) TestMissingOK(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func checkMissing(c *gc.C, p string) {
+func checkMissing(c *tc.C, p string) {
 	_, err := os.Stat(p)
 	if !os.IsNotExist(err) {
 		c.Fatalf("checking %s is missing: %v", p, err)

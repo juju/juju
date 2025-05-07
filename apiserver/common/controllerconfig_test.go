@@ -8,9 +8,9 @@ import (
 	"fmt"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/mocks"
@@ -35,9 +35,9 @@ type controllerConfigSuite struct {
 	ctrlConfigAPI             *common.ControllerConfigAPI
 }
 
-var _ = gc.Suite(&controllerConfigSuite{})
+var _ = tc.Suite(&controllerConfigSuite{})
 
-func (s *controllerConfigSuite) setup(c *gc.C) *gomock.Controller {
+func (s *controllerConfigSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.st = mocks.NewMockControllerConfigState(ctrl)
@@ -47,7 +47,7 @@ func (s *controllerConfigSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *controllerConfigSuite) TestControllerConfigSuccess(c *gc.C) {
+func (s *controllerConfigSuite) TestControllerConfigSuccess(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(
@@ -70,15 +70,15 @@ func (s *controllerConfigSuite) TestControllerConfigSuccess(c *gc.C) {
 	})
 }
 
-func (s *controllerConfigSuite) TestControllerConfigFetchError(c *gc.C) {
+func (s *controllerConfigSuite) TestControllerConfigFetchError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(nil, fmt.Errorf("pow"))
 	_, err := s.ctrlConfigAPI.ControllerConfig(context.Background())
-	c.Assert(err, gc.ErrorMatches, "pow")
+	c.Assert(err, tc.ErrorMatches, "pow")
 }
 
-func (s *controllerConfigSuite) expectStateControllerInfo(c *gc.C) {
+func (s *controllerConfigSuite) expectStateControllerInfo(c *tc.C) {
 	s.st.EXPECT().APIHostPortsForAgents(gomock.Any()).Return([]network.SpaceHostPorts{
 		network.NewSpaceHostPorts(17070, "192.168.1.1"),
 	}, nil)
@@ -87,7 +87,7 @@ func (s *controllerConfigSuite) expectStateControllerInfo(c *gc.C) {
 	}, nil)
 }
 
-func (s *controllerConfigSuite) TestControllerInfo(c *gc.C) {
+func (s *controllerConfigSuite) TestControllerInfo(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.st.EXPECT().ModelExists(testing.ModelTag.Id()).Return(true, nil)
@@ -96,9 +96,9 @@ func (s *controllerConfigSuite) TestControllerInfo(c *gc.C) {
 	results, err := s.ctrlConfigAPI.ControllerAPIInfoForModels(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: testing.ModelTag.String()}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Addresses, gc.DeepEquals, []string{"192.168.1.1:17070"})
-	c.Assert(results.Results[0].CACert, gc.Equals, testing.CACert)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Addresses, tc.DeepEquals, []string{"192.168.1.1:17070"})
+	c.Assert(results.Results[0].CACert, tc.Equals, testing.CACert)
 }
 
 type controllerInfoSuite struct {
@@ -108,16 +108,16 @@ type controllerInfoSuite struct {
 	localModel *state.Model
 }
 
-var _ = gc.Suite(&controllerInfoSuite{})
+var _ = tc.Suite(&controllerInfoSuite{})
 
-func (s *controllerInfoSuite) SetUpTest(c *gc.C) {
+func (s *controllerInfoSuite) SetUpTest(c *tc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	s.localState = f.MakeModel(c, &factory.ModelParams{
 		UUID: s.DefaultModelUUID,
 	})
-	s.AddCleanup(func(*gc.C) {
+	s.AddCleanup(func(*tc.C) {
 		s.localState.Close()
 	})
 	model, err := s.localState.Model()
@@ -125,7 +125,7 @@ func (s *controllerInfoSuite) SetUpTest(c *gc.C) {
 	s.localModel = model
 }
 
-func (s *controllerInfoSuite) TestControllerInfoLocalModel(c *gc.C) {
+func (s *controllerInfoSuite) TestControllerInfoLocalModel(c *tc.C) {
 	domainServices := s.ControllerDomainServices(c)
 	controllerConfig := common.NewControllerConfigAPI(s.localState, domainServices.ControllerConfig(), domainServices.ExternalController())
 
@@ -134,17 +134,17 @@ func (s *controllerInfoSuite) TestControllerInfoLocalModel(c *gc.C) {
 			Tag: names.NewModelTag(s.DefaultModelUUID.String()).String(),
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results, tc.HasLen, 1)
 
 	systemState := s.ControllerModel(c).State()
 	apiAddr, err := systemState.APIHostPortsForClients(testing.FakeControllerConfig())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results[0].Addresses, gc.HasLen, 1)
-	c.Assert(results.Results[0].Addresses[0], gc.Equals, apiAddr[0][0].String())
-	c.Assert(results.Results[0].CACert, gc.Equals, testing.CACert)
+	c.Assert(results.Results[0].Addresses, tc.HasLen, 1)
+	c.Assert(results.Results[0].Addresses[0], tc.Equals, apiAddr[0][0].String())
+	c.Assert(results.Results[0].CACert, tc.Equals, testing.CACert)
 }
 
-func (s *controllerInfoSuite) TestControllerInfoExternalModel(c *gc.C) {
+func (s *controllerInfoSuite) TestControllerInfoExternalModel(c *tc.C) {
 	modelUUID := uuid.MustNewUUID().String()
 	info := crossmodel.ControllerInfo{
 		ControllerUUID: testing.ControllerTag.Id(),
@@ -161,12 +161,12 @@ func (s *controllerInfoSuite) TestControllerInfoExternalModel(c *gc.C) {
 		Entities: []params.Entity{{Tag: names.NewModelTag(modelUUID).String()}}})
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Addresses, gc.DeepEquals, info.Addrs)
-	c.Assert(results.Results[0].CACert, gc.Equals, info.CACert)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Addresses, tc.DeepEquals, info.Addrs)
+	c.Assert(results.Results[0].CACert, tc.Equals, info.CACert)
 }
 
-func (s *controllerInfoSuite) TestControllerInfoMigratedController(c *gc.C) {
+func (s *controllerInfoSuite) TestControllerInfoMigratedController(c *tc.C) {
 	domainServices := s.ControllerDomainServices(c)
 	controllerConfig := common.NewControllerConfigAPI(s.localState, domainServices.ControllerConfig(), domainServices.ExternalController())
 
@@ -203,6 +203,6 @@ func (s *controllerInfoSuite) TestControllerInfoMigratedController(c *gc.C) {
 	externalControllerInfo, err := controllerConfig.ControllerAPIInfoForModels(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: names.NewModelTag(s.DefaultModelUUID.String()).String()}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(externalControllerInfo.Results), gc.Equals, 1)
-	c.Assert(externalControllerInfo.Results[0].Addresses[0], gc.Equals, controllerIP)
+	c.Assert(len(externalControllerInfo.Results), tc.Equals, 1)
+	c.Assert(externalControllerInfo.Results[0].Addresses[0], tc.Equals, controllerIP)
 }

@@ -4,7 +4,7 @@
 package common_test
 
 import (
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/model"
@@ -13,9 +13,9 @@ import (
 
 type machineSuite struct{}
 
-var _ = gc.Suite(&machineSuite{})
+var _ = tc.Suite(&machineSuite{})
 
-func (s *machineSuite) TestMachineJobFromParams(c *gc.C) {
+func (s *machineSuite) TestMachineJobFromParams(c *tc.C) {
 	var tests = []struct {
 		name model.MachineJob
 		want state.MachineJob
@@ -34,8 +34,8 @@ func (s *machineSuite) TestMachineJobFromParams(c *gc.C) {
 	for _, test := range tests {
 		got, err := common.MachineJobFromParams(test.name)
 		if err != nil {
-			c.Check(err, gc.ErrorMatches, test.err)
+			c.Check(err, tc.ErrorMatches, test.err)
 		}
-		c.Check(got, gc.Equals, test.want)
+		c.Check(got, tc.Equals, test.want)
 	}
 }

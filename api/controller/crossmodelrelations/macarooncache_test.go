@@ -8,8 +8,8 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/controller/crossmodelrelations"
@@ -19,19 +19,19 @@ import (
 
 const longerThanExpiryTime = 11 * time.Minute
 
-var _ = gc.Suite(&MacaroonCacheSuite{})
+var _ = tc.Suite(&MacaroonCacheSuite{})
 
 type MacaroonCacheSuite struct {
 	coretesting.BaseSuite
 }
 
-func (s *MacaroonCacheSuite) TestGetMacaroonMissing(c *gc.C) {
+func (s *MacaroonCacheSuite) TestGetMacaroonMissing(c *tc.C) {
 	cache := crossmodelrelations.NewMacaroonCache(testclock.NewClock(time.Now()))
 	_, ok := cache.Get("missing")
 	c.Assert(ok, jc.IsFalse)
 }
 
-func (s *MacaroonCacheSuite) TestGetMacaroon(c *gc.C) {
+func (s *MacaroonCacheSuite) TestGetMacaroon(c *tc.C) {
 	cache := crossmodelrelations.NewMacaroonCache(testclock.NewClock(time.Now()))
 	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
@@ -41,7 +41,7 @@ func (s *MacaroonCacheSuite) TestGetMacaroon(c *gc.C) {
 	c.Assert(ms, jc.DeepEquals, macaroon.Slice{mac})
 }
 
-func (s *MacaroonCacheSuite) TestGetMacaroonNotExpired(c *gc.C) {
+func (s *MacaroonCacheSuite) TestGetMacaroonNotExpired(c *tc.C) {
 	clock := testclock.NewClock(time.Now())
 	cache := crossmodelrelations.NewMacaroonCache(clock)
 
@@ -58,7 +58,7 @@ func (s *MacaroonCacheSuite) TestGetMacaroonNotExpired(c *gc.C) {
 	c.Assert(ms, jc.DeepEquals, macaroon.Slice{mac})
 }
 
-func (s *MacaroonCacheSuite) TestGetMacaroonExpiredBeforeCleanup(c *gc.C) {
+func (s *MacaroonCacheSuite) TestGetMacaroonExpiredBeforeCleanup(c *tc.C) {
 	clock := testclock.NewClock(time.Now())
 	cache := crossmodelrelations.NewMacaroonCache(clock)
 
@@ -74,7 +74,7 @@ func (s *MacaroonCacheSuite) TestGetMacaroonExpiredBeforeCleanup(c *gc.C) {
 	c.Assert(ok, jc.IsFalse)
 }
 
-func (s *MacaroonCacheSuite) TestGetMacaroonAfterCleanup(c *gc.C) {
+func (s *MacaroonCacheSuite) TestGetMacaroonAfterCleanup(c *tc.C) {
 	clock := testclock.NewClock(time.Now())
 	cache := crossmodelrelations.NewMacaroonCache(clock)
 
@@ -91,7 +91,7 @@ func (s *MacaroonCacheSuite) TestGetMacaroonAfterCleanup(c *gc.C) {
 	c.Assert(ms, jc.DeepEquals, macaroon.Slice{mac})
 }
 
-func (s *MacaroonCacheSuite) TestMacaroonRemovedByCleanup(c *gc.C) {
+func (s *MacaroonCacheSuite) TestMacaroonRemovedByCleanup(c *tc.C) {
 	clock := testclock.NewClock(time.Now())
 	cache := crossmodelrelations.NewMacaroonCache(clock)
 
@@ -107,7 +107,7 @@ func (s *MacaroonCacheSuite) TestMacaroonRemovedByCleanup(c *gc.C) {
 	c.Assert(ok, jc.IsFalse)
 }
 
-func (s *MacaroonCacheSuite) TestCleanupIgnoresMacaroonsWithoutTimeBefore(c *gc.C) {
+func (s *MacaroonCacheSuite) TestCleanupIgnoresMacaroonsWithoutTimeBefore(c *tc.C) {
 	clock := testclock.NewClock(time.Now())
 	cache := crossmodelrelations.NewMacaroonCache(clock)
 

@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -36,9 +36,9 @@ type SecretsSuite struct {
 	mockBackendService *MockSecretBackendService
 }
 
-var _ = gc.Suite(&SecretsSuite{})
+var _ = tc.Suite(&SecretsSuite{})
 
-func (s *SecretsSuite) setup(c *gc.C) (*SecretBackendsAPI, *gomock.Controller) {
+func (s *SecretsSuite) setup(c *tc.C) (*SecretBackendsAPI, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
@@ -49,7 +49,7 @@ func (s *SecretsSuite) setup(c *gc.C) (*SecretBackendsAPI, *gomock.Controller) {
 	return api, ctrl
 }
 
-func (s *SecretsSuite) TestAddSecretBackends(c *gc.C) {
+func (s *SecretsSuite) TestAddSecretBackends(c *tc.C) {
 	facade, ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -98,7 +98,7 @@ func (s *SecretsSuite) TestAddSecretBackends(c *gc.C) {
 	})
 }
 
-func (s *SecretsSuite) TestAddSecretBackendsPermissionDenied(c *gc.C) {
+func (s *SecretsSuite) TestAddSecretBackendsPermissionDenied(c *tc.C) {
 	facade, ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -106,18 +106,18 @@ func (s *SecretsSuite) TestAddSecretBackendsPermissionDenied(c *gc.C) {
 		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
 	_, err := facade.AddSecretBackends(context.Background(), params.AddSecretBackendArgs{})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *SecretsSuite) TestListSecretBackends(c *gc.C) {
+func (s *SecretsSuite) TestListSecretBackends(c *tc.C) {
 	s.assertListSecretBackends(c, false)
 }
 
-func (s *SecretsSuite) TestListSecretBackendsReveal(c *gc.C) {
+func (s *SecretsSuite) TestListSecretBackendsReveal(c *tc.C) {
 	s.assertListSecretBackends(c, true)
 }
 
-func (s *SecretsSuite) assertListSecretBackends(c *gc.C, reveal bool) {
+func (s *SecretsSuite) assertListSecretBackends(c *tc.C, reveal bool) {
 	facade, ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -189,7 +189,7 @@ func (s *SecretsSuite) assertListSecretBackends(c *gc.C, reveal bool) {
 	})
 }
 
-func (s *SecretsSuite) TestListSecretBackendsPermissionDeniedReveal(c *gc.C) {
+func (s *SecretsSuite) TestListSecretBackendsPermissionDeniedReveal(c *tc.C) {
 	facade, ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -197,10 +197,10 @@ func (s *SecretsSuite) TestListSecretBackendsPermissionDeniedReveal(c *gc.C) {
 		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
 	_, err := facade.ListSecretBackends(context.Background(), params.ListSecretBackendsArgs{Reveal: true})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *SecretsSuite) TestUpdateSecretBackends(c *gc.C) {
+func (s *SecretsSuite) TestUpdateSecretBackends(c *tc.C) {
 	facade, ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -255,7 +255,7 @@ func (s *SecretsSuite) TestUpdateSecretBackends(c *gc.C) {
 	})
 }
 
-func (s *SecretsSuite) TestUpdateSecretBackendsPermissionDenied(c *gc.C) {
+func (s *SecretsSuite) TestUpdateSecretBackendsPermissionDenied(c *tc.C) {
 	facade, ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -263,10 +263,10 @@ func (s *SecretsSuite) TestUpdateSecretBackendsPermissionDenied(c *gc.C) {
 		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
 	_, err := facade.UpdateSecretBackends(context.Background(), params.UpdateSecretBackendArgs{})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *SecretsSuite) TestRemoveSecretBackends(c *gc.C) {
+func (s *SecretsSuite) TestRemoveSecretBackends(c *tc.C) {
 	facade, ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -302,7 +302,7 @@ func (s *SecretsSuite) TestRemoveSecretBackends(c *gc.C) {
 	})
 }
 
-func (s *SecretsSuite) TestRemoveSecretBackendsPermissionDenied(c *gc.C) {
+func (s *SecretsSuite) TestRemoveSecretBackendsPermissionDenied(c *tc.C) {
 	facade, ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -310,5 +310,5 @@ func (s *SecretsSuite) TestRemoveSecretBackendsPermissionDenied(c *gc.C) {
 		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
 	_, err := facade.RemoveSecretBackends(context.Background(), params.RemoveSecretBackendArgs{})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }

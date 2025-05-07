@@ -10,10 +10,10 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	intcharmhub "github.com/juju/juju/internal/charmhub"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -26,9 +26,9 @@ type CharmHubSuite struct {
 	client *MockDownloadClient
 }
 
-var _ = gc.Suite(&CharmHubSuite{})
+var _ = tc.Suite(&CharmHubSuite{})
 
-func (s *CharmHubSuite) TestGetResource(c *gc.C) {
+func (s *CharmHubSuite) TestGetResource(c *tc.C) {
 	// Arrange:
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -75,7 +75,7 @@ func (s *CharmHubSuite) TestGetResource(c *gc.C) {
 	buf := new(bytes.Buffer)
 	_, err = io.Copy(buf, result)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(buf.Bytes(), gc.DeepEquals, resourceContent)
+	c.Assert(buf.Bytes(), tc.DeepEquals, resourceContent)
 
 	c.Assert(result.Close(), jc.ErrorIsNil)
 
@@ -84,7 +84,7 @@ func (s *CharmHubSuite) TestGetResource(c *gc.C) {
 	c.Check(err, jc.ErrorIs, os.ErrNotExist)
 }
 
-func (s *CharmHubSuite) TestGetResourceUnexpectedSize(c *gc.C) {
+func (s *CharmHubSuite) TestGetResourceUnexpectedSize(c *tc.C) {
 	// Arrange:
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -113,7 +113,7 @@ func (s *CharmHubSuite) TestGetResourceUnexpectedSize(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, downloader.ErrUnexpectedSize)
 }
 
-func (s *CharmHubSuite) TestGetResourceUnexpectedHash(c *gc.C) {
+func (s *CharmHubSuite) TestGetResourceUnexpectedHash(c *tc.C) {
 	// Arrange:
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

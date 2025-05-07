@@ -12,11 +12,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/mattn/go-sqlite3"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/database/testing"
@@ -30,9 +30,9 @@ type transactionRunnerSuite struct {
 	clock *MockClock
 }
 
-var _ = gc.Suite(&transactionRunnerSuite{})
+var _ = tc.Suite(&transactionRunnerSuite{})
 
-func (s *transactionRunnerSuite) TestTxn(c *gc.C) {
+func (s *transactionRunnerSuite) TestTxn(c *tc.C) {
 	runner := txn.NewRetryingTxnRunner()
 
 	err := runner.StdTxn(context.Background(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
@@ -61,7 +61,7 @@ func (l logRecorder) Tracef(ctx context.Context, format string, args ...interfac
 	l.builder.WriteString("\n")
 }
 
-func (s *transactionRunnerSuite) TestTxnLogging(c *gc.C) {
+func (s *transactionRunnerSuite) TestTxnLogging(c *tc.C) {
 	buffer := new(strings.Builder)
 	runner := txn.NewRetryingTxnRunner(txn.WithLogger(logRecorder{
 		builder: buffer,
@@ -77,14 +77,14 @@ func (s *transactionRunnerSuite) TestTxnLogging(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(buffer.String(), gc.Equals, `
+	c.Assert(buffer.String(), tc.Equals, `
 running txn (id: 1) with query: BEGIN
 running txn (id: 1) with query: SELECT 1
 running txn (id: 1) with query: COMMIT
 `[1:])
 }
 
-func (s *transactionRunnerSuite) TestTxnWithCancelledContext(c *gc.C) {
+func (s *transactionRunnerSuite) TestTxnWithCancelledContext(c *tc.C) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
@@ -94,10 +94,10 @@ func (s *transactionRunnerSuite) TestTxnWithCancelledContext(c *gc.C) {
 		c.Fatal("should not be called")
 		return nil
 	})
-	c.Assert(err, gc.ErrorMatches, "context canceled")
+	c.Assert(err, tc.ErrorMatches, "context canceled")
 }
 
-func (s *transactionRunnerSuite) TestTxnParallelCancelledContext(c *gc.C) {
+func (s *transactionRunnerSuite) TestTxnParallelCancelledContext(c *tc.C) {
 	runner := txn.NewRetryingTxnRunner()
 
 	var wg sync.WaitGroup
@@ -143,7 +143,7 @@ func (s *transactionRunnerSuite) TestTxnParallelCancelledContext(c *gc.C) {
 			c.Fatal("should not be called")
 			return nil
 		})
-		c.Assert(err, gc.ErrorMatches, "context canceled")
+		c.Assert(err, tc.ErrorMatches, "context canceled")
 
 		close(step)
 	}()
@@ -162,7 +162,7 @@ func (s *transactionRunnerSuite) TestTxnParallelCancelledContext(c *gc.C) {
 	}
 }
 
-func (s *transactionRunnerSuite) TestTxnInserts(c *gc.C) {
+func (s *transactionRunnerSuite) TestTxnInserts(c *tc.C) {
 	runner := txn.NewRetryingTxnRunner()
 
 	s.createTable(c)
@@ -186,11 +186,11 @@ func (s *transactionRunnerSuite) TestTxnInserts(c *gc.C) {
 		var n int
 		err := rows.Scan(&n)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(n, gc.Equals, 1)
+		c.Assert(n, tc.Equals, 1)
 	}
 }
 
-func (s *transactionRunnerSuite) TestTxnRollback(c *gc.C) {
+func (s *transactionRunnerSuite) TestTxnRollback(c *tc.C) {
 	runner := txn.NewRetryingTxnRunner()
 
 	s.createTable(c)
@@ -202,7 +202,7 @@ func (s *transactionRunnerSuite) TestTxnRollback(c *gc.C) {
 		}
 		return errors.Errorf("fail")
 	})
-	c.Assert(err, gc.ErrorMatches, "fail")
+	c.Assert(err, tc.ErrorMatches, "fail")
 
 	// Now verify that the transaction was rolled back.
 	rows, err := s.DB().Query("SELECT COUNT(*) FROM foo")
@@ -214,11 +214,11 @@ func (s *transactionRunnerSuite) TestTxnRollback(c *gc.C) {
 		var n int
 		err := rows.Scan(&n)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(n, gc.Equals, 0)
+		c.Assert(n, tc.Equals, 0)
 	}
 }
 
-func (s *transactionRunnerSuite) TestRetryForNonRetryableError(c *gc.C) {
+func (s *transactionRunnerSuite) TestRetryForNonRetryableError(c *tc.C) {
 	runner := txn.NewRetryingTxnRunner()
 
 	var count int
@@ -226,11 +226,11 @@ func (s *transactionRunnerSuite) TestRetryForNonRetryableError(c *gc.C) {
 		count++
 		return errors.Errorf("fail")
 	})
-	c.Assert(err, gc.ErrorMatches, "fail")
-	c.Assert(count, gc.Equals, 1)
+	c.Assert(err, tc.ErrorMatches, "fail")
+	c.Assert(count, tc.Equals, 1)
 }
 
-func (s *transactionRunnerSuite) TestRetryWithACancelledContext(c *gc.C) {
+func (s *transactionRunnerSuite) TestRetryWithACancelledContext(c *tc.C) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	runner := txn.NewRetryingTxnRunner()
@@ -242,11 +242,11 @@ func (s *transactionRunnerSuite) TestRetryWithACancelledContext(c *gc.C) {
 		count++
 		return errors.Errorf("fail")
 	})
-	c.Assert(err, gc.ErrorMatches, "fail")
-	c.Assert(count, gc.Equals, 1)
+	c.Assert(err, tc.ErrorMatches, "fail")
+	c.Assert(count, tc.Equals, 1)
 }
 
-func (s *transactionRunnerSuite) TestRetryForRetryableError(c *gc.C) {
+func (s *transactionRunnerSuite) TestRetryForRetryableError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.clock.EXPECT().Now().Return(time.Now()).AnyTimes()
@@ -263,16 +263,16 @@ func (s *transactionRunnerSuite) TestRetryForRetryableError(c *gc.C) {
 		count++
 		return sqlite3.ErrBusy
 	})
-	c.Assert(err, gc.ErrorMatches, "attempt count exceeded: .*")
-	c.Assert(count, gc.Equals, 250)
+	c.Assert(err, tc.ErrorMatches, "attempt count exceeded: .*")
+	c.Assert(count, tc.Equals, 250)
 }
 
-func (s *transactionRunnerSuite) createTable(c *gc.C) {
+func (s *transactionRunnerSuite) createTable(c *tc.C) {
 	_, err := s.DB().Exec("CREATE TEMP TABLE foo (id INT PRIMARY KEY, name VARCHAR(255))")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *transactionRunnerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *transactionRunnerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.clock = NewMockClock(ctrl)

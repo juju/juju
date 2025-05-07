@@ -8,36 +8,36 @@ import (
 	"strings"
 
 	"github.com/juju/proxy"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/packaging/commands"
 )
 
-var _ = gc.Suite(&AptSuite{})
+var _ = tc.Suite(&AptSuite{})
 
 type AptSuite struct {
 	aptCommander commands.AptPackageCommander
 }
 
-func (s *AptSuite) SetUpSuite(c *gc.C) {
+func (s *AptSuite) SetUpSuite(c *tc.C) {
 	s.aptCommander = commands.NewAptPackageCommander()
 }
 
-func (s *AptSuite) TestProxyConfigContentsEmpty(c *gc.C) {
+func (s *AptSuite) TestProxyConfigContentsEmpty(c *tc.C) {
 	out := s.aptCommander.ProxyConfigContents(proxy.Settings{})
-	c.Assert(out, gc.Equals, "")
+	c.Assert(out, tc.Equals, "")
 }
 
-func (s *AptSuite) TestProxyConfigContentsPartial(c *gc.C) {
+func (s *AptSuite) TestProxyConfigContentsPartial(c *tc.C) {
 	sets := proxy.Settings{
 		Http: "dat-proxy.zone:8080",
 	}
 
 	output := s.aptCommander.ProxyConfigContents(sets)
-	c.Assert(output, gc.Equals, "Acquire::http::Proxy \"dat-proxy.zone:8080\";")
+	c.Assert(output, tc.Equals, "Acquire::http::Proxy \"dat-proxy.zone:8080\";")
 }
 
-func (s *AptSuite) TestProxyConfigContentsFull(c *gc.C) {
+func (s *AptSuite) TestProxyConfigContentsFull(c *tc.C) {
 	sets := proxy.Settings{
 		Http:    "dat-proxy.zone:8080",
 		Https:   "https://much-security.com",
@@ -55,10 +55,10 @@ Acquire::https::Proxy::"local2" "DIRECT";
 Acquire::ftp::Proxy::"local2" "DIRECT";`
 
 	output := s.aptCommander.ProxyConfigContents(sets)
-	c.Assert(output, gc.Equals, expected)
+	c.Assert(output, tc.Equals, expected)
 }
 
-func (s *AptSuite) TestSetMirrorCommands(c *gc.C) {
+func (s *AptSuite) TestSetMirrorCommands(c *tc.C) {
 	expected := `
 old_archive_mirror=$(apt-cache policy | grep http | awk '{ $1="" ; print }' | sed 's/^ //g'  | grep "$(lsb_release -c -s)/main" | awk '{print $1; exit}')
 new_archive_mirror="http://mirror"
@@ -88,5 +88,5 @@ for old in ${old_prefix}_*; do
 done`[1:]
 	cmds := s.aptCommander.SetMirrorCommands("http://mirror", "http://security-mirror")
 	output := strings.Join(cmds, "\n")
-	c.Assert(output, gc.Equals, expected)
+	c.Assert(output, tc.Equals, expected)
 }

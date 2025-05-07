@@ -7,12 +7,12 @@ import (
 	"runtime"
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 func TestPackage(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("introspection socket only runs on Linux")
 	}
-	gc.TestingT(t)
+	tc.TestingT(t)
 }

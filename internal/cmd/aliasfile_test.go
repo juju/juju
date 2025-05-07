@@ -8,8 +8,8 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/cmd"
 )
@@ -18,17 +18,17 @@ type ParseAliasFileSuite struct {
 	testing.LoggingSuite
 }
 
-var _ = gc.Suite(&ParseAliasFileSuite{})
+var _ = tc.Suite(&ParseAliasFileSuite{})
 
-func (*ParseAliasFileSuite) TestMissing(c *gc.C) {
+func (*ParseAliasFileSuite) TestMissing(c *tc.C) {
 	dir := c.MkDir()
 	filename := filepath.Join(dir, "missing")
 	aliases := cmd.ParseAliasFile(filename)
-	c.Assert(aliases, gc.NotNil)
-	c.Assert(aliases, gc.HasLen, 0)
+	c.Assert(aliases, tc.NotNil)
+	c.Assert(aliases, tc.HasLen, 0)
 }
 
-func (*ParseAliasFileSuite) TestParse(c *gc.C) {
+func (*ParseAliasFileSuite) TestParse(c *tc.C) {
 	dir := c.MkDir()
 	filename := filepath.Join(dir, "missing")
 	content := `
@@ -48,9 +48,9 @@ key =
 = value
 `
 	err := ioutil.WriteFile(filename, []byte(content), 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	aliases := cmd.ParseAliasFile(filename)
-	c.Assert(aliases, gc.DeepEquals, map[string][]string{
+	c.Assert(aliases, tc.DeepEquals, map[string][]string{
 		"foo":    {"trailing-space"},
 		"repeat": {"second"},
 		"flags":  {"flags", "--with", "flag"},

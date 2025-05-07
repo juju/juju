@@ -9,9 +9,9 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/dbrootkeystore"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/domain/macaroon"
 	macaroonerrors "github.com/juju/juju/domain/macaroon/errors"
@@ -26,7 +26,7 @@ type rootKeyServiceSuite struct {
 	clock macaroon.Clock
 }
 
-var _ = gc.Suite(&rootKeyServiceSuite{})
+var _ = tc.Suite(&rootKeyServiceSuite{})
 
 var moment = time.Now()
 
@@ -37,19 +37,19 @@ var key = dbrootkeystore.RootKey{
 	RootKey: []byte("key0"),
 }
 
-func (s *rootKeyServiceSuite) SetUpTest(c *gc.C) {
+func (s *rootKeyServiceSuite) SetUpTest(c *tc.C) {
 	s.now = moment
 	s.clock = clockVal(&s.now)
 }
 
-func (s *rootKeyServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *rootKeyServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.st = NewMockState(ctrl)
 	return ctrl
 }
 
-func (s *rootKeyServiceSuite) TestGetKeyContext(c *gc.C) {
+func (s *rootKeyServiceSuite) TestGetKeyContext(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := []byte("0")
@@ -58,10 +58,10 @@ func (s *rootKeyServiceSuite) TestGetKeyContext(c *gc.C) {
 
 	res, err := srv.GetKeyContext(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.DeepEquals, key)
+	c.Assert(res, tc.DeepEquals, key)
 }
 
-func (s *rootKeyServiceSuite) TestGetKeyContextNotFound(c *gc.C) {
+func (s *rootKeyServiceSuite) TestGetKeyContextNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := []byte("0")
@@ -72,7 +72,7 @@ func (s *rootKeyServiceSuite) TestGetKeyContextNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, bakery.ErrNotFound)
 }
 
-func (s *rootKeyServiceSuite) TestFindLatestKeyContext(c *gc.C) {
+func (s *rootKeyServiceSuite) TestFindLatestKeyContext(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	createdAfter := s.now
@@ -83,10 +83,10 @@ func (s *rootKeyServiceSuite) TestFindLatestKeyContext(c *gc.C) {
 
 	res, err := srv.FindLatestKeyContext(context.Background(), createdAfter, expiresAfter, expiresBefore)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.DeepEquals, key)
+	c.Assert(res, tc.DeepEquals, key)
 }
 
-func (s *rootKeyServiceSuite) TestFindLatestKeyContextNotFound(c *gc.C) {
+func (s *rootKeyServiceSuite) TestFindLatestKeyContextNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	createdAfter := s.now
@@ -97,10 +97,10 @@ func (s *rootKeyServiceSuite) TestFindLatestKeyContextNotFound(c *gc.C) {
 
 	res, err := srv.FindLatestKeyContext(context.Background(), createdAfter, expiresAfter, expiresBefore)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.DeepEquals, dbrootkeystore.RootKey{})
+	c.Assert(res, tc.DeepEquals, dbrootkeystore.RootKey{})
 }
 
-func (s *rootKeyServiceSuite) TestInsertKeyContext(c *gc.C) {
+func (s *rootKeyServiceSuite) TestInsertKeyContext(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.st.EXPECT().InsertKey(gomock.Any(), encodeRootKey(key))
@@ -110,7 +110,7 @@ func (s *rootKeyServiceSuite) TestInsertKeyContext(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *rootKeyServiceSuite) TestInsertKeyContextError(c *gc.C) {
+func (s *rootKeyServiceSuite) TestInsertKeyContextError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	boom := errors.Errorf("boom")
@@ -118,7 +118,7 @@ func (s *rootKeyServiceSuite) TestInsertKeyContextError(c *gc.C) {
 	srv := NewRootKeyService(s.st, s.clock)
 
 	err := srv.InsertKeyContext(context.Background(), key)
-	c.Assert(err, gc.Equals, boom)
+	c.Assert(err, tc.Equals, boom)
 }
 
 func clockVal(t *time.Time) macaroon.Clock {

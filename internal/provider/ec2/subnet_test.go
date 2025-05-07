@@ -6,15 +6,15 @@ package ec2_test
 import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/provider/ec2"
 )
 
 type subnetMatcherSuite struct{}
 
-var _ = gc.Suite(&subnetMatcherSuite{})
+var _ = tc.Suite(&subnetMatcherSuite{})
 
 var cannedSubnets = []types.Subnet{{
 	SubnetId:                aws.String("subnet-1234abcd"),
@@ -81,30 +81,30 @@ var cannedSubnets = []types.Subnet{{
 	},
 }}
 
-func checkSubnetMatch(c *gc.C, query, expectedSubnetID string) {
+func checkSubnetMatch(c *tc.C, query, expectedSubnetID string) {
 	matcher := ec2.CreateSubnetMatcher(query)
 	anyMatch := false
 	for _, subnet := range cannedSubnets {
 		match := matcher.Match(subnet)
 		if aws.ToString(subnet.SubnetId) == expectedSubnetID {
 			c.Check(match, jc.IsTrue,
-				gc.Commentf("query %q was supposed to match subnet %#v", query, subnet))
+				tc.Commentf("query %q was supposed to match subnet %#v", query, subnet))
 		} else {
 			c.Check(match, jc.IsFalse,
-				gc.Commentf("query %q was not supposed to match subnet %#v", query, subnet))
+				tc.Commentf("query %q was not supposed to match subnet %#v", query, subnet))
 		}
 		if match {
 			anyMatch = true
 		}
 	}
 	if expectedSubnetID == "" {
-		c.Check(anyMatch, jc.IsFalse, gc.Commentf("we expected there to be no matches"))
+		c.Check(anyMatch, jc.IsFalse, tc.Commentf("we expected there to be no matches"))
 	} else {
-		c.Check(anyMatch, jc.IsTrue, gc.Commentf("we expected to find at least one match, but found none"))
+		c.Check(anyMatch, jc.IsTrue, tc.Commentf("we expected to find at least one match, but found none"))
 	}
 }
 
-func (*subnetMatcherSuite) TestCIDRMatch(c *gc.C) {
+func (*subnetMatcherSuite) TestCIDRMatch(c *tc.C) {
 	checkSubnetMatch(c, "172.30.101.0/24", "subnet-edcb5432")
 	// We are a little lenient, the host portion doesn't matter as long as the subnet portion is the same
 	checkSubnetMatch(c, "172.30.101.50/24", "subnet-edcb5432")
@@ -112,13 +112,13 @@ func (*subnetMatcherSuite) TestCIDRMatch(c *gc.C) {
 	checkSubnetMatch(c, "172.30.103.0/24", "")
 }
 
-func (*subnetMatcherSuite) TestSubnetIDMatch(c *gc.C) {
+func (*subnetMatcherSuite) TestSubnetIDMatch(c *tc.C) {
 	checkSubnetMatch(c, "subnet-dcba4321", "subnet-dcba4321")
 	// Typo matches nothing
 	checkSubnetMatch(c, "subnet-dcba432", "")
 }
 
-func (*subnetMatcherSuite) TestSubnetNameMatch(c *gc.C) {
+func (*subnetMatcherSuite) TestSubnetNameMatch(c *tc.C) {
 	checkSubnetMatch(c, "b", "subnet-2345bcde")
 	// We shouldn't be confused by tags other than "Name"
 	checkSubnetMatch(c, "db-c", "subnet-dcba4321")

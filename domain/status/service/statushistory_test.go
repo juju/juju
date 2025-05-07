@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/statushistory"
@@ -26,9 +26,9 @@ type statusHistorySuite struct {
 	now           time.Time
 }
 
-var _ = gc.Suite(&statusHistorySuite{})
+var _ = tc.Suite(&statusHistorySuite{})
 
-func (s *statusHistorySuite) TestGetStatusHistoryNoData(c *gc.C) {
+func (s *statusHistorySuite) TestGetStatusHistoryNoData(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectResults([]statushistory.HistoryRecord{})
@@ -38,10 +38,10 @@ func (s *statusHistorySuite) TestGetStatusHistoryNoData(c *gc.C) {
 		Kind: status.KindUnit,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, gc.HasLen, 0)
+	c.Check(results, tc.HasLen, 0)
 }
 
-func (s *statusHistorySuite) TestGetStatusHistoryContextCancelled(c *gc.C) {
+func (s *statusHistorySuite) TestGetStatusHistoryContextCancelled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectResults([]statushistory.HistoryRecord{{}})
@@ -56,7 +56,7 @@ func (s *statusHistorySuite) TestGetStatusHistoryContextCancelled(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, context.Canceled)
 }
 
-func (s *statusHistorySuite) TestGetStatusHistoryError(c *gc.C) {
+func (s *statusHistorySuite) TestGetStatusHistoryError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.historyReader.EXPECT().Walk(gomock.Any()).Return(fmt.Errorf("foo"))
@@ -65,10 +65,10 @@ func (s *statusHistorySuite) TestGetStatusHistoryError(c *gc.C) {
 	_, err := service.GetStatusHistory(context.Background(), StatusHistoryRequest{
 		Kind: status.KindUnit,
 	})
-	c.Assert(err, gc.ErrorMatches, ".*foo")
+	c.Assert(err, tc.ErrorMatches, ".*foo")
 }
 
-func (s *statusHistorySuite) TestGetStatusHistoryErrorWalk(c *gc.C) {
+func (s *statusHistorySuite) TestGetStatusHistoryErrorWalk(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.historyReader.EXPECT().Walk(gomock.Any()).DoAndReturn(
@@ -81,10 +81,10 @@ func (s *statusHistorySuite) TestGetStatusHistoryErrorWalk(c *gc.C) {
 	_, err := service.GetStatusHistory(context.Background(), StatusHistoryRequest{
 		Kind: status.KindUnit,
 	})
-	c.Assert(err, gc.ErrorMatches, ".*foo")
+	c.Assert(err, tc.ErrorMatches, ".*foo")
 }
 
-func (s *statusHistorySuite) TestGetStatusHistoryMatchesData(c *gc.C) {
+func (s *statusHistorySuite) TestGetStatusHistoryMatchesData(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectResults([]statushistory.HistoryRecord{{
@@ -103,7 +103,7 @@ func (s *statusHistorySuite) TestGetStatusHistoryMatchesData(c *gc.C) {
 		Kind: status.KindUnit,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, gc.DeepEquals, []status.DetailedStatus{{
+	c.Check(results, tc.DeepEquals, []status.DetailedStatus{{
 		Kind:   status.KindUnit,
 		Status: status.Active,
 		Info:   "foo",
@@ -112,7 +112,7 @@ func (s *statusHistorySuite) TestGetStatusHistoryMatchesData(c *gc.C) {
 	}})
 }
 
-func (s *statusHistorySuite) TestGetStatusHistoryMatchesMultipleData(c *gc.C) {
+func (s *statusHistorySuite) TestGetStatusHistoryMatchesMultipleData(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	total := rand.IntN(100) + 10
@@ -147,10 +147,10 @@ func (s *statusHistorySuite) TestGetStatusHistoryMatchesMultipleData(c *gc.C) {
 		Kind: status.KindUnit,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, gc.DeepEquals, expected)
+	c.Check(results, tc.DeepEquals, expected)
 }
 
-func (s *statusHistorySuite) TestGetStatusHistoryMatchesMultipleDataSize(c *gc.C) {
+func (s *statusHistorySuite) TestGetStatusHistoryMatchesMultipleDataSize(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	total := rand.IntN(100) + 10
@@ -188,10 +188,10 @@ func (s *statusHistorySuite) TestGetStatusHistoryMatchesMultipleDataSize(c *gc.C
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, gc.DeepEquals, expected[:total-5])
+	c.Check(results, tc.DeepEquals, expected[:total-5])
 }
 
-func (s *statusHistorySuite) TestGetStatusHistoryMatchesKindData(c *gc.C) {
+func (s *statusHistorySuite) TestGetStatusHistoryMatchesKindData(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectResults([]statushistory.HistoryRecord{{
@@ -219,7 +219,7 @@ func (s *statusHistorySuite) TestGetStatusHistoryMatchesKindData(c *gc.C) {
 		Kind: status.KindUnit,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, gc.DeepEquals, []status.DetailedStatus{{
+	c.Check(results, tc.DeepEquals, []status.DetailedStatus{{
 		Kind:   status.KindUnit,
 		Status: status.Active,
 		Info:   "foo",
@@ -228,7 +228,7 @@ func (s *statusHistorySuite) TestGetStatusHistoryMatchesKindData(c *gc.C) {
 	}})
 }
 
-func (s *statusHistorySuite) TestMatches(c *gc.C) {
+func (s *statusHistorySuite) TestMatches(c *tc.C) {
 	tests := []struct {
 		record   statushistory.HistoryRecord
 		request  StatusHistoryRequest
@@ -354,16 +354,16 @@ func (s *statusHistorySuite) TestMatches(c *gc.C) {
 
 		result, err := matches(test.record, test.request, s.now)
 		if test.err != nil {
-			c.Assert(err, gc.ErrorMatches, test.err.Error())
+			c.Assert(err, tc.ErrorMatches, test.err.Error())
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
 		}
 
-		c.Check(result, gc.Equals, test.expected)
+		c.Check(result, tc.Equals, test.expected)
 	}
 }
 
-func (s *statusHistorySuite) TestMatchesDate(c *gc.C) {
+func (s *statusHistorySuite) TestMatchesDate(c *tc.C) {
 	tests := []struct {
 		record   statushistory.HistoryRecord
 		request  StatusHistoryRequest
@@ -408,11 +408,11 @@ func (s *statusHistorySuite) TestMatchesDate(c *gc.C) {
 
 		result, err := matches(test.record, test.request, s.now)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result, gc.Equals, test.expected)
+		c.Check(result, tc.Equals, test.expected)
 	}
 }
 
-func (s *statusHistorySuite) TestMatchesDelta(c *gc.C) {
+func (s *statusHistorySuite) TestMatchesDelta(c *tc.C) {
 	tests := []struct {
 		record   statushistory.HistoryRecord
 		request  StatusHistoryRequest
@@ -457,7 +457,7 @@ func (s *statusHistorySuite) TestMatchesDelta(c *gc.C) {
 
 		result, err := matches(test.record, test.request, s.now)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result, gc.Equals, test.expected)
+		c.Check(result, tc.Equals, test.expected)
 	}
 }
 
@@ -485,7 +485,7 @@ func (s *statusHistorySuite) newService() *Service {
 	}
 }
 
-func (s *statusHistorySuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *statusHistorySuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.historyReader = NewMockStatusHistoryReader(ctrl)

@@ -8,7 +8,7 @@ import (
 	"os"
 	"syscall"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/wrench"
 )
@@ -17,7 +17,7 @@ const fileNotFound = `stat .+: no such file or directory`
 
 // Patch out the os.Stat call used by wrench so that a particular file
 // appears to be owned by a UID that isn't Juju's UID.
-func (s *wrenchSuite) tweakOwner(c *gc.C, targetPath string) {
+func (s *wrenchSuite) tweakOwner(c *tc.C, targetPath string) {
 	s.PatchValue(wrench.Stat, func(path string) (fi os.FileInfo, err error) {
 		fi, err = os.Stat(path)
 		if err != nil {

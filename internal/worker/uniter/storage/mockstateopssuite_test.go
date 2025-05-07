@@ -5,9 +5,9 @@ package storage_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/internal/worker/uniter/operation/mocks"
@@ -21,13 +21,13 @@ type mockStateOpsSuite struct {
 	mockStateOps *mocks.MockUnitStateReadWriter
 }
 
-func (s *mockStateOpsSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *mockStateOpsSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctlr := gomock.NewController(c)
 	s.mockStateOps = mocks.NewMockUnitStateReadWriter(ctlr)
 	return ctlr
 }
 
-func (s *mockStateOpsSuite) expectSetState(c *gc.C, errStr string) {
+func (s *mockStateOpsSuite) expectSetState(c *tc.C, errStr string) {
 	data, err := yaml.Marshal(storage.Storage(s.storSt))
 	c.Assert(err, jc.ErrorIsNil)
 	strStorageState := string(data)
@@ -39,13 +39,13 @@ func (s *mockStateOpsSuite) expectSetState(c *gc.C, errStr string) {
 	mExp.SetState(gomock.Any(), unitStateMatcher{c: c, expected: strStorageState}).Return(err)
 }
 
-func (s *mockStateOpsSuite) expectSetStateEmpty(c *gc.C) {
+func (s *mockStateOpsSuite) expectSetStateEmpty(c *tc.C) {
 	var strStorageState string
 	mExp := s.mockStateOps.EXPECT()
 	mExp.SetState(gomock.Any(), unitStateMatcher{c: c, expected: strStorageState}).Return(nil)
 }
 
-func (s *mockStateOpsSuite) expectState(c *gc.C) {
+func (s *mockStateOpsSuite) expectState(c *tc.C) {
 	data, err := yaml.Marshal(storage.Storage(s.storSt))
 	c.Assert(err, jc.ErrorIsNil)
 	strStorageState := string(data)
@@ -60,7 +60,7 @@ func (s *mockStateOpsSuite) expectStateNotFound() {
 }
 
 type unitStateMatcher struct {
-	c        *gc.C
+	c        *tc.C
 	expected string
 }
 

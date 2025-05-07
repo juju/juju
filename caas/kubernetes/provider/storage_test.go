@@ -6,9 +6,9 @@ package provider_test
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,17 +18,17 @@ import (
 	"github.com/juju/juju/internal/storage"
 )
 
-var _ = gc.Suite(&storageSuite{})
+var _ = tc.Suite(&storageSuite{})
 
 type storageSuite struct {
 	BaseSuite
 }
 
-func (s *storageSuite) k8sProvider(c *gc.C, ctrl *gomock.Controller) storage.Provider {
+func (s *storageSuite) k8sProvider(c *tc.C, ctrl *gomock.Controller) storage.Provider {
 	return provider.StorageProvider(s.k8sClient, s.getNamespace())
 }
 
-func (s *storageSuite) TestValidateConfig(c *gc.C) {
+func (s *storageSuite) TestValidateConfig(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -48,7 +48,7 @@ func (s *storageSuite) TestValidateConfig(c *gc.C) {
 	})
 }
 
-func (s *storageSuite) TestValidateConfigError(c *gc.C) {
+func (s *storageSuite) TestValidateConfigError(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -59,10 +59,10 @@ func (s *storageSuite) TestValidateConfigError(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = p.ValidateConfig(cfg)
-	c.Assert(err, gc.ErrorMatches, "storage-class must be specified if storage-provisioner is specified")
+	c.Assert(err, tc.ErrorMatches, "storage-class must be specified if storage-provisioner is specified")
 }
 
-func (s *storageSuite) TestSupports(c *gc.C) {
+func (s *storageSuite) TestSupports(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -71,15 +71,15 @@ func (s *storageSuite) TestSupports(c *gc.C) {
 	c.Assert(p.Supports(storage.StorageKindFilesystem), jc.IsFalse)
 }
 
-func (s *storageSuite) TestScope(c *gc.C) {
+func (s *storageSuite) TestScope(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	p := s.k8sProvider(c, ctrl)
-	c.Assert(p.Scope(), gc.Equals, storage.ScopeEnviron)
+	c.Assert(p.Scope(), tc.Equals, storage.ScopeEnviron)
 }
 
-func (s *storageSuite) TestDestroyVolumes(c *gc.C) {
+func (s *storageSuite) TestDestroyVolumes(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -104,7 +104,7 @@ func (s *storageSuite) TestDestroyVolumes(c *gc.C) {
 	c.Assert(errs, jc.DeepEquals, []error{nil})
 }
 
-func (s *storageSuite) TestDestroyVolumesNotFoundIgnored(c *gc.C) {
+func (s *storageSuite) TestDestroyVolumesNotFoundIgnored(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -129,7 +129,7 @@ func (s *storageSuite) TestDestroyVolumesNotFoundIgnored(c *gc.C) {
 	c.Assert(errs, jc.DeepEquals, []error{nil})
 }
 
-func (s *storageSuite) TestListVolumes(c *gc.C) {
+func (s *storageSuite) TestListVolumes(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -148,7 +148,7 @@ func (s *storageSuite) TestListVolumes(c *gc.C) {
 	c.Assert(vols, jc.DeepEquals, []string{"vol-1"})
 }
 
-func (s *storageSuite) TestDescribeVolumes(c *gc.C) {
+func (s *storageSuite) TestDescribeVolumes(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -173,7 +173,7 @@ func (s *storageSuite) TestDescribeVolumes(c *gc.C) {
 	}})
 }
 
-func (s *storageSuite) TestValidateStorageProvider(c *gc.C) {
+func (s *storageSuite) TestValidateStorageProvider(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -195,7 +195,7 @@ func (s *storageSuite) TestValidateStorageProvider(c *gc.C) {
 		if t.err == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
-			c.Check(err, gc.ErrorMatches, t.err)
+			c.Check(err, tc.ErrorMatches, t.err)
 		}
 	}
 }

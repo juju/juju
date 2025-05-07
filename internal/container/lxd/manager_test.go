@@ -10,9 +10,9 @@ import (
 	lxdclient "github.com/canonical/lxd/client"
 	lxdapi "github.com/canonical/lxd/shared/api"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	corebase "github.com/juju/juju/core/base"
@@ -43,18 +43,18 @@ type managerSuite struct {
 	manager        container.Manager
 }
 
-var _ = gc.Suite(&managerSuite{})
+var _ = tc.Suite(&managerSuite{})
 
 func (s *managerSuite) patch() {
 	lxd.PatchConnectRemote(s, map[string]lxdclient.ImageServer{"cloud-images.ubuntu.com": s.cSvr})
 	lxd.PatchGenerateVirtualMACAddress(s)
 }
 
-func (s *managerSuite) makeManager(c *gc.C) {
+func (s *managerSuite) makeManager(c *tc.C) {
 	s.makeManagerForConfig(c, getBaseConfig())
 }
 
-func (s *managerSuite) makeManagerForConfig(c *gc.C, cfg container.ManagerConfig) {
+func (s *managerSuite) makeManagerForConfig(c *tc.C, cfg container.ManagerConfig) {
 	manager, err := lxd.NewContainerManager(cfg, func() (*lxd.Server, error) { return lxd.NewServer(s.cSvr) })
 	c.Assert(err, jc.ErrorIsNil)
 	s.manager = manager
@@ -68,7 +68,7 @@ func getBaseConfig() container.ManagerConfig {
 	}
 }
 
-func prepInstanceConfig(c *gc.C) *instancecfg.InstanceConfig {
+func prepInstanceConfig(c *tc.C) *instancecfg.InstanceConfig {
 	apiInfo := &api.Info{
 		Addrs:    []string{"127.0.0.1:1337"},
 		Password: "password",
@@ -116,7 +116,7 @@ func prepNetworkConfig() *container.NetworkConfig {
 	}})
 }
 
-func (s *managerSuite) TestContainerCreateDestroy(c *gc.C) {
+func (s *managerSuite) TestContainerCreateDestroy(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 	s.patch()
@@ -176,19 +176,19 @@ func (s *managerSuite) TestContainerCreateDestroy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	instanceId := instance.Id()
-	c.Check(string(instanceId), gc.Equals, hostName)
-	c.Check(hc.Arch, gc.NotNil)
-	c.Check(*hc.Arch, gc.Equals, "amd64")
+	c.Check(string(instanceId), tc.Equals, hostName)
+	c.Check(hc.Arch, tc.NotNil)
+	c.Check(*hc.Arch, tc.Equals, "amd64")
 
 	instanceStatus := instance.Status(context.Background())
-	c.Check(instanceStatus.Status, gc.Equals, status.Running)
-	c.Check(*hc.AvailabilityZone, gc.Equals, "test-availability-zone")
+	c.Check(instanceStatus.Status, tc.Equals, status.Running)
+	c.Check(*hc.AvailabilityZone, tc.Equals, "test-availability-zone")
 
 	err = s.manager.DestroyContainer(instanceId)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *managerSuite) TestContainerCreateUpdateIPv4Network(c *gc.C) {
+func (s *managerSuite) TestContainerCreateUpdateIPv4Network(c *tc.C) {
 	ctrl := s.setupWithExtensions(c, "network")
 	defer ctrl.Finish()
 
@@ -237,7 +237,7 @@ func (s *managerSuite) TestContainerCreateUpdateIPv4Network(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *managerSuite) TestCreateContainerCreateFailed(c *gc.C) {
+func (s *managerSuite) TestCreateContainerCreateFailed(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -259,10 +259,10 @@ func (s *managerSuite) TestCreateContainerCreateFailed(c *gc.C) {
 		&container.StorageConfig{},
 		lxdtesting.NoOpCallback,
 	)
-	c.Assert(err, gc.ErrorMatches, ".*create failed")
+	c.Assert(err, tc.ErrorMatches, ".*create failed")
 }
 
-func (s *managerSuite) TestCreateContainerSpecCreationError(c *gc.C) {
+func (s *managerSuite) TestCreateContainerSpecCreationError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	// When the local image acquisition fails, this will cause the remote
@@ -283,10 +283,10 @@ func (s *managerSuite) TestCreateContainerSpecCreationError(c *gc.C) {
 		&container.StorageConfig{},
 		lxdtesting.NoOpCallback,
 	)
-	c.Assert(err, gc.ErrorMatches, ".*unrecognized remote server")
+	c.Assert(err, tc.ErrorMatches, ".*unrecognized remote server")
 }
 
-func (s *managerSuite) TestCreateContainerStartFailed(c *gc.C) {
+func (s *managerSuite) TestCreateContainerStartFailed(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 	s.patch()
@@ -317,10 +317,10 @@ func (s *managerSuite) TestCreateContainerStartFailed(c *gc.C) {
 		&container.StorageConfig{},
 		lxdtesting.NoOpCallback,
 	)
-	c.Assert(err, gc.ErrorMatches, ".*start failed")
+	c.Assert(err, tc.ErrorMatches, ".*start failed")
 }
 
-func (s *managerSuite) TestListContainers(c *gc.C) {
+func (s *managerSuite) TestListContainers(c *tc.C) {
 	defer s.setup(c).Finish()
 	s.makeManager(c)
 
@@ -341,19 +341,19 @@ func (s *managerSuite) TestListContainers(c *gc.C) {
 
 	result, err := s.manager.ListContainers()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, gc.HasLen, 2)
-	c.Check(string(result[0].Id()), gc.Equals, prefix+"-0")
-	c.Check(string(result[1].Id()), gc.Equals, prefix+"-1")
+	c.Check(result, tc.HasLen, 2)
+	c.Check(string(result[0].Id()), tc.Equals, prefix+"-0")
+	c.Check(string(result[1].Id()), tc.Equals, prefix+"-1")
 }
 
-func (s *managerSuite) TestIsInitialized(c *gc.C) {
+func (s *managerSuite) TestIsInitialized(c *tc.C) {
 	mgr, err := lxd.NewContainerManager(getBaseConfig(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(mgr.IsInitialized(), gc.Equals, lxd.SocketPath(lxd.IsUnixSocket) != "")
+	c.Check(mgr.IsInitialized(), tc.Equals, lxd.SocketPath(lxd.IsUnixSocket) != "")
 }
 
-func (s *managerSuite) TestNetworkDevicesFromConfigWithEmptyParentDevice(c *gc.C) {
+func (s *managerSuite) TestNetworkDevicesFromConfigWithEmptyParentDevice(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	interfaces := corenetwork.InterfaceInfos{{
@@ -367,11 +367,11 @@ func (s *managerSuite) TestNetworkDevicesFromConfigWithEmptyParentDevice(c *gc.C
 		Interfaces: interfaces,
 	})
 
-	c.Assert(err, gc.ErrorMatches, "parent interface name is empty")
-	c.Assert(result, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "parent interface name is empty")
+	c.Assert(result, tc.IsNil)
 }
 
-func (s *managerSuite) TestNetworkDevicesFromConfigWithParentDevice(c *gc.C) {
+func (s *managerSuite) TestNetworkDevicesFromConfigWithParentDevice(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	interfaces := corenetwork.InterfaceInfos{{
@@ -401,10 +401,10 @@ func (s *managerSuite) TestNetworkDevicesFromConfigWithParentDevice(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, jc.DeepEquals, expected)
-	c.Check(unknown, gc.HasLen, 0)
+	c.Check(unknown, tc.HasLen, 0)
 }
 
-func (s *managerSuite) TestNetworkDevicesFromConfigUnknownCIDR(c *gc.C) {
+func (s *managerSuite) TestNetworkDevicesFromConfigUnknownCIDR(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	interfaces := corenetwork.InterfaceInfos{{
@@ -420,10 +420,10 @@ func (s *managerSuite) TestNetworkDevicesFromConfigUnknownCIDR(c *gc.C) {
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(unknown, gc.DeepEquals, []string{"br-eth0"})
+	c.Check(unknown, tc.DeepEquals, []string{"br-eth0"})
 }
 
-func (s *managerSuite) TestNetworkDevicesFromConfigNoInputGetsProfileNICs(c *gc.C) {
+func (s *managerSuite) TestNetworkDevicesFromConfigNoInputGetsProfileNICs(c *tc.C) {
 	defer s.setup(c).Finish()
 	s.patch()
 
@@ -444,20 +444,20 @@ func (s *managerSuite) TestNetworkDevicesFromConfigNoInputGetsProfileNICs(c *gc.
 		},
 	}
 
-	c.Check(result, gc.DeepEquals, exp)
+	c.Check(result, tc.DeepEquals, exp)
 }
 
-func (s *managerSuite) TestGetImageSourcesDefaultConfig(c *gc.C) {
+func (s *managerSuite) TestGetImageSourcesDefaultConfig(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.makeManager(c)
 
 	sources, err := lxd.GetImageSources(s.manager)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sources, gc.DeepEquals, []lxd.ServerSpec{lxd.CloudImagesRemote, lxd.CloudImagesDailyRemote, lxd.CloudImagesLinuxContainersRemote})
+	c.Check(sources, tc.DeepEquals, []lxd.ServerSpec{lxd.CloudImagesRemote, lxd.CloudImagesDailyRemote, lxd.CloudImagesLinuxContainersRemote})
 }
 
-func (s *managerSuite) TestGetImageSourcesNoDefaults(c *gc.C) {
+func (s *managerSuite) TestGetImageSourcesNoDefaults(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	cfg := getBaseConfig()
@@ -466,10 +466,10 @@ func (s *managerSuite) TestGetImageSourcesNoDefaults(c *gc.C) {
 
 	sources, err := lxd.GetImageSources(s.manager)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sources, gc.HasLen, 0)
+	c.Check(sources, tc.HasLen, 0)
 }
 
-func (s *managerSuite) TestGetImageSourcesNoDefaultsCustomURL(c *gc.C) {
+func (s *managerSuite) TestGetImageSourcesNoDefaultsCustomURL(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	cfg := getBaseConfig()
@@ -486,10 +486,10 @@ func (s *managerSuite) TestGetImageSourcesNoDefaultsCustomURL(c *gc.C) {
 			Protocol: lxd.SimpleStreamsProtocol,
 		},
 	}
-	c.Check(sources, gc.DeepEquals, expectedSources)
+	c.Check(sources, tc.DeepEquals, expectedSources)
 }
 
-func (s *managerSuite) TestGetImageSourcesNonStandardStreamDefaultConfig(c *gc.C) {
+func (s *managerSuite) TestGetImageSourcesNonStandardStreamDefaultConfig(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	cfg := getBaseConfig()
@@ -498,10 +498,10 @@ func (s *managerSuite) TestGetImageSourcesNonStandardStreamDefaultConfig(c *gc.C
 
 	sources, err := lxd.GetImageSources(s.manager)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sources, gc.DeepEquals, []lxd.ServerSpec{lxd.CloudImagesRemote, lxd.CloudImagesDailyRemote, lxd.CloudImagesLinuxContainersRemote})
+	c.Check(sources, tc.DeepEquals, []lxd.ServerSpec{lxd.CloudImagesRemote, lxd.CloudImagesDailyRemote, lxd.CloudImagesLinuxContainersRemote})
 }
 
-func (s *managerSuite) TestGetImageSourcesDailyOnly(c *gc.C) {
+func (s *managerSuite) TestGetImageSourcesDailyOnly(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	cfg := getBaseConfig()
@@ -509,10 +509,10 @@ func (s *managerSuite) TestGetImageSourcesDailyOnly(c *gc.C) {
 	s.makeManagerForConfig(c, cfg)
 	sources, err := lxd.GetImageSources(s.manager)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sources, gc.DeepEquals, []lxd.ServerSpec{lxd.CloudImagesDailyRemote, lxd.CloudImagesLinuxContainersRemote})
+	c.Check(sources, tc.DeepEquals, []lxd.ServerSpec{lxd.CloudImagesDailyRemote, lxd.CloudImagesLinuxContainersRemote})
 }
 
-func (s *managerSuite) TestGetImageSourcesImageMetadataURLExpectedHTTPSSources(c *gc.C) {
+func (s *managerSuite) TestGetImageSourcesImageMetadataURLExpectedHTTPSSources(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	cfg := getBaseConfig()
@@ -532,10 +532,10 @@ func (s *managerSuite) TestGetImageSourcesImageMetadataURLExpectedHTTPSSources(c
 		lxd.CloudImagesDailyRemote,
 		lxd.CloudImagesLinuxContainersRemote,
 	}
-	c.Check(sources, gc.DeepEquals, expectedSources)
+	c.Check(sources, tc.DeepEquals, expectedSources)
 }
 
-func (s *managerSuite) TestGetImageSourcesImageMetadataURLDailyStream(c *gc.C) {
+func (s *managerSuite) TestGetImageSourcesImageMetadataURLDailyStream(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	cfg := getBaseConfig()
@@ -555,10 +555,10 @@ func (s *managerSuite) TestGetImageSourcesImageMetadataURLDailyStream(c *gc.C) {
 		lxd.CloudImagesDailyRemote,
 		lxd.CloudImagesLinuxContainersRemote,
 	}
-	c.Check(sources, gc.DeepEquals, expectedSources)
+	c.Check(sources, tc.DeepEquals, expectedSources)
 }
 
-func (s *managerSuite) TestMaybeWriteLXDProfile(c *gc.C) {
+func (s *managerSuite) TestMaybeWriteLXDProfile(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.makeManager(c)
@@ -596,7 +596,7 @@ func (s *managerSuite) TestMaybeWriteLXDProfile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *managerSuite) TestAssignLXDProfiles(c *gc.C) {
+func (s *managerSuite) TestAssignLXDProfiles(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 	s.expectUpdateOp(ctrl, "Updating container", nil)
@@ -627,16 +627,16 @@ func (s *managerSuite) TestAssignLXDProfiles(c *gc.C) {
 
 	obtained, err := proMgr.AssignLXDProfiles("testme", newProfiles, profilePosts)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, newProfiles)
+	c.Assert(obtained, tc.DeepEquals, newProfiles)
 }
 
-func (s *managerSuite) setup(c *gc.C) *gomock.Controller {
+func (s *managerSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.cSvr = s.NewMockServer(ctrl)
 	return ctrl
 }
 
-func (s *managerSuite) setupWithExtensions(c *gc.C, extensions ...string) *gomock.Controller {
+func (s *managerSuite) setupWithExtensions(c *tc.C, extensions ...string) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.cSvr = s.NewMockServerWithExtensions(ctrl, extensions...)
 	return ctrl

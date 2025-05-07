@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -41,9 +41,9 @@ type ModelOperatorSuite struct {
 	passwordService         *MockAgentPasswordService
 }
 
-var _ = gc.Suite(&ModelOperatorSuite{})
+var _ = tc.Suite(&ModelOperatorSuite{})
 
-func (m *ModelOperatorSuite) TestProvisioningInfo(c *gc.C) {
+func (m *ModelOperatorSuite) TestProvisioningInfo(c *tc.C) {
 	defer m.setupMocks(c).Finish()
 
 	m.expectControllerConfig()
@@ -63,17 +63,17 @@ func (m *ModelOperatorSuite) TestProvisioningInfo(c *gc.C) {
 
 	imagePath, err := podcfg.GetJujuOCIImagePath(controllerConf, info.Version)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(imagePath, gc.Equals, info.ImageDetails.RegistryPath)
+	c.Assert(imagePath, tc.Equals, info.ImageDetails.RegistryPath)
 
-	c.Assert(info.ImageDetails.Auth, gc.Equals, `xxxxx==`)
-	c.Assert(info.ImageDetails.Repository, gc.Equals, `test-account`)
+	c.Assert(info.ImageDetails.Auth, tc.Equals, `xxxxx==`)
+	c.Assert(info.ImageDetails.Repository, tc.Equals, `test-account`)
 
 	expectedVersion, err := semversion.Parse("4.0.0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.Version, jc.DeepEquals, expectedVersion)
 }
 
-func (m *ModelOperatorSuite) TestWatchProvisioningInfo(c *gc.C) {
+func (m *ModelOperatorSuite) TestWatchProvisioningInfo(c *tc.C) {
 	defer m.setupMocks(c).Finish()
 
 	m.expectControllerConfig()
@@ -96,12 +96,12 @@ func (m *ModelOperatorSuite) TestWatchProvisioningInfo(c *gc.C) {
 
 	results, err := m.api.WatchModelOperatorProvisioningInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Error, gc.IsNil)
+	c.Assert(results.Error, tc.IsNil)
 	res := m.resources.Get("1")
-	c.Assert(res, gc.FitsTypeOf, (*eventsource.MultiWatcher[struct{}])(nil))
+	c.Assert(res, tc.FitsTypeOf, (*eventsource.MultiWatcher[struct{}])(nil))
 }
 
-func (s *ModelOperatorSuite) TestSetUnitPassword(c *gc.C) {
+func (s *ModelOperatorSuite) TestSetUnitPassword(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.passwordService.EXPECT().
@@ -121,7 +121,7 @@ func (s *ModelOperatorSuite) TestSetUnitPassword(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, gc.DeepEquals, params.ErrorResults{
+	c.Check(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{
 				Error: nil,
@@ -130,7 +130,7 @@ func (s *ModelOperatorSuite) TestSetUnitPassword(c *gc.C) {
 	})
 }
 
-func (s *ModelOperatorSuite) TestSetUnitPasswordUnitNotFound(c *gc.C) {
+func (s *ModelOperatorSuite) TestSetUnitPasswordUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.passwordService.EXPECT().
@@ -150,7 +150,7 @@ func (s *ModelOperatorSuite) TestSetUnitPasswordUnitNotFound(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, gc.DeepEquals, params.ErrorResults{
+	c.Check(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{
 				Error: apiservererrors.ServerError(errors.NotFoundf(`unit "foo/1"`)),
@@ -159,7 +159,7 @@ func (s *ModelOperatorSuite) TestSetUnitPasswordUnitNotFound(c *gc.C) {
 	})
 }
 
-func (m *ModelOperatorSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (m *ModelOperatorSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	m.passwordService = NewMockAgentPasswordService(ctrl)

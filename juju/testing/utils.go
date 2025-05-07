@@ -6,8 +6,8 @@ package testing
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
@@ -20,12 +20,12 @@ import (
 
 // NewObjectStore creates a new object store for testing.
 // This uses the memory metadata service.
-func NewObjectStore(c *gc.C, modelUUID string) coreobjectstore.ObjectStore {
+func NewObjectStore(c *tc.C, modelUUID string) coreobjectstore.ObjectStore {
 	return NewObjectStoreWithMetadataService(c, modelUUID, objectstoretesting.MemoryMetadataService())
 }
 
 // NewObjectStoreWithMetadataService creates a new object store for testing.
-func NewObjectStoreWithMetadataService(c *gc.C, modelUUID string, metadataService objectstore.MetadataService) coreobjectstore.ObjectStore {
+func NewObjectStoreWithMetadataService(c *tc.C, modelUUID string, metadataService objectstore.MetadataService) coreobjectstore.ObjectStore {
 	store, err := objectstore.ObjectStoreFactory(
 		context.Background(),
 		objectstore.DefaultBackendType(),
@@ -50,7 +50,7 @@ func NewObjectStoreWithMetadataService(c *gc.C, modelUUID string, metadataServic
 // and State.APIAddresses methods, which will not bear any relation to
 // the be the addresses used by the controllers.
 func AddControllerMachine(
-	c *gc.C,
+	c *tc.C,
 	st *state.State,
 	controllerConfig controller.Config,
 ) *state.Machine {

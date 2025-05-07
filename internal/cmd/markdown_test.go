@@ -8,27 +8,27 @@ import (
 	"errors"
 	"os"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/cmd"
 )
 
 type markdownSuite struct{}
 
-var _ = gc.Suite(&markdownSuite{})
+var _ = tc.Suite(&markdownSuite{})
 
 // TestWriteError ensures that the cmd.PrintMarkdown function surfaces errors
 // returned by the writer.
-func (*markdownSuite) TestWriteError(c *gc.C) {
+func (*markdownSuite) TestWriteError(c *tc.C) {
 	expectedErr := errors.New("foo")
 	writer := errorWriter{err: expectedErr}
 	command := &docTestCommand{
 		info: &cmd.Info{},
 	}
 	err := cmd.PrintMarkdown(writer, command, cmd.MarkdownOptions{})
-	c.Assert(err, gc.NotNil)
-	c.Check(err, gc.ErrorMatches, ".*foo")
+	c.Assert(err, tc.NotNil)
+	c.Check(err, tc.ErrorMatches, ".*foo")
 }
 
 // errorWriter is an io.Writer that returns an error whenever the Write method
@@ -43,7 +43,7 @@ func (e errorWriter) Write([]byte) (n int, err error) {
 
 // TestOutput tests that the output of the PrintMarkdown function is
 // fundamentally correct.
-func (*markdownSuite) TestOutput(c *gc.C) {
+func (*markdownSuite) TestOutput(c *tc.C) {
 	seeAlso := []string{"clouds", "update-cloud", "remove-cloud", "update-credential"}
 	subcommands := map[string]string{
 		"foo": "foo the bar baz",
@@ -103,5 +103,5 @@ func (*markdownSuite) TestOutput(c *gc.C) {
 		LinkForSubcommand: linkForSubcommand,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(buf.String(), gc.Equals, string(expected))
+	c.Check(buf.String(), tc.Equals, string(expected))
 }

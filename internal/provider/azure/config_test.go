@@ -6,8 +6,8 @@ package azure_test
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -29,34 +29,34 @@ type configSuite struct {
 	provider environs.EnvironProvider
 }
 
-var _ = gc.Suite(&configSuite{})
+var _ = tc.Suite(&configSuite{})
 
-func (s *configSuite) SetUpTest(c *gc.C) {
+func (s *configSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.provider = newProvider(c, azure.ProviderConfig{
 		Sender: &azuretesting.MockSender{},
 	})
 }
 
-func (s *configSuite) TestValidateNew(c *gc.C) {
+func (s *configSuite) TestValidateNew(c *tc.C) {
 	s.assertConfigValid(c, nil)
 }
 
-func (s *configSuite) TestValidateInvalidLoadBalancerSkuName(c *gc.C) {
+func (s *configSuite) TestValidateInvalidLoadBalancerSkuName(c *tc.C) {
 	s.assertConfigInvalid(
 		c, testing.Attrs{"load-balancer-sku-name": "premium"},
 		`invalid load balancer SKU name "Premium", expected one of: \["Basic" "Gateway" "Standard"\]`,
 	)
 }
 
-func (s *configSuite) TestValidateInvalidFirewallMode(c *gc.C) {
+func (s *configSuite) TestValidateInvalidFirewallMode(c *tc.C) {
 	s.assertConfigInvalid(
 		c, testing.Attrs{"firewall-mode": "global"},
 		"global firewall mode is not supported",
 	)
 }
 
-func (s *configSuite) TestValidateModelNameLength(c *gc.C) {
+func (s *configSuite) TestValidateModelNameLength(c *tc.C) {
 	s.assertConfigInvalid(
 		c, testing.Attrs{"name": "someextremelyoverlylongishmodelname-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
 		`resource group name "juju-someextremelyoverlylongishmodelname-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-deadbeef" is too long
@@ -64,7 +64,7 @@ func (s *configSuite) TestValidateModelNameLength(c *gc.C) {
 Please choose a model name of no more than 66 characters.`)
 }
 
-func (s *configSuite) TestValidateResourceGroupNameLength(c *gc.C) {
+func (s *configSuite) TestValidateResourceGroupNameLength(c *tc.C) {
 	s.assertConfigInvalid(
 		c, testing.Attrs{"resource-group-name": "someextremelyoverlylongishresourcegroupname-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
 		`resource group name "someextremelyoverlylongishresourcegroupname-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" is too long
@@ -72,7 +72,7 @@ func (s *configSuite) TestValidateResourceGroupNameLength(c *gc.C) {
 Please choose a name of no more than 80 characters.`)
 }
 
-func (s *configSuite) TestValidateLoadBalancerSkuNameCanChange(c *gc.C) {
+func (s *configSuite) TestValidateLoadBalancerSkuNameCanChange(c *tc.C) {
 	cfgOld := makeTestModelConfig(c, testing.Attrs{"load-balancer-sku-name": "Standard"})
 	_, err := s.provider.Validate(context.Background(), cfgOld, cfgOld)
 	c.Assert(err, jc.ErrorIsNil)
@@ -85,39 +85,39 @@ func (s *configSuite) TestValidateLoadBalancerSkuNameCanChange(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *configSuite) TestValidateResourceGroupNameCantChange(c *gc.C) {
+func (s *configSuite) TestValidateResourceGroupNameCantChange(c *tc.C) {
 	cfgOld := makeTestModelConfig(c, testing.Attrs{"resource-group-name": "foo"})
 	_, err := s.provider.Validate(context.Background(), cfgOld, cfgOld)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfgNew := makeTestModelConfig(c, testing.Attrs{"resource-group-name": "bar"})
 	_, err = s.provider.Validate(context.Background(), cfgNew, cfgOld)
-	c.Assert(err, gc.ErrorMatches, `cannot change immutable "resource-group-name" config \(foo -> bar\)`)
+	c.Assert(err, tc.ErrorMatches, `cannot change immutable "resource-group-name" config \(foo -> bar\)`)
 }
 
-func (s *configSuite) TestValidateVirtualNetworkNameCantChange(c *gc.C) {
+func (s *configSuite) TestValidateVirtualNetworkNameCantChange(c *tc.C) {
 	cfgOld := makeTestModelConfig(c, testing.Attrs{"network": "foo"})
 	_, err := s.provider.Validate(context.Background(), cfgOld, cfgOld)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfgNew := makeTestModelConfig(c, testing.Attrs{"network": "bar"})
 	_, err = s.provider.Validate(context.Background(), cfgNew, cfgOld)
-	c.Assert(err, gc.ErrorMatches, `cannot change immutable "network" config \(foo -> bar\)`)
+	c.Assert(err, tc.ErrorMatches, `cannot change immutable "network" config \(foo -> bar\)`)
 }
 
-func (s *configSuite) assertConfigValid(c *gc.C, attrs testing.Attrs) {
+func (s *configSuite) assertConfigValid(c *tc.C, attrs testing.Attrs) {
 	cfg := makeTestModelConfig(c, attrs)
 	_, err := s.provider.Validate(context.Background(), cfg, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *configSuite) assertConfigInvalid(c *gc.C, attrs testing.Attrs, expect string) {
+func (s *configSuite) assertConfigInvalid(c *tc.C, attrs testing.Attrs, expect string) {
 	cfg := makeTestModelConfig(c, attrs)
 	_, err := s.provider.Validate(context.Background(), cfg, nil)
-	c.Assert(err, gc.ErrorMatches, expect)
+	c.Assert(err, tc.ErrorMatches, expect)
 }
 
-func makeTestModelConfig(c *gc.C, extra ...testing.Attrs) *config.Config {
+func makeTestModelConfig(c *tc.C, extra ...testing.Attrs) *config.Config {
 	attrs := testing.Attrs{
 		"type":          "azure",
 		"agent-version": "1.2.3",

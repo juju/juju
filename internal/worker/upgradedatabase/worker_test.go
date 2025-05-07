@@ -10,12 +10,12 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	names "github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coredatabase "github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
@@ -40,9 +40,9 @@ type workerSuite struct {
 	upgradeUUID domainupgrade.UUID
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
-func (s *workerSuite) TestLockAlreadyUnlocked(c *gc.C) {
+func (s *workerSuite) TestLockAlreadyUnlocked(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.lock.EXPECT().IsUnlocked().Return(true)
@@ -54,7 +54,7 @@ func (s *workerSuite) TestLockAlreadyUnlocked(c *gc.C) {
 	c.Check(err, jc.ErrorIs, dependency.ErrUninstall)
 }
 
-func (s *workerSuite) TestLockIsUnlockedIfMatchingVersions(c *gc.C) {
+func (s *workerSuite) TestLockIsUnlockedIfMatchingVersions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.lock.EXPECT().IsUnlocked().Return(false)
@@ -71,7 +71,7 @@ func (s *workerSuite) TestLockIsUnlockedIfMatchingVersions(c *gc.C) {
 	c.Check(err, jc.ErrorIs, dependency.ErrUninstall)
 }
 
-func (s *workerSuite) TestWatchUpgradeCompleted(c *gc.C) {
+func (s *workerSuite) TestWatchUpgradeCompleted(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that the update hasn't already happened.
@@ -130,7 +130,7 @@ func (s *workerSuite) TestWatchUpgradeCompleted(c *gc.C) {
 	c.Check(err, jc.ErrorIs, dependency.ErrUninstall)
 }
 
-func (s *workerSuite) TestWatchUpgradeCompletedErrorSetControllerReady(c *gc.C) {
+func (s *workerSuite) TestWatchUpgradeCompletedErrorSetControllerReady(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that the update hasn't already happened.
@@ -186,7 +186,7 @@ func (s *workerSuite) TestWatchUpgradeCompletedErrorSetControllerReady(c *gc.C) 
 	c.Check(err, jc.ErrorIs, dependency.ErrBounce)
 }
 
-func (s *workerSuite) TestWatchUpgradeCompletedErrorSetControllerReadyError(c *gc.C) {
+func (s *workerSuite) TestWatchUpgradeCompletedErrorSetControllerReadyError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that the update hasn't already happened.
@@ -243,7 +243,7 @@ func (s *workerSuite) TestWatchUpgradeCompletedErrorSetControllerReadyError(c *g
 	c.Check(err, jc.ErrorIs, nil)
 }
 
-func (s *workerSuite) TestWatchUpgradeCompletedNotFound(c *gc.C) {
+func (s *workerSuite) TestWatchUpgradeCompletedNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that the update hasn't already happened.
@@ -281,7 +281,7 @@ func (s *workerSuite) TestWatchUpgradeCompletedNotFound(c *gc.C) {
 	c.Check(err, jc.ErrorIs, dependency.ErrBounce)
 }
 
-func (s *workerSuite) TestWatchUpgradeCompletedInErrorState(c *gc.C) {
+func (s *workerSuite) TestWatchUpgradeCompletedInErrorState(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that the update hasn't already happened.
@@ -319,7 +319,7 @@ func (s *workerSuite) TestWatchUpgradeCompletedInErrorState(c *gc.C) {
 	c.Check(err, jc.ErrorIs, nil)
 }
 
-func (s *workerSuite) TestWatchUpgradeFailed(c *gc.C) {
+func (s *workerSuite) TestWatchUpgradeFailed(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that the update hasn't already happened.
@@ -381,7 +381,7 @@ func (s *workerSuite) TestWatchUpgradeFailed(c *gc.C) {
 	c.Check(err, jc.ErrorIs, dependency.ErrBounce)
 }
 
-func (s *workerSuite) TestWatchUpgradeError(c *gc.C) {
+func (s *workerSuite) TestWatchUpgradeError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that the update hasn't already happened.
@@ -410,7 +410,7 @@ func (s *workerSuite) TestWatchUpgradeError(c *gc.C) {
 	c.Check(err, jc.ErrorIs, dependency.ErrBounce)
 }
 
-func (s *workerSuite) TestUpgradeController(c *gc.C) {
+func (s *workerSuite) TestUpgradeController(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that the update hasn't already happened.
@@ -462,7 +462,7 @@ func (s *workerSuite) TestUpgradeController(c *gc.C) {
 	c.Check(err, jc.ErrorIs, dependency.ErrUninstall)
 }
 
-func (s *workerSuite) TestUpgradeControllerThatIsAlreadyUpgraded(c *gc.C) {
+func (s *workerSuite) TestUpgradeControllerThatIsAlreadyUpgraded(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that the update hasn't already happened.
@@ -521,7 +521,7 @@ func (s *workerSuite) TestUpgradeControllerThatIsAlreadyUpgraded(c *gc.C) {
 	c.Check(err, jc.ErrorIs, dependency.ErrUninstall)
 }
 
-func (s *workerSuite) TestUpgradeModels(c *gc.C) {
+func (s *workerSuite) TestUpgradeModels(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that the update hasn't already happened.
@@ -576,7 +576,7 @@ func (s *workerSuite) TestUpgradeModels(c *gc.C) {
 	c.Check(err, jc.ErrorIs, dependency.ErrUninstall)
 }
 
-func (s *workerSuite) TestUpgradeModelsThatIsAlreadyUpgraded(c *gc.C) {
+func (s *workerSuite) TestUpgradeModelsThatIsAlreadyUpgraded(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that the update hasn't already happened.
@@ -637,7 +637,7 @@ func (s *workerSuite) TestUpgradeModelsThatIsAlreadyUpgraded(c *gc.C) {
 	c.Check(err, jc.ErrorIs, dependency.ErrUninstall)
 }
 
-func (s *workerSuite) TestUpgradeFailsWhenKilled(c *gc.C) {
+func (s *workerSuite) TestUpgradeFailsWhenKilled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that the update hasn't already happened.
@@ -713,7 +713,7 @@ func (s *workerSuite) getConfig() Config {
 	}
 }
 
-func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
 	s.upgradeUUID = domainupgrade.UUID(uuid.MustNewUUID().String())
@@ -743,7 +743,7 @@ func (s *workerSuite) expectListModelIDs(models []coremodel.UUID) {
 
 }
 
-func (s *workerSuite) expectModelDBUpgrade(c *gc.C, modelUUID coremodel.UUID) coredatabase.TxnRunner {
+func (s *workerSuite) expectModelDBUpgrade(c *tc.C, modelUUID coremodel.UUID) coredatabase.TxnRunner {
 	txnRunner, _ := s.OpenDB(c)
 	s.dbGetter.EXPECT().GetDB(modelUUID.String()).Return(txnRunner, nil)
 	return txnRunner
@@ -757,7 +757,7 @@ func (s *workerSuite) expectUnlock() chan struct{} {
 	return done
 }
 
-func (s *workerSuite) dispatchChange(c *gc.C, ch chan struct{}) {
+func (s *workerSuite) dispatchChange(c *tc.C, ch chan struct{}) {
 	// Send initial event.
 	select {
 	case ch <- struct{}{}:

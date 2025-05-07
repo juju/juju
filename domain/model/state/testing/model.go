@@ -8,8 +8,8 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
@@ -27,7 +27,7 @@ import (
 // CreateInternalSecretBackend creates the internal secret backend on a controller.
 // This should only ever be used from within other state packages.
 // This avoids the need for introducing cyclic imports with tests.
-func CreateInternalSecretBackend(c *gc.C, runner database.TxnRunner) {
+func CreateInternalSecretBackend(c *tc.C, runner database.TxnRunner) {
 	backendUUID, err := corecredential.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -46,7 +46,7 @@ func CreateInternalSecretBackend(c *gc.C, runner database.TxnRunner) {
 // CreateKubernetesSecretBackend creates the kubernetes secret backend on a controller.
 // This should only ever be used from within other state packages.
 // This avoids the need for introducing cyclic imports with tests.
-func CreateKubernetesSecretBackend(c *gc.C, runner database.TxnRunner) {
+func CreateKubernetesSecretBackend(c *tc.C, runner database.TxnRunner) {
 	backendUUID, err := corecredential.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -69,7 +69,7 @@ func CreateKubernetesSecretBackend(c *gc.C, runner database.TxnRunner) {
 // reference model. This avoids the need for introducing cyclic imports with
 // tests.
 func CreateTestModel(
-	c *gc.C,
+	c *tc.C,
 	txnRunner database.TxnRunnerFactory,
 	name string,
 ) coremodel.UUID {
@@ -174,7 +174,7 @@ func CreateTestModel(
 
 // DeleteTestModel is responsible for cleaning up a testing mode previously
 // created with [CreateTestModel].
-func DeleteTestModel(c *gc.C, ctx context.Context, txnRunner database.TxnRunnerFactory, modelUUID coremodel.UUID) {
+func DeleteTestModel(c *tc.C, ctx context.Context, txnRunner database.TxnRunnerFactory, modelUUID coremodel.UUID) {
 	modelSt := modelstate.NewState(txnRunner)
 	err := modelSt.Delete(ctx, modelUUID)
 	c.Assert(err, jc.ErrorIsNil)

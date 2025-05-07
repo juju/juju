@@ -6,8 +6,8 @@ package action
 import (
 	"testing"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -38,7 +38,7 @@ type MockBaseSuite struct {
 	ModelInfoService    *MockModelInfoService
 }
 
-func (s *MockBaseSuite) NewActionAPI(c *gc.C) *ActionAPI {
+func (s *MockBaseSuite) NewActionAPI(c *tc.C) *ActionAPI {
 	modelUUID := modeltesting.GenModelUUID(c)
 	api, err := newActionAPI(s.State, nil, s.Authorizer, LeaderFactory(s.Leadership), s.ApplicationService, s.BlockCommandService, s.ModelInfoService, modelUUID)
 	c.Assert(err, jc.ErrorIsNil)

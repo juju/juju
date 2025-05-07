@@ -8,8 +8,8 @@ import (
 	"sort"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/crossmodel"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -20,9 +20,9 @@ type stateSuite struct {
 	schematesting.ControllerSuite
 }
 
-var _ = gc.Suite(&stateSuite{})
+var _ = tc.Suite(&stateSuite{})
 
-func (s *stateSuite) TestRetrieveExternalController(c *gc.C) {
+func (s *stateSuite) TestRetrieveExternalController(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
@@ -41,13 +41,13 @@ func (s *stateSuite) TestRetrieveExternalController(c *gc.C) {
 	controllerInfo, err := st.Controller(ctx.Background(), "ctrl1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(controllerInfo.ControllerUUID, gc.Equals, "ctrl1")
-	c.Assert(controllerInfo.Alias, gc.Equals, "my-controller")
-	c.Assert(controllerInfo.CACert, gc.Equals, "test-cert")
+	c.Assert(controllerInfo.ControllerUUID, tc.Equals, "ctrl1")
+	c.Assert(controllerInfo.Alias, tc.Equals, "my-controller")
+	c.Assert(controllerInfo.CACert, tc.Equals, "test-cert")
 	c.Assert(controllerInfo.Addrs, jc.SameContents, []string{"192.168.1.1", "10.0.0.1"})
 }
 
-func (s *stateSuite) TestRetrieveExternalControllerWithoutAddresses(c *gc.C) {
+func (s *stateSuite) TestRetrieveExternalControllerWithoutAddresses(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
@@ -60,13 +60,13 @@ func (s *stateSuite) TestRetrieveExternalControllerWithoutAddresses(c *gc.C) {
 	controllerInfo, err := st.Controller(ctx.Background(), "ctrl1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(controllerInfo.ControllerUUID, gc.Equals, "ctrl1")
-	c.Assert(controllerInfo.Alias, gc.Equals, "my-controller")
-	c.Assert(controllerInfo.CACert, gc.Equals, "test-cert")
-	c.Assert(controllerInfo.Addrs, gc.HasLen, 0)
+	c.Assert(controllerInfo.ControllerUUID, tc.Equals, "ctrl1")
+	c.Assert(controllerInfo.Alias, tc.Equals, "my-controller")
+	c.Assert(controllerInfo.CACert, tc.Equals, "test-cert")
+	c.Assert(controllerInfo.Addrs, tc.HasLen, 0)
 }
 
-func (s *stateSuite) TestRetrieveExternalControllerWithoutAlias(c *gc.C) {
+func (s *stateSuite) TestRetrieveExternalControllerWithoutAlias(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
@@ -79,22 +79,22 @@ func (s *stateSuite) TestRetrieveExternalControllerWithoutAlias(c *gc.C) {
 	controllerInfo, err := st.Controller(ctx.Background(), "ctrl1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(controllerInfo.ControllerUUID, gc.Equals, "ctrl1")
+	c.Assert(controllerInfo.ControllerUUID, tc.Equals, "ctrl1")
 	// Empty Alias => zero value
-	c.Assert(controllerInfo.Alias, gc.Equals, "")
-	c.Assert(controllerInfo.CACert, gc.Equals, "test-cert")
-	c.Assert(controllerInfo.Addrs, gc.HasLen, 0)
+	c.Assert(controllerInfo.Alias, tc.Equals, "")
+	c.Assert(controllerInfo.CACert, tc.Equals, "test-cert")
+	c.Assert(controllerInfo.Addrs, tc.HasLen, 0)
 }
 
-func (s *stateSuite) TestRetrieveExternalControllerNotFound(c *gc.C) {
+func (s *stateSuite) TestRetrieveExternalControllerNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	// Retrieve a not-existent controller.
 	_, err := st.Controller(ctx.Background(), "ctrl1")
-	c.Assert(err, gc.ErrorMatches, `external controller "ctrl1" not found`)
+	c.Assert(err, tc.ErrorMatches, `external controller "ctrl1" not found`)
 }
 
-func (s *stateSuite) TestRetrieveExternalControllerForModel(c *gc.C) {
+func (s *stateSuite) TestRetrieveExternalControllerForModel(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
@@ -117,13 +117,13 @@ func (s *stateSuite) TestRetrieveExternalControllerForModel(c *gc.C) {
 	controllerInfos, err := st.ControllersForModels(ctx.Background(), "model1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(controllerInfos[0].ControllerUUID, gc.Equals, "ctrl1")
-	c.Assert(controllerInfos[0].Alias, gc.Equals, "my-controller")
-	c.Assert(controllerInfos[0].CACert, gc.Equals, "test-cert")
+	c.Assert(controllerInfos[0].ControllerUUID, tc.Equals, "ctrl1")
+	c.Assert(controllerInfos[0].Alias, tc.Equals, "my-controller")
+	c.Assert(controllerInfos[0].CACert, tc.Equals, "test-cert")
 	c.Assert(controllerInfos[0].Addrs, jc.SameContents, []string{"192.168.1.1", "10.0.0.1"})
 }
 
-func (s *stateSuite) TestRetrieveExternalControllerForModelWithoutAddresses(c *gc.C) {
+func (s *stateSuite) TestRetrieveExternalControllerForModelWithoutAddresses(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
@@ -139,15 +139,15 @@ func (s *stateSuite) TestRetrieveExternalControllerForModelWithoutAddresses(c *g
 	// Retrieve the created external controller.
 	controllerInfos, err := st.ControllersForModels(ctx.Background(), "model1")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerInfos, gc.HasLen, 1)
+	c.Assert(controllerInfos, tc.HasLen, 1)
 
-	c.Assert(controllerInfos[0].ControllerUUID, gc.Equals, "ctrl1")
-	c.Assert(controllerInfos[0].Alias, gc.Equals, "my-controller")
-	c.Assert(controllerInfos[0].CACert, gc.Equals, "test-cert")
-	c.Assert(controllerInfos[0].Addrs, gc.HasLen, 0)
+	c.Assert(controllerInfos[0].ControllerUUID, tc.Equals, "ctrl1")
+	c.Assert(controllerInfos[0].Alias, tc.Equals, "my-controller")
+	c.Assert(controllerInfos[0].CACert, tc.Equals, "test-cert")
+	c.Assert(controllerInfos[0].Addrs, tc.HasLen, 0)
 }
 
-func (s *stateSuite) TestRetrieveExternalControllerForModelWithoutAlias(c *gc.C) {
+func (s *stateSuite) TestRetrieveExternalControllerForModelWithoutAlias(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
@@ -164,14 +164,14 @@ func (s *stateSuite) TestRetrieveExternalControllerForModelWithoutAlias(c *gc.C)
 	controllerInfos, err := st.ControllersForModels(ctx.Background(), "model1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(controllerInfos[0].ControllerUUID, gc.Equals, "ctrl1")
+	c.Assert(controllerInfos[0].ControllerUUID, tc.Equals, "ctrl1")
 	// Empty Alias => zero value
-	c.Assert(controllerInfos[0].Alias, gc.Equals, "")
-	c.Assert(controllerInfos[0].CACert, gc.Equals, "test-cert")
-	c.Assert(controllerInfos[0].Addrs, gc.HasLen, 0)
+	c.Assert(controllerInfos[0].Alias, tc.Equals, "")
+	c.Assert(controllerInfos[0].CACert, tc.Equals, "test-cert")
+	c.Assert(controllerInfos[0].Addrs, tc.HasLen, 0)
 }
 
-func (s *stateSuite) TestUpdateExternalControllerNewData(c *gc.C) {
+func (s *stateSuite) TestUpdateExternalControllerNewData(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	ecUUID := uuid.MustNewUUID().String()
@@ -196,8 +196,8 @@ func (s *stateSuite) TestUpdateExternalControllerNewData(c *gc.C) {
 	var alias, cert string
 	err = row.Scan(&alias, &cert)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(alias, gc.Equals, "new-external-controller")
-	c.Check(cert, gc.Equals, "random-cert-string")
+	c.Check(alias, tc.Equals, "new-external-controller")
+	c.Check(cert, tc.Equals, "random-cert-string")
 
 	// Check the addresses.
 	rows, err := db.Query("SELECT address FROM external_controller_address WHERE controller_uuid = ?", ecUUID)
@@ -211,7 +211,7 @@ func (s *stateSuite) TestUpdateExternalControllerNewData(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		addrs.Add(addr)
 	}
-	c.Check(addrs.Values(), gc.HasLen, 2)
+	c.Check(addrs.Values(), tc.HasLen, 2)
 	c.Check(addrs.Contains("10.10.10.10"), jc.IsTrue)
 	c.Check(addrs.Contains("192.168.0.9"), jc.IsTrue)
 
@@ -222,10 +222,10 @@ func (s *stateSuite) TestUpdateExternalControllerNewData(c *gc.C) {
 	var mc string
 	err = row.Scan(&mc)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(mc, gc.Equals, ecUUID)
+	c.Check(mc, tc.Equals, ecUUID)
 }
 
-func (s *stateSuite) TestUpdateExternalControllerUpsertAndReplace(c *gc.C) {
+func (s *stateSuite) TestUpdateExternalControllerUpsertAndReplace(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	ecUUID := uuid.MustNewUUID().String()
@@ -256,7 +256,7 @@ func (s *stateSuite) TestUpdateExternalControllerUpsertAndReplace(c *gc.C) {
 	var alias string
 	err = row.Scan(&alias)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(alias, gc.Equals, "updated-external-controller")
+	c.Check(alias, tc.Equals, "updated-external-controller")
 
 	// Addresses should have one preserved and one replaced.
 	rows, err := db.Query("SELECT address FROM external_controller_address WHERE controller_uuid = ?", ecUUID)
@@ -270,12 +270,12 @@ func (s *stateSuite) TestUpdateExternalControllerUpsertAndReplace(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		addrs.Add(addr)
 	}
-	c.Check(addrs.Values(), gc.HasLen, 2)
+	c.Check(addrs.Values(), tc.HasLen, 2)
 	c.Check(addrs.Contains("10.10.10.10"), jc.IsTrue)
 	c.Check(addrs.Contains("192.168.0.10"), jc.IsTrue)
 }
 
-func (s *stateSuite) TestUpdateExternalControllerUpdateModel(c *gc.C) {
+func (s *stateSuite) TestUpdateExternalControllerUpdateModel(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	m1 := uuid.MustNewUUID().String()
@@ -309,10 +309,10 @@ func (s *stateSuite) TestUpdateExternalControllerUpdateModel(c *gc.C) {
 	var mc string
 	err = row.Scan(&mc)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(mc, gc.Equals, ecUUID)
+	c.Check(mc, tc.Equals, ecUUID)
 }
 
-func (s *stateSuite) TestModelsForController(c *gc.C) {
+func (s *stateSuite) TestModelsForController(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
@@ -336,15 +336,15 @@ func (s *stateSuite) TestModelsForController(c *gc.C) {
 	c.Assert(models, jc.SameContents, []string{"model1"})
 }
 
-func (s *stateSuite) TestModelsForControllerNoRows(c *gc.C) {
+func (s *stateSuite) TestModelsForControllerNoRows(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	models, err := st.ModelsForController(ctx.Background(), "ctrl1")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(models, gc.HasLen, 0)
+	c.Assert(models, tc.HasLen, 0)
 }
 
-func (s *stateSuite) TestControllersForModels(c *gc.C) {
+func (s *stateSuite) TestControllersForModels(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
@@ -380,7 +380,7 @@ func (s *stateSuite) TestControllersForModels(c *gc.C) {
 
 	controllers, err := st.ControllersForModels(ctx.Background(), "model1", "model2", "model3", "model2", "model3")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(controllers, gc.HasLen, 2)
+	c.Check(controllers, tc.HasLen, 2)
 
 	expectedControllers := []crossmodel.ControllerInfo{
 		{
@@ -404,10 +404,10 @@ func (s *stateSuite) TestControllersForModels(c *gc.C) {
 	sort.Slice(controllers[0].Addrs, func(i, j int) bool { return controllers[0].Addrs[i] < controllers[0].Addrs[j] })
 	// Also sort models.
 	sort.Slice(controllers[1].ModelUUIDs, func(i, j int) bool { return controllers[1].ModelUUIDs[i] < controllers[1].ModelUUIDs[j] })
-	c.Assert(controllers, gc.DeepEquals, expectedControllers)
+	c.Assert(controllers, tc.DeepEquals, expectedControllers)
 }
 
-func (s *stateSuite) TestControllersForModelsOneSingleModel(c *gc.C) {
+func (s *stateSuite) TestControllersForModelsOneSingleModel(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
@@ -440,7 +440,7 @@ func (s *stateSuite) TestControllersForModelsOneSingleModel(c *gc.C) {
 	c.Assert(controllers[0].ModelUUIDs, jc.SameContents, []string{"model1", "model2", "model3"})
 }
 
-func (s *stateSuite) TestControllersForModelsWithoutModelUUIDs(c *gc.C) {
+func (s *stateSuite) TestControllersForModelsWithoutModelUUIDs(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
@@ -469,5 +469,5 @@ func (s *stateSuite) TestControllersForModelsWithoutModelUUIDs(c *gc.C) {
 
 	controllers, err := st.ControllersForModels(ctx.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllers, gc.HasLen, 0)
+	c.Assert(controllers, tc.HasLen, 0)
 }

@@ -6,18 +6,18 @@ package eventsource
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/watcher/watchertest"
 )
 
 type multiWatcherSuite struct{}
 
-var _ = gc.Suite(&multiWatcherSuite{})
+var _ = tc.Suite(&multiWatcherSuite{})
 
-func (*multiWatcherSuite) TestNotifyMultiWatcher(c *gc.C) {
+func (*multiWatcherSuite) TestNotifyMultiWatcher(c *tc.C) {
 	ch0 := make(chan struct{}, 1)
 	w0 := watchertest.NewMockNotifyWatcher(ch0)
 	defer workertest.DirtyKill(c, w0)
@@ -48,7 +48,7 @@ func (*multiWatcherSuite) TestNotifyMultiWatcher(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (*multiWatcherSuite) TestStringsMultiWatcher(c *gc.C) {
+func (*multiWatcherSuite) TestStringsMultiWatcher(c *tc.C) {
 	ch0 := make(chan []string, 1)
 	w0 := watchertest.NewMockStringsWatcher(ch0)
 	defer workertest.DirtyKill(c, w0)
@@ -86,7 +86,7 @@ func (*multiWatcherSuite) TestStringsMultiWatcher(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (*multiWatcherSuite) TestMultiWatcherStop(c *gc.C) {
+func (*multiWatcherSuite) TestMultiWatcherStop(c *tc.C) {
 	ch0 := make(chan struct{}, 1)
 	w0 := watchertest.NewMockNotifyWatcher(ch0)
 	defer workertest.DirtyKill(c, w0)

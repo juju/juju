@@ -11,9 +11,9 @@ import (
 	"net/http/httptest"
 	"strings"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/domain/application/architecture"
@@ -40,18 +40,18 @@ type objectsCharmHandlerSuite struct {
 	srv *httptest.Server
 }
 
-var _ = gc.Suite(&objectsCharmHandlerSuite{})
+var _ = tc.Suite(&objectsCharmHandlerSuite{})
 
-func (s *objectsCharmHandlerSuite) SetUpTest(c *gc.C) {
+func (s *objectsCharmHandlerSuite) SetUpTest(c *tc.C) {
 	s.mux = apiserverhttp.NewMux()
 	s.srv = httptest.NewServer(s.mux)
 }
 
-func (s *objectsCharmHandlerSuite) TearDownTest(c *gc.C) {
+func (s *objectsCharmHandlerSuite) TearDownTest(c *tc.C) {
 	s.srv.Close()
 }
 
-func (s *objectsCharmHandlerSuite) TestServeMethodNotSupported(c *gc.C) {
+func (s *objectsCharmHandlerSuite) TestServeMethodNotSupported(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	handlers := &ObjectsCharmHTTPHandler{
@@ -70,10 +70,10 @@ func (s *objectsCharmHandlerSuite) TestServeMethodNotSupported(c *gc.C) {
 	resp, err := http.Post(url, "application/octet-stream", strings.NewReader("charm-content"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusNotImplemented)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusNotImplemented)
 }
 
-func (s *objectsCharmHandlerSuite) TestServeGet(c *gc.C) {
+func (s *objectsCharmHandlerSuite) TestServeGet(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectApplicationService()
@@ -94,13 +94,13 @@ func (s *objectsCharmHandlerSuite) TestServeGet(c *gc.C) {
 	resp, err := http.Get(url)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 	body, err := io.ReadAll(resp.Body)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(body), gc.Equals, "charm-content")
+	c.Assert(string(body), tc.Equals, "charm-content")
 }
 
-func (s *objectsCharmHandlerSuite) TestServeGetNotFound(c *gc.C) {
+func (s *objectsCharmHandlerSuite) TestServeGetNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectApplicationService()
@@ -121,10 +121,10 @@ func (s *objectsCharmHandlerSuite) TestServeGetNotFound(c *gc.C) {
 	resp, err := http.Get(url)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusNotFound)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusNotFound)
 }
 
-func (s *objectsCharmHandlerSuite) TestServePutIncorrectEncoding(c *gc.C) {
+func (s *objectsCharmHandlerSuite) TestServePutIncorrectEncoding(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	handlers := &ObjectsCharmHTTPHandler{
@@ -146,10 +146,10 @@ func (s *objectsCharmHandlerSuite) TestServePutIncorrectEncoding(c *gc.C) {
 	resp, err := http.DefaultClient.Do(req)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusBadRequest)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusBadRequest)
 }
 
-func (s *objectsCharmHandlerSuite) TestServePutNoJujuCharmURL(c *gc.C) {
+func (s *objectsCharmHandlerSuite) TestServePutNoJujuCharmURL(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	handlers := &ObjectsCharmHTTPHandler{
@@ -176,10 +176,10 @@ func (s *objectsCharmHandlerSuite) TestServePutNoJujuCharmURL(c *gc.C) {
 	resp, err := http.DefaultClient.Do(req)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(resp.StatusCode, gc.Equals, http.StatusBadRequest)
+	c.Check(resp.StatusCode, tc.Equals, http.StatusBadRequest)
 }
 
-func (s *objectsCharmHandlerSuite) TestServePutInvalidSHA256Prefix(c *gc.C) {
+func (s *objectsCharmHandlerSuite) TestServePutInvalidSHA256Prefix(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	handlers := &ObjectsCharmHTTPHandler{
@@ -207,10 +207,10 @@ func (s *objectsCharmHandlerSuite) TestServePutInvalidSHA256Prefix(c *gc.C) {
 	resp, err := http.DefaultClient.Do(req)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(resp.StatusCode, gc.Equals, http.StatusBadRequest)
+	c.Check(resp.StatusCode, tc.Equals, http.StatusBadRequest)
 }
 
-func (s *objectsCharmHandlerSuite) TestServePutInvalidCharmURL(c *gc.C) {
+func (s *objectsCharmHandlerSuite) TestServePutInvalidCharmURL(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	handlers := &ObjectsCharmHTTPHandler{
@@ -238,10 +238,10 @@ func (s *objectsCharmHandlerSuite) TestServePutInvalidCharmURL(c *gc.C) {
 	resp, err := http.DefaultClient.Do(req)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(resp.StatusCode, gc.Equals, http.StatusBadRequest)
+	c.Check(resp.StatusCode, tc.Equals, http.StatusBadRequest)
 }
 
-func (s *objectsCharmHandlerSuite) TestServePut(c *gc.C) {
+func (s *objectsCharmHandlerSuite) TestServePut(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	handlers := &ObjectsCharmHTTPHandler{
@@ -267,9 +267,9 @@ func (s *objectsCharmHandlerSuite) TestServePut(c *gc.C) {
 	req.Header.Set(params.JujuCharmURLHeader, "ch:testcharm-1")
 
 	s.applicationsService.EXPECT().ResolveUploadCharm(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, args applicationcharm.ResolveUploadCharm) (applicationcharm.CharmLocator, error) {
-		c.Check(args.Name, gc.Equals, "testcharm")
-		c.Check(args.Revision, gc.Equals, 1)
-		c.Check(args.Architecture, gc.Equals, "")
+		c.Check(args.Name, tc.Equals, "testcharm")
+		c.Check(args.Revision, tc.Equals, 1)
+		c.Check(args.Architecture, tc.Equals, "")
 
 		return applicationcharm.CharmLocator{
 			Name:         "testcharm",
@@ -283,11 +283,11 @@ func (s *objectsCharmHandlerSuite) TestServePut(c *gc.C) {
 	resp, err := http.DefaultClient.Do(req)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(resp.StatusCode, gc.Equals, http.StatusOK)
-	c.Check(resp.Header.Get(params.JujuCharmURLHeader), gc.Equals, "ch:amd64/testcharm-2")
+	c.Check(resp.StatusCode, tc.Equals, http.StatusOK)
+	c.Check(resp.Header.Get(params.JujuCharmURLHeader), tc.Equals, "ch:amd64/testcharm-2")
 }
 
-func (s *objectsCharmHandlerSuite) TestCharmURLFromLocator(c *gc.C) {
+func (s *objectsCharmHandlerSuite) TestCharmURLFromLocator(c *tc.C) {
 	locator := applicationcharm.CharmLocator{
 		Name:         "testcharm",
 		Revision:     1,
@@ -298,11 +298,11 @@ func (s *objectsCharmHandlerSuite) TestCharmURLFromLocator(c *gc.C) {
 	for _, includeArch := range []bool{true, false} {
 		url, err := CharmURLFromLocator(locator, includeArch)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(url.String(), gc.Equals, "ch:amd64/testcharm-1")
+		c.Check(url.String(), tc.Equals, "ch:amd64/testcharm-1")
 	}
 }
 
-func (s *objectsCharmHandlerSuite) TestCharmURLFromLocatorDuringMigration(c *gc.C) {
+func (s *objectsCharmHandlerSuite) TestCharmURLFromLocatorDuringMigration(c *tc.C) {
 	locator := applicationcharm.CharmLocator{
 		Name:         "testcharm",
 		Revision:     1,
@@ -327,7 +327,7 @@ func (s *objectsCharmHandlerSuite) TestCharmURLFromLocatorDuringMigration(c *gc.
 	for _, test := range tests {
 		url, err := CharmURLFromLocatorDuringMigration(locator, test.includeArch)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(url.String(), gc.Equals, test.result)
+		c.Check(url.String(), tc.Equals, test.result)
 	}
 }
 
@@ -341,7 +341,7 @@ func (s *objectsCharmHandlerSuite) expectModelState() {
 	s.state.EXPECT().MigrationMode().Return(state.MigrationModeNone, nil).AnyTimes()
 }
 
-func (s *objectsCharmHandlerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *objectsCharmHandlerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.applicationsServiceGetter = NewMockApplicationServiceGetter(ctrl)

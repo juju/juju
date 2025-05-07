@@ -10,9 +10,9 @@ import (
 	"reflect"
 	stdtesting "testing"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -22,17 +22,17 @@ type suite struct {
 	testing.LoggingSuite
 }
 
-var _ = gc.Suite(&suite{})
+var _ = tc.Suite(&suite{})
 
 func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type value struct {
 	X string
 }
 
-func (*suite) TestRead(c *gc.C) {
+func (*suite) TestRead(c *tc.C) {
 	for i, test := range []struct {
 		msg        string
 		expectHdr  rpc.Header
@@ -137,42 +137,42 @@ func (*suite) TestRead(c *gc.C) {
 		var hdr rpc.Header
 		err := codec.ReadHeader(&hdr)
 		if test.expectErr != "" {
-			c.Assert(err, gc.ErrorMatches, test.expectErr)
+			c.Assert(err, tc.ErrorMatches, test.expectErr)
 			continue
 		}
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(hdr, gc.DeepEquals, test.expectHdr)
+		c.Assert(hdr, tc.DeepEquals, test.expectHdr)
 
-		c.Assert(hdr.IsRequest(), gc.Equals, test.expectHdr.IsRequest())
+		c.Assert(hdr.IsRequest(), tc.Equals, test.expectHdr.IsRequest())
 
 		body := reflect.New(reflect.ValueOf(test.expectBody).Type().Elem()).Interface()
 		err = codec.ReadBody(body, test.expectHdr.IsRequest())
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(body, gc.DeepEquals, test.expectBody)
+		c.Assert(body, tc.DeepEquals, test.expectBody)
 
 		err = codec.ReadHeader(&hdr)
-		c.Assert(err, gc.Equals, io.EOF)
+		c.Assert(err, tc.Equals, io.EOF)
 	}
 }
 
-func (*suite) TestErrorAfterClose(c *gc.C) {
+func (*suite) TestErrorAfterClose(c *tc.C) {
 	conn := &testConn{
 		err: errors.New("some error"),
 	}
 	codec := jsoncodec.New(conn)
 	var hdr rpc.Header
 	err := codec.ReadHeader(&hdr)
-	c.Assert(err, gc.ErrorMatches, "receiving message: some error")
+	c.Assert(err, tc.ErrorMatches, "receiving message: some error")
 
 	err = codec.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(conn.closed, jc.IsTrue)
 
 	err = codec.ReadHeader(&hdr)
-	c.Assert(err, gc.Equals, io.EOF)
+	c.Assert(err, tc.Equals, io.EOF)
 }
 
-func (*suite) TestWrite(c *gc.C) {
+func (*suite) TestWrite(c *tc.C) {
 	for i, test := range []struct {
 		hdr       *rpc.Header
 		body      interface{}
@@ -283,17 +283,17 @@ func (*suite) TestWrite(c *gc.C) {
 		codec := jsoncodec.New(&conn)
 		err := codec.WriteMessage(test.hdr, test.body)
 		if test.expectErr != "" {
-			c.Assert(err, gc.ErrorMatches, test.expectErr)
+			c.Assert(err, tc.ErrorMatches, test.expectErr)
 			continue
 		}
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(conn.writeMsgs, gc.HasLen, 1)
+		c.Assert(conn.writeMsgs, tc.HasLen, 1)
 
 		assertJSONEqual(c, conn.writeMsgs[0], test.expect)
 	}
 }
 
-func (*suite) TestDumpRequest(c *gc.C) {
+func (*suite) TestDumpRequest(c *tc.C) {
 	for i, test := range []struct {
 		hdr    rpc.Header
 		body   interface{}
@@ -401,13 +401,13 @@ func (*suite) TestDumpRequest(c *gc.C) {
 	}} {
 		c.Logf("test %d; %#v", i, test.hdr)
 		data := jsoncodec.DumpRequest(&test.hdr, test.body)
-		c.Check(string(data), gc.Equals, test.expect)
+		c.Check(string(data), tc.Equals, test.expect)
 	}
 }
 
 // assertJSONEqual compares the json strings v0
 // and v1 ignoring white space.
-func assertJSONEqual(c *gc.C, v0, v1 string) {
+func assertJSONEqual(c *tc.C, v0, v1 string) {
 	var m0, m1 interface{}
 	err := json.Unmarshal([]byte(v0), &m0)
 	c.Assert(err, jc.ErrorIsNil)
@@ -417,7 +417,7 @@ func assertJSONEqual(c *gc.C, v0, v1 string) {
 	c.Assert(err, jc.ErrorIsNil)
 	data1, err := json.Marshal(m1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data0), gc.Equals, string(data1))
+	c.Assert(string(data0), tc.Equals, string(data1))
 }
 
 type testConn struct {

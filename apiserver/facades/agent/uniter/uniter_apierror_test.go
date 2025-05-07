@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade/facadetest"
@@ -24,9 +24,9 @@ type uniterAPIErrorSuite struct {
 	testing.ApiServerSuite
 }
 
-var _ = gc.Suite(&uniterAPIErrorSuite{})
+var _ = tc.Suite(&uniterAPIErrorSuite{})
 
-func (s *uniterAPIErrorSuite) SetupTest(c *gc.C) {
+func (s *uniterAPIErrorSuite) SetupTest(c *tc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
 	domainServices := s.ControllerDomainServices(c)
@@ -36,11 +36,11 @@ func (s *uniterAPIErrorSuite) SetupTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
+func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *tc.C) {
 	uniter.PatchGetStorageStateError(s, errors.New("kaboom"))
 
 	resources := common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
+	s.AddCleanup(func(_ *tc.C) { resources.StopAll() })
 
 	facadeContext := facadetest.ModelContext{
 		State_:             s.ControllerModel(c).State(),
@@ -67,5 +67,5 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 	}
 
 	_, err := uniter.NewUniterAPIWithServices(context.Background(), facadeContext, services)
-	c.Assert(err, gc.ErrorMatches, "kaboom")
+	c.Assert(err, tc.ErrorMatches, "kaboom")
 }

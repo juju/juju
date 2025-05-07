@@ -6,15 +6,15 @@ package unit
 import (
 	"math"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
 type unitNameSuite struct{}
 
-var _ = gc.Suite(&unitNameSuite{})
+var _ = tc.Suite(&unitNameSuite{})
 
-func (*unitNameSuite) TestNameValidate(c *gc.C) {
+func (*unitNameSuite) TestNameValidate(c *tc.C) {
 	tests := []struct {
 		name string
 		err  error
@@ -96,7 +96,7 @@ func (*unitNameSuite) TestNameValidate(c *gc.C) {
 	}
 }
 
-func (*unitNameSuite) TestNewNameFromParts(c *gc.C) {
+func (*unitNameSuite) TestNewNameFromParts(c *tc.C) {
 	tests := []struct {
 		application string
 		number      int
@@ -154,18 +154,18 @@ func (*unitNameSuite) TestNewNameFromParts(c *gc.C) {
 	}
 }
 
-func (*unitNameSuite) TestApplicationName(c *gc.C) {
+func (*unitNameSuite) TestApplicationName(c *tc.C) {
 	unitName, err := NewName("app/666")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitName.Application(), gc.Equals, "app")
+	c.Assert(unitName.Application(), tc.Equals, "app")
 }
 
-func (*unitNameSuite) TestNumber(c *gc.C) {
+func (*unitNameSuite) TestNumber(c *tc.C) {
 	unitName, err := NewName("app/666")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitName.Number(), gc.Equals, 666)
+	c.Assert(unitName.Number(), tc.Equals, 666)
 }
 
-func (*unitNameSuite) TestNumberInvalidName(c *gc.C) {
-	c.Assert(Name("").Number(), gc.Equals, -1)
+func (*unitNameSuite) TestNumberInvalidName(c *tc.C) {
+	c.Assert(Name("").Number(), tc.Equals, -1)
 }

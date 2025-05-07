@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/cmd/juju/application/store"
@@ -25,9 +25,9 @@ type storeSuite struct {
 	charmAdder *mocks.MockCharmAdder
 }
 
-var _ = gc.Suite(&storeSuite{})
+var _ = tc.Suite(&storeSuite{})
 
-func (s *storeSuite) TestAddCharmFromURLAddCharmSuccess(c *gc.C) {
+func (s *storeSuite) TestAddCharmFromURLAddCharmSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectAddCharm(nil)
 
@@ -44,10 +44,10 @@ func (s *storeSuite) TestAddCharmFromURLAddCharmSuccess(c *gc.C) {
 		true,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedCurl.String(), gc.Equals, curl.String())
+	c.Assert(obtainedCurl.String(), tc.Equals, curl.String())
 }
 
-func (s *storeSuite) TestAddCharmFromURLFailAddCharmFail(c *gc.C) {
+func (s *storeSuite) TestAddCharmFromURLFailAddCharmFail(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectAddCharm(errors.NotFoundf("testing"))
 	curl, err := charm.ParseURL("ch:testme")
@@ -63,10 +63,10 @@ func (s *storeSuite) TestAddCharmFromURLFailAddCharmFail(c *gc.C) {
 		true,
 	)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
-	c.Assert(obtainedCurl, gc.IsNil)
+	c.Assert(obtainedCurl, tc.IsNil)
 }
 
-func (s *storeSuite) TestAddCharmFromURLFailAddCharmFailUnauthorized(c *gc.C) {
+func (s *storeSuite) TestAddCharmFromURLFailAddCharmFailUnauthorized(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectAddCharm(&params.Error{
 		Code:    params.CodeUnauthorized,
@@ -85,10 +85,10 @@ func (s *storeSuite) TestAddCharmFromURLFailAddCharmFailUnauthorized(c *gc.C) {
 		true,
 	)
 	c.Assert(err, jc.ErrorIs, errors.Forbidden)
-	c.Assert(obtainedCurl, gc.IsNil)
+	c.Assert(obtainedCurl, tc.IsNil)
 }
 
-func (s *storeSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *storeSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.charmAdder = mocks.NewMockCharmAdder(ctrl)
 	return ctrl

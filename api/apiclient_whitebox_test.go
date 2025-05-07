@@ -10,9 +10,9 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	jtesting "github.com/juju/juju/internal/testing"
 )
@@ -21,9 +21,9 @@ type apiclientWhiteboxSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&apiclientWhiteboxSuite{})
+var _ = tc.Suite(&apiclientWhiteboxSuite{})
 
-func (s *apiclientWhiteboxSuite) TestDialWebsocketMultiCancelled(c *gc.C) {
+func (s *apiclientWhiteboxSuite) TestDialWebsocketMultiCancelled(c *tc.C) {
 	ctx, cancel := context.WithCancel(context.Background())
 	started := make(chan struct{})
 	go func() {
@@ -56,10 +56,10 @@ func (s *apiclientWhiteboxSuite) TestDialWebsocketMultiCancelled(c *gc.C) {
 	// Close before we connect
 	listen.Close()
 	_, err = dialAPI(ctx, info, opts)
-	c.Check(err, gc.ErrorMatches, fmt.Sprintf("dial tcp %s:.*", regexp.QuoteMeta(addr)))
+	c.Check(err, tc.ErrorMatches, fmt.Sprintf("dial tcp %s:.*", regexp.QuoteMeta(addr)))
 }
 
-func (s *apiclientWhiteboxSuite) TestDialWebsocketMultiClosed(c *gc.C) {
+func (s *apiclientWhiteboxSuite) TestDialWebsocketMultiClosed(c *tc.C) {
 	listen, err := net.Listen("tcp4", ":0")
 	c.Assert(err, jc.ErrorIsNil)
 	addr := listen.Addr().String()
@@ -76,5 +76,5 @@ func (s *apiclientWhiteboxSuite) TestDialWebsocketMultiClosed(c *gc.C) {
 	}
 	listen.Close()
 	_, _, err = DialAPI(info, opts)
-	c.Check(err, gc.ErrorMatches, fmt.Sprintf("unable to connect to API: dial tcp %s:.*", regexp.QuoteMeta(addr)))
+	c.Check(err, tc.ErrorMatches, fmt.Sprintf("unable to connect to API: dial tcp %s:.*", regexp.QuoteMeta(addr)))
 }

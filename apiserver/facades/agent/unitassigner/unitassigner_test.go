@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -29,9 +29,9 @@ type testsuite struct {
 	statusService *MockStatusService
 }
 
-var _ = gc.Suite(&testsuite{})
+var _ = tc.Suite(&testsuite{})
 
-func (s *testsuite) TestAssignUnits(c *gc.C) {
+func (s *testsuite) TestAssignUnits(c *tc.C) {
 	f := &fakeState{
 		unitMachines: map[string]string{"foo/0": "1/lxd/2"},
 	}
@@ -46,24 +46,24 @@ func (s *testsuite) TestAssignUnits(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{{Tag: "unit-foo-0"}, {Tag: "unit-bar-1"}}}
 	res, err := api.AssignUnits(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(f.ids, gc.DeepEquals, []string{"foo/0", "bar/1"})
-	c.Assert(res.Results, gc.HasLen, 2)
-	c.Check(res.Results[0].Error, gc.IsNil)
-	c.Check(res.Results[1].Error, gc.ErrorMatches, `unit "unit-bar-1" not found`)
+	c.Assert(f.ids, tc.DeepEquals, []string{"foo/0", "bar/1"})
+	c.Assert(res.Results, tc.HasLen, 2)
+	c.Check(res.Results[0].Error, tc.IsNil)
+	c.Check(res.Results[1].Error, tc.ErrorMatches, `unit "unit-bar-1" not found`)
 	c.Check(machineService.machineNames, jc.SameContents, []machine.Name{machine.Name("1"), machine.Name("1/lxd/2")})
 }
 
-func (s *testsuite) TestWatchUnitAssignment(c *gc.C) {
+func (s *testsuite) TestWatchUnitAssignment(c *tc.C) {
 	f := &fakeState{}
 	api := API{st: f, res: common.NewResources()}
 	f.ids = []string{"boo", "far"}
 	res, err := api.WatchUnitAssignments(context.Background())
 	c.Assert(f.watchCalled, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Changes, gc.DeepEquals, f.ids)
+	c.Assert(res.Changes, tc.DeepEquals, f.ids)
 }
 
-func (s *testsuite) TestSetStatus(c *gc.C) {
+func (s *testsuite) TestSetStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.statusService.EXPECT().SetUnitAgentStatus(gomock.Any(), unit.Name("foo/0"), gomock.Any()).Return(nil)
@@ -91,13 +91,13 @@ func (s *testsuite) TestSetStatus(c *gc.C) {
 	res, err := api.SetAgentStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(res.Results, gc.DeepEquals, []params.ErrorResult{
+	c.Check(res.Results, tc.DeepEquals, []params.ErrorResult{
 		{},
 		{Error: apiservererrors.ServerError(errors.Errorf(`"foo" is not a valid tag`))},
 	})
 }
 
-func (s *testsuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *testsuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.statusService = NewMockStatusService(ctrl)
@@ -105,7 +105,7 @@ func (s *testsuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *testsuite) newAPI(c *gc.C) *API {
+func (s *testsuite) newAPI(c *tc.C) *API {
 	return &API{
 		statusService: s.statusService,
 		clock:         clock.WallClock,

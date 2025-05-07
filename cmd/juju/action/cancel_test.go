@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	actionapi "github.com/juju/juju/api/client/action"
 	"github.com/juju/juju/cmd/juju/action"
@@ -22,14 +22,14 @@ type CancelSuite struct {
 	subcommand cmd.Command
 }
 
-var _ = gc.Suite(&CancelSuite{})
+var _ = tc.Suite(&CancelSuite{})
 
-func (s *CancelSuite) SetUpTest(c *gc.C) {
+func (s *CancelSuite) SetUpTest(c *tc.C) {
 	s.BaseActionSuite.SetUpTest(c)
 	s.subcommand, _ = action.NewCancelCommandForTest(s.store)
 }
 
-func (s *CancelSuite) TestInit(c *gc.C) {
+func (s *CancelSuite) TestInit(c *tc.C) {
 	for _, modelFlag := range s.modelFlags {
 		cmd, _ := action.NewCancelCommandForTest(s.store)
 		args := append([]string{modelFlag, "admin"}, "test")
@@ -38,7 +38,7 @@ func (s *CancelSuite) TestInit(c *gc.C) {
 	}
 }
 
-func (s *CancelSuite) TestRun(c *gc.C) {
+func (s *CancelSuite) TestRun(c *tc.C) {
 	result1 := []actionapi.ActionResult{{Action: &actionapi.Action{ID: "1"}, Status: "some-random-status"}}
 	result2 := []actionapi.ActionResult{{Action: &actionapi.Action{ID: "2"}, Status: "a status"}, {Action: &actionapi.Action{ID: "3"}, Status: "another status"}}
 
@@ -56,7 +56,7 @@ func (s *CancelSuite) TestRun(c *gc.C) {
 	}
 }
 
-func (s *CancelSuite) runTestCase(c *gc.C, tc cancelTestCase) {
+func (s *CancelSuite) runTestCase(c *tc.C, tc cancelTestCase) {
 	for _, modelFlag := range s.modelFlags {
 		fakeClient := &fakeAPIClient{
 			timeout:       s.clock.NewTimer(5 * time.Second), // 5 second test wait
@@ -72,14 +72,14 @@ func (s *CancelSuite) runTestCase(c *gc.C, tc cancelTestCase) {
 		if tc.expectError == "" {
 			c.Assert(err, jc.ErrorIsNil)
 		} else {
-			c.Assert(err, gc.ErrorMatches, tc.expectError)
+			c.Assert(err, tc.ErrorMatches, tc.expectError)
 		}
 		if len(tc.results) > 0 {
 			out := &bytes.Buffer{}
 			err := cmd.FormatYaml(out, action.ActionResultsToMap(tc.results))
 			c.Check(err, jc.ErrorIsNil)
-			c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, out.String())
-			c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
+			c.Check(ctx.Stdout.(*bytes.Buffer).String(), tc.Equals, out.String())
+			c.Check(ctx.Stderr.(*bytes.Buffer).String(), tc.Equals, "")
 		}
 	}
 }

@@ -9,10 +9,10 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/mattn/go-sqlite3"
-	gc "gopkg.in/check.v1"
 
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/internal/worker/lease"
@@ -22,9 +22,9 @@ type ClaimSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&ClaimSuite{})
+var _ = tc.Suite(&ClaimSuite{})
 
-func (s *ClaimSuite) TestClaimLease_Success(c *gc.C) {
+func (s *ClaimSuite) TestClaimLease_Success(c *tc.C) {
 	fix := &Fixture{
 		expectCalls: []call{{
 			method: "ClaimLease",
@@ -44,7 +44,7 @@ func (s *ClaimSuite) TestClaimLease_Success(c *gc.C) {
 	})
 }
 
-func (s *ClaimSuite) TestClaimLease_Success_SameHolder(c *gc.C) {
+func (s *ClaimSuite) TestClaimLease_Success_SameHolder(c *tc.C) {
 	fix := &Fixture{
 		expectCalls: []call{{
 			method: "ClaimLease",
@@ -92,7 +92,7 @@ func (s *ClaimSuite) TestClaimLease_Success_SameHolder(c *gc.C) {
 	})
 }
 
-func (s *ClaimSuite) TestClaimLeaseFailureHeldByClaimer(c *gc.C) {
+func (s *ClaimSuite) TestClaimLeaseFailureHeldByClaimer(c *tc.C) {
 	fix := &Fixture{
 		expectCalls: []call{{
 			method: "ClaimLease",
@@ -122,7 +122,7 @@ func (s *ClaimSuite) TestClaimLeaseFailureHeldByClaimer(c *gc.C) {
 		wg.Add(1)
 		go func() {
 			err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
-			c.Check(err, gc.Equals, corelease.ErrClaimDenied)
+			c.Check(err, tc.Equals, corelease.ErrClaimDenied)
 			wg.Done()
 		}()
 		c.Check(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 2), jc.ErrorIsNil)
@@ -130,7 +130,7 @@ func (s *ClaimSuite) TestClaimLeaseFailureHeldByClaimer(c *gc.C) {
 	})
 }
 
-func (s *ClaimSuite) TestClaimLeaseFailureHeldByOther(c *gc.C) {
+func (s *ClaimSuite) TestClaimLeaseFailureHeldByOther(c *tc.C) {
 	fix := &Fixture{
 		expectCalls: []call{{
 			method: "ClaimLease",
@@ -147,11 +147,11 @@ func (s *ClaimSuite) TestClaimLeaseFailureHeldByOther(c *gc.C) {
 	}
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
 		err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
-		c.Check(err, gc.Equals, corelease.ErrClaimDenied)
+		c.Check(err, tc.Equals, corelease.ErrClaimDenied)
 	})
 }
 
-func (s *ClaimSuite) TestClaimLease_Failure_Error(c *gc.C) {
+func (s *ClaimSuite) TestClaimLease_Failure_Error(c *tc.C) {
 	fix := &Fixture{
 		expectCalls: []call{{
 			method: "ClaimLease",
@@ -169,13 +169,13 @@ func (s *ClaimSuite) TestClaimLease_Failure_Error(c *gc.C) {
 	}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
-		c.Check(err, gc.ErrorMatches, "lease manager stopped")
+		c.Check(err, tc.ErrorMatches, "lease manager stopped")
 		err = manager.Wait()
-		c.Check(err, gc.ErrorMatches, "lol borken")
+		c.Check(err, tc.ErrorMatches, "lol borken")
 	})
 }
 
-func (s *ClaimSuite) TestExtendLease_Success(c *gc.C) {
+func (s *ClaimSuite) TestExtendLease_Success(c *tc.C) {
 	fix := &Fixture{
 		leases: map[corelease.Key]corelease.Info{
 			key("redis"): {
@@ -201,7 +201,7 @@ func (s *ClaimSuite) TestExtendLease_Success(c *gc.C) {
 	})
 }
 
-func (s *ClaimSuite) TestExtendLease_Success_Expired(c *gc.C) {
+func (s *ClaimSuite) TestExtendLease_Success_Expired(c *tc.C) {
 	fix := &Fixture{
 		leases: map[corelease.Key]corelease.Info{
 			key("redis"): {
@@ -252,7 +252,7 @@ func (s *ClaimSuite) TestExtendLease_Success_Expired(c *gc.C) {
 	})
 }
 
-func (s *ClaimSuite) TestExtendLease_Failure_OtherHolder(c *gc.C) {
+func (s *ClaimSuite) TestExtendLease_Failure_OtherHolder(c *tc.C) {
 	fix := &Fixture{
 		leases: map[corelease.Key]corelease.Info{
 			key("redis"): {
@@ -288,7 +288,7 @@ func (s *ClaimSuite) TestExtendLease_Failure_OtherHolder(c *gc.C) {
 		wg.Add(1)
 		go func() {
 			err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
-			c.Check(err, gc.Equals, corelease.ErrClaimDenied)
+			c.Check(err, tc.Equals, corelease.ErrClaimDenied)
 			wg.Done()
 		}()
 		c.Check(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 2), jc.ErrorIsNil)
@@ -296,7 +296,7 @@ func (s *ClaimSuite) TestExtendLease_Failure_OtherHolder(c *gc.C) {
 	})
 }
 
-func (s *ClaimSuite) TestExtendLease_Failure_Retryable(c *gc.C) {
+func (s *ClaimSuite) TestExtendLease_Failure_Retryable(c *tc.C) {
 	fix := &Fixture{
 		leases: map[corelease.Key]corelease.Info{
 			key("redis"): {
@@ -332,7 +332,7 @@ func (s *ClaimSuite) TestExtendLease_Failure_Retryable(c *gc.C) {
 		wg.Add(1)
 		go func() {
 			err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
-			c.Check(err, gc.Equals, corelease.ErrClaimDenied)
+			c.Check(err, tc.Equals, corelease.ErrClaimDenied)
 			wg.Done()
 		}()
 		c.Check(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 2), jc.ErrorIsNil)
@@ -340,7 +340,7 @@ func (s *ClaimSuite) TestExtendLease_Failure_Retryable(c *gc.C) {
 	})
 }
 
-func (s *ClaimSuite) TestExtendLease_Failure_Error(c *gc.C) {
+func (s *ClaimSuite) TestExtendLease_Failure_Error(c *tc.C) {
 	fix := &Fixture{
 		leases: map[corelease.Key]corelease.Info{
 			key("redis"): {
@@ -360,13 +360,13 @@ func (s *ClaimSuite) TestExtendLease_Failure_Error(c *gc.C) {
 	}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
-		c.Check(err, gc.ErrorMatches, "lease manager stopped")
+		c.Check(err, tc.ErrorMatches, "lease manager stopped")
 		err = manager.Wait()
-		c.Check(err, gc.ErrorMatches, "boom splat")
+		c.Check(err, tc.ErrorMatches, "boom splat")
 	})
 }
 
-func (s *ClaimSuite) TestOtherHolder_Failure(c *gc.C) {
+func (s *ClaimSuite) TestOtherHolder_Failure(c *tc.C) {
 	fix := &Fixture{
 		leases: map[corelease.Key]corelease.Info{
 			key("redis"): {
@@ -377,11 +377,11 @@ func (s *ClaimSuite) TestOtherHolder_Failure(c *gc.C) {
 	}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
-		c.Check(err, gc.Equals, corelease.ErrClaimDenied)
+		c.Check(err, tc.Equals, corelease.ErrClaimDenied)
 	})
 }
 
-func getClaimer(c *gc.C, manager *lease.Manager) corelease.Claimer {
+func getClaimer(c *tc.C, manager *lease.Manager) corelease.Claimer {
 	claimer, err := manager.Claimer("namespace", "modelUUID")
 	c.Assert(err, jc.ErrorIsNil)
 	return claimer

@@ -10,11 +10,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	corehttp "github.com/juju/juju/core/http"
 	internalhttp "github.com/juju/juju/internal/http"
@@ -31,9 +31,9 @@ type workerSuite struct {
 	called        int64
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
-func (s *workerSuite) TestKilledGetHTTPClientErrDying(c *gc.C) {
+func (s *workerSuite) TestKilledGetHTTPClientErrDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w := s.newWorker(c)
@@ -48,7 +48,7 @@ func (s *workerSuite) TestKilledGetHTTPClientErrDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, corehttp.ErrHTTPClientDying)
 }
 
-func (s *workerSuite) TestGetHTTPClient(c *gc.C) {
+func (s *workerSuite) TestGetHTTPClient(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -68,14 +68,14 @@ func (s *workerSuite) TestGetHTTPClient(c *gc.C) {
 	worker := w.(*httpClientWorker)
 	httpClient, err := worker.GetHTTPClient(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(httpClient, gc.NotNil)
+	c.Check(httpClient, tc.NotNil)
 
 	close(done)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestGetHTTPClientIsCached(c *gc.C) {
+func (s *workerSuite) TestGetHTTPClientIsCached(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -108,10 +108,10 @@ func (s *workerSuite) TestGetHTTPClientIsCached(c *gc.C) {
 
 	workertest.CleanKill(c, w)
 
-	c.Assert(atomic.LoadInt64(&s.called), gc.Equals, int64(1))
+	c.Assert(atomic.LoadInt64(&s.called), tc.Equals, int64(1))
 }
 
-func (s *workerSuite) TestGetHTTPClientIsNotCachedForDifferentNamespaces(c *gc.C) {
+func (s *workerSuite) TestGetHTTPClientIsNotCachedForDifferentNamespaces(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -145,10 +145,10 @@ func (s *workerSuite) TestGetHTTPClientIsNotCachedForDifferentNamespaces(c *gc.C
 
 	workertest.CleanKill(c, w)
 
-	c.Assert(atomic.LoadInt64(&s.called), gc.Equals, int64(10))
+	c.Assert(atomic.LoadInt64(&s.called), tc.Equals, int64(10))
 }
 
-func (s *workerSuite) TestGetHTTPClientConcurrently(c *gc.C) {
+func (s *workerSuite) TestGetHTTPClientConcurrently(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -186,14 +186,14 @@ func (s *workerSuite) TestGetHTTPClientConcurrently(c *gc.C) {
 	}
 
 	assertWait(c, wg.Wait)
-	c.Assert(atomic.LoadInt64(&s.called), gc.Equals, int64(10))
+	c.Assert(atomic.LoadInt64(&s.called), tc.Equals, int64(10))
 
 	close(done)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
+func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 	w, err := newWorker(WorkerConfig{
 		Clock:  s.clock,
 		Logger: s.logger,
@@ -211,7 +211,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	return w
 }
 
-func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	// Ensure we buffer the channel, this is because we might miss the
 	// event if we're too quick at starting up.
 	s.states = make(chan string, 1)
@@ -224,16 +224,16 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *workerSuite) ensureStartup(c *gc.C) {
+func (s *workerSuite) ensureStartup(c *tc.C) {
 	select {
 	case state := <-s.states:
-		c.Assert(state, gc.Equals, stateStarted)
+		c.Assert(state, tc.Equals, stateStarted)
 	case <-time.After(testing.ShortWait * 10):
 		c.Fatalf("timed out waiting for startup")
 	}
 }
 
-func assertWait(c *gc.C, wait func()) {
+func assertWait(c *tc.C, wait func()) {
 	done := make(chan struct{})
 
 	go func() {

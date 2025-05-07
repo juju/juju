@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	coremachine "github.com/juju/juju/core/machine"
@@ -29,18 +29,18 @@ type upgraderWatchSuite struct {
 	watcherRegistry *facademocks.MockWatcherRegistry
 }
 
-var _ = gc.Suite(&upgraderWatchSuite{})
+var _ = tc.Suite(&upgraderWatchSuite{})
 
-func (s *upgraderWatchSuite) TestWatchAPIVersionNothing(c *gc.C) {
+func (s *upgraderWatchSuite) TestWatchAPIVersionNothing(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Not an error to watch nothing
 	results, err := s.api().WatchAPIVersion(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results.Results, gc.HasLen, 0)
+	c.Check(results.Results, tc.HasLen, 0)
 }
 
-func (s *upgraderWatchSuite) TestWatchAPIVersionMachine(c *gc.C) {
+func (s *upgraderWatchSuite) TestWatchAPIVersionMachine(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
@@ -69,14 +69,14 @@ func (s *upgraderWatchSuite) TestWatchAPIVersionMachine(c *gc.C) {
 		}}
 	results, err := s.api().WatchAPIVersion(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, gc.DeepEquals, params.NotifyWatchResults{
+	c.Check(results, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			{NotifyWatcherId: "87"},
 		},
 	})
 }
 
-func (s *upgraderWatchSuite) TestWatchAPIVersionUnit(c *gc.C) {
+func (s *upgraderWatchSuite) TestWatchAPIVersionUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
@@ -105,14 +105,14 @@ func (s *upgraderWatchSuite) TestWatchAPIVersionUnit(c *gc.C) {
 		}}
 	results, err := s.api().WatchAPIVersion(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, gc.DeepEquals, params.NotifyWatchResults{
+	c.Check(results, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			{NotifyWatcherId: "4"},
 		},
 	})
 }
 
-func (s *upgraderWatchSuite) TestWatchAPIVersionControllerModelAgent(c *gc.C) {
+func (s *upgraderWatchSuite) TestWatchAPIVersionControllerModelAgent(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
@@ -154,7 +154,7 @@ func (s *upgraderWatchSuite) TestWatchAPIVersionControllerModelAgent(c *gc.C) {
 		}}
 	results, err := s.api().WatchAPIVersion(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, gc.DeepEquals, params.NotifyWatchResults{
+	c.Check(results, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			{NotifyWatcherId: "2"},
 			{NotifyWatcherId: "1"},
@@ -162,7 +162,7 @@ func (s *upgraderWatchSuite) TestWatchAPIVersionControllerModelAgent(c *gc.C) {
 	})
 }
 
-func (s *upgraderWatchSuite) TestWatchAPIVersionTagInvalid(c *gc.C) {
+func (s *upgraderWatchSuite) TestWatchAPIVersionTagInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	args := params.Entities{
@@ -171,12 +171,12 @@ func (s *upgraderWatchSuite) TestWatchAPIVersionTagInvalid(c *gc.C) {
 	results, err := s.api().WatchAPIVersion(context.Background(), args)
 	// It is not an error to make the request, but the specific item is rejected
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results.Results, gc.HasLen, 1)
-	c.Check(results.Results[0].NotifyWatcherId, gc.Equals, "")
-	c.Assert(results.Results[0].Error.Code, gc.Equals, params.CodeTagInvalid)
+	c.Check(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].NotifyWatcherId, tc.Equals, "")
+	c.Assert(results.Results[0].Error.Code, tc.Equals, params.CodeTagInvalid)
 }
 
-func (s *upgraderWatchSuite) TestWatchAPIVersionWrongTypeTag(c *gc.C) {
+func (s *upgraderWatchSuite) TestWatchAPIVersionWrongTypeTag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Application can be a valid tag, however it's not valid for
@@ -187,12 +187,12 @@ func (s *upgraderWatchSuite) TestWatchAPIVersionWrongTypeTag(c *gc.C) {
 	results, err := s.api().WatchAPIVersion(context.Background(), args)
 	// It is not an error to make the request, but the specific item is rejected
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results.Results, gc.HasLen, 1)
-	c.Check(results.Results[0].NotifyWatcherId, gc.Equals, "")
-	c.Assert(results.Results[0].Error.Code, gc.Equals, params.CodeNotValid)
+	c.Check(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].NotifyWatcherId, tc.Equals, "")
+	c.Assert(results.Results[0].Error.Code, tc.Equals, params.CodeNotValid)
 }
 
-func (s *upgraderWatchSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *upgraderWatchSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.agentService = NewMockModelAgentService(ctrl)

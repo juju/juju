@@ -8,8 +8,8 @@ import (
 	"database/sql"
 
 	"github.com/juju/clock"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
@@ -46,7 +46,7 @@ type watcherSuite struct {
 	appUUIDs [2]coreapplication.ID
 }
 
-var _ = gc.Suite(&watcherSuite{})
+var _ = tc.Suite(&watcherSuite{})
 
 var (
 	ssh   = network.PortRange{Protocol: "tcp", FromPort: 22, ToPort: 22}
@@ -60,7 +60,7 @@ var (
 	appNames     = []string{"app-zero", "app-one"}
 )
 
-func (s *watcherSuite) SetUpTest(c *gc.C) {
+func (s *watcherSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "port_range")
@@ -90,7 +90,7 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *watcherSuite) createApplicationWithRelations(c *gc.C, appName string, relations ...string) coreapplication.ID {
+func (s *watcherSuite) createApplicationWithRelations(c *tc.C, appName string, relations ...string) coreapplication.ID {
 	relationsMap := map[string]charm.Relation{}
 	for _, relation := range relations {
 		relationsMap[relation] = charm.Relation{
@@ -126,7 +126,7 @@ func (s *watcherSuite) createApplicationWithRelations(c *gc.C, appName string, r
 
 // createUnit creates a new unit in state and returns its UUID. The unit is assigned
 // to the net node with uuid `netNodeUUID`.
-func (s *watcherSuite) createUnit(c *gc.C, netNodeUUID, appName string) coreunit.UUID {
+func (s *watcherSuite) createUnit(c *tc.C, netNodeUUID, appName string) coreunit.UUID {
 	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	ctx := context.Background()
 
@@ -151,7 +151,7 @@ func (s *watcherSuite) createUnit(c *gc.C, netNodeUUID, appName string) coreunit
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitNames, gc.HasLen, 1)
+	c.Assert(unitNames, tc.HasLen, 1)
 	unitName := unitNames[0]
 	s.unitCount++
 
@@ -173,7 +173,7 @@ func (s *watcherSuite) createUnit(c *gc.C, netNodeUUID, appName string) coreunit
 // - on 2 applications (with names stored in appNames; uuids s.appUUIDs)
 //   - unit 0 is deployed to app 0
 //   - units 1 & 2 are deployed to app 1
-func (s *watcherSuite) TestWatchMachinePortRanges(c *gc.C) {
+func (s *watcherSuite) TestWatchMachinePortRanges(c *tc.C) {
 	s.appUUIDs[0] = s.createApplicationWithRelations(c, appNames[0], "ep0", "ep1", "ep2", "ep3")
 	s.appUUIDs[1] = s.createApplicationWithRelations(c, appNames[1], "ep0", "ep1", "ep2", "ep3")
 
@@ -187,7 +187,7 @@ func (s *watcherSuite) TestWatchMachinePortRanges(c *gc.C) {
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// open a port on an empty endpoint on a unit on machine 0
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[0], network.GroupedPortRanges{
 			"ep0": {ssh},
 		}, network.GroupedPortRanges{})
@@ -197,7 +197,7 @@ func (s *watcherSuite) TestWatchMachinePortRanges(c *gc.C) {
 	})
 
 	// open a port on an endpoint with opened ports on a unit on machine 0
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[0], network.GroupedPortRanges{
 			"ep0": {http},
 		}, network.GroupedPortRanges{})
@@ -207,7 +207,7 @@ func (s *watcherSuite) TestWatchMachinePortRanges(c *gc.C) {
 	})
 
 	// open a port on a new endpoint on another unit on machine 0
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[1], network.GroupedPortRanges{
 			"ep1": {http},
 		}, network.GroupedPortRanges{})
@@ -217,7 +217,7 @@ func (s *watcherSuite) TestWatchMachinePortRanges(c *gc.C) {
 	})
 
 	// open a port on a endpoint on a unit on machine 1
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[2], network.GroupedPortRanges{
 			"ep2": {https},
 		}, network.GroupedPortRanges{})
@@ -227,7 +227,7 @@ func (s *watcherSuite) TestWatchMachinePortRanges(c *gc.C) {
 	})
 
 	// open a port that's already open
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[0], network.GroupedPortRanges{
 			"ep0": {ssh},
 		}, network.GroupedPortRanges{})
@@ -237,7 +237,7 @@ func (s *watcherSuite) TestWatchMachinePortRanges(c *gc.C) {
 	})
 
 	// close a port on an endpoint on a unit on machine 0
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[0], network.GroupedPortRanges{}, network.GroupedPortRanges{
 			"ep0": {ssh},
 		})
@@ -247,7 +247,7 @@ func (s *watcherSuite) TestWatchMachinePortRanges(c *gc.C) {
 	})
 
 	// close the final open port of an endpoint for a unit on machine 0
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[0], network.GroupedPortRanges{}, network.GroupedPortRanges{
 			"ep0": {http},
 		})
@@ -257,7 +257,7 @@ func (s *watcherSuite) TestWatchMachinePortRanges(c *gc.C) {
 	})
 
 	// close a port range which isn't open
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[1], network.GroupedPortRanges{}, network.GroupedPortRanges{
 			"ep1": {https},
 		})
@@ -267,7 +267,7 @@ func (s *watcherSuite) TestWatchMachinePortRanges(c *gc.C) {
 	})
 
 	// open ports on different machines at the same time
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[1], network.GroupedPortRanges{
 			"ep3": {https},
 		}, network.GroupedPortRanges{})
@@ -283,7 +283,7 @@ func (s *watcherSuite) TestWatchMachinePortRanges(c *gc.C) {
 	harness.Run(c, []string{"0", "1"})
 }
 
-func (s *watcherSuite) TestWatchOpenedPortsForApplication(c *gc.C) {
+func (s *watcherSuite) TestWatchOpenedPortsForApplication(c *tc.C) {
 	s.appUUIDs[0] = s.createApplicationWithRelations(c, appNames[0], "ep0", "ep1", "ep2")
 	s.appUUIDs[1] = s.createApplicationWithRelations(c, appNames[1], "ep0", "ep1", "ep2")
 
@@ -297,7 +297,7 @@ func (s *watcherSuite) TestWatchOpenedPortsForApplication(c *gc.C) {
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// open a port on an empty endpoint on a unit the application
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[1], network.GroupedPortRanges{
 			"ep1": {http},
 		}, network.GroupedPortRanges{})
@@ -307,7 +307,7 @@ func (s *watcherSuite) TestWatchOpenedPortsForApplication(c *gc.C) {
 	})
 
 	// open a port on another unit of the application
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[2], network.GroupedPortRanges{
 			"ep2": {https},
 		}, network.GroupedPortRanges{})
@@ -317,7 +317,7 @@ func (s *watcherSuite) TestWatchOpenedPortsForApplication(c *gc.C) {
 	})
 
 	// open a port on another application
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[0], network.GroupedPortRanges{
 			"ep0": {ssh},
 		}, network.GroupedPortRanges{})
@@ -327,7 +327,7 @@ func (s *watcherSuite) TestWatchOpenedPortsForApplication(c *gc.C) {
 	})
 
 	// open a port that's already open
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[1], network.GroupedPortRanges{
 			"ep1": {http},
 		}, network.GroupedPortRanges{})
@@ -337,7 +337,7 @@ func (s *watcherSuite) TestWatchOpenedPortsForApplication(c *gc.C) {
 	})
 
 	// close a port on a unit of the application
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[1], network.GroupedPortRanges{}, network.GroupedPortRanges{
 			"ep1": {http},
 		})
@@ -347,7 +347,7 @@ func (s *watcherSuite) TestWatchOpenedPortsForApplication(c *gc.C) {
 	})
 
 	// close the final open port of an endpoint for the application
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[2], network.GroupedPortRanges{}, network.GroupedPortRanges{
 			"ep2": {https},
 		})
@@ -357,7 +357,7 @@ func (s *watcherSuite) TestWatchOpenedPortsForApplication(c *gc.C) {
 	})
 
 	// close a port on another application
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[0], network.GroupedPortRanges{}, network.GroupedPortRanges{
 			"ep0": {ssh},
 		})

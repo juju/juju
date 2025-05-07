@@ -5,19 +5,19 @@ package resource_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/charm/resource"
 )
 
 var fingerprint = []byte("123456789012345678901234567890123456789012345678")
 
-var _ = gc.Suite(&ResourceSuite{})
+var _ = tc.Suite(&ResourceSuite{})
 
 type ResourceSuite struct{}
 
-func (s *ResourceSuite) TestValidateFull(c *gc.C) {
+func (s *ResourceSuite) TestValidateFull(c *tc.C) {
 	fp, err := resource.NewFingerprint(fingerprint)
 	c.Assert(err, jc.ErrorIsNil)
 	res := resource.Resource{
@@ -37,16 +37,16 @@ func (s *ResourceSuite) TestValidateFull(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *ResourceSuite) TestValidateZeroValue(c *gc.C) {
+func (s *ResourceSuite) TestValidateZeroValue(c *tc.C) {
 	var res resource.Resource
 	err := res.Validate()
 
 	c.Check(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *ResourceSuite) TestValidateBadMetadata(c *gc.C) {
+func (s *ResourceSuite) TestValidateBadMetadata(c *tc.C) {
 	var meta resource.Meta
-	c.Assert(meta.Validate(), gc.NotNil)
+	c.Assert(meta.Validate(), tc.NotNil)
 
 	fp, err := resource.NewFingerprint(fingerprint)
 	c.Assert(err, jc.ErrorIsNil)
@@ -59,12 +59,12 @@ func (s *ResourceSuite) TestValidateBadMetadata(c *gc.C) {
 	err = res.Validate()
 
 	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(err, gc.ErrorMatches, `bad metadata: .*`)
+	c.Check(err, tc.ErrorMatches, `bad metadata: .*`)
 }
 
-func (s *ResourceSuite) TestValidateBadOrigin(c *gc.C) {
+func (s *ResourceSuite) TestValidateBadOrigin(c *tc.C) {
 	var origin resource.Origin
-	c.Assert(origin.Validate(), gc.NotNil)
+	c.Assert(origin.Validate(), tc.NotNil)
 	fp, err := resource.NewFingerprint(fingerprint)
 	c.Assert(err, jc.ErrorIsNil)
 	res := resource.Resource{
@@ -81,10 +81,10 @@ func (s *ResourceSuite) TestValidateBadOrigin(c *gc.C) {
 	err = res.Validate()
 
 	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(err, gc.ErrorMatches, `bad origin: .*`)
+	c.Check(err, tc.ErrorMatches, `bad origin: .*`)
 }
 
-func (s *ResourceSuite) TestValidateUploadNegativeRevision(c *gc.C) {
+func (s *ResourceSuite) TestValidateUploadNegativeRevision(c *tc.C) {
 	fp, err := resource.NewFingerprint(fingerprint)
 	c.Assert(err, jc.ErrorIsNil)
 	res := resource.Resource{
@@ -104,7 +104,7 @@ func (s *ResourceSuite) TestValidateUploadNegativeRevision(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *ResourceSuite) TestValidateStoreNegativeRevisionNoFile(c *gc.C) {
+func (s *ResourceSuite) TestValidateStoreNegativeRevisionNoFile(c *tc.C) {
 	res := resource.Resource{
 		Meta: resource.Meta{
 			Name:        "my-resource",
@@ -120,7 +120,7 @@ func (s *ResourceSuite) TestValidateStoreNegativeRevisionNoFile(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *ResourceSuite) TestValidateBadRevision(c *gc.C) {
+func (s *ResourceSuite) TestValidateBadRevision(c *tc.C) {
 	fp, err := resource.NewFingerprint(fingerprint)
 	c.Assert(err, jc.ErrorIsNil)
 	res := resource.Resource{
@@ -137,12 +137,12 @@ func (s *ResourceSuite) TestValidateBadRevision(c *gc.C) {
 	err = res.Validate()
 
 	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(err, gc.ErrorMatches, `bad revision: must be non-negative, got -1`)
+	c.Check(err, tc.ErrorMatches, `bad revision: must be non-negative, got -1`)
 }
 
-func (s *ResourceSuite) TestValidateZeroValueFingerprint(c *gc.C) {
+func (s *ResourceSuite) TestValidateZeroValueFingerprint(c *tc.C) {
 	var fp resource.Fingerprint
-	c.Assert(fp.Validate(), gc.NotNil)
+	c.Assert(fp.Validate(), tc.NotNil)
 
 	res := resource.Resource{
 		Meta: resource.Meta{
@@ -160,9 +160,9 @@ func (s *ResourceSuite) TestValidateZeroValueFingerprint(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *ResourceSuite) TestValidateMissingFingerprint(c *gc.C) {
+func (s *ResourceSuite) TestValidateMissingFingerprint(c *tc.C) {
 	var fp resource.Fingerprint
-	c.Assert(fp.Validate(), gc.NotNil)
+	c.Assert(fp.Validate(), tc.NotNil)
 
 	res := resource.Resource{
 		Meta: resource.Meta{
@@ -179,10 +179,10 @@ func (s *ResourceSuite) TestValidateMissingFingerprint(c *gc.C) {
 	err := res.Validate()
 
 	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(err, gc.ErrorMatches, `bad file info: missing fingerprint`)
+	c.Check(err, tc.ErrorMatches, `bad file info: missing fingerprint`)
 }
 
-func (s *ResourceSuite) TestValidateDockerType(c *gc.C) {
+func (s *ResourceSuite) TestValidateDockerType(c *tc.C) {
 	res := resource.Resource{
 		Meta: resource.Meta{
 			Name:        "my-resource",
@@ -197,7 +197,7 @@ func (s *ResourceSuite) TestValidateDockerType(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *ResourceSuite) TestValidateBadSize(c *gc.C) {
+func (s *ResourceSuite) TestValidateBadSize(c *tc.C) {
 	fp, err := resource.NewFingerprint(fingerprint)
 	c.Assert(err, jc.ErrorIsNil)
 	res := resource.Resource{
@@ -215,5 +215,5 @@ func (s *ResourceSuite) TestValidateBadSize(c *gc.C) {
 	err = res.Validate()
 
 	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(err, gc.ErrorMatches, `bad file info: negative size`)
+	c.Check(err, tc.ErrorMatches, `bad file info: negative size`)
 }

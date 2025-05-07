@@ -7,9 +7,9 @@ import (
 	"strconv"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/containermanager"
@@ -28,9 +28,9 @@ type bridgePolicySuite struct {
 	guest  *MockContainer
 }
 
-var _ = gc.Suite(&bridgePolicySuite{})
+var _ = tc.Suite(&bridgePolicySuite{})
 
-func (s *bridgePolicySuite) SetUpTest(c *gc.C) {
+func (s *bridgePolicySuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
 
 	s.netBondReconfigureDelay = 13
@@ -38,7 +38,7 @@ func (s *bridgePolicySuite) SetUpTest(c *gc.C) {
 	s.spaces = nil
 }
 
-func (s *bridgePolicySuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *bridgePolicySuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
 	s.guest = NewMockContainer(ctrl)
@@ -75,7 +75,7 @@ const (
 	dmzIndex       = 1
 )
 
-func (s *bridgePolicySuite) setupMachineInTwoSpaces(c *gc.C, ctrl *gomock.Controller) []string {
+func (s *bridgePolicySuite) setupMachineInTwoSpaces(c *tc.C, ctrl *gomock.Controller) []string {
 	ids := s.setupTwoSpaces()
 	s.expectNICAndBridgeWithIP(c, ctrl, "ens33", "br-ens33", ids[somespaceIndex], "10.0.0.0/24")
 	s.expectNICAndBridgeWithIP(c, ctrl, "ens0p10", "br-ens0p10", ids[dmzIndex], "10.0.1.0/24")
@@ -83,7 +83,7 @@ func (s *bridgePolicySuite) setupMachineInTwoSpaces(c *gc.C, ctrl *gomock.Contro
 }
 
 // expectAllDefaultDevices creates the loopback, lxcbr0, lxdbr0, and virbr0 devices
-func (s *bridgePolicySuite) expectAllDefaultDevices(c *gc.C, ctrl *gomock.Controller) {
+func (s *bridgePolicySuite) expectAllDefaultDevices(c *tc.C, ctrl *gomock.Controller) {
 	// loopback
 	s.expectLoopbackNIC(ctrl)
 	// container.DefaultLxdBridge
@@ -99,7 +99,7 @@ func (s *bridgePolicySuite) policy() *BridgePolicy {
 	}
 }
 
-func (s *bridgePolicySuite) TestDetermineContainerSpacesConstraints(c *gc.C) {
+func (s *bridgePolicySuite) TestDetermineContainerSpacesConstraints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	exp := s.guest.EXPECT()
@@ -114,7 +114,7 @@ func (s *bridgePolicySuite) TestDetermineContainerSpacesConstraints(c *gc.C) {
 	c.Check(obtained, jc.DeepEquals, expected)
 }
 
-func (s *bridgePolicySuite) TestDetermineContainerNoSpacesConstraints(c *gc.C) {
+func (s *bridgePolicySuite) TestDetermineContainerNoSpacesConstraints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	exp := s.guest.EXPECT()
@@ -128,7 +128,7 @@ func (s *bridgePolicySuite) TestDetermineContainerNoSpacesConstraints(c *gc.C) {
 	c.Check(obtained, jc.DeepEquals, expected)
 }
 
-func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesWithProviderNetworkingAndOvsBridge(c *gc.C) {
+func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesWithProviderNetworkingAndOvsBridge(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -149,11 +149,11 @@ func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesWithProviderNet
 	bridgePolicy := s.policy()
 	info, err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.guest, false)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.HasLen, 1)
-	c.Assert(info[0].ParentInterfaceName, gc.Equals, "ovsbr0", gc.Commentf("expected container device parent to be the OVS bridge"))
+	c.Assert(info, tc.HasLen, 1)
+	c.Assert(info[0].ParentInterfaceName, tc.Equals, "ovsbr0", tc.Commentf("expected container device parent to be the OVS bridge"))
 }
 
-func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesWithLocalNetworkingAndOvsBridge(c *gc.C) {
+func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesWithLocalNetworkingAndOvsBridge(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -174,11 +174,11 @@ func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesWithLocalNetwor
 
 	info, err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.guest, false)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.HasLen, 1)
-	c.Assert(info[0].ParentInterfaceName, gc.Equals, "lxdbr0", gc.Commentf("expected container device parent to be the default lxd bridge as the container networking method is 'local'"))
+	c.Assert(info, tc.HasLen, 1)
+	c.Assert(info[0].ParentInterfaceName, tc.Equals, "lxdbr0", tc.Commentf("expected container device parent to be the default lxd bridge as the container networking method is 'local'"))
 }
 
-func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesCorrectlyPaired(c *gc.C) {
+func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesCorrectlyPaired(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -221,19 +221,19 @@ func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesCorrectlyPaired
 		"br-eth10",
 		"br-eth10-100",
 	}
-	c.Assert(info, gc.HasLen, len(expectedParents))
+	c.Assert(info, tc.HasLen, len(expectedParents))
 	for i, dev := range info {
-		c.Check(dev.InterfaceName, gc.Equals, "eth"+strconv.Itoa(i))
-		c.Check(dev.InterfaceType, gc.Equals, corenetwork.EthernetDevice)
-		c.Check(dev.MTU, gc.Equals, 0) // inherited from the parent device.
-		c.Check(dev.MACAddress, gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
+		c.Check(dev.InterfaceName, tc.Equals, "eth"+strconv.Itoa(i))
+		c.Check(dev.InterfaceType, tc.Equals, corenetwork.EthernetDevice)
+		c.Check(dev.MTU, tc.Equals, 0) // inherited from the parent device.
+		c.Check(dev.MACAddress, tc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
 		c.Check(dev.Disabled, jc.IsFalse)
 		c.Check(dev.NoAutoStart, jc.IsFalse)
-		c.Check(dev.ParentInterfaceName, gc.Equals, expectedParents[i])
+		c.Check(dev.ParentInterfaceName, tc.Equals, expectedParents[i])
 	}
 }
 
-func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesConstraintsBindOnlyOne(c *gc.C) {
+func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesConstraintsBindOnlyOne(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -246,19 +246,19 @@ func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesConstraintsBind
 
 	info, err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.guest, false)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.HasLen, 1)
+	c.Assert(info, tc.HasLen, 1)
 	dev := info[0]
-	c.Check(dev.InterfaceName, gc.Equals, "eth0")
-	c.Check(dev.InterfaceType, gc.Equals, corenetwork.EthernetDevice)
-	c.Check(dev.MTU, gc.Equals, 0) // inherited from the parent device.
-	c.Check(dev.MACAddress, gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
+	c.Check(dev.InterfaceName, tc.Equals, "eth0")
+	c.Check(dev.InterfaceType, tc.Equals, corenetwork.EthernetDevice)
+	c.Check(dev.MTU, tc.Equals, 0) // inherited from the parent device.
+	c.Check(dev.MACAddress, tc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
 	c.Check(dev.Disabled, jc.IsFalse)
 	c.Check(dev.NoAutoStart, jc.IsFalse)
 	// br-ens0p10 on the host machine is in space dmz, while br-ens33 is in space somespace
-	c.Check(dev.ParentInterfaceName, gc.Equals, "br-ens0p10")
+	c.Check(dev.ParentInterfaceName, tc.Equals, "br-ens0p10")
 }
 
-func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesHostOneSpace(c *gc.C) {
+func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesHostOneSpace(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -278,18 +278,18 @@ func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesHostOneSpace(c 
 
 	info, err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.guest, false)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.HasLen, 1)
+	c.Assert(info, tc.HasLen, 1)
 	dev := info[0]
-	c.Check(dev.InterfaceName, gc.Equals, "eth0")
-	c.Check(dev.InterfaceType, gc.Equals, corenetwork.EthernetDevice)
-	c.Check(dev.MTU, gc.Equals, 0) // inherited from the parent device.
-	c.Check(dev.MACAddress, gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
+	c.Check(dev.InterfaceName, tc.Equals, "eth0")
+	c.Check(dev.InterfaceType, tc.Equals, corenetwork.EthernetDevice)
+	c.Check(dev.MTU, tc.Equals, 0) // inherited from the parent device.
+	c.Check(dev.MACAddress, tc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
 	c.Check(dev.Disabled, jc.IsFalse)
 	c.Check(dev.NoAutoStart, jc.IsFalse)
-	c.Check(dev.ParentInterfaceName, gc.Equals, "br-eth0")
+	c.Check(dev.ParentInterfaceName, tc.Equals, "br-eth0")
 }
 
-func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesDefaultSpace(c *gc.C) {
+func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesDefaultSpace(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -311,10 +311,10 @@ func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesDefaultSpace(c 
 	bridgePolicy := s.policy()
 
 	_, err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.guest, false)
-	c.Assert(err, gc.ErrorMatches, "no obvious space for container.*")
+	c.Assert(err, tc.ErrorMatches, "no obvious space for container.*")
 }
 
-func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesNoValidSpace(c *gc.C) {
+func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesNoValidSpace(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -339,10 +339,10 @@ func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesNoValidSpace(c 
 	bridgePolicy := s.policy()
 
 	_, err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.guest, false)
-	c.Assert(err, gc.ErrorMatches, `no obvious space for container "guest-id", host machine has spaces: .*`)
+	c.Assert(err, tc.ErrorMatches, `no obvious space for container "guest-id", host machine has spaces: .*`)
 }
 
-func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesMismatchConstraints(c *gc.C) {
+func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesMismatchConstraints(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -358,11 +358,11 @@ func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesMismatchConstra
 	bridgePolicy := s.policy()
 
 	_, err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.guest, false)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, `unable to find host bridge for space(s) "dmz" for container "guest-id"`)
+	c.Assert(err, tc.NotNil)
+	c.Assert(err.Error(), tc.Equals, `unable to find host bridge for space(s) "dmz" for container "guest-id"`)
 }
 
-func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesMissingBridge(c *gc.C) {
+func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesMissingBridge(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -378,11 +378,11 @@ func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesMissingBridge(c
 	bridgePolicy := s.policy()
 
 	_, err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.guest, false)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, `unable to find host bridge for space(s) "dmz" for container "guest-id"`)
+	c.Assert(err, tc.NotNil)
+	c.Assert(err.Error(), tc.Equals, `unable to find host bridge for space(s) "dmz" for container "guest-id"`)
 }
 
-func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesNoDefaultNoConstraints(c *gc.C) {
+func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesNoDefaultNoConstraints(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -409,10 +409,10 @@ func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesNoDefaultNoCons
 	bridgePolicy := s.policy()
 
 	_, err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.guest, false)
-	c.Assert(err, gc.ErrorMatches, `no obvious space for container "guest-id", host machine has spaces: .*`)
+	c.Assert(err, tc.ErrorMatches, `no obvious space for container "guest-id", host machine has spaces: .*`)
 }
 
-func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesTwoDevicesOneBridged(c *gc.C) {
+func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesTwoDevicesOneBridged(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -431,19 +431,19 @@ func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesTwoDevicesOneBr
 
 	info, err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.guest, false)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.HasLen, 1)
+	c.Assert(info, tc.HasLen, 1)
 	dev := info[0]
-	c.Check(dev.InterfaceName, gc.Equals, "eth0")
-	c.Check(dev.InterfaceType, gc.Equals, corenetwork.EthernetDevice)
-	c.Check(dev.MTU, gc.Equals, 0) // inherited from the parent device.
-	c.Check(dev.MACAddress, gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
+	c.Check(dev.InterfaceName, tc.Equals, "eth0")
+	c.Check(dev.InterfaceType, tc.Equals, corenetwork.EthernetDevice)
+	c.Check(dev.MTU, tc.Equals, 0) // inherited from the parent device.
+	c.Check(dev.MACAddress, tc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
 	c.Check(dev.Disabled, jc.IsFalse)
 	c.Check(dev.NoAutoStart, jc.IsFalse)
 	// br-eth1 is a valid bridge in the 'somespace' space
-	c.Check(dev.ParentInterfaceName, gc.Equals, "br-eth1")
+	c.Check(dev.ParentInterfaceName, tc.Equals, "br-eth1")
 }
 
-func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesTwoBridgedSameSpace(c *gc.C) {
+func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesTwoBridgedSameSpace(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -462,18 +462,18 @@ func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesTwoBridgedSameS
 
 	info, err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.guest, false)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.HasLen, 2)
+	c.Assert(info, tc.HasLen, 2)
 	dev := info[0]
-	c.Check(dev.InterfaceName, gc.Equals, "eth0")
+	c.Check(dev.InterfaceName, tc.Equals, "eth0")
 	// br-ens33 and br-ens44 are both bridges in the 'somespace' space
-	c.Check(dev.ParentInterfaceName, gc.Equals, "br-ens33")
+	c.Check(dev.ParentInterfaceName, tc.Equals, "br-ens33")
 	dev = info[1]
-	c.Check(dev.InterfaceName, gc.Equals, "eth1")
+	c.Check(dev.InterfaceName, tc.Equals, "eth1")
 	// br-ens33 and br-ens44 are both bridges in the 'somespace' space
-	c.Check(dev.ParentInterfaceName, gc.Equals, "br-ens44")
+	c.Check(dev.ParentInterfaceName, tc.Equals, "br-ens44")
 }
 
-func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesTwoBridgesNotInSpaces(c *gc.C) {
+func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesTwoBridgesNotInSpaces(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -496,18 +496,18 @@ func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesTwoBridgesNotIn
 
 	info, err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.guest, false)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.HasLen, 2)
+	c.Assert(info, tc.HasLen, 2)
 	dev := info[0]
-	c.Check(dev.InterfaceName, gc.Equals, "eth0")
+	c.Check(dev.InterfaceName, tc.Equals, "eth0")
 	// br-ens33 and br-ens44 are both bridges in the 'somespace' space
-	c.Check(dev.ParentInterfaceName, gc.Equals, "br-ens3")
+	c.Check(dev.ParentInterfaceName, tc.Equals, "br-ens3")
 	dev = info[1]
-	c.Check(dev.InterfaceName, gc.Equals, "eth1")
+	c.Check(dev.InterfaceName, tc.Equals, "eth1")
 	// br-ens33 and br-ens44 are both bridges in the 'somespace' space
-	c.Check(dev.ParentInterfaceName, gc.Equals, "br-ens4")
+	c.Check(dev.ParentInterfaceName, tc.Equals, "br-ens4")
 }
 
-func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesNoLocal(c *gc.C) {
+func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesNoLocal(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -525,11 +525,11 @@ func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesNoLocal(c *gc.C
 	bridgePolicy := s.policy()
 
 	_, err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.guest, false)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, `unable to find host bridge for space(s) "alpha" for container "guest-id"`)
+	c.Assert(err, tc.NotNil)
+	c.Assert(err.Error(), tc.Equals, `unable to find host bridge for space(s) "alpha" for container "guest-id"`)
 }
 
-func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesUseLocal(c *gc.C) {
+func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesUseLocal(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -546,13 +546,13 @@ func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesUseLocal(c *gc.
 
 	info, err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.guest, false)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.HasLen, 1)
+	c.Assert(info, tc.HasLen, 1)
 	dev := info[0]
-	c.Check(dev.InterfaceName, gc.Equals, "eth0")
-	c.Check(dev.ParentInterfaceName, gc.Equals, "lxdbr0")
+	c.Check(dev.InterfaceName, tc.Equals, "eth0")
+	c.Check(dev.ParentInterfaceName, tc.Equals, "lxdbr0")
 }
 
-func (s *bridgePolicySuite) TestFindMissingBridgesForContainerNoneMissing(c *gc.C) {
+func (s *bridgePolicySuite) TestFindMissingBridgesForContainerNoneMissing(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -571,7 +571,7 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerNoneMissing(c *gc.
 	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{})
 }
 
-func (s *bridgePolicySuite) TestFindMissingBridgesForContainerDefaultUnbridged(c *gc.C) {
+func (s *bridgePolicySuite) TestFindMissingBridgesForContainerDefaultUnbridged(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -587,13 +587,13 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerDefaultUnbridged(c
 
 	missing, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(missing, gc.DeepEquals, []network.DeviceToBridge{{
+	c.Check(missing, tc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "eth0",
 		BridgeName: "br-eth0",
 	}})
 }
 
-func (s *bridgePolicySuite) TestFindMissingBridgesForContainerNoHostDevices(c *gc.C) {
+func (s *bridgePolicySuite) TestFindMissingBridgesForContainerNoHostDevices(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -615,11 +615,11 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerNoHostDevices(c *g
 	bridgePolicy := s.policy()
 
 	_, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, `host machine "host-id" has no available device in space(s) "dmz", "third"`)
+	c.Assert(err, tc.NotNil)
+	c.Assert(err.Error(), tc.Equals, `host machine "host-id" has no available device in space(s) "dmz", "third"`)
 }
 
-func (s *bridgePolicySuite) TestFindMissingBridgesForContainerTwoSpacesOneMissing(c *gc.C) {
+func (s *bridgePolicySuite) TestFindMissingBridgesForContainerTwoSpacesOneMissing(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -636,12 +636,12 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerTwoSpacesOneMissin
 	bridgePolicy := s.policy()
 
 	_, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, tc.NotNil)
 	// both somespace and dmz are needed, but somespace is missing
-	c.Assert(err.Error(), gc.Equals, `host machine "host-id" has no available device in space(s) "somespace"`)
+	c.Assert(err.Error(), tc.Equals, `host machine "host-id" has no available device in space(s) "somespace"`)
 }
 
-func (s *bridgePolicySuite) TestFindMissingBridgesForContainerNoSpaces(c *gc.C) {
+func (s *bridgePolicySuite) TestFindMissingBridgesForContainerNoSpaces(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -666,7 +666,7 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerNoSpaces(c *gc.C) 
 	// machine. Triggers the fallback code to have us bridge all devices.
 	missing, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(missing, gc.DeepEquals, []network.DeviceToBridge{{
+	c.Check(missing, tc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "ens3",
 		BridgeName: "br-ens3",
 	}, {
@@ -675,7 +675,7 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerNoSpaces(c *gc.C) 
 	}})
 }
 
-func (s *bridgePolicySuite) TestFindMissingBridgesForContainerContainerNetworkingMethodLocal(c *gc.C) {
+func (s *bridgePolicySuite) TestFindMissingBridgesForContainerContainerNetworkingMethodLocal(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -700,7 +700,7 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerContainerNetworkin
 	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{})
 }
 
-func (s *bridgePolicySuite) TestFindMissingBridgesForContainerContainerNetworkingMethodLocalDefinedHostSpace(c *gc.C) {
+func (s *bridgePolicySuite) TestFindMissingBridgesForContainerContainerNetworkingMethodLocalDefinedHostSpace(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -726,13 +726,13 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerContainerNetworkin
 
 	info, err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.guest, false)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.HasLen, 1)
+	c.Assert(info, tc.HasLen, 1)
 	dev := info[0]
-	c.Check(dev.InterfaceName, gc.Equals, "eth0")
-	c.Check(dev.ParentInterfaceName, gc.Equals, "lxdbr0")
+	c.Check(dev.InterfaceName, tc.Equals, "eth0")
+	c.Check(dev.ParentInterfaceName, tc.Equals, "lxdbr0")
 }
 
-func (s *bridgePolicySuite) TestFindMissingBridgesForContainerContainerNetworkingMethodLocalNoAddress(c *gc.C) {
+func (s *bridgePolicySuite) TestFindMissingBridgesForContainerContainerNetworkingMethodLocalNoAddress(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -756,7 +756,7 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerContainerNetworkin
 	})
 }
 
-func (s *bridgePolicySuite) TestFindMissingBridgesForContainerUnknownWithConstraint(c *gc.C) {
+func (s *bridgePolicySuite) TestFindMissingBridgesForContainerUnknownWithConstraint(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -776,12 +776,12 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerUnknownWithConstra
 	bridgePolicy := s.policy()
 
 	_, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals,
+	c.Assert(err, tc.NotNil)
+	c.Assert(err.Error(), tc.Equals,
 		`host machine "host-id" has no available device in space(s) "somespace"`)
 }
 
-func (s *bridgePolicySuite) TestFindMissingBridgesForContainerUnknownAndDefault(c *gc.C) {
+func (s *bridgePolicySuite) TestFindMissingBridgesForContainerUnknownAndDefault(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -805,13 +805,13 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerUnknownAndDefault(
 	// We don't need a container constraint, as the host machine is in a single space.
 	missing, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(missing, gc.DeepEquals, []network.DeviceToBridge{{
+	c.Check(missing, tc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "ens3",
 		BridgeName: "br-ens3",
 	}})
 }
 
-func (s *bridgePolicySuite) TestFindMissingBridgesForContainerOneOfTwoBridged(c *gc.C) {
+func (s *bridgePolicySuite) TestFindMissingBridgesForContainerOneOfTwoBridged(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -839,13 +839,13 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerOneOfTwoBridged(c 
 	missing, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
 	c.Assert(err, jc.ErrorIsNil)
 	// Only the first device (by sort order) should be selected
-	c.Check(missing, gc.DeepEquals, []network.DeviceToBridge{{
+	c.Check(missing, tc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "ens2.1",
 		BridgeName: "br-ens2-1",
 	}})
 }
 
-func (s *bridgePolicySuite) TestFindMissingBridgesForContainerTwoHostDevicesOneBridged(c *gc.C) {
+func (s *bridgePolicySuite) TestFindMissingBridgesForContainerTwoHostDevicesOneBridged(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -866,7 +866,7 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerTwoHostDevicesOneB
 	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{})
 }
 
-func (s *bridgePolicySuite) TestFindMissingBridgesForContainerNoConstraintsDefaultNotSpecial(c *gc.C) {
+func (s *bridgePolicySuite) TestFindMissingBridgesForContainerNoConstraintsDefaultNotSpecial(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -888,11 +888,11 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerNoConstraintsDefau
 	bridgePolicy := s.policy()
 
 	missing, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
-	c.Assert(err, gc.ErrorMatches, "no obvious space for container.*")
-	c.Assert(missing, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "no obvious space for container.*")
+	c.Assert(missing, tc.IsNil)
 }
 
-func (s *bridgePolicySuite) TestFindMissingBridgesForContainerTwoSpacesOneBridged(c *gc.C) {
+func (s *bridgePolicySuite) TestFindMissingBridgesForContainerTwoSpacesOneBridged(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -918,7 +918,7 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerTwoSpacesOneBridge
 	}})
 }
 
-func (s *bridgePolicySuite) TestFindMissingBridgesForContainerMultipleSpacesNoneBridged(c *gc.C) {
+func (s *bridgePolicySuite) TestFindMissingBridgesForContainerMultipleSpacesNoneBridged(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -958,7 +958,7 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerMultipleSpacesNone
 	}})
 }
 
-func (s *bridgePolicySuite) TestFindMissingBridgesForContainerBondedNICs(c *gc.C) {
+func (s *bridgePolicySuite) TestFindMissingBridgesForContainerBondedNICs(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -985,7 +985,7 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerBondedNICs(c *gc.C
 	}})
 }
 
-func (s *bridgePolicySuite) TestFindMissingBridgesForContainerVLAN(c *gc.C) {
+func (s *bridgePolicySuite) TestFindMissingBridgesForContainerVLAN(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -1016,7 +1016,7 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerVLAN(c *gc.C) {
 	}})
 }
 
-func (s *bridgePolicySuite) TestFindMissingBridgesForContainerVLANOnBond(c *gc.C) {
+func (s *bridgePolicySuite) TestFindMissingBridgesForContainerVLANOnBond(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -1063,9 +1063,9 @@ var bridgeNames = map[string]string{
 	"enx00e07cc81e1d": "b-x00e07cc81e1d",
 }
 
-func (s *bridgePolicySuite) TestBridgeNameForDevice(c *gc.C) {
+func (s *bridgePolicySuite) TestBridgeNameForDevice(c *tc.C) {
 	for deviceName, bridgeName := range bridgeNames {
 		generatedBridgeName := BridgeNameForDevice(deviceName)
-		c.Assert(generatedBridgeName, gc.Equals, bridgeName)
+		c.Assert(generatedBridgeName, tc.Equals, bridgeName)
 	}
 }

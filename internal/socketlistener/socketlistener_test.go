@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/logger"
@@ -29,9 +29,9 @@ type socketListenerSuite struct {
 	logger logger.Logger
 }
 
-var _ = gc.Suite(&socketListenerSuite{})
+var _ = tc.Suite(&socketListenerSuite{})
 
-func (s *socketListenerSuite) SetUpTest(c *gc.C) {
+func (s *socketListenerSuite) SetUpTest(c *tc.C) {
 	s.logger = loggertesting.WrapCheckLog(c)
 }
 
@@ -44,7 +44,7 @@ func registerTestHandlers(r *mux.Router) {
 		Methods(http.MethodGet)
 }
 
-func (s *socketListenerSuite) TestStartStopWorker(c *gc.C) {
+func (s *socketListenerSuite) TestStartStopWorker(c *tc.C) {
 	tmpDir := c.MkDir()
 	socket := path.Join(tmpDir, "test.socket")
 
@@ -59,19 +59,19 @@ func (s *socketListenerSuite) TestStartStopWorker(c *gc.C) {
 	// Check socket is created with correct permissions.
 	fi, err := os.Stat(socket)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fi.Mode(), gc.Equals, fs.ModeSocket|0700)
+	c.Assert(fi.Mode(), tc.Equals, fs.ModeSocket|0700)
 
 	// Check server is up.
 	cl := client(socket)
 	resp, err := cl.Get("http://localhost:8080/foo")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusNotFound)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusNotFound)
 
 	// Check server is serving.
 	cl = client(socket)
 	resp, err = cl.Get("http://localhost:8080/test-endpoint")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 
 	sl.Kill()
 	err = sl.Wait()
@@ -79,13 +79,13 @@ func (s *socketListenerSuite) TestStartStopWorker(c *gc.C) {
 
 	// Check server has stopped.
 	_, err = cl.Get("http://localhost:8080/foo")
-	c.Assert(err, gc.ErrorMatches, ".*connection refused")
+	c.Assert(err, tc.ErrorMatches, ".*connection refused")
 }
 
 // TestEnsureShutdown checks that a slow handler will not prevent a clean
 // shutdown. An example of this, would be running a db query, that isn't letting
 // the handler return immediately.
-func (s *socketListenerSuite) TestEnsureShutdown(c *gc.C) {
+func (s *socketListenerSuite) TestEnsureShutdown(c *tc.C) {
 	for i := 0; i < 100; i++ {
 		tmpDir := c.MkDir()
 		socket := path.Join(tmpDir, "test.socket")
@@ -127,7 +127,7 @@ func (s *socketListenerSuite) TestEnsureShutdown(c *gc.C) {
 		// Wait for server to cleanly shutdown
 		select {
 		case <-tomb.Dead():
-			c.Assert(tomb.Err(), gc.IsNil)
+			c.Assert(tomb.Err(), tc.IsNil)
 		case <-time.After(coretesting.LongWait):
 			tomb.Kill(fmt.Errorf("took too long to finish"))
 			c.Errorf("took too long to finish")

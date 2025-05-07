@@ -6,10 +6,10 @@ package bundlechanges_test
 import (
 	"strings"
 
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
-	gc "gopkg.in/check.v1"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/logger"
@@ -24,19 +24,19 @@ type diffSuite struct {
 	logger logger.Logger
 }
 
-var _ = gc.Suite(&diffSuite{})
+var _ = tc.Suite(&diffSuite{})
 
-func (s *diffSuite) SetUpTest(c *gc.C) {
+func (s *diffSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.logger = loggertesting.WrapCheckLog(c)
 }
 
-func (s *diffSuite) TestNewDiffEmpty(c *gc.C) {
+func (s *diffSuite) TestNewDiffEmpty(c *tc.C) {
 	diff := &bundlechanges.BundleDiff{}
 	c.Assert(diff.Empty(), jc.IsTrue)
 }
 
-func (s *diffSuite) TestApplicationsNotEmpty(c *gc.C) {
+func (s *diffSuite) TestApplicationsNotEmpty(c *tc.C) {
 	diff := &bundlechanges.BundleDiff{
 		Applications: make(map[string]*bundlechanges.ApplicationDiff),
 	}
@@ -46,7 +46,7 @@ func (s *diffSuite) TestApplicationsNotEmpty(c *gc.C) {
 	c.Assert(diff.Empty(), jc.IsFalse)
 }
 
-func (s *diffSuite) TestApplicationExposedEndpointsDiff(c *gc.C) {
+func (s *diffSuite) TestApplicationExposedEndpointsDiff(c *tc.C) {
 	bundleContent := `
 applications:
   prometheus:
@@ -142,7 +142,7 @@ applications:
 	s.checkDiff(c, bundleContent, model, expectedDiff)
 }
 
-func (s *diffSuite) TestMachinesNotEmpty(c *gc.C) {
+func (s *diffSuite) TestMachinesNotEmpty(c *tc.C) {
 	diff := &bundlechanges.BundleDiff{
 		Machines: make(map[string]*bundlechanges.MachineDiff),
 	}
@@ -152,7 +152,7 @@ func (s *diffSuite) TestMachinesNotEmpty(c *gc.C) {
 	c.Assert(diff.Empty(), jc.IsFalse)
 }
 
-func (s *diffSuite) TestRelationsNotEmpty(c *gc.C) {
+func (s *diffSuite) TestRelationsNotEmpty(c *tc.C) {
 	diff := &bundlechanges.BundleDiff{}
 	diff.Relations = &bundlechanges.RelationsDiff{
 		BundleAdditions: [][]string{
@@ -162,7 +162,7 @@ func (s *diffSuite) TestRelationsNotEmpty(c *gc.C) {
 	c.Assert(diff.Empty(), jc.IsFalse)
 }
 
-func (s *diffSuite) TestModelMissingApplication(c *gc.C) {
+func (s *diffSuite) TestModelMissingApplication(c *tc.C) {
 	bundleContent := `
         applications:
             prometheus:
@@ -190,7 +190,7 @@ func (s *diffSuite) TestModelMissingApplication(c *gc.C) {
 	s.checkDiff(c, bundleContent, model, expectedDiff)
 }
 
-func (s *diffSuite) TestBundleMissingApplication(c *gc.C) {
+func (s *diffSuite) TestBundleMissingApplication(c *tc.C) {
 	bundleContent := `
         applications:
             memcached:
@@ -241,7 +241,7 @@ func (s *diffSuite) TestBundleMissingApplication(c *gc.C) {
 	s.checkDiff(c, bundleContent, model, expectedDiff)
 }
 
-func (s *diffSuite) TestMissingApplicationBoth(c *gc.C) {
+func (s *diffSuite) TestMissingApplicationBoth(c *tc.C) {
 	bundleContent := `
         applications:
             memcached:
@@ -282,7 +282,7 @@ func (s *diffSuite) TestMissingApplicationBoth(c *gc.C) {
 	s.checkDiff(c, bundleContent, model, expectedDiff)
 }
 
-func (s *diffSuite) TestApplicationCharm(c *gc.C) {
+func (s *diffSuite) TestApplicationCharm(c *tc.C) {
 	bundleContent := `
         applications:
             prometheus:
@@ -328,7 +328,7 @@ func (s *diffSuite) TestApplicationCharm(c *gc.C) {
 	s.checkDiff(c, bundleContent, model, expectedDiff)
 }
 
-func (s *diffSuite) TestApplicationSeries(c *gc.C) {
+func (s *diffSuite) TestApplicationSeries(c *tc.C) {
 	bundleContent := `
         applications:
             prometheus:
@@ -375,7 +375,7 @@ func (s *diffSuite) TestApplicationSeries(c *gc.C) {
 	s.checkDiff(c, bundleContent, model, expectedDiff)
 }
 
-func (s *diffSuite) TestApplicationChannel(c *gc.C) {
+func (s *diffSuite) TestApplicationChannel(c *tc.C) {
 	bundleContent := `
         applications:
             prometheus:
@@ -421,7 +421,7 @@ func (s *diffSuite) TestApplicationChannel(c *gc.C) {
 	s.checkDiff(c, bundleContent, model, expectedDiff)
 }
 
-func (s *diffSuite) TestApplicationNumUnits(c *gc.C) {
+func (s *diffSuite) TestApplicationNumUnits(c *tc.C) {
 	bundleContent := `
         applications:
             prometheus:
@@ -466,7 +466,7 @@ func (s *diffSuite) TestApplicationNumUnits(c *gc.C) {
 	s.checkDiff(c, bundleContent, model, expectedDiff)
 }
 
-func (s *diffSuite) TestApplicationScale(c *gc.C) {
+func (s *diffSuite) TestApplicationScale(c *tc.C) {
 	bundleContent := `
         bundle: kubernetes
         applications:
@@ -504,7 +504,7 @@ func (s *diffSuite) TestApplicationScale(c *gc.C) {
 	s.checkDiff(c, bundleContent, model, expectedDiff)
 }
 
-func (s *diffSuite) TestApplicationSubordinateNumUnits(c *gc.C) {
+func (s *diffSuite) TestApplicationSubordinateNumUnits(c *tc.C) {
 	bundleContent := `
         applications:
             prometheus:
@@ -569,7 +569,7 @@ func (s *diffSuite) TestApplicationSubordinateNumUnits(c *gc.C) {
 	s.checkDiff(c, bundleContent, model, expectedDiff)
 }
 
-func (s *diffSuite) TestApplicationConstraints(c *gc.C) {
+func (s *diffSuite) TestApplicationConstraints(c *tc.C) {
 	bundleContent := `
         applications:
             prometheus:
@@ -615,7 +615,7 @@ func (s *diffSuite) TestApplicationConstraints(c *gc.C) {
 	s.checkDiff(c, bundleContent, model, expectedDiff)
 }
 
-func (s *diffSuite) TestBundleSeries(c *gc.C) {
+func (s *diffSuite) TestBundleSeries(c *tc.C) {
 	bundleContent := `
         default-base: ubuntu@20.04/stable
         applications:
@@ -655,7 +655,7 @@ func (s *diffSuite) TestBundleSeries(c *gc.C) {
 	s.checkDiff(c, bundleContent, model, expectedDiff)
 }
 
-func (s *diffSuite) TestNoBundleSeries(c *gc.C) {
+func (s *diffSuite) TestNoBundleSeries(c *tc.C) {
 	bundleContent := `
         applications:
             prometheus:
@@ -703,7 +703,7 @@ func (s *diffSuite) TestNoBundleSeries(c *gc.C) {
 	s.checkDiff(c, bundleContent, model, expectedDiff)
 }
 
-func (s *diffSuite) TestApplicationOptions(c *gc.C) {
+func (s *diffSuite) TestApplicationOptions(c *tc.C) {
 	bundleContent := `
         applications:
             prometheus:
@@ -756,7 +756,7 @@ func (s *diffSuite) TestApplicationOptions(c *gc.C) {
 	s.checkDiff(c, bundleContent, model, expectedDiff)
 }
 
-func (s *diffSuite) TestApplicationAnnotations(c *gc.C) {
+func (s *diffSuite) TestApplicationAnnotations(c *tc.C) {
 	bundleContent := `
         applications:
             prometheus:
@@ -807,7 +807,7 @@ func (s *diffSuite) TestApplicationAnnotations(c *gc.C) {
 	s.checkDiff(c, bundleContent, model, expectedDiff)
 }
 
-func (s *diffSuite) TestApplicationAnnotationsWithOptionOff(c *gc.C) {
+func (s *diffSuite) TestApplicationAnnotationsWithOptionOff(c *tc.C) {
 	bundleContent := `
         applications:
             prometheus:
@@ -856,7 +856,7 @@ func (s *diffSuite) TestApplicationAnnotationsWithOptionOff(c *gc.C) {
 	s.checkDiffImpl(c, config, expectedDiff, "")
 }
 
-func (s *diffSuite) TestApplicationExpose(c *gc.C) {
+func (s *diffSuite) TestApplicationExpose(c *tc.C) {
 	bundleContent := `
         applications:
             prometheus:
@@ -911,7 +911,7 @@ func (s *diffSuite) TestApplicationExpose(c *gc.C) {
 	s.checkDiff(c, bundleContent, model, expectedDiff)
 }
 
-func (s *diffSuite) TestApplicationExposeImplicitCIDRs(c *gc.C) {
+func (s *diffSuite) TestApplicationExposeImplicitCIDRs(c *tc.C) {
 	bundleContent := `
         applications:
             prometheus:
@@ -970,7 +970,7 @@ func (s *diffSuite) TestApplicationExposeImplicitCIDRs(c *gc.C) {
 	s.checkDiff(c, bundleContent, model, expectedDiff)
 }
 
-func (s *diffSuite) TestApplicationPlacement(c *gc.C) {
+func (s *diffSuite) TestApplicationPlacement(c *tc.C) {
 	bundleContent := `
         bundle: kubernetes
         applications:
@@ -1008,7 +1008,7 @@ func (s *diffSuite) TestApplicationPlacement(c *gc.C) {
 	s.checkDiff(c, bundleContent, model, expectedDiff)
 }
 
-func (s *diffSuite) TestModelMissingMachine(c *gc.C) {
+func (s *diffSuite) TestModelMissingMachine(c *tc.C) {
 	bundleContent := `
         applications:
             prometheus:
@@ -1051,7 +1051,7 @@ func (s *diffSuite) TestModelMissingMachine(c *gc.C) {
 	s.checkDiff(c, bundleContent, model, expectedDiff)
 }
 
-func (s *diffSuite) TestBundleMissingMachine(c *gc.C) {
+func (s *diffSuite) TestBundleMissingMachine(c *tc.C) {
 	bundleContent := `
         applications:
             prometheus:
@@ -1094,7 +1094,7 @@ func (s *diffSuite) TestBundleMissingMachine(c *gc.C) {
 	s.checkDiff(c, bundleContent, model, expectedDiff)
 }
 
-func (s *diffSuite) TestMachineSeries(c *gc.C) {
+func (s *diffSuite) TestMachineSeries(c *tc.C) {
 	bundleContent := `
         applications:
             prometheus:
@@ -1141,7 +1141,7 @@ func (s *diffSuite) TestMachineSeries(c *gc.C) {
 	s.checkDiff(c, bundleContent, model, expectedDiff)
 }
 
-func (s *diffSuite) TestMachineAnnotations(c *gc.C) {
+func (s *diffSuite) TestMachineAnnotations(c *tc.C) {
 	bundleContent := `
         applications:
             prometheus:
@@ -1193,7 +1193,7 @@ func (s *diffSuite) TestMachineAnnotations(c *gc.C) {
 	s.checkDiff(c, bundleContent, model, expectedDiff)
 }
 
-func (s *diffSuite) TestMachineAnnotationsWithOptionOff(c *gc.C) {
+func (s *diffSuite) TestMachineAnnotationsWithOptionOff(c *tc.C) {
 	bundleContent := `
         applications:
             prometheus:
@@ -1242,7 +1242,7 @@ func (s *diffSuite) TestMachineAnnotationsWithOptionOff(c *gc.C) {
 	s.checkDiffImpl(c, config, expectedDiff, "")
 }
 
-func (s *diffSuite) TestRelations(c *gc.C) {
+func (s *diffSuite) TestRelations(c *tc.C) {
 	bundleContent := `
         applications:
             memcached:
@@ -1324,7 +1324,7 @@ func (s *diffSuite) TestRelations(c *gc.C) {
 	s.checkDiff(c, bundleContent, model, expectedDiff)
 }
 
-func (s *diffSuite) TestRelationsWithMissingEndpoints(c *gc.C) {
+func (s *diffSuite) TestRelationsWithMissingEndpoints(c *tc.C) {
 	bundleContent := `
         applications:
             memcached:
@@ -1394,7 +1394,7 @@ func (s *diffSuite) TestRelationsWithMissingEndpoints(c *gc.C) {
 	s.checkDiff(c, bundleContent, model, expectedDiff)
 }
 
-func (s *diffSuite) TestValidationMissingBundle(c *gc.C) {
+func (s *diffSuite) TestValidationMissingBundle(c *tc.C) {
 	config := bundlechanges.DiffConfig{
 		Bundle: nil,
 		Model:  &bundlechanges.Model{},
@@ -1403,7 +1403,7 @@ func (s *diffSuite) TestValidationMissingBundle(c *gc.C) {
 	s.checkDiffImpl(c, config, nil, "nil bundle not valid")
 }
 
-func (s *diffSuite) TestValidationMissingModel(c *gc.C) {
+func (s *diffSuite) TestValidationMissingModel(c *tc.C) {
 	bundleContent := `
         applications:
             prometheus:
@@ -1424,7 +1424,7 @@ func (s *diffSuite) TestValidationMissingModel(c *gc.C) {
 	s.checkDiffImpl(c, config, nil, "nil model not valid")
 }
 
-func (s *diffSuite) TestValidationMissingLogger(c *gc.C) {
+func (s *diffSuite) TestValidationMissingLogger(c *tc.C) {
 	bundleContent := `
         applications:
             prometheus:
@@ -1445,7 +1445,7 @@ func (s *diffSuite) TestValidationMissingLogger(c *gc.C) {
 	s.checkDiffImpl(c, config, nil, "nil logger not valid")
 }
 
-func (s *diffSuite) TestValidationInvalidBundle(c *gc.C) {
+func (s *diffSuite) TestValidationInvalidBundle(c *tc.C) {
 	config := bundlechanges.DiffConfig{
 		Bundle: &charm.BundleData{},
 		Model:  &bundlechanges.Model{},
@@ -1454,7 +1454,7 @@ func (s *diffSuite) TestValidationInvalidBundle(c *gc.C) {
 	s.checkDiffImpl(c, config, nil, "at least one application must be specified")
 }
 
-func (s *diffSuite) checkDiff(c *gc.C, bundleContent string, model *bundlechanges.Model, expected *bundlechanges.BundleDiff) {
+func (s *diffSuite) checkDiff(c *tc.C, bundleContent string, model *bundlechanges.Model, expected *bundlechanges.BundleDiff) {
 	config := bundlechanges.DiffConfig{
 		Bundle:             s.readBundle(c, bundleContent),
 		Model:              model,
@@ -1464,12 +1464,12 @@ func (s *diffSuite) checkDiff(c *gc.C, bundleContent string, model *bundlechange
 	s.checkDiffImpl(c, config, expected, "")
 }
 
-func (s *diffSuite) checkDiffImpl(c *gc.C, config bundlechanges.DiffConfig, expected *bundlechanges.BundleDiff, errMatch string) {
+func (s *diffSuite) checkDiffImpl(c *tc.C, config bundlechanges.DiffConfig, expected *bundlechanges.BundleDiff, errMatch string) {
 
 	diff, err := bundlechanges.BuildDiff(config)
 	if errMatch != "" {
-		c.Assert(err, gc.ErrorMatches, errMatch)
-		c.Assert(diff, gc.IsNil)
+		c.Assert(err, tc.ErrorMatches, errMatch)
+		c.Assert(diff, tc.IsNil)
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
 		//diffOut, err := yaml.Marshal(diff)
@@ -1478,11 +1478,11 @@ func (s *diffSuite) checkDiffImpl(c *gc.C, config bundlechanges.DiffConfig, expe
 		//expectedOut, err := yaml.Marshal(expected)
 		//c.Assert(err, jc.ErrorIsNil)
 		c.Logf("expected: %s", pretty.Sprint(expected))
-		c.Assert(diff, gc.DeepEquals, expected)
+		c.Assert(diff, tc.DeepEquals, expected)
 	}
 }
 
-func (s *diffSuite) readBundle(c *gc.C, bundleContent string) *charm.BundleData {
+func (s *diffSuite) readBundle(c *tc.C, bundleContent string) *charm.BundleData {
 	data, err := charm.ReadBundleData(strings.NewReader(bundleContent))
 	c.Assert(err, jc.ErrorIsNil)
 	err = data.Verify(nil, nil, nil)

@@ -14,10 +14,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/agent"
@@ -36,9 +36,9 @@ type nodeManagerSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&nodeManagerSuite{})
+var _ = tc.Suite(&nodeManagerSuite{})
 
-func (s *nodeManagerSuite) SetUpTest(c *gc.C) {
+func (s *nodeManagerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	if !dqlite.Enabled {
@@ -46,36 +46,36 @@ func (s *nodeManagerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *nodeManagerSuite) TestEnsureDataDirSuccess(c *gc.C) {
+func (s *nodeManagerSuite) TestEnsureDataDirSuccess(c *tc.C) {
 	subDir := strconv.Itoa(rand.Intn(10))
 
 	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
 	m := NewNodeManager(cfg, true, loggertesting.WrapCheckLog(c), coredatabase.NoopSlowQueryLogger{})
 
 	expected := fmt.Sprintf("/tmp/%s/%s", subDir, dqliteDataDir)
-	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
+	s.AddCleanup(func(*tc.C) { _ = os.RemoveAll(cfg.DataDir()) })
 
 	// Call twice to check both the creation and extant scenarios.
 	dir, err := m.EnsureDataDir()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(dir, gc.Equals, expected)
+	c.Check(dir, tc.Equals, expected)
 
 	_, err = os.Stat(expected)
 	c.Assert(err, jc.ErrorIsNil)
 
 	dir, err = m.EnsureDataDir()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(dir, gc.Equals, expected)
+	c.Check(dir, tc.Equals, expected)
 
 	_, err = os.Stat(expected)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *nodeManagerSuite) TestIsLoopbackPreferred(c *gc.C) {
+func (s *nodeManagerSuite) TestIsLoopbackPreferred(c *tc.C) {
 	subDir := strconv.Itoa(rand.Intn(10))
 
 	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
-	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
+	s.AddCleanup(func(*tc.C) { _ = os.RemoveAll(cfg.DataDir()) })
 
 	// Check to see if the loopback address is preferred.
 	// This is only set during the construction, so we need to create multiple
@@ -92,11 +92,11 @@ func (s *nodeManagerSuite) TestIsLoopbackPreferred(c *gc.C) {
 	c.Check(ok, jc.IsFalse)
 }
 
-func (s *nodeManagerSuite) TestIsExistingNode(c *gc.C) {
+func (s *nodeManagerSuite) TestIsExistingNode(c *tc.C) {
 	subDir := strconv.Itoa(rand.Intn(10))
 
 	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
-	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
+	s.AddCleanup(func(*tc.C) { _ = os.RemoveAll(cfg.DataDir()) })
 
 	m := NewNodeManager(cfg, true, loggertesting.WrapCheckLog(c), coredatabase.NoopSlowQueryLogger{})
 
@@ -118,11 +118,11 @@ func (s *nodeManagerSuite) TestIsExistingNode(c *gc.C) {
 	c.Check(extant, jc.IsTrue)
 }
 
-func (s *nodeManagerSuite) TestIsBootstrappedNode(c *gc.C) {
+func (s *nodeManagerSuite) TestIsBootstrappedNode(c *tc.C) {
 	subDir := strconv.Itoa(rand.Intn(10))
 
 	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
-	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
+	s.AddCleanup(func(*tc.C) { _ = os.RemoveAll(cfg.DataDir()) })
 
 	m := NewNodeManager(cfg, true, loggertesting.WrapCheckLog(c), coredatabase.NoopSlowQueryLogger{})
 	ctx := context.Background()
@@ -183,11 +183,11 @@ func (s *nodeManagerSuite) TestIsBootstrappedNode(c *gc.C) {
 	c.Check(asBootstrapped, jc.IsTrue)
 }
 
-func (s *nodeManagerSuite) TestSetClusterServersSuccess(c *gc.C) {
+func (s *nodeManagerSuite) TestSetClusterServersSuccess(c *tc.C) {
 	subDir := strconv.Itoa(rand.Intn(10))
 
 	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
-	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
+	s.AddCleanup(func(*tc.C) { _ = os.RemoveAll(cfg.DataDir()) })
 
 	m := NewNodeManager(cfg, true, loggertesting.WrapCheckLog(c), coredatabase.NoopSlowQueryLogger{})
 	ctx := context.Background()
@@ -228,11 +228,11 @@ func (s *nodeManagerSuite) TestSetClusterServersSuccess(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, servers)
 }
 
-func (s *nodeManagerSuite) TestSetGetNodeInfoSuccess(c *gc.C) {
+func (s *nodeManagerSuite) TestSetGetNodeInfoSuccess(c *tc.C) {
 	subDir := strconv.Itoa(rand.Intn(10))
 
 	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
-	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
+	s.AddCleanup(func(*tc.C) { _ = os.RemoveAll(cfg.DataDir()) })
 
 	m := NewNodeManager(cfg, true, loggertesting.WrapCheckLog(c), coredatabase.NoopSlowQueryLogger{})
 	dataDir, err := m.EnsureDataDir()
@@ -266,11 +266,11 @@ Role: 0
 	c.Assert(result, jc.DeepEquals, server)
 }
 
-func (s *nodeManagerSuite) TestSetClusterToLocalNodeSuccess(c *gc.C) {
+func (s *nodeManagerSuite) TestSetClusterToLocalNodeSuccess(c *tc.C) {
 	subDir := strconv.Itoa(rand.Intn(10))
 
 	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
-	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
+	s.AddCleanup(func(*tc.C) { _ = os.RemoveAll(cfg.DataDir()) })
 
 	m := NewNodeManager(cfg, true, loggertesting.WrapCheckLog(c), coredatabase.NoopSlowQueryLogger{})
 	ctx := context.Background()
@@ -301,10 +301,10 @@ func (s *nodeManagerSuite) TestSetClusterToLocalNodeSuccess(c *gc.C) {
 
 	newServers, err := m.ClusterServers(ctx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(newServers, gc.DeepEquals, []dqlite.NodeInfo{servers[0]})
+	c.Check(newServers, tc.DeepEquals, []dqlite.NodeInfo{servers[0]})
 }
 
-func (s *nodeManagerSuite) TestWithAddressOptionIPv4Success(c *gc.C) {
+func (s *nodeManagerSuite) TestWithAddressOptionIPv4Success(c *tc.C) {
 	m := NewNodeManager(nil, true, loggertesting.WrapCheckLog(c), coredatabase.NoopSlowQueryLogger{})
 	m.port = dqlitetesting.FindTCPPort(c)
 
@@ -315,7 +315,7 @@ func (s *nodeManagerSuite) TestWithAddressOptionIPv4Success(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *nodeManagerSuite) TestWithAddressOptionIPv6Success(c *gc.C) {
+func (s *nodeManagerSuite) TestWithAddressOptionIPv6Success(c *tc.C) {
 	m := NewNodeManager(nil, true, loggertesting.WrapCheckLog(c), coredatabase.NoopSlowQueryLogger{})
 	m.port = dqlitetesting.FindTCPPort(c)
 
@@ -326,7 +326,7 @@ func (s *nodeManagerSuite) TestWithAddressOptionIPv6Success(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *nodeManagerSuite) TestWithTLSOptionSuccess(c *gc.C) {
+func (s *nodeManagerSuite) TestWithTLSOptionSuccess(c *tc.C) {
 	cfg := fakeAgentConfig{}
 	m := NewNodeManager(cfg, true, loggertesting.WrapCheckLog(c), coredatabase.NoopSlowQueryLogger{})
 
@@ -340,7 +340,7 @@ func (s *nodeManagerSuite) TestWithTLSOptionSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *nodeManagerSuite) TestWithClusterOptionIPv4Success(c *gc.C) {
+func (s *nodeManagerSuite) TestWithClusterOptionIPv4Success(c *tc.C) {
 	cfg := fakeAgentConfig{}
 	m := NewNodeManager(cfg, true, loggertesting.WrapCheckLog(c), coredatabase.NoopSlowQueryLogger{})
 
@@ -351,7 +351,7 @@ func (s *nodeManagerSuite) TestWithClusterOptionIPv4Success(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *nodeManagerSuite) TestWithClusterOptionIPv6Success(c *gc.C) {
+func (s *nodeManagerSuite) TestWithClusterOptionIPv6Success(c *tc.C) {
 	cfg := fakeAgentConfig{}
 	m := NewNodeManager(cfg, true, loggertesting.WrapCheckLog(c), coredatabase.NoopSlowQueryLogger{})
 
@@ -362,7 +362,7 @@ func (s *nodeManagerSuite) TestWithClusterOptionIPv6Success(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *nodeManagerSuite) TestWithPreferredCloudLocalAddressOptionNoAddrFallback(c *gc.C) {
+func (s *nodeManagerSuite) TestWithPreferredCloudLocalAddressOptionNoAddrFallback(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -379,13 +379,13 @@ func (s *nodeManagerSuite) TestWithPreferredCloudLocalAddressOptionNoAddrFallbac
 	dqliteApp, err := app.New(c.MkDir(), opt)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(strings.Split(dqliteApp.Address(), ":")[0], gc.Equals, "127.0.0.1")
+	c.Check(strings.Split(dqliteApp.Address(), ":")[0], tc.Equals, "127.0.0.1")
 
 	err = dqliteApp.Close()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *nodeManagerSuite) TestWithPreferredCloudLocalAddressOptionSingleAddrSuccess(c *gc.C) {
+func (s *nodeManagerSuite) TestWithPreferredCloudLocalAddressOptionSingleAddrSuccess(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -427,7 +427,7 @@ func (s *nodeManagerSuite) TestWithPreferredCloudLocalAddressOptionSingleAddrSuc
 	if err != nil {
 		c.Check(err.Error(), jc.Contains, localCloudIP)
 	} else {
-		c.Check(strings.Split(dqliteApp.Address(), ":")[0], gc.Equals, localCloudIP)
+		c.Check(strings.Split(dqliteApp.Address(), ":")[0], tc.Equals, localCloudIP)
 		err = dqliteApp.Close()
 		c.Assert(err, jc.ErrorIsNil)
 	}
@@ -473,9 +473,9 @@ type slowQuerySuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&slowQuerySuite{})
+var _ = tc.Suite(&slowQuerySuite{})
 
-func (s *slowQuerySuite) TestSlowQueryParsing(c *gc.C) {
+func (s *slowQuerySuite) TestSlowQueryParsing(c *tc.C) {
 	tests := []struct {
 		name              string
 		msg               string
@@ -584,7 +584,7 @@ func (s *slowQuerySuite) TestSlowQueryParsing(c *gc.C) {
 		c.Logf("test %q", test.name)
 		queryType, duration, stmt := parseSlowQuery(test.msg, test.args, test.threshold)
 		c.Assert(queryType, jc.DeepEquals, test.expectedQueryType)
-		c.Assert(duration, gc.Equals, test.expectedDuration)
-		c.Assert(stmt, gc.Equals, test.expectedStmt)
+		c.Assert(duration, tc.Equals, test.expectedDuration)
+		c.Assert(stmt, tc.Equals, test.expectedStmt)
 	}
 }

@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/core/crossmodel"
@@ -28,9 +28,9 @@ type ConsumeSuite struct {
 	store   *jujuclient.MemStore
 }
 
-var _ = gc.Suite(&ConsumeSuite{})
+var _ = tc.Suite(&ConsumeSuite{})
 
-func (s *ConsumeSuite) SetUpTest(c *gc.C) {
+func (s *ConsumeSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.mockAPI = &mockConsumeAPI{Stub: &testing.Stub{}}
 
@@ -52,21 +52,21 @@ func (s *ConsumeSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *ConsumeSuite) runConsume(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *ConsumeSuite) runConsume(c *tc.C, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, application.NewConsumeCommandForTest(s.store, s.mockAPI, s.mockAPI), args...)
 }
 
-func (s *ConsumeSuite) TestNoArguments(c *gc.C) {
+func (s *ConsumeSuite) TestNoArguments(c *tc.C) {
 	_, err := s.runConsume(c)
-	c.Assert(err, gc.ErrorMatches, "no remote offer specified")
+	c.Assert(err, tc.ErrorMatches, "no remote offer specified")
 }
 
-func (s *ConsumeSuite) TestTooManyArguments(c *gc.C) {
+func (s *ConsumeSuite) TestTooManyArguments(c *tc.C) {
 	_, err := s.runConsume(c, "model.application", "alias", "something else")
-	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["something else"\]`, gc.Commentf("details: %s", errors.Details(err)))
+	c.Assert(err, tc.ErrorMatches, `unrecognized args: \["something else"\]`, tc.Commentf("details: %s", errors.Details(err)))
 }
 
-func (s *ConsumeSuite) TestInvalidRemoteApplication(c *gc.C) {
+func (s *ConsumeSuite) TestInvalidRemoteApplication(c *tc.C) {
 	badApplications := []string{
 		"application",
 		"user/model.application:endpoint",
@@ -80,13 +80,13 @@ func (s *ConsumeSuite) TestInvalidRemoteApplication(c *gc.C) {
 	}
 }
 
-func (s *ConsumeSuite) TestErrorFromAPI(c *gc.C) {
+func (s *ConsumeSuite) TestErrorFromAPI(c *tc.C) {
 	s.mockAPI.SetErrors(errors.New("infirmary"))
 	_, err := s.runConsume(c, "model.application")
-	c.Assert(err, gc.ErrorMatches, "infirmary")
+	c.Assert(err, tc.ErrorMatches, "infirmary")
 }
 
-func (s *ConsumeSuite) TestConsumeBlocked(c *gc.C) {
+func (s *ConsumeSuite) TestConsumeBlocked(c *tc.C) {
 	s.mockAPI.SetErrors(nil, &params.Error{Code: params.CodeOperationBlocked, Message: "nope"})
 	_, err := s.runConsume(c, "model.application")
 	s.mockAPI.CheckCallNames(c, "GetConsumeDetails", "Consume", "Close", "Close")
@@ -94,7 +94,7 @@ func (s *ConsumeSuite) TestConsumeBlocked(c *gc.C) {
 	c.Assert(err.Error(), jc.Contains, `All operations that change model have been disabled for the current model.`)
 }
 
-func (s *ConsumeSuite) assertSuccessModelDotApplication(c *gc.C, alias string) {
+func (s *ConsumeSuite) assertSuccessModelDotApplication(c *tc.C, alias string) {
 	s.mockAPI.localName = "mary-weep"
 	var (
 		ctx *cmd.Context
@@ -125,14 +125,14 @@ func (s *ConsumeSuite) assertSuccessModelDotApplication(c *gc.C, alias string) {
 		{"Close", nil},
 		{"Close", nil},
 	})
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Added ctrl:bob/booster.uke as mary-weep\n")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "Added ctrl:bob/booster.uke as mary-weep\n")
 }
 
-func (s *ConsumeSuite) TestSuccessModelDotApplication(c *gc.C) {
+func (s *ConsumeSuite) TestSuccessModelDotApplication(c *tc.C) {
 	s.assertSuccessModelDotApplication(c, "")
 }
 
-func (s *ConsumeSuite) TestSuccessModelDotApplicationWithAlias(c *gc.C) {
+func (s *ConsumeSuite) TestSuccessModelDotApplicationWithAlias(c *tc.C) {
 	s.assertSuccessModelDotApplication(c, "alias")
 }
 

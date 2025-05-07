@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/clock"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
@@ -31,9 +31,9 @@ type charmSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = gc.Suite(&charmSuite{})
+var _ = tc.Suite(&charmSuite{})
 
-func (s *charmSuite) TestSetCharmWithArchitecture(c *gc.C) {
+func (s *charmSuite) TestSetCharmWithArchitecture(c *tc.C) {
 	service := s.setupService(c)
 
 	// We can't use the architecture from the manifest, as there may not be one.
@@ -71,10 +71,10 @@ func (s *charmSuite) TestSetCharmWithArchitecture(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(locator.Architecture, gc.Equals, architecture.ARM64)
+	c.Assert(locator.Architecture, tc.Equals, architecture.ARM64)
 }
 
-func (s *charmSuite) TestSetCharmWithoutArchitecture(c *gc.C) {
+func (s *charmSuite) TestSetCharmWithoutArchitecture(c *tc.C) {
 	service := s.setupService(c)
 
 	// We can't use the architecture from the manifest, as there may not be one.
@@ -111,10 +111,10 @@ func (s *charmSuite) TestSetCharmWithoutArchitecture(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(locator.Architecture, gc.Equals, architecture.Unknown)
+	c.Assert(locator.Architecture, tc.Equals, architecture.Unknown)
 }
 
-func (s *charmSuite) setupService(c *gc.C) *service.Service {
+func (s *charmSuite) setupService(c *tc.C) *service.Service {
 	modelDB := func() (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}

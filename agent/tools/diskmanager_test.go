@@ -9,8 +9,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/core/semversion"
@@ -18,7 +18,7 @@ import (
 	coretools "github.com/juju/juju/internal/tools"
 )
 
-var _ = gc.Suite(&DiskManagerSuite{})
+var _ = tc.Suite(&DiskManagerSuite{})
 
 var _ agenttools.ToolsManager = (*agenttools.DiskManager)(nil)
 
@@ -28,7 +28,7 @@ type DiskManagerSuite struct {
 	manager agenttools.ToolsManager
 }
 
-func (s *DiskManagerSuite) SetUpTest(c *gc.C) {
+func (s *DiskManagerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.dataDir = c.MkDir()
 	s.manager = agenttools.NewDiskManager(s.dataDir)
@@ -40,7 +40,7 @@ func (s *DiskManagerSuite) toolsDir() string {
 }
 
 // Copied from environs/agent/tools_test.go
-func (s *DiskManagerSuite) TestUnpackToolsContents(c *gc.C) {
+func (s *DiskManagerSuite) TestUnpackToolsContents(c *tc.C) {
 	files := []*coretesting.TarFile{
 		coretesting.NewTarFile("amd64", agenttools.DirPerm, "bar contents"),
 		coretesting.NewTarFile("quantal", agenttools.DirPerm, "foo contents"),
@@ -77,15 +77,15 @@ func (s *DiskManagerSuite) TestUnpackToolsContents(c *gc.C) {
 	s.assertToolsContents(c, t1, files)
 }
 
-func (t *DiskManagerSuite) TestSharedToolsDir(c *gc.C) {
+func (t *DiskManagerSuite) TestSharedToolsDir(c *tc.C) {
 	manager := agenttools.NewDiskManager("/var/lib/juju")
 	dir := manager.SharedToolsDir(semversion.MustParseBinary("1.2.3-ubuntu-amd64"))
-	c.Assert(dir, gc.Equals, "/var/lib/juju/tools/1.2.3-ubuntu-amd64")
+	c.Assert(dir, tc.Equals, "/var/lib/juju/tools/1.2.3-ubuntu-amd64")
 }
 
 // assertToolsContents asserts that the directory for the tools
 // has the given contents.
-func (s *DiskManagerSuite) assertToolsContents(c *gc.C, t *coretools.Tools, files []*coretesting.TarFile) {
+func (s *DiskManagerSuite) assertToolsContents(c *tc.C, t *coretools.Tools, files []*coretesting.TarFile) {
 	var wantNames []string
 	for _, f := range files {
 		wantNames = append(wantNames, f.Header.Name)
@@ -101,9 +101,9 @@ func (s *DiskManagerSuite) assertToolsContents(c *gc.C, t *coretools.Tools, file
 	}
 	gotTools, err := s.manager.ReadTools(t.Version)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*gotTools, gc.Equals, *t)
+	c.Assert(*gotTools, tc.Equals, *t)
 	// Make sure that the tools directory is readable by the ubuntu user (for juju-exec).
 	info, err := os.Stat(dir)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.Mode().Perm(), gc.Equals, agenttools.DirPerm)
+	c.Assert(info.Mode().Perm(), tc.Equals, agenttools.DirPerm)
 }

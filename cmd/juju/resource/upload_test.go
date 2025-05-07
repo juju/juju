@@ -8,9 +8,9 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&UploadSuite{})
+var _ = tc.Suite(&UploadSuite{})
 
 type UploadSuite struct {
 	testing.IsolationSuite
@@ -28,7 +28,7 @@ type UploadSuite struct {
 	stubDeps *stubUploadDeps
 }
 
-func (s *UploadSuite) SetUpTest(c *gc.C) {
+func (s *UploadSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.stub = &testing.Stub{}
@@ -38,72 +38,72 @@ func (s *UploadSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (*UploadSuite) TestInitEmpty(c *gc.C) {
+func (*UploadSuite) TestInitEmpty(c *tc.C) {
 	var u resourcecmd.UploadCommand
 
 	err := u.Init([]string{})
 	c.Assert(err, jc.ErrorIs, errors.BadRequest)
 }
 
-func (s *UploadSuite) TestInitOneArg(c *gc.C) {
+func (s *UploadSuite) TestInitOneArg(c *tc.C) {
 	u := resourcecmd.NewUploadCommandForTest(nil, s.stubDeps)
 	err := u.Init([]string{"foo"})
 	c.Assert(err, jc.ErrorIs, errors.BadRequest)
 }
 
-func (s *UploadSuite) TestInitJustName(c *gc.C) {
+func (s *UploadSuite) TestInitJustName(c *tc.C) {
 	u := resourcecmd.NewUploadCommandForTest(nil, s.stubDeps)
 
 	err := u.Init([]string{"foo", "bar"})
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *UploadSuite) TestInitNoName(c *gc.C) {
+func (s *UploadSuite) TestInitNoName(c *tc.C) {
 	u := resourcecmd.NewUploadCommandForTest(nil, s.stubDeps)
 
 	err := u.Init([]string{"foo", "=foobar"})
 	c.Assert(errors.Cause(err), jc.ErrorIs, errors.NotValid)
 }
 
-func (s *UploadSuite) TestInitNoPath(c *gc.C) {
+func (s *UploadSuite) TestInitNoPath(c *tc.C) {
 	u := resourcecmd.NewUploadCommandForTest(nil, s.stubDeps)
 
 	err := u.Init([]string{"foo", "foobar="})
 	c.Assert(errors.Cause(err), jc.ErrorIs, errors.NotValid)
 }
 
-func (s *UploadSuite) TestInitGood(c *gc.C) {
+func (s *UploadSuite) TestInitGood(c *tc.C) {
 	u := resourcecmd.NewUploadCommandForTest(nil, s.stubDeps)
 
 	err := u.Init([]string{"foo", "bar=baz"})
 	c.Assert(err, jc.ErrorIsNil)
 	svc, name, filename := resourcecmd.UploadCommandResourceValue(u)
-	c.Assert(svc, gc.Equals, "foo")
-	c.Assert(name, gc.Equals, "bar")
-	c.Assert(filename, gc.Equals, "baz")
-	c.Assert(resourcecmd.UploadCommandApplication(u), gc.Equals, "foo")
+	c.Assert(svc, tc.Equals, "foo")
+	c.Assert(name, tc.Equals, "bar")
+	c.Assert(filename, tc.Equals, "baz")
+	c.Assert(resourcecmd.UploadCommandApplication(u), tc.Equals, "foo")
 }
 
-func (s *UploadSuite) TestInitTwoResources(c *gc.C) {
+func (s *UploadSuite) TestInitTwoResources(c *tc.C) {
 	u := resourcecmd.NewUploadCommandForTest(nil, s.stubDeps)
 
 	err := u.Init([]string{"foo", "bar=baz", "fizz=buzz"})
-	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["fizz=buzz"\]`)
+	c.Assert(err, tc.ErrorMatches, `unrecognized args: \["fizz=buzz"\]`)
 }
 
-func (s *UploadSuite) TestInfo(c *gc.C) {
+func (s *UploadSuite) TestInfo(c *tc.C) {
 	var command resourcecmd.UploadCommand
 	info := command.Info()
 
 	// Verify that Info is wired up. Without verifying exact text.
-	c.Check(info.Name, gc.Equals, "attach-resource")
-	c.Check(info.Purpose, gc.Not(gc.Equals), "")
-	c.Check(info.Doc, gc.Not(gc.Equals), "")
-	c.Check(info.FlagKnownAs, gc.Not(gc.Equals), "")
+	c.Check(info.Name, tc.Equals, "attach-resource")
+	c.Check(info.Purpose, tc.Not(tc.Equals), "")
+	c.Check(info.Doc, tc.Not(tc.Equals), "")
+	c.Check(info.FlagKnownAs, tc.Not(tc.Equals), "")
 	c.Check(len(info.ShowSuperFlags), jc.GreaterThan, 2)
 }
 
-func (s *UploadSuite) TestUploadFileResource(c *gc.C) {
+func (s *UploadSuite) TestUploadFileResource(c *tc.C) {
 	file := &stubFile{stub: s.stub}
 	s.stubDeps.file = file
 	u := resourcecmd.NewUploadCommandForTest(s.stubDeps.NewClient, s.stubDeps)
@@ -126,7 +126,7 @@ func (s *UploadSuite) TestUploadFileResource(c *gc.C) {
 	s.stub.CheckCall(c, 3, "Upload", "svc", "foo", "bar", "", file)
 }
 
-func (s *UploadSuite) TestUploadFileChangeBlocked(c *gc.C) {
+func (s *UploadSuite) TestUploadFileChangeBlocked(c *tc.C) {
 	file := &stubFile{stub: s.stub}
 	s.stubDeps.file = file
 	u := resourcecmd.NewUploadCommandForTest(s.stubDeps.NewClient, s.stubDeps)
@@ -167,7 +167,7 @@ func (rsc) Seek(offset int64, whence int) (int64, error) {
 	return 0, nil
 }
 
-func (s *UploadSuite) TestUploadDockerResource(c *gc.C) {
+func (s *UploadSuite) TestUploadDockerResource(c *tc.C) {
 	fileContents := `
 registrypath: registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image
 username: docker-registry

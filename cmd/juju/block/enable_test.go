@@ -7,8 +7,8 @@ import (
 	"context"
 	"errors"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/internal/cmd"
@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
-var _ = gc.Suite(&enableCommandSuite{})
+var _ = tc.Suite(&enableCommandSuite{})
 
 type enableCommandSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
@@ -28,7 +28,7 @@ func (*enableCommandSuite) enableCommand(api *mockUnblockClient, err error) cmd.
 	return block.NewEnableCommandForTest(store, api, err)
 }
 
-func (s *enableCommandSuite) TestInit(c *gc.C) {
+func (s *enableCommandSuite) TestInit(c *tc.C) {
 	for _, test := range []struct {
 		args []string
 		err  string
@@ -54,18 +54,18 @@ func (s *enableCommandSuite) TestInit(c *gc.C) {
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
-			c.Check(err.Error(), gc.Equals, test.err)
+			c.Check(err.Error(), tc.Equals, test.err)
 		}
 	}
 }
 
-func (s *enableCommandSuite) TestRunGetAPIError(c *gc.C) {
+func (s *enableCommandSuite) TestRunGetAPIError(c *tc.C) {
 	cmd := s.enableCommand(nil, errors.New("boom"))
 	_, err := cmdtesting.RunCommand(c, cmd, "all")
-	c.Assert(err.Error(), gc.Equals, "cannot connect to the API: boom")
+	c.Assert(err.Error(), tc.Equals, "cannot connect to the API: boom")
 }
 
-func (s *enableCommandSuite) TestRun(c *gc.C) {
+func (s *enableCommandSuite) TestRun(c *tc.C) {
 	for _, test := range []struct {
 		args  []string
 		type_ string
@@ -83,15 +83,15 @@ func (s *enableCommandSuite) TestRun(c *gc.C) {
 		cmd := s.enableCommand(mockClient, nil)
 		_, err := cmdtesting.RunCommand(c, cmd, test.args...)
 		c.Check(err, jc.ErrorIsNil)
-		c.Check(mockClient.blockType, gc.Equals, test.type_)
+		c.Check(mockClient.blockType, tc.Equals, test.type_)
 	}
 }
 
-func (s *enableCommandSuite) TestRunError(c *gc.C) {
+func (s *enableCommandSuite) TestRunError(c *tc.C) {
 	mockClient := &mockUnblockClient{err: errors.New("boom")}
 	cmd := s.enableCommand(mockClient, nil)
 	_, err := cmdtesting.RunCommand(c, cmd, "all")
-	c.Check(err, gc.ErrorMatches, "boom")
+	c.Check(err, tc.ErrorMatches, "boom")
 }
 
 type mockUnblockClient struct {

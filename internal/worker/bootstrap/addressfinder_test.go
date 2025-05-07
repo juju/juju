@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -21,9 +21,9 @@ type addressFinderSuite struct {
 	instanceLister *MockInstanceLister
 }
 
-var _ = gc.Suite(&addressFinderSuite{})
+var _ = tc.Suite(&addressFinderSuite{})
 
-func (s *addressFinderSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *addressFinderSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.instanceLister = NewMockInstanceLister(ctrl)
 	return ctrl
@@ -32,7 +32,7 @@ func (s *addressFinderSuite) setupMocks(c *gc.C) *gomock.Controller {
 // TestBoostrapAddressFinderNotSupported is asserting that when a provider is
 // requested that doesn't support the [environs.InstanceLister] we get back a
 // default address set of "localhost".
-func (*addressFinderSuite) TestBootstrapAddressFinderNotSupported(c *gc.C) {
+func (*addressFinderSuite) TestBootstrapAddressFinderNotSupported(c *tc.C) {
 	expected := network.NewMachineAddresses([]string{"localhost"}).AsProviderAddresses()
 
 	addresses, err := BootstrapAddressFinder(
@@ -46,7 +46,7 @@ func (*addressFinderSuite) TestBootstrapAddressFinderNotSupported(c *gc.C) {
 
 // TestBootstrapAddressFinderProviderError is asserting that if getting a
 // provider produces an error that error is maintained back up the stack.
-func (*addressFinderSuite) TestBootstrapAddressFinderProviderError(c *gc.C) {
+func (*addressFinderSuite) TestBootstrapAddressFinderProviderError(c *tc.C) {
 	boom := errors.New("boom")
 	_, err := BootstrapAddressFinder(
 		func(_ context.Context) (environs.InstanceLister, error) {
@@ -58,7 +58,7 @@ func (*addressFinderSuite) TestBootstrapAddressFinderProviderError(c *gc.C) {
 
 // TestBootstrapAddressFinder is asserting the happy path of finding an instance
 // addresses via a provider.
-func (s *addressFinderSuite) TestBoostrapAddressFinder(c *gc.C) {
+func (s *addressFinderSuite) TestBoostrapAddressFinder(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 

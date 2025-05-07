@@ -9,12 +9,12 @@ import (
 	"time"
 
 	jujuerrors "github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
@@ -33,11 +33,11 @@ type workerSuite struct {
 	modelUUID model.UUID
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
-func (s *workerSuite) TestValidateConfig(c *gc.C) {
+func (s *workerSuite) TestValidateConfig(c *tc.C) {
 	cfg := s.getConfig()
-	c.Check(cfg.Validate(), gc.IsNil)
+	c.Check(cfg.Validate(), tc.IsNil)
 
 	cfg = s.getConfig()
 	cfg.ModelUUID = ""
@@ -52,7 +52,7 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, jujuerrors.NotValid)
 }
 
-func (s *workerSuite) TestStartAlive(c *gc.C) {
+func (s *workerSuite) TestStartAlive(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.modelService.EXPECT().GetModelLife(gomock.Any(), s.modelUUID).Return(life.Alive, nil)
@@ -77,7 +77,7 @@ func (s *workerSuite) TestStartAlive(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestStartDead(c *gc.C) {
+func (s *workerSuite) TestStartDead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.modelService.EXPECT().GetModelLife(gomock.Any(), s.modelUUID).Return(life.Dead, nil)
@@ -102,7 +102,7 @@ func (s *workerSuite) TestStartDead(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestStartError(c *gc.C) {
+func (s *workerSuite) TestStartError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.modelService.EXPECT().GetModelLife(gomock.Any(), s.modelUUID).Return(life.Alive, modelerrors.NotFound)
@@ -113,7 +113,7 @@ func (s *workerSuite) TestStartError(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
-func (s *workerSuite) TestWatchModelError(c *gc.C) {
+func (s *workerSuite) TestWatchModelError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.modelService.EXPECT().GetModelLife(gomock.Any(), s.modelUUID).Return(life.Alive, nil)
@@ -135,10 +135,10 @@ func (s *workerSuite) TestWatchModelError(c *gc.C) {
 	}
 
 	err := workertest.CheckKilled(c, w)
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *workerSuite) TestWatchModelStillAlive(c *gc.C) {
+func (s *workerSuite) TestWatchModelStillAlive(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.modelService.EXPECT().GetModelLife(gomock.Any(), s.modelUUID).Return(life.Alive, nil)
@@ -174,7 +174,7 @@ func (s *workerSuite) TestWatchModelStillAlive(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestWatchModelTransitionAliveToDying(c *gc.C) {
+func (s *workerSuite) TestWatchModelTransitionAliveToDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.modelService.EXPECT().GetModelLife(gomock.Any(), s.modelUUID).Return(life.Alive, nil)
@@ -211,7 +211,7 @@ func (s *workerSuite) TestWatchModelTransitionAliveToDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, dependency.ErrBounce)
 }
 
-func (s *workerSuite) TestWatchModelTransitionDyingToDead(c *gc.C) {
+func (s *workerSuite) TestWatchModelTransitionDyingToDead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.modelService.EXPECT().GetModelLife(gomock.Any(), s.modelUUID).Return(life.Dying, nil)
@@ -261,7 +261,7 @@ func (s *workerSuite) getConfig() Config {
 	}
 }
 
-func (s *workerSuite) newWorker(c *gc.C) *Worker {
+func (s *workerSuite) newWorker(c *tc.C) *Worker {
 	cfg := s.getConfig()
 
 	w, err := NewWorker(context.Background(), cfg)
@@ -270,7 +270,7 @@ func (s *workerSuite) newWorker(c *gc.C) *Worker {
 	return w.(*Worker)
 }
 
-func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.modelUUID = modeltesting.GenModelUUID(c)

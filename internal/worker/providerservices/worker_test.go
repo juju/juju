@@ -5,10 +5,10 @@ package providerservices
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
@@ -20,9 +20,9 @@ type workerSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
-func (s *workerSuite) TestValidateConfig(c *gc.C) {
+func (s *workerSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.getConfig()
@@ -58,22 +58,22 @@ func (s *workerSuite) getConfig() Config {
 	}
 }
 
-func (s *workerSuite) TestWorkerServicesGetter(c *gc.C) {
+func (s *workerSuite) TestWorkerServicesGetter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w := s.newWorker(c)
 	defer workertest.CleanKill(c, w)
 
 	srvFact, ok := w.(*servicesWorker)
-	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement servicesWorker"))
+	c.Assert(ok, jc.IsTrue, tc.Commentf("worker does not implement servicesWorker"))
 
 	factory := srvFact.ServicesGetter()
-	c.Assert(factory, gc.NotNil)
+	c.Assert(factory, tc.NotNil)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
+func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 	w, err := NewWorker(s.getConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	return w

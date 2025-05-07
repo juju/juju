@@ -7,9 +7,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/life"
@@ -22,9 +22,9 @@ type relationSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&relationSuite{})
+var _ = tc.Suite(&relationSuite{})
 
-func (s *relationSuite) TestRemoveRelationNoForceSuccess(c *gc.C) {
+func (s *relationSuite) TestRemoveRelationNoForceSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rUUID := newRelUUID(c)
@@ -42,7 +42,7 @@ func (s *relationSuite) TestRemoveRelationNoForceSuccess(c *gc.C) {
 	c.Assert(jobUUID.Validate(), jc.ErrorIsNil)
 }
 
-func (s *relationSuite) TestRemoveRelationForceNoWaitSuccess(c *gc.C) {
+func (s *relationSuite) TestRemoveRelationForceNoWaitSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rUUID := newRelUUID(c)
@@ -60,7 +60,7 @@ func (s *relationSuite) TestRemoveRelationForceNoWaitSuccess(c *gc.C) {
 	c.Assert(jobUUID.Validate(), jc.ErrorIsNil)
 }
 
-func (s *relationSuite) TestRemoveRelationForceWaitSuccess(c *gc.C) {
+func (s *relationSuite) TestRemoveRelationForceWaitSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rUUID := newRelUUID(c)
@@ -83,7 +83,7 @@ func (s *relationSuite) TestRemoveRelationForceWaitSuccess(c *gc.C) {
 	c.Assert(jobUUID.Validate(), jc.ErrorIsNil)
 }
 
-func (s *relationSuite) TestRemoveRelationNotFound(c *gc.C) {
+func (s *relationSuite) TestRemoveRelationNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rUUID := newRelUUID(c)
@@ -94,7 +94,7 @@ func (s *relationSuite) TestRemoveRelationNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-func (s *relationSuite) TestProcessRemovalJobInvalidJobType(c *gc.C) {
+func (s *relationSuite) TestProcessRemovalJobInvalidJobType(c *tc.C) {
 	var invalidJobType removal.JobType = 500
 
 	job := removal.Job{
@@ -105,7 +105,7 @@ func (s *relationSuite) TestProcessRemovalJobInvalidJobType(c *gc.C) {
 	c.Check(err, jc.ErrorIs, removalerrors.RemovalJobTypeNotValid)
 }
 
-func (s *relationSuite) TestExecuteJobForRelationNotFound(c *gc.C) {
+func (s *relationSuite) TestExecuteJobForRelationNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	j := newRelationJob(c)
@@ -118,7 +118,7 @@ func (s *relationSuite) TestExecuteJobForRelationNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *relationSuite) TestExecuteJobForRelationStillAlive(c *gc.C) {
+func (s *relationSuite) TestExecuteJobForRelationStillAlive(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	j := newRelationJob(c)
@@ -129,7 +129,7 @@ func (s *relationSuite) TestExecuteJobForRelationStillAlive(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, removalerrors.EntityStillAlive)
 }
 
-func (s *relationSuite) TestExecuteJobForRelationExistingScopes(c *gc.C) {
+func (s *relationSuite) TestExecuteJobForRelationExistingScopes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	j := newRelationJob(c)
@@ -142,7 +142,7 @@ func (s *relationSuite) TestExecuteJobForRelationExistingScopes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *relationSuite) TestExecuteJobForRelationNoScopes(c *gc.C) {
+func (s *relationSuite) TestExecuteJobForRelationNoScopes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	j := newRelationJob(c)
@@ -157,7 +157,7 @@ func (s *relationSuite) TestExecuteJobForRelationNoScopes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *relationSuite) TestExecuteJobForRelationForceDeletesScopes(c *gc.C) {
+func (s *relationSuite) TestExecuteJobForRelationForceDeletesScopes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	j := newRelationJob(c)
@@ -174,7 +174,7 @@ func (s *relationSuite) TestExecuteJobForRelationForceDeletesScopes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func newRelationJob(c *gc.C) removal.Job {
+func newRelationJob(c *tc.C) removal.Job {
 	jUUID, err := removal.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -185,7 +185,7 @@ func newRelationJob(c *gc.C) removal.Job {
 	}
 }
 
-func newRelUUID(c *gc.C) corerelation.UUID {
+func newRelUUID(c *tc.C) corerelation.UUID {
 	rUUID, err := corerelation.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	return rUUID

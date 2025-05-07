@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"google.golang.org/api/compute/v1"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
@@ -24,9 +24,9 @@ type environNetSuite struct {
 	NetEnv environs.NetworkingEnviron
 }
 
-var _ = gc.Suite(&environNetSuite{})
+var _ = tc.Suite(&environNetSuite{})
 
-func (s *environNetSuite) SetUpTest(c *gc.C) {
+func (s *environNetSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	netEnv, ok := environs.SupportsNetworking(s.Env)
 	c.Assert(ok, jc.IsTrue)
@@ -80,21 +80,21 @@ func (s *environNetSuite) cannedData() {
 	}}
 }
 
-func (s *environNetSuite) TestSubnetsInvalidCredentialError(c *gc.C) {
+func (s *environNetSuite) TestSubnetsInvalidCredentialError(c *tc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
 	_, err := s.NetEnv.Subnets(context.Background(), nil)
-	c.Check(err, gc.NotNil)
+	c.Check(err, tc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
 
-func (s *environNetSuite) TestGettingAllSubnets(c *gc.C) {
+func (s *environNetSuite) TestGettingAllSubnets(c *tc.C) {
 	s.cannedData()
 
 	subnets, err := s.NetEnv.Subnets(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(subnets, gc.DeepEquals, []corenetwork.SubnetInfo{{
+	c.Assert(subnets, tc.DeepEquals, []corenetwork.SubnetInfo{{
 		ProviderId:        "go-team",
 		ProviderNetworkId: "go-team1",
 		CIDR:              "10.0.10.0/24",
@@ -115,12 +115,12 @@ func (s *environNetSuite) TestGettingAllSubnets(c *gc.C) {
 	}})
 }
 
-func (s *environNetSuite) TestRestrictingToSubnets(c *gc.C) {
+func (s *environNetSuite) TestRestrictingToSubnets(c *tc.C) {
 	s.cannedData()
 
 	subnets, err := s.NetEnv.Subnets(context.Background(), []corenetwork.Id{"shellac"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnets, gc.DeepEquals, []corenetwork.SubnetInfo{{
+	c.Assert(subnets, tc.DeepEquals, []corenetwork.SubnetInfo{{
 		ProviderId:        "shellac",
 		ProviderNetworkId: "albini",
 		CIDR:              "10.0.20.0/24",
@@ -129,25 +129,25 @@ func (s *environNetSuite) TestRestrictingToSubnets(c *gc.C) {
 	}})
 }
 
-func (s *environNetSuite) TestRestrictingToSubnetsWithMissing(c *gc.C) {
+func (s *environNetSuite) TestRestrictingToSubnetsWithMissing(c *tc.C) {
 	s.cannedData()
 
 	subnets, err := s.NetEnv.Subnets(context.Background(), []corenetwork.Id{"shellac", "brunettes"})
-	c.Assert(err, gc.ErrorMatches, `subnets \["brunettes"\] not found`)
+	c.Assert(err, tc.ErrorMatches, `subnets \["brunettes"\] not found`)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
-	c.Assert(subnets, gc.IsNil)
+	c.Assert(subnets, tc.IsNil)
 }
 
-func (s *environNetSuite) TestInterfaces(c *gc.C) {
+func (s *environNetSuite) TestInterfaces(c *tc.C) {
 	s.cannedData()
 	s.FakeEnviron.Insts = []instances.Instance{s.NewInstance(c, "moana")}
 
 	infoList, err := s.NetEnv.NetworkInterfaces(context.Background(), []instance.Id{"moana"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(infoList, gc.HasLen, 1)
+	c.Assert(infoList, tc.HasLen, 1)
 	infos := infoList[0]
 
-	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
+	c.Assert(infos, tc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:      0,
 		ProviderId:       "moana/somenetif",
 		ProviderSubnetId: "go-team",
@@ -165,7 +165,7 @@ func (s *environNetSuite) TestInterfaces(c *gc.C) {
 	}})
 }
 
-func (s *environNetSuite) TestNetworkInterfaceInvalidCredentialError(c *gc.C) {
+func (s *environNetSuite) TestNetworkInterfaceInvalidCredentialError(c *tc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
 	s.cannedData()
@@ -187,11 +187,11 @@ func (s *environNetSuite) TestNetworkInterfaceInvalidCredentialError(c *gc.C) {
 	s.FakeEnviron.Insts = []instances.Instance{s.NewInstanceFromBase(baseInst)}
 
 	_, err := s.NetEnv.NetworkInterfaces(context.Background(), []instance.Id{"moana"})
-	c.Check(err, gc.NotNil)
+	c.Check(err, tc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
 
-func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
+func (s *environNetSuite) TestInterfacesForMultipleInstances(c *tc.C) {
 	s.cannedData()
 	baseInst1 := s.NewBaseInstance(c, "i-1")
 
@@ -228,11 +228,11 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 		"i-2",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(infoLists, gc.HasLen, 2)
+	c.Assert(infoLists, tc.HasLen, 2)
 
 	// Check interfaces for first instance
 	infos := infoLists[0]
-	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
+	c.Assert(infos, tc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:      0,
 		ProviderId:       "i-1/somenetif",
 		ProviderSubnetId: "go-team",
@@ -251,7 +251,7 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 
 	// Check interfaces for second instance
 	infos = infoLists[1]
-	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
+	c.Assert(infos, tc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:      0,
 		ProviderId:       "i-2/netif-0",
 		ProviderSubnetId: "go-team",
@@ -287,18 +287,18 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 	}})
 }
 
-func (s *environNetSuite) TestPartialInterfacesForMultipleInstances(c *gc.C) {
+func (s *environNetSuite) TestPartialInterfacesForMultipleInstances(c *tc.C) {
 	s.cannedData()
 	baseInst1 := s.NewBaseInstance(c, "i-1")
 	s.FakeEnviron.Insts = []instances.Instance{s.NewInstanceFromBase(baseInst1)}
 
 	infoLists, err := s.NetEnv.NetworkInterfaces(context.Background(), []instance.Id{"i-1", "bogus"})
-	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
-	c.Assert(infoLists, gc.HasLen, 2)
+	c.Assert(err, tc.Equals, environs.ErrPartialInstances)
+	c.Assert(infoLists, tc.HasLen, 2)
 
 	// Check interfaces for first instance
 	infos := infoLists[0]
-	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
+	c.Assert(infos, tc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:      0,
 		ProviderId:       "i-1/somenetif",
 		ProviderSubnetId: "go-team",
@@ -316,10 +316,10 @@ func (s *environNetSuite) TestPartialInterfacesForMultipleInstances(c *gc.C) {
 	}})
 
 	// Check that the slot for the second instance is nil
-	c.Assert(infoLists[1], gc.IsNil, gc.Commentf("expected slot for unknown instance to be nil"))
+	c.Assert(infoLists[1], tc.IsNil, tc.Commentf("expected slot for unknown instance to be nil"))
 }
 
-func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
+func (s *environNetSuite) TestInterfacesMulti(c *tc.C) {
 	s.cannedData()
 	baseInst := s.NewBaseInstance(c, "moana")
 	// This isn't possible in GCE at the moment, but we don't want to
@@ -340,10 +340,10 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 
 	infoList, err := s.NetEnv.NetworkInterfaces(context.Background(), []instance.Id{"moana"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(infoList, gc.HasLen, 1)
+	c.Assert(infoList, tc.HasLen, 1)
 	infos := infoList[0]
 
-	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
+	c.Assert(infos, tc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:      0,
 		ProviderId:       "moana/somenetif",
 		ProviderSubnetId: "go-team",
@@ -379,7 +379,7 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 	}})
 }
 
-func (s *environNetSuite) TestInterfacesLegacy(c *gc.C) {
+func (s *environNetSuite) TestInterfacesLegacy(c *tc.C) {
 	s.cannedData()
 	baseInst := s.NewBaseInstance(c, "moana")
 	// When we're using a legacy network there'll be no subnet.
@@ -399,10 +399,10 @@ func (s *environNetSuite) TestInterfacesLegacy(c *gc.C) {
 
 	infoList, err := s.NetEnv.NetworkInterfaces(context.Background(), []instance.Id{"moana"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(infoList, gc.HasLen, 1)
+	c.Assert(infoList, tc.HasLen, 1)
 	infos := infoList[0]
 
-	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
+	c.Assert(infos, tc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:      0,
 		ProviderId:       "moana/somenetif",
 		ProviderSubnetId: "",
@@ -423,7 +423,7 @@ func (s *environNetSuite) TestInterfacesLegacy(c *gc.C) {
 	}})
 }
 
-func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
+func (s *environNetSuite) TestInterfacesSameSubnetwork(c *tc.C) {
 	s.cannedData()
 	baseInst := s.NewBaseInstance(c, "moana")
 	// This isn't possible in GCE at the moment, but we don't want to
@@ -444,10 +444,10 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
 
 	infoList, err := s.NetEnv.NetworkInterfaces(context.Background(), []instance.Id{"moana"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(infoList, gc.HasLen, 1)
+	c.Assert(infoList, tc.HasLen, 1)
 	infos := infoList[0]
 
-	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
+	c.Assert(infos, tc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:      0,
 		ProviderId:       "moana/somenetif",
 		ProviderSubnetId: "go-team",

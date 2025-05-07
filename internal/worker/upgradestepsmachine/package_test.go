@@ -8,9 +8,9 @@ import (
 	time "time"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/semversion"
@@ -27,7 +27,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package upgradestepsmachine -destination status_mock_test.go github.com/juju/juju/internal/worker/upgradestepsmachine StatusSetter
 
 func TestAll(t *stdtesting.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type baseSuite struct {
@@ -42,7 +42,7 @@ type baseSuite struct {
 	statusSetter *MockStatusSetter
 }
 
-func (s *baseSuite) newBaseWorker(c *gc.C, from, to semversion.Number) *upgradesteps.BaseWorker {
+func (s *baseSuite) newBaseWorker(c *tc.C, from, to semversion.Number) *upgradesteps.BaseWorker {
 	return &upgradesteps.BaseWorker{
 		UpgradeCompleteLock: s.lock,
 		Agent:               s.agent,
@@ -62,7 +62,7 @@ func (s *baseSuite) newBaseWorker(c *gc.C, from, to semversion.Number) *upgrades
 	}
 }
 
-func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.agent = NewMockAgent(ctrl)

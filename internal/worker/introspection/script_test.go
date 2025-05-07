@@ -7,22 +7,22 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
 type profileSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&profileSuite{})
+var _ = tc.Suite(&profileSuite{})
 
-func (*profileSuite) TestProfileFilename(c *gc.C) {
-	c.Assert(profileFilename(ProfileDir), gc.Equals, "/etc/profile.d/juju-introspection.sh")
+func (*profileSuite) TestProfileFilename(c *tc.C) {
+	c.Assert(profileFilename(ProfileDir), tc.Equals, "/etc/profile.d/juju-introspection.sh")
 }
 
-func (*profileSuite) TestNonLinux(c *gc.C) {
+func (*profileSuite) TestNonLinux(c *tc.C) {
 	if runtime.GOOS == "linux" {
 		c.Skip("testing non-linux")
 	}
@@ -30,7 +30,7 @@ func (*profileSuite) TestNonLinux(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *profileSuite) TestLinux(c *gc.C) {
+func (s *profileSuite) TestLinux(c *tc.C) {
 	if runtime.GOOS != "linux" {
 		c.Skip("testing linux")
 	}
@@ -40,5 +40,5 @@ func (s *profileSuite) TestLinux(c *gc.C) {
 
 	content, err := os.ReadFile(profileFilename(dir))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(content), gc.Equals, shellFuncs)
+	c.Assert(string(content), tc.Equals, shellFuncs)
 }

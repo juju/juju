@@ -6,8 +6,8 @@ package service
 import (
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
@@ -18,13 +18,13 @@ type statusSuite struct {
 	now time.Time
 }
 
-var _ = gc.Suite(&statusSuite{})
+var _ = tc.Suite(&statusSuite{})
 
-func (s *statusSuite) SetUpTest(c *gc.C) {
+func (s *statusSuite) SetUpTest(c *tc.C) {
 	s.now = time.Now()
 }
 
-func (s *statusSuite) TestEncodeK8sPodStatus(c *gc.C) {
+func (s *statusSuite) TestEncodeK8sPodStatus(c *tc.C) {
 	testCases := []struct {
 		input  corestatus.StatusInfo
 		output status.StatusInfo[status.K8sPodStatusType]
@@ -80,7 +80,7 @@ func (s *statusSuite) TestEncodeK8sPodStatus(c *gc.C) {
 	}
 }
 
-func (s *statusSuite) TestEncodeUnitAgentStatus(c *gc.C) {
+func (s *statusSuite) TestEncodeUnitAgentStatus(c *tc.C) {
 	testCases := []struct {
 		input  corestatus.StatusInfo
 		output status.StatusInfo[status.UnitAgentStatusType]
@@ -146,7 +146,7 @@ func (s *statusSuite) TestEncodeUnitAgentStatus(c *gc.C) {
 	}
 }
 
-func (s *statusSuite) TestEncodingUnitAgentStatusError(c *gc.C) {
+func (s *statusSuite) TestEncodingUnitAgentStatusError(c *tc.C) {
 	output, err := encodeUnitAgentStatus(corestatus.StatusInfo{
 		Status: corestatus.Error,
 	})
@@ -157,7 +157,7 @@ func (s *statusSuite) TestEncodingUnitAgentStatusError(c *gc.C) {
 
 }
 
-func (s *statusSuite) TestDecodeUnitDisplayAndAgentStatus(c *gc.C) {
+func (s *statusSuite) TestDecodeUnitDisplayAndAgentStatus(c *tc.C) {
 	agent, workload, err := decodeUnitDisplayAndAgentStatus(status.FullUnitStatus{
 		AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
 			Status:  status.UnitAgentStatusError,
@@ -193,7 +193,7 @@ func (s *statusSuite) TestDecodeUnitDisplayAndAgentStatus(c *gc.C) {
 	})
 }
 
-func (s *statusSuite) TestEncodeWorkloadStatus(c *gc.C) {
+func (s *statusSuite) TestEncodeWorkloadStatus(c *tc.C) {
 	testCases := []struct {
 		input  corestatus.StatusInfo
 		output status.StatusInfo[status.WorkloadStatusType]
@@ -281,7 +281,7 @@ func (s *statusSuite) TestEncodeWorkloadStatus(c *gc.C) {
 	}
 }
 
-func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusWorkloadTerminatedBlockedMaintenanceDominates(c *gc.C) {
+func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusWorkloadTerminatedBlockedMaintenanceDominates(c *tc.C) {
 	containerStatus := status.StatusInfo[status.K8sPodStatusType]{
 		Status: status.K8sPodStatusBlocked,
 	}
@@ -317,7 +317,7 @@ func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusWorkloadTerminatedBlockedM
 	c.Assert(info, jc.DeepEquals, expected)
 }
 
-func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerBlockedDominates(c *gc.C) {
+func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerBlockedDominates(c *tc.C) {
 	workloadStatus := status.StatusInfo[status.WorkloadStatusType]{
 		Status: status.WorkloadStatusWaiting,
 	}
@@ -339,7 +339,7 @@ func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerBlockedDominates(
 	})
 }
 
-func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerWaitingDominatesActiveWorkload(c *gc.C) {
+func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerWaitingDominatesActiveWorkload(c *tc.C) {
 	workloadStatus := status.StatusInfo[status.WorkloadStatusType]{
 		Status: status.WorkloadStatusActive,
 	}
@@ -361,7 +361,7 @@ func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerWaitingDominatesA
 	})
 }
 
-func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerRunningDominatesWaitingWorkload(c *gc.C) {
+func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerRunningDominatesWaitingWorkload(c *tc.C) {
 	workloadStatus := status.StatusInfo[status.WorkloadStatusType]{
 		Status: status.WorkloadStatusWaiting,
 	}
@@ -383,7 +383,7 @@ func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerRunningDominatesW
 	})
 }
 
-func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusDefaultsToWorkload(c *gc.C) {
+func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusDefaultsToWorkload(c *tc.C) {
 	workloadStatus := status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "I'm an active workload",
@@ -408,7 +408,7 @@ const (
 	unitName3 = coreunit.Name("unit-3")
 )
 
-func (s *statusSuite) TestApplicationDisplayStatusFromUnitsNoContainers(c *gc.C) {
+func (s *statusSuite) TestApplicationDisplayStatusFromUnitsNoContainers(c *tc.C) {
 	fullStatuses := status.FullUnitStatuses{
 		unitName1: {
 			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
@@ -437,7 +437,7 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsNoContainers(c *gc.C)
 	})
 }
 
-func (s *statusSuite) TestApplicationDisplayStatusFromUnitsEmpty(c *gc.C) {
+func (s *statusSuite) TestApplicationDisplayStatusFromUnitsEmpty(c *tc.C) {
 	info, err := applicationDisplayStatusFromUnits(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, corestatus.StatusInfo{
@@ -453,7 +453,7 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsEmpty(c *gc.C) {
 	})
 }
 
-func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPicksGreatestPrecedenceContainer(c *gc.C) {
+func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPicksGreatestPrecedenceContainer(c *tc.C) {
 	fullStatuses := status.FullUnitStatuses{
 		unitName1: {
 			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
@@ -488,7 +488,7 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPicksGreatestPreceden
 	})
 }
 
-func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPicksGreatestPrecedenceWorkload(c *gc.C) {
+func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPicksGreatestPrecedenceWorkload(c *tc.C) {
 	fullStatuses := status.FullUnitStatuses{
 		unitName1: {
 			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
@@ -523,7 +523,7 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPicksGreatestPreceden
 	})
 }
 
-func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPrioritisesUnitWithGreatestStatusPrecedence(c *gc.C) {
+func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPrioritisesUnitWithGreatestStatusPrecedence(c *tc.C) {
 	fullStatuses := status.FullUnitStatuses{
 		unitName1: {
 			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
@@ -558,7 +558,7 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPrioritisesUnitWithGr
 	})
 }
 
-func (s *statusSuite) TestApplicationDisplayStatusFromUnitsWithError(c *gc.C) {
+func (s *statusSuite) TestApplicationDisplayStatusFromUnitsWithError(c *tc.C) {
 	fullStatuses := status.FullUnitStatuses{
 		unitName1: {
 			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{

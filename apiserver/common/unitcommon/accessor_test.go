@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/application"
@@ -24,9 +24,9 @@ type UnitAccessorSuite struct {
 	applicationService *MockApplicationService
 }
 
-var _ = gc.Suite(&UnitAccessorSuite{})
+var _ = tc.Suite(&UnitAccessorSuite{})
 
-func (s *UnitAccessorSuite) TestApplicationAgent(c *gc.C) {
+func (s *UnitAccessorSuite) TestApplicationAgent(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.applicationService.EXPECT().
@@ -46,7 +46,7 @@ func (s *UnitAccessorSuite) TestApplicationAgent(c *gc.C) {
 	c.Assert(ok, jc.IsFalse)
 }
 
-func (s *UnitAccessorSuite) TestApplicationNotFound(c *gc.C) {
+func (s *UnitAccessorSuite) TestApplicationNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.applicationService.EXPECT().
@@ -61,7 +61,7 @@ func (s *UnitAccessorSuite) TestApplicationNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
-func (s *UnitAccessorSuite) TestUnitAgent(c *gc.C) {
+func (s *UnitAccessorSuite) TestUnitAgent(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	auth := apiservertesting.FakeAuthorizer{
@@ -80,7 +80,7 @@ func (s *UnitAccessorSuite) TestUnitAgent(c *gc.C) {
 	c.Assert(ok, jc.IsFalse)
 }
 
-func (s *UnitAccessorSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *UnitAccessorSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.applicationService = NewMockApplicationService(ctrl)

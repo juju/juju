@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/unitstate"
@@ -20,15 +20,15 @@ type exportSuite struct {
 	service *MockExportService
 }
 
-var _ = gc.Suite(&exportSuite{})
+var _ = tc.Suite(&exportSuite{})
 
-func (s *exportSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *exportSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.service = NewMockExportService(ctrl)
 	return ctrl
 }
 
-func (s *exportSuite) TestExportOperation(c *gc.C) {
+func (s *exportSuite) TestExportOperation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{})
@@ -57,17 +57,17 @@ func (s *exportSuite) TestExportOperation(c *gc.C) {
 
 	err := exportOp.Execute(context.Background(), model)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unit.CharmState(), gc.DeepEquals, map[string]string{
+	c.Assert(unit.CharmState(), tc.DeepEquals, map[string]string{
 		"charm": "state",
 	})
-	c.Assert(unit.UniterState(), gc.Equals, "uniter")
-	c.Assert(unit.RelationState(), gc.DeepEquals, map[int]string{
+	c.Assert(unit.UniterState(), tc.Equals, "uniter")
+	c.Assert(unit.RelationState(), tc.DeepEquals, map[int]string{
 		0: "relation",
 	})
-	c.Assert(unit.StorageState(), gc.Equals, "storage")
+	c.Assert(unit.StorageState(), tc.Equals, "storage")
 }
 
-func (s *exportSuite) TestExportInvalidUnitName(c *gc.C) {
+func (s *exportSuite) TestExportInvalidUnitName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{})
@@ -87,7 +87,7 @@ func (s *exportSuite) TestExportInvalidUnitName(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
 }
 
-func (s *exportSuite) TestExportError(c *gc.C) {
+func (s *exportSuite) TestExportError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{})

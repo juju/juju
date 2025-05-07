@@ -6,24 +6,24 @@ package service
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 )
 
 type providerServiceSuite struct {
 	mockState *MockProviderState
 }
 
-var _ = gc.Suite(&providerServiceSuite{})
+var _ = tc.Suite(&providerServiceSuite{})
 
-func (s *providerServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *providerServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockState = NewMockProviderState(ctrl)
 	return ctrl
 }
 
-func (s *providerServiceSuite) TestModelConfig(c *gc.C) {
+func (s *providerServiceSuite) TestModelConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.mockState.EXPECT().ModelConfig(gomock.Any()).Return(

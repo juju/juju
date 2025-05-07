@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -23,7 +23,7 @@ type RelationGetSuite struct {
 	relationSuite
 }
 
-var _ = gc.Suite(&RelationGetSuite{})
+var _ = tc.Suite(&RelationGetSuite{})
 
 func (s *RelationGetSuite) newHookContext(relid int, remote string, app string) (jujuc.Context, *relationInfo) {
 	hctx, info := s.relationSuite.newHookContext(relid, remote, app)
@@ -142,7 +142,7 @@ var relationGetTests = []struct {
 	},
 }
 
-func (s *RelationGetSuite) TestRelationGet(c *gc.C) {
+func (s *RelationGetSuite) TestRelationGet(c *tc.C) {
 	for i, t := range relationGetTests {
 		c.Logf("test %d: %s", i, t.summary)
 		hctx, _ := s.newHookContext(t.relid, t.unit, "")
@@ -150,18 +150,18 @@ func (s *RelationGetSuite) TestRelationGet(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
-		c.Check(code, gc.Equals, t.code)
+		c.Check(code, tc.Equals, t.code)
 		if code == 0 {
-			c.Check(bufferString(ctx.Stderr), gc.Equals, "")
+			c.Check(bufferString(ctx.Stderr), tc.Equals, "")
 			expect := t.out
 			if len(expect) > 0 {
 				expect += "\n"
 			}
-			c.Check(bufferString(ctx.Stdout), gc.Equals, expect)
+			c.Check(bufferString(ctx.Stdout), tc.Equals, expect)
 		} else {
-			c.Check(bufferString(ctx.Stdout), gc.Equals, "")
+			c.Check(bufferString(ctx.Stdout), tc.Equals, "")
 			expect := fmt.Sprintf(`(.|\n)*ERROR %s\n`, t.out)
-			c.Check(bufferString(ctx.Stderr), gc.Matches, expect)
+			c.Check(bufferString(ctx.Stderr), tc.Matches, expect)
 		}
 	}
 }
@@ -197,8 +197,8 @@ var relationGetFormatTests = []struct {
 	},
 }
 
-func (s *RelationGetSuite) TestRelationGetFormat(c *gc.C) {
-	testFormat := func(format string, checker gc.Checker) {
+func (s *RelationGetSuite) TestRelationGetFormat(c *tc.C) {
+	testFormat := func(format string, checker tc.Checker) {
 		for i, t := range relationGetFormatTests {
 			c.Logf("test %d: %s %s", i, format, t.summary)
 			hctx, _ := s.newHookContext(t.relid, t.unit, "")
@@ -207,8 +207,8 @@ func (s *RelationGetSuite) TestRelationGetFormat(c *gc.C) {
 			ctx := cmdtesting.Context(c)
 			args := append(t.args, "--format", format)
 			code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, args)
-			c.Check(code, gc.Equals, 0)
-			c.Check(bufferString(ctx.Stderr), gc.Equals, "")
+			c.Check(code, tc.Equals, 0)
+			c.Check(bufferString(ctx.Stderr), tc.Equals, "")
 			stdout := bufferString(ctx.Stdout)
 			c.Check(stdout, checker, t.out)
 		}
@@ -242,7 +242,7 @@ var relationGetHelpTests = []struct {
 	},
 }
 
-func (s *RelationGetSuite) TestHelp(c *gc.C) {
+func (s *RelationGetSuite) TestHelp(c *tc.C) {
 	for i, t := range relationGetHelpTests {
 		c.Logf("test %d", i)
 		hctx, _ := s.newHookContext(t.relid, t.unit, "")
@@ -250,7 +250,7 @@ func (s *RelationGetSuite) TestHelp(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
-		c.Assert(code, gc.Equals, 0)
+		c.Assert(code, tc.Equals, 0)
 		if t.unit != "" {
 			unitHelp := fmt.Sprintf("Current default unit id is %q.\n", t.unit)
 			c.Assert(strings.Contains(bufferString(ctx.Stdout), unitHelp), jc.IsTrue)
@@ -260,18 +260,18 @@ func (s *RelationGetSuite) TestHelp(c *gc.C) {
 	}
 }
 
-func (s *RelationGetSuite) TestOutputPath(c *gc.C) {
+func (s *RelationGetSuite) TestOutputPath(c *tc.C) {
 	hctx, _ := s.newHookContext(1, "m/0", "")
 	com, err := jujuc.NewCommand(hctx, "relation-get")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--output", "some-file", "pew"})
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
+	c.Assert(code, tc.Equals, 0)
+	c.Assert(bufferString(ctx.Stderr), tc.Equals, "")
+	c.Assert(bufferString(ctx.Stdout), tc.Equals, "")
 	content, err := os.ReadFile(filepath.Join(ctx.Dir, "some-file"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(content), gc.Equals, "pew\npew\n\n")
+	c.Assert(string(content), tc.Equals, "pew\npew\n\n")
 }
 
 type relationGetInitTest struct {
@@ -287,7 +287,7 @@ type relationGetInitTest struct {
 	application bool
 }
 
-func (t relationGetInitTest) log(c *gc.C, i int) {
+func (t relationGetInitTest) log(c *tc.C, i int) {
 	var summary string
 	if t.summary != "" {
 		summary = " - " + t.summary
@@ -295,7 +295,7 @@ func (t relationGetInitTest) log(c *gc.C, i int) {
 	c.Logf("test %d%s", i, summary)
 }
 
-func (t relationGetInitTest) init(c *gc.C, s *RelationGetSuite) (cmd.Command, []string) {
+func (t relationGetInitTest) init(c *tc.C, s *RelationGetSuite) (cmd.Command, []string) {
 	args := make([]string, len(t.args))
 	copy(args, t.args)
 
@@ -306,19 +306,19 @@ func (t relationGetInitTest) init(c *gc.C, s *RelationGetSuite) (cmd.Command, []
 	return com, args
 }
 
-func (t relationGetInitTest) check(c *gc.C, com cmd.Command, err error) {
+func (t relationGetInitTest) check(c *tc.C, com cmd.Command, err error) {
 	if t.err == "" {
 		if !c.Check(err, jc.ErrorIsNil) {
 			return
 		}
 
 		rset := com.(*jujuc.RelationGetCommand)
-		c.Check(rset.RelationId, gc.Equals, t.relid)
-		c.Check(rset.Key, gc.Equals, t.key)
-		c.Check(rset.UnitOrAppName, gc.Equals, t.unit)
-		c.Check(rset.Application, gc.Equals, t.application)
+		c.Check(rset.RelationId, tc.Equals, t.relid)
+		c.Check(rset.Key, tc.Equals, t.key)
+		c.Check(rset.UnitOrAppName, tc.Equals, t.unit)
+		c.Check(rset.Application, tc.Equals, t.application)
 	} else {
-		c.Check(err, gc.ErrorMatches, t.err)
+		c.Check(err, tc.ErrorMatches, t.err)
 	}
 }
 
@@ -451,7 +451,7 @@ var relationGetInitTests = []relationGetInitTest{
 	},
 }
 
-func (s *RelationGetSuite) TestInit(c *gc.C) {
+func (s *RelationGetSuite) TestInit(c *tc.C) {
 	for i, t := range relationGetInitTests {
 		t.log(c, i)
 		com, args := t.init(c, s)

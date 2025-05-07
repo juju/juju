@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/base/testing"
@@ -22,7 +22,7 @@ type goalStateSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&goalStateSuite{})
+var _ = tc.Suite(&goalStateSuite{})
 
 var (
 	timestamp = time.Date(2200, time.November, 5, 0, 0, 0, 0, time.UTC)
@@ -37,7 +37,7 @@ var (
 	}
 )
 
-func (s *goalStateSuite) TestGoalStateOneUnit(c *gc.C) {
+func (s *goalStateSuite) TestGoalStateOneUnit(c *tc.C) {
 	paramsOneUnit := params.GoalStateResults{
 		Results: []params.GoalStateResult{
 			{Result: &params.GoalState{
@@ -57,7 +57,7 @@ func (s *goalStateSuite) TestGoalStateOneUnit(c *gc.C) {
 
 }
 
-func (s *goalStateSuite) TestGoalStateTwoRelatedUnits(c *gc.C) {
+func (s *goalStateSuite) TestGoalStateTwoRelatedUnits(c *tc.C) {
 	paramsTwoRelatedUnits := params.GoalStateResults{
 		Results: []params.GoalStateResult{
 			{Result: &params.GoalState{
@@ -86,16 +86,16 @@ func (s *goalStateSuite) TestGoalStateTwoRelatedUnits(c *gc.C) {
 	s.testGoalState(c, paramsTwoRelatedUnits, apiTwoRelatedUnits)
 }
 
-func (s *goalStateSuite) testGoalState(c *gc.C, facadeResult params.GoalStateResults, apiResult application.GoalState) {
+func (s *goalStateSuite) testGoalState(c *tc.C, facadeResult params.GoalStateResults, apiResult application.GoalState) {
 	var called bool
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "Uniter")
-		c.Check(version, gc.Equals, 0)
-		c.Check(request, gc.Equals, "GoalStates")
-		c.Check(arg, gc.DeepEquals, params.Entities{
+		c.Check(objType, tc.Equals, "Uniter")
+		c.Check(version, tc.Equals, 0)
+		c.Check(request, tc.Equals, "GoalStates")
+		c.Check(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "unit-mysql-0"}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.GoalStateResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.GoalStateResults{})
 		*(result.(*params.GoalStateResults)) = facadeResult
 		called = true
 		return nil

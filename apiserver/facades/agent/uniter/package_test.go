@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/apiserver/common"
@@ -68,7 +68,7 @@ type uniterSuiteBase struct {
 	store objectstore.ObjectStore
 }
 
-func (s *uniterSuiteBase) setUpMocks(c *gc.C) *gomock.Controller {
+func (s *uniterSuiteBase) setUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.watcherRegistry = NewMockWatcherRegistry(ctrl)
@@ -76,7 +76,7 @@ func (s *uniterSuiteBase) setUpMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
+func (s *uniterSuiteBase) SetUpTest(c *tc.C) {
 	s.ControllerConfigAttrs = map[string]interface{}{
 		controller.Features: featureflag.RawK8sSpec,
 	}
@@ -99,7 +99,7 @@ func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 	// Create the resource registry separately to track invocations to
 	// Register.
 	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 
 	s.leadershipChecker = &fakeLeadershipChecker{false}
 	s.uniter = s.newUniterAPI(c, s.ControllerModel(c).State(), s.authorizer)
@@ -109,9 +109,9 @@ func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 }
 
 // setupState creates 2 machines, 2 services and adds a unit to each service.
-func (s *uniterSuiteBase) setupState(c *gc.C) {}
+func (s *uniterSuiteBase) setupState(c *tc.C) {}
 
-func (s *uniterSuiteBase) facadeContext(c *gc.C) facadetest.ModelContext {
+func (s *uniterSuiteBase) facadeContext(c *tc.C) facadetest.ModelContext {
 	return facadetest.ModelContext{
 		State_:             s.ControllerModel(c).State(),
 		StatePool_:         s.StatePool(),
@@ -125,7 +125,7 @@ func (s *uniterSuiteBase) facadeContext(c *gc.C) facadetest.ModelContext {
 	}
 }
 
-func (s *uniterSuiteBase) newUniterAPI(c *gc.C, st *state.State, auth facade.Authorizer) *uniter.UniterAPI {
+func (s *uniterSuiteBase) newUniterAPI(c *tc.C, st *state.State, auth facade.Authorizer) *uniter.UniterAPI {
 	facadeContext := s.facadeContext(c)
 	facadeContext.State_ = st
 	facadeContext.Auth_ = auth
@@ -135,7 +135,7 @@ func (s *uniterSuiteBase) newUniterAPI(c *gc.C, st *state.State, auth facade.Aut
 	return uniterAPI
 }
 
-func (s *uniterSuiteBase) newUniterAPIv19(c *gc.C, st *state.State, auth facade.Authorizer) *uniter.UniterAPIv19 {
+func (s *uniterSuiteBase) newUniterAPIv19(c *tc.C, st *state.State, auth facade.Authorizer) *uniter.UniterAPIv19 {
 	facadeContext := s.facadeContext(c)
 	facadeContext.State_ = st
 	facadeContext.Auth_ = auth
@@ -149,7 +149,7 @@ func (s *uniterSuiteBase) newUniterAPIv19(c *gc.C, st *state.State, auth facade.
 // in a new suite.
 // If we are testing a CAAS model, it is a waste of resources to do preamble
 // for an IAAS model.
-func (s *uniterSuiteBase) setupCAASModel(c *gc.C) (*apiuniter.Client, *state.CAASModel, *state.Application, *state.Unit) {
+func (s *uniterSuiteBase) setupCAASModel(c *tc.C) (*apiuniter.Client, *state.CAASModel, *state.Application, *state.Unit) {
 	return nil, nil, nil, nil
 }
 

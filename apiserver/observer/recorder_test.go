@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
@@ -23,9 +23,9 @@ type recorderSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&recorderSuite{})
+var _ = tc.Suite(&recorderSuite{})
 
-func (s *recorderSuite) TestServerRequest(c *gc.C) {
+func (s *recorderSuite) TestServerRequest(c *tc.C) {
 	fake := &fakeobserver.Instance{}
 	log := &apitesting.FakeAuditLog{}
 	clock := testclock.NewClock(time.Now())
@@ -50,9 +50,9 @@ func (s *recorderSuite) TestServerRequest(c *gc.C) {
 	log.CheckCallNames(c, "AddConversation", "AddRequest")
 
 	request := log.Calls()[1].Args[0].(auditlog.Request)
-	c.Assert(request.ConversationID, gc.HasLen, 16)
+	c.Assert(request.ConversationID, tc.HasLen, 16)
 	request.ConversationID = "abcdef0123456789"
-	c.Assert(request, gc.Equals, auditlog.Request{
+	c.Assert(request, tc.Equals, auditlog.Request{
 		ConversationID: "abcdef0123456789",
 		ConnectionID:   "11D7",
 		RequestID:      123,
@@ -64,7 +64,7 @@ func (s *recorderSuite) TestServerRequest(c *gc.C) {
 	})
 }
 
-func (s *recorderSuite) TestServerRequestNoArgs(c *gc.C) {
+func (s *recorderSuite) TestServerRequestNoArgs(c *tc.C) {
 	fake := &fakeobserver.Instance{}
 	log := &apitesting.FakeAuditLog{}
 	clock := testclock.NewClock(time.Now())
@@ -84,9 +84,9 @@ func (s *recorderSuite) TestServerRequestNoArgs(c *gc.C) {
 	log.CheckCallNames(c, "AddConversation", "AddRequest")
 
 	request := log.Calls()[1].Args[0].(auditlog.Request)
-	c.Assert(request.ConversationID, gc.HasLen, 16)
+	c.Assert(request.ConversationID, tc.HasLen, 16)
 	request.ConversationID = "abcdef0123456789"
-	c.Assert(request, gc.Equals, auditlog.Request{
+	c.Assert(request, tc.Equals, auditlog.Request{
 		ConversationID: "abcdef0123456789",
 		ConnectionID:   "11D7",
 		RequestID:      123,
@@ -97,7 +97,7 @@ func (s *recorderSuite) TestServerRequestNoArgs(c *gc.C) {
 	})
 }
 
-func (s *recorderSuite) TestServerReply(c *gc.C) {
+func (s *recorderSuite) TestServerReply(c *tc.C) {
 	fake := &fakeobserver.Instance{}
 	log := &apitesting.FakeAuditLog{}
 	clock := testclock.NewClock(time.Now())
@@ -121,9 +121,9 @@ func (s *recorderSuite) TestServerReply(c *gc.C) {
 	log.CheckCallNames(c, "AddConversation", "AddResponse")
 
 	respErrors := log.Calls()[1].Args[0].(auditlog.ResponseErrors)
-	c.Assert(respErrors.ConversationID, gc.HasLen, 16)
+	c.Assert(respErrors.ConversationID, tc.HasLen, 16)
 	respErrors.ConversationID = "abcdef0123456789"
-	c.Assert(respErrors, gc.DeepEquals, auditlog.ResponseErrors{
+	c.Assert(respErrors, tc.DeepEquals, auditlog.ResponseErrors{
 		ConversationID: "abcdef0123456789",
 		ConnectionID:   "11D7",
 		RequestID:      123,
@@ -132,11 +132,11 @@ func (s *recorderSuite) TestServerReply(c *gc.C) {
 	})
 }
 
-func (s *recorderSuite) TestReplyResultNotAStruct(c *gc.C) {
+func (s *recorderSuite) TestReplyResultNotAStruct(c *tc.C) {
 	s.checkServerReplyErrors(c, 12345, nil)
 }
 
-func (s *recorderSuite) TestReplyResultNoErrorAttrs(c *gc.C) {
+func (s *recorderSuite) TestReplyResultNoErrorAttrs(c *tc.C) {
 	s.checkServerReplyErrors(c,
 		params.ApplicationCharmRelationsResults{
 			CharmRelations: []string{"abc", "123"},
@@ -145,7 +145,7 @@ func (s *recorderSuite) TestReplyResultNoErrorAttrs(c *gc.C) {
 	)
 }
 
-func (s *recorderSuite) TestReplyResultErrorSlice(c *gc.C) {
+func (s *recorderSuite) TestReplyResultErrorSlice(c *tc.C) {
 	s.checkServerReplyErrors(c,
 		params.ErrorResults{
 			Results: []params.ErrorResult{{
@@ -164,7 +164,7 @@ func (s *recorderSuite) TestReplyResultErrorSlice(c *gc.C) {
 	)
 }
 
-func (s *recorderSuite) TestReplyResultError(c *gc.C) {
+func (s *recorderSuite) TestReplyResultError(c *tc.C) {
 	s.checkServerReplyErrors(c,
 		params.ErrorResult{
 			Error: &params.Error{
@@ -179,7 +179,7 @@ func (s *recorderSuite) TestReplyResultError(c *gc.C) {
 	)
 }
 
-func (s *recorderSuite) TestReplyResultSlice(c *gc.C) {
+func (s *recorderSuite) TestReplyResultSlice(c *tc.C) {
 	s.checkServerReplyErrors(c,
 		params.AddMachinesResults{
 			Machines: []params.AddMachinesResult{{
@@ -201,7 +201,7 @@ func (s *recorderSuite) TestReplyResultSlice(c *gc.C) {
 	)
 }
 
-func (s *recorderSuite) checkServerReplyErrors(c *gc.C, result interface{}, expected []*auditlog.Error) {
+func (s *recorderSuite) checkServerReplyErrors(c *tc.C, result interface{}, expected []*auditlog.Error) {
 	fake := &fakeobserver.Instance{}
 	log := &apitesting.FakeAuditLog{}
 	clock := testclock.NewClock(time.Now())
@@ -220,9 +220,9 @@ func (s *recorderSuite) checkServerReplyErrors(c *gc.C, result interface{}, expe
 	log.CheckCallNames(c, "AddConversation", "AddResponse")
 
 	respErrors := log.Calls()[1].Args[0].(auditlog.ResponseErrors)
-	c.Assert(respErrors.ConversationID, gc.HasLen, 16)
+	c.Assert(respErrors.ConversationID, tc.HasLen, 16)
 	respErrors.ConversationID = ""
-	c.Assert(respErrors, gc.DeepEquals, auditlog.ResponseErrors{
+	c.Assert(respErrors, tc.DeepEquals, auditlog.ResponseErrors{
 		ConnectionID: "11D7",
 		RequestID:    123,
 		When:         clock.Now().Format(time.RFC3339),
@@ -230,7 +230,7 @@ func (s *recorderSuite) checkServerReplyErrors(c *gc.C, result interface{}, expe
 	})
 }
 
-func (s *recorderSuite) TestNoAuditRequest(c *gc.C) {
+func (s *recorderSuite) TestNoAuditRequest(c *tc.C) {
 	fake := &fakeobserver.Instance{}
 	factory := observer.NewRecorderFactory(fake, nil, observer.NoCaptureArgs)
 	recorder := factory()
@@ -242,7 +242,7 @@ func (s *recorderSuite) TestNoAuditRequest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *recorderSuite) TestNoAuditReply(c *gc.C) {
+func (s *recorderSuite) TestNoAuditReply(c *tc.C) {
 	fake := &fakeobserver.Instance{}
 	factory := observer.NewRecorderFactory(fake, nil, observer.NoCaptureArgs)
 	recorder := factory()

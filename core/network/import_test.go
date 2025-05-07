@@ -5,15 +5,15 @@ package network_test
 
 import (
 	"github.com/juju/collections/set"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type ImportSuite struct{}
 
-var _ = gc.Suite(&ImportSuite{})
+var _ = tc.Suite(&ImportSuite{})
 
 var allowedCoreImports = set.NewStrings(
 	"core/credential",
@@ -31,7 +31,7 @@ var allowedCoreImports = set.NewStrings(
 	"internal/uuid",
 )
 
-func (*ImportSuite) TestImports(c *gc.C) {
+func (*ImportSuite) TestImports(c *tc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/network")
 
 	c.Assert(found, jc.SameContents, allowedCoreImports.SortedValues())

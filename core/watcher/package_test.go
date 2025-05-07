@@ -6,21 +6,21 @@ package watcher_test
 import (
 	stdtesting "testing"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
 func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type ImportTest struct{}
 
-var _ = gc.Suite(&ImportTest{})
+var _ = tc.Suite(&ImportTest{})
 
-func (s *ImportTest) TestImports(c *gc.C) {
+func (s *ImportTest) TestImports(c *tc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/watcher")
 
 	// This package brings in nothing else from outside juju/juju/core

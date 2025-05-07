@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/internal/cmd"
@@ -28,9 +28,9 @@ type createSuite struct {
 	expectedErr string
 }
 
-var _ = gc.Suite(&createSuite{})
+var _ = tc.Suite(&createSuite{})
 
-func (s *createSuite) SetUpTest(c *gc.C) {
+func (s *createSuite) SetUpTest(c *tc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)
 	s.wrappedCommand, s.command = backups.NewCreateCommandForTest(s.store)
 	s.defaultFilename = "juju-backup-<date>-<time>.tar.gz"
@@ -41,7 +41,7 @@ Downloaded to juju-backup-00010101-000000.tar.gz
 `[1:]
 }
 
-func (s *createSuite) TearDownTest(c *gc.C) {
+func (s *createSuite) TearDownTest(c *tc.C) {
 	// We do not need to cater here for s.BaseBackupsSuite.filename as it will be deleted by the base suite.
 	// However, in situations where s.command.Filename is defined, we want to remove it as well.
 	if s.command.Filename != backups.NotSet && s.command.Filename != s.filename {
@@ -69,22 +69,22 @@ func (s *createSuite) setDownload() *fakeAPIClient {
 	return client
 }
 
-func (s *createSuite) checkDownloadStd(c *gc.C, ctx *cmd.Context) {
-	c.Check(cmdtesting.Stderr(ctx), gc.Equals, s.expectedErr)
-	c.Check(cmdtesting.Stdout(ctx), gc.Equals, s.expectedOut)
+func (s *createSuite) checkDownloadStd(c *tc.C, ctx *cmd.Context) {
+	c.Check(cmdtesting.Stderr(ctx), tc.Equals, s.expectedErr)
+	c.Check(cmdtesting.Stdout(ctx), tc.Equals, s.expectedOut)
 
 	out := cmdtesting.Stderr(ctx)
 	parts := strings.Split(out, "\n")
-	c.Assert(parts, gc.HasLen, 2)
+	c.Assert(parts, tc.HasLen, 2)
 
 	// Check the download message.
 	parts = strings.Split(parts[0], "Downloaded to ")
-	c.Assert(parts, gc.HasLen, 2)
-	c.Assert(parts[0], gc.Equals, "")
+	c.Assert(parts, tc.HasLen, 2)
+	c.Assert(parts[0], tc.Equals, "")
 	s.filename = parts[1][:len(parts[1])]
 }
 
-func (s *createSuite) checkDownload(c *gc.C, ctx *cmd.Context) {
+func (s *createSuite) checkDownload(c *tc.C, ctx *cmd.Context) {
 	s.checkDownloadStd(c, ctx)
 	s.checkArchive(c)
 }
@@ -139,22 +139,22 @@ var testCreateBackupArgParsing = []createBackupArgParsing{
 	},
 }
 
-func (s *createSuite) TestArgParsing(c *gc.C) {
+func (s *createSuite) TestArgParsing(c *tc.C) {
 	for i, test := range testCreateBackupArgParsing {
 		c.Logf("%d: %s", i, test.title)
 		err := cmdtesting.InitCommand(s.wrappedCommand, test.args)
 		if test.errMatch == "" {
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(s.command.Filename, gc.Equals, test.filename)
-			c.Assert(s.command.NoDownload, gc.Equals, test.noDownload)
-			c.Assert(s.command.Notes, gc.Equals, test.notes)
+			c.Assert(s.command.Filename, tc.Equals, test.filename)
+			c.Assert(s.command.NoDownload, tc.Equals, test.noDownload)
+			c.Assert(s.command.Notes, tc.Equals, test.notes)
 		} else {
-			c.Assert(err, gc.ErrorMatches, test.errMatch)
+			c.Assert(err, tc.ErrorMatches, test.errMatch)
 		}
 	}
 }
 
-func (s *createSuite) TestDefault(c *gc.C) {
+func (s *createSuite) TestDefault(c *tc.C) {
 	client := s.setDownload()
 	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand)
 	c.Assert(err, jc.ErrorIsNil)
@@ -162,10 +162,10 @@ func (s *createSuite) TestDefault(c *gc.C) {
 	client.CheckCalls(c, "Create", "Download")
 	client.CheckArgs(c, "", "false", "backup-filename")
 	s.checkDownload(c, ctx)
-	c.Check(s.command.Filename, gc.Equals, backups.NotSet)
+	c.Check(s.command.Filename, tc.Equals, backups.NotSet)
 }
 
-func (s *createSuite) TestDefaultQuiet(c *gc.C) {
+func (s *createSuite) TestDefaultQuiet(c *tc.C) {
 	client := s.setDownload()
 	ctx, err := cmdtesting.RunCommand(c, s.createCommandForGlobalOptionTesting(s.wrappedCommand), "create-backup", "--quiet")
 	c.Assert(err, jc.ErrorIsNil)
@@ -173,11 +173,11 @@ func (s *createSuite) TestDefaultQuiet(c *gc.C) {
 	client.CheckCalls(c, "Create", "Download")
 	client.CheckArgs(c, "", "false", "backup-filename")
 
-	c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
-	c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, "")
+	c.Check(ctx.Stderr.(*bytes.Buffer).String(), tc.Equals, "")
+	c.Check(ctx.Stdout.(*bytes.Buffer).String(), tc.Equals, "")
 }
 
-func (s *createSuite) TestNotes(c *gc.C) {
+func (s *createSuite) TestNotes(c *tc.C) {
 	client := s.setDownload()
 	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "test notes")
 	c.Assert(err, jc.ErrorIsNil)
@@ -187,7 +187,7 @@ func (s *createSuite) TestNotes(c *gc.C) {
 	s.checkDownload(c, ctx)
 }
 
-func (s *createSuite) TestFilename(c *gc.C) {
+func (s *createSuite) TestFilename(c *tc.C) {
 	client := s.setDownload()
 	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz")
 	c.Assert(err, jc.ErrorIsNil)
@@ -198,31 +198,31 @@ func (s *createSuite) TestFilename(c *gc.C) {
 Downloaded to backup.tgz
 `[1:]
 	s.checkDownload(c, ctx)
-	c.Check(s.command.Filename, gc.Equals, "backup.tgz")
+	c.Check(s.command.Filename, tc.Equals, "backup.tgz")
 }
 
-func (s *createSuite) TestNoDownload(c *gc.C) {
+func (s *createSuite) TestNoDownload(c *tc.C) {
 	client := s.setSuccess()
 	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--no-download")
 	c.Assert(err, jc.ErrorIsNil)
 
 	client.CheckCalls(c, "Create")
 	client.CheckArgs(c, "", "true")
-	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "Remote backup stored on the controller as backup-filename\n")
-	c.Check(cmdtesting.Stdout(ctx), gc.Equals, s.expectedOut)
-	c.Check(s.command.Filename, gc.Equals, backups.NotSet)
+	c.Check(cmdtesting.Stderr(ctx), tc.Equals, "Remote backup stored on the controller as backup-filename\n")
+	c.Check(cmdtesting.Stdout(ctx), tc.Equals, s.expectedOut)
+	c.Check(s.command.Filename, tc.Equals, backups.NotSet)
 }
 
-func (s *createSuite) TestFilenameAndNoDownload(c *gc.C) {
+func (s *createSuite) TestFilenameAndNoDownload(c *tc.C) {
 	s.setSuccess()
 	_, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--no-download", "--filename", "backup.tgz")
 
-	c.Check(err, gc.ErrorMatches, "cannot mix --no-download and --filename")
+	c.Check(err, tc.ErrorMatches, "cannot mix --no-download and --filename")
 }
 
-func (s *createSuite) TestError(c *gc.C) {
+func (s *createSuite) TestError(c *tc.C) {
 	s.setFailure("failed!")
 	_, err := cmdtesting.RunCommand(c, s.wrappedCommand)
 
-	c.Check(errors.Cause(err), gc.ErrorMatches, "failed!")
+	c.Check(errors.Cause(err), tc.ErrorMatches, "failed!")
 }

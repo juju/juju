@@ -10,11 +10,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
-	gc "gopkg.in/check.v1"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/httpserver"
@@ -29,7 +29,7 @@ type tlsStateFixture struct {
 	cache     autocert.DirCache
 }
 
-func (s *tlsStateFixture) SetUpTest(c *gc.C) {
+func (s *tlsStateFixture) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.cert = &tls.Certificate{
 		Leaf: &x509.Certificate{
@@ -46,9 +46,9 @@ type TLSStateSuite struct {
 	tlsStateFixture
 }
 
-var _ = gc.Suite(&TLSStateSuite{})
+var _ = tc.Suite(&TLSStateSuite{})
 
-func (s *TLSStateSuite) TestNewTLSConfig(c *gc.C) {
+func (s *TLSStateSuite) TestNewTLSConfig(c *tc.C) {
 	tlsConfig := httpserver.NewTLSConfig(
 		s.dnsName,
 		s.serverURL,
@@ -61,7 +61,7 @@ func (s *TLSStateSuite) TestNewTLSConfig(c *gc.C) {
 		ServerName: "anything.invalid",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cert, gc.Equals, s.cert)
+	c.Assert(cert, tc.Equals, s.cert)
 }
 
 type TLSAutocertSuite struct {
@@ -69,9 +69,9 @@ type TLSAutocertSuite struct {
 	autocertQueried bool
 }
 
-var _ = gc.Suite(&TLSAutocertSuite{})
+var _ = tc.Suite(&TLSAutocertSuite{})
 
-func (s *TLSAutocertSuite) SetUpSuite(c *gc.C) {
+func (s *TLSAutocertSuite) SetUpSuite(c *tc.C) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.autocertQueried = true
 		http.Error(w, "burp", http.StatusUnavailableForLegalReasons)
@@ -81,15 +81,15 @@ func (s *TLSAutocertSuite) SetUpSuite(c *gc.C) {
 	s.tlsStateFixture.SetUpSuite(c)
 	s.cache = autocert.DirCache(c.MkDir())
 	s.cache.Put(ctx.TODO(), "public.invalid", []byte("data"))
-	s.AddCleanup(func(c *gc.C) { server.Close() })
+	s.AddCleanup(func(c *tc.C) { server.Close() })
 }
 
-func (s *TLSAutocertSuite) SetUpTest(c *gc.C) {
+func (s *TLSAutocertSuite) SetUpTest(c *tc.C) {
 	s.tlsStateFixture.SetUpTest(c)
 	s.autocertQueried = false
 }
 
-func (s *TLSAutocertSuite) TestAutocertExceptions(c *gc.C) {
+func (s *TLSAutocertSuite) TestAutocertExceptions(c *tc.C) {
 	tlsConfig := httpserver.NewTLSConfig(
 		s.dnsName,
 		s.serverURL,
@@ -103,7 +103,7 @@ func (s *TLSAutocertSuite) TestAutocertExceptions(c *gc.C) {
 	c.Assert(s.autocertQueried, jc.IsFalse)
 }
 
-func (s *TLSAutocertSuite) TestAutocert(c *gc.C) {
+func (s *TLSAutocertSuite) TestAutocert(c *tc.C) {
 	tlsConfig := httpserver.NewTLSConfig(
 		s.dnsName,
 		s.serverURL,
@@ -116,7 +116,7 @@ func (s *TLSAutocertSuite) TestAutocert(c *gc.C) {
 	c.Assert(tlsConfig.NextProtos, jc.DeepEquals, []string{"h2", "http/1.1", acme.ALPNProto})
 }
 
-func (s *TLSAutocertSuite) TestAutocertHostPolicy(c *gc.C) {
+func (s *TLSAutocertSuite) TestAutocertHostPolicy(c *tc.C) {
 	tlsConfig := httpserver.NewTLSConfig(
 		s.dnsName,
 		s.serverURL,
@@ -128,7 +128,7 @@ func (s *TLSAutocertSuite) TestAutocertHostPolicy(c *gc.C) {
 	c.Assert(s.autocertQueried, jc.IsFalse)
 }
 
-func (s *TLSAutocertSuite) TestAutoCertNotCalledBadDNS(c *gc.C) {
+func (s *TLSAutocertSuite) TestAutoCertNotCalledBadDNS(c *tc.C) {
 	tlsConfig := httpserver.NewTLSConfig(
 		s.dnsName,
 		s.serverURL,
@@ -140,13 +140,13 @@ func (s *TLSAutocertSuite) TestAutoCertNotCalledBadDNS(c *gc.C) {
 	c.Assert(s.autocertQueried, jc.IsFalse)
 }
 
-func (s *TLSAutocertSuite) testGetCertificate(c *gc.C, tlsConfig *tls.Config, serverName string) {
+func (s *TLSAutocertSuite) testGetCertificate(c *tc.C, tlsConfig *tls.Config, serverName string) {
 	cert, err := tlsConfig.GetCertificate(&tls.ClientHelloInfo{
 		ServerName: serverName,
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("server name %q", serverName))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("server name %q", serverName))
 	// NOTE(axw) we always expect to get back s.cert, because we don't have
 	// a functioning autocert test server. We do check that we attempt to
 	// query the autocert server, but that's as far as we test here.
-	c.Assert(cert, gc.Equals, s.cert, gc.Commentf("server name %q", serverName))
+	c.Assert(cert, tc.Equals, s.cert, tc.Commentf("server name %q", serverName))
 }

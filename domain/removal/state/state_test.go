@@ -7,8 +7,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/domain/removal"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -19,17 +19,17 @@ type stateSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = gc.Suite(&stateSuite{})
+var _ = tc.Suite(&stateSuite{})
 
-func (s *stateSuite) TestGetAllJobsNoRows(c *gc.C) {
+func (s *stateSuite) TestGetAllJobsNoRows(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	jobs, err := st.GetAllJobs(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(jobs, gc.HasLen, 0)
+	c.Check(jobs, tc.HasLen, 0)
 }
 
-func (s *stateSuite) TestGetAllJobsWithData(c *gc.C) {
+func (s *stateSuite) TestGetAllJobsWithData(c *tc.C) {
 	ins := `
 INSERT INTO removal (uuid, removal_type_id, entity_uuid, force, scheduled_for, arg) 
 VALUES (?, ?, ?, ?, ?, ?)`
@@ -48,7 +48,7 @@ VALUES (?, ?, ?, ?, ?, ?)`
 
 	jobs, err := st.GetAllJobs(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(jobs, gc.HasLen, 2)
+	c.Assert(jobs, tc.HasLen, 2)
 
 	c.Check(jobs[0], jc.DeepEquals, removal.Job{
 		UUID:         jID1,
@@ -70,7 +70,7 @@ VALUES (?, ?, ?, ?, ?, ?)`
 	})
 }
 
-func (s *stateSuite) TestDeleteJob(c *gc.C) {
+func (s *stateSuite) TestDeleteJob(c *tc.C) {
 	ins := `
 INSERT INTO removal (uuid, removal_type_id, entity_uuid, force, scheduled_for, arg) 
 VALUES (?, ?, ?, ?, ?, ?)`
@@ -88,7 +88,7 @@ VALUES (?, ?, ?, ?, ?, ?)`
 	var count int
 	err = row.Scan(&count)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(count, gc.Equals, 0)
+	c.Check(count, tc.Equals, 0)
 
 	// Idempotent.
 	err = st.DeleteJob(context.Background(), jID1.String())

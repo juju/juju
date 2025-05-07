@@ -10,12 +10,12 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
 	"github.com/juju/schema"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
@@ -130,9 +130,9 @@ type serviceSuite struct {
 	logger logger.Logger
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = tc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.mockState = NewMockState(ctrl)
@@ -187,14 +187,14 @@ func (s *serviceSuite) expectGetSecretBackendConfigForAdminDefault(
 		}, nil)
 }
 
-func (s *serviceSuite) TestGetSecretBackendConfigForAdmin(c *gc.C) {
+func (s *serviceSuite) TestGetSecretBackendConfigForAdmin(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	svc := newService(
 		s.mockState, s.logger, s.clock,
 		func(backendType string) (provider.SecretBackendProvider, error) {
-			c.Assert(backendType, gc.Equals, "vault")
+			c.Assert(backendType, tc.Equals, "vault")
 			return s.mockRegistry, nil
 		},
 	)
@@ -248,14 +248,14 @@ func (s *serviceSuite) TestGetSecretBackendConfigForAdmin(c *gc.C) {
 	})
 }
 
-func (s *serviceSuite) TestGetSecretBackendConfigForAdminFailedNotFound(c *gc.C) {
+func (s *serviceSuite) TestGetSecretBackendConfigForAdminFailedNotFound(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	svc := newService(
 		s.mockState, s.logger, s.clock,
 		func(backendType string) (provider.SecretBackendProvider, error) {
-			c.Assert(backendType, gc.Equals, "vault")
+			c.Assert(backendType, tc.Equals, "vault")
 			return s.mockRegistry, nil
 		},
 	)
@@ -288,7 +288,7 @@ func (s *serviceSuite) TestGetSecretBackendConfigForAdminFailedNotFound(c *gc.C)
 	c.Assert(err, jc.ErrorIs, secretbackenderrors.NotFound)
 }
 
-func (s *serviceSuite) TestBackendSummaryInfoForModel(c *gc.C) {
+func (s *serviceSuite) TestBackendSummaryInfoForModel(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -407,7 +407,7 @@ func (s *serviceSuite) TestBackendSummaryInfoForModel(c *gc.C) {
 }
 
 func (s *serviceSuite) assertBackendSummaryInfo(
-	c *gc.C, svc *Service, modelType coremodel.ModelType,
+	c *tc.C, svc *Service, modelType coremodel.ModelType,
 	reveal bool, names []string,
 	expected []*SecretBackendInfo,
 ) {
@@ -486,7 +486,7 @@ func (s *serviceSuite) assertBackendSummaryInfo(
 	c.Assert(info, jc.SameContents, expected)
 }
 
-func (s *serviceSuite) TestBackendSummaryInfoWithFilterAllCAAS(c *gc.C) {
+func (s *serviceSuite) TestBackendSummaryInfoWithFilterAllCAAS(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := newService(
 		s.mockState, s.logger, s.clock,
@@ -546,7 +546,7 @@ func (s *serviceSuite) TestBackendSummaryInfoWithFilterAllCAAS(c *gc.C) {
 	)
 }
 
-func (s *serviceSuite) TestBackendSummaryInfoWithFilterAllIAAS(c *gc.C) {
+func (s *serviceSuite) TestBackendSummaryInfoWithFilterAllIAAS(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := newService(
 		s.mockState, s.logger, s.clock,
@@ -600,7 +600,7 @@ func (s *serviceSuite) TestBackendSummaryInfoWithFilterAllIAAS(c *gc.C) {
 	)
 }
 
-func (s *serviceSuite) TestBackendSummaryInfoWithFilterNames(c *gc.C) {
+func (s *serviceSuite) TestBackendSummaryInfoWithFilterNames(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := newService(
 		s.mockState, s.logger, s.clock,
@@ -634,7 +634,7 @@ func (s *serviceSuite) TestBackendSummaryInfoWithFilterNames(c *gc.C) {
 	)
 }
 
-func (s *serviceSuite) TestBackendSummaryInfoWithFilterNamesNotFound(c *gc.C) {
+func (s *serviceSuite) TestBackendSummaryInfoWithFilterNamesNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := newService(
 		s.mockState, s.logger, s.clock,
@@ -654,15 +654,15 @@ func (s *serviceSuite) TestBackendSummaryInfoWithFilterNamesNotFound(c *gc.C) {
 	)
 }
 
-func (s *serviceSuite) TestBackendConfigInfoLeaderUnit(c *gc.C) {
+func (s *serviceSuite) TestBackendConfigInfoLeaderUnit(c *tc.C) {
 	s.assertBackendConfigInfoLeaderUnit(c, []string{"backend-id"})
 }
 
-func (s *serviceSuite) TestBackendConfigInfoDefaultAdmin(c *gc.C) {
+func (s *serviceSuite) TestBackendConfigInfoDefaultAdmin(c *tc.C) {
 	s.assertBackendConfigInfoLeaderUnit(c, nil)
 }
 
-func (s *serviceSuite) assertBackendConfigInfoLeaderUnit(c *gc.C, wanted []string) {
+func (s *serviceSuite) assertBackendConfigInfoLeaderUnit(c *tc.C, wanted []string) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -726,7 +726,7 @@ func (s *serviceSuite) assertBackendConfigInfoLeaderUnit(c *gc.C, wanted []strin
 	listGranted := func(
 		ctx context.Context, backendID string, role coresecrets.SecretRole, consumers ...secretservice.SecretAccessor,
 	) ([]*coresecrets.SecretRevisionRef, error) {
-		c.Assert(backendID, gc.Equals, "backend-id")
+		c.Assert(backendID, tc.Equals, "backend-id")
 		if role == coresecrets.RoleManage {
 			c.Assert(consumers, jc.DeepEquals, []secretservice.SecretAccessor{{
 				Kind: secretservice.UnitAccessor,
@@ -773,7 +773,7 @@ func (s *serviceSuite) assertBackendConfigInfoLeaderUnit(c *gc.C, wanted []strin
 	})
 }
 
-func (s *serviceSuite) TestBackendConfigInfoNonLeaderUnit(c *gc.C) {
+func (s *serviceSuite) TestBackendConfigInfoNonLeaderUnit(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -843,7 +843,7 @@ func (s *serviceSuite) TestBackendConfigInfoNonLeaderUnit(c *gc.C) {
 	listGranted := func(
 		ctx context.Context, backendID string, role coresecrets.SecretRole, consumers ...secretservice.SecretAccessor,
 	) ([]*coresecrets.SecretRevisionRef, error) {
-		c.Assert(backendID, gc.Equals, "backend-id")
+		c.Assert(backendID, tc.Equals, "backend-id")
 		if role == coresecrets.RoleManage {
 			c.Assert(consumers, jc.DeepEquals, []secretservice.SecretAccessor{{
 				Kind: secretservice.UnitAccessor,
@@ -890,7 +890,7 @@ func (s *serviceSuite) TestBackendConfigInfoNonLeaderUnit(c *gc.C) {
 	})
 }
 
-func (s *serviceSuite) TestDrainBackendConfigInfo(c *gc.C) {
+func (s *serviceSuite) TestDrainBackendConfigInfo(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -960,7 +960,7 @@ func (s *serviceSuite) TestDrainBackendConfigInfo(c *gc.C) {
 	listGranted := func(
 		ctx context.Context, backendID string, role coresecrets.SecretRole, consumers ...secretservice.SecretAccessor,
 	) ([]*coresecrets.SecretRevisionRef, error) {
-		c.Assert(backendID, gc.Equals, "backend-id")
+		c.Assert(backendID, tc.Equals, "backend-id")
 		if role == coresecrets.RoleManage {
 			c.Assert(consumers, jc.DeepEquals, []secretservice.SecretAccessor{{
 				Kind: secretservice.UnitAccessor,
@@ -1006,7 +1006,7 @@ func (s *serviceSuite) TestDrainBackendConfigInfo(c *gc.C) {
 	})
 }
 
-func (s *serviceSuite) TestBackendConfigInfoFailedInvalidAccessor(c *gc.C) {
+func (s *serviceSuite) TestBackendConfigInfoFailedInvalidAccessor(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -1030,10 +1030,10 @@ func (s *serviceSuite) TestBackendConfigInfoFailedInvalidAccessor(c *gc.C) {
 		ModelUUID:  coremodel.UUID(jujutesting.ModelTag.Id()),
 		BackendIDs: []string{"backend-id"},
 	})
-	c.Assert(err, gc.ErrorMatches, `secret accessor kind "application" not supported`)
+	c.Assert(err, tc.ErrorMatches, `secret accessor kind "application" not supported`)
 }
 
-func (s *serviceSuite) TestBackendIDs(c *gc.C) {
+func (s *serviceSuite) TestBackendIDs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	backends := []string{vaultBackendID, "another-vault-id"}
 	s.mockState.EXPECT().ListSecretBackendIDs(gomock.Any()).Return(backends, nil)
@@ -1054,12 +1054,12 @@ func (s *serviceSuite) TestBackendIDs(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, []string{vaultBackendID, "another-vault-id"})
 }
 
-func (s *serviceSuite) TestCreateSecretBackendFailed(c *gc.C) {
+func (s *serviceSuite) TestCreateSecretBackendFailed(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := newService(
 		s.mockState, s.logger, s.clock,
 		func(backendType string) (provider.SecretBackendProvider, error) {
-			c.Assert(backendType, gc.Equals, "something")
+			c.Assert(backendType, tc.Equals, "something")
 			return providerWithConfig{
 				SecretBackendProvider: s.mockRegistry,
 			}, nil
@@ -1068,27 +1068,27 @@ func (s *serviceSuite) TestCreateSecretBackendFailed(c *gc.C) {
 
 	err := svc.CreateSecretBackend(context.Background(), coresecrets.SecretBackend{})
 	c.Check(err, jc.ErrorIs, secretbackenderrors.NotValid)
-	c.Check(err, gc.ErrorMatches, "secret backend not valid: missing ID")
+	c.Check(err, tc.ErrorMatches, "secret backend not valid: missing ID")
 
 	err = svc.CreateSecretBackend(context.Background(), coresecrets.SecretBackend{
 		ID: "backend-uuid",
 	})
 	c.Check(err, jc.ErrorIs, secretbackenderrors.NotValid)
-	c.Check(err, gc.ErrorMatches, "secret backend not valid: missing name")
+	c.Check(err, tc.ErrorMatches, "secret backend not valid: missing name")
 
 	err = svc.CreateSecretBackend(context.Background(), coresecrets.SecretBackend{
 		ID:   "backend-uuid",
 		Name: juju.BackendName,
 	})
 	c.Check(err, jc.ErrorIs, secretbackenderrors.NotValid)
-	c.Check(err, gc.ErrorMatches, `secret backend not valid: reserved name "internal"`)
+	c.Check(err, tc.ErrorMatches, `secret backend not valid: reserved name "internal"`)
 
 	err = svc.CreateSecretBackend(context.Background(), coresecrets.SecretBackend{
 		ID:   "backend-uuid",
 		Name: provider.Auto,
 	})
 	c.Check(err, jc.ErrorIs, secretbackenderrors.NotValid)
-	c.Check(err, gc.ErrorMatches, `secret backend not valid: reserved name "auto"`)
+	c.Check(err, tc.ErrorMatches, `secret backend not valid: reserved name "auto"`)
 
 	s.mockRegistry.EXPECT().Type().Return("something").AnyTimes()
 	err = svc.CreateSecretBackend(context.Background(), coresecrets.SecretBackend{
@@ -1097,15 +1097,15 @@ func (s *serviceSuite) TestCreateSecretBackendFailed(c *gc.C) {
 		BackendType: "something",
 	})
 	c.Check(err, jc.ErrorIs, secretbackenderrors.NotValid)
-	c.Check(err, gc.ErrorMatches, `secret backend not valid: config for provider "something": bad config for "something"`)
+	c.Check(err, tc.ErrorMatches, `secret backend not valid: config for provider "something": bad config for "something"`)
 }
 
-func (s *serviceSuite) TestCreateSecretBackend(c *gc.C) {
+func (s *serviceSuite) TestCreateSecretBackend(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := newService(
 		s.mockState, s.logger, s.clock,
 		func(backendType string) (provider.SecretBackendProvider, error) {
-			c.Assert(backendType, gc.Equals, "vault")
+			c.Assert(backendType, tc.Equals, "vault")
 			return providerWithConfig{
 				SecretBackendProvider: s.mockRegistry,
 			}, nil
@@ -1147,7 +1147,7 @@ func (s *serviceSuite) TestCreateSecretBackend(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
-func (s *serviceSuite) TestUpdateSecretBackendFailed(c *gc.C) {
+func (s *serviceSuite) TestUpdateSecretBackendFailed(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -1163,25 +1163,25 @@ func (s *serviceSuite) TestUpdateSecretBackendFailed(c *gc.C) {
 	arg := UpdateSecretBackendParams{}
 	err := svc.UpdateSecretBackend(context.Background(), arg)
 	c.Check(err, jc.ErrorIs, secretbackenderrors.NotValid)
-	c.Check(err, gc.ErrorMatches, "secret backend not valid: both ID and name are missing")
+	c.Check(err, tc.ErrorMatches, "secret backend not valid: both ID and name are missing")
 
 	arg.ID = "backend-uuid"
 	arg.NewName = ptr(juju.BackendName)
 	err = svc.UpdateSecretBackend(context.Background(), arg)
 	c.Check(err, jc.ErrorIs, secretbackenderrors.NotValid)
-	c.Check(err, gc.ErrorMatches, `secret backend not valid: reserved name "internal"`)
+	c.Check(err, tc.ErrorMatches, `secret backend not valid: reserved name "internal"`)
 
 	arg.NewName = ptr(provider.Auto)
 	err = svc.UpdateSecretBackend(context.Background(), arg)
 	c.Check(err, jc.ErrorIs, secretbackenderrors.NotValid)
-	c.Check(err, gc.ErrorMatches, `secret backend not valid: reserved name "auto"`)
+	c.Check(err, tc.ErrorMatches, `secret backend not valid: reserved name "auto"`)
 
 	arg = UpdateSecretBackendParams{}
 	arg.ID = "backend-uuid"
 	arg.Name = "myvault"
 	err = svc.UpdateSecretBackend(context.Background(), arg)
 	c.Check(err, jc.ErrorIs, secretbackenderrors.NotValid)
-	c.Check(err, gc.ErrorMatches, `secret backend not valid: both ID and name are set`)
+	c.Check(err, tc.ErrorMatches, `secret backend not valid: both ID and name are set`)
 
 	s.mockState.EXPECT().GetSecretBackend(gomock.Any(), secretbackend.BackendIdentifier{ID: "backend-uuid"}).
 		Return(&secretbackend.SecretBackend{
@@ -1192,17 +1192,17 @@ func (s *serviceSuite) TestUpdateSecretBackendFailed(c *gc.C) {
 	arg.ID = "backend-uuid"
 	err = svc.UpdateSecretBackend(context.Background(), arg)
 	c.Check(err, jc.ErrorIs, secretbackenderrors.NotValid)
-	c.Check(err, gc.ErrorMatches, `secret backend not valid: config for provider "something": bad config for "something"`)
+	c.Check(err, tc.ErrorMatches, `secret backend not valid: config for provider "something": bad config for "something"`)
 }
 
-func (s *serviceSuite) assertUpdateSecretBackend(c *gc.C, byName, skipPing bool) {
+func (s *serviceSuite) assertUpdateSecretBackend(c *tc.C, byName, skipPing bool) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	svc := newService(
 		s.mockState, s.logger, s.clock,
 		func(backendType string) (provider.SecretBackendProvider, error) {
-			c.Assert(backendType, gc.Equals, "vault")
+			c.Assert(backendType, tc.Equals, "vault")
 			return providerWithConfig{
 				SecretBackendProvider: s.mockRegistry,
 			}, nil
@@ -1271,23 +1271,23 @@ func (s *serviceSuite) assertUpdateSecretBackend(c *gc.C, byName, skipPing bool)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestUpdateSecretBackend(c *gc.C) {
+func (s *serviceSuite) TestUpdateSecretBackend(c *tc.C) {
 	s.assertUpdateSecretBackend(c, false, false)
 }
 
-func (s *serviceSuite) TestUpdateSecretBackendByName(c *gc.C) {
+func (s *serviceSuite) TestUpdateSecretBackendByName(c *tc.C) {
 	s.assertUpdateSecretBackend(c, true, false)
 }
 
-func (s *serviceSuite) TestUpdateSecretBackendWithForce(c *gc.C) {
+func (s *serviceSuite) TestUpdateSecretBackendWithForce(c *tc.C) {
 	s.assertUpdateSecretBackend(c, false, true)
 }
 
-func (s *serviceSuite) TestUpdateSecretBackendWithForceByName(c *gc.C) {
+func (s *serviceSuite) TestUpdateSecretBackendWithForceByName(c *tc.C) {
 	s.assertUpdateSecretBackend(c, true, true)
 }
 
-func (s *serviceSuite) TestDeleteSecretBackend(c *gc.C) {
+func (s *serviceSuite) TestDeleteSecretBackend(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := newService(
 		s.mockState, s.logger, s.clock,
@@ -1305,7 +1305,7 @@ func (s *serviceSuite) TestDeleteSecretBackend(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestRotateBackendToken(c *gc.C) {
+func (s *serviceSuite) TestRotateBackendToken(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -1345,7 +1345,7 @@ func (s *serviceSuite) TestRotateBackendToken(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestRotateBackendTokenRetry(c *gc.C) {
+func (s *serviceSuite) TestRotateBackendTokenRetry(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -1386,7 +1386,7 @@ func (s *serviceSuite) TestRotateBackendTokenRetry(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
+func (s *serviceSuite) TestWatchSecretBackendRotationChanges(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	backendID1 := uuid.MustNewUUID().String()
@@ -1408,7 +1408,7 @@ func (s *serviceSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 	s.mockStringWatcher.EXPECT().Kill().AnyTimes()
 
 	s.PatchValue(&InitialNamespaceChanges, func(selectAll string) eventsource.NamespaceQuery {
-		c.Assert(selectAll, gc.Equals, "SELECT * FROM table")
+		c.Assert(selectAll, tc.Equals, "SELECT * FROM table")
 		return nil
 	})
 	s.mockState.EXPECT().InitialWatchStatementForSecretBackendRotationChanges().Return("table", "SELECT * FROM table")
@@ -1428,7 +1428,7 @@ func (s *serviceSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 
 	w, err := svc.WatchSecretBackendRotationChanges(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(w, gc.NotNil)
+	c.Assert(w, tc.NotNil)
 	defer workertest.CleanKill(c, w)
 
 	wC := watchertest.NewSecretBackendRotateWatcherC(c, w)
@@ -1454,7 +1454,7 @@ func (s *serviceSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 	wC.AssertNoChange()
 }
 
-func (s *serviceSuite) TestGetModelSecretBackendFailedModelNotFound(c *gc.C) {
+func (s *serviceSuite) TestGetModelSecretBackendFailedModelNotFound(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -1464,11 +1464,11 @@ func (s *serviceSuite) TestGetModelSecretBackendFailedModelNotFound(c *gc.C) {
 	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{}, modelerrors.NotFound)
 
 	_, err := svc.GetModelSecretBackend(context.Background())
-	c.Assert(err, gc.ErrorMatches, `getting model secret backend detail for "`+modelUUID.String()+`": model not found`)
+	c.Assert(err, tc.ErrorMatches, `getting model secret backend detail for "`+modelUUID.String()+`": model not found`)
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
-func (s *serviceSuite) TestGetModelSecretBackendCAAS(c *gc.C) {
+func (s *serviceSuite) TestGetModelSecretBackendCAAS(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -1482,10 +1482,10 @@ func (s *serviceSuite) TestGetModelSecretBackendCAAS(c *gc.C) {
 
 	backendID, err := svc.GetModelSecretBackend(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(backendID, gc.Equals, "backend-name")
+	c.Assert(backendID, tc.Equals, "backend-name")
 }
 
-func (s *serviceSuite) TestGetModelSecretBackendIAAS(c *gc.C) {
+func (s *serviceSuite) TestGetModelSecretBackendIAAS(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -1499,10 +1499,10 @@ func (s *serviceSuite) TestGetModelSecretBackendIAAS(c *gc.C) {
 
 	backendID, err := svc.GetModelSecretBackend(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(backendID, gc.Equals, "backend-name")
+	c.Assert(backendID, tc.Equals, "backend-name")
 }
 
-func (s *serviceSuite) TestGetModelSecretBackendCAASAuto(c *gc.C) {
+func (s *serviceSuite) TestGetModelSecretBackendCAASAuto(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -1516,10 +1516,10 @@ func (s *serviceSuite) TestGetModelSecretBackendCAASAuto(c *gc.C) {
 
 	backendID, err := svc.GetModelSecretBackend(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(backendID, gc.Equals, "auto")
+	c.Assert(backendID, tc.Equals, "auto")
 }
 
-func (s *serviceSuite) TestGetModelSecretBackendIAASAuto(c *gc.C) {
+func (s *serviceSuite) TestGetModelSecretBackendIAASAuto(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -1533,42 +1533,42 @@ func (s *serviceSuite) TestGetModelSecretBackendIAASAuto(c *gc.C) {
 
 	backendID, err := svc.GetModelSecretBackend(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(backendID, gc.Equals, "auto")
+	c.Assert(backendID, tc.Equals, "auto")
 }
 
-func (s *serviceSuite) TestSetModelSecretBackendFailedEmptyBackendName(c *gc.C) {
+func (s *serviceSuite) TestSetModelSecretBackendFailedEmptyBackendName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := modeltesting.GenModelUUID(c)
 	svc := NewModelSecretBackendService(modelUUID, s.mockState)
 
 	err := svc.SetModelSecretBackend(context.Background(), "")
-	c.Assert(err, gc.ErrorMatches, `missing backend name`)
+	c.Assert(err, tc.ErrorMatches, `missing backend name`)
 }
 
-func (s *serviceSuite) TestSetModelSecretBackendFailedReservedNameKubernetes(c *gc.C) {
+func (s *serviceSuite) TestSetModelSecretBackendFailedReservedNameKubernetes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := modeltesting.GenModelUUID(c)
 	svc := NewModelSecretBackendService(modelUUID, s.mockState)
 
 	err := svc.SetModelSecretBackend(context.Background(), "kubernetes")
-	c.Assert(err, gc.ErrorMatches, `secret backend name "kubernetes" not valid`)
+	c.Assert(err, tc.ErrorMatches, `secret backend name "kubernetes" not valid`)
 	c.Assert(err, jc.ErrorIs, secretbackenderrors.NotValid)
 }
 
-func (s *serviceSuite) TestSetModelSecretBackendFailedReservedNameInternal(c *gc.C) {
+func (s *serviceSuite) TestSetModelSecretBackendFailedReservedNameInternal(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := modeltesting.GenModelUUID(c)
 	svc := NewModelSecretBackendService(modelUUID, s.mockState)
 
 	err := svc.SetModelSecretBackend(context.Background(), "internal")
-	c.Assert(err, gc.ErrorMatches, `secret backend name "internal" not valid`)
+	c.Assert(err, tc.ErrorMatches, `secret backend name "internal" not valid`)
 	c.Assert(err, jc.ErrorIs, secretbackenderrors.NotValid)
 }
 
-func (s *serviceSuite) TestSetModelSecretBackendFailedUnkownModelType(c *gc.C) {
+func (s *serviceSuite) TestSetModelSecretBackendFailedUnkownModelType(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -1578,10 +1578,10 @@ func (s *serviceSuite) TestSetModelSecretBackendFailedUnkownModelType(c *gc.C) {
 	s.mockState.EXPECT().GetModelType(gomock.Any(), modelUUID).Return("bad-type", nil)
 
 	err := svc.SetModelSecretBackend(context.Background(), "auto")
-	c.Assert(err, gc.ErrorMatches, `setting model secret backend for unsupported model type "bad-type" for model "`+modelUUID.String()+`"`)
+	c.Assert(err, tc.ErrorMatches, `setting model secret backend for unsupported model type "bad-type" for model "`+modelUUID.String()+`"`)
 }
 
-func (s *serviceSuite) TestSetModelSecretBackendFailedModelNotFound(c *gc.C) {
+func (s *serviceSuite) TestSetModelSecretBackendFailedModelNotFound(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -1591,11 +1591,11 @@ func (s *serviceSuite) TestSetModelSecretBackendFailedModelNotFound(c *gc.C) {
 	s.mockState.EXPECT().GetModelType(gomock.Any(), modelUUID).Return("", modelerrors.NotFound)
 
 	err := svc.SetModelSecretBackend(context.Background(), "auto")
-	c.Assert(err, gc.ErrorMatches, `getting model type for "`+modelUUID.String()+`": model not found`)
+	c.Assert(err, tc.ErrorMatches, `getting model type for "`+modelUUID.String()+`": model not found`)
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
-func (s *serviceSuite) TestSetModelSecretBackendFailedSecretBackendNotFound(c *gc.C) {
+func (s *serviceSuite) TestSetModelSecretBackendFailedSecretBackendNotFound(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -1606,11 +1606,11 @@ func (s *serviceSuite) TestSetModelSecretBackendFailedSecretBackendNotFound(c *g
 	s.mockState.EXPECT().SetModelSecretBackend(gomock.Any(), modelUUID, "kubernetes").Return(secretbackenderrors.NotFound)
 
 	err := svc.SetModelSecretBackend(context.Background(), "auto")
-	c.Assert(err, gc.ErrorMatches, `setting model secret backend for "`+modelUUID.String()+`": secret backend not found`)
+	c.Assert(err, tc.ErrorMatches, `setting model secret backend for "`+modelUUID.String()+`": secret backend not found`)
 	c.Assert(err, jc.ErrorIs, secretbackenderrors.NotFound)
 }
 
-func (s *serviceSuite) TestSetModelSecretBackend(c *gc.C) {
+func (s *serviceSuite) TestSetModelSecretBackend(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -1623,7 +1623,7 @@ func (s *serviceSuite) TestSetModelSecretBackend(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestSetModelSecretBackendCAASAuto(c *gc.C) {
+func (s *serviceSuite) TestSetModelSecretBackendCAASAuto(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -1637,7 +1637,7 @@ func (s *serviceSuite) TestSetModelSecretBackendCAASAuto(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestSetModelSecretBackendIAASAuto(c *gc.C) {
+func (s *serviceSuite) TestSetModelSecretBackendIAASAuto(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -1651,7 +1651,7 @@ func (s *serviceSuite) TestSetModelSecretBackendIAASAuto(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestWatchModelSecretBackendChanged(c *gc.C) {
+func (s *serviceSuite) TestWatchModelSecretBackendChanged(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -1682,7 +1682,7 @@ func (s *serviceSuite) TestWatchModelSecretBackendChanged(c *gc.C) {
 
 	w, err := svc.WatchModelSecretBackendChanged(context.Background(), modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(w, gc.NotNil)
+	c.Assert(w, tc.NotNil)
 	defer workertest.CleanKill(c, w)
 
 	wc := watchertest.NewNotifyWatcherC(c, w)
@@ -1690,7 +1690,7 @@ func (s *serviceSuite) TestWatchModelSecretBackendChanged(c *gc.C) {
 	wc.AssertNChanges(2)
 }
 
-func (s *serviceSuite) assertGetSecretsToDrain(c *gc.C, backendID string, expectedRevisions ...RevisionInfo) {
+func (s *serviceSuite) assertGetSecretsToDrain(c *tc.C, backendID string, expectedRevisions ...RevisionInfo) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -1736,7 +1736,7 @@ func (s *serviceSuite) assertGetSecretsToDrain(c *gc.C, backendID string, expect
 	c.Assert(results, jc.DeepEquals, expectedRevisions)
 }
 
-func (s *serviceSuite) TestGetRevisionsToDrainAutoIAAS(c *gc.C) {
+func (s *serviceSuite) TestGetRevisionsToDrainAutoIAAS(c *tc.C) {
 	s.assertGetSecretsToDrain(c, jujuBackendID,
 		// External backend.
 		RevisionInfo{
@@ -1757,7 +1757,7 @@ func (s *serviceSuite) TestGetRevisionsToDrainAutoIAAS(c *gc.C) {
 	)
 }
 
-func (s *serviceSuite) TestGetRevisionsToDrainAutoCAAS(c *gc.C) {
+func (s *serviceSuite) TestGetRevisionsToDrainAutoCAAS(c *tc.C) {
 	s.assertGetSecretsToDrain(c, k8sBackendID,
 		// External backend.
 		RevisionInfo{
@@ -1774,7 +1774,7 @@ func (s *serviceSuite) TestGetRevisionsToDrainAutoCAAS(c *gc.C) {
 	)
 }
 
-func (s *serviceSuite) TestGetRevisionsToDrainExternal(c *gc.C) {
+func (s *serviceSuite) TestGetRevisionsToDrainExternal(c *tc.C) {
 	s.assertGetSecretsToDrain(c, "backend-id",
 		// Internal backend.
 		RevisionInfo{

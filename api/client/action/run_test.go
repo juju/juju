@@ -7,9 +7,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/action"
@@ -18,9 +18,9 @@ import (
 
 type runSuite struct{}
 
-var _ = gc.Suite(&runSuite{})
+var _ = tc.Suite(&runSuite{})
 
-func (s *actionSuite) TestRunOnAllMachines(c *gc.C) {
+func (s *actionSuite) TestRunOnAllMachines(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -54,7 +54,7 @@ func (s *actionSuite) TestRunOnAllMachines(c *gc.C) {
 	})
 }
 
-func (s *actionSuite) TestRun(c *gc.C) {
+func (s *actionSuite) TestRun(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 

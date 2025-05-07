@@ -4,7 +4,7 @@
 package charm_test
 
 import (
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
 	corebase "github.com/juju/juju/core/base"
@@ -14,9 +14,9 @@ import (
 
 type originSuite struct{}
 
-var _ = gc.Suite(&originSuite{})
+var _ = tc.Suite(&originSuite{})
 
-func (originSuite) TestCoreChannel(c *gc.C) {
+func (originSuite) TestCoreChannel(c *tc.C) {
 	track := "latest"
 	branch := "foo"
 	origin := commoncharm.Origin{
@@ -24,28 +24,28 @@ func (originSuite) TestCoreChannel(c *gc.C) {
 		Track:  &track,
 		Branch: &branch,
 	}
-	c.Assert(origin.CharmChannel(), gc.DeepEquals, charm.Channel{
+	c.Assert(origin.CharmChannel(), tc.DeepEquals, charm.Channel{
 		Risk:   charm.Edge,
 		Track:  "latest",
 		Branch: "foo",
 	})
 }
 
-func (originSuite) TestCoreChannelWithEmptyTrack(c *gc.C) {
+func (originSuite) TestCoreChannelWithEmptyTrack(c *tc.C) {
 	origin := commoncharm.Origin{
 		Risk: "edge",
 	}
-	c.Assert(origin.CharmChannel(), gc.DeepEquals, charm.Channel{
+	c.Assert(origin.CharmChannel(), tc.DeepEquals, charm.Channel{
 		Risk: charm.Edge,
 	})
 }
 
-func (originSuite) TestCoreChannelThatIsEmpty(c *gc.C) {
+func (originSuite) TestCoreChannelThatIsEmpty(c *tc.C) {
 	origin := commoncharm.Origin{}
-	c.Assert(origin.CharmChannel(), gc.DeepEquals, charm.Channel{})
+	c.Assert(origin.CharmChannel(), tc.DeepEquals, charm.Channel{})
 }
 
-func (originSuite) TestConvertToCoreCharmOrigin(c *gc.C) {
+func (originSuite) TestConvertToCoreCharmOrigin(c *tc.C) {
 	track := "latest"
 	origin := commoncharm.Origin{
 		Source:       "charm-hub",
@@ -57,7 +57,7 @@ func (originSuite) TestConvertToCoreCharmOrigin(c *gc.C) {
 		Base:         corebase.MakeDefaultBase("ubuntu", "20.04"),
 	}
 
-	c.Assert(origin.CoreCharmOrigin(), gc.DeepEquals, corecharm.Origin{
+	c.Assert(origin.CoreCharmOrigin(), tc.DeepEquals, corecharm.Origin{
 		Source: "charm-hub",
 		ID:     "foobar",
 		Channel: &charm.Channel{

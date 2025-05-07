@@ -5,10 +5,10 @@ package applicationoffers_test
 
 import (
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
@@ -46,7 +46,7 @@ type baseSuite struct {
 	mockModelService              *MockModelService
 }
 
-func (s *baseSuite) SetUpTest(c *gc.C) {
+func (s *baseSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.authorizer = &testing.FakeAuthorizer{
 		Tag:      names.NewUserTag("read"),
@@ -62,7 +62,7 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.mockStatePool = &mockStatePool{map[string]applicationoffers.Backend{s.modelUUID.String(): s.mockState}}
 }
 
-func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockAccessService = NewMockAccessService(ctrl)
 	s.mockApplicationService = NewMockApplicationService(ctrl)
@@ -72,7 +72,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *baseSuite) addApplication(c *gc.C, name string) jujucrossmodel.ApplicationOffer {
+func (s *baseSuite) addApplication(c *tc.C, name string) jujucrossmodel.ApplicationOffer {
 	return jujucrossmodel.ApplicationOffer{
 		OfferName:              "offer-" + name,
 		OfferUUID:              "offer-" + name + "-uuid",
@@ -82,13 +82,13 @@ func (s *baseSuite) addApplication(c *gc.C, name string) jujucrossmodel.Applicat
 	}
 }
 
-func (s *baseSuite) setupOffers(c *gc.C, filterAppName string, filterWithEndpoints bool) string {
+func (s *baseSuite) setupOffers(c *tc.C, filterAppName string, filterWithEndpoints bool) string {
 	offerUUID := uuid.MustNewUUID().String()
 	s.setupOffersForUUID(c, offerUUID, filterAppName, filterWithEndpoints)
 	return offerUUID
 }
 
-func (s *baseSuite) setupOffersForUUID(c *gc.C, offerUUID, filterAppName string, filterWithEndpoints bool) {
+func (s *baseSuite) setupOffersForUUID(c *tc.C, offerUUID, filterAppName string, filterWithEndpoints bool) {
 	applicationName := "test"
 	offerName := "hosted-db2"
 
@@ -105,7 +105,7 @@ func (s *baseSuite) setupOffersForUUID(c *gc.C, offerUUID, filterAppName string,
 	}
 
 	s.applicationOffers.listOffers = func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
-		c.Assert(filters, gc.HasLen, 1)
+		c.Assert(filters, tc.HasLen, 1)
 		expectedFilter := jujucrossmodel.ApplicationOfferFilter{
 			OfferName:       offerName,
 			ApplicationName: filterAppName,

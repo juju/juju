@@ -8,9 +8,9 @@ import (
 	"database/sql"
 
 	"github.com/juju/clock"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -42,9 +42,9 @@ type serviceSuite struct {
 	secretBackendState *secret.MockSecretBackendState
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = tc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) SetUpTest(c *gc.C) {
+func (s *serviceSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 
 	s.modelUUID = modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-model")
@@ -59,7 +59,7 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestDeleteSecretInternal(c *gc.C) {
+func (s *serviceSuite) TestDeleteSecretInternal(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelUUID, gomock.Any())
@@ -78,7 +78,7 @@ func (s *serviceSuite) TestDeleteSecretInternal(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
 }
 
-func (s *serviceSuite) TestDeleteSecretExternal(c *gc.C) {
+func (s *serviceSuite) TestDeleteSecretExternal(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ref := &coresecrets.ValueRef{
@@ -101,7 +101,7 @@ func (s *serviceSuite) TestDeleteSecretExternal(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
 }
 
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.secretBackendState = secret.NewMockSecretBackendState(ctrl)
 
@@ -117,7 +117,7 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *serviceSuite) createSecret(c *gc.C, data map[string]string, valueRef *coresecrets.ValueRef) *coresecrets.URI {
+func (s *serviceSuite) createSecret(c *tc.C, data map[string]string, valueRef *coresecrets.ValueRef) *coresecrets.URI {
 	ctx := context.Background()
 	st := applicationstate.NewState(func() (database.TxnRunner, error) {
 		return s.ModelTxnRunner(c, s.modelUUID.String()), nil

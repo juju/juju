@@ -6,7 +6,7 @@ package caasmodeloperator_test
 import (
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
-func TestPackage(t *testing.T) { gc.TestingT(t) }
+func TestPackage(t *testing.T) { tc.TestingT(t) }

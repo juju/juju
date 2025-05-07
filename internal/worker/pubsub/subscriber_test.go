@@ -12,11 +12,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/pubsub/v2"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -31,9 +31,9 @@ import (
 type WorkerConfigSuite struct {
 }
 
-var _ = gc.Suite(&WorkerConfigSuite{})
+var _ = tc.Suite(&WorkerConfigSuite{})
 
-func (*WorkerConfigSuite) TestValidate(c *gc.C) {
+func (*WorkerConfigSuite) TestValidate(c *tc.C) {
 	logger := loggertesting.WrapCheckLog(c)
 	for i, test := range []struct {
 		cfg      psworker.WorkerConfig
@@ -113,7 +113,7 @@ func (*WorkerConfigSuite) TestValidate(c *gc.C) {
 		c.Logf("test %d", i)
 		err := test.cfg.Validate()
 		if test.errMatch != "" {
-			c.Check(err, gc.ErrorMatches, test.errMatch)
+			c.Check(err, tc.ErrorMatches, test.errMatch)
 			c.Check(err, jc.ErrorIs, errors.NotValid)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
@@ -130,9 +130,9 @@ type SubscriberSuite struct {
 	remotes *fakeRemoteTracker
 }
 
-var _ = gc.Suite(&SubscriberSuite{})
+var _ = tc.Suite(&SubscriberSuite{})
 
-func (s *SubscriberSuite) SetUpTest(c *gc.C) {
+func (s *SubscriberSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	logger := loggertesting.WrapCheckLog(c)
@@ -162,28 +162,28 @@ func (s *SubscriberSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *SubscriberSuite) TestBadConfig(c *gc.C) {
+func (s *SubscriberSuite) TestBadConfig(c *tc.C) {
 	s.config.Clock = nil
 	w, err := psworker.NewWorker(s.config)
-	c.Assert(err, gc.ErrorMatches, "missing clock not valid")
-	c.Assert(w, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "missing clock not valid")
+	c.Assert(w, tc.IsNil)
 }
 
-func (s *SubscriberSuite) TestCleanShutdown(c *gc.C) {
+func (s *SubscriberSuite) TestCleanShutdown(c *tc.C) {
 	w, err := psworker.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 }
 
-func (s *SubscriberSuite) TestNoInitialRemotes(c *gc.C) {
+func (s *SubscriberSuite) TestNoInitialRemotes(c *tc.C) {
 	w, err := psworker.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
-	c.Assert(s.remotes.remotes, gc.HasLen, 0)
+	c.Assert(s.remotes.remotes, tc.HasLen, 0)
 }
 
-func (s *SubscriberSuite) enableHA(c *gc.C) {
+func (s *SubscriberSuite) enableHA(c *tc.C) {
 	done, err := s.hub.Publish(apiserver.DetailsTopic, apiserver.Details{
 		Servers: map[string]apiserver.APIServer{
 			"3": {
@@ -210,28 +210,28 @@ func (s *SubscriberSuite) enableHA(c *gc.C) {
 	}
 }
 
-func (s *SubscriberSuite) newHAWorker(c *gc.C) worker.Worker {
+func (s *SubscriberSuite) newHAWorker(c *tc.C) worker.Worker {
 	w, err := psworker.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, w) })
+	s.AddCleanup(func(c *tc.C) { workertest.CleanKill(c, w) })
 	s.enableHA(c)
 	return w
 }
 
-func (s *SubscriberSuite) TestEnableHA(c *gc.C) {
+func (s *SubscriberSuite) TestEnableHA(c *tc.C) {
 	s.newHAWorker(c)
 
-	c.Assert(s.remotes.remotes, gc.HasLen, 2)
+	c.Assert(s.remotes.remotes, tc.HasLen, 2)
 	remote3 := s.remotes.remotes["machine-3"]
 	c.Assert(remote3.config.APIInfo.Addrs, jc.DeepEquals, []string{"10.1.2.3"})
 	remote5 := s.remotes.remotes["machine-5"]
 	c.Assert(remote5.config.APIInfo.Addrs, jc.DeepEquals, []string{"10.1.2.5"})
 }
 
-func (s *SubscriberSuite) TestEnableHAInternalAddress(c *gc.C) {
+func (s *SubscriberSuite) TestEnableHAInternalAddress(c *tc.C) {
 	w, err := psworker.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, w) })
+	s.AddCleanup(func(c *tc.C) { workertest.CleanKill(c, w) })
 	done, err := s.hub.Publish(apiserver.DetailsTopic, apiserver.Details{
 		Servers: map[string]apiserver.APIServer{
 			"3": {
@@ -259,14 +259,14 @@ func (s *SubscriberSuite) TestEnableHAInternalAddress(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("message handling not completed")
 	}
-	c.Assert(s.remotes.remotes, gc.HasLen, 2)
+	c.Assert(s.remotes.remotes, tc.HasLen, 2)
 	remote3 := s.remotes.remotes["machine-3"]
 	c.Assert(remote3.config.APIInfo.Addrs, jc.DeepEquals, []string{"10.5.4.3"})
 	remote5 := s.remotes.remotes["machine-5"]
 	c.Assert(remote5.config.APIInfo.Addrs, jc.DeepEquals, []string{"10.5.4.4"})
 }
 
-func (s *SubscriberSuite) TestSameMessagesForwardedForMachine(c *gc.C) {
+func (s *SubscriberSuite) TestSameMessagesForwardedForMachine(c *tc.C) {
 	s.newHAWorker(c)
 
 	var expected []*params.PubSubMessage
@@ -288,7 +288,7 @@ func (s *SubscriberSuite) TestSameMessagesForwardedForMachine(c *gc.C) {
 		c.Fatal("messages not handled")
 	}
 
-	c.Assert(s.remotes.remotes, gc.HasLen, 2)
+	c.Assert(s.remotes.remotes, tc.HasLen, 2)
 	remote3 := s.remotes.remotes["machine-3"]
 	remote5 := s.remotes.remotes["machine-5"]
 
@@ -296,7 +296,7 @@ func (s *SubscriberSuite) TestSameMessagesForwardedForMachine(c *gc.C) {
 	c.Assert(remote5.messages, jc.DeepEquals, expected)
 }
 
-func (s *SubscriberSuite) TestSameMessagesForwardedForController(c *gc.C) {
+func (s *SubscriberSuite) TestSameMessagesForwardedForController(c *tc.C) {
 	tag := names.NewControllerAgentTag("42")
 	s.origin = tag.String()
 	s.hub = centralhub.New(tag)
@@ -325,7 +325,7 @@ func (s *SubscriberSuite) TestSameMessagesForwardedForController(c *gc.C) {
 		c.Fatal("messages not handled")
 	}
 
-	c.Assert(s.remotes.remotes, gc.HasLen, 2)
+	c.Assert(s.remotes.remotes, tc.HasLen, 2)
 	remote3 := s.remotes.remotes["controller-3"]
 	remote5 := s.remotes.remotes["controller-5"]
 
@@ -333,7 +333,7 @@ func (s *SubscriberSuite) TestSameMessagesForwardedForController(c *gc.C) {
 	c.Assert(remote5.messages, jc.DeepEquals, expected)
 }
 
-func (s *SubscriberSuite) TestLocalMessagesNotForwarded(c *gc.C) {
+func (s *SubscriberSuite) TestLocalMessagesNotForwarded(c *tc.C) {
 	s.newHAWorker(c)
 
 	var last <-chan struct{}
@@ -352,15 +352,15 @@ func (s *SubscriberSuite) TestLocalMessagesNotForwarded(c *gc.C) {
 		c.Fatal("messages not handled")
 	}
 
-	c.Assert(s.remotes.remotes, gc.HasLen, 2)
+	c.Assert(s.remotes.remotes, tc.HasLen, 2)
 	remote3 := s.remotes.remotes["machine-3"]
 	remote5 := s.remotes.remotes["machine-5"]
 
-	c.Assert(remote3.messages, gc.HasLen, 0)
-	c.Assert(remote5.messages, gc.HasLen, 0)
+	c.Assert(remote3.messages, tc.HasLen, 0)
+	c.Assert(remote5.messages, tc.HasLen, 0)
 }
 
-func (s *SubscriberSuite) TestOtherOriginMessagesNotForwarded(c *gc.C) {
+func (s *SubscriberSuite) TestOtherOriginMessagesNotForwarded(c *tc.C) {
 	s.newHAWorker(c)
 
 	var last <-chan struct{}
@@ -379,20 +379,20 @@ func (s *SubscriberSuite) TestOtherOriginMessagesNotForwarded(c *gc.C) {
 		c.Fatal("messages not handled")
 	}
 
-	c.Assert(s.remotes.remotes, gc.HasLen, 2)
+	c.Assert(s.remotes.remotes, tc.HasLen, 2)
 	remote3 := s.remotes.remotes["machine-3"]
 	remote5 := s.remotes.remotes["machine-5"]
 
-	c.Assert(remote3.messages, gc.HasLen, 0)
-	c.Assert(remote5.messages, gc.HasLen, 0)
+	c.Assert(remote3.messages, tc.HasLen, 0)
+	c.Assert(remote5.messages, tc.HasLen, 0)
 }
 
-func (s *SubscriberSuite) TestIntrospectionReport(c *gc.C) {
+func (s *SubscriberSuite) TestIntrospectionReport(c *tc.C) {
 	w := s.newHAWorker(c)
 
 	r, ok := w.(psworker.Reporter)
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(r.IntrospectionReport(), gc.Equals, ""+
+	c.Assert(r.IntrospectionReport(), tc.Equals, ""+
 		"Source: machine-42\n"+
 		"\n"+
 		"Target: machine-3\n"+
@@ -404,7 +404,7 @@ func (s *SubscriberSuite) TestIntrospectionReport(c *gc.C) {
 		"  Addresses: [10.1.2.5]\n")
 }
 
-func (s *SubscriberSuite) TestReport(c *gc.C) {
+func (s *SubscriberSuite) TestReport(c *tc.C) {
 	w := s.newHAWorker(c)
 
 	r, ok := w.(psworker.Reporter)
@@ -423,7 +423,7 @@ func (s *SubscriberSuite) TestReport(c *gc.C) {
 		}})
 }
 
-func (s *SubscriberSuite) TestRequestsDetailsOnceSubscribed(c *gc.C) {
+func (s *SubscriberSuite) TestRequestsDetailsOnceSubscribed(c *tc.C) {
 	subscribed := make(chan apiserver.DetailsRequest)
 	s.config.Hub.Subscribe(apiserver.DetailsRequestTopic,
 		func(_ string, req apiserver.DetailsRequest, err error) {
@@ -436,7 +436,7 @@ func (s *SubscriberSuite) TestRequestsDetailsOnceSubscribed(c *gc.C) {
 
 	select {
 	case req := <-subscribed:
-		c.Assert(req, gc.Equals, apiserver.DetailsRequest{Requester: "pubsub-forwarder", LocalOnly: true})
+		c.Assert(req, tc.Equals, apiserver.DetailsRequest{Requester: "pubsub-forwarder", LocalOnly: true})
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for details request")
 	}

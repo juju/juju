@@ -6,8 +6,8 @@ package sshserver
 import (
 	stdtesting "testing"
 
+	"github.com/juju/tc"
 	"go.uber.org/goleak"
-	gc "gopkg.in/check.v1"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package sshserver -destination service_mock_test.go github.com/juju/juju/internal/worker/sshserver ControllerConfigService,SessionHandler
@@ -17,5 +17,5 @@ import (
 func TestPackage(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)
 
-	gc.TestingT(t)
+	tc.TestingT(t)
 }

@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs"
@@ -21,7 +21,7 @@ import (
 type environSuite struct {
 }
 
-var _ = gc.Suite(&environSuite{})
+var _ = tc.Suite(&environSuite{})
 
 type mockModel struct {
 	stateenvirons.Model
@@ -48,7 +48,7 @@ func (m *mockModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
 	return names.CloudCredentialTag{}, false
 }
 
-func (s *environSuite) TestGetEnvironment(c *gc.C) {
+func (s *environSuite) TestGetEnvironment(c *tc.C) {
 	cfg := testing.CustomModelConfig(c, testing.Attrs{"name": "testmodel-foo"})
 	m := &mockModel{cfg: cfg}
 	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(m, apiservertesting.ConstCloudGetter(&jujutesting.DefaultCloud), nil, m)

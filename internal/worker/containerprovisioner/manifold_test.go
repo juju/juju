@@ -6,9 +6,9 @@ package containerprovisioner_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
@@ -21,40 +21,40 @@ type containerManifoldSuite struct {
 	getter  *MockContainerMachineGetter
 }
 
-var _ = gc.Suite(&containerManifoldSuite{})
+var _ = tc.Suite(&containerManifoldSuite{})
 
-func (s *containerManifoldSuite) TestConfigValidateAgentName(c *gc.C) {
+func (s *containerManifoldSuite) TestConfigValidateAgentName(c *tc.C) {
 	cfg := containerprovisioner.ManifoldConfig{}
 	err := cfg.Validate()
-	c.Assert(err, gc.ErrorMatches, "empty AgentName not valid")
+	c.Assert(err, tc.ErrorMatches, "empty AgentName not valid")
 }
 
-func (s *containerManifoldSuite) TestConfigValidateAPICallerName(c *gc.C) {
+func (s *containerManifoldSuite) TestConfigValidateAPICallerName(c *tc.C) {
 	cfg := containerprovisioner.ManifoldConfig{AgentName: "testing"}
 	err := cfg.Validate()
-	c.Assert(err, gc.ErrorMatches, "empty APICallerName not valid")
+	c.Assert(err, tc.ErrorMatches, "empty APICallerName not valid")
 }
 
-func (s *containerManifoldSuite) TestConfigValidateLogger(c *gc.C) {
+func (s *containerManifoldSuite) TestConfigValidateLogger(c *tc.C) {
 	cfg := containerprovisioner.ManifoldConfig{
 		AgentName:     "testing",
 		APICallerName: "another string",
 	}
 	err := cfg.Validate()
-	c.Assert(err, gc.ErrorMatches, "nil Logger not valid")
+	c.Assert(err, tc.ErrorMatches, "nil Logger not valid")
 }
 
-func (s *containerManifoldSuite) TestConfigValidateMachineLock(c *gc.C) {
+func (s *containerManifoldSuite) TestConfigValidateMachineLock(c *tc.C) {
 	cfg := containerprovisioner.ManifoldConfig{
 		AgentName:     "testing",
 		APICallerName: "another string",
 		Logger:        loggertesting.WrapCheckLog(c),
 	}
 	err := cfg.Validate()
-	c.Assert(err, gc.ErrorMatches, "missing MachineLock not valid")
+	c.Assert(err, tc.ErrorMatches, "missing MachineLock not valid")
 }
 
-func (s *containerManifoldSuite) TestConfigValidateContainerType(c *gc.C) {
+func (s *containerManifoldSuite) TestConfigValidateContainerType(c *tc.C) {
 	cfg := containerprovisioner.ManifoldConfig{
 		AgentName:     "testing",
 		APICallerName: "another string",
@@ -62,10 +62,10 @@ func (s *containerManifoldSuite) TestConfigValidateContainerType(c *gc.C) {
 		MachineLock:   &fakeMachineLock{},
 	}
 	err := cfg.Validate()
-	c.Assert(err, gc.ErrorMatches, "missing Container Type not valid")
+	c.Assert(err, tc.ErrorMatches, "missing Container Type not valid")
 }
 
-func (s *containerManifoldSuite) TestConfigValidateSuccess(c *gc.C) {
+func (s *containerManifoldSuite) TestConfigValidateSuccess(c *tc.C) {
 	cfg := containerprovisioner.ManifoldConfig{
 		AgentName:     "testing",
 		APICallerName: "another string",
@@ -77,7 +77,7 @@ func (s *containerManifoldSuite) TestConfigValidateSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *containerManifoldSuite) TestContainerProvisioningManifold(c *gc.C) {
+func (s *containerManifoldSuite) TestContainerProvisioningManifold(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag := names.NewMachineTag("42")
@@ -93,10 +93,10 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifold(c *gc.C) {
 	}
 	m, err := containerprovisioner.MachineSupportsContainers(cfg, s.getter, tag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m, gc.NotNil)
+	c.Assert(m, tc.NotNil)
 }
 
-func (s *containerManifoldSuite) TestContainerProvisioningManifoldContainersNotKnown(c *gc.C) {
+func (s *containerManifoldSuite) TestContainerProvisioningManifoldContainersNotKnown(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag := names.NewMachineTag("42")
@@ -114,7 +114,7 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifoldContainersNotK
 	c.Assert(err, jc.ErrorIs, errors.NotYetAvailable)
 }
 
-func (s *containerManifoldSuite) TestContainerProvisioningManifoldNoContainerSupport(c *gc.C) {
+func (s *containerManifoldSuite) TestContainerProvisioningManifoldNoContainerSupport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag := names.NewMachineTag("42")
@@ -129,10 +129,10 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifoldNoContainerSup
 		ContainerType: instance.LXD,
 	}
 	_, err := containerprovisioner.MachineSupportsContainers(cfg, s.getter, tag)
-	c.Assert(err, gc.ErrorMatches, "resource permanently unavailable")
+	c.Assert(err, tc.ErrorMatches, "resource permanently unavailable")
 }
 
-func (s *containerManifoldSuite) TestContainerProvisioningManifoldMachineDead(c *gc.C) {
+func (s *containerManifoldSuite) TestContainerProvisioningManifoldMachineDead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag := names.NewMachineTag("42")
@@ -146,10 +146,10 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifoldMachineDead(c 
 		ContainerType: instance.LXD,
 	}
 	_, err := containerprovisioner.MachineSupportsContainers(cfg, s.getter, tag)
-	c.Assert(err, gc.ErrorMatches, "resource permanently unavailable")
+	c.Assert(err, tc.ErrorMatches, "resource permanently unavailable")
 }
 
-func (s *containerManifoldSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *containerManifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.machine = NewMockContainerMachine(ctrl)

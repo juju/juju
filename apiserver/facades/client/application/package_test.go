@@ -9,10 +9,10 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/model"
@@ -30,7 +30,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination core_charm_mock_test.go github.com/juju/juju/core/charm Repository,RepositoryFactory
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type baseSuite struct {
@@ -68,7 +68,7 @@ type baseSuite struct {
 	caasBroker        *MockCaasBrokerInterface
 }
 
-func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.applicationService = NewMockApplicationService(ctrl)
@@ -132,15 +132,15 @@ func (s *baseSuite) expectAnyChangeOrRemoval() {
 	s.blockChecker.EXPECT().RemoveAllowed(gomock.Any()).Return(nil).AnyTimes()
 }
 
-func (s *baseSuite) newIAASAPI(c *gc.C) {
+func (s *baseSuite) newIAASAPI(c *tc.C) {
 	s.newAPI(c, model.IAAS)
 }
 
-func (s *baseSuite) newCAASAPI(c *gc.C) {
+func (s *baseSuite) newCAASAPI(c *tc.C) {
 	s.newAPI(c, model.CAAS)
 }
 
-func (s *baseSuite) newAPI(c *gc.C, modelType model.ModelType) {
+func (s *baseSuite) newAPI(c *tc.C, modelType model.ModelType) {
 	s.deployApplication = DeployApplication
 	s.modelType = modelType
 	var err error

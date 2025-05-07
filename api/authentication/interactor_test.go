@@ -14,9 +14,9 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery/form"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api/authentication"
@@ -31,9 +31,9 @@ type InteractorSuite struct {
 	handler http.Handler
 }
 
-var _ = gc.Suite(&InteractorSuite{})
+var _ = tc.Suite(&InteractorSuite{})
 
-func (s *InteractorSuite) SetUpTest(c *gc.C) {
+func (s *InteractorSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	var err error
 	s.jar, err = cookiejar.New(nil)
@@ -44,19 +44,19 @@ func (s *InteractorSuite) SetUpTest(c *gc.C) {
 	s.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.handler.ServeHTTP(w, r)
 	}))
-	s.AddCleanup(func(c *gc.C) { s.server.Close() })
+	s.AddCleanup(func(c *tc.C) { s.server.Close() })
 }
 
-func (s *InteractorSuite) TestNotSupportedInteract(c *gc.C) {
+func (s *InteractorSuite) TestNotSupportedInteract(c *tc.C) {
 	v := authentication.NewNotSupportedInteractor()
-	c.Assert(v.Kind(), gc.Equals, "juju_userpass")
+	c.Assert(v.Kind(), tc.Equals, "juju_userpass")
 	_, err := v.Interact(context.Background(), nil, "", nil)
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
-func (s *InteractorSuite) TestLegacyInteract(c *gc.C) {
+func (s *InteractorSuite) TestLegacyInteract(c *tc.C) {
 	v := authentication.NewInteractor("bob", func(username string) (string, error) {
-		c.Assert(username, gc.Equals, "bob")
+		c.Assert(username, tc.Equals, "bob")
 		return "hunter2", nil
 	})
 	lv, ok := v.(httpbakery.LegacyInteractor)
@@ -69,16 +69,16 @@ func (s *InteractorSuite) TestLegacyInteract(c *gc.C) {
 	})
 	err := lv.LegacyInteract(context.Background(), s.client, "", mustParseURL(s.server.URL))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(formUser, gc.Equals, "bob")
-	c.Assert(formPassword, gc.Equals, "hunter2")
+	c.Assert(formUser, tc.Equals, "bob")
+	c.Assert(formPassword, tc.Equals, "hunter2")
 }
 
-func (s *InteractorSuite) TestKind(c *gc.C) {
+func (s *InteractorSuite) TestKind(c *tc.C) {
 	v := authentication.NewInteractor("bob", nil)
-	c.Assert(v.Kind(), gc.Equals, "juju_userpass")
+	c.Assert(v.Kind(), tc.Equals, "juju_userpass")
 }
 
-func (s *InteractorSuite) TestLegacyInteractErrorResult(c *gc.C) {
+func (s *InteractorSuite) TestLegacyInteractErrorResult(c *tc.C) {
 	v := authentication.NewInteractor("bob", func(username string) (string, error) {
 		return "hunter2", nil
 	})
@@ -88,12 +88,12 @@ func (s *InteractorSuite) TestLegacyInteractErrorResult(c *gc.C) {
 		http.Error(w, `{"Message":"bleh"}`, http.StatusInternalServerError)
 	})
 	err := lv.LegacyInteract(context.Background(), s.client, "", mustParseURL(s.server.URL))
-	c.Assert(err, gc.ErrorMatches, "bleh")
+	c.Assert(err, tc.ErrorMatches, "bleh")
 }
 
-func (s *InteractorSuite) TestInteract(c *gc.C) {
+func (s *InteractorSuite) TestInteract(c *tc.C) {
 	v := authentication.NewInteractor("bob", func(username string) (string, error) {
-		c.Assert(username, gc.Equals, "bob")
+		c.Assert(username, tc.Equals, "bob")
 		return "hunter2", nil
 	})
 	var formUser, formPassword string
@@ -131,13 +131,13 @@ func (s *InteractorSuite) TestInteract(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(formUser, gc.Equals, "bob")
-	c.Assert(formPassword, gc.Equals, "hunter2")
-	c.Assert(token.Kind, gc.Equals, "juju_userpass")
-	c.Assert(string(token.Value), gc.Equals, "token")
+	c.Assert(formUser, tc.Equals, "bob")
+	c.Assert(formPassword, tc.Equals, "hunter2")
+	c.Assert(token.Kind, tc.Equals, "juju_userpass")
+	c.Assert(string(token.Value), tc.Equals, "token")
 }
 
-func (s *InteractorSuite) TestInteractErrorResult(c *gc.C) {
+func (s *InteractorSuite) TestInteractErrorResult(c *tc.C) {
 	v := authentication.NewInteractor("bob", func(username string) (string, error) {
 		return "hunter2", nil
 	})
@@ -158,7 +158,7 @@ func (s *InteractorSuite) TestInteractErrorResult(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, ".*bleh.*")
+	c.Assert(err, tc.ErrorMatches, ".*bleh.*")
 }
 
 func mustParseURL(s string) *url.URL {

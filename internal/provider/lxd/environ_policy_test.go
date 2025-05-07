@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/canonical/lxd/shared/api"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
@@ -28,15 +28,15 @@ type environPolicySuite struct {
 	env environs.Environ
 }
 
-var _ = gc.Suite(&environPolicySuite{})
+var _ = tc.Suite(&environPolicySuite{})
 
-func (s *environPolicySuite) TestPrecheckInstanceDefaults(c *gc.C) {
+func (s *environPolicySuite) TestPrecheckInstanceDefaults(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	err := s.env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase()})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *environPolicySuite) TestPrecheckInstanceHasInstanceType(c *gc.C) {
+func (s *environPolicySuite) TestPrecheckInstanceHasInstanceType(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cons := constraints.MustParse("instance-type=some-instance-type")
@@ -46,7 +46,7 @@ func (s *environPolicySuite) TestPrecheckInstanceHasInstanceType(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *environPolicySuite) TestPrecheckInstanceDiskSize(c *gc.C) {
+func (s *environPolicySuite) TestPrecheckInstanceDiskSize(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cons := constraints.MustParse("root-disk=1G")
@@ -56,7 +56,7 @@ func (s *environPolicySuite) TestPrecheckInstanceDiskSize(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *environPolicySuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
+func (s *environPolicySuite) TestPrecheckInstanceUnsupportedArch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cons := constraints.MustParse("arch=arm64")
@@ -66,7 +66,7 @@ func (s *environPolicySuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *environPolicySuite) TestPrecheckInstanceAvailZone(c *gc.C) {
+func (s *environPolicySuite) TestPrecheckInstanceAvailZone(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	members := []api.ClusterMember{
@@ -90,10 +90,10 @@ func (s *environPolicySuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	err := s.env.PrecheckInstance(
 		context.Background(), environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase(), Placement: placement})
 
-	c.Check(err, gc.ErrorMatches, `availability zone "a-zone" not valid`)
+	c.Check(err, tc.ErrorMatches, `availability zone "a-zone" not valid`)
 }
 
-func (s *environPolicySuite) TestConstraintsValidatorArch(c *gc.C) {
+func (s *environPolicySuite) TestConstraintsValidatorArch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	validator, err := s.env.ConstraintsValidator(context.Background())
@@ -103,10 +103,10 @@ func (s *environPolicySuite) TestConstraintsValidatorArch(c *gc.C) {
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(unsupported, gc.HasLen, 0)
+	c.Check(unsupported, tc.HasLen, 0)
 }
 
-func (s *environPolicySuite) TestConstraintsValidatorArchWithUnsupportedArches(c *gc.C) {
+func (s *environPolicySuite) TestConstraintsValidatorArchWithUnsupportedArches(c *tc.C) {
 	// Don't use setupMocks because we need to mock SupportedArches
 	// to return a list of unsupported arches.
 	ctrl := gomock.NewController(c)
@@ -127,11 +127,11 @@ func (s *environPolicySuite) TestConstraintsValidatorArchWithUnsupportedArches(c
 		unsupported, err := validator.Validate(cons)
 		c.Assert(err, jc.ErrorIsNil)
 
-		c.Check(unsupported, gc.HasLen, 0)
+		c.Check(unsupported, tc.HasLen, 0)
 	}
 }
 
-func (s *environPolicySuite) TestConstraintsValidatorVirtType(c *gc.C) {
+func (s *environPolicySuite) TestConstraintsValidatorVirtType(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	validator, err := s.env.ConstraintsValidator(context.Background())
@@ -141,10 +141,10 @@ func (s *environPolicySuite) TestConstraintsValidatorVirtType(c *gc.C) {
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(unsupported, gc.HasLen, 0)
+	c.Check(unsupported, tc.HasLen, 0)
 }
 
-func (s *environPolicySuite) TestConstraintsValidatorEmptyVirtType(c *gc.C) {
+func (s *environPolicySuite) TestConstraintsValidatorEmptyVirtType(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	validator, err := s.env.ConstraintsValidator(context.Background())
@@ -154,10 +154,10 @@ func (s *environPolicySuite) TestConstraintsValidatorEmptyVirtType(c *gc.C) {
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(unsupported, gc.HasLen, 0)
+	c.Check(unsupported, tc.HasLen, 0)
 }
 
-func (s *environPolicySuite) TestConstraintsValidatorEmpty(c *gc.C) {
+func (s *environPolicySuite) TestConstraintsValidatorEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	validator, err := s.env.ConstraintsValidator(context.Background())
@@ -166,10 +166,10 @@ func (s *environPolicySuite) TestConstraintsValidatorEmpty(c *gc.C) {
 	unsupported, err := validator.Validate(constraints.Value{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(unsupported, gc.HasLen, 0)
+	c.Check(unsupported, tc.HasLen, 0)
 }
 
-func (s *environPolicySuite) TestConstraintsValidatorUnsupported(c *gc.C) {
+func (s *environPolicySuite) TestConstraintsValidatorUnsupported(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	validator, err := s.env.ConstraintsValidator(context.Background())
@@ -194,7 +194,7 @@ func (s *environPolicySuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	c.Check(unsupported, jc.SameContents, expected)
 }
 
-func (s *environPolicySuite) TestConstraintsValidatorVocabArchKnown(c *gc.C) {
+func (s *environPolicySuite) TestConstraintsValidatorVocabArchKnown(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	validator, err := s.env.ConstraintsValidator(context.Background())
@@ -206,7 +206,7 @@ func (s *environPolicySuite) TestConstraintsValidatorVocabArchKnown(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *environPolicySuite) TestConstraintsValidatorVocabArchUnknown(c *gc.C) {
+func (s *environPolicySuite) TestConstraintsValidatorVocabArchUnknown(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	validator, err := s.env.ConstraintsValidator(context.Background())
@@ -215,10 +215,10 @@ func (s *environPolicySuite) TestConstraintsValidatorVocabArchUnknown(c *gc.C) {
 	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)
 
-	c.Check(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are: amd64")
+	c.Check(err, tc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are: amd64")
 }
 
-func (s *environPolicySuite) TestConstraintsValidatorVocabContainerUnknown(c *gc.C) {
+func (s *environPolicySuite) TestConstraintsValidatorVocabContainerUnknown(c *tc.C) {
 	c.Skip("this will fail until we add a container vocabulary")
 
 	defer s.setupMocks(c).Finish()
@@ -229,10 +229,10 @@ func (s *environPolicySuite) TestConstraintsValidatorVocabContainerUnknown(c *gc
 	cons := constraints.MustParse("container=lxd")
 	_, err = validator.Validate(cons)
 
-	c.Check(err, gc.ErrorMatches, "invalid constraint value: container=lxd\nvalid values are:.*")
+	c.Check(err, tc.ErrorMatches, "invalid constraint value: container=lxd\nvalid values are:.*")
 }
 
-func (s *environPolicySuite) TestConstraintsValidatorConflicts(c *gc.C) {
+func (s *environPolicySuite) TestConstraintsValidatorConflicts(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	validator, err := s.env.ConstraintsValidator(context.Background())
@@ -248,7 +248,7 @@ func (s *environPolicySuite) TestConstraintsValidatorConflicts(c *gc.C) {
 	c.Check(merged, jc.DeepEquals, expected)
 }
 
-func (s *environPolicySuite) TestSupportNetworks(c *gc.C) {
+func (s *environPolicySuite) TestSupportNetworks(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	isSupported := s.env.(interface {
@@ -258,7 +258,7 @@ func (s *environPolicySuite) TestSupportNetworks(c *gc.C) {
 	c.Check(isSupported, jc.IsFalse)
 }
 
-func (s *environPolicySuite) TestShouldApplyControllerConstraints(c *gc.C) {
+func (s *environPolicySuite) TestShouldApplyControllerConstraints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cons := constraints.MustParse("")
@@ -267,7 +267,7 @@ func (s *environPolicySuite) TestShouldApplyControllerConstraints(c *gc.C) {
 	c.Assert(ok, jc.IsFalse)
 }
 
-func (s *environPolicySuite) TestShouldApplyControllerConstraintsInvalid(c *gc.C) {
+func (s *environPolicySuite) TestShouldApplyControllerConstraintsInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cons := constraints.MustParse("virt-type=invalid")
@@ -276,7 +276,7 @@ func (s *environPolicySuite) TestShouldApplyControllerConstraintsInvalid(c *gc.C
 	c.Assert(ok, jc.IsFalse)
 }
 
-func (s *environPolicySuite) TestShouldApplyControllerConstraintsForVirtualMachine(c *gc.C) {
+func (s *environPolicySuite) TestShouldApplyControllerConstraintsForVirtualMachine(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cons := constraints.MustParse("virt-type=virtual-machine")
@@ -285,7 +285,7 @@ func (s *environPolicySuite) TestShouldApplyControllerConstraintsForVirtualMachi
 	c.Assert(ok, jc.IsTrue)
 }
 
-func (s *environPolicySuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *environPolicySuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.svr = lxd.NewMockServer(ctrl)

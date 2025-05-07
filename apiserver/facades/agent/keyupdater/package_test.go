@@ -6,12 +6,12 @@ package keyupdater
 import (
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package keyupdater -destination service_mock_test.go github.com/juju/juju/apiserver/facades/agent/keyupdater KeyUpdaterService
 //go:generate go run go.uber.org/mock/mockgen -typed -package keyupdater -destination facade_mock_test.go github.com/juju/juju/apiserver/facade ModelContext
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }

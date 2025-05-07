@@ -4,15 +4,15 @@
 package azureauth_test
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
 )
 
 type DiscoverySuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&DiscoverySuite{})
+var _ = tc.Suite(&DiscoverySuite{})
 
 //func (*DiscoverySuite) TestDiscoverAuthorizationURI(c *gc.C) {
 //	sender := mocks.NewSender()

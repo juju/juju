@@ -16,10 +16,10 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
@@ -33,21 +33,21 @@ type statusHistorySuite struct {
 	recorder *MockRecorder
 }
 
-var _ = gc.Suite(&statusHistorySuite{})
+var _ = tc.Suite(&statusHistorySuite{})
 
-func (s *statusHistorySuite) TestNamespace(c *gc.C) {
+func (s *statusHistorySuite) TestNamespace(c *tc.C) {
 	ns := Namespace{Kind: "foo", ID: "123"}
-	c.Assert(ns.String(), gc.Equals, "foo (123)")
-	c.Assert(ns.WithID("456").String(), gc.Equals, "foo (456)")
+	c.Assert(ns.String(), tc.Equals, "foo (123)")
+	c.Assert(ns.WithID("456").String(), tc.Equals, "foo (456)")
 }
 
-func (s *statusHistorySuite) TestNamespaceNoID(c *gc.C) {
+func (s *statusHistorySuite) TestNamespaceNoID(c *tc.C) {
 	ns := Namespace{Kind: "foo"}
-	c.Assert(ns.String(), gc.Equals, "foo")
-	c.Assert(ns.WithID("").String(), gc.Equals, "foo")
+	c.Assert(ns.String(), tc.Equals, "foo")
+	c.Assert(ns.WithID("").String(), tc.Equals, "foo")
 }
 
-func (s *statusHistorySuite) TestRecordStatus(c *gc.C) {
+func (s *statusHistorySuite) TestRecordStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ns := Namespace{Kind: "foo", ID: "123"}
@@ -76,7 +76,7 @@ func (s *statusHistorySuite) TestRecordStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *statusHistorySuite) TestRecordStatusWithError(c *gc.C) {
+func (s *statusHistorySuite) TestRecordStatusWithError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ns := Namespace{Kind: "foo", ID: "123"}
@@ -102,10 +102,10 @@ func (s *statusHistorySuite) TestRecordStatusWithError(c *gc.C) {
 		},
 		Since: &now,
 	})
-	c.Assert(err, gc.ErrorMatches, "failed to record")
+	c.Assert(err, tc.ErrorMatches, "failed to record")
 }
 
-func (s *statusHistorySuite) TestRecordStatusNoID(c *gc.C) {
+func (s *statusHistorySuite) TestRecordStatusNoID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ns := Namespace{Kind: "foo"}
@@ -133,7 +133,7 @@ func (s *statusHistorySuite) TestRecordStatusNoID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *statusHistorySuite) TestRecordStatusNoData(c *gc.C) {
+func (s *statusHistorySuite) TestRecordStatusNoData(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ns := Namespace{Kind: "foo"}.WithID("123")
@@ -156,7 +156,7 @@ func (s *statusHistorySuite) TestRecordStatusNoData(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *statusHistorySuite) TestRecordStatusNoSince(c *gc.C) {
+func (s *statusHistorySuite) TestRecordStatusNoSince(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ns := Namespace{Kind: "foo"}.WithID("123")
@@ -173,10 +173,10 @@ func (s *statusHistorySuite) TestRecordStatusNoSince(c *gc.C) {
 		Message: "foo",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(record.Time, gc.Not(gc.Equals), "")
+	c.Check(record.Time, tc.Not(tc.Equals), "")
 }
 
-func (s *statusHistorySuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *statusHistorySuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.recorder = NewMockRecorder(ctrl)
@@ -188,16 +188,16 @@ type statusHistoryReaderSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&statusHistoryReaderSuite{})
+var _ = tc.Suite(&statusHistoryReaderSuite{})
 
-func (s *statusHistoryReaderSuite) TestWalk(c *gc.C) {
+func (s *statusHistoryReaderSuite) TestWalk(c *tc.C) {
 	var expected []HistoryRecord
 
 	modelUUID := "model-uuid"
 
 	rnd := rand.IntN(50) + 100
 
-	path := s.createFile(c, func(c *gc.C, w io.Writer) {
+	path := s.createFile(c, func(c *tc.C, w io.Writer) {
 		now := time.Now().Truncate(time.Minute).UTC()
 
 		encoder := json.NewEncoder(w)
@@ -260,17 +260,17 @@ func (s *statusHistoryReaderSuite) TestWalk(c *gc.C) {
 		return false, nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(records, gc.DeepEquals, expected)
+	c.Check(records, tc.DeepEquals, expected)
 }
 
-func (s *statusHistoryReaderSuite) TestWalkWhilstAdding(c *gc.C) {
+func (s *statusHistoryReaderSuite) TestWalkWhilstAdding(c *tc.C) {
 	var expected []HistoryRecord
 
 	modelUUID := "model-uuid"
 
 	rnd := rand.IntN(50) + 100
 
-	path := s.createFile(c, func(c *gc.C, w io.Writer) {
+	path := s.createFile(c, func(c *tc.C, w io.Writer) {
 		now := time.Now().Truncate(time.Minute).UTC()
 
 		encoder := json.NewEncoder(w)
@@ -329,7 +329,7 @@ func (s *statusHistoryReaderSuite) TestWalkWhilstAdding(c *gc.C) {
 
 	var records []HistoryRecord
 	err = history.Walk(func(rec HistoryRecord) (bool, error) {
-		s.appendToFile(c, path, func(c *gc.C, w io.Writer) {
+		s.appendToFile(c, path, func(c *tc.C, w io.Writer) {
 			now := time.Now().Truncate(time.Minute).UTC()
 
 			encoder := json.NewEncoder(w)
@@ -369,15 +369,15 @@ func (s *statusHistoryReaderSuite) TestWalkWhilstAdding(c *gc.C) {
 		return false, nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(records, gc.DeepEquals, expected)
+	c.Check(records, tc.DeepEquals, expected)
 }
 
-func (s *statusHistoryReaderSuite) TestWalkWithDifferentLabel(c *gc.C) {
+func (s *statusHistoryReaderSuite) TestWalkWithDifferentLabel(c *tc.C) {
 	var expected []HistoryRecord
 
 	modelUUID := "model-uuid"
 
-	path := s.createFile(c, func(c *gc.C, w io.Writer) {
+	path := s.createFile(c, func(c *tc.C, w io.Writer) {
 		now := time.Now().Truncate(time.Minute).UTC()
 
 		encoder := json.NewEncoder(w)
@@ -419,15 +419,15 @@ func (s *statusHistoryReaderSuite) TestWalkWithDifferentLabel(c *gc.C) {
 		return false, nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(records, gc.DeepEquals, expected)
+	c.Check(records, tc.DeepEquals, expected)
 }
 
-func (s *statusHistoryReaderSuite) TestWalkNoDocuments(c *gc.C) {
+func (s *statusHistoryReaderSuite) TestWalkNoDocuments(c *tc.C) {
 	var expected []HistoryRecord
 
 	modelUUID := "model-uuid"
 
-	path := s.createFile(c, func(c *gc.C, w io.Writer) {})
+	path := s.createFile(c, func(c *tc.C, w io.Writer) {})
 
 	history, err := ModelStatusHistoryReaderFromFile(model.UUID(modelUUID), path)
 	c.Assert(err, jc.ErrorIsNil)
@@ -438,17 +438,17 @@ func (s *statusHistoryReaderSuite) TestWalkNoDocuments(c *gc.C) {
 		return false, nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(records, gc.DeepEquals, expected)
+	c.Check(records, tc.DeepEquals, expected)
 }
 
-func (s *statusHistoryReaderSuite) TestWalkCorruptLine(c *gc.C) {
+func (s *statusHistoryReaderSuite) TestWalkCorruptLine(c *tc.C) {
 	var expected []HistoryRecord
 
 	modelUUID := "model-uuid"
 
 	rnd := rand.IntN(2) + 1
 
-	path := s.createFile(c, func(c *gc.C, w io.Writer) {
+	path := s.createFile(c, func(c *tc.C, w io.Writer) {
 		now := time.Now().Truncate(time.Minute).UTC()
 
 		encoder := json.NewEncoder(w)
@@ -517,10 +517,10 @@ func (s *statusHistoryReaderSuite) TestWalkCorruptLine(c *gc.C) {
 		return false, nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(records, gc.DeepEquals, expected)
+	c.Check(records, tc.DeepEquals, expected)
 }
 
-func (s *statusHistoryReaderSuite) createFile(c *gc.C, fn func(*gc.C, io.Writer)) string {
+func (s *statusHistoryReaderSuite) createFile(c *tc.C, fn func(*tc.C, io.Writer)) string {
 	path := c.MkDir()
 
 	filePath := filepath.Join(path, "logsink.log")
@@ -538,7 +538,7 @@ func (s *statusHistoryReaderSuite) createFile(c *gc.C, fn func(*gc.C, io.Writer)
 	return filePath
 }
 
-func (s *statusHistoryReaderSuite) appendToFile(c *gc.C, path string, fn func(*gc.C, io.Writer)) {
+func (s *statusHistoryReaderSuite) appendToFile(c *tc.C, path string, fn func(*tc.C, io.Writer)) {
 	file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {

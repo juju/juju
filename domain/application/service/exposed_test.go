@@ -8,9 +8,9 @@ import (
 	"errors"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
@@ -23,18 +23,18 @@ type exposedServiceSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&exposedServiceSuite{})
+var _ = tc.Suite(&exposedServiceSuite{})
 
-func (s *exposedServiceSuite) TestApplicationExposedNotFound(c *gc.C) {
+func (s *exposedServiceSuite) TestApplicationExposedNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(coreapplication.ID(""), applicationerrors.ApplicationNotFound)
 
 	_, err := s.service.IsApplicationExposed(context.Background(), "foo")
-	c.Assert(err, gc.ErrorMatches, "application not found")
+	c.Assert(err, tc.ErrorMatches, "application not found")
 }
 
-func (s *exposedServiceSuite) TestApplicationExposed(c *gc.C) {
+func (s *exposedServiceSuite) TestApplicationExposed(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	applicationUUID := applicationtesting.GenApplicationUUID(c)
@@ -46,16 +46,16 @@ func (s *exposedServiceSuite) TestApplicationExposed(c *gc.C) {
 	c.Check(exposed, jc.IsTrue)
 }
 
-func (s *exposedServiceSuite) TestExposedEndpointsNotFound(c *gc.C) {
+func (s *exposedServiceSuite) TestExposedEndpointsNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(coreapplication.ID(""), applicationerrors.ApplicationNotFound)
 
 	_, err := s.service.GetExposedEndpoints(context.Background(), "foo")
-	c.Assert(err, gc.ErrorMatches, "application not found")
+	c.Assert(err, tc.ErrorMatches, "application not found")
 }
 
-func (s *exposedServiceSuite) TestExposedEndpoints(c *gc.C) {
+func (s *exposedServiceSuite) TestExposedEndpoints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	applicationUUID := applicationtesting.GenApplicationUUID(c)
@@ -72,19 +72,19 @@ func (s *exposedServiceSuite) TestExposedEndpoints(c *gc.C) {
 
 	obtained, err := s.service.GetExposedEndpoints(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtained, gc.DeepEquals, expected)
+	c.Check(obtained, tc.DeepEquals, expected)
 }
 
-func (s *exposedServiceSuite) TestUnsetExposeSettingsNotFound(c *gc.C) {
+func (s *exposedServiceSuite) TestUnsetExposeSettingsNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(coreapplication.ID(""), applicationerrors.ApplicationNotFound)
 
 	err := s.service.UnsetExposeSettings(context.Background(), "foo", set.NewStrings("endpoint0"))
-	c.Assert(err, gc.ErrorMatches, "application not found")
+	c.Assert(err, tc.ErrorMatches, "application not found")
 }
 
-func (s *exposedServiceSuite) TestUnsetExposeSettings(c *gc.C) {
+func (s *exposedServiceSuite) TestUnsetExposeSettings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	applicationUUID := applicationtesting.GenApplicationUUID(c)
@@ -96,7 +96,7 @@ func (s *exposedServiceSuite) TestUnsetExposeSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *exposedServiceSuite) TestMergeExposeSettingsNotFound(c *gc.C) {
+func (s *exposedServiceSuite) TestMergeExposeSettingsNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(coreapplication.ID(""), applicationerrors.ApplicationNotFound)
@@ -109,10 +109,10 @@ func (s *exposedServiceSuite) TestMergeExposeSettingsNotFound(c *gc.C) {
 			ExposeToCIDRs: set.NewStrings("10.0.0.0/24", "10.0.1.0/24"),
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, "application not found")
+	c.Assert(err, tc.ErrorMatches, "application not found")
 }
 
-func (s *exposedServiceSuite) TestMergeExposeSettingsEndpointsExistError(c *gc.C) {
+func (s *exposedServiceSuite) TestMergeExposeSettingsEndpointsExistError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	applicationUUID := applicationtesting.GenApplicationUUID(c)
@@ -127,10 +127,10 @@ func (s *exposedServiceSuite) TestMergeExposeSettingsEndpointsExistError(c *gc.C
 			ExposeToCIDRs: set.NewStrings("10.0.0.0/24", "10.0.1.0/24"),
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *exposedServiceSuite) TestMergeExposeSettingsSpacesNotExist(c *gc.C) {
+func (s *exposedServiceSuite) TestMergeExposeSettingsSpacesNotExist(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	applicationUUID := applicationtesting.GenApplicationUUID(c)
@@ -146,10 +146,10 @@ func (s *exposedServiceSuite) TestMergeExposeSettingsSpacesNotExist(c *gc.C) {
 			ExposeToCIDRs: set.NewStrings("10.0.0.0/24", "10.0.1.0/24"),
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, "validating exposed endpoints to spaces .*: one or more of the provided spaces .* do not exist")
+	c.Assert(err, tc.ErrorMatches, "validating exposed endpoints to spaces .*: one or more of the provided spaces .* do not exist")
 }
 
-func (s *exposedServiceSuite) TestMergeExposeSettingsEmptyEndpointsList(c *gc.C) {
+func (s *exposedServiceSuite) TestMergeExposeSettingsEmptyEndpointsList(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	applicationUUID := applicationtesting.GenApplicationUUID(c)
@@ -166,7 +166,7 @@ func (s *exposedServiceSuite) TestMergeExposeSettingsEmptyEndpointsList(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *exposedServiceSuite) TestMergeExposeSettingsWildcard(c *gc.C) {
+func (s *exposedServiceSuite) TestMergeExposeSettingsWildcard(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	applicationUUID := applicationtesting.GenApplicationUUID(c)
@@ -193,7 +193,7 @@ func (s *exposedServiceSuite) TestMergeExposeSettingsWildcard(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *exposedServiceSuite) TestMergeExposeSettings(c *gc.C) {
+func (s *exposedServiceSuite) TestMergeExposeSettings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	applicationUUID := applicationtesting.GenApplicationUUID(c)

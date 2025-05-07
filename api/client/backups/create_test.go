@@ -6,9 +6,9 @@ package backups
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	backupstesting "github.com/juju/juju/core/backups/testing"
 	"github.com/juju/juju/rpc/params"
@@ -18,9 +18,9 @@ type createSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&createSuite{})
+var _ = tc.Suite(&createSuite{})
 
-func (s *createSuite) TestCreate(c *gc.C) {
+func (s *createSuite) TestCreate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	arg := params.BackupsCreateArgs{

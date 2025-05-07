@@ -12,10 +12,10 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	coresecrets "github.com/juju/juju/core/secrets"
@@ -39,15 +39,15 @@ type UniterSecretsSuite struct {
 	facade *UniterAPI
 }
 
-var _ = gc.Suite(&UniterSecretsSuite{})
+var _ = tc.Suite(&UniterSecretsSuite{})
 
-func (s *UniterSecretsSuite) SetUpTest(c *gc.C) {
+func (s *UniterSecretsSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.authTag = names.NewUnitTag("mariadb/0")
 }
 
-func (s *UniterSecretsSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *UniterSecretsSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
@@ -70,7 +70,7 @@ func (s *UniterSecretsSuite) expectAuthUnitAgent() {
 	s.authorizer.EXPECT().GetAuthTag().Return(s.authTag).AnyTimes()
 }
 
-func (s *UniterSecretsSuite) TestCreateCharmSecrets(c *gc.C) {
+func (s *UniterSecretsSuite) TestCreateCharmSecrets(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	data := map[string]string{"foo": "bar"}
@@ -134,7 +134,7 @@ func (s *UniterSecretsSuite) TestCreateCharmSecrets(c *gc.C) {
 	})
 }
 
-func (s *UniterSecretsSuite) TestCreateCharmSecretDuplicateLabel(c *gc.C) {
+func (s *UniterSecretsSuite) TestCreateCharmSecretDuplicateLabel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	p := secretservice.CreateCharmSecretParams{
@@ -170,7 +170,7 @@ func (s *UniterSecretsSuite) TestCreateCharmSecretDuplicateLabel(c *gc.C) {
 	})
 }
 
-func (s *UniterSecretsSuite) TestUpdateSecrets(c *gc.C) {
+func (s *UniterSecretsSuite) TestUpdateSecrets(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	data := map[string]string{"foo": "bar"}
@@ -238,7 +238,7 @@ func (s *UniterSecretsSuite) TestUpdateSecrets(c *gc.C) {
 	})
 }
 
-func (s *UniterSecretsSuite) TestRemoveSecrets(c *gc.C) {
+func (s *UniterSecretsSuite) TestRemoveSecrets(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -261,7 +261,7 @@ func (s *UniterSecretsSuite) TestRemoveSecrets(c *gc.C) {
 	})
 }
 
-func (s *UniterSecretsSuite) TestRemoveSecretRevision(c *gc.C) {
+func (s *UniterSecretsSuite) TestRemoveSecretRevision(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -286,7 +286,7 @@ func (s *UniterSecretsSuite) TestRemoveSecretRevision(c *gc.C) {
 	})
 }
 
-func (s *UniterSecretsSuite) TestRemoveSecretNotFound(c *gc.C) {
+func (s *UniterSecretsSuite) TestRemoveSecretNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -309,7 +309,7 @@ func (s *UniterSecretsSuite) TestRemoveSecretNotFound(c *gc.C) {
 	c.Assert(results.Results[0].Error, jc.Satisfies, params.IsCodeSecretNotFound)
 }
 
-func (s *UniterSecretsSuite) TestSecretsGrant(c *gc.C) {
+func (s *UniterSecretsSuite) TestSecretsGrant(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -350,7 +350,7 @@ func (s *UniterSecretsSuite) TestSecretsGrant(c *gc.C) {
 	})
 }
 
-func (s *UniterSecretsSuite) TestSecretsRevoke(c *gc.C) {
+func (s *UniterSecretsSuite) TestSecretsRevoke(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -391,7 +391,7 @@ func (s *UniterSecretsSuite) TestSecretsRevoke(c *gc.C) {
 	})
 }
 
-func (s *UniterSecretsSuite) TestUpdateTrackedRevisions(c *gc.C) {
+func (s *UniterSecretsSuite) TestUpdateTrackedRevisions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()

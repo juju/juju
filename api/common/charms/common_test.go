@@ -6,8 +6,8 @@ package charms_test
 import (
 	"context"
 
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	apicommoncharms "github.com/juju/juju/api/common/charms"
@@ -22,9 +22,9 @@ type suite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&suite{})
+var _ = tc.Suite(&suite{})
 
-func (s *suite) TestCharmInfo(c *gc.C) {
+func (s *suite) TestCharmInfo(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -96,7 +96,7 @@ func (s *suite) TestCharmInfo(c *gc.C) {
 
 	client := apicommoncharms.NewCharmInfoClient(mockFacadeCaller)
 	got, err := client.CharmInfo(context.Background(), url)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	want := &apicommoncharms.CharmInfo{
 		Revision: 1,
@@ -162,10 +162,10 @@ func (s *suite) TestCharmInfo(c *gc.C) {
 			},
 		},
 	}
-	c.Assert(got, gc.DeepEquals, want)
+	c.Assert(got, tc.DeepEquals, want)
 }
 
-func (s *suite) TestApplicationCharmInfo(c *gc.C) {
+func (s *suite) TestApplicationCharmInfo(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -188,7 +188,7 @@ func (s *suite) TestApplicationCharmInfo(c *gc.C) {
 
 	client := apicommoncharms.NewApplicationCharmInfoClient(mockFacadeCaller)
 	got, err := client.ApplicationCharmInfo(context.Background(), "foobar")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	want := &apicommoncharms.CharmInfo{
 		Revision: 1,
@@ -198,7 +198,7 @@ func (s *suite) TestApplicationCharmInfo(c *gc.C) {
 			MinJujuVersion: semversion.MustParse("2.9.0"),
 		},
 	}
-	c.Assert(got, gc.DeepEquals, want)
+	c.Assert(got, tc.DeepEquals, want)
 }
 
 func intPtr(i int) *int {

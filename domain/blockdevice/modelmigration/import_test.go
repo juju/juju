@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/blockdevice"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -20,9 +20,9 @@ type importSuite struct {
 	service     *MockImportService
 }
 
-var _ = gc.Suite(&importSuite{})
+var _ = tc.Suite(&importSuite{})
 
-func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.coordinator = NewMockCoordinator(ctrl)
@@ -37,7 +37,7 @@ func (s *importSuite) newImportOperation() *importOperation {
 	}
 }
 
-func (s *importSuite) TestRegisterImport(c *gc.C) {
+func (s *importSuite) TestRegisterImport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.coordinator.EXPECT().Add(gomock.Any())
@@ -45,7 +45,7 @@ func (s *importSuite) TestRegisterImport(c *gc.C) {
 	RegisterImport(s.coordinator, loggertesting.WrapCheckLog(c))
 }
 
-func (s *importSuite) TestNoBlockDevices(c *gc.C) {
+func (s *importSuite) TestNoBlockDevices(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Empty model.
@@ -58,7 +58,7 @@ func (s *importSuite) TestNoBlockDevices(c *gc.C) {
 	s.service.EXPECT().UpdateBlockDevices(gomock.All(), gomock.Any(), gomock.Any()).Times(0)
 }
 
-func (s *importSuite) TestImport(c *gc.C) {
+func (s *importSuite) TestImport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{})

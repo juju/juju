@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/model"
@@ -52,7 +52,7 @@ func (stub *stubLeadershipContext) IsLeader() (bool, error) {
 	return stub.isLeader, nil
 }
 
-func NewHookContext(c *gc.C, hcParams HookContextParams) (*HookContext, error) {
+func NewHookContext(c *tc.C, hcParams HookContextParams) (*HookContext, error) {
 	ctx := &HookContext{
 		unit:                   hcParams.Unit,
 		uniter:                 hcParams.Uniter,
@@ -108,7 +108,7 @@ func NewHookContext(c *gc.C, hcParams HookContextParams) (*HookContext, error) {
 	return ctx, nil
 }
 
-func NewMockUnitHookContext(c *gc.C, mockUnit *api.MockUnit, modelType model.ModelType, leadership LeadershipContext) *HookContext {
+func NewMockUnitHookContext(c *tc.C, mockUnit *api.MockUnit, modelType model.ModelType, leadership LeadershipContext) *HookContext {
 	logger := loggertesting.WrapCheckLog(c)
 	return &HookContext{
 		unit:              mockUnit,
@@ -128,7 +128,7 @@ func NewMockUnitHookContext(c *gc.C, mockUnit *api.MockUnit, modelType model.Mod
 	}
 }
 
-func NewMockUnitHookContextWithUniter(c *gc.C, mockUnit *api.MockUnit, uniterClient *api.MockUniterClient) *HookContext {
+func NewMockUnitHookContextWithUniter(c *tc.C, mockUnit *api.MockUnit, uniterClient *api.MockUniterClient) *HookContext {
 	logger := loggertesting.WrapCheckLog(c)
 	return &HookContext{
 		unitName:               mockUnit.Tag().Id(), //unitName used by the action finaliser method.
@@ -142,7 +142,7 @@ func NewMockUnitHookContextWithUniter(c *gc.C, mockUnit *api.MockUnit, uniterCli
 	}
 }
 
-func NewMockUnitHookContextWithStateAndStorage(c *gc.C, unitName string, unit HookUnit, uniterClient api.UniterClient, storageTag names.StorageTag) *HookContext {
+func NewMockUnitHookContextWithStateAndStorage(c *tc.C, unitName string, unit HookUnit, uniterClient api.UniterClient, storageTag names.StorageTag) *HookContext {
 	logger := loggertesting.WrapCheckLog(c)
 	return &HookContext{
 		unitName:               unit.Tag().Id(), //unitName used by the action finaliser method.
@@ -265,7 +265,7 @@ type ModelHookContextParams struct {
 
 // NewModelHookContext exists purely to set the fields used in rs.
 // The returned value is not otherwise valid.
-func NewModelHookContext(c *gc.C, p ModelHookContextParams) *HookContext {
+func NewModelHookContext(c *tc.C, p ModelHookContextParams) *HookContext {
 	return &HookContext{
 		id:                     p.ID,
 		hookName:               p.HookName,

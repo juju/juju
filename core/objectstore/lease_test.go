@@ -4,9 +4,9 @@
 package objectstore
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coreerrors "github.com/juju/juju/core/errors"
 )
@@ -15,9 +15,9 @@ type LeaseSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&LeaseSuite{})
+var _ = tc.Suite(&LeaseSuite{})
 
-func (s *LeaseSuite) TestParseLeaseHolderName(c *gc.C) {
+func (s *LeaseSuite) TestParseLeaseHolderName(c *tc.C) {
 	tests := []struct {
 		name     string
 		expected error

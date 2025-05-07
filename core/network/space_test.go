@@ -6,9 +6,9 @@ package network_test
 import (
 	"github.com/google/uuid"
 	"github.com/juju/collections/set"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
@@ -20,9 +20,9 @@ type spaceSuite struct {
 	spaces network.SpaceInfos
 }
 
-var _ = gc.Suite(&spaceSuite{})
+var _ = tc.Suite(&spaceSuite{})
 
-func (s *spaceSuite) SetUpTest(c *gc.C) {
+func (s *spaceSuite) SetUpTest(c *tc.C) {
 	s.spaces = network.SpaceInfos{
 		{ID: "1", Name: "space1", Subnets: []network.SubnetInfo{{ID: "11", CIDR: "10.0.0.0/24"}}},
 		{ID: "2", Name: "space2", Subnets: []network.SubnetInfo{{ID: "12", CIDR: "10.0.1.0/24"}}},
@@ -30,46 +30,46 @@ func (s *spaceSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *spaceSuite) TestString(c *gc.C) {
+func (s *spaceSuite) TestString(c *tc.C) {
 	result := s.spaces.String()
-	c.Assert(result, gc.Equals, `"space1", "space2", "space3"`)
+	c.Assert(result, tc.Equals, `"space1", "space2", "space3"`)
 }
 
-func (s *spaceSuite) TestGetByName(c *gc.C) {
-	c.Assert(s.spaces.GetByName("space1"), gc.NotNil)
-	c.Assert(s.spaces.GetByName("space666"), gc.IsNil)
+func (s *spaceSuite) TestGetByName(c *tc.C) {
+	c.Assert(s.spaces.GetByName("space1"), tc.NotNil)
+	c.Assert(s.spaces.GetByName("space666"), tc.IsNil)
 }
 
-func (s *spaceSuite) TestGetByID(c *gc.C) {
-	c.Assert(s.spaces.GetByID("1"), gc.NotNil)
-	c.Assert(s.spaces.GetByID("999"), gc.IsNil)
+func (s *spaceSuite) TestGetByID(c *tc.C) {
+	c.Assert(s.spaces.GetByID("1"), tc.NotNil)
+	c.Assert(s.spaces.GetByID("999"), tc.IsNil)
 }
 
-func (s *spaceSuite) TestContainsName(c *gc.C) {
+func (s *spaceSuite) TestContainsName(c *tc.C) {
 	c.Assert(s.spaces.ContainsName("space3"), jc.IsTrue)
 	c.Assert(s.spaces.ContainsName("space666"), jc.IsFalse)
 }
 
-func (s *spaceSuite) TestMinus(c *gc.C) {
+func (s *spaceSuite) TestMinus(c *tc.C) {
 	infos := network.SpaceInfos{
 		{ID: "2", Name: "space2"},
 		{ID: "3", Name: "space3"},
 	}
 	result := s.spaces.Minus(infos)
-	c.Assert(result, gc.DeepEquals, network.SpaceInfos{s.spaces[0]})
+	c.Assert(result, tc.DeepEquals, network.SpaceInfos{s.spaces[0]})
 }
 
-func (s *spaceSuite) TestMinusNoDiff(c *gc.C) {
+func (s *spaceSuite) TestMinusNoDiff(c *tc.C) {
 	infos := network.SpaceInfos{
 		{ID: "1", Name: "space1"},
 		{ID: "2", Name: "space2"},
 		{ID: "3", Name: "space3"},
 	}
 	result := s.spaces.Minus(infos)
-	c.Assert(result, gc.DeepEquals, network.SpaceInfos{})
+	c.Assert(result, tc.DeepEquals, network.SpaceInfos{})
 }
 
-func (s *spaceSuite) TestInferSpaceFromAddress(c *gc.C) {
+func (s *spaceSuite) TestInferSpaceFromAddress(c *tc.C) {
 	queries := map[string]network.SpaceName{
 		"10.0.0.42": "space1",
 		"10.0.1.1":  "space2",
@@ -78,8 +78,8 @@ func (s *spaceSuite) TestInferSpaceFromAddress(c *gc.C) {
 
 	for addr, expSpaceName := range queries {
 		si, err := s.spaces.InferSpaceFromAddress(addr)
-		c.Assert(err, jc.ErrorIsNil, gc.Commentf("infer space for address %q", addr))
-		c.Assert(si.Name, gc.Equals, expSpaceName, gc.Commentf("infer space for address %q", addr))
+		c.Assert(err, jc.ErrorIsNil, tc.Commentf("infer space for address %q", addr))
+		c.Assert(si.Name, tc.Equals, expSpaceName, tc.Commentf("infer space for address %q", addr))
 	}
 
 	// Check that CIDR collisions are detected
@@ -89,14 +89,14 @@ func (s *spaceSuite) TestInferSpaceFromAddress(c *gc.C) {
 	)
 
 	_, err := s.spaces.InferSpaceFromAddress("10.0.2.255")
-	c.Assert(err, gc.ErrorMatches, ".*address matches the same CIDR in multiple spaces")
+	c.Assert(err, tc.ErrorMatches, ".*address matches the same CIDR in multiple spaces")
 
 	// Check for no-match-found
 	_, err = s.spaces.InferSpaceFromAddress("99.99.99.99")
-	c.Assert(err, gc.ErrorMatches, ".*unable to infer space for address.*")
+	c.Assert(err, tc.ErrorMatches, ".*unable to infer space for address.*")
 }
 
-func (s *spaceSuite) TestInferSpaceFromCIDRAndSubnetID(c *gc.C) {
+func (s *spaceSuite) TestInferSpaceFromCIDRAndSubnetID(c *tc.C) {
 	infos := network.SpaceInfos{
 		{ID: "1", Name: "space1", Subnets: []network.SubnetInfo{{CIDR: "10.0.0.0/24", ProviderId: "1"}}},
 		{ID: "2", Name: "space2", Subnets: []network.SubnetInfo{{CIDR: "10.0.1.0/24", ProviderId: "2"}}},
@@ -104,7 +104,7 @@ func (s *spaceSuite) TestInferSpaceFromCIDRAndSubnetID(c *gc.C) {
 
 	si, err := infos.InferSpaceFromCIDRAndSubnetID("10.0.0.0/24", "1")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(si.Name, gc.Equals, network.SpaceName("space1"))
+	c.Assert(si.Name, tc.Equals, network.SpaceName("space1"))
 
 	// Check for same CIDR/different provider
 	infos = append(
@@ -118,29 +118,29 @@ func (s *spaceSuite) TestInferSpaceFromCIDRAndSubnetID(c *gc.C) {
 
 	si, err = infos.InferSpaceFromCIDRAndSubnetID("10.0.1.0/24", "2")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(si.Name, gc.Equals, network.SpaceName("space2"))
+	c.Assert(si.Name, tc.Equals, network.SpaceName("space2"))
 
 	si, err = infos.InferSpaceFromCIDRAndSubnetID("10.0.1.0/24", "3")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(si.Name, gc.Equals, network.SpaceName("inverse"))
+	c.Assert(si.Name, tc.Equals, network.SpaceName("inverse"))
 
 	// Check for no-match-found
 	_, err = infos.InferSpaceFromCIDRAndSubnetID("10.0.1.0/24", "42")
-	c.Assert(err, gc.ErrorMatches, ".*unable to infer space.*")
+	c.Assert(err, tc.ErrorMatches, ".*unable to infer space.*")
 }
 
-func (s *spaceSuite) TestAllSubnetInfos(c *gc.C) {
+func (s *spaceSuite) TestAllSubnetInfos(c *tc.C) {
 	subnets, err := s.spaces.AllSubnetInfos()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(subnets, gc.DeepEquals, network.SubnetInfos{
+	c.Assert(subnets, tc.DeepEquals, network.SubnetInfos{
 		{ID: "11", CIDR: "10.0.0.0/24"},
 		{ID: "12", CIDR: "10.0.1.0/24"},
 		{ID: "13", CIDR: "10.0.2.0/24"},
 	})
 }
 
-func (s *spaceSuite) TestMoveSubnets(c *gc.C) {
+func (s *spaceSuite) TestMoveSubnets(c *tc.C) {
 	_, err := s.spaces.MoveSubnets(network.MakeIDSet("11", "12"), "space4")
 	c.Check(err, jc.ErrorIs, coreerrors.NotFound)
 
@@ -149,7 +149,7 @@ func (s *spaceSuite) TestMoveSubnets(c *gc.C) {
 
 	spaces, err := s.spaces.MoveSubnets(network.MakeIDSet("11", "12"), "space3")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(spaces, gc.DeepEquals, network.SpaceInfos{
+	c.Assert(spaces, tc.DeepEquals, network.SpaceInfos{
 		{ID: "1", Name: "space1", Subnets: nil},
 		{ID: "2", Name: "space2", Subnets: nil},
 		{
@@ -164,23 +164,23 @@ func (s *spaceSuite) TestMoveSubnets(c *gc.C) {
 	})
 
 	// Ensure the original was not mutated.
-	c.Assert(s.spaces, gc.DeepEquals, network.SpaceInfos{
+	c.Assert(s.spaces, tc.DeepEquals, network.SpaceInfos{
 		{ID: "1", Name: "space1", Subnets: []network.SubnetInfo{{ID: "11", CIDR: "10.0.0.0/24"}}},
 		{ID: "2", Name: "space2", Subnets: []network.SubnetInfo{{ID: "12", CIDR: "10.0.1.0/24"}}},
 		{ID: "3", Name: "space3", Subnets: []network.SubnetInfo{{ID: "13", CIDR: "10.0.2.0/24"}}},
 	})
 }
 
-func (s *spaceSuite) TestSubnetCIDRsBySpaceID(c *gc.C) {
+func (s *spaceSuite) TestSubnetCIDRsBySpaceID(c *tc.C) {
 	res := s.spaces.SubnetCIDRsBySpaceID()
-	c.Assert(res, gc.DeepEquals, map[string][]string{
+	c.Assert(res, tc.DeepEquals, map[string][]string{
 		"1": {"10.0.0.0/24"},
 		"2": {"10.0.1.0/24"},
 		"3": {"10.0.2.0/24"},
 	})
 }
 
-func (s *spaceSuite) TestConvertSpaceName(c *gc.C) {
+func (s *spaceSuite) TestConvertSpaceName(c *tc.C) {
 	empty := set.Strings{}
 	nameTests := []struct {
 		name     string
@@ -204,22 +204,22 @@ func (s *spaceSuite) TestConvertSpaceName(c *gc.C) {
 	}
 	for _, test := range nameTests {
 		result := network.ConvertSpaceName(test.name, test.existing)
-		c.Check(result, gc.Equals, test.expected)
+		c.Check(result, tc.Equals, test.expected)
 	}
 }
 
 // This test guarantees that the AlphaSpaceId is a crafted, well-known v5 UUID
 // using a Juju namespace and a fixed string ("juju.network.space.alpha").
-func (s *spaceSuite) TestAlphaSpaceID(c *gc.C) {
+func (s *spaceSuite) TestAlphaSpaceID(c *tc.C) {
 	// Juju UUID namespace that we (should) use for all Juju well-known UUIDs.
 	jujuUUIDNamespace := "96bb15e6-8b85-448b-9fce-ede1a1700e64"
 	namespaceUUID, err := uuid.Parse(jujuUUIDNamespace)
 	c.Assert(err, jc.ErrorIsNil)
 
 	alphaSpaceUUID := uuid.NewSHA1(namespaceUUID, []byte("juju.network.space.alpha"))
-	c.Assert(alphaSpaceUUID.String(), gc.Equals, network.AlphaSpaceId)
+	c.Assert(alphaSpaceUUID.String(), tc.Equals, network.AlphaSpaceId)
 }
 
-func (s *spaceSuite) TestAlphaSpaceName(c *gc.C) {
-	c.Assert(network.AlphaSpaceName, gc.Equals, "alpha")
+func (s *spaceSuite) TestAlphaSpaceName(c *tc.C) {
+	c.Assert(network.AlphaSpaceName, tc.Equals, "alpha")
 }

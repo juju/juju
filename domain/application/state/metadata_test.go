@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/semversion"
@@ -20,7 +20,7 @@ type metadataSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = gc.Suite(&metadataSuite{})
+var _ = tc.Suite(&metadataSuite{})
 
 var metadataDecodeTestCases = [...]struct {
 	name      string
@@ -405,17 +405,17 @@ var metadataDecodeTestCases = [...]struct {
 	},
 }
 
-func (s *metadataSuite) TestDecodeMetadata(c *gc.C) {
+func (s *metadataSuite) TestDecodeMetadata(c *tc.C) {
 	for _, tc := range metadataDecodeTestCases {
 		c.Logf("Running test case %q", tc.name)
 
 		result, err := decodeMetadata(tc.input, tc.inputArgs)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result, gc.DeepEquals, tc.output)
+		c.Check(result, tc.DeepEquals, tc.output)
 	}
 }
 
-func (s *metadataSuite) TestEncodeMetadata(c *gc.C) {
+func (s *metadataSuite) TestEncodeMetadata(c *tc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	result, err := encodeMetadata(id, charm.Metadata{
@@ -428,7 +428,7 @@ func (s *metadataSuite) TestEncodeMetadata(c *gc.C) {
 		Assumes:        []byte("null"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, gc.DeepEquals, setCharmMetadata{
+	c.Check(result, tc.DeepEquals, setCharmMetadata{
 		CharmUUID:      id.String(),
 		Name:           "foo",
 		Summary:        "summary",
@@ -445,10 +445,10 @@ type metadataStateSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = gc.Suite(&metadataStateSuite{})
+var _ = tc.Suite(&metadataStateSuite{})
 
 // Bake the charm.RunAs values into the database.
-func (s *metadataStateSuite) TestMetadataRunAs(c *gc.C) {
+func (s *metadataStateSuite) TestMetadataRunAs(c *tc.C) {
 	type charmRunAs struct {
 		ID   int    `db:"id"`
 		Name string `db:"name"`
@@ -463,7 +463,7 @@ SELECT charm_run_as_kind.* AS &charmRunAs.* FROM charm_run_as_kind ORDER BY id;
 		return tx.Query(ctx, stmt).GetAll(&results)
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 4)
+	c.Assert(results, tc.HasLen, 4)
 
 	m := []charm.RunAs{
 		charm.RunAsDefault,
@@ -476,16 +476,16 @@ SELECT charm_run_as_kind.* AS &charmRunAs.* FROM charm_run_as_kind ORDER BY id;
 		c.Logf("result %d: %#v", i, value)
 		result, err := encodeRunAs(value)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result, gc.DeepEquals, results[i].ID)
+		c.Check(result, tc.DeepEquals, results[i].ID)
 	}
 }
 
-func (s *metadataStateSuite) TestMetadataRunAsWithError(c *gc.C) {
+func (s *metadataStateSuite) TestMetadataRunAsWithError(c *tc.C) {
 	_, err := encodeRunAs(charm.RunAs("invalid"))
-	c.Assert(err, gc.ErrorMatches, `unknown run as value "invalid"`)
+	c.Assert(err, tc.ErrorMatches, `unknown run as value "invalid"`)
 }
 
-func (s *metadataStateSuite) TestMetadataRelationRole(c *gc.C) {
+func (s *metadataStateSuite) TestMetadataRelationRole(c *tc.C) {
 	type charmRelationRole struct {
 		ID   int    `db:"id"`
 		Name string `db:"name"`
@@ -500,7 +500,7 @@ SELECT charm_relation_role.* AS &charmRelationRole.* FROM charm_relation_role OR
 		return tx.Query(ctx, stmt).GetAll(&results)
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 3)
+	c.Assert(results, tc.HasLen, 3)
 
 	m := []charm.RelationRole{
 		charm.RoleProvider,
@@ -512,16 +512,16 @@ SELECT charm_relation_role.* AS &charmRelationRole.* FROM charm_relation_role OR
 		c.Logf("result %d: %#v", i, value)
 		result, err := encodeRelationRole(value)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result, gc.DeepEquals, results[i].ID)
+		c.Check(result, tc.DeepEquals, results[i].ID)
 	}
 }
 
-func (s *metadataStateSuite) TestMetadataRelationRoleWithError(c *gc.C) {
+func (s *metadataStateSuite) TestMetadataRelationRoleWithError(c *tc.C) {
 	_, err := encodeRelationRole(charm.RelationRole("invalid"))
-	c.Assert(err, gc.ErrorMatches, `unknown relation role "invalid"`)
+	c.Assert(err, tc.ErrorMatches, `unknown relation role "invalid"`)
 }
 
-func (s *metadataStateSuite) TestMetadataRelationScope(c *gc.C) {
+func (s *metadataStateSuite) TestMetadataRelationScope(c *tc.C) {
 	type charmRelationScope struct {
 		ID   int    `db:"id"`
 		Name string `db:"name"`
@@ -536,7 +536,7 @@ SELECT charm_relation_scope.* AS &charmRelationScope.* FROM charm_relation_scope
 		return tx.Query(ctx, stmt).GetAll(&results)
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 2)
+	c.Assert(results, tc.HasLen, 2)
 
 	m := []charm.RelationScope{
 		charm.ScopeGlobal,
@@ -547,16 +547,16 @@ SELECT charm_relation_scope.* AS &charmRelationScope.* FROM charm_relation_scope
 		c.Logf("result %d: %#v", i, value)
 		result, err := encodeRelationScope(value)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result, gc.DeepEquals, results[i].ID)
+		c.Check(result, tc.DeepEquals, results[i].ID)
 	}
 }
 
-func (s *metadataStateSuite) TestMetadataRelationScopeWithError(c *gc.C) {
+func (s *metadataStateSuite) TestMetadataRelationScopeWithError(c *tc.C) {
 	_, err := encodeRelationScope(charm.RelationScope("invalid"))
-	c.Assert(err, gc.ErrorMatches, `unknown relation scope "invalid"`)
+	c.Assert(err, tc.ErrorMatches, `unknown relation scope "invalid"`)
 }
 
-func (s *metadataStateSuite) TestMetadataStorageKind(c *gc.C) {
+func (s *metadataStateSuite) TestMetadataStorageKind(c *tc.C) {
 	type storageKind struct {
 		ID   int    `db:"id"`
 		Kind string `db:"kind"`
@@ -571,7 +571,7 @@ SELECT charm_storage_kind.* AS &storageKind.* FROM charm_storage_kind ORDER BY i
 		return tx.Query(ctx, stmt).GetAll(&results)
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 2)
+	c.Assert(results, tc.HasLen, 2)
 
 	m := []charm.StorageType{
 		charm.StorageBlock,
@@ -582,16 +582,16 @@ SELECT charm_storage_kind.* AS &storageKind.* FROM charm_storage_kind ORDER BY i
 		c.Logf("result %d: %#v", i, value)
 		result, err := encodeStorageType(value)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result, gc.DeepEquals, results[i].ID)
+		c.Check(result, tc.DeepEquals, results[i].ID)
 	}
 }
 
-func (s *metadataStateSuite) TestMetadataStorageKindWithError(c *gc.C) {
+func (s *metadataStateSuite) TestMetadataStorageKindWithError(c *tc.C) {
 	_, err := encodeStorageType(charm.StorageType("invalid"))
-	c.Assert(err, gc.ErrorMatches, `unknown storage kind "invalid"`)
+	c.Assert(err, tc.ErrorMatches, `unknown storage kind "invalid"`)
 }
 
-func (s *metadataStateSuite) TestMetadataResourceKind(c *gc.C) {
+func (s *metadataStateSuite) TestMetadataResourceKind(c *tc.C) {
 	type charmResourceKind struct {
 		ID   int    `db:"id"`
 		Name string `db:"name"`
@@ -606,7 +606,7 @@ SELECT charm_resource_kind.* AS &charmResourceKind.* FROM charm_resource_kind OR
 		return tx.Query(ctx, stmt).GetAll(&results)
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 2)
+	c.Assert(results, tc.HasLen, 2)
 
 	m := []charm.ResourceType{
 		charm.ResourceTypeFile,
@@ -617,11 +617,11 @@ SELECT charm_resource_kind.* AS &charmResourceKind.* FROM charm_resource_kind OR
 		c.Logf("result %d: %#v", i, value)
 		result, err := encodeResourceType(value)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result, gc.DeepEquals, results[i].ID)
+		c.Check(result, tc.DeepEquals, results[i].ID)
 	}
 }
 
-func (s *metadataStateSuite) TestMetadataResourceKindWithError(c *gc.C) {
+func (s *metadataStateSuite) TestMetadataResourceKindWithError(c *tc.C) {
 	_, err := encodeResourceType(charm.ResourceType("invalid"))
-	c.Assert(err, gc.ErrorMatches, `unknown resource kind "invalid"`)
+	c.Assert(err, tc.ErrorMatches, `unknown resource kind "invalid"`)
 }

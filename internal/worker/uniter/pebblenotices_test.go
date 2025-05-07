@@ -9,10 +9,10 @@ import (
 
 	"github.com/canonical/pebble/client"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
@@ -28,9 +28,9 @@ type pebbleNoticerSuite struct {
 	workloadEvents    container.WorkloadEvents
 }
 
-var _ = gc.Suite(&pebbleNoticerSuite{})
+var _ = tc.Suite(&pebbleNoticerSuite{})
 
-func (s *pebbleNoticerSuite) setUpWorker(c *gc.C, containerNames []string) {
+func (s *pebbleNoticerSuite) setUpWorker(c *tc.C, containerNames []string) {
 	s.clock = testclock.NewClock(time.Time{})
 	s.workloadEventChan = make(chan string)
 	s.workloadEvents = container.NewWorkloadEvents()
@@ -42,26 +42,26 @@ func (s *pebbleNoticerSuite) setUpWorker(c *gc.C, containerNames []string) {
 		}
 	}
 	newClient := func(cfg *client.Config) (uniter.PebbleClient, error) {
-		c.Assert(cfg.Socket, gc.Matches, pebbleSocketPathRegexpString)
+		c.Assert(cfg.Socket, tc.Matches, pebbleSocketPathRegexpString)
 		matches := pebbleSocketPathRegexp.FindAllStringSubmatch(cfg.Socket, 1)
 		return s.clients[matches[0][1]], nil
 	}
 	s.worker = uniter.NewPebbleNoticer(loggertesting.WrapCheckLog(c), s.clock, containerNames, s.workloadEventChan, s.workloadEvents, newClient)
 }
 
-func (s *pebbleNoticerSuite) waitWorkloadEvent(c *gc.C, expected container.WorkloadEvent) {
+func (s *pebbleNoticerSuite) waitWorkloadEvent(c *tc.C, expected container.WorkloadEvent) {
 	select {
 	case id := <-s.workloadEventChan:
 		event, callback, err := s.workloadEvents.GetWorkloadEvent(id)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(event, gc.DeepEquals, expected)
+		c.Assert(event, tc.DeepEquals, expected)
 		callback(nil)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for event")
 	}
 }
 
-func (s *pebbleNoticerSuite) TestWaitNotices(c *gc.C) {
+func (s *pebbleNoticerSuite) TestWaitNotices(c *tc.C) {
 	s.setUpWorker(c, []string{"c1"})
 	defer workertest.CleanKill(c, s.worker)
 
@@ -115,7 +115,7 @@ func (s *pebbleNoticerSuite) TestWaitNotices(c *gc.C) {
 
 // TestCheckFailed verifies that a change-updated notice that is of kind
 // perform-check and has a status of Error results in a CheckFailed event.
-func (s *pebbleNoticerSuite) TestCheckFailed(c *gc.C) {
+func (s *pebbleNoticerSuite) TestCheckFailed(c *tc.C) {
 	s.setUpWorker(c, []string{"c1"})
 	defer workertest.CleanKill(c, s.worker)
 
@@ -140,7 +140,7 @@ func (s *pebbleNoticerSuite) TestCheckFailed(c *gc.C) {
 
 // TestCheckRecovered verifies that a change-updated notice that is of kind
 // recover-check and has a status of Done results in a CheckRecovered event.
-func (s *pebbleNoticerSuite) TestCheckRecovered(c *gc.C) {
+func (s *pebbleNoticerSuite) TestCheckRecovered(c *tc.C) {
 	s.setUpWorker(c, []string{"c1"})
 	defer workertest.CleanKill(c, s.worker)
 
@@ -163,7 +163,7 @@ func (s *pebbleNoticerSuite) TestCheckRecovered(c *gc.C) {
 	})
 }
 
-func (s *pebbleNoticerSuite) TestWaitNoticesError(c *gc.C) {
+func (s *pebbleNoticerSuite) TestWaitNoticesError(c *tc.C) {
 	s.setUpWorker(c, []string{"c1"})
 	defer workertest.CleanKill(c, s.worker)
 
@@ -188,7 +188,7 @@ func (s *pebbleNoticerSuite) TestWaitNoticesError(c *gc.C) {
 	})
 }
 
-func (s *pebbleNoticerSuite) TestIgnoreUnhandledType(c *gc.C) {
+func (s *pebbleNoticerSuite) TestIgnoreUnhandledType(c *tc.C) {
 	s.setUpWorker(c, []string{"c1"})
 	defer workertest.CleanKill(c, s.worker)
 
@@ -205,7 +205,7 @@ func (s *pebbleNoticerSuite) TestIgnoreUnhandledType(c *gc.C) {
 	}
 }
 
-func (s *pebbleNoticerSuite) TestFailedChangeNotFound(c *gc.C) {
+func (s *pebbleNoticerSuite) TestFailedChangeNotFound(c *tc.C) {
 	s.setUpWorker(c, []string{"c1"})
 	defer workertest.CleanKill(c, s.worker)
 
@@ -223,7 +223,7 @@ func (s *pebbleNoticerSuite) TestFailedChangeNotFound(c *gc.C) {
 	})
 }
 
-func (s *pebbleNoticerSuite) TestRecoveredChangeNotFound(c *gc.C) {
+func (s *pebbleNoticerSuite) TestRecoveredChangeNotFound(c *tc.C) {
 	s.setUpWorker(c, []string{"c1"})
 	defer workertest.CleanKill(c, s.worker)
 
@@ -241,11 +241,11 @@ func (s *pebbleNoticerSuite) TestRecoveredChangeNotFound(c *gc.C) {
 	})
 }
 
-func (s *pebbleNoticerSuite) TestOtherChangeError(c *gc.C) {
+func (s *pebbleNoticerSuite) TestOtherChangeError(c *tc.C) {
 	s.setUpWorker(c, []string{"c1"})
 	defer func() {
 		err := workertest.CheckKilled(c, s.worker)
-		c.Assert(err, gc.ErrorMatches, ".*some other error")
+		c.Assert(err, tc.ErrorMatches, ".*some other error")
 	}()
 
 	s.clients["c1"].changeErr = fmt.Errorf("some other error")
@@ -264,7 +264,7 @@ func (s *pebbleNoticerSuite) TestOtherChangeError(c *gc.C) {
 	}
 }
 
-func (s *pebbleNoticerSuite) TestMultipleContainers(c *gc.C) {
+func (s *pebbleNoticerSuite) TestMultipleContainers(c *tc.C) {
 	s.setUpWorker(c, []string{"c1", "c2"})
 	defer workertest.CleanKill(c, s.worker)
 

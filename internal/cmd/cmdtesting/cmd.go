@@ -9,7 +9,7 @@ import (
 	"io/ioutil"
 
 	"github.com/juju/gnuflag"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/cmd"
 )
@@ -36,7 +36,7 @@ func InitCommand(c cmd.Command, args []string) error {
 
 // Context creates a simple command execution context with the current
 // dir set to a newly created directory within the test directory.
-func Context(c *gc.C) *cmd.Context {
+func Context(c *tc.C) *cmd.Context {
 	ctx := &cmd.Context{
 		Dir:    c.MkDir(),
 		Stdin:  &bytes.Buffer{},
@@ -49,7 +49,7 @@ func Context(c *gc.C) *cmd.Context {
 
 // ContextForDir creates a simple command execution context with the current
 // dir set to the specified directory.
-func ContextForDir(c *gc.C, dir string) *cmd.Context {
+func ContextForDir(c *tc.C, dir string) *cmd.Context {
 	ctx := &cmd.Context{
 		Dir:    dir,
 		Stdin:  &bytes.Buffer{},
@@ -76,13 +76,13 @@ func Stderr(ctx *cmd.Context) string {
 // may come from either the parsing of the args, the command initialisation, or
 // the actual running of the command.  Access to the resulting output streams
 // is provided through the returned context instance.
-func RunCommand(c *gc.C, com cmd.Command, args ...string) (*cmd.Context, error) {
+func RunCommand(c *tc.C, com cmd.Command, args ...string) (*cmd.Context, error) {
 	var context = Context(c)
 	return runCommand(context, com, args)
 }
 
 // RunCommandInDir works like RunCommand, but runs with a context that uses dir.
-func RunCommandInDir(c *gc.C, com cmd.Command, args []string, dir string) (*cmd.Context, error) {
+func RunCommandInDir(c *tc.C, com cmd.Command, args []string, dir string) (*cmd.Context, error) {
 	var context = ContextForDir(c, dir)
 	return runCommand(context, com, args)
 }
@@ -115,12 +115,12 @@ func RunCommandWithContext(ctx *cmd.Context, com cmd.Command, args ...string) ch
 
 // TestInit checks that a command initialises correctly with the given set of
 // arguments.
-func TestInit(c *gc.C, com cmd.Command, args []string, errPat string) {
+func TestInit(c *tc.C, com cmd.Command, args []string, errPat string) {
 	err := InitCommand(com, args)
 	if errPat != "" {
-		c.Assert(err, gc.ErrorMatches, errPat)
+		c.Assert(err, tc.ErrorMatches, errPat)
 	} else {
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, tc.IsNil)
 	}
 }
 

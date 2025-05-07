@@ -9,9 +9,9 @@ import (
 	"sync"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/life"
@@ -93,7 +93,7 @@ func (u *unit) String() string {
 	return u.MockUnit.Name()
 }
 
-func (ctx *testContext) makeUnit(c *gc.C, unitTag names.UnitTag, l life.Value) *unit {
+func (ctx *testContext) makeUnit(c *tc.C, unitTag names.UnitTag, l life.Value) *unit {
 	u := &unit{
 		MockUnit: uniterapi.NewMockUnit(ctx.ctrl),
 		life:     l,
@@ -304,7 +304,7 @@ type relation struct {
 	life life.Value
 }
 
-func (ctx *testContext) makeRelation(c *gc.C, relTag names.RelationTag, l life.Value, otherApp string) *relation {
+func (ctx *testContext) makeRelation(c *tc.C, relTag names.RelationTag, l life.Value, otherApp string) *relation {
 	r := &relation{
 		MockRelation: uniterapi.NewMockRelation(ctx.ctrl),
 		life:         l,
@@ -339,7 +339,7 @@ type relationUnit struct {
 	*uniterapi.MockRelationUnit
 }
 
-func (ctx *testContext) makeRelationUnit(c *gc.C, rel *relation, u *unit) *relationUnit {
+func (ctx *testContext) makeRelationUnit(c *tc.C, rel *relation, u *unit) *relationUnit {
 	ru := &relationUnit{
 		MockRelationUnit: uniterapi.NewMockRelationUnit(ctx.ctrl),
 	}

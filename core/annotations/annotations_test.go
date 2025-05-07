@@ -5,8 +5,8 @@ package annotations
 
 import (
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/testing"
@@ -18,15 +18,15 @@ type annotationsSuite struct {
 	annotations Annotation
 }
 
-var _ = gc.Suite(&annotationsSuite{})
+var _ = tc.Suite(&annotationsSuite{})
 
-func (s *annotationsSuite) SetUpTest(c *gc.C) {
+func (s *annotationsSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.annotations = New(nil)
 }
 
-func (s *annotationsSuite) TestExistAndAdd(c *gc.C) {
+func (s *annotationsSuite) TestExistAndAdd(c *tc.C) {
 	key := "annotation-1-key"
 	value := "annotation-1-val"
 	c.Assert(s.annotations.Has(key, value), jc.IsFalse)
@@ -39,7 +39,7 @@ func (s *annotationsSuite) TestExistAndAdd(c *gc.C) {
 	c.Assert(s.annotations.Has(key, "a new value"), jc.IsTrue)
 }
 
-func (s *annotationsSuite) TestRemove(c *gc.C) {
+func (s *annotationsSuite) TestRemove(c *tc.C) {
 	key := "annotation-1-key"
 	value := "annotation-1-val"
 	c.Assert(s.annotations.Has(key, value), jc.IsFalse)
@@ -51,7 +51,7 @@ func (s *annotationsSuite) TestRemove(c *gc.C) {
 	c.Assert(s.annotations.Has(key, value), jc.IsFalse)
 }
 
-func (s *annotationsSuite) TestCopy(c *gc.C) {
+func (s *annotationsSuite) TestCopy(c *tc.C) {
 	annotation1 := map[string]string{
 		"annotation-1-key": "annotation-1-val",
 	}
@@ -84,7 +84,7 @@ func (s *annotationsSuite) TestCopy(c *gc.C) {
 	})
 }
 
-func (s *annotationsSuite) TestExistAllExistAnyMergeToMap(c *gc.C) {
+func (s *annotationsSuite) TestExistAllExistAnyMergeToMap(c *tc.C) {
 	annotation1 := map[string]string{
 		"annotation-1-key": "annotation-1-val",
 	}
@@ -136,7 +136,7 @@ func (s *annotationsSuite) TestExistAllExistAnyMergeToMap(c *gc.C) {
 	c.Assert(s.annotations.ToMap(), jc.DeepEquals, mergeMap(annotation1, annotation2, annotation3))
 }
 
-func (s *annotationsSuite) TestCheckKeysNonEmpty(c *gc.C) {
+func (s *annotationsSuite) TestCheckKeysNonEmpty(c *tc.C) {
 	c.Assert(s.annotations.CheckKeysNonEmpty("key1"), jc.ErrorIs, coreerrors.NotFound)
 
 	s.annotations.Add("key1", "")
@@ -147,7 +147,7 @@ func (s *annotationsSuite) TestCheckKeysNonEmpty(c *gc.C) {
 	c.Assert(s.annotations.CheckKeysNonEmpty("key1", "key2"), jc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *annotationsSuite) TestConvertTagToID(c *gc.C) {
+func (s *annotationsSuite) TestConvertTagToID(c *tc.C) {
 	// ConvertTagToID happy path
 	id, err := ConvertTagToID(names.NewUnitTag("unit/0"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -155,5 +155,5 @@ func (s *annotationsSuite) TestConvertTagToID(c *gc.C) {
 
 	// ConvertTagToID unknown kind
 	_, err = ConvertTagToID(names.NewEnvironTag("env/0"))
-	c.Assert(err.Error(), gc.Equals, "unknown kind \"environment\"")
+	c.Assert(err.Error(), tc.Equals, "unknown kind \"environment\"")
 }

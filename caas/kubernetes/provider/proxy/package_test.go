@@ -6,12 +6,12 @@ package proxy
 import (
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	"k8s.io/client-go/rest"
 )
 
 func Test(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 func (p *Proxier) RESTConfig() rest.Config {

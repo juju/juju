@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/lease"
@@ -33,9 +33,9 @@ type leaderServiceSuite struct {
 	service *LeadershipService
 }
 
-var _ = gc.Suite(&leaderServiceSuite{})
+var _ = tc.Suite(&leaderServiceSuite{})
 
-func (s *leaderServiceSuite) TestSetRelationStatus(c *gc.C) {
+func (s *leaderServiceSuite) TestSetRelationStatus(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
@@ -67,7 +67,7 @@ func (s *leaderServiceSuite) TestSetRelationStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *leaderServiceSuite) TestSetRelationStatusRelationNotFound(c *gc.C) {
+func (s *leaderServiceSuite) TestSetRelationStatusRelationNotFound(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
@@ -95,7 +95,7 @@ func (s *leaderServiceSuite) TestSetRelationStatusRelationNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, statuserrors.RelationNotFound)
 }
 
-func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeader(c *gc.C) {
+func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeader(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	now := time.Now()
@@ -125,7 +125,7 @@ func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeader(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeaderNotLeader(c *gc.C) {
+func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeaderNotLeader(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	now := time.Now()
@@ -149,7 +149,7 @@ func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeaderNotLeader(c *g
 	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotLeader)
 }
 
-func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeaderInvalidUnitName(c *gc.C) {
+func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeaderInvalidUnitName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	now := time.Now()
@@ -164,7 +164,7 @@ func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeaderInvalidUnitNam
 	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
 }
 
-func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeaderNoUnitFound(c *gc.C) {
+func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeaderNoUnitFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	now := time.Now()
@@ -184,7 +184,7 @@ func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeaderNoUnitFound(c 
 	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotFound)
 }
 
-func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderNotLeader(c *gc.C) {
+func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderNotLeader(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
@@ -201,14 +201,14 @@ func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderN
 	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotLeader)
 }
 
-func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderInvalidUnitName(c *gc.C) {
+func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderInvalidUnitName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, _, err := s.service.GetApplicationAndUnitStatusesForUnitWithLeader(context.Background(), coreunit.Name("!!!"))
 	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
 }
 
-func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderNoApplication(c *gc.C) {
+func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderNoApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
@@ -218,7 +218,7 @@ func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderN
 	c.Assert(err, jc.ErrorIs, statuserrors.ApplicationNotFound)
 }
 
-func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderApplicationStatusSet(c *gc.C) {
+func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderApplicationStatusSet(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
@@ -292,7 +292,7 @@ func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderA
 	})
 }
 
-func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderApplicationStatusUnset(c *gc.C) {
+func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderApplicationStatusUnset(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
@@ -375,7 +375,7 @@ func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderA
 	})
 }
 
-func (s *leaderServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *leaderServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.state = NewMockState(ctrl)

@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	time "time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/testing"
 )
@@ -20,9 +20,9 @@ type watcherSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&watcherSuite{})
+var _ = tc.Suite(&watcherSuite{})
 
-func (s *watcherSuite) TestWatching(c *gc.C) {
+func (s *watcherSuite) TestWatching(c *tc.C) {
 	dir, err := os.MkdirTemp("", "inotify")
 	c.Assert(err, jc.ErrorIsNil)
 	defer os.RemoveAll(dir)
@@ -57,7 +57,7 @@ func (s *watcherSuite) TestWatching(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *watcherSuite) TestNotWatching(c *gc.C) {
+func (s *watcherSuite) TestNotWatching(c *tc.C) {
 	dir, err := os.MkdirTemp("", "inotify")
 	c.Assert(err, jc.ErrorIsNil)
 	defer os.RemoveAll(dir)

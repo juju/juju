@@ -5,11 +5,11 @@ package logsendermetrics_test
 
 import (
 	"github.com/juju/loggo/v2"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/logsender/logsendermetrics"
@@ -24,16 +24,16 @@ type bufferedLogWriterSuite struct {
 	collector logsendermetrics.BufferedLogWriterMetrics
 }
 
-var _ = gc.Suite(&bufferedLogWriterSuite{})
+var _ = tc.Suite(&bufferedLogWriterSuite{})
 
-func (s *bufferedLogWriterSuite) SetUpTest(c *gc.C) {
+func (s *bufferedLogWriterSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.writer = logsender.NewBufferedLogWriter(maxLen)
 	s.collector = logsendermetrics.BufferedLogWriterMetrics{s.writer}
-	s.AddCleanup(func(*gc.C) { s.writer.Close() })
+	s.AddCleanup(func(*tc.C) { s.writer.Close() })
 }
 
-func (s *bufferedLogWriterSuite) TestDescribe(c *gc.C) {
+func (s *bufferedLogWriterSuite) TestDescribe(c *tc.C) {
 	ch := make(chan *prometheus.Desc)
 	go func() {
 		defer close(ch)
@@ -43,14 +43,14 @@ func (s *bufferedLogWriterSuite) TestDescribe(c *gc.C) {
 	for desc := range ch {
 		descs = append(descs, desc)
 	}
-	c.Assert(descs, gc.HasLen, 4)
-	c.Assert(descs[0].String(), gc.Matches, `.*fqName: "juju_logsender_capacity".*`)
-	c.Assert(descs[1].String(), gc.Matches, `.*fqName: "juju_logsender_enqueued_total".*`)
-	c.Assert(descs[2].String(), gc.Matches, `.*fqName: "juju_logsender_sent_total".*`)
-	c.Assert(descs[3].String(), gc.Matches, `.*fqName: "juju_logsender_dropped_total".*`)
+	c.Assert(descs, tc.HasLen, 4)
+	c.Assert(descs[0].String(), tc.Matches, `.*fqName: "juju_logsender_capacity".*`)
+	c.Assert(descs[1].String(), tc.Matches, `.*fqName: "juju_logsender_enqueued_total".*`)
+	c.Assert(descs[2].String(), tc.Matches, `.*fqName: "juju_logsender_sent_total".*`)
+	c.Assert(descs[3].String(), tc.Matches, `.*fqName: "juju_logsender_dropped_total".*`)
 }
 
-func (s *bufferedLogWriterSuite) TestCollect(c *gc.C) {
+func (s *bufferedLogWriterSuite) TestCollect(c *tc.C) {
 	s.writer.Write(loggo.Entry{})
 	s.writer.Write(loggo.Entry{})
 	s.writer.Write(loggo.Entry{})
@@ -77,7 +77,7 @@ func (s *bufferedLogWriterSuite) TestCollect(c *gc.C) {
 	for metric := range ch {
 		metrics = append(metrics, metric)
 	}
-	c.Assert(metrics, gc.HasLen, 4)
+	c.Assert(metrics, tc.HasLen, 4)
 
 	var dtoMetrics [4]*dto.Metric
 	for i, metric := range metrics {

@@ -6,8 +6,8 @@ package lxd_test
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -25,9 +25,9 @@ type configSuite struct {
 	config   *config.Config
 }
 
-var _ = gc.Suite(&configSuite{})
+var _ = tc.Suite(&configSuite{})
 
-func (s *configSuite) SetUpTest(c *gc.C) {
+func (s *configSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.provider = lxd.NewProvider()
@@ -37,12 +37,12 @@ func (s *configSuite) SetUpTest(c *gc.C) {
 	s.config = cfg
 }
 
-func (s *configSuite) TestDefaults(c *gc.C) {
+func (s *configSuite) TestDefaults(c *tc.C) {
 	cfg := lxd.NewBaseConfig(c)
 	ecfg := lxd.NewConfig(cfg)
 
 	values, extras := ecfg.Values(c)
-	c.Assert(extras, gc.HasLen, 0)
+	c.Assert(extras, tc.HasLen, 0)
 
 	c.Check(values, jc.DeepEquals, lxd.ConfigValues{})
 }
@@ -65,7 +65,7 @@ type configTestSpec struct {
 	err string
 }
 
-func (ts configTestSpec) checkSuccess(c *gc.C, value interface{}, err error) {
+func (ts configTestSpec) checkSuccess(c *tc.C, value interface{}, err error) {
 	if !c.Check(err, jc.ErrorIsNil) {
 		return
 	}
@@ -80,18 +80,18 @@ func (ts configTestSpec) checkSuccess(c *gc.C, value interface{}, err error) {
 
 	attrs := cfg.AllAttrs()
 	for field, value := range ts.expect {
-		c.Check(attrs[field], gc.Equals, value)
+		c.Check(attrs[field], tc.Equals, value)
 	}
 }
 
-func (ts configTestSpec) checkFailure(c *gc.C, err error, msg string) {
-	c.Check(err, gc.ErrorMatches, msg+": "+ts.err)
+func (ts configTestSpec) checkFailure(c *tc.C, err error, msg string) {
+	c.Check(err, tc.ErrorMatches, msg+": "+ts.err)
 }
 
-func (ts configTestSpec) checkAttrs(c *gc.C, attrs map[string]interface{}, cfg *config.Config) {
+func (ts configTestSpec) checkAttrs(c *tc.C, attrs map[string]interface{}, cfg *config.Config) {
 	for field, expected := range cfg.UnknownAttrs() {
 		value := attrs[field]
-		c.Check(value, gc.Equals, expected)
+		c.Check(value, tc.Equals, expected)
 	}
 }
 
@@ -100,14 +100,14 @@ func (ts configTestSpec) attrs() testing.Attrs {
 	return attrs.Merge(ts.insert).Delete(ts.remove...)
 }
 
-func (ts configTestSpec) newConfig(c *gc.C) *config.Config {
+func (ts configTestSpec) newConfig(c *tc.C) *config.Config {
 	attrs := ts.attrs()
 	cfg, err := testing.ModelConfig(c).Apply(attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	return cfg
 }
 
-func (ts configTestSpec) fixCfg(c *gc.C, cfg *config.Config) *config.Config {
+func (ts configTestSpec) fixCfg(c *tc.C, cfg *config.Config) *config.Config {
 	fixes := make(map[string]interface{})
 
 	// Set changed values.
@@ -135,7 +135,7 @@ var newConfigTests = []configTestSpec{{
 	expect: testing.Attrs{"unknown-field": 12345},
 }}
 
-func (s *configSuite) TestNewModelConfig(c *gc.C) {
+func (s *configSuite) TestNewModelConfig(c *tc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
@@ -154,7 +154,7 @@ func (s *configSuite) TestNewModelConfig(c *gc.C) {
 	}
 }
 
-func (s *configSuite) TestValidateNewConfig(c *gc.C) {
+func (s *configSuite) TestValidateNewConfig(c *tc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
@@ -165,13 +165,13 @@ func (s *configSuite) TestValidateNewConfig(c *gc.C) {
 		if test.err != "" {
 			test.checkFailure(c, err, "invalid config")
 		} else {
-			c.Check(validatedConfig, gc.NotNil)
+			c.Check(validatedConfig, tc.NotNil)
 			test.checkSuccess(c, validatedConfig, err)
 		}
 	}
 }
 
-func (s *configSuite) TestValidateOldConfig(c *gc.C) {
+func (s *configSuite) TestValidateOldConfig(c *tc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
@@ -195,7 +195,7 @@ func (s *configSuite) TestValidateOldConfig(c *gc.C) {
 			}
 			// We verify that Validate filled in the defaults
 			// appropriately.
-			c.Check(validatedConfig, gc.NotNil)
+			c.Check(validatedConfig, tc.NotNil)
 			test.checkAttrs(c, expected, validatedConfig)
 		}
 	}
@@ -210,7 +210,7 @@ var changeConfigTests = []configTestSpec{{
 	expect: testing.Attrs{"unknown": "ignoti"},
 }}
 
-func (s *configSuite) TestValidateChange(c *gc.C) {
+func (s *configSuite) TestValidateChange(c *tc.C) {
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
@@ -226,7 +226,7 @@ func (s *configSuite) TestValidateChange(c *gc.C) {
 	}
 }
 
-func (s *configSuite) TestSetConfig(c *gc.C) {
+func (s *configSuite) TestSetConfig(c *tc.C) {
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
@@ -251,14 +251,14 @@ func (s *configSuite) TestSetConfig(c *gc.C) {
 	}
 }
 
-func (s *configSuite) TestSchema(c *gc.C) {
+func (s *configSuite) TestSchema(c *tc.C) {
 	fields := s.provider.(interface {
 		Schema() configschema.Fields
 	}).Schema()
 	// Check that all the fields defined in environs/config
 	// are in the returned schema.
 	globalFields, err := config.Schema(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	for name, field := range globalFields {
 		c.Check(fields[name], jc.DeepEquals, field)
 	}

@@ -14,10 +14,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/shell"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -40,7 +40,7 @@ type provisionerSuite struct {
 	jujutesting.LoggingCleanupSuite
 }
 
-var _ = gc.Suite(&provisionerSuite{})
+var _ = tc.Suite(&provisionerSuite{})
 
 type mockMachineManager struct {
 	manual.ProvisioningClientAPI
@@ -85,7 +85,7 @@ func (m *mockMachineManager) DestroyMachinesWithParams(ctx context.Context, forc
 	}}, nil
 }
 
-func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
+func (s *provisionerSuite) getArgs(c *tc.C) manual.ProvisionMachineArgs {
 	hostname, err := os.Hostname()
 	c.Assert(err, jc.ErrorIsNil)
 	client := &mockMachineManager{}
@@ -96,7 +96,7 @@ func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
 	}
 }
 
-func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
+func (s *provisionerSuite) TestProvisionMachine(c *tc.C) {
 	base := jujuversion.DefaultSupportedLTSBase()
 
 	args := s.getArgs(c)
@@ -121,14 +121,14 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		}.install(c).Restore()
 		machineId, err := sshprovisioner.ProvisionMachine(context.Background(), args)
 		if errorCode != 0 {
-			c.Assert(err, gc.ErrorMatches, fmt.Sprintf("subprocess encountered error code %d", errorCode))
-			c.Assert(machineId, gc.Equals, "")
+			c.Assert(err, tc.ErrorMatches, fmt.Sprintf("subprocess encountered error code %d", errorCode))
+			c.Assert(machineId, tc.Equals, "")
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
-			c.Check(machineId, gc.Not(gc.Equals), "")
+			c.Check(machineId, tc.Not(tc.Equals), "")
 			// machine ID will be incremented. Even though we failed and the
 			// machine is removed, the ID is not reused.
-			c.Assert(machineId, gc.Equals, fmt.Sprint(i+1))
+			c.Assert(machineId, tc.Equals, fmt.Sprint(i+1))
 		}
 	}
 
@@ -141,7 +141,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		SkipProvisionAgent: true,
 	}.install(c).Restore()
 	_, err := sshprovisioner.ProvisionMachine(context.Background(), args)
-	c.Assert(err, gc.Equals, manual.ErrProvisioned)
+	c.Assert(err, tc.Equals, manual.ErrProvisioned)
 	defer fakeSSH{
 		Provisioned:              true,
 		CheckProvisionedExitCode: 255,
@@ -150,10 +150,10 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		SkipProvisionAgent:       true,
 	}.install(c).Restore()
 	_, err = sshprovisioner.ProvisionMachine(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, "error checking if provisioned: subprocess encountered error code 255")
+	c.Assert(err, tc.ErrorMatches, "error checking if provisioned: subprocess encountered error code 255")
 }
 
-func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
+func (s *provisionerSuite) TestProvisioningScript(c *tc.C) {
 	base := jujuversion.DefaultSupportedLTSBase()
 
 	defer fakeSSH{
@@ -206,5 +206,5 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 
 	removeLogFile := "rm -f '/var/log/cloud-init-output.log'\n"
 	expectedScript := removeLogFile + shell.DumpFileOnErrorScript("/var/log/cloud-init-output.log") + provisioningScript
-	c.Assert(script, gc.Equals, expectedScript)
+	c.Assert(script, tc.Equals, expectedScript)
 }

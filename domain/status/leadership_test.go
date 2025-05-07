@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/database"
@@ -41,9 +41,9 @@ type leadershipSuite struct {
 	leadership *MockChecker
 }
 
-var _ = gc.Suite(&leadershipSuite{})
+var _ = tc.Suite(&leadershipSuite{})
 
-func (s *leadershipSuite) SetUpTest(c *gc.C) {
+func (s *leadershipSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	modelUUID := uuid.MustNewUUID()
@@ -57,7 +57,7 @@ func (s *leadershipSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *leadershipSuite) TestSetApplicationStatusForUnitLeader(c *gc.C) {
+func (s *leadershipSuite) TestSetApplicationStatusForUnitLeader(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
@@ -87,10 +87,10 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeader(c *gc.C) {
 
 	appStatus, err := svc.GetApplicationDisplayStatus(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(appStatus.Status, gc.Equals, status.Active)
+	c.Check(appStatus.Status, tc.Equals, status.Active)
 }
 
-func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderNotTheLeader(c *gc.C) {
+func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderNotTheLeader(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
@@ -121,7 +121,7 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderNotTheLeader(c *g
 	close(done)
 }
 
-func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderCancelled(c *gc.C) {
+func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderCancelled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// This triggers the started flow, but won't wait till the call, so it
@@ -146,7 +146,7 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderCancelled(c *gc.C
 	c.Assert(err, jc.ErrorIs, context.Canceled)
 }
 
-func (s *leadershipSuite) setupService(c *gc.C) *service.LeadershipService {
+func (s *leadershipSuite) setupService(c *tc.C) *service.LeadershipService {
 	modelDB := func() (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
@@ -166,7 +166,7 @@ func (s *leadershipSuite) setupService(c *gc.C) *service.LeadershipService {
 	)
 }
 
-func (s *leadershipSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *leadershipSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	// In an ideal world, this would be a real lease manager, but for now, we
@@ -176,7 +176,7 @@ func (s *leadershipSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *leadershipSuite) createApplication(c *gc.C, name string, units ...application.AddUnitArg) coreapplication.ID {
+func (s *leadershipSuite) createApplication(c *tc.C, name string, units ...application.AddUnitArg) coreapplication.ID {
 	appState := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	platform := deployment.Platform{
@@ -235,7 +235,7 @@ func (s *leadershipSuite) createApplication(c *gc.C, name string, units ...appli
 	return appID
 }
 
-func (s *leadershipSuite) minimalManifest(c *gc.C) charm.Manifest {
+func (s *leadershipSuite) minimalManifest(c *tc.C) charm.Manifest {
 	return charm.Manifest{
 		Bases: []charm.Base{
 			{

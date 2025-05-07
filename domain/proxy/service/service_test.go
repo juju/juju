@@ -6,10 +6,10 @@ package service
 import (
 	"context"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	proxyerrors "github.com/juju/juju/domain/proxy/errors"
@@ -22,9 +22,9 @@ type serviceSuite struct {
 	proxier  *MockProxier
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = tc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.provider = NewMockProvider(ctrl)
@@ -33,7 +33,7 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *serviceSuite) TestGetConnectionProxyInfo(c *gc.C) {
+func (s *serviceSuite) TestGetConnectionProxyInfo(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.provider.EXPECT().ConnectionProxyInfo(gomock.Any()).Return(s.proxier, nil)
@@ -43,10 +43,10 @@ func (s *serviceSuite) TestGetConnectionProxyInfo(c *gc.C) {
 	})
 	proxier, err := service.GetConnectionProxyInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(proxier, gc.Equals, s.proxier)
+	c.Check(proxier, tc.Equals, s.proxier)
 }
 
-func (s *serviceSuite) TestGetConnectionProxyInfoNotSupported(c *gc.C) {
+func (s *serviceSuite) TestGetConnectionProxyInfoNotSupported(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	service := NewService(func(ctx context.Context) (Provider, error) {
@@ -56,7 +56,7 @@ func (s *serviceSuite) TestGetConnectionProxyInfoNotSupported(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, proxyerrors.ProxyInfoNotSupported)
 }
 
-func (s *serviceSuite) TestGetConnectionProxyInfoNotFound(c *gc.C) {
+func (s *serviceSuite) TestGetConnectionProxyInfoNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.provider.EXPECT().ConnectionProxyInfo(gomock.Any()).Return(s.proxier, coreerrors.NotFound)
@@ -68,7 +68,7 @@ func (s *serviceSuite) TestGetConnectionProxyInfoNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, proxyerrors.ProxyInfoNotFound)
 }
 
-func (s *serviceSuite) TestGetProxyToApplication(c *gc.C) {
+func (s *serviceSuite) TestGetProxyToApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.provider.EXPECT().ProxyToApplication(gomock.Any(), "foo", "8080").Return(s.proxier, nil)
@@ -78,10 +78,10 @@ func (s *serviceSuite) TestGetProxyToApplication(c *gc.C) {
 	})
 	proxier, err := service.GetProxyToApplication(context.Background(), "foo", "8080")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(proxier, gc.Equals, s.proxier)
+	c.Check(proxier, tc.Equals, s.proxier)
 }
 
-func (s *serviceSuite) TestGetProxyToApplicationNotSupported(c *gc.C) {
+func (s *serviceSuite) TestGetProxyToApplicationNotSupported(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	service := NewService(func(ctx context.Context) (Provider, error) {

@@ -4,8 +4,8 @@
 package storage
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
@@ -14,11 +14,11 @@ type storageKindSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = gc.Suite(&storageKindSuite{})
+var _ = tc.Suite(&storageKindSuite{})
 
 // TestStorageKindDBValues ensures there's no skew between what's in the
 // database table for charm_storage_kind and the typed consts used in the state packages.
-func (s *storageKindSuite) TestStorageKindDBValues(c *gc.C) {
+func (s *storageKindSuite) TestStorageKindDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, kind FROM charm_storage_kind")
 	c.Assert(err, jc.ErrorIsNil)

@@ -6,9 +6,9 @@ package common_test
 import (
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -19,9 +19,9 @@ import (
 
 type relationUnitsWatcherSuite struct{}
 
-var _ = gc.Suite(&relationUnitsWatcherSuite{})
+var _ = tc.Suite(&relationUnitsWatcherSuite{})
 
-func (s *relationUnitsWatcherSuite) TestRelationUnitsWatcherFromDomain(c *gc.C) {
+func (s *relationUnitsWatcherSuite) TestRelationUnitsWatcherFromDomain(c *tc.C) {
 
 	source := &mockRUWatcher{
 		changes: make(chan watcher.RelationUnitsChange),
@@ -34,7 +34,7 @@ func (s *relationUnitsWatcherSuite) TestRelationUnitsWatcherFromDomain(c *gc.C) 
 	w, err := common.RelationUnitsWatcherFromDomain(source)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(source.Err(), gc.Equals, tomb.ErrStillAlive)
+	c.Assert(source.Err(), tc.Equals, tomb.ErrStillAlive)
 
 	event := watcher.RelationUnitsChange{
 		Changed: map[string]watcher.UnitSettings{
@@ -56,7 +56,7 @@ func (s *relationUnitsWatcherSuite) TestRelationUnitsWatcherFromDomain(c *gc.C) 
 
 	select {
 	case result := <-w.Changes():
-		c.Assert(result, gc.DeepEquals, params.RelationUnitsChange{
+		c.Assert(result, tc.DeepEquals, params.RelationUnitsChange{
 			Changed: map[string]params.UnitSettings{
 				"joni/1": {Version: 23},
 			},
@@ -75,13 +75,13 @@ func (s *relationUnitsWatcherSuite) TestRelationUnitsWatcherFromDomain(c *gc.C) 
 
 	select {
 	case _, ok := <-w.Changes():
-		c.Assert(ok, gc.Equals, false)
+		c.Assert(ok, tc.Equals, false)
 	default:
 		c.Fatalf("didn't close output channel")
 	}
 }
 
-func (s *relationUnitsWatcherSuite) TestCanStopWithAPendingSend(c *gc.C) {
+func (s *relationUnitsWatcherSuite) TestCanStopWithAPendingSend(c *tc.C) {
 	source := &mockRUWatcher{
 		changes: make(chan watcher.RelationUnitsChange),
 	}
@@ -116,7 +116,7 @@ func (s *relationUnitsWatcherSuite) TestCanStopWithAPendingSend(c *gc.C) {
 	}
 }
 
-func (s *relationUnitsWatcherSuite) TestNilChanged(c *gc.C) {
+func (s *relationUnitsWatcherSuite) TestNilChanged(c *tc.C) {
 	source := &mockRUWatcher{
 		changes: make(chan watcher.RelationUnitsChange),
 	}
@@ -134,12 +134,12 @@ func (s *relationUnitsWatcherSuite) TestNilChanged(c *gc.C) {
 
 	s.send(c, source.changes, event)
 	result := s.receive(c, w)
-	c.Assert(result, gc.DeepEquals, params.RelationUnitsChange{
+	c.Assert(result, tc.DeepEquals, params.RelationUnitsChange{
 		Departed: []string{"happy", "birthday"},
 	})
 }
 
-func (s *relationUnitsWatcherSuite) send(c *gc.C, ch chan watcher.RelationUnitsChange, event watcher.RelationUnitsChange) {
+func (s *relationUnitsWatcherSuite) send(c *tc.C, ch chan watcher.RelationUnitsChange, event watcher.RelationUnitsChange) {
 	select {
 	case ch <- event:
 	case <-time.After(testing.LongWait):
@@ -147,7 +147,7 @@ func (s *relationUnitsWatcherSuite) send(c *gc.C, ch chan watcher.RelationUnitsC
 	}
 }
 
-func (s *relationUnitsWatcherSuite) receive(c *gc.C, w common.RelationUnitsWatcher) params.RelationUnitsChange {
+func (s *relationUnitsWatcherSuite) receive(c *tc.C, w common.RelationUnitsWatcher) params.RelationUnitsChange {
 	select {
 	case result := <-w.Changes():
 		return result

@@ -7,8 +7,8 @@ import (
 	"context"
 	"strings"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
 )
@@ -17,9 +17,9 @@ type ConstraintsSuite struct {
 	BaseSuite
 }
 
-var _ = gc.Suite(&ConstraintsSuite{})
+var _ = tc.Suite(&ConstraintsSuite{})
 
-func (s *ConstraintsSuite) TestConstraintsValidatorOkay(c *gc.C) {
+func (s *ConstraintsSuite) TestConstraintsValidatorOkay(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -30,10 +30,10 @@ func (s *ConstraintsSuite) TestConstraintsValidatorOkay(c *gc.C) {
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(unsupported, gc.HasLen, 0)
+	c.Check(unsupported, tc.HasLen, 0)
 }
 
-func (s *ConstraintsSuite) TestConstraintsValidatorEmpty(c *gc.C) {
+func (s *ConstraintsSuite) TestConstraintsValidatorEmpty(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -43,10 +43,10 @@ func (s *ConstraintsSuite) TestConstraintsValidatorEmpty(c *gc.C) {
 	unsupported, err := validator.Validate(constraints.Value{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(unsupported, gc.HasLen, 0)
+	c.Check(unsupported, tc.HasLen, 0)
 }
 
-func (s *ConstraintsSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
+func (s *ConstraintsSuite) TestConstraintsValidatorUnsupported(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 

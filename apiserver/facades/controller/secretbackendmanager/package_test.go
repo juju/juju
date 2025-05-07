@@ -7,14 +7,14 @@ import (
 	"testing"
 
 	"github.com/juju/clock"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package secretbackendmanager -destination mock_service.go -source service.go BackendService

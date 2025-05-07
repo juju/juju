@@ -7,10 +7,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/secrets"
 	"github.com/juju/juju/cmd/juju/secrets/mocks"
@@ -25,9 +25,9 @@ type updateSuite struct {
 	secretsAPI *mocks.MockUpdateSecretsAPI
 }
 
-var _ = gc.Suite(&updateSuite{})
+var _ = tc.Suite(&updateSuite{})
 
-func (s *updateSuite) SetUpTest(c *gc.C) {
+func (s *updateSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	store := jujuclient.NewMemStore()
 	store.Controllers["mycontroller"] = jujuclient.ControllerDetails{}
@@ -35,20 +35,20 @@ func (s *updateSuite) SetUpTest(c *gc.C) {
 	s.store = store
 }
 
-func (s *updateSuite) setup(c *gc.C) *gomock.Controller {
+func (s *updateSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.secretsAPI = mocks.NewMockUpdateSecretsAPI(ctrl)
 	return ctrl
 }
 
-func (s *updateSuite) TestUpdateMissingArg(c *gc.C) {
+func (s *updateSuite) TestUpdateMissingArg(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	_, err := cmdtesting.RunCommand(c, secrets.NewUpdateCommandForTest(s.store, s.secretsAPI), "--name", "new-name", "--info", "this is a secret.")
-	c.Assert(err, gc.ErrorMatches, `missing secret URI`)
+	c.Assert(err, tc.ErrorMatches, `missing secret URI`)
 }
 
-func (s *updateSuite) TestUpdateWithoutContent(c *gc.C) {
+func (s *updateSuite) TestUpdateWithoutContent(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -62,7 +62,7 @@ func (s *updateSuite) TestUpdateWithoutContent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *updateSuite) TestUpdateFromArg(c *gc.C) {
+func (s *updateSuite) TestUpdateFromArg(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -76,7 +76,7 @@ func (s *updateSuite) TestUpdateFromArg(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *updateSuite) TestUpdateAutoPruneFalse(c *gc.C) {
+func (s *updateSuite) TestUpdateAutoPruneFalse(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -89,7 +89,7 @@ func (s *updateSuite) TestUpdateAutoPruneFalse(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *updateSuite) TestUpdateAutoPruneNil(c *gc.C) {
+func (s *updateSuite) TestUpdateAutoPruneNil(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -102,7 +102,7 @@ func (s *updateSuite) TestUpdateAutoPruneNil(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *updateSuite) TestUpdateFromFile(c *gc.C) {
+func (s *updateSuite) TestUpdateFromFile(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()

@@ -10,10 +10,10 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/agent/caasapplication"
@@ -22,17 +22,17 @@ import (
 )
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
-var _ = gc.Suite(&TerminationWorkerSuite{})
+var _ = tc.Suite(&TerminationWorkerSuite{})
 
 type TerminationWorkerSuite struct {
 	state      *mockState
 	terminator *mockTerminator
 }
 
-func (s *TerminationWorkerSuite) newWorker(c *gc.C, willRestart bool) worker.Worker {
+func (s *TerminationWorkerSuite) newWorker(c *tc.C, willRestart bool) worker.Worker {
 	s.state = &mockState{
 		termination: caasapplication.UnitTermination{
 			WillRestart: willRestart,
@@ -49,14 +49,14 @@ func (s *TerminationWorkerSuite) newWorker(c *gc.C, willRestart bool) worker.Wor
 	return caasunitterminationworker.NewWorker(config)
 }
 
-func (s *TerminationWorkerSuite) TestStartStop(c *gc.C) {
+func (s *TerminationWorkerSuite) TestStartStop(c *tc.C) {
 	w := s.newWorker(c, false)
 	w.Kill()
 	err := w.Wait()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *TerminationWorkerSuite) TestAgentWillRestart(c *gc.C) {
+func (s *TerminationWorkerSuite) TestAgentWillRestart(c *tc.C) {
 	w := s.newWorker(c, true)
 	proc, err := os.FindProcess(os.Getpid())
 	c.Assert(err, jc.ErrorIsNil)
@@ -66,11 +66,11 @@ func (s *TerminationWorkerSuite) TestAgentWillRestart(c *gc.C) {
 	err = w.Wait()
 	c.Assert(err, jc.ErrorIsNil)
 	s.state.CheckCallNames(c, "UnitTerminating")
-	c.Assert(s.state.Calls()[0].Args[0], gc.DeepEquals, names.NewUnitTag("gitlab/0"))
+	c.Assert(s.state.Calls()[0].Args[0], tc.DeepEquals, names.NewUnitTag("gitlab/0"))
 	s.terminator.CheckCallNames(c, "Terminate")
 }
 
-func (s *TerminationWorkerSuite) TestAgentDying(c *gc.C) {
+func (s *TerminationWorkerSuite) TestAgentDying(c *tc.C) {
 	w := s.newWorker(c, false)
 	proc, err := os.FindProcess(os.Getpid())
 	c.Assert(err, jc.ErrorIsNil)
@@ -80,7 +80,7 @@ func (s *TerminationWorkerSuite) TestAgentDying(c *gc.C) {
 	err = w.Wait()
 	c.Assert(err, jc.ErrorIsNil)
 	s.state.CheckCallNames(c, "UnitTerminating")
-	c.Assert(s.state.Calls()[0].Args[0], gc.DeepEquals, names.NewUnitTag("gitlab/0"))
+	c.Assert(s.state.Calls()[0].Args[0], tc.DeepEquals, names.NewUnitTag("gitlab/0"))
 	s.terminator.CheckCallNames(c)
 }
 

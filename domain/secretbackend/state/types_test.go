@@ -7,8 +7,8 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/secretbackend"
@@ -20,13 +20,13 @@ type typesSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&typesSuite{})
+var _ = tc.Suite(&typesSuite{})
 
 func ptr[T any](x T) *T {
 	return &x
 }
 
-func (s *typesSuite) TestToSecretBackends(c *gc.C) {
+func (s *typesSuite) TestToSecretBackends(c *tc.C) {
 	rows := secretBackendRows{
 		{
 			ID:          "uuid1",
@@ -103,7 +103,7 @@ func (s *typesSuite) TestToSecretBackends(c *gc.C) {
 		},
 	}
 	result := rows.toSecretBackends()
-	c.Assert(result, gc.DeepEquals, []*secretbackend.SecretBackend{
+	c.Assert(result, tc.DeepEquals, []*secretbackend.SecretBackend{
 		{
 			ID:                  "uuid1",
 			Name:                "name1",
@@ -149,7 +149,7 @@ func (s *typesSuite) TestToSecretBackends(c *gc.C) {
 	})
 }
 
-func (s *typesSuite) TestToChanges(c *gc.C) {
+func (s *typesSuite) TestToChanges(c *tc.C) {
 	now := time.Now()
 	rows := SecretBackendRotationRows{
 		{
@@ -169,7 +169,7 @@ func (s *typesSuite) TestToChanges(c *gc.C) {
 		},
 	}
 	result := rows.toChanges(loggertesting.WrapCheckLog(c))
-	c.Assert(result, gc.DeepEquals, []watcher.SecretBackendRotateChange{
+	c.Assert(result, tc.DeepEquals, []watcher.SecretBackendRotateChange{
 		{
 			ID:              "uuid1",
 			Name:            "name1",

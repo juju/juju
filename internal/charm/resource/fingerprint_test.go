@@ -9,13 +9,13 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/charm/resource"
 )
 
-func newFingerprint(c *gc.C, data string) ([]byte, string) {
+func newFingerprint(c *tc.C, data string) ([]byte, string) {
 	hash := sha512.New384()
 	_, err := hash.Write([]byte(data))
 	c.Assert(err, jc.ErrorIsNil)
@@ -25,11 +25,11 @@ func newFingerprint(c *gc.C, data string) ([]byte, string) {
 	return raw, hexStr
 }
 
-var _ = gc.Suite(&FingerprintSuite{})
+var _ = tc.Suite(&FingerprintSuite{})
 
 type FingerprintSuite struct{}
 
-func (s *FingerprintSuite) TestNewFingerprintOkay(c *gc.C) {
+func (s *FingerprintSuite) TestNewFingerprintOkay(c *tc.C) {
 	expected, _ := newFingerprint(c, "spamspamspam")
 
 	fp, err := resource.NewFingerprint(expected)
@@ -39,25 +39,25 @@ func (s *FingerprintSuite) TestNewFingerprintOkay(c *gc.C) {
 	c.Check(raw, jc.DeepEquals, expected)
 }
 
-func (s *FingerprintSuite) TestNewFingerprintTooSmall(c *gc.C) {
+func (s *FingerprintSuite) TestNewFingerprintTooSmall(c *tc.C) {
 	expected, _ := newFingerprint(c, "spamspamspam")
 
 	_, err := resource.NewFingerprint(expected[:10])
 
 	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(err, gc.ErrorMatches, `.*too small.*`)
+	c.Check(err, tc.ErrorMatches, `.*too small.*`)
 }
 
-func (s *FingerprintSuite) TestNewFingerprintTooBig(c *gc.C) {
+func (s *FingerprintSuite) TestNewFingerprintTooBig(c *tc.C) {
 	expected, _ := newFingerprint(c, "spamspamspam")
 
 	_, err := resource.NewFingerprint(append(expected, 1, 2, 3))
 
 	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(err, gc.ErrorMatches, `.*too big.*`)
+	c.Check(err, tc.ErrorMatches, `.*too big.*`)
 }
 
-func (s *FingerprintSuite) TestParseFingerprintOkay(c *gc.C) {
+func (s *FingerprintSuite) TestParseFingerprintOkay(c *tc.C) {
 	_, expected := newFingerprint(c, "spamspamspam")
 
 	fp, err := resource.ParseFingerprint(expected)
@@ -67,13 +67,13 @@ func (s *FingerprintSuite) TestParseFingerprintOkay(c *gc.C) {
 	c.Check(hex, jc.DeepEquals, expected)
 }
 
-func (s *FingerprintSuite) TestParseFingerprintNonHex(c *gc.C) {
+func (s *FingerprintSuite) TestParseFingerprintNonHex(c *tc.C) {
 	_, err := resource.ParseFingerprint("abc") // not hex
 
-	c.Check(err, gc.ErrorMatches, `.*odd length hex string.*`)
+	c.Check(err, tc.ErrorMatches, `.*odd length hex string.*`)
 }
 
-func (s *FingerprintSuite) TestGenerateFingerprint(c *gc.C) {
+func (s *FingerprintSuite) TestGenerateFingerprint(c *tc.C) {
 	expected, _ := newFingerprint(c, "spamspamspam")
 	data := strings.NewReader("spamspamspam")
 
@@ -84,27 +84,27 @@ func (s *FingerprintSuite) TestGenerateFingerprint(c *gc.C) {
 	c.Check(raw, jc.DeepEquals, expected)
 }
 
-func (s *FingerprintSuite) TestString(c *gc.C) {
+func (s *FingerprintSuite) TestString(c *tc.C) {
 	raw, expected := newFingerprint(c, "spamspamspam")
 	fp, err := resource.NewFingerprint(raw)
 	c.Assert(err, jc.ErrorIsNil)
 
 	hex := fp.String()
 
-	c.Check(hex, gc.Equals, expected)
+	c.Check(hex, tc.Equals, expected)
 }
 
-func (s *FingerprintSuite) TestRoundtripString(c *gc.C) {
+func (s *FingerprintSuite) TestRoundtripString(c *tc.C) {
 	_, expected := newFingerprint(c, "spamspamspam")
 
 	fp, err := resource.ParseFingerprint(expected)
 	c.Assert(err, jc.ErrorIsNil)
 	hex := fp.String()
 
-	c.Check(hex, gc.Equals, expected)
+	c.Check(hex, tc.Equals, expected)
 }
 
-func (s *FingerprintSuite) TestBytes(c *gc.C) {
+func (s *FingerprintSuite) TestBytes(c *tc.C) {
 	expected, _ := newFingerprint(c, "spamspamspam")
 	fp, err := resource.NewFingerprint(expected)
 	c.Assert(err, jc.ErrorIsNil)
@@ -114,7 +114,7 @@ func (s *FingerprintSuite) TestBytes(c *gc.C) {
 	c.Check(raw, jc.DeepEquals, expected)
 }
 
-func (s *FingerprintSuite) TestRoundtripBytes(c *gc.C) {
+func (s *FingerprintSuite) TestRoundtripBytes(c *tc.C) {
 	expected, _ := newFingerprint(c, "spamspamspam")
 
 	fp, err := resource.NewFingerprint(expected)
@@ -124,7 +124,7 @@ func (s *FingerprintSuite) TestRoundtripBytes(c *gc.C) {
 	c.Check(raw, jc.DeepEquals, expected)
 }
 
-func (s *FingerprintSuite) TestValidateOkay(c *gc.C) {
+func (s *FingerprintSuite) TestValidateOkay(c *tc.C) {
 	raw, _ := newFingerprint(c, "spamspamspam")
 	fp, err := resource.NewFingerprint(raw)
 	c.Assert(err, jc.ErrorIsNil)
@@ -134,10 +134,10 @@ func (s *FingerprintSuite) TestValidateOkay(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *FingerprintSuite) TestValidateZero(c *gc.C) {
+func (s *FingerprintSuite) TestValidateZero(c *tc.C) {
 	var fp resource.Fingerprint
 	err := fp.Validate()
 
 	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(err, gc.ErrorMatches, `zero-value fingerprint not valid`)
+	c.Check(err, tc.ErrorMatches, `zero-value fingerprint not valid`)
 }

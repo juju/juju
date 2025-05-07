@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -26,9 +26,9 @@ type deployerSuite struct {
 	passwordService *MockAgentPasswordService
 }
 
-var _ = gc.Suite(&deployerSuite{})
+var _ = tc.Suite(&deployerSuite{})
 
-func (s *deployerSuite) TestStub(c *gc.C) {
+func (s *deployerSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 	
  - Test deployer fails with non-machine agent user
@@ -39,7 +39,7 @@ func (s *deployerSuite) TestStub(c *gc.C) {
  - Test set status`)
 }
 
-func (s *deployerSuite) TestSetUnitPassword(c *gc.C) {
+func (s *deployerSuite) TestSetUnitPassword(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.passwordService.EXPECT().
@@ -59,7 +59,7 @@ func (s *deployerSuite) TestSetUnitPassword(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, gc.DeepEquals, params.ErrorResults{
+	c.Check(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{
 				Error: nil,
@@ -68,7 +68,7 @@ func (s *deployerSuite) TestSetUnitPassword(c *gc.C) {
 	})
 }
 
-func (s *deployerSuite) TestSetUnitPasswordUnitNotFound(c *gc.C) {
+func (s *deployerSuite) TestSetUnitPasswordUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.passwordService.EXPECT().
@@ -88,7 +88,7 @@ func (s *deployerSuite) TestSetUnitPasswordUnitNotFound(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, gc.DeepEquals, params.ErrorResults{
+	c.Check(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{
 				Error: apiservererrors.ServerError(errors.NotFoundf(`unit "foo/1"`)),
@@ -97,7 +97,7 @@ func (s *deployerSuite) TestSetUnitPasswordUnitNotFound(c *gc.C) {
 	})
 }
 
-func (s *deployerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *deployerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.passwordService = NewMockAgentPasswordService(ctrl)

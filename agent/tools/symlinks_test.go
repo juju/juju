@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/symlink"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/internal/testing"
@@ -22,9 +22,9 @@ type SymlinksSuite struct {
 	dataDir, toolsDir string
 }
 
-var _ = gc.Suite(&SymlinksSuite{})
+var _ = tc.Suite(&SymlinksSuite{})
 
-func (s *SymlinksSuite) SetUpTest(c *gc.C) {
+func (s *SymlinksSuite) SetUpTest(c *tc.C) {
 	s.dataDir = c.MkDir()
 	s.toolsDir = tools.SharedToolsDir(s.dataDir, testing.CurrentVersion())
 	err := os.MkdirAll(s.toolsDir, 0755)
@@ -36,11 +36,11 @@ func (s *SymlinksSuite) SetUpTest(c *gc.C) {
 	c.Logf("created %s => %s", unitDir, s.toolsDir)
 }
 
-func (s *SymlinksSuite) TestEnsureSymlinks(c *gc.C) {
+func (s *SymlinksSuite) TestEnsureSymlinks(c *tc.C) {
 	s.testEnsureSymlinks(c, s.toolsDir)
 }
 
-func (s *SymlinksSuite) TestEnsureSymlinksSymlinkedDir(c *gc.C) {
+func (s *SymlinksSuite) TestEnsureSymlinksSymlinkedDir(c *tc.C) {
 	dirSymlink := filepath.Join(c.MkDir(), "commands")
 	err := symlink.New(s.toolsDir, dirSymlink)
 	c.Assert(err, jc.ErrorIsNil)
@@ -48,7 +48,7 @@ func (s *SymlinksSuite) TestEnsureSymlinksSymlinkedDir(c *gc.C) {
 	s.testEnsureSymlinks(c, dirSymlink)
 }
 
-func (s *SymlinksSuite) testEnsureSymlinks(c *gc.C, dir string) {
+func (s *SymlinksSuite) testEnsureSymlinks(c *tc.C, dir string) {
 	// If we have both 'jujuc' and 'jujud' prefer 'jujuc'
 	jujucPath := filepath.Join(s.toolsDir, names.Jujuc)
 	jujudPath := filepath.Join(s.toolsDir, names.Jujud)
@@ -61,7 +61,7 @@ func (s *SymlinksSuite) testEnsureSymlinks(c *gc.C, dir string) {
 		target, err := symlink.Read(path)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(target, jc.SamePath, jujucPath)
-		c.Check(filepath.Dir(target), gc.Equals, filepath.Dir(jujucPath))
+		c.Check(filepath.Dir(target), tc.Equals, filepath.Dir(jujucPath))
 		fi, err := os.Lstat(path)
 		c.Assert(err, jc.ErrorIsNil)
 		return fi.ModTime()
@@ -82,12 +82,12 @@ func (s *SymlinksSuite) testEnsureSymlinks(c *gc.C, dir string) {
 	err = tools.EnsureSymlinks(s.toolsDir, s.toolsDir, commands)
 	c.Assert(err, jc.ErrorIsNil)
 	for tool, mtime := range mtimes {
-		c.Assert(assertLink(tool), gc.Equals, mtime)
+		c.Assert(assertLink(tool), tc.Equals, mtime)
 	}
 }
 
-func (s *SymlinksSuite) TestEnsureSymlinksBadDir(c *gc.C) {
+func (s *SymlinksSuite) TestEnsureSymlinksBadDir(c *tc.C) {
 	dir := filepath.Join(c.MkDir(), "noexist")
 	err := tools.EnsureSymlinks(dir, dir, []string{"foo"})
-	c.Assert(err, gc.ErrorMatches, "cannot initialize commands in .*: "+utils.NoSuchFileErrRegexp)
+	c.Assert(err, tc.ErrorMatches, "cannot initialize commands in .*: "+utils.NoSuchFileErrRegexp)
 }

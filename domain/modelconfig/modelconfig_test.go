@@ -6,8 +6,8 @@ package modelconfig
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
@@ -43,9 +43,9 @@ type modelConfigSuite struct {
 	modelID model.UUID
 }
 
-var _ = gc.Suite(&modelConfigSuite{})
+var _ = tc.Suite(&modelConfigSuite{})
 
-func (s *modelConfigSuite) SetUpTest(c *gc.C) {
+func (s *modelConfigSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 	s.ModelSuite.SetUpTest(c)
 
@@ -115,7 +115,7 @@ func (s *modelConfigSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *modelConfigSuite) TestWatchModelConfig(c *gc.C) {
+func (s *modelConfigSuite) TestWatchModelConfig(c *tc.C) {
 	ctx, cancel := jujutesting.LongWaitContext()
 	defer cancel()
 

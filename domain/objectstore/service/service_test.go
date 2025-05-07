@@ -8,11 +8,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/objectstore"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
@@ -28,9 +28,9 @@ type serviceSuite struct {
 	watcherFactory *MockWatcherFactory
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = tc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) TestGetMetadata(c *gc.C) {
+func (s *serviceSuite) TestGetMetadata(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	path := uuid.MustNewUUID().String()
@@ -51,10 +51,10 @@ func (s *serviceSuite) TestGetMetadata(c *gc.C) {
 
 	p, err := NewService(s.state).GetMetadata(context.Background(), path)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(p, gc.DeepEquals, metadata)
+	c.Check(p, tc.DeepEquals, metadata)
 }
 
-func (s *serviceSuite) TestGetMetadataBySHA256(c *gc.C) {
+func (s *serviceSuite) TestGetMetadataBySHA256(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	sha256 := sha256.New()
@@ -77,10 +77,10 @@ func (s *serviceSuite) TestGetMetadataBySHA256(c *gc.C) {
 
 	p, err := NewService(s.state).GetMetadataBySHA256(context.Background(), sha)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(p, gc.DeepEquals, metadata)
+	c.Check(p, tc.DeepEquals, metadata)
 }
 
-func (s *serviceSuite) TestGetMetadataBySHA256Invalid(c *gc.C) {
+func (s *serviceSuite) TestGetMetadataBySHA256Invalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	sha256 := sha256.New()
@@ -93,7 +93,7 @@ func (s *serviceSuite) TestGetMetadataBySHA256Invalid(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrInvalidHash)
 }
 
-func (s *serviceSuite) TestGetMetadataBySHA256TooShort(c *gc.C) {
+func (s *serviceSuite) TestGetMetadataBySHA256TooShort(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	sha256 := sha256.New()
@@ -104,14 +104,14 @@ func (s *serviceSuite) TestGetMetadataBySHA256TooShort(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrInvalidHashLength)
 }
 
-func (s *serviceSuite) TestGetMetadataBySHA256TooLong(c *gc.C) {
+func (s *serviceSuite) TestGetMetadataBySHA256TooLong(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := NewService(s.state).GetMetadataBySHA256(context.Background(), "beef")
 	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrInvalidHashLength)
 }
 
-func (s *serviceSuite) TestGetMetadataBySHA256Prefix(c *gc.C) {
+func (s *serviceSuite) TestGetMetadataBySHA256Prefix(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	shaPrefix := "deadbeef"
@@ -132,31 +132,31 @@ func (s *serviceSuite) TestGetMetadataBySHA256Prefix(c *gc.C) {
 
 	p, err := NewService(s.state).GetMetadataBySHA256Prefix(context.Background(), shaPrefix)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(p, gc.DeepEquals, metadata)
+	c.Check(p, tc.DeepEquals, metadata)
 }
 
-func (s *serviceSuite) TestGetMetadataBySHA256PrefixTooShort(c *gc.C) {
+func (s *serviceSuite) TestGetMetadataBySHA256PrefixTooShort(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := NewService(s.state).GetMetadataBySHA256Prefix(context.Background(), "beef")
 	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrHashPrefixTooShort)
 }
 
-func (s *serviceSuite) TestGetMetadataBySHA256PrefixTooLong(c *gc.C) {
+func (s *serviceSuite) TestGetMetadataBySHA256PrefixTooLong(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := NewService(s.state).GetMetadataBySHA256Prefix(context.Background(), "deadbeef1")
 	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrInvalidHashPrefix)
 }
 
-func (s *serviceSuite) TestGetMetadataBySHA256PrefixInvalid(c *gc.C) {
+func (s *serviceSuite) TestGetMetadataBySHA256PrefixInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := NewService(s.state).GetMetadataBySHA256Prefix(context.Background(), "abcdefg")
 	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrInvalidHashPrefix)
 }
 
-func (s *serviceSuite) TestListMetadata(c *gc.C) {
+func (s *serviceSuite) TestListMetadata(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	path := uuid.MustNewUUID().String()
@@ -177,7 +177,7 @@ func (s *serviceSuite) TestListMetadata(c *gc.C) {
 
 	p, err := NewService(s.state).ListMetadata(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p, gc.DeepEquals, []objectstore.Metadata{{
+	c.Assert(p, tc.DeepEquals, []objectstore.Metadata{{
 		Path:   metadata.Path,
 		Size:   metadata.Size,
 		SHA256: metadata.SHA256,
@@ -185,7 +185,7 @@ func (s *serviceSuite) TestListMetadata(c *gc.C) {
 	}})
 }
 
-func (s *serviceSuite) TestPutMetadata(c *gc.C) {
+func (s *serviceSuite) TestPutMetadata(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	path := uuid.MustNewUUID().String()
@@ -198,19 +198,19 @@ func (s *serviceSuite) TestPutMetadata(c *gc.C) {
 
 	uuid := objectstoretesting.GenObjectStoreUUID(c)
 	s.state.EXPECT().PutMetadata(gomock.Any(), gomock.AssignableToTypeOf(objectstore.Metadata{})).DoAndReturn(func(ctx context.Context, data objectstore.Metadata) (objectstore.UUID, error) {
-		c.Check(data.Path, gc.Equals, metadata.Path)
-		c.Check(data.Size, gc.Equals, metadata.Size)
-		c.Check(data.SHA256, gc.Equals, metadata.SHA256)
-		c.Check(data.SHA384, gc.Equals, metadata.SHA384)
+		c.Check(data.Path, tc.Equals, metadata.Path)
+		c.Check(data.Size, tc.Equals, metadata.Size)
+		c.Check(data.SHA256, tc.Equals, metadata.SHA256)
+		c.Check(data.SHA384, tc.Equals, metadata.SHA384)
 		return uuid, nil
 	})
 
 	result, err := NewService(s.state).PutMetadata(context.Background(), metadata)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, gc.Equals, uuid)
+	c.Check(result, tc.Equals, uuid)
 }
 
-func (s *serviceSuite) TestPutMetadataMissingSHA384(c *gc.C) {
+func (s *serviceSuite) TestPutMetadataMissingSHA384(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	path := uuid.MustNewUUID().String()
@@ -224,7 +224,7 @@ func (s *serviceSuite) TestPutMetadataMissingSHA384(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrMissingHash)
 }
 
-func (s *serviceSuite) TestPutMetadataMissingSHA256(c *gc.C) {
+func (s *serviceSuite) TestPutMetadataMissingSHA256(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	path := uuid.MustNewUUID().String()
@@ -238,7 +238,7 @@ func (s *serviceSuite) TestPutMetadataMissingSHA256(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrMissingHash)
 }
 
-func (s *serviceSuite) TestRemoveMetadata(c *gc.C) {
+func (s *serviceSuite) TestRemoveMetadata(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	key := uuid.MustNewUUID().String()
@@ -250,7 +250,7 @@ func (s *serviceSuite) TestRemoveMetadata(c *gc.C) {
 }
 
 // Test watch returns a watcher that watches the specified path.
-func (s *serviceSuite) TestWatch(c *gc.C) {
+func (s *serviceSuite) TestWatch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	watcher := watchertest.NewMockStringsWatcher(nil)
@@ -264,10 +264,10 @@ func (s *serviceSuite) TestWatch(c *gc.C) {
 
 	w, err := NewWatchableService(s.state, s.watcherFactory).Watch()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(w, gc.NotNil)
+	c.Assert(w, tc.NotNil)
 }
 
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.state = NewMockState(ctrl)

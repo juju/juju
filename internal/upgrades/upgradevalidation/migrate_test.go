@@ -5,10 +5,10 @@ package upgradevalidation_test
 
 import (
 	"github.com/juju/collections/transform"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
@@ -24,7 +24,7 @@ func makeBases(os string, vers []string) []state.Base {
 	return bases
 }
 
-var _ = gc.Suite(&migrateSuite{})
+var _ = tc.Suite(&migrateSuite{})
 
 type migrateSuite struct {
 	jujutesting.IsolationSuite
@@ -33,7 +33,7 @@ type migrateSuite struct {
 	agentService *mocks.MockModelAgentService
 }
 
-func (s *migrateSuite) TestValidatorsForModelMigrationSourceJuju3(c *gc.C) {
+func (s *migrateSuite) TestValidatorsForModelMigrationSourceJuju3(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	validators := upgradevalidation.ValidatorsForModelMigrationSource()
@@ -41,10 +41,10 @@ func (s *migrateSuite) TestValidatorsForModelMigrationSourceJuju3(c *gc.C) {
 	checker := upgradevalidation.NewModelUpgradeCheck(s.st, "test-model", s.agentService, validators...)
 	blockers, err := checker.Validate()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockers, gc.IsNil)
+	c.Assert(blockers, tc.IsNil)
 }
 
-func (s *migrateSuite) TestValidatorsForModelMigrationSourceJuju31(c *gc.C) {
+func (s *migrateSuite) TestValidatorsForModelMigrationSourceJuju31(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	validators := upgradevalidation.ValidatorsForModelMigrationSource()
@@ -52,17 +52,17 @@ func (s *migrateSuite) TestValidatorsForModelMigrationSourceJuju31(c *gc.C) {
 	checker := upgradevalidation.NewModelUpgradeCheck(s.st, "test-model", s.agentService, validators...)
 	blockers, err := checker.Validate()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockers, gc.IsNil)
+	c.Assert(blockers, tc.IsNil)
 }
 
-func (s *migrateSuite) initializeMocks(c *gc.C) *gomock.Controller {
+func (s *migrateSuite) initializeMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.st = mocks.NewMockState(ctrl)
 	s.agentService = mocks.NewMockModelAgentService(ctrl)
 	return ctrl
 }
 
-func (s *migrateSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *migrateSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.initializeMocks(c)
 
 	s.PatchValue(&upgradevalidation.SupportedJujuBases, func() []base.Base {

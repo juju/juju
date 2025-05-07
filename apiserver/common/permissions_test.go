@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/permission"
@@ -21,7 +21,7 @@ type PermissionSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&PermissionSuite{})
+var _ = tc.Suite(&PermissionSuite{})
 
 type fakeUserAccess struct {
 	userNames []user.Name
@@ -36,7 +36,7 @@ func (f *fakeUserAccess) call(ctx context.Context, userName user.Name, target pe
 	return f.access, f.err
 }
 
-func (r *PermissionSuite) TestNoUserTagLacksPermission(c *gc.C) {
+func (r *PermissionSuite) TestNoUserTagLacksPermission(c *tc.C) {
 	nonUser := names.NewModelTag("beef1beef1-0000-0000-000011112222")
 	target := names.NewModelTag("beef1beef2-0000-0000-000011112222")
 	hasPermission, err := common.HasPermission(context.Background(), (&fakeUserAccess{}).call, nonUser, permission.ReadAccess, target)
@@ -44,7 +44,7 @@ func (r *PermissionSuite) TestNoUserTagLacksPermission(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (r *PermissionSuite) TestHasPermission(c *gc.C) {
+func (r *PermissionSuite) TestHasPermission(c *tc.C) {
 	testCases := []struct {
 		title            string
 		userGetterAccess permission.Access
@@ -156,13 +156,13 @@ func (r *PermissionSuite) TestHasPermission(c *gc.C) {
 		}
 		c.Logf("HasPermission test n %d: %s", i, t.title)
 		hasPermission, err := common.HasPermission(context.Background(), userGetter.call, t.user, t.access, t.target)
-		c.Assert(hasPermission, gc.Equals, t.expected)
+		c.Assert(hasPermission, tc.Equals, t.expected)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
 }
 
-func (r *PermissionSuite) TestUserGetterErrorReturns(c *gc.C) {
+func (r *PermissionSuite) TestUserGetterErrorReturns(c *tc.C) {
 	userTag := names.NewUserTag("validuser")
 	target := names.NewModelTag("beef1beef2-0000-0000-000011112222")
 	userGetter := &fakeUserAccess{
@@ -172,8 +172,8 @@ func (r *PermissionSuite) TestUserGetterErrorReturns(c *gc.C) {
 	hasPermission, err := common.HasPermission(context.Background(), userGetter.call, userTag, permission.ReadAccess, target)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hasPermission, jc.IsFalse)
-	c.Assert(userGetter.userNames, gc.HasLen, 1)
-	c.Assert(userGetter.userNames[0], gc.DeepEquals, user.NameFromTag(userTag))
-	c.Assert(userGetter.targets, gc.HasLen, 1)
-	c.Assert(userGetter.targets[0], gc.DeepEquals, permission.ID{ObjectType: permission.Model, Key: target.Id()})
+	c.Assert(userGetter.userNames, tc.HasLen, 1)
+	c.Assert(userGetter.userNames[0], tc.DeepEquals, user.NameFromTag(userTag))
+	c.Assert(userGetter.targets, tc.HasLen, 1)
+	c.Assert(userGetter.targets[0], tc.DeepEquals, permission.ID{ObjectType: permission.Model, Key: target.Id()})
 }

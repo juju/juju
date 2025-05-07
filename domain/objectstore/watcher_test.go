@@ -7,8 +7,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
@@ -26,9 +26,9 @@ type watcherSuite struct {
 	changestreamtesting.ControllerSuite
 }
 
-var _ = gc.Suite(&watcherSuite{})
+var _ = tc.Suite(&watcherSuite{})
 
-func (s *watcherSuite) TestWatchWithAdd(c *gc.C) {
+func (s *watcherSuite) TestWatchWithAdd(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "objectstore")
 
 	svc := service.NewWatchableService(state.NewState(func() (database.TxnRunner, error) { return factory() }),
@@ -59,13 +59,13 @@ func (s *watcherSuite) TestWatchWithAdd(c *gc.C) {
 	// Get the change.
 	select {
 	case change := <-watcher.Changes():
-		c.Assert(change, gc.DeepEquals, []string{metadata.Path})
+		c.Assert(change, tc.DeepEquals, []string{metadata.Path})
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for change")
 	}
 }
 
-func (s *watcherSuite) TestWatchWithDelete(c *gc.C) {
+func (s *watcherSuite) TestWatchWithDelete(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "objectstore")
 
 	svc := service.NewWatchableService(state.NewState(func() (database.TxnRunner, error) { return factory() }),
@@ -96,7 +96,7 @@ func (s *watcherSuite) TestWatchWithDelete(c *gc.C) {
 	// Get the change.
 	select {
 	case change := <-watcher.Changes():
-		c.Assert(change, gc.DeepEquals, []string{metadata.Path})
+		c.Assert(change, tc.DeepEquals, []string{metadata.Path})
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for change")
 	}
@@ -108,7 +108,7 @@ func (s *watcherSuite) TestWatchWithDelete(c *gc.C) {
 	// Get the change.
 	select {
 	case change := <-watcher.Changes():
-		c.Assert(change, gc.DeepEquals, []string{metadata.Path})
+		c.Assert(change, tc.DeepEquals, []string{metadata.Path})
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for change")
 	}

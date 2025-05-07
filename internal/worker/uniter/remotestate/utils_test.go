@@ -6,12 +6,12 @@ package remotestate_test
 import (
 	"time"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testing"
 )
 
-func assertNoNotifyEvent(c *gc.C, ch <-chan struct{}, event string) {
+func assertNoNotifyEvent(c *tc.C, ch <-chan struct{}, event string) {
 	select {
 	case <-ch:
 		c.Fatalf("unexpected %s", event)
@@ -19,7 +19,7 @@ func assertNoNotifyEvent(c *gc.C, ch <-chan struct{}, event string) {
 	}
 }
 
-func assertNotifyEvent(c *gc.C, ch <-chan struct{}, activity string) {
+func assertNotifyEvent(c *tc.C, ch <-chan struct{}, activity string) {
 	select {
 	case <-ch:
 	case <-time.After(testing.LongWait):

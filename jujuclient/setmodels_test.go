@@ -4,8 +4,8 @@
 package jujuclient_test
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/testing"
@@ -19,9 +19,9 @@ type SetModelsSuite struct {
 	controller     jujuclient.ControllerDetails
 }
 
-var _ = gc.Suite(&SetModelsSuite{})
+var _ = tc.Suite(&SetModelsSuite{})
 
-func (s *SetModelsSuite) SetUpTest(c *gc.C) {
+func (s *SetModelsSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.store = jujuclient.NewFileClientStore()
 	s.controllerName = "test.controller"
@@ -36,35 +36,35 @@ func (s *SetModelsSuite) SetUpTest(c *gc.C) {
 	err := s.store.AddController(s.controllerName, s.controller)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.store.AllModels(s.controllerName)
-	c.Assert(err, gc.ErrorMatches, "models for controller test.controller not found")
+	c.Assert(err, tc.ErrorMatches, "models for controller test.controller not found")
 }
 
-func (s *SetModelsSuite) TearDownTest(c *gc.C) {
+func (s *SetModelsSuite) TearDownTest(c *tc.C) {
 	s.controller = jujuclient.ControllerDetails{}
 	s.controllerName = ""
 	s.store = nil
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
-func (s *SetModelsSuite) TestSetModelsUnknownController(c *gc.C) {
+func (s *SetModelsSuite) TestSetModelsUnknownController(c *tc.C) {
 	err := s.store.SetModels("some-kontroller-not-in-store", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *SetModelsSuite) TestSetModelsNoControllerModels(c *gc.C) {
+func (s *SetModelsSuite) TestSetModelsNoControllerModels(c *tc.C) {
 	err := s.store.SetModels(s.controllerName, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.store.AllModels(s.controllerName)
-	c.Assert(err, gc.ErrorMatches, "models for controller test.controller not found")
+	c.Assert(err, tc.ErrorMatches, "models for controller test.controller not found")
 }
 
-func (s *SetModelsSuite) TestSetModelsAddOne(c *gc.C) {
+func (s *SetModelsSuite) TestSetModelsAddOne(c *tc.C) {
 	modelDetails := s.assertUpdateModel(c, "admin/new-model", "test.model.uuid")
 	expected := map[string]jujuclient.ModelDetails{"admin/new-model": modelDetails}
 	s.assertSetModels(c, expected)
 }
 
-func (s *SetModelsSuite) TestSetModelsAddMany(c *gc.C) {
+func (s *SetModelsSuite) TestSetModelsAddMany(c *tc.C) {
 	expected := map[string]jujuclient.ModelDetails{
 		"admin/new-model":     s.assertUpdateModel(c, "admin/new-model", "test.model.uuid"),
 		"admin/another-model": s.assertUpdateModel(c, "admin/another-model", "test.model.uuid.2"),
@@ -72,7 +72,7 @@ func (s *SetModelsSuite) TestSetModelsAddMany(c *gc.C) {
 	s.assertSetModels(c, expected)
 }
 
-func (s *SetModelsSuite) TestControllerModelsUpdate(c *gc.C) {
+func (s *SetModelsSuite) TestControllerModelsUpdate(c *tc.C) {
 	expected := map[string]jujuclient.ModelDetails{
 		"admin/new-model":     s.assertUpdateModel(c, "admin/new-model", "test.model.uuid"),
 		"admin/another-model": s.assertUpdateModel(c, "admin/another-model", "test.model.uuid.2"),
@@ -82,7 +82,7 @@ func (s *SetModelsSuite) TestControllerModelsUpdate(c *gc.C) {
 	s.assertSetModels(c, expected)
 }
 
-func (s *SetModelsSuite) TestSetModelsDeleteOne(c *gc.C) {
+func (s *SetModelsSuite) TestSetModelsDeleteOne(c *tc.C) {
 	detailsToLeave := s.assertUpdateModel(c, "admin/new-model", "test.model.uuid")
 	before := map[string]jujuclient.ModelDetails{
 		"admin/new-model":     detailsToLeave,
@@ -94,22 +94,22 @@ func (s *SetModelsSuite) TestSetModelsDeleteOne(c *gc.C) {
 
 	storedModels, err := s.store.AllModels(s.controllerName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storedModels, gc.DeepEquals, before)
+	c.Assert(storedModels, tc.DeepEquals, before)
 	s.assertSetModels(c, after)
 }
 
-func (s *SetModelsSuite) TestSetModelsDeleteAll(c *gc.C) {
+func (s *SetModelsSuite) TestSetModelsDeleteAll(c *tc.C) {
 	before := map[string]jujuclient.ModelDetails{
 		"admin/new-model":     s.assertUpdateModel(c, "admin/new-model", "test.model.uuid"),
 		"admin/another-model": s.assertUpdateModel(c, "admin/another-model", "test.model.uuid.2"),
 	}
 	storedModels, err := s.store.AllModels(s.controllerName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storedModels, gc.DeepEquals, before)
+	c.Assert(storedModels, tc.DeepEquals, before)
 	s.assertSetModels(c, nil)
 }
 
-func (s *SetModelsSuite) TestSetModelsAddUpdateDeleteCombination(c *gc.C) {
+func (s *SetModelsSuite) TestSetModelsAddUpdateDeleteCombination(c *tc.C) {
 	detailsToUpdate := s.assertUpdateModel(c, "admin/update-model", "test.model.uuid.2")
 	before := map[string]jujuclient.ModelDetails{
 		"admin/delete-model": s.assertUpdateModel(c, "admin/delete-model", "test.model.uuid"),
@@ -125,11 +125,11 @@ func (s *SetModelsSuite) TestSetModelsAddUpdateDeleteCombination(c *gc.C) {
 
 	storedModels, err := s.store.AllModels(s.controllerName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storedModels, gc.DeepEquals, before)
+	c.Assert(storedModels, tc.DeepEquals, before)
 	s.assertSetModels(c, after)
 }
 
-func (s *SetModelsSuite) TestSetModelsDoesNotUpdateCurrentModel(c *gc.C) {
+func (s *SetModelsSuite) TestSetModelsDoesNotUpdateCurrentModel(c *tc.C) {
 	before := map[string]jujuclient.ModelDetails{
 		"admin/delete-model": s.assertUpdateModel(c, "admin/delete-model", "test.model.uuid"),
 	}
@@ -137,14 +137,14 @@ func (s *SetModelsSuite) TestSetModelsDoesNotUpdateCurrentModel(c *gc.C) {
 
 	storedModels, err := s.store.AllModels(s.controllerName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storedModels, gc.DeepEquals, before)
+	c.Assert(storedModels, tc.DeepEquals, before)
 	s.assertSetModels(c, nil)
 	currentModel, err := s.store.CurrentModel(s.controllerName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(currentModel, gc.DeepEquals, "admin/delete-model")
+	c.Assert(currentModel, tc.DeepEquals, "admin/delete-model")
 }
 
-func (s *SetModelsSuite) TestSetModelsControllerIsolated(c *gc.C) {
+func (s *SetModelsSuite) TestSetModelsControllerIsolated(c *tc.C) {
 	before := map[string]jujuclient.ModelDetails{
 		"admin/new-model": s.assertUpdateModel(c, "admin/new-model", "test.model.uuid"),
 	}
@@ -164,18 +164,18 @@ func (s *SetModelsSuite) TestSetModelsControllerIsolated(c *gc.C) {
 	// initial controller un-touched
 	storedModels, err := s.store.AllModels(s.controllerName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storedModels, gc.DeepEquals, before)
+	c.Assert(storedModels, tc.DeepEquals, before)
 }
 
-func (s *SetModelsSuite) assertSetModels(c *gc.C, models map[string]jujuclient.ModelDetails) {
+func (s *SetModelsSuite) assertSetModels(c *tc.C, models map[string]jujuclient.ModelDetails) {
 	err := s.store.SetModels(s.controllerName, models)
 	c.Assert(err, jc.ErrorIsNil)
 	storedModels, err := s.store.AllModels(s.controllerName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storedModels, gc.DeepEquals, models)
+	c.Assert(storedModels, tc.DeepEquals, models)
 }
 
-func (s *SetModelsSuite) assertUpdateModel(c *gc.C, modelName, modelUUID string) jujuclient.ModelDetails {
+func (s *SetModelsSuite) assertUpdateModel(c *tc.C, modelName, modelUUID string) jujuclient.ModelDetails {
 	modelDetails := jujuclient.ModelDetails{
 		ModelUUID: modelUUID,
 		ModelType: model.IAAS,

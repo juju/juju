@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/subnets"
@@ -21,10 +21,10 @@ import (
 type SubnetsSuite struct {
 }
 
-var _ = gc.Suite(&SubnetsSuite{})
+var _ = tc.Suite(&SubnetsSuite{})
 
 // TestNewAPISuccess checks that a new subnets API is created when passed a non-nil caller
-func (s *SubnetsSuite) TestNewAPISuccess(c *gc.C) {
+func (s *SubnetsSuite) TestNewAPISuccess(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -32,13 +32,13 @@ func (s *SubnetsSuite) TestNewAPISuccess(c *gc.C) {
 	apiCaller.EXPECT().BestFacadeVersion("Subnets").Return(4)
 
 	api := subnets.NewAPI(apiCaller)
-	c.Check(api, gc.NotNil)
+	c.Check(api, tc.NotNil)
 }
 
 // TestNewAPIWithNilCaller checks that a new subnets API is not created when passed a nil caller
-func (s *SubnetsSuite) TestNewAPIWithNilCaller(c *gc.C) {
+func (s *SubnetsSuite) TestNewAPIWithNilCaller(c *tc.C) {
 	panicFunc := func() { subnets.NewAPI(nil) }
-	c.Assert(panicFunc, gc.PanicMatches, "caller is nil")
+	c.Assert(panicFunc, tc.PanicMatches, "caller is nil")
 }
 
 func makeListSubnetsArgs(space *names.SpaceTag, zone string) (params.SubnetsFilters, params.ListSubnetsResults) {
@@ -49,7 +49,7 @@ func makeListSubnetsArgs(space *names.SpaceTag, zone string) (params.SubnetsFilt
 	return expectArgs, params.ListSubnetsResults{}
 }
 
-func (s *SubnetsSuite) TestListSubnetsNoResults(c *gc.C) {
+func (s *SubnetsSuite) TestListSubnetsNoResults(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -70,7 +70,7 @@ func (s *SubnetsSuite) TestListSubnetsNoResults(c *gc.C) {
 	c.Assert(obtainedResults, jc.DeepEquals, expectedResults)
 }
 
-func (s *SubnetsSuite) TestListSubnetsFails(c *gc.C) {
+func (s *SubnetsSuite) TestListSubnetsFails(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -84,13 +84,13 @@ func (s *SubnetsSuite) TestListSubnetsFails(c *gc.C) {
 	client := subnets.NewAPIFromCaller(mockFacadeCaller)
 
 	obtainedResults, err := client.ListSubnets(context.Background(), &space, zone)
-	c.Assert(err, gc.ErrorMatches, "bang")
+	c.Assert(err, tc.ErrorMatches, "bang")
 
 	var expectedResults []params.Subnet
 	c.Assert(obtainedResults, jc.DeepEquals, expectedResults)
 }
 
-func (s *SubnetsSuite) testSubnetsByCIDR(c *gc.C,
+func (s *SubnetsSuite) testSubnetsByCIDR(c *tc.C,
 	ctrl *gomock.Controller,
 	cidrs []string,
 	results []params.SubnetsResult,
@@ -111,7 +111,7 @@ func (s *SubnetsSuite) testSubnetsByCIDR(c *gc.C,
 	c.Assert(gotResult, jc.DeepEquals, results)
 
 	if expectErr != "" {
-		c.Assert(gotErr, gc.ErrorMatches, expectErr)
+		c.Assert(gotErr, tc.ErrorMatches, expectErr)
 		return
 	}
 
@@ -122,7 +122,7 @@ func (s *SubnetsSuite) testSubnetsByCIDR(c *gc.C,
 	}
 }
 
-func (s *SubnetsSuite) TestSubnetsByCIDRWithNoCIDRs(c *gc.C) {
+func (s *SubnetsSuite) TestSubnetsByCIDRWithNoCIDRs(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -131,7 +131,7 @@ func (s *SubnetsSuite) TestSubnetsByCIDRWithNoCIDRs(c *gc.C) {
 	s.testSubnetsByCIDR(c, ctrl, cidrs, []params.SubnetsResult{}, nil, "")
 }
 
-func (s *SubnetsSuite) TestSubnetsByCIDRWithNoResults(c *gc.C) {
+func (s *SubnetsSuite) TestSubnetsByCIDRWithNoResults(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -140,7 +140,7 @@ func (s *SubnetsSuite) TestSubnetsByCIDRWithNoResults(c *gc.C) {
 	s.testSubnetsByCIDR(c, ctrl, cidrs, []params.SubnetsResult{}, nil, "")
 }
 
-func (s *SubnetsSuite) TestSubnetsByCIDRWithResults(c *gc.C) {
+func (s *SubnetsSuite) TestSubnetsByCIDRWithResults(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 

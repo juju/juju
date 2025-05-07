@@ -12,8 +12,8 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
 	corelife "github.com/juju/juju/core/life"
@@ -42,9 +42,9 @@ type stateSuite struct {
 	state *State
 }
 
-var _ = gc.Suite(&stateSuite{})
+var _ = tc.Suite(&stateSuite{})
 
-func (s *stateSuite) SetUpTest(c *gc.C) {
+func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	modelUUID := uuid.MustNewUUID()
@@ -60,7 +60,7 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 }
 
-func (s *stateSuite) TestGetAllRelationStatuses(c *gc.C) {
+func (s *stateSuite) TestGetAllRelationStatuses(c *tc.C) {
 	// Arrange: add two relation, one with a status, but not the second one.
 	now := time.Now().Truncate(time.Minute).UTC()
 
@@ -75,7 +75,7 @@ func (s *stateSuite) TestGetAllRelationStatuses(c *gc.C) {
 
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, []status.RelationStatusInfo{{
+	c.Assert(result, tc.DeepEquals, []status.RelationStatusInfo{{
 		RelationUUID: relationUUID,
 		RelationID:   relationID,
 		StatusInfo: status.StatusInfo[status.RelationStatusType]{
@@ -86,44 +86,44 @@ func (s *stateSuite) TestGetAllRelationStatuses(c *gc.C) {
 	}})
 }
 
-func (s *stateSuite) TestGetAllRelationStatusesNone(c *gc.C) {
+func (s *stateSuite) TestGetAllRelationStatusesNone(c *tc.C) {
 	// Act
 	result, err := s.state.GetAllRelationStatuses(context.Background())
 
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.HasLen, 0)
+	c.Assert(result, tc.HasLen, 0)
 }
 
-func (s *stateSuite) TestGetApplicationIDByName(c *gc.C) {
+func (s *stateSuite) TestGetApplicationIDByName(c *tc.C) {
 	id, _ := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()))
 
 	gotID, err := s.state.GetApplicationIDByName(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(gotID, gc.Equals, id)
+	c.Check(gotID, tc.Equals, id)
 }
 
-func (s *stateSuite) TestGetApplicationIDByNameNotFound(c *gc.C) {
+func (s *stateSuite) TestGetApplicationIDByNameNotFound(c *tc.C) {
 	_, err := s.state.GetApplicationIDByName(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIs, statuserrors.ApplicationNotFound)
 }
 
-func (s *stateSuite) TestGetApplicationIDAndNameByUnitName(c *gc.C) {
+func (s *stateSuite) TestGetApplicationIDAndNameByUnitName(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	expectedAppUUID, _ := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 
 	appUUID, appName, err := s.state.GetApplicationIDAndNameByUnitName(context.Background(), coreunit.Name("foo/0"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(appUUID, gc.Equals, expectedAppUUID)
-	c.Check(appName, gc.Equals, "foo")
+	c.Check(appUUID, tc.Equals, expectedAppUUID)
+	c.Check(appName, tc.Equals, "foo")
 }
 
-func (s *stateSuite) TestGetApplicationIDAndNameByUnitNameNotFound(c *gc.C) {
+func (s *stateSuite) TestGetApplicationIDAndNameByUnitNameNotFound(c *tc.C) {
 	_, _, err := s.state.GetApplicationIDAndNameByUnitName(context.Background(), "failme")
 	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotFound)
 }
 
-func (s *stateSuite) TestSetApplicationStatus(c *gc.C) {
+func (s *stateSuite) TestSetApplicationStatus(c *tc.C) {
 	id, _ := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()))
 
 	now := time.Now().UTC()
@@ -142,7 +142,7 @@ func (s *stateSuite) TestSetApplicationStatus(c *gc.C) {
 	c.Check(status, jc.DeepEquals, expected)
 }
 
-func (s *stateSuite) TestSetApplicationStatusMultipleTimes(c *gc.C) {
+func (s *stateSuite) TestSetApplicationStatusMultipleTimes(c *tc.C) {
 	id, _ := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()))
 
 	err := s.state.SetApplicationStatus(context.Background(), id, status.StatusInfo[status.WorkloadStatusType]{
@@ -168,7 +168,7 @@ func (s *stateSuite) TestSetApplicationStatusMultipleTimes(c *gc.C) {
 	c.Check(status, jc.DeepEquals, expected)
 }
 
-func (s *stateSuite) TestSetApplicationStatusWithNoData(c *gc.C) {
+func (s *stateSuite) TestSetApplicationStatusWithNoData(c *tc.C) {
 	id, _ := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()))
 
 	now := time.Now().UTC()
@@ -186,7 +186,7 @@ func (s *stateSuite) TestSetApplicationStatusWithNoData(c *gc.C) {
 	c.Check(status, jc.DeepEquals, expected)
 }
 
-func (s *stateSuite) TestSetApplicationStatusApplicationNotFound(c *gc.C) {
+func (s *stateSuite) TestSetApplicationStatusApplicationNotFound(c *tc.C) {
 	now := time.Now().UTC()
 	expected := status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
@@ -199,7 +199,7 @@ func (s *stateSuite) TestSetApplicationStatusApplicationNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, statuserrors.ApplicationNotFound)
 }
 
-func (s *stateSuite) TestSetApplicationStatusInvalidStatus(c *gc.C) {
+func (s *stateSuite) TestSetApplicationStatusInvalidStatus(c *tc.C) {
 	id, _ := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()))
 
 	expected := status.StatusInfo[status.WorkloadStatusType]{
@@ -207,25 +207,25 @@ func (s *stateSuite) TestSetApplicationStatusInvalidStatus(c *gc.C) {
 	}
 
 	err := s.state.SetApplicationStatus(context.Background(), id, expected)
-	c.Assert(err, gc.ErrorMatches, `unknown status.*`)
+	c.Assert(err, tc.ErrorMatches, `unknown status.*`)
 }
 
-func (s *stateSuite) TestGetApplicationStatusApplicationNotFound(c *gc.C) {
+func (s *stateSuite) TestGetApplicationStatusApplicationNotFound(c *tc.C) {
 	_, err := s.state.GetApplicationStatus(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIs, statuserrors.ApplicationNotFound)
 }
 
-func (s *stateSuite) TestGetApplicationStatusNotSet(c *gc.C) {
+func (s *stateSuite) TestGetApplicationStatusNotSet(c *tc.C) {
 	id, _ := s.createApplication(c, "foo", life.Alive, false, nil)
 
 	sts, err := s.state.GetApplicationStatus(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sts, gc.DeepEquals, status.StatusInfo[status.WorkloadStatusType]{
+	c.Check(sts, tc.DeepEquals, status.StatusInfo[status.WorkloadStatusType]{
 		Status: status.WorkloadStatusUnset,
 	})
 }
 
-func (s *stateSuite) TestSetRelationStatus(c *gc.C) {
+func (s *stateSuite) TestSetRelationStatus(c *tc.C) {
 	// Arrange: Create relation and statuses.
 	relationUUID := s.addRelationWithLifeAndID(c, corelife.Alive, 7)
 	now := time.Now().UTC()
@@ -248,7 +248,7 @@ func (s *stateSuite) TestSetRelationStatus(c *gc.C) {
 
 // TestSetRelationStatusMultipleTimes sets the status multiple times to ensure
 // that it is updated correctly the second time.
-func (s *stateSuite) TestSetRelationStatusMultipleTimes(c *gc.C) {
+func (s *stateSuite) TestSetRelationStatusMultipleTimes(c *tc.C) {
 	// Arrange: Add relation and create statuses.
 	relationUUID := s.addRelationWithLifeAndID(c, corelife.Alive, 7)
 	now := time.Now().UTC()
@@ -280,7 +280,7 @@ func (s *stateSuite) TestSetRelationStatusMultipleTimes(c *gc.C) {
 
 // TestSetRelationStatusInvalidTransition checks that an invalid relation status
 // transition is blocked.
-func (s *stateSuite) TestSetRelationStatusInvalidTransition(c *gc.C) {
+func (s *stateSuite) TestSetRelationStatusInvalidTransition(c *tc.C) {
 	// Arrange: Add relation and set status to broken.
 	relationUUID := s.addRelationWithLifeAndID(c, corelife.Alive, 7)
 	now := time.Now().UTC()
@@ -301,7 +301,7 @@ func (s *stateSuite) TestSetRelationStatusInvalidTransition(c *gc.C) {
 
 // TestSetRelationStatusSuspendingToSuspended checks that the message from
 // Suspending status is preserved when the status is updated to Suspended.
-func (s *stateSuite) TestSetRelationStatusSuspendingToSuspended(c *gc.C) {
+func (s *stateSuite) TestSetRelationStatusSuspendingToSuspended(c *tc.C) {
 	// Arrange: Add relation and create suspending status with message.
 	relationUUID := s.addRelationWithLifeAndID(c, corelife.Alive, 7)
 	now := time.Now().UTC()
@@ -327,7 +327,7 @@ func (s *stateSuite) TestSetRelationStatusSuspendingToSuspended(c *gc.C) {
 	})
 }
 
-func (s *stateSuite) TestSetRelationStatusRelationNotFound(c *gc.C) {
+func (s *stateSuite) TestSetRelationStatusRelationNotFound(c *tc.C) {
 	// Arrange: Create relation and statuses.
 	sts := status.StatusInfo[status.RelationStatusType]{
 		Since: ptr(time.Now().UTC()),
@@ -340,7 +340,7 @@ func (s *stateSuite) TestSetRelationStatusRelationNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, statuserrors.RelationNotFound)
 }
 
-func (s *stateSuite) TestImportRelationStatus(c *gc.C) {
+func (s *stateSuite) TestImportRelationStatus(c *tc.C) {
 	// Arrange: Create relation and statuses.
 	relationID := 7
 	relationUUID := s.addRelationWithLifeAndID(c, corelife.Alive, relationID)
@@ -362,7 +362,7 @@ func (s *stateSuite) TestImportRelationStatus(c *gc.C) {
 	c.Assert(foundStatus, jc.DeepEquals, sts)
 }
 
-func (s *stateSuite) TestImportRelationStatusRelationNotFound(c *gc.C) {
+func (s *stateSuite) TestImportRelationStatusRelationNotFound(c *tc.C) {
 	// Arrange: Create relation and statuses.
 	sts := status.StatusInfo[status.RelationStatusType]{
 		Since: ptr(time.Now().UTC()),
@@ -375,7 +375,7 @@ func (s *stateSuite) TestImportRelationStatusRelationNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, statuserrors.RelationNotFound)
 }
 
-func (s *stateSuite) getRelationStatus(c *gc.C, relationUUID corerelation.UUID) status.StatusInfo[status.RelationStatusType] {
+func (s *stateSuite) getRelationStatus(c *tc.C, relationUUID corerelation.UUID) status.StatusInfo[status.RelationStatusType] {
 	var (
 		statusType int
 		reason     string
@@ -398,7 +398,7 @@ WHERE  relation_uuid = ?
 	}
 }
 
-func (s *stateSuite) TestSetK8sPodStatus(c *gc.C) {
+func (s *stateSuite) TestSetK8sPodStatus(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
@@ -418,7 +418,7 @@ func (s *stateSuite) TestSetK8sPodStatus(c *gc.C) {
 		c, "k8s_pod", unitUUID, int(status.Status), status.Message, status.Since, status.Data)
 }
 
-func (s *stateSuite) TestSetUnitAgentStatus(c *gc.C) {
+func (s *stateSuite) TestSetUnitAgentStatus(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
@@ -436,7 +436,7 @@ func (s *stateSuite) TestSetUnitAgentStatus(c *gc.C) {
 		c, "unit_agent", unitUUID, int(status.Status), status.Message, status.Since, status.Data)
 }
 
-func (s *stateSuite) TestSetUnitAgentStatusNotFound(c *gc.C) {
+func (s *stateSuite) TestSetUnitAgentStatusNotFound(c *tc.C) {
 	status := status.StatusInfo[status.UnitAgentStatusType]{
 		Status:  status.UnitAgentStatusExecuting,
 		Message: "it's executing",
@@ -450,7 +450,7 @@ func (s *stateSuite) TestSetUnitAgentStatusNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotFound)
 }
 
-func (s *stateSuite) TestGetUnitAgentStatusUnset(c *gc.C) {
+func (s *stateSuite) TestGetUnitAgentStatusUnset(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
@@ -459,7 +459,7 @@ func (s *stateSuite) TestGetUnitAgentStatusUnset(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, statuserrors.UnitStatusNotFound)
 }
 
-func (s *stateSuite) TestGetUnitAgentStatusDead(c *gc.C) {
+func (s *stateSuite) TestGetUnitAgentStatusDead(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Dead, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
@@ -468,7 +468,7 @@ func (s *stateSuite) TestGetUnitAgentStatusDead(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, statuserrors.UnitIsDead)
 }
 
-func (s *stateSuite) TestGetUnitAgentStatus(c *gc.C) {
+func (s *stateSuite) TestGetUnitAgentStatus(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
@@ -490,7 +490,7 @@ func (s *stateSuite) TestGetUnitAgentStatus(c *gc.C) {
 	assertStatusInfoEqual(c, gotStatus.StatusInfo, status)
 }
 
-func (s *stateSuite) TestGetUnitAgentStatusPresent(c *gc.C) {
+func (s *stateSuite) TestGetUnitAgentStatusPresent(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
@@ -524,12 +524,12 @@ func (s *stateSuite) TestGetUnitAgentStatusPresent(c *gc.C) {
 	assertStatusInfoEqual(c, gotStatus.StatusInfo, status)
 }
 
-func (s *stateSuite) TestGetUnitWorkloadStatusUnitNotFound(c *gc.C) {
+func (s *stateSuite) TestGetUnitWorkloadStatusUnitNotFound(c *tc.C) {
 	_, err := s.state.GetUnitWorkloadStatus(context.Background(), "missing-uuid")
 	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotFound)
 }
 
-func (s *stateSuite) TestGetUnitWorkloadStatusDead(c *gc.C) {
+func (s *stateSuite) TestGetUnitWorkloadStatusDead(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Dead, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
@@ -538,7 +538,7 @@ func (s *stateSuite) TestGetUnitWorkloadStatusDead(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, statuserrors.UnitIsDead)
 }
 
-func (s *stateSuite) TestGetUnitWorkloadStatusUnsetStatus(c *gc.C) {
+func (s *stateSuite) TestGetUnitWorkloadStatusUnsetStatus(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
@@ -547,7 +547,7 @@ func (s *stateSuite) TestGetUnitWorkloadStatusUnsetStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, statuserrors.UnitStatusNotFound)
 }
 
-func (s *stateSuite) TestSetWorkloadStatus(c *gc.C) {
+func (s *stateSuite) TestSetWorkloadStatus(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
@@ -585,7 +585,7 @@ func (s *stateSuite) TestSetWorkloadStatus(c *gc.C) {
 	assertStatusInfoEqual(c, gotStatus.StatusInfo, sts)
 }
 
-func (s *stateSuite) TestSetUnitWorkloadStatusToError(c *gc.C) {
+func (s *stateSuite) TestSetUnitWorkloadStatusToError(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
@@ -606,7 +606,7 @@ func (s *stateSuite) TestSetUnitWorkloadStatusToError(c *gc.C) {
 	assertStatusInfoEqual(c, gotStatus.StatusInfo, sts)
 }
 
-func (s *stateSuite) TestSetWorkloadStatusPresent(c *gc.C) {
+func (s *stateSuite) TestSetWorkloadStatusPresent(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
@@ -647,7 +647,7 @@ func (s *stateSuite) TestSetWorkloadStatusPresent(c *gc.C) {
 	assertStatusInfoEqual(c, gotStatus.StatusInfo, sts)
 }
 
-func (s *stateSuite) TestSetUnitWorkloadStatusNotFound(c *gc.C) {
+func (s *stateSuite) TestSetUnitWorkloadStatusNotFound(c *tc.C) {
 	status := status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusTerminated,
 		Message: "it's terminated",
@@ -659,24 +659,24 @@ func (s *stateSuite) TestSetUnitWorkloadStatusNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotFound)
 }
 
-func (s *stateSuite) TestGetUnitK8sPodStatusUnset(c *gc.C) {
+func (s *stateSuite) TestGetUnitK8sPodStatusUnset(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
 
 	sts, err := s.state.GetUnitK8sPodStatus(context.Background(), unitUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sts, gc.DeepEquals, status.StatusInfo[status.K8sPodStatusType]{
+	c.Check(sts, tc.DeepEquals, status.StatusInfo[status.K8sPodStatusType]{
 		Status: status.K8sPodStatusUnset,
 	})
 }
 
-func (s *stateSuite) TestGetUnitK8sPodStatusUnitNotFound(c *gc.C) {
+func (s *stateSuite) TestGetUnitK8sPodStatusUnitNotFound(c *tc.C) {
 	_, err := s.state.GetUnitK8sPodStatus(context.Background(), "missing-uuid")
 	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotFound)
 }
 
-func (s *stateSuite) TestGetUnitK8sPodStatusDead(c *gc.C) {
+func (s *stateSuite) TestGetUnitK8sPodStatusDead(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Dead, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
@@ -685,7 +685,7 @@ func (s *stateSuite) TestGetUnitK8sPodStatusDead(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, statuserrors.UnitIsDead)
 }
 
-func (s *stateSuite) TestGetUnitK8sPodStatus(c *gc.C) {
+func (s *stateSuite) TestGetUnitK8sPodStatus(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
@@ -711,7 +711,7 @@ func (s *stateSuite) TestGetUnitK8sPodStatus(c *gc.C) {
 	})
 }
 
-func (s *stateSuite) TestGetUnitWorkloadStatusesForApplication(c *gc.C) {
+func (s *stateSuite) TestGetUnitWorkloadStatusesForApplication(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	appId, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
@@ -728,14 +728,14 @@ func (s *stateSuite) TestGetUnitWorkloadStatusesForApplication(c *gc.C) {
 	results, err := s.state.GetUnitWorkloadStatusesForApplication(context.Background(), appId)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results, tc.HasLen, 1)
 	result, ok := results["foo/0"]
 	c.Assert(ok, jc.IsTrue)
 	c.Check(result.Present, jc.IsFalse)
 	assertStatusInfoEqual(c, result.StatusInfo, status)
 }
 
-func (s *stateSuite) TestGetUnitWorkloadStatusesForApplicationMultipleUnits(c *gc.C) {
+func (s *stateSuite) TestGetUnitWorkloadStatusesForApplicationMultipleUnits(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	u2 := application.AddUnitArg{}
 	appId, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1, u2)
@@ -762,7 +762,7 @@ func (s *stateSuite) TestGetUnitWorkloadStatusesForApplicationMultipleUnits(c *g
 
 	results, err := s.state.GetUnitWorkloadStatusesForApplication(context.Background(), appId)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 2, gc.Commentf("expected 2, got %d", len(results)))
+	c.Assert(results, tc.HasLen, 2, tc.Commentf("expected 2, got %d", len(results)))
 
 	result1, ok := results["foo/0"]
 	c.Assert(ok, jc.IsTrue)
@@ -775,7 +775,7 @@ func (s *stateSuite) TestGetUnitWorkloadStatusesForApplicationMultipleUnits(c *g
 	assertStatusInfoEqual(c, result2.StatusInfo, status2)
 }
 
-func (s *stateSuite) TestGetUnitWorkloadStatusesForApplicationMultipleUnitsPresent(c *gc.C) {
+func (s *stateSuite) TestGetUnitWorkloadStatusesForApplicationMultipleUnitsPresent(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	u2 := application.AddUnitArg{}
 	appId, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1, u2)
@@ -804,7 +804,7 @@ func (s *stateSuite) TestGetUnitWorkloadStatusesForApplicationMultipleUnitsPrese
 
 	results, err := s.state.GetUnitWorkloadStatusesForApplication(context.Background(), appId)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 2, gc.Commentf("expected 2, got %d", len(results)))
+	c.Assert(results, tc.HasLen, 2, tc.Commentf("expected 2, got %d", len(results)))
 
 	result1, ok := results["foo/0"]
 	c.Assert(ok, jc.IsTrue)
@@ -817,20 +817,20 @@ func (s *stateSuite) TestGetUnitWorkloadStatusesForApplicationMultipleUnitsPrese
 	assertStatusInfoEqual(c, result2.StatusInfo, status2)
 }
 
-func (s *stateSuite) TestGetUnitWorkloadStatusesForApplicationNotFound(c *gc.C) {
+func (s *stateSuite) TestGetUnitWorkloadStatusesForApplicationNotFound(c *tc.C) {
 	_, err := s.state.GetUnitWorkloadStatusesForApplication(context.Background(), "missing")
 	c.Assert(err, jc.ErrorIs, statuserrors.ApplicationNotFound)
 }
 
-func (s *stateSuite) TestGetUnitWorkloadStatusesForApplicationNoUnits(c *gc.C) {
+func (s *stateSuite) TestGetUnitWorkloadStatusesForApplicationNoUnits(c *tc.C) {
 	appId, _ := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()))
 
 	results, err := s.state.GetUnitWorkloadStatusesForApplication(context.Background(), appId)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 0)
+	c.Assert(results, tc.HasLen, 0)
 }
 
-func (s *stateSuite) TestGetAllUnitStatusesForApplication(c *gc.C) {
+func (s *stateSuite) TestGetAllUnitStatusesForApplication(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	appId, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
@@ -872,7 +872,7 @@ func (s *stateSuite) TestGetAllUnitStatusesForApplication(c *gc.C) {
 
 	fullStatuses, err := s.state.GetAllFullUnitStatusesForApplication(context.Background(), appId)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fullStatuses, gc.HasLen, 1)
+	c.Assert(fullStatuses, tc.HasLen, 1)
 	fullStatus, ok := fullStatuses["foo/0"]
 	c.Assert(ok, jc.IsTrue)
 
@@ -881,7 +881,7 @@ func (s *stateSuite) TestGetAllUnitStatusesForApplication(c *gc.C) {
 	assertStatusInfoEqual(c, fullStatus.K8sPodStatus, k8sPodStatus)
 }
 
-func (s *stateSuite) TestGetUnitK8sPodStatusForApplicationMultipleUnits(c *gc.C) {
+func (s *stateSuite) TestGetUnitK8sPodStatusForApplicationMultipleUnits(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	u2 := application.AddUnitArg{}
 	appId, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1, u2)
@@ -935,7 +935,7 @@ func (s *stateSuite) TestGetUnitK8sPodStatusForApplicationMultipleUnits(c *gc.C)
 
 	fullStatuses, err := s.state.GetAllFullUnitStatusesForApplication(context.Background(), appId)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fullStatuses, gc.HasLen, 2)
+	c.Assert(fullStatuses, tc.HasLen, 2)
 	result1, ok := fullStatuses["foo/0"]
 	c.Assert(ok, jc.IsTrue)
 	assertStatusInfoEqual(c, result1.K8sPodStatus, status1)
@@ -945,20 +945,20 @@ func (s *stateSuite) TestGetUnitK8sPodStatusForApplicationMultipleUnits(c *gc.C)
 	assertStatusInfoEqual(c, result2.K8sPodStatus, status2)
 }
 
-func (s *stateSuite) TestGetAllUnitStatusesForApplicationNotFound(c *gc.C) {
+func (s *stateSuite) TestGetAllUnitStatusesForApplicationNotFound(c *tc.C) {
 	_, err := s.state.GetAllFullUnitStatusesForApplication(context.Background(), "missing")
 	c.Assert(err, jc.ErrorIs, statuserrors.ApplicationNotFound)
 }
 
-func (s *stateSuite) TestGetAllUnitStatusesForApplicationNoUnits(c *gc.C) {
+func (s *stateSuite) TestGetAllUnitStatusesForApplicationNoUnits(c *tc.C) {
 	appId, _ := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()))
 
 	fullStatuses, err := s.state.GetAllFullUnitStatusesForApplication(context.Background(), appId)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fullStatuses, gc.HasLen, 0)
+	c.Assert(fullStatuses, tc.HasLen, 0)
 }
 
-func (s *stateSuite) TestGetAllUnitStatusesForApplicationUnitsWithoutStatuses(c *gc.C) {
+func (s *stateSuite) TestGetAllUnitStatusesForApplicationUnitsWithoutStatuses(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	u2 := application.AddUnitArg{}
 	appId, _ := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1, u2)
@@ -967,13 +967,13 @@ func (s *stateSuite) TestGetAllUnitStatusesForApplicationUnitsWithoutStatuses(c 
 	c.Assert(err, jc.ErrorIs, statuserrors.UnitStatusNotFound)
 }
 
-func (s *stateSuite) TestGetAllFullUnitStatusesEmptyModel(c *gc.C) {
+func (s *stateSuite) TestGetAllFullUnitStatusesEmptyModel(c *tc.C) {
 	res, err := s.state.GetAllUnitWorkloadAgentStatuses(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res, gc.HasLen, 0)
+	c.Check(res, tc.HasLen, 0)
 }
 
-func (s *stateSuite) TestGetAllFullUnitStatusesNotFound(c *gc.C) {
+func (s *stateSuite) TestGetAllFullUnitStatusesNotFound(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 
@@ -981,7 +981,7 @@ func (s *stateSuite) TestGetAllFullUnitStatusesNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, statuserrors.UnitStatusNotFound)
 }
 
-func (s *stateSuite) TestGetAllFullUnitStatuses(c *gc.C) {
+func (s *stateSuite) TestGetAllFullUnitStatuses(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	u2 := application.AddUnitArg{}
 	u3 := application.AddUnitArg{}
@@ -1055,56 +1055,56 @@ func (s *stateSuite) TestGetAllFullUnitStatuses(c *gc.C) {
 
 	res, err := s.state.GetAllUnitWorkloadAgentStatuses(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res, gc.HasLen, 3)
+	c.Check(res, tc.HasLen, 3)
 
 	u1Full, ok := res["foo/0"]
 	c.Assert(ok, jc.IsTrue)
-	c.Check(u1Full.WorkloadStatus.Status, gc.Equals, status.WorkloadStatusActive)
-	c.Check(u1Full.WorkloadStatus.Message, gc.Equals, "u1 is active!")
-	c.Check(u1Full.WorkloadStatus.Data, gc.DeepEquals, []byte(`{"u1": "workload"}`))
-	c.Check(u1Full.AgentStatus.Status, gc.Equals, status.UnitAgentStatusIdle)
-	c.Check(u1Full.AgentStatus.Message, gc.Equals, "u1 is idle!")
-	c.Check(u1Full.AgentStatus.Data, gc.DeepEquals, []byte(`{"u1": "agent"}`))
-	c.Check(u1Full.Present, gc.Equals, true)
+	c.Check(u1Full.WorkloadStatus.Status, tc.Equals, status.WorkloadStatusActive)
+	c.Check(u1Full.WorkloadStatus.Message, tc.Equals, "u1 is active!")
+	c.Check(u1Full.WorkloadStatus.Data, tc.DeepEquals, []byte(`{"u1": "workload"}`))
+	c.Check(u1Full.AgentStatus.Status, tc.Equals, status.UnitAgentStatusIdle)
+	c.Check(u1Full.AgentStatus.Message, tc.Equals, "u1 is idle!")
+	c.Check(u1Full.AgentStatus.Data, tc.DeepEquals, []byte(`{"u1": "agent"}`))
+	c.Check(u1Full.Present, tc.Equals, true)
 
 	u2Full, ok := res["foo/1"]
 	c.Assert(ok, jc.IsTrue)
-	c.Check(u2Full.WorkloadStatus.Status, gc.Equals, status.WorkloadStatusBlocked)
-	c.Check(u2Full.WorkloadStatus.Message, gc.Equals, "u2 is blocked!")
-	c.Check(u2Full.WorkloadStatus.Data, gc.DeepEquals, []byte(`{"u2": "workload"}`))
-	c.Check(u2Full.AgentStatus.Status, gc.Equals, status.UnitAgentStatusAllocating)
-	c.Check(u2Full.AgentStatus.Message, gc.Equals, "u2 is allocating!")
-	c.Check(u2Full.AgentStatus.Data, gc.DeepEquals, []byte(`{"u2": "agent"}`))
-	c.Check(u2Full.Present, gc.Equals, false)
+	c.Check(u2Full.WorkloadStatus.Status, tc.Equals, status.WorkloadStatusBlocked)
+	c.Check(u2Full.WorkloadStatus.Message, tc.Equals, "u2 is blocked!")
+	c.Check(u2Full.WorkloadStatus.Data, tc.DeepEquals, []byte(`{"u2": "workload"}`))
+	c.Check(u2Full.AgentStatus.Status, tc.Equals, status.UnitAgentStatusAllocating)
+	c.Check(u2Full.AgentStatus.Message, tc.Equals, "u2 is allocating!")
+	c.Check(u2Full.AgentStatus.Data, tc.DeepEquals, []byte(`{"u2": "agent"}`))
+	c.Check(u2Full.Present, tc.Equals, false)
 
 	u3Full, ok := res["bar/0"]
 	c.Assert(ok, jc.IsTrue)
-	c.Check(u3Full.WorkloadStatus.Status, gc.Equals, status.WorkloadStatusMaintenance)
-	c.Check(u3Full.WorkloadStatus.Message, gc.Equals, "u3 is maintenance!")
-	c.Check(u3Full.WorkloadStatus.Data, gc.DeepEquals, []byte(`{"u3": "workload"}`))
-	c.Check(u3Full.AgentStatus.Status, gc.Equals, status.UnitAgentStatusRebooting)
-	c.Check(u3Full.AgentStatus.Message, gc.Equals, "u3 is rebooting!")
-	c.Check(u3Full.AgentStatus.Data, gc.DeepEquals, []byte(`{"u3": "agent"}`))
-	c.Check(u3Full.Present, gc.Equals, false)
+	c.Check(u3Full.WorkloadStatus.Status, tc.Equals, status.WorkloadStatusMaintenance)
+	c.Check(u3Full.WorkloadStatus.Message, tc.Equals, "u3 is maintenance!")
+	c.Check(u3Full.WorkloadStatus.Data, tc.DeepEquals, []byte(`{"u3": "workload"}`))
+	c.Check(u3Full.AgentStatus.Status, tc.Equals, status.UnitAgentStatusRebooting)
+	c.Check(u3Full.AgentStatus.Message, tc.Equals, "u3 is rebooting!")
+	c.Check(u3Full.AgentStatus.Data, tc.DeepEquals, []byte(`{"u3": "agent"}`))
+	c.Check(u3Full.Present, tc.Equals, false)
 }
 
-func (s *stateSuite) TestGetAllApplicationStatusesEmptyModel(c *gc.C) {
+func (s *stateSuite) TestGetAllApplicationStatusesEmptyModel(c *tc.C) {
 	statuses, err := s.state.GetAllApplicationStatuses(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(statuses, gc.HasLen, 0)
+	c.Check(statuses, tc.HasLen, 0)
 }
 
-func (s *stateSuite) TestGetAllApplicationStatusesUnsetStatuses(c *gc.C) {
+func (s *stateSuite) TestGetAllApplicationStatusesUnsetStatuses(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	s.createApplication(c, "foo", life.Alive, false, nil, u1)
 	s.createApplication(c, "bar", life.Alive, false, nil)
 
 	statuses, err := s.state.GetAllApplicationStatuses(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(statuses, gc.HasLen, 0)
+	c.Check(statuses, tc.HasLen, 0)
 }
 
-func (s *stateSuite) TestGetAllApplicationStatuses(c *gc.C) {
+func (s *stateSuite) TestGetAllApplicationStatuses(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	app1ID, _ := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	app2ID, _ := s.createApplication(c, "bar", life.Alive, false, s.appStatus(time.Now()))
@@ -1137,7 +1137,7 @@ func (s *stateSuite) TestGetAllApplicationStatuses(c *gc.C) {
 	assertStatusInfoEqual(c, res2, app2Status)
 }
 
-func (s *stateSuite) TestSetUnitPresence(c *gc.C) {
+func (s *stateSuite) TestSetUnitPresence(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	u2 := application.AddUnitArg{}
 	s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1, u2)
@@ -1158,17 +1158,17 @@ func (s *stateSuite) TestSetUnitPresence(c *gc.C) {
 	c.Check(lastSeen.After(time.Now().Add(-time.Minute)), jc.IsTrue)
 }
 
-func (s *stateSuite) TestSetUnitPresenceNotFound(c *gc.C) {
+func (s *stateSuite) TestSetUnitPresenceNotFound(c *tc.C) {
 	err := s.state.SetUnitPresence(context.Background(), "foo/665")
 	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotFound)
 }
 
-func (s *stateSuite) TestDeleteUnitPresenceNotFound(c *gc.C) {
+func (s *stateSuite) TestDeleteUnitPresenceNotFound(c *tc.C) {
 	err := s.state.DeleteUnitPresence(context.Background(), "foo/665")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateSuite) TestDeleteUnitPresence(c *gc.C) {
+func (s *stateSuite) TestDeleteUnitPresence(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	u2 := application.AddUnitArg{}
 	s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1, u2)
@@ -1199,16 +1199,16 @@ func (s *stateSuite) TestDeleteUnitPresence(c *gc.C) {
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(count, gc.Equals, 0)
+	c.Check(count, tc.Equals, 0)
 }
 
-func (s *stateSuite) TestGetApplicationAndUnitStatusesNoApplications(c *gc.C) {
+func (s *stateSuite) TestGetApplicationAndUnitStatusesNoApplications(c *tc.C) {
 	statuses, err := s.state.GetApplicationAndUnitStatuses(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(statuses, jc.DeepEquals, map[string]status.Application{})
 }
 
-func (s *stateSuite) TestGetApplicationAndUnitStatusesNoAppStatuses(c *gc.C) {
+func (s *stateSuite) TestGetApplicationAndUnitStatusesNoAppStatuses(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	u2 := application.AddUnitArg{}
 	appUUID, _ := s.createApplication(c, "foo", life.Alive, false, nil, u1, u2)
@@ -1262,7 +1262,7 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesNoAppStatuses(c *gc.C) {
 	})
 }
 
-func (s *stateSuite) TestGetApplicationAndUnitStatuses(c *gc.C) {
+func (s *stateSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 	now := time.Now()
 
 	u1 := application.AddUnitArg{
@@ -1383,7 +1383,7 @@ func (s *stateSuite) TestGetApplicationAndUnitStatuses(c *gc.C) {
 	})
 }
 
-func (s *stateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *gc.C) {
+func (s *stateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *tc.C) {
 	now := time.Now()
 	u1 := application.AddUnitArg{}
 	u2 := application.AddUnitArg{}
@@ -1406,10 +1406,10 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *gc.C) {
 
 	appStatus := s.appStatus(now)
 	appUUID0, units0 := s.createApplication(c, "foo", life.Alive, false, appStatus, u1)
-	c.Assert(units0, gc.HasLen, 1)
+	c.Assert(units0, tc.HasLen, 1)
 
 	appUUID1, units1 := s.createApplication(c, "sub", life.Alive, true, appStatus, u2, u3)
-	c.Assert(units1, gc.HasLen, 2)
+	c.Assert(units1, tc.HasLen, 2)
 	for _, unit := range units1 {
 		s.setApplicationSubordinate(c, units0[0], unit)
 	}
@@ -1524,7 +1524,7 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *gc.C) {
 	})
 }
 
-func (s *stateSuite) TestGetApplicationAndUnitStatusesLXDProfile(c *gc.C) {
+func (s *stateSuite) TestGetApplicationAndUnitStatusesLXDProfile(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	u2 := application.AddUnitArg{}
 	now := time.Now()
@@ -1584,14 +1584,14 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesLXDProfile(c *gc.C) {
 	})
 }
 
-func (s *stateSuite) TestGetApplicationAndUnitStatusesWorkloadVersion(c *gc.C) {
+func (s *stateSuite) TestGetApplicationAndUnitStatusesWorkloadVersion(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	u2 := application.AddUnitArg{}
 	now := time.Now()
 
 	appStatus := s.appStatus(now)
 	appUUID, unitUUDs := s.createApplication(c, "foo", life.Alive, false, appStatus, u1, u2)
-	c.Assert(unitUUDs, gc.HasLen, 2)
+	c.Assert(unitUUDs, tc.HasLen, 2)
 	s.setWorkloadVersion(c, appUUID, unitUUDs[0], "blah")
 
 	statuses, err := s.state.GetApplicationAndUnitStatuses(context.Background())
@@ -1646,7 +1646,7 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesWorkloadVersion(c *gc.C) {
 	})
 }
 
-func (s *stateSuite) setWorkloadVersion(c *gc.C, appUUID coreapplication.ID, unitUUID coreunit.UUID, version string) {
+func (s *stateSuite) setWorkloadVersion(c *tc.C, appUUID coreapplication.ID, unitUUID coreunit.UUID, version string) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, `UPDATE application_workload_version SET version=? WHERE application_uuid=?`, version, appUUID); err != nil {
 			return err
@@ -1659,7 +1659,7 @@ func (s *stateSuite) setWorkloadVersion(c *gc.C, appUUID coreapplication.ID, uni
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateSuite) TestGetApplicationAndUnitStatusesWithRelations(c *gc.C) {
+func (s *stateSuite) TestGetApplicationAndUnitStatusesWithRelations(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	u2 := application.AddUnitArg{}
 	now := time.Now()
@@ -1725,7 +1725,7 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesWithRelations(c *gc.C) {
 	})
 }
 
-func (s *stateSuite) TestGetApplicationAndUnitStatusesWithMultipleRelations(c *gc.C) {
+func (s *stateSuite) TestGetApplicationAndUnitStatusesWithMultipleRelations(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	u2 := application.AddUnitArg{}
 	now := time.Now()
@@ -1796,7 +1796,7 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesWithMultipleRelations(c *g
 	})
 }
 
-func (s *stateSuite) TestGetApplicationAndUnitModelStatuses(c *gc.C) {
+func (s *stateSuite) TestGetApplicationAndUnitModelStatuses(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	u2 := application.AddUnitArg{}
 	now := time.Now()
@@ -1807,12 +1807,12 @@ func (s *stateSuite) TestGetApplicationAndUnitModelStatuses(c *gc.C) {
 	appUnitCount, err := s.state.GetApplicationAndUnitModelStatuses(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(appUnitCount, gc.DeepEquals, map[string]int{
+	c.Check(appUnitCount, tc.DeepEquals, map[string]int{
 		"foo": 2,
 	})
 }
 
-func (s *stateSuite) TestGetApplicationAndUnitModelStatusesMultiple(c *gc.C) {
+func (s *stateSuite) TestGetApplicationAndUnitModelStatusesMultiple(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	u2 := application.AddUnitArg{}
 	u3 := application.AddUnitArg{}
@@ -1825,20 +1825,20 @@ func (s *stateSuite) TestGetApplicationAndUnitModelStatusesMultiple(c *gc.C) {
 	appUnitCount, err := s.state.GetApplicationAndUnitModelStatuses(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(appUnitCount, gc.DeepEquals, map[string]int{
+	c.Check(appUnitCount, tc.DeepEquals, map[string]int{
 		"foo": 2,
 		"bar": 1,
 	})
 }
 
-func (s *stateSuite) TestGetApplicationAndUnitModelStatusesNoApplication(c *gc.C) {
+func (s *stateSuite) TestGetApplicationAndUnitModelStatusesNoApplication(c *tc.C) {
 	appUnitCount, err := s.state.GetApplicationAndUnitModelStatuses(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(appUnitCount, gc.DeepEquals, map[string]int{})
+	c.Check(appUnitCount, tc.DeepEquals, map[string]int{})
 }
 
-func (s *stateSuite) TestGetApplicationAndUnitModelStatusesNoUnits(c *gc.C) {
+func (s *stateSuite) TestGetApplicationAndUnitModelStatusesNoUnits(c *tc.C) {
 	now := time.Now()
 	appStatus := s.appStatus(now)
 	s.createApplication(c, "foo", life.Alive, false, appStatus)
@@ -1846,7 +1846,7 @@ func (s *stateSuite) TestGetApplicationAndUnitModelStatusesNoUnits(c *gc.C) {
 	appUnitCount, err := s.state.GetApplicationAndUnitModelStatuses(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(appUnitCount, gc.DeepEquals, map[string]int{
+	c.Check(appUnitCount, tc.DeepEquals, map[string]int{
 		"foo": 0,
 	})
 }
@@ -1862,7 +1862,7 @@ func (s *stateSuite) appStatus(now time.Time) *status.StatusInfo[status.Workload
 
 // addRelationWithLifeAndID inserts a new relation into the database with the
 // given details.
-func (s *stateSuite) addRelationWithLifeAndID(c *gc.C, life corelife.Value, relationID int) corerelation.UUID {
+func (s *stateSuite) addRelationWithLifeAndID(c *tc.C, life corelife.Value, relationID int) corerelation.UUID {
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.Exec(`
@@ -1873,12 +1873,12 @@ WHERE value = ?
 `, relationUUID, relationID, life)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) Failed to insert relation %s, id %d", relationUUID, relationID))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) Failed to insert relation %s, id %d", relationUUID, relationID))
 	return relationUUID
 }
 
 // addRelationStatusWithMessage inserts a relation status into the relation_status table.
-func (s *stateSuite) addRelationStatusWithMessage(c *gc.C, relationUUID corerelation.UUID, status corestatus.Status,
+func (s *stateSuite) addRelationStatusWithMessage(c *tc.C, relationUUID corerelation.UUID, status corestatus.Status,
 	message string, since time.Time) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.Exec(`
@@ -1889,11 +1889,11 @@ WHERE rst.name = ?
 `, relationUUID, message, since, status)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) Failed to insert relation status %s, status %s, message %q",
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) Failed to insert relation status %s, status %s, message %q",
 		relationUUID, status, message))
 }
 
-func (s *stateSuite) addRelationToApplication(c *gc.C, appUUID coreapplication.ID, relationUUID corerelation.UUID) {
+func (s *stateSuite) addRelationToApplication(c *tc.C, appUUID coreapplication.ID, relationUUID corerelation.UUID) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		var charmRelationUUID string
 		err := tx.QueryRowContext(ctx, `SELECT uuid FROM charm_relation WHERE name = 'endpoint'`).Scan(&charmRelationUUID)
@@ -1923,7 +1923,7 @@ func (s *stateSuite) addRelationToApplication(c *gc.C, appUUID coreapplication.I
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateSuite) createApplication(c *gc.C, name string, l life.Life, subordinate bool, appStatus *status.StatusInfo[status.WorkloadStatusType], units ...application.AddUnitArg) (coreapplication.ID, []coreunit.UUID) {
+func (s *stateSuite) createApplication(c *tc.C, name string, l life.Life, subordinate bool, appStatus *status.StatusInfo[status.WorkloadStatusType], units ...application.AddUnitArg) (coreapplication.ID, []coreunit.UUID) {
 	appState := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	platform := deployment.Platform{
@@ -2009,7 +2009,7 @@ func (s *stateSuite) createApplication(c *gc.C, name string, l life.Life, subord
 	return appID, unitUUIDs
 }
 
-func (s *stateSuite) setApplicationLXDProfile(c *gc.C, appUUID coreapplication.ID, profile string) {
+func (s *stateSuite) setApplicationLXDProfile(c *tc.C, appUUID coreapplication.ID, profile string) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 UPDATE charm SET lxd_profile = ? WHERE uuid = (SELECT charm_uuid FROM application WHERE uuid = ?)
@@ -2019,7 +2019,7 @@ UPDATE charm SET lxd_profile = ? WHERE uuid = (SELECT charm_uuid FROM applicatio
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateSuite) setApplicationSubordinate(c *gc.C, principal coreunit.UUID, subordinate coreunit.UUID) {
+func (s *stateSuite) setApplicationSubordinate(c *tc.C, principal coreunit.UUID, subordinate coreunit.UUID) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO unit_principal (unit_uuid, principal_uuid)
@@ -2029,7 +2029,7 @@ VALUES (?, ?);`, subordinate, principal)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateSuite) minimalManifest(c *gc.C) charm.Manifest {
+func (s *stateSuite) minimalManifest(c *tc.C) charm.Manifest {
 	return charm.Manifest{
 		Bases: []charm.Base{
 			{
@@ -2043,7 +2043,7 @@ func (s *stateSuite) minimalManifest(c *gc.C) charm.Manifest {
 	}
 }
 
-func (s *stateSuite) assertUnitStatus(c *gc.C, statusType, unitUUID coreunit.UUID, statusID int, message string, since *time.Time, data []byte) {
+func (s *stateSuite) assertUnitStatus(c *tc.C, statusType, unitUUID coreunit.UUID, statusID int, message string, since *time.Time, data []byte) {
 	var (
 		gotStatusID int
 		gotMessage  string
@@ -2059,17 +2059,17 @@ func (s *stateSuite) assertUnitStatus(c *gc.C, statusType, unitUUID coreunit.UUI
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(gotStatusID, gc.Equals, statusID)
-	c.Check(gotMessage, gc.Equals, message)
+	c.Check(gotStatusID, tc.Equals, statusID)
+	c.Check(gotMessage, tc.Equals, message)
 	c.Check(gotSince, jc.DeepEquals, since)
 	c.Check(gotData, jc.DeepEquals, data)
 }
 
-func assertStatusInfoEqual[T status.StatusID](c *gc.C, got, want status.StatusInfo[T]) {
-	c.Check(got.Status, gc.Equals, want.Status)
-	c.Check(got.Message, gc.Equals, want.Message)
+func assertStatusInfoEqual[T status.StatusID](c *tc.C, got, want status.StatusInfo[T]) {
+	c.Check(got.Status, tc.Equals, want.Status)
+	c.Check(got.Message, tc.Equals, want.Message)
 	c.Check(got.Data, jc.DeepEquals, want.Data)
-	c.Check(got.Since.Sub(*want.Since), gc.Equals, time.Duration(0))
+	c.Check(got.Since.Sub(*want.Since), tc.Equals, time.Duration(0))
 }
 
 func ptr[T any](v T) *T {

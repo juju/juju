@@ -9,22 +9,22 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/secrets"
 )
 
 type CreateSecretSuite struct{}
 
-var _ = gc.Suite(&CreateSecretSuite{})
+var _ = tc.Suite(&CreateSecretSuite{})
 
-func (s *CreateSecretSuite) TestBadKey(c *gc.C) {
+func (s *CreateSecretSuite) TestBadKey(c *tc.C) {
 	_, err := secrets.CreateSecretData([]string{"fo=bar"})
-	c.Assert(err, gc.ErrorMatches, `key "fo" not valid`)
+	c.Assert(err, tc.ErrorMatches, `key "fo" not valid`)
 }
 
-func (s *CreateSecretSuite) TestKeyValues(c *gc.C) {
+func (s *CreateSecretSuite) TestKeyValues(c *tc.C) {
 	data, err := secrets.CreateSecretData([]string{"foo=bar", "hello=world", "goodbye#base64=world"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, jc.DeepEquals, secrets.SecretData{
@@ -34,23 +34,23 @@ func (s *CreateSecretSuite) TestKeyValues(c *gc.C) {
 	})
 }
 
-func (s *CreateSecretSuite) TestKeyContentTooLarge(c *gc.C) {
+func (s *CreateSecretSuite) TestKeyContentTooLarge(c *tc.C) {
 	content := strings.Repeat("a", 9*1024)
 	_, err := secrets.CreateSecretData([]string{"foo=" + content})
-	c.Assert(err, gc.ErrorMatches, `secret content for key "foo" too large: 9216 bytes`)
+	c.Assert(err, tc.ErrorMatches, `secret content for key "foo" too large: 9216 bytes`)
 }
 
-func (s *CreateSecretSuite) TestTotalContentTooLarge(c *gc.C) {
+func (s *CreateSecretSuite) TestTotalContentTooLarge(c *tc.C) {
 	content := strings.Repeat("a", 4*1024)
 	var args []string
 	for i := 1; i <= 20; i++ {
 		args = append(args, fmt.Sprintf("key%d=%s", i, content))
 	}
 	_, err := secrets.CreateSecretData(args)
-	c.Assert(err, gc.ErrorMatches, `secret content too large: 81920 bytes`)
+	c.Assert(err, tc.ErrorMatches, `secret content too large: 81920 bytes`)
 }
 
-func (s *CreateSecretSuite) TestSecretKeyFromFile(c *gc.C) {
+func (s *CreateSecretSuite) TestSecretKeyFromFile(c *tc.C) {
 	content := `
       -----BEGIN CERTIFICATE-----
       MIIFYjCCA0qgAwIBAgIQKaPND9YggIG6+jOcgmpk3DANBgkqhkiG9w0BAQsFADAz
@@ -71,7 +71,7 @@ func (s *CreateSecretSuite) TestSecretKeyFromFile(c *gc.C) {
 	})
 }
 
-func (s *CreateSecretSuite) TestYAMLFile(c *gc.C) {
+func (s *CreateSecretSuite) TestYAMLFile(c *tc.C) {
 	data := `
     hello: world
     goodbye#base64: world
@@ -95,7 +95,7 @@ func (s *CreateSecretSuite) TestYAMLFile(c *gc.C) {
 	})
 }
 
-func (s *CreateSecretSuite) TestJSONFile(c *gc.C) {
+func (s *CreateSecretSuite) TestJSONFile(c *tc.C) {
 	data := `{
     "hello": "world",
     "goodbye#base64": "world",

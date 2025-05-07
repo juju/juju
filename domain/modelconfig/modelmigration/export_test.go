@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/environs/config"
@@ -20,9 +20,9 @@ type exportSuite struct {
 	service     *MockExportService
 }
 
-var _ = gc.Suite(&exportSuite{})
+var _ = tc.Suite(&exportSuite{})
 
-func (s *exportSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *exportSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.coordinator = NewMockCoordinator(ctrl)
@@ -37,7 +37,7 @@ func (s *exportSuite) newExportOperation() *exportOperation {
 	}
 }
 
-func (s *exportSuite) TestRegisterExport(c *gc.C) {
+func (s *exportSuite) TestRegisterExport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.coordinator.EXPECT().Add(gomock.Any())
@@ -45,7 +45,7 @@ func (s *exportSuite) TestRegisterExport(c *gc.C) {
 	RegisterExport(s.coordinator)
 }
 
-func (s *exportSuite) TestNilModelConfig(c *gc.C) {
+func (s *exportSuite) TestNilModelConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.service.EXPECT().ModelConfig(gomock.Any()).Return(nil, nil)
@@ -57,7 +57,7 @@ func (s *exportSuite) TestNilModelConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *exportSuite) TestEmptyModelConfig(c *gc.C) {
+func (s *exportSuite) TestEmptyModelConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	config := &config.Config{}
@@ -71,7 +71,7 @@ func (s *exportSuite) TestEmptyModelConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *exportSuite) TestModelConfig(c *gc.C) {
+func (s *exportSuite) TestModelConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	config, err := config.New(config.NoDefaults, map[string]any{

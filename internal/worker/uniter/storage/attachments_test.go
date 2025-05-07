@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
@@ -39,38 +39,38 @@ type iaasAttachmentsSuite struct {
 	attachmentsSuite
 }
 
-var _ = gc.Suite(&caasAttachmentsSuite{})
-var _ = gc.Suite(&iaasAttachmentsSuite{})
+var _ = tc.Suite(&caasAttachmentsSuite{})
+var _ = tc.Suite(&iaasAttachmentsSuite{})
 
-func (s *attachmentsSuite) SetUpTest(c *gc.C) {
+func (s *attachmentsSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.storSt = storage.NewState()
 }
 
-func (s *caasAttachmentsSuite) SetUpTest(c *gc.C) {
+func (s *caasAttachmentsSuite) SetUpTest(c *tc.C) {
 	s.modelType = model.CAAS
 	s.attachmentsSuite.SetUpTest(c)
 }
 
-func (s *iaasAttachmentsSuite) SetUpTest(c *gc.C) {
+func (s *iaasAttachmentsSuite) SetUpTest(c *tc.C) {
 	s.modelType = model.IAAS
 	s.attachmentsSuite.SetUpTest(c)
 }
 
-func (s *attachmentsSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *attachmentsSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctlr := s.mockStateOpsSuite.setupMocks(c)
 	s.expectState(c)
 	return ctlr
 }
 
-func (s *attachmentsSuite) TestNewAttachments(c *gc.C) {
+func (s *attachmentsSuite) TestNewAttachments(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitTag := names.NewUnitTag("mysql/0")
 	abort := make(chan struct{})
 	st := &mockStorageAccessor{
 		unitStorageAttachments: func(u names.UnitTag) ([]params.StorageAttachmentId, error) {
-			c.Assert(u, gc.Equals, unitTag)
+			c.Assert(u, tc.Equals, unitTag)
 			return nil, nil
 		},
 	}
@@ -79,7 +79,7 @@ func (s *attachmentsSuite) TestNewAttachments(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *attachmentsSuite) assertNewAttachments(c *gc.C, storageTag names.StorageTag) *storage.Attachments {
+func (s *attachmentsSuite) assertNewAttachments(c *tc.C, storageTag names.StorageTag) *storage.Attachments {
 	unitTag := names.NewUnitTag("mysql/0")
 	abort := make(chan struct{})
 
@@ -99,11 +99,11 @@ func (s *attachmentsSuite) assertNewAttachments(c *gc.C, storageTag names.Storag
 
 	storSt := &mockStorageAccessor{
 		unitStorageAttachments: func(u names.UnitTag) ([]params.StorageAttachmentId, error) {
-			c.Assert(u, gc.Equals, unitTag)
+			c.Assert(u, tc.Equals, unitTag)
 			return attachmentIds, nil
 		},
 		storageAttachment: func(s names.StorageTag, u names.UnitTag) (params.StorageAttachment, error) {
-			c.Assert(s, gc.Equals, storageTag)
+			c.Assert(s, tc.Equals, storageTag)
 			return attachment, nil
 		},
 	}
@@ -113,14 +113,14 @@ func (s *attachmentsSuite) assertNewAttachments(c *gc.C, storageTag names.Storag
 	return att
 }
 
-func (s *attachmentsSuite) TestNewAttachmentsInitHavePending(c *gc.C) {
+func (s *attachmentsSuite) TestNewAttachmentsInitHavePending(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	storageTag := names.NewStorageTag("data/0")
 
 	// No initial storage State, so no storagers will be started.
 	att := s.assertNewAttachments(c, storageTag)
-	c.Assert(att.Pending(), gc.Equals, 1)
+	c.Assert(att.Pending(), tc.Equals, 1)
 	err := att.ValidateHook(hook.Info{
 		Kind:      hooks.StorageAttached,
 		StorageId: storageTag.Id(),
@@ -128,7 +128,7 @@ func (s *attachmentsSuite) TestNewAttachmentsInitHavePending(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *attachmentsSuite) TestNewAttachmentsInit(c *gc.C) {
+func (s *attachmentsSuite) TestNewAttachmentsInit(c *tc.C) {
 	defer s.mockStateOpsSuite.setupMocks(c).Finish()
 	storageTag := names.NewStorageTag("data/0")
 	s.storSt.Attach(storageTag.Id())
@@ -140,10 +140,10 @@ func (s *attachmentsSuite) TestNewAttachmentsInit(c *gc.C) {
 	s.expectState(c)
 
 	att := s.assertNewAttachments(c, storageTag)
-	c.Assert(att.Pending(), gc.Equals, 0)
+	c.Assert(att.Pending(), tc.Equals, 0)
 }
 
-func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *gc.C) {
+func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	abort := make(chan struct{})
@@ -155,7 +155,7 @@ func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *gc.C) {
 			return nil, nil
 		},
 		remove: func(s names.StorageTag, u names.UnitTag) error {
-			c.Assert(u, gc.Equals, unitTag)
+			c.Assert(u, tc.Equals, unitTag)
 			removed.Add(s)
 			return nil
 		},
@@ -193,18 +193,18 @@ func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *gc.C) {
 				storageTag: {Life: life.Dying},
 			},
 		}, nil)
-		c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+		c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 	}
 	c.Assert(removed.SortedValues(), jc.DeepEquals, []names.Tag{
 		storageTag0, storageTag1,
 	})
 }
 
-func (s *attachmentsSuite) TestAttachmentsStorage(c *gc.C) {
+func (s *attachmentsSuite) TestAttachmentsStorage(c *tc.C) {
 	s.testAttachmentsStorage(c, operation.State{Kind: operation.Continue})
 }
 
-func (s *caasAttachmentsSuite) TestAttachmentsStorageStarted(c *gc.C) {
+func (s *caasAttachmentsSuite) TestAttachmentsStorageStarted(c *tc.C) {
 	opState := operation.State{
 		Kind:      operation.RunHook,
 		Step:      operation.Queued,
@@ -214,7 +214,7 @@ func (s *caasAttachmentsSuite) TestAttachmentsStorageStarted(c *gc.C) {
 	s.testAttachmentsStorage(c, opState)
 }
 
-func (s *attachmentsSuite) testAttachmentsStorage(c *gc.C, opState operation.State) {
+func (s *attachmentsSuite) testAttachmentsStorage(c *tc.C, opState operation.State) {
 	defer s.setupMocks(c).Finish()
 
 	unitTag := names.NewUnitTag("mysql/0")
@@ -246,10 +246,10 @@ func (s *attachmentsSuite) testAttachmentsStorage(c *gc.C, opState operation.Sta
 		},
 	}, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.String(), gc.Equals, "run hook storage-attached")
+	c.Assert(op.String(), tc.Equals, "run hook storage-attached")
 }
 
-func (s *caasAttachmentsSuite) TestAttachmentsStorageNotStarted(c *gc.C) {
+func (s *caasAttachmentsSuite) TestAttachmentsStorageNotStarted(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitTag := names.NewUnitTag("mysql/0")
@@ -285,10 +285,10 @@ func (s *caasAttachmentsSuite) TestAttachmentsStorageNotStarted(c *gc.C) {
 			},
 		},
 	}, &mockOperations{})
-	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 }
 
-func (s *attachmentsSuite) TestAttachmentsCommitHook(c *gc.C) {
+func (s *attachmentsSuite) TestAttachmentsCommitHook(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitTag := names.NewUnitTag("mysql/0")
@@ -302,7 +302,7 @@ func (s *attachmentsSuite) TestAttachmentsCommitHook(c *gc.C) {
 		},
 		remove: func(s names.StorageTag, u names.UnitTag) error {
 			removed = true
-			c.Assert(s, gc.Equals, storageTag)
+			c.Assert(s, tc.Equals, storageTag)
 			return nil
 		},
 	}
@@ -327,7 +327,7 @@ func (s *attachmentsSuite) TestAttachmentsCommitHook(c *gc.C) {
 		},
 	}, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(att.Pending(), gc.Equals, 1)
+	c.Assert(att.Pending(), tc.Equals, 1)
 
 	s.storSt.Attach(storageTag.Id())
 	s.expectSetState(c, "")
@@ -349,7 +349,7 @@ func (s *attachmentsSuite) TestAttachmentsCommitHook(c *gc.C) {
 	c.Assert(removed, jc.IsTrue)
 }
 
-func (s *attachmentsSuite) TestAttachmentsSetDying(c *gc.C) {
+func (s *attachmentsSuite) TestAttachmentsSetDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitTag := names.NewUnitTag("mysql/0")
@@ -359,29 +359,29 @@ func (s *attachmentsSuite) TestAttachmentsSetDying(c *gc.C) {
 	var destroyed, removed bool
 	st := &mockStorageAccessor{
 		unitStorageAttachments: func(u names.UnitTag) ([]params.StorageAttachmentId, error) {
-			c.Assert(u, gc.Equals, unitTag)
+			c.Assert(u, tc.Equals, unitTag)
 			return []params.StorageAttachmentId{{
 				StorageTag: storageTag.String(),
 				UnitTag:    unitTag.String(),
 			}}, nil
 		},
 		storageAttachment: func(s names.StorageTag, u names.UnitTag) (params.StorageAttachment, error) {
-			c.Assert(u, gc.Equals, unitTag)
-			c.Assert(s, gc.Equals, storageTag)
+			c.Assert(u, tc.Equals, unitTag)
+			c.Assert(s, tc.Equals, storageTag)
 			return params.StorageAttachment{}, &params.Error{
 				Message: "not provisioned",
 				Code:    params.CodeNotProvisioned,
 			}
 		},
 		destroyUnitStorageAttachments: func(u names.UnitTag) error {
-			c.Assert(u, gc.Equals, unitTag)
+			c.Assert(u, tc.Equals, unitTag)
 			destroyed = true
 			return nil
 		},
 		remove: func(s names.StorageTag, u names.UnitTag) error {
 			c.Assert(removed, jc.IsFalse)
-			c.Assert(s, gc.Equals, storageTag)
-			c.Assert(u, gc.Equals, unitTag)
+			c.Assert(s, tc.Equals, storageTag)
+			c.Assert(u, tc.Equals, unitTag)
 			removed = true
 			return nil
 		},
@@ -389,7 +389,7 @@ func (s *attachmentsSuite) TestAttachmentsSetDying(c *gc.C) {
 
 	att, err := storage.NewAttachments(context.Background(), st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(att.Pending(), gc.Equals, 1)
+	c.Assert(att.Pending(), tc.Equals, 1)
 	r := storage.NewResolver(loggertesting.WrapCheckLog(c), att, s.modelType)
 
 	// Inform the resolver that the unit is Dying. The storage is still
@@ -409,13 +409,13 @@ func (s *attachmentsSuite) TestAttachmentsSetDying(c *gc.C) {
 			},
 		},
 	}, &mockOperations{})
-	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 	c.Assert(destroyed, jc.IsTrue)
-	c.Assert(att.Pending(), gc.Equals, 0)
+	c.Assert(att.Pending(), tc.Equals, 0)
 	c.Assert(removed, jc.IsTrue)
 }
 
-func (s *attachmentsSuite) TestAttachmentsWaitPending(c *gc.C) {
+func (s *attachmentsSuite) TestAttachmentsWaitPending(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitTag := names.NewUnitTag("mysql/0")
@@ -453,14 +453,14 @@ func (s *attachmentsSuite) TestAttachmentsWaitPending(c *gc.C) {
 	// For IAAS models, before install, we should wait for its completion;
 	// after install, we should not.
 	err = nextOp(false /* workload not installed */)
-	c.Assert(att.Pending(), gc.Equals, 1)
+	c.Assert(att.Pending(), tc.Equals, 1)
 
 	if s.modelType == model.IAAS {
-		c.Assert(err, gc.Equals, resolver.ErrWaiting)
+		c.Assert(err, tc.Equals, resolver.ErrWaiting)
 	} else {
-		c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+		c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 	}
 
 	err = nextOp(true /* workload installed */)
-	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 }

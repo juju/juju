@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -29,7 +29,7 @@ type upgradeSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&upgradeSuite{})
+var _ = tc.Suite(&upgradeSuite{})
 
 type mockUpgradeOperation struct {
 	targetVersion semversion.Number
@@ -332,7 +332,7 @@ var upgradeTests = []upgradeTest{
 	},
 }
 
-func (s *upgradeSuite) TestPerformUpgradeSteps(c *gc.C) {
+func (s *upgradeSuite) TestPerformUpgradeSteps(c *tc.C) {
 	s.PatchValue(upgrades.UpgradeOperations, upgradeOperations)
 	for i, test := range upgradeTests {
 		c.Logf("%d: %s", i, test.about)
@@ -353,34 +353,34 @@ func (s *upgradeSuite) TestPerformUpgradeSteps(c *gc.C) {
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
-			c.Check(err, gc.ErrorMatches, test.err)
+			c.Check(err, tc.ErrorMatches, test.err)
 		}
 		c.Check(ctx.messages, jc.DeepEquals, test.expectedSteps)
 	}
 }
 
-func (s *upgradeSuite) TestUpgradeOperationsOrdered(c *gc.C) {
+func (s *upgradeSuite) TestUpgradeOperationsOrdered(c *tc.C) {
 	var previous semversion.Number
 	for i, utv := range (*upgrades.UpgradeOperations)() {
 		vers := utv.TargetVersion()
 		if i > 0 {
-			c.Check(previous.Compare(vers), gc.Equals, -1)
+			c.Check(previous.Compare(vers), tc.Equals, -1)
 		}
 		previous = vers
 	}
 }
 
-func (s *upgradeSuite) TestUpgradeOperationsVersions(c *gc.C) {
+func (s *upgradeSuite) TestUpgradeOperationsVersions(c *tc.C) {
 	versions := extractUpgradeVersions(c, (*upgrades.UpgradeOperations)())
-	c.Assert(versions, gc.DeepEquals, []string{"6.6.6"})
+	c.Assert(versions, tc.DeepEquals, []string{"6.6.6"})
 }
 
-func extractUpgradeVersions(c *gc.C, ops []upgrades.Operation) []string {
+func extractUpgradeVersions(c *tc.C, ops []upgrades.Operation) []string {
 	var versions []string
 	for _, utv := range ops {
 		vers := utv.TargetVersion()
 		// Upgrade steps should only be targeted at final versions (not alpha/beta).
-		c.Check(vers.Tag, gc.Equals, "")
+		c.Check(vers.Tag, tc.Equals, "")
 		versions = append(versions, vers.String())
 	}
 	return versions

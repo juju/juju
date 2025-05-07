@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/secrets"
@@ -28,12 +28,12 @@ type RealPaths struct {
 	metricsspool string
 }
 
-func osDependentSockPath(c *gc.C) sockets.Socket {
+func osDependentSockPath(c *tc.C) sockets.Socket {
 	sockPath := filepath.Join(c.MkDir(), "test.sock")
 	return sockets.Socket{Network: "unix", Address: sockPath}
 }
 
-func NewRealPaths(c *gc.C) RealPaths {
+func NewRealPaths(c *tc.C) RealPaths {
 	return RealPaths{
 		tools:        c.MkDir(),
 		charm:        c.MkDir(),

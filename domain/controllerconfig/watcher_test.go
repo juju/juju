@@ -6,8 +6,8 @@ package controllerconfig
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/changestream"
@@ -24,9 +24,9 @@ type watcherSuite struct {
 	changestreamtesting.ControllerSuite
 }
 
-var _ = gc.Suite(&watcherSuite{})
+var _ = tc.Suite(&watcherSuite{})
 
-func (s *watcherSuite) TestWatchControllerConfig(c *gc.C) {
+func (s *watcherSuite) TestWatchControllerConfig(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "controller_config")
 
 	svc := service.NewWatchableService(state.NewState(func() (database.TxnRunner, error) { return factory() }),
@@ -39,7 +39,7 @@ func (s *watcherSuite) TestWatchControllerConfig(c *gc.C) {
 
 	harness := watchertest.NewHarness[[]string](s, watchertest.NewWatcherC[[]string](c, watcher))
 
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		cfgMap := map[string]any{
 			controller.AuditingEnabled:        true,
 			controller.AuditLogCaptureArgs:    false,
@@ -63,7 +63,7 @@ func (s *watcherSuite) TestWatchControllerConfig(c *gc.C) {
 		)
 	})
 
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		cfgMap := map[string]any{
 			controller.AuditLogMaxBackups: 11,
 		}
@@ -79,7 +79,7 @@ func (s *watcherSuite) TestWatchControllerConfig(c *gc.C) {
 		)
 	})
 
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		cfgMap := map[string]any{
 			controller.AuditLogMaxBackups: 11,
 		}

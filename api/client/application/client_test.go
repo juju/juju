@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/application"
@@ -31,9 +31,9 @@ import (
 
 type applicationSuite struct{}
 
-var _ = gc.Suite(&applicationSuite{})
+var _ = tc.Suite(&applicationSuite{})
 
-func (s *applicationSuite) TestDeploy(c *gc.C) {
+func (s *applicationSuite) TestDeploy(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -86,7 +86,7 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *applicationSuite) TestDeployAlreadyExists(c *gc.C) {
+func (s *applicationSuite) TestDeployAlreadyExists(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -136,10 +136,10 @@ func (s *applicationSuite) TestDeployAlreadyExists(c *gc.C) {
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	err := client.Deploy(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, `application already exists`)
+	c.Assert(err, tc.ErrorMatches, `application already exists`)
 }
 
-func (s *applicationSuite) TestDeployAttachStorageMultipleUnits(c *gc.C) {
+func (s *applicationSuite) TestDeployAttachStorageMultipleUnits(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -151,10 +151,10 @@ func (s *applicationSuite) TestDeployAttachStorageMultipleUnits(c *gc.C) {
 	}
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	err := client.Deploy(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, "cannot attach existing storage when more than one unit is requested")
+	c.Assert(err, tc.ErrorMatches, "cannot attach existing storage when more than one unit is requested")
 }
 
-func (s *applicationSuite) TestAddUnits(c *gc.C) {
+func (s *applicationSuite) TestAddUnits(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -183,7 +183,7 @@ func (s *applicationSuite) TestAddUnits(c *gc.C) {
 	c.Assert(units, jc.DeepEquals, []string{"foo/0"})
 }
 
-func (s *applicationSuite) TestAddUnitsAttachStorageMultipleUnits(c *gc.C) {
+func (s *applicationSuite) TestAddUnitsAttachStorageMultipleUnits(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -193,10 +193,10 @@ func (s *applicationSuite) TestAddUnitsAttachStorageMultipleUnits(c *gc.C) {
 		NumUnits:      2,
 		AttachStorage: []string{"data/0"},
 	})
-	c.Assert(err, gc.ErrorMatches, "cannot attach existing storage when more than one unit is requested")
+	c.Assert(err, tc.ErrorMatches, "cannot attach existing storage when more than one unit is requested")
 }
 
-func (s *applicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
+func (s *applicationSuite) TestApplicationGetCharmURLOrigin(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -214,13 +214,13 @@ func (s *applicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 
 	curl, origin, err := client.GetCharmURLOrigin(context.Background(), "application")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(curl, gc.DeepEquals, charm.MustParseURL("ch:curl"))
-	c.Assert(origin, gc.DeepEquals, apicharm.Origin{
+	c.Assert(curl, tc.DeepEquals, charm.MustParseURL("ch:curl"))
+	c.Assert(origin, tc.DeepEquals, apicharm.Origin{
 		Risk: "edge",
 	})
 }
 
-func (s *applicationSuite) TestSetCharm(c *gc.C) {
+func (s *applicationSuite) TestSetCharm(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -251,10 +251,10 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 		},
 	}
 
-	c.Assert(args.ConfigSettingsYAML, gc.Equals, "yaml")
-	c.Assert(args.Force, gc.Equals, true)
-	c.Assert(args.ForceBase, gc.Equals, true)
-	c.Assert(args.ForceUnits, gc.Equals, true)
+	c.Assert(args.ConfigSettingsYAML, tc.Equals, "yaml")
+	c.Assert(args.Force, tc.Equals, true)
+	c.Assert(args.ForceBase, tc.Equals, true)
+	c.Assert(args.ForceUnits, tc.Equals, true)
 	c.Assert(args.StorageDirectives, jc.DeepEquals, map[string]params.StorageDirectives{
 		"a": {Pool: "radiant"},
 		"b": {Count: toUint64Ptr(123)},
@@ -292,7 +292,7 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *applicationSuite) TestDestroyApplications(c *gc.C) {
+func (s *applicationSuite) TestDestroyApplications(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -327,7 +327,7 @@ func (s *applicationSuite) TestDestroyApplications(c *gc.C) {
 	c.Assert(res, jc.DeepEquals, expectedResults)
 }
 
-func (s *applicationSuite) TestDestroyApplicationsArity(c *gc.C) {
+func (s *applicationSuite) TestDestroyApplicationsArity(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -345,10 +345,10 @@ func (s *applicationSuite) TestDestroyApplicationsArity(c *gc.C) {
 	_, err := client.DestroyApplications(context.Background(), application.DestroyApplicationsParams{
 		Applications: []string{"foo"},
 	})
-	c.Assert(err, gc.ErrorMatches, `expected 1 result\(s\), got 0`)
+	c.Assert(err, tc.ErrorMatches, `expected 1 result\(s\), got 0`)
 }
 
-func (s *applicationSuite) TestDestroyApplicationsInvalidIds(c *gc.C) {
+func (s *applicationSuite) TestDestroyApplicationsInvalidIds(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	expectedResults := []params.DestroyApplicationResult{{
@@ -373,7 +373,7 @@ func (s *applicationSuite) TestDestroyApplicationsInvalidIds(c *gc.C) {
 	c.Assert(res, jc.DeepEquals, expectedResults)
 }
 
-func (s *applicationSuite) TestDestroyConsumedApplicationsArity(c *gc.C) {
+func (s *applicationSuite) TestDestroyConsumedApplicationsArity(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -392,10 +392,10 @@ func (s *applicationSuite) TestDestroyConsumedApplicationsArity(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DestroyConsumedApplications", args, result).SetArg(3, results).Return(nil)
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	_, err := client.DestroyConsumedApplication(context.Background(), destroyParams)
-	c.Assert(err, gc.ErrorMatches, `expected 1 result\(s\), got 0`)
+	c.Assert(err, tc.ErrorMatches, `expected 1 result\(s\), got 0`)
 }
 
-func (s *applicationSuite) TestDestroyConsumedApplications(c *gc.C) {
+func (s *applicationSuite) TestDestroyConsumedApplications(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -417,18 +417,18 @@ func (s *applicationSuite) TestDestroyConsumedApplications(c *gc.C) {
 	}
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	res, err := client.DestroyConsumedApplication(context.Background(), destroyParams)
-	c.Check(err, gc.ErrorMatches, "--force is required when --max-wait is provided")
-	c.Check(res, gc.HasLen, 0)
+	c.Check(err, tc.ErrorMatches, "--force is required when --max-wait is provided")
+	c.Check(res, tc.HasLen, 0)
 
 	destroyParams = application.DestroyConsumedApplicationParams{
 		[]string{"foo", "bar"}, force, &noWait,
 	}
 	res, err = client.DestroyConsumedApplication(context.Background(), destroyParams)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(res, gc.HasLen, 2)
+	c.Check(res, tc.HasLen, 2)
 }
 
-func (s *applicationSuite) TestDestroyUnits(c *gc.C) {
+func (s *applicationSuite) TestDestroyUnits(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -463,7 +463,7 @@ func (s *applicationSuite) TestDestroyUnits(c *gc.C) {
 	c.Assert(res, jc.DeepEquals, expectedResults)
 }
 
-func (s *applicationSuite) TestDestroyUnitsArity(c *gc.C) {
+func (s *applicationSuite) TestDestroyUnitsArity(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -481,10 +481,10 @@ func (s *applicationSuite) TestDestroyUnitsArity(c *gc.C) {
 	_, err := client.DestroyUnits(context.Background(), application.DestroyUnitsParams{
 		Units: []string{"foo/0"},
 	})
-	c.Assert(err, gc.ErrorMatches, `expected 1 result\(s\), got 0`)
+	c.Assert(err, tc.ErrorMatches, `expected 1 result\(s\), got 0`)
 }
 
-func (s *applicationSuite) TestDestroyUnitsInvalidIds(c *gc.C) {
+func (s *applicationSuite) TestDestroyUnitsInvalidIds(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -510,7 +510,7 @@ func (s *applicationSuite) TestDestroyUnitsInvalidIds(c *gc.C) {
 	c.Assert(res, jc.DeepEquals, expectedResults)
 }
 
-func (s *applicationSuite) TestConsume(c *gc.C) {
+func (s *applicationSuite) TestConsume(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -559,10 +559,10 @@ func (s *applicationSuite) TestConsume(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(name, gc.Equals, "alias")
+	c.Assert(name, tc.Equals, "alias")
 }
 
-func (s *applicationSuite) TestDestroyRelation(c *gc.C) {
+func (s *applicationSuite) TestDestroyRelation(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -594,7 +594,7 @@ func (s *applicationSuite) TestDestroyRelation(c *gc.C) {
 	}
 }
 
-func (s *applicationSuite) TestDestroyRelationId(c *gc.C) {
+func (s *applicationSuite) TestDestroyRelationId(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -626,7 +626,7 @@ func (s *applicationSuite) TestDestroyRelationId(c *gc.C) {
 	}
 }
 
-func (s *applicationSuite) TestSetRelationSuspended(c *gc.C) {
+func (s *applicationSuite) TestSetRelationSuspended(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -654,7 +654,7 @@ func (s *applicationSuite) TestSetRelationSuspended(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *applicationSuite) TestSetRelationSuspendedArity(c *gc.C) {
+func (s *applicationSuite) TestSetRelationSuspendedArity(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -679,10 +679,10 @@ func (s *applicationSuite) TestSetRelationSuspendedArity(c *gc.C) {
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	err := client.SetRelationSuspended(context.Background(), []int{123, 456}, true, "message")
-	c.Assert(err, gc.ErrorMatches, "expected 2 results, got 1")
+	c.Assert(err, tc.ErrorMatches, "expected 2 results, got 1")
 }
 
-func (s *applicationSuite) TestAddRelation(c *gc.C) {
+func (s *applicationSuite) TestAddRelation(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -706,7 +706,7 @@ func (s *applicationSuite) TestAddRelation(c *gc.C) {
 	})
 }
 
-func (s *applicationSuite) TestGetConfig(c *gc.C) {
+func (s *applicationSuite) TestGetConfig(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -759,7 +759,7 @@ func (s *applicationSuite) TestGetConfig(c *gc.C) {
 	})
 }
 
-func (s *applicationSuite) TestGetConstraints(c *gc.C) {
+func (s *applicationSuite) TestGetConstraints(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -786,7 +786,7 @@ func (s *applicationSuite) TestGetConstraints(c *gc.C) {
 	})
 }
 
-func (s *applicationSuite) TestGetConstraintsError(c *gc.C) {
+func (s *applicationSuite) TestGetConstraintsError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -807,11 +807,11 @@ func (s *applicationSuite) TestGetConstraintsError(c *gc.C) {
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	res, err := client.GetConstraints(context.Background(), "foo", "bar")
-	c.Assert(err, gc.ErrorMatches, `unable to get constraints for "bar": oh no`)
-	c.Assert(res, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `unable to get constraints for "bar": oh no`)
+	c.Assert(res, tc.IsNil)
 }
 
-func (s *applicationSuite) TestSetConfig(c *gc.C) {
+func (s *applicationSuite) TestSetConfig(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -837,10 +837,10 @@ func (s *applicationSuite) TestSetConfig(c *gc.C) {
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	err := client.SetConfig(context.Background(), "foo", fooConfigYaml, fooConfig)
-	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
-func (s *applicationSuite) TestUnsetApplicationConfig(c *gc.C) {
+func (s *applicationSuite) TestUnsetApplicationConfig(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -861,10 +861,10 @@ func (s *applicationSuite) TestUnsetApplicationConfig(c *gc.C) {
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	err := client.UnsetApplicationConfig(context.Background(), "foo", []string{"option"})
-	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
-func (s *applicationSuite) TestResolveUnitErrors(c *gc.C) {
+func (s *applicationSuite) TestResolveUnitErrors(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -890,7 +890,7 @@ func (s *applicationSuite) TestResolveUnitErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *applicationSuite) TestResolveUnitErrorsUnitsAll(c *gc.C) {
+func (s *applicationSuite) TestResolveUnitErrorsUnitsAll(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -899,11 +899,11 @@ func (s *applicationSuite) TestResolveUnitErrorsUnitsAll(c *gc.C) {
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	err := client.ResolveUnitErrors(context.Background(), units, true, false)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, "specifying units with all=true not supported")
+	c.Assert(err, tc.NotNil)
+	c.Assert(err.Error(), tc.Equals, "specifying units with all=true not supported")
 }
 
-func (s *applicationSuite) TestResolveUnitDuplicate(c *gc.C) {
+func (s *applicationSuite) TestResolveUnitDuplicate(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -912,11 +912,11 @@ func (s *applicationSuite) TestResolveUnitDuplicate(c *gc.C) {
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	err := client.ResolveUnitErrors(context.Background(), units, false, false)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, "duplicate unit specified")
+	c.Assert(err, tc.NotNil)
+	c.Assert(err.Error(), tc.Equals, "duplicate unit specified")
 }
 
-func (s *applicationSuite) TestResolveUnitErrorsInvalidUnit(c *gc.C) {
+func (s *applicationSuite) TestResolveUnitErrorsInvalidUnit(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -925,11 +925,11 @@ func (s *applicationSuite) TestResolveUnitErrorsInvalidUnit(c *gc.C) {
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	err := client.ResolveUnitErrors(context.Background(), units, false, false)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, `unit name "mysql" not valid`)
+	c.Assert(err, tc.NotNil)
+	c.Assert(err.Error(), tc.Equals, `unit name "mysql" not valid`)
 }
 
-func (s *applicationSuite) TestResolveUnitErrorsAll(c *gc.C) {
+func (s *applicationSuite) TestResolveUnitErrorsAll(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -948,7 +948,7 @@ func (s *applicationSuite) TestResolveUnitErrorsAll(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *applicationSuite) TestScaleApplication(c *gc.C) {
+func (s *applicationSuite) TestScaleApplication(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -977,7 +977,7 @@ func (s *applicationSuite) TestScaleApplication(c *gc.C) {
 	})
 }
 
-func (s *applicationSuite) TestChangeScaleApplication(c *gc.C) {
+func (s *applicationSuite) TestChangeScaleApplication(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1005,7 +1005,7 @@ func (s *applicationSuite) TestChangeScaleApplication(c *gc.C) {
 	})
 }
 
-func (s *applicationSuite) TestScaleApplicationArity(c *gc.C) {
+func (s *applicationSuite) TestScaleApplicationArity(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1028,10 +1028,10 @@ func (s *applicationSuite) TestScaleApplicationArity(c *gc.C) {
 		ApplicationName: "foo",
 		Scale:           5,
 	})
-	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 2")
 }
 
-func (s *applicationSuite) TestScaleApplicationValidation(c *gc.C) {
+func (s *applicationSuite) TestScaleApplicationValidation(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1056,11 +1056,11 @@ func (s *applicationSuite) TestScaleApplicationValidation(c *gc.C) {
 			Scale:           test.scale,
 			ScaleChange:     test.scaleChange,
 		})
-		c.Assert(err, gc.ErrorMatches, test.errorStr)
+		c.Assert(err, tc.ErrorMatches, test.errorStr)
 	}
 }
 
-func (s *applicationSuite) TestScaleApplicationError(c *gc.C) {
+func (s *applicationSuite) TestScaleApplicationError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1082,10 +1082,10 @@ func (s *applicationSuite) TestScaleApplicationError(c *gc.C) {
 		ApplicationName: "foo",
 		Scale:           5,
 	})
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *applicationSuite) TestScaleApplicationCallError(c *gc.C) {
+func (s *applicationSuite) TestScaleApplicationCallError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1103,10 +1103,10 @@ func (s *applicationSuite) TestScaleApplicationCallError(c *gc.C) {
 		ApplicationName: "foo",
 		Scale:           5,
 	})
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *applicationSuite) TestApplicationsInfoCallError(c *gc.C) {
+func (s *applicationSuite) TestApplicationsInfoCallError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1118,10 +1118,10 @@ func (s *applicationSuite) TestApplicationsInfoCallError(c *gc.C) {
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	_, err := client.ApplicationsInfo(context.Background(), nil)
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *applicationSuite) TestApplicationsInfo(c *gc.C) {
+func (s *applicationSuite) TestApplicationsInfo(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1160,7 +1160,7 @@ func (s *applicationSuite) TestApplicationsInfo(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.DeepEquals, []params.ApplicationInfoResult{
+	c.Assert(res, tc.DeepEquals, []params.ApplicationInfoResult{
 		{Error: &params.Error{Message: "boom"}},
 		{Result: &params.ApplicationResult{
 			Tag:       "application-bar",
@@ -1176,7 +1176,7 @@ func (s *applicationSuite) TestApplicationsInfo(c *gc.C) {
 	})
 }
 
-func (s *applicationSuite) TestApplicationsInfoResultMismatch(c *gc.C) {
+func (s *applicationSuite) TestApplicationsInfoResultMismatch(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1203,10 +1203,10 @@ func (s *applicationSuite) TestApplicationsInfoResultMismatch(c *gc.C) {
 			names.NewApplicationTag("bar"),
 		},
 	)
-	c.Assert(err, gc.ErrorMatches, "expected 2 results, got 3")
+	c.Assert(err, tc.ErrorMatches, "expected 2 results, got 3")
 }
 
-func (s *applicationSuite) TestUnitsInfoCallError(c *gc.C) {
+func (s *applicationSuite) TestUnitsInfoCallError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1218,10 +1218,10 @@ func (s *applicationSuite) TestUnitsInfoCallError(c *gc.C) {
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	_, err := client.UnitsInfo(context.Background(), nil)
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *applicationSuite) TestUnitsInfo(c *gc.C) {
+func (s *applicationSuite) TestUnitsInfo(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1271,7 +1271,7 @@ func (s *applicationSuite) TestUnitsInfo(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.DeepEquals, []application.UnitInfo{
+	c.Assert(res, tc.DeepEquals, []application.UnitInfo{
 		{Error: stderrors.New("boom")},
 		{
 			Tag:             "unit-bar-1",
@@ -1299,7 +1299,7 @@ func (s *applicationSuite) TestUnitsInfo(c *gc.C) {
 	})
 }
 
-func (s *applicationSuite) TestUnitsInfoResultMismatch(c *gc.C) {
+func (s *applicationSuite) TestUnitsInfoResultMismatch(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1323,10 +1323,10 @@ func (s *applicationSuite) TestUnitsInfoResultMismatch(c *gc.C) {
 			names.NewUnitTag("bar/1"),
 		},
 	)
-	c.Assert(err, gc.ErrorMatches, "expected 2 results, got 3")
+	c.Assert(err, tc.ErrorMatches, "expected 2 results, got 3")
 }
 
-func (s *applicationSuite) TestExpose(c *gc.C) {
+func (s *applicationSuite) TestExpose(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1358,7 +1358,7 @@ func (s *applicationSuite) TestExpose(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *applicationSuite) TestUnexpose(c *gc.C) {
+func (s *applicationSuite) TestUnexpose(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1374,7 +1374,7 @@ func (s *applicationSuite) TestUnexpose(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *applicationSuite) TestLeader(c *gc.C) {
+func (s *applicationSuite) TestLeader(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1387,10 +1387,10 @@ func (s *applicationSuite) TestLeader(c *gc.C) {
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	obtainedUnit, err := client.Leader(context.Background(), "ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedUnit, gc.Equals, "ubuntu/42")
+	c.Assert(obtainedUnit, tc.Equals, "ubuntu/42")
 }
 
-func (s *applicationSuite) TestDeployFromRepository(c *gc.C) {
+func (s *applicationSuite) TestDeployFromRepository(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1438,12 +1438,12 @@ func (s *applicationSuite) TestDeployFromRepository(c *gc.C) {
 	}
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	info, _, errs := client.DeployFromRepository(context.Background(), arg)
-	c.Assert(errs, gc.HasLen, 3)
-	c.Assert(errs[0], gc.ErrorMatches, "one")
-	c.Assert(errs[1], gc.ErrorMatches, "two")
-	c.Assert(errs[2], gc.ErrorMatches, "three")
+	c.Assert(errs, tc.HasLen, 3)
+	c.Assert(errs[0], tc.ErrorMatches, "one")
+	c.Assert(errs[1], tc.ErrorMatches, "two")
+	c.Assert(errs[2], tc.ErrorMatches, "three")
 
-	c.Assert(info, gc.DeepEquals, application.DeployInfo{
+	c.Assert(info, tc.DeepEquals, application.DeployInfo{
 		Channel:      candidate,
 		Architecture: "arm64",
 		Base: corebase.Base{

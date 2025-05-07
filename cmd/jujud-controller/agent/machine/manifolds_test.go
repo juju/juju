@@ -9,10 +9,10 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agenttest"
@@ -30,34 +30,34 @@ type ManifoldsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&ManifoldsSuite{})
+var _ = tc.Suite(&ManifoldsSuite{})
 
-func (s *ManifoldsSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldsSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 }
 
-func (s *ManifoldsSuite) TestStartFuncsIAAS(c *gc.C) {
+func (s *ManifoldsSuite) TestStartFuncsIAAS(c *tc.C) {
 	s.assertStartFuncs(c, machine.IAASManifolds(machine.ManifoldsConfig{
 		Agent:           &mockAgent{},
 		PreUpgradeSteps: preUpgradeSteps,
 	}))
 }
 
-func (s *ManifoldsSuite) TestStartFuncsCAAS(c *gc.C) {
+func (s *ManifoldsSuite) TestStartFuncsCAAS(c *tc.C) {
 	s.assertStartFuncs(c, machine.CAASManifolds(machine.ManifoldsConfig{
 		Agent:           &mockAgent{},
 		PreUpgradeSteps: preUpgradeSteps,
 	}))
 }
 
-func (*ManifoldsSuite) assertStartFuncs(c *gc.C, manifolds dependency.Manifolds) {
+func (*ManifoldsSuite) assertStartFuncs(c *tc.C, manifolds dependency.Manifolds) {
 	for name, manifold := range manifolds {
 		c.Logf("checking %q manifold", name)
-		c.Check(manifold.Start, gc.NotNil)
+		c.Check(manifold.Start, tc.NotNil)
 	}
 }
 
-func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
+func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 	s.assertManifoldNames(c,
 		machine.IAASManifolds(machine.ManifoldsConfig{
 			Agent:           &mockAgent{},
@@ -148,7 +148,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 	)
 }
 
-func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
+func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *tc.C) {
 	s.assertManifoldNames(c,
 		machine.CAASManifolds(machine.ManifoldsConfig{
 			Agent:           &mockAgent{},
@@ -222,7 +222,7 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 	)
 }
 
-func (*ManifoldsSuite) assertManifoldNames(c *gc.C, manifolds dependency.Manifolds, expectedKeys []string) {
+func (*ManifoldsSuite) assertManifoldNames(c *tc.C, manifolds dependency.Manifolds, expectedKeys []string) {
 	keys := make([]string, 0, len(manifolds))
 	for k := range manifolds {
 		keys = append(keys, k)
@@ -231,7 +231,7 @@ func (*ManifoldsSuite) assertManifoldNames(c *gc.C, manifolds dependency.Manifol
 	c.Assert(keys, jc.SameContents, expectedKeys)
 }
 
-func (*ManifoldsSuite) TestUpgradesBlockMigration(c *gc.C) {
+func (*ManifoldsSuite) TestUpgradesBlockMigration(c *tc.C) {
 	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
 		Agent:           &mockAgent{},
 		PreUpgradeSteps: preUpgradeSteps,
@@ -243,7 +243,7 @@ func (*ManifoldsSuite) TestUpgradesBlockMigration(c *gc.C) {
 	checkContains(c, manifold.Inputs, "upgrade-steps-flag")
 }
 
-func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
+func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *tc.C) {
 	exempt := set.NewStrings(
 		"agent",
 		"api-caller",
@@ -319,7 +319,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 	}
 }
 
-func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
+func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
 		Agent:           &mockAgent{},
 		PreUpgradeSteps: preUpgradeSteps,
@@ -389,7 +389,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 	}
 }
 
-func (*ManifoldsSuite) TestObjectStoreDoesNotUseDomainServices(c *gc.C) {
+func (*ManifoldsSuite) TestObjectStoreDoesNotUseDomainServices(c *tc.C) {
 	// The object-store is a dependency of the domain-services, so we can't have
 	// circular dependencies between the two. Ensuring that the dependencies is
 	// a good way to check that the domain-services isn't a dependency of the
@@ -413,7 +413,7 @@ func (*ManifoldsSuite) TestObjectStoreDoesNotUseDomainServices(c *gc.C) {
 	c.Check(dependencies.Contains("domain-services"), jc.IsFalse)
 }
 
-func (*ManifoldsSuite) TestProviderTrackerDoesNotUseDomainServices(c *gc.C) {
+func (*ManifoldsSuite) TestProviderTrackerDoesNotUseDomainServices(c *tc.C) {
 	// The provider-tracker is a dependency of the domain-services, so we can't
 	// have circular dependencies between the two. Ensuring that the
 	// dependencies is a good way to check that the domain-services isn't a
@@ -437,7 +437,7 @@ func (*ManifoldsSuite) TestProviderTrackerDoesNotUseDomainServices(c *gc.C) {
 	c.Check(dependencies.Contains("domain-services"), jc.IsFalse)
 }
 
-func (*ManifoldsSuite) TestAPICallerNonRecoverableErrorHandling(c *gc.C) {
+func (*ManifoldsSuite) TestAPICallerNonRecoverableErrorHandling(c *tc.C) {
 	ag := &mockAgent{
 		conf: mockConfig{
 			dataPath: c.MkDir(),
@@ -448,15 +448,15 @@ func (*ManifoldsSuite) TestAPICallerNonRecoverableErrorHandling(c *gc.C) {
 		PreUpgradeSteps: preUpgradeSteps,
 	})
 
-	c.Assert(manifolds["api-caller"], gc.Not(gc.IsNil))
+	c.Assert(manifolds["api-caller"], tc.Not(tc.IsNil))
 	apiCaller := manifolds["api-caller"]
 
 	// Check that when the api-caller maps non-recoverable errors to ErrTerminateAgent.
 	err := apiCaller.Filter(apicaller.ErrConnectImpossible)
-	c.Assert(err, gc.Equals, jworker.ErrTerminateAgent)
+	c.Assert(err, tc.Equals, jworker.ErrTerminateAgent)
 }
 
-func checkContains(c *gc.C, names []string, seek string) {
+func checkContains(c *tc.C, names []string, seek string) {
 	for _, name := range names {
 		if name == seek {
 			return
@@ -465,7 +465,7 @@ func checkContains(c *gc.C, names []string, seek string) {
 	c.Errorf("%q not found in %v", seek, names)
 }
 
-func checkNotContains(c *gc.C, names []string, seek string) {
+func checkNotContains(c *tc.C, names []string, seek string) {
 	for _, name := range names {
 		if name == seek {
 			c.Errorf("%q found in %v", seek, names)
@@ -474,7 +474,7 @@ func checkNotContains(c *gc.C, names []string, seek string) {
 	}
 }
 
-func (*ManifoldsSuite) TestUpgradeGates(c *gc.C) {
+func (*ManifoldsSuite) TestUpgradeGates(c *tc.C) {
 	upgradeStepsLock := gate.NewLock()
 	upgradeCheckLock := gate.NewLock()
 	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
@@ -487,7 +487,7 @@ func (*ManifoldsSuite) TestUpgradeGates(c *gc.C) {
 	assertGate(c, manifolds["upgrade-check-gate"], upgradeCheckLock)
 }
 
-func assertGate(c *gc.C, manifold dependency.Manifold, unlocker gate.Unlocker) {
+func assertGate(c *tc.C, manifold dependency.Manifold, unlocker gate.Unlocker) {
 	w, err := manifold.Start(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(w)
@@ -511,7 +511,7 @@ func assertGate(c *gc.C, manifold dependency.Manifold, unlocker gate.Unlocker) {
 	}
 }
 
-func (s *ManifoldsSuite) TestManifoldsDependenciesIAAS(c *gc.C) {
+func (s *ManifoldsSuite) TestManifoldsDependenciesIAAS(c *tc.C) {
 	agenttest.AssertManifoldsDependencies(c,
 		machine.IAASManifolds(machine.ManifoldsConfig{
 			Agent:           &mockAgent{},
@@ -521,7 +521,7 @@ func (s *ManifoldsSuite) TestManifoldsDependenciesIAAS(c *gc.C) {
 	)
 }
 
-func (s *ManifoldsSuite) TestManifoldsDependenciesCAAS(c *gc.C) {
+func (s *ManifoldsSuite) TestManifoldsDependenciesCAAS(c *tc.C) {
 	agenttest.AssertManifoldsDependencies(c,
 		machine.CAASManifolds(machine.ManifoldsConfig{
 			Agent:           &mockAgent{},

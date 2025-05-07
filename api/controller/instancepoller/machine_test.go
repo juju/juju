@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/instancepoller"
@@ -29,14 +29,14 @@ type MachineSuite struct {
 	tag names.MachineTag
 }
 
-var _ = gc.Suite(&MachineSuite{})
+var _ = tc.Suite(&MachineSuite{})
 
-func (s *MachineSuite) SetUpTest(c *gc.C) {
+func (s *MachineSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.tag = names.NewMachineTag("42")
 }
 
-func (s *MachineSuite) TestNonFacadeMethods(c *gc.C) {
+func (s *MachineSuite) TestNonFacadeMethods(c *tc.C) {
 	nopCaller := apitesting.APICallerFunc(
 		func(_ string, _ int, _, _ string, _, _ interface{}) error {
 			c.Fatalf("facade call was not expected")
@@ -45,10 +45,10 @@ func (s *MachineSuite) TestNonFacadeMethods(c *gc.C) {
 	)
 	machine := instancepoller.NewMachine(nopCaller, s.tag, life.Dying)
 
-	c.Assert(machine.Id(), gc.Equals, "42")
+	c.Assert(machine.Id(), tc.Equals, "42")
 	c.Assert(machine.Tag(), jc.DeepEquals, s.tag)
-	c.Assert(machine.String(), gc.Equals, "42")
-	c.Assert(machine.Life(), gc.Equals, life.Dying)
+	c.Assert(machine.String(), tc.Equals, "42")
+	c.Assert(machine.Life(), tc.Equals, life.Dying)
 }
 
 // methodWrapper wraps a Machine method call and returns the error,
@@ -110,14 +110,14 @@ var machineErrorTests = []struct {
 	resultsRef: params.SetProviderNetworkConfigResults{},
 }}
 
-func (s *MachineSuite) TestClientError(c *gc.C) {
+func (s *MachineSuite) TestClientError(c *tc.C) {
 	for i, test := range machineErrorTests {
 		c.Logf("test #%d: %s", i, test.method)
 		s.CheckClientError(c, test.wrapper)
 	}
 }
 
-func (s *MachineSuite) TestServerError(c *gc.C) {
+func (s *MachineSuite) TestServerError(c *tc.C) {
 	err := apiservertesting.ServerError("server error!")
 	expected := err.Error()
 	for i, test := range machineErrorTests {
@@ -127,7 +127,7 @@ func (s *MachineSuite) TestServerError(c *gc.C) {
 	}
 }
 
-func (s *MachineSuite) TestTooManyResultsServerError(c *gc.C) {
+func (s *MachineSuite) TestTooManyResultsServerError(c *tc.C) {
 	err := apiservertesting.ServerError("some error")
 	expected := "expected 1 result, got 2"
 	for i, test := range machineErrorTests {
@@ -137,18 +137,18 @@ func (s *MachineSuite) TestTooManyResultsServerError(c *gc.C) {
 	}
 }
 
-func (s *MachineSuite) TestRefreshSuccess(c *gc.C) {
+func (s *MachineSuite) TestRefreshSuccess(c *tc.C) {
 	results := params.LifeResults{
 		Results: []params.LifeResult{{Life: life.Dying}},
 	}
 	apiCaller := successAPICaller(c, "Life", entitiesArgs, results)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
 	c.Check(machine.Refresh(context.Background()), jc.ErrorIsNil)
-	c.Check(machine.Life(), gc.Equals, life.Dying)
-	c.Check(apiCaller.CallCount, gc.Equals, 1)
+	c.Check(machine.Life(), tc.Equals, life.Dying)
+	c.Check(apiCaller.CallCount, tc.Equals, 1)
 }
 
-func (s *MachineSuite) TestStatusSuccess(c *gc.C) {
+func (s *MachineSuite) TestStatusSuccess(c *tc.C) {
 	now := time.Now()
 	expectStatus := params.StatusResult{
 		Status: "foo",
@@ -169,10 +169,10 @@ func (s *MachineSuite) TestStatusSuccess(c *gc.C) {
 	status, err := machine.Status(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(status, jc.DeepEquals, expectStatus)
-	c.Check(apiCaller.CallCount, gc.Equals, 1)
+	c.Check(apiCaller.CallCount, tc.Equals, 1)
 }
 
-func (s *MachineSuite) TestIsManualSuccess(c *gc.C) {
+func (s *MachineSuite) TestIsManualSuccess(c *tc.C) {
 	results := params.BoolResults{
 		Results: []params.BoolResult{{Result: true}},
 	}
@@ -181,10 +181,10 @@ func (s *MachineSuite) TestIsManualSuccess(c *gc.C) {
 	isManual, err := machine.IsManual(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(isManual, jc.IsTrue)
-	c.Check(apiCaller.CallCount, gc.Equals, 1)
+	c.Check(apiCaller.CallCount, tc.Equals, 1)
 }
 
-func (s *MachineSuite) TestInstanceIdSuccess(c *gc.C) {
+func (s *MachineSuite) TestInstanceIdSuccess(c *tc.C) {
 	results := params.StringResults{
 		Results: []params.StringResult{{Result: "i-foo"}},
 	}
@@ -192,11 +192,11 @@ func (s *MachineSuite) TestInstanceIdSuccess(c *gc.C) {
 	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
 	instId, err := machine.InstanceId(context.Background())
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(instId, gc.Equals, instance.Id("i-foo"))
-	c.Check(apiCaller.CallCount, gc.Equals, 1)
+	c.Check(instId, tc.Equals, instance.Id("i-foo"))
+	c.Check(apiCaller.CallCount, tc.Equals, 1)
 }
 
-func (s *MachineSuite) TestInstanceStatusSuccess(c *gc.C) {
+func (s *MachineSuite) TestInstanceStatusSuccess(c *tc.C) {
 	results := params.StatusResults{
 		Results: []params.StatusResult{{
 			Status: status.Provisioning.String(),
@@ -206,11 +206,11 @@ func (s *MachineSuite) TestInstanceStatusSuccess(c *gc.C) {
 	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
 	statusResult, err := machine.InstanceStatus(context.Background())
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusResult.Status, gc.DeepEquals, status.Provisioning.String())
-	c.Check(apiCaller.CallCount, gc.Equals, 1)
+	c.Check(statusResult.Status, tc.DeepEquals, status.Provisioning.String())
+	c.Check(apiCaller.CallCount, tc.Equals, 1)
 }
 
-func (s *MachineSuite) TestSetInstanceStatusSuccess(c *gc.C) {
+func (s *MachineSuite) TestSetInstanceStatusSuccess(c *tc.C) {
 	expectArgs := params.SetStatus{
 		Entities: []params.EntityStatusArgs{{
 			Tag:    "machine-42",
@@ -223,10 +223,10 @@ func (s *MachineSuite) TestSetInstanceStatusSuccess(c *gc.C) {
 	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
 	err := machine.SetInstanceStatus(context.Background(), "RUNNING", "", nil)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(apiCaller.CallCount, gc.Equals, 1)
+	c.Check(apiCaller.CallCount, tc.Equals, 1)
 }
 
-func (s *MachineSuite) TestSetProviderNetworkConfigSuccess(c *gc.C) {
+func (s *MachineSuite) TestSetProviderNetworkConfigSuccess(c *tc.C) {
 	cfg := network.InterfaceInfos{{
 		DeviceIndex: 0,
 		Addresses: []network.ProviderAddress{
@@ -246,21 +246,21 @@ func (s *MachineSuite) TestSetProviderNetworkConfigSuccess(c *gc.C) {
 	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
 	_, _, err := machine.SetProviderNetworkConfig(context.Background(), cfg)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(apiCaller.CallCount, gc.Equals, 1)
+	c.Check(apiCaller.CallCount, tc.Equals, 1)
 }
 
-func (s *MachineSuite) CheckClientError(c *gc.C, wf methodWrapper) {
+func (s *MachineSuite) CheckClientError(c *tc.C, wf methodWrapper) {
 	apiCaller := clientErrorAPICaller(c, "", nil)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
-	c.Check(wf(machine, context.Background()), gc.ErrorMatches, "client error!")
-	c.Check(apiCaller.CallCount, gc.Equals, 1)
+	c.Check(wf(machine, context.Background()), tc.ErrorMatches, "client error!")
+	c.Check(apiCaller.CallCount, tc.Equals, 1)
 }
 
-func (s *MachineSuite) CheckServerError(c *gc.C, wf methodWrapper, expectErr string, serverResults interface{}) {
+func (s *MachineSuite) CheckServerError(c *tc.C, wf methodWrapper, expectErr string, serverResults interface{}) {
 	apiCaller := successAPICaller(c, "", nil, serverResults)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
-	c.Check(wf(machine, context.Background()), gc.ErrorMatches, expectErr)
-	c.Check(apiCaller.CallCount, gc.Equals, 1)
+	c.Check(wf(machine, context.Background()), tc.ErrorMatches, expectErr)
+	c.Check(apiCaller.CallCount, tc.Equals, 1)
 }
 
 var entitiesArgs = params.Entities{
@@ -309,7 +309,7 @@ func MakeResultsWithErrors(resultsRef interface{}, err *params.Error, howMany in
 }
 
 // TODO(dimitern): Move this and MakeResultsWithErrors in params/testing ?
-func (MachineSuite) TestMakeResultsWithErrors(c *gc.C) {
+func (MachineSuite) TestMakeResultsWithErrors(c *tc.C) {
 	err := apiservertesting.ServerError("foo")
 	r1 := MakeResultsWithErrors(params.LifeResults{}, err, 2)
 	r2 := params.LifeResults{Results: []params.LifeResult{{Error: err}, {Error: err}}}

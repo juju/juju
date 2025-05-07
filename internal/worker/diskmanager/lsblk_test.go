@@ -12,22 +12,22 @@ import (
 	"os"
 	"strings"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/blockdevice"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/diskmanager"
 )
 
-var _ = gc.Suite(&ListBlockDevicesSuite{})
+var _ = tc.Suite(&ListBlockDevicesSuite{})
 
 type ListBlockDevicesSuite struct {
 	coretesting.BaseSuite
 }
 
-func (s *ListBlockDevicesSuite) SetUpTest(c *gc.C) {
+func (s *ListBlockDevicesSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.PatchValue(diskmanager.BlockDeviceInUse, func(device blockdevice.BlockDevice) (bool, error) {
 		return false, nil
@@ -35,7 +35,7 @@ func (s *ListBlockDevicesSuite) SetUpTest(c *gc.C) {
 	testing.PatchExecutable(c, s, "udevadm", `#!/bin/bash --norc`)
 }
 
-func (s *ListBlockDevicesSuite) TestListBlockDevices(c *gc.C) {
+func (s *ListBlockDevicesSuite) TestListBlockDevices(c *tc.C) {
 	s.PatchValue(diskmanager.BlockDeviceInUse, func(dev blockdevice.BlockDevice) (bool, error) {
 		return dev.DeviceName == "sdb", nil
 	})
@@ -77,7 +77,7 @@ EOF`)
 	}})
 }
 
-func (s *ListBlockDevicesSuite) TestListBlockDevicesWWN(c *gc.C) {
+func (s *ListBlockDevicesSuite) TestListBlockDevicesWWN(c *tc.C) {
 	// If ID_WWN is found, then we should get
 	// a WWN value.
 	s.testListBlockDevicesExtended(c, `
@@ -85,7 +85,7 @@ ID_WWN=foo
 `, "sda", blockdevice.BlockDevice{WWN: "foo"})
 }
 
-func (s *ListBlockDevicesSuite) TestListBlockDevicesExtendedWWN(c *gc.C) {
+func (s *ListBlockDevicesSuite) TestListBlockDevicesExtendedWWN(c *tc.C) {
 	// If ID_WWN_WITH_EXTENSION is found, then we should use that
 	// in preference to the ID_WWN value.
 	s.testListBlockDevicesExtended(c, `
@@ -94,7 +94,7 @@ ID_WWN=foo
 `, "sda", blockdevice.BlockDevice{WWN: "foobar"})
 }
 
-func (s *ListBlockDevicesSuite) TestListBlockDevicesBusAddress(c *gc.C) {
+func (s *ListBlockDevicesSuite) TestListBlockDevicesBusAddress(c *tc.C) {
 	// If ID_BUS is scsi, then we should get a
 	// BusAddress value.
 	s.testListBlockDevicesExtended(c, `
@@ -103,7 +103,7 @@ ID_BUS=scsi
 `, "sda", blockdevice.BlockDevice{BusAddress: "scsi@1:2.3.4"})
 }
 
-func (s *ListBlockDevicesSuite) TestListBlockDevicesHardwareId(c *gc.C) {
+func (s *ListBlockDevicesSuite) TestListBlockDevicesHardwareId(c *tc.C) {
 	// If ID_BUS and ID_SERIAL are both present, we
 	// should get a HardwareId value.
 	s.testListBlockDevicesExtended(c, `
@@ -112,7 +112,7 @@ ID_SERIAL=0980978987987
 `, "sda", blockdevice.BlockDevice{HardwareId: "ata-0980978987987", SerialId: "0980978987987"})
 }
 
-func (s *ListBlockDevicesSuite) TestListBlockDevicesSerialId(c *gc.C) {
+func (s *ListBlockDevicesSuite) TestListBlockDevicesSerialId(c *tc.C) {
 	// If ID_SERIAL is found, then we should get
 	// a SerialId value.
 	s.testListBlockDevicesExtended(c, `
@@ -120,7 +120,7 @@ ID_SERIAL=0980978987987
 `, "sda", blockdevice.BlockDevice{SerialId: "0980978987987"})
 }
 
-func (s *ListBlockDevicesSuite) TestListBlockDevicesDeviceLinks(c *gc.C) {
+func (s *ListBlockDevicesSuite) TestListBlockDevicesDeviceLinks(c *tc.C) {
 	// Values from DEVLINKS should be split by space, and entered into
 	// DeviceLinks verbatim.
 	s.testListBlockDevicesExtended(c, `
@@ -130,7 +130,7 @@ DEVLINKS=/dev/disk/by-id/abc /dev/disk/by-id/def
 	})
 }
 
-func (s *ListBlockDevicesSuite) TestListBlockDevicesAll(c *gc.C) {
+func (s *ListBlockDevicesSuite) TestListBlockDevicesAll(c *tc.C) {
 	s.testListBlockDevicesExtended(c, `
 DEVPATH=/a/b/c/d/1:2:3:4/block/sda
 ID_BUS=scsi
@@ -138,7 +138,7 @@ ID_SERIAL=0980978987987
 `, "sda", blockdevice.BlockDevice{BusAddress: "scsi@1:2.3.4", HardwareId: "scsi-0980978987987", SerialId: "0980978987987"})
 }
 
-func (s *ListBlockDevicesSuite) TestListBlockDevicesUnexpectedDevpathFormat(c *gc.C) {
+func (s *ListBlockDevicesSuite) TestListBlockDevicesUnexpectedDevpathFormat(c *tc.C) {
 	// If DEVPATH's format doesn't match what we expect, then we should
 	// just not get the BusAddress value.
 	s.testListBlockDevicesExtended(c, `
@@ -148,7 +148,7 @@ ID_SERIAL=0980978987987
 `, "sda", blockdevice.BlockDevice{HardwareId: "ata-0980978987987", SerialId: "0980978987987"})
 }
 
-func (s *ListBlockDevicesSuite) TestListBlockDevicesParition(c *gc.C) {
+func (s *ListBlockDevicesSuite) TestListBlockDevicesParition(c *tc.C) {
 	// Test DEVPATH format for partition.
 	s.testListBlockDevicesExtended(c, `
 DEVPATH=/a/b/c/d/1:2:3:4/block/sda/sda1
@@ -157,7 +157,7 @@ ID_SERIAL=0980978987987
 `, "sda1", blockdevice.BlockDevice{BusAddress: "scsi@1:2.3.4", HardwareId: "scsi-0980978987987", SerialId: "0980978987987"})
 }
 
-func (s *ListBlockDevicesSuite) TestListBlockDevicesUnexpectedPropertyFormat(c *gc.C) {
+func (s *ListBlockDevicesSuite) TestListBlockDevicesUnexpectedPropertyFormat(c *tc.C) {
 	// If udevadm outputs in an unexpected format, we won't error;
 	// we only error if some catastrophic error occurs while reading
 	// from the udevadm command's stdout.
@@ -165,7 +165,7 @@ func (s *ListBlockDevicesSuite) TestListBlockDevicesUnexpectedPropertyFormat(c *
 }
 
 func (s *ListBlockDevicesSuite) testListBlockDevicesExtended(
-	c *gc.C,
+	c *tc.C,
 	udevadmInfo string,
 	deviceName string,
 	expect blockdevice.BlockDevice,
@@ -187,14 +187,14 @@ EOF`)
 	c.Assert(devices, jc.DeepEquals, []blockdevice.BlockDevice{expect})
 }
 
-func (s *ListBlockDevicesSuite) TestListBlockDevicesLsblkError(c *gc.C) {
+func (s *ListBlockDevicesSuite) TestListBlockDevicesLsblkError(c *tc.C) {
 	testing.PatchExecutableThrowError(c, s, "lsblk", 123)
 	devices, err := diskmanager.ListBlockDevices(context.Background())
-	c.Assert(err, gc.ErrorMatches, "cannot list block devices: lsblk failed: exit status 123")
-	c.Assert(devices, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "cannot list block devices: lsblk failed: exit status 123")
+	c.Assert(devices, tc.IsNil)
 }
 
-func (s *ListBlockDevicesSuite) TestListBlockDevicesBlockDeviceInUseError(c *gc.C) {
+func (s *ListBlockDevicesSuite) TestListBlockDevicesBlockDeviceInUseError(c *tc.C) {
 	s.PatchValue(diskmanager.BlockDeviceInUse, func(dev blockdevice.BlockDevice) (bool, error) {
 		return false, errors.New("badness")
 	})
@@ -214,7 +214,7 @@ EOF`)
 	}})
 }
 
-func (s *ListBlockDevicesSuite) TestListBlockDevicesLsblkBadOutput(c *gc.C) {
+func (s *ListBlockDevicesSuite) TestListBlockDevicesLsblkBadOutput(c *tc.C) {
 	// Extra key/value pairs should be ignored; invalid sizes should
 	// be logged and ignored (Size will be set to zero).
 	testing.PatchExecutable(c, s, "lsblk", `#!/bin/bash --norc
@@ -234,7 +234,7 @@ EOF`)
 	}})
 }
 
-func (s *ListBlockDevicesSuite) TestListBlockDevicesDeviceNotExist(c *gc.C) {
+func (s *ListBlockDevicesSuite) TestListBlockDevicesDeviceNotExist(c *tc.C) {
 	s.PatchValue(diskmanager.BlockDeviceInUse, func(dev blockdevice.BlockDevice) (bool, error) {
 		return false, os.ErrNotExist
 	})
@@ -246,10 +246,10 @@ EOF`)
 
 	devices, err := diskmanager.ListBlockDevices(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(devices, gc.HasLen, 0)
+	c.Assert(devices, tc.HasLen, 0)
 }
 
-func (s *ListBlockDevicesSuite) TestListBlockDevicesDeviceFiltering(c *gc.C) {
+func (s *ListBlockDevicesSuite) TestListBlockDevicesDeviceFiltering(c *tc.C) {
 	testing.PatchExecutable(c, s, "lsblk", `#!/bin/bash --norc
 cat <<EOF
 KNAME="sda" SIZE="240057409536" LABEL="" UUID="" TYPE="disk"
@@ -260,7 +260,7 @@ KNAME="whatever" SIZE="254803968" LABEL="" UUID="" TYPE="lvm"
 EOF`)
 
 	devices, err := diskmanager.ListBlockDevices(context.Background())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	c.Assert(devices, jc.DeepEquals, []blockdevice.BlockDevice{{
 		DeviceName: "sda",
 		SizeMiB:    228936,

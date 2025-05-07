@@ -6,12 +6,12 @@ package http_test
 import (
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/http_mock.go github.com/juju/juju/api/http HTTPClient
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/httpdoer_mock.go github.com/juju/juju/api/http HTTPDoer
 
 func TestAll(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }

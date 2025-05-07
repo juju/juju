@@ -7,12 +7,12 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/auditlog"
@@ -24,9 +24,9 @@ type manifoldSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&manifoldSuite{})
+var _ = tc.Suite(&manifoldSuite{})
 
-func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
+func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.getConfig()
@@ -41,11 +41,11 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 
 var expectedInputs = []string{"agent", "domain-services"}
 
-func (s *manifoldSuite) TestInputs(c *gc.C) {
+func (s *manifoldSuite) TestInputs(c *tc.C) {
 	c.Assert(Manifold(s.getConfig()).Inputs, jc.SameContents, expectedInputs)
 }
 
-func (s *manifoldSuite) TestStart(c *gc.C) {
+func (s *manifoldSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAgentConfig(c)
@@ -56,7 +56,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *manifoldSuite) expectAgentConfig(c *gc.C) {
+func (s *manifoldSuite) expectAgentConfig(c *tc.C) {
 	s.agentConfig.EXPECT().LogDir().Return(c.MkDir())
 	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
 }

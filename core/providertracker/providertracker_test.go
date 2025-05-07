@@ -6,10 +6,10 @@ package providertracker
 import (
 	"context"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -23,9 +23,9 @@ type providerSuite struct {
 	providerFactory *MockProviderFactory
 }
 
-var _ = gc.Suite(&providerSuite{})
+var _ = tc.Suite(&providerSuite{})
 
-func (s *providerSuite) TestProviderRunner(c *gc.C) {
+func (s *providerSuite) TestProviderRunner(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.providerFactory.EXPECT().ProviderForModel(gomock.Any(), "foo").Return(s.provider, nil)
@@ -33,10 +33,10 @@ func (s *providerSuite) TestProviderRunner(c *gc.C) {
 	runner := ProviderRunner[Provider](s.providerFactory, "foo")
 	v, err := runner(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(v, gc.DeepEquals, s.provider)
+	c.Check(v, tc.DeepEquals, s.provider)
 }
 
-func (s *providerSuite) TestProviderRunnerSubsetType(c *gc.C) {
+func (s *providerSuite) TestProviderRunnerSubsetType(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	provider := &fooProvider{Provider: s.provider}
@@ -46,10 +46,10 @@ func (s *providerSuite) TestProviderRunnerSubsetType(c *gc.C) {
 	runner := ProviderRunner[FooProvider](s.providerFactory, "foo")
 	v, err := runner(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(v, gc.DeepEquals, provider)
+	c.Check(v, tc.DeepEquals, provider)
 }
 
-func (s *providerSuite) TestProviderRunnerIsNotSubsetType(c *gc.C) {
+func (s *providerSuite) TestProviderRunnerIsNotSubsetType(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	provider := &fooProvider{Provider: s.provider}
@@ -61,7 +61,7 @@ func (s *providerSuite) TestProviderRunnerIsNotSubsetType(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, coreerrors.NotSupported)
 }
 
-func (s *providerSuite) TestEphemeralProviderRunnerFromConfig(c *gc.C) {
+func (s *providerSuite) TestEphemeralProviderRunnerFromConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	config := EphemeralProviderConfig{
@@ -78,10 +78,10 @@ func (s *providerSuite) TestEphemeralProviderRunnerFromConfig(c *gc.C) {
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(provider, gc.DeepEquals, s.provider)
+	c.Check(provider, tc.DeepEquals, s.provider)
 }
 
-func (s *providerSuite) TestEphemeralProviderRunnerFromConfigSubsetType(c *gc.C) {
+func (s *providerSuite) TestEphemeralProviderRunnerFromConfigSubsetType(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	config := EphemeralProviderConfig{
@@ -102,10 +102,10 @@ func (s *providerSuite) TestEphemeralProviderRunnerFromConfigSubsetType(c *gc.C)
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(provider, gc.DeepEquals, fooProvider)
+	c.Check(provider, tc.DeepEquals, fooProvider)
 }
 
-func (s *providerSuite) TestEphemeralProviderRunnerFromConfigIsNotSubsetType(c *gc.C) {
+func (s *providerSuite) TestEphemeralProviderRunnerFromConfigIsNotSubsetType(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	config := EphemeralProviderConfig{
@@ -126,7 +126,7 @@ func (s *providerSuite) TestEphemeralProviderRunnerFromConfigIsNotSubsetType(c *
 	c.Assert(err, jc.ErrorIs, coreerrors.NotSupported)
 }
 
-func (s *providerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *providerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.provider = NewMockProvider(ctrl)

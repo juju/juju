@@ -7,8 +7,8 @@ import (
 	"context"
 	"strings"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/model"
@@ -26,7 +26,7 @@ type grantRevokeCloudSuite struct {
 	store        *jujuclient.MemStore
 }
 
-func (s *grantRevokeCloudSuite) SetUpTest(c *gc.C) {
+func (s *grantRevokeCloudSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fakeCloudAPI = &fakeCloudGrantRevokeAPI{}
 
@@ -49,21 +49,21 @@ func (s *grantRevokeCloudSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *grantRevokeCloudSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *grantRevokeCloudSuite) run(c *tc.C, args ...string) (*cmd.Context, error) {
 	command := s.cmdFactory(s.fakeCloudAPI)
 	return cmdtesting.RunCommand(c, command, args...)
 }
 
-func (s *grantRevokeCloudSuite) TestAccess(c *gc.C) {
+func (s *grantRevokeCloudSuite) TestAccess(c *tc.C) {
 	sam := "sam"
 	_, err := s.run(c, "sam", "add-model", "cloud1", "cloud2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fakeCloudAPI.user, jc.DeepEquals, sam)
 	c.Assert(s.fakeCloudAPI.clouds, jc.DeepEquals, []string{"cloud1", "cloud2"})
-	c.Assert(s.fakeCloudAPI.access, gc.Equals, "add-model")
+	c.Assert(s.fakeCloudAPI.access, tc.Equals, "add-model")
 }
 
-func (s *grantRevokeCloudSuite) TestBlockGrant(c *gc.C) {
+func (s *grantRevokeCloudSuite) TestBlockGrant(c *tc.C) {
 	s.fakeCloudAPI.err = apiservererrors.OperationBlockedError("TestBlockGrant")
 	_, err := s.run(c, "sam", "admin", "foo", "cloud")
 	testing.AssertOperationWasBlocked(c, err, ".*TestBlockGrant.*")
@@ -73,9 +73,9 @@ type grantCloudSuite struct {
 	grantRevokeCloudSuite
 }
 
-var _ = gc.Suite(&grantCloudSuite{})
+var _ = tc.Suite(&grantCloudSuite{})
 
-func (s *grantCloudSuite) SetUpTest(c *gc.C) {
+func (s *grantCloudSuite) SetUpTest(c *tc.C) {
 	s.grantRevokeCloudSuite.SetUpTest(c)
 	s.cmdFactory = func(fakeCloudAPI *fakeCloudGrantRevokeAPI) cmd.Command {
 		c, _ := model.NewGrantCloudCommandForTest(fakeCloudAPI, s.store)
@@ -85,7 +85,7 @@ func (s *grantCloudSuite) SetUpTest(c *gc.C) {
 
 // TestInitGrantAddModel checks that both the documented 'add-model' access and
 // the backwards-compatible 'addmodel' work to grant the AddModel permission.
-func (s *grantCloudSuite) TestInitGrantAddModel(c *gc.C) {
+func (s *grantCloudSuite) TestInitGrantAddModel(c *tc.C) {
 	wrappedCmd, grantCmd := model.NewGrantCloudCommandForTest(nil, s.store)
 	// The documented case, add-model.
 	err := cmdtesting.InitCommand(wrappedCmd, []string{"bob", "add-model", "cloud"})
@@ -94,16 +94,16 @@ func (s *grantCloudSuite) TestInitGrantAddModel(c *gc.C) {
 	// The backwards-compatible case, addmodel.
 	err = cmdtesting.InitCommand(wrappedCmd, []string{"bob", "addmodel", "cloud"})
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(grantCmd.Access, gc.Equals, "add-model")
+	c.Assert(grantCmd.Access, tc.Equals, "add-model")
 }
 
 type revokeCloudSuite struct {
 	grantRevokeCloudSuite
 }
 
-var _ = gc.Suite(&revokeCloudSuite{})
+var _ = tc.Suite(&revokeCloudSuite{})
 
-func (s *revokeCloudSuite) SetUpTest(c *gc.C) {
+func (s *revokeCloudSuite) SetUpTest(c *tc.C) {
 	s.grantRevokeCloudSuite.SetUpTest(c)
 	s.cmdFactory = func(fakeCloudAPI *fakeCloudGrantRevokeAPI) cmd.Command {
 		c, _ := model.NewRevokeCloudCommandForTest(fakeCloudAPI, s.store)
@@ -111,25 +111,25 @@ func (s *revokeCloudSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *revokeCloudSuite) TestInit(c *gc.C) {
+func (s *revokeCloudSuite) TestInit(c *tc.C) {
 	wrappedCmd, revokeCmd := model.NewRevokeCloudCommandForTest(nil, s.store)
 	err := cmdtesting.InitCommand(wrappedCmd, []string{})
-	c.Assert(err, gc.ErrorMatches, "no user specified")
+	c.Assert(err, tc.ErrorMatches, "no user specified")
 
 	err = cmdtesting.InitCommand(wrappedCmd, []string{"bob", "add-model", "cloud1", "cloud2"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(revokeCmd.User, gc.Equals, "bob")
+	c.Assert(revokeCmd.User, tc.Equals, "bob")
 	c.Assert(revokeCmd.Clouds, jc.DeepEquals, []string{"cloud1", "cloud2"})
 
 	err = cmdtesting.InitCommand(wrappedCmd, []string{})
-	c.Assert(err, gc.ErrorMatches, `no user specified`)
+	c.Assert(err, tc.ErrorMatches, `no user specified`)
 
 }
 
 // TestInitRevokeAddModel checks that both the documented 'add-model' access and
 // the backwards-compatible 'addmodel' work to revoke the AddModel permission.
-func (s *grantCloudSuite) TestInitRevokeAddModel(c *gc.C) {
+func (s *grantCloudSuite) TestInitRevokeAddModel(c *tc.C) {
 	wrappedCmd, revokeCmd := model.NewRevokeCloudCommandForTest(nil, s.store)
 	// The documented case, add-model.
 	err := cmdtesting.InitCommand(wrappedCmd, []string{"bob", "add-model", "cloud"})
@@ -138,14 +138,14 @@ func (s *grantCloudSuite) TestInitRevokeAddModel(c *gc.C) {
 	// The backwards-compatible case, addmodel.
 	err = cmdtesting.InitCommand(wrappedCmd, []string{"bob", "addmodel", "cloud"})
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(revokeCmd.Access, gc.Equals, "add-model")
+	c.Assert(revokeCmd.Access, tc.Equals, "add-model")
 }
 
-func (s *grantCloudSuite) TestWrongAccess(c *gc.C) {
+func (s *grantCloudSuite) TestWrongAccess(c *tc.C) {
 	wrappedCmd, _ := model.NewRevokeCloudCommandForTest(nil, s.store)
 	err := cmdtesting.InitCommand(wrappedCmd, []string{"bob", "write", "cloud"})
 	msg := strings.Replace(err.Error(), "\n", "", -1)
-	c.Check(msg, gc.Matches, `"write" cloud access not valid`)
+	c.Check(msg, tc.Matches, `"write" cloud access not valid`)
 }
 
 type fakeCloudGrantRevokeAPI struct {

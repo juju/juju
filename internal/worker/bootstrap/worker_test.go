@@ -11,11 +11,11 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	agent "github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
@@ -51,16 +51,16 @@ type workerSuite struct {
 	states chan string
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
-func (s *workerSuite) SetUpTest(c *gc.C) {
+func (s *workerSuite) SetUpTest(c *tc.C) {
 	s.adminUserID = usertesting.GenUserUUID(c)
 	s.controllerModel = coremodel.Model{
 		UUID: modeltesting.GenModelUUID(c),
 	}
 }
 
-func (s *workerSuite) TestKilled(c *gc.C) {
+func (s *workerSuite) TestKilled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.ensureBootstrapParams(c)
@@ -87,7 +87,7 @@ func (s *workerSuite) TestKilled(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestSeedAgentBinary(c *gc.C) {
+func (s *workerSuite) TestSeedAgentBinary(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that the ControllerModelUUID is used for the namespace for the
@@ -119,14 +119,14 @@ func (s *workerSuite) TestSeedAgentBinary(c *gc.C) {
 	cleanup, err := w.seedAgentBinary(context.Background(), c.MkDir())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
-	c.Assert(cleanup, gc.NotNil)
+	c.Assert(cleanup, tc.NotNil)
 }
 
 // TestSeedAuthorizedNilKeys is asserting that if we add a nil slice of
 // authorized keys to the controller model that it is safe. This test is here
 // assert that we don't break. Specifically because this functionality is being
 // added after the fact and may not always be set.
-func (s *workerSuite) TestSeedAuthorizedNilKeys(c *gc.C) {
+func (s *workerSuite) TestSeedAuthorizedNilKeys(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.userService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, "admin")).Return(
@@ -149,7 +149,7 @@ func (s *workerSuite) TestSeedAuthorizedNilKeys(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *workerSuite) TestSeedBakeryConfig(c *gc.C) {
+func (s *workerSuite) TestSeedBakeryConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	w := &bootstrapWorker{
 		cfg: WorkerConfig{
@@ -167,10 +167,10 @@ func (s *workerSuite) TestSeedBakeryConfig(c *gc.C) {
 
 	s.expectInitialiseBakeryConfig(errors.Errorf("boom"))
 	err = w.seedMacaroonConfig(context.Background())
-	c.Assert(err, gc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(jc.ErrorIsNil))
 }
 
-func (s *workerSuite) TestFilterHostPortsEmptyManagementSpace(c *gc.C) {
+func (s *workerSuite) TestFilterHostPortsEmptyManagementSpace(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	w := &bootstrapWorker{
 		internalStates: s.states,
@@ -187,7 +187,7 @@ func (s *workerSuite) TestFilterHostPortsEmptyManagementSpace(c *gc.C) {
 	c.Check(filteredHostPorts, jc.SameContents, apiHostPorts)
 }
 
-func (s *workerSuite) TestHostPortsNotInSpaceNoFilter(c *gc.C) {
+func (s *workerSuite) TestHostPortsNotInSpaceNoFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	w := &bootstrapWorker{
 		internalStates: s.states,
@@ -223,7 +223,7 @@ func (s *workerSuite) TestHostPortsNotInSpaceNoFilter(c *gc.C) {
 	c.Check(filteredHostPorts, jc.SameContents, apiHostPorts)
 }
 
-func (s *workerSuite) TestHostPortsSameSpaceThenFilter(c *gc.C) {
+func (s *workerSuite) TestHostPortsSameSpaceThenFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	w := &bootstrapWorker{
 		internalStates: s.states,
@@ -286,7 +286,7 @@ func (s *workerSuite) TestHostPortsSameSpaceThenFilter(c *gc.C) {
 	c.Check(filteredHostPorts, jc.SameContents, expected)
 }
 
-func (s *workerSuite) TestSeedStoragePools(c *gc.C) {
+func (s *workerSuite) TestSeedStoragePools(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.storageService.EXPECT().CreateStoragePool(gomock.Any(), "loop-pool", provider.LoopProviderType, map[string]any{"foo": "bar"})
@@ -311,7 +311,7 @@ func (s *workerSuite) TestSeedStoragePools(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
+func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 	w, err := newWorker(WorkerConfig{
 		Logger:                     s.logger,
 		Agent:                      s.agent,
@@ -352,7 +352,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	return w
 }
 
-func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	// Ensure we buffer the channel, this is because we might miss the
 	// event if we're too quick at starting up.
 	s.states = make(chan string, 1)
@@ -362,18 +362,18 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *workerSuite) ensureStartup(c *gc.C) {
+func (s *workerSuite) ensureStartup(c *tc.C) {
 	s.ensureState(c, stateStarted)
 }
 
-func (s *workerSuite) ensureFinished(c *gc.C) {
+func (s *workerSuite) ensureFinished(c *tc.C) {
 	s.ensureState(c, stateCompleted)
 }
 
-func (s *workerSuite) ensureState(c *gc.C, st string) {
+func (s *workerSuite) ensureState(c *tc.C, st string) {
 	select {
 	case state := <-s.states:
-		c.Assert(state, gc.Equals, st)
+		c.Assert(state, tc.Equals, st)
 	case <-time.After(testing.ShortWait * 10):
 		c.Fatalf("timed out waiting for %s", st)
 	}
@@ -386,12 +386,12 @@ func (s *workerSuite) expectControllerConfig() {
 		}, nil).Times(3)
 }
 
-func (s *workerSuite) expectUser(c *gc.C) {
+func (s *workerSuite) expectUser(c *tc.C) {
 	s.userService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, "admin")).Return(user.User{
 		UUID: s.adminUserID,
 	}, nil).Times(2)
 	s.userService.EXPECT().AddUser(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, u accessservice.AddUserArg) (user.UUID, []byte, error) {
-		c.Check(u.Name, gc.Equals, usertesting.GenNewName(c, "juju-metrics"))
+		c.Check(u.Name, tc.Equals, usertesting.GenNewName(c, "juju-metrics"))
 		return usertesting.GenUserUUID(c), nil, nil
 	})
 	s.userService.EXPECT().AddExternalUser(gomock.Any(), usertesting.GenNewName(c, "everyone@external"), "", gomock.Any())
@@ -435,7 +435,7 @@ func (s *workerSuite) expectSetAPIHostPorts() {
 	}, gomock.Any(), gomock.Any())
 }
 
-func (s *workerSuite) ensureBootstrapParams(c *gc.C) {
+func (s *workerSuite) ensureBootstrapParams(c *tc.C) {
 	cfg, err := config.New(config.NoDefaults, testing.FakeConfig())
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -6,10 +6,10 @@ package domainservices
 import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
@@ -27,9 +27,9 @@ type workerSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
-func (s *workerSuite) TestValidateConfig(c *gc.C) {
+func (s *workerSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.getConfig(c)
@@ -92,7 +92,7 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
-func (s *workerSuite) getConfig(c *gc.C) Config {
+func (s *workerSuite) getConfig(c *tc.C) Config {
 	return Config{
 		DBGetter:              s.dbGetter,
 		DBDeleter:             s.dbDeleter,
@@ -146,37 +146,37 @@ func (s *workerSuite) getConfig(c *gc.C) Config {
 	}
 }
 
-func (s *workerSuite) TestWorkerControllerServices(c *gc.C) {
+func (s *workerSuite) TestWorkerControllerServices(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w := s.newWorker(c)
 	defer workertest.CleanKill(c, w)
 
 	srvFact, ok := w.(*domainServicesWorker)
-	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement domainServicesWorker"))
+	c.Assert(ok, jc.IsTrue, tc.Commentf("worker does not implement domainServicesWorker"))
 
 	factory := srvFact.ControllerServices()
-	c.Assert(factory, gc.NotNil)
+	c.Assert(factory, tc.NotNil)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestWorkerServicesGetter(c *gc.C) {
+func (s *workerSuite) TestWorkerServicesGetter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w := s.newWorker(c)
 	defer workertest.CleanKill(c, w)
 
 	srvFact, ok := w.(*domainServicesWorker)
-	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement domainServicesWorker"))
+	c.Assert(ok, jc.IsTrue, tc.Commentf("worker does not implement domainServicesWorker"))
 
 	factory := srvFact.ServicesGetter()
-	c.Assert(factory, gc.NotNil)
+	c.Assert(factory, tc.NotNil)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
+func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 	w, err := NewWorker(s.getConfig(c))
 	c.Assert(err, jc.ErrorIsNil)
 	return w

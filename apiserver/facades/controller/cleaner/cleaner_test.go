@@ -7,10 +7,10 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -32,9 +32,9 @@ type CleanerSuite struct {
 	domainServices *MockDomainServices
 }
 
-var _ = gc.Suite(&CleanerSuite{})
+var _ = tc.Suite(&CleanerSuite{})
 
-func (s *CleanerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *CleanerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.domainServices = NewMockDomainServices(ctrl)
 	s.domainServices.EXPECT().Application()
@@ -42,7 +42,7 @@ func (s *CleanerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *CleanerSuite) SetUpTest(c *gc.C) {
+func (s *CleanerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.authoriser = apiservertesting.FakeAuthorizer{
@@ -52,18 +52,18 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 	cleaner.PatchState(s, s.st)
 }
 
-func (s *CleanerSuite) TestNewCleanerAPIRequiresController(c *gc.C) {
+func (s *CleanerSuite) TestNewCleanerAPIRequiresController(c *tc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Controller = false
 	api, err := cleaner.NewCleanerAPI(facadetest.ModelContext{
 		Auth_: anAuthoriser,
 	})
-	c.Assert(api, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(api, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 	c.Assert(apiservererrors.ServerError(err), jc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *CleanerSuite) TestWatchCleanupsSuccess(c *gc.C) {
+func (s *CleanerSuite) TestWatchCleanupsSuccess(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -79,7 +79,7 @@ func (s *CleanerSuite) TestWatchCleanupsSuccess(c *gc.C) {
 	s.st.CheckCallNames(c, "WatchCleanups")
 }
 
-func (s *CleanerSuite) TestWatchCleanupsFailure(c *gc.C) {
+func (s *CleanerSuite) TestWatchCleanupsFailure(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -94,11 +94,11 @@ func (s *CleanerSuite) TestWatchCleanupsFailure(c *gc.C) {
 
 	result, err := api.WatchCleanups(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error.Error(), gc.Equals, "boom!")
+	c.Assert(result.Error.Error(), tc.Equals, "boom!")
 	s.st.CheckCallNames(c, "WatchCleanups")
 }
 
-func (s *CleanerSuite) TestCleanupSuccess(c *gc.C) {
+func (s *CleanerSuite) TestCleanupSuccess(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -114,7 +114,7 @@ func (s *CleanerSuite) TestCleanupSuccess(c *gc.C) {
 	s.st.CheckCallNames(c, "Cleanup")
 }
 
-func (s *CleanerSuite) TestCleanupFailure(c *gc.C) {
+func (s *CleanerSuite) TestCleanupFailure(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -127,7 +127,7 @@ func (s *CleanerSuite) TestCleanupFailure(c *gc.C) {
 
 	s.st.SetErrors(errors.New("Boom!"))
 	err = api.Cleanup(context.Background())
-	c.Assert(err, gc.ErrorMatches, "Boom!")
+	c.Assert(err, tc.ErrorMatches, "Boom!")
 	s.st.CheckCallNames(c, "Cleanup")
 }
 

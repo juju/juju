@@ -7,8 +7,8 @@ import (
 	"context"
 
 	lxdapi "github.com/canonical/lxd/shared/api"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/status"
@@ -30,7 +30,7 @@ type BaseSuite struct {
 	arch string
 }
 
-func (s *BaseSuite) SetUpSuite(c *gc.C) {
+func (s *BaseSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.arch = arch.HostArch()
 }

@@ -11,11 +11,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/exec"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/caas/mocks"
 	"github.com/juju/juju/internal/cmd"
@@ -26,15 +26,15 @@ type aksSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&aksSuite{})
+var _ = tc.Suite(&aksSuite{})
 
-func (s *aksSuite) SetUpTest(c *gc.C) {
+func (s *aksSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	err := os.Setenv("PATH", "/path/to/here")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *aksSuite) TestGetKubeConfig(c *gc.C) {
+func (s *aksSuite) TestGetKubeConfig(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -66,13 +66,13 @@ func (s *aksSuite) TestGetKubeConfig(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	defer rdr.Close()
 
-	c.Assert(clusterName, gc.Equals, "mycluster")
+	c.Assert(clusterName, tc.Equals, "mycluster")
 	data, err := io.ReadAll(rdr)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.DeepEquals, "data")
+	c.Assert(string(data), tc.DeepEquals, "data")
 }
 
-func (s *aksSuite) TestInteractiveParam(c *gc.C) {
+func (s *aksSuite) TestInteractiveParam(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -141,7 +141,7 @@ Select cluster [mycluster in resource group testRG]:
 
 	outParams, err := aks.interactiveParams(ctx, &clusterParams{})
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
+	c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
 	c.Assert(outParams, jc.DeepEquals, &clusterParams{
 		name:          clusterName,
 		resourceGroup: resourceGroup,
@@ -149,7 +149,7 @@ Select cluster [mycluster in resource group testRG]:
 	})
 }
 
-func (s *aksSuite) TestInteractiveParamResourceGroupDefined(c *gc.C) {
+func (s *aksSuite) TestInteractiveParamResourceGroupDefined(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -215,7 +215,7 @@ Select cluster [mycluster]:
 		resourceGroup: resourceGroup,
 	})
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
+	c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
 	c.Assert(outParams, jc.DeepEquals, &clusterParams{
 		name:          clusterName,
 		resourceGroup: resourceGroup,
@@ -223,7 +223,7 @@ Select cluster [mycluster]:
 	})
 }
 
-func (s *aksSuite) TestInteractiveParamsNoResourceGroupSpecifiedSingleResourceGroupInUse(c *gc.C) {
+func (s *aksSuite) TestInteractiveParamsNoResourceGroupSpecifiedSingleResourceGroupInUse(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -291,7 +291,7 @@ Select cluster [mycluster]:
 
 	outParams, err := aks.interactiveParams(ctx, &clusterParams{})
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
+	c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
 	c.Assert(outParams, jc.DeepEquals, &clusterParams{
 		name:          clusterName,
 		resourceGroup: resourceGroup,
@@ -299,7 +299,7 @@ Select cluster [mycluster]:
 	})
 }
 
-func (s *aksSuite) TestInteractiveParamsNoResourceGroupSpecifiedMultiResourceGroupsInUse(c *gc.C) {
+func (s *aksSuite) TestInteractiveParamsNoResourceGroupSpecifiedMultiResourceGroupsInUse(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -368,7 +368,7 @@ Select cluster [mycluster in resource group testRG]:
 
 	outParams, err := aks.interactiveParams(ctx, &clusterParams{})
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
+	c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
 	c.Assert(outParams, jc.DeepEquals, &clusterParams{
 		name:          clusterName,
 		resourceGroup: resourceGroup,
@@ -376,7 +376,7 @@ Select cluster [mycluster in resource group testRG]:
 	})
 }
 
-func (s *aksSuite) TestInteractiveParamsClusterSpecifiedNoResourceGroupSpecifiedSingleGroupInUse(c *gc.C) {
+func (s *aksSuite) TestInteractiveParamsClusterSpecifiedNoResourceGroupSpecifiedSingleGroupInUse(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -439,7 +439,7 @@ func (s *aksSuite) TestInteractiveParamsClusterSpecifiedNoResourceGroupSpecified
 		name: clusterName,
 	})
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
+	c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
 	c.Assert(outParams, jc.DeepEquals, &clusterParams{
 		name:          clusterName,
 		resourceGroup: resourceGroup,
@@ -447,7 +447,7 @@ func (s *aksSuite) TestInteractiveParamsClusterSpecifiedNoResourceGroupSpecified
 	})
 }
 
-func (s *aksSuite) TestInteractiveParamsClusterSpecifiedNoResourceGroupSpecifiedMultiClusterInUse(c *gc.C) {
+func (s *aksSuite) TestInteractiveParamsClusterSpecifiedNoResourceGroupSpecifiedMultiClusterInUse(c *tc.C) {
 	// If a cluster name is given but there are multiple clusters of that
 	// name in different resource groups the user must be prompted to choose
 	// which of those resource groups is the correct one.
@@ -543,7 +543,7 @@ Select resource group [testRG in westus2]:
 		name: clusterName,
 	})
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
+	c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
 	c.Assert(outParams, jc.DeepEquals, &clusterParams{
 		name:          clusterName,
 		resourceGroup: resourceGroup,
@@ -551,7 +551,7 @@ Select resource group [testRG in westus2]:
 	})
 }
 
-func (s *aksSuite) TestInteractiveParamsClusterSpecifiedResourceGroupSpecified(c *gc.C) {
+func (s *aksSuite) TestInteractiveParamsClusterSpecifiedResourceGroupSpecified(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -596,7 +596,7 @@ func (s *aksSuite) TestInteractiveParamsClusterSpecifiedResourceGroupSpecified(c
 		resourceGroup: resourceGroup,
 	})
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
+	c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
 	c.Assert(outParams, jc.DeepEquals, &clusterParams{
 		name:          clusterName,
 		resourceGroup: resourceGroup,
@@ -604,7 +604,7 @@ func (s *aksSuite) TestInteractiveParamsClusterSpecifiedResourceGroupSpecified(c
 	})
 }
 
-func (s *aksSuite) TestEnsureExecutablePicksAZ(c *gc.C) {
+func (s *aksSuite) TestEnsureExecutablePicksAZ(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -633,7 +633,7 @@ func (s *aksSuite) TestEnsureExecutablePicksAZ(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *aksSuite) TestEnsureExecutableNotFound(c *gc.C) {
+func (s *aksSuite) TestEnsureExecutableNotFound(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -650,5 +650,5 @@ func (s *aksSuite) TestEnsureExecutableNotFound(c *gc.C) {
 			}, nil),
 	)
 	err := aks.ensureExecutable()
-	c.Assert(err, gc.ErrorMatches, `az not found. Please 'apt install az' \(see: .*\).*`)
+	c.Assert(err, tc.ErrorMatches, `az not found. Please 'apt install az' \(see: .*\).*`)
 }

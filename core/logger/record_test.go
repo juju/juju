@@ -7,9 +7,9 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/logger"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -19,9 +19,9 @@ type LogRecordSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&LogRecordSuite{})
+var _ = tc.Suite(&LogRecordSuite{})
 
-func (s *LogRecordSuite) TestMarshall(c *gc.C) {
+func (s *LogRecordSuite) TestMarshall(c *tc.C) {
 	rec := &logger.LogRecord{
 		Time:      time.Date(2024, 1, 1, 9, 8, 7, 0, time.UTC),
 		ModelUUID: coretesting.ModelTag.Id(),
@@ -34,15 +34,15 @@ func (s *LogRecordSuite) TestMarshall(c *gc.C) {
 	}
 	data, err := json.Marshal(rec)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, `{"model-uuid":"deadbeef-0bad-400d-8000-4b1d0d06f00d","timestamp":"2024-01-01T09:08:07Z","entity":"some-entity","level":"DEBUG","module":"some-module","location":"some-location","message":"some-message","labels":{"foo":"bar"}}`)
+	c.Assert(string(data), tc.Equals, `{"model-uuid":"deadbeef-0bad-400d-8000-4b1d0d06f00d","timestamp":"2024-01-01T09:08:07Z","entity":"some-entity","level":"DEBUG","module":"some-module","location":"some-location","message":"some-message","labels":{"foo":"bar"}}`)
 
 	rec.ModelUUID = ""
 	data, err = json.Marshal(rec)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, `{"timestamp":"2024-01-01T09:08:07Z","entity":"some-entity","level":"DEBUG","module":"some-module","location":"some-location","message":"some-message","labels":{"foo":"bar"}}`)
+	c.Assert(string(data), tc.Equals, `{"timestamp":"2024-01-01T09:08:07Z","entity":"some-entity","level":"DEBUG","module":"some-module","location":"some-location","message":"some-message","labels":{"foo":"bar"}}`)
 }
 
-func (s *LogRecordSuite) TestMarshallRoundTrip(c *gc.C) {
+func (s *LogRecordSuite) TestMarshallRoundTrip(c *tc.C) {
 	rec := &logger.LogRecord{
 		Time:      time.Date(2024, 1, 1, 9, 8, 7, 0, time.UTC),
 		ModelUUID: coretesting.ModelTag.Id(),

@@ -10,8 +10,8 @@ import (
 	"sync/atomic"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
@@ -163,7 +163,7 @@ func uniqueString(prefix string) string {
 	return fmt.Sprintf("%s-%d", prefix, uniqueInteger())
 }
 
-func (factory *Factory) paramsFillDefaults(c *gc.C, params *MachineParams) *MachineParams {
+func (factory *Factory) paramsFillDefaults(c *tc.C, params *MachineParams) *MachineParams {
 	if params == nil {
 		params = &MachineParams{}
 	}
@@ -200,7 +200,7 @@ func (factory *Factory) paramsFillDefaults(c *gc.C, params *MachineParams) *Mach
 // MakeMachineNested will make a machine nested in the machine with ID given.
 // Deprecated: Testing factory is being removed and should not be used in new
 // tests.
-func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *MachineParams) *state.Machine {
+func (factory *Factory) MakeMachineNested(c *tc.C, parentId string, params *MachineParams) *state.Machine {
 	params = factory.paramsFillDefaults(c, params)
 	machineTemplate := state.MachineTemplate{
 		Base:        params.Base,
@@ -230,7 +230,7 @@ func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *Mach
 // If params is not specified, defaults are used.
 // Deprecated: Testing factory is being removed and should not be used in new
 // tests.
-func (factory *Factory) MakeMachine(c *gc.C, params *MachineParams) *state.Machine {
+func (factory *Factory) MakeMachine(c *tc.C, params *MachineParams) *state.Machine {
 	machine, _ := factory.MakeMachineReturningPassword(c, params)
 	return machine
 }
@@ -241,7 +241,7 @@ func (factory *Factory) MakeMachine(c *gc.C, params *MachineParams) *state.Machi
 // The machine and its password are returned.
 // Deprecated: Testing factory is being removed and should not be used in new
 // tests.
-func (factory *Factory) MakeMachineReturningPassword(c *gc.C, params *MachineParams) (*state.Machine, string) {
+func (factory *Factory) MakeMachineReturningPassword(c *tc.C, params *MachineParams) (*state.Machine, string) {
 	params = factory.paramsFillDefaults(c, params)
 	return factory.makeMachineReturningPassword(c, params, true)
 }
@@ -253,11 +253,11 @@ func (factory *Factory) MakeMachineReturningPassword(c *gc.C, params *MachinePar
 // be provisioned.
 // Deprecated: Testing factory is being removed and should not be used in new
 // tests.
-func (factory *Factory) MakeUnprovisionedMachineReturningPassword(c *gc.C, params *MachineParams) (*state.Machine, string) {
+func (factory *Factory) MakeUnprovisionedMachineReturningPassword(c *tc.C, params *MachineParams) (*state.Machine, string) {
 	if params != nil {
-		c.Assert(params.Nonce, gc.Equals, "")
-		c.Assert(params.InstanceId, gc.Equals, instance.Id(""))
-		c.Assert(params.Characteristics, gc.IsNil)
+		c.Assert(params.Nonce, tc.Equals, "")
+		c.Assert(params.InstanceId, tc.Equals, instance.Id(""))
+		c.Assert(params.Characteristics, tc.IsNil)
 	}
 	params = factory.paramsFillDefaults(c, params)
 	params.Nonce = ""
@@ -266,7 +266,7 @@ func (factory *Factory) MakeUnprovisionedMachineReturningPassword(c *gc.C, param
 	return factory.makeMachineReturningPassword(c, params, false)
 }
 
-func (factory *Factory) makeMachineReturningPassword(c *gc.C, params *MachineParams, setProvisioned bool) (*state.Machine, string) {
+func (factory *Factory) makeMachineReturningPassword(c *tc.C, params *MachineParams, setProvisioned bool) (*state.Machine, string) {
 	machineTemplate := state.MachineTemplate{
 		Base:        params.Base,
 		Jobs:        params.Jobs,
@@ -305,7 +305,7 @@ func (factory *Factory) makeMachineReturningPassword(c *gc.C, params *MachinePar
 // than the state.
 // Deprecated: Testing factory is being removed and should not be used in new
 // tests.
-func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
+func (factory *Factory) MakeModel(c *tc.C, params *ModelParams) *state.State {
 	if params == nil {
 		params = new(ModelParams)
 	}
@@ -371,7 +371,7 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 // defaults are used for all values.
 // Deprecated: Testing factory is being removed and should not be used in new
 // tests.
-func (factory *Factory) MakeCAASModel(c *gc.C, params *ModelParams) *state.State {
+func (factory *Factory) MakeCAASModel(c *tc.C, params *ModelParams) *state.State {
 	if params == nil {
 		params = &ModelParams{}
 	}
@@ -397,11 +397,11 @@ func (factory *Factory) MakeCAASModel(c *gc.C, params *ModelParams) *state.State
 	return factory.MakeModel(c, params)
 }
 
-func (factory *Factory) currentCfg(c *gc.C) *config.Config {
+func (factory *Factory) currentCfg(c *tc.C) *config.Config {
 	return testing.ModelConfig(c)
 }
 
-func NewObjectStore(c *gc.C, modelUUID string, metadataService internalobjectstore.MetadataService, claimer internalobjectstore.Claimer) objectstore.ObjectStore {
+func NewObjectStore(c *tc.C, modelUUID string, metadataService internalobjectstore.MetadataService, claimer internalobjectstore.Claimer) objectstore.ObjectStore {
 	store, err := internalobjectstore.ObjectStoreFactory(
 		context.Background(),
 		internalobjectstore.DefaultBackendType(),

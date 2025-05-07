@@ -10,10 +10,10 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/retry"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -150,17 +150,17 @@ type dummyWorker struct {
 	worker.Worker
 }
 
-func assertStop(c *gc.C, w worker.Worker) {
+func assertStop(c *tc.C, w worker.Worker) {
 	c.Assert(worker.Stop(w), jc.ErrorIsNil)
 }
 
-func assertStopError(c *gc.C, w worker.Worker, match string) {
-	c.Assert(worker.Stop(w), gc.ErrorMatches, match)
+func assertStopError(c *tc.C, w worker.Worker, match string) {
+	c.Assert(worker.Stop(w), tc.ErrorMatches, match)
 }
 
-func lifeTest(c *gc.C, stub *testing.Stub, life apiagent.Life, test func() (api.Connection, error)) (api.Connection, error) {
+func lifeTest(c *tc.C, stub *testing.Stub, life apiagent.Life, test func() (api.Connection, error)) (api.Connection, error) {
 	newFacade := func(apiCaller base.APICaller) (apiagent.ConnFacade, error) {
-		c.Check(apiCaller, gc.FitsTypeOf, (*mockConn)(nil))
+		c.Check(apiCaller, tc.FitsTypeOf, (*mockConn)(nil))
 		return newMockConnFacade(stub, life), nil
 	}
 	unpatch := testing.PatchValue(apicaller.NewConnFacade, newFacade)
@@ -182,7 +182,7 @@ func strategyTest(stub *testing.Stub, strategy retry.CallArgs, test func(api.Ope
 	})
 }
 
-func checkOpenCalls(c *gc.C, stub *testing.Stub, passwords ...string) {
+func checkOpenCalls(c *tc.C, stub *testing.Stub, passwords ...string) {
 	calls := openCalls(names.ModelTag{}, testEntity, passwords...)
 	stub.CheckCalls(c, calls)
 }

@@ -8,9 +8,9 @@ import (
 	"fmt"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/mocks"
@@ -21,7 +21,7 @@ import (
 
 type deadEnsurerSuite struct{}
 
-var _ = gc.Suite(&deadEnsurerSuite{})
+var _ = tc.Suite(&deadEnsurerSuite{})
 
 type fakeDeadEnsurer struct {
 	state.Entity
@@ -38,7 +38,7 @@ func (e *fakeDeadEnsurer) Life() state.Life {
 	return e.life
 }
 
-func (*deadEnsurerSuite) TestEnsureDead(c *gc.C) {
+func (*deadEnsurerSuite) TestEnsureDead(c *tc.C) {
 	st := &fakeState{
 		entities: map[names.Tag]entityWithError{
 			u("x/0"): &fakeDeadEnsurer{life: state.Dying, err: fmt.Errorf("x0 fails")},
@@ -66,7 +66,7 @@ func (*deadEnsurerSuite) TestEnsureDead(c *gc.C) {
 	}}
 	result, err := d.EnsureDead(context.Background(), entities)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{&params.Error{Message: "x0 fails"}},
 			{nil},
@@ -78,7 +78,7 @@ func (*deadEnsurerSuite) TestEnsureDead(c *gc.C) {
 	})
 }
 
-func (*deadEnsurerSuite) TestEnsureDeadError(c *gc.C) {
+func (*deadEnsurerSuite) TestEnsureDeadError(c *tc.C) {
 	getCanModify := func(ctx context.Context) (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
@@ -86,10 +86,10 @@ func (*deadEnsurerSuite) TestEnsureDeadError(c *gc.C) {
 	defer ctrl.Finish()
 	d := common.NewDeadEnsurer(&fakeState{}, getCanModify, mocks.NewMockEnsureDeadMachineService(ctrl))
 	_, err := d.EnsureDead(context.Background(), params.Entities{[]params.Entity{{"x0"}}})
-	c.Assert(err, gc.ErrorMatches, "pow")
+	c.Assert(err, tc.ErrorMatches, "pow")
 }
 
-func (*deadEnsurerSuite) TestEnsureDeadNoArgsNoError(c *gc.C) {
+func (*deadEnsurerSuite) TestEnsureDeadNoArgsNoError(c *tc.C) {
 	getCanModify := func(ctx context.Context) (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
@@ -98,5 +98,5 @@ func (*deadEnsurerSuite) TestEnsureDeadNoArgsNoError(c *gc.C) {
 	d := common.NewDeadEnsurer(&fakeState{}, getCanModify, mocks.NewMockEnsureDeadMachineService(ctrl))
 	result, err := d.EnsureDead(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 0)
+	c.Assert(result.Results, tc.HasLen, 0)
 }

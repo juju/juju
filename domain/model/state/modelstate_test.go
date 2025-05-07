@@ -6,8 +6,8 @@ package state
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/instance"
@@ -34,14 +34,14 @@ type modelSuite struct {
 	controllerUUID uuid.UUID
 }
 
-var _ = gc.Suite(&modelSuite{})
+var _ = tc.Suite(&modelSuite{})
 
-func (s *modelSuite) SetUpTest(c *gc.C) {
+func (s *modelSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 	s.controllerUUID = uuid.MustNewUUID()
 }
 
-func (s *modelSuite) createTestModel(c *gc.C) coremodel.UUID {
+func (s *modelSuite) createTestModel(c *tc.C) coremodel.UUID {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
@@ -64,7 +64,7 @@ func (s *modelSuite) createTestModel(c *gc.C) coremodel.UUID {
 	return id
 }
 
-func (s *modelSuite) TestCreateAndReadModel(c *gc.C) {
+func (s *modelSuite) TestCreateAndReadModel(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
@@ -102,7 +102,7 @@ func (s *modelSuite) TestCreateAndReadModel(c *gc.C) {
 	})
 }
 
-func (s *modelSuite) TestDeleteModel(c *gc.C) {
+func (s *modelSuite) TestDeleteModel(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
@@ -134,7 +134,7 @@ func (s *modelSuite) TestDeleteModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
-func (s *modelSuite) TestCreateModelMultipleTimesWithSameUUID(c *gc.C) {
+func (s *modelSuite) TestCreateModelMultipleTimesWithSameUUID(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
@@ -158,7 +158,7 @@ func (s *modelSuite) TestCreateModelMultipleTimesWithSameUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, modelerrors.AlreadyExists)
 }
 
-func (s *modelSuite) TestCreateModelMultipleTimesWithDifferentUUID(c *gc.C) {
+func (s *modelSuite) TestCreateModelMultipleTimesWithDifferentUUID(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
@@ -189,7 +189,7 @@ func (s *modelSuite) TestCreateModelMultipleTimesWithDifferentUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, modelerrors.AlreadyExists)
 }
 
-func (s *modelSuite) TestCreateModelAndUpdate(c *gc.C) {
+func (s *modelSuite) TestCreateModelAndUpdate(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
@@ -211,10 +211,10 @@ func (s *modelSuite) TestCreateModelAndUpdate(c *gc.C) {
 
 	db := s.DB()
 	_, err = db.ExecContext(context.Background(), "UPDATE model SET name = 'new-name' WHERE uuid = $1", id)
-	c.Assert(err, gc.ErrorMatches, `model table is immutable, only insertions are allowed`)
+	c.Assert(err, tc.ErrorMatches, `model table is immutable, only insertions are allowed`)
 }
 
-func (s *modelSuite) TestCreateModelAndDelete(c *gc.C) {
+func (s *modelSuite) TestCreateModelAndDelete(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
@@ -235,10 +235,10 @@ func (s *modelSuite) TestCreateModelAndDelete(c *gc.C) {
 
 	db := s.DB()
 	_, err = db.ExecContext(context.Background(), "DELETE FROM model WHERE uuid = $1", id)
-	c.Assert(err, gc.ErrorMatches, `model table is immutable, only insertions are allowed`)
+	c.Assert(err, tc.ErrorMatches, `model table is immutable, only insertions are allowed`)
 }
 
-func (s *modelSuite) TestModelNotFound(c *gc.C) {
+func (s *modelSuite) TestModelNotFound(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
@@ -246,7 +246,7 @@ func (s *modelSuite) TestModelNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
-func (s *modelSuite) TestGetModelMetrics(c *gc.C) {
+func (s *modelSuite) TestGetModelMetrics(c *tc.C) {
 	id := s.createTestModel(c)
 
 	runner := s.TxnRunnerFactory()
@@ -284,7 +284,7 @@ func (s *modelSuite) TestGetModelMetrics(c *gc.C) {
 	})
 }
 
-func (s *modelSuite) TestGetModelMetricsNotFound(c *gc.C) {
+func (s *modelSuite) TestGetModelMetricsNotFound(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
@@ -295,7 +295,7 @@ func (s *modelSuite) TestGetModelMetricsNotFound(c *gc.C) {
 // TestSetModelConstraints is asserting the happy path of setting constraints on
 // the model and having those values come back out as we expect from the state
 // layer.
-func (s *modelSuite) TestSetModelConstraints(c *gc.C) {
+func (s *modelSuite) TestSetModelConstraints(c *tc.C) {
 	s.createTestModel(c)
 
 	runner := s.TxnRunnerFactory()
@@ -345,7 +345,7 @@ INSERT INTO space (uuid, name) VALUES
 // statements as false even thought the value in the database is NULL. To get
 // around this bug we have updated the constraint table to strict and changed
 // the type on "allocate_public_ip" to an integer.
-func (s *modelSuite) TestSetModelConstraintsNullBools(c *gc.C) {
+func (s *modelSuite) TestSetModelConstraintsNullBools(c *tc.C) {
 	s.createTestModel(c)
 
 	runner := s.TxnRunnerFactory()
@@ -361,7 +361,7 @@ func (s *modelSuite) TestSetModelConstraintsNullBools(c *gc.C) {
 
 	getCons, err := state.GetModelConstraints(context.Background())
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(getCons.AllocatePublicIP, gc.IsNil)
+	c.Check(getCons.AllocatePublicIP, tc.IsNil)
 
 	// False Bool
 	cons.AllocatePublicIP = ptr(false)
@@ -384,7 +384,7 @@ func (s *modelSuite) TestSetModelConstraintsNullBools(c *gc.C) {
 
 // TestSetModelConstraintsOverwrites tests that after having set model
 // constraints another subsequent call overwrites what has previously been set.
-func (s *modelSuite) TestSetModelConstraintsOverwrites(c *gc.C) {
+func (s *modelSuite) TestSetModelConstraintsOverwrites(c *tc.C) {
 	s.createTestModel(c)
 
 	runner := s.TxnRunnerFactory()
@@ -449,7 +449,7 @@ INSERT INTO space (uuid, name) VALUES
 // TestSetModelConstraintsFailedModelNotFound is asserting that if we set model
 // constraints and the model does not exist we get back an error satisfying
 // [modelerrors.NotFound].
-func (s *modelSuite) TestSetModelConstraintFailedModelNotFound(c *gc.C) {
+func (s *modelSuite) TestSetModelConstraintFailedModelNotFound(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
@@ -464,7 +464,7 @@ func (s *modelSuite) TestSetModelConstraintFailedModelNotFound(c *gc.C) {
 // constraints with an unknown/invalid container type we get back an error
 // satisfying [machineerrors.InvalidContainerType] and no changes are made to
 // the database.
-func (s *modelSuite) TestSetModelConstraintsInvalidContainerType(c *gc.C) {
+func (s *modelSuite) TestSetModelConstraintsInvalidContainerType(c *tc.C) {
 	s.createTestModel(c)
 
 	runner := s.TxnRunnerFactory()
@@ -485,7 +485,7 @@ func (s *modelSuite) TestSetModelConstraintsInvalidContainerType(c *gc.C) {
 // TestSetModelConstraintFailedSpaceDoesNotExist asserts that if we set model
 // constraints for a space that doesn't exist we get back an error satisfying
 // [networkerrors.SpaceNotFound] and that no changes are made to the database.
-func (s *modelSuite) TestSetModelConstraintFailedSpaceDoesNotExist(c *gc.C) {
+func (s *modelSuite) TestSetModelConstraintFailedSpaceDoesNotExist(c *tc.C) {
 	s.createTestModel(c)
 
 	runner := s.TxnRunnerFactory()
@@ -506,7 +506,7 @@ func (s *modelSuite) TestSetModelConstraintFailedSpaceDoesNotExist(c *gc.C) {
 // TestGetModelConstraintsNotFound asserts that if we ask for model constraints
 // and they have not previously been set an error satisfying
 // [modelerrors.ConstraintsNotFound].
-func (s *modelSuite) TestGetModelConstraintsNotFound(c *gc.C) {
+func (s *modelSuite) TestGetModelConstraintsNotFound(c *tc.C) {
 	s.createTestModel(c)
 
 	runner := s.TxnRunnerFactory()
@@ -519,7 +519,7 @@ func (s *modelSuite) TestGetModelConstraintsNotFound(c *gc.C) {
 // TestGetModelConstraintsModelNotFound asserts that if we ask for model
 // constraints for a model that doesn't exist we get back an error satisfying
 // [modelerrors.NotFound].
-func (s *modelSuite) TestGetModelConstraintsModelNotFound(c *gc.C) {
+func (s *modelSuite) TestGetModelConstraintsModelNotFound(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
@@ -527,7 +527,7 @@ func (s *modelSuite) TestGetModelConstraintsModelNotFound(c *gc.C) {
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
-func (s *modelSuite) TestGetModelCloudType(c *gc.C) {
+func (s *modelSuite) TestGetModelCloudType(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
@@ -554,7 +554,7 @@ func (s *modelSuite) TestGetModelCloudType(c *gc.C) {
 	c.Check(modelCloudType, jc.DeepEquals, cloudType)
 }
 
-func (s *modelSuite) TestGetModelCloudTypeNotFound(c *gc.C) {
+func (s *modelSuite) TestGetModelCloudTypeNotFound(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
@@ -562,7 +562,7 @@ func (s *modelSuite) TestGetModelCloudTypeNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
-func (s *modelSuite) TestGetModelCloudRegionAndCredential(c *gc.C) {
+func (s *modelSuite) TestGetModelCloudRegionAndCredential(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
@@ -588,8 +588,8 @@ func (s *modelSuite) TestGetModelCloudRegionAndCredential(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cloud, region, key, err := state.GetModelCloudRegionAndCredential(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cloud, gc.Equals, "aws")
-	c.Check(region, gc.Equals, "myregion")
+	c.Check(cloud, tc.Equals, "aws")
+	c.Check(region, tc.Equals, "myregion")
 	c.Check(key, jc.DeepEquals, credential.Key{
 		Name:  "mycredential",
 		Cloud: "aws",
@@ -597,7 +597,7 @@ func (s *modelSuite) TestGetModelCloudRegionAndCredential(c *gc.C) {
 	})
 }
 
-func (s *modelSuite) TestGetModelCloudRegionAndCredentialNotFound(c *gc.C) {
+func (s *modelSuite) TestGetModelCloudRegionAndCredentialNotFound(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
@@ -606,7 +606,7 @@ func (s *modelSuite) TestGetModelCloudRegionAndCredentialNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
-func (s *modelSuite) TestIsControllerModelTrue(c *gc.C) {
+func (s *modelSuite) TestIsControllerModelTrue(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
@@ -634,7 +634,7 @@ func (s *modelSuite) TestIsControllerModelTrue(c *gc.C) {
 	c.Check(isControllerModel, jc.IsTrue)
 }
 
-func (s *modelSuite) TestIsControllerModelFalse(c *gc.C) {
+func (s *modelSuite) TestIsControllerModelFalse(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
@@ -662,7 +662,7 @@ func (s *modelSuite) TestIsControllerModelFalse(c *gc.C) {
 	c.Check(isControllerModel, jc.IsFalse)
 }
 
-func (s *modelSuite) TestIsControllerModelNotFound(c *gc.C) {
+func (s *modelSuite) TestIsControllerModelNotFound(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
@@ -673,7 +673,7 @@ func (s *modelSuite) TestIsControllerModelNotFound(c *gc.C) {
 // TestGetControllerUUIDNotFound tests that if we ask for the controller uuid
 // in the model database and no model record has been established an error
 // satisfying [modelerrors.NotFound] is returned.
-func (s *modelSuite) TestGetControllerUUIDNotFound(c *gc.C) {
+func (s *modelSuite) TestGetControllerUUIDNotFound(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
@@ -684,7 +684,7 @@ func (s *modelSuite) TestGetControllerUUIDNotFound(c *gc.C) {
 // TestGetControllerUUID tests that if we ask for the controller uuid in the
 // model database and a model record has been established we get back the
 // correct controller uuid.
-func (s *modelSuite) TestGetControllerUUID(c *gc.C) {
+func (s *modelSuite) TestGetControllerUUID(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
@@ -709,12 +709,12 @@ func (s *modelSuite) TestGetControllerUUID(c *gc.C) {
 
 	controllerUUID, err := state.GetControllerUUID(context.Background())
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(controllerUUID, gc.Equals, s.controllerUUID)
+	c.Check(controllerUUID, tc.Equals, s.controllerUUID)
 }
 
 // TestGetModelType is testing the happy path of getting the model type for the
 // current model.
-func (s *modelSuite) TestGetModelType(c *gc.C) {
+func (s *modelSuite) TestGetModelType(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
@@ -739,13 +739,13 @@ func (s *modelSuite) TestGetModelType(c *gc.C) {
 
 	modelType, err := state.GetModelType(context.Background())
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(modelType, gc.Equals, coremodel.CAAS)
+	c.Check(modelType, tc.Equals, coremodel.CAAS)
 }
 
 // TestGetModelTypeNotFound is testing the error path of getting the model type
 // when no model record has been created. This is expected to provide an error
 // that satisfies [modelerrors.NotFound].
-func (s *modelSuite) TestGetModelTypeNotFound(c *gc.C) {
+func (s *modelSuite) TestGetModelTypeNotFound(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 

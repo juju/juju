@@ -4,7 +4,7 @@
 package testing
 
 import (
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain/schema"
@@ -22,7 +22,7 @@ type ModelSuite struct {
 
 // SetUpTest is responsible for setting up a testing database suite initialised
 // with the model schema.
-func (s *ModelSuite) SetUpTest(c *gc.C) {
+func (s *ModelSuite) SetUpTest(c *tc.C) {
 	s.modelUUID = uuid.MustNewUUID().String()
 
 	s.DqliteSuite.SetUpTest(c)

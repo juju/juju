@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/caasunitprovisioner"
@@ -20,19 +20,19 @@ type unitprovisionerSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&unitprovisionerSuite{})
+var _ = tc.Suite(&unitprovisionerSuite{})
 
 func newClient(f basetesting.APICallerFunc) *caasunitprovisioner.Client {
 	return caasunitprovisioner.NewClient(basetesting.BestVersionCaller{APICallerFunc: f, BestVersion: 1})
 }
 
-func (s *unitprovisionerSuite) TestWatchApplications(c *gc.C) {
+func (s *unitprovisionerSuite) TestWatchApplications(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "CAASUnitProvisioner")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchApplications")
-		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResult{})
+		c.Check(objType, tc.Equals, "CAASUnitProvisioner")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "WatchApplications")
+		c.Assert(result, tc.FitsTypeOf, &params.StringsWatchResult{})
 		*(result.(*params.StringsWatchResult)) = params.StringsWatchResult{
 			Error: &params.Error{Message: "FAIL"},
 		}
@@ -41,22 +41,22 @@ func (s *unitprovisionerSuite) TestWatchApplications(c *gc.C) {
 
 	client := caasunitprovisioner.NewClient(apiCaller)
 	watcher, err := client.WatchApplications(context.Background())
-	c.Assert(watcher, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(watcher, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
-func (s *unitprovisionerSuite) TestWatchApplicationScale(c *gc.C) {
+func (s *unitprovisionerSuite) TestWatchApplicationScale(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "CAASUnitProvisioner")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchApplicationsScale")
+		c.Check(objType, tc.Equals, "CAASUnitProvisioner")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "WatchApplicationsScale")
 		c.Assert(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
 				Tag: "application-gitlab",
 			}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.NotifyWatchResults{})
 		*(result.(*params.NotifyWatchResults)) = params.NotifyWatchResults{
 			Results: []params.NotifyWatchResult{{
 				Error: &params.Error{Message: "FAIL"},
@@ -67,22 +67,22 @@ func (s *unitprovisionerSuite) TestWatchApplicationScale(c *gc.C) {
 
 	client := caasunitprovisioner.NewClient(apiCaller)
 	watcher, err := client.WatchApplicationScale(context.Background(), "gitlab")
-	c.Assert(watcher, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(watcher, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
-func (s *unitprovisionerSuite) TestApplicationScale(c *gc.C) {
+func (s *unitprovisionerSuite) TestApplicationScale(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "CAASUnitProvisioner")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "ApplicationsScale")
+		c.Check(objType, tc.Equals, "CAASUnitProvisioner")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "ApplicationsScale")
 		c.Assert(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
 				Tag: "application-gitlab",
 			}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.IntResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.IntResults{})
 		*(result.(*params.IntResults)) = params.IntResults{
 			Results: []params.IntResult{{
 				Result: 5,
@@ -94,16 +94,16 @@ func (s *unitprovisionerSuite) TestApplicationScale(c *gc.C) {
 	client := caasunitprovisioner.NewClient(apiCaller)
 	scale, err := client.ApplicationScale(context.Background(), "gitlab")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(scale, gc.Equals, 5)
+	c.Assert(scale, tc.Equals, 5)
 }
 
-func (s *unitprovisionerSuite) TestUpdateApplicationService(c *gc.C) {
+func (s *unitprovisionerSuite) TestUpdateApplicationService(c *tc.C) {
 	var called bool
 	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
 		called = true
-		c.Check(objType, gc.Equals, "CAASUnitProvisioner")
-		c.Check(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "UpdateApplicationsService")
+		c.Check(objType, tc.Equals, "CAASUnitProvisioner")
+		c.Check(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "UpdateApplicationsService")
 		c.Assert(a, jc.DeepEquals, params.UpdateApplicationServiceArgs{
 			Args: []params.UpdateApplicationServiceArg{
 				{
@@ -113,7 +113,7 @@ func (s *unitprovisionerSuite) TestUpdateApplicationService(c *gc.C) {
 				},
 			},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{}},
 		}
@@ -128,7 +128,7 @@ func (s *unitprovisionerSuite) TestUpdateApplicationService(c *gc.C) {
 	c.Check(called, jc.IsTrue)
 }
 
-func (s *unitprovisionerSuite) TestUpdateApplicationServiceCount(c *gc.C) {
+func (s *unitprovisionerSuite) TestUpdateApplicationServiceCount(c *tc.C) {
 	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{
@@ -143,21 +143,21 @@ func (s *unitprovisionerSuite) TestUpdateApplicationServiceCount(c *gc.C) {
 		ProviderId:     "id",
 		Addresses:      []params.Address{{Value: "10.0.0.1"}},
 	})
-	c.Check(err, gc.ErrorMatches, `expected 1 result\(s\), got 2`)
+	c.Check(err, tc.ErrorMatches, `expected 1 result\(s\), got 2`)
 }
 
-func (s *unitprovisionerSuite) TestWatchApplicationTrustHash(c *gc.C) {
+func (s *unitprovisionerSuite) TestWatchApplicationTrustHash(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "CAASUnitProvisioner")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchApplicationsTrustHash")
+		c.Check(objType, tc.Equals, "CAASUnitProvisioner")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "WatchApplicationsTrustHash")
 		c.Assert(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
 				Tag: "application-gitlab",
 			}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.StringsWatchResults{})
 		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
 			Results: []params.StringsWatchResult{{
 				Error: &params.Error{Message: "FAIL"},
@@ -168,22 +168,22 @@ func (s *unitprovisionerSuite) TestWatchApplicationTrustHash(c *gc.C) {
 
 	client := caasunitprovisioner.NewClient(apiCaller)
 	watcher, err := client.WatchApplicationTrustHash(context.Background(), "gitlab")
-	c.Assert(watcher, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(watcher, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
-func (s *unitprovisionerSuite) TestApplicationTrust(c *gc.C) {
+func (s *unitprovisionerSuite) TestApplicationTrust(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "CAASUnitProvisioner")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "ApplicationsTrust")
+		c.Check(objType, tc.Equals, "CAASUnitProvisioner")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "ApplicationsTrust")
 		c.Assert(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
 				Tag: "application-gitlab",
 			}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.BoolResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.BoolResults{})
 		*(result.(*params.BoolResults)) = params.BoolResults{
 			Results: []params.BoolResult{{
 				Result: true,

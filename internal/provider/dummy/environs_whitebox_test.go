@@ -6,8 +6,8 @@ package dummy
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 )
@@ -16,11 +16,11 @@ var (
 	_ environs.NetworkingEnviron = (*environ)(nil)
 )
 
-var _ = gc.Suite(&environWhiteboxSuite{})
+var _ = tc.Suite(&environWhiteboxSuite{})
 
 type environWhiteboxSuite struct{}
 
-func (s *environWhiteboxSuite) TestSupportsContainerAddresses(c *gc.C) {
+func (s *environWhiteboxSuite) TestSupportsContainerAddresses(c *tc.C) {
 	callCtx := context.Background()
 
 	env := new(environ)

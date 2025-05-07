@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	jujucmd "github.com/juju/juju/cmd"
@@ -25,14 +25,14 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&controllerSuite{})
+var _ = tc.Suite(&controllerSuite{})
 
 type controllerSuite struct {
 	testing.BaseSuite
 	mockBlockClient *mockBlockClient
 }
 
-func (s *controllerSuite) SetUpTest(c *gc.C) {
+func (s *controllerSuite) SetUpTest(c *tc.C) {
 	s.mockBlockClient = &mockBlockClient{}
 	s.PatchValue(&blockAPI, func(context.Context, *modelcmd.ModelCommandBase) (listBlocksAPI, error) {
 		err := s.mockBlockClient.loginError
@@ -70,7 +70,7 @@ func (c *mockBlockClient) Close() error {
 	return nil
 }
 
-func (s *controllerSuite) TestWaitForAgentAPIReadyRetries(c *gc.C) {
+func (s *controllerSuite) TestWaitForAgentAPIReadyRetries(c *tc.C) {
 	s.PatchValue(&bootstrapReadyPollDelay, 1*time.Millisecond)
 	s.PatchValue(&bootstrapReadyPollCount, 5)
 	defaultSeriesVersion := version.Current
@@ -96,7 +96,7 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyRetries(c *gc.C) {
 		runInCommand(c, func(ctx *cmd.Context, base *modelcmd.ModelCommandBase) {
 			bootstrapCtx := environscmd.BootstrapContext(context.Background(), ctx)
 			err := WaitForAgentInitialisation(bootstrapCtx, base, false, "controller")
-			c.Check(errors.Cause(err), gc.DeepEquals, t.err)
+			c.Check(errors.Cause(err), tc.DeepEquals, t.err)
 		})
 		expectedRetries := t.numRetries
 		if t.numRetries <= 0 {
@@ -106,11 +106,11 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyRetries(c *gc.C) {
 		if expectedRetries > 5 {
 			expectedRetries = 5
 		}
-		c.Check(s.mockBlockClient.retryCount, gc.Equals, expectedRetries)
+		c.Check(s.mockBlockClient.retryCount, tc.Equals, expectedRetries)
 	}
 }
 
-func (s *controllerSuite) TestWaitForAgentAPIReadyRetriesWithOpenEOFErr(c *gc.C) {
+func (s *controllerSuite) TestWaitForAgentAPIReadyRetriesWithOpenEOFErr(c *tc.C) {
 	s.mockBlockClient.numRetries = 0
 	s.mockBlockClient.retryCount = 0
 	s.mockBlockClient.loginError = io.EOF
@@ -120,10 +120,10 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyRetriesWithOpenEOFErr(c *gc.C)
 		err := WaitForAgentInitialisation(bootstrapCtx, base, false, "controller")
 		c.Check(err, jc.ErrorIsNil)
 	})
-	c.Check(s.mockBlockClient.retryCount, gc.Equals, 1)
+	c.Check(s.mockBlockClient.retryCount, tc.Equals, 1)
 }
 
-func (s *controllerSuite) TestWaitForAgentAPIReadyStopsRetriesWithOpenErr(c *gc.C) {
+func (s *controllerSuite) TestWaitForAgentAPIReadyStopsRetriesWithOpenErr(c *tc.C) {
 	s.mockBlockClient.numRetries = 0
 	s.mockBlockClient.retryCount = 0
 	s.mockBlockClient.loginError = errors.NewUnauthorized(nil, "")
@@ -132,21 +132,21 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyStopsRetriesWithOpenErr(c *gc.
 		err := WaitForAgentInitialisation(bootstrapCtx, base, false, "controller")
 		c.Check(err, jc.ErrorIs, errors.Unauthorized)
 	})
-	c.Check(s.mockBlockClient.retryCount, gc.Equals, 0)
+	c.Check(s.mockBlockClient.retryCount, tc.Equals, 0)
 }
 
-func (s *controllerSuite) TestWaitForAgentCancelled(c *gc.C) {
+func (s *controllerSuite) TestWaitForAgentCancelled(c *tc.C) {
 	s.mockBlockClient.numRetries = 2
 	runInCommand(c, func(ctx *cmd.Context, base *modelcmd.ModelCommandBase) {
 		stdCtx, cancel := context.WithCancel(context.Background())
 		cancel()
 		bootstrapCtx := environscmd.BootstrapContext(stdCtx, ctx)
 		err := WaitForAgentInitialisation(bootstrapCtx, base, false, "controller")
-		c.Check(err, gc.ErrorMatches, `unable to contact api server: .*`)
+		c.Check(err, tc.ErrorMatches, `unable to contact api server: .*`)
 	})
 }
 
-func runInCommand(c *gc.C, run func(ctx *cmd.Context, base *modelcmd.ModelCommandBase)) {
+func runInCommand(c *tc.C, run func(ctx *cmd.Context, base *modelcmd.ModelCommandBase)) {
 	cmd := &testCommand{
 		run: run,
 	}

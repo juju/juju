@@ -7,9 +7,9 @@ import (
 	"context"
 	"os"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
@@ -39,9 +39,9 @@ type removeSuite struct {
 	testProvider *mockBuiltinEnvironProvider
 }
 
-var _ = gc.Suite(&removeSuite{})
+var _ = tc.Suite(&removeSuite{})
 
-func (s *removeSuite) SetUpTest(c *gc.C) {
+func (s *removeSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	store := jujuclient.NewMemStore()
 	store.Controllers["mycontroller"] = jujuclient.ControllerDetails{}
@@ -49,7 +49,7 @@ func (s *removeSuite) SetUpTest(c *gc.C) {
 	s.store = store
 }
 
-func (s *removeSuite) setup(c *gc.C) *gomock.Controller {
+func (s *removeSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.api = mocks.NewMockRemoveCloudAPI(ctrl)
@@ -60,22 +60,22 @@ func (s *removeSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *removeSuite) TestRemoveBadArgs(c *gc.C) {
+func (s *removeSuite) TestRemoveBadArgs(c *tc.C) {
 	command := cloud.NewRemoveCloudCommand()
 	_, err := cmdtesting.RunCommand(c, command, "--client")
-	c.Assert(err, gc.ErrorMatches, "Usage: juju remove-cloud <cloud name>")
+	c.Assert(err, tc.ErrorMatches, "Usage: juju remove-cloud <cloud name>")
 	_, err = cmdtesting.RunCommand(c, command, "cloud", "extra", "--client")
-	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["extra"\]`)
+	c.Assert(err, tc.ErrorMatches, `unrecognized args: \["extra"\]`)
 }
 
-func (s *removeSuite) TestRemoveNotFound(c *gc.C) {
+func (s *removeSuite) TestRemoveNotFound(c *tc.C) {
 	command := cloud.NewRemoveCloudCommandForTest(s.store, nil)
 	ctx, err := cmdtesting.RunCommand(c, command, "fnord", "--client")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "No cloud called \"fnord\" exists on this client\n")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "No cloud called \"fnord\" exists on this client\n")
 }
 
-func (s *removeSuite) createTestCloudData(c *gc.C) {
+func (s *removeSuite) createTestCloudData(c *tc.C) {
 	err := os.WriteFile(osenv.JujuXDGDataHomePath("public-clouds.yaml"), []byte(`
 clouds:
   prodstack:
@@ -113,7 +113,7 @@ clouds:
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *removeSuite) TestRemoveCloudLocal(c *gc.C) {
+func (s *removeSuite) TestRemoveCloudLocal(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	command := cloud.NewRemoveCloudCommandForTest(
@@ -126,11 +126,11 @@ func (s *removeSuite) TestRemoveCloudLocal(c *gc.C) {
 	assertPersonalClouds(c, "homestack", "homestack2")
 	ctx, err := cmdtesting.RunCommand(c, command, "homestack", "--client")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Removed details of cloud \"homestack\" from this client\n")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "Removed details of cloud \"homestack\" from this client\n")
 	assertPersonalClouds(c, "homestack2")
 }
 
-func (s *removeSuite) TestRemoveCloudNoControllers(c *gc.C) {
+func (s *removeSuite) TestRemoveCloudNoControllers(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.store.Controllers = nil
@@ -145,11 +145,11 @@ func (s *removeSuite) TestRemoveCloudNoControllers(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, command, "homestack", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	assertPersonalClouds(c, "homestack2")
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, ``)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Matches, "Removed details of cloud \"homestack\" from this client\n")
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, ``)
+	c.Assert(cmdtesting.Stderr(ctx), tc.Matches, "Removed details of cloud \"homestack\" from this client\n")
 }
 
-func (s *removeSuite) TestRemoveCloudControllerControllerOnly(c *gc.C) {
+func (s *removeSuite) TestRemoveCloudControllerControllerOnly(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	command := cloud.NewRemoveCloudCommandForTest(
@@ -165,11 +165,11 @@ func (s *removeSuite) TestRemoveCloudControllerControllerOnly(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	assertPersonalClouds(c, "homestack", "homestack2")
-	c.Assert(command.ControllerName, gc.Equals, "mycontroller")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Removed details of cloud \"homestack\" from controller \"mycontroller\"\n")
+	c.Assert(command.ControllerName, tc.Equals, "mycontroller")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "Removed details of cloud \"homestack\" from controller \"mycontroller\"\n")
 }
 
-func (s *removeSuite) TestRemoveCloudBoth(c *gc.C) {
+func (s *removeSuite) TestRemoveCloudBoth(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	command := cloud.NewRemoveCloudCommandForTest(
@@ -185,34 +185,34 @@ func (s *removeSuite) TestRemoveCloudBoth(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	assertPersonalClouds(c, "homestack2")
-	c.Assert(command.ControllerName, gc.Equals, "mycontroller")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals,
+	c.Assert(command.ControllerName, tc.Equals, "mycontroller")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals,
 		"Removed details of cloud \"homestack\" from this client\n"+
 			"Removed details of cloud \"homestack\" from controller \"mycontroller\"\n")
 }
 
-func (s *removeSuite) TestCannotRemovePublicCloud(c *gc.C) {
+func (s *removeSuite) TestCannotRemovePublicCloud(c *tc.C) {
 	s.createTestCloudData(c)
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewRemoveCloudCommand(), "prodstack", "--client")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Cannot remove public cloud \"prodstack\" from client\n")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "Cannot remove public cloud \"prodstack\" from client\n")
 }
 
-func (s *removeSuite) TestCannotRemovePublicCloudWithCredentials(c *gc.C) {
+func (s *removeSuite) TestCannotRemovePublicCloudWithCredentials(c *tc.C) {
 	s.createTestCloudData(c)
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewRemoveCloudCommand(), "prodstack2", "--client")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Cannot remove public cloud \"prodstack2\" from client\n"+
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "Cannot remove public cloud \"prodstack2\" from client\n"+
 		"To hide this cloud, remove it's credentials with `juju remove-credential`\n")
 }
 
-func (s *removeSuite) TestSpecifyingTargetControllerFlag(c *gc.C) {
+func (s *removeSuite) TestSpecifyingTargetControllerFlag(c *tc.C) {
 	command := cloud.NewRemoveCloudCommandForTest(s.store, nil)
 	_, err := cmdtesting.RunCommand(c, command, "fnord", "--target-controller=mycontroller-1")
 	c.Assert(err, jc.ErrorIs, cmd.ErrCommandMissing)
 }
 
-func (s *removeSuite) TestCannotRemoveBuiltinCloud(c *gc.C) {
+func (s *removeSuite) TestCannotRemoveBuiltinCloud(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.createTestCloudData(c)
@@ -223,10 +223,10 @@ func (s *removeSuite) TestCannotRemoveBuiltinCloud(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewRemoveCloudCommand(), "foo-builtin", "--client")
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Cannot remove built-in cloud \"foo-builtin\" from client\n")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "Cannot remove built-in cloud \"foo-builtin\" from client\n")
 }
 
-func assertPersonalClouds(c *gc.C, names ...string) {
+func assertPersonalClouds(c *tc.C, names ...string) {
 	personalClouds, err := jujucloud.PersonalCloudMetadata()
 	c.Assert(err, jc.ErrorIsNil)
 	actual := make([]string, 0, len(personalClouds))

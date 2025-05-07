@@ -5,9 +5,9 @@ package secretbackendrotate_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/secretbackendrotate"
@@ -18,36 +18,36 @@ type ManifoldConfigSuite struct {
 	config secretbackendrotate.ManifoldConfig
 }
 
-var _ = gc.Suite(&ManifoldConfigSuite{})
+var _ = tc.Suite(&ManifoldConfigSuite{})
 
-func (s *ManifoldConfigSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldConfigSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = s.validConfig(c)
 }
 
-func (s *ManifoldConfigSuite) validConfig(c *gc.C) secretbackendrotate.ManifoldConfig {
+func (s *ManifoldConfigSuite) validConfig(c *tc.C) secretbackendrotate.ManifoldConfig {
 	return secretbackendrotate.ManifoldConfig{
 		APICallerName: "api-caller",
 		Logger:        loggertesting.WrapCheckLog(c),
 	}
 }
 
-func (s *ManifoldConfigSuite) TestValid(c *gc.C) {
+func (s *ManifoldConfigSuite) TestValid(c *tc.C) {
 	c.Check(s.config.Validate(), jc.ErrorIsNil)
 }
 
-func (s *ManifoldConfigSuite) TestMissingAPICallerName(c *gc.C) {
+func (s *ManifoldConfigSuite) TestMissingAPICallerName(c *tc.C) {
 	s.config.APICallerName = ""
 	s.checkNotValid(c, "missing APICallerName not valid")
 }
 
-func (s *ManifoldConfigSuite) TestMissingLogger(c *gc.C) {
+func (s *ManifoldConfigSuite) TestMissingLogger(c *tc.C) {
 	s.config.Logger = nil
 	s.checkNotValid(c, "nil Logger not valid")
 }
 
-func (s *ManifoldConfigSuite) checkNotValid(c *gc.C, expect string) {
+func (s *ManifoldConfigSuite) checkNotValid(c *tc.C, expect string) {
 	err := s.config.Validate()
-	c.Check(err, gc.ErrorMatches, expect)
+	c.Check(err, tc.ErrorMatches, expect)
 	c.Check(err, jc.ErrorIs, errors.NotValid)
 }

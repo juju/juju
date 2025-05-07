@@ -9,10 +9,10 @@ import (
 	"fmt"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/permission"
@@ -31,9 +31,9 @@ type annotationSuite struct {
 	annotationsAPI *API
 }
 
-var _ = gc.Suite(&annotationSuite{})
+var _ = tc.Suite(&annotationSuite{})
 
-func (s *annotationSuite) TestGetAnnotations(c *gc.C) {
+func (s *annotationSuite) TestGetAnnotations(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.ReadAccess, names.NewModelTag(s.uuid)).Return(nil)
@@ -45,12 +45,12 @@ func (s *annotationSuite) TestGetAnnotations(c *gc.C) {
 	results := s.annotationsAPI.Get(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: names.NewModelTag(s.uuid).String()}},
 	})
-	c.Assert(results.Results, gc.DeepEquals, []params.AnnotationsGetResult{
+	c.Assert(results.Results, tc.DeepEquals, []params.AnnotationsGetResult{
 		{EntityTag: names.NewModelTag(s.uuid).String(), Annotations: map[string]string{"foo": "bar"}},
 	})
 }
 
-func (s *annotationSuite) TestGetAnnotationsBulk(c *gc.C) {
+func (s *annotationSuite) TestGetAnnotationsBulk(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.ReadAccess, names.NewModelTag(s.uuid)).Return(nil)
@@ -75,7 +75,7 @@ func (s *annotationSuite) TestGetAnnotationsBulk(c *gc.C) {
 			{Tag: "charm-mysql-1"},
 		},
 	})
-	c.Assert(results.Results, gc.DeepEquals, []params.AnnotationsGetResult{
+	c.Assert(results.Results, tc.DeepEquals, []params.AnnotationsGetResult{
 		{EntityTag: names.NewModelTag(s.uuid).String(), Annotations: map[string]string{"foo": "bar"}},
 		{EntityTag: names.NewApplicationTag("mysql").String(),
 			Error: params.ErrorResult{Error: &params.Error{
@@ -86,7 +86,7 @@ func (s *annotationSuite) TestGetAnnotationsBulk(c *gc.C) {
 	})
 }
 
-func (s *annotationSuite) TestGetAnnotationsNoPermission(c *gc.C) {
+func (s *annotationSuite) TestGetAnnotationsNoPermission(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.ReadAccess, names.NewModelTag(s.uuid)).Return(errors.New("boom"))
@@ -94,14 +94,14 @@ func (s *annotationSuite) TestGetAnnotationsNoPermission(c *gc.C) {
 	results := s.annotationsAPI.Get(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: names.NewModelTag(s.uuid).String()}},
 	})
-	c.Assert(results.Results, gc.DeepEquals, []params.AnnotationsGetResult{
+	c.Assert(results.Results, tc.DeepEquals, []params.AnnotationsGetResult{
 		{Error: params.ErrorResult{Error: &params.Error{
 			Message: "boom",
 		}}},
 	})
 }
 
-func (s *annotationSuite) TestGetAnnotationsNoError(c *gc.C) {
+func (s *annotationSuite) TestGetAnnotationsNoError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.ReadAccess, names.NewModelTag(s.uuid)).Return(nil)
@@ -113,7 +113,7 @@ func (s *annotationSuite) TestGetAnnotationsNoError(c *gc.C) {
 	results := s.annotationsAPI.Get(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: names.NewModelTag(s.uuid).String()}},
 	})
-	c.Assert(results.Results, gc.DeepEquals, []params.AnnotationsGetResult{
+	c.Assert(results.Results, tc.DeepEquals, []params.AnnotationsGetResult{
 		{
 			EntityTag: names.NewModelTag(s.uuid).String(),
 			Error: params.ErrorResult{Error: &params.Error{
@@ -123,7 +123,7 @@ func (s *annotationSuite) TestGetAnnotationsNoError(c *gc.C) {
 	})
 }
 
-func (s *annotationSuite) TestSetAnnotations(c *gc.C) {
+func (s *annotationSuite) TestSetAnnotations(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, names.NewModelTag(s.uuid)).Return(nil)
@@ -138,10 +138,10 @@ func (s *annotationSuite) TestSetAnnotations(c *gc.C) {
 			Annotations: map[string]string{"foo": "bar"},
 		}},
 	})
-	c.Assert(results.Results, gc.DeepEquals, []params.ErrorResult{})
+	c.Assert(results.Results, tc.DeepEquals, []params.ErrorResult{})
 }
 
-func (s *annotationSuite) TestSetAnnotationsNoPermission(c *gc.C) {
+func (s *annotationSuite) TestSetAnnotationsNoPermission(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, names.NewModelTag(s.uuid)).Return(errors.New("boom"))
@@ -152,12 +152,12 @@ func (s *annotationSuite) TestSetAnnotationsNoPermission(c *gc.C) {
 			Annotations: map[string]string{"foo": "bar"},
 		}},
 	})
-	c.Assert(results.Results, gc.DeepEquals, []params.ErrorResult{
+	c.Assert(results.Results, tc.DeepEquals, []params.ErrorResult{
 		{Error: &params.Error{Message: "boom"}},
 	})
 }
 
-func (s *annotationSuite) TestSetAnnotationsError(c *gc.C) {
+func (s *annotationSuite) TestSetAnnotationsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, names.NewModelTag(s.uuid)).Return(nil)
@@ -172,12 +172,12 @@ func (s *annotationSuite) TestSetAnnotationsError(c *gc.C) {
 			Annotations: map[string]string{"foo": "bar"},
 		}},
 	})
-	c.Assert(results.Results, gc.DeepEquals, []params.ErrorResult{
+	c.Assert(results.Results, tc.DeepEquals, []params.ErrorResult{
 		{Error: &params.Error{Message: fmt.Sprintf(`setting annotations for "model-%s": boom`, s.uuid)}},
 	})
 }
 
-func (s *annotationSuite) TestSetAnnotationsBrokenBehaviour(c *gc.C) {
+func (s *annotationSuite) TestSetAnnotationsBrokenBehaviour(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// TODO(stickupkid): This API for set is currently broken. This test just
@@ -209,12 +209,12 @@ func (s *annotationSuite) TestSetAnnotationsBrokenBehaviour(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(results.Results, gc.DeepEquals, []params.ErrorResult{
+	c.Assert(results.Results, tc.DeepEquals, []params.ErrorResult{
 		{Error: &params.Error{Message: `setting annotations for "application-mysql": boom`}},
 	})
 }
 
-func (s *annotationSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *annotationSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.uuid = utils.MustNewUUID().String()

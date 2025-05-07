@@ -4,8 +4,8 @@
 package agentbinary
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -14,11 +14,11 @@ import (
 
 type typeSuite struct{}
 
-var _ = gc.Suite(&typeSuite{})
+var _ = tc.Suite(&typeSuite{})
 
 // TestVersionValidation verifies that validation succeeds when given valid
 // version attributes.
-func (s *typeSuite) TestVersionValidation(c *gc.C) {
+func (s *typeSuite) TestVersionValidation(c *tc.C) {
 	v := Version{
 		Number: semversion.MustParse("4.1.1"),
 		Arch:   arch.AMD64,
@@ -29,7 +29,7 @@ func (s *typeSuite) TestVersionValidation(c *gc.C) {
 // TestVersionValidationFailsWithZeroVersion checks that if we specify the zero
 // value for the agent version number, we get a validation error that satisfies
 // [coreerrors.NotValid]
-func (s *typeSuite) TestVersionValidationFailsWithZeroVersion(c *gc.C) {
+func (s *typeSuite) TestVersionValidationFailsWithZeroVersion(c *tc.C) {
 	v := Version{
 		Number: semversion.Zero,
 		Arch:   arch.ARM64,
@@ -41,7 +41,7 @@ func (s *typeSuite) TestVersionValidationFailsWithZeroVersion(c *gc.C) {
 // TestVersionValidationFailsWithUnsupportedArch checks that if we specify an
 // architecture that is unsupported, we get back a validation error that
 // satisfies [coreerrors.NotValid].
-func (s *typeSuite) TestVersionValidationFailsWithUnsupportedArch(c *gc.C) {
+func (s *typeSuite) TestVersionValidationFailsWithUnsupportedArch(c *tc.C) {
 	v := Version{
 		Number: semversion.MustParse("2.0.0"),
 		Arch:   arch.Arch("unsupported"),

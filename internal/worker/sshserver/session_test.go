@@ -11,11 +11,11 @@ import (
 
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 	gossh "golang.org/x/crypto/ssh"
 	"google.golang.org/grpc/test/bufconn"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/virtualhostname"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -27,7 +27,7 @@ type machineSessionSuite struct {
 	mockConnector *MockSSHConnector
 }
 
-var _ = gc.Suite(&machineSessionSuite{})
+var _ = tc.Suite(&machineSessionSuite{})
 
 type testServer struct {
 	server   *ssh.Server
@@ -38,7 +38,7 @@ type testServer struct {
 // startTestServer creates a test server that emulates the
 // SSH server of the target machine.
 // Defer the returned listener's Close() method to cleanup the server.
-func startTestServer(_ *gc.C) *testServer {
+func startTestServer(_ *tc.C) *testServer {
 	ts := &testServer{}
 	ts.server = &ssh.Server{
 		Handler: func(session ssh.Session) {
@@ -99,7 +99,7 @@ func (u *userSession) Exit(code int) error {
 	return nil
 }
 
-func (s *machineSessionSuite) setupUserSession(_ *gc.C, withPty bool, clientMessage string) {
+func (s *machineSessionSuite) setupUserSession(_ *tc.C, withPty bool, clientMessage string) {
 	s.userSession = &userSession{
 		isPty: withPty,
 	}
@@ -110,7 +110,7 @@ func (s *machineSessionSuite) setupUserSession(_ *gc.C, withPty bool, clientMess
 	}
 }
 
-func (s *machineSessionSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *machineSessionSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockConnector = NewMockSSHConnector(ctrl)
 	return ctrl
@@ -126,7 +126,7 @@ func (c *closeChecker) Close() error {
 	return c.Conn.Close()
 }
 
-func (s *machineSessionSuite) TestMachineSessionProxy(c *gc.C) {
+func (s *machineSessionSuite) TestMachineSessionProxy(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	isPty := true
@@ -159,17 +159,17 @@ func (s *machineSessionSuite) TestMachineSessionProxy(c *gc.C) {
 
 	err = sessionHandler.machineSessionProxy(s.userSession, virtualhostname.Info{})
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(s.userSession.stdout.String(), gc.Equals, "Hello from the server!\r\n")
-	c.Check(s.userSession.stderr.String(), gc.Equals, "An error from the server!\n")
-	c.Check(string(testServer.serverRx), gc.Equals, "Hello from the client!\n")
+	c.Check(s.userSession.stdout.String(), tc.Equals, "Hello from the server!\r\n")
+	c.Check(s.userSession.stderr.String(), tc.Equals, "An error from the server!\n")
+	c.Check(string(testServer.serverRx), tc.Equals, "Hello from the client!\n")
 
 	// Check the connection to the machine is closed.
 	closeCheck, _ := machineConn.(*closeChecker)
-	c.Assert(closeCheck, gc.NotNil)
-	c.Check(closeCheck.closed.Load(), gc.Equals, true)
+	c.Assert(closeCheck, tc.NotNil)
+	c.Check(closeCheck.closed.Load(), tc.Equals, true)
 }
 
-func (s *machineSessionSuite) TestMachineCommandProxy(c *gc.C) {
+func (s *machineSessionSuite) TestMachineCommandProxy(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	isPty := false
@@ -200,12 +200,12 @@ func (s *machineSessionSuite) TestMachineCommandProxy(c *gc.C) {
 
 	err = sessionHandler.machineSessionProxy(s.userSession, virtualhostname.Info{})
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(s.userSession.stdout.String(), gc.Equals, "No PTY requested.\n")
-	c.Check(s.userSession.stderr.String(), gc.Equals, "An error from the server!\n")
-	c.Check(string(testServer.serverRx), gc.Equals, "neovim")
+	c.Check(s.userSession.stdout.String(), tc.Equals, "No PTY requested.\n")
+	c.Check(s.userSession.stderr.String(), tc.Equals, "An error from the server!\n")
+	c.Check(string(testServer.serverRx), tc.Equals, "neovim")
 }
 
-func (s *machineSessionSuite) TestConnectToMachineError(c *gc.C) {
+func (s *machineSessionSuite) TestConnectToMachineError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	isPty := false
@@ -224,7 +224,7 @@ func (s *machineSessionSuite) TestConnectToMachineError(c *gc.C) {
 	}
 
 	sessionHandler.Handle(s.userSession, virtualhostname.Info{})
-	c.Check(s.userSession.exitCode, gc.Equals, 1)
-	c.Check(s.userSession.stdout.String(), gc.Equals, "")
-	c.Check(s.userSession.stderr.String(), gc.Equals, "failed to proxy machine session: fake-connection-error\n")
+	c.Check(s.userSession.exitCode, tc.Equals, 1)
+	c.Check(s.userSession.stdout.String(), tc.Equals, "")
+	c.Check(s.userSession.stderr.String(), tc.Equals, "failed to proxy machine session: fake-connection-error\n")
 }

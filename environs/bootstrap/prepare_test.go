@@ -5,8 +5,8 @@ package bootstrap_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/bootstrap"
@@ -23,28 +23,28 @@ type PrepareSuite struct {
 	envtesting.ToolsFixture
 }
 
-var _ = gc.Suite(&PrepareSuite{})
+var _ = tc.Suite(&PrepareSuite{})
 
-func (s *PrepareSuite) SetUpTest(c *gc.C) {
+func (s *PrepareSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
-func (s *PrepareSuite) TearDownTest(c *gc.C) {
+func (s *PrepareSuite) TearDownTest(c *tc.C) {
 	s.ToolsFixture.TearDownTest(c)
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
-func (s *PrepareSuite) TestPrepare(c *gc.C) {
+func (s *PrepareSuite) TestPrepare(c *tc.C) {
 	s.assertPrepare(c, false)
 }
 
-func (s *PrepareSuite) TestPrepareSkipVerify(c *gc.C) {
+func (s *PrepareSuite) TestPrepareSkipVerify(c *tc.C) {
 	s.assertPrepare(c, true)
 }
 
-func (s *PrepareSuite) assertPrepare(c *gc.C, skipVerify bool) {
+func (s *PrepareSuite) assertPrepare(c *tc.C, skipVerify bool) {
 	baselineAttrs := testing.FakeConfig().Merge(testing.Attrs{
 		"somebool":  false,
 		"name":      "erewhemos",
@@ -82,9 +82,9 @@ func (s *PrepareSuite) assertPrepare(c *gc.C, skipVerify bool) {
 	// Check that controller was cached
 	foundController, err := controllerStore.ControllerByName(cfg.Name())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(foundController.ControllerUUID, gc.DeepEquals, controllerCfg.ControllerUUID())
-	c.Assert(foundController.Cloud, gc.Equals, "dummy")
-	c.Assert(foundController.CloudType, gc.Equals, "dummy")
+	c.Assert(foundController.ControllerUUID, tc.DeepEquals, controllerCfg.ControllerUUID())
+	c.Assert(foundController.Cloud, tc.Equals, "dummy")
+	c.Assert(foundController.CloudType, tc.Equals, "dummy")
 
 	// Check that bootstrap config was written
 	bootstrapCfg, err := controllerStore.BootstrapConfigForController(cfg.Name())
@@ -125,5 +125,5 @@ func (s *PrepareSuite) assertPrepare(c *gc.C, skipVerify bool) {
 		AdminSecret:      "admin-secret",
 	})
 	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
-	c.Assert(err, gc.ErrorMatches, `controller "erewhemos" already exists`)
+	c.Assert(err, tc.ErrorMatches, `controller "erewhemos" already exists`)
 }

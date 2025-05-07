@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -28,7 +28,7 @@ type sessionTokenLoginProviderProviderSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&sessionTokenLoginProviderProviderSuite{})
+var _ = tc.Suite(&sessionTokenLoginProviderProviderSuite{})
 
 func (s *sessionTokenLoginProviderProviderSuite) APIInfo() *api.Info {
 	srv := apiservertesting.NewAPIServer(func(modelUUID string) (interface{}, error) {
@@ -38,7 +38,7 @@ func (s *sessionTokenLoginProviderProviderSuite) APIInfo() *api.Info {
 		}
 		return &testRootAPI{}, err
 	})
-	s.AddCleanup(func(_ *gc.C) { srv.Close() })
+	s.AddCleanup(func(_ *tc.C) { srv.Close() })
 	info := &api.Info{
 		Addrs:          srv.Addrs,
 		CACert:         testing.CACert,
@@ -48,7 +48,7 @@ func (s *sessionTokenLoginProviderProviderSuite) APIInfo() *api.Info {
 	return info
 }
 
-func (s *sessionTokenLoginProviderProviderSuite) TestSessionTokenLogin(c *gc.C) {
+func (s *sessionTokenLoginProviderProviderSuite) TestSessionTokenLogin(c *tc.C) {
 	info := s.APIInfo()
 
 	sessionToken := "test-session-token"
@@ -142,12 +142,12 @@ func (s *sessionTokenLoginProviderProviderSuite) TestSessionTokenLogin(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = apiState.Close() }()
 
-	c.Check(output.String(), gc.Equals, "Please visit http://localhost:8080/test-verification and enter code 1234567 to log in.\n")
-	c.Check(obtainedSessionToken, gc.Equals, sessionToken)
+	c.Check(output.String(), tc.Equals, "Please visit http://localhost:8080/test-verification and enter code 1234567 to log in.\n")
+	c.Check(obtainedSessionToken, tc.Equals, sessionToken)
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *sessionTokenLoginProviderProviderSuite) TestInvalidSessionTokenLogin(c *gc.C) {
+func (s *sessionTokenLoginProviderProviderSuite) TestInvalidSessionTokenLogin(c *tc.C) {
 	info := s.APIInfo()
 
 	expectedErr := &params.Error{
@@ -178,9 +178,9 @@ type sessionTokenLoginProviderBasicSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&sessionTokenLoginProviderBasicSuite{})
+var _ = tc.Suite(&sessionTokenLoginProviderBasicSuite{})
 
-func (s *sessionTokenLoginProviderBasicSuite) TestSessionTokenAuthHeader(c *gc.C) {
+func (s *sessionTokenLoginProviderBasicSuite) TestSessionTokenAuthHeader(c *tc.C) {
 	var output bytes.Buffer
 	testCases := []struct {
 		desc     string
@@ -203,10 +203,10 @@ func (s *sessionTokenLoginProviderBasicSuite) TestSessionTokenAuthHeader(c *gc.C
 		c.Logf("test %d: %s", i, tC.desc)
 		header, err := tC.lp.AuthHeader()
 		if tC.err != "" {
-			c.Assert(err, gc.ErrorMatches, tC.err)
+			c.Assert(err, tc.ErrorMatches, tC.err)
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
-			c.Check(tC.expected, gc.DeepEquals, header)
+			c.Check(tC.expected, tc.DeepEquals, header)
 		}
 	}
 }

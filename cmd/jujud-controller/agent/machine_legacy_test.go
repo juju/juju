@@ -12,17 +12,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
-	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
-	"github.com/juju/utils/v4/exec"
-	"github.com/juju/utils/v4/symlink"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
-	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api"
@@ -53,6 +42,16 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v6"
+	"github.com/juju/tc"
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v4"
+	"github.com/juju/utils/v4/exec"
+	"github.com/juju/utils/v4/symlink"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v4/workertest"
 )
 
 // MachineLegacySuite is an integration test suite that requires access to
@@ -81,9 +80,9 @@ type MachineLegacySuite struct {
 	agentStorage envstorage.Storage
 }
 
-var _ = gc.Suite(&MachineLegacySuite{})
+var _ = tc.Suite(&MachineLegacySuite{})
 
-func (s *MachineLegacySuite) TestStub(c *gc.C) {
+func (s *MachineLegacySuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - Testing that the controller runs the cleaner worker by removing an application and watching it's unit disapear.
   This is a very silly test.
@@ -93,7 +92,7 @@ func (s *MachineLegacySuite) TestStub(c *gc.C) {
 `)
 }
 
-func (s *MachineLegacySuite) SetUpTest(c *gc.C) {
+func (s *MachineLegacySuite) SetUpTest(c *tc.C) {
 	c.Skip(`
 These tests require the model database. We haven't plumbed that in yet.
 I've added to the risk register to ensure that we come back around and
@@ -143,7 +142,7 @@ For now, we're going to skip these tests.
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *MachineLegacySuite) TestManageModelAuditsAPI(c *gc.C) {
+func (s *MachineLegacySuite) TestManageModelAuditsAPI(c *tc.C) {
 	password := "shhh..."
 	user := names.NewUserTag("username")
 
@@ -193,10 +192,10 @@ func (s *MachineLegacySuite) TestManageModelAuditsAPI(c *gc.C) {
 		// Check that there's a call to Client.AddMachinesV2 in the
 		// log, but no call to Client.FullStatus.
 		records := readAuditLog(c, logPath)
-		c.Assert(records, gc.HasLen, 3)
-		c.Assert(records[1].Request, gc.NotNil)
-		c.Assert(records[1].Request.Facade, gc.Equals, "MachineManager")
-		c.Assert(records[1].Request.Method, gc.Equals, "AddMachines")
+		c.Assert(records, tc.HasLen, 3)
+		c.Assert(records[1].Request, tc.NotNil)
+		c.Assert(records[1].Request.Facade, tc.Equals, "MachineManager")
+		c.Assert(records[1].Request.Method, tc.Equals, "AddMachines")
 
 		// Now update the controller config to remove the exclusion.
 		err := controllerConfigService.UpdateControllerConfig(context.Background(), map[string]interface{}{
@@ -221,13 +220,13 @@ func (s *MachineLegacySuite) TestManageModelAuditsAPI(c *gc.C) {
 		}
 		// Now there should also be a call to Client.FullStatus (and a response).
 		lastRequest := records[len(records)-2]
-		c.Assert(lastRequest.Request, gc.NotNil)
-		c.Assert(lastRequest.Request.Facade, gc.Equals, "Client")
-		c.Assert(lastRequest.Request.Method, gc.Equals, "FullStatus")
+		c.Assert(lastRequest.Request, tc.NotNil)
+		c.Assert(lastRequest.Request.Facade, tc.Equals, "Client")
+		c.Assert(lastRequest.Request.Method, tc.Equals, "FullStatus")
 	})
 }
 
-func (s *MachineLegacySuite) TestHostedModelWorkers(c *gc.C) {
+func (s *MachineLegacySuite) TestHostedModelWorkers(c *tc.C) {
 	c.Skip("These rely on model databases, which aren't available in the agent tests. See addendum.")
 
 	// The dummy provider blows up in the face of multi-model
@@ -248,7 +247,7 @@ func (s *MachineLegacySuite) TestHostedModelWorkers(c *gc.C) {
 	})
 }
 
-func (s *MachineLegacySuite) TestWorkersForHostedModelWithInvalidCredential(c *gc.C) {
+func (s *MachineLegacySuite) TestWorkersForHostedModelWithInvalidCredential(c *tc.C) {
 	// The dummy provider blows up in the face of multi-model
 	// scenarios so patch in a minimal environs.Environ that's good
 	// enough to allow the model workers to run.
@@ -278,7 +277,7 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithInvalidCredential(c *g
 	})
 }
 
-func (s *MachineLegacySuite) TestWorkersForHostedModelWithDeletedCredential(c *gc.C) {
+func (s *MachineLegacySuite) TestWorkersForHostedModelWithDeletedCredential(c *tc.C) {
 	// The dummy provider blows up in the face of multi-model
 	// scenarios so patch in a minimal environs.Environ that's good
 	// enough to allow the model workers to run.
@@ -332,7 +331,7 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithDeletedCredential(c *g
 	})
 }
 
-func (s *MachineLegacySuite) TestMigratingModelWorkers(c *gc.C) {
+func (s *MachineLegacySuite) TestMigratingModelWorkers(c *tc.C) {
 	c.Skip("These rely on model databases, which aren't available in the agent tests. See addendum.")
 
 	st, closer := s.setupNewModel(c)
@@ -378,7 +377,7 @@ func (s *MachineLegacySuite) TestMigratingModelWorkers(c *gc.C) {
 	})
 }
 
-func (s *MachineLegacySuite) TestDyingModelCleanedUp(c *gc.C) {
+func (s *MachineLegacySuite) TestDyingModelCleanedUp(c *tc.C) {
 	st, closer := s.setupNewModel(c)
 	defer closer()
 
@@ -409,7 +408,7 @@ func (s *MachineLegacySuite) TestDyingModelCleanedUp(c *gc.C) {
 		})
 }
 
-func (s *MachineLegacySuite) TestMachineAgentSymlinks(c *gc.C) {
+func (s *MachineLegacySuite) TestMachineAgentSymlinks(c *tc.C) {
 	stm, _, _ := s.primeAgent(c, state.JobManageModel)
 	ctrl, a := s.newAgent(c, stm)
 	defer ctrl.Finish()
@@ -419,13 +418,13 @@ func (s *MachineLegacySuite) TestMachineAgentSymlinks(c *gc.C) {
 	// Symlinks should have been created
 	for _, link := range jujudSymlinks {
 		_, err := os.Stat(utils.EnsureBaseDir(a.rootDir, link))
-		c.Assert(err, jc.ErrorIsNil, gc.Commentf(link))
+		c.Assert(err, jc.ErrorIsNil, tc.Commentf(link))
 	}
 
 	s.waitStopped(c, state.JobManageModel, a, done)
 }
 
-func (s *MachineLegacySuite) TestMachineAgentSymlinkJujuExecExists(c *gc.C) {
+func (s *MachineLegacySuite) TestMachineAgentSymlinkJujuExecExists(c *tc.C) {
 	stm, _, _ := s.primeAgent(c, state.JobManageModel)
 	ctrl, a := s.newAgent(c, stm)
 	defer ctrl.Finish()
@@ -436,7 +435,7 @@ func (s *MachineLegacySuite) TestMachineAgentSymlinkJujuExecExists(c *gc.C) {
 	for _, link := range jujudSymlinks {
 		fullLink := utils.EnsureBaseDir(a.rootDir, link)
 		c.Assert(os.MkdirAll(filepath.Dir(fullLink), os.FileMode(0755)), jc.ErrorIsNil)
-		c.Assert(symlink.New("/nowhere/special", fullLink), jc.ErrorIsNil, gc.Commentf(link))
+		c.Assert(symlink.New("/nowhere/special", fullLink), jc.ErrorIsNil, tc.Commentf(link))
 	}
 
 	// Start the agent and wait for it be running.
@@ -447,13 +446,13 @@ func (s *MachineLegacySuite) TestMachineAgentSymlinkJujuExecExists(c *gc.C) {
 		fullLink := utils.EnsureBaseDir(a.rootDir, link)
 		linkTarget, err := symlink.Read(fullLink)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(linkTarget, gc.Not(gc.Equals), "/nowhere/special", gc.Commentf(link))
+		c.Assert(linkTarget, tc.Not(tc.Equals), "/nowhere/special", tc.Commentf(link))
 	}
 
 	s.waitStopped(c, state.JobManageModel, a, done)
 }
 
-func (s *MachineLegacySuite) TestManageModelServesAPI(c *gc.C) {
+func (s *MachineLegacySuite) TestManageModelServesAPI(c *tc.C) {
 	s.assertJob(c, state.JobManageModel, nil, func(conf agent.Config, a *MachineAgent) {
 		apiInfo, ok := conf.APIInfo()
 		c.Assert(ok, jc.IsTrue)
@@ -462,11 +461,11 @@ func (s *MachineLegacySuite) TestManageModelServesAPI(c *gc.C) {
 		defer st.Close()
 		m, err := apimachiner.NewClient(st).Machine(context.Background(), conf.Tag().(names.MachineTag))
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(m.Life(), gc.Equals, life.Alive)
+		c.Assert(m.Life(), tc.Equals, life.Alive)
 	})
 }
 
-func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFile(c *gc.C) {
+func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFile(c *tc.C) {
 	s.assertJob(c, state.JobManageModel,
 		func() {
 			s.cmdRunner.EXPECT().RunCommands(exec.RunParams{
@@ -485,7 +484,7 @@ func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFile(c *gc.C) {
 	)
 }
 
-func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFileErrored(c *gc.C) {
+func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFileErrored(c *tc.C) {
 	s.assertJob(c, state.JobManageModel,
 		func() {
 			s.cmdRunner.EXPECT().RunCommands(exec.RunParams{
@@ -499,12 +498,12 @@ func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFileErrored(c *
 			c.Assert(err, jc.ErrorIsNil)
 			defer func() { _ = st.Close() }()
 			err = a.machineStartup(context.Background(), st, loggertesting.WrapCheckLog(c))
-			c.Assert(err, gc.ErrorMatches, `unknown error`)
+			c.Assert(err, tc.ErrorMatches, `unknown error`)
 		},
 	)
 }
 
-func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFileNonZeroExitCode(c *gc.C) {
+func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFileNonZeroExitCode(c *tc.C) {
 	s.assertJob(c, state.JobManageModel,
 		func() {
 			s.cmdRunner.EXPECT().RunCommands(exec.RunParams{
@@ -518,12 +517,12 @@ func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFileNonZeroExit
 			c.Assert(err, jc.ErrorIsNil)
 			defer func() { _ = st.Close() }()
 			err = a.machineStartup(context.Background(), st, loggertesting.WrapCheckLog(c))
-			c.Assert(err, gc.ErrorMatches, `cannot patch /etc/update-manager/release-upgrades: unknown error`)
+			c.Assert(err, tc.ErrorMatches, `cannot patch /etc/update-manager/release-upgrades: unknown error`)
 		},
 	)
 }
 
-func (s *MachineLegacySuite) TestControllerModelWorkers(c *gc.C) {
+func (s *MachineLegacySuite) TestControllerModelWorkers(c *tc.C) {
 	c.Skip("These rely on model databases, which aren't available in the agent tests. See addendum.")
 
 	uuid := s.ControllerModelUUID()
@@ -542,7 +541,7 @@ func (s *MachineLegacySuite) TestControllerModelWorkers(c *gc.C) {
 	)
 }
 
-func (s *MachineLegacySuite) TestModelWorkersRespectSingularResponsibilityFlag(c *gc.C) {
+func (s *MachineLegacySuite) TestModelWorkersRespectSingularResponsibilityFlag(c *tc.C) {
 	// Grab responsibility for the model on behalf of another machine.
 	s.claimSingularLease(c)
 
@@ -559,7 +558,7 @@ func (s *MachineLegacySuite) TestModelWorkersRespectSingularResponsibilityFlag(c
 }
 
 func (s *MachineLegacySuite) assertJob(
-	c *gc.C,
+	c *tc.C,
 	job state.MachineJob,
 	preCheck func(),
 	postCheck func(agent.Config, *MachineAgent),
@@ -575,7 +574,7 @@ func (s *MachineLegacySuite) assertJob(
 // given job. The agent's configuration and the agent's state.State are
 // then passed to the test function for further checking.
 func (s *MachineLegacySuite) assertAgentOpensState(
-	c *gc.C, job state.MachineJob,
+	c *tc.C, job state.MachineJob,
 	preCheck func(),
 	postCheck func(agent.Config, *MachineAgent),
 ) {
@@ -605,7 +604,7 @@ func (s *MachineLegacySuite) assertAgentOpensState(
 	s.waitStopped(c, job, a, done)
 }
 
-func (s *MachineLegacySuite) waitForOpenState(c *gc.C, a *MachineAgent) chan error {
+func (s *MachineLegacySuite) waitForOpenState(c *tc.C, a *MachineAgent) chan error {
 	agentAPIs := make(chan struct{}, 1)
 	s.AgentSuite.PatchValue(&reportOpenedState, func(st *state.State) {
 		select {
@@ -621,7 +620,7 @@ func (s *MachineLegacySuite) waitForOpenState(c *gc.C, a *MachineAgent) chan err
 
 	select {
 	case agentAPI := <-agentAPIs:
-		c.Assert(agentAPI, gc.NotNil)
+		c.Assert(agentAPI, tc.NotNil)
 		return done
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("API not opened")
@@ -630,7 +629,7 @@ func (s *MachineLegacySuite) waitForOpenState(c *gc.C, a *MachineAgent) chan err
 	return nil
 }
 
-func (s *MachineLegacySuite) setupNewModel(c *gc.C) (newSt *state.State, closer func()) {
+func (s *MachineLegacySuite) setupNewModel(c *tc.C) (newSt *state.State, closer func()) {
 	// Create a new environment, tests can now watch if workers start for it.
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -647,7 +646,7 @@ func (s *MachineLegacySuite) setupNewModel(c *gc.C) (newSt *state.State, closer 
 	}
 }
 
-func (s *MachineLegacySuite) waitStopped(c *gc.C, job state.MachineJob, a *MachineAgent, done chan error) {
+func (s *MachineLegacySuite) waitStopped(c *tc.C, job state.MachineJob, a *MachineAgent, done chan error) {
 	err := a.Stop()
 	if job == state.JobManageModel {
 		// When shutting down, the API server can be shut down before
@@ -671,7 +670,7 @@ func (s *MachineLegacySuite) waitStopped(c *gc.C, job state.MachineJob, a *Machi
 	}
 }
 
-func (s *MachineLegacySuite) claimSingularLease(c *gc.C) {
+func (s *MachineLegacySuite) claimSingularLease(c *tc.C) {
 	modelUUID := s.ControllerModelUUID()
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		q := `

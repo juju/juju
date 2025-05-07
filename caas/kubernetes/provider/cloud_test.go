@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo/v2"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/environs"
 )
 
-var _ = gc.Suite(&cloudSuite{})
+var _ = tc.Suite(&cloudSuite{})
 
 type cloudSuite struct {
 	fakeBroker fakeK8sClusterMetadataChecker
@@ -57,13 +57,13 @@ func getDefaultCredential() jujucloud.Credential {
 	return defaultCredential
 }
 
-func (s *cloudSuite) SetUpTest(c *gc.C) {
+func (s *cloudSuite) SetUpTest(c *tc.C) {
 	var logger loggo.Logger
 	s.fakeBroker = fakeK8sClusterMetadataChecker{CallMocker: testing.NewCallMocker(logger)}
 	s.runner = dummyRunner{CallMocker: testing.NewCallMocker(logger)}
 }
 
-func (s *cloudSuite) TestFinalizeCloudMicrok8s(c *gc.C) {
+func (s *cloudSuite) TestFinalizeCloudMicrok8s(c *tc.C) {
 	p := s.getProvider()
 	cloudFinalizer := p.(environs.CloudFinalizer)
 	s.fakeBroker.Call("ListStorageClasses", k8slabels.NewSelector()).Returns(
@@ -122,7 +122,7 @@ func (s *cloudSuite) getProvider() caas.ContainerEnvironProvider {
 	)
 }
 
-func (s *cloudSuite) TestEnsureMicroK8sSuitableSuccess(c *gc.C) {
+func (s *cloudSuite) TestEnsureMicroK8sSuitableSuccess(c *tc.C) {
 	s.fakeBroker.Call("ListStorageClasses", k8slabels.NewSelector()).Returns(
 		[]storagev1.StorageClass{
 			{
@@ -151,15 +151,15 @@ func (s *cloudSuite) TestEnsureMicroK8sSuitableSuccess(c *gc.C) {
 	c.Assert(provider.EnsureMicroK8sSuitable(context.Background(), &s.fakeBroker), jc.ErrorIsNil)
 }
 
-func (s *cloudSuite) TestEnsureMicroK8sSuitableStorageNotEnabled(c *gc.C) {
+func (s *cloudSuite) TestEnsureMicroK8sSuitableStorageNotEnabled(c *tc.C) {
 	s.fakeBroker.Call("ListStorageClasses", k8slabels.NewSelector()).Returns(
 		[]storagev1.StorageClass{}, nil,
 	)
 	err := provider.EnsureMicroK8sSuitable(context.Background(), &s.fakeBroker)
-	c.Assert(err, gc.ErrorMatches, `required storage addon is not enabled`)
+	c.Assert(err, tc.ErrorMatches, `required storage addon is not enabled`)
 }
 
-func (s *cloudSuite) TestEnsureMicroK8sSuitableDNSNotEnabled(c *gc.C) {
+func (s *cloudSuite) TestEnsureMicroK8sSuitableDNSNotEnabled(c *tc.C) {
 	s.fakeBroker.Call("ListStorageClasses", k8slabels.NewSelector()).Returns(
 		[]storagev1.StorageClass{
 			{
@@ -177,7 +177,7 @@ func (s *cloudSuite) TestEnsureMicroK8sSuitableDNSNotEnabled(c *gc.C) {
 		k8sutils.LabelsToSelector(map[string]string{"k8s-app": "kube-dns"}),
 	).Returns([]corev1.Pod{}, nil)
 	err := provider.EnsureMicroK8sSuitable(context.Background(), &s.fakeBroker)
-	c.Assert(err, gc.ErrorMatches, `required dns addon is not enabled`)
+	c.Assert(err, tc.ErrorMatches, `required dns addon is not enabled`)
 }
 
 type mockContext struct {

@@ -6,10 +6,10 @@ package service
 import (
 	"context"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 )
 
 type serviceSuite struct {
@@ -18,19 +18,19 @@ type serviceSuite struct {
 	state *MockState
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = tc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) TestGetSequencesForExport(c *gc.C) {
+func (s *serviceSuite) TestGetSequencesForExport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetSequencesForExport(gomock.Any()).Return(map[string]uint64{"foo": 12}, nil)
 
 	seqs, err := s.state.GetSequencesForExport(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(seqs, gc.DeepEquals, map[string]uint64{"foo": 12})
+	c.Assert(seqs, tc.DeepEquals, map[string]uint64{"foo": 12})
 }
 
-func (s *serviceSuite) TestImportSequences(c *gc.C) {
+func (s *serviceSuite) TestImportSequences(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().ImportSequences(gomock.Any(), map[string]uint64{"foo": 12}).Return(nil)
@@ -39,7 +39,7 @@ func (s *serviceSuite) TestImportSequences(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestRemoveAllSequences(c *gc.C) {
+func (s *serviceSuite) TestRemoveAllSequences(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().RemoveAllSequences(gomock.Any()).Return(nil)
@@ -48,7 +48,7 @@ func (s *serviceSuite) TestRemoveAllSequences(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.state = NewMockState(ctrl)

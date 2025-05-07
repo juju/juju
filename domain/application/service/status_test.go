@@ -6,8 +6,8 @@ package service
 import (
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/status"
@@ -15,11 +15,11 @@ import (
 
 type statusSuite struct{}
 
-var _ = gc.Suite(&statusSuite{})
+var _ = tc.Suite(&statusSuite{})
 
 var now = time.Now()
 
-func (s *statusSuite) TestEncodeK8sPodStatus(c *gc.C) {
+func (s *statusSuite) TestEncodeK8sPodStatus(c *tc.C) {
 	testCases := []struct {
 		input  corestatus.StatusInfo
 		output status.StatusInfo[status.K8sPodStatusType]
@@ -72,7 +72,7 @@ func (s *statusSuite) TestEncodeK8sPodStatus(c *gc.C) {
 	}
 }
 
-func (s *statusSuite) TestEncodeUnitAgentStatus(c *gc.C) {
+func (s *statusSuite) TestEncodeUnitAgentStatus(c *tc.C) {
 	testCases := []struct {
 		input  corestatus.StatusInfo
 		output status.StatusInfo[status.UnitAgentStatusType]
@@ -141,7 +141,7 @@ func (s *statusSuite) TestEncodeUnitAgentStatus(c *gc.C) {
 	}
 }
 
-func (s *statusSuite) TestEncodingUnitAgentStatusError(c *gc.C) {
+func (s *statusSuite) TestEncodingUnitAgentStatusError(c *tc.C) {
 	output, err := encodeUnitAgentStatus(&corestatus.StatusInfo{
 		Status: corestatus.Error,
 	})
@@ -167,7 +167,7 @@ func (s *statusSuite) TestEncodingUnitAgentStatusError(c *gc.C) {
 	})
 }
 
-func (s *statusSuite) TestEncodeWorkloadStatus(c *gc.C) {
+func (s *statusSuite) TestEncodeWorkloadStatus(c *tc.C) {
 	testCases := []struct {
 		input  corestatus.StatusInfo
 		output status.StatusInfo[status.WorkloadStatusType]

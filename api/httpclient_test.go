@@ -12,8 +12,8 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
 	"gopkg.in/macaroon.v2"
 
@@ -32,15 +32,15 @@ type httpSuite struct {
 	conn   api.Connection
 }
 
-var _ = gc.Suite(&httpSuite{})
+var _ = tc.Suite(&httpSuite{})
 
-func (s *httpSuite) SetUpTest(c *gc.C) {
+func (s *httpSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	srv := apiservertesting.NewAPIServer(func(modelUUID string) (interface{}, error) {
 		return &testRootAPI{}, nil
 	})
-	s.AddCleanup(func(_ *gc.C) { srv.Close() })
+	s.AddCleanup(func(_ *tc.C) { srv.Close() })
 	info := &api.Info{
 		Addrs:          srv.Addrs,
 		CACert:         testing.CACert,
@@ -50,9 +50,9 @@ func (s *httpSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.conn, err = api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { c.Assert(s.conn.Close(), jc.ErrorIsNil) })
+	s.AddCleanup(func(c *tc.C) { c.Assert(s.conn.Close(), jc.ErrorIsNil) })
 	client, err := s.conn.HTTPClient()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	s.client = client
 }
 
@@ -161,7 +161,7 @@ var httpClientTests = []struct {
 	expectError: `Get http://.*/: no macaroon found in discharge-required response`,
 }}
 
-func (s *httpSuite) TestHTTPClient(c *gc.C) {
+func (s *httpSuite) TestHTTPClient(c *tc.C) {
 	var handler http.HandlerFunc
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		handler(w, req)
@@ -177,8 +177,8 @@ func (s *httpSuite) TestHTTPClient(c *gc.C) {
 		}
 		err := s.client.Get(context.Background(), "/", resp)
 		if test.expectError != "" {
-			c.Check(err, gc.ErrorMatches, test.expectError)
-			c.Check(params.ErrCode(err), gc.Equals, test.expectErrorCode)
+			c.Check(err, tc.ErrorMatches, test.expectError)
+			c.Check(params.ErrCode(err), tc.Equals, test.expectErrorCode)
 			if test.expectErrorIs != "" {
 				c.Check(errors.Cause(err), jc.ErrorIs, test.expectErrorIs)
 			}
@@ -189,18 +189,18 @@ func (s *httpSuite) TestHTTPClient(c *gc.C) {
 			}
 			continue
 		}
-		c.Check(err, gc.IsNil)
+		c.Check(err, tc.IsNil)
 		c.Check(resp, jc.DeepEquals, test.expectResponse)
 	}
 }
 
-func (s *httpSuite) TestControllerMachineAuthForHostedModel(c *gc.C) {
+func (s *httpSuite) TestControllerMachineAuthForHostedModel(c *tc.C) {
 	const nonce = "gary"
 
 	srv := apiservertesting.NewAPIServer(func(modelUUID string) (interface{}, error) {
 		return &testRootAPI{}, nil
 	})
-	s.AddCleanup(func(_ *gc.C) { srv.Close() })
+	s.AddCleanup(func(_ *tc.C) { srv.Close() })
 	info := &api.Info{
 		Addrs:          srv.Addrs,
 		CACert:         testing.CACert,
@@ -235,51 +235,51 @@ func (s *httpSuite) TestControllerMachineAuthForHostedModel(c *gc.C) {
 	httpClient.BaseURL = httpSrv.URL
 	var out map[string]string
 	c.Assert(httpClient.Get(context.Background(), "/", &out), jc.ErrorIsNil)
-	c.Assert(out, gc.DeepEquals, map[string]string{
+	c.Assert(out, tc.DeepEquals, map[string]string{
 		"username": "machine-1",
 		"password": "password",
 		"nonce":    nonce,
 	})
 }
 
-func (s *httpSuite) TestAuthHTTPRequest(c *gc.C) {
+func (s *httpSuite) TestAuthHTTPRequest(c *tc.C) {
 	apiInfo := &api.Info{}
 
 	req := s.authHTTPRequest(c, apiInfo)
 	_, _, ok := req.BasicAuth()
 	c.Assert(ok, jc.IsFalse)
-	c.Assert(req.Header, gc.HasLen, 2)
-	c.Assert(req.Header.Get(httpbakery.BakeryProtocolHeader), gc.Equals, "3")
-	c.Assert(req.Header.Get(params.JujuClientVersion), gc.Equals, version.Current.String())
+	c.Assert(req.Header, tc.HasLen, 2)
+	c.Assert(req.Header.Get(httpbakery.BakeryProtocolHeader), tc.Equals, "3")
+	c.Assert(req.Header.Get(params.JujuClientVersion), tc.Equals, version.Current.String())
 
 	apiInfo.Nonce = "foo"
 	req = s.authHTTPRequest(c, apiInfo)
 	_, _, ok = req.BasicAuth()
 	c.Assert(ok, jc.IsFalse)
-	c.Assert(req.Header.Get(params.MachineNonceHeader), gc.Equals, "foo")
-	c.Assert(req.Header.Get(httpbakery.BakeryProtocolHeader), gc.Equals, "3")
+	c.Assert(req.Header.Get(params.MachineNonceHeader), tc.Equals, "foo")
+	c.Assert(req.Header.Get(httpbakery.BakeryProtocolHeader), tc.Equals, "3")
 
 	apiInfo.Tag = names.NewMachineTag("123")
 	apiInfo.Password = "password"
 	req = s.authHTTPRequest(c, apiInfo)
 	user, pass, ok := req.BasicAuth()
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(user, gc.Equals, "machine-123")
-	c.Assert(pass, gc.Equals, "password")
-	c.Assert(req.Header.Get(params.MachineNonceHeader), gc.Equals, "foo")
-	c.Assert(req.Header.Get(httpbakery.BakeryProtocolHeader), gc.Equals, "3")
+	c.Assert(user, tc.Equals, "machine-123")
+	c.Assert(pass, tc.Equals, "password")
+	c.Assert(req.Header.Get(params.MachineNonceHeader), tc.Equals, "foo")
+	c.Assert(req.Header.Get(httpbakery.BakeryProtocolHeader), tc.Equals, "3")
 
 	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Macaroons = []macaroon.Slice{{mac}}
 	req = s.authHTTPRequest(c, apiInfo)
-	c.Assert(req.Header.Get(params.MachineNonceHeader), gc.Equals, "foo")
-	c.Assert(req.Header.Get(httpbakery.BakeryProtocolHeader), gc.Equals, "3")
+	c.Assert(req.Header.Get(params.MachineNonceHeader), tc.Equals, "foo")
+	c.Assert(req.Header.Get(httpbakery.BakeryProtocolHeader), tc.Equals, "3")
 	macaroons := httpbakery.RequestMacaroons(req)
 	jujutesting.MacaroonsEqual(c, macaroons, apiInfo.Macaroons)
 }
 
-func (s *httpSuite) authHTTPRequest(c *gc.C, info *api.Info) *http.Request {
+func (s *httpSuite) authHTTPRequest(c *tc.C, info *api.Info) *http.Request {
 	req, err := http.NewRequest(http.MethodGet, "/", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = api.AuthHTTPRequest(req, info)

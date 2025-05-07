@@ -4,56 +4,56 @@
 package storage_test
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/storage"
 )
 
 type storageNameSuite struct{}
 
-var _ = gc.Suite(&storageNameSuite{})
+var _ = tc.Suite(&storageNameSuite{})
 
-func (s *storageNameSuite) TestStorageNameValidity(c *gc.C) {
+func (s *storageNameSuite) TestStorageNameValidity(c *tc.C) {
 	assertStorageNameValid(c, "shared-fs")
 	assertStorageNameInvalid(c, "")
 	assertStorageNameInvalid(c, "0")
 }
 
-func assertStorageNameValid(c *gc.C, name string) {
+func assertStorageNameValid(c *tc.C, name string) {
 	result, err := storage.ParseName(name)
-	c.Assert(err, gc.IsNil)
-	c.Assert(name, gc.Equals, result.String())
+	c.Assert(err, tc.IsNil)
+	c.Assert(name, tc.Equals, result.String())
 }
 
-func assertStorageNameInvalid(c *gc.C, name string) {
+func assertStorageNameInvalid(c *tc.C, name string) {
 	_, err := storage.ParseName(name)
 	c.Assert(err, jc.ErrorIs, storage.InvalidStorageName)
 }
 
 type storageIDSuite struct{}
 
-var _ = gc.Suite(&storageIDSuite{})
+var _ = tc.Suite(&storageIDSuite{})
 
-func (s *storageIDSuite) TestStorageIDValidity(c *gc.C) {
+func (s *storageIDSuite) TestStorageIDValidity(c *tc.C) {
 	assertStorageIDValid(c, "shared-fs/0")
 	assertStorageIDInvalid(c, "shared-fs")
 	assertStorageIDInvalid(c, "")
 	assertStorageIDInvalid(c, "0")
 }
 
-func assertStorageIDValid(c *gc.C, id string) {
+func assertStorageIDValid(c *tc.C, id string) {
 	result, err := storage.ParseID(id)
-	c.Assert(err, gc.IsNil)
-	c.Assert(id, gc.Equals, result.String())
+	c.Assert(err, tc.IsNil)
+	c.Assert(id, tc.Equals, result.String())
 }
 
-func assertStorageIDInvalid(c *gc.C, id string) {
+func assertStorageIDInvalid(c *tc.C, id string) {
 	_, err := storage.ParseID(id)
 	c.Assert(err, jc.ErrorIs, storage.InvalidStorageID)
 }
 
-func (s *storageIDSuite) TestMakeID(c *gc.C) {
+func (s *storageIDSuite) TestMakeID(c *tc.C) {
 	id := storage.MakeID("foo", 666)
-	c.Assert(id, gc.Equals, storage.ID("foo/666"))
+	c.Assert(id, tc.Equals, storage.ID("foo/666"))
 }

@@ -11,15 +11,15 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
 type TLSSuite struct{}
 
-var _ = gc.Suite(TLSSuite{})
+var _ = tc.Suite(TLSSuite{})
 
-func (TLSSuite) TestWinCipher(c *gc.C) {
+func (TLSSuite) TestWinCipher(c *tc.C) {
 	if runtime.GOOS != "windows" {
 		c.Skip("Windows-specific test.")
 	}
@@ -39,10 +39,10 @@ func (TLSSuite) TestWinCipher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	b, err := ioutil.ReadFile(out)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(b), gc.Equals, "This is an example server.\n")
+	c.Assert(string(b), tc.Equals, "This is an example server.\n")
 }
 
-func runServer(dir string, c *gc.C) {
+func runServer(dir string, c *tc.C) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte("This is an example server.\n"))
@@ -134,15 +134,15 @@ juAEWSJVCSE0TK/mvBVdlyKOJoEgtfMcRfDQfA1rI9My0rU+/Y5A0w==
 -----END RSA PRIVATE KEY-----`
 )
 
-func (TLSSuite) TestDisableKeepAlives(c *gc.C) {
+func (TLSSuite) TestDisableKeepAlives(c *tc.C) {
 	transport := DefaultHTTPTransport()
-	c.Assert(transport.DisableKeepAlives, gc.Equals, false)
+	c.Assert(transport.DisableKeepAlives, tc.Equals, false)
 
 	transport = NewHTTPTLSTransport(TransportConfig{})
-	c.Assert(transport.DisableKeepAlives, gc.Equals, false)
+	c.Assert(transport.DisableKeepAlives, tc.Equals, false)
 
 	transport = NewHTTPTLSTransport(TransportConfig{
 		DisableKeepAlives: true,
 	})
-	c.Assert(transport.DisableKeepAlives, gc.Equals, true)
+	c.Assert(transport.DisableKeepAlives, tc.Equals, true)
 }

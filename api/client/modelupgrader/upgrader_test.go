@@ -10,9 +10,9 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api/client/modelupgrader"
@@ -27,9 +27,9 @@ type UpgradeModelSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&UpgradeModelSuite{})
+var _ = tc.Suite(&UpgradeModelSuite{})
 
-func (s *UpgradeModelSuite) TestAbortModelUpgrade(c *gc.C) {
+func (s *UpgradeModelSuite) TestAbortModelUpgrade(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	apiCaller := mocks.NewMockAPICallCloser(ctrl)
@@ -48,7 +48,7 @@ func (s *UpgradeModelSuite) TestAbortModelUpgrade(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *UpgradeModelSuite) TestUpgradeModel(c *gc.C) {
+func (s *UpgradeModelSuite) TestUpgradeModel(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	apiCaller := mocks.NewMockAPICallCloser(ctrl)
@@ -77,10 +77,10 @@ func (s *UpgradeModelSuite) TestUpgradeModel(c *gc.C) {
 		"", true, true,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(chosenVersion, gc.DeepEquals, semversion.MustParse("2.9.99"))
+	c.Assert(chosenVersion, tc.DeepEquals, semversion.MustParse("2.9.99"))
 }
 
-func (s *UpgradeModelSuite) TestUploadTools(c *gc.C) {
+func (s *UpgradeModelSuite) TestUploadTools(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	apiCaller := mocks.NewMockAPICallCloser(ctrl)
@@ -117,7 +117,7 @@ func (s *UpgradeModelSuite) TestUploadTools(c *gc.C) {
 		nil, semversion.MustParseBinary("2.9.100-ubuntu-amd64"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, coretools.List{
+	c.Assert(result, tc.DeepEquals, coretools.List{
 		{Version: semversion.MustParseBinary("2.9.100-ubuntu-amd64")},
 	})
 }

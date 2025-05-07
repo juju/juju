@@ -4,17 +4,17 @@
 package version
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
 )
 
 type seriesSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&seriesSuite{})
+var _ = tc.Suite(&seriesSuite{})
 
-func (s *seriesSuite) TestDefaultSupportedLTSBase(c *gc.C) {
+func (s *seriesSuite) TestDefaultSupportedLTSBase(c *tc.C) {
 	b := DefaultSupportedLTSBase()
-	c.Assert(b.String(), gc.Equals, "ubuntu@24.04/stable")
+	c.Assert(b.String(), tc.Equals, "ubuntu@24.04/stable")
 }

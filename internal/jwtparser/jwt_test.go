@@ -14,10 +14,10 @@ import (
 	"encoding/pem"
 
 	"github.com/google/uuid"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwk"
-	gc "gopkg.in/check.v1"
 )
 
 type jwtParserSuite struct {
@@ -27,9 +27,9 @@ type jwtParserSuite struct {
 	client     mockHTTPClient
 }
 
-var _ = gc.Suite(&jwtParserSuite{})
+var _ = tc.Suite(&jwtParserSuite{})
 
-func (s *jwtParserSuite) SetUpTest(c *gc.C) {
+func (s *jwtParserSuite) SetUpTest(c *tc.C) {
 	s.keySet, s.signingKey = NewJWKSet(c)
 	s.url = "fakeurl.com/keys"
 
@@ -42,7 +42,7 @@ func (s *jwtParserSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *jwtParserSuite) TestCacheRegistration(c *gc.C) {
+func (s *jwtParserSuite) TestCacheRegistration(c *tc.C) {
 	ctx, done := context.WithCancel(context.Background())
 	defer done()
 	authenticator := NewParserWithHTTPClient(ctx, s.client)
@@ -50,16 +50,16 @@ func (s *jwtParserSuite) TestCacheRegistration(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *jwtParserSuite) TestCacheRegistrationFailureWithBadURL(c *gc.C) {
+func (s *jwtParserSuite) TestCacheRegistrationFailureWithBadURL(c *tc.C) {
 	ctx, done := context.WithCancel(context.Background())
 	defer done()
 	authenticator := NewParserWithHTTPClient(ctx, s.client)
 	err := authenticator.SetJWKSCache(context.Background(), "noexisturl")
 	// We want to make sure that we get an error for a bad url.
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, tc.NotNil)
 }
 
-func (s *jwtParserSuite) TestParseJWT(c *gc.C) {
+func (s *jwtParserSuite) TestParseJWT(c *tc.C) {
 	ctx, done := context.WithCancel(context.Background())
 	defer done()
 	authenticator := NewParserWithHTTPClient(ctx, s.client)
@@ -77,18 +77,18 @@ func (s *jwtParserSuite) TestParseJWT(c *gc.C) {
 
 	token, err := authenticator.Parse(context.Background(), base64jwt)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(token, gc.NotNil)
+	c.Assert(token, tc.NotNil)
 
 	claims := token.PrivateClaims()
-	c.Assert(token.Subject(), gc.Equals, "alice")
-	c.Assert(token.Issuer(), gc.Equals, "test")
+	c.Assert(token.Subject(), tc.Equals, "alice")
+	c.Assert(token.Issuer(), tc.Equals, "test")
 	c.Assert(token.Audience(), jc.DeepEquals, []string{"controller-1"})
-	c.Assert(token.Expiration().After(token.IssuedAt()), gc.Equals, true)
+	c.Assert(token.Expiration().After(token.IssuedAt()), tc.Equals, true)
 	c.Assert(claims["access"], jc.DeepEquals, map[string]interface{}{"model-1": "read"})
 }
 
 // NewJWKSet returns a new key set and signing key.
-func NewJWKSet(c *gc.C) (jwk.Set, jwk.Key) {
+func NewJWKSet(c *tc.C) (jwk.Set, jwk.Key) {
 	jwkSet, pkeyPem := getJWKS(c)
 
 	block, _ := pem.Decode(pkeyPem)
@@ -102,7 +102,7 @@ func NewJWKSet(c *gc.C) (jwk.Set, jwk.Key) {
 	return jwkSet, signingKey
 }
 
-func getJWKS(c *gc.C) (jwk.Set, []byte) {
+func getJWKS(c *tc.C) (jwk.Set, []byte) {
 	keySet, err := rsa.GenerateKey(rand.Reader, 4096)
 	c.Assert(err, jc.ErrorIsNil)
 

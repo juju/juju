@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorupgrader"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&CAASProvisionerSuite{})
+var _ = tc.Suite(&CAASProvisionerSuite{})
 
 type CAASProvisionerSuite struct {
 	coretesting.BaseSuite
@@ -29,7 +29,7 @@ type CAASProvisionerSuite struct {
 	broker     *mockBroker
 }
 
-func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
+func (s *CAASProvisionerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.broker = &mockBroker{}
@@ -42,26 +42,26 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 	s.api = api
 }
 
-func (s *CAASProvisionerSuite) TestPermission(c *gc.C) {
+func (s *CAASProvisionerSuite) TestPermission(c *tc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: names.NewMachineTag("0"),
 	}
 	_, err := caasoperatorupgrader.NewCAASOperatorUpgraderAPI(s.authorizer, s.broker, loggertesting.WrapCheckLog(c))
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *CAASProvisionerSuite) TestUpgradeOperator(c *gc.C) {
+func (s *CAASProvisionerSuite) TestUpgradeOperator(c *tc.C) {
 	vers := semversion.MustParse("6.6.6")
 	result, err := s.api.UpgradeOperator(context.Background(), params.KubernetesUpgradeArg{
 		AgentTag: s.authorizer.Tag.String(),
 		Version:  vers,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.Error, tc.IsNil)
 	s.broker.CheckCall(c, 0, "Upgrade", s.authorizer.Tag.String(), vers)
 }
 
-func (s *CAASProvisionerSuite) assertUpgradeController(c *gc.C, tag names.Tag) {
+func (s *CAASProvisionerSuite) assertUpgradeController(c *tc.C, tag names.Tag) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:        tag,
 		Controller: true,
@@ -76,15 +76,15 @@ func (s *CAASProvisionerSuite) assertUpgradeController(c *gc.C, tag names.Tag) {
 		Version:  vers,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.Error, tc.IsNil)
 	s.broker.CheckCall(c, 0, "Upgrade", tag.String(), vers)
 }
 
-func (s *CAASProvisionerSuite) TestUpgradeLegacyController(c *gc.C) {
+func (s *CAASProvisionerSuite) TestUpgradeLegacyController(c *tc.C) {
 	s.assertUpgradeController(c, names.NewMachineTag("0"))
 }
 
-func (s *CAASProvisionerSuite) TestUpgradeController(c *gc.C) {
+func (s *CAASProvisionerSuite) TestUpgradeController(c *tc.C) {
 	s.assertUpgradeController(c, names.NewControllerAgentTag("0"))
 }
 

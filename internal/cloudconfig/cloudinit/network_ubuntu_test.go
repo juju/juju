@@ -12,9 +12,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/exec"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
 	corenetwork "github.com/juju/juju/core/network"
@@ -43,9 +43,9 @@ type NetworkUbuntuSuite struct {
 	originalSystemNetworkInterfaces string
 }
 
-var _ = gc.Suite(&NetworkUbuntuSuite{})
+var _ = tc.Suite(&NetworkUbuntuSuite{})
 
-func (s *NetworkUbuntuSuite) SetUpTest(c *gc.C) {
+func (s *NetworkUbuntuSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.tempFolder = c.MkDir()
@@ -115,7 +115,7 @@ func (s *NetworkUbuntuSuite) SetUpTest(c *gc.C) {
 			s.pythonVersions = append(s.pythonVersions, version)
 		}
 	}
-	c.Assert(s.pythonVersions, gc.Not(gc.HasLen), 0)
+	c.Assert(s.pythonVersions, tc.Not(tc.HasLen), 0)
 
 	s.expectedSampleConfigHeader = `#cloud-config
 bootcmd:
@@ -328,29 +328,29 @@ source /etc/network/interfaces.d/*.cfg
 	s.PatchValue(cloudinit.JujuNetplanFile, s.jujuNetplanFile)
 }
 
-func (s *NetworkUbuntuSuite) TestGenerateENIConfig(c *gc.C) {
+func (s *NetworkUbuntuSuite) TestGenerateENIConfig(c *tc.C) {
 	data, err := cloudinit.GenerateENITemplate(nil)
-	c.Assert(err, gc.ErrorMatches, "missing container network config")
-	c.Assert(data, gc.Equals, "")
+	c.Assert(err, tc.ErrorMatches, "missing container network config")
+	c.Assert(data, tc.Equals, "")
 
 	netConfig := container.BridgeNetworkConfig(0, s.fakeInterfaces)
 	data, err = cloudinit.GenerateENITemplate(netConfig.Interfaces)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(data, gc.Equals, s.expectedSampleConfigTemplate)
+	c.Check(data, tc.Equals, s.expectedSampleConfigTemplate)
 }
 
-func (s *NetworkUbuntuSuite) TestGenerateNetplan(c *gc.C) {
+func (s *NetworkUbuntuSuite) TestGenerateNetplan(c *tc.C) {
 	data, err := cloudinit.GenerateNetplan(nil, true)
-	c.Assert(err, gc.ErrorMatches, "missing container network config")
-	c.Assert(data, gc.Equals, "")
+	c.Assert(err, tc.ErrorMatches, "missing container network config")
+	c.Assert(data, tc.Equals, "")
 
 	netConfig := container.BridgeNetworkConfig(0, s.fakeInterfaces)
 	data, err = cloudinit.GenerateNetplan(netConfig.Interfaces, true)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(data, gc.Equals, s.expectedFullNetplan)
+	c.Check(data, tc.Equals, s.expectedFullNetplan)
 }
 
-func (s *NetworkUbuntuSuite) TestGenerateNetplanSkipIPv6LinkLocalDNS(c *gc.C) {
+func (s *NetworkUbuntuSuite) TestGenerateNetplanSkipIPv6LinkLocalDNS(c *tc.C) {
 	s.fakeInterfaces = corenetwork.InterfaceInfos{{
 		InterfaceName: "any5",
 		ConfigType:    corenetwork.ConfigStatic,
@@ -368,7 +368,7 @@ func (s *NetworkUbuntuSuite) TestGenerateNetplanSkipIPv6LinkLocalDNS(c *gc.C) {
 	data, err := cloudinit.GenerateNetplan(netConfig.Interfaces, true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(data, gc.Equals, `
+	c.Check(data, tc.Equals, `
 network:
   version: 2
   ethernets:
@@ -381,7 +381,7 @@ network:
 `[1:])
 }
 
-func (s *NetworkUbuntuSuite) TestGenerateNetplanWithoutMatchStanza(c *gc.C) {
+func (s *NetworkUbuntuSuite) TestGenerateNetplanWithoutMatchStanza(c *tc.C) {
 	s.fakeInterfaces = corenetwork.InterfaceInfos{{
 		InterfaceName: "any5",
 		ConfigType:    corenetwork.ConfigStatic,
@@ -394,7 +394,7 @@ func (s *NetworkUbuntuSuite) TestGenerateNetplanWithoutMatchStanza(c *gc.C) {
 	data, err := cloudinit.GenerateNetplan(netConfig.Interfaces, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(data, gc.Equals, `
+	c.Check(data, tc.Equals, `
 network:
   version: 2
   ethernets:
@@ -404,11 +404,11 @@ network:
 `[1:])
 }
 
-func (s *NetworkUbuntuSuite) TestAddNetworkConfigSampleConfig(c *gc.C) {
+func (s *NetworkUbuntuSuite) TestAddNetworkConfigSampleConfig(c *tc.C) {
 	netConfig := container.BridgeNetworkConfig(0, s.fakeInterfaces)
 	cloudConf, err := cloudinit.New("ubuntu", cloudinit.WithNetplanMACMatch(true))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloudConf, gc.NotNil)
+	c.Assert(cloudConf, tc.NotNil)
 	err = cloudConf.AddNetworkConfig(netConfig.Interfaces)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -419,10 +419,10 @@ func (s *NetworkUbuntuSuite) TestAddNetworkConfigSampleConfig(c *gc.C) {
 	assertUserData(c, cloudConf, expected)
 }
 
-func assertUserData(c *gc.C, cloudConf cloudinit.CloudConfig, expected string) {
+func assertUserData(c *tc.C, cloudConf cloudinit.CloudConfig, expected string) {
 	data, err := cloudConf.RenderYAML()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, expected)
+	c.Assert(string(data), tc.Equals, expected)
 
 	// Make sure it's valid YAML as well.
 	out := make(map[string]interface{})
@@ -431,31 +431,31 @@ func assertUserData(c *gc.C, cloudConf cloudinit.CloudConfig, expected string) {
 	if len(cloudConf.BootCmds()) > 0 {
 		outcmds := out["bootcmd"].([]interface{})
 		confcmds := cloudConf.BootCmds()
-		c.Assert(len(outcmds), gc.Equals, len(confcmds))
+		c.Assert(len(outcmds), tc.Equals, len(confcmds))
 		for i := range outcmds {
-			c.Assert(outcmds[i].(string), gc.Equals, confcmds[i])
+			c.Assert(outcmds[i].(string), tc.Equals, confcmds[i])
 		}
 	} else {
-		c.Assert(out["bootcmd"], gc.IsNil)
+		c.Assert(out["bootcmd"], tc.IsNil)
 	}
 }
 
-func (s *NetworkUbuntuSuite) TestENIScriptSimple(c *gc.C) {
+func (s *NetworkUbuntuSuite) TestENIScriptSimple(c *tc.C) {
 	cmd := s.createMockCommand(c, []string{simpleENIFileIPOutput})
 	s.runENIScriptWithAllPythons(c, cmd, simpleENIFile, simpleENIFileExpected, 0, 1)
 }
 
-func (s *NetworkUbuntuSuite) TestENIScriptUnknownMAC(c *gc.C) {
+func (s *NetworkUbuntuSuite) TestENIScriptUnknownMAC(c *tc.C) {
 	cmd := s.createMockCommand(c, []string{unknownMACENIFileIPOutput})
 	s.runENIScriptWithAllPythons(c, cmd, unknownMACENIFile, unknownMACENIFileExpected, 0, 1)
 }
 
-func (s *NetworkUbuntuSuite) TestENIScriptHotplugFail(c *gc.C) {
+func (s *NetworkUbuntuSuite) TestENIScriptHotplugFail(c *tc.C) {
 	cmd := s.createMockCommand(c, []string{hotplugENIFileIPOutputPre})
 	s.runENIScriptWithAllPythons(c, cmd, hotplugENIFile, hotplugENIFileExpectedFail, 0, 3)
 }
 
-func (s *NetworkUbuntuSuite) TestENIScriptHotplugTooLate(c *gc.C) {
+func (s *NetworkUbuntuSuite) TestENIScriptHotplugTooLate(c *tc.C) {
 	for _, python := range s.pythonVersions {
 		c.Logf("test using %s", python)
 		ipCommand := s.createMockCommand(c, []string{hotplugENIFileIPOutputPre, hotplugENIFileIPOutputPre, hotplugENIFileIPOutputPre, hotplugENIFileIPOutputPost})
@@ -463,7 +463,7 @@ func (s *NetworkUbuntuSuite) TestENIScriptHotplugTooLate(c *gc.C) {
 	}
 }
 
-func (s *NetworkUbuntuSuite) TestENIScriptHotplug(c *gc.C) {
+func (s *NetworkUbuntuSuite) TestENIScriptHotplug(c *tc.C) {
 	for _, python := range s.pythonVersions {
 		c.Logf("test using %s", python)
 		ipCommand := s.createMockCommand(c, []string{hotplugENIFileIPOutputPre, hotplugENIFileIPOutputPre, hotplugENIFileIPOutputPost})
@@ -471,26 +471,26 @@ func (s *NetworkUbuntuSuite) TestENIScriptHotplug(c *gc.C) {
 	}
 }
 
-func (s *NetworkUbuntuSuite) TestPrepareNetworkConfigFromInterfacesBadCIDRError(c *gc.C) {
+func (s *NetworkUbuntuSuite) TestPrepareNetworkConfigFromInterfacesBadCIDRError(c *tc.C) {
 	s.fakeInterfaces[0].Addresses[0].CIDR = "invalid"
 	_, err := cloudinit.PrepareNetworkConfigFromInterfaces(s.fakeInterfaces)
-	c.Assert(err, gc.ErrorMatches, `invalid CIDR address: invalid`)
+	c.Assert(err, tc.ErrorMatches, `invalid CIDR address: invalid`)
 }
 
-func (s *NetworkUbuntuSuite) TestGenerateNetplanBadAddressError(c *gc.C) {
+func (s *NetworkUbuntuSuite) TestGenerateNetplanBadAddressError(c *tc.C) {
 	s.fakeInterfaces[0].Addresses[0].Value = "invalid"
 	_, err := cloudinit.PrepareNetworkConfigFromInterfaces(s.fakeInterfaces)
-	c.Assert(err, gc.ErrorMatches, `cannot parse IP address "invalid"`)
+	c.Assert(err, tc.ErrorMatches, `cannot parse IP address "invalid"`)
 }
 
-func (s *NetworkUbuntuSuite) runENIScriptWithAllPythons(c *gc.C, ipCommand, input, expectedOutput string, wait, retries int) {
+func (s *NetworkUbuntuSuite) runENIScriptWithAllPythons(c *tc.C, ipCommand, input, expectedOutput string, wait, retries int) {
 	for _, python := range s.pythonVersions {
 		c.Logf("test using %s", python)
 		s.runENIScript(c, python, ipCommand, input, expectedOutput, wait, retries)
 	}
 }
 
-func (s *NetworkUbuntuSuite) runENIScript(c *gc.C, pythonBinary, ipCommand, input, expectedOutput string, wait, retries int) {
+func (s *NetworkUbuntuSuite) runENIScript(c *tc.C, pythonBinary, ipCommand, input, expectedOutput string, wait, retries int) {
 	dataFile := filepath.Join(s.tempFolder, "interfaces")
 	dataOutFile := filepath.Join(s.tempFolder, "interfaces.out")
 	dataBakFile := filepath.Join(s.tempFolder, "interfaces.bak")
@@ -498,18 +498,18 @@ func (s *NetworkUbuntuSuite) runENIScript(c *gc.C, pythonBinary, ipCommand, inpu
 	scriptFile := filepath.Join(s.tempFolder, "script.py")
 
 	err := os.WriteFile(dataFile, []byte(s.originalSystemNetworkInterfaces), 0644)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("Can't write interfaces file"))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("Can't write interfaces file"))
 
 	err = os.WriteFile(templFile, []byte(input), 0644)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("Can't write interfaces.templ file"))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("Can't write interfaces.templ file"))
 
 	err = os.WriteFile(scriptFile, []byte(cloudinit.NetworkInterfacesScript), 0755)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("Can't write script file"))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("Can't write script file"))
 
 	script := fmt.Sprintf("%q %q --interfaces-file %q --output-file %q --command %q --wait %d --retries %d",
 		pythonBinary, scriptFile, dataFile, dataOutFile, ipCommand, wait, retries)
 	result, err := exec.RunCommands(exec.RunParams{Commands: script})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("script failed unexpectedly - %s", result))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("script failed unexpectedly - %s", result))
 	c.Logf("%s\n%s\n", string(result.Stdout), string(result.Stderr))
 
 	for file, expected := range map[string]string{
@@ -518,13 +518,13 @@ func (s *NetworkUbuntuSuite) runENIScript(c *gc.C, pythonBinary, ipCommand, inpu
 		dataFile:    s.originalSystemNetworkInterfaces,
 	} {
 		data, err := os.ReadFile(file)
-		c.Assert(err, jc.ErrorIsNil, gc.Commentf("can't open %q file: %s", file, err))
+		c.Assert(err, jc.ErrorIsNil, tc.Commentf("can't open %q file: %s", file, err))
 		output := string(data)
-		c.Assert(output, gc.Equals, expected)
+		c.Assert(output, tc.Equals, expected)
 	}
 }
 
-func (s *NetworkUbuntuSuite) createMockCommand(c *gc.C, outputs []string) string {
+func (s *NetworkUbuntuSuite) createMockCommand(c *tc.C, outputs []string) string {
 	randBytes := make([]byte, 16)
 	_, _ = rand.Read(randBytes)
 	baseName := hex.EncodeToString(randBytes)
@@ -535,7 +535,7 @@ func (s *NetworkUbuntuSuite) createMockCommand(c *gc.C, outputs []string) string
 	for i, output := range outputs {
 		dataFile := filepath.Join(s.tempFolder, fmt.Sprintf("%s.%d", baseName, i))
 		err := os.WriteFile(dataFile, []byte(output), 0644)
-		c.Assert(err, jc.ErrorIsNil, gc.Commentf("can't write mock file"))
+		c.Assert(err, jc.ErrorIsNil, tc.Commentf("can't write mock file"))
 		if lastFile != "" {
 			script += fmt.Sprintf("mv %q %q || true\n", dataFile, lastFile)
 		}
@@ -544,7 +544,7 @@ func (s *NetworkUbuntuSuite) createMockCommand(c *gc.C, outputs []string) string
 
 	scriptPath := filepath.Join(s.tempFolder, fmt.Sprintf("%s.sh", baseName))
 	err := os.WriteFile(scriptPath, []byte(script), 0755)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("can't write script file"))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("can't write script file"))
 	return scriptPath
 }
 

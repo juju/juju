@@ -6,9 +6,9 @@ package storage_test
 import (
 	"context"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coremodel "github.com/juju/juju/core/model"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -26,9 +26,9 @@ type validationSuite struct {
 	meta      *charm.Meta
 }
 
-var _ = gc.Suite(&validationSuite{})
+var _ = tc.Suite(&validationSuite{})
 
-func (s *validationSuite) SetUpTest(_ *gc.C) {
+func (s *validationSuite) SetUpTest(_ *tc.C) {
 	s.modelType = coremodel.IAAS
 	s.meta = &charm.Meta{
 		Name: "storage-block2",
@@ -84,12 +84,12 @@ func (s *validationSuite) validateStorageDirectives(storage map[string]storage.D
 	)
 }
 
-func (s *validationSuite) TestNilRegistry(c *gc.C) {
+func (s *validationSuite) TestNilRegistry(c *tc.C) {
 	_, err := domainstorage.NewStorageDirectivesValidator(s.modelType, nil, mockStoragePoolGetter{})
-	c.Assert(err, gc.ErrorMatches, "cannot create storage directives validator with nil registry")
+	c.Assert(err, tc.ErrorMatches, "cannot create storage directives validator with nil registry")
 }
 
-func (s *validationSuite) TestValidateStorageDirectivesAgainstCharmSuccess(c *gc.C) {
+func (s *validationSuite) TestValidateStorageDirectivesAgainstCharmSuccess(c *tc.C) {
 	storageDirectives := map[string]storage.Directive{
 		"multi1to10": makeStorageDirective("loop-pool", 1024, 10),
 		"multi2up":   makeStorageDirective("loop-pool", 2048, 2),
@@ -98,20 +98,20 @@ func (s *validationSuite) TestValidateStorageDirectivesAgainstCharmSuccess(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *validationSuite) TestValidateStorageDirectivesAgainstCharmStoragePoolNotFound(c *gc.C) {
+func (s *validationSuite) TestValidateStorageDirectivesAgainstCharmStoragePoolNotFound(c *tc.C) {
 	storageDirectives := map[string]storage.Directive{
 		"multi1to10": makeStorageDirective("ebs-fast", 1024, 10),
 		"multi2up":   makeStorageDirective("loop-pool", 2048, 2),
 	}
 	err := s.validateStorageDirectives(storageDirectives)
-	c.Assert(err, gc.ErrorMatches, `storage pool "ebs-fast" not found`)
+	c.Assert(err, tc.ErrorMatches, `storage pool "ebs-fast" not found`)
 	c.Assert(err, jc.ErrorIs, storageerrors.PoolNotFoundError)
 }
 
-func (s *validationSuite) TestValidateStorageDirectivesAgainstCharmErrors(c *gc.C) {
+func (s *validationSuite) TestValidateStorageDirectivesAgainstCharmErrors(c *tc.C) {
 	assertErr := func(storage map[string]storage.Directive, expect string) {
 		err := s.validateStorageDirectives(storage)
-		c.Assert(err, gc.ErrorMatches, expect)
+		c.Assert(err, tc.ErrorMatches, expect)
 	}
 
 	storageDirectives := map[string]storage.Directive{
@@ -131,17 +131,17 @@ func (s *validationSuite) TestValidateStorageDirectivesAgainstCharmErrors(c *gc.
 	assertErr(storageDirectives, `"rootfs" provider does not support "block" storage`)
 }
 
-func (s *validationSuite) TestValidateStorageDirectivesAgainstCharmCaasBlockNotSupported(c *gc.C) {
+func (s *validationSuite) TestValidateStorageDirectivesAgainstCharmCaasBlockNotSupported(c *tc.C) {
 	s.modelType = coremodel.CAAS
 	storageDirectives := map[string]storage.Directive{
 		"multi1to10": makeStorageDirective("loop-pool", 1024, 1),
 		"multi2up":   makeStorageDirective("loop-pool", 2048, 2),
 	}
 	err := s.validateStorageDirectives(storageDirectives)
-	c.Assert(err, gc.ErrorMatches, `block storage on a container model not supported`)
+	c.Assert(err, tc.ErrorMatches, `block storage on a container model not supported`)
 }
 
-func (s *validationSuite) TestValidateStorageDirectivesAgainstCharmCaas(c *gc.C) {
+func (s *validationSuite) TestValidateStorageDirectivesAgainstCharmCaas(c *tc.C) {
 	s.modelType = coremodel.CAAS
 	s.meta = &charm.Meta{
 		Name: "storage-block2",
@@ -159,5 +159,5 @@ func (s *validationSuite) TestValidateStorageDirectivesAgainstCharmCaas(c *gc.C)
 		"files": makeStorageDirective("tmp", 2048, 1),
 	}
 	err := s.validateStorageDirectives(storageDirectives)
-	c.Assert(err, gc.ErrorMatches, `invalid storage config: storage medium "foo" not valid`)
+	c.Assert(err, tc.ErrorMatches, `invalid storage config: storage medium "foo" not valid`)
 }

@@ -11,10 +11,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	cloudapi "github.com/juju/juju/api/client/cloud"
@@ -27,12 +27,12 @@ import (
 type cloudSuite struct {
 }
 
-var _ = gc.Suite(&cloudSuite{})
+var _ = tc.Suite(&cloudSuite{})
 
-func (s *cloudSuite) SetUpTest(c *gc.C) {
+func (s *cloudSuite) SetUpTest(c *tc.C) {
 }
 
-func (s *cloudSuite) TestCloud(c *gc.C) {
+func (s *cloudSuite) TestCloud(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -63,7 +63,7 @@ func (s *cloudSuite) TestCloud(c *gc.C) {
 	})
 }
 
-func (s *cloudSuite) TestCloudInfo(c *gc.C) {
+func (s *cloudSuite) TestCloudInfo(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -149,7 +149,7 @@ func (s *cloudSuite) TestCloudInfo(c *gc.C) {
 	}})
 }
 
-func (s *cloudSuite) TestClouds(c *gc.C) {
+func (s *cloudSuite) TestClouds(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -185,7 +185,7 @@ func (s *cloudSuite) TestClouds(c *gc.C) {
 	})
 }
 
-func (s *cloudSuite) TestUserCredentials(c *gc.C) {
+func (s *cloudSuite) TestUserCredentials(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -214,7 +214,7 @@ func (s *cloudSuite) TestUserCredentials(c *gc.C) {
 	})
 }
 
-func (s *cloudSuite) TestUpdateCredential(c *gc.C) {
+func (s *cloudSuite) TestUpdateCredential(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -239,10 +239,10 @@ func (s *cloudSuite) TestUpdateCredential(c *gc.C) {
 
 	result, err := client.UpdateCredentialsCheckModels(context.Background(), testCredentialTag, testCredential)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.IsNil)
+	c.Assert(result, tc.IsNil)
 }
 
-func (s *cloudSuite) TestUpdateCredentialError(c *gc.C) {
+func (s *cloudSuite) TestUpdateCredentialError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -271,11 +271,11 @@ func (s *cloudSuite) TestUpdateCredentialError(c *gc.C) {
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	errs, err := client.UpdateCredentialsCheckModels(context.Background(), testCredentialTag, testCredential)
-	c.Assert(err, gc.ErrorMatches, "validation failure")
-	c.Assert(errs, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "validation failure")
+	c.Assert(errs, tc.IsNil)
 }
 
-func (s *cloudSuite) TestUpdateCredentialManyResults(c *gc.C) {
+func (s *cloudSuite) TestUpdateCredentialManyResults(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -301,11 +301,11 @@ func (s *cloudSuite) TestUpdateCredentialManyResults(c *gc.C) {
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.UpdateCredentialsCheckModels(context.Background(), testCredentialTag, testCredential)
-	c.Assert(err, gc.ErrorMatches, `expected 1 result got 2 when updating credentials`)
-	c.Assert(result, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `expected 1 result got 2 when updating credentials`)
+	c.Assert(result, tc.IsNil)
 }
 
-func (s *cloudSuite) TestUpdateCredentialModelErrors(c *gc.C) {
+func (s *cloudSuite) TestUpdateCredentialModelErrors(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -343,7 +343,7 @@ func (s *cloudSuite) TestUpdateCredentialModelErrors(c *gc.C) {
 
 	errs, err := client.UpdateCredentialsCheckModels(context.Background(), testCredentialTag, testCredential)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs, gc.DeepEquals, []params.UpdateCredentialModelResult{
+	c.Assert(errs, tc.DeepEquals, []params.UpdateCredentialModelResult{
 		{
 			ModelUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 			ModelName: "test-model",
@@ -363,7 +363,7 @@ var (
 	})
 )
 
-func (s *cloudSuite) TestRevokeCredential(c *gc.C) {
+func (s *cloudSuite) TestRevokeCredential(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -385,7 +385,7 @@ func (s *cloudSuite) TestRevokeCredential(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *cloudSuite) TestCredentials(c *gc.C) {
+func (s *cloudSuite) TestCredentials(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -441,7 +441,7 @@ var testCloud = cloud.Cloud{
 	Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
 }
 
-func (s *cloudSuite) TestAddCloudForce(c *gc.C) {
+func (s *cloudSuite) TestAddCloudForce(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -460,7 +460,7 @@ func (s *cloudSuite) TestAddCloudForce(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *cloudSuite) TestCredentialContentsArgumentCheck(c *gc.C) {
+func (s *cloudSuite) TestCredentialContentsArgumentCheck(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -469,16 +469,16 @@ func (s *cloudSuite) TestCredentialContentsArgumentCheck(c *gc.C) {
 
 	// Check supplying cloud name without credential name is invalid.
 	result, err := client.CredentialContents(context.Background(), "cloud", "", true)
-	c.Assert(result, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "credential name must be supplied")
+	c.Assert(result, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "credential name must be supplied")
 
 	// Check supplying credential name without cloud name is invalid.
 	result, err = client.CredentialContents(context.Background(), "", "credential", true)
-	c.Assert(result, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "cloud name must be supplied")
+	c.Assert(result, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "cloud name must be supplied")
 }
 
-func (s *cloudSuite) TestCredentialContentsAll(c *gc.C) {
+func (s *cloudSuite) TestCredentialContentsAll(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -520,7 +520,7 @@ func (s *cloudSuite) TestCredentialContentsAll(c *gc.C) {
 	c.Assert(ress, jc.DeepEquals, expectedResults)
 }
 
-func (s *cloudSuite) TestCredentialContentsOne(c *gc.C) {
+func (s *cloudSuite) TestCredentialContentsOne(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -542,10 +542,10 @@ func (s *cloudSuite) TestCredentialContentsOne(c *gc.C) {
 
 	results, err := client.CredentialContents(context.Background(), "cloud-name", "credential-name", true)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results, tc.HasLen, 1)
 }
 
-func (s *cloudSuite) TestCredentialContentsGotMoreThanBargainedFor(c *gc.C) {
+func (s *cloudSuite) TestCredentialContentsGotMoreThanBargainedFor(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -567,11 +567,11 @@ func (s *cloudSuite) TestCredentialContentsGotMoreThanBargainedFor(c *gc.C) {
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	results, err := client.CredentialContents(context.Background(), "cloud-name", "credential-name", true)
-	c.Assert(results, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "expected 1 result for credential \"cloud-name\" on cloud \"credential-name\", got 2")
+	c.Assert(results, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "expected 1 result for credential \"cloud-name\" on cloud \"credential-name\", got 2")
 }
 
-func (s *cloudSuite) TestCredentialContentsServerError(c *gc.C) {
+func (s *cloudSuite) TestCredentialContentsServerError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -584,11 +584,11 @@ func (s *cloudSuite) TestCredentialContentsServerError(c *gc.C) {
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	results, err := client.CredentialContents(context.Background(), "", "", true)
-	c.Assert(results, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(results, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *cloudSuite) TestRemoveCloud(c *gc.C) {
+func (s *cloudSuite) TestRemoveCloud(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -606,10 +606,10 @@ func (s *cloudSuite) TestRemoveCloud(c *gc.C) {
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.RemoveCloud(context.Background(), "foo")
-	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
-func (s *cloudSuite) TestRemoveCloudErrorMapping(c *gc.C) {
+func (s *cloudSuite) TestRemoveCloudErrorMapping(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -630,10 +630,10 @@ func (s *cloudSuite) TestRemoveCloudErrorMapping(c *gc.C) {
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.RemoveCloud(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, errors.NotFound, gc.Commentf("expected client to be map server error into a NotFound error"))
+	c.Assert(err, jc.ErrorIs, errors.NotFound, tc.Commentf("expected client to be map server error into a NotFound error"))
 }
 
-func (s *cloudSuite) TestGrantCloud(c *gc.C) {
+func (s *cloudSuite) TestGrantCloud(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -653,10 +653,10 @@ func (s *cloudSuite) TestGrantCloud(c *gc.C) {
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.GrantCloud(context.Background(), "fred", "admin", "fluffy")
-	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
-func (s *cloudSuite) TestRevokeCloud(c *gc.C) {
+func (s *cloudSuite) TestRevokeCloud(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -676,7 +676,7 @@ func (s *cloudSuite) TestRevokeCloud(c *gc.C) {
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.RevokeCloud(context.Background(), "fred", "admin", "fluffy")
-	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
 func createCredentials(n int) map[string]cloud.Credential {
@@ -687,7 +687,7 @@ func createCredentials(n int) map[string]cloud.Credential {
 	return result
 }
 
-func (s *cloudSuite) TestUpdateCloud(c *gc.C) {
+func (s *cloudSuite) TestUpdateCloud(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -715,7 +715,7 @@ func (s *cloudSuite) TestUpdateCloud(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *cloudSuite) TestUpdateCloudsCredentials(c *gc.C) {
+func (s *cloudSuite) TestUpdateCloudsCredentials(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -741,10 +741,10 @@ func (s *cloudSuite) TestUpdateCloudsCredentials(c *gc.C) {
 
 	result, err := client.UpdateCloudsCredentials(context.Background(), createCredentials(1), true)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, []params.UpdateCredentialResult{{}})
+	c.Assert(result, tc.DeepEquals, []params.UpdateCredentialResult{{}})
 }
 
-func (s *cloudSuite) TestUpdateCloudsCredentialsError(c *gc.C) {
+func (s *cloudSuite) TestUpdateCloudsCredentialsError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -774,12 +774,12 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsError(c *gc.C) {
 
 	errs, err := client.UpdateCloudsCredentials(context.Background(), createCredentials(1), false)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs, gc.DeepEquals, []params.UpdateCredentialResult{
+	c.Assert(errs, tc.DeepEquals, []params.UpdateCredentialResult{
 		{CredentialTag: "cloudcred-foo_bob_bar0", Error: apiservererrors.ServerError(errors.New("validation failure"))},
 	})
 }
 
-func (s *cloudSuite) TestUpdateCloudsCredentialsManyResults(c *gc.C) {
+func (s *cloudSuite) TestUpdateCloudsCredentialsManyResults(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -806,11 +806,11 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsManyResults(c *gc.C) {
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.UpdateCloudsCredentials(context.Background(), createCredentials(1), false)
-	c.Assert(err, gc.ErrorMatches, `expected 1 result got 2 when updating credentials`)
-	c.Assert(result, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `expected 1 result got 2 when updating credentials`)
+	c.Assert(result, tc.IsNil)
 }
 
-func (s *cloudSuite) TestUpdateCloudsCredentialsManyMatchingResults(c *gc.C) {
+func (s *cloudSuite) TestUpdateCloudsCredentialsManyMatchingResults(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -840,10 +840,10 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsManyMatchingResults(c *gc.C) {
 
 	result, err := client.UpdateCloudsCredentials(context.Background(), createCredentials(count), false)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.HasLen, count)
+	c.Assert(result, tc.HasLen, count)
 }
 
-func (s *cloudSuite) TestUpdateCloudsCredentialsModelErrors(c *gc.C) {
+func (s *cloudSuite) TestUpdateCloudsCredentialsModelErrors(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -882,7 +882,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsModelErrors(c *gc.C) {
 
 	errs, err := client.UpdateCloudsCredentials(context.Background(), createCredentials(1), false)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs, gc.DeepEquals, []params.UpdateCredentialResult{
+	c.Assert(errs, tc.DeepEquals, []params.UpdateCredentialResult{
 		{CredentialTag: "cloudcred-foo_bob_bar",
 			Models: []params.UpdateCredentialModelResult{
 				{ModelUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
@@ -897,7 +897,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsModelErrors(c *gc.C) {
 	})
 }
 
-func (s *cloudSuite) TestAddCloudsCredentials(c *gc.C) {
+func (s *cloudSuite) TestAddCloudsCredentials(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -922,7 +922,7 @@ func (s *cloudSuite) TestAddCloudsCredentials(c *gc.C) {
 
 	result, err := client.AddCloudsCredentials(context.Background(), createCredentials(1))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, []params.UpdateCredentialResult{{}})
+	c.Assert(result, tc.DeepEquals, []params.UpdateCredentialResult{{}})
 }
 
 type cloudCredentialMatcher struct {

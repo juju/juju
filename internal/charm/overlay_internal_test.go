@@ -4,14 +4,14 @@
 package charm
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
 type removeRelationsSuite struct{}
 
 var (
-	_ = gc.Suite(&removeRelationsSuite{})
+	_ = tc.Suite(&removeRelationsSuite{})
 
 	sampleRelations = [][]string{
 		{"kubernetes-master:kube-control", "kubernetes-worker:kube-control"},
@@ -23,28 +23,28 @@ var (
 	}
 )
 
-func (*removeRelationsSuite) TestNil(c *gc.C) {
+func (*removeRelationsSuite) TestNil(c *tc.C) {
 	result := removeRelations(nil, "foo")
-	c.Assert(result, gc.HasLen, 0)
+	c.Assert(result, tc.HasLen, 0)
 }
 
-func (*removeRelationsSuite) TestEmpty(c *gc.C) {
+func (*removeRelationsSuite) TestEmpty(c *tc.C) {
 	result := removeRelations([][]string{}, "foo")
-	c.Assert(result, gc.HasLen, 0)
+	c.Assert(result, tc.HasLen, 0)
 }
 
-func (*removeRelationsSuite) TestAppNotThere(c *gc.C) {
+func (*removeRelationsSuite) TestAppNotThere(c *tc.C) {
 	result := removeRelations(sampleRelations, "foo")
 	c.Assert(result, jc.DeepEquals, sampleRelations)
 }
 
-func (*removeRelationsSuite) TestAppBadRelationsKept(c *gc.C) {
+func (*removeRelationsSuite) TestAppBadRelationsKept(c *tc.C) {
 	badRelations := [][]string{{"single value"}, {"three", "string", "values"}}
 	result := removeRelations(badRelations, "foo")
 	c.Assert(result, jc.DeepEquals, badRelations)
 }
 
-func (*removeRelationsSuite) TestRemoveFromRight(c *gc.C) {
+func (*removeRelationsSuite) TestRemoveFromRight(c *tc.C) {
 	result := removeRelations(sampleRelations, "etcd")
 	c.Assert(result, jc.DeepEquals, [][]string{
 		{"kubernetes-master:kube-control", "kubernetes-worker:kube-control"},
@@ -54,7 +54,7 @@ func (*removeRelationsSuite) TestRemoveFromRight(c *gc.C) {
 	})
 }
 
-func (*removeRelationsSuite) TestRemoveFromLeft(c *gc.C) {
+func (*removeRelationsSuite) TestRemoveFromLeft(c *tc.C) {
 	result := removeRelations(sampleRelations, "flannel")
 	c.Assert(result, jc.DeepEquals, [][]string{
 		{"kubernetes-master:kube-control", "kubernetes-worker:kube-control"},

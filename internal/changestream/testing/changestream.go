@@ -9,10 +9,10 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/changestream"
@@ -44,7 +44,7 @@ type TestWatchableDB struct {
 
 // NewTestWatchableDB creates a test changestream based on the id and
 // runnner.
-func NewTestWatchableDB(c *gc.C, id string, db database.TxnRunner) *TestWatchableDB {
+func NewTestWatchableDB(c *tc.C, id string, db database.TxnRunner) *TestWatchableDB {
 	states := make(chan string, 1)
 
 	logger := loggertesting.WrapCheckLog(c)

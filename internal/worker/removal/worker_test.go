@@ -10,12 +10,12 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/juju/clock"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/removal"
@@ -29,9 +29,9 @@ type workerSuite struct {
 	clk *MockClock
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
-func (s *workerSuite) TestWorkerStartStop(c *gc.C) {
+func (s *workerSuite) TestWorkerStartStop(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	ch := make(chan []string)
@@ -67,7 +67,7 @@ func (s *workerSuite) TestWorkerStartStop(c *gc.C) {
 // - The watcher fires.
 // - We query for jobs, receive two, but only one is due for execution,
 // - Only the due job is scheduled with the runner.
-func (s *workerSuite) TestWorkerNotifiedSchedulesDueJob(c *gc.C) {
+func (s *workerSuite) TestWorkerNotifiedSchedulesDueJob(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	ch := make(chan []string)
@@ -133,7 +133,7 @@ func (s *workerSuite) TestWorkerNotifiedSchedulesDueJob(c *gc.C) {
 // - The timer fires.
 // - We query for jobs, receive two, but one has already been scheduled.
 // - Only the unscheduled job is scheduled with the runner.
-func (s *workerSuite) TestWorkerTimerSchedulesOnlyRequiredJob(c *gc.C) {
+func (s *workerSuite) TestWorkerTimerSchedulesOnlyRequiredJob(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	ch := make(chan []string)
@@ -222,7 +222,7 @@ func (s *workerSuite) TestWorkerTimerSchedulesOnlyRequiredJob(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestWorkerReport(c *gc.C) {
+func (s *workerSuite) TestWorkerReport(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	ch := make(chan []string)
@@ -291,7 +291,7 @@ func (s *workerSuite) TestWorkerReport(c *gc.C) {
 
 		if len(rw.runner.WorkerNames()) == 2 {
 			r = rw.Report()
-			c.Assert(r, gc.HasLen, 1)
+			c.Assert(r, tc.HasLen, 1)
 
 			rm, ok := r["workers"].(map[string]any)
 			c.Assert(ok, jc.IsTrue)
@@ -309,8 +309,8 @@ func (s *workerSuite) TestWorkerReport(c *gc.C) {
 
 			j1r, ok := j1m["report"].(map[string]any)
 			c.Assert(ok, jc.IsTrue)
-			c.Check(j1r["job-type"], gc.Equals, removal.RelationJob)
-			c.Check(j1r["removal-entity"], gc.Equals, "relation-uuid-1")
+			c.Check(j1r["job-type"], tc.Equals, removal.RelationJob)
+			c.Check(j1r["removal-entity"], tc.Equals, "relation-uuid-1")
 			c.Check(j1r["force"], jc.IsFalse)
 
 			j2, ok := rm["job-uuid-2"]
@@ -326,8 +326,8 @@ func (s *workerSuite) TestWorkerReport(c *gc.C) {
 
 			j2r, ok := j2m["report"].(map[string]any)
 			c.Assert(ok, jc.IsTrue)
-			c.Check(j2r["job-type"], gc.Equals, removal.RelationJob)
-			c.Check(j2r["removal-entity"], gc.Equals, "relation-uuid-2")
+			c.Check(j2r["job-type"], tc.Equals, removal.RelationJob)
+			c.Check(j2r["removal-entity"], tc.Equals, "relation-uuid-2")
 			c.Check(j2r["force"], jc.IsTrue)
 
 			break
@@ -342,7 +342,7 @@ func (s *workerSuite) TestWorkerReport(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) setUpMocks(c *gc.C) *gomock.Controller {
+func (s *workerSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.svc = NewMockRemovalService(ctrl)

@@ -6,9 +6,9 @@ package kubernetes
 import (
 	"time"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/secrets/provider"
 )
@@ -17,9 +17,9 @@ type configSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&configSuite{})
+var _ = tc.Suite(&configSuite{})
 
-func (s *configSuite) TestValidateConfig(c *gc.C) {
+func (s *configSuite) TestValidateConfig(c *tc.C) {
 	p, err := provider.Provider(BackendType)
 	c.Assert(err, jc.ErrorIsNil)
 	configValidator, ok := p.(provider.ProviderConfig)
@@ -52,6 +52,6 @@ func (s *configSuite) TestValidateConfig(c *gc.C) {
 		err:                 `k8s config missing service account not valid`,
 	}} {
 		err = configValidator.ValidateConfig(t.oldCfg, t.cfg, t.tokenRotateInterval)
-		c.Assert(err, gc.ErrorMatches, t.err)
+		c.Assert(err, tc.ErrorMatches, t.err)
 	}
 }

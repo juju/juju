@@ -4,9 +4,9 @@
 package base_test
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/base/mocks"
@@ -19,25 +19,25 @@ type apiCallerSuite struct {
 	apiCaller *mocks.MockAPICaller
 }
 
-var _ = gc.Suite(&apiCallerSuite{})
+var _ = tc.Suite(&apiCallerSuite{})
 
-func (s *apiCallerSuite) TestNewFacadeCaller(c *gc.C) {
+func (s *apiCallerSuite) TestNewFacadeCaller(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	facade := base.NewFacadeCaller(s.apiCaller, "Foo")
-	c.Assert(facade, gc.NotNil)
-	c.Check(facade.(Tracer).Tracer(), gc.IsNil)
+	c.Assert(facade, tc.NotNil)
+	c.Check(facade.(Tracer).Tracer(), tc.IsNil)
 }
 
-func (s *apiCallerSuite) TestNewFacadeCallerWithTracer(c *gc.C) {
+func (s *apiCallerSuite) TestNewFacadeCallerWithTracer(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	facade := base.NewFacadeCaller(s.apiCaller, "Foo", base.WithTracer(coretrace.NoopTracer{}))
-	c.Assert(facade, gc.NotNil)
-	c.Check(facade.(Tracer).Tracer(), gc.Equals, coretrace.NoopTracer{})
+	c.Assert(facade, tc.NotNil)
+	c.Check(facade.(Tracer).Tracer(), tc.Equals, coretrace.NoopTracer{})
 }
 
-func (s *apiCallerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *apiCallerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.apiCaller = mocks.NewMockAPICaller(ctrl)

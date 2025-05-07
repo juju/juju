@@ -11,9 +11,9 @@ import (
 	"github.com/juju/clock/testclock"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -25,7 +25,7 @@ import (
 	statewatcher "github.com/juju/juju/state/watcher"
 )
 
-var _ = gc.Suite(&StateSuite{})
+var _ = tc.Suite(&StateSuite{})
 
 // StateSuite provides setup and teardown for tests that require a
 // state.State.
@@ -48,20 +48,20 @@ type StateSuite struct {
 	Clock                     testclock.AdvanceableClock
 	modelWatcherIdle          chan string
 	modelWatcherMutex         *sync.Mutex
-	InstancePrechecker        func(*gc.C, *state.State) environs.InstancePrechecker
+	InstancePrechecker        func(*tc.C, *state.State) environs.InstancePrechecker
 }
 
-func (s *StateSuite) SetUpSuite(c *gc.C) {
+func (s *StateSuite) SetUpSuite(c *tc.C) {
 	s.MgoSuite.SetUpSuite(c)
 	s.BaseSuite.SetUpSuite(c)
 }
 
-func (s *StateSuite) TearDownSuite(c *gc.C) {
+func (s *StateSuite) TearDownSuite(c *tc.C) {
 	s.BaseSuite.TearDownSuite(c)
 	s.MgoSuite.TearDownSuite(c)
 }
 
-func (s *StateSuite) SetUpTest(c *gc.C) {
+func (s *StateSuite) SetUpTest(c *tc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.BaseSuite.SetUpTest(c)
 
@@ -87,7 +87,7 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 		NewPolicy:                 s.NewPolicy,
 		Clock:                     s.Clock,
 	})
-	s.AddCleanup(func(*gc.C) {
+	s.AddCleanup(func(*tc.C) {
 		_ = s.Controller.Close()
 	})
 	s.StatePool = s.Controller.StatePool()
@@ -101,7 +101,7 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 	s.Factory = factory.NewFactory(s.State, s.StatePool, s.ControllerConfig)
 }
 
-func (s *StateSuite) TearDownTest(c *gc.C) {
+func (s *StateSuite) TearDownTest(c *tc.C) {
 	s.BaseSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
 }
@@ -127,7 +127,7 @@ func (s *StateSuite) hubWatcherIdleFunc(modelUUID string) {
 // WaitForModelWatchersIdle firstly waits for the txn poller to process
 // all pending changes, then waits for the hub watcher on the state object
 // to have finished processing all those events.
-func (s *StateSuite) WaitForModelWatchersIdle(c *gc.C, modelUUID string) {
+func (s *StateSuite) WaitForModelWatchersIdle(c *tc.C, modelUUID string) {
 	// Use a logger rather than c.Log so we get timestamps.
 	logger := loggertesting.WrapCheckLog(c)
 	logger.Infof(context.TODO(), "waiting for model %s to be idle", modelUUID)

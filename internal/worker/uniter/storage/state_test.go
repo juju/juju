@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/juju/juju/internal/worker/uniter/hook"
@@ -21,14 +21,14 @@ type stateSuite struct {
 	st   *storage.State
 }
 
-var _ = gc.Suite(&stateSuite{})
+var _ = tc.Suite(&stateSuite{})
 
-func (s *stateSuite) SetUpTest(c *gc.C) {
+func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.tag1 = names.NewStorageTag("test/1")
 	s.st = storage.NewState()
 }
 
-func (s *stateSuite) TestAttached(c *gc.C) {
+func (s *stateSuite) TestAttached(c *tc.C) {
 	_, found := s.st.Attached(s.tag1.Id())
 	c.Assert(found, jc.IsFalse)
 	s.st.Attach(s.tag1.Id())
@@ -37,7 +37,7 @@ func (s *stateSuite) TestAttached(c *gc.C) {
 	c.Assert(attached, jc.IsTrue)
 }
 
-func (s *stateSuite) TestAttachedDetached(c *gc.C) {
+func (s *stateSuite) TestAttachedDetached(c *tc.C) {
 	s.st.Attach(s.tag1.Id())
 	err := s.st.Detach(s.tag1.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -46,7 +46,7 @@ func (s *stateSuite) TestAttachedDetached(c *gc.C) {
 	c.Assert(attached, jc.IsFalse)
 }
 
-func (s *stateSuite) TestDetach(c *gc.C) {
+func (s *stateSuite) TestDetach(c *tc.C) {
 	s.st.Attach(s.tag1.Id())
 	attached, found := s.st.Attached(s.tag1.Id())
 	c.Assert(found, jc.IsTrue)
@@ -55,21 +55,21 @@ func (s *stateSuite) TestDetach(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateSuite) TestDetachErr(c *gc.C) {
+func (s *stateSuite) TestDetachErr(c *tc.C) {
 	err := s.st.Detach(s.tag1.Id())
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
-func (s *stateSuite) TestEmpty(c *gc.C) {
+func (s *stateSuite) TestEmpty(c *tc.C) {
 	c.Assert(s.st.Empty(), jc.IsTrue)
 }
 
-func (s *stateSuite) TestNotEmpty(c *gc.C) {
+func (s *stateSuite) TestNotEmpty(c *tc.C) {
 	s.st.Attach(s.tag1.Id())
 	c.Assert(s.st.Empty(), jc.IsFalse)
 }
 
-func (s *stateSuite) TestValidateHookStorageDetaching(c *gc.C) {
+func (s *stateSuite) TestValidateHookStorageDetaching(c *tc.C) {
 	s.st.Attach(s.tag1.Id())
 	hi := hook.Info{Kind: hooks.StorageDetaching, StorageId: s.tag1.Id()}
 	err := s.st.ValidateHook(hi)
@@ -77,27 +77,27 @@ func (s *stateSuite) TestValidateHookStorageDetaching(c *gc.C) {
 
 }
 
-func (s *stateSuite) TestValidateHookStorageDetachingError(c *gc.C) {
+func (s *stateSuite) TestValidateHookStorageDetachingError(c *tc.C) {
 	s.st.Attach(s.tag1.Id())
 	err := s.st.Detach(s.tag1.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	hi := hook.Info{Kind: hooks.StorageDetaching, StorageId: s.tag1.Id()}
 	err = s.st.ValidateHook(hi)
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, tc.NotNil)
 
 }
 
-func (s *stateSuite) TestValidateHookStorageAttached(c *gc.C) {
+func (s *stateSuite) TestValidateHookStorageAttached(c *tc.C) {
 	hi := hook.Info{Kind: hooks.StorageAttached, StorageId: s.tag1.Id()}
 	err := s.st.ValidateHook(hi)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateSuite) TestValidateHookStorageAttachedError(c *gc.C) {
+func (s *stateSuite) TestValidateHookStorageAttachedError(c *tc.C) {
 	s.st.Attach(s.tag1.Id())
 	hi := hook.Info{Kind: hooks.StorageAttached, StorageId: s.tag1.Id()}
 	err := s.st.ValidateHook(hi)
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, tc.NotNil)
 }
 
 type stateOpsSuite struct {
@@ -108,15 +108,15 @@ type stateOpsSuite struct {
 	tag3 names.StorageTag
 }
 
-var _ = gc.Suite(&stateOpsSuite{})
+var _ = tc.Suite(&stateOpsSuite{})
 
-func (s *stateOpsSuite) SetUpSuite(c *gc.C) {
+func (s *stateOpsSuite) SetUpSuite(c *tc.C) {
 	s.tag1 = names.NewStorageTag("test/1")
 	s.tag2 = names.NewStorageTag("test/2")
 	s.tag3 = names.NewStorageTag("test/3")
 }
 
-func (s *stateOpsSuite) SetUpTest(c *gc.C) {
+func (s *stateOpsSuite) SetUpTest(c *tc.C) {
 	s.storSt = storage.NewState()
 	s.storSt.Attach(s.tag1.Id())
 	s.storSt.Attach(s.tag2.Id())
@@ -124,25 +124,25 @@ func (s *stateOpsSuite) SetUpTest(c *gc.C) {
 	s.storSt.Attach(s.tag3.Id())
 }
 
-func (s *stateOpsSuite) TestRead(c *gc.C) {
+func (s *stateOpsSuite) TestRead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectState(c)
 	ops := storage.NewStateOps(s.mockStateOps)
 	obtainedSt, err := ops.Read(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storage.Storage(obtainedSt), gc.DeepEquals, storage.Storage(s.storSt))
+	c.Assert(storage.Storage(obtainedSt), tc.DeepEquals, storage.Storage(s.storSt))
 }
 
-func (s *stateOpsSuite) TestReadNotFound(c *gc.C) {
+func (s *stateOpsSuite) TestReadNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectStateNotFound()
 	ops := storage.NewStateOps(s.mockStateOps)
 	obtainedSt, err := ops.Read(context.Background())
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
-	c.Assert(obtainedSt, gc.NotNil)
+	c.Assert(obtainedSt, tc.NotNil)
 }
 
-func (s *stateOpsSuite) TestWrite(c *gc.C) {
+func (s *stateOpsSuite) TestWrite(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectSetState(c, "")
 	ops := storage.NewStateOps(s.mockStateOps)
@@ -150,7 +150,7 @@ func (s *stateOpsSuite) TestWrite(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateOpsSuite) TestWriteEmpty(c *gc.C) {
+func (s *stateOpsSuite) TestWriteEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectSetStateEmpty(c)
 	ops := storage.NewStateOps(s.mockStateOps)
@@ -158,7 +158,7 @@ func (s *stateOpsSuite) TestWriteEmpty(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateOpsSuite) TestWriteNilState(c *gc.C) {
+func (s *stateOpsSuite) TestWriteNilState(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	ops := storage.NewStateOps(s.mockStateOps)
 	err := ops.Write(context.Background(), nil)

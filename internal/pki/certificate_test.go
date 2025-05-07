@@ -9,8 +9,8 @@ import (
 	"net"
 	"net/url"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/pki"
 )
@@ -18,9 +18,9 @@ import (
 type CertificateSuite struct {
 }
 
-var _ = gc.Suite(&CertificateSuite{})
+var _ = tc.Suite(&CertificateSuite{})
 
-func (cs *CertificateSuite) VerifyCSRToCertificate(c *gc.C) {
+func (cs *CertificateSuite) VerifyCSRToCertificate(c *tc.C) {
 	jujuURL, err := url.Parse("https://discourse.juju.is")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -50,7 +50,7 @@ func (cs *CertificateSuite) VerifyCSRToCertificate(c *gc.C) {
 	c.Assert(rCert, jc.DeepEquals, &expectedCert)
 }
 
-func (cs *CertificateSuite) CheckPkixNameFromDefaults(c *gc.C) {
+func (cs *CertificateSuite) CheckPkixNameFromDefaults(c *tc.C) {
 	tests := []struct {
 		Template pkix.Name
 		Request  pkix.Name

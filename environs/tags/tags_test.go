@@ -5,8 +5,8 @@ package tags_test
 
 import (
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/testing"
@@ -16,9 +16,9 @@ type tagsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&tagsSuite{})
+var _ = tc.Suite(&tagsSuite{})
 
-func (*tagsSuite) TestResourceTagsUUID(c *gc.C) {
+func (*tagsSuite) TestResourceTagsUUID(c *tc.C) {
 	testResourceTags(c, testing.ControllerTag, names.NewModelTag(""), nil, map[string]string{
 		"juju-controller-uuid": testing.ControllerTag.Id(),
 	})
@@ -28,7 +28,7 @@ func (*tagsSuite) TestResourceTagsUUID(c *gc.C) {
 	})
 }
 
-func (*tagsSuite) TestResourceTagsResourceTaggers(c *gc.C) {
+func (*tagsSuite) TestResourceTagsResourceTaggers(c *tc.C) {
 	testResourceTags(c, testing.ControllerTag, testing.ModelTag, []tags.ResourceTagger{
 		resourceTagger(func() (map[string]string, bool) {
 			return map[string]string{
@@ -60,7 +60,7 @@ func (*tagsSuite) TestResourceTagsResourceTaggers(c *gc.C) {
 	})
 }
 
-func testResourceTags(c *gc.C, controller names.ControllerTag, model names.ModelTag, taggers []tags.ResourceTagger, expectTags map[string]string) {
+func testResourceTags(c *tc.C, controller names.ControllerTag, model names.ModelTag, taggers []tags.ResourceTagger, expectTags map[string]string) {
 	tags := tags.ResourceTags(model, controller, taggers...)
 	c.Assert(tags, jc.DeepEquals, expectTags)
 }

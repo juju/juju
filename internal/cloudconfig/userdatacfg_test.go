@@ -19,9 +19,9 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/crypto/ssh"
-	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"
@@ -48,7 +48,7 @@ type cloudinitSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&cloudinitSuite{})
+var _ = tc.Suite(&cloudinitSuite{})
 
 var (
 	envConstraints       = constraints.MustParse("mem=2G")
@@ -262,10 +262,10 @@ type cloudinitTest struct {
 	upgradedToVersion string
 }
 
-func minimalModelConfig(c *gc.C) *config.Config {
+func minimalModelConfig(c *tc.C) *config.Config {
 	cfg, err := config.New(config.NoDefaults, testing.FakeConfig().Delete("authorized-keys"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg, gc.NotNil)
+	c.Assert(cfg, tc.NotNil)
 	return cfg
 }
 
@@ -511,8 +511,8 @@ func newSimpleTools(vers string) *tools.Tools {
 	}
 }
 
-func getAgentConfig(c *gc.C, tag string, scripts []string) (cfg string) {
-	c.Assert(scripts, gc.Not(gc.HasLen), 0)
+func getAgentConfig(c *tc.C, tag string, scripts []string) (cfg string) {
+	c.Assert(scripts, tc.Not(tc.HasLen), 0)
 	re := regexp.MustCompile(`cat > .*agents/` + regexp.QuoteMeta(tag) + `/agent\.conf' << 'EOF'\n((\n|.)+)\nEOF`)
 	found := false
 	for _, s := range scripts {
@@ -528,14 +528,14 @@ func getAgentConfig(c *gc.C, tag string, scripts []string) (cfg string) {
 }
 
 // check that any --model-config $base64 is valid and matches t.cfg.Config
-func checkEnvConfig(c *gc.C, cfg *config.Config, scripts []string) {
+func checkEnvConfig(c *tc.C, cfg *config.Config, scripts []string) {
 	args := getStateInitializationParams(c, scripts)
 	c.Assert(cfg.AllAttrs(), jc.DeepEquals, args.ControllerModelConfig.AllAttrs())
 }
 
-func getStateInitializationParams(c *gc.C, scripts []string) instancecfg.StateInitializationParams {
+func getStateInitializationParams(c *tc.C, scripts []string) instancecfg.StateInitializationParams {
 	var args instancecfg.StateInitializationParams
-	c.Assert(scripts, gc.Not(gc.HasLen), 0)
+	c.Assert(scripts, tc.Not(tc.HasLen), 0)
 	re := regexp.MustCompile(`echo '(?s:(.+))' > '/var/lib/juju/bootstrap-params'`)
 	for _, s := range scripts {
 		m := re.FindStringSubmatch(s)
@@ -553,7 +553,7 @@ func getStateInitializationParams(c *gc.C, scripts []string) instancecfg.StateIn
 
 // TestCloudInit checks that the output from the various tests
 // in cloudinitTests is well formed.
-func (s *cloudinitSuite) TestCloudInit(c *gc.C) {
+func (s *cloudinitSuite) TestCloudInit(c *tc.C) {
 	for i, test := range cloudinitTests {
 
 		c.Logf("test %d", i)
@@ -569,7 +569,7 @@ func (s *cloudinitSuite) TestCloudInit(c *gc.C) {
 		err = udata.Configure()
 
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(ci, gc.NotNil)
+		c.Check(ci, tc.NotNil)
 		// render the cloudinit config to bytes, and then
 		// back to a map so we can introspect it without
 		// worrying about internal details of the cloudinit
@@ -609,7 +609,7 @@ func (s *cloudinitSuite) TestCloudInit(c *gc.C) {
 	}
 }
 
-func checkCloudInitWithContent(c *gc.C, cfg *testInstanceConfig, expectedScripts string, expectedError string) {
+func checkCloudInitWithContent(c *tc.C, cfg *testInstanceConfig, expectedScripts string, expectedError string) {
 	envConfig := minimalModelConfig(c)
 	testConfig := cfg.maybeSetModelConfig(envConfig).render()
 	ci, err := cloudinit.New(testConfig.Base.OS)
@@ -618,11 +618,11 @@ func checkCloudInitWithContent(c *gc.C, cfg *testInstanceConfig, expectedScripts
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
 	if expectedError != "" {
-		c.Assert(err, gc.ErrorMatches, expectedError)
+		c.Assert(err, tc.ErrorMatches, expectedError)
 		return
 	}
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(ci, gc.NotNil)
+	c.Check(ci, tc.NotNil)
 	data, err := ci.RenderYAML()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -634,7 +634,7 @@ func checkCloudInitWithContent(c *gc.C, cfg *testInstanceConfig, expectedScripts
 	assertScriptMatch(c, scripts, expectedScripts, false)
 }
 
-func (*cloudinitSuite) TestCloudInitWithLocalControllerCharmDir(c *gc.C) {
+func (*cloudinitSuite) TestCloudInitWithLocalControllerCharmDir(c *tc.C) {
 	tmpDir := c.MkDir()
 	controllerCharmPath := filepath.Join(tmpDir, "controller.charm")
 
@@ -656,7 +656,7 @@ echo -n %s | base64 -d > '/var/lib/juju/charms/controller.charm'
 	checkCloudInitWithContent(c, cfg, expectedScripts, "")
 }
 
-func (*cloudinitSuite) TestCloudInitWithLocalControllerCharmArchive(c *gc.C) {
+func (*cloudinitSuite) TestCloudInitWithLocalControllerCharmArchive(c *tc.C) {
 	ch := testcharms.Repo.CharmDir("juju-controller")
 	dir, err := charmtesting.ReadCharmDir(ch.Path)
 	c.Assert(err, jc.ErrorIsNil)
@@ -680,7 +680,7 @@ echo -n %s | base64 -d > '/var/lib/juju/charms/controller.charm'
 	checkCloudInitWithContent(c, cfg, expectedScripts, "")
 }
 
-func (*cloudinitSuite) TestCloudInitConfigure(c *gc.C) {
+func (*cloudinitSuite) TestCloudInitConfigure(c *tc.C) {
 	for i, test := range cloudinitTests {
 		testConfig := test.cfg.maybeSetModelConfig(minimalModelConfig(c)).render()
 		c.Logf("test %d (Configure)", i)
@@ -693,7 +693,7 @@ func (*cloudinitSuite) TestCloudInitConfigure(c *gc.C) {
 	}
 }
 
-func (s *cloudinitSuite) TestCloudInitConfigCloudInitUserData(c *gc.C) {
+func (s *cloudinitSuite) TestCloudInitConfigCloudInitUserData(c *tc.C) {
 	environConfig := minimalModelConfig(c)
 	environConfig, err := environConfig.Apply(map[string]interface{}{
 		config.CloudInitUserDataKey: validCloudInitUserData,
@@ -715,7 +715,7 @@ func (s *cloudinitSuite) TestCloudInitConfigCloudInitUserData(c *gc.C) {
 		`python-glanceclient`,
 	}
 	c.Assert(len(cfgPackages), jc.GreaterThan, 2)
-	c.Assert(cfgPackages[len(cfgPackages)-3:], gc.DeepEquals, expectedPackages)
+	c.Assert(cfgPackages[len(cfgPackages)-3:], tc.DeepEquals, expectedPackages)
 
 	cmds := cloudcfg.RunCmds()
 	beginning := []string{
@@ -728,10 +728,10 @@ func (s *cloudinitSuite) TestCloudInitConfigCloudInitUserData(c *gc.C) {
 		`mkdir "/tmp/postruncmd 2"`,
 	}
 	c.Assert(len(cmds), jc.GreaterThan, 6)
-	c.Assert(cmds[:3], gc.DeepEquals, beginning)
-	c.Assert(cmds[len(cmds)-2:], gc.DeepEquals, ending)
+	c.Assert(cmds[:3], tc.DeepEquals, beginning)
+	c.Assert(cmds[len(cmds)-2:], tc.DeepEquals, ending)
 
-	c.Assert(cloudcfg.SystemUpgrade(), gc.Equals, false)
+	c.Assert(cloudcfg.SystemUpgrade(), tc.Equals, false)
 
 	// Render to check for the "unexpected" cloudinit text.
 	// cloudconfig doesn't have public access to all attrs.
@@ -742,7 +742,7 @@ func (s *cloudinitSuite) TestCloudInitConfigCloudInitUserData(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	testCmd, ok := ciContent["test-key"].([]interface{})
 	c.Assert(ok, jc.IsTrue)
-	c.Check(testCmd, gc.DeepEquals, []interface{}{"test line one"})
+	c.Check(testCmd, tc.DeepEquals, []interface{}{"test line one"})
 }
 
 var validCloudInitUserData = `
@@ -760,7 +760,7 @@ test-key:
   - test line one
 `[1:]
 
-func (*cloudinitSuite) bootstrapConfigScripts(c *gc.C) []string {
+func (*cloudinitSuite) bootstrapConfigScripts(c *tc.C) []string {
 	loggo.GetLogger("").SetLogLevel(loggo.INFO)
 	envConfig := minimalModelConfig(c)
 	instConfig := makeBootstrapConfig(jammy, 0).maybeSetModelConfig(envConfig)
@@ -787,7 +787,7 @@ func (*cloudinitSuite) bootstrapConfigScripts(c *gc.C) []string {
 	return scripts
 }
 
-func (s *cloudinitSuite) TestCloudInitPreruncmdError(c *gc.C) {
+func (s *cloudinitSuite) TestCloudInitPreruncmdError(c *tc.C) {
 	environConfig := minimalModelConfig(c)
 	environConfig, err := environConfig.Apply(map[string]interface{}{
 		config.CloudInitUserDataKey: `
@@ -802,10 +802,10 @@ preruncmd:
 	udata, err := cloudconfig.NewUserdataConfig(instanceCfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
-	c.Assert(err, gc.ErrorMatches, `invalid preruncmd: .* got int`)
+	c.Assert(err, tc.ErrorMatches, `invalid preruncmd: .* got int`)
 }
 
-func (s *cloudinitSuite) TestCloudInitPostruncmdError(c *gc.C) {
+func (s *cloudinitSuite) TestCloudInitPostruncmdError(c *tc.C) {
 	environConfig := minimalModelConfig(c)
 	environConfig, err := environConfig.Apply(map[string]interface{}{
 		config.CloudInitUserDataKey: `
@@ -820,23 +820,23 @@ postruncmd:
 	udata, err := cloudconfig.NewUserdataConfig(instanceCfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
-	c.Assert(err, gc.ErrorMatches, `invalid postruncmd: .* got list containing float64`)
+	c.Assert(err, tc.ErrorMatches, `invalid postruncmd: .* got list containing float64`)
 }
 
-func (s *cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *gc.C) {
+func (s *cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *tc.C) {
 	scripts := s.bootstrapConfigScripts(c)
 	expected := "jujud bootstrap-state .* --show-log"
 	assertScriptMatch(c, scripts, expected, false)
 }
 
-func (s *cloudinitSuite) TestCloudInitConfigureBootstrapFeatureFlags(c *gc.C) {
+func (s *cloudinitSuite) TestCloudInitConfigureBootstrapFeatureFlags(c *tc.C) {
 	s.SetFeatureFlags("special", "foo")
 	scripts := s.bootstrapConfigScripts(c)
 	expected := "JUJU_DEV_FEATURE_FLAGS=foo,special .*/jujud bootstrap-state .*"
 	assertScriptMatch(c, scripts, expected, false)
 }
 
-func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *gc.C) {
+func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *tc.C) {
 	// Create a simple cloudinit config with a 'runcmd' statement.
 	cloudcfg, err := cloudinit.New("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
@@ -857,7 +857,7 @@ func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *gc.C) {
 	// The 'runcmd' statement is at the beginning of the list
 	// of 'runcmd' statements.
 	runCmd := ciContent["runcmd"].([]interface{})
-	c.Check(runCmd[0], gc.Equals, script)
+	c.Check(runCmd[0], tc.Equals, script)
 }
 
 func getScripts(configKeyValue map[interface{}]interface{}) []string {
@@ -878,7 +878,7 @@ type line struct {
 	line  string
 }
 
-func assertScriptMatch(c *gc.C, got []string, expect string, exact bool) {
+func assertScriptMatch(c *tc.C, got []string, expect string, exact bool) {
 
 	// Convert string slice into line struct slice
 	assembleLines := func(lines []string, lineProcessor func(string) string) []line {
@@ -917,12 +917,12 @@ func assertScriptMatch(c *gc.C, got []string, expect string, exact bool) {
 			c.Fatalf("could not find match for %q\ngot:\n%s", pats[0].line, strings.Join(got, "\n"))
 		default:
 			ok, err := regexp.MatchString(pats[0].line, scripts[0].line)
-			c.Assert(err, jc.ErrorIsNil, gc.Commentf("invalid regexp: %q", pats[0].line))
+			c.Assert(err, jc.ErrorIsNil, tc.Commentf("invalid regexp: %q", pats[0].line))
 			if ok {
 				pats = pats[1:]
 				scripts = scripts[1:]
 			} else if exact {
-				c.Assert(scripts[0].line, gc.Matches, pats[0].line, gc.Commentf("line %d;\nexpected %q;\ngot %q;\npaths: %#v", scripts[0].index, pats[0].line, scripts[0].line, pats))
+				c.Assert(scripts[0].line, tc.Matches, pats[0].line, tc.Commentf("line %d;\nexpected %q;\ngot %q;\npaths: %#v", scripts[0].index, pats[0].line, scripts[0].line, pats))
 			} else {
 				scripts = scripts[1:]
 			}
@@ -932,7 +932,7 @@ func assertScriptMatch(c *gc.C, got []string, expect string, exact bool) {
 
 // checkPackage checks that the cloudinit will or won't install the given
 // package, depending on the value of match.
-func checkPackage(c *gc.C, x map[interface{}]interface{}, pkg string, match bool) {
+func checkPackage(c *tc.C, x map[interface{}]interface{}, pkg string, match bool) {
 	pkgs0 := x["packages"]
 	if pkgs0 == nil {
 		if match {
@@ -1033,7 +1033,7 @@ var verifyTests = []struct {
 
 // TestCloudInitVerify checks that required fields are appropriately
 // checked for by NewCloudInit.
-func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
+func (*cloudinitSuite) TestCloudInitVerify(c *tc.C) {
 	toolsList := tools.List{
 		newSimpleTools("9.9.9-ubuntu-arble"),
 	}
@@ -1078,7 +1078,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 	udata, err := cloudconfig.NewUserdataConfig(&cfg, ci)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
-	c.Assert(err, gc.ErrorMatches, "invalid machine configuration: missing agent binaries")
+	c.Assert(err, tc.ErrorMatches, "invalid machine configuration: missing agent binaries")
 
 	for i, test := range verifyTests {
 		c.Logf("test %d. %s", i, test.err)
@@ -1096,11 +1096,11 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		udata, err = cloudconfig.NewUserdataConfig(&cfg, ci)
 		c.Assert(err, jc.ErrorIsNil)
 		err = udata.Configure()
-		c.Check(err, gc.ErrorMatches, "invalid machine configuration: "+test.err)
+		c.Check(err, tc.ErrorMatches, "invalid machine configuration: "+test.err)
 	}
 }
 
-func (*cloudinitSuite) createInstanceConfig(c *gc.C, environConfig *config.Config) *instancecfg.InstanceConfig {
+func (*cloudinitSuite) createInstanceConfig(c *tc.C, environConfig *config.Config) *instancecfg.InstanceConfig {
 	machineId := "42"
 	machineNonce := "fake-nonce"
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
@@ -1118,7 +1118,7 @@ func (*cloudinitSuite) createInstanceConfig(c *gc.C, environConfig *config.Confi
 	return instanceConfig
 }
 
-func (s *cloudinitSuite) TestAptProxyNotWrittenIfNotSet(c *gc.C) {
+func (s *cloudinitSuite) TestAptProxyNotWrittenIfNotSet(c *tc.C) {
 	environConfig := minimalModelConfig(c)
 	instanceCfg := s.createInstanceConfig(c, environConfig)
 	cloudcfg, err := cloudinit.New("ubuntu")
@@ -1129,10 +1129,10 @@ func (s *cloudinitSuite) TestAptProxyNotWrittenIfNotSet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cmds := cloudcfg.BootCmds()
-	c.Assert(cmds, gc.IsNil)
+	c.Assert(cmds, tc.IsNil)
 }
 
-func (s *cloudinitSuite) TestAptProxyWritten(c *gc.C) {
+func (s *cloudinitSuite) TestAptProxyWritten(c *tc.C) {
 	environConfig := minimalModelConfig(c)
 	environConfig, err := environConfig.Apply(map[string]interface{}{
 		"apt-http-proxy": "http://user@10.0.0.1",
@@ -1151,7 +1151,7 @@ func (s *cloudinitSuite) TestAptProxyWritten(c *gc.C) {
 	c.Assert(cmds, jc.DeepEquals, []string{expected})
 }
 
-func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
+func (s *cloudinitSuite) TestProxyWritten(c *tc.C) {
 	environConfig := minimalModelConfig(c)
 	environConfig, err := environConfig.Apply(map[string]interface{}{
 		"http-proxy": "http://user@10.0.0.1",
@@ -1189,7 +1189,7 @@ DefaultEnvironment="http_proxy=http://user@10.0.0.1" "HTTP_PROXY=http://user@10.
 	found := false
 	for i, cmd := range cmds {
 		if cmd == first {
-			c.Assert(cmds[i+1:i+8], jc.DeepEquals, expected, gc.Commentf("obtained (%s)", cmds[i+1:i+8]))
+			c.Assert(cmds[i+1:i+8], jc.DeepEquals, expected, tc.Commentf("obtained (%s)", cmds[i+1:i+8]))
 			found = true
 			break
 		}
@@ -1199,7 +1199,7 @@ DefaultEnvironment="http_proxy=http://user@10.0.0.1" "HTTP_PROXY=http://user@10.
 }
 
 // Ensure the bootstrap curl which fetch tools respects the proxy settings
-func (s *cloudinitSuite) TestProxyArgsAddedToCurlCommand(c *gc.C) {
+func (s *cloudinitSuite) TestProxyArgsAddedToCurlCommand(c *tc.C) {
 	instcfg := makeBootstrapConfig(jammy, 0).maybeSetModelConfig(
 		minimalModelConfig(c),
 	).render()
@@ -1228,7 +1228,7 @@ func (s *cloudinitSuite) TestProxyArgsAddedToCurlCommand(c *gc.C) {
 
 // search a list of first boot commands to ensure it contains the specified curl
 // command.
-func assertCommandsContain(c *gc.C, runCmds []string, str string) {
+func assertCommandsContain(c *tc.C, runCmds []string, str string) {
 	found := false
 	for _, runCmd := range runCmds {
 		if strings.Contains(runCmd, str) {
@@ -1239,7 +1239,7 @@ func assertCommandsContain(c *gc.C, runCmds []string, str string) {
 	c.Assert(found, jc.IsTrue)
 }
 
-func (s *cloudinitSuite) TestAptMirror(c *gc.C) {
+func (s *cloudinitSuite) TestAptMirror(c *tc.C) {
 	environConfig := minimalModelConfig(c)
 	environConfig, err := environConfig.Apply(map[string]interface{}{
 		"apt-mirror": "http://my.archive.ubuntu.com/ubuntu",
@@ -1248,12 +1248,12 @@ func (s *cloudinitSuite) TestAptMirror(c *gc.C) {
 	s.testAptMirror(c, environConfig, "http://my.archive.ubuntu.com/ubuntu")
 }
 
-func (s *cloudinitSuite) TestAptMirrorNotSet(c *gc.C) {
+func (s *cloudinitSuite) TestAptMirrorNotSet(c *tc.C) {
 	environConfig := minimalModelConfig(c)
 	s.testAptMirror(c, environConfig, "")
 }
 
-func (s *cloudinitSuite) testAptMirror(c *gc.C, cfg *config.Config, expect string) {
+func (s *cloudinitSuite) testAptMirror(c *tc.C, cfg *config.Config, expect string) {
 	instanceCfg := s.createInstanceConfig(c, cfg)
 	cloudcfg, err := cloudinit.New("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1263,7 +1263,7 @@ func (s *cloudinitSuite) testAptMirror(c *gc.C, cfg *config.Config, expect strin
 	c.Assert(err, jc.ErrorIsNil)
 	//mirror, ok := cloudcfg.AptMirror()
 	mirror := cloudcfg.PackageMirror()
-	c.Assert(mirror, gc.Equals, expect)
+	c.Assert(mirror, tc.Equals, expect)
 	//c.Assert(ok, gc.Equals, expect != "")
 }
 
@@ -1294,7 +1294,7 @@ JzPMDvZ0fYS30ukCIA1stlJxpFiCXQuFn0nG+jH4Q52FTv8xxBhrbLOFvHRRAiEA
 -----END RSA PRIVATE KEY-----
 `[1:])
 
-func (*cloudinitSuite) TestToolsDownloadCommand(c *gc.C) {
+func (*cloudinitSuite) TestToolsDownloadCommand(c *tc.C) {
 	command := cloudconfig.ToolsDownloadCommand("download", []string{"a", "b", "c"})
 
 	expected := `
@@ -1314,7 +1314,7 @@ while true; do
     sleep 15
     n=$((n+1))
 done`
-	c.Assert(command, gc.Equals, expected)
+	c.Assert(command, tc.Equals, expected)
 }
 
 func expectedUbuntuUser(groups, keys []string) map[string]interface{} {
@@ -1335,7 +1335,7 @@ func expectedUbuntuUser(groups, keys []string) map[string]interface{} {
 	}
 }
 
-func (*cloudinitSuite) TestSetUbuntuUserJammy(c *gc.C) {
+func (*cloudinitSuite) TestSetUbuntuUserJammy(c *tc.C) {
 	ci, err := cloudinit.New("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 	cloudconfig.SetUbuntuUser(ci, "akey")
@@ -1346,7 +1346,7 @@ func (*cloudinitSuite) TestSetUbuntuUserJammy(c *gc.C) {
 	c.Assert(string(data), jc.YAMLEquals, expected)
 }
 
-func (*cloudinitSuite) TestCloudInitBootstrapInitialSSHKeys(c *gc.C) {
+func (*cloudinitSuite) TestCloudInitBootstrapInitialSSHKeys(c *tc.C) {
 	instConfig := makeBootstrapConfig(jammy, 0).maybeSetModelConfig(
 		minimalModelConfig(c),
 	).render()

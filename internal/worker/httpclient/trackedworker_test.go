@@ -4,10 +4,10 @@
 package httpclient
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	internalhttp "github.com/juju/juju/internal/http"
 )
@@ -19,9 +19,9 @@ type trackedWorkerSuite struct {
 	states chan string
 }
 
-var _ = gc.Suite(&trackedWorkerSuite{})
+var _ = tc.Suite(&trackedWorkerSuite{})
 
-func (s *trackedWorkerSuite) TestKilled(c *gc.C) {
+func (s *trackedWorkerSuite) TestKilled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, err := NewTrackedWorker(s.client)
@@ -31,7 +31,7 @@ func (s *trackedWorkerSuite) TestKilled(c *gc.C) {
 	w.Kill()
 }
 
-func (s *trackedWorkerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *trackedWorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	// Ensure we buffer the channel, this is because we might miss the
 	// event if we're too quick at starting up.
 	s.states = make(chan string, 1)

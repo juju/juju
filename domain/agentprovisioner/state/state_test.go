@@ -6,8 +6,8 @@ package state
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -26,7 +26,7 @@ type suite struct {
 	schematesting.ModelSuite
 }
 
-var _ = gc.Suite(&suite{})
+var _ = tc.Suite(&suite{})
 
 // TestGetModelConfigKeyValues tests that State.GetModelConfigKeyValues behaves
 // as expected:
@@ -34,7 +34,7 @@ var _ = gc.Suite(&suite{})
 //   - Requested keys which don't exist in model config should not appear in the
 //     result, and should not cause an error.
 //   - Extra model config keys which are not requested should not be returned.
-func (s *suite) TestGetModelConfigKeyValues(c *gc.C) {
+func (s *suite) TestGetModelConfigKeyValues(c *tc.C) {
 	// Set model config in state
 	modelConfigState := modelconfigstate.NewState(s.TxnRunnerFactory())
 	err := modelConfigState.SetModelConfig(context.Background(), map[string]string{
@@ -71,7 +71,7 @@ func (s *suite) TestGetModelConfigKeyValues(c *gc.C) {
 // TestGetModelConfigKeyValuesEmptyModelConfig tests that
 // State.GetModelConfigKeyValues still works when model config is empty, and
 // the sqlair.ErrNoRows is not surfaced.
-func (s *suite) TestGetModelConfigKeyValuesEmptyModelConfig(c *gc.C) {
+func (s *suite) TestGetModelConfigKeyValuesEmptyModelConfig(c *tc.C) {
 	state := NewState(s.TxnRunnerFactory())
 	modelConfig, err := state.GetModelConfigKeyValues(context.Background(),
 		config.LXDSnapChannel,
@@ -86,7 +86,7 @@ func (s *suite) TestGetModelConfigKeyValuesEmptyModelConfig(c *gc.C) {
 // TestGetModelConfigKeyValuesGetNoKeys tests that if
 // State.GetModelConfigKeyValues is called with no requested keys, the
 // sqlair.ErrNoRows is not surfaced.
-func (s *suite) TestGetModelConfigKeyValuesGetNoKeys(c *gc.C) {
+func (s *suite) TestGetModelConfigKeyValuesGetNoKeys(c *tc.C) {
 	// Set model config in state
 	modelConfigState := modelconfigstate.NewState(s.TxnRunnerFactory())
 	err := modelConfigState.SetModelConfig(context.Background(), map[string]string{
@@ -104,7 +104,7 @@ func (s *suite) TestGetModelConfigKeyValuesGetNoKeys(c *gc.C) {
 }
 
 // TestModelID tests that State.ModelID works as expected.
-func (s *suite) TestModelID(c *gc.C) {
+func (s *suite) TestModelID(c *tc.C) {
 	// Create model info.
 	modelID := modeltesting.GenModelUUID(c)
 	modelSt := modelstate.NewModelState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))

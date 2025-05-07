@@ -10,11 +10,11 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/worker/hostkeyreporter"
 )
@@ -28,9 +28,9 @@ type Suite struct {
 	config hostkeyreporter.Config
 }
 
-var _ = gc.Suite(&Suite{})
+var _ = tc.Suite(&Suite{})
 
-func (s *Suite) SetUpTest(c *gc.C) {
+func (s *Suite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	// Generate some dummy key files
@@ -57,24 +57,24 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *Suite) TestInvalidConfig(c *gc.C) {
+func (s *Suite) TestInvalidConfig(c *tc.C) {
 	s.config.MachineId = ""
 	_, err := hostkeyreporter.New(s.config)
-	c.Check(err, gc.ErrorMatches, "empty MachineId .+")
-	c.Check(s.stub.Calls(), gc.HasLen, 0)
+	c.Check(err, tc.ErrorMatches, "empty MachineId .+")
+	c.Check(s.stub.Calls(), tc.HasLen, 0)
 }
 
-func (s *Suite) TestNoSSHDir(c *gc.C) {
+func (s *Suite) TestNoSSHDir(c *tc.C) {
 	// No /etc/ssh at all
 	s.config.RootDir = c.MkDir()
 
 	w, err := hostkeyreporter.New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
-	c.Check(errors.Cause(err), gc.Equals, dependency.ErrUninstall)
+	c.Check(errors.Cause(err), tc.Equals, dependency.ErrUninstall)
 }
 
-func (s *Suite) TestNoKeys(c *gc.C) {
+func (s *Suite) TestNoKeys(c *tc.C) {
 	// Pass an empty /etc/ssh
 	dir := c.MkDir()
 	c.Assert(os.MkdirAll(filepath.Join(dir, "etc", "ssh"), 0777), jc.ErrorIsNil)
@@ -83,22 +83,22 @@ func (s *Suite) TestNoKeys(c *gc.C) {
 	w, err := hostkeyreporter.New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
-	c.Check(err, gc.ErrorMatches, "no SSH host keys found")
+	c.Check(err, tc.ErrorMatches, "no SSH host keys found")
 }
 
-func (s *Suite) TestReportKeysError(c *gc.C) {
+func (s *Suite) TestReportKeysError(c *tc.C) {
 	s.facade.reportErr = errors.New("blam")
 	w, err := hostkeyreporter.New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
-	c.Check(err, gc.ErrorMatches, "blam")
+	c.Check(err, tc.ErrorMatches, "blam")
 }
 
-func (s *Suite) TestSuccess(c *gc.C) {
+func (s *Suite) TestSuccess(c *tc.C) {
 	w, err := hostkeyreporter.New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
-	c.Check(err, gc.Equals, dependency.ErrUninstall)
+	c.Check(err, tc.Equals, dependency.ErrUninstall)
 	s.stub.CheckCalls(c, []jujutesting.StubCall{{
 		"ReportKeys", []interface{}{"42", []string{"dsa", "ecdsa", "rsa"}},
 	}})

@@ -6,8 +6,8 @@ package params_test
 import (
 	"encoding/json"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
@@ -24,9 +24,9 @@ type (
 
 type NetworkSuite struct{}
 
-var _ = gc.Suite(&NetworkSuite{})
+var _ = tc.Suite(&NetworkSuite{})
 
-func (s *NetworkSuite) TestPortsResults(c *gc.C) {
+func (s *NetworkSuite) TestPortsResults(c *tc.C) {
 	// Convenience helpers.
 	mkPortsResults := func(prs ...params.PortsResult) params.PortsResults {
 		return params.PortsResults{
@@ -100,7 +100,7 @@ func (s *NetworkSuite) TestPortsResults(c *gc.C) {
 	}
 }
 
-func (s *NetworkSuite) TestHostPort(c *gc.C) {
+func (s *NetworkSuite) TestHostPort(c *tc.C) {
 	mkHostPort := func(v, t, s string, p int) M {
 		return M{
 			"value": v,
@@ -176,7 +176,7 @@ func (s *NetworkSuite) TestHostPort(c *gc.C) {
 	}
 }
 
-func (s *NetworkSuite) TestMachinePortRange(c *gc.C) {
+func (s *NetworkSuite) TestMachinePortRange(c *tc.C) {
 	mkPortRange := func(u, r string, f, t int, p string) M {
 		return M{
 			"unit-tag":     u,
@@ -247,7 +247,7 @@ func (s *NetworkSuite) TestMachinePortRange(c *gc.C) {
 	}
 }
 
-func (s *NetworkSuite) TestPortRangeConvenience(c *gc.C) {
+func (s *NetworkSuite) TestPortRangeConvenience(c *tc.C) {
 	networkPortRange := network.PortRange{
 		FromPort: 61001,
 		ToPort:   61010,
@@ -258,7 +258,7 @@ func (s *NetworkSuite) TestPortRangeConvenience(c *gc.C) {
 	c.Assert(networkPortRange, jc.DeepEquals, networkPortRangeBack)
 }
 
-func (s *NetworkSuite) TestProviderAddressConversion(c *gc.C) {
+func (s *NetworkSuite) TestProviderAddressConversion(c *tc.C) {
 	pAddrs := network.ProviderAddresses{
 		network.NewMachineAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal), network.WithCIDR("1.2.3.0/24")).AsProviderAddress(),
 		network.NewMachineAddress("1.2.3.5", network.WithScope(network.ScopeCloudLocal), network.WithSecondary(true)).AsProviderAddress(),
@@ -271,7 +271,7 @@ func (s *NetworkSuite) TestProviderAddressConversion(c *gc.C) {
 	c.Assert(params.ToProviderAddresses(addrs...), jc.DeepEquals, pAddrs)
 }
 
-func (s *NetworkSuite) TestMachineAddressConversion(c *gc.C) {
+func (s *NetworkSuite) TestMachineAddressConversion(c *tc.C) {
 	mAddrs := []network.MachineAddress{
 		network.NewMachineAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal), network.WithCIDR("1.2.3.0/24")),
 		network.NewMachineAddress("1.2.3.5", network.WithScope(network.ScopeCloudLocal), network.WithSecondary(true)),
@@ -286,7 +286,7 @@ func (s *NetworkSuite) TestMachineAddressConversion(c *gc.C) {
 	c.Assert(params.FromMachineAddresses(mAddrs...), jc.DeepEquals, exp)
 }
 
-func (s *NetworkSuite) TestProviderHostPortConversion(c *gc.C) {
+func (s *NetworkSuite) TestProviderHostPortConversion(c *tc.C) {
 	pHPs := []network.ProviderHostPorts{
 		{
 			{
@@ -312,7 +312,7 @@ func (s *NetworkSuite) TestProviderHostPortConversion(c *gc.C) {
 	c.Assert(params.ToProviderHostsPorts(hps), jc.DeepEquals, pHPs)
 }
 
-func (s *NetworkSuite) TestMachineHostPortConversion(c *gc.C) {
+func (s *NetworkSuite) TestMachineHostPortConversion(c *tc.C) {
 	hps := [][]params.HostPort{
 		{
 			{
@@ -366,7 +366,7 @@ func (s *NetworkSuite) TestMachineHostPortConversion(c *gc.C) {
 	c.Assert(params.ToMachineHostsPorts(hps), jc.DeepEquals, exp)
 }
 
-func (s *NetworkSuite) TestHostPortConversion(c *gc.C) {
+func (s *NetworkSuite) TestHostPortConversion(c *tc.C) {
 	mHPs := []network.MachineHostPorts{
 		{
 			{
@@ -395,7 +395,7 @@ func (s *NetworkSuite) TestHostPortConversion(c *gc.C) {
 	c.Assert(params.ToMachineHostsPorts(pHPs), jc.DeepEquals, mHPs)
 }
 
-func (s *NetworkSuite) TestSetNetworkConfigBackFillMachineOrigin(c *gc.C) {
+func (s *NetworkSuite) TestSetNetworkConfigBackFillMachineOrigin(c *tc.C) {
 	cfg := params.SetMachineNetworkConfig{
 		Tag: "machine-0",
 		Config: []params.NetworkConfig{
@@ -411,7 +411,7 @@ func (s *NetworkSuite) TestSetNetworkConfigBackFillMachineOrigin(c *gc.C) {
 	}
 
 	cfg.BackFillMachineOrigin()
-	c.Assert(cfg.Config, gc.DeepEquals, []params.NetworkConfig{
+	c.Assert(cfg.Config, tc.DeepEquals, []params.NetworkConfig{
 		{
 			ProviderId:    "1",
 			NetworkOrigin: params.NetworkOrigin(network.OriginProvider),
@@ -427,7 +427,7 @@ func (s *NetworkSuite) TestSetNetworkConfigBackFillMachineOrigin(c *gc.C) {
 	})
 }
 
-func (s *NetworkSuite) TestNetworkConfigFromInterfaceMACNormalization(c *gc.C) {
+func (s *NetworkSuite) TestNetworkConfigFromInterfaceMACNormalization(c *tc.C) {
 	in := network.InterfaceInfos{
 		{
 			// All-caps and dashes
@@ -444,7 +444,7 @@ func (s *NetworkSuite) TestNetworkConfigFromInterfaceMACNormalization(c *gc.C) {
 	}
 
 	got := params.NetworkConfigFromInterfaceInfo(in)
-	c.Assert(got, gc.DeepEquals, []params.NetworkConfig{
+	c.Assert(got, tc.DeepEquals, []params.NetworkConfig{
 		{
 			MACAddress: "00:aa:bb:cc:dd",
 		},
@@ -456,7 +456,7 @@ func (s *NetworkSuite) TestNetworkConfigFromInterfaceMACNormalization(c *gc.C) {
 		},
 	})
 }
-func (s *NetworkSuite) TestInterfaceFromNetworkConfigMACNormalization(c *gc.C) {
+func (s *NetworkSuite) TestInterfaceFromNetworkConfigMACNormalization(c *tc.C) {
 	cfg := []params.NetworkConfig{
 		{
 			// All-caps and dashes
@@ -477,7 +477,7 @@ func (s *NetworkSuite) TestInterfaceFromNetworkConfigMACNormalization(c *gc.C) {
 
 	got := params.InterfaceInfoFromNetworkConfig(cfg)
 	gwAddr := network.NewMachineAddress("192.168.0.254").AsProviderAddress()
-	c.Assert(got, gc.DeepEquals, network.InterfaceInfos{
+	c.Assert(got, tc.DeepEquals, network.InterfaceInfos{
 		{
 			MACAddress:     "aa:bb:cc:dd:ee:ff",
 			GatewayAddress: gwAddr,

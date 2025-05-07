@@ -4,16 +4,16 @@
 package status_test
 
 import (
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/status"
 )
 
 type UnitCloudStatusSuite struct{}
 
-var _ = gc.Suite(&UnitCloudStatusSuite{})
+var _ = tc.Suite(&UnitCloudStatusSuite{})
 
-func (s *UnitCloudStatusSuite) TestContainerOrUnitStatusChoice(c *gc.C) {
+func (s *UnitCloudStatusSuite) TestContainerOrUnitStatusChoice(c *tc.C) {
 
 	var checks = []struct {
 		cloudContainerStatus status.StatusInfo
@@ -149,6 +149,6 @@ func (s *UnitCloudStatusSuite) TestContainerOrUnitStatusChoice(c *gc.C) {
 
 	for i, check := range checks {
 		c.Logf("Check %d", i)
-		c.Assert(status.UnitDisplayStatus(check.unitStatus, check.cloudContainerStatus).Message, gc.Equals, check.messageCheck)
+		c.Assert(status.UnitDisplayStatus(check.unitStatus, check.cloudContainerStatus).Message, tc.Equals, check.messageCheck)
 	}
 }

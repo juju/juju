@@ -4,8 +4,8 @@
 package service
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/domain/application/architecture"
@@ -17,9 +17,9 @@ type serviceSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = tc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) TestEncodeChannelAndPlatform(c *gc.C) {
+func (s *serviceSuite) TestEncodeChannelAndPlatform(c *tc.C) {
 	ch, pl, err := encodeChannelAndPlatform(corecharm.Origin{
 		Channel: ptr(internalcharm.MakePermissiveChannel("track", "stable", "branch")),
 		Platform: corecharm.Platform{
@@ -29,19 +29,19 @@ func (s *serviceSuite) TestEncodeChannelAndPlatform(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(ch, gc.DeepEquals, &deployment.Channel{
+	c.Check(ch, tc.DeepEquals, &deployment.Channel{
 		Track:  "track",
 		Risk:   deployment.RiskStable,
 		Branch: "branch",
 	})
-	c.Check(pl, gc.DeepEquals, deployment.Platform{
+	c.Check(pl, tc.DeepEquals, deployment.Platform{
 		Architecture: architecture.AMD64,
 		OSType:       deployment.Ubuntu,
 		Channel:      "24.04",
 	})
 }
 
-func (s *serviceSuite) TestEncodeChannelAndPlatformInvalidArch(c *gc.C) {
+func (s *serviceSuite) TestEncodeChannelAndPlatformInvalidArch(c *tc.C) {
 	ch, pl, err := encodeChannelAndPlatform(corecharm.Origin{
 		Channel: ptr(internalcharm.MakePermissiveChannel("track", "stable", "branch")),
 		Platform: corecharm.Platform{
@@ -51,19 +51,19 @@ func (s *serviceSuite) TestEncodeChannelAndPlatformInvalidArch(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(ch, gc.DeepEquals, &deployment.Channel{
+	c.Check(ch, tc.DeepEquals, &deployment.Channel{
 		Track:  "track",
 		Risk:   deployment.RiskStable,
 		Branch: "branch",
 	})
-	c.Check(pl, gc.DeepEquals, deployment.Platform{
+	c.Check(pl, tc.DeepEquals, deployment.Platform{
 		Architecture: architecture.Unknown,
 		OSType:       deployment.Ubuntu,
 		Channel:      "24.04",
 	})
 }
 
-func (s *serviceSuite) TestEncodeChannelAndPlatformInvalidRisk(c *gc.C) {
+func (s *serviceSuite) TestEncodeChannelAndPlatformInvalidRisk(c *tc.C) {
 	_, _, err := encodeChannelAndPlatform(corecharm.Origin{
 		Channel: ptr(internalcharm.MakePermissiveChannel("track", "blah", "branch")),
 		Platform: corecharm.Platform{
@@ -72,10 +72,10 @@ func (s *serviceSuite) TestEncodeChannelAndPlatformInvalidRisk(c *gc.C) {
 			Channel:      "24.04",
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, `unknown risk.*`)
+	c.Assert(err, tc.ErrorMatches, `unknown risk.*`)
 }
 
-func (s *serviceSuite) TestEncodeChannelAndPlatformInvalidOSType(c *gc.C) {
+func (s *serviceSuite) TestEncodeChannelAndPlatformInvalidOSType(c *tc.C) {
 	_, _, err := encodeChannelAndPlatform(corecharm.Origin{
 		Channel: ptr(internalcharm.MakePermissiveChannel("track", "stable", "branch")),
 		Platform: corecharm.Platform{
@@ -84,5 +84,5 @@ func (s *serviceSuite) TestEncodeChannelAndPlatformInvalidOSType(c *gc.C) {
 			Channel:      "24.04",
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, `unknown os type.*`)
+	c.Assert(err, tc.ErrorMatches, `unknown os type.*`)
 }

@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/proxyupdater"
 	"github.com/juju/juju/api/base"
@@ -23,36 +23,36 @@ type ProxyUpdaterSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&ProxyUpdaterSuite{})
+var _ = tc.Suite(&ProxyUpdaterSuite{})
 
-func newAPI(c *gc.C, args ...apitesting.APICall) (*int, *proxyupdater.API) {
+func newAPI(c *tc.C, args ...apitesting.APICall) (*int, *proxyupdater.API) {
 	apiCaller := apitesting.APICallChecker(c, args...)
 	api, err := proxyupdater.NewAPI(apiCaller.APICallerFunc, names.NewUnitTag("u/0"))
-	c.Assert(err, gc.IsNil)
-	c.Assert(api, gc.NotNil)
-	c.Assert(apiCaller.CallCount, gc.Equals, 0)
+	c.Assert(err, tc.IsNil)
+	c.Assert(api, tc.NotNil)
+	c.Assert(apiCaller.CallCount, tc.Equals, 0)
 
 	return &apiCaller.CallCount, api
 }
 
-func (s *ProxyUpdaterSuite) TestNewAPISuccess(c *gc.C) {
+func (s *ProxyUpdaterSuite) TestNewAPISuccess(c *tc.C) {
 	newAPI(c)
 }
 
-func (s *ProxyUpdaterSuite) TestNilAPICallerFails(c *gc.C) {
+func (s *ProxyUpdaterSuite) TestNilAPICallerFails(c *tc.C) {
 	api, err := proxyupdater.NewAPI(nil, names.NewUnitTag("u/0"))
-	c.Check(api, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "caller is nil")
+	c.Check(api, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "caller is nil")
 }
 
-func (s *ProxyUpdaterSuite) TestNilTagFails(c *gc.C) {
+func (s *ProxyUpdaterSuite) TestNilTagFails(c *tc.C) {
 	apiCaller := apitesting.APICallChecker(c)
 	api, err := proxyupdater.NewAPI(apiCaller, nil)
-	c.Check(api, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "tag is nil")
+	c.Check(api, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "tag is nil")
 }
 
-func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *gc.C) {
+func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *tc.C) {
 	res := params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{{
 			NotifyWatcherId: "4242",
@@ -63,7 +63,7 @@ func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *gc.C
 		watcher.NotifyWatcher
 	}{}
 	s.PatchValue(proxyupdater.NewNotifyWatcher, func(caller base.APICaller, result params.NotifyWatchResult) watcher.NotifyWatcher {
-		c.Assert(result, gc.DeepEquals, res.Results[0])
+		c.Assert(result, tc.DeepEquals, res.Results[0])
 		return fake
 	})
 
@@ -76,10 +76,10 @@ func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *gc.C
 	watcher, err := api.WatchForProxyConfigAndAPIHostPortChanges(context.Background())
 	c.Check(*called, jc.GreaterThan, 0)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(watcher, gc.Equals, fake)
+	c.Check(watcher, tc.Equals, fake)
 }
 
-func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
+func (s *ProxyUpdaterSuite) TestProxyConfig(c *tc.C) {
 	conf := params.ProxyConfigResult{
 		LegacyProxySettings: params.ProxyConfig{
 			HTTP:    "http-legacy",
@@ -114,7 +114,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
 	})
 
 	config, err := api.ProxyConfig(context.Background())
-	c.Assert(*called, gc.Equals, 1)
+	c.Assert(*called, tc.Equals, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(config.LegacyProxy, jc.DeepEquals, proxy.Settings{
 		Http:    "http-legacy",
@@ -137,5 +137,5 @@ func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
 		Http:  "http-snap",
 		Https: "https-snap",
 	})
-	c.Check(config.AptMirror, gc.Equals, "http://mirror")
+	c.Check(config.AptMirror, tc.Equals, "http://mirror")
 }

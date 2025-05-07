@@ -7,8 +7,8 @@ import (
 	"net/url"
 
 	"github.com/juju/gomaasapi/v2"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
 )
@@ -17,9 +17,9 @@ type environSuite struct {
 	maasSuite
 }
 
-var _ = gc.Suite(&environSuite{})
+var _ = tc.Suite(&environSuite{})
 
-func (*environSuite) TestConvertConstraints(c *gc.C) {
+func (*environSuite) TestConvertConstraints(c *tc.C) {
 	for i, test := range []struct {
 		cons     constraints.Value
 		expected gomaasapi.AllocateMachineArgs
@@ -77,7 +77,7 @@ func (*environSuite) TestConvertConstraints(c *gc.C) {
 
 var nilStringSlice []string
 
-func (*environSuite) TestConvertTagsToParams(c *gc.C) {
+func (*environSuite) TestConvertTagsToParams(c *tc.C) {
 	for i, test := range []struct {
 		tags     *[]string
 		expected url.Values
@@ -152,7 +152,7 @@ func stringslicep(values ...string) *[]string {
 	return &values
 }
 
-func (suite *environSuite) TestParseDelimitedValues(c *gc.C) {
+func (suite *environSuite) TestParseDelimitedValues(c *tc.C) {
 	for i, test := range []struct {
 		about     string
 		input     []string

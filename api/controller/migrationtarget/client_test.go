@@ -18,9 +18,9 @@ import (
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api/base"
@@ -39,7 +39,7 @@ type ClientSuite struct {
 	jujutesting.IsolationSuite
 }
 
-var _ = gc.Suite(&ClientSuite{})
+var _ = tc.Suite(&ClientSuite{})
 
 func (s *ClientSuite) getClientAndStub() (*migrationtarget.Client, *jujutesting.Stub) {
 	var stub jujutesting.Stub
@@ -51,7 +51,7 @@ func (s *ClientSuite) getClientAndStub() (*migrationtarget.Client, *jujutesting.
 	return client, &stub
 }
 
-func (s *ClientSuite) TestPrechecks(c *gc.C) {
+func (s *ClientSuite) TestPrechecks(c *tc.C) {
 	client, stub := s.getClientAndStub()
 
 	ownerTag := names.NewUserTag("owner")
@@ -70,7 +70,7 @@ func (s *ClientSuite) TestPrechecks(c *gc.C) {
 		ControllerAgentVersion: controllerVers,
 		ModelDescription:       modelDescription,
 	})
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 
 	expectedArg := params.MigrationModelInfo{
 		UUID:                   "uuid",
@@ -85,12 +85,12 @@ func (s *ClientSuite) TestPrechecks(c *gc.C) {
 	arg := stub.Calls()[0].Args[1].(params.MigrationModelInfo)
 
 	mc := jc.NewMultiChecker()
-	mc.AddExpr("_.FacadeVersions", gc.Not(gc.HasLen), 0)
+	mc.AddExpr("_.FacadeVersions", tc.Not(tc.HasLen), 0)
 
 	c.Check(arg, mc, expectedArg)
 }
 
-func (s *ClientSuite) TestImport(c *gc.C) {
+func (s *ClientSuite) TestImport(c *tc.C) {
 	client, stub := s.getClientAndStub()
 
 	err := client.Import(context.Background(), []byte("foo"))
@@ -99,10 +99,10 @@ func (s *ClientSuite) TestImport(c *gc.C) {
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{FuncName: "MigrationTarget.Import", Args: []interface{}{"", expectedArg}},
 	})
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *ClientSuite) TestAbort(c *gc.C) {
+func (s *ClientSuite) TestAbort(c *tc.C) {
 	client, stub := s.getClientAndStub()
 
 	uuid := "fake"
@@ -110,7 +110,7 @@ func (s *ClientSuite) TestAbort(c *gc.C) {
 	s.AssertModelCall(c, stub, names.NewModelTag(uuid), "Abort", err, true)
 }
 
-func (s *ClientSuite) TestActivate(c *gc.C) {
+func (s *ClientSuite) TestActivate(c *tc.C) {
 	client, stub := s.getClientAndStub()
 
 	uuid := "fake"
@@ -133,15 +133,15 @@ func (s *ClientSuite) TestActivate(c *gc.C) {
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{FuncName: "MigrationTarget.Activate", Args: []interface{}{"", expectedArg}},
 	})
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *ClientSuite) TestOpenLogTransferStream(c *gc.C) {
+func (s *ClientSuite) TestOpenLogTransferStream(c *tc.C) {
 	caller := fakeConnector{Stub: &jujutesting.Stub{}}
 	client := migrationtarget.NewClient(caller)
 	stream, err := client.OpenLogTransferStream(context.Background(), "bad-dad")
-	c.Assert(stream, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "sound hound")
+	c.Assert(stream, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "sound hound")
 
 	caller.Stub.CheckCall(c, 0, "ConnectControllerStream", "/migrate/logtransfer",
 		url.Values{},
@@ -149,7 +149,7 @@ func (s *ClientSuite) TestOpenLogTransferStream(c *gc.C) {
 	)
 }
 
-func (s *ClientSuite) TestLatestLogTime(c *gc.C) {
+func (s *ClientSuite) TestLatestLogTime(c *tc.C) {
 	var stub jujutesting.Stub
 	t1 := time.Date(2016, 12, 1, 10, 31, 0, 0, time.UTC)
 
@@ -163,29 +163,29 @@ func (s *ClientSuite) TestLatestLogTime(c *gc.C) {
 	client := migrationtarget.NewClient(apiCaller)
 	result, err := client.LatestLogTime(context.Background(), "fake")
 
-	c.Assert(result, gc.Equals, t1)
+	c.Assert(result, tc.Equals, t1)
 	s.AssertModelCall(c, &stub, names.NewModelTag("fake"), "LatestLogTime", err, false)
 }
 
-func (s *ClientSuite) TestLatestLogTimeError(c *gc.C) {
+func (s *ClientSuite) TestLatestLogTimeError(c *tc.C) {
 	client, stub := s.getClientAndStub()
 	result, err := client.LatestLogTime(context.Background(), "fake")
 
-	c.Assert(result, gc.Equals, time.Time{})
+	c.Assert(result, tc.Equals, time.Time{})
 	s.AssertModelCall(c, stub, names.NewModelTag("fake"), "LatestLogTime", err, true)
 }
 
-func (s *ClientSuite) TestAdoptResources(c *gc.C) {
+func (s *ClientSuite) TestAdoptResources(c *tc.C) {
 	client, stub := s.getClientAndStub()
 	err := client.AdoptResources(context.Background(), "the-model")
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 	stub.CheckCall(c, 0, "MigrationTarget.AdoptResources", "", params.AdoptResourcesArgs{
 		ModelTag:                "model-the-model",
 		SourceControllerVersion: jujuversion.Current,
 	})
 }
 
-func (s *ClientSuite) TestCheckMachines(c *gc.C) {
+func (s *ClientSuite) TestCheckMachines(c *tc.C) {
 	var stub jujutesting.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		target, ok := result.(*params.ErrorResults)
@@ -199,13 +199,13 @@ func (s *ClientSuite) TestCheckMachines(c *gc.C) {
 	})
 	client := migrationtarget.NewClient(apiCaller)
 	results, err := client.CheckMachines(context.Background(), "django")
-	c.Assert(results, gc.HasLen, 2)
-	c.Assert(results[0], gc.ErrorMatches, "oops")
-	c.Assert(results[1], gc.ErrorMatches, "oh no")
+	c.Assert(results, tc.HasLen, 2)
+	c.Assert(results[0], tc.ErrorMatches, "oops")
+	c.Assert(results[1], tc.ErrorMatches, "oh no")
 	s.AssertModelCall(c, &stub, names.NewModelTag("django"), "CheckMachines", err, false)
 }
 
-func (s *ClientSuite) TestUploadCharm(c *gc.C) {
+func (s *ClientSuite) TestUploadCharm(c *tc.C) {
 	const charmBody = "charming"
 	curl := "ch:foo-2"
 	charmRef := "foo-abcdef0"
@@ -216,14 +216,14 @@ func (s *ClientSuite) TestUploadCharm(c *gc.C) {
 	client := migrationtarget.NewClient(caller)
 	outCurl, err := client.UploadCharm(context.Background(), "uuid", curl, charmRef, strings.NewReader(charmBody))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(outCurl, gc.DeepEquals, curl)
-	c.Assert(doer.method, gc.Equals, "PUT")
-	c.Assert(doer.url, gc.Equals, "/migrate/charms/foo-abcdef0")
-	c.Assert(doer.headers.Get(params.JujuCharmURLHeader), gc.Equals, curl)
-	c.Assert(doer.body, gc.Equals, charmBody)
+	c.Assert(outCurl, tc.DeepEquals, curl)
+	c.Assert(doer.method, tc.Equals, "PUT")
+	c.Assert(doer.url, tc.Equals, "/migrate/charms/foo-abcdef0")
+	c.Assert(doer.headers.Get(params.JujuCharmURLHeader), tc.Equals, curl)
+	c.Assert(doer.body, tc.Equals, charmBody)
 }
 
-func (s *ClientSuite) TestUploadCharmHubCharm(c *gc.C) {
+func (s *ClientSuite) TestUploadCharmHubCharm(c *tc.C) {
 	const charmBody = "charming"
 	curl := "ch:s390x/bionic/juju-qa-test-15"
 	charmRef := "juju-qa-test-abcdef0"
@@ -234,14 +234,14 @@ func (s *ClientSuite) TestUploadCharmHubCharm(c *gc.C) {
 	client := migrationtarget.NewClient(caller)
 	outCurl, err := client.UploadCharm(context.Background(), "uuid", curl, charmRef, strings.NewReader(charmBody))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(outCurl, gc.DeepEquals, curl)
-	c.Assert(doer.method, gc.Equals, "PUT")
-	c.Assert(doer.url, gc.Equals, "/migrate/charms/juju-qa-test-abcdef0")
-	c.Assert(doer.headers.Get(params.JujuCharmURLHeader), gc.Equals, curl)
-	c.Assert(doer.body, gc.Equals, charmBody)
+	c.Assert(outCurl, tc.DeepEquals, curl)
+	c.Assert(doer.method, tc.Equals, "PUT")
+	c.Assert(doer.url, tc.Equals, "/migrate/charms/juju-qa-test-abcdef0")
+	c.Assert(doer.headers.Get(params.JujuCharmURLHeader), tc.Equals, curl)
+	c.Assert(doer.body, tc.Equals, charmBody)
 }
 
-func (s *ClientSuite) TestUploadTools(c *gc.C) {
+func (s *ClientSuite) TestUploadTools(c *tc.C) {
 	const toolsBody = "toolie"
 	vers := semversion.MustParseBinary("2.0.0-ubuntu-amd64")
 	someTools := &tools.Tools{Version: vers}
@@ -259,14 +259,14 @@ func (s *ClientSuite) TestUploadTools(c *gc.C) {
 		vers,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(toolsList, gc.HasLen, 1)
-	c.Assert(toolsList[0], gc.DeepEquals, someTools)
-	c.Assert(doer.method, gc.Equals, "POST")
-	c.Assert(doer.url, gc.Equals, "/migrate/tools?binaryVersion=2.0.0-ubuntu-amd64")
-	c.Assert(doer.body, gc.Equals, toolsBody)
+	c.Assert(toolsList, tc.HasLen, 1)
+	c.Assert(toolsList[0], tc.DeepEquals, someTools)
+	c.Assert(doer.method, tc.Equals, "POST")
+	c.Assert(doer.url, tc.Equals, "/migrate/tools?binaryVersion=2.0.0-ubuntu-amd64")
+	c.Assert(doer.body, tc.Equals, toolsBody)
 }
 
-func (s *ClientSuite) TestUploadResource(c *gc.C) {
+func (s *ClientSuite) TestUploadResource(c *tc.C) {
 	const resourceBody = "resourceful"
 	doer := newFakeDoer(c, "", nil)
 	caller := &fakeHTTPCaller{
@@ -279,34 +279,34 @@ func (s *ClientSuite) TestUploadResource(c *gc.C) {
 
 	err := client.UploadResource(context.Background(), "uuid", res, strings.NewReader(resourceBody))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(doer.method, gc.Equals, "POST")
+	c.Assert(doer.method, tc.Equals, "POST")
 	expectedURL := fmt.Sprintf("/migrate/resources?application=app&fingerprint=%s&name=blob&origin=upload&revision=1&size=11&timestamp=%d&type=file&user=a-user", res.Fingerprint.Hex(), res.Timestamp.UnixNano())
-	c.Assert(doer.url, gc.Equals, expectedURL)
-	c.Assert(doer.body, gc.Equals, resourceBody)
+	c.Assert(doer.url, tc.Equals, expectedURL)
+	c.Assert(doer.body, tc.Equals, resourceBody)
 }
 
-func (s *ClientSuite) TestCACert(c *gc.C) {
+func (s *ClientSuite) TestCACert(c *tc.C) {
 	call := func(objType string, version int, id, request string, args, response interface{}) error {
-		c.Check(objType, gc.Equals, "MigrationTarget")
-		c.Check(request, gc.Equals, "CACert")
-		c.Check(args, gc.Equals, nil)
-		c.Check(response, gc.FitsTypeOf, (*params.BytesResult)(nil))
+		c.Check(objType, tc.Equals, "MigrationTarget")
+		c.Check(request, tc.Equals, "CACert")
+		c.Check(args, tc.Equals, nil)
+		c.Check(response, tc.FitsTypeOf, (*params.BytesResult)(nil))
 		response.(*params.BytesResult).Result = []byte("foo cert")
 		return nil
 	}
 	client := migrationtarget.NewClient(apitesting.APICallerFunc(call))
 	r, err := client.CACert(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r, gc.Equals, "foo cert")
+	c.Assert(r, tc.Equals, "foo cert")
 }
 
-func (s *ClientSuite) AssertModelCall(c *gc.C, stub *jujutesting.Stub, tag names.ModelTag, call string, err error, expectError bool) {
+func (s *ClientSuite) AssertModelCall(c *tc.C, stub *jujutesting.Stub, tag names.ModelTag, call string, err error, expectError bool) {
 	expectedArg := params.ModelArgs{ModelTag: tag.String()}
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{FuncName: "MigrationTarget." + call, Args: []interface{}{"", expectedArg}},
 	})
 	if expectError {
-		c.Assert(err, gc.ErrorMatches, "boom")
+		c.Assert(err, tc.ErrorMatches, "boom")
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
 	}
@@ -345,7 +345,7 @@ func (*fakeHTTPCaller) Context() context.Context {
 	return context.Background()
 }
 
-func newFakeDoer(c *gc.C, respBody interface{}, respHeaders map[string]string) *fakeDoer {
+func newFakeDoer(c *tc.C, respBody interface{}, respHeaders map[string]string) *fakeDoer {
 	body, err := json.Marshal(respBody)
 	c.Assert(err, jc.ErrorIsNil)
 	resp := &http.Response{

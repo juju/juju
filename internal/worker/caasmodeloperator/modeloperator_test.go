@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	modeloperatorapi "github.com/juju/juju/api/controller/caasmodeloperator"
@@ -36,7 +36,7 @@ type dummyBroker struct {
 
 type ModelOperatorManagerSuite struct{}
 
-var _ = gc.Suite(&ModelOperatorManagerSuite{})
+var _ = tc.Suite(&ModelOperatorManagerSuite{})
 
 func (b *dummyBroker) EnsureModelOperator(ctx context.Context, modelUUID, agentPath string, c *caas.ModelOperatorConfig) error {
 	if b.ensureModelOperator == nil {
@@ -80,7 +80,7 @@ func (a *dummyAPI) SetPassword(ctx context.Context, p string) error {
 	return a.setPassword(p)
 }
 
-func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *gc.C) {
+func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *tc.C) {
 	const n = 3
 	var (
 		iteration = 0 // ... n
@@ -115,7 +115,7 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *gc.C) {
 			}()
 			lastConfig = conf
 
-			c.Check(conf.ImageDetails.RegistryPath, gc.Equals, imagePath[iteration])
+			c.Check(conf.ImageDetails.RegistryPath, tc.Equals, imagePath[iteration])
 
 			ac, err := agent.ParseConfigData(conf.AgentConf)
 			c.Check(err, jc.ErrorIsNil)
@@ -123,14 +123,14 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *gc.C) {
 				return err
 			}
 			addresses, _ := ac.APIAddresses()
-			c.Check(addresses, gc.DeepEquals, apiAddresses[iteration])
-			c.Check(ac.UpgradedToVersion(), gc.Equals, ver[iteration])
+			c.Check(addresses, tc.DeepEquals, apiAddresses[iteration])
+			c.Check(ac.UpgradedToVersion(), tc.Equals, ver[iteration])
 
 			if password == "" {
 				password = ac.OldPassword()
 			}
-			c.Check(ac.OldPassword(), gc.Equals, password)
-			c.Check(ac.OldPassword(), gc.HasLen, 24)
+			c.Check(ac.OldPassword(), tc.Equals, password)
+			c.Check(ac.OldPassword(), tc.HasLen, 24)
 
 			return nil
 		},
@@ -158,5 +158,5 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *gc.C) {
 	err = worker.Wait()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(iteration, gc.Equals, n)
+	c.Assert(iteration, tc.Equals, n)
 }

@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
@@ -58,7 +58,7 @@ fi`
 //   - nil (no output)
 //   - a string (stdout)
 //   - a slice of strings, of length two (stdout, stderr)
-func installFakeSSH(c *gc.C, input, output interface{}, rc int) testing.Restorer {
+func installFakeSSH(c *tc.C, input, output interface{}, rc int) testing.Restorer {
 	fakebin := c.MkDir()
 	ssh := filepath.Join(fakebin, "ssh")
 	switch input := input.(type) {
@@ -76,7 +76,7 @@ func installFakeSSH(c *gc.C, input, output interface{}, rc int) testing.Restorer
 	case string:
 		stdout = fmt.Sprintf("cat<<EOF\n%s\nEOF", output)
 	case []string:
-		c.Assert(output, gc.HasLen, 2)
+		c.Assert(output, tc.HasLen, 2)
 		stdout = fmt.Sprintf("cat<<EOF\n%s\nEOF", output[0])
 		stderr = fmt.Sprintf("cat>&2<<EOF\n%s\nEOF", output[1])
 	}
@@ -89,7 +89,7 @@ func installFakeSSH(c *gc.C, input, output interface{}, rc int) testing.Restorer
 // installDetectionFakeSSH installs a fake SSH command, which will respond
 // to the base/hardware detection script with the specified
 // base/arch.
-func installDetectionFakeSSH(c *gc.C, base corebase.Base, arch string) testing.Restorer {
+func installDetectionFakeSSH(c *tc.C, base corebase.Base, arch string) testing.Restorer {
 	if arch == "" {
 		arch = "amd64"
 	}
@@ -136,7 +136,7 @@ type fakeSSH struct {
 // install installs fake SSH commands, which will respond to
 // manual provisioning/bootstrapping commands with the specified
 // output and exit codes.
-func (r fakeSSH) install(c *gc.C) testing.Restorer {
+func (r fakeSSH) install(c *tc.C) testing.Restorer {
 	var restore testing.Restorer
 	add := func(input, output interface{}, rc int) {
 		restore = restore.Add(installFakeSSH(c, input, output, rc))

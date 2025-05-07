@@ -8,11 +8,11 @@ import (
 	"errors"
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	agent "github.com/juju/juju/agent"
 	version "github.com/juju/juju/core/semversion"
@@ -31,9 +31,9 @@ type controllerWorkerSuite struct {
 	upgradeService *MockUpgradeService
 }
 
-var _ = gc.Suite(&controllerWorkerSuite{})
+var _ = tc.Suite(&controllerWorkerSuite{})
 
-func (s *controllerWorkerSuite) TestAlreadyUpgraded(c *gc.C) {
+func (s *controllerWorkerSuite) TestAlreadyUpgraded(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Walk through the upgrade process:
@@ -57,7 +57,7 @@ func (s *controllerWorkerSuite) TestAlreadyUpgraded(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *controllerWorkerSuite) TestInvalidState(c *gc.C) {
+func (s *controllerWorkerSuite) TestInvalidState(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Walk through the upgrade process:
@@ -78,7 +78,7 @@ func (s *controllerWorkerSuite) TestInvalidState(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *controllerWorkerSuite) TestWatchingFailures(c *gc.C) {
+func (s *controllerWorkerSuite) TestWatchingFailures(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Walk through the upgrade process:
@@ -124,7 +124,7 @@ func (s *controllerWorkerSuite) TestWatchingFailures(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *controllerWorkerSuite) TestWatchingCompleted(c *gc.C) {
+func (s *controllerWorkerSuite) TestWatchingCompleted(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Walk through the upgrade process:
@@ -182,7 +182,7 @@ func (s *controllerWorkerSuite) TestWatchingCompleted(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *controllerWorkerSuite) TestUpgradeFailure(c *gc.C) {
+func (s *controllerWorkerSuite) TestUpgradeFailure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Walk through the upgrade process:
@@ -229,7 +229,7 @@ func (s *controllerWorkerSuite) TestUpgradeFailure(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *controllerWorkerSuite) TestUpgradeFailureWithAPILostError(c *gc.C) {
+func (s *controllerWorkerSuite) TestUpgradeFailureWithAPILostError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Walk through the upgrade process:
@@ -280,10 +280,10 @@ func (s *controllerWorkerSuite) TestUpgradeFailureWithAPILostError(c *gc.C) {
 	}
 
 	err := workertest.CheckKill(c, w)
-	c.Assert(err, gc.ErrorMatches, `.*API connection lost during upgrade: boom`)
+	c.Assert(err, tc.ErrorMatches, `.*API connection lost during upgrade: boom`)
 }
 
-func (s *controllerWorkerSuite) TestUpgradeStepsComplete(c *gc.C) {
+func (s *controllerWorkerSuite) TestUpgradeStepsComplete(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Walk through the upgrade process:
@@ -342,7 +342,7 @@ func (s *controllerWorkerSuite) TestUpgradeStepsComplete(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *controllerWorkerSuite) TestUpgradeFailsWhenKilled(c *gc.C) {
+func (s *controllerWorkerSuite) TestUpgradeFailsWhenKilled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Walk through the upgrade process:
@@ -407,14 +407,14 @@ func (s *controllerWorkerSuite) TestUpgradeFailsWhenKilled(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *controllerWorkerSuite) newWorker(c *gc.C) *controllerWorker {
+func (s *controllerWorkerSuite) newWorker(c *tc.C) *controllerWorker {
 	baseWorker := s.newBaseWorker(c, version.MustParse("6.6.6"), version.MustParse("9.9.9"))
 	w, err := newControllerWorker(baseWorker, s.upgradeService)
 	c.Assert(err, jc.ErrorIsNil)
 	return w
 }
 
-func (s *controllerWorkerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *controllerWorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
 	var err error
@@ -426,7 +426,7 @@ func (s *controllerWorkerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *controllerWorkerSuite) expectUpgradeInfo(c *gc.C, state upgrade.State) {
+func (s *controllerWorkerSuite) expectUpgradeInfo(c *tc.C, state upgrade.State) {
 	s.lock.EXPECT().IsUnlocked().Return(false)
 	s.upgradeService.EXPECT().ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, nil)
 	s.upgradeService.EXPECT().UpgradeInfo(gomock.Any(), s.upgradeUUID).Return(upgrade.Info{
@@ -434,7 +434,7 @@ func (s *controllerWorkerSuite) expectUpgradeInfo(c *gc.C, state upgrade.State) 
 	}, nil)
 }
 
-func (s *controllerWorkerSuite) expectAbort(c *gc.C) chan struct{} {
+func (s *controllerWorkerSuite) expectAbort(c *tc.C) chan struct{} {
 	done := make(chan struct{})
 	// Return an error during setting status and set db upgrade failed when
 	// aborting to ensure that we ignore it.
@@ -446,7 +446,7 @@ func (s *controllerWorkerSuite) expectAbort(c *gc.C) chan struct{} {
 	return done
 }
 
-func (s *controllerWorkerSuite) expectComplete(c *gc.C) chan struct{} {
+func (s *controllerWorkerSuite) expectComplete(c *tc.C) chan struct{} {
 	done := make(chan struct{})
 	// Return an error during setting status and set db upgrade failed when
 	// aborting to ensure that we ignore it.
@@ -457,7 +457,7 @@ func (s *controllerWorkerSuite) expectComplete(c *gc.C) chan struct{} {
 	return done
 }
 
-func (s *controllerWorkerSuite) expectRunUpdates(c *gc.C) {
+func (s *controllerWorkerSuite) expectRunUpdates(c *tc.C) {
 	s.agent.EXPECT().CurrentConfig().Return(s.config).AnyTimes()
 	s.agent.EXPECT().ChangeConfig(gomock.Any()).Return(nil).AnyTimes()
 }

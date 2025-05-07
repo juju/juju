@@ -4,10 +4,10 @@
 package charm
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/base"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -18,9 +18,9 @@ type computedBaseSuite struct {
 	testing.CleanupSuite
 }
 
-var _ = gc.Suite(&computedBaseSuite{})
+var _ = tc.Suite(&computedBaseSuite{})
 
-func (s *computedBaseSuite) TestComputedBase(c *gc.C) {
+func (s *computedBaseSuite) TestComputedBase(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cm := NewMockCharmMeta(ctrl)
@@ -47,7 +47,7 @@ func (s *computedBaseSuite) TestComputedBase(c *gc.C) {
 	})
 }
 
-func (s *computedBaseSuite) TestComputedBaseNilManifest(c *gc.C) {
+func (s *computedBaseSuite) TestComputedBaseNilManifest(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cm := NewMockCharmMeta(ctrl)
@@ -61,7 +61,7 @@ func (s *computedBaseSuite) TestComputedBaseNilManifest(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *computedBaseSuite) TestComputedBaseError(c *gc.C) {
+func (s *computedBaseSuite) TestComputedBaseError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cm := NewMockCharmMeta(ctrl)
@@ -85,7 +85,7 @@ func (s *computedBaseSuite) TestComputedBaseError(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *computedBaseSuite) TestBaseToUse(c *gc.C) {
+func (s *computedBaseSuite) TestBaseToUse(c *tc.C) {
 	trusty := base.MustParseBaseFromString("ubuntu@16.04")
 	jammy := base.MustParseBaseFromString("ubuntu@22.04")
 	focal := base.MustParseBaseFromString("ubuntu@20.04")
@@ -112,7 +112,7 @@ func (s *computedBaseSuite) TestBaseToUse(c *gc.C) {
 	for _, test := range tests {
 		base, err := BaseForCharm(test.series, test.supportedBases)
 		if test.err != "" {
-			c.Check(err, gc.ErrorMatches, test.err)
+			c.Check(err, tc.ErrorMatches, test.err)
 			continue
 		}
 		c.Check(err, jc.ErrorIsNil)
@@ -120,7 +120,7 @@ func (s *computedBaseSuite) TestBaseToUse(c *gc.C) {
 	}
 }
 
-func (s *computedBaseSuite) TestBaseIsCompatibleWithCharm(c *gc.C) {
+func (s *computedBaseSuite) TestBaseIsCompatibleWithCharm(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cm := NewMockCharmMeta(ctrl)
@@ -150,7 +150,7 @@ func (s *computedBaseSuite) TestBaseIsCompatibleWithCharm(c *gc.C) {
 	c.Assert(BaseIsCompatibleWithCharm(jammy, cm), jc.Satisfies, IsUnsupportedBaseError)
 }
 
-func (s *computedBaseSuite) TestOSIsCompatibleWithCharm(c *gc.C) {
+func (s *computedBaseSuite) TestOSIsCompatibleWithCharm(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cm := NewMockCharmMeta(ctrl)

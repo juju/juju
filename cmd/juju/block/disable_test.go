@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/internal/cmd"
@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
-var _ = gc.Suite(&disableCommandSuite{})
+var _ = tc.Suite(&disableCommandSuite{})
 
 type disableCommandSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
@@ -28,7 +28,7 @@ func (*disableCommandSuite) disableCommand(api *mockBlockClient, err error) cmd.
 	return block.NewDisableCommandForTest(store, api, err)
 }
 
-func (s *disableCommandSuite) TestInit(c *gc.C) {
+func (s *disableCommandSuite) TestInit(c *tc.C) {
 	for _, test := range []struct {
 		args []string
 		err  string
@@ -53,18 +53,18 @@ func (s *disableCommandSuite) TestInit(c *gc.C) {
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
-			c.Check(err.Error(), gc.Equals, test.err)
+			c.Check(err.Error(), tc.Equals, test.err)
 		}
 	}
 }
 
-func (s *disableCommandSuite) TestRunGetAPIError(c *gc.C) {
+func (s *disableCommandSuite) TestRunGetAPIError(c *tc.C) {
 	cmd := s.disableCommand(nil, errors.New("boom"))
 	_, err := cmdtesting.RunCommand(c, cmd, "all")
-	c.Assert(err.Error(), gc.Equals, "cannot connect to the API: boom")
+	c.Assert(err.Error(), tc.Equals, "cannot connect to the API: boom")
 }
 
-func (s *disableCommandSuite) TestRun(c *gc.C) {
+func (s *disableCommandSuite) TestRun(c *tc.C) {
 	for _, test := range []struct {
 		args    []string
 		type_   string
@@ -86,16 +86,16 @@ func (s *disableCommandSuite) TestRun(c *gc.C) {
 		cmd := s.disableCommand(mockClient, nil)
 		_, err := cmdtesting.RunCommand(c, cmd, test.args...)
 		c.Check(err, jc.ErrorIsNil)
-		c.Check(mockClient.blockType, gc.Equals, test.type_)
-		c.Check(mockClient.message, gc.Equals, test.message)
+		c.Check(mockClient.blockType, tc.Equals, test.type_)
+		c.Check(mockClient.message, tc.Equals, test.message)
 	}
 }
 
-func (s *disableCommandSuite) TestRunError(c *gc.C) {
+func (s *disableCommandSuite) TestRunError(c *tc.C) {
 	mockClient := &mockBlockClient{err: errors.New("boom")}
 	cmd := s.disableCommand(mockClient, nil)
 	_, err := cmdtesting.RunCommand(c, cmd, "all")
-	c.Check(err, gc.ErrorMatches, "boom")
+	c.Check(err, tc.ErrorMatches, "boom")
 }
 
 type mockBlockClient struct {

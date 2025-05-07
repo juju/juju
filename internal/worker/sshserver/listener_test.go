@@ -9,10 +9,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 )
 
 // testingSSHServerListener is required to prevent a race condition that can
@@ -70,9 +70,9 @@ type listenerSuite struct {
 	listener *MockListener
 }
 
-var _ = gc.Suite(&listenerSuite{})
+var _ = tc.Suite(&listenerSuite{})
 
-func (s *listenerSuite) TestAcceptOnceListener(c *gc.C) {
+func (s *listenerSuite) TestAcceptOnceListener(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.listener.EXPECT().Accept().Return(nil, nil)
@@ -100,7 +100,7 @@ func (s *listenerSuite) TestAcceptOnceListener(c *gc.C) {
 	}
 }
 
-func (s *listenerSuite) TestAcceptOnceListenerDoesNotStop(c *gc.C) {
+func (s *listenerSuite) TestAcceptOnceListenerDoesNotStop(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// No calls to the mock listener should have been made.
@@ -111,7 +111,7 @@ func (s *listenerSuite) TestAcceptOnceListenerDoesNotStop(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, context.DeadlineExceeded)
 }
 
-func (s *listenerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *listenerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.listener = NewMockListener(ctrl)

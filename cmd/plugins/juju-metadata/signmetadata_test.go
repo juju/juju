@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"github.com/juju/loggo/v2"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -24,9 +24,9 @@ type SignMetadataSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&SignMetadataSuite{})
+var _ = tc.Suite(&SignMetadataSuite{})
 
-func (s *SignMetadataSuite) SetUpTest(c *gc.C) {
+func (s *SignMetadataSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	loggo.GetLogger("").SetLogLevel(loggo.INFO)
 }
@@ -46,7 +46,7 @@ func makeFileNames(topLevel string) []string {
 	}
 }
 
-func setupJsonFiles(c *gc.C, topLevel string) {
+func setupJsonFiles(c *tc.C, topLevel string) {
 	err := os.MkdirAll(filepath.Join(topLevel, "subdir1", "subdir2"), 0700)
 	c.Assert(err, jc.ErrorIsNil)
 	content := []byte("hello world")
@@ -57,16 +57,16 @@ func setupJsonFiles(c *gc.C, topLevel string) {
 	}
 }
 
-func assertSignedFile(c *gc.C, filename string) {
+func assertSignedFile(c *tc.C, filename string) {
 	r, err := os.Open(filename)
 	c.Assert(err, jc.ErrorIsNil)
 	defer r.Close()
 	data, err := simplestreams.DecodeCheckSignature(r, sstesting.SignedMetadataPublicKey)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, "hello world\n")
+	c.Assert(string(data), tc.Equals, "hello world\n")
 }
 
-func assertSignedFiles(c *gc.C, topLevel string) {
+func assertSignedFiles(c *tc.C, topLevel string) {
 	filenames := makeFileNames(topLevel)
 	for _, filename := range filenames {
 		filename = strings.Replace(filename, ".json", ".sjson", -1)
@@ -74,7 +74,7 @@ func assertSignedFiles(c *gc.C, topLevel string) {
 	}
 }
 
-func (s *SignMetadataSuite) TestSignMetadata(c *gc.C) {
+func (s *SignMetadataSuite) TestSignMetadata(c *tc.C) {
 	topLevel := c.MkDir()
 	keyfile := filepath.Join(topLevel, "privatekey.asc")
 	err := os.WriteFile(keyfile, []byte(sstesting.SignedMetadataPrivateKey), 0644)
@@ -84,20 +84,20 @@ func (s *SignMetadataSuite) TestSignMetadata(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(
 		newSignMetadataCommand(), ctx, []string{"-d", topLevel, "-k", keyfile, "-p", sstesting.PrivateKeyPassphrase})
-	c.Assert(code, gc.Equals, 0)
+	c.Assert(code, tc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
-	c.Assert(output, gc.Matches, expectedLoggingOutput)
+	c.Assert(output, tc.Matches, expectedLoggingOutput)
 	assertSignedFiles(c, topLevel)
 }
 
-func runSignMetadata(c *gc.C, args ...string) error {
+func runSignMetadata(c *tc.C, args ...string) error {
 	_, err := cmdtesting.RunCommand(c, newSignMetadataCommand(), args...)
 	return err
 }
 
-func (s *SignMetadataSuite) TestSignMetadataErrors(c *gc.C) {
+func (s *SignMetadataSuite) TestSignMetadataErrors(c *tc.C) {
 	err := runSignMetadata(c, "")
-	c.Assert(err, gc.ErrorMatches, `directory must be specified`)
+	c.Assert(err, tc.ErrorMatches, `directory must be specified`)
 	err = runSignMetadata(c, "-d", "foo")
-	c.Assert(err, gc.ErrorMatches, `keyfile must be specified`)
+	c.Assert(err, tc.ErrorMatches, `keyfile must be specified`)
 }

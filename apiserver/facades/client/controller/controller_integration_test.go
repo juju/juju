@@ -6,7 +6,7 @@ package controller_test
 import (
 	"context"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/juju/testing"
@@ -23,28 +23,28 @@ type ControllerIntegrationSuite struct {
 	client *controller.Client
 }
 
-var _ = gc.Suite(&ControllerIntegrationSuite{})
+var _ = tc.Suite(&ControllerIntegrationSuite{})
 
-func (s *ControllerIntegrationSuite) SetUpTest(c *gc.C) {
+func (s *ControllerIntegrationSuite) SetUpTest(c *tc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
 	api := s.OpenControllerAPI(c)
 	s.client = controller.NewClient(api)
-	s.AddCleanup(func(*gc.C) { s.client.Close() })
+	s.AddCleanup(func(*tc.C) { s.client.Close() })
 }
 
-func (s *ControllerIntegrationSuite) TestWatchModelSummaries(c *gc.C) {
+func (s *ControllerIntegrationSuite) TestWatchModelSummaries(c *tc.C) {
 	c.Skip("TODO (alvin) - reimplement when facade moved off of mongo")
 	// TODO(dqlite) - implement me
 	watcher, err := s.client.WatchModelSummaries(context.Background())
-	c.Assert(watcher, gc.IsNil)
-	c.Assert(err, gc.NotNil)
+	c.Assert(watcher, tc.IsNil)
+	c.Assert(err, tc.NotNil)
 }
 
-func (s *ControllerIntegrationSuite) TestWatchAllModelSummaries(c *gc.C) {
+func (s *ControllerIntegrationSuite) TestWatchAllModelSummaries(c *tc.C) {
 	c.Skip("TODO (alvin) - reimplement when facade moved off of mongo")
 	// TODO(dqlite) - implement me
 	watcher, err := s.client.WatchAllModelSummaries(context.Background())
-	c.Assert(watcher, gc.IsNil)
-	c.Assert(err, gc.NotNil)
+	c.Assert(watcher, tc.IsNil)
+	c.Assert(err, tc.NotNil)
 }

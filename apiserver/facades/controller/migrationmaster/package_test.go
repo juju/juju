@@ -6,7 +6,7 @@ package migrationmaster_test
 import (
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/backend.go github.com/juju/juju/apiserver/facades/controller/migrationmaster Backend,ControllerState,ModelExporter,UpgradeService,ControllerConfigService,CredentialService,ModelInfoService,ModelService,ApplicationService,RelationService,StatusService,ModelAgentService
@@ -15,5 +15,5 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/objectstore.go github.com/juju/juju/core/objectstore ObjectStore
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }

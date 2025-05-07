@@ -10,13 +10,13 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent/addons"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -28,9 +28,9 @@ type introspectionSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&introspectionSuite{})
+var _ = tc.Suite(&introspectionSuite{})
 
-func (s *introspectionSuite) TestStartNonLinux(c *gc.C) {
+func (s *introspectionSuite) TestStartNonLinux(c *tc.C) {
 	if runtime.GOOS == "linux" {
 		c.Skip("testing for non-linux")
 	}
@@ -49,7 +49,7 @@ func (s *introspectionSuite) TestStartNonLinux(c *gc.C) {
 	c.Assert(started, jc.IsFalse)
 }
 
-func (s *introspectionSuite) TestStartError(c *gc.C) {
+func (s *introspectionSuite) TestStartError(c *tc.C) {
 	if runtime.GOOS != "linux" {
 		c.Skip("introspection worker not supported on non-linux")
 	}
@@ -63,10 +63,10 @@ func (s *introspectionSuite) TestStartError(c *gc.C) {
 	}
 
 	err := addons.StartIntrospection(cfg)
-	c.Check(err, gc.ErrorMatches, "boom")
+	c.Check(err, tc.ErrorMatches, "boom")
 }
 
-func (s *introspectionSuite) TestStartSuccess(c *gc.C) {
+func (s *introspectionSuite) TestStartSuccess(c *tc.C) {
 	if runtime.GOOS != "linux" {
 		c.Skip("introspection worker not supported on non-linux")
 	}
@@ -97,7 +97,7 @@ func (s *introspectionSuite) TestStartSuccess(c *gc.C) {
 	err = addons.StartIntrospection(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(fake.config.DepEngine, gc.Equals, engine)
+	c.Check(fake.config.DepEngine, tc.Equals, engine)
 	c.Check(fake.config.SocketName, jc.HasSuffix, "introspection.socket")
 
 	// Stopping the engine causes the introspection worker to stop.
@@ -128,9 +128,9 @@ type registerSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&registerSuite{})
+var _ = tc.Suite(&registerSuite{})
 
-func (s *registerSuite) TestRegisterEngineMetrics(c *gc.C) {
+func (s *registerSuite) TestRegisterEngineMetrics(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 

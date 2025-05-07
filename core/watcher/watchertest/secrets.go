@@ -7,8 +7,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/testing"
@@ -18,13 +18,13 @@ import (
 // verify the behaviour of any watcher that uses a
 // <-chan []SecretTriggerChange
 type SecretsTriggerWatcherC struct {
-	*gc.C
+	*tc.C
 	Watcher watcher.SecretTriggerWatcher
 }
 
 // NewSecretsTriggerWatcherC returns a SecretsTriggerWatcherC that
 // checks for aggressive event coalescence.
-func NewSecretsTriggerWatcherC(c *gc.C, w watcher.SecretTriggerWatcher) SecretsTriggerWatcherC {
+func NewSecretsTriggerWatcherC(c *tc.C, w watcher.SecretTriggerWatcher) SecretsTriggerWatcherC {
 	return SecretsTriggerWatcherC{
 		C:       c,
 		Watcher: w,
@@ -75,13 +75,13 @@ func (c SecretsTriggerWatcherC) AssertClosed() {
 // verify the behaviour of any watcher that uses a
 // <-chan []SecretBackendRotateChange
 type SecretBackendRotateWatcherC struct {
-	*gc.C
+	*tc.C
 	Watcher watcher.SecretBackendRotateWatcher
 }
 
 // NewSecretBackendRotateWatcherC returns a SecretBackendRotateWatcherC that
 // checks for aggressive event coalescence.
-func NewSecretBackendRotateWatcherC(c *gc.C, w watcher.SecretBackendRotateWatcher) SecretBackendRotateWatcherC {
+func NewSecretBackendRotateWatcherC(c *tc.C, w watcher.SecretBackendRotateWatcher) SecretBackendRotateWatcherC {
 	return SecretBackendRotateWatcherC{
 		C:       c,
 		Watcher: w,

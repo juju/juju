@@ -6,10 +6,10 @@ package service
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
 	coreapplicationtesting "github.com/juju/juju/core/application/testing"
@@ -37,11 +37,11 @@ type relationServiceSuite struct {
 	service *Service
 }
 
-var _ = gc.Suite(&relationServiceSuite{})
+var _ = tc.Suite(&relationServiceSuite{})
 
 // TestAddRelation verifies the behavior of the AddRelation method when adding
 // a relation between two endpoints.
-func (s *relationServiceSuite) TestAddRelation(c *gc.C) {
+func (s *relationServiceSuite) TestAddRelation(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	endpoint1 := "application-1"
@@ -66,13 +66,13 @@ func (s *relationServiceSuite) TestAddRelation(c *gc.C) {
 
 	// Assert
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(gotEp1, gc.Equals, fakeReturn1)
-	c.Check(gotEp2, gc.Equals, fakeReturn2)
+	c.Check(gotEp1, tc.Equals, fakeReturn1)
+	c.Check(gotEp2, tc.Equals, fakeReturn2)
 }
 
 // TestAddRelationFirstMalformed verifies that AddRelation returns an
 // appropriate error when the first endpoint is malformed.
-func (s *relationServiceSuite) TestAddRelationFirstMalformed(c *gc.C) {
+func (s *relationServiceSuite) TestAddRelationFirstMalformed(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	endpoint1 := "app:ep:is:malformed"
@@ -82,12 +82,12 @@ func (s *relationServiceSuite) TestAddRelationFirstMalformed(c *gc.C) {
 	_, _, err := s.service.AddRelation(context.Background(), endpoint1, endpoint2)
 
 	// Assert
-	c.Assert(err, gc.ErrorMatches, "parsing endpoint identifier \"app:ep:is:malformed\": expected endpoint of form <application-name>:<endpoint-name> or <application-name>")
+	c.Assert(err, tc.ErrorMatches, "parsing endpoint identifier \"app:ep:is:malformed\": expected endpoint of form <application-name>:<endpoint-name> or <application-name>")
 }
 
 // TestAddRelationFirstMalformed verifies that AddRelation returns an
 // appropriate error when the second endpoint is malformed.
-func (s *relationServiceSuite) TestAddRelationSecondMalformed(c *gc.C) {
+func (s *relationServiceSuite) TestAddRelationSecondMalformed(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	endpoint1 := "application-1:endpoint-1"
@@ -97,12 +97,12 @@ func (s *relationServiceSuite) TestAddRelationSecondMalformed(c *gc.C) {
 	_, _, err := s.service.AddRelation(context.Background(), endpoint1, endpoint2)
 
 	// Assert
-	c.Assert(err, gc.ErrorMatches, "parsing endpoint identifier \"app:ep:is:malformed\": expected endpoint of form <application-name>:<endpoint-name> or <application-name>")
+	c.Assert(err, tc.ErrorMatches, "parsing endpoint identifier \"app:ep:is:malformed\": expected endpoint of form <application-name>:<endpoint-name> or <application-name>")
 }
 
 // TestAddRelationStateError validates the AddRelation method handles and
 // returns the correct error when state addition fails.
-func (s *relationServiceSuite) TestAddRelationStateError(c *gc.C) {
+func (s *relationServiceSuite) TestAddRelationStateError(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	expectedError := errors.New("state error")
@@ -120,7 +120,7 @@ func (s *relationServiceSuite) TestAddRelationStateError(c *gc.C) {
 // TestGetAllRelationDetails verifies that GetAllRelationDetails
 // retrieves and returns the expected relation details without errors.
 // Doesn't have logic, so the test doesn't need to be smart.
-func (s *relationServiceSuite) TestGetAllRelationDetails(c *gc.C) {
+func (s *relationServiceSuite) TestGetAllRelationDetails(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	expectedRelationDetails := []relation.RelationDetailsResult{
@@ -136,13 +136,13 @@ func (s *relationServiceSuite) TestGetAllRelationDetails(c *gc.C) {
 	details, err := s.service.GetAllRelationDetails(context.Background())
 
 	// Assert
-	c.Assert(err, gc.IsNil)
-	c.Assert(details, gc.DeepEquals, expectedRelationDetails)
+	c.Assert(err, tc.IsNil)
+	c.Assert(details, tc.DeepEquals, expectedRelationDetails)
 }
 
 // TestGetAllRelationDetailsError verifies the behavior when GetAllRelationDetails
 // encounters an error from the state layer.
-func (s *relationServiceSuite) TestGetAllRelationDetailsError(c *gc.C) {
+func (s *relationServiceSuite) TestGetAllRelationDetailsError(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	expectedError := errors.New("state error")
@@ -155,7 +155,7 @@ func (s *relationServiceSuite) TestGetAllRelationDetailsError(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, expectedError)
 }
 
-func (s *relationServiceSuite) TestGetApplicationRelations(c *gc.C) {
+func (s *relationServiceSuite) TestGetApplicationRelations(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	expectedRelations := []corerelation.UUID{
@@ -171,10 +171,10 @@ func (s *relationServiceSuite) TestGetApplicationRelations(c *gc.C) {
 
 	// Assert
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(relations, gc.DeepEquals, expectedRelations)
+	c.Assert(relations, tc.DeepEquals, expectedRelations)
 }
 
-func (s *relationServiceSuite) TestGetApplicationRelationsApplicationUUIDNotValid(c *gc.C) {
+func (s *relationServiceSuite) TestGetApplicationRelationsApplicationUUIDNotValid(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
@@ -185,7 +185,7 @@ func (s *relationServiceSuite) TestGetApplicationRelationsApplicationUUIDNotVali
 	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationIDNotValid)
 }
 
-func (s *relationServiceSuite) TestGetApplicationRelationsStateError(c *gc.C) {
+func (s *relationServiceSuite) TestGetApplicationRelationsStateError(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	expectedError := errors.New("state error")
@@ -200,11 +200,11 @@ func (s *relationServiceSuite) TestGetApplicationRelationsStateError(c *gc.C) {
 
 // TestGetRelationEndpointUUID tests the GetRelationEndpointUUID method for
 // valid input and expected successful execution.
-func (s *relationServiceSuite) TestGetRelationEndpointUUID(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationEndpointUUID(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	appUUID, err := coreapplication.NewID()
-	c.Assert(err, gc.IsNil, gc.Commentf("(Arrange) can't generate appUUID: %v", err))
+	c.Assert(err, tc.IsNil, tc.Commentf("(Arrange) can't generate appUUID: %v", err))
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 
 	args := relation.GetRelationEndpointUUIDArgs{
@@ -215,15 +215,15 @@ func (s *relationServiceSuite) TestGetRelationEndpointUUID(c *gc.C) {
 
 	// Act
 	obtained, err := s.service.getRelationEndpointUUID(context.Background(), args)
-	c.Assert(err, gc.IsNil, gc.Commentf("(Act) unexpected error: %v", err))
+	c.Assert(err, tc.IsNil, tc.Commentf("(Act) unexpected error: %v", err))
 
 	// Assert
-	c.Check(obtained, gc.Equals, corerelation.EndpointUUID("some-uuid"), gc.Commentf("(Assert) unexpected result: %v", obtained))
+	c.Check(obtained, tc.Equals, corerelation.EndpointUUID("some-uuid"), tc.Commentf("(Assert) unexpected result: %v", obtained))
 }
 
 // TestGetRelationEndpointUUIDApplicationIDNotValid tests the failure case
 // where the ApplicationID is not a valid UUID.
-func (s *relationServiceSuite) TestGetRelationEndpointUUIDApplicationIDNotValid(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationEndpointUUIDApplicationIDNotValid(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	relationUUID := corerelationtesting.GenRelationUUID(c)
@@ -237,12 +237,12 @@ func (s *relationServiceSuite) TestGetRelationEndpointUUIDApplicationIDNotValid(
 	_, err := s.service.getRelationEndpointUUID(context.Background(), args)
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationIDNotValid, gc.Commentf("(Assert) unexpected error: %v", err))
+	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationIDNotValid, tc.Commentf("(Assert) unexpected error: %v", err))
 }
 
 // TestGetRelationEndpointUUIDRelationUUIDNotValid tests the failure scenario
 // where the provided RelationUUID is not valid.
-func (s *relationServiceSuite) TestGetRelationEndpointUUIDRelationUUIDNotValid(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationEndpointUUIDRelationUUIDNotValid(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	appUUID := coreapplicationtesting.GenApplicationUUID(c)
@@ -256,10 +256,10 @@ func (s *relationServiceSuite) TestGetRelationEndpointUUIDRelationUUIDNotValid(c
 	_, err := s.service.getRelationEndpointUUID(context.Background(), args)
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid, gc.Commentf("(Assert) unexpected error: %v", err))
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid, tc.Commentf("(Assert) unexpected error: %v", err))
 }
 
-func (s *relationServiceSuite) TestGetRelationID(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange.
@@ -273,10 +273,10 @@ func (s *relationServiceSuite) TestGetRelationID(c *gc.C) {
 
 	// Assert.
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(relationID, gc.Equals, expectedRelationID)
+	c.Assert(relationID, tc.Equals, expectedRelationID)
 }
 
-func (s *relationServiceSuite) TestGetRelationIDRelationUUIDNotValid(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationIDRelationUUIDNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Act.
@@ -286,7 +286,7 @@ func (s *relationServiceSuite) TestGetRelationIDRelationUUIDNotValid(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid)
 }
 
-func (s *relationServiceSuite) TestGetRelationUnitEndpointName(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationUnitEndpointName(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	expectedName := "fake-endpoint-name"
@@ -298,10 +298,10 @@ func (s *relationServiceSuite) TestGetRelationUnitEndpointName(c *gc.C) {
 
 	// Assert
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(name, gc.Equals, expectedName)
+	c.Assert(name, tc.Equals, expectedName)
 }
 
-func (s *relationServiceSuite) TestGetRelationUnitEndpointNameRelationUnitUUIDNotValid(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationUnitEndpointNameRelationUnitUUIDNotValid(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	relationUnitUUID := corerelation.UnitUUID("not-valid-uuid")
@@ -313,7 +313,7 @@ func (s *relationServiceSuite) TestGetRelationUnitEndpointNameRelationUnitUUIDNo
 	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *relationServiceSuite) TestGetRelationUnitEndpointNameStateError(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationUnitEndpointNameStateError(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	expectedError := errors.New("state error")
@@ -327,7 +327,7 @@ func (s *relationServiceSuite) TestGetRelationUnitEndpointNameStateError(c *gc.C
 	c.Assert(err, jc.ErrorIs, expectedError)
 }
 
-func (s *relationServiceSuite) TestGetRelationUUIDByID(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationUUIDByID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange.
@@ -341,10 +341,10 @@ func (s *relationServiceSuite) TestGetRelationUUIDByID(c *gc.C) {
 
 	// Assert.
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(relationUUID, gc.Equals, expectedRelationUUID)
+	c.Assert(relationUUID, tc.Equals, expectedRelationUUID)
 }
 
-func (s *relationServiceSuite) TestGetRelationKey(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -376,10 +376,10 @@ func (s *relationServiceSuite) TestGetRelationKey(c *gc.C) {
 
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(key, gc.DeepEquals, expectedKey)
+	c.Check(key, tc.DeepEquals, expectedKey)
 }
 
-func (s *relationServiceSuite) TestGetRelationKeyPeer(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationKeyPeer(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -403,10 +403,10 @@ func (s *relationServiceSuite) TestGetRelationKeyPeer(c *gc.C) {
 
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(key, gc.DeepEquals, expectedKey)
+	c.Check(key, tc.DeepEquals, expectedKey)
 }
 
-func (s *relationServiceSuite) TestGetRelationKeyRelationNotFound(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationKeyRelationNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -421,7 +421,7 @@ func (s *relationServiceSuite) TestGetRelationKeyRelationNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-func (s *relationServiceSuite) TestGetRelationKeyRelationUUIDNotValid(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationKeyRelationUUIDNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Act:
 	_, err := s.service.GetRelationKey(context.Background(), "bad-uuid")
@@ -430,7 +430,7 @@ func (s *relationServiceSuite) TestGetRelationKeyRelationUUIDNotValid(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid)
 }
 
-func (s *relationServiceSuite) TestGetRelationUUIDByKeyPeer(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationUUIDByKeyPeer(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -447,10 +447,10 @@ func (s *relationServiceSuite) TestGetRelationUUIDByKeyPeer(c *gc.C) {
 
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(uuid, gc.Equals, expectedRelationUUID)
+	c.Check(uuid, tc.Equals, expectedRelationUUID)
 }
 
-func (s *relationServiceSuite) TestGetRelationUUIDByKeyRegular(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationUUIDByKeyRegular(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -468,10 +468,10 @@ func (s *relationServiceSuite) TestGetRelationUUIDByKeyRegular(c *gc.C) {
 
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(uuid, gc.Equals, expectedRelationUUID)
+	c.Check(uuid, tc.Equals, expectedRelationUUID)
 }
 
-func (s *relationServiceSuite) TestGetRelationUUIDByKeyRelationNotFound(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationUUIDByKeyRelationNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -489,7 +489,7 @@ func (s *relationServiceSuite) TestGetRelationUUIDByKeyRelationNotFound(c *gc.C)
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-func (s *relationServiceSuite) TestGetRelationUUIDByKeyRelationKeyNotValid(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationUUIDByKeyRelationKeyNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Act:
@@ -499,7 +499,7 @@ func (s *relationServiceSuite) TestGetRelationUUIDByKeyRelationKeyNotValid(c *gc
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationKeyNotValid)
 }
 
-func (s *relationServiceSuite) TestGetRelationsStatusForUnit(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationsStatusForUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange.
@@ -554,10 +554,10 @@ func (s *relationServiceSuite) TestGetRelationsStatusForUnit(c *gc.C) {
 
 	// Assert.
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statuses, gc.DeepEquals, expectedStatuses)
+	c.Assert(statuses, tc.DeepEquals, expectedStatuses)
 }
 
-func (s *relationServiceSuite) TestGetRelationsStatusForUnitUnitUUIDNotValid(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationsStatusForUnitUnitUUIDNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Act.
@@ -567,7 +567,7 @@ func (s *relationServiceSuite) TestGetRelationsStatusForUnitUnitUUIDNotValid(c *
 	c.Assert(err, jc.ErrorIs, relationerrors.UnitUUIDNotValid)
 }
 
-func (s *relationServiceSuite) TestGetRelationsStatusForUnitStateError(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationsStatusForUnitStateError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange.
@@ -582,7 +582,7 @@ func (s *relationServiceSuite) TestGetRelationsStatusForUnitStateError(c *gc.C) 
 	c.Assert(err, jc.ErrorIs, boom)
 }
 
-func (s *relationServiceSuite) TestGetRelationUnit(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	relationUUID := corerelationtesting.GenRelationUUID(c)
@@ -595,10 +595,10 @@ func (s *relationServiceSuite) TestGetRelationUnit(c *gc.C) {
 
 	// Assert
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uuid, gc.Equals, unitUUID)
+	c.Assert(uuid, tc.Equals, unitUUID)
 }
 
-func (s *relationServiceSuite) TestGetRelationUnitRelationUUIDNotValid(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationUnitRelationUUIDNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	relationUUID := corerelation.UUID("not-valid-uuid")
@@ -611,7 +611,7 @@ func (s *relationServiceSuite) TestGetRelationUnitRelationUUIDNotValid(c *gc.C) 
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid)
 }
 
-func (s *relationServiceSuite) TestGetRelationUnitUnitNameNotValid(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationUnitUnitNameNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	relationUUID := corerelationtesting.GenRelationUUID(c)
@@ -624,7 +624,7 @@ func (s *relationServiceSuite) TestGetRelationUnitUnitNameNotValid(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
 }
 
-func (s *relationServiceSuite) TestGetRelationUnitUnitStateError(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationUnitUnitStateError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	relationUUID := corerelationtesting.GenRelationUUID(c)
@@ -639,7 +639,7 @@ func (s *relationServiceSuite) TestGetRelationUnitUnitStateError(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, boom)
 }
 
-func (s *relationServiceSuite) TestGetRelationUnitByID(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationUnitByID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	relationID := 42
@@ -654,10 +654,10 @@ func (s *relationServiceSuite) TestGetRelationUnitByID(c *gc.C) {
 
 	// Assert
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uuid, gc.Equals, unitUUID)
+	c.Assert(uuid, tc.Equals, unitUUID)
 }
 
-func (s *relationServiceSuite) TestGetRelationUnitByIDRelationNotFound(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationUnitByIDRelationNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	relationID := 42
@@ -671,7 +671,7 @@ func (s *relationServiceSuite) TestGetRelationUnitByIDRelationNotFound(c *gc.C) 
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-func (s *relationServiceSuite) TestGetRelationUnitByIDUnitNameNotValid(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationUnitByIDUnitNameNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	unitName := coreunit.Name("not-valid-name")
@@ -683,7 +683,7 @@ func (s *relationServiceSuite) TestGetRelationUnitByIDUnitNameNotValid(c *gc.C) 
 	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
 }
 
-func (s *relationServiceSuite) TestGetRelationUnitByIDUnitStateError(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationUnitByIDUnitStateError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	relationID := 42
@@ -700,7 +700,7 @@ func (s *relationServiceSuite) TestGetRelationUnitByIDUnitStateError(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, boom)
 }
 
-func (s *relationServiceSuite) TestGetRelationUnitChanges(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationUnitChanges(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	appUUIDs := []coreapplication.ID{
@@ -730,10 +730,10 @@ func (s *relationServiceSuite) TestGetRelationUnitChanges(c *gc.C) {
 
 	// Assert
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, expectedResult)
+	c.Assert(result, tc.DeepEquals, expectedResult)
 }
 
-func (s *relationServiceSuite) TestGetRelationUnitChangesUnitUUIDNotValid(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationUnitChangesUnitUUIDNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	unitUUIDS := []coreunit.UUID{
@@ -749,7 +749,7 @@ func (s *relationServiceSuite) TestGetRelationUnitChangesUnitUUIDNotValid(c *gc.
 	c.Assert(err, jc.ErrorIs, relationerrors.UnitUUIDNotValid)
 }
 
-func (s *relationServiceSuite) TestGetRelationUnitChangesAppUUIDNotValid(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationUnitChangesAppUUIDNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	appUUIDs := []coreapplication.ID{
@@ -765,7 +765,7 @@ func (s *relationServiceSuite) TestGetRelationUnitChangesAppUUIDNotValid(c *gc.C
 	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationIDNotValid)
 }
 
-func (s *relationServiceSuite) TestGetRelationUnitChangesUnitStateError(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationUnitChangesUnitStateError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	boom := errors.Errorf("boom")
@@ -779,7 +779,7 @@ func (s *relationServiceSuite) TestGetRelationUnitChangesUnitStateError(c *gc.C)
 	c.Assert(err, jc.ErrorIs, boom)
 }
 
-func (s *relationServiceSuite) TestGetRelationDetails(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationDetails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -815,12 +815,12 @@ func (s *relationServiceSuite) TestGetRelationDetails(c *gc.C) {
 
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(relationDetails, gc.DeepEquals, expectedRelationDetails)
+	c.Check(relationDetails, tc.DeepEquals, expectedRelationDetails)
 }
 
 // TestGetRelationEndpointUUIDRelationUUIDNotValid tests the failure scenario
 // where the provided RelationUUID is not valid.
-func (s *relationServiceSuite) TestGetRelationDetailsRelationUUIDNotValid(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationDetailsRelationUUIDNotValid(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
@@ -828,10 +828,10 @@ func (s *relationServiceSuite) TestGetRelationDetailsRelationUUIDNotValid(c *gc.
 	_, err := s.service.GetRelationDetails(context.Background(), "bad-relation-uuid")
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid, gc.Commentf("(Assert) unexpected error: %v", err))
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid, tc.Commentf("(Assert) unexpected error: %v", err))
 }
 
-func (s *relationServiceSuite) TestEnterScope(c *gc.C) {
+func (s *relationServiceSuite) TestEnterScope(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange.
@@ -853,7 +853,7 @@ func (s *relationServiceSuite) TestEnterScope(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *relationServiceSuite) TestEnterScopeCreatingSubordinate(c *gc.C) {
+func (s *relationServiceSuite) TestEnterScopeCreatingSubordinate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange.
@@ -879,7 +879,7 @@ func (s *relationServiceSuite) TestEnterScopeCreatingSubordinate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *relationServiceSuite) TestEnterScopeRelationUUIDNotValid(c *gc.C) {
+func (s *relationServiceSuite) TestEnterScopeRelationUUIDNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange.
@@ -892,7 +892,7 @@ func (s *relationServiceSuite) TestEnterScopeRelationUUIDNotValid(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid)
 }
 
-func (s *relationServiceSuite) TestEnterScopeRelationUnitNameNotValid(c *gc.C) {
+func (s *relationServiceSuite) TestEnterScopeRelationUnitNameNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange.
@@ -905,7 +905,7 @@ func (s *relationServiceSuite) TestEnterScopeRelationUnitNameNotValid(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
 }
 
-func (s *relationServiceSuite) TestLeaveScope(c *gc.C) {
+func (s *relationServiceSuite) TestLeaveScope(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange.
@@ -920,7 +920,7 @@ func (s *relationServiceSuite) TestLeaveScope(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *relationServiceSuite) TestLeaveScopeRelationUnitNameNotValid(c *gc.C) {
+func (s *relationServiceSuite) TestLeaveScopeRelationUnitNameNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Act.
 	err := s.service.LeaveScope(context.Background(), "bad-relation-unit-uuid")
@@ -929,7 +929,7 @@ func (s *relationServiceSuite) TestLeaveScopeRelationUnitNameNotValid(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid)
 }
 
-func (s *relationServiceSuite) TestGetRelationEndpoints(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationEndpoints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -948,10 +948,10 @@ func (s *relationServiceSuite) TestGetRelationEndpoints(c *gc.C) {
 
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(endpoints, gc.DeepEquals, expectedEndpoints)
+	c.Check(endpoints, tc.DeepEquals, expectedEndpoints)
 }
 
-func (s *relationServiceSuite) TestGetRelationEndpointsRelationUUIDNotValid(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationEndpointsRelationUUIDNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Act.
@@ -961,7 +961,7 @@ func (s *relationServiceSuite) TestGetRelationEndpointsRelationUUIDNotValid(c *g
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid)
 }
 
-func (s *relationServiceSuite) TestGetApplicationEndpoints(c *gc.C) {
+func (s *relationServiceSuite) TestGetApplicationEndpoints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -983,7 +983,7 @@ func (s *relationServiceSuite) TestGetApplicationEndpoints(c *gc.C) {
 	c.Check(endpoints, jc.SameContents, expectedEndpoints)
 }
 
-func (s *relationServiceSuite) TestGetApplicationEndpointsEmptySlice(c *gc.C) {
+func (s *relationServiceSuite) TestGetApplicationEndpointsEmptySlice(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -996,10 +996,10 @@ func (s *relationServiceSuite) TestGetApplicationEndpointsEmptySlice(c *gc.C) {
 
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(endpoints, gc.HasLen, 0)
+	c.Check(endpoints, tc.HasLen, 0)
 }
 
-func (s *relationServiceSuite) TestGetApplicationEndpointsApplicationUUIDNotValid(c *gc.C) {
+func (s *relationServiceSuite) TestGetApplicationEndpointsApplicationUUIDNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Act.
@@ -1009,7 +1009,7 @@ func (s *relationServiceSuite) TestGetApplicationEndpointsApplicationUUIDNotVali
 	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationIDNotValid)
 }
 
-func (s *relationServiceSuite) TestGetRelationUnitSettings(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationUnitSettings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -1024,10 +1024,10 @@ func (s *relationServiceSuite) TestGetRelationUnitSettings(c *gc.C) {
 
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, expectedSettings)
+	c.Assert(settings, tc.DeepEquals, expectedSettings)
 }
 
-func (s *relationServiceSuite) TestGetRelationUnitSettingsUnitIDNotValid(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationUnitSettingsUnitIDNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Act:
@@ -1037,7 +1037,7 @@ func (s *relationServiceSuite) TestGetRelationUnitSettingsUnitIDNotValid(c *gc.C
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid)
 }
 
-func (s *relationServiceSuite) TestSetRelationUnitSettings(c *gc.C) {
+func (s *relationServiceSuite) TestSetRelationUnitSettings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -1054,7 +1054,7 @@ func (s *relationServiceSuite) TestSetRelationUnitSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *relationServiceSuite) TestGetRelationApplicationSettings(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationApplicationSettings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -1070,10 +1070,10 @@ func (s *relationServiceSuite) TestGetRelationApplicationSettings(c *gc.C) {
 
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, expectedSettings)
+	c.Assert(settings, tc.DeepEquals, expectedSettings)
 }
 
-func (s *relationServiceSuite) TestGetRelationApplicationSettingsApplicationIDNotValid(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationApplicationSettingsApplicationIDNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -1086,7 +1086,7 @@ func (s *relationServiceSuite) TestGetRelationApplicationSettingsApplicationIDNo
 	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationIDNotValid)
 }
 
-func (s *relationServiceSuite) TestGetRelationApplicationSettingsRelationUUIDNotValid(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationApplicationSettingsRelationUUIDNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -1099,7 +1099,7 @@ func (s *relationServiceSuite) TestGetRelationApplicationSettingsRelationUUIDNot
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid)
 }
 
-func (s *relationServiceSuite) TestApplicationRelationsInfo(c *gc.C) {
+func (s *relationServiceSuite) TestApplicationRelationsInfo(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -1113,7 +1113,7 @@ func (s *relationServiceSuite) TestApplicationRelationsInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *relationServiceSuite) TestApplicationRelationsInfoError(c *gc.C) {
+func (s *relationServiceSuite) TestApplicationRelationsInfoError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -1127,7 +1127,7 @@ func (s *relationServiceSuite) TestApplicationRelationsInfoError(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, relationerrors.UnitNotFound)
 }
 
-func (s *relationServiceSuite) TestSetRelationUnitSettingsEmpty(c *gc.C) {
+func (s *relationServiceSuite) TestSetRelationUnitSettingsEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -1140,7 +1140,7 @@ func (s *relationServiceSuite) TestSetRelationUnitSettingsEmpty(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *relationServiceSuite) TestSetRelationUnitSettingsNil(c *gc.C) {
+func (s *relationServiceSuite) TestSetRelationUnitSettingsNil(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -1153,7 +1153,7 @@ func (s *relationServiceSuite) TestSetRelationUnitSettingsNil(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *relationServiceSuite) TestSetRelationUnitSettingsRelationUUIDNotValid(c *gc.C) {
+func (s *relationServiceSuite) TestSetRelationUnitSettingsRelationUUIDNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -1168,7 +1168,7 @@ func (s *relationServiceSuite) TestSetRelationUnitSettingsRelationUUIDNotValid(c
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid)
 }
 
-func (s *relationServiceSuite) TestApplicationRelationsInfoApplicationUUIDNotValid(c *gc.C) {
+func (s *relationServiceSuite) TestApplicationRelationsInfoApplicationUUIDNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Act.
@@ -1178,7 +1178,7 @@ func (s *relationServiceSuite) TestApplicationRelationsInfoApplicationUUIDNotVal
 	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationIDNotValid)
 }
 
-func (s *relationServiceSuite) TestGetGoalStateRelationDataForApplication(c *gc.C) {
+func (s *relationServiceSuite) TestGetGoalStateRelationDataForApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -1194,10 +1194,10 @@ func (s *relationServiceSuite) TestGetGoalStateRelationDataForApplication(c *gc.
 
 	// Assert
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtained, gc.DeepEquals, expected)
+	c.Check(obtained, tc.DeepEquals, expected)
 }
 
-func (s *relationServiceSuite) TestGetGoalStateRelationDataForApplicationNotValid(c *gc.C) {
+func (s *relationServiceSuite) TestGetGoalStateRelationDataForApplicationNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Act:
@@ -1207,7 +1207,7 @@ func (s *relationServiceSuite) TestGetGoalStateRelationDataForApplicationNotVali
 	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationIDNotValid)
 }
 
-func (s *relationServiceSuite) TestGetGoalStateRelationDataForApplicationError(c *gc.C) {
+func (s *relationServiceSuite) TestGetGoalStateRelationDataForApplicationError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -1221,7 +1221,7 @@ func (s *relationServiceSuite) TestGetGoalStateRelationDataForApplicationError(c
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-func (s *relationServiceSuite) TestImportRelations(c *gc.C) {
+func (s *relationServiceSuite) TestImportRelations(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	key1 := corerelationtesting.GenNewKey(c, "ubuntu:peer")
@@ -1287,7 +1287,7 @@ func (s *relationServiceSuite) TestImportRelations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *relationServiceSuite) TestDeleteImportedRelationsError(c *gc.C) {
+func (s *relationServiceSuite) TestDeleteImportedRelationsError(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	s.state.EXPECT().DeleteImportedRelations(gomock.Any()).Return(errors.New("boom"))
@@ -1296,10 +1296,10 @@ func (s *relationServiceSuite) TestDeleteImportedRelationsError(c *gc.C) {
 	err := s.service.DeleteImportedRelations(context.Background())
 
 	// Assert
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *relationServiceSuite) TestExportRelations(c *gc.C) {
+func (s *relationServiceSuite) TestExportRelations(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -1320,7 +1320,7 @@ func (s *relationServiceSuite) TestExportRelations(c *gc.C) {
 
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(relations, gc.DeepEquals, []relation.ExportRelation{{
+	c.Assert(relations, tc.DeepEquals, []relation.ExportRelation{{
 		Endpoints: []relation.ExportEndpoint{{
 			ApplicationName: "app1",
 			Name:            "ep1",
@@ -1334,7 +1334,7 @@ func (s *relationServiceSuite) TestExportRelations(c *gc.C) {
 	}})
 }
 
-func (s *relationServiceSuite) TestExportRelationsStateError(c *gc.C) {
+func (s *relationServiceSuite) TestExportRelationsStateError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange:
 	boom := errors.New("boom")
@@ -1349,7 +1349,7 @@ func (s *relationServiceSuite) TestExportRelationsStateError(c *gc.C) {
 
 // TestInferRelationUUIDByEndpoints verifies the behavior of the
 // inferRelationUUIDByEndpoints method for finding a relation uuid.
-func (s *relationServiceSuite) TestInferRelationUUIDByEndpoints(c *gc.C) {
+func (s *relationServiceSuite) TestInferRelationUUIDByEndpoints(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	endpoint1 := "application-1"
@@ -1369,12 +1369,12 @@ func (s *relationServiceSuite) TestInferRelationUUIDByEndpoints(c *gc.C) {
 
 	// Assert
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtainedRelUUID, gc.Equals, expectedRelUUID)
+	c.Check(obtainedRelUUID, tc.Equals, expectedRelUUID)
 }
 
 // TestAddRelationFirstMalformed verifies that inferRelationUUIDByEndpoints
 // returns an appropriate error when the first endpoint is malformed.
-func (s *relationServiceSuite) TestInferRelationUUIDByEndpointsFirstMalformed(c *gc.C) {
+func (s *relationServiceSuite) TestInferRelationUUIDByEndpointsFirstMalformed(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	endpoint1 := "app:ep:is:malformed"
@@ -1384,12 +1384,12 @@ func (s *relationServiceSuite) TestInferRelationUUIDByEndpointsFirstMalformed(c 
 	_, err := s.service.inferRelationUUIDByEndpoints(context.Background(), endpoint1, endpoint2)
 
 	// Assert
-	c.Assert(err, gc.ErrorMatches, "parsing endpoint identifier \"app:ep:is:malformed\": expected endpoint of form <application-name>:<endpoint-name> or <application-name>")
+	c.Assert(err, tc.ErrorMatches, "parsing endpoint identifier \"app:ep:is:malformed\": expected endpoint of form <application-name>:<endpoint-name> or <application-name>")
 }
 
 // TestAddRelationFirstMalformed verifies that InferRelationUUIDByEndpoints
 // returns an appropriate error when the second endpoint is malformed.
-func (s *relationServiceSuite) TestinferRelationUUIDByEndpointsSecondMalformed(c *gc.C) {
+func (s *relationServiceSuite) TestinferRelationUUIDByEndpointsSecondMalformed(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	endpoint1 := "application-1:endpoint-1"
@@ -1399,12 +1399,12 @@ func (s *relationServiceSuite) TestinferRelationUUIDByEndpointsSecondMalformed(c
 	_, err := s.service.inferRelationUUIDByEndpoints(context.Background(), endpoint1, endpoint2)
 
 	// Assert
-	c.Assert(err, gc.ErrorMatches, "parsing endpoint identifier \"app:ep:is:malformed\": expected endpoint of form <application-name>:<endpoint-name> or <application-name>")
+	c.Assert(err, tc.ErrorMatches, "parsing endpoint identifier \"app:ep:is:malformed\": expected endpoint of form <application-name>:<endpoint-name> or <application-name>")
 }
 
 // TestAddRelationStateError validates the inferRelationUUIDByEndpoints method
 // handles and returns the correct error when state addition fails.
-func (s *relationServiceSuite) TestInferRelationUUIDByEndpointsStateError(c *gc.C) {
+func (s *relationServiceSuite) TestInferRelationUUIDByEndpointsStateError(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	expectedError := errors.New("state error")
@@ -1418,7 +1418,7 @@ func (s *relationServiceSuite) TestInferRelationUUIDByEndpointsStateError(c *gc.
 	c.Assert(err, jc.ErrorIs, expectedError)
 }
 
-func (s *relationServiceSuite) TestGetRelationUUIDForRemovalEndpoints(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationUUIDForRemovalEndpoints(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	endpoint1 := "application-1"
@@ -1442,10 +1442,10 @@ func (s *relationServiceSuite) TestGetRelationUUIDForRemovalEndpoints(c *gc.C) {
 
 	// Assert
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtainedRelUUID.String(), gc.Equals, expectedRelUUID.String())
+	c.Check(obtainedRelUUID.String(), tc.Equals, expectedRelUUID.String())
 }
 
-func (s *relationServiceSuite) TestGetRelationUUIDForRemovalEndpointsFail(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationUUIDForRemovalEndpointsFail(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	endpoint1 := "application-1"
@@ -1469,7 +1469,7 @@ func (s *relationServiceSuite) TestGetRelationUUIDForRemovalEndpointsFail(c *gc.
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-func (s *relationServiceSuite) TestGetRelationUUIDForRemovalID(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationUUIDForRemovalID(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	expectedRelUUID := corerelationtesting.GenRelationUUID(c)
@@ -1485,10 +1485,10 @@ func (s *relationServiceSuite) TestGetRelationUUIDForRemovalID(c *gc.C) {
 
 	// Assert
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtainedRelUUID.String(), gc.Equals, expectedRelUUID.String())
+	c.Check(obtainedRelUUID.String(), tc.Equals, expectedRelUUID.String())
 }
 
-func (s *relationServiceSuite) TestGetRelationUUIDForRemovalIDFail(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationUUIDForRemovalIDFail(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
@@ -1504,7 +1504,7 @@ func (s *relationServiceSuite) TestGetRelationUUIDForRemovalIDFail(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-func (s *relationServiceSuite) TestGetRelationUUIDForRemovalIDIsPeer(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationUUIDForRemovalIDIsPeer(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	expectedRelUUID := corerelationtesting.GenRelationUUID(c)
@@ -1519,10 +1519,10 @@ func (s *relationServiceSuite) TestGetRelationUUIDForRemovalIDIsPeer(c *gc.C) {
 	_, err := s.service.GetRelationUUIDForRemoval(context.Background(), args)
 
 	// Assert
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, tc.NotNil)
 }
 
-func (s *relationServiceSuite) TestGetRelationUUIDForRemovalIDIsPeerFail(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationUUIDForRemovalIDIsPeerFail(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	expectedRelUUID := corerelationtesting.GenRelationUUID(c)
@@ -1540,7 +1540,7 @@ func (s *relationServiceSuite) TestGetRelationUUIDForRemovalIDIsPeerFail(c *gc.C
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-func (s *relationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *relationServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.state = NewMockState(ctrl)
@@ -1552,7 +1552,7 @@ func (s *relationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *relationServiceSuite) expectGetPeerRelationUUIDByEndpointIdentifiers(
-	c *gc.C,
+	c *tc.C,
 	endpoint corerelation.EndpointIdentifier,
 ) corerelation.UUID {
 	relUUID := corerelationtesting.GenRelationUUID(c)
@@ -1561,7 +1561,7 @@ func (s *relationServiceSuite) expectGetPeerRelationUUIDByEndpointIdentifiers(
 }
 
 func (s *relationServiceSuite) expectSetRelationWithID(
-	c *gc.C,
+	c *tc.C,
 	ep2, ep3 corerelation.EndpointIdentifier,
 	id uint64,
 ) corerelation.UUID {
@@ -1570,7 +1570,7 @@ func (s *relationServiceSuite) expectSetRelationWithID(
 	return relUUID
 }
 
-func (s *relationServiceSuite) expectGetApplicationIDByName(c *gc.C, name string) coreapplication.ID {
+func (s *relationServiceSuite) expectGetApplicationIDByName(c *tc.C, name string) coreapplication.ID {
 	appID := coreapplicationtesting.GenApplicationUUID(c)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), name).Return(appID, nil)
 	return appID
@@ -1601,9 +1601,9 @@ type relationLeadershipServiceSuite struct {
 	leaderEnsurer     *MockEnsurer
 }
 
-var _ = gc.Suite(&relationLeadershipServiceSuite{})
+var _ = tc.Suite(&relationLeadershipServiceSuite{})
 
-func (s *relationLeadershipServiceSuite) TestGetRelationApplicationSettingsWithLeader(c *gc.C) {
+func (s *relationLeadershipServiceSuite) TestGetRelationApplicationSettingsWithLeader(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -1621,10 +1621,10 @@ func (s *relationLeadershipServiceSuite) TestGetRelationApplicationSettingsWithL
 
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, expectedSettings)
+	c.Assert(settings, tc.DeepEquals, expectedSettings)
 }
 
-func (s *relationLeadershipServiceSuite) TestGetRelationApplicationSettingsWithLeaderUnitNameNotValid(c *gc.C) {
+func (s *relationLeadershipServiceSuite) TestGetRelationApplicationSettingsWithLeaderUnitNameNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -1638,7 +1638,7 @@ func (s *relationLeadershipServiceSuite) TestGetRelationApplicationSettingsWithL
 	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
 }
 
-func (s *relationLeadershipServiceSuite) TestGetRelationApplicationSettingsWithLeaderApplicationIDNotValid(c *gc.C) {
+func (s *relationLeadershipServiceSuite) TestGetRelationApplicationSettingsWithLeaderApplicationIDNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -1652,7 +1652,7 @@ func (s *relationLeadershipServiceSuite) TestGetRelationApplicationSettingsWithL
 	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationIDNotValid)
 }
 
-func (s *relationLeadershipServiceSuite) TestGetRelationApplicationSettingsWithLeaderRelationUUIDNotValid(c *gc.C) {
+func (s *relationLeadershipServiceSuite) TestGetRelationApplicationSettingsWithLeaderRelationUUIDNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -1666,7 +1666,7 @@ func (s *relationLeadershipServiceSuite) TestGetRelationApplicationSettingsWithL
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid)
 }
 
-func (s *relationLeadershipServiceSuite) TestSetRelationApplicationSettings(c *gc.C) {
+func (s *relationLeadershipServiceSuite) TestSetRelationApplicationSettings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -1686,7 +1686,7 @@ func (s *relationLeadershipServiceSuite) TestSetRelationApplicationSettings(c *g
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *relationLeadershipServiceSuite) TestSetRelationApplicationSettingsNil(c *gc.C) {
+func (s *relationLeadershipServiceSuite) TestSetRelationApplicationSettingsNil(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -1700,7 +1700,7 @@ func (s *relationLeadershipServiceSuite) TestSetRelationApplicationSettingsNil(c
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *relationLeadershipServiceSuite) TestSetRelationApplicationSettingsEmpty(c *gc.C) {
+func (s *relationLeadershipServiceSuite) TestSetRelationApplicationSettingsEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -1714,7 +1714,7 @@ func (s *relationLeadershipServiceSuite) TestSetRelationApplicationSettingsEmpty
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *relationLeadershipServiceSuite) TestSetRelationApplicationSettingsLeaseNotHeld(c *gc.C) {
+func (s *relationLeadershipServiceSuite) TestSetRelationApplicationSettingsLeaseNotHeld(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -1733,7 +1733,7 @@ func (s *relationLeadershipServiceSuite) TestSetRelationApplicationSettingsLease
 	c.Assert(err, jc.ErrorIs, corelease.ErrNotHeld)
 }
 
-func (s *relationLeadershipServiceSuite) TestSetRelationApplicationSettingsUnitNameNotValid(c *gc.C) {
+func (s *relationLeadershipServiceSuite) TestSetRelationApplicationSettingsUnitNameNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -1750,7 +1750,7 @@ func (s *relationLeadershipServiceSuite) TestSetRelationApplicationSettingsUnitN
 	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
 }
 
-func (s *relationLeadershipServiceSuite) TestSetRelationApplicationSettingsApplicationIDNotValid(c *gc.C) {
+func (s *relationLeadershipServiceSuite) TestSetRelationApplicationSettingsApplicationIDNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -1767,7 +1767,7 @@ func (s *relationLeadershipServiceSuite) TestSetRelationApplicationSettingsAppli
 	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationIDNotValid)
 }
 
-func (s *relationLeadershipServiceSuite) TestSetRelationApplicationSettingsRelationUUIDNotValid(c *gc.C) {
+func (s *relationLeadershipServiceSuite) TestSetRelationApplicationSettingsRelationUUIDNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -1784,7 +1784,7 @@ func (s *relationLeadershipServiceSuite) TestSetRelationApplicationSettingsRelat
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid)
 }
 
-func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettings(c *gc.C) {
+func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -1809,7 +1809,7 @@ func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettin
 
 // TestSetRelationApplicationAndUnitSettingsOnlyUnit checks that if only the
 // unit settings are changed, leadership is not checked.
-func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettingsOnlyUnit(c *gc.C) {
+func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettingsOnlyUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -1827,7 +1827,7 @@ func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettin
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettingsNil(c *gc.C) {
+func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettingsNil(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -1841,7 +1841,7 @@ func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettin
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettingsEmpty(c *gc.C) {
+func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettingsEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -1854,7 +1854,7 @@ func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettin
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettingsLeaseNotHeld(c *gc.C) {
+func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettingsLeaseNotHeld(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -1872,7 +1872,7 @@ func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettin
 	c.Assert(err, jc.ErrorIs, corelease.ErrNotHeld)
 }
 
-func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettingsUnitNameNotValid(c *gc.C) {
+func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettingsUnitNameNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -1888,7 +1888,7 @@ func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettin
 	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
 }
 
-func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettingsRelationUnitUUIDNotValid(c *gc.C) {
+func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettingsRelationUnitUUIDNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -1904,7 +1904,7 @@ func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettin
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid)
 }
 
-func (s *relationLeadershipServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *relationLeadershipServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.relationServiceSuite.setupMocks(c)
 
 	s.leaderEnsurer = NewMockEnsurer(ctrl)
@@ -1915,7 +1915,7 @@ func (s *relationLeadershipServiceSuite) setupMocks(c *gc.C) *gomock.Controller 
 
 // expectWithLeader expects a call to with leader and executes the function to
 // be run with leadership.
-func (s *relationLeadershipServiceSuite) expectWithLeader(c *gc.C, unitName coreunit.Name) {
+func (s *relationLeadershipServiceSuite) expectWithLeader(c *tc.C, unitName coreunit.Name) {
 	s.leaderEnsurer.EXPECT().WithLeader(gomock.Any(), unitName.Application(), unitName.String(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, _, _ string, fn func(context.Context) error) error {
 			return fn(ctx)

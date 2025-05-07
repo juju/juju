@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	corecontroller "github.com/juju/juju/controller"
@@ -26,9 +26,9 @@ type rateLimitSuite struct {
 	jujutesting.ApiServerSuite
 }
 
-var _ = gc.Suite(&rateLimitSuite{})
+var _ = tc.Suite(&rateLimitSuite{})
 
-func (s *rateLimitSuite) SetUpTest(c *gc.C) {
+func (s *rateLimitSuite) SetUpTest(c *tc.C) {
 	s.Clock = testclock.NewDilatedWallClock(time.Second)
 	s.ControllerConfigAttrs = map[string]interface{}{
 		corecontroller.AgentRateLimitMax:  1,
@@ -37,7 +37,7 @@ func (s *rateLimitSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 }
 
-func (s *rateLimitSuite) TestRateLimitAgents(c *gc.C) {
+func (s *rateLimitSuite) TestRateLimitAgents(c *tc.C) {
 	c.Assert(s.Server.Report(), jc.DeepEquals, map[string]interface{}{
 		"agent-ratelimit-max":  1,
 		"agent-ratelimit-rate": 60 * time.Second,
@@ -53,7 +53,7 @@ func (s *rateLimitSuite) TestRateLimitAgents(c *gc.C) {
 	// Second machine in the same minute gets told to go away and try again.
 	machine2 := s.infoForNewMachine(c, info)
 	_, err = api.Open(context.Background(), machine2, fastDialOpts)
-	c.Assert(err, gc.ErrorMatches, `try again \(try again\)`)
+	c.Assert(err, tc.ErrorMatches, `try again \(try again\)`)
 
 	// If we wait a minute and try again, it is fine.
 	s.Clock.Advance(time.Minute)
@@ -64,10 +64,10 @@ func (s *rateLimitSuite) TestRateLimitAgents(c *gc.C) {
 	// And the next one is limited.
 	machine3 := s.infoForNewMachine(c, info)
 	_, err = api.Open(context.Background(), machine3, fastDialOpts)
-	c.Assert(err, gc.ErrorMatches, `try again \(try again\)`)
+	c.Assert(err, tc.ErrorMatches, `try again \(try again\)`)
 }
 
-func (s *rateLimitSuite) TestRateLimitNotApplicableToUsers(c *gc.C) {
+func (s *rateLimitSuite) TestRateLimitNotApplicableToUsers(c *tc.C) {
 	info := s.ControllerModelApiInfo()
 
 	// First agent connection is fine.
@@ -88,7 +88,7 @@ func (s *rateLimitSuite) TestRateLimitNotApplicableToUsers(c *gc.C) {
 	defer conn3.Close()
 }
 
-func (s *rateLimitSuite) infoForNewMachine(c *gc.C, info *api.Info) *api.Info {
+func (s *rateLimitSuite) infoForNewMachine(c *tc.C, info *api.Info) *api.Info {
 	// Make a copy
 	newInfo := *info
 
@@ -103,7 +103,7 @@ func (s *rateLimitSuite) infoForNewMachine(c *gc.C, info *api.Info) *api.Info {
 	return &newInfo
 }
 
-func (s *rateLimitSuite) infoForNewUser(c *gc.C, info *api.Info, name string) *api.Info {
+func (s *rateLimitSuite) infoForNewUser(c *tc.C, info *api.Info, name string) *api.Info {
 	// Make a copy
 	newInfo := *info
 

@@ -4,8 +4,8 @@
 package storage_test
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
 
 	"github.com/juju/juju/caas/kubernetes/provider/storage"
@@ -16,21 +16,21 @@ type storageSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&storageSuite{})
+var _ = tc.Suite(&storageSuite{})
 
-func (s *storageSuite) TestParseStorageConfig(c *gc.C) {
+func (s *storageSuite) TestParseStorageConfig(c *tc.C) {
 	cfg, err := storage.ParseStorageConfig(map[string]interface{}{
 		"storage-class":       "juju-ebs",
 		"storage-provisioner": "ebs",
 		"parameters.type":     "gp2",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.StorageClass, gc.Equals, "juju-ebs")
-	c.Assert(cfg.StorageProvisioner, gc.Equals, "ebs")
+	c.Assert(cfg.StorageClass, tc.Equals, "juju-ebs")
+	c.Assert(cfg.StorageProvisioner, tc.Equals, "ebs")
 	c.Assert(cfg.Parameters, jc.DeepEquals, map[string]string{"type": "gp2"})
 }
 
-func (s *storageSuite) TestGetStorageMode(c *gc.C) {
+func (s *storageSuite) TestGetStorageMode(c *tc.C) {
 	type testCase struct {
 		attrs map[string]interface{}
 		mode  core.PersistentVolumeAccessMode
@@ -87,12 +87,12 @@ func (s *storageSuite) TestGetStorageMode(c *gc.C) {
 			c.Check(err, jc.ErrorIsNil)
 			c.Check(*mode, jc.DeepEquals, t.mode)
 		} else {
-			c.Check(err, gc.ErrorMatches, t.err)
+			c.Check(err, tc.ErrorMatches, t.err)
 		}
 	}
 }
 
-func (s *storageSuite) TestPushUniqueVolume(c *gc.C) {
+func (s *storageSuite) TestPushUniqueVolume(c *tc.C) {
 	podSpec := &core.PodSpec{}
 
 	vol1 := core.Volume{
@@ -136,7 +136,7 @@ func (s *storageSuite) TestPushUniqueVolume(c *gc.C) {
 	})
 
 	err = storage.PushUniqueVolume(podSpec, aDifferentVol2, false)
-	c.Assert(err, gc.ErrorMatches, `duplicated volume "vol2" not valid`)
+	c.Assert(err, tc.ErrorMatches, `duplicated volume "vol2" not valid`)
 	c.Assert(podSpec.Volumes, jc.DeepEquals, []core.Volume{
 		vol1, vol2,
 	})

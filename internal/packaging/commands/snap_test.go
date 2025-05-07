@@ -5,40 +5,40 @@ package commands_test
 
 import (
 	"github.com/juju/proxy"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/packaging/commands"
 )
 
-var _ = gc.Suite(&SnapSuite{})
+var _ = tc.Suite(&SnapSuite{})
 
 type SnapSuite struct {
 	snapCommander commands.SnapPackageCommander
 }
 
-func (s *SnapSuite) SetUpSuite(c *gc.C) {
+func (s *SnapSuite) SetUpSuite(c *tc.C) {
 	s.snapCommander = commands.NewSnapPackageCommander()
 }
 
-func (s *SnapSuite) TestSetProxyCommandsEmpty(c *gc.C) {
+func (s *SnapSuite) TestSetProxyCommandsEmpty(c *tc.C) {
 	out, err := s.snapCommander.SetProxyCmds(proxy.Settings{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, gc.HasLen, 0)
+	c.Assert(out, tc.HasLen, 0)
 }
 
-func (s *SnapSuite) TestSetProxyCommandsPartial(c *gc.C) {
+func (s *SnapSuite) TestSetProxyCommandsPartial(c *tc.C) {
 	sets := proxy.Settings{
 		Http: "dat-proxy.zone:8080",
 	}
 
 	output, err := s.snapCommander.SetProxyCmds(sets)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(output, gc.HasLen, 1)
-	c.Assert(output[0], gc.Equals, `snap set system proxy.http="dat-proxy.zone:8080"`)
+	c.Assert(output, tc.HasLen, 1)
+	c.Assert(output[0], tc.Equals, `snap set system proxy.http="dat-proxy.zone:8080"`)
 }
 
-func (s *SnapSuite) TestProxyConfigContentsFull(c *gc.C) {
+func (s *SnapSuite) TestProxyConfigContentsFull(c *tc.C) {
 	sets := proxy.Settings{
 		Http:  "dat-proxy.zone:8080",
 		Https: "https://much-security.com",
@@ -46,12 +46,12 @@ func (s *SnapSuite) TestProxyConfigContentsFull(c *gc.C) {
 
 	output, err := s.snapCommander.SetProxyCmds(sets)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(output, gc.HasLen, 2)
-	c.Assert(output[0], gc.Equals, `snap set system proxy.http="dat-proxy.zone:8080"`)
-	c.Assert(output[1], gc.Equals, `snap set system proxy.https="https://much-security.com"`)
+	c.Assert(output, tc.HasLen, 2)
+	c.Assert(output[0], tc.Equals, `snap set system proxy.http="dat-proxy.zone:8080"`)
+	c.Assert(output[1], tc.Equals, `snap set system proxy.https="https://much-security.com"`)
 }
 
-func (s *SnapSuite) TestSetProxyCommandsUnsupported(c *gc.C) {
+func (s *SnapSuite) TestSetProxyCommandsUnsupported(c *tc.C) {
 	sets := proxy.Settings{
 		Ftp: "gimme-files.zone",
 	}

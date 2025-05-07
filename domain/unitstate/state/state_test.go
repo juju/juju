@@ -9,8 +9,8 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	modeltesting "github.com/juju/juju/core/model/testing"
 	coreunit "github.com/juju/juju/core/unit"
@@ -33,9 +33,9 @@ type stateSuite struct {
 	unitName coreunit.Name
 }
 
-var _ = gc.Suite(&stateSuite{})
+var _ = tc.Suite(&stateSuite{})
 
-func (s *stateSuite) SetUpTest(c *gc.C) {
+func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	modelUUID := modeltesting.GenModelUUID(c)
@@ -81,7 +81,7 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateSuite) TestSetUnitState(c *gc.C) {
+func (s *stateSuite) TestSetUnitState(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	agentState := unitstate.UnitState{
@@ -104,10 +104,10 @@ func (s *stateSuite) TestSetUnitState(c *gc.C) {
 
 	state, err := st.GetUnitState(context.Background(), s.unitName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(state, gc.DeepEquals, expectedAgentState)
+	c.Assert(state, tc.DeepEquals, expectedAgentState)
 }
 
-func (s *stateSuite) TestSetUnitStateJustUniterState(c *gc.C) {
+func (s *stateSuite) TestSetUnitStateJustUniterState(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	agentState := unitstate.UnitState{
@@ -122,17 +122,17 @@ func (s *stateSuite) TestSetUnitStateJustUniterState(c *gc.C) {
 
 	state, err := st.GetUnitState(context.Background(), s.unitName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(state, gc.DeepEquals, expectedAgentState)
+	c.Assert(state, tc.DeepEquals, expectedAgentState)
 }
 
-func (s *stateSuite) TestGetUnitStateUnitNotFound(c *gc.C) {
+func (s *stateSuite) TestGetUnitStateUnitNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	_, err := st.GetUnitState(context.Background(), "bad-uuid")
 	c.Assert(err, jc.ErrorIs, unitstateerrors.UnitNotFound)
 }
 
-func (s *stateSuite) TestEnsureUnitStateRecord(c *gc.C) {
+func (s *stateSuite) TestEnsureUnitStateRecord(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 
@@ -146,7 +146,7 @@ func (s *stateSuite) TestEnsureUnitStateRecord(c *gc.C) {
 		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit").Scan(&uuid)
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uuid, gc.Equals, s.unitUUID)
+	c.Assert(uuid, tc.Equals, s.unitUUID)
 
 	// Running again makes no change.
 	err = s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -158,10 +158,10 @@ func (s *stateSuite) TestEnsureUnitStateRecord(c *gc.C) {
 		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit").Scan(&uuid)
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uuid, gc.Equals, s.unitUUID)
+	c.Assert(uuid, tc.Equals, s.unitUUID)
 }
 
-func (s *stateSuite) TestUpdateUnitStateUniter(c *gc.C) {
+func (s *stateSuite) TestUpdateUnitStateUniter(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	expState := "some uniter state YAML"
@@ -180,10 +180,10 @@ func (s *stateSuite) TestUpdateUnitStateUniter(c *gc.C) {
 		return tx.QueryRowContext(ctx, q, s.unitUUID).Scan(&gotState)
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotState, gc.Equals, expState)
+	c.Assert(gotState, tc.Equals, expState)
 }
 
-func (s *stateSuite) TestUpdateUnitStateStorage(c *gc.C) {
+func (s *stateSuite) TestUpdateUnitStateStorage(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	expState := "some storage state YAML"
@@ -202,10 +202,10 @@ func (s *stateSuite) TestUpdateUnitStateStorage(c *gc.C) {
 		return tx.QueryRowContext(ctx, q, s.unitUUID).Scan(&gotState)
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotState, gc.Equals, expState)
+	c.Assert(gotState, tc.Equals, expState)
 }
 
-func (s *stateSuite) TestUpdateUnitStateSecret(c *gc.C) {
+func (s *stateSuite) TestUpdateUnitStateSecret(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	expState := "some secret state YAML"
@@ -224,10 +224,10 @@ func (s *stateSuite) TestUpdateUnitStateSecret(c *gc.C) {
 		return tx.QueryRowContext(ctx, q, s.unitUUID).Scan(&gotState)
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotState, gc.Equals, expState)
+	c.Assert(gotState, tc.Equals, expState)
 }
 
-func (s *stateSuite) TestUpdateUnitStateCharm(c *gc.C) {
+func (s *stateSuite) TestUpdateUnitStateCharm(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 
@@ -269,10 +269,10 @@ func (s *stateSuite) TestUpdateUnitStateCharm(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(gotState, gc.DeepEquals, expState)
+	c.Check(gotState, tc.DeepEquals, expState)
 }
 
-func (s *stateSuite) TestUpdateUnitStateRelation(c *gc.C) {
+func (s *stateSuite) TestUpdateUnitStateRelation(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 
@@ -315,10 +315,10 @@ func (s *stateSuite) TestUpdateUnitStateRelation(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(gotState, gc.DeepEquals, expState)
+	c.Check(gotState, tc.DeepEquals, expState)
 }
 
-func (s *stateSuite) TestUpdateUnitStateRelationEmptyMap(c *gc.C) {
+func (s *stateSuite) TestUpdateUnitStateRelationEmptyMap(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 
@@ -351,7 +351,7 @@ func (s *stateSuite) TestUpdateUnitStateRelationEmptyMap(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(rowCount, gc.DeepEquals, 0)
+	c.Check(rowCount, tc.DeepEquals, 0)
 }
 
 func ptr[T any](v T) *T {

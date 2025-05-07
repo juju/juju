@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/domain/application/charm"
@@ -19,7 +19,7 @@ type manifestSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = gc.Suite(&manifestSuite{})
+var _ = tc.Suite(&manifestSuite{})
 
 var decodeManifestTestCases = [...]struct {
 	name   string
@@ -204,23 +204,23 @@ var encodeManifestTestCases = [...]struct {
 	},
 }
 
-func (s *manifestSuite) TestDecodeManifest(c *gc.C) {
+func (s *manifestSuite) TestDecodeManifest(c *tc.C) {
 	for _, tc := range decodeManifestTestCases {
 		c.Logf("Running test case %q", tc.name)
 
 		decoded, err := decodeManifest(tc.input)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(decoded, gc.DeepEquals, tc.output)
+		c.Check(decoded, tc.DeepEquals, tc.output)
 	}
 }
 
-func (s *manifestSuite) TestEncodeManifest(c *gc.C) {
+func (s *manifestSuite) TestEncodeManifest(c *tc.C) {
 	for _, tc := range encodeManifestTestCases {
 		c.Logf("Running test case %q", tc.name)
 
 		encoded, err := encodeManifest(tc.id, tc.input)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(encoded, gc.DeepEquals, tc.output)
+		c.Check(encoded, tc.DeepEquals, tc.output)
 	}
 }
 
@@ -228,9 +228,9 @@ type manifestStateSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = gc.Suite(&manifestStateSuite{})
+var _ = tc.Suite(&manifestStateSuite{})
 
-func (s *manifestStateSuite) TestManifestOS(c *gc.C) {
+func (s *manifestStateSuite) TestManifestOS(c *tc.C) {
 	type osType struct {
 		ID   int    `db:"id"`
 		Name string `db:"name"`
@@ -245,7 +245,7 @@ SELECT os.* AS &osType.* FROM os ORDER BY id;
 		return tx.Query(ctx, stmt).GetAll(&results)
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results, tc.HasLen, 1)
 
 	m := []string{
 		"ubuntu",
@@ -255,11 +255,11 @@ SELECT os.* AS &osType.* FROM os ORDER BY id;
 		c.Logf("result %d: %#v", i, value)
 		result, err := encodeManifestOS(value)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result, gc.DeepEquals, results[i].ID)
+		c.Check(result, tc.DeepEquals, results[i].ID)
 	}
 }
 
-func (s *manifestStateSuite) TestManifestArchitecture(c *gc.C) {
+func (s *manifestStateSuite) TestManifestArchitecture(c *tc.C) {
 	type archType struct {
 		ID   int    `db:"id"`
 		Name string `db:"name"`
@@ -274,7 +274,7 @@ SELECT architecture.* AS &archType.* FROM architecture ORDER BY id;
 		return tx.Query(ctx, stmt).GetAll(&results)
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 5)
+	c.Assert(results, tc.HasLen, 5)
 
 	m := []string{
 		"amd64",
@@ -288,6 +288,6 @@ SELECT architecture.* AS &archType.* FROM architecture ORDER BY id;
 		c.Logf("result %d: %#v", i, value)
 		result, err := encodeManifestArchitecture(value)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result, gc.DeepEquals, results[i].ID)
+		c.Check(result, tc.DeepEquals, results[i].ID)
 	}
 }

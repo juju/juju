@@ -6,10 +6,10 @@ package service
 import (
 	"context"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/errors"
@@ -21,9 +21,9 @@ type serviceSuite struct {
 	state *MockState
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = tc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) TestSetFlag(c *gc.C) {
+func (s *serviceSuite) TestSetFlag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().SetFlag(gomock.Any(), "foo", true, "foo set to true").Return(nil)
@@ -33,7 +33,7 @@ func (s *serviceSuite) TestSetFlag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestGetFlag(c *gc.C) {
+func (s *serviceSuite) TestGetFlag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetFlag(gomock.Any(), "foo").Return(true, nil)
@@ -44,7 +44,7 @@ func (s *serviceSuite) TestGetFlag(c *gc.C) {
 	c.Check(value, jc.IsTrue)
 }
 
-func (s *serviceSuite) TestGetFlagNotFound(c *gc.C) {
+func (s *serviceSuite) TestGetFlagNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetFlag(gomock.Any(), "foo").Return(false, errors.Errorf("flag %w", coreerrors.NotFound))
@@ -55,7 +55,7 @@ func (s *serviceSuite) TestGetFlagNotFound(c *gc.C) {
 	c.Check(value, jc.IsFalse)
 }
 
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.state = NewMockState(ctrl)

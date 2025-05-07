@@ -7,8 +7,8 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -19,9 +19,9 @@ type mapperSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = gc.Suite(&mapperSuite{})
+var _ = tc.Suite(&mapperSuite{})
 
-func (s *mapperSuite) TestUuidToNameMapper(c *gc.C) {
+func (s *mapperSuite) TestUuidToNameMapper(c *tc.C) {
 	uuid0 := uuid.MustNewUUID().String()
 	uuid1 := uuid.MustNewUUID().String()
 	uuid2 := uuid.MustNewUUID().String()

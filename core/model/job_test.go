@@ -4,17 +4,17 @@
 package model_test
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
 )
 
 type ConstantsSuite struct{}
 
-var _ = gc.Suite(&ConstantsSuite{})
+var _ = tc.Suite(&ConstantsSuite{})
 
-func (s *ConstantsSuite) TestAnyJobNeedsState(c *gc.C) {
+func (s *ConstantsSuite) TestAnyJobNeedsState(c *tc.C) {
 	c.Assert(model.AnyJobNeedsState(), jc.IsFalse)
 	c.Assert(model.AnyJobNeedsState(model.JobHostUnits), jc.IsFalse)
 	c.Assert(model.AnyJobNeedsState(model.JobManageModel), jc.IsTrue)

@@ -8,9 +8,9 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/modelconfig"
@@ -24,9 +24,9 @@ import (
 
 type modelconfigSuite struct{}
 
-var _ = gc.Suite(&modelconfigSuite{})
+var _ = tc.Suite(&modelconfigSuite{})
 
-func (s *modelconfigSuite) TestModelGet(c *gc.C) {
+func (s *modelconfigSuite) TestModelGet(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -47,7 +47,7 @@ func (s *modelconfigSuite) TestModelGet(c *gc.C) {
 	})
 }
 
-func (s *modelconfigSuite) TestModelGetWithMetadata(c *gc.C) {
+func (s *modelconfigSuite) TestModelGetWithMetadata(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -68,7 +68,7 @@ func (s *modelconfigSuite) TestModelGetWithMetadata(c *gc.C) {
 	})
 }
 
-func (s *modelconfigSuite) TestModelSet(c *gc.C) {
+func (s *modelconfigSuite) TestModelSet(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -89,7 +89,7 @@ func (s *modelconfigSuite) TestModelSet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *modelconfigSuite) TestModelUnset(c *gc.C) {
+func (s *modelconfigSuite) TestModelUnset(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -104,7 +104,7 @@ func (s *modelconfigSuite) TestModelUnset(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *modelconfigSuite) TestSequences(c *gc.C) {
+func (s *modelconfigSuite) TestSequences(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -121,7 +121,7 @@ func (s *modelconfigSuite) TestSequences(c *gc.C) {
 	c.Assert(sequences, jc.DeepEquals, map[string]int{"foo": 5, "bar": 2})
 }
 
-func (s *modelconfigSuite) TestGetModelConstraints(c *gc.C) {
+func (s *modelconfigSuite) TestGetModelConstraints(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -138,7 +138,7 @@ func (s *modelconfigSuite) TestGetModelConstraints(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, constraints.MustParse("arch=amd64"))
 }
 
-func (s *modelconfigSuite) TestSetModelConstraints(c *gc.C) {
+func (s *modelconfigSuite) TestSetModelConstraints(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -153,7 +153,7 @@ func (s *modelconfigSuite) TestSetModelConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *modelconfigSuite) TestGetModelSecretBackendNotSupported(c *gc.C) {
+func (s *modelconfigSuite) TestGetModelSecretBackendNotSupported(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -161,11 +161,11 @@ func (s *modelconfigSuite) TestGetModelSecretBackendNotSupported(c *gc.C) {
 	mockFacadeCaller.EXPECT().BestAPIVersion().Return(3)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	_, err := client.GetModelSecretBackend(context.Background())
-	c.Assert(err, gc.ErrorMatches, "getting model secret backend not supported")
+	c.Assert(err, tc.ErrorMatches, "getting model secret backend not supported")
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
-func (s *modelconfigSuite) TestGetModelSecretBackendModelNotFound(c *gc.C) {
+func (s *modelconfigSuite) TestGetModelSecretBackendModelNotFound(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -183,10 +183,10 @@ func (s *modelconfigSuite) TestGetModelSecretBackendModelNotFound(c *gc.C) {
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	_, err := client.GetModelSecretBackend(context.Background())
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("model %q not found", modelID))
+	c.Assert(err, tc.ErrorMatches, fmt.Sprintf("model %q not found", modelID))
 }
 
-func (s *modelconfigSuite) TestGetModelSecretBackend(c *gc.C) {
+func (s *modelconfigSuite) TestGetModelSecretBackend(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -200,10 +200,10 @@ func (s *modelconfigSuite) TestGetModelSecretBackend(c *gc.C) {
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	result, err := client.GetModelSecretBackend(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.Equals, "backend-id")
+	c.Assert(result, tc.Equals, "backend-id")
 }
 
-func (s *modelconfigSuite) TestSetModelSecretBackendNotSupported(c *gc.C) {
+func (s *modelconfigSuite) TestSetModelSecretBackendNotSupported(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -211,11 +211,11 @@ func (s *modelconfigSuite) TestSetModelSecretBackendNotSupported(c *gc.C) {
 	mockFacadeCaller.EXPECT().BestAPIVersion().Return(3)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	err := client.SetModelSecretBackend(context.Background(), "backend-id")
-	c.Assert(err, gc.ErrorMatches, "setting model secret backend not supported")
+	c.Assert(err, tc.ErrorMatches, "setting model secret backend not supported")
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
-func (s *modelconfigSuite) TestSetModelSecretBackend(c *gc.C) {
+func (s *modelconfigSuite) TestSetModelSecretBackend(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -230,7 +230,7 @@ func (s *modelconfigSuite) TestSetModelSecretBackend(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *modelconfigSuite) TestSetModelSecretBackendFaildBackendNotFound(c *gc.C) {
+func (s *modelconfigSuite) TestSetModelSecretBackendFaildBackendNotFound(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -249,7 +249,7 @@ func (s *modelconfigSuite) TestSetModelSecretBackendFaildBackendNotFound(c *gc.C
 	c.Assert(err, jc.ErrorIs, secretbackenderrors.NotFound)
 }
 
-func (s *modelconfigSuite) TestSetModelSecretBackendFaildBackendNotValid(c *gc.C) {
+func (s *modelconfigSuite) TestSetModelSecretBackendFaildBackendNotValid(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -268,7 +268,7 @@ func (s *modelconfigSuite) TestSetModelSecretBackendFaildBackendNotValid(c *gc.C
 	c.Assert(err, jc.ErrorIs, secretbackenderrors.NotValid)
 }
 
-func (s *modelconfigSuite) TestSetModelSecretBackendFaildModelNotFound(c *gc.C) {
+func (s *modelconfigSuite) TestSetModelSecretBackendFaildModelNotFound(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -287,5 +287,5 @@ func (s *modelconfigSuite) TestSetModelSecretBackendFaildModelNotFound(c *gc.C) 
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	err := client.SetModelSecretBackend(context.Background(), "backend-id")
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("model %q not found", modelID))
+	c.Assert(err, tc.ErrorMatches, fmt.Sprintf("model %q not found", modelID))
 }

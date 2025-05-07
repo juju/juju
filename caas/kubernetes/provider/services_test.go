@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -20,13 +20,13 @@ type servicesSuite struct {
 	client *fake.Clientset
 }
 
-var _ = gc.Suite(&servicesSuite{})
+var _ = tc.Suite(&servicesSuite{})
 
-func (s *servicesSuite) SetUpTest(c *gc.C) {
+func (s *servicesSuite) SetUpTest(c *tc.C) {
 	s.client = fake.NewSimpleClientset()
 }
 
-func (s *servicesSuite) TestFindServiceForApplication(c *gc.C) {
+func (s *servicesSuite) TestFindServiceForApplication(c *tc.C) {
 	_, err := s.client.CoreV1().Services("test").Create(
 		context.Background(),
 		&core.Service{
@@ -51,10 +51,10 @@ func (s *servicesSuite) TestFindServiceForApplication(c *gc.C) {
 	)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(svc.Name, gc.Equals, "wallyworld")
+	c.Assert(svc.Name, tc.Equals, "wallyworld")
 }
 
-func (s *servicesSuite) TestFindServiceForApplicationWithEndpoints(c *gc.C) {
+func (s *servicesSuite) TestFindServiceForApplicationWithEndpoints(c *tc.C) {
 	_, err := s.client.CoreV1().Services("test").Create(
 		context.Background(),
 		&core.Service{
@@ -93,10 +93,10 @@ func (s *servicesSuite) TestFindServiceForApplicationWithEndpoints(c *gc.C) {
 	)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(svc.Name, gc.Equals, "wallyworld")
+	c.Assert(svc.Name, tc.Equals, "wallyworld")
 }
 
-func (s *servicesSuite) TestFindServiceForApplicationWithMultiple(c *gc.C) {
+func (s *servicesSuite) TestFindServiceForApplicationWithMultiple(c *tc.C) {
 	_, err := s.client.CoreV1().Services("test").Create(
 		context.Background(),
 		&core.Service{
@@ -137,7 +137,7 @@ func (s *servicesSuite) TestFindServiceForApplicationWithMultiple(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *servicesSuite) TestFindServiceForApplicationMissing(c *gc.C) {
+func (s *servicesSuite) TestFindServiceForApplicationMissing(c *tc.C) {
 	_, err := findServiceForApplication(
 		context.Background(),
 		s.client.CoreV1().Services("test"),

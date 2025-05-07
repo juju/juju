@@ -12,14 +12,14 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
 // DumpTable dumps the contents of the given table to stdout.
 // This is useful for debugging tests. It is not intended for use
 // in production code.
-func DumpTable(c *gc.C, db *sql.DB, table string, extraTables ...string) {
+func DumpTable(c *tc.C, db *sql.DB, table string, extraTables ...string) {
 	for _, t := range append([]string{table}, extraTables...) {
 		rows, err := db.Query(fmt.Sprintf("SELECT * FROM %q", t))
 		c.Assert(err, jc.ErrorIsNil)

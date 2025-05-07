@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	actionapi "github.com/juju/juju/api/client/action"
 	"github.com/juju/juju/cmd/juju/action"
@@ -24,14 +24,14 @@ type ListOperationsSuite struct {
 	command        *action.ListOperationsCommand
 }
 
-var _ = gc.Suite(&ListOperationsSuite{})
+var _ = tc.Suite(&ListOperationsSuite{})
 
-func (s *ListOperationsSuite) SetUpTest(c *gc.C) {
+func (s *ListOperationsSuite) SetUpTest(c *tc.C) {
 	s.BaseActionSuite.SetUpTest(c)
 	s.wrappedCommand, s.command = action.NewListOperationsCommandForTest(s.store)
 }
 
-func (s *ListOperationsSuite) TestInit(c *gc.C) {
+func (s *ListOperationsSuite) TestInit(c *tc.C) {
 	tests := []struct {
 		should      string
 		args        []string
@@ -72,13 +72,13 @@ func (s *ListOperationsSuite) TestInit(c *gc.C) {
 			if t.expectedErr == "" {
 				c.Check(err, jc.ErrorIsNil)
 			} else {
-				c.Check(err, gc.ErrorMatches, t.expectedErr)
+				c.Check(err, tc.ErrorMatches, t.expectedErr)
 			}
 		}
 	}
 }
 
-func (s *ListOperationsSuite) TestRunQueryArgs(c *gc.C) {
+func (s *ListOperationsSuite) TestRunQueryArgs(c *tc.C) {
 	fakeClient := &fakeAPIClient{}
 	restore := s.patchAPIClient(fakeClient)
 	defer restore()
@@ -160,7 +160,7 @@ var listOperationResults = actionapi.Operations{
 	}},
 }
 
-func (s *ListOperationsSuite) TestRunNoResults(c *gc.C) {
+func (s *ListOperationsSuite) TestRunNoResults(c *tc.C) {
 	fakeClient := &fakeAPIClient{}
 	restore := s.patchAPIClient(fakeClient)
 	defer restore()
@@ -170,12 +170,12 @@ func (s *ListOperationsSuite) TestRunNoResults(c *gc.C) {
 		s.wrappedCommand, s.command = action.NewListOperationsCommandForTest(s.store)
 		ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, modelFlag, "admin")
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, "")
-		c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "no matching operations\n")
+		c.Check(ctx.Stdout.(*bytes.Buffer).String(), tc.Equals, "")
+		c.Check(ctx.Stderr.(*bytes.Buffer).String(), tc.Equals, "no matching operations\n")
 	}
 }
 
-func (s *ListOperationsSuite) TestRunPlain(c *gc.C) {
+func (s *ListOperationsSuite) TestRunPlain(c *tc.C) {
 	fakeClient := &fakeAPIClient{
 		operationResults: listOperationResults,
 	}
@@ -194,11 +194,11 @@ ID  Status   Started  Finished             Task IDs  Summary
  5  pending                                6         operation 5
 10  error                                            operation 10
 `[1:]
-		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, expected)
+		c.Check(ctx.Stdout.(*bytes.Buffer).String(), tc.Equals, expected)
 	}
 }
 
-func (s *ListOperationsSuite) TestRunPlainTruncated(c *gc.C) {
+func (s *ListOperationsSuite) TestRunPlainTruncated(c *tc.C) {
 	listOperationResults.Truncated = true
 	fakeClient := &fakeAPIClient{
 		operationResults: listOperationResults,
@@ -221,7 +221,7 @@ ID  Status   Started  Finished             Task IDs  Summary
  5  pending                                6         operation 5
 10  error                                            operation 10
 `[1:]
-		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, expected)
+		c.Check(ctx.Stdout.(*bytes.Buffer).String(), tc.Equals, expected)
 	}
 }
 
@@ -269,7 +269,7 @@ var listOperationManyTasksResults = actionapi.Operations{
 	}},
 }
 
-func (s *ListOperationsSuite) TestRunPlainManyTasks(c *gc.C) {
+func (s *ListOperationsSuite) TestRunPlainManyTasks(c *tc.C) {
 	fakeClient := &fakeAPIClient{
 		operationResults: listOperationManyTasksResults,
 	}
@@ -285,11 +285,11 @@ func (s *ListOperationsSuite) TestRunPlainManyTasks(c *gc.C) {
 ID  Status     Started              Finished  Task IDs      Summary
  1  completed  2015-02-14T06:06:06            2,3,4,5,6...  operation 1
 `[1:]
-		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, expected)
+		c.Check(ctx.Stdout.(*bytes.Buffer).String(), tc.Equals, expected)
 	}
 }
 
-func (s *ListOperationsSuite) TestRunYaml(c *gc.C) {
+func (s *ListOperationsSuite) TestRunYaml(c *tc.C) {
 	fakeClient := &fakeAPIClient{
 		operationResults: listOperationResults,
 	}
@@ -343,6 +343,6 @@ func (s *ListOperationsSuite) TestRunYaml(c *gc.C) {
   summary: operation 10
   status: error
 `[1:]
-		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, expected)
+		c.Check(ctx.Stdout.(*bytes.Buffer).String(), tc.Equals, expected)
 	}
 }

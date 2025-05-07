@@ -4,8 +4,8 @@
 package access
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/permission"
@@ -14,9 +14,9 @@ import (
 
 type typesSuite struct{}
 
-var _ = gc.Suite(&typesSuite{})
+var _ = tc.Suite(&typesSuite{})
 
-func (s *typesSuite) TestUpsertPermissionArgsValidationFail(c *gc.C) {
+func (s *typesSuite) TestUpsertPermissionArgsValidationFail(c *tc.C) {
 	argsToTest := []UpdatePermissionArgs{
 		{}, { // Missing Subject
 		}, {  // Missing Target

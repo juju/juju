@@ -8,9 +8,9 @@ import (
 	"errors"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent/agent"
@@ -30,17 +30,17 @@ type ScaryConnectSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&ScaryConnectSuite{})
+var _ = tc.Suite(&ScaryConnectSuite{})
 
-func (*ScaryConnectSuite) TestEntityAlive(c *gc.C) {
+func (*ScaryConnectSuite) TestEntityAlive(c *tc.C) {
 	testEntityFine(c, apiagent.Alive)
 }
 
-func (*ScaryConnectSuite) TestEntityDying(c *gc.C) {
+func (*ScaryConnectSuite) TestEntityDying(c *tc.C) {
 	testEntityFine(c, apiagent.Dying)
 }
 
-func testEntityFine(c *gc.C, life apiagent.Life) {
+func testEntityFine(c *tc.C, life apiagent.Life) {
 	stub := &testing.Stub{}
 	expectConn := &mockConn{stub: stub}
 	apiOpen := func(ctx context.Context, info *api.Info, opts api.DialOpts) (api.Connection, error) {
@@ -61,7 +61,7 @@ func testEntityFine(c *gc.C, life apiagent.Life) {
 	}
 
 	conn, err := lifeTest(c, stub, apiagent.Alive, connect)
-	c.Check(conn, gc.Equals, expectConn)
+	c.Check(conn, tc.Equals, expectConn)
 	c.Check(err, jc.ErrorIsNil)
 	stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "Life",
@@ -72,7 +72,7 @@ func testEntityFine(c *gc.C, life apiagent.Life) {
 	}})
 }
 
-func (*ScaryConnectSuite) TestEntityDead(c *gc.C) {
+func (*ScaryConnectSuite) TestEntityDead(c *tc.C) {
 	// permanent failure case
 	stub := &testing.Stub{}
 	expectConn := &mockConn{stub: stub}
@@ -90,8 +90,8 @@ func (*ScaryConnectSuite) TestEntityDead(c *gc.C) {
 	}
 
 	conn, err := lifeTest(c, stub, apiagent.Dead, connect)
-	c.Check(conn, gc.IsNil)
-	c.Check(err, gc.Equals, apicaller.ErrConnectImpossible)
+	c.Check(conn, tc.IsNil)
+	c.Check(err, tc.Equals, apicaller.ErrConnectImpossible)
 	stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "Life",
 		Args:     []interface{}{entity},
@@ -100,7 +100,7 @@ func (*ScaryConnectSuite) TestEntityDead(c *gc.C) {
 	}})
 }
 
-func (*ScaryConnectSuite) TestEntityDenied(c *gc.C) {
+func (*ScaryConnectSuite) TestEntityDenied(c *tc.C) {
 	// permanent failure case
 	stub := &testing.Stub{}
 	stub.SetErrors(apiagent.ErrDenied)
@@ -119,8 +119,8 @@ func (*ScaryConnectSuite) TestEntityDenied(c *gc.C) {
 	}
 
 	conn, err := lifeTest(c, stub, apiagent.Dead, connect)
-	c.Check(conn, gc.IsNil)
-	c.Check(err, gc.Equals, apicaller.ErrConnectImpossible)
+	c.Check(conn, tc.IsNil)
+	c.Check(err, tc.Equals, apicaller.ErrConnectImpossible)
 	stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "Life",
 		Args:     []interface{}{entity},
@@ -129,7 +129,7 @@ func (*ScaryConnectSuite) TestEntityDenied(c *gc.C) {
 	}})
 }
 
-func (*ScaryConnectSuite) TestEntityUnknownLife(c *gc.C) {
+func (*ScaryConnectSuite) TestEntityUnknownLife(c *tc.C) {
 	// "random" failure case
 	stub := &testing.Stub{}
 	expectConn := &mockConn{stub: stub}
@@ -147,8 +147,8 @@ func (*ScaryConnectSuite) TestEntityUnknownLife(c *gc.C) {
 	}
 
 	conn, err := lifeTest(c, stub, apiagent.Life("zombie"), connect)
-	c.Check(conn, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, `unknown life value "zombie"`)
+	c.Check(conn, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, `unknown life value "zombie"`)
 	stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "Life",
 		Args:     []interface{}{entity},
@@ -157,22 +157,22 @@ func (*ScaryConnectSuite) TestEntityUnknownLife(c *gc.C) {
 	}})
 }
 
-func (*ScaryConnectSuite) TestChangePasswordConfigError(c *gc.C) {
+func (*ScaryConnectSuite) TestChangePasswordConfigError(c *tc.C) {
 	// "random" failure case
 	stub := createUnauthorisedStub(nil, errors.New("zap"))
 	err := checkChangePassword(c, stub)
-	c.Check(err, gc.ErrorMatches, "zap")
+	c.Check(err, tc.ErrorMatches, "zap")
 	stub.CheckCallNames(c,
 		"Life", "ChangeConfig",
 		"Close",
 	)
 }
 
-func (*ScaryConnectSuite) TestChangePasswordRemoteError(c *gc.C) {
+func (*ScaryConnectSuite) TestChangePasswordRemoteError(c *tc.C) {
 	// "random" failure case
 	stub := createUnauthorisedStub(nil, nil, nil, nil, errors.New("pow"))
 	err := checkChangePassword(c, stub)
-	c.Check(err, gc.ErrorMatches, "pow")
+	c.Check(err, tc.ErrorMatches, "pow")
 	stub.CheckCallNames(c,
 		"Life", "ChangeConfig",
 		// Be careful, these are two different SetPassword receivers.
@@ -182,11 +182,11 @@ func (*ScaryConnectSuite) TestChangePasswordRemoteError(c *gc.C) {
 	checkSaneChange(c, stub.Calls()[2:5])
 }
 
-func (*ScaryConnectSuite) TestChangePasswordRemoteDenied(c *gc.C) {
+func (*ScaryConnectSuite) TestChangePasswordRemoteDenied(c *tc.C) {
 	// permanent failure case
 	stub := createUnauthorisedStub(nil, nil, nil, nil, apiagent.ErrDenied)
 	err := checkChangePassword(c, stub)
-	c.Check(err, gc.Equals, apicaller.ErrConnectImpossible)
+	c.Check(err, tc.Equals, apicaller.ErrConnectImpossible)
 	stub.CheckCallNames(c,
 		"Life", "ChangeConfig",
 		// Be careful, these are two different SetPassword receivers.
@@ -196,21 +196,21 @@ func (*ScaryConnectSuite) TestChangePasswordRemoteDenied(c *gc.C) {
 	checkSaneChange(c, stub.Calls()[2:5])
 }
 
-func (s *ScaryConnectSuite) TestChangePasswordSuccessAfterUnauthorisedError(c *gc.C) {
+func (s *ScaryConnectSuite) TestChangePasswordSuccessAfterUnauthorisedError(c *tc.C) {
 	// This will try to login with old password if current one fails.
 	stub := createUnauthorisedStub()
 	s.assertChangePasswordSuccess(c, stub)
 }
 
-func (s *ScaryConnectSuite) TestChangePasswordSuccessAfterBadCurrentPasswordError(c *gc.C) {
+func (s *ScaryConnectSuite) TestChangePasswordSuccessAfterBadCurrentPasswordError(c *tc.C) {
 	// This will try to login with old password if current one fails.
 	stub := createPasswordCheckStub(apiservererrors.ErrUnauthorized)
 	s.assertChangePasswordSuccess(c, stub)
 }
 
-func (*ScaryConnectSuite) assertChangePasswordSuccess(c *gc.C, stub *testing.Stub) {
+func (*ScaryConnectSuite) assertChangePasswordSuccess(c *tc.C, stub *testing.Stub) {
 	err := checkChangePassword(c, stub)
-	c.Check(err, gc.Equals, apicaller.ErrChangedPassword)
+	c.Check(err, tc.Equals, apicaller.ErrChangedPassword)
 	stub.CheckCallNames(c,
 		"Life", "ChangeConfig",
 		// Be careful, these are two different SetPassword receivers.
@@ -232,7 +232,7 @@ func createPasswordCheckStub(currentPwdLoginErr error, errs ...error) *testing.S
 	return stub
 }
 
-func checkChangePassword(c *gc.C, stub *testing.Stub) error {
+func checkChangePassword(c *tc.C, stub *testing.Stub) error {
 	// We prepend the unauth/success pair that triggers password
 	// change, and consume them in apiOpen below...
 	//errUnauth := &params.Error{Code: params.CodeUnauthorized}
@@ -261,12 +261,12 @@ func checkChangePassword(c *gc.C, stub *testing.Stub) error {
 	}
 
 	conn, err := lifeTest(c, stub, apiagent.Alive, connect)
-	c.Check(conn, gc.IsNil)
+	c.Check(conn, tc.IsNil)
 	return err
 }
 
-func checkSaneChange(c *gc.C, calls []testing.StubCall) {
-	c.Assert(calls, gc.HasLen, 3)
+func checkSaneChange(c *tc.C, calls []testing.StubCall) {
+	c.Assert(calls, tc.HasLen, 3)
 	localSet := calls[0]
 	localSetOld := calls[1]
 	remoteSet := calls[2]

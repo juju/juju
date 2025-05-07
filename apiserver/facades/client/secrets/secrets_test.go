@@ -9,10 +9,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -37,15 +37,15 @@ type SecretsSuite struct {
 	secretBackendService *mocks.MockSecretBackendService
 }
 
-var _ = gc.Suite(&SecretsSuite{})
+var _ = tc.Suite(&SecretsSuite{})
 
-func (s *SecretsSuite) SetUpTest(c *gc.C) {
+func (s *SecretsSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.authTag = names.NewUserTag("foo")
 }
 
-func (s *SecretsSuite) setup(c *gc.C) *gomock.Controller {
+func (s *SecretsSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
@@ -58,11 +58,11 @@ func (s *SecretsSuite) expectAuthClient() {
 	s.authorizer.EXPECT().AuthClient().Return(true)
 }
 
-func (s *SecretsSuite) TestListSecrets(c *gc.C) {
+func (s *SecretsSuite) TestListSecrets(c *tc.C) {
 	s.assertListSecrets(c, false)
 }
 
-func (s *SecretsSuite) TestListSecretsReveal(c *gc.C) {
+func (s *SecretsSuite) TestListSecretsReveal(c *tc.C) {
 	s.assertListSecrets(c, true)
 }
 
@@ -70,7 +70,7 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal bool) {
+func (s *SecretsSuite) assertListSecrets(c *tc.C, reveal bool) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthClient()
@@ -178,7 +178,7 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal bool) {
 	})
 }
 
-func (s *SecretsSuite) TestListSecretsPermissionDenied(c *gc.C) {
+func (s *SecretsSuite) TestListSecretsPermissionDenied(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthClient()
@@ -189,10 +189,10 @@ func (s *SecretsSuite) TestListSecretsPermissionDenied(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = facade.ListSecrets(context.Background(), params.ListSecretsArgs{})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *SecretsSuite) TestListSecretsPermissionDeniedShow(c *gc.C) {
+func (s *SecretsSuite) TestListSecretsPermissionDeniedShow(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthClient()
@@ -205,10 +205,10 @@ func (s *SecretsSuite) TestListSecretsPermissionDeniedShow(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = facade.ListSecrets(context.Background(), params.ListSecretsArgs{ShowSecrets: true})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *SecretsSuite) TestCreateSecretsPermissionDenied(c *gc.C) {
+func (s *SecretsSuite) TestCreateSecretsPermissionDenied(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthClient()
@@ -219,10 +219,10 @@ func (s *SecretsSuite) TestCreateSecretsPermissionDenied(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = facade.CreateSecrets(context.Background(), params.CreateSecretArgs{})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *SecretsSuite) TestCreateSecretsEmptyData(c *gc.C) {
+func (s *SecretsSuite) TestCreateSecretsEmptyData(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthClient()
@@ -243,10 +243,10 @@ func (s *SecretsSuite) TestCreateSecretsEmptyData(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results[0].Error.Message, gc.DeepEquals, "empty secret value not valid")
+	c.Assert(result.Results[0].Error.Message, tc.DeepEquals, "empty secret value not valid")
 }
 
-func (s *SecretsSuite) TestCreateSecrets(c *gc.C) {
+func (s *SecretsSuite) TestCreateSecrets(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthClient()
@@ -255,12 +255,12 @@ func (s *SecretsSuite) TestCreateSecrets(c *gc.C) {
 	uri := coresecrets.NewURI()
 	uriStrPtr := ptr(uri.String())
 	s.secretService.EXPECT().CreateUserSecret(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, arg1 *coresecrets.URI, params secretservice.CreateUserSecretParams) error {
-		c.Assert(arg1, gc.DeepEquals, uri)
-		c.Assert(params.Version, gc.Equals, 1)
-		c.Assert(params.UpdateUserSecretParams.Description, gc.DeepEquals, ptr("this is a user secret."))
-		c.Assert(params.UpdateUserSecretParams.Label, gc.DeepEquals, ptr("label"))
-		c.Assert(params.UpdateUserSecretParams.Data, gc.DeepEquals, coresecrets.SecretData(map[string]string{"foo": "bar"}))
-		c.Assert(params.UpdateUserSecretParams.Checksum, gc.Equals, "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b")
+		c.Assert(arg1, tc.DeepEquals, uri)
+		c.Assert(params.Version, tc.Equals, 1)
+		c.Assert(params.UpdateUserSecretParams.Description, tc.DeepEquals, ptr("this is a user secret."))
+		c.Assert(params.UpdateUserSecretParams.Label, tc.DeepEquals, ptr("label"))
+		c.Assert(params.UpdateUserSecretParams.Data, tc.DeepEquals, coresecrets.SecretData(map[string]string{"foo": "bar"}))
+		c.Assert(params.UpdateUserSecretParams.Checksum, tc.Equals, "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b")
 		return nil
 	})
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
@@ -282,10 +282,10 @@ func (s *SecretsSuite) TestCreateSecrets(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results[0], gc.DeepEquals, params.StringResult{Result: uri.String()})
+	c.Assert(result.Results[0], tc.DeepEquals, params.StringResult{Result: uri.String()})
 }
 
-func (s *SecretsSuite) assertUpdateSecrets(c *gc.C, uri *coresecrets.URI) {
+func (s *SecretsSuite) assertUpdateSecrets(c *tc.C, uri *coresecrets.URI) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthClient()
@@ -302,12 +302,12 @@ func (s *SecretsSuite) assertUpdateSecrets(c *gc.C, uri *coresecrets.URI) {
 		uriString = uri.String()
 	}
 	s.secretService.EXPECT().UpdateUserSecret(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, arg1 *coresecrets.URI, params secretservice.UpdateUserSecretParams) error {
-		c.Assert(arg1, gc.DeepEquals, uri)
-		c.Assert(params.Description, gc.DeepEquals, ptr("this is a user secret."))
-		c.Assert(params.Label, gc.DeepEquals, ptr("label"))
-		c.Assert(params.AutoPrune, gc.DeepEquals, ptr(true))
-		c.Assert(params.Data, gc.DeepEquals, coresecrets.SecretData(map[string]string{"foo": "bar"}))
-		c.Assert(params.Checksum, gc.Equals, "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b")
+		c.Assert(arg1, tc.DeepEquals, uri)
+		c.Assert(params.Description, tc.DeepEquals, ptr("this is a user secret."))
+		c.Assert(params.Label, tc.DeepEquals, ptr("label"))
+		c.Assert(params.AutoPrune, tc.DeepEquals, ptr(true))
+		c.Assert(params.Data, tc.DeepEquals, coresecrets.SecretData(map[string]string{"foo": "bar"}))
+		c.Assert(params.Checksum, tc.Equals, "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b")
 		return nil
 	})
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
@@ -330,18 +330,18 @@ func (s *SecretsSuite) assertUpdateSecrets(c *gc.C, uri *coresecrets.URI) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(result.Results[0].Error, tc.IsNil)
 }
 
-func (s *SecretsSuite) TestUpdateSecrets(c *gc.C) {
+func (s *SecretsSuite) TestUpdateSecrets(c *tc.C) {
 	s.assertUpdateSecrets(c, coresecrets.NewURI())
 }
 
-func (s *SecretsSuite) TestUpdateSecretsByName(c *gc.C) {
+func (s *SecretsSuite) TestUpdateSecretsByName(c *tc.C) {
 	s.assertUpdateSecrets(c, nil)
 }
 
-func (s *SecretsSuite) TestRemoveSecrets(c *gc.C) {
+func (s *SecretsSuite) TestRemoveSecrets(c *tc.C) {
 	defer s.setup(c).Finish()
 	s.expectAuthClient()
 
@@ -367,7 +367,7 @@ func (s *SecretsSuite) TestRemoveSecrets(c *gc.C) {
 	})
 }
 
-func (s *SecretsSuite) TestRemoveSecretsFailedNotModelAdmin(c *gc.C) {
+func (s *SecretsSuite) TestRemoveSecretsFailedNotModelAdmin(c *tc.C) {
 	defer s.setup(c).Finish()
 	s.expectAuthClient()
 
@@ -383,10 +383,10 @@ func (s *SecretsSuite) TestRemoveSecretsFailedNotModelAdmin(c *gc.C) {
 			Revisions: []int{666},
 		}},
 	})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *SecretsSuite) TestRemoveSecretRevision(c *gc.C) {
+func (s *SecretsSuite) TestRemoveSecretRevision(c *tc.C) {
 	defer s.setup(c).Finish()
 	s.expectAuthClient()
 
@@ -412,7 +412,7 @@ func (s *SecretsSuite) TestRemoveSecretRevision(c *gc.C) {
 	})
 }
 
-func (s *SecretsSuite) TestRemoveSecretNotFound(c *gc.C) {
+func (s *SecretsSuite) TestRemoveSecretNotFound(c *tc.C) {
 	defer s.setup(c).Finish()
 	s.expectAuthClient()
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, coretesting.ModelTag).Return(nil)
@@ -436,7 +436,7 @@ func (s *SecretsSuite) TestRemoveSecretNotFound(c *gc.C) {
 	c.Assert(results.Results[0].Error, jc.Satisfies, params.IsCodeSecretNotFound)
 }
 
-func (s *SecretsSuite) TestGrantSecret(c *gc.C) {
+func (s *SecretsSuite) TestGrantSecret(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthClient()
@@ -445,23 +445,23 @@ func (s *SecretsSuite) TestGrantSecret(c *gc.C) {
 	uri := coresecrets.NewURI()
 	s.secretService.EXPECT().GrantSecretAccess(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, arg *coresecrets.URI, params secretservice.SecretAccessParams) error {
-			c.Assert(arg, gc.DeepEquals, uri)
+			c.Assert(arg, tc.DeepEquals, uri)
 			c.Assert(params.Scope, jc.DeepEquals,
 				secretservice.SecretAccessScope{Kind: secretservice.ModelAccessScope, ID: coretesting.ModelTag.Id()})
 			c.Assert(params.Subject, jc.DeepEquals,
 				secretservice.SecretAccessor{Kind: secretservice.ApplicationAccessor, ID: "gitlab"})
-			c.Assert(params.Role, gc.Equals, coresecrets.RoleView)
+			c.Assert(params.Role, tc.Equals, coresecrets.RoleView)
 			return nil
 		},
 	)
 	s.secretService.EXPECT().GrantSecretAccess(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, arg *coresecrets.URI, params secretservice.SecretAccessParams) error {
-			c.Assert(arg, gc.DeepEquals, uri)
+			c.Assert(arg, tc.DeepEquals, uri)
 			c.Assert(params.Scope, jc.DeepEquals,
 				secretservice.SecretAccessScope{Kind: secretservice.ModelAccessScope, ID: coretesting.ModelTag.Id()})
 			c.Assert(params.Subject, jc.DeepEquals,
 				secretservice.SecretAccessor{Kind: secretservice.ApplicationAccessor, ID: "mysql"})
-			c.Assert(params.Role, gc.Equals, coresecrets.RoleView)
+			c.Assert(params.Role, tc.Equals, coresecrets.RoleView)
 			return nil
 		},
 	)
@@ -476,10 +476,10 @@ func (s *SecretsSuite) TestGrantSecret(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{Error: nil}, {Error: nil}}})
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{Error: nil}, {Error: nil}}})
 }
 
-func (s *SecretsSuite) TestGrantSecretByName(c *gc.C) {
+func (s *SecretsSuite) TestGrantSecretByName(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthClient()
@@ -489,23 +489,23 @@ func (s *SecretsSuite) TestGrantSecretByName(c *gc.C) {
 	s.secretService.EXPECT().GetUserSecretURIByLabel(gomock.Any(), "my-secret").Return(uri, nil)
 	s.secretService.EXPECT().GrantSecretAccess(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, arg *coresecrets.URI, params secretservice.SecretAccessParams) error {
-			c.Assert(arg, gc.DeepEquals, uri)
+			c.Assert(arg, tc.DeepEquals, uri)
 			c.Assert(params.Scope, jc.DeepEquals,
 				secretservice.SecretAccessScope{Kind: secretservice.ModelAccessScope, ID: coretesting.ModelTag.Id()})
 			c.Assert(params.Subject, jc.DeepEquals,
 				secretservice.SecretAccessor{Kind: secretservice.ApplicationAccessor, ID: "gitlab"})
-			c.Assert(params.Role, gc.Equals, coresecrets.RoleView)
+			c.Assert(params.Role, tc.Equals, coresecrets.RoleView)
 			return nil
 		},
 	)
 	s.secretService.EXPECT().GrantSecretAccess(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, arg *coresecrets.URI, params secretservice.SecretAccessParams) error {
-			c.Assert(arg, gc.DeepEquals, uri)
+			c.Assert(arg, tc.DeepEquals, uri)
 			c.Assert(params.Scope, jc.DeepEquals,
 				secretservice.SecretAccessScope{Kind: secretservice.ModelAccessScope, ID: coretesting.ModelTag.Id()})
 			c.Assert(params.Subject, jc.DeepEquals,
 				secretservice.SecretAccessor{Kind: secretservice.ApplicationAccessor, ID: "mysql"})
-			c.Assert(params.Role, gc.Equals, coresecrets.RoleView)
+			c.Assert(params.Role, tc.Equals, coresecrets.RoleView)
 			return nil
 		},
 	)
@@ -520,10 +520,10 @@ func (s *SecretsSuite) TestGrantSecretByName(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{Error: nil}, {Error: nil}}})
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{Error: nil}, {Error: nil}}})
 }
 
-func (s *SecretsSuite) TestGrantSecretPermissionDenied(c *gc.C) {
+func (s *SecretsSuite) TestGrantSecretPermissionDenied(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthClient()
@@ -535,10 +535,10 @@ func (s *SecretsSuite) TestGrantSecretPermissionDenied(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = facade.GrantSecret(context.Background(), params.GrantRevokeUserSecretArg{Label: "my-secret"})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *SecretsSuite) TestRevokeSecret(c *gc.C) {
+func (s *SecretsSuite) TestRevokeSecret(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthClient()
@@ -547,23 +547,23 @@ func (s *SecretsSuite) TestRevokeSecret(c *gc.C) {
 	uri := coresecrets.NewURI()
 	s.secretService.EXPECT().RevokeSecretAccess(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, arg *coresecrets.URI, params secretservice.SecretAccessParams) error {
-			c.Assert(arg, gc.DeepEquals, uri)
+			c.Assert(arg, tc.DeepEquals, uri)
 			c.Assert(params.Scope, jc.DeepEquals,
 				secretservice.SecretAccessScope{Kind: secretservice.ModelAccessScope, ID: coretesting.ModelTag.Id()})
 			c.Assert(params.Subject, jc.DeepEquals,
 				secretservice.SecretAccessor{Kind: secretservice.ApplicationAccessor, ID: "gitlab"})
-			c.Assert(params.Role, gc.Equals, coresecrets.RoleView)
+			c.Assert(params.Role, tc.Equals, coresecrets.RoleView)
 			return nil
 		},
 	)
 	s.secretService.EXPECT().RevokeSecretAccess(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, arg *coresecrets.URI, params secretservice.SecretAccessParams) error {
-			c.Assert(arg, gc.DeepEquals, uri)
+			c.Assert(arg, tc.DeepEquals, uri)
 			c.Assert(params.Scope, jc.DeepEquals,
 				secretservice.SecretAccessScope{Kind: secretservice.ModelAccessScope, ID: coretesting.ModelTag.Id()})
 			c.Assert(params.Subject, jc.DeepEquals,
 				secretservice.SecretAccessor{Kind: secretservice.ApplicationAccessor, ID: "mysql"})
-			c.Assert(params.Role, gc.Equals, coresecrets.RoleView)
+			c.Assert(params.Role, tc.Equals, coresecrets.RoleView)
 			return nil
 		},
 	)
@@ -578,10 +578,10 @@ func (s *SecretsSuite) TestRevokeSecret(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{Error: nil}, {Error: nil}}})
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{Error: nil}, {Error: nil}}})
 }
 
-func (s *SecretsSuite) TestRevokeSecretPermissionDenied(c *gc.C) {
+func (s *SecretsSuite) TestRevokeSecretPermissionDenied(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthClient()
@@ -593,5 +593,5 @@ func (s *SecretsSuite) TestRevokeSecretPermissionDenied(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = facade.RevokeSecret(context.Background(), params.GrantRevokeUserSecretArg{Label: "my-secret"})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }

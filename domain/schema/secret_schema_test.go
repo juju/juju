@@ -7,8 +7,8 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
 	coresecrets "github.com/juju/juju/core/secrets"
@@ -19,9 +19,9 @@ type secretSchemaSuite struct {
 	schemaBaseSuite
 }
 
-var _ = gc.Suite(&secretSchemaSuite{})
+var _ = tc.Suite(&secretSchemaSuite{})
 
-func (s *secretSchemaSuite) TestControllerChangeLogTriggersForSecretBackends(c *gc.C) {
+func (s *secretSchemaSuite) TestControllerChangeLogTriggersForSecretBackends(c *tc.C) {
 	s.applyDDL(c, ControllerDDL())
 
 	s.assertChangeLogCount(c, 1, tableSecretBackendRotation, 0)
@@ -40,7 +40,7 @@ func (s *secretSchemaSuite) TestControllerChangeLogTriggersForSecretBackends(c *
 	s.assertChangeLogCount(c, 4, tableSecretBackendRotation, 1)
 }
 
-func (s *secretSchemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
+func (s *secretSchemaSuite) TestModelChangeLogTriggersForSecretTables(c *tc.C) {
 	s.applyDDL(c, ModelDDL())
 
 	// secret table triggers.
@@ -157,7 +157,7 @@ VALUES (?, 0, 0, ?, ?, ?);`,
 		unitUUID, appUUID, unitNetNodeUUID, charmUUID)
 }
 
-func (s *secretSchemaSuite) assertChangeLogCount(c *gc.C, editType int, namespaceID tableNamespaceID, expectedCount int) {
+func (s *secretSchemaSuite) assertChangeLogCount(c *tc.C, editType int, namespaceID tableNamespaceID, expectedCount int) {
 	var count int
 	_ = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
@@ -174,5 +174,5 @@ WHERE edit_type_id = ? AND namespace_id = ?;`[1:], editType, namespaceID)
 		}
 		return rows.Scan(&count)
 	})
-	c.Assert(count, gc.Equals, expectedCount)
+	c.Assert(count, tc.Equals, expectedCount)
 }

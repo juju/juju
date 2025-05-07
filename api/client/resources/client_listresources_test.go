@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/resources"
@@ -17,11 +17,11 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&ListResourcesSuite{})
+var _ = tc.Suite(&ListResourcesSuite{})
 
 type ListResourcesSuite struct{}
 
-func (s *ListResourcesSuite) TestListResources(c *gc.C) {
+func (s *ListResourcesSuite) TestListResources(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -49,17 +49,17 @@ func (s *ListResourcesSuite) TestListResources(c *gc.C) {
 	})
 }
 
-func (s *ListResourcesSuite) TestBadApplication(c *gc.C) {
+func (s *ListResourcesSuite) TestBadApplication(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	client := resources.NewClientFromCaller(mockFacadeCaller)
 	_, err := client.ListResources(context.Background(), []string{"???"})
-	c.Check(err, gc.ErrorMatches, `.*invalid application.*`)
+	c.Check(err, tc.ErrorMatches, `.*invalid application.*`)
 }
 
-func (s *ListResourcesSuite) TestEmptyResources(c *gc.C) {
+func (s *ListResourcesSuite) TestEmptyResources(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -81,7 +81,7 @@ func (s *ListResourcesSuite) TestEmptyResources(c *gc.C) {
 	c.Check(res, jc.DeepEquals, []coreresource.ApplicationResources{{}, {}})
 }
 
-func (s *ListResourcesSuite) TestServerError(c *gc.C) {
+func (s *ListResourcesSuite) TestServerError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -97,10 +97,10 @@ func (s *ListResourcesSuite) TestServerError(c *gc.C) {
 	client := resources.NewClientFromCaller(mockFacadeCaller)
 
 	_, err := client.ListResources(context.Background(), []string{"a-application"})
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *ListResourcesSuite) TestArity(c *gc.C) {
+func (s *ListResourcesSuite) TestArity(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -118,10 +118,10 @@ func (s *ListResourcesSuite) TestArity(c *gc.C) {
 	client := resources.NewClientFromCaller(mockFacadeCaller)
 
 	_, err := client.ListResources(context.Background(), []string{"a-application", "other-application"})
-	c.Assert(err, gc.ErrorMatches, "expected 2 results, got 1")
+	c.Assert(err, tc.ErrorMatches, "expected 2 results, got 1")
 }
 
-func (s *ListResourcesSuite) TestConversionFailed(c *gc.C) {
+func (s *ListResourcesSuite) TestConversionFailed(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -139,5 +139,5 @@ func (s *ListResourcesSuite) TestConversionFailed(c *gc.C) {
 	client := resources.NewClientFromCaller(mockFacadeCaller)
 
 	_, err := client.ListResources(context.Background(), []string{"a-application"})
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }

@@ -6,10 +6,10 @@ package service
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -24,7 +24,7 @@ type serviceSuite struct {
 	jtesting.IsolationSuite
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = tc.Suite(&serviceSuite{})
 
 var (
 	testCloud = cloud.Cloud{
@@ -50,7 +50,7 @@ var (
 	}
 )
 
-func (s *serviceSuite) TestGetCloudSpec(c *gc.C) {
+func (s *serviceSuite) TestGetCloudSpec(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -76,7 +76,7 @@ func (s *serviceSuite) TestGetCloudSpec(c *gc.C) {
 	})
 }
 
-func (s *serviceSuite) TestGetCloudSpecNoCredential(c *gc.C) {
+func (s *serviceSuite) TestGetCloudSpecNoCredential(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -100,7 +100,7 @@ func (s *serviceSuite) TestGetCloudSpecNoCredential(c *gc.C) {
 	})
 }
 
-func (s *serviceSuite) TestGetCloudSpecModelNotFound(c *gc.C) {
+func (s *serviceSuite) TestGetCloudSpecModelNotFound(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -113,7 +113,7 @@ func (s *serviceSuite) TestGetCloudSpecModelNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
 }
 
-func (s *serviceSuite) TestGetCloudSpecForSSH(c *gc.C) {
+func (s *serviceSuite) TestGetCloudSpecForSSH(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -147,7 +147,7 @@ func (s *serviceSuite) TestGetCloudSpecForSSH(c *gc.C) {
 	})
 }
 
-func (s *serviceSuite) TestGetCloudSpecForSSHNotSupported(c *gc.C) {
+func (s *serviceSuite) TestGetCloudSpecForSSHNotSupported(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 

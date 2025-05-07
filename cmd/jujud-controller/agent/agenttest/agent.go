@@ -12,8 +12,8 @@ import (
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v6"
 	"github.com/juju/replicaset/v3"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
@@ -115,7 +115,7 @@ type AgentSuite struct {
 	LogDir  string
 }
 
-func (s *AgentSuite) SetUpTest(c *gc.C) {
+func (s *AgentSuite) SetUpTest(c *tc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
 	domainServices := s.ControllerDomainServices(c)
@@ -138,7 +138,7 @@ func mongoInfo() *mongo.MongoInfo {
 // PrimeAgent writes the configuration file and tools for an agent
 // with the given entity name. It returns the agent's configuration and the
 // current tools.
-func (s *AgentSuite) PrimeAgent(c *gc.C, tag names.Tag, password string) (agent.ConfigSetterWriter, *coretools.Tools) {
+func (s *AgentSuite) PrimeAgent(c *tc.C, tag names.Tag, password string) (agent.ConfigSetterWriter, *coretools.Tools) {
 	vers := coretesting.CurrentVersion()
 	return s.PrimeAgentVersion(c, tag, password, vers)
 }
@@ -146,7 +146,7 @@ func (s *AgentSuite) PrimeAgent(c *gc.C, tag names.Tag, password string) (agent.
 // PrimeAgentVersion writes the configuration file and tools with version
 // vers for an agent with the given entity name. It returns the agent's
 // configuration and the current tools.
-func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, vers semversion.Binary) (agent.ConfigSetterWriter, *coretools.Tools) {
+func (s *AgentSuite) PrimeAgentVersion(c *tc.C, tag names.Tag, password string, vers semversion.Binary) (agent.ConfigSetterWriter, *coretools.Tools) {
 	c.Logf("priming agent %s", tag.String())
 
 	store, err := filestorage.NewFileStorageWriter(c.MkDir())
@@ -159,7 +159,7 @@ func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, 
 
 	tools1, err := agenttools.ChangeAgentTools(s.DataDir, tag.String(), vers)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(tools1, gc.DeepEquals, agentTools)
+	c.Assert(tools1, tc.DeepEquals, agentTools)
 
 	stateInfo := mongoInfo()
 	apiInfo := s.ControllerModelApiInfo()
@@ -201,7 +201,7 @@ func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, 
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	conf.SetPassword(password)
-	c.Assert(conf.Write(), gc.IsNil)
+	c.Assert(conf.Write(), tc.IsNil)
 
 	s.primeAPIHostPorts(c)
 	return conf, agentTools
@@ -210,7 +210,7 @@ func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, 
 // PrimeStateAgentVersion writes the configuration file and tools with
 // version vers for a state agent with the given entity name. It
 // returns the agent's configuration and the current tools.
-func (s *AgentSuite) PrimeStateAgentVersion(c *gc.C, tag names.Tag, password string, vers semversion.Binary) (
+func (s *AgentSuite) PrimeStateAgentVersion(c *tc.C, tag names.Tag, password string, vers semversion.Binary) (
 	agent.ConfigSetterWriter, *coretools.Tools,
 ) {
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
@@ -219,7 +219,7 @@ func (s *AgentSuite) PrimeStateAgentVersion(c *gc.C, tag names.Tag, password str
 	agentTools := envtesting.PrimeTools(c, stor, s.DataDir, "released", vers)
 	tools1, err := agenttools.ChangeAgentTools(s.DataDir, tag.String(), vers)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(tools1, gc.DeepEquals, agentTools)
+	c.Assert(tools1, tc.DeepEquals, agentTools)
 
 	domainServices := s.ControllerDomainServices(c)
 	cfg, err := domainServices.ControllerConfig().ControllerConfig(context.Background())
@@ -244,7 +244,7 @@ func (s *AgentSuite) PrimeStateAgentVersion(c *gc.C, tag names.Tag, password str
 
 // WriteStateAgentConfig creates and writes a state agent config.
 func (s *AgentSuite) WriteStateAgentConfig(
-	c *gc.C,
+	c *tc.C,
 	tag names.Tag,
 	password string,
 	vers semversion.Binary,
@@ -292,15 +292,15 @@ func (s *AgentSuite) WriteStateAgentConfig(
 	c.Assert(err, jc.ErrorIsNil)
 
 	conf.SetPassword(password)
-	c.Assert(conf.Write(), gc.IsNil)
+	c.Assert(conf.Write(), tc.IsNil)
 
 	return conf
 }
 
-func (s *AgentSuite) primeAPIHostPorts(c *gc.C) {
+func (s *AgentSuite) primeAPIHostPorts(c *tc.C) {
 	apiInfo := s.ControllerModelApiInfo()
 
-	c.Assert(apiInfo.Addrs, gc.HasLen, 1)
+	c.Assert(apiInfo.Addrs, tc.HasLen, 1)
 	mHP, err := network.ParseMachineHostPort(apiInfo.Addrs[0])
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -321,13 +321,13 @@ func (s *AgentSuite) primeAPIHostPorts(c *gc.C) {
 
 // InitAgent initialises the given agent command with additional
 // arguments as provided.
-func (s *AgentSuite) InitAgent(c *gc.C, a cmd.Command, args ...string) {
+func (s *AgentSuite) InitAgent(c *tc.C, a cmd.Command, args ...string) {
 	args = append([]string{"--data-dir", s.DataDir}, args...)
 	err := cmdtesting.InitCommand(a, args)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *AgentSuite) AssertCanOpenState(c *gc.C, tag names.Tag, dataDir string) {
+func (s *AgentSuite) AssertCanOpenState(c *tc.C, tag names.Tag, dataDir string) {
 	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, tag))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -349,7 +349,7 @@ func (s *AgentSuite) AssertCanOpenState(c *gc.C, tag names.Tag, dataDir string) 
 	_ = pool.Close()
 }
 
-func (s *AgentSuite) AssertCannotOpenState(c *gc.C, tag names.Tag, dataDir string) {
+func (s *AgentSuite) AssertCannotOpenState(c *tc.C, tag names.Tag, dataDir string) {
 	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, tag))
 	c.Assert(err, jc.ErrorIsNil)
 

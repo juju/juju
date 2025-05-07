@@ -6,7 +6,7 @@ package secrets
 import (
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/commonsecrets_mock.go github.com/juju/juju/apiserver/common/secrets SecretService,SecretBackendService
@@ -14,5 +14,5 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/leadership_mock.go github.com/juju/juju/core/leadership Checker,Token
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }

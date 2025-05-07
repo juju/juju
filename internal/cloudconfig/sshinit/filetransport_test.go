@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/ssh"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/cloudconfig/sshinit"
 )
@@ -23,19 +23,19 @@ import (
 
 type sshInitSuite struct{}
 
-var _ = gc.Suite(&sshInitSuite{})
+var _ = tc.Suite(&sshInitSuite{})
 
-func (s *sshInitSuite) TestFileTransport(c *gc.C) {
+func (s *sshInitSuite) TestFileTransport(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	options := &ssh.Options{}
 	sc := NewMockClient(ctrl)
 	sc.EXPECT().Copy(gomock.Any(), gomock.Any()).Times(2).DoAndReturn(func(args []string, optionsIn *ssh.Options) error {
-		c.Check(args, gc.HasLen, 2)
-		c.Check(args[0], gc.Matches, "/tmp.*/juju-.*-(?:foo|bar)")
-		c.Check(args[1], gc.Matches, ":/tmp.*/juju-.*-(?:foo|bar)")
-		c.Check(optionsIn, gc.Equals, options)
+		c.Check(args, tc.HasLen, 2)
+		c.Check(args[0], tc.Matches, "/tmp.*/juju-.*-(?:foo|bar)")
+		c.Check(args[1], tc.Matches, ":/tmp.*/juju-.*-(?:foo|bar)")
+		c.Check(optionsIn, tc.Equals, options)
 		data, err := os.ReadFile(args[0])
 		if !c.Check(err, jc.ErrorIsNil) {
 			return err
@@ -55,24 +55,24 @@ func (s *sshInitSuite) TestFileTransport(c *gc.C) {
 
 	pathFoo := ft.SendBytes("foo", []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
 	pathBar := ft.SendBytes("bar", []byte{9, 8, 7, 6, 5, 4, 3, 2, 1, 0})
-	c.Assert(pathFoo, gc.Matches, "/tmp.*/juju-.*-foo")
-	c.Assert(pathBar, gc.Matches, "/tmp.*/juju-.*-bar")
+	c.Assert(pathFoo, tc.Matches, "/tmp.*/juju-.*-foo")
+	c.Assert(pathBar, tc.Matches, "/tmp.*/juju-.*-bar")
 
 	err := ft.Dispatch(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *sshInitSuite) TestFileTransportErrors(c *gc.C) {
+func (s *sshInitSuite) TestFileTransportErrors(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	options := &ssh.Options{}
 	sc := NewMockClient(ctrl)
 	sc.EXPECT().Copy(gomock.Any(), gomock.Any()).Times(2).DoAndReturn(func(args []string, optionsIn *ssh.Options) error {
-		c.Check(args, gc.HasLen, 2)
-		c.Check(args[0], gc.Matches, "/tmp.*/juju-.*-(?:foo|bar)")
-		c.Check(args[1], gc.Matches, ":/tmp.*/juju-.*-(?:foo|bar)")
-		c.Check(optionsIn, gc.Equals, options)
+		c.Check(args, tc.HasLen, 2)
+		c.Check(args[0], tc.Matches, "/tmp.*/juju-.*-(?:foo|bar)")
+		c.Check(args[1], tc.Matches, ":/tmp.*/juju-.*-(?:foo|bar)")
+		c.Check(optionsIn, tc.Equals, options)
 		data, err := os.ReadFile(args[0])
 		if !c.Check(err, jc.ErrorIsNil) {
 			return err
@@ -93,24 +93,24 @@ func (s *sshInitSuite) TestFileTransportErrors(c *gc.C) {
 
 	pathFoo := ft.SendBytes("foo", []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
 	pathBar := ft.SendBytes("bar", []byte{9, 8, 7, 6, 5, 4, 3, 2, 1, 0})
-	c.Assert(pathFoo, gc.Matches, "/tmp.*/juju-.*-foo")
-	c.Assert(pathBar, gc.Matches, "/tmp.*/juju-.*-bar")
+	c.Assert(pathFoo, tc.Matches, "/tmp.*/juju-.*-foo")
+	c.Assert(pathBar, tc.Matches, "/tmp.*/juju-.*-bar")
 
 	err := ft.Dispatch(context.Background())
-	c.Assert(err, gc.ErrorMatches, `failed scp-ing file /tmp.*/juju-.*-bar to :/tmp.*/juju-.*-bar: bar had some problems`)
+	c.Assert(err, tc.ErrorMatches, `failed scp-ing file /tmp.*/juju-.*-bar to :/tmp.*/juju-.*-bar: bar had some problems`)
 }
 
-func (s *sshInitSuite) TestFileTransportParallel(c *gc.C) {
+func (s *sshInitSuite) TestFileTransportParallel(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	options := &ssh.Options{}
 	sc := NewMockClient(ctrl)
 	sc.EXPECT().Copy(gomock.Any(), gomock.Any()).Times(1000).DoAndReturn(func(args []string, optionsIn *ssh.Options) error {
-		c.Check(args, gc.HasLen, 2)
-		c.Check(args[0], gc.Matches, "/tmp.*/juju-.*")
-		c.Check(args[1], gc.Matches, ":/tmp.*/juju-.*")
-		c.Check(optionsIn, gc.Equals, options)
+		c.Check(args, tc.HasLen, 2)
+		c.Check(args[0], tc.Matches, "/tmp.*/juju-.*")
+		c.Check(args[1], tc.Matches, ":/tmp.*/juju-.*")
+		c.Check(optionsIn, tc.Equals, options)
 		data, err := os.ReadFile(args[0])
 		if !c.Check(err, jc.ErrorIsNil) {
 			return err
@@ -128,7 +128,7 @@ func (s *sshInitSuite) TestFileTransportParallel(c *gc.C) {
 	for i := 0; i < 1000; i++ {
 		hint := fmt.Sprintf("hint-%d", i)
 		p := ft.SendBytes(hint, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
-		c.Assert(p, gc.Matches, "/tmp.*/juju-.*-"+hint)
+		c.Assert(p, tc.Matches, "/tmp.*/juju-.*-"+hint)
 	}
 
 	err := ft.Dispatch(context.Background())

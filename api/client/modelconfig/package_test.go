@@ -6,13 +6,13 @@ package modelconfig
 import (
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/base"
 )
 
 func Test(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 func NewClientFromCaller(caller base.FacadeCaller) *Client {

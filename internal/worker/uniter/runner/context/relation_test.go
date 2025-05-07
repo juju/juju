@@ -6,10 +6,10 @@ package context_test
 import (
 	stdcontext "context"
 
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/relation"
@@ -25,9 +25,9 @@ type ContextRelationSuite struct {
 	relUnit *uniterapi.MockRelationUnit
 }
 
-var _ = gc.Suite(&ContextRelationSuite{})
+var _ = tc.Suite(&ContextRelationSuite{})
 
-func (s *ContextRelationSuite) setUp(c *gc.C) *gomock.Controller {
+func (s *ContextRelationSuite) setUp(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.rel = uniterapi.NewMockRelation(ctrl)
@@ -38,7 +38,7 @@ func (s *ContextRelationSuite) setUp(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *ContextRelationSuite) assertSettingsCaching(c *gc.C, members ...string) {
+func (s *ContextRelationSuite) assertSettingsCaching(c *tc.C, members ...string) {
 	defer s.setUp(c).Finish()
 
 	s.relUnit.EXPECT().ReadSettings(stdcontext.Background(), "u/1").Return(params.Settings{"blib": "blob"}, nil)
@@ -50,19 +50,19 @@ func (s *ContextRelationSuite) assertSettingsCaching(c *gc.C, members ...string)
 	m, err := ctx.ReadSettings(stdcontext.Background(), "u/1")
 	c.Assert(err, jc.ErrorIsNil)
 	expectSettings := convertMap(map[string]interface{}{"blib": "blob"})
-	c.Assert(m, gc.DeepEquals, expectSettings)
+	c.Assert(m, tc.DeepEquals, expectSettings)
 
 	// Check that another call does not hit the api.
 	m, err = ctx.ReadSettings(stdcontext.Background(), "u/1")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m, gc.DeepEquals, expectSettings)
+	c.Assert(m, tc.DeepEquals, expectSettings)
 }
 
-func (s *ContextRelationSuite) TestMemberCaching(c *gc.C) {
+func (s *ContextRelationSuite) TestMemberCaching(c *tc.C) {
 	s.assertSettingsCaching(c, "u/1")
 }
 
-func (s *ContextRelationSuite) TestNonMemberCaching(c *gc.C) {
+func (s *ContextRelationSuite) TestNonMemberCaching(c *tc.C) {
 	s.assertSettingsCaching(c, []string(nil)...)
 }
 
@@ -74,7 +74,7 @@ func convertMap(settingsMap map[string]interface{}) params.Settings {
 	return result
 }
 
-func (s *ContextRelationSuite) TestSuspended(c *gc.C) {
+func (s *ContextRelationSuite) TestSuspended(c *tc.C) {
 	defer s.setUp(c).Finish()
 
 	s.rel.EXPECT().Suspended().Return(true)
@@ -82,7 +82,7 @@ func (s *ContextRelationSuite) TestSuspended(c *gc.C) {
 	c.Assert(ctx.Suspended(), jc.IsTrue)
 }
 
-func (s *ContextRelationSuite) TestSetStatus(c *gc.C) {
+func (s *ContextRelationSuite) TestSetStatus(c *tc.C) {
 	defer s.setUp(c).Finish()
 
 	s.rel.EXPECT().SetStatus(gomock.Any(), relation.Suspended).Return(nil)
@@ -92,11 +92,11 @@ func (s *ContextRelationSuite) TestSetStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ContextRelationSuite) TestRemoteApplicationName(c *gc.C) {
+func (s *ContextRelationSuite) TestRemoteApplicationName(c *tc.C) {
 	defer s.setUp(c).Finish()
 
 	s.rel.EXPECT().OtherApplication().Return("u")
 
 	ctx := context.NewContextRelation(s.relUnit, nil, false)
-	c.Assert(ctx.RemoteApplicationName(), gc.Equals, "u")
+	c.Assert(ctx.RemoteApplicationName(), tc.Equals, "u")
 }

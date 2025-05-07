@@ -10,8 +10,8 @@ import (
 	"encoding/pem"
 	"strings"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/pki"
 )
@@ -20,15 +20,15 @@ type PEMSuite struct {
 	signer crypto.Signer
 }
 
-var _ = gc.Suite(&PEMSuite{})
+var _ = tc.Suite(&PEMSuite{})
 
-func (p *PEMSuite) SetUpTest(c *gc.C) {
+func (p *PEMSuite) SetUpTest(c *tc.C) {
 	signer, err := pki.DefaultKeyProfile()
 	c.Assert(err, jc.ErrorIsNil)
 	p.signer = signer
 }
 
-func (p *PEMSuite) TestCertificateToPemString(c *gc.C) {
+func (p *PEMSuite) TestCertificateToPemString(c *tc.C) {
 	ca, err := pki.NewCA("juju-test-ca", p.signer)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -45,7 +45,7 @@ func (p *PEMSuite) TestCertificateToPemString(c *gc.C) {
 	c.Assert(strings.Contains(certString, "END CERTIFICATE"), jc.IsTrue)
 }
 
-func (p *PEMSuite) TestCertificateToPemWriter(c *gc.C) {
+func (p *PEMSuite) TestCertificateToPemWriter(c *tc.C) {
 	ca, err := pki.NewCA("juju-test-ca", p.signer)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -64,7 +64,7 @@ func (p *PEMSuite) TestCertificateToPemWriter(c *gc.C) {
 	c.Assert(strings.Contains(certString, "END CERTIFICATE"), jc.IsTrue)
 }
 
-func (p *PEMSuite) TestSignerToPemString(c *gc.C) {
+func (p *PEMSuite) TestSignerToPemString(c *tc.C) {
 	pemKey, err := pki.SignerToPemString(p.signer)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(pemKey), jc.GreaterThan, 0)
@@ -72,7 +72,7 @@ func (p *PEMSuite) TestSignerToPemString(c *gc.C) {
 	c.Assert(strings.Contains(pemKey, "END PRIVATE KEY"), jc.IsTrue)
 }
 
-func (p *PEMSuite) TestSignerToPemWriter(c *gc.C) {
+func (p *PEMSuite) TestSignerToPemWriter(c *tc.C) {
 	builder := strings.Builder{}
 	err := pki.SignerToPemWriter(&builder, p.signer)
 	pemKey := builder.String()
@@ -82,7 +82,7 @@ func (p *PEMSuite) TestSignerToPemWriter(c *gc.C) {
 	c.Assert(strings.Contains(pemKey, "END PRIVATE KEY"), jc.IsTrue)
 }
 
-func (p *PEMSuite) TestSignerFromPKCS8Pem(c *gc.C) {
+func (p *PEMSuite) TestSignerFromPKCS8Pem(c *tc.C) {
 	tests := []struct {
 		Name     string
 		SignerFn func() (crypto.Signer, error)
@@ -129,7 +129,7 @@ func (p *PEMSuite) TestSignerFromPKCS8Pem(c *gc.C) {
 	}
 }
 
-func (p *PEMSuite) TestSignerFromPKCS1Pem(c *gc.C) {
+func (p *PEMSuite) TestSignerFromPKCS1Pem(c *tc.C) {
 	tests := []struct {
 		Name     string
 		SignerFn func() (crypto.Signer, error)
@@ -148,7 +148,7 @@ func (p *PEMSuite) TestSignerFromPKCS1Pem(c *gc.C) {
 		signer, err := test.SignerFn()
 		c.Assert(err, jc.ErrorIsNil)
 		rsaKey, ok := signer.(*rsa.PrivateKey)
-		c.Assert(ok, gc.Equals, true)
+		c.Assert(ok, tc.Equals, true)
 
 		der := x509.MarshalPKCS1PrivateKey(rsaKey)
 		block := &pem.Block{
@@ -162,7 +162,7 @@ func (p *PEMSuite) TestSignerFromPKCS1Pem(c *gc.C) {
 	}
 }
 
-func (p *PEMSuite) TestFingerprint(c *gc.C) {
+func (p *PEMSuite) TestFingerprint(c *tc.C) {
 	pemCertStr := `-----BEGIN CERTIFICATE-----
 MIICBjCCAa2gAwIBAgIVAPIfbVbfSiFAz9eOg1YNuQDakGxuMAoGCCqGSM49BAMC
 MCExDTALBgNVBAoTBEp1anUxEDAOBgNVBAMTB2p1anUtY2EwHhcNMjAwNDAxMDQz
@@ -179,11 +179,11 @@ kBzDYg/oNisCIAx2LGL0r19fcn1rrVEMUrSMI4Dy3tJ0UEVgSbYhBGBA
 `
 	fingerPrint, remain, err := pki.Fingerprint([]byte(pemCertStr))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(remain), gc.Equals, 0)
-	c.Assert(fingerPrint, gc.Equals, "C7:23:B1:3B:CE:26:BA:55:FF:3B:A0:8F:9D:98:E1:06:9A:70:D1:33:AF:D2:AF:22:F3:28:C0:B4:3B:0E:44:5B")
+	c.Assert(len(remain), tc.Equals, 0)
+	c.Assert(fingerPrint, tc.Equals, "C7:23:B1:3B:CE:26:BA:55:FF:3B:A0:8F:9D:98:E1:06:9A:70:D1:33:AF:D2:AF:22:F3:28:C0:B4:3B:0E:44:5B")
 }
 
-func (p *PEMSuite) TestIsCAPem(c *gc.C) {
+func (p *PEMSuite) TestIsCAPem(c *tc.C) {
 	tests := []struct {
 		pemStr string
 		result bool
@@ -222,6 +222,6 @@ kBzDYg/oNisCIAx2LGL0r19fcn1rrVEMUrSMI4Dy3tJ0UEVgSbYhBGBA
 	for _, test := range tests {
 		ok, err := pki.IsPemCA([]byte(test.pemStr))
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(ok, gc.Equals, test.result)
+		c.Assert(ok, tc.Equals, test.result)
 	}
 }

@@ -4,9 +4,9 @@
 package machine
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coreerrors "github.com/juju/juju/core/errors"
 )
@@ -15,11 +15,11 @@ type machineSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&machineSuite{})
+var _ = tc.Suite(&machineSuite{})
 
 // TestNameValidate is testing good and not so good machine names to check
 // that the validate method produces the correct result.
-func (*machineSuite) TestNameValidate(c *gc.C) {
+func (*machineSuite) TestNameValidate(c *tc.C) {
 	tests := []struct {
 		name string
 		err  error
@@ -38,7 +38,7 @@ func (*machineSuite) TestNameValidate(c *gc.C) {
 		err := Name(test.name).Validate()
 
 		if test.err == nil {
-			c.Check(err, gc.IsNil)
+			c.Check(err, tc.IsNil)
 			continue
 		}
 
@@ -46,7 +46,7 @@ func (*machineSuite) TestNameValidate(c *gc.C) {
 	}
 }
 
-func (*machineSuite) TestNamedChild(c *gc.C) {
+func (*machineSuite) TestNamedChild(c *tc.C) {
 	tests := []struct {
 		name      Name
 		scope     string
@@ -89,6 +89,6 @@ func (*machineSuite) TestNamedChild(c *gc.C) {
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
 		}
-		c.Check(test.output, gc.Equals, name)
+		c.Check(test.output, tc.Equals, name)
 	}
 }

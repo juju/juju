@@ -10,9 +10,9 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/machine"
@@ -33,9 +33,9 @@ type machinerSuite struct {
 	watcherRegistry *MockWatcherRegistry
 }
 
-var _ = gc.Suite(&machinerSuite{})
+var _ = tc.Suite(&machinerSuite{})
 
-func (s *machinerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *machinerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.watcherRegistry = NewMockWatcherRegistry(ctrl)
@@ -44,7 +44,7 @@ func (s *machinerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *machinerSuite) makeAPI(c *gc.C) {
+func (s *machinerSuite) makeAPI(c *tc.C) {
 	st := s.ControllerModel(c).State()
 	// Create a machiner API for machine 1.
 	machiner, err := machine.NewMachinerAPIForState(
@@ -64,7 +64,7 @@ func (s *machinerSuite) makeAPI(c *gc.C) {
 	s.machiner = machiner
 }
 
-func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
+func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	anAuthorizer := s.authorizer
@@ -83,12 +83,12 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
 		common.NewResources(),
 		anAuthorizer,
 	)
-	c.Assert(err, gc.NotNil)
-	c.Assert(aMachiner, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.NotNil)
+	c.Assert(aMachiner, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *machinerSuite) TestSetStatus(c *gc.C) {
+func (s *machinerSuite) TestSetStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.makeAPI(c)
 
@@ -117,7 +117,7 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 		}}
 	result, err := s.machiner.SetStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -128,16 +128,16 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 	// Verify machine 0 - no change.
 	statusInfo, err := s.machine0.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.Started)
-	c.Assert(statusInfo.Message, gc.Equals, "blah")
+	c.Assert(statusInfo.Status, tc.Equals, status.Started)
+	c.Assert(statusInfo.Message, tc.Equals, "blah")
 	// ...machine 1 is fine though.
 	statusInfo, err = s.machine1.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.Error)
-	c.Assert(statusInfo.Message, gc.Equals, "not really")
+	c.Assert(statusInfo.Status, tc.Equals, status.Error)
+	c.Assert(statusInfo.Message, tc.Equals, "not really")
 }
 
-func (s *machinerSuite) TestLife(c *gc.C) {
+func (s *machinerSuite) TestLife(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.makeAPI(c)
 
@@ -145,7 +145,7 @@ func (s *machinerSuite) TestLife(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine1.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.machine1.Life(), gc.Equals, state.Dead)
+	c.Assert(s.machine1.Life(), tc.Equals, state.Dead)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-1"},
@@ -154,7 +154,7 @@ func (s *machinerSuite) TestLife(c *gc.C) {
 	}}
 	result, err := s.machiner.Life(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.LifeResults{
+	c.Assert(result, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Life: "dead"},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -163,12 +163,12 @@ func (s *machinerSuite) TestLife(c *gc.C) {
 	})
 }
 
-func (s *machinerSuite) TestEnsureDead(c *gc.C) {
+func (s *machinerSuite) TestEnsureDead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.makeAPI(c)
 
-	c.Assert(s.machine0.Life(), gc.Equals, state.Alive)
-	c.Assert(s.machine1.Life(), gc.Equals, state.Alive)
+	c.Assert(s.machine0.Life(), tc.Equals, state.Alive)
+	c.Assert(s.machine1.Life(), tc.Equals, state.Alive)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-1"},
@@ -178,7 +178,7 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 	s.machineService.EXPECT().EnsureDeadMachine(gomock.Any(), coremachine.Name("1")).Return(nil).Times(2)
 	result, err := s.machiner.EnsureDead(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -188,10 +188,10 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 
 	err = s.machine0.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.machine0.Life(), gc.Equals, state.Alive)
+	c.Assert(s.machine0.Life(), tc.Equals, state.Alive)
 	err = s.machine1.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.machine1.Life(), gc.Equals, state.Dead)
+	c.Assert(s.machine1.Life(), tc.Equals, state.Dead)
 
 	// Try it again on a Dead machine; should work.
 	args = params.Entities{
@@ -199,22 +199,22 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 	}
 	result, err = s.machiner.EnsureDead(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},
 	})
 
 	// Verify Life is unchanged.
 	err = s.machine1.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.machine1.Life(), gc.Equals, state.Dead)
+	c.Assert(s.machine1.Life(), tc.Equals, state.Dead)
 }
 
-func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
+func (s *machinerSuite) TestSetMachineAddresses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.makeAPI(c)
 
-	c.Assert(s.machine0.Addresses(), gc.HasLen, 0)
-	c.Assert(s.machine1.Addresses(), gc.HasLen, 0)
+	c.Assert(s.machine0.Addresses(), tc.HasLen, 0)
+	c.Assert(s.machine1.Addresses(), tc.HasLen, 0)
 
 	addresses := []network.MachineAddress{
 		network.NewMachineAddress("127.0.0.1"),
@@ -230,7 +230,7 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 
 	result, err := s.machiner.SetMachineAddresses(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -242,13 +242,13 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedAddresses := network.NewSpaceAddresses("8.8.8.8", "127.0.0.1")
-	c.Assert(s.machine1.MachineAddresses(), gc.DeepEquals, expectedAddresses)
+	c.Assert(s.machine1.MachineAddresses(), tc.DeepEquals, expectedAddresses)
 	err = s.machine0.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.machine0.MachineAddresses(), gc.HasLen, 0)
+	c.Assert(s.machine0.MachineAddresses(), tc.HasLen, 0)
 }
 
-func (s *machinerSuite) TestSetEmptyMachineAddresses(c *gc.C) {
+func (s *machinerSuite) TestSetEmptyMachineAddresses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.makeAPI(c)
 
@@ -263,19 +263,19 @@ func (s *machinerSuite) TestSetEmptyMachineAddresses(c *gc.C) {
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Times(2)
 	result, err := s.machiner.SetMachineAddresses(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 		},
 	})
 	err = s.machine1.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.machine1.MachineAddresses(), gc.HasLen, 2)
+	c.Assert(s.machine1.MachineAddresses(), tc.HasLen, 2)
 
 	args.MachineAddresses[0].Addresses = nil
 	result, err = s.machiner.SetMachineAddresses(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 		},
@@ -283,10 +283,10 @@ func (s *machinerSuite) TestSetEmptyMachineAddresses(c *gc.C) {
 
 	err = s.machine1.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.machine1.MachineAddresses(), gc.HasLen, 0)
+	c.Assert(s.machine1.MachineAddresses(), tc.HasLen, 0)
 }
 
-func (s *machinerSuite) TestWatch(c *gc.C) {
+func (s *machinerSuite) TestWatch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.makeAPI(c)
 
@@ -302,7 +302,7 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 	}}
 	result, err := s.machiner.Watch(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
+	c.Assert(result, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			{NotifyWatcherId: "1"},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -311,7 +311,7 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 	})
 }
 
-func (s *machinerSuite) TestRecordAgentStartInformation(c *gc.C) {
+func (s *machinerSuite) TestRecordAgentStartInformation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.makeAPI(c)
 
@@ -323,7 +323,7 @@ func (s *machinerSuite) TestRecordAgentStartInformation(c *gc.C) {
 
 	result, err := s.machiner.RecordAgentStartInformation(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -333,5 +333,5 @@ func (s *machinerSuite) TestRecordAgentStartInformation(c *gc.C) {
 
 	err = s.machine1.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.machine1.Hostname(), gc.Equals, "thundering-herds", gc.Commentf("expected the machine hostname to be updated"))
+	c.Assert(s.machine1.Hostname(), tc.Equals, "thundering-herds", tc.Commentf("expected the machine hostname to be updated"))
 }

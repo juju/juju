@@ -9,12 +9,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
@@ -27,7 +27,7 @@ type ManifoldSuite struct {
 	startErr error
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+var _ = tc.Suite(&ManifoldSuite{})
 
 func MakeUpdateFunc(name string) func(proxy.Settings) error {
 	// So we can tell the difference between update funcs.
@@ -36,7 +36,7 @@ func MakeUpdateFunc(name string) func(proxy.Settings) error {
 	}
 }
 
-func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.startErr = nil
 	s.config = proxyupdater.ManifoldConfig{
@@ -58,48 +58,48 @@ func (s *ManifoldSuite) manifold() dependency.Manifold {
 	return proxyupdater.Manifold(s.config)
 }
 
-func (s *ManifoldSuite) TestInputs(c *gc.C) {
+func (s *ManifoldSuite) TestInputs(c *tc.C) {
 	c.Check(s.manifold().Inputs, jc.DeepEquals, []string{"agent-name", "api-caller-name"})
 }
 
-func (s *ManifoldSuite) TestWorkerFuncMissing(c *gc.C) {
+func (s *ManifoldSuite) TestWorkerFuncMissing(c *tc.C) {
 	s.config.WorkerFunc = nil
 	getter := dt.StubGetter(nil)
 	worker, err := s.manifold().Start(context.Background(), getter)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "missing WorkerFunc not valid")
+	c.Check(worker, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "missing WorkerFunc not valid")
 }
 
-func (s *ManifoldSuite) TestInProcessUpdateMissing(c *gc.C) {
+func (s *ManifoldSuite) TestInProcessUpdateMissing(c *tc.C) {
 	s.config.InProcessUpdate = nil
 	getter := dt.StubGetter(nil)
 	worker, err := s.manifold().Start(context.Background(), getter)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "missing InProcessUpdate not valid")
+	c.Check(worker, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "missing InProcessUpdate not valid")
 }
 
-func (s *ManifoldSuite) TestStartAgentMissing(c *gc.C) {
+func (s *ManifoldSuite) TestStartAgentMissing(c *tc.C) {
 	getter := dt.StubGetter(map[string]interface{}{
 		"agent-name": dependency.ErrMissing,
 	})
 
 	worker, err := s.manifold().Start(context.Background(), getter)
-	c.Check(worker, gc.IsNil)
-	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+	c.Check(worker, tc.IsNil)
+	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
 
-func (s *ManifoldSuite) TestStartAPICallerMissing(c *gc.C) {
+func (s *ManifoldSuite) TestStartAPICallerMissing(c *tc.C) {
 	getter := dt.StubGetter(map[string]interface{}{
 		"agent-name":      &dummyAgent{},
 		"api-caller-name": dependency.ErrMissing,
 	})
 
 	worker, err := s.manifold().Start(context.Background(), getter)
-	c.Check(worker, gc.IsNil)
-	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+	c.Check(worker, tc.IsNil)
+	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
 
-func (s *ManifoldSuite) TestStartError(c *gc.C) {
+func (s *ManifoldSuite) TestStartError(c *tc.C) {
 	s.startErr = errors.New("boom")
 	getter := dt.StubGetter(map[string]interface{}{
 		"agent-name":      &dummyAgent{},
@@ -107,11 +107,11 @@ func (s *ManifoldSuite) TestStartError(c *gc.C) {
 	})
 
 	worker, err := s.manifold().Start(context.Background(), getter)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "boom")
+	c.Check(worker, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "boom")
 }
 
-func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
+func (s *ManifoldSuite) TestStartSuccess(c *tc.C) {
 	getter := dt.StubGetter(map[string]interface{}{
 		"agent-name":      &dummyAgent{},
 		"api-caller-name": &dummyAPICaller{},
@@ -121,14 +121,14 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	dummy, ok := worker.(*dummyWorker)
 	c.Assert(ok, jc.IsTrue)
-	c.Check(dummy.config.SystemdFiles, gc.DeepEquals, []string{"/etc/juju-proxy-systemd.conf"})
-	c.Check(dummy.config.EnvFiles, gc.DeepEquals, []string{"/etc/juju-proxy.conf"})
+	c.Check(dummy.config.SystemdFiles, tc.DeepEquals, []string{"/etc/juju-proxy-systemd.conf"})
+	c.Check(dummy.config.EnvFiles, tc.DeepEquals, []string{"/etc/juju-proxy.conf"})
 	c.Check(dummy.config.SupportLegacyValues, jc.IsTrue)
-	c.Check(dummy.config.API, gc.NotNil)
+	c.Check(dummy.config.API, tc.NotNil)
 	// Checking function equality is problematic, use the errors they
 	// return.
-	c.Check(dummy.config.ExternalUpdate(proxy.Settings{}), gc.ErrorMatches, "external")
-	c.Check(dummy.config.InProcessUpdate(proxy.Settings{}), gc.ErrorMatches, "in-process")
+	c.Check(dummy.config.ExternalUpdate(proxy.Settings{}), tc.ErrorMatches, "external")
+	c.Check(dummy.config.InProcessUpdate(proxy.Settings{}), tc.ErrorMatches, "in-process")
 }
 
 type dummyAgent struct {

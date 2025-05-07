@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -18,7 +18,7 @@ type filesystemSuite struct {
 	baseStorageSuite
 }
 
-var _ = gc.Suite(&filesystemSuite{})
+var _ = tc.Suite(&filesystemSuite{})
 
 func (s *filesystemSuite) expectedFilesystemDetails() params.FilesystemDetails {
 	return params.FilesystemDetails{
@@ -53,19 +53,19 @@ func (s *filesystemSuite) expectedFilesystemDetails() params.FilesystemDetails {
 	}
 }
 
-func (s *filesystemSuite) TestListFilesystemsEmptyFilter(c *gc.C) {
+func (s *filesystemSuite) TestListFilesystemsEmptyFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	found, err := s.api.ListFilesystems(context.Background(), params.FilesystemFilters{
 		[]params.FilesystemFilter{{}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Result, gc.HasLen, 1)
-	c.Assert(found.Results[0].Result[0], gc.DeepEquals, s.expectedFilesystemDetails())
+	c.Assert(found.Results, tc.HasLen, 1)
+	c.Assert(found.Results[0].Result, tc.HasLen, 1)
+	c.Assert(found.Results[0].Result[0], tc.DeepEquals, s.expectedFilesystemDetails())
 }
 
-func (s *filesystemSuite) TestListFilesystemsError(c *gc.C) {
+func (s *filesystemSuite) TestListFilesystemsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	msg := "inventing error"
@@ -76,11 +76,11 @@ func (s *filesystemSuite) TestListFilesystemsError(c *gc.C) {
 		[]params.FilesystemFilter{{}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, msg)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.ErrorMatches, msg)
 }
 
-func (s *filesystemSuite) TestListFilesystemsNoFilesystems(c *gc.C) {
+func (s *filesystemSuite) TestListFilesystemsNoFilesystems(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.storageAccessor.allFilesystems = func() ([]state.Filesystem, error) {
@@ -88,10 +88,10 @@ func (s *filesystemSuite) TestListFilesystemsNoFilesystems(c *gc.C) {
 	}
 	results, err := s.api.ListFilesystems(context.Background(), params.FilesystemFilters{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 0)
+	c.Assert(results.Results, tc.HasLen, 0)
 }
 
-func (s *filesystemSuite) TestListFilesystemsFilter(c *gc.C) {
+func (s *filesystemSuite) TestListFilesystemsFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	filters := []params.FilesystemFilter{{
@@ -99,12 +99,12 @@ func (s *filesystemSuite) TestListFilesystemsFilter(c *gc.C) {
 	}}
 	found, err := s.api.ListFilesystems(context.Background(), params.FilesystemFilters{filters})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Result, gc.HasLen, 1)
+	c.Assert(found.Results, tc.HasLen, 1)
+	c.Assert(found.Results[0].Result, tc.HasLen, 1)
 	c.Assert(found.Results[0].Result[0], jc.DeepEquals, s.expectedFilesystemDetails())
 }
 
-func (s *filesystemSuite) TestListFilesystemsFilterNonMatching(c *gc.C) {
+func (s *filesystemSuite) TestListFilesystemsFilterNonMatching(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	filters := []params.FilesystemFilter{{
@@ -112,12 +112,12 @@ func (s *filesystemSuite) TestListFilesystemsFilterNonMatching(c *gc.C) {
 	}}
 	found, err := s.api.ListFilesystems(context.Background(), params.FilesystemFilters{filters})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Error, gc.IsNil)
-	c.Assert(found.Results[0].Result, gc.HasLen, 0)
+	c.Assert(found.Results, tc.HasLen, 1)
+	c.Assert(found.Results[0].Error, tc.IsNil)
+	c.Assert(found.Results[0].Result, tc.HasLen, 0)
 }
 
-func (s *filesystemSuite) TestListFilesystemsFilesystemInfo(c *gc.C) {
+func (s *filesystemSuite) TestListFilesystemsFilesystemInfo(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.filesystem.info = &state.FilesystemInfo{
@@ -129,12 +129,12 @@ func (s *filesystemSuite) TestListFilesystemsFilesystemInfo(c *gc.C) {
 		[]params.FilesystemFilter{{}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Result, gc.HasLen, 1)
+	c.Assert(found.Results, tc.HasLen, 1)
+	c.Assert(found.Results[0].Result, tc.HasLen, 1)
 	c.Assert(found.Results[0].Result[0], jc.DeepEquals, expected)
 }
 
-func (s *filesystemSuite) TestListFilesystemsAttachmentInfo(c *gc.C) {
+func (s *filesystemSuite) TestListFilesystemsAttachmentInfo(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.filesystemAttachment.info = &state.FilesystemAttachmentInfo{
@@ -156,12 +156,12 @@ func (s *filesystemSuite) TestListFilesystemsAttachmentInfo(c *gc.C) {
 		[]params.FilesystemFilter{{}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Result, gc.HasLen, 1)
+	c.Assert(found.Results, tc.HasLen, 1)
+	c.Assert(found.Results[0].Result, tc.HasLen, 1)
 	c.Assert(found.Results[0].Result[0], jc.DeepEquals, expected)
 }
 
-func (s *filesystemSuite) TestListFilesystemsVolumeBacked(c *gc.C) {
+func (s *filesystemSuite) TestListFilesystemsVolumeBacked(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.filesystem.volume = &s.volumeTag
@@ -171,7 +171,7 @@ func (s *filesystemSuite) TestListFilesystemsVolumeBacked(c *gc.C) {
 		[]params.FilesystemFilter{{}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Result, gc.HasLen, 1)
+	c.Assert(found.Results, tc.HasLen, 1)
+	c.Assert(found.Results[0].Result, tc.HasLen, 1)
 	c.Assert(found.Results[0].Result[0], jc.DeepEquals, expected)
 }

@@ -8,13 +8,13 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 	"github.com/juju/worker/v4/dependency"
 	dependencytesting "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/caas"
@@ -28,9 +28,9 @@ type manifoldSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&manifoldSuite{})
+var _ = tc.Suite(&manifoldSuite{})
 
-func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
+func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.getConfig()
@@ -108,11 +108,11 @@ func (s *manifoldSuite) newGetter() dependency.Getter {
 
 var expectedInputs = []string{"provider-services"}
 
-func (s *manifoldSuite) TestInputs(c *gc.C) {
+func (s *manifoldSuite) TestInputs(c *tc.C) {
 	c.Assert(MultiTrackerManifold(s.getConfig()).Inputs, jc.SameContents, expectedInputs)
 }
 
-func (s *manifoldSuite) TestStart(c *gc.C) {
+func (s *manifoldSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, err := MultiTrackerManifold(s.getConfig()).Start(context.Background(), s.newGetter())
@@ -120,7 +120,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *manifoldSuite) TestIAASManifoldOutput(c *gc.C) {
+func (s *manifoldSuite) TestIAASManifoldOutput(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectDomainServices("hunter2")
@@ -176,7 +176,7 @@ func (s *manifoldSuite) TestIAASManifoldOutput(c *gc.C) {
 	c.Check(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *manifoldSuite) TestCAASManifoldOutput(c *gc.C) {
+func (s *manifoldSuite) TestCAASManifoldOutput(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectDomainServices("hunter2")

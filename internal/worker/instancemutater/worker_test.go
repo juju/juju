@@ -12,12 +12,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apiinstancemutater "github.com/juju/juju/api/agent/instancemutater"
 	"github.com/juju/juju/core/instance"
@@ -37,13 +37,13 @@ type workerConfigSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&workerConfigSuite{})
+var _ = tc.Suite(&workerConfigSuite{})
 
-func (s *workerConfigSuite) SetUpTest(c *gc.C) {
+func (s *workerConfigSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 }
 
-func (s *workerConfigSuite) TestInvalidConfigValidate(c *gc.C) {
+func (s *workerConfigSuite) TestInvalidConfigValidate(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -123,7 +123,7 @@ func (s *workerConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 	for i, test := range testcases {
 		c.Logf("%d %s", i, test.description)
 		err := test.config.Validate()
-		c.Assert(err, gc.ErrorMatches, test.err)
+		c.Assert(err, tc.ErrorMatches, test.err)
 	}
 }
 
@@ -131,7 +131,7 @@ var getMachineWatcher = func(context.Context) (watcher.StringsWatcher, error) {
 	return &fakeStringsWatcher{}, nil
 }
 
-func (s *workerConfigSuite) TestValidConfigValidate(c *gc.C) {
+func (s *workerConfigSuite) TestValidConfigValidate(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -148,7 +148,7 @@ func (s *workerConfigSuite) TestValidConfigValidate(c *gc.C) {
 		},
 	}
 	err := config.Validate()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
 type workerSuite struct {
@@ -172,9 +172,9 @@ type workerSuite struct {
 	newWorkerFunc func(instancemutater.Config, instancemutater.RequiredMutaterContextFunc) (worker.Worker, error)
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
-func (s *workerSuite) SetUpTest(c *gc.C) {
+func (s *workerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.logger = loggertesting.WrapCheckLog(c)
@@ -191,12 +191,12 @@ type workerEnvironSuite struct {
 	workerSuite
 }
 
-var _ = gc.Suite(&workerEnvironSuite{})
+var _ = tc.Suite(&workerEnvironSuite{})
 
 // TestFullWorkflow uses the the expectation scenarios from each of the tests
 // below to compose a test of the whole instance mutator scenario, from start
 // to finish for an EnvironWorker.
-func (s *workerEnvironSuite) TestFullWorkflow(c *gc.C) {
+func (s *workerEnvironSuite) TestFullWorkflow(c *tc.C) {
 	defer s.setup(c, 1).Finish()
 
 	s.notifyMachines([][]string{{"0"}})
@@ -213,7 +213,7 @@ func (s *workerEnvironSuite) TestFullWorkflow(c *gc.C) {
 	s.cleanKill(c, s.workerForScenario(c))
 }
 
-func (s *workerEnvironSuite) TestVerifyCurrentProfilesTrue(c *gc.C) {
+func (s *workerEnvironSuite) TestVerifyCurrentProfilesTrue(c *tc.C) {
 	defer s.setup(c, 1).Finish()
 
 	s.notifyMachines([][]string{{"0"}})
@@ -229,7 +229,7 @@ func (s *workerEnvironSuite) TestVerifyCurrentProfilesTrue(c *gc.C) {
 	s.cleanKill(c, s.workerForScenario(c))
 }
 
-func (s *workerEnvironSuite) TestRemoveAllCharmProfiles(c *gc.C) {
+func (s *workerEnvironSuite) TestRemoveAllCharmProfiles(c *tc.C) {
 	defer s.setup(c, 1).Finish()
 
 	s.notifyMachines([][]string{{"0"}})
@@ -245,7 +245,7 @@ func (s *workerEnvironSuite) TestRemoveAllCharmProfiles(c *gc.C) {
 	s.cleanKill(c, s.workerForScenario(c))
 }
 
-func (s *workerEnvironSuite) TestMachineNotifyTwice(c *gc.C) {
+func (s *workerEnvironSuite) TestMachineNotifyTwice(c *tc.C) {
 	defer s.setup(c, 2).Finish()
 
 	// A WaitGroup for this test to synchronize when the
@@ -270,7 +270,7 @@ func (s *workerEnvironSuite) TestMachineNotifyTwice(c *gc.C) {
 	s.cleanKill(c, s.workerForScenario(c))
 }
 
-func (s *workerEnvironSuite) TestNoChangeFoundOne(c *gc.C) {
+func (s *workerEnvironSuite) TestNoChangeFoundOne(c *tc.C) {
 	defer s.setup(c, 1).Finish()
 
 	s.notifyMachines([][]string{{"0"}})
@@ -282,7 +282,7 @@ func (s *workerEnvironSuite) TestNoChangeFoundOne(c *gc.C) {
 	s.cleanKill(c, s.workerForScenario(c))
 }
 
-func (s *workerEnvironSuite) TestNoMachineFound(c *gc.C) {
+func (s *workerEnvironSuite) TestNoMachineFound(c *tc.C) {
 	defer s.setup(c, 1).Finish()
 
 	s.notifyMachines([][]string{{"0"}})
@@ -292,7 +292,7 @@ func (s *workerEnvironSuite) TestNoMachineFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
-func (s *workerEnvironSuite) TestCharmProfilingInfoNotProvisioned(c *gc.C) {
+func (s *workerEnvironSuite) TestCharmProfilingInfoNotProvisioned(c *tc.C) {
 	defer s.setup(c, 1).Finish()
 
 	s.notifyMachines([][]string{{"0"}})
@@ -304,7 +304,7 @@ func (s *workerEnvironSuite) TestCharmProfilingInfoNotProvisioned(c *gc.C) {
 	s.cleanKill(c, s.workerForScenario(c))
 }
 
-func (s *workerEnvironSuite) TestCharmProfilingInfoError(c *gc.C) {
+func (s *workerEnvironSuite) TestCharmProfilingInfoError(c *tc.C) {
 	defer s.setup(c, 1).Finish()
 
 	s.notifyMachines([][]string{{"0"}})
@@ -318,7 +318,7 @@ func (s *workerEnvironSuite) TestCharmProfilingInfoError(c *gc.C) {
 	c.Assert(err, jc.Satisfies, params.IsCodeNotSupported)
 }
 
-func (s *workerEnvironSuite) TestMachineContainerTypeNotSupported(c *gc.C) {
+func (s *workerEnvironSuite) TestMachineContainerTypeNotSupported(c *tc.C) {
 	defer s.setup(c, 1).Finish()
 
 	s.notifyMachines([][]string{{"0"}})
@@ -328,7 +328,7 @@ func (s *workerEnvironSuite) TestMachineContainerTypeNotSupported(c *gc.C) {
 	s.cleanKill(c, s.workerForScenario(c))
 }
 
-func (s *workerEnvironSuite) TestMachineNotSupported(c *gc.C) {
+func (s *workerEnvironSuite) TestMachineNotSupported(c *tc.C) {
 	defer s.setup(c, 1).Finish()
 
 	s.notifyMachines([][]string{{"0"}})
@@ -348,7 +348,7 @@ func (s *workerEnvironSuite) TestMachineNotSupported(c *gc.C) {
 	s.cleanKill(c, s.workerForScenario(c))
 }
 
-func (s *workerSuite) setup(c *gc.C, machineCount int) *gomock.Controller {
+func (s *workerSuite) setup(c *tc.C, machineCount int) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.facade = mocks.NewMockInstanceMutaterAPI(ctrl)
@@ -370,7 +370,7 @@ func (s *workerSuite) setup(c *gc.C, machineCount int) *gomock.Controller {
 // workerForScenario creates worker config based on the suite's mocks.
 // Any supplied behaviour functions are executed, then a new worker
 // is started successfully and returned.
-func (s *workerSuite) workerForScenario(c *gc.C) worker.Worker {
+func (s *workerSuite) workerForScenario(c *tc.C) worker.Worker {
 	config := instancemutater.Config{
 		Facade:                 s.facade,
 		Logger:                 s.logger,
@@ -387,7 +387,7 @@ func (s *workerSuite) workerForScenario(c *gc.C) worker.Worker {
 	return w
 }
 
-func (s *workerSuite) workerForScenarioWithContext(c *gc.C) worker.Worker {
+func (s *workerSuite) workerForScenarioWithContext(c *tc.C) worker.Worker {
 	config := instancemutater.Config{
 		Facade:                 s.facade,
 		Logger:                 s.logger,
@@ -668,7 +668,7 @@ func (s *workerSuite) expectContextKillError() {
 
 // cleanKill waits for notifications to be processed, then waits for the input
 // worker to be killed cleanly. If either ops time out, the test fails.
-func (s *workerSuite) cleanKill(c *gc.C, w worker.Worker) {
+func (s *workerSuite) cleanKill(c *tc.C, w worker.Worker) {
 	s.waitDone(c)
 	workertest.CleanKill(c, w)
 }
@@ -676,12 +676,12 @@ func (s *workerSuite) cleanKill(c *gc.C, w worker.Worker) {
 // errorKill waits for notifications to be processed, then waits for the input
 // worker to be killed.  Any error is returned to the caller. If either ops
 // time out, the test fails.
-func (s *workerSuite) errorKill(c *gc.C, w worker.Worker) error {
+func (s *workerSuite) errorKill(c *tc.C, w worker.Worker) error {
 	s.waitDone(c)
 	return workertest.CheckKill(c, w)
 }
 
-func (s *workerSuite) waitDone(c *gc.C) {
+func (s *workerSuite) waitDone(c *tc.C) {
 	ch := make(chan struct{})
 	go func() {
 		s.doneWG.Wait()
@@ -702,9 +702,9 @@ type workerContainerSuite struct {
 	lxdContainer    *mocks.MockMutaterMachine
 }
 
-var _ = gc.Suite(&workerContainerSuite{})
+var _ = tc.Suite(&workerContainerSuite{})
 
-func (s *workerContainerSuite) SetUpTest(c *gc.C) {
+func (s *workerContainerSuite) SetUpTest(c *tc.C) {
 	s.workerSuite.SetUpTest(c)
 
 	s.lxdContainerTag = names.NewMachineTag("0/lxd/0")
@@ -717,7 +717,7 @@ func (s *workerContainerSuite) SetUpTest(c *gc.C) {
 // TestFullWorkflow uses the the expectation scenarios from each of the tests
 // below to compose a test of the whole instance mutator scenario, from start
 // to finish for a ContainerWorker.
-func (s *workerContainerSuite) TestFullWorkflow(c *gc.C) {
+func (s *workerContainerSuite) TestFullWorkflow(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.notifyContainers(0, [][]string{{"0/lxd/0"}})
@@ -735,7 +735,7 @@ func (s *workerContainerSuite) TestFullWorkflow(c *gc.C) {
 	s.cleanKill(c, s.workerForScenario(c))
 }
 
-func (s *workerContainerSuite) setup(c *gc.C) *gomock.Controller {
+func (s *workerContainerSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := s.workerSuite.setup(c, 1)
 	s.lxdContainer = mocks.NewMockMutaterMachine(ctrl)
 	return ctrl

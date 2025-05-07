@@ -8,8 +8,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/semversion"
@@ -21,9 +21,9 @@ type baseWorkerSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&baseWorkerSuite{})
+var _ = tc.Suite(&baseWorkerSuite{})
 
-func (s *baseWorkerSuite) TestAlreadyUpgraded(c *gc.C) {
+func (s *baseWorkerSuite) TestAlreadyUpgraded(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w := s.newBaseWorker(c, semversion.MustParse("6.6.6"), semversion.MustParse("6.6.6"))
@@ -34,7 +34,7 @@ func (s *baseWorkerSuite) TestAlreadyUpgraded(c *gc.C) {
 	c.Assert(upgraded, jc.IsTrue)
 }
 
-func (s *baseWorkerSuite) TestAlreadyUpgradedVersionMatching(c *gc.C) {
+func (s *baseWorkerSuite) TestAlreadyUpgradedVersionMatching(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w := s.newBaseWorker(c, semversion.MustParse("6.6.6"), semversion.MustParse("6.6.6"))
@@ -46,7 +46,7 @@ func (s *baseWorkerSuite) TestAlreadyUpgradedVersionMatching(c *gc.C) {
 	c.Assert(upgraded, jc.IsTrue)
 }
 
-func (s *baseWorkerSuite) TestAlreadyUpgradedVersionNotMatching(c *gc.C) {
+func (s *baseWorkerSuite) TestAlreadyUpgradedVersionNotMatching(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w := s.newBaseWorker(c, semversion.MustParse("6.6.6"), semversion.MustParse("9.9.9"))
@@ -57,7 +57,7 @@ func (s *baseWorkerSuite) TestAlreadyUpgradedVersionNotMatching(c *gc.C) {
 	c.Assert(upgraded, jc.IsFalse)
 }
 
-func (s *baseWorkerSuite) TestRunUpgradeSteps(c *gc.C) {
+func (s *baseWorkerSuite) TestRunUpgradeSteps(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyClock(make(chan time.Time))
@@ -70,7 +70,7 @@ func (s *baseWorkerSuite) TestRunUpgradeSteps(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *baseWorkerSuite) TestRunUpgradeStepsFailureBreakableTrue(c *gc.C) {
+func (s *baseWorkerSuite) TestRunUpgradeStepsFailureBreakableTrue(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyClock(make(chan time.Time))
@@ -87,10 +87,10 @@ func (s *baseWorkerSuite) TestRunUpgradeStepsFailureBreakableTrue(c *gc.C) {
 
 	fn := w.RunUpgradeSteps(context.Background(), []upgrades.Target{upgrades.Controller})
 	err := fn(s.configSetter)
-	c.Assert(err, gc.ErrorMatches, "API connection lost during upgrade: boom")
+	c.Assert(err, tc.ErrorMatches, "API connection lost during upgrade: boom")
 }
 
-func (s *baseWorkerSuite) TestRunUpgradeStepsFailureBreakableFalse(c *gc.C) {
+func (s *baseWorkerSuite) TestRunUpgradeStepsFailureBreakableFalse(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan time.Time)
@@ -122,7 +122,7 @@ func (s *baseWorkerSuite) TestRunUpgradeStepsFailureBreakableFalse(c *gc.C) {
 
 	fn := w.RunUpgradeSteps(context.Background(), []upgrades.Target{upgrades.Controller})
 	err := fn(s.configSetter)
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
 type breakableAPICaller struct {

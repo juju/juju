@@ -12,10 +12,10 @@ import (
 
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -34,11 +34,11 @@ type credentialsSuite struct {
 	lxd.BaseSuite
 }
 
-var _ = gc.Suite(&credentialsSuite{})
+var _ = tc.Suite(&credentialsSuite{})
 
 var errNotFound = api.StatusErrorf(http.StatusNotFound, "")
 
-func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
+func (s *credentialsSuite) TestCredentialSchemas(c *tc.C) {
 	provider := lxd.NewProvider()
 	envtesting.AssertProviderAuthTypes(c, provider, "certificate", "interactive")
 }
@@ -81,7 +81,7 @@ func (s *credentialsSuite) createProvider(ctrl *gomock.Controller) credentialsSu
 	}
 }
 
-func (s *credentialsSuite) TestDetectCredentialsFailsWithJujuCert(c *gc.C) {
+func (s *credentialsSuite) TestDetectCredentialsFailsWithJujuCert(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -91,10 +91,10 @@ func (s *credentialsSuite) TestDetectCredentialsFailsWithJujuCert(c *gc.C) {
 	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, errors.NotValidf("certs"))
 
 	_, err := deps.provider.DetectCredentials("")
-	c.Assert(err, gc.ErrorMatches, "certs not valid")
+	c.Assert(err, tc.ErrorMatches, "certs not valid")
 }
 
-func (s *credentialsSuite) TestDetectCredentialsFailsWithJujuAndLXCCert(c *gc.C) {
+func (s *credentialsSuite) TestDetectCredentialsFailsWithJujuAndLXCCert(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -107,10 +107,10 @@ func (s *credentialsSuite) TestDetectCredentialsFailsWithJujuAndLXCCert(c *gc.C)
 	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, errors.NotValidf("certs"))
 
 	_, err := deps.provider.DetectCredentials("")
-	c.Assert(err, gc.ErrorMatches, "certs not valid")
+	c.Assert(err, tc.ErrorMatches, "certs not valid")
 }
 
-func (s *credentialsSuite) TestDetectCredentialsGeneratesCertFailsToWriteOnError(c *gc.C) {
+func (s *credentialsSuite) TestDetectCredentialsGeneratesCertFailsToWriteOnError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -124,10 +124,10 @@ func (s *credentialsSuite) TestDetectCredentialsGeneratesCertFailsToWriteOnError
 	deps.certGenerator.EXPECT().Generate(true, true).Return(nil, nil, errors.Errorf("bad"))
 
 	_, err := deps.provider.DetectCredentials("")
-	c.Assert(err, gc.ErrorMatches, "bad")
+	c.Assert(err, tc.ErrorMatches, "bad")
 }
 
-func (s *credentialsSuite) TestDetectCredentialsGeneratesCertFailsToGetCertificateOnError(c *gc.C) {
+func (s *credentialsSuite) TestDetectCredentialsGeneratesCertFailsToGetCertificateOnError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -142,16 +142,16 @@ func (s *credentialsSuite) TestDetectCredentialsGeneratesCertFailsToGetCertifica
 	deps.certReadWriter.EXPECT().Write(path, []byte(coretesting.CACert), []byte(coretesting.CAKey)).Return(errors.Errorf("bad"))
 
 	_, err := deps.provider.DetectCredentials("")
-	c.Assert(err, gc.ErrorMatches, "bad")
+	c.Assert(err, tc.ErrorMatches, "bad")
 }
 
-func (s *credentialsSuite) setupLocalhost(deps credentialsSuiteDeps, c *gc.C) {
+func (s *credentialsSuite) setupLocalhost(deps credentialsSuiteDeps, c *tc.C) {
 	deps.certReadWriter.EXPECT().Read(osenv.JujuXDGDataHomePath("lxd")).Return(nil, nil, os.ErrNotExist)
 	deps.certReadWriter.EXPECT().Read(path.Join(utils.Home(), ".config/lxc")).Return(nil, nil, os.ErrNotExist)
 	deps.certReadWriter.EXPECT().Read(path.Join(utils.Home(), "snap/lxd/current/.config/lxc")).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
 }
 
-func (s *credentialsSuite) TestRemoteDetectCredentials(c *gc.C) {
+func (s *credentialsSuite) TestRemoteDetectCredentials(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -208,7 +208,7 @@ func (s *credentialsSuite) TestRemoteDetectCredentials(c *gc.C) {
 	})
 }
 
-func (s *credentialsSuite) TestRemoteDetectCredentialsNoRemoteCert(c *gc.C) {
+func (s *credentialsSuite) TestRemoteDetectCredentialsNoRemoteCert(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -264,7 +264,7 @@ func (s *credentialsSuite) TestRemoteDetectCredentialsNoRemoteCert(c *gc.C) {
 	})
 }
 
-func (s *credentialsSuite) TestRemoteDetectCredentialsWithConfigFailure(c *gc.C) {
+func (s *credentialsSuite) TestRemoteDetectCredentialsWithConfigFailure(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -286,7 +286,7 @@ func (s *credentialsSuite) TestRemoteDetectCredentialsWithConfigFailure(c *gc.C)
 	})
 }
 
-func (s *credentialsSuite) TestRemoteDetectCredentialsWithCertFailure(c *gc.C) {
+func (s *credentialsSuite) TestRemoteDetectCredentialsWithCertFailure(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -318,7 +318,7 @@ func (s *credentialsSuite) TestRemoteDetectCredentialsWithCertFailure(c *gc.C) {
 	})
 }
 
-func (s *credentialsSuite) TestRegisterCredentials(c *gc.C) {
+func (s *credentialsSuite) TestRegisterCredentials(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -360,7 +360,7 @@ func (s *credentialsSuite) TestRegisterCredentials(c *gc.C) {
 	})
 }
 
-func (s *credentialsSuite) TestRegisterCredentialsWithAlternativeCloudName(c *gc.C) {
+func (s *credentialsSuite) TestRegisterCredentialsWithAlternativeCloudName(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -401,7 +401,7 @@ func (s *credentialsSuite) TestRegisterCredentialsWithAlternativeCloudName(c *gc
 	})
 }
 
-func (s *credentialsSuite) TestRegisterCredentialsUsesJujuCert(c *gc.C) {
+func (s *credentialsSuite) TestRegisterCredentialsUsesJujuCert(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -439,7 +439,7 @@ func (s *credentialsSuite) TestRegisterCredentialsUsesJujuCert(c *gc.C) {
 	})
 }
 
-func (s *credentialsSuite) TestRegisterCredentialsUsesLXCCert(c *gc.C) {
+func (s *credentialsSuite) TestRegisterCredentialsUsesLXCCert(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -480,7 +480,7 @@ func (s *credentialsSuite) TestRegisterCredentialsUsesLXCCert(c *gc.C) {
 	})
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialLocal(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialLocal(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -497,7 +497,7 @@ func (s *credentialsSuite) TestFinalizeCredentialLocal(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(out.AuthType(), gc.Equals, cloud.CertificateAuthType)
+	c.Assert(out.AuthType(), tc.Equals, cloud.CertificateAuthType)
 	c.Assert(out.Attributes(), jc.DeepEquals, map[string]string{
 		"client-cert": coretesting.CACert,
 		"client-key":  coretesting.CAKey,
@@ -505,7 +505,7 @@ func (s *credentialsSuite) TestFinalizeCredentialLocal(c *gc.C) {
 	})
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialLocalAddCert(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialLocalAddCert(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -522,7 +522,7 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalAddCert(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(out.AuthType(), gc.Equals, cloud.CertificateAuthType)
+	c.Assert(out.AuthType(), tc.Equals, cloud.CertificateAuthType)
 	c.Assert(out.Attributes(), jc.DeepEquals, map[string]string{
 		"client-cert": coretesting.CACert,
 		"client-key":  coretesting.CAKey,
@@ -530,7 +530,7 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalAddCert(c *gc.C) {
 	})
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialLocalAddCertAlreadyExists(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialLocalAddCertAlreadyExists(c *tc.C) {
 	// If we get back an error from CreateClientCertificate, we'll make another
 	// call to GetCertificate. If that call succeeds, then we assume
 	// that the CreateClientCertificate failure was due to a concurrent call.
@@ -555,7 +555,7 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalAddCertAlreadyExists(c *gc
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(out.AuthType(), gc.Equals, cloud.CertificateAuthType)
+	c.Assert(out.AuthType(), tc.Equals, cloud.CertificateAuthType)
 	c.Assert(out.Attributes(), jc.DeepEquals, map[string]string{
 		"client-cert": coretesting.CACert,
 		"client-key":  coretesting.CAKey,
@@ -563,7 +563,7 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalAddCertAlreadyExists(c *gc
 	})
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialLocalAddCertFatal(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialLocalAddCertFatal(c *tc.C) {
 	// If we get back an error from CreateClientCertificate, we'll make another
 	// call to GetCertificate. If that call succeeds, then we assume
 	// that the CreateClientCertificate failure was due to a concurrent call.
@@ -585,10 +585,10 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalAddCertFatal(c *gc.C) {
 			"client-key":  coretesting.CAKey,
 		}),
 	})
-	c.Assert(err, gc.ErrorMatches, "adding certificate \"juju\": UNIQUE constraint failed: interactives.fingerprint")
+	c.Assert(err, tc.ErrorMatches, "adding certificate \"juju\": UNIQUE constraint failed: interactives.fingerprint")
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialLocalCertificateWithEmptyClientCert(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialLocalCertificateWithEmptyClientCert(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -599,10 +599,10 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalCertificateWithEmptyClient
 		CloudEndpoint: "localhost",
 		Credential:    cloud.NewCredential("certificate", map[string]string{}),
 	})
-	c.Assert(err, gc.ErrorMatches, `missing or empty "client-cert" attribute not valid`)
+	c.Assert(err, tc.ErrorMatches, `missing or empty "client-cert" attribute not valid`)
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialLocalCertificateWithEmptyClientKey(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialLocalCertificateWithEmptyClientKey(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -615,10 +615,10 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalCertificateWithEmptyClient
 			"client-cert": coretesting.CACert,
 		}),
 	})
-	c.Assert(err, gc.ErrorMatches, `missing or empty "client-key" attribute not valid`)
+	c.Assert(err, tc.ErrorMatches, `missing or empty "client-key" attribute not valid`)
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialWithNonServerAuth(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialWithNonServerAuth(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -632,10 +632,10 @@ func (s *credentialsSuite) TestFinalizeCredentialWithNonServerAuth(c *gc.C) {
 			"client-cert": coretesting.CACert,
 		}),
 	})
-	c.Assert(err, gc.ErrorMatches, `missing or empty "client-key" attribute not valid`)
+	c.Assert(err, tc.ErrorMatches, `missing or empty "client-key" attribute not valid`)
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialLocalCertificate(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialLocalCertificate(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -652,7 +652,7 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalCertificate(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(out.AuthType(), gc.Equals, cloud.AuthType("certificate"))
+	c.Assert(out.AuthType(), tc.Equals, cloud.AuthType("certificate"))
 	c.Assert(out.Attributes(), jc.DeepEquals, map[string]string{
 		"client-cert": coretesting.CACert,
 		"client-key":  coretesting.CAKey,
@@ -660,7 +660,7 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalCertificate(c *gc.C) {
 	})
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialNonLocalCertificate(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialNonLocalCertificate(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -672,10 +672,10 @@ func (s *credentialsSuite) TestFinalizeCredentialNonLocalCertificate(c *gc.C) {
 		CloudEndpoint: "8.8.8.8",
 		Credential:    cloud.NewCredential("certificate", map[string]string{}),
 	})
-	c.Assert(err, gc.ErrorMatches, `missing or empty "client-cert" attribute not valid`)
+	c.Assert(err, tc.ErrorMatches, `missing or empty "client-cert" attribute not valid`)
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialNonLocal(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialNonLocal(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -741,7 +741,7 @@ func (s *credentialsSuite) TestFinalizeCredentialNonLocal(c *gc.C) {
 	c.Assert(got, jc.DeepEquals, &expected)
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialRemoteWithTrustToken(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialRemoteWithTrustToken(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -808,7 +808,7 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithTrustToken(c *gc.C) {
 	c.Assert(got, jc.DeepEquals, &expected)
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialRemoteWithTrustTokenAndTrustPasswordFails(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialRemoteWithTrustTokenAndTrustPasswordFails(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -824,10 +824,10 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithTrustTokenAndTrustPas
 	}
 
 	_, err := deps.provider.FinalizeCredential(cmdtesting.Context(c), params)
-	c.Assert(err, gc.ErrorMatches, "both trust token and trust password were supplied.*")
+	c.Assert(err, tc.ErrorMatches, "both trust token and trust password were supplied.*")
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialNonLocalWithCertAlreadyExists(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialNonLocalWithCertAlreadyExists(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -884,7 +884,7 @@ func (s *credentialsSuite) TestFinalizeCredentialNonLocalWithCertAlreadyExists(c
 	c.Assert(got, jc.DeepEquals, &expected)
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialRemoteWithInsecureError(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialRemoteWithInsecureError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -909,10 +909,10 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithInsecureError(c *gc.C
 	deps.serverFactory.EXPECT().InsecureRemoteServer(insecureSpec).Return(nil, errors.New("bad"))
 
 	_, err := deps.provider.FinalizeCredential(cmdtesting.Context(c), params)
-	c.Assert(err, gc.ErrorMatches, "bad")
+	c.Assert(err, tc.ErrorMatches, "bad")
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialRemoteWithCreateCertificateError(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialRemoteWithCreateCertificateError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -950,10 +950,10 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithCreateCertificateErro
 	}).Return(errors.New("bad"))
 
 	_, err = deps.provider.FinalizeCredential(cmdtesting.Context(c), params)
-	c.Assert(err, gc.ErrorMatches, "bad")
+	c.Assert(err, tc.ErrorMatches, "bad")
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialRemoveWithGetServerError(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialRemoveWithGetServerError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -992,10 +992,10 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoveWithGetServerError(c *gc.
 	deps.server.EXPECT().GetServer().Return(nil, "etag", errors.New("bad"))
 
 	_, err = deps.provider.FinalizeCredential(cmdtesting.Context(c), params)
-	c.Assert(err, gc.ErrorMatches, "bad")
+	c.Assert(err, tc.ErrorMatches, "bad")
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialRemoteWithNewRemoteServerError(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialRemoteWithNewRemoteServerError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1050,10 +1050,10 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithNewRemoteServerError(
 	deps.serverFactory.EXPECT().RemoteServer(secureSpec).Return(nil, errors.New("bad"))
 
 	_, err = deps.provider.FinalizeCredential(cmdtesting.Context(c), params)
-	c.Assert(err, gc.ErrorMatches, "bad")
+	c.Assert(err, tc.ErrorMatches, "bad")
 }
 
-func (s *credentialsSuite) TestInteractiveFinalizeCredentialWithValidCredentials(c *gc.C) {
+func (s *credentialsSuite) TestInteractiveFinalizeCredentialWithValidCredentials(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1070,7 +1070,7 @@ func (s *credentialsSuite) TestInteractiveFinalizeCredentialWithValidCredentials
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(out.AuthType(), gc.Equals, cloud.AuthType("certificate"))
+	c.Assert(out.AuthType(), tc.Equals, cloud.AuthType("certificate"))
 	c.Assert(out.Attributes(), jc.DeepEquals, map[string]string{
 		"client-cert": coretesting.CACert,
 		"client-key":  coretesting.CAKey,
@@ -1078,7 +1078,7 @@ func (s *credentialsSuite) TestInteractiveFinalizeCredentialWithValidCredentials
 	})
 }
 
-func (s *credentialsSuite) TestInteractiveFinalizeCredentialWithTrustPassword(c *gc.C) {
+func (s *credentialsSuite) TestInteractiveFinalizeCredentialWithTrustPassword(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1100,7 +1100,7 @@ func (s *credentialsSuite) TestInteractiveFinalizeCredentialWithTrustPassword(c 
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(out.AuthType(), gc.Equals, cloud.CertificateAuthType)
+	c.Assert(out.AuthType(), tc.Equals, cloud.CertificateAuthType)
 	c.Assert(out.Attributes(), jc.DeepEquals, map[string]string{
 		"client-cert": coretesting.CACert,
 		"client-key":  coretesting.CAKey,
@@ -1108,7 +1108,7 @@ func (s *credentialsSuite) TestInteractiveFinalizeCredentialWithTrustPassword(c 
 	})
 }
 
-func (s *credentialsSuite) TestInteractiveFinalizeCredentialWithTrustToken(c *gc.C) {
+func (s *credentialsSuite) TestInteractiveFinalizeCredentialWithTrustToken(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1130,7 +1130,7 @@ func (s *credentialsSuite) TestInteractiveFinalizeCredentialWithTrustToken(c *gc
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(out.AuthType(), gc.Equals, cloud.CertificateAuthType)
+	c.Assert(out.AuthType(), tc.Equals, cloud.CertificateAuthType)
 	c.Assert(out.Attributes(), jc.DeepEquals, map[string]string{
 		"client-cert": coretesting.CACert,
 		"client-key":  coretesting.CAKey,
@@ -1138,7 +1138,7 @@ func (s *credentialsSuite) TestInteractiveFinalizeCredentialWithTrustToken(c *gc
 	})
 }
 
-func (s *credentialsSuite) TestInteractiveFinalizeCredentialWithCertFailure(c *gc.C) {
+func (s *credentialsSuite) TestInteractiveFinalizeCredentialWithCertFailure(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1153,7 +1153,7 @@ func (s *credentialsSuite) TestInteractiveFinalizeCredentialWithCertFailure(c *g
 			"trust-password": "password1",
 		}),
 	})
-	c.Assert(err, gc.ErrorMatches, "bad")
+	c.Assert(err, tc.ErrorMatches, "bad")
 }
 
 func (s *credentialsSuite) clientCert() *containerLXD.Certificate {
@@ -1164,47 +1164,47 @@ func (s *credentialsSuite) clientCert() *containerLXD.Certificate {
 	}
 }
 
-func (s *credentialsSuite) clientCertFingerprint(c *gc.C) string {
+func (s *credentialsSuite) clientCertFingerprint(c *tc.C) string {
 	fp, err := s.clientCert().Fingerprint()
 	c.Assert(err, jc.ErrorIsNil)
 	return fp
 }
 
-func (s *credentialsSuite) TestGetCertificates(c *gc.C) {
+func (s *credentialsSuite) TestGetCertificates(c *tc.C) {
 	cred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
 		"client-cert": coretesting.CACert,
 		"client-key":  coretesting.CAKey,
 		"server-cert": "server.crt",
 	})
 	cert, server, ok := lxd.GetCertificates(cred)
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, tc.Equals, true)
 	c.Assert(cert, jc.DeepEquals, s.clientCert())
-	c.Assert(server, gc.Equals, "server.crt")
+	c.Assert(server, tc.Equals, "server.crt")
 }
 
-func (s *credentialsSuite) TestGetCertificatesMissingClientCert(c *gc.C) {
+func (s *credentialsSuite) TestGetCertificatesMissingClientCert(c *tc.C) {
 	cred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
 		"client-key":  coretesting.CAKey,
 		"server-cert": "server.crt",
 	})
 	_, _, ok := lxd.GetCertificates(cred)
-	c.Assert(ok, gc.Equals, false)
+	c.Assert(ok, tc.Equals, false)
 }
 
-func (s *credentialsSuite) TestGetCertificatesMissingClientKey(c *gc.C) {
+func (s *credentialsSuite) TestGetCertificatesMissingClientKey(c *tc.C) {
 	cred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
 		"client-cert": coretesting.CACert,
 		"server-cert": "server.crt",
 	})
 	_, _, ok := lxd.GetCertificates(cred)
-	c.Assert(ok, gc.Equals, false)
+	c.Assert(ok, tc.Equals, false)
 }
 
-func (s *credentialsSuite) TestGetCertificatesMissingServerCert(c *gc.C) {
+func (s *credentialsSuite) TestGetCertificatesMissingServerCert(c *tc.C) {
 	cred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
 		"client-cert": coretesting.CACert,
 		"client-key":  coretesting.CAKey,
 	})
 	_, _, ok := lxd.GetCertificates(cred)
-	c.Assert(ok, gc.Equals, false)
+	c.Assert(ok, tc.Equals, false)
 }

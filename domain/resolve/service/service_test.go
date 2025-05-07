@@ -7,9 +7,9 @@ import (
 	"context"
 	"errors"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
@@ -22,16 +22,16 @@ type serviceSuite struct {
 	service *Service
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = tc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.state = NewMockState(ctrl)
 	s.service = NewService(s.state)
 	return ctrl
 }
 
-func (s *serviceSuite) TestUnitResolveModeRetryHooks(c *gc.C) {
+func (s *serviceSuite) TestUnitResolveModeRetryHooks(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
@@ -42,10 +42,10 @@ func (s *serviceSuite) TestUnitResolveModeRetryHooks(c *gc.C) {
 
 	mode, err := s.service.UnitResolveMode(context.Background(), unitName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mode, gc.Equals, resolve.ResolveModeRetryHooks)
+	c.Assert(mode, tc.Equals, resolve.ResolveModeRetryHooks)
 }
 
-func (s *serviceSuite) TestUnitResolveModeNoHooks(c *gc.C) {
+func (s *serviceSuite) TestUnitResolveModeNoHooks(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
@@ -56,10 +56,10 @@ func (s *serviceSuite) TestUnitResolveModeNoHooks(c *gc.C) {
 
 	mode, err := s.service.UnitResolveMode(context.Background(), unitName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mode, gc.Equals, resolve.ResolveModeNoHooks)
+	c.Assert(mode, tc.Equals, resolve.ResolveModeNoHooks)
 }
 
-func (s *serviceSuite) TestUnitResolveModeInvalidUnitName(c *gc.C) {
+func (s *serviceSuite) TestUnitResolveModeInvalidUnitName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("!!!")
@@ -68,7 +68,7 @@ func (s *serviceSuite) TestUnitResolveModeInvalidUnitName(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
 }
 
-func (s *serviceSuite) TestUnitResolveModeNotFound(c *gc.C) {
+func (s *serviceSuite) TestUnitResolveModeNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
@@ -79,7 +79,7 @@ func (s *serviceSuite) TestUnitResolveModeNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, resolveerrors.UnitNotFound)
 }
 
-func (s *serviceSuite) TestUnitResolveModeNotResolved(c *gc.C) {
+func (s *serviceSuite) TestUnitResolveModeNotResolved(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
@@ -92,7 +92,7 @@ func (s *serviceSuite) TestUnitResolveModeNotResolved(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, resolveerrors.UnitNotResolved)
 }
 
-func (s *serviceSuite) TestResolveUnitRetryHooks(c *gc.C) {
+func (s *serviceSuite) TestResolveUnitRetryHooks(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
@@ -105,7 +105,7 @@ func (s *serviceSuite) TestResolveUnitRetryHooks(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestResolveUnitNoRetryHooks(c *gc.C) {
+func (s *serviceSuite) TestResolveUnitNoRetryHooks(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
@@ -118,7 +118,7 @@ func (s *serviceSuite) TestResolveUnitNoRetryHooks(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestResolveUnitInvalidUnitName(c *gc.C) {
+func (s *serviceSuite) TestResolveUnitInvalidUnitName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("!!!")
@@ -127,7 +127,7 @@ func (s *serviceSuite) TestResolveUnitInvalidUnitName(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
 }
 
-func (s *serviceSuite) TestResolveUnitNotFound(c *gc.C) {
+func (s *serviceSuite) TestResolveUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
@@ -138,7 +138,7 @@ func (s *serviceSuite) TestResolveUnitNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, resolveerrors.UnitNotFound)
 }
 
-func (s *serviceSuite) TestResolveUnitNotInErrorState(c *gc.C) {
+func (s *serviceSuite) TestResolveUnitNotInErrorState(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
@@ -151,7 +151,7 @@ func (s *serviceSuite) TestResolveUnitNotInErrorState(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, resolveerrors.UnitNotInErrorState)
 }
 
-func (s *serviceSuite) TestResolveAllUnitsRetryHooks(c *gc.C) {
+func (s *serviceSuite) TestResolveAllUnitsRetryHooks(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().ResolveAllUnits(gomock.Any(), resolve.ResolveModeRetryHooks).Return(nil)
@@ -160,7 +160,7 @@ func (s *serviceSuite) TestResolveAllUnitsRetryHooks(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestResolveAllUnitsNoRetryHooks(c *gc.C) {
+func (s *serviceSuite) TestResolveAllUnitsNoRetryHooks(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().ResolveAllUnits(gomock.Any(), resolve.ResolveModeNoHooks).Return(nil)
@@ -169,16 +169,16 @@ func (s *serviceSuite) TestResolveAllUnitsNoRetryHooks(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestResolveAllUnitsErrors(c *gc.C) {
+func (s *serviceSuite) TestResolveAllUnitsErrors(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().ResolveAllUnits(gomock.Any(), resolve.ResolveModeRetryHooks).Return(errors.New("boom!"))
 
 	err := s.service.ResolveAllUnits(context.Background(), resolve.ResolveModeRetryHooks)
-	c.Assert(err, gc.ErrorMatches, "boom!")
+	c.Assert(err, tc.ErrorMatches, "boom!")
 }
 
-func (s *serviceSuite) TestClearResolved(c *gc.C) {
+func (s *serviceSuite) TestClearResolved(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
@@ -191,7 +191,7 @@ func (s *serviceSuite) TestClearResolved(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestClearResolvedInvalidUnitName(c *gc.C) {
+func (s *serviceSuite) TestClearResolvedInvalidUnitName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("!!!")
@@ -200,7 +200,7 @@ func (s *serviceSuite) TestClearResolvedInvalidUnitName(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
 }
 
-func (s *serviceSuite) TestClearResolvedNotFound(c *gc.C) {
+func (s *serviceSuite) TestClearResolvedNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")

@@ -4,9 +4,9 @@
 package imagemetadata_test
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/controller/imagemetadata"
@@ -17,9 +17,9 @@ type ImageMetadataUpdateSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&ImageMetadataUpdateSuite{})
+var _ = tc.Suite(&ImageMetadataUpdateSuite{})
 
-func (s *ImageMetadataUpdateSuite) TestControllerOnly(c *gc.C) {
+func (s *ImageMetadataUpdateSuite) TestControllerOnly(c *tc.C) {
 	var authorizer apiservertesting.FakeAuthorizer
 	authorizer.Controller = true
 	_, err := imagemetadata.NewAPI(facadetest.ModelContext{
@@ -30,5 +30,5 @@ func (s *ImageMetadataUpdateSuite) TestControllerOnly(c *gc.C) {
 	_, err = imagemetadata.NewAPI(facadetest.ModelContext{
 		Auth_: authorizer,
 	})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }

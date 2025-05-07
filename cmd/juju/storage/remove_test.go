@@ -7,9 +7,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/core/model"
@@ -23,9 +23,9 @@ type RemoveStorageSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&RemoveStorageSuite{})
+var _ = tc.Suite(&RemoveStorageSuite{})
 
-func (s *RemoveStorageSuite) TestRemoveStorage(c *gc.C) {
+func (s *RemoveStorageSuite) TestRemoveStorage(c *tc.C) {
 	fake := fakeStorageRemover{results: []params.ErrorResult{
 		{},
 		{},
@@ -36,13 +36,13 @@ func (s *RemoveStorageSuite) TestRemoveStorage(c *gc.C) {
 	fake.CheckCallNames(c, "NewStorageRemoverCloser", "Remove", "Close")
 	force := false
 	fake.CheckCall(c, 1, "Remove", []string{"pgdata/0", "pgdata/1"}, false, true, &force, (*time.Duration)(nil))
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
 removing pgdata/0
 removing pgdata/1
 `[1:])
 }
 
-func (s *RemoveStorageSuite) TestRemoveStorageForce(c *gc.C) {
+func (s *RemoveStorageSuite) TestRemoveStorageForce(c *tc.C) {
 	fake := fakeStorageRemover{results: []params.ErrorResult{
 		{},
 		{},
@@ -54,7 +54,7 @@ func (s *RemoveStorageSuite) TestRemoveStorageForce(c *gc.C) {
 	fake.CheckCall(c, 1, "Remove", []string{"pgdata/0", "pgdata/1"}, true, true, &force, (*time.Duration)(nil))
 }
 
-func (s *RemoveStorageSuite) TestRemoveStorageNoDestroy(c *gc.C) {
+func (s *RemoveStorageSuite) TestRemoveStorageNoDestroy(c *tc.C) {
 	fake := fakeStorageRemover{results: []params.ErrorResult{
 		{},
 		{},
@@ -66,7 +66,7 @@ func (s *RemoveStorageSuite) TestRemoveStorageNoDestroy(c *gc.C) {
 	fake.CheckCall(c, 1, "Remove", []string{"pgdata/0", "pgdata/1"}, true, false, &force, (*time.Duration)(nil))
 }
 
-func (s *RemoveStorageSuite) TestRemoveStorageError(c *gc.C) {
+func (s *RemoveStorageSuite) TestRemoveStorageError(c *tc.C) {
 	fake := fakeStorageRemover{results: []params.ErrorResult{
 		{Error: &params.Error{Message: "foo"}},
 		{Error: &params.Error{Message: "storage is attached", Code: params.CodeStorageAttached}},
@@ -74,17 +74,17 @@ func (s *RemoveStorageSuite) TestRemoveStorageError(c *gc.C) {
 	removeCmd := storage.NewRemoveStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
 	ctx, err := cmdtesting.RunCommand(c, removeCmd, "pgdata/0", "pgdata/1")
 	stderr := cmdtesting.Stderr(ctx)
-	c.Assert(stderr, gc.Equals, `failed to remove pgdata/0: foo
+	c.Assert(stderr, tc.Equals, `failed to remove pgdata/0: foo
 failed to remove pgdata/1: storage is attached
 
 Use the --force option to remove attached storage, or use
 "juju detach-storage" to explicitly detach the storage
 before removing.
 `)
-	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Assert(err, tc.Equals, cmd.ErrSilent)
 }
 
-func (s *RemoveStorageSuite) TestRemoveStorageCAASError(c *gc.C) {
+func (s *RemoveStorageSuite) TestRemoveStorageCAASError(c *tc.C) {
 	fake := fakeStorageRemover{results: []params.ErrorResult{
 		{Error: &params.Error{Message: "foo"}},
 		{Error: &params.Error{Message: "storage is attached", Code: params.CodeStorageAttached}},
@@ -96,38 +96,38 @@ func (s *RemoveStorageSuite) TestRemoveStorageCAASError(c *gc.C) {
 	removeCmd := storage.NewRemoveStorageCommandForTest(fake.new, store)
 	ctx, err := cmdtesting.RunCommand(c, removeCmd, "pgdata/0", "pgdata/1")
 	stderr := cmdtesting.Stderr(ctx)
-	c.Assert(stderr, gc.Equals, `failed to remove pgdata/0: foo
+	c.Assert(stderr, tc.Equals, `failed to remove pgdata/0: foo
 failed to remove pgdata/1: storage is attached
 `)
-	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Assert(err, tc.Equals, cmd.ErrSilent)
 }
 
-func (s *RemoveStorageSuite) TestRemoveStorageUnauthorizedError(c *gc.C) {
+func (s *RemoveStorageSuite) TestRemoveStorageUnauthorizedError(c *tc.C) {
 	var fake fakeStorageRemover
 	fake.SetErrors(nil, &params.Error{Code: params.CodeUnauthorized, Message: "nope"})
 	command := storage.NewRemoveStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
 	ctx, err := cmdtesting.RunCommand(c, command, "pgdata/0")
-	c.Assert(err, gc.ErrorMatches, "nope")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+	c.Assert(err, tc.ErrorMatches, "nope")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
 You do not have permission to remove storage.
 You may ask an administrator to grant you access with "juju grant".
 
 `)
 }
 
-func (s *RemoveStorageSuite) TestRemoveStorageInitErrors(c *gc.C) {
+func (s *RemoveStorageSuite) TestRemoveStorageInitErrors(c *tc.C) {
 	s.testRemoveStorageInitError(c, []string{}, "remove-storage requires at least one storage ID")
 	s.testRemoveStorageCAASInitError(c, []string{"--force", "storage/0"}, "forced detachment of storage on container models not supported")
 }
 
-func (s *RemoveStorageSuite) testRemoveStorageInitError(c *gc.C, args []string, expect string) {
+func (s *RemoveStorageSuite) testRemoveStorageInitError(c *tc.C, args []string, expect string) {
 	var fake fakeStorageRemover
 	command := storage.NewRemoveStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, command, args...)
-	c.Assert(err, gc.ErrorMatches, expect)
+	c.Assert(err, tc.ErrorMatches, expect)
 }
 
-func (s *RemoveStorageSuite) testRemoveStorageCAASInitError(c *gc.C, args []string, expect string) {
+func (s *RemoveStorageSuite) testRemoveStorageCAASInitError(c *tc.C, args []string, expect string) {
 	var fake fakeStorageRemover
 	store := jujuclienttesting.MinimalStore()
 	m := store.Models["arthur"].Models["king/sword"]
@@ -135,7 +135,7 @@ func (s *RemoveStorageSuite) testRemoveStorageCAASInitError(c *gc.C, args []stri
 	store.Models["arthur"].Models["king/sword"] = m
 	command := storage.NewRemoveStorageCommandForTest(fake.new, store)
 	_, err := cmdtesting.RunCommand(c, command, args...)
-	c.Assert(err, gc.ErrorMatches, expect)
+	c.Assert(err, tc.ErrorMatches, expect)
 }
 
 type fakeStorageRemover struct {

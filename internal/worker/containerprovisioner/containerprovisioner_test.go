@@ -12,11 +12,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -56,7 +56,7 @@ type lxdProvisionerSuite struct {
 	provisionerStarted chan bool
 }
 
-func (s *lxdProvisionerSuite) setUpMocks(c *gc.C) *gomock.Controller {
+func (s *lxdProvisionerSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.controllerAPI = NewMockControllerAPI(ctrl)
 	s.machinesAPI = NewMockMachinesAPI(ctrl)
@@ -72,7 +72,7 @@ func (s *lxdProvisionerSuite) expectAuth() {
 	s.controllerAPI.EXPECT().CACert(gomock.Any()).Return(coretesting.CACert, nil).AnyTimes()
 }
 
-func (s *lxdProvisionerSuite) expectStartup(c *gc.C) {
+func (s *lxdProvisionerSuite) expectStartup(c *tc.C) {
 	s.modelConfigCh = make(chan struct{})
 	watchCfg := watchertest.NewMockNotifyWatcher(s.modelConfigCh)
 	s.controllerAPI.EXPECT().WatchForModelConfigChanges(gomock.Any()).Return(watchCfg, nil)
@@ -88,9 +88,9 @@ func (s *lxdProvisionerSuite) expectStartup(c *gc.C) {
 	})
 }
 
-var _ = gc.Suite(&lxdProvisionerSuite{})
+var _ = tc.Suite(&lxdProvisionerSuite{})
 
-func (s *lxdProvisionerSuite) newLXDProvisioner(c *gc.C, ctrl *gomock.Controller) containerprovisioner.Provisioner {
+func (s *lxdProvisionerSuite) newLXDProvisioner(c *tc.C, ctrl *gomock.Controller) containerprovisioner.Provisioner {
 	mTag := names.NewMachineTag("0")
 	defaultPaths := agent.DefaultPaths
 	defaultPaths.DataDir = c.MkDir()
@@ -123,7 +123,7 @@ func (s *lxdProvisionerSuite) newLXDProvisioner(c *gc.C, ctrl *gomock.Controller
 	return w
 }
 
-func (s *lxdProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
+func (s *lxdProvisionerSuite) TestProvisionerStartStop(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -131,7 +131,7 @@ func (s *lxdProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
 	workertest.CleanKill(c, p)
 }
 
-func (s *lxdProvisionerSuite) sendMachineContainersChange(c *gc.C, ids ...string) {
+func (s *lxdProvisionerSuite) sendMachineContainersChange(c *tc.C, ids ...string) {
 	select {
 	case s.containersCh <- ids:
 	case <-time.After(coretesting.LongWait):
@@ -139,7 +139,7 @@ func (s *lxdProvisionerSuite) sendMachineContainersChange(c *gc.C, ids ...string
 	}
 }
 
-func (s *lxdProvisionerSuite) waitForProvisioner(c *gc.C) {
+func (s *lxdProvisionerSuite) waitForProvisioner(c *tc.C) {
 	select {
 	case <-s.provisionerStarted:
 	case <-time.After(coretesting.LongWait):
@@ -147,7 +147,7 @@ func (s *lxdProvisionerSuite) waitForProvisioner(c *gc.C) {
 	}
 }
 
-func (s *lxdProvisionerSuite) checkStartInstance(c *gc.C, m *testMachine) {
+func (s *lxdProvisionerSuite) checkStartInstance(c *tc.C, m *testMachine) {
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
 		_, err := m.InstanceId(context.Background())
 		if err == nil {
@@ -157,7 +157,7 @@ func (s *lxdProvisionerSuite) checkStartInstance(c *gc.C, m *testMachine) {
 	c.Fatalf("machine %v not started", m.id)
 }
 
-func (s *lxdProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
+func (s *lxdProvisionerSuite) TestContainerStartedAndStopped(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -191,8 +191,8 @@ func (s *lxdProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 	s.checkStartInstance(c, c666)
 
 	s.broker.EXPECT().StopInstances(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, ids ...instance.Id) error {
-		c.Assert(len(ids), gc.Equals, 1)
-		c.Assert(ids[0], gc.DeepEquals, instance.Id("inst-666"))
+		c.Assert(len(ids), tc.Equals, 1)
+		c.Assert(ids[0], tc.DeepEquals, instance.Id("inst-666"))
 		return nil
 	})
 
@@ -201,7 +201,7 @@ func (s *lxdProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 	s.waitForRemovalMark(c, c666)
 }
 
-func (s *lxdProvisionerSuite) TestKVMProvisionerObservesConfigChanges(c *gc.C) {
+func (s *lxdProvisionerSuite) TestKVMProvisionerObservesConfigChanges(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -211,7 +211,7 @@ func (s *lxdProvisionerSuite) TestKVMProvisionerObservesConfigChanges(c *gc.C) {
 	s.assertProvisionerObservesConfigChanges(c, p, true)
 }
 
-func (s *lxdProvisionerSuite) TestKVMProvisionerObservesConfigChangesWorkerCount(c *gc.C) {
+func (s *lxdProvisionerSuite) TestKVMProvisionerObservesConfigChangesWorkerCount(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -222,7 +222,7 @@ func (s *lxdProvisionerSuite) TestKVMProvisionerObservesConfigChangesWorkerCount
 }
 
 // waitForRemovalMark waits for the supplied machine to be marked for removal.
-func (s *lxdProvisionerSuite) waitForRemovalMark(c *gc.C, m *testMachine) {
+func (s *lxdProvisionerSuite) waitForRemovalMark(c *tc.C, m *testMachine) {
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
 		if m.GetMarkForRemoval() {
 			return
@@ -231,7 +231,7 @@ func (s *lxdProvisionerSuite) waitForRemovalMark(c *gc.C, m *testMachine) {
 	c.Fatalf("machine %q not marked for removal", m.id)
 }
 
-func (s *lxdProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C, p containerprovisioner.Provisioner, container bool) {
+func (s *lxdProvisionerSuite) assertProvisionerObservesConfigChanges(c *tc.C, p containerprovisioner.Provisioner, container bool) {
 	// Inject our observer into the provisioner
 	cfgObserver := make(chan *config.Config)
 	containerprovisioner.SetObserver(p, cfgObserver)
@@ -271,7 +271,7 @@ func (s *lxdProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C, p 
 	}
 }
 
-func (s *lxdProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCount(c *gc.C, p containerprovisioner.Provisioner, container bool) {
+func (s *lxdProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCount(c *tc.C, p containerprovisioner.Provisioner, container bool) {
 	// Inject our observer into the provisioner
 	cfgObserver := make(chan *config.Config)
 	containerprovisioner.SetObserver(p, cfgObserver)
@@ -324,7 +324,7 @@ func (s *lxdProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCount(
 	}
 }
 
-func (s *lxdProvisionerSuite) sendModelConfigChange(c *gc.C) {
+func (s *lxdProvisionerSuite) sendModelConfigChange(c *tc.C) {
 	select {
 	case s.modelConfigCh <- struct{}{}:
 	case <-time.After(coretesting.LongWait):
@@ -367,7 +367,7 @@ func machineStartInstanceArg(id string) *environs.StartInstanceParams {
 	return &result
 }
 
-func newDefaultStartInstanceParamsMatcher(c *gc.C, want *environs.StartInstanceParams) *startInstanceParamsMatcher {
+func newDefaultStartInstanceParamsMatcher(c *tc.C, want *environs.StartInstanceParams) *startInstanceParamsMatcher {
 	match := func(p environs.StartInstanceParams) bool {
 		p.Abort = nil
 		p.StatusCallback = nil

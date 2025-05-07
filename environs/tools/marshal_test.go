@@ -8,26 +8,26 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/tools"
 )
 
-var _ = gc.Suite(&marshalSuite{})
+var _ = tc.Suite(&marshalSuite{})
 
 type marshalSuite struct {
 	streamMetadata map[string][]*tools.ToolsMetadata
 }
 
-func (s *marshalSuite) SetUpTest(c *gc.C) {
+func (s *marshalSuite) SetUpTest(c *tc.C) {
 	s.streamMetadata = map[string][]*tools.ToolsMetadata{
 		"released": releasedToolMetadataForTesting,
 		"proposed": proposedToolMetadataForTesting,
 	}
 }
 
-func (s *marshalSuite) TestLargeNumber(c *gc.C) {
+func (s *marshalSuite) TestLargeNumber(c *tc.C) {
 	metadata := map[string][]*tools.ToolsMetadata{
 		"released": {
 			{
@@ -250,14 +250,14 @@ var proposedToolMetadataForTesting = []*tools.ToolsMetadata{
 	},
 }
 
-func (s *marshalSuite) TestMarshalIndex(c *gc.C) {
+func (s *marshalSuite) TestMarshalIndex(c *tc.C) {
 	index, legacyIndex, err := tools.MarshalToolsMetadataIndexJSON(context.Background(), s.streamMetadata, time.Unix(0, 0).UTC())
 	c.Assert(err, jc.ErrorIsNil)
 	assertIndex(c, index, expectedIndex)
 	assertIndex(c, legacyIndex, expectedLegacyIndex)
 }
 
-func assertIndex(c *gc.C, obtainedIndex []byte, expectedIndex string) {
+func assertIndex(c *tc.C, obtainedIndex []byte, expectedIndex string) {
 	// Unmarshall into objects so an order independent comparison can be done.
 	var obtained interface{}
 	err := json.Unmarshal(obtainedIndex, &obtained)
@@ -268,19 +268,19 @@ func assertIndex(c *gc.C, obtainedIndex []byte, expectedIndex string) {
 	c.Assert(obtained, jc.DeepEquals, expected)
 }
 
-func (s *marshalSuite) TestMarshalProducts(c *gc.C) {
+func (s *marshalSuite) TestMarshalProducts(c *tc.C) {
 	products, err := tools.MarshalToolsMetadataProductsJSON(s.streamMetadata, time.Unix(0, 0).UTC())
 	c.Assert(err, jc.ErrorIsNil)
 	assertProducts(c, products)
 }
 
-func assertProducts(c *gc.C, obtainedProducts map[string][]byte) {
-	c.Assert(obtainedProducts, gc.HasLen, 2)
-	c.Assert(string(obtainedProducts["released"]), gc.Equals, expectedReleasedProducts)
-	c.Assert(string(obtainedProducts["proposed"]), gc.Equals, expectedProposedProducts)
+func assertProducts(c *tc.C, obtainedProducts map[string][]byte) {
+	c.Assert(obtainedProducts, tc.HasLen, 2)
+	c.Assert(string(obtainedProducts["released"]), tc.Equals, expectedReleasedProducts)
+	c.Assert(string(obtainedProducts["proposed"]), tc.Equals, expectedProposedProducts)
 }
 
-func (s *marshalSuite) TestMarshal(c *gc.C) {
+func (s *marshalSuite) TestMarshal(c *tc.C) {
 	index, legacyIndex, products, err := tools.MarshalToolsMetadataJSON(s.streamMetadata, time.Unix(0, 0).UTC())
 	c.Assert(err, jc.ErrorIsNil)
 	assertIndex(c, index, expectedIndex)
@@ -288,12 +288,12 @@ func (s *marshalSuite) TestMarshal(c *gc.C) {
 	assertProducts(c, products)
 }
 
-func (s *marshalSuite) TestMarshalNoReleaseStream(c *gc.C) {
+func (s *marshalSuite) TestMarshalNoReleaseStream(c *tc.C) {
 	metadata := s.streamMetadata
 	delete(metadata, "released")
 	index, legacyIndex, products, err := tools.MarshalToolsMetadataJSON(s.streamMetadata, time.Unix(0, 0).UTC())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(legacyIndex, gc.IsNil)
-	c.Assert(index, gc.NotNil)
-	c.Assert(products, gc.NotNil)
+	c.Assert(legacyIndex, tc.IsNil)
+	c.Assert(index, tc.NotNil)
+	c.Assert(products, tc.NotNil)
 }

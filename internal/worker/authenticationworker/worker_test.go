@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/ssh"
 	sshtesting "github.com/juju/utils/v4/ssh/testing"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -30,12 +30,12 @@ type workerSuite struct {
 	existingKeys      []string
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
-func (s *workerSuite) SetUpTest(c *gc.C) {
+func (s *workerSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	// Default ssh user is currently "ubuntu".
-	c.Assert(authenticationworker.SSHUser, gc.Equals, "ubuntu")
+	c.Assert(authenticationworker.SSHUser, tc.Equals, "ubuntu")
 	// Set the ssh user to empty (the current user) as required by the test infrastructure.
 	s.PatchValue(&authenticationworker.SSHUser, "")
 
@@ -54,7 +54,7 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 
 type mockConfig struct {
 	agent.Config
-	c   *gc.C
+	c   *tc.C
 	tag names.Tag
 }
 
@@ -62,11 +62,11 @@ func (mock *mockConfig) Tag() names.Tag {
 	return mock.tag
 }
 
-func agentConfig(c *gc.C, tag names.MachineTag) *mockConfig {
+func agentConfig(c *tc.C, tag names.MachineTag) *mockConfig {
 	return &mockConfig{c: c, tag: tag}
 }
 
-func (s *workerSuite) waitSSHKeys(c *gc.C, expected []string) {
+func (s *workerSuite) waitSSHKeys(c *tc.C, expected []string) {
 	timeout := time.After(coretesting.LongWait)
 	for {
 		select {
@@ -85,7 +85,7 @@ func (s *workerSuite) waitSSHKeys(c *gc.C, expected []string) {
 	}
 }
 
-func (s *workerSuite) TestKeyUpdateRetainsExisting(c *gc.C) {
+func (s *workerSuite) TestKeyUpdateRetainsExisting(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -109,7 +109,7 @@ func (s *workerSuite) TestKeyUpdateRetainsExisting(c *gc.C) {
 	s.waitSSHKeys(c, append(s.existingKeys, newKeyWithCommentPrefix))
 }
 
-func (s *workerSuite) TestNewKeysInJujuAreSavedOnStartup(c *gc.C) {
+func (s *workerSuite) TestNewKeysInJujuAreSavedOnStartup(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -135,7 +135,7 @@ func (s *workerSuite) TestNewKeysInJujuAreSavedOnStartup(c *gc.C) {
 	s.waitSSHKeys(c, append(s.existingKeys, newKeyWithCommentPrefix))
 }
 
-func (s *workerSuite) TestDeleteKey(c *gc.C) {
+func (s *workerSuite) TestDeleteKey(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -166,7 +166,7 @@ func (s *workerSuite) TestDeleteKey(c *gc.C) {
 	s.waitSSHKeys(c, append(s.existingKeys, anotherKeyWithCommentPrefix))
 }
 
-func (s *workerSuite) TestMultipleChanges(c *gc.C) {
+func (s *workerSuite) TestMultipleChanges(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -193,7 +193,7 @@ func (s *workerSuite) TestMultipleChanges(c *gc.C) {
 	s.waitSSHKeys(c, append(s.existingKeys, yetAnotherKeyWithComment))
 }
 
-func (s *workerSuite) TestWorkerRestart(c *gc.C) {
+func (s *workerSuite) TestWorkerRestart(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 

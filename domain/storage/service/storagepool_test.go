@@ -6,10 +6,10 @@ package service
 import (
 	"context"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -28,11 +28,11 @@ type storagePoolServiceSuite struct {
 	registry storage.ProviderRegistry
 }
 
-var _ = gc.Suite(&storagePoolServiceSuite{})
+var _ = tc.Suite(&storagePoolServiceSuite{})
 
 const validationError = errors.ConstError("missing attribute foo")
 
-func (s *storagePoolServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *storagePoolServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.state = NewMockState(ctrl)
@@ -53,13 +53,13 @@ func (s *storagePoolServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *storagePoolServiceSuite) service(c *gc.C) *Service {
+func (s *storagePoolServiceSuite) service(c *tc.C) *Service {
 	return NewService(s.state, loggertesting.WrapCheckLog(c), modelStorageRegistryGetter(func() storage.ProviderRegistry {
 		return s.registry
 	}))
 }
 
-func (s *storagePoolServiceSuite) TestCreateStoragePool(c *gc.C) {
+func (s *storagePoolServiceSuite) TestCreateStoragePool(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	sp := domainstorage.StoragePoolDetails{
@@ -75,36 +75,36 @@ func (s *storagePoolServiceSuite) TestCreateStoragePool(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *storagePoolServiceSuite) TestCreateStoragePoolInvalidName(c *gc.C) {
+func (s *storagePoolServiceSuite) TestCreateStoragePoolInvalidName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := s.service(c).CreateStoragePool(context.Background(), "66invalid", "ebs", PoolAttrs{"foo": "foo val"})
 	c.Assert(err, jc.ErrorIs, storageerrors.InvalidPoolNameError)
 }
 
-func (s *storagePoolServiceSuite) TestCreateStoragePoolMissingName(c *gc.C) {
+func (s *storagePoolServiceSuite) TestCreateStoragePoolMissingName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := s.service(c).CreateStoragePool(context.Background(), "", "ebs", PoolAttrs{"foo": "foo val"})
 	c.Assert(err, jc.ErrorIs, storageerrors.MissingPoolNameError)
 }
 
-func (s *storagePoolServiceSuite) TestCreateStoragePoolMissingType(c *gc.C) {
+func (s *storagePoolServiceSuite) TestCreateStoragePoolMissingType(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := s.service(c).CreateStoragePool(context.Background(), "ebs-fast", "", PoolAttrs{"foo": "foo val"})
 	c.Assert(err, jc.ErrorIs, storageerrors.MissingPoolTypeError)
 }
 
-func (s *storagePoolServiceSuite) TestCreateStoragePoolValidates(c *gc.C) {
+func (s *storagePoolServiceSuite) TestCreateStoragePoolValidates(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := s.service(c).CreateStoragePool(context.Background(), "ebs-fast", "ebs", PoolAttrs{"bar": "bar val"})
 	c.Assert(err, jc.ErrorIs, validationError)
-	c.Assert(err, gc.ErrorMatches, `.* missing attribute foo`)
+	c.Assert(err, tc.ErrorMatches, `.* missing attribute foo`)
 }
 
-func (s *storagePoolServiceSuite) TestDeleteStoragePool(c *gc.C) {
+func (s *storagePoolServiceSuite) TestDeleteStoragePool(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().DeleteStoragePool(gomock.Any(), "ebs-fast").Return(nil)
@@ -113,7 +113,7 @@ func (s *storagePoolServiceSuite) TestDeleteStoragePool(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *storagePoolServiceSuite) TestReplaceStoragePool(c *gc.C) {
+func (s *storagePoolServiceSuite) TestReplaceStoragePool(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	sp := domainstorage.StoragePoolDetails{
@@ -129,21 +129,21 @@ func (s *storagePoolServiceSuite) TestReplaceStoragePool(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *storagePoolServiceSuite) TestReplaceStoragePoolInvalidName(c *gc.C) {
+func (s *storagePoolServiceSuite) TestReplaceStoragePoolInvalidName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := s.service(c).ReplaceStoragePool(context.Background(), "66invalid", "ebs", PoolAttrs{"foo": "foo val"})
 	c.Assert(err, jc.ErrorIs, storageerrors.InvalidPoolNameError)
 }
 
-func (s *storagePoolServiceSuite) TestReplaceStoragePoolMissingName(c *gc.C) {
+func (s *storagePoolServiceSuite) TestReplaceStoragePoolMissingName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := s.service(c).ReplaceStoragePool(context.Background(), "", "ebs", PoolAttrs{"foo": "foo val"})
 	c.Assert(err, jc.ErrorIs, storageerrors.MissingPoolNameError)
 }
 
-func (s *storagePoolServiceSuite) TestReplaceStoragePoolExistingProvider(c *gc.C) {
+func (s *storagePoolServiceSuite) TestReplaceStoragePoolExistingProvider(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	sp := domainstorage.StoragePoolDetails{
@@ -160,15 +160,15 @@ func (s *storagePoolServiceSuite) TestReplaceStoragePoolExistingProvider(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *storagePoolServiceSuite) TestReplaceStoragePoolValidates(c *gc.C) {
+func (s *storagePoolServiceSuite) TestReplaceStoragePoolValidates(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := s.service(c).ReplaceStoragePool(context.Background(), "ebs-fast", "ebs", PoolAttrs{"bar": "bar val"})
 	c.Assert(err, jc.ErrorIs, validationError)
-	c.Assert(err, gc.ErrorMatches, `.* missing attribute foo`)
+	c.Assert(err, tc.ErrorMatches, `.* missing attribute foo`)
 }
 
-func (s *storagePoolServiceSuite) builtInPools(c *gc.C) []*storage.Config {
+func (s *storagePoolServiceSuite) builtInPools(c *tc.C) []*storage.Config {
 	builtin, err := domainstorage.BuiltInStoragePools()
 	c.Assert(err, jc.ErrorIsNil)
 	result := make([]*storage.Config, len(builtin))
@@ -180,7 +180,7 @@ func (s *storagePoolServiceSuite) builtInPools(c *gc.C) []*storage.Config {
 	return result
 }
 
-func (s *storagePoolServiceSuite) TestAllStoragePools(c *gc.C) {
+func (s *storagePoolServiceSuite) TestAllStoragePools(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	sp := domainstorage.StoragePoolDetails{
@@ -199,7 +199,7 @@ func (s *storagePoolServiceSuite) TestAllStoragePools(c *gc.C) {
 	c.Assert(got, jc.SameContents, append(s.builtInPools(c), expected))
 }
 
-func (s *storagePoolServiceSuite) TestListStoragePoolsValidFilter(c *gc.C) {
+func (s *storagePoolServiceSuite) TestListStoragePoolsValidFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	sp := domainstorage.StoragePoolDetails{
@@ -219,23 +219,23 @@ func (s *storagePoolServiceSuite) TestListStoragePoolsValidFilter(c *gc.C) {
 	c.Assert(got, jc.SameContents, append(s.builtInPools(c), expected))
 }
 
-func (s *storagePoolServiceSuite) TestListStoragePoolsInvalidFilterName(c *gc.C) {
+func (s *storagePoolServiceSuite) TestListStoragePoolsInvalidFilterName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service(c).ListStoragePools(context.Background(), domainstorage.Names{"666invalid"}, domainstorage.NilProviders)
 	c.Assert(err, jc.ErrorIs, storageerrors.InvalidPoolNameError)
-	c.Assert(err, gc.ErrorMatches, `pool name "666invalid" not valid`)
+	c.Assert(err, tc.ErrorMatches, `pool name "666invalid" not valid`)
 }
 
-func (s *storagePoolServiceSuite) TestListStoragePoolsInvalidFilterProvider(c *gc.C) {
+func (s *storagePoolServiceSuite) TestListStoragePoolsInvalidFilterProvider(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service(c).ListStoragePools(context.Background(), domainstorage.NilNames, domainstorage.Providers{"invalid"})
 	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
-	c.Assert(err, gc.ErrorMatches, `storage provider "invalid" not found`)
+	c.Assert(err, tc.ErrorMatches, `storage provider "invalid" not found`)
 }
 
-func (s *storagePoolServiceSuite) TestGetStoragePoolByName(c *gc.C) {
+func (s *storagePoolServiceSuite) TestGetStoragePoolByName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	sp := domainstorage.StoragePoolDetails{

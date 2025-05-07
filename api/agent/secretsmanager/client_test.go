@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/api/base/testing"
@@ -20,34 +20,34 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&SecretsSuite{})
+var _ = tc.Suite(&SecretsSuite{})
 
 type SecretsSuite struct {
 	coretesting.BaseSuite
 }
 
-func (s *SecretsSuite) TestNewClient(c *gc.C) {
+func (s *SecretsSuite) TestNewClient(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
-	c.Assert(client, gc.NotNil)
+	c.Assert(client, tc.NotNil)
 }
 
 func ptr[T any](v T) *T {
 	return &v
 }
 
-func (s *SecretsSuite) TestGetSecretBackendConfig(c *gc.C) {
+func (s *SecretsSuite) TestGetSecretBackendConfig(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SecretsManager")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "GetSecretBackendConfigs")
+		c.Check(objType, tc.Equals, "SecretsManager")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "GetSecretBackendConfigs")
 		c.Check(arg, jc.DeepEquals, params.SecretBackendArgs{
 			BackendIDs: []string{"active-id"},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.SecretBackendConfigResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.SecretBackendConfigResults{})
 		*(result.(*params.SecretBackendConfigResults)) = params.SecretBackendConfigResults{
 			ActiveID: "active-id",
 			Results: map[string]params.SecretBackendConfigResult{
@@ -83,14 +83,14 @@ func (s *SecretsSuite) TestGetSecretBackendConfig(c *gc.C) {
 	})
 }
 
-func (s *SecretsSuite) TestGetBackendConfigForDraining(c *gc.C) {
+func (s *SecretsSuite) TestGetBackendConfigForDraining(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SecretsManager")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "GetSecretBackendConfigs")
+		c.Check(objType, tc.Equals, "SecretsManager")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "GetSecretBackendConfigs")
 		c.Check(arg, jc.DeepEquals, params.SecretBackendArgs{ForDrain: true, BackendIDs: []string{"active-id"}})
-		c.Assert(result, gc.FitsTypeOf, &params.SecretBackendConfigResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.SecretBackendConfigResults{})
 		*(result.(*params.SecretBackendConfigResults)) = params.SecretBackendConfigResults{
 			ActiveID: "active-id",
 			Results: map[string]params.SecretBackendConfigResult{
@@ -119,21 +119,21 @@ func (s *SecretsSuite) TestGetBackendConfigForDraining(c *gc.C) {
 			Config:      map[string]interface{}{"foo": "bar"},
 		},
 	})
-	c.Assert(activeID, gc.Equals, "active-id")
+	c.Assert(activeID, tc.Equals, "active-id")
 }
 
-func (s *SecretsSuite) TestCreateSecretURIs(c *gc.C) {
+func (s *SecretsSuite) TestCreateSecretURIs(c *tc.C) {
 	uri := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SecretsManager")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "CreateSecretURIs")
+		c.Check(objType, tc.Equals, "SecretsManager")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "CreateSecretURIs")
 		c.Check(arg, jc.DeepEquals, params.CreateSecretURIsArg{
 			Count: 2,
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.StringResults{})
 		*(result.(*params.StringResults)) = params.StringResults{
 			Results: []params.StringResult{{
 				Result: uri.String(),
@@ -149,13 +149,13 @@ func (s *SecretsSuite) TestCreateSecretURIs(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, []*coresecrets.URI{uri, uri2})
 }
 
-func (s *SecretsSuite) TestGetContentInfo(c *gc.C) {
+func (s *SecretsSuite) TestGetContentInfo(c *tc.C) {
 	uri := coresecrets.NewURI()
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SecretsManager")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "GetSecretContentInfo")
+		c.Check(objType, tc.Equals, "SecretsManager")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "GetSecretContentInfo")
 		c.Check(arg, jc.DeepEquals, params.GetSecretContentArgs{
 			Args: []params.GetSecretContentArg{{
 				URI:     uri.String(),
@@ -164,7 +164,7 @@ func (s *SecretsSuite) TestGetContentInfo(c *gc.C) {
 				Peek:    true,
 			}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.SecretContentResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.SecretContentResults{})
 		*(result.(*params.SecretContentResults)) = params.SecretContentResults{
 			Results: []params.SecretContentResult{{
 				Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
@@ -177,17 +177,17 @@ func (s *SecretsSuite) TestGetContentInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	value := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 	c.Assert(content, jc.DeepEquals, &secrets.ContentParams{SecretValue: value})
-	c.Assert(backendConfig, gc.IsNil)
+	c.Assert(backendConfig, tc.IsNil)
 	c.Assert(draining, jc.IsFalse)
 }
 
-func (s *SecretsSuite) TestGetContentInfoExternal(c *gc.C) {
+func (s *SecretsSuite) TestGetContentInfoExternal(c *tc.C) {
 	uri := coresecrets.NewURI()
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SecretsManager")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "GetSecretContentInfo")
+		c.Check(objType, tc.Equals, "SecretsManager")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "GetSecretContentInfo")
 		c.Check(arg, jc.DeepEquals, params.GetSecretContentArgs{
 			Args: []params.GetSecretContentArg{{
 				URI:     uri.String(),
@@ -196,7 +196,7 @@ func (s *SecretsSuite) TestGetContentInfoExternal(c *gc.C) {
 				Peek:    true,
 			}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.SecretContentResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.SecretContentResults{})
 		*(result.(*params.SecretContentResults)) = params.SecretContentResults{
 			Results: []params.SecretContentResult{{
 				Content: params.SecretContentParams{ValueRef: &params.SecretValueRef{
@@ -236,12 +236,12 @@ func (s *SecretsSuite) TestGetContentInfoExternal(c *gc.C) {
 	c.Assert(draining, jc.IsTrue)
 }
 
-func (s *SecretsSuite) TestGetContentInfoLabelArgOnly(c *gc.C) {
+func (s *SecretsSuite) TestGetContentInfoLabelArgOnly(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SecretsManager")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "GetSecretContentInfo")
+		c.Check(objType, tc.Equals, "SecretsManager")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "GetSecretContentInfo")
 		c.Check(arg, jc.DeepEquals, params.GetSecretContentArgs{
 			Args: []params.GetSecretContentArg{{
 				Label:   "label",
@@ -249,7 +249,7 @@ func (s *SecretsSuite) TestGetContentInfoLabelArgOnly(c *gc.C) {
 				Peek:    true,
 			}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.SecretContentResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.SecretContentResults{})
 		*(result.(*params.SecretContentResults)) = params.SecretContentResults{
 			Results: []params.SecretContentResult{{
 				Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
@@ -262,11 +262,11 @@ func (s *SecretsSuite) TestGetContentInfoLabelArgOnly(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	value := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 	c.Assert(content, jc.DeepEquals, &secrets.ContentParams{SecretValue: value})
-	c.Assert(backendConfig, gc.IsNil)
+	c.Assert(backendConfig, tc.IsNil)
 	c.Assert(draining, jc.IsFalse)
 }
 
-func (s *SecretsSuite) TestGetContentInfoError(c *gc.C) {
+func (s *SecretsSuite) TestGetContentInfoError(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		*(result.(*params.SecretContentResults)) = params.SecretContentResults{
 			Results: []params.SecretContentResult{{
@@ -278,24 +278,24 @@ func (s *SecretsSuite) TestGetContentInfoError(c *gc.C) {
 	uri := coresecrets.NewURI()
 	client := secretsmanager.NewClient(apiCaller)
 	content, backendConfig, _, err := client.GetContentInfo(context.Background(), uri, "", true, true)
-	c.Assert(err, gc.ErrorMatches, "boom")
-	c.Assert(content, gc.IsNil)
-	c.Assert(backendConfig, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "boom")
+	c.Assert(content, tc.IsNil)
+	c.Assert(backendConfig, tc.IsNil)
 }
 
-func (s *SecretsSuite) TestGetRevisionContentInfo(c *gc.C) {
+func (s *SecretsSuite) TestGetRevisionContentInfo(c *tc.C) {
 	uri := coresecrets.NewURI()
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SecretsManager")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "GetSecretRevisionContentInfo")
+		c.Check(objType, tc.Equals, "SecretsManager")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "GetSecretRevisionContentInfo")
 		c.Check(arg, jc.DeepEquals, params.SecretRevisionArg{
 			URI:           uri.String(),
 			Revisions:     []int{666},
 			PendingDelete: true,
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.SecretContentResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.SecretContentResults{})
 		*(result.(*params.SecretContentResults)) = params.SecretContentResults{
 			Results: []params.SecretContentResult{{
 				Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
@@ -308,23 +308,23 @@ func (s *SecretsSuite) TestGetRevisionContentInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	value := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 	c.Assert(content, jc.DeepEquals, &secrets.ContentParams{SecretValue: value})
-	c.Assert(backendConfig, gc.IsNil)
+	c.Assert(backendConfig, tc.IsNil)
 	c.Assert(draining, jc.IsFalse)
 }
 
-func (s *SecretsSuite) TestGetRevisionContentInfoExternal(c *gc.C) {
+func (s *SecretsSuite) TestGetRevisionContentInfoExternal(c *tc.C) {
 	uri := coresecrets.NewURI()
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SecretsManager")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "GetSecretRevisionContentInfo")
+		c.Check(objType, tc.Equals, "SecretsManager")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "GetSecretRevisionContentInfo")
 		c.Check(arg, jc.DeepEquals, params.SecretRevisionArg{
 			URI:           uri.String(),
 			Revisions:     []int{666},
 			PendingDelete: true,
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.SecretContentResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.SecretContentResults{})
 		*(result.(*params.SecretContentResults)) = params.SecretContentResults{
 			Results: []params.SecretContentResult{{
 				Content: params.SecretContentParams{ValueRef: &params.SecretValueRef{
@@ -364,7 +364,7 @@ func (s *SecretsSuite) TestGetRevisionContentInfoExternal(c *gc.C) {
 	c.Assert(draining, jc.IsTrue)
 }
 
-func (s *SecretsSuite) TestGetRevisionContentInfoError(c *gc.C) {
+func (s *SecretsSuite) TestGetRevisionContentInfoError(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		*(result.(*params.SecretContentResults)) = params.SecretContentResults{
 			Results: []params.SecretContentResult{{
@@ -376,21 +376,21 @@ func (s *SecretsSuite) TestGetRevisionContentInfoError(c *gc.C) {
 	uri := coresecrets.NewURI()
 	client := secretsmanager.NewClient(apiCaller)
 	config, backendConfig, _, err := client.GetRevisionContentInfo(context.Background(), uri, 666, true)
-	c.Assert(err, gc.ErrorMatches, "boom")
-	c.Assert(config, gc.IsNil)
-	c.Assert(backendConfig, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "boom")
+	c.Assert(config, tc.IsNil)
+	c.Assert(backendConfig, tc.IsNil)
 }
 
-func (s *SecretsSuite) TestSecretMetadata(c *gc.C) {
+func (s *SecretsSuite) TestSecretMetadata(c *tc.C) {
 	uri := coresecrets.NewURI()
 	now := time.Now()
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SecretsManager")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "GetSecretMetadata")
-		c.Check(arg, gc.IsNil)
-		c.Assert(result, gc.FitsTypeOf, &params.ListSecretResults{})
+		c.Check(objType, tc.Equals, "SecretsManager")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "GetSecretMetadata")
+		c.Check(arg, tc.IsNil)
+		c.Assert(result, tc.FitsTypeOf, &params.ListSecretResults{})
 		*(result.(*params.ListSecretResults)) = params.ListSecretResults{
 			Results: []params.ListSecretResult{{
 				URI:                    uri.String(),
@@ -423,15 +423,15 @@ func (s *SecretsSuite) TestSecretMetadata(c *gc.C) {
 	client := secretsmanager.NewClient(apiCaller)
 	result, err := client.SecretMetadata(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.HasLen, 1)
+	c.Assert(result, tc.HasLen, 1)
 	for _, info := range result {
-		c.Assert(info.Metadata.URI.String(), gc.Equals, uri.String())
+		c.Assert(info.Metadata.URI.String(), tc.Equals, uri.String())
 		c.Assert(info.Metadata.Owner, jc.DeepEquals, coresecrets.Owner{Kind: coresecrets.ModelOwner, ID: coretesting.ModelTag.Id()})
-		c.Assert(info.Metadata.Label, gc.Equals, "label")
-		c.Assert(info.Metadata.LatestRevision, gc.Equals, 667)
-		c.Assert(info.Metadata.LatestRevisionChecksum, gc.Equals, "checksum")
-		c.Assert(info.Metadata.LatestExpireTime, gc.Equals, &now)
-		c.Assert(info.Metadata.NextRotateTime, gc.Equals, &now)
+		c.Assert(info.Metadata.Label, tc.Equals, "label")
+		c.Assert(info.Metadata.LatestRevision, tc.Equals, 667)
+		c.Assert(info.Metadata.LatestRevisionChecksum, tc.Equals, "checksum")
+		c.Assert(info.Metadata.LatestExpireTime, tc.Equals, &now)
+		c.Assert(info.Metadata.NextRotateTime, tc.Equals, &now)
 		c.Assert(info.Revisions, jc.DeepEquals, []int{666, 667})
 		c.Assert(info.Metadata.Access, jc.DeepEquals, []coresecrets.AccessInfo{
 			{
@@ -443,16 +443,16 @@ func (s *SecretsSuite) TestSecretMetadata(c *gc.C) {
 	}
 }
 
-func (s *SecretsSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
+func (s *SecretsSuite) TestWatchConsumedSecretsChanges(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SecretsManager")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchConsumedSecretsChanges")
+		c.Check(objType, tc.Equals, "SecretsManager")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "WatchConsumedSecretsChanges")
 		c.Check(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "unit-foo-0"}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.StringsWatchResults{})
 		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
 			Results: []params.StringsWatchResult{{
 				Error: &params.Error{Message: "FAIL"},
@@ -462,21 +462,21 @@ func (s *SecretsSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	})
 	client := secretsmanager.NewClient(apiCaller)
 	_, err := client.WatchConsumedSecretsChanges(context.Background(), "foo/0")
-	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
-func (s *SecretsSuite) GetConsumerSecretsRevisionInfo(c *gc.C) {
+func (s *SecretsSuite) GetConsumerSecretsRevisionInfo(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SecretsManager")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "GetConsumerSecretsRevisionInfo")
+		c.Check(objType, tc.Equals, "SecretsManager")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "GetConsumerSecretsRevisionInfo")
 		c.Check(arg, jc.DeepEquals, params.GetSecretConsumerInfoArgs{
 			ConsumerTag: "unit-foo-0",
 			URIs: []string{
 				"secret:9m4e2mr0ui3e8a215n4g", "secret:8n3e2mr0ui3e8a215n5h", "secret:7c5e2mr0ui3e8a2154r2"},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.SecretConsumerInfoResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.SecretConsumerInfoResults{})
 		*(result.(*params.SecretConsumerInfoResults)) = params.SecretConsumerInfoResults{
 			Results: []params.SecretConsumerInfoResult{{
 				Revision: 666,
@@ -499,16 +499,16 @@ func (s *SecretsSuite) GetConsumerSecretsRevisionInfo(c *gc.C) {
 	c.Assert(info, jc.DeepEquals, map[string]coresecrets.SecretRevisionInfo{})
 }
 
-func (s *SecretsSuite) TestWatchObsolete(c *gc.C) {
+func (s *SecretsSuite) TestWatchObsolete(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SecretsManager")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchObsolete")
+		c.Check(objType, tc.Equals, "SecretsManager")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "WatchObsolete")
 		c.Check(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "unit-foo-0"}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResult{})
+		c.Assert(result, tc.FitsTypeOf, &params.StringsWatchResult{})
 		*(result.(*params.StringsWatchResult)) = params.StringsWatchResult{
 			Error: &params.Error{Message: "FAIL"},
 		}
@@ -516,19 +516,19 @@ func (s *SecretsSuite) TestWatchObsolete(c *gc.C) {
 	})
 	client := secretsmanager.NewClient(apiCaller)
 	_, err := client.WatchObsolete(context.Background(), names.NewUnitTag("foo/0"))
-	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
-func (s *SecretsSuite) TestWatchSecretsRotationChanges(c *gc.C) {
+func (s *SecretsSuite) TestWatchSecretsRotationChanges(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SecretsManager")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchSecretsRotationChanges")
+		c.Check(objType, tc.Equals, "SecretsManager")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "WatchSecretsRotationChanges")
 		c.Check(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "application-app"}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.SecretTriggerWatchResult{})
+		c.Assert(result, tc.FitsTypeOf, &params.SecretTriggerWatchResult{})
 		*(result.(*params.SecretTriggerWatchResult)) = params.SecretTriggerWatchResult{
 			Error: &params.Error{Message: "FAIL"},
 		}
@@ -536,22 +536,22 @@ func (s *SecretsSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 	})
 	client := secretsmanager.NewClient(apiCaller)
 	_, err := client.WatchSecretsRotationChanges(context.Background(), names.NewApplicationTag("app"))
-	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
-func (s *SecretsSuite) TestSecretRotated(c *gc.C) {
+func (s *SecretsSuite) TestSecretRotated(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SecretsManager")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "SecretsRotated")
+		c.Check(objType, tc.Equals, "SecretsManager")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "SecretsRotated")
 		c.Check(arg, jc.DeepEquals, params.SecretRotatedArgs{
 			Args: []params.SecretRotatedArg{{
 				URI:              "secret:9m4e2mr0ui3e8a215n4g",
 				OriginalRevision: 666,
 			}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{
 				Error: &params.Error{Message: "boom"},
@@ -561,19 +561,19 @@ func (s *SecretsSuite) TestSecretRotated(c *gc.C) {
 	})
 	client := secretsmanager.NewClient(apiCaller)
 	err := client.SecretRotated(context.Background(), "secret:9m4e2mr0ui3e8a215n4g", 666)
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *SecretsSuite) TestWatchSecretRevisionsExpiryChanges(c *gc.C) {
+func (s *SecretsSuite) TestWatchSecretRevisionsExpiryChanges(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SecretsManager")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchSecretRevisionsExpiryChanges")
+		c.Check(objType, tc.Equals, "SecretsManager")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "WatchSecretRevisionsExpiryChanges")
 		c.Check(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "application-app"}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.SecretTriggerWatchResult{})
+		c.Assert(result, tc.FitsTypeOf, &params.SecretTriggerWatchResult{})
 		*(result.(*params.SecretTriggerWatchResult)) = params.SecretTriggerWatchResult{
 			Error: &params.Error{Message: "FAIL"},
 		}
@@ -581,16 +581,16 @@ func (s *SecretsSuite) TestWatchSecretRevisionsExpiryChanges(c *gc.C) {
 	})
 	client := secretsmanager.NewClient(apiCaller)
 	_, err := client.WatchSecretRevisionsExpiryChanges(context.Background(), names.NewApplicationTag("app"))
-	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
-func (s *SecretsSuite) TestGrant(c *gc.C) {
+func (s *SecretsSuite) TestGrant(c *tc.C) {
 	uri := coresecrets.NewURI()
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SecretsManager")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "SecretsGrant")
+		c.Check(objType, tc.Equals, "SecretsManager")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "SecretsGrant")
 		c.Check(arg, jc.DeepEquals, params.GrantRevokeSecretArgs{
 			Args: []params.GrantRevokeSecretArg{{
 				URI:         uri.String(),
@@ -599,7 +599,7 @@ func (s *SecretsSuite) TestGrant(c *gc.C) {
 				Role:        "view",
 			}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{
 				Error: &params.Error{Message: "FAIL"},
@@ -613,16 +613,16 @@ func (s *SecretsSuite) TestGrant(c *gc.C) {
 		RelationKey: ptr("wordpress:db mysql:server"),
 		Role:        coresecrets.RoleView,
 	})
-	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
-func (s *SecretsSuite) TestRevoke(c *gc.C) {
+func (s *SecretsSuite) TestRevoke(c *tc.C) {
 	uri := coresecrets.NewURI()
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SecretsManager")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "SecretsRevoke")
+		c.Check(objType, tc.Equals, "SecretsManager")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "SecretsRevoke")
 		c.Check(arg, jc.DeepEquals, params.GrantRevokeSecretArgs{
 			Args: []params.GrantRevokeSecretArg{{
 				URI:         uri.String(),
@@ -631,7 +631,7 @@ func (s *SecretsSuite) TestRevoke(c *gc.C) {
 				Role:        "view",
 			}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{
 				Error: &params.Error{Message: "FAIL"},
@@ -645,5 +645,5 @@ func (s *SecretsSuite) TestRevoke(c *gc.C) {
 		RelationKey:     ptr("wordpress:db mysql:server"),
 		Role:            coresecrets.RoleView,
 	})
-	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(err, tc.ErrorMatches, "FAIL")
 }

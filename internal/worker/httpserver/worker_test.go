@@ -17,10 +17,10 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/pubsub/v2"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/apiserverhttp"
@@ -42,7 +42,7 @@ type workerFixture struct {
 	logDir               string
 }
 
-func (s *workerFixture) SetUpTest(c *gc.C) {
+func (s *workerFixture) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	certPool, err := api.CreateCertPool(coretesting.CACert)
 	c.Assert(err, jc.ErrorIsNil)
@@ -75,9 +75,9 @@ type WorkerValidationSuite struct {
 	workerFixture
 }
 
-var _ = gc.Suite(&WorkerValidationSuite{})
+var _ = tc.Suite(&WorkerValidationSuite{})
 
-func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
+func (s *WorkerValidationSuite) TestValidateErrors(c *tc.C) {
 	type test struct {
 		f      func(*httpserver.Config)
 		expect string
@@ -101,16 +101,16 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 	}
 }
 
-func (s *WorkerValidationSuite) testValidateError(c *gc.C, f func(*httpserver.Config), expect string) {
+func (s *WorkerValidationSuite) testValidateError(c *tc.C, f func(*httpserver.Config), expect string) {
 	config := s.config
 	f(&config)
 	w, err := httpserver.NewWorker(config)
-	if !c.Check(err, gc.NotNil) {
+	if !c.Check(err, tc.NotNil) {
 		workertest.DirtyKill(c, w)
 		return
 	}
-	c.Check(w, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, expect)
+	c.Check(w, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, expect)
 }
 
 type WorkerSuite struct {
@@ -118,38 +118,38 @@ type WorkerSuite struct {
 	worker *httpserver.Worker
 }
 
-var _ = gc.Suite(&WorkerSuite{})
+var _ = tc.Suite(&WorkerSuite{})
 
-func (s *WorkerSuite) SetUpTest(c *gc.C) {
+func (s *WorkerSuite) SetUpTest(c *tc.C) {
 	s.workerFixture.SetUpTest(c)
 	worker, err := httpserver.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) {
+	s.AddCleanup(func(c *tc.C) {
 		workertest.DirtyKill(c, worker)
 	})
 	s.worker = worker
 }
 
-func (s *WorkerSuite) TestStartStop(c *gc.C) {
+func (s *WorkerSuite) TestStartStop(c *tc.C) {
 	workertest.CleanKill(c, s.worker)
 }
 
-func (s *WorkerSuite) TestURL(c *gc.C) {
+func (s *WorkerSuite) TestURL(c *tc.C) {
 	url := s.worker.URL()
-	c.Assert(url, gc.Matches, "https://.*")
+	c.Assert(url, tc.Matches, "https://.*")
 }
 
-func (s *WorkerSuite) TestURLWorkerDead(c *gc.C) {
+func (s *WorkerSuite) TestURLWorkerDead(c *tc.C) {
 	workertest.CleanKill(c, s.worker)
 	url := s.worker.URL()
-	c.Assert(url, gc.Matches, "")
+	c.Assert(url, tc.Matches, "")
 }
 
-func (s *WorkerSuite) TestRoundTrip(c *gc.C) {
+func (s *WorkerSuite) TestRoundTrip(c *tc.C) {
 	s.makeRequest(c, s.worker.URL())
 }
 
-func (s *WorkerSuite) makeRequest(c *gc.C, url string) {
+func (s *WorkerSuite) makeRequest(c *tc.C, url string) {
 	s.mux.AddHandler("GET", "/hello/:name", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		io.WriteString(w, "hello, "+r.URL.Query().Get(":name"))
@@ -165,13 +165,13 @@ func (s *WorkerSuite) makeRequest(c *gc.C, url string) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer resp.Body.Close()
 
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 	out, err := io.ReadAll(resp.Body)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(out), gc.Equals, "hello, world")
+	c.Assert(string(out), tc.Equals, "hello, world")
 }
 
-func (s *WorkerSuite) TestWaitsForClients(c *gc.C) {
+func (s *WorkerSuite) TestWaitsForClients(c *tc.C) {
 	// Check that the httpserver stays functional until any clients
 	// have finished with it.
 	s.mux.AddClient()
@@ -202,7 +202,7 @@ func (s *WorkerSuite) TestWaitsForClients(c *gc.C) {
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
-func (s *WorkerSuite) TestExitsWithTardyClients(c *gc.C) {
+func (s *WorkerSuite) TestExitsWithTardyClients(c *tc.C) {
 	// Check that the httpserver shuts down eventually if
 	// clients appear to be stuck.
 	s.mux.AddClient()
@@ -234,10 +234,10 @@ func (s *WorkerSuite) TestExitsWithTardyClients(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	lines := strings.Split(string(data), "\n")
 	c.Assert(len(lines), jc.GreaterThan, 1)
-	c.Assert(lines[1], gc.Matches, "goroutine profile:.*")
+	c.Assert(lines[1], tc.Matches, "goroutine profile:.*")
 }
 
-func (s *WorkerSuite) TestMinTLSVersion(c *gc.C) {
+func (s *WorkerSuite) TestMinTLSVersion(c *tc.C) {
 	parsed, err := url.Parse(s.worker.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -246,11 +246,11 @@ func (s *WorkerSuite) TestMinTLSVersion(c *gc.C) {
 	tlsConfig.MaxVersion = tls.VersionSSL30
 
 	conn, err := tls.Dial("tcp", parsed.Host, tlsConfig)
-	c.Assert(err, gc.ErrorMatches, ".*tls:.*version.*")
-	c.Assert(conn, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, ".*tls:.*version.*")
+	c.Assert(conn, tc.IsNil)
 }
 
-func (s *WorkerSuite) TestHeldListener(c *gc.C) {
+func (s *WorkerSuite) TestHeldListener(c *tc.C) {
 	// Worker url comes back as "" when the worker is dying.
 	url := s.worker.URL()
 
@@ -340,18 +340,18 @@ type WorkerControllerPortSuite struct {
 	workerFixture
 }
 
-var _ = gc.Suite(&WorkerControllerPortSuite{})
+var _ = tc.Suite(&WorkerControllerPortSuite{})
 
-func (s *WorkerControllerPortSuite) newWorker(c *gc.C) *httpserver.Worker {
+func (s *WorkerControllerPortSuite) newWorker(c *tc.C) *httpserver.Worker {
 	worker, err := httpserver.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) {
+	s.AddCleanup(func(c *tc.C) {
 		workertest.DirtyKill(c, worker)
 	})
 	return worker
 }
 
-func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelay(c *gc.C) {
+func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelay(c *tc.C) {
 	err := s.mux.AddHandler("GET", "/quick", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -382,7 +382,7 @@ func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelay(c *gc.C) {
 	controllerURL := worker.URL()
 	parsed, err := url.Parse(controllerURL)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(parsed.Port(), gc.Equals, fmt.Sprint(controllerPort))
+	c.Assert(parsed.Port(), tc.Equals, fmt.Sprint(controllerPort))
 
 	reportPorts := map[string]interface{}{
 		"controller": fmt.Sprintf("[::]:%d", s.config.ControllerAPIPort),
@@ -403,7 +403,7 @@ func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelay(c *gc.C) {
 	// Requests on the regular API port fail to connect.
 	parsed.Host = net.JoinHostPort(parsed.Hostname(), fmt.Sprint(port))
 	normalURL := parsed.String()
-	c.Assert(request(normalURL), gc.ErrorMatches, `.*: connection refused$`)
+	c.Assert(request(normalURL), tc.ErrorMatches, `.*: connection refused$`)
 
 	// Getting a connection from someone else doesn't unblock.
 	handled, err := s.hub.Publish(apiserver.ConnectTopic, apiserver.APIConnection{
@@ -428,7 +428,7 @@ func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelay(c *gc.C) {
 	err = s.clock.WaitAdvance(5*time.Second, coretesting.LongWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(request(controllerURL), jc.ErrorIsNil)
-	c.Assert(request(normalURL), gc.ErrorMatches, `.*: connection refused$`)
+	c.Assert(request(normalURL), tc.ErrorMatches, `.*: connection refused$`)
 
 	reportPorts["status"] = "waiting prior to opening agent port"
 	c.Check(worker.Report(), jc.DeepEquals, report)
@@ -443,7 +443,7 @@ func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelay(c *gc.C) {
 			break
 		}
 	}
-	c.Assert(worker.URL(), gc.Equals, normalURL)
+	c.Assert(worker.URL(), tc.Equals, normalURL)
 
 	// Requests on both ports work.
 	c.Assert(request(controllerURL), jc.ErrorIsNil)
@@ -454,7 +454,7 @@ func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelay(c *gc.C) {
 	c.Check(worker.Report(), jc.DeepEquals, report)
 }
 
-func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelayShutdown(c *gc.C) {
+func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelayShutdown(c *tc.C) {
 	err := s.mux.AddHandler("GET", "/quick", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -482,12 +482,12 @@ func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelayShutdown(c *gc.
 	controllerURL := worker.URL()
 	parsed, err := url.Parse(controllerURL)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(parsed.Port(), gc.Equals, fmt.Sprint(controllerPort))
+	c.Assert(parsed.Port(), tc.Equals, fmt.Sprint(controllerPort))
 	// Requests to controllerURL are successful, but normal requests are denied
 	c.Assert(request(controllerURL), jc.ErrorIsNil)
 	parsed.Host = net.JoinHostPort(parsed.Hostname(), fmt.Sprint(port))
 	normalURL := parsed.String()
-	c.Assert(request(normalURL), gc.ErrorMatches, `.*: connection refused$`)
+	c.Assert(request(normalURL), tc.ErrorMatches, `.*: connection refused$`)
 	// Send API details on the hub - still no luck connecting on the
 	// non-controller port.
 	_, err = s.hub.Publish(apiserver.ConnectTopic, apiserver.APIConnection{

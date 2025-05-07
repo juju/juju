@@ -8,10 +8,10 @@ import (
 	"errors"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	apilifeflag "github.com/juju/juju/api/controller/lifeflag"
 	"github.com/juju/juju/core/life"
@@ -22,9 +22,9 @@ type WorkerSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&WorkerSuite{})
+var _ = tc.Suite(&WorkerSuite{})
 
-func (*WorkerSuite) TestCreateNotFoundError(c *gc.C) {
+func (*WorkerSuite) TestCreateNotFoundError(c *tc.C) {
 	stub := &testing.Stub{}
 	stub.SetErrors(apilifeflag.ErrEntityNotFound)
 	config := lifeflag.Config{
@@ -34,12 +34,12 @@ func (*WorkerSuite) TestCreateNotFoundError(c *gc.C) {
 	}
 
 	worker, err := lifeflag.New(context.Background(), config)
-	c.Check(worker, gc.IsNil)
+	c.Check(worker, tc.IsNil)
 	c.Check(err, jc.ErrorIs, apilifeflag.ErrEntityNotFound)
 	checkCalls(c, stub, "Life")
 }
 
-func (*WorkerSuite) TestCreateRandomError(c *gc.C) {
+func (*WorkerSuite) TestCreateRandomError(c *tc.C) {
 	stub := &testing.Stub{}
 	stub.SetErrors(errors.New("boom splat"))
 	config := lifeflag.Config{
@@ -49,12 +49,12 @@ func (*WorkerSuite) TestCreateRandomError(c *gc.C) {
 	}
 
 	worker, err := lifeflag.New(context.Background(), config)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "boom splat")
+	c.Check(worker, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "boom splat")
 	checkCalls(c, stub, "Life")
 }
 
-func (*WorkerSuite) TestWatchNotFoundError(c *gc.C) {
+func (*WorkerSuite) TestWatchNotFoundError(c *tc.C) {
 	stub := &testing.Stub{}
 	stub.SetErrors(nil, apilifeflag.ErrEntityNotFound)
 	config := lifeflag.Config{
@@ -72,7 +72,7 @@ func (*WorkerSuite) TestWatchNotFoundError(c *gc.C) {
 	checkCalls(c, stub, "Life", "Watch")
 }
 
-func (*WorkerSuite) TestWatchRandomError(c *gc.C) {
+func (*WorkerSuite) TestWatchRandomError(c *tc.C) {
 	stub := &testing.Stub{}
 	stub.SetErrors(nil, errors.New("pew pew"))
 	config := lifeflag.Config{
@@ -86,11 +86,11 @@ func (*WorkerSuite) TestWatchRandomError(c *gc.C) {
 	c.Check(worker.Check(), jc.IsFalse)
 
 	err = workertest.CheckKilled(c, worker)
-	c.Check(err, gc.ErrorMatches, "pew pew")
+	c.Check(err, tc.ErrorMatches, "pew pew")
 	checkCalls(c, stub, "Life", "Watch")
 }
 
-func (*WorkerSuite) TestLifeNotFoundError(c *gc.C) {
+func (*WorkerSuite) TestLifeNotFoundError(c *tc.C) {
 	stub := &testing.Stub{}
 	stub.SetErrors(nil, nil, apilifeflag.ErrEntityNotFound)
 	config := lifeflag.Config{
@@ -108,7 +108,7 @@ func (*WorkerSuite) TestLifeNotFoundError(c *gc.C) {
 	checkCalls(c, stub, "Life", "Watch", "Life")
 }
 
-func (*WorkerSuite) TestLifeRandomError(c *gc.C) {
+func (*WorkerSuite) TestLifeRandomError(c *tc.C) {
 	stub := &testing.Stub{}
 	stub.SetErrors(nil, nil, errors.New("rawr"))
 	config := lifeflag.Config{
@@ -122,11 +122,11 @@ func (*WorkerSuite) TestLifeRandomError(c *gc.C) {
 	c.Check(worker.Check(), jc.IsFalse)
 
 	err = workertest.CheckKilled(c, worker)
-	c.Check(err, gc.ErrorMatches, "rawr")
+	c.Check(err, tc.ErrorMatches, "rawr")
 	checkCalls(c, stub, "Life", "Watch", "Life")
 }
 
-func (*WorkerSuite) TestResultImmediateRealChange(c *gc.C) {
+func (*WorkerSuite) TestResultImmediateRealChange(c *tc.C) {
 	stub := &testing.Stub{}
 	config := lifeflag.Config{
 		Facade: newMockFacade(stub, life.Alive, life.Dead),
@@ -139,11 +139,11 @@ func (*WorkerSuite) TestResultImmediateRealChange(c *gc.C) {
 	c.Check(worker.Check(), jc.IsFalse)
 
 	err = workertest.CheckKilled(c, worker)
-	c.Check(err, gc.Equals, lifeflag.ErrValueChanged)
+	c.Check(err, tc.Equals, lifeflag.ErrValueChanged)
 	checkCalls(c, stub, "Life", "Watch", "Life")
 }
 
-func (*WorkerSuite) TestResultSubsequentRealChange(c *gc.C) {
+func (*WorkerSuite) TestResultSubsequentRealChange(c *tc.C) {
 	stub := &testing.Stub{}
 	config := lifeflag.Config{
 		Facade: newMockFacade(stub, life.Dying, life.Dying, life.Dead),
@@ -155,11 +155,11 @@ func (*WorkerSuite) TestResultSubsequentRealChange(c *gc.C) {
 	c.Check(worker.Check(), jc.IsTrue)
 
 	err = workertest.CheckKilled(c, worker)
-	c.Check(err, gc.Equals, lifeflag.ErrValueChanged)
+	c.Check(err, tc.Equals, lifeflag.ErrValueChanged)
 	checkCalls(c, stub, "Life", "Watch", "Life", "Life")
 }
 
-func (*WorkerSuite) TestResultNoRealChange(c *gc.C) {
+func (*WorkerSuite) TestResultNoRealChange(c *tc.C) {
 	stub := &testing.Stub{}
 	config := lifeflag.Config{
 		Facade: newMockFacade(stub, life.Alive, life.Alive, life.Dying),
@@ -177,10 +177,10 @@ func (*WorkerSuite) TestResultNoRealChange(c *gc.C) {
 
 var testEntity = names.NewUnitTag("blah/123")
 
-func checkCalls(c *gc.C, stub *testing.Stub, names ...string) {
+func checkCalls(c *tc.C, stub *testing.Stub, names ...string) {
 	stub.CheckCallNames(c, names...)
 	for _, call := range stub.Calls() {
-		c.Check(call.Args, gc.DeepEquals, []interface{}{testEntity})
+		c.Check(call.Args, tc.DeepEquals, []interface{}{testEntity})
 	}
 }
 

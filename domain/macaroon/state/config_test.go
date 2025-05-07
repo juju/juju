@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	macaroonerrors "github.com/juju/juju/domain/macaroon/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -25,15 +25,15 @@ type configStateSuite struct {
 	schematesting.ControllerSuite
 }
 
-var _ = gc.Suite(&configStateSuite{})
+var _ = tc.Suite(&configStateSuite{})
 
-func (s *configStateSuite) TestInitialise(c *gc.C) {
+func (s *configStateSuite) TestInitialise(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	err := st.InitialiseBakeryConfig(context.Background(), testKey1, testKey2, testKey3, testKey4)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *configStateSuite) TestInitialiseMultipleTimesFails(c *gc.C) {
+func (s *configStateSuite) TestInitialiseMultipleTimesFails(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	err := st.InitialiseBakeryConfig(context.Background(), testKey1, testKey2, testKey3, testKey4)
 	c.Assert(err, jc.ErrorIsNil)
@@ -42,29 +42,29 @@ func (s *configStateSuite) TestInitialiseMultipleTimesFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, macaroonerrors.BakeryConfigAlreadyInitialised)
 }
 
-func (s *configStateSuite) TestGetKeys(c *gc.C) {
+func (s *configStateSuite) TestGetKeys(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	err := st.InitialiseBakeryConfig(context.Background(), testKey1, testKey2, testKey3, testKey4)
 	c.Assert(err, jc.ErrorIsNil)
 
 	keypair, err := st.GetLocalUsersKey(context.Background())
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(keypair, gc.DeepEquals, testKey1)
+	c.Check(keypair, tc.DeepEquals, testKey1)
 
 	keypair, err = st.GetLocalUsersThirdPartyKey(context.Background())
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(keypair, gc.DeepEquals, testKey2)
+	c.Check(keypair, tc.DeepEquals, testKey2)
 
 	keypair, err = st.GetExternalUsersThirdPartyKey(context.Background())
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(keypair, gc.DeepEquals, testKey3)
+	c.Check(keypair, tc.DeepEquals, testKey3)
 
 	keypair, err = st.GetOffersThirdPartyKey(context.Background())
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(keypair, gc.DeepEquals, testKey4)
+	c.Check(keypair, tc.DeepEquals, testKey4)
 }
 
-func (s *configStateSuite) TestGetKeysUninitialised(c *gc.C) {
+func (s *configStateSuite) TestGetKeysUninitialised(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.GetLocalUsersKey(context.Background())
 	c.Check(err, jc.ErrorIs, macaroonerrors.NotInitialised)

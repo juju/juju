@@ -4,8 +4,8 @@
 package manual
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -16,7 +16,7 @@ type configSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 }
 
-var _ = gc.Suite(&configSuite{})
+var _ = tc.Suite(&configSuite{})
 
 func CloudSpec() environscloudspec.CloudSpec {
 	return environscloudspec.CloudSpec{
@@ -41,7 +41,7 @@ func MinimalConfigValues() map[string]interface{} {
 	}
 }
 
-func MinimalConfig(c *gc.C) *config.Config {
+func MinimalConfig(c *tc.C) *config.Config {
 	minimal := MinimalConfigValues()
 	testConfig, err := config.New(config.UseDefaults, minimal)
 	c.Assert(err, jc.ErrorIsNil)

@@ -7,10 +7,10 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apimocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/common"
@@ -22,13 +22,13 @@ type modelwatcherTests struct {
 	jujutesting.IsolationSuite
 }
 
-var _ = gc.Suite(&modelwatcherTests{})
+var _ = tc.Suite(&modelwatcherTests{})
 
-func (s *modelwatcherTests) SetUpTest(c *gc.C) {
+func (s *modelwatcherTests) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 }
 
-func (s *modelwatcherTests) TestModelConfig(c *gc.C) {
+func (s *modelwatcherTests) TestModelConfig(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -44,10 +44,10 @@ func (s *modelwatcherTests) TestModelConfig(c *gc.C) {
 	client := common.NewModelConfigWatcher(facade)
 	cfg, err := client.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Attrs(cfg.AllAttrs()), gc.DeepEquals, attrs)
+	c.Assert(testing.Attrs(cfg.AllAttrs()), tc.DeepEquals, attrs)
 }
 
-func (s *modelwatcherTests) TestWatchForModelConfigChanges(c *gc.C) {
+func (s *modelwatcherTests) TestWatchForModelConfigChanges(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	facade := apimocks.NewMockFacadeCaller(ctrl)

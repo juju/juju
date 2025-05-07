@@ -9,13 +9,13 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
 
 	jtesting "github.com/juju/juju/internal/testing"
 )
 
-var _ = gc.Suite(&MonitorSuite{})
+var _ = tc.Suite(&MonitorSuite{})
 
 type MonitorSuite struct {
 	testing.IsolationSuite
@@ -29,7 +29,7 @@ type MonitorSuite struct {
 const testPingPeriod = 30 * time.Second
 const testPingTimeout = time.Second
 
-func (s *MonitorSuite) SetUpTest(c *gc.C) {
+func (s *MonitorSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.clock = testclock.NewClock(time.Time{})
 	s.closed = make(chan struct{})
@@ -46,21 +46,21 @@ func (s *MonitorSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *MonitorSuite) TestClose(c *gc.C) {
+func (s *MonitorSuite) TestClose(c *tc.C) {
 	go s.monitor.run()
 	s.waitForClock(c)
 	close(s.closed)
 	assertEvent(c, s.broken)
 }
 
-func (s *MonitorSuite) TestDead(c *gc.C) {
+func (s *MonitorSuite) TestDead(c *tc.C) {
 	go s.monitor.run()
 	s.waitForClock(c)
 	close(s.dead)
 	assertEvent(c, s.broken)
 }
 
-func (s *MonitorSuite) TestFirstPingFails(c *gc.C) {
+func (s *MonitorSuite) TestFirstPingFails(c *tc.C) {
 	s.monitor.ping = func(context.Context) error { return errors.New("boom") }
 	go s.monitor.run()
 
@@ -68,7 +68,7 @@ func (s *MonitorSuite) TestFirstPingFails(c *gc.C) {
 	assertEvent(c, s.broken)
 }
 
-func (s *MonitorSuite) TestLaterPingFails(c *gc.C) {
+func (s *MonitorSuite) TestLaterPingFails(c *tc.C) {
 	pings := 0
 	s.monitor.ping = func(context.Context) error {
 		if pings > 0 {
@@ -86,7 +86,7 @@ func (s *MonitorSuite) TestLaterPingFails(c *gc.C) {
 	assertEvent(c, s.broken)
 }
 
-func (s *MonitorSuite) TestPingsTimesOut(c *gc.C) {
+func (s *MonitorSuite) TestPingsTimesOut(c *tc.C) {
 	s.monitor.ping = func(context.Context) error {
 		// Advance the clock only once this ping call is being waited on.
 		s.waitThenAdvance(c, testPingTimeout)
@@ -98,16 +98,16 @@ func (s *MonitorSuite) TestPingsTimesOut(c *gc.C) {
 	assertEvent(c, s.broken)
 }
 
-func (s *MonitorSuite) waitForClock(c *gc.C) {
+func (s *MonitorSuite) waitForClock(c *tc.C) {
 	assertEvent(c, s.clock.Alarms())
 }
 
-func (s *MonitorSuite) waitThenAdvance(c *gc.C, d time.Duration) {
+func (s *MonitorSuite) waitThenAdvance(c *tc.C, d time.Duration) {
 	s.waitForClock(c)
 	s.clock.Advance(d)
 }
 
-func assertEvent(c *gc.C, ch <-chan struct{}) {
+func assertEvent(c *tc.C, ch <-chan struct{}) {
 	select {
 	case <-ch:
 	case <-time.After(jtesting.LongWait):

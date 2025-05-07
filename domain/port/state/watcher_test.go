@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/machine"
@@ -29,9 +29,9 @@ type watcherSuite struct {
 	appUUIDs [2]coreapplication.ID
 }
 
-var _ = gc.Suite(&watcherSuite{})
+var _ = tc.Suite(&watcherSuite{})
 
-func (s *watcherSuite) SetUpTest(c *gc.C) {
+func (s *watcherSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	modelUUID := modeltesting.GenModelUUID(c)
@@ -70,7 +70,7 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 *   - units 1 & 2 are deployed to app 1
  */
 
-func (s *watcherSuite) TestGetMachinesForUnitEndpoints(c *gc.C) {
+func (s *watcherSuite) TestGetMachinesForUnitEndpoints(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 
@@ -83,7 +83,7 @@ func (s *watcherSuite) TestGetMachinesForUnitEndpoints(c *gc.C) {
 	c.Check(machineUUIDsForEndpoint, jc.DeepEquals, []machine.Name{"0"})
 }
 
-func (s *watcherSuite) TestFilterEndpointForApplication(c *gc.C) {
+func (s *watcherSuite) TestFilterEndpointForApplication(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 

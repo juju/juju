@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -45,14 +45,14 @@ type modelconfigSuite struct {
 	controllerUUID string
 }
 
-var _ = gc.Suite(&modelconfigSuite{})
+var _ = tc.Suite(&modelconfigSuite{})
 
-func (s *modelconfigSuite) SetUpTest(c *gc.C) {
+func (s *modelconfigSuite) SetUpTest(c *tc.C) {
 	s.controllerUUID = uuid.MustNewUUID().String()
 	s.modelUUID = modeltesting.GenModelUUID(c)
 }
 
-func (s *modelconfigSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *modelconfigSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
 	s.mockModelAgentService = NewMockModelAgentService(ctrl)
@@ -63,7 +63,7 @@ func (s *modelconfigSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *modelconfigSuite) getAPI(c *gc.C) *ModelConfigAPI {
+func (s *modelconfigSuite) getAPI(c *tc.C) *ModelConfigAPI {
 	s.mockModelConfigService.EXPECT().ModelConfigValues(gomock.Any()).Return(
 		config.ConfigValues{
 			"type":          {Value: "dummy", Source: "model"},
@@ -128,7 +128,7 @@ func (s *modelconfigSuite) expectNoBlocks() {
 	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
 }
 
-func (s *modelconfigSuite) TestModelGetModelAdmin(c *gc.C) {
+func (s *modelconfigSuite) TestModelGetModelAdmin(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	api := s.getAPI(c)
 
@@ -147,7 +147,7 @@ func (s *modelconfigSuite) TestModelGetModelAdmin(c *gc.C) {
 	})
 }
 
-func (s *modelconfigSuite) TestModelGetControllerAdmin(c *gc.C) {
+func (s *modelconfigSuite) TestModelGetControllerAdmin(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	api := s.getAPI(c)
 
@@ -163,7 +163,7 @@ func (s *modelconfigSuite) TestModelGetControllerAdmin(c *gc.C) {
 	})
 }
 
-func (s *modelconfigSuite) TestModelGetReadAccess(c *gc.C) {
+func (s *modelconfigSuite) TestModelGetReadAccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	api := s.getAPI(c)
 
@@ -180,7 +180,7 @@ func (s *modelconfigSuite) TestModelGetReadAccess(c *gc.C) {
 	})
 }
 
-func (s *modelconfigSuite) TestModelSetModelAdmin(c *gc.C) {
+func (s *modelconfigSuite) TestModelSetModelAdmin(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	api := s.getAPI(c)
 
@@ -210,7 +210,7 @@ func (s *modelconfigSuite) TestModelSetModelAdmin(c *gc.C) {
 
 // TestSetModelConfigAgentStream tests that the agent stream can be set via
 // model config and the value is correctly abstracted from config and removed.
-func (s *modelconfigSuite) TestSetModelConfigAgentStream(c *gc.C) {
+func (s *modelconfigSuite) TestSetModelConfigAgentStream(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	api := s.getAPI(c)
 
@@ -240,7 +240,7 @@ func (s *modelconfigSuite) TestSetModelConfigAgentStream(c *gc.C) {
 
 // TestSetModelConfigAgentStreamInvalid tests that an invalid agent stream
 // resultes in an error of not valid.
-func (s *modelconfigSuite) TestSetModelConfigAgentStreamInvalid(c *gc.C) {
+func (s *modelconfigSuite) TestSetModelConfigAgentStreamInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	api := s.getAPI(c)
 
@@ -262,15 +262,15 @@ func (s *modelconfigSuite) TestSetModelConfigAgentStreamInvalid(c *gc.C) {
 	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *modelconfigSuite) assertBlocked(c *gc.C, err error, msg string) {
-	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue, gc.Commentf("error: %#v", err))
+func (s *modelconfigSuite) assertBlocked(c *tc.C, err error, msg string) {
+	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue, tc.Commentf("error: %#v", err))
 	c.Assert(errors.Cause(err), jc.DeepEquals, &params.Error{
 		Message: msg,
 		Code:    "operation is blocked",
 	})
 }
 
-func (s *modelconfigSuite) assertModelSetBlocked(c *gc.C, args map[string]interface{}, msg string) {
+func (s *modelconfigSuite) assertModelSetBlocked(c *tc.C, args map[string]interface{}, msg string) {
 	defer s.setupMocks(c).Finish()
 	api := s.getAPI(c)
 
@@ -281,13 +281,13 @@ func (s *modelconfigSuite) assertModelSetBlocked(c *gc.C, args map[string]interf
 	s.assertBlocked(c, err, msg)
 }
 
-func (s *modelconfigSuite) TestBlockChangesModelSet(c *gc.C) {
+func (s *modelconfigSuite) TestBlockChangesModelSet(c *tc.C) {
 	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("TestBlockChangesModelSet", nil)
 	args := map[string]interface{}{"some-key": "value"}
 	s.assertModelSetBlocked(c, args, "TestBlockChangesModelSet")
 }
 
-func (s *modelconfigSuite) TestAdminCanSetLogTrace(c *gc.C) {
+func (s *modelconfigSuite) TestAdminCanSetLogTrace(c *tc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 	oldConfig, err := config.New(config.NoDefaults, map[string]any{
 		config.UUIDKey:   modelUUID.String(),
@@ -310,7 +310,7 @@ func (s *modelconfigSuite) TestAdminCanSetLogTrace(c *gc.C) {
 	c.Check(cfg.AllAttrs(), jc.DeepEquals, newConfig.AllAttrs())
 }
 
-func (s *modelconfigSuite) TestUserCanSetLogNoTrace(c *gc.C) {
+func (s *modelconfigSuite) TestUserCanSetLogNoTrace(c *tc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 	oldConfig, err := config.New(config.NoDefaults, map[string]any{
 		config.UUIDKey:   modelUUID.String(),
@@ -333,7 +333,7 @@ func (s *modelconfigSuite) TestUserCanSetLogNoTrace(c *gc.C) {
 	c.Check(cfg.AllAttrs(), jc.DeepEquals, newConfig.AllAttrs())
 }
 
-func (s *modelconfigSuite) TestModelSetNoWriteAccess(c *gc.C) {
+func (s *modelconfigSuite) TestModelSetNoWriteAccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	api := s.getAPI(c)
 
@@ -341,10 +341,10 @@ func (s *modelconfigSuite) TestModelSetNoWriteAccess(c *gc.C) {
 		Return(errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
 	err := api.ModelSet(context.Background(), params.ModelSet{})
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "permission denied")
+	c.Assert(errors.Cause(err), tc.ErrorMatches, "permission denied")
 }
 
-func (s *modelconfigSuite) TestUserCannotSetLogTrace(c *gc.C) {
+func (s *modelconfigSuite) TestUserCannotSetLogTrace(c *tc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 	oldConfig, err := config.New(config.NoDefaults, map[string]any{
 		config.UUIDKey:   modelUUID.String(),
@@ -371,7 +371,7 @@ func (s *modelconfigSuite) TestUserCannotSetLogTrace(c *gc.C) {
 	})
 }
 
-func (s *modelconfigSuite) TestModelUnset(c *gc.C) {
+func (s *modelconfigSuite) TestModelUnset(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	api := s.getAPI(c)
 
@@ -390,7 +390,7 @@ func (s *modelconfigSuite) TestModelUnset(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *modelconfigSuite) TestBlockModelUnset(c *gc.C) {
+func (s *modelconfigSuite) TestBlockModelUnset(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	api := s.getAPI(c)
 
@@ -402,7 +402,7 @@ func (s *modelconfigSuite) TestBlockModelUnset(c *gc.C) {
 	s.assertBlocked(c, err, "TestBlockModelUnset")
 }
 
-func (s *modelconfigSuite) TestModelUnsetMissing(c *gc.C) {
+func (s *modelconfigSuite) TestModelUnsetMissing(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	api := s.getAPI(c)
 
@@ -421,7 +421,7 @@ func (s *modelconfigSuite) TestModelUnsetMissing(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *modelconfigSuite) TestClientSetModelConstraints(c *gc.C) {
+func (s *modelconfigSuite) TestClientSetModelConstraints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	api := s.getAPI(c)
 
@@ -440,7 +440,7 @@ func (s *modelconfigSuite) TestClientSetModelConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *modelconfigSuite) TestClientSetModelConstraintsFailedModelNotFound(c *gc.C) {
+func (s *modelconfigSuite) TestClientSetModelConstraintsFailedModelNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	api := s.getAPI(c)
 
@@ -458,7 +458,7 @@ func (s *modelconfigSuite) TestClientSetModelConstraintsFailedModelNotFound(c *g
 	c.Assert(err, jc.Satisfies, params.IsCodeModelNotFound)
 }
 
-func (s *modelconfigSuite) TestClientSetModelConstraintsFailedSpaceNotFound(c *gc.C) {
+func (s *modelconfigSuite) TestClientSetModelConstraintsFailedSpaceNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	api := s.getAPI(c)
 
@@ -476,7 +476,7 @@ func (s *modelconfigSuite) TestClientSetModelConstraintsFailedSpaceNotFound(c *g
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 }
 
-func (s *modelconfigSuite) TestClientSetModelConstraintsFailedInvalidContainerType(c *gc.C) {
+func (s *modelconfigSuite) TestClientSetModelConstraintsFailedInvalidContainerType(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	api := s.getAPI(c)
 
@@ -491,10 +491,10 @@ func (s *modelconfigSuite) TestClientSetModelConstraintsFailedInvalidContainerTy
 		ApplicationName: "app",
 		Constraints:     cons,
 	})
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeNotValid)
+	c.Assert(params.ErrCode(err), tc.Equals, params.CodeNotValid)
 }
 
-func (s *modelconfigSuite) assertSetModelConstraintsBlocked(c *gc.C, msg string) {
+func (s *modelconfigSuite) assertSetModelConstraintsBlocked(c *tc.C, msg string) {
 	defer s.setupMocks(c).Finish()
 	api := s.getAPI(c)
 
@@ -512,11 +512,11 @@ func (s *modelconfigSuite) assertSetModelConstraintsBlocked(c *gc.C, msg string)
 	s.assertBlocked(c, err, msg)
 }
 
-func (s *modelconfigSuite) TestBlockChangesClientSetModelConstraints(c *gc.C) {
+func (s *modelconfigSuite) TestBlockChangesClientSetModelConstraints(c *tc.C) {
 	s.assertSetModelConstraintsBlocked(c, "TestBlockChangesClientSetModelConstraints")
 }
 
-func (s *modelconfigSuite) TestClientGetModelConstraints(c *gc.C) {
+func (s *modelconfigSuite) TestClientGetModelConstraints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	api := s.getAPI(c)
 
@@ -530,10 +530,10 @@ func (s *modelconfigSuite) TestClientGetModelConstraints(c *gc.C) {
 
 	obtained, err := api.GetModelConstraints(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained.Constraints, gc.DeepEquals, cons)
+	c.Assert(obtained.Constraints, tc.DeepEquals, cons)
 }
 
-func (s *modelconfigSuite) TestClientGetModelConstraintsFailedModelNotFound(c *gc.C) {
+func (s *modelconfigSuite) TestClientGetModelConstraintsFailedModelNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	api := s.getAPI(c)
 
@@ -545,7 +545,7 @@ func (s *modelconfigSuite) TestClientGetModelConstraintsFailedModelNotFound(c *g
 	c.Assert(err, jc.Satisfies, params.IsCodeModelNotFound)
 }
 
-func (s *modelconfigSuite) TestGetModelSecretBackendFailedPermissionDenied(c *gc.C) {
+func (s *modelconfigSuite) TestGetModelSecretBackendFailedPermissionDenied(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	facade := s.getAPI(c)
 
@@ -554,11 +554,11 @@ func (s *modelconfigSuite) TestGetModelSecretBackendFailedPermissionDenied(c *gc
 	)
 
 	_, err := facade.GetModelSecretBackend(context.Background())
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.ErrorIs, authentication.ErrorEntityMissingPermission)
 }
 
-func (s *modelconfigSuite) TestGetModelSecretBackendFailedModelNotFound(c *gc.C) {
+func (s *modelconfigSuite) TestGetModelSecretBackendFailedModelNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	facade := s.getAPI(c)
 
@@ -567,11 +567,11 @@ func (s *modelconfigSuite) TestGetModelSecretBackendFailedModelNotFound(c *gc.C)
 
 	result, err := facade.GetModelSecretBackend(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.ErrorMatches, "model not found")
-	c.Assert(result.Error.Code, gc.Equals, params.CodeModelNotFound)
+	c.Assert(result.Error, tc.ErrorMatches, "model not found")
+	c.Assert(result.Error.Code, tc.Equals, params.CodeModelNotFound)
 }
 
-func (s *modelconfigSuite) TestGetModelSecretBackend(c *gc.C) {
+func (s *modelconfigSuite) TestGetModelSecretBackend(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	facade := s.getAPI(c)
 
@@ -580,10 +580,10 @@ func (s *modelconfigSuite) TestGetModelSecretBackend(c *gc.C) {
 
 	result, err := facade.GetModelSecretBackend(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Result, gc.Equals, "myvault")
+	c.Assert(result.Result, tc.Equals, "myvault")
 }
 
-func (s *modelconfigSuite) TestSetModelSecretBackendFailedPermissionDenied(c *gc.C) {
+func (s *modelconfigSuite) TestSetModelSecretBackendFailedPermissionDenied(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	facade := s.getAPI(c)
 
@@ -592,11 +592,11 @@ func (s *modelconfigSuite) TestSetModelSecretBackendFailedPermissionDenied(c *gc
 	)
 
 	_, err := facade.SetModelSecretBackend(context.Background(), params.SetModelSecretBackendArg{})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.ErrorIs, authentication.ErrorEntityMissingPermission)
 }
 
-func (s *modelconfigSuite) TestSetModelSecretBackendFailedModelNotFound(c *gc.C) {
+func (s *modelconfigSuite) TestSetModelSecretBackendFailedModelNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	facade := s.getAPI(c)
 
@@ -607,11 +607,11 @@ func (s *modelconfigSuite) TestSetModelSecretBackendFailedModelNotFound(c *gc.C)
 		SecretBackendName: "myvault",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.ErrorMatches, "model not found")
-	c.Assert(result.Error.Code, gc.Equals, params.CodeModelNotFound)
+	c.Assert(result.Error, tc.ErrorMatches, "model not found")
+	c.Assert(result.Error.Code, tc.Equals, params.CodeModelNotFound)
 }
 
-func (s *modelconfigSuite) TestSetModelSecretBackendFailedSecretBackendNotFound(c *gc.C) {
+func (s *modelconfigSuite) TestSetModelSecretBackendFailedSecretBackendNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	facade := s.getAPI(c)
 
@@ -622,11 +622,11 @@ func (s *modelconfigSuite) TestSetModelSecretBackendFailedSecretBackendNotFound(
 		SecretBackendName: "myvault",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.ErrorMatches, "secret backend not found")
-	c.Assert(result.Error.Code, gc.Equals, params.CodeSecretBackendNotFound)
+	c.Assert(result.Error, tc.ErrorMatches, "secret backend not found")
+	c.Assert(result.Error.Code, tc.Equals, params.CodeSecretBackendNotFound)
 }
 
-func (s *modelconfigSuite) TestSetModelSecretBackendFailedSecretBackendNotValid(c *gc.C) {
+func (s *modelconfigSuite) TestSetModelSecretBackendFailedSecretBackendNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	facade := s.getAPI(c)
 
@@ -637,11 +637,11 @@ func (s *modelconfigSuite) TestSetModelSecretBackendFailedSecretBackendNotValid(
 		SecretBackendName: "myvault",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.ErrorMatches, "secret backend not valid")
-	c.Assert(result.Error.Code, gc.Equals, params.CodeSecretBackendNotValid)
+	c.Assert(result.Error, tc.ErrorMatches, "secret backend not valid")
+	c.Assert(result.Error.Code, tc.Equals, params.CodeSecretBackendNotValid)
 }
 
-func (s *modelconfigSuite) TestSetModelSecretBackend(c *gc.C) {
+func (s *modelconfigSuite) TestSetModelSecretBackend(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	facade := s.getAPI(c)
 
@@ -652,7 +652,7 @@ func (s *modelconfigSuite) TestSetModelSecretBackend(c *gc.C) {
 		SecretBackendName: "myvault",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.Error, tc.IsNil)
 }
 
 type mockBackend struct {

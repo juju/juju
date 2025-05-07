@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common/model"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
@@ -32,16 +32,16 @@ type modelWatcherSuite struct {
 	modelConfigService *MockModelConfigService
 }
 
-var _ = gc.Suite(&modelWatcherSuite{})
+var _ = tc.Suite(&modelWatcherSuite{})
 
-func (s *modelWatcherSuite) setup(c *gc.C) *gomock.Controller {
+func (s *modelWatcherSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	return ctrl
 }
 
-func (s *modelWatcherSuite) TestWatchSuccess(c *gc.C) {
+func (s *modelWatcherSuite) TestWatchSuccess(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -70,10 +70,10 @@ func (s *modelWatcherSuite) TestWatchSuccess(c *gc.C) {
 	facade := model.NewModelConfigWatcher(s.modelConfigService, s.watcherRegistry)
 	result, err := facade.WatchForModelConfigChanges(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{NotifyWatcherId: "1", Error: nil})
+	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{NotifyWatcherId: "1", Error: nil})
 }
 
-func (s *modelWatcherSuite) TestWatchFailure(c *gc.C) {
+func (s *modelWatcherSuite) TestWatchFailure(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -94,11 +94,11 @@ func (s *modelWatcherSuite) TestWatchFailure(c *gc.C) {
 
 	facade := model.NewModelConfigWatcher(s.modelConfigService, s.watcherRegistry)
 	result, err := facade.WatchForModelConfigChanges(context.Background())
-	c.Assert(err, gc.ErrorMatches, "bad watcher")
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{})
+	c.Assert(err, tc.ErrorMatches, "bad watcher")
+	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{})
 }
 
-func (s *modelWatcherSuite) TestModelConfigSuccess(c *gc.C) {
+func (s *modelWatcherSuite) TestModelConfigSuccess(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -109,11 +109,11 @@ func (s *modelWatcherSuite) TestModelConfigSuccess(c *gc.C) {
 	result, err := facade.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	// Make sure we can read the secret attribute (i.e. it's not masked).
-	c.Check(result.Config["secret"], gc.Equals, "pork")
+	c.Check(result.Config["secret"], tc.Equals, "pork")
 	c.Check(map[string]any(result.Config), jc.DeepEquals, testingModelConfig.AllAttrs())
 }
 
-func (s *modelWatcherSuite) TestModelConfigFetchError(c *gc.C) {
+func (s *modelWatcherSuite) TestModelConfigFetchError(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -121,11 +121,11 @@ func (s *modelWatcherSuite) TestModelConfigFetchError(c *gc.C) {
 
 	facade := model.NewModelConfigWatcher(s.modelConfigService, s.watcherRegistry)
 	result, err := facade.ModelConfig(context.Background())
-	c.Assert(err, gc.ErrorMatches, "nope")
-	c.Check(result.Config, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "nope")
+	c.Check(result.Config, tc.IsNil)
 }
 
-func testingEnvConfig(c *gc.C) *config.Config {
+func testingEnvConfig(c *tc.C) *config.Config {
 	env, err := bootstrap.PrepareController(
 		false,
 		cmd.BootstrapContext(context.Background(), cmdtesting.Context(c)),

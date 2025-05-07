@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
@@ -28,9 +28,9 @@ type providerSuite struct {
 	testing.Stub
 }
 
-var _ = gc.Suite(&providerSuite{})
+var _ = tc.Suite(&providerSuite{})
 
-func (s *providerSuite) SetUpTest(c *gc.C) {
+func (s *providerSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.Stub.ResetCalls()
 	s.PatchValue(&sshprovisioner.CheckProvisioned, func(host string, login string) (bool, error) {
@@ -52,7 +52,7 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 
 // TestPrepareForBootstrap verifies that Prepare For bootstrap is a noop for
 // manual provider
-func (s *providerSuite) TestPrepareForBootstrap(c *gc.C) {
+func (s *providerSuite) TestPrepareForBootstrap(c *tc.C) {
 	_, err := s.testPrepareForBootstrap(c)
 	c.Assert(err, jc.ErrorIsNil)
 	s.CheckNoCalls(c)
@@ -60,15 +60,15 @@ func (s *providerSuite) TestPrepareForBootstrap(c *gc.C) {
 
 // TestBootstrapNoCloudEndpoint ensures that error messages are correctly
 // returned when no cloud endpoint is specified during bootstrap.
-func (s *providerSuite) TestBootstrapNoCloudEndpoint(c *gc.C) {
+func (s *providerSuite) TestBootstrapNoCloudEndpoint(c *tc.C) {
 	_, err := s.testBootstrap(c, testBootstrapArgs{})
-	c.Assert(err, gc.ErrorMatches,
+	c.Assert(err, tc.ErrorMatches,
 		`validating cloud spec: missing address of host to bootstrap: please specify "juju bootstrap manual/\[user@\]<host>"`)
 }
 
 // TestBootstrap executes the bootstrap process for a manual provider,
 // verifying key provisioning behaviors and call logic.
-func (s *providerSuite) TestBootstrap(c *gc.C) {
+func (s *providerSuite) TestBootstrap(c *tc.C) {
 	ctx, err := s.testBootstrap(c, testBootstrapArgs{
 		endpoint: "hostname",
 	})
@@ -80,7 +80,7 @@ func (s *providerSuite) TestBootstrap(c *gc.C) {
 
 // TestBootstrapUserHost tests the bootstrap process for a manual provider with
 // a "user@host" endpoint configuration.
-func (s *providerSuite) TestBootstrapUserHost(c *gc.C) {
+func (s *providerSuite) TestBootstrapUserHost(c *tc.C) {
 	ctx, err := s.testBootstrap(c, testBootstrapArgs{
 		endpoint: "user@hostwithuser",
 	})
@@ -92,7 +92,7 @@ func (s *providerSuite) TestBootstrapUserHost(c *gc.C) {
 
 // TestBootstrapUserHostAuthorizedKeys tests bootstrapping with authorized SSH
 // keys for a user on a specified host.
-func (s *providerSuite) TestBootstrapUserHostAuthorizedKeys(c *gc.C) {
+func (s *providerSuite) TestBootstrapUserHostAuthorizedKeys(c *tc.C) {
 	ctx, err := s.testBootstrap(c, testBootstrapArgs{
 		endpoint: "userwithauth@host",
 		params: environs.BootstrapParams{
@@ -105,7 +105,7 @@ func (s *providerSuite) TestBootstrapUserHostAuthorizedKeys(c *gc.C) {
 	s.CheckCall(c, 2, "DetectBaseAndHardwareCharacteristics", "host", "userwithauth")
 }
 
-func (s *providerSuite) testPrepareForBootstrap(c *gc.C) (environs.BootstrapContext, error) {
+func (s *providerSuite) testPrepareForBootstrap(c *tc.C) (environs.BootstrapContext, error) {
 	minimal := manual.MinimalConfigValues()
 	testConfig, err := config.New(config.UseDefaults, minimal)
 	c.Assert(err, jc.ErrorIsNil)
@@ -132,7 +132,7 @@ type testBootstrapArgs struct {
 	params   environs.BootstrapParams
 }
 
-func (s *providerSuite) testBootstrap(c *gc.C, args testBootstrapArgs) (environs.BootstrapContext, error) {
+func (s *providerSuite) testBootstrap(c *tc.C, args testBootstrapArgs) (environs.BootstrapContext, error) {
 	minimal := manual.MinimalConfigValues()
 	testConfig, err := config.New(config.UseDefaults, minimal)
 	c.Assert(err, jc.ErrorIsNil)
@@ -156,16 +156,16 @@ func (s *providerSuite) testBootstrap(c *gc.C, args testBootstrapArgs) (environs
 	return ctx, err
 }
 
-func (s *providerSuite) TestNullAlias(c *gc.C) {
+func (s *providerSuite) TestNullAlias(c *tc.C) {
 	p, err := environs.Provider("manual")
-	c.Assert(p, gc.NotNil)
+	c.Assert(p, tc.NotNil)
 	c.Assert(err, jc.ErrorIsNil)
 	p, err = environs.Provider("null")
-	c.Assert(p, gc.NotNil)
+	c.Assert(p, tc.NotNil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *providerSuite) TestDisablesUpdatesByDefault(c *gc.C) {
+func (s *providerSuite) TestDisablesUpdatesByDefault(c *tc.C) {
 	p, err := environs.Provider("manual")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -184,7 +184,7 @@ func (s *providerSuite) TestDisablesUpdatesByDefault(c *gc.C) {
 	c.Check(validCfg.EnableOSUpgrade(), jc.IsFalse)
 }
 
-func (s *providerSuite) TestDefaultsCanBeOverriden(c *gc.C) {
+func (s *providerSuite) TestDefaultsCanBeOverriden(c *tc.C) {
 	p, err := environs.Provider("manual")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -202,7 +202,7 @@ func (s *providerSuite) TestDefaultsCanBeOverriden(c *gc.C) {
 	c.Check(validCfg.EnableOSUpgrade(), jc.IsTrue)
 }
 
-func (s *providerSuite) TestSchema(c *gc.C) {
+func (s *providerSuite) TestSchema(c *tc.C) {
 	vals := map[string]interface{}{"endpoint": "http://foo.com/bar"}
 
 	p, err := environs.Provider("manual")
@@ -211,11 +211,11 @@ func (s *providerSuite) TestSchema(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *providerSuite) TestPingEndpointWithUser(c *gc.C) {
+func (s *providerSuite) TestPingEndpointWithUser(c *tc.C) {
 	endpoint := "user@IP"
 	called := false
 	s.PatchValue(manual.Echo, func(s string) error {
-		c.Assert(s, gc.Equals, endpoint)
+		c.Assert(s, tc.Equals, endpoint)
 		called = true
 		return nil
 	})
@@ -225,15 +225,15 @@ func (s *providerSuite) TestPingEndpointWithUser(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *providerSuite) TestPingIP(c *gc.C) {
+func (s *providerSuite) TestPingIP(c *tc.C) {
 	endpoint := "P"
 	called := 0
 	s.PatchValue(manual.Echo, func(s string) error {
 		c.Assert(called < 2, jc.IsTrue)
 		if called == 0 {
-			c.Assert(s, gc.Equals, endpoint)
+			c.Assert(s, tc.Equals, endpoint)
 		} else {
-			c.Assert(s, gc.Equals, fmt.Sprintf("ubuntu@%v", endpoint))
+			c.Assert(s, tc.Equals, fmt.Sprintf("ubuntu@%v", endpoint))
 		}
 		called++
 		return nil
@@ -242,5 +242,5 @@ func (s *providerSuite) TestPingIP(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(p.Ping(context.Background(), endpoint), jc.ErrorIsNil)
 	// Expect the call to be made twice.
-	c.Assert(called, gc.Equals, 1)
+	c.Assert(called, tc.Equals, 1)
 }

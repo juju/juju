@@ -6,48 +6,48 @@ package transport
 import (
 	"encoding/json"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
 type ErrorSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&ErrorSuite{})
+var _ = tc.Suite(&ErrorSuite{})
 
-func (ErrorSuite) TestNoErrors(c *gc.C) {
+func (ErrorSuite) TestNoErrors(c *tc.C) {
 	var errors APIErrors
 	err := errors.Error()
-	c.Assert(err, gc.DeepEquals, "")
+	c.Assert(err, tc.DeepEquals, "")
 }
 
-func (ErrorSuite) TestNoErrorsWithEmptySlice(c *gc.C) {
+func (ErrorSuite) TestNoErrorsWithEmptySlice(c *tc.C) {
 	errors := make(APIErrors, 0)
 	err := errors.Error()
-	c.Assert(err, gc.DeepEquals, "")
+	c.Assert(err, tc.DeepEquals, "")
 }
 
-func (ErrorSuite) TestWithOneError(c *gc.C) {
+func (ErrorSuite) TestWithOneError(c *tc.C) {
 	errors := APIErrors{{
 		Message: "one",
 	}}
 	err := errors.Error()
-	c.Assert(err, gc.DeepEquals, `one`)
+	c.Assert(err, tc.DeepEquals, `one`)
 }
 
-func (ErrorSuite) TestWithMultipleErrors(c *gc.C) {
+func (ErrorSuite) TestWithMultipleErrors(c *tc.C) {
 	errors := APIErrors{
 		{Message: "one"},
 		{Message: "two"},
 	}
 	err := errors.Error()
-	c.Assert(err, gc.DeepEquals, `one
+	c.Assert(err, tc.DeepEquals, `one
 two`)
 }
 
-func (ErrorSuite) TestExtras(c *gc.C) {
+func (ErrorSuite) TestExtras(c *tc.C) {
 	expected := APIError{
 		Extra: APIErrorExtra{
 			DefaultBases: []Base{
@@ -62,5 +62,5 @@ func (ErrorSuite) TestExtras(c *gc.C) {
 	err = json.Unmarshal(bytes, &result)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(result, gc.DeepEquals, expected)
+	c.Assert(result, tc.DeepEquals, expected)
 }

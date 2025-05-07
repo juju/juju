@@ -6,10 +6,10 @@ package gen
 import (
 	"reflect"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facade"
 	jsonschema "github.com/juju/juju/generate/schemagen/jsonschema-gen"
@@ -24,9 +24,9 @@ type GenSuite struct {
 	registry    *MockRegistry
 }
 
-var _ = gc.Suite(&GenSuite{})
+var _ = tc.Suite(&GenSuite{})
 
-func (s *GenSuite) TestResult(c *gc.C) {
+func (s *GenSuite) TestResult(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.scenario(c,
@@ -38,7 +38,7 @@ func (s *GenSuite) TestResult(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 
 	objtype := rpcreflect.ObjTypeOf(reflect.TypeOf(ResourcesFacade{}))
-	c.Check(result, gc.DeepEquals, []FacadeSchema{
+	c.Check(result, tc.DeepEquals, []FacadeSchema{
 		{
 			Name:        "Resources",
 			Description: "",
@@ -48,7 +48,7 @@ func (s *GenSuite) TestResult(c *gc.C) {
 	})
 }
 
-func (s *GenSuite) setup(c *gc.C) *gomock.Controller {
+func (s *GenSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.pkgRegistry = NewMockPackageRegistry(ctrl)
@@ -58,7 +58,7 @@ func (s *GenSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *GenSuite) scenario(c *gc.C, behaviours ...func()) {
+func (s *GenSuite) scenario(c *tc.C, behaviours ...func()) {
 	for _, b := range behaviours {
 		b()
 	}

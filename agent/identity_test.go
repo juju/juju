@@ -8,8 +8,8 @@ import (
 	"os"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
 	jujuversion "github.com/juju/juju/core/version"
@@ -20,7 +20,7 @@ type identitySuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&identitySuite{})
+var _ = tc.Suite(&identitySuite{})
 
 var attributeParams = AgentConfigParams{
 	Tag:               names.NewMachineTag("1"),
@@ -43,7 +43,7 @@ var servingInfo = controller.StateServingInfo{
 	SystemIdentity: "identity",
 }
 
-func (s *identitySuite) TestWriteSystemIdentityFile(c *gc.C) {
+func (s *identitySuite) TestWriteSystemIdentityFile(c *tc.C) {
 	params := attributeParams
 	params.Paths.DataDir = c.MkDir()
 	conf, err := NewStateMachineConfig(params, servingInfo)
@@ -53,11 +53,11 @@ func (s *identitySuite) TestWriteSystemIdentityFile(c *gc.C) {
 
 	contents, err := os.ReadFile(conf.SystemIdentityPath())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(string(contents), gc.Equals, servingInfo.SystemIdentity)
+	c.Check(string(contents), tc.Equals, servingInfo.SystemIdentity)
 
 	fi, err := os.Stat(conf.SystemIdentityPath())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(fi.Mode().Perm(), gc.Equals, os.FileMode(0600))
+	c.Check(fi.Mode().Perm(), tc.Equals, os.FileMode(0600))
 	// ensure that file is deleted when SystemIdentity is empty
 	info := servingInfo
 	info.SystemIdentity = ""

@@ -4,7 +4,7 @@
 package httpattachment_test
 
 import (
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testing"
 )
@@ -13,7 +13,7 @@ type requestSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&requestSuite{})
+var _ = tc.Suite(&requestSuite{})
 
 // TODO the functions in this package should be tested directly.
 // https://bugs.launchpad.net/juju-core/+bug/1503990

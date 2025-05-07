@@ -6,10 +6,10 @@ package service
 import (
 	"context"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	corearch "github.com/juju/juju/core/arch"
@@ -24,9 +24,9 @@ type serviceSuite struct {
 	state *MockState
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = tc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.state = NewMockState(ctrl)
@@ -34,7 +34,7 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *serviceSuite) TestUpdateExternalControllerSuccess(c *gc.C) {
+func (s *serviceSuite) TestUpdateExternalControllerSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().CurateNodes(gomock.Any(), []string{"3", "4"}, []string{"1"})
@@ -43,7 +43,7 @@ func (s *serviceSuite) TestUpdateExternalControllerSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestUpdateDqliteNode(c *gc.C) {
+func (s *serviceSuite) TestUpdateDqliteNode(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().UpdateDqliteNode(gomock.Any(), "0", uint64(12345), "192.168.5.60")
@@ -52,7 +52,7 @@ func (s *serviceSuite) TestUpdateDqliteNode(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestIsModelKnownToController(c *gc.C) {
+func (s *serviceSuite) TestIsModelKnownToController(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	knownID := "known"
@@ -75,7 +75,7 @@ func (s *serviceSuite) TestIsModelKnownToController(c *gc.C) {
 	c.Check(known, jc.IsTrue)
 }
 
-func (s *serviceSuite) TestSetControllerNodeAgentVersionSuccess(c *gc.C) {
+func (s *serviceSuite) TestSetControllerNodeAgentVersionSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	controllerID := "1"
@@ -95,7 +95,7 @@ func (s *serviceSuite) TestSetControllerNodeAgentVersionSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestSetControllerNodeAgentVersionNotValid(c *gc.C) {
+func (s *serviceSuite) TestSetControllerNodeAgentVersionNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state)
 
@@ -123,7 +123,7 @@ func (s *serviceSuite) TestSetControllerNodeAgentVersionNotValid(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *serviceSuite) TestSetControllerNodeAgentVersionNotFound(c *gc.C) {
+func (s *serviceSuite) TestSetControllerNodeAgentVersionNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state)
 

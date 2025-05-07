@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
@@ -40,18 +40,18 @@ type BaseSuite struct {
 	pipWriter io.WriteCloser
 }
 
-func (s *BaseSuite) SetUpSuite(c *gc.C) {
+func (s *BaseSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.namespace = "test"
 }
 
-func (s *BaseSuite) SetUpTest(c *gc.C) {
+func (s *BaseSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.pipReader, s.pipWriter = io.Pipe()
 }
 
-func (s *BaseSuite) TearDownTest(c *gc.C) {
+func (s *BaseSuite) TearDownTest(c *tc.C) {
 	s.BaseSuite.TearDownTest(c)
 
 	s.k8sClient = nil
@@ -68,7 +68,7 @@ func (s *BaseSuite) TearDownTest(c *gc.C) {
 	}
 }
 
-func (s *BaseSuite) setupExecClient(c *gc.C) *gomock.Controller {
+func (s *BaseSuite) setupExecClient(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.k8sClient = mocks.NewMockInterface(ctrl)
 

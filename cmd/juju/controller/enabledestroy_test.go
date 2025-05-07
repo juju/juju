@@ -6,8 +6,8 @@ package controller_test
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/controller"
@@ -22,9 +22,9 @@ type enableDestroyControllerSuite struct {
 	store *jujuclient.MemStore
 }
 
-var _ = gc.Suite(&enableDestroyControllerSuite{})
+var _ = tc.Suite(&enableDestroyControllerSuite{})
 
-func (s *enableDestroyControllerSuite) SetUpTest(c *gc.C) {
+func (s *enableDestroyControllerSuite) SetUpTest(c *tc.C) {
 	s.baseControllerSuite.SetUpTest(c)
 
 	s.api = &fakeRemoveBlocksAPI{}
@@ -37,22 +37,22 @@ func (s *enableDestroyControllerSuite) newCommand() cmd.Command {
 	return controller.NewEnableDestroyControllerCommandForTest(s.api, s.store)
 }
 
-func (s *enableDestroyControllerSuite) TestRemove(c *gc.C) {
+func (s *enableDestroyControllerSuite) TestRemove(c *tc.C) {
 	_, err := cmdtesting.RunCommand(c, s.newCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.called, jc.IsTrue)
 }
 
-func (s *enableDestroyControllerSuite) TestUnrecognizedArg(c *gc.C) {
+func (s *enableDestroyControllerSuite) TestUnrecognizedArg(c *tc.C) {
 	_, err := cmdtesting.RunCommand(c, s.newCommand(), "whoops")
-	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
+	c.Assert(err, tc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 	c.Assert(s.api.called, jc.IsFalse)
 }
 
-func (s *enableDestroyControllerSuite) TestEnvironmentsError(c *gc.C) {
+func (s *enableDestroyControllerSuite) TestEnvironmentsError(c *tc.C) {
 	s.api.err = apiservererrors.ErrPerm
 	_, err := cmdtesting.RunCommand(c, s.newCommand())
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
 type fakeRemoveBlocksAPI struct {

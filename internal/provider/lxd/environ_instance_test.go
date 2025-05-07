@@ -7,10 +7,10 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/semversion"
@@ -25,9 +25,9 @@ type environInstSuite struct {
 	lxd.BaseSuite
 }
 
-var _ = gc.Suite(&environInstSuite{})
+var _ = tc.Suite(&environInstSuite{})
 
-func (s *environInstSuite) TestInstancesOkay(c *gc.C) {
+func (s *environInstSuite) TestInstancesOkay(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	ids := []instance.Id{"spam", "eggs", "ham"}
@@ -45,7 +45,7 @@ func (s *environInstSuite) TestInstancesOkay(c *gc.C) {
 	c.Check(insts, jc.DeepEquals, expected)
 }
 
-func (s *environInstSuite) TestInstancesAPI(c *gc.C) {
+func (s *environInstSuite) TestInstancesAPI(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	ids := []instance.Id{"spam", "eggs", "ham"}
@@ -59,16 +59,16 @@ func (s *environInstSuite) TestInstancesAPI(c *gc.C) {
 	}})
 }
 
-func (s *environInstSuite) TestInstancesEmptyArg(c *gc.C) {
+func (s *environInstSuite) TestInstancesEmptyArg(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	insts, err := s.Env.Instances(context.Background(), nil)
 
-	c.Check(insts, gc.HasLen, 0)
-	c.Check(errors.Cause(err), gc.Equals, environs.ErrNoInstances)
+	c.Check(insts, tc.HasLen, 0)
+	c.Check(errors.Cause(err), tc.Equals, environs.ErrNoInstances)
 }
 
-func (s *environInstSuite) TestInstancesInstancesFailed(c *gc.C) {
+func (s *environInstSuite) TestInstancesInstancesFailed(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	failure := errors.New("<unknown>")
@@ -78,10 +78,10 @@ func (s *environInstSuite) TestInstancesInstancesFailed(c *gc.C) {
 	insts, err := s.Env.Instances(context.Background(), ids)
 
 	c.Check(insts, jc.DeepEquals, []instances.Instance{nil})
-	c.Check(errors.Cause(err), gc.Equals, failure)
+	c.Check(errors.Cause(err), tc.Equals, failure)
 }
 
-func (s *environInstSuite) TestInstancesPartialMatch(c *gc.C) {
+func (s *environInstSuite) TestInstancesPartialMatch(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	container := s.NewContainer(c, "spam")
@@ -92,10 +92,10 @@ func (s *environInstSuite) TestInstancesPartialMatch(c *gc.C) {
 	insts, err := s.Env.Instances(context.Background(), ids)
 
 	c.Check(insts, jc.DeepEquals, []instances.Instance{expected, nil})
-	c.Check(errors.Cause(err), gc.Equals, environs.ErrPartialInstances)
+	c.Check(errors.Cause(err), tc.Equals, environs.ErrPartialInstances)
 }
 
-func (s *environInstSuite) TestInstancesNoMatch(c *gc.C) {
+func (s *environInstSuite) TestInstancesNoMatch(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	container := s.NewContainer(c, "spam")
@@ -105,10 +105,10 @@ func (s *environInstSuite) TestInstancesNoMatch(c *gc.C) {
 	insts, err := s.Env.Instances(context.Background(), ids)
 
 	c.Check(insts, jc.DeepEquals, []instances.Instance{nil})
-	c.Check(errors.Cause(err), gc.Equals, environs.ErrNoInstances)
+	c.Check(errors.Cause(err), tc.Equals, environs.ErrNoInstances)
 }
 
-func (s *environInstSuite) TestInstancesInvalidCredentials(c *gc.C) {
+func (s *environInstSuite) TestInstancesInvalidCredentials(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	s.Invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(nil)
@@ -118,10 +118,10 @@ func (s *environInstSuite) TestInstancesInvalidCredentials(c *gc.C) {
 	ids := []instance.Id{"eggs"}
 	_, err := s.Env.Instances(context.Background(), ids)
 
-	c.Check(err, gc.ErrorMatches, "not authorized")
+	c.Check(err, tc.ErrorMatches, "not authorized")
 }
 
-func (s *environInstSuite) TestControllerInstancesOkay(c *gc.C) {
+func (s *environInstSuite) TestControllerInstancesOkay(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	s.Client.Containers = []containerlxd.Container{*s.Container}
@@ -136,15 +136,15 @@ func (s *environInstSuite) TestControllerInstancesOkay(c *gc.C) {
 	)
 }
 
-func (s *environInstSuite) TestControllerInstancesNotBootstrapped(c *gc.C) {
+func (s *environInstSuite) TestControllerInstancesNotBootstrapped(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	_, err := s.Env.ControllerInstances(context.Background(), "not-used")
 
-	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
+	c.Check(err, tc.Equals, environs.ErrNotBootstrapped)
 }
 
-func (s *environInstSuite) TestControllerInstancesMixed(c *gc.C) {
+func (s *environInstSuite) TestControllerInstancesMixed(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	other := containerlxd.Container{}
@@ -157,7 +157,7 @@ func (s *environInstSuite) TestControllerInstancesMixed(c *gc.C) {
 	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
 }
 
-func (s *environInstSuite) TestControllerInvalidCredentials(c *gc.C) {
+func (s *environInstSuite) TestControllerInvalidCredentials(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	s.Invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(nil)
@@ -166,10 +166,10 @@ func (s *environInstSuite) TestControllerInvalidCredentials(c *gc.C) {
 	s.Client.Stub.SetErrors(errTestUnAuth)
 
 	_, err := s.Env.ControllerInstances(context.Background(), coretesting.ControllerTag.Id())
-	c.Check(err, gc.ErrorMatches, "not authorized")
+	c.Check(err, tc.ErrorMatches, "not authorized")
 }
 
-func (s *environInstSuite) TestAdoptResources(c *gc.C) {
+func (s *environInstSuite) TestAdoptResources(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	one := s.NewContainer(c, "smoosh")
@@ -179,7 +179,7 @@ func (s *environInstSuite) TestAdoptResources(c *gc.C) {
 
 	err := s.Env.AdoptResources(context.Background(), "target-uuid", semversion.MustParse("3.4.5"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.BaseSuite.Client.Calls(), gc.HasLen, 4)
+	c.Assert(s.BaseSuite.Client.Calls(), tc.HasLen, 4)
 	s.BaseSuite.Client.CheckCall(c, 0, "AliveContainers", "juju-f75cba-")
 	s.BaseSuite.Client.CheckCall(
 		c, 1, "UpdateContainerConfig", "smoosh", map[string]string{"user.juju-controller-uuid": "target-uuid"})
@@ -189,7 +189,7 @@ func (s *environInstSuite) TestAdoptResources(c *gc.C) {
 		c, 3, "UpdateContainerConfig", "tall-dwarfs", map[string]string{"user.juju-controller-uuid": "target-uuid"})
 }
 
-func (s *environInstSuite) TestAdoptResourcesError(c *gc.C) {
+func (s *environInstSuite) TestAdoptResourcesError(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	one := s.NewContainer(c, "smoosh")
@@ -199,8 +199,8 @@ func (s *environInstSuite) TestAdoptResourcesError(c *gc.C) {
 	s.Client.SetErrors(nil, nil, errors.New("blammo"))
 
 	err := s.Env.AdoptResources(context.Background(), "target-uuid", semversion.MustParse("5.3.3"))
-	c.Assert(err, gc.ErrorMatches, `failed to update controller for some instances: \[guild-league\]`)
-	c.Assert(s.BaseSuite.Client.Calls(), gc.HasLen, 4)
+	c.Assert(err, tc.ErrorMatches, `failed to update controller for some instances: \[guild-league\]`)
+	c.Assert(s.BaseSuite.Client.Calls(), tc.HasLen, 4)
 	s.BaseSuite.Client.CheckCall(c, 0, "AliveContainers", "juju-f75cba-")
 	s.BaseSuite.Client.CheckCall(
 		c, 1, "UpdateContainerConfig", "smoosh", map[string]string{"user.juju-controller-uuid": "target-uuid"})
@@ -210,7 +210,7 @@ func (s *environInstSuite) TestAdoptResourcesError(c *gc.C) {
 		c, 3, "UpdateContainerConfig", "tall-dwarfs", map[string]string{"user.juju-controller-uuid": "target-uuid"})
 }
 
-func (s *environInstSuite) TestAdoptResourcesInvalidResources(c *gc.C) {
+func (s *environInstSuite) TestAdoptResourcesInvalidResources(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	s.Invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(nil)
@@ -220,6 +220,6 @@ func (s *environInstSuite) TestAdoptResourcesInvalidResources(c *gc.C) {
 
 	err := s.Env.AdoptResources(context.Background(), "target-uuid", semversion.MustParse("3.4.5"))
 
-	c.Check(err, gc.ErrorMatches, ".*not authorized")
+	c.Check(err, tc.ErrorMatches, ".*not authorized")
 	s.BaseSuite.Client.CheckCall(c, 0, "AliveContainers", "juju-f75cba-")
 }

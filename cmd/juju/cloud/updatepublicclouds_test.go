@@ -12,11 +12,11 @@ import (
 	"strings"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/clearsign"
-	gc "gopkg.in/check.v1"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
@@ -33,9 +33,9 @@ type updatePublicCloudsSuite struct {
 	api   *fakeUpdatePublicCloudAPI
 }
 
-var _ = gc.Suite(&updatePublicCloudsSuite{})
+var _ = tc.Suite(&updatePublicCloudsSuite{})
 
-func (s *updatePublicCloudsSuite) SetUpTest(c *gc.C) {
+func (s *updatePublicCloudsSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	s.api = &fakeUpdatePublicCloudAPI{
@@ -49,7 +49,7 @@ func (s *updatePublicCloudsSuite) SetUpTest(c *gc.C) {
 	s.store.CurrentControllerName = "mycontroller"
 }
 
-func encodeCloudYAML(c *gc.C, yaml string) string {
+func encodeCloudYAML(c *tc.C, yaml string) string {
 	// TODO(wallyworld) - move test signing key elsewhere
 	keyring, err := openpgp.ReadArmoredKeyRing(bytes.NewBufferString(sstesting.SignedMetadataPrivateKey))
 	c.Assert(err, jc.ErrorIsNil)
@@ -68,7 +68,7 @@ func encodeCloudYAML(c *gc.C, yaml string) string {
 	return string(buf.Bytes())
 }
 
-func (s *updatePublicCloudsSuite) setupTestServer(c *gc.C, serverContent string) *httptest.Server {
+func (s *updatePublicCloudsSuite) setupTestServer(c *tc.C, serverContent string) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch serverContent {
 		case "404":
@@ -84,51 +84,51 @@ func (s *updatePublicCloudsSuite) setupTestServer(c *gc.C, serverContent string)
 	}))
 }
 
-func (s *updatePublicCloudsSuite) TestBadArgs(c *gc.C) {
+func (s *updatePublicCloudsSuite) TestBadArgs(c *tc.C) {
 	updateCmd := cloud.NewUpdatePublicCloudsCommandForTest(s.store, nil, "")
 	_, err := cmdtesting.RunCommand(c, updateCmd, "extra")
-	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["extra"\]`)
+	c.Assert(err, tc.ErrorMatches, `unrecognized args: \["extra"\]`)
 }
 
-func (s *updatePublicCloudsSuite) run(c *gc.C, url, errMsg string, args ...string) string {
+func (s *updatePublicCloudsSuite) run(c *tc.C, url, errMsg string, args ...string) string {
 	updateCmd := cloud.NewUpdatePublicCloudsCommandForTest(s.store, s.api, url)
 	out, err := cmdtesting.RunCommand(c, updateCmd, args...)
 	if errMsg == "" {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
-		c.Assert(err, gc.NotNil)
+		c.Assert(err, tc.NotNil)
 		errString := strings.Replace(err.Error(), "\n", "", -1)
-		c.Assert(errString, gc.Matches, errMsg)
+		c.Assert(errString, tc.Matches, errMsg)
 	}
 	return cmdtesting.Stderr(out)
 }
 
-func (s *updatePublicCloudsSuite) Test404(c *gc.C) {
+func (s *updatePublicCloudsSuite) Test404(c *tc.C) {
 	ts := s.setupTestServer(c, "404")
 	defer ts.Close()
 	_, err := cloud.PublishedPublicClouds(context.Background(), ts.URL, "")
-	c.Assert(err, gc.ErrorMatches, "public cloud list is unavailable right now")
+	c.Assert(err, tc.ErrorMatches, "public cloud list is unavailable right now")
 }
 
-func (s *updatePublicCloudsSuite) Test401(c *gc.C) {
+func (s *updatePublicCloudsSuite) Test401(c *tc.C) {
 	ts := s.setupTestServer(c, "401")
 	defer ts.Close()
 	_, err := cloud.PublishedPublicClouds(context.Background(), ts.URL, "")
-	c.Assert(err, gc.ErrorMatches, "unauthorised access to URL .*")
+	c.Assert(err, tc.ErrorMatches, "unauthorised access to URL .*")
 }
 
-func (s *updatePublicCloudsSuite) TestUnsignedData(c *gc.C) {
+func (s *updatePublicCloudsSuite) TestUnsignedData(c *tc.C) {
 	ts := s.setupTestServer(c, "unsigned")
 	defer ts.Close()
 	_, err := cloud.PublishedPublicClouds(context.Background(), ts.URL, "")
-	c.Assert(err, gc.ErrorMatches, "receiving updated cloud data: no PGP signature embedded in plain text data")
+	c.Assert(err, tc.ErrorMatches, "receiving updated cloud data: no PGP signature embedded in plain text data")
 }
 
-func (s *updatePublicCloudsSuite) TestBadDataOnServer(c *gc.C) {
+func (s *updatePublicCloudsSuite) TestBadDataOnServer(c *tc.C) {
 	ts := s.setupTestServer(c, "bad data")
 	defer ts.Close()
 	_, err := cloud.PublishedPublicClouds(context.Background(), ts.URL, sstesting.SignedMetadataPublicKey)
-	c.Assert(err, gc.ErrorMatches, "(?s)invalid cloud data received when updating clouds.*")
+	c.Assert(err, tc.ErrorMatches, "(?s)invalid cloud data received when updating clouds.*")
 }
 
 var sampleUpdateCloudData = `
@@ -142,7 +142,7 @@ clouds:
         endpoint: http://region/1.0
 `[1:]
 
-func (s *updatePublicCloudsSuite) TestNoNewDataOnClient(c *gc.C) {
+func (s *updatePublicCloudsSuite) TestNoNewDataOnClient(c *tc.C) {
 	clouds, err := jujucloud.ParseCloudMetadata([]byte(sampleUpdateCloudData))
 	c.Assert(err, jc.ErrorIsNil)
 	err = jujucloud.WritePublicCloudMetadata(clouds)
@@ -152,10 +152,10 @@ func (s *updatePublicCloudsSuite) TestNoNewDataOnClient(c *gc.C) {
 	defer ts.Close()
 
 	msg := s.run(c, ts.URL, "", "--client")
-	c.Assert(strings.Replace(msg, "\n", "", -1), gc.Matches, "Fetching latest public cloud list...List of public clouds on this client is up to date, see `juju clouds --client`.")
+	c.Assert(strings.Replace(msg, "\n", "", -1), tc.Matches, "Fetching latest public cloud list...List of public clouds on this client is up to date, see `juju clouds --client`.")
 }
 
-func (s *updatePublicCloudsSuite) TestFirstRunOnClient(c *gc.C) {
+func (s *updatePublicCloudsSuite) TestFirstRunOnClient(c *tc.C) {
 	// make sure there is nothing
 	err := jujucloud.WritePublicCloudMetadata(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -170,7 +170,7 @@ func (s *updatePublicCloudsSuite) TestFirstRunOnClient(c *gc.C) {
 	clouds, err := jujucloud.ParseCloudMetadata([]byte(sampleUpdateCloudData))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(publicClouds, jc.DeepEquals, clouds)
-	c.Assert(msg, gc.Matches, `
+	c.Assert(msg, tc.Matches, `
 Fetching latest public cloud list...
 Updated list of public clouds on this client, 1 cloud added:
 
@@ -179,7 +179,7 @@ Updated list of public clouds on this client, 1 cloud added:
 `[1:])
 }
 
-func (s *updatePublicCloudsSuite) TestNewDataOnClient(c *gc.C) {
+func (s *updatePublicCloudsSuite) TestNewDataOnClient(c *tc.C) {
 	clouds, err := jujucloud.ParseCloudMetadata([]byte(sampleUpdateCloudData))
 	c.Assert(err, jc.ErrorIsNil)
 	err = jujucloud.WritePublicCloudMetadata(clouds)
@@ -199,7 +199,7 @@ func (s *updatePublicCloudsSuite) TestNewDataOnClient(c *gc.C) {
 	clouds, err = jujucloud.ParseCloudMetadata([]byte(newUpdateCloudData))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(publicClouds, jc.DeepEquals, clouds)
-	c.Assert(msg, gc.Matches, `
+	c.Assert(msg, tc.Matches, `
 Fetching latest public cloud list...
 Updated list of public clouds on this client, 1 cloud region added:
 
@@ -209,7 +209,7 @@ Updated list of public clouds on this client, 1 cloud region added:
 	s.api.CheckNoCalls(c)
 }
 
-func (s *updatePublicCloudsSuite) TestNoPublicCloudOnController(c *gc.C) {
+func (s *updatePublicCloudsSuite) TestNoPublicCloudOnController(c *tc.C) {
 	ts := s.setupTestServer(c, sampleUpdateCloudData)
 	defer ts.Close()
 
@@ -219,11 +219,11 @@ func (s *updatePublicCloudsSuite) TestNoPublicCloudOnController(c *gc.C) {
 		}, nil
 	}
 	msg := s.run(c, ts.URL, "", "-c", "mycontroller")
-	c.Assert(strings.Replace(msg, "\n", "", -1), gc.Matches, "Fetching latest public cloud list...List of public clouds on controller \"mycontroller\" is up to date, see `juju clouds --controller mycontroller`.")
+	c.Assert(strings.Replace(msg, "\n", "", -1), tc.Matches, "Fetching latest public cloud list...List of public clouds on controller \"mycontroller\" is up to date, see `juju clouds --controller mycontroller`.")
 	s.api.CheckCallNames(c, "Clouds", "Close")
 }
 
-func (s *updatePublicCloudsSuite) TestUpdatePublicCloudOnController(c *gc.C) {
+func (s *updatePublicCloudsSuite) TestUpdatePublicCloudOnController(c *tc.C) {
 	ts := s.setupTestServer(c, sampleUpdateCloudData)
 	defer ts.Close()
 
@@ -234,7 +234,7 @@ func (s *updatePublicCloudsSuite) TestUpdatePublicCloudOnController(c *gc.C) {
 		}, nil
 	}
 	msg := s.run(c, ts.URL, "", "-c", "mycontroller")
-	c.Assert(msg, gc.Equals, `
+	c.Assert(msg, tc.Equals, `
 Fetching latest public cloud list...
 Updated list of public clouds on controller "mycontroller", 1 cloud region added as well as 1 cloud attribute changed:
 
@@ -256,7 +256,7 @@ Updated list of public clouds on controller "mycontroller", 1 cloud region added
 	})
 }
 
-func (s *updatePublicCloudsSuite) TestSamePublicCloudOnController(c *gc.C) {
+func (s *updatePublicCloudsSuite) TestSamePublicCloudOnController(c *tc.C) {
 	ts := s.setupTestServer(c, sampleUpdateCloudData)
 	defer ts.Close()
 
@@ -275,7 +275,7 @@ func (s *updatePublicCloudsSuite) TestSamePublicCloudOnController(c *gc.C) {
 		}, nil
 	}
 	msg := s.run(c, ts.URL, "", "-c", "mycontroller")
-	c.Assert(msg, gc.Equals, `
+	c.Assert(msg, tc.Equals, `
 Fetching latest public cloud list...
 List of public clouds on controller "mycontroller" is up to date, see `[1:]+"`juju clouds --controller mycontroller`"+`.
 `)

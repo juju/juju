@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/crossmodel"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -21,9 +21,9 @@ type exportSuite struct {
 	service     *MockExportService
 }
 
-var _ = gc.Suite(&exportSuite{})
+var _ = tc.Suite(&exportSuite{})
 
-func (s *exportSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *exportSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.coordinator = NewMockCoordinator(ctrl)
@@ -38,7 +38,7 @@ func (s *exportSuite) newExportOperation() *exportOperation {
 	}
 }
 
-func (s *exportSuite) TestExportExternalController(c *gc.C) {
+func (s *exportSuite) TestExportExternalController(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := "model-uuid-1"
@@ -62,21 +62,21 @@ func (s *exportSuite) TestExportExternalController(c *gc.C) {
 
 	// Assert that the destination description model has no external
 	// controllers before the migration:
-	c.Assert(dst.ExternalControllers(), gc.HasLen, 0)
+	c.Assert(dst.ExternalControllers(), tc.HasLen, 0)
 	op := s.newExportOperation()
 	err := op.Execute(context.Background(), dst)
 	c.Assert(err, jc.ErrorIsNil)
 	// Assert that the destination description model has one external
 	// controller after the migration:
-	c.Check(dst.ExternalControllers(), gc.HasLen, 1)
-	c.Assert(dst.ExternalControllers()[0].ID(), gc.Equals, ctrlUUID)
+	c.Check(dst.ExternalControllers(), tc.HasLen, 1)
+	c.Assert(dst.ExternalControllers()[0].ID(), tc.Equals, ctrlUUID)
 	c.Assert(dst.ExternalControllers()[0].Addrs(), jc.SameContents, []string{"192.168.1.1:8080"})
-	c.Assert(dst.ExternalControllers()[0].Alias(), gc.Equals, "external ctrl1")
-	c.Assert(dst.ExternalControllers()[0].CACert(), gc.Equals, "ca-cert-1")
+	c.Assert(dst.ExternalControllers()[0].Alias(), tc.Equals, "external ctrl1")
+	c.Assert(dst.ExternalControllers()[0].CACert(), tc.Equals, "ca-cert-1")
 	c.Assert(dst.ExternalControllers()[0].Models(), jc.SameContents, []string{"model1", "model2"})
 }
 
-func (s *exportSuite) TestExportExternalControllerRequestsExternalControllerOnceWithSameUUID(c *gc.C) {
+func (s *exportSuite) TestExportExternalControllerRequestsExternalControllerOnceWithSameUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := "model-uuid-1"
@@ -106,21 +106,21 @@ func (s *exportSuite) TestExportExternalControllerRequestsExternalControllerOnce
 
 	// Assert that the destination description model has no external
 	// controllers before the migration:
-	c.Assert(dst.ExternalControllers(), gc.HasLen, 0)
+	c.Assert(dst.ExternalControllers(), tc.HasLen, 0)
 	op := s.newExportOperation()
 	err := op.Execute(context.Background(), dst)
 	c.Assert(err, jc.ErrorIsNil)
 	// Assert that the destination description model has one external
 	// controller after the migration:
-	c.Assert(dst.ExternalControllers(), gc.HasLen, 1)
-	c.Assert(dst.ExternalControllers()[0].ID(), gc.Equals, ctrlUUID)
+	c.Assert(dst.ExternalControllers(), tc.HasLen, 1)
+	c.Assert(dst.ExternalControllers()[0].ID(), tc.Equals, ctrlUUID)
 	c.Assert(dst.ExternalControllers()[0].Addrs(), jc.SameContents, []string{"192.168.1.1:8080"})
-	c.Assert(dst.ExternalControllers()[0].Alias(), gc.Equals, "external ctrl1")
-	c.Assert(dst.ExternalControllers()[0].CACert(), gc.Equals, "ca-cert-1")
+	c.Assert(dst.ExternalControllers()[0].Alias(), tc.Equals, "external ctrl1")
+	c.Assert(dst.ExternalControllers()[0].CACert(), tc.Equals, "ca-cert-1")
 	c.Assert(dst.ExternalControllers()[0].Models(), jc.SameContents, []string{"model1", "model2"})
 }
 
-func (s *exportSuite) TestExportExternalControllerRequestsExternalControllerOnceWithSameController(c *gc.C) {
+func (s *exportSuite) TestExportExternalControllerRequestsExternalControllerOnceWithSameController(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID1 := "model-uuid-1"
@@ -151,21 +151,21 @@ func (s *exportSuite) TestExportExternalControllerRequestsExternalControllerOnce
 
 	// Assert that the destination description model has no external
 	// controllers before the migration:
-	c.Assert(dst.ExternalControllers(), gc.HasLen, 0)
+	c.Assert(dst.ExternalControllers(), tc.HasLen, 0)
 	op := s.newExportOperation()
 	err := op.Execute(context.Background(), dst)
 	c.Assert(err, jc.ErrorIsNil)
 	// Assert that the destination description model has one external
 	// controller after the migration:
-	c.Assert(dst.ExternalControllers(), gc.HasLen, 1)
-	c.Assert(dst.ExternalControllers()[0].ID(), gc.Equals, ctrlUUID)
+	c.Assert(dst.ExternalControllers(), tc.HasLen, 1)
+	c.Assert(dst.ExternalControllers()[0].ID(), tc.Equals, ctrlUUID)
 	c.Assert(dst.ExternalControllers()[0].Addrs(), jc.SameContents, []string{"192.168.1.1:8080"})
-	c.Assert(dst.ExternalControllers()[0].Alias(), gc.Equals, "external ctrl1")
-	c.Assert(dst.ExternalControllers()[0].CACert(), gc.Equals, "ca-cert-1")
+	c.Assert(dst.ExternalControllers()[0].Alias(), tc.Equals, "external ctrl1")
+	c.Assert(dst.ExternalControllers()[0].CACert(), tc.Equals, "ca-cert-1")
 	c.Assert(dst.ExternalControllers()[0].Models(), jc.SameContents, []string{"model1", "model2"})
 }
 
-func (s *exportSuite) TestExportExternalControllerWithNoControllerNotFound(c *gc.C) {
+func (s *exportSuite) TestExportExternalControllerWithNoControllerNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := "model-uuid-1"
@@ -180,10 +180,10 @@ func (s *exportSuite) TestExportExternalControllerWithNoControllerNotFound(c *gc
 
 	op := s.newExportOperation()
 	err := op.Execute(context.Background(), dst)
-	c.Assert(err, gc.ErrorMatches, "test-external-controller not found")
+	c.Assert(err, tc.ErrorMatches, "test-external-controller not found")
 }
 
-func (s *exportSuite) TestExportExternalControllerFailsGettingExternalControllerEntities(c *gc.C) {
+func (s *exportSuite) TestExportExternalControllerFailsGettingExternalControllerEntities(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := "model-uuid-1"
@@ -198,5 +198,5 @@ func (s *exportSuite) TestExportExternalControllerFailsGettingExternalController
 
 	op := s.newExportOperation()
 	err := op.Execute(context.Background(), dst)
-	c.Assert(err, gc.ErrorMatches, "fail")
+	c.Assert(err, tc.ErrorMatches, "fail")
 }

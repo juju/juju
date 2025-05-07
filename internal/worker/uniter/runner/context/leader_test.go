@@ -4,9 +4,9 @@
 package context_test
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
@@ -19,9 +19,9 @@ type LeaderSuite struct {
 	context context.LeadershipContext
 }
 
-var _ = gc.Suite(&LeaderSuite{})
+var _ = tc.Suite(&LeaderSuite{})
 
-func (s *LeaderSuite) SetUpTest(c *gc.C) {
+func (s *LeaderSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.tracker = &StubTracker{
 		Stub:            &s.Stub,
@@ -30,13 +30,13 @@ func (s *LeaderSuite) SetUpTest(c *gc.C) {
 	s.context = context.NewLeadershipContext(s.tracker)
 }
 
-func (s *LeaderSuite) CheckCalls(c *gc.C, stubCalls []testing.StubCall, f func()) {
+func (s *LeaderSuite) CheckCalls(c *tc.C, stubCalls []testing.StubCall, f func()) {
 	s.Stub = testing.Stub{}
 	f()
 	s.Stub.CheckCalls(c, stubCalls)
 }
 
-func (s *LeaderSuite) TestIsLeaderSuccess(c *gc.C) {
+func (s *LeaderSuite) TestIsLeaderSuccess(c *tc.C) {
 	s.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ClaimLeader",
 	}}, func() {
@@ -58,7 +58,7 @@ func (s *LeaderSuite) TestIsLeaderSuccess(c *gc.C) {
 	})
 }
 
-func (s *LeaderSuite) TestIsLeaderFailure(c *gc.C) {
+func (s *LeaderSuite) TestIsLeaderFailure(c *tc.C) {
 	s.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ClaimLeader",
 	}}, func() {
@@ -77,7 +77,7 @@ func (s *LeaderSuite) TestIsLeaderFailure(c *gc.C) {
 	})
 }
 
-func (s *LeaderSuite) TestIsLeaderFailureAfterSuccess(c *gc.C) {
+func (s *LeaderSuite) TestIsLeaderFailureAfterSuccess(c *tc.C) {
 	s.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ClaimLeader",
 	}}, func() {

@@ -7,10 +7,10 @@ import (
 	"context"
 
 	"github.com/juju/clock"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	corestorage "github.com/juju/juju/core/storage"
 	storagetesting "github.com/juju/juju/core/storage/testing"
@@ -32,9 +32,9 @@ type storageSuite struct {
 	service *Service
 }
 
-var _ = gc.Suite(&storageSuite{})
+var _ = tc.Suite(&storageSuite{})
 
-func (s *storageSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *storageSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockState = NewMockState(ctrl)
 	s.service = NewService(
@@ -51,7 +51,7 @@ func (s *storageSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *storageSuite) TestAttachStorage(c *gc.C) {
+func (s *storageSuite) TestAttachStorage(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID := unittesting.GenUnitUUID(c)
@@ -64,7 +64,7 @@ func (s *storageSuite) TestAttachStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *storageSuite) TestAttachStorageAlreadyAttached(c *gc.C) {
+func (s *storageSuite) TestAttachStorageAlreadyAttached(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID := unittesting.GenUnitUUID(c)
@@ -77,7 +77,7 @@ func (s *storageSuite) TestAttachStorageAlreadyAttached(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *storageSuite) TestAttachStorageValidate(c *gc.C) {
+func (s *storageSuite) TestAttachStorageValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := s.service.AttachStorage(context.Background(), "pgdata/0", "666")
@@ -86,7 +86,7 @@ func (s *storageSuite) TestAttachStorageValidate(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, corestorage.InvalidStorageID)
 }
 
-func (s *storageSuite) TestAddStorageToUnit(c *gc.C) {
+func (s *storageSuite) TestAddStorageToUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID := unittesting.GenUnitUUID(c)
@@ -99,7 +99,7 @@ func (s *storageSuite) TestAddStorageToUnit(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, []corestorage.ID{"pgdata/0"})
 }
 
-func (s *storageSuite) TestAddStorageForUnitValidate(c *gc.C) {
+func (s *storageSuite) TestAddStorageForUnitValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.AddStorageForUnit(context.Background(), "pgdata", "666", storage.Directive{})
@@ -108,7 +108,7 @@ func (s *storageSuite) TestAddStorageForUnitValidate(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, corestorage.InvalidStorageName)
 }
 
-func (s *storageSuite) TestDetachStorageForUnit(c *gc.C) {
+func (s *storageSuite) TestDetachStorageForUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID := unittesting.GenUnitUUID(c)
@@ -121,7 +121,7 @@ func (s *storageSuite) TestDetachStorageForUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *storageSuite) TestDetachStorageForUnitValidate(c *gc.C) {
+func (s *storageSuite) TestDetachStorageForUnitValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := s.service.DetachStorageForUnit(context.Background(), "pgdata/0", "666")
@@ -130,7 +130,7 @@ func (s *storageSuite) TestDetachStorageForUnitValidate(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, corestorage.InvalidStorageID)
 }
 
-func (s *storageSuite) TestDetachStorage(c *gc.C) {
+func (s *storageSuite) TestDetachStorage(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	storageUUID := storagetesting.GenStorageUUID(c)
@@ -141,7 +141,7 @@ func (s *storageSuite) TestDetachStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *storageSuite) TestDetachStorageValidate(c *gc.C) {
+func (s *storageSuite) TestDetachStorageValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := s.service.DetachStorage(context.Background(), "0")

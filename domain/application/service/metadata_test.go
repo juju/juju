@@ -4,9 +4,9 @@
 package service
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/semversion"
@@ -20,7 +20,7 @@ type metadataSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&metadataSuite{})
+var _ = tc.Suite(&metadataSuite{})
 
 var metadataTestCases = [...]struct {
 	name   string
@@ -364,13 +364,13 @@ var metadataTestCases = [...]struct {
 	},
 }
 
-func (s *metadataSuite) TestConvertMetadata(c *gc.C) {
+func (s *metadataSuite) TestConvertMetadata(c *tc.C) {
 	for _, tc := range metadataTestCases {
 		c.Logf("Running test case %q", tc.name)
 
 		result, err := decodeMetadata(tc.input)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result, gc.DeepEquals, tc.output)
+		c.Check(result, tc.DeepEquals, tc.output)
 
 		// Ensure that the conversion is idempotent.
 		converted, err := encodeMetadata(&result)

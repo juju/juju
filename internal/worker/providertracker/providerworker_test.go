@@ -12,12 +12,12 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/providertracker"
@@ -33,9 +33,9 @@ type providerWorkerSuite struct {
 	ephemeralCalled int64
 }
 
-var _ = gc.Suite(&providerWorkerSuite{})
+var _ = tc.Suite(&providerWorkerSuite{})
 
-func (s *providerWorkerSuite) TestKilledSingularWorkerProviderErrDying(c *gc.C) {
+func (s *providerWorkerSuite) TestKilledSingularWorkerProviderErrDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that a killed worker returns the correct error when
@@ -57,7 +57,7 @@ func (s *providerWorkerSuite) TestKilledSingularWorkerProviderErrDying(c *gc.C) 
 	c.Assert(err, jc.ErrorIs, ErrProviderWorkerDying)
 }
 
-func (s *providerWorkerSuite) TestKilledMultiWorkerProviderErrDying(c *gc.C) {
+func (s *providerWorkerSuite) TestKilledMultiWorkerProviderErrDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that a killed worker returns the correct error when
@@ -77,7 +77,7 @@ func (s *providerWorkerSuite) TestKilledMultiWorkerProviderErrDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, ErrProviderWorkerDying)
 }
 
-func (s *providerWorkerSuite) TestMultiFailsForSingularModels(c *gc.C) {
+func (s *providerWorkerSuite) TestMultiFailsForSingularModels(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// If we're running in multi mode, ensure that we get an error if
@@ -93,7 +93,7 @@ func (s *providerWorkerSuite) TestMultiFailsForSingularModels(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *providerWorkerSuite) TestSingularFailsForMultiModels(c *gc.C) {
+func (s *providerWorkerSuite) TestSingularFailsForMultiModels(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// If we're running in singular mode, ensure that we get an error if
@@ -111,7 +111,7 @@ func (s *providerWorkerSuite) TestSingularFailsForMultiModels(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *providerWorkerSuite) TestControllerNamespaceFails(c *gc.C) {
+func (s *providerWorkerSuite) TestControllerNamespaceFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Prevent requests to the controller namespace.
@@ -128,7 +128,7 @@ func (s *providerWorkerSuite) TestControllerNamespaceFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *providerWorkerSuite) TestProvider(c *gc.C) {
+func (s *providerWorkerSuite) TestProvider(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that the provider is returned correctly.
@@ -143,10 +143,10 @@ func (s *providerWorkerSuite) TestProvider(c *gc.C) {
 	worker := w.(*providerWorker)
 	provider, err := worker.Provider()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(provider, gc.NotNil)
+	c.Check(provider, tc.NotNil)
 }
 
-func (s *providerWorkerSuite) TestProviderIsCached(c *gc.C) {
+func (s *providerWorkerSuite) TestProviderIsCached(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that calling the provider multiple times returns the same
@@ -167,11 +167,11 @@ func (s *providerWorkerSuite) TestProviderIsCached(c *gc.C) {
 
 	workertest.CleanKill(c, w)
 
-	c.Assert(atomic.LoadInt64(&s.trackedCalled), gc.Equals, int64(1))
-	c.Assert(atomic.LoadInt64(&s.ephemeralCalled), gc.Equals, int64(0))
+	c.Assert(atomic.LoadInt64(&s.trackedCalled), tc.Equals, int64(1))
+	c.Assert(atomic.LoadInt64(&s.ephemeralCalled), tc.Equals, int64(0))
 }
 
-func (s *providerWorkerSuite) TestProviderForModel(c *gc.C) {
+func (s *providerWorkerSuite) TestProviderForModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that the provider for a model is returned correctly.
@@ -187,10 +187,10 @@ func (s *providerWorkerSuite) TestProviderForModel(c *gc.C) {
 
 	provider, err := worker.ProviderForModel(context.Background(), "hunter2")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(provider, gc.NotNil)
+	c.Check(provider, tc.NotNil)
 }
 
-func (s *providerWorkerSuite) TestProviderForModelIsCached(c *gc.C) {
+func (s *providerWorkerSuite) TestProviderForModelIsCached(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that calling the provider multiple times returns the same
@@ -211,11 +211,11 @@ func (s *providerWorkerSuite) TestProviderForModelIsCached(c *gc.C) {
 
 	workertest.CleanKill(c, w)
 
-	c.Assert(atomic.LoadInt64(&s.trackedCalled), gc.Equals, int64(1))
-	c.Assert(atomic.LoadInt64(&s.ephemeralCalled), gc.Equals, int64(0))
+	c.Assert(atomic.LoadInt64(&s.trackedCalled), tc.Equals, int64(1))
+	c.Assert(atomic.LoadInt64(&s.ephemeralCalled), tc.Equals, int64(0))
 }
 
-func (s *providerWorkerSuite) TestProviderForModelIsNotCachedForDifferentNamespaces(c *gc.C) {
+func (s *providerWorkerSuite) TestProviderForModelIsNotCachedForDifferentNamespaces(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that calling the provider multiple times returns the same
@@ -241,11 +241,11 @@ func (s *providerWorkerSuite) TestProviderForModelIsNotCachedForDifferentNamespa
 
 	workertest.CleanKill(c, w)
 
-	c.Assert(atomic.LoadInt64(&s.trackedCalled), gc.Equals, int64(10))
-	c.Assert(atomic.LoadInt64(&s.ephemeralCalled), gc.Equals, int64(0))
+	c.Assert(atomic.LoadInt64(&s.trackedCalled), tc.Equals, int64(10))
+	c.Assert(atomic.LoadInt64(&s.ephemeralCalled), tc.Equals, int64(0))
 }
 
-func (s *providerWorkerSuite) TestProviderForModelConcurrently(c *gc.C) {
+func (s *providerWorkerSuite) TestProviderForModelConcurrently(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that calling the provider multiple times returns the same
@@ -276,11 +276,11 @@ func (s *providerWorkerSuite) TestProviderForModelConcurrently(c *gc.C) {
 	}
 
 	assertWait(c, wg.Wait)
-	c.Assert(atomic.LoadInt64(&s.trackedCalled), gc.Equals, int64(10))
-	c.Assert(atomic.LoadInt64(&s.ephemeralCalled), gc.Equals, int64(0))
+	c.Assert(atomic.LoadInt64(&s.trackedCalled), tc.Equals, int64(10))
+	c.Assert(atomic.LoadInt64(&s.ephemeralCalled), tc.Equals, int64(0))
 }
 
-func (s *providerWorkerSuite) TestEphemeralProviderFromConfig(c *gc.C) {
+func (s *providerWorkerSuite) TestEphemeralProviderFromConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that the provider for a model is returned correctly.
@@ -294,10 +294,10 @@ func (s *providerWorkerSuite) TestEphemeralProviderFromConfig(c *gc.C) {
 
 	provider, err := worker.EphemeralProviderFromConfig(context.Background(), providertracker.EphemeralProviderConfig{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(provider, gc.NotNil)
+	c.Check(provider, tc.NotNil)
 }
 
-func (s *providerWorkerSuite) TestEphemeralProviderFromConfigIsNotCachedForDifferentNamespaces(c *gc.C) {
+func (s *providerWorkerSuite) TestEphemeralProviderFromConfigIsNotCachedForDifferentNamespaces(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w := s.newMultiWorker(c)
@@ -314,11 +314,11 @@ func (s *providerWorkerSuite) TestEphemeralProviderFromConfigIsNotCachedForDiffe
 
 	workertest.CleanKill(c, w)
 
-	c.Assert(atomic.LoadInt64(&s.trackedCalled), gc.Equals, int64(0))
-	c.Assert(atomic.LoadInt64(&s.ephemeralCalled), gc.Equals, int64(10))
+	c.Assert(atomic.LoadInt64(&s.trackedCalled), tc.Equals, int64(0))
+	c.Assert(atomic.LoadInt64(&s.ephemeralCalled), tc.Equals, int64(10))
 }
 
-func (s *providerWorkerSuite) TestEphemeralProviderFromConfigConcurrently(c *gc.C) {
+func (s *providerWorkerSuite) TestEphemeralProviderFromConfigConcurrently(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w := s.newMultiWorker(c)
@@ -340,26 +340,26 @@ func (s *providerWorkerSuite) TestEphemeralProviderFromConfigConcurrently(c *gc.
 	}
 
 	assertWait(c, wg.Wait)
-	c.Assert(atomic.LoadInt64(&s.trackedCalled), gc.Equals, int64(0))
-	c.Assert(atomic.LoadInt64(&s.ephemeralCalled), gc.Equals, int64(10))
+	c.Assert(atomic.LoadInt64(&s.trackedCalled), tc.Equals, int64(0))
+	c.Assert(atomic.LoadInt64(&s.ephemeralCalled), tc.Equals, int64(10))
 }
 
-func (s *providerWorkerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *providerWorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	atomic.StoreInt64(&s.trackedCalled, 0)
 	atomic.StoreInt64(&s.ephemeralCalled, 0)
 
 	return s.baseSuite.setupMocks(c)
 }
 
-func (s *providerWorkerSuite) newSingularWorker(c *gc.C) worker.Worker {
+func (s *providerWorkerSuite) newSingularWorker(c *tc.C) worker.Worker {
 	return s.newWorker(c, SingularType("hunter2"))
 }
 
-func (s *providerWorkerSuite) newMultiWorker(c *gc.C) worker.Worker {
+func (s *providerWorkerSuite) newMultiWorker(c *tc.C) worker.Worker {
 	return s.newWorker(c, MultiType())
 }
 
-func (s *providerWorkerSuite) newWorker(c *gc.C, trackerType TrackerType) worker.Worker {
+func (s *providerWorkerSuite) newWorker(c *tc.C, trackerType TrackerType) worker.Worker {
 	w, err := newWorker(Config{
 		TrackerType:          trackerType,
 		DomainServicesGetter: s.domainServicesGetter,
@@ -397,7 +397,7 @@ func (s *providerWorkerSuite) newWorker(c *gc.C, trackerType TrackerType) worker
 	return w
 }
 
-func assertWait(c *gc.C, wait func()) {
+func assertWait(c *tc.C, wait func()) {
 	done := make(chan struct{})
 
 	go func() {

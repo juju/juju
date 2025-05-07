@@ -4,15 +4,15 @@
 package instance_test
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
 )
 
 type HardwareSuite struct{}
 
-var _ = gc.Suite(&HardwareSuite{})
+var _ = tc.Suite(&HardwareSuite{})
 
 type parseHardwareTestSpec struct {
 	summary string
@@ -23,12 +23,12 @@ type parseHardwareTestSpec struct {
 
 type HC = instance.HardwareCharacteristics
 
-func (ts *parseHardwareTestSpec) check(c *gc.C) {
+func (ts *parseHardwareTestSpec) check(c *tc.C) {
 	hwc, err := instance.ParseHardware(ts.args...)
 
 	// Check the spec'ed error condition first.
 	if ts.err != "" {
-		c.Check(err, gc.ErrorMatches, ts.err)
+		c.Check(err, tc.ErrorMatches, ts.err)
 		// We expected an error so we don't worry about checking hwc.
 		return
 	} else if !c.Check(err, jc.ErrorIsNil) {
@@ -44,12 +44,12 @@ func (ts *parseHardwareTestSpec) check(c *gc.C) {
 	}
 
 	// Compare the round-tripped HWC.
-	c.Check(cons1, gc.DeepEquals, hwc)
+	c.Check(cons1, tc.DeepEquals, hwc)
 
 	// If ts.hc is provided, check that too (so we're not just relying on the
 	// round trip via String).
 	if ts.hc != nil {
-		c.Check(hwc, gc.DeepEquals, *ts.hc)
+		c.Check(hwc, tc.DeepEquals, *ts.hc)
 	}
 }
 
@@ -471,23 +471,23 @@ var parseHardwareTests = []parseHardwareTestSpec{
 func stringPtr(s string) *string { return &s }
 func uint64Ptr(u uint64) *uint64 { return &u }
 
-func (s *HardwareSuite) TestParseHardware(c *gc.C) {
+func (s *HardwareSuite) TestParseHardware(c *tc.C) {
 	for i, t := range parseHardwareTests {
 		c.Logf("test %d: %s", i, t.summary)
 		t.check(c)
 	}
 }
 
-func (s HardwareSuite) TestClone(c *gc.C) {
+func (s HardwareSuite) TestClone(c *tc.C) {
 	var hcNil *instance.HardwareCharacteristics
-	c.Assert(hcNil.Clone(), gc.IsNil)
+	c.Assert(hcNil.Clone(), tc.IsNil)
 	hc := instance.MustParseHardware("root-disk=4G", "mem=2T", "cores=4096", "cpu-power=9001", "arch=arm64", "availability-zone=a_zone", "virt-type=virtual-machine")
 	hc2 := hc.Clone()
 	c.Assert(hc, jc.DeepEquals, *hc2)
 }
 
 // Regression test for https://bugs.launchpad.net/juju/+bug/1895756
-func (s HardwareSuite) TestCloneSpace(c *gc.C) {
+func (s HardwareSuite) TestCloneSpace(c *tc.C) {
 	az := "a -"
 	hc := &instance.HardwareCharacteristics{AvailabilityZone: &az}
 	clone := hc.Clone()
@@ -495,11 +495,11 @@ func (s HardwareSuite) TestCloneSpace(c *gc.C) {
 }
 
 // Ensure fields like the Tags slice are deep-copied
-func (s HardwareSuite) TestCloneDeep(c *gc.C) {
+func (s HardwareSuite) TestCloneDeep(c *tc.C) {
 	tags := []string{"a"}
 	hc := &instance.HardwareCharacteristics{Tags: &tags}
 	clone := hc.Clone()
 	c.Assert(hc, jc.DeepEquals, clone)
 	tags[0] = "z"
-	c.Assert((*clone.Tags)[0], gc.Equals, "a")
+	c.Assert((*clone.Tags)[0], tc.Equals, "a")
 }

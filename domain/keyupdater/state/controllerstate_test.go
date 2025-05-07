@@ -8,8 +8,8 @@ import (
 	"database/sql"
 	"slices"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
@@ -34,7 +34,7 @@ type controllerStateSuite struct {
 }
 
 var (
-	_ = gc.Suite(&controllerStateSuite{})
+	_ = tc.Suite(&controllerStateSuite{})
 
 	controllerSSHKeys = `
 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN8h8XBpjS9aBUG5cdoSWubs7wT2Lc/BEZIUQCqoaOZR juju-client-key
@@ -43,7 +43,7 @@ ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN8h8XBpjS9aBUG5cdoSWubs7wT2Lc/BEZIUQCqoaOZR
 
 // ensureControllerConfigSSHKeys is responsible for injecting ssh keys into a
 // controllers config with the key defined in [controller.SystemSSHKeys].
-func (s *controllerStateSuite) ensureControllerConfigSSHKeys(c *gc.C, keys string) {
+func (s *controllerStateSuite) ensureControllerConfigSSHKeys(c *tc.C, keys string) {
 	stmt := `
 INSERT INTO controller_config (key, value) VALUES(?, ?)
 `
@@ -55,7 +55,7 @@ INSERT INTO controller_config (key, value) VALUES(?, ?)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func generatePublicKeys(c *gc.C, publicKeys []string) []keymanager.PublicKey {
+func generatePublicKeys(c *tc.C, publicKeys []string) []keymanager.PublicKey {
 	rval := make([]keymanager.PublicKey, 0, len(publicKeys))
 	for _, pk := range publicKeys {
 		parsedKey, err := ssh.ParsePublicKey(pk)
@@ -72,7 +72,7 @@ func generatePublicKeys(c *gc.C, publicKeys []string) []keymanager.PublicKey {
 	return rval
 }
 
-func (s *controllerStateSuite) SetUpTest(c *gc.C) {
+func (s *controllerStateSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 	s.SeedControllerUUID(c)
 
@@ -87,31 +87,31 @@ func (s *controllerStateSuite) SetUpTest(c *gc.C) {
 
 // TestControllerConfigKeysEmpty ensures that if we ask for keys that do not
 // exist in controller config no errors are returned an empty map is returned.
-func (s *controllerStateSuite) TestControllerConfigKeysEmpty(c *gc.C) {
+func (s *controllerStateSuite) TestControllerConfigKeysEmpty(c *tc.C) {
 	kv, err := NewControllerState(s.TxnRunnerFactory()).GetControllerConfigKeys(
 		context.Background(),
 		[]string{"does-not-exist"},
 	)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(len(kv), gc.Equals, 0)
+	c.Check(len(kv), tc.Equals, 0)
 }
 
 // TestControllerConfigKeys is asserting the happy path that we can extract the
 // system ssh keys from controller config when they exist.
-func (s *controllerStateSuite) TestControllerConfigKeys(c *gc.C) {
+func (s *controllerStateSuite) TestControllerConfigKeys(c *tc.C) {
 	s.ensureControllerConfigSSHKeys(c, controllerSSHKeys)
 	kv, err := NewControllerState(s.TxnRunnerFactory()).GetControllerConfigKeys(
 		context.Background(),
 		[]string{controller.SystemSSHKeys},
 	)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(len(kv), gc.Equals, 1)
-	c.Check(kv[controller.SystemSSHKeys], gc.Equals, controllerSSHKeys)
+	c.Check(len(kv), tc.Equals, 1)
+	c.Check(kv[controller.SystemSSHKeys], tc.Equals, controllerSSHKeys)
 }
 
 // TestGetUserAuthorizedKeysForModelNotFound is asserting that is we ask for
 // keys on a model that doesn't exist we get back a [modelerrors.NotFound] error.
-func (s *controllerStateSuite) TestGetUserAuthorizedKeysForModelNotFound(c *gc.C) {
+func (s *controllerStateSuite) TestGetUserAuthorizedKeysForModelNotFound(c *tc.C) {
 	st := NewControllerState(s.TxnRunnerFactory())
 	_, err := st.GetUserAuthorizedKeysForModel(context.Background(), modeltesting.GenModelUUID(c))
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
@@ -120,7 +120,7 @@ func (s *controllerStateSuite) TestGetUserAuthorizedKeysForModelNotFound(c *gc.C
 // TestGetUserAuthorizedKeysForModel is asserting the happy path of getting all
 // user authorized keys for a model. We purposefully setup multiple users on the
 // model in this test to make this scenario more realisticlty.
-func (s *controllerStateSuite) TestGetUserAuthorizedKeysForModel(c *gc.C) {
+func (s *controllerStateSuite) TestGetUserAuthorizedKeysForModel(c *tc.C) {
 	kmSt := keymanagerstate.NewState(s.TxnRunnerFactory())
 	keysToAdd := generatePublicKeys(c, testingPublicKeys)
 

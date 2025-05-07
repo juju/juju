@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -28,9 +28,9 @@ type execSuite struct {
 	BaseSuite
 }
 
-var _ = gc.Suite(&execSuite{})
+var _ = tc.Suite(&execSuite{})
 
-func (s *execSuite) TestExecParamsValidateCommandsAndPodName(c *gc.C) {
+func (s *execSuite) TestExecParamsValidateCommandsAndPodName(c *tc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
@@ -74,12 +74,12 @@ func (s *execSuite) TestExecParamsValidateCommandsAndPodName(c *gc.C) {
 			Err: `podName "pod/" not valid`,
 		},
 	} {
-		c.Check(tc.Params.Validate(context.Background(), s.mockPodGetter), gc.ErrorMatches, tc.Err)
+		c.Check(tc.Params.Validate(context.Background(), s.mockPodGetter), tc.ErrorMatches, tc.Err)
 	}
 
 }
 
-func (s *execSuite) TestProcessEnv(c *gc.C) {
+func (s *execSuite) TestProcessEnv(c *tc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
@@ -89,10 +89,10 @@ func (s *execSuite) TestProcessEnv(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.Equals, "export AAA=1; export BBB='1 2'; export CCC='1\n2'; export DDD=1=\\'2\\'; export EEE=1\\;2\\;\\\"foo\\\"; ")
+	c.Assert(res, tc.Equals, "export AAA=1; export BBB='1 2'; export CCC='1\n2'; export DDD=1=\\'2\\'; export EEE=1\\;2\\;\\\"foo\\\"; ")
 }
 
-func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
+func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *tc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
@@ -121,7 +121,7 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
-	c.Assert(params.Validate(context.Background(), s.mockPodGetter), gc.ErrorMatches, `cannot exec into a container within the "Succeeded" pod "gitlab-k8s-0"`)
+	c.Assert(params.Validate(context.Background(), s.mockPodGetter), tc.ErrorMatches, `cannot exec into a container within the "Succeeded" pod "gitlab-k8s-0"`)
 
 	// failed - failed pod
 	params = exec.ExecParams{
@@ -146,7 +146,7 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
-	c.Assert(params.Validate(context.Background(), s.mockPodGetter), gc.ErrorMatches, `cannot exec into a container within the "Failed" pod "gitlab-k8s-0"`)
+	c.Assert(params.Validate(context.Background(), s.mockPodGetter), tc.ErrorMatches, `cannot exec into a container within the "Failed" pod "gitlab-k8s-0"`)
 
 	// failed - containerName not found
 	params = exec.ExecParams{
@@ -172,7 +172,7 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
-	c.Assert(params.Validate(context.Background(), s.mockPodGetter), gc.ErrorMatches, `container "non-existing-container-name" not found`)
+	c.Assert(params.Validate(context.Background(), s.mockPodGetter), tc.ErrorMatches, `container "non-existing-container-name" not found`)
 
 	// all good - container name specified for init container
 	params = exec.ExecParams{
@@ -259,14 +259,14 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).Times(1).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
-	c.Assert(params.Validate(context.Background(), s.mockPodGetter), gc.ErrorMatches, `container \"gitlab-container\" not running`)
+	c.Assert(params.Validate(context.Background(), s.mockPodGetter), tc.ErrorMatches, `container \"gitlab-container\" not running`)
 
 	// all good - no container name specified, pick the 1st container.
 	params = exec.ExecParams{
 		Commands: []string{"echo", "'hello world'"},
 		PodName:  "gitlab-k8s-uid",
 	}
-	c.Assert(params.ContainerName, gc.Equals, "")
+	c.Assert(params.ContainerName, tc.Equals, "")
 	pod = core.Pod{
 		Spec: core.PodSpec{
 			Containers: []core.Container{
@@ -289,10 +289,10 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
 	c.Assert(params.Validate(context.Background(), s.mockPodGetter), jc.ErrorIsNil)
-	c.Assert(params.ContainerName, gc.Equals, "gitlab-container")
+	c.Assert(params.ContainerName, tc.Equals, "gitlab-container")
 }
 
-func (s *execSuite) TestExec(c *gc.C) {
+func (s *execSuite) TestExec(c *tc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
@@ -306,7 +306,7 @@ func (s *execSuite) TestExec(c *gc.C) {
 		Stderr:   &stderr,
 		Stdin:    &stdin,
 	}
-	c.Assert(params.ContainerName, gc.Equals, "")
+	c.Assert(params.ContainerName, tc.Equals, "")
 	pod := core.Pod{
 		Spec: core.PodSpec{
 			Containers: []core.Container{
@@ -369,7 +369,7 @@ func (s *execSuite) TestExec(c *gc.C) {
 	}
 }
 
-func (s *execSuite) TestExecCancel(c *gc.C) {
+func (s *execSuite) TestExecCancel(c *tc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
@@ -385,7 +385,7 @@ func (s *execSuite) TestExecCancel(c *gc.C) {
 		Stderr:   &stderr,
 		Stdin:    &stdin,
 	}
-	c.Assert(params.ContainerName, gc.Equals, "")
+	c.Assert(params.ContainerName, tc.Equals, "")
 	pod := core.Pod{
 		Spec: core.PodSpec{
 			Containers: []core.Container{
@@ -443,7 +443,7 @@ func (s *execSuite) TestExecCancel(c *gc.C) {
 			mut.Lock()
 			defer mut.Unlock()
 			c.Assert(callNum, jc.LessThan, len(urls))
-			c.Check(url.String(), gc.Equals, urls[callNum])
+			c.Check(url.String(), tc.Equals, urls[callNum])
 			return s.mockRemoteCmdExecutor, nil
 		})
 	s.mockRemoteCmdExecutor.EXPECT().Stream(gomock.Any()).AnyTimes().DoAndReturn(func(opts remotecommand.StreamOptions) error {
@@ -477,9 +477,9 @@ func (s *execSuite) TestExecCancel(c *gc.C) {
 	}
 }
 
-func (s *execSuite) TestErrorHandling(c *gc.C) {
+func (s *execSuite) TestErrorHandling(c *tc.C) {
 	err := exec.HandleContainerNotFoundError(errors.New(`unable to upgrade connection: container not found ("mariadb-k8s")`))
-	c.Assert(err, gc.FitsTypeOf, &exec.ContainerNotRunningError{})
+	c.Assert(err, tc.FitsTypeOf, &exec.ContainerNotRunningError{})
 	err = exec.HandleContainerNotFoundError(errors.New(`wow`))
-	c.Assert(err, gc.ErrorMatches, "wow")
+	c.Assert(err, tc.ErrorMatches, "wow")
 }

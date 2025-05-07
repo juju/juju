@@ -10,9 +10,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/internal/logger"
@@ -28,7 +28,7 @@ type stateManagerSuite struct {
 	mockUnitGetter *relmocks.MockUnitGetter
 }
 
-func (s *stateManagerSuite) TestNewStateManagerHasState(c *gc.C) {
+func (s *stateManagerSuite) TestNewStateManagerHasState(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	states := s.setupFourStates(c)
 
@@ -37,20 +37,20 @@ func (s *stateManagerSuite) TestNewStateManagerHasState(c *gc.C) {
 	for _, st := range states {
 		v, err := mgr.Relation(st.RelationId)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(*v, gc.DeepEquals, st)
+		c.Assert(*v, tc.DeepEquals, st)
 	}
 }
 
-func (s *stateManagerSuite) TestNewStateManagerNoState(c *gc.C) {
+func (s *stateManagerSuite) TestNewStateManagerNoState(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectStateEmpty()
 
 	mgr, err := relation.NewStateManager(context.Background(), s.mockUnitRW, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mgr.KnownIDs(), gc.HasLen, 0)
+	c.Assert(mgr.KnownIDs(), tc.HasLen, 0)
 }
 
-func (s *stateManagerSuite) TestNewStateManagerErr(c *gc.C) {
+func (s *stateManagerSuite) TestNewStateManagerErr(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectStateEmptyError()
 
@@ -58,7 +58,7 @@ func (s *stateManagerSuite) TestNewStateManagerErr(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.BadRequest)
 }
 
-func (s *stateManagerSuite) TestKnownIds(c *gc.C) {
+func (s *stateManagerSuite) TestKnownIds(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	states := s.setupFourStates(c)
 
@@ -66,13 +66,13 @@ func (s *stateManagerSuite) TestKnownIds(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ids := mgr.KnownIDs()
 	intSet := set.NewInts(ids...)
-	c.Assert(intSet.Size(), gc.Equals, 4, gc.Commentf("obtained %v", intSet.Values()))
+	c.Assert(intSet.Size(), tc.Equals, 4, tc.Commentf("obtained %v", intSet.Values()))
 	for _, exp := range states {
 		c.Assert(intSet.Contains(exp.RelationId), jc.IsTrue)
 	}
 }
 
-func (s *stateManagerSuite) TestRelation(c *gc.C) {
+func (s *stateManagerSuite) TestRelation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	states := s.setupFourStates(c)
 
@@ -80,10 +80,10 @@ func (s *stateManagerSuite) TestRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	st, err := mgr.Relation(states[1].RelationId)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*st, gc.DeepEquals, states[1])
+	c.Assert(*st, tc.DeepEquals, states[1])
 }
 
-func (s *stateManagerSuite) TestRelationNotFound(c *gc.C) {
+func (s *stateManagerSuite) TestRelationNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	_ = s.setupFourStates(c)
 
@@ -93,7 +93,7 @@ func (s *stateManagerSuite) TestRelationNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
-func (s *stateManagerSuite) TestSetNew(c *gc.C) {
+func (s *stateManagerSuite) TestSetNew(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectStateEmpty()
 	st2 := &relation.State{RelationId: 456}
@@ -111,7 +111,7 @@ func (s *stateManagerSuite) TestSetNew(c *gc.C) {
 	c.Assert(found, jc.IsTrue)
 }
 
-func (s *stateManagerSuite) TestSetChangeExisting(c *gc.C) {
+func (s *stateManagerSuite) TestSetChangeExisting(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	states := s.setupFourStates(c)
 
@@ -127,10 +127,10 @@ func (s *stateManagerSuite) TestSetChangeExisting(c *gc.C) {
 
 	obtained, err := mgr.Relation(st.RelationId)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*obtained, gc.DeepEquals, st)
+	c.Assert(*obtained, tc.DeepEquals, st)
 }
 
-func (s *stateManagerSuite) TestSetChangeExistingFail(c *gc.C) {
+func (s *stateManagerSuite) TestSetChangeExistingFail(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	states := s.setupFourStates(c)
 	s.expectSetStateError()
@@ -145,10 +145,10 @@ func (s *stateManagerSuite) TestSetChangeExistingFail(c *gc.C) {
 
 	obtained, err := mgr.Relation(st.RelationId)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*obtained, gc.DeepEquals, states[3])
+	c.Assert(*obtained, tc.DeepEquals, states[3])
 }
 
-func (s *stateManagerSuite) TestRemove(c *gc.C) {
+func (s *stateManagerSuite) TestRemove(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	state := relation.State{RelationId: 1}
 	s.expectState(c, state)
@@ -160,7 +160,7 @@ func (s *stateManagerSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateManagerSuite) TestRemoveNotFound(c *gc.C) {
+func (s *stateManagerSuite) TestRemoveNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	stateTwo := relation.State{RelationId: 99}
 	stateTwo.Members = map[string]int64{"foo/1": 0}
@@ -172,7 +172,7 @@ func (s *stateManagerSuite) TestRemoveNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
-func (s *stateManagerSuite) TestRemoveFailHasMembers(c *gc.C) {
+func (s *stateManagerSuite) TestRemoveFailHasMembers(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	stateTwo := relation.State{RelationId: 99}
 	stateTwo.Members = map[string]int64{"foo/1": 0}
@@ -182,10 +182,10 @@ func (s *stateManagerSuite) TestRemoveFailHasMembers(c *gc.C) {
 	mgr, err := relation.NewStateManager(context.Background(), s.mockUnitRW, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	err = mgr.RemoveRelation(context.Background(), 99, s.mockUnitGetter, map[string]bool{})
-	c.Assert(err, gc.ErrorMatches, `*has members: \[foo/1\]`)
+	c.Assert(err, tc.ErrorMatches, `*has members: \[foo/1\]`)
 }
 
-func (s *stateManagerSuite) TestRemoveIgnoresMissingUnits(c *gc.C) {
+func (s *stateManagerSuite) TestRemoveIgnoresMissingUnits(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	stateTwo := relation.State{RelationId: 99}
 	stateTwo.Members = map[string]int64{"foo/1": 0}
@@ -195,7 +195,7 @@ func (s *stateManagerSuite) TestRemoveIgnoresMissingUnits(c *gc.C) {
 
 	logger := logger.GetLogger("test")
 	var tw loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("relations-tester", &tw), gc.IsNil)
+	c.Assert(loggo.RegisterWriter("relations-tester", &tw), tc.IsNil)
 
 	mgr, err := relation.NewStateManager(context.Background(), s.mockUnitRW, logger)
 	c.Assert(err, jc.ErrorIsNil)
@@ -207,7 +207,7 @@ func (s *stateManagerSuite) TestRemoveIgnoresMissingUnits(c *gc.C) {
 	})
 }
 
-func (s *stateManagerSuite) TestRemoveCachesUnits(c *gc.C) {
+func (s *stateManagerSuite) TestRemoveCachesUnits(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	stateTwo := relation.State{RelationId: 99}
 	stateTwo.Members = map[string]int64{"foo/1": 0}
@@ -229,7 +229,7 @@ func (s *stateManagerSuite) TestRemoveCachesUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateManagerSuite) TestRemoveFailRequest(c *gc.C) {
+func (s *stateManagerSuite) TestRemoveFailRequest(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	stateTwo := relation.State{RelationId: 99}
 	s.expectState(c, stateTwo)
@@ -243,16 +243,16 @@ func (s *stateManagerSuite) TestRemoveFailRequest(c *gc.C) {
 	c.Assert(found, jc.IsTrue)
 }
 
-var _ = gc.Suite(&stateManagerSuite{})
+var _ = tc.Suite(&stateManagerSuite{})
 
-func (s *stateManagerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *stateManagerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctlr := gomock.NewController(c)
 	s.mockUnitRW = mocks.NewMockUnitStateReadWriter(ctlr)
 	s.mockUnitGetter = relmocks.NewMockUnitGetter(ctlr)
 	return ctlr
 }
 
-func (s *stateManagerSuite) setupFourStates(c *gc.C) []relation.State {
+func (s *stateManagerSuite) setupFourStates(c *tc.C) []relation.State {
 	st1 := relation.NewState(123)
 	st1.Members = map[string]int64{
 		"foo/0": 1,
@@ -284,7 +284,7 @@ func (s *stateManagerSuite) expectStateEmptyError() {
 	exp.State(gomock.Any()).Return(params.UnitStateResult{}, errors.BadRequestf("testing"))
 }
 
-func (s *stateManagerSuite) expectSetState(c *gc.C, states ...relation.State) {
+func (s *stateManagerSuite) expectSetState(c *tc.C, states ...relation.State) {
 	expectedStates := make(map[int]string, len(states))
 	for _, s := range states {
 		str, err := s.YamlString()
@@ -295,7 +295,7 @@ func (s *stateManagerSuite) expectSetState(c *gc.C, states ...relation.State) {
 	exp.SetState(gomock.Any(), unitStateMatcher{c: c, expected: expectedStates}).Return(nil)
 }
 
-func (s *stateManagerSuite) expectSetStateEmpty(c *gc.C) {
+func (s *stateManagerSuite) expectSetStateEmpty(c *tc.C) {
 	exp := s.mockUnitRW.EXPECT()
 	exp.SetState(gomock.Any(), unitStateMatcher{c: c, expected: map[int]string{}}).Return(nil)
 }
@@ -305,7 +305,7 @@ func (s *stateManagerSuite) expectSetStateError() {
 	exp.SetState(gomock.Any(), gomock.Any()).Return(errors.BadRequestf("testing"))
 }
 
-func (s *stateManagerSuite) expectState(c *gc.C, states ...relation.State) {
+func (s *stateManagerSuite) expectState(c *tc.C, states ...relation.State) {
 	relationMap := make(map[int]string, len(states))
 	for _, state := range states {
 		data, err := yaml.Marshal(state)
@@ -320,7 +320,7 @@ func (s *stateManagerSuite) expectState(c *gc.C, states ...relation.State) {
 }
 
 type unitStateMatcher struct {
-	c        *gc.C
+	c        *tc.C
 	expected map[int]string
 }
 
@@ -330,7 +330,7 @@ func (m unitStateMatcher) Matches(x interface{}) bool {
 		return false
 	}
 
-	m.c.Assert(*obtained.RelationState, gc.DeepEquals, m.expected)
+	m.c.Assert(*obtained.RelationState, tc.DeepEquals, m.expected)
 
 	return true
 }

@@ -10,8 +10,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/blockdevice"
@@ -848,7 +848,7 @@ func (a *mockMachineAccessor) InstanceIds(_ context.Context, tags []names.Machin
 	return results, nil
 }
 
-func newMockMachineAccessor(c *gc.C) *mockMachineAccessor {
+func newMockMachineAccessor(c *tc.C) *mockMachineAccessor {
 	return &mockMachineAccessor{
 		instanceIds: make(map[names.MachineTag]instance.Id),
 		watcher:     newMockNotifyWatcher(),

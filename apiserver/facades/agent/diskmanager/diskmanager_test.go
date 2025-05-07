@@ -8,8 +8,8 @@ import (
 	"errors"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade/facadetest"
@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&DiskManagerSuite{})
+var _ = tc.Suite(&DiskManagerSuite{})
 
 type DiskManagerSuite struct {
 	coretesting.BaseSuite
@@ -30,7 +30,7 @@ type DiskManagerSuite struct {
 	api                *diskmanager.DiskManagerAPI
 }
 
-func (s *DiskManagerSuite) SetUpTest(c *gc.C) {
+func (s *DiskManagerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.resources = common.NewResources()
 	tag := names.NewMachineTag("0")
@@ -39,7 +39,7 @@ func (s *DiskManagerSuite) SetUpTest(c *gc.C) {
 	s.api = diskmanager.NewDiskManagerAPIForTest(s.authorizer, s.blockDeviceUpdater)
 }
 
-func (s *DiskManagerSuite) TestSetMachineBlockDevices(c *gc.C) {
+func (s *DiskManagerSuite) TestSetMachineBlockDevices(c *tc.C) {
 	devices := []params.BlockDevice{{DeviceName: "sda"}, {DeviceName: "sdb"}}
 	results, err := s.api.SetMachineBlockDevices(context.Background(), params.SetMachineBlockDevices{
 		MachineBlockDevices: []params.MachineBlockDevices{{
@@ -48,27 +48,27 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevices(c *gc.C) {
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},
 	})
 }
 
-func (s *DiskManagerSuite) TestSetMachineBlockDevicesEmptyArgs(c *gc.C) {
+func (s *DiskManagerSuite) TestSetMachineBlockDevicesEmptyArgs(c *tc.C) {
 	results, err := s.api.SetMachineBlockDevices(context.Background(), params.SetMachineBlockDevices{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 0)
+	c.Assert(results.Results, tc.HasLen, 0)
 }
 
-func (s *DiskManagerSuite) TestNewDiskManagerAPINonMachine(c *gc.C) {
+func (s *DiskManagerSuite) TestNewDiskManagerAPINonMachine(c *tc.C) {
 	tag := names.NewUnitTag("mysql/0")
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
 	_, err := diskmanager.NewDiskManagerAPI(facadetest.ModelContext{
 		Auth_: s.authorizer,
 	})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *DiskManagerSuite) TestSetMachineBlockDevicesInvalidTags(c *gc.C) {
+func (s *DiskManagerSuite) TestSetMachineBlockDevicesInvalidTags(c *tc.C) {
 	results, err := s.api.SetMachineBlockDevices(context.Background(), params.SetMachineBlockDevices{
 		MachineBlockDevices: []params.MachineBlockDevices{{
 			Machine: "machine-0",
@@ -79,7 +79,7 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevicesInvalidTags(c *gc.C) {
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{
 			Error: nil,
 		}, {
@@ -88,10 +88,10 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevicesInvalidTags(c *gc.C) {
 			Error: &params.Error{Message: "permission denied", Code: "unauthorized access"},
 		}},
 	})
-	c.Assert(s.blockDeviceUpdater.calls, gc.Equals, 1)
+	c.Assert(s.blockDeviceUpdater.calls, tc.Equals, 1)
 }
 
-func (s *DiskManagerSuite) TestSetMachineBlockDevicesStateError(c *gc.C) {
+func (s *DiskManagerSuite) TestSetMachineBlockDevicesStateError(c *tc.C) {
 	s.blockDeviceUpdater.err = errors.New("boom")
 	results, err := s.api.SetMachineBlockDevices(context.Background(), params.SetMachineBlockDevices{
 		MachineBlockDevices: []params.MachineBlockDevices{{
@@ -99,7 +99,7 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevicesStateError(c *gc.C) {
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{
 			Error: &params.Error{Message: "boom", Code: ""},
 		}},

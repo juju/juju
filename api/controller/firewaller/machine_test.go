@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/firewaller"
@@ -22,18 +22,18 @@ type machineSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&machineSuite{})
+var _ = tc.Suite(&machineSuite{})
 
-func (s *machineSuite) TestMachine(c *gc.C) {
+func (s *machineSuite) TestMachine(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "Firewaller")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "Life")
+		c.Check(objType, tc.Equals, "Firewaller")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "Life")
 		c.Assert(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "machine-666"}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.LifeResults{})
 		*(result.(*params.LifeResults)) = params.LifeResults{
 			Results: []params.LifeResult{{Life: "alive"}},
 		}
@@ -44,28 +44,28 @@ func (s *machineSuite) TestMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	m, err := client.Machine(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.Life(), gc.Equals, life.Alive)
+	c.Assert(m.Life(), tc.Equals, life.Alive)
 	c.Assert(m.Tag(), jc.DeepEquals, tag)
 }
 
-func (s *machineSuite) TestInstanceId(c *gc.C) {
+func (s *machineSuite) TestInstanceId(c *tc.C) {
 	calls := 0
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "Firewaller")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
+		c.Check(objType, tc.Equals, "Firewaller")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
 		c.Assert(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "machine-666"}},
 		})
 		if calls == 0 {
-			c.Check(request, gc.Equals, "Life")
-			c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
+			c.Check(request, tc.Equals, "Life")
+			c.Assert(result, tc.FitsTypeOf, &params.LifeResults{})
 			*(result.(*params.LifeResults)) = params.LifeResults{
 				Results: []params.LifeResult{{Life: "alive"}},
 			}
 		} else {
-			c.Check(request, gc.Equals, "InstanceId")
-			c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+			c.Check(request, tc.Equals, "InstanceId")
+			c.Assert(result, tc.FitsTypeOf, &params.StringResults{})
 			*(result.(*params.StringResults)) = params.StringResults{
 				Results: []params.StringResult{{Result: "inst-666"}},
 			}
@@ -80,29 +80,29 @@ func (s *machineSuite) TestInstanceId(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := m.InstanceId(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.Life(), gc.Equals, life.Alive)
-	c.Assert(id, gc.Equals, instance.Id("inst-666"))
-	c.Assert(calls, gc.Equals, 2)
+	c.Assert(m.Life(), tc.Equals, life.Alive)
+	c.Assert(id, tc.Equals, instance.Id("inst-666"))
+	c.Assert(calls, tc.Equals, 2)
 }
 
-func (s *machineSuite) TestWatchUnits(c *gc.C) {
+func (s *machineSuite) TestWatchUnits(c *tc.C) {
 	calls := 0
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "Firewaller")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
+		c.Check(objType, tc.Equals, "Firewaller")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
 		c.Assert(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "machine-666"}},
 		})
 		if calls > 0 {
-			c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
-			c.Check(request, gc.Equals, "WatchUnits")
+			c.Assert(result, tc.FitsTypeOf, &params.StringsWatchResults{})
+			c.Check(request, tc.Equals, "WatchUnits")
 			*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
 				Results: []params.StringsWatchResult{{Error: &params.Error{Message: "FAIL"}}},
 			}
 		} else {
-			c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
-			c.Check(request, gc.Equals, "Life")
+			c.Assert(result, tc.FitsTypeOf, &params.LifeResults{})
+			c.Check(request, tc.Equals, "Life")
 			*(result.(*params.LifeResults)) = params.LifeResults{
 				Results: []params.LifeResult{{Life: life.Alive}},
 			}
@@ -116,28 +116,28 @@ func (s *machineSuite) TestWatchUnits(c *gc.C) {
 	m, err := client.Machine(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = m.WatchUnits(context.Background())
-	c.Assert(err, gc.ErrorMatches, "FAIL")
-	c.Assert(calls, gc.Equals, 2)
+	c.Assert(err, tc.ErrorMatches, "FAIL")
+	c.Assert(calls, tc.Equals, 2)
 }
 
-func (s *machineSuite) TestIsManual(c *gc.C) {
+func (s *machineSuite) TestIsManual(c *tc.C) {
 	calls := 0
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "Firewaller")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
+		c.Check(objType, tc.Equals, "Firewaller")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
 		c.Assert(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "machine-666"}},
 		})
 		if calls > 0 {
-			c.Assert(result, gc.FitsTypeOf, &params.BoolResults{})
-			c.Check(request, gc.Equals, "AreManuallyProvisioned")
+			c.Assert(result, tc.FitsTypeOf, &params.BoolResults{})
+			c.Check(request, tc.Equals, "AreManuallyProvisioned")
 			*(result.(*params.BoolResults)) = params.BoolResults{
 				Results: []params.BoolResult{{Result: true}},
 			}
 		} else {
-			c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
-			c.Check(request, gc.Equals, "Life")
+			c.Assert(result, tc.FitsTypeOf, &params.LifeResults{})
+			c.Check(request, tc.Equals, "Life")
 			*(result.(*params.LifeResults)) = params.LifeResults{
 				Results: []params.LifeResult{{Life: life.Alive}},
 			}
@@ -153,5 +153,5 @@ func (s *machineSuite) TestIsManual(c *gc.C) {
 	result, err := m.IsManual(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.IsTrue)
-	c.Assert(calls, gc.Equals, 2)
+	c.Assert(calls, tc.Equals, 2)
 }

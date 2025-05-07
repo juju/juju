@@ -6,10 +6,10 @@ package pinger
 import (
 	"time"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 )
 
 type suite struct {
@@ -18,9 +18,9 @@ type suite struct {
 	clock *MockClock
 }
 
-var _ = gc.Suite(&suite{})
+var _ = tc.Suite(&suite{})
 
-func (s *suite) TestPing(c *gc.C) {
+func (s *suite) TestPing(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.clock.EXPECT().After(time.Second).DoAndReturn(func(d time.Duration) <-chan time.Time {
@@ -43,7 +43,7 @@ func (s *suite) TestPing(c *gc.C) {
 	workertest.CheckKill(c, p)
 }
 
-func (s *suite) TestPingAfterKilled(c *gc.C) {
+func (s *suite) TestPingAfterKilled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.clock.EXPECT().After(time.Second).DoAndReturn(func(d time.Duration) <-chan time.Time {
@@ -60,7 +60,7 @@ func (s *suite) TestPingAfterKilled(c *gc.C) {
 	p.Ping()
 }
 
-func (s *suite) TestPingTimeout(c *gc.C) {
+func (s *suite) TestPingTimeout(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.clock.EXPECT().After(time.Second).DoAndReturn(func(d time.Duration) <-chan time.Time {
@@ -88,10 +88,10 @@ func (s *suite) TestPingTimeout(c *gc.C) {
 	}
 
 	err := p.Wait()
-	c.Assert(err, gc.ErrorMatches, "ping timeout")
+	c.Assert(err, tc.ErrorMatches, "ping timeout")
 }
 
-func (s *suite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *suite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.clock = NewMockClock(ctrl)

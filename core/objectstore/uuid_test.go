@@ -4,9 +4,9 @@
 package objectstore
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -16,9 +16,9 @@ type ObjectStoreUUIDSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&ObjectStoreUUIDSuite{})
+var _ = tc.Suite(&ObjectStoreUUIDSuite{})
 
-func (*ObjectStoreUUIDSuite) TestUUIDValidate(c *gc.C) {
+func (*ObjectStoreUUIDSuite) TestUUIDValidate(c *tc.C) {
 	tests := []struct {
 		uuid string
 		err  error
@@ -41,7 +41,7 @@ func (*ObjectStoreUUIDSuite) TestUUIDValidate(c *gc.C) {
 		err := UUID(test.uuid).Validate()
 
 		if test.err == nil {
-			c.Check(err, gc.IsNil)
+			c.Check(err, tc.IsNil)
 			continue
 		}
 
@@ -49,7 +49,7 @@ func (*ObjectStoreUUIDSuite) TestUUIDValidate(c *gc.C) {
 	}
 }
 
-func (*ObjectStoreUUIDSuite) TestUUIDIsEmpty(c *gc.C) {
+func (*ObjectStoreUUIDSuite) TestUUIDIsEmpty(c *tc.C) {
 	tests := []struct {
 		uuid  string
 		value bool
@@ -72,6 +72,6 @@ func (*ObjectStoreUUIDSuite) TestUUIDIsEmpty(c *gc.C) {
 		c.Logf("test %d: %q", i, test.uuid)
 		empty := UUID(test.uuid).IsEmpty()
 
-		c.Check(empty, gc.Equals, test.value)
+		c.Check(empty, tc.Equals, test.value)
 	}
 }

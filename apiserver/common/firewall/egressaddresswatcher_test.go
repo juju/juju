@@ -4,18 +4,18 @@
 package firewall_test
 
 import (
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-var _ = gc.Suite(&addressWatcherSuite{})
+var _ = tc.Suite(&addressWatcherSuite{})
 
 type addressWatcherSuite struct {
 	coretesting.BaseSuite
 }
 
-func (s *addressWatcherSuite) TestWatchStub(c *gc.C) {
+func (s *addressWatcherSuite) TestWatchStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 	- unit in the scope before the watcher start
 	- unit enters scope

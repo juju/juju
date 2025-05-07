@@ -9,11 +9,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/internal/worker/machineactions"
@@ -28,37 +28,37 @@ type WorkerSuite struct {
 	lock   *mocks.MockLock
 }
 
-var _ = gc.Suite(&WorkerSuite{})
+var _ = tc.Suite(&WorkerSuite{})
 
-func (*WorkerSuite) TestInvalidFacade(c *gc.C) {
+func (*WorkerSuite) TestInvalidFacade(c *tc.C) {
 	worker, err := machineactions.NewMachineActionsWorker(machineactions.WorkerConfig{
 		Facade: nil,
 	})
-	c.Assert(err, gc.ErrorMatches, "nil Facade not valid")
+	c.Assert(err, tc.ErrorMatches, "nil Facade not valid")
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
-	c.Assert(worker, gc.IsNil)
+	c.Assert(worker, tc.IsNil)
 }
 
-func (s *WorkerSuite) TestInvalidMachineTag(c *gc.C) {
+func (s *WorkerSuite) TestInvalidMachineTag(c *tc.C) {
 	worker, err := machineactions.NewMachineActionsWorker(machineactions.WorkerConfig{
 		Facade:     s.facade,
 		MachineTag: names.MachineTag{},
 	})
-	c.Assert(err, gc.ErrorMatches, "unspecified MachineTag not valid")
+	c.Assert(err, tc.ErrorMatches, "unspecified MachineTag not valid")
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
-	c.Assert(worker, gc.IsNil)
+	c.Assert(worker, tc.IsNil)
 }
 
-func (s *WorkerSuite) TestInvalidHandleAction(c *gc.C) {
+func (s *WorkerSuite) TestInvalidHandleAction(c *tc.C) {
 	worker, err := machineactions.NewMachineActionsWorker(machineactions.WorkerConfig{
 		Facade:       s.facade,
 		MachineTag:   fakeTag,
 		MachineLock:  s.lock,
 		HandleAction: nil,
 	})
-	c.Assert(err, gc.ErrorMatches, "nil HandleAction not valid")
+	c.Assert(err, tc.ErrorMatches, "nil HandleAction not valid")
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
-	c.Assert(worker, gc.IsNil)
+	c.Assert(worker, tc.IsNil)
 }
 
 func defaultConfig(stub *testing.Stub, facade machineactions.Facade, lock machinelock.Lock) machineactions.WorkerConfig {
@@ -70,7 +70,7 @@ func defaultConfig(stub *testing.Stub, facade machineactions.Facade, lock machin
 	}
 }
 
-func (s *WorkerSuite) TestRunningActionsError(c *gc.C) {
+func (s *WorkerSuite) TestRunningActionsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.facade.EXPECT().RunningActions(gomock.Any(), fakeTag).Return(nil, errors.New("splash"))
@@ -80,11 +80,11 @@ func (s *WorkerSuite) TestRunningActionsError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = workertest.CheckKilled(c, worker)
-	c.Check(err, gc.ErrorMatches, "splash")
+	c.Check(err, tc.ErrorMatches, "splash")
 	stub.CheckNoCalls(c)
 }
 
-func (s *WorkerSuite) TestInvalidActionId(c *gc.C) {
+func (s *WorkerSuite) TestInvalidActionId(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	changes := make(chan []string, 1)
@@ -100,11 +100,11 @@ func (s *WorkerSuite) TestInvalidActionId(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = workertest.CheckKilled(c, worker)
-	c.Check(err, gc.ErrorMatches, "got invalid action id invalid-action-id")
+	c.Check(err, tc.ErrorMatches, "got invalid action id invalid-action-id")
 	stub.CheckNoCalls(c)
 }
 
-func (s *WorkerSuite) TestWatchErrorNonEmptyRunningActions(c *gc.C) {
+func (s *WorkerSuite) TestWatchErrorNonEmptyRunningActions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.facade.EXPECT().RunningActions(gomock.Any(), fakeTag).Return(fakeRunningActions, nil)
@@ -115,11 +115,11 @@ func (s *WorkerSuite) TestWatchErrorNonEmptyRunningActions(c *gc.C) {
 	worker, err := machineactions.NewMachineActionsWorker(defaultConfig(stub, s.facade, s.lock))
 	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, worker)
-	c.Check(errors.Cause(err), gc.ErrorMatches, "kuso")
+	c.Check(errors.Cause(err), tc.ErrorMatches, "kuso")
 	stub.CheckNoCalls(c)
 }
 
-func (s *WorkerSuite) TestCannotRetrieveAction(c *gc.C) {
+func (s *WorkerSuite) TestCannotRetrieveAction(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.facade.EXPECT().RunningActions(gomock.Any(), fakeTag).Return([]params.ActionResult{}, nil)
@@ -155,7 +155,7 @@ func (s *WorkerSuite) TestCannotRetrieveAction(c *gc.C) {
 	}})
 }
 
-func (s *WorkerSuite) TestRunActions(c *gc.C) {
+func (s *WorkerSuite) TestRunActions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	released := false
@@ -182,7 +182,7 @@ func (s *WorkerSuite) TestRunActions(c *gc.C) {
 	worker, err := machineactions.NewMachineActionsWorker(defaultConfig(stub, s.facade, s.lock))
 	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, worker)
-	c.Check(errors.Cause(err), gc.ErrorMatches, "got invalid action id invalid-action-id")
+	c.Check(errors.Cause(err), tc.ErrorMatches, "got invalid action id invalid-action-id")
 	stub.CheckCallsUnordered(c, []testing.StubCall{{
 		FuncName: "HandleAction",
 		Args:     []interface{}{secondAction.Name()},
@@ -193,7 +193,7 @@ func (s *WorkerSuite) TestRunActions(c *gc.C) {
 	c.Assert(released, jc.IsTrue)
 }
 
-func (s *WorkerSuite) TestActionHandleError(c *gc.C) {
+func (s *WorkerSuite) TestActionHandleError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.facade.EXPECT().RunningActions(gomock.Any(), fakeTag).Return([]params.ActionResult{}, nil)
@@ -208,10 +208,10 @@ func (s *WorkerSuite) TestActionHandleError(c *gc.C) {
 	// To deal with the race because of the goroutines, we will use assertions based on the message.
 	assertFinish := func(_ context.Context, tag names.ActionTag, status string, results map[string]interface{}, message string) error {
 		if message == "slob" {
-			c.Assert(status, gc.Equals, params.ActionFailed)
+			c.Assert(status, tc.Equals, params.ActionFailed)
 			return nil
 		}
-		c.Assert(status, gc.Equals, params.ActionCompleted)
+		c.Assert(status, tc.Equals, params.ActionCompleted)
 		return nil
 	}
 	s.facade.EXPECT().ActionFinish(gomock.Any(), names.NewActionTag("1"), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(assertFinish)
@@ -239,7 +239,7 @@ func (s *WorkerSuite) TestActionHandleError(c *gc.C) {
 	}})
 }
 
-func (s *WorkerSuite) TestWorkerNoError(c *gc.C) {
+func (s *WorkerSuite) TestWorkerNoError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.facade.EXPECT().RunningActions(gomock.Any(), fakeTag).Return([]params.ActionResult{}, nil)
@@ -256,7 +256,7 @@ func (s *WorkerSuite) TestWorkerNoError(c *gc.C) {
 	stub.CheckNoCalls(c)
 }
 
-func (s *WorkerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *WorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.facade = mocks.NewMockFacade(ctrl)
 	s.lock = mocks.NewMockLock(ctrl)

@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -24,56 +24,56 @@ type ValidateSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&ValidateSuite{})
+var _ = tc.Suite(&ValidateSuite{})
 
-func (*ValidateSuite) TestValid(c *gc.C) {
+func (*ValidateSuite) TestValid(c *tc.C) {
 	err := validConfig(c).Validate()
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (*ValidateSuite) TestMissingAgent(c *gc.C) {
+func (*ValidateSuite) TestMissingAgent(c *tc.C) {
 	config := validConfig(c)
 	config.Agent = nil
 	checkNotValid(c, config, "nil Agent not valid")
 }
 
-func (*ValidateSuite) TestMissingFacade(c *gc.C) {
+func (*ValidateSuite) TestMissingFacade(c *tc.C) {
 	config := validConfig(c)
 	config.Facade = nil
 	checkNotValid(c, config, "nil Facade not valid")
 }
 
-func (*ValidateSuite) TestMissingClock(c *gc.C) {
+func (*ValidateSuite) TestMissingClock(c *tc.C) {
 	config := validConfig(c)
 	config.Clock = nil
 	checkNotValid(c, config, "nil Clock not valid")
 }
 
-func (*ValidateSuite) TestMissingGuard(c *gc.C) {
+func (*ValidateSuite) TestMissingGuard(c *tc.C) {
 	config := validConfig(c)
 	config.Guard = nil
 	checkNotValid(c, config, "nil Guard not valid")
 }
 
-func (*ValidateSuite) TestMissingAPIOpen(c *gc.C) {
+func (*ValidateSuite) TestMissingAPIOpen(c *tc.C) {
 	config := validConfig(c)
 	config.APIOpen = nil
 	checkNotValid(c, config, "nil APIOpen not valid")
 }
 
-func (*ValidateSuite) TestMissingValidateMigration(c *gc.C) {
+func (*ValidateSuite) TestMissingValidateMigration(c *tc.C) {
 	config := validConfig(c)
 	config.ValidateMigration = nil
 	checkNotValid(c, config, "nil ValidateMigration not valid")
 }
 
-func (*ValidateSuite) TestMissingLogger(c *gc.C) {
+func (*ValidateSuite) TestMissingLogger(c *tc.C) {
 	config := validConfig(c)
 	config.Logger = nil
 	checkNotValid(c, config, "nil Logger not valid")
 }
 
-func validConfig(c *gc.C) migrationminion.Config {
+func validConfig(c *tc.C) migrationminion.Config {
 	return migrationminion.Config{
 		Agent:             struct{ agent.Agent }{},
 		Guard:             struct{ fortress.Guard }{},
@@ -85,9 +85,9 @@ func validConfig(c *gc.C) migrationminion.Config {
 	}
 }
 
-func checkNotValid(c *gc.C, config migrationminion.Config, expect string) {
+func checkNotValid(c *tc.C, config migrationminion.Config, expect string) {
 	check := func(err error) {
-		c.Check(err, gc.ErrorMatches, expect)
+		c.Check(err, tc.ErrorMatches, expect)
 		c.Check(err, jc.ErrorIs, errors.NotValid)
 	}
 
@@ -95,6 +95,6 @@ func checkNotValid(c *gc.C, config migrationminion.Config, expect string) {
 	check(err)
 
 	worker, err := migrationminion.New(config)
-	c.Check(worker, gc.IsNil)
+	c.Check(worker, tc.IsNil)
 	check(err)
 }

@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/mocks"
@@ -28,13 +28,13 @@ type statusSetterSuite struct {
 	badTag names.Tag
 }
 
-var _ = gc.Suite(&statusSetterSuite{})
+var _ = tc.Suite(&statusSetterSuite{})
 
-func (s *statusSetterSuite) SetUpTest(c *gc.C) {
+func (s *statusSetterSuite) SetUpTest(c *tc.C) {
 	s.badTag = nil
 }
 
-func (s *statusSetterSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *statusSetterSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.entityFinder = mocks.NewMockEntityFinder(ctrl)
 
@@ -48,7 +48,7 @@ func (s *statusSetterSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *statusSetterSuite) TestUnauthorised(c *gc.C) {
+func (s *statusSetterSuite) TestUnauthorised(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag := names.NewMachineTag("42")
@@ -58,11 +58,11 @@ func (s *statusSetterSuite) TestUnauthorised(c *gc.C) {
 		Status: status.Executing.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *statusSetterSuite) TestNotATag(c *gc.C) {
+func (s *statusSetterSuite) TestNotATag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	result, err := s.setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
@@ -70,11 +70,11 @@ func (s *statusSetterSuite) TestNotATag(c *gc.C) {
 		Status: status.Executing.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, `"not a tag" is not a valid tag`)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.ErrorMatches, `"not a tag" is not a valid tag`)
 }
 
-func (s *statusSetterSuite) TestNotFound(c *gc.C) {
+func (s *statusSetterSuite) TestNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag := names.NewMachineTag("42")
@@ -85,11 +85,11 @@ func (s *statusSetterSuite) TestNotFound(c *gc.C) {
 		Status: status.Down.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
 }
 
-func (s *statusSetterSuite) TestSetMachineStatus(c *gc.C) {
+func (s *statusSetterSuite) TestSetMachineStatus(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -107,14 +107,14 @@ func (s *statusSetterSuite) TestSetMachineStatus(c *gc.C) {
 		Status: status.Started.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
 }
 
 // The status has to be a valid workload status, because get status
 // on the unit returns the workload status not the agent status as it
 // does on a machine.
-func (s *statusSetterSuite) TestSetUnitStatus(c *gc.C) {
+func (s *statusSetterSuite) TestSetUnitStatus(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -130,11 +130,11 @@ func (s *statusSetterSuite) TestSetUnitStatus(c *gc.C) {
 		Status: status.Active.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *statusSetterSuite) TestSetApplicationStatus(c *gc.C) {
+func (s *statusSetterSuite) TestSetApplicationStatus(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -151,11 +151,11 @@ func (s *statusSetterSuite) TestSetApplicationStatus(c *gc.C) {
 		Status: status.Active.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *statusSetterSuite) TestBulk(c *gc.C) {
+func (s *statusSetterSuite) TestBulk(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -168,9 +168,9 @@ func (s *statusSetterSuite) TestBulk(c *gc.C) {
 		Status: status.Active.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 2)
+	c.Assert(result.Results, tc.HasLen, 2)
 	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
-	c.Assert(result.Results[1].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
+	c.Assert(result.Results[1].Error, tc.ErrorMatches, `"bad-tag" is not a valid tag`)
 }
 
 func (s *statusSetterSuite) authFunc(tag names.Tag) bool {

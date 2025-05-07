@@ -4,16 +4,16 @@
 package stringcompare_test
 
 import (
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/stringcompare"
 )
 
 type StringComparatorSuite struct{}
 
-var _ = gc.Suite(&StringComparatorSuite{})
+var _ = tc.Suite(&StringComparatorSuite{})
 
-func (*StringComparatorSuite) TestLevenshteinDistance(c *gc.C) {
+func (*StringComparatorSuite) TestLevenshteinDistance(c *tc.C) {
 	testCases := []struct {
 		input1, input2 string
 		expectedResult int
@@ -32,8 +32,8 @@ func (*StringComparatorSuite) TestLevenshteinDistance(c *gc.C) {
 	}
 
 	for _, tc := range testCases {
-		c.Check(stringcompare.LevenshteinDistance(tc.input1, tc.input2), gc.Equals, tc.expectedResult,
-			gc.Commentf("Description: %s | Inputs: '%s', '%s'", tc.desc, tc.input1, tc.input2),
+		c.Check(stringcompare.LevenshteinDistance(tc.input1, tc.input2), tc.Equals, tc.expectedResult,
+			tc.Commentf("Description: %s | Inputs: '%s', '%s'", tc.desc, tc.input1, tc.input2),
 		)
 	}
 }

@@ -6,10 +6,10 @@ package secrets_test
 import (
 	"fmt"
 
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apisecrets "github.com/juju/juju/api/client/secrets"
 	"github.com/juju/juju/cmd/juju/secrets"
@@ -26,9 +26,9 @@ type ShowSuite struct {
 	secretsAPI *mocks.MockListSecretsAPI
 }
 
-var _ = gc.Suite(&ShowSuite{})
+var _ = tc.Suite(&ShowSuite{})
 
-func (s *ShowSuite) SetUpTest(c *gc.C) {
+func (s *ShowSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	store := jujuclient.NewMemStore()
 	store.Controllers["mycontroller"] = jujuclient.ControllerDetails{}
@@ -36,7 +36,7 @@ func (s *ShowSuite) SetUpTest(c *gc.C) {
 	s.store = store
 }
 
-func (s *ShowSuite) setup(c *gc.C) *gomock.Controller {
+func (s *ShowSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.secretsAPI = mocks.NewMockListSecretsAPI(ctrl)
@@ -44,21 +44,21 @@ func (s *ShowSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *ShowSuite) TestInit(c *gc.C) {
+func (s *ShowSuite) TestInit(c *tc.C) {
 	uri := coresecrets.NewURI()
 	_, err := cmdtesting.RunCommand(c, secrets.NewShowCommandForTest(s.store, s.secretsAPI), uri.ID, "--revisions", "--reveal")
-	c.Assert(err, gc.ErrorMatches, "specify either --revisions or --reveal but not both")
+	c.Assert(err, tc.ErrorMatches, "specify either --revisions or --reveal but not both")
 	_, err = cmdtesting.RunCommand(c, secrets.NewShowCommandForTest(s.store, s.secretsAPI), uri.ID, "--revisions", "--revision", "2")
-	c.Assert(err, gc.ErrorMatches, "specify either --revisions or --revision but not both")
+	c.Assert(err, tc.ErrorMatches, "specify either --revisions or --revision but not both")
 	_, err = cmdtesting.RunCommand(c, secrets.NewShowCommandForTest(s.store, s.secretsAPI), uri.ID, "--revisions", "--revision", "-1")
-	c.Assert(err, gc.ErrorMatches, "revision must be a positive integer")
+	c.Assert(err, tc.ErrorMatches, "revision must be a positive integer")
 }
 
 func ptr[T any](v T) *T {
 	return &v
 }
 
-func (s *ShowSuite) TestShow(c *gc.C) {
+func (s *ShowSuite) TestShow(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	expire := testing.NonZeroTime().UTC()
@@ -90,7 +90,7 @@ func (s *ShowSuite) TestShow(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, secrets.NewShowCommandForTest(s.store, s.secretsAPI), uri.ID)
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, fmt.Sprintf(`
+	c.Assert(out, tc.Equals, fmt.Sprintf(`
 %s:
   revision: 2
   expires: 1970-01-01T00:00:00.000000001Z
@@ -107,7 +107,7 @@ func (s *ShowSuite) TestShow(c *gc.C) {
 `[1:], uri.ID))
 }
 
-func (s *ShowSuite) TestShowByName(c *gc.C) {
+func (s *ShowSuite) TestShowByName(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	expire := testing.NonZeroTime().UTC()
@@ -132,7 +132,7 @@ func (s *ShowSuite) TestShowByName(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, secrets.NewShowCommandForTest(s.store, s.secretsAPI), "my-secret")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, fmt.Sprintf(`
+	c.Assert(out, tc.Equals, fmt.Sprintf(`
 %s:
   revision: 2
   expires: 1970-01-01T00:00:00.000000001Z
@@ -145,7 +145,7 @@ func (s *ShowSuite) TestShowByName(c *gc.C) {
 `[1:], uri.ID))
 }
 
-func (s *ShowSuite) TestShowReveal(c *gc.C) {
+func (s *ShowSuite) TestShowReveal(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -168,7 +168,7 @@ func (s *ShowSuite) TestShowReveal(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, secrets.NewShowCommandForTest(s.store, s.secretsAPI), uri.ID, "--reveal")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, fmt.Sprintf(`
+	c.Assert(out, tc.Equals, fmt.Sprintf(`
 %s:
   revision: 2
   checksum: deadbeef
@@ -183,7 +183,7 @@ func (s *ShowSuite) TestShowReveal(c *gc.C) {
 `[1:], uri.ID))
 }
 
-func (s *ShowSuite) TestShowRevisions(c *gc.C) {
+func (s *ShowSuite) TestShowRevisions(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -210,7 +210,7 @@ func (s *ShowSuite) TestShowRevisions(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, secrets.NewShowCommandForTest(s.store, s.secretsAPI), uri.ID, "--revisions")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, fmt.Sprintf(`
+	c.Assert(out, tc.Equals, fmt.Sprintf(`
 %s:
   revision: 2
   rotation: hourly

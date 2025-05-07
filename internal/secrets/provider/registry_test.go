@@ -5,9 +5,9 @@ package provider_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/secrets/provider"
 	_ "github.com/juju/juju/internal/secrets/provider/all"
@@ -17,9 +17,9 @@ type registrySuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&registrySuite{})
+var _ = tc.Suite(&registrySuite{})
 
-func (*registrySuite) TestProvider(c *gc.C) {
+func (*registrySuite) TestProvider(c *tc.C) {
 	_, err := provider.Provider("bad")
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 

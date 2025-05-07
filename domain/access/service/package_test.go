@@ -6,8 +6,8 @@ package service
 import (
 	"testing"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/user"
 )
@@ -15,10 +15,10 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination state_mock_test.go github.com/juju/juju/domain/access/service State
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
-func newUUID(c *gc.C) user.UUID {
+func newUUID(c *tc.C) user.UUID {
 	uuid, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	return uuid

@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/usersecrets"
@@ -15,28 +15,28 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&secretSuite{})
+var _ = tc.Suite(&secretSuite{})
 
 type secretSuite struct {
 	coretesting.BaseSuite
 }
 
-func (s *secretSuite) TestNewClient(c *gc.C) {
+func (s *secretSuite) TestNewClient(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return nil
 	})
 	client := usersecrets.NewClient(apiCaller)
-	c.Assert(client, gc.NotNil)
+	c.Assert(client, tc.NotNil)
 }
 
-func (s *secretSuite) TestWatchRevisionsToPrune(c *gc.C) {
+func (s *secretSuite) TestWatchRevisionsToPrune(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "UserSecretsManager")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchRevisionsToPrune")
-		c.Check(arg, gc.IsNil)
-		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResult{})
+		c.Check(objType, tc.Equals, "UserSecretsManager")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "WatchRevisionsToPrune")
+		c.Check(arg, tc.IsNil)
+		c.Assert(result, tc.FitsTypeOf, &params.NotifyWatchResult{})
 		*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{
 			Error: &params.Error{Message: "FAIL"},
 		}
@@ -44,20 +44,20 @@ func (s *secretSuite) TestWatchRevisionsToPrune(c *gc.C) {
 	})
 	client := usersecrets.NewClient(apiCaller)
 	_, err := client.WatchRevisionsToPrune(context.Background())
-	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
-func (s *secretSuite) TestDeleteObsoleteUserSecretRevisions(c *gc.C) {
+func (s *secretSuite) TestDeleteObsoleteUserSecretRevisions(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "UserSecretsManager")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "DeleteObsoleteUserSecretRevisions")
-		c.Check(arg, gc.IsNil)
-		c.Assert(result, gc.IsNil)
+		c.Check(objType, tc.Equals, "UserSecretsManager")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "DeleteObsoleteUserSecretRevisions")
+		c.Check(arg, tc.IsNil)
+		c.Assert(result, tc.IsNil)
 		return errors.New("boom")
 	})
 	client := usersecrets.NewClient(apiCaller)
 	err := client.DeleteObsoleteUserSecretRevisions(context.Background())
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }

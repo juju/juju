@@ -7,8 +7,8 @@ import (
 	"os"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
@@ -21,7 +21,7 @@ type CredentialsFileSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = gc.Suite(&CredentialsFileSuite{})
+var _ = tc.Suite(&CredentialsFileSuite{})
 
 const testCredentialsYAML = `
 credentials:
@@ -43,7 +43,7 @@ credentials:
       secret-key: secret
 `
 
-func (s *CredentialsFileSuite) TestWriteFile(c *gc.C) {
+func (s *CredentialsFileSuite) TestWriteFile(c *tc.C) {
 	writeTestCredentialsFile(c)
 	data, err := os.ReadFile(osenv.JujuXDGDataHomePath("credentials.yaml"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -55,16 +55,16 @@ func (s *CredentialsFileSuite) TestWriteFile(c *gc.C) {
 	err = yaml.Unmarshal(data, &written)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(written, gc.DeepEquals, original)
+	c.Assert(written, tc.DeepEquals, original)
 }
 
-func (s *CredentialsFileSuite) TestReadNoFile(c *gc.C) {
+func (s *CredentialsFileSuite) TestReadNoFile(c *tc.C) {
 	credentials, err := jujuclient.ReadCredentialsFile("nohere.yaml")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credentials, gc.NotNil)
+	c.Assert(credentials, tc.NotNil)
 }
 
-func (s *CredentialsFileSuite) TestReadEmptyFile(c *gc.C) {
+func (s *CredentialsFileSuite) TestReadEmptyFile(c *tc.C) {
 	err := os.WriteFile(osenv.JujuXDGDataHomePath("credentials.yaml"), []byte(""), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -73,13 +73,13 @@ func (s *CredentialsFileSuite) TestReadEmptyFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
-func parseCredentials(c *gc.C) *cloud.CredentialCollection {
+func parseCredentials(c *tc.C) *cloud.CredentialCollection {
 	credentials, err := cloud.ParseCredentialCollection([]byte(testCredentialsYAML))
 	c.Assert(err, jc.ErrorIsNil)
 	return credentials
 }
 
-func writeTestCredentialsFile(c *gc.C) map[string]cloud.CloudCredential {
+func writeTestCredentialsFile(c *tc.C) map[string]cloud.CloudCredential {
 	credentials := parseCredentials(c)
 	err := jujuclient.WriteCredentialsFile(credentials)
 	c.Assert(err, jc.ErrorIsNil)
@@ -88,7 +88,7 @@ func writeTestCredentialsFile(c *gc.C) map[string]cloud.CloudCredential {
 	for _, cloudName := range names {
 		cred, err := credentials.CloudCredential(cloudName)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(cred, gc.NotNil)
+		c.Assert(cred, tc.NotNil)
 		allCredentials[cloudName] = *cred
 	}
 	return allCredentials

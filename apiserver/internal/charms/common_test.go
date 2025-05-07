@@ -4,9 +4,9 @@
 package charms
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/application/architecture"
@@ -21,9 +21,9 @@ type exportSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&exportSuite{})
+var _ = tc.Suite(&exportSuite{})
 
-func (s *exportSuite) TestExport(c *gc.C) {
+func (s *exportSuite) TestExport(c *tc.C) {
 	// Ensure that we can export a full charm.
 
 	metadata := &internalcharm.Meta{

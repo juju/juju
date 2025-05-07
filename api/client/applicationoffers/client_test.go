@@ -11,9 +11,9 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/applicationoffers"
@@ -28,9 +28,9 @@ import (
 type crossmodelMockSuite struct {
 }
 
-var _ = gc.Suite(&crossmodelMockSuite{})
+var _ = tc.Suite(&crossmodelMockSuite{})
 
-func (s *crossmodelMockSuite) TestOffer(c *gc.C) {
+func (s *crossmodelMockSuite) TestOffer(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -64,7 +64,7 @@ func (s *crossmodelMockSuite) TestOffer(c *gc.C) {
 
 	results, err := client.Offer(context.Background(), "uuid", application, []string{endPointA, endPointB}, owner, offer, desc)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 2)
+	c.Assert(results, tc.HasLen, 2)
 	c.Assert(results, jc.DeepEquals,
 		[]params.ErrorResult{
 			{},
@@ -72,7 +72,7 @@ func (s *crossmodelMockSuite) TestOffer(c *gc.C) {
 		})
 }
 
-func (s *crossmodelMockSuite) TestOfferFacadeCallError(c *gc.C) {
+func (s *crossmodelMockSuite) TestOfferFacadeCallError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -96,11 +96,11 @@ func (s *crossmodelMockSuite) TestOfferFacadeCallError(c *gc.C) {
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
 	results, err := client.Offer(context.Background(), "", "", nil, "fred", "", "")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
-	c.Assert(results, gc.IsNil)
+	c.Assert(errors.Cause(err), tc.ErrorMatches, msg)
+	c.Assert(results, tc.IsNil)
 }
 
-func (s *crossmodelMockSuite) TestList(c *gc.C) {
+func (s *crossmodelMockSuite) TestList(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -182,7 +182,7 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 	}})
 }
 
-func (s *crossmodelMockSuite) TestListError(c *gc.C) {
+func (s *crossmodelMockSuite) TestListError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -210,11 +210,11 @@ func (s *crossmodelMockSuite) TestListError(c *gc.C) {
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
 	results, err := client.ListOffers(context.Background(), filter)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
-	c.Assert(results, gc.IsNil)
+	c.Assert(errors.Cause(err), tc.ErrorMatches, msg)
+	c.Assert(results, tc.IsNil)
 }
 
-func (s *crossmodelMockSuite) TestShow(c *gc.C) {
+func (s *crossmodelMockSuite) TestShow(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -283,7 +283,7 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 	})
 }
 
-func (s *crossmodelMockSuite) TestShowURLError(c *gc.C) {
+func (s *crossmodelMockSuite) TestShowURLError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -303,11 +303,11 @@ func (s *crossmodelMockSuite) TestShowURLError(c *gc.C) {
 
 	found, err := client.ApplicationOffer(context.Background(), url)
 
-	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
-	c.Assert(found, gc.IsNil)
+	c.Assert(errors.Cause(err), tc.ErrorMatches, msg)
+	c.Assert(found, tc.IsNil)
 }
 
-func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
+func (s *crossmodelMockSuite) TestShowMultiple(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -346,11 +346,11 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
 	found, err := client.ApplicationOffer(context.Background(), url)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`expected to find one result for url %q but found 2`, url))
-	c.Assert(found, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, fmt.Sprintf(`expected to find one result for url %q but found 2`, url))
+	c.Assert(found, tc.IsNil)
 }
 
-func (s *crossmodelMockSuite) TestShowFacadeCallError(c *gc.C) {
+func (s *crossmodelMockSuite) TestShowFacadeCallError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -363,11 +363,11 @@ func (s *crossmodelMockSuite) TestShowFacadeCallError(c *gc.C) {
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
 	found, err := client.ApplicationOffer(context.Background(), "fred/model.db2")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
-	c.Assert(found, gc.IsNil)
+	c.Assert(errors.Cause(err), tc.ErrorMatches, msg)
+	c.Assert(found, tc.IsNil)
 }
 
-func (s *crossmodelMockSuite) TestFind(c *gc.C) {
+func (s *crossmodelMockSuite) TestFind(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -428,17 +428,17 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 	}})
 }
 
-func (s *crossmodelMockSuite) TestFindNoFilter(c *gc.C) {
+func (s *crossmodelMockSuite) TestFindNoFilter(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 	_, err := client.FindApplicationOffers(context.Background())
-	c.Assert(err, gc.ErrorMatches, "at least one filter must be specified")
+	c.Assert(err, tc.ErrorMatches, "at least one filter must be specified")
 }
 
-func (s *crossmodelMockSuite) TestFindError(c *gc.C) {
+func (s *crossmodelMockSuite) TestFindError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -462,10 +462,10 @@ func (s *crossmodelMockSuite) TestFindError(c *gc.C) {
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
 	_, err := client.FindApplicationOffers(context.Background(), filter)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+	c.Assert(errors.Cause(err), tc.ErrorMatches, msg)
 }
 
-func (s *crossmodelMockSuite) TestGetConsumeDetails(c *gc.C) {
+func (s *crossmodelMockSuite) TestGetConsumeDetails(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -515,17 +515,17 @@ func (s *crossmodelMockSuite) TestGetConsumeDetails(c *gc.C) {
 	})
 }
 
-func (s *crossmodelMockSuite) TestGetConsumeDetailsBadURL(c *gc.C) {
+func (s *crossmodelMockSuite) TestGetConsumeDetailsBadURL(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 	_, err := client.GetConsumeDetails(context.Background(), "badurl")
-	c.Assert(err, gc.ErrorMatches, "application offer URL is missing application")
+	c.Assert(err, tc.ErrorMatches, "application offer URL is missing application")
 }
 
-func (s *crossmodelMockSuite) TestDestroyOffers(c *gc.C) {
+func (s *crossmodelMockSuite) TestDestroyOffers(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -545,5 +545,5 @@ func (s *crossmodelMockSuite) TestDestroyOffers(c *gc.C) {
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.DestroyOffers(context.Background(), true, "me/prod.app")
-	c.Assert(err, gc.ErrorMatches, "fail")
+	c.Assert(err, tc.ErrorMatches, "fail")
 }

@@ -10,9 +10,9 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/charm"
 )
@@ -21,7 +21,7 @@ type bundleDataSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&bundleDataSuite{})
+var _ = tc.Suite(&bundleDataSuite{})
 
 const mediawikiBundle = `
 default-base: ubuntu@20.04
@@ -358,20 +358,20 @@ applications:
 	},
 }}
 
-func (*bundleDataSuite) TestParse(c *gc.C) {
+func (*bundleDataSuite) TestParse(c *tc.C) {
 	for i, test := range parseTests {
 		c.Logf("test %d: %s", i, test.about)
 		bd, err := charm.ReadBundleData(strings.NewReader(test.data))
 		if test.expectedErr != "" {
-			c.Assert(err, gc.ErrorMatches, test.expectedErr)
+			c.Assert(err, tc.ErrorMatches, test.expectedErr)
 			continue
 		}
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, tc.IsNil)
 		c.Assert(bd, jc.DeepEquals, test.expectedBD)
 	}
 }
 
-func (*bundleDataSuite) TestCodecRoundTrip(c *gc.C) {
+func (*bundleDataSuite) TestCodecRoundTrip(c *tc.C) {
 	for i, test := range parseTests {
 		if test.expectedErr != "" {
 			continue
@@ -383,10 +383,10 @@ func (*bundleDataSuite) TestCodecRoundTrip(c *gc.C) {
 			c.Logf("Code Test %s for test %d: %s", codec.Name, i, test.about)
 
 			data, err := codec.Marshal(test.expectedBD)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, tc.IsNil)
 			var bd charm.BundleData
 			err = codec.Unmarshal(data, &bd)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, tc.IsNil)
 
 			for _, app := range bd.Applications {
 				for resName, res := range app.Resources {
@@ -401,7 +401,7 @@ func (*bundleDataSuite) TestCodecRoundTrip(c *gc.C) {
 	}
 }
 
-func (*bundleDataSuite) TestParseLocal(c *gc.C) {
+func (*bundleDataSuite) TestParseLocal(c *tc.C) {
 	path := "internal/test-charm-repo/quanta/riak"
 	data := fmt.Sprintf(`
         applications:
@@ -410,7 +410,7 @@ func (*bundleDataSuite) TestParseLocal(c *gc.C) {
                 num_units: 1
     `, path)
 	bd, err := charm.ReadBundleData(strings.NewReader(data))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	c.Assert(bd, jc.DeepEquals, &charm.BundleData{
 		Applications: map[string]*charm.ApplicationSpec{
 			"dummy": {
@@ -588,16 +588,16 @@ applications:
 	},
 }}
 
-func (*bundleDataSuite) TestVerifyErrors(c *gc.C) {
+func (*bundleDataSuite) TestVerifyErrors(c *tc.C) {
 	for i, test := range verifyErrorsTests {
 		c.Logf("test %d: %s", i, test.about)
 		assertVerifyErrors(c, test.data, nil, test.errors)
 	}
 }
 
-func assertVerifyErrors(c *gc.C, bundleData string, charms map[string]charm.Charm, expectErrors []string) {
+func assertVerifyErrors(c *tc.C, bundleData string, charms map[string]charm.Charm, expectErrors []string) {
 	bd, err := charm.ReadBundleData(strings.NewReader(bundleData))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	validateConstraints := func(c string) error {
 		if c == "bad constraints" {
@@ -631,7 +631,7 @@ func assertVerifyErrors(c *gc.C, bundleData string, charms map[string]charm.Char
 		// error, so that we'll see the actual errors
 		// that resulted.
 	}
-	c.Assert(err, gc.FitsTypeOf, (*charm.VerificationError)(nil))
+	c.Assert(err, tc.FitsTypeOf, (*charm.VerificationError)(nil))
 	errors := err.(*charm.VerificationError).Errors
 	errStrings := make([]string, len(errors))
 	for i, err := range errors {
@@ -642,9 +642,9 @@ func assertVerifyErrors(c *gc.C, bundleData string, charms map[string]charm.Char
 	c.Assert(errStrings, jc.DeepEquals, expectErrors)
 }
 
-func (*bundleDataSuite) TestVerifyCharmURL(c *gc.C) {
+func (*bundleDataSuite) TestVerifyCharmURL(c *tc.C) {
 	bd, err := charm.ReadBundleData(strings.NewReader(mediawikiBundle))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	for i, u := range []string{
 		"ch:wordpress",
 		"local:foo",
@@ -653,13 +653,13 @@ func (*bundleDataSuite) TestVerifyCharmURL(c *gc.C) {
 		c.Logf("test %d: %s", i, u)
 		bd.Applications["mediawiki"].Charm = u
 		err := bd.Verify(nil, nil, nil)
-		c.Check(err, gc.IsNil, gc.Commentf("charm url %q", u))
+		c.Check(err, tc.IsNil, tc.Commentf("charm url %q", u))
 	}
 }
 
-func (*bundleDataSuite) TestVerifyLocalCharm(c *gc.C) {
+func (*bundleDataSuite) TestVerifyLocalCharm(c *tc.C) {
 	bd, err := charm.ReadBundleData(strings.NewReader(mediawikiBundle))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	bundleDir := c.MkDir()
 	relativeCharmDir := filepath.Join(bundleDir, "charm")
 	err = os.MkdirAll(relativeCharmDir, 0700)
@@ -674,16 +674,16 @@ func (*bundleDataSuite) TestVerifyLocalCharm(c *gc.C) {
 		c.Logf("test %d: %s", i, u)
 		bd.Applications["mediawiki"].Charm = u
 		err := bd.VerifyLocal(bundleDir, nil, nil, nil)
-		c.Check(err, gc.IsNil, gc.Commentf("charm url %q", u))
+		c.Check(err, tc.IsNil, tc.Commentf("charm url %q", u))
 	}
 }
 
-func (s *bundleDataSuite) TestVerifyBundleUsingJujuInfoRelation(c *gc.C) {
+func (s *bundleDataSuite) TestVerifyBundleUsingJujuInfoRelation(c *tc.C) {
 	err := s.testPrepareAndMutateBeforeVerifyWithCharms(c, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *bundleDataSuite) testPrepareAndMutateBeforeVerifyWithCharms(c *gc.C, mutator func(bd *charm.BundleData)) error {
+func (s *bundleDataSuite) testPrepareAndMutateBeforeVerifyWithCharms(c *tc.C, mutator func(bd *charm.BundleData)) error {
 	b := readBundleDir(c, "wordpress-with-logging")
 	bd := b.Data()
 
@@ -700,35 +700,35 @@ func (s *bundleDataSuite) testPrepareAndMutateBeforeVerifyWithCharms(c *gc.C, mu
 	return bd.VerifyWithCharms(nil, nil, nil, charms)
 }
 
-func (s *bundleDataSuite) TestVerifyBundleWithUnknownEndpointBindingGiven(c *gc.C) {
+func (s *bundleDataSuite) TestVerifyBundleWithUnknownEndpointBindingGiven(c *tc.C) {
 	err := s.testPrepareAndMutateBeforeVerifyWithCharms(c, func(bd *charm.BundleData) {
 		bd.Applications["wordpress"].EndpointBindings["foo"] = "bar"
 	})
-	c.Assert(err, gc.ErrorMatches,
+	c.Assert(err, tc.ErrorMatches,
 		`application "wordpress" wants to bind endpoint "foo" to space "bar", `+
 			`but the endpoint is not defined by the charm`,
 	)
 }
 
-func (s *bundleDataSuite) TestVerifyBundleWithExtraBindingsSuccess(c *gc.C) {
+func (s *bundleDataSuite) TestVerifyBundleWithExtraBindingsSuccess(c *tc.C) {
 	err := s.testPrepareAndMutateBeforeVerifyWithCharms(c, func(bd *charm.BundleData) {
 		// Both of these are specified in extra-bindings.
 		bd.Applications["wordpress"].EndpointBindings["admin-api"] = "internal"
 		bd.Applications["wordpress"].EndpointBindings["foo-bar"] = "test"
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *bundleDataSuite) TestVerifyBundleWithRelationNameBindingSuccess(c *gc.C) {
+func (s *bundleDataSuite) TestVerifyBundleWithRelationNameBindingSuccess(c *tc.C) {
 	err := s.testPrepareAndMutateBeforeVerifyWithCharms(c, func(bd *charm.BundleData) {
 		// Both of these are specified in as relations.
 		bd.Applications["wordpress"].EndpointBindings["cache"] = "foo"
 		bd.Applications["wordpress"].EndpointBindings["monitoring-port"] = "bar"
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *bundleDataSuite) TestParseKubernetesBundleType(c *gc.C) {
+func (s *bundleDataSuite) TestParseKubernetesBundleType(c *tc.C) {
 	data := `
 bundle: kubernetes
 
@@ -747,7 +747,7 @@ applications:
         to: [foo=baz]
 `
 	bd, err := charm.ReadBundleData(strings.NewReader(data))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	err = bd.Verify(nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bd, jc.DeepEquals, &charm.BundleData{
@@ -771,7 +771,7 @@ applications:
 	})
 }
 
-func (s *bundleDataSuite) TestInvalidBundleType(c *gc.C) {
+func (s *bundleDataSuite) TestInvalidBundleType(c *tc.C) {
 	data := `
 bundle: foo
 
@@ -781,12 +781,12 @@ applications:
         scale: 2
 `
 	bd, err := charm.ReadBundleData(strings.NewReader(data))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	err = bd.Verify(nil, nil, nil)
-	c.Assert(err, gc.ErrorMatches, `bundle has an invalid type "foo"`)
+	c.Assert(err, tc.ErrorMatches, `bundle has an invalid type "foo"`)
 }
 
-func (s *bundleDataSuite) TestInvalidScaleAndNumUnits(c *gc.C) {
+func (s *bundleDataSuite) TestInvalidScaleAndNumUnits(c *tc.C) {
 	data := `
 bundle: kubernetes
 
@@ -797,10 +797,10 @@ applications:
         num_units: 2
 `
 	_, err := charm.ReadBundleData(strings.NewReader(data))
-	c.Assert(err, gc.ErrorMatches, `.*cannot specify both scale and num_units for application "mariadb"`)
+	c.Assert(err, tc.ErrorMatches, `.*cannot specify both scale and num_units for application "mariadb"`)
 }
 
-func (s *bundleDataSuite) TestInvalidPlacementAndTo(c *gc.C) {
+func (s *bundleDataSuite) TestInvalidPlacementAndTo(c *tc.C) {
 	data := `
 bundle: kubernetes
 
@@ -811,10 +811,10 @@ applications:
         to: [foo=bar]
 `
 	_, err := charm.ReadBundleData(strings.NewReader(data))
-	c.Assert(err, gc.ErrorMatches, `.*cannot specify both placement and to for application "mariadb"`)
+	c.Assert(err, tc.ErrorMatches, `.*cannot specify both placement and to for application "mariadb"`)
 }
 
-func (s *bundleDataSuite) TestInvalidIAASPlacement(c *gc.C) {
+func (s *bundleDataSuite) TestInvalidIAASPlacement(c *tc.C) {
 	data := `
 applications:
     mariadb:
@@ -822,10 +822,10 @@ applications:
         placement: foo=bar
 `
 	_, err := charm.ReadBundleData(strings.NewReader(data))
-	c.Assert(err, gc.ErrorMatches, `.*placement \(foo=bar\) not valid for non-Kubernetes application "mariadb"`)
+	c.Assert(err, tc.ErrorMatches, `.*placement \(foo=bar\) not valid for non-Kubernetes application "mariadb"`)
 }
 
-func (s *bundleDataSuite) TestKubernetesBundleErrors(c *gc.C) {
+func (s *bundleDataSuite) TestKubernetesBundleErrors(c *tc.C) {
 	data := `
 bundle: "kubernetes"
 
@@ -852,12 +852,12 @@ applications:
 	assertVerifyErrors(c, data, nil, errors)
 }
 
-func (*bundleDataSuite) TestRequiredCharms(c *gc.C) {
+func (*bundleDataSuite) TestRequiredCharms(c *tc.C) {
 	bd, err := charm.ReadBundleData(strings.NewReader(mediawikiBundle))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	reqCharms := bd.RequiredCharms()
 
-	c.Assert(reqCharms, gc.DeepEquals, []string{"mediawiki", "mysql"})
+	c.Assert(reqCharms, tc.DeepEquals, []string{"mediawiki", "mysql"})
 }
 
 // testCharm returns a charm with the given name
@@ -1364,7 +1364,7 @@ applications:
 	},
 }}
 
-func (*bundleDataSuite) TestVerifyWithCharmsErrors(c *gc.C) {
+func (*bundleDataSuite) TestVerifyWithCharmsErrors(c *tc.C) {
 	for i, test := range verifyWithCharmsErrorsTests {
 		c.Logf("test %d: %s", i, test.about)
 		assertVerifyErrors(c, test.data, test.charms, test.errors)
@@ -1444,21 +1444,21 @@ var parsePlacementTests = []struct {
 	expectErr: `invalid placement syntax "new/2"`,
 }}
 
-func (*bundleDataSuite) TestParsePlacement(c *gc.C) {
+func (*bundleDataSuite) TestParsePlacement(c *tc.C) {
 	for i, test := range parsePlacementTests {
 		c.Logf("test %d: %q", i, test.placement)
 		up, err := charm.ParsePlacement(test.placement)
 		if test.expectErr != "" {
-			c.Assert(err, gc.ErrorMatches, test.expectErr)
+			c.Assert(err, tc.ErrorMatches, test.expectErr)
 		} else {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, tc.IsNil)
 			c.Assert(up, jc.DeepEquals, test.expect)
 		}
 	}
 }
 
 // Tests that empty/nil applications cause an error
-func (*bundleDataSuite) TestApplicationEmpty(c *gc.C) {
+func (*bundleDataSuite) TestApplicationEmpty(c *tc.C) {
 	tstDatas := []string{
 		`
 applications:
@@ -1485,14 +1485,14 @@ applications:
 
 	for _, d := range tstDatas {
 		bd, err := charm.ReadBundleData(strings.NewReader(d))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, tc.IsNil)
 
 		err = bd.Verify(nil, nil, nil)
-		c.Assert(err, gc.ErrorMatches, "bundle application for key .+ is undefined")
+		c.Assert(err, tc.ErrorMatches, "bundle application for key .+ is undefined")
 	}
 }
 
-func (*bundleDataSuite) TestApplicationPlans(c *gc.C) {
+func (*bundleDataSuite) TestApplicationPlans(c *tc.C) {
 	data := `
 applications:
     application1:
@@ -1511,7 +1511,7 @@ relations:
 `
 
 	bd, err := charm.ReadBundleData(strings.NewReader(data))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	c.Assert(bd.Applications, jc.DeepEquals, map[string]*charm.ApplicationSpec{
 		"application1": {

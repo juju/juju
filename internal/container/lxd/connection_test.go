@@ -8,8 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/container/lxd"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -19,51 +19,51 @@ type connectionSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&connectionSuite{})
+var _ = tc.Suite(&connectionSuite{})
 
-func (s *connectionSuite) TestLxdSocketPathLxdDirSet(c *gc.C) {
+func (s *connectionSuite) TestLxdSocketPathLxdDirSet(c *tc.C) {
 	c.Assert(os.Setenv("LXD_DIR", "foobar"), jc.ErrorIsNil)
 	isSocket := func(path string) bool {
 		return path == filepath.FromSlash("foobar/unix.socket")
 	}
-	c.Check(lxd.SocketPath(isSocket), gc.Equals, filepath.Join("foobar", "unix.socket"))
+	c.Check(lxd.SocketPath(isSocket), tc.Equals, filepath.Join("foobar", "unix.socket"))
 }
 
-func (s *connectionSuite) TestLxdSocketPathSnapSocketAndDebianSocketExists(c *gc.C) {
+func (s *connectionSuite) TestLxdSocketPathSnapSocketAndDebianSocketExists(c *tc.C) {
 	c.Assert(os.Setenv("LXD_DIR", ""), jc.ErrorIsNil)
 	isSocket := func(path string) bool {
 		return path == filepath.FromSlash("/var/snap/lxd/common/lxd/unix.socket") ||
 			path == filepath.FromSlash("/var/lib/lxd/unix.socket")
 	}
-	c.Check(lxd.SocketPath(isSocket), gc.Equals, filepath.FromSlash("/var/snap/lxd/common/lxd/unix.socket"))
+	c.Check(lxd.SocketPath(isSocket), tc.Equals, filepath.FromSlash("/var/snap/lxd/common/lxd/unix.socket"))
 }
 
-func (s *connectionSuite) TestLxdSocketPathNoSnapSocket(c *gc.C) {
+func (s *connectionSuite) TestLxdSocketPathNoSnapSocket(c *tc.C) {
 	c.Assert(os.Setenv("LXD_DIR", ""), jc.ErrorIsNil)
 	isSocket := func(path string) bool {
 		return path == filepath.FromSlash("/var/lib/lxd/unix.socket")
 	}
-	c.Check(lxd.SocketPath(isSocket), gc.Equals, filepath.FromSlash("/var/lib/lxd/unix.socket"))
+	c.Check(lxd.SocketPath(isSocket), tc.Equals, filepath.FromSlash("/var/lib/lxd/unix.socket"))
 }
 
-func (s *connectionSuite) TestLxdSocketPathNoSocket(c *gc.C) {
+func (s *connectionSuite) TestLxdSocketPathNoSocket(c *tc.C) {
 	c.Assert(os.Setenv("LXD_DIR", ""), jc.ErrorIsNil)
 	isSocket := func(path string) bool { return false }
-	c.Check(lxd.SocketPath(isSocket), gc.Equals, "")
+	c.Check(lxd.SocketPath(isSocket), tc.Equals, "")
 }
 
-func (s *connectionSuite) TestConnectRemoteBadProtocol(c *gc.C) {
+func (s *connectionSuite) TestConnectRemoteBadProtocol(c *tc.C) {
 	svr, err := lxd.ConnectImageRemote(context.Background(), lxd.ServerSpec{Host: "wrong-protocol-server", Protocol: "FOOBAR"})
-	c.Check(svr, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "bad protocol supplied for connection: FOOBAR")
+	c.Check(svr, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "bad protocol supplied for connection: FOOBAR")
 }
 
-func (s *connectionSuite) TestEnsureHTTPSUnchangedWhenCorrect(c *gc.C) {
+func (s *connectionSuite) TestEnsureHTTPSUnchangedWhenCorrect(c *tc.C) {
 	addr := "https://somewhere"
-	c.Check(lxd.EnsureHTTPS(addr), gc.Equals, addr)
+	c.Check(lxd.EnsureHTTPS(addr), tc.Equals, addr)
 }
 
-func (s *connectionSuite) TestEnsureHTTPS(c *gc.C) {
+func (s *connectionSuite) TestEnsureHTTPS(c *tc.C) {
 	for _, t := range []struct {
 		Input  string
 		Output string
@@ -82,11 +82,11 @@ func (s *connectionSuite) TestEnsureHTTPS(c *gc.C) {
 		},
 	} {
 		got := lxd.EnsureHTTPS(t.Input)
-		c.Assert(got, gc.Equals, t.Output)
+		c.Assert(got, tc.Equals, t.Output)
 	}
 }
 
-func (s *connectionSuite) TestEnsureHostPort(c *gc.C) {
+func (s *connectionSuite) TestEnsureHostPort(c *tc.C) {
 	for _, t := range []struct {
 		Input  string
 		Output string
@@ -113,7 +113,7 @@ func (s *connectionSuite) TestEnsureHostPort(c *gc.C) {
 		},
 	} {
 		got, err := lxd.EnsureHostPort(t.Input)
-		c.Assert(err, gc.IsNil)
-		c.Assert(got, gc.Equals, t.Output)
+		c.Assert(err, tc.IsNil)
+		c.Assert(got, tc.Equals, t.Output)
 	}
 }

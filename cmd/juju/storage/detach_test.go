@@ -7,9 +7,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/internal/cmd"
@@ -22,9 +22,9 @@ type DetachStorageSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&DetachStorageSuite{})
+var _ = tc.Suite(&DetachStorageSuite{})
 
-func (s *DetachStorageSuite) TestDetach(c *gc.C) {
+func (s *DetachStorageSuite) TestDetach(c *tc.C) {
 	fake := fakeEntityDetacher{results: []params.ErrorResult{
 		{},
 		{},
@@ -35,13 +35,13 @@ func (s *DetachStorageSuite) TestDetach(c *gc.C) {
 	fake.CheckCallNames(c, "NewEntityDetacherCloser", "Detach", "Close")
 	force := false
 	fake.CheckCall(c, 1, "Detach", []string{"foo/0", "bar/1"}, &force, (*time.Duration)(nil))
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
 detaching foo/0
 detaching bar/1
 `[1:])
 }
 
-func (s *DetachStorageSuite) TestDetachError(c *gc.C) {
+func (s *DetachStorageSuite) TestDetachError(c *tc.C) {
 	fake := fakeEntityDetacher{results: []params.ErrorResult{
 		{Error: &params.Error{Message: "foo"}},
 		{Error: &params.Error{Message: "bar"}},
@@ -49,33 +49,33 @@ func (s *DetachStorageSuite) TestDetachError(c *gc.C) {
 	detachCmd := storage.NewDetachStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
 	ctx, err := cmdtesting.RunCommand(c, detachCmd, "baz/0", "qux/1")
 	stderr := cmdtesting.Stderr(ctx)
-	c.Assert(stderr, gc.Equals, `failed to detach baz/0: foo
+	c.Assert(stderr, tc.Equals, `failed to detach baz/0: foo
 failed to detach qux/1: bar
 `)
-	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Assert(err, tc.Equals, cmd.ErrSilent)
 }
 
-func (s *DetachStorageSuite) TestDetachUnauthorizedError(c *gc.C) {
+func (s *DetachStorageSuite) TestDetachUnauthorizedError(c *tc.C) {
 	var fake fakeEntityDetacher
 	fake.SetErrors(nil, &params.Error{Code: params.CodeUnauthorized, Message: "nope"})
 	command := storage.NewDetachStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
 	ctx, err := cmdtesting.RunCommand(c, command, "foo/0")
-	c.Assert(err, gc.ErrorMatches, "nope")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+	c.Assert(err, tc.ErrorMatches, "nope")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
 You do not have permission to detach storage.
 You may ask an administrator to grant you access with "juju grant".
 
 `)
 }
 
-func (s *DetachStorageSuite) TestDetachInitErrors(c *gc.C) {
+func (s *DetachStorageSuite) TestDetachInitErrors(c *tc.C) {
 	s.testDetachInitError(c, []string{}, "detach-storage requires at least one storage ID")
 }
 
-func (s *DetachStorageSuite) testDetachInitError(c *gc.C, args []string, expect string) {
+func (s *DetachStorageSuite) testDetachInitError(c *tc.C, args []string, expect string) {
 	command := storage.NewDetachStorageCommandForTest(nil, jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, command, args...)
-	c.Assert(err, gc.ErrorMatches, expect)
+	c.Assert(err, tc.ErrorMatches, expect)
 }
 
 type fakeEntityDetacher struct {

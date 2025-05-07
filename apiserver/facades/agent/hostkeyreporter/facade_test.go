@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/agent/hostkeyreporter"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -25,9 +25,9 @@ type facadeSuite struct {
 	facade     *hostkeyreporter.Facade
 }
 
-var _ = gc.Suite(&facadeSuite{})
+var _ = tc.Suite(&facadeSuite{})
 
-func (s *facadeSuite) SetUpTest(c *gc.C) {
+func (s *facadeSuite) SetUpTest(c *tc.C) {
 	s.backend = new(mockBackend)
 	s.authorizer = new(apiservertesting.FakeAuthorizer)
 	facade, err := hostkeyreporter.New(s.backend, s.authorizer)
@@ -35,7 +35,7 @@ func (s *facadeSuite) SetUpTest(c *gc.C) {
 	s.facade = facade
 }
 
-func (s *facadeSuite) TestReportKeys(c *gc.C) {
+func (s *facadeSuite) TestReportKeys(c *tc.C) {
 	s.authorizer.Tag = names.NewMachineTag("1")
 
 	args := params.SSHHostKeySet{
@@ -52,7 +52,7 @@ func (s *facadeSuite) TestReportKeys(c *gc.C) {
 	result, err := s.facade.ReportKeys(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: nil},

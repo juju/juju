@@ -8,21 +8,21 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/testing/filetesting"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
-type newCharmResourceFunc func(c *gc.C, name, content string) charmresource.Resource
+type newCharmResourceFunc func(c *tc.C, name, content string) charmresource.Resource
 
 // NewResource produces full resource info for the given name and
 // content. The origin is set to "upload". A reader is also returned
 // which contains the content.
-func NewResource(c *gc.C, stub *testing.Stub, name, applicationID, content string) resource.Opened {
+func NewResource(c *tc.C, stub *testing.Stub, name, applicationID, content string) resource.Opened {
 	username := "a-user"
 	return resource.Opened{
 		Resource:   newResource(c, name, applicationID, username, content, NewCharmResource),
@@ -33,7 +33,7 @@ func NewResource(c *gc.C, stub *testing.Stub, name, applicationID, content strin
 // NewDockerResource produces full resource info for the given name and
 // content. The origin is set to "upload" (via resource created by  NewCharmDockerResource).
 // A reader is also returned which contains the content.
-func NewDockerResource(c *gc.C, stub *testing.Stub, name, applicationID, content string) resource.Opened {
+func NewDockerResource(c *tc.C, stub *testing.Stub, name, applicationID, content string) resource.Opened {
 	username := "a-user"
 	return resource.Opened{
 		Resource:   newResource(c, name, applicationID, username, content, NewCharmDockerResource),
@@ -43,7 +43,7 @@ func NewDockerResource(c *gc.C, stub *testing.Stub, name, applicationID, content
 
 // NewCharmResource produces basic resource info for the given name
 // and content. The origin is set to "upload".
-func NewCharmResource(c *gc.C, name, content string) charmresource.Resource {
+func NewCharmResource(c *tc.C, name, content string) charmresource.Resource {
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
 	res := charmresource.Resource{
@@ -66,7 +66,7 @@ func NewCharmResource(c *gc.C, name, content string) charmresource.Resource {
 
 // NewCharmDockerResource produces basic docker resource info for the given name
 // and content. The origin is set set to "upload".
-func NewCharmDockerResource(c *gc.C, name, content string) charmresource.Resource {
+func NewCharmDockerResource(c *tc.C, name, content string) charmresource.Resource {
 	res := charmresource.Resource{
 		Meta: charmresource.Meta{
 			Name:        name,
@@ -87,20 +87,20 @@ func NewCharmDockerResource(c *gc.C, name, content string) charmresource.Resourc
 // NewPlaceholderResource returns resource info for a resource that
 // has not been uploaded or pulled from the charm store yet. The origin
 // is set to "upload".
-func NewPlaceholderResource(c *gc.C, name, applicationID string) resource.Resource {
+func NewPlaceholderResource(c *tc.C, name, applicationID string) resource.Resource {
 	res := newResource(c, name, applicationID, "", "", NewCharmResource)
 	res.Fingerprint = charmresource.Fingerprint{}
 	return res
 }
 
-func newResource(c *gc.C, name, applicationName, username, content string, charmResourceFunc newCharmResourceFunc) resource.Resource {
+func newResource(c *tc.C, name, applicationName, username, content string, charmResourceFunc newCharmResourceFunc) resource.Resource {
 	var timestamp time.Time
 	if username != "" {
 		// TODO(perrito666) 2016-05-02 lp:1558657
 		timestamp = time.Now().UTC()
 	}
 	uuid, err := resource.NewUUID()
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) cannot generate uuid for resource %q ", name))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("(Arrange) cannot generate uuid for resource %q ", name))
 
 	res := resource.Resource{
 		Resource:        charmResourceFunc(c, name, content),
@@ -130,7 +130,7 @@ func newStubReadCloser(stub *testing.Stub, content string) io.ReadCloser {
 
 // GenResourceUUID can be used in testing for generating a resource UUID that is
 // checked for subsequent errors using the test suit's go check instance.
-func GenResourceUUID(c *gc.C) resource.UUID {
+func GenResourceUUID(c *tc.C) resource.UUID {
 	id, err := resource.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	return id

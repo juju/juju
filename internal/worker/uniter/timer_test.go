@@ -7,17 +7,17 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/worker/uniter"
 )
 
 type timerSuite struct{}
 
-var _ = gc.Suite(&timerSuite{})
+var _ = tc.Suite(&timerSuite{})
 
-func (s *timerSuite) TestTimer(c *gc.C) {
+func (s *timerSuite) TestTimer(c *tc.C) {
 	nominal := 100 * time.Second
 	minTime := 80*time.Second - time.Millisecond
 	maxTime := 120*time.Second + time.Millisecond
@@ -42,7 +42,7 @@ func (s *timerSuite) TestTimer(c *gc.C) {
 			// same random value 2x in a row is sufficiently low that
 			// we can just assert the value is changing.
 			// (Chance of collision is roughly 1 in 100 Million)
-			c.Assert(wait, gc.Not(gc.Equals), lastTime)
+			c.Assert(wait, tc.Not(tc.Equals), lastTime)
 			if waitDuration < measuredMinTime {
 				measuredMinTime = waitDuration
 			}

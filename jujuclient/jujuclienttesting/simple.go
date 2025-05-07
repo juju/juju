@@ -4,8 +4,8 @@
 package jujuclienttesting
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
@@ -31,7 +31,7 @@ func MinimalStore() *jujuclient.MemStore {
 
 // SetupMinimalFileStore creates a minimal file backed Juju
 // ClientStore in the current XDG Juju directory.
-func SetupMinimalFileStore(c *gc.C) {
+func SetupMinimalFileStore(c *tc.C) {
 	store := MinimalStore()
 	err := jujuclient.WriteControllersFile(&jujuclient.Controllers{
 		Controllers:       store.Controllers,

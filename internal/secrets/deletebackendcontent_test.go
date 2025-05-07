@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coresecrets "github.com/juju/juju/core/secrets"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
@@ -24,9 +24,9 @@ type deleteBackendSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&deleteBackendSuite{})
+var _ = tc.Suite(&deleteBackendSuite{})
 
-func (s *deleteBackendSuite) TestGetContent(c *gc.C) {
+func (s *deleteBackendSuite) TestGetContent(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -42,7 +42,7 @@ func (s *deleteBackendSuite) TestGetContent(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
-func (s *deleteBackendSuite) TestSaveContent(c *gc.C) {
+func (s *deleteBackendSuite) TestSaveContent(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -58,7 +58,7 @@ func (s *deleteBackendSuite) TestSaveContent(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
-func (s *deleteBackendSuite) TestDeleteExternalContent(c *gc.C) {
+func (s *deleteBackendSuite) TestDeleteExternalContent(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -73,7 +73,7 @@ func (s *deleteBackendSuite) TestDeleteExternalContent(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
-func (s *deleteBackendSuite) TestGetBackend(c *gc.C) {
+func (s *deleteBackendSuite) TestGetBackend(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -88,7 +88,7 @@ func (s *deleteBackendSuite) TestGetBackend(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
-func (s *deleteBackendSuite) TestGetRevisionContent(c *gc.C) {
+func (s *deleteBackendSuite) TestGetRevisionContent(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -104,7 +104,7 @@ func (s *deleteBackendSuite) TestGetRevisionContent(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
-func (s *deleteBackendSuite) TestDeleteContent(c *gc.C) {
+func (s *deleteBackendSuite) TestDeleteContent(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -144,7 +144,7 @@ func (s *deleteBackendSuite) TestDeleteContent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *deleteBackendSuite) TestDeleteContentDraining(c *gc.C) {
+func (s *deleteBackendSuite) TestDeleteContentDraining(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -191,7 +191,7 @@ func (s *deleteBackendSuite) TestDeleteContentDraining(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *deleteBackendSuite) TestDeleteInternalContentNoop(c *gc.C) {
+func (s *deleteBackendSuite) TestDeleteInternalContentNoop(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 

@@ -13,11 +13,11 @@ import (
 	"time"
 
 	jujuerrors "github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api"
@@ -37,9 +37,9 @@ type retrieverSuite struct {
 	clock            *MockClock
 }
 
-var _ = gc.Suite(&retrieverSuite{})
+var _ = tc.Suite(&retrieverSuite{})
 
-func (s *retrieverSuite) TestRetrieverWithNoAPIRemotes(c *gc.C) {
+func (s *retrieverSuite) TestRetrieverWithNoAPIRemotes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.remoteCallers.EXPECT().GetAPIRemotes().Return(nil)
@@ -53,7 +53,7 @@ func (s *retrieverSuite) TestRetrieverWithNoAPIRemotes(c *gc.C) {
 	workertest.CleanKill(c, ret)
 }
 
-func (s *retrieverSuite) TestRetrieverAlreadyKilled(c *gc.C) {
+func (s *retrieverSuite) TestRetrieverAlreadyKilled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ret := s.newRetriever(c)
@@ -61,11 +61,11 @@ func (s *retrieverSuite) TestRetrieverAlreadyKilled(c *gc.C) {
 	workertest.CleanKill(c, ret)
 
 	_, _, err := ret.Retrieve(context.Background(), "foo")
-	c.Assert(err, gc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(jc.ErrorIsNil))
 	workertest.CheckKilled(c, ret)
 }
 
-func (s *retrieverSuite) TestRetrieverAlreadyContextCancelled(c *gc.C) {
+func (s *retrieverSuite) TestRetrieverAlreadyContextCancelled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ret := s.newRetriever(c)
@@ -80,7 +80,7 @@ func (s *retrieverSuite) TestRetrieverAlreadyContextCancelled(c *gc.C) {
 	workertest.CleanKill(c, ret)
 }
 
-func (s *retrieverSuite) TestRetrieverWithAPIRemotes(c *gc.C) {
+func (s *retrieverSuite) TestRetrieverWithAPIRemotes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	client := &httprequest.Client{
@@ -109,13 +109,13 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotes(c *gc.C) {
 
 	result, err := io.ReadAll(readerCloser)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, gc.DeepEquals, []byte("hello world"))
-	c.Check(size, gc.Equals, int64(11))
+	c.Check(result, tc.DeepEquals, []byte("hello world"))
+	c.Check(size, tc.Equals, int64(11))
 
 	workertest.CleanKill(c, ret)
 }
 
-func (s *retrieverSuite) TestRetrieverWithAPIRemotesRace(c *gc.C) {
+func (s *retrieverSuite) TestRetrieverWithAPIRemotesRace(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	client := &httprequest.Client{
@@ -204,13 +204,13 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesRace(c *gc.C) {
 
 	result, err := io.ReadAll(readerCloser)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, gc.DeepEquals, []byte("hello world"))
-	c.Check(size, gc.Equals, int64(11))
+	c.Check(result, tc.DeepEquals, []byte("hello world"))
+	c.Check(size, tc.Equals, int64(11))
 
 	workertest.CleanKill(c, ret)
 }
 
-func (s *retrieverSuite) TestRetrieverWithAPIRemotesRaceNotFound(c *gc.C) {
+func (s *retrieverSuite) TestRetrieverWithAPIRemotesRaceNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	client := &httprequest.Client{
@@ -286,15 +286,15 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesRaceNotFound(c *gc.C) {
 
 	result, err := io.ReadAll(readerCloser)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, gc.DeepEquals, []byte("hello world"))
-	c.Check(size, gc.Equals, int64(11))
+	c.Check(result, tc.DeepEquals, []byte("hello world"))
+	c.Check(size, tc.Equals, int64(11))
 
-	c.Assert(atomic.LoadInt64(&attempts), gc.Equals, int64(3))
+	c.Assert(atomic.LoadInt64(&attempts), tc.Equals, int64(3))
 
 	workertest.CleanKill(c, ret)
 }
 
-func (s *retrieverSuite) TestRetrieverWithAPIRemotesNotFound(c *gc.C) {
+func (s *retrieverSuite) TestRetrieverWithAPIRemotesNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	client := &httprequest.Client{
@@ -326,7 +326,7 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesNotFound(c *gc.C) {
 	workertest.CleanKill(c, ret)
 }
 
-func (s *retrieverSuite) TestRetrieverWithAPIRemotesError(c *gc.C) {
+func (s *retrieverSuite) TestRetrieverWithAPIRemotesError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	client := &httprequest.Client{
@@ -379,12 +379,12 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesError(c *gc.C) {
 	defer workertest.DirtyKill(c, ret)
 
 	_, _, err := ret.Retrieve(context.Background(), "foo")
-	c.Assert(err, gc.ErrorMatches, ".*boom")
+	c.Assert(err, tc.ErrorMatches, ".*boom")
 
 	workertest.CleanKill(c, ret)
 }
 
-func (s *retrieverSuite) TestRetrieverWaitingForConnection(c *gc.C) {
+func (s *retrieverSuite) TestRetrieverWaitingForConnection(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -423,7 +423,7 @@ func (s *retrieverSuite) TestRetrieverWaitingForConnection(c *gc.C) {
 	workertest.CleanKill(c, ret)
 }
 
-func (s *retrieverSuite) newRetriever(c *gc.C) *BlobRetriever {
+func (s *retrieverSuite) newRetriever(c *tc.C) *BlobRetriever {
 	ret, err := NewBlobRetriever(s.remoteCallers, "namespace", func(url string, client s3client.HTTPClient, logger logger.Logger) (BlobsClient, error) {
 		return s.client, nil
 	}, s.clock, loggertesting.WrapCheckLog(c))
@@ -431,7 +431,7 @@ func (s *retrieverSuite) newRetriever(c *gc.C) *BlobRetriever {
 	return ret
 }
 
-func (s *retrieverSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *retrieverSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.remoteCallers = NewMockAPIRemoteCallers(ctrl)

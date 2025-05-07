@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/proxy"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/containermanager"
@@ -26,16 +26,16 @@ type suite struct {
 	providerGetter func(context.Context) (Provider, error)
 }
 
-var _ = gc.Suite(&suite{})
+var _ = tc.Suite(&suite{})
 
-func (s *suite) SetUpTest(c *gc.C) {
+func (s *suite) SetUpTest(c *tc.C) {
 	// Default provider getter function
 	s.providerGetter = func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
 	}
 }
 
-func (s *suite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *suite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.state = NewMockState(ctrl)
 	s.provider = NewMockProvider(ctrl)
@@ -44,7 +44,7 @@ func (s *suite) setupMocks(c *gc.C) *gomock.Controller {
 
 // TestContainerManagerConfigForType asserts the happy path for
 // Service.ContainerManagerConfigForType.
-func (s *suite) TestContainerManagerConfigForType(c *gc.C) {
+func (s *suite) TestContainerManagerConfigForType(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetModelConfigKeyValues(gomock.Any(), gomock.Any()).Return(map[string]string{
@@ -71,7 +71,7 @@ func (s *suite) TestContainerManagerConfigForType(c *gc.C) {
 // TestDetermineNetworkingMethodUserDefined tests that if the user specifies a
 // container networking method in model config, this will be used in the
 // container manager config.
-func (s *suite) TestContainerNetworkingMethodUserDefined(c *gc.C) {
+func (s *suite) TestContainerNetworkingMethodUserDefined(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetModelConfigKeyValues(gomock.Any(), gomock.Any()).Return(map[string]string{
@@ -81,12 +81,12 @@ func (s *suite) TestContainerNetworkingMethodUserDefined(c *gc.C) {
 	service := NewService(s.state, s.providerGetter)
 	method, err := service.ContainerNetworkingMethod(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(method, gc.Equals, containermanager.NetworkingMethodLocal)
+	c.Check(method, tc.Equals, containermanager.NetworkingMethodLocal)
 }
 
 // TestDetermineNetworkingMethodProviderNotSupported tests the case when the
 // provider does not support the Provider interface of this package.
-func (s *suite) TestDetermineNetworkingMethodProviderNotSupported(c *gc.C) {
+func (s *suite) TestDetermineNetworkingMethodProviderNotSupported(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetModelConfigKeyValues(gomock.Any(), gomock.Any()).Return(map[string]string{
@@ -99,13 +99,13 @@ func (s *suite) TestDetermineNetworkingMethodProviderNotSupported(c *gc.C) {
 	service := NewService(s.state, providerGetter)
 	method, err := service.ContainerNetworkingMethod(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(method, gc.Equals, containermanager.NetworkingMethodLocal)
+	c.Check(method, tc.Equals, containermanager.NetworkingMethodLocal)
 }
 
 // TestDetermineNetworkingMethodProviderSupports tests that if the provider
 // supports container addresses, the container networking method will be set
 // to "provider".
-func (s *suite) TestDetermineNetworkingMethodProviderSupports(c *gc.C) {
+func (s *suite) TestDetermineNetworkingMethodProviderSupports(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetModelConfigKeyValues(gomock.Any(), gomock.Any()).Return(map[string]string{
@@ -116,13 +116,13 @@ func (s *suite) TestDetermineNetworkingMethodProviderSupports(c *gc.C) {
 	service := NewService(s.state, s.providerGetter)
 	method, err := service.ContainerNetworkingMethod(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(method, gc.Equals, containermanager.NetworkingMethodProvider)
+	c.Check(method, tc.Equals, containermanager.NetworkingMethodProvider)
 }
 
 // TestDetermineNetworkingMethodProviderDoesntSupport tests that if the
 // provider doesn't support container addresses, the container networking
 // method will be set to "local".
-func (s *suite) TestDetermineNetworkingMethodProviderDoesntSupport(c *gc.C) {
+func (s *suite) TestDetermineNetworkingMethodProviderDoesntSupport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetModelConfigKeyValues(gomock.Any(), gomock.Any()).Return(map[string]string{
@@ -133,13 +133,13 @@ func (s *suite) TestDetermineNetworkingMethodProviderDoesntSupport(c *gc.C) {
 	service := NewService(s.state, s.providerGetter)
 	method, err := service.ContainerNetworkingMethod(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(method, gc.Equals, containermanager.NetworkingMethodLocal)
+	c.Check(method, tc.Equals, containermanager.NetworkingMethodLocal)
 }
 
 // TestDetermineNetworkingMethodProviderDoesntSupport tests that if the
 // provider returns an [errors.NotSupported] from SupportsContainerAddresses,
 // the container networking method will be set to "local".
-func (s *suite) TestDetermineNetworkingMethodProviderReturnsNotSupported(c *gc.C) {
+func (s *suite) TestDetermineNetworkingMethodProviderReturnsNotSupported(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetModelConfigKeyValues(gomock.Any(), gomock.Any()).Return(map[string]string{
@@ -150,10 +150,10 @@ func (s *suite) TestDetermineNetworkingMethodProviderReturnsNotSupported(c *gc.C
 	service := NewService(s.state, s.providerGetter)
 	method, err := service.ContainerNetworkingMethod(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(method, gc.Equals, containermanager.NetworkingMethodLocal)
+	c.Check(method, tc.Equals, containermanager.NetworkingMethodLocal)
 }
 
-func (s *suite) TestContainerConfig(c *gc.C) {
+func (s *suite) TestContainerConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetModelConfigKeyValues(gomock.Any(), gomock.Any()).Return(map[string]string{

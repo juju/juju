@@ -6,9 +6,9 @@ package service
 import (
 	"context"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -32,13 +32,13 @@ type logSinkServiceSuite struct {
 	state *dummyLogSinkState
 }
 
-var _ = gc.Suite(&logSinkServiceSuite{})
+var _ = tc.Suite(&logSinkServiceSuite{})
 
-func (s *logSinkServiceSuite) SetUpTest(c *gc.C) {
+func (s *logSinkServiceSuite) SetUpTest(c *tc.C) {
 	s.state = &dummyLogSinkState{}
 }
 
-func (s *logSinkServiceSuite) TestModel(c *gc.C) {
+func (s *logSinkServiceSuite) TestModel(c *tc.C) {
 	svc := NewLogSinkService(s.state)
 
 	id := modeltesting.GenModelUUID(c)
@@ -54,5 +54,5 @@ func (s *logSinkServiceSuite) TestModel(c *gc.C) {
 	got, err := svc.Model(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(got, gc.Equals, model)
+	c.Check(got, tc.Equals, model)
 }

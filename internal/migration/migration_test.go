@@ -15,10 +15,10 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
@@ -44,9 +44,9 @@ type ExportSuite struct {
 	model                 *MockModel
 }
 
-var _ = gc.Suite(&ExportSuite{})
+var _ = tc.Suite(&ExportSuite{})
 
-func (s *ExportSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *ExportSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.storageRegistryGetter = NewMockModelStorageRegistryGetter(ctrl)
@@ -57,7 +57,7 @@ func (s *ExportSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *ExportSuite) TestExportValidates(c *gc.C) {
+func (s *ExportSuite) TestExportValidates(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	scope := modelmigration.NewScope(nil, nil, nil)
@@ -83,7 +83,7 @@ func (s *ExportSuite) TestExportValidates(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ExportSuite) TestExportValidationFails(c *gc.C) {
+func (s *ExportSuite) TestExportValidationFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	scope := modelmigration.NewScope(nil, nil, nil)
@@ -102,7 +102,7 @@ func (s *ExportSuite) TestExportValidationFails(c *gc.C) {
 	)
 
 	_, err := exporter.Export(context.Background(), s.model)
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
 type ImportSuite struct {
@@ -111,9 +111,9 @@ type ImportSuite struct {
 	agentBinaryStore *MockAgentBinaryStore
 }
 
-var _ = gc.Suite(&ImportSuite{})
+var _ = tc.Suite(&ImportSuite{})
 
-func (s *ImportSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *ImportSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.charmService = NewMockCharmService(ctrl)
@@ -122,7 +122,7 @@ func (s *ImportSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *ImportSuite) TestBadBytes(c *gc.C) {
+func (s *ImportSuite) TestBadBytes(c *tc.C) {
 	bytes := []byte("not a model")
 	scope := func(model.UUID) modelmigration.Scope { return modelmigration.NewScope(nil, nil, nil) }
 	controller := &fakeImporter{}
@@ -136,9 +136,9 @@ func (s *ImportSuite) TestBadBytes(c *gc.C) {
 		clock.WallClock,
 	)
 	model, st, err := importer.ImportModel(context.Background(), bytes)
-	c.Check(st, gc.IsNil)
-	c.Check(model, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "yaml: unmarshal errors:\n.*")
+	c.Check(st, tc.IsNil)
+	c.Check(model, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "yaml: unmarshal errors:\n.*")
 }
 
 const modelYaml = `
@@ -198,7 +198,7 @@ volumes:
 version: 1
 `
 
-func (s *ImportSuite) TestUploadBinariesConfigValidate(c *gc.C) {
+func (s *ImportSuite) TestUploadBinariesConfigValidate(c *tc.C) {
 	type T migration.UploadBinariesConfig // alias for brevity
 
 	check := func(modify func(*T), missing string) {
@@ -212,7 +212,7 @@ func (s *ImportSuite) TestUploadBinariesConfigValidate(c *gc.C) {
 		}
 		modify(&config)
 		realConfig := migration.UploadBinariesConfig(config)
-		c.Check(realConfig.Validate(), gc.ErrorMatches, fmt.Sprintf("missing %s not valid", missing))
+		c.Check(realConfig.Validate(), tc.ErrorMatches, fmt.Sprintf("missing %s not valid", missing))
 	}
 
 	check(func(c *T) { c.CharmService = nil }, "CharmService")
@@ -223,7 +223,7 @@ func (s *ImportSuite) TestUploadBinariesConfigValidate(c *gc.C) {
 	check(func(c *T) { c.ResourceUploader = nil }, "ResourceUploader")
 }
 
-func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
+func (s *ImportSuite) TestBinariesMigration(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	downloader := &fakeDownloader{}
@@ -297,7 +297,7 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 	}
 	c.Assert(uploader.charmRefs, jc.DeepEquals, expectedRefs)
 
-	c.Check(len(uploader.tools), gc.Equals, len(toolsMap))
+	c.Check(len(uploader.tools), tc.Equals, len(toolsMap))
 	for _, ver := range toolsMap {
 		_, exists := uploader.tools[ver]
 		c.Check(exists, jc.IsTrue)
@@ -313,7 +313,7 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 	})
 }
 
-func (s *ImportSuite) TestWrongCharmURLAssigned(c *gc.C) {
+func (s *ImportSuite) TestWrongCharmURLAssigned(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	downloader := &fakeDownloader{}
@@ -336,7 +336,7 @@ func (s *ImportSuite) TestWrongCharmURLAssigned(c *gc.C) {
 		ResourceUploader:   uploader,
 	}
 	err := migration.UploadBinaries(context.Background(), config, loggertesting.WrapCheckLog(c))
-	c.Assert(err, gc.ErrorMatches,
+	c.Assert(err, tc.ErrorMatches,
 		"cannot upload charms: charm ch:foo/bar-2 unexpectedly assigned ch:foo/bar-100")
 }
 

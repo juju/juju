@@ -5,16 +5,16 @@ package context
 
 import (
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-var _ = gc.Suite(&PortRangeChangeRecorderSuite{})
+var _ = tc.Suite(&PortRangeChangeRecorderSuite{})
 
 type PortRangeChangeRecorderSuite struct {
 	envtesting.IsolationSuite
@@ -36,7 +36,7 @@ type portRangeTest struct {
 	isCAAS             bool
 }
 
-func (s *PortRangeChangeRecorderSuite) TestOpenPortRange(c *gc.C) {
+func (s *PortRangeChangeRecorderSuite) TestOpenPortRange(c *tc.C) {
 	targetUnit := names.NewUnitTag("u/0")
 
 	tests := []portRangeTest{
@@ -213,7 +213,7 @@ func (s *PortRangeChangeRecorderSuite) TestOpenPortRange(c *gc.C) {
 
 		err := rec.OpenPortRange(test.targetEndpoint, test.targetPortRange)
 		if test.expectErr != "" {
-			c.Check(err, gc.ErrorMatches, test.expectErr)
+			c.Check(err, tc.ErrorMatches, test.expectErr)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
 
@@ -224,7 +224,7 @@ func (s *PortRangeChangeRecorderSuite) TestOpenPortRange(c *gc.C) {
 	}
 }
 
-func (s *PortRangeChangeRecorderSuite) TestClosePortRange(c *gc.C) {
+func (s *PortRangeChangeRecorderSuite) TestClosePortRange(c *tc.C) {
 	targetUnit := names.NewUnitTag("u/0")
 
 	tests := []portRangeTest{
@@ -413,7 +413,7 @@ func (s *PortRangeChangeRecorderSuite) TestClosePortRange(c *gc.C) {
 
 		err := rec.ClosePortRange(test.targetEndpoint, test.targetPortRange)
 		if test.expectErr != "" {
-			c.Check(err, gc.ErrorMatches, test.expectErr)
+			c.Check(err, tc.ErrorMatches, test.expectErr)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
 

@@ -10,8 +10,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/charm"
 	jtesting "github.com/juju/juju/internal/testing"
@@ -49,7 +49,7 @@ func CharmRepo() *repo.CharmRepo {
 
 // CheckCharmReady ensures that a desired charm archive exists and
 // has some content.
-func CheckCharmReady(c *gc.C, charmArchive *charm.CharmArchive) {
+func CheckCharmReady(c *tc.C, charmArchive *charm.CharmArchive) {
 	fileSize := func() int64 {
 		f, err := os.Open(charmArchive.Path)
 		c.Assert(err, jc.ErrorIsNil)

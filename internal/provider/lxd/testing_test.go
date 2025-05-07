@@ -14,10 +14,10 @@ import (
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/arch"
@@ -86,7 +86,7 @@ type BaseSuiteUnpatched struct {
 	Invalidator *MockCredentialInvalidator
 }
 
-func (s *BaseSuiteUnpatched) SetUpSuite(c *gc.C) {
+func (s *BaseSuiteUnpatched) SetUpSuite(c *tc.C) {
 	s.osPathOrig = os.Getenv("PATH")
 	if s.osPathOrig == "" {
 		// TODO(ericsnow) This shouldn't happen. However, an undiagnosed
@@ -99,7 +99,7 @@ func (s *BaseSuiteUnpatched) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 }
 
-func (s *BaseSuiteUnpatched) SetupMocks(c *gc.C) *gomock.Controller {
+func (s *BaseSuiteUnpatched) SetupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.Invalidator = NewMockCredentialInvalidator(ctrl)
@@ -122,7 +122,7 @@ func (s *BaseSuiteUnpatched) initProvider() {
 	}
 }
 
-func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {
+func (s *BaseSuiteUnpatched) initEnv(c *tc.C) {
 	certCred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
 		"client-cert": testing.CACert,
 		"client-key":  testing.CAKey,
@@ -146,7 +146,7 @@ func (s *BaseSuiteUnpatched) Prefix() string {
 	return s.Env.namespace.Prefix()
 }
 
-func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
+func (s *BaseSuiteUnpatched) initInst(c *tc.C) {
 	tools := []*coretools.Tools{
 		{
 			Version: semversion.Binary{Arch: arch.AMD64, Release: "ubuntu"},
@@ -210,13 +210,13 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	}
 }
 
-func (s *BaseSuiteUnpatched) initNet(c *gc.C) {
+func (s *BaseSuiteUnpatched) initNet(c *tc.C) {
 	s.Rules = firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp")),
 	}
 }
 
-func (s *BaseSuiteUnpatched) setConfig(c *gc.C, cfg *config.Config) {
+func (s *BaseSuiteUnpatched) setConfig(c *tc.C, cfg *config.Config) {
 	s.Config = cfg
 	ecfg, err := newValidConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -229,7 +229,7 @@ func (s *BaseSuiteUnpatched) setConfig(c *gc.C, cfg *config.Config) {
 	s.Env.namespace = namespace
 }
 
-func (s *BaseSuiteUnpatched) NewConfig(c *gc.C, updates testing.Attrs) *config.Config {
+func (s *BaseSuiteUnpatched) NewConfig(c *tc.C, updates testing.Attrs) *config.Config {
 	if updates == nil {
 		updates = make(testing.Attrs)
 	}
@@ -242,13 +242,13 @@ func (s *BaseSuiteUnpatched) NewConfig(c *gc.C, updates testing.Attrs) *config.C
 	return cfg
 }
 
-func (s *BaseSuiteUnpatched) UpdateConfig(c *gc.C, attrs map[string]interface{}) {
+func (s *BaseSuiteUnpatched) UpdateConfig(c *tc.C, attrs map[string]interface{}) {
 	cfg, err := s.Config.Apply(attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	s.setConfig(c, cfg)
 }
 
-func (s *BaseSuiteUnpatched) NewContainer(c *gc.C, name string) *lxd.Container {
+func (s *BaseSuiteUnpatched) NewContainer(c *tc.C, name string) *lxd.Container {
 	metadata := make(map[string]string)
 	for k, v := range s.Metadata {
 		metadata[k] = v
@@ -265,7 +265,7 @@ func (s *BaseSuiteUnpatched) NewContainer(c *gc.C, name string) *lxd.Container {
 	}
 }
 
-func (s *BaseSuiteUnpatched) NewInstance(c *gc.C, name string) *environInstance {
+func (s *BaseSuiteUnpatched) NewInstance(c *tc.C, name string) *environInstance {
 	container := s.NewContainer(c, name)
 	return newInstance(container, s.Env)
 }
@@ -278,16 +278,16 @@ type BaseSuite struct {
 	Common *stubCommon
 }
 
-func (s *BaseSuite) SetUpSuite(c *gc.C) {
+func (s *BaseSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuiteUnpatched.SetUpSuite(c)
 	// Do this *before* s.initEnv() gets called in BaseSuiteUnpatched.SetUpTest
 }
 
-func (s *BaseSuite) SetUpTest(c *gc.C) {
+func (s *BaseSuite) SetUpTest(c *tc.C) {
 	testing.SkipLXDNotSupported(c)
 }
 
-func (s *BaseSuite) SetupMocks(c *gc.C) *gomock.Controller {
+func (s *BaseSuite) SetupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.BaseSuiteUnpatched.SetupMocks(c)
 
 	s.Stub = &jujutesting.Stub{}
@@ -313,7 +313,7 @@ func (s *BaseSuite) SetupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *BaseSuite) TestingCert(c *gc.C) (lxd.Certificate, string) {
+func (s *BaseSuite) TestingCert(c *tc.C) (lxd.Certificate, string) {
 	cert := lxd.Certificate{
 		Name:    "juju",
 		CertPEM: []byte(testing.CACert),
@@ -324,11 +324,11 @@ func (s *BaseSuite) TestingCert(c *gc.C) (lxd.Certificate, string) {
 	return cert, fingerprint
 }
 
-func (s *BaseSuite) CheckNoAPI(c *gc.C) {
+func (s *BaseSuite) CheckNoAPI(c *tc.C) {
 	s.Stub.CheckCalls(c, nil)
 }
 
-func NewBaseConfig(c *gc.C) *config.Config {
+func NewBaseConfig(c *tc.C) *config.Config {
 	var err error
 	cfg := testing.ModelConfig(c)
 
@@ -349,7 +349,7 @@ func NewConfig(cfg *config.Config) *Config {
 	return &Config{ecfg}
 }
 
-func (ecfg *Config) Values(c *gc.C) (ConfigValues, map[string]interface{}) {
+func (ecfg *Config) Values(c *tc.C) (ConfigValues, map[string]interface{}) {
 	c.Assert(ecfg.attrs, jc.DeepEquals, ecfg.UnknownAttrs())
 
 	var values ConfigValues
@@ -363,7 +363,7 @@ func (ecfg *Config) Values(c *gc.C) (ConfigValues, map[string]interface{}) {
 	return values, extras
 }
 
-func (ecfg *Config) Apply(c *gc.C, updates map[string]interface{}) *Config {
+func (ecfg *Config) Apply(c *tc.C, updates map[string]interface{}) *Config {
 	cfg, err := ecfg.Config.Apply(updates)
 	c.Assert(err, jc.ErrorIsNil)
 	return NewConfig(cfg)
@@ -750,7 +750,7 @@ type EnvironSuite struct {
 	testing.BaseSuite
 }
 
-func (s *EnvironSuite) NewEnviron(c *gc.C,
+func (s *EnvironSuite) NewEnviron(c *tc.C,
 	srv Server,
 	cfgEdit map[string]interface{},
 	cloudSpec environscloudspec.CloudSpec,
@@ -780,7 +780,7 @@ func (s *EnvironSuite) NewEnviron(c *gc.C,
 	}
 }
 
-func (s *EnvironSuite) NewEnvironWithServerFactory(c *gc.C,
+func (s *EnvironSuite) NewEnvironWithServerFactory(c *tc.C,
 	srv ServerFactory,
 	cfgEdit map[string]interface{},
 	invalidator environs.CredentialInvalidator,
@@ -813,7 +813,7 @@ func (s *EnvironSuite) NewEnvironWithServerFactory(c *gc.C,
 	}
 }
 
-func (s *EnvironSuite) GetStartInstanceArgs(c *gc.C) environs.StartInstanceParams {
+func (s *EnvironSuite) GetStartInstanceArgs(c *tc.C) environs.StartInstanceParams {
 	tools := []*coretools.Tools{
 		{
 			Version: semversion.Binary{Arch: arch.AMD64, Release: "ubuntu"},

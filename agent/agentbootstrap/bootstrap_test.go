@@ -9,9 +9,9 @@ import (
 	"github.com/juju/errors"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
@@ -48,9 +48,9 @@ type bootstrapSuite struct {
 	mgoInst mgotesting.MgoInstance
 }
 
-var _ = gc.Suite(&bootstrapSuite{})
+var _ = tc.Suite(&bootstrapSuite{})
 
-func (s *bootstrapSuite) SetUpTest(c *gc.C) {
+func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	// Don't use MgoSuite, because we need to ensure
@@ -61,12 +61,12 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *bootstrapSuite) TearDownTest(c *gc.C) {
+func (s *bootstrapSuite) TearDownTest(c *tc.C) {
 	s.mgoInst.Destroy()
 	s.BaseSuite.TearDownTest(c)
 }
 
-func getModelAssertion(c *gc.C, modelUUID coremodel.UUID) database.BootstrapOpt {
+func getModelAssertion(c *tc.C, modelUUID coremodel.UUID) database.BootstrapOpt {
 	return func(ctx context.Context, controller, model coredatabase.TxnRunner) error {
 		modelState := modelstate.NewModelState(func() (coredatabase.TxnRunner, error) {
 			return model, nil
@@ -74,12 +74,12 @@ func getModelAssertion(c *gc.C, modelUUID coremodel.UUID) database.BootstrapOpt 
 
 		info, err := modelState.GetModel(ctx)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(info.UUID, gc.Equals, modelUUID)
+		c.Check(info.UUID, tc.Equals, modelUUID)
 		return nil
 	}
 }
 
-func getModelConstraintAssertion(c *gc.C, cons constraints.Value) database.BootstrapOpt {
+func getModelConstraintAssertion(c *tc.C, cons constraints.Value) database.BootstrapOpt {
 	return func(ctx context.Context, controller, model coredatabase.TxnRunner) error {
 		modelState := modelstate.NewModelState(func() (coredatabase.TxnRunner, error) {
 			return model, nil
@@ -93,7 +93,7 @@ func getModelConstraintAssertion(c *gc.C, cons constraints.Value) database.Boots
 	}
 }
 
-func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
+func (s *bootstrapSuite) TestInitializeState(c *tc.C) {
 	dataDir := c.MkDir()
 
 	s.PatchValue(&network.AddressesForInterfaceName, func(name string) ([]string, error) {
@@ -205,7 +205,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 				getModelConstraintAssertion(c, expectModelConstraints),
 			),
 			Provider: func(t string) (environs.EnvironProvider, error) {
-				c.Assert(t, gc.Equals, "dummy")
+				c.Assert(t, tc.Equals, "dummy")
 				return &envProvider, nil
 			},
 			Logger: loggertesting.WrapCheckLog(c),
@@ -230,17 +230,17 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	// Check that the bootstrap machine looks correct.
 	m, err := st.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(m.Id(), gc.Equals, "0")
-	c.Check(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageModel})
+	c.Check(m.Id(), tc.Equals, "0")
+	c.Check(m.Jobs(), tc.DeepEquals, []state.MachineJob{state.JobManageModel})
 
 	base, err := corebase.ParseBase(m.Base().OS, m.Base().Channel)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(m.Base().String(), gc.Equals, base.String())
+	c.Check(m.Base().String(), tc.Equals, base.String())
 	c.Check(m.CheckProvisioned(agent.BootstrapNonce), jc.IsTrue)
 
 	gotBootstrapConstraints, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(gotBootstrapConstraints, gc.DeepEquals, expectBootstrapConstraints)
+	c.Check(gotBootstrapConstraints, tc.DeepEquals, expectBootstrapConstraints)
 
 	// Check that the state serving info is initialised correctly.
 	stateServingInfo, err := st.StateServingInfo()
@@ -260,18 +260,18 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	machine0 := names.NewMachineTag("0")
 	newCfg, err := agent.ReadConfig(agent.ConfigPath(dataDir, machine0))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(newCfg.Tag(), gc.Equals, machine0)
+	c.Check(newCfg.Tag(), tc.Equals, machine0)
 
 	info, ok := cfg.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
-	c.Check(info.Password, gc.Not(gc.Equals), testing.DefaultMongoPassword)
+	c.Check(info.Password, tc.Not(tc.Equals), testing.DefaultMongoPassword)
 
 	session, err := mongo.DialWithInfo(*info, mongotest.DialOpts())
 	c.Assert(err, jc.ErrorIsNil)
 	session.Close()
 }
 
-func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *gc.C) {
+func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *tc.C) {
 	configParams := agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: c.MkDir()},
 		Tag:               names.NewMachineTag("0"),
@@ -307,10 +307,10 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 	_, err = bootstrap.Initialize(context.Background())
 
 	// InitializeState will fail attempting to get the api port information
-	c.Assert(err, gc.ErrorMatches, "state serving information not available")
+	c.Assert(err, tc.ErrorMatches, "state serving information not available")
 }
 
-func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
+func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *tc.C) {
 	dataDir := c.MkDir()
 
 	configParams := agent.AgentConfigParams{
@@ -398,7 +398,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
 }
 
-func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {
+func (s *bootstrapSuite) TestMachineJobFromParams(c *tc.C) {
 	var tests = []struct {
 		name coremodel.MachineJob
 		want state.MachineJob
@@ -417,13 +417,13 @@ func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {
 	for _, test := range tests {
 		got, err := agentbootstrap.MachineJobFromParams(test.name)
 		if err != nil {
-			c.Check(err, gc.ErrorMatches, test.err)
+			c.Check(err, tc.ErrorMatches, test.err)
 		}
-		c.Check(got, gc.Equals, test.want)
+		c.Check(got, tc.Equals, test.want)
 	}
 }
 
-func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, modelTag names.ModelTag, controllerTag names.ControllerTag, password string) {
+func (s *bootstrapSuite) assertCanLogInAsAdmin(c *tc.C, modelTag names.ModelTag, controllerTag names.ControllerTag, password string) {
 	session, err := mongo.DialWithInfo(mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{s.mgoInst.Addr()},
@@ -476,7 +476,7 @@ func (e *fakeEnviron) Provider() environs.EnvironProvider {
 	return e.provider
 }
 
-func getBootstrapDqliteWithDummyCloudTypeWithAssertions(c *gc.C,
+func getBootstrapDqliteWithDummyCloudTypeWithAssertions(c *tc.C,
 	assertions ...database.BootstrapOpt,
 ) agentbootstrap.DqliteInitializerFunc {
 	return func(
@@ -501,7 +501,7 @@ func getBootstrapDqliteWithDummyCloudTypeWithAssertions(c *gc.C,
 			})
 		}
 		defer func() {
-			c.Assert(called, gc.Equals, len(assertions))
+			c.Assert(called, tc.Equals, len(assertions))
 		}()
 
 		return database.BootstrapDqlite(ctx, mgr, modelUUID, logger, opts...)

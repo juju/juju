@@ -4,13 +4,13 @@
 package modeldefaults
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
 type typesSuite struct{}
 
-var _ = gc.Suite(&typesSuite{})
+var _ = tc.Suite(&typesSuite{})
 
 // TestZeroDefaultsValue is here to test what the zero value of a
 // DefaultAttributeValue does. Specifically that Has returns false and the apply
@@ -18,47 +18,47 @@ var _ = gc.Suite(&typesSuite{})
 //
 // We want to make sure that if a zero value escapes by accident it will not
 // cause damage to a models config.
-func (s *typesSuite) TestZeroDefaultsValue(c *gc.C) {
+func (s *typesSuite) TestZeroDefaultsValue(c *tc.C) {
 	val := DefaultAttributeValue{}
 
 	has, source := val.ValueSource("someval")
 	c.Check(has, jc.IsFalse)
-	c.Check(source, gc.Equals, "")
+	c.Check(source, tc.Equals, "")
 
 	applied, is := val.ApplyStrategy("teststring").(string)
-	c.Assert(is, jc.IsTrue, gc.Commentf("expected zero value apply strategy to return what was passed to it verbatim"))
-	c.Check(applied, gc.Equals, "teststring")
+	c.Assert(is, jc.IsTrue, tc.Commentf("expected zero value apply strategy to return what was passed to it verbatim"))
+	c.Check(applied, tc.Equals, "teststring")
 }
 
 // TestValueSourceSupportForNil is testing for nil values to ValueSource() we always return
 // false and no source information as per the contract of the function.
-func (s *typesSuite) TestValueSourceSupportForNil(c *gc.C) {
+func (s *typesSuite) TestValueSourceSupportForNil(c *tc.C) {
 	val := DefaultAttributeValue{
 		Region: "someval",
 	}
 
 	has, source := val.ValueSource(nil)
 	c.Check(has, jc.IsFalse)
-	c.Check(source, gc.Equals, "")
+	c.Check(source, tc.Equals, "")
 
 	val = DefaultAttributeValue{}
 
 	has, source = val.ValueSource("myval")
 	c.Check(has, jc.IsFalse)
-	c.Check(source, gc.Equals, "")
+	c.Check(source, tc.Equals, "")
 }
 
 // TestValueSourceSupport is testing ValueSource for DefaultAttributeValue and that we can ask
 // the question correctly. We are only checking basic comparison here as that is
 // all Has supports.
-func (s *typesSuite) TestValueSourceSupport(c *gc.C) {
+func (s *typesSuite) TestValueSourceSupport(c *tc.C) {
 	val := DefaultAttributeValue{
 		Region: "someval",
 	}
 
 	has, source := val.ValueSource("someval")
 	c.Check(has, jc.IsTrue)
-	c.Check(source, gc.Equals, "region")
+	c.Check(source, tc.Equals, "region")
 
 	i := int32(10)
 	val = DefaultAttributeValue{
@@ -67,7 +67,7 @@ func (s *typesSuite) TestValueSourceSupport(c *gc.C) {
 
 	has, source = val.ValueSource(&i)
 	c.Check(has, jc.IsTrue)
-	c.Check(source, gc.Equals, "region")
+	c.Check(source, tc.Equals, "region")
 
 	val = DefaultAttributeValue{
 		Region: []any{
@@ -81,7 +81,7 @@ func (s *typesSuite) TestValueSourceSupport(c *gc.C) {
 		"one", "two", "three",
 	})
 	c.Check(has, jc.IsTrue)
-	c.Check(source, gc.Equals, "region")
+	c.Check(source, tc.Equals, "region")
 
 	structVal := struct{ name string }{"test"}
 	val = DefaultAttributeValue{
@@ -90,7 +90,7 @@ func (s *typesSuite) TestValueSourceSupport(c *gc.C) {
 
 	has, source = val.ValueSource(&struct{ name string }{"test"})
 	c.Check(has, jc.IsFalse)
-	c.Check(source, gc.Equals, "")
+	c.Check(source, tc.Equals, "")
 }
 
 // testApplyStrategy is a test implementation of ApplyStrategy that is here to
@@ -111,7 +111,7 @@ func (t *testApplyStrategy) Apply(d, s any) any {
 // [DefaultAttributeValue.ApplyStrategy]. This test isn't concerned about
 // testing the logic of strategies just that the strategy is asked to make a
 // decision.
-func (s *typesSuite) TestApplyStrategy(c *gc.C) {
+func (s *typesSuite) TestApplyStrategy(c *tc.C) {
 	strategy := &testApplyStrategy{}
 	val := DefaultAttributeValue{
 		Strategy:   strategy,
@@ -120,23 +120,23 @@ func (s *typesSuite) TestApplyStrategy(c *gc.C) {
 
 	out := val.ApplyStrategy("someval1")
 	c.Check(strategy.called, jc.IsTrue)
-	c.Check(out, gc.Equals, "someval1")
+	c.Check(out, tc.Equals, "someval1")
 }
 
 // TestPreferSetApplyStrategy is testing the contract offered by
 // [PreferSetApplyStrategy] (the happy path).
-func (s *typesSuite) TestPreferSetApplyStrategy(c *gc.C) {
+func (s *typesSuite) TestPreferSetApplyStrategy(c *tc.C) {
 	strategy := PreferSetApplyStrategy{}
-	c.Check(strategy.Apply(nil, "test"), gc.Equals, "test")
-	c.Check(strategy.Apply("default", nil), gc.Equals, "default")
-	c.Check(strategy.Apply("default", "set"), gc.Equals, "set")
-	c.Check(strategy.Apply(nil, nil), gc.IsNil)
+	c.Check(strategy.Apply(nil, "test"), tc.Equals, "test")
+	c.Check(strategy.Apply("default", nil), tc.Equals, "default")
+	c.Check(strategy.Apply("default", "set"), tc.Equals, "set")
+	c.Check(strategy.Apply(nil, nil), tc.IsNil)
 }
 
-func (s *typesSuite) TestPreferDefaultApplyStrategy(c *gc.C) {
+func (s *typesSuite) TestPreferDefaultApplyStrategy(c *tc.C) {
 	strategy := PreferDefaultApplyStrategy{}
-	c.Check(strategy.Apply(nil, "test"), gc.Equals, "test")
-	c.Check(strategy.Apply("default", nil), gc.Equals, "default")
-	c.Check(strategy.Apply("default", "set"), gc.Equals, "default")
-	c.Check(strategy.Apply(nil, nil), gc.IsNil)
+	c.Check(strategy.Apply(nil, "test"), tc.Equals, "test")
+	c.Check(strategy.Apply("default", nil), tc.Equals, "default")
+	c.Check(strategy.Apply("default", "set"), tc.Equals, "default")
+	c.Check(strategy.Apply(nil, nil), tc.IsNil)
 }

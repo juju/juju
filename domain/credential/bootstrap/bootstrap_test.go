@@ -6,8 +6,8 @@ package bootstrap
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
@@ -26,14 +26,14 @@ type bootstrapSuite struct {
 	controllerUUID string
 }
 
-var _ = gc.Suite(&bootstrapSuite{})
+var _ = tc.Suite(&bootstrapSuite{})
 
-func (s *bootstrapSuite) SetUpTest(c *gc.C) {
+func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 	s.controllerUUID = s.SeedControllerUUID(c)
 }
 
-func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *gc.C) {
+func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *tc.C) {
 	ctx := context.Background()
 
 	userUUID, err := user.NewUUID()
@@ -77,6 +77,6 @@ SELECT owner_uuid, cloud.name FROM cloud_credential
 JOIN cloud ON cloud.uuid = cloud_credential.cloud_uuid
 WHERE cloud_credential.name = ?`, "foo")
 	c.Assert(row.Scan(&owner, &cloudName), jc.ErrorIsNil)
-	c.Assert(owner, gc.Equals, userUUID.String())
-	c.Assert(cloudName, gc.Equals, "cirrus")
+	c.Assert(owner, tc.Equals, userUUID.String())
+	c.Assert(cloudName, tc.Equals, "cirrus")
 }

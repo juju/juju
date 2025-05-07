@@ -6,8 +6,8 @@ package machine_test
 import (
 	stdtesting "testing"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -31,7 +31,7 @@ type commonSuite struct {
 	machine1 *state.Machine
 }
 
-func (s *commonSuite) SetUpTest(c *gc.C) {
+func (s *commonSuite) SetUpTest(c *tc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
 	st := s.ControllerModel(c).State()

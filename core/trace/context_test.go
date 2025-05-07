@@ -6,40 +6,40 @@ package trace
 import (
 	"context"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
 )
 
 type contextSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&contextSuite{})
+var _ = tc.Suite(&contextSuite{})
 
-func (contextSuite) TestTracerFromContextEmpty(c *gc.C) {
+func (contextSuite) TestTracerFromContextEmpty(c *tc.C) {
 	tracer, enabled := TracerFromContext(context.Background())
-	c.Assert(tracer, gc.NotNil)
-	c.Assert(enabled, gc.Equals, false)
+	c.Assert(tracer, tc.NotNil)
+	c.Assert(enabled, tc.Equals, false)
 
 	ctx, span := tracer.Start(context.Background(), "test")
-	c.Assert(ctx, gc.NotNil)
-	c.Assert(span, gc.NotNil)
+	c.Assert(ctx, tc.NotNil)
+	c.Assert(span, tc.NotNil)
 
-	c.Check(span, gc.Equals, NoopSpan{})
+	c.Check(span, tc.Equals, NoopSpan{})
 }
 
-func (contextSuite) TestTracerFromContextTracer(c *gc.C) {
+func (contextSuite) TestTracerFromContextTracer(c *tc.C) {
 	tracer, enabled := TracerFromContext(WithTracer(context.Background(), stubTracer{}))
-	c.Assert(tracer, gc.NotNil)
-	c.Assert(enabled, gc.Equals, true)
+	c.Assert(tracer, tc.NotNil)
+	c.Assert(enabled, tc.Equals, true)
 
 	ctx, span := tracer.Start(context.Background(), "test")
-	c.Assert(ctx, gc.NotNil)
-	c.Assert(span, gc.NotNil)
+	c.Assert(ctx, tc.NotNil)
+	c.Assert(span, tc.NotNil)
 
 	// Ensure that we get the correct span.
-	c.Check(span, gc.Equals, stubSpan{})
-	c.Check(span, gc.Not(gc.Equals), NoopSpan{})
+	c.Check(span, tc.Equals, stubSpan{})
+	c.Check(span, tc.Not(tc.Equals), NoopSpan{})
 }
 
 type stubTracer struct{}

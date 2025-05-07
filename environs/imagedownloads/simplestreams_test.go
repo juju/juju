@@ -11,11 +11,11 @@ import (
 	"net/http/httptest"
 	"strings"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/crypto/openpgp"
 	openpgperrors "golang.org/x/crypto/openpgp/errors"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/imagedownloads"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -27,7 +27,7 @@ type Suite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&Suite{})
+var _ = tc.Suite(&Suite{})
 
 func newTestDataSource(factory simplestreams.DataSourceFactory, s string) simplestreams.DataSource {
 	return imagedownloads.NewDataSource(factory, s+"/"+imagemetadata.ReleasedImagesPath)
@@ -40,7 +40,7 @@ func newTestDataSourceFunc(s string) func() simplestreams.DataSource {
 	}
 }
 
-func (s *Suite) SetUpTest(c *gc.C) {
+func (s *Suite) SetUpTest(c *tc.C) {
 	imagemetadata.SimplestreamsImagesPublicKey = streamstesting.SignedMetadataPublicKey
 
 	// The index.sjson file used by these tests have been regenerated using
@@ -49,12 +49,12 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	// implementation and suppress the ErrUnkownIssuer error.
 	s.PatchValue(&simplestreams.PGPSignatureCheckFn, func(keyring openpgp.KeyRing, signed, signature io.Reader) (*openpgp.Entity, error) {
 		ent, err := openpgp.CheckDetachedSignature(keyring, signed, signature)
-		c.Assert(err, gc.Equals, openpgperrors.ErrUnknownIssuer, gc.Commentf("expected the signature verification to return ErrUnknownIssuer when the index file is signed with the test pgp key"))
+		c.Assert(err, tc.Equals, openpgperrors.ErrUnknownIssuer, tc.Commentf("expected the signature verification to return ErrUnknownIssuer when the index file is signed with the test pgp key"))
 		return ent, nil
 	})
 }
 
-func (*Suite) TestNewSignedImagesSource(c *gc.C) {
+func (*Suite) TestNewSignedImagesSource(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	got := imagedownloads.DefaultSource(ss)()
 	c.Check(got.Description(), jc.DeepEquals, "ubuntu cloud images")
@@ -65,7 +65,7 @@ func (*Suite) TestNewSignedImagesSource(c *gc.C) {
 	c.Assert(gotURL, jc.DeepEquals, "http://cloud-images.ubuntu.com/releases/")
 }
 
-func (*Suite) TestFetchManyDefaultFilter(c *gc.C) {
+func (*Suite) TestFetchManyDefaultFilter(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
@@ -92,7 +92,7 @@ func (*Suite) TestFetchManyDefaultFilter(c *gc.C) {
 	}
 }
 
-func (*Suite) TestFetchManyDefaultFilterAndCustomImageDownloadURL(c *gc.C) {
+func (*Suite) TestFetchManyDefaultFilterAndCustomImageDownloadURL(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
@@ -115,14 +115,14 @@ func (*Suite) TestFetchManyDefaultFilterAndCustomImageDownloadURL(c *gc.C) {
 		// images from a different operator-provided URL.
 		gotURL, err := v.DownloadURL("https://tasty-cloud-images.ubuntu.com")
 		c.Check(err, jc.ErrorIsNil)
-		c.Check(strings.HasPrefix(gotURL.String(), "https://tasty-cloud-images.ubuntu.com"), jc.IsTrue, gc.Commentf("expected image download URL to use the operator-provided URL"))
+		c.Check(strings.HasPrefix(gotURL.String(), "https://tasty-cloud-images.ubuntu.com"), jc.IsTrue, tc.Commentf("expected image download URL to use the operator-provided URL"))
 		c.Check(strings.HasSuffix(gotURL.String(), v.FType), jc.IsTrue)
 		c.Check(strings.Contains(gotURL.String(), v.Release), jc.IsTrue)
 		c.Check(strings.Contains(gotURL.String(), v.Version), jc.IsTrue)
 	}
 }
 
-func (*Suite) TestFetchSingleDefaultFilter(c *gc.C) {
+func (*Suite) TestFetchSingleDefaultFilter(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
@@ -145,7 +145,7 @@ func (*Suite) TestFetchSingleDefaultFilter(c *gc.C) {
 	}
 }
 
-func (*Suite) TestFetchOneWithFilter(c *gc.C) {
+func (*Suite) TestFetchOneWithFilter(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
@@ -172,7 +172,7 @@ func (*Suite) TestFetchOneWithFilter(c *gc.C) {
 		"http://cloud-images.ubuntu.com/server/releases/xenial/release-20211001/ubuntu-16.04-server-cloudimg-ppc64el-disk1.img")
 }
 
-func (*Suite) TestFetchManyWithFilter(c *gc.C) {
+func (*Suite) TestFetchManyWithFilter(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
@@ -201,7 +201,7 @@ func (*Suite) TestFetchManyWithFilter(c *gc.C) {
 	}
 }
 
-func (*Suite) TestOneAmd64XenialTarGz(c *gc.C) {
+func (*Suite) TestOneAmd64XenialTarGz(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
@@ -218,7 +218,7 @@ func (*Suite) TestOneAmd64XenialTarGz(c *gc.C) {
 	})
 }
 
-func (*Suite) TestOneArm64JammyImg(c *gc.C) {
+func (*Suite) TestOneArm64JammyImg(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
@@ -235,7 +235,7 @@ func (*Suite) TestOneArm64JammyImg(c *gc.C) {
 	})
 }
 
-func (*Suite) TestOneArm64FocalImg(c *gc.C) {
+func (*Suite) TestOneArm64FocalImg(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
@@ -252,7 +252,7 @@ func (*Suite) TestOneArm64FocalImg(c *gc.C) {
 	})
 }
 
-func (*Suite) TestOneErrors(c *gc.C) {
+func (*Suite) TestOneErrors(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	table := []struct {
 		description, arch, version, stream, ftype, errorMatch string
@@ -271,7 +271,7 @@ func (*Suite) TestOneErrors(c *gc.C) {
 	for i, test := range table {
 		c.Logf("test % 1d: %s\n", i+1, test.description)
 		_, err := imagedownloads.One(context.Background(), ss, test.arch, test.version, test.stream, test.ftype, newTestDataSourceFunc(ts.URL))
-		c.Check(err, gc.ErrorMatches, test.errorMatch)
+		c.Check(err, tc.ErrorMatches, test.errorMatch)
 	}
 }
 

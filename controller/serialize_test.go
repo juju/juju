@@ -4,9 +4,9 @@
 package controller_test
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
 	jujutesting "github.com/juju/juju/internal/testing"
@@ -16,15 +16,15 @@ type EncodeToStringSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&EncodeToStringSuite{})
+var _ = tc.Suite(&EncodeToStringSuite{})
 
-func (s *EncodeToStringSuite) TestEncodeToString(c *gc.C) {
+func (s *EncodeToStringSuite) TestEncodeToString(c *tc.C) {
 	cfg := jujutesting.FakeControllerConfig()
 
 	encoded, err := controller.EncodeToString(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(encoded, gc.DeepEquals, map[string]string{
+	c.Assert(encoded, tc.DeepEquals, map[string]string{
 		"controller-uuid":           jujutesting.ControllerTag.Id(),
 		"ca-cert":                   jujutesting.CACert,
 		"state-port":                "1234",

@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/logger"
@@ -32,9 +32,9 @@ type loggerSuite struct {
 	modelConfigService *MockModelConfigService
 }
 
-var _ = gc.Suite(&loggerSuite{})
+var _ = tc.Suite(&loggerSuite{})
 
-func (s *loggerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *loggerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
@@ -44,7 +44,7 @@ func (s *loggerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *loggerSuite) setupAPI(c *gc.C) {
+func (s *loggerSuite) setupAPI(c *tc.C) {
 	var err error
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: defaultMachineTag,
@@ -53,7 +53,7 @@ func (s *loggerSuite) setupAPI(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *loggerSuite) TestNewLoggerAPIRefusesNonAgent(c *gc.C) {
+func (s *loggerSuite) TestNewLoggerAPIRefusesNonAgent(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -63,10 +63,10 @@ func (s *loggerSuite) TestNewLoggerAPIRefusesNonAgent(c *gc.C) {
 		Tag: names.NewUserTag("some-user"),
 	}
 	s.logger, err = logger.NewLoggerAPI(s.authorizer, s.watcherRegistry, s.modelConfigService)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *loggerSuite) TestNewLoggerAPIAcceptsUnitAgent(c *gc.C) {
+func (s *loggerSuite) TestNewLoggerAPIAcceptsUnitAgent(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -78,7 +78,7 @@ func (s *loggerSuite) TestNewLoggerAPIAcceptsUnitAgent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *loggerSuite) TestNewLoggerAPIAcceptsApplicationAgent(c *gc.C) {
+func (s *loggerSuite) TestNewLoggerAPIAcceptsApplicationAgent(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
@@ -91,16 +91,16 @@ func (s *loggerSuite) TestNewLoggerAPIAcceptsApplicationAgent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *loggerSuite) TestWatchLoggingConfigNothing(c *gc.C) {
+func (s *loggerSuite) TestWatchLoggingConfigNothing(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
 	// Not an error to watch nothing
 	results := s.logger.WatchLoggingConfig(context.Background(), params.Entities{})
-	c.Assert(results.Results, gc.HasLen, 0)
+	c.Assert(results.Results, tc.HasLen, 0)
 }
 
-func (s *loggerSuite) TestWatchLoggingConfig(c *gc.C) {
+func (s *loggerSuite) TestWatchLoggingConfig(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
@@ -116,12 +116,12 @@ func (s *loggerSuite) TestWatchLoggingConfig(c *gc.C) {
 		Entities: []params.Entity{{Tag: defaultMachineTag.String()}},
 	}
 	results := s.logger.WatchLoggingConfig(context.Background(), args)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].NotifyWatcherId, gc.Not(gc.Equals), "")
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].NotifyWatcherId, tc.Not(tc.Equals), "")
+	c.Assert(results.Results[0].Error, tc.IsNil)
 }
 
-func (s *loggerSuite) TestWatchLoggingConfigRefusesWrongAgent(c *gc.C) {
+func (s *loggerSuite) TestWatchLoggingConfigRefusesWrongAgent(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
@@ -131,21 +131,21 @@ func (s *loggerSuite) TestWatchLoggingConfigRefusesWrongAgent(c *gc.C) {
 	}
 	results := s.logger.WatchLoggingConfig(context.Background(), args)
 	// It is not an error to make the request, but the specific item is rejected
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].NotifyWatcherId, gc.Equals, "")
-	c.Assert(results.Results[0].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].NotifyWatcherId, tc.Equals, "")
+	c.Assert(results.Results[0].Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
 }
 
-func (s *loggerSuite) TestLoggingConfigForNoone(c *gc.C) {
+func (s *loggerSuite) TestLoggingConfigForNoone(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
 	// Not an error to request nothing, dumb, but not an error.
 	results := s.logger.LoggingConfig(context.Background(), params.Entities{})
-	c.Assert(results.Results, gc.HasLen, 0)
+	c.Assert(results.Results, tc.HasLen, 0)
 }
 
-func (s *loggerSuite) TestLoggingConfigRefusesWrongAgent(c *gc.C) {
+func (s *loggerSuite) TestLoggingConfigRefusesWrongAgent(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
@@ -156,12 +156,12 @@ func (s *loggerSuite) TestLoggingConfigRefusesWrongAgent(c *gc.C) {
 		Entities: []params.Entity{{Tag: "machine-12354"}},
 	}
 	results := s.logger.LoggingConfig(context.Background(), args)
-	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results, tc.HasLen, 1)
 	result := results.Results[0]
-	c.Assert(result.Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+	c.Assert(result.Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
 }
 
-func (s *loggerSuite) TestLoggingConfigForAgent(c *gc.C) {
+func (s *loggerSuite) TestLoggingConfigForAgent(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
@@ -180,8 +180,8 @@ func (s *loggerSuite) TestLoggingConfigForAgent(c *gc.C) {
 		Entities: []params.Entity{{Tag: defaultMachineTag.String()}},
 	}
 	results := s.logger.LoggingConfig(context.Background(), args)
-	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results, tc.HasLen, 1)
 	result := results.Results[0]
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.Result, gc.Equals, "<root>=WARN;juju.log.test=DEBUG;unit=INFO")
+	c.Assert(result.Error, tc.IsNil)
+	c.Assert(result.Result, tc.Equals, "<root>=WARN;juju.log.test=DEBUG;unit=INFO")
 }

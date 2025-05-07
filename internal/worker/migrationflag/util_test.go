@@ -8,12 +8,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/migration"
@@ -91,7 +91,7 @@ func (mock *mockWatcher) Changes() watcher.NotifyChannel {
 
 // checkCalls checks that all the supplied call names were invoked
 // in the supplied order, and that every one was passed [validUUID].
-func checkCalls(c *gc.C, stub *testing.Stub, names ...string) {
+func checkCalls(c *tc.C, stub *testing.Stub, names ...string) {
 	stub.CheckCallNames(c, names...)
 	for _, call := range stub.Calls() {
 		c.Check(call.Args, jc.DeepEquals, []interface{}{validUUID})
@@ -132,9 +132,9 @@ func validConfig() migrationflag.Config {
 
 // checkNotValid checks that the supplied migrationflag.Config fails to
 // Validate, and cannot be used to construct a migrationflag.Worker.
-func checkNotValid(c *gc.C, config migrationflag.Config, expect string) {
+func checkNotValid(c *tc.C, config migrationflag.Config, expect string) {
 	check := func(err error) {
-		c.Check(err, gc.ErrorMatches, expect)
+		c.Check(err, tc.ErrorMatches, expect)
 		c.Check(err, jc.ErrorIs, errors.NotValid)
 	}
 
@@ -142,7 +142,7 @@ func checkNotValid(c *gc.C, config migrationflag.Config, expect string) {
 	check(err)
 
 	worker, err := migrationflag.New(context.Background(), config)
-	c.Check(worker, gc.IsNil)
+	c.Check(worker, tc.IsNil)
 	check(err)
 }
 
@@ -159,11 +159,11 @@ func validManifoldConfig() migrationflag.ManifoldConfig {
 
 // checkManifoldNotValid checks that the supplied ManifoldConfig creates
 // a manifold that cannot be started.
-func checkManifoldNotValid(c *gc.C, config migrationflag.ManifoldConfig, expect string) {
+func checkManifoldNotValid(c *tc.C, config migrationflag.ManifoldConfig, expect string) {
 	manifold := migrationflag.Manifold(config)
 	worker, err := manifold.Start(context.Background(), dt.StubGetter(nil))
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, expect)
+	c.Check(worker, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, expect)
 	c.Check(err, jc.ErrorIs, errors.NotValid)
 }
 

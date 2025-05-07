@@ -10,10 +10,10 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/pubsub/v2"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	coreapiserver "github.com/juju/juju/apiserver"
@@ -56,7 +56,7 @@ type workerFixture struct {
 	jwtParser               *jwtparser.Parser
 }
 
-func (s *workerFixture) SetUpTest(c *gc.C) {
+func (s *workerFixture) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.agentConfig = mockAgentConfig{
 		dataDir: c.MkDir(),
@@ -110,7 +110,7 @@ func (s *workerFixture) newServer(ctx context.Context, config coreapiserver.Serv
 		return nil, err
 	}
 	w := worker.NewRunner(worker.RunnerParams{})
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, w) })
+	s.AddCleanup(func(c *tc.C) { workertest.DirtyKill(c, w) })
 	return w, nil
 }
 
@@ -118,9 +118,9 @@ type WorkerValidationSuite struct {
 	workerFixture
 }
 
-var _ = gc.Suite(&WorkerValidationSuite{})
+var _ = tc.Suite(&WorkerValidationSuite{})
 
-func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
+func (s *WorkerValidationSuite) TestValidateErrors(c *tc.C) {
 	type test struct {
 		f      func(*apiserver.Config)
 		expect string
@@ -189,25 +189,25 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 	}
 }
 
-func (s *WorkerValidationSuite) testValidateError(c *gc.C, f func(*apiserver.Config), expect string) {
+func (s *WorkerValidationSuite) testValidateError(c *tc.C, f func(*apiserver.Config), expect string) {
 	config := s.config
 	f(&config)
 	w, err := apiserver.NewWorker(context.Background(), config)
-	if !c.Check(err, gc.NotNil) {
+	if !c.Check(err, tc.NotNil) {
 		workertest.DirtyKill(c, w)
 		return
 	}
-	c.Check(w, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, expect)
+	c.Check(w, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, expect)
 }
 
-func (s *WorkerValidationSuite) TestValidateLogSinkConfig(c *gc.C) {
+func (s *WorkerValidationSuite) TestValidateLogSinkConfig(c *tc.C) {
 	s.testValidateLogSinkConfig(c, agent.LogSinkRateLimitBurst, "foo", "parsing LOGSINK_RATELIMIT_BURST: .*")
 	s.testValidateLogSinkConfig(c, agent.LogSinkRateLimitRefill, "foo", "parsing LOGSINK_RATELIMIT_REFILL: .*")
 }
 
-func (s *WorkerValidationSuite) testValidateLogSinkConfig(c *gc.C, key, value, expect string) {
+func (s *WorkerValidationSuite) testValidateLogSinkConfig(c *tc.C, key, value, expect string) {
 	s.agentConfig.values = map[string]string{key: value}
 	_, err := apiserver.NewWorker(context.Background(), s.config)
-	c.Check(err, gc.ErrorMatches, "getting log sink config: "+expect)
+	c.Check(err, tc.ErrorMatches, "getting log sink config: "+expect)
 }

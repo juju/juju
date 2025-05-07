@@ -6,8 +6,8 @@ package jujuctesting
 import (
 	"time"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/internal/charm"
@@ -19,7 +19,7 @@ type ContextSuite struct {
 	Unit string
 }
 
-func (s *ContextSuite) SetUpTest(c *gc.C) {
+func (s *ContextSuite) SetUpTest(c *tc.C) {
 	s.Stub = &testing.Stub{}
 	s.Unit = "u/0"
 }

@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/gomaasapi/v2"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -19,21 +19,21 @@ type maasInstanceSuite struct {
 	maasSuite
 }
 
-var _ = gc.Suite(&maasInstanceSuite{})
+var _ = tc.Suite(&maasInstanceSuite{})
 
-func (s *maasInstanceSuite) TestString(c *gc.C) {
+func (s *maasInstanceSuite) TestString(c *tc.C) {
 	machine := &fakeMachine{hostname: "peewee", systemID: "herman"}
 	instance := &maasInstance{machine: machine}
-	c.Assert(instance.String(), gc.Equals, "peewee:herman")
+	c.Assert(instance.String(), tc.Equals, "peewee:herman")
 }
 
-func (s *maasInstanceSuite) TestID(c *gc.C) {
+func (s *maasInstanceSuite) TestID(c *tc.C) {
 	machine := &fakeMachine{systemID: "herman"}
 	thing := &maasInstance{machine: machine}
-	c.Assert(thing.Id(), gc.Equals, instance.Id("herman"))
+	c.Assert(thing.Id(), tc.Equals, instance.Id("herman"))
 }
 
-func (s *maasInstanceSuite) TestAddresses(c *gc.C) {
+func (s *maasInstanceSuite) TestAddresses(c *tc.C) {
 	vlan := fakeVLAN{vid: 66}
 	subnet := fakeSubnet{
 		id:    99,
@@ -85,53 +85,53 @@ func (s *maasInstanceSuite) TestAddresses(c *gc.C) {
 	c.Assert(addresses, jc.SameContents, expectedAddresses)
 }
 
-func (s *maasInstanceSuite) TestZone(c *gc.C) {
+func (s *maasInstanceSuite) TestZone(c *tc.C) {
 	machine := &fakeMachine{zoneName: "inflatable"}
 	instance := &maasInstance{machine: machine}
 	zone, err := instance.zone()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(zone, gc.Equals, "inflatable")
+	c.Assert(zone, tc.Equals, "inflatable")
 }
 
-func (s *maasInstanceSuite) TestStatusSuccess(c *gc.C) {
+func (s *maasInstanceSuite) TestStatusSuccess(c *tc.C) {
 	machine := &fakeMachine{statusMessage: "Wexler", statusName: "Deploying"}
 	thing := &maasInstance{machine: machine}
 	result := thing.Status(context.Background())
 	c.Assert(result, jc.DeepEquals, instance.Status{status.Allocating, "Deploying: Wexler"})
 }
 
-func (s *maasInstanceSuite) TestStatusError(c *gc.C) {
+func (s *maasInstanceSuite) TestStatusError(c *tc.C) {
 	machine := &fakeMachine{statusMessage: "", statusName: ""}
 	thing := &maasInstance{machine: machine}
 	result := thing.Status(context.Background())
 	c.Assert(result, jc.DeepEquals, instance.Status{"", "error in getting status"})
 }
 
-func (s *maasInstanceSuite) TestHostname(c *gc.C) {
+func (s *maasInstanceSuite) TestHostname(c *tc.C) {
 	machine := &fakeMachine{hostname: "saul-goodman"}
 	thing := &maasInstance{machine: machine}
 	result, err := thing.hostname()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.Equals, "saul-goodman")
+	c.Assert(result, tc.Equals, "saul-goodman")
 }
 
-func (s *maasInstanceSuite) TestHostnameIsDisplayName(c *gc.C) {
+func (s *maasInstanceSuite) TestHostnameIsDisplayName(c *tc.C) {
 	machine := &fakeMachine{hostname: "saul-goodman"}
 	thing := &maasInstance{machine: machine}
 	result, err := thing.displayName()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.Equals, "saul-goodman")
+	c.Assert(result, tc.Equals, "saul-goodman")
 }
 
-func (s *maasInstanceSuite) TestDisplayNameFallsBackToFQDN(c *gc.C) {
+func (s *maasInstanceSuite) TestDisplayNameFallsBackToFQDN(c *tc.C) {
 	machine := newFakeMachine("abc123", "amd64", "ok")
 	thing := &maasInstance{machine: machine}
 	result, err := thing.displayName()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.Equals, thing.machine.FQDN())
+	c.Assert(result, tc.Equals, thing.machine.FQDN())
 }
 
-func (s *maasInstanceSuite) TestHardwareCharacteristics(c *gc.C) {
+func (s *maasInstanceSuite) TestHardwareCharacteristics(c *tc.C) {
 	machine := &fakeMachine{
 		cpuCount:     3,
 		memory:       4,

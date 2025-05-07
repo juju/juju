@@ -6,8 +6,8 @@ package validators
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/errors"
@@ -18,13 +18,13 @@ type dummySpaceProviderFunc func(context.Context, string) (bool, error)
 
 type validatorsSuite struct{}
 
-var _ = gc.Suite(&validatorsSuite{})
+var _ = tc.Suite(&validatorsSuite{})
 
 func (d dummySpaceProviderFunc) HasSpace(ctx context.Context, s string) (bool, error) {
 	return d(ctx, s)
 }
 
-func (*validatorsSuite) TestCharmhubURLChange(c *gc.C) {
+func (*validatorsSuite) TestCharmhubURLChange(c *tc.C) {
 	oldCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name":         "wallyworld",
 		"uuid":         testing.ModelTag.Id(),
@@ -44,10 +44,10 @@ func (*validatorsSuite) TestCharmhubURLChange(c *gc.C) {
 	var validationError *config.ValidationError
 	_, err = CharmhubURLChange()(context.Background(), newCfg, oldCfg)
 	c.Assert(errors.As(err, &validationError), jc.IsTrue)
-	c.Assert(validationError.InvalidAttrs, gc.DeepEquals, []string{"charmhub-url"})
+	c.Assert(validationError.InvalidAttrs, tc.DeepEquals, []string{"charmhub-url"})
 }
 
-func (*validatorsSuite) TestCharmhubURLNoChange(c *gc.C) {
+func (*validatorsSuite) TestCharmhubURLNoChange(c *tc.C) {
 	oldCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name":         "wallyworld",
 		"uuid":         testing.ModelTag.Id(),
@@ -69,7 +69,7 @@ func (*validatorsSuite) TestCharmhubURLNoChange(c *gc.C) {
 }
 
 // TestAgentStreamChange is testing that the agent stream variable can't change.
-func (*validatorsSuite) TestAgentStreamChanged(c *gc.C) {
+func (*validatorsSuite) TestAgentStreamChanged(c *tc.C) {
 	oldCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name":         "wallyworld",
 		"uuid":         testing.ModelTag.Id(),
@@ -89,12 +89,12 @@ func (*validatorsSuite) TestAgentStreamChanged(c *gc.C) {
 	var validationError *config.ValidationError
 	_, err = AgentStreamChange()(context.Background(), newCfg, oldCfg)
 	c.Assert(errors.As(err, &validationError), jc.IsTrue)
-	c.Assert(validationError.InvalidAttrs, gc.DeepEquals, []string{"agent-stream"})
+	c.Assert(validationError.InvalidAttrs, tc.DeepEquals, []string{"agent-stream"})
 }
 
 // TestAgentStreamNoChange is testing that if the agent stream doesn't change
 // between config changes no validation error is produced.
-func (*validatorsSuite) TestAgentStreamNoChange(c *gc.C) {
+func (*validatorsSuite) TestAgentStreamNoChange(c *tc.C) {
 	oldCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name":         "wallyworld",
 		"uuid":         testing.ModelTag.Id(),
@@ -114,7 +114,7 @@ func (*validatorsSuite) TestAgentStreamNoChange(c *gc.C) {
 	cfg, err := AgentStreamChange()(context.Background(), newCfg, oldCfg)
 	c.Assert(err, jc.ErrorIsNil)
 	reportedStream := cfg.AgentStream()
-	c.Check(reportedStream, gc.Equals, "")
+	c.Check(reportedStream, tc.Equals, "")
 
 	oldCfg, err = config.New(config.NoDefaults, map[string]any{
 		"name": "wallyworld",
@@ -135,7 +135,7 @@ func (*validatorsSuite) TestAgentStreamNoChange(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (*validatorsSuite) TestAgentVersionChanged(c *gc.C) {
+func (*validatorsSuite) TestAgentVersionChanged(c *tc.C) {
 	oldCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name":          "wallyworld",
 		"uuid":          testing.ModelTag.Id(),
@@ -155,12 +155,12 @@ func (*validatorsSuite) TestAgentVersionChanged(c *gc.C) {
 	var validationError *config.ValidationError
 	_, err = AgentVersionChange()(context.Background(), newCfg, oldCfg)
 	c.Assert(errors.As(err, &validationError), jc.IsTrue)
-	c.Assert(validationError.InvalidAttrs, gc.DeepEquals, []string{"agent-version"})
+	c.Assert(validationError.InvalidAttrs, tc.DeepEquals, []string{"agent-version"})
 }
 
 // TestAgentVersionNoChange is testing that if the agent version doesn't change
 // between config changes no validation error is produced.
-func (*validatorsSuite) TestAgentVersionNoChange(c *gc.C) {
+func (*validatorsSuite) TestAgentVersionNoChange(c *tc.C) {
 	oldCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name":          "wallyworld",
 		"uuid":          testing.ModelTag.Id(),
@@ -201,9 +201,9 @@ func (*validatorsSuite) TestAgentVersionNoChange(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (*validatorsSuite) TestSpaceCheckerFound(c *gc.C) {
+func (*validatorsSuite) TestSpaceCheckerFound(c *tc.C) {
 	provider := dummySpaceProviderFunc(func(ctx context.Context, s string) (bool, error) {
-		c.Assert(s, gc.Equals, "foobar")
+		c.Assert(s, tc.Equals, "foobar")
 		return true, nil
 	})
 
@@ -227,9 +227,9 @@ func (*validatorsSuite) TestSpaceCheckerFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (*validatorsSuite) TestSpaceCheckerNotFound(c *gc.C) {
+func (*validatorsSuite) TestSpaceCheckerNotFound(c *tc.C) {
 	provider := dummySpaceProviderFunc(func(ctx context.Context, s string) (bool, error) {
-		c.Assert(s, gc.Equals, "foobar")
+		c.Assert(s, tc.Equals, "foobar")
 		return false, nil
 	})
 
@@ -252,13 +252,13 @@ func (*validatorsSuite) TestSpaceCheckerNotFound(c *gc.C) {
 	_, err = SpaceChecker(provider)(context.Background(), newCfg, oldCfg)
 	var validationError *config.ValidationError
 	c.Assert(errors.As(err, &validationError), jc.IsTrue)
-	c.Assert(validationError.InvalidAttrs, gc.DeepEquals, []string{"default-space"})
+	c.Assert(validationError.InvalidAttrs, tc.DeepEquals, []string{"default-space"})
 }
 
-func (*validatorsSuite) TestSpaceCheckerError(c *gc.C) {
+func (*validatorsSuite) TestSpaceCheckerError(c *tc.C) {
 	providerErr := errors.New("some error")
 	provider := dummySpaceProviderFunc(func(ctx context.Context, s string) (bool, error) {
-		c.Assert(s, gc.Equals, "foobar")
+		c.Assert(s, tc.Equals, "foobar")
 		return false, providerErr
 	})
 
@@ -282,7 +282,7 @@ func (*validatorsSuite) TestSpaceCheckerError(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, providerErr)
 }
 
-func (*validatorsSuite) TestLoggincTracePermissionNoTrace(c *gc.C) {
+func (*validatorsSuite) TestLoggincTracePermissionNoTrace(c *tc.C) {
 	oldCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name": "wallyworld",
 		"uuid": testing.ModelTag.Id(),
@@ -302,7 +302,7 @@ func (*validatorsSuite) TestLoggincTracePermissionNoTrace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (*validatorsSuite) TestLoggincTracePermissionTrace(c *gc.C) {
+func (*validatorsSuite) TestLoggincTracePermissionTrace(c *tc.C) {
 	oldCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name": "wallyworld",
 		"uuid": testing.ModelTag.Id(),
@@ -323,10 +323,10 @@ func (*validatorsSuite) TestLoggincTracePermissionTrace(c *gc.C) {
 
 	var validationError *config.ValidationError
 	c.Assert(errors.As(err, &validationError), jc.IsTrue)
-	c.Assert(validationError.InvalidAttrs, gc.DeepEquals, []string{"logging-config"})
+	c.Assert(validationError.InvalidAttrs, tc.DeepEquals, []string{"logging-config"})
 }
 
-func (*validatorsSuite) TestLoggincTracePermissionTraceAllow(c *gc.C) {
+func (*validatorsSuite) TestLoggincTracePermissionTraceAllow(c *tc.C) {
 	oldCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name": "wallyworld",
 		"uuid": testing.ModelTag.Id(),
@@ -348,7 +348,7 @@ func (*validatorsSuite) TestLoggincTracePermissionTraceAllow(c *gc.C) {
 
 // TestContainerNetworkingMethodValueValid asserts that valid container
 // networking method values are accepted by model config.
-func (*validatorsSuite) TestContainerNetworkingMethodValueValid(c *gc.C) {
+func (*validatorsSuite) TestContainerNetworkingMethodValueValid(c *tc.C) {
 	validContainerNetworkingMethods := []string{"", "local", "provider"}
 
 	for _, containerNetworkingMethod := range validContainerNetworkingMethods {
@@ -368,7 +368,7 @@ func (*validatorsSuite) TestContainerNetworkingMethodValueValid(c *gc.C) {
 // TestContainerNetworkingMethodChanged asserts that if we change the
 // container networking method between two revisions of model config, we get a
 // [config.ValidationError].
-func (*validatorsSuite) TestContainerNetworkingMethodChanged(c *gc.C) {
+func (*validatorsSuite) TestContainerNetworkingMethodChanged(c *tc.C) {
 	oldCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name":                              "wallyworld",
 		"uuid":                              testing.ModelTag.Id(),
@@ -388,13 +388,13 @@ func (*validatorsSuite) TestContainerNetworkingMethodChanged(c *gc.C) {
 	_, err = ContainerNetworkingMethodChange()(context.Background(), newCfg, oldCfg)
 	var validationError *config.ValidationError
 	c.Assert(errors.As(err, &validationError), jc.IsTrue)
-	c.Assert(validationError.InvalidAttrs, gc.DeepEquals, []string{"container-networking-method"})
+	c.Assert(validationError.InvalidAttrs, tc.DeepEquals, []string{"container-networking-method"})
 }
 
 // TestContainerNetworkingMethodNoChange asserts that if we don't change the
 // container networking method between model config revisions, no error is
 // produced.
-func (*validatorsSuite) TestContainerNetworkingMethodNoChange(c *gc.C) {
+func (*validatorsSuite) TestContainerNetworkingMethodNoChange(c *tc.C) {
 	oldCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name":                              "wallyworld",
 		"uuid":                              testing.ModelTag.Id(),

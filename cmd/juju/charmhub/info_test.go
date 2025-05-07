@@ -8,10 +8,10 @@ import (
 	"encoding/json"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/charmhub/mocks"
 	"github.com/juju/juju/core/arch"
@@ -26,19 +26,19 @@ type infoSuite struct {
 	charmHubAPI *mocks.MockCharmHubClient
 }
 
-var _ = gc.Suite(&infoSuite{})
+var _ = tc.Suite(&infoSuite{})
 
-func (s *infoSuite) TestInitNoArgs(c *gc.C) {
+func (s *infoSuite) TestInitNoArgs(c *tc.C) {
 	command := &infoCommand{
 		charmHubCommand: &charmHubCommand{
 			arches: arch.AllArches(),
 		},
 	}
 	err := command.Init([]string{})
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, tc.NotNil)
 }
 
-func (s *infoSuite) TestInitSuccess(c *gc.C) {
+func (s *infoSuite) TestInitSuccess(c *tc.C) {
 	command := &infoCommand{
 		charmHubCommand: &charmHubCommand{
 			arches: arch.AllArches(),
@@ -48,7 +48,7 @@ func (s *infoSuite) TestInitSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *infoSuite) TestInitFailCS(c *gc.C) {
+func (s *infoSuite) TestInitFailCS(c *tc.C) {
 	command := &infoCommand{
 		charmHubCommand: &charmHubCommand{},
 	}
@@ -56,7 +56,7 @@ func (s *infoSuite) TestInitFailCS(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *infoSuite) TestRun(c *gc.C) {
+func (s *infoSuite) TestRun(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.expectInfo()
 
@@ -72,7 +72,7 @@ func (s *infoSuite) TestRun(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *infoSuite) TestRunJSON(c *gc.C) {
+func (s *infoSuite) TestRunJSON(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.expectInfo()
 
@@ -86,7 +86,7 @@ func (s *infoSuite) TestRunJSON(c *gc.C) {
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(indentJSON(c, cmdtesting.Stdout(ctx)), gc.Equals, `
+	c.Assert(indentJSON(c, cmdtesting.Stdout(ctx)), tc.Equals, `
 {
   "type": "charm",
   "id": "charmCHARMcharmCHARMcharmCHARM01",
@@ -197,14 +197,14 @@ func (s *infoSuite) TestRunJSON(c *gc.C) {
 `[1:])
 }
 
-func indentJSON(c *gc.C, input string) string {
+func indentJSON(c *tc.C, input string) string {
 	var buf bytes.Buffer
 	err := json.Indent(&buf, []byte(input), "", "  ")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	return buf.String()
 }
 
-func (s *infoSuite) TestRunJSONSpecifySeriesNotDefault(c *gc.C) {
+func (s *infoSuite) TestRunJSONSpecifySeriesNotDefault(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.expectInfo()
 
@@ -218,7 +218,7 @@ func (s *infoSuite) TestRunJSONSpecifySeriesNotDefault(c *gc.C) {
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(indentJSON(c, cmdtesting.Stdout(ctx)), gc.Equals, `
+	c.Assert(indentJSON(c, cmdtesting.Stdout(ctx)), tc.Equals, `
 {
   "type": "charm",
   "id": "charmCHARMcharmCHARMcharmCHARM01",
@@ -329,7 +329,7 @@ func (s *infoSuite) TestRunJSONSpecifySeriesNotDefault(c *gc.C) {
 `[1:])
 }
 
-func (s *infoSuite) TestRunJSONSpecifyArch(c *gc.C) {
+func (s *infoSuite) TestRunJSONSpecifyArch(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.expectInfo()
 
@@ -343,7 +343,7 @@ func (s *infoSuite) TestRunJSONSpecifyArch(c *gc.C) {
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(indentJSON(c, cmdtesting.Stdout(ctx)), gc.Equals, `
+	c.Assert(indentJSON(c, cmdtesting.Stdout(ctx)), tc.Equals, `
 {
   "type": "charm",
   "id": "charmCHARMcharmCHARMcharmCHARM01",
@@ -454,7 +454,7 @@ func (s *infoSuite) TestRunJSONSpecifyArch(c *gc.C) {
 `[1:])
 }
 
-func (s *infoSuite) TestRunJSONWithSeriesFoundChannel(c *gc.C) {
+func (s *infoSuite) TestRunJSONWithSeriesFoundChannel(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.expectInfo()
 
@@ -468,7 +468,7 @@ func (s *infoSuite) TestRunJSONWithSeriesFoundChannel(c *gc.C) {
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(indentJSON(c, cmdtesting.Stdout(ctx)), gc.Equals, `
+	c.Assert(indentJSON(c, cmdtesting.Stdout(ctx)), tc.Equals, `
 {
   "type": "charm",
   "id": "charmCHARMcharmCHARMcharmCHARM01",
@@ -553,7 +553,7 @@ func (s *infoSuite) TestRunJSONWithSeriesFoundChannel(c *gc.C) {
 `[1:])
 }
 
-func (s *infoSuite) TestRunYAML(c *gc.C) {
+func (s *infoSuite) TestRunYAML(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.expectInfo()
 
@@ -567,7 +567,7 @@ func (s *infoSuite) TestRunYAML(c *gc.C) {
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 type: charm
 id: charmCHARMcharmCHARMcharmCHARM01
 name: wordpress
@@ -649,7 +649,7 @@ func (s *infoSuite) newCharmHubCommand() *charmHubCommand {
 	}
 }
 
-func (s *infoSuite) setUpMocks(c *gc.C) *gomock.Controller {
+func (s *infoSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.charmHubAPI = mocks.NewMockCharmHubClient(ctrl)
 	return ctrl

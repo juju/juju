@@ -9,12 +9,12 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/pubsub/v2"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -37,9 +37,9 @@ type AgentConfigUpdaterSuite struct {
 	hub      *pubsub.StructuredHub
 }
 
-var _ = gc.Suite(&AgentConfigUpdaterSuite{})
+var _ = tc.Suite(&AgentConfigUpdaterSuite{})
 
-func (s *AgentConfigUpdaterSuite) SetUpTest(c *gc.C) {
+func (s *AgentConfigUpdaterSuite) SetUpTest(c *tc.C) {
 	logger := loggertesting.WrapCheckLog(c)
 	s.manifold = agentconfigupdater.Manifold(agentconfigupdater.ManifoldConfig{
 		AgentName:      "agent",
@@ -53,7 +53,7 @@ func (s *AgentConfigUpdaterSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *AgentConfigUpdaterSuite) TestInputs(c *gc.C) {
+func (s *AgentConfigUpdaterSuite) TestInputs(c *tc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, []string{
 		"agent",
 		"api-caller",
@@ -62,26 +62,26 @@ func (s *AgentConfigUpdaterSuite) TestInputs(c *gc.C) {
 	})
 }
 
-func (s *AgentConfigUpdaterSuite) TestStartAgentMissing(c *gc.C) {
+func (s *AgentConfigUpdaterSuite) TestStartAgentMissing(c *tc.C) {
 	getter := dt.StubGetter(map[string]interface{}{
 		"agent": dependency.ErrMissing,
 	})
 	worker, err := s.manifold.Start(context.Background(), getter)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.Equals, dependency.ErrMissing)
+	c.Check(worker, tc.IsNil)
+	c.Check(err, tc.Equals, dependency.ErrMissing)
 }
 
-func (s *AgentConfigUpdaterSuite) TestStartAPICallerMissing(c *gc.C) {
+func (s *AgentConfigUpdaterSuite) TestStartAPICallerMissing(c *tc.C) {
 	getter := dt.StubGetter(map[string]interface{}{
 		"agent":      &mockAgent{},
 		"api-caller": dependency.ErrMissing,
 	})
 	worker, err := s.manifold.Start(context.Background(), getter)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.Equals, dependency.ErrMissing)
+	c.Check(worker, tc.IsNil)
+	c.Check(err, tc.Equals, dependency.ErrMissing)
 }
 
-func (s *AgentConfigUpdaterSuite) TestNotMachine(c *gc.C) {
+func (s *AgentConfigUpdaterSuite) TestNotMachine(c *tc.C) {
 	a := &mockAgent{
 		conf: mockConfig{tag: names.NewUnitTag("foo/0")},
 	}
@@ -89,19 +89,19 @@ func (s *AgentConfigUpdaterSuite) TestNotMachine(c *gc.C) {
 		"agent": a,
 	})
 	worker, err := s.manifold.Start(context.Background(), getter)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "agent's tag is not a machine or controller agent tag")
+	c.Check(worker, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "agent's tag is not a machine or controller agent tag")
 }
 
-func (s *AgentConfigUpdaterSuite) TestEntityLookupFailure(c *gc.C) {
+func (s *AgentConfigUpdaterSuite) TestEntityLookupFailure(c *tc.C) {
 	// Set up a fake Agent and APICaller
 	a := &mockAgent{}
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, args, response interface{}) error {
-			c.Assert(objType, gc.Equals, "Agent")
+			c.Assert(objType, tc.Equals, "Agent")
 			switch request {
 			case "GetEntities":
-				c.Assert(args.(params.Entities).Entities, gc.HasLen, 1)
+				c.Assert(args.(params.Entities).Entities, tc.HasLen, 1)
 				result := response.(*params.AgentGetEntitiesResults)
 				result.Entities = []params.AgentGetEntitiesResult{{
 					Error: &params.Error{Message: "boom"},
@@ -121,17 +121,17 @@ func (s *AgentConfigUpdaterSuite) TestEntityLookupFailure(c *gc.C) {
 		"trace":       coretrace.NoopTracer{},
 	})
 	w, err := s.manifold.Start(context.Background(), getter)
-	c.Assert(w, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "checking controller status: boom")
+	c.Assert(w, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "checking controller status: boom")
 }
 
-func (s *AgentConfigUpdaterSuite) TestCentralHubMissing(c *gc.C) {
+func (s *AgentConfigUpdaterSuite) TestCentralHubMissing(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, args, response interface{}) error {
-			c.Assert(objType, gc.Equals, "Agent")
+			c.Assert(objType, tc.Equals, "Agent")
 			switch request {
 			case "GetEntities":
-				c.Assert(args.(params.Entities).Entities, gc.HasLen, 1)
+				c.Assert(args.(params.Entities).Entities, tc.HasLen, 1)
 				result := response.(*params.AgentGetEntitiesResults)
 				result.Entities = []params.AgentGetEntitiesResult{{
 					Jobs: []model.MachineJob{model.JobManageModel},
@@ -171,18 +171,18 @@ func (s *AgentConfigUpdaterSuite) TestCentralHubMissing(c *gc.C) {
 		"trace":       stubTracerGetter{},
 	})
 	worker, err := s.manifold.Start(context.Background(), getter)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.Equals, dependency.ErrMissing)
+	c.Check(worker, tc.IsNil)
+	c.Check(err, tc.Equals, dependency.ErrMissing)
 }
 
-func (s *AgentConfigUpdaterSuite) TestCentralHubMissingFirstPass(c *gc.C) {
+func (s *AgentConfigUpdaterSuite) TestCentralHubMissingFirstPass(c *tc.C) {
 	agent := &mockAgent{}
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, args, response interface{}) error {
-			c.Assert(objType, gc.Equals, "Agent")
+			c.Assert(objType, tc.Equals, "Agent")
 			switch request {
 			case "GetEntities":
-				c.Assert(args.(params.Entities).Entities, gc.HasLen, 1)
+				c.Assert(args.(params.Entities).Entities, tc.HasLen, 1)
 				result := response.(*params.AgentGetEntitiesResults)
 				result.Entities = []params.AgentGetEntitiesResult{{
 					Jobs: []model.MachineJob{model.JobManageModel},
@@ -212,17 +212,17 @@ func (s *AgentConfigUpdaterSuite) TestCentralHubMissingFirstPass(c *gc.C) {
 		"trace":       stubTracerGetter{},
 	})
 	worker, err := s.manifold.Start(context.Background(), getter)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.Equals, jworker.ErrRestartAgent)
+	c.Check(worker, tc.IsNil)
+	c.Check(err, tc.Equals, jworker.ErrRestartAgent)
 }
 
-func (s *AgentConfigUpdaterSuite) startManifold(c *gc.C, a agent.Agent, mockAPIPort int) (worker.Worker, error) {
+func (s *AgentConfigUpdaterSuite) startManifold(c *tc.C, a agent.Agent, mockAPIPort int) (worker.Worker, error) {
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, args, response interface{}) error {
-			c.Assert(objType, gc.Equals, "Agent")
+			c.Assert(objType, tc.Equals, "Agent")
 			switch request {
 			case "GetEntities":
-				c.Assert(args.(params.Entities).Entities, gc.HasLen, 1)
+				c.Assert(args.(params.Entities).Entities, tc.HasLen, 1)
 				result := response.(*params.AgentGetEntitiesResults)
 				result.Entities = []params.AgentGetEntitiesResult{{
 					Jobs: []model.MachineJob{model.JobManageModel},
@@ -264,24 +264,24 @@ func (s *AgentConfigUpdaterSuite) startManifold(c *gc.C, a agent.Agent, mockAPIP
 	return s.manifold.Start(context.Background(), getter)
 }
 
-func (s *AgentConfigUpdaterSuite) TestJobManageEnviron(c *gc.C) {
+func (s *AgentConfigUpdaterSuite) TestJobManageEnviron(c *tc.C) {
 	// State serving info should be set for machines with JobManageEnviron.
 	const mockAPIPort = 1234
 
 	a := &mockAgent{}
 	w, err := s.startManifold(c, a, mockAPIPort)
-	c.Assert(w, gc.NotNil)
+	c.Assert(w, tc.NotNil)
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 
 	// Verify that the state serving info was actually set.
 	c.Assert(a.conf.ssiSet, jc.IsTrue)
-	c.Assert(a.conf.ssi.APIPort, gc.Equals, mockAPIPort)
-	c.Assert(a.conf.ssi.Cert, gc.Equals, "cert")
-	c.Assert(a.conf.ssi.PrivateKey, gc.Equals, "key")
+	c.Assert(a.conf.ssi.APIPort, tc.Equals, mockAPIPort)
+	c.Assert(a.conf.ssi.Cert, tc.Equals, "cert")
+	c.Assert(a.conf.ssi.PrivateKey, tc.Equals, "key")
 }
 
-func (s *AgentConfigUpdaterSuite) TestJobManageEnvironNotOverwriteCert(c *gc.C) {
+func (s *AgentConfigUpdaterSuite) TestJobManageEnvironNotOverwriteCert(c *tc.C) {
 	// State serving info should be set for machines with JobManageEnviron.
 	const mockAPIPort = 1234
 
@@ -294,30 +294,30 @@ func (s *AgentConfigUpdaterSuite) TestJobManageEnvironNotOverwriteCert(c *gc.C) 
 	})
 
 	w, err := s.startManifold(c, a, mockAPIPort)
-	c.Assert(w, gc.NotNil)
+	c.Assert(w, tc.NotNil)
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 
 	// Verify that the state serving info was actually set.
 	c.Assert(a.conf.ssiSet, jc.IsTrue)
-	c.Assert(a.conf.ssi.APIPort, gc.Equals, mockAPIPort)
-	c.Assert(a.conf.ssi.Cert, gc.Equals, existingCert)
-	c.Assert(a.conf.ssi.PrivateKey, gc.Equals, existingKey)
+	c.Assert(a.conf.ssi.APIPort, tc.Equals, mockAPIPort)
+	c.Assert(a.conf.ssi.Cert, tc.Equals, existingCert)
+	c.Assert(a.conf.ssi.PrivateKey, tc.Equals, existingKey)
 }
 
-func (s *AgentConfigUpdaterSuite) TestJobHostUnits(c *gc.C) {
+func (s *AgentConfigUpdaterSuite) TestJobHostUnits(c *tc.C) {
 	// State serving info should not be set for JobHostUnits.
 	s.checkNotController(c, model.JobHostUnits)
 }
 
-func (s *AgentConfigUpdaterSuite) checkNotController(c *gc.C, job model.MachineJob) {
+func (s *AgentConfigUpdaterSuite) checkNotController(c *tc.C, job model.MachineJob) {
 	a := &mockAgent{}
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, args, response interface{}) error {
-			c.Assert(objType, gc.Equals, "Agent")
+			c.Assert(objType, tc.Equals, "Agent")
 			switch request {
 			case "GetEntities":
-				c.Assert(args.(params.Entities).Entities, gc.HasLen, 1)
+				c.Assert(args.(params.Entities).Entities, tc.HasLen, 1)
 				result := response.(*params.AgentGetEntitiesResults)
 				result.Entities = []params.AgentGetEntitiesResult{{
 					Jobs: []model.MachineJob{job},
@@ -333,8 +333,8 @@ func (s *AgentConfigUpdaterSuite) checkNotController(c *gc.C, job model.MachineJ
 		"api-caller":  apiCaller,
 		"central-hub": s.hub,
 	}))
-	c.Assert(w, gc.IsNil)
-	c.Assert(err, gc.Equals, dependency.ErrUninstall)
+	c.Assert(w, tc.IsNil)
+	c.Assert(err, tc.Equals, dependency.ErrUninstall)
 
 	// State serving info shouldn't have been set for this job type.
 	c.Assert(a.conf.ssiSet, jc.IsFalse)

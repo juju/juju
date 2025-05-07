@@ -7,10 +7,10 @@ import (
 	"context"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
@@ -36,12 +36,12 @@ type watcherSuite struct {
 	service *WatchableService
 }
 
-var _ = gc.Suite(&watcherSuite{})
+var _ = tc.Suite(&watcherSuite{})
 
 // TestSubordinateSendChangeEventRelationScopeGlobal tests that if the
 // subordinate unit's relation endpoint is global scoped, an event is
 // sent.
-func (s *watcherSuite) TestSubordinateSendChangeEventRelationScopeGlobal(c *gc.C) {
+func (s *watcherSuite) TestSubordinateSendChangeEventRelationScopeGlobal(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	relUUID := testing.GenRelationUUID(c)
@@ -63,14 +63,14 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationScopeGlobal(c *gc.C
 	)
 
 	// Assert
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	c.Assert(change, jc.IsTrue)
 }
 
 // TestSubordinateSendChangeEventRelationAnotherSubordinate tests that if the
 // subordinate unit's relation endpoint is container scoped, and the other
 // end is also a subordinate, an event is sent.
-func (s *watcherSuite) TestSubordinateSendChangeEventRelationAnotherSubordinate(c *gc.C) {
+func (s *watcherSuite) TestSubordinateSendChangeEventRelationAnotherSubordinate(c *tc.C) {
 	// Arrange:
 	defer s.setupMocks(c).Finish()
 	relUUID := testing.GenRelationUUID(c)
@@ -98,14 +98,14 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationAnotherSubordinate(
 	)
 
 	// Assert
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	c.Assert(change, jc.IsTrue)
 }
 
 // TestSubordinateSendChangeEventRelationPrincipal tests that if the
 // subordinate unit's relation endpoint is container scoped, and the other
 // end application is the principal application, an event is sent.
-func (s *watcherSuite) TestSubordinateSendChangeEventRelationPrincipal(c *gc.C) {
+func (s *watcherSuite) TestSubordinateSendChangeEventRelationPrincipal(c *tc.C) {
 	// Arrange:
 	defer s.setupMocks(c).Finish()
 	relUUID := testing.GenRelationUUID(c)
@@ -131,14 +131,14 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationPrincipal(c *gc.C) 
 	)
 
 	// Assert
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	c.Assert(change, jc.IsTrue)
 }
 
 // TestSubordinateSendChangeEventRelationNoChange checks that no change is
 // requested while all state calls are successful. Rhe relation is container
 // scoped but the application in the relation is not the subordinate's principal.
-func (s *watcherSuite) TestSubordinateSendChangeEventRelationNoChange(c *gc.C) {
+func (s *watcherSuite) TestSubordinateSendChangeEventRelationNoChange(c *tc.C) {
 	// Arrange:
 	defer s.setupMocks(c).Finish()
 	relUUID := testing.GenRelationUUID(c)
@@ -166,11 +166,11 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationNoChange(c *gc.C) {
 	)
 
 	// Assert
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	c.Assert(change, jc.IsFalse)
 }
 
-func (s *watcherSuite) TestChangeEventsForSubordinateLifeSuspendedStatusMapper(c *gc.C) {
+func (s *watcherSuite) TestChangeEventsForSubordinateLifeSuspendedStatusMapper(c *tc.C) {
 	// Arrange: setup a change to an existing relation being watched,
 	// a new relation for the subordinate, a new relation for neither
 	// the subordinate nor principal application.
@@ -256,16 +256,16 @@ func (s *watcherSuite) TestChangeEventsForSubordinateLifeSuspendedStatusMapper(c
 	expectedChanged := set.NewStrings(expectedChangeZero.String())
 	expectedChanged.Add(expectedChangeOne.String())
 
-	c.Assert(err, gc.IsNil)
-	c.Assert(obtainedChanges, gc.HasLen, 2)
+	c.Assert(err, tc.IsNil)
+	c.Assert(obtainedChanges, tc.HasLen, 2)
 	for _, change := range obtainedChanges {
 		c.Check(expectedChanged.Contains(change.Changed()), jc.IsTrue)
 	}
-	c.Check(watcher.currentRelations, gc.DeepEquals, currentRelations)
+	c.Check(watcher.currentRelations, tc.DeepEquals, currentRelations)
 	c.Check(relationsIgnored.Contains(unrelatedRelUUID.String()), jc.IsTrue)
 }
 
-func (s *watcherSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *watcherSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.state = NewMockState(ctrl)

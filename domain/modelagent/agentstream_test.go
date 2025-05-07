@@ -3,8 +3,8 @@
 package modelagent
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -14,12 +14,12 @@ type agentStreamSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = gc.Suite(&agentStreamSuite{})
+var _ = tc.Suite(&agentStreamSuite{})
 
 // TestAgentStreamDBValues tests that the values in the agent_stream table
 // against the established enums in this package to make sure there is no skew
 // between the database and the source code.
-func (s *agentStreamSuite) TestAgentStreamDBValues(c *gc.C) {
+func (s *agentStreamSuite) TestAgentStreamDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, name FROM agent_stream")
 	c.Assert(err, jc.ErrorIsNil)
@@ -47,7 +47,7 @@ func (s *agentStreamSuite) TestAgentStreamDBValues(c *gc.C) {
 // [coreagentbinary.AgentStream] to [AgentStream] works as expected. This test
 // won't pick up if there exists discrepencies in the number of enums that exist
 // across the packages.
-func (s *agentStreamSuite) TestAgentStreamFromCoreAgentStream(c *gc.C) {
+func (s *agentStreamSuite) TestAgentStreamFromCoreAgentStream(c *tc.C) {
 	tests := []struct {
 		in       coreagentbinary.AgentStream
 		expected AgentStream
@@ -73,6 +73,6 @@ func (s *agentStreamSuite) TestAgentStreamFromCoreAgentStream(c *gc.C) {
 	for _, test := range tests {
 		rval, err := AgentStreamFromCoreAgentStream(test.in)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(rval, gc.Equals, test.expected)
+		c.Assert(rval, tc.Equals, test.expected)
 	}
 }

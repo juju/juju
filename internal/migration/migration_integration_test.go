@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/clock"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
@@ -29,9 +29,9 @@ type ExportImportSuite struct {
 	objectStoreGetter       *MockModelObjectStoreGetter
 }
 
-var _ = gc.Suite(&ExportImportSuite{})
+var _ = tc.Suite(&ExportImportSuite{})
 
-func (s *ExportImportSuite) SetUpSuite(c *gc.C) {
+func (s *ExportImportSuite) SetUpSuite(c *tc.C) {
 	c.Skip(`
 TODO tlm: We are skipping these tests as they are currently relying heavily on
 mocks for how the importer is working internally. Now that we are trying to test
@@ -46,7 +46,7 @@ that are needed now.
 `)
 }
 
-func (s *ExportImportSuite) exportImport(c *gc.C, leaders map[string]string) {
+func (s *ExportImportSuite) exportImport(c *tc.C, leaders map[string]string) {
 	bytes := []byte(modelYaml)
 	st := &state.State{}
 	m := &state.Model{}
@@ -63,18 +63,18 @@ func (s *ExportImportSuite) exportImport(c *gc.C, leaders map[string]string) {
 	)
 	gotM, gotSt, err := importer.ImportModel(context.Background(), bytes)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controller.model.UUID(), gc.Equals, "bd3fae18-5ea1-4bc5-8837-45400cf1f8f6")
-	c.Assert(gotM, gc.Equals, m)
-	c.Assert(gotSt, gc.Equals, st)
+	c.Assert(controller.model.UUID(), tc.Equals, "bd3fae18-5ea1-4bc5-8837-45400cf1f8f6")
+	c.Assert(gotM, tc.Equals, m)
+	c.Assert(gotSt, tc.Equals, st)
 }
 
-func (s *ExportImportSuite) TestExportImportModel(c *gc.C) {
+func (s *ExportImportSuite) TestExportImportModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.exportImport(c, map[string]string{})
 }
 
-func (s *ExportImportSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *ExportImportSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)

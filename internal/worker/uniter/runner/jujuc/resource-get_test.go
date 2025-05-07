@@ -5,10 +5,10 @@ package jujuc_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -16,31 +16,31 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc/mocks"
 )
 
-var _ = gc.Suite(&ResourceGetCmdSuite{})
+var _ = tc.Suite(&ResourceGetCmdSuite{})
 
 type ResourceGetCmdSuite struct {
 	testing.IsolationSuite
 }
 
-func (s *ResourceGetCmdSuite) TestInitNilArgs(c *gc.C) {
+func (s *ResourceGetCmdSuite) TestInitNilArgs(c *tc.C) {
 	getCmd := jujuc.ResourceGetCmd{}
 	err := getCmd.Init(nil)
-	c.Check(err, gc.NotNil)
+	c.Check(err, tc.NotNil)
 }
 
-func (s *ResourceGetCmdSuite) TestInitTooFewArgs(c *gc.C) {
+func (s *ResourceGetCmdSuite) TestInitTooFewArgs(c *tc.C) {
 	getCmd := jujuc.ResourceGetCmd{}
 	err := getCmd.Init([]string{})
-	c.Check(err, gc.NotNil)
+	c.Check(err, tc.NotNil)
 }
 
-func (s *ResourceGetCmdSuite) TestInitTooManyArgs(c *gc.C) {
+func (s *ResourceGetCmdSuite) TestInitTooManyArgs(c *tc.C) {
 	getCmd := jujuc.ResourceGetCmd{}
 	err := getCmd.Init([]string{"spam", "eggs"})
-	c.Check(err, gc.NotNil)
+	c.Check(err, tc.NotNil)
 }
 
-func (s *ResourceGetCmdSuite) TestRun(c *gc.C) {
+func (s *ResourceGetCmdSuite) TestRun(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -52,12 +52,12 @@ func (s *ResourceGetCmdSuite) TestRun(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"spam"})
-	c.Assert(code, gc.Equals, 0)
-	c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Assert(code, tc.Equals, 0)
+	c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "")
 }
 
-func (s *ResourceGetCmdSuite) TestRunDownloadFailure(c *gc.C) {
+func (s *ResourceGetCmdSuite) TestRunDownloadFailure(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -68,7 +68,7 @@ func (s *ResourceGetCmdSuite) TestRunDownloadFailure(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"spam"})
-	c.Assert(code, gc.Equals, 1)
-	c.Check(cmdtesting.Stdout(ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "ERROR could not download resource: <failure>\n")
+	c.Assert(code, tc.Equals, 1)
+	c.Check(cmdtesting.Stdout(ctx), tc.Equals, "")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "ERROR could not download resource: <failure>\n")
 }

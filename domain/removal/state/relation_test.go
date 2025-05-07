@@ -7,8 +7,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/life"
@@ -22,9 +22,9 @@ type relationSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = gc.Suite(&relationSuite{})
+var _ = tc.Suite(&relationSuite{})
 
-func (s *relationSuite) TestRelationExists(c *gc.C) {
+func (s *relationSuite) TestRelationExists(c *tc.C) {
 	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id) VALUES (?, ?, ?)",
 		"some-relation-uuid", 0, "some-relation-id")
 	c.Assert(err, jc.ErrorIsNil)
@@ -33,14 +33,14 @@ func (s *relationSuite) TestRelationExists(c *gc.C) {
 
 	exists, err := st.RelationExists(context.Background(), "some-relation-uuid")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(exists, gc.Equals, true)
+	c.Check(exists, tc.Equals, true)
 
 	exists, err = st.RelationExists(context.Background(), "not-today-henry")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(exists, gc.Equals, false)
+	c.Check(exists, tc.Equals, false)
 }
 
-func (s *relationSuite) TestEnsureRelationNotAliveNormalSuccess(c *gc.C) {
+func (s *relationSuite) TestEnsureRelationNotAliveNormalSuccess(c *tc.C) {
 	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id) VALUES (?, ?, ?)",
 		"some-relation-uuid", 0, "some-relation-id")
 	c.Assert(err, jc.ErrorIsNil)
@@ -55,10 +55,10 @@ func (s *relationSuite) TestEnsureRelationNotAliveNormalSuccess(c *gc.C) {
 	var lifeID int
 	err = row.Scan(&lifeID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(lifeID, gc.Equals, 1)
+	c.Check(lifeID, tc.Equals, 1)
 }
 
-func (s *relationSuite) TestEnsureRelationNotAliveDyingSuccess(c *gc.C) {
+func (s *relationSuite) TestEnsureRelationNotAliveDyingSuccess(c *tc.C) {
 	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id) VALUES (?, ?, ?)",
 		"some-relation-uuid", 1, "some-relation-id")
 	c.Assert(err, jc.ErrorIsNil)
@@ -73,10 +73,10 @@ func (s *relationSuite) TestEnsureRelationNotAliveDyingSuccess(c *gc.C) {
 	var lifeID int
 	err = row.Scan(&lifeID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(lifeID, gc.Equals, 1)
+	c.Check(lifeID, tc.Equals, 1)
 }
 
-func (s *relationSuite) TestEnsureRelationNotAliveNotExistsSuccess(c *gc.C) {
+func (s *relationSuite) TestEnsureRelationNotAliveNotExistsSuccess(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// We don't care if it's already gone.
@@ -84,7 +84,7 @@ func (s *relationSuite) TestEnsureRelationNotAliveNotExistsSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *relationSuite) TestRelationRemovalNormalSuccess(c *gc.C) {
+func (s *relationSuite) TestRelationRemovalNormalSuccess(c *tc.C) {
 	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id) VALUES (?, ?, ?)",
 		"some-relation-uuid", 1, "some-relation-id")
 	c.Assert(err, jc.ErrorIsNil)
@@ -111,13 +111,13 @@ func (s *relationSuite) TestRelationRemovalNormalSuccess(c *gc.C) {
 	err = row.Scan(&removalTypeID, &rUUID, &force, &scheduledFor)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(removalTypeID, gc.Equals, 0)
-	c.Check(rUUID, gc.Equals, "some-relation-uuid")
-	c.Check(force, gc.Equals, false)
-	c.Check(scheduledFor, gc.Equals, when)
+	c.Check(removalTypeID, tc.Equals, 0)
+	c.Check(rUUID, tc.Equals, "some-relation-uuid")
+	c.Check(force, tc.Equals, false)
+	c.Check(scheduledFor, tc.Equals, when)
 }
 
-func (s *relationSuite) TestRelationRemovalNotExistsSuccess(c *gc.C) {
+func (s *relationSuite) TestRelationRemovalNotExistsSuccess(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	when := time.Now().UTC()
@@ -144,13 +144,13 @@ where  r.uuid = ?`, "removal-uuid",
 	err = row.Scan(&removalType, &rUUID, &force, &scheduledFor)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(removalType, gc.Equals, "relation")
-	c.Check(rUUID, gc.Equals, "some-relation-uuid")
-	c.Check(force, gc.Equals, true)
-	c.Check(scheduledFor, gc.Equals, when)
+	c.Check(removalType, tc.Equals, "relation")
+	c.Check(rUUID, tc.Equals, "some-relation-uuid")
+	c.Check(force, tc.Equals, true)
+	c.Check(scheduledFor, tc.Equals, when)
 }
 
-func (s *relationSuite) TestGetRelationLifeSuccess(c *gc.C) {
+func (s *relationSuite) TestGetRelationLifeSuccess(c *tc.C) {
 	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id) VALUES (?, ?, ?)",
 		"some-relation-uuid", 1, "some-relation-id")
 	c.Assert(err, jc.ErrorIsNil)
@@ -159,25 +159,25 @@ func (s *relationSuite) TestGetRelationLifeSuccess(c *gc.C) {
 
 	l, err := st.GetRelationLife(context.Background(), "some-relation-uuid")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(l, gc.Equals, life.Dying)
+	c.Check(l, tc.Equals, life.Dying)
 }
 
-func (s *relationSuite) TestGetRelationLifeNotFound(c *gc.C) {
+func (s *relationSuite) TestGetRelationLifeNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	_, err := st.GetRelationLife(context.Background(), "some-relation-uuid")
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-func (s *relationSuite) TestUnitNamesInScopeNoRows(c *gc.C) {
+func (s *relationSuite) TestUnitNamesInScopeNoRows(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	inScope, err := st.UnitNamesInScope(context.Background(), "some-relation-uuid")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(inScope, gc.HasLen, 0)
+	c.Check(inScope, tc.HasLen, 0)
 }
 
-func (s *relationSuite) TestUnitNamesInScopeSuccess(c *gc.C) {
+func (s *relationSuite) TestUnitNamesInScopeSuccess(c *tc.C) {
 	rel, unit := s.addAppUnitRelationScope(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
@@ -187,7 +187,7 @@ func (s *relationSuite) TestUnitNamesInScopeSuccess(c *gc.C) {
 	c.Check(inScope, jc.SameContents, []string{unit})
 }
 
-func (s *relationSuite) TestDeleteRelationUnitsSuccess(c *gc.C) {
+func (s *relationSuite) TestDeleteRelationUnitsSuccess(c *tc.C) {
 	rel, _ := s.addAppUnitRelationScope(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
@@ -198,10 +198,10 @@ func (s *relationSuite) TestDeleteRelationUnitsSuccess(c *gc.C) {
 	inScope, err := st.UnitNamesInScope(context.Background(), rel)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(inScope, gc.HasLen, 0)
+	c.Check(inScope, tc.HasLen, 0)
 }
 
-func (s *relationSuite) TestDeleteRelationUnitsInScopeFails(c *gc.C) {
+func (s *relationSuite) TestDeleteRelationUnitsInScopeFails(c *tc.C) {
 	rel, _ := s.addAppUnitRelationScope(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
@@ -210,7 +210,7 @@ func (s *relationSuite) TestDeleteRelationUnitsInScopeFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.UnitsStillInScope)
 }
 
-func (s *relationSuite) TestDeleteRelationUnitsInScopeSuccess(c *gc.C) {
+func (s *relationSuite) TestDeleteRelationUnitsInScopeSuccess(c *tc.C) {
 	rel, _ := s.addAppUnitRelationScope(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
@@ -228,7 +228,7 @@ func (s *relationSuite) TestDeleteRelationUnitsInScopeSuccess(c *gc.C) {
 // addAppUnitRelationScope adds charm, application, unit and relation
 // infrastructure such that a single unit is in the scope of a single relation.
 // The relation and unit identifiers are returned.
-func (s *relationSuite) addAppUnitRelationScope(c *gc.C) (string, string) {
+func (s *relationSuite) addAppUnitRelationScope(c *tc.C) (string, string) {
 	charm := "some-charm-uuid"
 	_, err := s.DB().Exec("INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, ?, ?)", charm, charm, 0)
 	c.Assert(err, jc.ErrorIsNil)

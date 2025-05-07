@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/leadership"
 	"github.com/juju/juju/api/base"
@@ -30,30 +30,30 @@ type ClientSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&ClientSuite{})
+var _ = tc.Suite(&ClientSuite{})
 
 const (
 	StubApplicationNm = "stub-application"
 	StubUnitNm        = "stub-unit/0"
 )
 
-func (s *ClientSuite) apiCaller(c *gc.C, check func(request string, arg, result interface{}) error) base.APICaller {
+func (s *ClientSuite) apiCaller(c *tc.C, check func(request string, arg, result interface{}) error) base.APICaller {
 	return apitesting.APICallerFunc(func(facade string, version int, id, request string, arg, result interface{}) error {
-		c.Check(facade, gc.Equals, "LeadershipService")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
+		c.Check(facade, tc.Equals, "LeadershipService")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
 		return check(request, arg, result)
 	})
 }
 
-func (s *ClientSuite) TestClaimLeadershipTranslation(c *gc.C) {
+func (s *ClientSuite) TestClaimLeadershipTranslation(c *tc.C) {
 
 	const claimTime = 5 * time.Hour
 	numStubCalls := 0
 
 	apiCaller := s.apiCaller(c, func(request string, arg, result interface{}) error {
 		numStubCalls++
-		c.Check(request, gc.Equals, "ClaimLeadership")
+		c.Check(request, tc.Equals, "ClaimLeadership")
 		c.Check(arg, jc.DeepEquals, params.ClaimLeadershipBulkParams{
 			Params: []params.ClaimLeadershipParams{{
 				ApplicationTag:  "application-stub-application",
@@ -73,10 +73,10 @@ func (s *ClientSuite) TestClaimLeadershipTranslation(c *gc.C) {
 	client := leadership.NewClient(apiCaller)
 	err := client.ClaimLeadership(context.Background(), StubApplicationNm, StubUnitNm, claimTime)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(numStubCalls, gc.Equals, 1)
+	c.Check(numStubCalls, tc.Equals, 1)
 }
 
-func (s *ClientSuite) TestClaimLeadershipDeniedError(c *gc.C) {
+func (s *ClientSuite) TestClaimLeadershipDeniedError(c *tc.C) {
 
 	numStubCalls := 0
 	apiCaller := s.apiCaller(c, func(_ string, _, result interface{}) error {
@@ -95,11 +95,11 @@ func (s *ClientSuite) TestClaimLeadershipDeniedError(c *gc.C) {
 
 	client := leadership.NewClient(apiCaller)
 	err := client.ClaimLeadership(context.Background(), StubApplicationNm, StubUnitNm, 0)
-	c.Check(numStubCalls, gc.Equals, 1)
-	c.Check(err, gc.Equals, coreleadership.ErrClaimDenied)
+	c.Check(numStubCalls, tc.Equals, 1)
+	c.Check(err, tc.Equals, coreleadership.ErrClaimDenied)
 }
 
-func (s *ClientSuite) TestClaimLeadershipUnknownError(c *gc.C) {
+func (s *ClientSuite) TestClaimLeadershipUnknownError(c *tc.C) {
 
 	errMsg := "I'm trying!"
 	numStubCalls := 0
@@ -118,11 +118,11 @@ func (s *ClientSuite) TestClaimLeadershipUnknownError(c *gc.C) {
 
 	client := leadership.NewClient(apiCaller)
 	err := client.ClaimLeadership(context.Background(), StubApplicationNm, StubUnitNm, 0)
-	c.Check(numStubCalls, gc.Equals, 1)
-	c.Check(err, gc.ErrorMatches, errMsg)
+	c.Check(numStubCalls, tc.Equals, 1)
+	c.Check(err, tc.ErrorMatches, errMsg)
 }
 
-func (s *ClientSuite) TestClaimLeadershipFacadeCallError(c *gc.C) {
+func (s *ClientSuite) TestClaimLeadershipFacadeCallError(c *tc.C) {
 	errMsg := "well, I just give up."
 	numStubCalls := 0
 	apiCaller := s.apiCaller(c, func(_ string, _, _ interface{}) error {
@@ -132,16 +132,16 @@ func (s *ClientSuite) TestClaimLeadershipFacadeCallError(c *gc.C) {
 
 	client := leadership.NewClient(apiCaller)
 	err := client.ClaimLeadership(context.Background(), StubApplicationNm, StubUnitNm, 0)
-	c.Check(numStubCalls, gc.Equals, 1)
-	c.Check(err, gc.ErrorMatches, "error making a leadership claim: "+errMsg)
+	c.Check(numStubCalls, tc.Equals, 1)
+	c.Check(err, tc.ErrorMatches, "error making a leadership claim: "+errMsg)
 }
 
-func (s *ClientSuite) TestBlockUntilLeadershipReleasedTranslation(c *gc.C) {
+func (s *ClientSuite) TestBlockUntilLeadershipReleasedTranslation(c *tc.C) {
 
 	numStubCalls := 0
 	apiCaller := s.apiCaller(c, func(request string, arg, result interface{}) error {
 		numStubCalls++
-		c.Check(request, gc.Equals, "BlockUntilLeadershipReleased")
+		c.Check(request, tc.Equals, "BlockUntilLeadershipReleased")
 		c.Check(arg, jc.DeepEquals, names.NewApplicationTag(StubApplicationNm))
 		switch result := result.(type) {
 		case *params.ErrorResult:
@@ -154,11 +154,11 @@ func (s *ClientSuite) TestBlockUntilLeadershipReleasedTranslation(c *gc.C) {
 	client := leadership.NewClient(apiCaller)
 	err := client.BlockUntilLeadershipReleased(context.Background(), StubApplicationNm)
 
-	c.Check(numStubCalls, gc.Equals, 1)
+	c.Check(numStubCalls, tc.Equals, 1)
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *ClientSuite) TestBlockUntilLeadershipReleasedError(c *gc.C) {
+func (s *ClientSuite) TestBlockUntilLeadershipReleasedError(c *tc.C) {
 
 	numStubCalls := 0
 	apiCaller := s.apiCaller(c, func(_ string, _, result interface{}) error {
@@ -175,11 +175,11 @@ func (s *ClientSuite) TestBlockUntilLeadershipReleasedError(c *gc.C) {
 	client := leadership.NewClient(apiCaller)
 	err := client.BlockUntilLeadershipReleased(context.Background(), StubApplicationNm)
 
-	c.Check(numStubCalls, gc.Equals, 1)
-	c.Check(err, gc.ErrorMatches, "error blocking on leadership release: splat")
+	c.Check(numStubCalls, tc.Equals, 1)
+	c.Check(err, tc.ErrorMatches, "error blocking on leadership release: splat")
 }
 
-func (s *ClientSuite) TestBlockUntilLeadershipReleasedFacadeCallError(c *gc.C) {
+func (s *ClientSuite) TestBlockUntilLeadershipReleasedFacadeCallError(c *tc.C) {
 	errMsg := "well, I just give up."
 	numStubCalls := 0
 	apiCaller := s.apiCaller(c, func(_ string, _, _ interface{}) error {
@@ -189,6 +189,6 @@ func (s *ClientSuite) TestBlockUntilLeadershipReleasedFacadeCallError(c *gc.C) {
 
 	client := leadership.NewClient(apiCaller)
 	err := client.BlockUntilLeadershipReleased(context.Background(), StubApplicationNm)
-	c.Check(numStubCalls, gc.Equals, 1)
-	c.Check(err, gc.ErrorMatches, "error blocking on leadership release: "+errMsg)
+	c.Check(numStubCalls, tc.Equals, 1)
+	c.Check(err, tc.ErrorMatches, "error blocking on leadership release: "+errMsg)
 }

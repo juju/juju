@@ -5,9 +5,9 @@ package changestreampruner
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
-	gc "gopkg.in/check.v1"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -16,9 +16,9 @@ type manifoldSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&manifoldSuite{})
+var _ = tc.Suite(&manifoldSuite{})
 
-func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
+func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.getConfig(c)
@@ -40,7 +40,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
-func (s *manifoldSuite) getConfig(c *gc.C) ManifoldConfig {
+func (s *manifoldSuite) getConfig(c *tc.C) ManifoldConfig {
 	return ManifoldConfig{
 		DBAccessor: "dbaccessor",
 		Clock:      s.clock,

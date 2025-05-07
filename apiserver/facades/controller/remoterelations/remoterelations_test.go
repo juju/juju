@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/remoterelations"
@@ -32,7 +32,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&remoteRelationsSuite{})
+var _ = tc.Suite(&remoteRelationsSuite{})
 
 type remoteRelationsSuite struct {
 	coretesting.BaseSuite
@@ -46,11 +46,11 @@ type remoteRelationsSuite struct {
 	api           *remoterelations.API
 }
 
-func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
+func (s *remoteRelationsSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
@@ -58,7 +58,7 @@ func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *remoteRelationsSuite) setup(c *gc.C) *gomock.Controller {
+func (s *remoteRelationsSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.st = mocks.NewMockRemoteRelationsState(ctrl)
@@ -81,14 +81,14 @@ func (s *remoteRelationsSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *remoteRelationsSuite) TestWatchStub(c *gc.C) {
+func (s *remoteRelationsSuite) TestWatchStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 	- Watch remote applications
     - Watch remote applications relations
     - Watch remote relations`)
 }
 
-func (s *remoteRelationsSuite) TestWatchLocalRelationChanges(c *gc.C) {
+func (s *remoteRelationsSuite) TestWatchLocalRelationChanges(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	djangoRelationUnitsWatcher := newMockRelationUnitsWatcher()
@@ -170,7 +170,7 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationChanges(c *gc.C) {
 	})
 }
 
-func (s *remoteRelationsSuite) TestImportRemoteEntities(c *gc.C) {
+func (s *remoteRelationsSuite) TestImportRemoteEntities(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.st.EXPECT().ImportRemoteEntity(names.ApplicationTag{Name: "django"}, "token").Return(nil)
@@ -180,11 +180,11 @@ func (s *remoteRelationsSuite) TestImportRemoteEntities(c *gc.C) {
 			{Tag: "application-django", Token: "token"},
 		}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0], jc.DeepEquals, params.ErrorResult{})
 }
 
-func (s *remoteRelationsSuite) TestImportRemoteEntitiesTwice(c *gc.C) {
+func (s *remoteRelationsSuite) TestImportRemoteEntitiesTwice(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	tag := names.ApplicationTag{Name: "django"}
@@ -201,25 +201,25 @@ func (s *remoteRelationsSuite) TestImportRemoteEntitiesTwice(c *gc.C) {
 			{Tag: "application-django", Token: "token"},
 		}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.NotNil)
-	c.Assert(result.Results[0].Error.Code, gc.Equals, params.CodeAlreadyExists)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.NotNil)
+	c.Assert(result.Results[0].Error.Code, tc.Equals, params.CodeAlreadyExists)
 }
 
-func (s *remoteRelationsSuite) TestExportEntities(c *gc.C) {
+func (s *remoteRelationsSuite) TestExportEntities(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.st.EXPECT().ExportLocalEntity(names.ApplicationTag{Name: "django"}).Return("token-django", nil)
 
 	result, err := s.api.ExportEntities(context.Background(), params.Entities{Entities: []params.Entity{{Tag: "application-django"}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0], jc.DeepEquals, params.TokenResult{
 		Token: "token-django",
 	})
 }
 
-func (s *remoteRelationsSuite) TestExportEntitiesTwice(c *gc.C) {
+func (s *remoteRelationsSuite) TestExportEntitiesTwice(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	tag := names.ApplicationTag{Name: "django"}
@@ -230,13 +230,13 @@ func (s *remoteRelationsSuite) TestExportEntitiesTwice(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := s.api.ExportEntities(context.Background(), params.Entities{Entities: []params.Entity{{Tag: "application-django"}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.NotNil)
-	c.Assert(result.Results[0].Error.Code, gc.Equals, params.CodeAlreadyExists)
-	c.Assert(result.Results[0].Token, gc.Equals, "token-django")
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.NotNil)
+	c.Assert(result.Results[0].Error.Code, tc.Equals, params.CodeAlreadyExists)
+	c.Assert(result.Results[0].Token, tc.Equals, "token-django")
 }
 
-func (s *remoteRelationsSuite) TestGetTokens(c *gc.C) {
+func (s *remoteRelationsSuite) TestGetTokens(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.st.EXPECT().GetToken(names.NewApplicationTag("django")).Return("token-application-django", nil)
@@ -244,11 +244,11 @@ func (s *remoteRelationsSuite) TestGetTokens(c *gc.C) {
 	result, err := s.api.GetTokens(context.Background(), params.GetTokenArgs{
 		Args: []params.GetTokenArg{{Tag: "application-django"}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0], jc.DeepEquals, params.StringResult{Result: "token-application-django"})
 }
 
-func (s *remoteRelationsSuite) TestSaveMacaroons(c *gc.C) {
+func (s *remoteRelationsSuite) TestSaveMacaroons(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	mac, err := jujutesting.NewMacaroon("id")
@@ -259,11 +259,11 @@ func (s *remoteRelationsSuite) TestSaveMacaroons(c *gc.C) {
 	result, err := s.api.SaveMacaroons(context.Background(), params.EntityMacaroonArgs{
 		Args: []params.EntityMacaroonArg{{Tag: relTag.String(), Macaroon: mac}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
 }
 
-func (s *remoteRelationsSuite) TestRemoteApplications(c *gc.C) {
+func (s *remoteRelationsSuite) TestRemoteApplications(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.st.EXPECT().RemoteApplication("django").Return(newMockRemoteApplication("django", "me/model.riak"), nil)
@@ -284,7 +284,7 @@ func (s *remoteRelationsSuite) TestRemoteApplications(c *gc.C) {
 	}})
 }
 
-func (s *remoteRelationsSuite) TestRelations(c *gc.C) {
+func (s *remoteRelationsSuite) TestRelations(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	djangoRelationUnit := newMockRelationUnit()
@@ -343,7 +343,7 @@ func (s *remoteRelationsSuite) TestRelations(c *gc.C) {
 	}})
 }
 
-func (s *remoteRelationsSuite) TestConsumeRemoteRelationChange(c *gc.C) {
+func (s *remoteRelationsSuite) TestConsumeRemoteRelationChange(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	djangoRelationUnit := newMockRelationUnit()
@@ -370,7 +370,7 @@ func (s *remoteRelationsSuite) TestConsumeRemoteRelationChange(c *gc.C) {
 
 	result, err := s.api.ConsumeRemoteRelationChanges(context.Background(), changes)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), gc.IsNil)
+	c.Assert(result.OneError(), tc.IsNil)
 
 	settings, err := db2Relation.remoteUnits["django/0"].Settings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -381,7 +381,7 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func (s *remoteRelationsSuite) TestConsumeRelationResumePermission(c *gc.C) {
+func (s *remoteRelationsSuite) TestConsumeRelationResumePermission(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	djangoRelationUnit := newMockRelationUnit()
@@ -410,10 +410,10 @@ func (s *remoteRelationsSuite) TestConsumeRelationResumePermission(c *gc.C) {
 
 	result, err := s.api.ConsumeRemoteRelationChanges(context.Background(), changes)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), gc.ErrorMatches, "permission denied")
+	c.Assert(result.OneError(), tc.ErrorMatches, "permission denied")
 }
 
-func (s *remoteRelationsSuite) TestSetRemoteApplicationsStatus(c *gc.C) {
+func (s *remoteRelationsSuite) TestSetRemoteApplicationsStatus(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	remoteApp := newMockRemoteApplication("db2", "url")
@@ -428,13 +428,13 @@ func (s *remoteRelationsSuite) TestSetRemoteApplicationsStatus(c *gc.C) {
 			Info:   "a message",
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-	c.Assert(remoteApp.status, gc.Equals, status.Blocked)
-	c.Assert(remoteApp.message, gc.Equals, "a message")
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+	c.Assert(remoteApp.status, tc.Equals, status.Blocked)
+	c.Assert(remoteApp.message, tc.Equals, "a message")
 }
 
-func (s *remoteRelationsSuite) TestSetRemoteApplicationsStatusTerminated(c *gc.C) {
+func (s *remoteRelationsSuite) TestSetRemoteApplicationsStatusTerminated(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	remoteApp := newMockRemoteApplication("db2", "url")
@@ -450,12 +450,12 @@ func (s *remoteRelationsSuite) TestSetRemoteApplicationsStatusTerminated(c *gc.C
 			Info:   "killer whales",
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-	c.Assert(remoteApp.terminated, gc.Equals, true)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+	c.Assert(remoteApp.terminated, tc.Equals, true)
 }
 
-func (s *remoteRelationsSuite) TestUpdateControllersForModels(c *gc.C) {
+func (s *remoteRelationsSuite) TestUpdateControllersForModels(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	mod1 := uuid.MustNewUUID().String()
@@ -513,12 +513,12 @@ func (s *remoteRelationsSuite) TestUpdateControllersForModels(c *gc.C) {
 		})
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 2)
-	c.Assert(res.Results[0].Error.Message, gc.Equals, "whack")
-	c.Assert(res.Results[1].Error, gc.IsNil)
+	c.Assert(res.Results, tc.HasLen, 2)
+	c.Assert(res.Results[0].Error.Message, tc.Equals, "whack")
+	c.Assert(res.Results[1].Error, tc.IsNil)
 }
 
-func (s *remoteRelationsSuite) TestConsumeRemoteSecretChanges(c *gc.C) {
+func (s *remoteRelationsSuite) TestConsumeRemoteSecretChanges(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := secrets.NewURI()
@@ -534,5 +534,5 @@ func (s *remoteRelationsSuite) TestConsumeRemoteSecretChanges(c *gc.C) {
 
 	result, err := s.api.ConsumeRemoteSecretChanges(context.Background(), changes)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), gc.IsNil)
+	c.Assert(result.OneError(), tc.IsNil)
 }

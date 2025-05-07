@@ -8,8 +8,8 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/application"
 	corerelation "github.com/juju/juju/core/relation"
@@ -26,13 +26,13 @@ type relatedUnitWatcherSuite struct {
 	baseRelationSuite
 }
 
-var _ = gc.Suite(&relatedUnitWatcherSuite{})
+var _ = tc.Suite(&relatedUnitWatcherSuite{})
 
-func (s *relatedUnitWatcherSuite) SetUpTest(c *gc.C) {
+func (s *relatedUnitWatcherSuite) SetUpTest(c *tc.C) {
 	s.baseRelationSuite.SetUpTest(c)
 }
 
-func (s *relatedUnitWatcherSuite) TestGetRelatedEndpointUUIDForUnit(c *gc.C) {
+func (s *relatedUnitWatcherSuite) TestGetRelatedEndpointUUIDForUnit(c *tc.C) {
 	// Arrange: two application linked by two relation.
 	charmUUID := s.addCharm(c)
 	charmRelationProvidesUUID := s.addCharmRelation(c, charmUUID, charm.Relation{
@@ -71,13 +71,13 @@ func (s *relatedUnitWatcherSuite) TestGetRelatedEndpointUUIDForUnit(c *gc.C) {
 
 	// Assert
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotEndpoint, gc.Equals, relationEndpoint{
+	c.Assert(gotEndpoint, tc.Equals, relationEndpoint{
 		UUID:            corerelation.EndpointUUID(expectedEndpoint),
 		ApplicationUUID: appUUID2,
 	})
 }
 
-func (s *relatedUnitWatcherSuite) TestGetRelatedEndpointUUIDForUnitPeerRelation(c *gc.C) {
+func (s *relatedUnitWatcherSuite) TestGetRelatedEndpointUUIDForUnitPeerRelation(c *tc.C) {
 	// Arrange: One application, call on a peer relation
 	charmUUID := s.addCharm(c)
 	charmRelationUUID := s.addCharmRelation(c, charmUUID, charm.Relation{
@@ -102,10 +102,10 @@ func (s *relatedUnitWatcherSuite) TestGetRelatedEndpointUUIDForUnitPeerRelation(
 
 	// Assert
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotEndpointUUID, gc.Equals, relationEndpoint{})
+	c.Assert(gotEndpointUUID, tc.Equals, relationEndpoint{})
 }
 
-func (s *relatedUnitWatcherSuite) TestGetRelatedUnits(c *gc.C) {
+func (s *relatedUnitWatcherSuite) TestGetRelatedUnits(c *tc.C) {
 	// Arrange: two application linked by a relation, with few units
 	charmUUID := s.addCharm(c)
 	charmRelationProvidesUUID := s.addCharmRelation(c, charmUUID, charm.Relation{
@@ -154,7 +154,7 @@ func (s *relatedUnitWatcherSuite) TestGetRelatedUnits(c *gc.C) {
 	c.Assert(gotUnits, jc.SameContents, expectedUnits)
 }
 
-func (s *relatedUnitWatcherSuite) TestGetRelatedUnitsPeerRelation(c *gc.C) {
+func (s *relatedUnitWatcherSuite) TestGetRelatedUnitsPeerRelation(c *tc.C) {
 	// Arrange: two application linked by a relation, with few units
 	charmUUID := s.addCharm(c)
 	charmRelationUUID := s.addCharmRelation(c, charmUUID, charm.Relation{

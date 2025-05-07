@@ -11,10 +11,10 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -56,9 +56,9 @@ type bootstrapSuite struct {
 	controllerStackerGetter func() provider.ControllerStackerForTest
 }
 
-var _ = gc.Suite(&bootstrapSuite{})
+var _ = tc.Suite(&bootstrapSuite{})
 
-func (s *bootstrapSuite) SetUpTest(c *gc.C) {
+func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	s.fakeClientSuite.SetUpTest(c)
 	s.JujuOSEnvSuite.SetUpTest(c)
 	s.SetFeatureFlags(featureflag.DeveloperMode)
@@ -121,7 +121,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *bootstrapSuite) TearDownTest(c *gc.C) {
+func (s *bootstrapSuite) TearDownTest(c *tc.C) {
 	s.pcfg = nil
 	s.controllerCfg = nil
 	s.controllerStackerGetter = nil
@@ -129,7 +129,7 @@ func (s *bootstrapSuite) TearDownTest(c *gc.C) {
 	s.JujuOSEnvSuite.TearDownTest(c)
 }
 
-func (s *bootstrapSuite) TestFindControllerNamespace(c *gc.C) {
+func (s *bootstrapSuite) TestFindControllerNamespace(c *tc.C) {
 	tests := []struct {
 		Namespace      core.Namespace
 		ModelName      string
@@ -189,7 +189,7 @@ type svcSpecTC struct {
 	cfg       *podcfg.BootstrapConfig
 }
 
-func (s *bootstrapSuite) TestGetControllerSvcSpec(c *gc.C) {
+func (s *bootstrapSuite) TestGetControllerSvcSpec(c *tc.C) {
 	s.namespace = "controller-1"
 
 	getCfg := func(externalName, controllerServiceType string, controllerExternalIPs []string) *podcfg.BootstrapConfig {
@@ -295,7 +295,7 @@ func (s *bootstrapSuite) TestGetControllerSvcSpec(c *gc.C) {
 		if len(t.errStr) == 0 {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
-			c.Check(err, gc.ErrorMatches, t.errStr)
+			c.Check(err, tc.ErrorMatches, t.errStr)
 		}
 		c.Check(spec, jc.DeepEquals, t.spec)
 	}
@@ -305,7 +305,7 @@ func int64Ptr(a int64) *int64 {
 	return &a
 }
 
-func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
+func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 	podWatcher, podFirer := k8swatchertest.NewKubernetesTestWatcher()
 	eventWatcher, _ := k8swatchertest.NewKubernetesTestWatcher()
 	<-podWatcher.Changes()
@@ -1104,7 +1104,7 @@ exec /opt/pebble run --http :38811 --verbose
 
 	errChan := make(chan error)
 	done := make(chan struct{})
-	s.AddCleanup(func(c *gc.C) {
+	s.AddCleanup(func(c *tc.C) {
 		close(done)
 	})
 
@@ -1134,12 +1134,12 @@ exec /opt/pebble run --http :38811 --verbose
 				// Ensure service address is available.
 				svc, err := s.mockServices.Get(context.Background(), "juju-controller-test-service", v1.GetOptions{})
 				c.Assert(err, jc.ErrorIsNil)
-				c.Assert(svc, gc.DeepEquals, svcNotFullyProvisioned)
+				c.Assert(svc, tc.DeepEquals, svcNotFullyProvisioned)
 
 				svc.Spec.ClusterIP = svcPublicIP
 				svc, err = s.mockServices.Update(context.Background(), svc, v1.UpdateOptions{})
 				c.Assert(err, jc.ErrorIsNil)
-				c.Assert(svc, gc.DeepEquals, svcProvisioned)
+				c.Assert(svc, tc.DeepEquals, svcProvisioned)
 				err = clk.WaitAdvance(3*time.Second, coretesting.ShortWait, 1)
 				c.Assert(err, jc.ErrorIsNil)
 				serviceChanges = nil
@@ -1148,7 +1148,7 @@ exec /opt/pebble run --http :38811 --verbose
 				podName := s.pcfg.GetPodName()
 				ss, err := s.mockStatefulSets.Get(context.Background(), `juju-controller-test`, v1.GetOptions{})
 				c.Assert(err, jc.ErrorIsNil)
-				c.Assert(ss, gc.DeepEquals, statefulSetSpec)
+				c.Assert(ss, tc.DeepEquals, statefulSetSpec)
 				p := &core.Pod{
 					ObjectMeta: v1.ObjectMeta{
 						Name: podName,
@@ -1182,33 +1182,33 @@ exec /opt/pebble run --http :38811 --verbose
 
 		ss, err := s.mockStatefulSets.Get(context.Background(), `juju-controller-test`, v1.GetOptions{})
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(ss, gc.DeepEquals, statefulSetSpec)
+		c.Assert(ss, tc.DeepEquals, statefulSetSpec)
 
 		svc, err := s.mockServices.Get(context.Background(), `juju-controller-test-service`, v1.GetOptions{})
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(svc, gc.DeepEquals, svcProvisioned)
+		c.Assert(svc, tc.DeepEquals, svcProvisioned)
 
 		secret, err := s.mockSecrets.Get(context.Background(), "juju-controller-test-secret", v1.GetOptions{})
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(secret, gc.DeepEquals, secretWithServerPEMAdded)
+		c.Assert(secret, tc.DeepEquals, secretWithServerPEMAdded)
 
 		secret, err = s.mockSecrets.Get(context.Background(), "juju-image-pull-secret", v1.GetOptions{})
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(secret, gc.DeepEquals, secretCAASImageRepo)
+		c.Assert(secret, tc.DeepEquals, secretCAASImageRepo)
 
 		secret, err = s.mockSecrets.Get(context.Background(), "juju-controller-test-application-config", v1.GetOptions{})
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(secret, gc.DeepEquals, secretControllerAppConfig)
+		c.Assert(secret, tc.DeepEquals, secretControllerAppConfig)
 
 		configmap, err := s.mockConfigMaps.Get(context.Background(), "juju-controller-test-configmap", v1.GetOptions{})
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(configmap, gc.DeepEquals, configMapWithAgentConfAdded)
+		c.Assert(configmap, tc.DeepEquals, configMapWithAgentConfAdded)
 
 		crb, err := s.mockClusterRoleBindings.Get(context.Background(), `controller-1`, v1.GetOptions{})
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(crb, gc.DeepEquals, controllerServiceCRB)
+		c.Assert(crb, tc.DeepEquals, controllerServiceCRB)
 
-		c.Assert(bootstrapWatchers, gc.HasLen, 2)
+		c.Assert(bootstrapWatchers, tc.HasLen, 2)
 		c.Assert(workertest.CheckKilled(c, bootstrapWatchers[0]), jc.ErrorIsNil)
 		c.Assert(workertest.CheckKilled(c, bootstrapWatchers[1]), jc.ErrorIsNil)
 	case <-time.After(coretesting.LongWait):
@@ -1216,7 +1216,7 @@ exec /opt/pebble run --http :38811 --verbose
 	}
 }
 
-func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *gc.C) {
+func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1279,8 +1279,8 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *gc.C) {
 
 	select {
 	case err := <-errChan:
-		c.Assert(err, gc.ErrorMatches, `creating service for controller: waiting for controller service address fully provisioned timeout`)
-		c.Assert(watchers, gc.HasLen, 0)
+		c.Assert(err, tc.ErrorMatches, `creating service for controller: waiting for controller service address fully provisioned timeout`)
+		c.Assert(watchers, tc.HasLen, 0)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for deploy return")
 	}

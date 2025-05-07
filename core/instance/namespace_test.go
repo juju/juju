@@ -4,47 +4,47 @@
 package instance_test
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
 )
 
 type NamespaceSuite struct{}
 
-var _ = gc.Suite(&NamespaceSuite{})
+var _ = tc.Suite(&NamespaceSuite{})
 
 const modelUUID = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 
-func (s *NamespaceSuite) TestInvalidModelTag(c *gc.C) {
+func (s *NamespaceSuite) TestInvalidModelTag(c *tc.C) {
 	ns, err := instance.NewNamespace("foo")
-	c.Assert(ns, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, `model UUID "foo" not valid`)
+	c.Assert(ns, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `model UUID "foo" not valid`)
 }
 
-func (s *NamespaceSuite) newNamespace(c *gc.C) instance.Namespace {
+func (s *NamespaceSuite) newNamespace(c *tc.C) instance.Namespace {
 	ns, err := instance.NewNamespace(modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	return ns
 }
 
-func (s *NamespaceSuite) TestInvalidMachineTag(c *gc.C) {
+func (s *NamespaceSuite) TestInvalidMachineTag(c *tc.C) {
 	ns := s.newNamespace(c)
 	hostname, err := ns.Hostname("foo")
-	c.Assert(hostname, gc.Equals, "")
-	c.Assert(err, gc.ErrorMatches, `machine ID "foo" is not a valid machine`)
+	c.Assert(hostname, tc.Equals, "")
+	c.Assert(err, tc.ErrorMatches, `machine ID "foo" is not a valid machine`)
 }
 
-func (s *NamespaceSuite) TestHostname(c *gc.C) {
+func (s *NamespaceSuite) TestHostname(c *tc.C) {
 	ns := s.newNamespace(c)
 	hostname, err := ns.Hostname("2")
-	c.Assert(hostname, gc.Equals, "juju-c3d479-2")
+	c.Assert(hostname, tc.Equals, "juju-c3d479-2")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *NamespaceSuite) TestContainerHostname(c *gc.C) {
+func (s *NamespaceSuite) TestContainerHostname(c *tc.C) {
 	ns := s.newNamespace(c)
 	hostname, err := ns.Hostname("2/lxd/4")
-	c.Assert(hostname, gc.Equals, "juju-c3d479-2-lxd-4")
+	c.Assert(hostname, tc.Equals, "juju-c3d479-2-lxd-4")
 	c.Assert(err, jc.ErrorIsNil)
 }

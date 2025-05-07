@@ -9,10 +9,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/life"
@@ -35,9 +35,9 @@ type caasProvisionerSuite struct {
 	resources            *MockResources
 }
 
-var _ = gc.Suite(&caasProvisionerSuite{})
+var _ = tc.Suite(&caasProvisionerSuite{})
 
-func (s *caasProvisionerSuite) TestWatchApplications(c *gc.C) {
+func (s *caasProvisionerSuite) TestWatchApplications(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan []string)
@@ -58,11 +58,11 @@ func (s *caasProvisionerSuite) TestWatchApplications(c *gc.C) {
 
 	result, err := s.api.WatchApplications(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.StringsWatcherId, gc.Equals, "1")
+	c.Check(result.StringsWatcherId, tc.Equals, "1")
 	c.Check(result.Changes, jc.DeepEquals, []string{"application-mariadb"})
 }
 
-func (s *caasProvisionerSuite) TestWatchApplicationsClosed(c *gc.C) {
+func (s *caasProvisionerSuite) TestWatchApplicationsClosed(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan []string)
@@ -72,10 +72,10 @@ func (s *caasProvisionerSuite) TestWatchApplicationsClosed(c *gc.C) {
 	s.backend.EXPECT().WatchApplications().Return(watcher)
 
 	_, err := s.api.WatchApplications(context.Background())
-	c.Assert(err, gc.ErrorMatches, `.*tomb: still alive`)
+	c.Assert(err, tc.ErrorMatches, `.*tomb: still alive`)
 }
 
-func (s *caasProvisionerSuite) TestRemoveVolumeAttachment(c *gc.C) {
+func (s *caasProvisionerSuite) TestRemoveVolumeAttachment(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// It is expected that the detachment of mariadb has been remove prior.
@@ -111,7 +111,7 @@ func (s *caasProvisionerSuite) TestRemoveVolumeAttachment(c *gc.C) {
 	})
 }
 
-func (s *caasProvisionerSuite) TestRemoveFilesystemAttachments(c *gc.C) {
+func (s *caasProvisionerSuite) TestRemoveFilesystemAttachments(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// It is expected that the detachment of mariadb has been remove prior.
@@ -147,7 +147,7 @@ func (s *caasProvisionerSuite) TestRemoveFilesystemAttachments(c *gc.C) {
 	})
 }
 
-func (s *caasProvisionerSuite) TestFilesystemLife(c *gc.C) {
+func (s *caasProvisionerSuite) TestFilesystemLife(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.entityFinder.EXPECT().FindEntity(names.NewFilesystemTag("0")).Return(entity{
@@ -167,7 +167,7 @@ func (s *caasProvisionerSuite) TestFilesystemLife(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{{Tag: "filesystem-0"}, {Tag: "filesystem-1"}, {Tag: "filesystem-42"}}}
 	result, err := s.api.Life(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.LifeResults{
+	c.Assert(result, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Life: life.Alive},
 			{Life: life.Alive},
@@ -179,7 +179,7 @@ func (s *caasProvisionerSuite) TestFilesystemLife(c *gc.C) {
 	})
 }
 
-func (s *caasProvisionerSuite) TestVolumeLife(c *gc.C) {
+func (s *caasProvisionerSuite) TestVolumeLife(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.entityFinder.EXPECT().FindEntity(names.NewVolumeTag("0")).Return(entity{
@@ -199,7 +199,7 @@ func (s *caasProvisionerSuite) TestVolumeLife(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{{Tag: "volume-0"}, {Tag: "volume-1"}, {Tag: "volume-42"}}}
 	result, err := s.api.Life(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.LifeResults{
+	c.Assert(result, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Life: life.Alive},
 			{Life: life.Alive},
@@ -211,7 +211,7 @@ func (s *caasProvisionerSuite) TestVolumeLife(c *gc.C) {
 	})
 }
 
-func (s *caasProvisionerSuite) TestFilesystemAttachmentLife(c *gc.C) {
+func (s *caasProvisionerSuite) TestFilesystemAttachmentLife(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.storageBackend.EXPECT().FilesystemAttachment(names.NewUnitTag("mariadb/0"), names.NewFilesystemTag("0")).Return(s.filesystemAttachment, nil)
@@ -244,7 +244,7 @@ func (s *caasProvisionerSuite) TestFilesystemAttachmentLife(c *gc.C) {
 	})
 }
 
-func (s *caasProvisionerSuite) TestVolumeAttachmentLife(c *gc.C) {
+func (s *caasProvisionerSuite) TestVolumeAttachmentLife(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.storageBackend.EXPECT().VolumeAttachment(names.NewUnitTag("mariadb/0"), names.NewVolumeTag("0")).Return(s.volumeAttachment, nil)
@@ -277,7 +277,7 @@ func (s *caasProvisionerSuite) TestVolumeAttachmentLife(c *gc.C) {
 	})
 }
 
-func (s *caasProvisionerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *caasProvisionerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.storageBackend = NewMockStorageBackend(ctrl)

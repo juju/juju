@@ -4,7 +4,7 @@
 package testing
 
 import (
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain/schema"
@@ -19,7 +19,7 @@ type ControllerModelSuite struct {
 
 // ModelTxnRunner returns a transaction runner on to the model database for the
 // provided model uuid.
-func (s *ControllerModelSuite) ModelTxnRunner(c *gc.C, modelUUID string) coredatabase.TxnRunner {
+func (s *ControllerModelSuite) ModelTxnRunner(c *tc.C, modelUUID string) coredatabase.TxnRunner {
 	txnRunner, _ := s.DqliteSuite.OpenDBForNamespace(c, modelUUID, true)
 	s.DqliteSuite.ApplyDDLForRunner(c, &SchemaApplier{
 		Schema:  schema.ModelDDL(),

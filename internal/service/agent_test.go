@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/shell"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/service"
 	"github.com/juju/juju/internal/service/common"
@@ -26,9 +26,9 @@ type agentSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&agentSuite{})
+var _ = tc.Suite(&agentSuite{})
 
-func (*agentSuite) TestAgentConfMachineLocal(c *gc.C) {
+func (*agentSuite) TestAgentConfMachineLocal(c *tc.C) {
 	// We use two distinct directories to ensure the paths don't get
 	// mixed up during the call.
 	dataDir := c.MkDir()
@@ -65,7 +65,7 @@ func (*agentSuite) TestAgentConfMachineLocal(c *gc.C) {
 	})
 }
 
-func (*agentSuite) TestAgentConfMachineUbuntu(c *gc.C) {
+func (*agentSuite) TestAgentConfMachineUbuntu(c *tc.C) {
 	dataDir := "/var/lib/juju"
 	logDir := "/var/log/juju"
 	info := service.NewMachineAgentInfo("0", dataDir, logDir)
@@ -100,7 +100,7 @@ func (*agentSuite) TestAgentConfMachineUbuntu(c *gc.C) {
 	})
 }
 
-func (*agentSuite) TestAgentConfUnit(c *gc.C) {
+func (*agentSuite) TestAgentConfUnit(c *tc.C) {
 	dataDir := c.MkDir()
 	logDir := c.MkDir()
 	info := service.NewUnitAgentInfo("wordpress/0", dataDir, logDir)
@@ -134,7 +134,7 @@ func (*agentSuite) TestAgentConfUnit(c *gc.C) {
 	})
 }
 
-func (*agentSuite) TestContainerAgentConf(c *gc.C) {
+func (*agentSuite) TestContainerAgentConf(c *tc.C) {
 	dataDir := c.MkDir()
 	logDir := c.MkDir()
 	info := service.NewUnitAgentInfo("wordpress/0", dataDir, logDir)
@@ -170,7 +170,7 @@ func (*agentSuite) TestContainerAgentConf(c *gc.C) {
 	})
 }
 
-func (*agentSuite) TestShutdownAfterConf(c *gc.C) {
+func (*agentSuite) TestShutdownAfterConf(c *tc.C) {
 	conf, err := service.ShutdownAfterConf("spam")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -184,10 +184,10 @@ func (*agentSuite) TestShutdownAfterConf(c *gc.C) {
 	c.Check(conf.Validate(renderer), jc.ErrorIsNil)
 }
 
-func (*agentSuite) TestShutdownAfterConfMissingServiceName(c *gc.C) {
+func (*agentSuite) TestShutdownAfterConfMissingServiceName(c *tc.C) {
 	_, err := service.ShutdownAfterConf("")
 
-	c.Check(err, gc.ErrorMatches, `.*missing "after" service name.*`)
+	c.Check(err, tc.ErrorMatches, `.*missing "after" service name.*`)
 }
 
 var expectedLimits = map[string]string{

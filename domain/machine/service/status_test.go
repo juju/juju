@@ -4,9 +4,9 @@
 package service
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/machine"
@@ -16,9 +16,9 @@ type statusSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&statusSuite{})
+var _ = tc.Suite(&statusSuite{})
 
-func (s *statusSuite) TestEncodeMachineStatus(c *gc.C) {
+func (s *statusSuite) TestEncodeMachineStatus(c *tc.C) {
 	testCases := []struct {
 		input  status.StatusInfo
 		output machine.StatusInfo[machine.MachineStatusType]
@@ -81,14 +81,14 @@ func (s *statusSuite) TestEncodeMachineStatus(c *gc.C) {
 		c.Logf("test %d", i)
 		output, err := encodeMachineStatus(test.input)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(output, gc.DeepEquals, test.output)
+		c.Assert(output, tc.DeepEquals, test.output)
 		result, err := decodeMachineStatus(output)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(result, gc.DeepEquals, test.input)
+		c.Assert(result, tc.DeepEquals, test.input)
 	}
 }
 
-func (s *statusSuite) TestEncodeInstanceStatus(c *gc.C) {
+func (s *statusSuite) TestEncodeInstanceStatus(c *tc.C) {
 	testCases := []struct {
 		input  status.StatusInfo
 		output machine.StatusInfo[machine.InstanceStatusType]
@@ -145,6 +145,6 @@ func (s *statusSuite) TestEncodeInstanceStatus(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		result, err := decodeInstanceStatus(output)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(result, gc.DeepEquals, test.input)
+		c.Assert(result, tc.DeepEquals, test.input)
 	}
 }

@@ -8,13 +8,13 @@ import (
 	"errors"
 	"time"
 
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/internal/database/dqlite"
@@ -27,9 +27,9 @@ type workerSuite struct {
 	trackedDB *MockTrackedDB
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
-func (s *workerSuite) TestKilledGetDBErrDying(c *gc.C) {
+func (s *workerSuite) TestKilledGetDBErrDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dbDone := make(chan struct{})
@@ -67,7 +67,7 @@ func (s *workerSuite) TestKilledGetDBErrDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, database.ErrDBAccessorDying)
 }
 
-func (s *workerSuite) TestStartupTimeoutSingleControllerReconfigure(c *gc.C) {
+func (s *workerSuite) TestStartupTimeoutSingleControllerReconfigure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -101,7 +101,7 @@ func (s *workerSuite) TestStartupTimeoutSingleControllerReconfigure(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, dependency.ErrBounce)
 }
 
-func (s *workerSuite) TestStartupTimeoutMultipleControllerRetry(c *gc.C) {
+func (s *workerSuite) TestStartupTimeoutMultipleControllerRetry(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -147,7 +147,7 @@ func (s *workerSuite) TestStartupTimeoutMultipleControllerRetry(c *gc.C) {
 	}
 }
 
-func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
+func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dbDone := make(chan struct{})
@@ -240,7 +240,7 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 	})
 }
 
-func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
+func (s *workerSuite) TestWorkerStartupExistingNode(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dbDone := make(chan struct{})
@@ -284,7 +284,7 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 	ensureStartup(c, w.(*dbWorker))
 }
 
-func (s *workerSuite) TestWorkerStartupExistingNodeWithLoopbackPreferred(c *gc.C) {
+func (s *workerSuite) TestWorkerStartupExistingNodeWithLoopbackPreferred(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dbDone := make(chan struct{})
@@ -323,7 +323,7 @@ func (s *workerSuite) TestWorkerStartupExistingNodeWithLoopbackPreferred(c *gc.C
 	ensureStartup(c, w.(*dbWorker))
 }
 
-func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc.C) {
+func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dbDone := make(chan struct{})
@@ -389,7 +389,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc
 	}
 }
 
-func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
+func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dbDone := make(chan struct{})
@@ -474,11 +474,11 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 	}
 }
 
-func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
+func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 	return s.newWorkerWithDB(c, s.trackedDB)
 }
 
-func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbackPreferred(c *gc.C) {
+func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbackPreferred(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dbDone := make(chan struct{})
@@ -534,7 +534,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbac
 	}
 }
 
-func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
 	s.trackedDB = NewMockTrackedDB(ctrl)

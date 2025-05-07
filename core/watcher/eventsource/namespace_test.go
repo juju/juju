@@ -8,9 +8,9 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
@@ -26,14 +26,14 @@ type namespaceSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&namespaceSuite{})
+var _ = tc.Suite(&namespaceSuite{})
 
-func (s *namespaceSuite) SetUpTest(c *gc.C) {
+func (s *namespaceSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
 	s.ApplyDDL(c, schemaDDLApplier{})
 }
 
-func (s *namespaceSuite) TestInitialStateSent(c *gc.C) {
+func (s *namespaceSuite) TestInitialStateSent(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
@@ -77,8 +77,8 @@ func (s *namespaceSuite) TestInitialStateSent(c *gc.C) {
 
 	select {
 	case changes := <-w.Changes():
-		c.Assert(changes, gc.HasLen, 1)
-		c.Check(changes[0], gc.Equals, "some-key")
+		c.Assert(changes, tc.HasLen, 1)
+		c.Check(changes[0], tc.Equals, "some-key")
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for initial watcher changes")
 	}
@@ -86,7 +86,7 @@ func (s *namespaceSuite) TestInitialStateSent(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *namespaceSuite) TestInitialStateSentByMapper(c *gc.C) {
+func (s *namespaceSuite) TestInitialStateSentByMapper(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
@@ -136,8 +136,8 @@ func (s *namespaceSuite) TestInitialStateSentByMapper(c *gc.C) {
 
 	select {
 	case changes := <-w.Changes():
-		c.Assert(changes, gc.HasLen, 1)
-		c.Check(changes[0], gc.Equals, "some-key")
+		c.Assert(changes, tc.HasLen, 1)
+		c.Check(changes[0], tc.Equals, "some-key")
 	case <-time.After(time.Second):
 		c.Fatal("timed out waiting for initial watcher changes")
 	}
@@ -145,7 +145,7 @@ func (s *namespaceSuite) TestInitialStateSentByMapper(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *namespaceSuite) TestDeltasSent(c *gc.C) {
+func (s *namespaceSuite) TestDeltasSent(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
@@ -183,7 +183,7 @@ func (s *namespaceSuite) TestDeltasSent(c *gc.C) {
 	// No initial data.
 	select {
 	case changes := <-w.Changes():
-		c.Assert(changes, gc.HasLen, 0)
+		c.Assert(changes, tc.HasLen, 0)
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for initial watcher changes")
 	}
@@ -200,8 +200,8 @@ func (s *namespaceSuite) TestDeltasSent(c *gc.C) {
 
 	select {
 	case changes := <-w.Changes():
-		c.Assert(changes, gc.HasLen, 1)
-		c.Check(changes[0], gc.Equals, "some-ec-uuid")
+		c.Assert(changes, tc.HasLen, 1)
+		c.Check(changes[0], tc.Equals, "some-ec-uuid")
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for watcher delta")
 	}
@@ -209,7 +209,7 @@ func (s *namespaceSuite) TestDeltasSent(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *namespaceSuite) TestDeltasSentByMapper(c *gc.C) {
+func (s *namespaceSuite) TestDeltasSentByMapper(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
@@ -254,7 +254,7 @@ func (s *namespaceSuite) TestDeltasSentByMapper(c *gc.C) {
 	// No initial data.
 	select {
 	case changes := <-w.Changes():
-		c.Assert(changes, gc.HasLen, 0)
+		c.Assert(changes, tc.HasLen, 0)
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for initial watcher changes")
 	}
@@ -271,8 +271,8 @@ func (s *namespaceSuite) TestDeltasSentByMapper(c *gc.C) {
 
 	select {
 	case changes := <-w.Changes():
-		c.Assert(changes, gc.HasLen, 1)
-		c.Check(changes[0], gc.Equals, "some-ec-uuid")
+		c.Assert(changes, tc.HasLen, 1)
+		c.Check(changes[0], tc.Equals, "some-ec-uuid")
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for watcher delta")
 	}
@@ -296,7 +296,7 @@ func (s *namespaceSuite) TestDeltasSentByMapper(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *namespaceSuite) TestDeltasSentByMapperError(c *gc.C) {
+func (s *namespaceSuite) TestDeltasSentByMapperError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
@@ -332,7 +332,7 @@ func (s *namespaceSuite) TestDeltasSentByMapperError(c *gc.C) {
 	// No initial data.
 	select {
 	case changes := <-w.Changes():
-		c.Assert(changes, gc.HasLen, 0)
+		c.Assert(changes, tc.HasLen, 0)
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for initial watcher changes")
 	}
@@ -356,10 +356,10 @@ func (s *namespaceSuite) TestDeltasSentByMapperError(c *gc.C) {
 	}
 
 	err = workertest.CheckKill(c, w)
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *namespaceSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
+func (s *namespaceSuite) TestSubscriptionDoneKillsWorker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
@@ -390,7 +390,7 @@ func (s *namespaceSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 	c.Check(err, jc.ErrorIs, ErrSubscriptionClosed)
 }
 
-func (s *namespaceSuite) TestNilOption(c *gc.C) {
+func (s *namespaceSuite) TestNilOption(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := NewNamespaceWatcher(
@@ -398,10 +398,10 @@ func (s *namespaceSuite) TestNilOption(c *gc.C) {
 		InitialNamespaceChanges("SELECT uuid FROM external_controller"),
 		nil,
 	)
-	c.Assert(err, gc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(jc.ErrorIsNil))
 }
 
-func (s *namespaceSuite) TestNilPredicate(c *gc.C) {
+func (s *namespaceSuite) TestNilPredicate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := NewNamespaceWatcher(
@@ -409,12 +409,12 @@ func (s *namespaceSuite) TestNilPredicate(c *gc.C) {
 		InitialNamespaceChanges("SELECT uuid FROM external_controller"),
 		PredicateFilter("random_namespace", changestream.All, nil),
 	)
-	c.Assert(err, gc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(jc.ErrorIsNil))
 }
 
 type schemaDDLApplier struct{}
 
-func (schemaDDLApplier) Apply(c *gc.C, ctx context.Context, runner database.TxnRunner) {
+func (schemaDDLApplier) Apply(c *tc.C, ctx context.Context, runner database.TxnRunner) {
 	schema := schema.New(
 		schema.MakePatch(`
 CREATE TABLE external_controller (

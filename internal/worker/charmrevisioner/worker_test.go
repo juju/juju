@@ -9,11 +9,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/charm"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
@@ -56,9 +56,9 @@ type WorkerSuite struct {
 	modelTag names.ModelTag
 }
 
-var _ = gc.Suite(&WorkerSuite{})
+var _ = tc.Suite(&WorkerSuite{})
 
-func (s *WorkerSuite) TestTriggerFetch(c *gc.C) {
+func (s *WorkerSuite) TestTriggerFetch(c *tc.C) {
 	// Ensure that a clock tick triggers a fetch, the testing of the fetch
 	// is done in other methods.
 
@@ -109,7 +109,7 @@ func (s *WorkerSuite) TestTriggerFetch(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) TestTriggerModelConfig(c *gc.C) {
+func (s *WorkerSuite) TestTriggerModelConfig(c *tc.C) {
 	// Ensure that a model config change triggers a new charmhub client.
 	defer s.setupMocks(c).Finish()
 
@@ -155,7 +155,7 @@ func (s *WorkerSuite) TestTriggerModelConfig(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) TestSendEmptyModelMetrics(c *gc.C) {
+func (s *WorkerSuite) TestSendEmptyModelMetrics(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectWatcher(c)
@@ -172,7 +172,7 @@ func (s *WorkerSuite) TestSendEmptyModelMetrics(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *WorkerSuite) TestSendEmptyModelMetricsFails(c *gc.C) {
+func (s *WorkerSuite) TestSendEmptyModelMetricsFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectWatcher(c)
@@ -186,10 +186,10 @@ func (s *WorkerSuite) TestSendEmptyModelMetricsFails(c *gc.C) {
 	s.ensureStartup(c)
 
 	err := w.sendEmptyModelMetrics(context.Background(), s.charmhubClient, true)
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *WorkerSuite) TestSendEmptyModelMetricsWithNoTelemetry(c *gc.C) {
+func (s *WorkerSuite) TestSendEmptyModelMetricsWithNoTelemetry(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectWatcher(c)
@@ -206,7 +206,7 @@ func (s *WorkerSuite) TestSendEmptyModelMetricsWithNoTelemetry(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *WorkerSuite) TestFetch(c *gc.C) {
+func (s *WorkerSuite) TestFetch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectWatcher(c)
@@ -291,7 +291,7 @@ func (s *WorkerSuite) TestFetch(c *gc.C) {
 	}})
 }
 
-func (s *WorkerSuite) TestFetchInfo(c *gc.C) {
+func (s *WorkerSuite) TestFetchInfo(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectWatcher(c)
@@ -395,7 +395,7 @@ func (s *WorkerSuite) TestFetchInfo(c *gc.C) {
 	}})
 }
 
-func (s *WorkerSuite) TestFetchInfoInvalidResponseLength(c *gc.C) {
+func (s *WorkerSuite) TestFetchInfoInvalidResponseLength(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectWatcher(c)
@@ -469,10 +469,10 @@ func (s *WorkerSuite) TestFetchInfoInvalidResponseLength(c *gc.C) {
 	s.ensureStartup(c)
 
 	_, err = w.fetchInfo(context.Background(), s.charmhubClient, true, ids, apps)
-	c.Assert(err, gc.ErrorMatches, `expected 0 responses, got 1`)
+	c.Assert(err, tc.ErrorMatches, `expected 0 responses, got 1`)
 }
 
-func (s *WorkerSuite) TestRequest(c *gc.C) {
+func (s *WorkerSuite) TestRequest(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectWatcher(c)
@@ -553,7 +553,7 @@ func (s *WorkerSuite) TestRequest(c *gc.C) {
 	}})
 }
 
-func (s *WorkerSuite) TestRequestWithResources(c *gc.C) {
+func (s *WorkerSuite) TestRequestWithResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectWatcher(c)
@@ -654,7 +654,7 @@ func (s *WorkerSuite) TestRequestWithResources(c *gc.C) {
 	}})
 }
 
-func (s *WorkerSuite) TestRequestWithError(c *gc.C) {
+func (s *WorkerSuite) TestRequestWithError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectWatcher(c)
@@ -708,10 +708,10 @@ func (s *WorkerSuite) TestRequestWithError(c *gc.C) {
 	s.ensureStartup(c)
 
 	_, err := w.request(context.Background(), s.charmhubClient, metrics, ids)
-	c.Assert(err, gc.ErrorMatches, "*api-error: boom")
+	c.Assert(err, tc.ErrorMatches, "*api-error: boom")
 }
 
-func (s *WorkerSuite) TestStoreNewRevisionsNoUpdates(c *gc.C) {
+func (s *WorkerSuite) TestStoreNewRevisionsNoUpdates(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectWatcher(c)
@@ -728,7 +728,7 @@ func (s *WorkerSuite) TestStoreNewRevisionsNoUpdates(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *WorkerSuite) TestStoreNewCharmRevisionsNoResource(c *gc.C) {
+func (s *WorkerSuite) TestStoreNewCharmRevisionsNoResource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectWatcher(c)
@@ -796,7 +796,7 @@ func (s *WorkerSuite) TestStoreNewCharmRevisionsNoResource(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *WorkerSuite) TestStoreNewCharmRevisionsError(c *gc.C) {
+func (s *WorkerSuite) TestStoreNewCharmRevisionsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectWatcher(c)
@@ -819,10 +819,10 @@ func (s *WorkerSuite) TestStoreNewCharmRevisionsError(c *gc.C) {
 	s.ensureStartup(c)
 
 	err := w.storeNewRevisions(context.Background(), latestCharmInfos)
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *WorkerSuite) TestStoreNewResourceRevisions(c *gc.C) {
+func (s *WorkerSuite) TestStoreNewResourceRevisions(c *tc.C) {
 	// Arrange: create two application with new resources from charm
 	defer s.setupMocks(c).Finish()
 
@@ -879,7 +879,7 @@ func (s *WorkerSuite) TestStoreNewResourceRevisions(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *WorkerSuite) TestStoreNewResourceRevisionsWithApplicationNotFound(c *gc.C) {
+func (s *WorkerSuite) TestStoreNewResourceRevisionsWithApplicationNotFound(c *tc.C) {
 	// Arrange: create two application with new resources from charm
 	defer s.setupMocks(c).Finish()
 
@@ -930,7 +930,7 @@ func (s *WorkerSuite) TestStoreNewResourceRevisionsWithApplicationNotFound(c *gc
 	c.Check(c.GetTestLog(), jc.Contains, `failed to get application ID for "not-found"`)
 }
 
-func (s *WorkerSuite) TestStoreNewResourceRevisionsErrorGetApplicationID(c *gc.C) {
+func (s *WorkerSuite) TestStoreNewResourceRevisionsErrorGetApplicationID(c *tc.C) {
 	// Arrange: create two application with new resources from charm
 	defer s.setupMocks(c).Finish()
 
@@ -964,7 +964,7 @@ func (s *WorkerSuite) TestStoreNewResourceRevisionsErrorGetApplicationID(c *gc.C
 	c.Assert(err, jc.ErrorIs, expectedError)
 }
 
-func (s *WorkerSuite) TestStoreNewResourceRevisionsErrorStoreRepositoryResources(c *gc.C) {
+func (s *WorkerSuite) TestStoreNewResourceRevisionsErrorStoreRepositoryResources(c *tc.C) {
 	// Arrange: create two application with new resources from charm
 	defer s.setupMocks(c).Finish()
 
@@ -998,7 +998,7 @@ func (s *WorkerSuite) TestStoreNewResourceRevisionsErrorStoreRepositoryResources
 	c.Assert(err, jc.ErrorIs, expectedError)
 }
 
-func (s *WorkerSuite) TestEncodeCharmID(c *gc.C) {
+func (s *WorkerSuite) TestEncodeCharmID(c *tc.C) {
 	modelTag := names.NewModelTag(uuid.MustNewUUID().String())
 	id, err := encodeCharmhubID(application.RevisionUpdaterApplication{
 		Name: "foo",
@@ -1026,7 +1026,7 @@ func (s *WorkerSuite) TestEncodeCharmID(c *gc.C) {
 	}, modelTag)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(id, gc.DeepEquals, charmhubID{
+	c.Check(id, tc.DeepEquals, charmhubID{
 		id:          "abc123",
 		revision:    42,
 		channel:     "track/stable/branch",
@@ -1038,15 +1038,15 @@ func (s *WorkerSuite) TestEncodeCharmID(c *gc.C) {
 	})
 }
 
-func (s *WorkerSuite) TestEncodeCharmIDInvalidApplicationTag(c *gc.C) {
+func (s *WorkerSuite) TestEncodeCharmIDInvalidApplicationTag(c *tc.C) {
 	modelTag := names.NewModelTag(uuid.MustNewUUID().String())
 	_, err := encodeCharmhubID(application.RevisionUpdaterApplication{
 		Name: "!foo",
 	}, modelTag)
-	c.Assert(err, gc.ErrorMatches, `invalid application name "!foo"`)
+	c.Assert(err, tc.ErrorMatches, `invalid application name "!foo"`)
 }
 
-func (s *WorkerSuite) TestEncodeCharmIDInvalidRisk(c *gc.C) {
+func (s *WorkerSuite) TestEncodeCharmIDInvalidRisk(c *tc.C) {
 	modelTag := names.NewModelTag(uuid.MustNewUUID().String())
 	_, err := encodeCharmhubID(application.RevisionUpdaterApplication{
 		Name: "application-foo",
@@ -1059,10 +1059,10 @@ func (s *WorkerSuite) TestEncodeCharmIDInvalidRisk(c *gc.C) {
 			},
 		},
 	}, modelTag)
-	c.Assert(err, gc.ErrorMatches, `encoding channel risk: unsupported risk blah`)
+	c.Assert(err, tc.ErrorMatches, `encoding channel risk: unsupported risk blah`)
 }
 
-func (s *WorkerSuite) TestEncodeCharmIDInvalidArchitecture(c *gc.C) {
+func (s *WorkerSuite) TestEncodeCharmIDInvalidArchitecture(c *tc.C) {
 	modelTag := names.NewModelTag(uuid.MustNewUUID().String())
 	_, err := encodeCharmhubID(application.RevisionUpdaterApplication{
 		Name: "application-foo",
@@ -1078,10 +1078,10 @@ func (s *WorkerSuite) TestEncodeCharmIDInvalidArchitecture(c *gc.C) {
 			},
 		},
 	}, modelTag)
-	c.Assert(err, gc.ErrorMatches, `encoding architecture: .*`)
+	c.Assert(err, tc.ErrorMatches, `encoding architecture: .*`)
 }
 
-func (s *WorkerSuite) TestEncodeCharmIDInvalidOSType(c *gc.C) {
+func (s *WorkerSuite) TestEncodeCharmIDInvalidOSType(c *tc.C) {
 	modelTag := names.NewModelTag(uuid.MustNewUUID().String())
 	_, err := encodeCharmhubID(application.RevisionUpdaterApplication{
 		Name: "application-foo",
@@ -1098,10 +1098,10 @@ func (s *WorkerSuite) TestEncodeCharmIDInvalidOSType(c *gc.C) {
 			},
 		},
 	}, modelTag)
-	c.Assert(err, gc.ErrorMatches, `encoding os type: .*`)
+	c.Assert(err, tc.ErrorMatches, `encoding os type: .*`)
 }
 
-func (s *WorkerSuite) TestEncodeArchitecture(c *gc.C) {
+func (s *WorkerSuite) TestEncodeArchitecture(c *tc.C) {
 	tests := []struct {
 		value    architecture.Architecture
 		expected string
@@ -1133,11 +1133,11 @@ func (s *WorkerSuite) TestEncodeArchitecture(c *gc.C) {
 
 		got, err := encodeArchitecture(test.value)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(got, gc.Equals, test.expected)
+		c.Check(got, tc.Equals, test.expected)
 	}
 }
 
-func (s *WorkerSuite) TestEncodeRisk(c *gc.C) {
+func (s *WorkerSuite) TestEncodeRisk(c *tc.C) {
 	tests := []struct {
 		value    deployment.ChannelRisk
 		expected string
@@ -1165,11 +1165,11 @@ func (s *WorkerSuite) TestEncodeRisk(c *gc.C) {
 
 		got, err := encodeRisk(test.value)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(got, gc.Equals, test.expected)
+		c.Check(got, tc.Equals, test.expected)
 	}
 }
 
-func (s *WorkerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *WorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	// Ensure we buffer the channel, this is because we might miss the
@@ -1192,7 +1192,7 @@ func (s *WorkerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *WorkerSuite) newWorker(c *gc.C) *revisionUpdateWorker {
+func (s *WorkerSuite) newWorker(c *tc.C) *revisionUpdateWorker {
 	w, err := newWorker(Config{
 		ModelConfigService: s.modelConfigService,
 		ApplicationService: s.applicationService,
@@ -1214,7 +1214,7 @@ func (s *WorkerSuite) newWorker(c *gc.C) *revisionUpdateWorker {
 	return w.(*revisionUpdateWorker)
 }
 
-func (s *WorkerSuite) expectWatcher(c *gc.C) {
+func (s *WorkerSuite) expectWatcher(c *tc.C) {
 	ch := make(chan []string)
 	watcher := watchertest.NewMockStringsWatcher(ch)
 	s.modelConfigService.EXPECT().Watch().Return(watcher, nil)
@@ -1223,11 +1223,11 @@ func (s *WorkerSuite) expectWatcher(c *gc.C) {
 	})
 }
 
-func (s *WorkerSuite) expectModelConfig(c *gc.C) {
+func (s *WorkerSuite) expectModelConfig(c *tc.C) {
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(&config.Config{}, nil)
 }
 
-func (s *WorkerSuite) expectSendEmptyModelMetrics(c *gc.C) {
+func (s *WorkerSuite) expectSendEmptyModelMetrics(c *tc.C) {
 	model := coremodel.ModelInfo{
 		UUID:           modeltesting.GenModelUUID(c),
 		ControllerUUID: uuid.MustNewUUID(),
@@ -1263,10 +1263,10 @@ func (s *WorkerSuite) expectSendEmptyModelMetrics(c *gc.C) {
 	s.charmhubClient.EXPECT().RefreshWithMetricsOnly(gomock.Any(), metrics).Return(nil)
 }
 
-func (s *WorkerSuite) ensureStartup(c *gc.C) {
+func (s *WorkerSuite) ensureStartup(c *tc.C) {
 	select {
 	case state := <-s.states:
-		c.Assert(state, gc.Equals, stateStarted)
+		c.Assert(state, tc.Equals, stateStarted)
 	case <-time.After(testing.ShortWait * 10):
 		c.Fatalf("timed out waiting for startup")
 	}

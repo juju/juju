@@ -9,10 +9,10 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coremodel "github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
@@ -25,9 +25,9 @@ type importSuite struct {
 	importService *MockImportService
 }
 
-var _ = gc.Suite(&importSuite{})
+var _ = tc.Suite(&importSuite{})
 
-func (s *importSuite) TestImportBlank(c *gc.C) {
+func (s *importSuite) TestImportBlank(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{})
@@ -43,7 +43,7 @@ func (s *importSuite) TestImportBlank(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *importSuite) TestImportApplicationStatus(c *gc.C) {
+func (s *importSuite) TestImportApplicationStatus(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	now := time.Now().UTC()
@@ -77,7 +77,7 @@ func (s *importSuite) TestImportApplicationStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *importSuite) TestImportUnitStatus(c *gc.C) {
+func (s *importSuite) TestImportUnitStatus(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	now := time.Now().UTC()
@@ -157,7 +157,7 @@ func (s *importSuite) TestImportUnitStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *importSuite) TestImportRelationStatus(c *gc.C) {
+func (s *importSuite) TestImportRelationStatus(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	clock := clock.WallClock
@@ -207,7 +207,7 @@ func (s *importSuite) TestImportRelationStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *importSuite) setUpMocks(c *gc.C) *gomock.Controller {
+func (s *importSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.importService = NewMockImportService(ctrl)

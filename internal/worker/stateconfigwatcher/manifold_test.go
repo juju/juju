@@ -9,13 +9,13 @@ import (
 	"time"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
-	gc "gopkg.in/check.v1"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
@@ -31,9 +31,9 @@ type ManifoldSuite struct {
 	manifold           dependency.Manifold
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+var _ = tc.Suite(&ManifoldSuite{})
 
-func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.agent = new(mockAgent)
@@ -51,55 +51,55 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *ManifoldSuite) TestInputs(c *gc.C) {
+func (s *ManifoldSuite) TestInputs(c *tc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, []string{"agent"})
 }
 
-func (s *ManifoldSuite) TestNoAgent(c *gc.C) {
+func (s *ManifoldSuite) TestNoAgent(c *tc.C) {
 	getter := dt.StubGetter(map[string]interface{}{
 		"agent": dependency.ErrMissing,
 	})
 	_, err := s.manifold.Start(context.Background(), getter)
-	c.Assert(err, gc.Equals, dependency.ErrMissing)
+	c.Assert(err, tc.Equals, dependency.ErrMissing)
 }
 
-func (s *ManifoldSuite) TestNilAgentConfigChanged(c *gc.C) {
+func (s *ManifoldSuite) TestNilAgentConfigChanged(c *tc.C) {
 	manifold := stateconfigwatcher.Manifold(stateconfigwatcher.ManifoldConfig{
 		AgentName: "agent",
 	})
 	_, err := manifold.Start(context.Background(), s.getter)
-	c.Assert(err, gc.ErrorMatches, "nil AgentConfigChanged .+")
+	c.Assert(err, tc.ErrorMatches, "nil AgentConfigChanged .+")
 }
 
-func (s *ManifoldSuite) TestNotMachineAgent(c *gc.C) {
+func (s *ManifoldSuite) TestNotMachineAgent(c *tc.C) {
 	s.agent.conf.tag = names.NewUnitTag("foo/0")
 	_, err := s.manifold.Start(context.Background(), s.getter)
-	c.Assert(err, gc.ErrorMatches, "manifold can only be used with a machine or controller agent")
+	c.Assert(err, tc.ErrorMatches, "manifold can only be used with a machine or controller agent")
 }
 
-func (s *ManifoldSuite) TestStart(c *gc.C) {
+func (s *ManifoldSuite) TestStart(c *tc.C) {
 	w, err := s.manifold.Start(context.Background(), s.getter)
 	c.Assert(err, jc.ErrorIsNil)
 	checkStop(c, w)
 }
 
-func (s *ManifoldSuite) TestOutputBadWorker(c *gc.C) {
+func (s *ManifoldSuite) TestOutputBadWorker(c *tc.C) {
 	var out bool
 	err := s.manifold.Output(dummyWorker{}, &out)
-	c.Check(err, gc.ErrorMatches, `in should be a \*stateconfigwatcher.stateConfigWatcher; .+`)
+	c.Check(err, tc.ErrorMatches, `in should be a \*stateconfigwatcher.stateConfigWatcher; .+`)
 }
 
-func (s *ManifoldSuite) TestOutputWrongType(c *gc.C) {
+func (s *ManifoldSuite) TestOutputWrongType(c *tc.C) {
 	w, err := s.manifold.Start(context.Background(), s.getter)
 	c.Assert(err, jc.ErrorIsNil)
 	defer checkStop(c, w)
 
 	var out int
 	err = s.manifold.Output(w, &out)
-	c.Check(err, gc.ErrorMatches, `out should be \*bool; got .+`)
+	c.Check(err, tc.ErrorMatches, `out should be \*bool; got .+`)
 }
 
-func (s *ManifoldSuite) TestOutputSuccessNotStateServer(c *gc.C) {
+func (s *ManifoldSuite) TestOutputSuccessNotStateServer(c *tc.C) {
 	s.agent.conf.setStateServingInfo(false)
 	w, err := s.manifold.Start(context.Background(), s.getter)
 	c.Assert(err, jc.ErrorIsNil)
@@ -111,7 +111,7 @@ func (s *ManifoldSuite) TestOutputSuccessNotStateServer(c *gc.C) {
 	c.Check(out, jc.IsFalse)
 }
 
-func (s *ManifoldSuite) TestOutputSuccessStateServer(c *gc.C) {
+func (s *ManifoldSuite) TestOutputSuccessStateServer(c *tc.C) {
 	s.agent.conf.setStateServingInfo(true)
 	w, err := s.manifold.Start(context.Background(), s.getter)
 	c.Assert(err, jc.ErrorIsNil)
@@ -123,7 +123,7 @@ func (s *ManifoldSuite) TestOutputSuccessStateServer(c *gc.C) {
 	c.Check(out, jc.IsTrue)
 }
 
-func (s *ManifoldSuite) TestBounceOnChange(c *gc.C) {
+func (s *ManifoldSuite) TestBounceOnChange(c *tc.C) {
 	s.agent.conf.setStateServingInfo(false)
 	w, err := s.manifold.Start(context.Background(), s.getter)
 	c.Assert(err, jc.ErrorIsNil)
@@ -133,7 +133,7 @@ func (s *ManifoldSuite) TestBounceOnChange(c *gc.C) {
 		var out bool
 		err = s.manifold.Output(w, &out)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(out, gc.Equals, expected)
+		c.Check(out, tc.Equals, expected)
 	}
 
 	// Not a state server yet, initial output should be False.
@@ -169,22 +169,22 @@ func (s *ManifoldSuite) TestBounceOnChange(c *gc.C) {
 	checkExitsWithError(c, w, dependency.ErrBounce)
 }
 
-func (s *ManifoldSuite) TestClosedVoyeur(c *gc.C) {
+func (s *ManifoldSuite) TestClosedVoyeur(c *tc.C) {
 	w, err := s.manifold.Start(context.Background(), s.getter)
 	c.Assert(err, jc.ErrorIsNil)
 	checkNotExiting(c, w)
 
 	s.agentConfigChanged.Close()
 
-	c.Check(waitForExit(c, w), gc.ErrorMatches, "config changed value closed")
+	c.Check(waitForExit(c, w), tc.ErrorMatches, "config changed value closed")
 }
 
-func checkStop(c *gc.C, w worker.Worker) {
+func checkStop(c *tc.C, w worker.Worker) {
 	err := worker.Stop(w)
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func checkNotExiting(c *gc.C, w worker.Worker) {
+func checkNotExiting(c *tc.C, w worker.Worker) {
 	exited := make(chan bool)
 	go func() {
 		w.Wait()
@@ -199,11 +199,11 @@ func checkNotExiting(c *gc.C, w worker.Worker) {
 	}
 }
 
-func checkExitsWithError(c *gc.C, w worker.Worker, expectedErr error) {
-	c.Check(waitForExit(c, w), gc.Equals, expectedErr)
+func checkExitsWithError(c *tc.C, w worker.Worker, expectedErr error) {
+	c.Check(waitForExit(c, w), tc.Equals, expectedErr)
 }
 
-func waitForExit(c *gc.C, w worker.Worker) error {
+func waitForExit(c *tc.C, w worker.Worker) error {
 	errCh := make(chan error)
 	go func() {
 		errCh <- w.Wait()

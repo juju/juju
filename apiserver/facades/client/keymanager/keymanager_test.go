@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -36,7 +36,7 @@ type keyManagerSuite struct {
 }
 
 var (
-	_ = gc.Suite(&keyManagerSuite{})
+	_ = tc.Suite(&keyManagerSuite{})
 
 	// testingPublicKeys represents a set of keys that can be used and are valid.
 	testingPublicKeys = []string{
@@ -51,7 +51,7 @@ var (
 	}
 )
 
-func genListPublicKey(c *gc.C, keys []string) []coressh.PublicKey {
+func genListPublicKey(c *tc.C, keys []string) []coressh.PublicKey {
 	rval := make([]coressh.PublicKey, 0, len(keys))
 	for _, key := range keys {
 		parsedKey, err := ssh.ParsePublicKey(key)
@@ -65,13 +65,13 @@ func genListPublicKey(c *gc.C, keys []string) []coressh.PublicKey {
 	return rval
 }
 
-func (s *keyManagerSuite) SetUpTest(c *gc.C) {
+func (s *keyManagerSuite) SetUpTest(c *tc.C) {
 	s.apiUser = names.NewUserTag("admin")
 	s.modelID = modeltesting.GenModelUUID(c)
 	s.controllerUUID = "controller"
 }
 
-func (s *keyManagerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *keyManagerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.blockChecker = NewMockBlockChecker(ctrl)
 	s.keyManagerService = NewMockKeyManagerService(ctrl)
@@ -84,7 +84,7 @@ func (s *keyManagerSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 // TestListKeysForUserNotFound is asserting that if we attempt to list keys for
 // a user that doesn't exist we get back a [params.CodeUserNotFound] error.
-func (s *keyManagerSuite) TestListKeysForUserNotFound(c *gc.C) {
+func (s *keyManagerSuite) TestListKeysForUserNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.userService.EXPECT().GetUserByName(gomock.Any(), coreuser.AdminUserName).Return(
@@ -110,7 +110,7 @@ func (s *keyManagerSuite) TestListKeysForUserNotFound(c *gc.C) {
 
 	results, err := api.ListKeys(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.StringsResults{
+	c.Assert(results, tc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
 			{
 				Error: &params.Error{
@@ -129,7 +129,7 @@ func (s *keyManagerSuite) TestListKeysForUserNotFound(c *gc.C) {
 //
 // We are also asserting that the results are passed back in the same order that
 // they are received.
-func (s *keyManagerSuite) TestListKeys(c *gc.C) {
+func (s *keyManagerSuite) TestListKeys(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	userID := usertesting.GenUserUUID(c)
@@ -161,7 +161,7 @@ func (s *keyManagerSuite) TestListKeys(c *gc.C) {
 
 	results, err := api.ListKeys(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.StringsResults{
+	c.Assert(results, tc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
 			{
 				Result: testingPublicKeys,
@@ -172,7 +172,7 @@ func (s *keyManagerSuite) TestListKeys(c *gc.C) {
 
 // TestListKeysFingerprintMode is testing that when the list mode is set to
 // fingerprint we get back the ssh public key fingerprints.
-func (s *keyManagerSuite) TestListKeysFingerprintMode(c *gc.C) {
+func (s *keyManagerSuite) TestListKeysFingerprintMode(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	userID := usertesting.GenUserUUID(c)
@@ -209,7 +209,7 @@ func (s *keyManagerSuite) TestListKeysFingerprintMode(c *gc.C) {
 
 	results, err := api.ListKeys(context.Background(), args)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(results, gc.DeepEquals, params.StringsResults{
+	c.Check(results, tc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
 			{
 				Result: fingerprints,
@@ -220,7 +220,7 @@ func (s *keyManagerSuite) TestListKeysFingerprintMode(c *gc.C) {
 
 // TestListKeysNoPermissions is testing that if a user doesn't have at least
 // read permission on to the model that we get back a permission denied error.
-func (s *keyManagerSuite) TestListKeysNoPermission(c *gc.C) {
+func (s *keyManagerSuite) TestListKeysNoPermission(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	userTag := names.NewUserTag("tlm")
@@ -251,7 +251,7 @@ func (s *keyManagerSuite) TestListKeysNoPermission(c *gc.C) {
 }
 
 // TestAddKeysForUser is here to assert the happy path of adding keys for a user.
-func (s *keyManagerSuite) TestAddKeysForUser(c *gc.C) {
+func (s *keyManagerSuite) TestAddKeysForUser(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	userID := usertesting.GenUserUUID(c)
@@ -287,7 +287,7 @@ func (s *keyManagerSuite) TestAddKeysForUser(c *gc.C) {
 
 // TestAddKeysSuperUser is testing that a user with superuser permissions can
 // add keys to the model.
-func (s *keyManagerSuite) TestAddKeysSuperUser(c *gc.C) {
+func (s *keyManagerSuite) TestAddKeysSuperUser(c *tc.C) {
 	s.apiUser = names.NewUserTag("superuser-fred")
 	defer s.setupMocks(c).Finish()
 
@@ -324,7 +324,7 @@ func (s *keyManagerSuite) TestAddKeysSuperUser(c *gc.C) {
 
 // TestAddKeysModelAdmin is testing that model admin's have permissions to add
 // public keys.
-func (s *keyManagerSuite) TestAddKeysModelAdmin(c *gc.C) {
+func (s *keyManagerSuite) TestAddKeysModelAdmin(c *tc.C) {
 	s.apiUser = names.NewUserTag("admin-" + names.NewModelTag(s.modelID.String()).String())
 	defer s.setupMocks(c).Finish()
 
@@ -361,7 +361,7 @@ func (s *keyManagerSuite) TestAddKeysModelAdmin(c *gc.C) {
 
 // TestAddKeysNonAuthorised is testing that if a user that isn't authorised for
 // adding keys to a model attempts to add keys they get back a permission error.
-func (s *keyManagerSuite) TestAddKeysNonAuthorised(c *gc.C) {
+func (s *keyManagerSuite) TestAddKeysNonAuthorised(c *tc.C) {
 	s.apiUser = names.NewUserTag("tlm")
 	defer s.setupMocks(c).Finish()
 
@@ -388,7 +388,7 @@ func (s *keyManagerSuite) TestAddKeysNonAuthorised(c *gc.C) {
 
 // TestBlockAddKeys is testing that if a change allowed block is in place that
 // no keys can be added to the model.
-func (s *keyManagerSuite) TestBlockAddKeys(c *gc.C) {
+func (s *keyManagerSuite) TestBlockAddKeys(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(errors.OperationBlockedError("TestAddKeys"))
@@ -415,7 +415,7 @@ func (s *keyManagerSuite) TestBlockAddKeys(c *gc.C) {
 }
 
 // TestDeleteKeys is testing the happy path of deleting public keys for a user.
-func (s *keyManagerSuite) TesDeleteKeys(c *gc.C) {
+func (s *keyManagerSuite) TesDeleteKeys(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	userID := usertesting.GenUserUUID(c)
@@ -451,7 +451,7 @@ func (s *keyManagerSuite) TesDeleteKeys(c *gc.C) {
 
 // TestDeleteKeysSuperUser is asserting that a super user can remove public ssh
 // keys for a model.
-func (s *keyManagerSuite) TestDeleteKeysSuperUser(c *gc.C) {
+func (s *keyManagerSuite) TestDeleteKeysSuperUser(c *tc.C) {
 	s.apiUser = names.NewUserTag("superuser-fred")
 	defer s.setupMocks(c).Finish()
 
@@ -488,7 +488,7 @@ func (s *keyManagerSuite) TestDeleteKeysSuperUser(c *gc.C) {
 
 // TestDeleteKeysModelAdmin is asserting that model admins can removed public
 // ssh keys from the model.
-func (s *keyManagerSuite) TestDeleteKeysModelAdmin(c *gc.C) {
+func (s *keyManagerSuite) TestDeleteKeysModelAdmin(c *tc.C) {
 	s.apiUser = names.NewUserTag("admin" + names.NewModelTag(s.modelID.String()).String())
 	defer s.setupMocks(c).Finish()
 
@@ -526,7 +526,7 @@ func (s *keyManagerSuite) TestDeleteKeysModelAdmin(c *gc.C) {
 // TestDeleteKeysNonAuthorised is asserting that user that is not authorised for
 // writing to a model cannot not remove keys from the model and receives an
 // unauthorized error.
-func (s *keyManagerSuite) TestDeleteKeysNonAuthorised(c *gc.C) {
+func (s *keyManagerSuite) TestDeleteKeysNonAuthorised(c *tc.C) {
 	s.apiUser = names.NewUserTag("tlm")
 	defer s.setupMocks(c).Finish()
 
@@ -554,7 +554,7 @@ func (s *keyManagerSuite) TestDeleteKeysNonAuthorised(c *gc.C) {
 // TestBlockDeleteKeys is testing that if we try and delete any model keys while
 // a remove block is in place the operation results in a operation blocked
 // error.
-func (s *keyManagerSuite) TestBlockDeleteKeys(c *gc.C) {
+func (s *keyManagerSuite) TestBlockDeleteKeys(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.blockChecker.EXPECT().RemoveAllowed(gomock.Any()).Return(errors.OperationBlockedError("TestDeleteKeys"))

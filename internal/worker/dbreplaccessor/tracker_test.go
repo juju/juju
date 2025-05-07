@@ -10,10 +10,10 @@ import (
 	time "time"
 
 	sqlair "github.com/canonical/sqlair"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/testing"
 )
@@ -24,9 +24,9 @@ type trackedDBReplWorkerSuite struct {
 	states chan string
 }
 
-var _ = gc.Suite(&trackedDBReplWorkerSuite{})
+var _ = tc.Suite(&trackedDBReplWorkerSuite{})
 
-func (s *trackedDBReplWorkerSuite) TestWorkerStartup(c *gc.C) {
+func (s *trackedDBReplWorkerSuite) TestWorkerStartup(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -39,7 +39,7 @@ func (s *trackedDBReplWorkerSuite) TestWorkerStartup(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *trackedDBReplWorkerSuite) TestWorkerDBIsNotNil(c *gc.C) {
+func (s *trackedDBReplWorkerSuite) TestWorkerDBIsNotNil(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -61,7 +61,7 @@ func (s *trackedDBReplWorkerSuite) TestWorkerDBIsNotNil(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *trackedDBReplWorkerSuite) TestWorkerStdTxnIsNotNil(c *gc.C) {
+func (s *trackedDBReplWorkerSuite) TestWorkerStdTxnIsNotNil(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -92,7 +92,7 @@ func (s *trackedDBReplWorkerSuite) TestWorkerStdTxnIsNotNil(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *trackedDBReplWorkerSuite) TestWorkerTxnIsNotNil(c *gc.C) {
+func (s *trackedDBReplWorkerSuite) TestWorkerTxnIsNotNil(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()

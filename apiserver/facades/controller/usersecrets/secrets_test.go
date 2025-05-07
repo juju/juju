@@ -6,10 +6,10 @@ package usersecrets_test
 import (
 	"context"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/usersecrets"
@@ -29,9 +29,9 @@ type userSecretsSuite struct {
 	watcherRegistry *facademocks.MockWatcherRegistry
 }
 
-var _ = gc.Suite(&userSecretsSuite{})
+var _ = tc.Suite(&userSecretsSuite{})
 
-func (s *userSecretsSuite) setup(c *gc.C) *gomock.Controller {
+func (s *userSecretsSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
@@ -47,7 +47,7 @@ func (s *userSecretsSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *userSecretsSuite) TestWatchRevisionsToPrune(c *gc.C) {
+func (s *userSecretsSuite) TestWatchRevisionsToPrune(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.secretService.EXPECT().WatchObsoleteUserSecretsToPrune(gomock.Any()).Return(s.watcher, nil)
@@ -64,7 +64,7 @@ func (s *userSecretsSuite) TestWatchRevisionsToPrune(c *gc.C) {
 	})
 }
 
-func (s *userSecretsSuite) TestDeleteRevisionsAutoPruneEnabled(c *gc.C) {
+func (s *userSecretsSuite) TestDeleteRevisionsAutoPruneEnabled(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.secretService.EXPECT().DeleteObsoleteUserSecretRevisions(gomock.Any()).Return(nil)

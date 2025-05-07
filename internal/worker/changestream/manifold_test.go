@@ -6,8 +6,8 @@ package changestream
 import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
@@ -18,9 +18,9 @@ type manifoldSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&manifoldSuite{})
+var _ = tc.Suite(&manifoldSuite{})
 
-func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
+func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.getConfig(c)
@@ -54,7 +54,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
-func (s *manifoldSuite) getConfig(c *gc.C) ManifoldConfig {
+func (s *manifoldSuite) getConfig(c *tc.C) ManifoldConfig {
 	return ManifoldConfig{
 		AgentName:            "agent",
 		DBAccessor:           "dbaccessor",

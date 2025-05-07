@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/naturalsort"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -18,29 +18,29 @@ import (
 
 type modelSuite struct{}
 
-var _ = gc.Suite(&modelSuite{})
+var _ = tc.Suite(&modelSuite{})
 
-func (*modelSuite) TestEmtpyModel(c *gc.C) {
+func (*modelSuite) TestEmtpyModel(c *tc.C) {
 	model := &Model{}
-	c.Check(model.GetApplication("foo"), gc.IsNil)
+	c.Check(model.GetApplication("foo"), tc.IsNil)
 	c.Check(model.HasRelation("a", "b", "c", "d"), jc.IsFalse)
 	machines := model.unitMachinesWithoutApp("foo", "bar", "")
-	c.Check(machines, gc.HasLen, 0)
-	c.Check(machines, gc.NotNil)
+	c.Check(machines, tc.HasLen, 0)
+	c.Check(machines, tc.NotNil)
 }
 
-func (*modelSuite) TestGetApplication(c *gc.C) {
+func (*modelSuite) TestGetApplication(c *tc.C) {
 	app := &Application{Name: "foo"}
 	model := &Model{Applications: map[string]*Application{"foo": app}}
 	c.Assert(model.GetApplication("foo"), jc.DeepEquals, app)
 }
 
-func (*modelSuite) TestHasCharmNilApplications(c *gc.C) {
+func (*modelSuite) TestHasCharmNilApplications(c *tc.C) {
 	model := &Model{}
 	c.Assert(model.hasCharm("foo", -1), jc.IsFalse)
 }
 
-func (*modelSuite) TestHasCharm(c *gc.C) {
+func (*modelSuite) TestHasCharm(c *tc.C) {
 	app := &Application{
 		Name:     "foo",
 		Charm:    "ch:foo",
@@ -55,7 +55,7 @@ func (*modelSuite) TestHasCharm(c *gc.C) {
 	c.Assert(model.hasCharm("ch:foo", -1), jc.IsTrue)
 }
 
-func (*modelSuite) TestHasRelation(c *gc.C) {
+func (*modelSuite) TestHasRelation(c *tc.C) {
 	model := &Model{
 		Relations: []Relation{
 			{
@@ -71,7 +71,7 @@ func (*modelSuite) TestHasRelation(c *gc.C) {
 	c.Check(model.HasRelation("postgresql", "db", "django", "pgsql"), jc.IsTrue)
 }
 
-func (*modelSuite) TestUnitMachinesWithoutAppSourceNoTarget(c *gc.C) {
+func (*modelSuite) TestUnitMachinesWithoutAppSourceNoTarget(c *tc.C) {
 	model := &Model{
 		Applications: map[string]*Application{
 			"django": {
@@ -88,7 +88,7 @@ func (*modelSuite) TestUnitMachinesWithoutAppSourceNoTarget(c *gc.C) {
 	c.Check(machines, jc.DeepEquals, []string{"0", "2", "10"})
 }
 
-func (*modelSuite) TestUnitMachinesWithoutAppSourceAllTarget(c *gc.C) {
+func (*modelSuite) TestUnitMachinesWithoutAppSourceAllTarget(c *tc.C) {
 	model := &Model{
 		Applications: map[string]*Application{
 			"django": {
@@ -109,11 +109,11 @@ func (*modelSuite) TestUnitMachinesWithoutAppSourceAllTarget(c *gc.C) {
 		},
 	}
 	machines := model.unitMachinesWithoutApp("django", "nginx", "")
-	c.Check(machines, gc.HasLen, 0)
-	c.Check(machines, gc.NotNil)
+	c.Check(machines, tc.HasLen, 0)
+	c.Check(machines, tc.NotNil)
 }
 
-func (*modelSuite) TestMachineHasApp(c *gc.C) {
+func (*modelSuite) TestMachineHasApp(c *tc.C) {
 	model := &Model{
 		Applications: map[string]*Application{
 			"django": {
@@ -140,7 +140,7 @@ func (*modelSuite) TestMachineHasApp(c *gc.C) {
 	c.Check(model.machineHasApp("2", "nginx", "lxd"), jc.IsTrue)
 }
 
-func (*modelSuite) TestUnsatisfiedMachineAndUnitPlacement(c *gc.C) {
+func (*modelSuite) TestUnsatisfiedMachineAndUnitPlacement(c *tc.C) {
 	model := &Model{
 		Applications: map[string]*Application{
 			"django": {
@@ -162,7 +162,7 @@ func (*modelSuite) TestUnsatisfiedMachineAndUnitPlacement(c *gc.C) {
 	checkPlacement := func(app string, placements, expected []string) {
 		result := model.unsatisfiedMachineAndUnitPlacements(app, placements)
 		if expected == nil {
-			c.Check(result, gc.IsNil)
+			c.Check(result, tc.IsNil)
 		} else {
 			c.Check(result, jc.DeepEquals, expected)
 		}
@@ -184,7 +184,7 @@ func (*modelSuite) TestUnsatisfiedMachineAndUnitPlacement(c *gc.C) {
 	checkPlacement("django", []string{"lxd:nginx/0", "lxd:nginx/2", "lxd:nginx/3"}, []string{"lxd:nginx/3"})
 }
 
-func (*modelSuite) TestUnitMachinesWithoutAppSourceSomeTarget(c *gc.C) {
+func (*modelSuite) TestUnitMachinesWithoutAppSourceSomeTarget(c *tc.C) {
 	model := &Model{
 		Applications: map[string]*Application{
 			"django": {
@@ -209,7 +209,7 @@ func (*modelSuite) TestUnitMachinesWithoutAppSourceSomeTarget(c *gc.C) {
 	c.Check(machines, jc.DeepEquals, []string{"1", "2"})
 }
 
-func (*modelSuite) TestUnitMachinesWithoutAppSourceSomeTargetContainer(c *gc.C) {
+func (*modelSuite) TestUnitMachinesWithoutAppSourceSomeTargetContainer(c *tc.C) {
 	model := &Model{
 		Applications: map[string]*Application{
 			"django": {
@@ -239,7 +239,7 @@ func (*modelSuite) TestUnitMachinesWithoutAppSourceSomeTargetContainer(c *gc.C) 
 	c.Check(machines, jc.DeepEquals, []string{"0", "4"})
 }
 
-func (*modelSuite) TestBundleMachineMapped(c *gc.C) {
+func (*modelSuite) TestBundleMachineMapped(c *tc.C) {
 	model := &Model{
 		Applications: map[string]*Application{
 			"mysql": {
@@ -259,11 +259,11 @@ func (*modelSuite) TestBundleMachineMapped(c *gc.C) {
 		},
 	}
 	machine := model.BundleMachine("0")
-	c.Assert(machine, gc.NotNil)
-	c.Assert(machine.ID, gc.Equals, "2")
+	c.Assert(machine, tc.NotNil)
+	c.Assert(machine.ID, tc.Equals, "2")
 }
 
-func (*modelSuite) TestBundleMachineNotMapped(c *gc.C) {
+func (*modelSuite) TestBundleMachineNotMapped(c *tc.C) {
 	model := &Model{
 		Applications: map[string]*Application{
 			"mysql": {
@@ -280,7 +280,7 @@ func (*modelSuite) TestBundleMachineNotMapped(c *gc.C) {
 		},
 	}
 	machine := model.BundleMachine("0")
-	c.Assert(machine, gc.IsNil)
+	c.Assert(machine, tc.IsNil)
 }
 
 type inferMachineMapSuite struct {
@@ -289,9 +289,9 @@ type inferMachineMapSuite struct {
 	data *charm.BundleData
 }
 
-var _ = gc.Suite(&inferMachineMapSuite{})
+var _ = tc.Suite(&inferMachineMapSuite{})
 
-func (s *inferMachineMapSuite) SetUpTest(c *gc.C) {
+func (s *inferMachineMapSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	loggo.ConfigureLoggers("bundlechanges=trace")
 
@@ -317,22 +317,22 @@ func (s *inferMachineMapSuite) SetUpTest(c *gc.C) {
 	s.data = s.parseBundle(c, bundle)
 }
 
-func (s *inferMachineMapSuite) parseBundle(c *gc.C, bundle string) *charm.BundleData {
+func (s *inferMachineMapSuite) parseBundle(c *tc.C, bundle string) *charm.BundleData {
 	reader := bytes.NewBufferString(bundle)
 	data, err := charm.ReadBundleData(reader)
 	c.Assert(err, jc.ErrorIsNil)
 	return data
 }
 
-func (s *inferMachineMapSuite) TestInferMachineMapEmptyModel(c *gc.C) {
+func (s *inferMachineMapSuite) TestInferMachineMapEmptyModel(c *tc.C) {
 	model := &Model{logger: loggertesting.WrapCheckLog(c)}
 	model.InferMachineMap(s.data)
 	// MachineMap is empty and not nil.
-	c.Assert(model.MachineMap, gc.HasLen, 0)
-	c.Assert(model.MachineMap, gc.NotNil)
+	c.Assert(model.MachineMap, tc.HasLen, 0)
+	c.Assert(model.MachineMap, tc.NotNil)
 }
 
-func (s *inferMachineMapSuite) TestInferMachineMapSuppliedMapping(c *gc.C) {
+func (s *inferMachineMapSuite) TestInferMachineMapSuppliedMapping(c *tc.C) {
 	userSpecifiedMap := map[string]string{
 		"4": "0", "8": "2",
 	}
@@ -345,7 +345,7 @@ func (s *inferMachineMapSuite) TestInferMachineMapSuppliedMapping(c *gc.C) {
 	c.Assert(model.MachineMap, jc.DeepEquals, userSpecifiedMap)
 }
 
-func (s *inferMachineMapSuite) TestInferMachineMapPartial(c *gc.C) {
+func (s *inferMachineMapSuite) TestInferMachineMapPartial(c *tc.C) {
 	userSpecifiedMap := map[string]string{
 		"4": "1",
 	}
@@ -371,7 +371,7 @@ func (s *inferMachineMapSuite) TestInferMachineMapPartial(c *gc.C) {
 	})
 }
 
-func (s *inferMachineMapSuite) TestInferMachineMapDeployedUnits(c *gc.C) {
+func (s *inferMachineMapSuite) TestInferMachineMapDeployedUnits(c *tc.C) {
 	model := &Model{
 		Applications: map[string]*Application{
 			"django": {
@@ -395,7 +395,7 @@ func (s *inferMachineMapSuite) TestInferMachineMapDeployedUnits(c *gc.C) {
 	})
 }
 
-func (s *inferMachineMapSuite) TestOffest(c *gc.C) {
+func (s *inferMachineMapSuite) TestOffest(c *tc.C) {
 	data := s.parseBundle(c, `
         applications:
             django:
@@ -426,7 +426,7 @@ func (s *inferMachineMapSuite) TestOffest(c *gc.C) {
 }
 
 // Fixing LP #1883645
-func (s *inferMachineMapSuite) TestBundleMachinesDeterminism(c *gc.C) {
+func (s *inferMachineMapSuite) TestBundleMachinesDeterminism(c *tc.C) {
 	data := s.parseBundle(c, `
         series: bionic
         machines:
@@ -531,23 +531,23 @@ func (s *inferMachineMapSuite) TestBundleMachinesDeterminism(c *gc.C) {
 
 type applicationSuite struct{}
 
-var _ = gc.Suite(&applicationSuite{})
+var _ = tc.Suite(&applicationSuite{})
 
-func (*applicationSuite) TestNilApplication(c *gc.C) {
+func (*applicationSuite) TestNilApplication(c *tc.C) {
 	var app *Application
 	annotations := map[string]string{"a": "b", "c": "d"}
 	toChange := app.changedAnnotations(annotations)
 	c.Check(toChange, jc.DeepEquals, annotations)
 }
 
-func (*applicationSuite) TestEmptyApplication(c *gc.C) {
+func (*applicationSuite) TestEmptyApplication(c *tc.C) {
 	app := &Application{}
 	annotations := map[string]string{"a": "b", "c": "d"}
 	toChange := app.changedAnnotations(annotations)
 	c.Assert(toChange, jc.DeepEquals, annotations)
 }
 
-func (*applicationSuite) TestChangedAnnotationsSomeChanges(c *gc.C) {
+func (*applicationSuite) TestChangedAnnotationsSomeChanges(c *tc.C) {
 	app := &Application{
 		Annotations: map[string]string{"a": "b", "c": "g", "f": "p"},
 	}
@@ -556,7 +556,7 @@ func (*applicationSuite) TestChangedAnnotationsSomeChanges(c *gc.C) {
 	c.Assert(toChange, jc.DeepEquals, map[string]string{"c": "d"})
 }
 
-func (*applicationSuite) TestChangedOptionsSomeChanges(c *gc.C) {
+func (*applicationSuite) TestChangedOptionsSomeChanges(c *tc.C) {
 	app := &Application{
 		Options: map[string]interface{}{
 			"string": "hello",
@@ -567,7 +567,7 @@ func (*applicationSuite) TestChangedOptionsSomeChanges(c *gc.C) {
 	}
 	options := map[string]interface{}{"string": "hello", "int": 42}
 	toChange := app.changedOptions(options)
-	c.Assert(toChange, gc.HasLen, 0)
+	c.Assert(toChange, tc.HasLen, 0)
 
 	options = map[string]interface{}{"string": "world", "int": 24, "float": 3.14, "bool": false}
 	toChange = app.changedOptions(options)

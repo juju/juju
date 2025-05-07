@@ -7,8 +7,8 @@ import (
 	"net/url"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/charms"
@@ -18,11 +18,11 @@ import (
 type charmS3DownloaderSuite struct {
 }
 
-var _ = gc.Suite(&charmS3DownloaderSuite{})
+var _ = tc.Suite(&charmS3DownloaderSuite{})
 
-func (s *charmS3DownloaderSuite) TestCharmOpener(c *gc.C) {
+func (s *charmS3DownloaderSuite) TestCharmOpener(c *tc.C) {
 	correctURL, err := url.Parse("ch:mycharm")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	tests := []struct {
 		name               string
@@ -79,10 +79,10 @@ func (s *charmS3DownloaderSuite) TestCharmOpener(c *gc.C) {
 		r, err := charmOpener.OpenCharm(tt.req)
 
 		if tt.expectedErrPattern != "" {
-			c.Assert(r, gc.IsNil)
-			c.Assert(err, gc.ErrorMatches, tt.expectedErrPattern)
+			c.Assert(r, tc.IsNil)
+			c.Assert(err, tc.ErrorMatches, tt.expectedErrPattern)
 		} else {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, tc.IsNil)
 		}
 	}
 }

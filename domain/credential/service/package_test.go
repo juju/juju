@@ -6,16 +6,16 @@ package service
 import (
 	"testing"
 
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination state_mock_test.go github.com/juju/juju/domain/credential/service State,WatcherFactory,MachineService,MachineState
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination validator_mock_test.go github.com/juju/juju/domain/credential/service CredentialValidator
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type baseSuite struct {
@@ -26,7 +26,7 @@ type baseSuite struct {
 	watcherFactory *MockWatcherFactory
 }
 
-func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.validator = NewMockCredentialValidator(ctrl)

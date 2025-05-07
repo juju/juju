@@ -5,11 +5,11 @@ package azureauth_test
 
 import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/microsoft/kiota-abstractions-go/store"
 	"github.com/microsoftgraph/msgraph-sdk-go/models/odataerrors"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/provider/azure/internal/azureauth"
 )
@@ -18,9 +18,9 @@ type ErrorSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&ErrorSuite{})
+var _ = tc.Suite(&ErrorSuite{})
 
-func (ErrorSuite) TestAsDataError(c *gc.C) {
+func (ErrorSuite) TestAsDataError(c *tc.C) {
 	dataErr := odataerrors.NewODataError()
 	dataErr.SetBackingStore(store.NewInMemoryBackingStore())
 	me := odataerrors.NewMainError()
@@ -30,7 +30,7 @@ func (ErrorSuite) TestAsDataError(c *gc.C) {
 
 	de, ok := azureauth.AsDataError(dataErr)
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(de.Error(), gc.Equals, "code: message")
+	c.Assert(de.Error(), tc.Equals, "code: message")
 
 	_, ok = azureauth.AsDataError(nil)
 	c.Assert(ok, jc.IsFalse)

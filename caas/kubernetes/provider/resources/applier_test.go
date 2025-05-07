@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
@@ -21,9 +21,9 @@ type applierSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&applierSuite{})
+var _ = tc.Suite(&applierSuite{})
 
-func (s *applierSuite) TestRun(c *gc.C) {
+func (s *applierSuite) TestRun(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -31,7 +31,7 @@ func (s *applierSuite) TestRun(c *gc.C) {
 	r2 := mocks.NewMockResource(ctrl)
 
 	applier := resources.NewApplierForTest()
-	c.Assert(len(applier.Operations()), gc.DeepEquals, 0)
+	c.Assert(len(applier.Operations()), tc.DeepEquals, 0)
 	applier.Apply(r1)
 	applier.Delete(r2)
 
@@ -47,7 +47,7 @@ func (s *applierSuite) TestRun(c *gc.C) {
 	c.Assert(applier.Run(context.Background(), nil, false), jc.ErrorIsNil)
 }
 
-func (s *applierSuite) TestRunApplyFailedWithRollBackForNewResource(c *gc.C) {
+func (s *applierSuite) TestRunApplyFailedWithRollBackForNewResource(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -56,7 +56,7 @@ func (s *applierSuite) TestRunApplyFailedWithRollBackForNewResource(c *gc.C) {
 	r1.EXPECT().GetObjectMeta().AnyTimes().Return(r1Meta)
 
 	applier := resources.NewApplierForTest()
-	c.Assert(len(applier.Operations()), gc.DeepEquals, 0)
+	c.Assert(len(applier.Operations()), tc.DeepEquals, 0)
 	applier.Apply(r1)
 
 	existingR1 := mocks.NewMockResource(ctrl)
@@ -74,10 +74,10 @@ func (s *applierSuite) TestRunApplyFailedWithRollBackForNewResource(c *gc.C) {
 		// delete the new resource was just created.
 		r1.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil),
 	)
-	c.Assert(applier.Run(context.Background(), nil, false), gc.ErrorMatches, `something was wrong`)
+	c.Assert(applier.Run(context.Background(), nil, false), tc.ErrorMatches, `something was wrong`)
 }
 
-func (s *applierSuite) TestRunApplyResourceVersionChanged(c *gc.C) {
+func (s *applierSuite) TestRunApplyResourceVersionChanged(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -89,7 +89,7 @@ func (s *applierSuite) TestRunApplyResourceVersionChanged(c *gc.C) {
 	r1.EXPECT().GetObjectMeta().AnyTimes().Return(r1Meta)
 
 	applier := resources.NewApplierForTest()
-	c.Assert(len(applier.Operations()), gc.DeepEquals, 0)
+	c.Assert(len(applier.Operations()), tc.DeepEquals, 0)
 	applier.Apply(r1)
 
 	existingR1 := mocks.NewMockResource(ctrl)
@@ -102,10 +102,10 @@ func (s *applierSuite) TestRunApplyResourceVersionChanged(c *gc.C) {
 		r1.EXPECT().Clone().Return(existingR1),
 		existingR1.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil),
 	)
-	c.Assert(applier.Run(context.Background(), nil, false), gc.ErrorMatches, `A r1: resource version conflict`)
+	c.Assert(applier.Run(context.Background(), nil, false), tc.ErrorMatches, `A r1: resource version conflict`)
 }
 
-func (s *applierSuite) TestRunApplyFailedWithRollBackForExistingResource(c *gc.C) {
+func (s *applierSuite) TestRunApplyFailedWithRollBackForExistingResource(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -114,7 +114,7 @@ func (s *applierSuite) TestRunApplyFailedWithRollBackForExistingResource(c *gc.C
 	r1.EXPECT().GetObjectMeta().AnyTimes().Return(r1Meta)
 
 	applier := resources.NewApplierForTest()
-	c.Assert(len(applier.Operations()), gc.DeepEquals, 0)
+	c.Assert(len(applier.Operations()), tc.DeepEquals, 0)
 	applier.Apply(r1)
 
 	existingR1 := mocks.NewMockResource(ctrl)
@@ -132,10 +132,10 @@ func (s *applierSuite) TestRunApplyFailedWithRollBackForExistingResource(c *gc.C
 		// re-apply the old resource.
 		existingR1.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(nil),
 	)
-	c.Assert(applier.Run(context.Background(), nil, false), gc.ErrorMatches, `something was wrong`)
+	c.Assert(applier.Run(context.Background(), nil, false), tc.ErrorMatches, `something was wrong`)
 }
 
-func (s *applierSuite) TestRunDeleteFailedWithRollBack(c *gc.C) {
+func (s *applierSuite) TestRunDeleteFailedWithRollBack(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -144,7 +144,7 @@ func (s *applierSuite) TestRunDeleteFailedWithRollBack(c *gc.C) {
 	r1.EXPECT().GetObjectMeta().AnyTimes().Return(r1Meta)
 
 	applier := resources.NewApplierForTest()
-	c.Assert(len(applier.Operations()), gc.DeepEquals, 0)
+	c.Assert(len(applier.Operations()), tc.DeepEquals, 0)
 	applier.Delete(r1)
 
 	existingR1 := mocks.NewMockResource(ctrl)
@@ -162,10 +162,10 @@ func (s *applierSuite) TestRunDeleteFailedWithRollBack(c *gc.C) {
 		// re-apply the old resource.
 		existingR1.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(nil),
 	)
-	c.Assert(applier.Run(context.Background(), nil, false), gc.ErrorMatches, `something was wrong`)
+	c.Assert(applier.Run(context.Background(), nil, false), tc.ErrorMatches, `something was wrong`)
 }
 
-func (s *applierSuite) TestApplySet(c *gc.C) {
+func (s *applierSuite) TestApplySet(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -191,7 +191,7 @@ func (s *applierSuite) TestApplySet(c *gc.C) {
 	r3.EXPECT().Clone().AnyTimes().Return(r3)
 
 	applier := resources.NewApplierForTest()
-	c.Assert(len(applier.Operations()), gc.DeepEquals, 0)
+	c.Assert(len(applier.Operations()), tc.DeepEquals, 0)
 	applier.ApplySet([]resources.Resource{r1, r2}, []resources.Resource{r2Copy, r3})
 
 	gomock.InOrder(

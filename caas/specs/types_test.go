@@ -4,8 +4,8 @@
 package specs_test
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas/specs"
 	"github.com/juju/juju/internal/testing"
@@ -15,38 +15,38 @@ type typesSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&typesSuite{})
+var _ = tc.Suite(&typesSuite{})
 
 var strVal = specs.IntOrString{Type: specs.String, StrVal: "10%"}
 var intVal = specs.IntOrString{Type: specs.Int, IntVal: 10}
 
-func (s *typesSuite) TestString(c *gc.C) {
-	c.Assert(strVal.String(), gc.DeepEquals, `10%`)
-	c.Assert(intVal.String(), gc.DeepEquals, `10`)
+func (s *typesSuite) TestString(c *tc.C) {
+	c.Assert(strVal.String(), tc.DeepEquals, `10%`)
+	c.Assert(intVal.String(), tc.DeepEquals, `10`)
 }
 
-func (s *typesSuite) TestIntValue(c *gc.C) {
-	c.Assert(strVal.IntValue(), gc.DeepEquals, 0)
-	c.Assert(intVal.IntValue(), gc.DeepEquals, 10)
+func (s *typesSuite) TestIntValue(c *tc.C) {
+	c.Assert(strVal.IntValue(), tc.DeepEquals, 0)
+	c.Assert(intVal.IntValue(), tc.DeepEquals, 10)
 }
 
-func (s *typesSuite) TestMarshalJSON(c *gc.C) {
+func (s *typesSuite) TestMarshalJSON(c *tc.C) {
 	o, err := strVal.MarshalJSON()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(o, gc.DeepEquals, []byte(`"10%"`))
+	c.Assert(o, tc.DeepEquals, []byte(`"10%"`))
 
 	o, err = intVal.MarshalJSON()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(o, gc.DeepEquals, []byte(`10`))
+	c.Assert(o, tc.DeepEquals, []byte(`10`))
 }
 
-func (s *typesSuite) TestUnmarshalJSON(c *gc.C) {
+func (s *typesSuite) TestUnmarshalJSON(c *tc.C) {
 	var strVal1, intVal1 specs.IntOrString
 	err := strVal1.UnmarshalJSON([]byte(`"10%"`))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(strVal1, gc.DeepEquals, strVal)
+	c.Assert(strVal1, tc.DeepEquals, strVal)
 
 	err = intVal1.UnmarshalJSON([]byte(`10`))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(intVal1, gc.DeepEquals, intVal)
+	c.Assert(intVal1, tc.DeepEquals, intVal)
 }

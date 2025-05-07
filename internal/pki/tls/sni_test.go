@@ -7,8 +7,8 @@ import (
 	"crypto/tls"
 	"net"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pki"
@@ -21,9 +21,9 @@ type SNISuite struct {
 	sniGetter func(*tls.ClientHelloInfo) (*tls.Certificate, error)
 }
 
-var _ = gc.Suite(&SNISuite{})
+var _ = tc.Suite(&SNISuite{})
 
-func (s *SNISuite) SetUpTest(c *gc.C) {
+func (s *SNISuite) SetUpTest(c *tc.C) {
 	pki.DefaultKeyProfile = pkitest.OriginalDefaultKeyProfile
 	authority, err := pkitest.NewTestAuthority()
 	c.Assert(err, jc.ErrorIsNil)
@@ -32,14 +32,14 @@ func (s *SNISuite) SetUpTest(c *gc.C) {
 	s.sniGetter = pkitls.AuthoritySNITLSGetter(authority, loggertesting.WrapCheckLog(c))
 }
 
-func TLSCertificatesEqual(c *gc.C, cert1, cert2 *tls.Certificate) {
-	c.Assert(len(cert1.Certificate), gc.Equals, len(cert2.Certificate))
+func TLSCertificatesEqual(c *tc.C, cert1, cert2 *tls.Certificate) {
+	c.Assert(len(cert1.Certificate), tc.Equals, len(cert2.Certificate))
 	for i := range cert1.Certificate {
 		c.Assert(cert1.Certificate[i], jc.DeepEquals, cert2.Certificate[i])
 	}
 }
 
-func (s *SNISuite) TestAuthorityTLSGetter(c *gc.C) {
+func (s *SNISuite) TestAuthorityTLSGetter(c *tc.C) {
 	tests := []struct {
 		DNSNames      []string
 		ExpectedGroup string
@@ -120,7 +120,7 @@ func (s *SNISuite) TestAuthorityTLSGetter(c *gc.C) {
 	}
 }
 
-func (s *SNISuite) TestNonExistantIPLeafReturnsDefault(c *gc.C) {
+func (s *SNISuite) TestNonExistantIPLeafReturnsDefault(c *tc.C) {
 	leaf, err := s.authority.LeafRequestForGroup(pki.DefaultLeafGroup).
 		AddDNSNames("juju-app").
 		Commit()

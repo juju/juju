@@ -7,21 +7,21 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
 func Test(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
-func MustParseURL(c *gc.C, path string) *url.URL {
+func MustParseURL(c *tc.C, path string) *url.URL {
 	u, err := url.Parse(path)
 	c.Assert(err, jc.ErrorIsNil)
 	return u
 }
 
-func MustMakePath(c *gc.C, path string) Path {
+func MustMakePath(c *tc.C, path string) Path {
 	u := MustParseURL(c, path)
 	return MakePath(u)
 }

@@ -7,8 +7,8 @@ package renderers_test
 import (
 	"encoding/base64"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/cloudconfig/cloudinit/cloudinittest"
 	"github.com/juju/juju/internal/cloudconfig/providerinit/renderers"
@@ -19,16 +19,16 @@ type RenderersSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&RenderersSuite{})
+var _ = tc.Suite(&RenderersSuite{})
 
-func (s *RenderersSuite) TestToBase64(c *gc.C) {
+func (s *RenderersSuite) TestToBase64(c *tc.C) {
 	in := []byte("test")
 	expected := base64.StdEncoding.EncodeToString(in)
 	out := renderers.ToBase64(in)
-	c.Assert(string(out), gc.Equals, expected)
+	c.Assert(string(out), tc.Equals, expected)
 }
 
-func (s *RenderersSuite) TestRenderYAML(c *gc.C) {
+func (s *RenderersSuite) TestRenderYAML(c *tc.C) {
 	cloudcfg := &cloudinittest.CloudConfig{YAML: []byte("yaml")}
 	d1 := func(in []byte) []byte {
 		return []byte("1." + string(in))

@@ -4,17 +4,17 @@
 package firewaller_test
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
 )
 
 type firewallerSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&firewallerSuite{})
+var _ = tc.Suite(&firewallerSuite{})
 
-func (s *firewallerSuite) TestStub(c *gc.C) {
+func (s *firewallerSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 
  - Test that the firewaller API fails when the user is not a controller user.

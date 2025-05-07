@@ -13,10 +13,10 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -56,7 +56,7 @@ type K8sSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&K8sSuite{})
+var _ = tc.Suite(&K8sSuite{})
 
 func getBasicPodspec() *specs.PodSpec {
 	pSpecs := &specs.PodSpec{}
@@ -86,9 +86,9 @@ type K8sBrokerSuite struct {
 	BaseSuite
 }
 
-var _ = gc.Suite(&K8sBrokerSuite{})
+var _ = tc.Suite(&K8sBrokerSuite{})
 
-func (s *K8sBrokerSuite) TestNoNamespaceBroker(c *gc.C) {
+func (s *K8sBrokerSuite) TestNoNamespaceBroker(c *tc.C) {
 	ctrl := gomock.NewController(c)
 
 	s.clock = testclock.NewClock(time.Time{})
@@ -112,7 +112,7 @@ func (s *K8sBrokerSuite) TestNoNamespaceBroker(c *gc.C) {
 
 	// Test namespace is actually empty string and a namespaced method fails.
 	_, err = s.broker.GetPod(context.Background(), "test")
-	c.Assert(err, gc.ErrorMatches, `bootstrap broker or no namespace not provisioned`)
+	c.Assert(err, tc.ErrorMatches, `bootstrap broker or no namespace not provisioned`)
 
 	nsInput := s.ensureJujuNamespaceAnnotations(false, &core.Namespace{
 		ObjectMeta: v1.ObjectMeta{
@@ -128,10 +128,10 @@ func (s *K8sBrokerSuite) TestNoNamespaceBroker(c *gc.C) {
 	// Check a cluster wide resource is still accessible.
 	ns, err := s.broker.GetNamespace(context.Background(), "test")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ns, gc.DeepEquals, nsInput)
+	c.Assert(ns, tc.DeepEquals, nsInput)
 }
 
-func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDMigrated(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDMigrated(c *tc.C) {
 	ctrl := gomock.NewController(c)
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
@@ -159,7 +159,7 @@ func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDMigrated(
 	s.setupBroker(c, ctrl, newControllerUUID, newK8sClientFunc, newK8sRestFunc, randomPrefixFunc, "").Finish()
 }
 
-func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNotMigrated(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNotMigrated(c *tc.C) {
 	ctrl := gomock.NewController(c)
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
@@ -180,7 +180,7 @@ func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNotMigrat
 	s.setupBroker(c, ctrl, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, randomPrefixFunc, "").Finish()
 }
 
-func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNameSpaceNotCreatedYet(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNameSpaceNotCreatedYet(c *tc.C) {
 	ctrl := gomock.NewController(c)
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
@@ -195,7 +195,7 @@ func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNameSpace
 	s.setupBroker(c, ctrl, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, randomPrefixFunc, "").Finish()
 }
 
-func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNameSpaceExists(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNameSpaceExists(c *tc.C) {
 	ctrl := gomock.NewController(c)
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
@@ -218,7 +218,7 @@ func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNameSpace
 	s.setupBroker(c, ctrl, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, randomPrefixFunc, "").Finish()
 }
 
-func (s *K8sBrokerSuite) TestAPIVersion(c *gc.C) {
+func (s *K8sBrokerSuite) TestAPIVersion(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -230,17 +230,17 @@ func (s *K8sBrokerSuite) TestAPIVersion(c *gc.C) {
 
 	ver, err := s.broker.APIVersion()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ver, gc.DeepEquals, "1.16.0")
+	c.Assert(ver, tc.DeepEquals, "1.16.0")
 }
 
-func (s *K8sBrokerSuite) TestConfig(c *gc.C) {
+func (s *K8sBrokerSuite) TestConfig(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	c.Assert(s.broker.Config(), jc.DeepEquals, s.cfg)
 }
 
-func (s *K8sBrokerSuite) TestSetConfig(c *gc.C) {
+func (s *K8sBrokerSuite) TestSetConfig(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -248,7 +248,7 @@ func (s *K8sBrokerSuite) TestSetConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestBootstrapNoWorkloadStorage(c *gc.C) {
+func (s *K8sBrokerSuite) TestBootstrapNoWorkloadStorage(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -260,12 +260,12 @@ func (s *K8sBrokerSuite) TestBootstrapNoWorkloadStorage(c *gc.C) {
 	}
 
 	_, err := s.broker.Bootstrap(ctx, bootstrapParams)
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, tc.NotNil)
 	msg := strings.Replace(err.Error(), "\n", "", -1)
-	c.Assert(msg, gc.Matches, "config without workload-storage value not valid.*")
+	c.Assert(msg, tc.Matches, "config without workload-storage value not valid.*")
 }
 
-func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
+func (s *K8sBrokerSuite) TestBootstrap(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -290,15 +290,15 @@ func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
 	)
 	result, err := s.broker.Bootstrap(ctx, bootstrapParams)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Arch, gc.Equals, "amd64")
-	c.Assert(result.CaasBootstrapFinalizer, gc.NotNil)
+	c.Assert(result.Arch, tc.Equals, "amd64")
+	c.Assert(result.CaasBootstrapFinalizer, tc.NotNil)
 
 	bootstrapParams.BootstrapBase = corebase.MustParseBaseFromString("ubuntu@22.04")
 	_, err = s.broker.Bootstrap(ctx, bootstrapParams)
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
-func (s *K8sBrokerSuite) setupWorkloadStorageConfig(c *gc.C) {
+func (s *K8sBrokerSuite) setupWorkloadStorageConfig(c *tc.C) {
 	cfg := s.broker.Config()
 	var err error
 	cfg, err = cfg.Apply(map[string]interface{}{"workload-storage": "some-storage"})
@@ -307,7 +307,7 @@ func (s *K8sBrokerSuite) setupWorkloadStorageConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestPrepareForBootstrap(c *gc.C) {
+func (s *K8sBrokerSuite) TestPrepareForBootstrap(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -337,7 +337,7 @@ func (s *K8sBrokerSuite) TestPrepareForBootstrap(c *gc.C) {
 	c.Assert(s.broker.Namespace(), jc.DeepEquals, "controller-ctrl-1")
 }
 
-func (s *K8sBrokerSuite) TestPrepareForBootstrapAlreadyExistNamespaceError(c *gc.C) {
+func (s *K8sBrokerSuite) TestPrepareForBootstrapAlreadyExistNamespaceError(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -353,7 +353,7 @@ func (s *K8sBrokerSuite) TestPrepareForBootstrapAlreadyExistNamespaceError(c *gc
 	)
 }
 
-func (s *K8sBrokerSuite) TestPrepareForBootstrapAlreadyExistControllerAnnotations(c *gc.C) {
+func (s *K8sBrokerSuite) TestPrepareForBootstrapAlreadyExistControllerAnnotations(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -371,7 +371,7 @@ func (s *K8sBrokerSuite) TestPrepareForBootstrapAlreadyExistControllerAnnotation
 	)
 }
 
-func (s *K8sBrokerSuite) TestGetNamespace(c *gc.C) {
+func (s *K8sBrokerSuite) TestGetNamespace(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -387,7 +387,7 @@ func (s *K8sBrokerSuite) TestGetNamespace(c *gc.C) {
 	c.Assert(out, jc.DeepEquals, ns)
 }
 
-func (s *K8sBrokerSuite) TestGetNamespaceNotFound(c *gc.C) {
+func (s *K8sBrokerSuite) TestGetNamespaceNotFound(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -398,10 +398,10 @@ func (s *K8sBrokerSuite) TestGetNamespaceNotFound(c *gc.C) {
 
 	out, err := s.broker.GetNamespace(context.Background(), "unknown-namespace")
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
-	c.Assert(out, gc.IsNil)
+	c.Assert(out, tc.IsNil)
 }
 
-func (s *K8sBrokerSuite) TestNamespaces(c *gc.C) {
+func (s *K8sBrokerSuite) TestNamespaces(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -417,7 +417,7 @@ func (s *K8sBrokerSuite) TestNamespaces(c *gc.C) {
 	c.Assert(result, jc.SameContents, []string{"test", "test2"})
 }
 
-func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc func() error) {
+func (s *K8sBrokerSuite) assertDestroy(c *tc.C, isController bool, destroyFunc func() error) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -702,13 +702,13 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 	}
 }
 
-func (s *K8sBrokerSuite) TestDestroyController(c *gc.C) {
+func (s *K8sBrokerSuite) TestDestroyController(c *tc.C) {
 	s.assertDestroy(c, true, func() error {
 		return s.broker.DestroyController(context.Background(), testing.ControllerTag.Id())
 	})
 }
 
-func (s *K8sBrokerSuite) TestEnsureImageRepoSecret(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureImageRepoSecret(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -747,19 +747,19 @@ func (s *K8sBrokerSuite) TestEnsureImageRepoSecret(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
+func (s *K8sBrokerSuite) TestDestroy(c *tc.C) {
 	s.assertDestroy(c, false, func() error {
 		return s.broker.Destroy(context.Background())
 	})
 }
 
-func (s *K8sBrokerSuite) TestGetCurrentNamespace(c *gc.C) {
+func (s *K8sBrokerSuite) TestGetCurrentNamespace(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 	c.Assert(s.broker.Namespace(), jc.DeepEquals, s.getNamespace())
 }
 
-func (s *K8sBrokerSuite) TestCreateModelResources(c *gc.C) {
+func (s *K8sBrokerSuite) TestCreateModelResources(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -779,7 +779,7 @@ func (s *K8sBrokerSuite) TestCreateModelResources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestValidateProviderForNewModel(c *gc.C) {
+func (s *K8sBrokerSuite) TestValidateProviderForNewModel(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -792,7 +792,7 @@ func (s *K8sBrokerSuite) TestValidateProviderForNewModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestValidateProviderForNewModelAlreadyExists(c *gc.C) {
+func (s *K8sBrokerSuite) TestValidateProviderForNewModelAlreadyExists(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -811,7 +811,7 @@ func (s *K8sBrokerSuite) TestValidateProviderForNewModelAlreadyExists(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
 }
 
-func (s *K8sBrokerSuite) TestSupportedFeatures(c *gc.C) {
+func (s *K8sBrokerSuite) TestSupportedFeatures(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -823,7 +823,7 @@ func (s *K8sBrokerSuite) TestSupportedFeatures(c *gc.C) {
 
 	fs, err := s.broker.SupportedFeatures()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fs.AsList(), gc.DeepEquals, []assumes.Feature{
+	c.Assert(fs.AsList(), tc.DeepEquals, []assumes.Feature{
 		{
 			Name:        "k8s-api",
 			Description: "the Kubernetes API lets charms query and manipulate the state of API objects in a Kubernetes cluster",
@@ -832,7 +832,7 @@ func (s *K8sBrokerSuite) TestSupportedFeatures(c *gc.C) {
 	})
 }
 
-func (s *K8sBrokerSuite) TestGetServiceSvcNotFound(c *gc.C) {
+func (s *K8sBrokerSuite) TestGetServiceSvcNotFound(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -853,10 +853,10 @@ func (s *K8sBrokerSuite) TestGetServiceSvcNotFound(c *gc.C) {
 
 	caasSvc, err := s.broker.GetService(context.Background(), "app-name", false)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(caasSvc, gc.DeepEquals, &caas.Service{})
+	c.Assert(caasSvc, tc.DeepEquals, &caas.Service{})
 }
 
-func (s *K8sBrokerSuite) assertGetService(c *gc.C, expectedSvcResult *caas.Service, assertCalls ...any) {
+func (s *K8sBrokerSuite) assertGetService(c *tc.C, expectedSvcResult *caas.Service, assertCalls ...any) {
 	selectorLabels := map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"}
 	labels := k8sutils.LabelsMerge(selectorLabels, k8sutils.LabelsJuju)
 
@@ -919,10 +919,10 @@ func (s *K8sBrokerSuite) assertGetService(c *gc.C, expectedSvcResult *caas.Servi
 
 	caasSvc, err := s.broker.GetService(context.Background(), "app-name", false)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(caasSvc, gc.DeepEquals, expectedSvcResult)
+	c.Assert(caasSvc, tc.DeepEquals, expectedSvcResult)
 }
 
-func (s *K8sBrokerSuite) TestGetServiceSvcFoundNoWorkload(c *gc.C) {
+func (s *K8sBrokerSuite) TestGetServiceSvcFoundNoWorkload(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 	s.assertGetService(c,
@@ -942,7 +942,7 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundNoWorkload(c *gc.C) {
 	)
 }
 
-func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithStatefulSet(c *gc.C) {
+func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithStatefulSet(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1012,7 +1012,7 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithStatefulSet(c *gc.C) {
 	)
 }
 
-func (s *K8sBrokerSuite) TestUnits(c *gc.C) {
+func (s *K8sBrokerSuite) TestUnits(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1146,7 +1146,7 @@ func (s *K8sBrokerSuite) TestUnits(c *gc.C) {
 	}})
 }
 
-func (s *K8sBrokerSuite) TestAnnotateUnit(c *gc.C) {
+func (s *K8sBrokerSuite) TestAnnotateUnit(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1174,7 +1174,7 @@ func (s *K8sBrokerSuite) TestAnnotateUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestAnnotateUnitByUID(c *gc.C) {
+func (s *K8sBrokerSuite) TestAnnotateUnitByUID(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1206,13 +1206,13 @@ func (s *K8sBrokerSuite) TestAnnotateUnitByUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestWatchUnits(c *gc.C) {
+func (s *K8sBrokerSuite) TestWatchUnits(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	podWatcher, podFirer := k8swatchertest.NewKubernetesTestWatcher()
 	s.k8sWatcherFn = func(si cache.SharedIndexInformer, n string, _ jujuclock.Clock) (k8swatcher.KubernetesNotifyWatcher, error) {
-		c.Assert(n, gc.Equals, "test")
+		c.Assert(n, tc.Equals, "test")
 		return podWatcher, nil
 	}
 
@@ -1229,12 +1229,12 @@ func (s *K8sBrokerSuite) TestWatchUnits(c *gc.C) {
 	}
 }
 
-func (s *K8sBrokerSuite) TestUpdateStrategyForStatefulSet(c *gc.C) {
+func (s *K8sBrokerSuite) TestUpdateStrategyForStatefulSet(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	_, err := provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{})
-	c.Assert(err, gc.ErrorMatches, `strategy type "" for statefulset not valid`)
+	c.Assert(err, tc.ErrorMatches, `strategy type "" for statefulset not valid`)
 
 	o, err := provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
 		Type: "RollingUpdate",
@@ -1248,7 +1248,7 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForStatefulSet(c *gc.C) {
 		Type:          "RollingUpdate",
 		RollingUpdate: &specs.RollingUpdateSpec{},
 	})
-	c.Assert(err, gc.ErrorMatches, `rolling update spec partition is missing`)
+	c.Assert(err, tc.ErrorMatches, `rolling update spec partition is missing`)
 
 	_, err = provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
 		Type: "RollingUpdate",
@@ -1257,7 +1257,7 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForStatefulSet(c *gc.C) {
 			MaxSurge:  &specs.IntOrString{IntVal: 10},
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, `rolling update spec for statefulset not valid`)
+	c.Assert(err, tc.ErrorMatches, `rolling update spec for statefulset not valid`)
 
 	_, err = provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
 		Type: "RollingUpdate",
@@ -1266,7 +1266,7 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForStatefulSet(c *gc.C) {
 			MaxUnavailable: &specs.IntOrString{IntVal: 10},
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, `rolling update spec for statefulset not valid`)
+	c.Assert(err, tc.ErrorMatches, `rolling update spec for statefulset not valid`)
 
 	o, err = provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
 		Type: "OnDelete",
@@ -1282,7 +1282,7 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForStatefulSet(c *gc.C) {
 			Partition: pointer.Int32Ptr(10),
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, `rolling update spec is not supported for "OnDelete"`)
+	c.Assert(err, tc.ErrorMatches, `rolling update spec is not supported for "OnDelete"`)
 
 	o, err = provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
 		Type: "RollingUpdate",

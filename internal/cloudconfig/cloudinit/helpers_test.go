@@ -5,12 +5,12 @@ package cloudinit
 
 import (
 	"github.com/juju/proxy"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 type HelperSuite struct{}
 
-var _ = gc.Suite(HelperSuite{})
+var _ = tc.Suite(HelperSuite{})
 
 type fakeCfg struct {
 	CloudConfig
@@ -43,7 +43,7 @@ func (f *fakeCfg) updateProxySettings(s PackageManagerProxyConfig) error {
 	return nil
 }
 
-func (HelperSuite) TestAddPkgCmdsCommon(c *gc.C) {
+func (HelperSuite) TestAddPkgCmdsCommon(c *tc.C) {
 	f := &fakeCfg{}
 
 	pps := proxy.Settings{
@@ -64,35 +64,35 @@ func (HelperSuite) TestAddPkgCmdsCommon(c *gc.C) {
 	upd, upg := true, true
 
 	err := addPackageCommandsCommon(f, proxyCfg, upd, upg)
-	c.Assert(err, gc.IsNil)
-	c.Assert(f.packageProxySettings, gc.Equals, pps)
-	c.Assert(f.snapProxySettings, gc.Equals, sps)
-	c.Assert(f.packageMirror, gc.Equals, proxyCfg.aptMirror)
-	c.Assert(f.addUpdateScripts, gc.Equals, upd)
-	c.Assert(f.addUpgradeScripts, gc.Equals, upg)
-	c.Assert(f.calledAddReq, gc.Equals, true)
+	c.Assert(err, tc.IsNil)
+	c.Assert(f.packageProxySettings, tc.Equals, pps)
+	c.Assert(f.snapProxySettings, tc.Equals, sps)
+	c.Assert(f.packageMirror, tc.Equals, proxyCfg.aptMirror)
+	c.Assert(f.addUpdateScripts, tc.Equals, upd)
+	c.Assert(f.addUpgradeScripts, tc.Equals, upg)
+	c.Assert(f.calledAddReq, tc.Equals, true)
 
 	f = &fakeCfg{}
 	upd, upg = false, false
 	err = addPackageCommandsCommon(f, proxyCfg, upd, upg)
-	c.Assert(err, gc.IsNil)
-	c.Assert(f.packageProxySettings, gc.Equals, pps)
-	c.Assert(f.snapProxySettings, gc.Equals, sps)
-	c.Assert(f.packageMirror, gc.Equals, proxyCfg.aptMirror)
-	c.Assert(f.addUpdateScripts, gc.Equals, upd)
-	c.Assert(f.addUpgradeScripts, gc.Equals, upg)
-	c.Assert(f.calledAddReq, gc.Equals, true)
+	c.Assert(err, tc.IsNil)
+	c.Assert(f.packageProxySettings, tc.Equals, pps)
+	c.Assert(f.snapProxySettings, tc.Equals, sps)
+	c.Assert(f.packageMirror, tc.Equals, proxyCfg.aptMirror)
+	c.Assert(f.addUpdateScripts, tc.Equals, upd)
+	c.Assert(f.addUpgradeScripts, tc.Equals, upg)
+	c.Assert(f.calledAddReq, tc.Equals, true)
 
 	f = &fakeCfg{}
 	upd, upg = false, false
 	err = addPackageCommandsCommon(f, proxyCfg, upd, upg)
-	c.Assert(err, gc.IsNil)
-	c.Assert(f.packageProxySettings, gc.Equals, pps)
-	c.Assert(f.snapProxySettings, gc.Equals, sps)
-	c.Assert(f.packageMirror, gc.Equals, proxyCfg.aptMirror)
-	c.Assert(f.addUpdateScripts, gc.Equals, upd)
-	c.Assert(f.addUpgradeScripts, gc.Equals, upg)
-	c.Assert(f.calledAddReq, gc.Equals, true)
+	c.Assert(err, tc.IsNil)
+	c.Assert(f.packageProxySettings, tc.Equals, pps)
+	c.Assert(f.snapProxySettings, tc.Equals, sps)
+	c.Assert(f.packageMirror, tc.Equals, proxyCfg.aptMirror)
+	c.Assert(f.addUpdateScripts, tc.Equals, upd)
+	c.Assert(f.addUpgradeScripts, tc.Equals, upg)
+	c.Assert(f.calledAddReq, tc.Equals, true)
 }
 
 // packageManagerProxySettings implements cloudinit.PackageManagerConfig.

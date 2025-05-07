@@ -7,9 +7,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/featureflag"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -21,14 +21,14 @@ type logSuite struct {
 	jujutesting.JujuOSEnvSuite
 }
 
-func (l *logSuite) SetUpTest(c *gc.C) {
+func (l *logSuite) SetUpTest(c *tc.C) {
 	l.LoggingSuite.SetUpTest(c)
 	l.JujuOSEnvSuite.SetUpTest(c)
 }
 
-var _ = gc.Suite(&logSuite{})
+var _ = tc.Suite(&logSuite{})
 
-func (s *logSuite) TestFlagNotSet(c *gc.C) {
+func (s *logSuite) TestFlagNotSet(c *tc.C) {
 	var entries []string
 	recorder := loggertesting.RecordLog(func(s string, a ...any) {
 		entries = append(entries, s)
@@ -37,11 +37,11 @@ func (s *logSuite) TestFlagNotSet(c *gc.C) {
 
 	err := errors.New("test error")
 	err2 := loggedErrorStack(logger, err)
-	c.Assert(err, gc.Equals, err2)
-	c.Assert(entries, gc.HasLen, 0)
+	c.Assert(err, tc.Equals, err2)
+	c.Assert(entries, tc.HasLen, 0)
 }
 
-func (s *logSuite) TestFlagSet(c *gc.C) {
+func (s *logSuite) TestFlagSet(c *tc.C) {
 	var entries []string
 	recorder := loggertesting.RecordLog(func(s string, a ...any) {
 		entries = append(entries, fmt.Sprintf(s, a...))
@@ -51,7 +51,7 @@ func (s *logSuite) TestFlagSet(c *gc.C) {
 	s.SetFeatureFlags(featureflag.LogErrorStack)
 	err := errors.New("test error")
 	err2 := loggedErrorStack(logger, err)
-	c.Assert(err, gc.Equals, err2)
+	c.Assert(err, tc.Equals, err2)
 	c.Assert(entries, jc.SameContents, []string{
 		"ERROR: error stack:\n[test error]",
 	})

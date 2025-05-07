@@ -14,10 +14,10 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/exec"
-	gc "gopkg.in/check.v1"
 
 	actionapi "github.com/juju/juju/api/client/action"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -42,7 +42,7 @@ const (
 )
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type BaseActionSuite struct {
@@ -53,7 +53,7 @@ type BaseActionSuite struct {
 	clock      testclock.AdvanceableClock
 }
 
-func (s *BaseActionSuite) SetUpTest(c *gc.C) {
+func (s *BaseActionSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	s.modelFlags = []string{"-m", "--model"}
@@ -129,7 +129,7 @@ var someCharmActions = map[string]actionapi.ActionSpec{
 
 // setupValueFile creates a file containing one value for testing.
 // cf. cmd/juju/set_test.go
-func setupValueFile(c *gc.C, dir, filename, value string) string {
+func setupValueFile(c *tc.C, dir, filename, value string) string {
 	ctx := cmdtesting.ContextForDir(c, dir)
 	path := ctx.AbsPath(filename)
 	content := []byte(value)

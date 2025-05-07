@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/voyeur"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
@@ -38,7 +38,7 @@ type containerUnitAgentSuite struct {
 	cmd              unit.ContainerUnitAgentTest
 }
 
-var _ = gc.Suite(&containerUnitAgentSuite{})
+var _ = tc.Suite(&containerUnitAgentSuite{})
 
 var agentConfigContents = `
 # format 2.0
@@ -53,21 +53,21 @@ apiaddresses:
 apiport: 17070
 `[1:]
 
-func (s *containerUnitAgentSuite) SetUpTest(c *gc.C) {
+func (s *containerUnitAgentSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.rootDir = c.MkDir()
 	s.dataDir = filepath.Join(s.rootDir, "/var/lib/juju")
 	err := os.MkdirAll(s.dataDir, 0700)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *containerUnitAgentSuite) TearDownTest(c *gc.C) {
+func (s *containerUnitAgentSuite) TearDownTest(c *tc.C) {
 	s.dataDir = ""
 	s.fileReaderWriter = nil
 }
 
-func (s *containerUnitAgentSuite) setupCommand(c *gc.C, configChangedVal *voyeur.Value) *gomock.Controller {
+func (s *containerUnitAgentSuite) setupCommand(c *tc.C, configChangedVal *voyeur.Value) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.fileReaderWriter = utilsmocks.NewMockFileReaderWriter(ctrl)
 	s.environment = utilsmocks.NewMockEnvironment(ctrl)
@@ -75,20 +75,20 @@ func (s *containerUnitAgentSuite) setupCommand(c *gc.C, configChangedVal *voyeur
 	return ctrl
 }
 
-func (s *containerUnitAgentSuite) prepareAgentConf(c *gc.C, appName string) string {
+func (s *containerUnitAgentSuite) prepareAgentConf(c *tc.C, appName string) string {
 	fPath := filepath.Join(s.dataDir, k8sconstants.TemplateFileNameAgentConf)
 	err := os.WriteFile(fPath, []byte(fmt.Sprintf(agentConfigContents, appName)), 0600)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	return fPath
 }
 
 func (s *containerUnitAgentSuite) newBufferedLogWriter() *logsender.BufferedLogWriter {
 	logger := logsender.NewBufferedLogWriter(1024)
-	s.AddCleanup(func(*gc.C) { logger.Close() })
+	s.AddCleanup(func(*tc.C) { logger.Close() })
 	return logger
 }
 
-func (s *containerUnitAgentSuite) TestParseSuccess(c *gc.C) {
+func (s *containerUnitAgentSuite) TestParseSuccess(c *tc.C) {
 	ctrl := s.setupCommand(c, nil)
 	defer ctrl.Finish()
 
@@ -116,15 +116,15 @@ func (s *containerUnitAgentSuite) TestParseSuccess(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.cmd.DataDir(), gc.Equals, s.dataDir)
+	c.Assert(s.cmd.DataDir(), tc.Equals, s.dataDir)
 	c.Assert(s.cmd.Tag().String(), jc.DeepEquals, `unit-wordpress-0`)
 	c.Assert(s.cmd.CurrentConfig().Controller().String(), jc.DeepEquals, `controller-deadbeef-1bad-500d-9000-4b1d0d06f00d`)
 	c.Assert(s.cmd.CurrentConfig().Model().String(), jc.DeepEquals, `model-deadbeef-0bad-400d-8000-4b1d0d06f00d`)
-	c.Assert(s.cmd.CharmModifiedVersion(), gc.Equals, 10)
+	c.Assert(s.cmd.CharmModifiedVersion(), tc.Equals, 10)
 	c.Assert(s.cmd.GetContainerNames(), jc.DeepEquals, []string{"a", "b", "c"})
 }
 
-func (s *containerUnitAgentSuite) TestParseSuccessNoContainer(c *gc.C) {
+func (s *containerUnitAgentSuite) TestParseSuccessNoContainer(c *tc.C) {
 	ctrl := s.setupCommand(c, nil)
 	defer ctrl.Finish()
 
@@ -152,25 +152,25 @@ func (s *containerUnitAgentSuite) TestParseSuccessNoContainer(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.cmd.DataDir(), gc.Equals, s.dataDir)
+	c.Assert(s.cmd.DataDir(), tc.Equals, s.dataDir)
 	c.Assert(s.cmd.Tag().String(), jc.DeepEquals, `unit-wordpress-0`)
 	c.Assert(s.cmd.CurrentConfig().Controller().String(), jc.DeepEquals, `controller-deadbeef-1bad-500d-9000-4b1d0d06f00d`)
 	c.Assert(s.cmd.CurrentConfig().Model().String(), jc.DeepEquals, `model-deadbeef-0bad-400d-8000-4b1d0d06f00d`)
-	c.Assert(s.cmd.CharmModifiedVersion(), gc.Equals, 10)
-	c.Assert(len(s.cmd.GetContainerNames()), gc.Equals, 0)
+	c.Assert(s.cmd.CharmModifiedVersion(), tc.Equals, 10)
+	c.Assert(len(s.cmd.GetContainerNames()), tc.Equals, 0)
 }
 
-func (s *containerUnitAgentSuite) TestParseUnknown(c *gc.C) {
+func (s *containerUnitAgentSuite) TestParseUnknown(c *tc.C) {
 	ctrl := s.setupCommand(c, nil)
 	defer ctrl.Finish()
 
 	err := cmdtesting.InitCommand(s.cmd, []string{
 		"thundering typhoons",
 	})
-	c.Check(err, gc.ErrorMatches, `unrecognized args: \["thundering typhoons"\]`)
+	c.Check(err, tc.ErrorMatches, `unrecognized args: \["thundering typhoons"\]`)
 }
 
-func (s *containerUnitAgentSuite) TestChangeConfig(c *gc.C) {
+func (s *containerUnitAgentSuite) TestChangeConfig(c *tc.C) {
 	config := FakeAgentConfig{}
 	configChanged := voyeur.NewValue(true)
 
@@ -203,7 +203,7 @@ func (s *containerUnitAgentSuite) TestChangeConfig(c *gc.C) {
 	}
 }
 
-func (s *containerUnitAgentSuite) TestEnsureAgentConf(c *gc.C) {
+func (s *containerUnitAgentSuite) TestEnsureAgentConf(c *tc.C) {
 	dataDir := c.MkDir()
 	params := agent.AgentConfigParams{
 		Paths: agent.Paths{
@@ -234,22 +234,22 @@ func (s *containerUnitAgentSuite) TestEnsureAgentConf(c *gc.C) {
 	// Ensure the agent.conf was seeded from the template-agent.conf.
 	agentConfBytes, err := os.ReadFile(path.Join(dataDir, "agents", "unit-app-0", "agent.conf"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(agentConfBytes), gc.Equals, string(templateBytes))
+	c.Assert(string(agentConfBytes), tc.Equals, string(templateBytes))
 
 	// Change the agent.conf to be different than the template-agent.conf
-	c.Assert(ac.CurrentConfig().OldPassword(), gc.Equals, "password")
+	c.Assert(ac.CurrentConfig().OldPassword(), tc.Equals, "password")
 	err = ac.ChangeConfig(func(cs agent.ConfigSetter) error {
 		cs.SetOldPassword("password2")
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ac.CurrentConfig().OldPassword(), gc.Equals, "password2")
+	c.Assert(ac.CurrentConfig().OldPassword(), tc.Equals, "password2")
 
 	// Start a new "agent" and make sure it has password2.
 	ac2 := agentconf.NewAgentConf(dataDir)
 	err = unit.EnsureAgentConf(ac2)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ac2.CurrentConfig().OldPassword(), gc.Equals, "password2")
+	c.Assert(ac2.CurrentConfig().OldPassword(), tc.Equals, "password2")
 }
 
 type FakeConfig struct {

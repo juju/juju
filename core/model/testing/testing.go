@@ -4,15 +4,15 @@
 package testing
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coremodel "github.com/juju/juju/core/model"
 )
 
 // GenModelUUID can be used in testing for generating a model uuid that is
 // checked for subsequent errors using the test suits go check instance.
-func GenModelUUID(c *gc.C) coremodel.UUID {
+func GenModelUUID(c *tc.C) coremodel.UUID {
 	uuid, err := coremodel.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	return uuid

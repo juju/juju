@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/caas"
 )
 
-func (s *applicationSuite) TestTrust(c *gc.C) {
+func (s *applicationSuite) TestTrust(c *tc.C) {
 	app, ctrl := s.getApp(c, caas.DeploymentStateless, true)
 	defer ctrl.Finish()
 
@@ -56,7 +56,7 @@ func (s *applicationSuite) TestTrust(c *gc.C) {
 	})
 }
 
-func (s *applicationSuite) TestTrustRoleNotFound(c *gc.C) {
+func (s *applicationSuite) TestTrustRoleNotFound(c *tc.C) {
 	app, ctrl := s.getApp(c, caas.DeploymentStateless, true)
 	defer ctrl.Finish()
 
@@ -64,7 +64,7 @@ func (s *applicationSuite) TestTrustRoleNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
-func (s *applicationSuite) TestTrustClusterRoleNotFound(c *gc.C) {
+func (s *applicationSuite) TestTrustClusterRoleNotFound(c *tc.C) {
 	app, ctrl := s.getApp(c, caas.DeploymentStateless, true)
 	defer ctrl.Finish()
 
@@ -85,7 +85,7 @@ func (s *applicationSuite) TestTrustClusterRoleNotFound(c *gc.C) {
 	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
 }
 
-func (s *applicationSuite) TestRemoveTrust(c *gc.C) {
+func (s *applicationSuite) TestRemoveTrust(c *tc.C) {
 	app, ctrl := s.getApp(c, caas.DeploymentStateless, true)
 	defer ctrl.Finish()
 

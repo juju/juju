@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	jujucharm "github.com/juju/juju/internal/charm"
 	charmtesting "github.com/juju/juju/internal/charm/testing"
@@ -55,7 +55,7 @@ func (br *bundleReader) Read(ctx context.Context, info charm.BundleInfo, abort <
 	return bundle, nil
 }
 
-func (br *bundleReader) AddCustomBundle(c *gc.C, url *jujucharm.URL, customize func(path string)) charm.BundleInfo {
+func (br *bundleReader) AddCustomBundle(c *tc.C, url *jujucharm.URL, customize func(path string)) charm.BundleInfo {
 	base := c.MkDir()
 	dirpath := testcharms.Repo.ClonedDirPath(base, "dummy")
 	if customize != nil {

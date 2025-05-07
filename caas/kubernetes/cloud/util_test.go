@@ -6,16 +6,16 @@ package cloud
 import (
 	"os"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
 type utilSuite struct {
 }
 
-var _ = gc.Suite(&utilSuite{})
+var _ = tc.Suite(&utilSuite{})
 
-func (u *utilSuite) TestDataOrFile(c *gc.C) {
+func (u *utilSuite) TestDataOrFile(c *tc.C) {
 	tests := []struct {
 		dataContents     []byte
 		fileContents     []byte
@@ -45,7 +45,7 @@ func (u *utilSuite) TestDataOrFile(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			n, err := f.Write(test.fileContents)
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(n, gc.Equals, len(test.fileContents))
+			c.Assert(n, tc.Equals, len(test.fileContents))
 		}
 
 		r, err := dataOrFile(test.dataContents, fileName)
@@ -54,7 +54,7 @@ func (u *utilSuite) TestDataOrFile(c *gc.C) {
 	}
 }
 
-func (u *utilSuite) TestStringOrFile(c *gc.C) {
+func (u *utilSuite) TestStringOrFile(c *tc.C) {
 	tests := []struct {
 		dataContents     string
 		fileContents     string
@@ -81,7 +81,7 @@ func (u *utilSuite) TestStringOrFile(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			n, err := f.Write([]byte(test.fileContents))
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(n, gc.Equals, len(test.fileContents))
+			c.Assert(n, tc.Equals, len(test.fileContents))
 		}
 
 		r, err := stringOrFile(test.dataContents, fileName)

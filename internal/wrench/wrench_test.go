@@ -10,15 +10,15 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/loggo/v2"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/wrench"
 )
 
 func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type wrenchSuite struct {
@@ -27,9 +27,9 @@ type wrenchSuite struct {
 	logWriter loggo.TestWriter
 }
 
-var _ = gc.Suite(&wrenchSuite{})
+var _ = tc.Suite(&wrenchSuite{})
 
-func (s *wrenchSuite) SetUpTest(c *gc.C) {
+func (s *wrenchSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	// BaseSuite turns off wrench so restore the non-testing default.
@@ -39,8 +39,8 @@ func (s *wrenchSuite) SetUpTest(c *gc.C) {
 	oldLevel := logger.LogLevel()
 	logger.SetLogLevel(loggo.TRACE)
 
-	c.Assert(loggo.RegisterWriter("wrench-tests", &s.logWriter), gc.IsNil)
-	s.AddCleanup(func(*gc.C) {
+	c.Assert(loggo.RegisterWriter("wrench-tests", &s.logWriter), tc.IsNil)
+	s.AddCleanup(func(*tc.C) {
 		s.logWriter.Clear()
 		logger.SetLogLevel(oldLevel)
 		loggo.RemoveWriter("wrench-tests")
@@ -49,73 +49,73 @@ func (s *wrenchSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *wrenchSuite) createWrenchDir(c *gc.C) {
+func (s *wrenchSuite) createWrenchDir(c *tc.C) {
 	s.wrenchDir = c.MkDir()
 	s.PatchValue(wrench.WrenchDir, s.wrenchDir)
 }
 
-func (s *wrenchSuite) createWrenchFile(c *gc.C, name, content string) string {
+func (s *wrenchSuite) createWrenchFile(c *tc.C, name, content string) string {
 	filename := filepath.Join(s.wrenchDir, name)
 	err := os.WriteFile(filename, []byte(content), 0700)
 	c.Assert(err, jc.ErrorIsNil)
 	return filename
 }
 
-func (s *wrenchSuite) TestIsActive(c *gc.C) {
+func (s *wrenchSuite) TestIsActive(c *tc.C) {
 	s.createWrenchDir(c)
 	s.createWrenchFile(c, "foo", "bar")
 	c.Assert(wrench.IsActive("foo", "bar"), jc.IsTrue)
 	s.AssertActivationLogged(c)
 }
 
-func (s *wrenchSuite) TestIsActiveWithWhitespace(c *gc.C) {
+func (s *wrenchSuite) TestIsActiveWithWhitespace(c *tc.C) {
 	s.createWrenchDir(c)
 	s.createWrenchFile(c, "foo", "\tbar  ")
 	c.Assert(wrench.IsActive("foo", "bar"), jc.IsTrue)
 	s.AssertActivationLogged(c)
 }
 
-func (s *wrenchSuite) TestIsActiveMultiFeatures(c *gc.C) {
+func (s *wrenchSuite) TestIsActiveMultiFeatures(c *tc.C) {
 	s.createWrenchDir(c)
 	s.createWrenchFile(c, "foo", "one\ntwo\nbar\n")
 	c.Assert(wrench.IsActive("foo", "bar"), jc.IsTrue)
 	s.AssertActivationLogged(c)
 }
 
-func (s *wrenchSuite) TestIsActiveMultiFeaturesWithMixedNewlines(c *gc.C) {
+func (s *wrenchSuite) TestIsActiveMultiFeaturesWithMixedNewlines(c *tc.C) {
 	s.createWrenchDir(c)
 	s.createWrenchFile(c, "foo", "one\ntwo\r\nthree\nbar\n")
 	c.Assert(wrench.IsActive("foo", "bar"), jc.IsTrue)
 	s.AssertActivationLogged(c)
 }
 
-func (s *wrenchSuite) TestNotActive(c *gc.C) {
+func (s *wrenchSuite) TestNotActive(c *tc.C) {
 	s.createWrenchDir(c)
 	s.createWrenchFile(c, "foo", "abc")
 	c.Assert(wrench.IsActive("foo", "bar"), jc.IsFalse)
 	s.AssertNothingLogged(c)
 }
 
-func (s *wrenchSuite) TestNoFile(c *gc.C) {
+func (s *wrenchSuite) TestNoFile(c *tc.C) {
 	s.createWrenchDir(c)
 	c.Assert(wrench.IsActive("foo", "bar"), jc.IsFalse)
 	s.AssertFileErrorLogged(c)
 }
 
-func (s *wrenchSuite) TestMatchInOtherCategory(c *gc.C) {
+func (s *wrenchSuite) TestMatchInOtherCategory(c *tc.C) {
 	s.createWrenchDir(c)
 	s.createWrenchFile(c, "other", "bar")
 	c.Assert(wrench.IsActive("foo", "bar"), jc.IsFalse)
 	s.AssertFileErrorLogged(c)
 }
 
-func (s *wrenchSuite) TestNoDirectory(c *gc.C) {
+func (s *wrenchSuite) TestNoDirectory(c *tc.C) {
 	s.PatchValue(wrench.WrenchDir, "/does/not/exist")
 	c.Assert(wrench.IsActive("foo", "bar"), jc.IsFalse)
 	s.AssertDirErrorLogged(c)
 }
 
-func (s *wrenchSuite) TestFileNotOwnedByJujuUser(c *gc.C) {
+func (s *wrenchSuite) TestFileNotOwnedByJujuUser(c *tc.C) {
 	s.createWrenchDir(c)
 	filename := s.createWrenchFile(c, "foo", "bar")
 	s.tweakOwner(c, filename)
@@ -128,7 +128,7 @@ func (s *wrenchSuite) TestFileNotOwnedByJujuUser(c *gc.C) {
 	}})
 }
 
-func (s *wrenchSuite) TestFilePermsTooLoose(c *gc.C) {
+func (s *wrenchSuite) TestFilePermsTooLoose(c *tc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("Windows is not fully POSIX compliant")
 	}
@@ -145,7 +145,7 @@ func (s *wrenchSuite) TestFilePermsTooLoose(c *gc.C) {
 	}})
 }
 
-func (s *wrenchSuite) TestDirectoryNotOwnedByJujuUser(c *gc.C) {
+func (s *wrenchSuite) TestDirectoryNotOwnedByJujuUser(c *tc.C) {
 	s.createWrenchDir(c)
 	s.tweakOwner(c, s.wrenchDir)
 
@@ -157,7 +157,7 @@ func (s *wrenchSuite) TestDirectoryNotOwnedByJujuUser(c *gc.C) {
 	}})
 }
 
-func (s *wrenchSuite) TestSetEnabled(c *gc.C) {
+func (s *wrenchSuite) TestSetEnabled(c *tc.C) {
 	s.createWrenchDir(c)
 	s.createWrenchFile(c, "foo", "bar")
 
@@ -178,21 +178,21 @@ func (s *wrenchSuite) TestSetEnabled(c *gc.C) {
 
 var notJujuUid = uint32(os.Getuid() + 1)
 
-func (s *wrenchSuite) AssertActivationLogged(c *gc.C) {
+func (s *wrenchSuite) AssertActivationLogged(c *tc.C) {
 	c.Assert(s.logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
 		{loggo.TRACE, `wrench for foo/bar is active`}})
 }
 
-func (s *wrenchSuite) AssertNothingLogged(c *gc.C) {
-	c.Assert(len(s.logWriter.Log()), gc.Equals, 0)
+func (s *wrenchSuite) AssertNothingLogged(c *tc.C) {
+	c.Assert(len(s.logWriter.Log()), tc.Equals, 0)
 }
 
-func (s *wrenchSuite) AssertFileErrorLogged(c *gc.C) {
+func (s *wrenchSuite) AssertFileErrorLogged(c *tc.C) {
 	c.Assert(s.logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
 		{loggo.TRACE, `no wrench data for foo/bar \(ignored\): ` + fileNotFound}})
 }
 
-func (s *wrenchSuite) AssertDirErrorLogged(c *gc.C) {
+func (s *wrenchSuite) AssertDirErrorLogged(c *tc.C) {
 	c.Assert(s.logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
 		{loggo.TRACE, `couldn't read wrench directory: ` + fileNotFound}})
 }

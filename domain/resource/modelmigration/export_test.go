@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/juju/description/v9"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreresouces "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
@@ -27,9 +27,9 @@ type exportSuite struct {
 	exportService *MockExportService
 }
 
-var _ = gc.Suite(&exportSuite{})
+var _ = tc.Suite(&exportSuite{})
 
-func (s *exportSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *exportSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.exportService = NewMockExportService(ctrl)
@@ -37,7 +37,7 @@ func (s *exportSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *exportSuite) TestResourceExportEmpty(c *gc.C) {
+func (s *exportSuite) TestResourceExportEmpty(c *tc.C) {
 	model := description.NewModel(description.ModelArgs{})
 
 	exportOp := exportOperation{
@@ -48,7 +48,7 @@ func (s *exportSuite) TestResourceExportEmpty(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *exportSuite) TestResourceExport(c *gc.C) {
+func (s *exportSuite) TestResourceExport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange: add an app and unit to the model.
 	model := description.NewModel(description.ModelArgs{})
@@ -141,40 +141,40 @@ func (s *exportSuite) TestResourceExport(c *gc.C) {
 
 	// Assert the app has resources.
 	apps := model.Applications()
-	c.Assert(apps, gc.HasLen, 1)
+	c.Assert(apps, tc.HasLen, 1)
 	resources := apps[0].Resources()
-	c.Assert(resources, gc.HasLen, 2)
-	c.Check(resources[0].Name(), gc.Equals, res1Name)
+	c.Assert(resources, tc.HasLen, 2)
+	c.Check(resources[0].Name(), tc.Equals, res1Name)
 
 	// Assert resource 1 was exported correctly.
 	res1AppRevision := resources[0].ApplicationRevision()
-	c.Check(res1AppRevision.Revision(), gc.Equals, res1Revision)
-	c.Check(res1AppRevision.Origin(), gc.Equals, res1Origin.String())
-	c.Check(res1AppRevision.RetrievedBy(), gc.Equals, res1RetrievedBy)
-	c.Check(res1AppRevision.SHA384(), gc.Equals, fp.String())
-	c.Check(res1AppRevision.Size(), gc.Equals, res1Size)
-	c.Check(res1AppRevision.Timestamp(), gc.Equals, res1Time)
+	c.Check(res1AppRevision.Revision(), tc.Equals, res1Revision)
+	c.Check(res1AppRevision.Origin(), tc.Equals, res1Origin.String())
+	c.Check(res1AppRevision.RetrievedBy(), tc.Equals, res1RetrievedBy)
+	c.Check(res1AppRevision.SHA384(), tc.Equals, fp.String())
+	c.Check(res1AppRevision.Size(), tc.Equals, res1Size)
+	c.Check(res1AppRevision.Timestamp(), tc.Equals, res1Time)
 
 	// Assert resource 2 was exported correctly.
 	res2AppRevision := resources[1].ApplicationRevision()
-	c.Check(res2AppRevision.Revision(), gc.Equals, res2Revision)
-	c.Check(res2AppRevision.Origin(), gc.Equals, res2Origin.String())
-	c.Check(res2AppRevision.RetrievedBy(), gc.Equals, res2RetrievedBy)
-	c.Check(res2AppRevision.SHA384(), gc.Equals, fp.String())
-	c.Check(res2AppRevision.Size(), gc.Equals, res2Size)
-	c.Check(res2AppRevision.Timestamp(), gc.Equals, res2Time)
+	c.Check(res2AppRevision.Revision(), tc.Equals, res2Revision)
+	c.Check(res2AppRevision.Origin(), tc.Equals, res2Origin.String())
+	c.Check(res2AppRevision.RetrievedBy(), tc.Equals, res2RetrievedBy)
+	c.Check(res2AppRevision.SHA384(), tc.Equals, fp.String())
+	c.Check(res2AppRevision.Size(), tc.Equals, res2Size)
+	c.Check(res2AppRevision.Timestamp(), tc.Equals, res2Time)
 
 	// Assert the unit resource was exported correctly.
 	units := app.Units()
-	c.Assert(units, gc.HasLen, 1)
+	c.Assert(units, tc.HasLen, 1)
 	unitResources := units[0].Resources()
-	c.Assert(unitResources, gc.HasLen, 1)
-	c.Check(unitResources[0].Name(), gc.Equals, unitResName)
+	c.Assert(unitResources, tc.HasLen, 1)
+	c.Check(unitResources[0].Name(), tc.Equals, unitResName)
 	unitResourceRevision := unitResources[0].Revision()
-	c.Check(unitResourceRevision.Revision(), gc.Equals, unitResRevision)
-	c.Check(unitResourceRevision.Origin(), gc.Equals, unitResOrigin.String())
-	c.Check(unitResourceRevision.RetrievedBy(), gc.Equals, unitResRetrievedBy)
-	c.Check(unitResourceRevision.SHA384(), gc.Equals, fp.String())
-	c.Check(unitResourceRevision.Size(), gc.Equals, unitResSize)
-	c.Check(unitResourceRevision.Timestamp(), gc.Equals, unitResTime)
+	c.Check(unitResourceRevision.Revision(), tc.Equals, unitResRevision)
+	c.Check(unitResourceRevision.Origin(), tc.Equals, unitResOrigin.String())
+	c.Check(unitResourceRevision.RetrievedBy(), tc.Equals, unitResRetrievedBy)
+	c.Check(unitResourceRevision.SHA384(), tc.Equals, fp.String())
+	c.Check(unitResourceRevision.Size(), tc.Equals, unitResSize)
+	c.Check(unitResourceRevision.Timestamp(), tc.Equals, unitResTime)
 }

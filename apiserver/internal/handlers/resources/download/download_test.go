@@ -12,10 +12,10 @@ import (
 	"os"
 	"strings"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/internal/handlers/resources/download"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -27,9 +27,9 @@ type ValidateSuite struct {
 	fileSystem *MockFileSystem
 }
 
-var _ = gc.Suite(&ValidateSuite{})
+var _ = tc.Suite(&ValidateSuite{})
 
-func (s *ValidateSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *ValidateSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.fileSystem = NewMockFileSystem(ctrl)
@@ -37,7 +37,7 @@ func (s *ValidateSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *ValidateSuite) TestValidateResource(c *gc.C) {
+func (s *ValidateSuite) TestValidateResource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange:
 
@@ -75,11 +75,11 @@ func (s *ValidateSuite) TestValidateResource(c *gc.C) {
 	buf := new(bytes.Buffer)
 	_, err = io.Copy(buf, reader)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(buf.Bytes(), gc.DeepEquals, resourceContent)
+	c.Assert(buf.Bytes(), tc.DeepEquals, resourceContent)
 	c.Assert(reader.Close(), jc.ErrorIsNil)
 }
 
-func (s *ValidateSuite) TestGetResourceUnexpectedSize(c *gc.C) {
+func (s *ValidateSuite) TestGetResourceUnexpectedSize(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange:
 
@@ -108,11 +108,11 @@ func (s *ValidateSuite) TestGetResourceUnexpectedSize(c *gc.C) {
 	)
 
 	// Assert:
-	c.Assert(err, gc.ErrorMatches, "downloaded resource has unexpected size.*")
-	c.Assert(reader, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "downloaded resource has unexpected size.*")
+	c.Assert(reader, tc.IsNil)
 }
 
-func (s *ValidateSuite) TestGetResourceUnexpectedHash(c *gc.C) {
+func (s *ValidateSuite) TestGetResourceUnexpectedHash(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange:
 
@@ -138,11 +138,11 @@ func (s *ValidateSuite) TestGetResourceUnexpectedHash(c *gc.C) {
 	)
 
 	// Assert:
-	c.Assert(err, gc.ErrorMatches, "downloaded resource has unexpected hash.*")
-	c.Assert(reader, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "downloaded resource has unexpected hash.*")
+	c.Assert(reader, tc.IsNil)
 }
 
-func (s *ValidateSuite) expectTmpFile(c *gc.C) (*os.File, func()) {
+func (s *ValidateSuite) expectTmpFile(c *tc.C) (*os.File, func()) {
 	tmpFile, err := os.CreateTemp("", "resource-")
 	c.Assert(err, jc.ErrorIsNil)
 

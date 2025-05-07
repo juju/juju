@@ -8,11 +8,11 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/jujud/reboot"
 	"github.com/juju/juju/cmd/jujud/reboot/mocks"
@@ -31,9 +31,9 @@ type NewRebootSuite struct {
 	clock            *mocks.MockClock
 }
 
-var _ = gc.Suite(&NewRebootSuite{})
+var _ = tc.Suite(&NewRebootSuite{})
 
-func (s *NewRebootSuite) TestExecuteReboot(c *gc.C) {
+func (s *NewRebootSuite) TestExecuteReboot(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectManagerIsInitialized(false, 1)
 	s.expectListServices()
@@ -44,7 +44,7 @@ func (s *NewRebootSuite) TestExecuteReboot(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *NewRebootSuite) TestExecuteRebootWaitForContainers(c *gc.C) {
+func (s *NewRebootSuite) TestExecuteRebootWaitForContainers(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectManagerIsInitialized(true, 2)
 	s.expectListContainers()
@@ -60,7 +60,7 @@ func (s *NewRebootSuite) newRebootWaiter() *reboot.Reboot {
 	return reboot.NewRebootForTest(s.agentConfig, s.rebootWaiter, s.clock)
 }
 
-func (s *NewRebootSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *NewRebootSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.agentConfig = mocks.NewMockAgentConfig(ctrl)
 	s.containerManager = mocks.NewMockManager(ctrl)
@@ -134,9 +134,9 @@ type NixRebootSuite struct {
 	rebootScriptName string
 }
 
-var _ = gc.Suite(&NixRebootSuite{})
+var _ = tc.Suite(&NixRebootSuite{})
 
-func (s *NixRebootSuite) SetUpTest(c *gc.C) {
+func (s *NixRebootSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	testing.PatchExecutableAsEchoArgs(c, s, rebootBin)
 	s.tmpDir = c.MkDir()
@@ -147,7 +147,7 @@ func (s *NixRebootSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *NixRebootSuite) TestReboot(c *gc.C) {
+func (s *NixRebootSuite) TestReboot(c *tc.C) {
 	expectedParams := s.commandParams()
 	err := reboot.ScheduleAction(params.ShouldReboot, 15)
 	c.Assert(err, jc.ErrorIsNil)
@@ -155,7 +155,7 @@ func (s *NixRebootSuite) TestReboot(c *gc.C) {
 	ft.File{Path: s.rebootScriptName, Data: expectedRebootScript, Perm: 0755}.Check(c, s.tmpDir)
 }
 
-func (s *NixRebootSuite) TestShutdownNoContainers(c *gc.C) {
+func (s *NixRebootSuite) TestShutdownNoContainers(c *tc.C) {
 	expectedParams := s.commandParams()
 
 	err := reboot.ScheduleAction(params.ShouldShutdown, 15)

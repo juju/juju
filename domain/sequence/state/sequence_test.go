@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/core/testing"
 	"github.com/juju/juju/domain"
@@ -24,14 +24,14 @@ type sequenceSuite struct {
 	state *domain.StateBase
 }
 
-var _ = gc.Suite(&sequenceSuite{})
+var _ = tc.Suite(&sequenceSuite{})
 
-func (s *sequenceSuite) SetUpTest(c *gc.C) {
+func (s *sequenceSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 	s.state = domain.NewStateBase(s.TxnRunnerFactory())
 }
 
-func (s *sequenceSuite) TestSequenceStaticNamespace(c *gc.C) {
+func (s *sequenceSuite) TestSequenceStaticNamespace(c *tc.C) {
 	var next uint64
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
@@ -39,7 +39,7 @@ func (s *sequenceSuite) TestSequenceStaticNamespace(c *gc.C) {
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(next, gc.Equals, uint64(0))
+	c.Assert(next, tc.Equals, uint64(0))
 
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
@@ -47,10 +47,10 @@ func (s *sequenceSuite) TestSequenceStaticNamespace(c *gc.C) {
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(next, gc.Equals, uint64(1))
+	c.Assert(next, tc.Equals, uint64(1))
 }
 
-func (s *sequenceSuite) TestSequencePrefixNamespace(c *gc.C) {
+func (s *sequenceSuite) TestSequencePrefixNamespace(c *tc.C) {
 	var next uint64
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
@@ -58,7 +58,7 @@ func (s *sequenceSuite) TestSequencePrefixNamespace(c *gc.C) {
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(next, gc.Equals, uint64(0))
+	c.Assert(next, tc.Equals, uint64(0))
 
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
@@ -66,10 +66,10 @@ func (s *sequenceSuite) TestSequencePrefixNamespace(c *gc.C) {
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(next, gc.Equals, uint64(1))
+	c.Assert(next, tc.Equals, uint64(1))
 }
 
-func (s *sequenceSuite) TestSequenceMultiple(c *gc.C) {
+func (s *sequenceSuite) TestSequenceMultiple(c *tc.C) {
 	got := sync.Map{}
 	wg := sync.WaitGroup{}
 	for i := 0; i < 100; i++ {

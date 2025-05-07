@@ -6,9 +6,9 @@ package auditconfigupdater
 import (
 	stdtesting "testing"
 
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/internal/testing"
@@ -18,7 +18,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package auditconfigupdater -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config
 
 func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type baseSuite struct {
@@ -30,7 +30,7 @@ type baseSuite struct {
 	controllerConfigService *MockControllerConfigService
 }
 
-func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.agent = NewMockAgent(ctrl)

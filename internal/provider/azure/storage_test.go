@@ -13,9 +13,9 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/microsoftgraph/msgraph-sdk-go/models/odataerrors"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
@@ -36,9 +36,9 @@ type storageSuite struct {
 	invalidatedCredential bool
 }
 
-var _ = gc.Suite(&storageSuite{})
+var _ = tc.Suite(&storageSuite{})
 
-func (s *storageSuite) SetUpTest(c *gc.C) {
+func (s *storageSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.requests = nil
 	envProvider := newProvider(c, azure.ProviderConfig{
@@ -62,7 +62,7 @@ func (s *storageSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *storageSuite) volumeSource(c *gc.C, attrs ...testing.Attrs) storage.VolumeSource {
+func (s *storageSuite) volumeSource(c *tc.C, attrs ...testing.Attrs) storage.VolumeSource {
 	storageConfig, err := storage.NewConfig("azure", "azure", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -72,34 +72,34 @@ func (s *storageSuite) volumeSource(c *gc.C, attrs ...testing.Attrs) storage.Vol
 	return volumeSource
 }
 
-func (s *storageSuite) TestVolumeSource(c *gc.C) {
+func (s *storageSuite) TestVolumeSource(c *tc.C) {
 	vs := s.volumeSource(c)
-	c.Assert(vs, gc.NotNil)
+	c.Assert(vs, tc.NotNil)
 }
 
-func (s *storageSuite) TestFilesystemSource(c *gc.C) {
+func (s *storageSuite) TestFilesystemSource(c *tc.C) {
 	storageConfig, err := storage.NewConfig("azure", "azure", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.provider.FilesystemSource(storageConfig)
-	c.Assert(err, gc.ErrorMatches, "filesystems not supported")
+	c.Assert(err, tc.ErrorMatches, "filesystems not supported")
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
-func (s *storageSuite) TestSupports(c *gc.C) {
+func (s *storageSuite) TestSupports(c *tc.C) {
 	c.Assert(s.provider.Supports(storage.StorageKindBlock), jc.IsTrue)
 	c.Assert(s.provider.Supports(storage.StorageKindFilesystem), jc.IsFalse)
 }
 
-func (s *storageSuite) TestDynamic(c *gc.C) {
+func (s *storageSuite) TestDynamic(c *tc.C) {
 	c.Assert(s.provider.Dynamic(), jc.IsTrue)
 }
 
-func (s *storageSuite) TestScope(c *gc.C) {
-	c.Assert(s.provider.Scope(), gc.Equals, storage.ScopeEnviron)
+func (s *storageSuite) TestScope(c *tc.C) {
+	c.Assert(s.provider.Scope(), tc.Equals, storage.ScopeEnviron)
 }
 
-func (s *storageSuite) TestCreateVolumes(c *gc.C) {
+func (s *storageSuite) TestCreateVolumes(c *tc.C) {
 	makeVolumeParams := func(volume, machine string, size uint64) storage.VolumeParams {
 		return storage.VolumeParams{
 			Tag:          names.NewVolumeTag(volume),
@@ -143,15 +143,15 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 
 	results, err := volumeSource.CreateVolumes(context.Background(), params)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, len(params))
+	c.Assert(results, tc.HasLen, len(params))
 	c.Check(results[0].Error, jc.ErrorIsNil)
 	c.Check(results[1].Error, jc.ErrorIsNil)
 	c.Check(results[2].Error, jc.ErrorIsNil)
 
 	// Attachments are deferred.
-	c.Check(results[0].VolumeAttachment, gc.IsNil)
-	c.Check(results[1].VolumeAttachment, gc.IsNil)
-	c.Check(results[2].VolumeAttachment, gc.IsNil)
+	c.Check(results[0].VolumeAttachment, tc.IsNil)
+	c.Check(results[1].VolumeAttachment, tc.IsNil)
+	c.Check(results[2].VolumeAttachment, tc.IsNil)
 
 	makeVolume := func(id string, size uint64) *storage.Volume {
 		return &storage.Volume{
@@ -168,10 +168,10 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 	c.Check(results[2].Volume, jc.DeepEquals, makeVolume("2", 1*1024))
 
 	// Validate HTTP request bodies.
-	c.Assert(s.requests, gc.HasLen, 3)
-	c.Assert(s.requests[0].Method, gc.Equals, "PUT") // create volume-0
-	c.Assert(s.requests[1].Method, gc.Equals, "PUT") // create volume-1
-	c.Assert(s.requests[2].Method, gc.Equals, "PUT") // create volume-2
+	c.Assert(s.requests, tc.HasLen, 3)
+	c.Assert(s.requests[0].Method, tc.Equals, "PUT") // create volume-0
+	c.Assert(s.requests[1].Method, tc.Equals, "PUT") // create volume-1
+	c.Assert(s.requests[2].Method, tc.Equals, "PUT") // create volume-2
 
 	makeDisk := func(name string, size int32) *armcompute.Disk {
 		tags := map[string]*string{
@@ -204,7 +204,7 @@ func (s *storageSuite) createSenderWithUnauthorisedStatusCode() {
 	s.sender = azuretesting.Senders{unauthSender, unauthSender, unauthSender}
 }
 
-func (s *storageSuite) TestCreateVolumesWithInvalidCredential(c *gc.C) {
+func (s *storageSuite) TestCreateVolumesWithInvalidCredential(c *tc.C) {
 	makeVolumeParams := func(volume, machine string, size uint64) storage.VolumeParams {
 		return storage.VolumeParams{
 			Tag:          names.NewVolumeTag(volume),
@@ -234,24 +234,24 @@ func (s *storageSuite) TestCreateVolumesWithInvalidCredential(c *gc.C) {
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
 	results, err := volumeSource.CreateVolumes(context.Background(), params)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, len(params))
-	c.Check(results[0].Error, gc.NotNil)
-	c.Check(results[1].Error, gc.NotNil)
-	c.Check(results[2].Error, gc.NotNil)
+	c.Assert(results, tc.HasLen, len(params))
+	c.Check(results[0].Error, tc.NotNil)
+	c.Check(results[1].Error, tc.NotNil)
+	c.Check(results[2].Error, tc.NotNil)
 
 	// Attachments are deferred.
-	c.Check(results[0].VolumeAttachment, gc.IsNil)
-	c.Check(results[1].VolumeAttachment, gc.IsNil)
-	c.Check(results[2].VolumeAttachment, gc.IsNil)
+	c.Check(results[0].VolumeAttachment, tc.IsNil)
+	c.Check(results[1].VolumeAttachment, tc.IsNil)
+	c.Check(results[2].VolumeAttachment, tc.IsNil)
 	c.Assert(s.invalidatedCredential, jc.IsTrue)
 
 	// Validate HTTP request bodies.
 	// The authorised workflow attempts to refresh to token so
 	// there's additional requests to account for as well.
-	c.Assert(s.requests, gc.HasLen, 3)
-	c.Assert(s.requests[0].Method, gc.Equals, "PUT") // create volume-0
-	c.Assert(s.requests[1].Method, gc.Equals, "PUT") // create volume-1
-	c.Assert(s.requests[2].Method, gc.Equals, "PUT") // create volume-2
+	c.Assert(s.requests, tc.HasLen, 3)
+	c.Assert(s.requests[0].Method, tc.Equals, "PUT") // create volume-0
+	c.Assert(s.requests[1].Method, tc.Equals, "PUT") // create volume-1
+	c.Assert(s.requests[2].Method, tc.Equals, "PUT") // create volume-2
 
 	makeDisk := func(name string, size int32) *armcompute.Disk {
 		tags := map[string]*string{
@@ -277,7 +277,7 @@ func (s *storageSuite) TestCreateVolumesWithInvalidCredential(c *gc.C) {
 	assertRequestBody(c, s.requests[2], makeDisk("volume-2", 1))
 }
 
-func (s *storageSuite) TestListVolumes(c *gc.C) {
+func (s *storageSuite) TestListVolumes(c *tc.C) {
 	volumeSource := s.volumeSource(c)
 	disks := []*armcompute.Disk{{
 		Name: to.Ptr("volume-0"),
@@ -297,17 +297,17 @@ func (s *storageSuite) TestListVolumes(c *gc.C) {
 	c.Assert(volumeIds, jc.SameContents, []string{"volume-0", "volume-1"})
 }
 
-func (s *storageSuite) TestListVolumesWithInvalidCredential(c *gc.C) {
+func (s *storageSuite) TestListVolumesWithInvalidCredential(c *tc.C) {
 	volumeSource := s.volumeSource(c)
 	s.createSenderWithUnauthorisedStatusCode()
 
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
 	_, err := volumeSource.ListVolumes(context.Background())
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, tc.NotNil)
 	c.Assert(s.invalidatedCredential, jc.IsTrue)
 }
 
-func (s *storageSuite) TestListVolumesErrors(c *gc.C) {
+func (s *storageSuite) TestListVolumesErrors(c *tc.C) {
 	volumeSource := s.volumeSource(c)
 	sender := &azuretesting.MockSender{}
 	sender.SetAndRepeatError(errors.New("no disks for you"), -1)
@@ -316,10 +316,10 @@ func (s *storageSuite) TestListVolumesErrors(c *gc.C) {
 		sender, // for the retry attempt
 	}
 	_, err := volumeSource.ListVolumes(context.Background())
-	c.Assert(err, gc.ErrorMatches, ".*listing disks: no disks for you")
+	c.Assert(err, tc.ErrorMatches, ".*listing disks: no disks for you")
 }
 
-func (s *storageSuite) TestDescribeVolumes(c *gc.C) {
+func (s *storageSuite) TestDescribeVolumes(c *tc.C) {
 	volumeSource := s.volumeSource(c)
 	volumeSender := azuretesting.NewSenderWithValue(&armcompute.Disk{
 		Properties: &armcompute.DiskProperties{
@@ -340,7 +340,7 @@ func (s *storageSuite) TestDescribeVolumes(c *gc.C) {
 	}})
 }
 
-func (s *storageSuite) TestDescribeVolumesWithInvalidCredential(c *gc.C) {
+func (s *storageSuite) TestDescribeVolumesWithInvalidCredential(c *tc.C) {
 	volumeSource := s.volumeSource(c)
 	s.createSenderWithUnauthorisedStatusCode()
 
@@ -349,11 +349,11 @@ func (s *storageSuite) TestDescribeVolumesWithInvalidCredential(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := volumeSource.DescribeVolumes(context.Background(), []string{"volume-0"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results[0].Error, gc.NotNil)
+	c.Assert(results[0].Error, tc.NotNil)
 	c.Assert(s.invalidatedCredential, jc.IsTrue)
 }
 
-func (s *storageSuite) TestDescribeVolumesNotFound(c *gc.C) {
+func (s *storageSuite) TestDescribeVolumesNotFound(c *tc.C) {
 	volumeSource := s.volumeSource(c)
 	volumeSender := &azuretesting.MockSender{}
 	response := azuretesting.NewResponseWithBodyAndStatus(
@@ -365,12 +365,12 @@ func (s *storageSuite) TestDescribeVolumesNotFound(c *gc.C) {
 	s.sender = azuretesting.Senders{volumeSender}
 	results, err := volumeSource.DescribeVolumes(context.Background(), []string{"volume-42"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results, tc.HasLen, 1)
 	c.Assert(results[0].Error, jc.ErrorIs, errors.NotFound)
-	c.Assert(results[0].Error, gc.ErrorMatches, `.*disk volume-42 not found`)
+	c.Assert(results[0].Error, tc.ErrorMatches, `.*disk volume-42 not found`)
 }
 
-func (s *storageSuite) TestDestroyVolumes(c *gc.C) {
+func (s *storageSuite) TestDestroyVolumes(c *tc.C) {
 	volumeSource := s.volumeSource(c)
 
 	volume0Sender := azuretesting.NewSenderWithValue(&odataerrors.ODataError{})
@@ -379,23 +379,23 @@ func (s *storageSuite) TestDestroyVolumes(c *gc.C) {
 
 	results, err := volumeSource.DestroyVolumes(context.Background(), []string{"volume-0"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results, tc.HasLen, 1)
 	c.Assert(results[0], jc.ErrorIsNil)
 }
 
-func (s *storageSuite) TestDestroyVolumesWithInvalidCredential(c *gc.C) {
+func (s *storageSuite) TestDestroyVolumesWithInvalidCredential(c *tc.C) {
 	volumeSource := s.volumeSource(c)
 
 	s.createSenderWithUnauthorisedStatusCode()
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
 	results, err := volumeSource.DestroyVolumes(context.Background(), []string{"volume-0"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 1)
-	c.Assert(results[0], gc.NotNil)
+	c.Assert(results, tc.HasLen, 1)
+	c.Assert(results[0], tc.NotNil)
 	c.Assert(s.invalidatedCredential, jc.IsTrue)
 }
 
-func (s *storageSuite) TestDestroyVolumesNotFound(c *gc.C) {
+func (s *storageSuite) TestDestroyVolumesNotFound(c *tc.C) {
 	volumeSource := s.volumeSource(c)
 
 	volume42Sender := &azuretesting.MockSender{}
@@ -406,11 +406,11 @@ func (s *storageSuite) TestDestroyVolumesNotFound(c *gc.C) {
 
 	results, err := volumeSource.DestroyVolumes(context.Background(), []string{"volume-42"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results, tc.HasLen, 1)
 	c.Assert(results[0], jc.ErrorIsNil)
 }
 
-func (s *storageSuite) TestAttachVolumes(c *gc.C) {
+func (s *storageSuite) TestAttachVolumes(c *tc.C) {
 	// machine-1 has a single data disk with LUN 0.
 	machine1DataDisks := []*armcompute.DataDisk{{
 		Lun:  to.Ptr(int32(0)),
@@ -483,18 +483,18 @@ func (s *storageSuite) TestAttachVolumes(c *gc.C) {
 
 	results, err := volumeSource.AttachVolumes(context.Background(), params)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, len(params))
+	c.Assert(results, tc.HasLen, len(params))
 
 	c.Check(results[0].Error, jc.ErrorIsNil)
 	c.Check(results[1].Error, jc.ErrorIsNil)
 	c.Check(results[2].Error, jc.ErrorIsNil)
-	c.Check(results[3].Error, gc.ErrorMatches, "instance machine-42 not found")
-	c.Check(results[4].Error, gc.ErrorMatches, "choosing LUN: all LUNs are in use")
+	c.Check(results[3].Error, tc.ErrorMatches, "instance machine-42 not found")
+	c.Check(results[4].Error, tc.ErrorMatches, "choosing LUN: all LUNs are in use")
 
 	// Validate HTTP request bodies.
-	c.Assert(s.requests, gc.HasLen, 2)
-	c.Assert(s.requests[0].Method, gc.Equals, "GET") // list virtual machines
-	c.Assert(s.requests[1].Method, gc.Equals, "PUT") // update machine-0
+	c.Assert(s.requests, tc.HasLen, 2)
+	c.Assert(s.requests[0].Method, tc.Equals, "GET") // list virtual machines
+	c.Assert(s.requests[1].Method, tc.Equals, "PUT") // update machine-0
 
 	makeManagedDisk := func(volumeName string) *armcompute.ManagedDiskParameters {
 		return &armcompute.ManagedDiskParameters{
@@ -526,7 +526,7 @@ func (s *storageSuite) TestAttachVolumes(c *gc.C) {
 	})
 }
 
-func (s *storageSuite) TestDetachVolumes(c *gc.C) {
+func (s *storageSuite) TestDetachVolumes(c *tc.C) {
 	// machine-0 has a three data disks: volume-0, volume-1 and volume-2
 	machine0DataDisks := []*armcompute.DataDisk{{
 		Lun:  to.Ptr(int32(0)),
@@ -587,17 +587,17 @@ func (s *storageSuite) TestDetachVolumes(c *gc.C) {
 
 	results, err := volumeSource.DetachVolumes(context.Background(), params)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, len(params))
+	c.Assert(results, tc.HasLen, len(params))
 
 	c.Check(results[0], jc.ErrorIsNil)
 	c.Check(results[1], jc.ErrorIsNil)
 	c.Check(results[2], jc.ErrorIsNil)
-	c.Check(results[3], gc.ErrorMatches, "instance machine-42 not found")
+	c.Check(results[3], tc.ErrorMatches, "instance machine-42 not found")
 
 	// Validate HTTP request bodies.
-	c.Assert(s.requests, gc.HasLen, 2)
-	c.Assert(s.requests[0].Method, gc.Equals, "GET") // list virtual machines
-	c.Assert(s.requests[1].Method, gc.Equals, "PUT") // update machine-0
+	c.Assert(s.requests, tc.HasLen, 2)
+	c.Assert(s.requests[0].Method, tc.Equals, "GET") // list virtual machines
+	c.Assert(s.requests[1].Method, tc.Equals, "PUT") // update machine-0
 
 	assertRequestBody(c, s.requests[1], &armcompute.VirtualMachine{
 		Name: to.Ptr("machine-0"),
@@ -612,7 +612,7 @@ func (s *storageSuite) TestDetachVolumes(c *gc.C) {
 	})
 }
 
-func (s *storageSuite) TestDetachVolumesFinal(c *gc.C) {
+func (s *storageSuite) TestDetachVolumesFinal(c *tc.C) {
 	// machine-0 has a one data disk: volume-0.
 	machine0DataDisks := []*armcompute.DataDisk{{
 		Lun:  to.Ptr(int32(0)),
@@ -653,13 +653,13 @@ func (s *storageSuite) TestDetachVolumesFinal(c *gc.C) {
 
 	results, err := volumeSource.DetachVolumes(context.Background(), params)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, len(params))
+	c.Assert(results, tc.HasLen, len(params))
 	c.Assert(results[0], jc.ErrorIsNil)
 
 	// Validate HTTP request bodies.
-	c.Assert(s.requests, gc.HasLen, 2)
-	c.Assert(s.requests[0].Method, gc.Equals, "GET") // list virtual machines
-	c.Assert(s.requests[1].Method, gc.Equals, "PUT") // update machine-0
+	c.Assert(s.requests, tc.HasLen, 2)
+	c.Assert(s.requests[0].Method, tc.Equals, "GET") // list virtual machines
+	c.Assert(s.requests[1].Method, tc.Equals, "PUT") // update machine-0
 
 	assertRequestBody(c, s.requests[1], &armcompute.VirtualMachine{
 		Name: to.Ptr("machine-0"),

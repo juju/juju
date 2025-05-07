@@ -10,12 +10,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
@@ -35,9 +35,9 @@ type ManifoldSuite struct {
 	newWorker  func(worker.Worker, error) func(retrystrategy.WorkerConfig) (worker.Worker, error)
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+var _ = tc.Suite(&ManifoldSuite{})
 
-func (s *ManifoldSuite) SetUpSuite(c *gc.C) {
+func (s *ManifoldSuite) SetUpSuite(c *tc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 	s.fakeAgent = &fakeAgent{}
 	s.fakeCaller = &fakeCaller{}
@@ -48,22 +48,22 @@ func (s *ManifoldSuite) SetUpSuite(c *gc.C) {
 	s.newFacade = func(facade retrystrategy.Facade) func(base.APICaller) retrystrategy.Facade {
 		s.fakeFacade = facade
 		return func(apiCaller base.APICaller) retrystrategy.Facade {
-			c.Assert(apiCaller, gc.Equals, s.fakeCaller)
+			c.Assert(apiCaller, tc.Equals, s.fakeCaller)
 			return facade
 		}
 	}
 	s.newWorker = func(w worker.Worker, err error) func(retrystrategy.WorkerConfig) (worker.Worker, error) {
 		s.fakeWorker = w
 		return func(wc retrystrategy.WorkerConfig) (worker.Worker, error) {
-			c.Assert(wc.Facade, gc.Equals, s.fakeFacade)
-			c.Assert(wc.AgentTag, gc.Equals, fakeTag)
-			c.Assert(wc.RetryStrategy, gc.Equals, fakeStrategy)
+			c.Assert(wc.Facade, tc.Equals, s.fakeFacade)
+			c.Assert(wc.AgentTag, tc.Equals, fakeTag)
+			c.Assert(wc.RetryStrategy, tc.Equals, fakeStrategy)
 			return w, err
 		}
 	}
 }
 
-func (s *ManifoldSuite) TestInputs(c *gc.C) {
+func (s *ManifoldSuite) TestInputs(c *tc.C) {
 	manifold := retrystrategy.Manifold(retrystrategy.ManifoldConfig{
 		AgentName:     "wut",
 		APICallerName: "exactly",
@@ -71,7 +71,7 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Check(manifold.Inputs, jc.DeepEquals, []string{"wut", "exactly"})
 }
 
-func (s *ManifoldSuite) TestStartMissingAgent(c *gc.C) {
+func (s *ManifoldSuite) TestStartMissingAgent(c *tc.C) {
 	manifold := retrystrategy.Manifold(retrystrategy.ManifoldConfig{
 		AgentName:     "agent",
 		APICallerName: "api-caller",
@@ -82,11 +82,11 @@ func (s *ManifoldSuite) TestStartMissingAgent(c *gc.C) {
 	})
 
 	w, err := manifold.Start(context.Background(), getter)
-	c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
-	c.Assert(w, gc.IsNil)
+	c.Assert(errors.Cause(err), tc.Equals, dependency.ErrMissing)
+	c.Assert(w, tc.IsNil)
 }
 
-func (s *ManifoldSuite) TestStartMissingAPI(c *gc.C) {
+func (s *ManifoldSuite) TestStartMissingAPI(c *tc.C) {
 	manifold := retrystrategy.Manifold(retrystrategy.ManifoldConfig{
 		AgentName:     "agent",
 		APICallerName: "api-caller",
@@ -97,11 +97,11 @@ func (s *ManifoldSuite) TestStartMissingAPI(c *gc.C) {
 	})
 
 	w, err := manifold.Start(context.Background(), getter)
-	c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
-	c.Assert(w, gc.IsNil)
+	c.Assert(errors.Cause(err), tc.Equals, dependency.ErrMissing)
+	c.Assert(w, tc.IsNil)
 }
 
-func (s *ManifoldSuite) TestStartFacadeValueError(c *gc.C) {
+func (s *ManifoldSuite) TestStartFacadeValueError(c *tc.C) {
 	manifold := retrystrategy.Manifold(retrystrategy.ManifoldConfig{
 		AgentName:     "agent",
 		APICallerName: "api-caller",
@@ -109,11 +109,11 @@ func (s *ManifoldSuite) TestStartFacadeValueError(c *gc.C) {
 	})
 
 	w, err := manifold.Start(context.Background(), s.getter)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "blop")
-	c.Assert(w, gc.IsNil)
+	c.Assert(errors.Cause(err), tc.ErrorMatches, "blop")
+	c.Assert(w, tc.IsNil)
 }
 
-func (s *ManifoldSuite) TestStartWorkerError(c *gc.C) {
+func (s *ManifoldSuite) TestStartWorkerError(c *tc.C) {
 	manifold := retrystrategy.Manifold(retrystrategy.ManifoldConfig{
 		AgentName:     "agent",
 		APICallerName: "api-caller",
@@ -122,11 +122,11 @@ func (s *ManifoldSuite) TestStartWorkerError(c *gc.C) {
 	})
 
 	w, err := manifold.Start(context.Background(), s.getter)
-	c.Assert(err, gc.ErrorMatches, "blam")
-	c.Assert(w, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "blam")
+	c.Assert(w, tc.IsNil)
 }
 
-func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
+func (s *ManifoldSuite) TestStartSuccess(c *tc.C) {
 	fakeWorker := &fakeWorker{}
 	manifold := retrystrategy.Manifold(retrystrategy.ManifoldConfig{
 		AgentName:     "agent",
@@ -137,10 +137,10 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 
 	w, err := manifold.Start(context.Background(), s.getter)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(w, gc.Equals, fakeWorker)
+	c.Assert(w, tc.Equals, fakeWorker)
 }
 
-func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
+func (s *ManifoldSuite) TestOutputSuccess(c *tc.C) {
 	manifold := retrystrategy.Manifold(retrystrategy.ManifoldConfig{
 		AgentName:     "agent",
 		APICallerName: "api-caller",
@@ -149,16 +149,16 @@ func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
 	})
 
 	w, err := manifold.Start(context.Background(), s.getter)
-	s.AddCleanup(func(c *gc.C) { w.Kill() })
+	s.AddCleanup(func(c *tc.C) { w.Kill() })
 	c.Assert(err, jc.ErrorIsNil)
 
 	var out params.RetryStrategy
 	err = manifold.Output(w, &out)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, gc.Equals, fakeStrategy)
+	c.Assert(out, tc.Equals, fakeStrategy)
 }
 
-func (s *ManifoldSuite) TestOutputBadInput(c *gc.C) {
+func (s *ManifoldSuite) TestOutputBadInput(c *tc.C) {
 	manifold := retrystrategy.Manifold(retrystrategy.ManifoldConfig{
 		AgentName:     "agent",
 		APICallerName: "api-caller",
@@ -171,11 +171,11 @@ func (s *ManifoldSuite) TestOutputBadInput(c *gc.C) {
 
 	var out params.RetryStrategy
 	err = manifold.Output(w, &out)
-	c.Assert(out, gc.Equals, params.RetryStrategy{})
-	c.Assert(err.Error(), gc.Equals, "in should be a *retryStrategyWorker; is *retrystrategy_test.fakeWorker")
+	c.Assert(out, tc.Equals, params.RetryStrategy{})
+	c.Assert(err.Error(), tc.Equals, "in should be a *retryStrategyWorker; is *retrystrategy_test.fakeWorker")
 }
 
-func (s *ManifoldSuite) TestOutputBadTarget(c *gc.C) {
+func (s *ManifoldSuite) TestOutputBadTarget(c *tc.C) {
 	manifold := retrystrategy.Manifold(retrystrategy.ManifoldConfig{
 		AgentName:     "agent",
 		APICallerName: "api-caller",
@@ -184,12 +184,12 @@ func (s *ManifoldSuite) TestOutputBadTarget(c *gc.C) {
 	})
 
 	w, err := manifold.Start(context.Background(), s.getter)
-	s.AddCleanup(func(c *gc.C) { w.Kill() })
+	s.AddCleanup(func(c *tc.C) { w.Kill() })
 	c.Assert(err, jc.ErrorIsNil)
 
 	var out interface{}
 	err = manifold.Output(w, &out)
-	c.Assert(err.Error(), gc.Equals, "out should be a *params.RetryStrategy; is *interface {}")
+	c.Assert(err.Error(), tc.Equals, "out should be a *params.RetryStrategy; is *interface {}")
 }
 
 var fakeTag = names.NewUnitTag("whatatag/0")

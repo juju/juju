@@ -14,28 +14,28 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/simplestreams/testing"
 )
 
-var _ = gc.Suite(&datasourceSuite{})
-var _ = gc.Suite(&datasourceHTTPSSuite{})
+var _ = tc.Suite(&datasourceSuite{})
+var _ = tc.Suite(&datasourceHTTPSSuite{})
 
 type datasourceSuite struct {
 }
 
-func (s *datasourceSuite) assertFetch(c *gc.C, compressed bool) {
+func (s *datasourceSuite) assertFetch(c *tc.C, compressed bool) {
 	server := httptest.NewServer(&testDataHandler{supportsGzip: compressed})
 	defer server.Close()
 	ds := testing.VerifyDefaultCloudDataSource("test", server.URL)
 	rc, url, err := ds.Fetch(context.Background(), "streams/v1/tools_metadata.json")
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = rc.Close() }()
-	c.Assert(url, gc.Equals, fmt.Sprintf("%s/streams/v1/tools_metadata.json", server.URL))
+	c.Assert(url, tc.Equals, fmt.Sprintf("%s/streams/v1/tools_metadata.json", server.URL))
 	data, err := io.ReadAll(rc)
 	c.Assert(err, jc.ErrorIsNil)
 	cloudMetadata, err := simplestreams.ParseCloudMetadata(data, testing.Product_v1, url, imagemetadata.ImageMetadata{})
@@ -43,22 +43,22 @@ func (s *datasourceSuite) assertFetch(c *gc.C, compressed bool) {
 	c.Assert(len(cloudMetadata.Products), jc.GreaterThan, 0)
 }
 
-func (s *datasourceSuite) TestFetch(c *gc.C) {
+func (s *datasourceSuite) TestFetch(c *tc.C) {
 	s.assertFetch(c, false)
 }
 
-func (s *datasourceSuite) TestFetchGzip(c *gc.C) {
+func (s *datasourceSuite) TestFetchGzip(c *tc.C) {
 	s.assertFetch(c, true)
 }
 
-func (s *datasourceSuite) TestURL(c *gc.C) {
+func (s *datasourceSuite) TestURL(c *tc.C) {
 	ds := testing.VerifyDefaultCloudDataSource("test", "foo")
 	url, err := ds.URL("bar")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(url, gc.Equals, "foo/bar")
+	c.Assert(url, tc.Equals, "foo/bar")
 }
 
-func (s *datasourceSuite) TestRetry(c *gc.C) {
+func (s *datasourceSuite) TestRetry(c *tc.C) {
 	handler := &testDataHandler{}
 	server := httptest.NewServer(handler)
 	defer server.Close()
@@ -69,8 +69,8 @@ func (s *datasourceSuite) TestRetry(c *gc.C) {
 		Clock:       testclock.NewDilatedWallClock(10 * time.Millisecond),
 	})
 	_, _, err := ds.Fetch(context.Background(), "500")
-	c.Assert(err, gc.NotNil)
-	c.Assert(handler.numReq.Load(), gc.Equals, int64(3))
+	c.Assert(err, tc.NotNil)
+	c.Assert(handler.numReq.Load(), tc.Equals, int64(3))
 }
 
 type testDataHandler struct {
@@ -149,7 +149,7 @@ type datasourceHTTPSSuite struct {
 	clock  testclock.AdvanceableClock
 }
 
-func (s *datasourceHTTPSSuite) SetUpTest(c *gc.C) {
+func (s *datasourceHTTPSSuite) SetUpTest(c *tc.C) {
 	s.clock = testclock.NewDilatedWallClock(10 * time.Millisecond)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(resp http.ResponseWriter, req *http.Request) {
@@ -160,24 +160,24 @@ func (s *datasourceHTTPSSuite) SetUpTest(c *gc.C) {
 	s.server = httptest.NewTLSServer(mux)
 }
 
-func (s *datasourceHTTPSSuite) TearDownTest(c *gc.C) {
+func (s *datasourceHTTPSSuite) TearDownTest(c *tc.C) {
 	if s.server != nil {
 		s.server.Close()
 		s.server = nil
 	}
 }
 
-func (s *datasourceHTTPSSuite) TestNormalClientFails(c *gc.C) {
+func (s *datasourceHTTPSSuite) TestNormalClientFails(c *tc.C) {
 	ds := testing.VerifyDefaultCloudDataSource("test", s.server.URL)
 	url, err := ds.URL("bar")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(url, gc.Equals, s.server.URL+"/bar")
+	c.Check(url, tc.Equals, s.server.URL+"/bar")
 	reader, _, err := ds.Fetch(context.Background(), "bar")
-	c.Assert(err, gc.ErrorMatches, `.*x509: certificate signed by unknown authority`)
-	c.Check(reader, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `.*x509: certificate signed by unknown authority`)
+	c.Check(reader, tc.IsNil)
 }
 
-func (s *datasourceHTTPSSuite) TestNonVerifyingClientSucceeds(c *gc.C) {
+func (s *datasourceHTTPSSuite) TestNonVerifyingClientSucceeds(c *tc.C) {
 	ds := simplestreams.NewDataSource(simplestreams.Config{
 		Description:          "test",
 		BaseURL:              s.server.URL,
@@ -187,16 +187,16 @@ func (s *datasourceHTTPSSuite) TestNonVerifyingClientSucceeds(c *gc.C) {
 	})
 	url, err := ds.URL("bar")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(url, gc.Equals, s.server.URL+"/bar")
+	c.Check(url, tc.Equals, s.server.URL+"/bar")
 	reader, _, err := ds.Fetch(context.Background(), "bar")
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = reader.Close() }()
 	byteContent, err := io.ReadAll(reader)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(string(byteContent), gc.Equals, "Greetings!\n")
+	c.Check(string(byteContent), tc.Equals, "Greetings!\n")
 }
 
-func (s *datasourceHTTPSSuite) TestClientTransportCompression(c *gc.C) {
+func (s *datasourceHTTPSSuite) TestClientTransportCompression(c *tc.C) {
 	ds := simplestreams.NewDataSource(simplestreams.Config{
 		Description:          "test",
 		BaseURL:              s.server.URL,
@@ -205,7 +205,7 @@ func (s *datasourceHTTPSSuite) TestClientTransportCompression(c *gc.C) {
 		Clock:                s.clock,
 	})
 	httpClient := simplestreams.HttpClient(ds)
-	c.Assert(httpClient, gc.NotNil)
+	c.Assert(httpClient, tc.NotNil)
 	tr, ok := httpClient.HTTPClient.(*http.Client).Transport.(*http.Transport)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(tr.DisableCompression, jc.IsFalse)

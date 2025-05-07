@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coremodel "github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
@@ -24,9 +24,9 @@ type exportSuite struct {
 	exportService *MockExportService
 }
 
-var _ = gc.Suite(&exportSuite{})
+var _ = tc.Suite(&exportSuite{})
 
-func (s *exportSuite) TestExportEmpty(c *gc.C) {
+func (s *exportSuite) TestExportEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.exportService.EXPECT().ExportApplicationStatuses(gomock.Any()).Return(
@@ -54,7 +54,7 @@ func (s *exportSuite) TestExportEmpty(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *exportSuite) TestExportApplicationStatuses(c *gc.C) {
+func (s *exportSuite) TestExportApplicationStatuses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.exportService.EXPECT().ExportApplicationStatuses(gomock.Any()).Return(
@@ -91,12 +91,12 @@ func (s *exportSuite) TestExportApplicationStatuses(c *gc.C) {
 	err := exportOp.Execute(context.Background(), model)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(app.Status().Message(), gc.Equals, "it's active")
-	c.Check(app.Status().Value(), gc.Equals, corestatus.Active.String())
-	c.Check(app.Status().Data(), gc.DeepEquals, map[string]interface{}{"foo": "bar"})
+	c.Check(app.Status().Message(), tc.Equals, "it's active")
+	c.Check(app.Status().Value(), tc.Equals, corestatus.Active.String())
+	c.Check(app.Status().Data(), tc.DeepEquals, map[string]interface{}{"foo": "bar"})
 }
 
-func (s *exportSuite) TestExportApplicationStatusesMissing(c *gc.C) {
+func (s *exportSuite) TestExportApplicationStatusesMissing(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.exportService.EXPECT().ExportApplicationStatuses(gomock.Any()).Return(
@@ -127,11 +127,11 @@ func (s *exportSuite) TestExportApplicationStatusesMissing(c *gc.C) {
 	err := exportOp.Execute(context.Background(), model)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(app.Status().Value(), gc.Equals, "")
+	c.Check(app.Status().Value(), tc.Equals, "")
 	c.Check(app.Status().NeverSet(), jc.IsTrue)
 }
 
-func (s *exportSuite) TestExportUnitStatuses(c *gc.C) {
+func (s *exportSuite) TestExportUnitStatuses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.exportService.EXPECT().ExportApplicationStatuses(gomock.Any()).Return(
@@ -192,24 +192,24 @@ func (s *exportSuite) TestExportUnitStatuses(c *gc.C) {
 
 	c.Check(app.Status().NeverSet(), jc.IsTrue)
 
-	c.Check(u0.AgentStatus().Value(), gc.Equals, corestatus.Idle.String())
-	c.Check(u0.AgentStatus().Data(), gc.DeepEquals, map[string]interface{}{"agent": "idle"})
-	c.Check(u0.AgentStatus().Message(), gc.Equals, "it's agent idle")
+	c.Check(u0.AgentStatus().Value(), tc.Equals, corestatus.Idle.String())
+	c.Check(u0.AgentStatus().Data(), tc.DeepEquals, map[string]interface{}{"agent": "idle"})
+	c.Check(u0.AgentStatus().Message(), tc.Equals, "it's agent idle")
 
-	c.Check(u0.WorkloadStatus().Value(), gc.Equals, corestatus.Active.String())
-	c.Check(u0.WorkloadStatus().Data(), gc.DeepEquals, map[string]interface{}{"workload": "active"})
-	c.Check(u0.WorkloadStatus().Message(), gc.Equals, "it's workload active")
+	c.Check(u0.WorkloadStatus().Value(), tc.Equals, corestatus.Active.String())
+	c.Check(u0.WorkloadStatus().Data(), tc.DeepEquals, map[string]interface{}{"workload": "active"})
+	c.Check(u0.WorkloadStatus().Message(), tc.Equals, "it's workload active")
 
-	c.Check(u1.AgentStatus().Value(), gc.Equals, corestatus.Executing.String())
-	c.Check(u1.AgentStatus().Data(), gc.DeepEquals, map[string]interface{}{"agent": "executing"})
-	c.Check(u1.AgentStatus().Message(), gc.Equals, "it's agent executing")
+	c.Check(u1.AgentStatus().Value(), tc.Equals, corestatus.Executing.String())
+	c.Check(u1.AgentStatus().Data(), tc.DeepEquals, map[string]interface{}{"agent": "executing"})
+	c.Check(u1.AgentStatus().Message(), tc.Equals, "it's agent executing")
 
-	c.Check(u1.WorkloadStatus().Value(), gc.Equals, corestatus.Waiting.String())
-	c.Check(u1.WorkloadStatus().Data(), gc.DeepEquals, map[string]interface{}{"workload": "waiting"})
-	c.Check(u1.WorkloadStatus().Message(), gc.Equals, "it's workload waiting")
+	c.Check(u1.WorkloadStatus().Value(), tc.Equals, corestatus.Waiting.String())
+	c.Check(u1.WorkloadStatus().Data(), tc.DeepEquals, map[string]interface{}{"workload": "waiting"})
+	c.Check(u1.WorkloadStatus().Message(), tc.Equals, "it's workload waiting")
 }
 
-func (s *exportSuite) TestExportRelationStatuses(c *gc.C) {
+func (s *exportSuite) TestExportRelationStatuses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.exportService.EXPECT().ExportApplicationStatuses(gomock.Any()).Return(
@@ -246,11 +246,11 @@ func (s *exportSuite) TestExportRelationStatuses(c *gc.C) {
 	err := exportOp.Execute(context.Background(), model)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(rel1.Status().Value(), gc.Equals, corestatus.Joining.String())
+	c.Check(rel1.Status().Value(), tc.Equals, corestatus.Joining.String())
 	c.Check(rel2.Status().NeverSet(), jc.IsTrue)
 }
 
-func (s *exportSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *exportSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.exportService = NewMockExportService(ctrl)

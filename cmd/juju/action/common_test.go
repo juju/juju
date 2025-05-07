@@ -4,22 +4,22 @@
 package action_test
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/action"
 )
 
 type CommonSuite struct{}
 
-var _ = gc.Suite(&CommonSuite{})
+var _ = tc.Suite(&CommonSuite{})
 
 type insertSliceValue struct {
 	valuePath []string
 	value     interface{}
 }
 
-func (s *CommonSuite) TestAddValueToMap(c *gc.C) {
+func (s *CommonSuite) TestAddValueToMap(c *tc.C) {
 	for i, t := range []struct {
 		should       string
 		startingMap  map[string]interface{}

@@ -6,8 +6,8 @@ package maas
 import (
 	"fmt"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/instance"
@@ -17,27 +17,27 @@ import (
 
 type utilSuite struct{}
 
-var _ = gc.Suite(&utilSuite{})
+var _ = tc.Suite(&utilSuite{})
 
-func (*utilSuite) TestExtractSystemId(c *gc.C) {
+func (*utilSuite) TestExtractSystemId(c *tc.C) {
 	instanceId := instance.Id("/MAAS/api/1.0/nodes/system_id/")
 
 	systemId := extractSystemId(instanceId)
 
-	c.Check(systemId, gc.Equals, "system_id")
+	c.Check(systemId, tc.Equals, "system_id")
 }
 
-func (*utilSuite) TestGetSystemIdValues(c *gc.C) {
+func (*utilSuite) TestGetSystemIdValues(c *tc.C) {
 	instanceId1 := instance.Id("/MAAS/api/1.0/nodes/system_id1/")
 	instanceId2 := instance.Id("/MAAS/api/1.0/nodes/system_id2/")
 	instanceIds := []instance.Id{instanceId1, instanceId2}
 
 	values := getSystemIdValues("id", instanceIds)
 
-	c.Check(values["id"], gc.DeepEquals, []string{"system_id1", "system_id2"})
+	c.Check(values["id"], tc.DeepEquals, []string{"system_id1", "system_id2"})
 }
 
-func (*utilSuite) TestMachineInfoCloudinitRunCmd(c *gc.C) {
+func (*utilSuite) TestMachineInfoCloudinitRunCmd(c *tc.C) {
 	hostname := "hostname"
 	info := machineInfo{hostname}
 	filename := "/var/lib/juju/MAASmachine.txt"
@@ -49,10 +49,10 @@ func (*utilSuite) TestMachineInfoCloudinitRunCmd(c *gc.C) {
 	yaml, err := goyaml.Marshal(info)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := fmt.Sprintf("mkdir -p '%s'\ncat > '%s' << 'EOF'\n'%s'\nEOF\nchmod 0755 '%s'", dataDir, filename, yaml, filename)
-	c.Check(script, gc.Equals, expected)
+	c.Check(script, tc.Equals, expected)
 }
 
-func (*utilSuite) TestMachineInfoLoad(c *gc.C) {
+func (*utilSuite) TestMachineInfoLoad(c *tc.C) {
 	hostname := "hostname"
 	yaml := fmt.Sprintf("hostname: %s\n", hostname)
 	filename := createTempFile(c, []byte(yaml))
@@ -64,5 +64,5 @@ func (*utilSuite) TestMachineInfoLoad(c *gc.C) {
 	err := info.load()
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(info.Hostname, gc.Equals, hostname)
+	c.Check(info.Hostname, tc.Equals, hostname)
 }

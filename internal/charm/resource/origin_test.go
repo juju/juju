@@ -5,9 +5,9 @@ package resource_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/charm/resource"
 )
@@ -16,9 +16,9 @@ type OriginSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&OriginSuite{})
+var _ = tc.Suite(&OriginSuite{})
 
-func (OriginSuite) TestParseOriginKnown(c *gc.C) {
+func (OriginSuite) TestParseOriginKnown(c *tc.C) {
 	recognized := map[string]resource.Origin{
 		"upload": resource.OriginUpload,
 		"store":  resource.OriginStore,
@@ -27,17 +27,17 @@ func (OriginSuite) TestParseOriginKnown(c *gc.C) {
 		origin, err := resource.ParseOrigin(value)
 
 		c.Check(err, jc.ErrorIsNil)
-		c.Check(origin, gc.Equals, expected)
+		c.Check(origin, tc.Equals, expected)
 	}
 }
 
-func (OriginSuite) TestParseOriginUnknown(c *gc.C) {
+func (OriginSuite) TestParseOriginUnknown(c *tc.C) {
 	_, err := resource.ParseOrigin("<invalid>")
 
-	c.Check(err, gc.ErrorMatches, `.*unknown origin "<invalid>".*`)
+	c.Check(err, tc.ErrorMatches, `.*unknown origin "<invalid>".*`)
 }
 
-func (OriginSuite) TestValidateKnown(c *gc.C) {
+func (OriginSuite) TestValidateKnown(c *tc.C) {
 	recognized := []resource.Origin{
 		resource.OriginUpload,
 		resource.OriginStore,
@@ -49,10 +49,10 @@ func (OriginSuite) TestValidateKnown(c *gc.C) {
 	}
 }
 
-func (OriginSuite) TestValidateUnknown(c *gc.C) {
+func (OriginSuite) TestValidateUnknown(c *tc.C) {
 	var origin resource.Origin
 	err := origin.Validate()
 
 	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `.*unknown origin.*`)
+	c.Check(err, tc.ErrorMatches, `.*unknown origin.*`)
 }

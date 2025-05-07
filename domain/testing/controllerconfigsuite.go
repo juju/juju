@@ -8,8 +8,8 @@ import (
 	"database/sql"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
 	coredatabase "github.com/juju/juju/core/database"
@@ -23,7 +23,7 @@ type ControllerTxnProvider interface {
 }
 
 func SeedControllerConfig(
-	c *gc.C,
+	c *tc.C,
 	config controller.Config,
 	controllerModelUUID coremodel.UUID,
 	provider ControllerTxnProvider,

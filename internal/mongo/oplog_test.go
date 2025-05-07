@@ -11,8 +11,8 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	mgotesting "github.com/juju/mgo/v3/testing"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/internal/mongo"
@@ -24,9 +24,9 @@ type oplogSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&oplogSuite{})
+var _ = tc.Suite(&oplogSuite{})
 
-func (s *oplogSuite) TestWithRealOplog(c *gc.C) {
+func (s *oplogSuite) TestWithRealOplog(c *tc.C) {
 	_, session := s.startMongoWithReplicaset(c)
 
 	// Watch for oplog entries for the "bar" collection in the "foo"
@@ -43,7 +43,7 @@ func (s *oplogSuite) TestWithRealOplog(c *gc.C) {
 
 	assertOplog := func(expectedOp string, expectedObj, expectedUpdate bson.D) {
 		doc := s.getNextOplog(c, tailer)
-		c.Assert(doc.Operation, gc.Equals, expectedOp)
+		c.Assert(doc.Operation, tc.Equals, expectedOp)
 
 		var actualObj bson.D
 		err := doc.UnmarshalObject(&actualObj)
@@ -78,7 +78,7 @@ func (s *oplogSuite) TestWithRealOplog(c *gc.C) {
 	s.assertNoOplog(c, tailer)
 }
 
-func (s *oplogSuite) TestHonoursInitialTs(c *gc.C) {
+func (s *oplogSuite) TestHonoursInitialTs(c *tc.C) {
 	_, session := s.startMongo(c)
 
 	t := time.Now()
@@ -97,11 +97,11 @@ func (s *oplogSuite) TestHonoursInitialTs(c *gc.C) {
 	for offset := 0; offset <= 1; offset++ {
 		doc := s.getNextOplog(c, tailer)
 		tExpected := t.Add(time.Duration(offset) * time.Second)
-		c.Assert(doc.Timestamp, gc.Equals, mongo.NewMongoTimestamp(tExpected))
+		c.Assert(doc.Timestamp, tc.Equals, mongo.NewMongoTimestamp(tExpected))
 	}
 }
 
-func (s *oplogSuite) TestStops(c *gc.C) {
+func (s *oplogSuite) TestStops(c *tc.C) {
 	// If we are running the test on xenial on either ppc64le or s390x,
 	// skip this test as it intermittently fails deep in mongo code.
 	// It appears to be just the fake oplogs we create, and not the real
@@ -127,7 +127,7 @@ func (s *oplogSuite) TestStops(c *gc.C) {
 	c.Assert(tailer.Err(), jc.ErrorIsNil)
 }
 
-func (s *oplogSuite) TestRestartsOnErrCursor(c *gc.C) {
+func (s *oplogSuite) TestRestartsOnErrCursor(c *tc.C) {
 	session := newFakeSession(
 		// First iterator terminates with an ErrCursor
 		newFakeIterator(mgo.ErrCursor, &mongo.OplogDoc{Timestamp: 1, OperationId: 99}),
@@ -139,16 +139,16 @@ func (s *oplogSuite) TestRestartsOnErrCursor(c *gc.C) {
 	// First, ensure that the tailer is seeing oplog rows and handles
 	// the ErrCursor that occurs at the end.
 	doc := s.getNextOplog(c, tailer)
-	c.Check(doc.Timestamp, gc.Equals, bson.MongoTimestamp(1))
+	c.Check(doc.Timestamp, tc.Equals, bson.MongoTimestamp(1))
 	session.checkLastArgs(c, mongo.NewMongoTimestamp(time.Time{}), nil)
 
 	// Ensure that the tailer continues after getting a new iterator.
 	doc = s.getNextOplog(c, tailer)
-	c.Check(doc.Timestamp, gc.Equals, bson.MongoTimestamp(2))
+	c.Check(doc.Timestamp, tc.Equals, bson.MongoTimestamp(2))
 	session.checkLastArgs(c, bson.MongoTimestamp(1), []int64{99})
 }
 
-func (s *oplogSuite) TestNoRepeatsAfterIterRestart(c *gc.C) {
+func (s *oplogSuite) TestNoRepeatsAfterIterRestart(c *tc.C) {
 	// A bunch of documents with the same timestamp but different ids.
 	// These will be split across 2 iterators.
 	docs := make([]*mongo.OplogDoc, 11)
@@ -175,8 +175,8 @@ func (s *oplogSuite) TestNoRepeatsAfterIterRestart(c *gc.C) {
 
 	for id := int64(10); id < 15; id++ {
 		doc := s.getNextOplog(c, tailer)
-		c.Assert(doc.Timestamp, gc.Equals, bson.MongoTimestamp(1))
-		c.Assert(doc.OperationId, gc.Equals, id)
+		c.Assert(doc.Timestamp, tc.Equals, bson.MongoTimestamp(1))
+		c.Assert(doc.OperationId, tc.Equals, id)
 	}
 
 	// Check the query doesn't exclude any in the first request.
@@ -187,19 +187,19 @@ func (s *oplogSuite) TestNoRepeatsAfterIterRestart(c *gc.C) {
 	// Ensure that only previously unreported entries are now reported.
 	for id := int64(15); id < 20; id++ {
 		doc := s.getNextOplog(c, tailer)
-		c.Assert(doc.Timestamp, gc.Equals, bson.MongoTimestamp(1))
-		c.Assert(doc.OperationId, gc.Equals, id)
+		c.Assert(doc.Timestamp, tc.Equals, bson.MongoTimestamp(1))
+		c.Assert(doc.OperationId, tc.Equals, id)
 	}
 
 	// Check we got the next block correctly
 	session.checkLastArgs(c, bson.MongoTimestamp(1), []int64{10, 11, 12, 13, 14})
 
 	doc := s.getNextOplog(c, tailer)
-	c.Assert(doc.Timestamp, gc.Equals, bson.MongoTimestamp(2))
-	c.Assert(doc.OperationId, gc.Equals, int64(42))
+	c.Assert(doc.Timestamp, tc.Equals, bson.MongoTimestamp(2))
+	c.Assert(doc.OperationId, tc.Equals, int64(42))
 }
 
-func (s *oplogSuite) TestDiesOnFatalError(c *gc.C) {
+func (s *oplogSuite) TestDiesOnFatalError(c *tc.C) {
 	expectedErr := errors.New("oh no, the collection went away!")
 	session := newFakeSession(
 		newFakeIterator(expectedErr, &mongo.OplogDoc{Timestamp: 1}),
@@ -209,28 +209,28 @@ func (s *oplogSuite) TestDiesOnFatalError(c *gc.C) {
 	defer tailer.Stop()
 
 	doc := s.getNextOplog(c, tailer)
-	c.Assert(doc.Timestamp, gc.Equals, bson.MongoTimestamp(1))
+	c.Assert(doc.Timestamp, tc.Equals, bson.MongoTimestamp(1))
 	s.assertStopped(c, tailer)
-	c.Assert(tailer.Err(), gc.Equals, expectedErr)
+	c.Assert(tailer.Err(), tc.Equals, expectedErr)
 }
 
-func (s *oplogSuite) TestNewMongoTimestamp(c *gc.C) {
+func (s *oplogSuite) TestNewMongoTimestamp(c *tc.C) {
 	t := time.Date(2015, 6, 24, 12, 47, 0, 0, time.FixedZone("somewhere", 5*3600))
 
 	expected := bson.MongoTimestamp(6163845091342417920)
-	c.Assert(mongo.NewMongoTimestamp(t), gc.Equals, expected)
-	c.Assert(mongo.NewMongoTimestamp(t.In(time.UTC)), gc.Equals, expected)
+	c.Assert(mongo.NewMongoTimestamp(t), tc.Equals, expected)
+	c.Assert(mongo.NewMongoTimestamp(t.In(time.UTC)), tc.Equals, expected)
 }
 
-func (s *oplogSuite) TestNewMongoTimestampBeforeUnixEpoch(c *gc.C) {
-	c.Assert(mongo.NewMongoTimestamp(time.Time{}), gc.Equals, bson.MongoTimestamp(0))
+func (s *oplogSuite) TestNewMongoTimestampBeforeUnixEpoch(c *tc.C) {
+	c.Assert(mongo.NewMongoTimestamp(time.Time{}), tc.Equals, bson.MongoTimestamp(0))
 }
 
-func (s *oplogSuite) startMongoWithReplicaset(c *gc.C) (*mgotesting.MgoInstance, *mgo.Session) {
+func (s *oplogSuite) startMongoWithReplicaset(c *tc.C) (*mgotesting.MgoInstance, *mgo.Session) {
 	inst := &mgotesting.MgoInstance{EnableReplicaSet: true}
 	err := inst.Start(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { inst.Destroy() })
+	s.AddCleanup(func(*tc.C) { inst.Destroy() })
 
 	// Initiate replicaset.
 	info := inst.DialInfo()
@@ -244,22 +244,22 @@ func (s *oplogSuite) startMongoWithReplicaset(c *gc.C) (*mgotesting.MgoInstance,
 	return inst, s.dialMongo(c, inst)
 }
 
-func (s *oplogSuite) startMongo(c *gc.C) (*mgotesting.MgoInstance, *mgo.Session) {
+func (s *oplogSuite) startMongo(c *tc.C) (*mgotesting.MgoInstance, *mgo.Session) {
 	var inst mgotesting.MgoInstance
 	err := inst.Start(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { inst.Destroy() })
+	s.AddCleanup(func(*tc.C) { inst.Destroy() })
 	return &inst, s.dialMongo(c, &inst)
 }
 
-func (s *oplogSuite) dialMongo(c *gc.C, inst *mgotesting.MgoInstance) *mgo.Session {
+func (s *oplogSuite) dialMongo(c *tc.C, inst *mgotesting.MgoInstance) *mgo.Session {
 	session, err := inst.Dial()
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { session.Close() })
+	s.AddCleanup(func(*tc.C) { session.Close() })
 	return session
 }
 
-func (s *oplogSuite) makeFakeOplog(c *gc.C, session *mgo.Session) *mgo.Collection {
+func (s *oplogSuite) makeFakeOplog(c *tc.C, session *mgo.Session) *mgo.Collection {
 	db := session.DB("foo")
 	oplog := db.C("oplog.fake")
 	err := oplog.Create(&mgo.CollectionInfo{
@@ -267,21 +267,21 @@ func (s *oplogSuite) makeFakeOplog(c *gc.C, session *mgo.Session) *mgo.Collectio
 		MaxBytes: 1024 * 1024,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) {
+	s.AddCleanup(func(c *tc.C) {
 		err := oplog.DropCollection()
 		c.Assert(err, jc.ErrorIsNil)
 	})
 	return oplog
 }
 
-func (s *oplogSuite) insertDoc(c *gc.C, srcSession *mgo.Session, coll *mgo.Collection, doc interface{}) {
+func (s *oplogSuite) insertDoc(c *tc.C, srcSession *mgo.Session, coll *mgo.Collection, doc interface{}) {
 	session := srcSession.Copy()
 	defer session.Close()
 	err := coll.With(session).Insert(doc)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *oplogSuite) getNextOplog(c *gc.C, tailer *mongo.OplogTailer) *mongo.OplogDoc {
+func (s *oplogSuite) getNextOplog(c *tc.C, tailer *mongo.OplogTailer) *mongo.OplogDoc {
 	select {
 	case doc, ok := <-tailer.Out():
 		if !ok {
@@ -294,7 +294,7 @@ func (s *oplogSuite) getNextOplog(c *gc.C, tailer *mongo.OplogTailer) *mongo.Opl
 	return nil
 }
 
-func (s *oplogSuite) assertNoOplog(c *gc.C, tailer *mongo.OplogTailer) {
+func (s *oplogSuite) assertNoOplog(c *tc.C, tailer *mongo.OplogTailer) {
 	select {
 	case _, ok := <-tailer.Out():
 		if !ok {
@@ -306,7 +306,7 @@ func (s *oplogSuite) assertNoOplog(c *gc.C, tailer *mongo.OplogTailer) {
 	}
 }
 
-func (s *oplogSuite) assertStopped(c *gc.C, tailer *mongo.OplogTailer) {
+func (s *oplogSuite) assertStopped(c *tc.C, tailer *mongo.OplogTailer) {
 	// Output should close.
 	select {
 	case _, ok := <-tailer.Out():
@@ -390,14 +390,14 @@ func (s *fakeSession) NewIter(ts bson.MongoTimestamp, ids []int64) mongo.Iterato
 
 func (s *fakeSession) Close() {}
 
-func (s *fakeSession) checkLastArgs(c *gc.C, ts bson.MongoTimestamp, ids []int64) {
+func (s *fakeSession) checkLastArgs(c *tc.C, ts bson.MongoTimestamp, ids []int64) {
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Logf("timeout getting iter args - test problem")
 		c.FailNow()
 	case res := <-s.args:
-		c.Check(res.timestamp, gc.Equals, ts)
-		c.Check(res.excludeIds, gc.DeepEquals, ids)
+		c.Check(res.timestamp, tc.Equals, ts)
+		c.Check(res.excludeIds, tc.DeepEquals, ids)
 	}
 }
 

@@ -6,10 +6,10 @@ package service
 import (
 	"context"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
@@ -29,9 +29,9 @@ type zonesSuite struct {
 	notSupportedZoneProviderGetter    func(context.Context) (ProviderWithZones, error)
 }
 
-var _ = gc.Suite(&zonesSuite{})
+var _ = tc.Suite(&zonesSuite{})
 
-func (s *zonesSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *zonesSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.st = NewMockState(ctrl)
@@ -54,7 +54,7 @@ func (s *zonesSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *zonesSuite) TestGetProviderAvailabilityZones(c *gc.C) {
+func (s *zonesSuite) TestGetProviderAvailabilityZones(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	zones := network.AvailabilityZones{}
@@ -67,12 +67,12 @@ func (s *zonesSuite) TestGetProviderAvailabilityZones(c *gc.C) {
 	c.Check(got, jc.DeepEquals, zones)
 }
 
-func (s *zonesSuite) TestGetProviderAvailabilityZonesNotSupported(c *gc.C) {
+func (s *zonesSuite) TestGetProviderAvailabilityZonesNotSupported(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	providerService := NewProviderService(s.st, s.networkProviderGetter, s.notSupportedZoneProviderGetter, loggertesting.WrapCheckLog(c))
 
 	zones, err := providerService.GetProviderAvailabilityZones(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(zones, gc.HasLen, 0)
+	c.Check(zones, tc.HasLen, 0)
 }

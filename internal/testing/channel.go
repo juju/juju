@@ -7,8 +7,8 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
 // NotifyAsserterC gives helper functions for making assertions about how a
@@ -16,7 +16,7 @@ import (
 // closed, etc.)
 type NotifyAsserterC struct {
 	// C is a gocheck C structure for doing assertions
-	C *gc.C
+	C *tc.C
 	// Chan is the channel we want to receive on
 	Chan <-chan struct{}
 	// Precond will be called before waiting on the channel, can be nil
@@ -70,7 +70,7 @@ func (a *NotifyAsserterC) AssertNoReceive() {
 // callers need to put that into and out of an 'interface{}'
 type ContentAsserterC struct {
 	// C is a gocheck C structure for doing assertions
-	C *gc.C
+	C *tc.C
 	// Chan is the channel we want to receive on
 	Chan interface{}
 	// Precond will be called before waiting on the channel, can be nil
@@ -124,7 +124,7 @@ func (a *ContentAsserterC) AssertOneReceive() interface{} {
 // It also returns the value in case further inspection is desired.
 func (a *ContentAsserterC) AssertOneValue(val interface{}) interface{} {
 	res := a.AssertReceive()
-	a.C.Assert(val, gc.DeepEquals, res)
+	a.C.Assert(val, tc.DeepEquals, res)
 	a.AssertNoReceive()
 	return res
 }

@@ -8,8 +8,8 @@ import (
 	"database/sql"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	corearch "github.com/juju/juju/core/arch"
@@ -25,14 +25,14 @@ type stateSuite struct {
 	state *State
 }
 
-var _ = gc.Suite(&stateSuite{})
+var _ = tc.Suite(&stateSuite{})
 
-func (s *stateSuite) SetUpTest(c *gc.C) {
+func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 	s.state = NewState(s.TxnRunnerFactory())
 }
 
-func (s *stateSuite) TestCurateNodes(c *gc.C) {
+func (s *stateSuite) TestCurateNodes(c *tc.C) {
 	db := s.DB()
 
 	_, err := db.ExecContext(context.Background(), "INSERT INTO controller_node (controller_id) VALUES ('1')")
@@ -53,7 +53,7 @@ func (s *stateSuite) TestCurateNodes(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		ids.Add(addr)
 	}
-	c.Check(ids.Values(), gc.HasLen, 3)
+	c.Check(ids.Values(), tc.HasLen, 3)
 
 	// Controller "0" is inserted as part of the bootstrapped schema.
 	c.Check(ids.Contains("0"), jc.IsTrue)
@@ -61,7 +61,7 @@ func (s *stateSuite) TestCurateNodes(c *gc.C) {
 	c.Check(ids.Contains("3"), jc.IsTrue)
 }
 
-func (s *stateSuite) TestUpdateDqliteNode(c *gc.C) {
+func (s *stateSuite) TestUpdateDqliteNode(c *tc.C) {
 	// This value would cause a driver error to be emitted if we
 	// tried to pass it directly as a uint64 query parameter.
 	nodeID := uint64(15237855465837235027)
@@ -80,13 +80,13 @@ func (s *stateSuite) TestUpdateDqliteNode(c *gc.C) {
 	err = row.Scan(&id, &addr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(id, gc.Equals, nodeID)
-	c.Check(addr, gc.Equals, "192.168.5.60")
+	c.Check(id, tc.Equals, nodeID)
+	c.Check(addr, tc.Equals, "192.168.5.60")
 }
 
 // TestSelectDatabaseNamespace is testing success for existing namespaces and
 // a not found error for namespaces that don't exist.
-func (s *stateSuite) TestSelectDatabaseNamespace(c *gc.C) {
+func (s *stateSuite) TestSelectDatabaseNamespace(c *tc.C) {
 	db := s.DB()
 	_, err := db.ExecContext(context.Background(), "INSERT INTO namespace_list (namespace) VALUES ('simon!!')")
 	c.Assert(err, jc.ErrorIsNil)
@@ -94,14 +94,14 @@ func (s *stateSuite) TestSelectDatabaseNamespace(c *gc.C) {
 	st := s.state
 	namespace, err := st.SelectDatabaseNamespace(context.Background(), "simon!!")
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(namespace, gc.Equals, "simon!!")
+	c.Check(namespace, tc.Equals, "simon!!")
 
 	namespace, err = st.SelectDatabaseNamespace(context.Background(), "SIMon!!")
 	c.Check(err, jc.ErrorIs, controllernodeerrors.NotFound)
-	c.Check(namespace, gc.Equals, "")
+	c.Check(namespace, tc.Equals, "")
 }
 
-func (s *stateSuite) TestSetRunningAgentBinaryVersionSuccess(c *gc.C) {
+func (s *stateSuite) TestSetRunningAgentBinaryVersionSuccess(c *tc.C) {
 	controllerID := "1"
 	ver := coreagentbinary.Version{
 		Number: jujuversion.Current,
@@ -143,9 +143,9 @@ func (s *stateSuite) TestSetRunningAgentBinaryVersionSuccess(c *gc.C) {
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtainedControllerID, gc.Equals, controllerID)
-	c.Check(obtainedVersion, gc.Equals, ver.Number.String())
-	c.Check(obtainedArchName, gc.Equals, ver.Arch)
+	c.Check(obtainedControllerID, tc.Equals, controllerID)
+	c.Check(obtainedVersion, tc.Equals, ver.Number.String())
+	c.Check(obtainedArchName, tc.Equals, ver.Arch)
 
 	// Tests update running agent binary version.
 	updatedVer := coreagentbinary.Version{
@@ -168,12 +168,12 @@ func (s *stateSuite) TestSetRunningAgentBinaryVersionSuccess(c *gc.C) {
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtainedControllerID, gc.Equals, controllerID)
-	c.Check(obtainedVersion, gc.Equals, updatedVer.Number.String())
-	c.Check(obtainedArchName, gc.Equals, updatedVer.Arch)
+	c.Check(obtainedControllerID, tc.Equals, controllerID)
+	c.Check(obtainedVersion, tc.Equals, updatedVer.Number.String())
+	c.Check(obtainedArchName, tc.Equals, updatedVer.Arch)
 }
 
-func (s *stateSuite) TestSetRunningAgentBinaryVersionControllerNodeNotFound(c *gc.C) {
+func (s *stateSuite) TestSetRunningAgentBinaryVersionControllerNodeNotFound(c *tc.C) {
 	controllerID := "1"
 	ver := coreagentbinary.Version{
 		Number: jujuversion.Current,
@@ -191,7 +191,7 @@ func (s *stateSuite) TestSetRunningAgentBinaryVersionControllerNodeNotFound(c *g
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateSuite) TestSetRunningAgentBinaryVersionArchNotSupported(c *gc.C) {
+func (s *stateSuite) TestSetRunningAgentBinaryVersionArchNotSupported(c *tc.C) {
 	controllerID := "1"
 	ver := coreagentbinary.Version{
 		Number: jujuversion.Current,

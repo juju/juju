@@ -7,11 +7,11 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
@@ -23,9 +23,9 @@ type manifoldSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&manifoldSuite{})
+var _ = tc.Suite(&manifoldSuite{})
 
-func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
+func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.getConfig()
@@ -52,7 +52,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
-func (s *manifoldSuite) TestStart(c *gc.C) {
+func (s *manifoldSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	getter := map[string]any{
@@ -73,7 +73,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	workertest.CheckAlive(c, w)
 }
 
-func (s *manifoldSuite) TestOutputProviderServicesGetter(c *gc.C) {
+func (s *manifoldSuite) TestOutputProviderServicesGetter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, err := NewWorker(Config{
@@ -92,7 +92,7 @@ func (s *manifoldSuite) TestOutputProviderServicesGetter(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *manifoldSuite) TestOutputInvalid(c *gc.C) {
+func (s *manifoldSuite) TestOutputInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, err := NewWorker(Config{
@@ -108,7 +108,7 @@ func (s *manifoldSuite) TestOutputInvalid(c *gc.C) {
 
 	var factory struct{}
 	err = manifold.output(w, &factory)
-	c.Assert(err, gc.ErrorMatches, `unsupported output type .*`)
+	c.Assert(err, tc.ErrorMatches, `unsupported output type .*`)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {

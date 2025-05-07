@@ -13,11 +13,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/retry"
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -51,9 +51,9 @@ type Suite struct {
 	clock  *testclock.Clock
 }
 
-var _ = gc.Suite(&Suite{})
+var _ = tc.Suite(&Suite{})
 
-func (s *Suite) SetUpTest(c *gc.C) {
+func (s *Suite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.stub = new(jujutesting.Stub)
 	s.client = newStubMinionClient(s.stub)
@@ -79,30 +79,30 @@ func (s *Suite) apiOpen(ctx context.Context, info *api.Info, _ api.DialOpts) (ap
 	return &stubConnection{stub: s.stub}, nil
 }
 
-func (s *Suite) TestStartAndStop(c *gc.C) {
+func (s *Suite) TestStartAndStop(c *tc.C) {
 	w, err := migrationminion.New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 	s.stub.CheckCallNames(c, "Watch")
 }
 
-func (s *Suite) TestWatchFailure(c *gc.C) {
+func (s *Suite) TestWatchFailure(c *tc.C) {
 	s.client.watchErr = errors.New("boom")
 	w, err := migrationminion.New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
-	c.Check(err, gc.ErrorMatches, "setting up watcher: boom")
+	c.Check(err, tc.ErrorMatches, "setting up watcher: boom")
 }
 
-func (s *Suite) TestClosedWatcherChannel(c *gc.C) {
+func (s *Suite) TestClosedWatcherChannel(c *tc.C) {
 	close(s.client.watcher.changes)
 	w, err := migrationminion.New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
-	c.Check(err, gc.ErrorMatches, "watcher channel closed")
+	c.Check(err, tc.ErrorMatches, "watcher channel closed")
 }
 
-func (s *Suite) TestUnlockError(c *gc.C) {
+func (s *Suite) TestUnlockError(c *tc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		Phase: migration.NONE,
 	}
@@ -111,11 +111,11 @@ func (s *Suite) TestUnlockError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = workertest.CheckKilled(c, w)
-	c.Check(err, gc.ErrorMatches, "squish")
+	c.Check(err, tc.ErrorMatches, "squish")
 	s.stub.CheckCallNames(c, "Watch", "Unlock")
 }
 
-func (s *Suite) TestLockdownError(c *gc.C) {
+func (s *Suite) TestLockdownError(c *tc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		Phase: migration.QUIESCE,
 	}
@@ -124,11 +124,11 @@ func (s *Suite) TestLockdownError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = workertest.CheckKilled(c, w)
-	c.Check(err, gc.ErrorMatches, "squash")
+	c.Check(err, tc.ErrorMatches, "squash")
 	s.stub.CheckCallNames(c, "Watch", "Lockdown")
 }
 
-func (s *Suite) TestNonRunningPhases(c *gc.C) {
+func (s *Suite) TestNonRunningPhases(c *tc.C) {
 	phases := []migration.Phase{
 		migration.UNKNOWN,
 		migration.NONE,
@@ -144,7 +144,7 @@ func (s *Suite) TestNonRunningPhases(c *gc.C) {
 	}
 }
 
-func (s *Suite) checkNonRunningPhase(c *gc.C, phase migration.Phase) {
+func (s *Suite) checkNonRunningPhase(c *tc.C, phase migration.Phase) {
 	c.Logf("checking %s", phase)
 	s.stub.ResetCalls()
 	s.client.watcher.changes <- watcher.MigrationStatus{Phase: phase}
@@ -155,7 +155,7 @@ func (s *Suite) checkNonRunningPhase(c *gc.C, phase migration.Phase) {
 	s.stub.CheckCallNames(c, "Watch", "Unlock")
 }
 
-func (s *Suite) TestQUIESCE(c *gc.C) {
+func (s *Suite) TestQUIESCE(c *tc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		MigrationId: "id",
 		Phase:       migration.QUIESCE,
@@ -172,7 +172,7 @@ func (s *Suite) TestQUIESCE(c *gc.C) {
 	s.stub.CheckCall(c, 2, "Report", "id", migration.QUIESCE, true)
 }
 
-func (s *Suite) TestVALIDATION(c *gc.C) {
+func (s *Suite) TestVALIDATION(c *tc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		MigrationId:    "id",
 		Phase:          migration.VALIDATION,
@@ -201,7 +201,7 @@ func (s *Suite) TestVALIDATION(c *gc.C) {
 	s.stub.CheckCall(c, 5, "Report", "id", migration.VALIDATION, true)
 }
 
-func (s *Suite) TestVALIDATIONCanConnectButIsRepeatedlyCalled(c *gc.C) {
+func (s *Suite) TestVALIDATIONCanConnectButIsRepeatedlyCalled(c *tc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		MigrationId:    "id",
 		Phase:          migration.VALIDATION,
@@ -237,7 +237,7 @@ func (s *Suite) TestVALIDATIONCanConnectButIsRepeatedlyCalled(c *gc.C) {
 	s.stub.CheckCall(c, 5, "Report", "id", migration.VALIDATION, true)
 }
 
-func (s *Suite) TestVALIDATIONCantConnect(c *gc.C) {
+func (s *Suite) TestVALIDATIONCantConnect(c *tc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		MigrationId: "id",
 		Phase:       migration.VALIDATION,
@@ -286,7 +286,7 @@ func (s *Suite) TestVALIDATIONCantConnect(c *gc.C) {
 	s.stub.CheckCall(c, 22, "Report", "id", migration.VALIDATION, false)
 }
 
-func (s *Suite) TestVALIDATIONCantConnectNotReportForTryAgainError(c *gc.C) {
+func (s *Suite) TestVALIDATIONCantConnectNotReportForTryAgainError(c *tc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		MigrationId: "id",
 		Phase:       migration.VALIDATION,
@@ -333,7 +333,7 @@ func (s *Suite) TestVALIDATIONCantConnectNotReportForTryAgainError(c *gc.C) {
 	})
 }
 
-func (s *Suite) TestVALIDATIONFail(c *gc.C) {
+func (s *Suite) TestVALIDATIONFail(c *tc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		MigrationId: "id",
 		Phase:       migration.VALIDATION,
@@ -363,7 +363,7 @@ func (s *Suite) TestVALIDATIONFail(c *gc.C) {
 	s.stub.CheckCall(c, 62, "Report", "id", migration.VALIDATION, false)
 }
 
-func (s *Suite) TestVALIDATIONRetrySucceed(c *gc.C) {
+func (s *Suite) TestVALIDATIONRetrySucceed(c *tc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		MigrationId: "id",
 		Phase:       migration.VALIDATION,
@@ -403,7 +403,7 @@ func (s *Suite) TestVALIDATIONRetrySucceed(c *gc.C) {
 	s.stub.CheckCall(c, 8, "Report", "id", migration.VALIDATION, true)
 }
 
-func (s *Suite) TestSUCCESS(c *gc.C) {
+func (s *Suite) TestSUCCESS(c *tc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		MigrationId:    "id",
 		Phase:          migration.SUCCESS,
@@ -419,13 +419,13 @@ func (s *Suite) TestSUCCESS(c *gc.C) {
 		c.Fatal("timed out")
 	}
 	workertest.CleanKill(c, w)
-	c.Assert(s.agent.conf.addrs, gc.DeepEquals, addrs)
-	c.Assert(s.agent.conf.caCert, gc.DeepEquals, caCert)
+	c.Assert(s.agent.conf.addrs, tc.DeepEquals, addrs)
+	c.Assert(s.agent.conf.caCert, tc.DeepEquals, caCert)
 	s.stub.CheckCallNames(c, "Watch", "Lockdown", "Report")
 	s.stub.CheckCall(c, 2, "Report", "id", migration.SUCCESS, true)
 }
 
-func (s *Suite) TestSUCCESSCantConnectNotReportForTryAgainError(c *gc.C) {
+func (s *Suite) TestSUCCESSCantConnectNotReportForTryAgainError(c *tc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		MigrationId: "id",
 		Phase:       migration.SUCCESS,
@@ -466,7 +466,7 @@ func (s *Suite) TestSUCCESSCantConnectNotReportForTryAgainError(c *gc.C) {
 	})
 }
 
-func (s *Suite) TestSUCCESSRetryReport(c *gc.C) {
+func (s *Suite) TestSUCCESSRetryReport(c *tc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		MigrationId: "id",
 		Phase:       migration.SUCCESS,
@@ -492,11 +492,11 @@ func (s *Suite) TestSUCCESSRetryReport(c *gc.C) {
 	})
 }
 
-func (s *Suite) waitForStubCalls(c *gc.C, expectedCallNames []string) {
+func (s *Suite) waitForStubCalls(c *tc.C, expectedCallNames []string) {
 	waitForStubCalls(c, s.stub, expectedCallNames...)
 }
 
-func waitForStubCalls(c *gc.C, stub *jujutesting.Stub, expectedCallNames ...string) {
+func waitForStubCalls(c *tc.C, stub *jujutesting.Stub, expectedCallNames ...string) {
 	var callNames []string
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		callNames = stubCallNames(stub)

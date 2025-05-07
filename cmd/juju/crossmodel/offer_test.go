@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -40,93 +40,93 @@ type offerSuite struct {
 	args    []string
 }
 
-var _ = gc.Suite(&offerSuite{})
+var _ = tc.Suite(&offerSuite{})
 
-func (s *offerSuite) SetUpTest(c *gc.C) {
+func (s *offerSuite) SetUpTest(c *tc.C) {
 	s.BaseCrossModelSuite.SetUpTest(c)
 
 	s.mockAPI = newMockOfferAPI()
 	s.args = nil
 }
 
-func (s *offerSuite) TestOfferNoArgs(c *gc.C) {
+func (s *offerSuite) TestOfferNoArgs(c *tc.C) {
 	s.assertOfferErrorOutput(c, ".*an offer must at least specify application endpoint.*")
 }
 
-func (s *offerSuite) TestOfferTooManyArgs(c *gc.C) {
+func (s *offerSuite) TestOfferTooManyArgs(c *tc.C) {
 	s.args = []string{"tst:db", "alias", "extra"}
 	s.assertOfferErrorOutput(c, `unrecognized args: \["extra"\]`)
 }
 
-func (s *offerSuite) TestOfferInvalidApplication(c *gc.C) {
+func (s *offerSuite) TestOfferInvalidApplication(c *tc.C) {
 	s.args = []string{"123:"}
 	s.assertOfferErrorOutput(c, `.*application name "123" not valid.*`)
 }
 
-func (s *offerSuite) TestOfferInvalidModel(c *gc.C) {
+func (s *offerSuite) TestOfferInvalidModel(c *tc.C) {
 	s.args = []string{"$model.123:db"}
 	s.assertOfferErrorOutput(c, `.*model name "\$model" not valid.*`)
 }
 
-func (s *offerSuite) TestOfferNoCurrentModel(c *gc.C) {
+func (s *offerSuite) TestOfferNoCurrentModel(c *tc.C) {
 	s.store.Models["test-master"].CurrentModel = ""
 	s.args = []string{"app:db"}
 	s.assertOfferErrorOutput(c, `no current model, use juju switch to select a model on which to operate`)
 }
 
-func (s *offerSuite) TestOfferInvalidEndpoints(c *gc.C) {
+func (s *offerSuite) TestOfferInvalidEndpoints(c *tc.C) {
 	s.args = []string{"tst/123"}
 	s.assertOfferErrorOutput(c, `.*endpoints must conform to format.*`)
 }
 
-func (s *offerSuite) TestOfferNoEndpoints(c *gc.C) {
+func (s *offerSuite) TestOfferNoEndpoints(c *tc.C) {
 	s.args = []string{"tst:"}
 	s.assertOfferErrorOutput(c, `.*specify endpoints for tst.*`)
 }
 
-func (s *offerSuite) assertOfferErrorOutput(c *gc.C, expected string) {
+func (s *offerSuite) assertOfferErrorOutput(c *tc.C, expected string) {
 	_, err := s.runOffer(c, s.args...)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, expected)
+	c.Assert(errors.Cause(err), tc.ErrorMatches, expected)
 }
 
-func (s *offerSuite) runOffer(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *offerSuite) runOffer(c *tc.C, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, newOfferCommandForTest(s.store, s.mockAPI), args...)
 }
 
-func (s *offerSuite) TestOfferCallErred(c *gc.C) {
+func (s *offerSuite) TestOfferCallErred(c *tc.C) {
 	s.args = []string{"tst:db"}
 	s.mockAPI.errCall = true
 	s.assertOfferErrorOutput(c, ".*aborted.*")
 }
 
-func (s *offerSuite) TestOfferDataErred(c *gc.C) {
+func (s *offerSuite) TestOfferDataErred(c *tc.C) {
 	s.args = []string{"tst:db"}
 	s.mockAPI.errData = true
 	s.assertOfferErrorOutput(c, ".*failed.*")
 }
 
-func (s *offerSuite) TestOfferValid(c *gc.C) {
+func (s *offerSuite) TestOfferValid(c *tc.C) {
 	s.args = []string{"tst:db"}
 	s.assertOfferOutput(c, "test", "tst", "tst", []string{"db"})
-	c.Assert(s.mockAPI.modelUUID, gc.Equals, "fred-uuid")
+	c.Assert(s.mockAPI.modelUUID, tc.Equals, "fred-uuid")
 }
 
-func (s *offerSuite) TestOfferWithAlias(c *gc.C) {
+func (s *offerSuite) TestOfferWithAlias(c *tc.C) {
 	s.args = []string{"tst:db", "hosted-tst"}
 	s.assertOfferOutput(c, "test", "hosted-tst", "tst", []string{"db"})
 }
 
-func (s *offerSuite) TestOfferExplicitModel(c *gc.C) {
+func (s *offerSuite) TestOfferExplicitModel(c *tc.C) {
 	s.args = []string{"bob/prod.tst:db"}
 	s.assertOfferOutput(c, "prod", "tst", "tst", []string{"db"})
 }
 
-func (s *offerSuite) TestOfferMultipleEndpoints(c *gc.C) {
+func (s *offerSuite) TestOfferMultipleEndpoints(c *tc.C) {
 	s.args = []string{"tst:db,admin"}
 	s.assertOfferOutput(c, "test", "tst", "tst", []string{"db", "admin"})
 }
 
-func (s *offerSuite) assertOfferOutput(c *gc.C, expectedModel, expectedOffer, expectedApplication string, endpoints []string) {
+func (s *offerSuite) assertOfferOutput(c *tc.C, expectedModel, expectedOffer, expectedApplication string, endpoints []string) {
 	_, err := s.runOffer(c, s.args...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockAPI.offers[expectedOffer], jc.SameContents, endpoints)

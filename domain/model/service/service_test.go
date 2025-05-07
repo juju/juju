@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/juju/collections/transform"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
@@ -56,9 +56,9 @@ type serviceSuite struct {
 	changestreamtesting.ControllerSuite
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = tc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) SetUpTest(c *gc.C) {
+func (s *serviceSuite) SetUpTest(c *tc.C) {
 	var err error
 	s.userUUID = usertesting.GenUserUUID(c)
 	c.Assert(err, jc.ErrorIsNil)
@@ -81,7 +81,7 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	s.setupControllerModel(c)
 }
 
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockModelDeleter = NewMockModelDeleter(ctrl)
 	s.mockState = NewMockState(ctrl)
@@ -91,7 +91,7 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *serviceSuite) setupControllerModel(c *gc.C) {
+func (s *serviceSuite) setupControllerModel(c *tc.C) {
 	adminUUID := usertesting.GenUserUUID(c)
 	s.state.users[adminUUID] = coremodel.ControllerModelOwnerUsername
 
@@ -127,8 +127,8 @@ func (s *serviceSuite) setupControllerModel(c *gc.C) {
 // breaking Juju. Please consider the business logic in this package and if
 // changing this well known value is handled correctly for both legacy and
 // future Juju versions!!!
-func (s *serviceSuite) TestControllerModelNameChange(c *gc.C) {
-	c.Assert(coremodel.ControllerModelName, gc.Equals, "controller")
+func (s *serviceSuite) TestControllerModelNameChange(c *tc.C) {
+	c.Assert(coremodel.ControllerModelName, tc.Equals, "controller")
 }
 
 // TestControllerModelOwnerUsername is here to make the breaker of this test
@@ -138,17 +138,17 @@ func (s *serviceSuite) TestControllerModelNameChange(c *gc.C) {
 // this value has changed and you could be at risk of breaking Juju. Please
 // consider the business logic in this package and if changing this well known
 // value is handled correctly for both legacy and future Juju versions!!!
-func (s *serviceSuite) TestControllerModelOwnerUsername(c *gc.C) {
-	c.Assert(coremodel.ControllerModelOwnerUsername, gc.Equals, usertesting.GenNewName(c, "admin"))
+func (s *serviceSuite) TestControllerModelOwnerUsername(c *tc.C) {
+	c.Assert(coremodel.ControllerModelOwnerUsername, tc.Equals, usertesting.GenNewName(c, "admin"))
 }
 
-func (s *serviceSuite) TestCreateModelInvalidArgs(c *gc.C) {
+func (s *serviceSuite) TestCreateModelInvalidArgs(c *tc.C) {
 	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
 	_, _, err := svc.CreateModel(context.Background(), model.GlobalModelCreationArgs{})
 	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *serviceSuite) TestModelCreation(c *gc.C) {
+func (s *serviceSuite) TestModelCreation(c *tc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
 		Name:  "foobar",
@@ -178,10 +178,10 @@ func (s *serviceSuite) TestModelCreation(c *gc.C) {
 
 	modelList, err := svc.ListModelIDs(context.Background())
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(len(modelList), gc.Equals, 2)
+	c.Check(len(modelList), tc.Equals, 2)
 }
 
-func (s *serviceSuite) TestCheckExistsNoModel(c *gc.C) {
+func (s *serviceSuite) TestCheckExistsNoModel(c *tc.C) {
 	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
 	id := modeltesting.GenModelUUID(c)
 	exists, err := svc.CheckModelExists(context.Background(), id)
@@ -192,7 +192,7 @@ func (s *serviceSuite) TestCheckExistsNoModel(c *gc.C) {
 // TestModelCreationSecretBackendNotFound is asserting that if we try and add a
 // model and define a secret backend for the new model that doesn't exist we get
 // back a [secretbackenderrors.NotFound] error.
-func (s *serviceSuite) TestModelCreationSecretBackendNotFound(c *gc.C) {
+func (s *serviceSuite) TestModelCreationSecretBackendNotFound(c *tc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
 		Name:  "foobar",
@@ -218,7 +218,7 @@ func (s *serviceSuite) TestModelCreationSecretBackendNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, secretbackenderrors.NotFound)
 }
 
-func (s *serviceSuite) TestModelCreationInvalidCloud(c *gc.C) {
+func (s *serviceSuite) TestModelCreationInvalidCloud(c *tc.C) {
 	s.state.clouds["aws"] = dummyStateCloud{}
 	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
 	_, _, err := svc.CreateModel(context.Background(), model.GlobalModelCreationArgs{
@@ -231,7 +231,7 @@ func (s *serviceSuite) TestModelCreationInvalidCloud(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
 }
 
-func (s *serviceSuite) TestModelCreationNoCloudRegion(c *gc.C) {
+func (s *serviceSuite) TestModelCreationNoCloudRegion(c *tc.C) {
 	s.state.clouds["aws"] = dummyStateCloud{
 		Regions: []string{"myregion"},
 	}
@@ -249,7 +249,7 @@ func (s *serviceSuite) TestModelCreationNoCloudRegion(c *gc.C) {
 
 // TestModelCreationOwnerNotFound is testing that if we make a model with an
 // owner that doesn't exist we get back a [accesserrors.NotFound] error.
-func (s *serviceSuite) TestModelCreationOwnerNotFound(c *gc.C) {
+func (s *serviceSuite) TestModelCreationOwnerNotFound(c *tc.C) {
 	s.state.clouds["aws"] = dummyStateCloud{
 		Credentials: map[string]credential.Key{},
 		Regions:     []string{"myregion"},
@@ -269,7 +269,7 @@ func (s *serviceSuite) TestModelCreationOwnerNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, accesserrors.UserNotFound)
 }
 
-func (s *serviceSuite) TestModelCreationNoCloudCredential(c *gc.C) {
+func (s *serviceSuite) TestModelCreationNoCloudCredential(c *tc.C) {
 	s.state.clouds["aws"] = dummyStateCloud{
 		Credentials: map[string]credential.Key{},
 		Regions:     []string{"myregion"},
@@ -291,7 +291,7 @@ func (s *serviceSuite) TestModelCreationNoCloudCredential(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
 }
 
-func (s *serviceSuite) TestModelCreationNameOwnerConflict(c *gc.C) {
+func (s *serviceSuite) TestModelCreationNameOwnerConflict(c *tc.C) {
 	s.state.clouds["aws"] = dummyStateCloud{
 		Credentials: map[string]credential.Key{},
 		Regions:     []string{"myregion"},
@@ -317,7 +317,7 @@ func (s *serviceSuite) TestModelCreationNameOwnerConflict(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, modelerrors.AlreadyExists)
 }
 
-func (s *serviceSuite) TestUpdateModelCredentialForInvalidModel(c *gc.C) {
+func (s *serviceSuite) TestUpdateModelCredentialForInvalidModel(c *tc.C) {
 	id := modeltesting.GenModelUUID(c)
 
 	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
@@ -329,7 +329,7 @@ func (s *serviceSuite) TestUpdateModelCredentialForInvalidModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
-func (s *serviceSuite) TestUpdateModelCredential(c *gc.C) {
+func (s *serviceSuite) TestUpdateModelCredential(c *tc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
 		Owner: usertesting.GenNewName(c, "owner"),
@@ -357,7 +357,7 @@ func (s *serviceSuite) TestUpdateModelCredential(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestUpdateModelCredentialReplace(c *gc.C) {
+func (s *serviceSuite) TestUpdateModelCredentialReplace(c *tc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
 		Owner: usertesting.GenNewName(c, "owner"),
@@ -392,7 +392,7 @@ func (s *serviceSuite) TestUpdateModelCredentialReplace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestUpdateModelCredentialZeroValue(c *gc.C) {
+func (s *serviceSuite) TestUpdateModelCredentialZeroValue(c *tc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
 		Owner: usertesting.GenNewName(c, "owner"),
@@ -420,7 +420,7 @@ func (s *serviceSuite) TestUpdateModelCredentialZeroValue(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *serviceSuite) TestUpdateModelCredentialDifferentCloud(c *gc.C) {
+func (s *serviceSuite) TestUpdateModelCredentialDifferentCloud(c *tc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
 		Owner: usertesting.GenNewName(c, "owner"),
@@ -460,7 +460,7 @@ func (s *serviceSuite) TestUpdateModelCredentialDifferentCloud(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *serviceSuite) TestUpdateModelCredentialNotFound(c *gc.C) {
+func (s *serviceSuite) TestUpdateModelCredentialNotFound(c *tc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
 		Owner: usertesting.GenNewName(c, "owner"),
@@ -494,7 +494,7 @@ func (s *serviceSuite) TestUpdateModelCredentialNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
 }
 
-func (s *serviceSuite) TestDeleteModel(c *gc.C) {
+func (s *serviceSuite) TestDeleteModel(c *tc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
 		Name:  "foobar",
@@ -536,7 +536,7 @@ func (d notFoundDeleter) DeleteDB(string) error {
 	return modelerrors.NotFound
 }
 
-func (s *serviceSuite) TestDeleteModelNotFound(c *gc.C) {
+func (s *serviceSuite) TestDeleteModelNotFound(c *tc.C) {
 	svc := NewService(s.state, notFoundDeleter{}, loggertesting.WrapCheckLog(c))
 	err := svc.DeleteModel(context.Background(), modeltesting.GenModelUUID(c), model.WithDeleteDB())
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
@@ -544,16 +544,16 @@ func (s *serviceSuite) TestDeleteModelNotFound(c *gc.C) {
 
 // TestListAllModelsNoResults is asserting that when no models exist the return
 // value of ListAllModels is an empty slice.
-func (s *serviceSuite) TestListAllModelsNoResults(c *gc.C) {
+func (s *serviceSuite) TestListAllModelsNoResults(c *tc.C) {
 	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
 	models, err := svc.ListAllModels(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(len(models), gc.Equals, 1)
+	c.Check(len(models), tc.Equals, 1)
 }
 
 // TestListAllModel is a basic test to assert the happy path of
 // [Service.ListAllModels].
-func (s *serviceSuite) TestListAllModels(c *gc.C) {
+func (s *serviceSuite) TestListAllModels(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	svc := NewService(
@@ -640,15 +640,15 @@ func (s *serviceSuite) TestListAllModels(c *gc.C) {
 
 // TestListModelsForUser is asserting that for a non existent user we return
 // an empty model result.
-func (s *serviceSuite) TestListModelsForNonExistentUser(c *gc.C) {
+func (s *serviceSuite) TestListModelsForNonExistentUser(c *tc.C) {
 	fakeUserID := usertesting.GenUserUUID(c)
 	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
 	models, err := svc.ListModelsForUser(context.Background(), fakeUserID)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(len(models), gc.Equals, 0)
+	c.Check(len(models), tc.Equals, 0)
 }
 
-func (s *serviceSuite) TestListModelsForUser(c *gc.C) {
+func (s *serviceSuite) TestListModelsForUser(c *tc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
 		Name:  "foobar",
@@ -692,7 +692,7 @@ func (s *serviceSuite) TestListModelsForUser(c *gc.C) {
 		return strings.Compare(a.Name, b.Name)
 	})
 
-	c.Check(models, gc.DeepEquals, []coremodel.Model{
+	c.Check(models, tc.DeepEquals, []coremodel.Model{
 		{
 			Name:        "my-awesome-model",
 			UUID:        id1,
@@ -719,7 +719,7 @@ func (s *serviceSuite) TestListModelsForUser(c *gc.C) {
 }
 
 // TestImportModel is asserting the happy path for importing a model.
-func (s *serviceSuite) TestImportModel(c *gc.C) {
+func (s *serviceSuite) TestImportModel(c *tc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
 		Name:  "foobar",
@@ -756,7 +756,7 @@ func (s *serviceSuite) TestImportModel(c *gc.C) {
 // controller model and it doesn't exist we get back a [modelerrors.NotFound]
 // error. This should be a very unlikely scenario but we need to test the
 // schemantics.
-func (s *serviceSuite) TestControllerModelNotFound(c *gc.C) {
+func (s *serviceSuite) TestControllerModelNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.mockState.EXPECT().GetControllerModel(gomock.Any()).Return(
@@ -773,7 +773,7 @@ func (s *serviceSuite) TestControllerModelNotFound(c *gc.C) {
 }
 
 // TestControllerModel is asserting the happy path of [Service.ControllerModel].
-func (s *serviceSuite) TestControllerModel(c *gc.C) {
+func (s *serviceSuite) TestControllerModel(c *tc.C) {
 	adminUUID := usertesting.GenUserUUID(c)
 	s.state.users[adminUUID] = coremodel.ControllerModelOwnerUsername
 
@@ -803,7 +803,7 @@ func (s *serviceSuite) TestControllerModel(c *gc.C) {
 
 	model, err := svc.ControllerModel(context.Background())
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(model, gc.DeepEquals, coremodel.Model{
+	c.Check(model, tc.DeepEquals, coremodel.Model{
 		Name:        coremodel.ControllerModelName,
 		Life:        life.Alive,
 		UUID:        modelID,
@@ -816,7 +816,7 @@ func (s *serviceSuite) TestControllerModel(c *gc.C) {
 	})
 }
 
-func (s *serviceSuite) TestGetModelUsers(c *gc.C) {
+func (s *serviceSuite) TestGetModelUsers(c *tc.C) {
 	uuid, err := coremodel.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	bobName := usertesting.GenNewName(c, "bob")
@@ -829,7 +829,7 @@ func (s *serviceSuite) TestGetModelUsers(c *gc.C) {
 	}
 	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
 	modelUserInfo, err := svc.GetModelUsers(context.Background(), uuid)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	c.Check(modelUserInfo, jc.SameContents, []coremodel.ModelUserInfo{{
 		Name:           bobName,
 		DisplayName:    bobName.Name(),
@@ -848,13 +848,13 @@ func (s *serviceSuite) TestGetModelUsers(c *gc.C) {
 	}})
 }
 
-func (s *serviceSuite) TestGetModelUsersBadUUID(c *gc.C) {
+func (s *serviceSuite) TestGetModelUsersBadUUID(c *tc.C) {
 	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
 	_, err := svc.GetModelUsers(context.Background(), "bad-uuid)")
 	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *serviceSuite) TestGetModelUser(c *gc.C) {
+func (s *serviceSuite) TestGetModelUser(c *tc.C) {
 	uuid := modeltesting.GenModelUUID(c)
 	bobName := usertesting.GenNewName(c, "bob")
 	jimName := usertesting.GenNewName(c, "jim")
@@ -866,8 +866,8 @@ func (s *serviceSuite) TestGetModelUser(c *gc.C) {
 	}
 	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
 	modelUserInfo, err := svc.GetModelUser(context.Background(), uuid, bobName)
-	c.Assert(err, gc.IsNil)
-	c.Check(modelUserInfo, gc.Equals, coremodel.ModelUserInfo{
+	c.Assert(err, tc.IsNil)
+	c.Check(modelUserInfo, tc.Equals, coremodel.ModelUserInfo{
 		Name:           bobName,
 		DisplayName:    bobName.Name(),
 		Access:         permission.AdminAccess,
@@ -875,19 +875,19 @@ func (s *serviceSuite) TestGetModelUser(c *gc.C) {
 	})
 }
 
-func (s *serviceSuite) TestGetModelUserBadUUID(c *gc.C) {
+func (s *serviceSuite) TestGetModelUserBadUUID(c *tc.C) {
 	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
 	_, err := svc.GetModelUser(context.Background(), "bad-uuid", usertesting.GenNewName(c, "bob"))
 	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *serviceSuite) TestGetModelUserZeroUserName(c *gc.C) {
+func (s *serviceSuite) TestGetModelUserZeroUserName(c *tc.C) {
 	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
 	_, err := svc.GetModelUser(context.Background(), modeltesting.GenModelUUID(c), user.Name{})
 	c.Assert(err, jc.ErrorIs, accesserrors.UserNameNotValid)
 }
 
-func (s *serviceSuite) TestListAllModelSummaries(c *gc.C) {
+func (s *serviceSuite) TestListAllModelSummaries(c *tc.C) {
 	uuid1, err := coremodel.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	uuid2, err := coremodel.NewUUID()
@@ -943,13 +943,13 @@ func (s *serviceSuite) TestListAllModelSummaries(c *gc.C) {
 	}})
 }
 
-func (s *serviceSuite) TestListModelsForUserBadName(c *gc.C) {
+func (s *serviceSuite) TestListModelsForUserBadName(c *tc.C) {
 	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
 	_, err := svc.ListModelsForUser(context.Background(), "((*)(")
 	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *serviceSuite) TestListModelSummariesForUser(c *gc.C) {
+func (s *serviceSuite) TestListModelSummariesForUser(c *tc.C) {
 	uuid1, err := coremodel.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	s.state.controllerModelUUID = uuid1
@@ -968,7 +968,7 @@ func (s *serviceSuite) TestListModelSummariesForUser(c *gc.C) {
 	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
 	models, err := svc.ListModelSummariesForUser(context.Background(), usertesting.GenNewName(c, "admin"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(models, gc.DeepEquals, []coremodel.UserModelSummary{{
+	c.Check(models, tc.DeepEquals, []coremodel.UserModelSummary{{
 		UserAccess: permission.AdminAccess,
 		ModelSummary: coremodel.ModelSummary{
 			Name:           "my-awesome-model",
@@ -987,7 +987,7 @@ func (s *serviceSuite) TestListModelSummariesForUser(c *gc.C) {
 
 // setupDefaultStateExpects establishes a common set of well know responses to
 // state calls for mock testing.
-func (s *serviceSuite) setupDefaultStateExpects(c *gc.C) {
+func (s *serviceSuite) setupDefaultStateExpects(c *tc.C) {
 	// This establishes a common response to a cloud's type
 	s.mockState.EXPECT().CloudType(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, name string) (string, error) {
@@ -1003,7 +1003,7 @@ func (s *serviceSuite) setupDefaultStateExpects(c *gc.C) {
 // model is attempted to being created with empty credentials and the cloud
 // does not support this. In this case we expect a error that satisfies
 // [modelerrors.CredentialNotValid]
-func (s *serviceSuite) TestCreateModelEmptyCredentialNotSupported(c *gc.C) {
+func (s *serviceSuite) TestCreateModelEmptyCredentialNotSupported(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupDefaultStateExpects(c)
 
@@ -1028,7 +1028,7 @@ func (s *serviceSuite) TestCreateModelEmptyCredentialNotSupported(c *gc.C) {
 // TestDefaultModelCloudNameAndCredentialNotFound is a white box test that
 // purposely returns a [modelerrors.NotFound] error when the controller model is
 // asked for. We expect that this error flows back out of the service call.
-func (s *serviceSuite) TestDefaultModelCloudNameAndCredentialNotFound(c *gc.C) {
+func (s *serviceSuite) TestDefaultModelCloudNameAndCredentialNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.mockState.EXPECT().GetControllerModelUUID(gomock.Any()).Return(
@@ -1063,7 +1063,7 @@ func (s *serviceSuite) TestDefaultModelCloudNameAndCredentialNotFound(c *gc.C) {
 
 // TestDefaultModelCloudNameAndCredential is asserting the happy path that when
 // a controller model exists the cloud name and credential are returned.
-func (s *serviceSuite) TestDefaultModelCloudNameAndCredential(c *gc.C) {
+func (s *serviceSuite) TestDefaultModelCloudNameAndCredential(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	svc := NewService(
@@ -1092,7 +1092,7 @@ func (s *serviceSuite) TestDefaultModelCloudNameAndCredential(c *gc.C) {
 
 	cloud, cred, err := svc.DefaultModelCloudNameAndCredential(context.Background())
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(cloud, gc.Equals, "test")
+	c.Check(cloud, tc.Equals, "test")
 	c.Check(cred, jc.DeepEquals, credential.Key{
 		Cloud: "test",
 		Owner: usertesting.GenNewName(c, "admin"),
@@ -1102,7 +1102,7 @@ func (s *serviceSuite) TestDefaultModelCloudNameAndCredential(c *gc.C) {
 
 // TestWatchActivatedModels verifies that WatchActivatedModels correctly sets up a watcher
 // that emits events for activated models when the watcher receives change events.
-func (s *serviceSuite) TestWatchActivatedModels(c *gc.C) {
+func (s *serviceSuite) TestWatchActivatedModels(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	ctx := context.Background()
 	svc := NewWatchableService(
@@ -1143,7 +1143,7 @@ func (s *serviceSuite) TestWatchActivatedModels(c *gc.C) {
 
 	select {
 	case change := <-watcher.Changes():
-		c.Check(change, gc.DeepEquals, activatedModelUUIDsStr)
+		c.Check(change, tc.DeepEquals, activatedModelUUIDsStr)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("failed to receive changes from watcher")
 	}
@@ -1164,7 +1164,7 @@ func (s *serviceSuite) createMockChangeEventsFromUUIDs(ctrl *gomock.Controller, 
 // TestWatchActivatedModelsMapper verifies that the WatchActivatedModelsMapper correctly
 // filters change events to include only those associated with activated models and that
 // the subset of changes returned is maintained in the same order as they are received.
-func (s *serviceSuite) TestWatchActivatedModelsMapper(c *gc.C) {
+func (s *serviceSuite) TestWatchActivatedModelsMapper(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	ctx := context.Background()
 
@@ -1199,12 +1199,12 @@ func (s *serviceSuite) TestWatchActivatedModelsMapper(c *gc.C) {
 	// Use service mapper to retrieve change events containing only model UUIDs of activated models.
 	retrievedChangeEvents, err := mapper(ctx, s.ControllerTxnRunner(), inputChangeEvents)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(retrievedChangeEvents, gc.DeepEquals, expectedChangeEvents)
+	c.Check(retrievedChangeEvents, tc.DeepEquals, expectedChangeEvents)
 }
 
 // TestGetModelByNameAndOwnerSuccess verifies that GetModelByNameAndOwner successfully
 // returns the model associated with the specified owner and model name.
-func (s *serviceSuite) TestGetModelByNameAndOwnerSuccess(c *gc.C) {
+func (s *serviceSuite) TestGetModelByNameAndOwnerSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	svc := NewService(
@@ -1239,13 +1239,13 @@ func (s *serviceSuite) TestGetModelByNameAndOwnerSuccess(c *gc.C) {
 
 	svcModel, err := svc.GetModelByNameAndOwner(context.Background(), modelName, ownerUserName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(model, gc.Equals, svcModel)
+	c.Check(model, tc.Equals, svcModel)
 }
 
 // TestGetModelByNameAndOwnerInvalidUsername verifies that
 // GetModelByNameAndOwner returns a [accesserrors.UserNameNotValid] error when
 // the provided owner username is invalid.
-func (s *serviceSuite) TestGetModelByNameAndOwnerInvalidUsername(c *gc.C) {
+func (s *serviceSuite) TestGetModelByNameAndOwnerInvalidUsername(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	svc := NewService(
@@ -1264,7 +1264,7 @@ func (s *serviceSuite) TestGetModelByNameAndOwnerInvalidUsername(c *gc.C) {
 // TestGetModelByNameAndOwnerNotFound verifies that GetModelByNameAndOwner
 // returns a [modelerrors.NotFound] error
 // when no model exists for the given owner and model name.
-func (s *serviceSuite) TestGetModelByNameAndOwnerNotFound(c *gc.C) {
+func (s *serviceSuite) TestGetModelByNameAndOwnerNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	svc := NewService(
@@ -1284,7 +1284,7 @@ func (s *serviceSuite) TestGetModelByNameAndOwnerNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
-func (s *serviceSuite) TestGetModelLife(c *gc.C) {
+func (s *serviceSuite) TestGetModelLife(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := modeltesting.GenModelUUID(c)
@@ -1302,10 +1302,10 @@ func (s *serviceSuite) TestGetModelLife(c *gc.C) {
 
 	result, err := svc.GetModelLife(context.Background(), modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.Equals, life.Alive)
+	c.Assert(result, tc.Equals, life.Alive)
 }
 
-func (s *serviceSuite) TestGetModelLifeInvalidUUID(c *gc.C) {
+func (s *serviceSuite) TestGetModelLifeInvalidUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	svc := NewService(
@@ -1315,10 +1315,10 @@ func (s *serviceSuite) TestGetModelLifeInvalidUUID(c *gc.C) {
 	)
 
 	_, err := svc.GetModelLife(context.Background(), "!!!!")
-	c.Assert(err, gc.ErrorMatches, `*.not valid`)
+	c.Assert(err, tc.ErrorMatches, `*.not valid`)
 }
 
-func (s *serviceSuite) TestGetModelLifeNotFound(c *gc.C) {
+func (s *serviceSuite) TestGetModelLifeNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := modeltesting.GenModelUUID(c)
@@ -1338,7 +1338,7 @@ func (s *serviceSuite) TestGetModelLifeNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
-func (s *serviceSuite) TestWatchModelCloudCredential(c *gc.C) {
+func (s *serviceSuite) TestWatchModelCloudCredential(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := modeltesting.GenModelUUID(c)

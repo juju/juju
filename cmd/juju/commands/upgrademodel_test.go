@@ -5,10 +5,10 @@ package commands
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/commands/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -52,9 +52,9 @@ type upgradeModelSuite struct {
 	store                    *mocks.MockClientStore
 }
 
-var _ = gc.Suite(&upgradeModelSuite{})
+var _ = tc.Suite(&upgradeModelSuite{})
 
-func (s *upgradeModelSuite) upgradeModelCommand(c *gc.C, isCAAS bool) (*gomock.Controller, cmd.Command) {
+func (s *upgradeModelSuite) upgradeModelCommand(c *tc.C, isCAAS bool) (*gomock.Controller, cmd.Command) {
 	ctrl := gomock.NewController(c)
 	s.modelConfigAPI = mocks.NewMockModelConfigAPI(ctrl)
 	s.modelUpgrader = mocks.NewMockModelUpgraderAPI(ctrl)
@@ -91,7 +91,7 @@ func (s *upgradeModelSuite) upgradeModelCommand(c *gc.C, isCAAS bool) (*gomock.C
 	)
 }
 
-func (s *upgradeModelSuite) TestUpgradeModelProvidedAgentVersionUpToDate(c *gc.C) {
+func (s *upgradeModelSuite) TestUpgradeModelProvidedAgentVersionUpToDate(c *tc.C) {
 	ctrl, cmd := s.upgradeModelCommand(c, false)
 	defer ctrl.Finish()
 
@@ -103,10 +103,10 @@ func (s *upgradeModelSuite) TestUpgradeModelProvidedAgentVersionUpToDate(c *gc.C
 
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--agent-version", coretesting.FakeVersionNumber.String())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "no upgrades available\n")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "no upgrades available\n")
 }
 
-func (s *upgradeModelSuite) TestUpgradeModelWithAgentVersion(c *gc.C) {
+func (s *upgradeModelSuite) TestUpgradeModelWithAgentVersion(c *tc.C) {
 	ctrl, cmd := s.upgradeModelCommand(c, false)
 	defer ctrl.Finish()
 
@@ -137,16 +137,16 @@ func (s *upgradeModelSuite) TestUpgradeModelWithAgentVersion(c *gc.C) {
 		"--agent-version", semversion.MustParse("3.9.99").String(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
 best version:
     3.9.99
 `[1:])
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 started upgrade to 3.9.99
 `[1:])
 }
 
-func (s *upgradeModelSuite) TestUpgradeModelFailsWithAgentVersionMissingButLocalOfficialAvailable(c *gc.C) {
+func (s *upgradeModelSuite) TestUpgradeModelFailsWithAgentVersionMissingButLocalOfficialAvailable(c *tc.C) {
 	s.reset(c)
 
 	s.PatchValue(&jujuversion.Current, func() semversion.Number {
@@ -167,7 +167,7 @@ func (s *upgradeModelSuite) TestUpgradeModelFailsWithAgentVersionMissingButLocal
 		"uuid":          testControllerModelUUID,
 	})
 
-	c.Assert(agentVersion.Build, gc.Equals, 0)
+	c.Assert(agentVersion.Build, tc.Equals, 0)
 	builtVersion := coretesting.CurrentVersion()
 	targetVersion := builtVersion.Number
 	builtVersion.Build++
@@ -188,13 +188,13 @@ func (s *upgradeModelSuite) TestUpgradeModelFailsWithAgentVersionMissingButLocal
 		"--agent-version", targetVersion.String(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
 no upgrades available
 `[1:])
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
 }
 
-func (s *upgradeModelSuite) TestUpgradeModelWithAgentVersionAlreadyUpToDate(c *gc.C) {
+func (s *upgradeModelSuite) TestUpgradeModelWithAgentVersionAlreadyUpToDate(c *tc.C) {
 	s.reset(c)
 
 	ctrl, cmd := s.upgradeModelCommand(c, false)
@@ -209,7 +209,7 @@ func (s *upgradeModelSuite) TestUpgradeModelWithAgentVersionAlreadyUpToDate(c *g
 		"uuid":          testControllerModelUUID,
 	})
 
-	c.Assert(agentVersion.Build, gc.Equals, 0)
+	c.Assert(agentVersion.Build, tc.Equals, 0)
 	targetVersion := coretesting.CurrentVersion()
 	gomock.InOrder(
 		s.modelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(cfg, nil),
@@ -228,10 +228,10 @@ func (s *upgradeModelSuite) TestUpgradeModelWithAgentVersionAlreadyUpToDate(c *g
 		"--agent-version", targetVersion.ToPatch().String(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "no upgrades available\n")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "no upgrades available\n")
 }
 
-func (s *upgradeModelSuite) TestUpgradeModelWithAgentVersionFailedExpectUploadButWrongTargetVersion(c *gc.C) {
+func (s *upgradeModelSuite) TestUpgradeModelWithAgentVersionFailedExpectUploadButWrongTargetVersion(c *tc.C) {
 	s.reset(c)
 
 	ctrl, cmd := s.upgradeModelCommand(c, false)
@@ -271,10 +271,10 @@ func (s *upgradeModelSuite) TestUpgradeModelWithAgentVersionFailedExpectUploadBu
 		"--agent-version", targetVersion.String(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "no upgrades available\n")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "no upgrades available\n")
 }
 
-func (s *upgradeModelSuite) TestUpgradeModelWithAgentVersionExpectUploadFailedDueToNotAllowed(c *gc.C) {
+func (s *upgradeModelSuite) TestUpgradeModelWithAgentVersionExpectUploadFailedDueToNotAllowed(c *tc.C) {
 	s.reset(c)
 
 	s.PatchValue(&CheckCanImplicitUpload,
@@ -311,10 +311,10 @@ func (s *upgradeModelSuite) TestUpgradeModelWithAgentVersionExpectUploadFailedDu
 		"--agent-version", targetVersion.String(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "no upgrades available\n")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "no upgrades available\n")
 }
 
-func (s *upgradeModelSuite) TestUpgradeModelWithAgentVersionExpectUploadFailed(c *gc.C) {
+func (s *upgradeModelSuite) TestUpgradeModelWithAgentVersionExpectUploadFailed(c *tc.C) {
 	s.reset(c)
 
 	ctrl, cmd := s.upgradeModelCommand(c, false)
@@ -348,10 +348,10 @@ func (s *upgradeModelSuite) TestUpgradeModelWithAgentVersionExpectUploadFailed(c
 		"--agent-version", targetVersion.String(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "no upgrades available\n")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "no upgrades available\n")
 }
 
-func (s *upgradeModelSuite) TestUpgradeModelWithAgentVersionDryRun(c *gc.C) {
+func (s *upgradeModelSuite) TestUpgradeModelWithAgentVersionDryRun(c *tc.C) {
 	ctrl, cmd := s.upgradeModelCommand(c, false)
 	defer ctrl.Finish()
 
@@ -382,7 +382,7 @@ func (s *upgradeModelSuite) TestUpgradeModelWithAgentVersionDryRun(c *gc.C) {
 		"--agent-version", semversion.MustParse("3.9.99").String(), "--dry-run",
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
 best version:
     3.9.99
 upgrade to this version by running
@@ -390,7 +390,7 @@ upgrade to this version by running
 `[1:])
 }
 
-func (s *upgradeModelSuite) TestUpgradeModelWithAgentVersionGotBlockers(c *gc.C) {
+func (s *upgradeModelSuite) TestUpgradeModelWithAgentVersionGotBlockers(c *tc.C) {
 	ctrl, cmd := s.upgradeModelCommand(c, false)
 	defer ctrl.Finish()
 
@@ -424,18 +424,18 @@ cannot upgrade to "3.9.99" due to issues with these models:
 	_, err := cmdtesting.RunCommand(c, cmd,
 		"--agent-version", semversion.MustParse("3.9.99").String(),
 	)
-	c.Assert(err.Error(), gc.Equals, `
+	c.Assert(err.Error(), tc.Equals, `
 cannot upgrade to "3.9.99" due to issues with these models:
 "admin/default":
 - the model hosts deprecated ubuntu machine(s): bionic(3) (not supported)
 `[1:])
 }
 
-func (s *upgradeModelSuite) reset(c *gc.C) {
+func (s *upgradeModelSuite) reset(c *tc.C) {
 	s.PatchValue(&sync.BuildAgentTarball, toolstesting.GetMockBuildTools(c))
 }
 
-func (s *upgradeModelSuite) TestUpgradeModelUpToDate(c *gc.C) {
+func (s *upgradeModelSuite) TestUpgradeModelUpToDate(c *tc.C) {
 	s.reset(c)
 
 	ctrl, cmd := s.upgradeModelCommand(c, false)
@@ -463,10 +463,10 @@ func (s *upgradeModelSuite) TestUpgradeModelUpToDate(c *gc.C) {
 
 	ctx, err := cmdtesting.RunCommand(c, cmd)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "no upgrades available\n")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "no upgrades available\n")
 }
 
-func (s *upgradeModelSuite) TestUpgradeModelUpgradeToPublishedVersion(c *gc.C) {
+func (s *upgradeModelSuite) TestUpgradeModelUpgradeToPublishedVersion(c *tc.C) {
 	s.reset(c)
 
 	ctrl, cmd := s.upgradeModelCommand(c, false)
@@ -493,16 +493,16 @@ func (s *upgradeModelSuite) TestUpgradeModelUpgradeToPublishedVersion(c *gc.C) {
 
 	ctx, err := cmdtesting.RunCommand(c, cmd)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
 best version:
     3.9.99
 `[1:])
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 started upgrade to 3.9.99
 `[1:])
 }
 
-func (s *upgradeModelSuite) TestUpgradeModelWithStream(c *gc.C) {
+func (s *upgradeModelSuite) TestUpgradeModelWithStream(c *tc.C) {
 	s.reset(c)
 
 	ctrl, cmd := s.upgradeModelCommand(c, false)
@@ -529,16 +529,16 @@ func (s *upgradeModelSuite) TestUpgradeModelWithStream(c *gc.C) {
 
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--agent-stream", "proposed")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
 best version:
     3.9.99
 `[1:])
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 started upgrade to 3.9.99
 `[1:])
 }
 
-func (s *upgradeModelSuite) TestCheckCanImplicitUploadIAASModel(c *gc.C) {
+func (s *upgradeModelSuite) TestCheckCanImplicitUploadIAASModel(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 

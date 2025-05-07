@@ -4,8 +4,8 @@
 package ssh
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 )
@@ -14,17 +14,17 @@ type CmdSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&CmdSuite{})
+var _ = tc.Suite(&CmdSuite{})
 
 func initSSHCommand(args ...string) (*sshCommand, error) {
 	com := &sshCommand{}
 	return com, cmdtesting.InitCommand(com, args)
 }
 
-func (*CmdSuite) TestSSHCommandInit(c *gc.C) {
+func (*CmdSuite) TestSSHCommandInit(c *tc.C) {
 	// missing args
 	_, err := initSSHCommand()
-	c.Assert(err, gc.ErrorMatches, "no target name specified")
+	c.Assert(err, tc.ErrorMatches, "no target name specified")
 }
 
 func initSCPCommand(args ...string) (*scpCommand, error) {
@@ -32,12 +32,12 @@ func initSCPCommand(args ...string) (*scpCommand, error) {
 	return com, cmdtesting.InitCommand(com, args)
 }
 
-func (*CmdSuite) TestSCPCommandInit(c *gc.C) {
+func (*CmdSuite) TestSCPCommandInit(c *tc.C) {
 	// missing args
 	_, err := initSCPCommand()
-	c.Assert(err, gc.ErrorMatches, "at least two arguments required")
+	c.Assert(err, tc.ErrorMatches, "at least two arguments required")
 
 	// not enough args
 	_, err = initSCPCommand("mysql/0:foo")
-	c.Assert(err, gc.ErrorMatches, "at least two arguments required")
+	c.Assert(err, tc.ErrorMatches, "at least two arguments required")
 }

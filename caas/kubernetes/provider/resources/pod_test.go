@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,9 +23,9 @@ type podSuite struct {
 	resourceSuite
 }
 
-var _ = gc.Suite(&podSuite{})
+var _ = tc.Suite(&podSuite{})
 
-func (s *podSuite) TestApply(c *gc.C) {
+func (s *podSuite) TestApply(c *tc.C) {
 	ds := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "ds1",
@@ -37,7 +37,7 @@ func (s *podSuite) TestApply(c *gc.C) {
 	c.Assert(dsResource.Apply(context.Background(), s.client), jc.ErrorIsNil)
 	result, err := s.client.CoreV1().Pods("test").Get(context.Background(), "ds1", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(result.GetAnnotations()), gc.Equals, 0)
+	c.Assert(len(result.GetAnnotations()), tc.Equals, 0)
 
 	// Update.
 	ds.SetAnnotations(map[string]string{"a": "b"})
@@ -46,12 +46,12 @@ func (s *podSuite) TestApply(c *gc.C) {
 
 	result, err = s.client.CoreV1().Pods("test").Get(context.Background(), "ds1", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.GetName(), gc.Equals, `ds1`)
-	c.Assert(result.GetNamespace(), gc.Equals, `test`)
-	c.Assert(result.GetAnnotations(), gc.DeepEquals, map[string]string{"a": "b"})
+	c.Assert(result.GetName(), tc.Equals, `ds1`)
+	c.Assert(result.GetNamespace(), tc.Equals, `test`)
+	c.Assert(result.GetAnnotations(), tc.DeepEquals, map[string]string{"a": "b"})
 }
 
-func (s *podSuite) TestGet(c *gc.C) {
+func (s *podSuite) TestGet(c *tc.C) {
 	template := corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "ds1",
@@ -64,15 +64,15 @@ func (s *podSuite) TestGet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	dsResource := resources.NewPod("ds1", "test", &template)
-	c.Assert(len(dsResource.GetAnnotations()), gc.Equals, 0)
+	c.Assert(len(dsResource.GetAnnotations()), tc.Equals, 0)
 	err = dsResource.Get(context.Background(), s.client)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dsResource.GetName(), gc.Equals, `ds1`)
-	c.Assert(dsResource.GetNamespace(), gc.Equals, `test`)
-	c.Assert(dsResource.GetAnnotations(), gc.DeepEquals, map[string]string{"a": "b"})
+	c.Assert(dsResource.GetName(), tc.Equals, `ds1`)
+	c.Assert(dsResource.GetNamespace(), tc.Equals, `test`)
+	c.Assert(dsResource.GetAnnotations(), tc.DeepEquals, map[string]string{"a": "b"})
 }
 
-func (s *podSuite) TestDelete(c *gc.C) {
+func (s *podSuite) TestDelete(c *tc.C) {
 	ds := corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "ds1",
@@ -84,7 +84,7 @@ func (s *podSuite) TestDelete(c *gc.C) {
 
 	result, err := s.client.CoreV1().Pods("test").Get(context.Background(), "ds1", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.GetName(), gc.Equals, `ds1`)
+	c.Assert(result.GetName(), tc.Equals, `ds1`)
 
 	dsResource := resources.NewPod("ds1", "test", &ds)
 	err = dsResource.Delete(context.Background(), s.client)

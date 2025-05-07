@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
-	gc "gopkg.in/check.v1"
 
 	corelogger "github.com/juju/juju/core/logger"
 	coretesting "github.com/juju/juju/core/testing"
@@ -23,13 +23,13 @@ type BufferedLogWriterSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&BufferedLogWriterSuite{})
+var _ = tc.Suite(&BufferedLogWriterSuite{})
 
-func (s *BufferedLogWriterSuite) SetUpTest(c *gc.C) {
+func (s *BufferedLogWriterSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 }
 
-func (s *BufferedLogWriterSuite) waitFlush(c *gc.C, mock *mockLogRecorder) []corelogger.LogRecord {
+func (s *BufferedLogWriterSuite) waitFlush(c *tc.C, mock *mockLogRecorder) []corelogger.LogRecord {
 	select {
 	case records := <-mock.called:
 		c.Log("REC: " + pretty.Sprint(records))
@@ -40,7 +40,7 @@ func (s *BufferedLogWriterSuite) waitFlush(c *gc.C, mock *mockLogRecorder) []cor
 	panic("unreachable")
 }
 
-func (s *BufferedLogWriterSuite) assertNoFlush(c *gc.C, mock *mockLogRecorder, clock *testclock.Clock) {
+func (s *BufferedLogWriterSuite) assertNoFlush(c *tc.C, mock *mockLogRecorder, clock *testclock.Clock) {
 	err := clock.WaitAdvance(0, 0, 0) // There should be no active timers
 	c.Assert(err, jc.ErrorIsNil)
 	select {
@@ -50,7 +50,7 @@ func (s *BufferedLogWriterSuite) assertNoFlush(c *gc.C, mock *mockLogRecorder, c
 	}
 }
 
-func (s *BufferedLogWriterSuite) TestLogFlushes(c *gc.C) {
+func (s *BufferedLogWriterSuite) TestLogFlushes(c *tc.C) {
 	const bufsz = 3
 	mock := mockLogRecorder{}
 	clock := testclock.NewClock(time.Time{})
@@ -81,7 +81,7 @@ func (s *BufferedLogWriterSuite) TestLogFlushes(c *gc.C) {
 	s.assertNoFlush(c, &mock, clock)
 }
 
-func (s *BufferedLogWriterSuite) TestLogFlushesMultiple(c *gc.C) {
+func (s *BufferedLogWriterSuite) TestLogFlushesMultiple(c *tc.C) {
 	const bufsz = 1
 	mock := mockLogRecorder{}
 	clock := testclock.NewClock(time.Time{})
@@ -106,7 +106,7 @@ func (s *BufferedLogWriterSuite) TestLogFlushesMultiple(c *gc.C) {
 	})
 }
 
-func (s *BufferedLogWriterSuite) TestTimerFlushes(c *gc.C) {
+func (s *BufferedLogWriterSuite) TestTimerFlushes(c *tc.C) {
 	const bufsz = 10
 	const flushInterval = time.Minute
 	mock := mockLogRecorder{called: make(chan []corelogger.LogRecord)}
@@ -157,7 +157,7 @@ func (s *BufferedLogWriterSuite) TestTimerFlushes(c *gc.C) {
 	s.assertNoFlush(c, &mock, clock)
 }
 
-func (s *BufferedLogWriterSuite) TestLogOverCapacity(c *gc.C) {
+func (s *BufferedLogWriterSuite) TestLogOverCapacity(c *tc.C) {
 	const bufsz = 2
 	const flushInterval = time.Minute
 	mock := mockLogRecorder{called: make(chan []corelogger.LogRecord, 1)}
@@ -191,7 +191,7 @@ func (s *BufferedLogWriterSuite) TestLogOverCapacity(c *gc.C) {
 	})
 }
 
-func (s *BufferedLogWriterSuite) TestFlushSorts(c *gc.C) {
+func (s *BufferedLogWriterSuite) TestFlushSorts(c *tc.C) {
 	const bufsz = 2
 	const flushInterval = time.Minute
 	mock := mockLogRecorder{called: make(chan []corelogger.LogRecord, 1)}
@@ -232,7 +232,7 @@ func (s *BufferedLogWriterSuite) TestFlushSorts(c *gc.C) {
 	})
 }
 
-func (s *BufferedLogWriterSuite) TestInsertSorts(c *gc.C) {
+func (s *BufferedLogWriterSuite) TestInsertSorts(c *tc.C) {
 	const bufsz = 10
 	const flushInterval = time.Minute
 	mock := mockLogRecorder{called: make(chan []corelogger.LogRecord, 1)}
@@ -270,7 +270,7 @@ func (s *BufferedLogWriterSuite) TestInsertSorts(c *gc.C) {
 
 	clock.Advance(time.Minute)
 	records := s.waitFlush(c, &mock)
-	c.Assert(records, gc.HasLen, 10)
+	c.Assert(records, tc.HasLen, 10)
 
 	lastTime := now
 	for _, rec := range records {
@@ -279,7 +279,7 @@ func (s *BufferedLogWriterSuite) TestInsertSorts(c *gc.C) {
 	}
 }
 
-func (s *BufferedLogWriterSuite) TestFlushNothing(c *gc.C) {
+func (s *BufferedLogWriterSuite) TestFlushNothing(c *tc.C) {
 	mock := mockLogRecorder{}
 	clock := testclock.NewClock(time.Time{})
 	b := corelogger.NewBufferedLogWriter(&mock, 1, time.Minute, clock)
@@ -288,7 +288,7 @@ func (s *BufferedLogWriterSuite) TestFlushNothing(c *gc.C) {
 	mock.CheckNoCalls(c)
 }
 
-func (s *BufferedLogWriterSuite) TestFlushReportsError(c *gc.C) {
+func (s *BufferedLogWriterSuite) TestFlushReportsError(c *tc.C) {
 	mock := mockLogRecorder{}
 	clock := testclock.NewClock(time.Time{})
 	mock.SetErrors(errors.New("nope"))
@@ -299,10 +299,10 @@ func (s *BufferedLogWriterSuite) TestFlushReportsError(c *gc.C) {
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 	err = b.Flush()
-	c.Assert(err, gc.ErrorMatches, "nope")
+	c.Assert(err, tc.ErrorMatches, "nope")
 }
 
-func (s *BufferedLogWriterSuite) TestLogReportsError(c *gc.C) {
+func (s *BufferedLogWriterSuite) TestLogReportsError(c *tc.C) {
 	mock := mockLogRecorder{}
 	clock := testclock.NewClock(time.Time{})
 	mock.SetErrors(errors.New("nope"))
@@ -311,7 +311,7 @@ func (s *BufferedLogWriterSuite) TestLogReportsError(c *gc.C) {
 		Entity:  "not-a-tag",
 		Message: "foo",
 	}})
-	c.Assert(err, gc.ErrorMatches, "nope")
+	c.Assert(err, tc.ErrorMatches, "nope")
 }
 
 type mockLogRecorder struct {

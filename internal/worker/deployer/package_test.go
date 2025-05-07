@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	stdtesting "testing"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent/tools"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -21,14 +21,14 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/deployer_mocks.go github.com/juju/juju/internal/worker/deployer Client,Machine,Unit
 
 func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type BaseSuite struct {
 	testing.IsolationSuite
 }
 
-func (s *BaseSuite) InitializeCurrentToolsDir(c *gc.C, dataDir string) {
+func (s *BaseSuite) InitializeCurrentToolsDir(c *tc.C, dataDir string) {
 	// Initialize the tools directory for the agent.
 	// This should be <DataDir>/tools/<version>-<series>-<arch>.
 	current := coretesting.CurrentVersion()

@@ -6,9 +6,9 @@ package leadership_test
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/life"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -20,13 +20,13 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/resolver"
 )
 
-var _ = gc.Suite(&resolverSuite{})
+var _ = tc.Suite(&resolverSuite{})
 
 type resolverSuite struct {
 	coretesting.BaseSuite
 }
 
-func (s *resolverSuite) TestNextOpNotInstalled(c *gc.C) {
+func (s *resolverSuite) TestNextOpNotInstalled(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -35,10 +35,10 @@ func (s *resolverSuite) TestNextOpNotInstalled(c *gc.C) {
 
 	r := leadership.NewResolver(logger)
 	_, err := r.NextOp(context.Background(), resolver.LocalState{}, remotestate.Snapshot{}, f)
-	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 }
 
-func (s *resolverSuite) TestNextOpAcceptLeader(c *gc.C) {
+func (s *resolverSuite) TestNextOpAcceptLeader(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -55,10 +55,10 @@ func (s *resolverSuite) TestNextOpAcceptLeader(c *gc.C) {
 		Leader: true,
 	}, f)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.Equals, op)
+	c.Assert(result, tc.Equals, op)
 }
 
-func (s *resolverSuite) TestNextOpResignLeader(c *gc.C) {
+func (s *resolverSuite) TestNextOpResignLeader(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -73,10 +73,10 @@ func (s *resolverSuite) TestNextOpResignLeader(c *gc.C) {
 		State: operation.State{Installed: true, Leader: true, Kind: operation.Continue},
 	}, remotestate.Snapshot{}, f)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.Equals, op)
+	c.Assert(result, tc.Equals, op)
 }
 
-func (s *resolverSuite) TestNextOpResignLeaderDying(c *gc.C) {
+func (s *resolverSuite) TestNextOpResignLeaderDying(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -93,5 +93,5 @@ func (s *resolverSuite) TestNextOpResignLeaderDying(c *gc.C) {
 		Leader: true, Life: life.Dying,
 	}, f)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.Equals, op)
+	c.Assert(result, tc.Equals, op)
 }

@@ -6,8 +6,8 @@ package constraints_test
 import (
 	"regexp"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/internal/errors"
@@ -15,7 +15,7 @@ import (
 
 type validationSuite struct{}
 
-var _ = gc.Suite(&validationSuite{})
+var _ = tc.Suite(&validationSuite{})
 
 var validationTests = []struct {
 	desc        string
@@ -163,7 +163,7 @@ var validationTests = []struct {
 	},
 }
 
-func (s *validationSuite) TestValidation(c *gc.C) {
+func (s *validationSuite) TestValidation(c *tc.C) {
 	for i, t := range validationTests {
 		c.Logf("test %d: %s", i, t.desc)
 		validator := constraints.NewValidator()
@@ -178,17 +178,17 @@ func (s *validationSuite) TestValidation(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(unsupported, jc.SameContents, t.unsupported)
 		} else {
-			c.Assert(err, gc.ErrorMatches, t.err)
+			c.Assert(err, tc.ErrorMatches, t.err)
 		}
 	}
 }
 
-func (s *validationSuite) TestConstraintResolver(c *gc.C) {
+func (s *validationSuite) TestConstraintResolver(c *tc.C) {
 	validator := constraints.NewValidator()
 	validator.RegisterConflicts([]string{"instance-type"}, []string{"arch"})
 	cons := constraints.MustParse("arch=amd64 instance-type=foo-amd64")
 	_, err := validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "arch" overlaps with "instance-type"`)
+	c.Assert(err, tc.ErrorMatches, `ambiguous constraints: "arch" overlaps with "instance-type"`)
 	validator.RegisterConflictResolver("instance-type", "arch", func(attrValues map[string]interface{}) error {
 		if attrValues["arch"] == "amd64" && attrValues["instance-type"] == "foo-amd64" {
 			return nil
@@ -200,7 +200,7 @@ func (s *validationSuite) TestConstraintResolver(c *gc.C) {
 
 	cons = constraints.MustParse("arch=arm64 instance-type=foo-s390x")
 	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "arch" overlaps with "instance-type": instance-type="foo-s390x" and arch="arm64" are incompatible`)
+	c.Assert(err, tc.ErrorMatches, `ambiguous constraints: "arch" overlaps with "instance-type": instance-type="foo-s390x" and arch="arm64" are incompatible`)
 }
 
 var mergeTests = []struct {
@@ -386,7 +386,7 @@ var mergeTests = []struct {
 	},
 }
 
-func (s *validationSuite) TestMerge(c *gc.C) {
+func (s *validationSuite) TestMerge(c *tc.C) {
 	for i, t := range mergeTests {
 		c.Logf("test %d: %s", i, t.desc)
 		validator := constraints.NewValidator()
@@ -396,22 +396,22 @@ func (s *validationSuite) TestMerge(c *gc.C) {
 		merged, err := validator.Merge(consFallback, cons)
 		c.Assert(err, jc.ErrorIsNil)
 		expected := constraints.MustParse(t.expected)
-		c.Check(merged, gc.DeepEquals, expected)
+		c.Check(merged, tc.DeepEquals, expected)
 	}
 }
 
-func (s *validationSuite) TestMergeError(c *gc.C) {
+func (s *validationSuite) TestMergeError(c *tc.C) {
 	validator := constraints.NewValidator()
 	validator.RegisterConflicts([]string{"instance-type"}, []string{"mem"})
 	consFallback := constraints.MustParse("instance-type=foo mem=4G")
 	cons := constraints.MustParse("cores=2")
 	_, err := validator.Merge(consFallback, cons)
-	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "instance-type" overlaps with "mem"`)
+	c.Assert(err, tc.ErrorMatches, `ambiguous constraints: "instance-type" overlaps with "mem"`)
 	_, err = validator.Merge(cons, consFallback)
-	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "instance-type" overlaps with "mem"`)
+	c.Assert(err, tc.ErrorMatches, `ambiguous constraints: "instance-type" overlaps with "mem"`)
 }
 
-func (s *validationSuite) TestUpdateVocabulary(c *gc.C) {
+func (s *validationSuite) TestUpdateVocabulary(c *tc.C) {
 	validator := constraints.NewValidator()
 	attributeName := "arch"
 	originalValues := []string{"amd64"}
@@ -423,7 +423,7 @@ func (s *validationSuite) TestUpdateVocabulary(c *gc.C) {
 
 	cons2 := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons2)
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`invalid constraint value: arch=ppc64el
+	c.Assert(err, tc.ErrorMatches, regexp.QuoteMeta(`invalid constraint value: arch=ppc64el
 valid values are: amd64`))
 
 	additionalValues := []string{"ppc64el"}

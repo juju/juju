@@ -4,10 +4,10 @@
 package secrets_test
 
 import (
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/secrets"
 	"github.com/juju/juju/cmd/juju/secrets/mocks"
@@ -22,9 +22,9 @@ type removeSuite struct {
 	secretsAPI *mocks.MockRemoveSecretsAPI
 }
 
-var _ = gc.Suite(&removeSuite{})
+var _ = tc.Suite(&removeSuite{})
 
-func (s *removeSuite) SetUpTest(c *gc.C) {
+func (s *removeSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	store := jujuclient.NewMemStore()
 	store.Controllers["mycontroller"] = jujuclient.ControllerDetails{}
@@ -32,20 +32,20 @@ func (s *removeSuite) SetUpTest(c *gc.C) {
 	s.store = store
 }
 
-func (s *removeSuite) setup(c *gc.C) *gomock.Controller {
+func (s *removeSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.secretsAPI = mocks.NewMockRemoveSecretsAPI(ctrl)
 	return ctrl
 }
 
-func (s *removeSuite) TestRemoveMissingArg(c *gc.C) {
+func (s *removeSuite) TestRemoveMissingArg(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	_, err := cmdtesting.RunCommand(c, secrets.NewRemoveCommandForTest(s.store, s.secretsAPI), "--revision", "4")
-	c.Assert(err, gc.ErrorMatches, `missing secret URI`)
+	c.Assert(err, tc.ErrorMatches, `missing secret URI`)
 }
 
-func (s *removeSuite) TestRemoveWithRevision(c *gc.C) {
+func (s *removeSuite) TestRemoveWithRevision(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -56,7 +56,7 @@ func (s *removeSuite) TestRemoveWithRevision(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *removeSuite) TestRemove(c *gc.C) {
+func (s *removeSuite) TestRemove(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -67,7 +67,7 @@ func (s *removeSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *removeSuite) TestRemoveByName(c *gc.C) {
+func (s *removeSuite) TestRemoveByName(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.secretsAPI.EXPECT().RemoveSecret(gomock.Any(), nil, "my-secret", nil).Return(nil)

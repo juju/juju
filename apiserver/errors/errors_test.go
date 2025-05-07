@@ -11,9 +11,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -31,7 +31,7 @@ type errorsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&errorsSuite{})
+var _ = tc.Suite(&errorsSuite{})
 
 var errorTransformTests = []struct {
 	err          error
@@ -302,23 +302,23 @@ func (err unhashableError) Error() string {
 	return err[0]
 }
 
-func (s *errorsSuite) TestErrorTransform(c *gc.C) {
+func (s *errorsSuite) TestErrorTransform(c *tc.C) {
 	for i, t := range errorTransformTests {
 		c.Logf("running test %d: %T{%q}", i, t.err, t.err)
 		err1, status := apiservererrors.ServerErrorAndStatus(t.err)
 
 		// Sanity check that ServerError returns the same thing.
 		err2 := apiservererrors.ServerError(t.err)
-		c.Assert(err2, gc.DeepEquals, err1)
-		c.Assert(status, gc.Equals, t.status)
+		c.Assert(err2, tc.DeepEquals, err1)
+		c.Assert(status, tc.Equals, t.status)
 
 		if t.err == nil {
-			c.Assert(err1, gc.IsNil)
-			c.Assert(status, gc.Equals, http.StatusOK)
+			c.Assert(err1, tc.IsNil)
+			c.Assert(status, tc.Equals, http.StatusOK)
 			continue
 		}
-		c.Assert(err1.Message, gc.Equals, t.err.Error())
-		c.Assert(err1.Code, gc.Equals, t.code)
+		c.Assert(err1.Message, tc.Equals, t.err.Error())
+		c.Assert(err1.Code, tc.Equals, t.code)
 		if t.helperFunc != nil {
 			c.Assert(err1, jc.Satisfies, t.helperFunc)
 		}
@@ -343,20 +343,20 @@ func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 		if t.err == nil {
 			c.Check(restored, jc.ErrorIsNil)
 		} else if t.code == "" {
-			c.Check(restored.Error(), gc.Equals, t.err.Error())
+			c.Check(restored.Error(), tc.Equals, t.err.Error())
 		}
 
 		if t.targetTester == nil {
 			c.Check(restored, jc.ErrorIs, t.err)
-			c.Check(restored.Error(), gc.Equals, t.err.Error())
+			c.Check(restored.Error(), tc.Equals, t.err.Error())
 		} else {
 			c.Check(t.targetTester(restored), jc.IsTrue)
-			c.Check(restored.Error(), gc.Equals, t.err.Error())
+			c.Check(restored.Error(), tc.Equals, t.err.Error())
 		}
 	}
 }
 
-func (s *errorsSuite) TestDestroyErr(c *gc.C) {
+func (s *errorsSuite) TestDestroyErr(c *tc.C) {
 	errs := []error{
 		errors.New("error one"),
 		errors.New("error two"),
@@ -371,8 +371,8 @@ func (s *errorsSuite) TestDestroyErr(c *gc.C) {
 	c.Assert(apiservererrors.DestroyErr("entities", ids, nil), jc.ErrorIsNil)
 
 	err := apiservererrors.DestroyErr("entities", ids, errs)
-	c.Assert(err, gc.ErrorMatches, "no entities were destroyed: error one; error two; error three")
+	c.Assert(err, tc.ErrorMatches, "no entities were destroyed: error one; error two; error three")
 
 	err = apiservererrors.DestroyErr("entities", ids, errs[1:])
-	c.Assert(err, gc.ErrorMatches, "some entities were not destroyed: error two; error three")
+	c.Assert(err, tc.ErrorMatches, "some entities were not destroyed: error two; error three")
 }

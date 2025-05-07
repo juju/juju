@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
@@ -23,9 +23,9 @@ type ManifoldSuite struct {
 	config uniter.ManifoldConfig
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+var _ = tc.Suite(&ManifoldSuite{})
 
-func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = uniter.ManifoldConfig{
 		Clock:       testclock.NewClock(time.Now()),
@@ -35,37 +35,37 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *ManifoldSuite) TestConfigValidation(c *gc.C) {
+func (s *ManifoldSuite) TestConfigValidation(c *tc.C) {
 	err := s.config.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ManifoldSuite) TestConfigValidationMissingClock(c *gc.C) {
+func (s *ManifoldSuite) TestConfigValidationMissingClock(c *tc.C) {
 	s.config.Clock = nil
 	err := s.config.Validate()
 	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(err, gc.ErrorMatches, "missing Clock not valid")
+	c.Check(err, tc.ErrorMatches, "missing Clock not valid")
 }
 
-func (s *ManifoldSuite) TestConfigValidationMissingMachineLock(c *gc.C) {
+func (s *ManifoldSuite) TestConfigValidationMissingMachineLock(c *tc.C) {
 	s.config.MachineLock = nil
 	err := s.config.Validate()
 	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(err, gc.ErrorMatches, "missing MachineLock not valid")
+	c.Check(err, tc.ErrorMatches, "missing MachineLock not valid")
 }
 
-func (s *ManifoldSuite) TestConfigValidationMissingLogger(c *gc.C) {
+func (s *ManifoldSuite) TestConfigValidationMissingLogger(c *tc.C) {
 	s.config.Logger = nil
 	err := s.config.Validate()
 	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(err, gc.ErrorMatches, "missing Logger not valid")
+	c.Check(err, tc.ErrorMatches, "missing Logger not valid")
 }
 
-func (s *ManifoldSuite) TestConfigValidationMissingModelType(c *gc.C) {
+func (s *ManifoldSuite) TestConfigValidationMissingModelType(c *tc.C) {
 	s.config.ModelType = ""
 	err := s.config.Validate()
 	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(err, gc.ErrorMatches, "missing model type not valid")
+	c.Check(err, tc.ErrorMatches, "missing model type not valid")
 }
 
 type fakeLock struct {

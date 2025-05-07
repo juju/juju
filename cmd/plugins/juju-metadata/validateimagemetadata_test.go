@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	corebase "github.com/juju/juju/core/base"
@@ -33,9 +33,9 @@ type ValidateImageMetadataSuite struct {
 	store       *jujuclient.MemStore
 }
 
-var _ = gc.Suite(&ValidateImageMetadataSuite{})
+var _ = tc.Suite(&ValidateImageMetadataSuite{})
 
-func runValidateImageMetadata(c *gc.C, store jujuclient.ClientStore, args ...string) (*cmd.Context, error) {
+func runValidateImageMetadata(c *tc.C, store jujuclient.ClientStore, args ...string) (*cmd.Context, error) {
 	cmd := &validateImageMetadataCommand{}
 	cmd.SetClientStore(store)
 	return cmdtesting.RunCommand(c, modelcmd.WrapController(cmd), args...)
@@ -57,24 +57,24 @@ var validateInitImageErrorTests = []struct {
 	},
 }
 
-func (s *ValidateImageMetadataSuite) TestInitErrors(c *gc.C) {
+func (s *ValidateImageMetadataSuite) TestInitErrors(c *tc.C) {
 	for i, t := range validateInitImageErrorTests {
 		c.Logf("test %d", i)
 		cmd := &validateImageMetadataCommand{}
 		cmd.SetClientStore(jujuclienttesting.MinimalStore())
 		err := cmdtesting.InitCommand(modelcmd.WrapController(cmd), t.args)
-		c.Check(err, gc.ErrorMatches, t.err)
+		c.Check(err, tc.ErrorMatches, t.err)
 	}
 }
 
-func (s *ValidateImageMetadataSuite) TestInvalidProviderError(c *gc.C) {
+func (s *ValidateImageMetadataSuite) TestInvalidProviderError(c *tc.C) {
 	_, err := runValidateImageMetadata(c, s.store, "-p", "foo", "--base", "ubuntu@22.04", "-r", "region", "-d", "dir")
-	c.Check(err, gc.ErrorMatches, `no registered provider for "foo"`)
+	c.Check(err, tc.ErrorMatches, `no registered provider for "foo"`)
 }
 
-func (s *ValidateImageMetadataSuite) TestUnsupportedProviderError(c *gc.C) {
+func (s *ValidateImageMetadataSuite) TestUnsupportedProviderError(c *tc.C) {
 	_, err := runValidateImageMetadata(c, s.store, "-p", "maas", "--base", "ubuntu@22.04", "-r", "region", "-d", "dir")
-	c.Check(err, gc.ErrorMatches, `maas provider does not support image metadata validation`)
+	c.Check(err, tc.ErrorMatches, `maas provider does not support image metadata validation`)
 }
 
 func (s *ValidateImageMetadataSuite) makeLocalMetadata(id, region string, base corebase.Base, endpoint, stream string) error {
@@ -99,7 +99,7 @@ func (s *ValidateImageMetadataSuite) makeLocalMetadata(id, region string, base c
 	return nil
 }
 
-func cacheTestEnvConfig(c *gc.C, store *jujuclient.MemStore) {
+func cacheTestEnvConfig(c *tc.C, store *jujuclient.MemStore) {
 	ec2UUID := uuid.MustNewUUID().String()
 	ec2Config, err := config.New(config.UseDefaults, map[string]interface{}{
 		"name":            "ec2",
@@ -146,7 +146,7 @@ func cacheTestEnvConfig(c *gc.C, store *jujuclient.MemStore) {
 	}
 }
 
-func (s *ValidateImageMetadataSuite) SetUpTest(c *gc.C) {
+func (s *ValidateImageMetadataSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.metadataDir = c.MkDir()
 
@@ -162,7 +162,7 @@ func (s *ValidateImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.PatchEnvironment("EC2_SECRET_KEY", "")
 }
 
-func (s *ValidateImageMetadataSuite) setupEc2LocalMetadata(c *gc.C, region, stream string) {
+func (s *ValidateImageMetadataSuite) setupEc2LocalMetadata(c *tc.C, region, stream string) {
 	resolver := ec2.NewDefaultEndpointResolver()
 	ep, err := resolver.ResolveEndpoint(region, ec2.EndpointResolverOptions{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -172,36 +172,36 @@ func (s *ValidateImageMetadataSuite) setupEc2LocalMetadata(c *gc.C, region, stre
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ValidateImageMetadataSuite) assertEc2LocalMetadataUsingEnvironment(c *gc.C, stream string) {
+func (s *ValidateImageMetadataSuite) assertEc2LocalMetadataUsingEnvironment(c *tc.C, stream string) {
 	s.setupEc2LocalMetadata(c, "us-east-1", stream)
 	ctx, err := runValidateImageMetadata(c, s.store, "-c", "ec2-controller", "-d", s.metadataDir, "--stream", stream)
 	c.Assert(err, jc.ErrorIsNil)
 	stdout := cmdtesting.Stdout(ctx)
 	stderr := cmdtesting.Stderr(ctx)
 	strippedOut := strings.Replace(stdout, "\n", "", -1)
-	c.Check(strippedOut, gc.Matches,
+	c.Check(strippedOut, tc.Matches,
 		`ImageIds:.*"1234".*Region:.*us-east-1.*Resolve Metadata:.*source: local metadata directory.*`,
 	)
-	c.Check(stderr, gc.Matches, "")
+	c.Check(stderr, tc.Matches, "")
 }
 
-func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataUsingEnvironment(c *gc.C) {
+func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataUsingEnvironment(c *tc.C) {
 	s.assertEc2LocalMetadataUsingEnvironment(c, "")
 	s.assertEc2LocalMetadataUsingEnvironment(c, imagemetadata.ReleasedStream)
 	s.assertEc2LocalMetadataUsingEnvironment(c, "daily")
 }
 
-func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataUsingIncompleteEnvironment(c *gc.C) {
+func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataUsingIncompleteEnvironment(c *tc.C) {
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "")
 	s.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "")
 	s.PatchEnvironment("EC2_ACCESS_KEY", "")
 	s.PatchEnvironment("EC2_SECRET_KEY", "")
 	s.setupEc2LocalMetadata(c, "us-east-1", "")
 	_, err := runValidateImageMetadata(c, s.store, "-c", "ec2-controller", "-d", s.metadataDir)
-	c.Assert(err, gc.ErrorMatches, `detecting credentials.*not found`)
+	c.Assert(err, tc.ErrorMatches, `detecting credentials.*not found`)
 }
 
-func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataWithManualParams(c *gc.C) {
+func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataWithManualParams(c *tc.C) {
 	s.setupEc2LocalMetadata(c, "us-west-1", "")
 	ctx, err := runValidateImageMetadata(c, s.store,
 		"-p", "ec2", "--base", "ubuntu@22.04", "-r", "us-west-1",
@@ -211,27 +211,27 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataWithManualParams(c *gc.
 	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(
-		strippedOut, gc.Matches,
+		strippedOut, tc.Matches,
 		`ImageIds:.*"1234".*Region:.*us-west-1.*Resolve Metadata:.*source: local metadata directory.*`)
 }
 
-func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataNoMatch(c *gc.C) {
+func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataNoMatch(c *tc.C) {
 	s.setupEc2LocalMetadata(c, "us-east-1", "")
 	_, err := runValidateImageMetadata(c, s.store,
 		"-p", "ec2", "--base", "ubuntu@13.04", "-r", "us-west-1",
 		"-u", "https://ec2.us-west-1.amazonaws.com", "-d", s.metadataDir,
 	)
-	c.Check(err, gc.ErrorMatches, "(.|\n)*Resolve Metadata:(.|\n)*")
+	c.Check(err, tc.ErrorMatches, "(.|\n)*Resolve Metadata:(.|\n)*")
 	_, err = runValidateImageMetadata(c, s.store,
 		"-p", "ec2", "--base", "ubuntu@22.04", "-r", "region",
 		"-u", "https://ec2.region.amazonaws.com", "-d", s.metadataDir,
 	)
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, tc.NotNil)
 	msg := strings.ReplaceAll(err.Error(), "\n", "")
-	c.Check(msg, gc.Matches, `index file has no data for cloud.*`)
+	c.Check(msg, tc.Matches, `index file has no data for cloud.*`)
 }
 
-func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataWithManualParams(c *gc.C) {
+func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataWithManualParams(c *tc.C) {
 	base := corebase.MustParseBaseFromString("ubuntu@13.04")
 	err := s.makeLocalMetadata("1234", "region-2", base, "some-auth-url", "")
 	c.Assert(err, jc.ErrorIsNil)
@@ -243,11 +243,11 @@ func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataWithManualParams(
 	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(
-		strippedOut, gc.Matches,
+		strippedOut, tc.Matches,
 		`ImageIds:.*"1234".*Region:.*region-2.*Resolve Metadata:.*source: local metadata directory.*`)
 }
 
-func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) {
+func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *tc.C) {
 	base := corebase.MustParseBaseFromString("ubuntu@13.04")
 	err := s.makeLocalMetadata("1234", "region-2", base, "some-auth-url", "")
 	c.Assert(err, jc.ErrorIsNil)
@@ -255,15 +255,15 @@ func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) 
 		"-p", "openstack", "--base", "ubuntu@22.04", "-r", "region-2",
 		"-u", "some-auth-url", "-d", s.metadataDir,
 	)
-	c.Check(err, gc.ErrorMatches, "(.|\n)*Resolve Metadata:(.|\n)*")
+	c.Check(err, tc.ErrorMatches, "(.|\n)*Resolve Metadata:(.|\n)*")
 	_, err = runValidateImageMetadata(c, s.store,
 		"-p", "openstack", "--base", "ubuntu@13.04", "-r", "region-3",
 		"-u", "some-auth-url", "-d", s.metadataDir,
 	)
-	c.Check(err, gc.ErrorMatches, "(.|\n)*Resolve Metadata:(.|\n)*")
+	c.Check(err, tc.ErrorMatches, "(.|\n)*Resolve Metadata:(.|\n)*")
 }
 
-func (s *ValidateImageMetadataSuite) TestImagesDataSourceHasKey(c *gc.C) {
+func (s *ValidateImageMetadataSuite) TestImagesDataSourceHasKey(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(sstestings.TestDataSourceFactory())
 	ds := imagesDataSources(ss, "test.me")
 	// This data source does not require to contain signed data.
@@ -272,5 +272,5 @@ func (s *ValidateImageMetadataSuite) TestImagesDataSourceHasKey(c *gc.C) {
 	// we want to be able to try to read this signed data
 	// with a user provided public key. For this test, none is provided.
 	// Bugs #1542127, #1542131
-	c.Assert(ds[0].PublicSigningKey(), gc.Equals, "")
+	c.Assert(ds[0].PublicSigningKey(), tc.Equals, "")
 }

@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/fortress"
@@ -21,9 +21,9 @@ type OccupySuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&OccupySuite{})
+var _ = tc.Suite(&OccupySuite{})
 
-func (*OccupySuite) TestAbort(c *gc.C) {
+func (*OccupySuite) TestAbort(c *tc.C) {
 	fix := newFixture(c)
 	defer fix.TearDown(c)
 
@@ -36,8 +36,8 @@ func (*OccupySuite) TestAbort(c *gc.C) {
 	go func() {
 		defer close(done)
 		worker, err := fortress.Occupy(fix.Guest(c), run, abort)
-		c.Check(worker, gc.IsNil)
-		c.Check(errors.Cause(err), gc.Equals, fortress.ErrAborted)
+		c.Check(worker, tc.IsNil)
+		c.Check(errors.Cause(err), tc.Equals, fortress.ErrAborted)
 	}()
 
 	// Observe that nothing happens.
@@ -56,7 +56,7 @@ func (*OccupySuite) TestAbort(c *gc.C) {
 	}
 }
 
-func (*OccupySuite) TestStartError(c *gc.C) {
+func (*OccupySuite) TestStartError(c *tc.C) {
 	fix := newFixture(c)
 	defer fix.TearDown(c)
 	c.Check(fix.Guard(c).Unlock(), jc.ErrorIsNil)
@@ -66,8 +66,8 @@ func (*OccupySuite) TestStartError(c *gc.C) {
 		return nil, errors.New("splosh")
 	}
 	worker, err := fortress.Occupy(fix.Guest(c), run, nil)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "splosh")
+	c.Check(worker, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "splosh")
 
 	// Guard can lock fortress immediately.
 	err = fix.Guard(c).Lockdown(nil)
@@ -75,7 +75,7 @@ func (*OccupySuite) TestStartError(c *gc.C) {
 	AssertLocked(c, fix.Guest(c))
 }
 
-func (*OccupySuite) TestStartSuccess(c *gc.C) {
+func (*OccupySuite) TestStartSuccess(c *tc.C) {
 	fix := newFixture(c)
 	defer fix.TearDown(c)
 	c.Check(fix.Guard(c).Unlock(), jc.ErrorIsNil)
@@ -88,7 +88,7 @@ func (*OccupySuite) TestStartSuccess(c *gc.C) {
 	}
 	worker, err := fortress.Occupy(fix.Guest(c), run, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(worker, gc.Equals, expect)
+	c.Check(worker, tc.Equals, expect)
 
 	// ...and check we can't lockdown again...
 	locked := make(chan error, 1)

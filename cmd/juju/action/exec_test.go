@@ -13,8 +13,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	actionapi "github.com/juju/juju/api/client/action"
 	"github.com/juju/juju/cmd/juju/action"
@@ -29,7 +29,7 @@ type ExecSuite struct {
 	BaseActionSuite
 }
 
-var _ = gc.Suite(&ExecSuite{})
+var _ = tc.Suite(&ExecSuite{})
 
 func newTestExecCommand(clock clock.Clock, modelType model.ModelType) (cmd.Command, *action.ExecCommand) {
 	return action.NewExecCommandForTest(minimalStore(modelType), clock, nil)
@@ -51,7 +51,7 @@ func minimalStore(modelType model.ModelType) *jujuclient.MemStore {
 	return store
 }
 
-func (*ExecSuite) TestTargetArgParsing(c *gc.C) {
+func (*ExecSuite) TestTargetArgParsing(c *tc.C) {
 	for i, test := range []struct {
 		message      string
 		args         []string
@@ -178,16 +178,16 @@ func (*ExecSuite) TestTargetArgParsing(c *gc.C) {
 		runCmd, execCmd := newTestExecCommand(testClock(), test.modeType)
 		cmdtesting.TestInit(c, runCmd, test.args, test.errMatch)
 		if test.errMatch == "" {
-			c.Check(execCmd.All(), gc.Equals, test.all)
-			c.Check(execCmd.Machines(), gc.DeepEquals, test.machines)
-			c.Check(execCmd.Applications(), gc.DeepEquals, test.applications)
-			c.Check(execCmd.Units(), gc.DeepEquals, test.units)
-			c.Check(execCmd.Commands(), gc.Equals, test.commands)
+			c.Check(execCmd.All(), tc.Equals, test.all)
+			c.Check(execCmd.Machines(), tc.DeepEquals, test.machines)
+			c.Check(execCmd.Applications(), tc.DeepEquals, test.applications)
+			c.Check(execCmd.Units(), tc.DeepEquals, test.units)
+			c.Check(execCmd.Commands(), tc.Equals, test.commands)
 		}
 	}
 }
 
-func (*ExecSuite) TestWaitArgParsing(c *gc.C) {
+func (*ExecSuite) TestWaitArgParsing(c *tc.C) {
 	for i, test := range []struct {
 		message  string
 		args     []string
@@ -219,12 +219,12 @@ func (*ExecSuite) TestWaitArgParsing(c *gc.C) {
 		runCmd, execCmd := newTestExecCommand(testClock(), test.modeType)
 		cmdtesting.TestInit(c, runCmd, test.args, test.errMatch)
 		if test.errMatch == "" {
-			c.Check(execCmd.Wait(), gc.Equals, test.wait)
+			c.Check(execCmd.Wait(), tc.Equals, test.wait)
 		}
 	}
 }
 
-func (s *ExecSuite) TestExecForMachineAndUnit(c *gc.C) {
+func (s *ExecSuite) TestExecForMachineAndUnit(c *tc.C) {
 	fakeClient := &fakeAPIClient{}
 	restore := s.patchAPIClient(fakeClient)
 	defer restore()
@@ -284,10 +284,10 @@ mysql/0:
     started: 2015-02-14 08:15:00 +0000 UTC
   unit: mysql/0
 `[1:]
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, expected)
+	c.Assert(cmdtesting.Stdout(context), tc.Equals, expected)
 }
 
-func (s *ExecSuite) TestAllMachines(c *gc.C) {
+func (s *ExecSuite) TestAllMachines(c *tc.C) {
 	fakeClient := &fakeAPIClient{}
 	restore := s.patchAPIClient(fakeClient)
 	defer restore()
@@ -321,7 +321,7 @@ func (s *ExecSuite) TestAllMachines(c *gc.C) {
 		"--format=yaml", "--all", "hostname", "--utc")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(cmdtesting.Stdout(context), gc.Equals, `
+	c.Check(cmdtesting.Stdout(context), tc.Equals, `
 "0":
   id: "1"
   machine: "0"
@@ -341,10 +341,10 @@ func (s *ExecSuite) TestAllMachines(c *gc.C) {
     enqueued: 2015-02-14 08:13:00 +0000 UTC
     started: 2015-02-14 08:15:00 +0000 UTC
 `[1:])
-	c.Check(cmdtesting.Stderr(context), gc.Equals, "")
+	c.Check(cmdtesting.Stderr(context), tc.Equals, "")
 }
 
-func (s *ExecSuite) TestAllMachinesWithError(c *gc.C) {
+func (s *ExecSuite) TestAllMachinesWithError(c *tc.C) {
 	fakeClient := &fakeAPIClient{}
 	restore := s.patchAPIClient(fakeClient)
 	defer restore()
@@ -380,14 +380,14 @@ func (s *ExecSuite) TestAllMachinesWithError(c *gc.C) {
 	runCmd, _ := newTestExecCommand(testClock(), model.IAAS)
 	context, err := cmdtesting.RunCommand(c, runCmd,
 		"--format=yaml", "--all", "hostname", "--utc")
-	c.Assert(err, gc.ErrorMatches, `the following tasks failed:
+	c.Assert(err, tc.ErrorMatches, `the following tasks failed:
  - id "1" with return code 2
  - id "2" with return code 1
 
 use 'juju show-task' to inspect the failures
 `)
 
-	c.Check(cmdtesting.Stdout(context), gc.Equals, `
+	c.Check(cmdtesting.Stdout(context), tc.Equals, `
 "0":
   id: "1"
   machine: "0"
@@ -410,10 +410,10 @@ use 'juju show-task' to inspect the failures
     enqueued: 2015-02-14 08:13:00 +0000 UTC
     started: 2015-02-14 08:15:00 +0000 UTC
 `[1:])
-	c.Check(cmdtesting.Stderr(context), gc.Equals, "")
+	c.Check(cmdtesting.Stderr(context), tc.Equals, "")
 }
 
-func (s *ExecSuite) TestTimeout(c *gc.C) {
+func (s *ExecSuite) TestTimeout(c *tc.C) {
 	fakeClient := &fakeAPIClient{}
 	restore := s.patchAPIClient(fakeClient)
 	defer restore()
@@ -465,13 +465,13 @@ func (s *ExecSuite) TestTimeout(c *gc.C) {
 	}()
 
 	wg.Wait()
-	c.Check(err, gc.ErrorMatches, "timed out waiting for results from: machine 1, machine 2")
+	c.Check(err, tc.ErrorMatches, "timed out waiting for results from: machine 1, machine 2")
 
-	c.Check(cmdtesting.Stdout(ctx), gc.Equals, "")
-	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Check(cmdtesting.Stdout(ctx), tc.Equals, "")
+	c.Check(cmdtesting.Stderr(ctx), tc.Equals, "")
 }
 
-func (s *ExecSuite) TestVerbosity(c *gc.C) {
+func (s *ExecSuite) TestVerbosity(c *tc.C) {
 	tests := []struct {
 		about          string
 		args           []string
@@ -612,15 +612,15 @@ use 'juju show-task' to inspect the failure
 		if t.error == "" {
 			c.Assert(err, jc.ErrorIsNil)
 		} else {
-			c.Assert(err, gc.NotNil)
-			c.Check(err, gc.ErrorMatches, t.error)
+			c.Assert(err, tc.NotNil)
+			c.Check(err, tc.ErrorMatches, t.error)
 		}
 
-		c.Check(output.String(), gc.Equals, t.output)
+		c.Check(output.String(), tc.Equals, t.output)
 	}
 }
 
-func (s *ExecSuite) TestCAASCantTargetMachine(c *gc.C) {
+func (s *ExecSuite) TestCAASCantTargetMachine(c *tc.C) {
 	fakeClient := &fakeAPIClient{}
 	restore := s.patchAPIClient(fakeClient)
 	defer restore()
@@ -631,14 +631,14 @@ func (s *ExecSuite) TestCAASCantTargetMachine(c *gc.C) {
 	)
 
 	expErr := "unable to target machines with a k8s controller"
-	c.Assert(err, gc.ErrorMatches, expErr)
+	c.Assert(err, tc.ErrorMatches, expErr)
 }
 
 func testClock() testclock.AdvanceableClock {
 	return testclock.NewDilatedWallClock(100 * time.Millisecond)
 }
 
-func (s *ExecSuite) TestBlockAllMachines(c *gc.C) {
+func (s *ExecSuite) TestBlockAllMachines(c *tc.C) {
 	fakeClient := &fakeAPIClient{block: true}
 	restore := s.patchAPIClient(fakeClient)
 	defer restore()
@@ -648,7 +648,7 @@ func (s *ExecSuite) TestBlockAllMachines(c *gc.C) {
 	testing.AssertOperationWasBlocked(c, err, ".*To enable changes.*")
 }
 
-func (s *ExecSuite) TestBlockExecForMachineAndUnit(c *gc.C) {
+func (s *ExecSuite) TestBlockExecForMachineAndUnit(c *tc.C) {
 	fakeClient := &fakeAPIClient{block: true}
 	restore := s.patchAPIClient(fakeClient)
 	defer restore()
@@ -660,7 +660,7 @@ func (s *ExecSuite) TestBlockExecForMachineAndUnit(c *gc.C) {
 	testing.AssertOperationWasBlocked(c, err, ".*To enable changes.*")
 }
 
-func (s *ExecSuite) TestSingleResponse(c *gc.C) {
+func (s *ExecSuite) TestSingleResponse(c *tc.C) {
 	fakeClient := &fakeAPIClient{}
 	restore := s.patchAPIClient(fakeClient)
 	defer restore()
@@ -734,16 +734,16 @@ use 'juju show-task' to inspect the failure
 
 		context, err := cmdtesting.RunCommand(c, runCmd, args...)
 		if test.err != "" {
-			c.Check(err, gc.ErrorMatches, test.err)
+			c.Check(err, tc.ErrorMatches, test.err)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
 		}
-		c.Check(cmdtesting.Stdout(context), gc.Equals, test.stdout)
-		c.Check(cmdtesting.Stderr(context), gc.Equals, "")
+		c.Check(cmdtesting.Stdout(context), tc.Equals, test.stdout)
+		c.Check(cmdtesting.Stderr(context), tc.Equals, "")
 	}
 }
 
-func (s *ExecSuite) TestMultipleUnitsPlainOutput(c *gc.C) {
+func (s *ExecSuite) TestMultipleUnitsPlainOutput(c *tc.C) {
 	fakeClient := &fakeAPIClient{}
 	restore := s.patchAPIClient(fakeClient)
 	defer restore()
@@ -798,8 +798,8 @@ result112
 			"--format=plain", unitFlag, "do-stuff")
 		c.Assert(err, jc.ErrorIsNil)
 
-		c.Check(cmdtesting.Stdout(context), gc.Equals, stdout)
-		c.Check(cmdtesting.Stderr(context), gc.Equals, "")
+		c.Check(cmdtesting.Stdout(context), tc.Equals, stdout)
+		c.Check(cmdtesting.Stderr(context), tc.Equals, "")
 	}
 
 }

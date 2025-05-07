@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/mocks"
@@ -23,9 +23,9 @@ type blockCheckerSuite struct {
 	blockchecker *common.BlockChecker
 }
 
-var _ = gc.Suite(&blockCheckerSuite{})
+var _ = tc.Suite(&blockCheckerSuite{})
 
-func (s *blockCheckerSuite) TestDestroyBlockChecker(c *gc.C) {
+func (s *blockCheckerSuite) TestDestroyBlockChecker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.service.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.DestroyBlock).Return("block", nil)
@@ -41,7 +41,7 @@ func (s *blockCheckerSuite) TestDestroyBlockChecker(c *gc.C) {
 	s.assertErrorBlocked(c, true, s.blockchecker.DestroyAllowed(context.Background()), "change")
 }
 
-func (s *blockCheckerSuite) TestRemoveBlockChecker(c *gc.C) {
+func (s *blockCheckerSuite) TestRemoveBlockChecker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.service.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.RemoveBlock).Return("remove", nil)
@@ -52,24 +52,24 @@ func (s *blockCheckerSuite) TestRemoveBlockChecker(c *gc.C) {
 	s.assertErrorBlocked(c, true, s.blockchecker.RemoveAllowed(context.Background()), "change")
 }
 
-func (s *blockCheckerSuite) TestChangeBlockChecker(c *gc.C) {
+func (s *blockCheckerSuite) TestChangeBlockChecker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.service.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("change", nil)
 	s.assertErrorBlocked(c, true, s.blockchecker.ChangeAllowed(context.Background()), "change")
 }
 
-func (s *blockCheckerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *blockCheckerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.service = mocks.NewMockBlockCommandService(ctrl)
 	s.blockchecker = common.NewBlockChecker(s.service)
 	return ctrl
 }
 
-func (s *blockCheckerSuite) assertErrorBlocked(c *gc.C, blocked bool, err error, msg string) {
+func (s *blockCheckerSuite) assertErrorBlocked(c *tc.C, blocked bool, err error, msg string) {
 	if blocked {
 		c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
-		c.Assert(err, gc.ErrorMatches, msg)
+		c.Assert(err, tc.ErrorMatches, msg)
 	} else {
 		c.Assert(errors.Cause(err), jc.ErrorIsNil)
 	}

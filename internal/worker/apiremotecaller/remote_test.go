@@ -10,11 +10,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api"
@@ -30,9 +30,9 @@ type RemoteSuite struct {
 	apiConnection *MockConnection
 }
 
-var _ = gc.Suite(&RemoteSuite{})
+var _ = tc.Suite(&RemoteSuite{})
 
-func (s *RemoteSuite) TestNotConnectedConnection(c *gc.C) {
+func (s *RemoteSuite) TestNotConnectedConnection(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w := s.newRemoteServer(c)
@@ -54,7 +54,7 @@ func (s *RemoteSuite) TestNotConnectedConnection(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *RemoteSuite) TestConnect(c *gc.C) {
+func (s *RemoteSuite) TestConnect(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -88,13 +88,13 @@ func (s *RemoteSuite) TestConnect(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(conn, gc.NotNil)
+	c.Assert(conn, tc.NotNil)
 	c.Check(conn.Addr().String(), jc.DeepEquals, addr.String())
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *RemoteSuite) TestConnectWhenAlreadyContextCancelled(c *gc.C) {
+func (s *RemoteSuite) TestConnectWhenAlreadyContextCancelled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -119,7 +119,7 @@ func (s *RemoteSuite) TestConnectWhenAlreadyContextCancelled(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *RemoteSuite) TestConnectWhenAlreadyKilled(c *gc.C) {
+func (s *RemoteSuite) TestConnectWhenAlreadyKilled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -141,7 +141,7 @@ func (s *RemoteSuite) TestConnectWhenAlreadyKilled(c *gc.C) {
 	c.Check(called, jc.IsFalse)
 }
 
-func (s *RemoteSuite) TestConnectMultipleWithFirstCancelled(c *gc.C) {
+func (s *RemoteSuite) TestConnectMultipleWithFirstCancelled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// This test ensures that when the first connection is cancelled, the second
@@ -253,7 +253,7 @@ func (s *RemoteSuite) TestConnectMultipleWithFirstCancelled(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *RemoteSuite) TestConnectWhilstConnecting(c *gc.C) {
+func (s *RemoteSuite) TestConnectWhilstConnecting(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	var counter atomic.Int64
@@ -308,13 +308,13 @@ func (s *RemoteSuite) TestConnectWhilstConnecting(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(conn, gc.NotNil)
+	c.Assert(conn, tc.NotNil)
 	c.Check(conn.Addr().String(), jc.DeepEquals, addr1.String())
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *RemoteSuite) TestConnectBlocks(c *gc.C) {
+func (s *RemoteSuite) TestConnectBlocks(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.apiConnectHandler = func(ctx context.Context) error {
@@ -342,7 +342,7 @@ func (s *RemoteSuite) TestConnectBlocks(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *RemoteSuite) TestConnectWithSameAddress(c *gc.C) {
+func (s *RemoteSuite) TestConnectWithSameAddress(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	var counter atomic.Int64
@@ -386,12 +386,12 @@ func (s *RemoteSuite) TestConnectWithSameAddress(c *gc.C) {
 	case <-time.After(time.Second):
 	}
 
-	c.Assert(counter.Load(), gc.Equals, int64(1))
+	c.Assert(counter.Load(), tc.Equals, int64(1))
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *RemoteSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *RemoteSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
 	s.apiConnection = NewMockConnection(ctrl)
@@ -405,11 +405,11 @@ func (s *RemoteSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *RemoteSuite) newRemoteServer(c *gc.C) RemoteServer {
+func (s *RemoteSuite) newRemoteServer(c *tc.C) RemoteServer {
 	return newRemoteServer(s.newConfig(c), s.states)
 }
 
-func (s *RemoteSuite) newConfig(c *gc.C) RemoteServerConfig {
+func (s *RemoteSuite) newConfig(c *tc.C) RemoteServerConfig {
 	return RemoteServerConfig{
 		Clock:   s.clock,
 		Logger:  loggertesting.WrapCheckLog(c),

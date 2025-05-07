@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/api/base"
@@ -28,9 +28,9 @@ type brokerConfigSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&brokerConfigSuite{})
+var _ = tc.Suite(&brokerConfigSuite{})
 
-func (s *brokerConfigSuite) TestInvalidConfigValidate(c *gc.C) {
+func (s *brokerConfigSuite) TestInvalidConfigValidate(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -89,11 +89,11 @@ func (s *brokerConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 	for i, test := range testcases {
 		c.Logf("%d %s", i, test.description)
 		err := test.config.Validate()
-		c.Assert(err, gc.ErrorMatches, test.err)
+		c.Assert(err, tc.ErrorMatches, test.err)
 	}
 }
 
-func (s *brokerConfigSuite) TestValidConfigValidate(c *gc.C) {
+func (s *brokerConfigSuite) TestValidConfigValidate(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -109,7 +109,7 @@ func (s *brokerConfigSuite) TestValidConfigValidate(c *gc.C) {
 		},
 	}
 	err := config.Validate()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
 type trackerSuite struct {
@@ -125,9 +125,9 @@ type trackerSuite struct {
 	machineTag names.MachineTag
 }
 
-var _ = gc.Suite(&trackerSuite{})
+var _ = tc.Suite(&trackerSuite{})
 
-func (s *trackerSuite) setup(c *gc.C) *gomock.Controller {
+func (s *trackerSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.apiCaller = mocks.NewMockAPICaller(ctrl)
@@ -142,7 +142,7 @@ func (s *trackerSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *trackerSuite) TestNewTracker(c *gc.C) {
+func (s *trackerSuite) TestNewTracker(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	_, err := s.withScenario(c,
@@ -162,10 +162,10 @@ func (s *trackerSuite) TestNewTracker(c *gc.C) {
 		s.expectMachines,
 		s.expectContainerConfig,
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *trackerSuite) TestNewTrackerWithNoMachines(c *gc.C) {
+func (s *trackerSuite) TestNewTrackerWithNoMachines(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	_, err := s.withScenario(c,
@@ -173,10 +173,10 @@ func (s *trackerSuite) TestNewTrackerWithNoMachines(c *gc.C) {
 		s.expectMachineTag,
 		s.expectNoMachines,
 	)
-	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 0")
+	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 0")
 }
 
-func (s *trackerSuite) TestNewTrackerWithDeadMachines(c *gc.C) {
+func (s *trackerSuite) TestNewTrackerWithDeadMachines(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	_, err := s.withScenario(c,
@@ -184,10 +184,10 @@ func (s *trackerSuite) TestNewTrackerWithDeadMachines(c *gc.C) {
 		s.expectMachineTag,
 		s.expectDeadMachines,
 	)
-	c.Assert(err, gc.ErrorMatches, "resource permanently unavailable")
+	c.Assert(err, tc.ErrorMatches, "resource permanently unavailable")
 }
 
-func (s *trackerSuite) TestNewTrackerWithNoContainers(c *gc.C) {
+func (s *trackerSuite) TestNewTrackerWithNoContainers(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	_, err := s.withScenario(c,
@@ -196,10 +196,10 @@ func (s *trackerSuite) TestNewTrackerWithNoContainers(c *gc.C) {
 		s.expectMachines,
 		s.expectContainerConfig,
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *trackerSuite) withScenario(c *gc.C, expected *broker.Config, behaviours ...func()) (*containerbroker.Tracker, error) {
+func (s *trackerSuite) withScenario(c *tc.C, expected *broker.Config, behaviours ...func()) (*containerbroker.Tracker, error) {
 	for _, b := range behaviours {
 		b()
 	}
@@ -209,10 +209,10 @@ func (s *trackerSuite) withScenario(c *gc.C, expected *broker.Config, behaviours
 		MachineLock: s.machineLock,
 		NewBrokerFunc: func(config broker.Config) (environs.InstanceBroker, error) {
 			if expected != nil {
-				c.Check(config.Name, gc.Equals, expected.Name)
-				c.Check(config.ContainerType, gc.Equals, expected.ContainerType)
-				c.Check(config.ManagerConfig, gc.DeepEquals, expected.ManagerConfig)
-				c.Check(config.MachineTag, gc.Equals, expected.MachineTag)
+				c.Check(config.Name, tc.Equals, expected.Name)
+				c.Check(config.ContainerType, tc.Equals, expected.ContainerType)
+				c.Check(config.ManagerConfig, tc.DeepEquals, expected.ManagerConfig)
+				c.Check(config.MachineTag, tc.Equals, expected.MachineTag)
 			}
 			return s.broker, nil
 		},

@@ -9,9 +9,9 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
@@ -36,25 +36,25 @@ type watcherSuite struct {
 	authorizer      apiservertesting.FakeAuthorizer
 }
 
-var _ = gc.Suite(&watcherSuite{})
+var _ = tc.Suite(&watcherSuite{})
 
-func (s *watcherSuite) SetUpTest(c *gc.C) {
+func (s *watcherSuite) SetUpTest(c *tc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
 	var err error
 	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
+	s.AddCleanup(func(c *tc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
 
 	s.resources = common.NewResources()
-	s.AddCleanup(func(*gc.C) {
+	s.AddCleanup(func(*tc.C) {
 		s.resources.StopAll()
 	})
 	s.authorizer = apiservertesting.FakeAuthorizer{}
 }
 
 func (s *watcherSuite) getFacade(
-	c *gc.C,
+	c *tc.C,
 	name string,
 	version int,
 	id string,
@@ -66,7 +66,7 @@ func (s *watcherSuite) getFacade(
 	return facade
 }
 
-func (s *watcherSuite) facadeContext(c *gc.C, id string, dispose func()) facadetest.MultiModelContext {
+func (s *watcherSuite) facadeContext(c *tc.C, id string, dispose func()) facadetest.MultiModelContext {
 	return facadetest.MultiModelContext{
 		ModelContext: facadetest.ModelContext{
 			Resources_:       s.resources,
@@ -79,13 +79,13 @@ func (s *watcherSuite) facadeContext(c *gc.C, id string, dispose func()) facadet
 	}
 }
 
-func getFacadeFactory(c *gc.C, name string, version int) facade.MultiModelFactory {
+func getFacadeFactory(c *tc.C, name string, version int) facade.MultiModelFactory {
 	factory, err := apiserver.AllFacades().GetFactory(name, version)
 	c.Assert(err, jc.ErrorIsNil)
 	return factory
 }
 
-func (s *watcherSuite) TestVolumeAttachmentsWatcher(c *gc.C) {
+func (s *watcherSuite) TestVolumeAttachmentsWatcher(c *tc.C) {
 	ch := make(chan []string, 1)
 	id := s.resources.Register(&fakeStringsWatcher{ch: ch})
 	s.authorizer.Tag = names.NewMachineTag("123")
@@ -103,7 +103,7 @@ func (s *watcherSuite) TestVolumeAttachmentsWatcher(c *gc.C) {
 	})
 }
 
-func (s *watcherSuite) TestFilesystemAttachmentsWatcher(c *gc.C) {
+func (s *watcherSuite) TestFilesystemAttachmentsWatcher(c *tc.C) {
 	ch := make(chan []string, 1)
 	id := s.resources.Register(&fakeStringsWatcher{ch: ch})
 	s.authorizer.Tag = names.NewMachineTag("123")
@@ -121,7 +121,7 @@ func (s *watcherSuite) TestFilesystemAttachmentsWatcher(c *gc.C) {
 	})
 }
 
-func (s *watcherSuite) TestMigrationStatusWatcher(c *gc.C) {
+func (s *watcherSuite) TestMigrationStatusWatcher(c *tc.C) {
 	w := apiservertesting.NewFakeNotifyWatcher()
 	id := s.resources.Register(w)
 	s.authorizer.Tag = names.NewMachineTag("12")
@@ -143,7 +143,7 @@ func (s *watcherSuite) TestMigrationStatusWatcher(c *gc.C) {
 	})
 }
 
-func (s *watcherSuite) TestMigrationStatusWatcherNoMigration(c *gc.C) {
+func (s *watcherSuite) TestMigrationStatusWatcherNoMigration(c *tc.C) {
 	w := apiservertesting.NewFakeNotifyWatcher()
 	id := s.resources.Register(w)
 	s.authorizer.Tag = names.NewMachineTag("12")
@@ -159,7 +159,7 @@ func (s *watcherSuite) TestMigrationStatusWatcherNoMigration(c *gc.C) {
 	})
 }
 
-func (s *watcherSuite) TestMigrationStatusWatcherNotAgent(c *gc.C) {
+func (s *watcherSuite) TestMigrationStatusWatcherNotAgent(c *tc.C) {
 	id := s.resources.Register(apiservertesting.NewFakeNotifyWatcher())
 	s.authorizer.Tag = names.NewUserTag("frogdog")
 
@@ -173,7 +173,7 @@ func (s *watcherSuite) TestMigrationStatusWatcherNotAgent(c *gc.C) {
 			DomainServices_: s.ControllerDomainServices(c),
 		},
 	})
-	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
+	c.Assert(err, tc.Equals, apiservererrors.ErrPerm)
 }
 
 type machineStorageIdsWatcher interface {

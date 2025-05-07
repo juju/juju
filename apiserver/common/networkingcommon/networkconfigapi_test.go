@@ -9,9 +9,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/common/networkingcommon/mocks"
@@ -46,9 +46,9 @@ type networkConfigSuite struct {
 	modelOp modelOpRecorder
 }
 
-var _ = gc.Suite(&networkConfigSuite{})
+var _ = tc.Suite(&networkConfigSuite{})
 
-func (s *networkConfigSuite) TestSetObservedNetworkConfigMachineNotFoundPermissionError(c *gc.C) {
+func (s *networkConfigSuite) TestSetObservedNetworkConfigMachineNotFoundPermissionError(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -61,10 +61,10 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfigMachineNotFoundPermissi
 			Config: nil,
 		},
 	)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *networkConfigSuite) TestSetObservedNetworkConfigNoConfigNoApplyOpCall(c *gc.C) {
+func (s *networkConfigSuite) TestSetObservedNetworkConfigNoConfigNoApplyOpCall(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -72,7 +72,7 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfigNoConfigNoApplyOpCall(c
 	s.callAPI(c, nil)
 }
 
-func (s *networkConfigSuite) TestSetObservedNetworkConfigCallsApplyOperation(c *gc.C) {
+func (s *networkConfigSuite) TestSetObservedNetworkConfigCallsApplyOperation(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -144,7 +144,7 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfigCallsApplyOperation(c *
 	})
 }
 
-func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpMultipleAddressSuccess(c *gc.C) {
+func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpMultipleAddressSuccess(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -276,10 +276,10 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpMultipleAddressSuccess(
 	// - Adding a new address to the new device.
 	// - Deleting the address from the unobserved device.
 	// - Deleting the unobserved device.
-	c.Check(ops, gc.HasLen, 5)
+	c.Check(ops, tc.HasLen, 5)
 }
 
-func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpUnobservedParentNotRemoved(c *gc.C) {
+func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpUnobservedParentNotRemoved(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -341,7 +341,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpUnobservedParentNotRemo
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpNewSubnetsAdded(c *gc.C) {
+func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpNewSubnetsAdded(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -395,10 +395,10 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpNewSubnetsAdded(c *gc.C
 	// Expected ops are:
 	// - One each for the 3 new devices.
 	// - One each for the 3 new device addresses.
-	c.Check(ops, gc.HasLen, 6)
+	c.Check(ops, tc.HasLen, 6)
 }
 
-func (s *networkConfigSuite) TestUpdateMachineLinkLayerAddressOpNewSubnetsAdded(c *gc.C) {
+func (s *networkConfigSuite) TestUpdateMachineLinkLayerAddressOpNewSubnetsAdded(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -451,10 +451,10 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerAddressOpNewSubnetsAdded(
 
 	// Expected ops are:
 	// - One for the new device address.
-	c.Check(ops, gc.HasLen, 1)
+	c.Check(ops, tc.HasLen, 1)
 }
 
-func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpBridgedDeviceMovesAddress(c *gc.C) {
+func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpBridgedDeviceMovesAddress(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -531,7 +531,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpBridgedDeviceMovesAddre
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpReprocessesDevices(c *gc.C) {
+func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpReprocessesDevices(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -570,7 +570,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpReprocessesDevices(c *g
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *networkConfigSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *networkConfigSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.machine = mocks.NewMockLinkLayerMachine(ctrl)
@@ -587,7 +587,7 @@ func (s *networkConfigSuite) expectMachine() {
 	s.state.EXPECT().Machine(s.tag.Id()).Return(s.machine, nil).AnyTimes()
 }
 
-func (s *networkConfigSuite) callAPI(c *gc.C, config []params.NetworkConfig) {
+func (s *networkConfigSuite) callAPI(c *tc.C, config []params.NetworkConfig) {
 	c.Assert(s.NewNetworkConfigAPI(s.state, s.networkService, s.getModelOp).SetObservedNetworkConfig(
 		context.Background(),
 		params.SetMachineNetworkConfig{

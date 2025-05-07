@@ -8,9 +8,9 @@ import (
 	"net"
 	stdtesting "testing"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
@@ -23,7 +23,7 @@ import (
 )
 
 func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type CertUpdaterSuite struct {
@@ -31,9 +31,9 @@ type CertUpdaterSuite struct {
 	stateServingInfo controller.StateServingInfo
 }
 
-var _ = gc.Suite(&CertUpdaterSuite{})
+var _ = tc.Suite(&CertUpdaterSuite{})
 
-func (s *CertUpdaterSuite) SetUpTest(c *gc.C) {
+func (s *CertUpdaterSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.stateServingInfo = controller.StateServingInfo{
@@ -45,7 +45,7 @@ func (s *CertUpdaterSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *CertUpdaterSuite) TestStartStop(c *gc.C) {
+func (s *CertUpdaterSuite) TestStartStop(c *tc.C) {
 	authority, err := pkitest.NewTestAuthority()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -66,7 +66,7 @@ func (s *CertUpdaterSuite) TestStartStop(c *gc.C) {
 		[]net.IP{net.ParseIP("192.168.1.1")})
 }
 
-func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
+func (s *CertUpdaterSuite) TestAddressChange(c *tc.C) {
 	authority, err := pkitest.NewTestAuthority()
 	c.Assert(err, jc.ErrorIsNil)
 

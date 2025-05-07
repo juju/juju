@@ -4,7 +4,7 @@
 package relation
 
 import (
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
 	coreunit "github.com/juju/juju/core/unit"
@@ -13,9 +13,9 @@ import (
 type encodeWatchEventSuite struct {
 }
 
-var _ = gc.Suite(&encodeWatchEventSuite{})
+var _ = tc.Suite(&encodeWatchEventSuite{})
 
-func (s *encodeWatchEventSuite) TestEncodeApplicationUUID(c *gc.C) {
+func (s *encodeWatchEventSuite) TestEncodeApplicationUUID(c *tc.C) {
 	// Arrange
 	input := "app-uuid"
 	expected := string(ApplicationUUID) + separator + input
@@ -24,10 +24,10 @@ func (s *encodeWatchEventSuite) TestEncodeApplicationUUID(c *gc.C) {
 	result := EncodeApplicationUUID(coreapplication.ID(input))
 
 	// Assert
-	c.Assert(result, gc.Equals, expected)
+	c.Assert(result, tc.Equals, expected)
 }
 
-func (s *encodeWatchEventSuite) TestEncodeUnitUUID(c *gc.C) {
+func (s *encodeWatchEventSuite) TestEncodeUnitUUID(c *tc.C) {
 	// Arrange
 	input := "unit-uuid"
 	expected := string(UnitUUID) + separator + input
@@ -36,10 +36,10 @@ func (s *encodeWatchEventSuite) TestEncodeUnitUUID(c *gc.C) {
 	result := EncodeUnitUUID(coreunit.UUID(input))
 
 	// Assert
-	c.Assert(result, gc.Equals, expected)
+	c.Assert(result, tc.Equals, expected)
 }
 
-func (s *encodeWatchEventSuite) TestDecodeUnitUUID(c *gc.C) {
+func (s *encodeWatchEventSuite) TestDecodeUnitUUID(c *tc.C) {
 	// Arrange
 	uuid := "unit-uuid"
 	encoded := string(UnitUUID) + separator + uuid
@@ -48,12 +48,12 @@ func (s *encodeWatchEventSuite) TestDecodeUnitUUID(c *gc.C) {
 	kind, value, err := DecodeWatchRelationUnitChangeUUID(encoded)
 
 	// Assert
-	c.Assert(err, gc.IsNil)
-	c.Assert(kind, gc.Equals, UnitUUID)
-	c.Assert(value, gc.Equals, uuid)
+	c.Assert(err, tc.IsNil)
+	c.Assert(kind, tc.Equals, UnitUUID)
+	c.Assert(value, tc.Equals, uuid)
 }
 
-func (s *encodeWatchEventSuite) TestDecodeApplicationUUID(c *gc.C) {
+func (s *encodeWatchEventSuite) TestDecodeApplicationUUID(c *tc.C) {
 	// Arrange
 	uuid := "app-uuid"
 	encoded := string(ApplicationUUID) + separator + uuid
@@ -62,12 +62,12 @@ func (s *encodeWatchEventSuite) TestDecodeApplicationUUID(c *gc.C) {
 	kind, value, err := DecodeWatchRelationUnitChangeUUID(encoded)
 
 	// Assert
-	c.Assert(err, gc.IsNil)
-	c.Assert(kind, gc.Equals, ApplicationUUID)
-	c.Assert(value, gc.Equals, uuid)
+	c.Assert(err, tc.IsNil)
+	c.Assert(kind, tc.Equals, ApplicationUUID)
+	c.Assert(value, tc.Equals, uuid)
 }
 
-func (s *encodeWatchEventSuite) TestDecodeErrorWrongKind(c *gc.C) {
+func (s *encodeWatchEventSuite) TestDecodeErrorWrongKind(c *tc.C) {
 	// Arrange
 	uuid := "unit-uuid"
 	encoded := "Wrong" + separator + uuid
@@ -76,10 +76,10 @@ func (s *encodeWatchEventSuite) TestDecodeErrorWrongKind(c *gc.C) {
 	_, _, err := DecodeWatchRelationUnitChangeUUID(encoded)
 
 	// Assert
-	c.Assert(err, gc.ErrorMatches, "invalid event with uuid:.*")
+	c.Assert(err, tc.ErrorMatches, "invalid event with uuid:.*")
 }
 
-func (s *encodeWatchEventSuite) TestDecodeErrorWrongFormat(c *gc.C) {
+func (s *encodeWatchEventSuite) TestDecodeErrorWrongFormat(c *tc.C) {
 	// Arrange
 	uuid := "unit-uuid"
 	encoded := string(ApplicationUUID) + "#:broken sep:#" + uuid
@@ -88,5 +88,5 @@ func (s *encodeWatchEventSuite) TestDecodeErrorWrongFormat(c *gc.C) {
 	_, _, err := DecodeWatchRelationUnitChangeUUID(encoded)
 
 	// Assert
-	c.Assert(err, gc.ErrorMatches, "invalid event with uuid:.*")
+	c.Assert(err, tc.ErrorMatches, "invalid event with uuid:.*")
 }

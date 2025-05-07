@@ -13,11 +13,11 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
 	"gopkg.in/yaml.v2"
 
@@ -57,9 +57,9 @@ type BundleDeployRepositorySuite struct {
 	output     *bytes.Buffer
 }
 
-var _ = gc.Suite(&BundleDeployRepositorySuite{})
+var _ = tc.Suite(&BundleDeployRepositorySuite{})
 
-func (s *BundleDeployRepositorySuite) SetUpTest(_ *gc.C) {
+func (s *BundleDeployRepositorySuite) SetUpTest(_ *tc.C) {
 	s.deployArgs = make(map[string]application.DeployArgs)
 	s.output = bytes.NewBuffer([]byte{})
 
@@ -68,7 +68,7 @@ func (s *BundleDeployRepositorySuite) SetUpTest(_ *gc.C) {
 	})
 }
 
-func (s *BundleDeployRepositorySuite) TearDownTest(_ *gc.C) {
+func (s *BundleDeployRepositorySuite) TearDownTest(_ *tc.C) {
 	s.output.Reset()
 }
 
@@ -77,7 +77,7 @@ func (s *BundleDeployRepositorySuite) TearDownTest(_ *gc.C) {
 // target in testing/base.go:SetupSuite we'll need to also update the entries
 // herein.
 
-func (s *BundleDeployRepositorySuite) TestDeployBundleNotFoundCharmHub(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleNotFoundCharmHub(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 
@@ -93,10 +93,10 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleNotFoundCharmHub(c *gc.C) 
 	}
 
 	err := bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpec())
-	c.Assert(err, gc.ErrorMatches, `cannot resolve charm or bundle "no-such": bundle not found`)
+	c.Assert(err, tc.ErrorMatches, `cannot resolve charm or bundle "no-such": bundle not found`)
 }
 
-func (s *BundleDeployRepositorySuite) TestDeployBundleSuccess(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 
@@ -119,12 +119,12 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSuccess(c *gc.C) {
 
 	s.runDeploy(c, wordpressBundle)
 
-	c.Assert(s.deployArgs, gc.HasLen, 2)
+	c.Assert(s.deployArgs, tc.HasLen, 2)
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "20.04")
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "ubuntu", "20.04")
 	s.assertDeployArgsConfig(c, "mysql", map[string]interface{}{"foo": "bar"})
 
-	c.Check(s.output.String(), gc.Equals, ""+
+	c.Check(s.output.String(), tc.Equals, ""+
 		"Located charm \"mysql\" in charm-hub, channel stable\n"+
 		"Located charm \"wordpress\" in charm-hub, channel stable\n"+
 		"Executing changes:\n"+
@@ -140,7 +140,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSuccess(c *gc.C) {
 		"Deploy of bundle completed.\n")
 }
 
-func (s *BundleDeployRepositorySuite) TestDeployBundleSuccessWithModelConstraints(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleSuccessWithModelConstraints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 
@@ -168,11 +168,11 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSuccessWithModelConstraint
 
 	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpecWithConstraints(constraints.MustParse("arch=arm64")))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.deployArgs, gc.HasLen, 2)
+	c.Assert(s.deployArgs, tc.HasLen, 2)
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "20.04")
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "ubuntu", "20.04")
 
-	c.Check(s.output.String(), gc.Equals, ""+
+	c.Check(s.output.String(), tc.Equals, ""+
 		"Located charm \"mysql\" in charm-hub, channel stable\n"+
 		"Located charm \"wordpress\" in charm-hub, channel stable\n"+
 		"Executing changes:\n"+
@@ -236,7 +236,7 @@ applications:
     channel: 1.3/edge
 `
 
-func (s *BundleDeployRepositorySuite) TestDeployAddCharmHasBase(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployAddCharmHasBase(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 
@@ -249,13 +249,13 @@ func (s *BundleDeployRepositorySuite) TestDeployAddCharmHasBase(c *gc.C) {
 
 	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.deployArgs, gc.HasLen, 3)
+	c.Assert(s.deployArgs, tc.HasLen, 3)
 	s.assertDeployArgs(c, fullGatewayURL.String(), "istio-ingressgateway", "ubuntu", "20.04")
 	s.assertDeployArgs(c, fullTrainingURL.String(), "training-operator", "ubuntu", "20.04")
 	s.assertDeployArgs(c, fullPilotURL.String(), "istio-pilot", "ubuntu", "20.04")
 }
 
-func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccess(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 
@@ -276,13 +276,13 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccess(c *gc.C)
 
 	s.runDeploy(c, kubernetesGitlabBundle)
 
-	c.Assert(s.deployArgs, gc.HasLen, 2)
+	c.Assert(s.deployArgs, tc.HasLen, 2)
 	s.assertDeployArgs(c, gitlabCurl.String(), "gitlab", "ubuntu", "24.04")
 	s.assertDeployArgs(c, mariadbCurl.String(), "mariadb", "ubuntu", "24.04")
 	s.assertDeployArgsStorage(c, "mariadb", map[string]storage.Directive{"database": {Pool: "mariadb-pv", Size: 0x14, Count: 0x1}})
 	s.assertDeployArgsConfig(c, "mariadb", map[string]interface{}{"dataset-size": "70%"})
 
-	c.Check(s.output.String(), gc.Equals, ""+
+	c.Check(s.output.String(), tc.Equals, ""+
 		"Located charm \"gitlab-k8s\" in charm-hub\n"+
 		"Located charm \"mariadb-k8s\" in charm-hub\n"+
 		"Executing changes:\n"+
@@ -314,7 +314,7 @@ relations:
     - mariadb:server
 `
 
-func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithCharmhub(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithCharmhub(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 
@@ -324,11 +324,11 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithCharm
 
 	s.runDeploy(c, kubernetesCharmhubGitlabBundle)
 
-	c.Assert(s.deployArgs, gc.HasLen, 2)
+	c.Assert(s.deployArgs, tc.HasLen, 2)
 	s.assertDeployArgs(c, fullGitlabCurl.String(), "gitlab", "ubuntu", "20.04")
 	s.assertDeployArgs(c, fullMariadbCurl.String(), "mariadb", "ubuntu", "20.04")
 
-	c.Check(s.output.String(), gc.Equals, ""+
+	c.Check(s.output.String(), tc.Equals, ""+
 		"Located charm \"gitlab-k8s\" in charm-hub, channel new/edge\n"+
 		"Located charm \"mariadb-k8s\" in charm-hub, channel old/stable\n"+
 		"Executing changes:\n"+
@@ -423,7 +423,7 @@ relations:
     - mariadb:server
 `
 
-func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithRevisionCharmhub(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithRevisionCharmhub(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 
@@ -436,7 +436,7 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithRevis
 
 	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.deployArgs, gc.HasLen, 2)
+	c.Assert(s.deployArgs, tc.HasLen, 2)
 	s.assertDeployArgs(c, fullGitlabCurl.String(), "gitlab", "ubuntu", "20.04")
 	s.assertDeployArgs(c, fullMariadbCurl.String(), "mariadb", "ubuntu", "20.04")
 
@@ -496,7 +496,7 @@ func (s *BundleDeployRepositorySuite) expectK8sCharmByRevision(curl *charm.URL, 
 	return fullCurl
 }
 
-func (s *BundleDeployRepositorySuite) TestDeployBundleStorage(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleStorage(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 
@@ -519,12 +519,12 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleStorage(c *gc.C) {
 
 	s.runDeploy(c, wordpressBundleWithStorage)
 
-	c.Assert(s.deployArgs, gc.HasLen, 2)
+	c.Assert(s.deployArgs, tc.HasLen, 2)
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "22.04")
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "ubuntu", "22.04")
 	s.assertDeployArgsStorage(c, "mysql", map[string]storage.Directive{"database": {Pool: "mysql-pv", Size: 0x14, Count: 0x1}})
 
-	c.Check(s.output.String(), gc.Equals, ""+
+	c.Check(s.output.String(), tc.Equals, ""+
 		"Located charm \"mysql\" in charm-hub, channel stable\n"+
 		"Located charm \"wordpress\" in charm-hub, channel stable\n"+
 		"Executing changes:\n"+
@@ -567,7 +567,7 @@ relations:
   - mysql:db
 `
 
-func (s *BundleDeployRepositorySuite) TestDeployBundleDevices(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleDevices(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 
@@ -588,12 +588,12 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleDevices(c *gc.C) {
 	}
 	s.runDeployWithSpec(c, kubernetesBitcoinBundle, spec)
 
-	c.Assert(s.deployArgs, gc.HasLen, 2)
+	c.Assert(s.deployArgs, tc.HasLen, 2)
 	s.assertDeployArgs(c, dashboardCurl.String(), dashboardCurl.Name, "ubuntu", "22.04")
 	s.assertDeployArgs(c, bitcoinCurl.String(), bitcoinCurl.Name, "ubuntu", "22.04")
 	s.assertDeployArgsDevices(c, bitcoinCurl.Name, devConstraints)
 
-	c.Check(s.output.String(), gc.Equals, ""+
+	c.Check(s.output.String(), tc.Equals, ""+
 		"Located charm \"bitcoin-miner\" in charm-hub\n"+
 		"Located charm \"dashboard4miner\" in charm-hub\n"+
 		"Executing changes:\n"+
@@ -659,7 +659,7 @@ relations:
     - ["dashboard4miner:miner", "bitcoin-miner:miner"]
 `
 
-func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundle(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundle(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 
@@ -680,11 +680,11 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundle(c *gc.C) {
 
 	s.runDeploy(c, kubernetesBitcoinBundleWithoutDevices)
 
-	c.Assert(s.deployArgs, gc.HasLen, 2)
+	c.Assert(s.deployArgs, tc.HasLen, 2)
 	s.assertDeployArgs(c, dashboardCurl.String(), dashboardCurl.Name, "ubuntu", "20.04")
 	s.assertDeployArgs(c, bitcoinCurl.String(), bitcoinCurl.Name, "ubuntu", "20.04")
 
-	c.Check(s.output.String(), gc.Equals, ""+
+	c.Check(s.output.String(), tc.Equals, ""+
 		"Located charm \"bitcoin-miner\" in charm-hub\n"+
 		"Located charm \"dashboard4miner\" in charm-hub\n"+
 		"Executing changes:\n"+
@@ -711,15 +711,15 @@ relations:
     - ["dashboard4miner:miner", "bitcoin-miner:miner"]
 `
 
-func (s *BundleDeployRepositorySuite) TestExistingModelIdempotent(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestExistingModelIdempotent(c *tc.C) {
 	s.testExistingModel(c, false)
 }
 
-func (s *BundleDeployRepositorySuite) TestDryRunExistingModel(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDryRunExistingModel(c *tc.C) {
 	s.testExistingModel(c, true)
 }
 
-func (s *BundleDeployRepositorySuite) testExistingModel(c *gc.C, dryRun bool) {
+func (s *BundleDeployRepositorySuite) testExistingModel(c *tc.C, dryRun bool) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 
@@ -753,7 +753,7 @@ func (s *BundleDeployRepositorySuite) testExistingModel(c *gc.C, dryRun bool) {
 	spec := s.bundleDeploySpec()
 	s.runDeployWithSpec(c, wordpressBundleWithStorage, spec)
 
-	c.Assert(s.deployArgs, gc.HasLen, 2)
+	c.Assert(s.deployArgs, tc.HasLen, 2)
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "22.04")
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "ubuntu", "22.04")
 
@@ -790,7 +790,7 @@ func (s *BundleDeployRepositorySuite) testExistingModel(c *gc.C, dryRun bool) {
 		"- upgrade mysql from charm-hub using charm mysql for base ubuntu@22.04/stable from channel stable\n" +
 		"- upload charm wordpress from charm-hub for base ubuntu@22.04/stable with revision 47 with architecture=amd64\n" +
 		"- upgrade wordpress from charm-hub using charm wordpress for base ubuntu@22.04/stable from channel stable\n"
-	c.Check(s.output.String(), gc.Equals, expectedOutput)
+	c.Check(s.output.String(), tc.Equals, expectedOutput)
 
 	// Setup to run with --dry-run, no changes
 	s.expectDeployerAPIStatusWordpressBundle()
@@ -804,7 +804,7 @@ func (s *BundleDeployRepositorySuite) testExistingModel(c *gc.C, dryRun bool) {
 	spec.useExistingMachines = true
 	spec.bundleMachines = map[string]string{}
 	s.runDeployWithSpec(c, wordpressBundleWithStorage, spec)
-	c.Check(s.output.String(), gc.Equals, expectedOutput+changeOutput)
+	c.Check(s.output.String(), tc.Equals, expectedOutput+changeOutput)
 }
 
 const charmWithResourcesBundle = `
@@ -814,7 +814,7 @@ applications:
         base: ubuntu@22.04
 `
 
-func (s *BundleDeployRepositorySuite) TestDeployBundleResources(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 
@@ -844,7 +844,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleResources(c *gc.C) {
 		_ base.APICallCloser,
 		_ modelcmd.Filesystem,
 	) (ids map[string]string, err error) {
-		c.Assert(resources, gc.DeepEquals, charmInfo.Meta.Resources)
+		c.Assert(resources, tc.DeepEquals, charmInfo.Meta.Resources)
 		results := make(map[string]string, len(resources))
 		for k := range resources {
 			results[k] = "1"
@@ -866,7 +866,7 @@ applications:
             one: 4
 `
 
-func (s *BundleDeployRepositorySuite) TestDeployBundleSpecifyResources(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleSpecifyResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 
@@ -896,8 +896,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSpecifyResources(c *gc.C) 
 		_ base.APICallCloser,
 		_ modelcmd.Filesystem,
 	) (ids map[string]string, err error) {
-		c.Assert(resources, gc.DeepEquals, charmInfo.Meta.Resources)
-		c.Assert(filesAndRevisions, gc.DeepEquals, map[string]string{"one": "4"})
+		c.Assert(resources, tc.DeepEquals, charmInfo.Meta.Resources)
+		c.Assert(filesAndRevisions, tc.DeepEquals, map[string]string{"one": "4"})
 		results := make(map[string]string, len(resources))
 		for k := range resources {
 			results[k] = "1"
@@ -940,7 +940,7 @@ relations:
   - mysql:db
    `
 
-func (s *BundleDeployRepositorySuite) TestDeployBundleApplicationUpgrade(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleApplicationUpgrade(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectDeployerAPIStatusWordpressBundle()
 	s.expectEmptyModelRepresentation()
@@ -971,7 +971,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleApplicationUpgrade(c *gc.C
 
 	s.runDeploy(c, wordpressBundleWithStorageUpgradeConstraints)
 
-	c.Assert(s.output.String(), gc.Equals, ""+
+	c.Assert(s.output.String(), tc.Equals, ""+
 		"Located charm \"mysql\" in charm-hub, channel stable\n"+
 		"Located charm \"wordpress\" in charm-hub, channel stable\n"+
 		"Executing changes:\n"+
@@ -1014,7 +1014,7 @@ relations:
 - ["varnish:webcache", "wordpress:cache"]
    `
 
-func (s *BundleDeployRepositorySuite) TestDeployBundleNewRelations(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleNewRelations(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectDeployerAPIStatusWordpressBundle()
 	s.expectEmptyModelRepresentation()
@@ -1036,7 +1036,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleNewRelations(c *gc.C) {
 
 	s.runDeploy(c, wordpressBundleWithStorageUpgradeRelations)
 
-	c.Assert(s.output.String(), gc.Equals, ""+
+	c.Assert(s.output.String(), tc.Equals, ""+
 		"Located charm \"mysql\" in charm-hub\n"+
 		"Located charm \"varnish\" in charm-hub\n"+
 		"Located charm \"wordpress\" in charm-hub\n"+
@@ -1077,7 +1077,7 @@ const machineUnitPlacementBundle = `
               base: ubuntu@22.04
   `
 
-func (s *BundleDeployRepositorySuite) TestDeployBundleMachinesUnitsPlacement(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleMachinesUnitsPlacement(c *tc.C) {
 	c.Skip("Won't work until LP:1940558 is fixed.")
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
@@ -1134,7 +1134,7 @@ machines:
             foo: bar
 `
 
-func (s *BundleDeployRepositorySuite) TestDeployBundleMachineAttributes(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleMachineAttributes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 
@@ -1168,7 +1168,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleMachineAttributes(c *gc.C)
 	s.runDeploy(c, machineAttributesBundle)
 }
 
-func (s *BundleDeployRepositorySuite) TestDeployBundleTwiceScaleUp(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleTwiceScaleUp(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 	s.expectResolveCharm(nil)
@@ -1213,7 +1213,7 @@ applications:
    `)
 }
 
-func (s *BundleDeployRepositorySuite) TestDeployBundleUnitPlacedInApplication(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleUnitPlacedInApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 	s.expectResolveCharm(nil)
@@ -1296,7 +1296,7 @@ const peerContainerBundle = `
                to: ["lxd:wordpress"]
    `
 
-func (s *BundleDeployRepositorySuite) TestDeployBundlePeerContainer(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundlePeerContainer(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 
@@ -1368,7 +1368,7 @@ const unitColocationWithUnitBundle = `
                base: ubuntu@20.04
    `
 
-func (s *BundleDeployRepositorySuite) TestDeployBundleUnitColocationWithUnit(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleUnitColocationWithUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 
@@ -1444,7 +1444,7 @@ applications:
     num_units: 1
 `
 
-func (s *BundleDeployRepositorySuite) TestDeployBundleSwitch(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleSwitch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectDeployerAPIStatusDjangoMemBundle()
 	s.expectEmptyModelRepresentationNotAnnotations()
@@ -1501,7 +1501,7 @@ machines:
         base: ubuntu@22.04
 `
 
-func (s *BundleDeployRepositorySuite) TestDeployBundleAnnotations(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleAnnotations(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 
@@ -1541,7 +1541,7 @@ machines:
         base: ubuntu@22.04
 `
 
-func (s *BundleDeployRepositorySuite) TestDeployBundleAnnotationsChanges(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleAnnotationsChanges(c *tc.C) {
 	// Follow on to TestDeployBundleAnnotations
 	defer s.setupMocks(c).Finish()
 	s.expectDeployerAPIStatusDjangoBundle()
@@ -1592,7 +1592,7 @@ func (s *BundleDeployRepositorySuite) expectGetAnnotationsEmpty() {
 		})
 }
 
-func (s *BundleDeployRepositorySuite) TestDeployBundleInvalidMachineContainerType(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleInvalidMachineContainerType(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 
@@ -1622,18 +1622,18 @@ machines:
 	bundleData, err := charm.ReadBundleData(strings.NewReader(quickBundle))
 	c.Assert(err, jc.ErrorIsNil)
 	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpec())
-	c.Assert(err, gc.ErrorMatches, `cannot create machine for holding wp unit: invalid container type "bad"`)
+	c.Assert(err, tc.ErrorMatches, `cannot create machine for holding wp unit: invalid container type "bad"`)
 }
 
-func (s *BundleDeployRepositorySuite) TestDeployBundleUnitPlacedToMachines(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleUnitPlacedToMachines(c *tc.C) {
 	s.testDeployBundleUnitPlacedToMachines(c)
 }
 
-func (s *BundleDeployRepositorySuite) TestDeployBundleUnitPlacedToMachinesDebug(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleUnitPlacedToMachinesDebug(c *tc.C) {
 	s.testDeployBundleUnitPlacedToMachines(c)
 }
 
-func (s *BundleDeployRepositorySuite) testDeployBundleUnitPlacedToMachines(c *gc.C) {
+func (s *BundleDeployRepositorySuite) testDeployBundleUnitPlacedToMachines(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 
@@ -1682,7 +1682,7 @@ machines:
 
 	s.runDeploy(c, quickBundle)
 
-	c.Check(s.output.String(), gc.Equals, ""+
+	c.Check(s.output.String(), tc.Equals, ""+
 		"Located charm \"wordpress\" in charm-hub\n"+
 		"Executing changes:\n"+
 		"- upload charm wordpress from charm-hub for base ubuntu@22.04/stable with architecture=amd64\n"+
@@ -1705,7 +1705,7 @@ machines:
 		"Deploy of bundle completed.\n")
 }
 
-func (s *BundleDeployRepositorySuite) TestDeployBundleExpose(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleExpose(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 
@@ -1729,7 +1729,7 @@ applications:
 	s.runDeploy(c, content)
 
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "24.04")
-	c.Check(s.output.String(), gc.Equals, ""+
+	c.Check(s.output.String(), tc.Equals, ""+
 		"Located charm \"wordpress\" in charm-hub\n"+
 		"Executing changes:\n"+
 		"- upload charm wordpress from charm-hub with architecture=amd64\n"+
@@ -1739,7 +1739,7 @@ applications:
 		"Deploy of bundle completed.\n")
 }
 
-func (s *BundleDeployRepositorySuite) TestDeployBundleMultipleRelations(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleMultipleRelations(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 
@@ -1793,7 +1793,7 @@ relations:
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "ubuntu", "22.04")
 	s.assertDeployArgs(c, varnishCurl.String(), "varnish", "ubuntu", "22.04")
 	s.assertDeployArgs(c, pgresCurl.String(), "postgres", "ubuntu", "22.04")
-	c.Check(s.output.String(), gc.Equals, ""+
+	c.Check(s.output.String(), tc.Equals, ""+
 		"Located charm \"mysql\" in charm-hub\n"+
 		"Located charm \"postgres\" in charm-hub\n"+
 		"Located charm \"varnish\" in charm-hub\n"+
@@ -1816,7 +1816,7 @@ relations:
 		"Deploy of bundle completed.\n")
 }
 
-func (s *BundleDeployRepositorySuite) TestDeployBundleLocalDeployment(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleLocalDeployment(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 
@@ -1882,20 +1882,20 @@ relations:
 		"- add unit wordpress/0 to new machine 2\n" +
 		"Deploy of bundle completed.\n"
 
-	c.Check(s.output.String(), gc.Equals, fmt.Sprintf(expectedOutput, mysqlPath, wordpressPath))
+	c.Check(s.output.String(), tc.Equals, fmt.Sprintf(expectedOutput, mysqlPath, wordpressPath))
 }
 
-func (s *BundleDeployRepositorySuite) TestDeployBundleLocalPathInvalidSeriesWithForce(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleLocalPathInvalidSeriesWithForce(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.assertDeployBundleLocalPathInvalidSeriesWithForce(c, true)
 }
 
-func (s *BundleDeployRepositorySuite) TestDeployBundleLocalPathInvalidSeriesWithoutForce(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleLocalPathInvalidSeriesWithoutForce(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.assertDeployBundleLocalPathInvalidSeriesWithForce(c, false)
 }
 
-func (s *BundleDeployRepositorySuite) assertDeployBundleLocalPathInvalidSeriesWithForce(c *gc.C, force bool) {
+func (s *BundleDeployRepositorySuite) assertDeployBundleLocalPathInvalidSeriesWithForce(c *tc.C, force bool) {
 	s.expectEmptyModelToStart(c)
 
 	mysqlCurl := charm.MustParseURL("local:mysql-1")
@@ -1961,11 +1961,11 @@ relations:
 		"- add unit wordpress/0 to new machine 2\n" +
 		"Deploy of bundle completed.\n"
 
-	c.Check(s.output.String(), gc.Equals, fmt.Sprintf(expectedOutput, mysqlPath, wordpressPath))
+	c.Check(s.output.String(), tc.Equals, fmt.Sprintf(expectedOutput, mysqlPath, wordpressPath))
 
 }
 
-func (s *BundleDeployRepositorySuite) TestApplicationsForMachineChange(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestApplicationsForMachineChange(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectResolveCharmWithBases([]string{"ubuntu@22.04"}, nil)
 	s.expectResolveCharmWithBases([]string{"ubuntu@22.04"}, nil)
@@ -2004,10 +2004,10 @@ func (s *BundleDeployRepositorySuite) TestApplicationsForMachineChange(c *gc.C) 
 		}
 	}
 
-	c.Assert(count, gc.Equals, 5, gc.Commentf("All 5 AddMachineChanges not found"))
+	c.Assert(count, tc.Equals, 5, tc.Commentf("All 5 AddMachineChanges not found"))
 }
 
-func (s *BundleDeployRepositorySuite) TestDeployBundleWithEndpointBindings(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleWithEndpointBindings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 
@@ -2029,7 +2029,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithEndpointBindings(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidEndpointBindings(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidEndpointBindings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 
@@ -2042,7 +2042,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidEndpointBinding
 	bundleDeploymentSpec.knownSpaceNames = set.NewStrings("alpha")
 
 	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, bundleDeploymentSpec)
-	c.Assert(err, gc.ErrorMatches, `space "beta" not found`)
+	c.Assert(err, tc.ErrorMatches, `space "beta" not found`)
 }
 
 const grafanaBundleEndpointBindings = `
@@ -2093,33 +2093,33 @@ func (s *BundleDeployRepositorySuite) bundleDeploySpecWithConstraints(cons const
 	}
 }
 
-func (s *BundleDeployRepositorySuite) assertDeployArgs(c *gc.C, curl, appName, os, channel string) {
+func (s *BundleDeployRepositorySuite) assertDeployArgs(c *tc.C, curl, appName, os, channel string) {
 	arg, found := s.deployArgs[appName]
-	c.Assert(found, jc.IsTrue, gc.Commentf("Application %q not found in deploy args %s", appName))
-	c.Assert(arg.CharmID.URL, gc.Equals, curl)
-	c.Assert(arg.CharmOrigin.Base.OS, gc.Equals, os)
-	c.Assert(arg.CharmOrigin.Base.Channel.Track, gc.Equals, channel, gc.Commentf("%s", pretty.Sprint(arg)))
+	c.Assert(found, jc.IsTrue, tc.Commentf("Application %q not found in deploy args %s", appName))
+	c.Assert(arg.CharmID.URL, tc.Equals, curl)
+	c.Assert(arg.CharmOrigin.Base.OS, tc.Equals, os)
+	c.Assert(arg.CharmOrigin.Base.Channel.Track, tc.Equals, channel, tc.Commentf("%s", pretty.Sprint(arg)))
 }
 
-func (s *BundleDeployRepositorySuite) assertDeployArgsStorage(c *gc.C, appName string, storage map[string]storage.Directive) {
+func (s *BundleDeployRepositorySuite) assertDeployArgsStorage(c *tc.C, appName string, storage map[string]storage.Directive) {
 	arg, found := s.deployArgs[appName]
-	c.Assert(found, jc.IsTrue, gc.Commentf("Application %q not found in deploy args", appName))
-	c.Assert(arg.Storage, gc.DeepEquals, storage)
+	c.Assert(found, jc.IsTrue, tc.Commentf("Application %q not found in deploy args", appName))
+	c.Assert(arg.Storage, tc.DeepEquals, storage)
 }
 
-func (s *BundleDeployRepositorySuite) assertDeployArgsConfig(c *gc.C, appName string, options map[string]interface{}) {
+func (s *BundleDeployRepositorySuite) assertDeployArgsConfig(c *tc.C, appName string, options map[string]interface{}) {
 	cfg, err := yaml.Marshal(map[string]map[string]interface{}{appName: options})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("cannot marshal options for application %q", appName))
+	c.Assert(err, jc.ErrorIsNil, tc.Commentf("cannot marshal options for application %q", appName))
 	configYAML := string(cfg)
 	arg, found := s.deployArgs[appName]
-	c.Assert(found, jc.IsTrue, gc.Commentf("Application %q not found in deploy args", appName))
-	c.Assert(arg.ConfigYAML, gc.DeepEquals, configYAML)
+	c.Assert(found, jc.IsTrue, tc.Commentf("Application %q not found in deploy args", appName))
+	c.Assert(arg.ConfigYAML, tc.DeepEquals, configYAML)
 }
 
-func (s *BundleDeployRepositorySuite) assertDeployArgsDevices(c *gc.C, appName string, devices map[string]devices.Constraints) {
+func (s *BundleDeployRepositorySuite) assertDeployArgsDevices(c *tc.C, appName string, devices map[string]devices.Constraints) {
 	arg, found := s.deployArgs[appName]
-	c.Assert(found, jc.IsTrue, gc.Commentf("Application %q not found in deploy args", appName))
-	c.Assert(arg.Devices, gc.DeepEquals, devices)
+	c.Assert(found, jc.IsTrue, tc.Commentf("Application %q not found in deploy args", appName))
+	c.Assert(arg.Devices, tc.DeepEquals, devices)
 }
 
 type charmUnit struct {
@@ -2165,7 +2165,7 @@ func (s *BundleDeployRepositorySuite) setupCharmUnits(charmUnits []charmUnit) {
 	}
 }
 
-func (s *BundleDeployRepositorySuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *BundleDeployRepositorySuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.deployerAPI = mocks.NewMockDeployerAPI(ctrl)
 	s.deployerAPI.EXPECT().BestFacadeVersion("Resources").Return(666).AnyTimes()
@@ -2185,12 +2185,12 @@ func (s *BundleDeployRepositorySuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *BundleDeployRepositorySuite) runDeploy(c *gc.C, bundle string) {
+func (s *BundleDeployRepositorySuite) runDeploy(c *tc.C, bundle string) {
 	spec := s.bundleDeploySpec()
 	s.runDeployWithSpec(c, bundle, spec)
 }
 
-func (s *BundleDeployRepositorySuite) runDeployWithSpec(c *gc.C, bundle string, spec bundleDeploySpec) {
+func (s *BundleDeployRepositorySuite) runDeployWithSpec(c *tc.C, bundle string, spec bundleDeploySpec) {
 	bundleData, err := charm.ReadBundleData(strings.NewReader(bundle))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2198,7 +2198,7 @@ func (s *BundleDeployRepositorySuite) runDeployWithSpec(c *gc.C, bundle string, 
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *BundleDeployRepositorySuite) expectEmptyModelToStart(c *gc.C) {
+func (s *BundleDeployRepositorySuite) expectEmptyModelToStart(c *tc.C) {
 	// setup for empty current model
 	// bundleHandler.makeModel()
 	s.expectDeployerAPIEmptyStatus()
@@ -2352,7 +2352,7 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusDjango2Units() {
 	s.deployerAPI.EXPECT().Status(gomock.Any(), gomock.Any()).Return(status, nil)
 }
 
-func (s *BundleDeployRepositorySuite) expectDeployerAPIModelGet(c *gc.C) {
+func (s *BundleDeployRepositorySuite) expectDeployerAPIModelGet(c *tc.C) {
 	cfg, err := config.New(true, minimalModelConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	s.deployerAPI.EXPECT().ModelGet(gomock.Any()).Return(cfg.AllAttrs(), nil).AnyTimes()
@@ -2470,7 +2470,7 @@ func (s *BundleDeployRepositorySuite) expectAddOneUnit(name, directive, unit str
 	s.deployerAPI.EXPECT().AddUnits(gomock.Any(), args).Return([]string{name + "/" + unit}, nil)
 }
 
-func (s *BundleDeployRepositorySuite) expectSetConfig(c *gc.C, appName string, options map[string]interface{}) {
+func (s *BundleDeployRepositorySuite) expectSetConfig(c *tc.C, appName string, options map[string]interface{}) {
 	cfg, err := yaml.Marshal(map[string]map[string]interface{}{appName: options})
 	c.Assert(err, jc.ErrorIsNil)
 	s.deployerAPI.EXPECT().SetConfig(gomock.Any(), appName, string(cfg), gomock.Any())
@@ -2481,7 +2481,7 @@ func (s *BundleDeployRepositorySuite) expectSetConstraints(name string, cons str
 	s.deployerAPI.EXPECT().SetConstraints(gomock.Any(), name, parsedCons).Return(nil)
 }
 
-func (s *BundleDeployRepositorySuite) expectSetCharm(c *gc.C, name string) {
+func (s *BundleDeployRepositorySuite) expectSetCharm(c *tc.C, name string) {
 	s.deployerAPI.EXPECT().SetCharm(gomock.Any(), setCharmConfigMatcher{name: name, c: c})
 }
 
@@ -2490,7 +2490,7 @@ func (s *BundleDeployRepositorySuite) expectStatus(status params.FullStatus) {
 }
 
 type setCharmConfigMatcher struct {
-	c    *gc.C
+	c    *tc.C
 	name string
 }
 
@@ -2499,8 +2499,8 @@ func (m setCharmConfigMatcher) Matches(arg interface{}) bool {
 	if !ok {
 		return false
 	}
-	m.c.Assert(ok, jc.IsTrue, gc.Commentf("arg is not a application.SetCharmConfig"))
-	m.c.Assert(cfg.ApplicationName, gc.Equals, m.name)
+	m.c.Assert(ok, jc.IsTrue, tc.Commentf("arg is not a application.SetCharmConfig"))
+	m.c.Assert(cfg.ApplicationName, tc.Equals, m.name)
 	return true
 }
 
@@ -2512,9 +2512,9 @@ type BundleHandlerOriginSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&BundleHandlerOriginSuite{})
+var _ = tc.Suite(&BundleHandlerOriginSuite{})
 
-func (s *BundleHandlerOriginSuite) TestAddOrigin(c *gc.C) {
+func (s *BundleHandlerOriginSuite) TestAddOrigin(c *tc.C) {
 	handler := &bundleHandler{
 		origins: make(map[charm.URL]map[string]commoncharm.Origin),
 	}
@@ -2528,10 +2528,10 @@ func (s *BundleHandlerOriginSuite) TestAddOrigin(c *gc.C) {
 	handler.addOrigin(*curl, channel, origin)
 	res, found := handler.getOrigin(*curl, channel)
 	c.Assert(found, jc.IsTrue)
-	c.Assert(res, gc.DeepEquals, origin)
+	c.Assert(res, tc.DeepEquals, origin)
 }
 
-func (s *BundleHandlerOriginSuite) TestGetOriginNotFound(c *gc.C) {
+func (s *BundleHandlerOriginSuite) TestGetOriginNotFound(c *tc.C) {
 	handler := &bundleHandler{
 		origins: make(map[charm.URL]map[string]commoncharm.Origin),
 	}
@@ -2551,7 +2551,7 @@ func (s *BundleHandlerOriginSuite) TestGetOriginNotFound(c *gc.C) {
 	c.Assert(found, jc.IsFalse)
 }
 
-func (s *BundleHandlerOriginSuite) TestConstructChannelAndOrigin(c *gc.C) {
+func (s *BundleHandlerOriginSuite) TestConstructChannelAndOrigin(c *tc.C) {
 	handler := &bundleHandler{}
 
 	arch := "arm64"
@@ -2563,8 +2563,8 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOrigin(c *gc.C) {
 
 	resultChannel, resultOrigin, err := handler.constructChannelAndOrigin(charm.CharmHub, -1, base, channel, cons)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resultChannel, gc.DeepEquals, corecharm.MustParseChannel("stable"))
-	c.Assert(resultOrigin, gc.DeepEquals, commoncharm.Origin{
+	c.Assert(resultChannel, tc.DeepEquals, corecharm.MustParseChannel("stable"))
+	c.Assert(resultOrigin, tc.DeepEquals, commoncharm.Origin{
 		Source:       "charm-hub",
 		Base:         corebase.MakeDefaultBase("ubuntu", "20.04"),
 		Risk:         "stable",
@@ -2572,7 +2572,7 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOrigin(c *gc.C) {
 	})
 }
 
-func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginUsingArchFallback(c *gc.C) {
+func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginUsingArchFallback(c *tc.C) {
 	handler := &bundleHandler{}
 
 	base := corebase.MustParseBaseFromString("ubuntu@20.04")
@@ -2581,8 +2581,8 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginUsingArchFallbac
 
 	resultChannel, resultOrigin, err := handler.constructChannelAndOrigin(charm.CharmHub, -1, base, channel, cons)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resultChannel, gc.DeepEquals, corecharm.MustParseChannel("stable"))
-	c.Assert(resultOrigin, gc.DeepEquals, commoncharm.Origin{
+	c.Assert(resultChannel, tc.DeepEquals, corecharm.MustParseChannel("stable"))
+	c.Assert(resultOrigin, tc.DeepEquals, commoncharm.Origin{
 		Source:       "charm-hub",
 		Base:         corebase.MakeDefaultBase("ubuntu", "20.04"),
 		Risk:         "stable",
@@ -2590,7 +2590,7 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginUsingArchFallbac
 	})
 }
 
-func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginEmptyChannel(c *gc.C) {
+func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginEmptyChannel(c *tc.C) {
 	handler := &bundleHandler{}
 
 	arch := "arm64"
@@ -2602,8 +2602,8 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginEmptyChannel(c *
 
 	resultChannel, resultOrigin, err := handler.constructChannelAndOrigin(charm.CharmHub, -1, base, channel, cons)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resultChannel, gc.DeepEquals, charm.Channel{})
-	c.Assert(resultOrigin, gc.DeepEquals, commoncharm.Origin{
+	c.Assert(resultChannel, tc.DeepEquals, charm.Channel{})
+	c.Assert(resultOrigin, tc.DeepEquals, commoncharm.Origin{
 		Source:       "charm-hub",
 		Base:         corebase.MakeDefaultBase("ubuntu", "20.04"),
 		Architecture: "arm64",
@@ -2614,9 +2614,9 @@ type BundleHandlerResolverSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&BundleHandlerResolverSuite{})
+var _ = tc.Suite(&BundleHandlerResolverSuite{})
 
-func (s *BundleHandlerResolverSuite) TestResolveCharmChannelAndRevision(c *gc.C) {
+func (s *BundleHandlerResolverSuite) TestResolveCharmChannelAndRevision(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -2645,11 +2645,11 @@ func (s *BundleHandlerResolverSuite) TestResolveCharmChannelAndRevision(c *gc.C)
 	base := corebase.MustParseBaseFromString("ubuntu@20.04")
 	channel, rev, err := handler.resolveCharmChannelAndRevision(context.Background(), charmURL.String(), base, charmChannel, arch, -1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(channel, gc.DeepEquals, "stable")
-	c.Assert(rev, gc.Equals, rev)
+	c.Assert(channel, tc.DeepEquals, "stable")
+	c.Assert(rev, tc.Equals, rev)
 }
 
-func (s *BundleHandlerResolverSuite) TestResolveCharmChannelWithoutRevision(c *gc.C) {
+func (s *BundleHandlerResolverSuite) TestResolveCharmChannelWithoutRevision(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -2676,11 +2676,11 @@ func (s *BundleHandlerResolverSuite) TestResolveCharmChannelWithoutRevision(c *g
 	base := corebase.MustParseBaseFromString("ubuntu@20.04")
 	channel, rev, err := handler.resolveCharmChannelAndRevision(context.Background(), charmURL.String(), base, charmChannel, arch, -1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(channel, gc.DeepEquals, "stable")
-	c.Assert(rev, gc.Equals, -1)
+	c.Assert(channel, tc.DeepEquals, "stable")
+	c.Assert(rev, tc.Equals, -1)
 }
 
-func (s *BundleHandlerResolverSuite) TestResolveLocalCharm(c *gc.C) {
+func (s *BundleHandlerResolverSuite) TestResolveLocalCharm(c *tc.C) {
 	handler := &bundleHandler{}
 
 	charmURL := charm.URL{
@@ -2693,8 +2693,8 @@ func (s *BundleHandlerResolverSuite) TestResolveLocalCharm(c *gc.C) {
 
 	channel, rev, err := handler.resolveCharmChannelAndRevision(context.Background(), charmURL.String(), charmBase, charmChannel, arch, -1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(channel, gc.DeepEquals, "stable")
-	c.Assert(rev, gc.Equals, -1)
+	c.Assert(channel, tc.DeepEquals, "stable")
+	c.Assert(rev, tc.Equals, -1)
 }
 
 type BundleHandlerMakeModelSuite struct {
@@ -2703,9 +2703,9 @@ type BundleHandlerMakeModelSuite struct {
 	deployerAPI *mocks.MockDeployerAPI
 }
 
-var _ = gc.Suite(&BundleHandlerMakeModelSuite{})
+var _ = tc.Suite(&BundleHandlerMakeModelSuite{})
 
-func (s *BundleHandlerMakeModelSuite) TestEmptyModel(c *gc.C) {
+func (s *BundleHandlerMakeModelSuite) TestEmptyModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 
@@ -2718,7 +2718,7 @@ func (s *BundleHandlerMakeModelSuite) TestEmptyModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *BundleHandlerMakeModelSuite) TestEmptyModelOldController(c *gc.C) {
+func (s *BundleHandlerMakeModelSuite) TestEmptyModelOldController(c *tc.C) {
 	// An old controller is pre juju 2.9
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
@@ -2732,7 +2732,7 @@ func (s *BundleHandlerMakeModelSuite) TestEmptyModelOldController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *BundleHandlerMakeModelSuite) TestModelOldController(c *gc.C) {
+func (s *BundleHandlerMakeModelSuite) TestModelOldController(c *tc.C) {
 	// An old controller is pre juju 2.9
 	defer s.setupMocks(c).Finish()
 	s.expectDeployerAPIStatusWordpressBundle()
@@ -2748,18 +2748,18 @@ func (s *BundleHandlerMakeModelSuite) TestModelOldController(c *gc.C) {
 	err := handler.makeModel(context.Background(), false, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	app := handler.model.GetApplication("mysql")
-	c.Assert(app.Base.Channel.Track, gc.Equals, "18.04")
+	c.Assert(app.Base.Channel.Track, tc.Equals, "18.04")
 	app = handler.model.GetApplication("wordpress")
-	c.Assert(app.Base.Channel.Track, gc.Equals, "18.04")
+	c.Assert(app.Base.Channel.Track, tc.Equals, "18.04")
 }
 
-func (s *BundleHandlerMakeModelSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *BundleHandlerMakeModelSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.deployerAPI = mocks.NewMockDeployerAPI(ctrl)
 	return ctrl
 }
 
-func (s *BundleHandlerMakeModelSuite) expectEmptyModelToStart(c *gc.C) {
+func (s *BundleHandlerMakeModelSuite) expectEmptyModelToStart(c *tc.C) {
 	// setup for empty current model
 	// bundleHandler.makeModel()
 	s.expectDeployerAPIEmptyStatus()
@@ -2781,7 +2781,7 @@ func (s *BundleHandlerMakeModelSuite) expectDeployerAPIEmptyStatus() {
 	s.deployerAPI.EXPECT().Status(gomock.Any(), gomock.Any()).Return(status, nil).AnyTimes()
 }
 
-func (s *BundleHandlerMakeModelSuite) expectDeployerAPIModelGet(c *gc.C) {
+func (s *BundleHandlerMakeModelSuite) expectDeployerAPIModelGet(c *tc.C) {
 	cfg, err := config.New(true, minimalModelConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	s.deployerAPI.EXPECT().ModelGet(gomock.Any()).Return(cfg.AllAttrs(), nil).AnyTimes()

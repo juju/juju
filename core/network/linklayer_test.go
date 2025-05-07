@@ -6,18 +6,18 @@ package network
 import (
 	"strings"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
 type linkLayerSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&linkLayerSuite{})
+var _ = tc.Suite(&linkLayerSuite{})
 
-func (s *linkLayerSuite) TestIsValidLinkLayerDeviceTypeValid(c *gc.C) {
+func (s *linkLayerSuite) TestIsValidLinkLayerDeviceTypeValid(c *tc.C) {
 	validTypes := []LinkLayerDeviceType{
 		LoopbackDevice,
 		EthernetDevice,
@@ -33,7 +33,7 @@ func (s *linkLayerSuite) TestIsValidLinkLayerDeviceTypeValid(c *gc.C) {
 	}
 }
 
-func (s *linkLayerSuite) TestIsValidLinkLayerDeviceTypeInvalid(c *gc.C) {
+func (s *linkLayerSuite) TestIsValidLinkLayerDeviceTypeInvalid(c *tc.C) {
 	result := IsValidLinkLayerDeviceType("")
 	c.Check(result, jc.IsFalse)
 
@@ -49,7 +49,7 @@ func (s *linkLayerSuite) TestIsValidLinkLayerDeviceTypeInvalid(c *gc.C) {
 
 var validUnixDeviceNames = []string{"eth0", "eno1", "br-eth0.123", "tun:1", "bond0.42"}
 
-func (s *linkLayerSuite) TestIsValidLinkLayerDeviceNameValidNamesLinux(c *gc.C) {
+func (s *linkLayerSuite) TestIsValidLinkLayerDeviceNameValidNamesLinux(c *tc.C) {
 	for i, name := range validUnixDeviceNames {
 		c.Logf("test #%d: %q -> valid", i, name)
 		result := isValidLinkLayerDeviceName(name, "linux")
@@ -57,7 +57,7 @@ func (s *linkLayerSuite) TestIsValidLinkLayerDeviceNameValidNamesLinux(c *gc.C) 
 	}
 }
 
-func (s *linkLayerSuite) TestIsValidLinkLayerDeviceNameInvalidNamesLinux(c *gc.C) {
+func (s *linkLayerSuite) TestIsValidLinkLayerDeviceNameInvalidNamesLinux(c *tc.C) {
 	for i, name := range []string{
 		"",
 		strings.Repeat("x", 16),
@@ -76,7 +76,7 @@ func (s *linkLayerSuite) TestIsValidLinkLayerDeviceNameInvalidNamesLinux(c *gc.C
 	}
 }
 
-func (s *linkLayerSuite) TestIsValidLinkLayerDeviceNameValidNamesNonLinux(c *gc.C) {
+func (s *linkLayerSuite) TestIsValidLinkLayerDeviceNameValidNamesNonLinux(c *tc.C) {
 	validDeviceNames := append(validUnixDeviceNames,
 		// Windows network device as friendly name and as underlying UUID.
 		"Local Area Connection", "{4a62b748-43d0-4136-92e4-22ce7ee31938}",
@@ -89,7 +89,7 @@ func (s *linkLayerSuite) TestIsValidLinkLayerDeviceNameValidNamesNonLinux(c *gc.
 	}
 }
 
-func (s *linkLayerSuite) TestIsValidLinkLayerDeviceNameInvalidNamesNonLinux(c *gc.C) {
+func (s *linkLayerSuite) TestIsValidLinkLayerDeviceNameInvalidNamesNonLinux(c *tc.C) {
 	os := "non-linux"
 
 	result := isValidLinkLayerDeviceName("", os)
@@ -103,7 +103,7 @@ func (s *linkLayerSuite) TestIsValidLinkLayerDeviceNameInvalidNamesNonLinux(c *g
 	c.Check(result, jc.IsFalse)
 }
 
-func (s *linkLayerSuite) TestStringLengthBetweenWhenTooShort(c *gc.C) {
+func (s *linkLayerSuite) TestStringLengthBetweenWhenTooShort(c *tc.C) {
 	result := stringLengthBetween("", 1, 2)
 	c.Check(result, jc.IsFalse)
 
@@ -117,7 +117,7 @@ func (s *linkLayerSuite) TestStringLengthBetweenWhenTooShort(c *gc.C) {
 	c.Check(result, jc.IsFalse)
 }
 
-func (s *linkLayerSuite) TestStringLengthBetweenWhenTooLong(c *gc.C) {
+func (s *linkLayerSuite) TestStringLengthBetweenWhenTooLong(c *tc.C) {
 	result := stringLengthBetween("1", 0, 0)
 	c.Check(result, jc.IsFalse)
 
@@ -131,7 +131,7 @@ func (s *linkLayerSuite) TestStringLengthBetweenWhenTooLong(c *gc.C) {
 	c.Check(result, jc.IsFalse)
 }
 
-func (s *linkLayerSuite) TestStringLengthBetweenWhenWithinLimit(c *gc.C) {
+func (s *linkLayerSuite) TestStringLengthBetweenWhenWithinLimit(c *tc.C) {
 	const (
 		minLength = 1
 		maxLength = 255

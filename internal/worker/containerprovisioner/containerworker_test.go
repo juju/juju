@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
@@ -55,7 +55,7 @@ type containerWorkerSuite struct {
 	done chan struct{}
 }
 
-func (s *containerWorkerSuite) SetUpTest(c *gc.C) {
+func (s *containerWorkerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.modelUUID = uuid.MustNewUUID()
@@ -65,9 +65,9 @@ func (s *containerWorkerSuite) SetUpTest(c *gc.C) {
 	s.done = make(chan struct{})
 }
 
-var _ = gc.Suite(&containerWorkerSuite{})
+var _ = tc.Suite(&containerWorkerSuite{})
 
-func (s *containerWorkerSuite) TestContainerSetupAndProvisioner(c *gc.C) {
+func (s *containerWorkerSuite) TestContainerSetupAndProvisioner(c *tc.C) {
 	defer s.patch(c).Finish()
 
 	// Adding one new container machine.
@@ -112,7 +112,7 @@ func (s *containerWorkerSuite) TestContainerSetupAndProvisioner(c *gc.C) {
 	s.cleanKill(c, w)
 }
 
-func (s *containerWorkerSuite) TestContainerSetupAndProvisionerErrWatcherClose(c *gc.C) {
+func (s *containerWorkerSuite) TestContainerSetupAndProvisionerErrWatcherClose(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -145,7 +145,7 @@ func (s *containerWorkerSuite) TestContainerSetupAndProvisionerErrWatcherClose(c
 	s.cleanKill(c, w)
 }
 
-func (s *containerWorkerSuite) setUpContainerWorker(c *gc.C) worker.Worker {
+func (s *containerWorkerSuite) setUpContainerWorker(c *tc.C) worker.Worker {
 	pClient := apiprovisioner.NewClient(s.caller)
 
 	cfg, err := agent.NewAgentConfig(
@@ -186,7 +186,7 @@ func (s *containerWorkerSuite) setUpContainerWorker(c *gc.C) worker.Worker {
 	return w
 }
 
-func (s *containerWorkerSuite) patch(c *gc.C) *gomock.Controller {
+func (s *containerWorkerSuite) patch(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.initialiser = testing.NewMockInitialiser(ctrl)
@@ -301,7 +301,7 @@ func (s *containerWorkerSuite) expectContainerManagerConfig(cType instance.Conta
 
 // cleanKill waits for notifications to be processed, then waits for the input
 // worker to be killed cleanly. If either ops time out, the test fails.
-func (s *containerWorkerSuite) cleanKill(c *gc.C, w worker.Worker) {
+func (s *containerWorkerSuite) cleanKill(c *tc.C, w worker.Worker) {
 	select {
 	case <-s.done:
 	case <-time.After(coretesting.LongWait):

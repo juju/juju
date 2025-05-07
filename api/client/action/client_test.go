@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/action"
@@ -20,9 +20,9 @@ import (
 type actionSuite struct {
 }
 
-var _ = gc.Suite(&actionSuite{})
+var _ = tc.Suite(&actionSuite{})
 
-func (s *actionSuite) TestApplicationCharmActions(c *gc.C) {
+func (s *actionSuite) TestApplicationCharmActions(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -112,7 +112,7 @@ func (s *actionSuite) TestApplicationCharmActions(c *gc.C) {
 
 		result, err := client.ApplicationCharmActions(context.Background(), "foo")
 		if t.expectedErr != "" {
-			c.Check(err, gc.ErrorMatches, t.expectedErr)
+			c.Check(err, tc.ErrorMatches, t.expectedErr)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
 			c.Check(result, jc.DeepEquals, t.expectedResult)
@@ -120,7 +120,7 @@ func (s *actionSuite) TestApplicationCharmActions(c *gc.C) {
 	}
 }
 
-func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
+func (s *actionSuite) TestWatchActionProgress(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -141,11 +141,11 @@ func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
 	client := action.NewClientFromCaller(mockFacadeCaller)
 
 	w, err := client.WatchActionProgress(context.Background(), "666")
-	c.Assert(w, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(w, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
-func (s *actionSuite) TestWatchActionProgressArity(c *gc.C) {
+func (s *actionSuite) TestWatchActionProgressArity(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -168,10 +168,10 @@ func (s *actionSuite) TestWatchActionProgressArity(c *gc.C) {
 	client := action.NewClientFromCaller(mockFacadeCaller)
 
 	_, err := client.WatchActionProgress(context.Background(), "666")
-	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 2")
 }
 
-func (s *actionSuite) TestListOperations(c *gc.C) {
+func (s *actionSuite) TestListOperations(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -228,7 +228,7 @@ func (s *actionSuite) TestListOperations(c *gc.C) {
 	})
 }
 
-func (s *actionSuite) TestOperation(c *gc.C) {
+func (s *actionSuite) TestOperation(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -261,7 +261,7 @@ func (s *actionSuite) TestOperation(c *gc.C) {
 	})
 }
 
-func (s *actionSuite) TestEnqueueOperation(c *gc.C) {
+func (s *actionSuite) TestEnqueueOperation(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 

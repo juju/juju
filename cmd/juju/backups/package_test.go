@@ -12,8 +12,8 @@ import (
 	"testing"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/backups"
@@ -52,7 +52,7 @@ notes:
 `[1:]
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type BaseBackupsSuite struct {
@@ -66,7 +66,7 @@ type BaseBackupsSuite struct {
 	store *jujuclient.MemStore
 }
 
-func (s *BaseBackupsSuite) SetUpTest(c *gc.C) {
+func (s *BaseBackupsSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	s.metaresult = &params.BackupsMetadataResult{
@@ -84,7 +84,7 @@ func (s *BaseBackupsSuite) SetUpTest(c *gc.C) {
 	s.store.Models["arthur"] = models
 }
 
-func (s *BaseBackupsSuite) TearDownTest(c *gc.C) {
+func (s *BaseBackupsSuite) TearDownTest(c *tc.C) {
 	if s.filename != "" {
 		err := os.Remove(s.filename)
 		if !os.IsNotExist(err) {
@@ -140,14 +140,14 @@ func (s *BaseBackupsSuite) createCommandForGlobalOptionTesting(subcommand cmd.Co
 	return command
 }
 
-func (s *BaseBackupsSuite) checkArchive(c *gc.C) {
-	c.Assert(s.filename, gc.Not(gc.Equals), "")
+func (s *BaseBackupsSuite) checkArchive(c *tc.C) {
+	c.Assert(s.filename, tc.Not(tc.Equals), "")
 	archive, err := os.Open(s.filename)
 	c.Assert(err, jc.ErrorIsNil)
 	defer archive.Close()
 
 	// Test file created successfully. Clean it up after the test is run.
-	s.AddCleanup(func(c *gc.C) {
+	s.AddCleanup(func(c *tc.C) {
 		err := os.Remove(s.filename)
 		if !os.IsNotExist(err) {
 			c.Fatalf("could not remove test file %v: %v", s.filename, err)
@@ -156,7 +156,7 @@ func (s *BaseBackupsSuite) checkArchive(c *gc.C) {
 
 	data, err := io.ReadAll(archive)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(string(data), gc.Equals, s.data)
+	c.Check(string(data), tc.Equals, s.data)
 }
 
 // TODO (hml) 2018-05-01
@@ -172,17 +172,17 @@ type fakeAPIClient struct {
 	notes string
 }
 
-func (f *fakeAPIClient) Check(c *gc.C, id, notes string, calls ...string) {
+func (f *fakeAPIClient) Check(c *tc.C, id, notes string, calls ...string) {
 	c.Check(f.calls, jc.DeepEquals, calls)
-	c.Check(f.idArg, gc.Equals, id)
-	c.Check(f.notes, gc.Equals, notes)
+	c.Check(f.idArg, tc.Equals, id)
+	c.Check(f.notes, tc.Equals, notes)
 }
 
-func (f *fakeAPIClient) CheckCalls(c *gc.C, calls ...string) {
+func (f *fakeAPIClient) CheckCalls(c *tc.C, calls ...string) {
 	c.Check(f.calls, jc.DeepEquals, calls)
 }
 
-func (f *fakeAPIClient) CheckArgs(c *gc.C, args ...string) {
+func (f *fakeAPIClient) CheckArgs(c *tc.C, args ...string) {
 	c.Check(f.args, jc.DeepEquals, args)
 }
 

@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/resources"
@@ -30,7 +30,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&UploadSuite{})
+var _ = tc.Suite(&UploadSuite{})
 
 type UploadSuite struct {
 	mockHTTPClient   *httpmocks.MockHTTPDoer
@@ -39,7 +39,7 @@ type UploadSuite struct {
 	client           *resources.Client
 }
 
-func (s *UploadSuite) setup(c *gc.C) *gomock.Controller {
+func (s *UploadSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.mockHTTPClient = httpmocks.NewMockHTTPDoer(ctrl)
@@ -53,7 +53,7 @@ func (s *UploadSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *UploadSuite) TestUpload(c *gc.C) {
+func (s *UploadSuite) TestUpload(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	ctx := context.Background()
@@ -76,7 +76,7 @@ func (s *UploadSuite) TestUpload(c *gc.C) {
 }
 
 type reqMatcher struct {
-	c   *gc.C
+	c   *tc.C
 	req *http.Request
 }
 
@@ -106,14 +106,14 @@ func (m reqMatcher) String() string {
 	return pretty.Sprint(m.req)
 }
 
-func (s *UploadSuite) TestUploadBadApplication(c *gc.C) {
+func (s *UploadSuite) TestUploadBadApplication(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	err := s.client.Upload(context.Background(), "???", "spam", "file.zip", "", nil)
-	c.Check(err, gc.ErrorMatches, `.*invalid application.*`)
+	c.Check(err, tc.ErrorMatches, `.*invalid application.*`)
 }
 
-func (s *UploadSuite) TestUploadFailed(c *gc.C) {
+func (s *UploadSuite) TestUploadFailed(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	data := "<data>"
@@ -130,10 +130,10 @@ func (s *UploadSuite) TestUploadFailed(c *gc.C) {
 	ctx := context.Background()
 	s.mockHTTPClient.EXPECT().Do(ctx, reqMatcher{c, req}, gomock.Any()).Return(errors.New("boom"))
 	err = s.client.Upload(ctx, "a-application", "spam", "foo.zip", "", strings.NewReader(data))
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *UploadSuite) TestAddPendingResources(c *gc.C) {
+func (s *UploadSuite) TestAddPendingResources(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	res, apiResult := newResourceResult(c, "spam")
@@ -167,7 +167,7 @@ func (s *UploadSuite) TestAddPendingResources(c *gc.C) {
 	c.Assert(pendingIDs, jc.DeepEquals, expected)
 }
 
-func (s *UploadSuite) TestUploadPendingResource(c *gc.C) {
+func (s *UploadSuite) TestUploadPendingResource(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	res, apiResult := newResourceResult(c, "spam")
@@ -198,10 +198,10 @@ func (s *UploadSuite) TestUploadPendingResource(c *gc.C) {
 	uploadArgs := newUploadPendingResourceArgs(res, data)
 	uploadID, err := s.client.UploadPendingResource(ctx, uploadArgs)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uploadID, gc.Equals, expected)
+	c.Assert(uploadID, tc.Equals, expected)
 }
 
-func (s *UploadSuite) TestUploadPendingResourceNoFile(c *gc.C) {
+func (s *UploadSuite) TestUploadPendingResourceNoFile(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	res, apiResult := newResourceResult(c, "spam")
@@ -217,18 +217,18 @@ func (s *UploadSuite) TestUploadPendingResourceNoFile(c *gc.C) {
 	uploadArgs := newUploadPendingResourceArgsNoData(res)
 	uploadID, err := s.client.UploadPendingResource(context.Background(), uploadArgs)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uploadID, gc.Equals, expected)
+	c.Assert(uploadID, tc.Equals, expected)
 }
 
-func (s *UploadSuite) TestUploadPendingResourceBadApplication(c *gc.C) {
+func (s *UploadSuite) TestUploadPendingResourceBadApplication(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	_, err := s.client.UploadPendingResource(context.Background(), resources.UploadPendingResourceArgs{})
-	c.Assert(err, gc.ErrorMatches, `.*invalid application.*`)
+	c.Assert(err, tc.ErrorMatches, `.*invalid application.*`)
 }
 
-func (s *UploadSuite) TestUploadPendingResourceFailed(c *gc.C) {
+func (s *UploadSuite) TestUploadPendingResourceFailed(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	res, apiResult := newResourceResult(c, "spam")
@@ -257,7 +257,7 @@ func (s *UploadSuite) TestUploadPendingResourceFailed(c *gc.C) {
 
 	uploadArgs := newUploadPendingResourceArgs(res, data)
 	_, err = s.client.UploadPendingResource(ctx, uploadArgs)
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
 func newAddPendingResourcesArgsV2(apiResult params.ResourcesResult) params.AddPendingResourcesArgsV2 {
@@ -299,7 +299,7 @@ func newUploadPendingResourceArgsNoData(res []coreresources.Resource) resources.
 	}
 }
 
-func newResourceResult(c *gc.C, names ...string) ([]coreresources.Resource, params.ResourcesResult) {
+func newResourceResult(c *tc.C, names ...string) ([]coreresources.Resource, params.ResourcesResult) {
 	var res []coreresources.Resource
 	var apiResult params.ResourcesResult
 	for _, name := range names {
@@ -311,7 +311,7 @@ func newResourceResult(c *gc.C, names ...string) ([]coreresources.Resource, para
 	return res, apiResult
 }
 
-func newResource(c *gc.C, name, username, data string) (coreresources.Resource, params.Resource) {
+func newResource(c *tc.C, name, username, data string) (coreresources.Resource, params.Resource) {
 	opened := resourcetesting.NewResource(c, nil, name, "a-application", data)
 	res := opened.Resource
 	res.Revision = 1

@@ -6,20 +6,20 @@ package resource_test
 import (
 	"strings"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
-func newFingerprint(c *gc.C, data string) charmresource.Fingerprint {
+func newFingerprint(c *tc.C, data string) charmresource.Fingerprint {
 	reader := strings.NewReader(data)
 	fp, err := charmresource.GenerateFingerprint(reader)
 	c.Assert(err, jc.ErrorIsNil)
 	return fp
 }
 
-func newFullCharmResource(c *gc.C, name string) charmresource.Resource {
+func newFullCharmResource(c *tc.C, name string) charmresource.Resource {
 	return charmresource.Resource{
 		Meta: charmresource.Meta{
 			Name:        name,

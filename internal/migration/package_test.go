@@ -10,8 +10,8 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/semversion"
@@ -27,7 +27,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ModelObjectStoreGetter
 
 func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type precheckBaseSuite struct {
@@ -40,20 +40,20 @@ type precheckBaseSuite struct {
 	agentService       *MockModelAgentService
 }
 
-func (s *precheckBaseSuite) checkRebootRequired(c *gc.C, runPrecheck precheckRunner) {
+func (s *precheckBaseSuite) checkRebootRequired(c *tc.C, runPrecheck precheckRunner) {
 	err := runPrecheck(newBackendWithRebootingMachine(), &fakeCredentialService{}, s.upgradeService,
 		s.applicationService, s.relationService, s.statusService, s.agentService)
-	c.Assert(err, gc.ErrorMatches, "machine 0 is scheduled to reboot")
+	c.Assert(err, tc.ErrorMatches, "machine 0 is scheduled to reboot")
 }
 
-func (s *precheckBaseSuite) setupMocksWithDefaultAgentVersion(c *gc.C) *gomock.Controller {
+func (s *precheckBaseSuite) setupMocksWithDefaultAgentVersion(c *tc.C) *gomock.Controller {
 	ctrl := s.setupMocks(c)
 	s.agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.MustParse("2.9.32"), nil).AnyTimes()
 	s.expectAgentTargetVersions(c)
 	return ctrl
 }
 
-func (s *precheckBaseSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *precheckBaseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.upgradeService = NewMockUpgradeService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
@@ -115,7 +115,7 @@ func (s *precheckBaseSuite) expectAgentVersion() {
 // the transition of prechecks to mocks and Dqlite. This function will take
 // an established backend and setup gomock expects for machines and units to
 // have their agent version information read.
-func (s *precheckBaseSuite) expectAgentTargetVersions(c *gc.C) {
+func (s *precheckBaseSuite) expectAgentTargetVersions(c *tc.C) {
 	s.agentService.EXPECT().GetMachinesNotAtTargetAgentVersion(gomock.Any()).
 		Return(nil, nil).AnyTimes()
 	s.agentService.EXPECT().GetUnitsNotAtTargetAgentVersion(gomock.Any()).

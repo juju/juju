@@ -8,10 +8,10 @@ import (
 	"os"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/exec"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	_ = gc.Suite(&detectCloudSuite{})
+	_ = tc.Suite(&detectCloudSuite{})
 )
 
 type detectCloudSuite struct {
@@ -71,7 +71,7 @@ func (s *detectCloudSuite) getProvider(builtin builtinCloudRet) caas.ContainerEn
 	)
 }
 
-func (s *detectCloudSuite) TestDetectCloudsWithoutKubeConfig(c *gc.C) {
+func (s *detectCloudSuite) TestDetectCloudsWithoutKubeConfig(c *tc.C) {
 	c.Skip("This test is skipped because the cloud detector is not isolated from the test environment")
 	err := os.Setenv("KUBECONFIG", "/tmp/doesnotexistkubeconfig.yaml")
 	c.Assert(err, jc.ErrorIsNil)
@@ -83,11 +83,11 @@ func (s *detectCloudSuite) TestDetectCloudsWithoutKubeConfig(c *gc.C) {
 
 	clouds, err := cloudDetector.DetectClouds()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(clouds, gc.HasLen, 1)
+	c.Assert(clouds, tc.HasLen, 1)
 	c.Assert(clouds[0], jc.DeepEquals, k8sCloud)
 }
 
-func (s *detectCloudSuite) TestDetectCloudsMicroK8sNotFoundWithoutKubeConfig(c *gc.C) {
+func (s *detectCloudSuite) TestDetectCloudsMicroK8sNotFoundWithoutKubeConfig(c *tc.C) {
 	c.Skip("This test is skipped because the cloud detector is not isolated from the test environment")
 	err := os.Setenv("KUBECONFIG", "/tmp/doesnotexistkubeconfig.yaml")
 	c.Assert(err, jc.ErrorIsNil)
@@ -96,10 +96,10 @@ func (s *detectCloudSuite) TestDetectCloudsMicroK8sNotFoundWithoutKubeConfig(c *
 
 	clouds, err := cloudDetector.DetectClouds()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(clouds, gc.HasLen, 0)
+	c.Assert(clouds, tc.HasLen, 0)
 }
 
-func (s *detectCloudSuite) TestDetectCloudsWithKubeConfig(c *gc.C) {
+func (s *detectCloudSuite) TestDetectCloudsWithKubeConfig(c *tc.C) {
 	c.Skip("This test is skipped because the cloud detector is not isolated from the test environment")
 	kubeConfig := `
 apiVersion: v1
@@ -138,11 +138,11 @@ users:
 
 	clouds, err := cloudDetector.DetectClouds()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(clouds, gc.HasLen, 2)
+	c.Assert(clouds, tc.HasLen, 2)
 	c.Assert(clouds[1], jc.DeepEquals, k8sCloud)
 }
 
-func (s *detectCloudSuite) TestDetectCloudMicrok8s(c *gc.C) {
+func (s *detectCloudSuite) TestDetectCloudMicrok8s(c *tc.C) {
 	k8sCloud := jujucloud.Cloud{
 		Name: "testingMicrok8s",
 	}
@@ -154,20 +154,20 @@ func (s *detectCloudSuite) TestDetectCloudMicrok8s(c *gc.C) {
 	c.Assert(cloud, jc.DeepEquals, k8sCloud)
 }
 
-func (s *detectCloudSuite) TestDetectCloudNotMicroK8s(c *gc.C) {
+func (s *detectCloudSuite) TestDetectCloudNotMicroK8s(c *tc.C) {
 	p := s.getProvider(builtinCloudRet{})
 	cloudDetector := p.(environs.CloudDetector)
 
 	cloud, err := cloudDetector.DetectCloud("notmicrok8s")
-	c.Assert(err, gc.ErrorMatches, `cloud notmicrok8s not found`)
+	c.Assert(err, tc.ErrorMatches, `cloud notmicrok8s not found`)
 	c.Assert(cloud, jc.DeepEquals, jujucloud.Cloud{})
 }
 
-func (s *detectCloudSuite) TestDetectCloudMicroK8sErrorsNotFound(c *gc.C) {
+func (s *detectCloudSuite) TestDetectCloudMicroK8sErrorsNotFound(c *tc.C) {
 	p := s.getProvider(builtinCloudRet{err: errors.NotFoundf("")})
 	cloudDetector := p.(environs.CloudDetector)
 
 	cloud, err := cloudDetector.DetectCloud("notmicrok8s")
-	c.Assert(err, gc.ErrorMatches, `cloud notmicrok8s not found`)
+	c.Assert(err, tc.ErrorMatches, `cloud notmicrok8s not found`)
 	c.Assert(cloud, jc.DeepEquals, jujucloud.Cloud{})
 }

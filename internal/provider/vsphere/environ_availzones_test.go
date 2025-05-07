@@ -6,10 +6,10 @@ package vsphere_test
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
@@ -21,7 +21,7 @@ type environAvailzonesSuite struct {
 	EnvironFixture
 }
 
-var _ = gc.Suite(&environAvailzonesSuite{})
+var _ = tc.Suite(&environAvailzonesSuite{})
 
 func makeFolders(host string) *object.DatacenterFolders {
 	return &object.DatacenterFolders{
@@ -33,7 +33,7 @@ func makeFolders(host string) *object.DatacenterFolders {
 	}
 }
 
-func (s *environAvailzonesSuite) TestAvailabilityZones(c *gc.C) {
+func (s *environAvailzonesSuite) TestAvailabilityZones(c *tc.C) {
 	emptyResource := newComputeResource("empty")
 	emptyResource.Summary.(*mockSummary).EffectiveCpu = 0
 	s.client.folders = makeFolders("/DC/host")
@@ -56,21 +56,21 @@ func (s *environAvailzonesSuite) TestAvailabilityZones(c *gc.C) {
 		},
 	}
 
-	c.Assert(s.env, gc.Implements, new(common.ZonedEnviron))
+	c.Assert(s.env, tc.Implements, new(common.ZonedEnviron))
 	zonedEnviron := s.env.(common.ZonedEnviron)
 	zones, err := zonedEnviron.AvailabilityZones(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(zones), gc.Equals, 6)
+	c.Assert(len(zones), tc.Equals, 6)
 	// No zones for the empty resource.
-	c.Assert(zones[0].Name(), gc.Equals, "z1")
-	c.Assert(zones[1].Name(), gc.Equals, "z2")
-	c.Assert(zones[2].Name(), gc.Equals, "z2/child")
-	c.Assert(zones[3].Name(), gc.Equals, "z2/child/nested")
-	c.Assert(zones[4].Name(), gc.Equals, "z2/child/nested/other")
-	c.Assert(zones[5].Name(), gc.Equals, "z2/Other/thing")
+	c.Assert(zones[0].Name(), tc.Equals, "z1")
+	c.Assert(zones[1].Name(), tc.Equals, "z2")
+	c.Assert(zones[2].Name(), tc.Equals, "z2/child")
+	c.Assert(zones[3].Name(), tc.Equals, "z2/child/nested")
+	c.Assert(zones[4].Name(), tc.Equals, "z2/child/nested/other")
+	c.Assert(zones[5].Name(), tc.Equals, "z2/Other/thing")
 }
 
-func (s *environAvailzonesSuite) TestAvailabilityZonesInFolder(c *gc.C) {
+func (s *environAvailzonesSuite) TestAvailabilityZonesInFolder(c *tc.C) {
 	s.client.folders = makeFolders("/DC/host")
 	s.client.computeResources = []vsphereclient.ComputeResource{
 		{Resource: newComputeResource("z1"), Path: "/DC/host/Folder/z1"},
@@ -83,17 +83,17 @@ func (s *environAvailzonesSuite) TestAvailabilityZonesInFolder(c *gc.C) {
 		},
 	}
 
-	c.Assert(s.env, gc.Implements, new(common.ZonedEnviron))
+	c.Assert(s.env, tc.Implements, new(common.ZonedEnviron))
 	zonedEnviron := s.env.(common.ZonedEnviron)
 	zones, err := zonedEnviron.AvailabilityZones(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(zones), gc.Equals, 3)
-	c.Assert(zones[0].Name(), gc.Equals, "Folder/z1")
-	c.Assert(zones[1].Name(), gc.Equals, "Folder/z1/ResPool1")
-	c.Assert(zones[2].Name(), gc.Equals, "Folder/z1/ResPool2")
+	c.Assert(len(zones), tc.Equals, 3)
+	c.Assert(zones[0].Name(), tc.Equals, "Folder/z1")
+	c.Assert(zones[1].Name(), tc.Equals, "Folder/z1/ResPool1")
+	c.Assert(zones[2].Name(), tc.Equals, "Folder/z1/ResPool2")
 }
 
-func (s *environAvailzonesSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
+func (s *environAvailzonesSuite) TestInstanceAvailabilityZoneNames(c *tc.C) {
 	z1 := newComputeResource("z1")
 	z2 := newComputeResource("z2")
 	z3 := newComputeResource("z3")
@@ -125,7 +125,7 @@ func (s *environAvailzonesSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
 
 	zonedEnviron := s.env.(common.ZonedEnviron)
 	zones, err := zonedEnviron.InstanceAvailabilityZoneNames(context.Background(), ids)
-	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
+	c.Assert(err, tc.Equals, environs.ErrPartialInstances)
 	c.Assert(zones, jc.DeepEquals, map[instance.Id]string{
 		"inst-0": "z2",
 		"inst-1": "z1",
@@ -133,14 +133,14 @@ func (s *environAvailzonesSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
 	})
 }
 
-func (s *environAvailzonesSuite) TestInstanceAvailabilityZoneNamesNoInstances(c *gc.C) {
+func (s *environAvailzonesSuite) TestInstanceAvailabilityZoneNamesNoInstances(c *tc.C) {
 	s.client.folders = makeFolders("/DC/host")
 	zonedEnviron := s.env.(common.ZonedEnviron)
 	_, err := zonedEnviron.InstanceAvailabilityZoneNames(context.Background(), []instance.Id{"inst-0"})
-	c.Assert(err, gc.Equals, environs.ErrNoInstances)
+	c.Assert(err, tc.Equals, environs.ErrNoInstances)
 }
 
-func (s *environAvailzonesSuite) TestDeriveAvailabilityZones(c *gc.C) {
+func (s *environAvailzonesSuite) TestDeriveAvailabilityZones(c *tc.C) {
 	s.client.folders = makeFolders("/DC/host")
 	s.client.computeResources = []vsphereclient.ComputeResource{
 		{Resource: newComputeResource("test-available"), Path: "/DC/host/test-available"},
@@ -149,31 +149,31 @@ func (s *environAvailzonesSuite) TestDeriveAvailabilityZones(c *gc.C) {
 		"/DC/host/test-available/...": {makeResourcePool("pool-23", "/DC/host/test-available/Resources")},
 	}
 
-	c.Assert(s.env, gc.Implements, new(common.ZonedEnviron))
+	c.Assert(s.env, tc.Implements, new(common.ZonedEnviron))
 	zonedEnviron := s.env.(common.ZonedEnviron)
 
 	zones, err := zonedEnviron.DeriveAvailabilityZones(
 		context.Background(),
 		environs.StartInstanceParams{Placement: "zone=test-available"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(zones, gc.DeepEquals, []string{"test-available"})
+	c.Assert(zones, tc.DeepEquals, []string{"test-available"})
 }
 
-func (s *environAvailzonesSuite) TestDeriveAvailabilityZonesUnknown(c *gc.C) {
+func (s *environAvailzonesSuite) TestDeriveAvailabilityZonesUnknown(c *tc.C) {
 	s.client.folders = makeFolders("/DC/host")
-	c.Assert(s.env, gc.Implements, new(common.ZonedEnviron))
+	c.Assert(s.env, tc.Implements, new(common.ZonedEnviron))
 	zonedEnviron := s.env.(common.ZonedEnviron)
 
 	zones, err := zonedEnviron.DeriveAvailabilityZones(
 		context.Background(),
 		environs.StartInstanceParams{Placement: "zone=test-unknown"})
-	c.Assert(err, gc.ErrorMatches, `availability zone "test-unknown" not found`)
-	c.Assert(zones, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorMatches, `availability zone "test-unknown" not found`)
+	c.Assert(zones, tc.HasLen, 0)
 }
 
-func (s *environAvailzonesSuite) TestDeriveAvailabilityZonesInvalidPlacement(c *gc.C) {
+func (s *environAvailzonesSuite) TestDeriveAvailabilityZonesInvalidPlacement(c *tc.C) {
 	s.client.folders = makeFolders("/DC/host")
-	c.Assert(s.env, gc.Implements, new(common.ZonedEnviron))
+	c.Assert(s.env, tc.Implements, new(common.ZonedEnviron))
 	zonedEnviron := s.env.(common.ZonedEnviron)
 
 	zones, err := zonedEnviron.DeriveAvailabilityZones(
@@ -181,11 +181,11 @@ func (s *environAvailzonesSuite) TestDeriveAvailabilityZonesInvalidPlacement(c *
 		environs.StartInstanceParams{
 			Placement: "invalid-placement",
 		})
-	c.Assert(err, gc.ErrorMatches, `unknown placement directive: invalid-placement`)
-	c.Assert(zones, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorMatches, `unknown placement directive: invalid-placement`)
+	c.Assert(zones, tc.HasLen, 0)
 }
 
-func (s *environAvailzonesSuite) TestAvailabilityZonesPermissionError(c *gc.C) {
+func (s *environAvailzonesSuite) TestAvailabilityZonesPermissionError(c *tc.C) {
 	AssertInvalidatesCredential(c, s.client, func(ctx context.Context) error {
 		zonedEnv := s.env.(common.ZonedEnviron)
 		_, err := zonedEnv.AvailabilityZones(ctx)

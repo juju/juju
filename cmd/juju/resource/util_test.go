@@ -7,15 +7,15 @@ import (
 	"bytes"
 	"strings"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	jujucmd "github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 )
 
-func charmRes(c *gc.C, name, suffix, description, content string) charmresource.Resource {
+func charmRes(c *tc.C, name, suffix, description, content string) charmresource.Resource {
 	if content == "" {
 		content = name
 	}
@@ -40,7 +40,7 @@ func charmRes(c *gc.C, name, suffix, description, content string) charmresource.
 	return res
 }
 
-func newCharmResources(c *gc.C, names ...string) []charmresource.Resource {
+func newCharmResources(c *tc.C, names ...string) []charmresource.Resource {
 	var resources []charmresource.Resource
 	for _, name := range names {
 		var description string
@@ -56,7 +56,7 @@ func newCharmResources(c *gc.C, names ...string) []charmresource.Resource {
 	return resources
 }
 
-func runCmd(c *gc.C, command jujucmd.Command, args ...string) (code int, stdout string, stderr string) {
+func runCmd(c *tc.C, command jujucmd.Command, args ...string) (code int, stdout string, stderr string) {
 	ctx := cmdtesting.Context(c)
 	code = jujucmd.Main(command, ctx, args)
 	stdout = string(ctx.Stdout.(*bytes.Buffer).Bytes())

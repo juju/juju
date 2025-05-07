@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/storage"
 )
@@ -19,9 +19,9 @@ type exportSuite struct {
 	service     *MockExportService
 }
 
-var _ = gc.Suite(&exportSuite{})
+var _ = tc.Suite(&exportSuite{})
 
-func (s *exportSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *exportSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.coordinator = NewMockCoordinator(ctrl)
@@ -36,14 +36,14 @@ func (s *exportSuite) newExportOperation() *exportOperation {
 	}
 }
 
-func (s *exportSuite) TestExport(c *gc.C) {
+func (s *exportSuite) TestExport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dst := description.NewModel(description.ModelArgs{})
 	dst.AddMachine(description.MachineArgs{
 		Id: "666",
 	})
-	c.Assert(dst.StoragePools(), gc.HasLen, 0)
+	c.Assert(dst.StoragePools(), tc.HasLen, 0)
 
 	sc, err := storage.NewConfig("ebs-fast", "ebs", map[string]any{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -58,9 +58,9 @@ func (s *exportSuite) TestExport(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	pools := dst.StoragePools()
-	c.Assert(pools, gc.HasLen, 1)
+	c.Assert(pools, tc.HasLen, 1)
 	sp := pools[0]
-	c.Check(sp.Name(), gc.Equals, "ebs-fast")
-	c.Check(sp.Provider(), gc.Equals, "ebs")
+	c.Check(sp.Name(), tc.Equals, "ebs-fast")
+	c.Check(sp.Provider(), tc.Equals, "ebs")
 	c.Assert(sp.Attributes(), jc.DeepEquals, map[string]any{"foo": "bar"})
 }

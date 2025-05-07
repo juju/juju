@@ -7,10 +7,10 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/internal/worker/migrationflag"
@@ -20,9 +20,9 @@ type WorkerSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&WorkerSuite{})
+var _ = tc.Suite(&WorkerSuite{})
 
-func (*WorkerSuite) TestPhaseErrorOnStartup(c *gc.C) {
+func (*WorkerSuite) TestPhaseErrorOnStartup(c *tc.C) {
 	stub := &testing.Stub{}
 	stub.SetErrors(errors.New("gaah"))
 	facade := newMockFacade(stub)
@@ -32,12 +32,12 @@ func (*WorkerSuite) TestPhaseErrorOnStartup(c *gc.C) {
 		Check:  panicCheck,
 	}
 	worker, err := migrationflag.New(context.Background(), config)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "gaah")
+	c.Check(worker, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "gaah")
 	checkCalls(c, stub, "Phase")
 }
 
-func (*WorkerSuite) TestWatchError(c *gc.C) {
+func (*WorkerSuite) TestWatchError(c *tc.C) {
 	stub := &testing.Stub{}
 	stub.SetErrors(nil, errors.New("boff"))
 	facade := newMockFacade(stub, migration.REAP)
@@ -51,11 +51,11 @@ func (*WorkerSuite) TestWatchError(c *gc.C) {
 	c.Check(worker.Check(), jc.IsFalse)
 
 	err = workertest.CheckKilled(c, worker)
-	c.Check(err, gc.ErrorMatches, "boff")
+	c.Check(err, tc.ErrorMatches, "boff")
 	checkCalls(c, stub, "Phase", "Watch")
 }
 
-func (*WorkerSuite) TestPhaseErrorWhileRunning(c *gc.C) {
+func (*WorkerSuite) TestPhaseErrorWhileRunning(c *tc.C) {
 	stub := &testing.Stub{}
 	stub.SetErrors(nil, nil, errors.New("glug"))
 	facade := newMockFacade(stub, migration.QUIESCE)
@@ -69,11 +69,11 @@ func (*WorkerSuite) TestPhaseErrorWhileRunning(c *gc.C) {
 	c.Check(worker.Check(), jc.IsFalse)
 
 	err = workertest.CheckKilled(c, worker)
-	c.Check(err, gc.ErrorMatches, "glug")
+	c.Check(err, tc.ErrorMatches, "glug")
 	checkCalls(c, stub, "Phase", "Watch", "Phase")
 }
 
-func (*WorkerSuite) TestImmediatePhaseChange(c *gc.C) {
+func (*WorkerSuite) TestImmediatePhaseChange(c *tc.C) {
 	stub := &testing.Stub{}
 	facade := newMockFacade(stub,
 		migration.QUIESCE, migration.REAP,
@@ -88,11 +88,11 @@ func (*WorkerSuite) TestImmediatePhaseChange(c *gc.C) {
 	c.Check(worker.Check(), jc.IsTrue)
 
 	err = workertest.CheckKilled(c, worker)
-	c.Check(err, gc.Equals, migrationflag.ErrChanged)
+	c.Check(err, tc.Equals, migrationflag.ErrChanged)
 	checkCalls(c, stub, "Phase", "Watch", "Phase")
 }
 
-func (*WorkerSuite) TestSubsequentPhaseChange(c *gc.C) {
+func (*WorkerSuite) TestSubsequentPhaseChange(c *tc.C) {
 	stub := &testing.Stub{}
 	facade := newMockFacade(stub,
 		migration.ABORT, migration.REAP, migration.QUIESCE,
@@ -107,11 +107,11 @@ func (*WorkerSuite) TestSubsequentPhaseChange(c *gc.C) {
 	c.Check(worker.Check(), jc.IsFalse)
 
 	err = workertest.CheckKilled(c, worker)
-	c.Check(err, gc.Equals, migrationflag.ErrChanged)
+	c.Check(err, tc.Equals, migrationflag.ErrChanged)
 	checkCalls(c, stub, "Phase", "Watch", "Phase", "Phase")
 }
 
-func (*WorkerSuite) TestNoRelevantPhaseChange(c *gc.C) {
+func (*WorkerSuite) TestNoRelevantPhaseChange(c *tc.C) {
 	stub := &testing.Stub{}
 	facade := newMockFacade(stub,
 		migration.REAPFAILED,
@@ -133,7 +133,7 @@ func (*WorkerSuite) TestNoRelevantPhaseChange(c *gc.C) {
 	checkCalls(c, stub, "Phase", "Watch", "Phase", "Phase", "Phase")
 }
 
-func (*WorkerSuite) TestIsTerminal(c *gc.C) {
+func (*WorkerSuite) TestIsTerminal(c *tc.C) {
 	tests := []struct {
 		phase    migration.Phase
 		expected bool
@@ -147,7 +147,7 @@ func (*WorkerSuite) TestIsTerminal(c *gc.C) {
 		{migration.DONE, true},
 	}
 	for _, t := range tests {
-		c.Check(migrationflag.IsTerminal(t.phase), gc.Equals, t.expected,
-			gc.Commentf("for %s", t.phase))
+		c.Check(migrationflag.IsTerminal(t.phase), tc.Equals, t.expected,
+			tc.Commentf("for %s", t.phase))
 	}
 }

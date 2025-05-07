@@ -6,8 +6,8 @@ package jujuc_test
 
 import (
 	"github.com/juju/gnuflag"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -18,35 +18,35 @@ type JujuRebootSuite struct {
 	ContextSuite
 }
 
-var _ = gc.Suite(&JujuRebootSuite{})
+var _ = tc.Suite(&JujuRebootSuite{})
 
-func (s *JujuRebootSuite) TestNewJujuRebootCommand(c *gc.C) {
+func (s *JujuRebootSuite) TestNewJujuRebootCommand(c *tc.C) {
 	cmd, err := jujuc.NewJujuRebootCommand(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmd, gc.DeepEquals, &jujuc.JujuRebootCommand{})
+	c.Assert(cmd, tc.DeepEquals, &jujuc.JujuRebootCommand{})
 }
 
-func (s *JujuRebootSuite) TestInfo(c *gc.C) {
+func (s *JujuRebootSuite) TestInfo(c *tc.C) {
 	rebootCmd, err := jujuc.NewJujuRebootCommand(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	cmdInfo := rebootCmd.Info()
 
-	c.Assert(cmdInfo.Name, gc.Equals, "juju-reboot")
-	c.Assert(cmdInfo.Args, gc.Equals, "")
-	c.Assert(cmdInfo.Purpose, gc.Equals, "Reboot the host machine.")
+	c.Assert(cmdInfo.Name, tc.Equals, "juju-reboot")
+	c.Assert(cmdInfo.Args, tc.Equals, "")
+	c.Assert(cmdInfo.Purpose, tc.Equals, "Reboot the host machine.")
 }
 
-func (s *JujuRebootSuite) TestSetFlags(c *gc.C) {
+func (s *JujuRebootSuite) TestSetFlags(c *tc.C) {
 	rebootCmd := jujuc.JujuRebootCommand{Now: true}
 	fs := &gnuflag.FlagSet{}
 
 	rebootCmd.SetFlags(fs)
 
 	flag := fs.Lookup("now")
-	c.Assert(flag, gc.NotNil)
+	c.Assert(flag, tc.NotNil)
 }
 
-func (s *JujuRebootSuite) TestJujuRebootCommand(c *gc.C) {
+func (s *JujuRebootSuite) TestJujuRebootCommand(c *tc.C) {
 	var jujuRebootTests = []struct {
 		summary  string
 		hctx     *Context
@@ -95,17 +95,17 @@ func (s *JujuRebootSuite) TestJujuRebootCommand(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
-		c.Check(code, gc.Equals, t.code)
-		c.Check(hctx.rebootPriority, gc.Equals, t.priority)
+		c.Check(code, tc.Equals, t.code)
+		c.Check(hctx.rebootPriority, tc.Equals, t.priority)
 	}
 }
 
-func (s *JujuRebootSuite) TestRebootInActions(c *gc.C) {
+func (s *JujuRebootSuite) TestRebootInActions(c *tc.C) {
 	jujucCtx := &actionGetContext{}
 	com, err := jujuc.NewCommand(jujucCtx, "juju-reboot")
 	c.Assert(err, jc.ErrorIsNil)
 	cmdCtx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), cmdCtx, nil)
-	c.Check(code, gc.Equals, 1)
-	c.Assert(cmdtesting.Stderr(cmdCtx), gc.Equals, "ERROR juju-reboot is not supported when running an action.\n")
+	c.Check(code, tc.Equals, 1)
+	c.Assert(cmdtesting.Stderr(cmdCtx), tc.Equals, "ERROR juju-reboot is not supported when running an action.\n")
 }

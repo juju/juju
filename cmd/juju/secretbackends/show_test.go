@@ -6,10 +6,10 @@ package secretbackends_test
 import (
 	"time"
 
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apisecretbackends "github.com/juju/juju/api/client/secretbackends"
 	"github.com/juju/juju/cmd/juju/secretbackends"
@@ -24,9 +24,9 @@ type ShowSuite struct {
 	secretBackendsAPI *secretbackends.MockListSecretBackendsAPI
 }
 
-var _ = gc.Suite(&ShowSuite{})
+var _ = tc.Suite(&ShowSuite{})
 
-func (s *ShowSuite) SetUpTest(c *gc.C) {
+func (s *ShowSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	store := jujuclient.NewMemStore()
 	store.Controllers["mycontroller"] = jujuclient.ControllerDetails{}
@@ -34,7 +34,7 @@ func (s *ShowSuite) SetUpTest(c *gc.C) {
 	s.store = store
 }
 
-func (s *ShowSuite) setup(c *gc.C) *gomock.Controller {
+func (s *ShowSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.secretBackendsAPI = secretbackends.NewMockListSecretBackendsAPI(ctrl)
@@ -42,7 +42,7 @@ func (s *ShowSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *ShowSuite) TestShowYAML(c *gc.C) {
+func (s *ShowSuite) TestShowYAML(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.secretBackendsAPI.EXPECT().ListSecretBackends(gomock.Any(), []string{"myvault"}, true).Return(
@@ -62,7 +62,7 @@ func (s *ShowSuite) TestShowYAML(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, secretbackends.NewShowCommandForTest(s.store, s.secretBackendsAPI), "myvault", "--reveal")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, `
+	c.Assert(out, tc.Equals, `
 myvault:
   backend: vault
   token-rotate-interval: 11h6m0s

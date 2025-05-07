@@ -11,8 +11,8 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
@@ -32,9 +32,9 @@ type auditConfigSuite struct {
 	testing.ApiServerSuite
 }
 
-var _ = gc.Suite(&auditConfigSuite{})
+var _ = tc.Suite(&auditConfigSuite{})
 
-func (s *auditConfigSuite) openAPIWithoutLogin(c *gc.C) api.Connection {
+func (s *auditConfigSuite) openAPIWithoutLogin(c *tc.C) api.Connection {
 	info := s.ControllerModelApiInfo()
 	info.Tag = nil
 	info.Password = ""
@@ -45,7 +45,7 @@ func (s *auditConfigSuite) openAPIWithoutLogin(c *gc.C) api.Connection {
 	return conn
 }
 
-func (s *auditConfigSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
+func (s *auditConfigSuite) TestLoginAddsAuditConversationEventually(c *tc.C) {
 	log := &servertesting.FakeAuditLog{}
 	s.WithAuditLogConfig = &auditlog.Config{
 		Enabled: true,
@@ -68,7 +68,7 @@ func (s *auditConfigSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 	loginTime := s.Clock.Now()
 	err := conn.APICall(context.Background(), "Admin", 3, "", "Login", request, &result)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.UserInfo, gc.NotNil)
+	c.Assert(result.UserInfo, tc.NotNil)
 	// Nothing's logged at this point because there haven't been any
 	// interesting requests.
 	log.CheckCallNames(c)
@@ -87,7 +87,7 @@ func (s *auditConfigSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 
 	convo := log.Calls()[0].Args[0].(auditlog.Conversation)
 	mc := jc.NewMultiChecker()
-	mc.AddExpr("_.ConversationID", gc.HasLen, 16)
+	mc.AddExpr("_.ConversationID", tc.HasLen, 16)
 	mc.AddExpr("_.ConnectionID", jc.Ignore)
 	mc.AddExpr("_.When", jc.Satisfies, func(s string) bool {
 		t, err := time.Parse(time.RFC3339, s)
@@ -122,7 +122,7 @@ func (s *auditConfigSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 	})
 }
 
-func (s *auditConfigSuite) TestAuditLoggingFailureOnInterestingRequest(c *gc.C) {
+func (s *auditConfigSuite) TestAuditLoggingFailureOnInterestingRequest(c *tc.C) {
 	log := &servertesting.FakeAuditLog{}
 	log.SetErrors(errors.Errorf("bad news bears"))
 	s.WithAuditLogConfig = &auditlog.Config{
@@ -155,10 +155,10 @@ func (s *auditConfigSuite) TestAuditLoggingFailureOnInterestingRequest(c *gc.C) 
 		}},
 	}
 	err = conn.APICall(context.Background(), "MachineManager", machineManagerFacadeVersion, "", "AddMachines", addReq, &addResults)
-	c.Assert(err, gc.ErrorMatches, "bad news bears")
+	c.Assert(err, tc.ErrorMatches, "bad news bears")
 }
 
-func (s *auditConfigSuite) TestAuditLoggingUsesExcludeMethods(c *gc.C) {
+func (s *auditConfigSuite) TestAuditLoggingUsesExcludeMethods(c *tc.C) {
 	log := &servertesting.FakeAuditLog{}
 	s.WithAuditLogConfig = &auditlog.Config{
 		Enabled:        true,
@@ -181,7 +181,7 @@ func (s *auditConfigSuite) TestAuditLoggingUsesExcludeMethods(c *gc.C) {
 	}
 	err := conn.APICall(context.Background(), "Admin", 3, "", "Login", request, &result)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.UserInfo, gc.NotNil)
+	c.Assert(result.UserInfo, tc.NotNil)
 	// Nothing's logged at this point because there haven't been any
 	// interesting requests.
 	log.CheckCallNames(c)
@@ -209,25 +209,25 @@ func (s *auditConfigSuite) TestAuditLoggingUsesExcludeMethods(c *gc.C) {
 	log.CheckCallNames(c, "AddConversation", "AddRequest", "AddResponse", "AddRequest", "AddResponse")
 
 	req1 := log.Calls()[1].Args[0].(auditlog.Request)
-	c.Assert(req1.Facade, gc.Equals, "MachineManager")
-	c.Assert(req1.Method, gc.Equals, "AddMachines")
+	c.Assert(req1.Facade, tc.Equals, "MachineManager")
+	c.Assert(req1.Method, tc.Equals, "AddMachines")
 
 	req2 := log.Calls()[3].Args[0].(auditlog.Request)
-	c.Assert(req2.Facade, gc.Equals, "MachineManager")
-	c.Assert(req2.Method, gc.Equals, "DestroyMachineWithParams")
+	c.Assert(req2.Facade, tc.Equals, "MachineManager")
+	c.Assert(req2.Method, tc.Equals, "DestroyMachineWithParams")
 }
 
-func (s *auditConfigSuite) TestNewServerValidatesConfig(c *gc.C) {
+func (s *auditConfigSuite) TestNewServerValidatesConfig(c *tc.C) {
 	cfg := testing.DefaultServerConfig(c, nil)
 	cfg.GetAuditConfig = nil
 	cfg.DomainServicesGetter = s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c))
 
 	srv, err := apiserver.NewServer(context.Background(), cfg)
-	c.Assert(err, gc.ErrorMatches, "missing GetAuditConfig not valid")
-	c.Assert(srv, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "missing GetAuditConfig not valid")
+	c.Assert(srv, tc.IsNil)
 }
 
-func (s *auditConfigSuite) createModelAdminUser(c *gc.C, userTag names.UserTag, password string) {
+func (s *auditConfigSuite) createModelAdminUser(c *tc.C, userTag names.UserTag, password string) {
 	accessService := s.ControllerDomainServices(c).Access()
 
 	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{

@@ -9,8 +9,8 @@ import (
 	"github.com/juju/clock"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
@@ -34,7 +34,7 @@ type InitializeArgs struct {
 // InitializeWithArgs initializes the state and returns it. If state was not
 // already initialized, and args.Config is nil, the minimal default model
 // configuration will be used.
-func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.Controller {
+func InitializeWithArgs(c *tc.C, args InitializeArgs) *state.Controller {
 	if args.InitialConfig == nil {
 		args.InitialConfig = testing.ModelConfig(c)
 	}

@@ -6,8 +6,8 @@ package jujuc_test
 import (
 	"encoding/json"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/internal/cmd"
@@ -20,7 +20,7 @@ type storageListSuite struct {
 	storageSuite
 }
 
-var _ = gc.Suite(&storageListSuite{})
+var _ = tc.Suite(&storageListSuite{})
 
 func (s *storageListSuite) newHookContext() *jujuctesting.Context {
 	ctx, info := s.NewHookContext()
@@ -32,7 +32,7 @@ func (s *storageListSuite) newHookContext() *jujuctesting.Context {
 	return ctx
 }
 
-func (s *storageListSuite) TestOutputFormatYAML(c *gc.C) {
+func (s *storageListSuite) TestOutputFormatYAML(c *tc.C) {
 	s.testOutputFormat(c,
 		[]string{"--format", "yaml"},
 		formatYaml,
@@ -40,7 +40,7 @@ func (s *storageListSuite) TestOutputFormatYAML(c *gc.C) {
 	)
 }
 
-func (s *storageListSuite) TestOutputFormatJSON(c *gc.C) {
+func (s *storageListSuite) TestOutputFormatJSON(c *tc.C) {
 	s.testOutputFormat(c,
 		[]string{"--format", "json"},
 		formatJson,
@@ -48,7 +48,7 @@ func (s *storageListSuite) TestOutputFormatJSON(c *gc.C) {
 	)
 }
 
-func (s *storageListSuite) TestOutputFormatDefault(c *gc.C) {
+func (s *storageListSuite) TestOutputFormatDefault(c *tc.C) {
 	// The default output format is "smart", which is
 	// a newline-separated list of strings.
 	s.testOutputFormat(c,
@@ -58,7 +58,7 @@ func (s *storageListSuite) TestOutputFormatDefault(c *gc.C) {
 	)
 }
 
-func (s *storageListSuite) TestOutputFiltered(c *gc.C) {
+func (s *storageListSuite) TestOutputFiltered(c *tc.C) {
 	s.testOutputFormat(c,
 		[]string{"--format", "yaml", "data"},
 		formatYaml,
@@ -66,7 +66,7 @@ func (s *storageListSuite) TestOutputFiltered(c *gc.C) {
 	)
 }
 
-func (s *storageListSuite) TestOutputNoMatches(c *gc.C) {
+func (s *storageListSuite) TestOutputNoMatches(c *tc.C) {
 	s.testOutputFormat(c,
 		[]string{"--format", "yaml", "dat"},
 		formatYaml,
@@ -74,23 +74,23 @@ func (s *storageListSuite) TestOutputNoMatches(c *gc.C) {
 	)
 }
 
-func (s *storageListSuite) testOutputFormat(c *gc.C, args []string, format int, expect interface{}) {
+func (s *storageListSuite) testOutputFormat(c *tc.C, args []string, format int, expect interface{}) {
 	hctx := s.newHookContext()
 	com, err := jujuc.NewCommand(hctx, "storage-list")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, args)
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
+	c.Assert(code, tc.Equals, 0)
+	c.Assert(bufferString(ctx.Stderr), tc.Equals, "")
 
 	var out interface{}
 	var outSlice []string
 	switch format {
 	case formatYaml:
-		c.Assert(goyaml.Unmarshal(bufferBytes(ctx.Stdout), &outSlice), gc.IsNil)
+		c.Assert(goyaml.Unmarshal(bufferBytes(ctx.Stdout), &outSlice), tc.IsNil)
 		out = outSlice
 	case formatJson:
-		c.Assert(json.Unmarshal(bufferBytes(ctx.Stdout), &outSlice), gc.IsNil)
+		c.Assert(json.Unmarshal(bufferBytes(ctx.Stdout), &outSlice), tc.IsNil)
 		out = outSlice
 	default:
 		out = string(bufferBytes(ctx.Stdout))

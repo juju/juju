@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/common/charms"
 	coreapplication "github.com/juju/juju/core/application"
@@ -42,9 +42,9 @@ type workerSuite struct {
 	applicationChanges chan []string
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
-func (s *workerSuite) TestValidateConfig(c *gc.C) {
+func (s *workerSuite) TestValidateConfig(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -73,13 +73,13 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	}, `missing Logger not valid`)
 }
 
-func (s *workerSuite) testValidateConfig(c *gc.C, f func(*caasfirewaller.Config), expect string) {
+func (s *workerSuite) testValidateConfig(c *tc.C, f func(*caasfirewaller.Config), expect string) {
 	config := s.config
 	f(&config)
-	c.Check(config.Validate(), gc.ErrorMatches, expect)
+	c.Check(config.Validate(), tc.ErrorMatches, expect)
 }
 
-func (s *workerSuite) TestStartStop(c *gc.C) {
+func (s *workerSuite) TestStartStop(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -181,7 +181,7 @@ func (s *workerSuite) TestStartStop(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestV1CharmSkipsProcessing(c *gc.C) {
+func (s *workerSuite) TestV1CharmSkipsProcessing(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -225,7 +225,7 @@ func (s *workerSuite) TestV1CharmSkipsProcessing(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestNotFoundCharmSkipsProcessing(c *gc.C) {
+func (s *workerSuite) TestNotFoundCharmSkipsProcessing(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -266,7 +266,7 @@ func (s *workerSuite) TestNotFoundCharmSkipsProcessing(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.applicationChanges = make(chan []string)

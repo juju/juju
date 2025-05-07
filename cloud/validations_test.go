@@ -4,13 +4,13 @@
 package cloud_test
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 )
 
-func (s *cloudSuite) TestValidateValidCloud(c *gc.C) {
+func (s *cloudSuite) TestValidateValidCloud(c *tc.C) {
 	validCloud := `
           clouds:
             vmwarestack-trusty:
@@ -33,10 +33,10 @@ func (s *cloudSuite) TestValidateValidCloud(c *gc.C) {
 
 	yaml := []byte(validCloud)
 	err := cloud.ValidateCloudSet(yaml)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *cloudSuite) TestValidateInvalidCloud(c *gc.C) {
+func (s *cloudSuite) TestValidateInvalidCloud(c *tc.C) {
 	validCloud := `
           clouds:
             vmwarestack-trusty:
@@ -59,7 +59,7 @@ func (s *cloudSuite) TestValidateInvalidCloud(c *gc.C) {
 	c.Assert(err.Error(), jc.Contains, `"tpe" is invalid. Perhaps you mean "type"`)
 }
 
-func (s *cloudSuite) TestValidateMultipleValidClouds(c *gc.C) {
+func (s *cloudSuite) TestValidateMultipleValidClouds(c *tc.C) {
 	validCloud := `
           clouds:
             vmwarestack-trusty:
@@ -87,10 +87,10 @@ func (s *cloudSuite) TestValidateMultipleValidClouds(c *gc.C) {
 
 	yaml := []byte(validCloud)
 	err := cloud.ValidateCloudSet(yaml)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *cloudSuite) TestValidateMultipleInvalidClouds(c *gc.C) {
+func (s *cloudSuite) TestValidateMultipleInvalidClouds(c *tc.C) {
 	validCloud := `
           clouds:
             vmwarestack-trusty:
@@ -122,7 +122,7 @@ func (s *cloudSuite) TestValidateMultipleInvalidClouds(c *gc.C) {
 	c.Assert(err.Error(), jc.Contains, `"auth-tpes" is invalid. Perhaps you mean "auth-types"`)
 }
 
-func (s *cloudSuite) TestValidateInvalidPropertyWithNoSuggestion(c *gc.C) {
+func (s *cloudSuite) TestValidateInvalidPropertyWithNoSuggestion(c *tc.C) {
 	validCloud := `
           clouds:
             vmwarestack-trusty:
@@ -155,7 +155,7 @@ func (s *cloudSuite) TestValidateInvalidPropertyWithNoSuggestion(c *gc.C) {
 	c.Assert(err.Error(), jc.Contains, `"invalidProperty" is invalid.`)
 }
 
-func (s *cloudSuite) TestValidateOneValidCloud(c *gc.C) {
+func (s *cloudSuite) TestValidateOneValidCloud(c *tc.C) {
 	validCloud := `
           name: vmwarestack-trusty
           type: maas
@@ -172,10 +172,10 @@ func (s *cloudSuite) TestValidateOneValidCloud(c *gc.C) {
 
 	yaml := []byte(validCloud)
 	err := cloud.ValidateOneCloud(yaml)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *cloudSuite) TestValidateOneInvalidCloud(c *gc.C) {
+func (s *cloudSuite) TestValidateOneInvalidCloud(c *tc.C) {
 	validCloud := `
           nae: vmwarestack-trusty
           type: maas

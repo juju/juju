@@ -7,10 +7,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/secrets"
 	"github.com/juju/juju/cmd/juju/secrets/mocks"
@@ -25,9 +25,9 @@ type addSuite struct {
 	secretsAPI *mocks.MockAddSecretsAPI
 }
 
-var _ = gc.Suite(&addSuite{})
+var _ = tc.Suite(&addSuite{})
 
-func (s *addSuite) SetUpTest(c *gc.C) {
+func (s *addSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	store := jujuclient.NewMemStore()
 	store.Controllers["mycontroller"] = jujuclient.ControllerDetails{}
@@ -35,13 +35,13 @@ func (s *addSuite) SetUpTest(c *gc.C) {
 	s.store = store
 }
 
-func (s *addSuite) setup(c *gc.C) *gomock.Controller {
+func (s *addSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.secretsAPI = mocks.NewMockAddSecretsAPI(ctrl)
 	return ctrl
 }
 
-func (s *addSuite) TestAddDataFromArg(c *gc.C) {
+func (s *addSuite) TestAddDataFromArg(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -51,10 +51,10 @@ func (s *addSuite) TestAddDataFromArg(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, secrets.NewAddCommandForTest(s.store, s.secretsAPI), "my-secret", "foo=bar", "--info", "this is a secret.")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, uri.String()+"\n")
+	c.Assert(out, tc.Equals, uri.String()+"\n")
 }
 
-func (s *addSuite) TestAddDataFromFile(c *gc.C) {
+func (s *addSuite) TestAddDataFromFile(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -72,12 +72,12 @@ foo: bar
 	ctx, err := cmdtesting.RunCommand(c, secrets.NewAddCommandForTest(s.store, s.secretsAPI), "my-secret", "--file", path, "--info", "this is a secret.")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, uri.String()+"\n")
+	c.Assert(out, tc.Equals, uri.String()+"\n")
 }
 
-func (s *addSuite) TestAddEmptyData(c *gc.C) {
+func (s *addSuite) TestAddEmptyData(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	_, err := cmdtesting.RunCommand(c, secrets.NewAddCommandForTest(s.store, s.secretsAPI), "my-secret", "--info", "this is a secret.")
-	c.Assert(err, gc.ErrorMatches, `missing secret value or filename`)
+	c.Assert(err, tc.ErrorMatches, `missing secret value or filename`)
 }

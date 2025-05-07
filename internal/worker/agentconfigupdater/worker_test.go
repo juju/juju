@@ -9,10 +9,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/pubsub/v2"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
@@ -34,9 +34,9 @@ type WorkerSuite struct {
 	initialConfigMsg controllermsg.ConfigChangedMessage
 }
 
-var _ = gc.Suite(&WorkerSuite{})
+var _ = tc.Suite(&WorkerSuite{})
 
-func (s *WorkerSuite) SetUpTest(c *gc.C) {
+func (s *WorkerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.logger = loggertesting.WrapCheckLog(c)
 	s.hub = pubsub.NewStructuredHub(&pubsub.StructuredHubConfig{
@@ -84,7 +84,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *WorkerSuite) TestWorkerConfig(c *gc.C) {
+func (s *WorkerSuite) TestWorkerConfig(c *tc.C) {
 	for i, test := range []struct {
 		name      string
 		config    func() agentconfigupdater.WorkerConfig
@@ -126,29 +126,29 @@ func (s *WorkerSuite) TestWorkerConfig(c *gc.C) {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
 			c.Check(err, jc.ErrorIs, errors.NotValid)
-			c.Check(err, gc.ErrorMatches, test.expectErr)
+			c.Check(err, tc.ErrorMatches, test.expectErr)
 		}
 	}
 }
 
-func (s *WorkerSuite) TestNewWorkerValidatesConfig(c *gc.C) {
+func (s *WorkerSuite) TestNewWorkerValidatesConfig(c *tc.C) {
 	config := s.config
 	config.Agent = nil
 	w, err := agentconfigupdater.NewWorker(config)
-	c.Assert(w, gc.IsNil)
+	c.Assert(w, tc.IsNil)
 	c.Check(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *WorkerSuite) TestNormalStart(c *gc.C) {
+func (s *WorkerSuite) TestNormalStart(c *tc.C) {
 	w, err := agentconfigupdater.NewWorker(s.config)
-	c.Assert(w, gc.NotNil)
+	c.Assert(w, tc.NotNil)
 	c.Check(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) TestUpdateJujuDBSnapChannel(c *gc.C) {
+func (s *WorkerSuite) TestUpdateJujuDBSnapChannel(c *tc.C) {
 	w, err := agentconfigupdater.NewWorker(s.config)
-	c.Assert(w, gc.NotNil)
+	c.Assert(w, tc.NotNil)
 	c.Check(err, jc.ErrorIsNil)
 
 	newConfig := s.initialConfigMsg
@@ -174,12 +174,12 @@ func (s *WorkerSuite) TestUpdateJujuDBSnapChannel(c *gc.C) {
 
 	err = workertest.CheckKilled(c, w)
 
-	c.Assert(err, gc.Equals, jworker.ErrRestartAgent)
+	c.Assert(err, tc.Equals, jworker.ErrRestartAgent)
 }
 
-func (s *WorkerSuite) TestUpdateQueryTracingEnabled(c *gc.C) {
+func (s *WorkerSuite) TestUpdateQueryTracingEnabled(c *tc.C) {
 	w, err := agentconfigupdater.NewWorker(s.config)
-	c.Assert(w, gc.NotNil)
+	c.Assert(w, tc.NotNil)
 	c.Check(err, jc.ErrorIsNil)
 
 	newConfig := s.initialConfigMsg
@@ -205,12 +205,12 @@ func (s *WorkerSuite) TestUpdateQueryTracingEnabled(c *gc.C) {
 
 	err = workertest.CheckKilled(c, w)
 
-	c.Assert(err, gc.Equals, jworker.ErrRestartAgent)
+	c.Assert(err, tc.Equals, jworker.ErrRestartAgent)
 }
 
-func (s *WorkerSuite) TestUpdateQueryTracingThreshold(c *gc.C) {
+func (s *WorkerSuite) TestUpdateQueryTracingThreshold(c *tc.C) {
 	w, err := agentconfigupdater.NewWorker(s.config)
-	c.Assert(w, gc.NotNil)
+	c.Assert(w, tc.NotNil)
 	c.Check(err, jc.ErrorIsNil)
 
 	newConfig := s.initialConfigMsg
@@ -237,12 +237,12 @@ func (s *WorkerSuite) TestUpdateQueryTracingThreshold(c *gc.C) {
 
 	err = workertest.CheckKilled(c, w)
 
-	c.Assert(err, gc.Equals, jworker.ErrRestartAgent)
+	c.Assert(err, tc.Equals, jworker.ErrRestartAgent)
 }
 
-func (s *WorkerSuite) TestUpdateOpenTelemetryEnabled(c *gc.C) {
+func (s *WorkerSuite) TestUpdateOpenTelemetryEnabled(c *tc.C) {
 	w, err := agentconfigupdater.NewWorker(s.config)
-	c.Assert(w, gc.NotNil)
+	c.Assert(w, tc.NotNil)
 	c.Check(err, jc.ErrorIsNil)
 
 	newConfig := s.initialConfigMsg
@@ -267,12 +267,12 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryEnabled(c *gc.C) {
 
 	err = workertest.CheckKilled(c, w)
 
-	c.Assert(err, gc.Equals, jworker.ErrRestartAgent)
+	c.Assert(err, tc.Equals, jworker.ErrRestartAgent)
 }
 
-func (s *WorkerSuite) TestUpdateOpenTelemetryEndpoint(c *gc.C) {
+func (s *WorkerSuite) TestUpdateOpenTelemetryEndpoint(c *tc.C) {
 	w, err := agentconfigupdater.NewWorker(s.config)
-	c.Assert(w, gc.NotNil)
+	c.Assert(w, tc.NotNil)
 	c.Check(err, jc.ErrorIsNil)
 
 	newConfig := s.initialConfigMsg
@@ -297,12 +297,12 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryEndpoint(c *gc.C) {
 
 	err = workertest.CheckKilled(c, w)
 
-	c.Assert(err, gc.Equals, jworker.ErrRestartAgent)
+	c.Assert(err, tc.Equals, jworker.ErrRestartAgent)
 }
 
-func (s *WorkerSuite) TestUpdateOpenTelemetryInsecure(c *gc.C) {
+func (s *WorkerSuite) TestUpdateOpenTelemetryInsecure(c *tc.C) {
 	w, err := agentconfigupdater.NewWorker(s.config)
-	c.Assert(w, gc.NotNil)
+	c.Assert(w, tc.NotNil)
 	c.Check(err, jc.ErrorIsNil)
 
 	newConfig := s.initialConfigMsg
@@ -327,12 +327,12 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryInsecure(c *gc.C) {
 
 	err = workertest.CheckKilled(c, w)
 
-	c.Assert(err, gc.Equals, jworker.ErrRestartAgent)
+	c.Assert(err, tc.Equals, jworker.ErrRestartAgent)
 }
 
-func (s *WorkerSuite) TestUpdateOpenTelemetryStackTraces(c *gc.C) {
+func (s *WorkerSuite) TestUpdateOpenTelemetryStackTraces(c *tc.C) {
 	w, err := agentconfigupdater.NewWorker(s.config)
-	c.Assert(w, gc.NotNil)
+	c.Assert(w, tc.NotNil)
 	c.Check(err, jc.ErrorIsNil)
 
 	newConfig := s.initialConfigMsg
@@ -357,12 +357,12 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryStackTraces(c *gc.C) {
 
 	err = workertest.CheckKilled(c, w)
 
-	c.Assert(err, gc.Equals, jworker.ErrRestartAgent)
+	c.Assert(err, tc.Equals, jworker.ErrRestartAgent)
 }
 
-func (s *WorkerSuite) TestUpdateOpenTelemetrySampleRatio(c *gc.C) {
+func (s *WorkerSuite) TestUpdateOpenTelemetrySampleRatio(c *tc.C) {
 	w, err := agentconfigupdater.NewWorker(s.config)
-	c.Assert(w, gc.NotNil)
+	c.Assert(w, tc.NotNil)
 	c.Check(err, jc.ErrorIsNil)
 
 	newConfig := s.initialConfigMsg
@@ -387,12 +387,12 @@ func (s *WorkerSuite) TestUpdateOpenTelemetrySampleRatio(c *gc.C) {
 
 	err = workertest.CheckKilled(c, w)
 
-	c.Assert(err, gc.Equals, jworker.ErrRestartAgent)
+	c.Assert(err, tc.Equals, jworker.ErrRestartAgent)
 }
 
-func (s *WorkerSuite) TestUpdateOpenTelemetryTailSamplingThreshold(c *gc.C) {
+func (s *WorkerSuite) TestUpdateOpenTelemetryTailSamplingThreshold(c *tc.C) {
 	w, err := agentconfigupdater.NewWorker(s.config)
-	c.Assert(w, gc.NotNil)
+	c.Assert(w, tc.NotNil)
 	c.Check(err, jc.ErrorIsNil)
 
 	newConfig := s.initialConfigMsg
@@ -418,12 +418,12 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryTailSamplingThreshold(c *gc.C) {
 
 	err = workertest.CheckKilled(c, w)
 
-	c.Assert(err, gc.Equals, jworker.ErrRestartAgent)
+	c.Assert(err, tc.Equals, jworker.ErrRestartAgent)
 }
 
-func (s *WorkerSuite) TestUpdateObjectStoreType(c *gc.C) {
+func (s *WorkerSuite) TestUpdateObjectStoreType(c *tc.C) {
 	w, err := agentconfigupdater.NewWorker(s.config)
-	c.Assert(w, gc.NotNil)
+	c.Assert(w, tc.NotNil)
 	c.Check(err, jc.ErrorIsNil)
 
 	newConfig := s.initialConfigMsg
@@ -448,5 +448,5 @@ func (s *WorkerSuite) TestUpdateObjectStoreType(c *gc.C) {
 
 	err = workertest.CheckKilled(c, w)
 
-	c.Assert(err, gc.Equals, jworker.ErrRestartAgent)
+	c.Assert(err, tc.Equals, jworker.ErrRestartAgent)
 }

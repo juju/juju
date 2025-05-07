@@ -11,9 +11,9 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
-	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
 	coretesting "github.com/juju/juju/internal/testing"
@@ -22,7 +22,7 @@ import (
 // NewWorkerMatcher takes an EngineTracker, an engine manager id to
 // monitor and the workers that are expected to be running and sets up
 // a WorkerMatcher.
-func NewWorkerMatcher(c *gc.C, tracker *EngineTracker, id string, workers []string) *WorkerMatcher {
+func NewWorkerMatcher(c *tc.C, tracker *EngineTracker, id string, workers []string) *WorkerMatcher {
 	return &WorkerMatcher{
 		c:       c,
 		tracker: tracker,
@@ -34,7 +34,7 @@ func NewWorkerMatcher(c *gc.C, tracker *EngineTracker, id string, workers []stri
 // WorkerMatcher monitors the workers of a single engine manager,
 // using an EngineTracker, for a given set of workers to be running.
 type WorkerMatcher struct {
-	c         *gc.C
+	c         *tc.C
 	tracker   *EngineTracker
 	id        string
 	expect    set.Strings
@@ -76,7 +76,7 @@ func (m *WorkerMatcher) checkOnce() bool {
 }
 
 // WaitMatch returns only when the match func succeeds, or it times out.
-func WaitMatch(c *gc.C, match func() bool, maxWait time.Duration) {
+func WaitMatch(c *tc.C, match func() bool, maxWait time.Duration) {
 	timeout := time.After(maxWait)
 	for {
 		if match() {

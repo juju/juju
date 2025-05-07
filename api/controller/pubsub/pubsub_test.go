@@ -10,8 +10,8 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
 	apipubsub "github.com/juju/juju/api/controller/pubsub"
@@ -22,56 +22,56 @@ type PubSubSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&PubSubSuite{})
+var _ = tc.Suite(&PubSubSuite{})
 
-func (s *PubSubSuite) TestNewAPI(c *gc.C) {
+func (s *PubSubSuite) TestNewAPI(c *tc.C) {
 	conn := &mockConnector{
 		c: c,
 	}
 	a := apipubsub.NewAPI(conn)
 	w, err := a.OpenMessageWriter(context.Background())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	msg := new(params.PubSubMessage)
 	err = w.ForwardMessage(msg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
-	c.Assert(conn.written, gc.HasLen, 1)
-	c.Assert(conn.written[0], gc.Equals, msg)
+	c.Assert(conn.written, tc.HasLen, 1)
+	c.Assert(conn.written[0], tc.Equals, msg)
 
 	err = w.Close()
-	c.Assert(err, gc.IsNil)
-	c.Assert(conn.closeCount, gc.Equals, 1)
+	c.Assert(err, tc.IsNil)
+	c.Assert(conn.closeCount, tc.Equals, 1)
 }
 
-func (s *PubSubSuite) TestNewAPIWriteLogError(c *gc.C) {
+func (s *PubSubSuite) TestNewAPIWriteLogError(c *tc.C) {
 	conn := &mockConnector{
 		c:            c,
 		connectError: errors.New("foo"),
 	}
 	a := apipubsub.NewAPI(conn)
 	w, err := a.OpenMessageWriter(context.Background())
-	c.Assert(err, gc.ErrorMatches, "cannot connect to /pubsub: foo")
-	c.Assert(w, gc.Equals, nil)
+	c.Assert(err, tc.ErrorMatches, "cannot connect to /pubsub: foo")
+	c.Assert(w, tc.Equals, nil)
 }
 
-func (s *PubSubSuite) TestNewAPIWriteError(c *gc.C) {
+func (s *PubSubSuite) TestNewAPIWriteError(c *tc.C) {
 	conn := &mockConnector{
 		c:          c,
 		writeError: errors.New("foo"),
 	}
 	a := apipubsub.NewAPI(conn)
 	w, err := a.OpenMessageWriter(context.Background())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	defer w.Close()
 
 	err = w.ForwardMessage(new(params.PubSubMessage))
-	c.Assert(err, gc.ErrorMatches, "cannot send pubsub message: foo")
-	c.Assert(conn.written, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorMatches, "cannot send pubsub message: foo")
+	c.Assert(conn.written, tc.HasLen, 0)
 }
 
 type mockConnector struct {
-	c *gc.C
+	c *tc.C
 
 	connectError error
 	writeError   error
@@ -81,8 +81,8 @@ type mockConnector struct {
 }
 
 func (c *mockConnector) ConnectStream(_ context.Context, path string, values url.Values) (base.Stream, error) {
-	c.c.Assert(path, gc.Equals, "/pubsub")
-	c.c.Assert(values, gc.HasLen, 0)
+	c.c.Assert(path, tc.Equals, "/pubsub")
+	c.c.Assert(values, tc.HasLen, 0)
 	if c.connectError != nil {
 		return nil, c.connectError
 	}

@@ -8,9 +8,9 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
 	apicharm "github.com/juju/juju/api/common/charm"
@@ -21,13 +21,13 @@ import (
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 )
 
-var _ = gc.Suite(&DebugCodeSuite{})
+var _ = tc.Suite(&DebugCodeSuite{})
 
 type DebugCodeSuite struct {
 	SSHMachineSuite
 }
 
-func (s *DebugCodeSuite) TestArgFormatting(c *gc.C) {
+func (s *DebugCodeSuite) TestArgFormatting(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -48,7 +48,7 @@ func (s *DebugCodeSuite) TestArgFormatting(c *gc.C) {
 	base64Regex := regexp.MustCompile("echo ([A-Za-z0-9+/]+=*) \\| base64")
 	c.Check(err, jc.ErrorIsNil)
 	rawContent := base64Regex.FindString(cmdtesting.Stdout(ctx))
-	c.Check(rawContent, gc.Not(gc.Equals), "")
+	c.Check(rawContent, tc.Not(tc.Equals), "")
 	// Strip off the "echo " and " | base64"
 	prefix := "echo "
 	suffix := " | base64"
@@ -57,7 +57,7 @@ func (s *DebugCodeSuite) TestArgFormatting(c *gc.C) {
 	b64content := rawContent[len(prefix) : len(rawContent)-len(suffix)]
 	scriptContent, err := base64.StdEncoding.DecodeString(b64content)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(scriptContent), gc.Not(gc.Equals), "")
+	c.Assert(string(scriptContent), tc.Not(tc.Equals), "")
 	// Inside the script is another base64 encoded string telling us the debug-hook args
 	debugArgsRegex := regexp.MustCompile(`echo "([A-Z-a-z0-9+/]+=*)" \| base64.*-debug-hooks`)
 	debugArgsCommand := debugArgsRegex.FindString(string(scriptContent))
@@ -67,7 +67,7 @@ func (s *DebugCodeSuite) TestArgFormatting(c *gc.C) {
 	var args map[string]interface{}
 	err = goyaml.Unmarshal(yamlContent, &args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(args, gc.DeepEquals, map[string]interface{}{
+	c.Check(args, tc.DeepEquals, map[string]interface{}{
 		"hooks":    []interface{}{"install", "start"},
 		"debug-at": "foo,bar",
 	})

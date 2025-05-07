@@ -7,9 +7,9 @@ import (
 	stdcontext "context"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/juju/juju/internal/worker/uniter/hook"
@@ -20,9 +20,9 @@ type FailActionSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&FailActionSuite{})
+var _ = tc.Suite(&FailActionSuite{})
 
-func (s *FailActionSuite) TestPrepare(c *gc.C) {
+func (s *FailActionSuite) TestPrepare(c *tc.C) {
 	factory := newOpFactory(c, nil, nil)
 	op, err := factory.NewFailAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
@@ -36,7 +36,7 @@ func (s *FailActionSuite) TestPrepare(c *gc.C) {
 	})
 }
 
-func (s *FailActionSuite) TestExecuteSuccess(c *gc.C) {
+func (s *FailActionSuite) TestExecuteSuccess(c *tc.C) {
 	var stateChangeTests = []struct {
 		description string
 		before      operation.State
@@ -67,18 +67,18 @@ func (s *FailActionSuite) TestExecuteSuccess(c *gc.C) {
 		op, err := factory.NewFailAction(someActionId)
 		c.Assert(err, jc.ErrorIsNil)
 		midState, err := op.Prepare(stdcontext.Background(), test.before)
-		c.Assert(midState, gc.NotNil)
+		c.Assert(midState, tc.NotNil)
 		c.Assert(err, jc.ErrorIsNil)
 
 		newState, err := op.Execute(stdcontext.Background(), *midState)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(newState, jc.DeepEquals, &test.after)
-		c.Assert(*callbacks.MockFailAction.gotMessage, gc.Equals, "action terminated")
-		c.Assert(*callbacks.MockFailAction.gotActionId, gc.Equals, someActionId)
+		c.Assert(*callbacks.MockFailAction.gotMessage, tc.Equals, "action terminated")
+		c.Assert(*callbacks.MockFailAction.gotActionId, tc.Equals, someActionId)
 	}
 }
 
-func (s *FailActionSuite) TestExecuteFail(c *gc.C) {
+func (s *FailActionSuite) TestExecuteFail(c *tc.C) {
 	st := operation.State{
 		Kind:     operation.RunAction,
 		Step:     operation.Done,
@@ -89,14 +89,14 @@ func (s *FailActionSuite) TestExecuteFail(c *gc.C) {
 	op, err := factory.NewFailAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 	midState, err := op.Prepare(stdcontext.Background(), st)
-	c.Assert(midState, gc.NotNil)
+	c.Assert(midState, tc.NotNil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = op.Execute(stdcontext.Background(), *midState)
-	c.Assert(err, gc.ErrorMatches, "squelch")
+	c.Assert(err, tc.ErrorMatches, "squelch")
 }
 
-func (s *FailActionSuite) TestCommit(c *gc.C) {
+func (s *FailActionSuite) TestCommit(c *tc.C) {
 	var stateChangeTests = []struct {
 		description string
 		before      operation.State
@@ -151,7 +151,7 @@ func (s *FailActionSuite) TestCommit(c *gc.C) {
 	}
 }
 
-func (s *FailActionSuite) TestNeedsGlobalMachineLock(c *gc.C) {
+func (s *FailActionSuite) TestNeedsGlobalMachineLock(c *tc.C) {
 	factory := newOpFactory(c, nil, nil)
 	op, err := factory.NewFailAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)

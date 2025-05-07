@@ -7,9 +7,9 @@ import (
 	"bytes"
 	time "time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/testing"
 )
@@ -18,9 +18,9 @@ type metricsSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&metricsSuite{})
+var _ = tc.Suite(&metricsSuite{})
 
-func (s *metricsSuite) TestMetricsAreCollected(c *gc.C) {
+func (s *metricsSuite) TestMetricsAreCollected(c *tc.C) {
 	collector := NewMetricsCollector()
 
 	done := make(chan struct{})

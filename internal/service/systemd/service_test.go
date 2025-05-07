@@ -12,11 +12,11 @@ import (
 	"github.com/coreos/go-systemd/v22/dbus"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/exec"
 	"github.com/juju/utils/v4/shell"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/internal/service"
@@ -66,9 +66,9 @@ type initSystemSuite struct {
 	conf common.Conf
 }
 
-var _ = gc.Suite(&initSystemSuite{})
+var _ = tc.Suite(&initSystemSuite{})
 
-func (s *initSystemSuite) SetUpTest(c *gc.C) {
+func (s *initSystemSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.dataDir = paths.DataDir(paths.OSUnixLike)
@@ -85,7 +85,7 @@ func (s *initSystemSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *initSystemSuite) patch(c *gc.C) *gomock.Controller {
+func (s *initSystemSuite) patch(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.fops = NewMockFileSystemOps(ctrl)
@@ -97,7 +97,7 @@ func (s *initSystemSuite) patch(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *initSystemSuite) newService(c *gc.C) *systemd.Service {
+func (s *initSystemSuite) newService(c *tc.C) *systemd.Service {
 	var fac systemd.DBusAPIFactory
 	if s.dBus == nil {
 		fac = func() (systemd.DBusAPI, error) {
@@ -112,7 +112,7 @@ func (s *initSystemSuite) newService(c *gc.C) *systemd.Service {
 	return svc
 }
 
-func (s *initSystemSuite) expectConf(c *gc.C, conf common.Conf) *gomock.Call {
+func (s *initSystemSuite) expectConf(c *tc.C, conf common.Conf) *gomock.Call {
 	data, err := systemd.Serialize(s.name, conf, renderer)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -146,7 +146,7 @@ func (s *initSystemSuite) newConfStrEnv(name, env string) string {
 	return result
 }
 
-func (s *initSystemSuite) TestListServices(c *gc.C) {
+func (s *initSystemSuite) TestListServices(c *tc.C) {
 	ctrl := s.patch(c)
 	defer ctrl.Finish()
 
@@ -159,7 +159,7 @@ func (s *initSystemSuite) TestListServices(c *gc.C) {
 	c.Check(services, jc.SameContents, []string{"jujud-machine-0", "jujud-unit-wordpress-0"})
 }
 
-func (s *initSystemSuite) TestListServicesEmpty(c *gc.C) {
+func (s *initSystemSuite) TestListServicesEmpty(c *tc.C) {
 	ctrl := s.patch(c)
 	defer ctrl.Finish()
 
@@ -167,18 +167,18 @@ func (s *initSystemSuite) TestListServicesEmpty(c *gc.C) {
 
 	services, err := systemd.ListServices()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(services, gc.HasLen, 0)
+	c.Check(services, tc.HasLen, 0)
 }
 
-func (s *initSystemSuite) TestNewService(c *gc.C) {
+func (s *initSystemSuite) TestNewService(c *tc.C) {
 	svc := s.newService(c)
 	c.Check(svc.Service, jc.DeepEquals, common.Service{Name: s.name, Conf: s.conf})
-	c.Check(svc.ConfName, gc.Equals, s.name+".service")
-	c.Check(svc.UnitName, gc.Equals, s.name+".service")
-	c.Check(svc.DirName, gc.Equals, systemd.EtcSystemdDir)
+	c.Check(svc.ConfName, tc.Equals, s.name+".service")
+	c.Check(svc.UnitName, tc.Equals, s.name+".service")
+	c.Check(svc.DirName, tc.Equals, systemd.EtcSystemdDir)
 }
 
-func (s *initSystemSuite) TestNewServiceLogfile(c *gc.C) {
+func (s *initSystemSuite) TestNewServiceLogfile(c *tc.C) {
 	s.conf.Logfile = "/var/log/juju/machine-0.log"
 	svc := s.newService(c)
 
@@ -205,35 +205,35 @@ exec 2>&1
 		},
 	})
 
-	c.Check(svc.ConfName, gc.Equals, s.name+".service")
-	c.Check(svc.UnitName, gc.Equals, s.name+".service")
-	c.Check(svc.DirName, gc.Equals, systemd.EtcSystemdDir)
+	c.Check(svc.ConfName, tc.Equals, s.name+".service")
+	c.Check(svc.UnitName, tc.Equals, s.name+".service")
+	c.Check(svc.DirName, tc.Equals, systemd.EtcSystemdDir)
 
 	// This gives us a more readable output if they aren't equal.
-	c.Check(string(svc.Script), gc.Equals, script)
+	c.Check(string(svc.Script), tc.Equals, script)
 	c.Check(strings.Split(string(svc.Script), "\n"), jc.DeepEquals, strings.Split(script, "\n"))
 }
 
-func (s *initSystemSuite) TestNewServiceEmptyConf(c *gc.C) {
+func (s *initSystemSuite) TestNewServiceEmptyConf(c *tc.C) {
 	svc, err := systemd.NewService(
 		s.name, common.Conf{}, systemd.EtcSystemdDir, systemd.NewDBusAPI, s.fops, renderer.Join(s.dataDir, "init"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	c.Check(svc.Service, jc.DeepEquals, common.Service{Name: s.name})
-	c.Check(svc.ConfName, gc.Equals, s.name+".service")
-	c.Check(svc.UnitName, gc.Equals, s.name+".service")
-	c.Check(svc.DirName, gc.Equals, systemd.EtcSystemdDir)
+	c.Check(svc.ConfName, tc.Equals, s.name+".service")
+	c.Check(svc.UnitName, tc.Equals, s.name+".service")
+	c.Check(svc.DirName, tc.Equals, systemd.EtcSystemdDir)
 }
 
-func (s *initSystemSuite) TestNewServiceBasic(c *gc.C) {
+func (s *initSystemSuite) TestNewServiceBasic(c *tc.C) {
 	s.conf.ExecStart = "/path/to/some/other/command"
 	svc := s.newService(c)
 	c.Check(svc.Service, jc.DeepEquals, common.Service{Name: s.name, Conf: s.conf})
-	c.Check(svc.ConfName, gc.Equals, s.name+".service")
-	c.Check(svc.UnitName, gc.Equals, s.name+".service")
-	c.Check(svc.DirName, gc.Equals, systemd.EtcSystemdDir)
+	c.Check(svc.ConfName, tc.Equals, s.name+".service")
+	c.Check(svc.UnitName, tc.Equals, s.name+".service")
+	c.Check(svc.DirName, tc.Equals, systemd.EtcSystemdDir)
 }
 
-func (s *initSystemSuite) TestNewServiceExtraScript(c *gc.C) {
+func (s *initSystemSuite) TestNewServiceExtraScript(c *tc.C) {
 	s.conf.ExtraScript = "'/path/to/another/command'"
 	svc := s.newService(c)
 
@@ -251,13 +251,13 @@ func (s *initSystemSuite) TestNewServiceExtraScript(c *gc.C) {
 		},
 	})
 
-	c.Check(svc.ConfName, gc.Equals, s.name+".service")
-	c.Check(svc.UnitName, gc.Equals, s.name+".service")
-	c.Check(svc.DirName, gc.Equals, systemd.EtcSystemdDir)
-	c.Check(string(svc.Script), gc.Equals, script)
+	c.Check(svc.ConfName, tc.Equals, s.name+".service")
+	c.Check(svc.UnitName, tc.Equals, s.name+".service")
+	c.Check(svc.DirName, tc.Equals, systemd.EtcSystemdDir)
+	c.Check(string(svc.Script), tc.Equals, script)
 }
 
-func (s *initSystemSuite) TestNewServiceMultiLine(c *gc.C) {
+func (s *initSystemSuite) TestNewServiceMultiLine(c *tc.C) {
 	s.conf.ExecStart = "a\nb\nc"
 	svc := s.newService(c)
 
@@ -276,15 +276,15 @@ c`[1:]
 		},
 	})
 
-	c.Check(svc.ConfName, gc.Equals, s.name+".service")
-	c.Check(svc.UnitName, gc.Equals, s.name+".service")
-	c.Check(svc.DirName, gc.Equals, systemd.EtcSystemdDir)
+	c.Check(svc.ConfName, tc.Equals, s.name+".service")
+	c.Check(svc.UnitName, tc.Equals, s.name+".service")
+	c.Check(svc.DirName, tc.Equals, systemd.EtcSystemdDir)
 
 	// This gives us a more readable output if they aren't equal.
-	c.Check(string(svc.Script), gc.Equals, script)
+	c.Check(string(svc.Script), tc.Equals, script)
 }
 
-func (s *initSystemSuite) TestInstalledTrue(c *gc.C) {
+func (s *initSystemSuite) TestInstalledTrue(c *tc.C) {
 	ctrl := s.patch(c)
 	defer ctrl.Finish()
 
@@ -297,7 +297,7 @@ func (s *initSystemSuite) TestInstalledTrue(c *gc.C) {
 	c.Check(installed, jc.IsTrue)
 }
 
-func (s *initSystemSuite) TestInstalledFalse(c *gc.C) {
+func (s *initSystemSuite) TestInstalledFalse(c *tc.C) {
 	ctrl := s.patch(c)
 	defer ctrl.Finish()
 
@@ -310,18 +310,18 @@ func (s *initSystemSuite) TestInstalledFalse(c *gc.C) {
 	c.Check(installed, jc.IsFalse)
 }
 
-func (s *initSystemSuite) TestInstalledError(c *gc.C) {
+func (s *initSystemSuite) TestInstalledError(c *tc.C) {
 	ctrl := s.patch(c)
 	defer ctrl.Finish()
 
 	s.exec.EXPECT().RunCommands(listCmdArg).Return(nil, errFailure)
 
 	installed, err := s.newService(c).Installed()
-	c.Assert(errors.Cause(err), gc.Equals, errFailure)
+	c.Assert(errors.Cause(err), tc.Equals, errFailure)
 	c.Check(installed, jc.IsFalse)
 }
 
-func (s *initSystemSuite) TestExistsTrue(c *gc.C) {
+func (s *initSystemSuite) TestExistsTrue(c *tc.C) {
 	ctrl := s.patch(c)
 	defer ctrl.Finish()
 	s.expectConf(c, s.conf)
@@ -331,7 +331,7 @@ func (s *initSystemSuite) TestExistsTrue(c *gc.C) {
 	c.Check(exists, jc.IsTrue)
 }
 
-func (s *initSystemSuite) TestExistsFalse(c *gc.C) {
+func (s *initSystemSuite) TestExistsFalse(c *tc.C) {
 	ctrl := s.patch(c)
 	defer ctrl.Finish()
 
@@ -349,7 +349,7 @@ func (s *initSystemSuite) TestExistsFalse(c *gc.C) {
 	c.Check(exists, jc.IsFalse)
 }
 
-func (s *initSystemSuite) TestExistsError(c *gc.C) {
+func (s *initSystemSuite) TestExistsError(c *tc.C) {
 	ctrl := s.patch(c)
 	defer ctrl.Finish()
 
@@ -360,18 +360,18 @@ func (s *initSystemSuite) TestExistsError(c *gc.C) {
 	).Return(nil, errFailure)
 
 	exists, err := s.newService(c).Exists()
-	c.Assert(errors.Cause(err), gc.Equals, errFailure)
+	c.Assert(errors.Cause(err), tc.Equals, errFailure)
 	c.Check(exists, jc.IsFalse)
 }
 
-func (s *initSystemSuite) TestExistsEmptyConf(c *gc.C) {
+func (s *initSystemSuite) TestExistsEmptyConf(c *tc.C) {
 	svc := s.newService(c)
 	svc.Service.Conf = common.Conf{}
 	_, err := svc.Exists()
-	c.Check(err, gc.ErrorMatches, `.*no conf expected.*`)
+	c.Check(err, tc.ErrorMatches, `.*no conf expected.*`)
 }
 
-func (s *initSystemSuite) TestRunningTrue(c *gc.C) {
+func (s *initSystemSuite) TestRunningTrue(c *tc.C) {
 	ctrl := s.patch(c)
 	defer ctrl.Finish()
 
@@ -388,7 +388,7 @@ func (s *initSystemSuite) TestRunningTrue(c *gc.C) {
 	c.Check(running, jc.IsTrue)
 }
 
-func (s *initSystemSuite) TestRunningFalse(c *gc.C) {
+func (s *initSystemSuite) TestRunningFalse(c *tc.C) {
 	ctrl := s.patch(c)
 	defer ctrl.Finish()
 
@@ -405,7 +405,7 @@ func (s *initSystemSuite) TestRunningFalse(c *gc.C) {
 	c.Check(running, jc.IsFalse)
 }
 
-func (s *initSystemSuite) TestRunningNotEnabled(c *gc.C) {
+func (s *initSystemSuite) TestRunningNotEnabled(c *tc.C) {
 	ctrl := s.patch(c)
 	defer ctrl.Finish()
 
@@ -421,7 +421,7 @@ func (s *initSystemSuite) TestRunningNotEnabled(c *gc.C) {
 	c.Check(running, jc.IsFalse)
 }
 
-func (s *initSystemSuite) TestRunningError(c *gc.C) {
+func (s *initSystemSuite) TestRunningError(c *tc.C) {
 	ctrl := s.patch(c)
 	defer ctrl.Finish()
 
@@ -431,10 +431,10 @@ func (s *initSystemSuite) TestRunningError(c *gc.C) {
 	)
 
 	_, err := s.newService(c).Running()
-	c.Check(errors.Cause(err), gc.Equals, errFailure)
+	c.Check(errors.Cause(err), tc.Equals, errFailure)
 }
 
-func (s *initSystemSuite) TestStart(c *gc.C) {
+func (s *initSystemSuite) TestStart(c *tc.C) {
 	ctrl := s.patch(c)
 	defer ctrl.Finish()
 
@@ -464,7 +464,7 @@ func (s *initSystemSuite) TestStart(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *initSystemSuite) TestStartAlreadyRunning(c *gc.C) {
+func (s *initSystemSuite) TestStartAlreadyRunning(c *tc.C) {
 	ctrl := s.patch(c)
 	defer ctrl.Finish()
 
@@ -484,7 +484,7 @@ func (s *initSystemSuite) TestStartAlreadyRunning(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *initSystemSuite) TestStartNotInstalled(c *gc.C) {
+func (s *initSystemSuite) TestStartNotInstalled(c *tc.C) {
 	ctrl := s.patch(c)
 	defer ctrl.Finish()
 
@@ -494,7 +494,7 @@ func (s *initSystemSuite) TestStartNotInstalled(c *gc.C) {
 	c.Check(err, jc.ErrorIs, errors.NotFound)
 }
 
-func (s *initSystemSuite) TestStop(c *gc.C) {
+func (s *initSystemSuite) TestStop(c *tc.C) {
 	ctrl := s.patch(c)
 	defer ctrl.Finish()
 
@@ -521,7 +521,7 @@ func (s *initSystemSuite) TestStop(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *initSystemSuite) TestStopNotRunning(c *gc.C) {
+func (s *initSystemSuite) TestStopNotRunning(c *tc.C) {
 	ctrl := s.patch(c)
 	defer ctrl.Finish()
 
@@ -538,7 +538,7 @@ func (s *initSystemSuite) TestStopNotRunning(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *initSystemSuite) TestStopNotInstalled(c *gc.C) {
+func (s *initSystemSuite) TestStopNotInstalled(c *tc.C) {
 	ctrl := s.patch(c)
 	defer ctrl.Finish()
 
@@ -551,7 +551,7 @@ func (s *initSystemSuite) TestStopNotInstalled(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *initSystemSuite) TestRemove(c *gc.C) {
+func (s *initSystemSuite) TestRemove(c *tc.C) {
 	ctrl := s.patch(c)
 	defer ctrl.Finish()
 
@@ -570,7 +570,7 @@ func (s *initSystemSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *initSystemSuite) TestRemoveNotInstalled(c *gc.C) {
+func (s *initSystemSuite) TestRemoveNotInstalled(c *tc.C) {
 	ctrl := s.patch(c)
 	defer ctrl.Finish()
 
@@ -580,7 +580,7 @@ func (s *initSystemSuite) TestRemoveNotInstalled(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *initSystemSuite) TestInstall(c *gc.C) {
+func (s *initSystemSuite) TestInstall(c *tc.C) {
 	ctrl := s.patch(c)
 	defer ctrl.Finish()
 
@@ -599,7 +599,7 @@ func (s *initSystemSuite) TestInstall(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *initSystemSuite) TestInstallAlreadyInstalled(c *gc.C) {
+func (s *initSystemSuite) TestInstallAlreadyInstalled(c *tc.C) {
 	ctrl := s.patch(c)
 	defer ctrl.Finish()
 
@@ -612,7 +612,7 @@ func (s *initSystemSuite) TestInstallAlreadyInstalled(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
+func (s *initSystemSuite) TestInstallZombie(c *tc.C) {
 	ctrl := s.patch(c)
 	defer ctrl.Finish()
 
@@ -658,7 +658,7 @@ func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *initSystemSuite) TestInstallMultiLine(c *gc.C) {
+func (s *initSystemSuite) TestInstallMultiLine(c *tc.C) {
 	ctrl := s.patch(c)
 	defer ctrl.Finish()
 
@@ -684,14 +684,14 @@ func (s *initSystemSuite) TestInstallMultiLine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *initSystemSuite) TestInstallEmptyConf(c *gc.C) {
+func (s *initSystemSuite) TestInstallEmptyConf(c *tc.C) {
 	svc := s.newService(c)
 	svc.Service.Conf = common.Conf{}
 	err := svc.Install()
-	c.Check(err, gc.ErrorMatches, `.*missing conf.*`)
+	c.Check(err, tc.ErrorMatches, `.*missing conf.*`)
 }
 
-func (s *initSystemSuite) TestInstallCommands(c *gc.C) {
+func (s *initSystemSuite) TestInstallCommands(c *tc.C) {
 	name := "jujud-machine-0"
 	commands, err := s.newService(c).InstallCommands()
 	c.Assert(err, jc.ErrorIsNil)
@@ -704,7 +704,7 @@ func (s *initSystemSuite) TestInstallCommands(c *gc.C) {
 	test.CheckCommands(c, commands)
 }
 
-func (s *initSystemSuite) TestInstallCommandsLogfile(c *gc.C) {
+func (s *initSystemSuite) TestInstallCommandsLogfile(c *tc.C) {
 	name := "jujud-machine-0"
 	s.conf.Logfile = "/var/log/juju/machine-0.log"
 	svc := s.newService(c)
@@ -735,7 +735,7 @@ exec 2>&1
 	test.CheckCommands(c, commands)
 }
 
-func (s *initSystemSuite) TestInstallCommandsShutdown(c *gc.C) {
+func (s *initSystemSuite) TestInstallCommandsShutdown(c *tc.C) {
 	name := "juju-shutdown-job"
 	conf, err := service.ShutdownAfterConf("cloud-final")
 	c.Assert(err, jc.ErrorIsNil)
@@ -770,20 +770,20 @@ WantedBy=multi-user.target
 	test.CheckCommands(c, commands)
 }
 
-func (s *initSystemSuite) TestInstallCommandsEmptyConf(c *gc.C) {
+func (s *initSystemSuite) TestInstallCommandsEmptyConf(c *tc.C) {
 	svc := s.newService(c)
 	svc.Service.Conf = common.Conf{}
 	_, err := svc.InstallCommands()
-	c.Check(err, gc.ErrorMatches, `.*missing conf.*`)
+	c.Check(err, tc.ErrorMatches, `.*missing conf.*`)
 }
 
-func (s *initSystemSuite) TestStartCommands(c *gc.C) {
+func (s *initSystemSuite) TestStartCommands(c *tc.C) {
 	commands, err := s.newService(c).StartCommands()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(commands, jc.DeepEquals, []string{"/bin/systemctl start jujud-machine-0.service"})
 }
 
-func (s *initSystemSuite) TestInstallLimits(c *gc.C) {
+func (s *initSystemSuite) TestInstallLimits(c *tc.C) {
 	name := "juju-job"
 	conf := common.Conf{
 		Desc:      "juju agent for juju-job",
@@ -798,7 +798,7 @@ func (s *initSystemSuite) TestInstallLimits(c *gc.C) {
 	}
 	data, err := systemd.Serialize(name, conf, renderer)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(string(data), gc.Equals, `
+	c.Check(string(data), tc.Equals, `
 [Unit]
 Description=juju agent for juju-job
 After=syslog.target

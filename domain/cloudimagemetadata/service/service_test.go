@@ -7,10 +7,10 @@ import (
 	"context"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/domain/cloudimagemetadata"
 	cloudimageerrors "github.com/juju/juju/domain/cloudimagemetadata/errors"
@@ -22,16 +22,16 @@ type serviceSuite struct {
 	state *MockState
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = tc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.state = NewMockState(ctrl)
 	return ctrl
 }
 
 // TestSaveMetadataSuccess verifies that metadata is saved successfully without errors.
-func (s *serviceSuite) TestSaveMetadataSuccess(c *gc.C) {
+func (s *serviceSuite) TestSaveMetadataSuccess(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	inserted := []cloudimagemetadata.Metadata{{
@@ -55,7 +55,7 @@ func (s *serviceSuite) TestSaveMetadataSuccess(c *gc.C) {
 }
 
 // TestSaveMetadataEmptyImageID verifies that the SaveMetadata function returns an error when given metadata with an empty ImageID.
-func (s *serviceSuite) TestSaveMetadataEmptyImageID(c *gc.C) {
+func (s *serviceSuite) TestSaveMetadataEmptyImageID(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	// State layer shouldn't be called
@@ -66,11 +66,11 @@ func (s *serviceSuite) TestSaveMetadataEmptyImageID(c *gc.C) {
 	// Assert
 	c.Assert(err, jc.ErrorIs, cloudimageerrors.NotValid)
 	c.Assert(err, jc.ErrorIs, cloudimageerrors.EmptyImageID)
-	c.Assert(err, gc.ErrorMatches, "image id is empty: invalid metadata")
+	c.Assert(err, tc.ErrorMatches, "image id is empty: invalid metadata")
 }
 
 // TestSaveMetadataInvalidFields validates that SaveMetadata returns an error when required fields in metadata are missing.
-func (s *serviceSuite) TestSaveMetadataInvalidFields(c *gc.C) {
+func (s *serviceSuite) TestSaveMetadataInvalidFields(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	// State layer shouldn't be called
@@ -80,11 +80,11 @@ func (s *serviceSuite) TestSaveMetadataInvalidFields(c *gc.C) {
 
 	// Assert
 	c.Assert(err, jc.ErrorIs, cloudimageerrors.NotValid)
-	c.Assert(err, gc.ErrorMatches, "missing version, stream, source, arch, region: invalid metadata for image dead-beaf")
+	c.Assert(err, tc.ErrorMatches, "missing version, stream, source, arch, region: invalid metadata for image dead-beaf")
 }
 
 // TestSaveMetadataEmptyInsert verifies that SaveMetadata returns no errors when inserting empty data
-func (s *serviceSuite) TestSaveMetadataEmptyInsert(c *gc.C) {
+func (s *serviceSuite) TestSaveMetadataEmptyInsert(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	// State layer shouldn't be called
@@ -97,7 +97,7 @@ func (s *serviceSuite) TestSaveMetadataEmptyInsert(c *gc.C) {
 }
 
 // TestSaveMetadataInvalidArchitectureName verifies that the SaveMetadata method returns an error when given an unsupported architecture.
-func (s *serviceSuite) TestSaveMetadataInvalidArchitectureName(c *gc.C) { // Arrange
+func (s *serviceSuite) TestSaveMetadataInvalidArchitectureName(c *tc.C) { // Arrange
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
@@ -117,12 +117,12 @@ func (s *serviceSuite) TestSaveMetadataInvalidArchitectureName(c *gc.C) { // Arr
 
 	// Assert
 	c.Assert(err, jc.ErrorIs, cloudimageerrors.NotValid)
-	c.Assert(err, gc.ErrorMatches, "unsupported architecture risc \\(should be any of \\[(amd64 arm64|arm64 amd64)\\]\\): invalid metadata")
+	c.Assert(err, tc.ErrorMatches, "unsupported architecture risc \\(should be any of \\[(amd64 arm64|arm64 amd64)\\]\\): invalid metadata")
 }
 
 // TestSaveMetadataError tests the SaveMetadata method to ensure it return all other unexpected errors from underlying
 // state.
-func (s *serviceSuite) TestSaveMetadataError(c *gc.C) { // Arrange
+func (s *serviceSuite) TestSaveMetadataError(c *tc.C) { // Arrange
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	errExpected := errors.New("oh no!!")
@@ -145,7 +145,7 @@ func (s *serviceSuite) TestSaveMetadataError(c *gc.C) { // Arrange
 }
 
 // TestDeleteMetadataSuccess verifies that deleting metadata by image ID calls the right function in the underlying state.
-func (s *serviceSuite) TestDeleteMetadataSuccess(c *gc.C) {
+func (s *serviceSuite) TestDeleteMetadataSuccess(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	s.state.EXPECT().DeleteMetadataWithImageID(gomock.Any(), "dead-beaf").Return(nil)
@@ -158,7 +158,7 @@ func (s *serviceSuite) TestDeleteMetadataSuccess(c *gc.C) {
 }
 
 // TestDeleteMetadataEmptyImageID tests that trying to delete metadata with an empty image ID causes a EmptyImageID error
-func (s *serviceSuite) TestDeleteMetadataEmptyImageID(c *gc.C) {
+func (s *serviceSuite) TestDeleteMetadataEmptyImageID(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
@@ -170,7 +170,7 @@ func (s *serviceSuite) TestDeleteMetadataEmptyImageID(c *gc.C) {
 }
 
 // TestDeleteMetadataError verifies that the DeleteMetadataWithImageID method returns the underlying error when deletion fails.
-func (s *serviceSuite) TestDeleteMetadataError(c *gc.C) {
+func (s *serviceSuite) TestDeleteMetadataError(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	errExpected := errors.New("oh no!!")
@@ -185,7 +185,7 @@ func (s *serviceSuite) TestDeleteMetadataError(c *gc.C) {
 
 // TestFindMetadataSuccessOneSource is a unit test that verifies the FindMetadata method returns metadata grouped by source
 // when it successfully fetches data matching the given criteria from a single source.
-func (s *serviceSuite) TestFindMetadataSuccessOneSource(c *gc.C) {
+func (s *serviceSuite) TestFindMetadataSuccessOneSource(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
@@ -214,14 +214,14 @@ func (s *serviceSuite) TestFindMetadataSuccessOneSource(c *gc.C) {
 
 	// Assert
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, map[string][]cloudimagemetadata.Metadata{
+	c.Assert(result, tc.DeepEquals, map[string][]cloudimagemetadata.Metadata{
 		"source": {metadata1, metadata1, metadata1},
 	})
 }
 
 // TestFindMetadataSuccessOneSource is a unit test that verifies the FindMetadata method returns metadata grouped by source
 // when it successfully fetches data matching the given criteria from several sources.
-func (s *serviceSuite) TestFindMetadataSuccessSeveralSources(c *gc.C) {
+func (s *serviceSuite) TestFindMetadataSuccessSeveralSources(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
@@ -253,14 +253,14 @@ func (s *serviceSuite) TestFindMetadataSuccessSeveralSources(c *gc.C) {
 
 	// Assert
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, map[string][]cloudimagemetadata.Metadata{
+	c.Assert(result, tc.DeepEquals, map[string][]cloudimagemetadata.Metadata{
 		"source": {metadata1, metadata1, metadata1},
 		"alt":    {metadataAlt, metadataAlt},
 	})
 }
 
 // TestFindMetadataNotFound test that a notFound error is returned when the metadata is not found based on the given criteria.
-func (s *serviceSuite) TestFindMetadataNotFound(c *gc.C) {
+func (s *serviceSuite) TestFindMetadataNotFound(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
@@ -277,7 +277,7 @@ func (s *serviceSuite) TestFindMetadataNotFound(c *gc.C) {
 
 // TestFindMetadataError tests the behavior of the service's FindMetadata method when an error is returned by the state.
 // The error should be returned.
-func (s *serviceSuite) TestFindMetadataError(c *gc.C) {
+func (s *serviceSuite) TestFindMetadataError(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
@@ -294,7 +294,7 @@ func (s *serviceSuite) TestFindMetadataError(c *gc.C) {
 }
 
 // TestAllCloudImageMetadataSuccess verifies that the AllCloudImageMetadata function successfully retrieves metadata.
-func (s *serviceSuite) TestAllCloudImageMetadataSuccess(c *gc.C) {
+func (s *serviceSuite) TestAllCloudImageMetadataSuccess(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
@@ -315,11 +315,11 @@ func (s *serviceSuite) TestAllCloudImageMetadataSuccess(c *gc.C) {
 
 	// Assert
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, expected)
+	c.Assert(result, tc.DeepEquals, expected)
 }
 
 // TestAllCloudImageMetadataError tests that AllCloudImageMetadata returns the underlying error when the to state fails.
-func (s *serviceSuite) TestAllCloudImageMetadataError(c *gc.C) {
+func (s *serviceSuite) TestAllCloudImageMetadataError(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 

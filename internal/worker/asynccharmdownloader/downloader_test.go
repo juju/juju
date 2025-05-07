@@ -8,11 +8,11 @@ import (
 	"net/url"
 	time "time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
@@ -30,9 +30,9 @@ type asyncWorkerSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&asyncWorkerSuite{})
+var _ = tc.Suite(&asyncWorkerSuite{})
 
-func (s *asyncWorkerSuite) TestDownloadWorker(c *gc.C) {
+func (s *asyncWorkerSuite) TestDownloadWorker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appID := applicationtesting.GenApplicationUUID(c)
@@ -82,7 +82,7 @@ func (s *asyncWorkerSuite) TestDownloadWorker(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownload(c *gc.C) {
+func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownload(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appID := applicationtesting.GenApplicationUUID(c)
@@ -139,7 +139,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownload(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownloadAndFails(c *gc.C) {
+func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownloadAndFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appID := applicationtesting.GenApplicationUUID(c)
@@ -186,10 +186,10 @@ func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownloadAndFails(c *gc.C) {
 	}
 
 	err = workertest.CheckKilled(c, w)
-	c.Assert(err, gc.ErrorMatches, `.*boom`)
+	c.Assert(err, tc.ErrorMatches, `.*boom`)
 }
 
-func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyDownloaded(c *gc.C) {
+func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyDownloaded(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appID := applicationtesting.GenApplicationUUID(c)
@@ -226,7 +226,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyDownloaded(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyResolved(c *gc.C) {
+func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyResolved(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appID := applicationtesting.GenApplicationUUID(c)
@@ -276,7 +276,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyResolved(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *asyncWorkerSuite) newWorker(c *gc.C, appID application.ID) worker.Worker {
+func (s *asyncWorkerSuite) newWorker(c *tc.C, appID application.ID) worker.Worker {
 	return NewAsyncDownloadWorker(
 		appID,
 		s.applicationService,

@@ -10,10 +10,10 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	coreresource "github.com/juju/juju/core/resource"
@@ -29,9 +29,9 @@ type fileResourceStoreSuite struct {
 	file        io.ReadCloser
 }
 
-var _ = gc.Suite(&fileResourceStoreSuite{})
+var _ = tc.Suite(&fileResourceStoreSuite{})
 
-func (s *fileResourceStoreSuite) SetUpTest(c *gc.C) {
+func (s *fileResourceStoreSuite) SetUpTest(c *tc.C) {
 	data := "spamspamspam"
 	size := int64(len(data))
 	sha384hash := sha512.New384()
@@ -54,7 +54,7 @@ func (s *fileResourceStoreSuite) SetUpTest(c *gc.C) {
 	s.file = io.NopCloser(bytes.NewBufferString(data))
 }
 
-func (s *fileResourceStoreSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *fileResourceStoreSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.objectStore = NewMockObjectStore(ctrl)
@@ -62,7 +62,7 @@ func (s *fileResourceStoreSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *fileResourceStoreSuite) TestFileResourceStorePut(c *gc.C) {
+func (s *fileResourceStoreSuite) TestFileResourceStorePut(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	store := fileResourceStore{s.objectStore}
 
@@ -88,12 +88,12 @@ func (s *fileResourceStoreSuite) TestFileResourceStorePut(c *gc.C) {
 
 	id, err := storageUUID.ObjectStoreUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(id, gc.Equals, expectedStorageUUID)
-	c.Check(returnedSize, gc.Equals, size)
-	c.Check(returnedFingerprint, gc.DeepEquals, fingerprint)
+	c.Check(id, tc.Equals, expectedStorageUUID)
+	c.Check(returnedSize, tc.Equals, size)
+	c.Check(returnedFingerprint, tc.DeepEquals, fingerprint)
 }
 
-func (s *fileResourceStoreSuite) TestFileResourceStorePutBadStorageKey(c *gc.C) {
+func (s *fileResourceStoreSuite) TestFileResourceStorePutBadStorageKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	store := fileResourceStore{s.objectStore}
 	_, _, _, err := store.Put(
@@ -103,10 +103,10 @@ func (s *fileResourceStoreSuite) TestFileResourceStorePutBadStorageKey(c *gc.C) 
 		s.resource.Size,
 		resourcestore.NewFingerprint(s.resource.Fingerprint.Fingerprint),
 	)
-	c.Assert(err, gc.ErrorMatches, "storage key empty")
+	c.Assert(err, tc.ErrorMatches, "storage key empty")
 }
 
-func (s *fileResourceStoreSuite) TestFileResourceStorePutNilReader(c *gc.C) {
+func (s *fileResourceStoreSuite) TestFileResourceStorePutNilReader(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	store := fileResourceStore{s.objectStore}
 	_, _, _, err := store.Put(
@@ -116,10 +116,10 @@ func (s *fileResourceStoreSuite) TestFileResourceStorePutNilReader(c *gc.C) {
 		s.resource.Size,
 		resourcestore.NewFingerprint(s.resource.Fingerprint.Fingerprint),
 	)
-	c.Assert(err, gc.ErrorMatches, "validating resource: reader is nil")
+	c.Assert(err, tc.ErrorMatches, "validating resource: reader is nil")
 }
 
-func (s *fileResourceStoreSuite) TestFileResourceStorePutBadFingerprint(c *gc.C) {
+func (s *fileResourceStoreSuite) TestFileResourceStorePutBadFingerprint(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	store := fileResourceStore{s.objectStore}
 	_, _, _, err := store.Put(
@@ -129,10 +129,10 @@ func (s *fileResourceStoreSuite) TestFileResourceStorePutBadFingerprint(c *gc.C)
 		s.resource.Size,
 		resourcestore.Fingerprint{},
 	)
-	c.Assert(err, gc.ErrorMatches, "validating resource fingerprint: .*")
+	c.Assert(err, tc.ErrorMatches, "validating resource fingerprint: .*")
 }
 
-func (s *fileResourceStoreSuite) TestFileResourceStorePutZeroSize(c *gc.C) {
+func (s *fileResourceStoreSuite) TestFileResourceStorePutZeroSize(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	store := fileResourceStore{s.objectStore}
 	_, _, _, err := store.Put(
@@ -142,10 +142,10 @@ func (s *fileResourceStoreSuite) TestFileResourceStorePutZeroSize(c *gc.C) {
 		0,
 		resourcestore.Fingerprint{},
 	)
-	c.Assert(err, gc.ErrorMatches, "validating resource size: size is 0")
+	c.Assert(err, tc.ErrorMatches, "validating resource size: size is 0")
 }
 
-func (s *fileResourceStoreSuite) TestFileResourceStoreGet(c *gc.C) {
+func (s *fileResourceStoreSuite) TestFileResourceStoreGet(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	store := fileResourceStore{s.objectStore}
 
@@ -153,21 +153,21 @@ func (s *fileResourceStoreSuite) TestFileResourceStoreGet(c *gc.C) {
 
 	reader, size, err := store.Get(context.Background(), s.resource.UUID.String())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(reader, gc.Equals, s.file)
-	c.Check(size, gc.Equals, s.resource.Size)
+	c.Check(reader, tc.Equals, s.file)
+	c.Check(size, tc.Equals, s.resource.Size)
 }
 
-func (s *fileResourceStoreSuite) TestFileResourceStoreGetBadStorageKey(c *gc.C) {
+func (s *fileResourceStoreSuite) TestFileResourceStoreGetBadStorageKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	store := fileResourceStore{s.objectStore}
 	_, _, err := store.Get(
 		context.Background(),
 		"",
 	)
-	c.Assert(err, gc.ErrorMatches, "storage key empty")
+	c.Assert(err, tc.ErrorMatches, "storage key empty")
 }
 
-func (s *fileResourceStoreSuite) TestFileResourceStoreRemove(c *gc.C) {
+func (s *fileResourceStoreSuite) TestFileResourceStoreRemove(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	store := fileResourceStore{s.objectStore}
 
@@ -177,12 +177,12 @@ func (s *fileResourceStoreSuite) TestFileResourceStoreRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *fileResourceStoreSuite) TestFileResourceStoreRemoveBadStorageKey(c *gc.C) {
+func (s *fileResourceStoreSuite) TestFileResourceStoreRemoveBadStorageKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	store := fileResourceStore{s.objectStore}
 	err := store.Remove(
 		context.Background(),
 		"",
 	)
-	c.Assert(err, gc.ErrorMatches, "storage key empty")
+	c.Assert(err, tc.ErrorMatches, "storage key empty")
 }

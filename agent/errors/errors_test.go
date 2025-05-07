@@ -9,8 +9,8 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/core/logger"
@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	_ = gc.Suite(&toolSuite{})
+	_ = tc.Suite(&toolSuite{})
 )
 
 type toolSuite struct {
@@ -29,12 +29,12 @@ type toolSuite struct {
 	logger logger.Logger
 }
 
-func (s *toolSuite) SetUpTest(c *gc.C) {
+func (s *toolSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.logger = loggertesting.WrapCheckLog(c)
 }
 
-func (*toolSuite) TestErrorImportance(c *gc.C) {
+func (*toolSuite) TestErrorImportance(c *tc.C) {
 
 	errorImportanceTests := []error{
 		nil,
@@ -45,10 +45,10 @@ func (*toolSuite) TestErrorImportance(c *gc.C) {
 
 	for i, err0 := range errorImportanceTests {
 		for j, err1 := range errorImportanceTests {
-			c.Assert(agenterrors.MoreImportant(err0, err1), gc.Equals, i > j)
+			c.Assert(agenterrors.MoreImportant(err0, err1), tc.Equals, i > j)
 
 			// Should also work if errors are wrapped.
-			c.Assert(agenterrors.MoreImportant(errors.Trace(err0), errors.Trace(err1)), gc.Equals, i > j)
+			c.Assert(agenterrors.MoreImportant(errors.Trace(err0), errors.Trace(err1)), tc.Equals, i > j)
 		}
 	}
 }
@@ -93,7 +93,7 @@ var isFatalTests = []struct {
 	},
 }
 
-func (s *toolSuite) TestConnectionIsFatal(c *gc.C) {
+func (s *toolSuite) TestConnectionIsFatal(c *tc.C) {
 	okConn := &testConn{broken: false}
 	errConn := &testConn{broken: true}
 
@@ -104,13 +104,13 @@ func (s *toolSuite) TestConnectionIsFatal(c *gc.C) {
 			if test.isFatal {
 				c.Check(fatal, jc.IsTrue)
 			} else {
-				c.Check(fatal, gc.Equals, i == 0)
+				c.Check(fatal, tc.Equals, i == 0)
 			}
 		}
 	}
 }
 
-func (s *toolSuite) TestConnectionIsFatalWithMultipleConns(c *gc.C) {
+func (s *toolSuite) TestConnectionIsFatalWithMultipleConns(c *tc.C) {
 	okConn := &testConn{broken: false}
 	errConn := &testConn{broken: true}
 
@@ -129,7 +129,7 @@ func (s *toolSuite) TestConnectionIsFatalWithMultipleConns(c *gc.C) {
 		jc.IsTrue)
 }
 
-func (s *toolSuite) TestPingerIsFatal(c *gc.C) {
+func (s *toolSuite) TestPingerIsFatal(c *tc.C) {
 	var errPinger testPinger = func() error {
 		return stderrors.New("ping error")
 	}
@@ -143,13 +143,13 @@ func (s *toolSuite) TestPingerIsFatal(c *gc.C) {
 			if test.isFatal {
 				c.Check(fatal, jc.IsTrue)
 			} else {
-				c.Check(fatal, gc.Equals, i == 0)
+				c.Check(fatal, tc.Equals, i == 0)
 			}
 		}
 	}
 }
 
-func (s *toolSuite) TestPingerIsFatalWithMultipleConns(c *gc.C) {
+func (s *toolSuite) TestPingerIsFatalWithMultipleConns(c *tc.C) {
 	var errPinger testPinger = func() error {
 		return stderrors.New("ping error")
 	}
@@ -169,11 +169,11 @@ func (s *toolSuite) TestPingerIsFatalWithMultipleConns(c *gc.C) {
 		jc.IsTrue)
 }
 
-func (*toolSuite) TestIsFatal(c *gc.C) {
+func (*toolSuite) TestIsFatal(c *tc.C) {
 
 	for i, test := range isFatalTests {
 		c.Logf("test %d: %s", i, test.err)
-		c.Assert(agenterrors.IsFatal(test.err), gc.Equals, test.isFatal)
+		c.Assert(agenterrors.IsFatal(test.err), tc.Equals, test.isFatal)
 	}
 }
 

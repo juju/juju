@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/tc"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 	ociIdentity "github.com/oracle/oci-go-sdk/v65/identity"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/semversion"
@@ -289,7 +289,7 @@ type commonSuite struct {
 	ctrlTags    map[string]string
 }
 
-func (s *commonSuite) SetUpTest(c *gc.C) {
+func (s *commonSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	oci.SetImageCache(&oci.ImageCache{})
 
@@ -306,7 +306,7 @@ func (s *commonSuite) SetUpTest(c *gc.C) {
 		Config: config,
 	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env, gc.NotNil)
+	c.Assert(env, tc.NotNil)
 
 	s.config = config
 	s.env = env.(*oci.Environ)
@@ -350,7 +350,7 @@ func (e *commonSuite) setupListInstancesExpectations(instanceId string, state oc
 	}
 }
 
-func (s *commonSuite) patchEnv(c *gc.C) *gomock.Controller {
+func (s *commonSuite) patchEnv(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.compute = ocitesting.NewMockComputeClient(ctrl)
 	s.ident = ocitesting.NewMockIdentityClient(ctrl)

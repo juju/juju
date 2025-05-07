@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
@@ -26,9 +26,9 @@ type serviceSuite struct {
 	state            *MockState
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = tc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.instanceProvider = NewMockInstanceProvider(ctrl)
 	s.resourceProvider = NewMockResourceProvider(ctrl)
@@ -36,13 +36,13 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *serviceSuite) instanceProviderGetter(_ *gc.C) providertracker.ProviderGetter[InstanceProvider] {
+func (s *serviceSuite) instanceProviderGetter(_ *tc.C) providertracker.ProviderGetter[InstanceProvider] {
 	return func(_ context.Context) (InstanceProvider, error) {
 		return s.instanceProvider, nil
 	}
 }
 
-func (s *serviceSuite) resourceProviderGetter(_ *gc.C) providertracker.ProviderGetter[ResourceProvider] {
+func (s *serviceSuite) resourceProviderGetter(_ *tc.C) providertracker.ProviderGetter[ResourceProvider] {
 	return func(_ context.Context) (ResourceProvider, error) {
 		return s.resourceProvider, nil
 	}
@@ -50,7 +50,7 @@ func (s *serviceSuite) resourceProviderGetter(_ *gc.C) providertracker.ProviderG
 
 // TestAdoptResources is testing the happy path of adopting a models cloud
 // resources.
-func (s *serviceSuite) TestAdoptResources(c *gc.C) {
+func (s *serviceSuite) TestAdoptResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	sourceControllerVersion, err := semversion.Parse("4.1.1")
@@ -77,7 +77,7 @@ func (s *serviceSuite) TestAdoptResources(c *gc.C) {
 // TestAdoptResourcesProviderNotSupported is asserting that if the provider does
 // not support the Resources interface we don't attempt to migrate any cloud
 // resources and no error is produced.
-func (s *serviceSuite) TestAdoptResourcesProviderNotSupported(c *gc.C) {
+func (s *serviceSuite) TestAdoptResourcesProviderNotSupported(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	resourceGetter := func(_ context.Context) (ResourceProvider, error) {
@@ -103,7 +103,7 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotSupported(c *gc.C) {
 // TestAdoptResourcesProviderNotImplemented is asserting that if the resource
 // provider returns a not implemented error while trying to adopt a models
 // resources no error is produced from the service and no resources are adopted.
-func (s *serviceSuite) TestAdoptResourcesProviderNotImplemented(c *gc.C) {
+func (s *serviceSuite) TestAdoptResourcesProviderNotImplemented(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	sourceControllerVersion, err := semversion.Parse("4.1.1")
@@ -129,7 +129,7 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotImplemented(c *gc.C) {
 
 // TestMachinesFromProviderDiscrepancy is testing the return value from
 // [Service.CheckMachines] and that it reports discrepancies from the cloud.
-func (s *serviceSuite) TestMachinesFromProviderNotInModel(c *gc.C) {
+func (s *serviceSuite) TestMachinesFromProviderNotInModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.instanceProvider.EXPECT().AllInstances(gomock.Any()).
@@ -150,13 +150,13 @@ func (s *serviceSuite) TestMachinesFromProviderNotInModel(c *gc.C) {
 		s.resourceProviderGetter(c),
 		s.state,
 	).CheckMachines(context.Background())
-	c.Check(err, gc.ErrorMatches, "provider instance IDs.*instance1.*")
+	c.Check(err, tc.ErrorMatches, "provider instance IDs.*instance1.*")
 }
 
 // TestMachineInstanceIDsNotInProvider is testing the return value from
 // [Service.CheckMachines] and that it reports discrepancies from the model
 // on the DB.
-func (s *serviceSuite) TestMachineInstanceIDsNotInProvider(c *gc.C) {
+func (s *serviceSuite) TestMachineInstanceIDsNotInProvider(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.instanceProvider.EXPECT().AllInstances(gomock.Any()).
@@ -174,7 +174,7 @@ func (s *serviceSuite) TestMachineInstanceIDsNotInProvider(c *gc.C) {
 		s.resourceProviderGetter(c),
 		s.state,
 	).CheckMachines(context.Background())
-	c.Check(err, gc.ErrorMatches, "instance IDs.*instance1.*")
+	c.Check(err, tc.ErrorMatches, "instance IDs.*instance1.*")
 }
 
 type instanceStub struct {

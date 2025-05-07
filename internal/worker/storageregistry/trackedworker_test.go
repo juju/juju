@@ -4,10 +4,10 @@
 package storageregistry
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/storage"
 )
@@ -20,9 +20,9 @@ type trackedWorkerSuite struct {
 	provider *MockProvider
 }
 
-var _ = gc.Suite(&trackedWorkerSuite{})
+var _ = tc.Suite(&trackedWorkerSuite{})
 
-func (s *trackedWorkerSuite) TestKilled(c *gc.C) {
+func (s *trackedWorkerSuite) TestKilled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, err := NewTrackedWorker(s.registry)
@@ -32,7 +32,7 @@ func (s *trackedWorkerSuite) TestKilled(c *gc.C) {
 	w.Kill()
 }
 
-func (s *trackedWorkerSuite) TestStorageProviderTypesWithCommon(c *gc.C) {
+func (s *trackedWorkerSuite) TestStorageProviderTypesWithCommon(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.registry.EXPECT().StorageProviderTypes().Return([]storage.ProviderType{"ebs"}, nil)
@@ -43,10 +43,10 @@ func (s *trackedWorkerSuite) TestStorageProviderTypesWithCommon(c *gc.C) {
 
 	types, err := w.(*trackedWorker).StorageProviderTypes()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(types, gc.DeepEquals, []storage.ProviderType{"ebs", "loop", "rootfs", "tmpfs"})
+	c.Check(types, tc.DeepEquals, []storage.ProviderType{"ebs", "loop", "rootfs", "tmpfs"})
 }
 
-func (s *trackedWorkerSuite) TestStorageProviderTypesWithEmptyProviderTypes(c *gc.C) {
+func (s *trackedWorkerSuite) TestStorageProviderTypesWithEmptyProviderTypes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.registry.EXPECT().StorageProviderTypes().Return([]storage.ProviderType{}, nil)
@@ -57,10 +57,10 @@ func (s *trackedWorkerSuite) TestStorageProviderTypesWithEmptyProviderTypes(c *g
 
 	types, err := w.(*trackedWorker).StorageProviderTypes()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(types, gc.DeepEquals, []storage.ProviderType{"loop", "rootfs", "tmpfs"})
+	c.Check(types, tc.DeepEquals, []storage.ProviderType{"loop", "rootfs", "tmpfs"})
 }
 
-func (s *trackedWorkerSuite) TestStorageProvider(c *gc.C) {
+func (s *trackedWorkerSuite) TestStorageProvider(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.registry.EXPECT().StorageProvider(storage.ProviderType("rootfs")).Return(s.provider, nil)
@@ -71,10 +71,10 @@ func (s *trackedWorkerSuite) TestStorageProvider(c *gc.C) {
 
 	provider, err := w.(*trackedWorker).StorageProvider(storage.ProviderType("rootfs"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(provider, gc.DeepEquals, s.provider)
+	c.Check(provider, tc.DeepEquals, s.provider)
 }
 
-func (s *trackedWorkerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *trackedWorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	// Ensure we buffer the channel, this is because we might miss the
 	// event if we're too quick at starting up.
 	s.states = make(chan string, 1)

@@ -4,14 +4,14 @@
 package juju
 
 import (
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
 type APIHelperSuite struct {
 }
 
-var _ = gc.Suite(&APIHelperSuite{})
+var _ = tc.Suite(&APIHelperSuite{})
 
 var moveToFrontTests = []struct {
 	item   string
@@ -39,7 +39,7 @@ var moveToFrontTests = []struct {
 	expect: []string{"d", "a", "b", "c", "e", "f"},
 }}
 
-func (s *APIHelperSuite) TestMoveToFront(c *gc.C) {
+func (s *APIHelperSuite) TestMoveToFront(c *tc.C) {
 	for i, test := range moveToFrontTests {
 		c.Logf("test %d: moveToFront %q %v", i, test.item, test.items)
 		moveToFront(test.item, test.items)
@@ -91,15 +91,15 @@ var addrsChangedTests = []struct {
 	setDiff:     true,
 }}
 
-func (s *APIHelperSuite) TestAddrsChanged(c *gc.C) {
+func (s *APIHelperSuite) TestAddrsChanged(c *tc.C) {
 	for i, test := range addrsChangedTests {
 		c.Logf("test %d: addrsChanged %v %v", i, test.description)
 		anyChange, differentSet := addrsChanged(test.source, test.target)
-		c.Check(anyChange, gc.Equals, test.changed,
-			gc.Commentf("%v vs %v declared that %t but expected %t",
+		c.Check(anyChange, tc.Equals, test.changed,
+			tc.Commentf("%v vs %v declared that %t but expected %t",
 				test.source, test.target, anyChange, test.changed))
-		c.Check(differentSet, gc.Equals, test.setDiff,
-			gc.Commentf("%v vs %v declared that %t but expected %t",
+		c.Check(differentSet, tc.Equals, test.setDiff,
+			tc.Commentf("%v vs %v declared that %t but expected %t",
 				test.source, test.target, differentSet, test.setDiff))
 	}
 }

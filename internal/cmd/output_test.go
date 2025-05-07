@@ -6,8 +6,8 @@ package cmd_test
 import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo/v2"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -141,28 +141,28 @@ type OutputSuite struct {
 	ctx *cmd.Context
 }
 
-var _ = gc.Suite(&OutputSuite{})
+var _ = tc.Suite(&OutputSuite{})
 
-func (s *OutputSuite) SetUpTest(c *gc.C) {
+func (s *OutputSuite) SetUpTest(c *tc.C) {
 	s.LoggingCleanupSuite.SetUpTest(c)
 	s.ctx = cmdtesting.Context(c)
 	loggo.ReplaceDefaultWriter(cmd.NewWarningWriter(s.ctx.Stderr))
 }
 
-func (s *OutputSuite) TestOutputFormat(c *gc.C) {
+func (s *OutputSuite) TestOutputFormat(c *tc.C) {
 	s.testOutputFormat(c, "")
 }
-func (s *OutputSuite) TestOutputFormatSmart(c *gc.C) {
+func (s *OutputSuite) TestOutputFormatSmart(c *tc.C) {
 	s.testOutputFormat(c, "smart")
 }
-func (s *OutputSuite) TestOutputFormatJson(c *gc.C) {
+func (s *OutputSuite) TestOutputFormatJson(c *tc.C) {
 	s.testOutputFormat(c, "json")
 }
-func (s *OutputSuite) TestOutputFormatYaml(c *gc.C) {
+func (s *OutputSuite) TestOutputFormatYaml(c *tc.C) {
 	s.testOutputFormat(c, "yaml")
 }
 
-func (s *OutputSuite) testOutputFormat(c *gc.C, format string) {
+func (s *OutputSuite) testOutputFormat(c *tc.C, format string) {
 	tests := outputTests[format]
 	var args []string
 	if format != "" {
@@ -172,37 +172,37 @@ func (s *OutputSuite) testOutputFormat(c *gc.C, format string) {
 		c.Logf("  test %d", i)
 		s.SetUpTest(c)
 		result := cmd.Main(&OutputCommand{value: t.value}, s.ctx, args)
-		c.Check(result, gc.Equals, 0)
-		c.Check(bufferString(s.ctx.Stdout), gc.Equals, t.output)
-		c.Check(bufferString(s.ctx.Stderr), gc.Equals, "")
+		c.Check(result, tc.Equals, 0)
+		c.Check(bufferString(s.ctx.Stdout), tc.Equals, t.output)
+		c.Check(bufferString(s.ctx.Stderr), tc.Equals, "")
 		s.TearDownTest(c)
 	}
 }
 
-func (s *OutputSuite) TestUnknownOutputFormat(c *gc.C) {
+func (s *OutputSuite) TestUnknownOutputFormat(c *tc.C) {
 	result := cmd.Main(&OutputCommand{}, s.ctx, []string{"--format", "cuneiform"})
-	c.Check(result, gc.Equals, 2)
-	c.Check(bufferString(s.ctx.Stdout), gc.Equals, "")
-	c.Check(bufferString(s.ctx.Stderr), gc.Matches, ".*: unknown format \"cuneiform\"\n")
+	c.Check(result, tc.Equals, 2)
+	c.Check(bufferString(s.ctx.Stdout), tc.Equals, "")
+	c.Check(bufferString(s.ctx.Stderr), tc.Matches, ".*: unknown format \"cuneiform\"\n")
 }
 
 // Py juju allowed both --format json and --format=json. This test verifies that juju is
 // being built against a version of the gnuflag library (rev 14 or above) that supports
 // this argument format.
 // LP #1059921
-func (s *OutputSuite) TestFormatAlternativeSyntax(c *gc.C) {
+func (s *OutputSuite) TestFormatAlternativeSyntax(c *tc.C) {
 	result := cmd.Main(&OutputCommand{}, s.ctx, []string{"--format=json"})
-	c.Assert(result, gc.Equals, 0)
-	c.Assert(bufferString(s.ctx.Stdout), gc.Equals, "null\n")
+	c.Assert(result, tc.Equals, 0)
+	c.Assert(bufferString(s.ctx.Stdout), tc.Equals, "null\n")
 }
 
-func (s *OutputSuite) TestFormatters(c *gc.C) {
+func (s *OutputSuite) TestFormatters(c *tc.C) {
 	typeFormatters := cmd.DefaultFormatters
 	formatters := typeFormatters.Formatters()
 
-	c.Assert(len(typeFormatters), gc.Equals, len(formatters))
+	c.Assert(len(typeFormatters), tc.Equals, len(formatters))
 	for k := range typeFormatters {
 		_, ok := formatters[k]
-		c.Assert(ok, gc.Equals, true)
+		c.Assert(ok, tc.Equals, true)
 	}
 }

@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apisecretbackends "github.com/juju/juju/api/client/secretbackends"
 	"github.com/juju/juju/cmd/juju/secretbackends"
@@ -25,9 +25,9 @@ type UpdateSuite struct {
 	updateSecretBackendsAPI *secretbackends.MockUpdateSecretBackendsAPI
 }
 
-var _ = gc.Suite(&UpdateSuite{})
+var _ = tc.Suite(&UpdateSuite{})
 
-func (s *UpdateSuite) SetUpTest(c *gc.C) {
+func (s *UpdateSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	store := jujuclient.NewMemStore()
 	store.Controllers["mycontroller"] = jujuclient.ControllerDetails{}
@@ -35,7 +35,7 @@ func (s *UpdateSuite) SetUpTest(c *gc.C) {
 	s.store = store
 }
 
-func (s *UpdateSuite) setup(c *gc.C) *gomock.Controller {
+func (s *UpdateSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.updateSecretBackendsAPI = secretbackends.NewMockUpdateSecretBackendsAPI(ctrl)
@@ -43,7 +43,7 @@ func (s *UpdateSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *UpdateSuite) TestUpdateInitError(c *gc.C) {
+func (s *UpdateSuite) TestUpdateInitError(c *tc.C) {
 	for _, t := range []struct {
 		args []string
 		err  string
@@ -61,11 +61,11 @@ func (s *UpdateSuite) TestUpdateInitError(c *gc.C) {
 		err:  `open /path/to/nowhere: no such file or directory`,
 	}} {
 		_, err := cmdtesting.RunCommand(c, secretbackends.NewUpdateCommandForTest(s.store, s.updateSecretBackendsAPI), t.args...)
-		c.Check(err, gc.ErrorMatches, t.err)
+		c.Check(err, tc.ErrorMatches, t.err)
 	}
 }
 
-func (s *UpdateSuite) TestUpdate(c *gc.C) {
+func (s *UpdateSuite) TestUpdate(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.updateSecretBackendsAPI.EXPECT().UpdateSecretBackend(
@@ -83,7 +83,7 @@ func (s *UpdateSuite) TestUpdate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *UpdateSuite) TestUpdateName(c *gc.C) {
+func (s *UpdateSuite) TestUpdateName(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.updateSecretBackendsAPI.EXPECT().UpdateSecretBackend(
@@ -101,7 +101,7 @@ func (s *UpdateSuite) TestUpdateName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *UpdateSuite) TestUpdateResetTokenRotate(c *gc.C) {
+func (s *UpdateSuite) TestUpdateResetTokenRotate(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.updateSecretBackendsAPI.EXPECT().UpdateSecretBackend(
@@ -119,7 +119,7 @@ func (s *UpdateSuite) TestUpdateResetTokenRotate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *UpdateSuite) TestUpdateFromFile(c *gc.C) {
+func (s *UpdateSuite) TestUpdateFromFile(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	fname := filepath.Join(c.MkDir(), "cfg.yaml")

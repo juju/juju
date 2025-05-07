@@ -7,13 +7,13 @@ package osenv_test
 import (
 	"path/filepath"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/juju/osenv"
 )
 
-func (s *varsSuite) TestJujuXDGDataHome(c *gc.C) {
+func (s *varsSuite) TestJujuXDGDataHome(c *tc.C) {
 	path := `P:\FooBar\AppData`
 	s.PatchEnvironment("APPDATA", path)
-	c.Assert(osenv.JujuXDGDataHomeWin(), gc.Equals, filepath.Join(path, "Juju"))
+	c.Assert(osenv.JujuXDGDataHomeWin(), tc.Equals, filepath.Join(path, "Juju"))
 }

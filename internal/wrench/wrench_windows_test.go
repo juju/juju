@@ -3,14 +3,12 @@
 
 package wrench_test
 
-import (
-	gc "gopkg.in/check.v1"
-)
+import "github.com/juju/tc"
 
 const fileNotFound = "GetFileAttributesEx.*: The system cannot find the (file|path) specified."
 
 // Patch out the os.Stat call used by wrench so that a particular file
 // appears to be owned by a UID that isn't Juju's UID.
-func (s *wrenchSuite) tweakOwner(c *gc.C, targetPath string) {
+func (s *wrenchSuite) tweakOwner(c *tc.C, targetPath string) {
 	c.Skip("this test only supports POSIX systems")
 }

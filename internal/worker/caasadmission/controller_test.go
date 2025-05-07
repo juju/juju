@@ -9,8 +9,8 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -26,7 +26,7 @@ type dummyMux struct {
 	RemoveHandlerFunc func(string, string)
 }
 
-var _ = gc.Suite(&ControllerSuite{})
+var _ = tc.Suite(&ControllerSuite{})
 
 func (d *dummyMux) AddHandler(i, j string, h http.Handler) error {
 	if d.AddHandlerFunc == nil {
@@ -41,7 +41,7 @@ func (d *dummyMux) RemoveHandler(i, j string) {
 	}
 }
 
-func (s *ControllerSuite) TestControllerStartup(c *gc.C) {
+func (s *ControllerSuite) TestControllerStartup(c *tc.C) {
 	var (
 		logger     = loggertesting.WrapCheckLog(c)
 		rbacMapper = &rbacmappertest.Mapper{}
@@ -81,7 +81,7 @@ func (s *ControllerSuite) TestControllerStartup(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ControllerSuite) TestControllerStartupMuxError(c *gc.C) {
+func (s *ControllerSuite) TestControllerStartupMuxError(c *tc.C) {
 	var (
 		logger     = loggertesting.WrapCheckLog(c)
 		rbacMapper = &rbacmappertest.Mapper{}
@@ -109,7 +109,7 @@ func (s *ControllerSuite) TestControllerStartupMuxError(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *ControllerSuite) TestControllerStartupAdmissionError(c *gc.C) {
+func (s *ControllerSuite) TestControllerStartupAdmissionError(c *tc.C) {
 	var (
 		logger     = loggertesting.WrapCheckLog(c)
 		rbacMapper = &rbacmappertest.Mapper{}

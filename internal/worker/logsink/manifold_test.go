@@ -10,13 +10,13 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/logger"
 	model "github.com/juju/juju/core/model"
@@ -36,9 +36,9 @@ type ManifoldSuite struct {
 	stub  testing.Stub
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+var _ = tc.Suite(&ManifoldSuite{})
 
-func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.clock = clock.WallClock
@@ -58,7 +58,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *ManifoldSuite) TestValidateConfig(c *gc.C) {
+func (s *ManifoldSuite) TestValidateConfig(c *tc.C) {
 	cfg := s.getConfig(c)
 	c.Check(cfg.Validate(), jc.ErrorIsNil)
 
@@ -79,7 +79,7 @@ func (s *ManifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
-func (s *ManifoldSuite) getConfig(c *gc.C) ManifoldConfig {
+func (s *ManifoldSuite) getConfig(c *tc.C) ManifoldConfig {
 	return ManifoldConfig{
 		LogSink:   loggertesting.WrapCheckLogSink(c),
 		NewWorker: s.newWorker,
@@ -90,7 +90,7 @@ func (s *ManifoldSuite) getConfig(c *gc.C) ManifoldConfig {
 	}
 }
 
-func (s *ManifoldSuite) newGetter(c *gc.C, overlay map[string]any) dependency.Getter {
+func (s *ManifoldSuite) newGetter(c *tc.C, overlay map[string]any) dependency.Getter {
 	resources := map[string]any{
 		"clock": s.clock,
 	}
@@ -108,34 +108,34 @@ func (s *ManifoldSuite) newWorker(config Config) (worker.Worker, error) {
 
 var expectedInputs = []string{}
 
-func (s *ManifoldSuite) TestInputs(c *gc.C) {
+func (s *ManifoldSuite) TestInputs(c *tc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
 }
 
-func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
+func (s *ManifoldSuite) TestMissingInputs(c *tc.C) {
 	for _, input := range expectedInputs {
 		getter := s.newGetter(c, map[string]any{
 			input: dependency.ErrMissing,
 		})
 		_, err := s.manifold.Start(context.Background(), getter)
-		c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+		c.Assert(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 	}
 }
 
-func (s *ManifoldSuite) TestStart(c *gc.C) {
+func (s *ManifoldSuite) TestStart(c *tc.C) {
 	w := s.startWorkerClean(c)
 	workertest.CleanKill(c, w)
 
 	s.stub.CheckCallNames(c, "NewWorker")
 	args := s.stub.Calls()[0].Args
-	c.Assert(args, gc.HasLen, 1)
-	c.Check(args[0], gc.FitsTypeOf, Config{})
+	c.Assert(args, tc.HasLen, 1)
+	c.Check(args[0], tc.FitsTypeOf, Config{})
 
 	workertest.CleanKill(c, w)
 	s.stub.CheckCallNames(c, "NewWorker")
 }
 
-func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
+func (s *ManifoldSuite) startWorkerClean(c *tc.C) worker.Worker {
 	w, err := s.manifold.Start(context.Background(), s.getter)
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, w)

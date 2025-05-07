@@ -6,21 +6,21 @@ package provider_test
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/caas/kubernetes/provider"
 )
 
-var _ = gc.Suite(&secretsSuite{})
+var _ = tc.Suite(&secretsSuite{})
 
 type secretsSuite struct {
 	fakeClientSuite
 }
 
-func (s *secretsSuite) TestProcessSecretData(c *gc.C) {
+func (s *secretsSuite) TestProcessSecretData(c *tc.C) {
 	o, err := provider.ProcessSecretData(
 		map[string]string{
 			"username": "YWRtaW4=",
@@ -28,13 +28,13 @@ func (s *secretsSuite) TestProcessSecretData(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(o, gc.DeepEquals, map[string][]byte{
+	c.Assert(o, tc.DeepEquals, map[string][]byte{
 		"username": []byte("admin"),
 		"password": []byte("1f2d1e2e67df"),
 	})
 }
 
-func (s *secretsSuite) TestGetSecretToken(c *gc.C) {
+func (s *secretsSuite) TestGetSecretToken(c *tc.C) {
 	secret := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "secret-1",
@@ -52,10 +52,10 @@ func (s *secretsSuite) TestGetSecretToken(c *gc.C) {
 
 	out, err := s.broker.GetSecretToken(context.Background(), "secret-1")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, gc.Equals, "token")
+	c.Assert(out, tc.Equals, "token")
 
 	result, err := s.mockSecrets.List(context.Background(), v1.ListOptions{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Items, gc.HasLen, 1)
-	c.Assert(result.Items[0].Name, gc.Equals, "secret-1")
+	c.Assert(result.Items, tc.HasLen, 1)
+	c.Assert(result.Items[0].Name, tc.Equals, "secret-1")
 }

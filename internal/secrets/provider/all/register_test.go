@@ -4,9 +4,9 @@
 package all_test
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/secrets/provider"
 	_ "github.com/juju/juju/internal/secrets/provider/all"
@@ -19,9 +19,9 @@ type allSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&allSuite{})
+var _ = tc.Suite(&allSuite{})
 
-func (s *allSuite) TestInit(c *gc.C) {
+func (s *allSuite) TestInit(c *tc.C) {
 	for _, name := range []string{
 		juju.BackendType,
 		kubernetes.BackendType,
@@ -29,6 +29,6 @@ func (s *allSuite) TestInit(c *gc.C) {
 	} {
 		p, err := provider.Provider(name)
 		c.Check(err, jc.ErrorIsNil)
-		c.Check(p.Type(), gc.Equals, name)
+		c.Check(p.Type(), tc.Equals, name)
 	}
 }

@@ -9,13 +9,13 @@ import (
 	"net/http/httptest"
 	"strings"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/snap"
 )
 
 var (
-	_ = gc.Suite(&SnapSuite{})
+	_ = tc.Suite(&SnapSuite{})
 
 	snapProxyResponse = `
 type: account-key
@@ -70,7 +70,7 @@ DATA...
 type SnapSuite struct {
 }
 
-func (s *SnapSuite) TestLookupAssertions(c *gc.C) {
+func (s *SnapSuite) TestLookupAssertions(c *tc.C) {
 	var (
 		srv           *httptest.Server
 		assertionsRes string
@@ -82,12 +82,12 @@ func (s *SnapSuite) TestLookupAssertions(c *gc.C) {
 	defer srv.Close()
 
 	assertions, storeID, err := snap.LookupAssertions(srv.URL)
-	c.Assert(err, gc.IsNil)
-	c.Assert(assertions, gc.Equals, assertionsRes)
-	c.Assert(storeID, gc.Equals, "1234567890STOREIDENTIFIER0123456")
+	c.Assert(err, tc.IsNil)
+	c.Assert(assertions, tc.Equals, assertionsRes)
+	c.Assert(storeID, tc.Equals, "1234567890STOREIDENTIFIER0123456")
 }
 
-func (s *SnapSuite) TestConfigureProxyFromURLWithAmbiguousAssertions(c *gc.C) {
+func (s *SnapSuite) TestConfigureProxyFromURLWithAmbiguousAssertions(c *tc.C) {
 	var (
 		srv           *httptest.Server
 		assertionsRes string
@@ -103,5 +103,5 @@ func (s *SnapSuite) TestConfigureProxyFromURLWithAmbiguousAssertions(c *gc.C) {
 	srvURLWithPassword := fmt.Sprintf("http://42:secret@%s", srv.Listener.Addr())
 	_, _, err := snap.LookupAssertions(srvURLWithPassword)
 	expErr := fmt.Sprintf(`assertions response from proxy at "%s" is ambiguous as it contains multiple entries with the same proxy URL but different store ID`, srv.URL)
-	c.Assert(err, gc.ErrorMatches, expErr)
+	c.Assert(err, tc.ErrorMatches, expErr)
 }

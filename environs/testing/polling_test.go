@@ -9,22 +9,22 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/retry"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/provider/common"
 )
 
 func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type testingSuite struct{}
 
-var _ = gc.Suite(&testingSuite{})
+var _ = tc.Suite(&testingSuite{})
 
-func (*testingSuite) TestSaveAttemptStrategiesSaves(c *gc.C) {
+func (*testingSuite) TestSaveAttemptStrategiesSaves(c *tc.C) {
 	// TODO(katco): 2016-08-09: lp:1611427
 	attempt := utils.AttemptStrategy{
 		Total: time.Second,
@@ -33,12 +33,12 @@ func (*testingSuite) TestSaveAttemptStrategiesSaves(c *gc.C) {
 
 	snapshot := saveAttemptStrategies([]*utils.AttemptStrategy{&attempt})
 
-	c.Assert(snapshot, gc.HasLen, 1)
-	c.Check(snapshot[0].address, gc.Equals, &attempt)
-	c.Check(snapshot[0].original, gc.DeepEquals, attempt)
+	c.Assert(snapshot, tc.HasLen, 1)
+	c.Check(snapshot[0].address, tc.Equals, &attempt)
+	c.Check(snapshot[0].original, tc.DeepEquals, attempt)
 }
 
-func (*testingSuite) TestSaveAttemptStrategiesLeavesOriginalsIntact(c *gc.C) {
+func (*testingSuite) TestSaveAttemptStrategiesLeavesOriginalsIntact(c *tc.C) {
 	// TODO(katco): 2016-08-09: lp:1611427
 	original := utils.AttemptStrategy{
 		Total: time.Second,
@@ -48,55 +48,55 @@ func (*testingSuite) TestSaveAttemptStrategiesLeavesOriginalsIntact(c *gc.C) {
 
 	saveAttemptStrategies([]*utils.AttemptStrategy{&attempt})
 
-	c.Check(attempt, gc.DeepEquals, original)
+	c.Check(attempt, tc.DeepEquals, original)
 }
 
-func (*testingSuite) TestInternalPatchAttemptStrategiesPatches(c *gc.C) {
+func (*testingSuite) TestInternalPatchAttemptStrategiesPatches(c *tc.C) {
 	// TODO(katco): 2016-08-09: lp:1611427
 	attempt := utils.AttemptStrategy{
 		Total: 33 * time.Millisecond,
 		Delay: 99 * time.Microsecond,
 	}
-	c.Assert(attempt, gc.Not(gc.DeepEquals), impatientAttempt)
+	c.Assert(attempt, tc.Not(tc.DeepEquals), impatientAttempt)
 
 	internalPatchAttemptStrategies([]*utils.AttemptStrategy{&attempt})
 
-	c.Check(attempt, gc.DeepEquals, impatientAttempt)
+	c.Check(attempt, tc.DeepEquals, impatientAttempt)
 }
 
 // internalPatchAttemptStrategies returns a cleanup function that restores
 // the given strategies to their original configurations.  For simplicity,
 // these tests take this as sufficient proof that any strategy that gets
 // patched, also gets restored by the cleanup function.
-func (*testingSuite) TestInternalPatchAttemptStrategiesReturnsCleanup(c *gc.C) {
+func (*testingSuite) TestInternalPatchAttemptStrategiesReturnsCleanup(c *tc.C) {
 	// TODO(katco): 2016-08-09: lp:1611427
 	original := utils.AttemptStrategy{
 		Total: 22 * time.Millisecond,
 		Delay: 77 * time.Microsecond,
 	}
-	c.Assert(original, gc.Not(gc.DeepEquals), impatientAttempt)
+	c.Assert(original, tc.Not(tc.DeepEquals), impatientAttempt)
 	attempt := original
 
 	cleanup := internalPatchAttemptStrategies([]*utils.AttemptStrategy{&attempt})
 	cleanup()
 
-	c.Check(attempt, gc.DeepEquals, original)
+	c.Check(attempt, tc.DeepEquals, original)
 }
 
-func (*testingSuite) TestPatchAttemptStrategiesPatchesEnvironsStrategies(c *gc.C) {
-	c.Assert(common.LongAttempt, gc.Not(gc.DeepEquals), impatientAttempt)
-	c.Assert(common.ShortAttempt, gc.Not(gc.DeepEquals), impatientAttempt)
-	c.Assert(environs.AddressesRefreshAttempt, gc.Not(gc.DeepEquals), impatientAttempt)
+func (*testingSuite) TestPatchAttemptStrategiesPatchesEnvironsStrategies(c *tc.C) {
+	c.Assert(common.LongAttempt, tc.Not(tc.DeepEquals), impatientAttempt)
+	c.Assert(common.ShortAttempt, tc.Not(tc.DeepEquals), impatientAttempt)
+	c.Assert(environs.AddressesRefreshAttempt, tc.Not(tc.DeepEquals), impatientAttempt)
 
 	cleanup := PatchAttemptStrategies()
 	defer cleanup()
 
-	c.Check(common.LongAttempt, gc.DeepEquals, impatientAttempt)
-	c.Check(common.ShortAttempt, gc.DeepEquals, impatientAttempt)
-	c.Check(environs.AddressesRefreshAttempt, gc.DeepEquals, impatientAttempt)
+	c.Check(common.LongAttempt, tc.DeepEquals, impatientAttempt)
+	c.Check(common.ShortAttempt, tc.DeepEquals, impatientAttempt)
+	c.Check(environs.AddressesRefreshAttempt, tc.DeepEquals, impatientAttempt)
 }
 
-func (*testingSuite) TestPatchAttemptStrategiesPatchesGivenAttempts(c *gc.C) {
+func (*testingSuite) TestPatchAttemptStrategiesPatchesGivenAttempts(c *tc.C) {
 	// TODO(katco): 2016-08-09: lp:1611427
 	attempt1 := utils.AttemptStrategy{
 		Total: 33 * time.Millisecond,
@@ -110,8 +110,8 @@ func (*testingSuite) TestPatchAttemptStrategiesPatchesGivenAttempts(c *gc.C) {
 	cleanup := PatchAttemptStrategies(&attempt1, &attempt2)
 	defer cleanup()
 
-	c.Check(attempt1, gc.DeepEquals, impatientAttempt)
-	c.Check(attempt2, gc.DeepEquals, impatientAttempt)
+	c.Check(attempt1, tc.DeepEquals, impatientAttempt)
+	c.Check(attempt2, tc.DeepEquals, impatientAttempt)
 }
 
 // TODO(jack-w-shaw): 2022-01-21: Implementing funcs for both 'AttemptStrategy'
@@ -120,7 +120,7 @@ func (*testingSuite) TestPatchAttemptStrategiesPatchesGivenAttempts(c *gc.C) {
 // Remove AttemptStrategy patching when they are no longer in use i.e. when
 // lp issue is resolved
 
-func (*testingSuite) TestSaveRetrytrategiesSaves(c *gc.C) {
+func (*testingSuite) TestSaveRetrytrategiesSaves(c *tc.C) {
 	retryStrategy := retry.CallArgs{
 		Clock:       clock.WallClock,
 		MaxDuration: time.Second,
@@ -129,12 +129,12 @@ func (*testingSuite) TestSaveRetrytrategiesSaves(c *gc.C) {
 
 	snapshot := saveRetryStrategies([]*retry.CallArgs{&retryStrategy})
 
-	c.Assert(snapshot, gc.HasLen, 1)
-	c.Check(snapshot[0].address, gc.Equals, &retryStrategy)
-	c.Check(snapshot[0].original, gc.DeepEquals, retryStrategy)
+	c.Assert(snapshot, tc.HasLen, 1)
+	c.Check(snapshot[0].address, tc.Equals, &retryStrategy)
+	c.Check(snapshot[0].original, tc.DeepEquals, retryStrategy)
 }
 
-func (*testingSuite) TestSaveRetryStrategiesLeavesOriginalsIntact(c *gc.C) {
+func (*testingSuite) TestSaveRetryStrategiesLeavesOriginalsIntact(c *tc.C) {
 	original := retry.CallArgs{
 		Clock:       clock.WallClock,
 		MaxDuration: time.Second,
@@ -144,42 +144,42 @@ func (*testingSuite) TestSaveRetryStrategiesLeavesOriginalsIntact(c *gc.C) {
 
 	saveRetryStrategies([]*retry.CallArgs{&retryStrategy})
 
-	c.Check(retryStrategy, gc.DeepEquals, original)
+	c.Check(retryStrategy, tc.DeepEquals, original)
 }
 
-func (*testingSuite) TestInternalPatchRetryStrategiesPatches(c *gc.C) {
+func (*testingSuite) TestInternalPatchRetryStrategiesPatches(c *tc.C) {
 	retryStrategy := retry.CallArgs{
 		Clock:       clock.WallClock,
 		MaxDuration: 33 * time.Millisecond,
 		Delay:       99 * time.Microsecond,
 	}
-	c.Assert(retryStrategy, gc.Not(gc.DeepEquals), impatientRetryStrategy)
+	c.Assert(retryStrategy, tc.Not(tc.DeepEquals), impatientRetryStrategy)
 
 	internalPatchRetryStrategies([]*retry.CallArgs{&retryStrategy})
 
-	c.Check(retryStrategy, gc.DeepEquals, impatientRetryStrategy)
+	c.Check(retryStrategy, tc.DeepEquals, impatientRetryStrategy)
 }
 
 // internalPatchAttemptStrategies returns a cleanup function that restores
 // the given strategies to their original configurations.  For simplicity,
 // these tests take this as sufficient proof that any strategy that gets
 // patched, also gets restored by the cleanup function.
-func (*testingSuite) TestInternalPatchRetryStrategiesReturnsCleanup(c *gc.C) {
+func (*testingSuite) TestInternalPatchRetryStrategiesReturnsCleanup(c *tc.C) {
 	original := retry.CallArgs{
 		Clock:       clock.WallClock,
 		MaxDuration: 22 * time.Millisecond,
 		Delay:       77 * time.Microsecond,
 	}
-	c.Assert(original, gc.Not(gc.DeepEquals), impatientRetryStrategy)
+	c.Assert(original, tc.Not(tc.DeepEquals), impatientRetryStrategy)
 	retryStrategy := original
 
 	cleanup := internalPatchRetryStrategies([]*retry.CallArgs{&retryStrategy})
 	cleanup()
 
-	c.Check(retryStrategy, gc.DeepEquals, original)
+	c.Check(retryStrategy, tc.DeepEquals, original)
 }
 
-func (*testingSuite) TestPatchRetryStrategiesPatchesGivenRetries(c *gc.C) {
+func (*testingSuite) TestPatchRetryStrategiesPatchesGivenRetries(c *tc.C) {
 	retryStrategy1 := retry.CallArgs{
 		Clock:       clock.WallClock,
 		MaxDuration: 33 * time.Millisecond,
@@ -194,6 +194,6 @@ func (*testingSuite) TestPatchRetryStrategiesPatchesGivenRetries(c *gc.C) {
 	cleanup := PatchRetryStrategies(&retryStrategy1, &retryStrategy2)
 	defer cleanup()
 
-	c.Check(retryStrategy1, gc.DeepEquals, impatientRetryStrategy)
-	c.Check(retryStrategy2, gc.DeepEquals, impatientRetryStrategy)
+	c.Check(retryStrategy1, tc.DeepEquals, impatientRetryStrategy)
+	c.Check(retryStrategy2, tc.DeepEquals, impatientRetryStrategy)
 }

@@ -7,9 +7,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
 	coresecrets "github.com/juju/juju/core/secrets"
@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-func (s *serviceSuite) TestGetSecretsForExport(c *gc.C) {
+func (s *serviceSuite) TestGetSecretsForExport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -135,7 +135,7 @@ func (s *serviceSuite) TestGetSecretsForExport(c *gc.C) {
 	})
 }
 
-func (s *serviceSuite) TestImportSecrets(c *gc.C) {
+func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()

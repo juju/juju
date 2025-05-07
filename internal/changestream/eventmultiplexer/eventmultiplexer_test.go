@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
 	changestreamtesting "github.com/juju/juju/core/changestream/testing"
@@ -31,9 +31,9 @@ type eventMultiplexerSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&eventMultiplexerSuite{})
+var _ = tc.Suite(&eventMultiplexerSuite{})
 
-func (s *eventMultiplexerSuite) TestSubscribe(c *gc.C) {
+func (s *eventMultiplexerSuite) TestSubscribe(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectStreamDying(make(<-chan struct{}))
@@ -54,7 +54,7 @@ func (s *eventMultiplexerSuite) TestSubscribe(c *gc.C) {
 	s.unsubscribe(c, sub)
 }
 
-func (s *eventMultiplexerSuite) TestDispatch(c *gc.C) {
+func (s *eventMultiplexerSuite) TestDispatch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectStreamDying(make(<-chan struct{}))
@@ -88,45 +88,45 @@ func (s *eventMultiplexerSuite) TestDispatch(c *gc.C) {
 		c.Fatal("timed out waiting for event")
 	}
 
-	c.Assert(changes, gc.HasLen, 1)
+	c.Assert(changes, tc.HasLen, 1)
 	c.Check(changes[0].Type(), jc.DeepEquals, changestreamtesting.Create)
 	c.Check(changes[0].Namespace(), jc.DeepEquals, "topic")
-	c.Check(changes[0].Changed(), gc.Equals, "1")
+	c.Check(changes[0].Changed(), tc.Equals, "1")
 
 	s.unsubscribe(c, sub)
 }
 
-func (s *eventMultiplexerSuite) TestMultipleDispatch(c *gc.C) {
+func (s *eventMultiplexerSuite) TestMultipleDispatch(c *tc.C) {
 	s.testMultipleDispatch(c, changestream.Namespace("topic", changestreamtesting.Update))
 }
 
-func (s *eventMultiplexerSuite) TestMultipleDispatchWithNoOptions(c *gc.C) {
+func (s *eventMultiplexerSuite) TestMultipleDispatchWithNoOptions(c *tc.C) {
 	s.testMultipleDispatch(c)
 }
 
-func (s *eventMultiplexerSuite) TestMultipleDispatchWithMultipleMasks(c *gc.C) {
+func (s *eventMultiplexerSuite) TestMultipleDispatchWithMultipleMasks(c *tc.C) {
 	s.testMultipleDispatch(c, changestream.Namespace("topic", changestreamtesting.Create|changestreamtesting.Update))
 }
 
-func (s *eventMultiplexerSuite) TestMultipleDispatchWithMultipleOptions(c *gc.C) {
+func (s *eventMultiplexerSuite) TestMultipleDispatchWithMultipleOptions(c *tc.C) {
 	s.testMultipleDispatch(c, changestream.Namespace("topic", changestreamtesting.Update), changestream.Namespace("topic", changestreamtesting.Create))
 }
 
-func (s *eventMultiplexerSuite) TestMultipleDispatchWithOverlappingOptions(c *gc.C) {
+func (s *eventMultiplexerSuite) TestMultipleDispatchWithOverlappingOptions(c *tc.C) {
 	s.testMultipleDispatch(c, changestream.Namespace("topic", changestreamtesting.Update), changestream.Namespace("topic", changestreamtesting.Update|changestreamtesting.Create))
 }
 
-func (s *eventMultiplexerSuite) TestMultipleDispatchWithDuplicateOptions(c *gc.C) {
+func (s *eventMultiplexerSuite) TestMultipleDispatchWithDuplicateOptions(c *tc.C) {
 	s.testMultipleDispatch(c, changestream.Namespace("topic", changestreamtesting.Update), changestream.Namespace("topic", changestreamtesting.Update))
 }
 
-func (s *eventMultiplexerSuite) TestSubscribeWithMatchingFilter(c *gc.C) {
+func (s *eventMultiplexerSuite) TestSubscribeWithMatchingFilter(c *tc.C) {
 	s.testMultipleDispatch(c, changestream.FilteredNamespace("topic", changestreamtesting.Update, func(event changestream.ChangeEvent) bool {
 		return event.Namespace() == "topic"
 	}))
 }
 
-func (s *eventMultiplexerSuite) testMultipleDispatch(c *gc.C, opts ...changestream.SubscriptionOption) {
+func (s *eventMultiplexerSuite) testMultipleDispatch(c *tc.C, opts ...changestream.SubscriptionOption) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectStreamDying(make(<-chan struct{}))
@@ -173,7 +173,7 @@ func (s *eventMultiplexerSuite) testMultipleDispatch(c *gc.C, opts ...changestre
 
 			select {
 			case events := <-sub.Changes():
-				c.Assert(events, gc.HasLen, 1)
+				c.Assert(events, tc.HasLen, 1)
 				c.Check(events[0].Type(), jc.DeepEquals, changestreamtesting.Update)
 				c.Check(events[0].Namespace(), jc.DeepEquals, "topic")
 			case <-time.After(testing.ShortWait):
@@ -195,7 +195,7 @@ func (s *eventMultiplexerSuite) testMultipleDispatch(c *gc.C, opts ...changestre
 	workertest.CleanKill(c, queue)
 }
 
-func (s *eventMultiplexerSuite) TestUnsubscribeTwice(c *gc.C) {
+func (s *eventMultiplexerSuite) TestUnsubscribeTwice(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectStreamDying(make(<-chan struct{}))
@@ -234,7 +234,7 @@ func (s *eventMultiplexerSuite) TestUnsubscribeTwice(c *gc.C) {
 	workertest.CleanKill(c, queue)
 }
 
-func (s *eventMultiplexerSuite) TestTopicDoesNotMatch(c *gc.C) {
+func (s *eventMultiplexerSuite) TestTopicDoesNotMatch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectStreamDying(make(<-chan struct{}))
@@ -275,7 +275,7 @@ func (s *eventMultiplexerSuite) TestTopicDoesNotMatch(c *gc.C) {
 	workertest.CleanKill(c, queue)
 }
 
-func (s *eventMultiplexerSuite) TestTopicMatchesOne(c *gc.C) {
+func (s *eventMultiplexerSuite) TestTopicMatchesOne(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectStreamDying(make(<-chan struct{}))
@@ -328,7 +328,7 @@ func (s *eventMultiplexerSuite) TestTopicMatchesOne(c *gc.C) {
 	workertest.CleanKill(c, queue)
 }
 
-func (s *eventMultiplexerSuite) TestSubscriptionDoneWhenEventQueueKilled(c *gc.C) {
+func (s *eventMultiplexerSuite) TestSubscriptionDoneWhenEventQueueKilled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectStreamDying(make(<-chan struct{}))
@@ -369,7 +369,7 @@ func (s *eventMultiplexerSuite) TestSubscriptionDoneWhenEventQueueKilled(c *gc.C
 	}
 }
 
-func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *gc.C) {
+func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectStreamDying(make(<-chan struct{}))
@@ -433,7 +433,7 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *gc.C) {
 	workertest.CleanKill(c, queue)
 }
 
-func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGoroutine(c *gc.C) {
+func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGoroutine(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectStreamDying(make(<-chan struct{}))
@@ -500,7 +500,7 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGorou
 	workertest.CleanKill(c, queue)
 }
 
-func (s *eventMultiplexerSuite) TestStreamDying(c *gc.C) {
+func (s *eventMultiplexerSuite) TestStreamDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan struct{})
@@ -569,7 +569,7 @@ func (s *eventMultiplexerSuite) TestStreamDying(c *gc.C) {
 	}
 }
 
-func (s *eventMultiplexerSuite) TestStreamDyingWhilstDispatching(c *gc.C) {
+func (s *eventMultiplexerSuite) TestStreamDyingWhilstDispatching(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan struct{})
@@ -653,7 +653,7 @@ func (s *eventMultiplexerSuite) TestStreamDyingWhilstDispatching(c *gc.C) {
 	}
 }
 
-func (s *eventMultiplexerSuite) TestStreamDyingOnStartup(c *gc.C) {
+func (s *eventMultiplexerSuite) TestStreamDyingOnStartup(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan struct{})
@@ -671,7 +671,7 @@ func (s *eventMultiplexerSuite) TestStreamDyingOnStartup(c *gc.C) {
 	workertest.CleanKill(c, queue)
 }
 
-func (s *eventMultiplexerSuite) TestStreamDyingOnSubscribe(c *gc.C) {
+func (s *eventMultiplexerSuite) TestStreamDyingOnSubscribe(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan struct{})
@@ -698,10 +698,10 @@ func (s *eventMultiplexerSuite) TestStreamDyingOnSubscribe(c *gc.C) {
 
 	sub, err := queue.Subscribe()
 	c.Assert(err, jc.ErrorIs, database.ErrEventMultiplexerDying)
-	c.Check(sub, gc.IsNil)
+	c.Check(sub, tc.IsNil)
 }
 
-func (s *eventMultiplexerSuite) TestReportWithAllSubscriptions(c *gc.C) {
+func (s *eventMultiplexerSuite) TestReportWithAllSubscriptions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAfter()
@@ -728,7 +728,7 @@ func (s *eventMultiplexerSuite) TestReportWithAllSubscriptions(c *gc.C) {
 	// Sync point. Wait for sometime to let the subscriptions be registered.
 	time.Sleep(time.Millisecond * 100)
 
-	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
+	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
 		"subscriptions":        10,
 		"subscriptions-by-ns":  0,
 		"subscriptions-all":    10,
@@ -739,7 +739,7 @@ func (s *eventMultiplexerSuite) TestReportWithAllSubscriptions(c *gc.C) {
 		s.unsubscribe(c, sub)
 	}
 
-	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
+	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
 		"subscriptions":        0,
 		"subscriptions-by-ns":  0,
 		"subscriptions-all":    0,
@@ -749,7 +749,7 @@ func (s *eventMultiplexerSuite) TestReportWithAllSubscriptions(c *gc.C) {
 	workertest.CleanKill(c, queue)
 }
 
-func (s *eventMultiplexerSuite) TestReportWithTopicSubscriptions(c *gc.C) {
+func (s *eventMultiplexerSuite) TestReportWithTopicSubscriptions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAfter()
@@ -776,7 +776,7 @@ func (s *eventMultiplexerSuite) TestReportWithTopicSubscriptions(c *gc.C) {
 	// Sync point. Wait for sometime to let the subscriptions be registered.
 	time.Sleep(time.Millisecond * 100)
 
-	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
+	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
 		"subscriptions":        10,
 		"subscriptions-by-ns":  1,
 		"subscriptions-all":    0,
@@ -787,7 +787,7 @@ func (s *eventMultiplexerSuite) TestReportWithTopicSubscriptions(c *gc.C) {
 		s.unsubscribe(c, sub)
 	}
 
-	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
+	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
 		"subscriptions":        0,
 		"subscriptions-by-ns":  0,
 		"subscriptions-all":    0,
@@ -797,7 +797,7 @@ func (s *eventMultiplexerSuite) TestReportWithTopicSubscriptions(c *gc.C) {
 	workertest.CleanKill(c, queue)
 }
 
-func (s *eventMultiplexerSuite) TestReportWithMultipleTopicSubscriptions(c *gc.C) {
+func (s *eventMultiplexerSuite) TestReportWithMultipleTopicSubscriptions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAfter()
@@ -827,7 +827,7 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleTopicSubscriptions(c *gc.C
 	// Sync point. Wait for sometime to let the subscriptions be registered.
 	time.Sleep(time.Millisecond * 100)
 
-	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
+	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
 		"subscriptions":        10,
 		"subscriptions-by-ns":  2,
 		"subscriptions-all":    0,
@@ -838,7 +838,7 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleTopicSubscriptions(c *gc.C
 		s.unsubscribe(c, sub)
 	}
 
-	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
+	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
 		"subscriptions":        0,
 		"subscriptions-by-ns":  0,
 		"subscriptions-all":    0,
@@ -848,7 +848,7 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleTopicSubscriptions(c *gc.C
 	workertest.CleanKill(c, queue)
 }
 
-func (s *eventMultiplexerSuite) TestReportWithDuplicateTopicSubscriptions(c *gc.C) {
+func (s *eventMultiplexerSuite) TestReportWithDuplicateTopicSubscriptions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAfter()
@@ -878,7 +878,7 @@ func (s *eventMultiplexerSuite) TestReportWithDuplicateTopicSubscriptions(c *gc.
 	// Sync point. Wait for sometime to let the subscriptions be registered.
 	time.Sleep(time.Millisecond * 100)
 
-	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
+	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
 		"subscriptions":        10,
 		"subscriptions-by-ns":  1,
 		"subscriptions-all":    0,
@@ -889,7 +889,7 @@ func (s *eventMultiplexerSuite) TestReportWithDuplicateTopicSubscriptions(c *gc.
 		s.unsubscribe(c, sub)
 	}
 
-	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
+	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
 		"subscriptions":        0,
 		"subscriptions-by-ns":  0,
 		"subscriptions-all":    0,
@@ -899,7 +899,7 @@ func (s *eventMultiplexerSuite) TestReportWithDuplicateTopicSubscriptions(c *gc.
 	workertest.CleanKill(c, queue)
 }
 
-func (s *eventMultiplexerSuite) TestReportWithMultipleDuplicateTopicSubscriptions(c *gc.C) {
+func (s *eventMultiplexerSuite) TestReportWithMultipleDuplicateTopicSubscriptions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAfter()
@@ -929,7 +929,7 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleDuplicateTopicSubscription
 	// Sync point. Wait for sometime to let the subscriptions be registered.
 	time.Sleep(time.Millisecond * 100)
 
-	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
+	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
 		"subscriptions":        10,
 		"subscriptions-by-ns":  1,
 		"subscriptions-all":    0,
@@ -940,7 +940,7 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleDuplicateTopicSubscription
 		s.unsubscribe(c, sub)
 	}
 
-	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
+	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
 		"subscriptions":        0,
 		"subscriptions-by-ns":  0,
 		"subscriptions-all":    0,
@@ -950,7 +950,7 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleDuplicateTopicSubscription
 	workertest.CleanKill(c, queue)
 }
 
-func (s *eventMultiplexerSuite) TestReportWithTopicRemovalAfterUnsubscribe(c *gc.C) {
+func (s *eventMultiplexerSuite) TestReportWithTopicRemovalAfterUnsubscribe(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAfter()
@@ -969,7 +969,7 @@ func (s *eventMultiplexerSuite) TestReportWithTopicRemovalAfterUnsubscribe(c *gc
 	sub, err := queue.Subscribe(changestream.Namespace("topic", changestreamtesting.Create))
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
+	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
 		"subscriptions":        1,
 		"subscriptions-by-ns":  1,
 		"subscriptions-all":    0,
@@ -978,7 +978,7 @@ func (s *eventMultiplexerSuite) TestReportWithTopicRemovalAfterUnsubscribe(c *gc
 
 	s.unsubscribe(c, sub)
 
-	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
+	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
 		"subscriptions":        0,
 		"subscriptions-by-ns":  0,
 		"subscriptions-all":    0,
@@ -988,7 +988,7 @@ func (s *eventMultiplexerSuite) TestReportWithTopicRemovalAfterUnsubscribe(c *gc
 	workertest.CleanKill(c, queue)
 }
 
-func (s *eventMultiplexerSuite) unsubscribe(c *gc.C, sub changestream.Subscription) {
+func (s *eventMultiplexerSuite) unsubscribe(c *tc.C, sub changestream.Subscription) {
 	sub.Unsubscribe()
 
 	select {

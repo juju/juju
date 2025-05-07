@@ -8,9 +8,9 @@ import (
 
 	"github.com/aws/smithy-go"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -26,9 +26,9 @@ type ProviderSuite struct {
 	provider environs.EnvironProvider
 }
 
-var _ = gc.Suite(&ProviderSuite{})
+var _ = tc.Suite(&ProviderSuite{})
 
-func (s *ProviderSuite) SetUpTest(c *gc.C) {
+func (s *ProviderSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	credential := cloud.NewCredential(
@@ -50,46 +50,46 @@ func (s *ProviderSuite) SetUpTest(c *gc.C) {
 	s.provider = provider
 }
 
-func (s *ProviderSuite) TestOpen(c *gc.C) {
+func (s *ProviderSuite) TestOpen(c *tc.C) {
 	env, err := environs.Open(context.Background(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: coretesting.ModelConfig(c),
 	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env, gc.NotNil)
+	c.Assert(env, tc.NotNil)
 }
 
-func (s *ProviderSuite) TestOpenMissingCredential(c *gc.C) {
+func (s *ProviderSuite) TestOpenMissingCredential(c *tc.C) {
 	s.spec.Credential = nil
 	s.testOpenError(c, s.spec, `validating cloud spec: missing credential not valid`)
 }
 
-func (s *ProviderSuite) TestOpenUnsupportedCredential(c *gc.C) {
+func (s *ProviderSuite) TestOpenUnsupportedCredential(c *tc.C) {
 	credential := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{})
 	s.spec.Credential = &credential
 	s.testOpenError(c, s.spec, `validating cloud spec: "userpass" auth-type not supported`)
 }
 
-func (s *ProviderSuite) testOpenError(c *gc.C, spec environscloudspec.CloudSpec, expect string) {
+func (s *ProviderSuite) testOpenError(c *tc.C, spec environscloudspec.CloudSpec, expect string) {
 	_, err := environs.Open(context.Background(), s.provider, environs.OpenParams{
 		Cloud:  spec,
 		Config: coretesting.ModelConfig(c),
 	}, environs.NoopCredentialInvalidator())
-	c.Assert(err, gc.ErrorMatches, expect)
+	c.Assert(err, tc.ErrorMatches, expect)
 }
 
-func (s *ProviderSuite) TestVerifyCredentialsErrs(c *gc.C) {
+func (s *ProviderSuite) TestVerifyCredentialsErrs(c *tc.C) {
 	err := ec2.VerifyCredentials(context.Background(), nil)
-	c.Assert(err, gc.Not(jc.ErrorIsNil))
-	c.Assert(err, gc.Not(jc.ErrorIs), common.ErrorCredentialNotValid)
+	c.Assert(err, tc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(jc.ErrorIs), common.ErrorCredentialNotValid)
 }
 
-func (s *ProviderSuite) TestIsAuthorizationErrorIgnoresNil(c *gc.C) {
+func (s *ProviderSuite) TestIsAuthorizationErrorIgnoresNil(c *tc.C) {
 	isAuthErr := ec2.IsAuthorizationError(nil)
 	c.Assert(isAuthErr, jc.IsFalse)
 }
 
-func (s *ProviderSuite) TestIsAuthorizationErrorConvertsCredentialRelatedFailures(c *gc.C) {
+func (s *ProviderSuite) TestIsAuthorizationErrorConvertsCredentialRelatedFailures(c *tc.C) {
 	for _, code := range []string{
 		"AuthFailure",
 		"InvalidClientTokenId",
@@ -105,7 +105,7 @@ func (s *ProviderSuite) TestIsAuthorizationErrorConvertsCredentialRelatedFailure
 	}
 }
 
-func (s *ProviderSuite) TestIsAuthorizationErrorConvertsCredentialRelatedFailuresWrapped(c *gc.C) {
+func (s *ProviderSuite) TestIsAuthorizationErrorConvertsCredentialRelatedFailuresWrapped(c *tc.C) {
 	for _, code := range []string{
 		"AuthFailure",
 		"InvalidClientTokenId",
@@ -121,7 +121,7 @@ func (s *ProviderSuite) TestIsAuthorizationErrorConvertsCredentialRelatedFailure
 	}
 }
 
-func (s *ProviderSuite) TestIsAuthorizationErrorNotInvalidCredential(c *gc.C) {
+func (s *ProviderSuite) TestIsAuthorizationErrorNotInvalidCredential(c *tc.C) {
 	for _, code := range []string{
 		"OptInRequired",
 		"UnauthorizedOperation",
@@ -132,13 +132,13 @@ func (s *ProviderSuite) TestIsAuthorizationErrorNotInvalidCredential(c *gc.C) {
 	}
 }
 
-func (s *ProviderSuite) TestIsAuthorizationErrorHandlesOtherProviderErrors(c *gc.C) {
+func (s *ProviderSuite) TestIsAuthorizationErrorHandlesOtherProviderErrors(c *tc.C) {
 	// Any other ec2.Error is returned unwrapped.
 	isAuthErr := ec2.IsAuthorizationError(&smithy.GenericAPIError{Code: "DryRunOperation"})
 	c.Assert(isAuthErr, jc.IsFalse)
 }
 
-func (s *ProviderSuite) TestConvertAuthorizationErrorsCredentialRelatedFailures(c *gc.C) {
+func (s *ProviderSuite) TestConvertAuthorizationErrorsCredentialRelatedFailures(c *tc.C) {
 	for _, code := range []string{
 		"AuthFailure",
 		"InvalidClientTokenId",
@@ -154,44 +154,44 @@ func (s *ProviderSuite) TestConvertAuthorizationErrorsCredentialRelatedFailures(
 	}
 }
 
-func (s *ProviderSuite) TestConvertAuthorizationErrorsNotInvalidCredential(c *gc.C) {
+func (s *ProviderSuite) TestConvertAuthorizationErrorsNotInvalidCredential(c *tc.C) {
 	for _, code := range []string{
 		"OptInRequired",
 		"UnauthorizedOperation",
 	} {
 		authErr := ec2.ConvertAuthorizationError(
 			&smithy.GenericAPIError{Code: code})
-		c.Assert(authErr, gc.Not(jc.ErrorIs), common.ErrorCredentialNotValid)
+		c.Assert(authErr, tc.Not(jc.ErrorIs), common.ErrorCredentialNotValid)
 	}
 }
 
-func (s *ProviderSuite) TestConvertAuthorizationErrorsIsNil(c *gc.C) {
+func (s *ProviderSuite) TestConvertAuthorizationErrorsIsNil(c *tc.C) {
 	authErr := ec2.ConvertAuthorizationError(nil)
 	c.Assert(authErr, jc.ErrorIsNil)
 }
 
-func (s *ProviderSuite) TestConvertedCredentialError(c *gc.C) {
+func (s *ProviderSuite) TestConvertedCredentialError(c *tc.C) {
 	// Trace() will keep error type
 	inner := ec2.ConvertAuthorizationError(
 		&smithy.GenericAPIError{Code: "Blocked"})
 	traced := errors.Trace(inner)
-	c.Assert(traced, gc.NotNil)
+	c.Assert(traced, tc.NotNil)
 	c.Assert(traced, jc.ErrorIs, common.ErrorCredentialNotValid)
 
 	// Annotate() will keep error type
 	annotated := errors.Annotate(inner, "annotation")
-	c.Assert(annotated, gc.NotNil)
+	c.Assert(annotated, tc.NotNil)
 	c.Assert(annotated, jc.ErrorIs, common.ErrorCredentialNotValid)
 
 	// Running a CredentialNotValid through conversion call again is a no-op.
 	again := ec2.ConvertAuthorizationError(inner)
-	c.Assert(again, gc.NotNil)
+	c.Assert(again, tc.NotNil)
 	c.Assert(again, jc.ErrorIs, common.ErrorCredentialNotValid)
 	c.Assert(again.Error(), jc.Contains, "\nYour Amazon account is currently blocked.: api error Blocked:")
 
 	// Running an annotated CredentialNotValid through conversion call again is a no-op too.
 	againAnotated := ec2.ConvertAuthorizationError(annotated)
-	c.Assert(againAnotated, gc.NotNil)
+	c.Assert(againAnotated, tc.NotNil)
 	c.Assert(againAnotated, jc.ErrorIs, common.ErrorCredentialNotValid)
 	c.Assert(againAnotated.Error(), jc.Contains, "\nYour Amazon account is currently blocked.: api error Blocked:")
 }

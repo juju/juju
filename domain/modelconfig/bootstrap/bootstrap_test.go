@@ -6,8 +6,8 @@ package bootstrap
 import (
 	"context"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
@@ -35,7 +35,7 @@ type bootstrapSuite struct {
 
 type ModelDefaultsProviderFunc func(context.Context) (modeldefaults.Defaults, error)
 
-var _ = gc.Suite(&bootstrapSuite{})
+var _ = tc.Suite(&bootstrapSuite{})
 
 func (f ModelDefaultsProviderFunc) ModelDefaults(
 	c context.Context,
@@ -43,7 +43,7 @@ func (f ModelDefaultsProviderFunc) ModelDefaults(
 	return f(c)
 }
 
-func (s *bootstrapSuite) SetUpTest(c *gc.C) {
+func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 	s.ModelSuite.SetUpTest(c)
 
@@ -111,7 +111,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *bootstrapSuite) TestSetModelConfig(c *gc.C) {
+func (s *bootstrapSuite) TestSetModelConfig(c *tc.C) {
 	var defaults ModelDefaultsProviderFunc = func(_ context.Context) (modeldefaults.Defaults, error) {
 		return modeldefaults.Defaults{
 			"foo": modeldefaults.DefaultAttributeValue{

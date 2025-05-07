@@ -4,18 +4,18 @@
 package upgrade
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
 type upgradeSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&upgradeSuite{})
+var _ = tc.Suite(&upgradeSuite{})
 
-func (s *upgradeSuite) TestParseState(c *gc.C) {
+func (s *upgradeSuite) TestParseState(c *tc.C) {
 	tests := []struct {
 		str string
 		st  State
@@ -45,15 +45,15 @@ func (s *upgradeSuite) TestParseState(c *gc.C) {
 
 		st, err := ParseState(test.str)
 		if test.err != "" {
-			c.Check(err, gc.ErrorMatches, test.err)
+			c.Check(err, tc.ErrorMatches, test.err)
 			continue
 		}
-		c.Check(err, gc.IsNil)
-		c.Check(st, gc.Equals, test.st)
+		c.Check(err, tc.IsNil)
+		c.Check(st, tc.Equals, test.st)
 	}
 }
 
-func (s *upgradeSuite) TestIsTerminal(c *gc.C) {
+func (s *upgradeSuite) TestIsTerminal(c *tc.C) {
 	tests := []struct {
 		st       State
 		terminal bool
@@ -74,11 +74,11 @@ func (s *upgradeSuite) TestIsTerminal(c *gc.C) {
 		c.Logf("test %d: %q", i, test.st)
 
 		terminal := test.st.IsTerminal()
-		c.Check(terminal, gc.Equals, test.terminal)
+		c.Check(terminal, tc.Equals, test.terminal)
 	}
 }
 
-func (s *upgradeSuite) TestTransitionTo(c *gc.C) {
+func (s *upgradeSuite) TestTransitionTo(c *tc.C) {
 	// Brute force test all possible transitions.
 	states := []State{Created, Started, DBCompleted, StepsCompleted}
 	tests := []struct {
@@ -103,11 +103,11 @@ func (s *upgradeSuite) TestTransitionTo(c *gc.C) {
 			err := test.st.TransitionTo(st)
 
 			if test.st == st {
-				c.Check(err, gc.Equals, ErrAlreadyAtState)
+				c.Check(err, tc.Equals, ErrAlreadyAtState)
 				continue
 			}
 			if st == test.target && !test.st.IsTerminal() {
-				c.Check(err, gc.IsNil)
+				c.Check(err, tc.IsNil)
 				continue
 			}
 			c.Check(err, jc.ErrorIs, ErrUnableToTransition)
@@ -115,7 +115,7 @@ func (s *upgradeSuite) TestTransitionTo(c *gc.C) {
 	}
 }
 
-func (s *upgradeSuite) TestTransitionToError(c *gc.C) {
+func (s *upgradeSuite) TestTransitionToError(c *tc.C) {
 	// Brute force test all possible transitions.
 	tests := []struct {
 		st  State
@@ -140,6 +140,6 @@ func (s *upgradeSuite) TestTransitionToError(c *gc.C) {
 			c.Check(err, jc.ErrorIs, test.err)
 			continue
 		}
-		c.Check(err, gc.IsNil)
+		c.Check(err, tc.IsNil)
 	}
 }

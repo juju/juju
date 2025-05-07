@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/testing"
 )
@@ -25,7 +25,7 @@ type DebugHooksServerSuite struct {
 	tmpdir  string
 }
 
-var _ = gc.Suite(&DebugHooksServerSuite{})
+var _ = tc.Suite(&DebugHooksServerSuite{})
 
 // echocommand outputs its name and arguments to stdout for verification,
 // and exits with the value of $EXIT_CODE
@@ -36,7 +36,7 @@ exit $EXIT_CODE
 
 var fakecommands = []string{"sleep", "tmux"}
 
-func (s *DebugHooksServerSuite) SetUpTest(c *gc.C) {
+func (s *DebugHooksServerSuite) SetUpTest(c *tc.C) {
 	s.fakebin = c.MkDir()
 
 	// Create a clean $TMPDIR for the debug hooks scripts.
@@ -58,26 +58,26 @@ func (s *DebugHooksServerSuite) SetUpTest(c *gc.C) {
 	s.PatchEnvironment("JUJU_UNIT_NAME", s.ctx.Unit)
 }
 
-func (s *DebugHooksServerSuite) TestFindSession(c *gc.C) {
+func (s *DebugHooksServerSuite) TestFindSession(c *tc.C) {
 	// Test "tmux has-session" failure. The error
 	// message is the output of tmux has-session.
 	_ = os.Setenv("EXIT_CODE", "1")
 	session, err := s.ctx.FindSession()
-	c.Assert(session, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("tmux has-session -t "+s.ctx.Unit+"\n"))
+	c.Assert(session, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, regexp.QuoteMeta("tmux has-session -t "+s.ctx.Unit+"\n"))
 	_ = os.Setenv("EXIT_CODE", "")
 
 	// tmux session exists, but missing debug-hooks file: error.
 	session, err = s.ctx.FindSession()
-	c.Assert(session, gc.IsNil)
-	c.Assert(err, gc.NotNil)
+	c.Assert(session, tc.IsNil)
+	c.Assert(err, tc.NotNil)
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 
 	// Hooks file is present, empty.
 	err = os.WriteFile(s.ctx.ClientFileLock(), []byte{}, 0777)
 	c.Assert(err, jc.ErrorIsNil)
 	session, err = s.ctx.FindSession()
-	c.Assert(session, gc.NotNil)
+	c.Assert(session, tc.NotNil)
 	c.Assert(err, jc.ErrorIsNil)
 	// If session.hooks is empty, it'll match anything.
 	c.Assert(session.MatchHook(""), jc.IsTrue)
@@ -87,7 +87,7 @@ func (s *DebugHooksServerSuite) TestFindSession(c *gc.C) {
 	err = os.WriteFile(s.ctx.ClientFileLock(), []byte(`hooks: [foo, bar, baz]`), 0777)
 	c.Assert(err, jc.ErrorIsNil)
 	session, err = s.ctx.FindSession()
-	c.Assert(session, gc.NotNil)
+	c.Assert(session, tc.NotNil)
 	c.Assert(err, jc.ErrorIsNil)
 	// session should only match "foo", "bar" or "baz".
 	c.Assert(session.MatchHook(""), jc.IsFalse)
@@ -96,14 +96,14 @@ func (s *DebugHooksServerSuite) TestFindSession(c *gc.C) {
 	c.Assert(session.MatchHook("bar"), jc.IsTrue)
 	c.Assert(session.MatchHook("baz"), jc.IsTrue)
 	c.Assert(session.MatchHook("foo bar baz"), jc.IsFalse)
-	c.Assert(session.DebugAt(), gc.Equals, "")
+	c.Assert(session.DebugAt(), tc.Equals, "")
 }
 
-func (s *DebugHooksServerSuite) TestRunHookExceptional(c *gc.C) {
+func (s *DebugHooksServerSuite) TestRunHookExceptional(c *tc.C) {
 	err := os.WriteFile(s.ctx.ClientFileLock(), []byte{}, 0777)
 	c.Assert(err, jc.ErrorIsNil)
 	session, err := s.ctx.FindSession()
-	c.Assert(session, gc.NotNil)
+	c.Assert(session, tc.NotNil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	flockAcquired := make(chan struct{}, 1)
@@ -122,7 +122,7 @@ func (s *DebugHooksServerSuite) TestRunHookExceptional(c *gc.C) {
 		flockAcquired <- struct{}{}
 	})
 	err = session.RunHook("myhook", s.tmpdir, os.Environ(), "myhook")
-	c.Assert(err, gc.ErrorMatches, "signal: [kK]illed")
+	c.Assert(err, tc.ErrorMatches, "signal: [kK]illed")
 	waitForFlock()
 
 	// Run the hook in debug mode, simulating the holding
@@ -140,10 +140,10 @@ func (s *DebugHooksServerSuite) TestRunHookExceptional(c *gc.C) {
 	err = session.RunHook("myhook", s.tmpdir, os.Environ(), "myhook")
 	waitForFlock()
 	c.Assert(clientExited, jc.IsTrue)
-	c.Assert(err, gc.ErrorMatches, "signal: [kK]illed")
+	c.Assert(err, tc.ErrorMatches, "signal: [kK]illed")
 }
 
-func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
+func (s *DebugHooksServerSuite) TestRunHook(c *tc.C) {
 	const hookName = "myhook"
 	// JUJU_DISPATCH_PATH is written in context.HookVars and not part of
 	// what's being tested here.
@@ -152,7 +152,7 @@ func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	var output bytes.Buffer
 	session, err := s.ctx.FindSessionWithWriter(&output)
-	c.Assert(session, gc.NotNil)
+	c.Assert(session, tc.NotNil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	flockRequestCh := make(chan chan struct{})
@@ -179,7 +179,7 @@ func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
 	if err != nil {
 		c.Fatalf("Failed to read $TMPDIR: %s", err)
 	}
-	c.Assert(entries, gc.HasLen, 1)
+	c.Assert(entries, tc.HasLen, 1)
 	c.Assert(entries[0].IsDir(), jc.IsTrue)
 	c.Assert(strings.HasPrefix(entries[0].Name(), "juju-debug-hooks-"), jc.IsTrue)
 
@@ -227,16 +227,16 @@ func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
 	}
 }
 
-func (s *DebugHooksServerSuite) TestRunHookDebugAt(c *gc.C) {
+func (s *DebugHooksServerSuite) TestRunHookDebugAt(c *tc.C) {
 	s.fakeTmux(c)
 	s.fakeJujuLog(c)
 	err := os.WriteFile(s.ctx.ClientFileLock(), []byte("debug-at: all\n"), 0777)
 	c.Assert(err, jc.ErrorIsNil)
 	var output bytes.Buffer
 	session, err := s.ctx.FindSessionWithWriter(&output)
-	c.Assert(session, gc.NotNil)
+	c.Assert(session, tc.NotNil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(session.DebugAt(), gc.Equals, "all")
+	c.Check(session.DebugAt(), tc.Equals, "all")
 
 	flockAcquired := make(chan struct{}, 0)
 	waitForFlock := func() {
@@ -262,14 +262,14 @@ echo ran hook >&2
 	err = session.RunHook(hookName, s.tmpdir, env, hookRunner)
 	waitForFlock() // Close the goroutine that was spawned to ensure cleanup
 
-	c.Check(output.String(), gc.Equals,
+	c.Check(output.String(), tc.Equals,
 		fmt.Sprintf(`--log-level INFO debug running %s for myhook
 ran hook
 `, hookRunner))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *DebugHooksServerSuite) TestRunHookDebugAtNoHook(c *gc.C) {
+func (s *DebugHooksServerSuite) TestRunHookDebugAtNoHook(c *tc.C) {
 	// see that if the hook doesn't actually exist, we exit gracefully rather than error
 	const hookName = "no-hook"
 	s.fakeTmux(c)
@@ -278,9 +278,9 @@ func (s *DebugHooksServerSuite) TestRunHookDebugAtNoHook(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	var output bytes.Buffer
 	session, err := s.ctx.FindSessionWithWriter(&output)
-	c.Assert(session, gc.NotNil)
+	c.Assert(session, tc.NotNil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(session.DebugAt(), gc.Equals, "all")
+	c.Check(session.DebugAt(), tc.Equals, "all")
 
 	flockAcquired := make(chan struct{}, 0)
 	waitForFlock := func() {
@@ -300,12 +300,12 @@ func (s *DebugHooksServerSuite) TestRunHookDebugAtNoHook(c *gc.C) {
 	waitForFlock() // Close the goroutine that was spawned to ensure cleanup
 
 	// RunHook should complete once we finish running the hook.sh
-	c.Check(output.String(), gc.Equals,
+	c.Check(output.String(), tc.Equals,
 		"--log-level INFO debugging is enabled, but no handler for no-hook, skipping\n")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *DebugHooksServerSuite) verifyEnvshFile(c *gc.C, envshPath string, hookName string) {
+func (s *DebugHooksServerSuite) verifyEnvshFile(c *tc.C, envshPath string, hookName string) {
 	data, err := os.ReadFile(envshPath)
 	c.Assert(err, jc.ErrorIsNil)
 	contents := string(data)
@@ -314,7 +314,7 @@ func (s *DebugHooksServerSuite) verifyEnvshFile(c *gc.C, envshPath string, hookN
 }
 
 // fakeTmux installs a script that will respond to has-session and new-window
-func (s *DebugHooksServerSuite) fakeTmux(c *gc.C) {
+func (s *DebugHooksServerSuite) fakeTmux(c *tc.C) {
 	err := os.WriteFile(filepath.Join(s.fakebin, "tmux"), []byte(`#!/bin/bash --norc
 case "$1" in
     has-session)
@@ -333,7 +333,7 @@ exit 1`), 0777)
 
 // fakeJujuLog installs a script that echos its arguments to stderr,
 // ending up in the subprocess output
-func (s *DebugHooksServerSuite) fakeJujuLog(c *gc.C) {
+func (s *DebugHooksServerSuite) fakeJujuLog(c *tc.C) {
 	err := os.WriteFile(filepath.Join(s.fakebin, "juju-log"), []byte(`#!/bin/bash --norc
 echo "$@" >&2
 `), 0777)
@@ -345,13 +345,13 @@ type DebugSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&DebugSuite{})
+var _ = tc.Suite(&DebugSuite{})
 
-func checkBuildRunHookCommand(c *gc.C, expected, hookName, hookRunner, charmDir string) {
-	c.Check(expected, gc.Equals, buildRunHookCmd(hookName, hookRunner, charmDir))
+func checkBuildRunHookCommand(c *tc.C, expected, hookName, hookRunner, charmDir string) {
+	c.Check(expected, tc.Equals, buildRunHookCmd(hookName, hookRunner, charmDir))
 }
 
-func (s *DebugSuite) Test_buildRunHookCmd_legacy(c *gc.C) {
+func (s *DebugSuite) Test_buildRunHookCmd_legacy(c *tc.C) {
 	checkBuildRunHookCommand(c, "./$JUJU_DISPATCH_PATH", "install",
 		"hooks/install",
 		"/var/lib/juju")
@@ -360,7 +360,7 @@ func (s *DebugSuite) Test_buildRunHookCmd_legacy(c *gc.C) {
 		"/var/lib/juju/charm")
 }
 
-func (s *DebugSuite) Test_buildRunHookCmd_dispatch_subdir(c *gc.C) {
+func (s *DebugSuite) Test_buildRunHookCmd_dispatch_subdir(c *tc.C) {
 	checkBuildRunHookCommand(c, "./dispatch", "install",
 		"/var/lib/juju/charm/dispatch",
 		"/var/lib/juju/charm/")
@@ -369,14 +369,14 @@ func (s *DebugSuite) Test_buildRunHookCmd_dispatch_subdir(c *gc.C) {
 		"/var/lib/juju/charm/")
 }
 
-func (s *DebugSuite) Test_buildRunHookCmd_dispatch_neigbor(c *gc.C) {
+func (s *DebugSuite) Test_buildRunHookCmd_dispatch_neigbor(c *tc.C) {
 	checkBuildRunHookCommand(c, "./../../not-charm/dispatch",
 		"install",
 		"/var/lib/juju/not-charm/dispatch",
 		"/var/lib/juju/charm/dispatch")
 }
 
-func (s *DebugSuite) Test_buildRunHookCmd_dispatch_relative(c *gc.C) {
+func (s *DebugSuite) Test_buildRunHookCmd_dispatch_relative(c *tc.C) {
 	checkBuildRunHookCommand(c, "./dispatch",
 		"install",
 		"./dispatch",

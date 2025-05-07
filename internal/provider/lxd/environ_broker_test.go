@@ -9,9 +9,9 @@ import (
 	"reflect"
 
 	"github.com/canonical/lxd/shared/api"
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
@@ -32,9 +32,9 @@ type environBrokerSuite struct {
 	defaultProfile *api.Profile
 }
 
-var _ = gc.Suite(&environBrokerSuite{})
+var _ = tc.Suite(&environBrokerSuite{})
 
-func (s *environBrokerSuite) SetUpTest(c *gc.C) {
+func (s *environBrokerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.defaultProfile = &api.Profile{
 		Devices: map[string]map[string]string{
@@ -64,7 +64,7 @@ func matchesContainerSpec(check func(spec containerlxd.ContainerSpec) bool) gomo
 	return containerSpecMatcher{check: check}
 }
 
-func (s *environBrokerSuite) TestStartInstanceDefaultNIC(c *gc.C) {
+func (s *environBrokerSuite) TestStartInstanceDefaultNIC(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
@@ -93,7 +93,7 @@ func (s *environBrokerSuite) TestStartInstanceDefaultNIC(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *environBrokerSuite) TestStartInstanceNonDefaultNIC(c *gc.C) {
+func (s *environBrokerSuite) TestStartInstanceNonDefaultNIC(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -134,7 +134,7 @@ func (s *environBrokerSuite) TestStartInstanceNonDefaultNIC(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *gc.C) {
+func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -154,7 +154,7 @@ func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *gc.C) {
 	// Check that the non-standard devices were passed explicitly,
 	// And that we have disabled the standard network config.
 	check := func(spec containerlxd.ContainerSpec) bool {
-		c.Assert(spec.Devices["eno9"], gc.DeepEquals, profileNICs["eno9"], gc.Commentf("expected NIC from profile to be included"))
+		c.Assert(spec.Devices["eno9"], tc.DeepEquals, profileNICs["eno9"], tc.Commentf("expected NIC from profile to be included"))
 
 		// As the subnet IDs are map keys, the additional generated NIC
 		// indices depend on the key iteration order so we need to test
@@ -188,7 +188,7 @@ func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *gc.C) {
 				"parent":  "ovs-br0",
 			},
 		})
-		c.Assert(matchedNICs, jc.IsTrue, gc.Commentf("the expected NICs for space-related subnets were not injected; got %v", spec.Devices))
+		c.Assert(matchedNICs, jc.IsTrue, tc.Commentf("the expected NICs for space-related subnets were not injected; got %v", spec.Devices))
 
 		return spec.Config[containerlxd.NetworkConfigKey] == cloudinit.CloudInitNetworkConfigDisabled
 	}
@@ -227,7 +227,7 @@ func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *environBrokerSuite) TestStartInstanceWithPlacementAvailable(c *gc.C) {
+func (s *environBrokerSuite) TestStartInstanceWithPlacementAvailable(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -289,7 +289,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementAvailable(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *environBrokerSuite) TestStartInstanceWithPlacementNotPresent(c *gc.C) {
+func (s *environBrokerSuite) TestStartInstanceWithPlacementNotPresent(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -314,10 +314,10 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementNotPresent(c *gc.C) {
 	args.Placement = "zone=node03"
 
 	_, err := env.StartInstance(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, `availability zone "node03" not valid`)
+	c.Assert(err, tc.ErrorMatches, `availability zone "node03" not valid`)
 }
 
-func (s *environBrokerSuite) TestStartInstanceWithPlacementNotAvailable(c *gc.C) {
+func (s *environBrokerSuite) TestStartInstanceWithPlacementNotAvailable(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -342,10 +342,10 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementNotAvailable(c *gc.C)
 	args.Placement = "zone=node01"
 
 	_, err := env.StartInstance(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, "zone \"node01\" is unavailable")
+	c.Assert(err, tc.ErrorMatches, "zone \"node01\" is unavailable")
 }
 
-func (s *environBrokerSuite) TestStartInstanceWithPlacementBadArgument(c *gc.C) {
+func (s *environBrokerSuite) TestStartInstanceWithPlacementBadArgument(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -362,10 +362,10 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementBadArgument(c *gc.C) 
 	args.Placement = "breakfast=eggs"
 
 	_, err := env.StartInstance(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, "unknown placement directive.*")
+	c.Assert(err, tc.ErrorMatches, "unknown placement directive.*")
 }
 
-func (s *environBrokerSuite) TestStartInstanceWithConstraints(c *gc.C) {
+func (s *environBrokerSuite) TestStartInstanceWithConstraints(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -409,7 +409,7 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *environBrokerSuite) TestStartInstanceWithConstraintsAndVirtType(c *gc.C) {
+func (s *environBrokerSuite) TestStartInstanceWithConstraintsAndVirtType(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -453,7 +453,7 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraintsAndVirtType(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *environBrokerSuite) TestStartInstanceWithCharmLXDProfile(c *gc.C) {
+func (s *environBrokerSuite) TestStartInstanceWithCharmLXDProfile(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -493,7 +493,7 @@ func (s *environBrokerSuite) TestStartInstanceWithCharmLXDProfile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *environBrokerSuite) TestStartInstanceNoTools(c *gc.C) {
+func (s *environBrokerSuite) TestStartInstanceNoTools(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -505,10 +505,10 @@ func (s *environBrokerSuite) TestStartInstanceNoTools(c *gc.C) {
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
 	_, err := env.StartInstance(context.Background(), s.GetStartInstanceArgs(c))
-	c.Assert(err, gc.ErrorMatches, "no matching agent binaries available")
+	c.Assert(err, tc.ErrorMatches, "no matching agent binaries available")
 }
 
-func (s *environBrokerSuite) TestStartInstanceInvalidCredentials(c *gc.C) {
+func (s *environBrokerSuite) TestStartInstanceInvalidCredentials(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -528,10 +528,10 @@ func (s *environBrokerSuite) TestStartInstanceInvalidCredentials(c *gc.C) {
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
 	_, err := env.StartInstance(context.Background(), s.GetStartInstanceArgs(c))
-	c.Assert(err, gc.ErrorMatches, "not authorized")
+	c.Assert(err, tc.ErrorMatches, "not authorized")
 }
 
-func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
+func (s *environBrokerSuite) TestStopInstances(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -545,7 +545,7 @@ func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *environBrokerSuite) TestStopInstancesInvalidCredentials(c *gc.C) {
+func (s *environBrokerSuite) TestStopInstancesInvalidCredentials(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -557,10 +557,10 @@ func (s *environBrokerSuite) TestStopInstancesInvalidCredentials(c *gc.C) {
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
 	err := env.StopInstances(context.Background(), "juju-f75cba-1", "juju-f75cba-2", "not-in-namespace-so-ignored")
-	c.Assert(err, gc.ErrorMatches, "not authorized")
+	c.Assert(err, tc.ErrorMatches, "not authorized")
 }
 
-func (s *environBrokerSuite) TestImageSourcesDefault(c *gc.C) {
+func (s *environBrokerSuite) TestImageSourcesDefault(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -576,7 +576,7 @@ func (s *environBrokerSuite) TestImageSourcesDefault(c *gc.C) {
 	})
 }
 
-func (s *environBrokerSuite) TestImageMetadataURL(c *gc.C) {
+func (s *environBrokerSuite) TestImageMetadataURL(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -597,7 +597,7 @@ func (s *environBrokerSuite) TestImageMetadataURL(c *gc.C) {
 	})
 }
 
-func (s *environBrokerSuite) TestImageMetadataURLEnsuresHTTPS(c *gc.C) {
+func (s *environBrokerSuite) TestImageMetadataURLEnsuresHTTPS(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -619,7 +619,7 @@ func (s *environBrokerSuite) TestImageMetadataURLEnsuresHTTPS(c *gc.C) {
 	})
 }
 
-func (s *environBrokerSuite) TestImageStreamReleased(c *gc.C) {
+func (s *environBrokerSuite) TestImageStreamReleased(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -639,7 +639,7 @@ func (s *environBrokerSuite) TestImageStreamReleased(c *gc.C) {
 	})
 }
 
-func (s *environBrokerSuite) TestImageStreamDaily(c *gc.C) {
+func (s *environBrokerSuite) TestImageStreamDaily(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -659,10 +659,10 @@ func (s *environBrokerSuite) TestImageStreamDaily(c *gc.C) {
 	})
 }
 
-func (s *environBrokerSuite) checkSources(c *gc.C, sources []containerlxd.ServerSpec, expectedURLs []string) {
+func (s *environBrokerSuite) checkSources(c *tc.C, sources []containerlxd.ServerSpec, expectedURLs []string) {
 	var sourceURLs []string
 	for _, source := range sources {
 		sourceURLs = append(sourceURLs, source.Host)
 	}
-	c.Check(sourceURLs, gc.DeepEquals, expectedURLs)
+	c.Check(sourceURLs, tc.DeepEquals, expectedURLs)
 }

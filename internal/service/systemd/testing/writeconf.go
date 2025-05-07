@@ -8,8 +8,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/testing"
 )
@@ -32,7 +32,7 @@ func (wct WriteConfTest) scriptName() string {
 }
 
 // CheckCommands checks the given commands against the test's expectations.
-func (wct WriteConfTest) CheckCommands(c *gc.C, commands []string) {
+func (wct WriteConfTest) CheckCommands(c *tc.C, commands []string) {
 	if wct.Script != "" {
 		wct.checkWriteExecScript(c, commands[:2])
 		commands = commands[2:]
@@ -40,7 +40,7 @@ func (wct WriteConfTest) CheckCommands(c *gc.C, commands []string) {
 	wct.checkWriteConf(c, commands)
 }
 
-func (wct WriteConfTest) checkWriteExecScript(c *gc.C, commands []string) {
+func (wct WriteConfTest) checkWriteExecScript(c *tc.C, commands []string) {
 	script := "#!/usr/bin/env bash\n\n" + wct.Script
 	testing.CheckWriteFileCommand(c, commands[0], wct.scriptName(), script, nil)
 
@@ -50,7 +50,7 @@ func (wct WriteConfTest) checkWriteExecScript(c *gc.C, commands []string) {
 	})
 }
 
-func (wct WriteConfTest) checkWriteConf(c *gc.C, commands []string) {
+func (wct WriteConfTest) checkWriteConf(c *tc.C, commands []string) {
 	// This check must be done without regard to map order.
 	parse := func(lines []string) interface{} {
 		return parseConfSections(lines)
