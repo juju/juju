@@ -78,11 +78,6 @@ type ModelConfigService interface {
 
 // ModelService defines an interface for interacting with the model service.
 type ModelService interface {
-	// ControllerModel returns the model used for housing the Juju controller.
-	// Should no model exist for the controller an error of [modelerrors.NotFound]
-	// will be returned.
-	ControllerModel(ctx context.Context) (coremodel.Model, error)
-
 	// CreateModel creates a model returning the resultant model's new ID.
 	CreateModel(context.Context, model.GlobalModelCreationArgs) (coremodel.UUID, func(context.Context) error, error)
 

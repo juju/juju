@@ -71,7 +71,6 @@ type modelManagerSuite struct {
 	st                   *mockState
 	ctlrSt               *mockState
 	caasSt               *mockState
-	cloudService         *mockCloudService
 	accessService        *mocks.MockAccessService
 	modelService         *mocks.MockModelService
 	modelDefaultService  *mocks.MockModelDefaultsService

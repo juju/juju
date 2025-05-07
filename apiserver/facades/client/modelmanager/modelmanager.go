@@ -179,7 +179,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	// we will try and apply the defaults where authorisation allows us to.
 	defaultCloudName, defaultCloudRegion, err := m.modelService.DefaultModelCloudInfo(ctx)
 	if err != nil {
-		return result, errors.New("cannot find default model cloud and credential")
+		return result, errors.Errorf("cannot find default model cloud and credential")
 	}
 
 	var cloudTag names.CloudTag
@@ -270,11 +270,19 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		)
 	}
 
-	// We use the returned model UUID as we can guarantee that's the one that
-	// was written to the database.
 	modelDomainServices, err := m.domainServicesGetter.DomainServicesForModel(ctx, modelUUID)
 	if err != nil {
 		return result, errors.Trace(err)
+	}
+
+	// TODO: move SetModelConfig and activator after createModelInfo.
+	modelConfigService := modelDomainServices.Config()
+	if err := modelConfigService.SetModelConfig(ctx, args.Config); err != nil {
+		return result, errors.Annotatef(err, "setting model config for model %q", creationArgs.Name)
+	}
+
+	if err := activator(ctx); err != nil {
+		return result, errors.Annotatef(err, "finalising model %q", creationArgs.Name)
 	}
 
 	// Create the model information in the model database.
@@ -306,15 +314,6 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 			"creating information records for new model %q: %w",
 			creationArgs.Name, err,
 		)
-	}
-
-	modelConfigService := modelDomainServices.Config()
-	if err := modelConfigService.SetModelConfig(ctx, args.Config); err != nil {
-		return result, errors.Annotatef(err, "setting model config for model %q", creationArgs.Name)
-	}
-
-	if err := activator(ctx); err != nil {
-		return result, errors.Annotatef(err, "finalising model %q", creationArgs.Name)
 	}
 
 	// Reload the substrate spaces for the newly created model.
@@ -747,32 +746,22 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 			return errors.Trace(err)
 		}
 
-		// TODO (stickupkid): There are consequences to this failing after the
-		// model has been deleted. Although in it's current guise this shouldn't
-		// cause too much fallout. If we're unable to delete the model from the
-		// database, then we won't be able to create a new model with the same
-		// model uuid as there is a UNIQUE constraint on the model uuid column.
-		// TODO (tlm): The modelService nil check will go when the tests are
-		// moved from mongo.
-		if m.modelService != nil {
-			// TODO (stickupkid): We can't the delete the model info when
-			// destroying the model at the moment. Attempting to delete the
-			// model causes everything to lock up. Once we implement tear-down
-			// we'll need to ensure we correctly delete the model info.
-			// We need to progress the life of the model, atm it goes from
-			// alive to dead, skipping dying.
-			//
-			// modelDomainServices := m.domainServicesGetter.DomainServicesForModel(modelUUID)
-			// modelInfoService := modelDomainServices.ModelInfo()
-			// if err := modelInfoService.DeleteModel(ctx, modelUUID); err != nil && !errors.Is(err, modelerrors.NotFound) {
-			// 	return errors.Annotatef(err, "failed to delete model info for model %q", modelUUID)
-			// }
+		// TODO (stickupkid): We can't the delete the model info when
+		// destroying the model at the moment. Attempting to delete the
+		// model causes everything to lock up. Once we implement tear-down
+		// we'll need to ensure we correctly delete the model info.
+		// We need to progress the life of the model, atm it goes from
+		// alive to dead, skipping dying.
+		//
+		// modelDomainServices := m.domainServicesGetter.DomainServicesForModel(modelUUID)
+		// modelInfoService := modelDomainServices.ModelInfo()
+		// if err := modelInfoService.DeleteModel(ctx, modelUUID); err != nil && !errors.Is(err, modelerrors.NotFound) {
+		// 	return errors.Annotatef(err, "failed to delete model info for model %q", modelUUID)
+		// }
 
-			err = m.modelService.DeleteModel(ctx, coremodel.UUID(modelUUID))
-			if err != nil && errors.Is(err, modelerrors.NotFound) {
-				return nil
-			}
-			return errors.Annotatef(err, "failed to delete model %q", modelUUID)
+		err = m.modelService.DeleteModel(ctx, coremodel.UUID(modelUUID))
+		if err != nil && !errors.Is(err, modelerrors.NotFound) {
+			return errors.Annotatef(err, "deleting model %q", modelUUID)
 		}
 		return nil
 	}
